@@ -3905,7 +3905,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     INTERFACE_INFO* ifp;
     long namaddr;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     if (parse_addr(buf+1, namlen, &namaddr) < 0)
 	goto error;
@@ -4099,7 +4099,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     struct ifreq ifreq;
     int namlen;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
@@ -4252,7 +4252,7 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
     int namlen;
     char* b_end = buf + len;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 

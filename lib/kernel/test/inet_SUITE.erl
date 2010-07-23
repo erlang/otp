@@ -26,7 +26,8 @@
 	 t_gethostbyaddr_v6/1, t_getaddr_v6/1, t_gethostbyname_v6/1,
 	 ipv4_to_ipv6/1, host_and_addr/1, parse/1, t_gethostnative/1, 
 	 gethostnative_parallell/1, cname_loop/1, 
-         gethostnative_soft_restart/1,gethostnative_debug_level/1,getif/1]).
+         gethostnative_soft_restart/1,gethostnative_debug_level/1,getif/1,
+	 getif_ifr_name_overflow/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0]).
@@ -39,7 +40,7 @@ all(suite) ->
      ipv4_to_ipv6, host_and_addr, parse,t_gethostnative, 
      gethostnative_parallell, cname_loop,
      gethostnative_debug_level,gethostnative_soft_restart,
-     getif].
+     getif,getif_ifr_name_overflow].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
@@ -890,6 +891,13 @@ getif(Config) when is_list(Config) ->
     ?line true = ip_member(Address, Addresses),
     ?line true = ip_member(Loopback, Addresses),
     ?line ok.
+
+getif_ifr_name_overflow(doc) ->
+    "Test long interface names do not overrun buffer";
+getif_ifr_name_overflow(Config) when is_list(Config) ->
+    %% emulator should not crash
+    ?line {ok,[]} = inet:ifget(lists:duplicate(128, "x"), [addr]),
+    ok.
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems
