@@ -44,7 +44,7 @@
   <section>
     <title>System window</title>
     <p>The system window is started with the function
-    <c>reltool:start/1</c>. At startup the tool will process the all
+    <c>reltool:start/1</c>. At startup the tool will process all
     <c>beam</c> files and <c>app</c> files in order to find out dependencies
     between applications and their modules. Once all this information has been
     derived, it will be possible to explore the tool.</p>
@@ -67,29 +67,29 @@
     <section>
     <title>Libraries</title>
         <p>On the library page it is possible to control which sources
-        that the tool will use. The page is organized as a tree which
+        the tool will use. The page is organized as a tree which
         can be expanded and collapsed by clicking on the little symbol
         in the beginning of the expandable/collapsible lines.</p>
 
 	<p>The <c>Root directory</c> can be edited by selecting the
 	line where the path of the root directory is displayed and
-	clicking with the right mouse button. Choose edit in the menu
-	that pops up. </p>
+	clicking the right mouse button. Choose edit in the menu
+	that pops up.</p>
 
 	<p>Library directories can be added, edited or deleted. This
 	is done by selecting the line where the path to a library
-	directory is displayed and clicking with the right mouse
+	directory is displayed and clicking the right mouse
 	button. Choose add, edit or delete in the menu that pops
 	up. New library directories can also be added by selecting the
-	line <c>Library directories</c> and clicking with the right
+	line <c>Library directories</c> and clicking the right
 	mouse button. Choose add in the menu that pops up.</p>
 
 	<p>Escript files can be added, edited or deleted. This is done
 	by selecting the line where the path to an escript file is
-	displayed and clicking with the right mouse button. Choose
+	displayed and clicking the right mouse button. Choose
 	add, edit or delete in the menu that pops up. New escripts can
 	also be added by selecting the line <c>Escript files</c> and
-	clicking with the right mouse button. Choose add in the menu
+	clicking the right mouse button. Choose add in the menu
 	that pops up.</p>
 
 	<p>When libraries and escripts are expanded, the names of
@@ -102,7 +102,7 @@
         <p>On the system settings page it is possible to control some
         global settings that are used as defaults for all
         applications. Set the <c>Application inclusion policy</c> to
-        <c>include</c> to include all applications that not are
+        <c>include</c> to include all applications that are not
         explicitly excluded. See <c>incl_cond</c> (application
         inclusion) and <c>mod_cond</c> (module inclusion) in the
         reference manual for the module <c>reltool</c> for more
@@ -131,14 +131,14 @@
 
 	<p>The symbols in front of the application names are intended
 	to describe the status of the application. There are error
-	symbols and warning symbols that means that there are
-	something that needs attention. The tick symbol means that the
+	and warning symbols to signalize that there is
+	something which needs attention. The tick symbol means that the
 	application is included or derived and no problem has been
 	detected. The cross symbol means that the application is
 	excluded or available and no problem has been
 	detected. Applications with error symbols are listed first in
-	each category, then comes the warnings and the normal ones
-	(ticks and crosses) are found at the end.</p>
+  each category and are followed by the warnings and the
+  normal ones (ticks and crosses) at the end.</p>
 
 	<p>Double click on an application to launch its application
 	window.</p>
@@ -175,8 +175,8 @@
 	</item>
 	<item>
 	  <p><c>Save configuration</c> - Saves the current
-	  configuration to file. Normally, only the explictit
-	  configuration parameters with values that differs from their
+	  configuration to file. Normally, only the explicit
+	  configuration parameters with values that differ from their
 	  defaults are saved. But the configuration with or without
 	  default values and with or without derived values may also
 	  be saved.</p>
@@ -204,21 +204,21 @@
       <p>It is possible to perform some limited manipulations of the
       graph. Nodes can be moved, selected, locked or deleted. Move a
       single node or the entire graph by moving the mouse while the
-      left mouse button is pressed. A node is can be locked into a fix
+      left mouse button is pressed. A node can be locked into a fix
       position by holding down the shift button when the left mouse
       button is released. Select several nodes by moving the mouse
-      while the control key and the left mouse button i
+      while the control key and the left mouse button are
       pressed. Selected nodes can be locked, unlocked or deleted by
-      klicking on a suitable button.</p>
+      clicking on a suitable button.</p>
 
       <p>The algorithm that is used to draw a graph with as few
       crossed links as possible is called force graph. A force graph
-      consists of nodes and directed link between nodes. Each node is
+      consists of nodes and directed links between nodes. Each node is
       associated with a repulsive force that pushes nodes away from
       each other. This force can be adjusted with the left slider or
       with the mouse wheel. Each link is associated with an attractive
-      force that pulls the nodes nearer each other. This force can be
-      adjusted with the right slider. If this force becomes to strong,
+      force that pulls the nodes nearer to each other. This force can be
+      adjusted with the right slider. If this force becomes too strong,
       the graph will be unstable. The third parameter that can be
       adjusted is the length of the links. It is adjusted with the
       middle slider.</p>
@@ -256,7 +256,7 @@
     <p>Select version of the application in the <c>Source selection
     policy</c> part of the page. By default the latest version of the
     application is selected, but it is possible to override this by
-    explicitly select another version.</p>
+    explicitly selecting another version.</p>
     
     <p>By default the <c>Application inclusion policy</c> on system
     level is used for all applications. Set the value to
@@ -272,10 +272,10 @@
     want actually used modules to be included. Set it to <c>app</c> if
     you, besides derived modules, also want the modules listed in the
     app file to be included. Set it to <c>ebin</c> if you, besides
-    derived modules, also want the modules that exists as beam files
-    on the ebin directory to be included. Set it to <c>all</c> if you
+    derived modules, also want the modules that exist as beam files
+    in the ebin directory to be included. Set it to <c>all</c> if you
     want all modules to be included, that is the union of modules
-    found on the ebin directory and listed in the app file.</p>
+    found in the ebin directory and listed in the app file.</p>
 
     <p>The application settings page is rather incomplete.</p>
     </section>
@@ -299,16 +299,16 @@
     undone.</p>
 
     <p>The symbols in front of the module names are intended to
-    describe the status of the module. There are error symbols
-    and warning symbols that means that there are something that needs
+    describe the status of the module. There are error and
+    and warning symbols to signalize that there is something that needs
     attention. The tick symbol means that the module is included
     or derived and no problem has been detected. The cross symbol
     means that the module is excluded or available and no problem
     has been detected. Modules with error symbols are listed
-    first in each category, then comes the warnings and the normal
-    ones (ticks and crosses) are found at the end.</p>
+    first in each category and are followed by warnings and the
+    normal ones (ticks and crosses) at the end.</p>
 
-    <p>Double click on an module to launch its module window.</p>
+    <p>Double click on a module to launch its module window.</p>
 
     </section>
 
@@ -323,7 +323,7 @@
     <c>app</c> file. If the application includes other applications,
     these are listed under <c>Included</c>. These applications are
     listed in the <c>included_applications</c> part of the <c>app</c>
-    file.  If the application uses modules other applications, these
+    file.  If the application uses other applications, these
     are listed under <c>Uses</c>.</p>
 
     <p>Double click on an application name to launch an application window.</p>
@@ -336,7 +336,7 @@
     <p>There are two categories of modules on the <c>Module
     dependencies</c> page. If the module is used by other modules,
     these are listed under <c>Modules used by others</c>. If the
-    module uses modules other modules, these are listed under <c>Used
+    module uses other modules, these are listed under <c>Used
     modules</c>.</p>
 
     <p>Double click on an module name to launch a module window.</p>
@@ -365,8 +365,8 @@
 
     <p>There are two categories of modules on the <c>Dependencies</c>
     page. If the module is used by other modules, these are listed
-    under <c>Modules used by others</c>. If the module uses modules
-    other modules, these are listed under <c>Used modules</c>.</p>
+    under <c>Modules used by others</c>. If the module uses other
+    modules, these are listed under <c>Used modules</c>.</p>
 
     <p>Double click on an module name to launch a module window.</p>
 
@@ -378,7 +378,7 @@
     <p>On the <c>Code</c> page the Erlang source code is displayed. It
     is possible to search forwards and backwards for text in the
     module. Enter a regular expression in the <c>Find</c> field and
-    press enter. It is also possible to goto a certain line on the
+    press enter. It is also possible to go to a certain line in the
     module. The <c>Back</c> button can be used to go back to the
     previous position.</p>
 
