@@ -49,7 +49,7 @@
     <title>DATA TYPES</title>
     <code type="none">
 name() = string() | atom() | DeepList
-  DeepList = [char() | atom() | DeepList]</code>
+DeepList = [char() | atom() | DeepList]</code>
   </section>
   <funcs>
     <func>
