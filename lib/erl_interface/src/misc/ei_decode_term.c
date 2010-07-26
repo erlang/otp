@@ -34,7 +34,6 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
     const char* s = buf + *index, * s0 = s;
     int len, i, n, sign;
     char c;
-    double f;
 
     if (term == NULL) return -1;
     c = term->ei_type = get8(s);
