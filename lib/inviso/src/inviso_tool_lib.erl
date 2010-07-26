@@ -83,7 +83,7 @@ inviso_cmd(NodeName,Func,Args) ->
 %% In the non-distributed case the singlenode_expansion will be returned.
 expand_module_names(_Nodes,Mod={_,'_'},_) ->
     {error,{faulty_regexp_combination,Mod}};
-expand_module_names(Nodes,{DirStr,ModStr},Opts) when list(DirStr), list(ModStr) ->
+expand_module_names(Nodes,{DirStr,ModStr},Opts) when is_list(DirStr), is_list(ModStr) ->
     case expand_module_names_special_regexp(DirStr) of
 	{ok,NewDirStr} ->
 	    case expand_module_names_special_regexp(ModStr) of
@@ -97,11 +97,11 @@ expand_module_names(Nodes,{DirStr,ModStr},Opts) when list(DirStr), list(ModStr) 
     end;
 expand_module_names(_,'_',_Opts) ->          % If we want to trace all modules
     wildcard;                                % we shall not expand it.
-expand_module_names(_Nodes,Mod,_Opts) when atom(Mod) ->
+expand_module_names(_Nodes,Mod,_Opts) when is_atom(Mod) ->
     module;                                  % If it is an atom, no expansion.
 expand_module_names(Nodes,"*",Opts) ->       % Treat this as a reg.exp.
     expand_module_names(Nodes,".*",Opts);
-expand_module_names(Nodes,ModStr,Opts) when list(ModStr) ->
+expand_module_names(Nodes,ModStr,Opts) when is_list(ModStr) ->
     case expand_module_names_special_regexp(ModStr) of
 	{ok,NewModStr} ->
 	    expand_module_names_2(Nodes,NewModStr,Opts);
@@ -115,7 +115,7 @@ expand_module_names_2(Nodes,ModStr,Opts) ->
     case get_expand_regexp_at_opts(Opts) of
 	{ok,Node} ->                         % Expansion only at this node.
 	    case inviso_rt_lib:expand_regexp([Node],ModStr,Opts) of
-		[{Node,Modules}] when list(Modules) ->
+		[{Node,Modules}] when is_list(Modules) ->
 		    {singlenode_expansion,Modules};
 		[{Node,_}] ->                % Most likely badrpc.
 		    {error,{faulty_node,Node}}
@@ -130,7 +130,7 @@ expand_module_names_2(Nodes,DirStr,ModStr,Opts) ->
     case get_expand_regexp_at_opts(Opts) of
 	{ok,Node} ->                         % Expansion only at this node.
 	    case inviso_rt_lib:expand_regexp([Node],DirStr,ModStr,Opts) of
-		[{Node,Modules}] when list(Modules) ->
+		[{Node,Modules}] when is_list(Modules) ->
 		    {singlenode_expansion,Modules};
 		[{Node,_}] ->                % Most likely badrpc.
 		    {error,{faulty_node,Node}}
@@ -186,12 +186,12 @@ make_patterns(Catches,Opts,Dbg,NodeModsOrMods,F,A,MS) ->
 	    make_patterns_2(Catches,OwnArg,Dbg,NodeModsOrMods,F,A,MS)
     end.
 	    
-make_patterns_2(Catches,OwnArg,Dbg,[{Node,Mods}|Rest],F,A,MS) when list(Mods) ->
+make_patterns_2(Catches,OwnArg,Dbg,[{Node,Mods}|Rest],F,A,MS) when is_list(Mods) ->
     TPs=make_patterns_3(Catches,OwnArg,Dbg,Mods,F,A,MS,[]),
     [{Node,join_patterns(TPs)}|make_patterns_2(Catches,OwnArg,Dbg,Rest,F,A,MS)];
 make_patterns_2(Catches,OwnArg,Dbg,[{_Node,_}|Rest],F,A,MS) -> % badrpc!?
     make_patterns_2(Catches,OwnArg,Dbg,Rest,F,A,MS);
-make_patterns_2(Catches,OwnArg,Dbg,Modules,F,A,MS) when list(Modules) ->
+make_patterns_2(Catches,OwnArg,Dbg,Modules,F,A,MS) when is_list(Modules) ->
     TPs=make_patterns_3(Catches,OwnArg,Dbg,Modules,F,A,MS,[]),
     join_patterns(TPs);
 make_patterns_2(_,_,_,[],_,_,_) ->
@@ -330,7 +330,7 @@ get_datetime_from_tdg_args([DateTime|_]) ->
 %% Returns a list.
 get_ownarg_opts(Opts) ->
     case lists:keysearch(arg,1,Opts) of
-	{value,{_,OwnArg}} when list(OwnArg) ->
+	{value,{_,OwnArg}} when is_list(OwnArg) ->
 	    OwnArg;
 	{value,{_,OwnArg}} ->
 	    [OwnArg];
@@ -350,7 +350,7 @@ get_disable_safety_opts(Opts) ->
 
 get_expand_regexp_at_opts(Opts) ->
     case lists:keysearch(expand_only_at,1,Opts) of
-	{value,{_,Node}} when atom(Node) ->
+	{value,{_,Node}} when is_atom(Node) ->
 	    {ok,Node};
 	_ ->
 	    false
