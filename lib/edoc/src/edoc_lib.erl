@@ -472,7 +472,7 @@ uri_get_file(File0) ->
 
 uri_get_http(URI) ->
     %% Try using option full_result=false
-    case catch {ok, http:request(get, {URI,[]}, [],
+    case catch {ok, httpc:request(get, {URI,[]}, [],
 				 [{full_result, false}])} of
 	{'EXIT', _} ->
 	    uri_get_http_r10(URI);
@@ -482,7 +482,7 @@ uri_get_http(URI) ->
 
 uri_get_http_r10(URI) ->
     %% Try most general form of request
-    Result = (catch {ok, http:request(get, {URI,[]}, [], [])}),
+    Result = (catch {ok, httpc:request(get, {URI,[]}, [], [])}),
     uri_get_http_1(Result, URI).
 
 uri_get_http_1(Result, URI) ->
