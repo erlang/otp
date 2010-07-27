@@ -100,7 +100,7 @@ init({_Parent,Options}) ->
     end.
 %% ------------------------------------------------------------------------------
 
-handle_call({subscribe,Pid},_From,LD) when pid(Pid) ->
+handle_call({subscribe,Pid},_From,LD) when is_pid(Pid) ->
     MRef=erlang:monitor(process,Pid),
     {reply,ok,LD#state{subscribers=[{Pid,MRef}|LD#state.subscribers]}};
 handle_call({subscribe,Faulty},_From,LD) ->
@@ -131,7 +131,7 @@ handle_call({change_options,Nodes,Opts},_From,LD) ->
     end;
 handle_call({init_tracing,TracerDataList},_From,LD) ->
     {reply,adapt_reply(LD,do_init_tracing(TracerDataList,LD)),LD};
-handle_call({init_tracing,Nodes,TracerData},_From,LD) when list(Nodes) ->
+handle_call({init_tracing,Nodes,TracerData},_From,LD) when is_list(Nodes) ->
     TracerDataList=
 	lists:map(fun(N)->{N,TracerData} end,started_trace_nodes(Nodes,LD)),
     {reply,adapt_reply(LD,do_init_tracing(TracerDataList,LD)),LD};
@@ -173,7 +173,7 @@ handle_call({fetch_log,ToNode,Spec,Dest,Prefix},From,LD) ->
     end;
 handle_call({delete_log,NodesOrNodeSpecs},_From,LD) ->
     {reply,adapt_reply(LD,do_delete_log(NodesOrNodeSpecs,LD)),LD};
-handle_call({delete_log,Nodes,Specs},_From,LD) when list(Nodes) ->
+handle_call({delete_log,Nodes,Specs},_From,LD) when is_list(Nodes) ->
     Reply=do_delete_log(lists:map(fun(N)->{N,Specs} end,Nodes),LD),
     {reply,adapt_reply(LD,Reply),LD};
 handle_call({delete_log,FaultyNodes,_Specs},_From,LD) ->
@@ -283,7 +283,7 @@ do_change_option(Nodes,Options,LD) ->
 
 do_change_option_2([Node|Tail],Options,LD,Replies) ->
     case get_node_rec(Node,LD) of
-	Rec when record(Rec,node) ->
+	Rec when is_record(Rec,node) ->
 	    Answer=?RUNTIME:change_options(Rec#node.pid,Options),
 	    do_change_option_2(Tail,Options,LD,[{Node,Answer}|Replies]);
 	Error ->
@@ -333,7 +333,7 @@ do_init_tracing_2(What,_LD,_) ->
 %% Returns {ok,Reply} or {error,Reason}.
 distribute_tp(all,Patterns,FlagList,LD) ->
     distribute_tp(started_trace_nodes(all,LD),Patterns,FlagList,LD);
-distribute_tp(Nodes,Patterns,FlagList,LD) when list(Nodes) ->
+distribute_tp(Nodes,Patterns,FlagList,LD) when is_list(Nodes) ->
     RTpids=lists:map(fun(N)->case get_node_rec(N,LD) of
 				 #node{pid=Pid} ->
 				     {Pid,N};
@@ -354,7 +354,7 @@ distribute_tp(Faulty,_,_,_) ->
 %% Returns {ok,Reply} or {error,Reason}.
 distribute_tf(all,Args,How,LD) ->
     distribute_tf(started_trace_nodes(all,LD),Args,How,LD);
-distribute_tf(Nodes,Args,How,LD) when list(Nodes) ->
+distribute_tf(Nodes,Args,How,LD) when is_list(Nodes) ->
     RTpids=lists:map(fun(Node)->
 			     case get_node_rec(Node,LD) of
 				 #node{pid=Pid} ->
@@ -369,7 +369,7 @@ distribute_tf(Faulty,_,_,_) ->
     {error,{badarg,Faulty}}.
 
 %% As above but specific args for each node.
-distribute_tf(NodeArgs,How,LD) when list(NodeArgs) ->
+distribute_tf(NodeArgs,How,LD) when is_list(NodeArgs) ->
     RTpidArgs=lists:map(fun({Node,Args})->
 				case get_node_rec(Node,LD) of
 				    #node{pid=Pid} ->
@@ -384,7 +384,7 @@ distribute_tf(Faulty,_,_) ->
     {error,{badarg,Faulty}}.
 
 %% As above but both specific args for each node and How (set or remove flag).
-distribute_tf(NodeArgHows,LD) when list(NodeArgHows) ->
+distribute_tf(NodeArgHows,LD) when is_list(NodeArgHows) ->
     RTpidArgHows=
 	lists:map(fun({Node,Args,How}) ->
 			  case get_node_rec(Node,LD) of
@@ -405,7 +405,7 @@ distribute_tf(Faulty,_) ->
 %% Returns {ok,Reply} or {error,Reason}.
 distribute_metapattern(all,Args,LD) ->
     distribute_metapattern(started_trace_nodes(all,LD),Args,LD);
-distribute_metapattern(Nodes,Args,LD) when list(Nodes) ->
+distribute_metapattern(Nodes,Args,LD) when is_list(Nodes) ->
     RTpids=lists:map(fun(N)->case get_node_rec(N,LD) of
 				 #node{pid=Pid} ->
 				     {Pid,N};
@@ -480,7 +480,7 @@ do_cancel_suspension_2(Faulty,_,_) ->
 %% Return {ok,Reply} or {error,Reason}.
 do_stop_tracing(all,LD) ->
     do_stop_tracing(started_trace_nodes(all,LD),LD);
-do_stop_tracing(Nodes,LD) when list(Nodes) ->
+do_stop_tracing(Nodes,LD) when is_list(Nodes) ->
     RTpids=lists:map(fun(N)->case get_node_rec(N,LD) of
 				 #node{pid=Pid} ->
 				     {Pid,N};
@@ -580,7 +580,7 @@ do_list_logs_2(Other,_LD,_Replies) ->
 %% proper strings.
 do_fetch_log(ToNode,all,Dest,Prefix,From,LD) ->
     do_fetch_log(ToNode,started_trace_nodes(all,LD),Dest,Prefix,From,LD);
-do_fetch_log(ToNode,Specs,Dest,Prefix,From,LD) when list(Dest),list(Prefix) ->
+do_fetch_log(ToNode,Specs,Dest,Prefix,From,LD) when is_list(Dest),is_list(Prefix) ->
     CollectPid=spawn_link(ToNode,?MODULE,log_rec_init,[self(),Dest,Prefix,From]),
     do_fetch_log_2(Specs,LD,CollectPid,[],[]);
 do_fetch_log(_ToNode,_Specs,Dest,Prefix,From,_LD) ->
@@ -639,7 +639,7 @@ do_delete_log(NodeSpecs,LD) ->
 			    LD,[]);
 	false ->
 	    if
-		list(NodeSpecs),list(hd(NodeSpecs)) -> % A list of files.
+		is_list(NodeSpecs),is_list(hd(NodeSpecs)) -> % A list of files.
 		    do_delete_log_2(lists:map(fun(N)->{N,NodeSpecs} end,
 					      started_trace_nodes(all,LD)),
 				    LD,[]);
@@ -785,9 +785,9 @@ check_options(Options, Context) ->
 
 check_options_2([],_Context,Result) ->
     {ok,Result};
-check_options_2([{subscribe,Pid}|OptionsTail],start,Result) when pid(Pid) ->
+check_options_2([{subscribe,Pid}|OptionsTail],start,Result) when is_pid(Pid) ->
     check_options_2(OptionsTail,start,[{subscribe,Pid}|Result]);
-check_options_2([{unsubscribe,Pid}|OptionsTail],start,Result) when pid(Pid) ->
+check_options_2([{unsubscribe,Pid}|OptionsTail],start,Result) when is_pid(Pid) ->
     check_options_2(OptionsTail,start,[{unsubscribe,Pid}|Result]);
 check_options_2([{dependency,How}|OptionsTail],Context,Result) ->
     check_options_2(OptionsTail,Context,[{dependency,How}|Result]);
@@ -819,12 +819,12 @@ initiate_state(Options) ->
 	    LD1#state{distributed=true}
     end.
 
-initiate_state_2([{subscribe,Proc}|Tail],LD) when pid(Proc);atom(Proc)->
+initiate_state_2([{subscribe,Proc}|Tail],LD) when is_pid(Proc);is_atom(Proc)->
     MRef=erlang:monitor(process,Proc),
     initiate_state_2(Tail,LD#state{subscribers=[{Proc,MRef}|LD#state.subscribers]});
-initiate_state_2([Opt|Tail],LD) when tuple(Opt),size(Opt)>=1 ->
+initiate_state_2([Opt|Tail],LD) when is_tuple(Opt),size(Opt)>=1 ->
     initiate_state_2(Tail,initiate_state_3(element(1,Opt),Opt,LD));
-initiate_state_2([Opt|Tail],LD) when atom(Opt) ->
+initiate_state_2([Opt|Tail],LD) when is_atom(Opt) ->
     initiate_state_2(Tail,initiate_state_3(Opt,Opt,LD));
 initiate_state_2([_|Tail],LD) ->
     initiate_state_2(Tail,LD);
@@ -853,9 +853,9 @@ initiate_state_is_rt_option(_) -> false.
 %% or more values associated with the Parameter, or just an atom.
 merge_options([], Options) ->
     Options;
-merge_options([T|DefaultTail],Options) when tuple(T),size(T)>=1 ->
+merge_options([T|DefaultTail],Options) when is_tuple(T),size(T)>=1 ->
     merge_options(DefaultTail,merge_options_2(element(1,T),T,Options));
-merge_options([Param|DefaultTail],Options) when atom(Param) ->
+merge_options([Param|DefaultTail],Options) when is_atom(Param) ->
     merge_options(DefaultTail,merge_options_2(Param,Param,Options));
 merge_options([_|DefaultTail],Options) ->    % Strange, bad default option!
     merge_options(DefaultTail,Options).
@@ -868,7 +868,7 @@ merge_options_2(Param,Opt,Options) ->
 	    [Opt|Options]
     end.
 
-merge_options_find(Param,[T|_]) when tuple(T),element(1,T)==Param ->
+merge_options_find(Param,[T|_]) when is_tuple(T),element(1,T)==Param ->
     true;
 merge_options_find(Param,[Param|_]) ->
     true;
@@ -883,7 +883,7 @@ merge_options_find(_,[]) ->
 %% It also checks the formatting of the tracerdata since runtime components
 %% does not accept too badly formatted tracerdata.
 %% Returns {ok,NewTraceData} or {error,Reason}.
-check_modify_tracerdata(TracerData,LoopData) when list(TracerData) ->
+check_modify_tracerdata(TracerData,LoopData) when is_list(TracerData) ->
     case lists:keysearch(trace,1,TracerData) of
 	{value,{_,TraceTD}} ->               % Examine the trace part.
 	    case check_modify_tracerdata(TraceTD,LoopData) of
@@ -908,7 +908,7 @@ check_modify_tracerdata({relayer,Collector},LoopData) when is_atom(Collector) ->
     end;
 check_modify_tracerdata({Type,Data},_LoopData) when Type==ip;Type==file ->
     {ok,{Type,Data}};
-check_modify_tracerdata({Handler,Data},_LoopData) when function(Handler) ->
+check_modify_tracerdata({Handler,Data},_LoopData) when is_function(Handler) ->
     {ok,{Handler,Data}};
 check_modify_tracerdata(Data,_LoopData) ->
     {error,{bad_tracerdata,Data}}.
@@ -999,7 +999,7 @@ set_node_rec_2(Rec,[NodeRec|Tail]) ->
 
 %% Help function finding a node record for Node in a list of #node or in loopdata.
 %% Returns the #node in question or {error,not_an_added_node}.
-get_node_rec(Node,NodeList) when list(NodeList) ->
+get_node_rec(Node,NodeList) when is_list(NodeList) ->
     get_node_rec_2(Node,NodeList);
 get_node_rec(Node,#state{nodes=NodeList}) ->
     get_node_rec_2(Node,NodeList).
@@ -1016,7 +1016,7 @@ get_node_rec_2(Node,[_NodeRec|Tail]) ->
 %% structure. Returns a new list of #node or a new loopdata structure.
 delete_node_rec(Node,LD=#state{nodes=NodeList}) ->
     LD#state{nodes=delete_node_rec_2(Node,NodeList)};
-delete_node_rec(Node,NodeList) when list(NodeList) ->
+delete_node_rec(Node,NodeList) when is_list(NodeList) ->
     delete_node_rec_2(Node,NodeList).
 
 delete_node_rec_2(_,[]) ->
@@ -1059,7 +1059,7 @@ log_rec_init(Parent,Dest,Prefix,From={ClientPid,_}) ->
 			  Fetchers),
 	    CMRef=erlang:monitor(process,ClientPid), % Monitor the client.
 	    case log_rec_loop(Dest,Prefix,RTs,InitialReplies,CMRef) of
-		Reply when list(Reply) ->   % It is an ok value.
+		Reply when is_list(Reply) ->   % It is an ok value.
 		    gen_server:reply(From,{ok,Reply});
 		{error,Reason} ->
 		    gen_server:reply(From,{error,Reason});

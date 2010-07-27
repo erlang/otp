@@ -129,7 +129,7 @@ start(Options) ->
 add_node(Reference) ->
     gen_server:call(?CONTROLLER,{add_nodes,[node()],[],Reference,any_ref},?CALL_TIMEOUT).
 
-add_node(Reference,Options) when list(Options) ->
+add_node(Reference,Options) when is_list(Options) ->
     gen_server:call(?CONTROLLER,{add_nodes,[node()],Options,Reference,any_ref},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -142,7 +142,7 @@ add_node(Reference,Options) when list(Options) ->
 add_node_if_ref(Reference) ->
     gen_server:call(?CONTROLLER,{add_nodes,[node()],[],Reference,if_ref},?CALL_TIMEOUT).
 
-add_node_if_ref(Reference,Options) when list(Options) ->
+add_node_if_ref(Reference,Options) when is_list(Options) ->
     gen_server:call(?CONTROLLER,{add_nodes,[node()],Options,Reference,if_ref},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -156,10 +156,10 @@ add_node_if_ref(Reference,Options) when list(Options) ->
 %% system. By speicifying node() as the node where the runtime component shall
 %% be started. The return value will then follow the rules of non distributed
 %% returnvalues and not have a node indicator.
-add_nodes(Nodes,Reference) when list(Nodes) ->
+add_nodes(Nodes,Reference) when is_list(Nodes) ->
     gen_server:call(?CONTROLLER,{add_nodes,Nodes,[],Reference,any_ref},?CALL_TIMEOUT).
 
-add_nodes(Nodes,Reference,Options) when list(Nodes),list(Options) ->
+add_nodes(Nodes,Reference,Options) when is_list(Nodes),is_list(Options) ->
     gen_server:call(?CONTROLLER,{add_nodes,Nodes,Options,Reference,any_ref},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -168,10 +168,10 @@ add_nodes(Nodes,Reference,Options) when list(Nodes),list(Options) ->
 %%
 %% As add_nodes/2,/3 but will only connect to an already existing runtime component
 %% if its reference is the same as the one given as argument.
-add_nodes_if_ref(Nodes,Reference) when list(Nodes) ->
+add_nodes_if_ref(Nodes,Reference) when is_list(Nodes) ->
     gen_server:call(?CONTROLLER,{add_nodes,Nodes,[],Reference,if_ref},?CALL_TIMEOUT).
 
-add_nodes_if_ref(Nodes,Reference,Options) when list(Nodes),list(Options) ->
+add_nodes_if_ref(Nodes,Reference,Options) when is_list(Nodes),is_list(Options) ->
     gen_server:call(?CONTROLLER,{add_nodes,Nodes,Options,Reference,if_ref},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -182,9 +182,9 @@ add_nodes_if_ref(Nodes,Reference,Options) when list(Nodes),list(Options) ->
 %%
 %% Change options on all or specified Nodes. This may result in for instance
 %% reinitialization of overloadcheck.
-change_options(Options) when list(Options) ->
+change_options(Options) when is_list(Options) ->
     gen_server:call(?CONTROLLER,{change_options,all,Options},?CALL_TIMEOUT).
-change_options(Nodes,Options) when list(Nodes),list(Options)  ->
+change_options(Nodes,Options) when is_list(Nodes),is_list(Options)  ->
     gen_server:call(?CONTROLLER,{change_options,Nodes,Options},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -234,7 +234,7 @@ change_options(Nodes,Options) when list(Nodes),list(Options)  ->
 init_tracing(TracerDataList) ->
     gen_server:call(?CONTROLLER,{init_tracing,TracerDataList},?CALL_TIMEOUT).
 
-init_tracing(Nodes,TracerData) when list(Nodes) ->
+init_tracing(Nodes,TracerData) when is_list(Nodes) ->
     gen_server:call(?CONTROLLER,{init_tracing,Nodes,TracerData},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -270,10 +270,10 @@ stop_tracing(Nodes) when is_list(Nodes) ->
 clear() ->
     gen_server:call(?CONTROLLER,{clear,all,[]},?CALL_TIMEOUT).
 
-clear(Nodes) when list(Nodes) ->
+clear(Nodes) when is_list(Nodes) ->
     gen_server:call(?CONTROLLER,{clear,Nodes,[]},?CALL_TIMEOUT).
 
-clear(Nodes,Options) when list(Nodes),list(Options) ->
+clear(Nodes,Options) when is_list(Nodes),is_list(Options) ->
     gen_server:call(?CONTROLLER,{clear,Nodes,Options},?CALL_TIMEOUT).
 %% -----------------------------------------------------------------------------
 
@@ -355,9 +355,9 @@ stop_all() ->
 tp(Nodes,Module,Function,Arity,MatchSpec,Opts) ->
     trace_pattern(Nodes,[{Module,Function,Arity,MatchSpec,Opts}],[global]).
 
-tp(Nodes,Module,Function,Arity,MatchSpec) when list(Nodes) -> 
+tp(Nodes,Module,Function,Arity,MatchSpec) when is_list(Nodes) ->
     trace_pattern(Nodes,[{Module,Function,Arity,MatchSpec,[]}],[global]);
-tp(Module,Function,Arity,MatchSpec,Opts) when atom(Module) ->
+tp(Module,Function,Arity,MatchSpec,Opts) when is_atom(Module) ->
     trace_pattern(all,[{Module,Function,Arity,MatchSpec,Opts}],[global]).
 
 tp(Module,Function,Arity,MatchSpec) ->
@@ -384,9 +384,9 @@ tp(PatternList) ->
 tpl(Nodes,Module,Function,Arity,MatchSpec,Opts) ->
     trace_pattern(Nodes,[{Module,Function,Arity,MatchSpec,Opts}],[local]).
 
-tpl(Nodes,Module,Function,Arity,MatchSpec) when list(Nodes) ->
+tpl(Nodes,Module,Function,Arity,MatchSpec) when is_list(Nodes) ->
     trace_pattern(Nodes,[{Module,Function,Arity,MatchSpec,[]}],[local]);
-tpl(Module,Function,Arity,MatchSpec,Opts) when atom(Module) ->
+tpl(Module,Function,Arity,MatchSpec,Opts) when is_atom(Module) ->
     trace_pattern(all,[{Module,Function,Arity,MatchSpec,Opts}],[local]).
 
 tpl(Module,Function,Arity,MatchSpec) ->
@@ -417,12 +417,12 @@ ctp(Nodes,Module,Function,Arity) ->
 ctp(Module,Function,Arity) ->
     trace_pattern(all,[{Module,Function,Arity,false,[only_loaded]}],[global]).
 
-ctp(Nodes,PatternList) when list(PatternList) ->
+ctp(Nodes,PatternList) when is_list(PatternList) ->
     trace_pattern(Nodes,
 		  lists:map(fun({M,F,A})->{M,F,A,false,[only_loaded]} end,PatternList),
 		  [global]).
 
-ctp(PatternList) when list(PatternList) ->
+ctp(PatternList) when is_list(PatternList) ->
     trace_pattern(all,
 		  lists:map(fun({M,F,A})->{M,F,A,false,[only_loaded]} end,PatternList),
 		  [global]).
@@ -445,12 +445,12 @@ ctpl(Nodes,Module,Function,Arity) ->
 ctpl(Module,Function,Arity) ->
     trace_pattern(all,[{Module,Function,Arity,false,[only_loaded]}],[local]).
 
-ctpl(Nodes,PatternList) when list(PatternList) ->
+ctpl(Nodes,PatternList) when is_list(PatternList) ->
     trace_pattern(Nodes,
 		  lists:map(fun({M,F,A})->{M,F,A,false,[only_loaded]} end,PatternList),
 		  [local]).
 
-ctpl(PatternList) when list(PatternList) ->
+ctpl(PatternList) when is_list(PatternList) ->
     trace_pattern(all,
 		  lists:map(fun({M,F,A})->{M,F,A,false,[only_loaded]} end,PatternList),
 		  [local]).
@@ -485,19 +485,19 @@ trace_pattern(Nodes,Patterns,FlagList)  ->
 %% specifying a certain pid at all nodes. Or an empty TraceConfList for all
 %% nodes.
 %% When calling several nodes, the nodes are called in parallel.
-tf(Nodes,PidSpec,FlagList) when list(Nodes),list(FlagList) ->
+tf(Nodes,PidSpec,FlagList) when is_list(Nodes),is_list(FlagList) ->
     trace_flags(Nodes,[{PidSpec, FlagList}],true).
 
-tf(Nodes,TraceConfList) when list(Nodes),list(TraceConfList) -> 
+tf(Nodes,TraceConfList) when is_list(Nodes),is_list(TraceConfList) ->
     trace_flags(Nodes,TraceConfList,true);
-tf(PidSpec,FlagList) when list(FlagList) -> 
+tf(PidSpec,FlagList) when is_list(FlagList) ->
     trace_flags(all,[{PidSpec,FlagList}],true).
 
-tf(ArgList) when list(ArgList) ->            % This one has triple functionality!
+tf(ArgList) when is_list(ArgList) ->            % This one has triple functionality!
     case ArgList of
-	[{_Process,Flags}|_] when list(Flags),atom(hd(Flags))-> % A call to all nodes.
+	[{_Process,Flags}|_] when is_list(Flags),is_atom(hd(Flags))-> % A call to all nodes.
 	    trace_flags(all,ArgList,true);
-	[{_Node,TraceConfList}|_] when list(TraceConfList),tuple(hd(TraceConfList)) ->
+	[{_Node,TraceConfList}|_] when is_list(TraceConfList),is_tuple(hd(TraceConfList)) ->
 	    trace_flags(ArgList,true);
 	[{_Node,_TraceConfList,_How}|_] ->
 	    trace_flags(ArgList);
@@ -517,15 +517,15 @@ tf(ArgList) when list(ArgList) ->            % This one has triple functionality
 %% The functions without a Nodes argument means all nodes, in a non-distributed
 %% environment it means the local node.
 %% When calling several nodes, the nodes are called in parallel.
-ctf(Nodes,PidSpec,FlagList) when list(Nodes),list(FlagList) ->
+ctf(Nodes,PidSpec,FlagList) when is_list(Nodes),is_list(FlagList) ->
     trace_flags(Nodes,[{PidSpec,FlagList}],false).
 
-ctf(Nodes,TraceConfList) when list(Nodes),list(TraceConfList) -> 
+ctf(Nodes,TraceConfList) when is_list(Nodes),is_list(TraceConfList) ->
     trace_flags(Nodes,TraceConfList,false);
-ctf(PidSpec,FlagList) when list(FlagList) -> 
+ctf(PidSpec,FlagList) when is_list(FlagList) ->
     trace_flags(all,[{PidSpec,FlagList}],false).
 
-ctf(TraceConfList) when list(TraceConfList) -> 
+ctf(TraceConfList) when is_list(TraceConfList) ->
     trace_flags(all,TraceConfList,false).
 %% -----------------------------------------------------------------------------
 
@@ -668,10 +668,10 @@ init_tpm(Nodes,Mod,Func,Arity,InitFunc,CallFunc,ReturnFunc,RemoveFunc) ->
 tpm(Mod,Func,Arity,MS) ->
     tpm(all,Mod,Func,Arity,MS).
 
-tpm(Nodes,Mod,Func,Arity,MS) when integer(Arity) ->
+tpm(Nodes,Mod,Func,Arity,MS) when is_integer(Arity) ->
     gen_server:call(?CONTROLLER,
 		    {meta_pattern,Nodes,{tpm,[Mod,Func,Arity,MS]}});
-tpm(Mod,Func,Arity,MS,CallFunc) when integer(Arity) ->
+tpm(Mod,Func,Arity,MS,CallFunc) when is_integer(Arity) ->
     tpm(all,Mod,Func,Arity,MS,CallFunc).
 
 tpm(Nodes,Mod,Func,Arity,MS,CallFunc) ->
@@ -695,11 +695,11 @@ tpm(Nodes,Mod,Func,Arity,MS,InitFunc,CallFunc,ReturnFunc,RemoveFunc) ->
 tpm_tracer(Mod,Func,Arity,MS) ->
     tpm_tracer(all,Mod,Func,Arity,MS).
 
-tpm_tracer(Nodes,Mod,Func,Arity,MS) when integer(Arity) ->
+tpm_tracer(Nodes,Mod,Func,Arity,MS) when is_integer(Arity) ->
     gen_server:call(?CONTROLLER,
 		    {meta_pattern,Nodes,{tpm_tracer,[Mod,Func,Arity,MS]}},
 		    ?CALL_TIMEOUT);
-tpm_tracer(Mod,Func,Arity,MS,CallFunc) when integer(Arity) ->
+tpm_tracer(Mod,Func,Arity,MS,CallFunc) when is_integer(Arity) ->
     tpm_tracer(all,Mod,Func,Arity,MS,CallFunc).
 
 tpm_tracer(Nodes,Mod,Func,Arity,MS,CallFunc) ->
@@ -878,7 +878,7 @@ cancel_suspension() ->
 %%   Status=running|{suspended,SReason}
 %%
 %% Get Status form all or specified runtime components.
-get_status(Nodes) when list(Nodes) ->
+get_status(Nodes) when is_list(Nodes) ->
     gen_server:call(?CONTROLLER,{get_status,Nodes},?CALL_TIMEOUT).
 
 get_status() ->
@@ -918,7 +918,7 @@ get_tracerdata(Nodes) when is_list(Nodes) ->
 list_logs() ->
     gen_server:call(?CONTROLLER,list_logs,?CALL_TIMEOUT).
 
-list_logs(TracerDataOrNodesList) when list(TracerDataOrNodesList) ->
+list_logs(TracerDataOrNodesList) when is_list(TracerDataOrNodesList) ->
     gen_server:call(?CONTROLLER,{list_logs,TracerDataOrNodesList},?CALL_TIMEOUT).
 %% ------------------------------------------------------------------------------
 
@@ -960,17 +960,17 @@ list_logs(TracerDataOrNodesList) when list(TracerDataOrNodesList) ->
 %% Note that the client process using this function will wait until all files
 %% are moved. The job can be cancelled, causing any already copied files to be
 %% removed, by simply terminating the waiting client process.
-fetch_log(DestDir,Prefix) when list(DestDir),list(Prefix) ->
+fetch_log(DestDir,Prefix) when is_list(DestDir),is_list(Prefix) ->
     gen_server:call(?CONTROLLER,{fetch_log,node(),all,DestDir,Prefix},infinity).
 
-fetch_log(ToNode,DestDir,Prefix) when atom(ToNode),list(DestDir),list(Prefix) ->
+fetch_log(ToNode,DestDir,Prefix) when is_atom(ToNode),is_list(DestDir),is_list(Prefix) ->
     gen_server:call(?CONTROLLER,{fetch_log,ToNode,all,DestDir,Prefix},infinity);
 
-fetch_log(LogSpecList,DestDir,Prefix) when list(LogSpecList),list(DestDir),list(Prefix) ->
+fetch_log(LogSpecList,DestDir,Prefix) when is_list(LogSpecList),is_list(DestDir),is_list(Prefix) ->
     gen_server:call(?CONTROLLER,{fetch_log,node(),LogSpecList,DestDir,Prefix},infinity).
 
 fetch_log(ToNode,LogSpecList,DestDir,Prefix)
-  when atom(ToNode),list(LogSpecList),list(DestDir),list(Prefix) ->
+  when is_atom(ToNode),is_list(LogSpecList),is_list(DestDir),is_list(Prefix) ->
     gen_server:call(?CONTROLLER,{fetch_log,ToNode,LogSpecList,DestDir,Prefix},infinity).
 %% ------------------------------------------------------------------------------
 
