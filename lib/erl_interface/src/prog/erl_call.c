@@ -812,7 +812,8 @@ static int get_module(char **mbuf, char **mname)
     *mname = (char *) calloc(i+1, sizeof(char));
     memcpy(*mname, start, i);
   }
-  free(mbuf);			/* Allocated in read_stdin() */
+  if (*mbuf)
+      free(*mbuf);			/* Allocated in read_stdin() */
 
   return len;
 
