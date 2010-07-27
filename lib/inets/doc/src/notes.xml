@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-
+    
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-
+    
     </legalnotice>
     
     <title>Inets Release Notes</title>
@@ -32,6 +32,65 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <p>-</p>
+
+<!--
+      <list>
+        <item>
+	  <p>[httpc] - Allow users to pass socket options to the transport 
+            module when making requests. </p> 
+          <p>See the <c>socket_opts</c> option in the 
+            <seealso marker="httpc#request2">request/4</seealso> or 
+            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            for more info, </p>
+	  <p>Own Id: OTP-8352</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list>
+        <item>
+	  <p>[httpc] - If a request times out (not during connect), the 
+	  handler process exited (normal) but neglected to inform
+	  the manager process. For this reason, the manager 
+	  did not clean up the request table, resulting in a 
+	  memory leak. Also the manager did not create a monitor
+	  for the handler, so in an unforseen handler crash, this
+	  could also create a memory leak. </p>
+	  <p>Own Id: OTP-8739</p>
+        </item>
+
+        <item>
+	  <p>[tftp] - Was spelled wrong in documentation and in some 
+	  parts of the code. It should be tftp. </p>
+	  <p>Own Id: OTP-8741</p>
+        </item>
+
+        <item>
+	  <p>[htpc] - Replaced the old http client api module (http) 
+	  with the new, http client in the 
+	  <seealso marker="http_client">Users Guide</seealso>. </p>
+	  <p>Own Id: OTP-8742</p>
+	  <p>Ryan Zezeski</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.3.4 -->
+
+
   <section><title>Inets 5.3.3</title>
 
     <section><title>Improvements and New Features</title>

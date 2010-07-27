@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -108,7 +108,7 @@ passive_pwd(X) -> ?LIB_MOD:passive_pwd(X).
 passive_cd(X) -> ?LIB_MOD:passive_cd(X).
 passive_lcd(X) -> ?LIB_MOD:passive_lcd(X).
 passive_ls(X) -> ?LIB_MOD:passive_ls(X).
-passive_nlist(X) -> ?LIB_MOD:passive_nlist(X).
+passive_nlist(X) -> ?LIB_MOD:passive_nlist([{wildcard_support, false} | X]).
 passive_rename(X) -> ?LIB_MOD:passive_rename(X).
 passive_delete(X) -> ?LIB_MOD:passive_delete(X).
 passive_mkdir(X) -> ?LIB_MOD:passive_mkdir(X).
@@ -129,7 +129,7 @@ active_pwd(X) -> ?LIB_MOD:active_pwd(X).
 active_cd(X) -> ?LIB_MOD:active_cd(X).
 active_lcd(X) -> ?LIB_MOD:active_lcd(X). 
 active_ls(X) -> ?LIB_MOD:active_ls(X). 
-active_nlist(X) -> ?LIB_MOD:active_nlist(X). 
+active_nlist(X) -> ?LIB_MOD:active_nlist([{wildcard_support, false} | X]). 
 active_rename(X) -> ?LIB_MOD:active_rename(X). 
 active_delete(X) -> ?LIB_MOD:active_delete(X). 
 active_mkdir(X) -> ?LIB_MOD:active_mkdir(X). 

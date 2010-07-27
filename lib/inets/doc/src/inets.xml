@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-
+    
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-
+    
     </legalnotice>
 
     <title>inets</title>
@@ -40,13 +40,13 @@
     <title>COMMON DATA TYPES </title>
     <p>Type definitions that are used more than once in
       this module: </p>
-    <p><c> service() = ftpc | tfptd | httpc | httpd</c></p>
+    <p><c> service() = ftpc | tftp | httpc | httpd</c></p>
     <p><c> property() = atom() </c></p>
   </section>
   <funcs>
     <func>
       <name>services() -> [{Service, Pid}]</name>
-      <fsummary>Returns a list of currently running services.  </fsummary>
+      <fsummary>Returns a list of currently running services. </fsummary>
       <type>
         <v>Service = service()</v>
         <v>Pid = pid()</v>
@@ -97,7 +97,7 @@
       <name>start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the Inets application. </fsummary>
       <type>
-        <v>Type =  permanent | transient | temporary</v>
+        <v>Type = permanent | transient | temporary</v>
       </type>
       <desc>
         <p>Starts the Inets application. Default type
@@ -115,11 +115,9 @@
     </func>
     <func>
       <name>start(Service, ServiceConfig) -> {ok, Pid} | {error, Reason}</name>
-      <name>start(Service, ServiceConfig, How) -> {ok, Pid} |
-	{error, Reason}</name>
+      <name>start(Service, ServiceConfig, How) -> {ok, Pid} | {error, Reason}</name>
       <fsummary>Dynamically starts an inets
-	service after the inets application has been
-	started. </fsummary>
+      service after the inets application has been started. </fsummary>
       <type>
         <v>Service = service()</v>
         <v>ServiceConfig = [{Option, Value}]</v>
@@ -153,9 +151,9 @@
       <fsummary>Stops a started service of the inets application or takes
           down a "stand_alone-service" gracefully.</fsummary>
       <type>
-        <v>Service = service() | stand_alone</v>
+	<v>Service = service() | stand_alone</v>
 	<v>Reference = pid() | term() - service specified reference</v>
-        <v>Reason = term()</v>	
+	<v>Reason = term()</v>
       </type>
       <desc>
         <p>Stops a started service of the inets application or takes
@@ -169,7 +167,7 @@
   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="ftp">ftp(3)</seealso>,
-      <seealso marker="http">http(3)</seealso>,
+      <seealso marker="httpc">httpc(3)</seealso>,
       <seealso marker="httpd">httpd(3)</seealso>,
       <seealso marker="tftp">tftp(3)</seealso></p>
   </section>

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,8 +56,8 @@
     <pre>
       [{inets, [{services, [{httpc, PropertyList}]}]}]
     </pre>
-    <p>For valid properties see <seealso
-			       marker="http">http(3)</seealso></p>
+    <p>For valid properties see 
+    <seealso marker="http">httpc(3)</seealso>. </p>
   </section>
 
   <section>
@@ -71,66 +71,65 @@
       but not for requests to localhost. This will apply to all subsequent
       requests</p>
     <code type="erl">
-      2 > http:set_options([{proxy, {{"www-proxy.mycompany.com", 8000},
+      2 > httpc:set_options([{proxy, {{"www-proxy.mycompany.com", 8000},
       ["localhost"]}}]).
       ok
     </code>
     <p>An ordinary synchronous request. </p>
     <code type="erl">
       3 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      http:request(get, {"http://www.erlang.org", []}, [], []).
+      httpc:request(get, {"http://www.erlang.org", []}, [], []).
     </code>
     <p>With all default values, as above, a get request can also be written
       like this.</p>
     <code type="erl">
       4 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
-      http:request("http://www.erlang.org").
+      httpc:request("http://www.erlang.org").
     </code>
     <p>An ordinary asynchronous request. The result will be sent
       to the calling process on the form {http, {ReqestId, Result}}</p>
     <code type="erl">
       5 > {ok, RequestId} =
-      http:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).
+      httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).
     </code>
     <p>In this case the calling process is the shell, so we receive the
       result.</p>
     <code type="erl">
-      6 >  receive {http, {RequestId, Result}} -> ok after 500 -> error end.
+      6 > receive {http, {RequestId, Result}} -> ok after 500 -> error end.
       ok
     </code>
     <p>Send a request with a specified connection header. </p>
     <code type="erl">
       7 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
-      http:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
+      httpc:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
       [], []).
     </code>
 
     <p>Start a HTTP client profile. </p>
    
     <code><![CDATA[
-      8 >  {ok, Pid} = inets:start(httpc, [{profile, foo}]).
+      8 > {ok, Pid} = inets:start(httpc, [{profile, foo}]).
       {ok, <0.45.0>}       
       ]]></code>
     
     <p>The new profile has no proxy settings so the connection will
       be refused</p>
       <code type="erl">
-      9 > http:request("http://www.erlang.org", foo).              
-      {error,econnrefused}
+      9 > httpc:request("http://www.erlang.org", foo). 
+      {error, econnrefused}
     </code>
 
     <p>Stop a HTTP client profile. </p>
     <code type="erl">
-      10 >  inets:stop(httpc, foo).
+      10 > inets:stop(httpc, foo).
       ok
     </code>
     
     <p>Alternatively:</p>
     <code type="erl">
-      10 >  inets:stop(httpc, Pid).
+      10 > inets:stop(httpc, Pid).
       ok
     </code>
-    
     
   </section>
 </chapter>
