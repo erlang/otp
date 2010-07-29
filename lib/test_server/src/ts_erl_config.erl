@@ -107,7 +107,7 @@ erts_lib(Vars,OsType) ->
 		   ErtsIncludeInternal,
 		   ErtsLib,
 		   ErtsLibInternal};
-	      {Type, Root, Target} when Type == clearcase; Type == srctree ->
+	      {srctree, Root, Target} ->
 		  Erts = filename:join([Root, "erts"]),
 		  ErtsInclude = filename:join([Erts, "include"]),
 		  ErtsIncludeTarget = filename:join([ErtsInclude, Target]),
@@ -146,7 +146,7 @@ erl_include(Vars) ->
 	case erl_root(Vars) of
 	    {installed, Root} ->
 		filename:join([Root, "usr", "include"]);
-	    {Type, Root, Target} when Type == clearcase; Type == srctree ->
+	    {srctree, Root, Target} ->
 		filename:join([Root, "erts", "emulator", "beam"])
 		    ++ " -I" ++ filename:join([Root, "erts", "emulator"])
 		    ++ system_include(Root, Vars)
@@ -179,7 +179,7 @@ erl_interface(Vars,OsType) ->
 		     {srctree, _Root, _Target} when OsType =:= vxworks ->
 			 {filename:join(Dir, "lib"),
 			  filename:join([Dir, "src"])};
-		     {Type, _Root, Target} when Type == clearcase; Type == srctree ->
+		     {srctree, _Root, Target} ->
 			 {filename:join([Dir, "obj", Target]),
 			  filename:join([Dir, "src", Target])}
 		 end}
@@ -246,7 +246,7 @@ ic(Vars, OsType) ->
 		 case erl_root(Vars) of
 		     {installed, _Root} ->
 			 filename:join([Dir, "priv", "lib"]);
-		     {Type, _Root, Target} when Type == clearcase; Type == srctree ->
+		     {srctree, _Root, Target} ->
 			 filename:join([Dir, "priv", "lib", Target])
 		 end,
 		 filename:join(Dir, "include")}
@@ -317,9 +317,6 @@ lib_dir(Vars, Lib) ->
 erl_root(Vars) ->
     Root = code:root_dir(),
     case ts_lib:erlang_type() of
-	{clearcase, _Version} ->
-	    Target = get_var(target, Vars),
-	    {clearcase, Root, Target};
 	{srctree, _Version} ->
 	    Target = get_var(target, Vars),
 	    {srctree, Root, Target};
