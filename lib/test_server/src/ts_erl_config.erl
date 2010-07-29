@@ -266,21 +266,6 @@ jinterface(Vars, _OsType) ->
 	end,
     [{jinterface_classpath, filename:nativename(ClassPath)}|Vars].
 
-%% Unused!
-% ig_vars(Vars) ->
-%     {Lib0, Incl} = 
-% 	case erl_root(Vars) of
-% 	    {installed, Root} ->
-% 		Base = filename:join([Root, "usr"]),
-% 		{filename:join([Base, "lib"]), 
-% 		 filename:join([Base, "include"])};
-% 	    {Type, Root, Target} when Type == clearcase; Type == srctree ->
-% 		{filename:join([Root, "lib", "ig", "obj", Target]),
-% 		 filename:join([Root, "lib", "ig", "include"])}
-% 	end,
-%     [{ig_libdir, filename:nativename(Lib0)},
-%      {ig_include, filename:nativename(Incl)}|Vars].
-
 lib_dir(Vars, Lib) ->
     LibLibDir = case Lib of
 		    erts ->
