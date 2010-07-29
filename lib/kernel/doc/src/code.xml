@@ -54,7 +54,7 @@
           for and tries to load the module.</p>
       </item>
     </list>
-    <p>To prevent accidentaly reloading modules affecting the Erlang
+    <p>To prevent accidentally reloading modules affecting the Erlang
       runtime system itself, the <c>kernel</c>, <c>stdlib</c> and
       <c>compiler</c> directories are considered <em>sticky</em>. This
       means that the system issues a warning and rejects the request if

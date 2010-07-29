@@ -210,7 +210,7 @@
       X[i] to Y[i] and S a subset of
       X[1]&nbsp;&times;&nbsp;...&nbsp;&times;&nbsp;X[n]. 
       The <marker id="multiple_relative_product"></marker><em>multiple 
-      relative product</em> of TR and and S is defined to be the 
+      relative product</em> of TR and S is defined to be the
       set {z&nbsp;: z&nbsp;= ((x[1],&nbsp;...,&nbsp;x[n]), (y[1],...,y[n]))
       for some (x[1],&nbsp;...,&nbsp;x[n])&nbsp;in&nbsp;S and for some
       (x[i],&nbsp;y[i]) in R[i],

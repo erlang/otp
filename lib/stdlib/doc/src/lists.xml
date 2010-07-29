@@ -48,7 +48,7 @@
       <item><p>if x <c>F</c> y and y <c>F</c> x then x = y (<c>F</c>
         is antisymmetric);</p>
       </item>
-      <item><p>if x <c>F</c> y and and y <c>F</c> z then x <c>F</c> z
+      <item><p>if x <c>F</c> y and y <c>F</c> z then x <c>F</c> z
         (<c>F</c> is transitive);</p>
       </item>
       <item><p>x <c>F</c> y or y <c>F</c> x (<c>F</c> is total).</p>

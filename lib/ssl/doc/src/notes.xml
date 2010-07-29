@@ -819,7 +819,7 @@
       <title>Fixed Bugs and Malfunctions</title>
       <list type="bulleted">
         <item>
-          <p>When a file descriptor was marked for closing, and and
+          <p>When a file descriptor was marked for closing, and
             end-of-file condition had already been detected, the file
             descriptor was never closed.</p>
           <p>Own Id: OTP-5093 Aux Id: seq8806 </p>

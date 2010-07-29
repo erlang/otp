@@ -504,7 +504,7 @@ protocol_version() = integer()    ]]></code>
           not, is also included in the <c><![CDATA[UserReply]]></c>. </p>
         <p>The <c><![CDATA[ReplyData]]></c> defaults to 
           <c><![CDATA[megaco:lookup(ConnHandle, reply_data)]]></c>, 
-          but may be explicitely overridden by a
+          but may be explicitly overridden by a
           <c><![CDATA[megaco:cast/3]]></c> option in order to forward info about the
           calling context of the originating process.</p>
         <p>At <c><![CDATA[success()]]></c>, the <c><![CDATA[UserReply]]></c> either contains:</p>

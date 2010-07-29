@@ -128,7 +128,7 @@ megaco_version() = integer() >= 1
         <v>Boolean = boolean()</v>
       </type>
       <desc>
-        <p>Checks if a port is a flex scanner port or not (usefull when 
+        <p>Checks if a port is a flex scanner port or not (useful when
           if a port exits). </p>
 
         <marker id="scan"></marker>
