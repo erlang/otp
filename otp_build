@@ -21,9 +21,6 @@
 # Expected autoconf version
 EXPECTED_AUTOCONF_VERSION=2.59
 
-# clearmake command to use
-clearmake=false
-
 # Global configuration variables
 #
 # NOTE: lazy_configure depends on '.' always being last directory
@@ -859,36 +856,16 @@ setup_make ()
 	    win32)
 		MAKE=make;;
 	    *)
-		if [ "X$CLEARCASE_MAKE_COMPAT" = "Xgnu" -a \
-		     X"$CLEARCASE_ROOT" != X"" -a \
-		    -n "`lookup_prog_in_path clearmake`"  ]; then
-		    clearmake="clearmake -V"
-		    MAKE=$clearmake
-		else 
-		    if [ -n "`lookup_prog_in_path gmake`" ]; then
-			MAKE=gmake
-		    else
-			MAKE=make
-		    fi
+		if [ -n "`lookup_prog_in_path gmake`" ]; then
+		    MAKE=gmake
+		else
+		    MAKE=make
 		fi;;
        esac
     fi
     export MAKE
 }
     
-do_noboot_lib_and_erts ()
-{
-    setup_make
-    EMULATORS=emulator
-    if [ X`$MAKE is_cross_configured` = Xyes ]; then
-	TARGET=`$MAKE target_configured`
-    fi
-    if [ "x$MAKE" != "x$clearmake" ]; then
-	$MAKE MAKE="$MAKE" TARGET=$TARGET OTP_SMALL_BUILD=$OTP_SMALL_BUILD depend || exit 1;
-    fi
-    $MAKE MAKE="$MAKE" TARGET=$TARGET OTP_SMALL_BUILD=$OTP_SMALL_BUILD TYPE=$TYPE FLAVOR=$FLAVOR noboot || exit 1
-}
-
 do_primary_git ()
 {
     setup_make
