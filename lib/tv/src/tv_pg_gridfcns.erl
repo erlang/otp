@@ -205,8 +205,8 @@ resize_grid(NewWidth, NewHeight, ProcVars) ->
 	check_nof_cols(ColsShown, (NofColsShown - NofCols), ColFrameIds, ColIds, 
 		       RowIds, NofRows, RowHeight, FgColor, BgColor ),
 
-    clear_fields(lists:nthtail(NofColsShown, NewColIds), 
-		 lists:nthtail(NofRowsShown, NewRowIds)),
+    clear_fields(safe_nthtail(NofColsShown, NewColIds),
+		 safe_nthtail(NofRowsShown, NewRowIds)),
 
     RowsToUpdate = lists:sublist(NewRowIds, NofRowsShown),
 
@@ -279,7 +279,7 @@ resize_grid_column(RealCol, VirtualCol, Xdiff, ProcVars) ->
 
        % Update the ColWidths list.
     TempColWidths = lists:sublist(ColWidths, VirtualCol - 1) ++ 
-	[NewWidthOfCol | lists:nthtail(VirtualCol, ColWidths)],
+	[NewWidthOfCol | safe_nthtail(VirtualCol, ColWidths)],
     
        % Check the other columns, whether a new column has to be created.
     ColsShown    = compute_cols_shown(FirstColShown, TempColWidths, GridWidth, 
@@ -455,8 +455,8 @@ scroll_grid_horizontally(NewFirstColShown, ProcVars) ->
     refresh_visible_rows(RowsToUpdate, NewFirstColShown, NofColsShown, RowDataList, ListAsStr),
 
        % Clear fields currently not visible.
-    clear_fields(lists:nthtail(NofColsShown, NewColIds), 
-		 lists:nthtail(NofRowsShown, NewRowIds)),
+    clear_fields(safe_nthtail(NofColsShown, NewColIds),
+		 safe_nthtail(NofRowsShown, NewRowIds)),
 
     
     NewGridP = GridP#grid_params{nof_cols        = NewNofCols,
@@ -1565,7 +1565,7 @@ update_col_widths(ColsShown, ColWidths, FirstColShown, DefaultColWidth) ->
     if 
 	NecessaryNofVirtualCols > NofVirtualCols ->
 	    TailNo = NofVirtualCols - FirstColShown + 1,   % Always >= 0 !!!
-	    NewColWidths ++ lists:nthtail(TailNo, ColsShown);
+	    NewColWidths ++ safe_nthtail(TailNo, ColsShown);
 	true ->
 	    NewColWidths
     end.
@@ -1653,7 +1653,7 @@ compute_cols_shown(FirstColShown, ColWidths, GridWidth, _NofCols, DefaultColWidt
 			ColWidthsLength < FirstColShown ->
 			    [];
 			true ->
-			    lists:nthtail(FirstColShown - 1, ColWidths)
+			    safe_nthtail(FirstColShown - 1, ColWidths)
 		    end,
     compute_cols_shown(UsedColWidths, GridWidth, DefaultColWidth).
 
@@ -1894,3 +1894,21 @@ extract_ids_for_one_row(N, [ColIds | Tail]) ->
 %%%---------------------------------------------------------------------
 %%% END of functions used to create the grid.
 %%%---------------------------------------------------------------------
+
+
+%%======================================================================
+%% Function:
+%%
+%% Return Value:
+%%
+%% Description:
+%%
+%% Parameters:
+%%======================================================================
+
+
+safe_nthtail(_, []) -> [];
+safe_nthtail(1, [_|T]) -> T;
+safe_nthtail(N, [_|T]) when N > 1 ->
+    safe_nthtail(N - 1, T);
+safe_nthtail(0, L) when is_list(L) -> L.
