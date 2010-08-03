@@ -46,7 +46,7 @@ all(suite) ->
      trycatch_4, opt_crash,
      otp_5404,otp_5436,otp_5481,otp_5553,otp_5632,
      otp_5714,otp_5872,otp_6121,otp_6121a,otp_6121b,
-     otp_7202,otp_7345,on_load
+     otp_7202,otp_7345,on_load,string_table
     ].
 
 -define(comp(N),
@@ -595,5 +595,16 @@ otp_7345(ObjRef, _RdEnv, Args) ->
 		       div
 		       10},
     id(LlUnitdataReq).
+
+%% Check the generation of the string table.
+
+string_table(Config) when is_list(Config) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line File = filename:join(DataDir, "string_table.erl"),
+    ?line {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
+    ?line {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
+    ?line {"StrT", <<"stringabletringtable">>} = StringTableChunk,
+    ok.
+
 
 id(I) -> I.
