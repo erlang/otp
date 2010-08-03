@@ -236,7 +236,7 @@ int main(int argc, char** argv)
 	else
 	    usage(g);
     }
-    dbg_printf(g,0,"epmd running - daemon = %d",g->is_daemon);
+    dbg_printf(g,1,"epmd running - daemon = %d",g->is_daemon);
 
 #ifndef NO_SYSCONF
     if ((g->max_conn = sysconf(_SC_OPEN_MAX)) <= 0)
