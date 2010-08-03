@@ -743,14 +743,16 @@ recreate_primary_bootstrap:
 # of the emulator possible
 
 .PHONY: primary_bootstrap						\
-	primary_bootstrap_check_make					\
 	primary_bootstrap_build						\
 	primary_bootstrap_compiler					\
 	primary_bootstrap_mkdirs					\
 	primary_bootstrap_copy
 
-primary_bootstrap: primary_bootstrap_check_make
+primary_bootstrap:
 	@echo "=== Building a bootstrap compiler in $(BOOTSTRAP_ROOT)/bootstrap"
+	$(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) \
+		ERL_TOP=$(ERL_TOP) \
+		bootstrap_clean
 	cd $(ERL_TOP) && \
 		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
 		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
@@ -767,22 +769,6 @@ primary_bootstrap: primary_bootstrap_check_make
 			copy_primary_bootstrap \
 			$(BOOTSTRAP_TOP) \
 			$(BOOTSTRAP_ROOT)
-
-#
-# Dependencies are not complete in all makefiles; therefore, remove bootstrap
-# build result and build from scratch if we are not using clearmake (which
-# tracks dependencies itself).
-#
-primary_bootstrap_check_make:
-	@ case "$(MAKE)" in						\
-	    *clearmake*)						\
-		;;							\
-	    *)								\
-		$(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT)		\
-		ERL_TOP=$(ERL_TOP)					\
-		bootstrap_clean						\
-		;;							\
-	esac
 
 primary_bootstrap_build: primary_bootstrap_mkdirs primary_bootstrap_compiler \
   primary_bootstrap_stdlib
