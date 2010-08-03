@@ -13,11 +13,11 @@
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).
 
--file("/usr/local/otp/releases/sles10_32_R13B04_patched/lib/parsetools-2.0.2/include/yeccpre.hrl", 0).
+-file("/usr/local/otp_product/releases/sles10_32_R14A_patched/lib/parsetools-2.0.3/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -194,7 +194,7 @@ yecctoken2string(Other) ->
 
 
 
--file("/clearcase/otp/erts/bootstrap/lib/compiler/egen/core_parse.erl", 197).
+-file("/ldisk/bjorn/otp/bootstrap/lib/compiler/egen/core_parse.erl", 197).
 
 yeccpars2(0=S, Cat, Ss, Stack, T, Ts, Tzr) ->
  yeccpars2_0(S, Cat, Ss, Stack, T, Ts, Tzr);
@@ -852,7 +852,7 @@ yeccpars2_0(S, '(', Ss, Stack, T, Ts, Tzr) ->
 yeccpars2_0(S, module, Ss, Stack, T, Ts, Tzr) ->
  yeccpars1(S, 3, Ss, Stack, T, Ts, Tzr).
 
-yeccpars2_1(_S, '$end', _Ss, Stack,  _T, _Ts, _Tzr) ->
+yeccpars2_1(_S, '$end', _Ss, Stack, _T, _Ts, _Tzr) ->
  {ok, hd(Stack)}.
 
 yeccpars2_2(S, module, Ss, Stack, T, Ts, Tzr) ->
