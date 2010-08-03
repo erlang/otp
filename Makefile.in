@@ -1023,6 +1023,7 @@ bootstrap_root_clean:
 # $(BOOTSTRAP_TOP) for some reason should be empty).
 bootstrap_clean:
 	rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.beam
+	rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.app
 	rm -f $(ERL_TOP)/bootstrap/lib/*/egen/*
 	rm -f $(ERL_TOP)/bootstrap/lib/*/include/*.hrl
 	rm -f $(ERL_TOP)/bootstrap/primary_compiler/ebin/*
