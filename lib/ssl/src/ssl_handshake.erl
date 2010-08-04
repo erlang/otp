@@ -64,7 +64,7 @@ client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
     Version = ssl_record:highest_protocol_version(lists:map(Fun, Versions)),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
-    Ciphers = available_suites(Cert, UserSuites, Version),
+    Ciphers = available_suites(UserSuites, Version),
 
     Id = ssl_manager:client_session_id(Host, Port, SslOpts),
 
@@ -524,13 +524,16 @@ select_session(Hello, Port, Session, Version,
 	    {resumed, CacheCb:lookup(Cache, {Port, SessionId})}
     end.
 
-available_suites(Cert, UserSuites, Version) ->
+available_suites(UserSuites, Version) ->
     case UserSuites of
 	[] ->
-	    ssl_cipher:filter(Cert, ssl_cipher:suites(Version));
+	    ssl_cipher:suites(Version);
 	_ ->
-	    ssl_cipher:filter(Cert, UserSuites)
+	    UserSuites
     end.
+
+available_suites(ServerCert, UserSuites, Version) ->
+    ssl_cipher:filter(ServerCert, available_suites(UserSuites, Version)).
  
 cipher_suites(Suites, false) ->
     [?TLS_EMPTY_RENEGOTIATION_INFO_SCSV | Suites];
