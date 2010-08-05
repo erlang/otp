@@ -879,8 +879,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    case lists:keysearch(suite, 1, StartOpts) of
 		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
 		    {Dir,Mod} = S2M(Suite),
-		    case listify(proplists:get_value(group, StartOpts, [])) ++
-			 listify(proplists:get_value(testcase, StartOpts, [])) of
+		    case groups_and_cases(proplists:get_value(group, StartOpts),
+					  proplists:get_value(testcase, StartOpts)) of
+			Error = {error,_} ->
+			    exit(Error);
 			[] ->
 			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
 							 [], Opts1, StartOpts));
@@ -900,8 +902,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    Mod = if is_atom(Suite) -> Suite;
 			     true -> list_to_atom(Suite)
 			  end,
-		    case listify(proplists:get_value(group, StartOpts, [])) ++
-			 listify(proplists:get_value(testcase, StartOpts, [])) of
+		    case groups_and_cases(proplists:get_value(group, StartOpts),
+					  proplists:get_value(testcase, StartOpts)) of
+			Error = {error,_} ->
+			    exit(Error);
 			[] ->
 			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
 							 [], Opts1, StartOpts));
@@ -1087,14 +1091,16 @@ groups_and_cases(Gs, Cs) when ((Gs == undefined) or (Gs == [])) and
 			      ((Cs == undefined) or (Cs == [])) ->
     [];
 groups_and_cases(Gs, Cs) when Gs == undefined ; Gs == [] ->
-    [list_to_atom(C) || C <- Cs];
+    [ensure_atom(C) || C <- listify(Cs)];
 groups_and_cases(Gs, Cs) when Cs == undefined ; Cs == [] ->
-    [{list_to_atom(G),all} || G <- Gs];
+    [{ensure_atom(G),all} || G <- listify(Gs)];
+groups_and_cases(G, Cs) when is_atom(G) ->
+    [{G,[ensure_atom(C) || C <- listify(Cs)]}];
 groups_and_cases([G], Cs) ->
-    [{list_to_atom(G),[list_to_atom(C) || C <- Cs]}];
+    [{ensure_atom(G),[ensure_atom(C) || C <- listify(Cs)]}];
 groups_and_cases([_,_|_] , Cs) when Cs =/= [] ->
     {error,multiple_groups_and_cases};
-groups_and_cases(_Gs, _Cs) ->
+groups_and_cases(Gs, Cs) ->
     {error,incorrect_group_or_case_option}.
 
 tests(TestDir, Suites, []) when is_list(TestDir), is_integer(hd(TestDir)) ->

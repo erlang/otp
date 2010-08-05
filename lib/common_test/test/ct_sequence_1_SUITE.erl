@@ -57,7 +57,9 @@ end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
 all(suite) ->
-    [subgroup].
+    [subgroup_return_fail,
+     subgroup_init_fail,
+     subgroup_after_failed_case].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -66,31 +68,51 @@ all(suite) ->
 %%%-----------------------------------------------------------------
 %%%
 
-subgroup(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+subgroup_return_fail(Config) when is_list(Config) ->
+    execute(subgroup_return_fail,
+	    "subgroups_1_SUITE", subgroup_return_fail,
+	    Config).
 
-    Suite = filename:join(DataDir, "subgroups_1_SUITE"),
+%%%-----------------------------------------------------------------
+%%%
 
-    {Opts,ERPid} = setup({suite,Suite}, Config),
-    ok = ct_test_support:run(Opts, Config),
-    Events = ct_test_support:get_events(ERPid, Config),
+subgroup_init_fail(Config) when is_list(Config) ->
+    execute(subgroup_init_fail,
+	    "subgroups_1_SUITE", subgroup_init_fail,
+	    Config).
 
-    ct_test_support:log_events(subgroup,
-			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+%%%-----------------------------------------------------------------
+%%%
 
-    TestEvents = events_to_check(subgroup),
-    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+subgroup_after_failed_case(Config) when is_list(Config) ->
+    execute(subgroup_after_failed_case,
+	    "subgroups_1_SUITE", subgroup_after_failed_case,
+	    Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
+execute(TestCase, SuiteName, Group, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, SuiteName),
+
+    {Opts,ERPid} = setup([{suite,Suite},{group,Group},{label,TestCase}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(TestCase,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(TestCase),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
-    Opts = Opts0 ++ [Test,{event_handler,{?eh,EvHArgs}}],
+    Opts = Opts0 ++ [{event_handler,{?eh,EvHArgs}} | Test],
     ERPid = ct_test_support:start_event_receiver(Config),
     {Opts,ERPid}.
 
@@ -111,7 +133,23 @@ events_to_check(_, 0) ->
 events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
-test_events(subgroup) ->
+test_events(subgroup_return_fail) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(subgroup_init_fail) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(subgroup_after_failed_case) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
