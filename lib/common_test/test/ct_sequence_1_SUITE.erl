@@ -59,7 +59,9 @@ end_per_testcase(TestCase, Config) ->
 all(suite) ->
     [subgroup_return_fail,
      subgroup_init_fail,
-     subgroup_after_failed_case].
+     subgroup_after_failed_case,
+     case_after_subgroup_return_fail,
+     case_after_subgroup_fail_init].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -87,6 +89,22 @@ subgroup_init_fail(Config) when is_list(Config) ->
 subgroup_after_failed_case(Config) when is_list(Config) ->
     execute(subgroup_after_failed_case,
 	    "subgroups_1_SUITE", subgroup_after_failed_case,
+	    Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+case_after_subgroup_return_fail(Config) when is_list(Config) ->
+    execute(case_after_subgroup_return_fail,
+	    "subgroups_1_SUITE", case_after_subgroup_return_fail,
+	    Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+case_after_subgroup_fail_init(Config) when is_list(Config) ->
+    execute(case_after_subgroup_fail_init,
+	    "subgroups_1_SUITE", case_after_subgroup_fail_init,
 	    Config).
 
 %%%-----------------------------------------------------------------
@@ -150,6 +168,22 @@ test_events(subgroup_init_fail) ->
     ];
 
 test_events(subgroup_after_failed_case) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(case_after_subgroup_return_fail) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(case_after_subgroup_fail_init) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},

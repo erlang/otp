@@ -25,7 +25,8 @@
 all() ->
     [{group, subgroup_return_fail},
      {group, subgroup_init_fail},
-     {group, subgroup_after_failed_case}].
+     {group, subgroup_after_failed_case},
+     {group, case_after_failed_subgroup}].
 
 groups() ->
     [{return_fail, [], [failing_tc]},
@@ -36,11 +37,17 @@ groups() ->
 
      {subgroup_init_fail, [sequence], [{group, fail_init}, {group, ok_group}]},
 
-     {subgroup_after_failed_case, [sequence], [failing_tc, {group, ok_group}]}
+     {subgroup_after_failed_case, [sequence], [failing_tc, {group, ok_group}]},
+
+     {case_after_subgroup_return_fail, [sequence], [{group, return_fail}, ok_tc]},
+
+     {case_after_subgroup_fail_init, [sequence], [{group, fail_init}, ok_tc]}
     ].
 
 failed_subgroup(subgroup_return_fail) -> return_fail;
 failed_subgroup(subgroup_init_fail) -> fail_init;
+failed_subgroup(case_after_subgroup_return_fail) -> return_fail;
+failed_subgroup(case_after_subgroup_fail_init) -> fail_init;
 failed_subgroup(_) -> undefined.
 
 init_per_suite(Config) ->
@@ -64,7 +71,9 @@ end_per_group(subgroup_after_failed_case, Config) ->
     {return_group_result,failed};
 
 end_per_group(Group, Config) when Group == subgroup_return_fail;
-				  Group == subgroup_init_fail ->
+				  Group == subgroup_init_fail;
+				  Group == case_after_subgroup_return_fail;
+				  Group == case_after_subgroup_fail_init ->
     ct:comment(Group),
     Status = ?config(tc_group_result, Config),
     Failed = proplists:get_value(failed, Status),
