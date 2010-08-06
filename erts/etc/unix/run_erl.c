@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,9 @@
 #endif
 #ifdef HAVE_SYS_IOCTL_H
 #  include <sys/ioctl.h>
+#endif
+#if defined(__sun) && defined(__SVR4)
+#  include <stropts.h>
 #endif
 
 #include "run_erl.h"
@@ -864,8 +867,12 @@ static int open_pty_master(char **ptyslave)
 
 /* Use the posix_openpt if working, as this guarantees creation of the 
    slave device properly. */
-#ifdef HAVE_WORKING_POSIX_OPENPT
+#if defined(HAVE_WORKING_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
+#  ifdef HAVE_WORKING_POSIX_OPENPT
   if ((mfd = posix_openpt(O_RDWR)) >= 0) {
+#  elif defined(__sun) && defined(__SVR4)
+  if ((mfd = open("/dev/ptmx", O_RDWR)) >= 0) {
+#  endif
       if ((*ptyslave = ptsname(mfd)) != NULL &&
 	  grantpt(mfd) == 0 && 
 	  unlockpt(mfd) == 0) {
@@ -980,6 +987,26 @@ static int open_pty_slave(char *name)
   if ((sfd = open(name, O_RDWR, 0)) < 0) {
     return -1;
   }
+
+#if defined(__sun) && defined(__SVR4)
+  /* Load the necessary STREAMS modules for Solaris */
+  if ((ioctl(sfd, I_FIND, "ldterm")) < 0) {
+    ERROR0(LOG_ERR, "Failed to find ldterm STREAMS module");
+    return -1;
+  }
+  if (ioctl(sfd, I_PUSH, "ptem") < 0) {
+    ERROR0(LOG_ERR, "Failed to push ptem STREAMS module");
+    return -1;
+  }
+  if (ioctl(sfd, I_PUSH, "ldterm") < 0) {
+    ERROR0(LOG_ERR, "Failed to push ldterm STREAMS module");
+    return -1;
+  }
+  if (ioctl(sfd, I_PUSH, "ttcompat") < 0) {
+    ERROR0(LOG_ERR, "Failed to push ttcompat STREAMS module");
+    return -1;
+  }
+#endif
 
 #ifdef DEBUG
   if (tcgetattr(sfd, &tty_rmode) < 0) {
