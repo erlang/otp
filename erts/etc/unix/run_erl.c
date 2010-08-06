@@ -982,7 +982,7 @@ static int open_pty_slave(char *name)
   }
 
 #ifdef DEBUG
-  if (tcgetattr(sfd, &tty_rmode) , 0) {
+  if (tcgetattr(sfd, &tty_rmode) < 0) {
     fprintf(stderr, "Cannot get terminals current mode\n");
     exit(-1);
   }
