@@ -359,15 +359,8 @@ typedef unsigned char byte;
 #error 64-bit architecture, but no appropriate type to use for Uint64 and Sint64 found 
 #endif
 
-#if defined(ARCH_64)
-#  define ERTS_WORD_ALIGN_PAD_SZ(X) \
+#  define ERTS_EXTRA_DATA_ALIGN_SZ(X) \
     (((size_t) 8) - (((size_t) (X)) & ((size_t) 7)))
-#elif defined(ARCH_32)
-#  define ERTS_WORD_ALIGN_PAD_SZ(X) \
-    (((size_t) 4) - (((size_t) (X)) & ((size_t) 3)))
-#else
-#error "Not supported..."
-#endif
 
 #include "erl_lock_check.h"
 #include "erl_smp.h"

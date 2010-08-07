@@ -502,7 +502,7 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
     ASSERT(edep->ext_endp >= edep->extp);
     ext_sz = edep->ext_endp - edep->extp;
 
-    align_sz = ERTS_WORD_ALIGN_PAD_SZ(dist_ext_sz + ext_sz);
+    align_sz = ERTS_EXTRA_DATA_ALIGN_SZ(dist_ext_sz + ext_sz);
 
     new_edep = erts_alloc(ERTS_ALC_T_EXT_TERM_DATA,
 			  dist_ext_sz + ext_sz + align_sz + xsize);
