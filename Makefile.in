@@ -485,11 +485,13 @@ dep depend:
 # Creates "erl" and "erlc" in bootstrap/bin which uses the precompiled 
 # libraries in the bootstrap directory
 
+.PHONY: bootstrap_setup_target
+
 # ----------------------------------------------------------------------
 # Bootstraps... 
 # ----------------------------------------------------------------------
 ifeq ($(TARGET),win32)
-bootstrap_setup: check_recreate_primary_bootstrap
+bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.ini \
@@ -501,9 +503,9 @@ bootstrap_setup: check_recreate_primary_bootstrap
 	@cp $(ERL_TOP)/bin/$(TARGET)/erl.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe
 else
-bootstrap_setup: check_recreate_primary_bootstrap $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
 
-$(BOOTSTRAP_ROOT)/bootstrap/bin/erl:  $(ERL_TOP)/erts/etc/unix/erl.src.src
+$(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOTSTRAP_ROOT)/bootstrap/target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl 
 	@sed	-e "s;%FINAL_ROOTDIR%;$(BOOTSTRAP_ROOT)/bootstrap;"   \
 		-e "s;\$$ROOTDIR/erts-.*/bin;$(ERL_TOP)/bin/$(TARGET);"    \
@@ -512,11 +514,16 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/erl:  $(ERL_TOP)/erts/etc/unix/erl.src.src
 			$(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
 
-$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc:  $(ERL_TOP)/bin/$(TARGET)/erlc
+$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc: $(ERL_TOP)/bin/$(TARGET)/erlc $(BOOTSTRAP_ROOT)/bootstrap/target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
 	@cp $(ERL_TOP)/bin/$(TARGET)/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
 endif
+
+bootstrap_setup_target:
+	@{ test -r $(BOOTSTRAP_ROOT)/bootstrap/target && \
+	   test $(TARGET) = `cat $(BOOTSTRAP_ROOT)/bootstrap/target`; } || \
+	 echo $(TARGET) > $(BOOTSTRAP_ROOT)/bootstrap/target
 
 secondary_bootstrap_build:
 	cd lib && \
