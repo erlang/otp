@@ -75,7 +75,6 @@ MODULES= \
 	node_container_SUITE \
 	nofrag_SUITE \
 	num_bif_SUITE \
-	obsolete_SUITE \
 	op_SUITE \
 	port_SUITE \
 	port_bif_SUITE \
