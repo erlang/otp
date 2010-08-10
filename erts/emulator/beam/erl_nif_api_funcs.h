@@ -236,6 +236,13 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_uint64,(ErlNifEnv*, ErlNifUInt64));
 #  define enif_get_local_pid ERL_NIF_API_FUNC_MACRO(enif_get_local_pid)
 #  define enif_keep_resource ERL_NIF_API_FUNC_MACRO(enif_keep_resource)
 #  define enif_make_resource_binary ERL_NIF_API_FUNC_MACRO(enif_make_resource_binary)
+#if  SIZEOF_LONG != 8
+#  define enif_get_int64 ERL_NIF_API_FUNC_MACRO(enif_get_int64)
+#  define enif_get_uint64 ERL_NIF_API_FUNC_MACRO(enif_get_uint64)
+#  define enif_make_int64 ERL_NIF_API_FUNC_MACRO(enif_make_int64)
+#  define enif_make_uint64 ERL_NIF_API_FUNC_MACRO(enif_make_uint64)
+#endif
+
 #endif
 
 #ifndef enif_make_list1
