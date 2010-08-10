@@ -2974,19 +2974,6 @@ check_supported_os_version(void)
 }
 
 #ifdef USE_THREADS
-static void *ethr_internal_alloc(size_t size)
-{
-    return erts_alloc_fnf(ERTS_ALC_T_ETHR_INTERNAL, (Uint) size);
-}
-static void *ethr_internal_realloc(void *ptr, size_t size)
-{
-    return erts_realloc_fnf(ERTS_ALC_T_ETHR_INTERNAL, ptr, (Uint) size);
-}
-static void ethr_internal_free(void *ptr)
-{
-    erts_free(ERTS_ALC_T_ETHR_INTERNAL, ptr);
-}
-
 #ifdef ERTS_ENABLE_LOCK_COUNT
 static void
 thr_create_prepare_child(void *vtcdp)
@@ -3005,14 +2992,9 @@ erts_sys_pre_init(void)
 #ifdef USE_THREADS
     {
 	erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
-	eid.alloc = ethr_internal_alloc;
-	eid.realloc = ethr_internal_realloc;
-	eid.free = ethr_internal_free;
-
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	eid.thread_create_child_func = thr_create_prepare_child;
 #endif
-
 	erts_thr_init(&eid);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_lcnt_init();

@@ -240,8 +240,9 @@ typedef struct db_table_common {
 #define DB_DUPLICATE_BAG (1 << 8)
 #define DB_ORDERED_SET   (1 << 9)
 #define DB_DELETE        (1 << 10) /* table is being deleted */
+#define DB_FREQ_READ     (1 << 11)
 
-#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET|DB_FINE_LOCKED)
+#define ERTS_ETS_TABLE_TYPES (DB_BAG|DB_SET|DB_DUPLICATE_BAG|DB_ORDERED_SET|DB_FINE_LOCKED|DB_FREQ_READ)
 
 #define IS_HASH_TABLE(Status) (!!((Status) & \
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))

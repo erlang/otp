@@ -50,4 +50,8 @@ int erts_unbind_from_cpu_str(char *str);
 
 int erts_milli_sleep(long);
 
+#ifdef __WIN32__
+int erts_get_last_win_errno(void);
+#endif
+
 #endif /* #ifndef ERL_MISC_UTILS_H_ */

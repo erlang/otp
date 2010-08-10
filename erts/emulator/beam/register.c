@@ -39,8 +39,6 @@ static Hash process_reg;
 
 static erts_smp_rwmtx_t regtab_rwmtx;
 
-#define reg_lock_init()			erts_smp_rwmtx_init(&regtab_rwmtx, \
-							    "reg_tab")
 #define reg_try_read_lock()		erts_smp_rwmtx_tryrlock(&regtab_rwmtx)
 #define reg_try_write_lock()		erts_smp_rwmtx_tryrwlock(&regtab_rwmtx)
 #define reg_read_lock()			erts_smp_rwmtx_rlock(&regtab_rwmtx)
@@ -147,8 +145,11 @@ static void reg_free(RegProc *obj)
 void init_register_table(void)
 {
     HashFunctions f;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    reg_lock_init();
+    erts_smp_rwmtx_init_opt(&regtab_rwmtx, &rwmtx_opt, "reg_tab");
 
     f.hash = (H_FUN) reg_hash;
     f.cmp  = (HCMP_FUN) reg_cmp;

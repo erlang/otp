@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -31,7 +31,7 @@ typedef struct {
     volatile unsigned int lock;
 } ethr_native_spinlock_t;
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_spinlock_init(ethr_native_spinlock_t *lock)
@@ -46,7 +46,7 @@ ethr_native_spin_unlock(ethr_native_spinlock_t *lock)
      * On i386 this needs to be a locked operation
      * to avoid Pentium Pro errata 66 and 92.
      */
-#if defined(__x86_64__)
+#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
     __asm__ __volatile__("" : : : "memory");
     *(unsigned char*)&lock->lock = 0;
 #else

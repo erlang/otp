@@ -623,12 +623,16 @@ int db_create_hash(Process *p, DbTable *tbl)
     erts_smp_atomic_init(&tb->is_resizing, 0);
 #ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
+	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
 	int i;
+	if (tb->common.type & DB_FREQ_READ)
+	    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
 	tb->locks = (DbTableHashFineLocks*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, /* Other type maybe? */ 
 							      (DbTable *) tb,
 							      sizeof(DbTableHashFineLocks));	    	    
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
-	    erts_rwmtx_init_x(&tb->locks->lck_vec[i].lck, "db_hash_slot", make_small(i));
+	    erts_smp_rwmtx_init_opt_x(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
+				      "db_hash_slot", make_small(i));
 	}
 	/* This important property is needed to guarantee that the buckets
     	 * involved in a grow/shrink operation it protected by the same lock:

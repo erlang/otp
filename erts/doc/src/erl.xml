@@ -603,6 +603,24 @@
       <item>
         <p>Force ets memory block to be moved on realloc.</p>
       </item>
+      <tag><marker id="+rg"><c><![CDATA[+rg ReaderGroupsLimit]]></c></marker></tag>
+      <item>
+        <p>Limits the amount of reader groups used by read/write locks
+	   optimized for read operations in the Erlang runtime system. By
+	   default the reader groups limit equals 8.</p>
+	<p>When the amount of schedulers is less than or equal to the reader
+	   groups limit, each scheduler has its own reader group. When the
+	   amount of schedulers is larger than the reader groups limit,
+	   schedulers share reader groups. Shared reader groups degrades
+	   read lock and read unlock performance while a large amount of
+	   reader groups degrades write lock performance, so the limit is a
+	   tradeoff between performance for read operations and performance
+	   for write operations. Each reader group currently consumes 64 byte
+	   in each read/write lock. Also note that a runtime system using
+	   shared reader groups benefits from <seealso marker="#+sbt">binding
+	   schedulers to logical processors</seealso>, since the reader groups
+	   are distributed better between schedulers.</p>
+      </item>
       <tag><marker id="+S"><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></marker></tag>
       <item>
         <p>Sets the amount of scheduler threads to create and scheduler

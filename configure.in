@@ -368,11 +368,12 @@ if test "$files" != "$pattern"; then
 fi
 pattern="lib/*/CONF_INFO"
 files=`echo $pattern`
-if test "$files" != "$pattern"; then
+if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS INFORMATION  *******************'
   echo '*********************************************************************'
   echo
+  test ! -f erts/CONF_INFO || files="$files erts/CONF_INFO"
   for infofile in $files; do
     app=`dirname $infofile`; app=`basename $app`
     printf "%-15s: " $app; cat $infofile

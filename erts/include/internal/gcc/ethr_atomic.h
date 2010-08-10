@@ -55,6 +55,7 @@ do { \
     volatile long x___ = 0; \
     (void) __sync_val_compare_and_swap(&x___, (long) 0, (long) 1); \
 } while (0)
+#define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_MEMORY_BARRIER
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
@@ -156,6 +157,24 @@ ethr_native_atomic_xchg(ethr_native_atomic_t *var, long new)
     } while (act != exp);
     return act;
 }
+
+/*
+ * Atomic ops with at least specified barriers.
+ */
+
+static ETHR_INLINE long
+ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
+{
+    return __sync_add_and_fetch(&var->counter, (long) 0);
+}
+
+#define ethr_native_atomic_inc_return_acqb ethr_native_atomic_inc_return
+#define ethr_native_atomic_set_relb ethr_native_atomic_xchg
+#define ethr_native_atomic_dec_relb ethr_native_atomic_dec_return
+#define ethr_native_atomic_dec_return_relb ethr_native_atomic_dec_return
+
+#define ethr_native_atomic_cmpxchg_acqb ethr_native_atomic_cmpxchg
+#define ethr_native_atomic_cmpxchg_relb ethr_native_atomic_cmpxchg
 
 #endif
 

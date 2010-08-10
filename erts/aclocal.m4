@@ -653,6 +653,19 @@ fi
 
 ])
 
+AC_DEFUN(ERL_INTERNAL_LIBS,
+[
+
+ERTS_INTERNAL_X_LIBS=
+
+AC_CHECK_LIB(kstat, kstat_open,
+[AC_DEFINE(HAVE_KSTAT, 1, [Define if you have kstat])
+ERTS_INTERNAL_X_LIBS="$ERTS_INTERNAL_X_LIBS -lkstat"])
+
+AC_SUBST(ERTS_INTERNAL_X_LIBS)
+
+])
+
 dnl ----------------------------------------------------------------------
 dnl
 dnl ERL_FIND_ETHR_LIB
@@ -676,10 +689,13 @@ AC_DEFUN(ERL_FIND_ETHR_LIB,
 [
 
 LM_CHECK_THR_LIB
+ERL_INTERNAL_LIBS
 
+ethr_have_native_atomics=no
+ethr_have_native_spinlock=no
 ETHR_THR_LIB_BASE="$THR_LIB_NAME"
 ETHR_DEFS="$THR_DEFS"
-ETHR_X_LIBS="$THR_LIBS"
+ETHR_X_LIBS="$THR_LIBS $ERTS_INTERNAL_X_LIBS"
 ETHR_LIBS=
 ETHR_LIB_NAME=
 
@@ -691,6 +707,7 @@ ethr_lib_name=ethread
 case "$THR_LIB_NAME" in
 
     win32_threads)
+	ETHR_THR_LIB_BASE_DIR=win
 	# * _WIN32_WINNT >= 0x0400 is needed for
 	#   TryEnterCriticalSection
 	# * _WIN32_WINNT >= 0x0403 is needed for
@@ -716,10 +733,13 @@ case "$THR_LIB_NAME" in
         if test $found_win32_winnt = no; then
 	    AC_MSG_ERROR([-D_WIN32_WINNT missing in CPPFLAGS])
         fi
+	ethr_have_native_atomics=yes
+	ethr_have_native_spinlock=yes
 	AC_DEFINE(ETHR_WIN32_THREADS, 1, [Define if you have win32 threads])
 	;;
 
     pthread)
+	ETHR_THR_LIB_BASE_DIR=pthread
     	AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
 	case $host_os in
 	    openbsd*)
@@ -775,9 +795,7 @@ case "$THR_LIB_NAME" in
 		if test $usable_sigaltstack = no; then
 		    ETHR_DEFS="$ETHR_DEFS -DETHR_UNUSABLE_SIGALTSTACK"
 		fi
-
-		AC_DEFINE(ETHR_INIT_MUTEX_IN_CHILD_AT_FORK, 1, \
-[Define if mutexes should be reinitialized (instead of unlocked) in child at fork.]) ;;
+		;;
 	    *) ;;
 	esac
 
@@ -808,6 +826,10 @@ case "$THR_LIB_NAME" in
 [Define if you need the <nptl/pthread.h> header file.])
 	fi
 
+	AC_CHECK_HEADER(sched.h, \
+			AC_DEFINE(ETHR_HAVE_SCHED_H, 1, \
+[Define if you have the <sched.h> header file.]))
+
 	AC_CHECK_HEADER(sys/time.h, \
 			AC_DEFINE(ETHR_HAVE_SYS_TIME_H, 1, \
 [Define if you have the <sys/time.h> header file.]))
@@ -823,25 +845,62 @@ case "$THR_LIB_NAME" in
 	dnl Check for functions
 	dnl
 
-	AC_CHECK_FUNC(pthread_atfork, \
-			AC_DEFINE(ETHR_HAVE_PTHREAD_ATFORK, 1, \
-[Define if you have the pthread_atfork function.]))
-	AC_CHECK_FUNC(pthread_mutexattr_settype, \
-			AC_DEFINE(ETHR_HAVE_PTHREAD_MUTEXATTR_SETTYPE, 1, \
-[Define if you have the pthread_mutexattr_settype function.]))
-	AC_CHECK_FUNC(pthread_mutexattr_setkind_np, \
-			AC_DEFINE(ETHR_HAVE_PTHREAD_MUTEXATTR_SETKIND_NP, 1, \
-[Define if you have the pthread_mutexattr_setkind_np function.]))
 	AC_CHECK_FUNC(pthread_spin_lock, \
-			AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
-[Define if you have the pthread_spin_lock function.]))
+			[ethr_have_native_spinlock=yes \
+			 AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
+[Define if you have the pthread_spin_lock function.])])
+
+	have_sched_yield=no
+	have_librt_sched_yield=no
+	AC_CHECK_FUNC(sched_yield, [have_sched_yield=yes])
+	if test $have_sched_yield = no; then
+	    AC_CHECK_LIB(rt, sched_yield,
+			 [have_librt_sched_yield=yes
+			  ETHR_X_LIBS="$ETHR_X_LIBS -lrt"])
+	fi
+	if test $have_sched_yield = yes || test $have_librt_sched_yield = yes; then
+	    AC_DEFINE(ETHR_HAVE_SCHED_YIELD, 1, [Define if you have the sched_yield() function.])
+	    AC_MSG_CHECKING([whether sched_yield() returns an int])
+	    sched_yield_ret_int=no
+	    AC_TRY_COMPILE([
+				#ifdef ETHR_HAVE_SCHED_H
+				#include <sched.h>
+				#endif
+			   ],
+			   [int sched_yield();],
+			   [sched_yield_ret_int=yes])
+	    AC_MSG_RESULT([$sched_yield_ret_int])
+	    if test $sched_yield_ret_int = yes; then
+		AC_DEFINE(ETHR_SCHED_YIELD_RET_INT, 1, [Define if sched_yield() returns an int.])
+	    fi
+	fi
+
+	have_pthread_yield=no
+	AC_CHECK_FUNC(pthread_yield, [have_pthread_yield=yes])
+	if test $have_pthread_yield = yes; then
+	    AC_DEFINE(ETHR_HAVE_PTHREAD_YIELD, 1, [Define if you have the pthread_yield() function.])
+	    AC_MSG_CHECKING([whether pthread_yield() returns an int])
+	    pthread_yield_ret_int=no
+	    AC_TRY_COMPILE([
+				#if defined(ETHR_NEED_NPTL_PTHREAD_H)
+				#include <nptl/pthread.h>
+				#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
+				#include <pthread/mit/pthread.h>
+				#elif defined(ETHR_HAVE_PTHREAD_H)
+				#include <pthread.h>
+				#endif
+			   ],
+			   [int pthread_yield();],
+			   [pthread_yield_ret_int=yes])
+	    AC_MSG_RESULT([$pthread_yield_ret_int])
+	    if test $pthread_yield_ret_int = yes; then
+		AC_DEFINE(ETHR_PTHREAD_YIELD_RET_INT, 1, [Define if pthread_yield() returns an int.])
+	    fi
+	fi
 
 	have_pthread_rwlock_init=no
 	AC_CHECK_FUNC(pthread_rwlock_init, [have_pthread_rwlock_init=yes])
 	if test $have_pthread_rwlock_init = yes; then
-
-	    AC_DEFINE(ETHR_HAVE_PTHREAD_RWLOCK_INIT, 1, \
-[Define if you have a pthread_rwlock implementation that can be used.])
 
 	    ethr_have_pthread_rwlockattr_setkind_np=no
 	    AC_CHECK_FUNC(pthread_rwlockattr_setkind_np,
@@ -876,11 +935,41 @@ case "$THR_LIB_NAME" in
 	    fi
 	fi
 
+	if test "$force_pthread_rwlocks" = "yes"; then
 
+	    AC_DEFINE(ETHR_FORCE_PTHREAD_RWLOCK, 1, \
+[Define if you want to force usage of pthread rwlocks])
+
+	    if test $have_pthread_rwlock_init = yes; then
+		AC_MSG_WARN([Forced usage of pthread rwlocks. Note that this implementation may suffer from starvation issues.])
+	    else
+		AC_MSG_ERROR([User forced usage of pthread rwlock, but no such implementation was found])
+	    fi
+	fi
 
 	AC_CHECK_FUNC(pthread_attr_setguardsize, \
 			AC_DEFINE(ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE, 1, \
 [Define if you have the pthread_attr_setguardsize function.]))
+
+	linux_futex=no
+	AC_MSG_CHECKING([for Linux futexes])
+	AC_TRY_LINK([
+			#include <sys/syscall.h>
+			#include <unistd.h>
+			#include <linux/futex.h>
+			#include <sys/time.h>
+		    ],
+		    [
+			int i = 1;
+			syscall(__NR_futex, (void *) &i, FUTEX_WAKE, 1,
+				(void*)0,(void*)0, 0);
+			syscall(__NR_futex, (void *) &i, FUTEX_WAIT, 0,
+				(void*)0,(void*)0, 0);
+			return 0;
+		    ],
+		    linux_futex=yes)
+	AC_MSG_RESULT([$linux_futex])
+	test $linux_futex = yes && AC_DEFINE(ETHR_HAVE_LINUX_FUTEX, 1, [Define if you have a linux futex implementation.])
 
 	AC_MSG_CHECKING([for GCC atomic operations])
 	ethr_have_gcc_atomic_ops=no
@@ -899,10 +988,69 @@ case "$THR_LIB_NAME" in
 	AC_MSG_RESULT([$ethr_have_gcc_atomic_ops])
 	test $ethr_have_gcc_atomic_ops = yes && AC_DEFINE(ETHR_HAVE_GCC_ATOMIC_OPS, 1, [Define if you have gcc atomic operations])
 
+	case "$host_cpu" in
+	  sun4u | sparc64 | sun4v)
+		ethr_have_native_atomics=yes;;
+	  i86pc | i386 | i486 | i586 | i686 | x86_64 | amd64)
+		ethr_have_native_atomics=yes;;
+	  macppc | ppc | "Power Macintosh")
+		ethr_have_native_atomics=yes;;
+	  tile)
+		ethr_have_native_atomics=yes;;
+	  *)
+		;;
+	esac
+
+	AC_MSG_CHECKING([for a usable libatomic_ops implementation])
+	case "x$with_libatomic_ops" in
+	    xno | xyes | x)
+		libatomic_ops_include=
+		;;
+	    *)
+		if test -d "${with_libatomic_ops}/include"; then
+		    libatomic_ops_include="-I$with_libatomic_ops/include"
+		    CPPFLAGS="$CPPFLAGS $libatomic_ops_include"
+		else
+		    AC_MSG_ERROR([libatomic_ops include directory $with_libatomic_ops/include not found])
+		fi;;
+	esac
+	ethr_have_libatomic_ops=no
+	AC_TRY_LINK([#include "atomic_ops.h"],
+		    [
+			volatile AO_t x;
+			AO_t y;
+			int z;
+
+			AO_nop_full();
+			AO_store(&x, (AO_t) 0);
+			z = AO_load(&x);
+			z = AO_compare_and_swap(&x, (AO_t) 0, (AO_t) 1);
+		    ],
+		    [ethr_have_native_atomics=yes
+		     ethr_have_libatomic_ops=yes])
+	AC_MSG_RESULT([$ethr_have_libatomic_ops])
+	if test $ethr_have_libatomic_ops = yes; then
+	    AC_CHECK_SIZEOF(AO_t, ,
+			    [
+				#include <stdio.h>
+				#include "atomic_ops.h"
+			    ])
+	    AC_DEFINE_UNQUOTED(ETHR_SIZEOF_AO_T, $ac_cv_sizeof_AO_t, [Define to the size of AO_t if libatomic_ops is used])
+
+	    AC_DEFINE(ETHR_HAVE_LIBATOMIC_OPS, 1, [Define if you have libatomic_ops atomic operations])
+	    if test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
+		AC_DEFINE(ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS, 1, [Define if you prefer libatomic_ops native ethread implementations])
+	    fi
+	    ETHR_DEFS="$ETHR_DEFS $libatomic_ops_include"
+	elif test "x$with_libatomic_ops" != "xno" && test "x$with_libatomic_ops" != "x"; then
+	    AC_MSG_ERROR([No usable libatomic_ops implementation found])
+	fi
+
 	dnl Restore LIBS
 	LIBS=$saved_libs
 	dnl restore CPPFLAGS
 	CPPFLAGS=$saved_cppflags
+
 	;;
     *)
 	;;
@@ -918,16 +1066,23 @@ fi
 
 if test "x$ETHR_THR_LIB_BASE" != "x"; then
 	ETHR_DEFS="-DUSE_THREADS $ETHR_DEFS"
-	ETHR_LIBS="-l$ethr_lib_name $ETHR_X_LIBS"
+	ETHR_LIBS="-l$ethr_lib_name -lerts_internal_r $ETHR_X_LIBS"
 	ETHR_LIB_NAME=$ethr_lib_name
 fi
 
 AC_CHECK_SIZEOF(void *)
 AC_DEFINE_UNQUOTED(ETHR_SIZEOF_PTR, $ac_cv_sizeof_void_p, [Define to the size of pointers])
 
-if test "X$disable_native_ethr_impls" = "Xyes"; then
-	AC_DEFINE(ETHR_DISABLE_NATIVE_IMPLS, 1, [Define if you want to disable native ethread implementations])
-fi
+AC_ARG_ENABLE(native-ethr-impls,
+	      AS_HELP_STRING([--disable-native-ethr-impls],
+                             [disable native ethread implementations]),
+[ case "$enableval" in
+    no) disable_native_ethr_impls=yes ;;
+    *)  disable_native_ethr_impls=no ;;
+  esac ], disable_native_ethr_impls=no)
+
+test "X$disable_native_ethr_impls" = "Xyes" &&
+  AC_DEFINE(ETHR_DISABLE_NATIVE_IMPLS, 1, [Define if you want to disable native ethread implementations])
 
 AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
 	      AS_HELP_STRING([--enable-prefer-gcc-native-ethr-impls],
@@ -940,6 +1095,21 @@ AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
 test $enable_prefer_gcc_native_ethr_impls = yes &&
   AC_DEFINE(ETHR_PREFER_GCC_NATIVE_IMPLS, 1, [Define if you prefer gcc native ethread implementations])
 
+AC_ARG_ENABLE(ethread-pre-pentium4-compatibility,
+	      AS_HELP_STRING([--enable-ethread-pre-pentium4-compatibility],
+			     [enable compatibility with x86 processors before pentium 4 (back to 486) in the ethread library]),
+[ case "$enableval" in
+    yes) enable_ethread_pre_pentium4_compatibility=yes ;;
+    *)  enable_ethread_pre_pentium4_compatibilit=no ;;
+  esac ], enable_ethread_pre_pentium4_compatibilit=no)
+
+test $enable_ethread_pre_pentium4_compatibilit = yes &&
+  AC_DEFINE(ETHR_PRE_PENTIUM4_COMPAT, 1, [Define if you want compatibilty with x86 processors before pentium4.])
+
+AC_ARG_WITH(libatomic_ops,
+	    AS_HELP_STRING([--with-libatomic_ops=PATH],
+			   [use libatomic_ops with the ethread library]))
+
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])
 
@@ -948,6 +1118,7 @@ AC_SUBST(ETHR_LIBS)
 AC_SUBST(ETHR_LIB_NAME)
 AC_SUBST(ETHR_DEFS)
 AC_SUBST(ETHR_THR_LIB_BASE)
+AC_SUBST(ETHR_THR_LIB_BASE_DIR)
 
 ])
 

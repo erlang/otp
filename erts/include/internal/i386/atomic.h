@@ -32,8 +32,11 @@ typedef struct {
     volatile long counter;
 } ethr_native_atomic_t;
 
-#ifdef __x86_64__
+#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
 #define ETHR_MEMORY_BARRIER __asm__ __volatile__("mfence" : : : "memory")
+#define ETHR_WRITE_MEMORY_BARRIER __asm__ __volatile__("sfence" : : : "memory")
+#define ETHR_READ_MEMORY_BARRIER __asm__ __volatile__("lfence" : : : "memory")
+#define ETHR_READ_DEPEND_MEMORY_BARRIER __asm__ __volatile__("" : : : "memory")
 #else
 #define ETHR_MEMORY_BARRIER \
 do { \
@@ -42,7 +45,9 @@ do { \
 } while (0)
 #endif
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#define ETHR_ATOMIC_HAVE_INC_DEC_INSTRUCTIONS 1
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 #ifdef __x86_64__
 #define LONG_SUFFIX "q"
@@ -157,6 +162,22 @@ ethr_native_atomic_xchg(ethr_native_atomic_t *var, long val)
     /* now tmp is the atomic's previous value */ 
     return tmp;
 } 
+
+/*
+ * Atomic ops with at least specified barriers.
+ */
+
+#define ethr_native_atomic_read_acqb ethr_native_atomic_read
+#define ethr_native_atomic_inc_return_acqb ethr_native_atomic_inc_return
+#if defined(__x86_64__) || !defined(ETHR_PRE_PENTIUM4_COMPAT)
+#define ethr_native_atomic_set_relb ethr_native_atomic_set
+#else
+#define ethr_native_atomic_set_relb ethr_native_atomic_xchg
+#endif
+#define ethr_native_atomic_dec_relb ethr_native_atomic_dec
+#define ethr_native_atomic_dec_return_relb ethr_native_atomic_dec_return
+#define ethr_native_atomic_cmpxchg_acqb ethr_native_atomic_cmpxchg
+#define ethr_native_atomic_cmpxchg_relb ethr_native_atomic_cmpxchg
 
 #undef LONG_SUFFIX
 

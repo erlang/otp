@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -43,9 +43,17 @@ typedef erts_thr_init_data_t erts_smp_thr_init_data_t;
 typedef erts_tid_t erts_smp_tid_t;
 typedef erts_mtx_t erts_smp_mtx_t;
 typedef erts_cnd_t erts_smp_cnd_t;
+#define ERTS_SMP_RWMTX_OPT_DEFAULT_INITER ERTS_RWMTX_OPT_DEFAULT_INITER
+#define ERTS_SMP_RWMTX_TYPE_NORMAL ERTS_RWMTX_TYPE_NORMAL
+#define ERTS_SMP_RWMTX_TYPE_FREQUENT_READ ERTS_RWMTX_TYPE_FREQUENT_READ
+#define ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ \
+  ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ
+#define ERTS_SMP_RWMTX_LONG_LIVED ERTS_RWMTX_LONG_LIVED
+#define ERTS_SMP_RWMTX_SHORT_LIVED ERTS_RWMTX_SHORT_LIVED
+#define ERTS_SMP_RWMTX_UNKNOWN_LIVED ERTS_RWMTX_UNKNOWN_LIVED
+typedef erts_rwmtx_opt_t erts_smp_rwmtx_opt_t;
 typedef erts_rwmtx_t erts_smp_rwmtx_t;
 typedef erts_tsd_key_t erts_smp_tsd_key_t;
-typedef erts_gate_t erts_smp_gate_t;
 typedef ethr_atomic_t erts_smp_atomic_t;
 typedef erts_spinlock_t erts_smp_spinlock_t;
 typedef erts_rwlock_t erts_smp_rwlock_t;
@@ -54,15 +62,27 @@ void erts_thr_fatal_error(int, char *); /* implemented in erl_init.c */
 
 #else /* #ifdef ERTS_SMP */
 
-#define ERTS_SMP_THR_OPTS_DEFAULT_INITER 0
+#define ERTS_SMP_THR_OPTS_DEFAULT_INITER {0}
 typedef int erts_smp_thr_opts_t;
 typedef int erts_smp_thr_init_data_t;
 typedef int erts_smp_tid_t;
 typedef int erts_smp_mtx_t;
 typedef int erts_smp_cnd_t;
+#define ERTS_SMP_RWMTX_OPT_DEFAULT_INITER {0}
+#define ERTS_SMP_RWMTX_TYPE_NORMAL 0
+#define ERTS_SMP_RWMTX_TYPE_FREQUENT_READ 0
+#define ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ 0
+#define ERTS_SMP_RWMTX_LONG_LIVED 0
+#define ERTS_SMP_RWMTX_SHORT_LIVED 0
+#define ERTS_SMP_RWMTX_UNKNOWN_LIVED 0
+typedef struct {
+    char type;
+    char lived;
+    int main_spincount;
+    int aux_spincount;
+} erts_smp_rwmtx_opt_t;
 typedef int erts_smp_rwmtx_t;
 typedef int erts_smp_tsd_key_t;
-typedef int erts_smp_gate_t;
 typedef long erts_smp_atomic_t;
 #if __GNUC__ > 2
 typedef struct { } erts_smp_spinlock_t;
@@ -103,8 +123,6 @@ ERTS_GLB_INLINE void erts_smp_mtx_init_locked_x(erts_smp_mtx_t *mtx,
 ERTS_GLB_INLINE void erts_smp_mtx_init(erts_smp_mtx_t *mtx, char *name);
 ERTS_GLB_INLINE void erts_smp_mtx_init_locked(erts_smp_mtx_t *mtx, char *name);
 ERTS_GLB_INLINE void erts_smp_mtx_destroy(erts_smp_mtx_t *mtx);
-ERTS_GLB_INLINE void erts_smp_mtx_set_forksafe(erts_smp_mtx_t *mtx);
-ERTS_GLB_INLINE void erts_smp_mtx_unset_forksafe(erts_smp_mtx_t *mtx);
 ERTS_GLB_INLINE int erts_smp_mtx_trylock(erts_smp_mtx_t *mtx);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 ERTS_GLB_INLINE void erts_smp_mtx_lock_x(erts_smp_mtx_t *mtx, char *file, int line);
@@ -119,9 +137,17 @@ ERTS_GLB_INLINE void erts_smp_cnd_wait(erts_smp_cnd_t *cnd,
 					   erts_smp_mtx_t *mtx);
 ERTS_GLB_INLINE void erts_smp_cnd_signal(erts_smp_cnd_t *cnd);
 ERTS_GLB_INLINE void erts_smp_cnd_broadcast(erts_smp_cnd_t *cnd);
+ERTS_GLB_INLINE void erts_smp_rwmtx_set_reader_group(int no);
+ERTS_GLB_INLINE void erts_smp_rwmtx_init_opt_x(erts_smp_rwmtx_t *rwmtx,
+					       erts_smp_rwmtx_opt_t *opt,
+					       char *name,
+					       Eterm extra);
 ERTS_GLB_INLINE void erts_smp_rwmtx_init_x(erts_smp_rwmtx_t *rwmtx,
 					   char *name,
 					   Eterm extra);
+ERTS_GLB_INLINE void erts_smp_rwmtx_init_opt(erts_smp_rwmtx_t *rwmtx,
+					     erts_smp_rwmtx_opt_t *opt,
+					     char *name);
 ERTS_GLB_INLINE void erts_smp_rwmtx_init(erts_smp_rwmtx_t *rwmtx,
 					 char *name);
 ERTS_GLB_INLINE void erts_smp_rwmtx_destroy(erts_smp_rwmtx_t *rwmtx);
@@ -155,6 +181,16 @@ ERTS_GLB_INLINE long erts_smp_atomic_cmpxchg(erts_smp_atomic_t *xchgp,
 					     long expected);
 ERTS_GLB_INLINE long erts_smp_atomic_bor(erts_smp_atomic_t *var, long mask);
 ERTS_GLB_INLINE long erts_smp_atomic_band(erts_smp_atomic_t *var, long mask);
+ERTS_GLB_INLINE long erts_smp_atomic_read_acqb(erts_smp_atomic_t *var);
+ERTS_GLB_INLINE void erts_smp_atomic_set_relb(erts_smp_atomic_t *var, long i);
+ERTS_GLB_INLINE void erts_smp_atomic_dec_relb(erts_smp_atomic_t *decp);
+ERTS_GLB_INLINE long erts_smp_atomic_dectest_relb(erts_smp_atomic_t *decp);
+ERTS_GLB_INLINE long erts_smp_atomic_cmpxchg_acqb(erts_smp_atomic_t *xchgp,
+						  long new,
+						  long exp);
+ERTS_GLB_INLINE long erts_smp_atomic_cmpxchg_relb(erts_smp_atomic_t *xchgp,
+						  long new,
+						  long exp);
 ERTS_GLB_INLINE void erts_smp_spinlock_init_x(erts_smp_spinlock_t *lock,
 					      char *name,
 					      Eterm extra);
@@ -190,12 +226,6 @@ ERTS_GLB_INLINE void erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp);
 ERTS_GLB_INLINE void erts_smp_tsd_key_delete(erts_smp_tsd_key_t key);
 ERTS_GLB_INLINE void erts_smp_tsd_set(erts_smp_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_smp_tsd_get(erts_smp_tsd_key_t key);
-ERTS_GLB_INLINE void erts_smp_gate_init(erts_smp_gate_t *gp);
-ERTS_GLB_INLINE void erts_smp_gate_destroy(erts_smp_gate_t *gp);
-ERTS_GLB_INLINE void erts_smp_gate_close(erts_smp_gate_t *gp);
-ERTS_GLB_INLINE void erts_smp_gate_let_through(erts_smp_gate_t *gp, unsigned no);
-ERTS_GLB_INLINE void erts_smp_gate_wait(erts_smp_gate_t *gp);
-ERTS_GLB_INLINE void erts_smp_gate_swait(erts_smp_gate_t *gp, int spincount);
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
 #define ERTS_SMP_THR_HAVE_SIG_FUNCS 1
@@ -331,22 +361,6 @@ erts_smp_mtx_destroy(erts_smp_mtx_t *mtx)
 #endif
 }
 
-ERTS_GLB_INLINE void
-erts_smp_mtx_set_forksafe(erts_smp_mtx_t *mtx)
-{
-#ifdef ERTS_SMP
-    erts_mtx_set_forksafe(mtx);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_mtx_unset_forksafe(erts_smp_mtx_t *mtx)
-{
-#ifdef ERTS_SMP
-    erts_mtx_unset_forksafe(mtx);
-#endif
-}
-
 ERTS_GLB_INLINE int
 erts_smp_mtx_trylock(erts_smp_mtx_t *mtx)
 {
@@ -433,10 +447,39 @@ erts_smp_cnd_broadcast(erts_smp_cnd_t *cnd)
 }
 
 ERTS_GLB_INLINE void
+erts_smp_rwmtx_set_reader_group(int no)
+{
+#ifdef ERTS_SMP
+    erts_rwmtx_set_reader_group(no);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_smp_rwmtx_init_opt_x(erts_smp_rwmtx_t *rwmtx,
+			  erts_smp_rwmtx_opt_t *opt,
+			  char *name,
+			  Eterm extra)
+{
+#ifdef ERTS_SMP
+    erts_rwmtx_init_opt_x(rwmtx, opt, name, extra);
+#endif
+}
+
+ERTS_GLB_INLINE void
 erts_smp_rwmtx_init_x(erts_smp_rwmtx_t *rwmtx, char *name, Eterm extra)
 {
 #ifdef ERTS_SMP
     erts_rwmtx_init_x(rwmtx, name, extra);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_smp_rwmtx_init_opt(erts_smp_rwmtx_t *rwmtx,
+			erts_smp_rwmtx_opt_t *opt,
+			char *name)
+{
+#ifdef ERTS_SMP
+    erts_rwmtx_init_opt(rwmtx, opt, name);
 #endif
 }
 
@@ -709,6 +752,73 @@ erts_smp_atomic_band(erts_smp_atomic_t *var, long mask)
 #endif
 }
 
+ERTS_GLB_INLINE long
+erts_smp_atomic_read_acqb(erts_smp_atomic_t *var)
+{
+#ifdef ERTS_SMP
+    return erts_atomic_read_acqb(var);
+#else
+    return *var;
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_smp_atomic_set_relb(erts_smp_atomic_t *var, long i)
+{
+#ifdef ERTS_SMP
+    erts_atomic_set_relb(var, i);
+#else
+    *var = i;
+#endif
+}
+
+ERTS_GLB_INLINE void erts_smp_atomic_dec_relb(erts_smp_atomic_t *decp)
+{
+#ifdef ERTS_SMP
+    erts_atomic_dec_relb(decp);
+#else
+    --(*decp);
+#endif
+}
+
+ERTS_GLB_INLINE long
+erts_smp_atomic_dectest_relb(erts_smp_atomic_t *decp)
+{
+#ifdef ERTS_SMP
+    return erts_atomic_dectest_relb(decp);
+#else
+    return --(*decp);
+#endif
+}
+
+ERTS_GLB_INLINE long erts_smp_atomic_cmpxchg_acqb(erts_smp_atomic_t *xchgp,
+						  long new,
+						  long exp)
+{
+#ifdef ERTS_SMP
+    return erts_atomic_cmpxchg_acqb(xchgp, new, exp);
+#else
+    long old = *xchgp;
+    if (old == exp)
+        *xchgp = new;
+    return old;
+#endif
+}
+
+ERTS_GLB_INLINE long erts_smp_atomic_cmpxchg_relb(erts_smp_atomic_t *xchgp,
+						  long new,
+						  long exp)
+{
+#ifdef ERTS_SMP
+    return erts_atomic_cmpxchg_relb(xchgp, new, exp);
+#else
+    long old = *xchgp;
+    if (old == exp)
+        *xchgp = new;
+    return old;
+#endif
+}
+
 ERTS_GLB_INLINE void
 erts_smp_spinlock_init_x(erts_smp_spinlock_t *lock, char *name, Eterm extra)
 {
@@ -916,54 +1026,6 @@ erts_smp_tsd_get(erts_smp_tsd_key_t key)
     return erts_tsd_get(key);
 #else
     return NULL;
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_gate_init(erts_smp_gate_t *gp)
-{
-#ifdef ERTS_SMP
-    erts_gate_init((erts_gate_t *) gp);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_gate_destroy(erts_smp_gate_t *gp)
-{
-#ifdef ERTS_SMP
-    erts_gate_destroy((erts_gate_t *) gp);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_gate_close(erts_smp_gate_t *gp)
-{
-#ifdef ERTS_SMP
-    erts_gate_close((erts_gate_t *) gp);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_gate_let_through(erts_smp_gate_t *gp, unsigned no)
-{
-#ifdef ERTS_SMP
-    erts_gate_let_through((erts_gate_t *) gp, no);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_gate_wait(erts_smp_gate_t *gp)
-{
-#ifdef ERTS_SMP
-    erts_gate_wait((erts_gate_t *) gp);
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_gate_swait(erts_smp_gate_t *gp, int spincount)
-{
-#ifdef ERTS_SMP
-    erts_gate_swait((erts_gate_t *) gp, spincount);
 #endif
 }
 

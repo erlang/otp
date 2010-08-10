@@ -78,6 +78,7 @@ static erts_tid_t main_thread;
 
 erts_cpu_info_t *erts_cpuinfo;
 
+int erts_reader_groups;
 int erts_use_sender_punish;
 
 /*
@@ -110,6 +111,7 @@ int erts_compat_rel;
 static int use_multi_run_queue;
 static int no_schedulers;
 static int no_schedulers_online;
+static int max_reader_groups;
 
 #ifdef DEBUG
 Uint32 verbose;             /* See erl_debug.h for information about verbose */
@@ -505,6 +507,7 @@ void erts_usage(void)
 	       ERTS_MIN_COMPAT_REL, this_rel_num());
 
     erts_fprintf(stderr, "-r          force ets memory block to be moved on realloc\n");
+    erts_fprintf(stderr, "-rg amount  set reader groups limit\n");
     erts_fprintf(stderr, "-sbt type   set scheduler bind type, valid types are:\n");
     erts_fprintf(stderr, "            u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
@@ -537,6 +540,50 @@ void erts_usage(void)
     erts_fprintf(stderr, "\n\n");
     erl_exit(-1, "");
 }
+
+#ifdef USE_THREADS
+/*
+ * allocators for thread lib
+ */
+
+static void *ethr_std_alloc(size_t size)
+{
+    return erts_alloc_fnf(ERTS_ALC_T_ETHR_STD, (Uint) size);
+}
+static void *ethr_std_realloc(void *ptr, size_t size)
+{
+    return erts_realloc_fnf(ERTS_ALC_T_ETHR_STD, ptr, (Uint) size);
+}
+static void ethr_std_free(void *ptr)
+{
+    erts_free(ERTS_ALC_T_ETHR_STD, ptr);
+}
+static void *ethr_sl_alloc(size_t size)
+{
+    return erts_alloc_fnf(ERTS_ALC_T_ETHR_SL, (Uint) size);
+}
+static void *ethr_sl_realloc(void *ptr, size_t size)
+{
+    return erts_realloc_fnf(ERTS_ALC_T_ETHR_SL, ptr, (Uint) size);
+}
+static void ethr_sl_free(void *ptr)
+{
+    erts_free(ERTS_ALC_T_ETHR_SL, ptr);
+}
+static void *ethr_ll_alloc(size_t size)
+{
+    return erts_alloc_fnf(ERTS_ALC_T_ETHR_LL, (Uint) size);
+}
+static void *ethr_ll_realloc(void *ptr, size_t size)
+{
+    return erts_realloc_fnf(ERTS_ALC_T_ETHR_LL, ptr, (Uint) size);
+}
+static void ethr_ll_free(void *ptr)
+{
+    erts_free(ERTS_ALC_T_ETHR_LL, ptr);
+}
+
+#endif
 
 static void
 early_init(int *argc, char **argv) /*
@@ -615,8 +662,14 @@ early_init(int *argc, char **argv) /*
 			    ? ncpuavail
 			    : (ncpuonln > 0 ? ncpuonln : no_schedulers));
 
+#ifdef ERTS_SMP
+    erts_max_main_threads = no_schedulers_online;
+#endif
+
     schdlrs = no_schedulers;
     schdlrs_onln = no_schedulers_online;
+
+    max_reader_groups = ERTS_MAX_READER_GROUPS;
 
     if (argc && argv) {
 	int i = 1;
@@ -627,6 +680,24 @@ early_init(int *argc, char **argv) /*
 	    }
 	    if (argv[i][0] == '-') {
 		switch (argv[i][1]) {
+		case 'r': {
+		    char *sub_param = argv[i]+2;
+		    if (has_prefix("g", sub_param)) {
+			char *arg = get_arg(sub_param+1, argv[i+1], &i);
+			if (sscanf(arg, "%d", &max_reader_groups) != 1) {
+			    erts_fprintf(stderr,
+					 "bad reader groups limit: %s\n", arg);
+			    erts_usage();
+			}
+			if (max_reader_groups < 0) {
+			    erts_fprintf(stderr,
+					 "bad reader groups limit: %d\n",
+					 max_reader_groups);
+			    erts_usage();
+			}
+		    }
+		    break;
+		}
 		case 'S' : {
 		    int tot, onln;
 		    char *arg = get_arg(argv[i]+2, argv[i+1], &i);
@@ -699,6 +770,36 @@ early_init(int *argc, char **argv) /*
     erts_early_init_scheduling(); /* Require allocators */
     erts_init_utils(); /* Require allocators */
 
+#ifdef USE_THREADS
+    {
+	erts_thr_late_init_data_t elid = ERTS_THR_LATE_INIT_DATA_DEF_INITER;
+	elid.mem.std.alloc = ethr_std_alloc;
+	elid.mem.std.realloc = ethr_std_realloc;
+	elid.mem.std.free = ethr_std_free;
+	elid.mem.sl.alloc = ethr_sl_alloc;
+	elid.mem.sl.realloc = ethr_sl_realloc;
+	elid.mem.sl.free = ethr_sl_free;
+	elid.mem.ll.alloc = ethr_ll_alloc;
+	elid.mem.ll.realloc = ethr_ll_realloc;
+	elid.mem.ll.free = ethr_ll_free;
+
+#ifdef ERTS_SMP
+	elid.main_threads = erts_max_main_threads;
+#else
+	elid.main_threads = 1;
+#endif
+	elid.reader_groups = (elid.main_threads > 1
+			      ? elid.main_threads
+			      : 0);
+	if (max_reader_groups <= 1)
+	    elid.reader_groups = 0;
+	if (elid.reader_groups > max_reader_groups)
+	    elid.reader_groups = max_reader_groups;
+	erts_reader_groups = elid.reader_groups;
+
+	erts_thr_late_init(&elid);
+    }
+#endif
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_late_init();
 #endif
@@ -1193,9 +1294,17 @@ erl_start(int argc, char **argv)
 		     erts_async_thread_suggested_stack_size));
 	    break;
 
- 	case 'r':
-	    erts_ets_realloc_always_moves = 1;
+	case 'r': {
+	    char *sub_param = argv[i]+2;
+	    if (has_prefix("g", sub_param)) {
+		get_arg(sub_param+1, argv[i+1], &i);
+		/* already handled */
+	    }
+	    else {
+		erts_ets_realloc_always_moves = 1;
+	    }
 	    break;
+	}
 	case 'n':   /* XXX obsolete */
 	    break;
 	case 'c':
@@ -1280,6 +1389,7 @@ erl_start(int argc, char **argv)
 
     erts_sys_main_thread(); /* May or may not return! */
 #else
+    erts_thr_set_main_status(1, 1);
     set_main_stack_size();
     process_main();
 #endif
@@ -1353,7 +1463,7 @@ system_cleanup(int exit_code)
     erts_cleanup_incgc();
 #endif
 
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
+#if defined(USE_THREADS)
     exit_async();
 #endif
 #if HAVE_ERTS_MSEG

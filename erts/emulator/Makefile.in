@@ -199,6 +199,14 @@ MKDIR	= @MKDIR@
 
 USING_MINGW=@MIXED_CYGWIN_MINGW@
 
+ifeq ($(TARGET),win32)
+LIB_PREFIX=
+LIB_SUFFIX=.lib
+else
+LIB_PREFIX=lib
+LIB_SUFFIX=.a
+endif
+
 OMIT_OMIT_FP=no
 
 ifeq (@EMU_LOCK_CHECKING@,yes)
@@ -279,14 +287,11 @@ endif
 
 ifeq ($(TARGET),win32)
 LIBS    += -L$(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE) -lepcre
-DEPLIBS += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/epcre.lib
 else
-LIBS    += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/libepcre.a
-DEPLIBS += \
-	$(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/libepcre.a \
-	$(ERL_TOP)/erts/lib/internal/$(TARGET)/liberts_internal.a 
-# rem liberts_internal.a
+LIBS    += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 endif
+
+DEPLIBS += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 
 ELIB_FLAGS = -DENABLE_ELIB_MALLOC -DELIB_ALLOC_IS_CLIB -DELIB_HEAP_SBRK
 
@@ -305,7 +310,19 @@ LIBSCTP = @LIBSCTP@
 ORG_THR_LIBS=@EMU_THR_LIBS@
 THR_LIB_NAME=@EMU_THR_LIB_NAME@
 
-THR_LIBS=$(subst -l$(THR_LIB_NAME),-l$(THR_LIB_NAME)$(TYPEMARKER),$(ORG_THR_LIBS))
+ifneq ($(strip $(THR_LIB_NAME)),)
+DEPLIBS +=	$(ERL_TOP)/erts/lib/internal/$(TARGET)/$(LIB_PREFIX)erts_internal_r$(TYPEMARKER)$(LIB_SUFFIX) \
+		$(ERL_TOP)/erts/lib/internal/$(TARGET)/$(LIB_PREFIX)ethread$(TYPEMARKER)$(LIB_SUFFIX)
+else
+DEPLIBS +=	$(ERL_TOP)/erts/lib/internal/$(TARGET)/$(LIB_PREFIX)erts_internal$(TYPEMARKER)$(LIB_SUFFIX)
+endif
+
+THR_LIBS=$(subst -l$(THR_LIB_NAME),-l$(THR_LIB_NAME)$(TYPEMARKER), \
+	   $(subst -lerts_internal_r,-lerts_internal_r$(TYPEMARKER),$(ORG_THR_LIBS)))
+
+LIBS += $(THR_LIBS)
+
+ifneq ($(findstring erts_internal_r, $(THR_LIBS)),erts_internal_r)
 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 ERTS_INTERNAL_LIB=erts_internal
@@ -317,7 +334,9 @@ ERTS_INTERNAL_LIB=erts_internal
 endif
 endif
 
-LIBS += $(THR_LIBS) -l$(ERTS_INTERNAL_LIB)$(TYPEMARKER)
+LIBS += -l$(ERTS_INTERNAL_LIB)$(TYPEMARKER)
+
+endif # erts_internal_r
 
 LIBS += @LIBRT@
 

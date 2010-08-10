@@ -1,21 +1,21 @@
-/* ``The contents of this file are subject to the Erlang Public License,
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ *
+ * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
- * retrieved via the world wide web at http://www.erlang.org/.
- * 
+ * retrieved online at http://www.erlang.org/.
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
- * The Initial Developer of the Original Code is Ericsson Utvecklings AB.
- * Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
- * AB. All Rights Reserved.''
- * 
- *     $Id$
+ *
+ * %CopyrightEnd%
  */
-
 
 /*
  * Description:	
@@ -281,17 +281,13 @@ mutex_destroy(ethr_mutex *mtx)
 static INLINE void
 mutex_lock(ethr_mutex *mtx)
 {
-    int res = ethr_mutex_lock(mtx);
-    if (res)
-	error_msg(res, "Mutex lock");
+    ethr_mutex_lock(mtx);
 }
 
 static INLINE void
 mutex_unlock(ethr_mutex *mtx)
 {
-    int res = ethr_mutex_unlock(mtx);
-    if (res)
-	error_msg(res, "Mutex unlock");
+    ethr_mutex_unlock(mtx);
 }
 
 static INLINE void
@@ -314,16 +310,14 @@ static INLINE void
 cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
 {
     int res = ethr_cond_wait(cnd, mtx);
-    if (res)
+    if (res != 0 && res != EINTR)
 	error_msg(res, "Cond wait");
 }
 
 static INLINE void
 cond_signal(ethr_cond *cnd)
 {
-    int res = ethr_cond_signal(cnd);
-    if (res)
-	error_msg(res, "Cond signal");
+    ethr_cond_signal(cnd);
 }
 
 
@@ -2774,7 +2768,7 @@ main(int argc, char *argv[])
 	exit(1);
     }
 
-    if (ethr_init(NULL) != 0) {
+    if (ethr_init(NULL) != 0 || ethr_late_init(NULL) != 0) {
 	fprintf(stderr, "emem: failed to initialize thread package\n");
 	exit(1);
     }
