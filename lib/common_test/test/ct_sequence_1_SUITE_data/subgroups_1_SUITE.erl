@@ -26,7 +26,8 @@ all() ->
     [{group, subgroup_return_fail},
      {group, subgroup_init_fail},
      {group, subgroup_after_failed_case},
-     {group, case_after_failed_subgroup}].
+     {group, case_after_subgroup_return_fail},
+     {group, case_after_subgroup_fail_init}].
 
 groups() ->
     [{return_fail, [], [failing_tc]},
