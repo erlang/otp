@@ -21,9 +21,6 @@
 # Expected autoconf version
 EXPECTED_AUTOCONF_VERSION=2.59
 
-# clearmake command to use
-clearmake=false
-
 # Global configuration variables
 #
 # NOTE: lazy_configure depends on '.' always being last directory
@@ -77,14 +74,6 @@ usage ()
     case $version_controller in
 	none)
 	    ;;
-	clearcase)
-	    echo ""
-	    echo "Handle the primary bootstrap in Clearcase:"
-	    echo "    prepare_primary - prepare for building a primary bootstrap"
-	    echo "    update_primary - create the primary bootstrap"
-	    echo "    commit_primary - commit a primary bootstrap"
-	    echo "    cancel_primary - uncheckout a primary bootstrap"
-	    ;;
 	git)
 	    echo ""
 	    echo "update_primary - build and commit a new primary bootstrap"
@@ -94,19 +83,17 @@ usage ()
     case $version_controller in
 	none)
 	    ;;
-	clearcase)
-	    echo ""
-	    echo "Handle the preloaded modules in Clearcase:"
-	    echo "    prepare_preloaded - prepares for building preloaded code"
-	    echo "    update_preloaded - creates the preloaded code"
-	    echo "    commit_preloaded - commits the preloaded code"
-	    echo "    cancel_preloaded - uncheckout preloaded code"
-	    ;;
 	git)
 	    echo ""
 	    echo "update_preloaded - build and commit the preloaded modules"
 	    ;;
     esac
+}
+
+git_required ()
+{
+    echo "This operation must be run in a git repository."
+    exit 1
 }
 
 hide_vars ()
@@ -164,17 +151,11 @@ determine_version_controller ()
 {
     version_controller=none
 
-    # The current directory is now $ERL_TOP. Check for
-    # either this directory being controlled by git or
-    # for the "otp_build" file being a Clearcase controlled
-    # object.
+    # The current directory is now $ERL_TOP. Find out whether
+    # this directory is a git repository.
 
     if { git rev-parse --git-dir; } 2>/dev/null >/dev/null; then
 	version_controller=git
-    else
-	if test -d "otp_build@@/"; then
-	    version_controller=clearcase
-	fi
     fi
 }
 # Execution of the different options
@@ -875,47 +856,16 @@ setup_make ()
 	    win32)
 		MAKE=make;;
 	    *)
-		if [ "X$CLEARCASE_MAKE_COMPAT" = "Xgnu" -a \
-		     X"$CLEARCASE_ROOT" != X"" -a \
-		    -n "`lookup_prog_in_path clearmake`"  ]; then
-		    clearmake="clearmake -V"
-		    MAKE=$clearmake
-		else 
-		    if [ -n "`lookup_prog_in_path gmake`" ]; then
-			MAKE=gmake
-		    else
-			MAKE=make
-		    fi
+		if [ -n "`lookup_prog_in_path gmake`" ]; then
+		    MAKE=gmake
+		else
+		    MAKE=make
 		fi;;
        esac
     fi
     export MAKE
 }
     
-do_noboot_lib_and_erts ()
-{
-    setup_make
-    EMULATORS=emulator
-    if [ X`$MAKE is_cross_configured` = Xyes ]; then
-	TARGET=`$MAKE target_configured`
-    fi
-    if [ "x$MAKE" != "x$clearmake" ]; then
-	$MAKE MAKE="$MAKE" TARGET=$TARGET OTP_SMALL_BUILD=$OTP_SMALL_BUILD depend || exit 1;
-    fi
-    $MAKE MAKE="$MAKE" TARGET=$TARGET OTP_SMALL_BUILD=$OTP_SMALL_BUILD TYPE=$TYPE FLAVOR=$FLAVOR noboot || exit 1
-}
-
-do_primary ()
-{
-    setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	echo "OVERRIDE_TARGET set" >&2
-	exit 1
-    else
-	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
-    fi
-}
-
 do_primary_git ()
 {
     setup_make
@@ -932,124 +882,6 @@ do_primary_git ()
     git commit --no-verify -m 'Update primary bootstrap'
 }
 
-
-do_prepare ()
-{
-    CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of primary bootstrap, you need to run in a clearcase view." >&2
-	return
-    fi
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-
-    $CT ls -rec -view_only $ERL_TOP/bootstrap | xargs rm -rf
-
-    $CT find $ERL_TOP/bootstrap -cview -nxname -print | xargs $CT co -nc
-    echo '*****************************************************'
-    echo "Prepared for new bootstrap build - "
-    echo "directory bootstrap clean and completely checked out."
-    echo '*****************************************************'
-}
-
-do_commit ()
-{
-    CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of primary bootstrap, you need to run in a clearcase view." >&2
-	return
-    fi
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-
-
-    for x in compiler kernel stdlib orber/include; do
-	files=`$CT lspriv -do $ERL_TOP/bootstrap/lib/$x`
-	for y in $files; do
-	    echo "Creating $y"
-	    $CT mkelem -nc $y
-	done
-    done
-    $CT lsco -rec -me -cview -s $ERL_TOP/bootstrap | xargs $CT ci -nc -ident
-    $CT lsco -d -me -cview -s $ERL_TOP/bootstrap | xargs $CT ci -nc -ident
-
-    $CT ls -rec -view_only -nxname $ERL_TOP/bootstrap | xargs rm -rf
-
-
-    echo '*****************************************************'
-    echo "Checked in primary bootstrap."
-    echo '*****************************************************'
-}
-
-do_cancel ()
-{
-    CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of primary bootstrap, you need to run in a clearcase view." >&2
-	return
-    fi
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-    NOTEMPTY=`$CT lsco -rec -me -cview -s $ERL_TOP/bootstrap`
-    if [ X"$NOTEMPTY" != X"" ]; then
-	$CT lsco -rec -me -cview -s $ERL_TOP/bootstrap | xargs $CT unco -rm
-	$CT unco $ERL_TOP/bootstrap
-    fi
-    $CT ls -rec -view_only $ERL_TOP/bootstrap | xargs rm -rf
-    echo '*****************************************************'
-    echo "Cancelled all checkouts for primary bootstrap."
-    echo '*****************************************************'
-
-}
-do_prepare_prel ()
-{
-    CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of preloaded code, you have to run in a Clearcase view" >&2
-	return
-    fi
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-
-    setup_make
-    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET prepare) || exit 1
-    echo '*****************************************************'
-    echo "Prepared for new preloaded code build - "
-    echo "Directory ERL_TOP/erts/preloaded/ebin completely"
-    echo "checked out."
-    echo '*****************************************************'
-}
-
-do_update_prel ()
-{
-    CT=`lookup_prog_in_path cleartool`
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-
-    setup_make
-    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET clean) 
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET preloaded || exit 1
-    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
-    echo '*****************************************************'
-    echo "Rebuilt preloaded code."
-    echo '*****************************************************'
-}    
-
 do_update_prel_git ()
 {
     setup_make
@@ -1058,48 +890,6 @@ do_update_prel_git ()
     (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
     git add -A $ERL_TOP/erts/preloaded/ebin/*.beam
     git commit -m 'Update preloaded modules'
-}
-
-do_commit_prel ()
-{
-    CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of primary bootstrap, you need to run in a clearcase view." >&2
-	return
-    fi
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-    setup_make
-
-    (cd $ERL_TOP/erts/preloaded/ebin && $CT ci -ident -nc *.beam)
-    (cd $ERL_TOP/erts/preloaded && $CT ci -ident -nc ebin)
-
-    echo '*****************************************************'
-    echo "Checked in preloaded code."
-    echo '*****************************************************'
-}
-
-do_cancel_prel ()
-{
-    CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of primary bootstrap, you need to run in a clearcase view." >&2
-	return
-    fi
-
-    if [ X"$ERL_TOP" = X"" ]; then
-	echo "ERL_TOP is not set." >&2
-	return
-    fi
-    setup_make
-    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET cancel) || exit 1
-    echo '*****************************************************'
-    echo "Cancelled all checkouts for preloaded code."
-    echo '*****************************************************'
-
 }
 
 do_boot ()
@@ -1376,30 +1166,16 @@ case "$1" in
 		    FLAVOR=plain
 		fi
 		do_boot;;
-	prepare_primary)
-		do_prepare;;
 	update_primary)
 		case $version_controller in
 		    git) do_primary_git ;;
-		    clearcase) do_primary ;;
-		    none) do_primary ;;
+		    none) git_required ;;
 		esac ;;
-	commit_primary)
-		do_commit;;
-	cancel_primary)
-		do_cancel;;
-	prepare_preloaded)
-		do_prepare_prel;;
 	update_preloaded)
 		case $version_controller in
 		    git) do_update_prel_git ;;
-		    clearcase) do_update_prel ;;
-		    none) do_update_prel ;;
+		    none) git_required ;;
 		esac ;;
-	commit_preloaded)
-		do_commit_prel;;
-	cancel_preloaded)
-		do_cancel_prel;;
         primary)
 	        echo "Primary bootstrap is under version control since R13";
 		echo "Use {prepare,update,commit}_primary if you really are"; 

@@ -71,7 +71,7 @@
 %%% ts_erl_config	 Finds out information about the Erlang system,
 %%%			 for instance the location of erl_interface.
 %%%			 This works for either an installed OTP or an Erlang
-%%%			 system running from Clearcase.
+%%%			 system running in a git repository/source tree.
 %%% ts_make		 Interface to run the `make' program on Unix
 %%%			 and other platforms.
 %%% ts_make_erl		 A corrected version of the standar Erlang module
