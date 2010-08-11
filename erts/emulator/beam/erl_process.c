@@ -821,7 +821,11 @@ empty_runq(ErtsRunQueue *rq)
     if (oifls & ERTS_RUNQ_IFLG_NONEMPTY) {
 #ifdef DEBUG
 	long empty = erts_smp_atomic_read(&no_empty_run_queues);
-	ASSERT(0 <= empty && empty < erts_no_run_queues);
+	/*
+	 * For a short period of time no_empty_run_queues may have
+	 * been increased twice for a specific run queue.
+	 */
+	ASSERT(0 <= empty && empty < 2*erts_no_run_queues);
 #endif
 	erts_smp_atomic_inc(&no_empty_run_queues);
     }
@@ -834,7 +838,11 @@ non_empty_runq(ErtsRunQueue *rq)
     if (!(oifls & ERTS_RUNQ_IFLG_NONEMPTY)) {
 #ifdef DEBUG
 	long empty = erts_smp_atomic_read(&no_empty_run_queues);
-	ASSERT(0 < empty && empty <= erts_no_run_queues);
+	/*
+	 * For a short period of time no_empty_run_queues may have
+	 * been increased twice for a specific run queue.
+	 */
+	ASSERT(0 < empty && empty <= 2*erts_no_run_queues);
 #endif
 	erts_smp_atomic_dec(&no_empty_run_queues);
     }
