@@ -440,9 +440,12 @@ BIF_RETTYPE hipe_bifs_alloc_data_2(BIF_ALIST_2)
 	 align != sizeof(long) && align != sizeof(double)))
 	BIF_ERROR(BIF_P, BADARG);
     nrbytes = unsigned_val(BIF_ARG_2);
+    if (nrbytes == 0)
+	BIF_RET(make_small(0));
     block = erts_alloc(ERTS_ALC_T_HIPE, nrbytes);
     if ((unsigned long)block & (align-1))
-	fprintf(stderr, "Yikes! erts_alloc() returned misaligned address %p\r\n", block);
+	fprintf(stderr, "%s: erts_alloc(%lu) returned %p which is not %lu-byte aligned\r\n",
+		__FUNCTION__, (unsigned long)nrbytes, block, (unsigned long)align);
     BIF_RET(address_to_term(block, BIF_P));
 }
 
