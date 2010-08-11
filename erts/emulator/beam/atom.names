@@ -119,6 +119,7 @@ atom bsl
 atom bsr
 atom bsr_anycrlf
 atom bsr_unicode
+atom build_type
 atom busy_dist_port
 atom busy_port
 atom call
@@ -378,6 +379,7 @@ atom old_heap_size
 atom on_load
 atom open
 atom open_error
+atom opt
 atom or
 atom ordered_set
 atom orelse
