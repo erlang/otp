@@ -3227,7 +3227,7 @@ check_ptype(_S,_PTDef,Ts) when is_record(Ts,objectclass) ->
 
 
 % check_type(S,Type,ObjSpec={{objectclassname,_},_}) ->
-%     check_class(S,ObjSpec);
+ %     check_class(S,ObjSpec);
 check_type(_S,Type,Ts) when is_record(Type,typedef),
 			   (Type#typedef.checked==true) ->
     Ts;
@@ -3357,6 +3357,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 				merge_tags(Tag,?TAG_PRIMITIVE(?N_INTEGER))};
 	    'REAL' ->
 		check_real(S,Constr),
+
 		TempNewDef#newt{tag=merge_tags(Tag,?TAG_PRIMITIVE(?N_REAL))};
 	    {'BIT STRING',NamedNumberList} ->
 		NewL = check_bitstring(S,NamedNumberList,Constr),
@@ -5522,24 +5523,9 @@ check_sequence(S,Type,Comps)  ->
 	    Components2 = maybe_automatic_tags(S,Components),
 	    %% check the table constraints from here. The outermost type
 	    %% is Type, the innermost is Comps (the list of components)
-	    NewComps = 
-		case check_each_component(S,Type,Components2) of
-		    NewComponents when is_list(NewComponents) ->
-			check_unique_sequence_tags(S,NewComponents),
-			NewComponents;
-		    Ret = {NewComponents,NewEcomps} ->
-			TagComps = NewComponents ++ 
-			    [Comp#'ComponentType'{prop='OPTIONAL'}|| Comp <- NewEcomps], 
-			%% extension components are like optionals when it comes to tagging
-			check_unique_sequence_tags(S,TagComps),
-			Ret;
-		    Ret = {Root1,NewE,Root2} ->
-			TagComps = Root1 ++ [Comp#'ComponentType'{prop='OPTIONAL'}|| Comp <- NewE]++Root2,
-			%% This is not correct handling if Extension
-			%% contains ExtensionAdditionGroups
-			check_unique_sequence_tags(S,TagComps),
-			Ret
-		end,
+	    NewComps = check_each_component2(S,Type,Components2),
+	    check_unique_sequence_tags(S,NewComps),
+
 	    %% CRelInf is the "leading attribute" information
 	    %% necessary for code generating of the look up in the
 	    %% object set table,
@@ -5553,11 +5539,44 @@ check_sequence(S,Type,Comps)  ->
 	    %% the involved class removed, as the class of the object
 	    %% set.
 	    CompListWithTblInf = get_tableconstraint_info(S,Type,NewComps2),
+	    %% If encoding rule is in the PER family the Root Components
+	    %% after the second extension mark should be encoded before
+	    %% all extensions i.e together with the first Root components
 
-	    {CRelInf,CompListWithTblInf};
+	    NewComps3 = textual_order(CompListWithTblInf),
+	    CompListTuple =
+		complist_as_tuple(is_erule_per(S#state.erule),NewComps3),
+	    {CRelInf,CompListTuple};
 	Dupl ->
-		throw({error,{asn1,{duplicate_components,Dupl}}})
+	    throw({error,{asn1,{duplicate_components,Dupl}}})
     end.
+
+complist_as_tuple(Per,CompList) ->
+    complist_as_tuple(Per,CompList,[],[],[],root).
+
+complist_as_tuple(Per,[#'EXTENSIONMARK'{}|T],Acc,Ext,Acc2,root) ->
+    complist_as_tuple(Per,T,Acc,Ext,Acc2,ext);
+complist_as_tuple(Per,[#'EXTENSIONMARK'{}|T],Acc,Ext,Acc2,ext) ->
+    complist_as_tuple(Per,T,Acc,Ext,Acc2,root2);
+complist_as_tuple(_Per,[#'EXTENSIONMARK'{}|_T],_Acc,_Ext,_Acc2,root2) ->
+    throw({error,{asn1,{too_many_extension_marks}}});
+complist_as_tuple(Per,[C|T],Acc,Ext,Acc2,root) ->
+    complist_as_tuple(Per,T,[C|Acc],Ext,Acc2,root);
+complist_as_tuple(Per,[C|T],Acc,Ext,Acc2,ext) ->
+    complist_as_tuple(Per,T,Acc,[C|Ext],Acc2,ext);
+complist_as_tuple(Per,[C|T],Acc,Ext,Acc2,root2) ->
+    complist_as_tuple(Per,T,Acc,Ext,[C|Acc2],root2);
+complist_as_tuple(_Per,[],Acc,_Ext,_Acc2,root) ->
+    lists:reverse(Acc);
+complist_as_tuple(_Per,[],Acc,Ext,_Acc2,ext) ->
+    {lists:reverse(Acc),lists:reverse(Ext)};
+%%complist_as_tuple(_Per = true,[],Acc,Ext,Acc2,root2) ->
+%%    {lists:reverse(Acc)++lists:reverse(Acc2),lists:reverse(Ext)};
+complist_as_tuple(_Per,[],Acc,Ext,Acc2,root2) ->
+    {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
+
+is_erule_per(Erule) ->
+    lists:member(Erule,[per,per_bin,uper_bin]).
 
 expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
     CompList = expand_components2(S,get_referenced_type(S,Type#type.def)),
@@ -5601,13 +5620,26 @@ take_only_rootset([#'EXTENSIONMARK'{}|_T])->
 take_only_rootset([H|T]) ->
     [H|take_only_rootset(T)].
 
-check_unique_sequence_tags(S,[#'ComponentType'{prop=mandatory}|Rest]) ->
-    check_unique_sequence_tags(S,Rest);
-check_unique_sequence_tags(S,[C|Rest]) when is_record(C,'ComponentType') ->
+check_unique_sequence_tags(S,CompList) ->
+    TagComps = case complist_as_tuple(false,CompList) of
+		   {R1,Ext,R2} ->
+		       R1 ++ [C#'ComponentType'{prop='OPTIONAL'}||
+				 C = #'ComponentType'{} <- Ext]++R2;
+		   {R1,Ext} ->
+		       R1 ++ [C#'ComponentType'{prop='OPTIONAL'}||
+				 C = #'ComponentType'{} <- Ext];
+		   _ ->
+		       CompList
+	       end,
+    check_unique_sequence_tags0(S,TagComps).
+
+check_unique_sequence_tags0(S,[#'ComponentType'{prop=mandatory}|Rest]) ->
+    check_unique_sequence_tags0(S,Rest);
+check_unique_sequence_tags0(S,[C=#'ComponentType'{}|Rest]) ->
     check_unique_sequence_tags1(S,Rest,[C]);% optional or default
-check_unique_sequence_tags(S,[_ExtensionMarker|Rest]) ->
-    check_unique_sequence_tags(S,Rest);
-check_unique_sequence_tags(_S,[]) ->
+check_unique_sequence_tags0(S,[_ExtensionMarker|Rest]) ->
+    check_unique_sequence_tags0(S,Rest);
+check_unique_sequence_tags0(_S,[]) ->
     true.
 
 check_unique_sequence_tags1(S,[C|Rest],Acc) when is_record(C,'ComponentType') ->
@@ -5807,8 +5839,10 @@ get_least_tag(TagList) ->
 %% adds the textual order to the components to keep right order of
 %% components in the asn1-value.
 textual_order(Cs) ->
-    Fun = fun(C,Index) ->
-		  {C#'ComponentType'{textual_order=Index},Index+1}
+    Fun = fun(C=#'ComponentType'{},Index) ->
+		  {C#'ComponentType'{textual_order=Index},Index+1};
+	     (Other,Index) ->
+		  {Other,Index}
 	  end,
     {NewCs,_} = textual_order(Cs,Fun,1),
     NewCs.
@@ -5879,7 +5913,6 @@ check_selectiontype2(S,Name,TypeDef) ->
 	    error({type,Msg,S})
     end.
 	    
-
 check_restrictedstring(_S,_Def,_Constr) ->
     ok.
 
@@ -5899,16 +5932,16 @@ check_choice(S,Type,Components) when is_list(Components) ->
 	[] -> 
     %%    sort_canonical(Components),
 	    Components2 = maybe_automatic_tags(S,Components),
-	    %NewComps =
-	    case check_each_alternative(S,Type,Components2) of
-		{NewComponents,NewEcomps} ->		    
-		    check_unique_tags(S,NewComponents ++ NewEcomps),
-		    {NewComponents,NewEcomps};
-		NewComponents ->
-		    check_unique_tags(S,NewComponents),
-		    NewComponents
-	    end;
-
+	    NewComps = check_each_alternative2(S,Type,Components2),
+	    %% ExtensionAdditionGroup markers i.e '[[' ']]' are not
+	    %% significant for encoding/decoding a choice
+	    %% therefore we remove them here
+	    NewComps2 = lists:filter(fun(#'ExtensionAdditionGroup'{}) -> false;
+					('ExtensionAdditionGroupEnd') -> false;
+					(_) -> true
+				     end,NewComps),
+	    check_unique_tags(S,NewComps2),
+	    complist_as_tuple(is_erule_per(S#state.erule),NewComps2);
 	Dupl ->
 	    throw({error,{asn1,{duplicate_choice_alternatives,Dupl}}})
     end;
@@ -6036,12 +6069,17 @@ check_unique2([_|T],Pos,Acc) ->
 check_unique2([],_,Acc) ->
     lists:reverse(Acc).
 
-check_each_component(S,Type,Components) ->
-    check_each_component(S,Type,Components,[],[],[],root1).
 
-check_each_component(S = #state{abscomppath=Path,recordtopname=TopName},Type,
-		     [C|Ct],Acc,Extacc,Acc2,Ext) when is_record(C,'ComponentType') ->
-    #'ComponentType'{name=Cname,typespec=Ts,prop=Prop} = C,
+%% Replaces check_each_component and does the same work except that
+%% it keeps the complist as a flat list and does not create a tuple with root and
+%% extensions separated
+check_each_component2(S,Type,Components) ->
+    check_each_component2(S,Type,Components,[]).
+
+check_each_component2(S = #state{abscomppath=Path,recordtopname=TopName},
+		     Type,
+		     [C = #'ComponentType'{name=Cname,typespec=Ts,prop=Prop}|Ct],
+		     Acc) ->
     NewAbsCPath = 
 	case Ts#type.def of
 	    #'Externaltypereference'{} -> [];
@@ -6058,75 +6096,48 @@ check_each_component(S = #state{abscomppath=Path,recordtopname=TopName},Type,
 	    DefaultValue -> {'DEFAULT',DefaultValue}
 	end,
     NewC = C#'ComponentType'{typespec=CheckedTs,prop=NewProp,tags=NewTags},
-    case Ext of
-	root1 ->
-	    check_each_component(S,Type,Ct,[NewC|Acc],Extacc,Acc2,Ext);
-	ext ->
-	    check_each_component(S,Type,Ct,Acc,[NewC|Extacc],Acc2,Ext);
-	root2 ->
-	    check_each_component(S,Type,Ct,Acc,Extacc,[NewC|Acc2],Ext)
-    end;
-check_each_component(S,Type,[_|Ct],Acc,Extacc,Acc2,root1) -> % skip 'EXTENSIONMARK'
-    check_each_component(S,Type,Ct,Acc,Extacc,Acc2,ext);
-check_each_component(S,Type,[_|Ct],Acc,Extacc,Acc2,ext) -> % skip 'EXTENSIONMARK'
-    check_each_component(S,Type,Ct,Acc,Extacc,Acc2,root2);
-check_each_component(_S,_,[_C|_Ct],_,_,_,root2) -> % 'EXTENSIONMARK'
-    throw({error,{asn1,{too_many_extension_marks}}});
-check_each_component(_S,_,[],Acc,Extacc,_,ext) ->
-    {lists:reverse(Acc),lists:reverse(Extacc)};
-check_each_component(_S,_,[],Acc1,ExtAcc,Acc2,root2) ->
-    {lists:reverse(Acc1),lists:reverse(ExtAcc),lists:reverse(Acc2)};
-check_each_component(_S,_,[],Acc,_,_,root1) ->
+    check_each_component2(S,Type,Ct,[NewC|Acc]);
+
+check_each_component2(S,Type,[OtherMarker|Ct],Acc) ->
+    %% let 'EXTENSIONMARK' and 'ExtensionAdditionGroup' markers pass through as is
+    check_each_component2(S,Type,Ct,[OtherMarker|Acc]);
+check_each_component2(_S,_,[],Acc) ->
     lists:reverse(Acc).
 
-%% check_each_alternative(S,Type,{Rlist,ExtList}) ->
+
+%% check_each_alternative2(S,Type,{Rlist,ExtList}) ->
 %%     {check_each_alternative(S,Type,Rlist),
 %%      check_each_alternative(S,Type,ExtList)};
-check_each_alternative(S,Type,[C|Ct]) ->
-    check_each_alternative(S,Type,[C|Ct],[],[],noext).
+check_each_alternative2(S,Type,[C|Ct]) ->
+    check_each_alternative2(S,Type,[C|Ct],[]).
 
-check_each_alternative(S=#state{abscomppath=Path,recordtopname=TopName},Type,[C|Ct],
-		       Acc,Extacc,Ext) when is_record(C,'ComponentType') ->
-    #'ComponentType'{name=Cname,typespec=Ts,prop=_Prop} = C,
+check_each_alternative2(S=#state{abscomppath=Path,recordtopname=TopName},
+		       Type,
+		       [C = #'ComponentType'{name=Cname,typespec=Ts}|Ct],
+		       Acc) ->
     NewAbsCPath = 
 	case Ts#type.def of
 	    #'Externaltypereference'{} -> [];
 	    _ -> [Cname|Path]
 	end,
-    NewState =
-	S#state{abscomppath=NewAbsCPath,recordtopname=[Cname|TopName]},
-    CheckedTs = check_type(NewState,Type,Ts),
+    CheckedTs = check_type(S#state{abscomppath=NewAbsCPath,
+				   recordtopname=[Cname|TopName]},Type,Ts),
     NewTags = get_taglist(S,CheckedTs),
+
     NewC = C#'ComponentType'{typespec=CheckedTs,tags=NewTags},
-    case Ext of
-	noext ->
-	    check_each_alternative(S,Type,Ct,[NewC|Acc],Extacc,Ext);
-	ext ->
-	    check_each_alternative(S,Type,Ct,Acc,[NewC|Extacc],Ext)
-    end;
+    check_each_alternative2(S,Type,Ct,[NewC|Acc]);
 	    
-check_each_alternative(S,Type,[_|Ct],Acc,Extacc,noext) -> % skip 'EXTENSIONMARK'
-    check_each_alternative(S,Type,Ct,Acc,Extacc,ext);
-check_each_alternative(_S,_,[_C|_Ct],_,_,ext) -> % skip 'EXTENSIONMARK'
-    throw({error,{asn1,{too_many_extension_marks}}});
-check_each_alternative(_S,_,[],Acc,Extacc,ext) ->
-    {lists:reverse(Acc),lists:reverse(Extacc)};
-check_each_alternative(_S,_,[],Acc,_,noext) ->
+check_each_alternative2(S,Type,[OtherMarker|Ct],Acc) ->
+    %% let 'EXTENSIONMARK' and 'ExtensionAdditionGroup' markers pass through as is
+    check_each_alternative2(S,Type,Ct,[OtherMarker|Acc]);
+check_each_alternative2(_S,_,[],Acc) ->
     lists:reverse(Acc).
+
 
 %% componentrelation_leadingattr/2 searches the structure for table
 %% constraints, if any is found componentrelation_leadingattr/5 is
 %% called.
 componentrelation_leadingattr(S,CompList) ->
-    Cs =
-	case CompList of
-	    {Comp1, EComps, Comp2} ->
-		Comp1++EComps++Comp2;
-	    {Components,EComponents} when is_list(Components) ->
-		Components ++ EComponents;
-	    CompList when is_list(CompList) ->
-		CompList
-	end,
 
     %% get_simple_table_if_used/2 should find out whether there are any
     %% component relation constraints in the entire tree of Cs1 that
@@ -6135,11 +6146,21 @@ componentrelation_leadingattr(S,CompList) ->
     %% componentrelation_leadingattr/6. The step when the leading
     %% attribute and the syntax tree is modified to support the code
     %% generating.
-    case get_simple_table_if_used(S,Cs) of
+    case get_simple_table_if_used(S,CompList) of
 	[] -> {false,CompList};
-	STList ->
-	    componentrelation_leadingattr(S,Cs,Cs,STList,[],[])
+	_ ->
+	    componentrelation_leadingattr(S,CompList,CompList,[],[])
     end.
+
+
+%%FIXME expand_ExtAddGroups([C#'ExtensionAdditionGroup'{components=ExtAdds}|T],
+%% 		    CurrPos,PosAcc,CompAcc) ->
+%%     expand_ExtAddGroups(T,CurrPos+ L = lenght(ExtAdds),[{CurrPos,L}|PosAcc],ExtAdds++CompAcc);
+%% expand_ExtAddGroups([C|T],CurrPos,PosAcc,CompAcc) ->
+%%     expand_ExtAddGroups(T,CurrPos+ 1,PosAcc,[C|CompAcc]);
+%% expand_ExtAddGroups([],_CurrPos,PosAcc,CompAcc) ->
+%%     {lists:reverse(PosAcc),lists:reverse(CompAcc)}.
+
 
 %% componentrelation_leadingattr/6 when all components are searched
 %% the new modified components are returned together with the "leading
@@ -6150,11 +6171,12 @@ componentrelation_leadingattr(S,CompList) ->
 %% is used in code generating phase too, to recognice the proper
 %% components for "open type" encoding and to propagate the result of
 %% the object set lookup when needed.
-componentrelation_leadingattr(_,[],_CompList,_,[],NewCompList) ->
+componentrelation_leadingattr(_,[],_CompList,[],NewCompList) ->
     {false,lists:reverse(NewCompList)};
-componentrelation_leadingattr(_,[],_CompList,_,LeadingAttr,NewCompList) ->
+componentrelation_leadingattr(_,[],_CompList,LeadingAttr,NewCompList) ->
     {lists:last(LeadingAttr),lists:reverse(NewCompList)}; %send all info in Ts later
-componentrelation_leadingattr(S,[C|Cs],CompList,STList,Acc,CompAcc) ->
+
+componentrelation_leadingattr(S,[C= #'ComponentType'{}|Cs],CompList,Acc,CompAcc) ->
     {LAAcc,NewC} =
 	case catch componentrelation1(S,C#'ComponentType'.typespec,
 				      [C#'ComponentType'.name]) of
@@ -6205,7 +6227,7 @@ componentrelation_leadingattr(S,[C|Cs],CompList,STList,Acc,CompAcc) ->
 		%% no constraint was found
 		{[],C}
 	end,
-    componentrelation_leadingattr(S,Cs,CompList,STList,LAAcc++Acc,
+    componentrelation_leadingattr(S,Cs,CompList,LAAcc++Acc,
 				  [NewC|CompAcc]).
 
 object_set_mod_name(_S,ObjSet) when is_atom(ObjSet) ->
@@ -6228,11 +6250,9 @@ object_set_mod_name(S,#'Externaltypereference'{module=M,type=T}) ->
 %% generation of the look up functionality in the object set table are
 %% returned.
 get_simple_table_if_used(S,Cs) ->
-    CNames = lists:map(fun(#'ComponentType'{name=Name}) -> Name;
-			  (_) -> [] %% in case of extension marks
-		       end,
-		       Cs),
-    RefedSimpleTable=any_component_relation(S,Cs,CNames,[],[]),
+    CNames = [Name||#'ComponentType'{name=Name}<-Cs],
+    JustComponents = [C || C = #'ComponentType'{}<-Cs],
+    RefedSimpleTable=any_component_relation(S,JustComponents,CNames,[],[]),
     get_simple_table_info(S,Cs,remove_doubles(RefedSimpleTable)).
 
 remove_doubles(L) ->
@@ -6336,9 +6356,7 @@ simple_table_info(S,Type,_) ->
 %% beginning of the search. CNames holds the names of all components
 %% of the start level, this info is used if an outermost at-notation
 %% is found to check the validity of the at-list.
-any_component_relation(S,[C|Cs],CNames,NamePath,Acc) ->
-    CName = C#'ComponentType'.name,
-    Type = C#'ComponentType'.typespec,
+any_component_relation(S,[#'ComponentType'{name=CName,typespec=Type}|Cs],CNames,NamePath,Acc) ->
     CRelPath =
 	case constraint_member(componentrelation,Type#type.constraint) of
 %%	    [{componentrelation,_,AtNotation}] ->
@@ -6358,9 +6376,9 @@ any_component_relation(S,[C|Cs],CNames,NamePath,Acc) ->
 	case {Type#type.inlined,
 	      asn1ct_gen:type(asn1ct_gen:get_inner(Type#type.def))} of
 	    {no,{constructed,bif}} ->
+
 		{InnerCs,NewNamePath} = 
 		    case get_components(Type#type.def) of
-			{IC1,_IC2} -> {IC1 ++ IC1,[CName|NamePath]};
 			T when is_record(T,type) -> {T,NamePath};
 			IC -> {IC,[CName|NamePath]}
 		    end,
@@ -6384,11 +6402,7 @@ any_component_relation(S,Type,CNames,NamePath,Acc) when is_record(Type,type) ->
 	case {Type#type.inlined,
 	      asn1ct_gen:type(asn1ct_gen:get_inner(Type#type.def))} of
 	    {no,{constructed,bif}} ->
-		InnerCs = 
-		    case get_components(Type#type.def) of
-			{IC1,_IC2} -> IC1 ++ IC1;
-			IC -> IC
-		    end,
+		InnerCs = get_components(Type#type.def),
 		any_component_relation(S,InnerCs,CNames,NamePath,[]);
 	    _ ->
 		[]
@@ -6456,11 +6470,11 @@ get_components(Def) ->
     get_components(any,Def).
 
 get_components(_,#'SEQUENCE'{components=Cs}) ->
-    Cs;
+    tuple2complist(Cs);
 get_components(_,#'SET'{components=Cs}) ->
-    Cs;
+    tuple2complist(Cs);
 get_components(_,{'CHOICE',Cs}) ->
-    Cs;
+    tuple2complist(Cs);
 %do not step in inlined structures
 get_components(any,{'SEQUENCE OF',T = #type{def=_Def,inlined=no}}) ->
 %    get_components(any,Def);
@@ -6470,6 +6484,13 @@ get_components(any,{'SET OF',T = #type{def=_Def,inlined=no}}) ->
     T;
 get_components(_,_) ->
     [].
+
+tuple2complist({R,E}) ->
+    R ++ E;
+tuple2complist({R1,E,R2}) ->
+    R1 ++ E ++ R2;
+tuple2complist(List) when is_list(List) ->
+    List.
 
 get_choice_components(_S,{'CHOICE',Components}) when is_list(Components)->
     Components;
@@ -6731,8 +6752,7 @@ get_tableconstraint_info(S,Type,CheckedTs) ->
 
 get_tableconstraint_info(_S,_Type,[],Acc) ->
     lists:reverse(Acc);
-get_tableconstraint_info(S,Type,[C|Cs],Acc) ->
-    CheckedTs = C#'ComponentType'.typespec,
+get_tableconstraint_info(S,Type,[C=#'ComponentType'{typespec=CheckedTs}|Cs],Acc) ->
     AccComp = 
 	case CheckedTs#type.def of 
 	    %% ObjectClassFieldType
@@ -6768,7 +6788,9 @@ get_tableconstraint_info(S,Type,[C|Cs],Acc) ->
 	    _ ->
 		C
 	end,
-    get_tableconstraint_info(S,Type,Cs,[AccComp|Acc]).
+    get_tableconstraint_info(S,Type,Cs,[AccComp|Acc]);
+get_tableconstraint_info(S,Type,[C|Cs],Acc) ->
+    get_tableconstraint_info(S,Type,Cs,[C|Acc]).
 
 get_referenced_fieldname([{_,FirstFieldname}]) ->
     {FirstFieldname,[]};
@@ -6850,7 +6872,9 @@ get_taglist(S,Type) when is_record(Type,type) ->
 	    [asn1ct_gen:def_to_tag(Tag)]
     end;
 get_taglist(S,{'CHOICE',{Rc,Ec}}) ->
-    get_taglist(S,{'CHOICE',Rc ++ Ec});
+    get_taglist1(S,Rc ++ Ec);
+get_taglist(S,{'CHOICE',{R1,E,R2}}) ->
+    get_taglist1(S,R1 ++ E ++ R2);
 get_taglist(S,{'CHOICE',Components}) ->
     get_taglist1(S,Components);
 %% ObjectClassFieldType OTP-4390
