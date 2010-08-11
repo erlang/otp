@@ -2269,10 +2269,6 @@ maybe_get_privdir() ->
 run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) when Type==conf;
 							     Type==make ->
-
-    %%! --- Fri Aug  6 13:26:19 2010 --- peppe was here!
-    io:format(user, "## {auto_skip,~p,~p,~p}: ~n~p~n~p~n", [get_name(Mode),Ref,Case,Mode,Status]),
-
     file:set_cwd(filename:dirname(get(test_server_dir))),
     CurrIOHandler = get(test_server_common_io_handler),
     ParentMode = tl(Mode),
@@ -2410,10 +2406,6 @@ run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
 %% a start *or* end conf case, wrapping test cases or other conf cases
 run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		    Config, TimetrapData, Mode0, Status) ->
-
-%%! --- Fri Aug  6 13:26:19 2010 --- peppe was here!
-io:format(user, "## {conf,~p,~p,~p}: ~p~n", [proplists:get_value(name,Props),Ref,Func,Status]),
-
     CurrIOHandler = get(test_server_common_io_handler),
     %% check and update the mode for test case execution and io msg handling
     {StartConf,Mode,IOHandler,ConfTime,Status1} =
@@ -2667,7 +2659,7 @@ io:format(user, "## {conf,~p,~p,~p}: ~p~n", [proplists:get_value(name,Props),Ref
 			Reason = {failed,{Mod,Func,Fail}},
 			{skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
 			 Config,
-			 update_status(failed, group_result, get_name(Mode0),
+			 update_status(failed, group_result, get_name(Mode),
 				       delete_status(Ref, Status2))};
 		   not StartConf ->
 			ReportRepeatStop(),
@@ -2676,10 +2668,6 @@ io:format(user, "## {conf,~p,~p,~p}: ~p~n", [proplists:get_value(name,Props),Ref
 		end,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-
-	    %%! --- Fri Aug  6 13:25:35 2010 --- peppe was here!
-	    io:format(user, "## {~p,~p,~p}: Status = ~p~n", [get_name(Mode0),Ref,Func,Status3]),
-
 	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
 	{died,Why,_} when Func == init_per_suite ->
 	    print(minor, "~n*** Unexpected exit during init_per_suite.~n", []),
