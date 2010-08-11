@@ -66,7 +66,7 @@
 extern "C" {
 #endif
 
-#if defined(__WIN32__)
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 typedef unsigned __int64 ErlNifUInt64;
 typedef __int64 ErlNifSInt64;
 #elif SIZEOF_LONG == 8
