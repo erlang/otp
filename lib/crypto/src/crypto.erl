@@ -93,22 +93,42 @@
 -define(CRYPTO_NIF_VSN,101).
 
 on_load() ->
-    LibName = "crypto",
+    LibBaseName = "crypto",
     PrivDir = code:priv_dir(crypto),
-    Lib1 = filename:join([PrivDir, "lib", LibName]),
-    Status = case erlang:load_nif(Lib1, ?CRYPTO_NIF_VSN) of
+    LibName = case erlang:system_info(build_type) of
+		  opt ->
+		      LibBaseName;
+		  Type ->
+		      LibTypeName = LibBaseName ++ "."  ++ atom_to_list(Type),
+		      case (filelib:wildcard(
+			      filename:join(
+				[PrivDir,
+				 "lib",
+				 LibTypeName ++ "*"])) /= []) orelse
+			  (filelib:wildcard(
+			     filename:join(
+			       [PrivDir,
+				"lib", 
+				erlang:system_info(system_architecture),
+				LibTypeName ++ "*"])) /= []) of
+			  true -> LibTypeName;
+			  false -> LibBaseName
+		      end
+	      end,
+    Lib = filename:join([PrivDir, "lib", LibName]),
+    Status = case erlang:load_nif(Lib, ?CRYPTO_NIF_VSN) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
-		     LibDir2 = 
+		     ArchLibDir = 
 			 filename:join([PrivDir, "lib", 
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([LibDir2,LibName ++ "*" ])),
+			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->
-			     Lib2 = filename:join([LibDir2, LibName]),
-			     erlang:load_nif(Lib2, ?CRYPTO_NIF_VSN)
+			     ArchLib = filename:join([ArchLibDir, LibName]),
+			     erlang:load_nif(ArchLib, ?CRYPTO_NIF_VSN)
 		     end;
 		 Error1 -> Error1
 	     end,
@@ -119,7 +139,6 @@ on_load() ->
 				   "OpenSSL might not be installed on this system.~n",[E,Str]),
 	    Status
     end.
-    
 
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).

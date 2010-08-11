@@ -68,13 +68,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
-OBJS = $(OBJDIR)/crypto.o
+OBJS = $(OBJDIR)/crypto$(TYPEMARKER).o
 NIF_MAKEFILE = $(PRIVDIR)/Makefile
 
 ifeq ($(findstring win32,$(TARGET)), win32)
-NIF_LIB = $(LIBDIR)/crypto.dll
+NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).dll
 else
-NIF_LIB = $(LIBDIR)/crypto.so
+NIF_LIB = $(LIBDIR)/crypto$(TYPEMARKER).so
 endif
 
 ifeq ($(HOST_OS),)
@@ -102,20 +102,30 @@ $(OBJDIR):
 $(LIBDIR):
 	-@mkdir -p $(LIBDIR)
 
-$(OBJDIR)/%.o: %.c
+$(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(INSTALL_DIR) $(OBJDIR)
 	$(CC) -c -o $@ $(ALL_CFLAGS) $<
 
-$(LIBDIR)/crypto.so: $(OBJS)
+$(LIBDIR)/crypto$(TYPEMARKER).so: $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR) 
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
 
-$(LIBDIR)/crypto.dll: $(OBJS)
+$(LIBDIR)/crypto$(TYPEMARKER).dll: $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(OBJS) -llibeay32
 
 clean:
-	rm -f $(NIF_LIB) $(OBJS)
+ifeq ($(findstring win32,$(TARGET)), win32)
+	rm -f $(LIBDIR)/crypto.dll
+	rm -f $(LIBDIR)/crypto.debug.dll
+else
+	rm -f $(LIBDIR)/crypto.so
+	rm -f $(LIBDIR)/crypto.debug.so
+	rm -f $(LIBDIR)/crypto.valgrind.so
+endif
+	rm -f $(OBJDIR)/crypto.o
+	rm -f $(OBJDIR)/crypto.debug.o
+	rm -f $(OBJDIR)/crypto.valgrind.o
 	rm -f core *~
 
 docs:
