@@ -1566,7 +1566,8 @@ load_code(LoaderState* stp)
 		    case 0:	/* Floating point number */
 			{
 			    Eterm* hp;
-#if !defined(ARCH_64) || HALFWORD_HEAP /* XXX:PaN - Should use ARCH_64 variant instead */
+/* XXX:PaN - Halfword should use ARCH_64 variant instead */
+#if !defined(ARCH_64) || HALFWORD_HEAP
 			    Uint high, low;
 # endif
 			    last_op->a[arg].val = new_literal(stp, &hp,
@@ -1933,7 +1934,7 @@ load_code(LoaderState* stp)
 		}
 		code[ci++] = (BeamInstr) stp->import[i].bf;
 		break;
-	    case 'P':		/* Byte offset into tuple */ /* XXX:PaN - * sizeof(Eterm or Eterm *) ? */
+	    case 'P':		/* Byte offset into tuple */
 		VerifyTag(stp, tag, TAG_u);
 		tmp = tmp_op->a[arg].val;
 		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));

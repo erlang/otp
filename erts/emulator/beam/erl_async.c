@@ -70,7 +70,6 @@ static ErlAsync* async_ready_list = NULL;
 /* Detach from driver */
 static void async_detach(DE_Handle* dh)
 {
-    /* XXX:PaN what should happen here? we want to unload the driver or??? */
     return;
 }
 
@@ -176,7 +175,6 @@ int exit_async()
 
 static void async_add(ErlAsync* a, AsyncQueue* q)
 {
-    /* XXX:PaN Is this still necessary when ports lock drivers? */
     if (is_internal_port(a->port)) {
 	ERTS_LC_ASSERT(erts_drvportid2port(a->port));
 	/* make sure the driver will stay around */

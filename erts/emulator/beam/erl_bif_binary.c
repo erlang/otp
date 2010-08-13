@@ -2551,7 +2551,8 @@ BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
     }
     pb = (ProcBin *) binary_val(bin);
     if (pb->thing_word == HEADER_PROC_BIN) {
-	res = erts_make_integer((Uint) pb->val->orig_size, BIF_P); /* XXX:PaN Halfword? orig_size is a long */
+	/* XXX:PaN - Halfword - orig_size is a long, we should handle that */
+	res = erts_make_integer((Uint) pb->val->orig_size, BIF_P);
     } else { /* heap binary */
 	res = erts_make_integer((Uint) ((ErlHeapBin *) pb)->size, BIF_P);
     }

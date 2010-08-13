@@ -1818,10 +1818,14 @@ do_db_tree_foreach_offheap(TreeDbTerm *tdbt,
 			   void (*func)(ErlOffHeap *, void *),
 			   void * arg)
 {
+    ErlOffHeap tmp_offheap;
     if(!tdbt)
 	return;
     do_db_tree_foreach_offheap(tdbt->left, func, arg);
-    (*func)(&(tdbt->dbterm.off_heap), arg);
+    tmp_offheap.first = tdbt->dbterm.first_oh;
+    tmp_offheap.overhead = 0;
+    (*func)(&tmp_offheap, arg);
+    tdbt->dbterm.first_oh = tmp_offheap.first;
     do_db_tree_foreach_offheap(tdbt->right, func, arg);
 }
 
@@ -2575,6 +2579,7 @@ static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle
 static void db_finalize_dbterm_tree(DbUpdateHandle* handle)
 {
     if (handle->mustResize) {
+	ErlOffHeap tmp_offheap;
 	Eterm* top;
 	Eterm copy;
 	DbTerm* newDbTerm;
@@ -2589,14 +2594,15 @@ static void db_finalize_dbterm_tree(DbUpdateHandle* handle)
 	newDbTerm = &newp->dbterm;
     
 	newDbTerm->size = handle->new_size;
-	newDbTerm->off_heap.first = NULL;
-	newDbTerm->off_heap.overhead = 0;
+	tmp_offheap.first = NULL;
+	tmp_offheap.overhead = 0;
 	
 	/* make a flat copy */
 	top = DBTERM_BUF(newDbTerm);
 	copy = copy_struct(make_tuple(handle->dbterm->tpl),
 			   handle->new_size,
-			   &top, &newDbTerm->off_heap);
+			   &top, &tmp_offheap);
+	newDbTerm->first_oh = tmp_offheap.first;
 	DBTERM_SET_TPL(newDbTerm,tuple_val(copy));
     
 	db_free_term_data(handle->dbterm);
