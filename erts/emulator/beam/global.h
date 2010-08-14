@@ -1026,7 +1026,7 @@ void print_pass_through(int, byte*, int);
 
 /* beam_emu.c */
 int catchlevel(Process*);
-void init_emulator(_VOID_);
+void init_emulator(void);
 void process_main(void);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
@@ -1686,7 +1686,7 @@ int io_list_to_buf(Eterm, char*, int);
 int io_list_to_buf2(Eterm, char*, int);
 int io_list_len(Eterm);
 int is_string(Eterm);
-void erl_at_exit(FUNCTION(void,(*),(void*)), void*);
+void erl_at_exit(void (*) (void*), void*);
 Eterm collect_memory(Process *);
 void dump_memory_to_fd(int);
 int dump_memory_data(const char *);
