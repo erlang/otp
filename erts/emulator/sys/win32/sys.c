@@ -2627,7 +2627,6 @@ erts_sys_main_thread(void)
 
 void erts_sys_alloc_init(void)
 {
-    elib_ensure_initialized();
 }
 
 void *erts_sys_alloc(ErtsAlcType_t t, void *x, Uint sz)

@@ -25,14 +25,6 @@
 #  define NO_FPE_SIGNALS
 #endif
 
-/* Never use elib-malloc when purify-memory-tracing */
-#if defined(PURIFY)
-#undef ENABLE_ELIB_MALLOC
-#undef ELIB_HEAP_SBRK
-#undef ELIB_ALLOC_IS_CLIB
-#endif
-
-
 /* xxxP __VXWORKS__ */
 #ifdef VXWORKS
 #include <vxWorks.h>
@@ -1102,9 +1094,6 @@ erts_refc_read(erts_refc_t *refcp, long min_val)
 #ifdef ERTS_ENABLE_KERNEL_POLL
 extern int erts_use_kernel_poll;
 #endif
-
-void elib_ensure_initialized(void);
-
 
 #if defined(VXWORKS)
 /* NOTE! sys_calloc2 does not exist on other 

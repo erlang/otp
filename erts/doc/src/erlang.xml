@@ -5364,7 +5364,7 @@ true</pre>
             <p>Returns <c>{Allocator, Version, Features, Settings}.</c></p>
             <p>Types:</p>
             <list type="bulleted">
-              <item><c>Allocator = undefined | elib_malloc | glibc</c></item>
+              <item><c>Allocator = undefined | glibc</c></item>
               <item><c>Version = [int()]</c></item>
               <item><c>Features = [atom()]</c></item>
               <item><c>Settings = [{Subsystem, [{Parameter, Value}]}]</c></item>
@@ -5379,7 +5379,7 @@ true</pre>
                   implementation used. If <c>Allocator</c> equals
                   <c>undefined</c>, the <c>malloc()</c> implementation
                   used could not be identified. Currently
-                  <c>elib_malloc</c> and <c>glibc</c> can be identified.</p>
+                  <c>glibc</c> can be identified.</p>
               </item>
               <item>
                 <p><c>Version</c> is a list of integers (but not a
@@ -5606,52 +5606,9 @@ true</pre>
           </item>
           <tag><c>elib_malloc</c></tag>
           <item>
-            <p>If the emulator uses the <c>elib_malloc</c> memory
-              allocator, a list of two-element tuples containing status
-              information is returned; otherwise, <c>false</c> is
-              returned. The list currently contains the following
-              two-element tuples (all sizes are presented in bytes):</p>
-            <taglist>
-              <tag><c>{heap_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the current heap size.</p>
-              </item>
-              <tag><c>{max_alloced_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the maximum amount of memory
-                  allocated on the heap since the emulator started.</p>
-              </item>
-              <tag><c>{alloced_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the current amount of memory
-                  allocated on the heap.</p>
-              </item>
-              <tag><c>{free_size, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the current amount of free
-                  memory on the heap.</p>
-              </item>
-              <tag><c>{no_alloced_blocks, No}</c></tag>
-              <item>
-                <p>Where <c>No</c> is the current number of allocated
-                  blocks on the heap.</p>
-              </item>
-              <tag><c>{no_free_blocks, No}</c></tag>
-              <item>
-                <p>Where <c>No</c> is the current number of free blocks
-                  on the heap.</p>
-              </item>
-              <tag><c>{smallest_alloced_block, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the size of the smallest
-                  allocated block on the heap.</p>
-              </item>
-              <tag><c>{largest_free_block, Size}</c></tag>
-              <item>
-                <p>Where <c>Size</c> is the size of the largest free
-                  block on the heap.</p>
-              </item>
-            </taglist>
+            <p>This option will be removed in a future release.
+	      The return value will always be <c>false</c> since
+	      the elib_malloc allocator has been removed.</p>
           </item>
           <tag><c>fullsweep_after</c></tag>
           <item>
