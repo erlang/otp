@@ -1025,6 +1025,7 @@ int erts_init_scheduler_bind_type(char *how);
 #define ERTS_INIT_CPU_TOPOLOGY_MISSING			9
 
 int erts_init_cpu_topology(char *topology_str);
+int erts_update_cpu_info(void);
 
 void erts_pre_init_process(void);
 void erts_late_init_process(void);

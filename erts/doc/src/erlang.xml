@@ -5533,7 +5533,7 @@ true</pre>
 	       <c>CpuTopology</c> type to change.
 	    </p>
           </item>
-          <tag><c>{cpu_topology, defined}</c></tag>
+          <tag><marker id="system_info_cpu_topology_defined"><c>{cpu_topology, defined}</c></marker></tag>
           <item>
             <p>Returns the user defined <c>CpuTopology</c>. For more
 	       information see the documentation of
@@ -5543,7 +5543,7 @@ true</pre>
 	       argument.
 	    </p>
           </item>
-          <tag><c>{cpu_topology, detected}</c></tag>
+          <tag><marker id="system_info_cpu_topology_detected"><c>{cpu_topology, detected}</c></marker></tag>
           <item>
             <p>Returns the automatically detected <c>CpuTopology</c>. The
 	       emulator currently only detects the CPU topology on some newer
@@ -5727,11 +5727,34 @@ true</pre>
               information see the <seealso marker="erts:crash_dump">"How to interpret the Erlang crash dumps"</seealso> chapter
               in the ERTS User's Guide.</p>
           </item>
-	  <tag><c>logical_processors</c></tag>
+	  <tag><marker id="logical_processors"><c>logical_processors</c></marker></tag>
           <item>
-            <p>Returns the number of logical processors detected on the
-	       system as an integer or the atom <c>unknown</c> if the
-	       emulator wasn't able to detect any.
+            <p>Returns the detected number of logical processors configured
+	       on the system. The return value is either an integer, or
+	       the atom <c>unknown</c> if the emulator wasn't able to
+	       detect logical processors configured.
+	    </p>
+          </item>
+	  <tag><marker id="logical_processors_available"><c>logical_processors_available</c></marker></tag>
+          <item>
+            <p>Returns the detected number of logical processors available to
+	       the Erlang runtime system. The return value is either an
+	       integer, or the atom <c>unknown</c> if the emulator wasn't
+	       able to detect logical processors available. The number
+	       of logical processors available is less than or equal to
+	       the number of <seealso marker="#logical_processors_online">logical
+	       processors online</seealso>.
+	    </p>
+          </item>
+	  <tag><marker id="logical_processors_online"><c>logical_processors_online</c></marker></tag>
+          <item>
+            <p>Returns the detected number of logical processors online on
+	       the system. The return value is either an integer,
+	       or the atom <c>unknown</c> if the emulator wasn't able to
+	       detect logical processors online. The number of logical
+	       processors online is less than or equal to the number of
+	       <seealso marker="#logical_processors">logical processors
+	       configured</seealso>.
 	    </p>
           </item>
           <tag><c>machine</c></tag>
@@ -5935,6 +5958,26 @@ true</pre>
               For more information see documentation of the function
               <c>get_tcw</c> in "Match Specifications in Erlang",
               <seealso marker="erts:match_spec#get_tcw">ERTS User's Guide</seealso>.</p>
+          </item>
+          <tag><marker id="update_cpu_info"><c>update_cpu_info</c></marker></tag>
+          <item>
+            <p>The runtime system rereads the CPU information available and
+	       updates its internally stored information about the
+	       <seealso marker="#system_info_cpu_topology_detected">detected CPU
+	       topology</seealso> and the amount of logical processors
+	       <seealso marker="#logical_processors">configured</seealso>,
+	       <seealso marker="#logical_processors_online">online</seealso>, and
+	       <seealso marker="#logical_processors_available">available</seealso>.
+	       If the CPU information has changed since the last time it was read,
+	       the atom <c>changed</c> is returned; otherwise, the atom
+	       <c>unchanged</c> is returned. If the CPU information has changed
+	       you probably want to
+	       <seealso marker="#system_flag_schedulers_online">adjust the amount
+	       of schedulers online</seealso>. You typically want to have as
+	       many schedulers online as
+	       <seealso marker="#logical_processors_available">logical processors
+	       available</seealso>.
+	    </p>
           </item>
           <tag><marker id="system_info_version"><c>version</c></marker></tag>
           <item>

@@ -62,10 +62,10 @@
 #if defined(HAVE_SCHED_xETAFFINITY)
 #  include <sched.h>
 #  define ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__
-#define ERTS_MU_GET_PROC_AFFINITY__(CPUINFOP)				\
+#define ERTS_MU_GET_PROC_AFFINITY__(CPUINFOP, CPUSET)			\
      (sched_getaffinity((CPUINFOP)->pid,				\
 			sizeof(cpu_set_t),				\
-			&(CPUINFOP)->cpuset) != 0 ? -errno : 0)
+			(CPUSET)) != 0 ? -errno : 0)
 #define ERTS_MU_SET_THR_AFFINITY__(SETP)				\
      (sched_setaffinity(0, sizeof(cpu_set_t), (SETP)) != 0 ? -errno : 0)
 #elif defined(__WIN32__)
@@ -98,6 +98,26 @@
 #endif
 
 static int read_topology(erts_cpu_info_t *cpuinfo);
+
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+static int
+cpu_sets_are_eq(cpu_set_t *x, cpu_set_t *y)
+{
+    int i;
+    for (i = 0; i < CPU_SETSIZE; i++) {
+	if (CPU_ISSET(i, x)) {
+	    if (!CPU_ISSET(i, y))
+		return 0;
+	}
+	else {
+	    if (CPU_ISSET(i, y))
+		return 0;
+	}
+    }
+    return 1;
+}
+
+#endif
 
 int
 erts_milli_sleep(long ms)
@@ -137,15 +157,15 @@ struct erts_cpu_info_t_ {
 #if defined(__WIN32__)
 
 static __forceinline int
-get_proc_affinity(erts_cpu_info_t *cpuinfo)
+get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
 {
     DWORD pamask, samask;
     if (GetProcessAffinityMask(GetCurrentProcess(), &pamask, &samask)) {
-	cpuinfo->cpuset = (cpu_set_t) pamask;
+	*cpuset = (cpu_set_t) pamask;
 	return 0;
     }
     else {
-	cpuinfo->cpuset = (cpu_set_t) 0;
+	*cpuset = (cpu_set_t) 0;
 	return -erts_get_last_win_errno();
     }
 }
@@ -179,6 +199,9 @@ erts_cpu_info_create(void)
 #endif
     cpuinfo->topology_size = 0;
     cpuinfo->topology = NULL;
+    cpuinfo->configured = -1;
+    cpuinfo->online = -1;
+    cpuinfo->available = -1;
     erts_cpu_info_update(cpuinfo);
     return cpuinfo;
 }
@@ -203,34 +226,40 @@ erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo)
     }
 }
 
-void
+int
 erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 {
-    cpuinfo->configured = 0;
-    cpuinfo->online = 0;
-    cpuinfo->available = 0;
+    int changed = 0;
+    int configured = 0;
+    int online = 0;
+    int available = 0;
+    erts_cpu_topology_t *old_topology;
+    int old_topology_size;
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+    cpu_set_t cpuset;
+#endif
 
 #ifdef __WIN32__
     {
 	int i;
 	SYSTEM_INFO sys_info;
 	GetSystemInfo(&sys_info);
-	cpuinfo->configured = (int) sys_info.dwNumberOfProcessors;
+	configured = (int) sys_info.dwNumberOfProcessors;
 	for (i = 0; i < sizeof(DWORD)*8; i++)
 	    if (sys_info.dwActiveProcessorMask & (((DWORD) 1) << i))
-		cpuinfo->online++;
+		online++;
     }
 #elif !defined(NO_SYSCONF) && (defined(_SC_NPROCESSORS_CONF) \
 			       || defined(_SC_NPROCESSORS_ONLN))
 #ifdef _SC_NPROCESSORS_CONF
-    cpuinfo->configured = (int) sysconf(_SC_NPROCESSORS_CONF);
-    if (cpuinfo->configured < 0)
-	cpuinfo->configured = 0;
+    configured = (int) sysconf(_SC_NPROCESSORS_CONF);
+    if (configured < 0)
+	configured = 0;
 #endif
 #ifdef _SC_NPROCESSORS_ONLN
-    cpuinfo->online = (int) sysconf(_SC_NPROCESSORS_ONLN);
-    if (cpuinfo->online < 0)
-	cpuinfo->online = 0;
+    online = (int) sysconf(_SC_NPROCESSORS_ONLN);
+    if (online < 0)
+	online = 0;
 #endif
 #elif defined(HAVE_SYS_SYSCTL_H) && defined(CTL_HW) && (defined(HW_NCPU) \
 							|| defined(HW_AVAILCPU))
@@ -242,71 +271,138 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 	len = sizeof(int);
 	mib[0] = CTL_HW;
 	mib[1] = HW_NCPU;
-	if (sysctl(&mib[0], 2, &cpuinfo->configured, &len, NULL, 0) < 0)
-	    cpuinfo->configured = 0;
+	if (sysctl(&mib[0], 2, &configured, &len, NULL, 0) < 0)
+	    configured = 0;
 #endif
 #ifdef HW_AVAILCPU
 	len = sizeof(int);
 	mib[0] = CTL_HW;
 	mib[1] = HW_AVAILCPU;
-	if (sysctl(&mib[0], 2, &cpuinfo->online, &len, NULL, 0) < 0)
-	    cpuinfo->online = 0;
+	if (sysctl(&mib[0], 2, &online, &len, NULL, 0) < 0)
+	    online = 0;
 #endif
     }
 #endif
 
-    if (cpuinfo->online > cpuinfo->configured)
-	cpuinfo->online = cpuinfo->configured;
+    if (online > configured)
+	online = configured;
+
+    if (cpuinfo->configured != configured)
+	changed = 1;
+    if (cpuinfo->online != online)
+	changed = 1;
 
 #if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
-    if (ERTS_MU_GET_PROC_AFFINITY__(cpuinfo) == 0) {
-	int i, c, cn, si;
-	c = cn = 0;
-	si = sizeof(cpuinfo->affinity_str_buf) - 1;
-	cpuinfo->affinity_str_buf[si] = '\0';
-	for (i = 0; i < CPU_SETSIZE; i++) {
-	    if (CPU_ISSET(i, &cpuinfo->cpuset)) {
-		c |= 1 << cn;
-		cpuinfo->available++;
+    if (ERTS_MU_GET_PROC_AFFINITY__(cpuinfo, &cpuset) == 0) {
+	if (!changed && !cpu_sets_are_eq(&cpuset, &cpuinfo->cpuset))
+	    changed = 1;
+
+	if (!changed)
+	    available = cpuinfo->available;
+	else {
+	    int i, c, cn, si;
+
+	    memcpy((void *) &cpuinfo->cpuset,
+		   (void *) &cpuset,
+		   sizeof(cpu_set_t));
+
+	    c = cn = 0;
+	    si = sizeof(cpuinfo->affinity_str_buf) - 1;
+	    cpuinfo->affinity_str_buf[si] = '\0';
+	    for (i = 0; i < CPU_SETSIZE; i++) {
+		if (CPU_ISSET(i, &cpuinfo->cpuset)) {
+		    c |= 1 << cn;
+		    available++;
+		}
+		cn++;
+		if (cn == 4) {
+		    cpuinfo->affinity_str_buf[--si] = (c < 10
+						       ? '0' + c
+						       : 'A' + c - 10);
+		    c = cn = 0;
+		}
 	    }
-	    cn++;
-	    if (cn == 4) {
+	    if (c)
 		cpuinfo->affinity_str_buf[--si] = (c < 10
 						   ? '0' + c
 						   : 'A' + c - 10);
-		c = cn = 0;
-	    }
+	    while (cpuinfo->affinity_str_buf[si] == '0')
+		si++;
+	    cpuinfo->affinity_str = &cpuinfo->affinity_str_buf[si];
 	}
-	if (c)
-	    cpuinfo->affinity_str_buf[--si] = (c < 10
-					       ? '0' + c
-					       : 'A' + c - 10);
-	while (cpuinfo->affinity_str_buf[si] == '0')
-	    si++;
-	cpuinfo->affinity_str = &cpuinfo->affinity_str_buf[si];
     }
 #elif defined(HAVE_PSET_INFO)
     {
-	uint_t numcpus = cpuinfo->configured;
-	if (cpuinfo->cpuids)
-	    free(cpuinfo->cpuids);
-	cpuinfo->cpuids = malloc(sizeof(processorid_t)*numcpus);
-	if (cpuinfo->cpuids) {
-	    if (pset_info(PS_MYID, NULL, &numcpus, &cpuinfo->cpuids) == 0)
-		cpuinfo->available = (int) numcpus;
-	    if (cpuinfo->available < 0) {
-		free(cpuinfo->cpuid);
-		cpuinfo->available = 0;
+	processorid_t *cpuids;
+	uint_t numcpus = configured;
+	cpuids = malloc(sizeof(processorid_t)*numcpus);
+	if (cpuids) {
+	    if (pset_info(PS_MYID, NULL, &numcpus, &cpuids) == 0)
+		available = (int) numcpus;
+	    if (available < 0) {
+		free(cpuids);
+		cpuids = NULL;
+		available = 0;
 	    }
+	}
+	if (!cpuids) {
+	    if (cpuinfo->cpuids)
+		changed = 1;
+	}
+	else {
+	    if (cpuinfo->cpuids)
+		changed = 1;
+	    if (memcmp((void *) cpuinfo->cpuids,
+		       (void *) cpuids,
+		       sizeof(processorid_t)*numcpus) != 0)
+		changed = 1;
+
+	}
+	if (!changed) {
+	    if (cpuids)
+		free(cpuids);
+	}
+	else {
+	    if (cpuinfo->cpuids)
+		free(cpuinfo->cpuids);
+	    cpuinfo->cpuids = cpuids;
 	}
     }
 #endif
 
-    if (cpuinfo->available > cpuinfo->online)
-	cpuinfo->available = cpuinfo->online;
+    if (available > online)
+	available = online;
+
+    if (cpuinfo->available != available)
+	changed = 1;
+
+    cpuinfo->configured = configured;
+    cpuinfo->online = online;
+    cpuinfo->available = available;
+
+    old_topology = cpuinfo->topology;
+    old_topology_size = cpuinfo->topology_size;
+    cpuinfo->topology = NULL;
 
     read_topology(cpuinfo);
 
+    if (cpuinfo->topology_size != old_topology_size
+	|| (old_topology_size != 0
+	    && memcmp((void *) cpuinfo->topology,
+		      (void *) old_topology,
+		      (sizeof(erts_cpu_topology_t)
+		       * old_topology_size)) != 0)) {
+	changed = 1;
+	if (old_topology)
+	    free(old_topology);
+    }
+    else {
+	if (cpuinfo->topology)
+	    free(cpuinfo->topology);
+	cpuinfo->topology = old_topology;
+    }
+
+    return changed;
 }
 
 int
@@ -641,9 +737,6 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     errno = 0;
 
-    if (cpuinfo->topology)
-	free(cpuinfo->topology);
-
     if (cpuinfo->configured < 1)
 	goto error;
 
@@ -895,9 +988,6 @@ read_topology(erts_cpu_info_t *cpuinfo)
     kstat_t *ks;
 
     errno = 0;
-
-    if (cpuinfo->topology)
-	free(cpuinfo->topology);
 
     if (cpuinfo->configured < 1)
 	goto error;
