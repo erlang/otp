@@ -3002,7 +3002,6 @@ erts_sys_pre_init(void)
     }
 #endif
     erts_smp_atomic_init(&sys_misc_mem_sz, 0);
-    erts_sys_env_init();
 }
 
 void noinherit_std_handle(DWORD type)
@@ -3017,6 +3016,8 @@ void noinherit_std_handle(DWORD type)
 void erl_sys_init(void)
 {
     HANDLE handle;
+
+    erts_sys_env_init();
 
     noinherit_std_handle(STD_OUTPUT_HANDLE);
     noinherit_std_handle(STD_INPUT_HANDLE);
