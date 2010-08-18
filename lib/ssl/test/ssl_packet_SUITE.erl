@@ -1724,7 +1724,7 @@ packet_line_decode(Config) when is_list(Config) ->
 					       [Data]}},
 					{options, [{active, true}, 
 						   {packet, line}, 
-						   binary | ClientOpts]}]),
+						   list | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
 
@@ -1748,11 +1748,11 @@ client_line_packet_decode(Socket, Lines) ->
     ok = ssl:send(Socket, P1),
     ok = ssl:send(Socket, P2),
     receive
-	{ssl, Socket,  <<"Line ends here.\n">>} -> ok;
+	{ssl, Socket,  "Line ends here.\n"} -> ok;
 	Other1 -> exit({?LINE, Other1})
     end,
     receive
-	{ssl, Socket,  <<"Now it is a new line.\n">>} -> ok;
+	{ssl, Socket,  "Now it is a new line.\n"} -> ok;
 	Other2 -> exit({?LINE, Other2})
     end.
 
