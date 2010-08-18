@@ -30976,6 +30976,36 @@ case wxHtmlLinkEvent_GetLinkInfo: { // wxHtmlLinkEvent::GetLinkInfo
  rt.add(Result);
  break;
 }
+case wxSystemSettings_GetColour: { // wxSystemSettings::GetColour
+ wxSystemColour index = *(wxSystemColour *) bp; bp += 4;;
+ wxColour Result = wxSystemSettings::GetColour((wxSystemColour) index);
+ rt.add(Result);
+ break;
+}
+case wxSystemSettings_GetFont: { // wxSystemSettings::GetFont
+ wxSystemFont index = *(wxSystemFont *) bp; bp += 4;;
+ wxFont * Result = new wxFont(wxSystemSettings::GetFont((wxSystemFont) index)); newPtr((void *) Result,3, memenv);;
+ rt.addRef(getRef((void *)Result,memenv), "wxFont");
+ break;
+}
+case wxSystemSettings_GetMetric: { // wxSystemSettings::GetMetric
+ wxWindow * win=NULL;
+ wxSystemMetric index = *(wxSystemMetric *) bp; bp += 4;;
+ bp += 4; /* Align */
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+win = (wxWindow *) getPtr(bp,memenv); bp += 4;
+  } break;
+ }};
+ int Result = wxSystemSettings::GetMetric((wxSystemMetric) index,win);
+ rt.addInt(Result);
+ break;
+}
+case wxSystemSettings_GetScreenType: { // wxSystemSettings::GetScreenType
+ int Result = wxSystemSettings::GetScreenType();
+ rt.addInt(Result);
+ break;
+}
 case wxAuiNotebookEvent_SetSelection: { // wxAuiNotebookEvent::SetSelection
  wxAuiNotebookEvent *This = (wxAuiNotebookEvent *) getPtr(bp,memenv); bp += 4;
  int * s = (int *) bp; bp += 4;
@@ -31110,7 +31140,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 222, memenv);
+ newPtr((void *) Result, 223, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
