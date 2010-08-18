@@ -411,7 +411,7 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 	  if(event->caller == process ||  // Callbacks from CB process only 
 	     event->op == WXE_CB_START || // Recursive event callback allow
 	     // Allow connect_cb during CB i.e. msg from wxe_server.
-	     event->caller == memenv->owner) 
+	     (memenv && event->caller == memenv->owner)) 
 	    {
 	      switch(event->op) {
 	      case WXE_BATCH_END:
@@ -669,7 +669,7 @@ void WxeApp::clearPtr(void * ptr) {
       send_msg("debug", &msg);
     }
     
-    if(refd->pid != -1) {  
+    if(((int) refd->pid) != -1) {
       // Send terminate pid to owner
       wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->memenv->owner, false);
       rt.addAtom("_wxe_destroy_");
