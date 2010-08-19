@@ -1177,14 +1177,14 @@ else
 		AC_DEFINE(USE_RECURSIVE_MALLOC_MUTEX,[1],
 			[Define if malloc should use a recursive mutex])
 		AC_MSG_CHECKING([whether dlopen() needs to be called before first call to dlerror()])
-		if test "x$ETHR_THR_LIB_BASE_NAME" != "xnptl"; then
+		if test "x$ETHR_THR_LIB_BASE_TYPE" != "xposix_nptl"; then
 		    AC_DEFINE(ERTS_NEED_DLOPEN_BEFORE_DLERROR,[1],
 			[Define if dlopen() needs to be called before first call to dlerror()])
 			AC_MSG_RESULT(yes)
 		else
 			AC_MSG_RESULT(no)
 		fi
-		if test "x$ETHR_THR_LIB_BASE_NAME" != "xnptl"; then
+		if test "x$ETHR_THR_LIB_BASE_TYPE" != "xposix_nptl"; then
 		    # Child waiter thread cannot be enabled
 		    disable_child_waiter_thread=yes
 		    enable_child_waiter_thread=no
