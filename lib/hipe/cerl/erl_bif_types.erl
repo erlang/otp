@@ -3789,7 +3789,7 @@ arg_types(erlang, port_info, 1) ->
 arg_types(erlang, port_info, 2) ->
   [t_sup(t_port(), t_atom()),
    t_atoms(['registered_name', 'id', 'connected',
-	    'links', 'name', 'input', 'output'])];
+	    'links', 'name', 'input', 'output', 'os_pid'])];
 arg_types(erlang, port_to_list, 1) ->
   [t_port()];
 arg_types(erlang, ports, 0) ->

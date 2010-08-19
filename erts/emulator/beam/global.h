@@ -173,6 +173,7 @@ struct port {
     char *name;		         /* String used in the open */
     erts_driver_t* drv_ptr;
     UWord drv_data;
+    pid_t os_pid;                /* Child process ID */
     ErtsProcList *suspended;	 /* List of suspended processes. */
     LineBuf *linebuf;            /* Buffer to hold data not ready for
 				    process to get (line oriented I/O)*/
