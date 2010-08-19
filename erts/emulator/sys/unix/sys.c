@@ -1163,6 +1163,8 @@ static int set_driver_data(int port_num,
 	report_exit_list = report_exit;
     }
 
+    erts_port[port_num].os_pid = pid;
+
     if (read_write & DO_READ) {
 	driver_data[ifd].packet_bytes = packet_bytes;
 	driver_data[ifd].port_num = port_num;

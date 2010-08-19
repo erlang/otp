@@ -3084,6 +3084,10 @@ os_prompt%</pre>
             <p><c><anno>Bytes</anno></c> is the total number of bytes written to
               the port.</p>
           </item>
+          <tag><c>{os_pid, Integer}</c></tag>
+          <item>
+            <p><c>Integer</c> is the OS pid of the spawned process (Unix systems only).</p>
+          </item>
         </taglist>
         <p>Failure: <c>badarg</c> if <c><anno>Port</anno></c> is not a local port.</p>
       </desc>
