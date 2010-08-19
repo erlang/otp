@@ -35,7 +35,7 @@
 -include("wxe.hrl").
 -export([addRoot/2,addRoot/3,appendItem/3,appendItem/4,assignImageList/2,assignStateImageList/2,
   collapse/2,collapseAndReset/2,create/2,create/3,delete/2,deleteAllItems/1,
-  deleteChildren/2,destroy/1,ensureVisible/2,expand/2,getBoundingRect/3,
+  deleteChildren/2,destroy/1,editLabel/2,ensureVisible/2,expand/2,getBoundingRect/3,
   getBoundingRect/4,getChildrenCount/2,getChildrenCount/3,getCount/1,
   getEditControl/1,getFirstChild/2,getFirstVisibleItem/1,getImageList/1,
   getIndent/1,getItemBackgroundColour/2,getItemData/2,getItemFont/2,
@@ -241,6 +241,14 @@ deleteChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_DeleteChildren,
+  <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
+
+%% @spec (This::wxTreeCtrl(), Item::integer()) -> wxTextCtrl:wxTextCtrl()
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrleditlabel">external documentation</a>.
+editLabel(#wx_ref{type=ThisT,ref=ThisRef},Item)
+ when is_integer(Item) ->
+  ?CLASS(ThisT,wxTreeCtrl),
+  wxe_util:call(?wxTreeCtrl_EditLabel,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
 %% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
