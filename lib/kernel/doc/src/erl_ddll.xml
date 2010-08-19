@@ -177,7 +177,7 @@
       <name>demonitor(MonitorRef) -> ok</name>
       <fsummary>Remove a monitor for a driver</fsummary>
       <type>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
       </type>
       <desc>
         <p>Removes a driver monitor in much the same way as 
@@ -185,7 +185,7 @@
           monitors. See <seealso marker="#monitor/2">monitor/2</seealso>, <seealso marker="#try_load/3">try_load/3</seealso> and <seealso marker="#try_unload/2">try_unload/2</seealso> for details
           about how to create driver monitors.</p>
         <p>The function throws a <c>badarg</c> exception if the
-          parameter is not a ref().  </p>
+          parameter is not a reference().  </p>
       </desc>
     </func>
     <func>
@@ -400,7 +400,7 @@
         <v>Item = {Name, When}</v>
         <v>Name = atom() | string()</v>
         <v>When = loaded | unloaded | unloaded_only</v>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
       </type>
       <desc>
         <p>This function creates a driver monitor and works in many
@@ -449,7 +449,7 @@
                   eventually lead to one of the following messages
                   being sent:</p>
                 <taglist>
-                  <tag><em>{'UP', ref(), driver, Name, loaded}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, loaded}</em></tag>
                   <item>
                     <p>This message is sent, either immediately if the
                       driver is already loaded and no reloading is
@@ -459,7 +459,7 @@
                       expected to know if reloading is demanded prior
                       to creating a monitor for loading.</p>
                   </item>
-                  <tag><em>{'UP', ref(), driver, Name, permanent}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, permanent}</em></tag>
                   <item>
                     <p>This message will be sent if reloading was
                       expected, but the (old) driver made itself
@@ -467,7 +467,7 @@
                       sent if the driver was permanent or statically
                       linked in when trying to create the monitor.</p>
                   </item>
-                  <tag><em>{'DOWN', ref(), driver, Name, load_cancelled}</em></tag>
+                  <tag><em>{'DOWN', reference(), driver, Name, load_cancelled}</em></tag>
                   <item>
                     <p>This message will arrive if reloading was
                       underway, but the <seealso marker="#users">user</seealso> having requested
@@ -476,7 +476,7 @@
                       (or <c>unload/1</c>/<c>unload_driver/1</c>)
                       again before it was reloaded.</p>
                   </item>
-                  <tag><em>{'DOWN', ref(), driver, Name, {load_failure, Failure}}</em></tag>
+                  <tag><em>{'DOWN', reference(), driver, Name, {load_failure, Failure}}</em></tag>
                   <item>
                     <p>This message will arrive if reloading was
                       underway but the loading for some reason
@@ -500,7 +500,7 @@
                 <p>A driver monitor for unload will eventually result
                   in one of the following messages being sent:</p>
                 <taglist>
-                  <tag><em>{'DOWN', ref(), driver, Name, unloaded}</em></tag>
+                  <tag><em>{'DOWN', reference(), driver, Name, unloaded}</em></tag>
                   <item>
                     <p>The driver instance monitored is now
                       unloaded. As the unload might have been due to a
@@ -508,7 +508,7 @@
                       again have been loaded when this message
                       arrives.</p>
                   </item>
-                  <tag><em>{'UP', ref(), driver, Name, unload_cancelled}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, unload_cancelled}</em></tag>
                   <item>
                     <p>This message will be sent if unloading was
                       expected, but while the driver was waiting for
@@ -525,7 +525,7 @@
                       similar to an <c>unloaded</c> monitor, but does
                       never result in this message.</p>
                   </item>
-                  <tag><em>{'UP', ref(), driver, Name, permanent}</em></tag>
+                  <tag><em>{'UP', reference(), driver, Name, permanent}</em></tag>
                   <item>
                     <p>This message will be sent if unloading was
                       expected, but the driver made itself
@@ -539,7 +539,7 @@
               <item>
                 <p>A monitor created as <c>unloaded_only</c> behaves
                   exactly as one created as <c>unloaded</c> with the
-                  exception that the <c>{'UP', ref(), driver, Name, unload_cancelled}</c> message will never be
+                  exception that the <c>{'UP', reference(), driver, Name, unload_cancelled}</c> message will never be
                   sent, but the monitor instead persists until the
                   driver <em>really</em> gets unloaded.</p>
               </item>
@@ -626,7 +626,7 @@
         <v>ReloadOption = pending_driver | pending</v>
         <v>Status = loaded | already_loaded | PendingStatus </v>
         <v>PendingStatus = pending_driver | pending_process</v>
-        <v>Ref = ref()</v>
+        <v>Ref = reference()</v>
         <v>ErrorDesc = ErrorAtom | OpaqueError</v>
         <v>ErrorAtom = linked_in_driver | inconsistent | permanent | not_loaded_by_this_process | not_loaded |  pending_reload | pending_process</v>
       </type>
@@ -650,7 +650,7 @@
               registered and a corresponding <c>try_unload</c> is
               expected sometime in the future.</p>
           </item>
-          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, ref()}</em></tag>
+          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, reference()}</em></tag>
           <item>
             <p>The load request is registered, but the loading is
               delayed due to the fact that an earlier instance of the
@@ -665,7 +665,7 @@
               set. In other words, this return value will always need
               to be handled!</p>
           </item>
-          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, ref()}</em></tag>
+          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, reference()}</em></tag>
           <item>
             <p>The load request is registered, but the loading is
               delayed due to the fact that an earlier instance of the
@@ -683,7 +683,7 @@
           about when the driver is <em>actually</em> loaded. This can
           be achieved by using the <c>{monitor, PendingOption}</c> option.</p>
         <p>When monitoring is requested, and a corresponding <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c> would be
-          returned, the function will instead return a tuple <c>{ok, PendingStatus, ref()}</c> and the process will, at a later
+          returned, the function will instead return a tuple <c>{ok, PendingStatus, reference()}</c> and the process will, at a later
           time when the driver actually gets loaded, get a monitor
           message. The monitor message one can expect is described in
           the <seealso marker="#monitor/2">monitor/2</seealso>
@@ -760,7 +760,7 @@
                 <p>A <c>MonitorOption</c> tells <c>try_load/3</c> to
                   trigger a driver monitor under certain
                   conditions. When the monitor is triggered, the
-                  function will return a three-tuple <c>{ok, PendingStatus, ref()}</c>, where the <c>ref()</c> is
+                  function will return a three-tuple <c>{ok, PendingStatus, reference()}</c>, where the <c>reference()</c> is
                   the monitor ref for the driver monitor.</p>
                 <p>Only one <c>MonitorOption</c> can be specified and
                   it is either the atom <c>pending</c>, which means
@@ -891,7 +891,7 @@
         <v>MonitorOption = pending_driver | pending</v>
         <v>Status = unloaded | PendingStatus </v>
         <v>PendingStatus = pending_driver | pending_process</v>
-        <v>Ref = ref()</v>
+        <v>Ref = reference()</v>
         <v>ErrorAtom = linked_in_driver | not_loaded |  not_loaded_by_this_process | permanent</v>
       </type>
       <desc>
@@ -943,7 +943,7 @@
               ports using it and there are no more <seealso marker="#users">users</seealso> requiring it to be
               loaded.</p>
           </item>
-          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, ref()}</em></tag>
+          <tag><em>{ok, pending_driver}</em>or <em>{ok, pending_driver, reference()}</em></tag>
           <item>
             <p>This return value indicates that this call removed the
               last <seealso marker="#users">user</seealso> from the
@@ -957,7 +957,7 @@
               in that case, however transient. Monitors are as always
               useful to detect when the driver is really unloaded.</p>
           </item>
-          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, ref()}</em></tag>
+          <tag><em>{ok, pending_process}</em>or <em>{ok, pending_process, reference()}</em></tag>
           <item>
             <p>The unload request is registered, but there are still
               other <seealso marker="#users">users</seealso> holding

@@ -499,7 +499,7 @@ iolist() = [char() | binary() | iolist()]
       <name>erlang:cancel_timer(TimerRef) -> Time | false</name>
       <fsummary>Cancel a timer</fsummary>
       <type>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
         <v>Time = int()</v>
       </type>
       <desc>
@@ -763,7 +763,7 @@ false</pre>
       <name>erlang:demonitor(MonitorRef) -> true</name>
       <fsummary>Stop monitoring</fsummary>
       <type>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
       </type>
       <desc>
         <p>If <c>MonitorRef</c> is a reference which the calling process
@@ -803,7 +803,7 @@ false</pre>
       <name>erlang:demonitor(MonitorRef, OptionList) -> true|false</name>
       <fsummary>Stop monitoring</fsummary>
       <type>
-        <v>MonitorRef = ref()</v>
+        <v>MonitorRef = reference()</v>
         <v>OptionList = [Option]</v>
         <v>Option = flush</v>
         <v>Option = info</v>
@@ -2160,7 +2160,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>make_ref() -> ref()</name>
+      <name>make_ref() -> reference()</name>
       <fsummary>Return an almost unique reference</fsummary>
       <desc>
         <p>Returns an almost unique reference.</p>
@@ -2690,7 +2690,7 @@ os_prompt%</pre>
       <name>node(Arg) -> Node</name>
       <fsummary>At which node is a pid, port or reference located</fsummary>
       <type>
-        <v>Arg = pid() | port() | ref()</v>
+        <v>Arg = pid() | port() | reference()</v>
         <v>Node = node()</v>
       </type>
       <desc>
@@ -4098,7 +4098,7 @@ os_prompt%</pre>
       <name>erlang:read_timer(TimerRef) -> int() | false</name>
       <fsummary>Number of milliseconds remaining for a timer</fsummary>
       <type>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
       </type>
       <desc>
         <p><c>TimerRef</c> is a timer reference returned by
@@ -4121,7 +4121,7 @@ os_prompt%</pre>
       <name>erlang:ref_to_list(Ref) -> string()</name>
       <fsummary>Text representation of a reference</fsummary>
       <type>
-        <v>Ref = ref()</v>
+        <v>Ref = reference()</v>
       </type>
       <desc>
         <p>Returns a string which corresponds to the text
@@ -4300,7 +4300,7 @@ true</pre>
         <v>Dest = pid() | RegName </v>
         <v>&nbsp;LocalPid = pid() (of a process, alive or dead, on the local node)</v>
         <v>Msg = term()</v>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
       </type>
       <desc>
         <p>Starts a timer which will send the message <c>Msg</c>
@@ -4829,7 +4829,7 @@ true</pre>
         <v>&nbsp;LocalPid = pid() (of a process, alive or dead, on the local node)</v>
         <v>&nbsp;RegName = atom()</v>
         <v>Msg = term()</v>
-        <v>TimerRef = ref()</v>
+        <v>TimerRef = reference()</v>
       </type>
       <desc>
         <p>Starts a timer which will send the message

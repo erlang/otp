@@ -79,7 +79,7 @@ sends the reply to.</item>
 io_reply. The io-module in the Erlang standard library simply uses the pid()
 of the io_server as the ReplyAs datum, but a more complicated client
 could have several outstanding io-requests to the same server and
-would then use i.e. a ref() or something else to differentiate among
+would then use i.e. a reference() or something else to differentiate among
 the incoming io_reply's. The ReplyAs element should be considered
 opaque by the io_server. Note that the pid() of the server is not
 explicitly present in the io_reply. The reply can be sent from any

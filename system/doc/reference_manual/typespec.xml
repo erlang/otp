@@ -96,7 +96,7 @@ Type :: any()            %% The top type, the set of all Erlang terms.
       | none()           %% The bottom type, contains no terms.
       | pid()
       | port()
-      | ref()
+      | reference()
       | []               %% nil
       | Atom
       | Binary
