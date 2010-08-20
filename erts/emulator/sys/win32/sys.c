@@ -37,7 +37,7 @@
 void erts_sys_init_float(void);
 
 void erl_start(int, char**);
-void erl_exit(int n, char*, _DOTS_);
+void erl_exit(int n, char*, ...);
 void erl_error(char*, va_list);
 void erl_crash_dump(char*, int, char*, ...);
 
@@ -67,10 +67,10 @@ static void async_read_file(struct async_io* aio, LPVOID buf, DWORD numToRead);
 static int async_write_file(struct async_io* aio, LPVOID buf, DWORD numToWrite);
 static int get_overlapped_result(struct async_io* aio,
 				 LPDWORD pBytesRead, BOOL wait);
-static FUNCTION(BOOL, CreateChildProcess, (char *, HANDLE, HANDLE,
-					   HANDLE, LPHANDLE, BOOL,
-					   LPVOID, LPTSTR, unsigned, 
-					   char **, int *));
+static BOOL CreateChildProcess(char *, HANDLE, HANDLE,
+			       HANDLE, LPHANDLE, BOOL,
+			       LPVOID, LPTSTR, unsigned,
+			       char **, int *);
 static int create_pipe(LPHANDLE, LPHANDLE, BOOL, BOOL);
 static int ApplicationType(const char* originalName, char fullPath[MAX_PATH],
 			   BOOL search_in_path, BOOL handle_quotes,
@@ -93,7 +93,7 @@ static erts_smp_mtx_t sys_driver_data_lock;
 #define APPL_WIN3X 2
 #define APPL_WIN32 3
 
-static FUNCTION(int, driver_write, (long, HANDLE, byte*, int));
+static int driver_write(long, HANDLE, byte*, int);
 static void common_stop(int);
 static int create_file_thread(struct async_io* aio, int mode);
 #ifdef ERTS_SMP
@@ -2627,7 +2627,6 @@ erts_sys_main_thread(void)
 
 void erts_sys_alloc_init(void)
 {
-    elib_ensure_initialized();
 }
 
 void *erts_sys_alloc(ErtsAlcType_t t, void *x, Uint sz)

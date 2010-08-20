@@ -48,11 +48,11 @@
 #undef M_MMAP_THRESHOLD
 #undef M_MMAP_MAX
 
-#if !defined(ELIB_ALLOC_IS_CLIB) && defined(__GLIBC__) && defined(HAVE_MALLOC_H)
+#if defined(__GLIBC__) && defined(HAVE_MALLOC_H)
 #include <malloc.h>
 #endif
 
-#if defined(ELIB_ALLOC_IS_CLIB) || !defined(HAVE_MALLOPT)
+#if !defined(HAVE_MALLOPT)
 #undef  HAVE_MALLOPT
 #define HAVE_MALLOPT 0
 #endif

@@ -201,9 +201,6 @@ AC_ARG_ENABLE(native-libs,
 AC_ARG_ENABLE(tsp,
 [  --enable-tsp            compile tsp app])
 
-AC_ARG_ENABLE(elib-malloc,
-[  --enable-elib-malloc    use elib_malloc instead of normal malloc])
-
 AC_ARG_ENABLE(fp-exceptions,
 [  --enable-fp-exceptions    Use hardware floating point exceptions (default if hipe enabled)],
 [ case "$enableval" in
@@ -2996,17 +2993,6 @@ if test "x$HIPE_ENABLED" = "xyes" ; then
   elif test "x$with_perfctr" != "xno" ; then
       USE_PERFCTR=1
   fi
-fi
-
-#
-# Check if we should use elib_malloc.
-#
-
-if test X${enable_elib_malloc} = Xyes; then
- AC_DEFINE(ENABLE_ELIB_MALLOC,[],[Define to enable use of elib_malloc (a malloc() replacement)])
- AC_DEFINE(ELIB_HEAP_SBRK,[],[Elib sbrk])
- AC_DEFINE(ELIB_ALLOC_IS_CLIB,[],[Use elib malloc as clib])
- AC_DEFINE(ELIB_SORTED_BLOCKS,[],[Define to enable the use of sorted blocks when using elib_malloc])
 fi
 
 #

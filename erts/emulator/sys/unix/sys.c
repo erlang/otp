@@ -123,8 +123,6 @@ static ErtsSysReportExit *report_exit_transit_list;
 
 extern int  check_async_ready(void);
 extern int  driver_interrupt(int, int);
-/*EXTERN_FUNCTION(void, increment_time, (int));*/
-/*EXTERN_FUNCTION(int, next_time, (_VOID_));*/
 extern void do_break(void);
 
 extern void erl_sys_args(int*, char**);
@@ -221,10 +219,10 @@ static struct fd_data {
 } *fd_data;			/* indexed by fd */
 
 /* static FUNCTION(int, write_fill, (int, char*, int)); unused? */
-static FUNCTION(void, note_child_death, (int, int));
+static void note_child_death(int, int);
 
 #if CHLDWTHR
-static FUNCTION(void *, child_waiter, (void *));
+static void* child_waiter(void *);
 #endif
 
 /********************* General functions ****************************/
@@ -2562,7 +2560,6 @@ extern Preload pre_loaded[];
 
 void erts_sys_alloc_init(void)
 {
-    elib_ensure_initialized();
 }
 
 void *erts_sys_alloc(ErtsAlcType_t t, void *x, Uint sz)

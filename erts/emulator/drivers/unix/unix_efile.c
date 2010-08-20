@@ -98,7 +98,7 @@ extern STATUS copy(char *, char *);
 #define EF_SAFE_REALLOC(P, S)	ef_safe_realloc((P), (S))
 #define EF_FREE(P)		do { if((P)) driver_free((P)); } while(0)
 
-extern void erl_exit(int n, char *fmt, _DOTS_);
+void erl_exit(int n, char *fmt, ...);
 
 static void *ef_safe_alloc(Uint s)
 {
@@ -127,7 +127,7 @@ static void *ef_safe_realloc(void *op, Uint s)
     (s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0')))
 
 #ifdef VXWORKS
-static FUNCTION(int, vxworks_to_posix, (int vx_errno));
+static int vxworks_to_posix(int vx_errno);
 #endif
 
 /*
@@ -146,7 +146,7 @@ static FUNCTION(int, vxworks_to_posix, (int vx_errno));
 #define CHECK_PATHLEN(X,Y) /* Nothing */
 #endif
 
-static FUNCTION(int, check_error, (int result, Efile_error* errInfo));
+static int check_error(int result, Efile_error* errInfo);
 
 static int
 check_error(int result, Efile_error *errInfo)

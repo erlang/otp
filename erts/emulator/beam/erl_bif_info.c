@@ -38,9 +38,6 @@
 #include "erl_instrument.h"
 #include "dist.h"
 #include "erl_gc.h"
-#ifdef ELIB_ALLOC_IS_CLIB
-#include "elib_stat.h"
-#endif
 #ifdef HIPE
 #include "hipe_arch.h"
 #endif
@@ -2126,86 +2123,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_alloc_util_allocators((void *) BIF_P));
     }
     else if (BIF_ARG_1 == am_elib_malloc) {
-#ifdef ELIB_ALLOC_IS_CLIB
-	struct elib_stat stat;
-	DECL_AM(heap_size);
-	DECL_AM(max_alloced_size);
-	DECL_AM(alloced_size);
-	DECL_AM(free_size);
-	DECL_AM(no_alloced_blocks);
-	DECL_AM(no_free_blocks);
-	DECL_AM(smallest_alloced_block);
-	DECL_AM(largest_free_block);
-	Eterm atoms[8];
-	Eterm ints[8];
-	Uint **hpp;
-	Uint sz;
-	Uint *szp;
-	int length;
-#ifdef DEBUG
-	Uint *endp;
-#endif
-
-	elib_stat(&stat);
-
-	/* First find out the heap size needed ... */
-	hpp = NULL;
-	szp = &sz;
-	sz = 0;
-
-    build_elib_malloc_term:
-	length = 0;
-	atoms[length] = AM_heap_size;
-	ints[length++] = erts_bld_uint(hpp, szp,
-				       (Uint) stat.mem_total*sizeof(Uint));
-	atoms[length] = AM_max_alloced_size;
-	ints[length++] = erts_bld_uint(hpp, szp,
-				       (Uint) stat.mem_max_alloc*sizeof(Uint));
-	atoms[length] = AM_alloced_size;
-	ints[length++] = erts_bld_uint(hpp, szp,
-				       (Uint) stat.mem_alloc*sizeof(Uint));
-	atoms[length] = AM_free_size;
-	ints[length++] = erts_bld_uint(hpp, szp,
-				       (Uint) stat.mem_free*sizeof(Uint));
-	atoms[length] = AM_no_alloced_blocks;
-	ints[length++] = erts_bld_uint(hpp, szp, (Uint) stat.mem_blocks);
-	atoms[length] = AM_no_free_blocks;
-	ints[length++] = erts_bld_uint(hpp, szp, (Uint) stat.free_blocks);
-	atoms[length] = AM_smallest_alloced_block;
-	ints[length++] = erts_bld_uint(hpp, szp,
-				       (Uint) stat.min_used*sizeof(Uint));
-	atoms[length] = AM_largest_free_block;
-	ints[length++] = erts_bld_uint(hpp, szp,
-				       (Uint) stat.max_free*sizeof(Uint));
-
-
-
-	ASSERT(length <= sizeof(atoms)/sizeof(Eterm));
-	ASSERT(length <= sizeof(ints)/sizeof(Eterm));
-
-	res = erts_bld_2tup_list(hpp, szp, length, atoms, ints);
-
-	if (szp) {
-	    /* ... and then build the term */
-	    hp = HAlloc(BIF_P, sz);
-#ifdef DEBUG
-	    endp = hp + sz;
-#endif
-
-	    szp = NULL;
-	    hpp = &hp;
-	    goto build_elib_malloc_term;
-	}
-
-#ifdef DEBUG
-	ASSERT(endp == hp);
-#endif
-
-#else /* #ifdef ELIB_ALLOC_IS_CLIB */
-	res = am_false;
-#endif /* #ifdef ELIB_ALLOC_IS_CLIB */
-
-	BIF_RET(res);
+	/* To be removed in R15 */
+        BIF_RET(am_false);
     }
     else if (BIF_ARG_1 == am_os_version) {
        int major, minor, build;

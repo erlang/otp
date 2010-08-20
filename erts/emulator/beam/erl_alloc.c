@@ -38,9 +38,6 @@
 #include "erl_bits.h"
 #include "erl_instrument.h"
 #include "erl_mseg.h"
-#ifdef ELIB_ALLOC_IS_CLIB
-#include "erl_version.h"
-#endif
 #include "erl_monitors.h"
 #include "erl_bif_timer.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
@@ -73,7 +70,6 @@ static Uint install_debug_functions(void);
 #endif
 #endif
 #endif
-extern void elib_ensure_initialized(void);
 
 ErtsAllocatorFunctions_t erts_allctrs[ERTS_ALC_A_MAX+1];
 ErtsAllocatorInfo_t erts_allctrs_info[ERTS_ALC_A_MAX+1];
@@ -2321,13 +2317,8 @@ erts_allocator_info_term(void *proc, Eterm which_alloc, int only_sz)
 			l = 0;
 			as[l] = am_atom_put("e", 1);
 			ts[l++] = am_true;
-#ifdef ELIB_ALLOC_IS_CLIB
-			as[l] = am_atom_put("m", 1);
-			ts[l++] = am_atom_put("elib", 4);
-#else
 			as[l] = am_atom_put("m", 1);
 			ts[l++] = am_atom_put("libc", 4);
-#endif
 			if(sas.trim_threshold >= 0) {
 			    as[l] = am_atom_put("tt", 2);
 			    ts[l++] = erts_bld_uint(hpp, szp,
@@ -2481,11 +2472,7 @@ erts_allocator_info(int to, void *arg)
 		    case ERTS_ALC_A_SYSTEM: {
 			SysAllocStat sas;
 			erts_print(to, arg, "option e: true\n");
-#ifdef ELIB_ALLOC_IS_CLIB
-			erts_print(to, arg, "option m: elib\n");
-#else
 			erts_print(to, arg, "option m: libc\n");
-#endif
 			sys_alloc_stat(&sas);
 			if(sas.trim_threshold >= 0)
 			    erts_print(to, arg, "option tt: %d\n", sas.trim_threshold);
@@ -2589,13 +2576,8 @@ erts_allocator_options(void *proc)
 
 		switch (a) {
 		case ERTS_ALC_A_SYSTEM:
-#ifdef ELIB_ALLOC_IS_CLIB
-		    as[l] = am_atom_put("m", 1);
-		    ts[l++] = am_atom_put("elib", 4);
-#else
 		    as[l] = am_atom_put("m", 1);
 		    ts[l++] = am_atom_put("libc", 4);
-#endif
 		    if(sas.trim_threshold >= 0) {
 			as[l] = am_atom_put("tt", 2);
 			ts[l++] = erts_bld_uint(hpp, szp,
@@ -2666,23 +2648,7 @@ erts_allocator_options(void *proc)
 
     features = length ? erts_bld_list(hpp, szp, length, terms) : NIL;
 
-#if defined(ELIB_ALLOC_IS_CLIB)
-    {
-	Eterm version;
-	int i;
-	int ver[5];
-	i = sscanf(ERLANG_VERSION,
-		   "%d.%d.%d.%d.%d",
-		   &ver[0], &ver[1], &ver[2], &ver[3], &ver[4]);
-
-	version = NIL;
-	for(i--; i >= 0; i--)
-	  version = erts_bld_cons(hpp, szp, make_small(ver[i]), version);
-
-	res = erts_bld_tuple(hpp, szp, 4,
-			     am_elib_malloc, version, features, settings);
-    }
-#elif defined(__GLIBC__)
+#if defined(__GLIBC__)
     {
 	Eterm AM_glibc = am_atom_put("glibc", 5);
 	Eterm version;

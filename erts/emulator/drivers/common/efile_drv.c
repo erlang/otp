@@ -104,7 +104,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 
-extern void erl_exit(int n, char *fmt, _DOTS_);
+void erl_exit(int n, char *fmt, ...);
 
 static ErlDrvSysInfo sys_info;
 

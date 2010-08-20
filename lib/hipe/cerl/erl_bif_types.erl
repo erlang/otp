@@ -1638,7 +1638,6 @@ type(erlang, system_info, 1, Xs) ->
 					    t_non_neg_integer()])]));
 		   ['allocator'] ->
 		     t_tuple([t_sup([t_atom('undefined'),
-				     t_atom('elib_malloc'),
 				     t_atom('glibc')]),
 			      t_list(t_integer()),
 			      t_list(t_atom()),
@@ -1659,9 +1658,8 @@ type(erlang, system_info, 1, Xs) ->
 		     t_binary();
 		   ['dist_ctrl'] ->
 		     t_list(t_tuple([t_atom(), t_sup([t_pid(), t_port])]));
-		   ['elib_malloc'] ->
-		     t_sup([t_atom('false'),
-			    t_list(t_tuple([t_atom(), t_any()]))]);
+		   %% elib_malloc is intentionally not included,
+		   %% because it scheduled for removal in R15.
 		   ['endian'] ->
 		     t_endian();
 		   ['fullsweep_after'] ->

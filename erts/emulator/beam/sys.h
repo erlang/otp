@@ -25,14 +25,6 @@
 #  define NO_FPE_SIGNALS
 #endif
 
-/* Never use elib-malloc when purify-memory-tracing */
-#if defined(PURIFY)
-#undef ENABLE_ELIB_MALLOC
-#undef ELIB_HEAP_SBRK
-#undef ELIB_ALLOC_IS_CLIB
-#endif
-
-
 /* xxxP __VXWORKS__ */
 #ifdef VXWORKS
 #include <vxWorks.h>
@@ -171,23 +163,6 @@ void erl_assert_error(char* expr, char* file, int line);
 
 #include <stdarg.h>
 
-#if defined(__STDC__) || defined(_MSC_VER)
-#  define EXTERN_FUNCTION(t, f, x)  extern t f x
-#  define FUNCTION(t, f, x) t f x
-#  define _DOTS_ ...
-#  define _VOID_      void
-#elif defined(__cplusplus)
-#  define EXTERN_FUNCTION(f, x) extern "C" { f x }
-#  define FUNCTION(t, f, x) t f x
-#  define _DOTS_ ...
-#  define _VOID_    void
-#else
-#  define EXTERN_FUNCTION(t, f, x) extern t f (/*x*/)
-#  define FUNCTION(t, f, x) t f (/*x*/)
-#  define _DOTS_
-#  define _VOID_
-#endif
-
 /* This isn't sys-dependent, but putting it here benefits sys.c and drivers
    - allow use of 'const' regardless of compiler */
 
@@ -197,7 +172,7 @@ void erl_assert_error(char* expr, char* file, int line);
 
 #ifdef VXWORKS
 /* Replace VxWorks' printf with a real one that does fprintf(stdout, ...) */
-EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
+int real_printf(const char *fmt, ...);
 #  define printf real_printf
 #endif
 
@@ -660,12 +635,12 @@ extern void erl_sys_args(int *argc, char **argv);
 extern void erl_sys_schedule(int);
 void sys_tty_reset(int);
 
-EXTERN_FUNCTION(int, sys_max_files, (_VOID_));
+int sys_max_files(void);
 void sys_init_io(void);
 Preload* sys_preloaded(void);
-EXTERN_FUNCTION(unsigned char*, sys_preload_begin, (Preload*));
-EXTERN_FUNCTION(void, sys_preload_end, (Preload*));
-EXTERN_FUNCTION(int, sys_get_key, (int));
+unsigned char* sys_preload_begin(Preload*);
+void sys_preload_end(Preload*);
+int sys_get_key(int);
 void elapsed_time_both(unsigned long *ms_user, unsigned long *ms_sys, 
 		       unsigned long *ms_user_diff, unsigned long *ms_sys_diff);
 void wall_clock_elapsed_time_both(unsigned long *ms_total, 
@@ -682,7 +657,7 @@ int local_to_univ(Sint *year, Sint *month, Sint *day,
 		  Sint *hour, Sint *minute, Sint *second, int isdst);
 void get_now(Uint*, Uint*, Uint*);
 void get_sys_now(Uint*, Uint*, Uint*);
-EXTERN_FUNCTION(void, set_break_quit, (void (*)(void), void (*)(void)));
+void set_break_quit(void (*)(void), void (*)(void));
 
 void os_flavor(char*, unsigned);
 void os_version(int*, int*, int*);
@@ -722,7 +697,7 @@ int erts_write_env(char *key, char *value);
 #define ERTS_DEFAULT_MMAP_THRESHOLD  (128 * 1024)
 #define ERTS_DEFAULT_MMAP_MAX        64
 
-EXTERN_FUNCTION(int, sys_alloc_opt, (int, int));
+int sys_alloc_opt(int, int);
 
 typedef struct {
   Sint trim_threshold;
@@ -731,7 +706,7 @@ typedef struct {
   Sint mmap_max;
 } SysAllocStat;
 
-EXTERN_FUNCTION(void, sys_alloc_stat, (SysAllocStat *));
+void sys_alloc_stat(SysAllocStat *);
 
 /* Block the whole system... */
 
@@ -1120,13 +1095,10 @@ erts_refc_read(erts_refc_t *refcp, long min_val)
 extern int erts_use_kernel_poll;
 #endif
 
-void elib_ensure_initialized(void);
-
-
 #if defined(VXWORKS)
 /* NOTE! sys_calloc2 does not exist on other 
    platforms than VxWorks and OSE */
-EXTERN_FUNCTION(void*, sys_calloc2, (Uint, Uint));
+void* sys_calloc2(Uint, Uint);
 #endif /* VXWORKS || OSE */
 
 
@@ -1218,8 +1190,8 @@ EXTERN_FUNCTION(void*, sys_calloc2, (Uint, Uint));
  */
 
 #ifdef DEBUG
-EXTERN_FUNCTION(void, erl_debug, (char* format, ...));
-EXTERN_FUNCTION(void, erl_bin_write, (unsigned char *, int, int));
+void erl_debug(char* format, ...);
+void erl_bin_write(unsigned char *, int, int);
 
 #  define DEBUGF(x) erl_debug x
 #else

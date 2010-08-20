@@ -1045,7 +1045,7 @@ struct erl_drv_entry inet_driver_entry =
 };
 
 /* XXX: is this a driver interface function ??? */
-extern void erl_exit(int n, char*, _DOTS_);
+void erl_exit(int n, char*, ...);
 
 /*
  * Malloc wrapper,
