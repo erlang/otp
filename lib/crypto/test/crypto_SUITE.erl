@@ -54,6 +54,7 @@
 	 dh/1,
 	 exor_test/1,
 	 rc4_test/1,
+	 rc4_stream_test/1,
 	 blowfish_cfb64/1,
 	 smp/1,
 	 cleanup/1]).
@@ -89,6 +90,7 @@ all(suite) ->
 		 dh, 
 		 exor_test,
 		 rc4_test,
+		 rc4_stream_test,
 		 mod_exp_test,
 		 blowfish_cfb64,
 		 smp],
@@ -979,6 +981,21 @@ rc4_test(Config) when is_list(Config) ->
     CT2 = binary_to_list(crypto:rc4_encrypt(K, R2)),
     ok.
 
+rc4_stream_test(doc) ->
+    ["Test rc4 stream encryption ."];
+rc4_stream_test(suite) ->
+    [];
+rc4_stream_test(Config) when is_list(Config) ->
+    CT1 = <<"hej">>,
+    CT2 = <<" på dig">>,
+    K = "apaapa",
+    State0 = crypto:rc4_set_key(K),
+    {State1, R1} = crypto:rc4_encrypt_with_state(State0, CT1),
+    {_State2, R2} = crypto:rc4_encrypt_with_state(State1, CT2),
+    R = list_to_binary([R1, R2]),
+    <<71,112,14,44,140,33,212,144,155,47>> = R,
+    ok.
+
 blowfish_cfb64(doc) -> ["Test Blowfish encrypt/decrypt."];
 blowfish_cfb64(suite) -> [];
 blowfish_cfb64(Config) when is_list(Config) ->   			
@@ -1029,7 +1046,7 @@ worker_loop(0, _) ->
 worker_loop(N, Config) ->
     Funcs = { md5, md5_update, md5_mac, md5_mac_io, sha, sha_update, des_cbc,
 	      aes_cfb, aes_cbc, des_cbc_iter, rand_uniform_test, 
-	      rsa_verify_test, exor_test, rc4_test, mod_exp_test },
+	      rsa_verify_test, exor_test, rc4_test, rc4_stream_test, mod_exp_test },
 
     F = element(random:uniform(size(Funcs)),Funcs),
     %%io:format("worker ~p calling ~p\n",[self(),F]),
