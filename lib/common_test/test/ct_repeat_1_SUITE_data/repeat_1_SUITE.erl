@@ -199,14 +199,10 @@ groups() ->
 				   {group,repeat_gr_until_any_ok_2},
 				   {group,repeat_gr_until_any_ok_3}]},
 
-     %%! Fails! Should get aborted on second iteration, but doesn't!
      {repeat_gr_until_any_ok_1, [{repeat_until_any_ok,3}],
       [{group,gr_fail_result}, tc_fail_1, {group,gr_fail_init}, tc_fail_2, {group,gr_fail_result_then_ok}]},
-
-     %%! Fails! Should get aborted on second iteration, but doesn't!
      {repeat_gr_until_any_ok_2, [{repeat_until_any_ok,3}],
       [{group,gr_fail_result}, tc_fail_1, {group,gr_fail_init}, tc_fail_2, {group,gr_fail_init_then_ok}]},
-
      {repeat_gr_until_any_ok_3, [{repeat_until_any_ok,3}],
       [{group,gr_fail_result}, tc_fail_1, tc_fail_then_ok_1, {group,gr_fail_init}]},
 
@@ -263,11 +259,8 @@ groups() ->
 				     {group,repeat_gr_until_all_fail_3}]},
      {repeat_gr_until_all_fail_1, [{repeat_until_all_fail,3}],
       [tc_fail_1, {group,gr_fail_init}, tc_ok_then_fail_1, {group,gr_ok_then_fail_result}]},
-
-     %%! Fails! Should run twice, not only once!
      {repeat_gr_until_all_fail_2, [{repeat_until_all_fail,3}],
       [{group,gr_ok_then_fail_init}, tc_fail_1]},
-
      {repeat_gr_until_all_fail_3, [{repeat_until_all_fail,3}],
       [{group,gr_fail_result}, tc_ok_then_fail_1]},
 
