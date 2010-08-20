@@ -182,5 +182,26 @@ events_to_check(_, 0) ->
 events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
-test_events(_) ->
+test_events(repeat_cs) ->
+    [];
+
+test_events(repeat_cs_and_grs) ->
+    [];
+
+test_events(repeat_seq_1) ->
+    [];
+
+test_events(repeat_seq_2) ->
+    [];
+
+test_events(repeat_cs_until_any_ok) ->
+    [];
+
+test_events(repeat_cs_until_any_fail) ->
+    [];
+
+test_events(repeat_cs_until_all_ok) ->
+    [];
+
+test_events(repeat_cs_until_all_fail) ->
     [].
