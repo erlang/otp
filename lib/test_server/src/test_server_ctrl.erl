@@ -2567,7 +2567,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			{true,EndStatus,RestCs,Fun};
 		    {repeat_until_any_ok,_} ->
 			{RestCs,Fun} = case get_tc_results(Status1) of
-					   {Ok,_,_} when length(Ok) > 0 ->
+					   {Ok,_,_Fails} when length(Ok) > 0 ->
 					       {Cases1,ReportStop};
 					   _ ->
 					       {CopiedCases++Cases1,?void_fun}
@@ -2734,9 +2734,10 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			end;
 		    {value,{_,GroupResult}} ->
 			{Cases,update_status(GroupResult, group_result, GrName,
-						     delete_status(Ref, Status2))};
+					     delete_status(Ref, Status2))};
 		    false ->
-			{Cases,delete_status(Ref, Status2)}
+			{Cases,update_status(ok, group_result, GrName,
+					     delete_status(Ref, Status2))}
 		end,
 	    print_conf_time(ConfTime),
 	    ReportRepeatStop(),
@@ -2876,7 +2877,10 @@ get_copied_cases([{_,{_,Cases}} | _Status]) ->
     Cases.
 
 get_tc_results([{_,{OkSkipFail,_}} | _Status]) ->
-    OkSkipFail.
+    OkSkipFail;
+get_tc_results([]) ->		      % in case init_per_suite crashed
+    {[],[],[]}.
+
 
 conf(Ref, Props) ->
     {Ref,Props,?now}.
