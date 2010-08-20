@@ -810,7 +810,9 @@ int
 matherr(struct exception *exc)
 {
 #if !defined(NO_FPE_SIGNALS)
-    set_current_fp_exception((unsigned long)__builtin_return_address(0));
+    volatile unsigned long *fpexnp = erts_get_current_fp_exception();
+    if (fpexnp != NULL)
+	*fpexnp = (unsigned long)__builtin_return_address(0);
 #endif
     return 1;
 }
