@@ -233,7 +233,8 @@ all(suite) ->
      server_renegotiate_reused_session, client_no_wrap_sequence_number,
      server_no_wrap_sequence_number, extended_key_usage,
      validate_extensions_fun, no_authority_key_identifier,
-     invalid_signature_client, invalid_signature_server, cert_expired
+     invalid_signature_client, invalid_signature_server, cert_expired,
+     client_with_cert_cipher_suites_handshake
     ].
 
 %% Test cases starts here.
@@ -2847,6 +2848,39 @@ two_digits_str(N) when N < 10 ->
     lists:flatten(io_lib:format("0~p", [N]));
 two_digits_str(N) ->
     lists:flatten(io_lib:format("~p", [N])).
+
+%%--------------------------------------------------------------------
+
+client_with_cert_cipher_suites_handshake(doc) ->
+    ["Test that client with a certificate without keyEncipherment usage "
+    " extension can connect to a server with restricted cipher suites "];
+
+client_with_cert_cipher_suites_handshake(suite) ->
+    [];
+
+client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
+    ClientOpts =  ?config(client_verification_opts_digital_signature_only, Config),
+    ServerOpts =  ?config(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active, []}},
+					{options, [{active, true},
+						   {ciphers, ssl_test_lib:rsa_non_signed_suites()}
+						   | ServerOpts]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active, []}},
+					{options, [{active, true}
+						   | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

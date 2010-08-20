@@ -268,6 +268,8 @@ cert_options(Config) ->
 				      "client", "cacerts.pem"]),
     ClientCertFile = filename:join([?config(priv_dir, Config), 
 				    "client", "cert.pem"]),
+    ClientCertFileDigitalSignatureOnly = filename:join([?config(priv_dir, Config),
+				    "client", "digital_signature_only_cert.pem"]),
     ServerCaCertFile = filename:join([?config(priv_dir, Config), 
 				      "server", "cacerts.pem"]),
     ServerCertFile = filename:join([?config(priv_dir, Config), 
@@ -292,6 +294,10 @@ cert_options(Config) ->
 				{certfile, ClientCertFile},  
 				{keyfile, ClientKeyFile},
 				{ssl_imp, new}]}, 
+     {client_verification_opts_digital_signature_only, [{cacertfile, ClientCaCertFile},
+				{certfile, ClientCertFileDigitalSignatureOnly},
+				{keyfile, ClientKeyFile},
+				{ssl_imp, new}]},
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
@@ -568,6 +574,14 @@ rsa_suites() ->
 			 false;
 		    (_) ->
 			 true
+		 end,
+		 ssl:cipher_suites()).
+
+rsa_non_signed_suites() ->
+    lists:filter(fun({rsa, _, _}) ->
+			 true;
+		    (_) ->
+			 false
 		 end,
 		 ssl:cipher_suites()).
 
