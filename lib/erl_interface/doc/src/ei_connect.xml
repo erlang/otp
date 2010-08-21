@@ -116,7 +116,7 @@
 int n = 0;
 struct in_addr addr;
 ei_cnode ec;
-addr = inet_addr("150.236.14.75");
+addr.s_addr = inet_addr("150.236.14.75");
 if (ei_connect_xinit(&ec,
                      "chivas",
                      "madonna",
@@ -132,7 +132,7 @@ if (ei_connect_xinit(&ec,
           </p>
         <code type="none"><![CDATA[
 if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
-    fprintf("ERROR when initializing: %d",erl_errno);
+    fprintf(stderr,"ERROR when initializing: %d",erl_errno);
     exit(-1);
 }
         ]]></code>
@@ -177,7 +177,7 @@ int fd = ei_connect(&ec, NODE);
 
 /*** Variant 2 ***/
 struct in_addr addr;
-addr = inet_addr(IP_ADDR);
+addr.s_addr = inet_addr(IP_ADDR);
 fd = ei_xconnect(&ec, &addr, ALIVE);
         ]]></code>
       </desc>
