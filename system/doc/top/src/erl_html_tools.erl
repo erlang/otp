@@ -26,7 +26,7 @@
 %%-----------------------------------------------------------------
 -module(erl_html_tools). 
 
--export([top_index/0,top_index/1,top_index/3,top_index_silent/3]).
+-export([top_index/0,top_index/1,top_index/4,top_index_silent/3]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -49,19 +49,22 @@ top_index() ->
 	    io:format("Variable ERL_TOP is required\n",[]);
 	Value ->
 	    {_,RelName} = init:script_id(),	    
-	    top_index(Value, filename:join(Value, "doc"), RelName)
+	    top_index(src, Value, filename:join(Value, "doc"), RelName)
     end.
 
-top_index([RootDir, DestDir, OtpRel])
+top_index([src, RootDir, DestDir, OtpRel])
   when is_atom(RootDir), is_atom(DestDir), is_atom(OtpRel) ->
-    top_index(atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpRel));
-top_index(RootDir)  when is_atom(RootDir) ->
+    top_index(src, atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpRel));
+top_index([rel, RootDir, DestDir, OtpRel])
+  when is_atom(RootDir), is_atom(DestDir), is_atom(OtpRel) ->
+    top_index(rel, atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpRel));
+top_index(RootDir)  when is_atom(RootDir) -> 
     {_,RelName} = init:script_id(),
-    top_index(RootDir, filename:join(RootDir, "doc"), RelName).
+    top_index(rel, RootDir, filename:join(RootDir, "doc"), RelName).
 
 
 
-top_index(RootDir, DestDir, OtpRel) ->
+top_index(Source, RootDir, DestDir, OtpRel) ->
     report("****\nRootDir: ~p", [RootDir]),
     report("****\nDestDir: ~p", [DestDir]),
     report("****\nOtpRel: ~p", [OtpRel]),
@@ -72,13 +75,13 @@ top_index(RootDir, DestDir, OtpRel) ->
     report("****\nTemplates: ~p", [Templates]),
     Bases = [{"../lib/", filename:join(RootDir,"lib")},
 	     {"../",     RootDir}],
-    Groups = find_information(Bases),
+    Groups = find_information(Source, Bases),
     report("****\nGroups: ~p", [Groups]),
     process_templates(Templates, DestDir, Groups).
 
 top_index_silent(RootDir, DestDir, OtpRel) ->
     put(silent,true),
-    Result = top_index(RootDir, DestDir, OtpRel),
+    Result = top_index(rel, RootDir, DestDir, OtpRel),
     erase(silent),
     Result.
 
@@ -159,8 +162,8 @@ find_templates([], AllSearchPaths) ->
 % This function read all application names and if present all "info" files.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-find_information(Bases) ->
-    Paths = find_application_paths(Bases),
+find_information(Source, Bases) ->
+    Paths = find_application_paths(Source, Bases),
 %    report("****\nPaths: ~p", [Paths]),
     Apps = find_application_infos(Paths),
 %    report("****\nApps: ~p", [Apps]),
@@ -176,35 +179,47 @@ find_information(Bases) ->
 %
 % We know URL ends in a slash.
 
-find_application_paths([]) ->
+find_application_paths(_, []) ->
     [];
-find_application_paths([{URL, Dir} | Paths]) ->
+find_application_paths(Source, [{URL, Dir} | Paths]) ->
+
+    AppDirs = get_app_dirs(Dir),   
+    AppPaths = get_app_paths(Source, AppDirs, URL),
+    AppPaths ++ find_application_paths(Source, Paths).
+
+
+get_app_paths(src, AppDirs, URL) ->
     Sub1 = "doc/html/index.html",
 %%     Sub2 = "doc/index.html",
+    lists:map(
+      fun({App, AppPath}) -> 
+	      VsnFile = filename:join(AppPath, "vsn.mk"),
+	      VsnStr = 
+		  case file:read_file(VsnFile) of
+		      {ok, Bin} ->
+			  case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
+			      {match, [V]} ->
+				  V;
+			      nomatch ->
+				  exit(io_lib:format("No VSN variable found in ~s\n",
+						     [VsnFile]))
+			  end;
+		      {error, Reason} ->
+			  exit(io_lib:format("~p : ~s\n", [Reason, VsnFile]))
+		  end,
+	      AppURL = URL ++ App ++ "-" ++ VsnStr,
+	      {App, VsnStr, AppPath, AppURL ++ "/" ++ Sub1}
+      end, AppDirs);
+get_app_paths(rel, AppDirs, URL) ->
+    Sub1 = "doc/html/index.html",
+%%     Sub2 = "doc/index.html",
+    lists:map(
+      fun({App, AppPath}) -> 
+	      [AppName, VsnStr] = string:tokens(App, "-"),
+	      AppURL = URL ++ App,
+	      {AppName, VsnStr, AppPath, AppURL ++ "/" ++ Sub1}
+      end, AppDirs).
 
-    AppDirs = get_app_dirs(Dir),
-    
-    AppPaths =
-	lists:map(
-	  fun({App, AppPath}) -> 
-		  VsnFile = filename:join(AppPath, "vsn.mk"),
-		  VsnStr = 
-		      case file:read_file(VsnFile) of
-			  {ok, Bin} ->
-			      case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
-				  {match, [V]} ->
-				      V;
-				  nomatch ->
-				      exit(io_lib:format("No VSN variable found in ~s\n",
-							 [VsnFile]))
-			      end;
-			  {error, Reason} ->
-			      exit(io_lib:format("~p : ~s\n", [Reason, VsnFile]))
-		      end,
-		  AppURL = URL ++ App ++ "-" ++ VsnStr,
-		  {App, VsnStr, AppPath, AppURL ++ "/" ++ Sub1}
-	  end, AppDirs),
-    AppPaths ++ find_application_paths(Paths).
 
 get_app_dirs(Dir) ->
     {ok, Files} = file:list_dir(Dir),
@@ -212,7 +227,7 @@ get_app_dirs(Dir) ->
 	lists:map(fun(File) -> {File, filename:join([Dir, File])} end, Files),
     lists:zf(fun is_app_with_doc/1, AFiles).
 
-is_app_with_doc({"." ++ ADir, _APath}) ->
+is_app_with_doc({"." ++ _ADir, _APath}) ->
     false;
 is_app_with_doc({ADir, APath}) ->
     case file:read_file_info(filename:join([APath, "info"])) of
