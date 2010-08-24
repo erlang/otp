@@ -506,6 +506,12 @@ generic_stream_cipher_from_bin(T, HashSz) ->
 
 is_correct_padding(_, {3, 0}) ->
     true; 
+%% For interoperability reasons we do not check the padding in TLS 1.0 as it
+%% is not strictly required and breaks interopability with for instance 
+%% Google. 
+is_correct_padding(_, {3, 1}) ->
+    true; 
+%% Padding must be check in TLS 1.1 and after  
 is_correct_padding(#generic_block_cipher{padding_length = Len, padding = Padding}, _) ->
     list_to_binary(lists:duplicate(Len, Len))  == Padding.
 
