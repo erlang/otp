@@ -1738,12 +1738,13 @@ format_packet_error(#socket_options{active = _, mode = Mode}, Data) ->
 
 format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
     header(N, Data);
-format_reply(binary, _, _, Data) ->  Data;
+format_reply(binary, _, _, Data) ->  
+    Data;
 format_reply(list, Packet, _, Data)
-  when is_integer(Packet); Packet == raw; Packet == line ->
-    binary_to_list(Data);
+  when Packet == http; Packet == {http, headers};  Packet == http_bin; Packet == {http_bin, headers} ->
+    Data;
 format_reply(list, _,_, Data) ->
-    Data.
+    binary_to_list(Data).
 
 header(0, <<>>) ->
     <<>>;
