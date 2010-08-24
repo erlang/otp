@@ -1875,8 +1875,12 @@ format_conflict({Symbol, N, Reduce, Confl}) ->
 %%   - "__Stack" has been substituted for "Stack";
 %%   - several states can share yeccpars2_S_cont(), which reduces code size;
 %%   - instead if calling lists:nthtail() matching code is emitted.
+%%
+%% "1.4", parsetools-2.0.4:
+%% - yeccerror() is called when a syntax error is found (as in version 1.1).
+%% - the include file yeccpre.hrl has been changed.
 
--define(CODE_VERSION, "1.3").
+-define(CODE_VERSION, "1.4").
 -define(YECC_BUG(M, A), 
         iolist_to_binary([" erlang:error({yecc_bug,\"",?CODE_VERSION,"\",",
                           io_lib:fwrite(M, A), "}).\n\n"])).
@@ -2106,13 +2110,11 @@ output_call_to_includefile(NewState, St) ->
     fwrite(St, <<" yeccpars1(S, ~w, Ss, Stack, T, Ts, Tzr)">>, 
            [NewState]).
 
-output_state_actions_fini(State, #yecc{includefile_version = {1,1}}=St0) ->
-    %% Backward compatibility.
+output_state_actions_fini(State, St0) ->
+    %% Backward compatible.
     St10 = delim(St0, false),
     St = fwrite(St10, <<"yeccpars2_~w(_, _, _, _, T, _, _) ->\n">>, [State]),
-    fwrite(St, <<" yeccerror(T).\n\n">>, []);
-output_state_actions_fini(_State, St) ->
-    fwrite(St, <<".\n\n">>, []).
+    fwrite(St, <<" yeccerror(T).\n\n">>, []).
 
 output_reduce(St0, State, Terminal0, 
               #reduce{rule_nmbr = RuleNmbr, 
@@ -2416,7 +2418,7 @@ include1(Line, Inport, Outport, Nmbr_of_lines) ->
     include1(io:get_line(Inport, ''), Inport, Outport, Nmbr_of_lines + Incr).
 
 includefile_version([]) ->
-    {1,2};
+    {1,4};
 includefile_version(Includefile) ->
     case epp:open(Includefile, []) of
         {ok, Epp} ->
@@ -2432,7 +2434,7 @@ includefile_version(Includefile) ->
 parse_file(Epp) ->
     case epp:parse_erl_form(Epp) of
         {ok, {function,_Line,yeccpars1,7,_Clauses}} ->
-            {1,2};
+            {1,4};
         {eof,_Line} ->
             {1,1};
         _Form ->
