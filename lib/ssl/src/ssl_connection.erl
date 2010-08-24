@@ -125,8 +125,9 @@ send(Pid, Data) ->
 recv(Pid, Length, Timeout) -> 
     sync_send_all_state_event(Pid, {recv, Length}, Timeout).
 %%--------------------------------------------------------------------
--spec connect(host(), port_num(), port(), list(), pid(), tuple(), timeout()) ->
-    {ok, #sslsocket{}} | {error, reason()}.
+-spec connect(host(), port_num(), port(), {#ssl_options{}, #socket_options{}},
+	      pid(), tuple(), timeout()) ->
+		     {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Connect to a ssl server.
 %%--------------------------------------------------------------------
@@ -138,7 +139,8 @@ connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 	    {error, ssl_not_started}
     end.
 %%--------------------------------------------------------------------
--spec ssl_accept(port_num(), port(), list(), pid(), tuple(), timeout()) ->
+-spec ssl_accept(port_num(), port(), {#ssl_options{}, #socket_options{}}, 
+				      pid(), tuple(), timeout()) ->
     {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on a ssl listen socket. e.i. performs
@@ -253,7 +255,7 @@ session_info(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, session_info). 
 
 %%--------------------------------------------------------------------
--spec peer_certificate(pid()) -> {ok, binary()} | {error, reason()}.
+-spec peer_certificate(pid()) -> {ok, binary()| undefined} | {error, reason()}.
 %%
 %% Description: Returns the peer cert
 %%--------------------------------------------------------------------
@@ -288,9 +290,10 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
 %% gen_fsm callbacks
 %%====================================================================
 %%--------------------------------------------------------------------
--spec init(list()) -> {ok, state_name(), #state{}} 
-			  | {ok, state_name(), #state{}, timeout()} |
-			  ignore | {stop, term()}.                   
+-spec init(list()) -> {ok, state_name(), #state{}} | {stop, term()}.                   
+%% Possible return values not used now.
+%%			  | {ok, state_name(), #state{}, timeout()} |
+%%			  ignore  
 %% Description:Whenever a gen_fsm is started using gen_fsm:start/[3,4] or
 %% gen_fsm:start_link/3,4, this function is called by the new process to 
 %% initialize. 
@@ -720,7 +723,9 @@ connection(#client_hello{} = Hello, #state{role = server} = State) ->
 connection(Msg, State) ->
     handle_unexpected_message(Msg, connection, State).
 %%--------------------------------------------------------------------
--spec handle_event(term(), state_name(), #state{}) -> gen_fsm_state_return(). 
+-spec handle_event(term(), state_name(), #state{}) -> term().
+%% As it is not currently used gen_fsm_state_return() makes
+%% dialyzer unhappy!
 %%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:send_all_state_event/2, this function is called to handle
@@ -1038,20 +1043,22 @@ ssl_init(SslOpts, Role) ->
 
 init_certificates(#ssl_options{cacertfile = CACertFile,
 			       certfile = CertFile}, Role) ->
+    {ok, CertDbRef, CacheRef} = 
+	try 
+	    {ok, _, _} = ssl_manager:connection_init(CACertFile, Role)
+	catch
+	    Error:Reason ->
+		handle_file_error(?LINE, Error, Reason, CACertFile, ecacertfile,
+				  erlang:get_stacktrace())
+	end,
+    init_certificates(CertDbRef, CacheRef, CertFile, Role).
 
-    case ssl_manager:connection_init(CACertFile, Role) of
-	{ok, CertDbRef, CacheRef} ->
-	    init_certificates(CertDbRef, CacheRef, CertFile, Role);
-	{error, Reason} ->
-	    handle_file_error(?LINE, error, Reason, CACertFile, ecacertfile,
-			      erlang:get_stacktrace())
-    end.
 
 init_certificates(CertDbRef, CacheRef, CertFile, client) -> 
     try 
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
-    catch _E:_R  ->
+    catch _Error:_Reason  ->
 	    {ok, CertDbRef, CacheRef, undefined}
     end;
 
@@ -1068,15 +1075,15 @@ init_certificates(CertDbRef, CacheRef, CertFile, server) ->
 init_private_key(undefined, "", _Password, client) -> 
     undefined;
 init_private_key(undefined, KeyFile, Password, _)  -> 
-    case ssl_manager:cache_pem_file(KeyFile) of
-	{ok, List} ->
-	    [Der] = [Der || Der = {PKey, _ , _} <- List,
-			    PKey =:= rsa_private_key orelse 
-				PKey =:= dsa_private_key],
-	    {ok, Decoded} = public_key:decode_private_key(Der,Password),
-	    Decoded;
-	{error, Reason} -> 
-	    handle_file_error(?LINE, error, Reason, KeyFile, ekeyfile,
+    try
+	{ok, List} = ssl_manager:cache_pem_file(KeyFile), 
+	[PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
+				  PKey =:= 'RSAPrivateKey' orelse 
+				      PKey =:= 'DSAPrivateKey'],
+	public_key:pem_entry_decode(PemEntry, Password)
+    catch 
+	Error:Reason ->
+	    handle_file_error(?LINE, Error, Reason, KeyFile, ekeyfile,
 			      erlang:get_stacktrace()) 
     end;
 
@@ -1088,6 +1095,7 @@ handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->
 handle_file_error(Line, Error, Reason, File, Throw, Stack) ->
     file_error(Line, Error, Reason, File, Throw, Stack).
 
+-spec(file_error/6 :: (_,_,_,_,_,_) -> no_return()).
 file_error(Line, Error, Reason, File, Throw, Stack) ->
     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
 			   [Line, Error, Reason, File, Stack]),
@@ -1099,17 +1107,18 @@ init_diffie_hellman(_, client) ->
 init_diffie_hellman(undefined, _) ->
     ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
 init_diffie_hellman(DHParamFile, server) ->
-    case ssl_manager:cache_pem_file(DHParamFile) of
-	{ok, List} ->
-	    case [Der || Der = {dh_params, _ , _} <- List] of
-		[Der] ->
-		    {ok, Decoded} = public_key:decode_dhparams(Der),
-		    Decoded;
-		[] ->
-		    ?DEFAULT_DIFFIE_HELLMAN_PARAMS
-	    end;
-	{error, Reason} ->
-	    handle_file_error(?LINE, error, Reason, DHParamFile, edhfile,  erlang:get_stacktrace()) 
+    try
+	{ok, List} = ssl_manager:cache_pem_file(DHParamFile), 
+	case [Entry || Entry = {'DHParameter', _ , _} <- List] of
+	    [Entry] ->
+		public_key:pem_entry_decode(Entry);
+	    [] ->
+		?DEFAULT_DIFFIE_HELLMAN_PARAMS
+	end
+    catch
+	Error:Reason ->
+	    handle_file_error(?LINE, Error, Reason, 
+			      DHParamFile, edhfile,  erlang:get_stacktrace()) 
     end.
 
 sync_send_all_state_event(FsmPid, Event) ->
@@ -1178,7 +1187,7 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
                         tls_handshake_hashes = Hashes1};
 	ignore ->
 	    State;
-	 #alert{} = Alert ->
+	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, certify, State)
 	    
     end;
@@ -1186,18 +1195,19 @@ verify_client_cert(#state{client_certificate_requested = false} = State) ->
     State.
 
 do_server_hello(Type, #state{negotiated_version = Version,
-			     session = Session,
+			     session = #session{session_id = SessId} = Session,
 			     connection_states = ConnectionStates0,
 			     renegotiation = {Renegotiation, _}} 
 		= State0) when is_atom(Type) -> 
+
     ServerHello = 
-        ssl_handshake:server_hello(Session#session.session_id, Version, 
+        ssl_handshake:server_hello(SessId, Version, 
                                    ConnectionStates0, Renegotiation),
     State1 = server_hello(ServerHello, State0),
     
     case Type of	
 	new ->
-	    do_server_hello(ServerHello, State1);
+	    new_server_hello(ServerHello, State1);
 	resumed ->
 	    ConnectionStates1 = State1#state.connection_states,
 	    case ssl_handshake:master_secret(Version, Session,
@@ -1216,9 +1226,9 @@ do_server_hello(Type, #state{negotiated_version = Version,
 		    handle_own_alert(Alert, Version, hello, State1), 
 		    {stop, normal, State1}
 	    end
-    end;
+    end.
 
-do_server_hello(#server_hello{cipher_suite = CipherSuite,
+new_server_hello(#server_hello{cipher_suite = CipherSuite,
 			      compression_method = Compression,
 			      session_id = SessionId}, 
 		#state{session = Session0,
@@ -1343,7 +1353,7 @@ certify_server(#state{transport_cb = Transport,
 key_exchange(#state{role = server, key_algorithm = rsa} = State) ->
     State;
 key_exchange(#state{role = server, key_algorithm = Algo,
-		    diffie_hellman_params = Params,
+		    diffie_hellman_params = #'DHParameter'{prime = P, base = G} = Params,
 		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0,
 		    negotiated_version = Version,
@@ -1354,7 +1364,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
   when Algo == dhe_dss;
        Algo == dhe_rsa ->
 
-    Keys = public_key:gen_key(Params),
+    Keys = crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]),
     ConnectionState = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
     SecParams = ConnectionState#connection_state.security_parameters,
@@ -1405,6 +1415,8 @@ key_exchange(#state{role = client,
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates1,
                 tls_handshake_hashes = Hashes1}.
+
+-spec(rsa_key_exchange/2 :: (_,_) -> no_return()).
 
 rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})  
   when Algorithm == ?rsaEncryption;
@@ -1536,7 +1548,7 @@ verify_dh_params(Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
 	    false
     end;
 verify_dh_params(Signed, Hash, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify_signature(Hash, none, Signed, PublicKey, PublicKeyParams). 
+    public_key:verify(Hash, none, Signed, {PublicKey, PublicKeyParams}). 
 
 
 cipher_role(client, Data, Session, #state{connection_states = ConnectionStates0} = State) -> 
@@ -1563,7 +1575,7 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     ssl_record:encode_change_cipher_spec(Version, ConnectionStates).
 
 encode_handshake(HandshakeRec, Version, ConnectionStates, Hashes) ->
-    encode_handshake(HandshakeRec, undefined, Version, 
+    encode_handshake(HandshakeRec, null, Version, 
 		     ConnectionStates, Hashes).
 
 encode_handshake(HandshakeRec, SigAlg, Version, ConnectionStates0, Hashes0) ->
@@ -2154,7 +2166,7 @@ renegotiate(#state{role = server,
 		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State0) ->
     HelloRequest = ssl_handshake:hello_request(),
-    Frag = ssl_handshake:encode_handshake(HelloRequest, Version, undefined),
+    Frag = ssl_handshake:encode_handshake(HelloRequest, Version, null),
     Hs0 = ssl_handshake:init_hashes(),
     {BinMsg, ConnectionStates} = 
 	ssl_record:encode_handshake(Frag, Version, ConnectionStates0),

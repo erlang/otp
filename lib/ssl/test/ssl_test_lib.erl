@@ -352,9 +352,9 @@ make_dsa_cert_files(RoleStr, Config) ->
     KeyFile = filename:join([?config(priv_dir, Config), 
 				   RoleStr, "dsa_key.pem"]),
     
-    public_key:der_to_pem(CaCertFile, [{cert, CaCert, not_encrypted}]),
-    public_key:der_to_pem(CertFile, [{cert, Cert, not_encrypted}]),
-    public_key:der_to_pem(KeyFile, [CertKey]),
+    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
+    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
+    der_to_pem(KeyFile, [CertKey]),
     {CaCertFile, CertFile, KeyFile}.
 
 start_upgrade_server(Args) ->
@@ -615,3 +615,11 @@ openssl_dsa_suites() ->
 				 true
 			 end 
 		 end, Ciphers).
+
+pem_to_der(File) ->
+    {ok, PemBin} = file:read_file(File),
+    public_key:pem_decode(PemBin).
+
+der_to_pem(File, Entries) ->
+    PemBin = public_key:pem_encode(Entries),
+    file:write_file(File, PemBin).

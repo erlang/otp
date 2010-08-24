@@ -77,8 +77,9 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
--spec connect(host() | port(), port_num(), list()) -> {ok, #sslsocket{}}.
--spec connect(host() | port(), port_num(), list(), timeout()) -> {ok, #sslsocket{}}.		     
+-spec connect(host() | port(), list()) -> {ok, #sslsocket{}}.
+-spec connect(host() | port(), list() | port_num(), timeout() | list()) -> {ok, #sslsocket{}}.
+-spec connect(host() | port(), port_num(), list(), timeout()) -> {ok, #sslsocket{}}.      
 %%
 %% Description: Connect to a ssl server.
 %%--------------------------------------------------------------------
@@ -215,8 +216,8 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 	{ok, #config{cb=CbInfo,ssl=SslOpts, emulated=EmOpts}} ->
 	    {ok, Port} = inet:port(Socket),
 	    ssl_connection:ssl_accept(Port, Socket,
-				  {SslOpts, EmOpts},
-				  self(), CbInfo, Timeout)
+				      {SslOpts, EmOpts},
+				      self(), CbInfo, Timeout)
     catch 
 	Error = {error, _Reason} -> Error
     end.
@@ -326,7 +327,7 @@ decode_peercert(BinCert, Opts) ->
 	    {ok, BinCert}
     end.
 
-select_part(otp, {ok, Cert}, Opts) ->
+select_part(otp, Cert, Opts) ->
     case lists:member(subject, Opts) of 
 	true ->
 	    TBS = Cert#'OTPCertificate'.tbsCertificate,
@@ -335,7 +336,7 @@ select_part(otp, {ok, Cert}, Opts) ->
 	    {ok, Cert}
     end;
 
-select_part(plain, {ok, Cert}, Opts) ->
+select_part(plain, Cert, Opts) ->
     case lists:member(subject, Opts) of 
 	true ->
 	    TBS = Cert#'Certificate'.tbsCertificate,
@@ -446,8 +447,8 @@ session_info(#sslsocket{pid = Pid, fd = new_ssl}) ->
     ssl_connection:session_info(Pid).
 
 %%---------------------------------------------------------------
--spec versions() -> [{{ssl_app, string()}, {supported, [tls_version()]}, 
-		      {available, [tls_version()]}}]. 
+-spec versions() -> [{ssl_app, string()} | {supported, [tls_atom_version()]} | 
+		      {available, [tls_atom_version()]}]. 
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
@@ -456,6 +457,7 @@ versions() ->
     SupportedVsns = [ssl_record:protocol_version(Vsn) || Vsn <- Vsns],
     AvailableVsns = ?DEFAULT_SUPPORTED_VERSIONS,
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
+
 
 %%---------------------------------------------------------------
 -spec renegotiate(#sslsocket{}) -> ok | {error, reason()}.

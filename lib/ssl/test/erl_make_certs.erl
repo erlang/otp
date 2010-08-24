@@ -56,7 +56,7 @@
 make_cert(Opts) ->
     SubjectPrivateKey = get_key(Opts),
     {TBSCert, IssuerKey} = make_tbs(SubjectPrivateKey, Opts),
-    Cert = public_key:sign(TBSCert, IssuerKey),
+    Cert = public_key:pkix_sign(TBSCert, IssuerKey),
     true = verify_signature(Cert, IssuerKey, undef), %% verify that the keys where ok
     {Cert, encode_key(SubjectPrivateKey)}.
 
@@ -66,8 +66,9 @@ make_cert(Opts) ->
 %% @end
 %%--------------------------------------------------------------------
 write_pem(Dir, FileName, {Cert, Key = {_,_,not_encrypted}}) when is_binary(Cert) ->
-    ok = public_key:der_to_pem(filename:join(Dir, FileName ++ ".pem"), [{cert, Cert, not_encrypted}]),
-    ok = public_key:der_to_pem(filename:join(Dir, FileName ++ "_key.pem"), [Key]).
+    ok = ssl_test_lib:der_to_pem(filename:join(Dir, FileName ++ ".pem"), 
+			       [{'Certificate', Cert, not_encrypted}]),
+    ok = ssl_test_lib:der_to_pem(filename:join(Dir, FileName ++ "_key.pem"), [Key]).
 
 %%--------------------------------------------------------------------
 %% @doc Creates a rsa key (OBS: for testing only)
@@ -94,18 +95,14 @@ gen_dsa(LSize,NSize) when is_integer(LSize), is_integer(NSize) ->
 %% @spec (::binary(), ::tuple()) -> ::boolean()
 %% @end
 %%--------------------------------------------------------------------
-verify_signature(DerEncodedCert, DerKey, KeyParams) ->
+verify_signature(DerEncodedCert, DerKey, _KeyParams) ->
     Key = decode_key(DerKey),
     case Key of 
 	#'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} ->
-	    public_key:verify_signature(DerEncodedCert, 
-					#'RSAPublicKey'{modulus=Mod, publicExponent=Exp}, 
-					'NULL');
+	    public_key:pkix_verify(DerEncodedCert, 
+				   #'RSAPublicKey'{modulus=Mod, publicExponent=Exp});
 	#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y} ->
-	    public_key:verify_signature(DerEncodedCert, Y, #'Dss-Parms'{p=P, q=Q, g=G});
-
-	_  ->
-	    public_key:verify_signature(DerEncodedCert, Key, KeyParams)
+	    public_key:pkix_verify(DerEncodedCert, {Y, #'Dss-Parms'{p=P, q=Q, g=G}})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%% Implementation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -132,19 +129,18 @@ decode_key(#'RSAPrivateKey'{} = Key,_) ->
     Key;
 decode_key(#'DSAPrivateKey'{} = Key,_) ->
     Key;
-decode_key(Der = {_,_,_}, Pw) ->
-    {ok, Key} = public_key:decode_private_key(Der, Pw),
-    Key;
-decode_key(FileOrDer, Pw) ->
-    {ok, [KeyInfo]} = public_key:pem_to_der(FileOrDer),
+decode_key(PemEntry = {_,_,_}, Pw) ->
+    public_key:pem_entry_decode(PemEntry, Pw);
+decode_key(PemBin, Pw) ->
+    [KeyInfo] = public_key:pem_decode(PemBin),
     decode_key(KeyInfo, Pw).
 
 encode_key(Key = #'RSAPrivateKey'{}) ->
     {ok, Der} = 'OTP-PUB-KEY':encode('RSAPrivateKey', Key),
-    {rsa_private_key, list_to_binary(Der), not_encrypted};   
+    {'RSAPrivateKey', list_to_binary(Der), not_encrypted};   
 encode_key(Key = #'DSAPrivateKey'{}) ->
     {ok, Der} = 'OTP-PUB-KEY':encode('DSAPrivateKey', Key),
-    {dsa_private_key, list_to_binary(Der), not_encrypted}.
+    {'DSAPrivateKey', list_to_binary(Der), not_encrypted}.
 
 make_tbs(SubjectKey, Opts) ->    
     Version = list_to_atom("v"++integer_to_list(proplists:get_value(version, Opts, 3))),
@@ -178,7 +174,7 @@ issuer(Opts, SubjectKey) ->
     end.
 
 issuer_der(Issuer) ->
-    {ok, Decoded} = public_key:pkix_decode_cert(Issuer, otp),
+    Decoded = public_key:pkix_decode_cert(Issuer, otp),
     #'OTPCertificate'{tbsCertificate=Tbs} = Decoded,
     #'OTPTBSCertificate'{subject=Subject} = Tbs,
     Subject.

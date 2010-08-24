@@ -42,8 +42,7 @@ MODULES = \
 	public_key \
 	pubkey_pem \
 	pubkey_cert \
-        pubkey_cert_records \
-	pubkey_crypto
+        pubkey_cert_records 
 
 HRL_FILES = $(INCLUDE)/public_key.hrl
 

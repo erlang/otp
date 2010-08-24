@@ -121,9 +121,10 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Length, Fragment) ->
     ?DBG_HEX(Mac),
     Mac.
 
--spec setup_keys(binary(), binary(), binary(), binary(), 
-		 integer(), integer(), binary()) -> {binary(), binary(), binary(), 
-						     binary(), binary(), binary()}.  
+-spec setup_keys(binary(), binary(), binary(),  
+		 integer(), integer(), term(), integer()) -> 
+			{binary(), binary(), binary(), 
+			 binary(), binary(), binary()}.  
 
 setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     KeyBlock = generate_keyblock(MasterSecret, ServerRandom, ClientRandom,

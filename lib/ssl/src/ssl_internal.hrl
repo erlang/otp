@@ -96,12 +96,12 @@
 -type from()              :: term().
 -type host()		  :: string() | tuple().
 -type port_num()	  :: integer().
--type session_id()        :: binary().
+-type session_id()        :: 0 | binary().
 -type tls_version()       :: {integer(), integer()}.
 -type tls_atom_version()  :: sslv3 | tlsv1.
 -type cache_ref()         :: term(). 
 -type certdb_ref()        :: term(). 
--type key_algo()          :: rsa | dhe_rsa | dhe_dss.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss.
 -type enum_algo()          :: integer().
 -type public_key()        :: #'RSAPublicKey'{} | integer().
 -type public_key_params() :: #'Dss-Parms'{} | term().

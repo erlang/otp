@@ -42,8 +42,10 @@
          encode_handshake/3, init_hashes/0, 
          update_hashes/2, decrypt_premaster_secret/2]).
 
--type tls_handshake()  :: #client_hello{} | #server_hello{} | #server_hello_done{} |
-#certificate{} | #client_key_exchange{} | #finished{} | #certificate_verify{}.
+-type tls_handshake() :: #client_hello{} | #server_hello{} |
+			 #server_hello_done{} | #certificate{} | #certificate_request{} |
+			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
+			 #hello_request{}.
 
 %%====================================================================
 %% Internal application API
@@ -110,7 +112,7 @@ hello_request() ->
  	    #connection_states{} | {port_num(), #session{}, cache_ref(),
  				    atom(), #connection_states{}, binary()},
  	    boolean()) -> {tls_version(), session_id(), #connection_states{}}| 
- 			  {tls_version(), {resumed | new, session_id()}, 
+ 			  {tls_version(), {resumed | new, #session{}}, 
  			   #connection_states{}} | #alert{}.
 %%
 %% Description: Handles a recieved hello message
@@ -232,7 +234,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
     end.
 	    
 %%--------------------------------------------------------------------
--spec certificate(der_cert(), term(), client | server) -> #certificate{}. 
+-spec certificate(der_cert(), term(), client | server) -> #certificate{} | #alert{}. 
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
@@ -260,8 +262,8 @@ certificate(OwnCert, CertDbRef, server) ->
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
 				tls_version(), key_algo(), private_key(),
-				{binary(), binary()}) ->  
-    #certificate_verify{} | ignore.
+				{{binary(), binary()},{binary(), binary()}}) ->  
+    #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
@@ -283,9 +285,9 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_verify(binary(), public_key_info(), tls_version(),
-			 binary(), key_algo(), 
-			 {binary(), binary()}) -> valid | #alert{}.
+%% -spec certificate_verify(binary(), public_key_info(), tls_version(),
+%% 			 binary(), key_algo(), 
+%% 			 {_, {binary(), binary()}}) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
@@ -306,7 +308,7 @@ certificate_verify(Signature, {_, PublicKey, PublicKeyParams}, Version,
 		   MasterSecret, dhe_dss = Algorithm, {_, Hashes0}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 				     Algorithm, Hashes0),
-    case public_key:verify_signature(Hashes, none, Signature, PublicKey, PublicKeyParams) of
+    case public_key:verify(Hashes, none, Signature, {PublicKey, PublicKeyParams}) of
     	true ->
     	    valid;
     	false ->
@@ -335,7 +337,7 @@ certificate_request(ConnectionStates, CertDbRef) ->
 -spec key_exchange(client | server, 
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
-		   {dh, binary(), #'DHParameter'{}, key_algo(),
+		   {dh, {binary(), binary()}, #'DHParameter'{}, key_algo(),
 		   binary(), binary(), private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 %%
@@ -412,7 +414,7 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     end.
 
 %%--------------------------------------------------------------------
--spec finished(tls_version(), client | server, binary(), {binary(), binary()}) ->
+-spec finished(tls_version(), client | server, binary(), {{binary(), binary()},_}) ->
     #finished{}.
 %%
 %% Description: Creates a handshake finished message
@@ -423,7 +425,7 @@ finished(Version, Role, MasterSecret, {Hashes, _}) -> % use the current hashes
 
 %%--------------------------------------------------------------------
 -spec verify_connection(tls_version(), #finished{}, client | server, binary(), 
-			{binary(), binary()}) -> verified | #alert{}.
+			{_, {binary(), binary()}}) -> verified | #alert{}.
 %%
 %% Description: Checks the ssl handshake finished message to verify
 %%              the connection.
@@ -448,7 +450,7 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec encode_handshake(tls_handshake(), tls_version(), key_algo()) -> binary().
+-spec encode_handshake(tls_handshake(), tls_version(), key_algo()) -> iolist().
 %%     
 %% Description: Encode a handshake packet to binary
 %%--------------------------------------------------------------------
@@ -459,8 +461,8 @@ encode_handshake(Package, Version, KeyAlg) ->
     [MsgType, ?uint24(Len), Bin].
 
 %%--------------------------------------------------------------------
--spec get_tls_handshake(binary(), binary(), key_algo(), tls_version()) ->
-     {[tls_handshake()], [binary()], binary()}.
+-spec get_tls_handshake(binary(), binary() | iolist(), key_algo(), tls_version()) ->
+     {[tls_handshake()], binary()}.
 %%
 %% Description: Given buffered and new data from ssl_record, collects
 %% and returns it as a list of handshake messages, also returns leftover
@@ -1045,9 +1047,10 @@ certificate_authorities(CertDbRef) ->
     Authorities = certificate_authorities_from_db(CertDbRef),
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
 		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
-		  Subj = public_key:pkix_transform(OTPSubj, encode),
-		  {ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
-		  DNEncodedBin = iolist_to_binary(DNEncoded),
+		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
+		  %%Subj = public_key:pkix_transform(OTPSubj, encode),
+		  %% {ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
+		  %% DNEncodedBin = iolist_to_binary(DNEncoded),
 		  DNEncodedLen = byte_size(DNEncodedBin),
 		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
 	  end,
@@ -1071,7 +1074,7 @@ digitally_signed(Hash, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
 digitally_signed(Hash, #'DSAPrivateKey'{} = Key) ->
-    public_key:sign(none, Hash, Key).
+    public_key:sign(Hash, none, Key).
     
 calc_master_secret({3,0}, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);

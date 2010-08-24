@@ -56,7 +56,7 @@
 %%--------------------------------------------------------------------
 trusted_cert_and_path(CertChain, CertDbRef, Verify) ->
     [Cert | RestPath] = lists:reverse(CertChain),
-    {ok, OtpCert} = public_key:pkix_decode_cert(Cert, otp),
+    OtpCert = public_key:pkix_decode_cert(Cert, otp),
     IssuerAnPath = 
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
@@ -94,14 +94,14 @@ trusted_cert_and_path(CertChain, CertDbRef, Verify) ->
 
 %%--------------------------------------------------------------------
 -spec certificate_chain(undefined | binary(), certdb_ref()) -> 
-			  {error, no_cert} | [der_cert()].
+			  {error, no_cert} | {ok, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
 certificate_chain(undefined, _CertsDbRef) ->
     {error, no_cert};
 certificate_chain(OwnCert, CertsDbRef) ->
-    {ok, ErlCert} = public_key:pkix_decode_cert(OwnCert, otp),
+    ErlCert = public_key:pkix_decode_cert(OwnCert, otp),
     certificate_chain(ErlCert, OwnCert, CertsDbRef, [OwnCert]).
 %%--------------------------------------------------------------------
 -spec file_to_certificats(string()) -> [der_cert()].
@@ -110,7 +110,7 @@ certificate_chain(OwnCert, CertsDbRef) ->
 %%--------------------------------------------------------------------
 file_to_certificats(File) -> 
     {ok, List} = ssl_manager:cache_pem_file(File),
-    [Bin || {cert, Bin, not_encrypted} <- List].
+    [Bin || {'Certificate', Bin, not_encrypted} <- List].
 %%--------------------------------------------------------------------
 -spec validate_extensions([#'Extension'{}], term(), [#'Extension'{}],
 			  boolean(), list(), client | server) -> {[#'Extension'{}], term(), list()}.
@@ -219,7 +219,7 @@ certificate_chain(CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
     case ssl_manager:lookup_trusted_cert(CertsDbRef, 
 						SerialNr, Issuer) of
 	{ok, {IssuerCert, ErlCert}} ->
-	    {ok, ErlCert} = public_key:pkix_decode_cert(IssuerCert, otp),
+	    ErlCert = public_key:pkix_decode_cert(IssuerCert, otp),
 	    certificate_chain(ErlCert, IssuerCert, 
 			      CertsDbRef, [IssuerCert | Chain]);
 	_ ->
