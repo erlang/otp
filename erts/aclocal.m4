@@ -521,11 +521,13 @@ if test "X$host_os" = "Xwin32"; then
     THR_DEFS="-DWIN32_THREADS"
     THR_LIBS=
     THR_LIB_NAME=win32_threads
+    THR_LIB_TYPE=win32_threads
 else
     AC_MSG_RESULT(no)
     THR_DEFS=
     THR_LIBS=
     THR_LIB_NAME=
+    THR_LIB_TYPE=posix_unknown
 
 dnl Try to find POSIX threads
 
@@ -586,6 +588,7 @@ dnl On ofs1 the '-pthread' switch should be used
 		    AC_MSG_WARN([result yes guessed because of cross compilation])
 		fi
 		if test $nptl = yes; then
+		    THR_LIB_TYPE=posix_nptl
 		    need_nptl_incldir=no
 		    AC_CHECK_HEADER(nptl/pthread.h,
 				    [need_nptl_incldir=yes
@@ -694,6 +697,7 @@ ERL_INTERNAL_LIBS
 ethr_have_native_atomics=no
 ethr_have_native_spinlock=no
 ETHR_THR_LIB_BASE="$THR_LIB_NAME"
+ETHR_THR_LIB_BASE_TYPE="$THR_LIB_TYPE"
 ETHR_DEFS="$THR_DEFS"
 ETHR_X_LIBS="$THR_LIBS $ERTS_INTERNAL_X_LIBS"
 ETHR_LIBS=
