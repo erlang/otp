@@ -286,7 +286,7 @@ struct ErtsPollSet_ {
     ErtsPollSet next;
     int internal_fd_limit;
     ErtsFdStatus *fds_status;
-    int no_of_user_fds;
+    erts_smp_atomic_t no_of_user_fds;
     int fds_status_len;
 #if ERTS_POLL_USE_KERNEL_POLL
     int kp_fd;
@@ -852,7 +852,7 @@ write_batch_buf(ErtsPollSet ps, ErtsPollBatchBuf *bbp)
 		    ps->fds_status[fd].flags |= ERTS_POLL_FD_FLG_USEFLBCK;
 		    ASSERT(ps->fds_status[fd].used_events);
 		    ps->fds_status[fd].used_events = 0;
-		    ps->no_of_user_fds--;
+		    erts_smp_atomic_dec(&ps->no_of_user_fds);
 		    update_fallback_pollset(ps, fd);
 		    ASSERT(ps->fds_status[fd].flags & ERTS_POLL_FD_FLG_INFLBCK);
 		    break;
@@ -902,11 +902,11 @@ batch_update_pollset(ErtsPollSet ps, int fd, ErtsPollBatchBuf *bbp)
     events = ERTS_POLL_EV_E2N(ps->fds_status[fd].events);
     if (!events) {
 	buf[buf_len].events = POLLREMOVE;
-	ps->no_of_user_fds--;
+	erts_smp_atomic_dec(&ps->no_of_user_fds);
     }
     else if (!ps->fds_status[fd].used_events) {
 	buf[buf_len].events = events;
-	ps->no_of_user_fds++;
+	erts_smp_atomic_inc(&ps->no_of_user_fds);
     }
     else {
 	if ((ps->fds_status[fd].flags & ERTS_POLL_FD_FLG_RST)
@@ -996,12 +996,12 @@ batch_update_pollset(ErtsPollSet ps, int fd, ErtsPollBatchBuf *bbp)
 	}
 	if (used_events) {
 	    if (!events) {
-		ps->no_of_user_fds--;
+		erts_smp_atomic_dec(&ps->no_of_user_fds);
 	    }
 	}
 	else {
 	    if (events)
-		ps->no_of_user_fds++;
+		erts_smp_atomic_inc(&ps->no_of_user_fds);
 	}
 	ASSERT((events & ~(ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) == 0);
 	ASSERT((used_events & ~(ERTS_POLL_EV_IN|ERTS_POLL_EV_OUT)) == 0);
@@ -1075,7 +1075,7 @@ update_pollset(ErtsPollSet ps, int fd)
 	    epe.data.fd = epe_templ.data.fd;
 	    res = epoll_ctl(ps->kp_fd, EPOLL_CTL_DEL, fd, &epe);
 	} while (res != 0 && errno == EINTR);
-	ps->no_of_user_fds--;
+	erts_smp_atomic_dec(&ps->no_of_user_fds);
 	ps->fds_status[fd].used_events = 0;
     }
 
@@ -1083,11 +1083,11 @@ update_pollset(ErtsPollSet ps, int fd)
 	/* A note on EPOLL_CTL_DEL: linux kernel versions before 2.6.9
 	   need a non-NULL event pointer even though it is ignored... */
 	op = EPOLL_CTL_DEL;
-	ps->no_of_user_fds--;
+	erts_smp_atomic_dec(&ps->no_of_user_fds);
     }
     else if (!ps->fds_status[fd].used_events) {
 	op = EPOLL_CTL_ADD;
-	ps->no_of_user_fds++;
+	erts_smp_atomic_inc(&ps->no_of_user_fds);
     }
     else {
 	op = EPOLL_CTL_MOD;
@@ -1137,7 +1137,7 @@ update_pollset(ErtsPollSet ps, int fd)
 	/* Fall through ... */
 	case EPOLL_CTL_ADD: {
 	    ps->fds_status[fd].flags |= ERTS_POLL_FD_FLG_USEFLBCK;
-	    ps->no_of_user_fds--;
+	    erts_smp_atomic_dec(&ps->no_of_user_fds);
 #if ERTS_POLL_USE_CONCURRENT_UPDATE
 	    if (!*update_fallback) {
 		*update_fallback = 1;
@@ -1225,7 +1225,7 @@ static int update_pollset(ErtsPollSet ps, int fd)
 #if ERTS_POLL_USE_FALLBACK
 	ASSERT(ps->fds_status[fd].flags & ERTS_POLL_FD_FLG_INFLBCK);
 #endif
-	ps->no_of_user_fds--;
+	erts_smp_atomic_dec(&ps->no_of_user_fds);
 	last_pix = --ps->no_poll_fds;
 	if (pix != last_pix) {
 	/* Move last pix to this pix */
@@ -1252,7 +1252,7 @@ static int update_pollset(ErtsPollSet ps, int fd)
 	    ASSERT(!(ps->fds_status[fd].flags & ERTS_POLL_FD_FLG_INFLBCK)
 		    || fd == ps->kp_fd);
 #endif
-	    ps->no_of_user_fds++;
+	    erts_smp_atomic_inc(&ps->no_of_user_fds);
 	    ps->fds_status[fd].pix = pix = ps->no_poll_fds++;
 	    if (pix >= ps->poll_fds_len)
 		grow_poll_fds(ps, pix);
@@ -1303,7 +1303,7 @@ static int update_pollset(ErtsPollSet ps, int fd)
 
 	if (!ps->fds_status[fd].used_events) {
 	    ASSERT(events);
-	    ps->no_of_user_fds++;
+	    erts_smp_atomic_inc(&ps->no_of_user_fds);
 #if ERTS_POLL_USE_FALLBACK
 	    ps->no_select_fds++;
 	    ps->fds_status[fd].flags |= ERTS_POLL_FD_FLG_INFLBCK;
@@ -1311,7 +1311,7 @@ static int update_pollset(ErtsPollSet ps, int fd)
 	}
 	else if (!events) {
 	    ASSERT(ps->fds_status[fd].used_events);
-	    ps->no_of_user_fds--;
+	    erts_smp_atomic_dec(&ps->no_of_user_fds);
 	    ps->fds_status[fd].events = events;
 #if ERTS_POLL_USE_FALLBACK
 	    ps->no_select_fds--;
@@ -1912,7 +1912,8 @@ static ERTS_INLINE int
 check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res, int *ps_locked)
 {
     ASSERT(!*ps_locked);
-    if (ps->no_of_user_fds == 0 && tv->tv_usec == 0 && tv->tv_sec == 0) {
+    if (erts_smp_atomic_read(&ps->no_of_user_fds) == 0
+	&& tv->tv_usec == 0 && tv->tv_sec == 0) {
 	/* Nothing to poll and zero timeout; done... */
 	return 0;
     }
@@ -1950,7 +1951,7 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res, int *ps_locked)
 	     * the maximum number of file descriptors in the poll set.
 	     */
 	    struct dvpoll poll_res;
-	    int nfds = ps->no_of_user_fds;
+	    int nfds = (int) erts_smp_atomic_read(&ps->no_of_user_fds);
 #ifdef ERTS_SMP
 	    nfds++; /* Wakeup pipe */
 #endif
@@ -2228,7 +2229,7 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
     ps->internal_fd_limit = 0;
     ps->fds_status = NULL;
     ps->fds_status_len = 0;
-    ps->no_of_user_fds = 0;
+    erts_smp_atomic_init(&ps->no_of_user_fds, 0);
 #if ERTS_POLL_USE_KERNEL_POLL
     ps->kp_fd = -1;
 #if ERTS_POLL_USE_EPOLL
@@ -2326,7 +2327,7 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
 #if ERTS_POLL_USE_FALLBACK
     ps->fallback_used = 0;
 #endif
-    ps->no_of_user_fds = 0; /* Don't count wakeup pipe and fallback fd */
+    erts_smp_atomic_set(&ps->no_of_user_fds, 0); /* Don't count wakeup pipe and fallback fd */
 
     erts_smp_spin_lock(&pollsets_lock);
     ps->next = pollsets;
@@ -2472,7 +2473,7 @@ ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet ps, ErtsPollInfo *pip)
 
     pip->memory_size = size;
 
-    pip->poll_set_size = ps->no_of_user_fds;
+    pip->poll_set_size = (int) erts_smp_atomic_read(&ps->no_of_user_fds);
 #ifdef ERTS_SMP
     pip->poll_set_size++; /* Wakeup pipe */
 #endif
