@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,12 +37,6 @@
 %% Export the function that returns the configuration data needed by
 %% webtool
 -export([configData/0]).
-
-
-%% The following directive caters for (significantly) faster native
-%% code compilation of one function in this file by the HiPE compiler
-%% on register-poor architectures like the x86.
--compile([{hipe,[{regalloc,graph_color}]}]).
 
 -behaviour(gen_server).
 
