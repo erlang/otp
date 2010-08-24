@@ -82,11 +82,8 @@
 -define(REG_REPEAT_LIM,1000).
 
 % Message codes in epmd protocol
--define(EPMD_ALIVE_REQ,		$a).
 -define(EPMD_ALIVE2_REQ,	$x).
--define(EPMD_ALIVE_OK_RESP,	$Y).
 -define(EPMD_ALIVE2_RESP,	$y).
--define(EPMD_PORT_REQ,		$p).
 -define(EPMD_PORT_PLEASE2_REQ,	$z).
 -define(EPMD_PORT2_RESP,	$w).
 -define(EPMD_NAMES_REQ,	$n).
@@ -148,7 +145,7 @@ register_name(doc) ->
     ["Register a name"];
 register_name(suite) ->
     [];
-register_name(Config) when list(Config) ->
+register_name(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node("foobar"),
     ?line ok = close(Sock),			% Unregister
@@ -158,7 +155,7 @@ register_names_1(doc) ->
     ["Register and unregister two nodes"];
 register_names_1(suite) ->
     [];
-register_names_1(Config) when list(Config) ->
+register_names_1(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock1} = register_node("foobar"),
     ?line {ok,Sock2} = register_node("foozap"),
@@ -170,7 +167,7 @@ register_names_2(doc) ->
     ["Register and unregister two nodes"];
 register_names_2(suite) ->
     [];
-register_names_2(Config) when list(Config) ->
+register_names_2(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock1} = register_node("foobar"),
     ?line {ok,Sock2} = register_node("foozap"),
@@ -182,7 +179,7 @@ register_duplicate_name(doc) ->
     ["Two nodes with the same name"];
 register_duplicate_name(suite) ->
     [];
-register_duplicate_name(Config) when list(Config) ->
+register_duplicate_name(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node("foobar"),
     ?line error = register_node("foobar"),
@@ -192,22 +189,9 @@ register_duplicate_name(Config) when list(Config) ->
 % Internal function to register a node name, no close, i.e. unregister
 
 register_node(Name) ->
-    register_node(Name,?DUMMY_PORT).
-
-register_node(Name, Port) ->
-    case send_req([?EPMD_ALIVE_REQ, put16(Port), Name]) of
-	{ok,Sock} ->
-	    case recv(Sock,3) of
-		{ok, [?EPMD_ALIVE_OK_RESP,_D1,_D0]} ->
-		    {ok,Sock};
-		Other ->
-		    test_server:format("recv on sock ~w: ~p~n",
-				       [Sock,Other]),
-		    error
-	    end;
-	error ->
-	    error
-    end.
+    register_node_v2(?DUMMY_PORT,$M,0,5,5,Name,"").
+register_node(Name,Port) ->
+    register_node_v2(Port,$M,0,5,5,Name,"").
 
 register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
     Req = [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
@@ -254,7 +238,7 @@ parse_port2_resp(Resp) ->
 			    hvsn=HVsn,lvsn=LVsn,
 			    node_name=binary_to_list(NodeName),
 			    extra=binary_to_list(Extra)}};
-	Other ->
+	_Other ->
 	    test_server:format("invalid port2 resp: ~p~n",
 			       [Resp]),
 	    error
@@ -266,7 +250,7 @@ name_with_null_inside(doc) ->
     ["Register a name with a null char in it"];
 name_with_null_inside(suite) ->
     [];
-name_with_null_inside(Config) when list(Config) ->
+name_with_null_inside(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line error = register_node("foo\000bar"),
     ok.
@@ -277,11 +261,9 @@ name_null_terminated(doc) ->
     ["Register a name with terminating null byte"];
 name_null_terminated(suite) ->
     [];
-name_null_terminated(Config) when list(Config) ->
+name_null_terminated(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
-    ?line {ok,Sock} = register_node("foobar\000"),
-    ?line error = register_node("foobar"),
-    ?line ok = close(Sock),			% Unregister
+    ?line error = register_node("foobar\000"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -290,7 +272,7 @@ stupid_names_req(doc) ->
     ["Read names from epmd in a stupid way"];
 stupid_names_req(suite) ->
     [];
-stupid_names_req(Config) when list(Config) ->
+stupid_names_req(Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     LongDog = test_server:timetrap(?MEDIUM_TEST_TIMEOUT),
@@ -394,15 +376,15 @@ get_port_nr(doc) ->
     ["Register a name on a port and ask about port nr"];
 get_port_nr(suite) ->
     [];
-get_port_nr(Config) when list(Config) ->
-    port_request([?EPMD_PORT_REQ,"foo"]).
+get_port_nr(Config) when is_list(Config) ->
+    port_request([?EPMD_PORT_PLEASE2_REQ,"foo"]).
 
 slow_get_port_nr(doc) ->
     ["Register with slow write and ask about port nr"];
 slow_get_port_nr(suite) ->
     [];
-slow_get_port_nr(Config) when list(Config) ->
-    port_request([?EPMD_PORT_REQ,d,$f,d,$o,d,$o]).
+slow_get_port_nr(Config) when is_list(Config) ->
+    port_request([?EPMD_PORT_PLEASE2_REQ,d,$f,d,$o,d,$o]).
 
 
 % Internal function used above
@@ -413,9 +395,18 @@ port_request(M) ->
     ?line {ok,RSock} = register_node("foo", Port),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[size16(M),M]),
-    R = put16(Port),
-    ?line {ok,R} = recv(Sock, length(R)),
-    ?line ok = close(RSock),
+    ?line case recv_until_sock_closes(Sock) of
+	      {ok, Resp} ->
+		  ?line close(RSock),
+		  ?line {ok,Rec} = parse_port2_resp(Resp),
+		  ?line Port = Rec#node_info.port,
+		  ok;
+	      Other ->
+		  ?line close(RSock),
+		  ?line test_server:format("recv on sock ~w: ~p~n",
+					   [Sock,Other]),
+		  ?line throw({error,Other})
+	  end,
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -424,7 +415,7 @@ unregister_others_name_1(doc) ->
     ["Unregister name of other node"];
 unregister_others_name_1(suite) ->
     [];
-unregister_others_name_1(Config) when list(Config) ->
+unregister_others_name_1(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,RSock} = register_node("foo"),
     ?line {ok,Sock} = connect(),
@@ -441,7 +432,7 @@ unregister_others_name_2(doc) ->
     ["Unregister name of other node"];
 unregister_others_name_2(suite) ->
     [];
-unregister_others_name_2(Config) when list(Config) ->
+unregister_others_name_2(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     M = [?EPMD_STOP_REQ,"xxx42"],
@@ -456,7 +447,7 @@ register_overflow(doc) ->
     ["Register too many, clean and redo 10 times"];
 register_overflow(suite) ->
     [];
-register_overflow(Config) when list(Config) ->
+register_overflow(Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     LongDog = test_server:timetrap(?LONG_TEST_TIMEOUT),
@@ -546,7 +537,7 @@ no_data(doc) ->
     ["Open but send no data"];
 no_data(suite) ->
     [];
-no_data(Config) when list(Config) ->
+no_data(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     sleep(?LONG_PAUSE),
@@ -559,7 +550,7 @@ one_byte(doc) ->
     ["Send one byte only"];
 one_byte(suite) ->
     [];
-one_byte(Config) when list(Config) ->
+one_byte(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[0]),
@@ -573,7 +564,7 @@ two_bytes(doc) ->
     ["Send packet size only"];
 two_bytes(suite) ->
     [];
-two_bytes(Config) when list(Config) ->
+two_bytes(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[put16(3)]),
@@ -587,7 +578,7 @@ partial_packet(doc) ->
     ["Got only part of a packet"];
 partial_packet(suite) ->
     [];
-partial_packet(Config) when list(Config) ->
+partial_packet(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[put16(100),"only a few bytes"]),
@@ -601,7 +592,7 @@ zero_length(doc) ->
     ["Invalid zero packet size"];
 zero_length(suite) ->
     [];
-zero_length(Config) when list(Config) ->
+zero_length(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     ?line ok = send(Sock,[0,0,0,0,0,0,0,0,0,0]),
@@ -615,7 +606,7 @@ too_large(doc) ->
     ["Invalid large packet"];
 too_large(suite) ->
     [];
-too_large(Config) when list(Config) ->
+too_large(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     Size = 63000,
@@ -631,10 +622,11 @@ alive_req_too_small_1(doc) ->
     ["Try to register but not enough data"];
 alive_req_too_small_1(suite) ->
     [];
-alive_req_too_small_1(Config) when list(Config) ->
+alive_req_too_small_1(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
-    M = [?EPMD_ALIVE_REQ, 42],
+    M = [?EPMD_ALIVE2_REQ, put16(?DUMMY_PORT),$M,0, put16(5),
+	 put16(5),put16(0)],
     ?line ok = send(Sock, [size16(M), M]),
     sleep(?MEDIUM_PAUSE),
     ?line closed = recv(Sock,1),
@@ -646,10 +638,11 @@ alive_req_too_small_2(doc) ->
     ["Try to register but not enough data"];
 alive_req_too_small_2(suite) ->
     [];
-alive_req_too_small_2(Config) when list(Config) ->
+alive_req_too_small_2(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
-    M = [?EPMD_ALIVE_REQ, put16(?DUMMY_PORT)],
+    M =  [?EPMD_ALIVE2_REQ, put16(?DUMMY_PORT),$M,0, put16(5),
+	  put16(5)],
     ?line ok = send(Sock, [size16(M), M]),
     sleep(?MEDIUM_PAUSE),
     ?line closed = recv(Sock,1),
@@ -661,7 +654,7 @@ alive_req_too_large(doc) ->
     ["Try to register but node name too large"];
 alive_req_too_large(suite) ->
     [];
-alive_req_too_large(Config) when list(Config) ->
+alive_req_too_large(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = connect(),
     L = [
@@ -678,10 +671,12 @@ alive_req_too_large(Config) when list(Config) ->
 	 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	 ],
-    M = [?EPMD_ALIVE_REQ, put16(?DUMMY_PORT), L],
+    S = length(lists:flatten(L)),
+    M = [?EPMD_ALIVE2_REQ, put16(?DUMMY_PORT),$M,0, put16(5),
+	 put16(5), put16(S),L,put16(0)],
     ?line ok = send(Sock, [size16(M), M]),
     sleep(?MEDIUM_PAUSE),
-    ?line closed = recv(Sock,1),
+    ?line {ok,[?EPMD_ALIVE2_RESP,1]} = recv(Sock,2),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -690,7 +685,7 @@ returns_valid_empty_extra(doc) ->
     ["Check that an empty extra is prefixed by a two byte length"];
 returns_valid_empty_extra(suite) ->
     [];
-returns_valid_empty_extra(Config) when list(Config) ->
+returns_valid_empty_extra(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", []),
     ?line {ok,#node_info{extra=[]}} = port_please_v2("foo"),
@@ -703,7 +698,7 @@ returns_valid_populated_extra_with_nulls(doc) ->
     ["Check a populated extra with embedded null characters"];
 returns_valid_populated_extra_with_nulls(suite) ->
     [];
-returns_valid_populated_extra_with_nulls(Config) when list(Config) ->
+returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ?line ok = epmdrun(),
     ?line {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", "ABC\000\000"),
     ?line {ok,#node_info{extra="ABC\000\000"}} = port_please_v2("foo"),
@@ -858,9 +853,9 @@ send(Sock, SendSpec) ->
 
 send([], RevBytes, _Sock) ->
     {ok,RevBytes};
-send([Byte | Spec], RevBytes, Sock) when integer(Byte) ->
+send([Byte | Spec], RevBytes, Sock) when is_integer(Byte) ->
     send(Spec, [Byte | RevBytes], Sock);
-send([List | Spec], RevBytes, Sock) when list(List) ->
+send([List | Spec], RevBytes, Sock) when is_list(List) ->
     case send(List, RevBytes, Sock) of
 	{ok,Left} ->
 	    send(Spec, Left, Sock);

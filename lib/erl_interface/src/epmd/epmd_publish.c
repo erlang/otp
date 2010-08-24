@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -55,62 +55,6 @@
 
 /* publish our listen port and alive name */
 /* return the (useless) creation number */
-static int ei_epmd_r3_publish (int port, const char *alive, unsigned ms)
-{
-  char buf[EPMDBUF];
-  char *s = buf;
-  int fd;
-  int len = strlen(alive) + 3;
-  int res,creation;
-
-  s = buf;
-  put16be(s,len);
-  put8(s,EI_EPMD_ALIVE_REQ);
-  put16be(s,port); 
-  strcpy(s, alive);
-
-  if ((fd = ei_epmd_connect_tmo(NULL,ms)) < 0) return fd;
-
-  if ((res = ei_write_fill_t(fd, buf, len+2, ms)) != len+2) {
-    closesocket(fd);
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    return -1;
-  }
-
-  EI_TRACE_CONN2("ei_epmd_r3_publish",
-		 "-> ALIVE_REQ alive=%s port=%d",alive,port);
-
-  if ((res = ei_read_fill_t(fd, buf, 3, ms)) != 3) {
-    closesocket(fd);
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    return -1;
-  }
-
-  s = buf;
-  if ((res=get8(s)) != EI_EPMD_ALIVE_OK_RESP) {
-      EI_TRACE_ERR1("ei_epmd_r3_publish",
-		    "<- ALIVE_NOK result=%d (failure)",res);
-    closesocket(fd);
-    erl_errno = EIO;
-    return -1;
-  }
-
-  creation = get16be(s);
-
-  EI_TRACE_CONN1("ei_epmd_r3_publish","<- ALIVE_OK creation=%d",creation);
-
-  /* Don't close fd here! It keeps us registered with epmd */
-
-  /* probably should save fd so we can close it later... */
-  /* epmd_saveconn(OPEN,fd,alive); */
-
-  /* return the creation number, for no good reason */
-  /* return creation; */
-
-  /* no! return the descriptor */
-  return fd;
-}
-
 /* publish our listen port and alive name */
 /* return the (useless) creation number */
 /* this protocol is a lot more complex than the old one */
@@ -200,15 +144,7 @@ int ei_epmd_publish(int port, const char *alive)
 
 int ei_epmd_publish_tmo(int port, const char *alive, unsigned ms)
 {
-  int i;
-
-  /* try the new one first, then the old one */
-  i = ei_epmd_r4_publish(port,alive, ms);
-
-  /* -2: new protocol not understood */
-  if (i == -2) i = ei_epmd_r3_publish(port,alive, ms);
-
-  return i;
+  return ei_epmd_r4_publish(port,alive, ms);;
 }
 
 
