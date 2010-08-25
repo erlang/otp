@@ -1638,8 +1638,6 @@ application_data(Data, #state{user_application = {_Mon, Pid},
 		  true -> <<Buffer0/binary, Data/binary>>
 	      end,
     case get_data(SOpts, BytesToRead, Buffer1) of
-	{ok, <<>>, Buffer} -> % no reply, we need more data
-	    next_record(State0#state{user_data_buffer = Buffer});
 	{ok, ClientData, Buffer} -> % Send data
 	    SocketOpt = deliver_app_data(SOpts, ClientData, Pid, From),
 	    State = State0#state{user_data_buffer = Buffer,
@@ -1655,12 +1653,16 @@ application_data(Data, #state{user_application = {_Mon, Pid},
 	 	true -> %% We have more data
  		    application_data(<<>>, State)
 	    end;
+	{more, Buffer} -> % no reply, we need more data
+	    next_record(State0#state{user_data_buffer = Buffer});
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(SOpts, Buffer1, Pid, From),
 	    {stop, normal, State0}
     end.
 
 %% Picks ClientData 
+get_data(_, _, <<>>) ->
+    {more, <<>>};
 get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer) 
   when Raw =:= raw; Raw =:= 0 ->   %% Raw Mode
     if 
@@ -1673,13 +1675,13 @@ get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer)
 	    {ok, Data, Rest};
 	true ->
 	    %% Passive Mode not enough data
-	    {ok, <<>>, Buffer}
+	    {more, Buffer}
     end;
 get_data(#socket_options{packet=Type, packet_size=Size}, _, Buffer) ->
     PacketOpts = [{packet_size, Size}], 
     case decode_packet(Type, Buffer, PacketOpts) of
 	{more, _} ->
-	    {ok, <<>>, Buffer};
+	    {more, Buffer};
 	Decoded ->
 	    Decoded
     end.
@@ -1831,7 +1833,7 @@ next_state(StateName, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, State
     case application_data(Data, State0) of
 	Stop = {stop,_,_} ->
    	    Stop;
-	 {Record, State} ->
+	{Record, State} ->
    	    next_state(StateName, Record, State)
     end;
 next_state(StateName, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = <<1>>} = 

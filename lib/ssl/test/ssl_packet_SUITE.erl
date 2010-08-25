@@ -2196,21 +2196,29 @@ header_decode_two_bytes_one_sent(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions
 
-send_raw(_,_, 0) ->
+send_raw(Socket,_, 0) ->
+    ssl:send(Socket, <<>>),
     no_result_msg;
 send_raw(Socket, Data, N) ->
     ssl:send(Socket, Data),
     send_raw(Socket, Data, N-1).
 
-passive_raw(_, _, 0) ->
+passive_raw(Socket, _, 0) ->
+    {error, timeout} = ssl:recv(Socket, 0, 500),
     ok;
 passive_raw(Socket, Data, N) ->
     Length = length(Data),
     {ok, Data} = ssl:recv(Socket, Length),
     passive_raw(Socket, Data, N-1).
 
-passive_recv_packet(_, _, 0) ->
-    ok;
+passive_recv_packet(Socket, _, 0) ->
+    case ssl:recv(Socket, 0) of
+	{ok, []} ->
+	    {error, timeout} = ssl:recv(Socket, 0, 500),
+	    ok;
+	Other ->
+	    {other, Other, ssl:session_info(Socket), 0}
+    end;
 passive_recv_packet(Socket, Data, N) ->
     case ssl:recv(Socket, 0) of
 	{ok, Data} -> 
@@ -2219,7 +2227,8 @@ passive_recv_packet(Socket, Data, N) ->
 	    {other, Other, ssl:session_info(Socket), N}
     end.
 
-send(_,_, 0) ->
+send(Socket,_, 0) ->
+    ssl:send(Socket, <<>>),
     no_result_msg;
 send(Socket, Data, N) ->
     case ssl:send(Socket, [Data]) of
@@ -2233,6 +2242,7 @@ send_incomplete(Socket, Data, N) ->
     send_incomplete(Socket, Data, N, <<>>).
 send_incomplete(Socket, _Data, 0, Prev) ->
     ssl:send(Socket, Prev),
+    ssl:send(Socket, [?uint32(0)]),
     no_result_msg;
 send_incomplete(Socket, Data, N, Prev) ->
     Length = size(Data),
@@ -2261,8 +2271,13 @@ active_once_raw(Socket, Data, N, Acc) ->
 	    end
     end.
 
-active_once_packet(_,_, 0) ->
-    ok;
+active_once_packet(Socket,_, 0) ->
+    receive
+	{ssl, Socket, []} ->
+	    ok;
+	{ssl, Socket, Other} ->
+	    {other, Other, ssl:session_info(Socket), 0}
+    end;
 active_once_packet(Socket, Data, N) ->
     receive 
 	{ssl, Socket, Data} ->
@@ -2274,7 +2289,7 @@ active_once_packet(Socket, Data, N) ->
 active_raw(Socket, Data, N) ->
     active_raw(Socket, Data, N, []).
 
-active_raw(_, _, 0, _) ->
+active_raw(_Socket, _, 0, _) ->
     ok;
 active_raw(Socket, Data, N, Acc) ->
     receive 
@@ -2289,8 +2304,13 @@ active_raw(Socket, Data, N, Acc) ->
 	    end
     end.
 
-active_packet(_, _, 0) ->
-    ok;
+active_packet(Socket, _, 0) ->
+    receive
+	{ssl, Socket, []} ->
+	    ok;
+	Other ->
+	    {other, Other, ssl:session_info(Socket), 0}
+    end;
 active_packet(Socket, Data, N) ->
     receive 
 	{ssl, Socket, Data} ->
