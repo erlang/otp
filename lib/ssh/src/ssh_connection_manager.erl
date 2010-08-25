@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2008-2010. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -146,6 +146,8 @@ adjust_window(ConnectionManager, Channel, Bytes) ->
 close(ConnectionManager, ChannelId) ->
     try   call(ConnectionManager, {close, ChannelId}) of
 	  ok ->
+	    ok;
+	  {error,normal} ->
 	    ok
     catch
 	exit:{noproc, _} ->
@@ -155,6 +157,8 @@ close(ConnectionManager, ChannelId) ->
 stop(ConnectionManager) ->
     try call(ConnectionManager, stop) of
 	ok ->
+	    ok;
+	{error,normal} ->
 	    ok
     catch
 	exit:{noproc, _} ->
@@ -593,7 +597,9 @@ call(Pid, Msg, Timeout) ->
 	    Result
     catch
 	exit:{timeout, _} ->
-	    {error, timeout}
+	    {error, timeout};
+	exit:{normal, _} ->
+	    {error, normal}
     end.
 
 cast(Pid, Msg) ->

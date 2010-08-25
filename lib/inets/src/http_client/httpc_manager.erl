@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2002-2010. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -65,15 +65,6 @@
 	  from,    % From for the request:  from()
 	  state    % State of the handler: initiating | started | operational | canceled
 	 }).
-
-%% Entries in the handler / request cross-ref table
-%% -record(request_info, 
-%% 	{
-%% 	  id,      % Id of the request
-%% 	  handler, % Pid of the handler process
-%% 	  from,    % The From value for the caller
-%% 	  mref     % Monitor ref for the caller
-%% 	 }).
 
 
 %%====================================================================
@@ -577,7 +568,9 @@ handle_info({'EXIT', Pid, Reason}, #state{handler_db = HandlerDb} = State) ->
 handle_info({'DOWN', _, _, Pid, _}, State) ->
     
     %% 
-    %% Check what happens to waiting requests! Chall we not send a reply?
+    %% Normally this should have been cleaned up already
+    %% (when receiving {request_done, PequestId}), but
+    %% just in case there is a glitch, cleanup anyway.
     %% 
 
     Pattern = #handler_info{handler = Pid, _ = '_'}, 
@@ -649,7 +642,16 @@ get_handler_info(Tab) ->
 		Acc
 	end,
     Handlers2 = lists:foldl(F, [], Handlers1),
-    Handlers3 = [{Pid, State, httpc_handler:info(Pid)} || 
+    Handlers3 = [{Pid, State, 
+		  case (catch httpc_handler:info(Pid)) of
+		      {'EXIT', _} -> 
+			  %% Why would this crash? 
+			  %% Only if the process has died, but we don't 
+			  %% know about it?
+			  [];
+		      Else ->
+			  Else
+		  end} || 
 		    {Pid, State} <- Handlers2],
     Handlers3.
 
@@ -666,6 +668,10 @@ handle_started(StarterPid, ReqId, HandlerPid,
     case ets:lookup(HandlerDb, ReqId) of
 	[#handler_info{state = initiating} = HandlerInfo] ->
 	    ?hcri("received started ack for initiating handler", []),
+	    %% As a last resort, make sure we know when it exits,
+	    %% in case it forgets to notify us.
+	    %% We dont need to know the ref id?
+	    erlang:monitor(process, HandlerPid),
 	    HandlerInfo2 = HandlerInfo#handler_info{handler = HandlerPid,
 						    state   = started}, 
 	    ets:insert(HandlerDb, HandlerInfo2),

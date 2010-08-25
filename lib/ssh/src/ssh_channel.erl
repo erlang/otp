@@ -238,9 +238,19 @@ handle_info(Msg, #state{cm = ConnectionManager, channel_cb = Module,
 	    {noreply, State#state{channel_state = ChannelState}};
 	{ok, ChannelState, Timeout} ->
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
+	{stop, Reason, ChannelState} when is_atom(Reason)->
+	    {stop, Reason, State#state{close_sent = true,
+				       channel_state = ChannelState}};
 	{stop, ChannelId, ChannelState} ->
-	    ssh_connection:close(ConnectionManager, ChannelId),
-	    {stop, normal, State#state{close_sent = true,
+	    Reason =
+		case Msg of
+		    {'EXIT', _Pid, shutdown} ->
+			shutdown;
+		    _ ->
+			normal
+		end,
+	    (catch ssh_connection:close(ConnectionManager, ChannelId)),
+	    {stop, Reason, State#state{close_sent = true,
 				       channel_state = ChannelState}}
     end.
 

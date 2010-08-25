@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2002-2010. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -605,24 +605,29 @@ handle_info({ssl_error, _, _} = Reason, State) ->
 %% Internally, to a request handling process, a request timeout is
 %% seen as a canceled request.
 handle_info({timeout, RequestId}, 
-	    #state{request  = #request{id = RequestId} = Request,
-		   canceled = Canceled} = State) ->
+	    #state{request      = #request{id = RequestId} = Request,
+		   canceled     = Canceled,
+		   profile_name = ProfileName} = State) ->
     ?hcri("timeout of current request", [{id, RequestId}]),
     httpc_response:send(Request#request.from, 
 			httpc_response:error(Request, timeout)),
+    httpc_manager:request_done(RequestId, ProfileName),
     ?hcrv("response (timeout) sent - now terminate", []),
     {stop, normal, 
      State#state{request  = Request#request{from = answer_sent},
 		 canceled = [RequestId | Canceled]}};
 
-handle_info({timeout, RequestId}, #state{canceled = Canceled} = State) ->
+handle_info({timeout, RequestId}, 
+	    #state{canceled     = Canceled,
+		   profile_name = ProfileName} = State) ->
     ?hcri("timeout", [{id, RequestId}]),
     Filter = 
 	fun(#request{id = Id, from = From} = Request) when Id =:= RequestId ->
 		?hcrv("found request", [{id, Id}, {from, From}]),
 		%% Notify the owner
-		Response = httpc_response:error(Request, timeout), 
-		httpc_response:send(From, Response),
+		httpc_response:send(From, 
+				    httpc_response:error(Request, timeout)),
+		httpc_manager:request_done(RequestId, ProfileName),
 		?hcrv("response (timeout) sent", []),
 		[Request#request{from = answer_sent}];
 	   (_) ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2004-2010. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -306,7 +306,8 @@ tickets(suite) ->
      otp_8106,
      otp_8056,
      otp_8352, 
-     otp_8371
+     otp_8371,
+     otp_8739
     ].
 
 
@@ -2561,7 +2562,78 @@ otp_8371(Config) when is_list(Config) ->
     ok.
 
 
+%%-------------------------------------------------------------------------
 
+otp_8739(doc) ->
+    ["OTP-8739"];
+otp_8739(suite) ->
+    [];
+otp_8739(Config) when is_list(Config) ->
+    {_DummyServerPid, Port} = otp_8739_dummy_server(),
+    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+    Method      = get,
+    Request     = {URL, []}, 
+    HttpOptions = [{connect_timeout, 500}, {timeout, 1}], 
+    Options     = [{sync, true}], 
+    case http:request(Method, Request, HttpOptions, Options) of
+	{error, timeout} ->
+	    %% And now we check the size of the handler db
+	    Info = httpc:info(),
+	    tsp("Info: ~p", [Info]),
+	    {value, {handlers, Handlers}} = 
+		lists:keysearch(handlers, 1, Info),
+	    case Handlers of
+		[] ->
+		    ok;
+		_ ->
+		    tsf({unexpected_handlers, Handlers})
+	    end;
+	Unexpected ->
+	    tsf({unexpected, Unexpected})
+    end.
+
+
+otp_8739_dummy_server() ->
+    Parent = self(), 
+    Pid = spawn_link(fun() -> otp_8739_dummy_server_init(Parent) end),
+    receive
+	{port, Port} ->
+	    {Pid, Port}
+    end.
+
+otp_8739_dummy_server_init(Parent) ->
+    {ok, ListenSocket} = 
+	gen_tcp:listen(0, [binary, inet, {packet, 0},
+			   {reuseaddr,true},
+			   {active, false}]),
+    {ok, Port} = inet:port(ListenSocket),
+    Parent ! {port, Port},
+    otp_8739_dummy_server_main(Parent, ListenSocket).
+
+otp_8739_dummy_server_main(Parent, ListenSocket) ->
+    case gen_tcp:accept(ListenSocket) of
+	{ok, Sock} ->
+	    %% Ignore the request, and simply wait for the socket to close
+	    receive
+		{tcp_closed, Sock} ->
+		    (catch gen_tcp:close(ListenSocket)),
+		    exit(normal);
+		{tcp_error, Sock, Reason} ->
+		    tsp("socket error: ~p", [Reason]),
+		    (catch gen_tcp:close(ListenSocket)),
+		    exit(normal)
+	    after 10000 ->
+		    %% Just in case
+		    (catch gen_tcp:close(Sock)),
+		    (catch gen_tcp:close(ListenSocket)),
+		    exit(timeout)
+	    end;
+	Error ->
+	    exit(Error)
+    end.
+
+		       
+    
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------

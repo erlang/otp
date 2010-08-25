@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%%
+%% 
 %% Copyright Ericsson AB 2005-2010. All Rights Reserved.
-%%
+%% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%%
+%% 
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%%
+%% 
 %% %CopyrightEnd%
 %%
 %%
@@ -508,7 +508,8 @@ passive_nlist(suite) ->
     [];
 passive_nlist(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
-    do_nlist(Pid).
+    WildcardSupport = ?config(wildcard_support, Config),
+    do_nlist(Pid, WildcardSupport).
 
 
 %%-------------------------------------------------------------------------
@@ -768,7 +769,8 @@ active_nlist(suite) ->
     [];
 active_nlist(Config) when is_list(Config) ->
     Pid = ?config(ftp, Config),
-    do_nlist(Pid).
+    WildcardSupport = ?config(wildcard_support, Config),
+    do_nlist(Pid, WildcardSupport).
 
 
 %%-------------------------------------------------------------------------
@@ -1242,16 +1244,20 @@ do_ls(Pid) ->
     {ok, _} = ftp:ls(Pid, "incom*"),
     ok.
 
-do_nlist(Pid) ->
+do_nlist(Pid, WildcardSupport) ->
     {ok, _} = ftp:nlist(Pid),
     {ok, _} = ftp:nlist(Pid, "incoming"),
     %% neither nlist nor ls operates on a directory
     %% they operate on a pathname, which *can* be a 
     %% directory, but can also be a filename or a group 
     %% of files (including wildcards).
-    {ok, _} = ftp:nlist(Pid, "incom*"),
-%%     {error, epath} = ftp:nlist(Pid, ?BAD_DIR),
-    ok.
+    case WildcardSupport of
+	true ->
+	    {ok, _} = ftp:nlist(Pid, "incom*"),
+	    ok;
+	_ ->
+	    ok
+    end.
 
 do_rename(Pid, Config) ->
     PrivDir = ?config(priv_dir, Config),
