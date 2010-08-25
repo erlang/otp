@@ -23,12 +23,16 @@
 
 %%-compile(export_all).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1,api_open_close/1,api_listen/1,api_connect_init/1,
-	 xfer_min/1,xfer_active/1]).
+-export([all/1,init_per_testcase/2,fin_per_testcase/2]).
+-export(
+   [basic/1,
+    api_open_close/1,api_listen/1,api_connect_init/1,
+    xfer_min/1,xfer_active/1,def_sndrcvinfo/1]).
 
 all(suite) ->
-    [basic,api_open_close,api_listen,api_connect_init,xfer_min,xfer_active].
+    [basic,
+     api_open_close,api_listen,api_connect_init,
+     xfer_min,xfer_active,def_sndrcvinfo].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(15)),
@@ -36,6 +40,10 @@ init_per_testcase(_Func, Config) ->
 fin_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
+
+
+
+-define(LOGVAR(Var), begin io:format(??Var" = ~p~n", [Var]) end).
 
 
 
@@ -227,6 +235,148 @@ xfer_active(Config) when is_list(Config) ->
 	  after 17 -> ok
 	  end,
     ok.
+
+def_sndrcvinfo(doc) ->
+    "Test that #sctp_sndrcvinfo{} parameters set on a socket "
+	"are used by gen_sctp:send/4";
+def_sndrcvinfo(suite) ->
+    [];
+def_sndrcvinfo(Config) when is_list(Config) ->
+    ?line Loopback = {127,0,0,1},
+    ?line Data = <<"What goes up, must come down.">>,
+    %%
+    ?line S1 =
+	ok(gen_sctp:open(
+	     0, [{sctp_default_send_param,#sctp_sndrcvinfo{ppid=17}}])),
+    ?LOGVAR(S1),
+    ?line P1 =
+	ok(inet:port(S1)),
+    ?LOGVAR(P1),
+    ?line #sctp_sndrcvinfo{ppid=17, context=0, timetolive=0, assoc_id=0} =
+	getopt(S1, sctp_default_send_param),
+    ?line ok =
+	gen_sctp:listen(S1, true),
+    %%
+    ?line S2 =
+	ok(gen_sctp:open()),
+    ?LOGVAR(S2),
+    ?line P2 =
+	ok(inet:port(S2)),
+    ?LOGVAR(P2),
+    ?line #sctp_sndrcvinfo{ppid=0, context=0, timetolive=0, assoc_id=0} =
+	getopt(S2, sctp_default_send_param),
+    %%
+    ?line #sctp_assoc_change{
+       state=comm_up,
+       error=0,
+       assoc_id=S2AssocId} = S2AssocChange =
+	ok(gen_sctp:connect(S2, Loopback, P1, [])),
+    ?LOGVAR(S2AssocChange),
+    ?line case ok(gen_sctp:recv(S1)) of
+	      {Loopback, P2,[],
+	       #sctp_assoc_change{
+			      state=comm_up,
+			      error=0,
+			      assoc_id=S1AssocId}} ->
+		  ?LOGVAR(S1AssocId)
+	  end,
+    ?line #sctp_sndrcvinfo{
+       ppid=17, context=0, timetolive=0, assoc_id=S1AssocId} =
+	getopt(
+	  S1, sctp_default_send_param, #sctp_sndrcvinfo{assoc_id=S1AssocId}),
+    ?line #sctp_sndrcvinfo{
+       ppid=0, context=0, timetolive=0, assoc_id=S2AssocId} =
+	getopt(
+	  S2, sctp_default_send_param, #sctp_sndrcvinfo{assoc_id=S2AssocId}),
+    %%
+    ?line ok =
+	gen_sctp:send(S1, S1AssocId, 1, <<"1: ",Data/binary>>),
+    ?line case ok(gen_sctp:recv(S2)) of
+	      {Loopback,P1,
+	       [#sctp_sndrcvinfo{
+		   stream=1, ppid=17, context=0, assoc_id=S2AssocId}],
+	       <<"1: ",Data/binary>>} -> ok
+	  end,
+    %%
+    ?line ok =
+	setopt(
+	  S1, sctp_default_send_param, #sctp_sndrcvinfo{ppid=18}),
+    ?line ok =
+	setopt(
+	  S1, sctp_default_send_param,
+	  #sctp_sndrcvinfo{ppid=19, assoc_id=S1AssocId}),
+    ?line #sctp_sndrcvinfo{
+       ppid=18, context=0, timetolive=0, assoc_id=0} =
+	getopt(S1, sctp_default_send_param),
+    ?line #sctp_sndrcvinfo{
+       ppid=19, context=0, timetolive=0, assoc_id=S1AssocId} =
+	getopt(
+	  S1, sctp_default_send_param, #sctp_sndrcvinfo{assoc_id=S1AssocId}),
+    %%
+    ?line ok =
+	gen_sctp:send(S1, S1AssocId, 0, <<"2: ",Data/binary>>),
+    ?line case ok(gen_sctp:recv(S2)) of
+	      {Loopback,P1,
+	       [#sctp_sndrcvinfo{
+		   stream=0, ppid=19, context=0, assoc_id=S2AssocId}],
+	       <<"2: ",Data/binary>>} -> ok
+	  end,
+    ?line ok =
+	gen_sctp:send(S2, S2AssocChange, 1, <<"3: ",Data/binary>>),
+    ?line case ok(gen_sctp:recv(S1)) of
+	      {Loopback,P2,
+	       [#sctp_sndrcvinfo{
+		   stream=1, ppid=0, context=0, assoc_id=S1AssocId}],
+	       <<"3: ",Data/binary>>} -> ok;
+	      {Loopback,P2,[],
+	       #sctp_paddr_change{
+			  addr={Loopback,_}, state=addr_available,
+			  error=0, assoc_id=S1AssocId}} ->
+		  ?line case ok(gen_sctp:recv(S1)) of
+			    {Loopback,P2,
+			     [#sctp_sndrcvinfo{
+				 stream=1, ppid=0, context=0,
+				 assoc_id=S1AssocId}],
+			     <<"3: ",Data/binary>>} -> ok
+			end
+	  end,
+    ?line ok =
+	gen_sctp:send(
+	  S2,
+	  #sctp_sndrcvinfo{stream=0, ppid=20, assoc_id=S2AssocId},
+	  <<"4: ",Data/binary>>),
+    ?line case ok(gen_sctp:recv(S1)) of
+	      {Loopback,P2,
+	       [#sctp_sndrcvinfo{
+		   stream=0, ppid=20, context=0, assoc_id=S1AssocId}],
+	       <<"4: ",Data/binary>>} -> ok
+	  end,
+    %%
+    ?line ok =
+	gen_sctp:close(S1),
+    ?line ok =
+	gen_sctp:close(S2),
+    ?line receive
+	      Msg ->
+		  test_server:fail({received,Msg})
+	  after 17 -> ok
+	  end,
+    ok.
+
+getopt(S, Opt) ->
+    {ok,[{Opt,Val}]} = inet:getopts(S, [Opt]),
+    Val.
+
+getopt(S, Opt, Param) ->
+    {ok,[{Opt,Val}]} = inet:getopts(S, [{Opt,Param}]),
+    Val.
+
+setopt(S, Opt, Val) ->
+    inet:setopts(S, [{Opt,Val}]).
+
+ok({ok,X}) ->
+    io:format("OK: ~p~n", [X]),
+    X.
 
 flush() ->
     receive
