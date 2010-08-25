@@ -9,7 +9,7 @@
 -module(inet_proxy_dist).
 
 -export([childspecs/0, listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1, tick/1]).
+	 setup/5, close/1, select/1, is_node_name/1]).
 
 -include_lib("kernel/src/net_address.hrl").
 -include_lib("kernel/src/dist.hrl").
@@ -126,7 +126,11 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     end.
 
 close(Socket) ->
-    io:format("close called~n",[]),
+    try
+	erlang:error(foo)
+    catch _:_ ->
+	    io:format("close called ~p ~p~n",[Socket, erlang:get_stacktrace()])
+    end,
     gen_tcp:close(Socket),
     ok.
 
@@ -183,9 +187,6 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 
 get_remote_id(Socket, Node) ->
     gen_server:call(proxy_server, {get_remote_id, {Socket,Node}}, infinity).
-
-tick(Socket) ->
-    gen_tcp:send(Socket, <<>>).
 
 check_ip(_) ->
     true.

@@ -20,6 +20,9 @@
 	 accept_loop
 	}).
 
+-define(PPRE, 4).
+-define(PPOST, 4).
+
 start_link() ->
     gen_server:start_link({local, proxy_server}, proxy_server, [], []).
 
@@ -30,9 +33,9 @@ init([]) ->
 
 handle_call(What = {listen, Name}, _From, State) ->
     io:format("~p: call listen ~p~n",[self(), What]),
-    case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
+    case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}]) of
 	{ok, Socket} ->
-	    {ok, World} = gen_tcp:listen(0, [{active, false}, binary, {packet,2}]),
+	    {ok, World} = gen_tcp:listen(0, [{active, false}, binary, {packet,?PPRE}]),
 	    TcpAddress = get_tcp_address(Socket),
 	    WorldTcpAddress = get_tcp_address(World),
 	    {_,Port} = WorldTcpAddress#net_address.address,
@@ -98,10 +101,10 @@ get_tcp_address(Socket) ->
 
 accept_loop(Proxy, Type, Listen, Extra) ->
     process_flag(priority, max),
-    case gen_tcp:accept(Listen) of
-	{ok, Socket} ->
-	    case Type of 
-		erts -> 
+    case Type of
+	erts ->
+	    case gen_tcp:accept(Listen) of
+		{ok, Socket} ->
 		    io:format("~p: erts accept~n",[self()]),
 		    Extra ! {accept,self(),Socket,inet,proxy},
 		    receive 
@@ -111,19 +114,26 @@ accept_loop(Proxy, Type, Listen, Extra) ->
 			{_Kernel, unsupported_protocol} ->
 			    exit(unsupported_protocol)
 		    end;
-		_ ->
+		Error ->
+		    exit(Error)
+	    end;
+	world ->
+	    case gen_tcp:accept(Listen) of
+		{ok, Socket} ->
+		    Opts = get_ssl_options(server),
+		    {ok, SslSocket} = ssl:ssl_accept(Socket, Opts),
 		    io:format("~p: world accept~n",[self()]),
-		    PairHandler = spawn(fun() -> setup_connection(Socket, Extra) end),
-		    ok = gen_tcp:controlling_process(Socket, PairHandler)
-	    end,
-	    accept_loop(Proxy, Type, Listen, Extra);
-	Error ->
-	    exit(Error)
-    end.
+		    PairHandler = spawn_link(fun() -> setup_connection(SslSocket, Extra) end),
+		    ok = ssl:controlling_process(SslSocket, PairHandler);
+		Error ->
+		    exit(Error)
+	    end
+    end,
+    accept_loop(Proxy, Type, Listen, Extra).
 
 
 try_connect(Port) ->
-    case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,2}]) of
+    case gen_tcp:connect({127,0,0,1}, Port, [{active, false}, {packet,?PPRE}]) of
 	R = {ok, _S} ->
 	    R;
 	{error, _R} ->
@@ -132,9 +142,11 @@ try_connect(Port) ->
     end.
 
 setup_proxy(Ip, Port, Parent) ->
-    case gen_tcp:connect(Ip, Port, [{active, true}, binary, {packet,2}]) of
+    process_flag(trap_exit, true),
+    Opts = get_ssl_options(client),
+    case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}] ++ Opts) of
 	{ok, World} ->
-	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, binary, {packet,2}]),
+	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, binary, {packet,?PPRE}]),
 	    #net_address{address={_,LPort}} = get_tcp_address(ErtsL),
 	    Parent ! {self(), go_ahead, LPort},
 	    case gen_tcp:accept(ErtsL) of
@@ -150,69 +162,111 @@ setup_proxy(Ip, Port, Parent) ->
     end.
 
 setup_connection(World, ErtsListen) ->
+    process_flag(trap_exit, true),
     io:format("Setup connection ~n",[]),
     TcpAddress = get_tcp_address(ErtsListen),
     {_Addr,Port} = TcpAddress#net_address.address,
-    {ok, Erts} = gen_tcp:connect({127,0,0,1}, Port, [{active, true}, binary, {packet,2}]),
-    inet:setopts(World, [{active,true}, {packet, 2}]),
+    {ok, Erts} = gen_tcp:connect({127,0,0,1}, Port, [{active, true}, binary, {packet,?PPRE}]),
+    ssl:setopts(World, [{active,true}, {packet,?PPRE}]),
     io:format("~p ~n",[?LINE]),
     loop_conn_setup(World, Erts).
 
 loop_conn_setup(World, Erts) ->
     receive 
-	{tcp, World, Data = <<a, _/binary>>} ->
+	{ssl, World, Data = <<$a, _/binary>>} ->
 	    gen_tcp:send(Erts, Data),
-	    io:format("Handshake finished World -> Erts ~p ~c~n",[size(Data), a]),
-	    inet:setopts(World, [{packet, 4}]),
-	    inet:setopts(Erts, [{packet, 4}]),
+	    io:format("Handshake finished World -> Erts ~p ~c~n",[size(Data), $a]),
+	    ssl:setopts(World, [{packet,?PPOST}]),
+	    inet:setopts(Erts, [{packet,?PPOST}]),
 	    loop_conn(World, Erts);
-	{tcp, Erts, Data = <<a, _/binary>>} ->
-	    gen_tcp:send(World, Data),
-	    io:format("Handshake finished Erts -> World ~p ~c~n",[size(Data), a]),
-	    inet:setopts(World, [{packet, 4}]),
-	    inet:setopts(Erts, [{packet, 4}]),
+	{tcp, Erts, Data = <<$a, _/binary>>} ->
+	    ssl:send(World, Data),
+	    io:format("Handshake finished Erts -> World ~p ~c~n",[size(Data), $a]),
+	    ssl:setopts(World, [{packet,?PPOST}]),
+	    inet:setopts(Erts, [{packet,?PPOST}]),
 	    loop_conn(World, Erts);
 
-	{tcp, World, Data = <<H, _/binary>>} ->
+	{ssl, World, Data = <<H, _/binary>>} ->
 	    gen_tcp:send(Erts, Data),
 	    io:format("Handshake World -> Erts ~p ~c~n",[size(Data), H]),
 	    loop_conn_setup(World, Erts);
 	{tcp, Erts, Data = <<H, _/binary>>} ->
-	    gen_tcp:send(World, Data),
+	    ssl:send(World, Data),
 	    io:format("Handshake Erts -> World ~p ~c~n",[size(Data), H]),
 	    loop_conn_setup(World, Erts);
-	{tcp, World, Data} ->
+	{ssl, World, Data} ->
 	    gen_tcp:send(Erts, Data),
 	    io:format("World -> Erts ~p <<>>~n",[size(Data)]),
-	    loop_conn(World, Erts);
+	    loop_conn_setup(World, Erts);
 	{tcp, Erts, Data} ->
-	    gen_tcp:send(World, Data),
+	    ssl:send(World, Data),
 	    io:format("Erts -> World ~p <<>>~n",[size(Data)]),
-	    loop_conn(World, Erts);       
+	    loop_conn_setup(World, Erts);
 	Other ->
 	    io:format("~p ~p~n",[?LINE, Other])
     end.
 
-
 loop_conn(World, Erts) ->
     receive 
-	{tcp, World, Data = <<H, _/binary>>} ->
+	{ssl, World, Data = <<H, _/binary>>} ->
 	    gen_tcp:send(Erts, Data),
 	    io:format("World -> Erts ~p ~c~n",[size(Data), H]),
 	    loop_conn(World, Erts);
 	{tcp, Erts, Data = <<H, _/binary>>} ->
-	    gen_tcp:send(World, Data),
+	    ssl:send(World, Data),
 	    io:format("Erts -> World ~p ~c~n",[size(Data), H]),
 	    loop_conn(World, Erts);
-	{tcp, World, Data} ->
+	{ssl, World, Data} ->
 	    gen_tcp:send(Erts, Data),
 	    io:format("World -> Erts ~p <<>>~n",[size(Data)]),
 	    loop_conn(World, Erts);
 	{tcp, Erts, Data} ->
-	    gen_tcp:send(World, Data),
+	    ssl:send(World, Data),
 	    io:format("Erts -> World ~p <<>>~n",[size(Data)]),
 	    loop_conn(World, Erts);
 
 	Other ->
 	    io:format("~p ~p~n",[?LINE, Other])
     end.
+
+get_ssl_options(Type) ->
+    case init:get_argument(ssl_dist_opt) of
+	{ok, Args} ->
+	    ssl_options(Type, Args);
+	_ ->
+	    []
+    end.
+
+ssl_options(_,[]) ->
+    [];
+ssl_options(server, [["server_certfile", Value]|T]) ->
+    [{certfile, Value} | ssl_options(server,T)];
+ssl_options(client, [["client_certfile", Value]|T]) ->
+    [{certfile, Value} | ssl_options(client,T)];
+ssl_options(server, [["server_cacertfile", Value]|T]) ->
+    [{cacertfile, Value} | ssl_options(server,T)];
+ssl_options(server, [["server_keyfile", Value]|T]) ->
+    [{keyfile, Value} | ssl_options(server,T)];
+ssl_options(Type, [["client_certfile", _Value]|T]) ->
+    ssl_options(Type,T);
+ssl_options(Type, [["server_certfile", _Value]|T]) ->
+    ssl_options(Type,T);
+ssl_options(Type, [[Item, Value]|T]) ->
+    [{atomize(Item),fixup(Value)} | ssl_options(Type,T)];
+ssl_options(Type, [[Item,Value |T1]|T2]) ->
+    ssl_options(atomize(Type),[[Item,Value],T1|T2]);
+ssl_options(_,_) ->
+    exit(malformed_ssl_dist_opt).
+
+fixup(Value) ->
+    case catch list_to_integer(Value) of
+	{'EXIT',_} ->
+	    Value;
+	Int ->
+	    Int
+    end.
+
+atomize(List) when is_list(List) ->
+    list_to_atom(List);
+atomize(Atom) when is_atom(Atom) ->
+    Atom.
