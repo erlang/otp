@@ -386,6 +386,10 @@ static void do_request(g, fd, s, buf, bsize)
     {
     case EPMD_ALIVE2_REQ:
       dbg_printf(g,1,"** got ALIVE2_REQ");
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"ALIVE2_REQ from non local address");
+	   return;
+      }
 
       /* The packet has the format "axxyyyyyy" where xx is port, given
 	 in network byte order, and yyyyyy is symname, possibly null
@@ -555,6 +559,10 @@ static void do_request(g, fd, s, buf, bsize)
 
     case EPMD_DUMP_REQ:
       dbg_printf(g,1,"** got DUMP_REQ");
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"DUMP_REQ from non local address");
+	   return;
+      }
       {
 	Node *node;
 
@@ -604,7 +612,19 @@ static void do_request(g, fd, s, buf, bsize)
       break;
 
     case EPMD_KILL_REQ:
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"KILL_REQ from non local address");
+	   return;
+      }
       dbg_printf(g,1,"** got KILL_REQ");
+
+      if (!g->brutal_kill && (g->nodes.reg != NULL)) {
+	  dbg_printf(g,0,"Disallowed KILL_REQ, live nodes");
+	  if (reply(g, fd,"NO",2) != 2)
+	      dbg_printf(g,0,"failed to send reply to KILL_REQ");
+	  return;
+      }
+
       if (reply(g, fd,"OK",2) != 2)
 	dbg_printf(g,0,"failed to send reply to KILL_REQ");
       dbg_tty_printf(g,1,"epmd killed");
@@ -614,6 +634,15 @@ static void do_request(g, fd, s, buf, bsize)
 
     case EPMD_STOP_REQ:
       dbg_printf(g,1,"** got STOP_REQ");
+      if (!s->local_peer) {
+	   dbg_printf(g,0,"STOP_REQ from non local address");
+	   return;
+      }
+      if (!g->brutal_kill) {
+	  dbg_printf(g,0,"Disallowed STOP_REQ, no relaxed_command_check");
+	  return;
+      }
+
       if (bsize <= 1 )
 	{
 	  dbg_printf(g,0,"packet too small for request STOP_REQ (%d)",bsize);
@@ -701,6 +730,14 @@ static int conn_open(EpmdVars *g,int fd)
 
   for (i = 0; i < g->max_conn; i++) {
     if (g->conn[i].open == EPMD_FALSE) {
+      struct sockaddr_in si;
+#ifdef HAVE_SOCKLEN_T
+      socklen_t st;
+#else
+      int st;
+#endif
+      st = sizeof(si);
+
       g->active_conn++;
       s = &g->conn[i];
      
@@ -710,6 +747,20 @@ static int conn_open(EpmdVars *g,int fd)
       s->fd   = fd;
       s->open = EPMD_TRUE;
       s->keep = EPMD_FALSE;
+
+      /* Determine if connection is from localhost */
+      if (getpeername(s->fd,(struct sockaddr*) &si,&st) ||
+	  st < sizeof(si)) {
+	  /* Failure to get peername is regarder as non local host */
+	  s->local_peer = EPMD_FALSE;
+      } else {
+	  s->local_peer =
+	      ((((unsigned) ntohl(si.sin_addr.s_addr)) & 0xFF000000U) ==
+	       0x7F000000U); /* Only 127.x.x.x allowed, no false positives */
+      }
+      dbg_tty_printf(g,2,(s->local_peer) ? "Local peer connected" :
+		     "Non-local peer connected");
+
       s->want = 0;		/* Currently unknown */
       s->got  = 0;
       s->mod_time = current_time(g); /* Note activity */

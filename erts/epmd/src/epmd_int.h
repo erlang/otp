@@ -246,8 +246,10 @@
 
 typedef struct {
   int fd;			/* File descriptor */
-  unsigned open:1;		/* TRUE if open */
-  unsigned keep:1;		/* Don't close when sent reply */
+  unsigned char open;		/* TRUE if open */
+  unsigned char keep;		/* Don't close when sent reply */
+  unsigned char local_peer;     /* The peer of this connection is via
+                                   loopback interface */
   unsigned got;			/* # of bytes we have got */
   unsigned want;		/* Number of bytes we want */
   char *buf;			/* The remaining buffer */
@@ -287,6 +289,7 @@ typedef struct {
   int debug;
   int silent; 
   int is_daemon;
+  int brutal_kill;
   unsigned packet_timeout;
   unsigned delay_accept;
   unsigned delay_write;
@@ -308,6 +311,7 @@ void epmd_call(EpmdVars*,int);
 void run(EpmdVars*);
 void epmd_cleanup_exit(EpmdVars*, int);
 int epmd_conn_close(EpmdVars*,Connection*);
+void stop_cli(EpmdVars *g, char *name);
 
 #ifdef DONT_USE_MAIN
 int  start_epmd(char *,char *,char *,char *,char *,char *,char *,char *,char *,char *);

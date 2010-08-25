@@ -65,7 +65,10 @@
     returns_valid_empty_extra/1,
     returns_valid_populated_extra_with_nulls/1,
     buffer_overrun_1/1,
-    buffer_overrun_2/1
+    buffer_overrun_2/1,
+    no_nonlocal_register/1,
+    no_nonlocal_kill/1,
+    no_live_killing/1
    ]).
 
 
@@ -125,8 +128,12 @@ all(suite) ->
      returns_valid_empty_extra,
      returns_valid_populated_extra_with_nulls,
 
-    buffer_overrun_1,
-    buffer_overrun_2
+     buffer_overrun_1,
+     buffer_overrun_2,
+
+     no_nonlocal_register,
+     no_nonlocal_kill,
+     no_live_killing
     ].
 
 %%
@@ -421,7 +428,7 @@ unregister_others_name_1(doc) ->
 unregister_others_name_1(suite) ->
     [];
 unregister_others_name_1(Config) when is_list(Config) ->
-    ?line ok = epmdrun(),
+    ?line ok = epmdrun("-relaxed_command_check"),
     ?line {ok,RSock} = register_node("foo"),
     ?line {ok,Sock} = connect(),
     M = [?EPMD_STOP_REQ,"foo"],
@@ -438,7 +445,7 @@ unregister_others_name_2(doc) ->
 unregister_others_name_2(suite) ->
     [];
 unregister_others_name_2(Config) when is_list(Config) ->
-    ?line ok = epmdrun(),
+    ?line ok = epmdrun("-relaxed_command_check"),
     ?line {ok,Sock} = connect(),
     M = [?EPMD_STOP_REQ,"xxx42"],
     ?line ok = send(Sock,[size16(M),M]),
@@ -710,6 +717,7 @@ returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ?line ok = close(Sock),
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 buffer_overrun_1(suite) ->
     [];
@@ -762,6 +770,111 @@ alltrue([true|T]) ->
     alltrue(T);
 alltrue([_|_]) ->
     false.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+no_nonlocal_register(suite) ->
+    [];
+no_nonlocal_register(doc) ->
+    ["Ensure that we cannot register throug a nonlocal connection"];
+no_nonlocal_register(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,Ifs} = inet:getiflist(),
+    ?line Addr0 = [ inet:ifget(I, [addr]) || I <- Ifs ],
+    ?line Addr1 = [ A || {ok,[{addr,A}]} <- Addr0],
+    ?line Addr = lists:filter(fun({127,_,_,_}) ->
+				      false;
+				 (_)  ->
+				      true
+			      end,Addr1),
+    %% Now we should have all non loopback interface addresses,
+    %% none should accept a alive2 registration.
+    ?line Res = lists:map(fun(Ad={A1,A2,A3,A4}) ->
+				  try
+				      Name = "gurka_"++
+				             integer_to_list(A1)++"_"++
+				             integer_to_list(A2)++"_"++
+				             integer_to_list(A3)++"_"++
+				             integer_to_list(A4),
+				      Bname = list_to_binary(Name),
+				      NameS = byte_size(Bname),
+				      ?line Bin= <<$x:8,4747:16,$M:8,0:8,5:16,
+						  5:16,NameS:16,Bname/binary,
+						  0:16>>,
+				      ?line S = size(Bin),
+				      {ok, E} = connect(Ad),
+				      gen_tcp:send(E,[<<S:16>>,Bin]),
+				      closed = recv(E,1),
+				      gen_tcp:close(E),
+				      true
+				  catch
+				      _:_ ->
+					  false
+				  end
+		    end, Addr),
+    erlang:display(Res),
+    ?line true = alltrue(Res),
+    ok.
+
+no_nonlocal_kill(suite) ->
+    [];
+no_nonlocal_kill(doc) ->
+    ["Ensure that we cannot kill through nonlocal connection"];
+no_nonlocal_kill(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,Ifs} = inet:getiflist(),
+    ?line Addr0 = [ inet:ifget(I, [addr]) || I <- Ifs ],
+    ?line Addr1 = [ A || {ok,[{addr,A}]} <- Addr0],
+    ?line Addr = lists:filter(fun({127,_,_,_}) ->
+				      false;
+				 (_)  ->
+				      true
+			      end,Addr1),
+    %% Now we should have all non loopback interface addresses,
+    %% none should accept a alive2 registration.
+    ?line Res = lists:map(fun(Ad) ->
+				  try
+				      {ok, E} = connect(Ad),
+				      M = [?EPMD_KILL_REQ],
+				      send(E, [size16(M), M]),
+				      closed = recv(E,2),
+				      gen_tcp:close(E),
+				      sleep(?MEDIUM_PAUSE),
+				      {ok, E2} = connect(Ad),
+				      gen_tcp:close(E2),
+				      true
+				  catch
+				      _:_ ->
+					  false
+				  end
+		    end, Addr),
+    erlang:display(Res),
+    ?line true = alltrue(Res),
+    ok.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+no_live_killing(doc) ->
+    ["Dont allow killing with live nodes or any unregistering w/o -relaxed_command_check"];
+no_live_killing(suite) ->
+    [];
+no_live_killing(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,RSock} = register_node("foo"),
+    ?line {ok,Sock} = connect(),
+    ?line M = [?EPMD_KILL_REQ],
+    ?line ok = send(Sock,[size16(M),M]),
+    ?line {ok,"NO"} = recv(Sock,2),
+    ?line close(Sock),
+    ?line {ok,Sock2} = connect(),
+    ?line M2 = [?EPMD_STOP_REQ,"foo"],
+    ?line ok = send(Sock2,[size16(M2),M2]),
+    ?line closed = recv(Sock2,1),
+    ?line close(Sock2),
+    ?line close(RSock),
+    ?line sleep(?MEDIUM_PAUSE),
+    ?line {ok,Sock3} = connect(),
+    ?line M3 = [?EPMD_KILL_REQ],
+    ?line ok = send(Sock3,[size16(M3),M3]),
+    ?line {ok,"OK"} = recv(Sock3,2),
+    ?line close(Sock3),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Terminate all tests with killing epmd.
@@ -784,16 +897,24 @@ cleanup() ->
 % Normal debug start of epmd
 
 epmdrun() ->
+    epmdrun([]).
+epmdrun(Args) ->
     case os:find_executable(epmd) of
 	false ->
 	    {error, {could_not_find_epmd_in_path}};
 	Path ->
-	    epmdrun(Path)
+	    epmdrun(Path,Args)
     end.
 
-epmdrun(Epmd) ->
+epmdrun(Epmd,Args0) ->
   %% test_server:format("epmdrun() => Epmd = ~p",[Epmd]),
-  osrun(Epmd ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
+    Args = case Args0 of
+	       [] ->
+		   [];
+	       O ->
+		   " "++O
+	   end,
+  osrun(Epmd ++ Args ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -810,16 +931,19 @@ osrun(Cmd) ->
 % Passive mode is the default
 
 connect() ->
-    connect(?PORT, passive).
+    connect("localhost",?PORT, passive).
+
+connect(Addr) ->
+    connect(Addr,?PORT, passive).
 
 connect_active() ->
-    connect(?PORT, active).
+    connect("localhost",?PORT, active).
 
 
 % Try a few times before giving up
 
-connect(Port, Mode) ->
-    case connect_repeat(?CONN_RETRY, Port, Mode) of
+connect(Addr, Port, Mode) ->
+    case connect_repeat(Addr, ?CONN_RETRY, Port, Mode) of
 	{ok,Sock} ->
 	    {ok,Sock};
 	{error,timeout} ->
@@ -836,25 +960,25 @@ connect(Port, Mode) ->
 % Try a few times before giving up. Pause a small time between
 % each try.
 
-connect_repeat(1, Port, Mode) ->
-    connect_mode(Port, Mode);
-connect_repeat(Retry, Port, Mode) ->
-    case connect_mode(Port, Mode) of
+connect_repeat(Addr, 1, Port, Mode) ->
+    connect_mode(Addr,Port, Mode);
+connect_repeat(Addr,Retry, Port, Mode) ->
+    case connect_mode(Addr,Port, Mode) of
 	{ok,Sock} ->
 	    {ok,Sock};
 	{error,Reason} ->
 	    test_server:format("connect: error: ~w~n",[Reason]),
 	    timer:sleep(?CONN_SLEEP),
-	    connect_repeat(Retry - 1, Port, Mode);
+	    connect_repeat(Addr, Retry - 1, Port, Mode);
 	Any ->
 	    test_server:format("connect: unknown message: ~w~n",[Any]),
 	    exit(1)
     end.
 
-connect_mode(Port, active) ->
-    gen_tcp:connect("localhost", Port, [{packet, 0}], ?CONN_TIMEOUT);
-connect_mode(Port, passive) ->
-    gen_tcp:connect("localhost", Port, [{packet, 0}, {active, false}],
+connect_mode(Addr,Port, active) ->
+    gen_tcp:connect(Addr, Port, [{packet, 0}], ?CONN_TIMEOUT);
+connect_mode(Addr, Port, passive) ->
+    gen_tcp:connect(Addr, Port, [{packet, 0}, {active, false}],
 		    ?CONN_TIMEOUT).
 
 
