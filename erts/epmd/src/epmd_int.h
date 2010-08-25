@@ -1,3 +1,4 @@
+/* -*- c-indent-level: 2; c-continued-statement-offset: 2 -*- */
 /*
  * %CopyrightBegin%
  *

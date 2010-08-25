@@ -270,11 +270,9 @@ static void do_read(EpmdVars *g,Connection *s)
 		 s->fd,val);
 	  dbg_print_buf(g,s->buf,val);
 
-	  /* FIXME: Shouldn't be needed to close down.... */
 	  node_unreg_sock(g,s->fd);
 	  epmd_conn_close(g,s);
 	}
-      /* FIXME: We always close, probably the right thing to do */
       return;
     }
 
@@ -372,6 +370,8 @@ static int do_accept(EpmdVars *g,int listensock)
     return conn_open(g,msgsock);
 }
 
+/* buf is actually one byte larger than bsize,
+   giving place for null termination */
 static void do_request(g, fd, s, buf, bsize)
      EpmdVars *g;
      int fd;
@@ -382,13 +382,6 @@ static void do_request(g, fd, s, buf, bsize)
   char wbuf[OUTBUF_SIZE];	/* Buffer for writing */
   int i;
 
-  /*
-   * Terminate packet as a C string.  Needed for requests received from Erlang
-   * nodes with lower version than R3A.
-   */
-
-  buf[bsize] = '\0';
-
   switch (*buf)
     {
     case EPMD_ALIVE2_REQ:
@@ -398,7 +391,7 @@ static void do_request(g, fd, s, buf, bsize)
 	 in network byte order, and yyyyyy is symname, possibly null
 	 terminated. */
 
-      if (bsize <= 13)
+      if (bsize <= 14) /* at least one character for the node name */
 	{
 	  dbg_printf(g,0,"packet to small for request ALIVE2_REQ (%d)",bsize);
 	  return;
@@ -421,7 +414,17 @@ static void do_request(g, fd, s, buf, bsize)
 	highvsn = get_int16(&buf[5]);
 	lowvsn = get_int16(&buf[7]);
 	namelen = get_int16(&buf[9]);
+	if (namelen + 13 > bsize) {
+	    dbg_printf(g,0,"Node name size error in ALIVE2_REQ");
+	    return;
+	}
 	extralen = get_int16(&buf[11+namelen]);
+
+	if (extralen + namelen + 13 > bsize) {
+	    dbg_printf(g,0,"Extra info size error in ALIVE2_REQ");
+	    return;
+	}
+
 	for (i = 11 ; i < 11 + namelen; i ++)
 	    if (buf[i] == '\000')  {
 		dbg_printf(g,0,"node name contains ascii 0 in ALIVE2_REQ");
@@ -886,6 +889,11 @@ static Node *node_reg2(EpmdVars *g,
   if (strlen(name) > MAXSYMLEN)
     {
       dbg_printf(g,0,"node name is too long (%d) %s", strlen(name), name);
+      return NULL;
+    }
+  if (extralen > MAXSYMLEN)
+    {
+      dbg_printf(g,0,"extra data is too long (%d) %s", strlen(name), name);
       return NULL;
     }
 

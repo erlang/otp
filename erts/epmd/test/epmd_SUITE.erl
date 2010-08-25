@@ -63,7 +63,9 @@
     alive_req_too_large/1,
 
     returns_valid_empty_extra/1,
-    returns_valid_populated_extra_with_nulls/1
+    returns_valid_populated_extra_with_nulls/1,
+    buffer_overrun_1/1,
+    buffer_overrun_2/1
    ]).
 
 
@@ -121,7 +123,10 @@ all(suite) ->
      alive_req_too_large,
 
      returns_valid_empty_extra,
-     returns_valid_populated_extra_with_nulls
+     returns_valid_populated_extra_with_nulls,
+
+    buffer_overrun_1,
+    buffer_overrun_2
     ].
 
 %%
@@ -704,6 +709,59 @@ returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ?line {ok,#node_info{extra="ABC\000\000"}} = port_please_v2("foo"),
     ?line ok = close(Sock),
     ok.
+
+
+buffer_overrun_1(suite) ->
+    [];
+buffer_overrun_1(doc) ->
+    ["Test security vulnerability in fake extra lengths in alive2_req"];
+buffer_overrun_1(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line true = alltrue([hostile(N) || N <- lists:seq(1,10000)]),
+    ok.
+buffer_overrun_2(suite) ->
+    [];
+buffer_overrun_2(doc) ->
+    ["Test security vulnerability in fake extra lengths in alive2_req"];
+buffer_overrun_2(Config) when is_list(Config) ->
+    ?line ok = epmdrun(),
+    ?line [false | Rest] = [hostile2(N) || N <- lists:seq(255,10000)],
+    ?line true = alltrue(Rest),
+    ok.
+hostile(N) ->
+    try
+	Bin= <<$x:8,4747:16,$M:8,0:8,5:16,5:16,5:16,"gurka",N:16>>,
+	S = size(Bin),
+	{ok,E}=connect(),
+	gen_tcp:send(E,[<<S:16>>,Bin]),
+	closed = recv(E,1),
+	gen_tcp:close(E),
+	true
+    catch
+	_:_ ->
+	    false
+    end.
+hostile2(N) ->
+    try
+	B2 = list_to_binary(lists:duplicate(N,255)),
+	Bin= <<$x:8,4747:16,$M:8,0:8,5:16,5:16,5:16,"gurka",N:16,B2/binary>>,
+	S = size(Bin),
+	{ok,E}=connect(),
+	gen_tcp:send(E,[<<S:16>>,Bin]),
+	Z = recv(E,2),
+	gen_tcp:close(E),
+	(Z =:= closed) or (Z =:= {ok, [$y,1]})
+    catch
+	_:_ ->
+	    false
+    end.
+
+alltrue([]) ->
+    true;
+alltrue([true|T]) ->
+    alltrue(T);
+alltrue([_|_]) ->
+    false.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Terminate all tests with killing epmd.
