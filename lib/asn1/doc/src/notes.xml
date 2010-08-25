@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+<section><title>Asn1 1.6.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Extension Addition Groups are now supported by the parser
+            and in all backends.</p>
+          <p>
+            Own Id: OTP-8598</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 1.6.13</title>
 
