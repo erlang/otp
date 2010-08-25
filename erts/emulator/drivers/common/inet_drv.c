@@ -6193,6 +6193,10 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 	    struct       sctp_sndrcvinfo sri;
 	    unsigned int sz  = sizeof(sri);
 	    
+	    if (buflen < ASSOC_ID_LEN) RETURN_ERROR(spec, -EINVAL);
+	    sri.sinfo_assoc_id = GET_ASSOC_ID(buf);
+	    buf += ASSOC_ID_LEN;
+	    buflen -= ASSOC_ID_LEN;
 	    if (sock_getopt(desc->s, IPPROTO_SCTP, SCTP_DEFAULT_SEND_PARAM,
 			    &sri, &sz) < 0) continue;
 	    /* Fill in the response: */

@@ -1206,7 +1206,7 @@ type_opt_1(sctp_default_send_param) ->
 	timetolive        = [uint32,0],
 	tsn               = [],
 	cumtsn            = [],
-	assoc_id          = [sctp_assoc_id,0]}}];
+	assoc_id          = [[sctp_assoc_id,0]]}}];
 %% for SCTP_OPT_EVENTS
 type_opt_1(sctp_events) ->
     [{record,#sctp_event_subscribe{
