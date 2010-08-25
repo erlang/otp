@@ -39,10 +39,6 @@ under the License.
 <small><a href="applications.html">Applications</a><br>
 <a href="man_index.html">Modules</a></small>
 <p/>
-<small><a href="highlights.html">Release highlights</a><br/>
-<a href="incompatible.html">Potential incompatibilities</a><br/>
-</small>
-<br>
 <a href="javascript:openAllFlips()">Expand All</a><br>
 <a href="javascript:closeAllFlips()">Contract All</a>
 <p/>
