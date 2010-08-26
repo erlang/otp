@@ -28,9 +28,10 @@ ifeq ($(findstring win32,$(TARGET)),win32)
 ifeq ($(HOST_OS),)
 HOST_OS := $(shell $(ERL_TOP)/erts/autoconf/config.guess)
 endif
-ifeq ($(findstring solaris,$(HOST_OS)),solaris)
-SKIP_BUILDING_BINARIES := true
 endif
+
+ifeq ($(CROSS_COMPILING),yes)
+SKIP_BUILDING_BINARIES := true
 else
 SKIP_BUILDING_BINARIES := false
 endif

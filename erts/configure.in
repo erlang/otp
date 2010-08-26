@@ -90,6 +90,13 @@ else
     host_os=$host
 fi
 
+if test "$cross_compiling" = "yes"; then
+    CROSS_COMPILING=yes
+else
+    CROSS_COMPILING=no
+fi
+AC_SUBST(CROSS_COMPILING)
+
 ERL_XCOMP_SYSROOT_INIT
 
 AC_ISC_POSIX
@@ -3605,7 +3612,7 @@ dnl 		Should one use EXEEXT or ac_exeext?
 		if test -f "$erl_xcomp_sysroot$SSL_BINDIR/openssl$EXEEXT"; then
 		    if test "$cross_compiling" = "yes"; then
 			dnl Cannot test it; hope it is working...
-			OPENSSL_CMD="$SSL_BINDIR/openssl"
+			OPENSSL_CMD="$erl_xcomp_sysroot$SSL_BINDIR/openssl"
 		    else
 			if "$SSL_BINDIR/openssl" version > /dev/null 2>&1; then
 				OPENSSL_CMD="$SSL_BINDIR/openssl"

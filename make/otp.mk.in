@@ -25,6 +25,11 @@
 	.3 .1 .fig .dvi .tex .class .java .pdf .fo .psframe .pscrop .el .elc
 
 # ----------------------------------------------------
+#	Cross Compiling
+# ----------------------------------------------------
+CROSS_COMPILING = @CROSS_COMPILING@
+
+# ----------------------------------------------------
 #	Common macros
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
