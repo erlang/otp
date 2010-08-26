@@ -31,13 +31,13 @@
 -include("ssl_debug.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([master_secret/4, client_hello/6, server_hello/4, hello/4,
+-export([master_secret/4, client_hello/5, server_hello/4, hello/4,
 	 hello_request/0, certify/7, certificate/3, 
 	 client_certificate_verify/6, 
 	 certificate_verify/6, certificate_request/2,
 	 key_exchange/2, server_key_exchange_hash/2,  finished/4,
 	 verify_connection/5, 
-	 get_tls_handshake/4,
+	 get_tls_handshake/2, decode_client_key/3,
 	 server_hello_done/0, sig_alg/1,
          encode_handshake/3, init_hashes/0, 
          update_hashes/2, decrypt_premaster_secret/2]).
@@ -52,13 +52,13 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(host(), port_num(), #connection_states{},
-		   #ssl_options{}, binary(), boolean()) -> #client_hello{}.
+		   #ssl_options{}, boolean()) -> #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
 							ciphers = UserSuites} 
-	     = SslOpts, Cert, Renegotiation) ->
+	     = SslOpts, Renegotiation) ->
     
     Fun = fun(Version) ->
 		  ssl_record:protocol_version(Version)
@@ -461,29 +461,36 @@ encode_handshake(Package, Version, KeyAlg) ->
     [MsgType, ?uint24(Len), Bin].
 
 %%--------------------------------------------------------------------
--spec get_tls_handshake(binary(), binary() | iolist(), key_algo(), tls_version()) ->
+-spec get_tls_handshake(binary(), binary() | iolist()) ->
      {[tls_handshake()], binary()}.
 %%
 %% Description: Given buffered and new data from ssl_record, collects
 %% and returns it as a list of handshake messages, also returns leftover
 %% data.
 %%--------------------------------------------------------------------
-get_tls_handshake(Data, <<>>, KeyAlg, Version) ->
-    get_tls_handshake_aux(Data, KeyAlg, Version, []);
-get_tls_handshake(Data, Buffer, KeyAlg, Version) ->
-    get_tls_handshake_aux(list_to_binary([Buffer, Data]), 
-			  KeyAlg, Version, []).
+get_tls_handshake(Data, <<>>) ->
+    get_tls_handshake_aux(Data, []);
+get_tls_handshake(Data, Buffer) ->
+    get_tls_handshake_aux(list_to_binary([Buffer, Data]), []).
+
+%%--------------------------------------------------------------------
+-spec dec_client_key(binary(), key_algo(), tls_version()) ->
+			    #encrypted_premaster_secret{} | #client_diffie_hellman_public{}.
+%%
+%% Description: Decode client_key data and return appropriate type
+%%--------------------------------------------------------------------
+decode_client_key(ClientKey, Type, Version) ->
+    dec_client_key(ClientKey, key_exchange_alg(Type), Version).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length), 
-		       Body:Length/binary,Rest/binary>>, KeyAlg, 
-		      Version, Acc) ->
+			Body:Length/binary,Rest/binary>>, Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    H = dec_hs(Type, Body, key_exchange_alg(KeyAlg), Version),
-    get_tls_handshake_aux(Rest, KeyAlg, Version, [{H,Raw} | Acc]);
-get_tls_handshake_aux(Data, _KeyAlg, _Version, Acc) ->
+    H = dec_hs(Type, Body),
+    get_tls_handshake_aux(Rest, [{H,Raw} | Acc]);
+get_tls_handshake_aux(Data, Acc) ->
     {lists:reverse(Acc), Data}.
 
 verify_bool(verify_peer) ->
@@ -729,7 +736,7 @@ master_secret(Version, MasterSecret, #security_parameters{
 					 ServerCipherState, Role)}.
 
 
-dec_hs(?HELLO_REQUEST, <<>>, _, _) ->
+dec_hs(?HELLO_REQUEST, <<>>) ->
     #hello_request{};
 
 %% Client hello v2.
@@ -739,8 +746,7 @@ dec_hs(?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor),
 		       ?UINT16(CSLength), ?UINT16(0),
 		       ?UINT16(CDLength), 
 		       CipherSuites:CSLength/binary, 
-		       ChallengeData:CDLength/binary>>,
-       _, _) ->
+		       ChallengeData:CDLength/binary>>) ->
     ?DBG_HEX(CipherSuites),
     ?DBG_HEX(CipherSuites),
     #client_hello{client_version = {Major, Minor},
@@ -754,8 +760,7 @@ dec_hs(?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
 		       ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
 		       ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
-		       Extensions/binary>>,
-       _, _) ->
+		       Extensions/binary>>) ->
     
     RenegotiationInfo = proplists:get_value(renegotiation_info, dec_hello_extensions(Extensions),
 					   undefined),    
@@ -770,7 +775,7 @@ dec_hs(?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 
 dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
-		       Cipher_suite:2/binary, ?BYTE(Comp_method)>>, _, _) ->    
+		       Cipher_suite:2/binary, ?BYTE(Comp_method)>>) ->
     #server_hello{
 	server_version = {Major,Minor},
 	random = Random,
@@ -782,7 +787,7 @@ dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
 		       Cipher_suite:2/binary, ?BYTE(Comp_method), 
-		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>, _, _) ->
+		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
     
     RenegotiationInfo = proplists:get_value(renegotiation_info, dec_hello_extensions(Extensions, []),
 					   undefined),   
@@ -793,43 +798,41 @@ dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 	cipher_suite = Cipher_suite,
 	compression_method = Comp_method,
 	renegotiation_info = RenegotiationInfo};
-dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>, _, _) ->
+dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
 
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
-			      ?UINT16(Len), Sig:Len/binary>>,
-       ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
+			      ?UINT16(Len), Sig:Len/binary>>) ->
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
 						    dh_y = Y},
 			 signed_params = Sig};
 dec_hs(?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
-	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>, _, _) ->
+	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>) ->
     #certificate_request{certificate_types = CertTypes,
 			 certificate_authorities = CertAuths};
-dec_hs(?SERVER_HELLO_DONE, <<>>, _, _) ->
+dec_hs(?SERVER_HELLO_DONE, <<>>) ->
     #server_hello_done{};
-dec_hs(?CERTIFICATE_VERIFY,<<?UINT16(_), Signature/binary>>, _, _)->
+dec_hs(?CERTIFICATE_VERIFY,<<?UINT16(_), Signature/binary>>)->
     #certificate_verify{signature = Signature};
-dec_hs(?CLIENT_KEY_EXCHANGE, PKEPMS, ?KEY_EXCHANGE_RSA, {3, 0}) ->
-    PreSecret = #encrypted_premaster_secret{premaster_secret = PKEPMS},
-    #client_key_exchange{exchange_keys = PreSecret};
-dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(_), PKEPMS/binary>>, 
-       ?KEY_EXCHANGE_RSA, _) ->
-    PreSecret = #encrypted_premaster_secret{premaster_secret = PKEPMS},
-    #client_key_exchange{exchange_keys = PreSecret};
-dec_hs(?CLIENT_KEY_EXCHANGE, <<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) -> 
-    throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE));
-dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
-       ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
-    #client_key_exchange{exchange_keys = 
-			 #client_diffie_hellman_public{dh_public = DH_Y}};
-dec_hs(?FINISHED, VerifyData, _, _) ->
+dec_hs(?CLIENT_KEY_EXCHANGE, PKEPMS) ->
+    #client_key_exchange{exchange_keys = PKEPMS};
+dec_hs(?FINISHED, VerifyData) ->
     #finished{verify_data = VerifyData};
-dec_hs(_, _, _, _) ->
+dec_hs(_, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
+
+dec_client_key(PKEPMS, ?KEY_EXCHANGE_RSA, {3, 0}) ->
+    #encrypted_premaster_secret{premaster_secret = PKEPMS};
+dec_client_key(<<?UINT16(_), PKEPMS/binary>>, ?KEY_EXCHANGE_RSA, _) ->
+    #encrypted_premaster_secret{premaster_secret = PKEPMS};
+dec_client_key(<<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
+    throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE));
+dec_client_key(<<?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
+	       ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
+    #client_diffie_hellman_public{dh_public = DH_Y}.
 
 dec_hello_extensions(<<>>) ->
     [];
