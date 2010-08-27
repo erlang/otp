@@ -360,6 +360,8 @@ otp_xmlify_e(#xmlElement{name=table} = E) ->   % 6)
 	    Content = Content0 ++ [TCaption],
 	    [E#xmlElement{attributes=[], content=Content}]
     end;
+otp_xmlify_e(#xmlElement{name=tbody} = E) ->
+    otp_xmlify_e(E#xmlElement.content);
 otp_xmlify_e(#xmlElement{name=sup} = E) ->     % 7)
     Text = get_text(E),
     [#xmlText{parents = E#xmlElement.parents,
