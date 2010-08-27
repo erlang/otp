@@ -1157,6 +1157,7 @@
 
   </xsl:template>
 
+
   <xsl:template match="name">
 
     <xsl:variable name="tmpstring">
@@ -1208,6 +1209,9 @@
         </xsl:variable>
         <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
       </xsl:when>
+      <xsl:otherwise>
+        <span class="bold_code"><xsl:value-of select="."/></span>
+      </xsl:otherwise>
     </xsl:choose>
       
   </xsl:template>
