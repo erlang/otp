@@ -625,8 +625,13 @@ too_large(Config) when is_list(Config) ->
     M = lists:duplicate(Size, $z),
     ?line ok = send(Sock,[put16(Size),M]),
     sleep(?MEDIUM_PAUSE),
-    ?line closed = recv(Sock,1),
-    ok.
+    % With such a large packet, even the writes can fail as the
+    % daemon closes before everything is delivered -> econnaborted
+    case recv(Sock,1) of
+	closed -> ok;
+	{error,econnaborted} -> ok;
+	Other -> exit({unexpected,Other})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
