@@ -739,11 +739,12 @@ run_test1(StartOpts) ->
     %% test specification
     case proplists:get_value(spec, StartOpts) of
 	undefined ->
-	    case proplists:get_value(prepared_tests, StartOpts) of
-		undefined ->            % use dir|suite|case
-		    run_dir(Opts, StartOpts);
-		{{Run,Skip},Specs} ->	% use prepared tests
-		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs}, StartOpts)
+	    case lists:keysearch(prepared_tests, 1, StartOpts) of
+		{value,{_,{Run,Skip},Specs}} ->	% use prepared tests
+		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs},
+				 StartOpts);
+		false ->
+		    run_dir(Opts, StartOpts)
 	    end;
 	Specs ->
 	    Relaxed = get_start_opt(allow_user_terms, value, false, StartOpts),
@@ -1100,7 +1101,7 @@ groups_and_cases([G], Cs) ->
     [{ensure_atom(G),[ensure_atom(C) || C <- listify(Cs)]}];
 groups_and_cases([_,_|_] , Cs) when Cs =/= [] ->
     {error,multiple_groups_and_cases};
-groups_and_cases(Gs, Cs) ->
+groups_and_cases(_Gs, _Cs) ->
     {error,incorrect_group_or_case_option}.
 
 tests(TestDir, Suites, []) when is_list(TestDir), is_integer(hd(TestDir)) ->
@@ -1383,17 +1384,8 @@ suite_tuples([]) ->
     [].
 
 final_tests(Tests, Skip, Bad) ->
-
-    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
-    %%! io:format(user, "FINAL0 = ~p~nSKIP0 = ~p~n", [Tests, Skip]),
-
     {Tests1,Skip1} = final_tests1(Tests, [], Skip, Bad),
     Skip2 = final_skip(Skip1, []),
-
-
-    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
-    %%! io:format(user, "FINAL1 = ~p~nSKIP1 = ~p~n", [Tests1, Skip2]),
-
     {Tests1,Skip2}.
 
 final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when

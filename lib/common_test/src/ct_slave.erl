@@ -52,7 +52,7 @@
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with name <code>Node</code> on the local host.
 %%% @see start/3
-start(Node)->
+start(Node) ->
     start(gethostname(), Node).
 
 %%%-----------------------------------------------------------------
@@ -70,7 +70,7 @@ start(Node)->
 %%% @doc Starts an Erlang node with name <code>Node</code> on host
 %%% <code>Host</code> with the default options.
 %%% @see start/3
-start(Host, Node)->
+start(Host, Node) ->
     start(Host, Node, []).
 
 %%%-----------------------------------------------------------------
@@ -163,7 +163,7 @@ start(Host, Node)->
 %%%   <code>NodeName</code> is the name of current node in this case.</item>
 %%% </list></p>
 %%%
-start(Host, Node, Options)->
+start(Host, Node, Options) ->
     ENode = enodename(Host, Node),
     case erlang:is_alive() of
 	false->
@@ -189,7 +189,7 @@ start(Host, Node, Options)->
 %%%   NodeName = atom()
 %%% @doc Stops the running Erlang node with name <code>Node</code> on
 %%% the localhost.
-stop(Node)->
+stop(Node) ->
     stop(gethostname(), Node).
 
 %%% @spec stop(Host, Node) -> Result
@@ -202,7 +202,7 @@ stop(Node)->
 %%%   NodeName = atom()
 %%% @doc Stops the running Erlang node with name <code>Node</code> on
 %%% host <code>Host</code>.
-stop(Host, Node)->
+stop(Host, Node) ->
     ENode = enodename(Host, Node),
     case is_started(ENode) of
 	{true, connected}->
@@ -214,7 +214,7 @@ stop(Host, Node)->
     end.
 
 %%% fetch an option value from the tagged tuple list with default
-get_option_value(Key, OptionList, Default)->
+get_option_value(Key, OptionList, Default) ->
     case lists:keyfind(Key, 1, OptionList) of
 	false->
 	     Default;
@@ -223,7 +223,7 @@ get_option_value(Key, OptionList, Default)->
     end.
 
 %%% convert option list to the option record, fill all defaults
-fetch_options(Options)->
+fetch_options(Options) ->
     UserName = get_option_value(username, Options, []),
     Password = get_option_value(password, Options, []),
     BootTimeout = get_option_value(boot_timeout, Options, 3),
@@ -240,23 +240,23 @@ fetch_options(Options)->
 
 % send a message when slave node is started
 % @hidden
-slave_started(ENode, MasterPid)->
+slave_started(ENode, MasterPid) ->
     MasterPid ! {node_started, ENode},
     ok.
 
 % send a message when slave node has finished startup
 % @hidden
-slave_ready(ENode, MasterPid)->
+slave_ready(ENode, MasterPid) ->
     MasterPid ! {node_ready, ENode},
     ok.
 
 % start monitoring of the master node
 % @hidden
-monitor_master(MasterNode)->
-    spawn(fun()->monitor_master_int(MasterNode) end).
+monitor_master(MasterNode) ->
+    spawn(fun() -> monitor_master_int(MasterNode) end).
 
 % code of the masterdeath-waiter process
-monitor_master_int(MasterNode)->
+monitor_master_int(MasterNode) ->
     erlang:monitor_node(MasterNode, true),
     receive
         {nodedown, MasterNode}->
@@ -264,11 +264,11 @@ monitor_master_int(MasterNode)->
     end.
 
 % check if node is listed in the nodes()
-is_connected(ENode)->
+is_connected(ENode) ->
     [N||N<-nodes(), N==ENode] == [ENode].
 
 % check if node is alive (ping and disconnect if pingable)
-is_started(ENode)->
+is_started(ENode) ->
     case is_connected(ENode) of
 	true->
 	    {true, connected};
@@ -283,11 +283,11 @@ is_started(ENode)->
     end.
 
 % make a Erlang node name from name and hostname
-enodename(Host, Node)->
+enodename(Host, Node) ->
     list_to_atom(atom_to_list(Node)++"@"++atom_to_list(Host)).
 
 % performs actual start of the "slave" node
-do_start(Host, Node, Options)->
+do_start(Host, Node, Options) ->
     ENode = enodename(Host, Node),
     Functions =
 	lists:concat([[{ct_slave, slave_started, [ENode, self()]}],
@@ -338,7 +338,7 @@ do_start(Host, Node, Options)->
     Result.
 
 % are we using fully qualified hostnames
-long_or_short()->
+long_or_short() ->
     case net_kernel:longnames() of
 	true->
 	    " -name ";
@@ -347,7 +347,7 @@ long_or_short()->
     end.
 
 % get the localhost's name, depending on the using name policy
-gethostname()->
+gethostname() ->
     Hostname = case net_kernel:longnames() of
 	true->
 	    net_adm:localhost();
@@ -358,19 +358,19 @@ gethostname()->
     list_to_atom(Hostname).
 
 % get cmd for starting Erlang
-get_cmd(Node, Flags)->
+get_cmd(Node, Flags) ->
     Cookie = erlang:get_cookie(),
     "erl -detached -noinput -setcookie "++ atom_to_list(Cookie) ++
     long_or_short() ++ atom_to_list(Node) ++ " " ++ Flags.
 
 % spawn node locally
-spawn_local_node(Node, Options)->
+spawn_local_node(Node, Options) ->
     ErlFlags = Options#options.erl_flags,
     Cmd = get_cmd(Node, ErlFlags),
     open_port({spawn, Cmd}, [stream]).
 
 % start crypto and ssh if not yet started
-check_for_ssh_running()->
+check_for_ssh_running() ->
     case application:get_application(crypto) of
 	undefined->
 	    application:start(crypto),
@@ -385,7 +385,7 @@ check_for_ssh_running()->
     end.
 
 % spawn node remotely
-spawn_remote_node(Host, Node, Options)->
+spawn_remote_node(Host, Node, Options) ->
     Username = Options#options.username,
     Password = Options#options.password,
     ErlFlags = Options#options.erl_flags,
@@ -403,16 +403,16 @@ spawn_remote_node(Host, Node, Options)->
     ssh_connection:exec(SSHConnRef, SSHChannelId, get_cmd(Node, ErlFlags), infinity).
 
 % call functions on a remote Erlang node
-call_functions(_Node, [])->
+call_functions(_Node, []) ->
     ok;
-call_functions(Node, [{M, F, A}|Functions])->
+call_functions(Node, [{M, F, A}|Functions]) ->
     rpc:call(Node, M, F, A),
     call_functions(Node, Functions).
 
 % wait N seconds until node is pingable
-wait_for_node_alive(_Node, 0)->
+wait_for_node_alive(_Node, 0) ->
     pang;
-wait_for_node_alive(Node, N)->
+wait_for_node_alive(Node, N) ->
     timer:sleep(1000),
     case net_adm:ping(Node) of
 	pong->
@@ -422,14 +422,14 @@ wait_for_node_alive(Node, N)->
     end.
 
 % call init:stop on a remote node
-do_stop(ENode)->
+do_stop(ENode) ->
     spawn(ENode, init, stop, []),
     wait_for_node_dead(ENode, 5).
 
 % wait N seconds until node is disconnected
-wait_for_node_dead(Node, 0)->
+wait_for_node_dead(Node, 0) ->
     {error, stop_timeout, Node};
-wait_for_node_dead(Node, N)->
+wait_for_node_dead(Node, N) ->
     timer:sleep(1000),
     case lists:member(Node, nodes()) of
 	true->
