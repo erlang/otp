@@ -18501,6 +18501,15 @@ case wxTreeCtrl_DeleteChildren: { // wxTreeCtrl::DeleteChildren
  This->DeleteChildren(item);
  break;
 }
+case wxTreeCtrl_EditLabel: { // wxTreeCtrl::EditLabel
+ wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
+ if(!This) throw wxe_badarg(0);
+ wxTextCtrl * Result = (wxTextCtrl*)This->EditLabel(item);
+ rt.addRef(getRef((void *)Result,memenv), "wxTextCtrl");
+ break;
+}
 case wxTreeCtrl_EnsureVisible: { // wxTreeCtrl::EnsureVisible
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */

@@ -137,6 +137,9 @@ treeCtrl(Config) ->
     wxFrame:connect(Tree, command_tree_item_expanded),
     wxFrame:connect(Tree, command_tree_item_collapsed),
     wxFrame:connect(Frame, close_window),
+
+    wxTreeCtrl:editLabel(Tree, Root),
+
     
     wx_test_lib:wx_destroy(Frame,Config).
 
