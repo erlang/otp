@@ -1,7 +1,0 @@
-IllegalExport  DEFINITIONS ::=
-BEGIN
-EXPORTS T, KalleAnka;
-
-T ::= INTEGER	
-
-END
