@@ -395,7 +395,7 @@ static void do_request(g, fd, s, buf, bsize)
 	 in network byte order, and yyyyyy is symname, possibly null
 	 terminated. */
 
-      if (bsize <= 14) /* at least one character for the node name */
+      if (bsize <= 13) /* at least one character for the node name */
 	{
 	  dbg_printf(g,0,"packet to small for request ALIVE2_REQ (%d)",bsize);
 	  return;
