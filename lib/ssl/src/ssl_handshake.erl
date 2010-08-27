@@ -203,18 +203,15 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
 		end
 	end,
     try
-	%% Allow missing root_cert and check that with VerifyFun
-	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbRef, false) of
-	{TrustedErlCert, CertPath, VerifyErrors} ->
+	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbRef) of
+	{TrustedErlCert, CertPath} ->
 	    Result = public_key:pkix_path_validation(TrustedErlCert, 
 						     CertPath, 
 						     [{max_path_length, 
 						       MaxPathLen},
 						      {verify, VerifyBool},
 						      {validate_extensions_fun, 
-						       ValidateExtensionFun},
-						      {acc_errors, 
-						       VerifyErrors}]),
+						       ValidateExtensionFun}]),
 	    case Result of
 		{error, Reason} ->
 		    path_validation_alert(Reason, Verify);
@@ -474,7 +471,7 @@ get_tls_handshake(Data, Buffer) ->
     get_tls_handshake_aux(list_to_binary([Buffer, Data]), []).
 
 %%--------------------------------------------------------------------
--spec dec_client_key(binary(), key_algo(), tls_version()) ->
+-spec decode_client_key(binary(), key_algo(), tls_version()) ->
 			    #encrypted_premaster_secret{} | #client_diffie_hellman_public{}.
 %%
 %% Description: Decode client_key data and return appropriate type
@@ -510,6 +507,8 @@ path_validation_alert({bad_cert, unknown_critical_extension}, _) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 path_validation_alert({bad_cert, cert_revoked}, _) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
+path_validation_alert({bad_cert, unknown_ca}, _) ->
+     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
 path_validation_alert(_, _) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE).
 
@@ -1129,7 +1128,7 @@ sig_alg(_) ->
 key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;
 key_exchange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
-			    Alg == dh_dss; Alg == dh_rsa; Alg == dh_anon ->
+			    Alg == dh_dss; Alg == dh_rsa  ->
     ?KEY_EXCHANGE_DIFFIE_HELLMAN;
 key_exchange_alg(_) ->
     ?NULL.
