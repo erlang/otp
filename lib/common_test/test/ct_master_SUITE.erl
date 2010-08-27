@@ -101,7 +101,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 
     NS = lists:map(fun(NodeName)->
 	     {init, NodeName, [
-				{node_start, [{startup_functions, []}, {monitor_master, false}]},
+				{node_start, [{startup_functions, []}, {monitor_master, true}]},
 				{eval, {erlang, nodes, []}}
 			      ]
 	     }
