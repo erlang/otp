@@ -393,8 +393,9 @@ static void run_daemon(EpmdVars *g)
 
 static void usage(EpmdVars *g)
 {
-    fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon] [-allow_brutal_kill]\n");
-    fprintf(stderr, "            [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
+    fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon]\n");
+    fprintf(stderr, "            [-relaxed_command_check]\n");
+    fprintf(stderr, "       epmd [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
     fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n\n");
     fprintf(stderr, "Regular options\n");
     fprintf(stderr, "    -port No\n");
@@ -406,7 +407,7 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        the standard error stream. It will shorten\n");
     fprintf(stderr, "        the number of saved used node names to 5.\n\n");
     fprintf(stderr, "        If you give more than one debug flag you may\n");
-    fprintf(stderr, "        get more debugging information.\n\n");
+    fprintf(stderr, "        get more debugging information.\n");
     fprintf(stderr, "    -daemon\n");
     fprintf(stderr, "        Start epmd detached (as a daemon)\n");
     fprintf(stderr, "    -relaxed_command_check\n");
@@ -415,7 +416,7 @@ static void usage(EpmdVars *g)
 	    "are registered nodes.\n");
     fprintf(stderr, "        Also allows forced unregister (epmd -stop).\n");
     fprintf(stderr, "\nDbgExtra options\n");
-    fprintf(stderr, "    -packet_timout Seconds\n");
+    fprintf(stderr, "    -packet_timeout Seconds\n");
     fprintf(stderr, "        Set the number of seconds a connection can be\n");
     fprintf(stderr, "        inactive before epmd times out and closes the\n");
     fprintf(stderr, "        connection (default 60).\n\n");
@@ -434,10 +435,10 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "    -kill\n");
     fprintf(stderr, "        Kill the currently runniing epmd\n");
     fprintf(stderr, "        (only allowed if -names show empty database or\n");
-    fprintf(stderr, "        -allow_brutal_kill was given when epmd was started).\n");
+    fprintf(stderr, "        -relaxed_command_check was given when epmd was started).\n");
     fprintf(stderr, "    -stop Name\n");
     fprintf(stderr, "        Forcibly unregisters a name with epmd\n");
-    fprintf(stderr, "        (only allowed if -allow_brutal_kill was given when \n");
+    fprintf(stderr, "        (only allowed if -relaxed_command_check was given when \n");
     fprintf(stderr, "        epmd was started).\n");
     epmd_cleanup_exit(g,1);
 }

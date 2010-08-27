@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,9 +31,23 @@
     <rev>A</rev>
     <file>epmd.xml</file>
   </header>
+
   <com>epmd</com>
-  <comsummary>Erlang Port Mapper Daemon </comsummary>
+  <comsummary>
+  <p>Erlang Port Mapper Daemon</p>
+  <taglist>
+  <tag><c><![CDATA[epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon] [-relaxed_command_check]]]></c></tag>
+  <item>
+  <p>Starts the port mapper daemon</p>
+  </item>
+  <tag><c><![CDATA[epmd [-d|-debug] [-port No] [-names|-kill|-stop Name]]]></c></tag>
+  <item>
+  <p>Communicates with a running port mapper daemon</p>
+  </item>
+  </taglist>
+  </comsummary>
   <description>
+
     <p>This daemon acts as a name server on all hosts  involved  in
       distributed  Erlang computations. When an Erlang node 
       starts, the node has a name and it obtains an address from the host 
@@ -46,47 +60,170 @@
       The job of the <c><![CDATA[epmd]]></c> daemon is to keep track of which
       node name listens on which address. Hence, <c><![CDATA[epmd]]></c> map
       symbolic node names to machine addresses.</p>
-    <p>The daemon is started automatically by the Erlang start-up script.</p>
-    <p>The program <c><![CDATA[epmd]]></c> can also be used for a variety of other 
-      purposes, for example checking the DNS (Domain Name System) 
-      configuration of a host.</p>
-  </description>
-  <funcs>
-    <func>
-      <name>epmd [-daemon] </name>
-      <fsummary>Start a name server as a daemon</fsummary>
-      <desc>
-        <p>Starts a name server as a daemon. If it has no argument, the
-          <c><![CDATA[epmd]]></c> runs as a normal program with the controlling terminal 
-          of the shell in which it is started. Normally, it should run as a 
-          daemon.</p>
-      </desc>
-    </func>
-    <func>
-      <name>epmd -names</name>
-      <fsummary>Request the names of the registered Erlang nodes on  this host</fsummary>
-      <desc>
-        <p>Requests the names of the local Erlang nodes <c><![CDATA[epmd]]></c> has 
-          registered.</p>
-      </desc>
-    </func>
-    <func>
-      <name>epmd -kill</name>
-      <fsummary>Kill the <c><![CDATA[epmd]]></c>process</fsummary>
-      <desc>
-        <p>Kills the <c><![CDATA[epmd]]></c> process.</p>
-      </desc>
-    </func>
-    <func>
-      <name>epmd -help</name>
-      <fsummary>List options</fsummary>
-      <desc>
-        <p>Write short info about the usage including some debugging
-          options not listed here.</p>
-      </desc>
-    </func>
-  </funcs>
 
+      <p>The TCP/IP <c>epmd</c> daemon actually only keeps track of
+      the <c>Name</c> (first) part of an Erlang node name, the <c>Host</c>
+      part (whatever is after the <c><![CDATA[@]]></c> is implicit in the
+      node name where the <c>epmd</c> daemon was actually contacted,
+      as is the IP address where the Erlang node can be
+      reached. Consistent and correct TCP naming services are
+      therefore required for an Erlang network to function
+      correctly.</p>
+
+    <taglist>
+    <tag>Starting the port mapper daemon</tag>
+    <item>
+
+        <p>The daemon is started automatically by the <c>erl</c>
+        command if the node is to be distributed and there is no
+        running instance present. If automatically launched,
+        environment variables has to be used to alter the behavior of
+        the daemon. See the <seealso
+        marker="#environment_variables">Environment
+        variables</seealso> section below.</p>
+
+        <p>If the -daemon argument is not given, the
+        <c><![CDATA[epmd]]></c> runs as a normal program with the
+	controlling terminal of the shell in which it is
+	started. Normally, it should run as a daemon.</p>
+
+	<p>Regular start-up options are described in the
+	<seealso marker="#daemon_flags">Regular options</seealso>
+	section below.</p>
+
+	<p>The <c>DbgExtra</c> options are described in the
+	<seealso marker="#debug_flags">DbgExtra options</seealso>
+        section below.</p>
+
+     </item>
+     <tag>Communicating with a running port mapper daemon</tag>
+     <item>
+
+	<p>Communicating with the running epmd daemon by means of the
+	<c>epmd</c> program is done primarily for debugging
+	purposes.</p>
+
+	<p>The different queries are described in the <seealso
+        marker="#interactive_flags">Interactive options</seealso>
+        section below.</p>
+
+     </item>
+     </taglist>
+  </description>
+  <section>
+    <marker id="daemon_flags"></marker>
+    <title>Regular options</title>
+
+    <p>These options are available when starting the actual name server. The name server is normally started automatically by the <c>erl</c> command (if not already available), but it can also be started at i.e. system start-up.</p>
+    <taglist>
+    <tag><c><![CDATA[-port No]]></c></tag>
+    <item>
+      <p>Let this instance of epmd listen to another TCP port than
+      default 4369. This can be also be set using the
+      <c><![CDATA[ERL_EPMD_PORT]]></c> environment variable, see the
+      section <seealso marker="#environment_variables">Environment
+      variables</seealso> below</p>
+    </item>
+    <tag><c><![CDATA[-d | -debug]]></c></tag>
+    <item>
+
+      <p>Enable debug output. The more <c>-d</c> flags given, the more
+      debug output you will get (to a certain limit). This option is
+      most useful when the epmd daemon is not started as a daemon.</p>
+    </item>
+    <tag><c><![CDATA[-daemon]]></c></tag>
+    <item>
+      <p>Start epmd detached from the controlling terminal. Logging will end up in syslog when available and correctly configured. If the epmd daemon is started at boot, this option should definitely be used. It is also used when the <c>erl</c> command automatically starts <c>epmd</c>.</p>
+    </item>
+    <tag><c><![CDATA[-relaxed_command_check]]></c></tag>
+    <item>
+      <p>Start the epmd program with relaxed command checking (mostly for backward compatibility). This affects the following:</p>
+      <list type="bulleted">
+          <item>
+            <p>With relaxed command checking, the <c>epmd</c> daemon can be killed from the localhost with i.e. <c>epmd -kill</c> even if there are active nodes registered. Normally only daemons with an empty node database can be killed with the <c>epmd -kill</c> command.</p>
+	  </item>
+	  <item>
+	    <p>The <c>epmd -stop</c> command (and the corresponding messages to epmd, as can be given using <c>erl_interface/ei</c>) is normally always ignored, as it opens up for strange situation when two nodes of the same name can be alive at the same time. A node unregisters itself by just closing the connection to epmd, why the <c>stop</c> command was only intended for use in debugging situations.</p>
+	    <p>With relaxed command checking enabled, you can forcibly unregister live nodes.</p>
+	  </item>
+        </list>
+	<p>Relaxed command checking can also be enabled by setting the environment variable <c>ERL_EPMD_RELAXED_COMMAND_CHECK</c> prior to starting <c>epmd</c>.</p>
+	<p>Only use relaxed command checking on systems with very limited interactive usage.</p>
+    </item>
+  </taglist>
+  </section>
+
+  <section>
+    <marker id="debug_flags"></marker>
+    <title>DbgExtra options</title>
+    <p>These options are purely for debugging and testing epmd clients, they should not be used in normal operation.</p>
+
+    <taglist>
+    <tag><c><![CDATA[-packet_timeout Seconds]]></c></tag>
+    <item>
+    <p>Set the number of seconds a connection can be
+    inactive before epmd times out and closes the
+    connection (default 60).</p>
+    </item>
+    <tag><c><![CDATA[-delay_accept Seconds]]></c></tag>
+    <item>
+    <p>To simulate a busy server you can insert a delay between epmd
+    gets notified about that a new connection is requested and
+    when the connections gets accepted.</p>
+    </item>
+    <tag><c><![CDATA[-delay_write Seconds]]></c></tag>
+    <item>
+    <p>Also a simulation of a busy server. Inserts
+    a delay before a reply is sent.</p>
+    </item>
+    </taglist>
+  </section>
+  <section>
+    <marker id="interactive_flags"></marker>
+    <title>Interactive options</title>
+    <p>These options make <c>epmd</c> run as an interactive command displaying the results of sending queries ta an already running instance of <c>epmd</c>. The epmd contacted is always on the local node, but the <c>-port</c> option can be used to select between instances if several are running using different port on the host.</p>
+    <taglist>
+    <tag><c><![CDATA[-port No]]></c></tag>
+    <item>
+      <p>Contacts the <c>epmd</c> listening on the given TCP port number
+      (default 4369). This can be also be set using the
+      <c><![CDATA[ERL_EPMD_PORT]]></c> environment variable, see the
+      section <seealso marker="#environment_variables">Environment
+      variables</seealso> below</p>
+    </item>
+    <tag><c><![CDATA[-names]]></c></tag>
+    <item>
+      <p>List names registered with the currently running epmd</p>
+    </item>
+    <tag><c><![CDATA[-kill]]></c></tag>
+    <item>
+      <p>Kill the currently running <c>epmd</c>.</p>
+
+      <p>Killing the running <c>epmd</c> is only allowed if <c>epmd
+        -names</c> show an empty database or
+        <c>-relaxed_command_check</c> was given when the running
+        instance of <c>epmd</c> was started. Note that
+        <c>-relaxed_command_check</c> is given when starting the
+        daemon that is to accept killing when it has live nodes
+        registered. When running epmd interactively,
+        <c>-relaxed_command_check</c> has no effect. A daemon that is
+        started without relaxed command checking has to be killed
+        using i.e. signals or some other OS specific method if it has
+        active clients registered.</p>
+    </item>
+    <tag><c><![CDATA[-stop Name]]></c></tag>
+    <item>
+       <p>Forcibly unregister a live node from <c>epmd</c>'s database</p>
+
+       <p>This command can only be used when contacting <c>epmd</c>
+       instances started with the <c>-relaxed_command_check</c>
+       flag. Note that relaxed command checking has to be enabled for
+       the <c>epmd</c> daemon contacted, When running epmd
+       interactively,
+        <c>-relaxed_command_check</c> has no effect.</p>
+    </item>
+  </taglist>
+  </section>
   <section>
     <marker id="environment_variables"></marker>
     <title>Environment variables</title>
@@ -98,6 +235,15 @@
           be specified to allow several instances of epmd, representing
           independent clusters of nodes, to co-exist on the same host.
           All nodes in a cluster must use the same epmd port number.</p>
+      </item>
+      <tag><c><![CDATA[ERL_EPMD_RELAXED_COMMAND_CHECK]]></c></tag>
+      <item>
+        <p>If set prior to start, the <c>epmd</c> daemon will behave
+        as if the <c>-relaxed_command_check</c> option was given at
+        start-up. If consequently setting this option before starting
+        the Erlang virtual machine, the automatically started
+        <c>epmd</c> will accept the <c>-kill</c> and <c>-stop</c>
+        commands without restrictions.</p>
       </item>
     </taglist>
   </section>
@@ -116,5 +262,29 @@
       silently be ignored.
       </p>
   </section>
+  <section>
+  <title>Access restrictions</title>
+  <p>The <c>epmd</c> daemon accepts messages from both localhost and
+  remote hosts. However, only the query commands are answered (and
+  acted upon) if the query comes from a remote host. It is always an
+  error to try to register a nodename if the client is not a process
+  located on the same host as the <c>epmd</c> instance is running on,
+  why such requests are considered hostile and the connection is
+  immediately closed.</p>
+
+  <p>The queries accepted from remote nodes are:</p>
+      <list type="bulleted">
+          <item>
+	  <p>Port queries - i.e. on which port does the node with a given
+	  name listen</p>
+	  </item>
+	  <item>
+	  <p>Name listing - i.e. give a list of all names registered on
+	  the host</p>
+	  </item>
+     </list>
+  <p>To restrict access further, firewall software has to be used.</p>
+  </section>
+
 </comref>
 
