@@ -4513,7 +4513,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn(Node, Module, Function, ArgumentList) -> pid()</name>
+      <name>spawn(Node, Module, Function, Args) -> pid()</name>
       <fsummary>Create a new process with a function as entry point on a given node</fsummary>
       <type>
         <v>Node = node()</v>
