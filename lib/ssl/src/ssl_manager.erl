@@ -69,12 +69,12 @@ start_link(Opts) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Opts], []).
 
 %%--------------------------------------------------------------------
--spec connection_init(string(), client | server) -> {ok, reference(), cache_ref()}.
+-spec connection_init(string()| {der, list()}, client | server) -> {ok, reference(), cache_ref()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
-connection_init(TrustedcertsFile, Role) ->
-    call({connection_init, TrustedcertsFile, Role}).
+connection_init(Trustedcerts, Role) ->
+    call({connection_init, Trustedcerts, Role}).
 %%--------------------------------------------------------------------
 -spec cache_pem_file(string()) -> {ok, term()}.	
 %%		    
@@ -185,13 +185,13 @@ handle_call({{connection_init, "", _Role}, Pid}, _From,
     Result = {ok, make_ref(), Cache},
     {reply, Result, State};
 
-handle_call({{connection_init, TrustedcertsFile, _Role}, Pid}, _From, 
+handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
 	    #state{certificate_db = Db,
 		   session_cache = Cache} = State) ->
     erlang:monitor(process, Pid),
     Result = 
 	try
-	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, TrustedcertsFile, Db),
+	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, Trustedcerts, Db),
 	    {ok, Ref, Cache}
 	catch
 	    _:Reason ->

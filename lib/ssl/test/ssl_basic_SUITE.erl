@@ -235,7 +235,7 @@ all(suite) ->
      validate_extensions_fun, no_authority_key_identifier,
      invalid_signature_client, invalid_signature_server, cert_expired,
      client_with_cert_cipher_suites_handshake, unknown_server_ca_fail,
-     unknown_server_ca_accept
+     unknown_server_ca_accept, der_input
     ].
 
 %% Test cases starts here.
@@ -2749,7 +2749,7 @@ invalid_signature_client(Config) when is_list(Config) ->
     tcp_delivery_workaround(Server, {error, "bad certificate"},
 			    Client, {error,"bad certificate"}).
 
-tcp_delivery_workaround(Server, ServMsg, Client, ClientMsg) ->
+tcp_delivery_workaround(Server, ServerMsg, Client, ClientMsg) ->
     receive 
 	{Server, ServerMsg} ->
 	    receive 
@@ -2937,6 +2937,52 @@ unknown_server_ca_accept(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+der_input(doc) ->
+    ["Test to input certs and key as der"];
+
+der_input(suite) ->
+    [];
+
+der_input(Config) when is_list(Config) ->
+
+    SeverVerifyOpts = ?config(server_verification_opts, Config),
+    {ServerCert, ServerKey, ServerCaCerts} = der_input_opts(SeverVerifyOpts),
+    ClientVerifyOpts = ?config(client_verification_opts, Config),
+    {ClientCert, ClientKey, ClientCaCerts} = der_input_opts(ClientVerifyOpts),
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
+    ClientOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, send_recv_result, []}},
+					{options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, send_recv_result, []}},
+					{options, [{active, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+der_input_opts(Opts) ->
+    Certfile = proplists:get_value(certfile, Opts),
+    CaCertsfile = proplists:get_value(cacertfile, Opts),
+    Keyfile = proplists:get_value(keyfile, Opts),
+    [{_, Cert, _}] = ssl_test_lib:pem_to_der(Certfile),
+    [{_, Key, _}]  = ssl_test_lib:pem_to_der(Keyfile),
+    CaCerts =
+	lists:map(fun(Entry) ->
+			  {_, CaCert, _} = Entry,
+			  CaCert
+		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
+    {Cert, {rsa, Key}, CaCerts}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

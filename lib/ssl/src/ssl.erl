@@ -80,6 +80,7 @@ stop() ->
 -spec connect(host() | port(), list()) -> {ok, #sslsocket{}}.
 -spec connect(host() | port(), list() | port_num(), timeout() | list()) -> {ok, #sslsocket{}}.
 -spec connect(host() | port(), port_num(), list(), timeout()) -> {ok, #sslsocket{}}.      
+
 %%
 %% Description: Connect to a ssl server.
 %%--------------------------------------------------------------------
@@ -375,7 +376,7 @@ cipher_suites(openssl) ->
     [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)].
 
 %%--------------------------------------------------------------------
--spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]}| {error, reason()}.		     
+-spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]}| {error, reason()}.
 %% 
 %% Description:
 %%--------------------------------------------------------------------
@@ -542,20 +543,22 @@ handle_options(Opts0, Role) ->
 
     UserFailIfNoPeerCert = validate_option(fail_if_no_peer_cert, 
 					   proplists:get_value(fail_if_no_peer_cert, Opts, false)),
+    CaCerts = handle_option(cacerts, Opts, undefined),
 
     {Verify, FailIfNoPeerCert, CaCertDefault} = 
 	%% Handle 0, 1, 2 for backwards compatibility
 	case proplists:get_value(verify, Opts, verify_none) of
 	    0 ->
-		{verify_none, false, ca_cert_default(verify_none, Role)};
+		{verify_none, false, ca_cert_default(verify_none, Role, CaCerts)};
 	    1  ->
-		{verify_peer, false, ca_cert_default(verify_peer, Role)};
+		{verify_peer, false, ca_cert_default(verify_peer, Role, CaCerts)};
 	    2 ->
-		{verify_peer, true,  ca_cert_default(verify_peer, Role)};
+		{verify_peer, true,  ca_cert_default(verify_peer, Role, CaCerts)};
 	    verify_none ->
-		{verify_none, false, ca_cert_default(verify_none, Role)};
+		{verify_none, false, ca_cert_default(verify_none, Role, CaCerts)};
 	    verify_peer ->
-		{verify_peer, UserFailIfNoPeerCert, ca_cert_default(verify_peer, Role)};
+		{verify_peer, UserFailIfNoPeerCert,
+		 ca_cert_default(verify_peer, Role, CaCerts)};
 	    Value ->
 		throw({error, {eoptions, {verify, Value}}})
 	end,   
@@ -570,10 +573,12 @@ handle_options(Opts0, Role) ->
       verify_client_once =  handle_option(verify_client_once, Opts, false),
       validate_extensions_fun = handle_option(validate_extensions_fun, Opts, undefined),
       depth      = handle_option(depth,  Opts, 1),
+      cert       = handle_option(cert, Opts, undefined),
       certfile   = CertFile,
-      keyfile    = handle_option(keyfile,  Opts, CertFile),
       key        = handle_option(key, Opts, undefined),
+      keyfile    = handle_option(keyfile,  Opts, CertFile),
       password   = handle_option(password, Opts, ""),
+      cacerts    = CaCerts,
       cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
       dhfile     = handle_option(dhfile, Opts, undefined),
       ciphers    = handle_option(ciphers, Opts, []),
@@ -588,8 +593,8 @@ handle_options(Opts0, Role) ->
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
     SslOptions = [versions, verify, verify_fun, validate_extensions_fun, 
 		  fail_if_no_peer_cert, verify_client_once,
-		  depth, certfile, keyfile,
-		  key, password, cacertfile, dhfile, ciphers,
+		  depth, cert, certfile, key, keyfile,
+		  password, cacerts, cacertfile, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate],
     
@@ -627,17 +632,26 @@ validate_option(validate_extensions_fun, Value) when Value == undefined; is_func
 validate_option(depth, Value) when is_integer(Value), 
                                    Value >= 0, Value =< 255->
     Value;
+validate_option(cert, Value) when Value == undefined;
+                                 is_binary(Value) ->
+    Value;
 validate_option(certfile, Value) when is_list(Value) ->
     Value;
+
+validate_option(key, undefined) ->
+    undefined;
+validate_option(key, {KeyType, Value}) when is_binary(Value),
+					    KeyType == rsa;
+					    KeyType == dsa ->
+    {KeyType, Value};
 validate_option(keyfile, Value) when is_list(Value) ->
-    Value;
-validate_option(key, Value) when Value == undefined;
-                                 is_tuple(Value) ->
-    %% element(1, Value)=='RSAPrivateKey' ->
     Value;
 validate_option(password, Value) when is_list(Value) ->
     Value;
 
+validate_option(cacerts, Value) when Value == undefined;
+				     is_list(Value) ->
+    Value;
 %% certfile must be present in some cases otherwhise it can be set
 %% to the empty string.
 validate_option(cacertfile, undefined) ->
@@ -701,14 +715,17 @@ validate_inet_option(active, Value)
 validate_inet_option(_, _) ->
     ok.
 
-ca_cert_default(verify_none, _) ->
+%% The option cacerts overrides cacertsfile
+ca_cert_default(_,_, [_|_]) ->
+    undefined;
+ca_cert_default(verify_none, _, _) ->
     undefined;
 %% Client may leave verification up to the user
-ca_cert_default(verify_peer, client) ->
+ca_cert_default(verify_peer, client,_) ->
     undefined;
 %% Server that wants to verify_peer must have
 %% some trusted certs.
-ca_cert_default(verify_peer, server) ->
+ca_cert_default(verify_peer, server, _) ->
     "".
 
 emulated_options() ->

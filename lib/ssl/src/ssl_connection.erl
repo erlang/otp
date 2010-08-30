@@ -1038,20 +1038,29 @@ ssl_init(SslOpts, Role) ->
     DHParams = init_diffie_hellman(SslOpts#ssl_options.dhfile, Role),
     {ok, CertDbRef, CacheRef, OwnCert, PrivateKey, DHParams}.
 
-init_certificates(#ssl_options{cacertfile = CACertFile,
-			       certfile = CertFile}, Role) ->
+
+init_certificates(#ssl_options{cacerts = CaCerts,
+			       cacertfile = CACertFile,
+			       certfile = CertFile,
+			       cert = Cert}, Role) ->
     {ok, CertDbRef, CacheRef} = 
 	try 
-	    {ok, _, _} = ssl_manager:connection_init(CACertFile, Role)
+	    Certs = case CaCerts of
+			undefined ->
+			    CACertFile;
+			_ ->
+			    {der, CaCerts}
+		    end,
+	    {ok, _, _} = ssl_manager:connection_init(Certs, Role)
 	catch
 	    Error:Reason ->
 		handle_file_error(?LINE, Error, Reason, CACertFile, ecacertfile,
 				  erlang:get_stacktrace())
 	end,
-    init_certificates(CertDbRef, CacheRef, CertFile, Role).
+    init_certificates(Cert, CertDbRef, CacheRef, CertFile, Role).
 
 
-init_certificates(CertDbRef, CacheRef, CertFile, client) -> 
+init_certificates(undefined, CertDbRef, CacheRef, CertFile, client) ->
     try 
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
@@ -1059,7 +1068,7 @@ init_certificates(CertDbRef, CacheRef, CertFile, client) ->
 	    {ok, CertDbRef, CacheRef, undefined}
     end;
 
-init_certificates(CertDbRef, CacheRef, CertFile, server) ->
+init_certificates(undefined, CertDbRef, CacheRef, CertFile, server) ->
      try 
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
@@ -1067,7 +1076,9 @@ init_certificates(CertDbRef, CacheRef, CertFile, server) ->
 	 Error:Reason ->
 	     handle_file_error(?LINE, Error, Reason, CertFile, ecertfile,
 			       erlang:get_stacktrace())
-     end.
+     end;
+init_certificates(Cert, CertDbRef, CacheRef, _, _) ->
+    {ok, CertDbRef, CacheRef, Cert}.
 
 init_private_key(undefined, "", _Password, client) -> 
     undefined;
@@ -1084,8 +1095,10 @@ init_private_key(undefined, KeyFile, Password, _)  ->
 			      erlang:get_stacktrace()) 
     end;
 
-init_private_key(PrivateKey, _, _,_) ->
-    PrivateKey.
+init_private_key({rsa, PrivateKey}, _, _,_) ->
+    public_key:der_decode('RSAPrivateKey', PrivateKey);
+init_private_key({dsa, PrivateKey},_,_,_) ->
+    public_key:der_decode('DSAPrivateKey', PrivateKey).
 
 handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->
     file_error(Line, Error, Reason, File, Throw, Stack);
