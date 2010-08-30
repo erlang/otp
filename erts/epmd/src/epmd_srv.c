@@ -382,6 +382,9 @@ static void do_request(g, fd, s, buf, bsize)
   char wbuf[OUTBUF_SIZE];	/* Buffer for writing */
   int i;
 
+  buf[bsize] = '\0'; /* Needed for strcmp in PORT2 and STOP requests
+			buf is always large enough */
+
   switch (*buf)
     {
     case EPMD_ALIVE2_REQ:
