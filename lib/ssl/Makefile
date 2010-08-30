@@ -24,21 +24,11 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 # Macros
 #
-ifeq ($(findstring win32,$(TARGET)),win32)
-ifeq ($(HOST_OS),)
-HOST_OS := $(shell $(ERL_TOP)/erts/autoconf/config.guess)
-endif
-ifeq ($(findstring solaris,$(HOST_OS)),solaris)
-SKIP_BUILDING_BINARIES := true
-endif
-else
-SKIP_BUILDING_BINARIES := false
-endif
 
-ifeq ($(SKIP_BUILDING_BINARIES), true)
 SUB_DIRECTORIES = src c_src doc/src 
-else
-SUB_DIRECTORIES = src c_src doc/src examples/certs examples/src
+
+ifeq ($(CROSS_COMPILING),no)
+SUB_DIRECTORIES += examples/certs examples/src
 endif
 
 include vsn.mk

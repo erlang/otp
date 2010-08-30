@@ -90,6 +90,13 @@ else
     host_os=$host
 fi
 
+if test "$cross_compiling" = "yes"; then
+    CROSS_COMPILING=yes
+else
+    CROSS_COMPILING=no
+fi
+AC_SUBST(CROSS_COMPILING)
+
 ERL_XCOMP_SYSROOT_INIT
 
 AC_ISC_POSIX
@@ -3605,10 +3612,10 @@ dnl 		Should one use EXEEXT or ac_exeext?
 		if test -f "$erl_xcomp_sysroot$SSL_BINDIR/openssl$EXEEXT"; then
 		    if test "$cross_compiling" = "yes"; then
 			dnl Cannot test it; hope it is working...
-			OPENSSL_CMD="$SSL_BINDIR/openssl"
+			OPENSSL_CMD="$erl_xcomp_sysroot$SSL_BINDIR/openssl$EXEEXT"
 		    else
-			if "$SSL_BINDIR/openssl" version > /dev/null 2>&1; then
-				OPENSSL_CMD="$SSL_BINDIR/openssl"
+			if "$SSL_BINDIR/openssl$EXEEXT" version > /dev/null 2>&1; then
+				OPENSSL_CMD="$SSL_BINDIR/openssl$EXEEXT"
 			else
 				is_real_ssl=no
 			fi
@@ -3617,6 +3624,9 @@ dnl 		Should one use EXEEXT or ac_exeext?
 			is_real_ssl=no
 		fi
 		if test "x$is_real_ssl" = "xyes" ; then
+			if test "$MIXED_CYGWIN" = "yes"; then
+				OPENSSL_CMD=`cygpath -s -m "$OPENSSL_CMD"` 2> /dev/null
+			fi
 			SSL_INCLUDE="-I$dir/include"
 			old_CPPFLAGS=$CPPFLAGS
 			CPPFLAGS=$SSL_INCLUDE
