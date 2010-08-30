@@ -685,8 +685,8 @@
 	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, default_bind)</seealso>.
 	      </p></item>
 	    </taglist>
-	    <p>Binding of schedulers are currently only supported on newer
-	       Linux and Solaris systems.</p>
+	    <p>Binding of schedulers is currently only supported on newer
+	       Linux, Solaris, and Windows systems.</p>
 	    <p>If no CPU topology is available when the <c>+sbt</c> flag
 	       is processed and <c>BindType</c> is any other type than
 	       <c>u</c>, the runtime system will fail to start. CPU

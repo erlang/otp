@@ -21,10 +21,13 @@
 #include "config.h"
 #endif
 
+#if defined(__WIN32__)
+#  include <windows.h>
+#endif
+
 #include "erl_misc_utils.h"
 
 #if defined(__WIN32__)
-#  include <windows.h>
 #elif defined(VXWORKS)
 #  include <selectLib.h>
 #else /* UNIX */
@@ -62,10 +65,10 @@
 #if defined(HAVE_SCHED_xETAFFINITY)
 #  include <sched.h>
 #  define ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__
-#define ERTS_MU_GET_PROC_AFFINITY__(CPUINFOP)				\
+#define ERTS_MU_GET_PROC_AFFINITY__(CPUINFOP, CPUSET)			\
      (sched_getaffinity((CPUINFOP)->pid,				\
 			sizeof(cpu_set_t),				\
-			&(CPUINFOP)->cpuset) != 0 ? -errno : 0)
+			(CPUSET)) != 0 ? -errno : 0)
 #define ERTS_MU_SET_THR_AFFINITY__(SETP)				\
      (sched_setaffinity(0, sizeof(cpu_set_t), (SETP)) != 0 ? -errno : 0)
 #elif defined(__WIN32__)
@@ -98,6 +101,26 @@
 #endif
 
 static int read_topology(erts_cpu_info_t *cpuinfo);
+
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+static int
+cpu_sets_are_eq(cpu_set_t *x, cpu_set_t *y)
+{
+    int i;
+    for (i = 0; i < CPU_SETSIZE; i++) {
+	if (CPU_ISSET(i, x)) {
+	    if (!CPU_ISSET(i, y))
+		return 0;
+	}
+	else {
+	    if (CPU_ISSET(i, y))
+		return 0;
+	}
+    }
+    return 1;
+}
+
+#endif
 
 int
 erts_milli_sleep(long ms)
@@ -137,15 +160,15 @@ struct erts_cpu_info_t_ {
 #if defined(__WIN32__)
 
 static __forceinline int
-get_proc_affinity(erts_cpu_info_t *cpuinfo)
+get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
 {
     DWORD pamask, samask;
     if (GetProcessAffinityMask(GetCurrentProcess(), &pamask, &samask)) {
-	cpuinfo->cpuset = (cpu_set_t) pamask;
+	*cpuset = (cpu_set_t) pamask;
 	return 0;
     }
     else {
-	cpuinfo->cpuset = (cpu_set_t) 0;
+	*cpuset = (cpu_set_t) 0;
 	return -erts_get_last_win_errno();
     }
 }
@@ -179,6 +202,9 @@ erts_cpu_info_create(void)
 #endif
     cpuinfo->topology_size = 0;
     cpuinfo->topology = NULL;
+    cpuinfo->configured = -1;
+    cpuinfo->online = -1;
+    cpuinfo->available = -1;
     erts_cpu_info_update(cpuinfo);
     return cpuinfo;
 }
@@ -203,34 +229,40 @@ erts_cpu_info_destroy(erts_cpu_info_t *cpuinfo)
     }
 }
 
-void
+int
 erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 {
-    cpuinfo->configured = 0;
-    cpuinfo->online = 0;
-    cpuinfo->available = 0;
+    int changed = 0;
+    int configured = 0;
+    int online = 0;
+    int available = 0;
+    erts_cpu_topology_t *old_topology;
+    int old_topology_size;
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+    cpu_set_t cpuset;
+#endif
 
 #ifdef __WIN32__
     {
 	int i;
 	SYSTEM_INFO sys_info;
 	GetSystemInfo(&sys_info);
-	cpuinfo->configured = (int) sys_info.dwNumberOfProcessors;
+	configured = (int) sys_info.dwNumberOfProcessors;
 	for (i = 0; i < sizeof(DWORD)*8; i++)
 	    if (sys_info.dwActiveProcessorMask & (((DWORD) 1) << i))
-		cpuinfo->online++;
+		online++;
     }
 #elif !defined(NO_SYSCONF) && (defined(_SC_NPROCESSORS_CONF) \
 			       || defined(_SC_NPROCESSORS_ONLN))
 #ifdef _SC_NPROCESSORS_CONF
-    cpuinfo->configured = (int) sysconf(_SC_NPROCESSORS_CONF);
-    if (cpuinfo->configured < 0)
-	cpuinfo->configured = 0;
+    configured = (int) sysconf(_SC_NPROCESSORS_CONF);
+    if (configured < 0)
+	configured = 0;
 #endif
 #ifdef _SC_NPROCESSORS_ONLN
-    cpuinfo->online = (int) sysconf(_SC_NPROCESSORS_ONLN);
-    if (cpuinfo->online < 0)
-	cpuinfo->online = 0;
+    online = (int) sysconf(_SC_NPROCESSORS_ONLN);
+    if (online < 0)
+	online = 0;
 #endif
 #elif defined(HAVE_SYS_SYSCTL_H) && defined(CTL_HW) && (defined(HW_NCPU) \
 							|| defined(HW_AVAILCPU))
@@ -242,71 +274,138 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 	len = sizeof(int);
 	mib[0] = CTL_HW;
 	mib[1] = HW_NCPU;
-	if (sysctl(&mib[0], 2, &cpuinfo->configured, &len, NULL, 0) < 0)
-	    cpuinfo->configured = 0;
+	if (sysctl(&mib[0], 2, &configured, &len, NULL, 0) < 0)
+	    configured = 0;
 #endif
 #ifdef HW_AVAILCPU
 	len = sizeof(int);
 	mib[0] = CTL_HW;
 	mib[1] = HW_AVAILCPU;
-	if (sysctl(&mib[0], 2, &cpuinfo->online, &len, NULL, 0) < 0)
-	    cpuinfo->online = 0;
+	if (sysctl(&mib[0], 2, &online, &len, NULL, 0) < 0)
+	    online = 0;
 #endif
     }
 #endif
 
-    if (cpuinfo->online > cpuinfo->configured)
-	cpuinfo->online = cpuinfo->configured;
+    if (online > configured)
+	online = configured;
+
+    if (cpuinfo->configured != configured)
+	changed = 1;
+    if (cpuinfo->online != online)
+	changed = 1;
 
 #if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
-    if (ERTS_MU_GET_PROC_AFFINITY__(cpuinfo) == 0) {
-	int i, c, cn, si;
-	c = cn = 0;
-	si = sizeof(cpuinfo->affinity_str_buf) - 1;
-	cpuinfo->affinity_str_buf[si] = '\0';
-	for (i = 0; i < CPU_SETSIZE; i++) {
-	    if (CPU_ISSET(i, &cpuinfo->cpuset)) {
-		c |= 1 << cn;
-		cpuinfo->available++;
+    if (ERTS_MU_GET_PROC_AFFINITY__(cpuinfo, &cpuset) == 0) {
+	if (!changed && !cpu_sets_are_eq(&cpuset, &cpuinfo->cpuset))
+	    changed = 1;
+
+	if (!changed)
+	    available = cpuinfo->available;
+	else {
+	    int i, c, cn, si;
+
+	    memcpy((void *) &cpuinfo->cpuset,
+		   (void *) &cpuset,
+		   sizeof(cpu_set_t));
+
+	    c = cn = 0;
+	    si = sizeof(cpuinfo->affinity_str_buf) - 1;
+	    cpuinfo->affinity_str_buf[si] = '\0';
+	    for (i = 0; i < CPU_SETSIZE; i++) {
+		if (CPU_ISSET(i, &cpuinfo->cpuset)) {
+		    c |= 1 << cn;
+		    available++;
+		}
+		cn++;
+		if (cn == 4) {
+		    cpuinfo->affinity_str_buf[--si] = (c < 10
+						       ? '0' + c
+						       : 'A' + c - 10);
+		    c = cn = 0;
+		}
 	    }
-	    cn++;
-	    if (cn == 4) {
+	    if (c)
 		cpuinfo->affinity_str_buf[--si] = (c < 10
 						   ? '0' + c
 						   : 'A' + c - 10);
-		c = cn = 0;
-	    }
+	    while (cpuinfo->affinity_str_buf[si] == '0')
+		si++;
+	    cpuinfo->affinity_str = &cpuinfo->affinity_str_buf[si];
 	}
-	if (c)
-	    cpuinfo->affinity_str_buf[--si] = (c < 10
-					       ? '0' + c
-					       : 'A' + c - 10);
-	while (cpuinfo->affinity_str_buf[si] == '0')
-	    si++;
-	cpuinfo->affinity_str = &cpuinfo->affinity_str_buf[si];
     }
 #elif defined(HAVE_PSET_INFO)
     {
-	uint_t numcpus = cpuinfo->configured;
-	if (cpuinfo->cpuids)
-	    free(cpuinfo->cpuids);
-	cpuinfo->cpuids = malloc(sizeof(processorid_t)*numcpus);
-	if (cpuinfo->cpuids) {
-	    if (pset_info(PS_MYID, NULL, &numcpus, &cpuinfo->cpuids) == 0)
-		cpuinfo->available = (int) numcpus;
-	    if (cpuinfo->available < 0) {
-		free(cpuinfo->cpuid);
-		cpuinfo->available = 0;
+	processorid_t *cpuids;
+	uint_t numcpus = configured;
+	cpuids = malloc(sizeof(processorid_t)*numcpus);
+	if (cpuids) {
+	    if (pset_info(PS_MYID, NULL, &numcpus, &cpuids) == 0)
+		available = (int) numcpus;
+	    if (available < 0) {
+		free(cpuids);
+		cpuids = NULL;
+		available = 0;
 	    }
+	}
+	if (!cpuids) {
+	    if (cpuinfo->cpuids)
+		changed = 1;
+	}
+	else {
+	    if (cpuinfo->cpuids)
+		changed = 1;
+	    if (memcmp((void *) cpuinfo->cpuids,
+		       (void *) cpuids,
+		       sizeof(processorid_t)*numcpus) != 0)
+		changed = 1;
+
+	}
+	if (!changed) {
+	    if (cpuids)
+		free(cpuids);
+	}
+	else {
+	    if (cpuinfo->cpuids)
+		free(cpuinfo->cpuids);
+	    cpuinfo->cpuids = cpuids;
 	}
     }
 #endif
 
-    if (cpuinfo->available > cpuinfo->online)
-	cpuinfo->available = cpuinfo->online;
+    if (available > online)
+	available = online;
+
+    if (cpuinfo->available != available)
+	changed = 1;
+
+    cpuinfo->configured = configured;
+    cpuinfo->online = online;
+    cpuinfo->available = available;
+
+    old_topology = cpuinfo->topology;
+    old_topology_size = cpuinfo->topology_size;
+    cpuinfo->topology = NULL;
 
     read_topology(cpuinfo);
 
+    if (cpuinfo->topology_size != old_topology_size
+	|| (old_topology_size != 0
+	    && memcmp((void *) cpuinfo->topology,
+		      (void *) old_topology,
+		      (sizeof(erts_cpu_topology_t)
+		       * old_topology_size)) != 0)) {
+	changed = 1;
+	if (old_topology)
+	    free(old_topology);
+    }
+    else {
+	if (cpuinfo->topology)
+	    free(cpuinfo->topology);
+	cpuinfo->topology = old_topology;
+    }
+
+    return changed;
 }
 
 int
@@ -588,6 +687,56 @@ cpu_cmp(const void *vx, const void *vy)
     return 0;
 }
 
+static void
+adjust_processor_nodes(erts_cpu_info_t *cpuinfo, int no_nodes)
+{
+    erts_cpu_topology_t *prev, *this, *last;
+    if (no_nodes > 1) {
+	int processor = -1;
+	int processor_node = 0;
+	int node = -1;
+
+	qsort(cpuinfo->topology,
+	      cpuinfo->topology_size,
+	      sizeof(erts_cpu_topology_t),
+	      pn_cmp);
+
+	prev = NULL;
+	this = &cpuinfo->topology[0];
+	last = &cpuinfo->topology[cpuinfo->configured-1];
+	while (1) {
+	    if (processor == this->processor) {
+		if (node != this->node)
+		    processor_node = 1;
+	    }
+	    else {
+		if (processor_node) {
+		make_processor_node:
+		    while (prev->processor == processor) {
+			prev->processor_node = prev->node;
+			prev->node = -1;
+			if (prev == &cpuinfo->topology[0])
+			    break;
+			prev--;
+		    }
+		    processor_node = 0;
+		}
+		processor = this->processor;
+		node = this->node;
+	    }
+	    if (this == last) {
+		if (processor_node) {
+		    prev = this;
+		    goto make_processor_node;
+		}
+		break;
+	    }
+	    prev = this++;
+	}
+    }
+}
+
+
 #ifdef __linux__
 
 static int
@@ -640,9 +789,6 @@ read_topology(erts_cpu_info_t *cpuinfo)
     int no_nodes = 0;
 
     errno = 0;
-
-    if (cpuinfo->topology)
-	free(cpuinfo->topology);
 
     if (cpuinfo->configured < 1)
 	goto error;
@@ -757,49 +903,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 		cpuinfo->topology = t;
 	}
 
-	if (no_nodes > 1) {
-	    int processor = -1;
-	    int processor_node = 0;
-	    int node = -1;
-
-	    qsort(cpuinfo->topology,
-		  cpuinfo->topology_size,
-		  sizeof(erts_cpu_topology_t),
-		  pn_cmp);
-
-	    prev = NULL;
-	    this = &cpuinfo->topology[0];
-	    last = &cpuinfo->topology[cpuinfo->configured-1];
-	    while (1) {
-		if (processor == this->processor) {
-		    if (node != this->node)
-			processor_node = 1;
-		}
-		else {
-		    if (processor_node) {
-		    make_processor_node:
-			while (prev->processor == processor) {
-			    prev->processor_node = prev->node;
-			    prev->node = -1;
-			    if (prev == &cpuinfo->topology[0])
-				break;
-			    prev--;
-			}
-			processor_node = 0;
-		    }
-		    processor = this->processor;
-		    node = this->node;
-		}
-		if (this == last) {
-		    if (processor_node) {
-			prev = this;
-			goto make_processor_node;
-		    }
-		    break;
-		}
-		prev = this++;
-	    }
-	}
+	adjust_processor_nodes(cpuinfo, no_nodes);
 
 	qsort(cpuinfo->topology,
 	      cpuinfo->topology_size,
@@ -896,9 +1000,6 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     errno = 0;
 
-    if (cpuinfo->topology)
-	free(cpuinfo->topology);
-
     if (cpuinfo->configured < 1)
 	goto error;
 
@@ -985,6 +1086,8 @@ read_topology(erts_cpu_info_t *cpuinfo)
 	}
     }
 
+    adjust_processor_nodes(cpuinfo, 1);
+
  error:
 
     if (res == 0) {
@@ -1003,6 +1106,275 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
 }
 
+#elif defined(__WIN32__)
+
+/*
+ * We cannot use Relation* out of the box since all of them are not
+ * always part of the LOGICAL_PROCESSOR_RELATIONSHIP enum. They are
+ * however documented as follows...
+ */
+#define ERTS_MU_RELATION_PROCESSOR_CORE       0 /* RelationProcessorCore */
+#define ERTS_MU_RELATION_NUMA_NODE            1 /* RelationNumaNode */
+#define ERTS_MU_RELATION_CACHE                2 /* RelationCache */
+#define ERTS_MU_RELATION_PROCESSOR_PACKAGE    3 /* RelationProcessorPackage */
+
+static __forceinline int
+rel_cmp_val(int r)
+{
+    switch (r) {
+    case ERTS_MU_RELATION_NUMA_NODE:         return 0;
+    case ERTS_MU_RELATION_PROCESSOR_PACKAGE: return 1;
+    case ERTS_MU_RELATION_PROCESSOR_CORE:    return 2;
+    default: /* currently not used */        return 3;
+    }
+}
+
+static int
+slpi_cmp(const void *vx, const void *vy)
+{
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION x, y;
+    x = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION) vx;
+    y = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION) vy;
+
+    if ((int) x->Relationship != (int) y->Relationship)
+	return (rel_cmp_val((int) x->Relationship)
+		- rel_cmp_val((int) y->Relationship));
+
+    switch ((int) x->Relationship) {
+    case ERTS_MU_RELATION_NUMA_NODE:
+	if (x->NumaNode.NodeNumber == y->NumaNode.NodeNumber)
+	    break;
+	return ((int) x->NumaNode.NodeNumber) - ((int) y->NumaNode.NodeNumber);
+    case ERTS_MU_RELATION_PROCESSOR_CORE:
+    case ERTS_MU_RELATION_PROCESSOR_PACKAGE:
+    default:
+	break;
+    }
+
+    if (x->ProcessorMask == y->ProcessorMask)
+	return 0;
+    return x->ProcessorMask < y->ProcessorMask ? -1 : 1;
+}
+
+typedef BOOL (WINAPI *glpi_t)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
+
+static int
+read_topology(erts_cpu_info_t *cpuinfo)
+{
+    int res = 0;
+    glpi_t glpi;
+    int *core_id = NULL;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION slpip = NULL;
+    int wix, rix, max_l, l, packages, nodes, no_slpi;
+    DWORD slpi_size = 0;
+
+
+    glpi = (glpi_t) GetProcAddress(GetModuleHandle("kernel32"),
+				   "GetLogicalProcessorInformation");
+    if (!glpi)
+	return -ENOTSUP;
+
+    cpuinfo->topology = NULL;
+
+    if (cpuinfo->configured < 1 || sizeof(ULONG_PTR)*8 < cpuinfo->configured)
+	goto error;
+
+    while (1) {
+	DWORD werr;
+	if (TRUE == glpi(slpip, &slpi_size))
+	    break;
+	werr = GetLastError();
+	if (werr != ERROR_INSUFFICIENT_BUFFER) {
+	    res = -erts_map_win_error_to_errno(werr);
+	    goto error;
+	}
+	if (slpip)
+	    free(slpip);
+	slpip = malloc(slpi_size);
+	if (!slpip) {
+	    res = -ENOMEM;
+	    goto error;
+	}
+    }
+
+    no_slpi = (int) slpi_size/sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+
+    qsort(slpip,
+	  no_slpi,
+	  sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION),
+	  slpi_cmp);
+
+    /*
+     * Now numa node relations appear before package relations which
+     * appear before core relations which appear before relations
+     * we aren't interested in...
+     */
+
+    max_l = 0;
+    packages = 0;
+    nodes = 0;
+    for (rix = 0; rix < no_slpi; rix++) {
+	PSYSTEM_LOGICAL_PROCESSOR_INFORMATION this = &slpip[rix];
+	for (l = sizeof(ULONG_PTR)*8 - 1; l > 0; l--) {
+	    if (slpip[rix].ProcessorMask & (((ULONG_PTR) 1) << l)) {
+		if (max_l < l)
+		    max_l = l;
+		break;
+	    }
+	}
+	if ((int) slpip[rix].Relationship == ERTS_MU_RELATION_PROCESSOR_PACKAGE)
+	    packages++;
+	if ((int) slpip[rix].Relationship == ERTS_MU_RELATION_NUMA_NODE)
+	    nodes++;
+    }
+
+    core_id = malloc(sizeof(int)*(packages ? packages : 1));
+    if (!core_id) {
+	res = -ENOMEM;
+	goto error;
+    }
+
+    for (rix = 0; rix < packages; rix++)
+	core_id[rix] = 0;
+
+    cpuinfo->topology_size = max_l + 1;
+    cpuinfo->topology = malloc(sizeof(erts_cpu_topology_t)
+			       * cpuinfo->topology_size);
+    if (!cpuinfo->topology) {
+	res = -ENOMEM;
+	goto error;
+    }
+
+    for (wix = 0; wix < cpuinfo->topology_size; wix++) {
+	cpuinfo->topology[wix].node = -1;
+	cpuinfo->topology[wix].processor = -1;
+	cpuinfo->topology[wix].processor_node = -1;
+	cpuinfo->topology[wix].core = -1;
+	cpuinfo->topology[wix].thread = -1;
+	cpuinfo->topology[wix].logical = -1;
+    }
+
+    nodes = 0;
+    packages = 0;
+
+    for (rix = 0; rix < no_slpi; rix++) {
+
+        switch ((int) slpip[rix].Relationship) {
+        case ERTS_MU_RELATION_NUMA_NODE:
+	    for (l = 0; l < sizeof(ULONG_PTR)*8; l++) {
+		if (slpip[rix].ProcessorMask & (((ULONG_PTR) 1) << l)) {
+		    cpuinfo->topology[l].logical = l;
+		    cpuinfo->topology[l].node = slpip[rix].NumaNode.NodeNumber;
+		}
+	    }
+	    nodes++;
+            break;
+        case ERTS_MU_RELATION_PROCESSOR_PACKAGE:
+	    for (l = 0; l < sizeof(ULONG_PTR)*8; l++) {
+		if (slpip[rix].ProcessorMask & (((ULONG_PTR) 1) << l)) {
+		    cpuinfo->topology[l].logical = l;
+		    cpuinfo->topology[l].processor = packages;
+		}
+	    }
+	    packages++;
+            break;
+        case ERTS_MU_RELATION_PROCESSOR_CORE: {
+	    int thread = 0;
+	    int processor = -1;
+	    for (l = 0; l < sizeof(ULONG_PTR)*8; l++) {
+		/*
+		 * Nodes and packages may not be supported; pretend
+		 * that there are one if this is the case...
+		 */
+		if (!nodes)
+		    cpuinfo->topology[l].node = 0;
+		if (!packages)
+		    cpuinfo->topology[l].processor = 0;
+		if (slpip[rix].ProcessorMask & (((ULONG_PTR) 1) << l)) {
+		    if (processor < 0) {
+			processor = cpuinfo->topology[l].processor;
+			if (processor < 0) {
+			    res = -EINVAL;
+			    goto error;
+			}
+		    }
+		    else if (processor != cpuinfo->topology[l].processor) {
+			res = -EINVAL;
+			goto error;
+		    }
+		    cpuinfo->topology[l].logical = l;
+		    cpuinfo->topology[l].thread = thread;
+		    cpuinfo->topology[l].core = core_id[processor];
+		    thread++;
+		}
+	    }
+	    core_id[processor]++;
+            break;
+	}
+        default:
+	    /*
+	     * We have reached the end of the relationships
+	     * that we (currently) are interested in...
+	     */
+	    goto relationships_done;
+        }
+    }
+
+ relationships_done:
+
+    /*
+     * There may be unused entries; remove them...
+     */
+    for (rix = wix = 0; rix < cpuinfo->topology_size; rix++) {
+	if (cpuinfo->topology[rix].logical >= 0) {
+	    if (wix != rix)
+		cpuinfo->topology[wix] = cpuinfo->topology[rix];
+	    wix++;
+	}
+    }
+
+    if (cpuinfo->topology_size != wix) {
+	erts_cpu_topology_t *new = cpuinfo->topology;
+	new = realloc(cpuinfo->topology,
+		      sizeof(erts_cpu_topology_t)*wix);
+	if (!new) {
+	    res = -ENOMEM;
+	    goto error;
+	}
+	cpuinfo->topology = new;
+	cpuinfo->topology_size = wix;
+    }
+
+    res = wix;
+
+    adjust_processor_nodes(cpuinfo, nodes);
+
+    qsort(cpuinfo->topology,
+	  cpuinfo->topology_size,
+	  sizeof(erts_cpu_topology_t),
+	  cpu_cmp);
+
+    if (res < cpuinfo->online)
+	res = -EINVAL;
+
+ error:
+
+    if (res <= 0) {
+	cpuinfo->topology_size = 0;
+	if (cpuinfo->topology) {
+	    free(cpuinfo->topology);
+	    cpuinfo->topology = NULL;
+	}
+    }
+
+    if (slpip)
+	free(slpip);
+    if (core_id)
+	free(core_id);
+
+    return res;
+}
+
 #else
 
 static int
@@ -1016,9 +1388,9 @@ read_topology(erts_cpu_info_t *cpuinfo)
 #if defined(__WIN32__)
 
 int
-erts_get_last_win_errno(void)
+erts_map_win_error_to_errno(DWORD win_error)
 {
-    switch (GetLastError()) {
+    switch (win_error) {
     case ERROR_INVALID_FUNCTION:		return EINVAL;	/* 1	*/
     case ERROR_FILE_NOT_FOUND:			return ENOENT;	/* 2	*/
     case ERROR_PATH_NOT_FOUND:			return ENOENT;	/* 3	*/
@@ -1098,5 +1470,12 @@ erts_get_last_win_errno(void)
     default:					return EINVAL;
     }
 }
+
+int
+erts_get_last_win_errno(void)
+{
+    return erts_map_win_error_to_errno(GetLastError());
+}
+
 
 #endif

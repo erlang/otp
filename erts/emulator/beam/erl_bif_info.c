@@ -2235,6 +2235,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     } else if (ERTS_IS_ATOM_STR("cpu_topology", BIF_ARG_1)) {
 	res = erts_get_cpu_topology_term(BIF_P, am_used);
 	BIF_TRAP1(erts_format_cpu_topology_trap, BIF_P, res);
+    } else if (ERTS_IS_ATOM_STR("update_cpu_info", BIF_ARG_1)) {
+	if (erts_update_cpu_info()) {
+	    ERTS_DECL_AM(changed);
+	    BIF_RET(AM_changed);
+	}
+	else {
+	    ERTS_DECL_AM(unchanged);
+	    BIF_RET(AM_unchanged);
+	}
 #if defined(__GNUC__) && defined(HAVE_SOLARIS_SPARC_PERFMON)
     } else if (ERTS_IS_ATOM_STR("ultrasparc_read_tick1", BIF_ARG_1)) {
 	register unsigned high asm("%l0");
@@ -2306,7 +2315,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     }
     /* Arguments that are unusual follow ... */
     else if (ERTS_IS_ATOM_STR("logical_processors", BIF_ARG_1)) {
-	int no = erts_get_cpu_configured(erts_cpuinfo);
+	int no;
+	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
+	no = erts_get_cpu_configured(erts_cpuinfo);
+	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
 	if (no > 0)
 	    BIF_RET(make_small((Uint) no));
 	else {
@@ -2315,7 +2327,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	}
     }
     else if (ERTS_IS_ATOM_STR("logical_processors_online", BIF_ARG_1)) {
-	int no = erts_get_cpu_online(erts_cpuinfo);
+	int no;
+	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
+	no = erts_get_cpu_online(erts_cpuinfo);
+	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
 	if (no > 0)
 	    BIF_RET(make_small((Uint) no));
 	else {
@@ -2324,7 +2339,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	}
     }
     else if (ERTS_IS_ATOM_STR("logical_processors_available", BIF_ARG_1)) {
-	int no = erts_get_cpu_available(erts_cpuinfo);
+	int no;
+	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
+	no = erts_get_cpu_available(erts_cpuinfo);
+	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
 	if (no > 0)
 	    BIF_RET(make_small((Uint) no));
 	else {
