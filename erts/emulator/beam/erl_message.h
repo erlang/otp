@@ -37,9 +37,13 @@ struct erl_off_heap_header {
     struct erl_off_heap_header* next;
 };
 
+#define OH_OVERHEAD(oh, size) do { \
+    (oh)->overhead += size;        \
+} while(0)
+
 typedef struct erl_off_heap {
     struct erl_off_heap_header* first;
-    int overhead;     /* Administrative overhead (used to force GC). */
+    Uint64 overhead;     /* Administrative overhead (used to force GC). */
 } ErlOffHeap;
 
 #include "external.h"

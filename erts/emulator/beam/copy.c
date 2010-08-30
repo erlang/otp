@@ -317,7 +317,7 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		    pb->next = off_heap->first;
 		    pb->flags = 0;
 		    off_heap->first = (struct erl_off_heap_header*) pb;
-		    off_heap->overhead += pb->size / sizeof(Eterm);
+		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
 		break;
 	    case SUB_BINARY_SUBTAG:
@@ -366,7 +366,7 @@ copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 			to->next = off_heap->first;
 			to->flags = 0;
 			off_heap->first = (struct erl_off_heap_header*) to;
-			off_heap->overhead += to->size / sizeof(Eterm);
+			OH_OVERHEAD(off_heap, to->size / sizeof(Eterm));
 		    }
 		    *argp = make_binary(hbot);
 		    if (extra_bytes != 0) {
@@ -652,7 +652,7 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
                 erts_refc_inc(&pb->val->refc, 2);
                 pb->next = erts_global_offheap.first;
                 erts_global_offheap.first = pb;
-                erts_global_offheap.overhead += pb->size / sizeof(Eterm);
+		OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
                 continue;
             }
 
@@ -777,7 +777,7 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
                     to_bin->bytes = from_bin->bytes + sub_offset;
                     to_bin->next = erts_global_offheap.first;
                     erts_global_offheap.first = to_bin;
-                    erts_global_offheap.overhead += to_bin->size / sizeof(Eterm);
+		    OH_OVERHEAD(&erts_global_offheap, to_bin->size / sizeof(Eterm));
 		    res_binary=make_binary(to_bin);
 		    hp += PROC_BIN_SIZE;
                 }
@@ -912,7 +912,7 @@ copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		{
 		    ProcBin* pb = (ProcBin *) (tp-1);
 		    erts_refc_inc(&pb->val->refc, 2);
-		    off_heap->overhead += pb->size / sizeof(Eterm);
+		    OH_OVERHEAD(off_heap, pb->size / sizeof(Eterm));
 		}
 		goto off_heap_common;
 
@@ -977,7 +977,7 @@ void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
 
     for (bp=first; bp!=NULL; bp=bp->next) {
 	move_one_frag(hpp, bp->mem, bp->used_size, off_heap);
-	off_heap->overhead += bp->off_heap.overhead;
+	OH_OVERHEAD(off_heap, bp->off_heap.overhead);
     }
     hp_end = *hpp;
     for (hp=hp_start; hp<hp_end; ++hp) {

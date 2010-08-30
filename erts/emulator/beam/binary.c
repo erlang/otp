@@ -97,7 +97,7 @@ new_binary(Process *p, byte *buf, int len)
     /*
      * Miscellanous updates. Return the tagged binary.
      */
-    MSO(p).overhead += pb->size / sizeof(Eterm);
+    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
 }
 
@@ -136,7 +136,7 @@ Eterm erts_new_mso_binary(Process *p, byte *buf, int len)
     /*
      * Miscellanous updates. Return the tagged binary.
      */
-    MSO(p).overhead += pb->size / sizeof(Eterm);
+    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     return make_binary(pb);
 }
 

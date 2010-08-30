@@ -537,6 +537,7 @@ struct ErtsPendingSuspend_ {
 
 #  define MIN_VHEAP_SIZE(p)   (p)->min_vheap_size
 #  define BIN_VHEAP_SZ(p)     (p)->bin_vheap_sz
+#  define BIN_VHEAP_MATURE(p) (p)->bin_vheap_mature
 #  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
 #  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
 
@@ -654,9 +655,10 @@ struct process {
     Uint mbuf_sz;		/* Size of all message buffers */
     ErtsPSD *psd;		/* Rarely used process specific data */
 
-    Uint bin_vheap_sz;		/* Virtual heap block size for binaries */
-    Uint bin_old_vheap_sz;	/* Virtual old heap block size for binaries */
-    Uint bin_old_vheap;		/* Virtual old heap size for binaries */
+    Uint64 bin_vheap_sz;	/* Virtual heap block size for binaries */
+    Uint64 bin_vheap_mature;	/* Virtual heap block size for binaries */
+    Uint64 bin_old_vheap_sz;	/* Virtual old heap block size for binaries */
+    Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
     union {
 #ifdef ERTS_SMP
