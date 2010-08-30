@@ -22,7 +22,10 @@
 -include("test_server.hrl").
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,bad_float_unpack/1]).
+	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
+	 bad_float_unpack/1]).
+-export([otp_7178/1]).
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
@@ -33,7 +36,29 @@ fin_per_testcase(_Func, Config) ->
     ?t:timetrap_cancel(Dog).
 
 all(suite) ->
-    [fpe,fp_drv,fp_drv_thread,denormalized,match,bad_float_unpack].
+    [fpe,
+     fp_drv,
+     fp_drv_thread,
+     otp_7178,
+     denormalized,
+     match,
+     bad_float_unpack].
+
+%%
+%% OTP-7178, list_to_float on very small numbers should give 0.0
+%% instead of exception, i.e. ignore underflow.
+%%
+otp_7178(suite) ->
+    [];
+otp_7178(doc) ->
+    ["test that list_to_float on very small numbers give 0.0"];
+otp_7178(Config) when is_list(Config) ->
+    ?line X = list_to_float("1.0e-325"),
+    ?line true = (X < 0.00000001) and (X > -0.00000001),
+    ?line Y = list_to_float("1.0e-325325325"),
+    ?line true = (Y < 0.00000001) and (Y > -0.00000001),
+    ?line {'EXIT', {badarg,_}} = (catch list_to_float("1.0e83291083210")),
+    ok.
 
 %% Forces floating point exceptions and tests that subsequent, legal,
 %% operations are calculated correctly.  Original version by Sebastian
