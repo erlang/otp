@@ -950,7 +950,7 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
     RC4(rc4_key, data.size, data.data,
 	enif_make_new_binary(env, data.size, &new_data));
 
-    return enif_make_tuple2(env,argv[0],new_data);
+    return enif_make_tuple2(env,new_state,new_data);
 }   
 
 static ERL_NIF_TERM rc2_40_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
