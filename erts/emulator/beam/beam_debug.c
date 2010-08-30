@@ -125,7 +125,7 @@ erts_debug_breakpoint_2(Process* p, Eterm MFA, Eterm bool)
     BIF_ERROR(p, BADARG);
 }
 
-#if 0 /* XXX:PaN - not used */
+#if 0 /* Kept for conveninence when hard debugging. */
 void debug_dump_code(BeamInstr *I, int num)
 {
     BeamInstr *code_ptr = I;

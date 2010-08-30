@@ -2745,6 +2745,7 @@ static void db_finalize_dbterm_hash(DbUpdateHandle* handle)
     ASSERT(&oldp->dbterm == handle->dbterm);
 
     if (handle->mustResize) {
+	ErlOffHeap tmp_offheap;
 	Eterm* top;
 	Eterm copy;
 	DbTerm* newDbTerm;
@@ -2755,14 +2756,15 @@ static void db_finalize_dbterm_hash(DbUpdateHandle* handle)
 	newDbTerm = &newp->dbterm;
     
 	newDbTerm->size = handle->new_size;
-	newDbTerm->off_heap.first = NULL;
-	newDbTerm->off_heap.overhead = 0;
+	tmp_offheap.first = NULL;
+	tmp_offheap.overhead = 0;
 	
 	/* make a flat copy */
 	top = DBTERM_BUF(newDbTerm);
 	copy = copy_struct(make_tuple(handle->dbterm->tpl),
 			   handle->new_size,
-			   &top, &newDbTerm->off_heap);
+			   &top, &tmp_offheap);
+	newDbTerm->first_oh = tmp_offheap.first;
 	DBTERM_SET_TPL(newDbTerm,tuple_val(copy));
 
 	WUNLOCK_HASH(lck);
@@ -2805,7 +2807,11 @@ void db_foreach_offheap_hash(DbTable *tbl,
     for (i = 0; i < nactive; i++) {
 	list = BUCKET(tb,i);
 	while(list != 0) {
-	    (*func)(&(list->dbterm.off_heap), arg);
+	    ErlOffHeap tmp_offheap;
+	    tmp_offheap.first = list->dbterm.first_oh;
+	    tmp_offheap.overhead = 0;
+	    (*func)(&tmp_offheap, arg);
+	    list->dbterm.first_oh = tmp_offheap.first;
 	    list = list->next;
 	}
     }

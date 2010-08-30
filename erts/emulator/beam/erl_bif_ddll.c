@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1646,7 +1646,8 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
 	    if (save_name != NULL) {
 		*save_name = mkatom(q->name);
 	    } 
-	    /* XXX:PaN Future locking problems? Don't dare to let go of the diver_list lock here!*/
+	    /* Future locking problems? Don't dare to let go of the
+	       diver_list lock here!*/
 	    if (q->finish) {
 		int fpe_was_unmasked = erts_block_fpe();
 		(*(q->finish))();

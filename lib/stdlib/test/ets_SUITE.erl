@@ -395,7 +395,7 @@ memory(Config) when is_list(Config) ->
     ?line erts_debug:set_internal_state(available_internal_state, true),
     ?line ok = chk_normal_tab_struct_size(),
     ?line L = [T1,T2,T3,T4] = fill_sets_int(1000),
-    ?line XRes1 = adjust_xmem(L, {14862,14072,14072,14078}),
+    ?line XRes1 = adjust_xmem(L, {13862,13072,13072,13078}),
     ?line Res1 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     ?line lists:foreach(fun(T) ->
  				Before = ets:info(T,size),
@@ -406,7 +406,7 @@ memory(Config) when is_list(Config) ->
 					  [Key, ets:info(T,type), Before, ets:info(T,size), Objs])
 		  end,
 		  L),
-    ?line XRes2 = adjust_xmem(L, {14851,14062,14052,14058}),
+    ?line XRes2 = adjust_xmem(L, {13852,13063,13054,13060}),
     ?line Res2 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     ?line lists:foreach(fun(T) ->
  				Before = ets:info(T,size),
@@ -417,7 +417,7 @@ memory(Config) when is_list(Config) ->
 					  [Key, ets:info(T,type), Before, ets:info(T,size), Objs])
 			end,
 			L),
-    ?line XRes3 = adjust_xmem(L, {14840,14052,14032,14038}),
+    ?line XRes3 = adjust_xmem(L, {13842,13054,13036,13042}),
     ?line Res3 = {?S(T1),?S(T2),?S(T3),?S(T4)},
     ?line lists:foreach(fun(T) ->
 			  ?line ets:delete_all_objects(T)

@@ -57,7 +57,7 @@
  * A datatype for a database entry stored out of a process heap
  */
 typedef struct db_term {
-    ErlOffHeap off_heap;   /* Off heap data for term. */
+    struct erl_off_heap_header* first_oh; /* Off heap data for term. */
     Uint size;		   /* Size of term in "words" */
     Eterm tpl[1];          /* Untagged "constant pointer" to top tuple */
                            /* (assumed to be first in buffer) */
