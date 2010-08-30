@@ -122,6 +122,12 @@ ERL_NIF_API_FUNC_DECL(ErlNifPid*,enif_self,(ErlNifEnv* caller_env, ErlNifPid* pi
 ERL_NIF_API_FUNC_DECL(int,enif_get_local_pid,(ErlNifEnv* env, ERL_NIF_TERM, ErlNifPid* pid));
 ERL_NIF_API_FUNC_DECL(void,enif_keep_resource,(void* obj));
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_resource_binary,(ErlNifEnv*,void* obj,const void* data, size_t size));
+#if SIZEOF_LONG != 8
+ERL_NIF_API_FUNC_DECL(int,enif_get_int64,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifSInt64* ip));
+ERL_NIF_API_FUNC_DECL(int,enif_get_uint64,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifUInt64* ip));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_int64,(ErlNifEnv*, ErlNifSInt64));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_uint64,(ErlNifEnv*, ErlNifUInt64));
+#endif
 
 /*
 ** Add last to keep compatibility on Windows!!!
@@ -230,6 +236,13 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_resource_binary,(ErlNifEnv*,void* o
 #  define enif_get_local_pid ERL_NIF_API_FUNC_MACRO(enif_get_local_pid)
 #  define enif_keep_resource ERL_NIF_API_FUNC_MACRO(enif_keep_resource)
 #  define enif_make_resource_binary ERL_NIF_API_FUNC_MACRO(enif_make_resource_binary)
+#if  SIZEOF_LONG != 8
+#  define enif_get_int64 ERL_NIF_API_FUNC_MACRO(enif_get_int64)
+#  define enif_get_uint64 ERL_NIF_API_FUNC_MACRO(enif_get_uint64)
+#  define enif_make_int64 ERL_NIF_API_FUNC_MACRO(enif_make_int64)
+#  define enif_make_uint64 ERL_NIF_API_FUNC_MACRO(enif_make_uint64)
+#endif
+
 #endif
 
 #ifndef enif_make_list1
@@ -253,5 +266,13 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_resource_binary,(ErlNifEnv*,void* o
 #  define enif_make_tuple9(ENV,E1,E2,E3,E4,E5,E6,E7,E8,E9) enif_make_tuple(ENV,9,E1,E2,E3,E4,E5,E6,E7,E8,E9)
 
 #  define enif_make_pid(ENV, PID) ((const ERL_NIF_TERM)((PID)->pid))
+
+#if SIZEOF_LONG == 8
+#  define enif_get_int64 enif_get_long
+#  define enif_get_uint64 enif_get_ulong
+#  define enif_make_int64 enif_make_long
+#  define enif_make_uint64 enif_make_ulong
+#endif
+
 #endif
 

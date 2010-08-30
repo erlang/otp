@@ -66,6 +66,19 @@
 extern "C" {
 #endif
 
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
+typedef unsigned __int64 ErlNifUInt64;
+typedef __int64 ErlNifSInt64;
+#elif SIZEOF_LONG == 8
+typedef unsigned long ErlNifUInt64;
+typedef long ErlNifSInt64;
+#elif SIZEOF_LONG_LONG == 8
+typedef unsigned long long ErlNifUInt64;
+typedef long long ErlNifSInt64;
+#else
+#error No 64-bit integer type
+#endif
+
 #ifdef HALFWORD_HEAP_EMULATOR
 typedef unsigned int ERL_NIF_TERM;
 #else

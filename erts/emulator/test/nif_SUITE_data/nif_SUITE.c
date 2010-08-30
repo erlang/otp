@@ -296,6 +296,30 @@ static int test_ulong(ErlNifEnv* env, unsigned long i1)
     return 1;
 }
 
+static int test_int64(ErlNifEnv* env, ErlNifSInt64 i1)
+{
+    ErlNifSInt64 i2 = 0;
+    ERL_NIF_TERM int_term = enif_make_int64(env, i1);
+    if (!enif_get_int64(env,int_term, &i2) || i1 != i2) {
+	fprintf(stderr, "test_int64(%ld) ...FAILED i2=%ld\r\n",
+		(long)i1, (long)i2);
+	return 0;
+    }
+    return 1;
+}
+
+static int test_uint64(ErlNifEnv* env, ErlNifUInt64 i1)
+{
+    ErlNifUInt64 i2 = 0;
+    ERL_NIF_TERM int_term = enif_make_uint64(env, i1);
+    if (!enif_get_uint64(env,int_term, &i2) || i1 != i2) {
+	fprintf(stderr, "test_ulong(%lu) ...FAILED i2=%lu\r\n",
+		(unsigned long)i1, (unsigned long)i2);
+	return 0;
+    }
+    return 1;
+}
+
 static int test_double(ErlNifEnv* env, double d1)
 {
     double d2 = 0;
@@ -319,6 +343,8 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     unsigned uint;
     long slong;
     unsigned long ulong;
+    ErlNifSInt64 sint64;
+    ErlNifUInt64 uint64;
     double d;
     ERL_NIF_TERM atom, ref1, ref2;
 
@@ -352,11 +378,25 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 	slong -= slong / 3 + 1;
     } while (slong >= 0);
 
+    sint64 = ((ErlNifSInt64)1 << 63); /* INT64_MIN */
+    do {
+	if (!test_int64(env,sint64)) {
+	    goto error;
+	}
+	sint64 += ~sint64 / 3 + 1;
+    } while (sint64 < 0);
+    sint64 = ((ErlNifUInt64)1 << 63) - 1; /* INT64_MAX */
+    do {
+	if (!test_int64(env,sint64)) {
+	    goto error;
+	}
+	sint64 -= sint64 / 3 + 1;
+    } while (sint64 >= 0);
 
     uint = UINT_MAX;
     for (;;) {
 	if (!test_uint(env,uint)) {
-	    
+	    goto error;
 	}
 	if (uint == 0) break;
 	uint -= uint / 3 + 1;
@@ -364,10 +404,18 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     ulong = ULONG_MAX;
     for (;;) {
 	if (!test_ulong(env,ulong)) {
-	    
+	    goto error;
 	}
 	if (ulong == 0) break;
 	ulong -= ulong / 3 + 1;
+    }    
+    uint64 = (ErlNifUInt64)-1; /* UINT64_MAX */
+    for (;;) {
+	if (!test_uint64(env,uint64)) {
+	    goto error;
+	}
+	if (uint64 == 0) break;
+	uint64 -= uint64 / 3 + 1;
     }    
 
     if (MAX_SMALL < INT_MAX) { /* 32-bit */
@@ -391,11 +439,18 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
     for (i=-10 ; i < 10; i++) {
 	if (!test_long(env,MAX_SMALL+i) || !test_ulong(env,MAX_SMALL+i) ||
-	    !test_long(env,MIN_SMALL+i)) {
+	    !test_long(env,MIN_SMALL+i) ||
+	    !test_int64(env,MAX_SMALL+i) || !test_uint64(env,MAX_SMALL+i) ||
+	    !test_int64(env,MIN_SMALL+i)) {
 	    goto error;
 	}
+	if (MAX_SMALL < INT_MAX) {
+	    if (!test_int(env,MAX_SMALL+i) || !test_uint(env,MAX_SMALL+i) ||
+		!test_int(env,MIN_SMALL+i)) {
+		goto error;
+	    }
+	}
     }
-
     for (d=3.141592e-100 ; d < 1e100 ; d *= 9.97) {
 	if (!test_double(env,d) || !test_double(env,-d)) {
 	    goto error;
