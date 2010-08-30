@@ -824,6 +824,10 @@ foldl_transform(St, [T|Ts]) ->
 	{'EXIT',R} ->
 	    Es = [{St#compile.ifile,[{none,compile,{parse_transform,T,R}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}};
+	{warning, Forms, Ws} ->
+	    foldl_transform(
+	      St#compile{code=Forms,
+			 warnings=St#compile.warnings ++ Ws}, Ts);
 	Forms ->
 	    foldl_transform(St#compile{code=Forms}, Ts)
     end;
