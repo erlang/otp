@@ -1385,6 +1385,28 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
+      <name>select_count(Tab, MatchSpec) -> NumMatched</name>
+      <fsummary>Match the objects in an ETS table against a match_spec and returns the number of objects for which the match_spec returned 'true'</fsummary>
+      <type>
+        <v>Tab = tid() | atom()</v>
+        <v>Object = tuple()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>NumMatched = integer()</v>
+      </type>
+      <desc>
+        <p>Matches the objects in the table <c>Tab</c> using a
+          <seealso marker="#match_spec">match_spec</seealso>. If the
+          match_spec returns <c>true</c> for an object, that object
+          considered a match and is counted. For any other result from
+          the match_spec the object is not considered a match and is
+          therefore not counted.</p>
+        <p>The function could be described as a <c>match_delete/2</c>
+          that does not actually delete any elements, but only counts
+          them.</p>
+        <p>The function returns the number of objects matched.</p>
+      </desc>
+    </func>
+    <func>
       <name>select_delete(Tab, MatchSpec) -> NumDeleted</name>
       <fsummary>Match the objects in an ETS table against a match_spec and deletes objects where the match_spec returns 'true'</fsummary>
       <type>
@@ -1411,25 +1433,82 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select_count(Tab, MatchSpec) -> NumMatched</name>
-      <fsummary>Match the objects in an ETS table against a match_spec and returns the number of objects for which the match_spec returned 'true'</fsummary>
+      <name>select_reverse(Tab, MatchSpec) -> [Match]</name>
+      <fsummary>Match the objects in an ETS table against a match_spec.</fsummary>
       <type>
         <v>Tab = tid() | atom()</v>
-        <v>Object = tuple()</v>
+        <v>Match = term()</v>
         <v>MatchSpec = match_spec()</v>
-        <v>NumMatched = integer()</v>
       </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> using a
-          <seealso marker="#match_spec">match_spec</seealso>. If the
-          match_spec returns <c>true</c> for an object, that object
-          considered a match and is counted. For any other result from
-          the match_spec the object is not considered a match and is
-          therefore not counted.</p>
-        <p>The function could be described as a <c>match_delete/2</c>
-          that does not actually delete any elements, but only counts
-          them.</p>
-        <p>The function returns the number of objects matched.</p>
+
+      <p>Works like <c>select/2</c>, but returns the list in reverse
+      order for the <c>ordered_set</c> table type. For all other table
+      types, the return value is identical to that of <c>select/2</c>.</p>
+
+      </desc>
+    </func>
+    <func>
+      <name>select_reverse(Tab, MatchSpec, Limit) -> {[Match],Continuation} | '$end_of_table'</name>
+      <fsummary>Match the objects in an ETS table against a match_spec and returns part of the answers.</fsummary>
+      <type>
+        <v>Tab = tid() | atom()</v>
+        <v>Match = term()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>Continuation = term()</v>
+      </type>
+      <desc>
+
+      <p>Works like <c>select/3</c>, but for the <c>ordered_set</c>
+      table type, traversing is done starting at the last object in
+      Erlang term order and moves towards the first. For all other
+      table types, the return value is identical to that of
+      <c>select/3</c>.</p>
+
+      <p>Note that this is <em>not</em> equivalent to
+      reversing the result list of a <c>select/3</c> call, as the result list
+      is not only reversed, but also contains the last <c>Limit</c>
+      matching objects in the table, not the first.</p>
+
+      </desc>
+    </func>
+    <func>
+      <name>select_reverse(Continuation) -> {[Match],Continuation} | '$end_of_table'</name>
+      <fsummary>Continue matching objects in an ETS table.</fsummary>
+      <type>
+        <v>Match = term()</v>
+        <v>Continuation = term()</v>
+      </type>
+      <desc>
+
+      <p>Continues a match started with
+      <c>ets:select_reverse/3</c>. If the table is an
+      <c>ordered_set</c>, the traversal of the table will continue
+      towards objects with keys earlier in the Erlang term order. The
+      returned list will also contain objects with keys in reverse
+      order.</p>
+
+      <p>For all other table types, the behaviour is exatly that of <c>select/1</c>.</p>
+      <p>Example:</p>
+      <code>
+1> T = ets:new(x,[ordered_set]).
+2> [ ets:insert(T,{N}) || N &lt;- lists:seq(1,10) ].
+...
+3> {R0,C0} = ets:select_reverse(T,[{'_',[],['$_']}],4).
+...
+4> R0.
+[{10},{9},{8},{7}]
+5> {R1,C1} = ets:select_reverse(C0).
+...
+6> R1.
+[{6},{5},{4},{3}]
+7> {R2,C2} = ets:select_reverse(C1).
+...
+8> R2.
+[{2},{1}]
+9> '$end_of_table' = ets:select_reverse(C2).
+...
+      </code>
       </desc>
     </func>
     <func>
