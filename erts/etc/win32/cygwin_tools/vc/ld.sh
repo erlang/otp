@@ -3,7 +3,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2002-2009. All Rights Reserved.
+# Copyright Ericsson AB 2002-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -167,6 +167,9 @@ eval link.exe "$CMD"  >/tmp/link.exe.${p}.1 2>/tmp/link.exe.${p}.2
 RES=$?
 CMANIFEST=`cygpath $MANIFEST`
 if [ "$RES" = "0" -a -f "$CMANIFEST" ]; then
+    # Add stuff to manifest to turn off "virtualization"
+    sed -i "s/<\/assembly>/ <ms_asmv2:trustInfo xmlns:ms_asmv2=\"urn:schemas-microsoft-com:asm.v2\">\n  <ms_asmv2:security>\n   <ms_asmv2:requestedPrivileges>\n    <ms_asmv2:requestedExecutionLevel level=\"AsInvoker\" uiAccess=\"false\"\/>\n   <\/ms_asmv2:requestedPrivileges>\n  <\/ms_asmv2:security>\n <\/ms_asmv2:trustInfo>\n<\/assembly>/" $CMANIFEST
+
     eval mt.exe -nologo -manifest "$MANIFEST" -outputresource:"$OUTPUTRES" >>/tmp/link.exe.${p}.1 2>>/tmp/link.exe.${p}.2
     RES=$?
     if [ "$RES" != "0" ]; then
