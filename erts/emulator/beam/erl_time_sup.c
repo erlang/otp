@@ -650,6 +650,22 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
     t.tm_sec = *second;
     t.tm_isdst = isdst;
     the_clock = mktime(&t);
+    if (the_clock == -1) {
+	if (isdst) {
+	    /* If this is a timezone without DST and the OS (correctly)
+	       refuses to give us a DST time, we simulate the Linux/Solaris
+	       behaviour of giving the same data as if is_dst was not set. */
+	    t.tm_isdst = 0;
+	    the_clock = mktime(&t);
+	    if (the_clock == -1) {
+		/* Failed anyway, something else is bad - will be a badarg */
+		return 0;
+	    }
+	} else {
+	    /* Something else is the matter, badarg. */
+	    return 0;
+	}
+    }
 #ifdef HAVE_GMTIME_R
     gmtime_r(&the_clock, (tm = &tmbuf));
 #else
@@ -663,6 +679,10 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
     *second = tm->tm_sec;
     return 1;
 }
+#if defined(HAVE_POSIX2TIME) && defined(HAVE_DECL_POSIX2TIME) && \
+    !HAVE_DECL_POSIX2TIME
+extern time_t posix2time(time_t);
+#endif
 
 int 
 univ_to_local(Sint *year, Sint *month, Sint *day, 
