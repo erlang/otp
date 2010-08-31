@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -508,7 +508,7 @@ if (ei_decode_version(result.buff, &index) < 0
           same as the port number that was previously bound to the socket.</p>
         <p><c><![CDATA[addr]]></c> is the 32-bit IP address of the local host.</p>
         <p>To unregister with epmd, simply close the returned
-          descriptor. See also <c><![CDATA[ei_unpublish()]]></c>.</p>
+          descriptor. Do not use <c><![CDATA[ei_unpublish()]]></c>, which is deprecated anyway.</p>
         <p>On success, the functions return a descriptor connecting the
           calling process to epmd. On failure, they return -1 and set
           <c><![CDATA[erl_errno]]></c> to <c><![CDATA[EIO]]></c>.</p>
@@ -558,18 +558,21 @@ typedef struct {
     </func>
     <func>
       <name><ret>int</ret><nametext>ei_unpublish(ei_cnode *ec)</nametext></name>
-      <fsummary>Unpublish a node name</fsummary>
+      <fsummary>Forcefully unpublish a node name</fsummary>
       <desc>
         <p>This function can be called by a process to unregister a
-          specified node from epmd on the localhost. This may be
-          useful, for example, when epmd has not detected the failure of a
-          node, and will not allow the name to be reused. If you use this
-          function to unregister your own process, be sure to also close
-          the descriptor that was returned by <c><![CDATA[ei_publish()]]></c>.</p>
-        <note>
-          <p>Careless use of this function may have unpredictable
-            results, if the registered node is in fact still running.</p>
-        </note>
+          specified node from epmd on the localhost. This is however usually not 
+	  allowed, unless epmd was started with the -relaxed_command_check 
+	  flag, which it normally isn't.</p>
+
+	  <p>To unregister a node you have published, you should
+	  close the descriptor that was returned by  
+	  <c><![CDATA[ei_publish()]]></c>.</p> 
+
+        <warning>
+          <p>This function is deprecated and will be removed in a future 
+	  release.</p>
+        </warning>
         <p><c><![CDATA[ec]]></c> is the node structure of the node to unregister.</p>
         <p>If the node was successfully unregistered from epmd, the
           function returns 0. Otherwise, it returns -1 and sets

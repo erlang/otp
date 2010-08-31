@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,7 +72,7 @@ ei_accept(Config) when is_list(Config) ->
 	  after 1000 ->
 		  io:format("timeout ~n")
 	  end,
-    ?line ok= ei_unpublish(P),
+    ?line runner:finish(P),
     ok.
 
 ei_threaded_accept(Config) when is_list(Config) ->
