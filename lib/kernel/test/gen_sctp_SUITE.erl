@@ -222,12 +222,17 @@ xfer_active(Config) when is_list(Config) ->
 	  end,
     ?line ok = gen_sctp:close(Sb),
     ?line receive
-	      {sctp,Sa,Loopback,Pb,
-	       {[],
-		#sctp_assoc_change{state=comm_lost,
-				   assoc_id=SaAssocId}}} -> ok
-	  after 17 -> ok %% On Solaris this does not arrive
-	  end,
+              {sctp,Sa,Loopback,Pb,
+               {[],
+                #sctp_assoc_change{state=comm_lost,
+                                   assoc_id=SaAssocId}}} -> ok
+          after Timeout ->
+                  ?line test_server:fail({unexpected,flush()})
+          end,
+    ?line receive
+              {sctp_error,Sa,enotconn} -> ok % Solaris
+          after 17 -> ok %% Only happens on Solaris
+          end,
     ?line ok = gen_sctp:close(Sa),
     %%
     ?line receive
