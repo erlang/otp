@@ -28,7 +28,7 @@ INCLUDES= -I. -I ../include
 # ----------------------------------------------------
 
 MODULES= \
-	pkey_test \
+	erl_make_certs \
 	public_key_SUITE \
 	pkits_SUITE
 

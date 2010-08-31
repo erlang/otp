@@ -19,7 +19,7 @@
 
 %% Create test certificates
 
--module(pkey_test).
+-module(erl_make_certs).
 -include_lib("public_key/include/public_key.hrl").
 
 -export([make_cert/1, gen_rsa/1, verify_signature/3, write_pem/3]).
