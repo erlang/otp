@@ -152,7 +152,7 @@ pk_decode_encode(Config) when is_list(Config) ->
 
     Salt0 = crypto:rand_bytes(8),
     Entry3 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey0, 
-					   {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
+					 {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
     
     RSAKey0 = public_key:pem_entry_decode(Entry3,"1234abcd"),
     
