@@ -3970,13 +3970,13 @@ check_cpu_bind(ErtsSchedulerData *esdp)
 		goto unbind;
 	}
     }
-    else if (cpu_id < 0) /* && scheduler2cpu_map[esdp->no].bound_id >= 0) */ {
+    else if (cpu_id < 0) {
     unbind:
 	/* Get rid of old binding */
 	res = erts_unbind_from_cpu(erts_cpuinfo);
 	if (res == 0)
 	    esdp->cpu_id = scheduler2cpu_map[esdp->no].bound_id = -1;
-	else {
+	else if (res != -ENOTSUP) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp, "Scheduler %d failed to unbind from cpu %d: %s\n",
 			  (int) esdp->no, cpu_id, erl_errno_id(-res));
