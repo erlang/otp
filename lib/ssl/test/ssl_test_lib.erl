@@ -623,3 +623,20 @@ pem_to_der(File) ->
 der_to_pem(File, Entries) ->
     PemBin = public_key:pem_encode(Entries),
     file:write_file(File, PemBin).
+
+cipher_result(Socket, Result) ->
+    Result = ssl:connection_info(Socket),
+    test_server:format("Successfull connect: ~p~n", [Result]),
+    %% Importante to send two packets here
+    %% to properly test "cipher state" handling
+    ssl:send(Socket, "Hello\n"),
+    receive 
+	{ssl, Socket, "Hello\n"} ->
+	    ssl:send(Socket, " world\n"),
+	    receive 
+		{ssl, Socket, " world\n"} ->
+		    ok
+	    end;       
+	Other ->
+	    {unexpected, Other}
+    end.

@@ -1136,17 +1136,31 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     
     wait_for_openssl_server(),
 
+    ConnectionInfo = {ok, {Version, CipherSuite}},
+
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 			   {from, self()}, 
-			   {mfa, {?MODULE, connection_info_result, []}},
+			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
 			   {options, 
 			    [{ciphers,[CipherSuite]} | 
 			     ClientOpts]}]), 
-   
-    ClientMsg = {ok, {Version, CipherSuite}},
-			   
-    Result = ssl_test_lib:wait_for_result(Client, ClientMsg),    
+
+    port_command(OpenSslPort, "Hello\n"),
+    
+    receive
+	{Port, {data, _}} when is_port(Port) ->
+	    ok
+    after 500 ->
+	    test_server:format("Time out on openssl port, check that"
+			       " the messages Hello and world are received"
+			       " during close of port" , []),
+	    ok
+    end,
+
+    port_command(OpenSslPort, " world\n"),
+    
+    Result = ssl_test_lib:wait_for_result(Client, ok),    
 
     close_port(OpenSslPort),
     %% Clean close down!

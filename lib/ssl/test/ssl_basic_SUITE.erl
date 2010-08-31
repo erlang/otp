@@ -7,7 +7,7 @@
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% retrieved online at http://www.erlang.org/.2
 %%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
@@ -1553,25 +1553,26 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     process_flag(trap_exit, true),
     test_server:format("Testing CipherSuite ~p~n", [CipherSuite]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    ErlangCipherSuite = erlang_cipher_suite(CipherSuite),
+
+    ConnectionInfo = {ok, {Version, ErlangCipherSuite}},
+
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, connection_info_result, []}},
+			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
 			   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 			   {from, self()}, 
-			   {mfa, {?MODULE, connection_info_result, []}},
+			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
 			   {options, 
 			    [{ciphers,[CipherSuite]} | 
 			     ClientOpts]}]), 
-   
-    ErlangCipherSuite = erlang_cipher_suite(CipherSuite),
-
-    ServerMsg = ClientMsg = {ok, {Version, ErlangCipherSuite}},
-			   
-    Result = ssl_test_lib:wait_for_result(Server, ServerMsg, 
-					  Client, ClientMsg),    
+  			   
+    Result = ssl_test_lib:wait_for_result(Server, ok, Client, ok),   
+ 
     ssl_test_lib:close(Server),
     receive 
 	{'EXIT', Server, normal} ->
@@ -2906,6 +2907,7 @@ send_recv_result_active_once(Socket) ->
 
 result_ok(_Socket) ->
     ok.
+
 
 renegotiate(Socket, Data) ->
     test_server:format("Renegotiating ~n", []),
