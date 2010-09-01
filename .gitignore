@@ -191,6 +191,11 @@ a.out.dSYM/
 
 /lib/kernel/src/inet_dns_record_adts.hrl
 
+# kernel
+
+/lib/mnesia/test/Mnesia.*
+/lib/mnesia/test/test_log*
+
 # otp_mibs
 
 /lib/otp_mibs/include/[A-Z]*.hrl
@@ -221,9 +226,6 @@ a.out.dSYM/
 # ssl
 
 /lib/ssl/pkix/*.asn1db
-/lib/ssl/examples/certs/done
-/lib/ssl/examples/certs/ebin/make_certs.beam
-/lib/ssl/examples/certs/etc/
 /lib/ssl/include/OTP-PKIX.hrl
 /lib/ssl/pkix/OTP-PKIX.erl
 /lib/ssl/pkix/OTP-PKIX.hrl

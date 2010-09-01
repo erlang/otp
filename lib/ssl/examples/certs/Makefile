@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2009. All Rights Reserved.
+# Copyright Ericsson AB 2003-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -21,4 +21,41 @@
 # Invoke with GNU make or clearmake -C gnu.
 #
 
-include $(ERL_TOP)/make/run_make.mk
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include ../../vsn.mk
+VSN=$(SSL_VSN)
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
+
+TARGET_FILES=
+
+# ----------------------------------------------------
+# Targets
+# ----------------------------------------------------
+
+debug opt: $(TARGET_FILES)
+
+clean:
+	rm -fr $(TARGET_FILES) *~ *.beam 
+
+docs:
+
+# ----------------------------------------------------
+# Release Target
+# ---------------------------------------------------- 
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+release_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)/examples/certs
+	tar cf - etc | \
+		(cd $(RELSYSDIR)/examples/certs; tar xf -)
+	chmod -f -R ug+rw $(RELSYSDIR)/examples
+release_docs_spec:
