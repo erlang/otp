@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.13.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug introduced in kernel-2.13.5.3 has been fixed. If
+	    running <c>net_kernel:set_net_ticktime/1</c> twice within
+	    the <c>TransitionPerod</c> the second call caused the
+	    net_kernel process to crash with a <c>badmatch</c>.</p>
+          <p>
+	    Own Id: OTP-8787 Aux Id: seq11657, OTP-8643 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.13.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
