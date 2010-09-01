@@ -41,3 +41,16 @@ run(Erule) ->
 	Val -> ok;
 	_ -> exit({expected,Val, got, Val2})
     end.
+
+run2(Erule) ->
+    Val = #'Ax3'{a=253, b = true, s = #'Ax3_s'{sa = 11, sb = true, sextaddgroup = 17}},
+    io:format("~p:~p~n",[Erule,Val]),
+    {ok,List}= asn1rt:encode('Extension-Addition-Group','Ax3',Val),
+    Enc = iolist_to_binary(List),
+    io:format("~p~n",[Enc]),
+    {ok,Val2} = asn1rt:decode('Extension-Addition-Group','Ax3',Enc),
+    io:format("~p~n",[Val2]),
+    case Val2 of
+	Val -> ok;
+	_ -> exit({expected,Val, got, Val2})
+    end.

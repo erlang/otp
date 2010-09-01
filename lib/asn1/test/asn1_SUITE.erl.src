@@ -2298,11 +2298,12 @@ testExtensionAdditionGroup(Config) ->
 	?line Path = code:get_path(),
 	?line code:add_patha(PrivDir),
 	DoIt = fun(Erule) ->
-		?line ok = asn1ct:compile(filename:join(DataDir,"Extension-Addition-Group"),[Erule,{outdir,PrivDir}]),
+		?line ok = asn1ct:compile(filename:join(DataDir,"Extension-Addition-Group"),Erule ++ [{outdir,PrivDir}]),
 		?line {ok,_M} = compile:file(filename:join(DataDir,"extensionAdditionGroup"),[{i,PrivDir},{outdir,PrivDir},debug_info]),
-		?line ok = extensionAdditionGroup:run(Erule)
+		?line ok = extensionAdditionGroup:run(Erule),
+	        ?line ok = extensionAdditionGroup:run2(Erule)
 	       end,
-	?line [DoIt(Rule)|| Rule <- [per_bin,uper_bin,ber_bin]],
+	?line [DoIt(Rule)|| Rule <- [[per_bin],[per_bin,optimize],[uper_bin],[ber_bin],[ber_bin,optimize]]],
 	?line code:set_path(Path).
 
 
