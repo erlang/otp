@@ -189,27 +189,16 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) asn1.spec $(EMAKEFILE) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
-	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
+	$(INSTALL_DIR) $(RELSYSDIR)/asn1_SUITE_data
 	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_SUITE_data
-	@(cd asn1_SUITE_data; tar cf - *) | (cd $(RELSYSDIR)/asn1_bin_SUITE_data; tar xf -)
 	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_v2_SUITE_data
-	@(cd asn1_SUITE_data; tar cf - *) | (cd $(RELSYSDIR)/asn1_bin_v2_SUITE_data; tar xf -)
-
+	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) asn1.spec $(INSTALL_PROGS) $(RELSYSDIR)
+	chmod -f -R u+w $(RELSYSDIR)
+	cd asn1_SUITE_data; tar cfh $(RELSYSDIR)/asn1_SUITE_data.tar *
+	cd $(RELSYSDIR)/asn1_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
+	cd $(RELSYSDIR)/asn1_bin_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
+	cd $(RELSYSDIR)/asn1_bin_v2_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
+	rm $(RELSYSDIR)/asn1_SUITE_data.tar
 
 release_docs_spec:
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -536,14 +536,34 @@ gen_part_decode_funcs({primitive,bif},_TypeName,
 gen_part_decode_funcs(WhatKind,_TypeName,{_,Directive,_,_}) ->
     throw({error,{asn1,{"Not implemented yet",WhatKind," partial incomplete directive:",Directive}}}).
 
+
+extaddgroup2sequence(ExtList) ->
+    extaddgroup2sequence(ExtList,[]).
+
+extaddgroup2sequence([{'ExtensionAdditionGroup',Number0}|T],Acc) ->
+    Number = case Number0 of undefined -> 1; _ -> Number0 end,
+    {ExtGroupComps,['ExtensionAdditionGroupEnd'|T2]} =
+     lists:splitwith(fun(Elem) -> is_record(Elem,'ComponentType') end,T),
+    extaddgroup2sequence(T2,[#'ComponentType'{
+                                  name='ExtAddGroup',
+                                  typespec=#type{def=#'SEQUENCE'{
+						   extaddgroup=Number,
+						   components=ExtGroupComps}},
+				  prop='OPTIONAL'}|Acc]);
+extaddgroup2sequence([C|T],Acc) ->
+    extaddgroup2sequence(T,[C|Acc]);
+extaddgroup2sequence([],Acc) ->
+    lists:reverse(Acc).
+
+
 gen_types(Erules,Tname,{RootL1,ExtList,RootL2}) 
   when is_list(RootL1), is_list(RootL2) ->
     gen_types(Erules,Tname,RootL1),
-    gen_types(Erules,Tname,ExtList),
+    gen_types(Erules,Tname,extaddgroup2sequence(ExtList)),
     gen_types(Erules,Tname,RootL2);
 gen_types(Erules,Tname,{RootList,ExtList}) when is_list(RootList) ->
     gen_types(Erules,Tname,RootList),
-    gen_types(Erules,Tname,ExtList);
+    gen_types(Erules,Tname,extaddgroup2sequence(ExtList));
 gen_types(Erules,Tname,[{'EXTENSIONMARK',_,_}|Rest]) ->
     gen_types(Erules,Tname,Rest);
 gen_types(Erules,Tname,[ComponentType|Rest]) ->
@@ -1543,19 +1563,18 @@ gen_record2(Name,SeqOrSet,Comps) ->
 
 gen_record2(_Name,_SeqOrSet,[],_Com,_Extension) ->
     true;
-gen_record2(Name,SeqOrSet,[{'EXTENSIONMARK',_,_}|T],Com,Extension) ->
-    gen_record2(Name,SeqOrSet,T,Com,Extension);
-gen_record2(_Name,_SeqOrSet,[H],Com,Extension) ->
-    #'ComponentType'{name=Cname} = H,
+gen_record2(_Name,_SeqOrSet,[H = #'ComponentType'{name=Cname}],Com,Extension) ->
     emit(Com),
     emit({asis,Cname}),
     gen_record_default(H, Extension);
-gen_record2(Name,SeqOrSet,[H|T],Com, Extension) ->
-    #'ComponentType'{name=Cname} = H,
+gen_record2(Name,SeqOrSet,[H = #'ComponentType'{name=Cname}|T],Com, Extension) ->
     emit(Com),
     emit({asis,Cname}),
     gen_record_default(H, Extension),
-    gen_record2(Name,SeqOrSet,T,", ", Extension).
+    gen_record2(Name,SeqOrSet,T,", ", Extension);
+gen_record2(Name,SeqOrSet,[_|T],Com,Extension) ->
+    %% skip EXTENSIONMARK, ExtensionAdditionGroup and other markers
+    gen_record2(Name,SeqOrSet,T,Com,Extension).
 
 gen_record_default(#'ComponentType'{prop='OPTIONAL'}, _)->
     emit(" = asn1_NOVALUE"); 

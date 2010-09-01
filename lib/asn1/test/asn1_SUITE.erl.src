@@ -74,6 +74,7 @@ all(suite) -> [compile,parse,default_per,default_ber,default_per_opt,per,
 	       testSeqTypeRefPrim, testSeqTypeRefSeq, testSeqTypeRefSet, 
 	       testSeqOf, testSeqOfIndefinite, testSeqOfCho, 
 	       testSeqOfExternal, testSetDefault, testSetExtension, 
+	       testExtensionAdditionGroup,
 	       testSetExternal, testSeqOfTag, testSetOptional, testSetPrim, 
 	       testSetTag, testSetTypeRefCho, testSetTypeRefPrim,
 	       testSetTypeRefSeq, testSetTypeRefSet, testSetOf, testSetOfCho,
@@ -95,7 +96,7 @@ all(suite) -> [compile,parse,default_per,default_ber,default_per_opt,per,
 	       testSSLspecs, testNortel,test_undecoded_rest,
 	       test_inline, testTcapsystem, testNBAPsystem,
 	       test_compile_options,testDoubleEllipses, test_modified_x420,
-	       testX420, test_x691,ticket_6143
+	       testX420, test_x691,ticket_6143, testExtensionAdditionGroup
                ] ++ common() ++ particular().
 
 %all(suite) -> [test_inline,testNBAPsystem,test_compile_options,ticket_6143].
@@ -1034,7 +1035,6 @@ testSetExtension(Config) ->
 
 testSetExtension_cases(Rules) ->
     ?line testSetExtension:main(Rules).
-
 
 
 testSetExternal(suite) -> [];
@@ -2291,6 +2291,21 @@ test_x691(Config) ->
 ticket_6143(suite) -> [];
 ticket_6143(Config) ->
     ?line ok = test_compile_options:ticket_6143(Config).
+
+testExtensionAdditionGroup(suite) -> [];
+testExtensionAdditionGroup(Config) ->
+	?line DataDir = ?config(data_dir,Config),
+	?line PrivDir = ?config(priv_dir,Config),
+	?line Path = code:get_path(),
+	?line code:add_patha(PrivDir),
+	DoIt = fun(Erule) ->
+		?line ok = asn1ct:compile(filename:join(DataDir,"Extension-Addition-Group"),[Erule,{outdir,PrivDir}]),
+		?line {ok,_M} = compile:file(filename:join(DataDir,"extensionAdditionGroup"),[{i,PrivDir},{outdir,PrivDir},debug_info]),
+		?line ok = extensionAdditionGroup:run(Erule)
+	       end,
+	?line [DoIt(Rule)|| Rule <- [per_bin,uper_bin,ber_bin]],
+	?line code:set_path(Path).
+
 
 
 % parse_modules() ->
