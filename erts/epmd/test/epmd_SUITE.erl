@@ -64,6 +64,7 @@
 
     returns_valid_empty_extra/1,
     returns_valid_populated_extra_with_nulls/1,
+    buffer_overrun/1,
     buffer_overrun_1/1,
     buffer_overrun_2/1,
     no_nonlocal_register/1,
@@ -128,8 +129,9 @@ all(suite) ->
      returns_valid_empty_extra,
      returns_valid_populated_extra_with_nulls,
 
-     buffer_overrun_1,
-     buffer_overrun_2,
+     buffer_overrun,
+     %buffer_overrun_1,
+     %buffer_overrun_2,
 
      no_nonlocal_register,
      no_nonlocal_kill,
@@ -141,7 +143,7 @@ all(suite) ->
 %%
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(?SHORT_TEST_TIMEOUT),
+    Dog = test_server:timetrap(?MEDIUM_TEST_TIMEOUT),
     cleanup(),
     [{watchdog, Dog} | Config].
 
@@ -723,6 +725,8 @@ returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+buffer_overrun(suite) ->
+    [buffer_overrun_1,buffer_overrun_2].
 
 buffer_overrun_1(suite) ->
     [];
@@ -745,7 +749,7 @@ hostile(N) ->
     try
 	Bin= <<$x:8,4747:16,$M:8,0:8,5:16,5:16,5:16,"gurka",N:16>>,
 	S = size(Bin),
-	{ok,E}=connect(),
+	{ok,E}=connect_sturdy(),
 	gen_tcp:send(E,[<<S:16>>,Bin]),
 	closed = recv(E,1),
 	gen_tcp:close(E),
@@ -759,13 +763,13 @@ hostile2(N) ->
 	B2 = list_to_binary(lists:duplicate(N,255)),
 	Bin= <<$x:8,4747:16,$M:8,0:8,5:16,5:16,5:16,"gurka",N:16,B2/binary>>,
 	S = size(Bin),
-	{ok,E}=connect(),
+	{ok,E}=connect_sturdy(),
 	gen_tcp:send(E,[<<S:16>>,Bin]),
 	Z = recv(E,2),
 	gen_tcp:close(E),
 	(Z =:= closed) or (Z =:= {ok, [$y,1]})
     catch
-	_:_ ->
+	_A:_B ->
 	    false
     end.
 
@@ -932,7 +936,7 @@ osrun(Cmd) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Wrappers of TCP functions
 
-% These two functions is the interface for connect.
+% These functions is the interface for connect.
 % Passive mode is the default
 
 connect() ->
@@ -944,11 +948,15 @@ connect(Addr) ->
 connect_active() ->
     connect("localhost",?PORT, active).
 
+%% Retry after 15 seconds, to avoid TIME_WAIT socket exhaust.
+connect_sturdy() ->
+    connect("localhost",?PORT, passive, 15000, 3).
 
 % Try a few times before giving up
-
 connect(Addr, Port, Mode) ->
-    case connect_repeat(Addr, ?CONN_RETRY, Port, Mode) of
+    connect(Addr, Port, Mode, ?CONN_SLEEP, ?CONN_RETRY).
+connect(Addr, Port, Mode, Sleep, Retry) ->
+    case connect_repeat(Addr, Retry, Port, Mode, Sleep) of
 	{ok,Sock} ->
 	    {ok,Sock};
 	{error,timeout} ->
@@ -965,16 +973,16 @@ connect(Addr, Port, Mode) ->
 % Try a few times before giving up. Pause a small time between
 % each try.
 
-connect_repeat(Addr, 1, Port, Mode) ->
+connect_repeat(Addr, 1, Port, Mode, _Sleep) ->
     connect_mode(Addr,Port, Mode);
-connect_repeat(Addr,Retry, Port, Mode) ->
+connect_repeat(Addr,Retry, Port, Mode, Sleep) ->
     case connect_mode(Addr,Port, Mode) of
 	{ok,Sock} ->
 	    {ok,Sock};
 	{error,Reason} ->
 	    test_server:format("connect: error: ~w~n",[Reason]),
-	    timer:sleep(?CONN_SLEEP),
-	    connect_repeat(Addr, Retry - 1, Port, Mode);
+	    timer:sleep(Sleep),
+	    connect_repeat(Addr, Retry - 1, Port, Mode, Sleep);
 	Any ->
 	    test_server:format("connect: unknown message: ~w~n",[Any]),
 	    exit(1)
