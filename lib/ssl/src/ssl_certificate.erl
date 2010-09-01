@@ -55,32 +55,32 @@
 %% errors. Returns {RootCert, Path, VerifyErrors}
 %%--------------------------------------------------------------------
 trusted_cert_and_path(CertChain, CertDbRef) ->
-    [Cert | RestPath] = lists:reverse(CertChain),
+    Path = [Cert | _] = lists:reverse(CertChain),
     OtpCert = public_key:pkix_decode_cert(Cert, otp),
-    IssuerAnPath = 
+    IssuerID =
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
 		{ok, IssuerId} = public_key:pkix_issuer_id(OtpCert, self),
-		{IssuerId, RestPath};
-	    false  ->
+		IssuerId;
+	    false ->
 		case public_key:pkix_issuer_id(OtpCert, other) of
 		    {ok, IssuerId} ->
-			{IssuerId, [Cert | RestPath]};
+			IssuerId;
 		    {error, issuer_not_found} ->
 			case find_issuer(OtpCert, no_candidate) of
 			    {ok, IssuerId} ->
-				{IssuerId, [Cert | RestPath]};
+				IssuerId;
 			    Other ->
-				{Other, [Cert | RestPath]}
+				Other
 			end
 		end
 	end,
     
-    case IssuerAnPath of
-	{{error, issuer_not_found}, Path} ->
+    case IssuerID of
+	{error, issuer_not_found} ->
 	    %% The root CA was not sent and can not be found.
 	    {unknown_ca, Path};
-	{{SerialNr, Issuer}, Path} ->
+	{SerialNr, Issuer} ->
 	    case ssl_manager:lookup_trusted_cert(CertDbRef, SerialNr, Issuer) of
 		{ok, {BinCert,_}} ->
 		    {BinCert, Path};
