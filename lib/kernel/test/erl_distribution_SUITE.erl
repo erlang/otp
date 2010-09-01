@@ -273,6 +273,7 @@ tick_change(Config) when is_list(Config) ->
     ?line PaDir = filename:dirname(code:which(?MODULE)),
     ?line [BN, CN] = get_nodenames(2, tick_change),
     ?line DefaultTT = net_kernel:get_net_ticktime(),
+    ?line unchanged = net_kernel:set_net_ticktime(DefaultTT, 60),
     ?line case DefaultTT of
 	      I when is_integer(I) -> ?line ok;
 	      _                 -> ?line ?t:fail(DefaultTT)
@@ -377,6 +378,7 @@ run_tick_change_test(B, C, PrevTT, TT, PaDir) ->
     end,
 
     ?line change_initiated = net_kernel:set_net_ticktime(TT,20),
+    ?line {ongoing_change_to,_} = net_kernel:set_net_ticktime(TT,20),
     ?line sleep(3),
     ?line change_initiated = rpc:call(B,net_kernel,set_net_ticktime,[TT,15]),
     ?line sleep(7),
