@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,8 @@
 %%
 -module(eval_bits).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([expr_grp/3,expr_grp/5,match_bits/6, 
 	 match_bits/7,bin_gen/6]).
 

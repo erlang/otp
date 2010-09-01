@@ -21,7 +21,7 @@
 %% Purpose: Verify the application specifics of the asn1 application
 %%----------------------------------------------------------------------
 -module(asn1_appup_test).
-
+-compile({no_auto_import,[error/1]}).
 -compile(export_all).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -20,6 +20,8 @@
 
 -module(dialyzer_cl_parse).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([start/0]).
 -export([collect_args/1]).	% used also by typer_options.erl
 

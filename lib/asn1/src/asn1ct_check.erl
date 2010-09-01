@@ -22,6 +22,8 @@
 %% Main Module for ASN.1 compile time functions
 
 %-compile(export_all).
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([check/2,storeindb/2]).
 %-define(debug,1).
 -include("asn1_records.hrl").

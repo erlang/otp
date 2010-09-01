@@ -20,6 +20,8 @@
 
 %% Utilities to use from shell.
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([help/0,lc/1,c/1,c/2,nc/1,nc/2, nl/1,l/1,i/0,i/1,ni/0,
          y/1, y/2,
 	 lc_batch/0, lc_batch/1,

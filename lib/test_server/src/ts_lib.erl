@@ -21,6 +21,8 @@
 -include_lib("kernel/include/file.hrl").
 -include("ts.hrl").
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([error/1, var/2, erlang_type/0,
 	 initial_capital/1, interesting_logs/1, 
 	 specs/1, suites/2, last_test/1,

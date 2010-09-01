@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,8 @@
 
 -module(typer).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([start/0]).
 -export([error/1, compile_error/1]).	% for error reporting
 

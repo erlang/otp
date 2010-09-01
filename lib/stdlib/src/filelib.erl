@@ -20,6 +20,8 @@
 
 %% File utilities.
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([wildcard/1, wildcard/2, is_dir/1, is_file/1, is_regular/1, 
 	 compile_wildcard/1]).
 -export([fold_files/5, last_modified/1, file_size/1, ensure_dir/1]).

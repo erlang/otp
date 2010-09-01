@@ -24,6 +24,8 @@
 
 %% External exports 
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([parse_transform/2, transform_from_evaluator/2]).
 
 -export([q/1, q/2]).

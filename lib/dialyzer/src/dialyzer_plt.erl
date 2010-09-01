@@ -28,6 +28,8 @@
 %%%-------------------------------------------------------------------
 -module(dialyzer_plt).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([check_plt/3,
 	 compute_md5_from_files/1,
 	 contains_mfa/2,

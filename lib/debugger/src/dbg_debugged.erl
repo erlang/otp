@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,6 +19,8 @@
 -module(dbg_debugged).
 
 %% External exports
+%% Avoid warning for local function demonitor/1 clashing with autoimported BIF.
+-compile({no_auto_import,[demonitor/1]}).
 -export([eval/3]).
 
 %%====================================================================

@@ -20,6 +20,8 @@
 
 -compile({no_auto_import,[min/2]}).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([file/1, files/1]).
 
 %% Interface for compiler.

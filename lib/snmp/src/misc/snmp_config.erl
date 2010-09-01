@@ -22,6 +22,8 @@
 -include_lib("kernel/include/file.hrl").
 -include("snmp_types.hrl").
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([config/0]).
 
 -export([write_config_file/4, append_config_file/4, read_config_file/3]).
