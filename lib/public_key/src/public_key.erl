@@ -373,11 +373,9 @@ pkix_verify(DerCert,  #'RSAPublicKey'{} = RSAKey)
 pkix_is_issuer(Cert, IssuerCert)  when is_binary(Cert) ->
     OtpCert = pkix_decode_cert(Cert, otp),
     pkix_is_issuer(OtpCert, IssuerCert);
-
 pkix_is_issuer(Cert, IssuerCert) when is_binary(IssuerCert) ->
     OtpIssuerCert = pkix_decode_cert(IssuerCert, otp),
     pkix_is_issuer(Cert, OtpIssuerCert);
-
 pkix_is_issuer(#'OTPCertificate'{tbsCertificate = TBSCert}, 
 	       #'OTPCertificate'{tbsCertificate = Candidate}) ->
     pubkey_cert:is_issuer(TBSCert#'OTPTBSCertificate'.issuer,
@@ -438,7 +436,7 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--spec pkix_path_validation(der_encoded()| #'OTPCertificate'{}, 
+-spec pkix_path_validation(der_encoded()| #'OTPCertificate'{} | unknown_ca,
 			   CertChain :: [der_encoded()] , 
 			   Options :: list()) ->  
 				  {ok, {PublicKeyInfo :: term(), 
@@ -447,10 +445,16 @@ pkix_normalize_name(Issuer) ->
 				  {error, {bad_cert, Reason :: term()}}.
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
-pkix_path_validation(TrustedCert, CertChain, Options)
-  when is_binary(TrustedCert) ->
-    OtpCert = pkix_decode_cert(TrustedCert, otp),
-    pkix_path_validation(OtpCert, CertChain, Options);
+pkix_path_validation(unknown_ca, [Cert | Chain], Options) ->
+    case proplists:get_value(verify, Options, true) of
+	true ->
+	    {error, {bad_cert, unknown_ca}};
+	false ->
+	    pkix_path_validation(Cert, Chain, [{acc_errors, [{bad_cert, unknown_ca}]}])
+    end;
+pkix_path_validation(TrustedCert, CertChain, Options) when
+  is_binary(TrustedCert) -> OtpCert = pkix_decode_cert(TrustedCert,
+  otp), pkix_path_validation(OtpCert, CertChain, Options);
 
 pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options) 
   when is_list(CertChain), is_list(Options) ->

@@ -374,6 +374,11 @@ pkix_path_validation(Config) when is_list(Config) ->
     
     {ok, {_,_,[E]}} = public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4], 
 						      [{verify,false}]),
+
+    {error,  {bad_cert,unknown_ca}} = public_key:pkix_path_validation(unknown_ca, [Cert1, Cert3, Cert4], []),
+
+    {ok, {_,_,[{bad_cert,unknown_ca}]}} =
+	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify, false}]),
     ok.
 
 %%--------------------------------------------------------------------

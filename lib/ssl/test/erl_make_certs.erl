@@ -66,9 +66,9 @@ make_cert(Opts) ->
 %% @end
 %%--------------------------------------------------------------------
 write_pem(Dir, FileName, {Cert, Key = {_,_,not_encrypted}}) when is_binary(Cert) ->
-    ok = ssl_test_lib:der_to_pem(filename:join(Dir, FileName ++ ".pem"), 
+    ok = der_to_pem(filename:join(Dir, FileName ++ ".pem"),
 			       [{'Certificate', Cert, not_encrypted}]),
-    ok = ssl_test_lib:der_to_pem(filename:join(Dir, FileName ++ "_key.pem"), [Key]).
+    ok = der_to_pem(filename:join(Dir, FileName ++ "_key.pem"), [Key]).
 
 %%--------------------------------------------------------------------
 %% @doc Creates a rsa key (OBS: for testing only)
@@ -144,34 +144,39 @@ encode_key(Key = #'DSAPrivateKey'{}) ->
 
 make_tbs(SubjectKey, Opts) ->    
     Version = list_to_atom("v"++integer_to_list(proplists:get_value(version, Opts, 3))),
-    {Issuer, IssuerKey}  = issuer(Opts, SubjectKey),
+
+    IssuerProp = proplists:get_value(issuer, Opts, true),
+    {Issuer, IssuerKey}  = issuer(IssuerProp, Opts, SubjectKey),
 
     {Algo, Parameters} = sign_algorithm(IssuerKey, Opts),
     
     SignAlgo = #'SignatureAlgorithm'{algorithm  = Algo,
 				     parameters = Parameters},    
-    
+    Subject = case IssuerProp of
+		  true -> %% Is a Root Ca
+		      Issuer;
+		  _ ->
+		      subject(proplists:get_value(subject, Opts),false)
+	      end,
+
     {#'OTPTBSCertificate'{serialNumber = trunc(random:uniform()*100000000)*10000 + 1,
 			  signature    = SignAlgo,
 			  issuer       = Issuer,
 			  validity     = validity(Opts),
-			  subject      = subject(proplists:get_value(subject, Opts),false),
+			  subject      = Subject,
 			  subjectPublicKeyInfo = publickey(SubjectKey),
 			  version      = Version,
 			  extensions   = extensions(Opts)
 			 }, IssuerKey}.
 
-issuer(Opts, SubjectKey) ->
-    IssuerProp = proplists:get_value(issuer, Opts, true),
-    case IssuerProp of 
-	true -> %% Self signed
-	    {subject(proplists:get_value(subject, Opts), true), SubjectKey};
-	{Issuer, IssuerKey} when is_binary(Issuer) ->
-	    {issuer_der(Issuer), decode_key(IssuerKey)};
-        {File, IssuerKey} when is_list(File) ->
-	    {ok, [{cert, Cert, _}|_]} = public_key:pem_to_der(File),
-	    {issuer_der(Cert), decode_key(IssuerKey)}
-    end.
+issuer(true, Opts, SubjectKey) ->
+    %% Self signed
+    {subject(proplists:get_value(subject, Opts), true), SubjectKey};
+issuer({Issuer, IssuerKey}, _Opts, _SubjectKey) when is_binary(Issuer) ->
+    {issuer_der(Issuer), decode_key(IssuerKey)};
+issuer({File, IssuerKey}, _Opts, _SubjectKey) when is_list(File) ->
+    {ok, [{cert, Cert, _}|_]} = public_key:pem_to_der(File),
+    {issuer_der(Cert), decode_key(IssuerKey)}.
 
 issuer_der(Issuer) ->
     Decoded = public_key:pkix_decode_cert(Issuer, otp),
@@ -179,8 +184,8 @@ issuer_der(Issuer) ->
     #'OTPTBSCertificate'{subject=Subject} = Tbs,
     Subject.
 
-subject(undefined, IsCA) ->
-    User = if IsCA -> "CA"; true -> os:getenv("USER") end,
+subject(undefined, IsRootCA) ->
+    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER") end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -267,7 +272,7 @@ publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y}.
 
 validity(Opts) ->
-    DefFrom0 = date(),
+    DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
     DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
     {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
     Format = fun({Y,M,D}) -> lists:flatten(io_lib:format("~w~2..0w~2..0w000000Z",[Y,M,D])) end,
@@ -406,3 +411,11 @@ extended_gcd(A, B) ->
 	    {X, Y} = extended_gcd(B, N),
 	    {Y, X-Y*(A div B)}
     end.
+
+pem_to_der(File) ->
+    {ok, PemBin} = file:read_file(File),
+    public_key:pem_decode(PemBin).
+
+der_to_pem(File, Entries) ->
+    PemBin = public_key:pem_encode(Entries),
+    file:write_file(File, PemBin).
