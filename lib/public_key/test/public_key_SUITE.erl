@@ -131,36 +131,36 @@ pk_decode_encode(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
 
     [{'DSAPrivateKey', DerDSAKey, not_encrypted} = Entry0 ] = 
-	pkey_test:pem_to_der(filename:join(Datadir, "dsa.pem")), 
+	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")), 
     
     DSAKey = public_key:der_decode('DSAPrivateKey', DerDSAKey),
     
     DSAKey = public_key:pem_entry_decode(Entry0),
     
     [{'RSAPrivateKey', DerRSAKey, not_encrypted} =  Entry1 ] = 
-	pkey_test:pem_to_der(filename:join(Datadir, "client_key.pem")),
+	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
     
     RSAKey0 = public_key:der_decode('RSAPrivateKey', DerRSAKey),
     
     RSAKey0 = public_key:pem_entry_decode(Entry1),
         
     [{'RSAPrivateKey', _, {_,_}} = Entry2] = 
-	pkey_test:pem_to_der(filename:join(Datadir, "rsa.pem")),
+	erl_make_certs:pem_to_der(filename:join(Datadir, "rsa.pem")),
     
     true = check_entry_type(public_key:pem_entry_decode(Entry2, "abcd1234"), 
 			    'RSAPrivateKey'),
 
     Salt0 = crypto:rand_bytes(8),
     Entry3 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey0, 
-					   {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
+					 {{"DES-EDE3-CBC", Salt0}, "1234abcd"}),
     
     RSAKey0 = public_key:pem_entry_decode(Entry3,"1234abcd"),
     
     Des3KeyFile = filename:join(Datadir, "des3_client_key.pem"),
 
-    pkey_test:der_to_pem(Des3KeyFile, [Entry3]),
+    erl_make_certs:der_to_pem(Des3KeyFile, [Entry3]),
 
-    [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] = pkey_test:pem_to_der(Des3KeyFile),
+    [{'RSAPrivateKey', _, {"DES-EDE3-CBC", Salt0}}] = erl_make_certs:pem_to_der(Des3KeyFile),
     
     Salt1 = crypto:rand_bytes(8),
     Entry4 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey0, 
@@ -169,18 +169,18 @@ pk_decode_encode(Config) when is_list(Config) ->
 
     DesKeyFile = filename:join(Datadir, "des_client_key.pem"),
     
-    pkey_test:der_to_pem(DesKeyFile, [Entry4]),
+    erl_make_certs:der_to_pem(DesKeyFile, [Entry4]),
 
-    [{'RSAPrivateKey', _, {"DES-CBC", Salt1}} =Entry5] = pkey_test:pem_to_der(DesKeyFile),
+    [{'RSAPrivateKey', _, {"DES-CBC", Salt1}} =Entry5] = erl_make_certs:pem_to_der(DesKeyFile),
 
     
      true = check_entry_type(public_key:pem_entry_decode(Entry5, "4567efgh"),
 			     'RSAPrivateKey'),
 
     [{'DHParameter', DerDH, not_encrypted} = Entry6] =  
-	pkey_test:pem_to_der(filename:join(Datadir, "dh.pem")),
+	erl_make_certs:pem_to_der(filename:join(Datadir, "dh.pem")),
     
-    pkey_test:der_to_pem(filename:join(Datadir, "new_dh.pem"), [Entry6]),
+    erl_make_certs:der_to_pem(filename:join(Datadir, "new_dh.pem"), [Entry6]),
 
     DHParameter = public_key:der_decode('DHParameter', DerDH),
     DHParameter = public_key:pem_entry_decode(Entry6),
@@ -188,22 +188,22 @@ pk_decode_encode(Config) when is_list(Config) ->
     Entry6 = public_key:pem_entry_encode('DHParameter', DHParameter),
    
     [{'Certificate', DerCert, not_encrypted} = Entry7] =  
-	pkey_test:pem_to_der(filename:join(Datadir, "client_cert.pem")),
+	erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
     
     Cert = public_key:der_decode('Certificate', DerCert),
     Cert = public_key:pem_entry_decode(Entry7),
     
     CertEntries = [{'Certificate', _, not_encrypted} = CertEntry0, 
 		   {'Certificate', _, not_encrypted} = CertEntry1] = 
-        pkey_test:pem_to_der(filename:join(Datadir, "cacerts.pem")),
+        erl_make_certs:pem_to_der(filename:join(Datadir, "cacerts.pem")),
     
-    ok = pkey_test:der_to_pem(filename:join(Datadir, "wcacerts.pem"), CertEntries), 
-    ok = pkey_test:der_to_pem(filename:join(Datadir, "wdsa.pem"), [Entry0]), 
+    ok = erl_make_certs:der_to_pem(filename:join(Datadir, "wcacerts.pem"), CertEntries), 
+    ok = erl_make_certs:der_to_pem(filename:join(Datadir, "wdsa.pem"), [Entry0]), 
     
-     NewCertEntries = pkey_test:pem_to_der(filename:join(Datadir, "wcacerts.pem")),
+     NewCertEntries = erl_make_certs:pem_to_der(filename:join(Datadir, "wcacerts.pem")),
      true = lists:member(CertEntry0, NewCertEntries),
      true = lists:member(CertEntry1, NewCertEntries),
-    [Entry0] = pkey_test:pem_to_der(filename:join(Datadir, "wdsa.pem")),
+    [Entry0] = erl_make_certs:pem_to_der(filename:join(Datadir, "wdsa.pem")),
     ok.
 
 %%--------------------------------------------------------------------
@@ -212,7 +212,7 @@ encrypt_decrypt(doc) ->
 encrypt_decrypt(suite) -> 
     [];
 encrypt_decrypt(Config) when is_list(Config) -> 
-    {PrivateKey, _DerKey} = pkey_test:gen_rsa(64),
+    {PrivateKey, _DerKey} = erl_make_certs:gen_rsa(64),
     #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = PrivateKey,
     PublicKey = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
     Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
@@ -233,16 +233,16 @@ sign_verify(suite) ->
     [];
 sign_verify(Config) when is_list(Config) -> 
     %% Make cert signs and validates the signature using RSA and DSA
-    Ca = {_, CaKey} = pkey_test:make_cert([]),
+    Ca = {_, CaKey} = erl_make_certs:make_cert([]),
     PrivateRSA = #'RSAPrivateKey'{modulus=Mod, publicExponent=Exp} = 
 	public_key:pem_entry_decode(CaKey),
 
-    CertInfo = {Cert1,CertKey1} = pkey_test:make_cert([{key, dsa}, {issuer, Ca}]),
+    CertInfo = {Cert1,CertKey1} = erl_make_certs:make_cert([{key, dsa}, {issuer, Ca}]),
 
     PublicRSA = #'RSAPublicKey'{modulus=Mod, publicExponent=Exp},
     true = public_key:pkix_verify(Cert1, PublicRSA),
 
-    {Cert2,_CertKey} = pkey_test:make_cert([{issuer, CertInfo}]),
+    {Cert2,_CertKey} = erl_make_certs:make_cert([{issuer, CertInfo}]),
 
     #'DSAPrivateKey'{p=P, q=Q, g=G, y=Y, x=_X} = 
 	public_key:pem_entry_decode(CertKey1),
@@ -264,7 +264,7 @@ sign_verify(Config) when is_list(Config) ->
     %% DSA sign
     Datadir = ?config(data_dir, Config),
     [DsaKey = {'DSAPrivateKey', _, _}] = 
-	pkey_test:pem_to_der(filename:join(Datadir, "dsa.pem")), 
+	erl_make_certs:pem_to_der(filename:join(Datadir, "dsa.pem")), 
     DSAPrivateKey = public_key:pem_entry_decode(DsaKey),
     #'DSAPrivateKey'{p=P1, q=Q1, g=G1, y=Y1, x=_X1} = DSAPrivateKey,
     DSASign = public_key:sign(Msg, sha, DSAPrivateKey),
@@ -293,8 +293,8 @@ pkix(suite) ->
     [];
 pkix(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
-    Certs0 = pkey_test:pem_to_der(filename:join(Datadir, "cacerts.pem")),
-    Certs1 = pkey_test:pem_to_der(filename:join(Datadir, "client_cert.pem")),
+    Certs0 = erl_make_certs:pem_to_der(filename:join(Datadir, "cacerts.pem")),
+    Certs1 = erl_make_certs:pem_to_der(filename:join(Datadir, "client_cert.pem")),
     TestTransform = fun({'Certificate', CertDer, not_encrypted}) ->
 			    PlainCert = public_key:pkix_decode_cert(CertDer, plain),
 			    OtpCert = public_key:pkix_decode_cert(CertDer, otp),
@@ -340,7 +340,7 @@ pkix_path_validation(suite) ->
     [];
 pkix_path_validation(Config) when is_list(Config) ->
     CaK = {Trusted,_} = 
-	pkey_test:make_cert([{key, dsa},
+	erl_make_certs:make_cert([{key, dsa},
 			     {subject, [
 					{name, "Public Key"},
 					{?'id-at-name', {printableString, "public_key"}},
@@ -351,12 +351,12 @@ pkix_path_validation(Config) when is_list(Config) ->
 					{org_unit, "testing dep"}
 				       ]}
 			    ]),
-    ok = pkey_test:write_pem("./", "public_key_cacert", CaK),
+    ok = erl_make_certs:write_pem("./", "public_key_cacert", CaK),
 
-    CertK1 = {Cert1, _} = pkey_test:make_cert([{issuer, CaK}]),
-    CertK2 = {Cert2,_} = pkey_test:make_cert([{issuer, CertK1}, 
+    CertK1 = {Cert1, _} = erl_make_certs:make_cert([{issuer, CaK}]),
+    CertK2 = {Cert2,_} = erl_make_certs:make_cert([{issuer, CertK1}, 
 					      {digest, md5}, {extensions, false}]),
-    ok = pkey_test:write_pem("./", "public_key_cert", CertK2),
+    ok = erl_make_certs:write_pem("./", "public_key_cert", CertK2),
     
     {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1], []),
     
@@ -366,9 +366,9 @@ pkix_path_validation(Config) when is_list(Config) ->
     {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1, Cert2], []),    
     {error, issuer_not_found} = public_key:pkix_issuer_id(Cert2, other),
 
-    CertK3 = {Cert3,_}  = pkey_test:make_cert([{issuer, CertK1}, 
+    CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1}, 
 					       {extensions, [{basic_constraints, false}]}]),
-    {Cert4,_}  = pkey_test:make_cert([{issuer, CertK3}]),
+    {Cert4,_}  = erl_make_certs:make_cert([{issuer, CertK3}]),
     {error, E={bad_cert,missing_basic_constraint}} = 
 	public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4], []),
     

@@ -19,7 +19,7 @@
 
 %% Create test certificates
 
--module(pkey_test).
+-module(erl_make_certs).
 -include_lib("public_key/include/public_key.hrl").
 
 -export([make_cert/1, gen_rsa/1, verify_signature/3, write_pem/3]).
@@ -144,34 +144,39 @@ encode_key(Key = #'DSAPrivateKey'{}) ->
 
 make_tbs(SubjectKey, Opts) ->    
     Version = list_to_atom("v"++integer_to_list(proplists:get_value(version, Opts, 3))),
-    {Issuer, IssuerKey}  = issuer(Opts, SubjectKey),
+
+    IssuerProp = proplists:get_value(issuer, Opts, true),
+    {Issuer, IssuerKey}  = issuer(IssuerProp, Opts, SubjectKey),
 
     {Algo, Parameters} = sign_algorithm(IssuerKey, Opts),
     
     SignAlgo = #'SignatureAlgorithm'{algorithm  = Algo,
 				     parameters = Parameters},    
-    
+    Subject = case IssuerProp of
+		  true -> %% Is a Root Ca
+		      Issuer;
+		  _ ->
+		      subject(proplists:get_value(subject, Opts),false)
+	      end,
+
     {#'OTPTBSCertificate'{serialNumber = trunc(random:uniform()*100000000)*10000 + 1,
 			  signature    = SignAlgo,
 			  issuer       = Issuer,
 			  validity     = validity(Opts),
-			  subject      = subject(proplists:get_value(subject, Opts),false),
+			  subject      = Subject,
 			  subjectPublicKeyInfo = publickey(SubjectKey),
 			  version      = Version,
 			  extensions   = extensions(Opts)
 			 }, IssuerKey}.
 
-issuer(Opts, SubjectKey) ->
-    IssuerProp = proplists:get_value(issuer, Opts, true),
-    case IssuerProp of 
-	true -> %% Self signed
-	    {subject(proplists:get_value(subject, Opts), true), SubjectKey};
-	{Issuer, IssuerKey} when is_binary(Issuer) ->
-	    {issuer_der(Issuer), decode_key(IssuerKey)};
-        {File, IssuerKey} when is_list(File) ->
-	    {ok, [{cert, Cert, _}|_]} = public_key:pem_to_der(File),
-	    {issuer_der(Cert), decode_key(IssuerKey)}
-    end.
+issuer(true, Opts, SubjectKey) ->
+    %% Self signed
+    {subject(proplists:get_value(subject, Opts), true), SubjectKey};
+issuer({Issuer, IssuerKey}, _Opts, _SubjectKey) when is_binary(Issuer) ->
+    {issuer_der(Issuer), decode_key(IssuerKey)};
+issuer({File, IssuerKey}, _Opts, _SubjectKey) when is_list(File) ->
+    {ok, [{cert, Cert, _}|_]} = public_key:pem_to_der(File),
+    {issuer_der(Cert), decode_key(IssuerKey)}.
 
 issuer_der(Issuer) ->
     Decoded = public_key:pkix_decode_cert(Issuer, otp),
@@ -179,8 +184,8 @@ issuer_der(Issuer) ->
     #'OTPTBSCertificate'{subject=Subject} = Tbs,
     Subject.
 
-subject(undefined, IsCA) ->
-    User = if IsCA -> "CA"; true -> os:getenv("USER") end,
+subject(undefined, IsRootCA) ->
+    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER") end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -267,7 +272,7 @@ publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y}.
 
 validity(Opts) ->
-    DefFrom0 = date(),
+    DefFrom0 = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())-1),
     DefTo0   = calendar:gregorian_days_to_date(calendar:date_to_gregorian_days(date())+7),
     {DefFrom, DefTo} = proplists:get_value(validity, Opts, {DefFrom0, DefTo0}),
     Format = fun({Y,M,D}) -> lists:flatten(io_lib:format("~w~2..0w~2..0w000000Z",[Y,M,D])) end,
