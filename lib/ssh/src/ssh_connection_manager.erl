@@ -560,13 +560,18 @@ handle_info({'EXIT', _, _}, State) ->
 %% The return value is ignored.
 %%--------------------------------------------------------------------
 terminate(Reason, #state{connection_state =  
-			 #connection{requests = Requests},
+			 #connection{requests = Requests,
+			            sub_system_supervisor = SubSysSup},
 			 opts = Opts}) ->
     SSHOpts = proplists:get_value(ssh_opts, Opts),
     disconnect_fun(Reason, SSHOpts),
     (catch lists:foreach(fun({_, From}) -> 
 				 gen_server:reply(From, {error, connection_closed})
 			 end, Requests)),
+    Address =  proplists:get_value(address, Opts),
+    Port = proplists:get_value(port, Opts),
+    SystemSup = ssh_system_sup:system_supervisor(Address, Port),
+    ssh_system_sup:stop_subsystem(SystemSup, SubSysSup),
     ok.
 
 %%--------------------------------------------------------------------
