@@ -274,7 +274,7 @@ load(Mod, BeamFileName) when is_list(BeamFileName) ->
   Architecture = erlang:system_info(hipe_architecture),
   ChunkName = hipe_unified_loader:chunk_name(Architecture),
   case beam_lib:chunks(BeamFileName, [ChunkName]) of
-    {ok,{_,[{_,Bin}]}} when is_binary(Bin) -> do_load(Mod, Bin, Bin);
+    {ok,{_,[{_,Bin}]}} when is_binary(Bin) -> do_load(Mod, Bin, BeamFileName);
     Error -> {error, Error}
   end.
 
@@ -913,7 +913,7 @@ do_load(Mod, Bin, WholeModule) ->
       %% In this case, the emulated code for the module must be loaded.
       {module, Mod} = code:ensure_loaded(Mod),
       code:load_native_partial(Mod, Bin);
-    BinCode when is_binary(BinCode) ->
+    BeamBinOrPath when is_binary(BeamBinOrPath) orelse is_list(BeamBinOrPath) ->
       case code:is_sticky(Mod) of
 	true ->
 	  %% We unpack and repack the Beam binary as a workaround to
