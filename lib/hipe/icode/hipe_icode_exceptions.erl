@@ -344,6 +344,16 @@ pop_catch(Cs) ->
 
 pop_catch_1([[_|C] | Cs]) ->
   [C | pop_catch_1(Cs)];
+pop_catch_1([[] | Cs]) ->
+  %% The elements in the list represent different possible incoming
+  %% stacks of catch handlers to this BB.  Before the fixpoint has
+  %% been found these elements are underapproximations of the true
+  %% stacks, therefore it's possible for these elements to be too
+  %% short for the number of pops implied by the code in the BB.
+  %% We must not fail in that case, so we set pop([]) = [].
+  %% This fixes find_catches_crash.erl and compiler_tests in the
+  %% HiPE test suite.
+  [[] | pop_catch_1(Cs)];
 pop_catch_1([]) ->
   [].
 
