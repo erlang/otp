@@ -6408,6 +6408,12 @@ any_component_relation(S,Type,CNames,NamePath,Acc) when is_record(Type,type) ->
 		[]
 	end,
     InnerAcc  ++ CRelPath ++ Acc;
+%% Just skip the markers for ExtensionAdditionGroup start and end
+%% in this function
+any_component_relation(S,[#'ExtensionAdditionGroup'{}|Cs],CNames,NamePath,Acc) ->
+    any_component_relation(S,Cs,CNames,NamePath,Acc);
+any_component_relation(S,['ExtensionAdditionGroupEnd'|Cs],CNames,NamePath,Acc) ->
+    any_component_relation(S,Cs,CNames,NamePath,Acc);
 any_component_relation(_,[],_,_,Acc) ->
     Acc.
 

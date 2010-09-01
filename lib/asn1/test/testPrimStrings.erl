@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -930,7 +930,7 @@ utf8_string(_Rules) ->
     ?line {ok,Bin13} = asn1_wrapper:decode('PrimStrings','UTF',Bytes13),
     ?line {ok,LongVal} = wrapper_utf8_binary_to_list(Bin13).
 
-wrapper_utf8_binary_to_list(L) when list(L) ->
+wrapper_utf8_binary_to_list(L) when is_list(L) ->
     asn1rt:utf8_binary_to_list(list_to_binary(L));
 wrapper_utf8_binary_to_list(B) ->
     asn1rt:utf8_binary_to_list(B).
