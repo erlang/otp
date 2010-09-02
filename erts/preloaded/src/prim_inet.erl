@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1206,7 +1206,7 @@ type_opt_1(sctp_default_send_param) ->
 	timetolive        = [uint32,0],
 	tsn               = [],
 	cumtsn            = [],
-	assoc_id          = [sctp_assoc_id,0]}}];
+	assoc_id          = [[sctp_assoc_id,0]]}}];
 %% for SCTP_OPT_EVENTS
 type_opt_1(sctp_events) ->
     [{record,#sctp_event_subscribe{

@@ -166,18 +166,14 @@ send(S, #sctp_assoc_change{assoc_id=AssocId}, Stream, Data)
   when is_port(S), is_integer(Stream) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
-	    Mod:sendmsg(S, #sctp_sndrcvinfo{
-			  stream   = Stream,
-			  assoc_id = AssocId}, Data);
+	    Mod:send(S, AssocId, Stream, Data);
 	Error -> Error
     end;
 send(S, AssocId, Stream, Data)
   when is_port(S), is_integer(AssocId), is_integer(Stream) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
-	    Mod:sendmsg(S, #sctp_sndrcvinfo{
-			  stream   = Stream,
-			  assoc_id = AssocId}, Data);
+	    Mod:send(S, AssocId, Stream, Data);
 	Error -> Error
     end;
 send(S, AssocChange, Stream, Data) ->

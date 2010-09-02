@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
 
 -define(FAMILY, inet6).
 -export([getserv/1,getaddr/1,getaddr/2,translate_ip/1]).
--export([open/1,close/1,listen/2,connect/5,sendmsg/3,recv/2]).
+-export([open/1,close/1,listen/2,connect/5,sendmsg/3,send/4,recv/2]).
 
 
 
@@ -70,6 +70,25 @@ connect(S, Addr, Port, Opts, Timer) ->
 
 sendmsg(S, SRI, Data) ->
     prim_inet:sendmsg(S, SRI, Data).
+
+send(S, AssocId, Stream, Data) ->
+    case prim_inet:getopts(
+	   S,
+	   [{sctp_default_send_param,#sctp_sndrcvinfo{assoc_id=AssocId}}]) of
+	{ok,
+	 [{sctp_default_send_param,
+	   #sctp_sndrcvinfo{
+	     flags=Flags, context=Context, ppid=PPID, timetolive=TTL}}]} ->
+	    prim_inet:sendmsg(
+	      S,
+	      #sctp_sndrcvinfo{
+		flags=Flags, context=Context, ppid=PPID, timetolive=TTL,
+		assoc_id=AssocId, stream=Stream},
+	      Data);
+	_ ->
+	    prim_inet:sendmsg(
+	      S, #sctp_sndrcvinfo{assoc_id=AssocId, stream=Stream}, Data)
+    end.
 
 recv(S, Timeout) ->
     prim_inet:recvfrom(S, 0, Timeout).
