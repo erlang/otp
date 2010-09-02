@@ -23,12 +23,16 @@
 
 %%-compile(export_all).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1,api_open_close/1,api_listen/1,api_connect_init/1,
-	 xfer_min/1,xfer_active/1]).
+-export([all/1,init_per_testcase/2,fin_per_testcase/2]).
+-export(
+   [basic/1,
+    api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
+    xfer_min/1,xfer_active/1]).
 
 all(suite) ->
-    [basic,api_open_close,api_listen,api_connect_init,xfer_min,xfer_active].
+    [basic,
+     api_open_close,api_listen,api_connect_init,api_opts,
+     xfer_min,xfer_active].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(15)),
@@ -382,3 +386,17 @@ api_connect_init(Config) when is_list(Config) ->
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
     ok.
+
+api_opts(doc) ->
+    "Test socket options";
+api_opts(suite) ->
+    [];
+api_opts(Config) when is_list(Config) ->
+    ?line {ok,S} = gen_sctp:open(0),
+    ?line OSType = os:type(),
+    ?line case {inet:setopts(S, [{linger,{true,2}}]),OSType} of
+              {ok,_} ->
+                  ok;
+              {{error,einval},{unix,sunos}} ->
+                  ok
+          end.
