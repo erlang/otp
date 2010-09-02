@@ -4009,7 +4009,7 @@ signal_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size)
     int s_ix = 1;
     int cpu_ix;
 
-    if (cpu_bind_order != ERTS_CPU_BIND_NONE) {
+    if (cpu_bind_order != ERTS_CPU_BIND_NONE && size) {
 
 	cpu_bind_order_sort(cpudata, size, cpu_bind_order, 1);
 
@@ -5523,7 +5523,6 @@ late_cpu_bind_init(void)
 	erts_cpu_topology_t *cpudata;
 	int cpudata_size;
 	create_tmp_cpu_topology_copy(&cpudata, &cpudata_size);
-	ASSERT(cpudata);
 	signal_schedulers_bind_change(cpudata, cpudata_size);
 	destroy_tmp_cpu_topology_copy(cpudata);
     }
@@ -5538,23 +5537,29 @@ erts_update_cpu_info(void)
     if (changed) {
 	erts_cpu_topology_t *cpudata;
 	int cpudata_size;
-	erts_free(ERTS_ALC_T_CPUDATA, system_cpudata);
+
+	if (system_cpudata)
+	    erts_free(ERTS_ALC_T_CPUDATA, system_cpudata);
 
 	system_cpudata_size = erts_get_cpu_topology_size(erts_cpuinfo);
-	system_cpudata = erts_alloc(ERTS_ALC_T_CPUDATA,
-				    (sizeof(erts_cpu_topology_t)
-				     * system_cpudata_size));
-
-	if (!erts_get_cpu_topology(erts_cpuinfo, system_cpudata)
-	    || ERTS_INIT_CPU_TOPOLOGY_OK != verify_topology(system_cpudata,
-							    system_cpudata_size)) {
-	    erts_free(ERTS_ALC_T_CPUDATA, system_cpudata);
+	if (!system_cpudata_size)
 	    system_cpudata = NULL;
-	    system_cpudata_size = 0;
+	else {
+	    system_cpudata = erts_alloc(ERTS_ALC_T_CPUDATA,
+					(sizeof(erts_cpu_topology_t)
+					 * system_cpudata_size));
+
+	    if (!erts_get_cpu_topology(erts_cpuinfo, system_cpudata)
+		|| (ERTS_INIT_CPU_TOPOLOGY_OK
+		    != verify_topology(system_cpudata,
+				       system_cpudata_size))) {
+		erts_free(ERTS_ALC_T_CPUDATA, system_cpudata);
+		system_cpudata = NULL;
+		system_cpudata_size = 0;
+	    }
 	}
 
 	create_tmp_cpu_topology_copy(&cpudata, &cpudata_size);
-	ASSERT(cpudata);
 	signal_schedulers_bind_change(cpudata, cpudata_size);
 	destroy_tmp_cpu_topology_copy(cpudata);
     }

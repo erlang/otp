@@ -47,6 +47,7 @@
 	 scheduler_bind/1,
 	 scheduler_bind_types/1,
 	 cpu_topology/1,
+	 update_cpu_info/1,
 	 sct_cmd/1,
 	 sbt_cmd/1,
 	 scheduler_suspend/1,
@@ -249,6 +250,7 @@ bound_loop(NS, N, M, Sched) ->
 scheduler_bind(suite) ->
     [scheduler_bind_types,
      cpu_topology,
+     update_cpu_info,
      sct_cmd,
      sbt_cmd].
 
@@ -771,6 +773,137 @@ cpu_topology_cmdline_test(Config, Topology, Cmd) ->
     ?line cmp(Topology, rpc:call(Node, erlang, system_info, [cpu_topology])),
     ?line stop_node(Node),
     ?line ok.
+
+update_cpu_info(Config) when is_list(Config) ->
+    ?line OldOnline = erlang:system_info(schedulers_online),
+    ?line OldAff = get_affinity_mask(),
+    ?line ?t:format("START - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+		    [OldAff, OldOnline, erlang:system_info(scheduler_bindings)]),
+    ?line case {erlang:system_info(logical_processors_available), OldAff} of
+	      {Avail, _} when Avail == unknown; OldAff == unknown ->
+		  %% Nothing much to test; just a smoke test
+		  case erlang:system_info(update_cpu_info) of
+		      unchanged -> ?line ok;
+		      changed -> ?line ok
+		  end;
+	      _ ->
+		  try
+		      ?line adjust_schedulers_online(),
+		      case erlang:system_info(schedulers_online) of
+			  1 ->
+			      %% Nothing much to test; just a smoke test
+			      ?line ok;
+			  Onln0 ->
+			      %% unset least significant bit
+			      ?line Aff = (OldAff band (OldAff - 1)),
+			      ?line set_affinity_mask(Aff),
+			      ?line Onln1 = Onln0 - 1,
+			      ?line case adjust_schedulers_online() of
+					{Onln0, Onln1} ->
+					    ?line Onln1 = erlang:system_info(schedulers_online),
+					    ?line receive after 500 -> ok end,
+					    ?line ?t:format("TEST - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+							    [Aff, Onln1, erlang:system_info(scheduler_bindings)]),
+					    ?line unchanged = adjust_schedulers_online(),
+					    ?line ok;
+					Fail ->
+					    ?line ?t:fail(Fail)
+				    end
+		      end
+		  after
+		      set_affinity_mask(OldAff),
+		      adjust_schedulers_online(),
+		      erlang:system_flag(schedulers_online, OldOnline),
+		      receive after 500 -> ok end,
+		      ?t:format("END - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+				[get_affinity_mask(),
+				 erlang:system_info(schedulers_online),
+				 erlang:system_info(scheduler_bindings)])
+		  end
+	  end.
+
+adjust_schedulers_online() ->
+    case erlang:system_info(update_cpu_info) of
+	unchanged ->
+	    unchanged;
+	changed ->
+	    Avail = erlang:system_info(logical_processors_available),
+	    {erlang:system_flag(schedulers_online, Avail), Avail}
+    end.
+
+read_affinity(Data) ->
+    Exp = "pid " ++ os:getpid() ++ "'s current affinity mask",
+    case string:tokens(Data, ":") of
+	[Exp, DirtyAffinityStr] ->
+	    AffinityStr = string:strip(string:strip(DirtyAffinityStr,
+						    both, $ ),
+				       both, $\n),
+	    case catch erlang:list_to_integer(AffinityStr, 16) of
+		Affinity when is_integer(Affinity) ->
+		    Affinity;
+		_ ->
+		    bad
+	    end;
+	_ ->
+	    bad
+    end.
+
+get_affinity_mask(Port, Status, Affinity) when Status == unknown;
+					       Affinity == unknown ->
+    receive
+	{Port,{data, Data}} ->
+	    get_affinity_mask(Port, Status, read_affinity(Data));
+	{Port,{exit_status,S}} ->
+	    get_affinity_mask(Port, S, Affinity)
+    end;
+get_affinity_mask(Port, Status, bad) ->
+    unknown;
+get_affinity_mask(Port, Status, Affinity) ->
+    Affinity.
+
+get_affinity_mask() ->
+    case ?t:os_type() of
+	{unix, linux} ->
+	    case catch open_port({spawn, "taskset -p " ++ os:getpid()},
+				 [exit_status]) of
+		Port when is_port(Port) ->
+		    get_affinity_mask(Port, unknown, unknown);
+		_ ->
+		    unknown
+	    end;
+	_ ->
+	    unknown
+    end.
+
+set_affinity_mask(Port, unknown) ->
+    receive
+	{Port,{data, _}} ->
+	    set_affinity_mask(Port, unknown);
+	{Port,{exit_status,Status}} ->
+	    set_affinity_mask(Port, Status)
+    end;
+set_affinity_mask(Port, Status) ->
+    receive
+	{Port,{data, _}} ->
+	    set_affinity_mask(Port, unknown)
+    after 0 ->
+	    Status
+    end.
+
+set_affinity_mask(Mask) ->
+    Cmd = lists:flatten(["taskset -p ",
+			 io_lib:format("~.16b", [Mask]),
+			 " ",
+			 os:getpid()]),
+    case catch open_port({spawn, Cmd}, [exit_status]) of
+	Port when is_port(Port) ->
+	    case set_affinity_mask(Port, unknown) of
+		0 -> ok;
+		_ -> exit(failed_to_set_affinity)
+	    end;
+	_ ->
+	    exit(failed_to_set_affinity)
+    end.
 
 sct_cmd(Config) when is_list(Config) ->
     ?line Topology = ?TOPOLOGY_A_TERM,
