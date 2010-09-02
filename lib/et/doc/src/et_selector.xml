@@ -29,6 +29,7 @@
     <checked></checked>
     <date></date>
     <rev>%VSN%</rev>
+    <file>et_selector.xml</file>
   </header>
   <module>et_selector</module>
   <modulesummary>Define event transforms and trace patterns</modulesummary>

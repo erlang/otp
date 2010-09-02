@@ -29,6 +29,7 @@
     <checked></checked>
     <date></date>
     <rev>%VSN%</rev>
+    <file>et</file>
   </header>
   <module>et</module>
   <modulesummary>Main API of the Event Trace (ET) application</modulesummary>

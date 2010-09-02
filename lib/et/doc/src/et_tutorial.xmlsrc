@@ -29,6 +29,7 @@
     <checked></checked>
     <date></date>
     <rev>%VSN%</rev>
+    <file>et_tutorial.xml</file>
   </header>
 
   <section>
