@@ -33,7 +33,8 @@
 	 stop_system/2, system_supervisor/2,
 	 subsystem_supervisor/1, channel_supervisor/1, 
 	 connection_supervisor/1, 
-	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2, restart_acceptor/2, stop_subsystem/2]).
+	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2,
+	 restart_acceptor/2, stop_subsystem/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -90,6 +91,12 @@ stop_subsystem(SystemSup, SubSys) ->
 	{Id, _, _, _} ->
 	    spawn(fun() -> supervisor:terminate_child(SystemSup, Id),
 			   supervisor:delete_child(SystemSup, Id) end),
+	    ok;
+	{'EXIT', {noproc, _}} ->
+	    %% Already terminated; probably shutting down.
+	    ok;
+	{'EXIT', {shutdown, _}} ->
+	    %% Already shutting down.
 	    ok
     end.
 
