@@ -500,8 +500,8 @@ handle_call({new_ticktime,T,TP}, From, #state{tick = #tick{ticker = Tckr,
                                                  time = T,
                                                  how = How}}}, From);
 
-handle_call({new_ticktime,From,_},
-	    _,
+handle_call({new_ticktime,_T,_TP},
+	    From,
 	    #state{tick = #tick_change{time = T}} = State) ->
     async_reply({reply, {ongoing_change_to, T}, State}, From);
 
