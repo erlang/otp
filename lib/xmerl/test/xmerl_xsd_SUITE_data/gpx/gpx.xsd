@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GPX.xsd version 1.0 - For more information on GPX and this schema, visit http://www.topografix.com/gpx.asp -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:gpx="http://www.topografix.com/GPX/1/0" targetNamespace="http://www.topografix.com/GPX/1/0" elementFormDefault="qualified">
+
+<!-- Main GPX definition -->
+
+  <xsd:element name="gpx">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="name" type="xsd:string" minOccurs="0"/>		<!-- GPX file name -->
+        <xsd:element name="desc" type="xsd:string" minOccurs="0"/>		<!-- GPX file description -->
+        <xsd:element name="author" type="xsd:string" minOccurs="0"/>		<!-- GPX file author -->
+        <xsd:element name="email" type="gpx:emailType" minOccurs="0"/>	<!-- GPX file author email -->
+        <xsd:element name="url" type="xsd:anyURI" minOccurs="0"/>		<!-- GPX file URL -->
+ 		<xsd:element name="urlname" type="xsd:string" minOccurs="0"/>
+        <xsd:element name="time" type="xsd:dateTime" minOccurs="0"/>		<!-- GPX file creation time -->
+        <xsd:element name="keywords" type="xsd:string" minOccurs="0"/>		<!-- GPX file keywords -->
+        <xsd:element name="bounds" type="gpx:boundsType" minOccurs="0"/>	<!-- GPX file bounding rect -->
+        <xsd:element name="wpt" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>	<!-- elements must appear in this order -->
+			  <!-- Position info -->
+              <xsd:element name="ele" type="xsd:decimal" minOccurs="0"/>
+              <xsd:element name="time" type="xsd:dateTime" minOccurs="0"/>
+			  <xsd:element name="magvar" type="gpx:degreesType" minOccurs="0"/>
+			  <xsd:element name="geoidheight" type="xsd:decimal" minOccurs="0"/>
+
+			  <!-- Description info -->
+			  <xsd:element name="name" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="cmt" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="desc" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="src" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="url" type="xsd:anyURI" minOccurs="0"/>
+			  <xsd:element name="urlname" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="sym" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="type" type="xsd:string" minOccurs="0"/>
+
+			  <!-- Accuracy info -->
+			  <xsd:element name="fix" type="gpx:fixType" minOccurs="0"/>
+			  <xsd:element name="sat" type="xsd:nonNegativeInteger" minOccurs="0"/>
+			  <xsd:element name="hdop" type="xsd:decimal" minOccurs="0"/>
+			  <xsd:element name="vdop" type="xsd:decimal" minOccurs="0"/>
+			  <xsd:element name="pdop" type="xsd:decimal" minOccurs="0"/>
+			  <xsd:element name="ageofdgpsdata" type="xsd:decimal" minOccurs="0"/>
+			  <xsd:element name="dgpsid" type="gpx:dgpsStationType" minOccurs="0"/>
+
+			  <!-- you can add your own privately defined wpt elements at the end of the wpt -->
+              <xsd:any namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:sequence>
+            <xsd:attribute name="lat" type="gpx:latitudeType" use="required"/>
+            <xsd:attribute name="lon" type="gpx:longitudeType" use="required"/>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="rte" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="name" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="cmt" type="xsd:string" minOccurs="0"/>
+              <xsd:element name="desc" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="src" type="xsd:string" minOccurs="0"/>	<!-- the source of this data: "Garmin eTrex", "Map", etc -->
+			  <xsd:element name="url" type="xsd:anyURI" minOccurs="0"/>
+ 			  <xsd:element name="urlname" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="number" type="xsd:nonNegativeInteger" minOccurs="0"/>	<!-- GPS track number -->
+	<!--	  <xsd:element name="type"			type="xsd:string"	minOccurs="0"/>	PROPOSED -->
+			  <!-- you can add your own privately defined rte elements at the end of the rte -->
+              <xsd:any namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+              <xsd:element name="rtept" minOccurs="0" maxOccurs="unbounded">
+                <xsd:complexType>
+                  <xsd:sequence>	<!-- elements must appear in this order -->
+
+				    <!-- Position info -->
+                    <xsd:element name="ele" type="xsd:decimal" minOccurs="0"/>
+                    <xsd:element name="time" type="xsd:dateTime" minOccurs="0"/>
+					<xsd:element name="magvar" type="gpx:degreesType" minOccurs="0"/>
+					<xsd:element name="geoidheight" type="xsd:decimal" minOccurs="0"/>
+
+					<!-- Description info -->
+                    <xsd:element name="name" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="cmt" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="desc" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="src" type="xsd:string" minOccurs="0"/>
+					<xsd:element name="url" type="xsd:anyURI" minOccurs="0"/>
+ 				    <xsd:element name="urlname" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="sym" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="type" type="xsd:string" minOccurs="0"/>
+
+					<!-- Accuracy info -->
+					<xsd:element name="fix" type="gpx:fixType" minOccurs="0"/>
+					<xsd:element name="sat" type="xsd:nonNegativeInteger" minOccurs="0"/>
+					<xsd:element name="hdop" type="xsd:decimal" minOccurs="0"/>
+					<xsd:element name="vdop" type="xsd:decimal" minOccurs="0"/>
+					<xsd:element name="pdop" type="xsd:decimal" minOccurs="0"/>
+					<xsd:element name="ageofdgpsdata" type="xsd:decimal" minOccurs="0"/>
+					<xsd:element name="dgpsid" type="gpx:dgpsStationType" minOccurs="0"/>
+
+					<!-- you can add your own privately defined rtept elements at the end of the rtept -->
+                    <xsd:any namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+                  </xsd:sequence>
+                  <xsd:attribute name="lat" type="gpx:latitudeType" use="required"/>
+                  <xsd:attribute name="lon" type="gpx:longitudeType" use="required"/>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+        <xsd:element name="trk" minOccurs="0" maxOccurs="unbounded">
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="name" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="cmt" type="xsd:string" minOccurs="0"/>
+              <xsd:element name="desc" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="src" type="xsd:string" minOccurs="0"/>	<!-- the source of this data: "Garmin eTrex", "Map", etc -->
+			  <xsd:element name="url" type="xsd:anyURI" minOccurs="0"/>
+ 			  <xsd:element name="urlname" type="xsd:string" minOccurs="0"/>
+			  <xsd:element name="number" type="xsd:nonNegativeInteger" minOccurs="0"/>	<!-- GPS track number -->
+	<!-- 	  <xsd:element name="type"			type="xsd:string"		minOccurs="0"/>  PROPOSED -->
+			  <!-- you can add your own privately defined trk elements at the end of the trk -->
+              <xsd:any namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+              <xsd:element name="trkseg" minOccurs="0" maxOccurs="unbounded">
+                <xsd:complexType>
+                  <xsd:sequence>	<!-- elements must appear in this order -->
+				    <xsd:element name="trkpt" minOccurs="0" maxOccurs="unbounded">
+					  <xsd:complexType>
+					    <xsd:sequence>	<!-- elements must appear in this order -->
+
+						  <!-- Position info -->
+						  <xsd:element name="ele" type="xsd:decimal" minOccurs="0"/>
+						  <xsd:element name="time" type="xsd:dateTime" minOccurs="0"/>
+						  <xsd:element name="course" type="gpx:degreesType" minOccurs="0"/>
+						  <xsd:element name="speed" type="xsd:decimal" minOccurs="0"/>
+						  <xsd:element name="magvar" type="gpx:degreesType" minOccurs="0"/>
+						  <xsd:element name="geoidheight" type="xsd:decimal" minOccurs="0"/>
+
+						  <!-- Description info -->
+						  <xsd:element name="name" type="xsd:string" minOccurs="0"/>
+						  <xsd:element name="cmt" type="xsd:string" minOccurs="0"/>
+						  <xsd:element name="desc" type="xsd:string" minOccurs="0"/>
+						  <xsd:element name="src" type="xsd:string" minOccurs="0"/>
+						  <xsd:element name="url" type="xsd:anyURI" minOccurs="0"/>
+ 						  <xsd:element name="urlname" type="xsd:string" minOccurs="0"/>
+						  <xsd:element name="sym" type="xsd:string" minOccurs="0"/>
+						  <xsd:element name="type" type="xsd:string" minOccurs="0"/>
+
+						  <!-- Accuracy info -->
+						  <xsd:element name="fix" type="gpx:fixType" minOccurs="0"/>
+						  <xsd:element name="sat" type="xsd:nonNegativeInteger" minOccurs="0"/>
+						  <xsd:element name="hdop" type="xsd:decimal" minOccurs="0"/>
+						  <xsd:element name="vdop" type="xsd:decimal" minOccurs="0"/>
+						  <xsd:element name="pdop" type="xsd:decimal" minOccurs="0"/>
+						  <xsd:element name="ageofdgpsdata" type="xsd:decimal" minOccurs="0"/>
+						  <xsd:element name="dgpsid" type="gpx:dgpsStationType" minOccurs="0"/>
+
+						  <!-- you can add your own privately defined trkpt elements at the end of the trkpt -->
+						  <xsd:any namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+					    </xsd:sequence>
+					    <xsd:attribute name="lat" type="gpx:latitudeType" use="required"/>
+					    <xsd:attribute name="lon" type="gpx:longitudeType" use="required"/>
+					  </xsd:complexType>
+				    </xsd:element>
+			  	  </xsd:sequence>
+			    </xsd:complexType>
+			  </xsd:element>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+		<!-- you can add your own privately defined elements at the end of the GPX file -->
+        <xsd:any namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+      </xsd:sequence>
+      <xsd:attribute name="version" type="xsd:string" use="required" fixed="1.0"/>	<!-- version 1.0 -->
+      <xsd:attribute name="creator" type="xsd:string" use="required"/>
+    </xsd:complexType>
+  </xsd:element>
+
+  <!-- Other types used by GPX -->
+
+  <xsd:simpleType name="latitudeType">
+    <xsd:restriction base="xsd:decimal">
+      <xsd:minInclusive value="-90.0"/>
+      <xsd:maxInclusive value="90.0"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="longitudeType">
+    <xsd:restriction base="xsd:decimal">
+      <xsd:minInclusive value="-180.0"/>
+      <xsd:maxInclusive value="180.0"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="degreesType">	<!-- for bearing, heading, course.  Units are degrees, true -->
+    <xsd:restriction base="xsd:decimal">
+      <xsd:minInclusive value="0.0"/>
+      <xsd:maxInclusive value="360.0"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="fixType">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="none"/>	<!-- none means GPS had no fix.  To signify "the fix info is unknown, leave out the <fix> tag entirely --> 
+      <xsd:enumeration value="2d"/>
+      <xsd:enumeration value="3d"/>
+      <xsd:enumeration value="dgps"/>
+      <xsd:enumeration value="pps"/>		<!-- military signal used -->
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:simpleType name="dgpsStationType">
+    <xsd:restriction base="xsd:integer">
+      <xsd:minInclusive value="0"/>
+      <xsd:maxInclusive value="1023"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:complexType name="boundsType">	<!-- bounding rect for data in file -->
+    <xsd:attribute name="minlat" type="gpx:latitudeType" use="required"/>
+    <xsd:attribute name="minlon" type="gpx:longitudeType" use="required"/>
+    <xsd:attribute name="maxlat" type="gpx:latitudeType" use="required"/>
+    <xsd:attribute name="maxlon" type="gpx:longitudeType" use="required"/>
+  </xsd:complexType>
+
+  <xsd:simpleType name="emailType">
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="[\p{L}_]+(\.[\p{L}_]+)*@[\p{L}_]+(\.[\p{L}_]+)+"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+</xsd:schema>

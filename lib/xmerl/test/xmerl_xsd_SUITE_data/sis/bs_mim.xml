@@ -1,0 +1,1187 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+
+<!--
+
+Copyright (C) Ericsson AB 2006-2007 All rights reserved.
+
+The information in this document is the property of Ericsson.
+
+Except as specifically authorized in writing by Ericsson, the
+receiver of this document shall keep the information contained
+herein confidential and shall protext the same in whole or in part
+from disclosure and dissemination to third parties.
+
+Disclosure and disseminations to the receivers employees shall
+only be made on a strict need to know basis.
+
+-->
+ 
+
+<mim xmlns="http://www.ericsson.com/is/isco/mim/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ericsson.com/is/isco/mim/2.0 /vobs/isac/sis/OAM_CRA1190047_1/CCS_CNA113082/doc/15519/mim.xsd ">
+  
+  <!-- 
+       DataType Definitions
+  -->
+  <dataType name="HwmAdministrativeState">
+    <description>
+      The administrative state of blades/blade systems.
+      Reflects what the administrator has done.
+    </description>
+    <string>
+      <validValues>
+	<value name="locked"/>
+	<value name="shuttingdown"/>
+	<value name="unlocked"/>
+      </validValues>
+    </string>
+  </dataType>
+  
+  <dataType name="HwmOperationalState">
+    <description>
+      The operational state of blades/blade systems.
+      Reflects if the entity is on/off.
+    </description>
+    <string>
+      <validValues>
+	<value name="disabled"/>
+	<value name="enabled"/>
+      </validValues>
+    </string>
+  </dataType>
+  
+  <dataType name="HwmAvailabilityStatus">
+    <description>
+       The availability state of blades/blade systems.
+       Reflects if the entity is useable or not.
+    </description>
+    <string>
+      <validValues>
+	<value name="available"/>
+	<value name="failed"/>
+	<value name="offLine"/>
+	<value name="dependency"/>
+	<value name="degraded"/>
+	<value name="upgrading"/>
+	<value name="startingUp"/>
+	<value name="goingOffLine"/>
+	<value name="notInstalled"/>
+	<value name="powerOff"/>
+      </validValues>
+    </string>
+  </dataType>
+  
+  <dataType name="HwmKnockOutPreference">
+    <description>
+    </description>
+    <string>
+      <validValues>
+	<value name="normal"/>
+	<value name="protected"/>
+      </validValues>
+    </string>
+  </dataType>
+  
+  <dataType name="HwmBusType">
+    <description>
+      The bus type used by a blade.
+    </description>
+    <string>
+      <validValues>
+	<value name="ipmi"/>
+	<value name="mbus"/>
+      </validValues>
+    </string>
+  </dataType>
+  
+  <!-- 
+       Class Definitions
+  -->
+  
+  <class name="BladeSystems">
+    <description>
+      Parent of all blade systems.
+    </description>
+    <singleton/>
+    <systemCreated/>
+  </class>
+  
+  <class name="BladeSystem">
+    <description>
+      This class describes a Blade System. 
+      It serves as a mountpoint for the blade system specific model.
+    </description>
+    
+    <!-- Attributes from HWM -->
+    
+    <attribute name="name">
+      <description>
+	A user friendly Blade System name, must be set at creation and can be 
+	changed when BS is locked.
+      </description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+
+    <attribute name="no">
+      <description>
+	An identifier for the BS. A new integer has to be used every time a new
+	BS is created. 
+      </description>
+      <dataType><integer/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="type">
+      <description>
+      </description>
+      <dataType><string/></dataType>
+      <mandatory/>
+      <restricted/>
+    </attribute>
+
+    <attribute name="softwareGroupId">
+      <description>
+	The identity of the Software Group (SWG) that the BS implements.
+      </description>
+      <dataType><string/></dataType>
+      <restricted/>
+      <mandatory/>
+    </attribute>
+    
+    <attribute name="softwareGroupRevision">
+      <description>
+	The revision of the Software Group (SWG) that the BS implements.
+      </description>
+      <dataType><string/></dataType>
+      <restricted/>
+      <mandatory/>
+    </attribute>
+
+     <attribute name="softwareCorrectionPackageId">
+      <description> 
+        The identity of the correction package (CXR) applied to the SWG.
+      </description> 
+      <dataType><string/></dataType>
+     </attribute>
+
+     <attribute name="softwareCorrectionPackageRevision">
+      <description> 
+        The revision of the correction package (CXR) applied to the SWG
+      </description> 
+      <dataType><string/></dataType>
+     </attribute>
+
+    <attribute name="admState">
+      <description>The administrative state of the Blade System.</description>
+      <dataType name.ref="HwmAdministrativeState"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="opState">
+      <description>The operational state of the Blade System.</description>
+      <dataType name.ref="HwmOperationalState"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="availStatus">
+      <description>The availability status of the Blade System.</description>
+      <dataType name.ref="HwmAvailabilityStatus"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="bsdName">
+      <description>
+	The identity of the Blade System domain the Blade system belongs to.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+
+    <!-- Attributes from CPD -->
+    
+    <attribute name="bsomAddress">
+      <description>
+      IP address of the Blade System OaM Master.
+      </description>
+      <dataType name.ref="IsTypes:IpAddress"/>
+      <readOnly/>
+    </attribute>
+
+    <action name="lock">
+      <description>
+       Locks the blade system. If the system already is locked the 
+       action does nothing.
+      </description>
+      <returnType>
+         <void/>
+      </returnType>
+    </action>  
+
+     <action name="unlock">
+      <description>
+       Unlocks the blade system. If the system already is unlocked the 
+       action does nothing. This operation orders the blade system to be unlocked.
+       However the blade system may not be unlocked even if this order works.
+       See the operational state to figure out if the unlock succeded.
+      </description>
+      <returnType>
+         <void/>
+      </returnType>
+    </action>  
+
+     <action name="shutdown">
+      <description>
+       Shuts down the blade system. If the system already is locked the 
+       action does nothing.
+      </description>
+      <returnType>
+         <void/>
+      </returnType>
+    </action>  
+    
+    <action name="createBackup">
+	<description>
+	  Action to create a backup file from the current
+	  Blade System. It is stored locally on disk.
+	  An instance of the MO class
+	  Software/Jobs/Backup/Create is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <dataType><string/></dataType><!-- return ok | {fault,Reason} ? -->
+	</returnType>
+	<parameter name="backupJobName">
+	  <description>
+            A user specified backup creation job name
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+      </action>
+      
+      <action name="restoreBackup">
+	<description>
+	  Action to restore a backup into the current
+	  Blade System. It is fetched from the local disk.
+	  An instance of the MO class
+	  Software/Jobs/Backup/Restore is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <dataType><string/></dataType><!-- return ok | {fault,Reason} ? -->
+	</returnType>
+	<parameter name="backupId">
+	  <description>
+            The IS site local backup identity
+	  </description>
+	  <dataType name.ref="IsTypes:Unsigned32">
+	  </dataType>
+	</parameter>
+	<parameter name="restoreJobName">
+	  <description>
+            A user specified backup restore job name
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+      </action>
+      
+      <action name="upgrade">
+	<description>
+	  Action to upgrade the current Blade System. Files
+	  are fetched from the local disk storage.
+	  An instance of the MO class
+	  Software/Jobs/Upgrade is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <dataType><string/></dataType><!-- return ok | {fault,Reason} ? -->
+	</returnType>
+        <parameter name="upgradeJobName">
+          <description>
+               A user specified ugrade job name
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+	<parameter name="swgProdNr">
+	  <description>
+            The Ericsson product number of blade system software group
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+	<parameter name="swgRevision">
+	  <description>
+            The Ericsson revision of blade system software group
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+	<parameter name="cxrProdNr">
+	  <description>
+            The Ericsson product number of software correction package
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+	<parameter name="cxrProdRevision">
+	  <description>
+            The Ericsson revision of software correction package
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+	</parameter>
+        <parameter name="bladeSwgProdNr">
+	  <description>
+            The Ericsson product number of blade software group
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+        </parameter>
+        <parameter name="bladeSwgProdRevison">
+	  <description>
+            The Ericsson revision of blade software group
+	  </description>
+	  <dataType><string/></dataType>
+          <isOptional/>
+        </parameter>
+	<parameter name="maxTime">
+	  <description>
+	    The maximum time allowed to finish the entire 
+            software change procedure (minutes).
+            Default value depends on blade system software.
+	  </description>
+	  <dataType name.ref="IsTypes:Unsigned32">
+	  </dataType>
+          <isOptional/>
+	</parameter>
+      </action>
+  </class>
+  
+  
+  <class name="Blade">
+    <description>
+      This class describes a Blade. 
+      A Blade is identified by the subrack and slot number.
+    </description>
+    
+    <!-- Attributes from HWM -->
+    
+    <attribute name="subrackId">
+      <description>
+	A reference to the associated subrack (i.e. the value of 'subrackId' 
+	for the associated subrack)
+      </description>
+      <dataType> 	
+	<integer><range><min>0</min><max>31</max></range></integer>
+      </dataType>
+      <key/>
+    </attribute>
+    
+    <attribute name="slotNo">
+      <description>The slot number for this Blade within the subrack.</description>
+      <dataType> 	
+	<integer><range><min>0</min><max>25</max></range></integer>
+      </dataType>
+      <key/>
+    </attribute>
+
+    <attribute name="slotLabel">
+      <description>
+	The slot label of the blade. Will only be set at creation.
+	This should be used in alarms related to the slot to inform the
+	operator of what position in the subrack the blade is located in.
+	E.g. for GEM subracks it will be a string like X02 for slot 0
+	up to X80 for slot 25.
+      </description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+
+    <attribute name="bsNo">
+      <description>
+	An identifier for the BS to which the blade belongs. 
+	A value of 0 means that the blade is inserted in the subrack but it 
+	has not been configured to any BS yet.
+      </description>
+      <dataType><integer/></dataType>
+    </attribute>
+    
+    <attribute name="type">
+      <description>
+	The type of the Blade defined by a string BladeTypeId.
+      </description>
+      <dataType><string/></dataType>
+       <restricted/>
+       <mandatory/>
+    </attribute>
+    
+    <attribute name="swgLowestId">
+      <description>The expectedregistered SW group id of the Blade.</description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="swgLowestRev">
+      <description>The registered SW group revision state of the Blade.</description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="swgActualId">
+      <description>The installed SW group id of the Blade.</description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="swgActualRev">
+      <description>The installed SW group revision state of the Blade.</description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="bsom">
+      <description>
+       Indicates if this blade is a BSOM candidate.
+      </description>
+      <dataType><boolean/></dataType>
+    </attribute>
+    
+    <attribute name="knockOutPreference">
+      <description>
+	Set to protected if blade sholud no be knocked out before the 
+	switch blade.
+      </description>
+      <dataType name.ref="HwmKnockOutPreference"/>
+    </attribute>
+    
+    <attribute name="userLabel">
+      <description>
+	A user friendly Blade name, always possible to set.
+	Default value indicates HwmBladeType and used slot.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="admState">
+      <description>
+	The administrative state of the Blade.
+      </description>
+      <dataType name.ref="HwmAdministrativeState"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="opState">
+      <description>The operational state of the Blade.</description>
+      <dataType name.ref="HwmOperationalState"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="availStatus">
+      <description>The availability status of the Blade.</description>
+      <dataType name.ref="HwmAvailabilityStatus"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="busType">
+      <description>The type of maintenance bus on the found Blade</description>
+      <dataType name.ref="HwmBusType"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="prodNo">
+      <description>The Product Number of the found Blade</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="prodRev">
+      <description>The Product Revision of the found Blade.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="serialNo">
+      <description>The Serial Number of the found Blade.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="prodName">
+      <description>The Product Name of the found Blade.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="vendor">
+      <description>The Vendor name of the found Blade.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="mfgDate">
+      <description>The manufacturing date of the found Blade.</description>
+      <dataType><string/></dataType>
+    </attribute>
+    
+    <attribute name="macAddressAggregate">
+      <description>The aggregated MAC address of the found Blade.</description>
+      <dataType name.ref="IsTypes:MacAddress"/>
+    </attribute>
+    
+    <attribute name="macAddressLeft">
+      <description>
+	The left link MAC address of the found Blade. Only used by some blades
+      </description>
+      <dataType name.ref="IsTypes:MacAddress"/>
+    </attribute>
+    
+    <attribute name="macAddressRight">
+      <description>
+	The right link MAC address of the found Blade. Only used by some blades
+      </description>
+      <dataType name.ref="IsTypes:MacAddress"/>
+    </attribute>
+    
+    <attribute name="changeDate">
+      <description>The date when the blade was last changed.</description>
+      <dataType><string/></dataType>
+      <readOnly/>
+    </attribute>
+
+    <!-- Attributes from CPD -->
+    
+    <attribute name="isbsAddress">
+      <description>
+	IP address on the ISBS subnet.
+      </description>
+      <dataType name.ref="IsTypes:IpAddress"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="isobAddress">
+      <description>
+	IP address on the ISOB subnet.
+      </description>
+      <dataType name.ref="IsTypes:IpAddress"/>
+      <readOnly/>
+    </attribute>
+    
+    <attribute name="islctAddress">
+      <description>
+	IP address on the ISLCT subnet.
+      </description>
+      <dataType name.ref="IsTypes:IpAddress"/>
+      <readOnly/>
+    </attribute>
+    
+    <action name="lock">
+      <description>
+       Locks the blade. If the blade already is locked the 
+       action does nothing. This operation orders the blade to be locked.
+       It may however take long time before it happens.
+      </description>
+      <returnType>
+         <void/>
+      </returnType>
+    </action>  
+
+     <action name="unlock">
+      <description>
+       Unlocks the blade. If the blade already is unlocked the 
+       action does nothing. This operation orders the blade to be unlocked.
+       However the blade may not be unlocked even if this order works.
+       See the operational state to figure out if the unlock succeded.
+      </description>
+      <returnType>
+         <void/>
+      </returnType>
+    </action>  
+
+     <action name="shutdown">
+      <description>
+       Shuts down the blade. If the blade already is locked the 
+       action does nothing.
+      </description>
+      <returnType>
+        <void/>
+      </returnType>
+    </action>  
+    <action name="upgrade">
+	<description>
+	  Action to upgrade the current blade. Files
+	  are fetched from the local disk storage.
+	  An instance of the MO class
+	  Software/Jobs/Upgrade is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <dataType><string/></dataType><!-- return ok | {fault,Reason} ? -->
+	</returnType>
+	<parameter name="swgProdNr">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="swgRevision">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="maxTime">
+	  <dataType name.ref="IsTypes:Unsigned32">
+	  </dataType>
+          <isOptional/>
+	</parameter>
+      </action>
+  </class>
+  
+  <class name="LinkSap">
+    <description>
+      A Blade may have one or more resilient interfaces
+      to the backplane. Such an interface is called a
+      Link Service Access Point (LSAP), which is the
+      point where you access layer 2. LSAPs are
+      automatically created and deleted along with the
+      hosting blade.
+    </description>
+    <systemCreated/>
+    <attribute name="id">
+      <description>
+	The id of a LinkSap is a number from 0 to X within the slot.
+      </description>
+      <dataType><integer/></dataType>
+      <key/><readOnly/>
+    </attribute>
+  </class>
+  
+  <class name="BsNetworkConfiguration">
+    <description>
+      The MO branch where the Blade System specific
+      Network resources are mapped to blade system
+      network requirements to common Integrated Site
+      resources. This activity must be performed before
+      a new blade or blade system successfully can be
+      unlocked via the Hardware service. Some blade
+      system designers have partly pre-registered their
+      network requirements, while others demand that
+      you read the corresponding information from
+      separate Operation Procedure Instructions and
+      manually register the blade system network
+      requirements. The pre-registered network
+      requirements automates parts of the blade
+      system-specific configuration activity.
+
+      In an Integrated Site, the blade systems obtain
+      their actual network configuration dynamically in
+      runtime. When you change the network
+      configuration it will affect blade systems. In
+      order to minimize the disturbance of active blade
+      systems, the changes are normally applied in a
+      separate storage which not is visible to the
+      blade systems. In order to make use of the new
+      unpublished configuration, it must explicitly be
+      published by altering the updateMode. If the new
+      settings introduces severe problems the
+      configuration can be reverted to the old settings
+      by altering the updateMode.
+
+      The common Network configuration including
+      updateMode and its publish mechanism is specified
+      in a separate MIM called CPD MIM.
+    </description>
+    <singleton/>
+    <systemCreated/>
+  </class>
+
+  <class name="BsVlan">
+    <description>
+       A BS VLAN is mapped to one IS VLAN. A BS VLAN is
+       the requirement a Blade System have of an IS
+       VLAN. Different instances of a Blade System type
+       may call their BS VLANs the same thing but in the
+       end the IS Site Designer can choose to map them
+       to the same or different IS VLAN.
+
+       BS VLANs can either be created manually by the
+       operator or they can be automatically created
+       from pre-registered network requirements bundled
+       with the Blade System software.  Regardless of
+       how they are created, each one needs to be
+       mapped to an IS VLAN before the blades can be
+       unlocked. The mapping is done with the
+       'isVlanRef' attribute.
+
+       Different instances of a Blade System type may call
+       their BS VLANs the same thing but in the end the IS
+       Site Designer can choose to map them to the same or
+       different IS VLAN.
+    </description>
+    <attribute name="name">
+      <description>
+	 Name of the BS VLAN. It is unique within the Blade System.
+      </description>
+      <dataType><string/></dataType>
+      <key/> 
+    </attribute>
+    <attribute name="description">
+      <description>
+	Short description of the BS VLAN.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+    <attribute name="private">
+      <description>
+          Setting the private attribute to true, means
+          that the corresponding IS VLAN not can be
+          used by other Blade Systems. The IS VLAN is
+          private for this particular Blade System.
+      </description>
+      <dataType><boolean/></dataType>
+    </attribute>
+    <attribute name="isVlanRef">
+      <description>
+	The mapping to a corresponding IS VLAN. This
+	mapping must be done before the blades of the
+	Blade System can be unlocked.
+      </description>
+      <dataType><moRef name="IsVlan"/></dataType>
+    </attribute>
+  </class>
+  
+  <class name="BsLogicalNetwork">
+    <description>
+       A BS Logical Network (BSLN) is associated to
+       one IS Logical Network. A BS Logical Network
+       is the requirement a Blade Systems have of an
+       IS Logical Network.
+
+       BS Logical Networks can either be created
+       manually by the operator or they can be
+       automatically created from pre-registered
+       network requirements bundled with the Blade
+       System software. Regardless of how they are
+       created, each one needs to be mapped to an IS
+       Logical Network before the blades can be
+       unlocked. The mapping is done with the
+       'isLogicalNetworkRef' attribute.
+
+       Different instances of a Blade System type may call
+       their BS Logical Networks the same thing but in
+       the end the IS Site Designer can choose to map
+       them to the same or different IS Logical
+       Network.
+    </description>
+    <attribute name="name">
+      <description>
+	Name of the BS logical network. It is unique within the Blade System.
+      </description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+    <attribute name="description">
+      <description>
+	Short description of the BS Logical Network.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+    <attribute name="private">
+      <description>
+	Flag that shows whether the BS Logical Network
+	is private for this Blade System or if it may
+	be shared among several Blade Systems.
+      </description>
+      <dataType><boolean/></dataType>
+    </attribute>
+    <attribute name="isLogicalNetworkRef">
+      <description>
+	Reference to the corresponding IS Logical Network.
+      </description>
+      <dataType><moRef name="IsLogicalNetwork"/></dataType>
+    </attribute>
+  </class>
+  
+  <class name="BsSubnet">
+    <description>
+       A BS Subnet (BSSN) is associated to one IS
+       Subnet. A BS Subnet Network is the requirement a
+       Blade Systems have of an IS Subnet.
+
+       BS Subnets can either be created manually by the
+       operator or they can be automatically created
+       from pre-registered network requirements bundled
+       with the Blade System software. Regardless of
+       how they are created, each one needs to be
+       mapped to both a BS VLan and an IS Subnet before
+       blades can be unlocked via the Hardware service.
+       Each BS Subnet contains one or more BS Subnet
+       Segments. The mappings are done with the
+       'bsVlanRef' and 'isSubnetRef' attributes.
+
+       Different instances of a Blade System type may
+       call their BS Subnets the same thing but in the
+       end the IS Site Designer can choose to map them
+       to the same or different IS Subnet.
+    </description>
+    <attribute name="name">
+      <description>
+	Name of the BS Subnet. It is unique within the BS Logical Network.
+      </description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+    <attribute name="description">
+      <description>
+	Short description of the BS Subnet.
+      </description>
+      <dataType><string><defaultValue>default</defaultValue></string></dataType>
+    </attribute>
+    <attribute name="bsVlanRef">
+      <description>
+	The mapping to a corresponding BS Vlan. This
+	mapping must be done before the blades of the
+	Blade System can be unlocked.
+      </description>
+      <dataType><moRef name="BsVlan"/></dataType>
+    </attribute>
+    <attribute name="isSubnetRef">
+      <description>
+	The mapping to a corresponding IS Subnet. This
+	mapping must be done before the blades of the
+	Blade System can be unlocked.
+      </description>
+      <dataType><moRef name="IsSubnet"/></dataType>
+    </attribute>
+  </class>
+  
+  <class name="BsSubnetSegment">
+    <description>
+       A BS Subnet Segment (BSSNS) is associated to one
+       IS Subnet Segment. A BS Subnet Segment is the
+       requirement a Blade Systems have of an IS Subnet
+       Segment.
+
+       BS Subnet Segments can either be created manually
+       by you or they can be automatically created from
+       pre-registered network requirements bundled with
+       the Blade System software. Regardless of how they
+       are created, each one needs to be mapped to an IS
+       Subnet Segment before the blades can be unlocked
+       via the Hardware service.  The mapping is done
+       with the 'isSubnetSegmentRef' attribute.
+
+       Different instances of a Blade System type may
+       call their BS Subnet Segments the same thing but
+       in the end the IS Site Designer can choose to
+       map them to the same or different IS Subnet
+       Segment.
+    </description>
+    <attribute name="name">
+      <description>
+	Name of the BS Subnet Segment. It is unique within the BS Subnet.
+      </description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+    <attribute name="description">
+      <description>
+	Short description of the BS Subnet Segment.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+    <attribute name="numOfIpaddresses">
+      <description>
+	Number of required IP addresses in the IS Subnet Segment.
+      </description>
+      <dataType><integer/></dataType>
+    </attribute>
+    <attribute name="dhcpEnabled">
+      <description>
+	Flag that controls whether the corresponding IS
+	Subnet Segment is required to have DHCP enabled
+	or not.
+      </description>
+      <dataType><boolean/></dataType>
+    </attribute>
+    <attribute name="routerRequired">
+      <description>
+	Flag that controls whether the corresponding IS
+	Subnet Segment is required to have a router
+	configured or not.
+      </description>
+      <dataType><boolean/></dataType>
+    </attribute>
+    <attribute name="isSubnetSegmentRef">
+      <description>
+	The mapping to a corresponding IS Subnet
+	Segment. The mapping here must be done before
+	the blades of the blade system can be unlocked.
+      </description>
+      <dataType>
+	<moRef name="IsSubnetSegment"/>
+      </dataType>
+    </attribute>
+  </class>
+  
+  <class name="BsVlanSap">
+    <description>
+      There is a BS VLAN Service Access Point (BSVSAP)
+      for each Link Service Access Point that an IS
+      VLAN straddles. It is per BS VLAN Service Access
+      Point that certain VLAN properties, such as if it
+      is mandatory to enable isolation protection.
+
+      BS VLAN Service Access Points can either be
+      created manually by the operator or they can be
+      automatically created from pre-registered network
+      requirements bundled with the Blade System
+      software. Regardless of how they are created,
+      each one needs to be mapped to an Link SAP before
+      the blades can be unlocked.  The mapping is done
+      with the 'linkSapRef' attribute.
+    </description>
+    <attribute name="name">
+      <description>
+	Name of the BS VLAN SAP. It is unique within the BS VLAN.
+      </description>
+      <dataType>
+	<string/>
+      </dataType>
+      <key/>
+    </attribute>
+    <attribute name="description">
+      <description>
+	Short description of the BS VLAN SAP.
+      </description>
+      <dataType>
+	<string/>
+      </dataType>
+    </attribute>
+    <attribute name="static">
+      <description>
+	Flag which controls whether this BS VLAN SAP
+	makes static or dynamic use of the
+	corresponding IS VLAN.
+      </description>
+      <dataType>
+	<boolean/>
+      </dataType>
+    </attribute>
+    <attribute name="protected">
+      <description>
+	Flag which controls whether this BS VLAN SAP should be 
+	isolation protected or not.
+      </description>
+      <dataType>
+	<boolean/>
+      </dataType>
+    </attribute>
+    <attribute name="linkSapRef">
+      <description>
+	A mapping to the corresponding Link Service Access Point.
+      </description>
+      <dataType>
+	<moRef name="LinkSap"/>
+      </dataType>
+    </attribute>
+  </class>
+  
+  <class name="BsIpTrafficClass">
+    <description>
+       A BS IP Traffic Class (BSIPTC) is the
+       requirement a Blade System have of an IS IP
+       Traffic Class.
+
+       BS IP Traffic Classes can either be created
+       manually by you or they can be automatically
+       created from pre-registered network requirements
+       bundled with the Blade System software. Regardless 
+       of how they are created, each one needs to be
+       mapped to an IS IP Traffic Class before the blades
+       can be unlocked via the Hardware service. The
+       mapping is done with the 'isIpTrafficClassRef'
+       attribute.
+
+       Different instances of a Blade System type may
+       call their BS IP Traffic Classes the same thing but
+       in the end the IS Site Designer may choose to
+       map them to the same or different IS IP Traffic
+       Classes.
+    </description>
+    <attribute name="name">
+      <description>
+         The name of the BS IP Traffic Class. It is
+         unique within the Blade System.
+      </description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+    <attribute name="description">
+      <description>
+         A short description of The BS IP Traffic Class.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+    <attribute name="isIpTrafficClassRef">
+      <description>
+	The mapping to a corresponding IS IP Traffic
+	Class. This mapping must be done before the
+	blades of the Blade System can be unlocked.
+      </description>
+      <dataType><moRef name="IsIpTrafficClass"/></dataType>
+    </attribute>
+  </class>
+  
+  <class name="BsLanTrafficClass">
+    <description>
+	A BS LAN Traffic Class (BSLANTC) is the
+	requirement a Blade System have of an IS LAN
+	Traffic Class. Different instances of a Blade
+	System type may call their BS Traffic Classes
+	the same thing but in the end the IS Site
+	Designer may choose to map them to the same or
+	different IS LAN Traffic Classes.
+
+       	BS LAN Traffic Classes can either be created
+       	manually by you or they can be automatically
+       	created from pre-registered network requirements
+       	bundled with the Blade System software. Regardless 
+       	of how they are created, each one needs to be
+       	mapped to an IS LAN Traffic Class before the blades
+       	can be unlocked via the Hardware service. The
+       	mapping is done with the 'isLanTrafficClassRef'
+       	attribute.
+
+       	Different instances of a Blade System type may
+       	call their BS LAN Traffic Classes the same
+       	thing but in the end the IS Site Designer may
+       	choose to map them to the same or different IS
+       	LAN Traffic Classes.
+    </description>
+    <attribute name="name">
+      <description>
+	 Name of the BS IP Traffic Class. It is unique within the Blade System.
+      </description>
+      <dataType><string/></dataType>
+      <key/>
+    </attribute>
+    <attribute name="description">
+      <description>
+         Short description of the BS IP Traffic Class.
+      </description>
+      <dataType><string/></dataType>
+    </attribute>
+    <attribute name="isLanTrafficClassRef">
+      <description>
+	The mapping to a corresponding IS LAN Traffic
+	Class. This mapping must be done before the
+	blades of the Blade System can be unlocked.
+      </description>
+      <dataType><moRef name="IsLanTrafficClass"/></dataType>
+    </attribute>
+  </class>
+  
+  
+  <!-- 
+       Relatonship Definitions
+  -->
+  
+  <relationship name="BladeSystemsTop">
+    <containment>
+      <parent>
+	<hasClass name="top_mim:Is"/>
+      </parent>
+      <child>
+	<hasClass name="BladeSystems"/>
+    </child>
+    </containment>
+  </relationship>
+
+  <relationship name="BsMount">
+    <containment>
+      <parent>
+	<hasClass name="BladeSystems"/>
+      </parent>
+      <child>
+	<hasClass name="BladeSystem"/>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="Blades">
+    <containment>
+      <parent>
+	<hasClass name="BladeSystem"/>
+      </parent>
+      <child>
+	<hasClass name="Blade"/>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="LinkSaps">
+    <containment>
+      <parent><hasClass name="Blade"/></parent>
+      <child><hasClass name="LinkSap"/></child>
+    </containment>
+  </relationship>
+  
+  <relationship name="NcMount">
+    <containment>
+      <parent><hasClass name="BladeSystem"/></parent>
+      <child><hasClass name="BsNetworkConfiguration"/></child>
+    </containment>
+  </relationship>
+
+  <relationship name="BsVlans">
+    <containment>
+      <parent><hasClass name="BsNetworkConfiguration"/></parent>
+      <child>
+	<hasClass name="BsVlan"/>
+	<cardinality><min>1</min></cardinality>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BsVlanSaps">
+    <containment>
+      <parent><hasClass name="BsVlan"/></parent>
+      <child>
+	<hasClass name="BsVlanSap"/>
+	<cardinality><min>1</min></cardinality>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BsLogicalNetworks">
+    <containment>
+      <parent><hasClass name="BsNetworkConfiguration"/></parent>
+      <child><hasClass name="BsLogicalNetwork"/></child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BsSubnets">
+    <containment>
+      <parent><hasClass name="BsLogicalNetwork"/></parent>
+      <child>
+	<hasClass name="BsSubnet"/>
+	<cardinality><min>1</min></cardinality>
+      </child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BsSubnetSegments">
+    <containment>
+      <parent><hasClass name="BsSubnet"/></parent>
+      <child><hasClass name="BsSubnetSegment"/></child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BsIpTrafficClasses">
+    <containment>
+      <parent><hasClass name="BsNetworkConfiguration"/></parent>
+      <child><hasClass name="BsIpTrafficClass"/></child>
+    </containment>
+  </relationship>
+  
+  <relationship name="BsLanTrafficClasses">
+    <containment>
+      <parent><hasClass name="BsNetworkConfiguration"/></parent>
+      <child><hasClass name="BsLanTrafficClass"/></child>
+    </containment>
+  </relationship>
+  
+  
+  
+</mim>

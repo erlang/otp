@@ -1,0 +1,3594 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<gpx
+ version="1.0"
+ creator="ExpertGPS 1.2 - http://www.topografix.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xmlns="http://www.topografix.com/GPX/1/0"
+ xmlns:topografix="http://www.topografix.com/GPX/Private/TopoGrafix/0/2"
+ xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd http://www.topografix.com/GPX/Private/TopoGrafix/0/2 http://www.topografix.com/GPX/Private/TopoGrafix/0/2/topografix.xsd">
+<time>2003-02-05T19:17:02Z</time>
+<bounds minlat="38.625526" minlon="-121.516943" maxlat="38.937285" maxlon="-121.011830"/>
+<wpt lat="38.916370006" lon="-121.035340039">
+ <ele>182.775024</ele>
+ <time>2003-02-05T18:19:15Z</time>
+ <name>CLEMEN TR</name>
+ <desc>CLEMEN TR</desc>
+ <sym>Trail Head</sym>
+ <type>Trail Head</type>
+</wpt>
+<wpt lat="38.920639999" lon="-121.012300031">
+ <ele>313.993896</ele>
+ <time>2003-02-05T18:19:15Z</time>
+ <name>CONFL TR</name>
+ <desc>CONFL TR</desc>
+ <sym>Trail Head</sym>
+ <type>Trail Head</type>
+</wpt>
+<wpt lat="38.932889983" lon="-121.011829974">
+ <ele>437.041748</ele>
+ <time>2003-02-05T18:19:15Z</time>
+ <name>CULVERT TR</name>
+ <desc>CULVERT TR</desc>
+ <sym>Trail Head</sym>
+ <type>Trail Head</type>
+</wpt>
+<wpt lat="38.905900003" lon="-121.055939991">
+ <ele>371.912964</ele>
+ <time>2003-02-04T21:14:35Z</time>
+ <name>MANZANITA</name>
+ <desc>MANZANITA</desc>
+ <sym>Trail Head</sym>
+ <type>Trail Head</type>
+</wpt>
+<wpt lat="38.911470029" lon="-121.054369977">
+ <ele>405.318481</ele>
+ <time>2003-02-04T21:14:35Z</time>
+ <name>STAGECOACH</name>
+ <desc>STAGECOACH</desc>
+ <sym>Trail Head</sym>
+ <type>Trail Head</type>
+</wpt>
+<rte>
+ <name>SAC-CLEM</name>
+ <desc>Auto route from Sacramento to Clementine Loop trail head.</desc>
+ <number>1</number>
+ <topografix:color>ff0000</topografix:color>
+<rtept lat="38.625526432" lon="-121.516942989">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>I-5</name>
+ <desc>I-5</desc>
+ <sym>Waypoint</sym>
+ <type>Waypoint</type>
+</rtept>
+<rtept lat="38.646984104" lon="-121.374807369">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>I-80BUSRTE</name>
+ <desc>I-80BUSRTE</desc>
+ <sym>Waypoint</sym>
+ <type>Waypoint</type>
+</rtept>
+<rtept lat="38.917007450" lon="-121.062297832">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>I-801</name>
+ <desc>I-801</desc>
+ <sym>Waypoint</sym>
+ <type>Waypoint</type>
+</rtept>
+<rtept lat="38.917522434" lon="-121.060409557">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>LINCOLNWAY</name>
+ <desc>LINCOLNWAY</desc>
+ <sym>Waypoint</sym>
+ <type>Waypoint</type>
+</rtept>
+<rtept lat="38.915805820" lon="-121.061010372">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>LINCOLNWY1</name>
+ <desc>LINCOLNWY1</desc>
+ <sym>Waypoint</sym>
+ <type>Waypoint</type>
+</rtept>
+<rtept lat="38.916149143" lon="-121.057147991">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>RUSSELL RD</name>
+ <desc>RUSSELL RD</desc>
+ <sym>Waypoint</sym>
+ <type>Waypoint</type>
+</rtept>
+<rtept lat="38.911467012" lon="-121.054374419">
+ <time>2003-02-05T18:08:15Z</time>
+ <name>STAGECOACH</name>
+ <desc>STAGECOACH</desc>
+ <sym>Trail Head</sym>
+ <type>Trail Head</type>
+</rtept>
+</rte>
+<trk>
+ <name>CLEMENTINE</name>
+ <desc>Clementine Loop</desc>
+ <number>1</number>
+ <topografix:color>ff0000</topografix:color>
+<trkseg>
+<trkpt lat="38.919839863" lon="-121.020112049">
+ <ele>265.447754</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919796947" lon="-121.020240795">
+ <ele>264.967041</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919861320" lon="-121.020498287">
+ <ele>263.044434</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919990066" lon="-121.020798694">
+ <ele>263.525146</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919925693" lon="-121.021056187">
+ <ele>260.160522</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919904236" lon="-121.021163475">
+ <ele>260.160522</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919818405" lon="-121.021292221">
+ <ele>259.679932</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919646744" lon="-121.021614086">
+ <ele>259.199219</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919539455" lon="-121.021764290">
+ <ele>256.795898</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919432167" lon="-121.022086155">
+ <ele>255.834717</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919281963" lon="-121.022450935">
+ <ele>252.950684</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919281963" lon="-121.022515308">
+ <ele>253.431396</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919196132" lon="-121.022665512">
+ <ele>251.989380</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919131759" lon="-121.022837173">
+ <ele>251.027954</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918981556" lon="-121.023073208">
+ <ele>248.624756</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918895725" lon="-121.023223411">
+ <ele>248.624756</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918745521" lon="-121.023609649">
+ <ele>246.702148</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918681148" lon="-121.023845684">
+ <ele>244.298950</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918681148" lon="-121.024081718">
+ <ele>243.337524</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918681148" lon="-121.024210464">
+ <ele>242.856934</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918724064" lon="-121.024403583">
+ <ele>241.895630</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918745521" lon="-121.024703991">
+ <ele>239.492310</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918595318" lon="-121.024854194">
+ <ele>238.050415</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918337826" lon="-121.025025856">
+ <ele>236.608521</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918187622" lon="-121.025090229">
+ <ele>235.646973</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917994503" lon="-121.025326263">
+ <ele>234.205078</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917951587" lon="-121.025519382">
+ <ele>233.243774</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917908672" lon="-121.025691044">
+ <ele>232.282471</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917887214" lon="-121.025927078">
+ <ele>231.801758</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917651180" lon="-121.025991451">
+ <ele>230.840576</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917415146" lon="-121.025884163">
+ <ele>228.437256</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917114738" lon="-121.025691044">
+ <ele>226.514648</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916792873" lon="-121.025648128">
+ <ele>223.630737</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916192058" lon="-121.025819790">
+ <ele>219.785400</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915848736" lon="-121.025884163">
+ <ele>217.382202</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915677074" lon="-121.026034366">
+ <ele>215.459595</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915634159" lon="-121.026227485">
+ <ele>214.017578</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915634159" lon="-121.026356232">
+ <ele>214.017578</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915569786" lon="-121.026806843">
+ <ele>212.094971</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915462498" lon="-121.026914131">
+ <ele>210.172363</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915376667" lon="-121.027021419">
+ <ele>209.691772</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915140632" lon="-121.027686607">
+ <ele>206.807739</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915119175" lon="-121.027858269">
+ <ele>206.327148</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915054802" lon="-121.028094303">
+ <ele>204.404541</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915054802" lon="-121.028137218">
+ <ele>204.404541</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914990429" lon="-121.028373253">
+ <ele>201.520508</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914947513" lon="-121.028738033">
+ <ele>200.559204</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914861683" lon="-121.028931152">
+ <ele>199.597900</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914840225" lon="-121.029145729">
+ <ele>200.559204</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914797310" lon="-121.029253017">
+ <ele>201.039795</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914647106" lon="-121.029489052">
+ <ele>196.713989</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914625648" lon="-121.029531967">
+ <ele>196.713989</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914539818" lon="-121.029832374">
+ <ele>194.310791</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914518360" lon="-121.030004036">
+ <ele>192.868774</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914496902" lon="-121.030519020">
+ <ele>191.426758</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914368156" lon="-121.030626308">
+ <ele>189.984863</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914217953" lon="-121.030733597">
+ <ele>189.023560</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914024833" lon="-121.031162750">
+ <ele>184.697632</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913981918" lon="-121.031377327">
+ <ele>183.736206</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913939003" lon="-121.031699192">
+ <ele>183.255615</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913939003" lon="-121.031785023">
+ <ele>183.255615</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913831714" lon="-121.032021057">
+ <ele>182.775024</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913831714" lon="-121.032278549">
+ <ele>180.852417</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913788799" lon="-121.032471668">
+ <ele>178.929810</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913788799" lon="-121.032536041">
+ <ele>179.410400</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913681511" lon="-121.032857906">
+ <ele>177.487793</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913660053" lon="-121.033115398">
+ <ele>175.084595</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913660053" lon="-121.033244144">
+ <ele>174.603882</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913660053" lon="-121.033458721">
+ <ele>174.123169</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913702968" lon="-121.034145366">
+ <ele>172.200562</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913660053" lon="-121.034231197">
+ <ele>171.239258</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913767341" lon="-121.034510147">
+ <ele>173.642578</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913767341" lon="-121.034767639">
+ <ele>172.200562</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913831714" lon="-121.035046589">
+ <ele>168.835938</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913896087" lon="-121.035218250">
+ <ele>167.874634</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913960460" lon="-121.035454284">
+ <ele>167.394043</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914024833" lon="-121.035625946">
+ <ele>166.913330</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914260868" lon="-121.035776150">
+ <ele>165.952026</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914518360" lon="-121.035904896">
+ <ele>166.913330</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914818767" lon="-121.036012184">
+ <ele>166.913330</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914947513" lon="-121.036119472">
+ <ele>166.913330</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915119175" lon="-121.036248218">
+ <ele>167.874634</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915290836" lon="-121.036291134">
+ <ele>168.835938</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915441040" lon="-121.036076557">
+ <ele>170.758545</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915634159" lon="-121.035883438">
+ <ele>174.123169</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915784363" lon="-121.035690319">
+ <ele>174.123169</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916020397" lon="-121.035625946">
+ <ele>173.161987</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916256431" lon="-121.035647404">
+ <ele>172.200562</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916385177" lon="-121.035690319">
+ <ele>171.239258</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916814331" lon="-121.036269676">
+ <ele>169.316650</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916878704" lon="-121.036484253">
+ <ele>167.394043</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916964535" lon="-121.036548626">
+ <ele>166.913330</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917050365" lon="-121.036527168">
+ <ele>166.432617</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917458061" lon="-121.036398422">
+ <ele>166.432617</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917887214" lon="-121.036570083">
+ <ele>168.835938</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918037418" lon="-121.036698829">
+ <ele>171.719849</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918058876" lon="-121.036698829">
+ <ele>172.681274</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918144707" lon="-121.036720287">
+ <ele>174.603882</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918187622" lon="-121.036827576">
+ <ele>176.526489</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918316368" lon="-121.036977779">
+ <ele>180.371704</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918466572" lon="-121.037127983">
+ <ele>183.255615</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918530945" lon="-121.037299644">
+ <ele>186.620239</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918659691" lon="-121.037514221">
+ <ele>189.023560</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918766979" lon="-121.037707340">
+ <ele>191.907471</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918852810" lon="-121.037836086">
+ <ele>195.271973</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919067386" lon="-121.038050663">
+ <ele>197.194580</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919239048" lon="-121.038222324">
+ <ele>200.078613</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919346336" lon="-121.038393986">
+ <ele>202.481812</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919517998" lon="-121.038587105">
+ <ele>205.846558</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919539455" lon="-121.038630020">
+ <ele>206.327148</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919496540" lon="-121.038672935">
+ <ele>206.807739</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919260505" lon="-121.038544189">
+ <ele>210.652954</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918960098" lon="-121.038351070">
+ <ele>214.017578</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918402199" lon="-121.037986290">
+ <ele>217.382202</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918037418" lon="-121.037728798">
+ <ele>220.266113</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917565349" lon="-121.037685882">
+ <ele>223.630737</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917350773" lon="-121.038050663">
+ <ele>226.514648</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917329315" lon="-121.038329613">
+ <ele>228.917969</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917222027" lon="-121.038887512">
+ <ele>231.801758</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917243484" lon="-121.039402496">
+ <ele>235.166382</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917350773" lon="-121.039831650">
+ <ele>238.050415</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917651180" lon="-121.040067684">
+ <ele>241.414917</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917887214" lon="-121.040282261">
+ <ele>244.298950</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918294910" lon="-121.040647041">
+ <ele>245.260132</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918423656" lon="-121.041119110">
+ <ele>248.144165</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918659691" lon="-121.041462433">
+ <ele>251.508667</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918852810" lon="-121.041655552">
+ <ele>254.392700</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918809894" lon="-121.042191994">
+ <ele>256.795898</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918809894" lon="-121.042814266">
+ <ele>259.199219</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918509487" lon="-121.042964470">
+ <ele>261.602539</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918488029" lon="-121.042964470">
+ <ele>261.602539</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918101791" lon="-121.042792808">
+ <ele>264.486328</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917586807" lon="-121.042621147">
+ <ele>268.331665</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917329315" lon="-121.042792808">
+ <ele>270.254272</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917157654" lon="-121.043200504">
+ <ele>273.138306</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916878704" lon="-121.043479454">
+ <ele>276.022095</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916471008" lon="-121.043629658">
+ <ele>278.906128</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916428093" lon="-121.043608200">
+ <ele>279.867310</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916020397" lon="-121.043457996">
+ <ele>283.231934</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915805820" lon="-121.043694031">
+ <ele>286.115967</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915655617" lon="-121.044209015">
+ <ele>288.038574</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915419582" lon="-121.044316303">
+ <ele>290.922485</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915140632" lon="-121.044466507">
+ <ele>293.325684</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914818767" lon="-121.044230472">
+ <ele>294.287109</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914496902" lon="-121.044101726">
+ <ele>297.651611</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914217953" lon="-121.044230472">
+ <ele>301.016235</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913939003" lon="-121.044445049">
+ <ele>303.419556</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913810257" lon="-121.044552337">
+ <ele>304.861450</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913488392" lon="-121.044681084">
+ <ele>307.745483</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913187984" lon="-121.044681084">
+ <ele>308.706665</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912887577" lon="-121.044681084">
+ <ele>311.109985</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912565712" lon="-121.044788372">
+ <ele>313.513306</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912372593" lon="-121.045110237">
+ <ele>316.877930</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912265304" lon="-121.045281898">
+ <ele>316.877930</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912072185" lon="-121.045582306">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912007812" lon="-121.045925628">
+ <ele>322.165039</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912007812" lon="-121.046075832">
+ <ele>323.126465</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912072185" lon="-121.046547901">
+ <ele>325.529663</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912243847" lon="-121.046998512">
+ <ele>327.452271</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912158016" lon="-121.047277462">
+ <ele>330.816895</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911964897" lon="-121.047577869">
+ <ele>333.220215</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911771778" lon="-121.047964107">
+ <ele>335.623413</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911471371" lon="-121.048307430">
+ <ele>338.988037</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911235336" lon="-121.048650753">
+ <ele>342.352661</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911042217" lon="-121.049079906">
+ <ele>344.275269</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910634521" lon="-121.049187195">
+ <ele>346.678467</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910248283" lon="-121.049444687">
+ <ele>350.043213</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910119537" lon="-121.049659263">
+ <ele>353.407715</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910183910" lon="-121.050109875">
+ <ele>354.849609</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910462860" lon="-121.050453197">
+ <ele>357.733643</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910849098" lon="-121.050710689">
+ <ele>360.617432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911213878" lon="-121.050882351">
+ <ele>363.501465</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911406997" lon="-121.051311504">
+ <ele>366.866089</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911664490" lon="-121.051590454">
+ <ele>370.230591</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912007812" lon="-121.051719200">
+ <ele>371.672607</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912007812" lon="-121.052105438">
+ <ele>373.595215</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912050728" lon="-121.052491676">
+ <ele>376.959839</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912351135" lon="-121.052856457">
+ <ele>379.363037</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912758831" lon="-121.052985203">
+ <ele>382.727783</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913059238" lon="-121.053135406">
+ <ele>385.130981</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913273815" lon="-121.053628933">
+ <ele>388.014893</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913273815" lon="-121.053843510">
+ <ele>388.976196</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913187984" lon="-121.053843510">
+ <ele>389.456787</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913037781" lon="-121.053822052">
+ <ele>390.418213</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912673000" lon="-121.053864967">
+ <ele>393.302002</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912308220" lon="-121.053972256">
+ <ele>396.186157</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911921982" lon="-121.054122459">
+ <ele>399.069946</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911664490" lon="-121.054143917">
+ <ele>400.031372</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911492828" lon="-121.054101002">
+ <ele>400.992554</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911342624" lon="-121.054251205">
+ <ele>403.876587</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911385540" lon="-121.054358494">
+ <ele>403.876587</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911385540" lon="-121.054379951">
+ <ele>403.395874</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911406997" lon="-121.054379951">
+ <ele>402.915161</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911492828" lon="-121.054487240">
+ <ele>402.915161</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911492828" lon="-121.054487240">
+ <ele>403.395874</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911492828" lon="-121.054508697">
+ <ele>403.395874</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911492828" lon="-121.054337036">
+ <ele>413.489746</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911514286" lon="-121.054379951">
+ <ele>413.489746</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911557201" lon="-121.055088054">
+ <ele>410.605591</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911535744" lon="-121.055431377">
+ <ele>408.202393</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911364082" lon="-121.055989277">
+ <ele>404.357178</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911256794" lon="-121.056354057">
+ <ele>400.511963</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911213878" lon="-121.056482803">
+ <ele>399.550659</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911085132" lon="-121.056633007">
+ <ele>397.147339</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910484318" lon="-121.056268226">
+ <ele>394.744019</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909926418" lon="-121.056118023">
+ <ele>391.379395</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909754757" lon="-121.056096565">
+ <ele>390.418213</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909540180" lon="-121.056182396">
+ <ele>389.937500</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908746246" lon="-121.056311142">
+ <ele>386.572998</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908681873" lon="-121.056311142">
+ <ele>386.572998</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908295635" lon="-121.056311142">
+ <ele>386.092285</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907995228" lon="-121.056418430">
+ <ele>387.534180</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907845024" lon="-121.056461346">
+ <ele>386.572998</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907630447" lon="-121.056418430">
+ <ele>387.053589</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907480243" lon="-121.056289684">
+ <ele>387.053589</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907458786" lon="-121.056203853">
+ <ele>386.092285</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907394413" lon="-121.056182396">
+ <ele>386.092285</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907115463" lon="-121.056096565">
+ <ele>383.208374</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906836513" lon="-121.056182396">
+ <ele>381.285767</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906729225" lon="-121.056289684">
+ <ele>379.843628</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906536106" lon="-121.056504261">
+ <ele>377.921021</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906321529" lon="-121.056504261">
+ <ele>376.479126</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906064037" lon="-121.056203853">
+ <ele>375.037231</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905892376" lon="-121.055967819">
+ <ele>371.672607</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905892376" lon="-121.055946361">
+ <ele>370.711304</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906021122" lon="-121.055667412">
+ <ele>366.866089</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906085495" lon="-121.055452835">
+ <ele>363.982056</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906128410" lon="-121.055152428">
+ <ele>360.617432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906149868" lon="-121.055088054">
+ <ele>359.656250</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906214241" lon="-121.054852020">
+ <ele>358.214233</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906300072" lon="-121.054744732">
+ <ele>356.291626</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906364445" lon="-121.054658901">
+ <ele>354.849609</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906407360" lon="-121.054508697">
+ <ele>351.965820</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906385902" lon="-121.054465782">
+ <ele>351.485107</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906021122" lon="-121.054551613">
+ <ele>348.120605</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905677799" lon="-121.054744732">
+ <ele>344.755859</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905591968" lon="-121.054809105">
+ <ele>342.352661</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905441765" lon="-121.054937851">
+ <ele>340.430054</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905441765" lon="-121.054852020">
+ <ele>339.949341</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905463222" lon="-121.054744732">
+ <ele>338.988037</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905549053" lon="-121.054508697">
+ <ele>335.142822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905570511" lon="-121.054465782">
+ <ele>335.142822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905785087" lon="-121.054058086">
+ <ele>333.700806</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.905978206" lon="-121.053800594">
+ <ele>330.816895</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906149868" lon="-121.053628933">
+ <ele>330.336182</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906257156" lon="-121.053586017">
+ <ele>329.855469</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906385902" lon="-121.053521644">
+ <ele>329.855469</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906514648" lon="-121.053457271">
+ <ele>328.413574</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906879429" lon="-121.053543102">
+ <ele>325.529663</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906900886" lon="-121.053586017">
+ <ele>324.087646</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906965259" lon="-121.053714763">
+ <ele>322.165039</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.906965259" lon="-121.053714763">
+ <ele>322.165039</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907008175" lon="-121.053671848">
+ <ele>322.645752</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907158378" lon="-121.053435814">
+ <ele>326.490967</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907244209" lon="-121.053199779">
+ <ele>329.855469</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907544617" lon="-121.053071033">
+ <ele>327.932861</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907630447" lon="-121.053071033">
+ <ele>327.452271</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907673363" lon="-121.053028118">
+ <ele>326.010254</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907802109" lon="-121.052920830">
+ <ele>324.087646</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907887939" lon="-121.052792084">
+ <ele>322.645752</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.907930855" lon="-121.052598965">
+ <ele>322.645752</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908317093" lon="-121.052105438">
+ <ele>322.165039</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908445839" lon="-121.051869404">
+ <ele>322.645752</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908252720" lon="-121.051461708">
+ <ele>323.607056</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908274177" lon="-121.050968181">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908381466" lon="-121.050839435">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908424381" lon="-121.050817978">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908531669" lon="-121.050710689">
+ <ele>315.916504</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908574585" lon="-121.050689232">
+ <ele>315.916504</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908638958" lon="-121.050646316">
+ <ele>313.513306</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908789161" lon="-121.050581943">
+ <ele>313.513306</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908917908" lon="-121.050496113">
+ <ele>315.435913</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909025196" lon="-121.050453197">
+ <ele>316.397217</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909432892" lon="-121.050367367">
+ <ele>317.358643</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909540180" lon="-121.050324451">
+ <ele>317.358643</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909540180" lon="-121.050260078">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909175400" lon="-121.049852382">
+ <ele>321.203857</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908746246" lon="-121.049251568">
+ <ele>323.126465</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908531669" lon="-121.048629295">
+ <ele>323.126465</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.908660415" lon="-121.048393261">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909196857" lon="-121.048264515">
+ <ele>318.800537</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909239773" lon="-121.048264515">
+ <ele>318.800537</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909325603" lon="-121.048157226">
+ <ele>317.358643</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909304146" lon="-121.048028480">
+ <ele>319.281250</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909218315" lon="-121.047513496">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909282688" lon="-121.047449123">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909497265" lon="-121.047427666">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909733299" lon="-121.047492039">
+ <ele>321.203857</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.909883503" lon="-121.047427666">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910076622" lon="-121.047492039">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910441402" lon="-121.047942650">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910548691" lon="-121.048092853">
+ <ele>321.203857</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910784725" lon="-121.048221599">
+ <ele>320.723145</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910870556" lon="-121.048264515">
+ <ele>319.281250</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.910956386" lon="-121.048049938">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911192421" lon="-121.047620785">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911535744" lon="-121.047556412">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911964897" lon="-121.047041427">
+ <ele>318.800537</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911921982" lon="-121.046805393">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911879066" lon="-121.046526443">
+ <ele>322.645752</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911879066" lon="-121.046226036">
+ <ele>322.645752</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911836151" lon="-121.045990002">
+ <ele>320.242432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.911900524" lon="-121.045582306">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912179474" lon="-121.045217525">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912522796" lon="-121.044766914">
+ <ele>319.281250</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912694458" lon="-121.044616710">
+ <ele>318.319824</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912780289" lon="-121.044595253">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912801746" lon="-121.044616710">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.912844662" lon="-121.044616710">
+ <ele>319.761841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913037781" lon="-121.044659626">
+ <ele>321.684448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913209442" lon="-121.044638168">
+ <ele>320.723145</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913402561" lon="-121.044638168">
+ <ele>318.319824</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913681511" lon="-121.044638168">
+ <ele>316.877930</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.913810257" lon="-121.044573795">
+ <ele>316.397217</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914217953" lon="-121.044230472">
+ <ele>312.551880</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914282326" lon="-121.044187557">
+ <ele>312.551880</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.914561275" lon="-121.044101726">
+ <ele>309.668091</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915033344" lon="-121.044337761">
+ <ele>305.342163</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915076259" lon="-121.044380676">
+ <ele>305.342163</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915376667" lon="-121.044316303">
+ <ele>303.419556</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915634159" lon="-121.044187557">
+ <ele>301.496948</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915762905" lon="-121.043972980">
+ <ele>298.132324</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.915805820" lon="-121.043715488">
+ <ele>297.651611</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916277889" lon="-121.043415081">
+ <ele>293.806396</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916556839" lon="-121.043543827">
+ <ele>290.441895</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916728500" lon="-121.043608200">
+ <ele>288.038574</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916835789" lon="-121.043608200">
+ <ele>288.038574</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917093281" lon="-121.043457996">
+ <ele>286.115967</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917307857" lon="-121.042985927">
+ <ele>283.231934</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917350773" lon="-121.042921554">
+ <ele>282.751343</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917436603" lon="-121.042792808">
+ <ele>280.828735</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917694095" lon="-121.042685520">
+ <ele>278.425415</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917758468" lon="-121.042685520">
+ <ele>277.944702</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918402199" lon="-121.042814266">
+ <ele>273.138306</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918530945" lon="-121.042835724">
+ <ele>271.696289</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918724064" lon="-121.042900097">
+ <ele>270.254272</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918917183" lon="-121.042835724">
+ <ele>269.773682</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918981556" lon="-121.042449486">
+ <ele>268.331665</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918938640" lon="-121.041784298">
+ <ele>265.447754</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918766979" lon="-121.041526806">
+ <ele>262.563721</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918488029" lon="-121.041183483">
+ <ele>260.641113</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918359283" lon="-121.040732872">
+ <ele>257.757324</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918230537" lon="-121.040561210">
+ <ele>255.834717</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918015961" lon="-121.040346634">
+ <ele>255.834717</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917801384" lon="-121.040132057">
+ <ele>255.354004</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917522434" lon="-121.039938938">
+ <ele>251.027954</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917415146" lon="-121.039767277">
+ <ele>250.066772</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917372230" lon="-121.039574158">
+ <ele>248.624756</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917329315" lon="-121.038780224">
+ <ele>243.818237</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917393688" lon="-121.038479816">
+ <ele>242.376343</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917436603" lon="-121.038007747">
+ <ele>239.973022</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917586807" lon="-121.037685882">
+ <ele>237.089111</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917887214" lon="-121.037535679">
+ <ele>234.205078</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918037418" lon="-121.037535679">
+ <ele>233.724365</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918380741" lon="-121.037621509">
+ <ele>230.359863</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918809894" lon="-121.037879001">
+ <ele>226.995361</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918917183" lon="-121.037964832">
+ <ele>226.033936</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919045929" lon="-121.038050663">
+ <ele>224.592041</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919260505" lon="-121.038222324">
+ <ele>223.150146</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919367794" lon="-121.038308155">
+ <ele>221.708130</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919689659" lon="-121.038565647">
+ <ele>217.862793</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919732574" lon="-121.038608562">
+ <ele>217.862793</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919754032" lon="-121.038608562">
+ <ele>216.901489</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919668201" lon="-121.038479816">
+ <ele>215.459595</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919389252" lon="-121.038136494">
+ <ele>211.614380</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919346336" lon="-121.038093578">
+ <ele>211.614380</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919239048" lon="-121.037986290">
+ <ele>208.730347</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919003013" lon="-121.037707340">
+ <ele>204.885132</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918960098" lon="-121.037664425">
+ <ele>204.885132</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918766979" lon="-121.037428390">
+ <ele>200.559204</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918638233" lon="-121.037213814">
+ <ele>197.194580</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918509487" lon="-121.037020695">
+ <ele>192.868774</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918294910" lon="-121.036784660">
+ <ele>189.023560</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918230537" lon="-121.036741745">
+ <ele>187.581421</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917951587" lon="-121.036570083">
+ <ele>181.813599</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917887214" lon="-121.036527168">
+ <ele>181.813599</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917608265" lon="-121.036419880">
+ <ele>178.929810</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917415146" lon="-121.036376964">
+ <ele>178.449097</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917007450" lon="-121.036548626">
+ <ele>178.449097</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916857246" lon="-121.036398422">
+ <ele>178.929810</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916621212" lon="-121.035840523">
+ <ele>180.371704</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916363720" lon="-121.035647404">
+ <ele>181.333008</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916363720" lon="-121.035346996">
+ <ele>181.813599</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916578296" lon="-121.035218250">
+ <ele>181.333008</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.916943077" lon="-121.035089504">
+ <ele>180.371704</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.917222027" lon="-121.035068046">
+ <ele>179.410400</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918209080" lon="-121.035454284">
+ <ele>178.449097</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918488029" lon="-121.035625946">
+ <ele>177.968384</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.918745521" lon="-121.035969269">
+ <ele>177.968384</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919045929" lon="-121.036248218">
+ <ele>177.968384</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919346336" lon="-121.036655914">
+ <ele>178.449097</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920183185" lon="-121.037406933">
+ <ele>181.333008</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920912746" lon="-121.037750255">
+ <ele>183.255615</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921277527" lon="-121.037836086">
+ <ele>185.178223</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921492103" lon="-121.037921917">
+ <ele>184.216919</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921599392" lon="-121.037964832">
+ <ele>185.658813</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921685222" lon="-121.037964832">
+ <ele>184.216919</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921921257" lon="-121.038007747">
+ <ele>187.581421</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922092918" lon="-121.038072120">
+ <ele>187.100830</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922178749" lon="-121.038115036">
+ <ele>187.100830</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922264580" lon="-121.038157951">
+ <ele>186.620239</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922607902" lon="-121.038222324">
+ <ele>186.620239</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923058513" lon="-121.038243782">
+ <ele>187.100830</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923144344" lon="-121.038243782">
+ <ele>187.100830</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923230175" lon="-121.038265240">
+ <ele>187.100830</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923444752" lon="-121.038372528">
+ <ele>184.216919</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923809532" lon="-121.038479816">
+ <ele>185.178223</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924024109" lon="-121.038651478">
+ <ele>185.658813</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924303058" lon="-121.038844597">
+ <ele>186.620239</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924496177" lon="-121.038930427">
+ <ele>187.100830</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924560551" lon="-121.038994800">
+ <ele>186.620239</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924903873" lon="-121.039359581">
+ <ele>184.697632</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925139908" lon="-121.039681446">
+ <ele>184.216919</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925569061" lon="-121.040325176">
+ <ele>183.255615</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925783638" lon="-121.040625583">
+ <ele>182.775024</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925912384" lon="-121.040647041">
+ <ele>182.294312</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926019672" lon="-121.040689956">
+ <ele>181.813599</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926298622" lon="-121.040668499">
+ <ele>180.852417</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926427368" lon="-121.040625583">
+ <ele>180.371704</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927049640" lon="-121.040260803">
+ <ele>183.736206</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927328590" lon="-121.039917480">
+ <ele>186.139526</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927929405" lon="-121.039445412">
+ <ele>189.023560</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928380016" lon="-121.039080631">
+ <ele>192.388184</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928701881" lon="-121.038994800">
+ <ele>195.752686</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928895000" lon="-121.038973343">
+ <ele>197.675293</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929195408" lon="-121.038780224">
+ <ele>200.078613</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929367069" lon="-121.038351070">
+ <ele>202.481812</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929431442" lon="-121.038179409">
+ <ele>204.404541</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929796222" lon="-121.038136494">
+ <ele>207.769165</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930096630" lon="-121.037943374">
+ <ele>210.652954</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930397037" lon="-121.037836086">
+ <ele>213.536987</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930675987" lon="-121.037836086">
+ <ele>214.978882</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931126598" lon="-121.037428390">
+ <ele>216.420776</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931362633" lon="-121.037170898">
+ <ele>219.785400</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931534294" lon="-121.036913406">
+ <ele>222.669434</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931877617" lon="-121.036441337">
+ <ele>226.033936</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932156566" lon="-121.036055099">
+ <ele>228.917969</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932392601" lon="-121.035690319">
+ <ele>231.801758</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932564262" lon="-121.035304081">
+ <ele>235.166382</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932650093" lon="-121.034939300">
+ <ele>237.569702</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932349685" lon="-121.034510147">
+ <ele>240.453735</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932178024" lon="-121.034166824">
+ <ele>243.337524</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931963447" lon="-121.033694755">
+ <ele>246.702148</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931727413" lon="-121.033265602">
+ <ele>249.586060</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931491379" lon="-121.032986652">
+ <ele>252.470093</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931405548" lon="-121.032664787">
+ <ele>255.354004</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931212429" lon="-121.032257091">
+ <ele>258.718506</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930976394" lon="-121.031892311">
+ <ele>262.563721</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931019310" lon="-121.031634819">
+ <ele>264.967041</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931405548" lon="-121.031270038">
+ <ele>265.928345</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931620125" lon="-121.030840885">
+ <ele>267.370361</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931598667" lon="-121.030218612">
+ <ele>269.773682</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931577209" lon="-121.029725086">
+ <ele>272.657593</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931427006" lon="-121.029338848">
+ <ele>275.541504</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931298260" lon="-121.028888237">
+ <ele>277.944702</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931233887" lon="-121.028695118">
+ <ele>279.867310</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931276802" lon="-121.028630745">
+ <ele>280.348022</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931598667" lon="-121.028373253">
+ <ele>283.231934</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931856159" lon="-121.028201591">
+ <ele>286.596680</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931984905" lon="-121.027858269">
+ <ele>288.999878</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932220939" lon="-121.027793896">
+ <ele>292.845093</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932414058" lon="-121.027643692">
+ <ele>296.209717</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932435516" lon="-121.027235996">
+ <ele>299.093506</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932456974" lon="-121.027064335">
+ <ele>299.093506</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932456974" lon="-121.026892673">
+ <ele>301.016235</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932671551" lon="-121.026592266">
+ <ele>301.496948</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932971958" lon="-121.026463520">
+ <ele>304.380859</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933186535" lon="-121.026098739">
+ <ele>306.784058</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933444027" lon="-121.025691044">
+ <ele>309.668091</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933658603" lon="-121.025347721">
+ <ele>313.032593</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933830265" lon="-121.024832737">
+ <ele>316.397217</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933701519" lon="-121.024210464">
+ <ele>319.281250</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933529857" lon="-121.024124634">
+ <ele>322.165039</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933293823" lon="-121.023824226">
+ <ele>323.607056</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933379654" lon="-121.023373615">
+ <ele>326.010254</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933551315" lon="-121.023008835">
+ <ele>328.894287</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933594230" lon="-121.022579681">
+ <ele>330.336182</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933765892" lon="-121.022322189">
+ <ele>333.700806</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933851723" lon="-121.021893036">
+ <ele>336.584839</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933701519" lon="-121.021549713">
+ <ele>338.507446</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933594230" lon="-121.021120560">
+ <ele>341.391235</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933615688" lon="-121.020584118">
+ <ele>344.755859</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933637146" lon="-121.020519745">
+ <ele>344.275269</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934109215" lon="-121.020262253">
+ <ele>348.120605</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934366707" lon="-121.020069134">
+ <ele>351.004395</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934388164" lon="-121.020069134">
+ <ele>351.485107</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934817318" lon="-121.019918930">
+ <ele>352.446411</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935139183" lon="-121.019833099">
+ <ele>352.927002</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935546879" lon="-121.019811642">
+ <ele>355.811035</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935825828" lon="-121.019639980">
+ <ele>359.175537</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935868744" lon="-121.019446861">
+ <ele>360.617432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935546879" lon="-121.018974792">
+ <ele>363.982056</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935375217" lon="-121.018695843">
+ <ele>366.866089</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935289387" lon="-121.018266689">
+ <ele>370.230591</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935611252" lon="-121.018052112">
+ <ele>373.114624</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.936040405" lon="-121.017901909">
+ <ele>376.959839</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.936448101" lon="-121.017665874">
+ <ele>379.843628</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.936812881" lon="-121.017494213">
+ <ele>383.208374</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.937134746" lon="-121.017344009">
+ <ele>386.572998</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.937284950" lon="-121.016914856">
+ <ele>388.495605</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.937048916" lon="-121.016507160">
+ <ele>391.860107</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.936769966" lon="-121.016249668">
+ <ele>393.302002</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.936426643" lon="-121.016013634">
+ <ele>396.666748</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.936212066" lon="-121.015906345">
+ <ele>399.550659</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935954574" lon="-121.015863430">
+ <ele>401.473267</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935611252" lon="-121.015884888">
+ <ele>404.357178</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935267929" lon="-121.015906345">
+ <ele>407.721802</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935160641" lon="-121.015520107">
+ <ele>410.125000</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.935139183" lon="-121.015155327">
+ <ele>410.605591</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934946064" lon="-121.014683258">
+ <ele>413.489746</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934624199" lon="-121.014318477">
+ <ele>416.854248</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934237961" lon="-121.013975155">
+ <ele>419.738159</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.934023384" lon="-121.013674747">
+ <ele>423.102783</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933744434" lon="-121.013417255">
+ <ele>425.986572</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933529857" lon="-121.013052475">
+ <ele>429.351318</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933358196" lon="-121.012730610">
+ <ele>432.235229</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933315281" lon="-121.012516033">
+ <ele>433.196533</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933079246" lon="-121.012172710">
+ <ele>435.599731</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932929043" lon="-121.011958134">
+ <ele>436.561157</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932843212" lon="-121.011893761">
+ <ele>437.041748</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932778839" lon="-121.011915218">
+ <ele>438.003052</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932821754" lon="-121.012279999">
+ <ele>440.886963</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932800297" lon="-121.012387287">
+ <ele>442.809570</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932886127" lon="-121.012709152">
+ <ele>446.174316</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933057789" lon="-121.012945186">
+ <ele>449.058105</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933165077" lon="-121.013181221">
+ <ele>452.903320</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933272365" lon="-121.013503086">
+ <ele>456.267944</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933336738" lon="-121.013782036">
+ <ele>457.229248</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933401111" lon="-121.014060985">
+ <ele>460.593872</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933529857" lon="-121.014511597">
+ <ele>463.958496</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933722976" lon="-121.014812004">
+ <ele>463.958496</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933787350" lon="-121.015348446">
+ <ele>460.113281</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933830265" lon="-121.015605938">
+ <ele>456.748535</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933830265" lon="-121.015648853">
+ <ele>456.267944</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933680061" lon="-121.015906345">
+ <ele>454.825928</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.933293823" lon="-121.016185295">
+ <ele>454.345337</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932864670" lon="-121.016292583">
+ <ele>456.267944</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932693008" lon="-121.016271126">
+ <ele>459.151855</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932456974" lon="-121.016249668">
+ <ele>462.516479</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932242397" lon="-121.016271126">
+ <ele>464.439087</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.932049278" lon="-121.016335499">
+ <ele>466.361694</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931705955" lon="-121.016421329">
+ <ele>469.245728</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931341175" lon="-121.016528618">
+ <ele>472.129517</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.931148056" lon="-121.016614448">
+ <ele>475.494141</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930869106" lon="-121.016807567">
+ <ele>478.378174</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930633072" lon="-121.017022144">
+ <ele>480.781494</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930482868" lon="-121.017236721">
+ <ele>482.704102</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930418495" lon="-121.017365467">
+ <ele>483.665283</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930397037" lon="-121.017386925">
+ <ele>483.184692</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930354122" lon="-121.017408382">
+ <ele>483.665283</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930461410" lon="-121.017322552">
+ <ele>484.626709</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930482868" lon="-121.017322552">
+ <ele>484.626709</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930439953" lon="-121.017365467">
+ <ele>485.587891</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930461410" lon="-121.017386925">
+ <ele>485.107300</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930439953" lon="-121.017344009">
+ <ele>486.068604</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930418495" lon="-121.017344009">
+ <ele>486.068604</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930439953" lon="-121.017344009">
+ <ele>487.029907</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930439953" lon="-121.017816078">
+ <ele>484.145996</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930439953" lon="-121.017966282">
+ <ele>482.704102</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930547241" lon="-121.018438351">
+ <ele>480.781494</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930547241" lon="-121.018738758">
+ <ele>478.858887</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930568699" lon="-121.018888962">
+ <ele>477.416870</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930611614" lon="-121.019232284">
+ <ele>474.052124</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930611614" lon="-121.019382488">
+ <ele>472.610229</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930418495" lon="-121.019489776">
+ <ele>471.648926</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930225376" lon="-121.019468319">
+ <ele>467.323120</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930053715" lon="-121.019425403">
+ <ele>463.958496</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.930010799" lon="-121.019403946">
+ <ele>463.477905</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929882053" lon="-121.019232284">
+ <ele>461.074585</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929839138" lon="-121.019039165">
+ <ele>458.190552</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929817680" lon="-121.018974792">
+ <ele>458.190552</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929517273" lon="-121.018867504">
+ <ele>454.825928</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929216865" lon="-121.018846046">
+ <ele>451.942139</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.929066662" lon="-121.018824589">
+ <ele>450.500122</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928852085" lon="-121.018888962">
+ <ele>447.616211</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928530220" lon="-121.018888962">
+ <ele>443.290161</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928251270" lon="-121.019017708">
+ <ele>440.886963</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928229812" lon="-121.019039165">
+ <ele>439.925659</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.928143982" lon="-121.019039165">
+ <ele>439.444946</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927843574" lon="-121.018781673">
+ <ele>435.599731</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927800659" lon="-121.018695843">
+ <ele>434.638550</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927457336" lon="-121.018266689">
+ <ele>435.119141</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927307133" lon="-121.018159401">
+ <ele>432.235229</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927221302" lon="-121.018095028">
+ <ele>429.831909</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927071098" lon="-121.017944824">
+ <ele>427.428589</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.927028183" lon="-121.017515671">
+ <ele>426.467285</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926877979" lon="-121.017236721">
+ <ele>423.102783</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926856521" lon="-121.017193806">
+ <ele>423.102783</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926835064" lon="-121.017150890">
+ <ele>422.622070</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926770691" lon="-121.017065059">
+ <ele>422.141357</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926577572" lon="-121.017000686">
+ <ele>418.776855</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926448826" lon="-121.016936313">
+ <ele>416.854248</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926405910" lon="-121.016936313">
+ <ele>415.412354</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926277164" lon="-121.016893398">
+ <ele>413.970337</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926212791" lon="-121.016850483">
+ <ele>413.009033</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.926062588" lon="-121.016657364">
+ <ele>411.086304</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925912384" lon="-121.016464245">
+ <ele>408.202393</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925526146" lon="-121.015841972">
+ <ele>404.837769</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925354484" lon="-121.015670311">
+ <ele>404.357178</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925182823" lon="-121.015734684">
+ <ele>401.953979</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925075535" lon="-121.015670311">
+ <ele>400.031372</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925032619" lon="-121.015584480">
+ <ele>399.550659</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925011162" lon="-121.015455734">
+ <ele>400.992554</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.925011162" lon="-121.015434276">
+ <ele>401.473267</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924946789" lon="-121.015219700">
+ <ele>401.473267</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924689297" lon="-121.014940750">
+ <ele>401.473267</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924582008" lon="-121.014661800">
+ <ele>401.473267</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924496177" lon="-121.014297020">
+ <ele>400.992554</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924367431" lon="-121.013889324">
+ <ele>398.589355</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924367431" lon="-121.013610374">
+ <ele>394.263428</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924345974" lon="-121.013481628">
+ <ele>393.782715</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924367431" lon="-121.012837898">
+ <ele>395.224609</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924303058" lon="-121.012601864">
+ <ele>395.224609</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924152855" lon="-121.012709152">
+ <ele>390.898804</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924131397" lon="-121.012730610">
+ <ele>390.418213</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.924024109" lon="-121.012902271">
+ <ele>386.572998</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923981193" lon="-121.012988102">
+ <ele>385.611572</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923916820" lon="-121.013138305">
+ <ele>383.208374</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923873905" lon="-121.013224136">
+ <ele>382.247070</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923788074" lon="-121.013438713">
+ <ele>379.363037</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923680786" lon="-121.013460171">
+ <ele>378.882446</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923380379" lon="-121.013395798">
+ <ele>376.959839</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923122886" lon="-121.013395798">
+ <ele>374.075806</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923079971" lon="-121.013438713">
+ <ele>375.517822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923058513" lon="-121.013481628">
+ <ele>375.037231</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923015598" lon="-121.013546001">
+ <ele>375.517822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922908310" lon="-121.013760578">
+ <ele>371.672607</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922886852" lon="-121.013760578">
+ <ele>371.192017</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922865394" lon="-121.013803493">
+ <ele>369.750000</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922865394" lon="-121.013867866">
+ <ele>368.788696</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922886852" lon="-121.014146816">
+ <ele>367.346802</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922886852" lon="-121.014211189">
+ <ele>366.385376</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922843937" lon="-121.014254104">
+ <ele>365.904785</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922822479" lon="-121.014382850">
+ <ele>363.501465</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922843937" lon="-121.014447223">
+ <ele>362.540039</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923015598" lon="-121.014812004">
+ <ele>362.059448</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923165802" lon="-121.015005123">
+ <ele>364.462769</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923251633" lon="-121.015176784">
+ <ele>363.982056</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923337463" lon="-121.015369903">
+ <ele>360.617432</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923358921" lon="-121.015434276">
+ <ele>360.136841</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923401836" lon="-121.015498649">
+ <ele>358.694824</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923316006" lon="-121.015584480">
+ <ele>354.369019</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923294548" lon="-121.015563022">
+ <ele>353.888428</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923273090" lon="-121.015541565">
+ <ele>353.888428</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.923079971" lon="-121.015455734">
+ <ele>350.523804</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922843937" lon="-121.015348446">
+ <ele>347.639771</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922822479" lon="-121.015326988">
+ <ele>347.639771</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922650818" lon="-121.015262615">
+ <ele>344.275269</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922371868" lon="-121.015133869">
+ <ele>340.910645</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922092918" lon="-121.015241157">
+ <ele>337.546021</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922071461" lon="-121.015241157">
+ <ele>337.546021</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922028545" lon="-121.015241157">
+ <ele>336.584839</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921985630" lon="-121.015241157">
+ <ele>335.623413</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921985630" lon="-121.015241157">
+ <ele>336.104126</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921878341" lon="-121.015090954">
+ <ele>335.142822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922007088" lon="-121.014704716">
+ <ele>333.700806</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.922050003" lon="-121.014361393">
+ <ele>335.142822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921985630" lon="-121.014254104">
+ <ele>335.142822</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921449188" lon="-121.013653290">
+ <ele>331.778076</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921363357" lon="-121.013481628">
+ <ele>330.816895</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921213154" lon="-121.013073932">
+ <ele>326.490967</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920912746" lon="-121.012644779">
+ <ele>321.203857</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920762543" lon="-121.012473118">
+ <ele>317.358643</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920676712" lon="-121.012344372">
+ <ele>314.474487</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920633797" lon="-121.012301456">
+ <ele>313.513306</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920483593" lon="-121.012473118">
+ <ele>311.590698</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920204643" lon="-121.012923729">
+ <ele>307.745483</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920075897" lon="-121.013309967">
+ <ele>305.342163</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920183185" lon="-121.013739120">
+ <ele>301.496948</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920440677" lon="-121.014060985">
+ <ele>298.612915</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920483593" lon="-121.014125358">
+ <ele>298.132324</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920676712" lon="-121.014533054">
+ <ele>296.209717</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920762543" lon="-121.014640343">
+ <ele>294.767700</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920848373" lon="-121.014726173">
+ <ele>294.287109</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920869831" lon="-121.015069496">
+ <ele>292.364502</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920912746" lon="-121.015219700">
+ <ele>292.364502</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.921062950" lon="-121.015648853">
+ <ele>290.922485</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920977119" lon="-121.015713226">
+ <ele>290.922485</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920633797" lon="-121.015992176">
+ <ele>286.596680</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920612339" lon="-121.016013634">
+ <ele>286.596680</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920440677" lon="-121.016056549">
+ <ele>285.154663</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920183185" lon="-121.016421329">
+ <ele>283.712524</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920140270" lon="-121.016700279">
+ <ele>282.751343</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920140270" lon="-121.016871940">
+ <ele>281.309326</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920118812" lon="-121.017086517">
+ <ele>281.309326</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920204643" lon="-121.017301094">
+ <ele>280.348022</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920311931" lon="-121.017451298">
+ <ele>278.906128</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920376304" lon="-121.017580044">
+ <ele>278.906128</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920419220" lon="-121.017730247">
+ <ele>277.464111</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920311931" lon="-121.018116485">
+ <ele>276.022095</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920269016" lon="-121.018245231">
+ <ele>275.060913</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920226101" lon="-121.018502724">
+ <ele>274.580200</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.920011524" lon="-121.018824589">
+ <ele>271.696289</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919947151" lon="-121.019103538">
+ <ele>270.734985</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919882778" lon="-121.019639980">
+ <ele>267.850952</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+<trkpt lat="38.919925693" lon="-121.019876015">
+ <ele>267.370361</ele>
+ <time>2003-02-05T18:19:20Z</time>
+ <sym>Waypoint</sym>
+</trkpt>
+</trkseg>
+</trk>
+</gpx>
