@@ -74,12 +74,16 @@ lookup_cached_certs(File) ->
     ets:lookup(certificate_db_name(), {file, File}).
 
 %%--------------------------------------------------------------------
--spec add_trusted_certs(pid(), string(), certdb_ref()) -> {ok, certdb_ref()}.			       
+-spec add_trusted_certs(pid(), string() | {der, list()}, certdb_ref()) -> {ok, certdb_ref()}.
 %%
 %% Description: Adds the trusted certificates from file <File> to the
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
 %% together with the cert serialnumber and issuer.
 %%--------------------------------------------------------------------
+add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
+    NewRef = make_ref(),
+    add_certs_from_der(DerList, NewRef, CerDb),
+    {ok, NewRef};
 add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
     Ref = case lookup(File, FileToRefDb) of
 	      undefined ->
@@ -93,7 +97,6 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
 	  end,
     insert(Pid, File, PidToFileDb),
     {ok, Ref}.
-
 %%--------------------------------------------------------------------
 -spec cache_pem_file(pid(), string(), certdb_ref()) -> term().
 %%
@@ -202,16 +205,20 @@ lookup(Key, Db) ->
 remove_certs(Ref, CertsDb) ->
     ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}).
 
+add_certs_from_der(DerList, Ref, CertsDb) ->
+    Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
+     [Add(Cert) || Cert <- DerList].
+
 add_certs_from_file(File, Ref, CertsDb) ->   
-    Add = fun(Cert) ->
-		     ErlCert = public_key:pkix_decode_cert(Cert, otp),
-		     TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
-		     SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-		     Issuer = public_key:pkix_normalize_name(
-				TBSCertificate#'OTPTBSCertificate'.issuer),
-		     insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
-	     end,
+    Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
     {ok, PemBin} = file:read_file(File),
     PemEntries = public_key:pem_decode(PemBin),
     [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries].
     
+add_certs(Cert, Ref, CertsDb) ->
+    ErlCert = public_key:pkix_decode_cert(Cert, otp),
+    TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
+    SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
+    Issuer = public_key:pkix_normalize_name(
+	       TBSCertificate#'OTPTBSCertificate'.issuer),
+    insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb).

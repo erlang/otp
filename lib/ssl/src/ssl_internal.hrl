@@ -63,9 +63,11 @@
 	  validate_extensions_fun, 
 	  depth,      % integer()
 	  certfile,   % file()
+	  cert,       % der_encoded()
 	  keyfile,    % file()
-	  key,	      % 
+	  key,	      % der_encoded()
 	  password,   % 
+	  cacerts,    % [der_encoded()]
 	  cacertfile, % file()
 	  dhfile,     % file()
 	  ciphers,    % 
