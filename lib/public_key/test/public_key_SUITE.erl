@@ -369,16 +369,35 @@ pkix_path_validation(Config) when is_list(Config) ->
     CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1}, 
 					       {extensions, [{basic_constraints, false}]}]),
     {Cert4,_}  = erl_make_certs:make_cert([{issuer, CertK3}]),
-    {error, E={bad_cert,missing_basic_constraint}} = 
+    {error, {bad_cert,missing_basic_constraint}} =
 	public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4], []),
-    
-    {ok, {_,_,[E]}} = public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4], 
-						      [{verify,false}]),
 
-    {error,  {bad_cert,unknown_ca}} = public_key:pkix_path_validation(unknown_ca, [Cert1, Cert3, Cert4], []),
+    VerifyFunAndState0  = {fun(_,{bad_cert, missing_basic_constraint}, UserState) ->
+				   {valid, UserState};
+			      (_,{bad_cert, _} = Reason, _) ->
+				   {fail, Reason};
+			      (_,{extension, _}, UserState) ->
+				   {unknown, UserState}
+			   end, []},
+    {ok, _} =
+	public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4],
+					[{verify_fun, VerifyFunAndState0}]),
 
-    {ok, {_,_,[{bad_cert,unknown_ca}]}} =
-	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify, false}]),
+    {error, {bad_cert, unknown_ca}} =
+	public_key:pkix_path_validation(unknown_ca, [Cert1, Cert3, Cert4], []),
+
+    VerifyFunAndState1 =
+	{fun(_,{bad_cert, unknown_ca}, UserState) ->
+		 {valid, UserState};
+	    (_,{bad_cert, _} = Reason, _) ->
+		 {fail, Reason};
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState}
+	 end, []},
+
+    {ok, _} =
+	public_key:pkix_path_validation(unknown_ca, [Cert1], [{verify_fun,
+							      VerifyFunAndState1}]),
     ok.
 
 %%--------------------------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,6 +28,13 @@
  	  algorithm, 
  	  parameters = asn1_NOVALUE}).
 
+-define(DEFAULT_VERIFYFUN,
+	{fun(_,{bad_cert, _} = Reason, _) ->
+		 {fail, Reason};
+	   (_,{extension, _}, UserState) ->
+		 {unknown, UserState}
+	 end, []}).
+
 -record(path_validation_state, {
 	  valid_policy_tree,
 	  explicit_policy,
@@ -42,7 +49,7 @@
 	  working_public_key_parameters,
 	  working_issuer_name,
 	  max_path_length,
-	  acc_errors,  %% If verify_none option is set
+	  verify_fun,
 	  user_state
 	 }).
 

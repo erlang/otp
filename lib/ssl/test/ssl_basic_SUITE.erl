@@ -232,10 +232,11 @@ all(suite) ->
      server_renegotiate, client_renegotiate_reused_session,
      server_renegotiate_reused_session, client_no_wrap_sequence_number,
      server_no_wrap_sequence_number, extended_key_usage,
-     validate_extensions_fun, no_authority_key_identifier,
+     no_authority_key_identifier,
      invalid_signature_client, invalid_signature_server, cert_expired,
      client_with_cert_cipher_suites_handshake, unknown_server_ca_fail,
-     unknown_server_ca_accept, der_input
+     der_input, unknown_server_ca_accept_verify_none, unknown_server_ca_accept_verify_peer,
+     unknown_server_ca_accept_backwardscompatibilty
     ].
 
 %% Test cases starts here.
@@ -1260,7 +1261,6 @@ eoptions(Config) when is_list(Config) ->
 		{verify_fun, function},
 		{fail_if_no_peer_cert, 0}, 
 		{verify_client_once, 1},
-		{validate_extensions_fun, function}, 
 		{depth, four}, 
 		{certfile, 'cert.pem'}, 
 		{keyfile,'key.pem' }, 
@@ -2271,14 +2271,7 @@ client_verify_none_active_once(Config) when is_list(Config) ->
 			   {mfa, {?MODULE, send_recv_result_active_once, []}},
 			   {options, [{active, once} | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
-    %% TODO: send message to test process to make sure
-    %% verifyfun has beeen run as it has the same behavior as
-    %% the default fun
-    VerifyFun =  fun([{bad_cert, unknown_ca}]) ->
- 			 true;
- 		    (_) ->
- 			 false
- 		 end,
+
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -2286,8 +2279,7 @@ client_verify_none_active_once(Config) when is_list(Config) ->
 					       send_recv_result_active_once, 
 					       []}},
 					{options, [{active, once}, 
-						   {verify, verify_none},
-						   {verify_fun, VerifyFun}
+						   {verify, verify_none}
 						   | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
@@ -2571,41 +2563,6 @@ extended_key_usage(Config) when is_list(Config) ->
 			   {from, self()}, 
 			   {mfa, {?MODULE, send_recv_result_active, []}},
 					{options, [{verify, verify_peer} | NewClientOpts]}]),
-    
-    ssl_test_lib:check_result(Server, ok, Client, ok),
-    
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
-%%--------------------------------------------------------------------
-validate_extensions_fun(doc) -> 
-    ["Test that it is possible to specify a validate_extensions_fun"];
-
-validate_extensions_fun(suite) -> 
-    [];
-
-validate_extensions_fun(Config) when is_list(Config) -> 
-    ClientOpts = ?config(client_verification_opts, Config),
-    ServerOpts = ?config(server_verification_opts, Config),
-    
-    Fun = fun(Extensions, State, _, AccError) ->
-		  {Extensions, State, AccError}
-	  end,
-    
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
-					{mfa, {?MODULE, send_recv_result_active, []}},
-					{options, [{validate_extensions_fun, Fun}, 
-						   {verify, verify_peer} | ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
-					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, send_recv_result_active, []}},
-			   {options,[{validate_extensions_fun, Fun} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
@@ -2899,24 +2856,34 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
 						     no_result, []}},
 					      {options, ServerOpts}]),
     Port  = ssl_test_lib:inet_port(Server),
+
+    FunAndState =  {fun(_,{bad_cert, _} = Reason, _) ->
+			    {fail, Reason};
+		       (_,{extension, _}, UserState) ->
+			    {unknown, UserState}
+		    end, []},
+
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
 					      {host, Hostname},
 					      {from, self()},
 					      {mfa, {ssl_test_lib,
 						     no_result, []}},
 					      {options,
-					       [{verify, verify_peer}| ClientOpts]}]),
+					       [{verify, verify_peer},
+						{verify_fun, FunAndState}
+						| ClientOpts]}]),
 
-    ssl_test_lib:check_result(Server, {error,"unknown ca"}, Client, {error, "unknown ca"}),
+    ssl_test_lib:check_result(Server, {error,"unknown ca"},
+			      Client, {error, "unknown ca"}),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
-unknown_server_ca_accept(doc) ->
+unknown_server_ca_accept_verify_none(doc) ->
     ["Test that the client succeds if the ca is unknown in verify_none mode"];
-unknown_server_ca_accept(suite) ->
+unknown_server_ca_accept_verify_none(suite) ->
     [];
-unknown_server_ca_accept(Config) when is_list(Config) ->
+unknown_server_ca_accept_verify_none(Config) when is_list(Config) ->
     ClientOpts =  ?config(client_opts, Config),
     ServerOpts =  ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2933,6 +2900,83 @@ unknown_server_ca_accept(Config) when is_list(Config) ->
 					       send_recv_result_active, []}},
 					{options,
 					 [{verify, verify_none}| ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+%%--------------------------------------------------------------------
+unknown_server_ca_accept_verify_peer(doc) ->
+    ["Test that the client succeds if the ca is unknown in verify_peer mode"
+     " with a verify_fun that accepts the unknown ca error"];
+unknown_server_ca_accept_verify_peer(suite) ->
+    [];
+unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
+    ClientOpts =  ?config(client_opts, Config),
+    ServerOpts =  ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    FunAndState =  {fun(_,{bad_cert, unknown_ca}, UserState) ->
+			    {valid, UserState};
+		       (_,{bad_cert, _} = Reason, _) ->
+			    {fail, Reason};
+		       (_,{extension, _}, UserState) ->
+			    {unknown, UserState}
+		    end, []},
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active, []}},
+					{options,
+					 [{verify, verify_peer},
+					  {verify_fun, FunAndState}| ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+unknown_server_ca_accept_backwardscompatibilty(doc) ->
+    ["Test that the client succeds if the ca is unknown in verify_none mode"];
+unknown_server_ca_accept_backwardscompatibilty(suite) ->
+    [];
+unknown_server_ca_accept_backwardscompatibilty(Config) when is_list(Config) ->
+    ClientOpts =  ?config(client_opts, Config),
+    ServerOpts =  ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    AcceptBadCa = fun({bad_cert,unknown_ca}, Acc) ->  Acc;
+		     (Other, Acc) -> [Other | Acc]
+		  end,
+    VerifyFun =
+	fun(ErrorList) ->
+		case lists:foldl(AcceptBadCa, [], ErrorList) of
+		    [] ->    true;
+		    [_|_] -> false
+		end
+	end,
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active, []}},
+					{options,
+					 [{verify, verify_peer},
+					  {verify_fun, VerifyFun}| ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
