@@ -64,8 +64,8 @@
 
     #  define ERL_VALGRIND_ASSERT_MEM_DEFINED(ptr,size) \
     ((void) ((VALGRIND_CHECK_MEM_IS_DEFINED(ptr,size) == 0) ? 1 : \
-    (fprintf(stderr,"\r\n####### VALGRIND_ASSSERT(%p,%d) failed at %s:%d\r\n",\
-	(ptr),(size), __FILE__, __LINE__), abort(), 0)))
+    (fprintf(stderr,"\r\n####### VALGRIND_ASSSERT(%p,%ld) failed at %s:%d\r\n",\
+	(ptr),(long)(size), __FILE__, __LINE__), abort(), 0)))
 #else
     #  define ERL_VALGRIND_MAKE_MEM_DEFINED(ptr,size)
     #  define ERL_VALGRIND_ASSERT_MEM_DEFINED(ptr,size)
@@ -1119,7 +1119,7 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
     enif_alloc_binary(RSA_size(rsa), &ret_bin); 
 
     if (argv[3] == atom_true) {
-	ERL_VALGRIND_ASSERT_MEM_DEFINED(buf+i,data_len);
+	ERL_VALGRIND_ASSERT_MEM_DEFINED(data_bin.data,data_bin.size);
 	i = RSA_public_encrypt(data_bin.size, data_bin.data,
 			       ret_bin.data, rsa, padding);
 	if (i > 0) {
@@ -1167,7 +1167,7 @@ static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
     enif_alloc_binary(RSA_size(rsa), &ret_bin); 
 
     if (argv[3] == atom_true) {
-	ERL_VALGRIND_ASSERT_MEM_DEFINED(buf+i,data_len);
+	ERL_VALGRIND_ASSERT_MEM_DEFINED(data_bin.data,data_bin.size);
 	i = RSA_private_encrypt(data_bin.size, data_bin.data,
 				ret_bin.data, rsa, padding);
 	if (i > 0) {

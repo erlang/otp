@@ -1955,6 +1955,35 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		    : am_enabled);
 	}
 #endif
+    } else if (BIF_ARG_1 == am_build_type) {
+#if defined(DEBUG)
+	ERTS_DECL_AM(debug);
+	BIF_RET(AM_debug);
+#elif defined(PURIFY)
+	ERTS_DECL_AM(purify);
+	BIF_RET(AM_purify);
+#elif defined(QUANTIFY)
+	ERTS_DECL_AM(quantify);
+	BIF_RET(AM_quantify);
+#elif defined(PURECOV)
+	ERTS_DECL_AM(purecov);
+	BIF_RET(AM_purecov);
+#elif defined(ERTS_GCOV)
+	ERTS_DECL_AM(gcov);
+	BIF_RET(AM_gcov);
+#elif defined(VALGRIND)
+	ERTS_DECL_AM(valgrind);
+	BIF_RET(AM_valgrind);
+#elif defined(GPROF)
+	ERTS_DECL_AM(gprof);
+	BIF_RET(AM_gprof);
+#elif defined(ERTS_ENABLE_LOCK_COUNT)
+	ERTS_DECL_AM(lcnt);
+	BIF_RET(AM_lcnt);
+#else
+	BIF_RET(am_opt);
+#endif
+	BIF_RET(res);
     } else if (BIF_ARG_1 == am_allocated_areas) {
 	res = erts_allocated_areas(NULL, NULL, BIF_P);
 	BIF_RET(res);

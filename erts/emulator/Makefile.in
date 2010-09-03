@@ -74,7 +74,7 @@ else
 ifeq ($(TYPE),gcov)
 PURIFY = 
 TYPEMARKER = .gcov
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
+TYPE_FLAGS = @DEBUG_CFLAGS@ -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
 ifneq ($(findstring solaris,$(TARGET)),solaris)
 LIBS += -lgcov
 endif

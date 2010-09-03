@@ -5456,6 +5456,16 @@ true</pre>
 	    <seealso marker="#system_info_allocator_tuple">erlang:system_info({allocator, Alloc})</seealso>.
 	    </p>
           </item>
+          <tag><c>build_type</c></tag>
+          <item>
+            <p>Returns an atom describing the build type of the runtime
+	       system. This is normally the atom <c>opt</c> for optimized.
+               Other possible return values are <c>debug</c>, <c>purify</c>,
+	       <c>quantify</c>, <c>purecov</c>, <c>gcov</c>, <c>valgrind</c>,
+	       <c>gprof</c>, and <c>lcnt</c>. Possible return values
+	       may be added and/or removed at any time without prior notice.
+	     </p>
+          </item>
           <tag><c>c_compiler_used</c></tag>
           <item>
             <p>Returns a two-tuple describing the C compiler used when
