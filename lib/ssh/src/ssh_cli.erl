@@ -415,14 +415,12 @@ start_shell(ConnectionManager, State) ->
     Shell = State#state.shell,
     ShellFun = case is_function(Shell) of
 		   true ->
+		       {ok, User} = 
+			   ssh_userreg:lookup_user(ConnectionManager),
 		       case erlang:fun_info(Shell, arity) of
 			   {arity, 1} ->
-			       {ok, User} = 
-				   ssh_userreg:lookup_user(ConnectionManager),
 			       fun() -> Shell(User) end;
 			   {arity, 2} ->
-			       {ok, User} = 
-				   ssh_userreg:lookup_user(ConnectionManager),
 			       {ok, PeerAddr} = 
 				   ssh_connection_manager:peer_addr(ConnectionManager),
 			       fun() -> Shell(User, PeerAddr) end;
@@ -437,9 +435,27 @@ start_shell(ConnectionManager, State) ->
     State#state{group = Group, buf = empty_buf()}.
 
 start_shell(_ConnectionManager, Cmd, #state{exec={M, F, A}} = State) ->
-    Group = group:start(self(), {M, F, A++[Cmd]}, [{echo,false}]),
+    Group = group:start(self(), {M, F, A++[Cmd]}, [{echo, false}]),
+    State#state{group = Group, buf = empty_buf()};
+start_shell(ConnectionManager, Cmd, #state{exec=Shell} = State) when is_function(Shell) ->
+    {ok, User} = 
+	ssh_userreg:lookup_user(ConnectionManager),
+    ShellFun = 
+	case erlang:fun_info(Shell, arity) of
+	    {arity, 1} ->
+		fun() -> Shell(Cmd) end;
+	    {arity, 2} ->
+		fun() -> Shell(Cmd, User) end;
+	    {arity, 3} ->
+		{ok, PeerAddr} = 
+		    ssh_connection_manager:peer_addr(ConnectionManager),
+		fun() -> Shell(Cmd, User, PeerAddr) end;
+	    _ ->
+		Shell
+	end,
+    Echo = get_echo(State#state.pty),
+    Group = group:start(self(), ShellFun, [{echo,Echo}]),
     State#state{group = Group, buf = empty_buf()}.
-
 
 % Pty can be undefined if the client never sets any pty options before
 % starting the shell.
