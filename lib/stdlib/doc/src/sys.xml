@@ -34,7 +34,7 @@
   <module>sys</module>
   <modulesummary>A Functional Interface to System Messages</modulesummary>
   <description>
-    <p>This module contains functions for sending system messages used by programs, and messaged used for debugging purposes.
+    <p>This module contains functions for sending system messages used by programs, and messages used for debugging purposes.
       </p>
     <p>Functions used for implementation of processes 
       should also understand system messages such as debugging

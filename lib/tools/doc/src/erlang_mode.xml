@@ -173,7 +173,7 @@
         
         sum(L)          -> sum(L, 0).
         sum([H|T], Sum) -> sum(T, Sum + H);
-        sum([], Sum)    -> Sum."</code>
+        sum([], Sum)    -> Sum.</code>
       </item>
     </list>
   </section>
