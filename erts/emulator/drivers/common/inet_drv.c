@@ -48,6 +48,12 @@
 #include <sys/uio.h>
 #endif
 
+#ifdef HAVE_NET_IF_DL_H
+#include <net/if_dl.h>
+#endif
+#ifdef HAVE_IFADDRS_H
+#include <ifaddrs.h>
+#endif
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
@@ -3905,7 +3911,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     INTERFACE_INFO* ifp;
     long namaddr;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     if (parse_addr(buf+1, namlen, &namaddr) < 0)
 	goto error;
@@ -4089,6 +4095,10 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
 }
 
 
+/* FIXME: temporary hack */
+#ifndef IFHWADDRLEN
+#define IFHWADDRLEN 6
+#endif
 
 static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4099,11 +4109,11 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     struct ifreq ifreq;
     int namlen;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
-	       (namlen > IFNAMSIZ) ? IFNAMSIZ : namlen);
+	       (namlen >= IFNAMSIZ) ? IFNAMSIZ-1 : namlen);
     buf += (namlen+1);
     len -= (namlen+1);
     sptr = sbuf;
@@ -4128,6 +4138,32 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	    /* raw memcpy (fix include autoconf later) */
 	    sys_memcpy(sptr, (char*)(&ifreq.ifr_hwaddr.sa_data), IFHWADDRLEN);
 	    sptr += IFHWADDRLEN;
+#elif defined(HAVE_GETIFADDRS)
+        struct ifaddrs *ifa, *ifp;
+        int found = 0;
+
+        if (getifaddrs(&ifa) == -1)
+        goto error;
+
+        for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
+        if ((ifp->ifa_addr->sa_family == AF_LINK) &&
+        (sys_strcmp(ifp->ifa_name, ifreq.ifr_name) == 0)) {
+            found = 1;
+            break;
+        }
+        }
+
+        if (found == 0) {
+            freeifaddrs(ifa);
+            break;
+        }
+
+        buf_check(sptr, s_end, 1+IFHWADDRLEN);
+        *sptr++ = INET_IFOPT_HWADDR;
+        sys_memcpy(sptr, ((struct sockaddr_dl *)ifp->ifa_addr)->sdl_data +
+            ((struct sockaddr_dl *)ifp->ifa_addr)->sdl_nlen, IFHWADDRLEN);
+        freeifaddrs(ifa);
+        sptr += IFHWADDRLEN;
 #endif
 	    break;
 	}
@@ -4240,10 +4276,6 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     return ctl_error(EINVAL, rbuf, rsize);
 }
 
-/* FIXME: temporary hack */
-#ifndef IFHWADDRLEN
-#define IFHWADDRLEN 6
-#endif
 
 static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4252,11 +4284,11 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
     int namlen;
     char* b_end = buf + len;
 
-    if ((len == 0) || ((namlen = buf[0]) > len))
+    if ((len == 0) || ((namlen = get_int8(buf)) > len))
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
-	       (namlen > IFNAMSIZ) ? IFNAMSIZ : namlen);
+	       (namlen >= IFNAMSIZ) ? IFNAMSIZ-1 : namlen);
     buf += (namlen+1);
     len -= (namlen+1);
 
@@ -6851,13 +6883,13 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 
 	if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);
-	n = buf[0]; buf++; len--;
+	n = get_int8(buf); buf++; len--;
 	if (n >= len) /* the = sign makes the test inklude next length byte */
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(namebuf, buf, n);
 	namebuf[n] = '\0';
 	len -= n; buf += n;
-	n = buf[0]; buf++; len--;
+	n = get_int8(buf); buf++; len--;
 	if (n > len)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(protobuf, buf, n);
@@ -6880,7 +6912,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	port = get_int16(buf);
 	port = sock_htons(port);
 	buf += 2;
-	n = buf[0]; buf++; len -= 3;
+	n = get_int8(buf); buf++; len -= 3;
 	if (n > len)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(protobuf, buf, n);
