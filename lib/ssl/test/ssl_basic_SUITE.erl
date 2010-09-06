@@ -2990,14 +2990,20 @@ der_input(suite) ->
     [];
 
 der_input(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    DHParamFile = filename:join(DataDir, "dHParam.pem"),
 
     SeverVerifyOpts = ?config(server_verification_opts, Config),
-    {ServerCert, ServerKey, ServerCaCerts} = der_input_opts(SeverVerifyOpts),
+    {ServerCert, ServerKey, ServerCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
+								       SeverVerifyOpts]),
     ClientVerifyOpts = ?config(client_verification_opts, Config),
-    {ClientCert, ClientKey, ClientCaCerts} = der_input_opts(ClientVerifyOpts),
+    {ClientCert, ClientKey, ClientCaCerts, DHParams} = der_input_opts([{dhfile, DHParamFile} |
+								       ClientVerifyOpts]),
     ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+		  {dh, DHParams},
 		  {cert, ServerCert}, {key, ServerKey}, {cacerts, ServerCaCerts}],
     ClientOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+		  {dh, DHParams},
 		  {cert, ClientCert}, {key, ClientKey}, {cacerts, ClientCaCerts}],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -3019,14 +3025,16 @@ der_input_opts(Opts) ->
     Certfile = proplists:get_value(certfile, Opts),
     CaCertsfile = proplists:get_value(cacertfile, Opts),
     Keyfile = proplists:get_value(keyfile, Opts),
+    Dhfile = proplists:get_value(dhfile, Opts),
     [{_, Cert, _}] = ssl_test_lib:pem_to_der(Certfile),
     [{_, Key, _}]  = ssl_test_lib:pem_to_der(Keyfile),
+    [{_, DHParams, _}]  = ssl_test_lib:pem_to_der(Dhfile),
     CaCerts =
 	lists:map(fun(Entry) ->
 			  {_, CaCert, _} = Entry,
 			  CaCert
 		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
-    {Cert, {rsa, Key}, CaCerts}.
+    {Cert, {rsa, Key}, CaCerts, DHParams}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
