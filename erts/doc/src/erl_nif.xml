@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1130,7 +1130,7 @@ typedef enum {
   </funcs>
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="erlang#load_nif-2">load_nif(3)</seealso></p>
+    <p><seealso marker="erlang#load_nif-2">erlang:load_nif/2</seealso></p>
   </section>
 </cref>
 

@@ -1029,8 +1029,11 @@ static ERL_NIF_TERM make_term_list0(struct make_term_info* mti, int n)
 static ERL_NIF_TERM make_term_resource(struct make_term_info* mti, int n)
 {
     void* resource = enif_alloc_resource(mti->resource_type, 10);
+    ERL_NIF_TERM term;
     fill(resource, 10, n); 
-    return enif_make_resource(mti->dst_env, resource);
+    term = enif_make_resource(mti->dst_env, resource);
+    enif_release_resource(resource);
+    return term;
 }
 static ERL_NIF_TERM make_term_new_binary(struct make_term_info* mti, int n)
 {
