@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2010</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -70,7 +70,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_parse">erl_parse(3)</seealso>, compile(3).</p>
+    <p><seealso marker="erl_parse">erl_parse(3)</seealso>,
+    <seealso marker="compiler:compile">compile(3)</seealso>.</p>
   </section>
 </erlref>
 

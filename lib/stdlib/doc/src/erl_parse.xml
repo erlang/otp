@@ -39,7 +39,7 @@
       expressions, or terms. The Abstract Format is described in the ERTS
       User's Guide.
       Note that a token list must end with the <em>dot</em> token in order
-      to be acceptable to the parse functions (see erl_scan).</p>
+      to be acceptable to the parse functions (see <seealso marker="erl_scan">erl_scan(3)</seealso>).</p>
   </description>
   <funcs>
     <func>
