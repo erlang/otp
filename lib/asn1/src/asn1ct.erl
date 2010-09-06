@@ -1674,7 +1674,7 @@ create_pdec_inc_command(ModName,
 % 			     [concat_sequential(lists:reverse(Comms),
 % 					       [LastComm,CompAcc])|Acc]
 			     case lists:reverse(TagCommand) of
-				 [Atom|Comms] when is_atom(Atom) ->
+				 [Atom|Comms] when is_atom(Atom) ->
 				     [concat_sequential(lists:reverse(Comms),
 							[Atom,CompAcc])|Acc];
 				 [[Command2,Tag2]|Comms] ->
