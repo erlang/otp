@@ -512,6 +512,8 @@ void erts_usage(void)
     erts_fprintf(stderr, "            u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
+    erts_fprintf(stderr, "-swt val    set scheduler wakeup threshold, valid values are:\n");
+    erts_fprintf(stderr, "            very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size   suggested stack size in kilo words for scheduler threads,\n");
     erts_fprintf(stderr, "            valid range is [%d-%d]\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
@@ -1176,10 +1178,20 @@ erl_start(int argc, char **argv)
 	    }
 	    else if (sys_strcmp("mrq", sub_param) == 0)
 		use_multi_run_queue = 1;
-	    else if (sys_strcmp("srq", sub_param) == 0)
-		use_multi_run_queue = 0;
 	    else if (sys_strcmp("nsp", sub_param) == 0)
 		erts_use_sender_punish = 0;
+	    else if (sys_strcmp("srq", sub_param) == 0)
+		use_multi_run_queue = 0;
+	    else if (sys_strcmp("wt", sub_param) == 0) {
+		arg = get_arg(sub_param+2, argv[i+1], &i);
+		if (erts_sched_set_wakeup_limit(arg) != 0) {
+		    erts_fprintf(stderr, "scheduler wakeup threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("scheduler wakup threshold: %s\n", arg));
+	    }
 	    else if (has_prefix("ss", sub_param)) {
 		/* suggested stack size (Kilo Words) for scheduler threads */
 		arg = get_arg(sub_param+2, argv[i+1], &i);

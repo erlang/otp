@@ -1038,6 +1038,8 @@ ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
 int erts_proclist_same(ErtsProcList *, Process *);
 
+int erts_sched_set_wakeup_limit(char *str);
+
 #ifdef DEBUG
 void erts_dbg_multi_scheduling_return_trap(Process *, Eterm);
 #endif

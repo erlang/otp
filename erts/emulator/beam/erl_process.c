@@ -54,7 +54,12 @@
   (ERTS_SCHED_SYS_SLEEP_SPINCOUNT*ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT)
 #define ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT 0
 
-#define ERTS_WAKEUP_OTHER_LIMIT (100*CONTEXT_REDS/2)
+#define ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH (200*CONTEXT_REDS)
+#define ERTS_WAKEUP_OTHER_LIMIT_HIGH (50*CONTEXT_REDS)
+#define ERTS_WAKEUP_OTHER_LIMIT_MEDIUM (10*CONTEXT_REDS)
+#define ERTS_WAKEUP_OTHER_LIMIT_LOW (CONTEXT_REDS)
+#define ERTS_WAKEUP_OTHER_LIMIT_VERY_LOW (CONTEXT_REDS/10)
+
 #define ERTS_WAKEUP_OTHER_DEC 10
 #define ERTS_WAKEUP_OTHER_FIXED_INC (CONTEXT_REDS/10)
 
@@ -111,6 +116,8 @@ static Uint p_serial_shift;
 Uint erts_no_schedulers;
 Uint erts_max_processes = ERTS_DEFAULT_MAX_PROCESSES;
 Uint erts_process_tab_index_mask;
+
+static int wakeup_other_limit;
 
 #ifdef ERTS_SMP
 Uint erts_max_main_threads;
@@ -2373,7 +2380,27 @@ void
 erts_early_init_scheduling(void)
 {
     early_cpu_bind_init();
+    wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM;
 }
+
+int
+erts_sched_set_wakeup_limit(char *str)
+{
+    if (sys_strcmp(str, "very_high") == 0)
+	wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH;
+    else if (sys_strcmp(str, "high") == 0)
+	wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_HIGH;
+    else if (sys_strcmp(str, "medium") == 0)
+	wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM;
+    else if (sys_strcmp(str, "low") == 0)
+	wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_LOW;
+    else if (sys_strcmp(str, "very_low") == 0)
+	wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_VERY_LOW;
+    else
+	return EINVAL;
+    return 0;
+}
+	
 
 void
 erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
@@ -7169,7 +7196,7 @@ Process *schedule(Process *p, int calls)
 		    if (rq->wakeup_other < 0)
 			rq->wakeup_other = 0;
 		}
-		else if (rq->wakeup_other < ERTS_WAKEUP_OTHER_LIMIT)
+		else if (rq->wakeup_other < wakeup_other_limit)
 		    rq->wakeup_other += rq->len*wo_reds + ERTS_WAKEUP_OTHER_FIXED_INC;
 		else {
 		    if (erts_common_run_queue) {

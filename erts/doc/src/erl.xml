@@ -831,13 +831,27 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.</p>
           </item>
+	  <tag><marker id="+swt"><c>+swt very_low|low|medium|high|very_high</c></marker></tag>
+	  <item>
+             <p>Set scheduler wakeup threshold. Default is <c>medium</c>.
+	        The threshold determines when to wake up sleeping schedulers
+		when more work than can be handled by currently awake schedulers
+		exist. A low threshold will cause earlier wakeups, and a high
+		threshold will cause later wakeups. Early wakeups will
+		distribute work over multiple schedulers faster, but work will
+		more easily bounce between schedulers.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time
+	        without prior notice.
+	     </p>
+	  </item>
+	  <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
+	  <item>
+	    <p>Suggested stack size, in kilowords, for scheduler threads.
+            Valid range is 4-8192 kilowords. The default stack size
+            is OS dependent.</p>
+	  </item>
         </taglist>
-      </item>
-      <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
-      <item>
-        <p>Suggested stack size, in kilowords, for scheduler threads.
-          Valid range is 4-8192 kilowords. The default stack size
-          is OS dependent.</p>
       </item>
       <tag><marker id="+t"><c><![CDATA[+t size]]></c></marker></tag>
       <item>

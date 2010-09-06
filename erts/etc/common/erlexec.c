@@ -120,6 +120,7 @@ static char *plusM_other_switches[] = {
 static char *pluss_val_switches[] = {
     "bt",
     "ct",
+    "wt",
     "ss",
     NULL
 };
