@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,7 +44,7 @@
   <section>
     <title>Security overview</title>
       
-    <p>To achive authentication and privacy the client and server will
+   <p>To achieve authentication and privacy the client and server will
     perform a TLS Handshake procedure before transmitting or receiving
     any data. During the handshake they agree on a protocol version and
     cryptographic algorithms, they generate shared secrets using public
@@ -56,7 +56,7 @@
     <title>Data Privacy and Integrity</title>
     
     <p>A <em>symmetric key</em> algorithm has one key only. The key is
-    used for both encryption and decryption. These algoritms are fast
+    used for both encryption and decryption. These algorithms are fast
     compared to public key algorithms (using two keys, a public and a
     private one) and are therefore typically used for encrypting bulk
     data.
@@ -66,7 +66,7 @@
     for each connection and are based on a secret negotiated
     in the TLS handshake. </p>
     
-    <p>The TLS handsake protocol and data transfer is run on top of
+   <p>The TLS handshake protocol and data transfer is run on top of
     the TLS Record Protocol that uses a keyed-hash MAC (Message
     Authenticity Code), or HMAC, to protect the message's data
     integrity. From the TLS RFC "A Message Authentication Code is a
@@ -85,7 +85,7 @@
      with the private key of the issuer of the certificate. A chain
      of trust is build by having the issuer in its turn being
      certified by an other certificate and so on until you reach the
-     so called root certificate that is self signed e.i. issued
+     so called root certificate that is self signed i.e. issued
      by itself.</p>
      
      <p>Certificates are issued by <em>certification

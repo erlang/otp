@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
 
     <note><p>Note this
     documentation is written for the old ssl implementation and
-    will be updated for the new one once this functionallity is
+    will be updated for the new one once this functionality is
     supported by the new implementation.</p></note>
   </p>
 
@@ -55,7 +55,7 @@
       all participating Erlang nodes in a distributed system must use
       this distribution module.</p>
     <p>The security depends on how the connections are set up, one can
-      use key files or certificates to just get a crypted
+      use key files or certificates to just get a encrypted
       connection. One can also make the SSL package verify the
       certificates of other nodes to get additional security. 
       Cookies are however always used as they can be used to
@@ -179,7 +179,7 @@ Eshell V5.0  (abort with ^G)
       <c>certfile</c> can (and usually needs to) be specified as
       <c>client_certfile</c> and <c>server_certfile</c>. The
       <c>client_certfile</c> is used when the distribution initiates a
-      connection to another node and the <c>server_cerfile</c> is used
+      connection to another node and the <c>server_certfile</c> is used
       when accepting a connection from a remote node. </p>
     <p>The command line argument for specifying the SSL options is named 
       <c>-ssl_dist_opt</c> and should be followed by an even number of

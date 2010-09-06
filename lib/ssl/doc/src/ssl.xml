@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -69,10 +69,13 @@
     </p>
     
     <p> <c>ssloption() = {verify, verify_type()} |
+      {verify_fun, {fun(), term()}} |
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
-      {certfile, path()} | {keyfile, path()} | {password, string()} |
-      {cacertfile, path()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {cert, der_bin()}| {certfile, path()} |
+      {key, der_bin()} | {keyfile, path()} | {password, string()} |
+      {cacerts, [der_bin()]} | {cacertfile, path()} |
+      |{dh, der_bin()} | {dhfile, path()} | {ciphers, ciphers()} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()} 
     </c></p>
 
@@ -91,6 +94,8 @@
     <p><c>verify_type() = verify_none | verify_peer</c></p>
     
     <p><c>path() = string() - representing a file path.</c></p>
+
+    <p><c>der_bin() = binary() -Asn1 DER encoded entity as an erlang binary.</c></p>
     
     <p><c>host() = hostname() | ipaddress()</c></p>
         
@@ -121,76 +126,67 @@
     <p><c>ssl_imp() = new | old - default is new.</c></p>
     
   </section>
-  
-<section>
-    <title>SSL OPTION DESCRIPTIONS</title>
+
+  <section>
+    <title>SSL OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</title>
+
+    <p>Options described here are options that are have the same
+    meaning in the client and the server.
+    </p>
     
     <taglist>
-      <tag>{verify, verify_type()}</tag>
-      <item> If <c>verify_none</c> is specified x509-certificate
-      path validation errors at the client side
-      will not  automatically cause the connection to fail, as
-      it will if the verify type is <c>verify_peer</c>. See also
-      the option verify_fun.
-      Servers only do the path validation if <c>verify_peer</c> is set to
-      true, as it then will 
-      send a certificate request to
-      the client (this message is not sent if the verify option is
-      <c>verify_none</c>) and you may then also want to specify
-      the option <c>fail_if_no_peer_cert</c>.
+
+      <tag>{cert, der_bin()}</tag>
+      <item> The DER encoded users certificate. If this option
+      is supplied it will override the certfile option.</item>
+      
+      <tag>{certfile, path()}</tag>
+      <item>Path to a file containing the user's certificate.</item>
+      
+      <tag>{key, der_bin()}</tag>
+      <item> The DER encoded users private key. If this option
+      is supplied it will override the keyfile option.</item>
+      
+      <tag>{keyfile, path()}</tag>
+      <item>Path to file containing user's
+      private PEM encoded key. As PEM-files may contain several
+      entries this option defaults to the same file as given by
+      certfile option.</item>
+
+      <tag>{password, string()}</tag>
+      <item>String containing the user's password.
+	Only used if the private keyfile is password protected.
       </item>
 
-      <tag>{fail_if_no_peer_cert, boolean()}</tag>
-      <item>Used together with {verify, verify_peer} by a ssl server.
-      If set to true,
-      the server will fail if the client does not have a certificate
-      to send, e.i sends a empty certificate, if set to false it will
-      only fail if the client sends a invalid certificate (an empty
-      certificate is considered valid).
-      </item>
-      
-      <tag>{verify_fun, fun(ErrorList) -> boolean()}</tag>
-      <item>Used by the ssl client to determine if 
-	x509-certificate path validations errors are acceptable or
-	if the connection should fail. Defaults to:
-       
-<code>
-fun(ErrorList) ->
-	case lists:foldl(fun({bad_cert,unknown_ca}, Acc) ->
-						  Acc;
-			    (Other, Acc) ->
-				 [Other | Acc]
-			 end, [], ErrorList) of
-	    [] ->
-		true;
-	    [_|_] ->
-		false
-	end
-end
-</code>
-       I.e. by default if the only error found was that the CA-certificate
-       holder was unknown this will be accepted.
+      <tag>{cacerts, [der_bin()]}</tag>
+      <item> The DER encoded trusted certificates. If this option
+      is supplied it will override the cacertfile option.</item>
 
-       Possible errors in the error list are: 
-       {bad_cert, cert_expired}, {bad_cert, invalid_issuer},
-       {bad_cert, invalid_signature}, {bad_cert, name_not_permitted},
-       {bad_cert, unknown_ca},
-       {bad_cert, cert_expired}, {bad_cert, invalid_issuer},
-       {bad_cert, invalid_signature}, {bad_cert, name_not_permitted},
-       {bad_cert, cert_revoked} (not implemented yet),
-       {bad_cert, unknown_critical_extension} or {bad_cert, term()}
+      <tag>{cacertfile, path()}</tag>
+      <item>Path to file containing PEM encoded
+      CA certificates (trusted certificates used for verifying a peer
+      certificate). May be omitted if you do not want to verify
+      the peer.</item>
+
+      <tag>{ciphers, ciphers()}</tag>
+      <item>The cipher suites that should be supported. The function
+      <c>ciphers_suites/0</c> can be used to find all available
+      ciphers.
       </item>
 
-      
-      <tag>{validate_extensions_fun, fun()}</tag>
-      <item>
-	This options makes it possible to supply a fun to validate
-	possible application specific certificate extensions
-	during the certificat path validation. This option
-	will be better documented onec the public_key API is more
-	mature.
+      <tag>{ssl_imp, ssl_imp()}</tag>
+      <item>Specify which ssl implementation you want to use. Defaults to
+      new.
       </item>
-      
+
+      <tag>{secure_renegotiate, boolean()}</tag>
+      <item>Specifies if to reject renegotiation attempt that does
+      not live up to RFC 5746. By default secure_renegotiate is
+      set to false i.e. secure renegotiation will be used if possible
+      but it will fallback to unsecure renegotiation if the peer
+      does not support RFC 5746.
+      </item>
+
       <tag>{depth, integer()}</tag>
       <item>Specifies the maximum
       verification depth, i.e. how far in a chain of certificates the
@@ -201,63 +197,140 @@ end
       cert, and an additional CA cert. The default value is 1.
       </item>
 
-      <tag>{certfile, path()}</tag>
-      <item>Path to a file containing the
-          user's certificate. Optional for clients but note
-      that some servers requires that the client can certify
-      itself. </item>
-      <tag>{keyfile, path()}</tag>
-      <item>Path to file containing user's
-      private PEM encoded key. As PEM-files may contain several
-      entries this option defaults to the same file as given by
-      certfile option.</item>
-      <tag>{password, string()}</tag>
-      <item>String containing the user's password.
-	Only used if the private keyfile is password protected.
+      <tag>{verify_fun, {Verifyfun :: fun(), InitialUserState :: term()}}</tag>
+      <item>
+	<p>The verification fun should be defined as:</p>
+
+	<code>
+	  fun(OtpCert :: #'OtpCertificate'{},
+	      Event :: {bad_cert, Reason :: atom()} |
+	      {extension, #'Extension'{}}, InitialUserState :: term()) ->
+	          {valid, UserState :: term()} | {fail, Reason :: term()} |
+	          {unknown, UserState :: term()}.
+	</code>
+
+	<p>The verify fun will be called during the X509-path
+	validation when an error or an extension unknown to the ssl
+	application is encountered. See
+	<seealso marker="public_key:application">public_key(3)</seealso>
+	for definition of #'OtpCertificate'{} and #'Extension'{}.</p>
+
+	<p>If the verify callback fun returns {fail, Reason}, the
+	verification process is immediately stopped and an alert is
+	sent to the peer and the TLS/SSL handshake is terminated. If
+	the verify callback fun returns {valid, UserState}, the
+	verification process is continued.  If the verify callback fun
+	always returns {valid, UserState}, the TLS/SSL handshake will
+	not be terminated with respect to verification failures and
+	the connection will be established. If called with an
+	extension unknown to the user application the return value
+	{unknown, UserState} should be used.</p>
+
+	<p>The default verify_fun option in verify_peer mode:</p>
+
+      <code>
+	{fun(_,{bad_cert, _} = Reason, _) ->
+		 {fail, Reason};
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState}
+	 end, []}
+      </code>
+
+      <p>The default verify_fun option in verify_none mode:</p>
+
+       <code>
+	{fun(_,{bad_cert, unknown_ca}, UserState) ->
+		 {valid, UserState};
+	    (_,{bad_cert, _} = Reason, _) ->
+		 {fail, Reason};
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState}
+	 end, []}
+      </code>
+
+      <p> Possible path validation errors:
+       {bad_cert, cert_expired},
+       {bad_cert, invalid_issuer},
+       {bad_cert, invalid_signature},
+       {bad_cert, unknown_ca},
+       {bad_cert, name_not_permitted},
+       {bad_cert, missing_basic_constraint},
+       {bad_cert, invalid_key_usage},
+       {bad_cert, invalid_subject_altname}</p>
       </item>
-      <tag>{cacertfile, path()}</tag>
-      <item>Path to file containing PEM encoded
-      CA certificates (trusted certificates used for verifying a peer
-      certificate). May be omitted if you do not want to verify
-      the peer.</item>
+
+    </taglist>
+
+  </section>
+
+   <section>
+    <title>SSL OPTION DESCRIPTIONS - CLIENT SIDE</title>
+
+    <p>Option described here are client specific or has a slightly different
+    meaning in the client than in the server.</p>
+
+    <taglist>
+      <tag>{verify, verify_type()}</tag>
+      <item> In verify_none mode the x509-path validation error {bad_cert, unknown_ca}
+      will automatically be accepted. See also the verify_fun option.
+      </item>
+      <tag>{reuse_sessions, boolean()}</tag>
+      <item>Specifies if client should try to reuse sessions
+      when possible.
+      </item>
+
+    </taglist>
+  </section>
+
+  <section>
+    <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
+
+    <p>Option described here are server specific or has a slightly different
+    meaning in the server than in the client.</p>
+
+    <taglist>
+
+      <tag>{dh, der_bin()}</tag>
+      <item>The DER encoded Diffie Hellman parameters. If this option
+      is supplied it will override the dhfile option.
+      </item>
 
       <tag>{dhfile, path()}</tag>
       <item>Path to file containing PEM encoded Diffie Hellman parameters,
       for the server to use if a cipher suite using Diffie Hellman key exchange
-      is negotiated. If not specified hardcode parameters will be used.
-      </item>
-      
-      <tag>{ciphers, ciphers()}</tag>
-      <item>The function <c>ciphers_suites/0</c> can
-	be used to find all available ciphers.
+      is negotiated. If not specified default parameters will be used.
       </item>
 
-      <tag>{ssl_imp, ssl_imp()}</tag>
-      <item>Specify which ssl implementation you want to use. Defaults to
-      new.
+      <tag>{verify, verify_type()}</tag>
+      <item>Servers only do the x509-path validation in verify_peer
+      mode, as it then will send a certificate request to the client
+      (this message is not sent if the verify option is verify_none)
+      and you may then also want to specify the option
+      fail_if_no_peer_cert.
+      </item>
+
+      <tag>{fail_if_no_peer_cert, boolean()}</tag>
+      <item>Used together with {verify, verify_peer} by a ssl server.
+      If set to true, the server will fail if the client does not have
+      a certificate to send, i.e. sends a empty certificate, if set to
+      false it will only fail if the client sends a invalid
+      certificate (an empty certificate is considered valid).
       </item>
 
       <tag>{reuse_sessions, boolean()}</tag>
-      <item>Specifies if ssl sessions should be reused
-	when possible.
+      <item>Specifies if the server should agree to reuse sessions
+      when the clients request to do so. See also the reuse_session
+      option.
       </item>
 
-       <tag>{reuse_session, fun(SuggestedSessionId,
-       PeerCert, Compression, CipherSuite) -> boolean()}</tag>
+      <tag>{reuse_session, fun(SuggestedSessionId,
+      PeerCert, Compression, CipherSuite) -> boolean()}</tag>
       <item>Enables the ssl server to have a local policy
       for deciding if a session should be reused or not,
       only meaning full if <c>reuse_sessions</c> is set to true.
       SuggestedSessionId is a binary(),  PeerCert is a DER encoded
       certificate, Compression is an enumeration integer
       and CipherSuite of type ciphersuite().      
-      </item>
-
-      <tag>{secure_renegotiate, boolean()}</tag>
-      <item>Specifies if to reject renegotiation attempt that does
-      not live up to RFC 5746. By default secure_renegotiate is
-      set to false e.i. secure renegotiation will be used if possible
-      but it will fallback to unsecure renegotiation if the peer
-      does not support  RFC 5746.
       </item>
 
     </taglist>
@@ -316,7 +389,7 @@ end
 	<v>Reason = term()</v>
       </type>
       <desc> <p>Upgrades a gen_tcp, or equivalent,
-	  connected socket to a ssl socket e.i performs the
+	  connected socket to a ssl socket i.e. performs the
 	  client-side ssl handshake.</p>
     </desc>
     </func>
@@ -559,12 +632,12 @@ end
       </type>
       <desc>
         <p> Upgrades a gen_tcp, or
-	  equivalent, socket to a ssl socket e.i performs the
+	  equivalent, socket to a ssl socket i.e. performs the
 	ssl server-side handshake.</p>
-	<p><note>Note that the listen socket should be in {active, false} mode
+	<p><warning>Note that the listen socket should be in {active, false} mode
 	before telling the client that the server is ready to upgrade
 	and calling this function, otherwise the upgrade may
-	or may not succeed depending on timing.</note></p>
+	or may not succeed depending on timing.</warning></p>
       </desc>
     </func>
     
