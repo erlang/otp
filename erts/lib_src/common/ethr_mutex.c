@@ -35,7 +35,7 @@
 
 #define ETHR_SPIN_WITH_WAITERS 1
 
-#define ETHR_MTX_MAX_FLGS_SPIN 1000
+#define ETHR_MTX_MAX_FLGS_SPIN 10
 
 #ifdef ETHR_USE_OWN_RWMTX_IMPL__
 static int default_rwmtx_main_spincount;
@@ -593,24 +593,31 @@ initial_spincount(struct ethr_mutex_base_ *mtxb)
 static ETHR_INLINE int
 update_spincount(struct ethr_mutex_base_ *mtxb,
 		 ethr_ts_event *tse,
-		 int *start_scnt,
+		 int *scnt_state,
 		 int *scnt)
 {
-    int sscnt = *start_scnt;
-    if (sscnt < 0) {
-	*scnt = ((tse->iflgs & ETHR_TS_EV_MAIN_THR)
-		 ? mtxb->main_scnt
-		 : mtxb->aux_scnt);
-	*scnt -= ETHR_MTX_MAX_FLGS_SPIN;
+    int state = *scnt_state;
+    if (state <= 0) {
+	/* Here state is max spincount to do on event negated */
+	*scnt = -state;
     }
     else {
+	/* Here state is initial spincount made on flags */
 	*scnt = ((tse->iflgs & ETHR_TS_EV_MAIN_THR)
 		 ? mtxb->main_scnt
 		 : mtxb->aux_scnt);
-	*scnt -= sscnt;
-	if (*scnt > 0 && sscnt < ETHR_MTX_MAX_FLGS_SPIN) {
-	    *scnt = ETHR_MTX_MAX_FLGS_SPIN - sscnt;
-	    *start_scnt = -1;
+	if (*scnt <= state)
+	    *scnt = 0;
+	else {
+	    if (*scnt <= ETHR_MTX_MAX_FLGS_SPIN)
+		*scnt_state = 0; /* No spin on event */
+	    else {
+		 /* Spin on event after... */
+		*scnt_state = -1*(*scnt - ETHR_MTX_MAX_FLGS_SPIN);
+		/* ... we have spun on flags */
+		*scnt = ETHR_MTX_MAX_FLGS_SPIN;
+	    }
+	    *scnt -= state;
 	    return 0;
 	}
     }

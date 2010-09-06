@@ -623,7 +623,7 @@ int db_create_hash(Process *p, DbTable *tbl)
     erts_smp_atomic_init(&tb->is_resizing, 0);
 #ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
-	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
 	int i;
 	if (tb->common.type & DB_FREQ_READ)
 	    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
