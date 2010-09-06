@@ -502,10 +502,14 @@ int ei_connect_init(ei_cnode* ec, const char* this_node_name,
 	return ERL_ERROR;
     }
 
-    if (this_node_name == NULL)
+    if (this_node_name == NULL) {
 	sprintf(thisalivename, "c%d", (int) getpid());
-    else
+    } else if (strlen(this_node_name) >= sizeof(thisalivename)) {
+	EI_TRACE_ERR0("ei_connect_init","ERROR: this_node_name too long");
+	return ERL_ERROR;
+    } else {
 	strcpy(thisalivename, this_node_name);
+    }
     
     if ((hp = ei_gethostbyname(thishostname)) == 0) {
 	/* Looking up IP given hostname fails. We must be on a standalone

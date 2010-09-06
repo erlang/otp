@@ -106,6 +106,12 @@ static int ei_epmd_r3_port (struct in_addr *addr, const char *alive,
   char ntoabuf[32];
 #endif
   
+  if (len > sizeof(buf) - 3)
+  {
+      erl_errno = ERANGE;
+      return -1;
+  }
+
   put16be(s,len);
   put8(s,EI_EPMD_PORT_REQ);
   strcpy(s,alive);
@@ -164,6 +170,12 @@ static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
 #if defined(VXWORKS)
   char ntoabuf[32];
 #endif
+
+  if (len > sizeof(buf) - 3)
+  {
+      erl_errno = ERANGE;
+      return -1;
+  }
   
   put16be(s,len);
   put8(s,EI_EPMD_PORT2_REQ);
