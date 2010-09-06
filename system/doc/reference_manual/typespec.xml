@@ -32,22 +32,22 @@
   <section>
   <title>Introduction of Types</title>
   <p>
-  Although Erlang is a dynamically typed language this section describes
-  an extension to the Erlang language for declaring sets of Erlang terms 
-  to form a particular type, effectively forming a specific sub-type of the 
-  set of all Erlang terms.
+    Erlang is a dynamically typed language. Still, it comes with a
+    language extension for declaring sets of Erlang terms to form a
+    particular type, effectively forming a specific sub-type of the set
+    of all Erlang terms.
   </p>
   <p> 
-  Subsequently, these types can be used to specify types of record fields 
-  and the argument and return types of functions.
+    Subsequently, these types can be used to specify types of record fields 
+    and the argument and return types of functions.
   </p>
   <p>
-  Type information can be used to document function interfaces, 
-  provide more information for bug detection tools such as <c>Dialyzer</c>, 
-  and can be exploited by documentation tools such as <c>Edoc</c> for 
-  generating program documentation of various forms. 
-  It is expected that the type language described in this document will 
-  supersede and replace the purely comment-based <c>@type</c> and 
+    Type information can be used to document function interfaces, 
+    provide more information for bug detection tools such as <c>Dialyzer</c>, 
+    and can be exploited by documentation tools such as <c>Edoc</c> for 
+    generating program documentation of various forms. 
+    It is expected that the type language described in this document will 
+    supersede and replace the purely comment-based <c>@type</c> and 
   <c>@spec</c> declarations used by <c>Edoc</c>.
   </p>
   <warning>
@@ -317,7 +317,7 @@ mod:orddict(atom(), term())
       their defining module (i.e., only the module defining them is
       allowed to depend on their term structure). Consequently, such
       types do not make much sense as module local - module local
-      types are anyway not accessible by other modules - and should
+      types are not accessible by other modules anyway - and should
       always be exported.
     </p>
   </section>
@@ -462,7 +462,7 @@ mod:orddict(atom(), term())
 -spec id(X) -> X when X :: tuple().
     </pre>
     <p>
-      and provide bounded quantification. Currently, the <c>::</2> constraint
+      and provide bounded quantification. Currently, the <c>::</c> constraint
       (the <c>is_subtype/2</c> guard) is the only guard constraint which can 
       be used in the <c>'when'</c> part of a <c>'-spec'</c> attribute.
     </p>
