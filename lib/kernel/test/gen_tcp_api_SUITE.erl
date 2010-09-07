@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,10 +30,11 @@
 	 t_connect/1, t_connect_bad/1,
 	 t_recv/1, t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
-	 t_fdopen/1]).
+	 t_fdopen/1, t_implicit_inet6/1]).
 
 all(suite) -> [t_accept, t_connect, t_recv, t_shutdown_write,
-	      t_shutdown_both, t_shutdown_error, t_fdopen].
+	       t_shutdown_both, t_shutdown_error, t_fdopen,
+	       t_implicit_inet6].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
@@ -156,6 +157,54 @@ t_fdopen(Config) when is_list(Config) ->
     ok.
 
 
+%%% implicit inet6 option to api functions
+
+t_implicit_inet6(Config) when is_list(Config) ->
+    ?line Hostname = ok(inet:gethostname()),
+    ?line
+	case gen_tcp:listen(0, [inet6]) of
+	    {ok,S1} ->
+		?line
+		    case inet:getaddr(Hostname, inet6) of
+			{ok,Host} ->
+			    ?line Loopback = {0,0,0,0,0,0,0,1},
+			    ?line io:format("~s ~p~n", ["Loopback",Loopback]),
+			    ?line implicit_inet6(S1, Loopback),
+			    ?line ok = gen_tcp:close(S1),
+			    %%
+			    ?line Localhost =
+				ok(inet:getaddr("localhost", inet6)),
+			    ?line io:format("~s ~p~n", ["localhost",Localhost]),
+			    ?line S2 = ok(gen_tcp:listen(0, [{ip,Localhost}])),
+			    ?line implicit_inet6(S2, Localhost),
+			    ?line ok = gen_tcp:close(S2),
+			    %%
+			    ?line io:format("~s ~p~n", [Hostname,Host]),
+			    ?line S3 = ok(gen_tcp:listen(0, [{ifaddr,Host}])),
+			    ?line implicit_inet6(S3, Host),
+			    ?line ok = gen_tcp:close(S1);
+			{error,eafnosupport} ->
+			    ?line ok = gen_tcp:close(S1),
+			    {skip,"Can not look up IPv6 address"}
+		    end;
+	    _ ->
+		{skip,"IPv6 not supported"}
+	end.
+
+implicit_inet6(S, Addr) ->
+    ?line P = ok(inet:port(S)),
+    ?line S2 = ok(gen_tcp:connect(Addr, P, [])),
+    ?line P2 = ok(inet:port(S2)),
+    ?line S1 = ok(gen_tcp:accept(S)),
+    ?line P1 = P = ok(inet:port(S1)),
+    ?line {Addr,P2} = ok(inet:peername(S1)),
+    ?line {Addr,P1} = ok(inet:peername(S2)),
+    ?line {Addr,P1} = ok(inet:sockname(S1)),
+    ?line {Addr,P2} = ok(inet:sockname(S2)),
+    ?line ok = gen_tcp:close(S2),
+    ?line ok = gen_tcp:close(S1).
+
+
 
 %%% Utilities
 
@@ -217,3 +266,5 @@ unused_ip(A, B, C, D) ->
 	{ok, _} -> unused_ip(A, B, C, D+1);
 	{error, _} -> {ok, {A, B, C, D}}
     end.
+
+ok({ok,V}) -> V.
