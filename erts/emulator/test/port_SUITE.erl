@@ -2305,7 +2305,11 @@ load_driver(Dir, Driver) ->
 close_deaf_port(doc) -> ["Send data to port program that does not read it, then close port."];
 close_deaf_port(suite) -> [];
 close_deaf_port(Config) when is_list(Config) ->
-    Port = open_port({spawn,"sleep 999999"},[]),
-    erlang:port_command(Port,"Hello, can you hear me!?!?"),
-    port_close(Port),
+    ?line Dog = test_server:timetrap(test_server:seconds(100)),
+    ?line DataDir = ?config(data_dir, Config),
+    ?line DeadPort = os:find_executable("dead_port", DataDir),
+
+    ?line Port = open_port({spawn,DeadPort++" 60"},[]),
+    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
+    ?line port_close(Port),
     ok.
