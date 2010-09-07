@@ -2035,9 +2035,9 @@ os_prompt%</pre>
       </type>
       <desc>
         <note>
-          <p>In releases older than OTP R14B, NIF's where an
+          <p>In releases older than OTP R14B, NIFs were an
           experimental feature. Versions of OTP older than R14B might
-          have different and possibly incompatible NIF semanticts and
+          have different and possibly incompatible NIF semantics and
           interfaces. For example, in R13B03 the return value on
           failure was
           <c>{error,Reason,Text}</c>.</p>
@@ -2045,7 +2045,7 @@ os_prompt%</pre>
         <p>Loads and links a dynamic library containing native
         implemented functions (NIFs) for a module. <c>Path</c> is a
         file path to the sharable object/dynamic library file minus
-        the OS-dependant file extension (.so for Unix and .ddl for
+        the OS-dependent file extension (.so for Unix and .dll for
         Windows). See <seealso marker="erl_nif">erl_nif</seealso>
         on how to implement a NIF library.</p> 
         <p><c>LoadInfo</c> can be any term. It will be passed on to
