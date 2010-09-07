@@ -43,8 +43,6 @@ ei_accept(Config) when is_list(Config) ->
     ?line P = runner:start(?interpret),
     ?line 0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
 
-%    ?line AMsg={a,[message, with], " strings in it!", [-12, -23], 1.001},
-    %% shouldn't this be a bif or function or something?
     ?line Myname= hd(tl(string:tokens(atom_to_list(node()), "@"))),
     ?line io:format("Myname ~p ~n",  [Myname]),
     ?line EINode= list_to_atom("c42@"++Myname),
@@ -52,9 +50,13 @@ ei_accept(Config) when is_list(Config) ->
     ?line Self= self(),
     ?line TermToSend= {call, Self, "Test"},
     ?line F= fun() ->
-		     timer:sleep(500),
-		     {any, EINode} ! TermToSend,
-		     Self ! sent_ok,
+		     case waitfornode("c42",20) of
+			 true ->
+			     {any, EINode} ! TermToSend,
+			     Self ! sent_ok;
+			 false ->
+			     Self ! never_published
+		     end,
 		     ok
 	     end,
 
@@ -90,12 +92,29 @@ ei_threaded_accept(Config) when is_list(Config) ->
 	    || I <- lists:seq(0, N-1) ],
     ok.
 
+waitfornode(String,0) ->
+    io:format("~s never published itself.~n",[String]),
+    false;
+waitfornode(String,N) ->
+    Registered = [X || {X,_} <- element(2,erl_epmd:names())],
+    case lists:member(String,Registered) of
+	true ->
+	    true;
+	false ->
+	    timer:sleep(1000),
+	    waitfornode(String,N-1)
+    end.
+
 send_rec_einode(N, TestServerPid) ->
     ?line Myname= hd(tl(string:tokens(atom_to_list(node()), "@"))),
-    ?line EINode= list_to_atom("eiacc" ++ integer_to_list(N) ++ "@" ++ Myname),
+    ?line FirstPart = "eiacc" ++ integer_to_list(N),
+    ?line EINode= list_to_atom(FirstPart ++ "@" ++ Myname),
     ?line io:format("EINode ~p ~n",  [EINode]),
     ?line Self= self(),
-    ?line timer:sleep(10*1000),
+    ?line case waitfornode(FirstPart,20) of
+	      true -> ok;
+	      false -> test_server:fail({never_published,EINode})
+	  end,
     ?line {any, EINode} ! Self,
     ?line receive
 	      {N,_}=X ->
