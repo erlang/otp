@@ -149,6 +149,7 @@ all(suite) ->
      packet_http_decode,
      packet_http_decode_list,
      packet_http_bin_decode_multi,
+     packet_http_error_passive,
      packet_line_decode,
      packet_line_decode_list,
      packet_asn1_decode, 
@@ -1737,6 +1738,71 @@ client_http_bin_decode(Socket, HttpRequest, Count) when Count > 0 ->
     client_http_bin_decode(Socket, HttpRequest, Count - 1);
 client_http_bin_decode(_, _, _) ->
     ok.
+
+%%--------------------------------------------------------------------
+packet_http_error_passive(doc) ->
+    ["Test setting the packet option {packet, http}, {active, false}"
+    " with a incorrect http header." ];
+packet_http_error_passive(suite) ->
+    [];
+packet_http_error_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Request = "GET / HTTP/1.1\r\n"
+              "host: www.example.com\r\n"
+	      "user-agent HttpTester\r\n"
+	      "\r\n",
+    Response = "HTTP/1.1 200 OK\r\n"
+	       "\r\n"
+	       "Hello!",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_http_decode_error,
+					       [Response]}},
+					{options, [{active, false}, binary,
+						   {packet, http} |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode_list,
+					       [Request]}},
+					{options, [{active, true}, list,
+						   {packet, http} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+server_http_decode_error(Socket, HttpResponse) ->
+    assert_packet_opt(Socket, http),
+
+    {ok, {http_request, 'GET', _, {1,1}}} = ssl:recv(Socket, 0),
+
+    assert_packet_opt(Socket, http),
+
+    {ok, {http_header, _, 'Host', _, "www.example.com"}} = ssl:recv(Socket, 0),
+    assert_packet_opt(Socket, http),
+
+    {ok, {http_error, _}} = ssl:recv(Socket, 0),
+
+    assert_packet_opt(Socket, http),
+
+    {ok, http_eoh} = ssl:recv(Socket, 0),
+
+    assert_packet_opt(Socket, http),
+    ok = ssl:send(Socket, HttpResponse),
+    ok.
+
+
 %%--------------------------------------------------------------------
 packet_line_decode(doc) ->
     ["Test setting the packet option {packet, line}, {mode, binary}"];
