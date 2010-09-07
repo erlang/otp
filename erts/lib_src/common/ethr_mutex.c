@@ -1006,7 +1006,6 @@ enqueue_mtx(ethr_mutex *mtx, ethr_ts_event *tse_start, ethr_ts_event *tse_end)
 int
 ethr_cond_init_opt(ethr_cond *cnd, ethr_cond_opt *opt)
 {
-    int res;
 #if ETHR_XCHK
     if (!cnd) {
 	ETHR_ASSERT(0);
@@ -1106,7 +1105,6 @@ ethr_cond_signal(ethr_cond *cnd)
 void
 ethr_cond_broadcast(ethr_cond *cnd)
 {
-    int res;
     int got_all;
     ethr_ts_event *tse;
     ETHR_ASSERT(!ethr_not_inited__);
@@ -1174,7 +1172,6 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
 {
     int woken;
     int scnt;
-    int res;
     void *udata = NULL;
     ethr_ts_event *tse;
 
