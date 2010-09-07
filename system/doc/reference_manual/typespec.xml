@@ -50,11 +50,6 @@
     supersede and replace the purely comment-based <c>@type</c> and 
   <c>@spec</c> declarations used by <c>Edoc</c>.
   </p>
-  <warning>
-    The syntax and semantics described here is still preliminary and might be 
-    slightly changed and extended before it becomes officially supported.
-    The plan is that this will happen in R14B.
-  </warning>
   </section>
   <section>
     <marker id="syntax"></marker>
@@ -165,7 +160,7 @@ TList :: Type
       <cell><c>term()</c></cell><cell><c>any()</c></cell>
     </row>
     <row> 
-      <cell><c>bool()</c></cell><cell><c>'false' | 'true'</c></cell>
+      <cell><c>boolean()</c></cell><cell><c>'false' | 'true'</c></cell>
     </row>
     <row> 
       <cell><c>byte()</c></cell><cell><c>0..255</c></cell>
@@ -233,24 +228,21 @@ TList :: Type
   </note>
   <pre>
 nonempty_maybe_improper_list(Type) :: nonempty_maybe_improper_list(Type, any())
-nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any())
-  </pre>
+nonempty_maybe_improper_list() :: nonempty_maybe_improper_list(any())</pre>
   <p>
     where the following two types
     define the set of Erlang terms one would expect:
   </p>
   <pre>
 nonempty_improper_list(Type1, Type2)
-nonempty_maybe_improper_list(Type1, Type2)
-  </pre>
+nonempty_maybe_improper_list(Type1, Type2)</pre>
   <p>
     Also for convenience, we allow for record notation to be used. 
     Records are just shorthands for the corresponding tuples.
   </p>
   <pre>
 Record :: #Erlang_Atom{}
-        | #Erlang_Atom{Fields}
-  </pre>
+        | #Erlang_Atom{Fields}</pre>
   <p>
     Records have been extended to possibly contain type information. 
     This is described in the sub-section <seealso marker="#typeinrecords">"Type information in record declarations"</seealso> below.
@@ -266,8 +258,7 @@ Record :: #Erlang_Atom{}
     </p>
     <pre>
 -type my_struct_type() :: Type.
--opaque my_opaq_type() :: Type.
-    </pre>
+-opaque my_opaq_type() :: Type.</pre>
     <p>
       where the type name is an atom (<c>'my_struct_type'</c> in the above)
       followed by parentheses. Type is a type as defined in the
@@ -288,27 +279,23 @@ Record :: #Erlang_Atom{}
       definition. A concrete example appears below:
     </p>
     <pre>
--type orddict(Key, Val) :: [{Key, Val}].
-    </pre>
+-type orddict(Key, Val) :: [{Key, Val}].</pre>
     <p>
       A module can export some types in order to declare that other modules
       are allowed to refer to them as <em>remote types</em>.
       This declaration has the following form:
       <pre>
--export_type([T1/A1, ..., Tk/Ak]).
-      </pre>
+-export_type([T1/A1, ..., Tk/Ak]).</pre>
       where the Ti's are atoms (the name of the type) and the Ai's are their
       arguments.  An example is given below:
       <pre>
--export_type([my_struct_type/0, orddict/2]).
-      </pre>
+-export_type([my_struct_type/0, orddict/2]).</pre>
       Assuming that these types are exported from module <c>'mod'</c> then
       one can refer to them from other modules using remote type expressions
       like those below:
       <pre>
 mod:my_struct_type()
-mod:orddict(atom(), term())
-      </pre>
+mod:orddict(atom(), term())</pre>
       One is not allowed to refer to types which are not declared as exported.
     </p>
     <p>
@@ -324,30 +311,25 @@ mod:orddict(atom(), term())
   
   <marker id="typeinrecords"/>
   <section>
-    <title>
-      Type information in record declarations
-    </title>
+    <title>Type information in record declarations</title>
     <p>
       The types of record fields can be specified in the declaration of the 
       record. The syntax for this is:
     </p>
     <pre>
--record(rec, {field1 :: Type1, field2, field3 :: Type3}).
-    </pre>
+-record(rec, {field1 :: Type1, field2, field3 :: Type3}).</pre>
     <p>
       For fields without type annotations, their type defaults to any(). 
       I.e., the above is a shorthand for:
     </p>
     <pre>
--record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).		
-    </pre>
+-record(rec, {field1 :: Type1, field2 :: any(), field3 :: Type3}).</pre>
     <p>
       In the presence of initial values for fields, 
       the type must be declared after the initialization as in the following:
     </p>
     <pre>
--record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).
-    </pre>
+-record(rec, {field1 = [] :: Type1, field2, field3 = 42 :: Type3}).</pre>
     <p>
       Naturally, the initial values for fields should be compatible 
       with (i.e. a member of) the corresponding types. 
@@ -364,8 +346,7 @@ mod:orddict(atom(), term())
 
 -record(rec, {f1 = 42 :: integer(),
               f2      :: 'undefined' | float(),
-              f3      :: 'undefined' | 'a' | 'b'}).
-    </pre>
+              f3      :: 'undefined' | 'a' | 'b'}).</pre>
     <p>
       For this reason, it is recommended that records contain initializers, 
       whenever possible.
@@ -375,16 +356,14 @@ mod:orddict(atom(), term())
       can be used as a type using the syntax:
     </p>
     <pre>
-#rec{}
-    </pre>
+#rec{}</pre>
     <p>
       In addition, the record fields can be further specified when using 
       a record type by adding type information about the field in
       the following manner:
     </p>
     <pre>
-#rec{some_field :: Type}
-    </pre>
+#rec{some_field :: Type}</pre>
     <p>
       Any unspecified fields are assumed to have the type in the original 
       record declaration.
@@ -398,8 +377,7 @@ mod:orddict(atom(), term())
       compiler attribute <c>'-spec'</c>. The general format is as follows:
     </p>
     <pre>
--spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.
-    </pre>
+-spec Module:Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
       The arity of the function has to match the number of arguments, 
       or else a compilation error occurs.
@@ -414,22 +392,19 @@ mod:orddict(atom(), term())
       For most uses within a given module, the following shorthand suffices:
     </p>
     <pre>
--spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.
-    </pre>
+-spec Function(ArgType1, ..., ArgTypeN) -> ReturnType.</pre>
     <p>
       Also, for documentation purposes, argument names can be given:
     </p>
     <pre>
--spec Function(ArgName1 :: Type1, ..., ArgNameN :: TypeN) -> RT.
-    </pre>
+-spec Function(ArgName1 :: Type1, ..., ArgNameN :: TypeN) -> RT.</pre>
     <p>
       A function specification can be overloaded. 
       That is, it can have several types, separated by a semicolon (<c>;</c>):
     </p>
     <pre>
 -spec foo(T1, T2) -> T3
-       ; (T4, T5) -> T6.
-    </pre>
+       ; (T4, T5) -> T6.</pre>
     <p>
       A current restriction, which currently results in a warning 
       (OBS: not an error) by the compiler, is that the domains of
@@ -438,8 +413,7 @@ mod:orddict(atom(), term())
     </p>
     <pre>
 -spec foo(pos_integer()) -> pos_integer()
-       ; (integer()) -> integer().
-    </pre>
+       ; (integer()) -> integer().</pre>
     <p>
       Type variables can be used in specifications to specify relations for 
       the input and output arguments of a function. 
@@ -447,20 +421,19 @@ mod:orddict(atom(), term())
       polymorphic identity function:
     </p>
     <pre>
--spec id(X) -> X.
-    </pre>
+-spec id(X) -> X.</pre>
     <p>
       However, note that the above specification does not restrict the input 
       and output type in any way. 
       We can constrain these types by guard-like subtype constraints:
     </p>
     <pre>
--spec id(X) -> X when is_subtype(X, tuple()).
-    </pre>
-    or equivalently by the more succint and more modern form of the above:
+-spec id(X) -> X when is_subtype(X, tuple()).</pre>
+    <p>
+    or equivalently by the more succinct and more modern form of the above:
+    </p>
     <pre>
--spec id(X) -> X when X :: tuple().
-    </pre>
+-spec id(X) -> X when X :: tuple().</pre>
     <p>
       and provide bounded quantification. Currently, the <c>::</c> constraint
       (the <c>is_subtype/2</c> guard) is the only guard constraint which can 
@@ -475,23 +448,20 @@ mod:orddict(atom(), term())
     </p>
     <pre>
 -spec foo({X, integer()}) -> X when X :: atom()
-       ; ([Y]) -> Y when Y :: number().
-    </pre>
+       ; ([Y]) -> Y when Y :: number().</pre>
     <p>
       Some functions in Erlang are not meant to return; 
       either because they define servers or because they are used to 
       throw exceptions as the function below:
     </p>
     <pre>
-my_error(Err) -> erlang:throw({error, Err}).
-    </pre>
+my_error(Err) -> erlang:throw({error, Err}).</pre>
     <p>
       For such functions we recommend the use of the special no_return() 
       type for their "return", via a contract of the form:
     </p>
     <pre>
--spec my_error(term()) -> no_return().
-    </pre>
+-spec my_error(term()) -> no_return().</pre>
   </section>
 </chapter>
 
