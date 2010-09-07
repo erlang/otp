@@ -320,11 +320,13 @@ nbif_3_gc_after_bif:
 	.align	4
 .gc_after_bif:
 	movl	%edx, P_NARITY(P)
-	subl	$(16-4), %esp
+	subl	$(32-4), %esp
 	movl	P, (%esp)
 	movl	%eax, 4(%esp)
+	movl	$0, 8(%esp)		# Pass NULL in regs
+	movl	$0, 12(%esp)		# Pass 0 in arity
 	call	CSYM(erts_gc_after_bif_call)
-	addl	$(16-4), %esp
+	addl	$(32-4), %esp
 	movl	$0, P_NARITY(P)
 	ret
 

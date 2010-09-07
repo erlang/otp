@@ -311,6 +311,8 @@ nbif_3_gc_after_bif:
 	str	TEMP_LR, [P, #P_NRA]
 	str	NSP, [P, #P_NSP]
 	mov	TEMP_LR, lr
+	mov	r3, #0			/* Pass 0 in arity */
+	mov	r2, #0			/* Pass NULL in regs */
 	mov	r1, r0
 	mov	r0, P
 	bl	erts_gc_after_bif_call
