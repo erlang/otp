@@ -109,7 +109,8 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 %%--------------------------------------------------------------------
 -spec pem_entry_encode(pki_asn1_type(), term()) -> pem_entry().
 -spec pem_entry_encode(pki_asn1_type(), term(),
-		       {{Cipher :: string(), Salt :: binary()}, string()}) -> pem_entry().
+		       {{Cipher :: string(), Salt :: binary()}, string()}) ->
+			      pem_entry().
 %
 %% Description: Creates a pem entry that can be feed to pem_encode/1.
 %%--------------------------------------------------------------------
@@ -440,17 +441,25 @@ pkix_normalize_name(Issuer) ->
 			   CertChain :: [der_encoded()] , 
 			   Options :: list()) ->  
 				  {ok, {PublicKeyInfo :: term(), 
-					PolicyTree :: term(),
-					[{bad_cert, Reason :: term()}]}} | 
+					PolicyTree :: term()}} |
 				  {error, {bad_cert, Reason :: term()}}.
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
-pkix_path_validation(unknown_ca, [Cert | Chain], Options) ->
-    case proplists:get_value(verify, Options, true) of
-	true ->
-	    {error, {bad_cert, unknown_ca}};
-	false ->
-	    pkix_path_validation(Cert, Chain, [{acc_errors, [{bad_cert, unknown_ca}]}])
+pkix_path_validation(unknown_ca, [Cert | Chain], Options0) ->
+    {VerifyFun, Userstat0} =
+	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
+    Otpcert = pkix_decode_cert(Cert, otp),
+    Reason = {bad_cert, unknown_ca},
+    try VerifyFun(Otpcert, Reason, Userstat0) of
+	{valid, Userstate} ->
+	    Options = proplists:delete(verify_fun, Options0),
+	    pkix_path_validation(Otpcert, Chain, [{verify_fun,
+						   {VerifyFun, Userstate}}| Options]);
+	{fail, _} ->
+	    {error, Reason}
+    catch
+	_:_ ->
+	    {error, Reason}
     end;
 pkix_path_validation(TrustedCert, CertChain, Options) when
   is_binary(TrustedCert) -> OtpCert = pkix_decode_cert(TrustedCert,
@@ -462,12 +471,7 @@ pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
     ValidationState = pubkey_cert:init_validation_state(TrustedCert, 
 							MaxPathDefault, 
 							Options),
-    Fun = proplists:get_value(validate_extensions_fun, Options,
-			      fun(Extensions, State, _, AccError) ->
-				      {Extensions, State, AccError}
-			      end),
-    Verify = proplists:get_value(verify, Options, true),
-    path_validation(CertChain, ValidationState, Fun, Verify).
+    path_validation(CertChain, ValidationState).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -490,38 +494,40 @@ path_validation([], #path_validation_state{working_public_key_algorithm
 					   PublicKey,
 					   working_public_key_parameters 
 					   = PublicKeyParams,
-					   valid_policy_tree = Tree,
-					   acc_errors = AccErrors
-					  }, _, _) ->
-    {ok, {{Algorithm, PublicKey, PublicKeyParams}, Tree, AccErrors}};
+					   valid_policy_tree = Tree
+					  }) ->
+    {ok, {{Algorithm, PublicKey, PublicKeyParams}, Tree}};
 
 path_validation([DerCert | Rest], ValidationState = #path_validation_state{
-				    max_path_length = Len}, 
-		Fun, Verify) when Len >= 0 ->    
-    try validate(DerCert, 
-		 ValidationState#path_validation_state{last_cert=Rest=:=[]}, 
-		 Fun, Verify) of 
+				    max_path_length = Len}) when Len >= 0 ->
+    try validate(DerCert,
+		 ValidationState#path_validation_state{last_cert=Rest=:=[]}) of
 	#path_validation_state{} = NewValidationState ->
-	    path_validation(Rest, NewValidationState, Fun, Verify)
+	    path_validation(Rest, NewValidationState)
     catch   
 	throw:Reason ->
 	    {error, Reason}
     end;
 
-path_validation(_, _, _, true) ->
-    {error, {bad_cert, max_path_length_reached}};
+path_validation([DerCert | _] = Path,
+		#path_validation_state{user_state = UserState0,
+				       verify_fun = VerifyFun} =
+		    ValidationState) ->
+    Reason = {bad_cert, max_path_length_reached},
+    OtpCert = pkix_decode_cert(DerCert, otp),
+    try VerifyFun(OtpCert,  Reason, UserState0) of
+	{valid, UserState} ->
+	    path_validation(Path,
+			    ValidationState#path_validation_state{
+			      max_path_length = 0,
+			      user_state = UserState});
+	{fail, _} ->
+	    {error, Reason}
+    catch
+	_:_ ->
+	    {error, Reason}
+    end.
 
-path_validation(_, #path_validation_state{working_public_key_algorithm
-					   = Algorithm,
-					   working_public_key =
-					   PublicKey,
-					   working_public_key_parameters 
-					   = PublicKeyParams,
-					  valid_policy_tree = Tree,
-					  acc_errors = AccErrors
-					 }, _, false) ->
-    {ok, {{Algorithm, PublicKey, PublicKeyParams}, Tree, 
-	  [{bad_cert, max_path_length_reached}|AccErrors]}}.
 
 validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 					 working_public_key = Key,
@@ -531,40 +537,29 @@ validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 					 excluded_subtrees = Exclude,
 					 last_cert = Last,
 					 user_state = UserState0,
-					 acc_errors = AccErr0} = 
-	 ValidationState0, ValidateExtensionFun, Verify) -> 
+					 verify_fun = VerifyFun} =
+	     ValidationState0) ->
     OtpCert = pkix_decode_cert(DerCert, otp),
-    %% All validate functions will throw {bad_cert, Reason} if they 
-    %% fail and Verify = true if Verify = false errors
-    %% will be accumulated in the validationstate 
-    AccErr1 = pubkey_cert:validate_time(OtpCert, AccErr0, Verify),
 
-    AccErr2 = pubkey_cert:validate_issuer(OtpCert, Issuer, AccErr1, Verify),
+    UserState1 = pubkey_cert:validate_time(OtpCert, UserState0, VerifyFun),
 
-    AccErr3 = pubkey_cert:validate_names(OtpCert, Permit, Exclude, Last,
-					 AccErr2, Verify),
-    AccErr4 = 
-	pubkey_cert:validate_revoked_status(OtpCert, Verify, AccErr3),
+    UserState2 = pubkey_cert:validate_issuer(OtpCert, Issuer, UserState1, VerifyFun),
+
+    UserState3 = pubkey_cert:validate_names(OtpCert, Permit, Exclude, Last,
+					    UserState2,VerifyFun),
+
+    UserState4 = pubkey_cert:validate_revoked_status(OtpCert, UserState3, VerifyFun),
     
-    {ValidationState1, UnknownExtensions0, AccErr5} = 
-	pubkey_cert:validate_extensions(OtpCert, ValidationState0, Verify,
-					AccErr4),
-    %% We want the key_usage extension to be checked before we validate 
-    %% the signature. 
-    AccErr6 = 
-	pubkey_cert:validate_signature(OtpCert, DerCert, Key, KeyParams,
-				       AccErr5, Verify),
+    {ValidationState1, UserState5} =
+	pubkey_cert:validate_extensions(OtpCert, ValidationState0, UserState4,
+					VerifyFun),
 
-    {UnknownExtensions, UserState, AccErr7} = 
-	ValidateExtensionFun(UnknownExtensions0, UserState0, Verify, AccErr6),
-   
-    %% Check that all critical extensions have been handled 
-    AccErr = 
-	pubkey_cert:validate_unknown_extensions(UnknownExtensions, AccErr7, 
-						Verify),
+    %% We want the key_usage extension to be checked before we validate
+    %% the signature. 
+    UserState = pubkey_cert:validate_signature(OtpCert, DerCert,
+						Key, KeyParams, UserState5, VerifyFun),
     ValidationState  = 
-	ValidationState1#path_validation_state{user_state = UserState,
-					       acc_errors = AccErr},
+	ValidationState1#path_validation_state{user_state = UserState},
     pubkey_cert:prepare_for_next_cert(OtpCert, ValidationState).
 
 sized_binary(Binary) when is_binary(Binary) ->

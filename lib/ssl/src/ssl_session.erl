@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -113,7 +113,7 @@ select_session(Sessions, #ssl_options{ciphers = Ciphers,
  	List ->
  	    hd(List)
     end.
-	    
+
 %% If we can not generate a not allready in use session ID in
 %% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
 %% value of ?GEN_UNIQUE_ID_MAX_TRIES is stolen from open SSL which

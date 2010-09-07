@@ -34,7 +34,8 @@
 -export([trusted_cert_and_path/2,
 	 certificate_chain/2, 
 	 file_to_certificats/1,
-	 validate_extensions/6,
+	 %validate_extensions/6,
+	 validate_extension/3,
 	 is_valid_extkey_usage/2,
 	 is_valid_key_usage/2,
 	 select_extension/2,
@@ -110,32 +111,25 @@ file_to_certificats(File) ->
     {ok, List} = ssl_manager:cache_pem_file(File),
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
 %%--------------------------------------------------------------------
--spec validate_extensions([#'Extension'{}], term(), [#'Extension'{}],
-			  boolean(), list(), client | server) -> {[#'Extension'{}], term(), list()}.
+-spec validate_extension(term(), #'Extension'{}, term()) -> {valid, term()} |
+							    {fail, tuple()} |
+							    {unknown, term()}.
 %%
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
-validate_extensions([], ValidationState, UnknownExtensions, _, AccErr, _) -> 
-    {UnknownExtensions, ValidationState, AccErr};
-
-validate_extensions([#'Extension'{extnID = ?'id-ce-extKeyUsage',
-				  extnValue = KeyUse,
-				  critical = true} | Rest], 
-		    ValidationState, UnknownExtensions, Verify, AccErr0, Role) ->
+validate_extension(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
+					      extnValue = KeyUse,
+					      critical = true}}, Role) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
-	    validate_extensions(Rest, ValidationState, UnknownExtensions, 
-				Verify, AccErr0, Role);
+	    {valid, Role};
 	false ->
-	    AccErr = 
-		not_valid_extension({bad_cert, invalid_ext_key_usage}, Verify, AccErr0),
-	    validate_extensions(Rest, ValidationState, UnknownExtensions, Verify, AccErr, Role)
+	    {fail, {bad_cert, invalid_ext_key_usage}}
     end;
-
-validate_extensions([Extension | Rest],  ValidationState, UnknownExtensions, 
-		    Verify, AccErr, Role) ->
-    validate_extensions(Rest, ValidationState, [Extension | UnknownExtensions],
-		       Verify, AccErr, Role).
+validate_extension(_, {bad_cert, _} = Reason, _) ->
+    {fail, Reason};
+validate_extension(_, _, Role) ->
+    {unknown, Role}.
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
@@ -248,8 +242,3 @@ is_valid_extkey_usage(KeyUse, client) ->
 is_valid_extkey_usage(KeyUse, server) ->
     %% Server wants to verify client
     is_valid_key_usage(KeyUse, ?'id-kp-clientAuth').
-
-not_valid_extension(Error, true, _) ->
-    throw(Error);
-not_valid_extension(Error, false, AccErrors) ->
-    [Error | AccErrors].

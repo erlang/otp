@@ -523,55 +523,55 @@ old_listen(Port, Options) ->
     {ok, Pid} = ssl_broker:start_broker(listener),
     ssl_broker:listen(Pid, Port, Options).
 
-handle_options(Opts0, Role) ->
+handle_options(Opts0, _Role) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
 			     {list, [{mode, list}]}], Opts0),
     
     ReuseSessionFun = fun(_, _, _, _) -> true end,
 
-    AcceptBadCa = fun({bad_cert,unknown_ca}, Acc) ->  Acc;
-		     (Other, Acc) -> [Other | Acc]
-		  end,
-    
-    VerifyFun =
-	fun(ErrorList) ->
-		case lists:foldl(AcceptBadCa, [], ErrorList) of
-		    [] ->    true;
-		    [_|_] -> false
-		end
-	end,
+    VerifyNoneFun =
+	{fun(_,{bad_cert, unknown_ca}, UserState) ->
+		 {valid, UserState};
+	    (_,{bad_cert, _} = Reason, _) ->
+		 {fail, Reason};
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState}
+	 end, []},
 
-    UserFailIfNoPeerCert = validate_option(fail_if_no_peer_cert, 
-					   proplists:get_value(fail_if_no_peer_cert, Opts, false)),
+    UserFailIfNoPeerCert = handle_option(fail_if_no_peer_cert, Opts, false),
+    UserVerifyFun = handle_option(verify_fun, Opts, undefined),
     CaCerts = handle_option(cacerts, Opts, undefined),
 
-    {Verify, FailIfNoPeerCert, CaCertDefault} = 
+    {Verify, FailIfNoPeerCert, CaCertDefault, VerifyFun} =
 	%% Handle 0, 1, 2 for backwards compatibility
 	case proplists:get_value(verify, Opts, verify_none) of
 	    0 ->
-		{verify_none, false, ca_cert_default(verify_none, Role, CaCerts)};
+		{verify_none, false,
+		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
 	    1  ->
-		{verify_peer, false, ca_cert_default(verify_peer, Role, CaCerts)};
+		{verify_peer, false,
+		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
 	    2 ->
-		{verify_peer, true,  ca_cert_default(verify_peer, Role, CaCerts)};
+		{verify_peer, true,
+		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
 	    verify_none ->
-		{verify_none, false, ca_cert_default(verify_none, Role, CaCerts)};
+		{verify_none, false,
+		 ca_cert_default(verify_none, VerifyNoneFun, CaCerts), VerifyNoneFun};
 	    verify_peer ->
 		{verify_peer, UserFailIfNoPeerCert,
-		 ca_cert_default(verify_peer, Role, CaCerts)};
+		 ca_cert_default(verify_peer, UserVerifyFun, CaCerts), UserVerifyFun};
 	    Value ->
 		throw({error, {eoptions, {verify, Value}}})
-	end,   
+	end,
 
     CertFile = handle_option(certfile, Opts, ""),
     
     SSLOptions = #ssl_options{
       versions   = handle_option(versions, Opts, []),
       verify     = validate_option(verify, Verify),
-      verify_fun = handle_option(verify_fun, Opts, VerifyFun),
+      verify_fun = VerifyFun,
       fail_if_no_peer_cert = FailIfNoPeerCert,
       verify_client_once =  handle_option(verify_client_once, Opts, false),
-      validate_extensions_fun = handle_option(validate_extensions_fun, Opts, undefined),
       depth      = handle_option(depth,  Opts, 1),
       cert       = handle_option(cert, Opts, undefined),
       certfile   = CertFile,
@@ -591,7 +591,7 @@ handle_options(Opts0, Role) ->
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
-    SslOptions = [versions, verify, verify_fun, validate_extensions_fun, 
+    SslOptions = [versions, verify, verify_fun,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dhfile, ciphers,
@@ -618,16 +618,27 @@ validate_option(ssl_imp, Value) when Value == new; Value == old ->
 validate_option(verify, Value) 
   when Value == verify_none; Value == verify_peer ->
     Value;
-validate_option(verify_fun, Value) when is_function(Value) ->
+validate_option(verify_fun, undefined)  ->
+    undefined;
+%% Backwards compatibility
+validate_option(verify_fun, Fun) when is_function(Fun) ->
+    {fun(_,{bad_cert, _} = Reason, OldFun) ->
+	     case OldFun([Reason]) of
+		 true ->
+		     {valid, OldFun};
+		 false ->
+		     {fail, Reason}
+	     end;
+	(_,{extension, _}, UserState) ->
+	     {unknown, UserState}
+     end, Fun};
+validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
    Value;
 validate_option(fail_if_no_peer_cert, Value) 
   when Value == true; Value == false ->
     Value;
 validate_option(verify_client_once, Value) 
   when Value == true; Value == false ->
-    Value;
-
-validate_option(validate_extensions_fun, Value) when Value == undefined; is_function(Value) ->
     Value;
 validate_option(depth, Value) when is_integer(Value), 
                                    Value >= 0, Value =< 255->
@@ -720,12 +731,11 @@ ca_cert_default(_,_, [_|_]) ->
     undefined;
 ca_cert_default(verify_none, _, _) ->
     undefined;
-%% Client may leave verification up to the user
-ca_cert_default(verify_peer, client,_) ->
+ca_cert_default(verify_peer, {Fun,_}, _) when is_function(Fun) ->
     undefined;
-%% Server that wants to verify_peer must have
+%% Server that wants to verify_peer and has no verify_fun must have
 %% some trusted certs.
-ca_cert_default(verify_peer, server, _) ->
+ca_cert_default(verify_peer, undefined, _) ->
     "".
 
 emulated_options() ->

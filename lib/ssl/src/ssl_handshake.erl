@@ -32,15 +32,13 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([master_secret/4, client_hello/5, server_hello/4, hello/4,
-	 hello_request/0, certify/7, certificate/3, 
-	 client_certificate_verify/6, 
-	 certificate_verify/6, certificate_request/2,
-	 key_exchange/2, server_key_exchange_hash/2,  finished/4,
-	 verify_connection/5, 
-	 get_tls_handshake/2, decode_client_key/3,
-	 server_hello_done/0, sig_alg/1,
-         encode_handshake/3, init_hashes/0, 
-         update_hashes/2, decrypt_premaster_secret/2]).
+	 hello_request/0, certify/6, certificate/3,
+	 client_certificate_verify/6, certificate_verify/6,
+	 certificate_request/2, key_exchange/2, server_key_exchange_hash/2,
+	 finished/4, verify_connection/5, get_tls_handshake/2,
+	 decode_client_key/3, server_hello_done/0, sig_alg/1,
+	 encode_handshake/3, init_hashes/0, update_hashes/2,
+	 decrypt_premaster_secret/2]).
 
 -type tls_handshake() :: #client_hello{} | #server_hello{} |
 			 #server_hello_done{} | #certificate{} | #certificate_request{} |
@@ -177,59 +175,55 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
 
 %%--------------------------------------------------------------------
 -spec certify(#certificate{}, term(), integer() | nolimit,
-	      verify_peer | verify_none, fun(), fun(), 
+	      verify_peer | verify_none, {fun(), term},
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
-certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef, 
-	MaxPathLen, Verify, VerifyFun, ValidateFun, Role) -> 
+certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
+	MaxPathLen, _Verify, VerifyFunAndState, Role) ->
     [PeerCert | _] = ASN1Certs,
-    VerifyBool =  verify_bool(Verify),
       
-    ValidateExtensionFun = 
-	case ValidateFun of
+    ValidationFunAndState =
+	case VerifyFunAndState of
 	    undefined ->
-		fun(Extensions, ValidationState, Verify0, AccError) ->
-			ssl_certificate:validate_extensions(Extensions, ValidationState,
-							   [], Verify0, AccError, Role)
-		end;
-	    Fun ->
-		fun(Extensions, ValidationState, Verify0, AccError) ->
-		 {NewExtensions, NewValidationState, NewAccError} 
-			    = ssl_certificate:validate_extensions(Extensions, ValidationState,
-								  [], Verify0, AccError, Role),
-			Fun(NewExtensions, NewValidationState, Verify0, NewAccError)
-		end
+		{fun(OtpCert, ExtensionOrError, SslState) ->
+			 ssl_certificate:validate_extension(OtpCert,
+							    ExtensionOrError, SslState)
+		 end, Role};
+	    {Fun, UserState0} ->
+		{fun(OtpCert, ExtensionOrError, {SslState, UserState}) ->
+			 case ssl_certificate:validate_extension(OtpCert,
+								 ExtensionOrError,
+								SslState) of
+			    {valid, _} ->
+				apply_user_fun(Fun, OtpCert,
+					       ExtensionOrError, UserState,
+					       SslState);
+			    {fail, Reason} ->
+				apply_user_fun(Fun, OtpCert, Reason, UserState,
+					       SslState);
+			     {unknown, _} ->
+				 apply_user_fun(Fun, OtpCert,
+						ExtensionOrError, UserState, SslState)
+			 end
+		 end, {Role, UserState0}}
 	end,
-    try
-	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbRef) of
-	{TrustedErlCert, CertPath} ->
-	    Result = public_key:pkix_path_validation(TrustedErlCert, 
-						     CertPath, 
-						     [{max_path_length, 
-						       MaxPathLen},
-						      {verify, VerifyBool},
-						      {validate_extensions_fun, 
-						       ValidateExtensionFun}]),
-	    case Result of
-		{error, Reason} ->
-		    path_validation_alert(Reason, Verify);
-		{ok, {PublicKeyInfo,_, []}} ->
-		    {PeerCert, PublicKeyInfo};
-		{ok, {PublicKeyInfo,_, AccErrors = [Error | _]}} ->
-		    case VerifyFun(AccErrors) of
-			true ->
-			    {PeerCert, PublicKeyInfo};
-			false ->
-			    path_validation_alert(Error, Verify)
-		    end
-	    end
-    catch 
-	throw:Alert ->
-	    Alert
+
+    {TrustedErlCert, CertPath}  =
+	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbRef),
+
+    case public_key:pkix_path_validation(TrustedErlCert,
+					 CertPath,
+					 [{max_path_length,
+					   MaxPathLen},
+					  {verify_fun, ValidationFunAndState}]) of
+	{ok, {PublicKeyInfo,_}} ->
+	    {PeerCert, PublicKeyInfo};
+	{error, Reason} ->
+	    path_validation_alert(Reason)
     end.
-	    
+
 %%--------------------------------------------------------------------
 -spec certificate(der_cert(), term(), client | server) -> #certificate{} | #alert{}. 
 %%
@@ -490,26 +484,21 @@ get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length),
 get_tls_handshake_aux(Data, Acc) ->
     {lists:reverse(Acc), Data}.
 
-verify_bool(verify_peer) ->
-    true;
-verify_bool(verify_none) ->
-    false.
-
-path_validation_alert({bad_cert, cert_expired}, _) ->
+path_validation_alert({bad_cert, cert_expired}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_EXPIRED);
-path_validation_alert({bad_cert, invalid_issuer}, _) ->
+path_validation_alert({bad_cert, invalid_issuer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
-path_validation_alert({bad_cert, invalid_signature} , _) ->
+path_validation_alert({bad_cert, invalid_signature}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
-path_validation_alert({bad_cert, name_not_permitted}, _) ->
+path_validation_alert({bad_cert, name_not_permitted}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
-path_validation_alert({bad_cert, unknown_critical_extension}, _) ->
+path_validation_alert({bad_cert, unknown_critical_extension}) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
-path_validation_alert({bad_cert, cert_revoked}, _) ->
+path_validation_alert({bad_cert, cert_revoked}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
-path_validation_alert({bad_cert, unknown_ca}, _) ->
+path_validation_alert({bad_cert, unknown_ca}) ->
      ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
-path_validation_alert(_, _) ->
+path_validation_alert(_) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE).
 
 select_session(Hello, Port, Session, Version, 
@@ -1132,3 +1121,13 @@ key_exchange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
     ?KEY_EXCHANGE_DIFFIE_HELLMAN;
 key_exchange_alg(_) ->
     ?NULL.
+
+apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
+    case Fun(OtpCert, ExtensionOrError, UserState0) of
+	{valid, UserState} ->
+	    {valid, {SslState, UserState}};
+	{fail, _} = Fail ->
+	    Fail;
+	{unknown, UserState} ->
+	    {unknown, {SslState, UserState}}
+    end.
