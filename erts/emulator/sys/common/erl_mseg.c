@@ -382,6 +382,14 @@ mseg_recreate(void *old_seg, Uint old_size, Uint new_size)
      new_seg = (void *) pmremap((void *) old_seg,
 				(size_t) old_size,
 				(size_t) new_size);
+#elif defined(__NetBSD__)
+    new_seg = (void *) mremap((void *) old_seg,
+			      (size_t) old_size,
+			      NULL,
+			      (size_t) new_size,
+			      0);
+    if (new_seg == (void *) MAP_FAILED)
+	new_seg = NULL;
 #else
     new_seg = (void *) mremap((void *) old_seg,
 			      (size_t) old_size,

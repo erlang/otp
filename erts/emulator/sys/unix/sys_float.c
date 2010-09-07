@@ -476,7 +476,7 @@ static int mask_fpe(void)
 
 #endif
 
-#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__x86_64__) || defined(__i386__))) || (defined(__OpenBSD__) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
+#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__x86_64__) || defined(__i386__))) || ((defined(__NetBSD__) || defined(__OpenBSD__)) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
 
 #if defined(__linux__) && defined(__i386__)
 #if !defined(X86_FXSR_MAGIC)
@@ -519,6 +519,10 @@ static int mask_fpe(void)
 #define mc_pc(mc)	((mc)->mc_rip)
 #elif defined(__FreeBSD__) && defined(__i386__)
 #define mc_pc(mc)	((mc)->mc_eip)
+#elif defined(__NetBSD__) && defined(__x86_64__)
+#define mc_pc(mc)	((mc)->__gregs[_REG_RIP])
+#elif defined(__NetBSD__) && defined(__i386__)
+#define mc_pc(mc)	((mc)->__gregs[_REG_EIP])
 #elif defined(__OpenBSD__) && defined(__x86_64__)
 #define mc_pc(mc)	((mc)->sc_rip)
 #elif defined(__sun__) && defined(__x86_64__)
@@ -608,6 +612,23 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
 	envxmm->en_sw &= ~0xFF;
     } else {
 	struct env87 *env87 = &savefpu->sv_87.sv_env;
+	env87->en_sw &= ~0xFF;
+    }
+#elif defined(__NetBSD__) && defined(__x86_64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    struct fxsave64 *fxsave = (struct fxsave64 *)&mc->__fpregs;
+    pc = mc_pc(mc);
+    fxsave->fx_mxcsr = 0x1F80;
+    fxsave->fx_fsw &= ~0xFF;
+#elif defined(__NetBSD__) && defined(__i386__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    pc = mc_pc(mc);
+    if (uc->uc_flags & _UC_FXSAVE) {
+	struct envxmm *envxmm = (struct envxmm *)&mc->__fpregs;
+	envxmm->en_mxcsr = 0x1F80;
+	envxmm->en_sw &= ~0xFF;
+    } else {
+	struct env87 *env87 = (struct env87 *)&mc->__fpregs;
 	env87->en_sw &= ~0xFF;
     }
 #elif defined(__OpenBSD__) && defined(__x86_64__)

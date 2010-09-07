@@ -601,7 +601,7 @@ struct hostent *ei_gethostbyaddr_r(const char *addr,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyaddr_r(addr,length,type,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000))
+#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
   struct hostent *result;
 
   gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, &result,
@@ -628,7 +628,7 @@ struct hostent *ei_gethostbyname_r(const char *name,
 #ifndef HAVE_GETHOSTBYNAME_R
   return my_gethostbyname_r(name,hostp,buffer,buflen,h_errnop);
 #else
-#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000))
+#if (defined(__GLIBC__) || (__FreeBSD_version >= 602000) || defined(__DragonFly__))
   struct hostent *result;
 
   gethostbyname_r(name, hostp, buffer, buflen, &result, h_errnop);

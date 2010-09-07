@@ -139,7 +139,7 @@ release_tests_spec: opt
 		$(TARGET_FILES) $(TS_TARGET_FILES) \
 		$(AUTOCONF_FILES) $(C_FILES) $(COVER_FILES) $(CONFIG) \
 		$(RELEASE_PATH)/test_server
-	$(INSTALL_PROGRAM) $(PROGRAMS) $(RELEASE_PATH)/test_server
+	$(INSTALL_SCRIPT) $(PROGRAMS) $(RELEASE_PATH)/test_server
 
 release_docs_spec:
 

@@ -92,7 +92,7 @@ release_spec: opt
 release_tests_spec:
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
-	$(INSTALL_PROGRAM) common_test.spec $(RELSYSDIR)
+	$(INSTALL_DATA) common_test.spec $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
