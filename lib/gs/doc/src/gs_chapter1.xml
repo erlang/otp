@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,18 @@
 
   <section>
     <title>Introduction</title>
+    <warning>
+      <p>
+	GS is not recommended for use in new applications.
+	Instead we recommend WX for applications that need a
+	graphical user interface.
+      </p>
+      <p>
+	GS is not maintained and we plan to deprecate and remove it from
+	the distribution as soon as possible, maybe already in the next
+	major release (R15).
+      </p>
+    </warning>
     <p>This section describes the general graphics interface to Erlang. This system was designed with the following requirements in mind:</p>
     <list type="bulleted">
       <item>a graphics system which is easy to learn</item>

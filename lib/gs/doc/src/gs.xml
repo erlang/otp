@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2000</year>
-      <year>2007</year>
+      <year>2010</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,18 @@
   <module>gs</module>
   <modulesummary>The Graphics System for Erlang.</modulesummary>
   <description>
+    <warning>
+      <p>
+	GS is not recommended for use in new applications.
+	Instead we recommend WX for applications that need a
+	graphical user interface.
+      </p>
+      <p>
+	GS is not maintained and we plan to deprecate and remove it from
+	the distribution as soon as possible, maybe already in the next
+	major release (R15).
+      </p>
+    </warning>
     <p>The Graphics System, GS, is easy to learn and
       designed to be portable to many different platforms.</p>
     <p>In the description below, the type <c><![CDATA[gsobj()]]></c> denotes a
