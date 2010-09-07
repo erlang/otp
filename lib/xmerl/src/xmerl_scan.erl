@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -2602,8 +2602,7 @@ scan_reference("#x" ++ T, S0) ->
     %% [66] CharRef
     ?bump_col(1),
     if hd(T) /= $; ->
-	    {[Ch], T2, S2} = scan_char_ref_hex(T, S, 0),
-	    {to_char_set(S2#xmerl_scanner.encoding,Ch),T2,S2};
+	    scan_char_ref_hex(T, S, 0);
        true ->
 	    ?fatal(invalid_char_ref, S)
     end;
@@ -3452,14 +3451,14 @@ scan_entity_value("%" ++ T, S0, Delim, Acc, PEName,Namespace,PENesting) ->
 			%% {system,URI} or {public,URI}
 			%% Included in literal.
 			{ExpRef,Sx}=fetch_not_parse(Tuple,S1),
-			{EntV,_,_S2} = 
-			    scan_entity_value(ExpRef, Sx, no_delim,[],
+			{EntV, _, S5} = 
+		 	    scan_entity_value(ExpRef, Sx, no_delim,[],
 					      PERefName,parameter,[]),
 			%% should do an update Write(parameter_entity)
 			%% so next expand_pe_reference is faster
-			{EntV,_S2};
+			{string_to_char_set(S5#xmerl_scanner.encoding, EntV), S5};
 		     ExpRef ->
-			{ExpRef,S1}
+			{string_to_char_set(S1#xmerl_scanner.encoding, ExpRef) ,S1}
 		end,
 	    %% single or duoble qoutes are not treated as delimeters
 	    %% in passages "included in literal"
@@ -4020,12 +4019,12 @@ utf8_2_ucs([A|Rest]) when A < 16#80 ->
 utf8_2_ucs([A|Rest]) ->
     {{error,{bad_character,A}},Rest}.
 
-to_char_set("iso-10646-utf-1",Ch) ->
-    [Ch];
-to_char_set(UTF8,Ch) when UTF8 =:= "utf-8"; UTF8 =:= undefined ->
-    ucs_2_utf8(Ch);
-to_char_set(_,Ch) ->
-    [Ch].
+%% to_char_set("iso-10646-utf-1",Ch) ->
+%%     [Ch];
+%% to_char_set(UTF8,Ch) when UTF8 =:= "utf-8"; UTF8 =:= undefined ->
+%%     ucs_2_utf8(Ch);
+%% to_char_set(_,Ch) ->
+%%     [Ch].
 
 ucs_2_utf8(Ch) when Ch < 128 ->
     %% 0vvvvvvv
