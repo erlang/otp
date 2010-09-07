@@ -90,7 +90,7 @@ ethr_mutex_lib_init(int cpu_conf)
     no_spin = cpu_conf == 1;
 
 #ifdef ETHR_USE_OWN_MTX_IMPL__
-    default_mtx_main_spincount = ETHR_MTX_DEFAULT_MAIN_SPINCOUNT;
+    default_mtx_main_spincount = ETHR_MTX_DEFAULT_MAIN_SPINCOUNT_BASE;
     default_mtx_aux_spincount = ETHR_MTX_DEFAULT_AUX_SPINCOUNT;
     default_cnd_main_spincount = ETHR_CND_DEFAULT_MAIN_SPINCOUNT;
     default_cnd_aux_spincount = ETHR_CND_DEFAULT_AUX_SPINCOUNT;
@@ -98,7 +98,7 @@ ethr_mutex_lib_init(int cpu_conf)
 
 #ifdef ETHR_USE_OWN_RWMTX_IMPL__
 
-    default_rwmtx_main_spincount = ETHR_RWMTX_DEFAULT_MAIN_SPINCOUNT;
+    default_rwmtx_main_spincount = ETHR_RWMTX_DEFAULT_MAIN_SPINCOUNT_BASE;
     default_rwmtx_aux_spincount = ETHR_RWMTX_DEFAULT_AUX_SPINCOUNT;
 
 #else
@@ -146,7 +146,21 @@ static int main_threads_array_size = 0;
 int
 ethr_mutex_lib_late_init(int no_reader_groups, int no_main_threads)
 {
+
+#ifdef ETHR_USE_OWN_MTX_IMPL__
+    default_mtx_main_spincount += (no_main_threads
+				   * ETHR_MTX_DEFAULT_MAIN_SPINCOUNT_INC);
+    if (default_mtx_main_spincount > ETHR_MTX_DEFAULT_MAIN_SPINCOUNT_MAX)
+	default_mtx_main_spincount = ETHR_MTX_DEFAULT_MAIN_SPINCOUNT_MAX;
+#endif
+
 #ifdef ETHR_USE_OWN_RWMTX_IMPL__
+
+    default_rwmtx_main_spincount += (no_main_threads
+				     * ETHR_RWMTX_DEFAULT_MAIN_SPINCOUNT_INC);
+    if (default_rwmtx_main_spincount > ETHR_RWMTX_DEFAULT_MAIN_SPINCOUNT_MAX)
+	default_rwmtx_main_spincount = ETHR_RWMTX_DEFAULT_MAIN_SPINCOUNT_MAX;
+
     reader_groups_array_size = (no_reader_groups <= 1
 				? 1
 				: no_reader_groups + 1);
