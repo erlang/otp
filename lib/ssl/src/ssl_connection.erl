@@ -1034,7 +1034,7 @@ ssl_init(SslOpts, Role) ->
     PrivateKey =
 	init_private_key(SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
 			 SslOpts#ssl_options.password, Role),
-    DHParams = init_diffie_hellman(SslOpts#ssl_options.dhfile, Role),
+    DHParams = init_diffie_hellman(SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
     {ok, CertDbRef, CacheRef, OwnCert, PrivateKey, DHParams}.
 
 
@@ -1111,11 +1111,13 @@ file_error(Line, Error, Reason, File, Throw, Stack) ->
     error_logger:error_report(Report),
     throw(Throw).
 
-init_diffie_hellman(_, client) ->
+init_diffie_hellman(Params, _,_) when is_binary(Params)->
+    public_key:der_decode('DHParameter', Params);
+init_diffie_hellman(_,_, client) ->
     undefined;
-init_diffie_hellman(undefined, _) ->
+init_diffie_hellman(_,undefined, _) ->
     ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
-init_diffie_hellman(DHParamFile, server) ->
+init_diffie_hellman(_, DHParamFile, server) ->
     try
 	{ok, List} = ssl_manager:cache_pem_file(DHParamFile), 
 	case [Entry || Entry = {'DHParameter', _ , _} <- List] of

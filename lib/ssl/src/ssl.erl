@@ -580,6 +580,7 @@ handle_options(Opts0, _Role) ->
       password   = handle_option(password, Opts, ""),
       cacerts    = CaCerts,
       cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
+      dh         = handle_option(dh, Opts, undefined),
       dhfile     = handle_option(dhfile, Opts, undefined),
       ciphers    = handle_option(ciphers, Opts, []),
       %% Server side option
@@ -594,7 +595,7 @@ handle_options(Opts0, _Role) ->
     SslOptions = [versions, verify, verify_fun,
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, cert, certfile, key, keyfile,
-		  password, cacerts, cacertfile, dhfile, ciphers,
+		  password, cacerts, cacertfile, dh, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
 		  cb_info, renegotiate_at, secure_renegotiate],
     
@@ -668,6 +669,9 @@ validate_option(cacerts, Value) when Value == undefined;
 validate_option(cacertfile, undefined) ->
     "";
 validate_option(cacertfile, Value) when is_list(Value), Value =/= "" ->
+    Value;
+validate_option(dh, Value) when Value == undefined;
+				is_binary(Value) ->
     Value;
 validate_option(dhfile, undefined = Value)  ->
     Value;

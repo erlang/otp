@@ -69,6 +69,7 @@
 	  password,   % 
 	  cacerts,    % [der_encoded()]
 	  cacertfile, % file()
+	  dh,         % der_encoded()
 	  dhfile,     % file()
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
