@@ -147,7 +147,7 @@ iolist() = [char() | binary() | iolist()]
           <c>Tuple1</c>, and contains the elements in <c>Tuple1</c>
           followed by <c>Term</c> as the last element. Semantically
           equivalent to
-          <c>list_to_tuple(tuple_to_list(Tuple ++ [Term])</c>, but much
+          <c>list_to_tuple(tuple_to_list(Tuple) ++ [Term])</c>, but much
           faster.</p>
         <pre>
 > <input>erlang:append_element({one, two}, three).</input>

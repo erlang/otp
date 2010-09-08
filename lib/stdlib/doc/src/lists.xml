@@ -220,7 +220,7 @@
           follows:</p>
         <code type="none">
 flatmap(Fun, List1) ->
-    append(map(Fun, List1))</code>
+    append(map(Fun, List1)).</code>
         <p>Example:</p>
         <pre>
 > <input>lists:flatmap(fun(X)->[X,X] end, [a,b,c]).</input>
@@ -523,7 +523,7 @@ flatmap(Fun, List1) ->
         <v>&nbsp;A = B = term()</v>
       </type>
       <desc>
-        <p><c>mapfold</c> combines the operations of <c>map/2</c> and
+        <p><c>mapfoldl</c> combines the operations of <c>map/2</c> and
           <c>foldl/3</c> into one pass. An example, summing
           the elements in a list and double them at the same time:</p>
         <pre>
@@ -543,7 +543,7 @@ flatmap(Fun, List1) ->
         <v>&nbsp;A = B = term()</v>
       </type>
       <desc>
-        <p><c>mapfold</c> combines the operations of <c>map/2</c> and
+        <p><c>mapfoldr</c> combines the operations of <c>map/2</c> and
           <c>foldr/3</c> into one pass.</p>
       </desc>
     </func>

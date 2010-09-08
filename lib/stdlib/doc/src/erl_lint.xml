@@ -96,8 +96,8 @@
         <p>The <c>AbsForms</c> of a module which comes from a file
           that is read through <c>epp</c>, the Erlang pre-processor,
           can come from many files. This means that any references to
-          errors must include the file name (see <seealso marker="epp">epp(3)</seealso>, or parser <seealso marker="erl_parse">erl_parse(3)</seealso> The warnings and
-          errors returned have the following format:
+          errors must include the file name (see <seealso marker="epp">epp(3)</seealso>, or parser <seealso marker="erl_parse">erl_parse(3)</seealso>).
+          The warnings and errors returned have the following format:
           </p>
         <code type="none">
     [{FileName2,[ErrorInfo]}]        </code>

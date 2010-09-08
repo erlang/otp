@@ -45,7 +45,7 @@
 
   <section>
     <title>Elisp</title>
-    <p>There are two Elsip modules include in this tool package
+    <p>There are two Elisp modules included in this tool package
       for Emacs. There is erlang.el that defines the actual erlang mode
       and there is erlang-start.el that makes some nice initializations.</p>
   </section>
