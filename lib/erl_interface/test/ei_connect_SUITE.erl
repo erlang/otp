@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -103,10 +103,12 @@ ei_threaded_send(Config) when is_list(Config) ->
     ?line Einode = filename:join(?config(data_dir, Config), "einode"),
     ?line N = 15,
     ?line Host = atom_to_list(node()),
-    ?line spawn_link(fun() -> start_einode(Einode, N, Host) end),
     ?line TestServerPid = self(),
     ?line [ spawn_link(fun() -> rec_einode(I, TestServerPid) end)
 	    || I <- lists:seq(0, N-1) ],
+    ?line [ receive {I,registered} -> ok end
+	    || I <- lists:seq(0, N-1) ],
+    ?line spawn_link(fun() -> start_einode(Einode, N, Host) end),
     ?line [ receive I -> ok end
 	    || I <- lists:seq(0, N-1) ],
     ok.
@@ -114,6 +116,7 @@ ei_threaded_send(Config) when is_list(Config) ->
 rec_einode(N, TestServerPid) ->
     ?line Regname = list_to_atom("mth"++integer_to_list(N)),
     ?line register(Regname, self()),
+    ?line TestServerPid ! {N, registered},
     ?line io:format("~p waiting~n", [Regname]),
     ?line receive
 	      X ->
