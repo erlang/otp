@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(gen_tcp_misc_SUITE).
@@ -957,12 +957,11 @@ http_bad_packet(Config) when is_list(Config) ->
 
 http_worker(S) ->
     case gen_tcp:recv(S, 0, 30000) of
+	{ok,{http_error,Error}} ->
+	     io:format("Http error: ~s\n", [Error]);
 	{ok,Data} ->
 	    io:format("Data: ~p\n", [Data]),
-	    http_worker(S);
-	{error,Rsn} ->
-	    io:format("Error: ~p\n", [Rsn]),
-	    ok
+	    http_worker(S)
     end.
 
 http_bad_client(Port) ->
