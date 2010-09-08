@@ -538,15 +538,20 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
     end;
 
 validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
-					   extnValue = Names} | Rest],
+					   extnValue = Names} = Ext | Rest],
 		    ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun)  ->
     case validate_subject_alt_names(Names) of
 	true when Names =/= [] ->
 	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState0, VerifyFun);
-	_ ->
+	false ->
 	    UserState = verify_fun(OtpCert, {bad_cert, invalid_subject_altname},
+				   UserState0, VerifyFun),
+	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
+				SelfSigned, UserState, VerifyFun);
+	other ->
+	    UserState = verify_fun(OtpCert, {extension, Ext},
 				   UserState0, VerifyFun),
 	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState, VerifyFun)
@@ -682,6 +687,8 @@ is_valid_subject_alt_name({directoryName, _}) ->
     true;
 is_valid_subject_alt_name({_, [_|_]}) ->
     true;
+is_valid_subject_alt_name({otherName, #'AnotherName'{}}) ->
+    other;
 is_valid_subject_alt_name({_, _}) ->
     false.
 
