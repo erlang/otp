@@ -31,7 +31,7 @@
 all(suite) -> [ei_accept, ei_threaded_accept].
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(0.25)),
+    Dog = ?t:timetrap(?t:seconds(30)),
     [{watchdog, Dog}|Config].
 
 fin_per_testcase(_Case, Config) ->
@@ -154,13 +154,6 @@ ei_receive(P, Fd) ->
     send_command(P, ei_receive, [Fd]),
     {term, T}= get_term(P),
     T.
-
-ei_unpublish(P) ->
-    send_command(P, ei_unpublish, []),
-    case get_term(P) of
-	{term,{0, _}} -> ok;
-	{term,{_X, Errno}} -> {error,Errno}
-    end.
 
 send_command(P, Name, Args) ->
     runner:send_term(P, {Name,list_to_tuple(Args)}).
