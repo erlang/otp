@@ -640,8 +640,7 @@ update_spincount(struct ethr_mutex_base_ *mtxb,
 
 int check_readers_array(ethr_rwmutex *rwmtx,
 			int start_rix,
-			int length,
-			int pre_check);
+			int length);
 
 static ETHR_INLINE void
 write_lock_wait(struct ethr_mutex_base_ *mtxb,
@@ -687,8 +686,7 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 		}
 		res = check_readers_array(rwmtx,
 					  freq_read_start_ix,
-					  freq_read_size,
-					  1);
+					  freq_read_size);
 		scnt--;
 		if (res == 0) {
 		    act = ethr_atomic_read(&mtxb->flgs);
@@ -729,7 +727,6 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 	    act = ethr_atomic_read(&mtxb->flgs);
 	    scnt--;
 	}
-	ETHR_ASSERT(scnt >= 0);
 
 	exp = act;
 
@@ -1484,17 +1481,11 @@ multiple_w_waiters(ethr_rwmutex *rwmtx)
 
 int check_readers_array(ethr_rwmutex *rwmtx,
 			int start_rix,
-			int length,
-			int pre_check)
+			int length)
 {
     int ix = start_rix;
 
-#ifndef ETHR_READ_MEMORY_BARRIER_IS_FULL
-    if (pre_check)
-	ETHR_READ_MEMORY_BARRIER;
-    else
-#endif
-	ETHR_MEMORY_BARRIER;
+    ETHR_MEMORY_BARRIER;
 
     do {
 	long act = rwmutex_freqread_rdrs_read(rwmtx, ix);
@@ -1577,7 +1568,7 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 	ethr_leave_ts_event(tse_tmp);
 
     if (check_before_try) {
-	res = check_readers_array(rwmtx, six, length, 1);
+	res = check_readers_array(rwmtx, six, length);
 	if (res == EBUSY)
 	    return try_write_lock ? EBUSY : 0;
     }
@@ -1615,7 +1606,7 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 	}
     }
 
-    res = check_readers_array(rwmtx, six, length, 0);
+    res = check_readers_array(rwmtx, six, length);
     if (res == EBUSY) {
 	act = ethr_atomic_dec_read(&rwmtx->mtxb.flgs);
 	if (act & ETHR_RWMTX_R_MASK__)
@@ -1709,7 +1700,7 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx,
 #endif
 
 	while (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
-	    if (scnt == 0) {
+	    if (scnt >= 0) {
 		tse = ethr_get_ts_event();
 		if (update_spincount(&rwmtx->mtxb, tse, &start_scnt, &scnt)) {
 		    event_wait(&rwmtx->mtxb, tse, scnt,
@@ -1726,7 +1717,6 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx,
 	    scnt--;
 	}
 	exp = act;
-	ETHR_ASSERT(scnt >= 0);
 
 #ifdef ETHR_RLOCK_WITH_INC_DEC
 	act = ethr_atomic_inc_read(&rwmtx->mtxb.flgs);
@@ -1767,7 +1757,7 @@ rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
 	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
 
 	while (act & ~(ETHR_RWMTX_R_FLG__|ETHR_RWMTX_R_WAIT_FLG__)) {
-	    if (scnt == 0) {
+	    if (scnt >= 0) {
 		if (update_spincount(&rwmtx->mtxb, tse, &start_scnt, &scnt)) {
 		    event_wait(&rwmtx->mtxb, tse, scnt,
 			       ETHR_RWMTX_R_WAIT_FLG__, 1, 1);
@@ -1782,8 +1772,6 @@ rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
 	    act = ethr_atomic_read(&rwmtx->mtxb.flgs);
 	    scnt--;
 	}
-
-	ETHR_ASSERT(scnt >= 0);
 
 	rwmutex_freqread_rdrs_inc(rwmtx, tse);
 
