@@ -539,6 +539,7 @@ validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 					 user_state = UserState0,
 					 verify_fun = VerifyFun} =
 	     ValidationState0) ->
+
     OtpCert = pkix_decode_cert(DerCert, otp),
 
     UserState1 = pubkey_cert:validate_time(OtpCert, UserState0, VerifyFun),
@@ -556,10 +557,12 @@ validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 
     %% We want the key_usage extension to be checked before we validate
     %% the signature. 
-    UserState = pubkey_cert:validate_signature(OtpCert, DerCert,
+    UserState0 = pubkey_cert:validate_signature(OtpCert, DerCert,
 						Key, KeyParams, UserState5, VerifyFun),
+    UserState = pubkey_cert:verify_fun(OtpCert, valid, UserState0, VerifyFun),
     ValidationState  = 
 	ValidationState1#path_validation_state{user_state = UserState},
+
     pubkey_cert:prepare_for_next_cert(OtpCert, ValidationState).
 
 sized_binary(Binary) when is_binary(Binary) ->

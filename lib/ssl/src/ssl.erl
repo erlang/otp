@@ -535,7 +535,9 @@ handle_options(Opts0, _Role) ->
 	    (_,{bad_cert, _} = Reason, _) ->
 		 {fail, Reason};
 	    (_,{extension, _}, UserState) ->
-		 {unknown, UserState}
+		 {unknown, UserState};
+	    (_, valid, UserState) ->
+		 {valid, UserState}
 	 end, []},
 
     UserFailIfNoPeerCert = handle_option(fail_if_no_peer_cert, Opts, false),
@@ -631,7 +633,9 @@ validate_option(verify_fun, Fun) when is_function(Fun) ->
 		     {fail, Reason}
 	     end;
 	(_,{extension, _}, UserState) ->
-	     {unknown, UserState}
+	     {unknown, UserState};
+	(_, valid, UserState) ->
+	     {valid, UserState}
      end, Fun};
 validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->
    Value;

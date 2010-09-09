@@ -202,16 +202,19 @@
 	<p>The verification fun should be defined as:</p>
 
 	<code>
-	  fun(OtpCert :: #'OtpCertificate'{},
-	      Event :: {bad_cert, Reason :: atom()} |
-	      {extension, #'Extension'{}}, InitialUserState :: term()) ->
-	          {valid, UserState :: term()} | {fail, Reason :: term()} |
-	          {unknown, UserState :: term()}.
+fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
+	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
+	{valid, UserState :: term()} | {fail, Reason :: term()} |
+	{unknown, UserState :: term()}.
 	</code>
 
 	<p>The verify fun will be called during the X509-path
 	validation when an error or an extension unknown to the ssl
-	application is encountered. See
+	application is encountered. Additionally it will be called
+	when a certificate is considered valid by the path validation
+	to allow access to each certificate in the path to the user
+	application.
+	See
 	<seealso marker="public_key:application">public_key(3)</seealso>
 	for definition of #'OtpCertificate'{} and #'Extension'{}.</p>
 
@@ -229,34 +232,32 @@
 	<p>The default verify_fun option in verify_peer mode:</p>
 
       <code>
-	{fun(_,{bad_cert, _} = Reason, _) ->
-		 {fail, Reason};
-	    (_,{extension, _}, UserState) ->
-		 {unknown, UserState}
-	 end, []}
+{fun(_,{bad_cert, _} = Reason, _) ->
+	 {fail, Reason};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState}
+ end, []}
       </code>
 
       <p>The default verify_fun option in verify_none mode:</p>
 
        <code>
-	{fun(_,{bad_cert, unknown_ca}, UserState) ->
-		 {valid, UserState};
-	    (_,{bad_cert, _} = Reason, _) ->
-		 {fail, Reason};
-	    (_,{extension, _}, UserState) ->
-		 {unknown, UserState}
-	 end, []}
+{fun(_,{bad_cert, unknown_ca}, UserState) ->
+	 {valid, UserState};
+    (_,{bad_cert, _} = Reason, _) ->
+	 {fail, Reason};
+    (_,{extension, _}, UserState) ->
+	 {unknown, UserState};
+    (_, valid, UserState) ->
+	 {valid, UserState}
+ end, []}
       </code>
 
-      <p> Possible path validation errors:
-       {bad_cert, cert_expired},
-       {bad_cert, invalid_issuer},
-       {bad_cert, invalid_signature},
-       {bad_cert, unknown_ca},
-       {bad_cert, name_not_permitted},
-       {bad_cert, missing_basic_constraint},
-       {bad_cert, invalid_key_usage},
-       {bad_cert, invalid_subject_altname}</p>
+<p>Possible path validation errors: </p>
+
+<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
       </item>
 
     </taglist>
