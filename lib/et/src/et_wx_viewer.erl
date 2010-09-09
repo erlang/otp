@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1233,7 +1233,7 @@ create_main_window(S) ->
 		[{flag, ?wxEXPAND}]),
 
     CanvasSizer = wxBoxSizer:new(?wxHORIZONTAL),
-    Canvas = wxPanel:new(Panel, []),
+    Canvas = wxPanel:new(Panel, [{style, ?wxFULL_REPAINT_ON_RESIZE}]),
     {CanvasW,CanvasH} = wxPanel:getSize(Canvas),
     ScrollBar = wxScrollBar:new(Panel, ?wxID_ANY, [{style, ?wxSB_VERTICAL}]),
 
@@ -1244,7 +1244,13 @@ create_main_window(S) ->
     wxPanel:connect(Canvas, left_up),
     wxPanel:connect(Canvas, right_up),
     wxPanel:connect(Canvas, size),
-    wxPanel:connect(Canvas, paint),
+    Self = self(),
+    wxPanel:connect(Canvas, paint, [{callback,  %% Needed on windows
+				     fun(Ev, _) -> 
+					     DC = wxPaintDC:new(Canvas),
+					     wxPaintDC:destroy(DC),
+					     Self ! Ev
+				     end}]),
     wxPanel:connect(Canvas, key_down),
     wxPanel:connect(Canvas, kill_focus),
     wxPanel:connect(Canvas, enter_window, [{skip, true}]), 
@@ -1437,6 +1443,7 @@ create_help_menu(Bar) ->
 
 clear_canvas(S) ->
     DC = wxClientDC:new(S#state.canvas),
+    wxDC:setBackground(DC, ?wxWHITE_BRUSH), %% Needed on mac
     wxDC:clear(DC),
     {CanvasW, CanvasH} = wxPanel:getSize(S#state.canvas),
     wxSizer:recalcSizes(S#state.canvas_sizer),
