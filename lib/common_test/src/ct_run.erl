@@ -550,6 +550,9 @@ install(Opts) ->
     install(Opts, ".").
 
 install(Opts, LogDir) ->
+
+    ConfOpts = ct_config:add_default_callback(Opts),
+
     case application:get_env(common_test, decrypt) of
 	{ok,_} ->
 	    ok;
@@ -566,7 +569,7 @@ install(Opts, LogDir) ->
 	    VarFile = variables_file_name(LogDir),
 	    case file:open(VarFile, [write]) of
 		{ok,Fd} ->
-		    [io:format(Fd, "~p.\n", [Opt]) || Opt <- Opts],
+		    [io:format(Fd, "~p.\n", [Opt]) || Opt <- ConfOpts ],
 		    file:close(Fd),
 		    ok;
 		{error,Reason} ->
