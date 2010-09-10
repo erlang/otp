@@ -83,24 +83,8 @@
 #define ASSERT_NO_LOCKED_LOCKS
 #endif
 
+static erts_smp_mtx_t tiw_lock;
 
-#if defined(ERTS_TIMER_THREAD) || 1
-/* I don't yet know why, but using a mutex instead of a spinlock
-   or spin-based rwlock avoids excessive delays at startup. */
-static erts_smp_rwmtx_t tiw_lock;
-#define tiw_read_lock()		erts_smp_rwmtx_rlock(&tiw_lock)
-#define tiw_read_unlock()	erts_smp_rwmtx_runlock(&tiw_lock)
-#define tiw_write_lock()	erts_smp_rwmtx_rwlock(&tiw_lock)
-#define tiw_write_unlock()	erts_smp_rwmtx_rwunlock(&tiw_lock)
-#define tiw_init_lock()		erts_smp_rwmtx_init(&tiw_lock, "timer_wheel")
-#else
-static erts_smp_rwlock_t tiw_lock;
-#define tiw_read_lock()		erts_smp_read_lock(&tiw_lock)
-#define tiw_read_unlock()	erts_smp_read_unlock(&tiw_lock)
-#define tiw_write_lock()	erts_smp_write_lock(&tiw_lock)
-#define tiw_write_unlock()	erts_smp_write_unlock(&tiw_lock)
-#define tiw_init_lock()		erts_smp_rwlock_init(&tiw_lock, "timer_wheel")
-#endif
 
 /* BEGIN tiw_lock protected variables 
 **
@@ -224,10 +208,10 @@ int next_time(void)
 {
     int ret;
 
-    tiw_write_lock();
+    erts_smp_mtx_lock(&tiw_lock);
     (void)do_time_update();
     ret = next_time_internal();
-    tiw_write_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
     return ret;
 }
 #endif
@@ -241,7 +225,7 @@ static ERTS_INLINE void bump_timer_internal(long dt) /* PRE: tiw_lock is write-l
 
     /* no need to bump the position if there aren't any timeouts */
     if (tiw_nto == 0) {
-	tiw_write_unlock();
+	erts_smp_mtx_unlock(&tiw_lock);
 	return;
     }
 
@@ -278,7 +262,7 @@ static ERTS_INLINE void bump_timer_internal(long dt) /* PRE: tiw_lock is write-l
     }
     tiw_pos = keep_pos;
     
-    tiw_write_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
     
     /* Call timedout timers callbacks */
     while (timeout_head) {
@@ -299,13 +283,13 @@ static ERTS_INLINE void bump_timer_internal(long dt) /* PRE: tiw_lock is write-l
 #if defined(ERTS_TIMER_THREAD)
 static void timer_thread_bump_timer(void)
 {
-    tiw_write_lock();
+    erts_smp_mtx_lock(&tiw_lock);
     bump_timer_internal(do_time_reset());
 }
 #else
 void bump_timer(long dt) /* dt is value from do_time */
 {
-    tiw_write_lock();
+    erts_smp_mtx_lock(&tiw_lock);
     bump_timer_internal(dt);
 }
 #endif
@@ -324,7 +308,7 @@ static int timer_thread_setup_delay(SysTimeval *rem_time)
     long elapsed;
     int ticks;
 
-    tiw_write_lock();
+    erts_smp_mtx_lock(&tiw_lock);
     elapsed = do_time_update();
     ticks = next_time_internal();
     if (ticks == -1)	/* timer queue empty */
@@ -336,7 +320,7 @@ static int timer_thread_setup_delay(SysTimeval *rem_time)
     rem_time->tv_sec = ticks / 1000;
     rem_time->tv_usec = 1000 * (ticks % 1000);
     ticks_end = ticks;
-    tiw_write_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
     return ticks;
 }
 
@@ -399,7 +383,7 @@ init_time(void)
        if timer thread is enabled */
     itime = erts_init_time_sup();
 
-    tiw_init_lock();
+    erts_smp_mtx_init(&tiw_lock, "timer_wheel");
 
     tiw = (ErlTimer**) erts_alloc(ERTS_ALC_T_TIMER_WHEEL,
 				  TIW_SIZE * sizeof(ErlTimer*));
@@ -451,9 +435,9 @@ erl_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
 	      void* arg, Uint t)
 {
     erts_deliver_time();
-    tiw_write_lock();
+    erts_smp_mtx_lock(&tiw_lock);
     if (p->active) { /* XXX assert ? */
-	tiw_write_unlock();
+	erts_smp_mtx_unlock(&tiw_lock);
 	return;
     }
     p->timeout = timeout;
@@ -461,7 +445,7 @@ erl_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
     p->arg = arg;
     p->active = 1;
     insert_timer(p, t);
-    tiw_write_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
 #if defined(ERTS_SMP) && !defined(ERTS_TIMER_THREAD)
     if (t <= (Uint) LONG_MAX)
 	erts_sys_schedule_interrupt_timed(1, (long) t);
@@ -474,9 +458,9 @@ erl_cancel_timer(ErlTimer* p)
     ErlTimer *tp;
     ErlTimer **prev;
 
-    tiw_write_lock();
+    erts_smp_mtx_lock(&tiw_lock);
     if (!p->active) { /* allow repeated cancel (drivers) */
-	tiw_write_unlock();
+	erts_smp_mtx_unlock(&tiw_lock);
 	return;
     }
     /* find p in linked list at slot p->slot and remove it */
@@ -489,17 +473,17 @@ erl_cancel_timer(ErlTimer* p)
 	    p->slot = p->count = 0;
 	    p->active = 0;
 	    if (p->cancel != NULL) {
-		tiw_write_unlock();
+		erts_smp_mtx_unlock(&tiw_lock);
 		(*p->cancel)(p->arg);
 	    } else {
-		tiw_write_unlock();
+		erts_smp_mtx_unlock(&tiw_lock);
 	    }
 	    return;
 	} else {
 	    prev = &tp->next;
 	}
     }
-    tiw_write_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
 }
 
 /*
@@ -514,10 +498,10 @@ time_left(ErlTimer *p)
     Uint left;
     long dt;
 
-    tiw_read_lock();
+    erts_smp_mtx_lock(&tiw_lock);
 
     if (!p->active) {
-	tiw_read_unlock();
+	erts_smp_mtx_unlock(&tiw_lock);
 	return 0;
     }
 
@@ -531,7 +515,7 @@ time_left(ErlTimer *p)
     else
 	left -= dt;
 
-    tiw_read_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
 
     return left * itime;
 }
@@ -543,7 +527,7 @@ void p_slpq()
     int i;
     ErlTimer* p;
   
-    tiw_read_lock();
+    erts_smp_mtx_lock(&tiw_lock);
 
     /* print the whole wheel, starting at the current position */
     erts_printf("\ntiw_pos = %d tiw_nto %d\n", tiw_pos, tiw_nto);
@@ -565,7 +549,7 @@ void p_slpq()
 	}
     }
 
-    tiw_read_unlock();
+    erts_smp_mtx_unlock(&tiw_lock);
 }
 
 #endif /* DEBUG */
