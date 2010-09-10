@@ -21,7 +21,7 @@
 
     </legalnotice>
 
-    <title>Config Files</title>
+    <title>External Configuration Data</title>
     <prepared>Siri Hansen, Peter Andersson</prepared>
     <docno></docno>
     <date></date>
@@ -32,16 +32,19 @@
   <section>
     <title>General</title>
 
-    <p>The Common Test framework uses configuration files to
-    describe data related to a test and/or an SUT (System Under Test). 
-    The configuration data makes it possible to change properties without 
-    changing the test program itself. Configuration data can for example be:</p>
+    <p>To avoid hard coding data values related to the test and/or SUT (System
+    Under Test) in the test suites, the data may instead be specified by means
+    of configuration files or strings that Common Test reads before
+    the start of a test run. External configuration data makes it possible to
+    change test properties without having to modify the actual test suites
+    using the data. Examples of configuration data:</p>
 
     <list>
       <item>Addresses to the test plant or other instruments</item>
-      <item>Filenames for files needed by the test</item>
-      <item>Program names for programs that shall be run by the test</item>
-      <item>Any other variable that is needed by the test</item>
+      <item>User login information</item>
+      <item>Names of files needed by the test</item>
+      <item>Names of programs that should be executed during the test</item>
+      <item>Any other variable needed by the test</item>
     </list>
 
   </section>
@@ -51,12 +54,12 @@
 
     <p>A configuration file can contain any number of elements of the type:</p>
     <pre>
-      {Key,Value}.</pre>
+      {CfgVarName,Value}.</pre>
 
     <p>where</p>
     <pre>
-      Key = atom()
-      Value = term() | [{Key,Value}]</pre>
+      CfgVarName = atom()
+      Value = term() | [{CfgVarName,Value}]</pre>
 
   </section>
 
@@ -65,8 +68,8 @@
     <marker id="require_config_data"></marker>
 
     <p>In a test suite, one must <em>require</em> that a configuration 
-    variable exists before attempting to read the associated 
-    value in a test case.</p>
+    variable (<c>CfgVarName</c> in the definition above) exists before
+    attempting to read the associated value in a test case or config function.</p>
 
     <p><c>require</c> is an assert statement that can be part of the <seealso
     marker="write_test_chapter#suite">test suite info function</seealso> or
@@ -83,13 +86,13 @@
 
     <p>A <c>require</c> statement in the test suite info- or test case 
     info-list should look like this:
-    <c>{require,Required}</c> or <c>{require,Name,Required}</c>. The
-    arguments <c>Name</c> and <c>Required</c> are the same as the
+    <c>{require,CfgVarName}</c> or <c>{require,AliasName,CfgVarName}</c>.
+    The arguments <c>AliasName</c> and <c>CfgVarName</c> are the same as the
     arguments to <c>ct:require/[1,2]</c> which are described in the
     reference manual for <seealso marker="ct">ct</seealso>.
-    <c>Name</c> becomes an alias for the configuration variable
-    <c>Required</c>, and can be used as reference to the configuration
-    data value. The configuration variable may be associated with an
+    <c>AliasName</c> becomes an alias for the configuration variable,
+    and can be used as reference to the configuration data value.
+    The configuration variable may be associated with an
     arbitrary number of alias names, but each name must be unique within
     the same test suite. There are two main uses for alias names:</p>
     <list>
