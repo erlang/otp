@@ -31,7 +31,7 @@
 #define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 0
 /* Enable immediate read/write on platforms where we know it is safe */
 #if defined(__i386__) || defined(__x86_64__) || defined(__sparc__) \
-    || defined(__powerpc__) || defined(__ppc__)
+    || defined(__powerpc__) || defined(__ppc__) || defined(__mips__)
 #  undef ETHR_IMMED_ATOMIC_SET_GET_SAFE__
 #  define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 1
 #endif
@@ -48,13 +48,18 @@ typedef struct {
  * a noop on at least some platforms with some gcc versions.
  * This has suposedly been fixed in some gcc version, but we
  * don't know from which version. Therefore, we use the
- * workaround implemented below on all gcc versions.
+ * workaround implemented below on all gcc versions except
+ * for gcc 4.2 or above for MIPS, where it's been verified.
  */
+#if defined(__mips__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 2))
+#define ETHR_MEMORY_BARRIER __sync_synchronize()
+#else
 #define ETHR_MEMORY_BARRIER \
 do { \
     volatile long x___ = 0; \
     (void) __sync_val_compare_and_swap(&x___, (long) 0, (long) 1); \
 } while (0)
+#endif
 #define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_MEMORY_BARRIER
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
