@@ -48,6 +48,7 @@ Ax ::= SEQUENCE {
 }
 
 -- valAx Ax ::= { a 253, b TRUE, c e: TRUE, g "123", h TRUE }
+
 Ax2 ::= SEQUENCE {
     a INTEGER (250..253),
     b BOOLEAN,
@@ -55,7 +56,6 @@ Ax2 ::= SEQUENCE {
     ug NumericString
 
 }
-END
 
 -- The value { a 253, b TRUE, c e: TRUE, g "123", h TRUE }
 -- is encoded in PER as
@@ -64,3 +64,19 @@ END
 
 -- is encoded in Unaligned PER as
 -- 9E000600 040A4690
+
+Ax3 ::= SEQUENCE {
+    a INTEGER (250..253),
+    b BOOLEAN,
+    s SEQUENCE {
+        sa INTEGER,
+	sb BOOLEAN,
+	...,
+	[[
+	    sextaddgroup INTEGER OPTIONAL
+	]]
+    }
+}
+
+-- { a 253, b TRUE, s {sa 17, sb TRUE, sextaddgroup 11}}
+END

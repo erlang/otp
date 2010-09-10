@@ -33,6 +33,7 @@
 -export([gen_objectset_code/2, gen_obj_code/3]).
 -export([encode_tag_val/3]).
 -export([gen_inc_decode/2,gen_decode_selected/3]).
+-export([extaddgroup2sequence/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 
@@ -1826,8 +1827,15 @@ mk_object_val(Val, Ack, Len) ->
 add_func(F={_Func,_Arity}) ->
     ets:insert(asn1_functab,{F}).
 
-
-
-
+%% For BER the ExtensionAdditionGroup notation has no impact on the encoding/decoding
+%% and therefore we only filter away the ExtensionAdditionGroup start and end markers
+extaddgroup2sequence(ExtList) when is_list(ExtList) ->
+    lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
+			 false;
+		    ('ExtensionAdditionGroupEnd') ->
+			 false;
+		    (_) ->
+			 true
+		 end, ExtList).
 
 

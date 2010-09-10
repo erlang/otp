@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,13 +75,15 @@ gen_encode_sequence(Erules,Typename,D) when is_record(D,type) ->
 	    "Val"
 	end,
 
-    {SeqOrSet,TableConsInfo,CompList} = 
+    {SeqOrSet,TableConsInfo,CompList0} =
 	case D#type.def of
 	    #'SEQUENCE'{tablecinf=TCI,components=CL} -> 
 		{'SEQUENCE',TCI,CL};
 	    #'SET'{tablecinf=TCI,components=CL} -> 
 		{'SET',TCI,CL}
 	end,
+    %% filter away extensionAdditiongroup markers
+    CompList = filter_complist(CompList0),
     Ext = extensible(CompList),
     CompList1 = case CompList of
 		    {Rl1,El,Rl2} -> Rl1 ++ El ++ Rl2;
@@ -183,7 +185,10 @@ gen_decode_sequence(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:start(),
     asn1ct_name:clear(),
     asn1ct_name:new(tag),
-    #'SEQUENCE'{tablecinf=TableConsInfo,components=CList} = D#type.def,
+    #'SEQUENCE'{tablecinf=TableConsInfo,components=CList0} = D#type.def,
+
+    %% filter away extensionAdditiongroup markers
+    CList = filter_complist(CList0),
     Ext = extensible(CList),
     {CompList,CompList2} = 
 	case CList of
@@ -345,7 +350,9 @@ gen_decode_set(Erules,Typename,D) when is_record(D,type) ->
     asn1ct_name:clear(),
 %%    asn1ct_name:new(term),
     asn1ct_name:new(tag),
-    #'SET'{tablecinf=TableConsInfo,components=TCompList} = D#type.def,
+    #'SET'{tablecinf=TableConsInfo,components=TCompList0} = D#type.def,
+    %% filter away extensionAdditiongroup markers
+    TCompList = filter_complist(TCompList0),
     Ext = extensible(TCompList),
     ToOptional = fun(mandatory) ->
 			 'OPTIONAL';
@@ -1426,6 +1433,22 @@ extensible({RootList,ExtList}) ->
     {ext,length(RootList)+1,length(ExtList)};
 extensible({_Rl1,_Ext,_Rl2}) ->
     extensible.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% filter away ExtensionAdditionGroup start and end marks since these
+%% have no significance for the BER encoding
+%%
+filter_complist(CompList) when is_list(CompList) ->
+    lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
+			 false;
+		    ('ExtensionAdditionGroupEnd') ->
+			 false;
+		    (_) ->
+			 true
+		 end, CompList);
+filter_complist({Root,Ext}) ->
+    {Root,filter_complist(Ext)};
+filter_complist({Root1,Ext,Root2}) ->
+    {Root1,filter_complist(Ext),Root2}.
 
 
 print_attribute_comment(InnerType,Pos,Cname,Prop) ->

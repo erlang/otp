@@ -33,6 +33,7 @@
 -export([gen_objectset_code/2, gen_obj_code/3]).
 -export([re_wrap_erule/1]).
 -export([unused_var/2]).
+-export([extaddgroup2sequence/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 
@@ -1734,3 +1735,15 @@ get_object_field(Name,ObjectFields) ->
 	{value,Field} -> Field;
 	false -> false
     end.
+
+%% For BER the ExtensionAdditionGroup notation has no impact on the encoding/decoding
+%% and therefore we only filter away the ExtensionAdditionGroup start and end markers
+%%
+extaddgroup2sequence(ExtList) when is_list(ExtList) ->
+    lists:filter(fun(#'ExtensionAdditionGroup'{}) ->
+			 false;
+		    ('ExtensionAdditionGroupEnd') ->
+			 false;
+		    (_) ->
+			 true
+		 end, ExtList).
