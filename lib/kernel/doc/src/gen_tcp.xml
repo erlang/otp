@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -284,9 +284,10 @@ socket()
       <type>
         <v>Socket = socket()</v>
         <v>Length  = int()</v>
-        <v>Packet = [char()] | binary()</v>
+        <v>Packet = [char()] | binary() | HttpPacket</v>
         <v>Timeout = int() | infinity</v>
         <v>Reason = closed | posix()</v>
+        <v>HttpPacket = see the description of <c>HttpPacket</c> in <seealso marker="erts:erlang#decode_packet/3">erlang:decode_packet/3</seealso></v>
       </type>
       <desc>
         <p>This function receives a packet from a socket in passive

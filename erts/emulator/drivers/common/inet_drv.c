@@ -2174,7 +2174,7 @@ static int http_error_inetdrv(void* arg, const char* buf, int len)
   ErlDrvTermData spec[19];
 
   if (desc->inet.active == INET_PASSIVE) {
-    /* {inet_async,S,Ref,{error,{http_error,Line}}} */
+    /* {inet_async,S,Ref,{ok,{http_error,Line}}} */
     int req;
     int aid;
     ErlDrvTermData caller;
@@ -2184,7 +2184,7 @@ static int http_error_inetdrv(void* arg, const char* buf, int len)
     i = LOAD_ATOM(spec, i,  am_inet_async);
     i = LOAD_PORT(spec, i,  desc->inet.dport);
     i = LOAD_INT(spec, i,   aid);
-    i = LOAD_ATOM(spec, i,  am_error);
+    i = LOAD_ATOM(spec, i,  am_ok);
     i = LOAD_ATOM(spec, i,  am_http_error);
     i = http_load_string(desc, spec, i, buf, len);
     i = LOAD_TUPLE(spec, i, 2);
