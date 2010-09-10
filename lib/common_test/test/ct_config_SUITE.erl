@@ -58,6 +58,9 @@ end_per_suite(Config) ->
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
+end_per_testcase(install_config = TestCase, Config) ->
+    ok = rpc:call(proplists:get_value(ct_node, Config), ct_config, stop, []),
+    ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -66,12 +69,13 @@ all(doc) ->
 
 all(suite) ->
     [
-	require,
-	userconfig_static,
-	userconfig_dynamic,
-	testspec_legacy,
-	testspec_static,
-	testspec_dynamic
+     require,
+     install_config,
+     userconfig_static,
+     userconfig_dynamic,
+     testspec_legacy,
+     testspec_static,
+     testspec_dynamic
     ].
 
 %%--------------------------------------------------------------------
@@ -83,6 +87,17 @@ require(Config) when is_list(Config) ->
 	     Config,
 	     {config, filename:join(DataDir, "config/config.txt")},
              ["config_static_SUITE"]).
+
+install_config(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    CTNode = proplists:get_value(ct_node, Config),
+    rpc:call(CTNode, ct, install,
+	     [[{config, [filename:join(DataDir, "config/config.txt")]}]]),
+    case rpc:call(CTNode, ct_config, start, [interactive]) of
+	Pid when is_pid(Pid) ->
+	    ok
+    end.
+
 
 userconfig_static(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -134,6 +149,8 @@ testspec_dynamic(Config) when is_list(Config) ->
 	     {spec, filename:join(ConfigDir, "spec_dynamic.spec")},
              []),
     file:delete(filename:join(ConfigDir, "spec_dynamic.spec")).
+
+
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS

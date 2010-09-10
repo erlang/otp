@@ -48,7 +48,7 @@
 
 -export([get_ref_from_name/1, get_name_from_ref/1, get_key_from_name/1]).
 
--export([check_config_files/1, prepare_config_list/1]).
+-export([check_config_files/1, add_default_callback/1, prepare_config_list/1]).
 
 -export([add_config/2, remove_config/2]).
 
@@ -212,6 +212,24 @@ get_config_file_list(Opts) ->
 	process_user_configs(Opts, []),
     CfgFiles.
 
+add_default_callback(Opts) ->
+    case lists:keytake(config, 1, Opts) of
+	{value, {config, [File | _] = Files}, NoConfigOpts}
+	  when is_integer(File) =/= true ->
+	    [{config, lists:flatmap(fun add_def_cb/1, Files)} | NoConfigOpts];
+	{value, {config, File}, NoConfigOpts} ->
+	    [{config, add_def_cb(File)} | NoConfigOpts];
+	false ->
+	    Opts
+    end.
+
+add_def_cb([]) ->
+    [];
+add_def_cb(Config) when is_tuple(Config) ->
+    [Config];
+add_def_cb([H|_T] = Config ) when is_integer(H) ->
+    [{?ct_config_txt, [Config]}].
+
 read_config_files(Opts) ->
     AddCallback = fun(CallBack, []) ->
 			[{CallBack, []}];
@@ -220,16 +238,16 @@ read_config_files(Opts) ->
 		     (CallBack, [F|_]=Files) when is_list(F) ->
 			lists:map(fun(X) -> {CallBack, X} end, Files)
 		  end,
+
     ConfigFiles = case lists:keyfind(config, 1, Opts) of
-	{config, ConfigLists}->
-	    lists:foldr(fun({Callback,Files}, Acc) ->
-				AddCallback(Callback,Files) ++ Acc
-			end,
-			[],
-			ConfigLists);
-	false->
-	    []
-    end,
+		      {config,ConfigLists}->
+                          lists:foldr(fun({Callback,Files}, Acc) ->
+					      AddCallback(Callback,Files)
+						  ++ Acc
+				      end,[],ConfigLists);
+		      false->
+			  []
+		  end,
     read_config_files_int(ConfigFiles, fun store_config/3).
 
 read_config_files_int([{Callback, File}|Files], FunToSave) ->
