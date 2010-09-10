@@ -2269,13 +2269,14 @@ maybe_get_privdir() ->
 run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) when Type==conf;
 							     Type==make ->
-
     file:set_cwd(filename:dirname(get(test_server_dir))),
     CurrIOHandler = get(test_server_common_io_handler),
+    ParentMode = tl(Mode),
+
     %% check and update the mode for test case execution and io msg handling
     case {curr_ref(Mode),check_props(parallel, Mode)} of
 	{Ref,Ref} ->
-	    case check_props(parallel, tl(Mode)) of
+	    case check_props(parallel, ParentMode) of
 		false ->
 		    %% this is a skipped end conf for a top level parallel group,
 		    %% buffered io can be flushed
@@ -2283,7 +2284,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
 		    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
-		    run_test_cases_loop(Cases, Config, TimetrapData, tl(Mode),
+		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
 		_ ->
 		    %% this is a skipped end conf for a parallel group nested under a
@@ -2300,7 +2301,7 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 			_ ->
 			    ok
 		    end,
-		    run_test_cases_loop(Cases, Config, TimetrapData, tl(Mode),
+		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status))
 	    end;
 	{Ref,false} ->
@@ -2308,7 +2309,31 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 	    %% nested under a parallel group
 	    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
 	    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
-	    run_test_cases_loop(Cases, Config, TimetrapData, tl(Mode),
+
+	    %% Check if this group is auto skipped because of error in the init conf.
+	    %% If so, check if the parent group is a sequence, and if it is, skip
+	    %% all proceeding tests in that group.
+	    GrName = get_name(Mode),
+	    Cases1 =
+		case get_tc_results(Status) of
+		    {_,_,Fails} when length(Fails) > 0 ->
+			case lists:member({group_result,GrName}, Fails) of
+			    true ->
+				case check_prop(sequence, ParentMode) of
+				    false ->
+					Cases;
+				    ParentRef ->
+					Reason = {group_result,GrName,failed},
+					skip_cases_upto(ParentRef, Cases,
+							Reason, tc, Mode)
+				end;
+			    false ->
+				Cases
+			end;
+		    _ ->
+			Cases
+		end,
+	    run_test_cases_loop(Cases1, Config, TimetrapData, ParentMode,
 				delete_status(Ref, Status));
 	{Ref,_} ->
 	    %% this is a skipped end conf for a non-parallel group nested under
@@ -2381,7 +2406,6 @@ run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
 %% a start *or* end conf case, wrapping test cases or other conf cases
 run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		    Config, TimetrapData, Mode0, Status) ->
-
     CurrIOHandler = get(test_server_common_io_handler),
     %% check and update the mode for test case execution and io msg handling
     {StartConf,Mode,IOHandler,ConfTime,Status1} =
@@ -2543,7 +2567,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			{true,EndStatus,RestCs,Fun};
 		    {repeat_until_any_ok,_} ->
 			{RestCs,Fun} = case get_tc_results(Status1) of
-					   {Ok,_,_} when length(Ok) > 0 ->
+					   {Ok,_,_Fails} when length(Ok) > 0 ->
 					       {Cases1,ReportStop};
 					   _ ->
 					       {CopiedCases++Cases1,?void_fun}
@@ -2627,22 +2651,24 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	{_,Fail,_} when element(1,Fail) == 'EXIT';
 			element(1,Fail) == timetrap_timeout;
 			element(1,Fail) == failed ->
-	    {Cases2,Config1} =
+	    {Cases2,Config1,Status3} =
 		if StartConf ->
 			ReportAbortRepeat(failed),
 			print(minor, "~n*** ~p failed.~n"
 			      "    Skipping all cases.", [Func]),
 			Reason = {failed,{Mod,Func,Fail}},
-			{skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),Config};
+			{skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
+			 Config,
+			 update_status(failed, group_result, get_name(Mode),
+				       delete_status(Ref, Status2))};
 		   not StartConf ->
 			ReportRepeatStop(),
 			print_conf_time(ConfTime),
-			{Cases,tl(Config)}
+			{Cases,tl(Config),delete_status(Ref, Status2)}
 		end,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode,
-				delete_status(Ref, Status2));
+	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
 	{died,Why,_} when Func == init_per_suite ->
 	    print(minor, "~n*** Unexpected exit during init_per_suite.~n", []),
 	    Reason = {failed,{Mod,init_per_suite,Why}},
@@ -2686,22 +2712,38 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 				Mode, Status2);
 
 	{_,_EndConfRetVal,Opts} ->
-	    %% check if return_group_result is set (ok, skipped or failed) and
-	    %% if so return the value to the group "above" so that result may be
-	    %% used for evaluating repeat_until_*
-	    Status3 =
+	    %% Check if return_group_result is set (ok, skipped or failed) and
+	    %% if so:
+	    %% 1) *If* the parent group is a sequence, skip all proceeding tests
+	    %%    in that group.
+	    %% 2) Return the value to the group "above" so that result may be
+	    %%    used for evaluating a 'repeat_until_*' property.
+	    GrName = get_name(Mode0, Func),
+	    {Cases2,Status3} =
 		case lists:keysearch(return_group_result, 1, Opts) of
+		    {value,{_,failed}} ->
+			case {curr_ref(Mode),check_prop(sequence, Mode)} of
+			    {ParentRef,ParentRef} ->
+				Reason = {group_result,GrName,failed},
+				{skip_cases_upto(ParentRef, Cases, Reason, tc, Mode),
+				 update_status(failed, group_result, GrName,
+					       delete_status(Ref, Status2))};
+			    _ ->
+				{Cases,update_status(failed, group_result, GrName,
+						     delete_status(Ref, Status2))}
+			end;
 		    {value,{_,GroupResult}} ->
-			update_status(GroupResult, group_result, Func,
-				      delete_status(Ref, Status2));
+			{Cases,update_status(GroupResult, group_result, GrName,
+					     delete_status(Ref, Status2))};
 		    false ->
-			delete_status(Ref, Status2)
+			{Cases,update_status(ok, group_result, GrName,
+					     delete_status(Ref, Status2))}
 		end,
 	    print_conf_time(ConfTime),
 	    ReportRepeatStop(),
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases, tl(Config), TimetrapData, Mode, Status3)
+	    run_test_cases_loop(Cases2, tl(Config), TimetrapData, Mode, Status3)
     end;
 
 run_test_cases_loop([{make,Ref,{Mod,Func,Args}}|Cases0], Config, TimetrapData, Mode, Status) ->
@@ -2835,7 +2877,10 @@ get_copied_cases([{_,{_,Cases}} | _Status]) ->
     Cases.
 
 get_tc_results([{_,{OkSkipFail,_}} | _Status]) ->
-    OkSkipFail.
+    OkSkipFail;
+get_tc_results([]) ->		      % in case init_per_suite crashed
+    {[],[],[]}.
+
 
 conf(Ref, Props) ->
     {Ref,Props,?now}.
@@ -2868,6 +2913,12 @@ check_props(Attrib, Mode) ->
     case [R || {R,Ps,_} <- Mode, lists:member(Attrib, Ps)] of
 	[] -> false;
 	[Ref|_] -> Ref
+    end.
+
+get_name(Mode, Def) ->
+    case get_name(Mode) of
+	undefined -> Def;
+	Name      -> Name
     end.
 
 get_name([{_Ref,Props,_}|_]) ->

@@ -464,9 +464,11 @@ logger_loop(State) ->
 					    {'EXIT',_Reason} ->
 						Fd = State#logger_state.ct_log_fd,
 						io:format(Fd, 
-							  "Logging fails! Str: ~p, Args: ~p~n",
+							  "Logging fails! "
+							  "Str: ~p, Args: ~p~n",
 							  [Str,Args]),
-						%% stop the testcase, we need to see the fault
+						%% stop the testcase, we need
+						%% to see the fault
 						exit(Pid,logging_failed),
 						ok;
 					    IoStr when IoList == [] ->

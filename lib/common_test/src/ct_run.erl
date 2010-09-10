@@ -742,11 +742,12 @@ run_test1(StartOpts) ->
     %% test specification
     case proplists:get_value(spec, StartOpts) of
 	undefined ->
-	    case proplists:get_value(prepared_tests, StartOpts) of
-		undefined ->            % use dir|suite|case
-		    run_dir(Opts, StartOpts);
-		{{Run,Skip},Specs} ->	% use prepared tests
-		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs}, StartOpts)
+	    case lists:keysearch(prepared_tests, 1, StartOpts) of
+		{value,{_,{Run,Skip},Specs}} ->	% use prepared tests
+		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs},
+				 StartOpts);
+		false ->
+		    run_dir(Opts, StartOpts)
 	    end;
 	Specs ->
 	    Relaxed = get_start_opt(allow_user_terms, value, false, StartOpts),
@@ -882,8 +883,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    case lists:keysearch(suite, 1, StartOpts) of
 		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
 		    {Dir,Mod} = S2M(Suite),
-		    case listify(proplists:get_value(group, StartOpts, [])) ++
-			 listify(proplists:get_value(testcase, StartOpts, [])) of
+		    case groups_and_cases(proplists:get_value(group, StartOpts),
+					  proplists:get_value(testcase, StartOpts)) of
+			Error = {error,_} ->
+			    exit(Error);
 			[] ->
 			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
 							 [], Opts1, StartOpts));
@@ -903,8 +906,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    Mod = if is_atom(Suite) -> Suite;
 			     true -> list_to_atom(Suite)
 			  end,
-		    case listify(proplists:get_value(group, StartOpts, [])) ++
-			 listify(proplists:get_value(testcase, StartOpts, [])) of
+		    case groups_and_cases(proplists:get_value(group, StartOpts),
+					  proplists:get_value(testcase, StartOpts)) of
+			Error = {error,_} ->
+			    exit(Error);
 			[] ->
 			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
 							 [], Opts1, StartOpts));
@@ -1090,11 +1095,13 @@ groups_and_cases(Gs, Cs) when ((Gs == undefined) or (Gs == [])) and
 			      ((Cs == undefined) or (Cs == [])) ->
     [];
 groups_and_cases(Gs, Cs) when Gs == undefined ; Gs == [] ->
-    [list_to_atom(C) || C <- Cs];
+    [ensure_atom(C) || C <- listify(Cs)];
 groups_and_cases(Gs, Cs) when Cs == undefined ; Cs == [] ->
-    [{list_to_atom(G),all} || G <- Gs];
+    [{ensure_atom(G),all} || G <- listify(Gs)];
+groups_and_cases(G, Cs) when is_atom(G) ->
+    [{G,[ensure_atom(C) || C <- listify(Cs)]}];
 groups_and_cases([G], Cs) ->
-    [{list_to_atom(G),[list_to_atom(C) || C <- Cs]}];
+    [{ensure_atom(G),[ensure_atom(C) || C <- listify(Cs)]}];
 groups_and_cases([_,_|_] , Cs) when Cs =/= [] ->
     {error,multiple_groups_and_cases};
 groups_and_cases(_Gs, _Cs) ->
@@ -1380,17 +1387,8 @@ suite_tuples([]) ->
     [].
 
 final_tests(Tests, Skip, Bad) ->
-
-    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
-    %%! io:format(user, "FINAL0 = ~p~nSKIP0 = ~p~n", [Tests, Skip]),
-
     {Tests1,Skip1} = final_tests1(Tests, [], Skip, Bad),
     Skip2 = final_skip(Skip1, []),
-
-
-    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
-    %%! io:format(user, "FINAL1 = ~p~nSKIP1 = ~p~n", [Tests1, Skip2]),
-
     {Tests1,Skip2}.
 
 final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when
