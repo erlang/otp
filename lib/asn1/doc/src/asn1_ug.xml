@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,7 +22,7 @@
     </legalnotice>
 
     <title>Asn1</title>
-    <prepared>ETX/DN/SP Kenneth. Lundin</prepared>
+    <prepared>Kenneth Lundin</prepared>
     <docno></docno>
     <date>1999-03-25</date>
     <rev>D</rev>
@@ -41,17 +41,28 @@
          decode functions to be used by Erlang programs sending and
          receiving ASN.1 specified data.</item>
         <item>Run-time functions used by the generated code.</item>
-        <item>Encoding rules supported are <em>BER</em>, the
-        specialized BER version <em>DER</em> and the basic form of
-        aligned and unaligned variants of <em>PER</em>.</item>
+        <item>The supported encoding rules are: 
+	<list>
+	  <item>
+	    Basic Encoding Rules (<em>BER</em>)
+	  </item>
+	  <item>
+	    Distinguished Encoding Rules (<em>DER</em>), a specialized form of BER that is used in security-conscious applications.
+	  </item>
+	  <item>
+	    Packed Encoding Rules (<em>PER</em>) both the aligned and unaligned variant.
+	  </item>
+	  </list>
+	</item>
       </list>
     </section>
 
     <section>
       <title>Overview</title>
-      <p>ASN.1 (Abstract Syntax Notation 1) defines the abstract
-        syntax of information. The purpose of ASN.1 is to have
-        a platform independent language to express types   using a
+      <p>ASN.1 (Abstract Syntax Notation 1) is a formal language for describing data structures to be exchanged between distributed computer systems.
+        The purpose of ASN.1 is to have
+        a platform and programming language independent notation to express 
+	types   using a
         standardized set of rules  for the transformation of values of
         a defined type, into a stream of bytes. This stream of bytes
         can then be sent on a communication channel set  up by the
@@ -102,20 +113,16 @@
         [<cite id="DUBUISSON"></cite>], free to download at 
         <url href="http://www.oss.com/asn1/dubuisson.html">http://www.oss.com/asn1/dubuisson.html </url>.
         </p>
-      <p>Knowledge of Erlang programming is also essential and reading the book 
-        <em>Concurrent Programming in ERLANG</em>,
-        [<cite id="erlbook2"></cite>], is recommended. Part 1 of this is available on the web in 
-        <url href="http://www.erlang.org/download/erlang-book-part1.pdf">PDF</url> format.
-        </p>
     </section>
 
     <section>
       <title>Capability</title>
       <p>This application covers all features of ASN.1 up to the 1997
-      edition of the specification. In the 2002 edition some new
-      extensions came up of which there are support only for some of
-      them. ECN (Cncoding Control Notation) and XML notation are still
-      unsupported. Though, the other features of 2002 edition are
+      edition of the specification. In the 2002 edition of ASN.1 a number of
+      new features where introduced of which some are supported while
+      others are not. For example the
+      ECN (Encoding Control Notation) and XML notation are still
+      unsupported. Though, the other features of the 2002 edition are
       fully or partly supported as shown below:</p>
       <list type="bulleted">
 	<item>
@@ -308,7 +315,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
           <p>Choice of encoding rules, if omitted <c>ber</c> is the
           default. The <c>ber_bin</c> and <c>per_bin</c> options
           allows for optimizations and are therefore recommended
-          instaed of the <c>ber</c> and <c>per</c> options.</p>
+          instead of the <c>ber</c> and <c>per</c> options.</p>
         </item>
         <tag><c>-o OutDirectory</c></tag>
         <item>
@@ -629,7 +636,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
       <c>driver</c> options does not affect the encode or decode
       result, just the time spent in run-time. When <c>ber_bin</c> and
       <c>driver</c> or <c>per_bin, optimize</c> and <c>driver</c> is
-      combined the C-code driver is used in choosen parts of encode /
+      combined the C-code driver is used in chosen parts of encode /
       decode procedure.
     </p>
     <table>
@@ -749,11 +756,11 @@ asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
        you may want to continue running the old asn1 run-time
        functionality.</item>
       <item>Performance issues: If you have an asn1 system with a lot
-       of cross references you may gain in performance. Meassurements
+       of cross references you may gain in performance. Measurements
        must be done for each case.</item>
     </list>
     <p>You may choose either the plain multi file compilation that just
-      merges the choosen asn1 specs or the <c>{inline,OutputModule}</c>
+      merges the chosen asn1 specs or the <c>{inline,OutputModule}</c>
       that also includes the used asn1 run-time functionality.</p>
     <p>For both cases you need to specify which asn1 specs you will
       compile in a module that must have the extension
@@ -919,7 +926,7 @@ T5 ::= INTEGER (MIN&lt;..-99)
 T6 ::= INTEGER {red(0),blue(1),white(2)}
       </pre>
       <p>The Erlang representation of an ASN.1 INTEGER is an integer or
-        an atom if a so called \011<c>Named NumberList</c> (see T6 above)
+        an atom if a so called <c>Named Number List</c> (see T6 above)
         is specified.</p>
       <p>Below is an example of Erlang code which assigns values for the
         above types: </p>
@@ -934,7 +941,7 @@ T6value3 = white
         ASN.1 defined types. This style of value can be passed directly 
         to the encoder for transformation into a series of bytes.</p>
       <p>The decoder will return an atom if the value corresponds to a
-        symbol in the Named NumberList.</p>
+        symbol in the Named Number List.</p>
     </section>
 
     <section>
@@ -978,8 +985,9 @@ N1 = 'NULL',
       <p>The enumerated type can be used, when the value we wish to 
         describe, may only take one of a set of predefined values.</p>
       <pre>
-DaysOfTheWeek ::= ENUMERATED { sunday(1),monday(2),tuesday(3),
-\011wednesday(4),thursday(5),friday(6),saturday(7) }
+DaysOfTheWeek ::= ENUMERATED { 
+    sunday(1),monday(2),tuesday(3),
+    wednesday(4),thursday(5),friday(6),saturday(7) }
       </pre>
       <p>For example to assign a weekday value in Erlang use the same atom
         as in the <c>Enumerations</c> of the type definition:</p>
@@ -1273,11 +1281,14 @@ Pdu ::= SEQUENCE {
       <p>Values can be assigned in Erlang as shown below:</p>
       <pre>
 MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre>
-      <p>It is also possible to specify the value for each component in 
-        a SEQUENCE or a SET as <c>{ComponentName,Value}</c>. It is not
-        recommended and is not supported if the flags <c>per_bin</c> or
-        <c>ber_bin</c> and <c>optimize</c> were used when the module was
-        compiled.</p>
+<note>
+  <p>
+    In very early versions of the asn1 compiler it was also possible to 
+    specify the values of the components in 
+    a SEQUENCE or a SET as a list of tuples <c>{ComponentName,Value}</c>. 
+    This is no longer supported.
+  </p>
+</note>
       <p>The decode functions will return a record as result when decoding 
         a <c>SEQUENCE</c> or a <c>SET</c>.
                 <marker id="DEFAULT"></marker>
@@ -1293,13 +1304,13 @@ MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre>
       <p>For instance, if the following types exists in a file "File.asn":</p>
       <pre>
 Seq1 ::= SEQUENCE {
-\011a  INTEGER DEFAULT 1,
-\011b  Seq2 DEFAULT {aa TRUE, bb 15}
+    a INTEGER DEFAULT 1,
+    b Seq2 DEFAULT {aa TRUE, bb 15}
 }
 
 Seq2 ::= SEQUENCE {
-\011aa BOOLEAN,
-\011bb INTEGER
+    aa BOOLEAN,
+    bb INTEGER
 }
       </pre>
       <p>Some values and the corresponding encoding in an Erlang terminal
@@ -1331,7 +1342,7 @@ ok
                 <marker id="DEFAULT DER"></marker>
 </p>
       <p>But, the DER encoding format has stronger requirements regarding 
-        default\011values both for SET and SEQUENCE. A more elaborate and time 
+        default values both for SET and SEQUENCE. A more elaborate and time 
         expensive check of default values will take place. The following is
         an example with the same types and values as above but with der 
         encoding format.</p>
@@ -1409,7 +1420,7 @@ Bad ::= SET {i INTEGER,
         values is the same for SET as for SEQUENCE, and is supported by 
         the compiler, <seealso marker="#DEFAULT DER">see above</seealso>.</p>
       <p>Moreover, in DER the elements of a SET will be sorted. If a 
-        component is an untagged choice the sorting have to take place
+        component is an un-tagged choice the sorting have to take place
         in run-time. This fact emphasizes the following recommendation
         if DER encoding format is used.</p>
       <p>The concept of SET is an unusual
@@ -1425,7 +1436,7 @@ Bad ::= SET {i INTEGER,
     </section>
 
     <section>
-      <title>Notes about Extendability for SEQUENCE and SET</title>
+      <title>Notes about Extend-ability for SEQUENCE and SET</title>
       <p>When a SEQUENCE or SET contains an extension marker and 
         extension components like this:</p>
       <pre>
@@ -1498,9 +1509,9 @@ C2 ::= CHOICE {
       <section>
         <title>Extendable CHOICE</title>
         <p>When a CHOICE contains an extension marker and the decoder detects
-          an unknown alternative of the CHIOCE the value is represented as:</p>
+          an unknown alternative of the CHOICE the value is represented as:</p>
         <pre>
-\011  {asn1_ExtAlt, BytesForOpenType}
+{asn1_ExtAlt, BytesForOpenType}
         </pre>
         <p>Where <c>BytesForOpenType</c> is a list of bytes constituting the 
           encoding of the "unknown" CHOICE alternative. </p>
@@ -1630,15 +1641,15 @@ V = #'Emb'{a=["qqqq",[1,2,255]],
         the record name is extended with an underscore and the component
         name. If the embedded structure is deeper with SEQUENCE, SET or
         CHOICE types in the line, each component-/alternative-name will
-        be added to the recordname.</p>
+        be added to the record-name.</p>
       <p>For example:</p>
       <pre>
 Seq ::= SEQUENCE{
-    a\011CHOICE{
-\011b SEQUENCE {
-\011   c  INTEGER
-\011   }
-\011}
+    a CHOICE{
+        b SEQUENCE {
+           c  INTEGER
+        }
+    }
 }      </pre>
       <p>will result in the following record:</p>
       <pre>
@@ -1650,10 +1661,10 @@ Seq ::= SEQUENCE{
       <pre>
 Seq ::= SEQUENCE {
     a SEQUENCE OF SEQUENCE {
-\011       b
+           b
                }
     c SET OF SEQUENCE {
-\011       d
+           d
                }
 }      </pre>
       <p>This results in the records:</p>
@@ -1802,16 +1813,16 @@ GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
     <pre>
 StartMessage  ::= SEQUENCE {
     msgId  GENERAL-PROCEDURE.&amp;id  ({GENERAL-PROCEDURES}),
-    content GENERAL-PROCEDURE.&amp;Message\011({GENERAL-PROCEDURES}{@msgId}),
+    content GENERAL-PROCEDURE.&amp;Message ({GENERAL-PROCEDURES}{@msgId}),
     }    </pre>
     <p>In the type <c>StartMessage</c> the constraint following the
       <c>content</c> field tells that in a value of type
       <c>StartMessage</c> the value in the <c>content</c> field must
-      come from the same object that is choosen by the <c>msgId</c>
+      come from the same object that is chosen by the <c>msgId</c>
       field.</p>
     <p>So, the value <c>#'StartMessage'{msgId="home",content="Any Printable String"}</c> is legal to encode as a StartMessage
       value, while the value <c>#'StartMessage'{msgId="remote", content="Some String"}</c> is illegal since the constraint
-      in StartMessage tells that when you have choosen a value from a 
+      in StartMessage tells that when you have chosen a value from a 
       specific object in the object set GENERAL-PROCEDURES in the 
       msgId field you have to choose a value from that same object in
       the content field too. In this second case it should have been 
@@ -1831,7 +1842,7 @@ StartMessage  ::= SEQUENCE {
       information object sets. 
       A part of a definition can be supplied as a parameter. For
       instance, if a Type is used in a definition with certain
-      purpose, one want the typename to express the intention. This
+      purpose, one want the type-name to express the intention. This
       can be done with parameterization.</p>
     <p>When many types (or an other ASN.1 entity) only differs in some
       minor cases, but the structure of the types are similar, only
