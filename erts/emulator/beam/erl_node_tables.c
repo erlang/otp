@@ -80,7 +80,7 @@ dist_table_alloc(void *dep_tmpl)
     Eterm chnl_nr;
     Eterm sysname;
     DistEntry *dep;
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
 
     if(((DistEntry *) dep_tmpl) == erts_this_dist_entry)
@@ -710,7 +710,7 @@ erts_set_this_node(Eterm sysname, Uint creation)
 
 void erts_init_node_tables(void)
 {
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     HashFunctions f;
 
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
