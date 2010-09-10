@@ -555,8 +555,12 @@ static void ac_init_find_all(ACFindAllState *state, ACTrie *act, Sint startpos, 
 static void ac_restore_find_all(ACFindAllState *state, char *buff)
 {
     memcpy(state,buff,sizeof(ACFindAllState));
-    state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) * (state->allocated));
-    memcpy(state->out,buff+sizeof(ACFindAllState),sizeof(FindallData)*state->m);
+    if (state->allocated > 0) {
+	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) * (state->allocated));
+	memcpy(state->out,buff+sizeof(ACFindAllState),sizeof(FindallData)*state->m);
+    } else {
+	state->out = NULL;
+    }
 }
 
 static void ac_serialize_find_all(ACFindAllState *state, char *buff)
@@ -828,10 +832,14 @@ static void bm_init_find_all(BMFindAllState *state, Sint startpos, Uint len)
 static void bm_restore_find_all(BMFindAllState *state, char *buff)
 {
     memcpy(state,buff,sizeof(BMFindAllState));
-    state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) *
-			    (state->allocated));
-    memcpy(state->out,buff+sizeof(BMFindAllState),
-	   sizeof(FindallData)*state->m);
+    if (state->allocated > 0) {
+	state->out = erts_alloc(ERTS_ALC_T_TMP, sizeof(FindallData) *
+				(state->allocated));
+	memcpy(state->out,buff+sizeof(BMFindAllState),
+	       sizeof(FindallData)*state->m);
+    } else {
+	state->out = NULL;
+    }
 }
 
 static void bm_serialize_find_all(BMFindAllState *state, char *buff)
@@ -1128,7 +1136,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hsend,
 	    ret = am_nomatch;
 	} else if (acr == AC_RESTART) {
 	    int x = (sizeof(state) / sizeof(Eterm)) +
-		!!(sizeof(BMFindFirstState) % sizeof(Eterm));
+		!!(sizeof(ACFindFirstState) % sizeof(Eterm));
 #ifdef HARDDEBUG
 	    erts_printf("Trap ac!\n");
 #endif
