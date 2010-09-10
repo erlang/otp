@@ -23,6 +23,8 @@
 
 -import(lists, [foreach/2, member/2, reverse/1]).
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([init/0]).
 
 -export([do_load_resolv/2]).

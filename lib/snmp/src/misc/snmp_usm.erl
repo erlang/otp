@@ -19,6 +19,8 @@
 
 -module(snmp_usm).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([passwd2localized_key/3, localize_key/3]).
 -export([auth_in/4, auth_out/4, set_msg_auth_params/3]).
 -export([des_encrypt/3, des_decrypt/3]).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,8 @@
 %%
 -module(snmp_notification_mib).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([configure/1, reconfigure/1, invalidate_cache/0,
 	 snmpNotifyTable/1, snmpNotifyTable/3,
 	 snmpNotifyFilterTable/3, snmpNotifyFilterProfileTable/3,

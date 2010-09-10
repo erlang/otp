@@ -18,6 +18,8 @@
 %%
 -module(file_sorter).
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([sort/1, sort/2, sort/3, 
          keysort/2, keysort/3, keysort/4,
          merge/2, merge/3, 

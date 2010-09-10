@@ -23,6 +23,8 @@
 -include("httpc_internal.hrl").
 
 %% API
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([parse/1, result/2, send/2, error/2, is_server_closing/1, 
 	 stream_start/3]).
 

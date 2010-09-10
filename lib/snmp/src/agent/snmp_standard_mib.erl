@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,8 @@
 -define(disabled, 2).
 
 %% External exports
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([configure/1, reconfigure/1, reset/0, sys_up_time/0, sys_up_time/1,
 	 snmp_enable_authen_traps/1, snmp_enable_authen_traps/2,
 	 sys_object_id/1, sys_object_id/2, sys_or_table/3,

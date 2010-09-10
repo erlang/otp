@@ -29,6 +29,10 @@
 
 -module(dialyzer_cl).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([start/1]).
 
 -include("dialyzer.hrl").

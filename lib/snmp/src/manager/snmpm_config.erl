@@ -28,6 +28,8 @@
 -behaviour(gen_server).
 
 %% External exports
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([start_link/1, stop/0, is_started/0]).
 -export([register_user/4, unregister_user/1, 
 	 which_users/0, 

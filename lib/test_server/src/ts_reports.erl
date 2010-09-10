@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,6 +26,8 @@
 
 -include_lib("kernel/include/file.hrl").
 -include("ts.hrl").
+
+-compile({no_auto_import,[error/1]}).
 
 -import(filename, [basename/1, rootname/1]).
 -import(ts_lib, [error/1]).

@@ -18,6 +18,8 @@
 %%
 -module(xref_utils).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([xset/2]).
 
 -export([is_directory/1, file_info/1, fa_to_mfa/2]).

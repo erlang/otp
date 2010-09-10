@@ -20,6 +20,8 @@
 
 %% Parser for all kinds of ineternet configuration files
 
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([hosts/1, hosts/2]).
 -export([hosts_vxworks/1]).
 -export([protocols/1, protocols/2]).

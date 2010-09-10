@@ -19,6 +19,8 @@
 
 -module(xref_base).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([new/0, new/1, delete/1,
 	 add_directory/2, add_directory/3,
 	 add_module/2, add_module/3,

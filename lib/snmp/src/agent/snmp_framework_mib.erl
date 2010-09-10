@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,6 +37,8 @@
 %%% over all known contexts.
 %%%-----------------------------------------------------------------
 %% External exports
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
 -export([init/0, configure/1]).
 -export([intContextTable/1, intContextTable/3,
 	 intAgentUDPPort/1, intAgentIpAddress/1,

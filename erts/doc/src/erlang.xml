@@ -80,7 +80,7 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>adler32(Data) -> int()</name>
+      <name>erlang:adler32(Data) -> int()</name>
       <fsummary>Compute adler32 checksum</fsummary>
       <type>
         <v>Data = iodata()</v>
@@ -90,7 +90,7 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
-      <name>adler32(OldAdler, Data) -> int()</name>
+      <name>erlang:adler32(OldAdler, Data) -> int()</name>
       <fsummary>Compute adler32 checksum</fsummary>
       <type>
         <v>OldAdler = int()</v>
@@ -102,17 +102,17 @@ iolist() = [char() | binary() | iolist()]
 	<c>Data</c>.</p>
 	<p>The following code:</p>
 	<code>
-	X = adler32(Data1),
-	Y = adler32(X,Data2).
+	X = erlang:adler32(Data1),
+	Y = erlang:adler32(X,Data2).
 	</code>
 	<p>- would assign the same value to <c>Y</c> as this would:</p>
 	<code>
-	Y = adler32([Data1,Data2]).
+	Y = erlang:adler32([Data1,Data2]).
 	</code>
       </desc>
     </func>
     <func>
-      <name>adler32_combine(FirstAdler, SecondAdler, SecondSize) -> int()</name>
+      <name>erlang:adler32_combine(FirstAdler, SecondAdler, SecondSize) -> int()</name>
       <fsummary>Combine two adler32 checksums</fsummary>
       <type>
         <v>FirstAdler = SecondAdler = int()</v>
@@ -124,14 +124,14 @@ iolist() = [char() | binary() | iolist()]
 	the second checksum to be known.</p>
 	<p>The following code:</p>
 	<code>
-	Y = adler32(Data1),
-	Z = adler32(Y,Data2).
+	Y = erlang:adler32(Data1),
+	Z = erlang:adler32(Y,Data2).
 	</code>
 	<p>- would assign the same value to <c>Z</c> as this would:</p>
 	<code>
-	X = adler32(Data1),
-	Y = adler32(Data2),
-	Z = adler32_combine(X,Y,iolist_size(Data2)).
+	X = erlang:adler32(Data1),
+	Y = erlang:adler32(Data2),
+	Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).
 	</code>
       </desc>
     </func>
@@ -553,7 +553,7 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>crc32(Data) -> int()</name>
+      <name>erlang:crc32(Data) -> int()</name>
       <fsummary>Compute crc32 (IEEE 802.3) checksum</fsummary>
       <type>
         <v>Data = iodata()</v>
@@ -563,7 +563,7 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>crc32(OldCrc, Data) -> int()</name>
+      <name>erlang:crc32(OldCrc, Data) -> int()</name>
       <fsummary>Compute crc32 (IEEE 802.3) checksum</fsummary>
       <type>
         <v>OldCrc = int()</v>
@@ -575,17 +575,17 @@ false</pre>
 	<c>Data</c>.</p>
 	<p>The following code:</p>
 	<code>
-	X = crc32(Data1),
-	Y = crc32(X,Data2).
+	X = erlang:crc32(Data1),
+	Y = erlang:crc32(X,Data2).
 	</code>
 	<p>- would assign the same value to <c>Y</c> as this would:</p>
 	<code>
-	Y = crc32([Data1,Data2]).
+	Y = erlang:crc32([Data1,Data2]).
 	</code>
       </desc>
     </func>
     <func>
-      <name>crc32_combine(FirstCrc, SecondCrc, SecondSize) -> int()</name>
+      <name>erlang:crc32_combine(FirstCrc, SecondCrc, SecondSize) -> int()</name>
       <fsummary>Combine two crc32 (IEEE 802.3) checksums</fsummary>
       <type>
         <v>FirstCrc = SecondCrc = int()</v>
@@ -597,14 +597,14 @@ false</pre>
 	the second checksum to be known.</p>
 	<p>The following code:</p>
 	<code>
-	Y = crc32(Data1),
-	Z = crc32(Y,Data2).
+	Y = erlang:crc32(Data1),
+	Z = erlang:crc32(Y,Data2).
 	</code>
 	<p>- would assign the same value to <c>Z</c> as this would:</p>
 	<code>
-	X = crc32(Data1),
-	Y = crc32(Data2),
-	Z = crc32_combine(X,Y,iolist_size(Data2)).
+	X = erlang:crc32(Data1),
+	Y = erlang:crc32(Data2),
+	Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).
 	</code>
       </desc>
     </func>
@@ -624,7 +624,7 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>decode_packet(Type,Bin,Options) -> {ok,Packet,Rest} | {more,Length} | {error,Reason}</name>
+      <name>erlang:decode_packet(Type,Bin,Options) -> {ok,Packet,Rest} | {more,Length} | {error,Reason}</name>
       <fsummary>Extracts a protocol packet from a binary</fsummary>
       <type>
         <v>Bin = binary()</v>
@@ -760,7 +760,7 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:demonitor(MonitorRef) -> true</name>
+      <name>demonitor(MonitorRef) -> true</name>
       <fsummary>Stop monitoring</fsummary>
       <type>
         <v>MonitorRef = reference()</v>
@@ -768,10 +768,10 @@ false</pre>
       <desc>
         <p>If <c>MonitorRef</c> is a reference which the calling process
           obtained by calling
-          <seealso marker="#monitor/2">erlang:monitor/2</seealso>,
+          <seealso marker="#monitor/2">monitor/2</seealso>,
           this monitoring is turned off. If the monitoring is already
           turned off, nothing happens.</p>
-        <p>Once <c>erlang:demonitor(MonitorRef)</c> has returned it is
+        <p>Once <c>demonitor(MonitorRef)</c> has returned it is
           guaranteed that no <c>{'DOWN', MonitorRef, _, _, _}</c> message
           due to the monitor will be placed in the callers message queue
           in the future. A <c>{'DOWN', MonitorRef, _, _, _}</c> message
@@ -779,10 +779,10 @@ false</pre>
           the call, though. Therefore, in most cases, it is advisable
           to remove such a <c>'DOWN'</c> message from the message queue
           after monitoring has been stopped. 
-          <seealso marker="#demonitor/2">erlang:demonitor(MonitorRef, [flush])</seealso> can be used instead of
-          <c>erlang:demonitor(MonitorRef)</c> if this cleanup is wanted.</p>
+          <seealso marker="#demonitor/2">demonitor(MonitorRef, [flush])</seealso> can be used instead of
+          <c>demonitor(MonitorRef)</c> if this cleanup is wanted.</p>
         <note>
-          <p>Prior to OTP release R11B (erts version 5.5) <c>erlang:demonitor/1</c>
+          <p>Prior to OTP release R11B (erts version 5.5) <c>demonitor/1</c>
             behaved completely asynchronous, i.e., the monitor was active
             until the "demonitor signal" reached the monitored entity. This
             had one undesirable effect, though. You could never know when
@@ -800,7 +800,7 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:demonitor(MonitorRef, OptionList) -> true|false</name>
+      <name>demonitor(MonitorRef, OptionList) -> true|false</name>
       <fsummary>Stop monitoring</fsummary>
       <type>
         <v>MonitorRef = reference()</v>
@@ -812,8 +812,8 @@ false</pre>
         <p>The returned value is <c>true</c> unless <c>info</c> is part
 	   of <c>OptionList</c>.
 	</p>
-        <p><c>erlang:demonitor(MonitorRef, [])</c> is equivalent to
-          <seealso marker="#demonitor/1">erlang:demonitor(MonitorRef)</seealso>.</p>
+        <p><c>demonitor(MonitorRef, [])</c> is equivalent to
+          <seealso marker="#demonitor/1">demonitor(MonitorRef)</seealso>.</p>
         <p>Currently the following <c>Option</c>s are valid:</p>
         <taglist>
           <tag><c>flush</c></tag>
@@ -821,11 +821,11 @@ false</pre>
             <p>Remove (one) <c>{_, MonitorRef, _, _, _}</c> message,
               if there is one, from the callers message queue after
               monitoring has been stopped.</p>
-            <p>Calling <c>erlang:demonitor(MonitorRef, [flush])</c>
+            <p>Calling <c>demonitor(MonitorRef, [flush])</c>
               is equivalent to the following, but more efficient:</p>
             <code type="none">
 
-    erlang:demonitor(MonitorRef),
+    demonitor(MonitorRef),
     receive
         {_, MonitorRef, _, _, _} ->
             true
@@ -863,7 +863,7 @@ false</pre>
         </note>
         <p>Failure: <c>badarg</c> if <c>OptionList</c> is not a list, or
           if <c>Option</c> is not a valid option, or the same failure as for
-          <seealso marker="#demonitor/1">erlang:demonitor/1</seealso></p>
+          <seealso marker="#demonitor/1">demonitor/1</seealso></p>
       </desc>
     </func>
     <func>
@@ -944,7 +944,7 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:error(Reason)</name>
+      <name>error(Reason)</name>
       <fsummary>Stop execution with a given reason</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -957,7 +957,7 @@ b</pre>
           function first). Since evaluating this function causes
           the process to terminate, it has no return value.</p>
         <pre>
-> <input>catch erlang:error(foobar).</input>
+> <input>catch error(foobar).</input>
 {'EXIT',{foobar,[{erl_eval,do_apply,5},
                  {erl_eval,expr,5},
                  {shell,exprs,6},
@@ -966,7 +966,7 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:error(Reason, Args)</name>
+      <name>error(Reason, Args)</name>
       <fsummary>Stop execution with a given reason</fsummary>
       <type>
         <v>Reason = term()</v>
@@ -1483,7 +1483,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:integer_to_list(Integer, Base) -> string()</name>
+      <name>integer_to_list(Integer, Base) -> string()</name>
       <fsummary>Text representation of an integer</fsummary>
       <type>
         <v>Integer = int()</v>
@@ -1493,7 +1493,7 @@ os_prompt%</pre>
         <p>Returns a string which corresponds to the text
           representation of <c>Integer</c> in base <c>Base</c>.</p>
         <pre>
-> <input>erlang:integer_to_list(1023, 16).</input>
+> <input>integer_to_list(1023, 16).</input>
 "3FF"</pre>
       </desc>
     </func>
@@ -1932,7 +1932,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:list_to_integer(String, Base) -> int()</name>
+      <name>list_to_integer(String, Base) -> int()</name>
       <fsummary>Convert from text representation to an integer</fsummary>
       <type>
         <v>String = string()</v>
@@ -1942,7 +1942,7 @@ os_prompt%</pre>
         <p>Returns an integer whose text representation in base
           <c>Base</c> is <c>String</c>.</p>
         <pre>
-> <input>erlang:list_to_integer("3FF", 16).</input>
+> <input>list_to_integer("3FF", 16).</input>
 1023</pre>
         <p>Failure: <c>badarg</c> if <c>String</c> contains a bad
           representation of an integer.</p>
@@ -2488,7 +2488,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:monitor(Type, Item) -> MonitorRef</name>
+      <name>monitor(Type, Item) -> MonitorRef</name>
       <fsummary>Start monitoring</fsummary>
       <type>
         <v>Type = process</v>
@@ -2524,7 +2524,7 @@ os_prompt%</pre>
         <note>
           <p>When a process is monitored by registered name, the process
             that has the registered name at the time when
-            <c>erlang:monitor/2</c> is called will be monitored.
+            <c>monitor/2</c> is called will be monitored.
             The monitor will not be effected, if the registered name is
             unregistered.</p>
         </note>
@@ -2558,20 +2558,20 @@ os_prompt%</pre>
           </item>
         </taglist>
         <note>
-          <p>If/when <c>erlang:monitor/2</c> is extended (e.g. to
+          <p>If/when <c>monitor/2</c> is extended (e.g. to
             handle other item types than <c>process</c>), other
             possible values for <c>Object</c>, and <c>Info</c> in the
             <c>'DOWN'</c> message will be introduced.</p>
         </note>
         <p>The monitoring is turned off either when the <c>'DOWN'</c>
           message is sent, or when
-          <seealso marker="#demonitor/1">erlang:demonitor/1</seealso>
+          <seealso marker="#demonitor/1">demonitor/1</seealso>
           is called.</p>
         <p>If an attempt is made to monitor a process on an older node
           (where remote process monitoring is not implemented or one
           where remote process monitoring by registered name is not
           implemented), the call fails with <c>badarg</c>.</p>
-        <p>Making several calls to <c>erlang:monitor/2</c> for the same
+        <p>Making several calls to <c>monitor/2</c> for the same
           <c>Item</c> is not an error; it results in as many, completely
           independent, monitorings.</p>
         <note>
@@ -3899,11 +3899,11 @@ os_prompt%</pre>
           <tag><c>{monitored_by, Pids}</c></tag>
           <item>
             <p>A list of pids that are monitoring the process (with
-              <c>erlang:monitor/2</c>).</p>
+              <c>monitor/2</c>).</p>
           </item>
           <tag><c>{monitors, Monitors}</c></tag>
           <item>
-            <p>A list of monitors (started by <c>erlang:monitor/2</c>)
+            <p>A list of monitors (started by <c>monitor/2</c>)
               that are active for the process. For a local process
               monitor or a remote process monitor by pid, the list item
               is <c>{process, Pid}</c>, and for a remote process
@@ -4092,7 +4092,7 @@ os_prompt%</pre>
           terminate, it has no return value - unless the arguments are
           invalid, in which case the function <em>returns the error reason</em>, that is <c>badarg</c>. If you want to be
           really sure not to return you can call
-          <c>erlang:error(erlang:raise(Class, Reason, Stacktrace))</c>
+          <c>error(erlang:raise(Class, Reason, Stacktrace))</c>
           and hope to distinguish exceptions later.</p>
       </desc>
     </func>
@@ -4693,7 +4693,7 @@ true</pre>
           <tag><c>monitor</c></tag>
           <item>
             <p>Monitor the new process (just like
-              <seealso marker="#monitor/2">erlang:monitor/2</seealso> does).</p>
+              <seealso marker="#monitor/2">monitor/2</seealso> does).</p>
           </item>
           <tag><c>{priority, Level}</c></tag>
           <item>

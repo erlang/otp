@@ -18,6 +18,10 @@
 %%
 -module(snmpa_usm).
 
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import,[error/1]}).
+%% Avoid warning for local function error/2 clashing with autoimported BIF.
+-compile({no_auto_import,[error/2]}).
 -export([
 	 process_incoming_msg/4, process_incoming_msg/5, 
 	 generate_outgoing_msg/5, generate_outgoing_msg/6,
