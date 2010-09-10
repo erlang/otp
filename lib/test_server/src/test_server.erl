@@ -1198,8 +1198,13 @@ process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
 	true ->		     % must be return value from end conf case
 	    process_return_val1(Return, M,F,A, Loc, Final, []);
 	false ->	     % must be Config value from init conf case
-	    test_server_sup:framework_call(end_tc, [?pl2a(M),F,{ok,A}]),
-	    {Return,[]}
+	    case test_server_sup:framework_call(end_tc, [?pl2a(M),F,{ok,A}]) of
+		{fail,FWReason} ->
+		    fw_error_notify(M,F,A, FWReason),
+		    {{failed,FWReason},[]};
+		_ ->
+		    {Return,[]}
+	    end
     end;
 %% the return value is not a list, so it's the return value from an
 %% end conf case or it's a dummy value that can be ignored
