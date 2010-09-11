@@ -171,6 +171,8 @@ int ei_writev_fill_t(int fd,  const  struct  iovec  *iov,  int iovcnt, unsigned 
 	    }
 	    while (i > 0) {
 		if (i < current_iov[0].iov_len) {
+		    char *p = (char*)current_iov[0].iov_base;
+		    current_iov[0].iov_base = p + i;
 		    current_iov[0].iov_len -= i;
 		    i = 0;
 		} else {
