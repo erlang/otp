@@ -1178,7 +1178,7 @@ case "$1" in
 		esac ;;
         primary)
 	        echo "Primary bootstrap is under version control since R13";
-		echo "Use {prepare,update,commit}_primary if you really are"; 
+		echo "Use update_primary if you really are";
 		echo "updating the primary bootstrap...";;
 	boot)
 		do_boot;;

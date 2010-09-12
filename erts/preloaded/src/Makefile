@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2009. All Rights Reserved.
+# Copyright Ericsson AB 2008-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,7 @@
 # be used when the preloaded modules actually are to be updated (i.e. the 
 # beam files are to be recompiled, which is normally not done). 
 # The beam files are placed in the current directory and should be copied 
-# to the ../ebin directory by using the commit target (only works in 
-# clearcase). 
+# to the ../ebin directory by using the copy target.
 
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
@@ -62,25 +61,8 @@ debug opt: $(TARGET_FILES)
 clean:
 	rm -f $(TARGET_FILES)
 
-prepare:
-	cleartool co -nc $(STATIC_EBIN)/*
-	cleartool co -nc $(STATIC_EBIN)
-
 copy:
-	for x in *.beam; do\
-	  if test '!' -f $(STATIC_EBIN)/$$x; then\
-	    cleartool mkelem -nc $$x;\
-	  fi;\
-	done
 	cp *.beam $(STATIC_EBIN)
-
-commit:
-	cleartool ci -ident -nc $(STATIC_EBIN)/*.beam
-	cleartool ci -ident -nc $(STATIC_EBIN)
-
-cancel:
-	-cleartool unco -rm $(STATIC_EBIN)
-	-cleartool unco -rm $(STATIC_EBIN)/*.beam
 
 
 include $(ERL_TOP)/make/otp_release_targets.mk
