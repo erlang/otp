@@ -70,6 +70,8 @@
 	 negotiate_protocol_impl/2
 	]).
 
+-compile({no_auto_import,[error/2]}).
+
 -import(mnesia_lib, [dbg_out/2, verbose/2, error/2, fatal/2, set/2]).
 
 -include("mnesia.hrl").

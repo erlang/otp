@@ -182,6 +182,8 @@
 	]).
 	
 	
+-compile({no_auto_import,[error/2]}).
+
 -include("mnesia.hrl").
 -import(mnesia_lib, [val/1, dir/1]).
 -import(mnesia_lib, [exists/1, fatal/2, error/2, dbg_out/2]).

@@ -49,6 +49,8 @@
 	 system_code_change/4
 	]).
 
+-compile({no_auto_import,[error/2]}).
+
 -include("mnesia.hrl").
 -import(mnesia_lib, [dbg_out/2, error/2, verbose/2]).
 
