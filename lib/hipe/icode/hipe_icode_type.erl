@@ -39,6 +39,8 @@
 	 update__info/2, new__info/1, return__info/1,
 	 return_none/0, return_none_args/2, return_any_args/2]).
 
+-compile({no_auto_import,[min/2,max/2]}).
+
 %%=====================================================================
 
 -include("../main/hipe.hrl").
