@@ -415,15 +415,15 @@ connect(suite) ->
 connect(doc) ->
     ["Test that connect/3 has effect"];
 connect(Config) when is_list(Config) ->
-    Addr = {127,0,0,1},
-    {ok,S1} = gen_udp:open(0),
-    {ok,P1} = inet:port(S1),
-    {ok,S2} = gen_udp:open(0),
-    ok = inet:setopts(S2, [{active,false}]),
-    ok = gen_udp:close(S1),
-    ok = gen_udp:connect(S2, Addr, P1),
-    ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    {error,econnrefused} = gen_udp:recv(S2, 0, 5),
+    ?line Addr = {127,0,0,1},
+    ?line {ok,S1} = gen_udp:open(0),
+    ?line {ok,P1} = inet:port(S1),
+    ?line {ok,S2} = gen_udp:open(0),
+    ?line ok = inet:setopts(S2, [{active,false}]),
+    ?line ok = gen_udp:close(S1),
+    ?line ok = gen_udp:connect(S2, Addr, P1),
+    ?line ok = gen_udp:send(S2, <<16#deadbeef:32>>),
+    ?line {error,econnrefused} = gen_udp:recv(S2, 0, 5),
     ok.
 
 implicit_inet6(Config) when is_list(Config) ->
