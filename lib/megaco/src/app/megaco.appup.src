@@ -130,100 +130,53 @@
 %%      |
 %%      v
 %%   3.14.1.1
+%%      |
+%%      v
+%%    3.15
 %%
 %%
 {"%VSN%",
  [
-  {"3.14.1", 
+  {"3.14.1.1", 
    [
-   ]
-  }, 
-  {"3.14", 
-   [
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
-    {update,      megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.13", 
-   [
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]}, 
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.12", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []},
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
-    {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.11.3", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []}, 
-    {load_module, megaco_messenger, soft_purge, soft_purge, 
-     [megaco_config, megaco_monitor]},
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, {advanced, upgrade_from_pre_3_12}, 
-     soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
+    {load_module, megaco_binary_transformer_prev3a, soft_purge, soft_purge, []},
+    {load_module, megaco_binary_transformer_prev3b, soft_purge, soft_purge, []},
+    {load_module, megaco_binary_transformer_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_sdp, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_v1, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_v1, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_v2, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_v2, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_prev3a, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_prev3a, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_prev3b, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_prev3b, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_v3, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_v3, soft_purge, soft_purge, []}
    ]
   }
  ],
  [
-  {"3.14.1", 
+  {"3.14.1.1", 
    [
-   ]
-  }, 
-  {"3.14", 
-   [
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
-    {update,      megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.13", 
-   [
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]}, 
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {update,      megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.12", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []},
-    {load_module, megaco_messenger, soft_purge, soft_purge, [megaco_monitor]},
-    {update, megaco_config, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"3.11.3", 
-   [
-    {load_module, megaco_filter, soft_purge, soft_purge, []}, 
-    {load_module, megaco_udp, soft_purge, soft_purge, []}, 
-    {load_module, megaco_messenger, soft_purge, soft_purge, 
-     [megaco_config, megaco_monitor]},
-    {update, megaco_monitor, soft, soft_purge, soft_purge, []}, 
-    {update, megaco_config, {advanced, downgrade_to_pre_3_12}, 
-     soft_purge, soft_purge, []}, 
-    {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
-     soft_purge, soft_purge, []}
+    {load_module, megaco_binary_transformer_prev3a, soft_purge, soft_purge, []},
+    {load_module, megaco_binary_transformer_prev3b, soft_purge, soft_purge, []},
+    {load_module, megaco_binary_transformer_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_sdp, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_v1, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_v1, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_v2, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_v2, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_prev3a, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_prev3a, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_prev3b, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_prev3b, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_compact_text_encoder_v3, soft_purge, soft_purge, []},
+    {load_module, megaco_pretty_text_encoder_v3, soft_purge, soft_purge, []}
    ]
   }
  ]
