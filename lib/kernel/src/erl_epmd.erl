@@ -210,19 +210,6 @@ open({A,B,C,D,E,F,G,H}=EpmdAddr, Timeout) when ?ip6(A,B,C,D,E,F,G,H) ->
 close(Socket) ->
     gen_tcp:close(Socket).
 
-
-do_register_node_v0(NodeName, TcpPort) ->
-    case open() of
-	{ok, Socket} ->
-	    Name = cstring(NodeName),
-	    Len = 1+2+length(Name),
-	    gen_tcp:send(Socket, [?int16(Len), ?EPMD_ALIVE,
-				  ?int16(TcpPort), Name]),
-	    wait_for_reg_reply_v0(Socket, []);
-	Error ->
-	    Error
-    end.
-
 do_register_node(NodeName, TcpPort) ->
     case open() of
 	{ok, Socket} ->
@@ -240,14 +227,7 @@ do_register_node(NodeName, TcpPort) ->
 				   Name,
 				   ?int16(Elen),
 				   Extra]),
-	    case wait_for_reg_reply(Socket, []) of
-		{error, epmd_close} ->
-		    %% could be old epmd; try old protocol
-%		    erlang:display('trying old'),
-		    do_register_node_v0(NodeName, TcpPort);
-		Other ->
-		    Other
-	    end;
+	    wait_for_reg_reply(Socket, []);
 	Error ->
 	    Error
     end.
@@ -305,41 +285,9 @@ wait_for_reg_reply(Socket, SoFar) ->
 	    {error, no_reg_reply_from_epmd}
     end.
     
-wait_for_reg_reply_v0(Socket, SoFar) ->
-    receive
-	{tcp, Socket, Data0} ->
-	    case SoFar ++ Data0 of
-		[$Y, A, B] ->
-		    {alive, Socket, ?u16(A, B)};
-		Data when length(Data) < 3 ->
-		    wait_for_reg_reply(Socket, Data);
-		Garbage ->
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
-	{tcp_closed, Socket} ->
-	    {error, duplicate_name}		% A guess -- the most likely reason.
-    after 10000 ->
-	    gen_tcp:close(Socket),
-	    {error, no_reg_reply_from_epmd}
-    end.
 %%
 %% Lookup a node "Name" at Host
 %%
-get_port_v0(Node, EpmdAddress) ->
-    case open(EpmdAddress) of
-	{ok, Socket} ->
-	    Name = cstring(Node),
-	    Len = 1+length(Name),
-	    gen_tcp:send(Socket, [?int16(Len),?EPMD_PORT_PLEASE, Name]),
-	    wait_for_port_reply_v0(Socket, []);
-	_Error -> 
-	    ?port_please_failure(),
-	    noport
-    end.
-
-%%% Not used anymore
-%%% get_port(Node, EpmdAddress) ->
-%%%     get_port(Node, EpmdAddress, infinity).
 
 get_port(Node, EpmdAddress, Timeout) ->
     case open(EpmdAddress, Timeout) of
@@ -347,40 +295,12 @@ get_port(Node, EpmdAddress, Timeout) ->
 	    Name = to_string(Node),
 	    Len = 1+length(Name),
 	    gen_tcp:send(Socket, [?int16(Len),?EPMD_PORT_PLEASE2_REQ, Name]),
-	    Reply = wait_for_port_reply(Socket, []),
-	    case Reply of
-		closed ->
-		    get_port_v0(Node, EpmdAddress);
-		Other ->
-		    Other
-	    end;
+	    wait_for_port_reply(Socket, []);
 	_Error -> 
 	    ?port_please_failure2(_Error),
 	    noport
     end.
 
-wait_for_port_reply_v0(Socket, SoFar) ->
-    receive
-	{tcp, Socket, Data0} ->
-%	    io:format("got ~p~n", [Data0]),
-	    case SoFar ++ Data0 of
-		[A, B] ->
-		    wait_for_close(Socket, {port, ?u16(A, B), 0});
-%		    wait_for_close(Socket, {port, ?u16(A, B)});
-		Data when length(Data) < 2 ->
-		    wait_for_port_reply_v0(Socket, Data);
-		Garbage ->
-		    ?port_please_failure(),
-		    {error, {garbage_from_epmd, Garbage}}
-	    end;
-	{tcp_closed, Socket} ->
-	    ?port_please_failure(),
-	    noport
-    after 10000 ->
-	    ?port_please_failure(),
-	    gen_tcp:close(Socket),
-	    noport
-    end.
 
 wait_for_port_reply(Socket, SoFar) ->
     receive
@@ -487,8 +407,6 @@ wait_for_close(Socket, Reply) ->
 %%
 %% Creates a (flat) null terminated string from atom or list.
 %%
-cstring(S) when is_atom(S) -> cstring(atom_to_list(S));
-cstring(S) when is_list(S) -> S ++ [0].
 
 to_string(S) when is_atom(S) -> atom_to_list(S);
 to_string(S) when is_list(S) -> S.

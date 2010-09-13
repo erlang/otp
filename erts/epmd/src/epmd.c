@@ -23,6 +23,7 @@
 #endif
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
+#include "erl_printf.h"
 
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
@@ -33,6 +34,7 @@
 static void usage(EpmdVars *);
 static void run_daemon(EpmdVars*);
 static int get_port_no(void);
+static int check_relaxed(void);
 #ifdef __WIN32__
 static int has_console(void);
 #endif
@@ -161,6 +163,7 @@ int main(int argc, char** argv)
 
     g->silent         = 0; 
     g->is_daemon      = 0;
+    g->brutal_kill    = check_relaxed();
     g->packet_timeout = CLOSE_TIMEOUT; /* Default timeout */
     g->delay_accept   = 0;
     g->delay_write    = 0;
@@ -195,6 +198,9 @@ int main(int argc, char** argv)
 	    argv += 2; argc -= 2;
 	} else if (strcmp(argv[0], "-daemon") == 0) {
 	    g->is_daemon = 1;
+	    argv++; argc--;
+	} else if (strcmp(argv[0], "-relaxed_command_check") == 0) {
+	    g->brutal_kill = 1;
 	    argv++; argc--;
 	} else if (strcmp(argv[0], "-kill") == 0) {
 	    if (argc == 1)
@@ -388,9 +394,10 @@ static void run_daemon(EpmdVars *g)
 static void usage(EpmdVars *g)
 {
     fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon]\n");
-    fprintf(stderr, "            [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
-    fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n");
-    fprintf(stderr, "The -port and DbgExtra options are\n\n");
+    fprintf(stderr, "            [-relaxed_command_check]\n");
+    fprintf(stderr, "       epmd [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
+    fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n\n");
+    fprintf(stderr, "Regular options\n");
     fprintf(stderr, "    -port No\n");
     fprintf(stderr, "        Let epmd listen to another port than default %d\n",
 	    EPMD_PORT_NO);
@@ -400,8 +407,16 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        the standard error stream. It will shorten\n");
     fprintf(stderr, "        the number of saved used node names to 5.\n\n");
     fprintf(stderr, "        If you give more than one debug flag you may\n");
-    fprintf(stderr, "        get more debugging information.\n\n");
-    fprintf(stderr, "    -packet_timout Seconds\n");
+    fprintf(stderr, "        get more debugging information.\n");
+    fprintf(stderr, "    -daemon\n");
+    fprintf(stderr, "        Start epmd detached (as a daemon)\n");
+    fprintf(stderr, "    -relaxed_command_check\n");
+    fprintf(stderr, "        Allow this instance of epmd to be killed with\n");
+    fprintf(stderr, "        epmd -kill even if there "
+	    "are registered nodes.\n");
+    fprintf(stderr, "        Also allows forced unregister (epmd -stop).\n");
+    fprintf(stderr, "\nDbgExtra options\n");
+    fprintf(stderr, "    -packet_timeout Seconds\n");
     fprintf(stderr, "        Set the number of seconds a connection can be\n");
     fprintf(stderr, "        inactive before epmd times out and closes the\n");
     fprintf(stderr, "        connection (default 60).\n\n");
@@ -413,6 +428,18 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "    -delay_write Seconds\n");
     fprintf(stderr, "        Also a simulation of a busy server. Inserts\n");
     fprintf(stderr, "        a delay before a reply is sent.\n");
+    fprintf(stderr, "\nInteractive options\n");
+    fprintf(stderr, "    -names\n");
+    fprintf(stderr, "        List names registered with the currently "
+	    "running epmd\n");
+    fprintf(stderr, "    -kill\n");
+    fprintf(stderr, "        Kill the currently runniing epmd\n");
+    fprintf(stderr, "        (only allowed if -names show empty database or\n");
+    fprintf(stderr, "        -relaxed_command_check was given when epmd was started).\n");
+    fprintf(stderr, "    -stop Name\n");
+    fprintf(stderr, "        Forcibly unregisters a name with epmd\n");
+    fprintf(stderr, "        (only allowed if -relaxed_command_check was given when \n");
+    fprintf(stderr, "        epmd was started).\n");
     epmd_cleanup_exit(g,1);
 }
 
@@ -432,20 +459,20 @@ static void usage(EpmdVars *g)
  *      args...      Arguments to print out according to the format
  *      
  */
-
+#define DEBUG_BUFFER_SIZE 2048
 static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 			   EpmdVars *g,const char *format, va_list args)
 {
   time_t now;
   char *timestr;
-  char buf[2048];
+  char buf[DEBUG_BUFFER_SIZE];
 
   if (g->is_daemon)
     {
 #ifndef NO_SYSLOG
       if (onsyslog)
 	{
-	  vsprintf(buf, format, args);
+	  erts_vsnprintf(buf, DEBUG_BUFFER_SIZE, format, args);
 	  syslog(LOG_ERR,"epmd: %s",buf);
 	}
 #endif
@@ -456,9 +483,10 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 
       time(&now);
       timestr = (char *)ctime(&now);
-      sprintf(buf, "epmd: %.*s: ", (int) strlen(timestr)-1, timestr);
+      erts_snprintf(buf, DEBUG_BUFFER_SIZE, "epmd: %.*s: ",
+		    (int) strlen(timestr)-1, timestr);
       len = strlen(buf);
-      vsprintf(buf + len, format, args);
+      erts_vsnprintf(buf + len, DEBUG_BUFFER_SIZE - len, format, args);
       if (perr == 1)
 	perror(buf);
       else
@@ -544,5 +572,10 @@ static int get_port_no(void)
 {
     char* port_str = getenv("ERL_EPMD_PORT");
     return (port_str != NULL) ? atoi(port_str) : EPMD_PORT_NO;
+}
+static int check_relaxed(void)
+{
+    char* port_str = getenv("ERL_EPMD_RELAXED_COMMAND_CHECK");
+    return (port_str != NULL) ? 1 : 0;
 }
 

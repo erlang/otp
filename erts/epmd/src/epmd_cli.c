@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +42,11 @@ void kill_epmd(EpmdVars *g)
 	epmd_cleanup_exit(g,1);
     }
     if ((rval = read_fill(fd,buf,2)) == 2) {
-	printf("Killed\n");
+	if (buf[0] == 'O' && buf[1] == 'K') {
+	    printf("Killed\n");
+	} else {
+	    printf("Killing not allowed - living nodes in database.\n");
+	}
 	epmd_cleanup_exit(g,0);
     } else if (rval < 0) {
 	printf("epmd: failed to read answer from local epmd\n");

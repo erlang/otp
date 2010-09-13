@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,16 +17,13 @@
 %% %CopyrightEnd%
 %%
 
--define(EPMD_ALIVE, $a).
--define(EPMD_PORT_PLEASE, $p).
--define(EPMD_NAMES, $n).
--define(EPMD_DUMP, $d).
--define(EPMD_KILL, $k).
--define(EPMD_STOP, $s).
-
--define(EPMD_ALIVE_OK, $Y).
-
 -define(EPMD_ALIVE2_REQ, $x).
 -define(EPMD_PORT_PLEASE2_REQ, $z).
 -define(EPMD_ALIVE2_RESP, $y).
 -define(EPMD_PORT2_RESP, $w).
+-define(EPMD_NAMES, $n).
+
+%% Commands used only by interactive client
+-define(EPMD_DUMP, $d).
+-define(EPMD_KILL, $k).
+-define(EPMD_STOP, $s).

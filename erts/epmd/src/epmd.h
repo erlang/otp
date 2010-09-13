@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -17,21 +17,18 @@
  * %CopyrightEnd%
  */
 
-/* The port number is now defined in a makefile */
+/* The port number is defined in a makefile */
 
 /* Definitions of message codes */
 
-#define EPMD_ALIVE_REQ 'a'
-#define EPMD_ALIVE_OK_RESP 'Y'
-#define EPMD_PORT_REQ 'p'
+/* Registration and queries */
+#define EPMD_ALIVE2_REQ 'x'
+#define EPMD_PORT2_REQ 'z'
+#define EPMD_ALIVE2_RESP 'y'
+#define EPMD_PORT2_RESP 'w'
 #define EPMD_NAMES_REQ 'n'
+
+/* Interactive client command codes */
 #define EPMD_DUMP_REQ 'd'
 #define EPMD_KILL_REQ 'k'
 #define EPMD_STOP_REQ 's'
-
-/* New epmd messages */
-
-#define EPMD_ALIVE2_REQ 'x' /* 120 */
-#define EPMD_PORT2_REQ 'z' /* 122 */
-#define EPMD_ALIVE2_RESP 'y' /* 121 */
-#define EPMD_PORT2_RESP 'w' /* 119 */

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -90,70 +90,6 @@ int ei_epmd_connect_tmo(struct in_addr *inaddr, unsigned ms)
   }
 
   return sd;
-}
-
-/* get the given node's listen port using old epmd protocol */
-static int ei_epmd_r3_port (struct in_addr *addr, const char *alive,
-			    unsigned ms)
-{
-  char buf[EPMDBUF];
-  char *s = buf;
-  int len = strlen(alive) + 1;
-  int fd;
-  int port;
-  int res;
-#if defined(VXWORKS)
-  char ntoabuf[32];
-#endif
-  
-  if (len > sizeof(buf) - 3)
-  {
-      erl_errno = ERANGE;
-      return -1;
-  }
-
-  put16be(s,len);
-  put8(s,EI_EPMD_PORT_REQ);
-  strcpy(s,alive);
-
-  /* connect to epmd */
-  if ((fd = ei_epmd_connect_tmo(addr,ms)) < 0) 
-  {
-      /* ei_epmd_connect_tmo() sets erl_errno */
-      return -1;
-  }
-
-  if ((res = ei_write_fill_t(fd, buf, len+2, ms)) != len+2) {
-    closesocket(fd);
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    return -1;
-  }
-
-#ifdef VXWORKS
-  /* FIXME use union/macro for level. Correct level? */
-  if (ei_tracelevel > 2) {
-    inet_ntoa_b(*addr,ntoabuf);
-    EI_TRACE_CONN2("ei_epmd_r3_port",
-		   "-> PORT_REQ alive=%s ip=%s",alive,ntoabuf);
-  }
-#else
-  EI_TRACE_CONN2("ei_epmd_r3_port",
-		 "-> PORT_REQ alive=%s ip=%s",alive,inet_ntoa(*addr));
-#endif
-  
-  if ((res = ei_read_fill_t(fd, buf, 2, ms)) != 2) {
-    EI_TRACE_ERR0("ei_epmd_r3_port","<- CLOSE");
-    closesocket(fd);
-    erl_errno = (res == -2) ? ETIMEDOUT : EIO;
-    return -1;
-  }
-  closesocket(fd);
-  s = buf;
-  port = get16be(s);
-
-  EI_TRACE_CONN1("ei_epmd_r3_port","<- PORT_RESP port=%d",port);
-
-  return port;
 }
 
 static int ei_epmd_r4_port (struct in_addr *addr, const char *alive,
@@ -297,15 +233,6 @@ int ei_epmd_port_tmo (struct in_addr *addr, const char *alive, int *dist,
 {
   int i;
 
-  /* try the new one first, then the old one */
-  i = ei_epmd_r4_port(addr,alive,dist,ms);
-
-  /* -2: new protocol not understood */
-  if (i == -2) {
-    *dist = 0; 
-    i = ei_epmd_r3_port(addr,alive,ms);
-  }
-
-  return i;
+  return ei_epmd_r4_port(addr,alive,dist,ms);
 }
 
