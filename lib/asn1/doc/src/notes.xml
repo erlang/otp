@@ -31,6 +31,50 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.6.14.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Extension Addition Groups are now supported by the parser
+	    and in all backends.</p>
+          <p>
+	    Own Id: OTP-8598 Aux Id: seq-11557 </p>
+        </item>
+        <item>
+          <p>
+	    Extension Addition Groups are now supported in nested
+	    types within a SEQUENCE and CHOICE as well (missed that
+	    in previous fix)</p>
+          <p>
+	    Own Id: OTP-8797 Aux Id: seq-11557 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Bug in UNALIGNED PER regarding encoding and decoding of
+	    constrained numbers with a valuerange > 1024. (Thanks to
+	    Vincent de Phily)</p>
+          <p>
+	    Own Id: OTP-8779</p>
+        </item>
+        <item>
+          <p>
+	    Minor corrections in the User Guide.</p>
+          <p>
+	    Own Id: OTP-8829</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.14</title>
 
     <section><title>Improvements and New Features</title>

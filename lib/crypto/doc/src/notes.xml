@@ -30,6 +30,56 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Crypto dialyzer type error in md5_mac and sha_mac.</p>
+          <p>
+	    Own Id: OTP-8718</p>
+        </item>
+        <item>
+          <p>
+	    RC4 stream cipher didn't work. This since the new NIF
+	    implementation of <c>crypto:rc4_encrypt_with_state/2</c>
+	    introduced in <c>crypto-2.0</c> didn't return an updated
+	    state. (Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-8781</p>
+        </item>
+        <item>
+          <p>
+	    A number of memory leaks in the crypto NIF library have
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-8810</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added erlang:system_info(build_type) which makes it
+	    easier to chose drivers, NIF libraries, etc based on
+	    build type of the runtime system.</p>
+          <p>
+	    The NIF library for crypto can now be built for valgrind
+	    and/or debug as separate NIF libraries that will be
+	    automatically loaded if the runtime system has been built
+	    with a matching build type.</p>
+          <p>
+	    Own Id: OTP-8760</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.0</title>
 
     <section><title>Improvements and New Features</title>

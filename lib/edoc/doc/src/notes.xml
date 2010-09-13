@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Edoc now uses the new API functions to <c>inets</c>
+	    instead of the deprecated ones.</p>
+          <p>
+	    Own Id: OTP-8749</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.6.6</title>
 
     <section><title>Improvements and New Features</title>

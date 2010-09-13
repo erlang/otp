@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the DocBuilder
      application.</p>
 
+<section><title>Docbuilder 0.9.8.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed problem with a centered table that was
+	    transformed into an xml document which then produced
+	    mis-formatted html. </p>
+          <p>
+	    Own Id: OTP-8784</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Docbuilder 0.9.8.7</title>
 
     <section><title>Improvements and New Features</title>

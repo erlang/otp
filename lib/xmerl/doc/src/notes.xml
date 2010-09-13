@@ -31,6 +31,25 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed problem with hex entities in UTF-8 documents:
+	    When a document was in UTF-8 encoding, xmerl_scan
+	    improperly replaced hex entities by the UTF-8 bytes
+	    instead of returning the character, as it does with
+	    inline UTF-8 text and decimal entities. (Thanks to Paul
+	    Guyot.) </p>
+          <p>
+	    Own Id: OTP-8697</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.2.5</title>
 
     <section><title>Improvements and New Features</title>

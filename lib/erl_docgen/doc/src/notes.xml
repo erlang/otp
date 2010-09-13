@@ -29,7 +29,22 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the erl_docgen application.</p>
-    <section><title>erl_docgen 0.2.1</title>
+    <section><title>Erl_Docgen 0.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed the transformation from xml to html of the
+	    funcs block in comref pages. </p>
+          <p>
+	    Own Id: OTP-8792</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>erl_docgen 0.2.1</title>
 
 	<section><title>Fixed Bugs and Malfunctions</title>
 	  <list>

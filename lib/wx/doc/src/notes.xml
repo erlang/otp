@@ -31,6 +31,35 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.98.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix crash (segmentation fault) in callback handling.</p>
+          <p>
+	    Own Id: OTP-8766</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxSystemSettings module.</p>
+          <p>
+	    Add wxTreeCtrl:editLabel/2.</p>
+          <p>
+	    Own Id: OTP-8767</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.98.6</title>
 
     <section><title>Improvements and New Features</title>

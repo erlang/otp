@@ -30,7 +30,27 @@
   </header>
   <p>This document describes the changes made to the GS application.</p>
 
-  <section>
+  <section><title>GS 1.5.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for GS is updated with the warning that
+	    it should not be used in new applications. GS is planned
+	    to be deprecated soon and might be removed from the
+	    distribution already in the next major release (R15). For
+	    graphical applications we recommend the use of WX
+	    instead.</p>
+          <p>
+	    Own Id: OTP-8824</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>GS 1.5.10</title>
 
     <section>

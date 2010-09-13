@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Running HiPE-compiled Yecc parsers no longer results
+	    in a <c>function_clause</c> error.</p>
+          <p>
+	    Own Id: OTP-8771</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -35,7 +35,22 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Megaco.</p>
 
-  <section>
+  <section><title>Megaco 3.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixing auto-import issues.</p>
+          <p>
+	    Own Id: OTP-8842</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>Megaco 3.14.1.1</title>
 
     <p>Version 3.14.1.1 supports code replacement in runtime from/to

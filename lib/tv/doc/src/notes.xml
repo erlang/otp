@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the TV application.</p>
 
+<section><title>TV 2.1.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    With some window managers (e.g. stumpwm), <c>tv</c> would
+	    constantly restart while trying to open a table. (Thanks
+	    to Dmitriy Budashny.)</p>
+          <p>
+	    Own Id: OTP-8751</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TV 2.1.4.5</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

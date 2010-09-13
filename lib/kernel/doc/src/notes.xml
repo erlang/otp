@@ -30,6 +30,104 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.14.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed: inet:setopts(S, [{linger,{true,2}}]) returned
+	    {error,einval} for SCTP sockets. The inet_drv had a bug
+	    when checking the option size.</p>
+          <p>
+	    Own Id: OTP-8726 Aux Id: seq11617 </p>
+        </item>
+        <item>
+          <p>
+	    gen_udp:connect/3 was broken for SCTP enabled builds. It
+	    did not detect remote end errors as it should.</p>
+          <p>
+	    Own Id: OTP-8729</p>
+        </item>
+        <item>
+	    <p>reference() has been substituted for ref() in the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-8733</p>
+        </item>
+        <item>
+	    <p>A bug introduced in kernel-2.13.5.3 has been fixed. If
+	    running <c>net_kernel:set_net_ticktime/1</c> twice within
+	    the <c>TransitionPerod</c> the second call caused the
+	    net_kernel process to crash with a <c>badmatch</c>.</p>
+          <p>
+	    Own Id: OTP-8787 Aux Id: seq11657, OTP-8643 </p>
+        </item>
+        <item>
+          <p>
+	    inet:getsockopt for SCTP sctp_default_send_param had a
+	    bug to not initialize required feilds causing random
+	    answers. It is now corrected.</p>
+          <p>
+	    Own Id: OTP-8795 Aux Id: seq11655 </p>
+        </item>
+        <item>
+	    <p>For a socket in the HTTP packet mode, the return value
+	    from <c>gen_tcp:recv/2,3</c> if there is an error in the
+	    header will be <c>{ok,{http_error,String}}</c> instead of
+	    <c>{error,{http_error,String}}</c> to be consistent with
+	    <c>ssl:recv/2,3</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8831</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Even when configuring erlang with --enable-native-libs,
+	    the native code for modules loaded very early (such as
+	    lists) would not get loaded. This has been corrected.
+	    (Thanks to Paul Guyot.)</p>
+          <p>
+	    Own Id: OTP-8750</p>
+        </item>
+        <item>
+          <p>
+	    The undocumented function inet:ifget/2 has been improved
+	    to return interface hardware address (MAC) on platforms
+	    supporting getaddrinfo() (such as BSD unixes). Note it
+	    still does not work on all platforms for example not
+	    Windows nor Solaris, so the function is still
+	    undocumented.</p>
+          <p>
+	    Buffer overflow and field init bugs for inet:ifget/2 and
+	    inet:getservbyname/2 has also been fixed.</p>
+          <p>
+	    Thanks to Michael Santos.</p>
+          <p>
+	    Own Id: OTP-8816</p>
+        </item>
+        <item>
+          <p>
+	    As a usability improvement the 'inet6' option to
+	    functions gen_tcp:listen/2, gen_tcp:connect/3-4,
+	    gen_udp:open/2 and gen_sctp:open/1-2 is now implicit if
+	    the address argument or the 'ip' option contain an IPv6
+	    address (8-tuple).</p>
+          <p>
+	    Own Id: OTP-8822</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

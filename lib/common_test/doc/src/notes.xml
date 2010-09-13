@@ -32,6 +32,69 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returning {return_group_result,failed} from end_per_group
+	    in a group that is part of a sequence, did not cause the
+	    proceeding cases (or groups) to get skipped. This has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-8753 Aux Id: seq11644 </p>
+        </item>
+        <item>
+          <p>
+	    ct:install now works as the documentation describes.</p>
+          <p>
+	    Own Id: OTP-8818 Aux Id: seq-11666 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Common Test has been updated to handle start options and
+	    test specification terms for test case groups (and test
+	    cases in groups). Also, an option named 'label', has been
+	    added that associates the test run with a name that
+	    Common Test prints in the overview HTML logs.</p>
+          <p>
+	    Own Id: OTP-8725 Aux Id: OTP-8727 </p>
+        </item>
+        <item>
+          <p>
+	    Andrey Pampukha has been added to the AUTHORS file. Thank
+	    you Andrey for your work on configuration data handling,
+	    Large Scale Testing improvements, and other useful
+	    updates and fixes.</p>
+          <p>
+	    Own Id: OTP-8803</p>
+        </item>
+        <item>
+          <p>
+	    The Configuration Data chapter in the User's Guide has
+	    been updated.</p>
+          <p>
+	    Own Id: OTP-8804</p>
+        </item>
+        <item>
+          <p>
+	    Milliseconds are now included in timestamps in Common
+	    Test log entries. (Thanks to Tomas Johansson.)</p>
+          <p>
+	    Own Id: OTP-8808</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,48 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returning {return_group_result,failed} from end_per_group
+	    in a group that is part of a sequence, did not cause the
+	    proceeding cases (or groups) to get skipped. This has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-8753 Aux Id: seq11644 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Common Test has been updated to handle start options and
+	    test specification terms for test case groups (and test
+	    cases in groups). Also, an option named 'label', has been
+	    added that associates the test run with a name that
+	    Common Test prints in the overview HTML logs.</p>
+          <p>
+	    Own Id: OTP-8725 Aux Id: OTP-8727 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to skip all tests in a suite, or a
+	    group, by returning {fail,Reason} from the end_tc/5
+	    framework function for init_per_suite, or init_per_group.</p>
+          <p>
+	    Own Id: OTP-8805 Aux Id: seq11664 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -38,7 +38,22 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.4.14</title>
+  <section><title>Mnesia 4.4.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.14</title>
 
     <section><title>Improvements and New Features</title>
       <list>

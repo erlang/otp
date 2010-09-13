@@ -30,6 +30,29 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.7.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The HiPE compiler could crash when compiling certain
+	    modules (the bug has been latent, and been exposed by new
+	    optimizations introduced in the BEAM compiler in R14A).
+	    (Thanks to Mikael Pettersson.)</p>
+          <p>
+	    Own Id: OTP-8800</p>
+        </item>
+        <item>
+          <p>
+	    hipe:load/1 was broken. (Thanks to Paul Guyot.)</p>
+          <p>
+	    Own Id: OTP-8802</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.7.6</title>
 
     <section><title>Improvements and New Features</title>

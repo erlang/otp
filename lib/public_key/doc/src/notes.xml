@@ -34,6 +34,47 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handling of unknown CA certificates was changed in ssl
+	    and public_key to work as intended.</p>
+          <p>
+	    Own Id: OTP-8788</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Revise the public_key API - Cleaned up and documented the
+	    public_key API to make it useful for general use, also
+	    changed ssl to use the new API.</p>
+          <p>
+	    Own Id: OTP-8722</p>
+        </item>
+        <item>
+          <p>
+	    Added the functionality so that the verification fun will
+	    be called when a certificate is considered valid by the
+	    path validation to allow access to each certificate in
+	    the path to the user application. Also try to verify
+	    subject-AltName, if unable to verify it let the
+	    application verify it.</p>
+          <p>
+	    Own Id: OTP-8825</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

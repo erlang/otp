@@ -32,7 +32,54 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.4</title>
+  <section><title>Inets 5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    [httpc] If a request times out (not connect timeout), the
+	    handler process exited (normal) but neglected to inform
+	    the manager process. For this reason, the manager did not
+	    clean up the request table., resulting in a memory leak.
+	    Also the manager did not create a monitor for the
+	    handler, so in an unforseen handler crash, this could
+	    also create a memory leak.</p>
+          <p>
+	    Own Id: OTP-8739</p>
+        </item>
+        <item>
+          <p>
+	    The service tftp was spelled wrong in documentation and
+	    in some parts of the code. It should be tftp.</p>
+          <p>
+	    Own Id: OTP-8741 Aux Id: seq11635 </p>
+        </item>
+        <item>
+          <p>
+	    [httpc] Replaced the old http client api module (http)
+	    with the new, httpc in the users guide.</p>
+          <p>
+	    Own Id: OTP-8742</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.4</title>
 
     <section><title>Improvements and New Features</title>
 <!--

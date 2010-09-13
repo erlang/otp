@@ -30,6 +30,142 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.17.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>reference() has been substituted for ref() in the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-8733</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ms_transform now warns if the fun head shadows
+	    surrounding variables (just like the warnings you would
+	    get for an ordinary fun in the same context).</p>
+          <p>
+	    Own Id: OTP-6759</p>
+        </item>
+        <item>
+          <p>
+	    ets:select_reverse/{1,2,3} are now documented.</p>
+          <p>
+	    Own Id: OTP-7863</p>
+        </item>
+        <item>
+          <p>
+	    Large parts of the <c>ethread</c> library have been
+	    rewritten. The <c>ethread</c> library is an Erlang
+	    runtime system internal, portable thread library used by
+	    the runtime system itself.</p>
+          <p>
+	    Most notable improvement is a reader optimized rwlock
+	    implementation which dramatically improve the performance
+	    of read-lock/read-unlock operations on multi processor
+	    systems by avoiding ping-ponging of the rwlock cache
+	    lines. The reader optimized rwlock implementation is used
+	    by miscellaneous rwlocks in the runtime system that are
+	    known to be read-locked frequently, and can be enabled on
+	    ETS tables by passing the <seealso
+	    marker="stdlib:ets#new_2_read_concurrency">{read_concurrency,
+	    true}</seealso> option upon table creation. See the
+	    documentation of <seealso
+	    marker="stdlib:ets#new/2">ets:new/2</seealso> for more
+	    information. The reader optimized rwlock implementation
+	    can be fine tuned when starting the runtime system. For
+	    more information, see the documentation of the <seealso
+	    marker="erts:erl#+rg">+rg</seealso> command line argument
+	    of <c>erl</c>.</p>
+          <p>
+	    There is also a new implementation of rwlocks that is not
+	    optimized for readers. Both implementations interleaves
+	    readers and writers during contention as opposed to,
+	    e.g., the NPTL (Linux) pthread rwlock implementation
+	    which use either a reader or writer preferred strategy.
+	    The reader/writer preferred strategy is problematic since
+	    it starves threads doing the non-preferred operation.</p>
+          <p>
+	    The new rwlock implementations in general performs better
+	    in ERTS than common pthread implementations. However, in
+	    some extremely heavily contended cases this is not the
+	    case. Such heavy contention can more or less only appear
+	    on ETS tables. This when multiple processes do very large
+	    amounts of write locked operations simultaneously on the
+	    same table. Such use of ETS is bad regardless of rwlock
+	    implementation, will never scale, and is something we
+	    strongly advise against.</p>
+          <p>
+	    The new rwlock implementations depend on atomic
+	    operations. If no native atomic implementation is found,
+	    a fallback solution will be used. Using the fallback
+	    implies a performance degradation. That is, it is more
+	    important now than before to build OTP with a native
+	    atomic implementation.</p>
+          <p>
+	    The <c>ethread</c> library contains native atomic
+	    implementations for, x86 (32 and 64 bit), powerpc (32
+	    bit), sparc V9 (32 and 64 bit), and tilera (32 bit). On
+	    other hardware gcc's builtin support for atomic memory
+	    access will be used if such exists. If no such support is
+	    found, <c>configure</c> will warn about no atomic
+	    implementation available.</p>
+          <p>
+	    The <c>ethread</c> library can now also use the
+	    <c>libatomic_ops</c> library for atomic memory accesses.
+	    This makes it possible for the Erlang runtime system to
+	    utilize optimized native atomic operations on more
+	    platforms than before. If <c>configure</c> warns about no
+	    atomic implementation available, try using the
+	    <c>libatomic_ops</c> library. Use the <seealso
+	    marker="doc/installation_guide:INSTALL#How-to-Build-and-Install-ErlangOTP_A-Closer-Look-at-the-individual-Steps_Configuring">--with-libatomic_ops=PATH</seealso>
+	    <c>configure</c> command line argument when specifying
+	    where the <c>libatomic_ops</c> installation is located.
+	    The <c>libatomic_ops</c> library can be downloaded from:
+	    <url
+	    href="http://www.hpl.hp.com/research/linux/atomic_ops/">http://www.hpl.hp.com/research/linux/atomic_ops/</url></p>
+          <p>
+	    The changed API of the <c>ethread</c> library has also
+	    caused modifications in the Erlang runtime system.
+	    Preparations for the to come "delayed deallocation"
+	    feature has also been done since it depends on the
+	    <c>ethread</c> library.</p>
+          <p>
+	    <em>Note</em>: When building for x86, the <c>ethread</c>
+	    library will now use instructions that first appeared on
+	    the pentium 4 processor. If you want the runtime system
+	    to be compatible with older processors (back to 486) you
+	    need to pass the <seealso
+	    marker="doc/installation_guide:INSTALL#How-to-Build-and-Install-ErlangOTP_A-Closer-Look-at-the-individual-Steps_Configuring">--enable-ethread-pre-pentium4-compatibility</seealso>
+	    <c>configure</c> command line argument when configuring
+	    the system.</p>
+          <p>
+	    Own Id: OTP-8544</p>
+        </item>
+        <item>
+          <p>
+	    Some Built In Functions (BIFs) from the module erlang was
+	    never made autoimported for backward compatibility
+	    reasons. As local functions now override autoimports, new
+	    autoimports is no longer a problem, why the following
+	    BIFs are finally made autoimported: monitor/2, monitor/3,
+	    demonitor/2, demonitor/3, error/1, error/2,
+	    integer_to_list/2, list_to_integer/2.</p>
+          <p>
+	    Own Id: OTP-8763</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.17</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

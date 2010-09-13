@@ -32,7 +32,22 @@
     <file>notes.xml</file>
   </header>
 
-  <section>
+  <section><title>Orber 3.6.17</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
     <title>Orber 3.6.16</title>
     <section>
       <title>Improvements and New Features</title>

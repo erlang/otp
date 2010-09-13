@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>cover</c> will now show ampersand characters in the
+	    source code correctly. (Thanks to Tom Moertel.)</p>
+          <p>
+	    Own Id: OTP-8776</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -29,7 +29,37 @@
     <file>notes.xml</file>
   </header>
 
- <section><title>Ssh 2.0</title>
+ <section><title>Ssh 2.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    SSH in some cases terminated channels with reason normal
+	    when it should have been shutdown.</p>
+          <p>
+	    Own Id: OTP-8714</p>
+        </item>
+        <item>
+          <p>
+	    SSH in some cases generated a crash report when a channel
+	    was closed in a normal way.</p>
+          <p>
+	    Own Id: OTP-8735 Aux Id: seq11615 </p>
+        </item>
+        <item>
+          <p>
+	    The processes ssh_subsystem_sup and one ssh_channel_sup
+	    was not terminated when a connection was closed.</p>
+          <p>
+	    Own Id: OTP-8807</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 2.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

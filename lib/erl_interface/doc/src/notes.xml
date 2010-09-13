@@ -30,6 +30,60 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed unused variable in <c>ei_decode_term.c</c>.</p>
+          <p>
+	    Fixed faulty deallocation in <c>erl_call</c>.</p>
+          <p>
+	    Own Id: OTP-8748</p>
+        </item>
+        <item>
+	    <p>ei_connect: correct man page examples (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8813</p>
+        </item>
+        <item>
+	    <p>ei: prevent overflow in <c>ei_connect_init</c> and
+	    <c>ei_xconnect</c></p> <p>Add length check of the buffer
+	    before copying. (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8814</p>
+        </item>
+        <item>
+	    <p>Remove DECLSPEC feature which fails on Windows Vista
+	    and use the fallback implementation instead.</p>
+          <p>
+	    Own Id: OTP-8826</p>
+        </item>
+        <item>
+	    <p>erl_call: fix multiple buffer overflows (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8827</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fix incorrect writev iovec buffer handling in
+	    <c>erl_interface</c> (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-8837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7</title>
 
     <section><title>Improvements and New Features</title>

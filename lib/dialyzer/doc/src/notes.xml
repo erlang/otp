@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+	    Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.3.0</title>
 
     <section><title>Improvements and New Features</title>

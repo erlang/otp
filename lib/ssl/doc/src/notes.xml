@@ -31,7 +31,116 @@
   <p>This document describes the changes made to the SSL application.
     </p>
 
-    <section><title>SSL 4.0</title>
+    <section><title>SSL 4.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The server now verifies the client certificate verify
+	    message correctly, instead of causing a case-clause.</p>
+          <p>
+	    Own Id: OTP-8721</p>
+        </item>
+        <item>
+          <p>
+	    The client hello message now always include ALL available
+	    cipher suites (or those specified by the ciphers option).
+	    Previous implementation would filter them based on the
+	    client certificate key usage extension (such filtering
+	    only makes sense for the server certificate).</p>
+          <p>
+	    Own Id: OTP-8772</p>
+        </item>
+        <item>
+          <p>
+	    Fixed handling of the option {mode, list} that was broken
+	    for some packet types for instance line.</p>
+          <p>
+	    Own Id: OTP-8785</p>
+        </item>
+        <item>
+          <p>
+	    Empty packets were not delivered to the client.</p>
+          <p>
+	    Own Id: OTP-8790</p>
+        </item>
+        <item>
+	    <p> Building in a source tree without prebuilt platform
+	    independent build results failed on the SSL examples
+	    when: </p> <list><item> cross building. This has been
+	    solved by not building the SSL examples during a cross
+	    build. </item><item> building on Windows. </item></list>
+          <p>
+	    Own Id: OTP-8791</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a handshake error which occurred on some ssl
+	    implementations.</p>
+          <p>
+	    Own Id: OTP-8793</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Revise the public_key API - Cleaned up and documented the
+	    public_key API to make it useful for general use, also
+	    changed ssl to use the new API.</p>
+          <p>
+	    Own Id: OTP-8722</p>
+        </item>
+        <item>
+          <p>
+	    Added support for inputing certificates and keys directly
+	    in DER format these options will override the pem-file
+	    options if specified.</p>
+          <p>
+	    Own Id: OTP-8723</p>
+        </item>
+        <item>
+          <p>
+	    To gain interoperability ssl will not check for padding
+	    errors when using TLS 1.0. It is first in TLS 1.1 that
+	    checking the padding is an requirement.</p>
+          <p>
+	    Own Id: OTP-8740</p>
+        </item>
+        <item>
+          <p>
+	    Changed the semantics of the verify_fun option in the
+	    ssl-application so that it takes care of both application
+	    handling of path validation errors and verification of
+	    application specific extensions. This means that it is
+	    now possible for the server application in verify_peer
+	    mode to handle path validation errors. This change moved
+	    some functionality earlier in ssl to the public_key
+	    application.</p>
+          <p>
+	    Own Id: OTP-8770</p>
+        </item>
+        <item>
+          <p>
+	    Added the functionality so that the verification fun will
+	    be called when a certificate is considered valid by the
+	    path validation to allow access to each certificate in
+	    the path to the user application. Also try to verify
+	    subject-AltName, if unable to verify it let the
+	    application verify it.</p>
+          <p>
+	    Own Id: OTP-8825</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.0</title>
     
     <section><title>Improvements and New Features</title>
     <list>

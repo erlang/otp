@@ -31,7 +31,23 @@
   <p>This document describes the changes made to the Inviso application.</p>
 
 
-  <section><title>Inviso 0.6.1</title>
+  <section><title>Inviso 0.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The obsolete guards has now been changed to the new guard
+	    interface.</p>
+          <p>
+	    Own Id: OTP-8747</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inviso 0.6.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
