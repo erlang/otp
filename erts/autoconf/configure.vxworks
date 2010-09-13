@@ -101,7 +101,6 @@ epmd_dir=${ERL_TOP}/erts/epmd/src
 os_mon_dir=${ERL_TOP}/lib/os_mon/c_src
 orber_dir=${ERL_TOP}/lib/orber/c_src
 ic_dir=${ERL_TOP}/lib/ic/c_src
-asn1_dir=${ERL_TOP}/lib/asn1/c_src
 internal_tools_dir=${ERL_TOP}
 libdir=${ERL_TOP}/lib
 tsdir=$libdir/test_server/src
@@ -122,7 +121,6 @@ CONFIG_FILES="${ERL_TOP}/erts/emulator/$host/Makefile
 	    $os_mon_dir/$host/Makefile
 	    $zlibdir/$host/Makefile
 	    $ic_dir/$host/Makefile
-	    $asn1_dir/$host/Makefile
 	    $runtime_tools_dir/$host/Makefile
 	    $tools_dir/$host/Makefile
 	    $orber_dir/$host/Makefile"

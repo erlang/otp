@@ -58,7 +58,11 @@ ERTS_INCL = -I$(ERL_TOP)/erts/include \
 ifeq ($(TARGET),win32)
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal_r$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
 else
+ifeq ($(findstring vxworks,$(TARGET)),vxworks)
+ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
+else
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ -lm
+endif
 endif
 
 CC      = @CC@
