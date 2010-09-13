@@ -22,134 +22,43 @@
 %% ----- U p g r a d e -------------------------------------------------------
 
  [
+  {"4.17.1", 
+   [
+    {load_module, snmp_community_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_framework_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_generic, soft_purge, soft_purge, []},
+    {load_module, snmp_notification_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_standard_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_user_based_sm_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []},
+    {load_module, snmpa_conf, soft_purge, soft_purge, []},
+    {update,      snmpa_target_cache, soft, soft_purge, soft_purge, []},
+    {load_module, snmpa_usm, soft_purge, soft_purge, []},
+    {load_module, snmpm, soft_purge, soft_purge, []},
+    {load_module, snmpm_conf, soft_purge, soft_purge, []},
+    {update,      snmpm_config, soft, soft_purge, soft_purge, []},
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}
+   ]
+  },
   {"4.17", 
    [
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.16.2", 
-   [
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
+    {load_module, snmp_community_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_framework_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_generic, soft_purge, soft_purge, []},
+    {load_module, snmp_notification_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_standard_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_user_based_sm_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []},
+    {load_module, snmpa_conf, soft_purge, soft_purge, []},
+    {update,      snmpa_target_cache, soft, soft_purge, soft_purge, []},
     {load_module, snmpa_usm, soft_purge, soft_purge, []},
-    {update, snmpa_agent, soft, soft_purge, soft_purge, []},
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.16.1", 
-   [
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []},
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
-    {update,      snmpm_server, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.16", 
-   [
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]}, 
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []},
-    {update,      snmpm_net_if, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_server, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.15",   
-   [
-    {load_module, snmp_config, soft_purge, soft_purge, []},
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmp_log, snmpa_agent]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_net_if, {advanced, upgrade_from_pre_4_16}, 
-     soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
-    {update,      snmpm_net_if, {advanced, upgrade_from_pre_4_16}, 
-     soft_purge, soft_purge, [snmpm_config, snmp_log]}, 
+    {load_module, snmpm, soft_purge, soft_purge, []},
+    {load_module, snmpm_conf, soft_purge, soft_purge, []},
     {update,      snmpm_config, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_server, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.14",   
-   [
-    {load_module, snmp_config, soft_purge, soft_purge, []},
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmp_log, snmpa_agent]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update, snmpa_net_if, {advanced, upgrade_from_pre_4_16}, 
-     soft_purge, soft_purge, [snmp_log, snmpa_agent]}, 
-    {update, snmpa_mib, soft, soft_purge, soft_purge, []},
-    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []},
-    {load_module, snmpm_user, soft_purge, soft_purge, []}, 
-    {load_module, snmpm_user_default, soft_purge, soft_purge, [snmpm_user]}, 
-    {update, snmpm_net_if, {advanced, upgrade_from_pre_4_16}, 
-     soft_purge, soft_purge, [snmpm_config, snmp_log]}, 
-    {update,      snmpm_config, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_server, soft, soft_purge, soft_purge,  
-     [snmpm_user_default]}
-   ]
-  }, 
-  {"4.13.5",   
-   [
-    {load_module, snmp_config, soft_purge, soft_purge, []},
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmp_log, snmpa_agent]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mib_data, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update, snmpa_net_if, {advanced, upgrade_from_pre_4_16}, 
-     soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
-    {update, snmpa_mib, soft, soft_purge, soft_purge, [snmpa_mib_data]},
-    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []},
-    {load_module, snmpm_user, soft_purge, soft_purge, []}, 
-    {load_module, snmpm_user_default, soft_purge, soft_purge, [snmpm_user]}, 
-    {update, snmpm_net_if, {advanced, upgrade_from_pre_4_14}, 
-     soft_purge, soft_purge, [snmpm_config, snmp_log]}, 
-    {update, snmpm_config, soft, soft_purge, soft_purge, []},
-    {update, snmpm_server, soft, soft_purge, soft_purge, [snmpm_user_default]},
-    {add_module, snmpm_net_if_filter},
-    {add_module, snmpm_network_interface_filter}
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_net_if, soft_purge, soft_purge, []}
    ]
   }
  ], 
@@ -157,136 +66,43 @@
 %% ------D o w n g r a d e ---------------------------------------------------
 
  [
+  {"4.17.1", 
+   [
+    {load_module, snmp_community_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_framework_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_generic, soft_purge, soft_purge, []},
+    {load_module, snmp_notification_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_standard_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_user_based_sm_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []},
+    {load_module, snmpa_conf, soft_purge, soft_purge, []},
+    {update,      snmpa_target_cache, soft, soft_purge, soft_purge, []},
+    {load_module, snmpa_usm, soft_purge, soft_purge, []},
+    {load_module, snmpm, soft_purge, soft_purge, []},
+    {load_module, snmpm_conf, soft_purge, soft_purge, []},
+    {update,      snmpm_config, soft, soft_purge, soft_purge, []},
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"4.17", 
    [
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.16.2", 
-   [
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
+    {load_module, snmp_community_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_framework_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_generic, soft_purge, soft_purge, []},
+    {load_module, snmp_notification_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_standard_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_user_based_sm_mib, soft_purge, soft_purge, []},
+    {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []},
+    {load_module, snmpa_conf, soft_purge, soft_purge, []},
+    {update,      snmpa_target_cache, soft, soft_purge, soft_purge, []},
     {load_module, snmpa_usm, soft_purge, soft_purge, []},
-    {update, snmpa_agent, soft, soft_purge, soft_purge, []},
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.16.1", 
-   [
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []},
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
-    {update,      snmpm_server, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.16", 
-   [
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-    {load_module, snmpa_net_if, soft_purge, soft_purge, []},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []},
-    {update,      snmpm_net_if, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_server, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.15",   
-   [
-    {load_module, snmp_config, soft_purge, soft_purge, []},
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent, snmp_log]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_net_if, {advanced, downgrade_to_pre_4_16}, 
-     soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
-    {update,      snmpm_net_if, {advanced, downgrade_to_pre_4_16}, 
-     soft_purge, soft_purge, [snmpm_config, snmp_log]}, 
+    {load_module, snmpm, soft_purge, soft_purge, []},
+    {load_module, snmpm_conf, soft_purge, soft_purge, []},
     {update,      snmpm_config, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_server, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"4.14",   
-   [
-    {load_module, snmp_config, soft_purge, soft_purge, []},
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmpa_agent, snmp_log]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update,      snmpa_net_if, {advanced, downgrade_to_pre_4_16}, 
-     soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []},
-    {load_module, snmpm_user, soft_purge, soft_purge, []}, 
-    {load_module, snmpm_user_default, soft_purge, soft_purge, [snmpm_user]}, 
-    {update,      snmpm_net_if, {advanced, downgrade_to_pre_4_16}, 
-     soft_purge, soft_purge, [snmpm_config, snmp_log]}, 
-    {update,      snmpm_config, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_server, soft, soft_purge, soft_purge, 
-     [snmpm_user_default]}
-   ]
-  }, 
-  {"4.13.5",
-   [
-    {load_module, snmp_config, soft_purge, soft_purge, []},
-    {load_module, snmp_log, soft_purge, soft_purge, []},
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}, 
-    {load_module, snmp_usm, soft_purge, soft_purge, []},
-
-    {load_module, snmpa, soft_purge, soft_purge, [snmp_log, snmpa_agent]},
-    {load_module, snmpa_general_db, soft_purge, soft_purge, []},
-    {load_module, snmpa_mib_data, soft_purge, soft_purge, []},
-    {load_module, snmpa_mpd, soft_purge, soft_purge, [snmpa_usm]},
-    {load_module, snmpa_usm, soft_purge, soft_purge, [snmp_usm]},
-    {update, snmpa_net_if, {advanced, downgrade_to_pre_4_16}, 
-     soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
-    {update,      snmpa_mib, soft, soft_purge, soft_purge, [snmpa_mib_data]}, 
-    {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]},
-
-    {load_module, snmpm_mpd, soft_purge, soft_purge, []},
-    {load_module, snmpm_user, soft_purge, soft_purge, []}, 
-    {load_module, snmpm_user_default, soft_purge, soft_purge, [snmpm_user]}, 
-    {update, snmpm_net_if, {advanced, downgrade_to_pre_4_14}, 
-     soft_purge, soft_purge, [snmpm_config, snmp_log]}, 
-    {update, snmpm_config, soft, soft_purge, soft_purge, []},
-    {update, snmpm_server, soft, soft_purge, soft_purge, [snmpm_user_default]},
-
-    {remove, {snmpm_net_if_filter, soft_purge, brutal_purge}},
-    {remove, {snmpm_network_interface_filter, soft_purge, brutal_purge}}
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_net_if, soft_purge, soft_purge, []}
    ]
   }
  ]
