@@ -31,8 +31,10 @@
 -define(DEFAULT_VERIFYFUN,
 	{fun(_,{bad_cert, _} = Reason, _) ->
 		 {fail, Reason};
-	   (_,{extension, _}, UserState) ->
-		 {unknown, UserState}
+	    (_,{extension, _}, UserState) ->
+		 {unknown, UserState};
+	    (_, valid, UserState) ->
+		 {valid, UserState}
 	 end, []}).
 
 -record(path_validation_state, {

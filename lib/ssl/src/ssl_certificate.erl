@@ -34,7 +34,6 @@
 -export([trusted_cert_and_path/2,
 	 certificate_chain/2, 
 	 file_to_certificats/1,
-	 %validate_extensions/6,
 	 validate_extension/3,
 	 is_valid_extkey_usage/2,
 	 is_valid_key_usage/2,
@@ -118,8 +117,7 @@ file_to_certificats(File) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate_extension(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-					      extnValue = KeyUse,
-					      critical = true}}, Role) ->
+					      extnValue = KeyUse}}, Role) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
 	    {valid, Role};
@@ -128,8 +126,10 @@ validate_extension(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
     end;
 validate_extension(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
-validate_extension(_, _, Role) ->
-    {unknown, Role}.
+validate_extension(_, {extension, _}, Role) ->
+    {unknown, Role};
+validate_extension(_, valid, Role) ->
+    {valid, Role}.
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().

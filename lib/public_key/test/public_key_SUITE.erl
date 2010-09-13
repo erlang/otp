@@ -377,7 +377,9 @@ pkix_path_validation(Config) when is_list(Config) ->
 			      (_,{bad_cert, _} = Reason, _) ->
 				   {fail, Reason};
 			      (_,{extension, _}, UserState) ->
-				   {unknown, UserState}
+				   {unknown, UserState};
+			      (_, valid, UserState) ->
+				   {valid, UserState}
 			   end, []},
     {ok, _} =
 	public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4],
@@ -392,7 +394,9 @@ pkix_path_validation(Config) when is_list(Config) ->
 	    (_,{bad_cert, _} = Reason, _) ->
 		 {fail, Reason};
 	    (_,{extension, _}, UserState) ->
-		 {unknown, UserState}
+		 {unknown, UserState};
+	    (_, valid, UserState) ->
+		 {valid, UserState}
 	 end, []},
 
     {ok, _} =

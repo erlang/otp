@@ -29,7 +29,7 @@
 	 validate_revoked_status/3, validate_extensions/4,
 	 normalize_general_name/1, digest_type/1, is_self_signed/1,
 	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1,
-	 verify_data/1]).
+	 verify_data/1, verify_fun/4]).
 
 -define(NULL, 0).
  
@@ -288,6 +288,35 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 							Extensions}}) ->
     is_fixed_dh_cert(SubjectPublicKeyInfo, extensions_list(Extensions)). 
 
+
+%%--------------------------------------------------------------------
+-spec verify_fun(#'OTPTBSCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
+		 valid, term(), fun()) -> term().
+%%
+%% Description: Gives the user application the opportunity handle path
+%% validation errors and unknown extensions and optional do other
+%% things with a validated certificate.
+%% --------------------------------------------------------------------
+verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
+    case VerifyFun(Otpcert, Result, UserState0) of
+	{valid,UserState} ->
+	    UserState;
+	{fail, Reason} ->
+	    case Result of
+		{bad_cert, _} ->
+		    throw(Result);
+		_ ->
+		    throw({bad_cert, Reason})
+	    end;
+	{unknown, UserState} ->
+	    case Result of
+		{extension, #'Extension'{critical = true}} ->
+		    throw({bad_cert, unknown_critical_extension});
+		_ ->
+		  UserState
+	    end
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -315,25 +344,6 @@ extensions_list(asn1_NOVALUE) ->
 extensions_list(Extensions) ->
     Extensions.
 
-verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
-    case VerifyFun(Otpcert, Result, UserState0) of
-	{valid,UserState} ->
-	    UserState;
-	{fail, Reason} ->
-	    case Result of
-		{bad_cert, _} ->
-		    throw(Result);
-		_ ->
-		    throw({bad_cert, Reason})
-	    end;
-	{unknown, UserState} ->
-	    case Result of
-		{extension, #'Extension'{critical = true}} ->
-		    throw({bad_cert, unknown_critical_extension});
-		_ ->
-		  UserState
-	    end
-    end.
 
 extract_verify_data(OtpCert, DerCert) ->
     {0, Signature} = OtpCert#'OTPCertificate'.signature,
@@ -538,41 +548,20 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-keyUsage',
     end;
 
 validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-subjectAltName',
-					   extnValue = Names} | Rest],
+					   extnValue = Names,
+					   critical = true} = Ext | Rest],
 		    ValidationState, ExistBasicCon,
 		    SelfSigned, UserState0, VerifyFun)  ->
     case validate_subject_alt_names(Names) of
-	true when Names =/= [] ->
+	true  ->
 	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState0, VerifyFun);
-	_ ->
-	    UserState = verify_fun(OtpCert, {bad_cert, invalid_subject_altname},
+	false ->
+	    UserState = verify_fun(OtpCert, {extension, Ext},
 				   UserState0, VerifyFun),
 	    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
 				SelfSigned, UserState, VerifyFun)
     end;
-
-%% This extension SHOULD NOT be marked critical. Its value
-%% does not have to be further validated at this point.
-validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-issuerAltName',
-					   extnValue = _} | Rest],
-		    ValidationState, ExistBasicCon,
-		    SelfSigned, UserState, VerifyFun) ->
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
-
-%% This extension MUST NOT be marked critical.Its value
-%% does not have to be further validated at this point.
-validate_extensions(OtpCert, [#'Extension'{extnID = Id,
-					   extnValue = _,
-					   critical = false} | Rest],
-		    ValidationState, 
-		    ExistBasicCon, SelfSigned,
-		    UserState, VerifyFun)
-  when Id == ?'id-ce-subjectKeyIdentifier'; 
-       Id == ?'id-ce-authorityKeyIdentifier'->
-    validate_extensions(OtpCert, Rest, ValidationState, ExistBasicCon,
-			SelfSigned, UserState, VerifyFun);
 
 validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
 				  extnValue = NameConst} | Rest], 
@@ -586,7 +575,6 @@ validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-nameConstraints',
     
     validate_extensions(OtpCert, Rest, NewValidationState, ExistBasicCon,
 			SelfSigned, UserState, VerifyFun);
-
 
 validate_extensions(OtpCert, [#'Extension'{extnID = ?'id-ce-certificatePolicies',
 					   critical = true} = Ext| Rest], ValidationState,
@@ -648,13 +636,13 @@ is_valid_key_usage(KeyUse, Use) ->
     lists:member(Use, KeyUse).
  
 validate_subject_alt_names([]) ->
-    true;
+    false;
 validate_subject_alt_names([AltName | Rest]) ->
     case is_valid_subject_alt_name(AltName) of
 	true ->
-	    validate_subject_alt_names(Rest);
+	    true;
 	false ->
-	    false
+	    validate_subject_alt_names(Rest)
     end.
 
 is_valid_subject_alt_name({Name, Value}) when Name == rfc822Name;
@@ -682,6 +670,8 @@ is_valid_subject_alt_name({directoryName, _}) ->
     true;
 is_valid_subject_alt_name({_, [_|_]}) ->
     true;
+is_valid_subject_alt_name({otherName, #'AnotherName'{}}) ->
+    false;
 is_valid_subject_alt_name({_, _}) ->
     false.
 

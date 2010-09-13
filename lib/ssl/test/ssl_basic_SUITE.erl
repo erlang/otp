@@ -2860,7 +2860,9 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
     FunAndState =  {fun(_,{bad_cert, _} = Reason, _) ->
 			    {fail, Reason};
 		       (_,{extension, _}, UserState) ->
-			    {unknown, UserState}
+			    {unknown, UserState};
+		       (_, valid, UserState) ->
+			    {valid, UserState}
 		    end, []},
 
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
@@ -2926,7 +2928,9 @@ unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
 		       (_,{bad_cert, _} = Reason, _) ->
 			    {fail, Reason};
 		       (_,{extension, _}, UserState) ->
-			    {unknown, UserState}
+			    {unknown, UserState};
+		       (_, valid, UserState) ->
+			    {valid, UserState}
 		    end, []},
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
@@ -3095,7 +3099,7 @@ session_cache_process_mnesia(suite) ->
 session_cache_process_mnesia(Config) when is_list(Config) -> 
     session_cache_process(mnesia,Config).
 
-session_cache_process(Type,Config) when is_list(Config) -> 
+session_cache_process(_Type,Config) when is_list(Config) ->
     reuse_session(Config).
 
 init([Type]) ->
