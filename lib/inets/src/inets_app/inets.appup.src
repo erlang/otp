@@ -18,74 +18,14 @@
 
 {"%VSN%",
  [
-  {"5.3.3",
+  {"5.4",
    [
     {restart_application, inets}
    ]
-  }, 
-  {"5.3.2",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.3.1",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.2",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.2",
-   [
-    {restart_application, inets}
-   ]
-  }     
+  } 
  ],
  [	
-  {"5.3.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.3.2",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.3.1",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.2",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.3",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.1.2",
+  {"5.4",
    [
     {restart_application, inets}
    ]
