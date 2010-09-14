@@ -770,6 +770,11 @@ find(Mod, Name, TCs, [TC | Gs], Known, Defs, false) when is_atom(TC) ->
 find(Mod, Name, TCs, [TC | Gs], Known, Defs, true) when is_atom(TC) ->
     [TC | find(Mod, Name, TCs, Gs, Known, Defs, true)];
 
+find(Mod, Name, TCs, [{ExternalTC, Case} = TC | Gs], Known, Defs, true)
+  when is_atom(ExternalTC),
+       is_atom(Case) ->
+    [TC | find(Mod, Name, TCs, Gs, Known, Defs, true)];
+
 find(Mod, _Name, _TCs, [BadTerm | _Gs], Known, _Defs, _Found) ->
     Where = if length(Known) == 0 ->
 		    atom_to_list(Mod)++":groups/0";
