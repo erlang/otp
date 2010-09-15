@@ -1481,7 +1481,23 @@ Other commands:
 				    erlang-font-lock-keywords-3 
 				    erlang-font-lock-keywords-4)
 	 nil nil ((?_ . "w")) erlang-beginning-of-clause
-	 (font-lock-mark-block-function . erlang-mark-clause))))
+	 (font-lock-mark-block-function . erlang-mark-clause)
+         (font-lock-syntactic-keywords
+          ;; A dollar sign right before the double quote that ends a
+          ;; string is not a character escape.
+          ;;
+          ;; And a "string" has with a double quote not escaped by a
+          ;; dollar sign, any number of non-backslash non-newline
+          ;; characters or escaped backslashes, a dollar sign
+          ;; (otherwise we wouldn't care) and a double quote.  This
+          ;; doesn't match multi-line strings, but this is probably
+          ;; the best we can get, since while font-locking we don't
+          ;; know whether matching started inside a string: limiting
+          ;; search to a single line keeps things sane.
+          . (("\\(?:^\\|[^$]\\)\"\\(?:[^\"\n]\\|\\\\\"\\)*\\(\\$\\)\"" 1 "w")
+             ;; And the dollar sign in $\" escapes two characters, not
+             ;; just one.
+             ("\\(\\$\\)\\\\\\\"" 1 "'"))))))
 
 
 
