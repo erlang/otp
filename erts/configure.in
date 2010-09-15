@@ -259,13 +259,6 @@ AS_HELP_STRING([--enable-m32-build],
   esac
 ],enable_m32_build=no)
 
-AC_ARG_ENABLE(fixalloc,
-AS_HELP_STRING([--disable-fixalloc], [disable the use of fix_alloc]))
-if test x${enable_fixalloc} = xno ; then
-  AC_DEFINE(NO_FIX_ALLOC,[],
-	    [Define if you don't want the fix allocator in Erlang])
-fi
-
 AC_SUBST(PERFCTR_PATH)
 AC_ARG_WITH(perfctr,
 AS_HELP_STRING([--with-perfctr=PATH],

@@ -160,10 +160,6 @@ bif erlang:md5_update/2
 bif 'erl.util.crypt.md5':update/2	ebif_md5_update_2
 bif erlang:md5_final/1
 bif 'erl.util.crypt.md5':final/1	ebif_md5_final_1
-bif erlang:memory/0
-bif 'erl.lang':memory/0			ebif_memory_0
-bif erlang:memory/1
-bif 'erl.lang':memory/1			ebif_memory_1
 bif erlang:module_loaded/1
 bif 'erl.system.code':is_loaded/1	ebif_is_loaded_1 module_loaded_1
 bif erlang:function_exported/3

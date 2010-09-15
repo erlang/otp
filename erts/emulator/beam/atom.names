@@ -69,6 +69,8 @@ atom ac
 atom active
 atom all
 atom all_but_first
+atom alloc_info
+atom alloc_sizes
 atom allocated
 atom allocated_areas
 atom allocator
@@ -553,5 +555,6 @@ atom warning_msg
 atom wordsize
 atom write_concurrency
 atom xor
+atom x86
 atom yes
 atom yield

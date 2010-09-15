@@ -150,7 +150,6 @@
 /*
  * Zero-arity BIFs that can fail.
  */
-fail_bif_interface_0(nbif_memory_0, memory_0)
 fail_bif_interface_0(nbif_processes_0, processes_0)
 
 /*

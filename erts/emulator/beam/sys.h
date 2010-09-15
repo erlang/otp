@@ -616,13 +616,10 @@ extern char *erts_sys_ddll_error(int code);
  * System interfaces for startup.
  */
 
-
-#ifdef ERTS_SMP
 void erts_sys_schedule_interrupt(int set);
+#ifdef ERTS_SMP
 void erts_sys_schedule_interrupt_timed(int set, long msec);
 void erts_sys_main_thread(void);
-#else
-#define erts_sys_schedule_interrupt(Set)
 #endif
 
 extern void erts_sys_prepare_crash_dump(void);
@@ -697,10 +694,10 @@ int erts_write_env(char *key, char *value);
 int sys_alloc_opt(int, int);
 
 typedef struct {
-  Sint trim_threshold;
-  Sint top_pad;
-  Sint mmap_threshold;
-  Sint mmap_max;
+  int trim_threshold;
+  int top_pad;
+  int mmap_threshold;
+  int mmap_max;
 } SysAllocStat;
 
 void sys_alloc_stat(SysAllocStat *);

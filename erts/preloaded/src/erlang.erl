@@ -40,6 +40,8 @@
 -export([flush_monitor_message/2]).
 -export([set_cpu_topology/1, format_cpu_topology/1]).
 -export([await_proc_exit/3]).
+-export([memory/0, memory/1]).
+-export([alloc_info/1, alloc_sizes/1]).
 
 -deprecated([hash/2]).
 -deprecated([concat_binary/1]).
@@ -806,3 +808,405 @@ min(A, _) -> A.
       Maximum :: term().
 max(A, B) when A < B -> B;
 max(A, _) -> A.
+
+
+%%
+%% erlang:memory/[0,1]
+%%
+%% NOTE! When updating these functions, make sure to also update
+%%       erts_memory() in $ERL_TOP/erts/emulator/beam/erl_alloc.c
+%%
+
+-type memory_type() :: 'total' | 'processes' | 'processes_used' | 'system' | 'atom' | 'atom_used' | 'binary' | 'code' | 'ets' | 'low' | 'maximum'.
+
+-define(CARRIER_ALLOCS, [mseg_alloc, sbmbc_alloc, sbmbc_low_alloc]).
+-define(LOW_ALLOCS, [sbmbc_low_alloc, ll_low_alloc, std_low_alloc]).
+-define(ALL_NEEDED_ALLOCS, (erlang:system_info(alloc_util_allocators)
+			    -- ?CARRIER_ALLOCS)).
+
+-record(memory, {total = 0,
+		 processes = 0,
+		 processes_used = 0,
+		 system = 0,
+		 atom = 0,
+		 atom_used = 0,
+		 binary = 0,
+		 code = 0,
+		 ets = 0,
+		 low = 0,
+		 maximum = 0}).
+
+-spec memory() -> [{memory_type(), non_neg_integer()}].
+memory() ->
+    case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
+	notsup ->
+	    erlang:error(notsup);
+	Mem ->
+	    InstrTail = case Mem#memory.maximum of
+			    0 -> [];
+			    _ -> [{maximum, Mem#memory.maximum}]
+			end,
+	    Tail = case Mem#memory.low of
+		       0 -> InstrTail;
+		       _ -> [{low, Mem#memory.low} | InstrTail]
+		   end,
+	    [{total, Mem#memory.total},
+	     {processes, Mem#memory.processes},
+	     {processes_used, Mem#memory.processes_used},
+	     {system, Mem#memory.system},
+	     {atom, Mem#memory.atom},
+	     {atom_used, Mem#memory.atom_used},
+	     {binary, Mem#memory.binary},
+	     {code, Mem#memory.code},
+	     {ets, Mem#memory.ets} | Tail]
+    end.
+
+-spec memory(memory_type()|[memory_type()]) -> non_neg_integer() | [{memory_type(), non_neg_integer()}].
+memory(Type) when is_atom(Type) ->
+    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(Type),
+    case get_mem_data(ChkSup, ALCU, AA) of
+	notsup ->
+	    erlang:error(notsup, [Type]);
+	Mem ->
+	    Value = get_memval(Type, Mem),
+	    case {BadArgZero, Value} of
+		{true, 0} -> erlang:error(badarg, [Type]);
+		_ -> Value
+	    end
+    end;
+memory(Types) when is_list(Types) ->
+    {AA, ALCU, ChkSup, BadArgZeroList} = need_mem_info_list(Types),
+    case get_mem_data(ChkSup, ALCU, AA) of
+	notsup ->
+	    erlang:error(notsup, [Types]);
+	Mem ->
+	    case memory_result_list(Types, BadArgZeroList, Mem) of
+		badarg -> erlang:error(badarg, [Types]);
+		Result -> Result
+	    end
+    end.
+
+memory_result_list([], [], _Mem) ->
+    [];
+memory_result_list([T|Ts], [BAZ|BAZs], Mem) ->
+    case memory_result_list(Ts, BAZs, Mem) of
+	badarg -> badarg;
+	TVs ->
+	    V = get_memval(T, Mem),
+	    case {BAZ, V} of
+		{true, 0} -> badarg;
+		_ -> [{T, V}| TVs]
+	    end
+    end.
+
+get_mem_data(true, AlcUAllocs, NeedAllocatedAreas) ->
+    case memory_is_supported() of
+	false -> notsup;
+	true -> get_mem_data(false, AlcUAllocs, NeedAllocatedAreas)
+    end;
+get_mem_data(false, AlcUAllocs, NeedAllocatedAreas) ->
+    AlcUMem = case AlcUAllocs of
+		  [] -> #memory{};
+		  _ ->
+		      au_mem_data(AlcUAllocs)
+	      end,
+    case NeedAllocatedAreas of
+	true -> aa_mem_data(AlcUMem);
+	false -> AlcUMem
+    end.
+
+need_mem_info_list([]) ->
+    {false, [], false, []};
+need_mem_info_list([T|Ts]) ->
+    {MAA, MALCU, MChkSup, MBadArgZero} = need_mem_info_list(Ts),
+    {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(T),
+    {case AA of
+	 true -> true;
+	 _ -> MAA
+     end,
+     ALCU ++ (MALCU -- ALCU),
+     case ChkSup of
+	 true -> true;
+	 _ -> MChkSup
+     end,
+     [BadArgZero|MBadArgZero]}.
+
+need_mem_info(Type) when Type == total;
+			 Type == system ->
+    {true, ?ALL_NEEDED_ALLOCS, false, false};
+need_mem_info(Type) when Type == processes;
+			 Type == processes_used ->
+    {true, [eheap_alloc, fix_alloc], true, false};
+need_mem_info(Type) when Type == atom;
+			 Type == atom_used;
+			 Type == code ->
+    {true, [], true, false};
+need_mem_info(binary) ->
+    {false, [binary_alloc], true, false};
+need_mem_info(ets) ->
+    {true, [ets_alloc], true, false};
+need_mem_info(low) ->
+    LowAllocs = ?LOW_ALLOCS -- ?CARRIER_ALLOCS,
+    {_, _, FeatureList, _} = erlang:system_info(allocator),
+    AlcUAllocs = case LowAllocs -- FeatureList of
+		     [] -> LowAllocs;
+		     _ -> []
+		 end,
+    {false, AlcUAllocs, true, true};
+need_mem_info(maximum) ->
+    {true, [], true, true};
+need_mem_info(_) ->
+    {false, [], false, true}.
+
+get_memval(total, #memory{total = V}) -> V;
+get_memval(processes, #memory{processes = V}) -> V;
+get_memval(processes_used, #memory{processes_used = V}) -> V;
+get_memval(system, #memory{system = V}) -> V;
+get_memval(atom, #memory{atom = V}) -> V;
+get_memval(atom_used, #memory{atom_used = V}) -> V;
+get_memval(binary, #memory{binary = V}) -> V;
+get_memval(code, #memory{code = V}) -> V;
+get_memval(ets, #memory{ets = V}) -> V;
+get_memval(low, #memory{low = V}) -> V;
+get_memval(maximum, #memory{maximum = V}) -> V;
+get_memval(_, #memory{}) -> 0.
+
+memory_is_supported() ->
+    {_, _, FeatureList, _} = erlang:system_info(allocator),
+    case ((erlang:system_info(alloc_util_allocators) 
+	   -- ?CARRIER_ALLOCS)
+	  -- FeatureList) of
+	[] -> true;
+	_ -> false
+    end.
+
+get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
+    get_blocks_size(Rest, Acc+Sz);
+get_blocks_size([{_, _, _, _} | Rest], Acc) ->
+    get_blocks_size(Rest, Acc);
+get_blocks_size([], Acc) ->
+    Acc.
+
+blocks_size([{Carriers, SizeList} | Rest], Acc) when Carriers == mbcs;
+						     Carriers == sbcs;
+						     Carriers == sbmbcs ->
+    blocks_size(Rest, get_blocks_size(SizeList, Acc));
+blocks_size([_ | Rest], Acc) ->
+    blocks_size(Rest, Acc);
+blocks_size([], Acc) ->
+    Acc.
+
+get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
+							ProcType == monitor_sh;
+							ProcType == nlink_sh;
+							ProcType == msg_ref ->
+    get_fix_proc(Rest, {A0+A1, U0+U1});
+get_fix_proc([_|Rest], Acc) ->
+    get_fix_proc(Rest, Acc);
+get_fix_proc([], Acc) ->
+    Acc.
+
+fix_proc([{fix_types, SizeList} | _Rest], Acc) ->
+    get_fix_proc(SizeList, Acc);
+fix_proc([_ | Rest], Acc) ->
+    fix_proc(Rest, Acc);
+fix_proc([], Acc) ->
+    Acc.
+
+is_low_alloc(_A, []) ->
+    false;
+is_low_alloc(A, [A|_As]) ->
+    true;
+is_low_alloc(A, [_A|As]) ->
+    is_low_alloc(A, As).
+
+is_low_alloc(A) ->
+    is_low_alloc(A, ?LOW_ALLOCS).
+
+au_mem_data(notsup, _) ->
+    notsup;
+au_mem_data(_, [{_, false} | _]) ->
+    notsup;
+au_mem_data(#memory{total = Tot,
+		    processes = Proc,
+		    processes_used = ProcU} = Mem,
+	    [{eheap_alloc, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   processes = Proc+Sz,
+			   processes_used = ProcU+Sz},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    system = Sys,
+		    ets = Ets} = Mem,
+	    [{ets_alloc, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   system = Sys+Sz,
+			   ets = Ets+Sz},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    system = Sys,
+		    binary = Bin} = Mem,
+	    [{binary_alloc, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   system = Sys+Sz,
+			   binary = Bin+Sz},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    processes = Proc,
+		    processes_used = ProcU,
+		    system = Sys} = Mem,
+	    [{fix_alloc, _, Data} | Rest]) ->
+    {A, U} = fix_proc(Data, {0, 0}),
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   processes = Proc+A,
+			   processes_used = ProcU+U,
+			   system = Sys+Sz-A},
+		Rest);
+au_mem_data(#memory{total = Tot,
+		    system = Sys,
+		    low = Low} = Mem,
+	    [{A, _, Data} | Rest]) ->
+    Sz = blocks_size(Data, 0),
+    au_mem_data(Mem#memory{total = Tot+Sz,
+			   system = Sys+Sz,
+			   low = case is_low_alloc(A) of
+				     true -> Low+Sz;
+				     false -> Low
+				 end},
+		Rest);
+au_mem_data(EMD, []) ->
+    EMD.
+
+au_mem_data(Allocs) ->
+    Ref = make_ref(),
+    erlang:system_info({allocator_sizes, Ref, Allocs}),
+    receive_emd(Ref).
+
+receive_emd(_Ref, EMD, 0) ->
+    EMD;
+receive_emd(Ref, EMD, N) ->
+    receive
+	{Ref, _, Data} ->
+	    receive_emd(Ref, au_mem_data(EMD, Data), N-1)
+    end.
+
+receive_emd(Ref) ->
+    receive_emd(Ref, #memory{}, erlang:system_info(schedulers)).
+
+aa_mem_data(notsup, _) ->
+    notsup;
+aa_mem_data(#memory{} = Mem,
+	    [{maximum, Max} | Rest]) ->
+    aa_mem_data(Mem#memory{maximum = Max},
+		Rest);
+aa_mem_data(#memory{} = Mem,
+	    [{total, Tot} | Rest]) ->
+    aa_mem_data(Mem#memory{total = Tot,
+			   system = 0}, % system will be adjusted later
+		Rest);
+aa_mem_data(#memory{atom = Atom,
+		    atom_used = AtomU} = Mem,
+	    [{atom_space, Alloced, Used} | Rest]) ->
+    aa_mem_data(Mem#memory{atom = Atom+Alloced,
+			   atom_used = AtomU+Used},
+		Rest);
+aa_mem_data(#memory{atom = Atom,
+		    atom_used = AtomU} = Mem,
+	    [{atom_table, Sz} | Rest]) ->
+    aa_mem_data(Mem#memory{atom = Atom+Sz,
+			   atom_used = AtomU+Sz},
+		Rest);
+aa_mem_data(#memory{ets = Ets} = Mem,
+	    [{ets_misc, Sz} | Rest]) ->
+    aa_mem_data(Mem#memory{ets = Ets+Sz},
+		Rest);
+aa_mem_data(#memory{processes = Proc,
+		    processes_used = ProcU,
+		    system = Sys} = Mem,
+	    [{ProcData, Sz} | Rest]) when ProcData == bif_timer;
+					  ProcData == link_lh;
+					  ProcData == process_table ->
+    aa_mem_data(Mem#memory{processes = Proc+Sz,
+			   processes_used = ProcU+Sz,
+			   system = Sys-Sz},
+		Rest);
+aa_mem_data(#memory{code = Code} = Mem,
+	    [{CodeData, Sz} | Rest]) when CodeData == module_table;
+					  CodeData == export_table;
+					  CodeData == export_list;
+					  CodeData == fun_table;
+					  CodeData == module_refs;
+					  CodeData == loaded_code ->
+    aa_mem_data(Mem#memory{code = Code+Sz},
+		Rest);
+aa_mem_data(EMD, [{_, _} | Rest]) ->
+    aa_mem_data(EMD, Rest);
+aa_mem_data(#memory{total = Tot,
+		    processes = Proc,
+		    system = Sys} = Mem,
+	    []) when Sys =< 0 ->
+    %% Instrumented runtime system -> Sys = Tot - Proc
+    Mem#memory{system = Tot - Proc};
+aa_mem_data(EMD, []) ->
+    EMD.
+
+aa_mem_data(notsup) ->
+    notsup;
+aa_mem_data(EMD) ->
+    aa_mem_data(EMD, erlang:system_info(allocated_areas)).
+
+%%
+%% alloc_info/1 and alloc_sizes/1 are for internal use only (used by
+%% erlang:system_info({allocator|allocator_sizes, _})).
+%%
+
+alloc_info(Allocs) ->
+    get_alloc_info(allocator, Allocs).
+
+alloc_sizes(Allocs) ->
+    get_alloc_info(allocator_sizes, Allocs).
+
+get_alloc_info(Type, AAtom) when is_atom(AAtom) ->
+    [{AAtom, Result}] = get_alloc_info(Type, [AAtom]),
+    Result;
+get_alloc_info(Type, AList) when is_list(AList) ->
+    Ref = make_ref(),
+    erlang:system_info({Type, Ref, AList}),
+    receive_allocator(Ref,
+		      erlang:system_info(schedulers),
+		      mk_res_list(AList)).
+
+mk_res_list([]) ->
+    [];
+mk_res_list([Alloc | Rest]) ->
+    [{Alloc, []} | mk_res_list(Rest)].
+
+insert_instance(I, N, []) ->
+    [{instance, N, I}];
+insert_instance(I, N, [{instance, M, _}|_] = Rest) when N < M ->
+    [{instance, N, I} | Rest];
+insert_instance(I, N, [Prev|Rest]) ->
+    [Prev | insert_instance(I, N, Rest)].
+
+insert_info([], Ys) ->
+    Ys;
+insert_info([{A, false}|Xs], [{A, _IList}|Ys]) ->
+    insert_info(Xs, [{A, false}|Ys]);
+insert_info([{A, N, I}|Xs], [{A, IList}|Ys]) ->
+    insert_info(Xs, [{A, insert_instance(I, N, IList)}|Ys]);
+insert_info([{A1, _}|_] = Xs, [{A2, _} = Y | Ys]) when A1 /= A2 ->
+    [Y | insert_info(Xs, Ys)];
+insert_info([{A1, _, _}|_] = Xs, [{A2, _} = Y | Ys]) when A1 /= A2 ->
+    [Y | insert_info(Xs, Ys)].
+
+receive_allocator(_Ref, 0, Acc) ->
+    Acc;
+receive_allocator(Ref, N, Acc) ->
+    receive
+	{Ref, _, InfoList} ->
+	    receive_allocator(Ref, N-1, insert_info(InfoList, Acc))
+    end.

@@ -52,6 +52,9 @@
 #include <valgrind/memcheck.h>
 #endif
 
+static Export* alloc_info_trap = NULL;
+static Export* alloc_sizes_trap = NULL;
+
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 /* Keep erts_system_version as a global variable for easy access from a core */
@@ -1633,9 +1636,19 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 
     sel = *tp++;
 
-    if (sel == am_allocator_sizes && arity == 2) {
-	return erts_allocator_info_term(BIF_P, *tp, 1);
-    } else if (sel == am_wordsize && arity == 2) {
+    if (sel == am_allocator_sizes) {
+	switch (arity) {
+	case 2:
+	    ERTS_BIF_PREP_TRAP1(ret, alloc_sizes_trap, BIF_P, *tp);
+	    return ret;
+	case 3:
+	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 1))
+		return am_true;
+	default:
+	    goto badarg;
+	}
+    }
+    else if (sel == am_wordsize && arity == 2) {
 	if (tp[0] == am_internal) {
 	    return make_small(sizeof(Eterm));
 	}
@@ -1682,8 +1695,17 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	}
 	else
 	    goto badarg;
-    } else if (sel == am_allocator && arity == 2) {
-	return erts_allocator_info_term(BIF_P, *tp, 0);
+    } else if (sel == am_allocator) {
+	switch (arity) {
+	case 2:
+	    ERTS_BIF_PREP_TRAP1(ret, alloc_info_trap, BIF_P, *tp);
+	    return ret;
+	case 3:
+	    if (erts_request_alloc_info(BIF_P, tp[0], tp[1], 0))
+		return am_true;
+	default:
+	    goto badarg;
+	}
     } else if (ERTS_IS_ATOM_STR("internal_cpu_topology", sel) && arity == 2) {
 	return erts_get_cpu_topology_term(BIF_P, *tp);
     } else if (ERTS_IS_ATOM_STR("cpu_topology", sel) && arity == 2) {
@@ -2546,8 +2568,12 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = erts_bld_uint(&hp, NULL, erts_dist_buf_busy_limit);
 	BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("print_ethread_info", BIF_ARG_1)) {
+#if defined(ETHR_NATIVE_ATOMIC32_IMPL) \
+    || defined(ETHR_NATIVE_ATOMIC64_IMPL) \
+    || defined(ETHR_NATIVE_DW_ATOMIC_IMPL)
 	int i;
 	char **str;
+#endif
 #ifdef ETHR_NATIVE_ATOMIC32_IMPL
 	erts_printf("32-bit native atomics: %s\n",
 		    ETHR_NATIVE_ATOMIC32_IMPL);
@@ -2610,6 +2636,12 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
 	BIF_RET(am_true);
     }
+#ifdef ERTS_SMP
+    else if (ERTS_IS_ATOM_STR("thread_progress", BIF_ARG_1)) {
+	erts_thr_progress_dbg_print_state();
+	BIF_RET(am_true);
+    }
+#endif
 
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -3170,26 +3202,6 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
-BIF_RETTYPE memory_0(BIF_ALIST_0)
-{
-    BIF_RETTYPE res = erts_memory(NULL, NULL, BIF_P, THE_NON_VALUE);
-    switch (res) {
-    case am_badarg: BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR); /* never... */
-    case am_notsup: BIF_ERROR(BIF_P, EXC_NOTSUP);
-    default: BIF_RET(res);
-    }
-}
-
-BIF_RETTYPE memory_1(BIF_ALIST_1)
-{
-    BIF_RETTYPE res = erts_memory(NULL, NULL, BIF_P, BIF_ARG_1);
-    switch (res) {
-    case am_badarg: BIF_ERROR(BIF_P, BADARG);
-    case am_notsup: BIF_ERROR(BIF_P, EXC_NOTSUP);
-    default: BIF_RET(res);
-    }
-}
-
 BIF_RETTYPE error_logger_warning_map_0(BIF_ALIST_0)
 {
     BIF_RET(erts_error_logger_warnings);
@@ -3290,6 +3302,15 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 #else
 	    BIF_RET(am_false);
 #endif
+	}
+	else if (ERTS_IS_ATOM_STR("memory", BIF_ARG_1)) {
+	    Eterm res;
+	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erts_smp_block_system(0);
+	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    res = erts_memory(NULL, NULL, BIF_P, THE_NON_VALUE);
+	    erts_smp_release_system();
+	    BIF_RET(res);
 	}
     }
     else if (is_tuple(BIF_ARG_1)) {
@@ -3492,6 +3513,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 }
 
 static erts_smp_atomic_t hipe_test_reschedule_flag;
+
 
 BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 {
@@ -3766,6 +3788,13 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P,  EXC_NOTSUP);
 #endif
 	}
+	else if (ERTS_IS_ATOM_STR("wait", BIF_ARG_1)) {
+	    if (ERTS_IS_ATOM_STR("deallocations", BIF_ARG_2)) {
+		if (erts_debug_wait_deallocations(BIF_P)) {
+		    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+		}
+	    }
+	}
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -4018,5 +4047,7 @@ erts_bif_info_init(void)
     erts_smp_atomic_init_nob(&available_internal_state, 0);
     erts_smp_atomic_init_nob(&hipe_test_reschedule_flag, 0);
 
+    alloc_info_trap = erts_export_put(am_erlang, am_alloc_info, 1);
+    alloc_sizes_trap = erts_export_put(am_erlang, am_alloc_sizes, 1);
     process_info_init();
 }

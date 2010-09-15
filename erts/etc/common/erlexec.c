@@ -67,6 +67,7 @@ static const char plusM_au_allocs[]= {
     'C',	/* sbmbc_alloc		*/
     'D',	/* std_alloc		*/
     'E',	/* ets_alloc		*/
+    'F',	/* fix_alloc		*/
     'H',	/* eheap_alloc		*/
     'L',	/* ll_alloc		*/
     'R',	/* driver_alloc		*/
@@ -110,8 +111,6 @@ static char *plusM_other_switches[] = {
     "Mamcbf",
     "Mrmcbf",
     "Mmcs",
-    "Mcci",
-    "Fe",
     "Ye",
     "Ym",
     "Ytp",

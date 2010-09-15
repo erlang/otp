@@ -170,14 +170,18 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 		   AOFFAllctrInit_t* aoffinit,
 		   AllctrInit_t *init)
 {
-    AOFFAllctr_t nulled_state = {{0}};
-    /* {{0}} is used instead of {0}, in order to avoid (an incorrect) gcc
-       warning. gcc warns if {0} is used as initializer of a struct when
-       the first member is a struct (not if, for example, the third member
-       is a struct). */
+    struct {
+	int dummy;
+	AOFFAllctr_t allctr;
+    } zero = {0};
+    /* The struct with a dummy element first is used in order to avoid (an
+       incorrect) gcc warning. gcc warns if {0} is used as initializer of
+       a struct when the first member is a struct (not if, for example,
+       the third member is a struct). */
+
     Allctr_t *allctr = (Allctr_t *) alc;
 
-    sys_memcpy((void *) alc, (void *) &nulled_state, sizeof(AOFFAllctr_t));
+    sys_memcpy((void *) alc, (void *) &zero.allctr, sizeof(AOFFAllctr_t));
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;

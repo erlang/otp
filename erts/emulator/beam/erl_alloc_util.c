@@ -46,6 +46,7 @@
 #include "erl_alloc_util.h"
 #include "erl_mseg.h"
 #include "erl_threads.h"
+#include "erl_thr_progress.h"
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #include "erl_lock_count.h"
@@ -60,6 +61,13 @@
 #warning "* * * * * * * * * *"
 #warning "* * * * * * * * * *"
 #endif
+
+#define ERTS_ALCU_DD_OPS_LIM_HIGH 20
+#define ERTS_ALCU_DD_OPS_LIM_LOW 2
+
+/* Fix alloc limit */
+#define ERTS_ALCU_FIX_MAX_LIST_SZ 1000
+#define ERTS_ALC_FIX_MAX_SHRINK_OPS 30
 
 #define ALLOC_ZERO_EQ_NULL 0
 
@@ -269,7 +277,6 @@ static void check_blk_carrier(Allctr_t *, Block_t *);
 #define HARD_CHECK_BLK_CARRIER(A, B)
 #endif
 
-
 /* Statistics updating ... */
 
 #ifdef DEBUG
@@ -465,25 +472,35 @@ do {									\
 
 #ifdef DEBUG
 #ifdef USE_THREADS
-#define ERTS_ALCU_DBG_CHK_THR_SPEC(A)					\
+#define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)					\
 do {									\
     if (!(A)->thread_safe) {						\
-	if (!(A)->debug.saved_tid)					\
+	if (!(A)->debug.saved_tid) {					\
 	    (A)->debug.tid = erts_thr_self();				\
+	    (A)->debug.saved_tid = 1;					\
+	}								\
 	else {								\
-	    ASSERT(ethr_equal_tids((A)->debug.tid, erts_thr_self()));	\
+	    ERTS_SMP_LC_ASSERT(						\
+		ethr_equal_tids((A)->debug.tid, erts_thr_self())	\
+		|| erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)		\
+		|| (ERTS_IS_CRASH_DUMPING				\
+		    && erts_is_system_blocked(ERTS_BS_FLG_ALLOW_GC)));	\
 	}								\
     }									\
 } while (0)
 #else
-#define ERTS_ALCU_DBG_CHK_THR_SPEC(A)
+#define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)
 #endif
 #else
-#define ERTS_ALCU_DBG_CHK_THR_SPEC(A)
+#define ERTS_ALCU_DBG_CHK_THR_ACCESS(A)
 #endif
 
 
 static void make_name_atoms(Allctr_t *allctr);
+
+static Block_t *create_carrier(Allctr_t *, Uint, UWord);
+static void destroy_carrier(Allctr_t *, Block_t *);
+static void mbc_free(Allctr_t *allctr, void *p);
 
 
 /* mseg ... */
@@ -651,6 +668,446 @@ static void destroy_sbmbc(Allctr_t *allctr, Block_t *blk);
 static Block_t *create_carrier(Allctr_t *, Uint, UWord);
 static void destroy_carrier(Allctr_t *, Block_t *);
 
+#if 0
+#define ERTS_DBG_CHK_FIX_LIST(A, FIX, IX, B)			\
+    do { if ((FIX)) chk_fix_list((A), (FIX), (IX), (B)); } while (0)
+static void
+chk_fix_list(Allctr_t *allctr, ErtsAlcFixList_t *fix, int ix, int before)
+{
+    void *p;
+    int n;
+    for (n = 0, p = fix[ix].list; p; p = *((void **) p))
+	n++;
+    if (n != fix[ix].list_size) {
+	erts_fprintf(stderr, "FOUND IT ts=%d, sched=%d, ix=%d, n=%d, ls=%d %s!\n",
+		     allctr->thread_safe, allctr->ix, ix, n, fix[ix].list_size, before ? "before" : "after");
+	abort();
+    }
+}
+#else
+#define ERTS_DBG_CHK_FIX_LIST(A, FIX, IX, B)
+#endif
+
+erts_aint32_t
+erts_alcu_fix_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
+{
+    int all_empty = 1;
+    erts_aint32_t res = 0;
+    int ix, o;
+    ErtsAlcFixList_t *fix = allctr->fix;
+    int flush = flgs == 0;
+
+#ifdef USE_THREADS
+    if (allctr->thread_safe)
+	erts_mtx_lock(&allctr->mutex);
+#endif
+
+    for (ix = 0; ix < ERTS_ALC_NO_FIXED_SIZES; ix++) {
+	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
+	if (flgs & ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM) {
+	    fix[ix].limit = fix[ix].max_used;
+	    if (fix[ix].limit < fix[ix].used)
+		fix[ix].limit = fix[ix].used;
+	    fix[ix].max_used = fix[ix].used;
+	    ASSERT(fix[ix].limit >= 0);
+
+	}
+	if (flush) {
+	    fix[ix].limit = 0;
+	    fix[ix].max_used = fix[ix].used;
+	    ASSERT(fix[ix].limit >= 0);
+	}
+	for (o = 0; o < ERTS_ALC_FIX_MAX_SHRINK_OPS || flush; o++) {
+	    Block_t *blk;
+	    void *ptr;
+
+	    if (!flush && fix[ix].limit >= fix[ix].allocated)
+		break;
+	    if (fix[ix].list_size == 0)
+		break;
+	    ptr = fix[ix].list;
+	    fix[ix].list = *((void **) ptr);
+	    fix[ix].list_size--;	    
+
+	    blk = UMEM2BLK(ptr);
+
+	    if (IS_SBC_BLK(blk))
+		destroy_carrier(allctr, blk);
+	    else
+		mbc_free(allctr, ptr);
+
+	    fix[ix].allocated--;
+	}
+	if (fix[ix].list_size != 0) {
+	    if (fix[ix].limit < fix[ix].allocated)
+		res |= ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC;
+	    all_empty = 0;
+	}
+	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
+    }
+
+    if (all_empty && allctr->fix_shrink_scheduled) {
+	allctr->fix_shrink_scheduled = 0;
+	erts_set_aux_work_timeout(allctr->ix,
+				  (ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
+				   | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC),
+				  0);
+    }
+
+#ifdef USE_THREADS
+    if (allctr->thread_safe)
+	erts_mtx_unlock(&allctr->mutex);
+#endif
+
+    return res;
+}
+
+#ifdef ERTS_SMP
+
+#define ERTS_ALCU_DD_FIX_TYPE_OFFS \
+  ((sizeof(ErtsAllctrDDBlock_t)-1)/sizeof(UWord) + 1)
+
+#define ERTS_AU_PREF_ALLOC_IX_MASK \
+   ((((UWord) 1) << ERTS_AU_PREF_ALLOC_BITS) - 1)
+#define ERTS_AU_PREF_ALLOC_SIZE_MASK \
+   ((((UWord) 1) << (sizeof(UWord)*8 - ERTS_AU_PREF_ALLOC_BITS)) - 1)
+
+static ERTS_INLINE int
+get_pref_allctr(void *extra, Allctr_t **allctr)
+{
+    ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
+    int pref_ix;
+
+    pref_ix = ERTS_ALC_GET_THR_IX();
+
+    ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
+    ASSERT(0 <= pref_ix && pref_ix < tspec->size);
+
+    *allctr = tspec->allctr[pref_ix];
+    return pref_ix;
+}
+
+static ERTS_INLINE void *
+get_used_allctr(void *extra, void *p, Allctr_t **allctr, UWord *sizep)
+{
+    ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
+    void *ptr = (void *) (((char *) p) - sizeof(UWord));
+    UWord ainfo = *((UWord *) ptr);
+    int aix = (int) (ainfo & ERTS_AU_PREF_ALLOC_IX_MASK);
+    *allctr = tspec->allctr[aix];
+    if (sizep)
+	*sizep = ((ainfo >> ERTS_AU_PREF_ALLOC_BITS)
+		  & ERTS_AU_PREF_ALLOC_SIZE_MASK);
+    return ptr;
+}
+
+static ERTS_INLINE void *
+put_used_allctr(void *p, int ix, UWord size)
+{
+    UWord ainfo = (size >= ERTS_AU_PREF_ALLOC_SIZE_MASK
+		   ? ERTS_AU_PREF_ALLOC_SIZE_MASK
+		   : size);
+    ainfo <<= ERTS_AU_PREF_ALLOC_BITS;
+    ainfo |= (UWord) ix;
+    *((UWord *) p) = ainfo;
+    return (void *) (((char *) p) + sizeof(UWord));
+}
+
+static void
+init_dd_queue(ErtsAllctrDDQueue_t *ddq)
+{
+    erts_atomic_init_nob(&ddq->tail.data.marker.atmc_next, ERTS_AINT_NULL);
+    erts_atomic_init_nob(&ddq->tail.data.last,
+			 (erts_aint_t) &ddq->tail.data.marker);
+    erts_atomic_init_nob(&ddq->tail.data.um_refc[0], 0);
+    erts_atomic_init_nob(&ddq->tail.data.um_refc[1], 0);
+    erts_atomic32_init_nob(&ddq->tail.data.um_refc_ix, 0);
+    ddq->head.first = &ddq->tail.data.marker;
+    ddq->head.unref_end = &ddq->tail.data.marker;
+    ddq->head.next.thr_progress = erts_thr_progress_current();
+    ddq->head.next.thr_progress_reached = 1;
+    ddq->head.next.um_refc_ix = 1;
+    ddq->head.next.unref_end = &ddq->tail.data.marker;
+    ddq->head.used_marker = 1;
+}
+
+static ERTS_INLINE erts_aint_t
+ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr)
+{
+    erts_aint_t ilast, itmp;
+    ErtsAllctrDDBlock_t *this = ptr;
+
+    erts_atomic_init_nob(&this->atmc_next, ERTS_AINT_NULL);
+
+    /* Enqueue at end of list... */
+
+    ilast = erts_atomic_read_nob(&ddq->tail.data.last);
+    while (1) {
+	ErtsAllctrDDBlock_t *last = (ErtsAllctrDDBlock_t *) ilast;
+	itmp = erts_atomic_cmpxchg_mb(&last->atmc_next,
+				       (erts_aint_t) this,
+				       ERTS_AINT_NULL);
+	if (itmp == ERTS_AINT_NULL)
+	    break;
+	ilast = itmp;
+    }
+
+    /* Move last pointer forward... */
+    while (1) {
+	if (erts_atomic_read_rb(&this->atmc_next) != ERTS_AINT_NULL) {
+	    /* Someone else will move it forward */
+	    return erts_atomic_read_rb(&ddq->tail.data.last);
+	}
+	itmp = erts_atomic_cmpxchg_mb(&ddq->tail.data.last,
+				      (erts_aint_t) this,
+				      ilast);
+	if (ilast == itmp)
+	    return (erts_aint_t) this;
+	ilast = itmp;
+    }
+}
+
+static ERTS_INLINE int
+ddq_enqueue(ErtsAlcType_t type, ErtsAllctrDDQueue_t *ddq, void *ptr)
+{
+    erts_aint_t ilast;
+    int um_refc_ix = 0;
+    int managed_thread = erts_thr_progress_is_managed_thread();
+    if (!managed_thread) {
+	um_refc_ix = erts_atomic32_read_acqb(&ddq->tail.data.um_refc_ix);
+	while (1) {
+	    int tmp_um_refc_ix;
+	    erts_atomic_inc_acqb(&ddq->tail.data.um_refc[um_refc_ix]);
+	    tmp_um_refc_ix = erts_atomic32_read_acqb(&ddq->tail.data.um_refc_ix);
+	    if (tmp_um_refc_ix == um_refc_ix)
+		break;
+	    erts_atomic_dec_relb(&ddq->tail.data.um_refc[um_refc_ix]);
+	    um_refc_ix = tmp_um_refc_ix;
+	}
+    }
+
+    ilast = ddq_managed_thread_enqueue(ddq, ptr);
+
+    if (!managed_thread)
+	erts_atomic_dec_relb(&ddq->tail.data.um_refc[um_refc_ix]);
+    return ilast == (erts_aint_t) ptr;
+}
+
+static ERTS_INLINE void *
+ddq_dequeue(ErtsAllctrDDQueue_t *ddq)
+{
+    ErtsAllctrDDBlock_t *blk;
+
+    if (ddq->head.first == ddq->head.unref_end)
+	return NULL;
+
+    blk = ddq->head.first;
+    if (blk == &ddq->tail.data.marker) {
+	ASSERT(ddq->head.used_marker);
+	ddq->head.used_marker = 0;
+	blk = ((ErtsAllctrDDBlock_t *)
+	       erts_atomic_read_nob(&blk->atmc_next));
+	if (blk == ddq->head.unref_end) {
+	    ddq->head.first = blk;
+	    return NULL;
+	}
+    }
+
+    ddq->head.first = ((ErtsAllctrDDBlock_t *)
+		       erts_atomic_read_nob(&blk->atmc_next));
+
+    ASSERT(ddq->head.first);
+
+    return (void *) blk;
+}
+
+static int
+ddq_check_incoming(ErtsAllctrDDQueue_t *ddq)
+{
+    erts_aint_t ilast = erts_atomic_read_nob(&ddq->tail.data.last);
+    if (((ErtsAllctrDDBlock_t *) ilast) == &ddq->tail.data.marker
+	&& ddq->head.first == &ddq->tail.data.marker) {
+	/* Nothing more to do... */
+	return 0;
+    }
+
+    if (ddq->head.next.thr_progress_reached
+	|| erts_thr_progress_has_reached(ddq->head.next.thr_progress)) {
+	int um_refc_ix;
+	ddq->head.next.thr_progress_reached = 1;
+	um_refc_ix = ddq->head.next.um_refc_ix;
+	if (erts_atomic_read_acqb(&ddq->tail.data.um_refc[um_refc_ix]) == 0) {
+	    /* Move unreferenced end pointer forward... */
+
+	    ddq->head.unref_end = ddq->head.next.unref_end;
+
+	    if (!ddq->head.used_marker
+		&& ddq->head.unref_end == (ErtsAllctrDDBlock_t *) ilast) {
+		ddq->head.used_marker = 1;
+		ilast = ddq_managed_thread_enqueue(ddq, &ddq->tail.data.marker);
+	    }
+
+	    if (ddq->head.unref_end == (ErtsAllctrDDBlock_t *) ilast)
+		ERTS_THR_MEMORY_BARRIER;
+	    else {
+		ddq->head.next.unref_end = (ErtsAllctrDDBlock_t *) ilast;
+		ERTS_THR_MEMORY_BARRIER;
+		ddq->head.next.thr_progress = erts_thr_progress_later();
+		erts_atomic32_set_relb(&ddq->tail.data.um_refc_ix,
+				       um_refc_ix);
+		ddq->head.next.um_refc_ix = um_refc_ix == 0 ? 1 : 0;
+		ddq->head.next.thr_progress_reached = 0;
+	    }
+	}
+    }
+    return 1;
+}
+
+static ERTS_INLINE int
+handle_delayed_dealloc(Allctr_t *allctr,
+		       int allctr_locked,
+		       int use_limit,
+		       int ops_limit,
+		       int *need_thr_progress,
+		       int *need_more_work)
+{
+    int need_thr_prgr = 0;
+    int need_mr_wrk = 0;
+    int have_checked_incoming = 0;
+    int ops = 0;
+    ErtsAlcFixList_t *fix;
+    int res;
+    ErtsAllctrDDQueue_t *ddq;
+
+    if (allctr->thread_safe && !allctr_locked)
+	erts_mtx_lock(&allctr->mutex);
+
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
+
+    fix = allctr->fix;
+
+    ddq = &allctr->dd.q;
+
+    res = 0;
+
+    while (1) {
+	Block_t *blk;
+	void *ptr;
+	int ix;
+
+	if (use_limit && ++ops > ops_limit) {
+	    if (ddq->head.first != ddq->head.unref_end) {
+		need_mr_wrk = 1;
+		if (need_more_work)
+		    *need_more_work |= 1;
+	    }
+	    break;
+	}
+
+    dequeue:
+	ptr = ddq_dequeue(ddq);
+	if (!ptr) {
+	    if (have_checked_incoming)
+		break;
+	    need_thr_prgr = ddq_check_incoming(ddq);
+	    if (need_thr_progress)
+		*need_thr_progress |= need_thr_prgr;
+	    have_checked_incoming = 1;
+	    goto dequeue;
+	}
+
+	res = 1;
+
+	INC_CC(allctr->calls.this_free);
+
+	if (fix) {
+	    ErtsAlcType_t type;
+
+	    type = (ErtsAlcType_t) ((UWord *) ptr)[ERTS_ALCU_DD_FIX_TYPE_OFFS];
+	    ix = type - ERTS_ALC_N_MIN_A_FIXED_SIZE;
+	    ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
+	    fix[ix].used--;
+	    if (fix[ix].allocated < fix[ix].limit
+		&& fix[ix].list_size < ERTS_ALCU_FIX_MAX_LIST_SZ) {
+		*((void **) ptr) = fix[ix].list;
+		fix[ix].list = ptr;
+		fix[ix].list_size++;
+		if (!allctr->fix_shrink_scheduled) {
+		    allctr->fix_shrink_scheduled = 1;
+		    erts_set_aux_work_timeout(
+			allctr->ix,
+			(ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
+			 | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC),
+			1);
+		}
+		ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
+		continue;
+	    }
+	    fix[ix].allocated--;
+	    if (fix[ix].list && fix[ix].allocated > fix[ix].limit) {
+		blk = UMEM2BLK(ptr);
+		if (IS_SBC_BLK(blk))
+		    destroy_carrier(allctr, blk);
+		else
+		    mbc_free(allctr, ptr);
+		ptr = fix[ix].list;
+		fix[ix].list = *((void **) ptr);
+		fix[ix].list_size--;
+		fix[ix].allocated--;
+	    }
+	}
+
+	blk = UMEM2BLK(ptr);
+
+	if (IS_SBC_BLK(blk))
+	    destroy_carrier(allctr, blk);
+	else
+	    mbc_free(allctr, ptr);
+	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
+    }
+
+    if (need_thr_progress && !(need_thr_prgr | need_mr_wrk)) {
+	need_thr_prgr = ddq_check_incoming(ddq);
+	*need_thr_progress |= need_thr_prgr;
+    }
+
+    if (allctr->thread_safe && !allctr_locked)
+	erts_mtx_unlock(&allctr->mutex);
+   return res;
+}
+
+static ERTS_INLINE void
+enqueue_dealloc_other_instance(ErtsAlcType_t type, Allctr_t *allctr, void *ptr)
+{
+    if (allctr->fix)
+	((UWord *) ptr)[ERTS_ALCU_DD_FIX_TYPE_OFFS] = (UWord) type;
+
+    if (ddq_enqueue(type, &allctr->dd.q, ptr))
+	erts_alloc_notify_delayed_dealloc(allctr->ix);
+}
+
+#endif
+
+void
+erts_alcu_check_delayed_dealloc(Allctr_t *allctr,
+				int limit,
+				int *need_thr_progress,
+				int *more_work)
+{
+#ifdef ERTS_SMP
+    handle_delayed_dealloc(allctr,
+			   0,
+			   limit,
+			   ERTS_ALCU_DD_OPS_LIM_HIGH,
+			   need_thr_progress,
+			   more_work);
+#endif
+}
+
+#define ERTS_ALCU_HANDLE_DD_IN_OP(Allctr, Locked) \
+    handle_delayed_dealloc((Allctr), (Locked), 1, \
+			 ERTS_ALCU_DD_OPS_LIM_LOW, NULL, NULL)
+
 /* Multi block carrier alloc/realloc/free ... */
 
 /* NOTE! mbc_alloc() may in case of memory shortage place the requested
@@ -680,7 +1137,20 @@ mbc_alloc_block(Allctr_t *allctr, Uint size, Uint *blk_szp, Uint32 *alcu_flgsp)
 	}
     }
 
+#ifdef ERTS_SMP
+    if (allctr->dd.use)
+	ERTS_ALCU_HANDLE_DD_IN_OP(allctr, 1);
+#endif
+
     blk = (*allctr->get_free_block)(allctr, get_blk_sz, NULL, 0, *alcu_flgsp);
+
+#ifdef ERTS_SMP
+    if (!blk && allctr->dd.use) {
+	if (ERTS_ALCU_HANDLE_DD_IN_OP(allctr, 1))
+	    blk = (*allctr->get_free_block)(allctr, get_blk_sz, NULL, 0,
+					    *alcu_flgsp);
+    }
+#endif
 
     if (!blk) {
 	if ((*alcu_flgsp) & ERTS_ALCU_FLG_SBMBC) 
@@ -939,6 +1409,11 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
     Uint is_last_blk;
 #endif /* #ifndef MBC_REALLOC_ALWAYS_MOVES */
 
+#ifdef ERTS_SMP
+    if (allctr->dd.use)
+	ERTS_ALCU_HANDLE_DD_IN_OP(allctr, 1);
+#endif
+
     ASSERT(p);
     ASSERT(size);
     ASSERT(size < allctr->sbc_threshold);
@@ -1005,7 +1480,6 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 						cand_blk,
 						cand_blk_sz,
 						alcu_flgs);
-
 	    if (new_blk || cand_blk != blk)
 		goto move_into_new_blk;
 	}
@@ -1441,7 +1915,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	goto try_sys_alloc;
     if (flags & CFLG_FORCE_MSEG)
 	goto try_mseg;
-    if (erts_mseg_no() >= max_mseg_carriers)
+    if (erts_mseg_no(&allctr->mseg_opt) >= max_mseg_carriers)
 	goto try_sys_alloc;
     if (flags & CFLG_SBC) {
 	if (allctr->sbcs.curr.norm.mseg.no >= allctr->max_mseg_sbcs)
@@ -1840,8 +2314,12 @@ static struct {
     Eterm ycs;
 
     /* Eterm sbmbcs; */
+
+    Eterm fix_types;
+
     Eterm mbcs;
     Eterm sbcs;
+
     Eterm sys_alloc_carriers_size;
 #if HAVE_ERTS_MSEG
     Eterm mseg_alloc_carriers_size;
@@ -1871,6 +2349,8 @@ static struct {
 #endif
 } am;
 
+static Eterm fix_type_atoms[ERTS_ALC_NO_FIXED_SIZES];
+
 static ERTS_INLINE void atom_init(Eterm *atom, char *name)
 {
     *atom = am_atom_put(name, strlen(name));
@@ -1891,6 +2371,7 @@ init_atoms(Allctr_t *allctr)
     erts_mtx_lock(&init_atoms_mtx);
 
     if (!atoms_initialized) {
+	int ix;
 #ifdef DEBUG
 	Eterm *atom;
 
@@ -1933,8 +2414,12 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(ycs);
 
 	/*AM_INIT(sbmbcs);*/
+
+	AM_INIT(fix_types);
+
 	AM_INIT(mbcs);
 	AM_INIT(sbcs);
+
 	AM_INIT(sys_alloc_carriers_size);
 #if HAVE_ERTS_MSEG
 	AM_INIT(mseg_alloc_carriers_size);
@@ -1965,6 +2450,13 @@ init_atoms(Allctr_t *allctr)
 	    ASSERT(*atom != THE_NON_VALUE);
 	}
 #endif
+
+	for (ix = 0; ix < ERTS_ALC_NO_FIXED_SIZES; ix++) {
+	    ErtsAlcType_t n = ERTS_ALC_N_MIN_A_FIXED_SIZE + ix;
+	    char *name = (char *) ERTS_ALC_N2TD(n);
+	    size_t len = strlen(name);
+	    fix_type_atoms[ix] = am_atom_put(name, len);
+	}
     }
 
     
@@ -2040,6 +2532,48 @@ add_4tup(Uint **hpp, Uint *szp, Eterm *lp,
 {
     *lp =
 	bld_cons(hpp, szp, bld_tuple(hpp, szp, 4, el1, el2, el3, el4), *lp);
+}
+
+static Eterm
+sz_info_fix(Allctr_t *allctr,
+	    int *print_to_p,
+	    void *print_to_arg,
+	    Uint **hpp,
+	    Uint *szp)
+{
+    Eterm res;
+    int ix;
+    ErtsAlcFixList_t *fix = allctr->fix;
+
+    ASSERT(fix);
+
+    res = NIL;
+
+    for (ix = ERTS_ALC_NO_FIXED_SIZES-1; ix >= 0; ix--) {
+	ErtsAlcType_t n = ix + ERTS_ALC_N_MIN_A_FIXED_SIZE;
+	Uint alloced = (fix[ix].type_size * fix[ix].allocated);
+	Uint used = fix[ix].type_size*fix[ix].used;
+
+	if (print_to_p) {
+	    int to = *print_to_p;
+	    void *arg = print_to_arg;
+	    erts_print(to,
+		       arg,
+		       "fix type: %s %bpu %bpu\n",
+		       (char *) ERTS_ALC_N2TD(n),
+		       alloced,
+		       used);
+	}
+
+	if (hpp || szp) {
+	    add_3tup(hpp, szp, &res,
+		     fix_type_atoms[ix],
+		     bld_unstable_uint(hpp, szp, alloced),
+		     bld_unstable_uint(hpp, szp, used));
+	}
+    }
+
+    return res;
 }
 
 static Eterm
@@ -2590,7 +3124,7 @@ erts_alcu_sz_info(Allctr_t *allctr,
 		  Uint **hpp,
 		  Uint *szp)
 {
-    Eterm res, sbmbcs, mbcs, sbcs;
+    Eterm res, sbmbcs, mbcs, sbcs, fix = THE_NON_VALUE;
 
     res  = THE_NON_VALUE;
 
@@ -2607,6 +3141,8 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	erts_mtx_lock(&allctr->mutex);
 #endif
 
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
+
     if (hpp || szp)
 	ensure_atoms_initialized(allctr);
 
@@ -2619,6 +3155,8 @@ erts_alcu_sz_info(Allctr_t *allctr,
     update_max_ever_values(&allctr->mbcs);
     update_max_ever_values(&allctr->sbcs);
 
+    if (allctr->fix)
+	fix = sz_info_fix(allctr, print_to_p, print_to_arg, hpp, szp);
     sbmbcs = sz_info_carriers(allctr, &allctr->sbmbcs, "sbmbcs ", print_to_p,
 			      print_to_arg, hpp, szp);
     mbcs = sz_info_carriers(allctr, &allctr->mbcs, "mbcs ", print_to_p,
@@ -2631,6 +3169,8 @@ erts_alcu_sz_info(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res, am.sbcs, sbcs);
 	add_2tup(hpp, szp, &res, am.mbcs, mbcs);
 	add_2tup(hpp, szp, &res, am.sbmbcs, sbmbcs);
+	if (allctr->fix)
+	    add_2tup(hpp, szp, &res, am.fix_types, fix);
     }
 
     if (begin_max_period) {
@@ -2656,7 +3196,7 @@ erts_alcu_info(Allctr_t *allctr,
 	       Uint **hpp,
 	       Uint *szp)
 {
-    Eterm res, sett, sbmbcs, mbcs, sbcs, calls;
+    Eterm res, sett, sbmbcs, mbcs, sbcs, calls, fix = THE_NON_VALUE;
 
     res  = THE_NON_VALUE;
 
@@ -2672,6 +3212,8 @@ erts_alcu_info(Allctr_t *allctr,
     if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
 #endif
+
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
     if (hpp || szp)
 	ensure_atoms_initialized(allctr);
@@ -2694,6 +3236,8 @@ erts_alcu_info(Allctr_t *allctr,
     }
 
     sett = info_options(allctr, print_to_p, print_to_arg, hpp, szp);
+    if (allctr->fix)
+	fix = sz_info_fix(allctr, print_to_p, print_to_arg, hpp, szp);
     sbmbcs = info_carriers(allctr, &allctr->sbmbcs, "sbmbcs ", print_to_p,
 			   print_to_arg, hpp, szp);
     mbcs = info_carriers(allctr, &allctr->mbcs, "mbcs ", print_to_p,
@@ -2709,6 +3253,8 @@ erts_alcu_info(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res, am.sbcs, sbcs);
 	add_2tup(hpp, szp, &res, am.mbcs, mbcs);
 	add_2tup(hpp, szp, &res, am.sbmbcs, sbmbcs);
+	if (allctr->fix)
+	    add_2tup(hpp, szp, &res, am.fix_types, fix);
 	add_2tup(hpp, szp, &res, am.options, sett);
 	add_3tup(hpp, szp, &res,
 		 am.versions,
@@ -2733,7 +3279,7 @@ erts_alcu_info(Allctr_t *allctr,
 
 
 void
-erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size)
+erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *fi, int fisz)
 {
 
 #ifdef USE_THREADS
@@ -2751,6 +3297,18 @@ erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size)
     size->blocks += allctr->sbmbcs.blocks.curr.size;
     size->blocks += allctr->sbcs.blocks.curr.size;
 
+    if (fi) {
+	int ix;
+	for (ix = 0; ix < fisz; ix++) {
+	    if (allctr->fix) {
+		fi[ix].allocated += (allctr->fix[ix].type_size
+				     * allctr->fix[ix].allocated);
+		fi[ix].used += (allctr->fix[ix].type_size
+				* allctr->fix[ix].used);
+	    }
+	}
+    }
+
 #ifdef USE_THREADS
     if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
@@ -2764,12 +3322,16 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 {
     Allctr_t *allctr = (Allctr_t *) extra; 
     void *res;
+    ErtsAlcFixList_t *fix;
 
     ASSERT(initialized);
 
     ASSERT(allctr);
 
-    ERTS_ALCU_DBG_CHK_THR_SPEC(allctr);
+    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+		       || erts_lc_mtx_is_locked(&allctr->mutex));
+
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
 #if ALLOC_ZERO_EQ_NULL
     if (!size)
@@ -2778,18 +3340,61 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 
     INC_CC(allctr->calls.this_alloc);
 
+    fix = allctr->fix;
+    if (fix) {
+	int ix = type - ERTS_ALC_N_MIN_A_FIXED_SIZE;
+	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
+	fix[ix].used++;
+	res = fix[ix].list;
+	if (res) {
+	    fix[ix].list_size--;
+	    fix[ix].list = *((void **) res);
+	    if (fix[ix].list && fix[ix].allocated > fix[ix].limit) {
+		void *p = fix[ix].list;
+		Block_t *blk;
+		fix[ix].list = *((void **) p);
+		fix[ix].list_size--;
+		blk = UMEM2BLK(p);
+		if (IS_SBC_BLK(blk))
+		    destroy_carrier(allctr, blk);
+		else
+		    mbc_free(allctr, p);
+		fix[ix].allocated--;
+	    }
+	    ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
+	    return res;
+	}
+	if (size < 2*sizeof(UWord))
+	    size += sizeof(UWord);
+	if (fix[ix].limit < fix[ix].used)
+	    fix[ix].limit = fix[ix].used;
+	if (fix[ix].max_used < fix[ix].used)
+	    fix[ix].max_used = fix[ix].used;
+	fix[ix].allocated++;
+    }
+
     if (size >= allctr->sbc_threshold) {
+	Block_t *blk;
+#ifdef ERTS_SMP
+	if (allctr->dd.use)
+	    ERTS_ALCU_HANDLE_DD_IN_OP(allctr, 1);
+#endif
 #if HALFWORD_HEAP
-	Block_t *blk = create_carrier(allctr, size,
-				      CFLG_SBC | CFLG_FORCE_MSEG);
+	blk = create_carrier(allctr, size,
+			     CFLG_SBC | CFLG_FORCE_MSEG);
 #else
-	Block_t *blk = create_carrier(allctr, size, CFLG_SBC);
+	blk = create_carrier(allctr, size, CFLG_SBC);
 #endif
 	res = blk ? BLK2UMEM(blk) : NULL;
     }
     else
 	res = mbc_alloc(allctr, size);
 
+    if (!res && fix) {
+	int ix = type - ERTS_ALC_N_MIN_A_FIXED_SIZE;
+	fix[ix].allocated--;
+	fix[ix].used--;
+    }
     return res;
 }
 
@@ -2818,29 +3423,28 @@ erts_alcu_alloc_ts(ErtsAlcType_t type, void *extra, Uint size)
     return res;
 }
 
+#ifdef ERTS_SMP
+
 void *
 erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix = erts_alc_get_thr_ix();
+    int ix;
     Allctr_t *allctr;
-    int unlock;
     void *res;
 
-    ASSERT(ix > 0);
-    if (ix < tspec->size) {
-	allctr = tspec->allctr[ix];
-	unlock = 0;
-    }
-    else {
-	allctr = tspec->allctr[0];
-	unlock = 1;
+    ix = ERTS_ALC_GET_THR_IX();
+
+    ASSERT(0 <= ix && ix < tspec->size);
+
+    allctr = tspec->allctr[ix];
+
+    if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
-    }
 
     res = do_erts_alcu_alloc(type, allctr, size);
 
-    if (unlock)
+    if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
 
     DEBUG_CHECK_ALIGNMENT(res);
@@ -2851,26 +3455,31 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 void *
 erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
 {
-    ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix = erts_alc_get_thr_ix();
-    Allctr_t *allctr;
+    int pref_ix;
+    Allctr_t *pref_allctr;
     void *res;
 
-    ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
-    ASSERT(ix > 0);
-    if (ix >= tspec->size)
-	ix = (ix % (tspec->size - 1)) + 1;
-    allctr = tspec->allctr[ix];
-    erts_mtx_lock(&allctr->mutex);
-    res = do_erts_alcu_alloc(type, allctr, size + sizeof(UWord));
-    if (res) {
-	*((Allctr_t **) res) = allctr;
-	res = (void *) (((char *) res) + sizeof(UWord));
-    }
-    erts_mtx_unlock(&allctr->mutex);
+    pref_ix = get_pref_allctr(extra, &pref_allctr);
+
+    if (pref_allctr->thread_safe)
+	erts_mtx_lock(&pref_allctr->mutex);
+
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(pref_allctr);
+
+    res = do_erts_alcu_alloc(type, pref_allctr, size + sizeof(UWord));
+    if (pref_allctr->thread_safe)
+	erts_mtx_unlock(&pref_allctr->mutex);
+
+    if (res)
+	res = put_used_allctr(res, pref_ix, size);
+
     DEBUG_CHECK_ALIGNMENT(res);
+
+
     return res;
 }
+
+#endif
 
 #endif
 
@@ -2879,23 +3488,63 @@ erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
 static ERTS_INLINE void
 do_erts_alcu_free(ErtsAlcType_t type, void *extra, void *p)
 {
+    int ix;
     Allctr_t *allctr = (Allctr_t *) extra; 
     ASSERT(initialized);
 
     ASSERT(allctr);
 
-    ERTS_ALCU_DBG_CHK_THR_SPEC(allctr);
+    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+		       || erts_lc_mtx_is_locked(&allctr->mutex));
+
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
     if (p) {
+	ErtsAlcFixList_t *fix = allctr->fix;
 	Block_t *blk;
 
 	INC_CC(allctr->calls.this_free);
+
+	if (fix) {
+	    ix = type - ERTS_ALC_N_MIN_A_FIXED_SIZE;
+	    ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 1);
+	    fix[ix].used--;
+	    if (fix[ix].allocated < fix[ix].limit
+		&& fix[ix].list_size < ERTS_ALCU_FIX_MAX_LIST_SZ) {
+		*((void **) p) = fix[ix].list;
+		fix[ix].list = p;
+		fix[ix].list_size++;
+		if (!allctr->fix_shrink_scheduled) {
+		    allctr->fix_shrink_scheduled = 1;
+		    erts_set_aux_work_timeout(
+			allctr->ix,
+			(ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
+			 | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC),
+			1);
+		}
+		ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
+		return;
+	    }
+	    fix[ix].allocated--;
+	    if (fix[ix].list && fix[ix].allocated > fix[ix].limit) {
+		blk = UMEM2BLK(p);
+		if (IS_SBC_BLK(blk))
+		    destroy_carrier(allctr, blk);
+		else
+		    mbc_free(allctr, p);
+		p = fix[ix].list;
+		fix[ix].list = *((void **) p);
+		fix[ix].list_size--;
+		fix[ix].allocated--;
+	    }
+	}
 
 	blk = UMEM2BLK(p);
 	if (IS_SBC_BLK(blk))
 	    destroy_carrier(allctr, blk);
 	else
 	    mbc_free(allctr, p);
+	ERTS_DBG_CHK_FIX_LIST(allctr, fix, ix, 0);
     }
 }
 
@@ -2915,41 +3564,53 @@ erts_alcu_free_ts(ErtsAlcType_t type, void *extra, void *p)
     erts_mtx_unlock(&allctr->mutex);
 }
 
+#ifdef ERTS_SMP
+
 void
 erts_alcu_free_thr_spec(ErtsAlcType_t type, void *extra, void *p)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix = erts_alc_get_thr_ix();
-    int unlock;
+    int ix;
     Allctr_t *allctr;
 
-    ASSERT(ix > 0);
-    if (ix < tspec->size) {
-	allctr = tspec->allctr[ix];
-	unlock = 0;
-    }
-    else {
-	allctr = tspec->allctr[0];
-	unlock = 1;
+    ix = ERTS_ALC_GET_THR_IX();
+
+    ASSERT(0 <= ix && ix < tspec->size);
+
+    allctr = tspec->allctr[ix];
+
+    if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
-    }
 
     do_erts_alcu_free(type, allctr, p);
-    if (unlock)
+
+    if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
 }
 
 void
-erts_alcu_free_thr_pref(ErtsAlcType_t type, void *unused, void *p)
+erts_alcu_free_thr_pref(ErtsAlcType_t type, void *extra, void *p)
 {
     if (p) {
-	void *ptr = (void *) (((char *) p) - sizeof(UWord));
-	Allctr_t *allctr = *((Allctr_t **) ptr);
-	erts_mtx_lock(&allctr->mutex);
-	do_erts_alcu_free(type, allctr, ptr);
-	erts_mtx_unlock(&allctr->mutex);
+	Allctr_t *pref_allctr, *used_allctr;
+	void *ptr;
+
+	get_pref_allctr(extra, &pref_allctr);
+	ptr = get_used_allctr(extra, p, &used_allctr, NULL);
+	if (pref_allctr != used_allctr)
+	    enqueue_dealloc_other_instance(type, used_allctr, ptr);
+	else {
+	    if (used_allctr->thread_safe)
+		erts_mtx_lock(&used_allctr->mutex);
+	    ERTS_ALCU_DBG_CHK_THR_ACCESS(used_allctr);
+	    do_erts_alcu_free(type, used_allctr, ptr);
+	    if (used_allctr->thread_safe)
+		erts_mtx_unlock(&used_allctr->mutex);
+	}
     }
 }
+
+#endif
 
 #endif
 
@@ -2970,7 +3631,10 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 
     ASSERT(allctr);
 
-    ERTS_ALCU_DBG_CHK_THR_SPEC(allctr);
+    ERTS_SMP_LC_ASSERT(!allctr->thread_safe
+		       || erts_lc_mtx_is_locked(&allctr->mutex));
+
+    ERTS_ALCU_DBG_CHK_THR_ACCESS(allctr);
 
     if (!p) {
 	res = do_erts_alcu_alloc(type, extra, size);
@@ -3063,6 +3727,10 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
     }
     else {
 	Block_t *new_blk;
+#ifdef ERTS_SMP
+	if (allctr->dd.use)
+	    ERTS_ALCU_HANDLE_DD_IN_OP(allctr, 1);
+#endif
 	if(IS_SBC_BLK(blk)) {
 	do_carrier_resize:
 #if HALFWORD_HEAP
@@ -3166,30 +3834,29 @@ erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
     return res;
 }
 
+#ifdef ERTS_SMP
+
 void *
 erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
 			   void *ptr, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix = erts_alc_get_thr_ix();
+    int ix;
     Allctr_t *allctr;
-    int unlock;
     void *res;
 
-    ASSERT(ix > 0);
-    if (ix < tspec->size) {
-	allctr = tspec->allctr[ix];
-	unlock = 0;
-    }
-    else {
-	allctr = tspec->allctr[0];
-	unlock = 1;
+    ix = ERTS_ALC_GET_THR_IX();
+
+    ASSERT(0 <= ix && ix < tspec->size);
+
+    allctr = tspec->allctr[ix];
+
+    if (allctr->thread_safe)
 	erts_mtx_lock(&allctr->mutex);
-    }
 
     res = do_erts_alcu_realloc(type, allctr, ptr, size, 0);
 
-    if (unlock)
+    if (allctr->thread_safe)
 	erts_mtx_unlock(&allctr->mutex);
 
     DEBUG_CHECK_ALIGNMENT(res);
@@ -3202,26 +3869,22 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 			      void *ptr, Uint size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix = erts_alc_get_thr_ix();
+    int ix;
     Allctr_t *allctr;
-    int unlock;
     void *res;
 
-    ASSERT(ix > 0);
-    if (ix < tspec->size) {
-	allctr = tspec->allctr[ix];
-	unlock = 0;
-    }
-    else {
-	allctr = tspec->allctr[0];
-	unlock = 1;
-	erts_mtx_lock(&allctr->mutex);
-    }
+    ix = ERTS_ALC_GET_THR_IX();
 
+    ASSERT(0 <= ix && ix < tspec->size);
+
+    allctr = tspec->allctr[ix];
+
+    if (allctr->thread_safe)
+	erts_mtx_lock(&allctr->mutex);
 
     res = do_erts_alcu_alloc(type, allctr, size);
     if (!res) {
-	if (unlock)
+	if (allctr->thread_safe)
 	    erts_mtx_unlock(&allctr->mutex);
 	res = erts_alcu_realloc_thr_spec(type, allctr, ptr, size);
     }
@@ -3235,7 +3898,7 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 	    cpy_size = size;
 	sys_memcpy(res, ptr, cpy_size);
 	do_erts_alcu_free(type, allctr, ptr);
-	if (unlock)
+	if (allctr->thread_safe)
 	    erts_mtx_unlock(&allctr->mutex);
     }
 
@@ -3244,126 +3907,98 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
     return res;
 }
 
-void *
-erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size)
+static ERTS_INLINE void *
+realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
+		 int force_move)
 {
-    ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix;
+    int pref_ix;
     void *ptr, *res;
     Allctr_t *pref_allctr, *used_allctr;
+    UWord old_user_size;
 
     if (!p)
 	return erts_alcu_alloc_thr_pref(type, extra, size);
 
-    ptr = (void *) (((char *) p) - sizeof(UWord));
-    used_allctr = *((Allctr_t **) ptr);
+    pref_ix = get_pref_allctr(extra, &pref_allctr);
+    ptr = get_used_allctr(extra, p, &used_allctr, &old_user_size);
 
-    ix = erts_alc_get_thr_ix();
-    ASSERT(ix > 0);
-    if (ix >= tspec->size)
-	ix = (ix % (tspec->size - 1)) + 1;
-    pref_allctr = tspec->allctr[ix];
     ASSERT(used_allctr && pref_allctr);
 
-    erts_mtx_lock(&used_allctr->mutex);
-    res = do_erts_alcu_realloc(type,
-			       used_allctr,
-			       ptr,
-			       size + sizeof(UWord),
-			       (pref_allctr != used_allctr
-				? ERTS_ALCU_FLG_FAIL_REALLOC_MOVE
-				: 0));
-    erts_mtx_unlock(&used_allctr->mutex);
-    if (res) {
-	ASSERT(used_allctr == *((Allctr_t **) res));
-	res = (void *) (((char *) res) + sizeof(UWord));
-	DEBUG_CHECK_ALIGNMENT(res);
+    if (!force_move && used_allctr == pref_allctr) {
+	if (used_allctr->thread_safe)
+	    erts_mtx_lock(&used_allctr->mutex);
+	ERTS_ALCU_DBG_CHK_THR_ACCESS(used_allctr);
+	res = do_erts_alcu_realloc(type,
+				   used_allctr,
+				   ptr,
+				   size + sizeof(UWord),
+				   0);
+	if (used_allctr->thread_safe)
+	    erts_mtx_unlock(&used_allctr->mutex);
+	if (res)
+	    res = put_used_allctr(res, pref_ix, size);
     }
     else {
-	erts_mtx_lock(&pref_allctr->mutex);
+	if (pref_allctr->thread_safe)
+	    erts_mtx_lock(&pref_allctr->mutex);
 	res = do_erts_alcu_alloc(type, pref_allctr, size + sizeof(UWord));
-	erts_mtx_unlock(&pref_allctr->mutex);
+	if (pref_allctr->thread_safe && (!force_move
+					 || used_allctr != pref_allctr))
+	    erts_mtx_unlock(&pref_allctr->mutex);
 	if (res) {
 	    Block_t *blk;
 	    size_t cpy_size;
 
-	    *((Allctr_t **) res) = pref_allctr;
-	    res = (void *) (((char *) res) + sizeof(UWord));
+	    res = put_used_allctr(res, pref_ix, size);
 
 	    DEBUG_CHECK_ALIGNMENT(res);
 
-	    erts_mtx_lock(&used_allctr->mutex);
 	    blk = UMEM2BLK(ptr);
-	    cpy_size = BLK_SZ(blk) - ABLK_HDR_SZ - sizeof(UWord);
+	    if (old_user_size != ERTS_AU_PREF_ALLOC_SIZE_MASK)
+		cpy_size = old_user_size;
+	    else {
+		if (used_allctr->thread_safe && (!force_move
+						 || used_allctr != pref_allctr))
+		    erts_mtx_lock(&used_allctr->mutex);
+		ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&used_allctr->mutex));
+		cpy_size = BLK_SZ(blk);
+		if (used_allctr->thread_safe && (!force_move
+						 || used_allctr != pref_allctr))
+		    erts_mtx_unlock(&used_allctr->mutex);
+		cpy_size -= ABLK_HDR_SZ + sizeof(UWord);
+	    }
 	    if (cpy_size > size)
 		cpy_size = size;
 	    sys_memcpy(res, p, cpy_size);
-	    do_erts_alcu_free(type, used_allctr, ptr);
-	    erts_mtx_unlock(&used_allctr->mutex);
+
+	    if (!force_move || used_allctr != pref_allctr)
+		enqueue_dealloc_other_instance(type, used_allctr, ptr);
+	    else {
+		do_erts_alcu_free(type, used_allctr, ptr);
+		ASSERT(pref_allctr == used_allctr);
+		if (pref_allctr->thread_safe)
+		    erts_mtx_unlock(&pref_allctr->mutex);
+	    }
 	}
     }
 
     return res;
 }
 
+void *
+erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size)
+{
+    return realloc_thr_pref(type, extra, p, size, 0);
+}
 
 void *
 erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
 			      void *p, Uint size)
 {
-    ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    int ix;
-    void *ptr, *res;
-    Allctr_t *pref_allctr, *used_allctr;
-
-    if (!p)
-	return erts_alcu_alloc_thr_pref(type, extra, size);
-
-    ptr = (void *) (((char *) p) - sizeof(UWord));
-    used_allctr = *((Allctr_t **) ptr);
-
-    ix = erts_alc_get_thr_ix();
-    ASSERT(ix > 0);
-    if (ix >= tspec->size)
-	ix = (ix % (tspec->size - 1)) + 1;
-    pref_allctr = tspec->allctr[ix];
-    ASSERT(used_allctr && pref_allctr);
-
-    erts_mtx_lock(&pref_allctr->mutex);
-    res = do_erts_alcu_alloc(type, pref_allctr, size + sizeof(UWord));
-    if (!res) {
-	erts_mtx_unlock(&pref_allctr->mutex);
-	res = erts_alcu_realloc_thr_pref(type, extra, p, size);
-    }
-    else {
-	Block_t *blk;
-	size_t cpy_size;
-	Allctr_t *allctr;
-
-	*((Allctr_t **) res) = pref_allctr;
-	res = (void *) (((char *) res) + sizeof(UWord));
-
-	DEBUG_CHECK_ALIGNMENT(res);
-
-	if (used_allctr == pref_allctr)
-	    allctr = pref_allctr;
-	else {
-	    erts_mtx_unlock(&pref_allctr->mutex);
-	    allctr = used_allctr;
-	    erts_mtx_lock(&allctr->mutex);
-	}
-
-	blk = UMEM2BLK(ptr);
-	cpy_size = BLK_SZ(blk) - ABLK_HDR_SZ - sizeof(UWord);
-	if (cpy_size > size)
-	    cpy_size = size;
-	sys_memcpy(res, p, cpy_size);
-	do_erts_alcu_free(type, allctr, ptr);
-	erts_mtx_unlock(&allctr->mutex);
-    }
-
-    return res;
+    return realloc_thr_pref(type, extra, p, size, 1);
 }
+
+#endif
 
 #endif
 
@@ -3381,6 +4016,10 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     sys_memcpy((void *) &allctr->mseg_opt,
 	       (void *) &erts_mseg_default_opt,
 	       sizeof(ErtsMsegOpt_t));
+#ifdef ERTS_SMP
+    if (init->tspec || init->tpref)
+	allctr->mseg_opt.sched_spec = 1;
+#endif
 # if HALFWORD_HEAP
     allctr->mseg_opt.low_mem = init->low_mem;
 # endif
@@ -3390,6 +4029,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     if (!allctr->name_prefix)
 	goto error;
 
+    allctr->ix				= init->ix;
     allctr->alloc_no			= init->alloc_no;
     if (allctr->alloc_no < ERTS_ALC_A_MIN
 	|| ERTS_ALC_A_MAX < allctr->alloc_no)
@@ -3431,6 +4071,18 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	goto error;
     allctr->min_block_size		= UNIT_CEILING(allctr->min_block_size
 						       + sizeof(UWord));
+#if ERTS_SMP
+    if (init->tpref) {
+	Uint sz = sizeof(Block_t);
+	sz += ERTS_ALCU_DD_FIX_TYPE_OFFS*sizeof(UWord);
+	if (init->fix)
+	    sz += sizeof(UWord);
+	sz = UNIT_CEILING(sz);
+	if (sz > allctr->min_block_size)
+	    allctr->min_block_size = sz;
+    }
+#endif
+
 
 
     allctr->sbmbc_threshold		= init->sbmbct;
@@ -3493,7 +4145,8 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
     if (allctr->mbc_header_size < sizeof(Carrier_t))
 	goto error;
-#ifdef USE_THREADS
+#ifdef ERTS_SMP
+    allctr->dd.use = 0;
     if (init->tpref) {
 	allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
 						+ FBLK_FTR_SZ
@@ -3507,6 +4160,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 						+ sizeof(UWord))
 				   - ABLK_HDR_SZ
 				   - sizeof(UWord));
+
+	allctr->dd.use = 1;
+	init_dd_queue(&allctr->dd.q);
     }
     else
 #endif
@@ -3546,6 +4202,21 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
 
+    }
+
+    if (init->fix) {
+	int i;
+	allctr->fix = init->fix;
+	allctr->fix_shrink_scheduled = 0;
+	for (i = 0; i < ERTS_ALC_NO_FIXED_SIZES; i++) {
+	    allctr->fix[i].max_used = 0;
+	    allctr->fix[i].limit = 0;
+	    allctr->fix[i].type_size = init->fix_type_size[i];
+	    allctr->fix[i].list_size = 0;
+	    allctr->fix[i].list = NULL;
+	    allctr->fix[i].allocated = 0;
+	    allctr->fix[i].used = 0;
+	}
     }
 
     return 1;

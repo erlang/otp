@@ -53,10 +53,16 @@ typedef struct process Process;
 #include "erl_time.h"
 #include "erl_atom_table.h"
 #include "external.h"
+#include "erl_mseg.h"
 
 #ifdef HIPE
 #include "hipe_process.h"
 #endif
+
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 
 struct ErtsNodesMonitor_;
 struct port;
@@ -242,16 +248,20 @@ typedef enum {
   | ERTS_SSI_FLG_WAITING				\
   | ERTS_SSI_FLG_SUSPENDED)
 
-#define ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
+#define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 0)
+#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 1)
+#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 2)
+#define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM	(((erts_aint32_t) 1) << 3)
+#define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC	(((erts_aint32_t) 1) << 4)
+#ifdef ERTS_SMP
+#define ERTS_SSI_AUX_WORK_DD			(((erts_aint32_t) 1) << 5)
+#define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 6)
+#endif
+#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 7)
 
-#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 0)
-#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 1)
-
-#define ERTS_SSI_BLOCKABLE_AUX_WORK_MASK \
-  (ERTS_SSI_AUX_WORK_CHECK_CHILDREN \
-   | ERTS_SSI_AUX_WORK_MISC)
-#define ERTS_SSI_NONBLOCKABLE_AUX_WORK_MASK \
-  (0)
+#if !HAVE_ERTS_MSEG
+#  undef ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK
+#endif
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -261,11 +271,13 @@ typedef struct {
 } ErtsSchedulerSleepList;
 
 struct ErtsSchedulerSleepInfo_ {
+#ifdef ERTS_SMP
     ErtsSchedulerSleepInfo *next;
     ErtsSchedulerSleepInfo *prev;
     erts_smp_atomic32_t flags;
     erts_tse_t *event;
-    erts_smp_atomic32_t aux_work;
+#endif
+    erts_atomic32_t aux_work;
 };
 
 /* times to reschedule low prio process before running */
@@ -386,6 +398,22 @@ do {								\
     (RQ)->wakeup_other_reds += (REDS);				\
 } while (0)
 
+typedef struct {
+    int sched_id;
+    ErtsSchedulerData *esdp;
+    ErtsSchedulerSleepInfo *ssi;
+    struct {
+	int ix;
+    } misc;
+#ifdef ERTS_SMP
+    struct {
+	ErtsThrPrgrVal thr_prgr;
+	void (*completed_callback)(void *);
+	void (*completed_arg)(void *);
+    } dd;
+#endif
+} ErtsAuxWorkData;
+
 struct ErtsSchedulerData_ {
 
 #ifdef ERTS_SMP
@@ -403,8 +431,8 @@ struct ErtsSchedulerData_ {
     ethr_tid tid;		/* Thread id */
     struct erl_bits_state erl_bits_state; /* erl_bits.c state */
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
-    ErtsSchedulerSleepInfo *ssi;
     Process *free_process;
+    ErtsThrPrgrData thr_progress_data;
 #endif
 #if !HEAP_ON_C_STACK
     Eterm tmp_heap[TMP_HEAP_SIZE];
@@ -413,15 +441,18 @@ struct ErtsSchedulerData_ {
     Eterm cmp_tmp_heap[CMP_TMP_HEAP_SIZE];
     Eterm erl_arith_tmp_heap[ERL_ARITH_TMP_HEAP_SIZE];
 #endif
-
+    ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
     Uint no;			/* Scheduler number */
     struct port *current_port;
     ErtsRunQueue *run_queue;
     int virtual_reds;
     int cpu_id;			/* >= 0 when bound */
+    ErtsAuxWorkData aux_work_data;
 
     ErtsAtomCacheMap atom_cache_map;
+
+    ErtsSchedAllocData alloc_data;
 
 #ifdef ERTS_SMP
     /* NOTE: These fields are modified under held mutexes by other threads */
@@ -1032,7 +1063,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
-void erts_early_init_scheduling(void);
+void erts_early_init_scheduling(int);
 void erts_init_scheduling(int, int, int);
 
 ErtsProcList *erts_proclist_create(Process *);
@@ -1058,6 +1089,7 @@ erts_block_multi_scheduling(Process *, ErtsProcLocks, int, int);
 int erts_is_multi_scheduling_blocked(void);
 Eterm erts_multi_scheduling_blockers(Process *);
 void erts_start_schedulers(void);
+void erts_alloc_notify_delayed_dealloc(int);
 void erts_smp_notify_check_children_needed(void);
 void
 erts_smp_schedule_misc_aux_work(int ignore_self,
@@ -1065,6 +1097,7 @@ erts_smp_schedule_misc_aux_work(int ignore_self,
 				void (*func)(void *),
 				void *arg);
 #endif
+erts_aint32_t erts_set_aux_work_timeout(int, erts_aint32_t, int);
 void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
 void erts_init_process(int);
@@ -1148,6 +1181,7 @@ Sint erts_test_next_pid(int, Uint);
 Eterm erts_debug_processes(Process *c_p);
 Eterm erts_debug_processes_bif_info(Process *c_p);
 Uint erts_debug_nbalance(void);
+int erts_debug_wait_deallocations(Process *c_p);
 
 #ifdef ERTS_SMP
 #  define ERTS_GET_SCHEDULER_DATA_FROM_PROC(PROC) ((PROC)->scheduler_data)

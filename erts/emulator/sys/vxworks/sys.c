@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -238,6 +238,12 @@ erl_sys_args(int* argc, char** argv)
     ASSERT(max_files <= erts_vxworks_max_files);
 }
 
+void
+erts_sys_schedule_interrupt(int set)
+{
+    erts_check_io_interrupt(set);
+}
+
 /*
  * Called from schedule() when it runs out of runnable processes,
  * or when Erlang code has performed INPUT_REDUCTIONS reduction
@@ -246,7 +252,6 @@ erl_sys_args(int* argc, char** argv)
 void
 erl_sys_schedule(int runnable)
 {	
-    erts_check_io_interrupt(0);
     erts_check_io(!runnable);
 }
 
@@ -309,7 +314,7 @@ static void request_break(void)
   fprintf(stderr,"break!\n");
 #endif
   erts_break_requested = 1;
-  erts_check_io_interrupt(1); /* Make sure we don't sleep in erts_poll_wait */
+  erts_check_io_async_sig_interrupt(1); /* Make sure we don't sleep in erts_poll_wait */
 }
 
 static void do_quit(void)

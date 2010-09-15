@@ -651,7 +651,7 @@ ERTS_GLB_INLINE int erts_smp_proc_trylock(Process *, ErtsProcLocks);
 
 ERTS_GLB_INLINE void erts_smp_proc_inc_refc(Process *);
 ERTS_GLB_INLINE void erts_smp_proc_dec_refc(Process *);
-
+ERTS_GLB_INLINE void erts_smp_proc_add_refc(Process *, Sint32);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -731,6 +731,21 @@ ERTS_GLB_INLINE void erts_smp_proc_dec_refc(Process *p)
     erts_pix_lock(pixlck);
     ERTS_LC_ASSERT(p->lock.refc > 0);
     fp = --p->lock.refc == 0 ? p : NULL; 
+    erts_pix_unlock(pixlck);
+    if (fp)
+	erts_free_proc(fp);
+#endif
+}
+
+ERTS_GLB_INLINE void erts_smp_proc_add_refc(Process *p, Sint32 refc)
+{
+#ifdef ERTS_SMP
+    Process *fp;
+    erts_pix_lock_t *pixlck = ERTS_PID2PIXLOCK(p->id);
+    erts_pix_lock(pixlck);
+    ERTS_LC_ASSERT(p->lock.refc > 0);
+    p->lock.refc += refc;
+    fp = p->lock.refc == 0 ? p : NULL; 
     erts_pix_unlock(pixlck);
     if (fp)
 	erts_free_proc(fp);

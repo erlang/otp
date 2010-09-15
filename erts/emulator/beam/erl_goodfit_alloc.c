@@ -190,16 +190,20 @@ erts_gfalc_start(GFAllctr_t *gfallctr,
 		 GFAllctrInit_t *gfinit,
 		 AllctrInit_t *init)
 {
-    GFAllctr_t nulled_state = {{0}};
-    /* {{0}} is used instead of {0}, in order to avoid (an incorrect) gcc
-       warning. gcc warns if {0} is used as initializer of a struct when
-       the first member is a struct (not if, for example, the third member
-       is a struct). */
+    struct {
+	int dummy;
+	GFAllctr_t allctr;
+    } zero = {0};
+    /* The struct with a dummy element first is used in order to avoid (an
+       incorrect) gcc warning. gcc warns if {0} is used as initializer of
+       a struct when the first member is a struct (not if, for example,
+       the third member is a struct). */
+
     Allctr_t *allctr = (Allctr_t *) gfallctr;
 
-    init->sbmbct = 0; /* Small mbc not yet supported by goodfit */
+    sys_memcpy((void *) gfallctr, (void *) &zero.allctr, sizeof(GFAllctr_t));
 
-    sys_memcpy((void *) gfallctr, (void *) &nulled_state, sizeof(GFAllctr_t));
+    init->sbmbct = 0; /* Small mbc not yet supported by goodfit */
 
     allctr->mbc_header_size		= sizeof(Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;

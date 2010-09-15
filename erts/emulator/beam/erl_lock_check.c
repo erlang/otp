@@ -125,7 +125,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
     {   "pollset_rm_list",                      NULL                    },
-    {   "removed_fd_pre_alloc_lock",            NULL                    },
+    {   "removed_fd_pre_alloc_lock",            "address"               },
     {   "state_prealloc",                       NULL                    },
     {	"schdlr_sspnd",				NULL			},
     {	"run_queue",				"address"		},
@@ -151,10 +151,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
-    {	"fix_alloc",				"index"			},
     {	"alcu_allocator",			"index"			},
     {	"sbmbc_alloc",				"index"			},
-    {	"alcu_delayed_free",			"index"			},
     {	"mseg",					NULL			},
 #if HALFWORD_HEAP
     {	"pmmap",				NULL			},
@@ -183,7 +181,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"sched_stat",				NULL			},
     {	"run_queue_sleep_list",			"address"		},
 #endif
-    {	"alloc_thr_ix_lock",			NULL			},
 #ifdef ERTS_SMP
     {	"proc_lck_qs_alloc",			NULL 			},
 #endif

@@ -42,6 +42,8 @@
 #include "erl_threads.h"
 #include "erl_smp.h"
 #include "erl_time.h"
+#include "erl_thr_progress.h"
+#include "erl_sched_spec_pre_alloc.h"
 
 #undef M_TRIM_THRESHOLD
 #undef M_TOP_PAD
@@ -3250,10 +3252,10 @@ erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer)
 
 #endif
 
-static Sint trim_threshold;
-static Sint top_pad;
-static Sint mmap_threshold;
-static Sint mmap_max;
+static int trim_threshold;
+static int top_pad;
+static int mmap_threshold;
+static int mmap_max;
 
 Uint tot_bin_allocated;
 
@@ -3276,8 +3278,8 @@ int
 sys_alloc_opt(int opt, int value)
 {
 #if HAVE_MALLOPT
-  Sint m_opt;
-  Sint *curr_val;
+  int m_opt;
+  int *curr_val;
 
   switch(opt) {
   case SYS_ALLOC_OPT_TRIM_THRESHOLD:
@@ -3317,7 +3319,7 @@ sys_alloc_opt(int opt, int value)
   }
 
   if(mallopt(m_opt, value)) {
-    *curr_val = (Sint) value;
+    *curr_val = value;
     return 1;
   }
 
