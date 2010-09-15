@@ -156,7 +156,7 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           the child process to terminate by calling
           <c>exit(Child,shutdown)</c> and then wait for an exit signal
           with reason <c>shutdown</c> back from the child process. If
-          no exit signal is received within the specified time,
+          no exit signal is received within the specified number of milliseconds,
           the child process is unconditionally terminated using
           <c>exit(Child,kill)</c>.</p>
         <p>If the child process is another supervisor, <c>Shutdown</c>
