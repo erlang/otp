@@ -75,7 +75,7 @@
           session,              % #session{} from ssl_handshake.hrl
 	  session_cache,        % 
 	  session_cache_cb,     %
-          negotiated_version,   % #protocol_version{}
+          negotiated_version,   % tls_version()
           supported_protocol_versions, % [atom()]
           client_certificate_requested = false,
 	  key_algorithm,       % atom as defined by cipher_suite

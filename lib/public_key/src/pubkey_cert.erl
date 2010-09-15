@@ -290,7 +290,7 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 
 
 %%--------------------------------------------------------------------
--spec verify_fun(#'OTPTBSCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
+-spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
 		 valid, term(), fun()) -> term().
 %%
 %% Description: Gives the user application the opportunity handle path
@@ -313,7 +313,7 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 		{extension, #'Extension'{critical = true}} ->
 		    throw({bad_cert, unknown_critical_extension});
 		_ ->
-		  UserState
+		    UserState
 	    end
     end.
 

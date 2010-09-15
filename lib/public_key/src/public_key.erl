@@ -528,7 +528,6 @@ path_validation([DerCert | _] = Path,
 	    {error, Reason}
     end.
 
-
 validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 					 working_public_key = Key,
 					 working_public_key_parameters = 

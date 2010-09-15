@@ -497,6 +497,66 @@ decode_cipher_text(CipherText, ConnnectionStates0) ->
        #alert{} = Alert ->
 	   Alert
    end.
+%%--------------------------------------------------------------------
+-spec encode_data(iolist(), tls_version(), #connection_states{}, integer()) ->
+			 {iolist(), iolist(), #connection_states{}}.
+%%
+%% Description: Encodes data to send on the ssl-socket.
+%%--------------------------------------------------------------------
+encode_data(Frag, Version, ConnectionStates, RenegotiateAt)
+  when byte_size(Frag) < (?MAX_PLAIN_TEXT_LENGTH - 2048) ->
+    case encode_plain_text(?APPLICATION_DATA,Version,Frag,ConnectionStates, RenegotiateAt) of
+	{renegotiate, Data} ->
+	    {[], Data, ConnectionStates};
+	{Msg, CS} ->
+	    {Msg, [], CS}
+    end;
+
+encode_data(Frag, Version, ConnectionStates, RenegotiateAt) when is_binary(Frag) ->
+    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH - 2048),
+    encode_data(Data, Version, ConnectionStates, RenegotiateAt);
+
+encode_data(Data, Version, ConnectionStates0, RenegotiateAt) when is_list(Data) ->
+    {ConnectionStates, EncodedMsg, NotEncdedData} =
+        lists:foldl(fun(B, {CS0, Encoded, Rest}) ->
+			    case encode_plain_text(?APPLICATION_DATA,
+						   Version, B, CS0, RenegotiateAt) of
+				{renegotiate, NotEnc} ->
+				    {CS0, Encoded, [NotEnc | Rest]};
+				{Enc, CS1} ->
+				    {CS1, [Enc | Encoded], Rest}
+			    end
+		    end, {ConnectionStates0, [], []}, Data),
+    {lists:reverse(EncodedMsg), lists:reverse(NotEncdedData), ConnectionStates}.
+
+%%--------------------------------------------------------------------
+-spec encode_handshake(iolist(), tls_version(), #connection_states{}) ->
+			      {iolist(), #connection_states{}}.
+%%
+%% Description: Encodes a handshake message to send on the ssl-socket.
+%%--------------------------------------------------------------------
+encode_handshake(Frag, Version, ConnectionStates) ->
+    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
+
+%%--------------------------------------------------------------------
+-spec encode_alert_record(#alert{}, tls_version(), #connection_states{}) ->
+				 {iolist(), #connection_states{}}.
+%%
+%% Description: Encodes an alert message to send on the ssl-socket.
+%%--------------------------------------------------------------------
+encode_alert_record(#alert{level = Level, description = Description},
+                    Version, ConnectionStates) ->
+    encode_plain_text(?ALERT, Version, <<?BYTE(Level), ?BYTE(Description)>>,
+		      ConnectionStates).
+
+%%--------------------------------------------------------------------
+-spec encode_change_cipher_spec(tls_version(), #connection_states{}) ->
+				       {iolist(), #connection_states{}}.
+%%
+%% Description: Encodes a change_cipher_spec-message to send on the ssl socket.
+%%--------------------------------------------------------------------
+encode_change_cipher_spec(Version, ConnectionStates) ->
+    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -549,43 +609,6 @@ split_bin(Bin, ChunkSize, Acc) ->
         _ ->
             lists:reverse(Acc, [Bin])
     end.
-
-encode_data(Frag, Version, ConnectionStates, RenegotiateAt) 
-  when byte_size(Frag) < (?MAX_PLAIN_TEXT_LENGTH - 2048) -> 
-    case encode_plain_text(?APPLICATION_DATA,Version,Frag,ConnectionStates, RenegotiateAt) of
-	{renegotiate, Data} ->
-	    {[], Data, ConnectionStates};
-	{Msg, CS} ->
-	    {Msg, [], CS}
-    end;
-
-encode_data(Frag, Version, ConnectionStates, RenegotiateAt) when is_binary(Frag) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH - 2048),
-    encode_data(Data, Version, ConnectionStates, RenegotiateAt);
-
-encode_data(Data, Version, ConnectionStates0, RenegotiateAt) when is_list(Data) ->
-    {ConnectionStates, EncodedMsg, NotEncdedData} = 
-        lists:foldl(fun(B, {CS0, Encoded, Rest}) ->
-			    case encode_plain_text(?APPLICATION_DATA,
-						   Version, B, CS0, RenegotiateAt) of
-				{renegotiate, NotEnc} ->
-				    {CS0, Encoded, [NotEnc | Rest]};
-				{Enc, CS1} ->
-				    {CS1, [Enc | Encoded], Rest}
-			    end 
-		    end, {ConnectionStates0, [], []}, Data),
-    {lists:reverse(EncodedMsg), lists:reverse(NotEncdedData), ConnectionStates}.
-
-encode_handshake(Frag, Version, ConnectionStates) ->
-    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
-
-encode_alert_record(#alert{level = Level, description = Description},
-                    Version, ConnectionStates) ->
-    encode_plain_text(?ALERT, Version, <<?BYTE(Level), ?BYTE(Description)>>, 
-		      ConnectionStates).
-
-encode_change_cipher_spec(Version, ConnectionStates) ->
-    encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
 encode_plain_text(Type, Version, Data, ConnectionStates, RenegotiateAt) ->
     #connection_states{current_write = 

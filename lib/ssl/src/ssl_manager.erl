@@ -122,6 +122,7 @@ server_session_id(Port, SuggestedSessionId, SslOpts) ->
     call({server_session_id, Port, SuggestedSessionId, SslOpts}).
 
 %%--------------------------------------------------------------------
+-spec register_session(port_num(), #session{}) -> ok.
 -spec register_session(host(), port_num(), #session{}) -> ok.
 %%
 %% Description: Make the session available for reuse.
@@ -132,6 +133,7 @@ register_session(Host, Port, Session) ->
 register_session(Port, Session) ->
     cast({register_session, Port, Session}).
 %%--------------------------------------------------------------------
+-spec invalidate_session(port_num(), #session{}) -> ok.
 -spec invalidate_session(host(), port_num(), #session{}) -> ok.
 %%
 %% Description: Make the session unavilable for reuse.
