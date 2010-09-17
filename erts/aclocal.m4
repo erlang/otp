@@ -1104,10 +1104,10 @@ AC_ARG_ENABLE(ethread-pre-pentium4-compatibility,
 			     [enable compatibility with x86 processors before pentium 4 (back to 486) in the ethread library]),
 [ case "$enableval" in
     yes) enable_ethread_pre_pentium4_compatibility=yes ;;
-    *)  enable_ethread_pre_pentium4_compatibilit=no ;;
-  esac ], enable_ethread_pre_pentium4_compatibilit=no)
+    *)  enable_ethread_pre_pentium4_compatibility=no ;;
+  esac ], enable_ethread_pre_pentium4_compatibility=no)
 
-test $enable_ethread_pre_pentium4_compatibilit = yes &&
+test $enable_ethread_pre_pentium4_compatibility = yes &&
   AC_DEFINE(ETHR_PRE_PENTIUM4_COMPAT, 1, [Define if you want compatibilty with x86 processors before pentium4.])
 
 AC_ARG_WITH(libatomic_ops,
