@@ -66,7 +66,7 @@ make_cert(Opts) ->
 %% @end
 %%--------------------------------------------------------------------
 write_pem(Dir, FileName, {Cert, Key = {_,_,not_encrypted}}) when is_binary(Cert) ->
-    ok = der_to_pem(filename:join(Dir, FileName ++ ".pem"), 
+    ok = der_to_pem(filename:join(Dir, FileName ++ ".pem"),
 			       [{'Certificate', Cert, not_encrypted}]),
     ok = der_to_pem(filename:join(Dir, FileName ++ "_key.pem"), [Key]).
 
@@ -268,7 +268,7 @@ publickey(#'RSAPrivateKey'{modulus=N, publicExponent=E}) ->
 			       subjectPublicKey = Public};
 publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-dsa', 
-				 parameters=#'Dss-Parms'{p=P, q=Q, g=G}},
+				 parameters={params, #'Dss-Parms'{p=P, q=Q, g=G}}},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo, subjectPublicKey = Y}.
 
 validity(Opts) ->
@@ -290,7 +290,7 @@ sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
 	   end,
     {Type, 'NULL'};
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
-    {?'id-dsa-with-sha1', #'Dss-Parms'{p=P, q=Q, g=G}}.
+    {?'id-dsa-with-sha1', {params,#'Dss-Parms'{p=P, q=Q, g=G}}}.
 
 make_key(rsa, _Opts) ->
     %% (OBS: for testing only)
