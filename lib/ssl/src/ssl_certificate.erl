@@ -110,9 +110,10 @@ file_to_certificats(File) ->
     {ok, List} = ssl_manager:cache_pem_file(File),
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
 %%--------------------------------------------------------------------
--spec validate_extension(term(), #'Extension'{}, term()) -> {valid, term()} |
-							    {fail, tuple()} |
-							    {unknown, term()}.
+-spec validate_extension(term(), #'Extension'{} | {bad_cert, atom()} | valid,
+			 term()) -> {valid, term()} |
+				    {fail, tuple()} |
+				    {unknown, term()}.
 %%
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------

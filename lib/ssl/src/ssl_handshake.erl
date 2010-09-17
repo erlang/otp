@@ -276,9 +276,9 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
     end.
 
 %%--------------------------------------------------------------------
-%% -spec certificate_verify(binary(), public_key_info(), tls_version(),
-%% 			 binary(), key_algo(), 
-%% 			 {_, {binary(), binary()}}) -> valid | #alert{}.
+-spec certificate_verify(binary(), public_key_info(), tls_version(),
+			 binary(), key_algo(),
+			 {_, {binary(), binary()}}) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
@@ -472,6 +472,88 @@ get_tls_handshake(Data, Buffer) ->
 %%--------------------------------------------------------------------
 decode_client_key(ClientKey, Type, Version) ->
     dec_client_key(ClientKey, key_exchange_alg(Type), Version).
+
+%%--------------------------------------------------------------------
+-spec init_hashes() ->{{binary(), binary()}, {binary(), binary()}}.
+
+%%
+%% Description: Calls crypto hash (md5 and sha) init functions to
+%% initalize the hash context.
+%%--------------------------------------------------------------------
+init_hashes() ->
+    T = {crypto:md5_init(), crypto:sha_init()},
+    {T, T}.
+
+%%--------------------------------------------------------------------
+-spec update_hashes({{binary(), binary()}, {binary(), binary()}}, Data ::term()) ->
+			   {{binary(), binary()}, {binary(), binary()}}.
+%%
+%% Description: Calls crypto hash (md5 and sha) update functions to
+%% update the hash context with Data.
+%%--------------------------------------------------------------------
+update_hashes(Hashes, % special-case SSL2 client hello
+	      <<?CLIENT_HELLO, ?UINT24(_), ?BYTE(Major), ?BYTE(Minor),
+		?UINT16(CSLength), ?UINT16(0),
+		?UINT16(CDLength),
+	       CipherSuites:CSLength/binary,
+	       ChallengeData:CDLength/binary>>) ->
+    update_hashes(Hashes,
+		  <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
+		   ?UINT16(CSLength), ?UINT16(0),
+		   ?UINT16(CDLength),
+		   CipherSuites:CSLength/binary,
+		   ChallengeData:CDLength/binary>>);
+update_hashes({{MD50, SHA0}, _Prev}, Data) ->
+    ?DBG_HEX(Data),
+    {MD51, SHA1} = {crypto:md5_update(MD50, Data),
+		    crypto:sha_update(SHA0, Data)},
+    ?DBG_HEX(crypto:md5_final(MD51)),
+    ?DBG_HEX(crypto:sha_final(SHA1)),
+    {{MD51, SHA1}, {MD50, SHA0}}.
+
+%%--------------------------------------------------------------------
+-spec decrypt_premaster_secret(binary(), #'RSAPrivateKey'{}) -> binary().
+
+%%
+%% Description: Public key decryption using the private key.
+%%--------------------------------------------------------------------
+decrypt_premaster_secret(Secret, RSAPrivateKey) ->
+    try public_key:decrypt_private(Secret, RSAPrivateKey,
+				   [{rsa_pad, rsa_pkcs1_padding}])
+    catch
+	_:_ ->
+	    throw(?ALERT_REC(?FATAL, ?DECRYPTION_FAILED))
+    end.
+
+%%--------------------------------------------------------------------
+-spec server_key_exchange_hash(rsa | dhe_rsa| dhe_dss, binary()) -> binary().
+
+%%
+%% Description: Calculate server key exchange hash
+%%--------------------------------------------------------------------
+server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
+						Algorithm == dhe_rsa ->
+    MD5 = crypto:md5(Value),
+    SHA =  crypto:sha(Value),
+    <<MD5/binary, SHA/binary>>;
+
+server_key_exchange_hash(dhe_dss, Value) ->
+    crypto:sha(Value).
+
+%%--------------------------------------------------------------------
+-spec sig_alg(atom()) -> integer().
+
+%%
+%% Description: Translate atom representation to enum representation.
+%%--------------------------------------------------------------------
+sig_alg(dh_anon) ->
+    ?SIGNATURE_ANONYMOUS;
+sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa ->
+    ?SIGNATURE_RSA;
+sig_alg(dhe_dss) ->
+    ?SIGNATURE_DSA;
+sig_alg(_) ->
+    ?NULL.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -859,14 +941,6 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE))
     end.
 
-decrypt_premaster_secret(Secret, RSAPrivateKey) ->
-    try public_key:decrypt_private(Secret, RSAPrivateKey,  
-				   [{rsa_pad, rsa_pkcs1_padding}])
-    catch
-	_:_ ->
-	    throw(?ALERT_REC(?FATAL, ?DECRYPTION_FAILED))
-    end.
-    
 %% encode/decode stream of certificate data to/from list of certificate data 
 certs_to_list(ASN1Certs) ->
     certs_to_list(ASN1Certs, []).
@@ -985,29 +1059,6 @@ enc_hello_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest
     Len = InfoLen +1,
     enc_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen), Info/binary, Acc/binary>>).
 
-init_hashes() ->
-    T = {crypto:md5_init(), crypto:sha_init()},
-    {T, T}.
-
-update_hashes(Hashes, % special-case SSL2 client hello
-	      <<?CLIENT_HELLO, ?UINT24(_), ?BYTE(Major), ?BYTE(Minor),
-	       ?UINT16(CSLength), ?UINT16(0),
-	       ?UINT16(CDLength), 
-	       CipherSuites:CSLength/binary, 
-	       ChallengeData:CDLength/binary>>) ->
-    update_hashes(Hashes,
-		  <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
-		   ?UINT16(CSLength), ?UINT16(0),
-		   ?UINT16(CDLength), 
-		   CipherSuites:CSLength/binary, 
-		   ChallengeData:CDLength/binary>>);
-update_hashes({{MD50, SHA0}, _Prev}, Data) ->
-    ?DBG_HEX(Data),
-    {MD51, SHA1} = {crypto:md5_update(MD50, Data),
-		    crypto:sha_update(SHA0, Data)},
-    ?DBG_HEX(crypto:md5_final(MD51)),
-    ?DBG_HEX(crypto:sha_final(SHA1)),
-    {{MD51, SHA1}, {MD50, SHA0}}.
 
 from_3bytes(Bin3) ->
     from_3bytes(Bin3, []).
@@ -1095,24 +1146,6 @@ calc_certificate_verify({3, 0}, MasterSecret, Algorithm, Hashes) ->
 calc_certificate_verify({3, N}, _, Algorithm, Hashes) 
   when  N == 1; N == 2 ->
     ssl_tls1:certificate_verify(Algorithm, Hashes).
-
-server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
- 						Algorithm == dhe_rsa ->
-    MD5 = crypto:md5(Value),     
-    SHA =  crypto:sha(Value), 
-    <<MD5/binary, SHA/binary>>;
-
-server_key_exchange_hash(dhe_dss, Value) ->
-    crypto:sha(Value).
-
-sig_alg(dh_anon) ->
-    ?SIGNATURE_ANONYMOUS;
-sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa ->
-    ?SIGNATURE_RSA;
-sig_alg(dhe_dss) ->
-    ?SIGNATURE_DSA;
-sig_alg(_) ->
-    ?NULL.
 
 key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;

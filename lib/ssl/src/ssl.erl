@@ -190,7 +190,8 @@ transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
 
 %%--------------------------------------------------------------------
 -spec ssl_accept(#sslsocket{}) -> {ok, #sslsocket{}} | {error, reason()}.
--spec ssl_accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
+-spec ssl_accept(#sslsocket{}, list() | timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
+-spec ssl_accept(port(), list(), timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on a ssl listen socket. e.i. performs
 %%              ssl handshake. 
@@ -463,10 +464,101 @@ versions() ->
 %%---------------------------------------------------------------
 -spec renegotiate(#sslsocket{}) -> ok | {error, reason()}.
 %% 
-%% Description:
+%% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) ->
     ssl_connection:renegotiation(Pid).
+
+%%---------------------------------------------------------------
+-spec format_error({error, term()}) -> list().
+%%
+%% Description: Creates error string.
+%%--------------------------------------------------------------------
+format_error({error, Reason}) ->
+    format_error(Reason);
+format_error(Reason) when is_list(Reason) ->
+    Reason;
+format_error(closed) ->
+    "The connection is closed";
+format_error(ecacertfile) ->
+    "Own CA certificate file is invalid.";
+format_error(ecertfile) ->
+    "Own certificate file is invalid.";
+format_error(ekeyfile) ->
+    "Own private key file is invalid.";
+format_error(esslaccept) ->
+    "Server SSL handshake procedure between client and server failed.";
+format_error(esslconnect) ->
+    "Client SSL handshake procedure between client and server failed.";
+format_error({eoptions, Options}) ->
+    lists:flatten(io_lib:format("Error in options list: ~p~n", [Options]));
+
+%%%%%%%%%%%%  START OLD SSL format_error %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+format_error(ebadsocket) ->
+    "Connection not found (internal error).";
+format_error(ebadstate) ->
+    "Connection not in connect state (internal error).";
+format_error(ebrokertype) ->
+    "Wrong broker type (internal error).";
+format_error(echaintoolong) ->
+    "The chain of certificates provided by peer is too long.";
+format_error(ecipher) ->
+    "Own list of specified ciphers is invalid.";
+format_error(ekeymismatch) ->
+    "Own private key does not match own certificate.";
+format_error(enoissuercert) ->
+    "Cannot find certificate of issuer of certificate provided by peer.";
+format_error(enoservercert) ->
+    "Attempt to do accept without having set own certificate.";
+format_error(enotlistener) ->
+    "Attempt to accept on a non-listening socket.";
+format_error(enoproxysocket) ->
+    "No proxy socket found (internal error or max number of file "
+        "descriptors exceeded).";
+format_error(enooptions) ->
+    "List of options is empty.";
+format_error(enotstarted) ->
+    "The SSL application has not been started.";
+format_error(eoptions) ->
+    "Invalid list of options.";
+format_error(epeercert) ->
+    "Certificate provided by peer is in error.";
+format_error(epeercertexpired) ->
+    "Certificate provided by peer has expired.";
+format_error(epeercertinvalid) ->
+    "Certificate provided by peer is invalid.";
+format_error(eselfsignedcert) ->
+    "Certificate provided by peer is self signed.";
+format_error(esslerrssl) ->
+    "SSL protocol failure. Typically because of a fatal alert from peer.";
+format_error(ewantconnect) ->
+    "Protocol wants to connect, which is not supported in this "
+        "version of the SSL application.";
+format_error(ex509lookup) ->
+    "Protocol wants X.509 lookup, which is not supported in this "
+        "version of the SSL application.";
+format_error({badcall, _Call}) ->
+    "Call not recognized for current mode (active or passive) and state "
+        "of socket.";
+format_error({badcast, _Cast}) ->
+    "Call not recognized for current mode (active or passive) and state "
+        "of socket.";
+
+format_error({badinfo, _Info}) ->
+    "Call not recognized for current mode (active or passive) and state "
+        "of socket.";
+
+%%%%%%%%%%%%%%%%%% END OLD SSL format_error %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+format_error(Error) ->
+    case (catch inet:format_error(Error)) of
+        "unkknown POSIX" ++ _ ->
+            no_format(Error);
+        {'EXIT', _} ->
+            no_format(Error);
+        Other ->
+            Other
+    end.
 
 %%%--------------------------------------------------------------
 %%% Internal functions
@@ -809,92 +901,6 @@ cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
     Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:tokens(Ciphers0, ":")],
     cipher_suites(Version, Ciphers).
-
-format_error({error, Reason}) ->
-    format_error(Reason);
-format_error(Reason) when is_list(Reason) ->
-    Reason;
-format_error(closed) ->
-    "The connection is closed";
-format_error(ecacertfile) ->
-    "Own CA certificate file is invalid.";
-format_error(ecertfile) ->
-    "Own certificate file is invalid.";
-format_error(ekeyfile) ->
-    "Own private key file is invalid.";
-format_error(esslaccept) ->
-    "Server SSL handshake procedure between client and server failed.";
-format_error(esslconnect) ->
-    "Client SSL handshake procedure between client and server failed.";
-format_error({eoptions, Options}) ->
-    lists:flatten(io_lib:format("Error in options list: ~p~n", [Options]));
-
-%%%%%%%%%%%%  START OLD SSL format_error %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-format_error(ebadsocket) ->
-    "Connection not found (internal error).";
-format_error(ebadstate) ->
-    "Connection not in connect state (internal error).";
-format_error(ebrokertype) ->
-    "Wrong broker type (internal error).";
-format_error(echaintoolong) ->
-    "The chain of certificates provided by peer is too long.";
-format_error(ecipher) ->
-    "Own list of specified ciphers is invalid.";
-format_error(ekeymismatch) ->
-    "Own private key does not match own certificate.";
-format_error(enoissuercert) ->
-    "Cannot find certificate of issuer of certificate provided by peer.";
-format_error(enoservercert) ->
-    "Attempt to do accept without having set own certificate.";
-format_error(enotlistener) ->
-    "Attempt to accept on a non-listening socket.";
-format_error(enoproxysocket) ->
-    "No proxy socket found (internal error or max number of file "
-        "descriptors exceeded).";
-format_error(enooptions) ->
-    "List of options is empty.";
-format_error(enotstarted) ->
-    "The SSL application has not been started.";
-format_error(eoptions) ->
-    "Invalid list of options.";
-format_error(epeercert) ->
-    "Certificate provided by peer is in error.";
-format_error(epeercertexpired) ->
-    "Certificate provided by peer has expired.";
-format_error(epeercertinvalid) ->
-    "Certificate provided by peer is invalid.";
-format_error(eselfsignedcert) ->
-    "Certificate provided by peer is self signed.";
-format_error(esslerrssl) ->
-    "SSL protocol failure. Typically because of a fatal alert from peer.";
-format_error(ewantconnect) ->
-    "Protocol wants to connect, which is not supported in this "
-        "version of the SSL application.";
-format_error(ex509lookup) ->
-    "Protocol wants X.509 lookup, which is not supported in this "
-        "version of the SSL application.";
-format_error({badcall, _Call}) ->
-    "Call not recognized for current mode (active or passive) and state "
-        "of socket.";
-format_error({badcast, _Cast}) ->
-    "Call not recognized for current mode (active or passive) and state "
-        "of socket."; 
-
-format_error({badinfo, _Info}) ->
-    "Call not recognized for current mode (active or passive) and state "
-        "of socket.";
-
-%%%%%%%%%%%%%%%%%% END OLD SSL format_error %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-format_error(Error) ->
-    case (catch inet:format_error(Error)) of
-        "unkknown POSIX" ++ _ ->
-            no_format(Error);
-        {'EXIT', _} ->
-            no_format(Error);
-        Other ->
-            Other
-    end.
 
 no_format(Error) ->    
     lists:flatten(io_lib:format("No format string for error: \"~p\" available.", [Error])).
