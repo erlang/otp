@@ -92,7 +92,9 @@ Frequently Asked Questions
 
     A: The SMP version of Erlang needs features in the Visual Studio 2005.
     Can't live without them. Besides the new compiler gives the Erlang
-    emulator a ~40% performance boost(!)
+    emulator a ~40% performance boost(!). Alternatively you can build Erlang
+    successfully using the free (proprietary) Visual Studio 2008 Express
+    edition C++ compiler.
 
 *   Q: Can/will I build a Cygwin binary with the procedure you describe?
 
@@ -208,20 +210,15 @@ Frequently Asked Questions
 
     *   (Buy and) Install Microsoft Visual studio 2005 and SP1 (or higher)
 
+    *   Alternatively install the free MS Visual Studio 2008 Express [msvc++]
+    and the Windows SDK [32bit-SDK] or [64bit-SDK] depending on the Windows
+    platform you are running.
+
     *   Get and install Sun's JDK 1.4.2
 
-    *   Get and install NSIS 2.01 or higher (up to 2.30 tried and working)
+    *   Get and install NSIS 2.01 or higher (up to 2.46 tried and working)
 
-    *   Get and install OpenSSL 0.9.7c or higher
-
-    *   Get and unpack wxWidgets-2.8.9 or higher to `/opt/local/pgm` inside
-        cygwin.
-        *   Open `/cygwin/opt/local/pgm/wxWidgets-2.8.9/build/msw/wx.dsw`
-        *   Enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and
-            `wxUSE_GRAPHICS_CONTEXT` in `include/wx/msw/setup.h`
-        *   Build all unicode release (and unicode debug) packages
-        *   Open `/cygwin/opt/local/pgm/wxWidgets-2.8.9/contrib/build/stc/stc.dsw`
-        *   Build the unicode release (and unicode debug) packages
+    *   Get and install OpenSSL 0.9.7c or higher (up to 1.0.0a tried & working)
 
     *   Get the Erlang source distribution (from
         <http://www.erlang.org/download.html>) and unpack with Cygwin's `tar`.
@@ -363,6 +360,15 @@ Well' here's the list:
     your `PATH` to allow the environment to find mc.exe. The next Visual Studio
     (2010) is expected to include this tool.
 
+    Alternatively install the free MS Visual Studio 2008 Express [msvc++] and
+    the Windows SDK [32bit-SDK] or [64bit-SDK] depending on the Windows
+    platform you are running, which includes the missing mc.exe message
+    compiler.
+
+[msvc++]:	http://download.microsoft.com/download/E/8/E/E8EEB394-7F42-4963-A2D8-29559B738298/VS2008ExpressWithSP1ENUX1504728.iso
+[32bit-SDK]:	http://download.microsoft.com/download/2/E/9/2E911956-F90F-4BFB-8231-E292A7B6F287/GRMSDK_EN_DVD.iso
+[64bit-SDK]:	http://download.microsoft.com/download/2/E/9/2E911956-F90F-4BFB-8231-E292A7B6F287/GRMSDKX_EN_DVD.iso
+
 *   Sun's Java JDK 1.5.0 or higher. Our Java code (jinterface, ic) is
     written for JDK 1.5.0. Get it for Windows and install it, the JRE is
     not enough. If you don't care about Java, you can skip this step, the
@@ -401,9 +407,10 @@ Well' here's the list:
     on the `Related` link and then on the `Binaries` link (upper right
     corner of the page last time I looked), you can then reach the
     "Shining Lights Productions" Web site for Windows binaries
-    distributions. Get the latest or 0.9.7c if you get trouble with the
-    latest. It's a nifty installer. The rest should be handled by
-    `configure`, you needn't put anything in the path or anything.
+    distributions. Get the latest 32-bit installer, or use 0.9.7c if you get
+    trouble with the latest, and install to C:\OpenSSL which is where the
+    Makefiles are expecting to find it. It's a nifty installer. The rest should
+    be handled by `configure`, you needn't put anything in the path or anything.
 
     If you want to build openssl for windows yourself (which might be
     possible, as you wouldn't be reading this if you weren't a
@@ -422,17 +429,50 @@ Well' here's the list:
     release (2.9.\*  is a developer release which currently does not work
     with wxErlang).
 
-    Install or unpack it to `DRIVE:/PATH/cygwin/opt/local/pgm`
+    Install or unpack it to `DRIVE:/PATH/cygwin/opt/local/pgm`.
     Open from explorer (i.e. by double clicking the file)
-    `C:\cygwin\opt\local\pgm\wxMSW-2.8.10\build\msw\wx.dsw`
+    `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw\wx.dsw`
     In Microsoft Visual Studio, click File/Open/File, locate and
-    open:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.10\include\wx\msw\setup.h`
+    open:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\include\wx\msw\setup.h`
     enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and `wxUSE_GRAPHICS_CONTEXT`
     Build it by clicking Build/Batch Build and select all unicode release
     (and unicode debug) packages.
 
-    Open `C:\cygwin\opt\local\pgm\wxMSW-2.8.10\contrib/build/stc/stc.dsw`
+    Open `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib/build/stc/stc.dsw`
     and batch build all unicode packages.
+
+    If you are using Visual C++ 9.0 or higher (Visual Studio 2008 onwards) you
+    will also need to convert and re-create the project dependencies in the new
+    .sln "Solution" format.
+
+    * Open VSC++ & the project  `wxMSW-2.8.11\build\msw\wx.dsw`, accepting the
+    automatic conversion to the newer VC++ format and save as
+    `\wxMSW-2.8.11\build\msw\wx.sln`
+
+    * right-click on the project, and set up the project dependencies for
+    `wx.dsw` to achieve the below build order
+
+            jpeg, png, tiff, zlib, regex, expat, base, net, odbc, core,
+            gl, html, media, qa, adv, dbgrid, xrc, aui, richtext, xml
+
+    Build all unicode release (and unicode debug) packages either from the
+    GUI or alternatively launch a new prompt from somewhere like Start ->
+    Programs -> Microsoft Visual C++ -> Visual Studio Tools -> VS2008 Cmd Prompt
+    and cd to where you unpacked wxMSW
+
+            pushd c:\wxMSW*\build\msw
+            vcbuild /useenv /platform:Win32 /M4 wx.sln "Unicode Release|Win32"
+            vcbuild /useenv /platform:Win32 /M4 wx.sln "Unicode Debug|Win32"
+
+    Open VSC++ & convert `C:\wxMSW-2.8.11\contrib\build\stc\stc.dsw` to
+    `C:\wxMSW-2.8.11\contrib\build\stc\stc.sln`
+
+    * build the unicode release (and unicode debug) packages from the GUI or
+    alternatively open a VS2008 Cmd Prompt and cd to where you unpacked wxMSW
+
+            pushd c:\wxMSW*\contrib\build\stc
+            vcbuild /useenv /platform:Win32 /M4 stc.sln "Unicode Release|Win32"
+            vcbuild /useenv /platform:Win32 /M4 stc.sln "Unicode Debug|Win32"
 
 *   The Erlang source distribution (from <http://www.erlang.org/download.html>).
     The same as for Unix platforms. Preferably use tar from within Cygwin to
