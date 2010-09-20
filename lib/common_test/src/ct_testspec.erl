@@ -625,6 +625,20 @@ add_tests([{event_handler,Node,H,Args}|Ts],Spec) when is_atom(H) ->
     Node1 = ref2node(Node,Spec#testspec.nodes),
     add_tests(Ts,Spec#testspec{event_handler=[{Node1,H,Args}|EvHs]});
 
+%% --- suite_callbacks --
+add_tests([{suite_callbacks, all_nodes, CBs} | Ts], Spec) ->
+    Tests = [{suite_callbacks,N,CBs} || N <- list_nodes(Spec)],
+    add_tests(Tests ++ Ts, Spec);
+add_tests([{suite_callbacks, Node, [CB|CBs]}|Ts], Spec) ->
+    SuiteCbs = Spec#testspec.suite_callbacks,
+    Node1 = ref2node(Node,Spec#testspec.nodes),
+    add_tests([{suite_callbacks, Node, CBs} | Ts],
+	      Spec#testspec{suite_callbacks = [{Node1,CB} | SuiteCbs]});
+add_tests([{suite_callbacks, _Node, []}|Ts], Spec) ->
+    add_tests(Ts, Spec);
+add_tests([{suite_callbacks, CBs}|Ts], Spec) ->
+    add_tests([{suite_callbacks, all_nodes, CBs}|Ts], Spec);
+
 %% --- include ---
 add_tests([{include,all_nodes,InclDirs}|Ts],Spec) ->
     Tests = lists:map(fun(N) -> {include,N,InclDirs} end, list_nodes(Spec)),
@@ -1051,6 +1065,8 @@ valid_terms() ->
      {event_handler,2},
      {event_handler,3},
      {event_handler,4},
+     {suite_callbacks,2},
+     {suite_callbacks,3},
      {multiply_timetraps,2},
      {multiply_timetraps,3},
      {scale_timetraps,2},

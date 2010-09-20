@@ -39,8 +39,8 @@
 -spec init(State :: term()) -> ok |
 			       {error, Reason :: term()}.
 init(Opts) ->
-    add_new_callbacks(Opts),
-    ok.
+    call(get_new_callbacks(Opts), fun call_init/2, ok).
+		      
 
 %% @doc Called after all suites are done.
 -spec terminate(Config :: proplist(),State :: term()) ->
@@ -51,15 +51,18 @@ terminate(Config, State) ->
 %% @doc Called as each test case is started. This includes all configuration
 %% tests.
 -spec init_tc(Mod :: atom(), Func :: atom(), Config :: proplist()) ->
-    {ok, NewConfig :: proplist()} |
+    NewConfig :: proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {error, Reason :: term()}.
 init_tc(Mod, init_per_suite, Config) ->
-    add_new_callbacks(Config),
-    {ok, Config};
+    NewConfig = call(get_new_callbacks(Config) ++ get_callbacks(),
+		     fun call_init/2, remove(?config_name,Config)),
+    
+    Data = ct_util:read_suite_data(?config_name),
+    [{suitedata, Data} | NewConfig];
 init_tc(Mod, Func, Config) ->
-    {ok, Config}.
+    Config.
 
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
@@ -67,26 +70,54 @@ init_tc(Mod, Func, Config) ->
 	     Func :: atom(),
 	     Config :: proplist(),
 	     Result :: term()) ->
-    {ok, NewConfig :: proplist()} |
+    NewConfig :: proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {error, Reason :: term()} |
     ok.
+end_tc(Mod, init_per_suite, _, Return) ->
+    NewConfig = call(get_new_callbacks(Return) ++ get_callbacks(),
+		     fun call_init/2, remove(suitedata, remove(?config_name,Return))),
+    
+    Data = ct_util:read_suite_data(?config_name),
+    [{suitedata, Data} | NewConfig];
 end_tc(Mod, Func, Config, Result) ->
-    {ok, Config}.
+    Result.
 
 
 %% Iternal Functions
-add_new_callbacks(Config) ->
-    NewCBConfs = lists:flatmap(fun({?config_name, CallbackConfigs}) ->
-				       CallbackConfigs;
-				  (_) ->
-				       []
-			       end, Config),
-    CBStates = lists:map(fun call_init/1,NewCBConfs),
-    ct_util:save_suite_data_async(?config_name, CBStates).
+get_new_callbacks(Config) ->
+    lists:flatmap(fun({?config_name, CallbackConfigs}) ->
+			  CallbackConfigs;
+		     (_) ->
+			  []
+		  end, Config).
 
-call_init({Mod, Config}) ->
-    {Mod, Mod:init(Config)}.
-	
-	    
+get_callbacks() ->
+    ct_util:read_suite_data(?config_name).
+
+call_init(Mod, Config) when is_atom(Mod) ->
+    call_init({Mod, undefined}, Config);
+call_init({Mod, State}, Config) ->
+    {{Mod, running, Mod:init(State)}, Config};
+call_init({Mod, running, State}, Config) ->
+    {{Mod, running, State}, Config}.
+
+%% Generic call function
+call(Fun, Config) ->
+    call(get_callbacks(), Fun, Config).
+
+call(CBs, Fun, Config) ->
+    call(CBs, Fun, Config, []).
+    
+call([CB | Rest], Fun, Config, NewCBs) ->
+    {NewCB, NewConf} = Fun(CB,Config),
+    call(Rest, Fun, NewConf, [NewCB | NewCBs]);
+call([], _Fun, Config, NewCBs) ->
+    ct_util:save_suite_data_async(?config_name, NewCBs),
+    Config.
+
+
+remove(Key,List) ->
+    [Conf || Conf <- List,
+	     element(1,Conf) =/= Key].

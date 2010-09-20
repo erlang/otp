@@ -24,7 +24,7 @@
 
 -module(ct_framework).
 
--export([init_tc/3, end_tc/3, get_suite/2, report/2, warn/1]).
+-export([init_tc/3, end_tc/4, get_suite/2, report/2, warn/1]).
 -export([error_notification/4]).
 
 -export([overview_html_header/1]).
@@ -207,7 +207,7 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 	    {skip,{require_failed_in_suite0,Reason}};
 	{error,Reason} ->
 	    {auto_skip,{require_failed,Reason}};
-	FinalConfig ->
+	{ok, FinalConfig} ->
 	    case MergeResult of
 		{error,Reason} ->
 		    %% suite0 configure finished now, report that 
@@ -216,13 +216,20 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 		_ ->
 		    case get('$test_server_framework_test') of
 			undefined ->
-			    FinalConfig;
+			    ct_suite_init(Mod, FuncSpec, FinalConfig);
 			Fun ->
 			    Fun(init_tc, FinalConfig)
 		    end
 	    end
     end.
-	    
+
+ct_suite_init(Mod, Func, [Config]) when is_list(Config) ->
+    case ct_suite_callback:init_tc( Mod, Func, Config) of
+	NewConfig when is_list(NewConfig) ->
+	    {ok, [NewConfig]};
+	Else ->
+	    Else
+    end.
 
 add_defaults(Mod,Func,FuncInfo,DoInit) ->
     case (catch Mod:suite()) of
@@ -418,14 +425,14 @@ try_set_default(Name,Key,Info,Where) ->
 %%%
 %%% @doc Test server framework callback, called by the test_server
 %%% when a test case is finished.
-end_tc(?MODULE,error_in_suite,_) ->		% bad start!
+end_tc(?MODULE,error_in_suite,_, _) ->		% bad start!
     ok;
-end_tc(Mod,Func,{TCPid,Result,[Args]}) when is_pid(TCPid) ->
-    end_tc(Mod,Func,TCPid,Result,Args);
-end_tc(Mod,Func,{Result,[Args]}) ->
-    end_tc(Mod,Func,self(),Result,Args).
+end_tc(Mod,Func,{TCPid,Result,[Args]}, Return) when is_pid(TCPid) ->
+    end_tc(Mod,Func,TCPid,Result,Args,Return);
+end_tc(Mod,Func,{Result,[Args]}, Return) ->
+    end_tc(Mod,Func,self(),Result,Args,Return).
 
-end_tc(Mod,Func,TCPid,Result,Args) ->
+end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     case lists:keysearch(watchdog,1,Args) of
 	{value,{watchdog,Dog}} -> test_server:timetrap_cancel(Dog);
 	false -> ok
@@ -448,8 +455,10 @@ end_tc(Mod,Func,TCPid,Result,Args) ->
 	    {_,GroupName,_Props} = Group ->			       
 		case lists:keysearch(save_config,1,Args) of
 		    {value,{save_config,SaveConfig}} ->
-			ct_util:save_suite_data(last_saved_config,
-						{Mod,{group,GroupName}},SaveConfig),
+			ct_util:save_suite_data(
+			  last_saved_config,
+			  {Mod,{group,GroupName}},
+			  SaveConfig),
 			Group;
 		    false ->
 			Group
@@ -492,7 +501,8 @@ end_tc(Mod,Func,TCPid,Result,Args) ->
     end,
     case get('$test_server_framework_test') of
 	undefined ->
-	    ok;
+	    ct_suite_callback:end_tc(
+	      Mod, FuncSpec, Args, Return);
 	Fun ->
 	    Fun(end_tc, ok)
     end.

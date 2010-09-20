@@ -54,6 +54,7 @@
 	       logdir,
 	       config = [],
 	       event_handlers = [],
+	       suite_callbacks = [],
 	       include = [],
 	       silent_connections,
 	       stylesheet,
@@ -171,6 +172,9 @@ script_start1(Parent, Args) ->
 			       ([]) -> true
 			    end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
+    SuiteCBs = get_start_opt(suite_callback,
+			     fun(CBs) -> [list_to_atom(CB) || CB <- CBs] end,
+			     [], Args),
 
     %% check flags and set corresponding application env variables
 
@@ -234,6 +238,7 @@ script_start1(Parent, Args) ->
 
    StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
+		     suite_callbacks = SuiteCBs,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
 		     stylesheet = Stylesheet,
@@ -305,6 +310,10 @@ script_start2(StartOpts = #opts{vts = undefined,
 					     SpecStartOpts#opts.scale_timetraps),
 			AllEvHs = merge_vals([StartOpts#opts.event_handlers,
 					      SpecStartOpts#opts.event_handlers]),
+			AllSuiteCBs = merge_vals(
+					[StartOpts#opts.suite_callbacks,
+					 SpecStartOpts#opts.suite_callbacks]),
+			
 			AllInclude = merge_vals([StartOpts#opts.include,
 						 SpecStartOpts#opts.include]),
 			application:set_env(common_test, include, AllInclude),
@@ -315,6 +324,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   logdir = LogDir,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
+					   suite_callbacks = AllSuiteCBs,
 					   include = AllInclude,
 					   multiply_timetraps = MultTT,
 					   scale_timetraps = ScaleTT}}
@@ -332,7 +342,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 	    {error,no_testspec_specified};
 	{undefined,_} ->   % no testspec used
 	    case check_and_install_configfiles(InitConfig, TheLogDir,
-					       Opts#opts.event_handlers) of
+					       Opts#opts.event_handlers,
+					       Opts#opts.suite_callbacks) of
 		ok ->      % go on read tests from start flags
 		    script_start3(Opts#opts{config=InitConfig,
 					    logdir=TheLogDir}, Args);
@@ -343,7 +354,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 	    %% merge config from start flags with config from testspec
 	    AllConfig = merge_vals([InitConfig, Opts#opts.config]),
 	    case check_and_install_configfiles(AllConfig, TheLogDir,
-					       Opts#opts.event_handlers) of
+					       Opts#opts.event_handlers,
+					       Opts#opts.suite_callbacks) of
 		ok ->      % read tests from spec
 		    {Run,Skip} = ct_testspec:prepare_tests(Terms, node()),
 		    do_run(Run, Skip, Opts#opts{config=AllConfig,
@@ -358,7 +370,8 @@ script_start2(StartOpts, Args) ->
     InitConfig = ct_config:prepare_config_list(Args),
     LogDir = which(logdir, StartOpts#opts.logdir),
     case check_and_install_configfiles(InitConfig, LogDir,
-				       StartOpts#opts.event_handlers) of
+				       StartOpts#opts.event_handlers,
+				       StartOpts#opts.suite_callbacks) of
 	ok ->      % go on read tests from start flags
 	    script_start3(StartOpts#opts{config=InitConfig,
 					 logdir=LogDir}, Args);
@@ -366,11 +379,12 @@ script_start2(StartOpts, Args) ->
 	    Error
     end.
 
-check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
+check_and_install_configfiles(Configs, LogDir, EvHandlers, SuiteCBs) ->
     case ct_config:check_config_files(Configs) of
 	false ->
 	    install([{config,Configs},
-		     {event_handler,EvHandlers}], LogDir);
+		     {event_handler,EvHandlers},
+		     {suite_callbacks,SuiteCBs}], LogDir);
 	{value,{error,{nofile,File}}} ->
 	    {error,{cant_read_config_file,File}};
 	{value,{error,{wrong_config,Message}}}->
@@ -438,11 +452,13 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 
 script_start4(#opts{label = Label, shell = true, config = Config,
 		    event_handlers = EvHandlers,
+		    suite_callbacks = SuiteCBs,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
 
-    InstallOpts = [{config,Config},{event_handler,EvHandlers}],
+    InstallOpts = [{config,Config},{event_handler,EvHandlers},
+		   {suite_callbacks, SuiteCBs}],
     if Config == [] ->
 	    ok;
        true ->
@@ -508,6 +524,7 @@ script_usage() ->
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-suite_callback SuiteCB1 SuiteCB2 .. SuiteCBN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -526,6 +543,7 @@ script_usage() ->
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-suite_callback SuiteCB1 SuiteCB2 .. SuiteCBN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -664,6 +682,9 @@ run_test1(StartOpts) ->
 			    end, Hs))
 	end,
 
+    %% Suite Callbacks
+    SuiteCBs = get_start_opt(suite_callbacks, value, [], StartOpts),
+
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
 				fun(all) -> [];
@@ -733,7 +754,9 @@ run_test1(StartOpts) ->
 
     Opts = #opts{label = Label,
 		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
-		 event_handlers = EvHandlers, include = Include,
+		 event_handlers = EvHandlers,
+		 suite_callbacks = SuiteCBs,
+		 include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
 		 multiply_timetraps = MultiplyTT,
@@ -784,11 +807,16 @@ run_spec_file(Relaxed,
 				  SpecOpts#opts.event_handlers]),
 	    AllInclude = merge_vals([Opts#opts.include,
 				     SpecOpts#opts.include]),
+
+	    AllSuiteCBs = merge_vals([Opts#opts.suite_callbacks,
+				      SpecOpts#opts.suite_callbacks]),
+	    
 	    application:set_env(common_test, include, AllInclude),
 
 	    case check_and_install_configfiles(AllConfig,
 					       which(logdir,LogDir),
-					       AllEvHs) of
+					       AllEvHs,
+					       AllSuiteCBs) of
 		ok ->
 		    Opts1 = Opts#opts{label = Label,
 				      cover = Cover,
@@ -798,7 +826,8 @@ run_spec_file(Relaxed,
 				      include = AllInclude,
 				      testspecs = AbsSpecs,
 				      multiply_timetraps = MultTT,
-				      scale_timetraps = ScaleTT},
+				      scale_timetraps = ScaleTT,
+				      suite_callbacks = AllSuiteCBs},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
@@ -808,10 +837,12 @@ run_spec_file(Relaxed,
 
 run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
 				     config = CfgFiles,
-				     event_handlers = EvHandlers},
+				     event_handlers = EvHandlers,
+				     suite_callbacks = SuiteCBs},
 	     StartOpts) ->
     LogDir1 = which(logdir, LogDir),
-    case check_and_install_configfiles(CfgFiles, LogDir1, EvHandlers) of
+    case check_and_install_configfiles(CfgFiles, LogDir1,
+				       EvHandlers, SuiteCBs) of
 	ok ->
 	    reformat_result(catch do_run(Run, Skip, Opts#opts{logdir = LogDir1},
 					 StartOpts));
@@ -842,7 +873,8 @@ check_config_file(Callback, File)->
 
 run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
-		     event_handlers = EvHandlers}, StartOpts) ->
+		     event_handlers = EvHandlers,
+		     suite_callbacks = SuiteCB }, StartOpts) ->
     LogDir1 = which(logdir, LogDir),
     Opts1 = Opts#opts{logdir = LogDir1},
     AbsCfgFiles =
@@ -863,7 +895,9 @@ run_dir(Opts = #opts{logdir = LogDir,
 					     check_config_file(Callback, File)
 				     end, FileList)}
 		  end, CfgFiles),
-    case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir1) of
+    case install([{config,AbsCfgFiles},
+		  {event_handler,EvHandlers},
+		  {suite_callbacks, SuiteCB}], LogDir1) of
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
@@ -968,7 +1002,8 @@ run_testspec1(TestSpec) ->
 	    application:set_env(common_test, include, AllInclude),
 	    LogDir1 = which(logdir,Opts#opts.logdir),
 	    case check_and_install_configfiles(Opts#opts.config, LogDir1,
-					       Opts#opts.event_handlers) of
+					       Opts#opts.event_handlers,
+					       Opts#opts.suite_callbacks) of
 		ok ->
 		    Opts1 = Opts#opts{testspecs = [],
 				      logdir = LogDir1,
@@ -986,6 +1021,7 @@ get_data_for_node(#testspec{label = Labels,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
+			    suite_callbacks = SuCBs,
 			    include = Incl,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs}, Node) ->
@@ -1000,12 +1036,14 @@ get_data_for_node(#testspec{label = Labels,
     ConfigFiles = [{?ct_config_txt,F} || {N,F} <- Cfgs, N==Node] ++
 	[CBF || {N,CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
+    SuiteCBs = [CB || {N,CB} <- SuCBs, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
     #opts{label = Label,
 	  logdir = LogDir,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
+	  suite_callbacks = SuiteCBs,
 	  include = Include,
 	  multiply_timetraps = MT,
 	  scale_timetraps = ST}.
@@ -2263,12 +2301,17 @@ do_trace(Terms) ->
     dbg:tracer(),
     dbg:p(self(), [sos,call]),
     lists:foreach(fun({m,M}) ->
-			  case dbg:tpl(M,[{'_',[],[{return_trace}]}]) of
+			  case dbg:tpl(M,x) of
+			      {error,What} -> exit({error,{tracing_failed,What}});
+			      _ -> ok
+			  end;
+		     ({me,M}) ->
+			  case dbg:tp(M,x) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;
 		     ({f,M,F}) ->
-			  case dbg:tpl(M,F,[{'_',[],[{return_trace}]}]) of
+			  case dbg:tpl(M,F,x) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;

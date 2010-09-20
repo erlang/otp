@@ -32,7 +32,9 @@
 
 -export([close_connections/0]).
 
--export([save_suite_data/3, save_suite_data/2, read_suite_data/1, 
+-export([save_suite_data/3, save_suite_data/2,
+	 save_suite_data_async/3, save_suite_data_async/2,
+	 read_suite_data/1, 
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
 	 delete_testdata/0, delete_testdata/1, set_testdata/1, get_testdata/1,
 	 update_testdata/2]).
@@ -159,6 +161,11 @@ do_start(Parent,Mode,LogDir) ->
 	    ok
     end,
     {StartTime,TestLogDir} = ct_logs:init(Mode),
+
+    %% Initiate suite_callbacks
+    ok = ct_suite_callback:init(Opts),
+
+
     ct_event:notify(#event{name=test_start,
 			   node=node(),
 			   data={StartTime,
@@ -182,11 +189,18 @@ read_opts() ->
 	    {error,{bad_installation,Error}}
     end.
 
+
 save_suite_data(Key, Value) ->
     call({save_suite_data, {Key, undefined, Value}}).
 
 save_suite_data(Key, Name, Value) ->
     call({save_suite_data, {Key, Name, Value}}).
+
+save_suite_data_async(Key, Value) ->
+    save_suite_data_async(Key, undefined, Value).
+
+save_suite_data_async(Key, Name, Value) ->
+    cast({save_suite_data, {Key, Name, Value}}).
 
 read_suite_data(Key) ->
     call({read_suite_data, Key}).
@@ -308,6 +322,9 @@ loop(Mode,TestData,StartDir) ->
 	    ct_config:stop(),
 	    file:set_cwd(StartDir),
 	    return(From,ok);
+	{Ref, _Msg} when is_reference(Ref) ->
+	    %% This clause is used when doing cast operations.
+	    loop(Mode,TestData,StartDir);
 	{get_mode,From} ->
 	    return(From,Mode),
 	    loop(Mode,TestData,StartDir);
@@ -712,6 +729,9 @@ call(Msg) ->
 
 return({To,Ref},Result) ->
     To ! {Ref, Result}.
+
+cast(Msg) ->
+    ct_util_server ! {Msg, {ct_util_server, make_ref()}}.
 
 seconds(T) ->
     test_server:seconds(T).
