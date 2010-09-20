@@ -2306,7 +2306,7 @@ do_trace(Terms) ->
 			      _ -> ok
 			  end;
 		     ({me,M}) ->
-			  case dbg:tp(M,x) of
+			  case dbg:tp(M,[{'_',[],[x,{message,{caller}}]}]) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;
