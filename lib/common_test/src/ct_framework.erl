@@ -369,6 +369,8 @@ configure([{timetrap,off}|Rest],Info,SuiteInfo,Scope,Config) ->
 configure([{timetrap,Time}|Rest],Info,SuiteInfo,Scope,Config) ->
     Dog = test_server:timetrap(Time),
     configure(Rest,Info,SuiteInfo,Scope,[{watchdog,Dog}|Config]);
+configure([{suite_callbacks, CB} | Rest], Info, SuiteInfo, Scope, Config) ->
+    configure(Rest, Info, SuiteInfo, Scope, [{suite_callbacks, CB} | Config]);
 configure([_|Rest],Info,SuiteInfo,Scope,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,Config);
 configure([],_,_,_,Config) ->
