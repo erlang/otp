@@ -39,7 +39,9 @@
 -spec init(State :: term()) -> ok |
 			       {error, Reason :: term()}.
 init(Opts) ->
-    call(get_new_callbacks(Opts), fun call_init/2, ok).
+    call([{CB, call_init, undefined} || CB <- get_new_callbacks(Opts)],
+	 ct_suite_callback_init_dummy, []),
+    ok.
 		      
 
 %% @doc Called after all suites are done.
@@ -56,42 +58,44 @@ terminate(Config, State) ->
     {auto_skip, Reason :: term()} |
     {error, Reason :: term()}.
 init_tc(Mod, init_per_suite, Config) ->
-    NewConfig = call(get_new_callbacks(Config) ++ get_callbacks(),
-		     fun call_init/2, remove(?config_name,Config)),
-    
-    Data = ct_util:read_suite_data(?config_name),
-    [{suitedata, Data} | NewConfig];
-init_tc(Mod, Func, Config) ->
+    call(fun call_pre_init_suite/2, Config);
+init_tc(_, _, Config) ->
     Config.
 
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
 -spec end_tc(Mod :: atom(),
 	     Func :: atom(),
-	     Config :: proplist(),
+	     CallConfig :: proplist(),
 	     Result :: term()) ->
     NewConfig :: proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {error, Reason :: term()} |
     ok.
-end_tc(Mod, init_per_suite, _, Return) ->
-    NewConfig = call(get_new_callbacks(Return) ++ get_callbacks(),
-		     fun call_init/2, remove(suitedata, remove(?config_name,Return))),
+end_tc(Mod, init_per_suite, _, Result) ->
     
-    Data = ct_util:read_suite_data(?config_name),
-    [{suitedata, Data} | NewConfig];
-end_tc(Mod, Func, Config, Result) ->
+    NewConfig = call(fun call_post_init_suite/2, Result),
+    
+    NewConfig;
+end_tc(_, _, _, Result) ->
     Result.
 
 
 %% Iternal Functions
-get_new_callbacks(Config) ->
+get_new_callbacks(Config, Fun) ->
+    lists:foldl(fun(NewCB, Acc) ->
+			[{NewCB, call_init, Fun} | Acc]
+		end, [], get_new_callbacks(Config)).
+
+get_new_callbacks(Config) when is_list(Config) ->
     lists:flatmap(fun({?config_name, CallbackConfigs}) ->
 			  CallbackConfigs;
 		     (_) ->
 			  []
-		  end, Config).
+		  end, Config);
+get_new_callbacks(_Config) ->
+    [].
 
 get_callbacks() ->
     ct_util:read_suite_data(?config_name).
@@ -99,25 +103,41 @@ get_callbacks() ->
 call_init(Mod, Config) when is_atom(Mod) ->
     call_init({Mod, undefined}, Config);
 call_init({Mod, State}, Config) ->
-    {{Mod, running, Mod:init(State)}, Config};
-call_init({Mod, running, State}, Config) ->
-    {{Mod, running, State}, Config}.
+    {Id, NewState} = Mod:init(State),
+    {Config, {Id, {Mod, NewState}}}.
+
+call_pre_init_suite({Mod, State}, Config) ->
+    {NewConf, NewState} = Mod:pre_init_suite(Config, State),
+    {NewConf, {Mod, NewState}}.
+call_post_init_suite({Mod, State}, Config) ->
+    {NewConf, NewState} = Mod:post_init_suite(Config, State),
+    {NewConf, {Mod, NewState}}.
 
 %% Generic call function
 call(Fun, Config) ->
-    call(get_callbacks(), Fun, Config).
-
-call(CBs, Fun, Config) ->
-    call(CBs, Fun, Config, []).
-    
-call([CB | Rest], Fun, Config, NewCBs) ->
-    {NewCB, NewConf} = Fun(CB,Config),
-    call(Rest, Fun, NewConf, [NewCB | NewCBs]);
-call([], _Fun, Config, NewCBs) ->
-    ct_util:save_suite_data_async(?config_name, NewCBs),
+    CBs = get_callbacks(),
+    call([{CBId,Fun} || {CBId, _} <- CBs] ++ get_new_callbacks(Config, Fun),
+	 remove(?config_name,Config), CBs).
+	 
+call([{CB, call_init, NextFun} | Rest], Config, CBs) ->
+    {Config, {NewId, _} = NewCB} = call_init(CB, Config),
+    {NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
+			    undefined -> {CBs ++ [NewCB],Rest};
+			    {NewId, _, _} -> {CBs, Rest};
+			    Fun -> {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
+			end,
+    call(NewRest, Config, NewCBs);
+call([{CBId, Fun} | Rest], Config, CBs) ->
+    {NewConf, NewCBInfo} =  Fun(proplists:get_value(CBId, CBs), Config),
+    NewCalls = get_new_callbacks(NewConf, Fun),
+    call(NewCalls  ++ Rest, remove(?config_name, NewConf),
+	 lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}));
+call([], Config, CBs) ->
+    ct_util:save_suite_data_async(?config_name, CBs),
     Config.
 
-
-remove(Key,List) ->
+remove(Key,List) when is_list(List) ->
     [Conf || Conf <- List,
-	     element(1,Conf) =/= Key].
+	     element(1, Conf) =/= Key];
+remove(_, Else) ->
+    Else.
