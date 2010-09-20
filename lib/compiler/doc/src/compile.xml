@@ -310,9 +310,9 @@
 	    (there will not even be a warning if there is a mismatch).</p>
           </item>
 
-          <tag><c>{no_auto_import,[F/A, ...]}</c></tag>
+          <tag><c>{no_auto_import,[{F,A}, ...]}</c></tag>
           <item>
-	  <p>Makes the function <c>F/A</c> no longer beeing
+	  <p>Makes the function <c>F/A</c> no longer being
           auto-imported from the module <c>erlang</c>, which resolves
           BIF name clashes. This option has to be used to resolve name
           clashes with BIFs auto-imported before R14A, if one wants to
@@ -323,8 +323,12 @@
 	  without module prefix to local or imported functions before
 	  trying auto-imported BIFs. If the BIF is to be
 	  called, use the <c>erlang</c> module prefix in the call, not
-	  <c>{ no_auto_import,[F/A, ...]}</c></p>
+	  <c>{ no_auto_import,[{F,A}, ...]}</c></p>
 	  </note>
+	  <p>If this option is written in the source code, as a 
+	  <c>-compile</c> directive, the syntax <c>F/A</c> can be used instead 
+	  of <c>{F,A}</c>. Example:</p>
+	  <code>-compile({no_auto_import,[error/1]}).</code>
 	  </item>
 
         </taglist>
