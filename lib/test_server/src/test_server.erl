@@ -935,8 +935,7 @@ spawn_fw_call(Mod,{init_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
 	    Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 	    %% if init_per_testcase fails, the test case
 	    %% should be skipped
-	    case catch test_server_sup:framework_call(
-			 end_tc,[?pl2a(Mod),Func,{Pid,Skip,[[]]}]) of
+	    case catch do_end_tc_call(Mod,Func,{Pid,Skip,[[]]},Why) of
 		{'EXIT',FwEndTCErr} ->
 		    exit({fw_notify_done,end_tc,FwEndTCErr});
 		_ ->
@@ -955,11 +954,9 @@ spawn_fw_call(Mod,{end_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
 	    Conf = [{tc_status,ok}],
 	    %% if end_per_testcase fails, the test case should be
 	    %% reported successful with a warning printed as comment
-	    case catch test_server_sup:framework_call(end_tc,
-						      [?pl2a(Mod),Func,
-						       {Pid,
-							{failed,{Mod,end_per_testcase,Why}},
-							[Conf]}]) of
+	    case catch do_end_tc_call(Mod,Func,{Pid,
+						{failed,{Mod,end_per_testcase,Why}},
+						[Conf]}, Why) of
 		{'EXIT',FwEndTCErr} ->
 		    exit({fw_notify_done,end_tc,FwEndTCErr});
 		_ ->
@@ -1001,9 +998,7 @@ spawn_fw_call(Mod,Func,Pid,Error,Loc,SendTo,Comment) ->
 			ok
 		end,
 		Conf = [{tc_status,{failed,timetrap_timeout}}],
-		case catch test_server_sup:framework_call(end_tc,
-							  [?pl2a(Mod),Func,
-							   {Pid,Error,[Conf]}]) of
+		case catch do_end_tc_call(Mod,Func,{Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -1069,26 +1064,23 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 
     {{Time,Value},Loc,Opts} =
 	case test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
-					    {ok,Args0}) of
+					    {ok, Args0}) of
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,{Error,Args0}]),
+		do_end_tc_call(Mod,Func,{Error,Args0}, Error),
 		{{0,{skip,{failed,Error}}},{Mod,Func},[]};
 	    {fail,Reason} ->
 		[Conf] = Args0,
 		Conf1 = [{tc_status,{failed,Reason}} | Conf],
 		fw_error_notify(Mod, Func, Conf, Reason),
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,
-						       {{error,Reason},[Conf1]}]),
+		do_end_tc_call(Mod,Func, {{error,Reason},[Conf1]},{fail, Reason}),
 		{{0,{failed,Reason}},{Mod,Func},[]};
 	    Skip = {skip,_Reason} ->
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,{Skip,Args0}]),
+		do_end_tc_call(Mod,Func,{Skip,Args0},Skip),
 		{{0,Skip},{Mod,Func},[]};
 	    {auto_skip,Reason} ->
-		test_server_sup:framework_call(end_tc,[?pl2a(Mod),
-						       Func,
-						       {{skip,Reason},Args0}]),
+		do_end_tc_call(Mod, Func, {{skip,Reason},Args0}, {auto_skip, Reason}),
 		{{0,{skip,{fw_auto_skip,Reason}}},{Mod,Func},[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
@@ -1103,14 +1095,13 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		Skip = {skip,Reason} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}],
-		    test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,{Skip,[Conf]}]),
-		    {{0,{skip,Reason}},Line,[]};
+		    NewRes = do_end_tc_call(Mod,Func,{Skip,[Conf]}, skipped),
+		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
-		    test_server_sup:framework_call(end_tc,[?pl2a(Mod),Func,
-							   {{skip,Reason},[Conf]}]),
-		    {{0,{skip,Reason}},Line,[]};
+		    NewRes = do_end_tc_call(Mod, Func, {{skip, Reason}, [Conf]}, skipped_and_saved),
+		    {{0,NewRes},Line,[]};
 		{ok,NewConf} ->
 		    put(test_server_init_or_end_conf,undefined),
 		    %% call user callback function if defined
@@ -1155,13 +1146,12 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 				{FWReturn,TSReturn,EndConf1}
 			end,
 		    put(test_server_init_or_end_conf,undefined),
-		    case test_server_sup:framework_call(end_tc, [?pl2a(Mod), Func,
-								 {FWReturn1,[EndConf2]}]) of
-			{fail,Reason} ->
-			    fw_error_notify(Mod, Func, EndConf2, Reason),
-			    {{T,{failed,Reason}},{Mod,Func},[]};
-			_ ->
-			    {{T,TSReturn1},Loc,[]}
+		    case do_end_tc_call(Mod, Func, {FWReturn1,[EndConf2]}, TSReturn1) of
+			{failed,Reason} = NewReturn ->
+			    fw_error_notify(Mod,Func,EndConf2, Reason),
+			    {{T,NewReturn},{Mod,Func},[]};
+			NewReturn ->
+			    {{T,NewReturn},Loc,[]}
 		    end
 	    end;
 	skip_init ->
@@ -1179,8 +1169,29 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    {{T,Return},Loc} = {ts_tc(Mod, Func, Args2),get_loc()},
 	    %% call user callback function if defined
 	    Return1 = user_callback(TCCallback, Mod, Func, 'end', Return),
-	    {Return2,Opts} = process_return_val([Return1], Mod,Func,Args1, Loc, Return1),
+	    {Return2,Opts} = process_return_val([Return1], Mod, Func,
+						Args1, Loc, Return1),
 	    {{T,Return2},Loc,Opts}
+    end.
+
+do_end_tc_call(M,F,Res,Return) ->
+    Ref = make_ref(),
+    case test_server_sup:framework_call(
+	   end_tc, [?pl2a(M),F,Res], Ref) of
+	{fail,FWReason} ->
+	    {failed,FWReason};
+	Ref ->
+	    case test_server_sup:framework_call(
+		   end_tc, [?pl2a(M),F,Res, Return], ok) of
+		{fail,FWReason} ->
+		    {failed,FWReason};
+		ok ->
+		    Return;
+		NewReturn ->
+		    NewReturn
+	    end;
+	_ ->
+	    Return
     end.
 
 %% the return value is a list and we have to check if it contains
@@ -1197,13 +1208,13 @@ process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
 		   end, Return) of
 	true ->		     % must be return value from end conf case
 	    process_return_val1(Return, M,F,A, Loc, Final, []);
-	false ->	     % must be Config value from init conf case
-	    case test_server_sup:framework_call(end_tc, [?pl2a(M),F,{ok,A}]) of
-		{fail,FWReason} ->
+	false -> % must be Config value from init conf case
+	    case do_end_tc_call(M,F,{ok,A}, Return) of
+		{failed, FWReason} = Failed ->
 		    fw_error_notify(M,F,A, FWReason),
-		    {{failed,FWReason},[]};
-		_ ->
-		    {Return,[]}
+		    {Failed, []};
+		NewReturn ->
+		    {NewReturn, []}
 	    end
     end;
 %% the return value is not a list, so it's the return value from an
@@ -1211,13 +1222,13 @@ process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
 process_return_val(Return, M,F,A, Loc, Final) ->
     process_return_val1(Return, M,F,A, Loc, Final, []).
 
-process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts) when E=='EXIT';
-										 E==failed ->
+process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts)
+  when E=='EXIT';
+       E==failed ->
     fw_error_notify(M,F,A, TCError, mod_loc(Loc)),
-    case test_server_sup:framework_call(end_tc,
-					[?pl2a(M),F,{{error,TCError},
-						     [[{tc_status,{failed,TCError}}|Args]]}]) of
-	{fail,FWReason} ->
+    case do_end_tc_call(M,F,{{error,TCError},
+			     [[{tc_status,{failed,TCError}}|Args]]}, Failed) of
+	{failed,FWReason} ->
 	    {{failed,FWReason},SaveOpts};
 	_ ->
 	    {Failed,SaveOpts}
@@ -1234,8 +1245,8 @@ process_return_val1([RetVal={Tag,_}|Opts], M,F,A, Loc, _, SaveOpts) when Tag==sk
 process_return_val1([_|Opts], M,F,A, Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, SaveOpts);
 process_return_val1([], M,F,A, _Loc, Final, SaveOpts) ->
-    case test_server_sup:framework_call(end_tc, [?pl2a(M),F,{Final,A}]) of
-	{fail,FWReason} ->
+    case do_end_tc_call(M,F,{Final,A}, Final) of
+	{failed,FWReason} ->
 	    {{failed,FWReason},SaveOpts};
 	_ ->
 	    {Final,lists:reverse(SaveOpts)}
@@ -1263,7 +1274,7 @@ init_per_testcase(Mod, Func, Args) ->
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
-    %% init_per_testcase defined, returns new configuration
+%% init_per_testcase defined, returns new configuration
     case erlang:function_exported(Mod,init_per_testcase,2) of
 	true ->
 	    case catch my_apply(Mod, init_per_testcase, [Func|Args]) of
@@ -1306,8 +1317,8 @@ init_per_testcase(Mod, Func, Args) ->
 		    {skip,{failed,{Mod,init_per_testcase,Other}}}
 	    end;
 	false ->
-	    %% Optional init_per_testcase not defined
-	    %% keep quiet.
+%% Optional init_per_testcase not defined
+%% keep quiet.
 	    [Config] = Args,
 	    {ok, Config}
     end.
