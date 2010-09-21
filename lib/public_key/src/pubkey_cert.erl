@@ -389,10 +389,12 @@ public_key_info(PublicKeyInfo,
     
     NewPublicKeyParams =
 	case PublicKeyParams of
-	    'NULL' when WorkingAlgorithm == Algorithm ->
+	    {null, 'NULL'} when WorkingAlgorithm == Algorithm ->
 		WorkingParams;
-	    _ ->
-		PublicKeyParams
+	    {params, Params} ->
+		Params;
+	    Params ->
+		Params
 	end,
     {Algorithm, PublicKey, NewPublicKeyParams}.
 
