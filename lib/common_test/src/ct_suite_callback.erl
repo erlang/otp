@@ -33,56 +33,115 @@
 
 -define(config_name, suite_callbacks).
 
+%% -------------------------------------------------------------------------
 %% API Functions
+%% -------------------------------------------------------------------------
 
 %% @doc Called before any suites are started
 -spec init(State :: term()) -> ok |
 			       {error, Reason :: term()}.
 init(Opts) ->
     call([{CB, call_init, undefined} || CB <- get_new_callbacks(Opts)],
-	 ct_suite_callback_init_dummy, []),
+	 ct_suite_callback_init_dummy, undefined, []),
     ok.
 		      
 
 %% @doc Called after all suites are done.
 -spec terminate(Config :: proplist(),State :: term()) ->
     ok.
-terminate(Config, State) ->
+terminate(_Config, _State) ->
     ok.
 
 %% @doc Called as each test case is started. This includes all configuration
 %% tests.
--spec init_tc(Mod :: atom(), Func :: atom(), Config :: proplist()) ->
+-spec init_tc(Mod :: atom(), Func :: atom(), Args :: list()) ->
     NewConfig :: proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
-    {error, Reason :: term()}.
+    {fail, Reason :: term()}.
+init_tc(ct_framework, Mod, Args) ->
+    Args;
 init_tc(Mod, init_per_suite, Config) ->
-    call(fun call_pre_init_suite/2, Config);
-init_tc(_, _, Config) ->
-    Config.
+    call(fun call_generic/3, Config, {pre_init_suite, Mod});
+init_tc(Mod, end_per_suite, Config) ->
+    call(fun call_generic/3, Config, {pre_end_suite, Mod});
+init_tc(_Mod, {init_per_group, GroupName, _}, Config) ->
+    call(fun call_generic/3, Config, {pre_init_group, GroupName});
+init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
+    call(fun call_generic/3, Config, {pre_end_group, GroupName});
+init_tc(_Mod, TC, Config) ->
+    call(fun call_generic/3, Config, {pre_init_group, TC}).
 
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
 -spec end_tc(Mod :: atom(),
 	     Func :: atom(),
-	     CallConfig :: proplist(),
+	     Args :: list(),
 	     Result :: term()) ->
     NewConfig :: proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
-    {error, Reason :: term()} |
+    {fail, Reason :: term()} |
     ok.
-end_tc(Mod, init_per_suite, _, Result) ->
-    
-    NewConfig = call(fun call_post_init_suite/2, Result),
-    
-    NewConfig;
-end_tc(_, _, _, Result) ->
-    Result.
+end_tc(ct_framework, Mod, _Args, Result) ->
+    Result;
+end_tc(Mod, init_per_suite, _Config, Result) ->
+    call(fun call_generic/3, Result, {post_init_suite, Mod});
+end_tc(Mod, end_per_suite, _Config, Result) ->
+    call(fun call_generic/3, Result, {post_end_suite, Mod});
+end_tc(_Mod, {init_per_group, GroupName, _}, _Config, Result) ->
+    call(fun call_generic/3, Result, {post_init_group, GroupName});
+end_tc(_Mod, {end_per_group, GroupName, _}, _Config, Result) ->
+    call(fun call_generic/3, Result, {post_end_group, GroupName});
+end_tc(_Mod, TC, _Config, Result) ->
+    call(fun call_generic/3, Result, {post_end_tc, TC}).
 
+%% -------------------------------------------------------------------------
+%% Internal Functions
+%% -------------------------------------------------------------------------
+call_init(Mod, Config, Meta) when is_atom(Mod) ->
+    call_init({Mod, undefined}, Config, Meta);
+call_init({Mod, State}, Config, _) ->
+    {Id, NewState} = Mod:init(State),
+    {Config, {Id, {Mod, NewState}}}.
 
-%% Iternal Functions
+call_generic({Mod, State}, Config, {Function, undefined}) ->
+    {NewConf, NewState} = Mod:Function(Config, State),
+    {NewConf, {Mod, NewState}};
+call_generic({Mod, State}, Config, {Function, Tag}) ->
+    {NewConf, NewState} = Mod:Function(Tag, Config, State),
+    {NewConf, {Mod, NewState}}.
+
+%% Generic call function
+call(Fun, Config, Meta) ->
+    CBs = get_callbacks(),
+    call([{CBId,Fun} || {CBId, _} <- CBs] ++ get_new_callbacks(Config, Fun),
+	     remove(?config_name,Config), Meta, CBs).
+
+call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
+    {Config, {NewId, _} = NewCB} = call_init(CB, Config, Meta),
+    {NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
+			    undefined -> {CBs ++ [NewCB],Rest};
+			    ExistingCB when is_tuple(ExistingCB) -> {CBs, Rest};
+			    Fun -> {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
+			end,
+    call(NewRest, Config, Meta, NewCBs);
+call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
+    {NewConf, NewCBInfo} =  Fun(proplists:get_value(CBId, CBs), Config, Meta),
+    NewCalls = get_new_callbacks(NewConf, Fun),
+    call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
+	 lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}));
+call([], Config, Meta, CBs) ->
+    ct_util:save_suite_data_async(?config_name, CBs),
+    Config.
+
+remove(Key,List) when is_list(List) ->
+    [Conf || Conf <- List,
+	     element(1, Conf) =/= Key];
+remove(_, Else) ->
+    Else.
+
+%% Fetch callback functions
 get_new_callbacks(Config, Fun) ->
     lists:foldl(fun(NewCB, Acc) ->
 			[{NewCB, call_init, Fun} | Acc]
@@ -99,45 +158,3 @@ get_new_callbacks(_Config) ->
 
 get_callbacks() ->
     ct_util:read_suite_data(?config_name).
-
-call_init(Mod, Config) when is_atom(Mod) ->
-    call_init({Mod, undefined}, Config);
-call_init({Mod, State}, Config) ->
-    {Id, NewState} = Mod:init(State),
-    {Config, {Id, {Mod, NewState}}}.
-
-call_pre_init_suite({Mod, State}, Config) ->
-    {NewConf, NewState} = Mod:pre_init_suite(Config, State),
-    {NewConf, {Mod, NewState}}.
-call_post_init_suite({Mod, State}, Config) ->
-    {NewConf, NewState} = Mod:post_init_suite(Config, State),
-    {NewConf, {Mod, NewState}}.
-
-%% Generic call function
-call(Fun, Config) ->
-    CBs = get_callbacks(),
-    call([{CBId,Fun} || {CBId, _} <- CBs] ++ get_new_callbacks(Config, Fun),
-	 remove(?config_name,Config), CBs).
-	 
-call([{CB, call_init, NextFun} | Rest], Config, CBs) ->
-    {Config, {NewId, _} = NewCB} = call_init(CB, Config),
-    {NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
-			    undefined -> {CBs ++ [NewCB],Rest};
-			    {NewId, _, _} -> {CBs, Rest};
-			    Fun -> {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
-			end,
-    call(NewRest, Config, NewCBs);
-call([{CBId, Fun} | Rest], Config, CBs) ->
-    {NewConf, NewCBInfo} =  Fun(proplists:get_value(CBId, CBs), Config),
-    NewCalls = get_new_callbacks(NewConf, Fun),
-    call(NewCalls  ++ Rest, remove(?config_name, NewConf),
-	 lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}));
-call([], Config, CBs) ->
-    ct_util:save_suite_data_async(?config_name, CBs),
-    Config.
-
-remove(Key,List) when is_list(List) ->
-    [Conf || Conf <- List,
-	     element(1, Conf) =/= Key];
-remove(_, Else) ->
-    Else.
