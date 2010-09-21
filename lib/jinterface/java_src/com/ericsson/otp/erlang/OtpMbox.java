@@ -678,6 +678,11 @@ public class OtpMbox {
 	return m.self.equals(self);
     }
 
+    @Override
+    public int hashCode() {
+        return self.hashCode();
+    }
+
     /*
      * called by OtpNode to deliver message to this mailbox.
      * 
