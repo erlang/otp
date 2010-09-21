@@ -62,6 +62,7 @@
 	 code_change/3
 	]).
 
+-compile({no_auto_import,[error/2]}).
 
 -include("mnesia.hrl").
 -import(mnesia_lib, [set/2, verbose/2, error/2, fatal/2]).

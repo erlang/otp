@@ -98,6 +98,8 @@
 	 connect_nodes2/3
 	]).
 
+-compile({no_auto_import,[error/2]}).
+
 -import(mnesia_lib, [set/2, add/2]).
 -import(mnesia_lib, [fatal/2, error/2, verbose/2, dbg_out/2]).
 
