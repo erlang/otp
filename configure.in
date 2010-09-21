@@ -106,7 +106,8 @@ AC_SUBST(CROSS_COMPILING)
 
 
 AC_ARG_ENABLE(bootstrap-only,
-[  --enable-bootstrap-only enable bootstrap only configuration],
+AS_HELP_STRING([--enable-bootstrap-only],
+               [enable bootstrap only configuration]),
 [ if test "X$enableval" = "Xyes"; then
      BOOTSTRAP_ONLY=yes
   else
@@ -192,53 +193,62 @@ AC_MSG_RESULT([$OTP_REL])
 AC_SUBST(OTP_REL)
 
 AC_ARG_ENABLE(threads,
-[  --enable-threads        enable async thread support
-  --disable-threads       disable async thread support])
+AS_HELP_STRING([--enable-threads], [enable async thread support])
+AS_HELP_STRING([--disable-threads], [disable async thread support]))
 
 AC_ARG_ENABLE(halfword-emulator,
-[  --enable-halfword-emulator        enable halfword emulator (only for 64bit builds)
-  --disable-halfword-emulator        disable halfword emulator (only for 64bit builds)])
+AS_HELP_STRING([--enable-halfword-emulator],
+               [enable halfword emulator (only for 64bit builds)]))
 
 AC_ARG_ENABLE(smp-support,
-[  --enable-smp-support    enable smp support
-  --disable-smp-support   disable smp support])
+AS_HELP_STRING([--enable-smp-support], [enable smp support])
+AS_HELP_STRING([--disable-smp-support], [disable smp support]))
 
 AC_ARG_WITH(termcap,
-[  --with-termcap          use termcap (default)
-  --without-termcap       do not use any termcap libraries (ncurses,curses,termcap,termlib)])
+AS_HELP_STRING([--with-termcap], [use termcap (default)])
+AS_HELP_STRING([--without-termcap],
+               [do not use any termcap libraries (ncurses,curses,termcap,termlib)]))
 
 AC_ARG_ENABLE(kernel-poll,
-[  --enable-kernel-poll    enable kernel poll support])
+AS_HELP_STRING([--enable-kernel-poll], [enable kernel poll support])
+AS_HELP_STRING([--disable-kernel-poll], [disable kernel poll support]))
+
+AC_ARG_ENABLE(sctp,
+AS_HELP_STRING([--enable-sctp], [enable sctp support])
+AS_HELP_STRING([--disable-sctp], [disable sctp support]))
 
 AC_ARG_ENABLE(hipe,
-[  --enable-hipe           enable hipe support
-  --disable-hipe          disable hipe support])
-			
+AS_HELP_STRING([--enable-hipe], [enable hipe support])
+AS_HELP_STRING([--disable-hipe], [disable hipe support]))
+
+AC_ARG_ENABLE(native-libs,
+AS_HELP_STRING([--enable-native-libs],
+               [compile Erlang libraries to native code]))
+
 AC_ARG_WITH(javac,
-[  --with-javac=JAVAC      specify Java compiler to use
-  --with-javac            use a Java compiler if found (default)
-  --without-javac         don't use any Java compiler])
+AS_HELP_STRING([--with-javac=JAVAC], [specify Java compiler to use])
+AS_HELP_STRING([--with-javac], [use a Java compiler if found (default)])
+AS_HELP_STRING([--without-javac], [don't use any Java compiler]))
 
 AC_ARG_ENABLE(megaco_flex_scanner_lineno,
-[  --enable-megaco-flex-scanner-lineno enable megaco flex scanner lineno
-  --disable-megaco-flex-scanner-lineno disable megaco flex scanner lineno])
+AS_HELP_STRING([--disable-megaco-flex-scanner-lineno],
+               [disable megaco flex scanner lineno]))
 
 AC_ARG_ENABLE(megaco_reentrant_flex_scanner,
-[  --enable-megaco-reentrant-flex-scanner enable reentrans megaco flex scanner
-  --disable-megaco-reentrant-flex-scanner disable reentrans megaco flex scanner])
+AS_HELP_STRING([--disable-megaco-reentrant-flex-scanner],
+               [disable reentrant megaco flex scanner]))
 
 AC_ARG_WITH(ssl,
-[  --with-ssl=PATH         specify location of OpenSSL include and lib
-  --with-ssl              use SSL (default)
-  --without-ssl           don't use SSL])
+AS_HELP_STRING([--with-ssl=PATH], [specify location of OpenSSL include and lib])
+AS_HELP_STRING([--with-ssl], [use SSL (default)])
+AS_HELP_STRING([--without-ssl], [don't use SSL]))
 
 AC_ARG_ENABLE(dynamic-ssl-lib,
-[  --enable-dynamic-ssl-lib        force using dynamic openssl libraries
-  --disable-dynamic-ssl-lib       disable using dynamic openssl libraries])
+AS_HELP_STRING([--disable-dynamic-ssl-lib],
+               [disable using dynamic openssl libraries]))
 
 AC_ARG_ENABLE(shared-zlib,
-[  --enable-shared-zlib        enable using shared zlib library
-  --disable-shared-zlib       disable shared zlib, compile own zlib source (default)])
+AS_HELP_STRING([--enable-shared-zlib], [enable using shared zlib library]))
 
 dnl This functionality has been lost along the way... :(
 dnl It could perhaps be nice to reintroduce some day; therefore,
@@ -256,7 +266,8 @@ dnl   esac ], erl_mandir='$(erlang_libdir)/man')
 dnl AC_SUBST(erl_mandir)
 
 AC_ARG_ENABLE(darwin-universal,
-[  --enable-darwin-universal    build universal binaries on darwin i386],
+AS_HELP_STRING([--enable-darwin-universal],
+               [build universal binaries on darwin i386]),
 [ case "$enableval" in
     no) enable_darwin_universal=no ;;
     *)  enable_darwin_univeral=yes ;;
@@ -265,7 +276,7 @@ AC_ARG_ENABLE(darwin-universal,
 
 
 AC_ARG_ENABLE(darwin-64bit,
-[  --enable-darwin-64bit    build 64bit binaries on darwin],
+AS_HELP_STRING([--enable-darwin-64bit], [build 64bit binaries on darwin]),
 [ case "$enableval" in
     no) enable_darwin_64bit=no ;;
     *)  enable_darwin_64bit=yes ;;
@@ -273,7 +284,8 @@ AC_ARG_ENABLE(darwin-64bit,
 ],enable_darwin_64bit=no)
 
 AC_ARG_ENABLE(m64-build,
-[  --enable-m64-build    build 64bit binaries using the -m64 flag to (g)cc],
+AS_HELP_STRING([--enable-m64-build],
+               [build 64bit binaries using the -m64 flag to (g)cc]),
 [ case "$enableval" in
     no) enable_m64_build=no ;;
     *)  enable_m64_build=yes ;;
@@ -281,7 +293,8 @@ AC_ARG_ENABLE(m64-build,
 ],enable_m64_build=no)
 
 AC_ARG_ENABLE(m32-build,
-[  --enable-m32-build    build 32bit binaries using the -m32 flag to (g)cc],
+AS_HELP_STRING([--enable-m32-build],
+               [build 32bit binaries using the -m32 flag to (g)cc]),
 [ case "$enableval" in
     no) enable_m32_build=no ;;
     *)
@@ -292,6 +305,14 @@ AC_ARG_ENABLE(m32-build,
 	enable_m32_build=yes ;;
   esac
 ],enable_m32_build=no)
+
+AC_ARG_ENABLE(ethread-pre-pentium4-compatibility,
+	      AS_HELP_STRING([--enable-ethread-pre-pentium4-compatibility],
+			     [enable compatibility with x86 processors before pentium 4 (back to 486) in the ethread library]))
+
+AC_ARG_WITH(libatomic_ops,
+	    AS_HELP_STRING([--with-libatomic_ops=PATH],
+			   [specify and prefer usage of libatomic_ops in the ethread library]))
 
 dnl OK, we might have darwin switches off different kinds, lets 
 dnl check it all before continuing.

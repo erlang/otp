@@ -1090,7 +1090,7 @@ test "X$disable_native_ethr_impls" = "Xyes" &&
 
 AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
 	      AS_HELP_STRING([--enable-prefer-gcc-native-ethr-impls],
-			     [enable prefer gcc native ethread implementations]),
+			     [prefer gcc native ethread implementations]),
 [ case "$enableval" in
     yes) enable_prefer_gcc_native_ethr_impls=yes ;;
     *)  enable_prefer_gcc_native_ethr_impls=no ;;
@@ -1112,7 +1112,7 @@ test $enable_ethread_pre_pentium4_compatibilit = yes &&
 
 AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
-			   [use libatomic_ops with the ethread library]))
+			   [specify and prefer usage of libatomic_ops in the ethread library]))
 
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])
