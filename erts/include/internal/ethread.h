@@ -239,6 +239,8 @@ typedef DWORD ethr_tsd_key;
 #      include "gcc/ethread.h"
 #      include "libatomic_ops/ethread.h"
 #    endif
+#  elif defined(ETHR_HAVE_LIBATOMIC_OPS)
+#    include "libatomic_ops/ethread.h"
 #  elif defined(ETHR_WIN32_THREADS)
 #    include "win/ethread.h"
 #  endif
