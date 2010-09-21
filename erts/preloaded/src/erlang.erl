@@ -35,14 +35,13 @@
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
 -export([nodes/0]).
--export([concat_binary/1]).
+
 -export([list_to_integer/2,integer_to_list/2]).
 -export([flush_monitor_message/2]).
 -export([set_cpu_topology/1, format_cpu_topology/1]).
 -export([await_proc_exit/3]).
 
 -deprecated([hash/2]).
--deprecated([concat_binary/1]).
 
 % Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn/1]}).
@@ -534,11 +533,6 @@ set_cookie(Node, C) when Node =/= nonode@nohost, is_atom(Node) ->
       Cookie :: atom().
 get_cookie() ->
     auth:get_cookie().
-
--spec concat_binary(ListOfBinaries) -> binary() when
-      ListOfBinaries :: iolist().
-concat_binary(List) ->
-    list_to_binary(List).
 
 -spec integer_to_list(Integer, Base) -> string() when
       Integer :: integer(),

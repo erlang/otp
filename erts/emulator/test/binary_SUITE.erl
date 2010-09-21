@@ -33,7 +33,6 @@
 %%      erlang:external_size/1
 %%	size(Binary)
 %%      iolist_size/1
-%%	concat_binary/1
 %%	split_binary/2
 %%      hash(Binary, N)
 %%      phash(Binary, N)
@@ -47,7 +46,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 copy_terms/1, conversions/1, deep_lists/1, deep_bitstr_lists/1,
 	 bad_list_to_binary/1, bad_binary_to_list/1,
-	 t_split_binary/1, bad_split/1, t_concat_binary/1,
+	 t_split_binary/1, bad_split/1,
 	 terms/1, terms_float/1, external_size/1, t_iolist_size/1,
 	 t_hash/1,
 	 bad_size/1,
@@ -68,7 +67,7 @@ suite() -> [{ct_hooks,[ts_install_cth]},
 
 all() -> 
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
-     t_split_binary, bad_split, t_concat_binary,
+     t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
      terms_float, external_size, t_iolist_size,
      bad_binary_to_term_2, safe_binary_to_term2,
@@ -92,7 +91,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
-
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
@@ -380,41 +378,6 @@ bad_split(Config) when is_list(Config) ->
     
 bad_split(Bin, Pos) ->
     {'EXIT',{badarg,_}} = (catch split_binary(Bin, Pos)).
-
-%% Tests concat_binary/2 and size/1.
-
-t_concat_binary(suite) -> [];
-t_concat_binary(Config) when is_list(Config) ->
-    test_concat([]),
-
-    test_concat([[]]),
-    test_concat([[], []]),
-    test_concat([[], [], []]),
-
-    test_concat([[1], []]),
-    test_concat([[], [2]]),
-    test_concat([[], [3], []]),
-
-    test_concat([[1, 2, 3], [4, 5, 6, 7]]),
-    test_concat([[1, 2, 3], [4, 5, 6, 7], [9, 10]]),
-
-    test_concat([lists:seq(0, 255), lists:duplicate(1024, $@),
-		 lists:duplicate(2048, $a),
-		 lists:duplicate(4000, $b)]),
-    ok.
-
-test_concat(Lists) ->
-    test_concat(Lists, 0, [], []).
-
-test_concat([List|Rest], Size, Combined, Binaries) ->
-    ?line Bin = list_to_binary(List),
-    ?line test_concat(Rest, Size+length(List), Combined++List, [Bin|Binaries]);
-test_concat([], Size, Combined, Binaries0) ->
-    ?line Binaries = lists:reverse(Binaries0),
-    ?line Bin = concat_binary(Binaries),
-    ?line Size = size(Bin),
-    ?line Size = iolist_size(Bin),
-    ?line Combined = binary_to_list(Bin).
 
 t_hash(doc) -> "Test hash/2 with different type of binaries.";
 t_hash(Config) when is_list(Config) ->

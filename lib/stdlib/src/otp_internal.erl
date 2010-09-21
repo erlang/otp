@@ -449,7 +449,7 @@ obsolete_1(ssl_pkix, decode_cert, A) when A =:= 1; A =:= 2 ->
 
 %% Added in R13B04.
 obsolete_1(erlang, concat_binary, 1) ->
-    {deprecated,{erlang,list_to_binary,1},"R15B"};
+    {removed,{erlang,list_to_binary,1},"R15B"};
 
 %% Added in R14A.
 obsolete_1(ssl, peercert, 2) ->
