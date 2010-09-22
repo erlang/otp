@@ -892,25 +892,22 @@ lc_tq(Line, E, [{generate,Lg,P,G}|Qs0], Mc, St0) ->
 lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
     {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
     {Name,St1} = new_fun_name("blc", St0),
-    {Tname,St2} = new_var_name(St1),
-    LA = lineno_anno(Line, St2),
+    LA = lineno_anno(Line, St1),
     LAnno = #a{anno=LA},
-    HeadBinPattern = pattern(P,St2),
-    #c_binary{segments=Ps} = HeadBinPattern,
-    {EPs,St3} = emasculate_segments(Ps,St2),
-    Tail = #c_var{anno=LA,name=Tname},
-    TailSegment = #c_bitstr{val=Tail,size=#c_literal{val=all},
-			    unit=#c_literal{val=1},
-			    type=#c_literal{val=binary},
-			    flags=#c_literal{val=[big,unsigned]}},
-    Pattern = HeadBinPattern#c_binary{segments=Ps ++ [TailSegment]},
-    EPattern = HeadBinPattern#c_binary{segments=EPs ++ [TailSegment]},
+    HeadBinPattern = pattern(P, St1),
+    #c_binary{segments=Ps0} = HeadBinPattern,
+    {Ps,Tail,St2} = append_tail_segment(Ps0, St1),
+    {EPs,St3} = emasculate_segments(Ps, St2),
+    Pattern = HeadBinPattern#c_binary{segments=Ps},
+    EPattern = HeadBinPattern#c_binary{segments=EPs},
     {Arg,St4} = new_var(St3),
     {Guardc,St5} = lc_guard_tests(Gs, St4),	%These are always flat!
+    Tname = Tail#c_var.name,
     {Nc,[],St6} = expr({call,Lg,{atom,Lg,Name},[{var,Lg,Tname}]}, St5),
     {Bc,Bps,St7} = lc_tq(Line, E, Qs1, Nc, St6),
     {Gc,Gps,St10} = safe(G, St7),		%Will be a function argument!
     Fc = function_clause([Arg], LA, {Name,1}),
+    {TailSegList,_,St} = append_tail_segment([], St10),
     Cs = [#iclause{anno=#a{anno=[compiler_generated|LA]},
 		   pats=[Pattern],
 		   guard=Guardc,
@@ -922,14 +919,14 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
 				 op=#c_var{anno=LA,name={Name,1}},
 				 args=[Tail]}]},
 	  #iclause{anno=LAnno,
-		   pats=[#c_binary{anno=LA, segments=[TailSegment]}],guard=[],
+		   pats=[#c_binary{anno=LA,segments=TailSegList}],guard=[],
 		   body=[Mc]}],
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg],clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno,defs=[{{Name,1},Fun}],
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,1}},
 				   args=[Gc]}]},
-     [],St10};
+     [],St};
 lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
     %% Special case sequences guard tests.
     LA = lineno_anno(Line, St0),
@@ -1037,26 +1034,24 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
     {Gs,Qs1} =  splitwith(fun is_guard_test/1, Qs0),
     {Name,St1} = new_fun_name("lbc", St0),
     LA = lineno_anno(Line, St1),
-    {[Tail,AccVar],St2} = new_vars(LA, 2, St1),
+    {AccVar,St2} = new_var(LA, St1),
     LAnno = #a{anno=LA},
     HeadBinPattern = pattern(P, St2),
-    #c_binary{segments=Ps} = HeadBinPattern,
-    {EPs,St3} = emasculate_segments(Ps, St2),
-    TailSegment = #c_bitstr{val=Tail,size=#c_literal{val=all},
-			    unit=#c_literal{val=1},
-			    type=#c_literal{val=binary},
-			    flags=#c_literal{val=[big,unsigned]}},
-    Pattern = HeadBinPattern#c_binary{segments=Ps ++ [TailSegment]},
-    EPattern = HeadBinPattern#c_binary{segments=EPs ++ [TailSegment]},
-    {Arg,St4} = new_var(St3),
+    #c_binary{segments=Ps0} = HeadBinPattern,
+    {Ps,Tail,St3} = append_tail_segment(Ps0, St2),
+    {EPs,St4} = emasculate_segments(Ps, St3),
+    Pattern = HeadBinPattern#c_binary{segments=Ps},
+    EPattern = HeadBinPattern#c_binary{segments=EPs},
+    {Arg,St5} = new_var(St4),
     NewMore = {call,Lg,{atom,Lg,Name},[{var,Lg,Tail#c_var.name},
 				       {var,Lg,AccVar#c_var.name}]},
-    {Guardc,St5} = lc_guard_tests(Gs, St4),	%These are always flat!
-    {Bc,Bps,St6} = bc_tq1(Line, E, Qs1, AccVar, St5),
-    {Nc,Nps,St7} = expr(NewMore, St6),
-    {Gc,Gps,St8} = safe(G, St7),		%Will be a function argument!
+    {Guardc,St6} = lc_guard_tests(Gs, St5),	%These are always flat!
+    {Bc,Bps,St7} = bc_tq1(Line, E, Qs1, AccVar, St6),
+    {Nc,Nps,St8} = expr(NewMore, St7),
+    {Gc,Gps,St9} = safe(G, St8),	 %Will be a function argument!
     Fc = function_clause([Arg,AccVar], LA, {Name,2}),
     Body = Bps ++ Nps ++ [#iset{var=AccVar,arg=Bc},Nc],
+    {TailSegList,_,St} = append_tail_segment([], St9),
     Cs = [#iclause{anno=LAnno,
 		   pats=[Pattern,AccVar],
 		   guard=Guardc,
@@ -1066,7 +1061,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 		   guard=[],
 		   body=Nps ++ [Nc]},
 	  #iclause{anno=LAnno,
-		   pats=[#c_binary{anno=LA,segments=[TailSegment]},AccVar],
+		   pats=[#c_binary{anno=LA,segments=TailSegList},AccVar],
 		   guard=[],
 		   body=[AccVar]}],
     Fun = #ifun{anno=LAnno,id=[],vars=[Arg,AccVar],clauses=Cs,fc=Fc},
@@ -1074,7 +1069,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
 	      body=Gps ++ [#iapply{anno=LAnno,
 				   op=#c_var{anno=LA,name={Name,2}},
 				   args=[Gc,AccExpr]}]},
-     [],St8};
+     [],St};
 bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
     %% Special case sequences guard tests.
     LA = lineno_anno(Line, St0),
@@ -1119,6 +1114,19 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     Anno = Anno0#a{anno=[compiler_generated,single_use|A]},
     %%Anno = Anno0#a{anno=[compiler_generated|A]},
     {set_anno(E, Anno),Pre,St}.
+
+append_tail_segment(Segs, St) ->
+    app_tail_seg(Segs, St, []).
+
+app_tail_seg([H|T], St, Acc) ->
+    app_tail_seg(T, St, [H|Acc]);
+app_tail_seg([], St0, Acc) ->
+    {Var,St} = new_var(St0),
+    Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
+		     unit=#c_literal{val=1},
+		     type=#c_literal{val=binary},
+		     flags=#c_literal{val=[unsigned,big]}},
+    {reverse(Acc, [Tail]),Var,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
