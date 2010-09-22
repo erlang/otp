@@ -529,16 +529,16 @@ handle_options(Opts0, _Role) ->
     
     ReuseSessionFun = fun(_, _, _, _) -> true end,
 
-    VerifyNoneFun =
-	{fun(_,{bad_cert, unknown_ca}, UserState) ->
+    DefaultVerifyNoneFun =
+	{fun(_,{bad_cert, _}, UserState) ->
 		 {valid, UserState};
-	    (_,{bad_cert, _} = Reason, _) ->
-		 {fail, Reason};
 	    (_,{extension, _}, UserState) ->
 		 {unknown, UserState};
 	    (_, valid, UserState) ->
 		 {valid, UserState}
 	 end, []},
+
+    VerifyNoneFun = handle_option(verify_fun, Opts, DefaultVerifyNoneFun),
 
     UserFailIfNoPeerCert = handle_option(fail_if_no_peer_cert, Opts, false),
     UserVerifyFun = handle_option(verify_fun, Opts, undefined),

@@ -216,9 +216,16 @@ add_certs_from_file(File, Ref, CertsDb) ->
     [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries].
     
 add_certs(Cert, Ref, CertsDb) ->
-    ErlCert = public_key:pkix_decode_cert(Cert, otp),
-    TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
-    SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-    Issuer = public_key:pkix_normalize_name(
-	       TBSCertificate#'OTPTBSCertificate'.issuer),
-    insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb).
+    try  ErlCert = public_key:pkix_decode_cert(Cert, otp),
+	 TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
+	 SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
+	 Issuer = public_key:pkix_normalize_name(
+		    TBSCertificate#'OTPTBSCertificate'.issuer),
+	 insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
+    catch
+	error:_ ->
+	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
+				   "it could not be correctly decoded.~n", []),
+	    error_logger:info_report(Report)
+    end.
+

@@ -437,7 +437,7 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--spec pkix_path_validation(der_encoded()| #'OTPCertificate'{} | unknown_ca,
+-spec pkix_path_validation(der_encoded()| #'OTPCertificate'{} | atom(),
 			   CertChain :: [der_encoded()] , 
 			   Options :: list()) ->  
 				  {ok, {PublicKeyInfo :: term(), 
@@ -445,11 +445,11 @@ pkix_normalize_name(Issuer) ->
 				  {error, {bad_cert, Reason :: term()}}.
 %% Description: Performs a basic path validation according to RFC 5280.
 %%--------------------------------------------------------------------
-pkix_path_validation(unknown_ca, [Cert | Chain], Options0) ->
+pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
     {VerifyFun, Userstat0} =
 	proplists:get_value(verify_fun, Options0, ?DEFAULT_VERIFYFUN),
     Otpcert = pkix_decode_cert(Cert, otp),
-    Reason = {bad_cert, unknown_ca},
+    Reason = {bad_cert, PathErr},
     try VerifyFun(Otpcert, Reason, Userstat0) of
 	{valid, Userstate} ->
 	    Options = proplists:delete(verify_fun, Options0),
@@ -576,7 +576,7 @@ sized_binary(List) ->
 %%--------------------------------------------------------------------
 pem_to_der(CertSource) ->
     {ok, Bin} = file:read_file(CertSource),
-    pubkey_pem:decode(Bin).
+    {ok, pubkey_pem:decode(Bin)}.
 
 decode_private_key(KeyInfo) ->
     decode_private_key(KeyInfo, no_passwd).
