@@ -89,7 +89,6 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_SCHED_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 
 #ifdef ERTS_SMP
-extern Uint erts_max_main_threads;
 #include "erl_bits.h"
 #endif
 
@@ -425,6 +424,13 @@ struct ErtsSchedulerData_ {
     erts_smp_atomic_t chk_cpu_bind; /* Only used when common run queue */
 #endif
 };
+
+typedef union {
+    ErtsSchedulerData esd;
+    char align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsSchedulerData))];
+} ErtsAlignedSchedulerData;
+
+extern ErtsAlignedSchedulerData *erts_aligned_scheduler_data;
 
 #ifndef ERTS_SMP
 extern ErtsSchedulerData *erts_scheduler_data;
@@ -1007,27 +1013,12 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 	    (p)->flags &= ~F_TIMO; \
     } while (0)
 
-
-#define ERTS_INIT_SCHED_BIND_TYPE_SUCCESS		0
-#define ERTS_INIT_SCHED_BIND_TYPE_NOT_SUPPORTED		1
-#define ERTS_INIT_SCHED_BIND_TYPE_ERROR_NO_CPU_TOPOLOGY	2
-#define ERTS_INIT_SCHED_BIND_TYPE_ERROR_NO_BAD_TYPE	3
-
-int erts_init_scheduler_bind_type(char *how);
-
-#define ERTS_INIT_CPU_TOPOLOGY_OK			0
-#define ERTS_INIT_CPU_TOPOLOGY_INVALID_ID		1
-#define ERTS_INIT_CPU_TOPOLOGY_INVALID_ID_RANGE		2
-#define ERTS_INIT_CPU_TOPOLOGY_INVALID_HIERARCHY	3
-#define ERTS_INIT_CPU_TOPOLOGY_INVALID_ID_TYPE		4
-#define ERTS_INIT_CPU_TOPOLOGY_INVALID_NODES		5
-#define ERTS_INIT_CPU_TOPOLOGY_MISSING_LID		6
-#define ERTS_INIT_CPU_TOPOLOGY_NOT_UNIQUE_LIDS		7
-#define ERTS_INIT_CPU_TOPOLOGY_NOT_UNIQUE_ENTITIES	8
-#define ERTS_INIT_CPU_TOPOLOGY_MISSING			9
-
-int erts_init_cpu_topology(char *topology_str);
-int erts_update_cpu_info(void);
+#define ERTS_RUNQ_IX(IX)						\
+  (ASSERT_EXPR(0 <= (IX) && (IX) < erts_no_run_queues),			\
+   &erts_aligned_run_queues[(IX)].runq)
+#define ERTS_SCHEDULER_IX(IX)						\
+  (ASSERT_EXPR(0 <= (IX) && (IX) < erts_no_schedulers),			\
+   &erts_aligned_scheduler_data[(IX)].esd)
 
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
@@ -1058,8 +1049,9 @@ Eterm erts_multi_scheduling_blockers(Process *);
 void erts_start_schedulers(void);
 void erts_smp_notify_check_children_needed(void);
 #endif
+void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
-void erts_init_process(void);
+void erts_init_process(int);
 Eterm erts_process_status(Process *, ErtsProcLocks, Process *, Eterm);
 Uint erts_run_queues_len(Uint *);
 void erts_add_to_runq(Process *);

@@ -27,9 +27,6 @@
 
 #define ERTS_SPIN_BODY ETHR_SPIN_BODY
 
-#define ERTS_MAX_READER_GROUPS 8
-extern int erts_reader_groups;
-
 #include "sys.h"
 #ifdef USE_THREADS
 

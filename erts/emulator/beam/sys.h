@@ -466,8 +466,6 @@ static const int zero_value = 0, one_value = 1;
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
-extern erts_cpu_info_t *erts_cpuinfo; /* erl_init.c */
-
 __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 
 /* Some special erl_exit() codes: */

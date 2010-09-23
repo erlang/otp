@@ -75,6 +75,7 @@ static erts_smp_rwmtx_t environ_rwmtx;
 
 #include "erl_sys_driver.h"
 #include "erl_check_io.h"
+#include "erl_cpu_topology.h"
 
 #ifndef DISABLE_VFORK
 #define DISABLE_VFORK 0
@@ -399,7 +400,7 @@ typedef struct {
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     sigset_t saved_sigmask;
 #endif
-    int unbind_child;
+    int sched_bind_data;
 } erts_thr_create_data_t;
 
 /*
@@ -410,15 +411,13 @@ static void *
 thr_create_prepare(void)
 {
     erts_thr_create_data_t *tcdp;
-    ErtsSchedulerData *esdp;
 
     tcdp = erts_alloc(ERTS_ALC_T_TMP, sizeof(erts_thr_create_data_t));
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     erts_thr_sigmask(SIG_BLOCK, &thr_create_sigmask, &tcdp->saved_sigmask);
 #endif
-    esdp = erts_get_scheduler_data();
-    tcdp->unbind_child = esdp && erts_is_scheduler_bound(esdp);
+    tcdp->sched_bind_data = erts_sched_bind_atthrcreate_prepare();
 
     return (void *) tcdp;
 }
@@ -429,6 +428,8 @@ static void
 thr_create_cleanup(void *vtcdp)
 {
     erts_thr_create_data_t *tcdp = (erts_thr_create_data_t *) vtcdp;
+
+    erts_sched_bind_atthrcreate_parent(tcdp->sched_bind_data);
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
     /* Restore signalmask... */
@@ -456,12 +457,7 @@ thr_create_prepare_child(void *vtcdp)
     erts_thread_disable_fpe();
 #endif
 
-    if (tcdp->unbind_child) {
-	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
-	erts_unbind_from_cpu(erts_cpuinfo);
-	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
-    }
-    
+    erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
 #endif /* #ifdef USE_THREADS */
@@ -1461,9 +1457,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 
     CHLD_STAT_LOCK;
 
-    unbind = erts_is_scheduler_bound(NULL);
-    if (unbind)
-	erts_smp_rwmtx_rlock(&erts_cpu_bind_rwmtx);
+    unbind = erts_sched_bind_atfork_prepare();
 
 #if !DISABLE_VFORK
     /* See fork/vfork discussion before this function. */
@@ -1476,7 +1470,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	if (pid == 0) {
 	    /* The child! Setup child... */
 
-	    if (unbind && erts_unbind_from_cpu(erts_cpuinfo) != 0)
+	    if (erts_sched_bind_atfork_child(unbind) != 0)
 		goto child_error;
 
 	    /* OBSERVE!
@@ -1577,8 +1571,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 
 	cs_argv[CS_ARGV_PROGNAME_IX] = child_setup_prog;
 	cs_argv[CS_ARGV_WD_IX] = opts->wd ? opts->wd : ".";
-	cs_argv[CS_ARGV_UNBIND_IX]
-	    = (unbind ? erts_get_unbind_from_cpu_str(erts_cpuinfo) : "false");
+	cs_argv[CS_ARGV_UNBIND_IX] = erts_sched_bind_atvfork_child(unbind);
 	cs_argv[CS_ARGV_FD_CR_IX] = fd_close_range;
 	for (i = 0; i < CS_ARGV_NO_OF_DUP2_OPS; i++)
 	    cs_argv[CS_ARGV_DUP2_OP_IX(i)] = &dup2_op[i][0];
@@ -1627,8 +1620,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
     }
 #endif
 
-    if (unbind)
-	erts_smp_rwmtx_runlock(&erts_cpu_bind_rwmtx);
+    erts_sched_bind_atfork_parent(unbind);
 
     if (pid == -1) {
         saved_errno = errno;

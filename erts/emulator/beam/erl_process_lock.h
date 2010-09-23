@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2007-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -334,7 +334,7 @@ erts_proc_lock_flags_cmpxchg(erts_proc_lock_t *lck, ErtsProcLocks new,
 
 extern erts_pix_lock_t erts_pix_locks[ERTS_NO_OF_PIX_LOCKS];
 
-void erts_init_proc_lock(void);
+void erts_init_proc_lock(int cpus);
 void erts_proc_lock_prepare_proc_lock_waiter(void);
 void erts_proc_lock_failed(Process *,
 			   erts_pix_lock_t *,
