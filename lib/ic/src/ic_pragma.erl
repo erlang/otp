@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,6 +65,23 @@ pragma_reg(G,X) ->
 	true ->
 	    %% Remove ugly pragmas from form
 	    PragmaCleanForm = cleanup(X),
+%% 	    PragmaCleanForm = [{preproc,line_nr,
+%% 				{'<string_literal>',1,
+%% 				 "/home/nick/trash/recursive/b.idl"},
+%% 				[]},
+%% 			       {struct,{'<identifier>',2,"Foo"},[],undefined},
+%% 			       {typedef,
+%% 				{sequence,{scoped_id,local,3,["Foo"]},0},
+%% 				[{'<identifier>',3,"FooSeq"}],
+%% 				undefined},
+%% 			       {struct,
+%% 				{'<identifier>',4,"Foo"},
+%% 				[{member,{long,5},[{'<identifier>',5,"value"}]},
+%% 				 {member,
+%% 				  {scoped_id,local,6,["FooSeq"]},
+%% 				  [{'<identifier>',6,"chain"}]}],
+%% 				undefined}],
+
 	    {ok,PragmaCleanForm};
 	false ->
 	    ErrorNr = get_pragma_error_nr(S),
@@ -132,6 +149,7 @@ applyCodeOpt(G) ->
 
 %% This removes all pragma records from the form.
 %% When debugged, it can be enbodied in pragma_reg_all.
+cleanup(undefined,C) -> C;
 cleanup([],C) -> C;
 cleanup([X|Xs],CSF) ->
     cleanup(Xs, CSF++cleanup(X)).
@@ -279,7 +297,12 @@ pragma_reg(G, S, N, X) when is_record(X, union) ->
 pragma_reg(G, S, N, X) when is_record(X, struct) -> 
     mk_ref(G,[get_id2(X) | N],struct_ref),
     mk_file_data(G,X,N,struct),
-    pragma_reg_all(G, S, N, X#struct.body);
+    case X#struct.body of
+	undefined ->
+	    ok;
+	_ ->
+	    pragma_reg_all(G, S, N, X#struct.body)
+    end;
 
 pragma_reg(G, _S, N, X) when is_record(X, attr) -> 
     XX = #id_of{type=X},
