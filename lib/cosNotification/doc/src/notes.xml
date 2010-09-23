@@ -32,6 +32,31 @@
   </header>
 
   <section>
+    <title>cosNotification 1.1.14</title>
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Test suites published.</p>
+          <p>
+            Own Id: OTP-8543 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Added missing trailing bracket to define in hrl-file.</p>
+          <p>Own id: OTP-8489 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>cosNotification 1.1.13</title>
 
     <section>

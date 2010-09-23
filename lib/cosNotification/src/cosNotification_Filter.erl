@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -877,9 +877,9 @@ check_wildcard(Types, Which, WC, Domain, Type) ->
 	end,
     check_types(Types, Which, NewWC).
 
-%% Change '*' to '.*', see regexp:parse/2 documentation.
+%% Change '*' to '.*', see re:compile/1 documentation.
 convert_wildcard([], Acc) ->
-    case regexp:parse(lists:reverse(Acc)) of
+    case re:compile(lists:reverse(Acc)) of
 	{ok, Expr} ->
 	    Expr;
 	_ ->
@@ -900,37 +900,37 @@ match_types(_, _, []) ->
     false;
 match_types(Domain, Type, [{domain, WCDomain, Type}|T]) ->
     L=length(Domain),
-    case catch regexp:matches(Domain, WCDomain) of
-	{match, []} ->
+    case catch re:run(Domain, WCDomain) of
+	nomatch ->
 	    match_types(Domain, Type, T);
-	{match, [{1, L}]} ->
+	{match, [{0, L}]} ->
 	    true;
 	_->
 	    match_types(Domain, Type, T)
     end;
 match_types(Domain, Type, [{type, Domain, WCType}|T]) ->
     L=length(Type),
-    case catch regexp:matches(Type, WCType) of
-	{match, []} ->
+    case catch re:run(Type, WCType) of
+	nomatch ->
 	    match_types(Domain, Type, T);
-	{match, [{1, L}]} ->
+	{match, [{0, L}]} ->
 	    true;
 	_->
 	    match_types(Domain, Type, T)
     end;
 match_types(Domain, Type, [{both, WCDomain, WCType}|T]) ->
     L1=length(Domain),
-    case catch regexp:matches(Domain, WCDomain) of
-	{match, []} ->
+    case catch re:run(Domain, WCDomain) of
+	nomatch ->
 	    match_types(Domain, Type, T);
-	{match, [{1, L1}]} ->
+	{match, [{0, L1}]} ->
 	    L2=length(Type),
-	    case catch regexp:matches(Type, WCType) of
-		{match, []} ->
+	    case catch re:run(Type, WCType) of
+		nomatch ->
 		    match_types(Domain, Type, T);
-		{match, [{1, L2}]} ->
+		{match, [{0, L2}]} ->
 		    true;
-		_->
+		_ ->
 		    match_types(Domain, Type, T)
 	    end;
 	_->
