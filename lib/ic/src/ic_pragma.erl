@@ -60,28 +60,11 @@ pragma_reg(G,X) ->
     init_pragma_status(S),
     registerOptions(G,S),
     pragma_reg_all(G, S, [], X),
-    denote_specific_code_opts(G), %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    denote_specific_code_opts(G),
     case get_pragma_compilation_status(S) of
 	true ->
 	    %% Remove ugly pragmas from form
 	    PragmaCleanForm = cleanup(X),
-%% 	    PragmaCleanForm = [{preproc,line_nr,
-%% 				{'<string_literal>',1,
-%% 				 "/home/nick/trash/recursive/b.idl"},
-%% 				[]},
-%% 			       {struct,{'<identifier>',2,"Foo"},[],undefined},
-%% 			       {typedef,
-%% 				{sequence,{scoped_id,local,3,["Foo"]},0},
-%% 				[{'<identifier>',3,"FooSeq"}],
-%% 				undefined},
-%% 			       {struct,
-%% 				{'<identifier>',4,"Foo"},
-%% 				[{member,{long,5},[{'<identifier>',5,"value"}]},
-%% 				 {member,
-%% 				  {scoped_id,local,6,["FooSeq"]},
-%% 				  [{'<identifier>',6,"chain"}]}],
-%% 				undefined}],
-
 	    {ok,PragmaCleanForm};
 	false ->
 	    ErrorNr = get_pragma_error_nr(S),
