@@ -1715,6 +1715,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     Process *current_scheduled;
     ErtsSchedulerData *esdp;
     Eterm (*bif)(Process*, ...);
+    Eterm bif_args[3];
     int fail_label;
     int atomic_trace;
 #if HALFWORD_HEAP
@@ -1968,7 +1969,7 @@ restart:
 	    break;
 	case matchCall0:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(build_proc);
+	    t = (*bif)(build_proc, bif_args);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -1979,7 +1980,7 @@ restart:
 	    break;
 	case matchCall1:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(build_proc, esp[-1]);
+	    t = (*bif)(build_proc, esp-1);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -1990,7 +1991,9 @@ restart:
 	    break;
 	case matchCall2:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(build_proc, esp[-1], esp[-2]);
+	    bif_args[0] = esp[-1];
+	    bif_args[1] = esp[-2];
+	    t = (*bif)(build_proc, bif_args);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -2002,7 +2005,10 @@ restart:
 	    break;
 	case matchCall3:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(build_proc, esp[-1], esp[-2], esp[-3]);
+	    bif_args[0] = esp[-1];
+	    bif_args[1] = esp[-2];
+	    bif_args[2] = esp[-3];
+	    t = (*bif)(build_proc, bif_args);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;

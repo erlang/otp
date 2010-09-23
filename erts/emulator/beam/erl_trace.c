@@ -2092,8 +2092,7 @@ void save_calls(Process *p, Export *e)
  * entries instead of the original BIF functions.
  */
 Eterm
-erts_bif_trace(int bif_index, Process* p, 
-	       Eterm arg1, Eterm arg2, Eterm arg3, BeamInstr *I)
+erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 {
     Eterm result;
     int meta = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_META);
@@ -2107,10 +2106,10 @@ erts_bif_trace(int bif_index, Process* p,
 	 * no tracing will occur. Doing the whole else branch will 
 	 * also do nothing, only slower.
 	 */
-	Eterm (*func)(Process*, Eterm, Eterm, Eterm, BeamInstr*) = bif_table[bif_index].f;
-	result = func(p, arg1, arg2, arg3, I);
+	Eterm (*func)(Process*, Eterm*, BeamInstr*) = bif_table[bif_index].f;
+	result = func(p, args, I);
     } else {
-	Eterm (*func)(Process*, Eterm, Eterm, Eterm, BeamInstr*);
+	Eterm (*func)(Process*, Eterm*, BeamInstr*);
 	Export* ep = bif_export[bif_index];
 	Uint32 flags = 0, flags_meta = 0;
 	int global = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_GLOBAL);
@@ -2121,8 +2120,6 @@ erts_bif_trace(int bif_index, Process* p,
 					       * is actually in the 
 					       * export entry */
 	BeamInstr *cp = p->cp;
-	
-	Eterm args[3] = {arg1, arg2, arg3};
 	
 	/* 
 	 * Make continuation pointer OK, it is not during direct BIF calls,
@@ -2155,7 +2152,7 @@ erts_bif_trace(int bif_index, Process* p,
 	
 	func = bif_table[bif_index].f;
 
-	result = func(p, arg1, arg2, arg3, I);
+	result = func(p, args, I);
 	
 	if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
 	    BeamInstr i_return_trace      = beam_return_trace[0];

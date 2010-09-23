@@ -26,14 +26,14 @@ extern Export* erts_format_cpu_topology_trap;
 
 #define BIF_P A__p
 
-#define BIF_ALIST_0 Process* A__p
-#define BIF_ALIST_1 Process* A__p, Eterm A_1
-#define BIF_ALIST_2 Process* A__p, Eterm A_1, Eterm A_2
-#define BIF_ALIST_3 Process* A__p, Eterm A_1, Eterm A_2, Eterm A_3
+#define BIF_ALIST_0 Process* A__p, Eterm* BIF__ARGS
+#define BIF_ALIST_1 Process* A__p, Eterm* BIF__ARGS
+#define BIF_ALIST_2 Process* A__p, Eterm* BIF__ARGS
+#define BIF_ALIST_3 Process* A__p, Eterm* BIF__ARGS
 
-#define BIF_ARG_1  A_1
-#define BIF_ARG_2  A_2
-#define BIF_ARG_3  A_3
+#define BIF_ARG_1  (BIF__ARGS[0])
+#define BIF_ARG_2  (BIF__ARGS[1])
+#define BIF_ARG_3  (BIF__ARGS[2])
 
 #define BUMP_ALL_REDS(p) do {			\
     if (!ERTS_PROC_GET_SAVED_CALLS_BUF((p))) 	\

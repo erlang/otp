@@ -181,8 +181,7 @@ for ($i = 0; $i < @bif; $i++) {
 print "\n";
 
 for ($i = 0; $i < @bif; $i++) {
-    my $arity = $bif[$i]->[2];
-    my $args = join(', ', 'Process*', ('Eterm') x $arity);
+    my $args = join(', ', 'Process*', 'Eterm*');
     print "Eterm $bif[$i]->[3]($args);\n";
     print "Eterm wrap_$bif[$i]->[3]($args, UWord *I);\n";
 }
@@ -219,28 +218,10 @@ for ($i = 0; $i < @bif; $i++) {
     next if $bif[$i]->[3] eq $bif[$i]->[4]; # Skip unwrapped bifs
     my $arity = $bif[$i]->[2];
     my $func = $bif[$i]->[3];
-    my $arg;
     print "Eterm\n";
-    print "wrap_$func(Process* p";
-    for ($arg = 1; $arg <= $arity; $arg++) {
-	print ", Eterm arg$arg";
-    }
-    print ", UWord *I)\n";
+    print "wrap_$func(Process* p, Eterm* args, UWord* I)\n";
     print "{\n";
-    print "    return erts_bif_trace($i, p";
-    for ($arg = 1; $arg <= 3; $arg++) {
-	if ($arg <= $arity) {
-	    print ", arg$arg";
-	#} elsif ($arg == ($arity + 1)) {
-	  #  # Place I in correct position
-	   # print ", (Eterm) I";
-	} else {
-	    print ", 0";
-	}
-    }
-    # I is always last, as well as in the correct position
-    # Note that "last" and "correct position" may be the same...
-    print ", I);\n";
+    print "    return erts_bif_trace($i, p, args, I);\n";
     print "}\n\n";
 }
 
@@ -261,19 +242,9 @@ for ($i = 0; $i < @bif; $i++) {
     my $orig_func = $1;
     $orig_func = $implementation[$i] if $implementation[$i];
     print "Eterm\n";
-    print "$func(Process* p";
-    for ($arg = 1; $arg <= $arity; $arg++) {
-	print ", Eterm arg$arg";
-    }
-    print ")\n";
+    print "$func(Process* p, Eterm* BIF__ARGS)\n";
     print "{\n";
-    print "    return $orig_func(p";
-    for ($arg = 1; $arg <= 3; $arg++) {
-	if ($arg <= $arity) {
-	    print ", arg$arg";
-        }
-    }
-    print ");\n";
+    print "    return $orig_func(p, BIF__ARGS);\n";
     print "}\n\n";
 }
 

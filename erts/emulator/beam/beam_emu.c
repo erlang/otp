@@ -2209,16 +2209,16 @@ void process_main(void)
 
  OpCase(bif1_fbsd):
     {
-	Eterm (*bf)(Process*, Eterm);
-	Eterm arg;
+	Eterm (*bf)(Process*, Eterm*);
+	Eterm tmp_reg[1];
 	Eterm result;
 
-	GetArg1(2, arg);
+	GetArg1(2, tmp_reg[0]);
 	bf = (BifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, arg);
+	result = (*bf)(c_p, tmp_reg);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2237,17 +2237,17 @@ void process_main(void)
 
  OpCase(bif1_body_bsd):
     {
-	Eterm (*bf)(Process*, Eterm);
+	Eterm (*bf)(Process*, Eterm*);
 
-	Eterm arg;
+	Eterm tmp_reg[1];
 	Eterm result;
 
-	GetArg1(1, arg);
+	GetArg1(1, tmp_reg[0]);
 	bf = (BifFunction) Arg(0);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, arg);
+	result = (*bf)(c_p, tmp_reg);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2256,7 +2256,7 @@ void process_main(void)
 	if (is_value(result)) {
 	    StoreBifResult(2, result);
 	}
-	reg[0] = arg;
+	reg[0] = tmp_reg[0];
 	SWAPOUT;
 	I = handle_error(c_p, I, reg, bf);
 	goto post_error_handling;
@@ -2380,14 +2380,15 @@ void process_main(void)
   */
  OpCase(i_bif2_fbd):
     {
-	Eterm (*bf)(Process*, Eterm, Eterm);
+	Eterm tmp_reg[2] = {tmp_arg1, tmp_arg2};
+	Eterm (*bf)(Process*, Eterm*);
 	Eterm result;
 
 	bf = (BifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, tmp_arg1, tmp_arg2);
+	result = (*bf)(c_p, tmp_reg);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2405,13 +2406,14 @@ void process_main(void)
   */
  OpCase(i_bif2_body_bd):
     {
-	Eterm (*bf)(Process*, Eterm, Eterm);
+	Eterm tmp_reg[2] = {tmp_arg1, tmp_arg2};
+	Eterm (*bf)(Process*, Eterm*);
 	Eterm result;
 
 	bf = (BifFunction) Arg(0);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, tmp_arg1, tmp_arg2);
+	result = (*bf)(c_p, tmp_reg);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -2433,7 +2435,7 @@ void process_main(void)
      */
  OpCase(call_bif0_e):
     {
-	Eterm (*bf)(Process*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
+	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
 
 	PRE_BIF_SWAPOUT(c_p);
 	c_p->fcalls = FCALLS - 1;
@@ -2442,7 +2444,7 @@ void process_main(void)
 	}
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	r(0) = (*bf)(c_p, I);
+	r(0) = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(r(0)));
 	ERTS_HOLE_CHECK(c_p);
 	POST_BIF_GC_SWAPIN_0(c_p, r(0));
@@ -2466,7 +2468,7 @@ void process_main(void)
 
  OpCase(call_bif1_e):
     {
-	Eterm (*bf)(Process*, Eterm, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
+	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
 	Eterm result;
 	BeamInstr *next;
 
@@ -2477,7 +2479,8 @@ void process_main(void)
 	PreFetch(1, next);
 	PRE_BIF_SWAPOUT(c_p);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, r(0), I);
+	reg[0] = r(0);
+	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_HOLE_CHECK(c_p);
 	POST_BIF_GC_SWAPIN(c_p, result, reg, 1);
@@ -2501,7 +2504,7 @@ void process_main(void)
 
  OpCase(call_bif2_e):
     {
-	Eterm (*bf)(Process*, Eterm, Eterm, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
+	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
 	Eterm result;
 	BeamInstr *next;
 
@@ -2514,7 +2517,8 @@ void process_main(void)
 	CHECK_TERM(r(0));
 	CHECK_TERM(x(1));
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, r(0), x(1), I);
+	reg[0] = r(0);
+	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_HOLE_CHECK(c_p);
 	POST_BIF_GC_SWAPIN(c_p, result, reg, 2);
@@ -2538,7 +2542,7 @@ void process_main(void)
 
  OpCase(call_bif3_e):
     {
-	Eterm (*bf)(Process*, Eterm, Eterm, Eterm, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
+	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
 	Eterm result;
 	BeamInstr *next;
 
@@ -2549,7 +2553,8 @@ void process_main(void)
 	}
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	result = (*bf)(c_p, r(0), x(1), x(2), I);
+	reg[0] = r(0);
+	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_HOLE_CHECK(c_p);
 	POST_BIF_GC_SWAPIN(c_p, result, reg, 3);
@@ -3326,64 +3331,23 @@ void process_main(void)
 	    ASSERT(bif_nif_arity <= 3);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	    switch (bif_nif_arity) {
-	    case 3:
-		{
-		    Eterm (*bf)(Process*, Eterm, Eterm, Eterm, BeamInstr*) = vbf;
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-		    nif_bif_result = (*bf)(c_p, r(0), x(1), x(2), I);
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
-			   is_non_value(nif_bif_result));
-		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		    PROCESS_MAIN_CHK_LOCKS(c_p);
-		}
-		break;
-	    case 2:
-		{
-		    Eterm (*bf)(Process*, Eterm, Eterm, BeamInstr*) = vbf;
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-		    nif_bif_result = (*bf)(c_p, r(0), x(1), I);
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
-			   is_non_value(nif_bif_result));
-		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		    PROCESS_MAIN_CHK_LOCKS(c_p);
-		}
-		break;
-	    case 1:
-		{
-		    Eterm (*bf)(Process*, Eterm, BeamInstr*) = vbf;
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-		    nif_bif_result = (*bf)(c_p, r(0), I);
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
-			   is_non_value(nif_bif_result));
-		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		    PROCESS_MAIN_CHK_LOCKS(c_p);
-		}
-		break;
-	    case 0:
-		{
-		    Eterm (*bf)(Process*, BeamInstr*) = vbf;
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-		    nif_bif_result = (*bf)(c_p, I);
-		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
-			   is_non_value(nif_bif_result));
-		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		    PROCESS_MAIN_CHK_LOCKS(c_p);
-		    break;
-		}
-	    default:
-		erl_exit(1, "apply_bif: invalid arity: %u\n",
-			 bif_nif_arity);
+	    reg[0] = r(0);
+	    {
+		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
+		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+		nif_bif_result = (*bf)(c_p, reg, I);
+		ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
+		       is_non_value(nif_bif_result));
+		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+		PROCESS_MAIN_CHK_LOCKS(c_p);
 	    }
 
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_HOLE_CHECK(c_p);
 	    if (c_p->mbuf) {
-		reg[0] = r(0);
 		nif_bif_result = erts_gc_after_bif_call(c_p, nif_bif_result,
 						  reg, bif_nif_arity);
-		r(0) = reg[0];
 	    }
 	    SWAPIN;  /* There might have been a garbage collection. */
 	    FCALLS = c_p->fcalls;
@@ -3404,7 +3368,6 @@ void process_main(void)
 		}
 		Dispatch();
 	    }
-	    reg[0] = r(0);
 	    I = handle_error(c_p, c_p->cp, reg, vbf);
 	    goto post_error_handling;
 	}

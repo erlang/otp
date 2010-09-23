@@ -1647,8 +1647,7 @@ void monitor_generic(Process *p, Eterm type, Eterm spec);
 Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, Eterm *pTracer, int *pCpuTimestamp);
-Eterm erts_bif_trace(int bif_index, Process* p, 
-		     Eterm arg1, Eterm arg2, Eterm arg3, BeamInstr *I);
+Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
 
 #ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
