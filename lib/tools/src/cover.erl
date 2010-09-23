@@ -229,6 +229,7 @@ compile_modules(Files,Options) ->
 					{i, Dir} when is_list(Dir) -> true;
 					{d, _Macro} -> true;
 					{d, _Macro, _Value} -> true;
+					export_all -> true;
 					_ -> false
 				    end
 			    end,
@@ -569,7 +570,7 @@ main_process_loop(State) ->
 	    case get_beam_file(Module,BeamFile0,Compiled0) of
 		{ok,BeamFile} ->
 		    {Reply,Compiled} = 
-			case do_compile_beam(Module,BeamFile) of
+			case do_compile_beam(Module,BeamFile,[]) of
 			    {ok, Module} ->
 				remote_load_compiled(State#main_state.nodes,
 						     [{Module,BeamFile}]),
@@ -1227,13 +1228,13 @@ do_compile(File, UserOptions) ->
     Options = [debug_info,binary,report_errors,report_warnings] ++ UserOptions,
     case compile:file(File, Options) of
 	{ok, Module, Binary} ->
-	    do_compile_beam(Module,Binary);
+	    do_compile_beam(Module,Binary,UserOptions);
 	error ->
 	    error
     end.
 
 %% Beam is a binary or a .beam file name
-do_compile_beam(Module,Beam) ->
+do_compile_beam(Module,Beam,UserOptions) ->
     %% Clear database
     do_clear(Module),
     
@@ -1253,7 +1254,7 @@ do_compile_beam(Module,Beam) ->
 	    %% Compile and load the result
 	    %% It's necessary to check the result of loading since it may
 	    %% fail, for example if Module resides in a sticky directory
-	    {ok, Module, Binary} = compile:forms(Forms, []),
+	    {ok, Module, Binary} = compile:forms(Forms, UserOptions),
 	    case code:load_binary(Module, ?TAG, Binary) of
 		{module, Module} ->
 		    
