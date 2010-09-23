@@ -53,7 +53,7 @@
         <p>aes: Advanced Encryption Standard (AES) (FIPS 197) </p>
       </item>
       <item>
-        <p>ecb, cbc, cfb, ofb: Recommendation for Block Cipher Modes
+        <p>ecb, cbc, cfb, ofb, ctr: Recommendation for Block Cipher Modes
           of Operation (NIST SP 800-38A).</p>
       </item>
       <item>
@@ -555,6 +555,34 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           <c>aes_cbc_*_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
           data from the previous iteration step.</p>
       </desc>
+    </func>
+    <func>
+      <name>aes_ctr_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to AES in Counter mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+      <p>Encrypts <c>Text</c> according to AES in Counter mode (CTR). <c>Text</c>
+        can be any number of bytes. <c>Key</c> is the AES key and must be either
+        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
+        (16 bytes).</p>
+    </desc>
+    </func>
+    <func>
+      <name>aes_ctr_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to AES in Counter mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+      <p>Decrypts <c>Cipher</c> according to AES in Counter mode (CTR). <c>Cipher</c>
+        can be any number of bytes. <c>Key</c> is the AES key and must be either
+        128, 192 or 256 bits long. <c>IVec</c> is an arbitrary initializing vector of 128 bits
+        (16 bytes).</p>
+    </desc>
     </func>
     <func>
       <name>erlint(Mpint) -> N</name>
