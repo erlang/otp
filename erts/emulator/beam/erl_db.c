@@ -129,8 +129,6 @@ static Uint meta_main_tab_slot_mask;    /* The slot index part of an unnamed tab
 static Uint meta_main_tab_seq_incr;
 static Uint meta_main_tab_seq_cnt = 0;  /* To give unique(-ish) table identifiers */
 
-
-
 /* 
 ** The meta hash table of all NAMED ets tables
 */
@@ -202,11 +200,16 @@ static int free_table_cont(Process *p,
 			   int first,
 			   int clean_meta_tab);
 static void print_table(int to, void *to_arg, int show,  DbTable* tb);
-static BIF_RETTYPE ets_select_delete_1(Process *p, Eterm a1);
-static BIF_RETTYPE ets_select_count_1(Process *p, Eterm a1);
-static BIF_RETTYPE ets_select_trap_1(Process *p, Eterm a1);
-static BIF_RETTYPE ets_delete_trap(Process *p, Eterm a1);
+static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1);
+static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1);
+static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1);
+static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1);
 static Eterm table_info(Process* p, DbTable* tb, Eterm What);
+
+static BIF_RETTYPE ets_select1(Process* p, Eterm arg1);
+static BIF_RETTYPE ets_select2(Process* p, Eterm arg1, Eterm arg2);
+static BIF_RETTYPE ets_select3(Process* p, Eterm arg1, Eterm arg2, Eterm arg3);
+
 
 /* 
  * Exported global
@@ -1942,8 +1945,10 @@ BIF_RETTYPE ets_delete_object_2(BIF_ALIST_2)
 /*
 ** This is for trapping, cannot be called directly.
 */
-static BIF_RETTYPE ets_select_delete_1(Process *p, Eterm a1)
+static BIF_RETTYPE ets_select_delete_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm a1 = BIF_ARG_1;
     BIF_RETTYPE result;
     DbTable* tb;
     int cret;
@@ -2109,7 +2114,7 @@ BIF_RETTYPE ets_slot_2(BIF_ALIST_2)
 
 BIF_RETTYPE ets_match_1(BIF_ALIST_1)
 {
-    return ets_select_1(BIF_P, BIF_ARG_1);
+    return ets_select1(BIF_P, BIF_ARG_1);
 }
 
 BIF_RETTYPE ets_match_2(BIF_ALIST_2)
@@ -2125,7 +2130,7 @@ BIF_RETTYPE ets_match_2(BIF_ALIST_2)
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    res = ets_select_2(BIF_P, BIF_ARG_1, ms);
+    res = ets_select2(BIF_P, BIF_ARG_1, ms);
     UnUseTmpHeap(8,BIF_P);
     return res;
 }
@@ -2143,13 +2148,19 @@ BIF_RETTYPE ets_match_3(BIF_ALIST_3)
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    res = ets_select_3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
+    res = ets_select3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
     UnUseTmpHeap(8,BIF_P);
     return res;
 }
 
 
 BIF_RETTYPE ets_select_3(BIF_ALIST_3)
+{
+    return ets_select3(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+static BIF_RETTYPE
+ets_select3(Process* p, Eterm arg1, Eterm arg2, Eterm arg3)
 {
     BIF_RETTYPE result;
     DbTable* tb;
@@ -2161,22 +2172,22 @@ BIF_RETTYPE ets_select_3(BIF_ALIST_3)
     CHECK_TABLES();
 
     /* Chunk size strictly greater than 0 */
-    if (is_not_small(BIF_ARG_3) || (chunk_size = signed_val(BIF_ARG_3)) <= 0) {
-	BIF_ERROR(BIF_P, BADARG);
+    if (is_not_small(arg3) || (chunk_size = signed_val(arg3)) <= 0) {
+	BIF_ERROR(p, BADARG);
     }
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_READ, LCK_READ)) == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((tb = db_get_table(p, arg1, DB_READ, LCK_READ)) == NULL) {
+	BIF_ERROR(p, BADARG);
     }
-    safety = ITERATION_SAFETY(BIF_P,tb);
+    safety = ITERATION_SAFETY(p,tb);
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
-    cret = tb->common.meth->db_select_chunk(BIF_P, tb,
-					    BIF_ARG_2, chunk_size, 
+    cret = tb->common.meth->db_select_chunk(p, tb,
+					    arg2, chunk_size,
 					    0 /* not reversed */,
 					    &ret);
-    if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
-	fix_table_locked(BIF_P, tb);
+    if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
+	fix_table_locked(p, tb);
     }
     if (safety == ITER_UNSAFE) {
 	local_unfix_table(tb);
@@ -2188,22 +2199,24 @@ BIF_RETTYPE ets_select_3(BIF_ALIST_3)
 	ERTS_BIF_PREP_RET(result, ret);
 	break;
     case DB_ERROR_SYSRES:
-	ERTS_BIF_PREP_ERROR(result, BIF_P, SYSTEM_LIMIT);
+	ERTS_BIF_PREP_ERROR(result, p, SYSTEM_LIMIT);
 	break;
     default:
-	ERTS_BIF_PREP_ERROR(result, BIF_P, BADARG);
+	ERTS_BIF_PREP_ERROR(result, p, BADARG);
 	break;
     }
 
-    erts_match_set_release_result(BIF_P);
+    erts_match_set_release_result(p);
 
     return result;
 }
 
 
 /* We get here instead of in the real BIF when trapping */
-static BIF_RETTYPE ets_select_trap_1(Process *p, Eterm a1)
+static BIF_RETTYPE ets_select_trap_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm a1 = BIF_ARG_1;
     BIF_RETTYPE result;
     DbTable* tb;
     int cret;
@@ -2248,6 +2261,11 @@ static BIF_RETTYPE ets_select_trap_1(Process *p, Eterm a1)
 
 BIF_RETTYPE ets_select_1(BIF_ALIST_1)
 {
+    return ets_select1(BIF_P, BIF_ARG_1);
+}
+
+static BIF_RETTYPE ets_select1(Process *p, Eterm arg1)
+{
     BIF_RETTYPE result;
     DbTable* tb;
     int cret;
@@ -2261,28 +2279,27 @@ BIF_RETTYPE ets_select_1(BIF_ALIST_1)
      * Make sure that the table exists.
      */
 
-    if (!is_tuple(BIF_ARG_1)) {
-	if (BIF_ARG_1 == am_EOT) {
+    if (!is_tuple(arg1)) {
+	if (arg1 == am_EOT) {
 	    BIF_RET(am_EOT);
 	}
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(p, BADARG);
     }
-    tptr = tuple_val(BIF_ARG_1);
+    tptr = tuple_val(arg1);
     if (arityval(*tptr) < 1 ||
-	(tb = db_get_table(BIF_P, tptr[1], DB_READ, LCK_READ)) == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+	(tb = db_get_table(p, tptr[1], DB_READ, LCK_READ)) == NULL) {
+	BIF_ERROR(p, BADARG);
     }
 
-    safety = ITERATION_SAFETY(BIF_P,tb);
+    safety = ITERATION_SAFETY(p,tb);
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
 
-    cret = tb->common.meth->db_select_continue(BIF_P,tb,
-					       BIF_ARG_1, &ret);
+    cret = tb->common.meth->db_select_continue(p,tb, arg1, &ret);
 
-    if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
-	fix_table_locked(BIF_P, tb);
+    if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
+	fix_table_locked(p, tb);
     }
     if (safety == ITER_UNSAFE) {
 	local_unfix_table(tb);
@@ -2294,19 +2311,25 @@ BIF_RETTYPE ets_select_1(BIF_ALIST_1)
 	ERTS_BIF_PREP_RET(result, ret);
 	break;
     case DB_ERROR_SYSRES:
-	ERTS_BIF_PREP_ERROR(result, BIF_P, SYSTEM_LIMIT);
+	ERTS_BIF_PREP_ERROR(result, p, SYSTEM_LIMIT);
 	break;
     default:
-	ERTS_BIF_PREP_ERROR(result, BIF_P, BADARG);
+	ERTS_BIF_PREP_ERROR(result, p, BADARG);
 	break;
     }
 
-    erts_match_set_release_result(BIF_P);
+    erts_match_set_release_result(p);
 
     return result;
 }
 
 BIF_RETTYPE ets_select_2(BIF_ALIST_2)
+{
+    return ets_select2(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+static BIF_RETTYPE
+ets_select2(Process* p, Eterm arg1, Eterm arg2)
 {
     BIF_RETTYPE result;
     DbTable* tb;
@@ -2320,19 +2343,19 @@ BIF_RETTYPE ets_select_2(BIF_ALIST_2)
      * Make sure that the table exists.
      */
 
-    if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_READ, LCK_READ)) == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+    if ((tb = db_get_table(p, arg1, DB_READ, LCK_READ)) == NULL) {
+	BIF_ERROR(p, BADARG);
     }
-    safety = ITERATION_SAFETY(BIF_P,tb);
+    safety = ITERATION_SAFETY(p,tb);
     if (safety == ITER_UNSAFE) {
 	local_fix_table(tb);
     }
 
-    cret = tb->common.meth->db_select(BIF_P, tb, BIF_ARG_2,
+    cret = tb->common.meth->db_select(p, tb, arg2,
 				      0, &ret);
 
-    if (DID_TRAP(BIF_P,ret) && safety != ITER_SAFE) {
-	fix_table_locked(BIF_P, tb);
+    if (DID_TRAP(p,ret) && safety != ITER_SAFE) {
+	fix_table_locked(p, tb);
     }    
     if (safety == ITER_UNSAFE) {
 	local_unfix_table(tb);
@@ -2344,21 +2367,23 @@ BIF_RETTYPE ets_select_2(BIF_ALIST_2)
 	ERTS_BIF_PREP_RET(result, ret);
 	break;
     case DB_ERROR_SYSRES:
-	ERTS_BIF_PREP_ERROR(result, BIF_P, SYSTEM_LIMIT);
+	ERTS_BIF_PREP_ERROR(result, p, SYSTEM_LIMIT);
 	break;
     default:
-	ERTS_BIF_PREP_ERROR(result, BIF_P, BADARG);
+	ERTS_BIF_PREP_ERROR(result, p, BADARG);
 	break;
     }
 
-    erts_match_set_release_result(BIF_P);
+    erts_match_set_release_result(p);
 
     return result;
 }
 
 /* We get here instead of in the real BIF when trapping */
-static BIF_RETTYPE ets_select_count_1(Process *p, Eterm a1)
+static BIF_RETTYPE ets_select_count_1(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm a1 = BIF_ARG_1;
     BIF_RETTYPE result;
     DbTable* tb;
     int cret;
@@ -2499,7 +2524,7 @@ BIF_RETTYPE ets_select_reverse_3(BIF_ALIST_3)
 
 BIF_RETTYPE ets_select_reverse_1(BIF_ALIST_1)
 {
-    return ets_select_1(BIF_P, BIF_ARG_1);
+    return ets_select1(BIF_P, BIF_ARG_1);
 }
 
 BIF_RETTYPE ets_select_reverse_2(BIF_ALIST_2)
@@ -2553,7 +2578,7 @@ BIF_RETTYPE ets_select_reverse_2(BIF_ALIST_2)
 */
 BIF_RETTYPE ets_match_object_1(BIF_ALIST_1)
 {
-    return ets_select_1(BIF_P, BIF_ARG_1);
+    return ets_select1(BIF_P, BIF_ARG_1);
 }
 
 BIF_RETTYPE ets_match_object_2(BIF_ALIST_2)
@@ -2569,7 +2594,7 @@ BIF_RETTYPE ets_match_object_2(BIF_ALIST_2)
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    res = ets_select_2(BIF_P, BIF_ARG_1, ms);
+    res = ets_select2(BIF_P, BIF_ARG_1, ms);
     UnUseTmpHeap(8,BIF_P);
     return res;
 }
@@ -2587,7 +2612,7 @@ BIF_RETTYPE ets_match_object_3(BIF_ALIST_3)
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    res = ets_select_3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
+    res = ets_select3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
     UnUseTmpHeap(8,BIF_P);
     return res;
 }
@@ -3521,8 +3546,10 @@ static void free_heir_data(DbTable* tb)
     #endif
 }
 
-static BIF_RETTYPE ets_delete_trap(Process *p, Eterm cont)
+static BIF_RETTYPE ets_delete_trap(BIF_ALIST_1)
 {
+    Process *p = BIF_P;
+    Eterm cont = BIF_ARG_1;
     int trap;
     Eterm* ptr = big_val(cont);
     DbTable *tb = *((DbTable **) (UWord) (ptr + 1));

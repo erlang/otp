@@ -47,6 +47,11 @@ static Binary                     *erts_default_meta_match_spec;
 static struct trace_pattern_flags  erts_default_trace_pattern_flags;
 static Eterm                       erts_default_meta_tracer_pid;
 
+static Eterm
+trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist);
+static BIF_RETTYPE
+system_monitor(Process *p, Eterm monitor_pid, Eterm list);
+
 static void new_seq_trace_token(Process* p); /* help func for seq_trace_2*/
 static int already_traced(Process *p, Process *tracee_p, Eterm tracer);
 static int port_already_traced(Process *p, Port *tracee_port, Eterm tracer);
@@ -76,13 +81,19 @@ erts_bif_trace_init(void)
  */
   
 Eterm
-trace_pattern_2(Process* p, Eterm MFA, Eterm Pattern)
+trace_pattern_2(BIF_ALIST_2)
 {
-    return trace_pattern_3(p,MFA,Pattern,NIL);
+    return trace_pattern(BIF_P, BIF_ARG_1, BIF_ARG_2, NIL);
 }
 
 Eterm
-trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)       
+trace_pattern_3(BIF_ALIST_3)
+{
+    return trace_pattern(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+}
+
+static Eterm
+trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 {
     DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     int i;
@@ -435,9 +446,12 @@ erts_trace_flags(Eterm List,
     return 0;
 }
 
-Eterm
-trace_3(Process* p, Eterm pid_spec, Eterm how, Eterm list)
+Eterm trace_3(BIF_ALIST_3)
 {
+    Process* p = BIF_P;
+    Eterm pid_spec = BIF_ARG_1;
+    Eterm how = BIF_ARG_2;
+    Eterm list = BIF_ARG_3;
     int on;
     Eterm tracer = NIL;
     int matches = 0;
@@ -820,9 +834,11 @@ static int already_traced(Process *c_p, Process *tracee_p, Eterm tracer)
  * Return information about a process or an external function being traced.
  */
 
-Eterm
-trace_info_2(Process* p, Eterm What, Eterm Key)
+Eterm trace_info_2(BIF_ALIST_2)
 {
+    Process* p = BIF_P;
+    Eterm What = BIF_ARG_1;
+    Eterm Key = BIF_ARG_2;
     Eterm res;
     if (What == am_on_load) {
 	res = trace_info_on_load(p, Key);
@@ -1752,23 +1768,20 @@ new_seq_trace_token(Process* p)
     }
 }
 
-BIF_RETTYPE seq_trace_info_1(BIF_ALIST_1)
+BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
 {
-    Eterm item;
     Eterm res;
     Eterm* hp;
     Uint current_flag;
 
-    if (is_not_atom(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
+    if (is_not_atom(item)) {
+	BIF_ERROR(p, BADARG);
     }
 
-    item = BIF_ARG_1;
-
-    if (SEQ_TRACE_TOKEN(BIF_P) == NIL) {
+    if (SEQ_TRACE_TOKEN(p) == NIL) {
 	if ((item == am_send) || (item == am_receive) || 
 	    (item == am_print) || (item == am_timestamp)) {
-	    hp = HAlloc(BIF_P,3);
+	    hp = HAlloc(p,3);
 	    res = TUPLE2(hp, item, am_false);
 	    BIF_RET(res);
 	} else if ((item == am_label) || (item == am_serial)) {
@@ -1778,33 +1791,38 @@ BIF_RETTYPE seq_trace_info_1(BIF_ALIST_1)
 	}
     }
 
-    if (BIF_ARG_1 == am_send) {
+    if (item == am_send) {
 	current_flag = SEQ_TRACE_SEND;
-    } else if (BIF_ARG_1 == am_receive) {
+    } else if (item == am_receive) {
 	current_flag = SEQ_TRACE_RECEIVE; 
-    } else if (BIF_ARG_1 == am_print) {
+    } else if (item == am_print) {
 	current_flag = SEQ_TRACE_PRINT; 
-    } else if (BIF_ARG_1 == am_timestamp) {
+    } else if (item == am_timestamp) {
 	current_flag = SEQ_TRACE_TIMESTAMP; 
     } else {
 	current_flag = 0;
     }
 
     if (current_flag) {
-	res = unsigned_val(SEQ_TRACE_TOKEN_FLAGS(BIF_P)) & current_flag ? 
+	res = unsigned_val(SEQ_TRACE_TOKEN_FLAGS(p)) & current_flag ?
 	    am_true : am_false;
     } else if (item == am_label) {
-	res = SEQ_TRACE_TOKEN_LABEL(BIF_P);
+	res = SEQ_TRACE_TOKEN_LABEL(p);
     } else if (item  == am_serial) {
-	hp = HAlloc(BIF_P, 3);
-	res = TUPLE2(hp, SEQ_TRACE_TOKEN_LASTCNT(BIF_P), SEQ_TRACE_TOKEN_SERIAL(BIF_P));
+	hp = HAlloc(p, 3);
+	res = TUPLE2(hp, SEQ_TRACE_TOKEN_LASTCNT(p), SEQ_TRACE_TOKEN_SERIAL(p));
     } else {
     error:
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(p, BADARG);
     }
-    hp = HAlloc(BIF_P, 3);
+    hp = HAlloc(p, 3);
     res = TUPLE2(hp, item, res);
     BIF_RET(res);
+}
+
+BIF_RETTYPE seq_trace_info_1(BIF_ALIST_1)
+{
+    BIF_RET(erl_seq_trace_info(BIF_P, BIF_ARG_1));
 }
 
 /*
@@ -1919,23 +1937,35 @@ static Eterm system_monitor_get(Process *p)
 }
 
 
-BIF_RETTYPE system_monitor_0(Process *p) {
-    BIF_RET(system_monitor_get(p));
+BIF_RETTYPE system_monitor_0(BIF_ALIST_0)
+{
+    BIF_RET(system_monitor_get(BIF_P));
 }
 
-BIF_RETTYPE system_monitor_1(Process *p, Eterm spec) {
+BIF_RETTYPE system_monitor_1(BIF_ALIST_1)
+{
+    Process* p = BIF_P;
+    Eterm spec = BIF_ARG_1;
+
     if (spec == am_undefined) {
-	BIF_RET(system_monitor_2(p, spec, NIL));
+	BIF_RET(system_monitor(p, spec, NIL));
     } else if (is_tuple(spec)) {
 	Eterm *tp = tuple_val(spec);
 	if (tp[0] != make_arityval(2)) goto error;
-	BIF_RET(system_monitor_2(p, tp[1], tp[2]));
+	BIF_RET(system_monitor(p, tp[1], tp[2]));
     }
  error:
     BIF_ERROR(p, BADARG);
 }
 
-BIF_RETTYPE system_monitor_2(Process *p, Eterm monitor_pid, Eterm list) {
+BIF_RETTYPE system_monitor_2(BIF_ALIST_2)
+{
+    return system_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2);
+}
+
+static BIF_RETTYPE
+system_monitor(Process *p, Eterm monitor_pid, Eterm list)
+{
     Eterm prev;
     int system_blocked = 0;
 
@@ -2053,11 +2083,16 @@ static Eterm system_profile_get(Process *p) {
     }
 }
 
-BIF_RETTYPE system_profile_0(Process *p) {
-    BIF_RET(system_profile_get(p));
+BIF_RETTYPE system_profile_0(BIF_ALIST_0)
+{
+    BIF_RET(system_profile_get(BIF_P));
 }
 
-BIF_RETTYPE system_profile_2(Process *p, Eterm profiler, Eterm list) {
+BIF_RETTYPE system_profile_2(BIF_ALIST_2)
+{
+    Process *p = BIF_P;
+    Eterm profiler = BIF_ARG_1;
+    Eterm list = BIF_ARG_2;
     Eterm prev;
     int system_blocked = 0;
     Process *profiler_p = NULL;

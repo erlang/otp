@@ -495,7 +495,7 @@ static erts_smp_atomic32_t trace_control_word;
 
 /* This needs to be here, before the bif table... */
 
-static Eterm db_set_trace_control_word_fake_1(Process *p, Eterm val);
+static Eterm db_set_trace_control_word_fake_1(BIF_ALIST_1);
 
 /*
 ** The table of callable bif's, i e guard bif's and 
@@ -908,14 +908,18 @@ static void db_free_tmp_uncompressed(DbTerm* obj);
 /*
 ** Pseudo BIF:s to be callable from the PAM VM.
 */
-
-BIF_RETTYPE db_get_trace_control_word_0(Process *p) 
+BIF_RETTYPE db_get_trace_control_word(Process *p)
 {
     Uint32 tcw = (Uint32) erts_smp_atomic32_read_acqb(&trace_control_word);
     BIF_RET(erts_make_integer((Uint) tcw, p));
 }
 
-BIF_RETTYPE db_set_trace_control_word_1(Process *p, Eterm new) 
+BIF_RETTYPE db_get_trace_control_word_0(BIF_ALIST_0)
+{
+    BIF_RET(db_get_trace_control_word(BIF_P));
+}
+
+BIF_RETTYPE db_set_trace_control_word(Process *p, Eterm new)
 {
     Uint val;
     Uint32 old_tcw;
@@ -923,20 +927,27 @@ BIF_RETTYPE db_set_trace_control_word_1(Process *p, Eterm new)
 	BIF_ERROR(p, BADARG);
     if (val != ((Uint32)val))
 	BIF_ERROR(p, BADARG);
-    
+
     old_tcw = (Uint32) erts_smp_atomic32_xchg_relb(&trace_control_word,
 						   (erts_aint32_t) val);
     BIF_RET(erts_make_integer((Uint) old_tcw, p));
 }
 
-static Eterm db_set_trace_control_word_fake_1(Process *p, Eterm new) 
+BIF_RETTYPE db_set_trace_control_word_1(BIF_ALIST_1)
 {
+    BIF_RET(db_set_trace_control_word(BIF_P, BIF_ARG_1));
+}
+
+static Eterm db_set_trace_control_word_fake_1(BIF_ALIST_1)
+{
+    Process *p = BIF_P;
+    Eterm new = BIF_ARG_1;
     Uint val;
     if (!term_to_Uint(new, &val))
 	BIF_ERROR(p, BADARG);
     if (val != ((Uint32)val))
 	BIF_ERROR(p, BADARG);
-    BIF_RET(db_get_trace_control_word_0(p));
+    BIF_RET(db_get_trace_control_word(p));
 }
 
 /*
@@ -4970,7 +4981,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 
 static Eterm seq_trace_fake(Process *p, Eterm arg1)
 {
-    Eterm result = seq_trace_info_1(p,arg1);
+    Eterm result = erl_seq_trace_info(p, arg1);
     if (is_tuple(result) && *tuple_val(result) == 2) {
 	return (tuple_val(result))[2];
     }

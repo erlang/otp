@@ -852,10 +852,16 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm);
 void erts_init_bif(void);
+Eterm erl_send(Process *p, Eterm to, Eterm msg);
+
+/* erl_bif_op.c */
+
+Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 
 /* erl_bif_port.c */
 
 /* erl_bif_trace.c */
+Eterm erl_seq_trace_info(Process *p, Eterm arg1);
 void erts_system_monitor_clear(Process *c_p);
 void erts_system_profile_clear(Process *c_p);
 

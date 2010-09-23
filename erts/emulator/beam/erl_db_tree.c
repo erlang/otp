@@ -344,8 +344,8 @@ static int do_partly_bound_can_match_lesser(Eterm a, Eterm b,
 					    int *done);
 static int do_partly_bound_can_match_greater(Eterm a, Eterm b, 
 					     int *done);
-static BIF_RETTYPE ets_select_reverse(Process *p, Eterm a1, 
-				      Eterm a2, Eterm a3);
+static BIF_RETTYPE ets_select_reverse(BIF_ALIST_3);
+
 
 /* Method interface functions */
 static int db_first_tree(Process *p, DbTable *tbl, 
@@ -844,8 +844,12 @@ static int db_slot_tree(Process *p, DbTable *tbl,
 
 
 
-static BIF_RETTYPE ets_select_reverse(Process *p, Eterm a1, Eterm a2, Eterm a3)
+static BIF_RETTYPE ets_select_reverse(BIF_ALIST_3)
 {
+    Process *p = BIF_P;
+    Eterm a1 = BIF_ARG_1;
+    Eterm a2 = BIF_ARG_2;
+    Eterm a3 = BIF_ARG_3;
     Eterm list;
     Eterm result;
     Eterm* hp;

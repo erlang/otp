@@ -2730,85 +2730,92 @@ BIF_RETTYPE is_alive_0(BIF_ALIST_0)
 /**********************************************************************/
 /* erlang:monitor_node(Node, Bool, Options) -> Bool */
 
-BIF_RETTYPE monitor_node_3(BIF_ALIST_3)
+static BIF_RETTYPE
+monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
 {
     DistEntry *dep;
     ErtsLink *lnk;
     Eterm l;
 
-    for (l = BIF_ARG_3; l != NIL && is_list(l); l = CDR(list_val(l))) {
+    for (l = Options; l != NIL && is_list(l); l = CDR(list_val(l))) {
 	Eterm t = CAR(list_val(l));
 	/* allow_passive_connect the only available option right now */
 	if (t != am_allow_passive_connect) {
-	    BIF_ERROR(BIF_P, BADARG);
+	    BIF_ERROR(p, BADARG);
 	}
     }
     if (l != NIL) {
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(p, BADARG);
     }
 
-    if (is_not_atom(BIF_ARG_1) ||
-	((BIF_ARG_2 != am_true) && (BIF_ARG_2 != am_false)) ||
+    if (is_not_atom(Node) ||
+	((Bool != am_true) && (Bool != am_false)) ||
 	((erts_this_node->sysname == am_Noname)
-	 && (BIF_ARG_1 != erts_this_node->sysname))) {
-	BIF_ERROR(BIF_P, BADARG);
+	 && (Node != erts_this_node->sysname))) {
+	BIF_ERROR(p, BADARG);
     }
-    dep = erts_sysname_to_connected_dist_entry(BIF_ARG_1);
+    dep = erts_sysname_to_connected_dist_entry(Node);
     if (!dep) {
     do_trap:
-	BIF_TRAP3(dmonitor_node_trap, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+	BIF_TRAP3(dmonitor_node_trap, p, Node, Bool, Options);
     }
     if (dep == erts_this_dist_entry)
 	goto done;
 
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_LINK);
     erts_smp_de_rlock(dep);
     if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	erts_smp_de_runlock(dep);
 	goto do_trap;
     }
     erts_smp_de_links_lock(dep);
     erts_smp_de_runlock(dep);
 
-    if (BIF_ARG_2 == am_true) {
+    if (Bool == am_true) {
 	ASSERT(dep->cid != NIL);
 	lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE, 
-				      BIF_P->id);
+				      p->id);
 	++ERTS_LINK_REFC(lnk);
-	lnk = erts_add_or_lookup_link(&(BIF_P->nlinks), LINK_NODE, BIF_ARG_1);
+	lnk = erts_add_or_lookup_link(&(p->nlinks), LINK_NODE, Node);
 	++ERTS_LINK_REFC(lnk);
     }
     else  {
-	lnk = erts_lookup_link(dep->node_links, BIF_P->id);
+	lnk = erts_lookup_link(dep->node_links, p->id);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
 		erts_destroy_link(erts_remove_link(&(dep->node_links), 
-						   BIF_P->id));
+						   p->id));
 	    }
 	}
-	lnk = erts_lookup_link(BIF_P->nlinks, BIF_ARG_1);
+	lnk = erts_lookup_link(p->nlinks, Node);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
-		erts_destroy_link(erts_remove_link(&(BIF_P->nlinks), 
-						   BIF_ARG_1));
+		erts_destroy_link(erts_remove_link(&(p->nlinks),
+						   Node));
 	    }
 	}
     }
 
     erts_smp_de_links_unlock(dep);
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 
  done:
     erts_deref_dist_entry(dep);
     BIF_RET(am_true);
 }
 
+BIF_RETTYPE monitor_node_3(BIF_ALIST_3)
+{
+    BIF_RET(monitor_node(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3));
+}
+
+
 /* monitor_node(Node, Bool) -> Bool */
 
 BIF_RETTYPE monitor_node_2(BIF_ALIST_2)
 {
-    BIF_RET(monitor_node_3(BIF_P,BIF_ARG_1,BIF_ARG_2,NIL));
+    BIF_RET(monitor_node(BIF_P, BIF_ARG_1, BIF_ARG_2, NIL));
 }
 
 BIF_RETTYPE net_kernel_dflag_unicode_io_1(BIF_ALIST_1)

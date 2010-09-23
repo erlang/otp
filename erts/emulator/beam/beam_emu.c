@@ -794,11 +794,11 @@ extern int count_instructions;
      }						\
   } while (0)
 
-#define IsFunction2(F, A, Action)		\
-  do {						\
-     if (is_function_2(c_p, F, A) != am_true ) {\
-          Action;				\
-     }						\
+#define IsFunction2(F, A, Action)			\
+  do {							\
+     if (erl_is_function(c_p, F, A) != am_true ) {	\
+          Action;					\
+     }							\
   } while (0)
 
 #define IsTupleOfArity(Src, Arity, Fail)				      \
@@ -1541,7 +1541,7 @@ void process_main(void)
 
      PRE_BIF_SWAPOUT(c_p);
      c_p->fcalls = FCALLS - 1;
-     result = send_2(c_p, r(0), x(1));
+     result = erl_send(c_p, r(0), x(1));
      PreFetch(0, next);
      POST_BIF_GC_SWAPIN(c_p, result, reg, 2);
      FCALLS = c_p->fcalls;

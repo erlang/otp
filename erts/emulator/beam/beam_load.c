@@ -5356,9 +5356,12 @@ find_function_from_pc(BeamInstr* pc)
  * Read a specific chunk from a Beam binary.
  */
 
-Eterm
-code_get_chunk_2(Process* p, Eterm Bin, Eterm Chunk)
+BIF_RETTYPE
+code_get_chunk_2(BIF_ALIST_2)
 {
+    Process* p = BIF_P;
+    Eterm Bin = BIF_ARG_1;
+    Eterm Chunk = BIF_ARG_2;
     LoaderState state;
     Uint chunk = 0;
     ErlSubBin* sb;
@@ -5423,9 +5426,11 @@ code_get_chunk_2(Process* p, Eterm Bin, Eterm Chunk)
  * Calculate the MD5 for a module.
  */
   
-Eterm
-code_module_md5_1(Process* p, Eterm Bin)
+BIF_RETTYPE
+code_module_md5_1(BIF_ALIST_1)
 {
+    Process* p = BIF_P;
+    Eterm Bin = BIF_ARG_1;
     LoaderState state;
     byte* temp_alloc = NULL;
 

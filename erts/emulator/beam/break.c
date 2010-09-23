@@ -94,7 +94,7 @@ process_killer(void)
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
 	    while(1) {
 		if ((j = sys_get_key(0)) <= 0)
-		    halt_0(0);
+		    erl_exit(0, "");
 		switch(j) {
 		case 'k':
 		    if (rp->status == P_WAITING) {
