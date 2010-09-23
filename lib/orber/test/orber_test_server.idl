@@ -28,7 +28,7 @@ module orber_parent {
 };
 
 module orber_test { 
- 
+
   // interface server
   interface server : orber_parent::inherrit {
     typedef string array[2];
@@ -89,6 +89,23 @@ module orber_test {
     const fixed52 fixed52negconst2 = -123.00d;
     const fixed52 fixed52negconst3 = -023.00d;
 
+    struct rec_struct; // Forward declaration
+    typedef sequence<rec_struct> rec_struct_seq;
+    struct rec_struct {
+	rec_struct_seq chain;
+    };
+    
+    
+    union rec_union; // Forward declaration
+    typedef sequence<rec_union>rec_union_seq;
+    
+    enum MyEnum {RecursiveType, NameType};
+    
+    union rec_union switch (MyEnum) {
+    case RecursiveType : rec_union_seq chain;
+    case NameType :  string aName;
+    };
+    
     void stop_normal();
 
     void stop_brutal();
@@ -122,6 +139,12 @@ module orber_test {
     void testing_iiop_void();
     void testing_iiop_context();
     void testing_iiop_server_marshal(inout StrLength6 Str);
+
+    // Recursive types
+    any testing_iiop_rec_any(in any RecType);
+    rec_struct testing_iiop_rec_struct(in rec_struct RecS);
+    rec_union testing_iiop_rec_union(in rec_union RecU);
+
 
     oneway void testing_iiop_oneway_delay(in long Time);
     void testing_iiop_twoway_delay(in long Time);
