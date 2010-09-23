@@ -1523,7 +1523,9 @@ cg_binary_size_1([], Bits, Acc) ->
 	[{1,_}|_] ->
 	    {bs_init_bits,cg_binary_bytes_to_bits(Sizes, [])};
 	[{8,_}|_] ->
-	    {bs_init2,[E || {8,E} <- Sizes]}
+	    {bs_init2,[E || {8,E} <- Sizes]};
+	[] ->
+	    {bs_init_bits,[]}
     end.
 
 cg_binary_size_2({integer,N}, U, _, Next, Bits, Acc) ->
