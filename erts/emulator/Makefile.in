@@ -531,8 +531,9 @@ TABLES=	$(TARGET)/erl_bif_table.c $(TARGET)/erl_bif_table.h	\
 	$(TARGET)/erl_atom_table.c $(TARGET)/erl_atom_table.h   \
 	$(TARGET)/erl_pbifs.c
 
-$(TABLES):	$(ATOMS) $(BIFS)
-	LANG=C $(PERL) utils/make_tables -src $(TARGET) -include $(TARGET) $^
+$(TABLES): $(ATOMS) $(BIFS) utils/make_tables
+	LANG=C $(PERL) utils/make_tables -src $(TARGET) -include $(TARGET)\
+		$(ATOMS) $(BIFS)
 
 $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types
 	LANG=C $(PERL) utils/make_alloc_types -src $< -dst $@ $(ENABLE_ALLOC_TYPE_VARS)
