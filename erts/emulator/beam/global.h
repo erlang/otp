@@ -1499,7 +1499,7 @@ erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p)
 #endif
 
 #ifdef DEBUG
-void p_slpq(_VOID_);
+void p_slpq(void);
 #endif
 
 /* utils.c */
