@@ -147,7 +147,7 @@ intersection(_, []) ->
 %% intersection([OrdSet]) -> OrdSet.
 %%  Return the intersection of the list of ordered sets.
 
--spec intersection([ordset(_)]) -> ordset(_).
+-spec intersection([ordset(_),...]) -> ordset(_).
 
 intersection([S1,S2|Ss]) ->
     intersection1(intersection(S1, S2), Ss);

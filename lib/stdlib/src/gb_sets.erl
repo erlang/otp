@@ -657,7 +657,7 @@ intersection_2([], _, As, S) ->
 intersection_2(_, [], As, S) ->
     {S, balance_revlist(As, S)}.
 
--spec intersection([gb_set()]) -> gb_set().
+-spec intersection([gb_set(),...]) -> gb_set().
 
 intersection([S | Ss]) ->
     intersection_list(S, Ss).
