@@ -66,9 +66,9 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 	       end,
     case Typename of
 	['EXTERNAL'] ->
-	    emit({{var,asn1ct_name:next(val)},
+	    emit({{next,val},
 		  " = asn1rt_check:transform_to_EXTERNAL1990(",
-		  {var,asn1ct_name:curr(val)},"),",nl}),
+		  {curr,val},"),",nl}),
 	    asn1ct_name:new(val);
 	_ ->
 	    ok
@@ -95,21 +95,22 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 	    case extgroup_pos_and_length(CompList) of
 		{extgrouppos,ExtGroupPos,ExtGroupLen} ->
 		    Elements = make_elements(ExtGroupPos+1,
-					     "Val",lists:seq(1,ExtGroupLen)),
+					     "Val1",lists:seq(1,ExtGroupLen)),
 		    emit([
-			  {next,val}," = case [X || X <- [",
-			  {asis,Elements},
+			  {next,val}," = case [X || X <- [",Elements,
 			  "],X =/= asn1_NOVALUE] of",nl,
 			  "[] -> ",{curr,val},";",nl,
-			  "_ -> setelement(",{asis,ExtGroupPos+1},{curr,val},
-			  "{extaddgroup,", {asis,Elements},"})",nl,
-			  "end,",nl]);
+			  "_ -> setelement(",{asis,ExtGroupPos+1},",",
+			  {curr,val},",",
+			  "{extaddgroup,", Elements,"})",nl,
+			  "end,",nl]),
+		    asn1ct_name:new(val);
 		_ -> % no extensionAdditionGroup
 		    ok
 	    end,
 	    asn1ct_name:new(tmpval),
-	    emit(["Extensions = ?RT_PER:fixextensions(",{asis,Ext},
-		  {curr,val},",),",nl]);
+	    emit(["Extensions = ?RT_PER:fixextensions(",{asis,Ext},",",
+		  {curr,val},"),",nl]);
 	_ -> true
     end,
     EncObj =
@@ -319,7 +320,7 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 	    mkvlist(textual_order(to_encoding_order(CompList),asn1ct_name:all(term))),
 	    emit("},")
     end,
-    emit({{var,asn1ct_name:curr(bytes)},"}"}),
+    emit({{curr,bytes},"}"}),
     emit({".",nl,nl}).
 
 textual_order([#'ComponentType'{textual_order=undefined}|_],TermList) ->
@@ -780,7 +781,7 @@ gen_enc_components_call1(_Erule,_TopType,[],Pos,_,_,_) ->
 	Pos.
 
 gen_enc_component_default(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext,DefaultVal) ->
-    Element = make_element(Pos+1,"Val1",Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
     emit({"case ",Element," of",nl}),
 %    emit({"asn1_DEFAULT -> [];",nl}),
     emit({"DFLT when DFLT == asn1_DEFAULT; DFLT == ",{asis,DefaultVal}," -> [];",nl}),
@@ -800,13 +801,12 @@ gen_enc_component_optional(Erule,TopType,Cname,
 					components=_ExtGroupCompList}},
 			   Pos,DynamicEnc,Ext) when is_integer(Number) ->
 
-    Element = make_element(Pos+1,"Val2",Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
     emit({"case ",Element," of",nl}),
 
     emit({"asn1_NOVALUE -> [];",nl}),
     asn1ct_name:new(tmpval),
     emit({{curr,tmpval}," ->",nl}),
-    asn1ct_name:new(tmpval),
     InnerType = asn1ct_gen:get_inner(Type#type.def),
     emit({nl,"%% attribute number ",Pos," with type ",
 	      InnerType,nl}),
@@ -814,7 +814,7 @@ gen_enc_component_optional(Erule,TopType,Cname,
     gen_enc_line(Erule,TopType,Cname,Type,NextElement, Pos,DynamicEnc,Ext),
     emit({nl,"end"});
 gen_enc_component_optional(Erule,TopType,Cname,Type,Pos,DynamicEnc,Ext) ->
-    Element = make_element(Pos+1,"Val1",Cname),
+    Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val)),Cname),
     emit({"case ",Element," of",nl}),
 
     emit({"asn1_NOVALUE -> [];",nl}),
