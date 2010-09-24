@@ -3,8 +3,19 @@
 		(in reversed chronological order)
 ==============================================================================
 
-Version 2.3.0 (in Erlang/OTP R14)
----------------------------------
+Version 2.x.x (in Erlang/OTP R14B01)
+------------------------------------
+ - Fixed problems in the handling of remote types in records used as types
+   (thanks to Nico Kruber for the report and to Maria Christakis for the fix).
+ - Fixed handling of nested opaque types (thanks to Thorsten Schuett for
+   reporting it and to Maria Christakis for fixing it).
+
+Version 2.3.1 (in Erlang/OTP R14B)
+----------------------------------
+ - Eliminated warnings for auto-imported BIF clashes.
+
+Version 2.3.0 (in Erlang/OTP R14A)
+----------------------------------
  - Dialyzer properly supports the new attribute -export_type and checks
    that remote types only refer to exported types. A warning is produced
    if some files/applications refer to types defined in modules which are
