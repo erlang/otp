@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% ====================================================================
@@ -71,9 +71,9 @@ firstPass(Defun) ->
   case hipe_x86_cfg:reverse_postorder(CFG0) of
     [Label1, Label2|_] ->
       SaveTreeElement = saveTreeLookup(Label2, SaveTree),
-      %% FilteredSaveTreeElement is the to be spilled temps around the function call. 
-      %% They are spilled just before move formals
-      FilteredSaveTreeElement = [Temp || Temp <- SaveTreeElement, temp_is_pseudo(Temp)],
+      %% FilteredSaveTreeElement is the to be spilled temps around the
+      %% function call. They are spilled just before move formals.
+      FilteredSaveTreeElement = [T || T <- SaveTreeElement, temp_is_pseudo(T)],
       Block = hipe_x86_cfg:bb(CFG1, Label1),
       Code = hipe_bb:code(Block),
       %% The following statements are tedious but work ok.
@@ -83,7 +83,7 @@ firstPass(Defun) ->
       %% Another solution may be to introduce another block.
       MoveCodes = lists:sublist(Code, length(Code)-1),
       JumpCode = lists:last(Code),
-      hipe_x86_cfg:bb_add(CFG1, Label1, hipe_bb:mk_bb(MoveCodes ++ [hipe_x86:mk_pseudo_spill(FilteredSaveTreeElement)] ++ [JumpCode]));
+      hipe_x86_cfg:bb_add(CFG1, Label1, hipe_bb:mk_bb(MoveCodes ++ [hipe_x86:mk_pseudo_spill(FilteredSaveTreeElement), JumpCode]));
     _ ->
       CFG1
   end.
@@ -110,13 +110,12 @@ firstPassHelper([Label|Labels], Liveness, CFG, SaveTree) ->
   NewBlock = hipe_bb:code_update(Block, NewCode),
   NewCFG = hipe_x86_cfg:bb_add(CFG, Label, NewBlock), 
   SizeOfSet = setSize(NewIntersectedList),
-  
   %% if the Intersected Save List is not empty, insert it in the save tree.
   if SizeOfSet =/= 0 ->
-      UpdatedSaveTree = gb_trees:insert(Label,NewIntersectedList,SaveTree),
-      firstPassHelper(Labels, Liveness, NewCFG,UpdatedSaveTree);
+      UpdatedSaveTree = gb_trees:insert(Label, NewIntersectedList, SaveTree),
+      firstPassHelper(Labels, Liveness, NewCFG, UpdatedSaveTree);
      true ->
-      firstPassHelper(Labels, Liveness, NewCFG,SaveTree)
+      firstPassHelper(Labels, Liveness, NewCFG, SaveTree)
   end;
 firstPassHelper([], _, CFG, SaveTree) ->
   {CFG, SaveTree}.
@@ -125,17 +124,15 @@ firstPassHelper([], _, CFG, SaveTree) ->
 firstPassDoBlock(Insts, LiveOut, IntersectedSaveList) -> 
   lists:foldr(fun firstPassDoInsn/2, {LiveOut,IntersectedSaveList,[]}, Insts).
 
-firstPassDoInsn(I, {LiveOut,IntersectedSaveList,PrevInsts} ) ->
+firstPassDoInsn(I, {LiveOut,IntersectedSaveList,PrevInsts}) ->
   case I of
     #pseudo_call{} ->
       do_pseudo_call(I, {LiveOut,IntersectedSaveList,PrevInsts});
     _ -> % other instructions
       DefinedList = from_list( ?HIPE_X86_LIVENESS:defines(I)),
       UsedList = from_list(?HIPE_X86_LIVENESS:uses(I)),
-      
       NewLiveOut = subtract(union(LiveOut, UsedList), DefinedList),
-      NewIntersectedSaveList = subtract(IntersectedSaveList, DefinedList), 
-      
+      NewIntersectedSaveList = subtract(IntersectedSaveList, DefinedList),
       {NewLiveOut, NewIntersectedSaveList, [I|PrevInsts]}
   end.
 
@@ -162,7 +159,7 @@ saveTreeLookup(Label, SaveTree) ->
       []
   end.
 
-%% Performs the second pass of the algoritm.
+%% Performs the second pass of the algorithm.
 %% It basically eliminates the unnecessary spills and introduces restores.
 %% Works top down
 secondPass(CFG0) ->
@@ -306,7 +303,8 @@ addRestoreBlockToEdge(PseudoCall, ContLabel, CFG, TempArgsList) ->
   NewCFG = hipe_x86_cfg:bb_add(CFG, NextLabel, NewBlock),
   {NewCFG, NewPseudoCall}.
 
-%% used instead of hipe_x86_cfg:redirect_jmp since it does not handle pseudo_call calls.
+%% used instead of hipe_x86_cfg:redirect_jmp since it does not handle
+%% pseudo_call calls.
 redirect_pseudo_call(I = #pseudo_call{contlab=ContLabel}, Old, New) ->
   case Old =:= ContLabel of
     true  -> I#pseudo_call{contlab=New};
@@ -323,8 +321,8 @@ temp_is_pseudo(Temp) ->
 %% Set operations where the module name is an easily changeable macro
 %%---------------------------------------------------------------------
 
-union(Set1,Set2) ->
-  ?SET_MODULE:union(Set1,Set2).
+union(Set1, Set2) ->
+  ?SET_MODULE:union(Set1, Set2).
 
 setSize(Set) ->
   ?SET_MODULE:size(Set).
