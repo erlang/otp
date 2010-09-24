@@ -2854,9 +2854,9 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
     ASSERT(no != 1);
 
-    erts_sched_check_cpu_bind_prep_suspend(esdp);
-
     erts_smp_runq_unlock(esdp->run_queue);
+
+    erts_sched_check_cpu_bind_prep_suspend(esdp);
 
     if (erts_system_profile_flags.scheduler)
     	profile_scheduler(make_small(esdp->no), am_inactive);
