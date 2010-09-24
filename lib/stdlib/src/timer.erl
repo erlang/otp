@@ -33,6 +33,9 @@
 %% internal exports for test purposes only
 -export([get_status/0]).
 
+%% types which can be used by other modules
+-export_type([tref/0]).
+
 %% Max
 -define(MAX_TIMEOUT, 16#0800000).
 -define(TIMER_TAB, timer_tab).
