@@ -126,7 +126,9 @@ request(Url, Profile) ->
 %%      Header = {Field, Value}
 %%	Field = string()
 %%	Value = string()
-%%	Body = string() | binary() - HTLM-code
+%%	Body = string() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} - HTLM-code
+%%      SendFunResult = eof | {ok, iolist(), NewSendAcc}
+%%      SendAcc = NewSendAcc = term()
 %%
 %% Description: Sends a HTTP-request. The function can be both
 %% syncronus and asynchronous in the later case the function will

@@ -101,14 +101,40 @@ send(SendAddr, Socket, SocketType,
 		   end,
     Version = HttpOptions#http_options.version,
 
-    Message = [method(Method), " ", Uri, " ", 
-	       version(Version), ?CRLF, 
-	       headers(FinalHeaders, Version), ?CRLF, Body],
+    do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body).
 
+
+do_send_body(SocketType, Socket, Method, Uri, Version, Headers, {DataFun, Acc})
+    when is_function(DataFun, 1) ->
+    case do_send_body(SocketType, Socket, Method, Uri, Version, Headers, []) of
+        ok ->
+            data_fun_loop(SocketType, Socket, DataFun, Acc);
+        Error ->
+            Error
+    end;
+
+do_send_body(SocketType, Socket, Method, Uri, Version, Headers, Body) ->
+    Message = [method(Method), " ", Uri, " ",
+	       version(Version), ?CRLF,
+	       headers(Headers, Version), ?CRLF, Body],
     ?hcrd("send", [{message, Message}]),
-    
     http_transport:send(SocketType, Socket, lists:append(Message)).
 
+
+data_fun_loop(SocketType, Socket, DataFun, Acc) ->
+    case DataFun(Acc) of
+        eof ->
+            ok;
+        {ok, Data, NewAcc} ->
+            DataBin = iolist_to_binary(Data),
+            ?hcrd("send", [{message, DataBin}]),
+            case http_transport:send(SocketType, Socket, DataBin) of
+                ok ->
+                    data_fun_loop(SocketType, Socket, DataFun, NewAcc);
+                Error ->
+                    Error
+            end
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -161,7 +187,6 @@ is_client_closing(Headers) ->
 %%%========================================================================
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs) 
   when (Method =:= post) orelse (Method =:= put) ->
-    ContentLength = body_length(Body),	      
     NewBody = case Headers#http_request_h.expect of
 		  "100-continue" ->
 		      "";
@@ -170,14 +195,22 @@ post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
 	      end,
     
     NewHeaders = case HeadersAsIs of
-		     [] ->
-			 Headers#http_request_h{'content-type' = 
-						ContentType, 
-						'content-length' = 
-						ContentLength};
-		     _ ->
-			 HeadersAsIs
-		 end,
+        [] ->
+            Headers#http_request_h{
+                'content-type' = ContentType,
+                'content-length' = case body_length(Body) of
+                    undefined ->
+                        % on upload streaming the caller must give a
+                        % value to the Content-Length header
+                        % (or use chunked Transfer-Encoding)
+                        Headers#http_request_h.'content-length';
+                    Len when is_list(Len) ->
+                        Len
+                    end
+            };
+        _ ->
+            HeadersAsIs
+    end,
     
     {NewHeaders, NewBody};
 
@@ -190,7 +223,10 @@ body_length(Body) when is_binary(Body) ->
    integer_to_list(size(Body));
 
 body_length(Body) when is_list(Body) ->
-  integer_to_list(length(Body)).
+  integer_to_list(length(Body));
+
+body_length({DataFun, _Acc}) when is_function(DataFun, 1) ->
+  undefined.
 
 method(Method) ->
     http_util:to_upper(atom_to_list(Method)).

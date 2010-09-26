@@ -77,6 +77,7 @@ all(suite) ->
      http_head, 
      http_get, 
      http_post,
+     http_post_streaming,
      http_dummy_pipe,
      http_inets_pipe,
      http_trace,
@@ -422,6 +423,45 @@ http_post(Config) when is_list(Config) ->
       _ ->
 	  {skip, "Failed to start local http-server"}
   end.  
+
+%%-------------------------------------------------------------------------
+http_post_streaming(doc) ->
+    ["Test streaming http post request against local server. We"
+    " only care about the client side of the the post. The server"
+    " script will not actually use the post data."];
+http_post_streaming(suite) ->
+    [];
+http_post_streaming(Config) when is_list(Config) ->
+    case ?config(local_server, Config) of
+        ok ->
+            Port = ?config(local_port, Config),
+            URL = case test_server:os_type() of
+                {win32, _} ->
+                    ?URL_START ++ integer_to_list(Port) ++
+                        "/cgi-bin/cgi_echo.exe";
+                 _ ->
+                    ?URL_START ++ integer_to_list(Port) ++
+                        "/cgi-bin/cgi_echo"
+            end,
+            %% Cgi-script expects the body length to be 100
+            BodyFun = fun(0) ->
+                    eof;
+                (LenLeft) ->
+                    {ok, lists:duplicate(10, "1"), LenLeft - 10}
+            end,
+
+            {ok, {{_,200,_}, [_ | _], [_ | _]}} =
+            httpc:request(post, {URL,
+                [{"expect", "100-continue"}, {"content-length", "100"}],
+                "text/plain", {BodyFun, 100}}, [], []),
+
+            {ok, {{_,504,_}, [_ | _], []}} =
+            httpc:request(post, {URL,
+                [{"expect", "100-continue"}, {"content-length", "10"}],
+                "text/plain", {BodyFun, 10}}, [], []);
+      _ ->
+          {skip, "Failed to start local http-server"}
+    end.
 
 %%-------------------------------------------------------------------------
 http_emulate_lower_versions(doc) ->
