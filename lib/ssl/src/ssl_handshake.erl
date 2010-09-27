@@ -578,6 +578,8 @@ path_validation_alert({bad_cert, unknown_critical_extension}) ->
     ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 path_validation_alert({bad_cert, cert_revoked}) ->
     ?ALERT_REC(?FATAL, ?CERTIFICATE_REVOKED);
+path_validation_alert({bad_cert, selfsigned_peer}) ->
+    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
      ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
 path_validation_alert(_) ->

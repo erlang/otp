@@ -223,8 +223,8 @@ add_certs(Cert, Ref, CertsDb) ->
 		    TBSCertificate#'OTPTBSCertificate'.issuer),
 	 insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
     catch
-	error:Reason ->
-	    Report = io_lib:format("SSL WARNING: Ignoring CA cert: ~p~n Due to decoding error:~p ~n",
-				   [Cert, Reason]),
+	error:_ ->
+	    Report = io_lib:format("SSL WARNING: Ignoring a CA cert as "
+				   "it could not be correctly decoded.~n", []),
 	    error_logger:info_report(Report)
     end.

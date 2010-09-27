@@ -411,11 +411,11 @@ deprecated(suite) ->
     [];
 deprecated(Config) when is_list(Config) -> 
     Datadir = ?config(data_dir, Config),
-    [DsaKey = {'DSAPrivateKey', _DsaKey, _}] = 
+    {ok, [DsaKey = {'DSAPrivateKey', _DsaKey, _}]} =
 	public_key:pem_to_der(filename:join(Datadir, "dsa.pem")), 
-    [RsaKey = {'RSAPrivateKey', _RsaKey,_}] = 
+    {ok, [RsaKey = {'RSAPrivateKey', _RsaKey,_}]} =
 	public_key:pem_to_der(filename:join(Datadir, "client_key.pem")),
-    [ProtectedRsaKey = {'RSAPrivateKey', _ProtectedRsaKey,_}] = 
+    {ok, [ProtectedRsaKey = {'RSAPrivateKey', _ProtectedRsaKey,_}]} =
 	public_key:pem_to_der(filename:join(Datadir, "rsa.pem")),
 
     {ok, #'DSAPrivateKey'{}} = public_key:decode_private_key(DsaKey),

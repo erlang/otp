@@ -244,10 +244,8 @@ fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <p>The default verify_fun option in verify_none mode:</p>
 
        <code>
-{fun(_,{bad_cert, unknown_ca}, UserState) ->
+{fun(_,{bad_cert, _}, UserState) ->
 	 {valid, UserState};
-    (_,{bad_cert, _} = Reason, _) ->
-	 {fail, Reason};
     (_,{extension, _}, UserState) ->
 	 {unknown, UserState};
     (_, valid, UserState) ->
@@ -267,13 +265,14 @@ fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
    <section>
     <title>SSL OPTION DESCRIPTIONS - CLIENT SIDE</title>
 
-    <p>Option described here are client specific or has a slightly different
+    <p>Options described here are client specific or has a slightly different
     meaning in the client than in the server.</p>
 
     <taglist>
       <tag>{verify, verify_type()}</tag>
-      <item> In verify_none mode the x509-path validation error {bad_cert, unknown_ca}
-      will automatically be accepted. See also the verify_fun option.
+      <item> In verify_none mode the default behavior will be to
+      allow all x509-path validation errors. See also the verify_fun
+      option.
       </item>
       <tag>{reuse_sessions, boolean()}</tag>
       <item>Specifies if client should try to reuse sessions
@@ -286,7 +285,7 @@ fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
   <section>
     <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
 
-    <p>Option described here are server specific or has a slightly different
+    <p>Options described here are server specific or has a slightly different
     meaning in the server than in the client.</p>
 
     <taglist>
