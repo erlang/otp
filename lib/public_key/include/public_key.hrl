@@ -34,6 +34,8 @@
 	    (_,{extension, _}, UserState) ->
 		 {unknown, UserState};
 	    (_, valid, UserState) ->
+		 {valid, UserState};
+	    (_, valid_peer, UserState) ->
 		 {valid, UserState}
 	 end, []}).
 

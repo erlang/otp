@@ -202,10 +202,10 @@
 	<p>The verification fun should be defined as:</p>
 
 	<code>
-fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
+fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	     {extension, #'Extension'{}}, InitialUserState :: term()) ->
-	{valid, UserState :: term()} | {fail, Reason :: term()} |
-	{unknown, UserState :: term()}.
+	{valid, UserState :: term()} | {valid_peer, UserState :: term()} |
+	{fail, Reason :: term()} | {unknown, UserState :: term()}.
 	</code>
 
 	<p>The verify fun will be called during the X509-path
@@ -213,10 +213,12 @@ fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	application is encountered. Additionally it will be called
 	when a certificate is considered valid by the path validation
 	to allow access to each certificate in the path to the user
-	application.
+	application. Note that the it will differentiate between
+	the peer certificate and CA certificates by using valid_peer
+	or valid as the second argument to the verify fun.
 	See
 	<seealso marker="public_key:application">public_key(3)</seealso>
-	for definition of #'OtpCertificate'{} and #'Extension'{}.</p>
+	for definition of #'OTPCertificate'{} and #'Extension'{}.</p>
 
 	<p>If the verify callback fun returns {fail, Reason}, the
 	verification process is immediately stopped and an alert is
@@ -237,7 +239,9 @@ fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
     (_,{extension, _}, UserState) ->
 	 {unknown, UserState};
     (_, valid, UserState) ->
-	 {valid, UserState}
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
  end, []}
       </code>
 
@@ -251,7 +255,9 @@ fun(OtpCert :: #'OtpCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
     (_,{extension, _}, UserState) ->
 	 {unknown, UserState};
     (_, valid, UserState) ->
-	 {valid, UserState}
+	 {valid, UserState};
+    (_, valid_peer, UserState) ->
+         {valid, UserState}
  end, []}
       </code>
 
