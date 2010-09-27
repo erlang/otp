@@ -22,14 +22,14 @@
 -include("test_server.hrl").
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1,min_heap_size/1,bad_args/1,
+	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
 	 messages_in_queue/1,undefined_mfa/1, no_heap/1]).
 
 %% Used by test cases.
--export([basic_hibernator/1,messages_in_queue_restart/2, no_heap_loop/0]).
+-export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2, no_heap_loop/0]).
 
 all(suite) ->
-    [basic,min_heap_size,bad_args,messages_in_queue,undefined_mfa,no_heap].
+    [basic,dynamic_call,min_heap_size,bad_args,messages_in_queue,undefined_mfa,no_heap].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
@@ -138,10 +138,47 @@ whats_up_calc(A1, A2, A3, A4, A5, A6, A7, A8, A9, Acc) ->
     whats_up_calc(A1-1, A2+1, A3+2, A4+3, A5+4, A6+5, A7+6, A8+7, A9+8, [A1,A2|Acc]).
 
 %%%
+%%% Testing a call to erlang:hibernate/3 that the compiler and loader do not
+%%% translate to an instruction.
+%%%
+
+dynamic_call(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    Info = {self(),Ref},
+    ExpectedHeapSz = case erlang:system_info(heap_type) of
+			 private -> erts_debug:size([Info]);
+			 hybrid -> erts_debug:size([a|b])
+		     end,
+    ?line Child = spawn_link(fun() -> ?MODULE:dynamic_call_hibernator(Info, hibernate) end),
+    ?line hibernate_wake_up(100, ExpectedHeapSz, Child),
+    ?line Child ! please_quit_now,
+    ok.
+
+dynamic_call_hibernator(Info, Function) ->
+    {catchlevel,0} = process_info(self(), catchlevel),
+    receive
+	Any ->
+	    dynamic_call_hibernator_msg(Any, Function, Info),
+	    dynamic_call_hibernator(Info, Function)
+    end.
+
+dynamic_call_hibernator_msg({hibernate,_}, Function, Info) ->
+    catch apply(erlang, Function, [?MODULE, basic_hibernator, [Info]]),
+    exit(hibernate_returned);
+dynamic_call_hibernator_msg(Msg, _Function, Info) ->
+    basic_hibernator_msg(Msg, Info).
+
+%%%
 %%% Testing setting the minimum heap size.
 %%%
 
 min_heap_size(Config) when is_list(Config) ->
+    case test_server:is_native(?MODULE) of
+	true -> {skip, "Test case relies on trace which is not available in HiPE"};
+	false -> min_heap_size_1(Config)
+    end.
+
+min_heap_size_1(Config) when is_list(Config) ->
     ?line erlang:trace(new, true, [call]),
     MFA = {?MODULE,min_hibernator,1},
     ?line 1 = erlang:trace_pattern(MFA, true, [local]),

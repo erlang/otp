@@ -208,6 +208,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 #endif
 
     p->i = NULL;
+    /* Set current_function to undefined. stdlib hibernate tests rely on it. */
+    p->current = NULL;
 
     DPRINTF("cmd == %#x (%s)", cmd, code_str(cmd));
     HIPE_CHECK_PCB(p);
@@ -322,20 +324,31 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * We need to remove the BIF's parameters from the native
 	   * stack: to this end hipe_${ARCH}_glue.S stores the BIF's
 	   * arity in p->hipe.narity.
+	   *
+	   * If the BIF emptied the stack (typically hibernate), p->hipe.nsp is
+	   * NULL and there is no need to get rid of stacked parameters.
 	   */
-	  unsigned int i, is_recursive, callee_arity;
+	  unsigned int i, is_recursive = 0;
 
 	  /* Save p->arity, then update it with the original BIF's arity.
 	     Get rid of any stacked parameters in that call. */
 	  /* XXX: hipe_call_from_native_is_recursive() copies data to
 	     reg[], which is useless in the TRAP case. Maybe write a
 	     specialised hipe_trap_from_native_is_recursive() later. */
-	  callee_arity = p->arity;
-	  p->arity = p->hipe.narity; /* caller's arity */
-	  is_recursive = hipe_call_from_native_is_recursive(p, reg);
+          if (p->hipe.nsp != NULL) {
+	      unsigned int callee_arity;
+	      callee_arity = p->arity;
+	      p->arity = p->hipe.narity; /* caller's arity */
+	      is_recursive = hipe_call_from_native_is_recursive(p, reg);
 
-	  p->i = (Eterm *)(p->def_arg_reg[3]);
-	  p->arity = callee_arity;
+	      p->i = (Eterm *)(p->def_arg_reg[3]);
+	      p->arity = callee_arity;
+          }
+
+	  /* If process is in P_WAITING state, we schedule the next process */
+	  if (p->status == P_WAITING) {
+	      goto do_schedule;
+	  }
 
 	  for (i = 0; i < p->arity; ++i)
 	      reg[i] = p->def_arg_reg[i];
@@ -591,6 +604,15 @@ void hipe_inc_nstack(Process *p)
     p->hipe.nsp = new_nstack + new_size - used_size;
 }
 #endif
+
+void hipe_empty_nstack(Process *p)
+{
+   erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+   p->hipe.nstgraylim = NULL;
+   p->hipe.nsp = NULL;
+   p->hipe.nstack = NULL;
+   p->hipe.nstend = NULL;
+}
 
 static void hipe_check_nstack(Process *p, unsigned nwords)
 {

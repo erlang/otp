@@ -122,9 +122,13 @@ NO_OPT= bs_bincomp \
 	bs_utf \
 	guard
 
+NATIVE= hibernate
 
 NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
+
+NATIVE_MODULES= $(NATIVE:%=%_native_SUITE)
+NATIVE_ERL_FILES= $(NATIVE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -151,7 +155,7 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) $(NATIVE_ERL_FILES)
 	# This special rule can be removed when communication with R7B nodes 
 	# is no longer supported.
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) +compressed -o$(EBIN) \
@@ -160,6 +164,8 @@ make_emakefile: $(NO_OPT_ERL_FILES)
 	$(MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +native $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(NATIVE_MODULES) >> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
@@ -178,6 +184,9 @@ docs:
 %_no_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_native_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -190,6 +199,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
 		$(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(NATIVE_ERL_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

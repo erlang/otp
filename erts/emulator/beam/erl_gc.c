@@ -33,6 +33,7 @@
 #include "erl_gc.h"
 #if HIPE
 #include "hipe_stack.h"
+#include "hipe_mode_switch.h"
 #endif
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
@@ -486,6 +487,9 @@ erts_garbage_collect_hibernate(Process* p)
     htop = heap;
 
     n = setup_rootset(p, p->arg_reg, p->arity, &rootset);
+#if HIPE
+    hipe_empty_nstack(p);
+#endif
 
     src = (char *) p->heap;
     src_size = (char *) p->htop - src;

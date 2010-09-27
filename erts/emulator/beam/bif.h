@@ -201,6 +201,12 @@ do {							\
       return THE_NON_VALUE;				\
  } while(0)
 
+#define BIF_TRAP_CODE_PTR_(p, Code_) do {		\
+      *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) (Code_);	\
+      (p)->freason = TRAP;				\
+      return THE_NON_VALUE;				\
+ } while(0)
+
 extern Export bif_return_trap_export;
 #ifdef DEBUG
 #define ERTS_BIF_PREP_YIELD_RETURN_X(RET, P, VAL, DEBUG_VAL)		\
