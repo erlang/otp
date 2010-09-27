@@ -59,7 +59,7 @@ terminate(_Config, _State) ->
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()}.
-init_tc(ct_framework, Mod, Args) ->
+init_tc(ct_framework, _Func, Args) ->
     Args;
 init_tc(Mod, init_per_suite, Config) ->
     call(fun call_generic/3, Config, {pre_init_suite, Mod});
@@ -83,7 +83,7 @@ init_tc(_Mod, TC, Config) ->
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()} |
     ok.
-end_tc(ct_framework, Mod, _Args, Result) ->
+end_tc(ct_framework, _Func, _Args, Result) ->
     Result;
 end_tc(Mod, init_per_suite, _Config, Result) ->
     call(fun call_generic/3, Result, {post_init_suite, Mod});
@@ -123,7 +123,7 @@ call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
     {NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
 			    undefined -> {CBs ++ [NewCB],Rest};
 			    ExistingCB when is_tuple(ExistingCB) -> {CBs, Rest};
-			    Fun -> {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
+			    _ -> {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
 			end,
     call(NewRest, Config, Meta, NewCBs);
 call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
@@ -131,7 +131,7 @@ call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
     NewCalls = get_new_callbacks(NewConf, Fun),
     call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
 	 lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}));
-call([], Config, Meta, CBs) ->
+call([], Config, _Meta, CBs) ->
     ct_util:save_suite_data_async(?config_name, CBs),
     Config.
 
