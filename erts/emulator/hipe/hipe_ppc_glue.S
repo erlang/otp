@@ -541,7 +541,7 @@ CSYM(nbif_3_simple_exception):
 .handle_trap:
 	li	r3, HIPE_MODE_SWITCH_RES_TRAP
 	STORE	NSP, P_NSP(P)
-	STORE	r4, P_NARITY(P)
+	stw	r4, P_NARITY(P)	/* Note: narity is a 32-bit field */
 	STORE	TEMP_LR, P_NRA(P)
 	b	.nosave_exit
 
