@@ -323,7 +323,7 @@
   <xsl:template match="list">
     <xsl:text>&#10;.RS 2</xsl:text>
     <xsl:apply-templates/>
-    <xsl:text>&#10;.RE</xsl:text>
+    <xsl:text>&#10;.RE&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="list/item">
@@ -336,7 +336,7 @@
   <xsl:template match="taglist">
     <xsl:text>&#10;.RS 2</xsl:text>
     <xsl:apply-templates select="tag|item"/>
-    <xsl:text>&#10;.RE</xsl:text>
+    <xsl:text>&#10;.RE&#10;</xsl:text>
   </xsl:template>
 
   <xsl:template match="taglist/tag">
@@ -620,6 +620,23 @@
     <xsl:text>&#10;.I&#10;&lt;</xsl:text>
     <xsl:apply-templates/>
     <xsl:text>&gt;</xsl:text>
+  </xsl:template>
+
+  <!-- Do not noramlize any text within pre and code tags. -->
+  <xsl:template match="pre/text()">
+      <xsl:call-template name="replace-string">
+        <xsl:with-param name="text" select="." />
+        <xsl:with-param name="replace" select="&quot;\&quot;" />
+        <xsl:with-param name="with" select="&quot;\\&quot;" />
+      </xsl:call-template>
+  </xsl:template>
+
+  <xsl:template match="code/text()">
+      <xsl:call-template name="replace-string">
+        <xsl:with-param name="text" select="." />
+        <xsl:with-param name="replace" select="&quot;\&quot;" />
+        <xsl:with-param name="with" select="&quot;\\&quot;" />
+      </xsl:call-template>
   </xsl:template>
 
   <!-- Replace ' by \&' ans . by \&. -->

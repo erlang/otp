@@ -34,7 +34,9 @@
 %% See also <a href="xmerl_examples.html">tutorial</a> on customization
 %% functions.
 %% </p>
+%% <p>
 %% Possible options are:
+%% </p>
 %% <dl>
 %%  <dt><code>{acc_fun, Fun}</code></dt>
 %%    <dd>Call back function to accumulate contents of entity.</dd>

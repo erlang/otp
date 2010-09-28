@@ -29,7 +29,9 @@
 %% @type option_list(). <p>Options allow to customize the behaviour of the 
 %% validation.
 %% </p>
+%% <p>
 %% Possible options are :
+%% </p>
 %% <dl>
 %%   <dt><code>{tab2file,boolean()}</code></dt>
 %%      <dd>Enables saving of abstract structure on file for debugging
@@ -46,6 +48,7 @@
 %%      <dd>It is possible by this option to provide a state with process
 %%          information from an earlier validation.</dd> 
 %% </dl>
+%% @end
 %%%-------------------------------------------------------------------
 -module(xmerl_xsd).
 

@@ -107,7 +107,7 @@
       <tag>{mode, Mode}</tag>
       <item>
         <marker id="mode"></marker>
-	<p>Mode = <c>active | passive</c> </p>>
+	<p>Mode = <c>active | passive</c> </p>
 	<p>Default is <c>passive</c>. </p> 
       </item>
 
