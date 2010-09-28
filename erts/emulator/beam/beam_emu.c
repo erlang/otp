@@ -303,44 +303,6 @@ extern int count_instructions;
      PROCESS_MAIN_CHK_LOCKS((P));					\
      ERTS_SMP_UNREQ_PROC_MAIN_LOCK((P))
 
-#if defined(HYBRID)
-#  define POST_BIF_GC_SWAPIN_0(_p, _res)				\
-     if (((_p)->mbuf) || (MSO(_p).overhead >= BIN_VHEAP_SZ(_p)) ) {	\
-       _res = erts_gc_after_bif_call((_p), (_res), NULL, 0);		\
-     }									\
-     SWAPIN
-
-#  define POST_BIF_GC_SWAPIN(_p, _res, _regs, _arity)			\
-     if (((_p)->mbuf) || (MSO(_p).overhead >= BIN_VHEAP_SZ(_p)) ) {	\
-       _regs[0] = r(0);							\
-       _res = erts_gc_after_bif_call((_p), (_res), _regs, (_arity));	\
-       r(0) = _regs[0];							\
-     }									\
-     SWAPIN
-#else
-#  define POST_BIF_GC_SWAPIN_0(_p, _res)				\
-     ERTS_SMP_REQ_PROC_MAIN_LOCK((_p));					\
-     PROCESS_MAIN_CHK_LOCKS((_p));					\
-     ERTS_VERIFY_UNUSED_TEMP_ALLOC((_p));				\
-     if (((_p)->mbuf) || (MSO(_p).overhead >= BIN_VHEAP_SZ(_p)) ) {	\
-       _res = erts_gc_after_bif_call((_p), (_res), NULL, 0);		\
-       E = (_p)->stop;							\
-     }									\
-     HTOP = HEAP_TOP((_p))
-
-#  define POST_BIF_GC_SWAPIN(_p, _res, _regs, _arity)			\
-     ERTS_VERIFY_UNUSED_TEMP_ALLOC((_p));				\
-     ERTS_SMP_REQ_PROC_MAIN_LOCK((_p));					\
-     PROCESS_MAIN_CHK_LOCKS((_p));					\
-     if (((_p)->mbuf) || (MSO(_p).overhead >= BIN_VHEAP_SZ(_p)) ) {	\
-       _regs[0] = r(0);							\
-       _res = erts_gc_after_bif_call((_p), (_res), _regs, (_arity));	\
-       r(0) = _regs[0];							\
-       E = (_p)->stop;							\
-     }									\
-     HTOP = HEAP_TOP((_p))
-#endif
-
 #define db(N) (N)
 #define tb(N) (N)
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
@@ -1541,9 +1503,17 @@ void process_main(void)
 
      PRE_BIF_SWAPOUT(c_p);
      c_p->fcalls = FCALLS - 1;
+     reg[0] = r(0);
      result = erl_send(c_p, r(0), x(1));
      PreFetch(0, next);
-     POST_BIF_GC_SWAPIN(c_p, result, reg, 2);
+     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     PROCESS_MAIN_CHK_LOCKS(c_p);
+     if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
+	 result = erts_gc_after_bif_call(c_p, result, reg, 2);
+	 r(0) = reg[0];
+	 E = c_p->stop;
+     }
+     HTOP = HEAP_TOP(c_p);
      FCALLS = c_p->fcalls;
      if (is_value(result)) {
 	 r(0) = result;
@@ -2433,114 +2403,7 @@ void process_main(void)
      * The most general BIF call.  The BIF may build any amount of data
      * on the heap.  The result is always returned in r(0).
      */
- OpCase(call_bif0_e):
-    {
-	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
-
-	PRE_BIF_SWAPOUT(c_p);
-	c_p->fcalls = FCALLS - 1;
-	if (FCALLS <= 0) {
-	    save_calls(c_p, (Export *) Arg(0));
-	}
-
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	r(0) = (*bf)(c_p, reg, I);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(r(0)));
-	ERTS_HOLE_CHECK(c_p);
-	POST_BIF_GC_SWAPIN_0(c_p, r(0));
-	FCALLS = c_p->fcalls;
-	if (is_value(r(0))) {
-	    CHECK_TERM(r(0));
-	    Next(1);
-	}
-	else if (c_p->freason == TRAP) {
-	    goto call_bif_trap3;
-	}
-
-	/*
-	 * Error handling.  SWAPOUT is not needed because it was done above.
-	 */
-	ASSERT(c_p->stop == E);
-	reg[0] = r(0);
-	I = handle_error(c_p, I, reg, bf);
-	goto post_error_handling;
-    }
-
- OpCase(call_bif1_e):
-    {
-	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
-	Eterm result;
-	BeamInstr *next;
-
-	c_p->fcalls = FCALLS - 1;
-	if (FCALLS <= 0) {
-	    save_calls(c_p, (Export *) Arg(0));
-	}
-	PreFetch(1, next);
-	PRE_BIF_SWAPOUT(c_p);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	reg[0] = r(0);
-	result = (*bf)(c_p, reg, I);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_HOLE_CHECK(c_p);
-	POST_BIF_GC_SWAPIN(c_p, result, reg, 1);
-	FCALLS = c_p->fcalls;
-        if (is_value(result)) {
-	    r(0) = result;
-	    CHECK_TERM(r(0));
-	    NextPF(1, next);
-	} else if (c_p->freason == TRAP) {
-	    goto call_bif_trap3;
-	}
-
-	/*
-	 * Error handling.  SWAPOUT is not needed because it was done above.
-	 */
-	ASSERT(c_p->stop == E);
-	reg[0] = r(0);
-	I = handle_error(c_p, I, reg, bf);
-	goto post_error_handling;
-    }
-
- OpCase(call_bif2_e):
-    {
-	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
-	Eterm result;
-	BeamInstr *next;
-
-	PRE_BIF_SWAPOUT(c_p);
-	c_p->fcalls = FCALLS - 1;
-	if (FCALLS <= 0) {
-	   save_calls(c_p, (Export *) Arg(0));
-	}
-	PreFetch(1, next);
-	CHECK_TERM(r(0));
-	CHECK_TERM(x(1));
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	reg[0] = r(0);
-	result = (*bf)(c_p, reg, I);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
-	ERTS_HOLE_CHECK(c_p);
-	POST_BIF_GC_SWAPIN(c_p, result, reg, 2);
-	FCALLS = c_p->fcalls;
-	if (is_value(result)) {
-	    r(0) = result;
-	    CHECK_TERM(r(0));
-	    NextPF(1, next);
-	} else if (c_p->freason == TRAP) {
-	    goto call_bif_trap3;
-	}
-
-	/*
-	 * Error handling.  SWAPOUT is not needed because it was done above.
-	 */
-	ASSERT(c_p->stop == E);
-	reg[0] = r(0);
-	I = handle_error(c_p, I, reg, bf);
-	goto post_error_handling;
-    }
-
- OpCase(call_bif3_e):
+ OpCase(call_bif_e):
     {
 	Eterm (*bf)(Process*, Eterm*, BeamInstr*) = GET_BIF_ADDRESS(Arg(0));
 	Eterm result;
@@ -2557,14 +2420,20 @@ void process_main(void)
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_HOLE_CHECK(c_p);
-	POST_BIF_GC_SWAPIN(c_p, result, reg, 3);
+	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
+	    Uint arity = ((Export *)Arg(0))->code[2];
+	    result = erts_gc_after_bif_call(c_p, result, reg, arity);
+	    E = c_p->stop;
+	}
+	HTOP = HEAP_TOP(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
 	    r(0) = result;
 	    CHECK_TERM(r(0));
 	    NextPF(1, next);
 	} else if (c_p->freason == TRAP) {
-	call_bif_trap3:
 	    SET_CP(c_p, I+2);
 	    SET_I(*((BeamInstr **) (UWord) ((c_p)->def_arg_reg + 3)));
 	    SWAPIN;
@@ -2578,7 +2447,6 @@ void process_main(void)
 	 * Error handling.  SWAPOUT is not needed because it was done above.
 	 */
 	ASSERT(c_p->stop == E);
-	reg[0] = r(0);
 	I = handle_error(c_p, I, reg, bf);
 	goto post_error_handling;
     }
