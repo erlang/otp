@@ -131,6 +131,8 @@ validate_extension(_, {bad_cert, _} = Reason, _) ->
 validate_extension(_, {extension, _}, Role) ->
     {unknown, Role};
 validate_extension(_, valid, Role) ->
+    {valid, Role};
+validate_extension(_, valid_peer, Role) ->
     {valid, Role}.
 
 %%--------------------------------------------------------------------
