@@ -1145,26 +1145,11 @@ void process_main(void)
     Eterm *tmp_big;		/* Temporary buffer for small bignums if !HEAP_ON_C_STACK. */
 #endif
 
-#ifndef ERTS_SMP
-#if !HALFWORD_HEAP
-    static Eterm save_reg[ERTS_X_REGS_ALLOCATED];
-    /* X registers -- not used directly, but
-     * through 'reg', because using it directly
-     * needs two instructions on a SPARC,
-     * while using it through reg needs only
-     * one.
-     */
-#endif
     /*
-     * Floating point registers.
-     */
-    static FloatDef freg[MAX_REG];
-#else
-    /* X regisers and floating point registers are located in
+     * X registers and floating point registers are located in
      * scheduler specific data.
      */
     register FloatDef *freg;
-#endif
 
     /*
      * For keeping the negative old value of 'reds' when call saving is active.
@@ -1201,14 +1186,6 @@ void process_main(void)
 	init_done = 1;
 	goto init_emulator;
     }
-#ifndef ERTS_SMP
-#if !HALFWORD_HEAP
-    reg = save_reg;	/* XXX: probably wastes a register on x86 */
-#else
-    /* Registers need to be heap allocated (correct memory range) for tracing to work */
-    reg = erts_alloc(ERTS_ALC_T_BEAM_REGISTER, ERTS_X_REGS_ALLOCATED * sizeof(Eterm));
-#endif
-#endif
     c_p = NULL;
     reds_used = 0;
     goto do_schedule1;
@@ -1229,10 +1206,8 @@ void process_main(void)
 #endif
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
-#ifdef ERTS_SMP
-    reg = c_p->scheduler_data->save_reg;
-    freg = c_p->scheduler_data->freg;
-#endif
+    reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
+    freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
 #if !HEAP_ON_C_STACK
     tmp_big = ERTS_PROC_GET_SCHDATA(c_p)->beam_emu_tmp_heap;
 #endif
@@ -5151,10 +5126,8 @@ void process_main(void)
      c_p->def_arg_reg[4] = -neg_o_reds;
      reg[0] = r(0);
      c_p = hipe_mode_switch(c_p, cmd, reg);
-#ifdef ERTS_SMP
-     reg = c_p->scheduler_data->save_reg;
-     freg = c_p->scheduler_data->freg;
-#endif
+     reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
+     freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
      ERL_BITS_RELOAD_STATEP(c_p);
      neg_o_reds = -c_p->def_arg_reg[4];
      FCALLS = c_p->fcalls;
