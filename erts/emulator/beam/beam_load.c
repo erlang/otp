@@ -3867,8 +3867,20 @@ transform_engine(LoaderState* st)
 	    if (i == 0)
 		goto restart;
 	    break;
+#if defined(TOP_is_eq)
 	case TOP_is_eq:
 	    ASSERT(ap < instr->arity);
+	    if (*pc++ != instr->a[ap].val)
+		goto restart;
+	    break;
+#endif
+	case TOP_is_type_eq:
+	    mask = *pc++;
+
+	    ASSERT(ap < instr->arity);
+	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
+	    if (((1 << instr->a[ap].type) & mask) == 0)
+		goto restart;
 	    if (*pc++ != instr->a[ap].val)
 		goto restart;
 	    break;

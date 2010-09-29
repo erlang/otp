@@ -1315,7 +1315,13 @@ sub tr_gen_from {
 			$types .= "$_ ";
 			$type_mask |= $type_bit{$_};
 		    }
-		    push(@code, &make_op($types, 'is_type', $type_mask));
+		    if ($cond ne 'is_eq') {
+			push(@code, &make_op($types, 'is_type', $type_mask));
+		    } else {
+			$cond = '';
+			push(@code, &make_op($types, 'is_type_eq',
+					     $type_mask, $val));
+		    }
 		}
 	    }
 
