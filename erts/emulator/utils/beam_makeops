@@ -1301,13 +1301,22 @@ sub tr_gen_from {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
 
 	    if ($type ne '' && $type ne '*') {
-		my($types) = '';
-		my($type_mask) = 0;
-		foreach (split('', $type)) {
-		    $types .= "$_ ";
-		    $type_mask |= $type_bit{$_};
+		#
+		# The is_bif, is_not_bif, and is_func instructions have
+		# their own built-in type test and don't need to
+		# be guarded with a type test instruction.
+		#
+		unless ($cond eq 'is_bif' or
+			$cond eq 'is_not_bif' or
+			$cond eq 'is_func') {
+		    my($types) = '';
+		    my($type_mask) = 0;
+		    foreach (split('', $type)) {
+			$types .= "$_ ";
+			$type_mask |= $type_bit{$_};
+		    }
+		    push(@code, &make_op($types, 'is_type', $type_mask));
 		}
-		push(@code, &make_op($types, 'is_type', $type_mask));
 	    }
 
 	    if ($cond eq 'is_func') {
