@@ -34,7 +34,7 @@
 
 -export([security_parameters/2, suite_definition/1,
 	 decipher/5, cipher/4, 
-	 suite/1, suites/1,
+	 suite/1, suites/1, anonymous_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2]).
 
 -compile(inline).
@@ -191,6 +191,19 @@ suites({3, N}) when N == 1; N == 2 ->
     ssl_tls1:suites().
 
 %%--------------------------------------------------------------------
+-spec anonymous_suites() -> [cipher_suite()].
+%%
+%% Description: Returns a list of the anonymous cipher suites, only supported
+%% if explicitly set by user. Intended only for testing.
+%%--------------------------------------------------------------------
+anonymous_suites() ->
+    [?TLS_DH_anon_WITH_RC4_128_MD5,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA,
+     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_128_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_256_CBC_SHA].
+
+%%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> erl_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
@@ -235,7 +248,20 @@ suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA) ->
 suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
     {dhe_dss, aes_256_cbc, sha};
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
-    {dhe_rsa, aes_256_cbc, sha}.
+    {dhe_rsa, aes_256_cbc, sha};
+
+%%% DH-ANON deprecated by TLS spec and not available
+%%% by default, but good for testing purposes.
+suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
+    {dh_anon, rc4_128, md5};
+suite_definition(?TLS_DH_anon_WITH_DES_CBC_SHA) ->
+    {dh_anon, des_cbc, sha};
+suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
+    {dh_anon, '3des_ede_cbc', sha};
+suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
+    {dh_anon, aes_128_cbc, sha};
+suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
+    {dh_anon, aes_256_cbc, sha}.
 
 %%--------------------------------------------------------------------
 -spec suite(erl_cipher_suite()) -> cipher_suite().
@@ -266,12 +292,12 @@ suite({dhe_rsa, des_cbc, sha}) ->
     ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
 suite({dhe_rsa, '3des_ede_cbc', sha}) ->
     ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA; 
-%% suite({dh_anon, rc4_128, md5}) ->
-%%     ?TLS_DH_anon_WITH_RC4_128_MD5;
-%% suite({dh_anon, des40_cbc, sha}) ->
-%%     ?TLS_DH_anon_WITH_DES_CBC_SHA;
-%% suite({dh_anon, '3des_ede_cbc', sha}) ->
-%%     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
+suite({dh_anon, rc4_128, md5}) ->
+    ?TLS_DH_anon_WITH_RC4_128_MD5;
+suite({dh_anon, des_cbc, sha}) ->
+    ?TLS_DH_anon_WITH_DES_CBC_SHA;
+suite({dh_anon, '3des_ede_cbc', sha}) ->
+    ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
 
 %%% TSL V1.1 AES suites
 suite({rsa, aes_128_cbc, sha}) ->
@@ -280,16 +306,16 @@ suite({dhe_dss, aes_128_cbc, sha}) ->
     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA; 
 suite({dhe_rsa, aes_128_cbc, sha}) ->
     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
-%% suite({dh_anon, aes_128_cbc, sha}) ->
-%%     ?TLS_DH_anon_WITH_AES_128_CBC_SHA;
+suite({dh_anon, aes_128_cbc, sha}) ->
+    ?TLS_DH_anon_WITH_AES_128_CBC_SHA;
 suite({rsa, aes_256_cbc, sha}) ->
     ?TLS_RSA_WITH_AES_256_CBC_SHA;
 suite({dhe_dss, aes_256_cbc, sha}) ->
     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA;
 suite({dhe_rsa, aes_256_cbc, sha}) ->
-    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA.
-%% suite({dh_anon, aes_256_cbc, sha}) ->
-%%     ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
+suite({dh_anon, aes_256_cbc, sha}) ->
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
 
 %%--------------------------------------------------------------------
 -spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
@@ -580,5 +606,3 @@ filter_rsa_suites(Use, KeyUse, CipherSuits, RsaSuites) ->
 	false ->
 	    CipherSuits -- RsaSuites
     end.
-
-

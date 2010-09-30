@@ -34,12 +34,6 @@
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
 
--behaviour(ssl_session_cache_api).
-
-%% For the session cache tests
--export([init/1, terminate/1, lookup/2, update/3, 
-	 delete/2, foldl/3, select_session/2]).
-
 %% Test server callback functions
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -89,13 +83,6 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
-init_per_testcase(session_cache_process_list, Config) ->
-    init_customized_session_cache(list, Config);
-
-init_per_testcase(session_cache_process_mnesia, Config) ->
-    mnesia:start(),
-    init_customized_session_cache(mnesia, Config);
-
 init_per_testcase(reuse_session_expired, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ssl_test_lib:timetrap(?EXPIRE * 1000 * 5),
@@ -142,16 +129,6 @@ init_per_testcase(_TestCase, Config0) ->
     Dog = test_server:timetrap(?TIMEOUT),
    [{watchdog, Dog} | Config].
 
-init_customized_session_cache(Type, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = test_server:timetrap(?TIMEOUT),
-    ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, session_cb, ?MODULE),
-    application:set_env(ssl, session_cb_init_args, [Type]),
-    ssl:start(),
-    [{watchdog, Dog} | Config].
-
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config) -> _
 %% Case - atom()
@@ -160,16 +137,6 @@ init_customized_session_cache(Type, Config0) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(session_cache_process_list, Config) ->
-    application:unset_env(ssl, session_cb),
-    end_per_testcase(default_action, Config);
-end_per_testcase(session_cache_process_mnesia, Config) ->
-    application:unset_env(ssl, session_cb),
-    application:unset_env(ssl, session_cb_init_args),
-    mnesia:stop(),
-    ssl:stop(),
-    ssl:start(),
-    end_per_testcase(default_action, Config);
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
@@ -216,6 +183,8 @@ all(suite) ->
      ciphers_dsa_signed_certs_ssl3,
      ciphers_dsa_signed_certs_openssl_names,
      ciphers_dsa_signed_certs_openssl_names_ssl3,
+     anonymous_cipher_suites,
+     default_reject_anonymous,
      send_close,
      close_transport_accept, dh_params, server_verify_peer_passive,
      server_verify_peer_active, server_verify_peer_active_once,
@@ -226,7 +195,6 @@ all(suite) ->
      server_verify_client_once_active,
      server_verify_client_once_active_once, client_verify_none_passive,
      client_verify_none_active, client_verify_none_active_once,
-     session_cache_process_list, session_cache_process_mnesia,
      reuse_session, reuse_session_expired,
      server_does_not_want_to_reuse_session, client_renegotiate,
      server_renegotiate, client_renegotiate_reused_session,
@@ -1165,13 +1133,13 @@ ecertfile(Config) when is_list(Config) ->
     Server = 
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
-			    {options, ServerBadOpts}]),
+					 {options, ServerBadOpts}]),
 
     Port = ssl_test_lib:inet_port(Server),
 
     Client =
 	ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, Port}, {host, Hostname},
+					 {port, Port}, {host, Hostname},
 					 {from, self()}, 
 					 {options, ClientOpts}]),
     
@@ -1522,6 +1490,14 @@ ciphers_dsa_signed_certs_openssl_names_ssl3(Config) when is_list(Config) ->
     Ciphers = ssl_test_lib:openssl_dsa_suites(),
     run_suites(Ciphers, Version, Config, dsa).
 
+anonymous_cipher_suites(doc)->
+    ["Test the anonymous ciphersuites"];
+anonymous_cipher_suites(suite) ->
+    [];
+anonymous_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:anonymous_suites(),
+    run_suites(Ciphers, Version, Config, anonymous).
 
 run_suites(Ciphers, Version, Config, Type) ->
     {ClientOpts, ServerOpts} =
@@ -1531,8 +1507,12 @@ run_suites(Ciphers, Version, Config, Type) ->
 		 ?config(server_opts, Config)};
 	    dsa ->
 		{?config(client_opts, Config),
-		 ?config(server_dsa_opts, Config)}
-	end,
+		 ?config(server_dsa_opts, Config)};
+	    anonymous ->
+		%% No certs in opts!
+		{?config(client_opts, Config),
+		 ?config(server_anon, Config)}
+	    end,
     
     Result =  lists:map(fun(Cipher) -> 
 				cipher(Cipher, Version, Config, ClientOpts, ServerOpts) end,
@@ -1591,6 +1571,32 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 	Error ->
 	    [{ErlangCipherSuite, Error}]
     end.
+
+%%--------------------------------------------------------------------
+default_reject_anonymous(doc)->
+    ["Test that by default anonymous cipher suites are rejected "];
+default_reject_anonymous(suite) ->
+    [];
+default_reject_anonymous(Config) when is_list(Config) ->
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    [Cipher | _] = ssl_test_lib:anonymous_suites(),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {options,
+			    [{ciphers,[Cipher]} |
+			     ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, {error, "insufficient security"},
+			      Client, {error, "insufficient security"}).
 
 %%--------------------------------------------------------------------
 reuse_session(doc) -> 
@@ -2952,7 +2958,7 @@ unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 unknown_server_ca_accept_backwardscompatibilty(doc) ->
-    ["Test that the client succeds if the ca is unknown in verify_none mode"];
+    ["Test that old style verify_funs will work"];
 unknown_server_ca_accept_backwardscompatibilty(suite) ->
     [];
 unknown_server_ca_accept_backwardscompatibilty(Config) when is_list(Config) ->
@@ -3047,6 +3053,17 @@ der_input_opts(Opts) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+erlang_ssl_receive(Socket, Data) ->
+    receive
+	{ssl, Socket, Data} ->
+	    io:format("Received ~p~n",[Data]),
+	    ok;
+	Other ->
+	    test_server:fail({unexpected_message, Other})
+    after ?SLEEP * 3 ->
+	    test_server:fail({did_not_get, Data})
+    end.
+
 send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),
     {ok,"Hello world"} = ssl:recv(Socket, 11),
@@ -3086,162 +3103,3 @@ renegotiate_reuse_session(Socket, Data) ->
     %% Make sure session is registerd
     test_server:sleep(?SLEEP),
     renegotiate(Socket, Data).
- 
-session_cache_process_list(doc) -> 
-    ["Test reuse of sessions (short handshake)"];
-
-session_cache_process_list(suite) -> 
-    [];
-session_cache_process_list(Config) when is_list(Config) -> 
-    session_cache_process(list,Config).
-
-session_cache_process_mnesia(doc) -> 
-    ["Test reuse of sessions (short handshake)"];
-
-session_cache_process_mnesia(suite) -> 
-    [];
-session_cache_process_mnesia(Config) when is_list(Config) -> 
-    session_cache_process(mnesia,Config).
-
-session_cache_process(_Type,Config) when is_list(Config) ->
-    reuse_session(Config).
-
-init([Type]) ->
-    ets:new(ssl_test, [named_table, public, set]),
-    ets:insert(ssl_test, {type, Type}),
-    case Type of
-	list ->
-	    spawn(fun() -> session_loop([]) end);
-	mnesia ->
-	    mnesia:start(),
-	    {atomic,ok} = mnesia:create_table(sess_cache, []),
-	    sess_cache
-    end.
-
-session_cb() ->
-    [{type, Type}] = ets:lookup(ssl_test, type),
-    Type.
-
-terminate(Cache) ->
-    case session_cb() of
-	list ->
-	    Cache ! terminate;
-	mnesia ->
-	    catch {atomic,ok} = 
-		mnesia:delete_table(sess_cache)
-    end.
-
-lookup(Cache, Key) ->        
-    case session_cb() of
-	list ->
-	    Cache ! {self(), lookup, Key},
-	    receive {Cache, Res} -> Res end;
-	mnesia ->
-	    case mnesia:transaction(fun() -> 
-					    mnesia:read(sess_cache, 
-							Key, read) 
-				    end) of
-		{atomic, [{sess_cache, Key, Value}]} -> 
-		    Value;
-		_ -> 
-		    undefined
-	    end
-	end.
-
-update(Cache, Key, Value) ->
-    case session_cb() of
-	list ->
-	    Cache ! {update, Key, Value};
-	mnesia ->
-	    {atomic, ok} = 
-		mnesia:transaction(fun() -> 
-					   mnesia:write(sess_cache, 
-							{sess_cache, Key, Value}, write) 
-				   end)
-    end.
-
-delete(Cache, Key) -> 
-    case session_cb() of
-	list ->
-	    Cache ! {delete, Key};
-	mnesia ->
-	    {atomic, ok} = 
-		mnesia:transaction(fun() -> 
-					   mnesia:delete(sess_cache, Key) 
-				   end)
-    end.
-
-foldl(Fun, Acc, Cache) -> 
-    case session_cb() of
-	list ->
-	    Cache ! {self(),foldl,Fun,Acc},
-	    receive {Cache, Res} -> Res end;
-	mnesia ->
-	    Foldl = fun() ->
-			    mnesia:foldl(Fun, Acc, sess_cache)
-		    end,
-	    {atomic, Res} = mnesia:transaction(Foldl),
-	    Res
-    end.
-    
-select_session(Cache, PartialKey) ->
-    case session_cb() of
-	list ->
-	    Cache ! {self(),select_session, PartialKey},
-	    receive 
-		{Cache, Res} -> 
-		    Res 
-	    end;
-	mnesia ->
-	    Sel = fun() ->
-			  mnesia:select(Cache,
-					[{{sess_cache,{PartialKey,'$1'}, '$2'},
-					  [],['$$']}])
-		  end,
-	    {atomic, Res} = mnesia:transaction(Sel),
-	    Res
-    end.
-
-session_loop(Sess) ->
-    receive 
-	terminate ->
-	    ok;
-	{Pid, lookup, Key} ->
-	    case lists:keysearch(Key,1,Sess) of
-		{value, {Key,Value}} ->
-		    Pid ! {self(), Value};
-		_ -> 
-		    Pid ! {self(), undefined}
-	    end,
-	    session_loop(Sess);
-	{update, Key, Value} ->
-	    NewSess = [{Key,Value}| lists:keydelete(Key,1,Sess)],
-	    session_loop(NewSess);
-	{delete, Key} ->
-	    session_loop(lists:keydelete(Key,1,Sess));
-	{Pid,foldl,Fun,Acc} ->
-	    Res = lists:foldl(Fun, Acc,Sess),
-	    Pid ! {self(), Res},
-	    session_loop(Sess);
-	{Pid,select_session,PKey} ->
-	    Sel = fun({{PKey0, Id},Session}, Acc) when PKey == PKey0 -> 
-			  [[Id, Session]|Acc];
-		     (_,Acc) -> 
-			  Acc
-		  end, 
-	    Sessions = lists:foldl(Sel, [], Sess),
-	    Pid ! {self(), Sessions},
-	    session_loop(Sess)
-    end.
-	    
-
-erlang_ssl_receive(Socket, Data) ->
-    receive
-	{ssl, Socket, Data} ->
-	    io:format("Received ~p~n",[Data]),
-	    ok;
-	Other ->
-	    test_server:fail({unexpected_message, Other})
-    after ?SLEEP * 3 ->
-	    test_server:fail({did_not_get, Data})
-    end.

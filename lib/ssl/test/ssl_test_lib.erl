@@ -300,6 +300,7 @@ cert_options(Config) ->
 				{ssl_imp, new}]},
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+     {server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {cacertfile, ServerCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -616,6 +617,13 @@ openssl_dsa_suites() ->
 			 end 
 		 end, Ciphers).
 
+anonymous_suites() ->
+    [{dh_anon, rc4_128, md5},
+     {dh_anon, des_cbc, sha},
+     {dh_anon, '3des_ede_cbc', sha},
+     {dh_anon, aes_128_cbc, sha},
+     {dh_anon, aes_256_cbc, sha}].
+
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
     public_key:pem_decode(PemBin).
@@ -633,7 +641,7 @@ cipher_result(Socket, Result) ->
     receive 
 	{ssl, Socket, "Hello\n"} ->
 	    ssl:send(Socket, " world\n"),
-	    receive 
+	    receive
 		{ssl, Socket, " world\n"} ->
 		    ok
 	    end;       

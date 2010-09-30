@@ -747,7 +747,7 @@ validate_option(depth, Value) when is_integer(Value),
 validate_option(cert, Value) when Value == undefined;
                                  is_binary(Value) ->
     Value;
-validate_option(certfile, Value) when is_list(Value) ->
+validate_option(certfile, Value) when Value == undefined; is_list(Value) ->
     Value;
 
 validate_option(key, undefined) ->
@@ -890,7 +890,7 @@ cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
     cipher_suites(Version, Ciphers);
 cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
-    Supported = ssl_cipher:suites(Version),
+    Supported = ssl_cipher:suites(Version) ++ ssl_cipher:anonymous_suites(),
     case [Cipher || Cipher <- Ciphers0, lists:member(Cipher, Supported)] of
 	[] ->
 	    Supported;
