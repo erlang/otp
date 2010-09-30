@@ -226,9 +226,11 @@ to_upper(String) ->
 	      String).
 
 word_size() ->
-    case erlang:system_info(wordsize) of
-	4 -> "";
-	8 -> "/64"
+    case {erlang:system_info({wordsize,external}),
+	  erlang:system_info({wordsize,internal})} of
+	{4,4} -> "";
+	{8,8} -> "/64";
+	{8,4} -> "/Halfword"
     end.
 
 linux_dist() ->
