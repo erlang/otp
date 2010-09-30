@@ -30,6 +30,20 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.1.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>
+		The <c>erl_interface</c> tracelevel for erlang messages was incorrect. This has now been fixed.
+	    </p>
+          <p>
+	    Own Id: OTP-8874</p>
+        </item>
+    </list>
+    </section>
+
+</section>
 <section><title>Erl_Interface 3.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
