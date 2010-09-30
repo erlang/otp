@@ -1521,7 +1521,7 @@ void process_main(void)
 	 NextPF(0, next);
      } else if (c_p->freason == TRAP) {
 	 SET_CP(c_p, I+1);
-	 SET_I(*((BeamInstr **) (BeamInstr) ((c_p)->def_arg_reg + 3)));
+	 SET_I(c_p->i);
 	 SWAPIN;
 	 r(0) = reg[0];
 	 Dispatch();
@@ -2434,7 +2434,7 @@ void process_main(void)
 	    NextPF(1, next);
 	} else if (c_p->freason == TRAP) {
 	    SET_CP(c_p, I+2);
-	    SET_I(*((BeamInstr **) (UWord) ((c_p)->def_arg_reg + 3)));
+	    SET_I(c_p->i);
 	    SWAPIN;
 	    r(0) = reg[0];
 	    Dispatch();
@@ -3223,7 +3223,7 @@ void process_main(void)
 		c_p->cp = 0;
 		Goto(*I);
 	    } else if (c_p->freason == TRAP) {
-		SET_I(*((BeamInstr **) (UWord) ((c_p)->def_arg_reg + 3)));
+		SET_I(c_p->i);
 		r(0) = reg[0];
 		if (c_p->flags & F_HIBERNATE_SCHED) {
 		    c_p->flags &= ~F_HIBERNATE_SCHED;
