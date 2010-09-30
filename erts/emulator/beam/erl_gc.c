@@ -315,7 +315,7 @@ erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity)
 
     if (is_non_value(result)) {
 	if (p->freason == TRAP) {
-	    cost = erts_garbage_collect(p, 0, p->def_arg_reg, p->arity);
+	    cost = erts_garbage_collect(p, 0, regs, p->arity);
 	} else {
 	    cost = erts_garbage_collect(p, 0, regs, arity);
 	}

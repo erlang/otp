@@ -130,34 +130,37 @@ do {							\
     (Ret) = THE_NON_VALUE;				\
 } while (0)
 
-#define ERTS_BIF_PREP_TRAP1(Ret, Trap, Proc, A0)	\
-do {							\
-    (Proc)->arity = 1;					\
-    (Proc)->def_arg_reg[0] = (Eterm) (A0);		\
+#define ERTS_BIF_PREP_TRAP1(Ret, Trap, Proc, A0)			\
+do {									\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;		\
+    (Proc)->arity = 1;							\
+    reg[0] = (Eterm) (A0);						\
     *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
-    (Proc)->freason = TRAP;				\
-    (Ret) = THE_NON_VALUE;				\
+    (Proc)->freason = TRAP;						\
+    (Ret) = THE_NON_VALUE;						\
 } while (0)
 
-#define ERTS_BIF_PREP_TRAP2(Ret, Trap, Proc, A0, A1)	\
-do {							\
-    (Proc)->arity = 2;					\
-    (Proc)->def_arg_reg[0] = (Eterm) (A0);		\
-    (Proc)->def_arg_reg[1] = (Eterm) (A1);		\
+#define ERTS_BIF_PREP_TRAP2(Ret, Trap, Proc, A0, A1)			\
+do {									\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;		\
+    (Proc)->arity = 2;							\
+    reg[0] = (Eterm) (A0);						\
+    reg[1] = (Eterm) (A1);						\
     *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
-    (Proc)->freason = TRAP;				\
-    (Ret) = THE_NON_VALUE;				\
+    (Proc)->freason = TRAP;						\
+    (Ret) = THE_NON_VALUE;						\
 } while (0)
 
-#define ERTS_BIF_PREP_TRAP3(Ret, Trap, Proc, A0, A1, A2)\
-do {							\
-    (Proc)->arity = 3;					\
-    (Proc)->def_arg_reg[0] = (Eterm) (A0);		\
-    (Proc)->def_arg_reg[1] = (Eterm) (A1);		\
-    (Proc)->def_arg_reg[2] = (Eterm) (A2);		\
+#define ERTS_BIF_PREP_TRAP3(Ret, Trap, Proc, A0, A1, A2)		\
+do {									\
+    Eterm* reg = ERTS_PROC_GET_SCHDATA((Proc))->x_reg_array;		\
+    (Proc)->arity = 3;							\
+    reg[0] = (Eterm) (A0);						\
+    reg[1] = (Eterm) (A1);						\
+    reg[2] = (Eterm) (A2);						\
     *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
-    (Proc)->freason = TRAP;				\
-    (Ret) = THE_NON_VALUE;				\
+    (Proc)->freason = TRAP;						\
+    (Ret) = THE_NON_VALUE;						\
 } while (0)
 
 #define BIF_TRAP0(p, Trap_) do {			\
@@ -167,31 +170,34 @@ do {							\
       return THE_NON_VALUE;				\
  } while(0)
 
-#define BIF_TRAP1(Trap_, p, A0) do {			\
-      (p)->arity = 1;					\
-      (p)->def_arg_reg[0] = (A0);			\
+#define BIF_TRAP1(Trap_, p, A0) do {					\
+      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;		\
+      (p)->arity = 1;							\
+      reg[0] = (A0);							\
       *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) ((Trap_)->address);	\
-      (p)->freason = TRAP;				\
-      return THE_NON_VALUE;				\
+      (p)->freason = TRAP;						\
+      return THE_NON_VALUE;						\
  } while(0)
 
-#define BIF_TRAP2(Trap_, p, A0, A1) do {		\
-      (p)->arity = 2;					\
-      (p)->def_arg_reg[0] = (A0);			\
-      (p)->def_arg_reg[1] = (A1);			\
+#define BIF_TRAP2(Trap_, p, A0, A1) do {				\
+      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;		\
+      (p)->arity = 2;							\
+      reg[0] = (A0);							\
+      reg[1] = (A1);							\
       *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) ((Trap_)->address);	\
-      (p)->freason = TRAP;				\
-      return THE_NON_VALUE;				\
+      (p)->freason = TRAP;						\
+      return THE_NON_VALUE;						\
  } while(0)
 
-#define BIF_TRAP3(Trap_, p, A0, A1, A2) do {		\
-      (p)->arity = 3;					\
-      (p)->def_arg_reg[0] = (A0);			\
-      (p)->def_arg_reg[1] = (A1);			\
-      (p)->def_arg_reg[2] = (A2);			\
+#define BIF_TRAP3(Trap_, p, A0, A1, A2) do {				\
+      Eterm* reg = ERTS_PROC_GET_SCHDATA((p))->x_reg_array;		\
+      (p)->arity = 3;							\
+      reg[0] = (A0);							\
+      reg[1] = (A1);							\
+      reg[2] = (A2);							\
       *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) ((Trap_)->address);	\
-      (p)->freason = TRAP;				\
-      return THE_NON_VALUE;				\
+      (p)->freason = TRAP;						\
+      return THE_NON_VALUE;						\
  } while(0)
 
 #define BIF_TRAP_CODE_PTR_0(p, Code_) do {		\

@@ -1523,8 +1523,7 @@ void process_main(void)
 	 SET_CP(c_p, I+1);
 	 SET_I(*((BeamInstr **) (BeamInstr) ((c_p)->def_arg_reg + 3)));
 	 SWAPIN;
-	 r(0) = c_p->def_arg_reg[0];
-	 x(1) = c_p->def_arg_reg[1];
+	 r(0) = reg[0];
 	 Dispatch();
      }
      goto find_func_info;
@@ -2437,9 +2436,7 @@ void process_main(void)
 	    SET_CP(c_p, I+2);
 	    SET_I(*((BeamInstr **) (UWord) ((c_p)->def_arg_reg + 3)));
 	    SWAPIN;
-	    r(0) = c_p->def_arg_reg[0];
-	    x(1) = c_p->def_arg_reg[1];
-	    x(2) = c_p->def_arg_reg[2];
+	    r(0) = reg[0];
 	    Dispatch();
 	}
 
@@ -3227,9 +3224,7 @@ void process_main(void)
 		Goto(*I);
 	    } else if (c_p->freason == TRAP) {
 		SET_I(*((BeamInstr **) (UWord) ((c_p)->def_arg_reg + 3)));
-		r(0) = c_p->def_arg_reg[0];
-		x(1) = c_p->def_arg_reg[1];
-		x(2) = c_p->def_arg_reg[2];
+		r(0) = reg[0];
 		if (c_p->flags & F_HIBERNATE_SCHED) {
 		    c_p->flags &= ~F_HIBERNATE_SCHED;
 		    goto do_schedule;
