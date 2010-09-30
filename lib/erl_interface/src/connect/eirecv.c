@@ -107,7 +107,7 @@ ei_recv_internal (int fd,
   
   switch (msg->msgtype) {
   case ERL_SEND:          /* { SEND, Cookie, ToPid } */
-    if (ei_tracelevel > 0) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_atom(header,&index,msg->cookie) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
@@ -118,7 +118,7 @@ ei_recv_internal (int fd,
     break;
 
   case ERL_REG_SEND:     /* { REG_SEND, From, Cookie, ToName } */
-    if (ei_tracelevel > 0) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_atom(header,&index,msg->cookie) 
 	|| ei_decode_atom(header,&index,msg->toname))
@@ -133,7 +133,7 @@ ei_recv_internal (int fd,
   case ERL_LINK:         /* { LINK, From, To } */
   case ERL_UNLINK:       /* { UNLINK, From, To } */
   case ERL_GROUP_LEADER: /* { GROUP_LEADER, From, To } */
-    if (ei_tracelevel > 1) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
@@ -145,7 +145,7 @@ ei_recv_internal (int fd,
     
   case ERL_EXIT:         /* { EXIT, From, To, Reason } */
   case ERL_EXIT2:        /* { EXIT2, From, To, Reason } */
-    if (ei_tracelevel > 1) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_pid(header,&index,&msg->to))
     {
@@ -156,7 +156,7 @@ ei_recv_internal (int fd,
     break;
     
   case ERL_SEND_TT:      /* { SEND_TT, Cookie, ToPid, TraceToken } */
-    if (ei_tracelevel > 0) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_atom(header,&index,msg->cookie) 
 	|| ei_decode_pid(header,&index,&msg->to)
 	|| ei_decode_trace(header,&index,&msg->token))
@@ -169,7 +169,7 @@ ei_recv_internal (int fd,
     break;
 
   case ERL_REG_SEND_TT: /* { REG_SEND_TT, From, Cookie, ToName, TraceToken } */
-    if (ei_tracelevel > 0) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_atom(header,&index,msg->cookie) 
 	|| ei_decode_atom(header,&index,msg->toname)
@@ -184,7 +184,7 @@ ei_recv_internal (int fd,
 
   case ERL_EXIT_TT:     /* { EXIT_TT, From, To, TraceToken, Reason } */
   case ERL_EXIT2_TT:    /* { EXIT2_TT, From, To, TraceToken, Reason } */
-    if (ei_tracelevel > 1) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     if (ei_decode_pid(header,&index,&msg->from) 
 	|| ei_decode_pid(header,&index,&msg->to)
 	|| ei_decode_trace(header,&index,&msg->token))
@@ -197,7 +197,7 @@ ei_recv_internal (int fd,
     break;
 
   case ERL_NODE_LINK:   /* { NODE_LINK } */
-    if (ei_tracelevel > 1) show_this_msg = 1;
+    if (ei_tracelevel >= 4) show_this_msg = 1;
     break;
 
   default:
