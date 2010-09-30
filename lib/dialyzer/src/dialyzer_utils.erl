@@ -66,7 +66,7 @@ print_types1([{opaque, _Name} = Key|T], RecDict) ->
   io:format("\n~w: ~w\n", [Key, erl_types:t_from_form(Form, RecDict)]),
   print_types1(T, RecDict);
 print_types1([{record, _Name} = Key|T], RecDict) ->
-  {ok, [{Arity, Fields} = AF]} = dict:find(Key, RecDict),
+  {ok, [{_Arity, _Fields} = AF]} = dict:find(Key, RecDict),
   io:format("~w: ~w\n\n", [Key, AF]),
   print_types1(T, RecDict).
 -define(debug(D_), print_types(D_)).
@@ -211,9 +211,9 @@ get_record_and_type_info([_Other|Left], Module, Records, RecDict) ->
 get_record_and_type_info([], _Module, Records, RecDict) ->
   case type_record_fields(lists:reverse(Records), RecDict) of
     {ok, _NewRecDict} = Ok ->
-      ?debug(NewRecDict),
+      ?debug(_NewRecDict),
       Ok;
-    {Name, {error, Error}} ->
+    {error, Name, Error} ->
       {error, lists:flatten(io_lib:format("  Error while parsing #~w{}: ~s\n",
 					  [Name, Error]))}
   end.
@@ -269,9 +269,9 @@ type_record_fields([RecKey|Recs], RecDict) ->
     RecDict2 = dict:update(RecKey, Fun, RecDict1),
     type_record_fields(Recs, RecDict2)
   catch
-    throw:{error, _} = Error ->
+    throw:{error, Error} ->
       {record, Name} = RecKey,
-      {Name, Error}
+      {error, Name, Error}
   end.
 
 -spec process_record_remote_types(dialyzer_codeserver:codeserver()) -> dialyzer_codeserver:codeserver().
@@ -378,7 +378,7 @@ sets_filter([Mod|Mods], ExpTypes) ->
 -spec src_compiler_opts() -> [compile:option(),...].
 
 src_compiler_opts() ->
-  [no_copt, to_core, binary, return_errors, 
+  [no_copt, to_core, binary, return_errors,
    no_inline, strict_record_tests, strict_record_updates,
    no_is_record_optimization].
 
