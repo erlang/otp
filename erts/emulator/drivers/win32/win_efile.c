@@ -1082,12 +1082,17 @@ char* buf;			/* Buffer to write. */
 size_t count;			/* Number of bytes to write. */
 {
     DWORD written;		/* Bytes written in last operation. */
+    OVERLAPPED overlapped;
+    OVERLAPPED* pOverlapped = NULL;
 
     if (flags & EFILE_MODE_APPEND) {
-	(void) SetFilePointer((HANDLE) fd, 0, NULL, FILE_END);
+	memset(&overlapped, 0, sizeof(overlapped));
+	overlapped.Offset = 0xffffffff;
+	overlapped.OffsetHigh = 0xffffffff;
+	pOverlapped = &overlapped;
     }
     while (count > 0) {
-	if (!WriteFile((HANDLE) fd, buf, count, &written, NULL))
+	if (!WriteFile((HANDLE) fd, buf, count, &written, pOverlapped))
 	    return set_error(errInfo);
 	buf += written;
 	count -= written;
@@ -1107,11 +1112,16 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 	     size_t size)            /* Number of bytes to write */
 {
     int cnt;                         /* Buffers so far written */
+    OVERLAPPED overlapped;
+    OVERLAPPED* pOverlapped = NULL;
 
     ASSERT(iovcnt >= 0);
     
     if (flags & EFILE_MODE_APPEND) {
-	(void) SetFilePointer((HANDLE) fd, 0, NULL, FILE_END);
+	memset(&overlapped, 0, sizeof(overlapped));
+	overlapped.Offset = 0xffffffff;
+	overlapped.OffsetHigh = 0xffffffff;
+	pOverlapped = &overlapped;
     }
     for (cnt = 0; cnt < iovcnt; cnt++) {
 	if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
@@ -1123,7 +1133,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 			       iov[cnt].iov_base + p, 
 			       iov[cnt].iov_len - p, 
 			       &w, 
-			       NULL))
+			       pOverlapped))
 		    return set_error(errInfo);
 	    }
 	}
