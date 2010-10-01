@@ -345,7 +345,7 @@ $(OBJDIR)/typer.o: typer.c
 	$(CC) $(CFLAGS) -o $@ -c typer.c
 
 $(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/escript.o: escript.c
 	$(CC) $(CFLAGS) -o $@ -c escript.c

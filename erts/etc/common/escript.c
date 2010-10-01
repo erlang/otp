@@ -151,6 +151,9 @@ find_prog(char *origpath)
     char relpath[PMAX];
     char abspath[PMAX];
 
+    if (strlen(origpath) >= sizeof(relpath))
+        error("Path too long");
+
     strcpy(relpath, origpath);
 
     if (strstr(relpath, DIRSEPSTR) == NULL) {
@@ -180,19 +183,21 @@ find_prog(char *origpath)
                 end = strstr(beg, PATHSEPSTR);
                 if (end != NULL) {
                     sz = end - beg;
-                    strncpy(dir, beg, sz);
-                    dir[sz] = '\0';
                 } else {
                     sz = strlen(beg);
-                    strcpy(dir, beg);
                     look_for_sep = FALSE;
                 }
+                if (sz >= sizeof(dir)) {
+                    beg = end + 1;
+                    continue;
+                }
+                strncpy(dir, beg, sz);
+                dir[sz] = '\0';
                 beg = end + 1;
 
 #ifdef __WIN32__
-		strcpy(wildcard, dir);
-		strcat(wildcard, DIRSEPSTR);
-		strcat(wildcard, relpath); /* basename */
+		erts_snprintf(wildcard, sizeof(wildcard), "%s" DIRSEPSTR "%s",
+            dir, relpath /* basename */);
 		dir_handle = FindFirstFile(wildcard, &find_data);
 		if (dir_handle == INVALID_HANDLE_VALUE) {
 		    /* Try next directory in path */
@@ -217,9 +222,8 @@ find_prog(char *origpath)
 
                         if (strcmp(origpath, dirp->d_name) == 0) {
                             /* Wow we found the executable. */
-                            strcpy(relpath, dir);
-                            strcat(relpath, DIRSEPSTR);
-                            strcat(relpath, dirp->d_name);
+                            erts_snprintf(relpath, sizeof(relpath), "%s" DIRSEPSTR "%s",
+                                dir, dirp->d_name);
                             closedir(dp);
 			    look_for_sep = FALSE;
                             break;
@@ -291,7 +295,7 @@ append_shebang_args(char* scriptname)
 		    
 		    /* Find end of arg */
 		    end = beg;
-		    while (end && end[0] != ' ') {
+		    while (end && end < (linebuf+LINEBUFSZ-1) && end[0] != ' ') {
 			if (end[0] == '\n') {
 			    newline = TRUE;
 			    end[0]= '\0';
@@ -335,13 +339,16 @@ main(int argc, char** argv)
 	emulator = get_default_emulator(argv[0]);
     }
 
+    if (strlen(emulator) >= PMAX)
+        error("Value of environment variable ESCRIPT_EMULATOR is too large");
+
     /*
      * Allocate the argv vector to be used for arguments to Erlang.
      * Arrange for starting to pushing information in the middle of
      * the array, to allow easy addition of commands in the beginning.
      */
 
-    eargv_size = argc*4+1000;
+    eargv_size = argc*4+1000+LINEBUFSZ/2;
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
@@ -387,7 +394,8 @@ main(int argc, char** argv)
 	if (argc <= 1) {
 	    error("Missing filename\n");
 	}
-	strcpy(scriptname, argv[1]);
+	strncpy(scriptname, argv[1], sizeof(scriptname));
+	scriptname[sizeof(scriptname)-1] = '\0';
 	argc--;
 	argv++;
     } else {
@@ -395,16 +403,17 @@ main(int argc, char** argv)
 	int len;
 #endif
 	absname = find_prog(argv[0]);
-	strcpy(scriptname, absname);
-	efree(absname);
 #ifdef __WIN32__
-	len = strlen(scriptname);
-	if (len >= 4 && _stricmp(scriptname+len-4, ".exe") == 0) {
-	    scriptname[len-4] = '\0';
+	len = strlen(absname);
+	if (len >= 4 && _stricmp(absname+len-4, ".exe") == 0) {
+	    absname[len-4] = '\0';
 	}
 #endif
 
-	strcat(scriptname, ".escript");
+	erts_snprintf(scriptname, sizeof(scriptname), "%s.escript",
+        absname);
+	efree(absname);
+
     }
 
     /*
@@ -455,7 +464,7 @@ main(int argc, char** argv)
 static void
 push_words(char* src)
 {
-    char sbuf[1024];
+    char sbuf[PMAX];
     char* dst;
 
     dst = sbuf;
@@ -584,7 +593,7 @@ error(char* format, ...)
     va_list ap;
     
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "escript: %s\n", sbuf);
     exit(1);
@@ -618,6 +627,9 @@ get_default_emulator(char* progname)
 {
     char sbuf[MAXPATHLEN];
     char* s;
+
+    if (strlen(progname) >= sizeof(sbuf))
+        return ERL_NAME;
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {

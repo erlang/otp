@@ -31,6 +31,7 @@
 	 epp/1,
 	 create_and_extract/1,
 	 foldl/1,
+	 overflow/1,
 	 verify_sections/3
 	]).
 
@@ -48,7 +49,8 @@ all(suite) ->
      archive_script,
      epp,
      create_and_extract,
-     foldl
+     foldl,
+     overflow
     ].
 
 init_per_testcase(_Case, Config) ->
@@ -733,6 +735,17 @@ emulate_escript_foldl(Fun, Acc, File) ->
 	{error, Reason} ->
 	    {error, Reason}
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+overflow(Config) when is_list(Config) ->
+    Data = ?config(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    ?line run(Dir, "arg_overflow",
+	      [<<"ExitCode:0">>]),
+    ?line run(Dir, "linebuf_overflow",
+	      [<<"ExitCode:0">>]),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
