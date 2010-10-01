@@ -327,7 +327,7 @@ $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c
 	$(CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/erlc.o: erlc.c
 	$(CC) $(CFLAGS) -o $@ -c erlc.c

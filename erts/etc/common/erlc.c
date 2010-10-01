@@ -160,6 +160,9 @@ main(int argc, char** argv)
     env = get_env("ERLC_EMULATOR");
     emulator = env ? env : get_default_emulator(argv[0]);
 
+    if (strlen(emulator) >= MAXPATHLEN)
+        error("Value of environment variable ERLC_EMULATOR is too large");
+
     /*
      * Allocate the argv vector to be used for arguments to Erlang.
      * Arrange for starting to pushing information in the middle of
@@ -170,7 +173,7 @@ main(int argc, char** argv)
      * base of the eargv vector, and move it up later.
      */
 
-    eargv_size = argc*4+100;
+    eargv_size = argc*6+100;
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
@@ -419,7 +422,7 @@ process_opt(int* pArgc, char*** pArgv, int offset)
 static void
 push_words(char* src)
 {
-    char sbuf[1024];
+    char sbuf[MAXPATHLEN];
     char* dst;
 
     dst = sbuf;
@@ -595,7 +598,7 @@ error(char* format, ...)
     va_list ap;
     
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "erlc: %s\n", sbuf);
     exit(1);
@@ -623,6 +626,9 @@ get_default_emulator(char* progname)
 {
     char sbuf[MAXPATHLEN];
     char* s;
+
+    if (strlen(progname) >= sizeof(sbuf))
+        return ERL_NAME;
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
