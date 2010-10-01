@@ -379,6 +379,8 @@ pkix_path_validation(Config) when is_list(Config) ->
 			      (_,{extension, _}, UserState) ->
 				   {unknown, UserState};
 			      (_, valid, UserState) ->
+				   {valid, UserState};
+			      (_, valid_peer, UserState) ->
 				   {valid, UserState}
 			   end, []},
     {ok, _} =

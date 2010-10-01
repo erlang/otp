@@ -556,9 +556,16 @@ validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 
     %% We want the key_usage extension to be checked before we validate
     %% the signature. 
-    UserState0 = pubkey_cert:validate_signature(OtpCert, DerCert,
+    UserState6 = pubkey_cert:validate_signature(OtpCert, DerCert,
 						Key, KeyParams, UserState5, VerifyFun),
-    UserState = pubkey_cert:verify_fun(OtpCert, valid, UserState0, VerifyFun),
+    UserState = case Last of
+		    false ->
+			pubkey_cert:verify_fun(OtpCert, valid, UserState6, VerifyFun);
+		    true ->
+			pubkey_cert:verify_fun(OtpCert, valid_peer,
+					       UserState6, VerifyFun)
+		end,
+
     ValidationState  = 
 	ValidationState1#path_validation_state{user_state = UserState},
 

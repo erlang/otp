@@ -295,8 +295,8 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 
 
 %%--------------------------------------------------------------------
--spec verify_fun(#'OTPCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
-		 valid, term(), fun()) -> term().
+-spec verify_fun(#'OTPTBSCertificate'{}, {bad_cert, atom()} | {extension, #'Extension'{}}|
+		 valid | valid_peer, term(), fun()) -> term().
 %%
 %% Description: Gives the user application the opportunity handle path
 %% validation errors and unknown extensions and optional do other

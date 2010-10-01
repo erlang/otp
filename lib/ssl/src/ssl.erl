@@ -627,6 +627,8 @@ handle_options(Opts0, _Role) ->
 	    (_,{extension, _}, UserState) ->
 		 {unknown, UserState};
 	    (_, valid, UserState) ->
+		 {valid, UserState};
+	    (_, valid_peer, UserState) ->
 		 {valid, UserState}
 	 end, []},
 
@@ -727,6 +729,8 @@ validate_option(verify_fun, Fun) when is_function(Fun) ->
 	(_,{extension, _}, UserState) ->
 	     {unknown, UserState};
 	(_, valid, UserState) ->
+	     {valid, UserState};
+	(_, valid_peer, UserState) ->
 	     {valid, UserState}
      end, Fun};
 validate_option(verify_fun, {Fun, _} = Value) when is_function(Fun) ->

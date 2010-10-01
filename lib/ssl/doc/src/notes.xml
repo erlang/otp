@@ -31,7 +31,47 @@
   <p>This document describes the changes made to the SSL application.
     </p>
 
-    <section><title>SSL 4.0.1</title>
+    <section><title>SSL 4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updated ssl to ignore CA certs that violate the asn1-spec
+	    for a certificate, and updated public key asn1 spec to
+	    handle inherited DSS-params.</p>
+          <p>
+	    Own Id: OTP-7884</p>
+        </item>
+        <item>
+          <p>
+	    Changed ssl implementation to retain backwards
+	    compatibility for old option {verify, 0} that shall be
+	    equivalent to {verify, verify_none}, also separate the
+	    cases unknown ca and selfsigned peer cert, and restored
+	    return value of deprecated function
+	    public_key:pem_to_der/1.</p>
+          <p>
+	    Own Id: OTP-8858</p>
+        </item>
+        <item>
+          <p>
+	    Changed the verify fun so that it differentiate between
+	    the peer certificate and CA certificates by using
+	    valid_peer or valid as the second argument to the verify
+	    fun. It may not always be trivial or even possible to
+	    know when the peer certificate is reached otherwise.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8873</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

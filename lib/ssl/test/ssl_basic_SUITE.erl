@@ -2857,11 +2857,13 @@ unknown_server_ca_fail(Config) when is_list(Config) ->
 					      {options, ServerOpts}]),
     Port  = ssl_test_lib:inet_port(Server),
 
-    FunAndState =  {fun(_,{bad_cert, _} = Reason, _) ->
+    FunAndState =  {fun(_,{bad_cert, unknown_ca} = Reason, _) ->
 			    {fail, Reason};
 		       (_,{extension, _}, UserState) ->
 			    {unknown, UserState};
 		       (_, valid, UserState) ->
+			    {valid, [test_to_update_user_state | UserState]};
+		       (_, valid_peer, UserState) ->
 			    {valid, UserState}
 		    end, []},
 
@@ -2930,6 +2932,8 @@ unknown_server_ca_accept_verify_peer(Config) when is_list(Config) ->
 		       (_,{extension, _}, UserState) ->
 			    {unknown, UserState};
 		       (_, valid, UserState) ->
+			    {valid, UserState};
+		       (_, valid_peer, UserState) ->
 			    {valid, UserState}
 		    end, []},
 
