@@ -135,7 +135,6 @@ do {							\
     (Proc)->arity = 1;					\
     (Proc)->def_arg_reg[0] = (Eterm) (A0);		\
     *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
-    (Proc)->def_arg_reg[3] = (UWord) ((Trap)->address);	\
     (Proc)->freason = TRAP;				\
     (Ret) = THE_NON_VALUE;				\
 } while (0)
@@ -146,7 +145,6 @@ do {							\
     (Proc)->def_arg_reg[0] = (Eterm) (A0);		\
     (Proc)->def_arg_reg[1] = (Eterm) (A1);		\
     *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
-    (Proc)->def_arg_reg[3] = (UWord) ((Trap)->address);	\
     (Proc)->freason = TRAP;				\
     (Ret) = THE_NON_VALUE;				\
 } while (0)
@@ -158,7 +156,6 @@ do {							\
     (Proc)->def_arg_reg[1] = (Eterm) (A1);		\
     (Proc)->def_arg_reg[2] = (Eterm) (A2);		\
     *((UWord *) (UWord) ((Proc)->def_arg_reg + 3)) = (UWord) ((Trap)->address);	\
-    (Proc)->def_arg_reg[3] = (UWord) ((Trap)->address);	\
     (Proc)->freason = TRAP;				\
     (Ret) = THE_NON_VALUE;				\
 } while (0)
