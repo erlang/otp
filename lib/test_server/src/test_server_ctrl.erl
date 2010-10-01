@@ -533,6 +533,8 @@ get_target_os_type() ->
 	undefined ->
 	    %% This is probably called on the target node
 	    os:type();
+	Pid when Pid =:= self() ->
+	    os:type();
 	_pid ->
 	    %% This is called on the controller, e.g. from a
 	    %% specification clause of a test case
