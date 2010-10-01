@@ -938,27 +938,7 @@ get_all(Mod, ConfTests) ->
 		    [{?MODULE,error_in_suite,[[{error,What}]]}];
 		SeqsAndTCs ->
 		    %% expand group references in all() using ConfTests
-		    Expand =
-			fun({group,Name}) ->
-				FindConf = 
-				    fun({conf,Props,_,_,_}) ->
-					    case proplists:get_value(name, Props) of
-						Name -> true;
-						_    -> false
-					    end
-					   end,					 
-				case lists:filter(FindConf, ConfTests) of
-				    [ConfTest|_] ->
-					ConfTest;
-				    [] ->
-					E = "Invalid reference to group "++
-					    atom_to_list(Name)++" in "++
-					    atom_to_list(Mod)++":all/0",
-					throw({error,list_to_atom(E)})
-				end;
-			   (SeqOrTC) -> SeqOrTC
-			end,
-		    case catch lists:map(Expand, SeqsAndTCs) of
+		    case catch expand_groups(SeqsAndTCs, ConfTests, Mod) of
 			{error,_} = Error ->
 			    [{?MODULE,error_in_suite,[[Error]]}];
 			Tests ->
@@ -972,6 +952,30 @@ get_all(Mod, ConfTests) ->
 		list_to_atom("Bad return value from "++atom_to_list(Mod)++":all/0"),
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}]
     end.
+
+expand_groups([H | T], ConfTests, Mod) ->
+    [expand_groups(H, ConfTests, Mod) | expand_groups(T, ConfTests, Mod)];
+expand_groups([], _ConfTests, _Mod) ->
+    [];
+expand_groups({group,Name}, ConfTests, Mod) ->
+    FindConf = 
+	fun({conf,Props,_,_,_}) ->
+		case proplists:get_value(name, Props) of
+		    Name -> true;
+		    _    -> false
+		end
+	end,					 
+    case lists:filter(FindConf, ConfTests) of
+	[ConfTest|_] ->
+	    expand_groups(ConfTest, ConfTests, Mod);
+	[] ->
+	    E = "Invalid reference to group "++
+		atom_to_list(Name)++" in "++
+		atom_to_list(Mod)++":all/0",
+	    throw({error,list_to_atom(E)})
+    end;
+expand_groups(SeqOrTC, _ConfTests, _Mod) ->
+    SeqOrTC.
 
 
 %%!============================================================
