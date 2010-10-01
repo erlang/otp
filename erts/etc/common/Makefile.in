@@ -339,7 +339,7 @@ $(OBJDIR)/dialyzer.o: dialyzer.c
 	$(CC) $(CFLAGS) -o $@ -c dialyzer.c
 
 $(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/typer.o: typer.c
 	$(CC) $(CFLAGS) -o $@ -c typer.c
