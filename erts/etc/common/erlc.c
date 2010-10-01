@@ -148,10 +148,6 @@ int
 main(int argc, char** argv)
 {
     char cwd[MAXPATHLEN];	/* Current working directory. */
-    char** rpc_eargv;		/* Pointer to the beginning of arguments
-				 * if calling a running Erlang system
-				 * via erl_rpc().
-				 */
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
@@ -192,7 +188,6 @@ main(int argc, char** argv)
     PUSH2("-mode", "minimal");
     PUSH2("-boot", "start_clean");
     PUSH3("-s", "erl_compile", "compile_cmdline");
-    rpc_eargv = eargv+eargc;
 
     /*
      * Push standard arguments to Erlang.
