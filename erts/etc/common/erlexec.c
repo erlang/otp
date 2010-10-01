@@ -309,7 +309,7 @@ free_env_val(char *value)
 }
 
 /*
- * Add the arcitecture suffix to the program name if needed,
+ * Add the architecture suffix to the program name if needed,
  * except on Windows, where we insert it just before ".DLL".
  */
 static char*
@@ -560,7 +560,7 @@ int main(int argc, char **argv)
 	    usage("+MYm");
     }
     emu = add_extra_suffixes(emu, emu_type);
-    sprintf(tmpStr, "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
+    erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
     emu = strsave(tmpStr);
 
     add_Eargs(emu);		/* Will be argv[0] -- necessary! */
@@ -571,12 +571,12 @@ int main(int argc, char **argv)
 
     s = get_env("PATH");
     if (!s) {
-	sprintf(tmpStr, "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
+	erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP "%s" DIRSEP "bin", bindir, rootdir);
     } else if (strstr(s, bindir) == NULL) {
-	sprintf(tmpStr, "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir, 
+	erts_snprintf(tmpStr, sizeof(tmpStr), "%s" PATHSEP "%s" DIRSEP "bin" PATHSEP "%s", bindir,
 		rootdir, s);
     } else {
-	sprintf(tmpStr, "%s", s);
+	erts_snprintf(tmpStr, sizeof(tmpStr), "%s", s);
     }
     free_env_val(s);
     set_env("PATH", tmpStr);
@@ -714,7 +714,7 @@ int main(int argc, char **argv)
 			error("-man not supported on Windows");
 #else
 			argv[i] = "man";
-			sprintf(tmpStr, "%s/man", rootdir);
+			erts_snprintf(tmpStr, sizeof(tmpStr), "%s/man", rootdir);
 			set_env("MANPATH", tmpStr);
 			execvp("man", argv+i);
 			error("Could not execute the 'man' command.");
@@ -1145,10 +1145,10 @@ start_epmd(char *epmd)
     if (!epmd) {
 	epmd = epmd_cmd;
 #ifdef __WIN32__
-	sprintf(epmd_cmd, "%s" DIRSEP "epmd", bindir);
+	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd", bindir);
 	arg1 = "-daemon";
 #else
-	sprintf(epmd_cmd, "%s" DIRSEP "epmd -daemon", bindir);
+	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd -daemon", bindir);
 #endif
     } 
 #ifdef __WIN32__
@@ -1224,7 +1224,7 @@ void error(char* format, ...)
     va_list ap;
 
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "erlexec: %s\n", sbuf);
     exit(1);
@@ -1304,14 +1304,14 @@ static void get_start_erl_data(char *file)
     if (env)
 	reldir = strsave(env);
     else {
-	sprintf(tmpbuffer, "%s/releases", rootdir);
+	erts_snprintf(tmpbuffer, sizeof(tmpbuffer), "%s/releases", rootdir);
 	reldir = strsave(tmpbuffer);
     }
     free_env_val(env);
     if (file == NULL)
-       sprintf(start_erl_data, "%s/start_erl.data", reldir);
+       erts_snprintf(start_erl_data, sizeof(start_erl_data), "%s/start_erl.data", reldir);
     else
-       sprintf(start_erl_data, "%s", file);
+       erts_snprintf(start_erl_data, sizeof(start_erl_data), "%s", file);
     fp = _open(start_erl_data, _O_RDONLY );
     if( fp == -1 )
 	error( "open failed on %s",start_erl_data );
@@ -1341,16 +1341,16 @@ static void get_start_erl_data(char *file)
     }
 	
     bindir = emalloc(512);
-    sprintf(bindir,"%s/erts-%s/bin",rootdir,tmpbuffer);
+    erts_snprintf(bindir,512,"%s/erts-%s/bin",rootdir,tmpbuffer);
     /* BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin */
     tprogname = progname;
     progname = emalloc(strlen(tprogname) + 20);
-    sprintf(progname,"%s -start_erl",tprogname);
+    erts_snprintf(progname,strlen(tprogname) + 20,"%s -start_erl",tprogname);
 
     boot_script = emalloc(512);
     config_script = emalloc(512);
-    sprintf(boot_script, "%s/%s/start", reldir, otpstring);
-    sprintf(config_script, "%s/%s/sys", reldir, otpstring);
+    erts_snprintf(boot_script, 512, "%s/%s/start", reldir, otpstring);
+    erts_snprintf(config_script, 512, "%s/%s/sys", reldir, otpstring);
        
 }
 
@@ -1358,7 +1358,7 @@ static void get_start_erl_data(char *file)
 static char *replace_filename(char *path, char *new_base) 
 {
     int plen = strlen(path);
-    char *res = malloc((plen+strlen(new_base)+1)*sizeof(char));
+    char *res = emalloc((plen+strlen(new_base)+1)*sizeof(char));
     char *p;
 
     strcpy(res,path);
@@ -1373,7 +1373,7 @@ static char *path_massage(char *long_path)
 {
      char *p;
 
-     p = malloc(MAX_PATH+1);
+     p = emalloc(MAX_PATH+1);
      strcpy(p, long_path);
      GetShortPathName(p, p, MAX_PATH);
      return p;
@@ -1509,7 +1509,8 @@ get_parameters(int argc, char** argv)
 	/* Determine bindir from absolute path to executable */
 	char *p;
 	char buffer[PATH_MAX];
-	strcpy(buffer, argv[0]);
+	strncpy(buffer, argv[0], sizeof(buffer));
+	buffer[sizeof(buffer)-1] = '\0';
 	
 	for (p = buffer+strlen(buffer)-1 ; p >= buffer && *p != '/'; --p)
 	    ;
@@ -1522,7 +1523,8 @@ get_parameters(int argc, char** argv)
 	/* Determine rootdir from absolute path to bindir */
 	char *p;
 	char buffer[PATH_MAX];
-	strcpy(buffer, bindir);
+	strncpy(buffer, bindir, sizeof(buffer));
+	buffer[sizeof(buffer)-1] = '\0';
 	
 	for (p = buffer+strlen(buffer)-1; p >= buffer && *p != '/'; --p)
 	    ;
