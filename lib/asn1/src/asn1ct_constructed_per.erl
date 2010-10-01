@@ -617,8 +617,8 @@ extgroup_pos_and_length(CompList) when is_list(CompList) ->
     noextgroup;
 extgroup_pos_and_length({RootList,ExtList}) ->
     extgrouppos(ExtList,length(RootList)+1);
-extgroup_pos_and_length({Rl1,Ext,Rl2}) ->
-    extgrouppos(Ext,length(Rl1)+length(Rl2)+1).
+extgroup_pos_and_length({Rl1,Ext,_Rl2}) ->
+    extgrouppos(Ext,length(Rl1)+1).
 
 extgrouppos([{'ExtensionAdditionGroup',_Num}|T],Pos) ->
     extgrouppos(T,Pos,0);
