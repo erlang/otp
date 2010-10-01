@@ -351,7 +351,7 @@ $(OBJDIR)/escript.o: escript.c
 	$(CC) $(CFLAGS) -o $@ -c escript.c
 
 $(BINDIR)/run_test@EXEEXT@: $(OBJDIR)/run_test.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/run_test.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/run_test.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/run_test.o: run_test.c
 	$(CC) $(CFLAGS) -o $@ -c run_test.c

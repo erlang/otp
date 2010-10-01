@@ -164,11 +164,13 @@ main(int argc, char** argv)
 	    erl_args = cnt;
 	}
 	else if (strcmp(argv[1], "-sname") == 0) {
-	    strcpy(nodename, argv[2]);
+	    strncpy(nodename, argv[2], sizeof(nodename));
+	    nodename[sizeof(nodename)-1] = '\0';
 	    cnt++, argv++;
 	}
 	else if (strcmp(argv[1], "-name") == 0) {
-	    strcpy(nodename, argv[2]);
+	    strncpy(nodename, argv[2], sizeof(nodename));
+	    nodename[sizeof(nodename)-1] = '\0';
 	    dist_mode = FULL_NAME;
 	    cnt++, argv++;
 	}
@@ -178,7 +180,8 @@ main(int argc, char** argv)
 		    ct_mode = VTS_MODE;
 		}
 		else if (strcmp(argv[1], "-browser") == 0) {
-		    strcpy(browser, argv[2]);
+		    strncpy(browser, argv[2], sizeof(browser));
+		    browser[sizeof(browser)-1] = '\0';
 		    cnt++, argv++;
 		}
 		else if (strcmp(argv[1], "-shell") == 0) {
@@ -189,7 +192,8 @@ main(int argc, char** argv)
 		    ct_mode = MASTER_MODE;
 		}
 		else if (strcmp(argv[1], "-ctname") == 0) {
-		    strcpy(nodename, argv[2]);
+		    strncpy(nodename, argv[2], sizeof(nodename));
+		    nodename[sizeof(nodename)-1] = '\0';
 		    ct_mode = ERL_SHELL_MODE;
 		    cnt++, argv++;
 		}
@@ -273,7 +277,7 @@ main(int argc, char** argv)
 static void
 push_words(char* src)
 {
-    char sbuf[1024];
+    char sbuf[MAXPATHLEN];
     char* dst;
 
     dst = sbuf;
@@ -405,7 +409,7 @@ error(char* format, ...)
     va_list ap;
 
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "run_test: %s\n", sbuf);
     exit(1);
@@ -433,6 +437,9 @@ get_default_emulator(char* progname)
 {
     char sbuf[MAXPATHLEN];
     char* s;
+
+    if (strlen(progname) >= sizeof(sbuf))
+        return ERL_NAME;
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
