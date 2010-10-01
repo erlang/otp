@@ -40,7 +40,8 @@ group_order() ->
      {test, "Test"},
      {doc, "Documentation"},
      {orb, "Object Request Broker & IDL"},
-     {misc, "Miscellaneous"}
+     {misc, "Miscellaneous"},
+     {eric, "Ericsson Internal"}
     ].
 
 top_index() ->
