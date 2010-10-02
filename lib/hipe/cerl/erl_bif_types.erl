@@ -1219,7 +1219,7 @@ type(erlang, monitor_node, 3, Xs) ->
   strict(arg_types(erlang, monitor_node, 3), Xs,
 	 fun (_) -> t_atom('true') end);
 type(erlang, nif_error, 1, _) ->
-  t_any();
+  t_any();   % this BIF and the next one are stubs for NIFs and never return
 type(erlang, nif_error, 2, Xs) ->
   strict(arg_types(erlang, nif_error, 2), Xs, fun (_) -> t_any() end);
 type(erlang, node, 0, _) -> t_node();
@@ -1970,7 +1970,25 @@ type(ets, slot, 2, Xs) ->
   strict(arg_types(ets, slot, 2), Xs,
 	 fun (_) -> t_sup(t_list(t_tuple()), t_atom('$end_of_table')) end);
 type(ets, update_counter, 3, Xs) ->
-  strict(arg_types(ets, update_counter, 3), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(ets, update_counter, 3), Xs,
+	 fun ([_, _, Op]) ->
+	     case t_is_integer(Op) of
+	       true -> t_integer();
+	       false ->
+		 case t_is_tuple(Op) of
+		   true -> t_integer();
+		   false ->
+		     case t_is_list(Op) of
+		       true -> t_list(t_integer());
+		       false ->
+			 case t_is_nil(Op) of
+			   true -> t_nil();
+			   false -> t_sup([t_integer(), t_list(t_integer())])
+			 end
+		     end
+		 end
+	     end
+	 end);
 type(ets, update_element, 3, Xs) ->
   strict(arg_types(ets, update_element, 3), Xs, fun (_) -> t_boolean() end);
 %%-- file ---------------------------------------------------------------------
@@ -4181,10 +4199,9 @@ arg_types(ets, setopts, 2) ->
 	      t_tuple([t_atom('heir'), t_atom('none')])),
   [t_tab(), t_sup(Opt, t_list(Opt))];
 arg_types(ets, update_counter, 3) ->
-  [t_tab(), t_any(), t_sup(t_integer(),
-			   t_sup(t_tuple([t_integer(), t_integer()]),
-				 t_tuple([t_integer(), t_integer(),
-					  t_integer(), t_integer()])))];
+  Int = t_integer(),
+  UpdateOp = t_sup(t_tuple([Int, Int]), t_tuple([Int, Int, Int, Int])),
+  [t_tab(), t_any(), t_sup([UpdateOp, t_list(UpdateOp), Int])];
 arg_types(ets, update_element, 3) ->
   PosValue = t_tuple([t_integer(), t_any()]),
   [t_tab(), t_any(), t_sup(PosValue, t_list(PosValue))];
