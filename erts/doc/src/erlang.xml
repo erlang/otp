@@ -5178,7 +5178,7 @@ true</pre>
 	       <seealso marker="#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
             <p>Schedulers can currently only be bound on newer Linux,
-	       Solaris, and Windows systems, but more systems will be
+	       Solaris, FreeBSD, and Windows systems, but more systems will be
 	       supported in the future.
 	    </p>
             <p>In order for the runtime system to be able to bind schedulers,
@@ -5559,7 +5559,7 @@ true</pre>
           <item>
             <p>Returns the automatically detected <c>CpuTopology</c>. The
 	       emulator currently only detects the CPU topology on some newer
-	       Linux, Solaris, and Windows systems. On Windows system with
+	       Linux, Solaris, FreeBSD, and Windows systems. On Windows system with
 	       more than 32 logical processors the CPU topology is not detected.
 	    </p>
             <p>For more information see the documentation of the
