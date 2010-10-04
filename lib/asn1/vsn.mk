@@ -1,5 +1,5 @@
 #next version number to use is 1.6.14 | 1.7 | 2.0
-ASN1_VSN = 1.6.13.1
+ASN1_VSN = 1.6.13.2
 
 TICKETS = OTP-8463
 

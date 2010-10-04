@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+<section><title>Asn1 1.6.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of ExtensionAdditionGroup (for PER and UPER)
+	    is corrected.</p>
+          <p>
+	    Own Id: OTP-8866 Aux Id: OTP-8797, SEQ-11557 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.13.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
