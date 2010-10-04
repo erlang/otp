@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -module(snmp_appup_test).
 
 -export([
-	 all/1, init_suite/1, fin_suite/1,
+	 all/1, init_per_suite/1, fin_suite/1,
 	 init_per_testcase/2, fin_per_testcase/2, 
 
 	 appup_file/1
@@ -41,14 +41,14 @@ all(suite) ->
 	[
 	 appup_file
 	],
-    {conf, init_suite, Cases, fin_suite}.
+    {conf, init_per_suite, Cases, fin_suite}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_suite(suite) -> [];
-init_suite(doc) -> [];
-init_suite(Config) when is_list(Config) ->
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     TopDir  = filename:join(PrivDir, appup),
     case file:make_dir(TopDir) of

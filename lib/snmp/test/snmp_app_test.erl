@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -module(snmp_app_test).
 
 -export([
-	 all/1, init_suite/1, fin_suite/1,
+	 all/1, init_per_suite/1, fin_suite/1,
 	 init_per_testcase/2, fin_per_testcase/2, 
 
 	 fields/1,
@@ -60,9 +60,9 @@ all(suite) ->
          undef_funcs,
 	 start_and_stop
 	],
-    {conf, init_suite, Cases, fin_suite}.
+    {conf, init_per_suite, Cases, fin_suite}.
 
-init_suite(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     ?DISPLAY_SUITE_INFO(), 
     PrivDir = ?config(priv_dir, Config),
     TopDir = filename:join(PrivDir, app),

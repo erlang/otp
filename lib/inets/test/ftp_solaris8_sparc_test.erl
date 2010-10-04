@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -97,11 +97,11 @@ all(suite) ->
 
 open(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:open/1).
 open_port(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:open_port/1).
-passive(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:passive/1).
-active(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:active/1).
+passive(suite) -> ?LIB_MOD:passive(suite).
+active(suite) -> ?LIB_MOD:active(suite).
 api_missuse(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:api_missuse/1).
 not_owner(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:not_owner/1).
-progress_report(X) -> ?CASE_WRAPPER(?PLATFORM,X,fun ?LIB_MOD:progress_report/1).
+progress_report(suite) -> ?LIB_MOD:progress_report(suite).
 
 passive_user(X) -> ?LIB_MOD:passive_user(X). 
 passive_pwd(X) -> ?LIB_MOD:passive_pwd(X).

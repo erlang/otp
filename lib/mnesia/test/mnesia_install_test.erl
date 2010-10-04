@@ -86,11 +86,11 @@ silly2(Config) when is_list(Config) ->
 						       [schema])),
 		MoveRes = silly_move(Config),
 		UpgradeRes = silly_upgrade(Config),
-		StressRes = [StressFun(F) || F <- stress(suite)],
+		StressRes = [StressFun(F) || F <- stress_cases()],
 		?verify_mnesia([Node2], []),
 		[Res, MoveRes, UpgradeRes] ++ StressRes;
 	    _ ->
-		StressRes = [StressFun(F) || F <- stress(suite)],
+		StressRes = [StressFun(F) || F <- stress_cases()],
 		?warning("Too few nodes. Perform net_adm:ping(OtherNode) "
 			 "and rerun!!!~n", []),
 		[Res | StressRes]
@@ -289,6 +289,9 @@ transform_some_records(Tab1, _Tab2, Old) ->
 stress(doc) ->
     ["Stress the system a little"];
 stress(suite) ->
+    stress_cases().
+
+stress_cases() ->
     [
      conflict,
      dist

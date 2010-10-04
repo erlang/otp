@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,31 +48,6 @@
 
 -define(SET_DBG(S,D), begin put(severity, S), put(dbg, D) end).
 -define(RESET_DBG(),  begin erase(severity),  erase(dbg)  end).
-
-
-%% ----
-
-tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    fin_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
 
 expand(RootCase) ->
     expand([RootCase], []).
@@ -124,6 +99,30 @@ tickets(suite) ->
      otp7672_msg01, 
      otp7672_msg02
     ].
+
+%% ----
+
+tickets() ->
+    Flag  = process_flag(trap_exit, true),    
+    Cases = expand(tickets),
+    Fun   = fun(Case) ->
+		    C = init_per_testcase(Case, [{tc_timeout, 
+						  timer:minutes(10)}]),
+		    io:format("Eval ~w~n", [Case]),
+		    Result = 
+			case (catch apply(?MODULE, Case, [C])) of
+			    {'EXIT', Reason} ->
+ 				io:format("~n~p exited:~n   ~p~n", 
+ 					  [Case, Reason]),
+				{error, {Case, Reason}};
+			    Res ->
+				Res
+			end,
+		    fin_per_testcase(Case, C),
+		    Result
+	    end,
+    process_flag(trap_exit, Flag),
+    lists:map(Fun, Cases).
 
 		
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

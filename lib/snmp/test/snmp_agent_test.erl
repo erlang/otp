@@ -96,7 +96,7 @@ init_per_testcase(otp8395 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
-    Config2 = init_per_testcase2(Case, init_suite(Config)), 
+    Config2 = init_per_testcase2(Case, init_per_suite(Config)), 
     otp8395({init, Config2});
 init_per_testcase(otp_7157_test = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
@@ -134,8 +134,8 @@ fin_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 
-init_suite(Config) ->
-    ?DBG("init_suite -> entry with"
+init_per_suite(Config) ->
+    ?DBG("init_per_suite -> entry with"
 	 "~n   Config: ~p", [Config]),
 
     %% Suite root dir for test suite
@@ -170,7 +170,7 @@ init_suite(Config) ->
 	       {mib_dir,       MibDir}, 
 	       {std_mib_dir,   StdMibDir} | Config1],
 
-    ?DBG("init_suite -> done when"
+    ?DBG("init_per_suite -> done when"
 	 "~n   Config2: ~p", [Config2]),
     Config2.
 

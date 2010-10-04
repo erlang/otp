@@ -636,11 +636,7 @@ multiple_result_sets_error(Config) when is_list(Config) ->
     end.   
 
 %%-------------------------------------------------------------------------
-parameterized_queries(doc)->
-    ["Tests diffrent variants of parameterized queries."];
 parameterized_queries(suite) ->
-    %% Note timestamps are inserted with param_query in odbc_data_type_SUITE
-    %% so no need to test this again.
     [param_integers,
      param_insert_decimal, param_insert_numeric,
      param_insert_string, 

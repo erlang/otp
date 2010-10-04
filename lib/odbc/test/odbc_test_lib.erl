@@ -51,7 +51,7 @@ odbc_check() ->
 				    [Other]))
 	    end;
 	Other ->
-	    case test_server:os_type() of
+	    case os:type() of
 		{unix, linux} ->
 		    ok;
 		Platform ->
