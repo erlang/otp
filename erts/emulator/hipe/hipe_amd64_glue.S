@@ -402,7 +402,7 @@ nbif_3_simple_exception:
 	 * - the native heap/stack/reds registers are saved in P
 	 */
 .handle_trap:
-	movq	%rax, P_NARITY(P)
+	movl	%eax, P_NARITY(P)	# Note: narity is a 32-bit field
 	movl	$HIPE_MODE_SWITCH_RES_TRAP, %eax
 	jmp	.nosave_exit
 
