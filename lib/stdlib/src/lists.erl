@@ -350,7 +350,7 @@ sort_1(X, [], R) ->
 %% merge(List) -> L
 %%  merges a list of sorted lists
 
--spec merge([T]) -> [T].
+-spec merge([[T]]) -> [T].
 
 merge(L) ->
     mergel(L, []).
@@ -842,7 +842,7 @@ usort_1(X, []) ->
 %% umerge(List) -> L
 %%  merges a list of sorted lists without duplicates, removes duplicates
 
--spec umerge([T]) -> [T].
+-spec umerge([[T]]) -> [T].
 
 umerge(L) ->
     umergel(L).

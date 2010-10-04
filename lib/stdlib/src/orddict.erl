@@ -151,7 +151,7 @@ map(F, [{Key,Val}|D]) ->
     [{Key,F(Key, Val)}|map(F, D)];
 map(F, []) when is_function(F, 2) -> [].
 
--spec filter(fun((term(), term()) -> term()), orddict()) -> orddict().
+-spec filter(fun((term(), term()) -> boolean()), orddict()) -> orddict().
 
 filter(F, [{Key,Val}=E|D]) ->
     case F(Key, Val) of
