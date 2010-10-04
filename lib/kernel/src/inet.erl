@@ -25,6 +25,7 @@
 %% socket
 -export([peername/1, sockname/1, port/1, send/2,
 	 setopts/2, getopts/2, 
+	 getifaddrs/0, getifaddrs/1,
 	 getif/1, getif/0, getiflist/0, getiflist/1,
 	 ifget/3, ifget/2, ifset/3, ifset/2,
 	 getstat/1, getstat/2,
@@ -264,6 +265,17 @@ setopts(Socket, Opts) ->
 
 getopts(Socket, Opts) ->
     prim_inet:getopts(Socket, Opts).
+
+-spec getifaddrs(Socket :: socket()) ->
+	{'ok', [string()]} | {'error', posix()}.
+
+getifaddrs(Socket) ->
+    prim_inet:getifaddrs(Socket).
+
+-spec getifaddrs() -> {'ok', [string()]} | {'error', posix()}.
+
+getifaddrs() ->
+    withsocket(fun(S) -> prim_inet:getifaddrs(S) end).
 
 -spec getiflist(Socket :: socket()) ->
 	{'ok', [string()]} | {'error', posix()}.

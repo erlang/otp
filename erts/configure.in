@@ -1788,7 +1788,7 @@ AC_CHECK_FUNCS([fdatasync])
 dnl Find which C libraries are required to use fdatasync
 AC_SEARCH_LIBS(fdatasync, [rt])
 
-AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h)
+AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h)
 AC_CHECK_FUNCS([getifaddrs])
 
 dnl ----------------------------------------------------------------------

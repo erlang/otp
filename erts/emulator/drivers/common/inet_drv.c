@@ -54,6 +54,9 @@
 #ifdef HAVE_IFADDRS_H
 #include <ifaddrs.h>
 #endif
+#ifdef HAVE_NETPACKET_PACKET_H
+#include <netpacket/packet.h>
+#endif
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
@@ -467,6 +470,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_REQ_IFGET         22
 #define INET_REQ_IFSET         23
 #define INET_REQ_SUBSCRIBE     24
+#define INET_REQ_GETIFADDRS    25
 /* TCP requests */
 #define TCP_REQ_ACCEPT         40
 #define TCP_REQ_LISTEN         41
@@ -3824,21 +3828,40 @@ do { if ((end)-(ptr) < (n)) goto error; } while(0)
 static char* sockaddr_to_buf(struct sockaddr* addr, char* ptr, char* end)
 {
     if (addr->sa_family == AF_INET || addr->sa_family == 0) {
-	struct in_addr a;
-	buf_check(ptr,end,sizeof(struct in_addr));
-	a = ((struct sockaddr_in*) addr)->sin_addr;
-	sys_memcpy(ptr, (char*)&a, sizeof(struct in_addr));
-	return ptr + sizeof(struct in_addr);
+	struct in_addr *p = &(((struct sockaddr_in*) addr)->sin_addr);
+	buf_check(ptr, end, 1 + sizeof(struct in_addr));
+	*ptr = INET_AF_INET;
+	sys_memcpy(ptr+1, (char*)p, sizeof(struct in_addr));
+	return ptr + 1 + sizeof(struct in_addr);
     }
 #if defined(HAVE_IN6) && defined(AF_INET6)
     else if (addr->sa_family == AF_INET6) {
-	struct in6_addr a;
-	buf_check(ptr,end,sizeof(struct in6_addr));
-	a = ((struct sockaddr_in6*) addr)->sin6_addr;
-	sys_memcpy(ptr, (char*)&a, sizeof(struct in6_addr));
-	return ptr + sizeof(struct in6_addr);
+	struct in6_addr *p = &(((struct sockaddr_in6*) addr)->sin6_addr);
+	buf_check(ptr, end, 1 + sizeof(struct in6_addr));
+	*ptr = INET_AF_INET6;
+	sys_memcpy(ptr+1, (char*)p, sizeof(struct in6_addr));
+	return ptr + 1 + sizeof(struct in6_addr);
     }
 #endif
+#if defined(AF_LINK)
+    else if (addr->sa_family == AF_LINK) {
+	struct sockaddr_dl *sdl_p = (struct sockaddr_dl*) addr;
+	buf_check(ptr, end, 2 + sdl_p->sdl_alen);
+	put_int16(sdl_p->sdl_alen, ptr); ptr += 2;
+	sys_memcpy(ptr, sdl_p->sdl_data + sdl_p->sdl_nlen, sdl_p->sdl_alen);
+	return ptr + sdl_p->sdl_alen;
+    }
+#endif
+#if defined(AF_PACKET) && defined(HAVE_NETPACKET_PACKET_H)
+    else if(addr->sa_family == AF_PACKET) {
+	struct sockaddr_ll *sll_p = (struct sockaddr_ll*) addr;
+	buf_check(ptr, end, 2 + sll_p->sll_halen);
+	put_int16(sll_p->sll_halen, ptr); ptr += 2;
+	sys_memcpy(ptr, sll_p->sll_addr, sll_p->sll_halen);
+	return ptr + sll_p->sll_halen;
+    }
+#endif
+    return ptr;
  error:
     return NULL;
 
@@ -3846,12 +3869,23 @@ static char* sockaddr_to_buf(struct sockaddr* addr, char* ptr, char* end)
 
 static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 {
-    buf_check(ptr,end,sizeof(struct in_addr));
-    sys_memcpy((char*) &((struct sockaddr_in*)addr)->sin_addr, ptr,
-	       sizeof(struct in_addr));
-    addr->sa_family = AF_INET;
-    return ptr +  sizeof(struct in_addr);
-
+    buf_check(ptr,end,1);
+    switch (*ptr++) {
+    case INET_AF_INET: {
+	struct in_addr *p = &((struct sockaddr_in*)addr)->sin_addr;
+	buf_check(ptr,end,sizeof(struct in_addr));
+	sys_memcpy((char*) p, ptr, sizeof(struct in_addr));
+	addr->sa_family = AF_INET;
+	return ptr + sizeof(struct in_addr);
+    }
+    case INET_AF_INET6: {
+	struct in6_addr *p = &((struct sockaddr_in6*)addr)->sin6_addr;
+	buf_check(ptr,end,sizeof(struct in6_addr));
+	sys_memcpy((char*) p, ptr, sizeof(struct in6_addr));
+	addr->sa_family = AF_INET6;
+	return ptr + sizeof(struct in6_addr);
+    }
+    }
  error:
     return NULL;
 }
@@ -3893,7 +3927,6 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
     }
     return ctl_reply(INET_REP_OK, sbuf, sptr - sbuf, rbuf, rsize);
 }
-
 
 /* input is an ip-address in string format i.e A.B.C.D 
 ** scan the INTERFACE_LIST to get the options 
@@ -3980,27 +4013,12 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	    break;
 
 	case INET_IFOPT_FLAGS: {
-	    long eflags = 0;
 	    int flags = ifp->iiFlags;
 	    /* just enumerate the interfaces (no names) */
 
-	    /* translate flags */
-	    if (flags & IFF_UP)
-		eflags |= INET_IFF_UP;
-	    if (flags & IFF_BROADCAST)
-		eflags |= INET_IFF_BROADCAST;
-	    if (flags & IFF_LOOPBACK)
-		eflags |= INET_IFF_LOOPBACK;
-	    if (flags & IFF_POINTTOPOINT)
-		eflags |= INET_IFF_POINTTOPOINT;
-	    if (flags & IFF_UP) /* emulate runnign ? */
-		eflags |= INET_IFF_RUNNING;
-	    if (flags & IFF_MULTICAST)
-		eflags |= INET_IFF_MULTICAST;
-
 	    buf_check(sptr, s_end, 5);
 	    *sptr++ = INET_IFOPT_FLAGS;
-	    put_int32(eflags, sptr);
+	    put_int32(IFGET_FLAGS(flags), sptr);
 	    sptr += 4;
 	    break;
 	}
@@ -4021,7 +4039,6 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
     return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 }
 
-
 #elif defined(SIOCGIFCONF) && defined(SIOCSIFFLAGS)
 /* cygwin has SIOCGIFCONF but not SIOCSIFFLAGS (Nov 2002) */
 
@@ -4032,73 +4049,89 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 #define SIZEA(p) (sizeof (p))
 #endif
 
-
-static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
-{
-    struct ifconf ifc;
-    struct ifreq *ifr;
-    char *buf;
-    int buflen, ifc_len, i;
-    char *sbuf, *sp;
-    
-    /* Courtesy of Per Bergqvist and W. Richard Stevens */
-    
-    ifc_len = 0;
-    buflen = 100 * sizeof(struct ifreq);
-    buf = ALLOC(buflen);
+static int get_ifconf(SOCKET s, struct ifconf *ifcp) {
+    int ifc_len = 0;
+    int buflen = 100 * sizeof(struct ifreq);
+    char *buf = ALLOC(buflen);
 
     for (;;) {
-	ifc.ifc_len = buflen;
-	ifc.ifc_buf = buf;
-	if (ioctl(desc->s, SIOCGIFCONF, (char *)&ifc) < 0) {
+	ifcp->ifc_len = buflen;
+	ifcp->ifc_buf = buf;
+	if (ioctl(s, SIOCGIFCONF, (char *)ifcp) < 0) {
 	    int res = sock_errno();
 	    if (res != EINVAL || ifc_len) {
 		FREE(buf);
-		return ctl_error(res, rbuf, rsize);
+		return -1;
 	    }
 	} else {
-	    if (ifc.ifc_len == ifc_len) break; /* buf large enough */
-	    ifc_len = ifc.ifc_len;
+	    if (ifcp->ifc_len == ifc_len) break; /* buf large enough */
+	    ifc_len = ifcp->ifc_len;
 	}
 	buflen += 10 * sizeof(struct ifreq);
 	buf = (char *)REALLOC(buf, buflen);
     }
-    
-    sp = sbuf = ALLOC(ifc_len+1);
+    return 0;
+}
+
+static void free_ifconf(struct ifconf *ifcp) {
+    FREE(ifcp->ifc_buf);
+}
+
+static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
+{
+    struct ifconf ifc;
+    struct ifreq *ifrp;
+    char *sbuf, *sp;
+    int i;
+
+    /* Courtesy of Per Bergqvist and W. Richard Stevens */
+
+    if (get_ifconf(desc->s, &ifc) < 0) {
+	return ctl_error(sock_errno(), rbuf, rsize);
+    }
+
+    sp = sbuf = ALLOC(ifc.ifc_len+1);
     *sp++ = INET_REP_OK;
     i = 0;
     for (;;) {
 	int n;
-	
-	ifr = (struct ifreq *) VOIDP(buf + i);
-	n = sizeof(ifr->ifr_name) + SIZEA(ifr->ifr_addr);
-	if (n < sizeof(*ifr)) n = sizeof(*ifr);
-	if (i+n > ifc_len) break;
+
+	ifrp = (struct ifreq *) VOIDP(ifc.ifc_buf + i);
+	n = sizeof(ifrp->ifr_name) + SIZEA(ifrp->ifr_addr);
+	if (n < sizeof(*ifrp)) n = sizeof(*ifrp);
+	if (i+n > ifc.ifc_len) break;
 	i += n;
-	
-	switch (ifr->ifr_addr.sa_family) {
+
+	switch (ifrp->ifr_addr.sa_family) {
 #if defined(HAVE_IN6) && defined(AF_INET6)
 	case AF_INET6:
 #endif
 	case AF_INET:
-	    ASSERT(sp+IFNAMSIZ+1 < sbuf+buflen+1)
-	    strncpy(sp, ifr->ifr_name, IFNAMSIZ);
+	    ASSERT(sp+IFNAMSIZ+1 < sbuf+ifc.ifc_len+1)
+	    strncpy(sp, ifrp->ifr_name, IFNAMSIZ);
 	    sp[IFNAMSIZ] = '\0';
 	    sp += strlen(sp), ++sp;
 	}
-	
-	if (i >= ifc_len) break;
+
+	if (i >= ifc.ifc_len) break;
     }
-    FREE(buf);
+    free_ifconf(&ifc);
     *rbuf = sbuf;
     return sp - sbuf;
 }
-
 
 /* FIXME: temporary hack */
 #ifndef IFHWADDRLEN
 #define IFHWADDRLEN 6
 #endif
+
+#define IFGET_FLAGS(cflags)                                                  \
+    ((((cflags) & IFF_UP) ? INET_IFF_UP : 0) |				     \
+     (((cflags) & IFF_BROADCAST) ? INET_IFF_BROADCAST : 0) |		     \
+     (((cflags) & IFF_LOOPBACK) ? INET_IFF_LOOPBACK : 0) |		     \
+     (((cflags) & IFF_POINTOPOINT) ? INET_IFF_POINTTOPOINT : 0) |	     \
+     (((cflags) & IFF_UP) ? INET_IFF_RUNNING : 0) |  /* emulate running ? */ \
+     (((cflags) & IFF_MULTICAST) ? INET_IFF_MULTICAST : 0))
 
 static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4133,37 +4166,52 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 #ifdef SIOCGIFHWADDR
 	    if (ioctl(desc->s, SIOCGIFHWADDR, (char *)&ifreq) < 0)
 		break;
-	    buf_check(sptr, s_end, 1+IFHWADDRLEN);
+	    buf_check(sptr, s_end, 1+2+IFHWADDRLEN);
 	    *sptr++ = INET_IFOPT_HWADDR;
+	    put_int16(IFHWADDRLEN, sptr); sptr += 2;
 	    /* raw memcpy (fix include autoconf later) */
 	    sys_memcpy(sptr, (char*)(&ifreq.ifr_hwaddr.sa_data), IFHWADDRLEN);
 	    sptr += IFHWADDRLEN;
-#elif defined(HAVE_GETIFADDRS)
-        struct ifaddrs *ifa, *ifp;
-        int found = 0;
+#elif defined(SIOCGENADDR)
+	    if (ioctl(desc->s, SIOCGENADDR, (char *)&ifreq) < 0)
+		break;
+	    buf_check(sptr, s_end, 1+2+sizeof(ifreq.ifr_enaddr));
+	    *sptr++ = INET_IFOPT_HWADDR;
+	    put_int16(sizeof(ifreq.ifr_enaddr), sptr); sptr += 2;
+	    /* raw memcpy (fix include autoconf later) */
+	    sys_memcpy(sptr, (char*)(&ifreq.ifr_enaddr),
+		       sizeof(ifreq.ifr_enaddr));
+	    sptr += sizeof(ifreq.ifr_enaddr);
+#elif defined(HAVE_GETIFADDRS) && defined(AF_LINK)
+	    struct ifaddrs *ifa, *ifp;
+	    struct sockaddr_dl *sdlp;
+	    int found = 0;
 
-        if (getifaddrs(&ifa) == -1)
-        goto error;
+	    if (getifaddrs(&ifa) == -1)
+		goto error;
 
-        for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
-        if ((ifp->ifa_addr->sa_family == AF_LINK) &&
-        (sys_strcmp(ifp->ifa_name, ifreq.ifr_name) == 0)) {
-            found = 1;
-            break;
-        }
-        }
+	    for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
+		if ((ifp->ifa_addr->sa_family == AF_LINK) &&
+		    (sys_strcmp(ifp->ifa_name, ifreq.ifr_name) == 0)) {
+		    found = 1;
+		    break;
+		}
+	    }
 
-        if (found == 0) {
-            freeifaddrs(ifa);
-            break;
-        }
+	    if (found == 0) {
+		freeifaddrs(ifa);
+		break;
+	    }
+	    sdlp = (struct sockaddr_dl *)ifp->ifa_addr;
 
-        buf_check(sptr, s_end, 1+IFHWADDRLEN);
-        *sptr++ = INET_IFOPT_HWADDR;
-        sys_memcpy(sptr, ((struct sockaddr_dl *)ifp->ifa_addr)->sdl_data +
-            ((struct sockaddr_dl *)ifp->ifa_addr)->sdl_nlen, IFHWADDRLEN);
-        freeifaddrs(ifa);
-        sptr += IFHWADDRLEN;
+	    buf_check(sptr, s_end, 1+2+sdlp->sdl_alen);
+	    *sptr++ = INET_IFOPT_HWADDR;
+	    put_int16(sdlp->sdl_alen, sptr); sptr += 2;
+	    sys_memcpy(sptr,
+		       sdlp->sdl_data + sdlp->sdl_nlen,
+		       sdlp->sdl_alen);
+	    freeifaddrs(ifa);
+	    sptr += sdlp->sdl_alen;
 #endif
 	    break;
 	}
@@ -4240,29 +4288,15 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 
 	case INET_IFOPT_FLAGS: {
 	    int flags;
-	    int eflags = 0;
 
 	    if (ioctl(desc->s, SIOCGIFFLAGS, (char*)&ifreq) < 0)
 		flags = 0;
 	    else
 		flags = ifreq.ifr_flags;
-	    /* translate flags */
-	    if (flags & IFF_UP)
-		eflags |= INET_IFF_UP;
-	    if (flags & IFF_BROADCAST)
-		eflags |= INET_IFF_BROADCAST;
-	    if (flags & IFF_LOOPBACK)
-		eflags |= INET_IFF_LOOPBACK;	
-	    if (flags & IFF_POINTOPOINT)
-		eflags |= INET_IFF_POINTTOPOINT;
-	    if (flags & IFF_RUNNING)
-		eflags |= INET_IFF_RUNNING;
-	    if (flags & IFF_MULTICAST)
-		eflags |= INET_IFF_MULTICAST;
 
 	    buf_check(sptr, s_end, 5);
 	    *sptr++ = INET_IFOPT_FLAGS;
-	    put_int32(eflags, sptr);
+	    put_int32(IFGET_FLAGS(flags), sptr);
 	    sptr += 4;
 	    break;
 	}
@@ -4300,17 +4334,22 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 	    (void) ioctl(desc->s, SIOCSIFADDR, (char*)&ifreq);
 	    break;
 
-	case INET_IFOPT_HWADDR: 
-	    buf_check(buf, b_end, IFHWADDRLEN);
+	case INET_IFOPT_HWADDR: {
+	    unsigned int len;
+	    buf_check(buf, b_end, 2);
+	    len = get_int16(buf); buf += 2;
+	    buf_check(buf, b_end, len);
 #ifdef SIOCSIFHWADDR
 	    /* raw memcpy (fix include autoconf later) */
-	    sys_memcpy((char*)(&ifreq.ifr_hwaddr.sa_data), buf, IFHWADDRLEN);
+	    sys_memset((char*)(&ifreq.ifr_hwaddr.sa_data),
+		       '\0', sizeof(ifreq.ifr_hwaddr.sa_data));
+	    sys_memcpy((char*)(&ifreq.ifr_hwaddr.sa_data), buf, len);
 
 	    (void) ioctl(desc->s, SIOCSIFHWADDR, (char *)&ifreq);
 #endif
-	    buf += IFHWADDRLEN;
+	    buf += len;
 	    break;
-
+	}
 
 	case INET_IFOPT_BROADADDR:
 #ifdef SIOCSIFBRDADDR
@@ -4414,6 +4453,119 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 }
 
 #endif
+
+
+
+#if defined(HAVE_GETIFADDRS)
+
+static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
+			       char **rbuf_pp, int rsize)
+{
+    struct ifaddrs *ifa_p, *ifa_free_p;
+
+    int buf_size;
+    char *buf_p;
+    char *buf_alloc_p;
+
+    buf_size = 512;
+    buf_alloc_p = ALLOC(buf_size);
+    buf_p = buf_alloc_p;
+#   define BUF_ENSURE(Size)                               \
+    do {                                                  \
+	int need, got = buf_p - buf_alloc_p;              \
+	need = got + (Size);                              \
+	if (need > buf_size) {                            \
+	    buf_size = need + 512;                        \
+	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size); \
+	    buf_p = buf_alloc_p + got;                    \
+	}                                                 \
+    } while(0)
+#   define SOCKADDR_TO_BUF(opt, sa)				        \
+    do {    						                \
+	if (sa) {                                                       \
+	    char *p;							\
+	    *buf_p++ = (opt);						\
+	    while (! (p = sockaddr_to_buf((sa), buf_p,                  \
+					  buf_alloc_p+buf_size))) {	\
+		int got = buf_p - buf_alloc_p;				\
+		buf_alloc_p = REALLOC(buf_alloc_p, buf_size+512);	\
+		buf_p = buf_alloc_p + got;				\
+	    }								\
+	    if (p == buf_p) {						\
+		buf_p--;						\
+	    } else {							\
+		buf_p = p;						\
+	    }								\
+	}                                                               \
+    } while (0)
+
+    if (getifaddrs(&ifa_p) < 0) {
+	return ctl_error(sock_errno(), rbuf_pp, rsize);
+    }
+    ifa_free_p = ifa_p;
+    *buf_p++ = INET_REP_OK;
+    for (;  ifa_p;  ifa_p = ifa_p->ifa_next) {
+	int len = strlen(ifa_p->ifa_name) + 1;
+	BUF_ENSURE(len + 1+4 + 1);
+	sys_memcpy(buf_p, ifa_p->ifa_name, len);
+	buf_p += len;
+	*buf_p++ = INET_IFOPT_FLAGS;
+	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p);
+	buf_p += 4;
+	if (ifa_p->ifa_addr->sa_family == AF_INET
+#if defined(AF_INET6)
+	    || ifa_p->ifa_addr->sa_family == AF_INET6
+#endif
+	    ) {
+	    SOCKADDR_TO_BUF(INET_IFOPT_ADDR, ifa_p->ifa_addr);
+	    BUF_ENSURE(1);
+	    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, ifa_p->ifa_netmask);
+	    if (ifa_p->ifa_flags & IFF_POINTOPOINT) {
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_DSTADDR, ifa_p->ifa_dstaddr);
+	    } else if (ifa_p->ifa_flags & IFF_BROADCAST) {
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR, ifa_p->ifa_broadaddr);
+	    }
+	}
+#if defined(AF_LINK) || defined(AF_PACKET)
+	else if (
+#if defined(AF_LINK)
+		 ifa_p->ifa_addr->sa_family == AF_LINK
+#else
+		 0
+#endif
+#if defined(AF_PACKET)
+		 || ifa_p->ifa_addr->sa_family == AF_PACKET
+#endif
+		 ) {
+	    BUF_ENSURE(1);
+	    SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+	}
+#endif
+	BUF_ENSURE(1);
+	*buf_p++ = '\0';
+    }
+    buf_size = buf_p - buf_alloc_p;
+    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);
+    /* buf_p is now unreliable */
+    freeifaddrs(ifa_free_p);
+    *rbuf_pp = buf_alloc_p;
+    return buf_size;
+#   undef BUF_ENSURE
+}
+
+#else
+
+static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
+			       char **rbuf_pp, int rsize)
+{
+    return ctl_error(ENOTSUP, rbuf_pp, rsize);
+}
+
+#endif
+
+
 
 #ifdef VXWORKS
 /*
@@ -6679,6 +6831,13 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	if (!IS_OPEN(desc))
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 	return inet_ctl_getiflist(desc, rbuf, rsize);
+    }
+
+    case INET_REQ_GETIFADDRS: {
+	DEBUGF(("inet_ctl(%ld): GETIFADDRS\r\n", (long)desc->port));
+	if (!IS_OPEN(desc))
+	    return ctl_xerror(EXBADPORT, rbuf, rsize);
+	return inet_ctl_getifaddrs(desc, rbuf, rsize);
     }
 
     case INET_REQ_IFGET: {
