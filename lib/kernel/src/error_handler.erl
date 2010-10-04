@@ -17,6 +17,11 @@
 %% %CopyrightEnd%
 %%
 -module(error_handler).
+%% FIXME: remove no_native directive after HiPE has been changed to make
+%% remote calls link to the target's Export* like BEAM does.
+%% For a detailed explanation see the commit titled
+%% "error_handler: add no_native compiler directive"
+-compile(no_native).
 
 %% A simple error handler.
 
