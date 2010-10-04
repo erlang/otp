@@ -536,33 +536,18 @@ gen_part_decode_funcs(WhatKind,_TypeName,{_,Directive,_,_}) ->
     throw({error,{asn1,{"Not implemented yet",WhatKind," partial incomplete directive:",Directive}}}).
 
 
-extaddgroup2sequence(ExtList) ->
-    extaddgroup2sequence(ExtList,[]).
-
-extaddgroup2sequence([{'ExtensionAdditionGroup',Number0}|T],Acc) ->
-    Number = case Number0 of undefined -> 1; _ -> Number0 end,
-    {ExtGroupComps,['ExtensionAdditionGroupEnd'|T2]} =
-     lists:splitwith(fun(Elem) -> is_record(Elem,'ComponentType') end,T),
-    extaddgroup2sequence(T2,[#'ComponentType'{
-                                  name='ExtAddGroup',
-                                  typespec=#type{def=#'SEQUENCE'{
-						   extaddgroup=Number,
-						   components=ExtGroupComps}},
-				  prop='OPTIONAL'}|Acc]);
-extaddgroup2sequence([C|T],Acc) ->
-    extaddgroup2sequence(T,[C|Acc]);
-extaddgroup2sequence([],Acc) ->
-    lists:reverse(Acc).
-
-
 gen_types(Erules,Tname,{RootL1,ExtList,RootL2}) 
   when is_list(RootL1), is_list(RootL2) ->
     gen_types(Erules,Tname,RootL1),
-    gen_types(Erules,Tname,extaddgroup2sequence(ExtList)),
+    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
+				       rt2ct_suffix(Erules)])),
+    gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList)),
     gen_types(Erules,Tname,RootL2);
 gen_types(Erules,Tname,{RootList,ExtList}) when is_list(RootList) ->
     gen_types(Erules,Tname,RootList),
-    gen_types(Erules,Tname,extaddgroup2sequence(ExtList));
+    Rtmod = list_to_atom(lists:concat(["asn1ct_gen_",erule(Erules),
+				       rt2ct_suffix(Erules)])),
+    gen_types(Erules,Tname,Rtmod:extaddgroup2sequence(ExtList));
 gen_types(Erules,Tname,[{'EXTENSIONMARK',_,_}|Rest]) ->
     gen_types(Erules,Tname,Rest);
 gen_types(Erules,Tname,[ComponentType|Rest]) ->
