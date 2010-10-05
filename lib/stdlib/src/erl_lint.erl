@@ -311,6 +311,8 @@ format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
+format_error({bad_export_type, _ETs}) ->
+    io_lib:format("bad export_type declaration", []);
 format_error({duplicated_export_type, {T, A}}) ->
     io_lib:format("type ~w/~w already exported", [T, A]);
 format_error({undefined_type, {TypeName, Arity}}) ->
@@ -1128,8 +1130,7 @@ export(Line, Es, #lint{exports = Es0, called = Called} = St0) ->
 
 export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
     UTs0 = Usage#usage.used_types,
-    {ETs1,UTs1,St1} =
-	foldl(fun (TA, {E,U,St2}) ->
+    try foldl(fun ({T,A}=TA, {E,U,St2}) when is_atom(T), is_integer(A) ->
 		      St = case gb_sets:is_element(TA, E) of
 			       true ->
 				   Warn = {duplicated_export_type,TA},
@@ -1139,8 +1140,13 @@ export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
 			   end,
 		      {gb_sets:add_element(TA, E), dict:store(TA, Line, U), St}
 	      end,
-	      {ETs0,UTs0,St0}, ETs),
-    St1#lint{usage = Usage#usage{used_types = UTs1}, exp_types = ETs1}.
+	      {ETs0,UTs0,St0}, ETs) of
+	{ETs1,UTs1,St1} ->
+	    St1#lint{usage = Usage#usage{used_types = UTs1}, exp_types = ETs1}
+    catch
+	error:_ ->
+	    add_error(Line, {bad_export_type, ETs}, St0)
+    end.
 
 -type import() :: {module(), [fa()]} | module().
 -spec import(line(), import(), lint_state()) -> lint_state().
