@@ -118,7 +118,6 @@ static void usage_arg(const char *progname, const char *switchname);
 static void usage_error(const char *progname, const char *switchname);
 static void usage(const char *progname);
 static int get_module(char **mbuf, char **mname);
-static struct hostent* get_hostent(char *host);
 static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags);
 static int read_stdin(char **buf);
 static void split_apply_string(char *str, char **mod, 
@@ -367,8 +366,8 @@ int erl_call(int argc, char **argv)
      * Expand name to a real name (may be ip-address) 
      */
     /* FIXME better error string */
-    if ((hp = get_hostent(host)) == 0) {
-	fprintf(stderr,"erl_call: can't get_hostent(%s)\n", host);
+    if ((hp = ei_gethostbyname(host)) == 0) {
+	fprintf(stderr,"erl_call: can't ei_gethostbyname(%s)\n", host);
 	exit(1);
     }
     /* If shortnames, cut off the name at first '.' */
@@ -603,32 +602,6 @@ int erl_call(int argc, char **argv)
  *  XXXXX
  *
  ***************************************************************************/
-
-/*
- * Get host entry (by address or name)
- */
-/* FIXME: will fail on names like '2fun4you'.  */
-static struct hostent* get_hostent(char *host)
-{
-  if (isdigit((int)*host)) {
-    struct in_addr ip_addr;
-    int b1, b2, b3, b4;
-    long addr;
-      
-    /* FIXME: Use inet_aton() (or inet_pton() and get v6 for free). */
-    if (sscanf(host, "%d.%d.%d.%d", &b1, &b2, &b3, &b4) != 4) {
-	return NULL;
-    }
-    addr = inet_addr(host);
-    ip_addr.s_addr = htonl(addr);
-      
-    return ei_gethostbyaddr((char *)&ip_addr,sizeof(struct in_addr), AF_INET);
-  }
-
-  return ei_gethostbyname(host);
-} /* get_hostent */
-
-
 
 
 /* 
