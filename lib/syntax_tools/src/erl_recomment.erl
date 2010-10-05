@@ -215,7 +215,8 @@ comment_delta(Text) ->
 %% the source file itself, but have been included by preprocessing. This
 %% way, comments will not be inserted into such parts by mistake.
 
--record(filter, {file = undefined, line = 0 :: integer()}).
+-record(filter, {file = undefined :: file:filename() | 'undefined',
+		 line = 0         :: integer()}).
 
 filter_forms(Fs) ->
     filter_forms(Fs, false, #filter{}).
@@ -720,8 +721,6 @@ tree_node_attrs(#tree{attrs = Attrs}) ->
 
 %% =====================================================================
 %% General utility functions
-
-%% Just the generic "maximum" function
 
 %% Return the least positive integer of X and Y, or zero if none of them
 %% are positive. (This is necessary for computing minimum source line

@@ -1134,21 +1134,21 @@ collect_attribute(_, {N, V}, Info) ->
 
 %% Abstract datatype for collecting module information.
 
--record(forms, {module, exports, module_imports, imports, attributes,
-		records, errors, warnings, functions, rules}).
+-record(forms, {module         = none :: 'none' | {'value', atom()},
+		exports        = []   :: [{atom(), arity()}],
+		module_imports = []   :: [atom()],
+		imports        = []   :: [{atom(), [{atom(), arity()}]}],
+		attributes     = []   :: [{atom(), term()}],
+		records        = []   :: [{atom(), [{atom(), field_default()}]}],
+		errors         = []   :: [term()],
+		warnings       = []   :: [term()],
+		functions      = []   :: [{atom(), arity()}],
+		rules          = []   :: [{atom(), arity()}]}).
+
+-type field_default() :: 'none' | erl_syntax:syntaxTree().
 
 new_finfo() ->
-    #forms{module = none,
-           exports = [],
-           module_imports = [],
-           imports = [],
-           attributes = [],
-           records = [],
-           errors = [],
-           warnings = [],
-           functions = [],
-           rules = []
-          }.
+    #forms{}.
 
 finfo_set_module(Name, Info) ->
     case Info#forms.module of
