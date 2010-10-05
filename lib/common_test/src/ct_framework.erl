@@ -694,12 +694,12 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 			    %% init/end functions for top groups will be executed
 			    case catch proplists:get_value(name, element(2, hd(ConfTests))) of
 				Name ->		% top group
-				    ConfTests;
+				    delete_subs(ConfTests, ConfTests);
 				_ ->
 				    []
 			    end;
 			false ->
-			    ConfTests
+			    delete_subs(ConfTests, ConfTests)
 		    end
 	    end;
 	_ ->
@@ -716,7 +716,22 @@ get_suite(Mod, Name) ->
 find_groups(Mod, Name, TCs, GroupDefs) ->
     Found = find(Mod, Name, TCs, GroupDefs, [], GroupDefs, false),
     Trimmed = trim(Found),
-    delete_subs(Trimmed, Trimmed).
+    %% I cannot find a reason to why this function is called,
+    %% It deletes any group which is referenced in any other
+    %% group. i.e.
+    %% groups() ->
+    %%   [{test, [], [testcase1]},
+    %%    {testcases, [], [{group, test}]}].
+    %% Would be changed to
+    %% groups() ->
+    %%   [{testcases, [], [testcase1]}].
+    %% instead of what I believe is correct:
+    %% groups() ->
+    %%   [{test, [], [testcase1]},
+    %%    {testcases, [], [testcase1]}].
+    %% Have to double check with peppe
+    delete_subs(Trimmed, Trimmed),
+    Trimmed.
 
 find(Mod, all, _TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) ->
     cyclic_test(Mod, Name, Known),
@@ -800,7 +815,7 @@ find(_Mod, _Name, _TCs,  [], _Known, _Defs, false) ->
 find(_Mod, _Name, _TCs,  [], _Known, _Defs, _Found) ->
     [].
 
-delete_subs([Conf | Confs], All) ->
+delete_subs([{conf, _,_,_,_} = Conf | Confs], All) ->
     All1 = delete_conf(Conf, All),
     case is_sub(Conf, All1) of
 	true ->
@@ -808,7 +823,8 @@ delete_subs([Conf | Confs], All) ->
 	false ->
 	    delete_subs(Confs, All)
     end;
-
+delete_subs([_Else | Confs], All) ->
+    delete_subs(Confs, All);
 delete_subs([], All) ->
     All.
 
@@ -900,7 +916,9 @@ make_all_conf(Mod) ->
 		[] ->
 		    {error,{invalid_group_spec,Mod}};
 		ConfTests ->
-		    [{conf,Props,Init,all,End} || {conf,Props,Init,_,End} <- ConfTests]
+		    [{conf,Props,Init,all,End} ||
+			{conf,Props,Init,_,End}
+			    <- delete_subs(ConfTests, ConfTests)]
 	    end
     end.
 
@@ -950,7 +968,7 @@ get_all(Mod, ConfTests) ->
 			{error,_} = Error ->
 			    [{?MODULE,error_in_suite,[[Error]]}];
 			Tests ->
-			    Tests
+			    delete_subs(Tests, Tests)
 		    end
 	    end;
 	Skip = {skip,_Reason} ->
