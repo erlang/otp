@@ -27,7 +27,7 @@
 	 other_process_deletes/1, owner_dies/1,
 	 other_process_closes/1,insert_same_key/1]).
 -export([fixbag/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 %%% Internal exports
 -export([command_loop/0,start_commander/0]).
 
@@ -53,7 +53,7 @@ init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(60)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     lists:foreach(fun(X) ->

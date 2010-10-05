@@ -51,7 +51,7 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([parse_transform/1, 
              badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
@@ -114,7 +114,7 @@ init_per_testcase(Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{?TESTCASE, Case}, {watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -51,7 +51,7 @@
 %% External exports
 %%-----------------------------------------------------------------
 -export([all/1, cases/0, init_all/1, finish_all/1,
-	 init_per_testcase/2, fin_per_testcase/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 	 nat_ip_address/1, nat_ip_address_multiple/1,
 	 nat_ip_address_local/1, nat_ip_address_local_local/1,
 	 nat_iiop_port/1, nat_iiop_port_local/1,
@@ -104,7 +104,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     oe_orber_test_server:oe_unregister(),
     orber:jump_stop(),
     Path = code:which(?MODULE),

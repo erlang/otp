@@ -22,7 +22,7 @@
 
 -export([all/1,	 
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 utf8_illegal_sequences_bif/1,
 	 utf16_illegal_sequences_bif/1,
 	 random_lists/1,
@@ -34,7 +34,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(20)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

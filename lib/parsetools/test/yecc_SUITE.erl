@@ -34,7 +34,7 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([app_test/1,
          checks/1, 
@@ -55,7 +55,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

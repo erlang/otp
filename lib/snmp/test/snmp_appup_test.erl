@@ -24,7 +24,7 @@
 
 -export([
 	 all/1, init_per_suite/1, fin_suite/1,
-	 init_per_testcase/2, fin_per_testcase/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 
 	 appup_file/1
 
@@ -88,7 +88,7 @@ fin_suite(Config) when is_list(Config) ->
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 

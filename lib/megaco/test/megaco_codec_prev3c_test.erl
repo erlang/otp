@@ -218,7 +218,7 @@
          flex_pretty_otp7431_msg06/1,
          flex_pretty_otp7431_msg07/1,
 
-	 init_per_testcase/2, fin_per_testcase/2]).  
+	 init_per_testcase/2, end_per_testcase/2]).  
 
 -export([display_text_messages/0, generate_text_messages/0]).
 
@@ -303,9 +303,9 @@ init_per_testcase(Case, Config) ->
 	end,
     megaco_test_lib:init_per_testcase(Case, C).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     erase(verbosity),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -595,7 +595,7 @@ tickets() ->
 			    Res ->
 				Res
 			end,
-		    fin_per_testcase(Case, C),
+		    end_per_testcase(Case, C),
 		    Result
 	    end,
     process_flag(trap_exit, Flag),

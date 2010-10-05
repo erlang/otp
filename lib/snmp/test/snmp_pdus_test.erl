@@ -38,7 +38,7 @@
 	 tickets/1,
 	 otp7575/1,
 	 otp8563/1, 
-         init_per_testcase/2, fin_per_testcase/2
+         init_per_testcase/2, end_per_testcase/2
 	]).
 
 
@@ -64,7 +64,7 @@
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 

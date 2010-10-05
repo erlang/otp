@@ -51,7 +51,7 @@ config(priv_dir,_) ->
     ".".
 -else.
 -include("test_server.hrl").
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
 init_per_testcase(_Case, Config) ->
@@ -60,7 +60,7 @@ init_per_testcase(_Case, Config) ->
     ?line code:add_patha(?config(priv_dir,Config)),
     [{orig_path,OrigPath}, {watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ?line Dog = ?config(watchdog, Config),
     ?line test_server:timetrap_cancel(Dog),
     ?line OrigPath = ?config(orig_path,Config),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 -include("test_server.hrl").
 -include("erl_connect_SUITE_data/erl_connect_test_cases.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,
 	 erl_send/1,erl_reg_send/1, erl_send_cookie_file/1]).
 
 -import(runner, [get_term/1,send_term/2]).
@@ -35,7 +35,7 @@ init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(0.25)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

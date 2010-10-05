@@ -273,7 +273,7 @@
 %% External exports
 %%-----------------------------------------------------------------
 -export([all/1, cases/0, init_all/1, finish_all/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 %	 code_CertificateChain_api/1,
 %	 code_AttributeCertChain_api/1,
 %	 code_VerifyingCertChain_api/1,
@@ -370,7 +370,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     oe_orber_test_server:oe_unregister(),
     orber:jump_stop(),
     Path = code:which(?MODULE),

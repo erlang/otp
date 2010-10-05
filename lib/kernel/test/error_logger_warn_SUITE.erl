@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,7 @@
 %%
 -module(error_logger_warn_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,
 	 basic/1,warnings_info/1,warnings_warnings/1,
 	 rb_basic/1,rb_warnings_info/1,rb_warnings_warnings/1,
 	 rb_trunc/1,rb_utc/1,file_utc/1]).
@@ -51,7 +51,7 @@ all(suite) ->
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

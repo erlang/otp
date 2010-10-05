@@ -26,7 +26,7 @@
 
 -define(dummy_host,test01).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/1, init_per_testcase/2, end_per_testcase/2,
 	 framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
 	 ei_recv_tmo/1]).
 
@@ -43,7 +43,7 @@ init_per_testcase(_Case, Config) ->
 	    end,
     [{vxsim,Bool},{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

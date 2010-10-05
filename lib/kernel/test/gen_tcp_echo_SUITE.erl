@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 %%-compile(export_all).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/1, init_per_testcase/2, end_per_testcase/2,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -40,7 +40,7 @@ all(suite) ->
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:minutes(5)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 

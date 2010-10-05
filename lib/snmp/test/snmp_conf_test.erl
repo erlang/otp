@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,7 @@
 %%----------------------------------------------------------------------
 -export([
 	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 
 	 check_mandatory/1,
 	 check_integer1/1,
@@ -80,7 +80,7 @@
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 %%======================================================================

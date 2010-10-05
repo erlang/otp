@@ -123,10 +123,10 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?WD_START(?MINS(6)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(otp8395, Config) when is_list(Config) ->
+end_per_testcase(otp8395, Config) when is_list(Config) ->
     otp8395({fin, Config});
-fin_per_testcase(_Case, Config) when is_list(Config) ->
-    ?DBG("fin_per_testcase -> entry with"
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    ?DBG("end_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?config(watchdog, Config),
@@ -220,7 +220,7 @@ init_per_testcase2(Case, Config) ->
      {sub_agent_top_dir, SubAgentTopDir}, 
      {manager_top_dir,   ManagerTopDir} | Config].
 
-fin_per_testcase2(_Case, Config) ->
+end_per_testcase2(_Case, Config) ->
     Config.
 
 

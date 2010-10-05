@@ -63,14 +63,14 @@ config(data_dir, _) ->
     "cprof_SUITE_data".
 -else.
 %% When run in test server.
--export([all/1, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, on_load/1, modules/1]).
 	 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(30)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_count]),
     erlang:trace_pattern(on_load, false, [local,meta,call_count]),
     erlang:trace(all, false, [all]),

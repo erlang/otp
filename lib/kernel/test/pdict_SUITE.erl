@@ -31,13 +31,13 @@
 
 -export([all/1,
 	 simple/1, complicated/1, heavy/1, info/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(test_server:minutes(10)),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

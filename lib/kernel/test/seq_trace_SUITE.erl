@@ -18,7 +18,7 @@
 %%
 -module(seq_trace_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/1,init_per_testcase/2,end_per_testcase/2]).
 -export([token_set_get/1, tracer_set_get/1, print/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
@@ -43,7 +43,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

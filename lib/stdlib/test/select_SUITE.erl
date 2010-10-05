@@ -58,14 +58,14 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/1,select_test/1,init_per_testcase/2, fin_per_testcase/2, 
+-export([all/1,select_test/1,init_per_testcase/2, end_per_testcase/2, 
 	 return_values/1]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(1200)),
     [{watchdog, Dog}|Config].
  
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

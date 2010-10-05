@@ -72,7 +72,7 @@
 -export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2, end_per_suite/1]).
 %% Convenience for manual testing
 -export([random_test/0]).
 
@@ -108,7 +108,7 @@ init_per_testcase(Case, Config) ->
     Dog=test_server:timetrap(test_server:minutes(20)),
     [{watchdog, Dog}, {test_case, Case} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     wait_for_test_procs(true),
     test_server:timetrap_cancel(Dog).

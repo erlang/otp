@@ -40,7 +40,7 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 
 	 all/1, 
 	 open_and_close/1,
@@ -97,7 +97,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?WD_START(?MINS(5)),
     [{log_dir, CaseDir}, {watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     %% Leave the dirs created above (enable debugging of the test case(s))
     Dog = ?config(watchdog, Config),
     ?WD_STOP(Dog),

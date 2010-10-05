@@ -21,7 +21,7 @@
 
 -export([all/1,
 	 %% init/1, fini/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
 	 truncate/1, sync/1, get_set_file/1, compress/1, uuencode/1,
 	 large_file_errors/1, large_file_light/1, large_file_heavy/1]).
@@ -51,7 +51,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     %% error_logger:info_msg("~p:~p *****~n", [?MODULE, Func]),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     %% error_logger:info_msg("~p:~p END *****~n", [?MODULE, Func]),
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).

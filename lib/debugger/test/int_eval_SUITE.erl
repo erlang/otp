@@ -22,7 +22,7 @@
 
 %% Purpose: Deeper test of the evaluator.
 
--export([all/1,init_per_testcase/2, fin_per_testcase/2,
+-export([all/1,init_per_testcase/2, end_per_testcase/2,
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
@@ -49,7 +49,7 @@ init_per_testcase(_Case, Config) ->
 				  erlang, exit, [self(), kill]),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
     Dog = ?config(watchdog, Config),
     timer:cancel(Dog),

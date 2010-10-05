@@ -31,8 +31,8 @@ init_per_testcase(Func, Conf) ->
     setup(Conf),
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 all(doc) ->
     ["Test that the qlc mnesia interface works as expected."];

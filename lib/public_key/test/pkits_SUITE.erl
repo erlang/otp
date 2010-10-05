@@ -580,7 +580,7 @@ init_per_testcase(_Func, Config) ->
     put(datadir, Datadir),
     Config.
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     %% Nodes = select_nodes(all, Config, ?FILE, ?LINE),
     %% rpc:multicall(Nodes, mnesia, lkill, []),
     Config.

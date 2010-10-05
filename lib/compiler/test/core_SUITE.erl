@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,7 @@
 %%
 -module(core_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1]).
 
 -include("test_server.hrl").
@@ -30,7 +30,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(5)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

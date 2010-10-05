@@ -24,7 +24,7 @@
 	 one_grp/1, one_grp_x/1, two_grp/1, hidden_groups/1, test_exit/1]).
 -export([init/1, init/2, init2/2, start_proc/1, start_proc_rereg/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %-compile(export_all).
 
@@ -46,7 +46,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(5)),
     [{?TESTCASE, Case}, {watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

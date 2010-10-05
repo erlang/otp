@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,7 @@
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
 
--export([init_per_testcase/2, fin_per_testcase/2, start_type/0, 
+-export([init_per_testcase/2, end_per_testcase/2, start_type/0, 
 	 start_phase/0, conf_change/0]).
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
@@ -57,12 +57,12 @@ init_per_testcase(Case, Config) ->
     ?line Dog = test_server:timetrap(?default_timeout),
     [{?TESTCASE, Case}, {watchdog, Dog}|Config].
 
-fin_per_testcase(otp_2973, Config) ->
+end_per_testcase(otp_2973, Config) ->
     code:del_path(?config(data_dir,Config)),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok;
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

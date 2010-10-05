@@ -38,13 +38,13 @@
 -export([float_1_function/1]).
 -export([action_function/1]).
 -export([warnings/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(360)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 

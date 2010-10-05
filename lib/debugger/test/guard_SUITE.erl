@@ -20,7 +20,7 @@
 %%
 -module(guard_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,init_all/1,finish_all/1,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,init_all/1,finish_all/1,
 	 bad_arith/1,bad_tuple/1,test_heap_guards/1,guard_bifs/1,
 	 type_tests/1,const_guard/1,
 	 const_cond/1,basic_not/1,complex_not/1,
@@ -59,7 +59,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

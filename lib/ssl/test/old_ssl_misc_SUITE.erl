@@ -22,7 +22,7 @@
 
 -export([all/1,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 config/1,
 	 finish/1,
 	 seed/1,
@@ -40,7 +40,7 @@ init_per_testcase(_Case, Config) ->
     WatchDog = ssl_test_lib:timetrap(?DEFAULT_TIMEOUT),
     [{watchdog, WatchDog}| Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 

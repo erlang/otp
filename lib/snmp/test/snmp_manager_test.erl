@@ -44,7 +44,7 @@
 %%----------------------------------------------------------------------
 -export([
 	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 
 	 start_and_stop_tests/1,
 	 simple_start_and_stop1/1,
@@ -289,18 +289,18 @@ init_per_testcase3(Case, Config) ->
 	    Config
     end.
 
-fin_per_testcase(Case, Config) when is_list(Config) ->
+end_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
     Dog    = ?config(watchdog, Config),
     ?WD_STOP(Dog),
     Conf1  = lists:keydelete(watchdog, 1, Config),
-    Conf2  = fin_per_testcase2(Case, Conf1),
+    Conf2  = end_per_testcase2(Case, Conf1),
     ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     %%     TopDir = ?config(top_dir, Conf2),
     %%     ?DEL_DIR(TopDir),
     Conf2.
 
-fin_per_testcase2(Case, Config) ->
+end_per_testcase2(Case, Config) ->
     OldApiCases = 
 	[
 	 simple_sync_get1, 

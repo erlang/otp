@@ -45,7 +45,7 @@ config(data_dir, _) ->
     filename:absname("./epp_SUITE_data").
 -else.
 -include("test_server.hrl").
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -53,7 +53,7 @@ config(data_dir, _) ->
 init_per_testcase(_, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_, Config) ->
+end_per_testcase(_, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

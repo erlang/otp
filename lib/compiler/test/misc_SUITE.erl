@@ -18,7 +18,7 @@
 %%
 -module(misc_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
 	 confused_literals/1,integer_encoding/1,override_bif/1]).
 	 
@@ -45,7 +45,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

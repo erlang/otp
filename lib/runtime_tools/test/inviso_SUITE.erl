@@ -133,7 +133,7 @@ init_per_testcase(_Case,Config) ->
     insert_timetraphandle_config(TH,NewConfig2).
 %% -----------------------------------------------------------------------------
 
-fin_per_testcase(Case,Config) ->
+end_per_testcase(Case,Config) ->
     ?l test_server:stop_node(get_remotenode_config(inviso1,Config)),
     ?l test_server:stop_node(get_remotenode_config(inviso2,Config)),
 
@@ -142,14 +142,14 @@ fin_per_testcase(Case,Config) ->
 	    true;
 	Pid when is_pid(Pid) ->                 % But if it exists...
 	    exit(Pid,kill),                  % Remove it!
-	    io:format("Had to kill the control component in fin_per_testcase,~p.~n",[Case])
+	    io:format("Had to kill the control component in end_per_testcase,~p.~n",[Case])
     end,
     case whereis(inviso_rt) of
 	undefined ->                         % Should not exist.
 	    true;
 	Pid2 when is_pid(Pid2) ->               % But if it exists...
 	    exit(Pid2,kill),                 % Remove it!
-	    io:format("Had to kill local runtime component in fin_per_testcase,~p.~n",[Case])
+	    io:format("Had to kill local runtime component in end_per_testcase,~p.~n",[Case])
     end,
     ?l process_killer([inviso_test_proc,
 		       inviso_tab_proc,

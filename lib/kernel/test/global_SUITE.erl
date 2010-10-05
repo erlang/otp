@@ -102,7 +102,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok = gen_server:call(global_name_server, high_level_trace_start,infinity),
     [{?TESTCASE, Case}, {registered, registered()} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ?line write_high_level_trace(Config),
     ?line _ = 
         gen_server:call(global_name_server, high_level_trace_stop, infinity),

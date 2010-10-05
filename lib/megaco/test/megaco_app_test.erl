@@ -39,8 +39,8 @@ init_per_testcase(undef_funcs = Case, Config) ->
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

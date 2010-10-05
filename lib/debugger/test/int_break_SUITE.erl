@@ -24,7 +24,7 @@
 
 -include("test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,
 	 basic/1,cleanup/1]).
 
 -export([auto_attach/1]).
@@ -40,7 +40,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?t:minutes(0.5)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ?line ok = io:format("Interpreted modules: ~p", [int:interpreted()]),
     ?line Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),

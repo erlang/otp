@@ -36,7 +36,7 @@
 init_per_testcase(_Case, Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -26,7 +26,7 @@
 -export([
 	all/1, 
 	init_per_testcase/2, 
-	fin_per_testcase/2,
+	end_per_testcase/2,
 
 	ei_send/1, 
 	ei_reg_send/1, 
@@ -52,7 +52,7 @@ init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(0.25)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -57,7 +57,7 @@
 
 -export([histogram/1, sum_histogram/1, ave_histogram/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Internal export.
 -export([client/2]).
@@ -83,7 +83,7 @@ init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(15)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog=?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,7 +55,7 @@
 %%-----------------------------------------------------------------
 -export([all/1, event_objects_api/1, events_api/1, events_sync_api/1, 
 	 cases/0, init_all/1, finish_all/1, 
-	 init_per_testcase/2, fin_per_testcase/2, app_test/1]).
+	 init_per_testcase/2, end_per_testcase/2, app_test/1]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -78,7 +78,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

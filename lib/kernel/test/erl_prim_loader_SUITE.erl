@@ -29,7 +29,7 @@
 	 local_archive/1, remote_archive/1,
 	 primary_archive/1, virtual_dir_in_archive/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %%-----------------------------------------------------------------
 %% Test suite for erl_prim_loader. (Most code is run during system start/stop.)
@@ -49,7 +49,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(3)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

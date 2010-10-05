@@ -23,7 +23,7 @@
 
 -export([all/1, 
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 info/1,
 	 link_test/1,
 	 md5/1,
@@ -103,8 +103,8 @@ init_per_testcase(_Name,Config) ->
     ?line crypto:start(),
     Config.
 
-fin_per_testcase(_Name,Config) ->
-    io:format("fin_per_testcase\n"),
+end_per_testcase(_Name,Config) ->
+    io:format("end_per_testcase\n"),
     ?line crypto:stop(),
     Config.
 

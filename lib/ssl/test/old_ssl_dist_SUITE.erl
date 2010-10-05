@@ -39,7 +39,7 @@
 -export([init_per_suite/1,
 	 end_per_suite/1,
 	 init_per_testcase/2,
-	 fin_per_testcase/2]).
+	 end_per_testcase/2]).
 -export([cnct2tstsrvr/1]).
 
 -export([basic/1]).
@@ -61,7 +61,7 @@ init_per_testcase(Case, Config) when list(Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-fin_per_testcase(_Case, Config) when list(Config) ->
+end_per_testcase(_Case, Config) when list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

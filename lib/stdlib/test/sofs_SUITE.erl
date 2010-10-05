@@ -81,7 +81,7 @@
 	 union/1, union/2, family_to_digraph/1, family_to_digraph/2,
 	 digraph_to_family/1, digraph_to_family/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -compile({inline,[{eval,2}]}).
 
@@ -92,7 +92,7 @@ init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

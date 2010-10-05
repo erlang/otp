@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,7 +68,7 @@
 %% External exports
 %%-----------------------------------------------------------------
 -export([all/1, cases/0, init_all/1, finish_all/1, time_api/1, timerevent_api/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 	 app_test/1]).
 
 %%-----------------------------------------------------------------
@@ -97,7 +97,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     Dog = ?config(watchdog, Config),

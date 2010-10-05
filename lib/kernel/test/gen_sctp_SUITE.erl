@@ -23,7 +23,7 @@
 
 %%-compile(export_all).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/1,init_per_testcase/2,end_per_testcase/2]).
 -export(
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
@@ -37,7 +37,7 @@ all(suite) ->
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(15)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 

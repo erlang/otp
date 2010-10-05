@@ -24,7 +24,7 @@
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([tickets/1,
              otp_7277/1, otp_8259/1, otp_8653/1,
@@ -44,7 +44,7 @@ init_per_testcase(Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{?TESTCASE, Case}, {watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.

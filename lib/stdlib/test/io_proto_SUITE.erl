@@ -21,7 +21,7 @@
 
 -export([all/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, binary_options/1, bc_with_r12/1,
 	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
@@ -73,7 +73,7 @@ init_per_testcase(_Case, Config) ->
 	   end,
     os:putenv("TERM","vt100"),
     [{watchdog, Dog}, {term, Term} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     Term = ?config(term,Config),
     os:putenv("TERM",Term),

@@ -24,7 +24,7 @@
 	 receive_and_save_trace/2, send_trace/2]).
 
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([live_node/1,
 	 'sparc_sunos5.8_32b_emt2.0'/1,
@@ -100,7 +100,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 			       [{watchdog, Dog}, {testcase, Case} | Config])
     end.
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     ignore_cores:restore(Config),
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),

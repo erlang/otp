@@ -43,7 +43,7 @@
 
 -export([
 	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 
 	 start_and_stop/1,
 
@@ -150,8 +150,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {manager_log_dir,  MgrLogDir} | Config].
 
 
-fin_per_testcase(Case, Config) when is_list(Config) ->
-    p("fin_per_testcase -> Case: ~p", [Case]),
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> Case: ~p", [Case]),
     %% The cleanup is removed due to some really discusting NFS behaviour...
     %% CaseTopDir = ?config(manager_dir, Config),
     %% ?line ok = ?DEL_DIR(CaseTopDir),

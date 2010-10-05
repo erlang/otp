@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 %%----------------------------------------------------------------------
 -export([
 	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 	 init_all/1, finish_all/1, 
 
 	 start_and_stop/1,
@@ -100,20 +100,20 @@ init_per_testcase(cache_test, Config) when is_list(Config) ->
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
-fin_per_testcase(size_check_dets, Config) when is_list(Config) ->
+end_per_testcase(size_check_dets, Config) when is_list(Config) ->
     Dir = ?config(dets_dir, Config),
     ?line ok = ?DEL_DIR(Dir),
     lists:keydelete(dets_dir, 1, Config);
-fin_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
+end_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
     mnesia_stop(),
     Dir = ?config(mnesia_dir, Config),
     ?line ok = ?DEL_DIR(Dir),
     lists:keydelete(mnesia_dir, 1, Config);
-fin_per_testcase(cache_test, Config) when is_list(Config) ->
+end_per_testcase(cache_test, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     Config;
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 

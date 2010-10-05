@@ -23,7 +23,7 @@
 -include("test_server.hrl").
 -include("ei_accept_SUITE_data/ei_accept_test_cases.hrl").
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/1, init_per_testcase/2, end_per_testcase/2,
 	 ei_accept/1, ei_threaded_accept/1]).
 
 -import(runner, [get_term/1,send_term/2]).
@@ -34,7 +34,7 @@ init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:seconds(30)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

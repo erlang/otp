@@ -34,7 +34,7 @@
 	 big_boot_embedded/1,
 	 on_load_embedded/1, on_load_errors/1, native_early_modules/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2, 
+-export([init_per_testcase/2, end_per_testcase/2, 
 	 init_per_suite/1, end_per_suite/1,
 	 sticky_compiler/1]).
 
@@ -76,7 +76,7 @@ init_per_testcase(_Func, Config) ->
     P=code:get_path(),
     P=code:get_path(),
     [{watchdog, Dog}, {code_path, P}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     P=?config(code_path, Config),

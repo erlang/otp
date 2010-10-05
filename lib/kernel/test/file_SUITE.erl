@@ -42,7 +42,7 @@
 
 -export([all/1,
 	 init/1, fini/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, dirs/1, files/1, names/1]).
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
 	 pos/1, pos1/1, pos2/1]).
@@ -139,7 +139,7 @@ init_per_testcase(_Func, Config) ->
     %%error_logger:info_msg("~p:~p *****~n", [?MODULE, _Func]),
     ?FILE_INIT_PER_TESTCASE(Config).
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     %% error_logger:info_msg("~p:~p END *****~n", [?MODULE, _Func]),
     ?FILE_FIN_PER_TESTCASE(Config).
 

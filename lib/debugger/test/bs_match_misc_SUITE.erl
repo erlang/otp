@@ -20,7 +20,7 @@
 -module(bs_match_misc_SUITE).
 
 -author('bjorn@erix.ericsson.se').
--export([all/1,init_per_testcase/2,fin_per_testcase/2,init_all/1,finish_all/1,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,init_all/1,finish_all/1,
 	 bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1]).
 
 -include("test_server.hrl").
@@ -36,7 +36,7 @@ init_per_testcase(_Case, Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

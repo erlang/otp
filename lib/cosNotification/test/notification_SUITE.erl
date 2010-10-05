@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -126,7 +126,7 @@
 -export([all/1, cases/0, init_all/1, finish_all/1, qos_api/1, adm_api/1,
 	 cosevent_api/1, filter_adm_api/1, events_api/1, events2_api/1,
 	 event_qos_api/1, filter_api/1, mapping_filter_api/1, subscription_api/1, 
-	 init_per_testcase/2, fin_per_testcase/2, persistent_max_events_api/1,
+	 init_per_testcase/2, end_per_testcase/2, persistent_max_events_api/1,
 	 persistent_timeout_events_api/1, persistent_recover_events_api/1,
 	 app_test/1]).
 
@@ -161,7 +161,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     Dog = ?config(watchdog, Config),

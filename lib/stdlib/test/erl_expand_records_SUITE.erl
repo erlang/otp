@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([abstract_module/1, attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
@@ -45,7 +45,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.

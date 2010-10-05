@@ -38,7 +38,7 @@
 %%----------------------------------------------------------------------
 -export([
 	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 
 	 description/1,
 	 oid_conflicts/1,
@@ -80,7 +80,7 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     ?line ok = file:make_dir(CompDir),
     [{comp_dir, CompDir},{mib_dir, MibDir}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     CompDir = ?config(comp_dir, Config),
     ?line ok = ?DEL_DIR(CompDir),
     lists:keydelete(comp_dir, 1, Config).

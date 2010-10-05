@@ -28,7 +28,7 @@
 
 % Test server specific exports
 -export([all/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases must be exported.
 -export([len/1,equal/1,concat/1,chr_rchr/1,str_rstr/1]).
@@ -52,7 +52,7 @@ all(suite) ->
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

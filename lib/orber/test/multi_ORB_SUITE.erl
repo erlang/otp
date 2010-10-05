@@ -51,7 +51,7 @@
 %% External exports
 %%-----------------------------------------------------------------
 -export([all/1, cases/0, init_all/1, finish_all/1, basic_PI_api/1, multi_orber_api/1,
-	 init_per_testcase/2, fin_per_testcase/2, multi_pseudo_orber_api/1, 
+	 init_per_testcase/2, end_per_testcase/2, multi_pseudo_orber_api/1, 
 	 light_orber_api/1, light_orber2_api/1, 
 	 ssl_1_multi_orber_api/1, ssl_2_multi_orber_api/1, ssl_reconfigure_api/1,
 	 iiop_timeout_api/1, iiop_timeout_added_api/1, setup_connection_timeout_api/1,
@@ -163,7 +163,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     oe_orber_test_server:oe_unregister(),
     orber:jump_stop(),
     Path = code:which(?MODULE),

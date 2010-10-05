@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 
 -export([
 	 t/0, t/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 	 
 	 all/1,
 
@@ -71,18 +71,18 @@ do_init_per_testcase(Case, Config) ->
     {ok, _Pid} = megaco_monitor:start_link(),
     megaco_test_lib:init_per_testcase(Case, [{monitor_running, true}|Config]).
     
-fin_per_testcase(Case, Config) ->
-    io:format("fin_per_testcase -> entry with"
+end_per_testcase(Case, Config) ->
+    io:format("end_per_testcase -> entry with"
 	       "~n   Case:   ~p"
 	       "~n   Config: ~p"
 	       "~n", [Case, Config]),
     process_flag(trap_exit, false),
     case lists:keydelete(monitor_running, 1, Config) of
 	Config ->
-	    megaco_test_lib:fin_per_testcase(Case, Config);
+	    megaco_test_lib:end_per_testcase(Case, Config);
 	Config2 ->
 	    megaco_monitor:stop(),
-	    megaco_test_lib:fin_per_testcase(Case, Config2)
+	    megaco_test_lib:end_per_testcase(Case, Config2)
     end.
 
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,7 @@
 -module(c_client_erl_server_SUITE).
 -include("test_server.hrl").
 
--export([init_per_testcase/2, fin_per_testcase/2,
+-export([init_per_testcase/2, end_per_testcase/2,
 	 all/1, void_test/1, long_test/1, long_long_test/1,
 	 unsigned_short_test/1, unsigned_long_test/1,
 	 unsigned_long_long_test/1, double_test/1, char_test/1,
@@ -57,7 +57,7 @@ init_per_testcase(_Case, Config) ->
     WatchDog = test_server:timetrap(?DEFAULT_TIMEOUT),
     [{watchdog, WatchDog}| Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     DataDir = ?config(data_dir, Config),
     code:del_path(DataDir),
     WatchDog = ?config(watchdog, Config),

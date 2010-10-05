@@ -28,7 +28,7 @@
 
 -export([all/1,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 config/1,
 	 echo_once/1,
 	 echo_twice/1,
@@ -43,7 +43,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, WatchDog}, {protomod, gen_tcp}, {serialize_accept, true}| 
      Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 

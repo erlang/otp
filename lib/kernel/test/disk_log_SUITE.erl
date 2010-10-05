@@ -94,7 +94,7 @@
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0, head_exit/0, slow_header/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([try_unblock/1]).
 
@@ -167,7 +167,7 @@ init_per_testcase(Case, Config) ->
 	    [{watchdog, Dog}|Config]
     end.
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -20,8 +20,8 @@
 
 -module(receive_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 recv/1,coverage/1,otp_7980/1,ref_opt/1,export/1]).
+-export([all/1,init_per_testcase/2,end_per_testcase/2,
+	 recv/1,coverage/1,otp_7980/1,ref_opt/1]).
 
 -include("test_server.hrl").
 
@@ -29,7 +29,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

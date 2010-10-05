@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 	 errors/1,
 	 socket_failure/1,
 
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
  
          t/0, t/1
          ]).
@@ -104,11 +104,11 @@ init_per_testcase(Case, Config) ->
 
 
 %%----------------------------------------------------------------------
-%% Function: fin_per_testcase/2
+%% Function: end_per_testcase/2
 %% Description: 
 %%----------------------------------------------------------------------
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%======================================================================

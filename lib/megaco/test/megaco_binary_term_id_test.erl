@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,7 @@
 
 %% Test suite exports
 -export([all/1, encode_first/1, decode_first/1,
-	init_per_testcase/2, fin_per_testcase/2]).  
+	init_per_testcase/2, end_per_testcase/2]).  
 
 
 %%----------------------------------------------------------------------
@@ -74,8 +74,8 @@ decode_first(suite) ->
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%======================================================================

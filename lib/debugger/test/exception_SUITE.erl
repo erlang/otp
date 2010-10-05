@@ -20,7 +20,7 @@
 %%
 -module(exception_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,init_all/1,finish_all/1,
+-export([all/1,init_per_testcase/2,end_per_testcase/2,init_all/1,finish_all/1,
 	 badmatch/1,pending_errors/1,nil_arith/1]).
 
 -export([bad_guy/2]).
@@ -42,7 +42,7 @@ init_per_testcase(_Case, Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

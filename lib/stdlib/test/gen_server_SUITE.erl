@@ -21,7 +21,7 @@
 -include("test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([all/1]).
 -export([start/1, crash/1, call/1, cast/1, cast_fast/1,
@@ -61,7 +61,7 @@ all(suite) ->
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -37,7 +37,7 @@
 
 -export([
          all/1,
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 	 
 	 register_user/1, 
 	 simple_register_and_unregister1/1,
@@ -123,8 +123,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {manager_log_dir,  MgrLogDir} | Config].
 
 
-fin_per_testcase(Case, Config) when is_list(Config) ->
-    p("fin_per_testcase -> Case: ~p", [Case]),
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> Case: ~p", [Case]),
 %     MgrTopDir = ?config(manager_dir, Config),
 %     ?DEL_DIR(MgrTopDir),
     Config.

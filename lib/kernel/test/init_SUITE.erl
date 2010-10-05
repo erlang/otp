@@ -27,7 +27,7 @@
 	 reboot/1, stop/1, get_status/1, script_id/1, boot/1]).
 -export([boot1/1, boot2/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([init/1, fini/1]).
 
@@ -48,7 +48,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SEC)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

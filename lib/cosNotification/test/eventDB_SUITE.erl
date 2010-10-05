@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -262,7 +262,7 @@
 -export([all/1, cases/0, init_all/1, finish_all/1, reorder_api/1, lookup_api/1,
 	 discard_api/1, max_events_api/1, gc_api/1, auto_gc_api/1,
 	 start_stop_time_api/1, mapping_filter_api/1, persisten_event_api/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 
 %%-----------------------------------------------------------------
 %% Func: all/1
@@ -290,7 +290,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

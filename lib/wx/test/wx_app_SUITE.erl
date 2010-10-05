@@ -45,9 +45,6 @@ init_per_testcase(Case, Config0) ->
 end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func, Config).
 
-fin_per_testcase(Case, Config) ->
-    wx_test_lib:end_per_testcase(Case, Config).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all(suite) ->

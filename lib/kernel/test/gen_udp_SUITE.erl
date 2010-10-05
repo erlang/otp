@@ -30,7 +30,7 @@
 -define(CLOSED_PORT, 6666).
 
 -export([all/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([send_to_closed/1, 
 	 buffer_size/1, binary_passive_recv/1, bad_address/1,
@@ -45,7 +45,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

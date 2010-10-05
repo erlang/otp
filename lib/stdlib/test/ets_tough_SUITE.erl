@@ -19,7 +19,7 @@
 -module(ets_tough_SUITE).
 -export([all/1,ex1/1]).
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
 -include("test_server.hrl").
 
@@ -34,7 +34,7 @@ init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(300)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ets:delete(?GLOBAL_PARAMS).

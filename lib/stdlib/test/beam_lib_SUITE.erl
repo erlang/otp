@@ -1,6 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
 %% %CopyrightEnd%
 %%
 -module(beam_lib_SUITE).
@@ -22,7 +35,7 @@
 -export([all/1, normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 all(suite) ->
     [error, normal, cmp, cmp_literals, strip, otp_6711, building, md5,
@@ -32,7 +45,7 @@ init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -43,7 +43,7 @@
 	 external/1,
 	 error/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 all(suite) ->
     [no_file, one, two, four, wrap, wrapping, external, error].
@@ -52,7 +52,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(60)),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, _Config) ->
+end_per_testcase(_Func, _Config) ->
     Dog=?config(watchdog, _Config),
     ?t:timetrap_cancel(Dog).
 

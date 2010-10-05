@@ -25,7 +25,7 @@
 -export([all/1, controlling_process/1, no_accept/1, close_with_pending_output/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+	 init_per_testcase/2, end_per_testcase/2,
 	 otp_3924/1, otp_3924_sender/4, closed_socket/1,
 	 shutdown_active/1, shutdown_passive/1, shutdown_pending/1,
 	 default_options/1, http_bad_packet/1, 
@@ -46,7 +46,7 @@
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 

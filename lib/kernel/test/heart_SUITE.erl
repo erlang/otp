@@ -23,7 +23,7 @@
 -export([all/1, ostype/1, start/1, restart/1, reboot/1, set_cmd/1, clear_cmd/1,
 	dont_drop/1, kill_pid/1, fini/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([start_heart_stress/1, mangle/1, suicide_by_heart/0]).
 
@@ -33,7 +33,7 @@ init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(?DEFAULT_TIMEOUT_SECS)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Nodes = nodes(),
     lists:foreach(fun(X) ->
 			  NNam = list_to_atom(hd(string:tokens(atom_to_list(X),"@"))),

@@ -24,7 +24,7 @@
 -include("test_server.hrl").
 
 %-compile(export_all).
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 
 %% Testcases
 -export([basic/1]).
@@ -42,7 +42,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {watchdog, ?t:timetrap(?DEFAULT_TIMEOUT)},
      {erl_flags_env, save_env()} | Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     ?t:timetrap_cancel(?config(watchdog, Config)),
     restore_env(?config(erl_flags_env, Config)),
     ok.
