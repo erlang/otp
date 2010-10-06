@@ -196,11 +196,14 @@ static ErlDrvData start(ErlDrvPort port, char *command)
     <p>We call disconnect to log out from the database.
       (This should have been done from Erlang, but just in case.)</p>
     <code type="none"><![CDATA[
- static int do_disconnect(our_data_t* data, ei_x_buff* x);
+static int do_disconnect(our_data_t* data, ei_x_buff* x);
 
 static void stop(ErlDrvData drv_data)
 {
-    do_disconnect((our_data_t*)drv_data, NULL);
+    our_data_t* data = (our_data_t*)drv_data;
+
+    do_disconnect(data, NULL);
+    driver_free(data);
 }
     ]]></code>
     <p>We use the binary format only to return data to the emulator;
