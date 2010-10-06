@@ -1035,7 +1035,12 @@ make_stub(M, Map, Env) ->
 %% Removing and/or out-commenting program forms. The returned form
 %% sequence tree is not necessarily flat.
 
--record(filter, {records :: set(), file_attributes, attributes}).
+-type atts()      :: 'delete' | 'kill'.
+-type file_atts() :: 'delete' | 'keep' | 'kill'.
+
+-record(filter, {records         :: set(),
+		 file_attributes :: file_atts(),
+		 attributes      :: atts()}).
 
 filter_forms(Tree, Env) ->
     Forms = erl_syntax:form_list_elements(
@@ -1576,6 +1581,8 @@ alias_expansions_2(Modules, Table) ->
 %% ---------------------------------------------------------------------
 %% Merging the source code.
 
+-type map_fun() :: fun(({atom(), integer()}) -> {atom(), integer()}).
+
 %% Data structure for code transformation environment.
 
 -record(code, {module     :: atom(),
@@ -1586,11 +1593,10 @@ alias_expansions_2(Modules, Table) ->
 	       preserved  :: boolean(),
 	       no_headers :: boolean(),
 	       notes      :: notes(),
-	       map,		% = ({atom(), int()}) -> {atom(), int()}
-	       renaming,	% = (atom()) -> ({atom(), int()}) ->
-				%               {atom(), int()}
-	       expand     :: dict(),	% = dict({atom(), int()},
-					%      {atom(), {atom(), int()}})
+	       map        :: map_fun(),
+	       renaming   :: fun((atom()) -> map_fun()),
+	       expand     :: dict(),	% = dict({atom(), integer()},
+					%      {atom(), {atom(), integer()}})
 	       redirect	  :: dict()	% = dict(atom(), atom())
 	      }).
 

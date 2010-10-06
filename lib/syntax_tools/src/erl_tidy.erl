@@ -935,12 +935,13 @@ hidden_uses_2(Tree, Used) ->
             Used
     end.
 
+-type fa()      :: {atom(), arity()}.
 -type context() :: 'guard_expr' | 'guard_test' | 'normal'.
 
 -record(env, {file		       :: file:filename(),
-              module,
-              current,
-              imports,
+              module                   :: atom(),
+              current                  :: fa(),
+              imports = dict:new()     :: dict(),
               context = normal	       :: context(),
               verbosity = 1	       :: 0 | 1 | 2,
               quiet = false            :: boolean(),
@@ -951,7 +952,13 @@ hidden_uses_2(Tree, Used) ->
               new_guard_tests = true   :: boolean(),
 	      old_guard_tests = false  :: boolean()}).
 
--record(st, {varc, used, imported, vars, functions, new_forms, rename}).
+-record(st, {varc              :: non_neg_integer(),
+	     used = sets:new() :: set(),
+	     imported          :: set(),
+	     vars              :: set(),
+	     functions         :: set(),
+	     new_forms = []    :: [erl_syntax:syntaxTree()],
+	     rename            :: dict()}).
 
 visit_used(Names, Defs, Roots, Imports, Module, Opts) ->
     File = proplists:get_value(file, Opts, ""),
