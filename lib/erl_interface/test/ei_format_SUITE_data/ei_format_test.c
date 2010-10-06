@@ -176,7 +176,7 @@ TESTCASE(format_wo_ver) {
     ei_x_buff x;
     
     ei_x_new (&x);
-    ei_x_format(&x, "[{~a,~s},{~a,~i}]", "a", "b", "c", 10);
+    ei_x_format(&x, "[-1, +2, {~a,~s},{~a,~i}]", "a", "b", "c", 10);
     send_bin_term(&x);
 
     free(x.buff);
