@@ -49,7 +49,7 @@ glu_defines(Defs) ->
     w("~n%% GLU DEFINITIONS~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     [gen_define(Def) || Def=#def{} <- Defs],
-    close(), 
+    close(),
     ok.   
 
 gen_define(#def{name=N, val=Val, type=int}) ->
@@ -90,22 +90,51 @@ gl_api(Fs) ->
     w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
-    w("%% @type wx_mem(). see wx.erl on memory allocation functions~n", []),
+    w("%% @type mem().    memory block~n", []),
     w("%% @type enum().   An integer defined in gl.hrl~n", []),    
     w("%% @type offset(). An integer which is an offset in an array~n", []),
     w("%% @type clamp().  A float clamped between 0.0 - 1.0~n", []),
     
     w("-module(gl).~n~n",[]),    
     w("-compile(inline).~n", []),
-    %%    w("-compile(export_all).~n~n", []),
-    %%    w("-compile(binary_comprehension).~n~n", []),
-    w("-include(\"wxe.hrl\").~n", []),
+%%    w("-include(\"wxe.hrl\").~n", []),
     [w("-define(~s,~s).~n", [GL,Erl]) || {GL,Erl} <- types()],
     
     Exp = fun(F) -> gen_export(F) end,
     ExportList = lists:map(Exp,Fs),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-
+    w("-export([call/2, cast/2, send_bin/1]).~n",[]),
+    w("%% @hidden~n", []),
+    w("call(Op, Args) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    _ = erlang:port_control(Port,Op,Args),~n", []),
+    w("    rec().~n", []),
+    w("    ~n", []),
+    w("%% @hidden~n", []),
+    w("cast(Op, Args) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    _ = erlang:port_control(Port,Op,Args),~n", []),
+    w("    ok.~n", []),
+    w("    ~n", []),
+    w("%% @hidden~n", []),
+    w("rec() ->~n", []),
+    w("    receive ~n", []),
+    w("        {'_egl_result_', Res} -> Res;~n", []),
+    w("        {'_egl_error_',  Res} -> error({error,Res})~n", []),
+    w("    end.~n", []),
+    w("~n", []),
+    w("%% @hidden~n", []),
+    w("send_bin(Bin) when is_binary(Bin) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    erlang:port_command(Port,Bin);~n", []),
+    w("send_bin(Tuple) when is_tuple(Tuple) ->~n", []),
+    w("    Port = get(opengl_port), ~n", []),
+    w("    case element(2, Tuple) of~n", []),
+    w("        Bin when is_binary(Bin) ->~n", []),
+    w("            erlang:port_command(Port,Bin)~n", []),
+    w("    end.~n", []),
+    w("~n", []),
+    
     w("~n%% API~n~n", []),
     [gen_funcs(F) || F <- Fs],
     close(), 
@@ -120,20 +149,20 @@ glu_api(Fs) ->
     w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
-    w("%% @type wx_mem(). see wx.erl on memory allocation functions~n", []),
+    w("%% @type mem().    memory block~n", []),
     w("%% @type enum().   An integer defined in gl.hrl~n", []),    
     w("%% @type offset(). An integer which is an offset in an array~n", []),
     w("%% @type clamp().  A float clamped between 0.0 - 1.0~n~n", []),
 
     w("-module(glu).~n",[]),    
     w("-compile(inline).~n", []),
-    w("-include(\"wxe.hrl\").~n", []),
+    %%w("-include(\"wxe.hrl\").~n", []),
     [w("-define(~s,~s).~n", [GL,Erl]) || {GL,Erl} <- types()],
 
     Exp = fun(F) -> gen_export(F) end,
     ExportList = ["tesselate/2" | lists:map(Exp,Fs)],
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-
+    w("-import(gl, [call/2,cast/2,send_bin/1]).", []),
     w("~n%% API~n~n", []),
 
     w("%% @spec (Vec3, [Vec3]) -> {Triangles, VertexPos}~n",[]),
@@ -148,13 +177,13 @@ glu_api(Fs) ->
       "%% may contain newly created vertices in the end.~n", []),
 
     w("tesselate({Nx,Ny,Nz}, Vs) ->~n",[]),
-    w("  wxe_util:call(5000, <<(length(Vs)):32/native,0:32,~n"
+    w("  call(5000, <<(length(Vs)):32/native,0:32,~n"
       "    Nx:?GLdouble,Ny:?GLdouble,Nz:?GLdouble,~n"
       "    (<< <<Vx:?GLdouble,Vy:?GLdouble,Vz:?GLdouble >>~n"
       "        || {Vx,Vy,Vz} <- Vs>>)/binary >>).~n~n", []),
 
     [gen_funcs(F) || F <- Fs],
-    close(), 
+    close(),
     ok.
 
 gen_funcs([F]) when is_list(F) ->
@@ -229,9 +258,9 @@ gen_func(_F=#func{name=Name,type=T,params=As,id=MId}) ->
     {StrArgs,_} = marshal_args(PreAs),
     case have_return_vals(T,As) of
 	true ->
-	    w("  wxe_util:call(~p, <<~s>>)", [MId, StrArgs]);
+	    w("  call(~p, <<~s>>)", [MId, StrArgs]);
 	false ->
-	    w("  wxe_util:cast(~p, <<~s>>)", [MId, StrArgs])
+	    w("  cast(~p, <<~s>>)", [MId, StrArgs])
     end.
 
 func_arg(#arg{in=In,where=W,name=Name,type=Type}) 
@@ -302,7 +331,7 @@ doc_arg_type3(#type{base=guard_int}) -> "offset()|binary()";
 doc_arg_type3(#type{base=string}) ->    "string()";
 doc_arg_type3(#type{base=bool}) ->      "0|1";
 doc_arg_type3(#type{base=binary}) ->    "binary()";
-doc_arg_type3(#type{base=memory}) ->    "wx:wx_mem()".
+doc_arg_type3(#type{base=memory}) ->    "mem()".
 
 guard_test(As) -> 
     Str = args(fun(#arg{name=N,type=#type{base=guard_int}}) -> 
@@ -316,10 +345,10 @@ guard_test(As) ->
     end.	    
 
 pre_marshal([#arg{name=N,in=true,type=#type{base=binary}}|R]) -> 
-    w("  wxe_util:send_bin(~s),~n", [erl_arg_name(N)]),
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
 pre_marshal([#arg{name=N,type=#type{base=memory}}|R]) -> 
-    w("  wxe_util:send_bin(~s#wx_mem.bin),~n", [erl_arg_name(N)]),
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
 pre_marshal([A=#arg{name=N,type=#type{base=string,single=list}}|R]) ->
     %% With null terminations

@@ -68,7 +68,6 @@ ErlDrvTermData  wxe_batch_caller = 0;
 ErlDrvTermData  init_caller = 0;
 
 // extern opengl 
-extern int gl_initiated;
 void gl_dispatch(int op, char *bp, ErlDrvTermData caller, WXEBinRef *bins[]);
 
 
@@ -265,7 +264,6 @@ bool WxeApp::OnInit()
   init_nonconsts(global_me, init_caller);
   erl_drv_mutex_lock(wxe_status_m);
   wxe_status = WXE_INITIATED;
-  gl_initiated = FALSE;   
   erl_drv_cond_signal(wxe_status_c);
   erl_drv_mutex_unlock(wxe_status_m);
   return TRUE;

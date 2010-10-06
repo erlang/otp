@@ -28,7 +28,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start/0, init_port/0]).
+-export([start/0, init_port/0, init_opengl/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -38,6 +38,7 @@
 		users,    %% List of wx servers, needed ??
 		driver}). %% Driver name so wx_server can create it's own port
 
+-include("wxe.hrl").
 -include("gen/wxe_debug.hrl").
 -include("gen/gl_debug.hrl").
 
@@ -73,6 +74,24 @@ init_port() ->
     Port = open_port({spawn,Driver},[binary]),
     receive wx_port_initiated -> ok end,
     {Port, CBport}.
+
+
+%%--------------------------------------------------------------------
+%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
+%% Description: Starts the server
+%%--------------------------------------------------------------------
+init_opengl() ->
+    PrivDir = priv_dir(),
+    DynLib0 = "erl_gl",
+    DynLib = case os:type() of
+		 {win32,_} ->  
+		     DynLib0 ++ ".dll\0";
+		  _ -> 
+		     DynLib0 ++ ".so\0"
+	     end,
+    GLLib = filename:join(PrivDir, DynLib),
+    
+    wxe_util:call(?WXE_INIT_OPENGL, list_to_binary(GLLib)).
 
 %%====================================================================
 %% gen_server callbacks

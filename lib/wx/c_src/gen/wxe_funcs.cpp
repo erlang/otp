@@ -23,6 +23,7 @@
 #include "../wxe_impl.h"
 #include "../wxe_events.h"
 #include "../wxe_return.h"
+#include "../wxe_gl.h"
 #include "wxe_macros.h"
 #include "wxe_derived_dest.h"
 
@@ -43,6 +44,15 @@ void WxeApp::wxe_dispatch(wxeCommand& Ecmd)
      rt.addAtom("ok");
      break;
  }
+ case WXE_BIN_INCR:
+   driver_binary_inc_refc(Ecmd.bin[0]->bin);
+   break;
+ case WXE_BIN_DECR:
+   driver_binary_dec_refc(Ecmd.bin[0]->bin);
+   break;
+ case WXE_INIT_OPENGL:
+  wxe_initOpenGL(rt, bp);
+   break;
 case 98:  { // wxeEvtListener::wxeEvtListener
   wxeEvtListener *Result = new wxeEvtListener(Ecmd.port);
   rt.addRef(getRef((void *)Result,memenv), "wxeEvtListener");

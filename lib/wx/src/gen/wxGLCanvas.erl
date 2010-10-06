@@ -105,6 +105,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
           ({palette, #wx_ref{type=PaletteT,ref=PaletteRef}}, Acc) ->   ?CLASS(PaletteT,wxPalette),[<<7:32/?UI,PaletteRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
+  wxe_master:init_opengl(),
   wxe_util:construct(?wxGLCanvas_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
@@ -130,6 +131,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Opt
           ({palette, #wx_ref{type=PaletteT,ref=PaletteRef}}, Acc) ->   ?CLASS(PaletteT,wxPalette),[<<7:32/?UI,PaletteRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
+  wxe_master:init_opengl(),
   wxe_util:construct(SharedOP,
   <<ParentRef:32/?UI,SharedRef:32/?UI, BinOpt/binary>>).
 

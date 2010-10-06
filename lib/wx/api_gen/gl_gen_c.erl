@@ -47,30 +47,16 @@ gen(GLFuncs, GLUFuncs) ->
     w("/***** This file is generated do not edit ****/~n~n", []),
     w("#include <stdio.h>~n", []),
     w("#include <string.h>~n", []),    
-    w("#include \"../wxe_impl.h\"~n", []),
-    w("#include \"../wxe_gl.h\"~n", []),
+    w("#include \"../egl_impl.h\"~n", []),
     w("#include \"gl_fdefs.h\"~n", []),
 
     w("~nint gl_error_op;~n", []),
-    w("void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){~n",
+    w("void egl_dispatch(int op, char *bp, ErlDrvPort port, ErlDrvTermData caller, char *bins[]){~n",
       []),
     w(" gl_error_op = op;~n", []),
-    w(" if(caller != gl_active) {~n", []),
-    w("   wxGLCanvas * current = glc[caller];~n", []),
-    w("   if(current) { gl_active = caller; current->SetCurrent();}~n", []),
-    w("   else {~n "
-      "      ErlDrvTermData rt[] = // Error msg~n"
-      "      {ERL_DRV_ATOM, driver_mk_atom((char *) \"_wxe_error_\"),~n"
-      "       ERL_DRV_INT,  op,~n" 
-      "       ERL_DRV_ATOM, driver_mk_atom((char *) \"no_gl_context\"),~n"
-      "       ERL_DRV_TUPLE,3};~n"
-      "      driver_send_term(WXE_DRV_PORT,caller,rt,8);~n"
-      "      return ;~n   }~n };~n~n", []),
 
     w(" switch(op)~n{~n",[]),
-    w(" case 5000:~n   wxe_tess_impl(bp, caller);~n   break;~n", []),
-    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(bins[0]->bin);~n   break;~n",[]),
-    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(bins[0]->bin);~n   break;~n",[]),
+    w(" case 5000:~n   erl_tess_impl(bp, port, caller);~n   break;~n", []),
 
     [funcs(F) || F <- GLUFuncs],
     [funcs(F) || F <- GLFuncs],
@@ -171,10 +157,10 @@ decode_arg(P=#arg{where=c},A)   -> {P,A};
 decode_arg(P=#arg{in=false},A)  -> {P,A};
 
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=binary}},A0) ->
-    w(" ~s *~s = (~s *) bins[~p]->base;~n", [Type,Name,Type,next_id(bin_count)]),
+    w(" ~s *~s = (~s *) bins[~p];~n", [Type,Name,Type,next_id(bin_count)]),
     {P, A0};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=memory}},A0) ->
-    w(" ~s *~s = (~s *) bins[~p]->base;~n", [Type,Name,Type,next_id(bin_count)]),
+    w(" ~s *~s = (~s *) bins[~p];~n", [Type,Name,Type,next_id(bin_count)]),
     {P, A0};
 decode_arg(P=#arg{name=Name,type=#type{name=T,base=string,single=list}},A0) ->
     A = align(4,A0),
@@ -322,7 +308,7 @@ build_return_vals(Type,As) ->
 		    w(" rt[AP++]=ERL_DRV_ATOM;"
 		      " rt[AP++]=driver_mk_atom((char *) \"ok\");~n",[]),
 		    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;~n",[]),
-		    w(" driver_send_term(WXE_DRV_PORT,caller,rt,AP);~n",[]),
+		    w(" driver_send_term(port,caller,rt,AP);~n",[]),
 		    ok
 	    end;
 	{Val,Vars,Cnt} ->
@@ -348,7 +334,7 @@ build_return_vals(Type,As) ->
 	    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;~n",[]),
 	    w(" if (AP != ~s )  fprintf(stderr, \"%d: ERROR AP mismatch %d %d\\r\\n\",__LINE__,AP,~s);~n",
 	      [CSize,CSize]),
-	    w(" driver_send_term(WXE_DRV_PORT,caller,rt,AP);~n",[]),
+	    w(" driver_send_term(port,caller,rt,AP);~n",[]),
 	    case Vars of 
 		none -> ignore;
 		_ -> 		    

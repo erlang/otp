@@ -83,8 +83,9 @@ extern char * erl_wx_privdir;
 #define WXE_CB_START        8
 #define WXE_DEBUG_DRIVER    9
 #define WXE_DEBUG_PING      10
-#define WXE_BIN_INCR        5001
-#define WXE_BIN_DECR        5002
+#define WXE_BIN_INCR        11
+#define WXE_BIN_DECR        12
+#define WXE_INIT_OPENGL     13
 
 #define OPENGL_START        5000
 
