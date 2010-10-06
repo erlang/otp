@@ -58,9 +58,6 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Func,Config) ->
     reltool_test_lib:end_per_testcase(Func,Config).
 
-end_per_testcase(Case, Config) ->
-    reltool_test_lib:end_per_testcase(Case, Config).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all(suite) ->
