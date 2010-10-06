@@ -158,7 +158,7 @@ else
 fi    
 	    
 p=$$
-CMD="$linktype -nologo -incremental:no $CMD $STDLIB $DEFAULT_LIBRARIES"
+CMD="$linktype -nologo -incremental:no -largeaddressaware $CMD $STDLIB $DEFAULT_LIBRARIES"
 if [ "X$LD_SH_DEBUG_LOG" != "X" ]; then
     echo ld.sh "$SAVE" >>$LD_SH_DEBUG_LOG
     echo link.exe $CMD >>$LD_SH_DEBUG_LOG
