@@ -244,9 +244,10 @@ from_file(FileName, ReturnInfo) ->
 			  [FileName, Reason]))
   end.
 
--type inc_file_err_rsn() :: 'no_such_file' | 'read_error'.
+-type err_rsn() :: 'not_valid' | 'no_such_file' | 'read_error'.
+
 -spec included_files(file:filename()) -> {'ok', [file:filename()]}
-				      |  {'error', inc_file_err_rsn()}.
+				      |  {'error', err_rsn()}.
 
 included_files(FileName) ->
   case get_record_from_file(FileName) of
@@ -320,8 +321,7 @@ to_file(FileName,
   end.
 
 -type md5_diff()    :: [{'differ', atom()} | {'removed', atom()}].
--type check_error() :: 'not_valid' | 'no_such_file' | 'read_error'
-                     | {'no_file_to_remove', file:filename()}.
+-type check_error() :: err_rsn() | {'no_file_to_remove', file:filename()}.
 
 -spec check_plt(file:filename(), [file:filename()], [file:filename()]) ->
 	 'ok'
