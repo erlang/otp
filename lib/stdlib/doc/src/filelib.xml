@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -159,6 +159,12 @@ DeepList = [char() | atom() | DeepList]</code>
           <item>
             <p>Matches any number of characters up to the end of
               the filename, the next dot, or the next slash.</p>
+          </item>
+          <tag>[Character1,Character2,...]</tag>
+          <item>
+            <p>Matches any of the characters listed. Two characters
+	    separated by a hyphen will match a range of characters.
+	    Example: <c>[A-Z]</c> will match any uppercase letter.</p>
           </item>
           <tag>{Item,...}</tag>
           <item>
