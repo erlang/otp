@@ -2754,13 +2754,13 @@ void init_db(void)
 				     (sizeof(erts_meta_main_tab_lock_t)
 				      * (ERTS_META_MAIN_TAB_LOCK_TAB_SIZE+1)));
 
-    if ((((Uint) meta_main_tab_locks) & ERTS_CACHE_LINE_MASK) != 0)
+    if ((((UWord) meta_main_tab_locks) & ERTS_CACHE_LINE_MASK) != 0)
 	meta_main_tab_locks = ((erts_meta_main_tab_lock_t *)
-			       ((((Uint) meta_main_tab_locks)
+			       ((((UWord) meta_main_tab_locks)
 				 & ~ERTS_CACHE_LINE_MASK)
 				+ ERTS_CACHE_LINE_SIZE));
 
-    ASSERT((((Uint) meta_main_tab_locks) & ERTS_CACHE_LINE_MASK) == 0);
+    ASSERT((((UWord) meta_main_tab_locks) & ERTS_CACHE_LINE_MASK) == 0);
 
     for (i = 0; i < ERTS_META_MAIN_TAB_LOCK_TAB_SIZE; i++) {
 	erts_smp_rwmtx_init_opt_x(&meta_main_tab_locks[i].rwmtx, &rwmtx_opt,

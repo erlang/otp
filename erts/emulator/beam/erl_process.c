@@ -2528,9 +2528,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
     aligned_sched_sleep_info = erts_alloc(ERTS_ALC_T_SCHDLR_SLP_INFO,
 					  (sizeof(ErtsAlignedSchedulerSleepInfo)
 					   *(n+1)));
-    if ((((Uint) aligned_sched_sleep_info) & ERTS_CACHE_LINE_MASK) == 0)
+    if ((((UWord) aligned_sched_sleep_info) & ERTS_CACHE_LINE_MASK) == 0)
 	aligned_sched_sleep_info = ((ErtsAlignedSchedulerSleepInfo *)
-				    ((((Uint) aligned_sched_sleep_info)
+				    ((((UWord) aligned_sched_sleep_info)
 				      & ~ERTS_CACHE_LINE_MASK)
 				     + ERTS_CACHE_LINE_SIZE));
     for (ix = 0; ix < n; ix++) {
