@@ -66,6 +66,7 @@ core=
 
 GDB=
 GDBBP=
+GDBARGS=
 TYPE=
 EMU_TYPE=
 debug=
@@ -280,16 +281,11 @@ else
     # Set annotation level for gdb in emacs 22 and higher.
     emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
     if [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
-	# Hack - wait for etp-commands to be loaded and then set
-	# annotation level, could be done more beautifully than with sit-for...
-	gdbcmd="$gdbcmd \
-                (sit-for 1) \
-                (insert-string \"set annotate 3\") \
-                (comint-send-input)"
+	GDBARGS="--annotate=3 "
     fi
     gdbcmd="$gdbcmd $GDBBP \
             (insert-string \"source $ROOTDIR/erts/etc/unix/etp-commands\") \
             (comint-send-input)"
     # Fire up gdb in emacs...
-    exec $EMACS --eval "(progn (gdb \"gdb $EMU\") $gdbcmd)"
+    exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU\") $gdbcmd)"
 fi
