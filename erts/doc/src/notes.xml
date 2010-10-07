@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Windows 2003 and Windows XP pre SP3 would sometimes not
+	    start the Erlang R14B VM at all due to a bug in the cpu
+	    topology detection. The bug affects Windows only, no
+	    other platform is even remotely affected. The bug is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-8876</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

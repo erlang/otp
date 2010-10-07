@@ -1228,7 +1228,10 @@ read_topology(erts_cpu_info_t *cpuinfo)
 	    nodes++;
     }
 
-    core_id = malloc(sizeof(int)*(packages ? packages : 1));
+    if (!packages) {
+      packages = 1;
+    }
+    core_id = malloc(sizeof(int)*packages);
     if (!core_id) {
 	res = -ENOMEM;
 	goto error;
@@ -1286,11 +1289,13 @@ read_topology(erts_cpu_info_t *cpuinfo)
 		 * Nodes and packages may not be supported; pretend
 		 * that there are one if this is the case...
 		 */
-		if (!nodes)
-		    cpuinfo->topology[l].node = 0;
-		if (!packages)
-		    cpuinfo->topology[l].processor = 0;
 		if (slpip[rix].ProcessorMask & (((ULONG_PTR) 1) << l)) {
+		    if (!nodes) {
+		      cpuinfo->topology[l].node = 0;
+		    }
+		    if (!packages) {
+		      cpuinfo->topology[l].processor = 0;
+		    }
 		    if (processor < 0) {
 			processor = cpuinfo->topology[l].processor;
 			if (processor < 0) {
