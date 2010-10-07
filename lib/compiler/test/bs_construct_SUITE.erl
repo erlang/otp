@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,6 +66,8 @@ id(I) -> I.
 
 l(I_13, I_big1, I_16, Bin) ->
     [
+     ?T(<<I_13:0>>,
+	[]),
      ?T(<<-43>>,
 	[256-43]),
      ?T(<<4:4,7:4>>,
