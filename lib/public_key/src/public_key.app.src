@@ -7,6 +7,7 @@
 		  pubkey_ssh,
 		  pubkey_cert,
 		  pubkey_cert_records,
+		  pubkey_crl,
 		  'OTP-PUB-KEY',
 		  'PKCS-FRAME'
             ]},

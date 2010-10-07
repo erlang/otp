@@ -372,7 +372,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
       
       <row>
 	<cell align="left" valign="middle">id-ce-cRLDistributionPoints</cell>
-	<cell align="left" valign="middle">#'DistributionPoint'{}</cell>
+	<cell align="left" valign="middle">[#'DistributionPoint'{}]</cell>
       </row>
       
       <row>
@@ -486,9 +486,10 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 	 }).
 
 #'DistributionPoint'{
-	  distributionPoint, % general_name() | [#AttributeTypeAndValue{}]
+	  distributionPoint, % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
+	  [#AttributeTypeAndValue{}]}
 	  reasons,           % [dist_reason()]
-	  cRLIssuer          % general_name()
+	  cRLIssuer          % [general_name()]
 	 }).
 </code>
 
@@ -589,7 +590,8 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
       
       <code>
 #'IssuingDistributionPoint'{
-          distributionPoint,         % general_name() | [#AttributeTypeAndValue'{}]
+          distributionPoint,         % {fullName, [general_name()]} | {nameRelativeToCRLIssuer,
+	  [#AttributeTypeAndValue'{}]}
 	  onlyContainsUserCerts,     % boolean()
 	  onlyContainsCACerts,       % boolean()
 	  onlySomeReasons,           % [dist_reason()]

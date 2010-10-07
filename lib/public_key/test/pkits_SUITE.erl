@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,7 @@
 -define(CERTS, "pkits/certs").
 -define(MIME,  "pkits/smime").
 -define(CONV,  "pkits/smime-pem").
+-define(CRL,   "pkits/crls").
 
 -define(NIST1, "2.16.840.1.101.3.2.1.48.1").
 -define(NIST2, "2.16.840.1.101.3.2.1.48.2").
@@ -42,8 +43,8 @@
 -define(NIST6, "2.16.840.1.101.3.2.1.48.6").
 
 -record(verify_state, {
-	  certs_db,
-	  crl_info,
+	  crls,
+	  crl_paths,
 	  revoke_state}).
 %%
 suite() ->
@@ -54,9 +55,9 @@ all() ->
      {group, validity_periods},
      {group, verifying_name_chaining},
      {group, verifying_paths_with_self_issued_certificates},
-     %%{group, basic_certificate_revocation_tests},
-     %%{group, delta_crls},
-     %%{group, distribution_points},
+     {group, basic_certificate_revocation_tests},
+     {group, delta_crls},
+     {group, distribution_points},
      {group, verifying_basic_constraints},
      {group, key_usage},
      {group, name_constraints},
@@ -72,20 +73,22 @@ groups() ->
       [invalid_name_chain, whitespace_name_chain, capitalization_name_chain,
        uid_name_chain, attrib_name_chain, string_name_chain]},
      {verifying_paths_with_self_issued_certificates, [],
-      [basic_valid, %%basic_invalid, 
-       crl_signing_valid, crl_signing_invalid]},
-     %% {basic_certificate_revocation_tests, [],
-     %%  [missing_CRL, revoked_CA, revoked_peer, invalid_CRL_signature,
-     %%   invalid_CRL_issuer, invalid_CRL, valid_CRL,
-     %%   unknown_CRL_extension, old_CRL, fresh_CRL, valid_serial,
-     %%   invalid_serial, valid_seperate_keys, invalid_separate_keys]},
-     %% {delta_crls, [], [delta_without_crl, valid_delta_crls, invalid_delta_crls]},
-     %% {distribution_points, [], [valid_distribution_points,
-     %% 				valid_distribution_points_no_issuing_distribution_point,
-     %% 				invalid_distribution_points, valid_only_contains,
-     %% 				invalid_only_contains, valid_only_some_reasons,
-     %% 				invalid_only_some_reasons, valid_indirect_crl,
-     %% 				invalid_indirect_crl, valid_crl_issuer, invalid_crl_issuer]},
+      [basic_valid, basic_invalid, crl_signing_valid, crl_signing_invalid]},
+     {basic_certificate_revocation_tests, [],
+      [missing_CRL,
+       revoked_CA,
+       revoked_peer,
+       invalid_CRL_signature,
+       invalid_CRL_issuer, invalid_CRL, valid_CRL,
+       unknown_CRL_extension, old_CRL, fresh_CRL, valid_serial,
+       invalid_serial, valid_seperate_keys, invalid_separate_keys]},
+     {delta_crls, [], [delta_without_crl, valid_delta_crls, invalid_delta_crls]},
+     {distribution_points, [], [valid_distribution_points,
+				valid_distribution_points_no_issuing_distribution_point,
+				invalid_distribution_points, valid_only_contains,
+				invalid_only_contains, valid_only_some_reasons,
+				invalid_only_some_reasons, valid_indirect_crl,
+				invalid_indirect_crl, valid_crl_issuer, invalid_crl_issuer]},
      {verifying_basic_constraints,[],
       [missing_basic_constraints, valid_basic_constraint, invalid_path_constraints,
        valid_path_constraints]},
@@ -118,10 +121,10 @@ end_per_testcase(_Func, Config) ->
 
 init_per_suite(Config) ->
     try crypto:start() of
-     	ok ->
-	  crypto_support_check(Config)  
+	ok ->
+	    Config
     catch _:_ ->
-     	    {skip, "Crypto did not start"}
+	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
@@ -272,8 +275,8 @@ crl_signing_invalid(doc) ->
 crl_signing_invalid(suite) ->
     [];
 crl_signing_invalid(Config) when is_list(Config) ->
-    run([%% { "4.5.7",  "Invalid Basic Self-Issued CRL Signing Key Test7 EE",
-	 %%   {bad_cert, {revoked, keyCompromise}}},
+    run([{ "4.5.7",  "Invalid Basic Self-Issued CRL Signing Key Test7 EE",
+	   {bad_cert, {revoked, keyCompromise}}},
 	 { "4.5.8",  "Invalid Basic Self-Issued CRL Signing Key Test8 EE",
 	   {bad_cert, invalid_key_usage}}
 	]).
@@ -284,7 +287,7 @@ missing_CRL(doc) ->
 missing_CRL(suite) ->
     [];
 missing_CRL(Config) when is_list(Config) ->
-    run([{ "4.4.1", "Missing CRL Test1 EE",{bad_cert,
+    run([{ "4.4.1", "Invalid Missing CRL Test1 EE",{bad_cert,
     revocation_status_undetermined}}]).
 
 revoked_CA(doc) ->
@@ -300,8 +303,8 @@ revoked_peer(doc) ->
 revoked_peer(suite) ->
     [];
 revoked_peer(Config) when is_list(Config) ->
-    run([{ "4.4.3", "Invalid Revoked EE Test3 EE", {bad_cert,
-    {revoked, keyCompromise}}}]).
+    run([{ "4.4.3", "Invalid Revoked EE Test3 EE",
+	   {bad_cert, {revoked, keyCompromise}}}]).
 
 invalid_CRL_signature(doc) ->
     [""];
@@ -309,8 +312,7 @@ invalid_CRL_signature(suite) ->
     [];
 invalid_CRL_signature(Config) when is_list(Config) ->
     run([{ "4.4.4", "Invalid Bad CRL Signature Test4 EE",
-	   {bad_cert, revocation_status_undetermined}}]).
-
+		   {bad_cert, revocation_status_undetermined}}]).
 invalid_CRL_issuer(doc) ->
     [""];
 invalid_CRL_issuer(suite) ->
@@ -396,9 +398,9 @@ invalid_separate_keys(doc) ->
 invalid_separate_keys(suite) ->
     [];
 invalid_separate_keys(Config) when is_list(Config) ->
-    run([{ "4.4.20", "Invalid Separate Certificate and CRL Keys Test20",
+    run([{ "4.4.20", "Invalid Separate Certificate and CRL Keys Test20 EE",
 	   {bad_cert, {revoked, keyCompromise}}},
-	 { "4.4.21", "Invalid Separate Certificate and CRL Keys Test21",
+	 { "4.4.21", "Invalid Separate Certificate and CRL Keys Test21 EE",
 	   {bad_cert, revocation_status_undetermined}}
 	]).
 %%-----------------------------------------------------------------------------
@@ -456,11 +458,11 @@ invalid_key_usage(Config) when is_list(Config) ->
     run([{ "4.7.1",  "Invalid keyUsage Critical keyCertSign False Test1 EE",
 	   {bad_cert,invalid_key_usage} },
 	 { "4.7.2",  "Invalid keyUsage Not Critical keyCertSign False Test2 EE",
-	   {bad_cert,invalid_key_usage}}
-	%% { "4.7.4",  "Invalid keyUsage Critical cRLSign False Test4 EE",
-	%%   {bad_cert, revocation_status_undetermined}},
-	%%  { "4.7.5",  "Invalid keyUsage Not Critical cRLSign False Test5 EE",
-	%%    {bad_cert, revocation_status_undetermined}}
+	   {bad_cert,invalid_key_usage}},
+	 { "4.7.4",  "Invalid keyUsage Critical cRLSign False Test4 EE",
+	   {bad_cert, invalid_key_usage}},
+	 { "4.7.5",  "Invalid keyUsage Not Critical cRLSign False Test5 EE",
+	   {bad_cert, invalid_key_usage}}
 	]).
 
 valid_key_usage(doc) ->
@@ -652,7 +654,7 @@ valid_distribution_points_no_issuing_distribution_point(doc) ->
 valid_distribution_points_no_issuing_distribution_point(suite) ->
     [];
 valid_distribution_points_no_issuing_distribution_point(Config) when is_list(Config) ->
-    run([{ "4.14.10", "Valid No issuingDistributionPoint Test10", ok}
+    run([{ "4.14.10", "Valid No issuingDistributionPoint Test10 EE", ok}
 	]).
 
 invalid_distribution_points(doc) ->
@@ -675,17 +677,16 @@ valid_only_contains(doc) ->
 valid_only_contains(suite) ->
     [];
 valid_only_contains(Config) when is_list(Config) ->
-    run([{ "4.14.13", "Valid onlyContainsCACerts CRL Test13 EE", ok}]).
-
+    run([{ "4.14.13", "Valid only Contains CA Certs Test13 EE", ok}]).
 
 invalid_only_contains(doc) ->
     [""];
 invalid_only_contains(suite) ->
     [];
 invalid_only_contains(Config) when is_list(Config) ->
-    run([{ "4.14.11", "Invalid onlyContainsUserCerts CRL Test11 EE",
+    run([{ "4.14.11", "Invalid onlyContainsUserCerts Test11 EE",
 	   {bad_cert, revocation_status_undetermined}},
-	 { "4.14.12", "Invalid onlyContainsCACerts CRL Test12 EE",
+	 { "4.14.12", "Invalid onlyContainsCACerts Test12 EE",
 	   {bad_cert, revocation_status_undetermined}},
 	 { "4.14.14", "Invalid onlyContainsAttributeCerts Test14 EE",
 	   {bad_cert, revocation_status_undetermined}}
@@ -743,9 +744,9 @@ valid_crl_issuer(doc) ->
 valid_crl_issuer(suite) ->
     [];
 valid_crl_issuer(Config) when is_list(Config) ->
-    run([{ "4.14.28", "Valid cRLIssuer Test28 EE", ok}%%,
-	 %%{ "4.14.29", "Valid cRLIssuer Test29 EE", ok},
-	 %%{ "4.14.33", "Valid cRLIssuer Test33 EE", ok}
+    run([{ "4.14.28", "Valid cRLIssuer Test28 EE", ok},
+	 { "4.14.29", "Valid cRLIssuer Test29 EE", ok},
+	 { "4.14.33", "Valid cRLIssuer Test33 EE", ok}
 	]).
 
 invalid_crl_issuer(doc) ->
@@ -825,7 +826,7 @@ run([],_) -> ok.
 path_validation_options(TA, Chap, Test) ->
     case needs_crl_options(Chap) of
 	true ->
-	    crl_options(TA, Test);
+	    crl_options(TA, Chap, Test);
 	false ->
 	     Fun =
 		fun(_,{bad_cert, _} = Reason, _) ->
@@ -854,54 +855,262 @@ needs_crl_options("4.15" ++ _) ->
 needs_crl_options(_) ->
     false.
 
-crl_options(TA, Test) ->
-     case read_crls(Test) of
-	[] ->
-	    [];
-        CRLs ->
-	    Fun =
-		 fun(_,{bad_cert, _} = Reason, _) ->
-			 {fail, Reason};
-		   (_,{extension,
-		       #'Extension'{extnID = ?'id-ce-cRLDistributionPoints',
-				    extnValue = Value}}, UserState0) ->
-			UserState = update_crls(Value, UserState0),
+crl_options(_TA, Chap, _Test) ->
+    CRLNames = crl_names(Chap),
+    CRLs = crls(CRLNames),
+    Paths = lists:map(fun(CRLName) -> crl_path(CRLName) end, CRLNames),
+
+    test_server:format("Paths ~p ~n  Names ~p ~n", [Paths, CRLNames]),
+    Fun =
+	fun(_,{bad_cert, _} = Reason, _) ->
+		{fail, Reason};
+	   (_,{extension,
+	       #'Extension'{extnID = ?'id-ce-cRLDistributionPoints',
+			    extnValue = Value}}, UserState0) ->
+		UserState = update_crls(Value, UserState0),
+		{valid, UserState};
+	   (_,{extension, _}, UserState) ->
+		{unknown, UserState};
+	   (OtpCert, Valid, UserState) when Valid == valid;
+					    Valid == valid_peer ->
+		DerCRLs = UserState#verify_state.crls,
+		Paths =  UserState#verify_state.crl_paths,
+		Crls = [{DerCRL, public_key:der_decode('CertificateList',
+						       DerCRL)} || DerCRL <- DerCRLs],
+
+		test_server:format("START ~n", []),
+		CRLInfo0 = crl_info(OtpCert, Crls, []),
+		test_server:format("END ~n", []),
+		CRLInfo = lists:reverse(CRLInfo0),
+		PathDb = crl_path_db(lists:reverse(Crls), Paths, []),
+
+		test_server:format("Pathdb: ~p~n", [PathDb]),
+		test_server:format("CRL INFO: ~p~n", [CRLInfo]),
+
+		Fun = fun(DP, CRLtoValidate, Id, PathDb0) ->
+			      trusted_cert_and_path(DP, CRLtoValidate, Id, PathDb0)
+		      end,
+
+		case CRLInfo of
+		    [] ->
 			{valid, UserState};
-		   (_,{extension, _}, UserState) ->
-			{unknown, UserState};
-		   (OtpCert, Valid, UserState) when Valid == valid;
-						    Valid == valid_peer ->
-			{ErlCerts, CRLs} = UserState#verify_state.crl_info,
-			CRLInfo0 =
-			    crl_info(OtpCert,
-				     ErlCerts,[{DerCRL, public_key:der_decode('CertificateList',
-									      DerCRL)} || DerCRL <- CRLs],
-				     []),
-			CRLInfo = lists:reverse(CRLInfo0),
-			Certs = UserState#verify_state.certs_db,
-			Fun = fun(DP, CRLtoValidate, Id, CertsDb) ->
-				      trusted_cert_and_path(DP, CRLtoValidate, Id, CertsDb)
-			      end,
-			Ignore = ignore_sign_test_when_building_path(Test),
+		    [_|_] ->
 			case public_key:pkix_crls_validate(OtpCert, CRLInfo,
-							   [{issuer_fun,{Fun, {Ignore, Certs}}}]) of
+							   [{issuer_fun,{Fun, PathDb}}]) of
 			    valid ->
 				{valid, UserState};
 			    Reason  ->
 				{fail, Reason}
 			end
-		end,
+		end
+	end,
 
-	    Certs = read_certs(Test),
-	    ErlCerts = [public_key:pkix_decode_cert(Cert, otp) || Cert <- Certs],
+    [{verify_fun, {Fun, #verify_state{crls = CRLs,
+				      crl_paths = Paths}}}].
 
-	    [{verify_fun, {Fun, #verify_state{certs_db = [TA| Certs],
-					      crl_info = {ErlCerts, CRLs}}}}]
-    end.
-
-crl_info(_, _, [], Acc) ->
+crl_path_db([], [], Acc) ->
     Acc;
-crl_info(OtpCert, Certs, [{_, #'CertificateList'{tbsCertList =
+crl_path_db([{_, CRL} |CRLs], [Path | Paths], Acc) ->
+    CertPath = lists:flatten(lists:map(fun([]) ->
+					       [];
+					  (CertFile) ->
+					       test_server:format("Certfile ~p", [CertFile]),
+					       read_certs(CertFile)
+				       end, Path)),
+    crl_path_db(CRLs, Paths, [{CRL, CertPath}| Acc]).
+
+crl_names("4.4.1") ->
+    ["Trust Anchor Root CRL"];
+crl_names("4.4.2") ->
+    ["Trust Anchor Root CRL", "Good CA CRL", "Revoked subCA CRL"];
+crl_names("4.4.3") ->
+    ["Trust Anchor Root CRL", "Good CA CRL", "Revoked subCA CRL"];
+crl_names("4.4.4") ->
+     ["Trust Anchor Root CRL", "Bad CRL Signature CA CRL"];
+crl_names("4.4.5") ->
+      ["Trust Anchor Root CRL", "Bad CRL Issuer Name CA CRL"];
+crl_names("4.4.6") ->
+     ["Trust Anchor Root CRL", "Wrong CRL CA CRL"];
+crl_names("4.4.7") ->
+   ["Trust Anchor Root CRL", "Two CRLs CA Good CRL", "Two CRLs CA Bad CRL"];
+crl_names("4.4.8") ->
+   ["Trust Anchor Root CRL", "Unknown CRL Entry Extension CA CRL"];
+crl_names(Chap) when Chap == "4.4.9";
+		Chap == "4.4.10"->
+   ["Trust Anchor Root CRL", "Unknown CRL Extension CA CRL"];
+crl_names("4.4.11") ->
+   ["Trust Anchor Root CRL", "Old CRL nextUpdate CA CRL"];
+crl_names("4.4.12") ->
+   ["Trust Anchor Root CRL", "pre2000 CRL nextUpdate CA CRL"];
+crl_names("4.4.13") ->
+   ["Trust Anchor Root CRL", "GeneralizedTime CRL nextUpdate CA CRL"];
+crl_names(Chap) when Chap == "4.4.14";
+		Chap == "4.4.15"->
+    ["Trust Anchor Root CRL", "Negative Serial Number CA CRL"];
+crl_names(Chap) when Chap == "4.4.16";
+		Chap == "4.4.17";
+		Chap == "4.4.18" ->
+    ["Trust Anchor Root CRL", "Long Serial Number CA CRL"];
+crl_names(Chap)when Chap == "4.4.19";
+	       Chap == "4.4.20" ->
+    ["Trust Anchor Root CRL", "Separate Certificate and CRL Keys CRL"];
+crl_names("4.4.21") ->
+   ["Trust Anchor Root CRL", "Separate Certificate and CRL Keys CA2 CRL"];
+crl_names(Chap) when Chap == "4.5.1";
+		     Chap == "4.5.2"->
+   ["Trust Anchor Root CRL", "Basic Self-Issued New Key CA CRL"];
+crl_names(Chap) when Chap == "4.5.3";
+		Chap == "4.5.4";
+		Chap == "4.5.5" ->
+   ["Trust Anchor Root CRL", "Basic Self-Issued Old Key Self-Issued Cert CRL",
+    "Basic Self-Issued Old Key CA CRL"];
+crl_names(Chap) when  Chap == "4.5.6";
+		      Chap == "4.5.7";
+		      Chap == "4.5.8" ->
+   ["Trust Anchor Root CRL", "Basic Self-Issued CRL Signing Key CRL Cert CRL",
+	"Basic Self-Issued CRL Signing Key CA CRL"
+   ];
+crl_names("4.7.4") ->
+   ["Trust Anchor Root CRL", "keyUsage Critical cRLSign False CA CRL"];
+crl_names("4.7.5") ->
+   ["Trust Anchor Root CRL", "keyUsage Not Critical cRLSign False CA CRL"];
+crl_names(Chap) when Chap == "4.14.1";
+		Chap == "4.14.2";
+		Chap == "4.14.3";
+		Chap == "4.14.4" ->
+    ["Trust Anchor Root CRL", "distributionPoint1 CA CRL"];
+crl_names(Chap) when Chap == "4.14.5";
+		Chap == "4.14.6";
+		Chap == "4.14.7";
+		Chap == "4.14.8";
+		Chap == "4.14.9" ->
+    ["Trust Anchor Root CRL", "distributionPoint2 CA CRL"];
+crl_names("4.14.10") ->
+   ["Trust Anchor Root CRL", "No issuingDistributionPoint CA CRL"];
+crl_names("4.14.11") ->
+   ["Trust Anchor Root CRL", "onlyContainsUserCerts CA CRL"];
+crl_names(Chap) when Chap == "4.14.12";
+		Chap == "4.14.13" ->
+    ["Trust Anchor Root CRL", "onlyContainsCACerts CA CRL"];
+crl_names("4.14.14") ->
+    ["Trust Anchor Root CRL", "onlyContainsAttributeCerts CA CRL"];
+crl_names(Chap) when Chap == "4.14.15";
+		Chap == "4.14.16" ->
+   ["Trust Anchor Root CRL", "onlySomeReasons CA1 compromise CRL",
+    "onlySomeReasons CA1 other reasons CRL"];
+crl_names("4.14.17") ->
+   ["Trust Anchor Root CRL",
+    "onlySomeReasons CA2 CRL1", "onlySomeReasons CA2 CRL2"];
+crl_names("4.14.18") ->
+   ["Trust Anchor Root CRL",
+    "onlySomeReasons CA3 compromise CRL", "onlySomeReasons CA3 other reasons CRL"];
+crl_names(Chap) when Chap == "4.14.19";
+		Chap == "4.14.20";
+		Chap == "4.14.21" ->
+   ["Trust Anchor Root CRL", "onlySomeReasons CA4 compromise CRL",
+    "onlySomeReasons CA4 other reasons CRL"];
+crl_names(Chap) when Chap == "4.14.22";
+		Chap == "4.14.23";
+		Chap == "4.14.24";
+		Chap == "4.14.25";
+		Chap == "4.14.26" ->
+   ["Trust Anchor Root CRL", "indirectCRL CA1 CRL"];
+crl_names("4.14.27") ->
+   ["Trust Anchor Root CRL", "Good CA CRL"];
+
+crl_names(Chap) when Chap == "4.14.28";
+		     Chap == "4.14.29" ->
+    ["Trust Anchor Root CRL", "indirectCRL CA3 CRL", "indirectCRL CA3 cRLIssuer CRL"];
+crl_names("4.14.30") ->
+   ["Trust Anchor Root CRL", "indirectCRL CA4 cRLIssuer CRL"];
+crl_names(Chap) when Chap == "4.14.31";
+		Chap == "4.14.32";
+		Chap == "4.14.33";
+		Chap == "4.14.34";
+		Chap == "4.14.35" ->
+   ["Trust Anchor Root CRL", "indirectCRL CA5 CRL"];
+crl_names("4.15.1") ->
+   ["Trust Anchor Root CRL", "deltaCRLIndicator No Base CA CRL"];
+crl_names(Chap)  when Chap == "4.15.2";
+		 Chap == "4.15.3";
+		 Chap == "4.15.4";
+		 Chap == "4.15.5";
+		 Chap == "4.15.6";
+		 Chap == "4.15.7" ->
+    ["Trust Anchor Root CRL", "deltaCRL CA1 CRL", "deltaCRL CA1 deltaCRL"];
+crl_names(Chap) when Chap == "4.15.8";
+		Chap == "4.15.9" ->
+   ["Trust Anchor Root CRL", "deltaCRL CA2 CRL", "deltaCRL CA2 deltaCRL"];
+crl_names("4.15.10") ->
+    ["Trust Anchor Root CRL", "deltaCRL CA3 CRL", "deltaCRL CA3 deltaCRL"].
+
+crl_root_cert() ->
+    "Trust Anchor Root Certificate".
+
+crl_path("Trust Anchor Root CRL") ->
+    []; %% Signed directly by crl_root_cert
+crl_path("Revoked subCA CRL") ->
+    ["Good CA Cert", "Revoked subCA Cert"];
+crl_path("indirectCRL CA3 cRLIssuer CRL") ->
+    ["indirectCRL CA3 Cert", "indirectCRL CA3 cRLIssuer Cert"];
+crl_path("Two CRLs CA Good CRL") ->
+    ["Two CRLs CA Cert"];
+crl_path("Two CRLs CA Bad CRL") ->
+    ["Two CRLs CA Cert"];
+crl_path("Separate Certificate and CRL Keys CRL") ->
+    ["Separate Certificate and CRL Keys CRL Signing Cert"];
+crl_path("Separate Certificate and CRL Keys CA2 CRL") ->
+    ["Separate Certificate and CRL Keys CA2 CRL Signing Cert"];
+crl_path("Basic Self-Issued Old Key Self-Issued Cert CRL") ->
+    ["Basic Self-Issued Old Key CA Cert"];
+crl_path("Basic Self-Issued Old Key CA CRL") ->
+      ["Basic Self-Issued Old Key CA Cert", "Basic Self-Issued Old Key NewWithOld CA Cert"];
+
+crl_path("Basic Self-Issued CRL Signing Key CRL Cert CRL") ->
+    ["Basic Self-Issued CRL Signing Key CA Cert"];
+crl_path("Basic Self-Issued CRL Signing Key CA CRL") ->
+    ["Basic Self-Issued CRL Signing Key CA Cert", "Basic Self-Issued CRL Signing Key CRL Cert"];
+
+crl_path("onlySomeReasons CA1 compromise CRL") ->
+    ["onlySomeReasons CA1 Cert"];
+crl_path("onlySomeReasons CA1 other reasons CRL") ->
+    ["onlySomeReasons CA1 Cert"];
+crl_path("onlySomeReasons CA3 other reasons CRL") ->
+    ["onlySomeReasons CA3 Cert"];
+crl_path("onlySomeReasons CA3 compromise CRL") ->
+    ["onlySomeReasons CA3 Cert"];
+crl_path("onlySomeReasons CA4 compromise CRL") ->
+    ["onlySomeReasons CA4 Cert"];
+crl_path("onlySomeReasons CA4 other reasons CRL") ->
+    ["onlySomeReasons CA4 Cert"];
+crl_path("Basic Self-Issued New Key CA CRL") ->
+    ["Basic Self-Issued New Key CA Cert"];
+crl_path("deltaCRL CA1 deltaCRL") ->
+    crl_path("deltaCRL CA2 CRL");
+crl_path("deltaCRL CA2 deltaCRL") ->
+    crl_path("deltaCRL CA2 CRL");
+crl_path("deltaCRL CA3 deltaCRL") ->
+    crl_path("deltaCRL CA3 CRL");
+crl_path(CRL) when CRL == "onlySomeReasons CA2 CRL1";
+		   CRL == "onlySomeReasons CA2 CRL2" ->
+    ["onlySomeReasons CA2 Cert"];
+
+crl_path(CRL) ->
+    L = length(CRL),
+    Base = string:sub_string(CRL, 1, L -3),
+    [Base ++ "Cert"].
+
+crls(CRLS) ->
+     lists:foldl(fun([], Acc) ->
+			Acc;
+		   (CRLFile, Acc) ->
+			[CRL] = read_crls(CRLFile),
+			[CRL | Acc]
+		end, [], CRLS).
+
+crl_info(_, [], Acc) ->
+    Acc;
+crl_info(OtpCert, [{_, #'CertificateList'{tbsCertList =
 						     #'TBSCertList'{issuer = Issuer,
 								    crlExtensions = CRLExtensions}}}
 				= CRL | Rest], Acc) ->
@@ -910,17 +1119,39 @@ crl_info(OtpCert, Certs, [{_, #'CertificateList'{tbsCertList =
     ExtList = pubkey_cert:extensions_list(CRLExtensions),
     DPs  = case pubkey_cert:select_extension(?'id-ce-cRLDistributionPoints', Extensions) of
 	      #'Extension'{extnValue = Value} ->
-		   lists:map(fun(Point) -> pubkey_cert_records:transform(Point, decode) end, Value);
+		   TDPS = lists:foldl(fun(Point, Acc) ->
+					      Dp = pubkey_cert_records:transform(Point, decode),
+					      IDP = pubkey_cert:select_extension(?'id-ce-issuingDistributionPoint', Extensions),
+					      case Dp#'DistributionPoint'.cRLIssuer of
+						  asn1_NOVALUE ->
+						      [Dp | Acc];
+						  DpCRLIssuer ->
+						      CRLIssuer = dp_crlissuer_to_issuer(DpCRLIssuer),
+						      CertIssuer =  OtpTBSCert#'OTPTBSCertificate'.issuer,
+						      case  pubkey_cert:is_issuer(CRLIssuer, CertIssuer) of
+							  true ->
+							      [Dp | Acc];
+							  false when (IDP =/= undefined) ->
+							      Acc;
+							  false ->
+							      [Dp | Acc]
+							  end
+					      end
+				      end, [], Value),
+		   test_server:format("DPs: ~p ~n", [TDPS]),
+		   TDPS;
 	      _ ->
-		  case same_issuer(OtpCert, Issuer) of
-		      true ->
-			  [make_dp(ExtList, asn1_NOVALUE, Issuer)];
+		   test_server:format("NO DP extension ~p ~n", [Extensions]),
+		   case same_issuer(OtpCert, Issuer) of
+		       true ->
+			   [make_dp(ExtList, asn1_NOVALUE, Issuer)];
 		      false ->
-			  [make_dp(ExtList, Issuer, ignore)]
-		  end
+			   [make_dp(ExtList, Issuer, ignore)]
+		   end
 	   end,
     DPsCRLs = lists:map(fun(DP) -> {DP, CRL} end, DPs),
-    crl_info(OtpCert, Certs, Rest, DPsCRLs ++ Acc).
+    crl_info(OtpCert, Rest, DPsCRLs ++ Acc).
+
 
 ignore_sign_test_when_building_path("Invalid Bad CRL Signature Test4") ->
     true;
@@ -952,20 +1183,35 @@ make_dp(Extensions, Issuer0, DpInfo) ->
 mk_issuer_dp(asn1_NOVALUE, Issuer) ->
     {asn1_NOVALUE, {fullName, [{directoryName, Issuer}]}};
 mk_issuer_dp(Issuer, _) ->
+    io:format("Issuer ~p~n", [Issuer]),
     {[{directoryName, Issuer}], asn1_NOVALUE}.
 
 update_crls(_, State) ->
     State.
 
-trusted_cert_and_path(DP, CRL, Id, {Ignore, CertsList}) ->
-    case crl_issuer(crl_issuer_name(DP), CRL, Id, CertsList, CertsList, Ignore) of
-	{ok, IssuerCert, DerIssuerCert} ->
-	    Certs = [{public_key:pkix_decode_cert(Cert, otp), Cert} || Cert <- CertsList],
-	    CertChain = build_chain(Certs, Certs, IssuerCert, Ignore, [DerIssuerCert]),
-	    {ok, public_key:pkix_decode_cert(hd(CertChain), otp), CertChain};
-	Other ->
-	    Other
+trusted_cert_and_path(_, #'CertificateList'{tbsCertList =
+						#'TBSCertList'{issuer = Issuer}} = CRL, _, PathDb) ->
+    [TrustedDERCert] =  read_certs(crl_root_cert()),
+    TrustedCert =  public_key:pkix_decode_cert(TrustedDERCert, otp),
+
+    io:format("CRL~p ~n", [CRL]),
+
+    case lists:keysearch(CRL, 1, PathDb) of
+	{_, {CRL, [ _| _] = Path}} ->
+		      {ok, TrustedCert, [TrustedDERCert | Path]};
+	{_, {CRL, []}} ->
+	    {ok, TrustedCert, [TrustedDERCert]}
     end.
+
+%% trusted_cert_and_path(DP, CRL, Id, {Ignore, CertsList}) ->
+%%     case crl_issuer(crl_issuer_name(DP), CRL, Id, CertsList, CertsList, Ignore) of
+%% 	{ok, IssuerCert, DerIssuerCert} ->
+%% 	    Certs = [{public_key:pkix_decode_cert(Cert, otp), Cert} || Cert <- CertsList],
+%% 	    CertChain = build_chain(Certs, Certs, IssuerCert, Ignore, [DerIssuerCert]),
+%% 	    {ok, public_key:pkix_decode_cert(hd(CertChain), otp), CertChain};
+%% 	Other ->
+%% 	    Other
+%%     end.
 
 crl_issuer_name(#'DistributionPoint'{cRLIssuer = asn1_NOVALUE}) ->
     undefined;
@@ -981,7 +1227,7 @@ build_chain([{First, DerFirst}|Certs], All, Cert, Ignore, Acc) ->
 	    Acc;
 	false ->
 	    case public_key:pkix_is_issuer(Cert, First)
-		%%andalso check_extension_cert_signer(First)
+		andalso check_extension_cert_signer(First)
 		andalso is_signer(First, Cert, Ignore)
 	    of
 		true ->
@@ -1068,8 +1314,8 @@ crl_issuer(IssuerName, CRL, Id, [Cert | Rest], All, false) ->
     ErlCert = public_key:pkix_decode_cert(Cert, otp),
     TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
     SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-    %%Issuer = public_key:pkix_normalize_name(
-    %%		    TBSCertificate#'OTPTBSCertificate'.subject),
+    %Issuer = public_key:pkix_normalize_name(
+    %		    TBSCertificate#'OTPTBSCertificate'.subject),
     Bool = is_signer(ErlCert, CRL, false),
     case {SerialNumber, IssuerName} of
 	Id when Bool == true ->
@@ -1125,18 +1371,21 @@ crl_issuer(IssuerName, CRL, [Cert | Rest], Ignore) ->
     end.
 
 read_certs(Test) ->
-    File = test_file(Test),
+    File = cert_file(Test),
     Ders = erl_make_certs:pem_to_der(File),
     [Cert || {'Certificate', Cert, not_encrypted} <- Ders].
 
 read_crls(Test) ->
-    File = test_file(Test),
+    File = crl_file(Test),
     Ders = erl_make_certs:pem_to_der(File),
     [CRL || {'CertificateList', CRL, not_encrypted} <- Ders].
 
-test_file(Test) ->
-    io:format("TEST: ~p~n", [Test]),
+cert_file(Test) ->
     file(?CONV, lists:append(string:tokens(Test, " -")) ++ ".pem").
+
+crl_file(Test) ->
+    file(?CRL, lists:append(string:tokens(Test, " -")) ++ ".pem").
+
 
 file(Sub,File) ->
     TestDir = case get(datadir) of
@@ -1242,17 +1491,15 @@ intermidiate_cas(Chap) when Chap == "4.6.2" ->
 intermidiate_cas(Chap) when Chap == "4.6.3" ->
     ["basicConstraints Not Critical cA False CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.5.2";
-			    Chap == "4.5.5" ->
-    ["Basic Self-Issued New Key CA Cert"];
-
-intermidiate_cas(Chap) when Chap == "4.5.1" ->
+intermidiate_cas(Chap) when Chap == "4.5.1";
+			    Chap == "4.5.2" ->
     ["Basic Self-Issued New Key OldWithNew CA Cert", "Basic Self-Issued New Key CA Cert"];
 
 intermidiate_cas(Chap) when	Chap == "4.5.3" ->
     ["Basic Self-Issued Old Key NewWithOld CA Cert", "Basic Self-Issued Old Key CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.5.4" ->
+intermidiate_cas(Chap) when Chap == "4.5.4";
+			    Chap == "4.5.5" ->
     ["Basic Self-Issued Old Key CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.13.1"; 
@@ -1300,9 +1547,6 @@ intermidiate_cas(Chap) when Chap == "4.13.17";
 intermidiate_cas(Chap) when Chap == "4.13.19" ->
     ["nameConstraints DN1 Self-Issued CA Cert",
      "nameConstraints DN1 CA Cert"];
-
-intermidiate_cas(Chap) when Chap == "4.5.6" ->
-    ["Basic Self-Issued CRL Signing Key CA Cert"];
 
 intermidiate_cas(Chap) when Chap == "4.7.1";
 			    Chap == "4.7.4" -> 
@@ -1387,11 +1631,147 @@ intermidiate_cas(Chap) when Chap == "4.6.16" ->
      "pathLenConstraint0 Self-Issued CA Cert",
      "pathLenConstraint0 CA Cert"];
 
-intermidiate_cas(Chap) when Chap == "4.5.7";
-			    Chap == "4.5.8"
-			    ->
-    ["Basic Self-Issued CRL Signing Key CRL Cert", 
-     "Basic Self-Issued CRL Signing Key CA Cert"].
+intermidiate_cas(Chap) when Chap == "4.4.1" ->
+    ["No CRL CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.2" ->
+    ["Revoked subCA Cert", "Good CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.3" ->
+    ["Good CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.4" ->
+    ["Bad CRL Signature CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.5" ->
+    ["Bad CRL Issuer Name CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.6" ->
+    ["Wrong CRL CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.7" ->
+    ["Two CRLs CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.8" ->
+    ["Unknown CRL Entry Extension CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.9";
+			    Chap == "4.4.10" ->
+    ["Unknown CRL Extension CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.11" ->
+    ["Old CRL nextUpdate CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.12" ->
+    ["pre2000 CRL nextUpdate CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.13" ->
+    ["GeneralizedTime CRL nextUpdate CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.14";
+			    Chap == "4.4.15" ->
+    ["Negative Serial Number CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.16";
+			    Chap == "4.4.17";
+			    Chap == "4.4.18" ->
+    ["Long Serial Number CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.19";
+			    Chap == "4.4.20" ->
+    ["Separate Certificate and CRL Keys Certificate Signing CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.4.21" ->
+    ["Separate Certificate and CRL Keys CA2 Certificate Signing CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.1";
+			    Chap == "4.14.2";
+			    Chap == "4.14.3";
+			    Chap == "4.14.4" ->
+    ["distributionPoint1 CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.14.5";
+			    Chap == "4.14.6";
+			    Chap == "4.14.7";
+			    Chap == "4.14.8";
+			    Chap == "4.14.9" ->
+    ["distributionPoint2 CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.10" ->
+    ["No issuingDistributionPoint CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.11" ->
+    ["onlyContainsUserCerts CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.12";
+			    Chap == "4.14.13" ->
+    ["onlyContainsCACerts CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.14" ->
+    ["onlyContainsAttributeCerts CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.15";
+			    Chap == "4.14.16" ->
+    ["onlySomeReasons CA1 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.17" ->
+    ["onlySomeReasons CA2 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.18" ->
+    ["onlySomeReasons CA3 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.19";
+			    Chap == "4.14.20";
+			    Chap == "4.14.21" ->
+    ["onlySomeReasons CA4 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.22";
+			    Chap == "4.14.23" ->
+    ["indirectCRL CA1 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.24";
+			    Chap == "4.14.25";
+			    Chap == "4.14.26" ->
+    ["indirectCRL CA2 Cert"];
+%%FOO
+intermidiate_cas(Chap) when Chap == "4.14.27" ->
+    ["indirectCRL CA2 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.28";
+			    Chap == "4.14.29" ->
+    ["indirectCRL CA3 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.31";
+			    Chap == "4.14.32";
+			    Chap == "4.14.33" ->
+    ["indirectCRL CA6 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.14.34";
+			    Chap == "4.14.35" ->
+    ["indirectCRL CA5 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.15.1" ->
+    ["deltaCRLIndicator No Base CA Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.15.2";
+			    Chap == "4.15.3";
+			    Chap == "4.15.4";
+			    Chap == "4.15.5";
+			    Chap == "4.15.6";
+			    Chap == "4.15.7" ->
+    ["deltaCRL CA1 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.15.8";
+			    Chap == "4.15.9" ->
+    ["deltaCRL CA2 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.15.10" ->
+    ["deltaCRL CA3 Cert"];
+
+intermidiate_cas(Chap) when Chap == "4.5.6";
+			    Chap == "4.5.7" ->
+    ["Basic Self-Issued CRL Signing Key CA Cert"];
+intermidiate_cas(Chap) when Chap == "4.5.8" ->
+    ["Basic Self-Issued CRL Signing Key CRL Cert"].
 
 error(Format, Args, File0, Line) ->
     File = filename:basename(File0),
@@ -1511,6 +1891,7 @@ inhibit_any_policy() ->
      {"4.12.10", "Invalid Self-Issued inhibitAnyPolicy Test10",   43 }].
 
 crypto_support_check(Config) ->
+    crypto:start(),
     try crypto:sha256(<<"Test">>) of
      	_ ->
 	    Config
@@ -1518,3 +1899,7 @@ crypto_support_check(Config) ->
 	    crypto:stop(),
      	    {skip, "To old version of openssl"}
     end.
+
+dp_crlissuer_to_issuer(DPCRLIssuer) ->
+    [{directoryName, Issuer}] = pubkey_cert_records:transform(DPCRLIssuer, decode),
+    Issuer.

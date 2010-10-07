@@ -759,7 +759,8 @@ pkix_path_validation(Config) when is_list(Config) ->
 
     CertK3 = {Cert3,_}  = erl_make_certs:make_cert([{issuer, CertK1}, 
 					       {extensions, [{basic_constraints, false}]}]),
-    {Cert4,_}  = erl_make_certs:make_cert([{issuer, CertK3}]),
+    {Cert4,_}  = erl_make_certs:make_cert([{issuer, CertK3}, {extensions, [{key_usage, undefined}]}]),
+
     {error, {bad_cert,missing_basic_constraint}} =
 	public_key:pkix_path_validation(Trusted, [Cert1, Cert3,Cert4], []),
 
