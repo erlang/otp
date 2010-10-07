@@ -58,10 +58,10 @@ close() ->
 		[] -> 
 		    ok = file:delete(File ++ ".temp"),
 		    %% So that make understands that we have made this
-		    case os:getenv("CLEARCASE_ROOT") of
-			false -> os:cmd("touch " ++ File);
-			_ ->  ignore
-		    end,
+		    %% case os:getenv("CLEARCASE_ROOT") of
+		    %% 	false -> os:cmd("touch " ++ File);
+		    %% 	_ ->  ignore
+		    %% end,
 		    ok;
 		Diff ->
 		    case check_diff(Diff) of
