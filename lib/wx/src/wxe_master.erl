@@ -40,7 +40,6 @@
 
 -include("wxe.hrl").
 -include("gen/wxe_debug.hrl").
--include("gen/gl_debug.hrl").
 
 -define(DRIVER, "wxe_driver").
 
@@ -146,7 +145,6 @@ init([]) ->
 	    wx_debug_info = ets:new(wx_debug_info, [named_table]),
 	    wx_non_consts = ets:new(wx_non_consts, [named_table]),
 	    true = ets:insert(wx_debug_info, wxdebug_table()),
-	    true = ets:insert(wx_debug_info, gldebug_table()),
 	    spawn_link(fun() -> debug_ping(Port) end),
 	    receive 
 		{wx_consts, List} ->

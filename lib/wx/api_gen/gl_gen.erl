@@ -67,7 +67,7 @@ gen_code() ->
 
     gl_gen_erl:gl_defines(GLDefines),
     gl_gen_erl:gl_api(GLFuncs),
-    gl_gen_erl:gen_debug(GLFuncs,GLUFuncs),
+    %%gl_gen_erl:gen_debug(GLFuncs,GLUFuncs),
     gl_gen_c:gen(GLFuncs,GLUFuncs),
     ok.
 
