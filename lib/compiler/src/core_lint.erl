@@ -65,7 +65,8 @@
                   | {'return_mismatch', fa()} | {'undefined_function', fa()}
                   | {'duplicate_var', cerl:var_name(), fa()}
                   | {'unbound_var', cerl:var_name(), fa()}
-                  | {'undefined_function', fa(), fa()}.
+                  | {'undefined_function', fa(), fa()}
+                  | {'tail_segment_not_at_end', fa()}.
 
 -type error()    :: {module(), err_desc()}.
 -type warning()  :: {module(), term()}.
