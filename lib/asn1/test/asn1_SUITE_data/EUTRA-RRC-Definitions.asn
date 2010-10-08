@@ -1,8 +1,8 @@
--- 3GPP TS 36.331 V8.8.0 (2009-12)
--- $Id$
---
+-- 3GPP TS 36.331 v9.2.0
+-- http://cdmweb.ericsson.se/TeamCenter/controller/ViewDocs?DocumentName=51%2F15519-10%2FFCP1039669%2F11&Revision=A
+
 EUTRA-RRC-Definitions DEFINITIONS AUTOMATIC TAGS ::=
- 
+
 BEGIN
 
 
@@ -21,6 +21,18 @@ BCCH-DL-SCH-MessageType ::= CHOICE {
 	c1						CHOICE {
 		systemInformation						SystemInformation,
 		systemInformationBlockType1				SystemInformationBlockType1
+	},
+	messageClassExtension	SEQUENCE {}
+}
+
+
+MCCH-Message ::= 		SEQUENCE {
+	message					MCCH-MessageType
+}
+
+MCCH-MessageType ::= CHOICE {
+	c1							CHOICE {
+		mbsfnAreaConfiguration-r9		MBSFNAreaConfiguration-r9
 	},
 	messageClassExtension	SEQUENCE {}
 }
@@ -68,7 +80,7 @@ DL-DCCH-MessageType ::= CHOICE {
 		securityModeCommand						SecurityModeCommand,
 		ueCapabilityEnquiry						UECapabilityEnquiry,
 		counterCheck							CounterCheck,
-		spare7 NULL,
+		ueInformationRequest-r9					UEInformationRequest-r9,
 		spare6 NULL, spare5 NULL, spare4 NULL,
 		spare3 NULL, spare2 NULL, spare1 NULL
 	},
@@ -103,11 +115,12 @@ UL-DCCH-MessageType ::= CHOICE {
 		securityModeComplete					SecurityModeComplete,
 		securityModeFailure						SecurityModeFailure,
 		ueCapabilityInformation					UECapabilityInformation,
-          ulHandoverPreparationTransfer			ULHandoverPreparationTransfer,
+ulHandoverPreparationTransfer			ULHandoverPreparationTransfer,
 		ulInformationTransfer					ULInformationTransfer,
 		counterCheckResponse					CounterCheckResponse,
-		spare5 NULL, spare4 NULL,
-		spare3 NULL, spare2 NULL, spare1 NULL
+		ueInformationResponse-r9				UEInformationResponse-r9,
+		proximityIndication-r9					ProximityIndication-r9,
+				spare3 NULL, spare2 NULL, spare1 NULL
 	},
 	messageClassExtension	SEQUENCE {}
 }
@@ -129,7 +142,7 @@ CounterCheck-r8-IEs ::=	SEQUENCE {
 	nonCriticalExtension				SEQUENCE {}							OPTIONAL	--Need OP
 }
 
-DRB-CountMSB-InfoList::=		SEQUENCE (SIZE (1..maxDRB)) OF DRB-CountMSB-Info
+DRB-CountMSB-InfoList ::=		SEQUENCE (SIZE (1..maxDRB)) OF DRB-CountMSB-Info
 
 DRB-CountMSB-Info ::=	SEQUENCE {
 	drb-Identity					DRB-Identity,
@@ -220,9 +233,19 @@ HandoverFromEUTRAPreparationRequest ::= SEQUENCE {
 }
 
 HandoverFromEUTRAPreparationRequest-r8-IEs ::= SEQUENCE {
-	cdma2000-Type						CDMA2000-Type,
-	rand								RAND-CDMA2000				OPTIONAL,  -- Cond cdma2000-Type
-	mobilityParameters					MobilityParametersCDMA2000	OPTIONAL,  -- Cond cdma2000-Type
+	cdma2000-Type					CDMA2000-Type,
+	rand							RAND-CDMA2000				OPTIONAL,  -- Cond cdma2000-Type
+	mobilityParameters				MobilityParametersCDMA2000	OPTIONAL,  -- Cond cdma2000-Type
+	nonCriticalExtension				HandoverFromEUTRAPreparationRequest-v890-IEs	OPTIONAL
+}
+
+HandoverFromEUTRAPreparationRequest-v890-IEs ::= SEQUENCE {
+	lateR8NonCriticalExtension			OCTET STRING				OPTIONAL,	-- Need OP
+	nonCriticalExtension				HandoverFromEUTRAPreparationRequest-v920-IEs	OPTIONAL
+}
+
+HandoverFromEUTRAPreparationRequest-v920-IEs ::= SEQUENCE {
+	concurrPrepCDMA2000-HRPD-r9		BOOLEAN						OPTIONAL,	-- Cond PSHO
 	nonCriticalExtension				SEQUENCE {}					OPTIONAL	-- Need OP
 }
 
@@ -235,6 +258,17 @@ MasterInformationBlock ::=			SEQUENCE {
 	spare								BIT STRING (SIZE (10))
 }
 
+
+
+MBSFNAreaConfiguration-r9 ::=		SEQUENCE {
+	commonSF-Alloc-r9					CommonSF-AllocPatternList-r9,
+	commonSF-AllocPeriod-r9				ENUMERATED {
+												rf4, rf8, rf16, rf32, rf64, rf128, rf256},
+	pmch-InfoList-r9					PMCH-InfoList-r9,
+	nonCriticalExtension				SEQUENCE {}			OPTIONAL	-- Need OP
+}
+
+CommonSF-AllocPatternList-r9 ::=	SEQUENCE (SIZE (1..maxMBSFN-Allocations)) OF MBSFN-SubframeConfig
 
 
 MeasurementReport ::=				SEQUENCE {
@@ -259,8 +293,9 @@ MobilityFromEUTRACommand ::=		SEQUENCE {
 	rrc-TransactionIdentifier			RRC-TransactionIdentifier,
 	criticalExtensions					CHOICE {
 		c1									CHOICE{
-			mobilityFromEUTRACommand-r8			MobilityFromEUTRACommand-r8-IEs,
-			spare3 NULL, spare2 NULL, spare1 	NULL
+			mobilityFromEUTRACommand-r8		MobilityFromEUTRACommand-r8-IEs,
+			mobilityFromEUTRACommand-r9 		MobilityFromEUTRACommand-r9-IEs,
+			spare2 NULL, spare1 	NULL
 		},
 		criticalExtensionsFuture			SEQUENCE {}
 	}
@@ -275,6 +310,17 @@ MobilityFromEUTRACommand-r8-IEs ::=	SEQUENCE {
 	nonCriticalExtension				SEQUENCE {}							OPTIONAL	-- Need OP
 }
 
+MobilityFromEUTRACommand-r9-IEs ::=	SEQUENCE {
+	cs-FallbackIndicator				BOOLEAN,
+	purpose								CHOICE{
+		handover							Handover,
+		cellChangeOrder						CellChangeOrder,
+		e-CSFB-r9							E-CSFB-r9,
+		...
+	},
+	nonCriticalExtension				SEQUENCE {}							OPTIONAL	-- Need OP
+}
+
 Handover ::=						SEQUENCE {
 	targetRAT-Type						ENUMERATED {
 											utra, geran, cdma2000-1XRTT, cdma2000-HRPD,
@@ -284,7 +330,7 @@ Handover ::=						SEQUENCE {
 	systemInformation					SI-OrPSI-GERAN				OPTIONAL	-- Cond PSHO
 }
 
-CellChangeOrder ::=					SEQUENCE {
+CellChangeOrder ::=				SEQUENCE {
 	t304								ENUMERATED {
 											ms100, ms200, ms500, ms1000,
 											ms2000, ms4000, ms8000, spare1},
@@ -304,14 +350,30 @@ SI-OrPSI-GERAN ::=					CHOICE {
 	psi									SystemInfoListGERAN
 }
 
-SystemInfoListGERAN ::=				SEQUENCE (SIZE (1..maxGERAN-SI)) OF
-										OCTET STRING (SIZE (1..23))
+E-CSFB-r9 ::=						SEQUENCE {
+	messageContCDMA2000-1XRTT-r9		OCTET STRING		OPTIONAL, 	-- Need ON
+	mobilityCDMA2000-HRPD-r9			ENUMERATED {
+											handover, redirection 
+										}					OPTIONAL,	-- Need OP
+	messageContCDMA2000-HRPD-r9		OCTET STRING		OPTIONAL, 	-- Cond concHO
+	redirectCarrierCDMA2000-HRPD-r9	CarrierFreqCDMA2000	OPTIONAL	-- Cond concRedir
+}
 
 
 Paging ::=					SEQUENCE {
-	pagingRecordList					PagingRecordList 					OPTIONAL,	-- Need ON
-	systemInfoModification				ENUMERATED {true}					OPTIONAL,	-- Need ON
-	etws-Indication						ENUMERATED {true}					OPTIONAL,	-- Need ON
+	pagingRecordList				PagingRecordList 					OPTIONAL,	-- Need ON
+	systemInfoModification			ENUMERATED {true}					OPTIONAL,	-- Need ON
+	etws-Indication					ENUMERATED {true}					OPTIONAL,	-- Need ON
+	nonCriticalExtension				Paging-v890-IEs						OPTIONAL
+}
+
+Paging-v890-IEs ::=			SEQUENCE {
+	lateR8NonCriticalExtension		OCTET STRING							OPTIONAL,	-- Need OP
+	nonCriticalExtension			Paging-v920-IEs							OPTIONAL
+}
+
+Paging-v920-IEs ::=			SEQUENCE {
+	cmas-Indication-r9				ENUMERATED {true}					OPTIONAL,	-- Need ON
 	nonCriticalExtension				SEQUENCE {}							OPTIONAL	-- Need OP
 }
 
@@ -331,7 +393,28 @@ PagingUE-Identity ::=				CHOICE {
 
 IMSI ::=							SEQUENCE (SIZE (6..21)) OF IMSI-Digit
 
-IMSI-Digit::=						INTEGER (0..9)
+IMSI-Digit ::=						INTEGER (0..9)
+
+
+ProximityIndication-r9 ::= SEQUENCE {
+	criticalExtensions					CHOICE {
+		c1									CHOICE {
+			proximityIndication-r9				ProximityIndication-r9-IEs,
+			spare3 NULL, spare2 NULL, spare1 NULL
+			},
+		criticalExtensionsFuture			SEQUENCE {}
+	}
+}
+
+ProximityIndication-r9-IEs ::= SEQUENCE {
+	type-r9								ENUMERATED {entering, leaving},
+	carrierFreq-r9						CHOICE {
+		eutra-r9							ARFCN-ValueEUTRA,
+		utra-r9								ARFCN-ValueUTRA,
+		...
+	},
+	nonCriticalExtension				SEQUENCE {}							OPTIONAL
+}
 
 
 RRCConnectionReconfiguration ::=	SEQUENCE {
@@ -354,13 +437,24 @@ RRCConnectionReconfiguration-r8-IEs ::= SEQUENCE {
 											DedicatedInfoNAS			OPTIONAL,	-- Cond nonHO
 	radioResourceConfigDedicated		RadioResourceConfigDedicated	OPTIONAL, -- Cond HO-toEUTRA
 	securityConfigHO					SecurityConfigHO				OPTIONAL,	-- Cond HO
+	nonCriticalExtension				RRCConnectionReconfiguration-v890-IEs	OPTIONAL
+}
+
+RRCConnectionReconfiguration-v890-IEs ::= SEQUENCE {
+	lateR8NonCriticalExtension			OCTET STRING					OPTIONAL,	-- Need OP
+	nonCriticalExtension			RRCConnectionReconfiguration-v920-IEs		OPTIONAL
+}
+
+RRCConnectionReconfiguration-v920-IEs ::= SEQUENCE {
+	otherConfig-r9						OtherConfig-r9					OPTIONAL,	-- Need ON
+	fullConfig-r9						ENUMERATED {true}				OPTIONAL, 	-- Cond HO-Reestab
 	nonCriticalExtension				SEQUENCE {}						OPTIONAL	-- Need OP
 }
 
 SecurityConfigHO ::=				SEQUENCE {
 	handoverType						CHOICE {
 		intraLTE							SEQUENCE {
-			securityAlgorithmConfig				SecurityAlgorithmConfig		OPTIONAL,	-- Need OP
+			securityAlgorithmConfig				SecurityAlgorithmConfig		OPTIONAL,	-- Cond fullConfig
 			keyChangeIndicator					BOOLEAN,
 			nextHopChainingCount				NextHopChainingCount
 		},
@@ -371,6 +465,7 @@ SecurityConfigHO ::=				SEQUENCE {
 	},
 	...
 }
+
 
 
 RRCConnectionReconfigurationComplete ::= SEQUENCE {
@@ -417,7 +512,12 @@ RRCConnectionReestablishmentComplete ::= SEQUENCE {
 }
 
 RRCConnectionReestablishmentComplete-r8-IEs ::= SEQUENCE {
-	nonCriticalExtension				SEQUENCE {}							OPTIONAL
+	nonCriticalExtension				RRCConnectionReestablishmentComplete-v920-IEs						OPTIONAL
+}
+
+RRCConnectionReestablishmentComplete-v920-IEs ::= SEQUENCE {
+	rlf-InfoAvailable-r9				ENUMERATED {true}				OPTIONAL,
+	nonCriticalExtension				SEQUENCE {}						OPTIONAL
 }
 
 
@@ -490,11 +590,26 @@ RRCConnectionRelease-r8-IEs ::=		SEQUENCE {
 	releaseCause						ReleaseCause,
 	redirectedCarrierInfo				RedirectedCarrierInfo				OPTIONAL,	-- Need ON
 	idleModeMobilityControlInfo			IdleModeMobilityControlInfo			OPTIONAL,	-- Need OP
-	nonCriticalExtension				SEQUENCE {}							OPTIONAL	-- Need OP
+	nonCriticalExtension				RRCConnectionRelease-v890-IEs		OPTIONAL
+}
+
+RRCConnectionRelease-v890-IEs ::=	SEQUENCE {
+	lateR8NonCriticalExtension			OCTET STRING						OPTIONAL,	-- Need OP
+	nonCriticalExtension				RRCConnectionRelease-v920-IEs		OPTIONAL
+}
+
+RRCConnectionRelease-v920-IEs ::=	SEQUENCE {
+	cellInfoList-r9					CHOICE {
+		geran-r9						CellInfoListGERAN-r9,
+		utra-FDD-r9						CellInfoListUTRA-FDD-r9,
+		utra-TDD-r9						CellInfoListUTRA-TDD-r9,
+		...
+	}															OPTIONAL,	-- Cond Redirection
+	nonCriticalExtension			SEQUENCE {}				OPTIONAL	-- Need OP
 }
 
 ReleaseCause ::=				ENUMERATED {loadBalancingTAUrequired,
-											other,spare2, spare1 }
+											other,spare2,spare1}
 
 RedirectedCarrierInfo ::=			CHOICE {
 	eutra								ARFCN-ValueEUTRA,
@@ -547,19 +662,42 @@ FreqPriorityUTRA-TDD ::=			SEQUENCE {
 	cellReselectionPriority				CellReselectionPriority
 }
 
-BandClassPriorityListHRPD ::=		SEQUENCE (SIZE (1..maxCDMA-BandClass)) OF BandClassPriorityHRPD 
+BandClassPriorityListHRPD ::=		SEQUENCE (SIZE (1..maxCDMA-BandClass)) OF BandClassPriorityHRPD
 
 BandClassPriorityHRPD ::=			SEQUENCE {
 	bandClass							BandclassCDMA2000,
 	cellReselectionPriority				CellReselectionPriority
 }
 
-BandClassPriorityList1XRTT ::=	SEQUENCE (SIZE (1..maxCDMA-BandClass)) OF BandClassPriority1XRTT 
+BandClassPriorityList1XRTT ::=	SEQUENCE (SIZE (1..maxCDMA-BandClass)) OF BandClassPriority1XRTT
 
-BandClassPriority1XRTT ::=		SEQUENCE {
+BandClassPriority1XRTT ::=			SEQUENCE {
 	bandClass							BandclassCDMA2000,
 	cellReselectionPriority				CellReselectionPriority
 }
+
+CellInfoListGERAN-r9 ::=		SEQUENCE (SIZE (1..maxCellInfo-GERAN-r9 )) OF CellInfoGERAN-r9
+
+CellInfoGERAN-r9 ::=				SEQUENCE {
+	physCellId-r9						PhysCellIdGERAN,
+	carrierFreq-r9						CarrierFreqGERAN,
+	systemInformation-r9				SystemInfoListGERAN
+}
+
+CellInfoListUTRA-FDD-r9 ::=			SEQUENCE (SIZE (1..maxUTRA-CellInfo-r9)) OF CellInfoUTRA-FDD-r9
+
+CellInfoUTRA-FDD-r9 ::=				SEQUENCE {
+	physCellId-r9						PhysCellIdUTRA-FDD,
+	utra-BCCH-Container-r9				OCTET STRING
+}
+
+CellInfoListUTRA-TDD-r9 ::=			SEQUENCE (SIZE (1..maxUTRA-CellInfo-r9)) OF CellInfoUTRA-TDD-r9
+
+CellInfoUTRA-TDD-r9 ::=				SEQUENCE {
+	physCellId-r9						PhysCellIdUTRA-TDD,
+	utra-BCCH-Container-r9				OCTET STRING
+}
+
 
 RRCConnectionRequest ::=			SEQUENCE {
 	criticalExtensions					CHOICE {
@@ -694,7 +832,9 @@ SystemInformation-r8-IEs ::=		SEQUENCE {
 		sib9								SystemInformationBlockType9,
 		sib10								SystemInformationBlockType10,
 		sib11								SystemInformationBlockType11,
-		...
+		...,
+		sib12-v920							SystemInformationBlockType12-r9,
+		sib13-v920							SystemInformationBlockType13-r9
 	},
 	nonCriticalExtension				SEQUENCE {}							OPTIONAL	-- Need OP
 }
@@ -708,7 +848,7 @@ SystemInformationBlockType1 ::=		SEQUENCE {
 		cellBarred							ENUMERATED {barred, notBarred},
 		intraFreqReselection				ENUMERATED {allowed, notAllowed},
 		csg-Indication						BOOLEAN,
-		csg-Identity						BIT STRING (SIZE (27))	OPTIONAL	-- Need OR
+		csg-Identity						CSG-Identity			OPTIONAL	-- Need OR
 	},
 	cellSelectionInfo					SEQUENCE {
 		q-RxLevMin							Q-RxLevMin,
@@ -722,7 +862,18 @@ SystemInformationBlockType1 ::=		SEQUENCE {
 											ms1, ms2, ms5, ms10, ms15, ms20,
 											ms40},
 	systemInfoValueTag					INTEGER (0..31),
-	nonCriticalExtension				SEQUENCE {}					OPTIONAL	-- Need OP
+	nonCriticalExtension				SystemInformationBlockType1-v890-IEs					OPTIONAL
+}
+
+SystemInformationBlockType1-v890-IEs::=	SEQUENCE {
+	lateR8NonCriticalExtension				OCTET STRING			OPTIONAL,	-- Need OP
+	nonCriticalExtension					SystemInformationBlockType1-v920-IEs	OPTIONAL
+}
+
+SystemInformationBlockType1-v920-IEs ::=	SEQUENCE {
+	ims-EmergencySupport-r9			ENUMERATED {true}				OPTIONAL,	-- Need OR
+	cellSelectionInfo-v920				CellSelectionInfo-v920				OPTIONAL,	-- Need OP
+	nonCriticalExtension				SEQUENCE {}							OPTIONAL	-- Need OP
 }
 
 PLMN-IdentityList ::=					SEQUENCE (SIZE (1..6)) OF PLMN-IdentityInfo
@@ -745,8 +896,13 @@ SIB-MappingInfo ::= SEQUENCE (SIZE (0..maxSIB-1)) OF SIB-Type
 SIB-Type ::=						ENUMERATED {
 										sibType3, sibType4, sibType5, sibType6,
 										sibType7, sibType8, sibType9, sibType10,
-										sibType11, spare7, spare6, spare5,
+										sibType11, sibType12-v920, sibType13-v920, spare5,
 										spare4, spare3, spare2, spare1, ...}
+
+CellSelectionInfo-v920 ::=			SEQUENCE {
+	q-QualMin-r9						Q-QualMin-r9,
+	q-QualMinOffset-r9					INTEGER (1..8)						OPTIONAL	-- Need OP
+}
 
 
 UECapabilityEnquiry ::=				SEQUENCE {
@@ -784,6 +940,74 @@ UECapabilityInformation ::=			SEQUENCE {
 UECapabilityInformation-r8-IEs ::=	SEQUENCE {
 	ue-CapabilityRAT-ContainerList		UE-CapabilityRAT-ContainerList,
 	nonCriticalExtension				SEQUENCE {}							OPTIONAL
+}
+
+
+UEInformationRequest-r9		::=				SEQUENCE {
+	rrc-TransactionIdentifier		RRC-TransactionIdentifier,
+	criticalExtensions				CHOICE {
+		c1								CHOICE {
+			ueInformationRequest-r9				UEInformationRequest-r9-IEs,
+			spare3 NULL, spare2 NULL, spare1 NULL
+		},
+		criticalExtensionsFuture			SEQUENCE {}
+	}
+}
+
+UEInformationRequest-r9-IEs ::=		SEQUENCE {
+	rach-ReportReq-r9							BOOLEAN,
+	rlf-ReportReq-r9							BOOLEAN,
+	nonCriticalExtension					SEQUENCE {}					OPTIONAL -- Need OP
+}
+
+
+UEInformationResponse-r9	::=			SEQUENCE {
+	rrc-TransactionIdentifier			RRC-TransactionIdentifier,
+	criticalExtensions					CHOICE {
+		c1								CHOICE {
+			ueInformationResponse-r9				UEInformationResponse-r9-IEs,
+			spare3 NULL, spare2 NULL, spare1 NULL
+		},
+		criticalExtensionsFuture				SEQUENCE {}
+	}
+}
+
+UEInformationResponse-r9-IEs ::=		SEQUENCE {
+	rach-Report-r9							SEQUENCE {
+		numberOfPreamblesSent-r9				INTEGER (1..200),
+		contentionDetected-r9					BOOLEAN
+	}																OPTIONAL,
+	rlfReport-r9							RLF-Report-r9			OPTIONAL,
+	nonCriticalExtension					SEQUENCE {}				OPTIONAL
+}
+
+RLF-Report-r9 ::= 					SEQUENCE {
+	measResultLastServCell				SEQUENCE {
+		rsrpResult							RSRP-Range,
+		rsrqResult							RSRQ-Range			OPTIONAL
+	},
+	measResultNeighCells				SEQUENCE {
+		measResultListEUTRA					MeasResultList2EUTRA	OPTIONAL,
+		measResultListUTRA					MeasResultList2UTRA		OPTIONAL,
+		measResultListGERAN					MeasResultListGERAN		OPTIONAL,
+		measResultsCDMA2000					MeasResultList2CDMA2000	OPTIONAL
+	}																OPTIONAL,
+	...
+}
+
+MeasResultList2EUTRA ::=				SEQUENCE (SIZE (1..maxFreq)) OF SEQUENCE {
+	carrierFreq							ARFCN-ValueEUTRA,
+	measResultList						MeasResultListEUTRA
+}
+
+MeasResultList2UTRA ::=				SEQUENCE (SIZE (1..maxCellReport)) OF SEQUENCE {
+	carrierFreq							ARFCN-ValueUTRA,
+	measResultList						MeasResultListUTRA
+}
+
+MeasResultList2CDMA2000 ::=			SEQUENCE (SIZE (1..maxCellReport)) OF SEQUENCE {
+	carrierFreq							CarrierFreqCDMA2000,
+	measResultList						MeasResultsCDMA2000
 }
 
 
@@ -841,7 +1065,11 @@ SystemInformationBlockType2 ::=		SEQUENCE {
 	},
 	mbsfn-SubframeConfigList			MBSFN-SubframeConfigList			OPTIONAL, 	-- Need OR
 	timeAlignmentTimerCommon			TimeAlignmentTimer,
-	...
+	...,
+	lateR8NonCriticalExtension		OCTET STRING						OPTIONAL,	-- Need OP
+	[[	ssac-BarringForMMTEL-Voice-r9		AC-BarringConfig				OPTIONAL,	-- Need OP
+		ssac-BarringForMMTEL-Video-r9		AC-BarringConfig				OPTIONAL	-- Need OP
+	]]
 }
 
 AC-BarringConfig ::=				SEQUENCE {
@@ -854,14 +1082,6 @@ AC-BarringConfig ::=				SEQUENCE {
 
 MBSFN-SubframeConfigList ::= 		SEQUENCE (SIZE (1..maxMBSFN-Allocations)) OF MBSFN-SubframeConfig
 
-MBSFN-SubframeConfig ::=			SEQUENCE {
-	radioframeAllocationPeriod			ENUMERATED {n1, n2, n4, n8, n16, n32},
-	radioframeAllocationOffset			INTEGER (0..7),
-	subframeAllocation					CHOICE {
-		oneFrame							BIT STRING (SIZE(6)),
-		fourFrames							BIT STRING (SIZE(24))
-	}
-}
 
 SystemInformationBlockType3 ::=		SEQUENCE {
 	cellReselectionInfoCommon			SEQUENCE {
@@ -893,7 +1113,19 @@ SystemInformationBlockType3 ::=		SEQUENCE {
 		t-ReselectionEUTRA					T-Reselection,
 		t-ReselectionEUTRA-SF				SpeedStateScaleFactors		OPTIONAL		-- Need OP
 	},
-	...
+	...,
+	lateR8NonCriticalExtension				OCTET STRING			OPTIONAL,	-- Need OP
+	[[	s-IntraSearch-v920					SEQUENCE {
+			s-IntraSearchP-r9					ReselectionThreshold,
+			s-IntraSearchQ-r9					ReselectionThresholdQ-r9
+		}																OPTIONAL,		-- Need OP
+		s-NonIntraSearch-v920				SEQUENCE {
+			s-NonIntraSearchP-r9				ReselectionThreshold,
+			s-NonIntraSearchQ-r9				ReselectionThresholdQ-r9
+		}																OPTIONAL,		-- Need OP
+		q-QualMin-r9						Q-QualMin-r9				OPTIONAL,		-- Need OP
+		threshServingLowQ-r9				ReselectionThresholdQ-r9	OPTIONAL		-- Need OP
+	]]
 }
 
 
@@ -917,7 +1149,8 @@ IntraFreqBlackCellList ::=		SEQUENCE (SIZE (1..maxCellBlack)) OF PhysCellIdRange
 
 SystemInformationBlockType5 ::=		SEQUENCE {
 	interFreqCarrierFreqList			InterFreqCarrierFreqList,
-	...
+	...,
+	lateR8NonCriticalExtension				OCTET STRING				OPTIONAL	-- Need OP
 }
 
 InterFreqCarrierFreqList ::=		SEQUENCE (SIZE (1..maxFreq)) OF InterFreqCarrierFreqInfo
@@ -937,7 +1170,13 @@ InterFreqCarrierFreqInfo ::=	SEQUENCE {
 	q-OffsetFreq						Q-OffsetRange					DEFAULT dB0,
 	interFreqNeighCellList				InterFreqNeighCellList			OPTIONAL, 		-- Need OR
 	interFreqBlackCellList				InterFreqBlackCellList			OPTIONAL, 		-- Need OR
-	...
+	...,
+	[[	q-QualMin-r9					Q-QualMin-r9					OPTIONAL,		-- Need OP
+		threshX-Q-r9					SEQUENCE {
+			threshX-HighQ-r9				ReselectionThresholdQ-r9,
+			threshX-LowQ-r9					ReselectionThresholdQ-r9
+		}																OPTIONAL		-- Cond RSRQ
+	]]
 }
 
 InterFreqNeighCellList ::=			SEQUENCE (SIZE (1..maxCellInter)) OF InterFreqNeighCellInfo
@@ -955,12 +1194,13 @@ SystemInformationBlockType6 ::=		SEQUENCE {
 	carrierFreqListUTRA-TDD				CarrierFreqListUTRA-TDD			OPTIONAL, 		-- Need OR
 	t-ReselectionUTRA					T-Reselection,
 	t-ReselectionUTRA-SF				SpeedStateScaleFactors			OPTIONAL,		-- Need OP
-	...
+	...,
+	lateR8NonCriticalExtension			OCTET STRING					OPTIONAL	-- Need OP
 }
 
 CarrierFreqListUTRA-FDD ::=		SEQUENCE (SIZE (1..maxUTRA-FDD-Carrier)) OF CarrierFreqUTRA-FDD 
 
-CarrierFreqUTRA-FDD ::=		SEQUENCE {
+CarrierFreqUTRA-FDD ::=				SEQUENCE {
 	carrierFreq							ARFCN-ValueUTRA,
 	cellReselectionPriority				CellReselectionPriority			OPTIONAL, 		-- Need OP
 	threshX-High						ReselectionThreshold,
@@ -968,12 +1208,17 @@ CarrierFreqUTRA-FDD ::=		SEQUENCE {
 	q-RxLevMin							INTEGER (-60..-13),
 	p-MaxUTRA							INTEGER (-50..33),
 	q-QualMin							INTEGER (-24..0),
-	...
+	...,
+	[[	threshX-Q-r9					SEQUENCE {
+			threshX-HighQ-r9				ReselectionThresholdQ-r9,
+			threshX-LowQ-r9					ReselectionThresholdQ-r9
+		}																OPTIONAL		-- Cond RSRQ
+	]]
 }
 
 CarrierFreqListUTRA-TDD ::=		SEQUENCE (SIZE (1..maxUTRA-TDD-Carrier)) OF CarrierFreqUTRA-TDD 
 
-CarrierFreqUTRA-TDD ::=		SEQUENCE {
+CarrierFreqUTRA-TDD ::=				SEQUENCE {
 	carrierFreq							ARFCN-ValueUTRA,
 	cellReselectionPriority				CellReselectionPriority			OPTIONAL, 		-- Need OP
 	threshX-High						ReselectionThreshold,
@@ -1019,7 +1264,14 @@ SystemInformationBlockType8 ::=		SEQUENCE {
 		longCodeState1XRTT					BIT STRING (SIZE (42))			OPTIONAL,	-- Need OR
 		cellReselectionParameters1XRTT		CellReselectionParametersCDMA2000	OPTIONAL -- Need OR
 	}																		OPTIONAL,	-- Need OR
-	...
+	...,
+	lateR8NonCriticalExtension			OCTET STRING						OPTIONAL,	-- Need OP
+	[[	csfb-SupportForDualRxUEs-r9			BOOLEAN							OPTIONAL,	-- Need OR
+		cellReselectionParametersHRPD-v920	CellReselectionParametersCDMA2000-v920	OPTIONAL,	-- Cond NCL-HRPD
+		cellReselectionParameters1XRTT-v920	CellReselectionParametersCDMA2000-v920	OPTIONAL,	-- Cond NCL-1XRTT
+		csfb-RegistrationParam1XRTT-v920	CSFB-RegistrationParam1XRTT-v920 		OPTIONAL,	-- Cond REG-1XRTT
+		ac-BarringConfig1XRTT-r9			AC-BarringConfig1XRTT-r9		OPTIONAL 	-- Cond REG-1XRTT
+	]]
 }
 
 CellReselectionParametersCDMA2000 ::= SEQUENCE {
@@ -1028,21 +1280,40 @@ CellReselectionParametersCDMA2000 ::= SEQUENCE {
 	t-ReselectionCDMA2000      			T-Reselection,
 	t-ReselectionCDMA2000-SF			SpeedStateScaleFactors				OPTIONAL	-- Need OP
 }
+
+CellReselectionParametersCDMA2000-v920 ::= SEQUENCE {
+	neighCellList-v920						NeighCellListCDMA2000-v920
+}
+
 NeighCellListCDMA2000 ::=			SEQUENCE (SIZE (1..16)) OF NeighCellCDMA2000
 
 NeighCellCDMA2000 ::=	SEQUENCE {
 	bandClass							BandclassCDMA2000,
-	neighCellsPerFreqList						NeighCellsPerBandclassListCDMA2000
+	neighCellsPerFreqList				NeighCellsPerBandclassListCDMA2000
 }
 
 NeighCellsPerBandclassListCDMA2000 ::= SEQUENCE (SIZE (1..16)) OF NeighCellsPerBandclassCDMA2000
 
 NeighCellsPerBandclassCDMA2000 ::=	SEQUENCE {
-	arfcn							ARFCN-ValueCDMA2000,
+	arfcn								ARFCN-ValueCDMA2000,
 	physCellIdList						PhysCellIdListCDMA2000
 }
 
+NeighCellListCDMA2000-v920 ::=		SEQUENCE (SIZE (1..16)) OF NeighCellCDMA2000-v920
+
+NeighCellCDMA2000-v920 ::=			SEQUENCE {
+	neighCellsPerFreqList-v920			NeighCellsPerBandclassListCDMA2000-v920
+}
+
+NeighCellsPerBandclassListCDMA2000-v920 ::= SEQUENCE (SIZE (1..16)) OF NeighCellsPerBandclassCDMA2000-v920
+
+NeighCellsPerBandclassCDMA2000-v920 ::=	SEQUENCE {
+	physCellIdList-v920					PhysCellIdListCDMA2000-v920
+}
+
 PhysCellIdListCDMA2000 ::=			SEQUENCE (SIZE (1..16)) OF PhysCellIdCDMA2000
+
+PhysCellIdListCDMA2000-v920 ::=		SEQUENCE (SIZE (0..24)) OF PhysCellIdCDMA2000
 
 BandClassListCDMA2000 ::=			SEQUENCE (SIZE (1..maxCDMA-BandClass)) OF BandClassInfoCDMA2000
 
@@ -1052,6 +1323,19 @@ BandClassInfoCDMA2000 ::=	SEQUENCE {
 	threshX-High						INTEGER (0..63),
 	threshX-Low							INTEGER (0..63),
 	...
+}
+
+AC-BarringConfig1XRTT-r9 ::=		SEQUENCE {
+	ac-Barring0to9-r9					INTEGER (0..63),
+	ac-Barring10-r9						INTEGER (0..7),
+	ac-Barring11-r9						INTEGER (0..7),
+	ac-Barring12-r9						INTEGER (0..7),
+	ac-Barring13-r9						INTEGER (0..7),
+	ac-Barring14-r9						INTEGER (0..7),
+	ac-Barring15-r9						INTEGER (0..7),
+	ac-BarringMsg-r9					INTEGER (0..7),
+	ac-BarringReg-r9					INTEGER (0..7),
+	ac-BarringEmg-r9					INTEGER (0..7)
 }
 
 
@@ -1081,6 +1365,26 @@ SystemInformationBlockType11 ::=	SEQUENCE {
 }
 
 
+SystemInformationBlockType12-r9 ::=	SEQUENCE {
+	messageIdentifier-r9				BIT STRING (SIZE (16)),
+	serialNumber-r9						BIT STRING (SIZE (16)),
+	warningMessageSegmentType-r9		ENUMERATED {notLastSegment, lastSegment},
+	warningMessageSegmentNumber-r9		INTEGER (0..63),
+	warningMessageSegment-r9			OCTET STRING,
+	dataCodingScheme-r9					OCTET STRING (SIZE (1)) 		OPTIONAL, 	-- Cond Segment1
+	lateR9NonCriticalExtension			OCTET STRING					OPTIONAL,	-- Need OP
+	...
+}
+
+
+SystemInformationBlockType13-r9 ::=	SEQUENCE {
+	mbsfn-AreaInfoList-r9				MBSFN-AreaInfoList-r9,
+	notificationConfig-r9				MBMS-NotificationConfig-r9,
+	lateR9NonCriticalExtension			OCTET STRING					OPTIONAL,	-- Need OP
+	...
+}
+
+
 AntennaInfoCommon ::=				SEQUENCE {
 	antennaPortsCount					ENUMERATED {an1, an2, an4, spare1}
 }
@@ -1088,7 +1392,7 @@ AntennaInfoCommon ::=				SEQUENCE {
 AntennaInfoDedicated ::=			SEQUENCE {
 	transmissionMode					ENUMERATED {
 											tm1, tm2, tm3, tm4, tm5, tm6,
-											tm7, spare1},
+											tm7, tm8-v920},
 	codebookSubsetRestriction			CHOICE {
 		n2TxAntenna-tm3						BIT STRING (SIZE (2)),
 		n4TxAntenna-tm3						BIT STRING (SIZE (4)),
@@ -1105,6 +1409,13 @@ AntennaInfoDedicated ::=			SEQUENCE {
 	}
 }
 
+AntennaInfoDedicated-v920 ::=		SEQUENCE {
+	codebookSubsetRestriction-v920		CHOICE {
+		n2TxAntenna-tm8-r9					BIT STRING (SIZE (6)),
+		n4TxAntenna-tm8-r9					BIT STRING (SIZE (32))
+	}		OPTIONAL 															-- Cond TM8
+}
+
 
 CQI-ReportConfig ::=				SEQUENCE {
 	cqi-ReportModeAperiodic			ENUMERATED {
@@ -1112,6 +1423,11 @@ CQI-ReportConfig ::=				SEQUENCE {
 											spare3, spare2, spare1} OPTIONAL, 			-- Need OR
 	nomPDSCH-RS-EPRE-Offset				INTEGER (-1..6),
 	cqi-ReportPeriodic				CQI-ReportPeriodic	OPTIONAL 				-- Need ON
+}
+
+CQI-ReportConfig-v920 ::=		SEQUENCE {
+	cqi-Mask-r9						ENUMERATED {setup}		OPTIONAL,		-- Cond cqi-Setup
+	pmi-RI-Report-r9				ENUMERATED {setup}		OPTIONAL		-- Cond PMIRI
 }
 
 CQI-ReportPeriodic ::=		CHOICE {
@@ -1146,7 +1462,9 @@ LogicalChannelConfig ::=			SEQUENCE {
 												spare1},
 		logicalChannelGroup					INTEGER (0..3)			OPTIONAL			-- Need OR
 	}		OPTIONAL,																	-- Cond UL
-	...
+	...,
+	[[	logicalChannelSR-Mask-r9			ENUMERATED {setup}		OPTIONAL		-- Cond SRmask
+	]]
 }
 
 
@@ -1177,7 +1495,9 @@ MAC-MainConfig ::=					SEQUENCE {
 			dl-PathlossChange					ENUMERATED {dB1, dB3, dB6, infinity}
 		}
 	}																OPTIONAL,	-- Need ON
-	...
+	...,
+	[[	sr-ProhibitTimer-r9					INTEGER (0..7)			OPTIONAL	-- Need ON
+	]]
 }
 
 DRX-Config ::=						CHOICE {
@@ -1262,7 +1582,7 @@ PDCP-Config ::=						SEQUENCE {
 }
 
 
-PDSCH-ConfigCommon::=		SEQUENCE {
+PDSCH-ConfigCommon ::=		SEQUENCE {
 	referenceSignalPower				INTEGER (-60..50),
 	p-b									INTEGER (0..3)
 }
@@ -1270,7 +1590,7 @@ PDSCH-ConfigCommon::=		SEQUENCE {
 PDSCH-ConfigDedicated::=		SEQUENCE {
 	p-a									ENUMERATED {
 											dB-6, dB-4dot77, dB-3, dB-1dot77,
-											dB0, dB1, dB2, dB3 }
+											dB0, dB1, dB2, dB3}
 }
 
 
@@ -1280,11 +1600,11 @@ PHICH-Config ::=					SEQUENCE {
 }
 
 
-PhysicalConfigDedicated ::=			SEQUENCE {
+PhysicalConfigDedicated ::=		SEQUENCE {
 	pdsch-ConfigDedicated				PDSCH-ConfigDedicated			OPTIONAL,		-- Need ON
 	pucch-ConfigDedicated				PUCCH-ConfigDedicated			OPTIONAL,		-- Need ON
 	pusch-ConfigDedicated				PUSCH-ConfigDedicated			OPTIONAL,		-- Need ON
-	uplinkPowerControlDedicated			UplinkPowerControlDedicated		OPTIONAL,		-- Need ON
+	uplinkPowerControlDedicated		UplinkPowerControlDedicated		OPTIONAL,		-- Need ON
 	tpc-PDCCH-ConfigPUCCH				TPC-PDCCH-Config 				OPTIONAL,		-- Need ON
 	tpc-PDCCH-ConfigPUSCH				TPC-PDCCH-Config 				OPTIONAL,		-- Need ON
 	cqi-ReportConfig					CQI-ReportConfig				OPTIONAL,		-- Need ON
@@ -1293,20 +1613,23 @@ PhysicalConfigDedicated ::=			SEQUENCE {
 		explicitValue						AntennaInfoDedicated,
 		defaultValue						NULL
 	}		OPTIONAL,																	-- Need ON
-	schedulingRequestConfig				SchedulingRequestConfig 		OPTIONAL, 		-- Need ON
-	...
+	schedulingRequestConfig			SchedulingRequestConfig		OPTIONAL, 			-- Need ON
+	...,
+	[[	cqi-ReportConfig-v920				CQI-ReportConfig-v920		OPTIONAL,		-- Need ON
+		antennaInfo-v920					AntennaInfoDedicated-v920	OPTIONAL		-- Need ON
+	]]
 }
 
 
 P-Max ::=				INTEGER (-30..33)
 
 
-PRACH-ConfigSIB ::=			SEQUENCE {
+PRACH-ConfigSIB ::=				SEQUENCE {
 	rootSequenceIndex					INTEGER (0..837),
 	prach-ConfigInfo					PRACH-ConfigInfo
 }
 
-PRACH-Config ::=				SEQUENCE {
+PRACH-Config ::=					SEQUENCE {
 	rootSequenceIndex					INTEGER (0..837),
 	prach-ConfigInfo					PRACH-ConfigInfo					OPTIONAL	-- Need ON
 }
@@ -1333,7 +1656,7 @@ PUCCH-ConfigDedicated ::=			SEQUENCE {
 	ackNackRepetition					CHOICE{
 		release								NULL,
 		setup								SEQUENCE {
-			repetitionFactor					ENUMERATED { n2, n4, n6, spare1},
+			repetitionFactor					ENUMERATED {n2, n4, n6, spare1},
 			n1PUCCH-AN-Rep						INTEGER (0..2047)
 		}
 	},
@@ -1468,7 +1791,9 @@ RadioResourceConfigDedicated ::=		SEQUENCE {
 	}		OPTIONAL,																-- Cond HO-toEUTRA2
 	sps-Config							SPS-Config 					OPTIONAL,		-- Need ON
 	physicalConfigDedicated				PhysicalConfigDedicated		OPTIONAL,		-- Need ON
-	...
+	...,
+	[[	rlf-TimersAndConstants-r9			RLF-TimersAndConstants-r9		OPTIONAL	-- Need ON
+	]]
 }
 
 SRB-ToAddModList ::=				SEQUENCE (SIZE (1..2)) OF SRB-ToAddMod
@@ -1585,11 +1910,31 @@ T-StatusProhibit ::=				ENUMERATED {
 										spare1}
 
 
+RLF-TimersAndConstants-r9 ::=			CHOICE {
+	release									NULL,
+	setup									SEQUENCE {
+		t301-r9								ENUMERATED {
+												ms100, ms200, ms300, ms400, ms600, ms1000, ms1500,
+												ms2000},
+		t310-r9								ENUMERATED {
+												ms0, ms50, ms100, ms200, ms500, ms1000, ms2000},
+		n310-r9								ENUMERATED {
+												n1, n2, n3, n4, n6, n8, n10, n20},
+		t311-r9								ENUMERATED {
+												ms1000, ms3000, ms5000, ms10000, ms15000,
+												ms20000, ms30000},
+		n311-r9								ENUMERATED {
+												n1, n2, n3, n4, n5, n6, n8, n10},
+		...
+	}
+}
+
+
 SchedulingRequestConfig ::=		CHOICE {
 	release								NULL,
 	setup								SEQUENCE {
 		sr-PUCCH-ResourceIndex				INTEGER (0..2047),
-		sr-ConfigIndex						INTEGER (0..155),
+		sr-ConfigIndex						INTEGER (0..157),
 		dsr-TransMax						ENUMERATED {
 												n4, n8, n16, n32, n64, spare3, spare2, spare1}
 	}
@@ -1677,7 +2022,7 @@ TimeAlignmentTimer ::=					ENUMERATED {
 												sf500, sf750, sf1280, sf1920, sf2560, sf5120,
 												sf10240, infinity}
 
-TPC-PDCCH-Config::=					CHOICE {
+TPC-PDCCH-Config ::=					CHOICE {
 	release								NULL,
 	setup								SEQUENCE {
 		tpc-RNTI							BIT STRING (SIZE (16)),
@@ -1725,7 +2070,7 @@ SecurityAlgorithmConfig ::=			SEQUENCE {
 											eea0, eea1, eea2, spare5, spare4, spare3,
 											spare2, spare1, ...},
 	integrityProtAlgorithm				ENUMERATED {
-											reserved, eia1, eia2, spare5, spare4, spare3,
+											eia0-v920, eia1, eia2, spare5, spare4, spare3,
 											spare2, spare1, ...}
 }
 
@@ -1817,6 +2162,10 @@ CSFB-RegistrationParam1XRTT ::=		SEQUENCE {
 	zoneTimer							BIT STRING (SIZE (3))
 }
 
+CSFB-RegistrationParam1XRTT-v920 ::=	SEQUENCE {
+	powerDownReg-r9						ENUMERATED {true}
+}
+
 
 CellGlobalIdEUTRA ::=					SEQUENCE {
 	plmn-Identity							PLMN-Identity,
@@ -1841,6 +2190,9 @@ CellGlobalIdCDMA2000 ::=				CHOICE {
 	cellGlobalId1XRTT						BIT STRING (SIZE (47)),
 	cellGlobalIdHRPD						BIT STRING (SIZE (128))
 }
+
+
+CSG-Identity ::=					BIT STRING (SIZE (27))
 
 
 MobilityControlInfo ::=		SEQUENCE {
@@ -1940,6 +2292,9 @@ SecondaryPreRegistrationZoneIdListHRPD ::=	SEQUENCE (SIZE (1..2)) OF PreRegistra
 PreRegistrationZoneIdHRPD ::=			INTEGER (0..255)
 
 
+Q-QualMin-r9 ::=					INTEGER (-34..-3)
+
+
 Q-RxLevMin ::=						INTEGER (-70..-22)
 
 
@@ -1957,10 +2312,17 @@ Q-OffsetRangeInterRAT ::=					INTEGER (-15..15)
 ReselectionThreshold ::=				INTEGER (0..31)
 
 
+ReselectionThresholdQ-r9 ::=			INTEGER (0..31)
+
+
 SpeedStateScaleFactors ::=			SEQUENCE {
 	sf-Medium							ENUMERATED {oDot25, oDot5, oDot75, lDot0},
 	sf-High								ENUMERATED {oDot25, oDot5, oDot75, lDot0}
 }
+
+SystemInfoListGERAN ::=				SEQUENCE (SIZE (1..maxGERAN-SI)) OF
+										OCTET STRING (SIZE (1..23))
+
 
 SystemTimeInfoCDMA2000 ::=			SEQUENCE {
 	cdma-EUTRA-Synchronisation			BOOLEAN,
@@ -2159,7 +2521,9 @@ MeasResults ::=						SEQUENCE {
 		measResultsCDMA2000					MeasResultsCDMA2000,
 		...
 	}																		OPTIONAL,
-	...
+	...,
+	[[	measResultForECID-r9				MeasResultForECID-r9			OPTIONAL
+	]]
 }
 
 MeasResultListEUTRA ::=				SEQUENCE (SIZE (1..maxCellReport)) OF MeasResultEUTRA 
@@ -2174,7 +2538,9 @@ MeasResultEUTRA ::=	SEQUENCE {
 	measResult							SEQUENCE {
 		rsrpResult							RSRP-Range						OPTIONAL,
 		rsrqResult							RSRQ-Range						OPTIONAL,
-		...
+		...,
+		[[	additionalSI-Info-r9				AdditionalSI-Info-r9				OPTIONAL
+		]]
 	}
 }
 
@@ -2194,7 +2560,9 @@ MeasResultUTRA ::=	SEQUENCE {
 	measResult							SEQUENCE {
 		utra-RSCP							INTEGER (-5..91)				OPTIONAL,
 		utra-EcN0							INTEGER (0..49)					OPTIONAL,
-		...
+		...,
+		[[	additionalSI-Info-r9				AdditionalSI-Info-r9				OPTIONAL
+		]]
 	}
 }
 
@@ -2230,7 +2598,17 @@ MeasResultCDMA2000 ::=	SEQUENCE {
 	}
 }
 
+MeasResultForECID-r9 ::=		SEQUENCE {
+	ue-RxTxTimeDiffResult-r9				INTEGER (0..4095),
+	currentSFN-r9							BIT STRING (SIZE (10))
+}
+
 PLMN-IdentityList2 ::=				SEQUENCE (SIZE (1..5)) OF PLMN-Identity
+
+AdditionalSI-Info-r9 ::=			SEQUENCE {
+	csg-MemberStatus-r9				ENUMERATED {member}				OPTIONAL,
+	csg-Identity-r9						CSG-Identity						OPTIONAL
+}
 
 
 QuantityConfig ::=					SEQUENCE {
@@ -2298,7 +2676,10 @@ ReportConfigEUTRA ::=				SEQUENCE {
 	maxReportCells						INTEGER (1..maxCellReport),
 	reportInterval						ReportInterval,
 	reportAmount						ENUMERATED {r1, r2, r4, r8, r16, r32, r64, infinity},
-	...
+	...,
+	[[	si-RequestForHO-r9					ENUMERATED {setup}		OPTIONAL,	-- Cond reportCGI
+		ue-RxTxTimeDiffPeriodical-r9		ENUMERATED {setup}		OPTIONAL	-- Need OR
+	]]
 }
 
 ThresholdEUTRA ::=					CHOICE{
@@ -2323,7 +2704,7 @@ ReportConfigInterRAT ::=			SEQUENCE {
 				},
 				eventB2								SEQUENCE {
 					b2-Threshold1						ThresholdEUTRA,
-					b2-Threshold2						CHOICE { 				
+					b2-Threshold2						CHOICE {
 						b2-Threshold2UTRA					ThresholdUTRA,
 						b2-Threshold2GERAN					ThresholdGERAN,
 						b2-Threshold2CDMA2000				ThresholdCDMA2000
@@ -2344,7 +2725,9 @@ ReportConfigInterRAT ::=			SEQUENCE {
 	maxReportCells						INTEGER (1..maxCellReport),
 	reportInterval						ReportInterval,	
 	reportAmount						ENUMERATED {r1, r2, r4, r8, r16, r32, r64, infinity},
-	...
+	...,
+	[[	si-RequestForHO-r9					ENUMERATED {setup}		OPTIONAL	-- Cond reportCGI
+	]]
 }
 
 ThresholdUTRA ::=					CHOICE{
@@ -2407,6 +2790,17 @@ MMEC ::=							BIT STRING (SIZE (8))
 NeighCellConfig ::=			BIT STRING (SIZE (2))
 
 
+OtherConfig-r9 ::= SEQUENCE	{
+	reportProximityConfig-r9			ReportProximityConfig-r9		OPTIONAL,	-- Need ON
+	...
+}
+
+ReportProximityConfig-r9 ::= SEQUENCE {
+	proximityIndicationEUTRA-r9		ENUMERATED {enabled}			OPTIONAL, 		-- Need OR
+	proximityIndicationUTRA-r9		ENUMERATED {enabled}			OPTIONAL		-- Need OR
+}
+
+
 RAND-CDMA2000 ::=						BIT STRING (SIZE (32))
 
 
@@ -2449,11 +2843,23 @@ UE-EUTRA-Capability ::=				SEQUENCE {
 		cdma2000-HRPD						IRAT-ParametersCDMA2000-HRPD			OPTIONAL,
 		cdma2000-1xRTT						IRAT-ParametersCDMA2000-1XRTT			OPTIONAL
 	},
-	nonCriticalExtension				SEQUENCE {}							OPTIONAL
+	nonCriticalExtension					UE-EUTRA-Capability-v920-IEs		OPTIONAL
+}
+
+UE-EUTRA-Capability-v920-IEs ::=			SEQUENCE {
+	phyLayerParameters-v920						PhyLayerParameters-v920,
+	interRAT-ParametersGERAN-v920				IRAT-ParametersGERAN-v920,
+	interRAT-ParametersUTRA-v920				IRAT-ParametersUTRA-v920			OPTIONAL,
+	interRAT-Parameters-v920					IRAT-ParametersCDMA2000-1XRTT-v920	OPTIONAL,
+	deviceType-r9								ENUMERATED {noBenFromBatConsumpOpt}	OPTIONAL,
+	csg-ProximityIndicationParameters-r9		CSG-ProximityIndicationParameters-r9,
+	neighCellSI-AcquisitionParameters-r9		NeighCellSI-AcquisitionParameters-r9,
+	son-Parameters-r9							SON-Parameters-r9,
+	nonCriticalExtension						SEQUENCE {}							OPTIONAL
 }
 
 AccessStratumRelease ::=			ENUMERATED {
-										rel8, spare7, spare6, spare5, spare4, spare3,
+										rel8, rel9, spare6, spare5, spare4, spare3,
 										spare2, spare1, ...}
 
 PDCP-Parameters ::=					SEQUENCE {
@@ -2478,6 +2884,11 @@ PDCP-Parameters ::=					SEQUENCE {
 PhyLayerParameters ::=				SEQUENCE {
 	ue-TxAntennaSelectionSupported		BOOLEAN,
 	ue-SpecificRefSigsSupported			BOOLEAN
+}
+
+PhyLayerParameters-v920 ::=			SEQUENCE {
+	enhancedDualLayerFDD-Supported-r9	BOOLEAN,
+	enhancedDualLayerTDD-Supported-r9	BOOLEAN
 }
 
 RF-Parameters ::=					SEQUENCE {
@@ -2516,6 +2927,10 @@ InterRAT-BandInfo ::=				SEQUENCE {
 
 IRAT-ParametersUTRA-FDD ::=			SEQUENCE {
 	supportedBandListUTRA-FDD			SupportedBandListUTRA-FDD
+}
+
+IRAT-ParametersUTRA-v920 ::=		SEQUENCE {
+	e-Redirection-r9					ENUMERATED {supported}
 }
 
 SupportedBandListUTRA-FDD ::=		SEQUENCE (SIZE (1..maxBands)) OF SupportedBandUTRA-FDD 
@@ -2560,6 +2975,11 @@ IRAT-ParametersGERAN ::=			SEQUENCE {
 	interRAT-PS-HO-ToGERAN				BOOLEAN
 }
 
+IRAT-ParametersGERAN-v920 ::=			SEQUENCE {
+	dtm-r9									ENUMERATED {supported}			OPTIONAL,
+	e-RedirectionGERAN-r9					ENUMERATED {supported}			OPTIONAL
+}
+
 SupportedBandListGERAN ::=			SEQUENCE (SIZE (1..maxBands)) OF SupportedBandGERAN 
 
 SupportedBandGERAN ::=				ENUMERATED {
@@ -2581,7 +3001,28 @@ IRAT-ParametersCDMA2000-1XRTT ::=	SEQUENCE {
 	rx-Config1XRTT						ENUMERATED {single, dual}
 }
 
+IRAT-ParametersCDMA2000-1XRTT-v920 ::=	SEQUENCE {
+	e-CSFB-r9							ENUMERATED {supported},
+	e-CSFB-ConcPS-Mob-r9				ENUMERATED {notSupported, supported}
+}
+
 SupportedBandList1XRTT ::=			SEQUENCE (SIZE (1..maxCDMA-BandClass)) OF BandclassCDMA2000
+
+CSG-ProximityIndicationParameters-r9 ::=		SEQUENCE {
+	intraFreqProximityIndicationSupported-r9		BOOLEAN,
+	interFreqProximityIndicationSupported-r9		BOOLEAN,
+	utran-ProximityIndicationSupported-r9			BOOLEAN
+}
+
+NeighCellSI-AcquisitionParameters-r9 ::=		SEQUENCE {
+	intraFreqSI-AcquisitionForHO-Supported-r9		BOOLEAN,
+	interFreqSI-AcquisitionForHO-Supported-r9		BOOLEAN,
+	utran-SI-AcquisitionForHO-Supported-r9			BOOLEAN
+}
+
+SON-Parameters-r9 ::=				SEQUENCE {
+	rach-ReportSupported-r9				BOOLEAN
+}
 
 
 UE-TimersAndConstants ::=			SEQUENCE {
@@ -2604,6 +3045,73 @@ UE-TimersAndConstants ::=			SEQUENCE {
 }
 
 
+MBMS-NotificationConfig-r9 ::=				SEQUENCE {
+	notificationRepetitionCoeff-r9		ENUMERATED {n2, n4},
+	notificationOffset-r9				INTEGER (0..10),
+	notificationSF-Index-r9				INTEGER (1..6)
+}
+
+
+MBSFN-AreaInfoList-r9 ::=			SEQUENCE (SIZE(1..maxMBSFN-Area)) OF MBSFN-AreaInfo-r9
+
+MBSFN-AreaInfo-r9 ::=				SEQUENCE {
+	mbsfn-AreaId-r9						INTEGER (0..255),
+	non-MBSFNregionLength				ENUMERATED {s1, s2},
+	notificationIndicator-r9				INTEGER (0..7),
+	mcch-Config-r9						SEQUENCE {
+		mcch-RepetitionPeriod-r9			ENUMERATED {rf32, rf64, rf128, rf256},
+		mcch-Offset-r9						INTEGER (0..10),
+		mcch-ModificationPeriod-r9			ENUMERATED {rf512, rf1024},
+		sf-AllocInfo-r9						BIT STRING (SIZE(6)),
+		signallingMCS-r9					ENUMERATED {n2, n7, n13, n19}
+	},
+	...
+}
+
+
+MBSFN-SubframeConfig ::=			SEQUENCE {
+	radioframeAllocationPeriod			ENUMERATED {n1, n2, n4, n8, n16, n32},
+	radioframeAllocationOffset			INTEGER (0..7),
+	subframeAllocation					CHOICE {
+		oneFrame							BIT STRING (SIZE(6)),
+		fourFrames							BIT STRING (SIZE(24))
+	}
+}
+
+PMCH-InfoList-r9 ::=				SEQUENCE (SIZE (0..maxPMCH-PerMBSFN)) OF PMCH-Info-r9
+
+PMCH-Info-r9 ::=					SEQUENCE {
+	pmch-Config-r9						PMCH-Config-r9,
+	mbms-SessionInfoList-r9			MBMS-SessionInfoList-r9,
+	...
+}
+
+MBMS-SessionInfoList-r9 ::=		SEQUENCE (SIZE (0..maxSessionPerPMCH)) OF MBMS-SessionInfo-r9
+
+MBMS-SessionInfo-r9 ::=			SEQUENCE {
+	tmgi-r9								TMGI-r9,
+	sessionId-r9						OCTET STRING (SIZE (1)) 		OPTIONAL, 	-- Need OR
+	logicalChannelIdentity-r9			INTEGER (0..maxSessionPerPMCH-1),
+	...
+}
+
+PMCH-Config-r9 ::=					SEQUENCE {
+	sf-AllocEnd-r9						INTEGER (0..1535),
+	dataMCS-r9							INTEGER (0..28),
+	mch-SchedulingPeriod-r9			ENUMERATED {
+										rf8, rf16, rf32, rf64, rf128, rf256, rf512, rf1024},
+	...
+}
+
+TMGI-r9 ::=						SEQUENCE {
+	plmn-Id-r9							CHOICE {
+		plmn-Index-r9						INTEGER (1..6),
+		explicitValue-r9					PLMN-Identity
+	},
+	serviceId-r9						OCTET STRING (SIZE (3))
+}
+
+
 maxBands					INTEGER ::= 64	-- Maximum number of bands listed in EUTRA UE caps
 maxCDMA-BandClass			INTEGER ::= 32	-- Maximum value of the CDMA band classes
 maxCellBlack				INTEGER ::= 16	-- Maximum number of blacklisted cells
@@ -2612,18 +3120,23 @@ maxCellInter				INTEGER ::= 16	-- Maximum number of neighbouring inter-frequency
 											-- cells listed in SIB type 5
 maxCellIntra				INTEGER ::= 16	-- Maximum number of neighbouring intra-frequency
 											-- cells listed in SIB type 4
-maxCellMeas					INTEGER ::= 32	-- Maximum number of entries in each of the neighbour 
+maxCellMeas					INTEGER ::= 32	-- Maximum number of entries in each of the neighbour
 											-- cell lists in a measurement object
 maxCellReport				INTEGER ::= 8	-- Maximum number of reported cells
 maxDRB						INTEGER ::= 11	-- Maximum number of Data Radio Bearers
 maxEARFCN					INTEGER ::= 65535	-- Maximum value of EUTRA carrier fequency
 maxFreq						INTEGER ::= 8	-- Maximum number of EUTRA carrier frequencies
+maxCellInfo-GERAN-r9 		INTEGER ::=	32	-- Maximum number of GERAN cells for which system in-
+											-- formation can be provided as redirection assistance
 maxGERAN-SI					INTEGER ::= 10	-- Maximum number of GERAN SI blocks that can be
 											-- provided as part of NACC information
 maxGNFG						INTEGER ::= 16	-- Maximum number of GERAN neighbour freq groups
 maxMBSFN-Allocations		INTEGER ::= 8	-- Maximum number of MBSFN frame allocations with
 											-- different offset
-maxMCS-1					INTEGER ::= 16	-- Maximum number of PUCCH formats (MCS)
+maxMBSFN-Area				INTEGER ::= 8
+maxSessionPerPMCH			INTEGER ::= 29
+maxSessionPerPMCH-1			INTEGER ::= 28
+maxPMCH-PerMBSFN			INTEGER ::= 15
 maxMeasId					INTEGER ::= 32
 maxObjectId					INTEGER ::= 32
 maxPageRec					INTEGER ::= 16	-- 
@@ -2635,6 +3148,8 @@ maxSIB-1					INTEGER ::= 31
 maxSI-Message				INTEGER ::= 32	-- Maximum number of SI messages
 maxUTRA-FDD-Carrier			INTEGER ::= 16	-- Maximum number of UTRA FDD carrier frequencies
 maxUTRA-TDD-Carrier			INTEGER ::= 16	-- Maximum number of UTRA TDD carrier frequencies
+maxUTRA-CellInfo-r9			INTEGER ::=	16	-- Maximum number of cells for which system information
+											-- can be provided as redirection assistance
 
 
 END
