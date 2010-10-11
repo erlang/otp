@@ -76,7 +76,7 @@ endif
 
 WX_OBJECTS  = $(GENERAL_O) $(GENERATED_O) $(RC_FILE)
 
-OBJECTS = $(WX_OBJECTS) $(OPENGL_O)
+OBJECTS = $(WX_OBJECTS) $(GL_OBJECTS)
 
 TARGET_APIS = wxe_driver erl_gl
 TARGET_DIR = ../priv/$(SYS_TYPE)
@@ -113,7 +113,7 @@ CXX_FLAGS       = @CXXFLAGS@
 WX_LIBS		= $(OPT_WX_LIBS)
 endif
 
-CL_LIBS         = -lGL -lGLU
+GL_LIBS         = @GL_LIBS@
 
 CC_O		= $(CC) -c $(CFLAGS) $(WX_CFLAGS) $(COMMON_CFLAGS)
 CPP_O		= $(CPP) -c $(CXX_FLAGS) $(WX_CXX_FLAGS)  $(COMMON_CFLAGS) 
@@ -170,7 +170,7 @@ $(TARGET_DIR)/wxe_driver$(SO_EXT): $(WX_OBJECTS)
 
 $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
 	mkdir -p $(TARGET_DIR)
-	$(CC) $(LDFLAGS) $(GL_OBJECTS) $(CL_LIBS) -o $@
+	$(CC) $(LDFLAGS) $(GL_OBJECTS) $(GL_LIBS) -o $@
 
 
 # ----------------------------------------------------

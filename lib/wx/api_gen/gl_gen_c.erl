@@ -304,7 +304,7 @@ build_return_vals(Type,As) ->
 		true ->
 		    w(" int AP = 0; ErlDrvTermData rt[6];~n",[]),
 		    w(" rt[AP++]=ERL_DRV_ATOM;"
-		      " rt[AP++]=driver_mk_atom((char *) \"_wxe_result_\");~n",[]),
+		      " rt[AP++]=driver_mk_atom((char *) \"_egl_result_\");~n",[]),
 		    w(" rt[AP++]=ERL_DRV_ATOM;"
 		      " rt[AP++]=driver_mk_atom((char *) \"ok\");~n",[]),
 		    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;~n",[]),
@@ -324,7 +324,7 @@ build_return_vals(Type,As) ->
 			      "driver_alloc(sizeof(ErlDrvTermData)*(~s));~n", [Sz]),
 			    Sz
 		    end,
-	    w(" rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) \"_wxe_result_\");~n",[]),
+	    w(" rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) \"_egl_result_\");~n",[]),
 	    FreeList = build_ret_types(Type,As),
 	    case Cnt of
 		1 -> ok;
@@ -332,8 +332,8 @@ build_return_vals(Type,As) ->
 		    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = ~p;~n",[Cnt])
 	    end,
 	    w(" rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;~n",[]),
-	    w(" if (AP != ~s )  fprintf(stderr, \"%d: ERROR AP mismatch %d %d\\r\\n\",__LINE__,AP,~s);~n",
-	      [CSize,CSize]),
+	    %%w(" if (AP != ~s )  fprintf(stderr, \"%d: ERROR AP mismatch %d %d\\r\\n\",__LINE__,AP,~s);~n",
+	    %%  [CSize,CSize]),
 	    w(" driver_send_term(port,caller,rt,AP);~n",[]),
 	    case Vars of 
 		none -> ignore;

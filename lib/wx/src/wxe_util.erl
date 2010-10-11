@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,8 +32,9 @@
 	 get_const/1,colour_bin/1,datetime_bin/1,
 	 to_bool/1,from_bool/1]).
 
--include("wxe.hrl").
+-export([wxgl_dl/0, priv_dir/1]).
 
+-include("wxe.hrl").
 
 to_bool(0) -> false;
 to_bool(_) -> true.
@@ -199,3 +200,122 @@ check_previous() ->
 	    erlang:error({Error, MF})    
     after 0 -> ok
     end.
+
+
+%% If you want anything done, do it yourself.
+
+wxgl_dl() ->
+    DynLib0 = "erl_gl",
+    PrivDir = priv_dir(DynLib0),
+    DynLib = case os:type() of
+		 {win32,_} ->
+		     DynLib0 ++ ".dll";
+		 _ ->
+		     DynLib0 ++ ".so"
+	     end,
+    GLLib = filename:join(PrivDir, DynLib),
+    case file:read_file_info(GLLib) of
+	{ok, _} ->
+	    GLLib;
+	{error,_} ->
+	    error({enoent, GLLib})
+    end.
+
+
+priv_dir(Driver) ->
+    Type = erlang:system_info(system_architecture),
+    {file, Path} = code:is_loaded(?MODULE),
+    Priv = case filelib:is_regular(Path) of
+	       true ->
+		   Beam = filename:join(["ebin/",atom_to_list(?MODULE) ++ ".beam"]),
+		   filename:join(strip(Path, Beam), "priv");
+	       false ->
+		   code:priv_dir(wx)
+	   end,
+    try
+	{ok, Dirs0} = file:list_dir(Priv),
+	Dirs1 = split_dirs(Dirs0),
+	Dirs  = lists:reverse(lists:sort(Dirs1)),
+
+	Best = best_dir(hd(split_dirs([Type])),Dirs, Driver, Priv),
+	filename:join(Priv, Best)
+    catch _:_ ->
+	    error_logger:format("ERROR: Could not find suitable \'~s\' for ~s in: ~s~n",
+				[Driver, Type, Priv]),
+	    erlang:error({load_driver, "No driver found"})
+    end.
+
+best_dir(Dir, Dirs0, Driver, Priv) ->
+    Dirs = [{D,D} || D <- Dirs0],
+    best_dir(Dir, Dirs, [], Driver, Priv).
+
+best_dir(Pre, [{[],_}|R], Acc, Driver, Priv) -> %% Empty skip'em
+    best_dir(Pre, R, Acc, Driver, Priv);
+best_dir(Pre, [{Pre,Dir}|R], Acc, Driver, Priv) ->
+    Real = dir_app(lists:reverse(Dir)),
+    case file:list_dir(filename:join(Priv,Real)) of
+	{ok, Fs} ->
+	    case lists:any(fun(File) -> filename:rootname(File) =:= Driver end, Fs) of
+		true ->  Real; %% Found dir and it contains a driver
+		false -> best_dir(Pre, R, Acc, Driver, Priv)
+	    end;
+	_ ->
+	    best_dir(Pre, R, Acc, Driver, Priv)
+    end;
+best_dir(Pre, [{[_|F],Dir}|R], Acc, Driver, Priv) ->
+    best_dir(Pre, R, [{F,Dir}|Acc], Driver, Priv);
+best_dir(_Pre, [], [], _,_) -> throw(no_dir);  %% Nothing found
+best_dir([_|Pre], [], Acc, Driver, Priv) ->
+    best_dir(Pre, lists:reverse(Acc), [], Driver, Priv);
+best_dir([], _, _,_,_) -> throw(no_dir).  %% Nothing found
+
+split_dirs(Dirs0) ->
+    ToInt = fun(Str) ->
+		    try
+			list_to_integer(Str)
+		    catch _:_ -> Str
+		    end
+	    end,
+    Split = fun(Dir) ->
+		    Toks = tokens(Dir,".-"),
+		    lists:reverse([ToInt(Str) || Str <- Toks])
+	    end,
+    lists:map(Split,Dirs0).
+
+dir_app([]) -> [];
+dir_app([Dir]) -> Dir;
+dir_app(Dir) ->
+    dir_app2(Dir).
+dir_app2([Int]) when is_integer(Int) ->
+    integer_to_list(Int);
+dir_app2([Str]) when is_list(Str) ->
+    Str;
+dir_app2([Head|Rest]) when is_integer(Head) ->
+    integer_to_list(Head) ++ dir_app2(Rest);
+dir_app2([Head|Rest]) when is_list(Head) ->
+    Head ++ dir_app2(Rest).
+
+strip(Src, Src) ->
+    [];
+strip([H|R], Src) ->
+    [H| strip(R, Src)].
+
+tokens(S,Seps) ->
+    tokens1(S, Seps, []).
+
+tokens1([C|S], Seps, Toks) ->
+    case lists:member(C, Seps) of
+        true -> tokens1(S, Seps, [[C]|Toks]);
+        false -> tokens2(S, Seps, Toks, [C])
+    end;
+tokens1([], _Seps, Toks) ->
+    lists:reverse(Toks).
+
+tokens2([C|S], Seps, Toks, Cs) ->
+    case lists:member(C, Seps) of
+        true -> tokens1(S, Seps, [[C], lists:reverse(Cs) |Toks]);
+        false -> tokens2(S, Seps, Toks, [C|Cs])
+    end;
+tokens2([], _Seps, Toks, Cs) ->
+    lists:reverse([lists:reverse(Cs)|Toks]).
+

@@ -20,6 +20,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "egl_impl.h"
 
 #define WX_DEF_EXTS
@@ -27,7 +31,7 @@
 #include "gen/gl_finit.h"
 #include "gen/glu_finit.h"
 
-void init_tess(); 
+void init_tess();
 void exit_tess();
 int load_gl_functions();
 
@@ -38,17 +42,49 @@ int load_gl_functions();
 int egl_initiated = 0;
 
 #ifdef _WIN32
+#define RTLD_LAZY 0
+#define OPENGL_LIB L"opengl32.dll"
+#define OPENGLU_LIB L"glu32.dll"
+typedef HMODULE DL_LIB_P;
+typedef WCHAR DL_CHAR;
 void * dlsym(HMODULE Lib, const char *func) {
   void * funcp;
-  if((funcp = (void *) GetProcAddress(Lib, func))) 
+  if((funcp = (void *) GetProcAddress(Lib, func)))
     return funcp;
   else 
     return (void *) wglGetProcAddress(func);
 }
-#endif 
 
-int egl_init_opengl() 
+HMODULE dlopen(const WCHAR *DLL, int unused) {
+  return LoadLibrary(DLL);
+}
+
+void dlclose(HMODULE Lib) {
+  FreeLibrary(Lib);
+}
+
+#else
+typedef void * DL_LIB_P;
+typedef char DL_CHAR;
+# ifdef _MACOSX
+#  define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
+#  define OPENGLU_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib"
+# else
+#  define OPENGL_LIB "libGL.so"
+#  define OPENGLU_LIB "libGLU.so"
+# endif
+#endif 
+extern "C" {
+DRIVER_INIT(EGL_DRIVER) {  
+  return NULL;
+}
+}
+
+int egl_init_opengl(void *erlCallbacks) 
 {
+#ifdef _WIN32
+  driver_init((TWinDynDriverCallbacks *) erlCallbacks);
+#endif
   if(egl_initiated == 0) {
     if(load_gl_functions()) {
       init_tess();
@@ -59,17 +95,9 @@ int egl_init_opengl()
 }
 
 int load_gl_functions() {
-#ifdef _MACOSX
-  char * DLName = "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib";
-  void * LIBhandle = dlopen(DLName, RTLD_LAZY);
-#elif defined(_WIN32)
-  WCHAR * DLName = wxT("opengl32.dll");
-  HMODULE LIBhandle = LoadLibrary(DLName);
-#else 
-  char * DLName = (char *) "libGL.so";
-  void * LIBhandle = dlopen(DLName, RTLD_LAZY);
-#endif
-  // fprintf(stderr, "Loading GL: %s\r\n", (const char*)DLName);
+  DL_CHAR * DLName = OPENGL_LIB;
+  DL_LIB_P LIBhandle = dlopen(DLName, RTLD_LAZY);
+  //fprintf(stderr, "Loading GL: %s\r\n", (const char*)DLName);
   void * func = NULL;
   int i;
 
@@ -93,35 +121,15 @@ int load_gl_functions() {
 	}
       }
     }
-#ifdef _WIN32
-    FreeLibrary(LIBhandle);
-#else
     dlclose(LIBhandle);
-#endif
     // fprintf(stderr, "OPENGL library is loaded\r\n");
   } else {
-//     wxString msg;
-//     msg.Printf(wxT("Could NOT load OpenGL library: "));
-// #ifdef _WIN32
-//     msg += DLName;
-// #else
-//     msg += wxString::FromAscii((char *)DLName);
-// #endif
-//     send_msg("error", &msg);
     fprintf(stderr, "Could NOT load OpenGL library: %s\r\n", DLName);
   };
 
-#ifdef _MACOSX
-  DLName = "/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib";
+  DLName = OPENGLU_LIB;
   LIBhandle = dlopen(DLName, RTLD_LAZY);
-#elif defined(_WIN32)
-  DLName = wxT("glu32.dll");
-  LIBhandle = LoadLibrary(DLName);
-#else 
-  DLName = (char *) "libGLU.so";
-  LIBhandle = dlopen(DLName, RTLD_LAZY);
-#endif
-  // fprintf(stderr, "Loading GL: %s\r\n", (const char*)DLName);
+  // fprintf(stderr, "Loading GLU: %s\r\n", (const char*)DLName);
   func = NULL;
 
   if(LIBhandle) {
@@ -142,21 +150,9 @@ int load_gl_functions() {
 	}
       }
     }
-#ifdef _WIN32
-    FreeLibrary(LIBhandle);
-#else
     dlclose(LIBhandle);
-#endif
     // fprintf(stderr, "GLU library is loaded\r\n");
   } else {
-//     wxString msg;
-//     msg.Printf(wxT("Could NOT load OpenGL GLU library: "));
-// #ifdef _WIN32
-//     msg += DLName;
-// #else
-//     msg += wxString::FromAscii((char *)DLName);
-// #endif
-//     send_msg("error", &msg);
     fprintf(stderr, "Could NOT load OpenGL GLU library: %s\r\n", DLName);
   };
 

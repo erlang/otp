@@ -162,18 +162,24 @@ esac
 case $host_os in
     darwin*)
 	CFLAGS="-no-cpp-precomp $CFLAGS"
-	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC -framework OpenGL $LDFLAGS"
+	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
+	GL_LIBS="-framework OpenGL"
 	;;
     win32)
         LDFLAGS="-dll $LDFLAGS"
+	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     mingw32)
 	LDFLAGS="-shared -fPIC $LDFLAGS"
+	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     *)
 	LDFLAGS="-shared -fPIC $LDFLAGS"
+	GL_LIBS="-lGL -lGLU"
 	;;
 esac
+
+AC_SUBST(GL_LIBS)
 
 dnl ----------------------------------------------------------------------
 dnl Include CPPFLAGS in CFLAGS

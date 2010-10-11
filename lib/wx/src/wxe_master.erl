@@ -76,21 +76,11 @@ init_port() ->
 
 
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
+%% Initlizes the opengl library
 %%--------------------------------------------------------------------
 init_opengl() ->
-    PrivDir = priv_dir(),
-    DynLib0 = "erl_gl",
-    DynLib = case os:type() of
-		 {win32,_} ->  
-		     DynLib0 ++ ".dll\0";
-		  _ -> 
-		     DynLib0 ++ ".so\0"
-	     end,
-    GLLib = filename:join(PrivDir, DynLib),
-    
-    wxe_util:call(?WXE_INIT_OPENGL, list_to_binary(GLLib)).
+    GLLib = wxe_util:wxgl_dl(),
+    wxe_util:call(?WXE_INIT_OPENGL, <<(list_to_binary(GLLib))/binary, 0:8>>).
 
 %%====================================================================
 %% gen_server callbacks
@@ -105,7 +95,7 @@ init_opengl() ->
 %%--------------------------------------------------------------------
 init([]) ->
     DriverName = ?DRIVER,
-    PrivDir = priv_dir(),
+    PrivDir = wxe_util:priv_dir(?DRIVER),
     erlang:group_leader(whereis(init), self()),
     case catch erlang:system_info(smp_support) of
 	true -> ok;
@@ -222,108 +212,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%%%%%%%%%% INTERNAL %%%%%%%%%%%%%%%%%%%%%%%%
 
-%% If you want anything done, do it yourself. 
-
-priv_dir() ->
-    Type = erlang:system_info(system_architecture),
-    {file, Path} = code:is_loaded(?MODULE),
-    Priv = case filelib:is_regular(Path) of
-	       true ->
-		   Beam = filename:join(["ebin/",atom_to_list(?MODULE) ++ ".beam"]),
-		   filename:join(strip(Path, Beam), "priv");
-	       false ->
-		   code:priv_dir(wx)
-	   end,
-    try 
-	{ok, Dirs0} = file:list_dir(Priv),
-	Dirs1 = split_dirs(Dirs0),
-	Dirs  = lists:reverse(lists:sort(Dirs1)),    
-	
-	Best = best_dir(hd(split_dirs([Type])),Dirs, Priv),
-	filename:join(Priv, Best)
-    catch _:_ ->
-	    error_logger:format("WX ERROR: Could not find suitable \'~s\' for ~s in: ~s~n", 
-				[?DRIVER, Type, Priv]),
-	    erlang:error({load_driver, "No driver found"})
-    end.
-    
-best_dir(Dir, Dirs0, Priv) ->
-    Dirs = [{D,D} || D <- Dirs0],
-    best_dir(Dir, Dirs, [], Priv).
-
-best_dir(Pre, [{[],_}|R], Acc, Priv) -> %% Empty skip'em
-    best_dir(Pre, R, Acc, Priv);
-best_dir(Pre, [{Pre,Dir}|R], Acc, Priv) -> 
-    Real = dir_app(lists:reverse(Dir)),
-    case file:list_dir(filename:join(Priv,Real)) of
-	{ok, Fs} ->
-	    case lists:any(fun(File) -> filename:rootname(File) =:= ?DRIVER end, Fs) of
-		true ->  Real; %% Found dir and it contains a driver
-		false -> best_dir(Pre, R, Acc, Priv)
-	    end;
-	_ ->
-	    best_dir(Pre, R, Acc, Priv)
-    end;
-best_dir(Pre, [{[_|F],Dir}|R], Acc, Priv) ->
-    best_dir(Pre, R, [{F,Dir}|Acc], Priv);
-best_dir(_Pre, [], [],_) -> throw(no_dir);  %% Nothing found
-best_dir([_|Pre], [], Acc, Priv) ->
-    best_dir(Pre, lists:reverse(Acc), [], Priv);
-best_dir([], _, _,_) -> throw(no_dir).  %% Nothing found
-
-split_dirs(Dirs0) ->
-    ToInt = fun(Str) ->
-		    try 
-			list_to_integer(Str)
-		    catch _:_ -> Str
-		    end
-	    end,
-    Split = fun(Dir) ->
-		    Toks = tokens(Dir,".-"),
-		    lists:reverse([ToInt(Str) || Str <- Toks])
-	    end,
-    lists:map(Split,Dirs0).
-
-dir_app([]) -> [];
-dir_app([Dir]) -> Dir;
-dir_app(Dir) ->
-    dir_app2(Dir).
-dir_app2([Int]) when is_integer(Int) ->
-    integer_to_list(Int);
-dir_app2([Str]) when is_list(Str) ->
-    Str;
-dir_app2([Head|Rest]) when is_integer(Head) ->
-    integer_to_list(Head) ++ dir_app2(Rest);
-dir_app2([Head|Rest]) when is_list(Head) ->
-    Head ++ dir_app2(Rest).
-    
-strip(Src, Src) ->
-    [];
-strip([H|R], Src) ->
-    [H| strip(R, Src)].
-
-
 debug_ping(Port) ->
     timer:sleep(1*333),    
     _R = (catch erlang:port_call(Port, 0, [])),
 %%    io:format("Erlang ping ~p ~n", [_R]),
     debug_ping(Port).
 
-tokens(S,Seps) ->
-    tokens1(S, Seps, []).
-
-tokens1([C|S], Seps, Toks) ->
-    case lists:member(C, Seps) of
-        true -> tokens1(S, Seps, [[C]|Toks]);
-        false -> tokens2(S, Seps, Toks, [C])
-    end;
-tokens1([], _Seps, Toks) ->
-    lists:reverse(Toks).
-
-tokens2([C|S], Seps, Toks, Cs) ->
-    case lists:member(C, Seps) of
-        true -> tokens1(S, Seps, [[C], lists:reverse(Cs) |Toks]);
-        false -> tokens2(S, Seps, Toks, [C|Cs])
-    end;
-tokens2([], _Seps, Toks, Cs) ->
-    lists:reverse([lists:reverse(Cs)|Toks]).

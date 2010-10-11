@@ -25,11 +25,20 @@
 # include <dlfcn.h>
 #endif
 
-#ifndef __WXMAC__
-# include <GL/gl.h>
-# include <GL/glu.h>	/* Header File For The OpenGL Library */
-#else
-# include <OpenGL/glu.h>    /* Header File For The OpenGL Library */
+#ifdef _WIN32
+#include <windows.h>  
+#include <gl/gl.h>
+#include <gl/glu.h>
+#elif defined(HAVE_GL_GL_H)
+#include <GL/gl.h>
+# include <GL/glu.h>	
+#elif defined(HAVE_OPENGL_GL_H)
+#include <OpenGL/gl.h> 
+#include <OpenGL/glu.h> 
+#endif
+
+#ifndef APIENTRY
+#define APIENTRY 
 #endif
 
 #ifndef CALLBACK
@@ -49,18 +58,6 @@
 # define GLUfuncptr GLvoid (*)(...)
 #else 
 # define GLUfuncptr GLvoid (*)()
-#endif
-
-#ifdef WIN32
-#include <windows.h>  
-#include <gl/gl.h>
-#elif defined(HAVE_GL_GL_H)
-#include <GL/gl.h>
-#elif defined(HAVE_OPENGL_GL_H)
-#endif
-
-#ifndef APIENTRY
-#define APIENTRY 
 #endif
 
 /* Some new GL types (eliminates the need for glext.h) */
@@ -131,10 +128,10 @@ typedef uint64_t GLuint64EXT;
 /* External Api */
 
 #ifdef _WIN32
-__declspec(dllexport) int egl_init_opengl();
-__declspec(dllexport) void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **);
+extern "C" __declspec(dllexport) int  egl_init_opengl(void *);
+extern "C" __declspec(dllexport) void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **);
 #else 
-extern "C" int egl_init_opengl();
+extern "C" int egl_init_opengl(void *);
 extern "C" void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **);
 #endif
 

@@ -235,8 +235,8 @@ cast(Op, Args) ->
 rec() ->
     receive 
         {'_egl_result_', Res} -> Res;
-        {'_egl_error_',  Res} -> error({error,Res})
-    end.
+        {'_egl_error_',  Op, Res} -> error({error,Res,Op})
+    end. 
 
 %% @hidden
 send_bin(Bin) when is_binary(Bin) ->

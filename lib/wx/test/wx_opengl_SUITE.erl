@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ canvas(Config) ->
     
     ?m(true, wxWindow:show(Frame)),
     ?m(false, wx:is_null(wxGLCanvas:getContext(Canvas))),
-    ?m({'EXIT', {{no_gl_context,_},_}}, gl:getString(?GL_VENDOR)),
+    ?m({'EXIT', {{error, no_gl_context,_},_}}, gl:getString(?GL_VENDOR)),
 
     ?m(ok, wxGLCanvas:setCurrent(Canvas)),
     io:format("Vendor:     ~s~n",  [gl:getString(?GL_VENDOR)]),

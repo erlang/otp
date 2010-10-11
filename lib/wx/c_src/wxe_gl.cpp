@@ -19,11 +19,13 @@
 
 #include <stdio.h>
 #include <string.h>
+#ifndef _WIN32
 #include <dlfcn.h>
+#else
+#include <windows.h>
+#endif
 #include "wxe_impl.h"
 #include "wxe_return.h"
-
-#define WX_DEF_EXTS
 
 /* **************************************************************************** 
  * Opengl context management *
@@ -37,39 +39,72 @@ typedef void (*WXE_GL_DISPATCH) (int, char *, ErlDrvPort, ErlDrvTermData, char *
 WXE_GL_DISPATCH wxe_gl_dispatch;
 
 #ifdef _WIN32
+#define RTLD_LAZY 0
+typedef HMODULE DL_LIB_P;
 void * dlsym(HMODULE Lib, const char *func) {
-  funcp = (void *) GetProcAddress(Lib, func);
-  return funcp;
+  void * funcp;
+  if((funcp = (void *) GetProcAddress(Lib, func)))
+    return funcp;
+  else
+    return (void *) wglGetProcAddress(func);
 }
-#endif 
+
+HMODULE dlopen(const char *path, int unused) {
+  WCHAR * DLL;
+  int len = MultiByteToWideChar(CP_ACP, 0, path, -1, NULL, 0);
+  DLL = (WCHAR *) malloc(len * sizeof(WCHAR));
+  MultiByteToWideChar(CP_ACP, 0, path, -1, DLL, len);
+  HMODULE lib = LoadLibrary(DLL);
+  free(DLL);
+  return lib;
+}
+
+void dlclose(HMODULE Lib) {
+  FreeLibrary(Lib);
+}
+#else
+typedef void * DL_LIB_P;
+#endif
 
 void wxe_initOpenGL(wxeReturn rt, char *bp) {
-  void * LIBhandle;
-  int (*init_opengl) ();
-
+  DL_LIB_P LIBhandle;
+  int (*init_opengl)(void *);
+#ifdef _WIN32
+  void * erlCallbacks = &WinDynDriverCallbacks;
+#else 
+  void * erlCallbacks = NULL;
+#endif
+  
   if(erl_gl_initiated == FALSE) {
     if((LIBhandle = dlopen(bp, RTLD_LAZY))) {
       *(void **) (&init_opengl) = dlsym(LIBhandle, "egl_init_opengl");
       wxe_gl_dispatch = (WXE_GL_DISPATCH) dlsym(LIBhandle, "egl_dispatch");
       if(init_opengl && wxe_gl_dispatch) {
-	(*init_opengl)();
+	(*init_opengl)(erlCallbacks);
 	rt.addAtom((char *) "ok");
-	  rt.add(wxString::FromAscii("initiated"));
-	  rt.addTupleCount(2);
-	  erl_gl_initiated = TRUE;
-	} else {
-	  wxString msg;
-	  msg.Printf(wxT("In library: "));
-	  msg += wxString::FromAscii(bp);
-	  msg += wxT(" functions: ");
-	  if(!init_opengl) 
-	    msg += wxT("egl_init_opengl ");
-	  if(!wxe_gl_dispatch) 
-	    msg += wxT("egl_dispatch ");
-	  rt.addAtom((char *) "error");
-	  rt.add(msg);
-	  rt.addTupleCount(2);
-	}
+	rt.add(wxString::FromAscii("initiated"));
+	rt.addTupleCount(2);
+	erl_gl_initiated = TRUE;
+      } else {
+	wxString msg;
+	msg.Printf(wxT("In library: "));
+	msg += wxString::FromAscii(bp);
+	msg += wxT(" functions: ");
+	if(!init_opengl) 
+	  msg += wxT("egl_init_opengl ");
+	if(!wxe_gl_dispatch) 
+	  msg += wxT("egl_dispatch ");
+	rt.addAtom((char *) "error");
+	rt.add(msg);
+	rt.addTupleCount(2);
+      }
+    } else {
+      wxString msg;
+      msg.Printf(wxT("Could not load dll: "));
+      msg += wxString::FromAscii(bp);
+      rt.addAtom((char *) "error");
+      rt.add(msg);
+      rt.addTupleCount(2);
     }
   } else {
     rt.addAtom((char *) "ok");
@@ -102,7 +137,7 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
     if(current) { gl_active = caller; current->SetCurrent();}
     else {
       ErlDrvTermData rt[] = // Error msg
-	{ERL_DRV_ATOM, driver_mk_atom((char *) "_wxe_error_"),
+	{ERL_DRV_ATOM, driver_mk_atom((char *) "_egl_error_"),
 	 ERL_DRV_INT,  op,
 	 ERL_DRV_ATOM, driver_mk_atom((char *) "no_gl_context"),
 	 ERL_DRV_TUPLE,3};
