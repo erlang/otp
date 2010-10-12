@@ -30,16 +30,16 @@
 -define(privdir, "leex_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([checks/1,
+-export([
              file/1, compile/1, syntax/1,
-         examples/1,
+
              pt/1, man/1, ex/1, ex2/1, not_yet/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -54,10 +54,20 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [checks, examples].
+all() -> 
+[{group, checks}, {group, examples}].
 
-checks(suite) ->
-    [file, compile, syntax].
+groups() -> 
+    [{checks, [], [file, compile, syntax]},
+ {examples, [], [pt, man, ex, ex2, not_yet]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 file(doc) ->
     "Bad files and options.";
@@ -330,8 +340,6 @@ syntax(Config) when is_list(Config) ->
         leex:file(Filename, Ret),
     ok.
 
-examples(suite) ->
-    [pt,man,ex,ex2,not_yet].
 
 pt(doc) ->
     "Pushing back characters.";

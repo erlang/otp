@@ -29,23 +29,23 @@
 -define(privdir, "yecc_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([app_test/1,
-         checks/1, 
+ 
              file/1, syntax/1, compile/1, rules/1, expect/1,
              conflicts/1,
-         examples/1,
+
              empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
              other_examples/1,
-         bugs/1, 
+ 
              otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
-         improvements/1,
+
              otp_7292/1, otp_7969/1, otp_8919/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -60,7 +60,25 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [app_test, checks, examples, bugs, improvements].
+all() -> 
+[app_test, {group, checks}, {group, examples},
+ {group, bugs}, {group, improvements}].
+
+groups() -> 
+    [{checks, [],
+  [file, syntax, compile, rules, expect, conflicts]},
+ {examples, [],
+  [empty, prec, yeccpre, lalr, old_yecc, other_examples]},
+ {bugs, [],
+  [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
+ {improvements, [], [otp_7292, otp_7969]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 app_test(doc) ->
     ["Tests the applications consistency."];
@@ -70,8 +88,6 @@ app_test(Config) when is_list(Config) ->
     ?line ok=?t:app_test(parsetools),
     ok.
 
-checks(suite) ->
-    [file, syntax, compile, rules, expect, conflicts].
 
 file(doc) ->
     "Bad files and options.";
@@ -730,8 +746,6 @@ rules(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-examples(suite) ->
-    [empty, prec, yeccpre, lalr, old_yecc, other_examples].
 
 expect(doc) ->
     "Check of expect.";
@@ -1283,8 +1297,6 @@ other_examples(Config) when is_list(Config) ->
     ?line run(Config, Ts),
     ok.
 
-bugs(suite) ->
-    [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486].
 
 otp_5369(doc) ->
     "OTP-5369. A bug in parse_and_scan reported on erlang questions.";
@@ -1539,9 +1551,6 @@ otp_8486(Config) when is_list(Config) ->
           ">>,default,ok}],
     ?line run(Config, Ts),
     ok.
-
-improvements(suite) ->
-    [otp_7292, otp_7969, otp_8919].
 
 otp_7292(doc) ->
     "OTP-7292. Header declarations for edoc.";
