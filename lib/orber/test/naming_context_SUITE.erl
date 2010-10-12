@@ -25,7 +25,7 @@
 %%-----------------------------------------------------------------
 -module(naming_context_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 -include_lib("orber/include/corba.hrl").
@@ -35,7 +35,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -43,7 +43,7 @@
 
 -export([name_context/1, check_list/1, name_context_ext/1]).
 
--export([init_all/1, finish_all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 
 
 %%-----------------------------------------------------------------
@@ -75,13 +75,21 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["Description", "more description"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
 
-cases() ->
-    [name_context, check_list, name_context_ext].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+[name_context, check_list, name_context_ext].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -103,10 +111,10 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     Config.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 %%-----------------------------------------------------------------

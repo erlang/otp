@@ -20,7 +20,7 @@
 
 -module(orber_firewall_ipv4_out_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -49,7 +49,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2,  
 	 deny_port_api/1, deny_port_range_api/1, deny_host_api/1,
 	 allow_port_api/1, allow_port_range_api/1, allow_host_api/1,
@@ -60,18 +60,26 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for orber's firewall functionallity."];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% NOTE - the fragment test cases must bu first since we explicitly set a request
 %% id. Otherwise, the request-id counter would be increased and we cannot know
 %% what it is.
-cases() ->
-    [deny_port_api, deny_port_range_api, deny_host_api,
-     allow_port_api, allow_port_range_api, allow_host_api,
-     local_interface_api].
+cases() -> 
+[deny_port_api, deny_port_range_api, deny_host_api,
+ allow_port_api, allow_port_range_api, allow_host_api,
+ local_interface_api].
 
 
 init_per_testcase(_Case, Config) ->
@@ -84,7 +92,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     if
 	is_list(Config) ->
 	    orber:jump_start([{iiop_port, 0},
@@ -94,7 +102,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     orber:jump_stop(),
     Config.
 

@@ -20,7 +20,7 @@
 
 -module(csiv2_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -272,7 +272,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0,
+	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
 %	 code_CertificateChain_api/1,
 %	 code_AttributeCertChain_api/1,
@@ -316,46 +317,24 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for multi orber interfaces using CSIv2"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% NOTE - the fragment test cases must bu first since we explicitly set a request
 %% id. Otherwise, the request-id counter would be increased and we cannot know
 %% what it is.
-cases() ->
-    [
-%     code_CertificateChain_api,
-%     code_AttributeCertChain_api,
-%     code_VerifyingCertChain_api,
-%     code_AttributeCertificate_api,
-%     code_Certificate_api,
-%     code_TBSCertificate_api,
-%     code_CertificateSerialNumber_api,
-%     code_Version_api,
-%     code_AlgorithmIdentifier_api,
-%     code_Name_api,
-%     code_RDNSequence_api,
-%     code_RelativeDistinguishedName_api,
-%     code_AttributeTypeAndValue_api,
-%     code_Attribute_api,
-%     code_Validity_api,
-%     code_SubjectPublicKeyInfo_api,
-%     code_UniqueIdentifier_api,
-%     code_Extensions_api,
-%     code_Extension_api,
-%     code_AttributeCertificateInfo_api,
-%     code_AttCertVersion_api,
-%     code_Holder_api,
-%     code_AttCertIssuer_api,
-%     code_AttCertValidityPeriod_api,
-%     code_V2Form_api,
-%     code_IssuerSerial_api,
-%     code_ObjectDigestInfo_api,
-%     code_OpenSSL509_api,
-     ssl_server_peercert_api,
-     ssl_client_peercert_api].
+cases() -> 
+    [ssl_server_peercert_api, ssl_client_peercert_api].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -379,7 +358,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     if
 	is_list(Config) ->
 	    Config;
@@ -387,7 +366,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 %%-----------------------------------------------------------------

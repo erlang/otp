@@ -25,7 +25,7 @@
 
 -module(orber_web_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
@@ -65,7 +65,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -78,10 +78,20 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["This suite is for testing the Orber Web API"];
-all(suite) -> 
-    [menu, configure, info, nameservice, ifr_select, ifr_data, 
-     create, delete_ctx, add_ctx, delete_obj, server].
+all() -> 
+[menu, configure, info, nameservice, ifr_select,
+ ifr_data, create, delete_ctx, add_ctx, delete_obj,
+ server].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

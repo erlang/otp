@@ -20,7 +20,7 @@
 
 -module(multi_ORB_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -50,7 +50,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, basic_PI_api/1, multi_orber_api/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, basic_PI_api/1, multi_orber_api/1,
 	 init_per_testcase/2, end_per_testcase/2, multi_pseudo_orber_api/1, 
 	 light_orber_api/1, light_orber2_api/1, 
 	 ssl_1_multi_orber_api/1, ssl_2_multi_orber_api/1, ssl_reconfigure_api/1,
@@ -86,69 +86,55 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for multi orber interfaces", 
-	     "This suite test intra-ORB communication. There are three scenarios:",
-	     "* No security at all (multi_orber_api)",
-	     "* Two secure orbs using ssl (ssl_multi_orb_api)",
-	     "* One secure and one orb with no security. (ssl_multi_orb_api)"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% NOTE - the fragment test cases must be first since we explicitly set a request
 %% id. Otherwise, the request-id counter would be increased and we cannot know
 %% what it is.
-cases() ->
-    [fragments_server_api, 
-     fragments_max_server_api,
-     fragments_max_server_added_api,
-     fragments_client_api,
-     flags_added_api,
-     bad_fragment_id_client_api,
-     bad_giop_header_api,
-     bad_id_cancel_request_api,
-     implicit_context_api, 
-     pseudo_implicit_context_api,
-     pseudo_two_implicit_context_api,
-     implicit_context_roundtrip_api,
-     oneway_implicit_context_api, 
-     oneway_pseudo_implicit_context_api,
-     oneway_pseudo_two_implicit_context_api,
-     proxy_interface_api,
-     proxy_interface_ipv6_api,
-     local_interface_api,
-     local_interface_ctx_override_api,
-     local_interface_acl_override_api,
-     close_connections_api,
-     close_connections_local_interface_api,
-     close_connections_local_interface_ctx_override_api,
-     close_connections_alt_iiop_addr_api,
-     close_connections_multiple_profiles_api,
-     multiple_accept_api,
-     max_requests_api,
-     max_requests_added_api,
-     max_connections_api,
-     max_packet_size_exceeded_api,
-     max_packet_size_ok_api,
-     light_ifr_api,
-     multi_pseudo_orber_api, 
-     multi_orber_api, 
-     light_orber_api, 
-     light_orber2_api, 
-     basic_PI_api, 
-     iiop_timeout_api, 
-     iiop_timeout_added_api, 
-     setup_connection_timeout_api, 
-     setup_multi_connection_timeout_api, 
-     setup_multi_connection_timeout_attempts_api, 
-     setup_multi_connection_timeout_random_api, 
-     ssl_1_multi_orber_api,
-     ssl_1_multi_orber_generation_3_api,
-     ssl_2_multi_orber_api,
-     ssl_2_multi_orber_generation_3_api,
-     ssl_reconfigure_generation_3_api,
-     ssl_reconfigure_api
-    ].
+cases() -> 
+[fragments_server_api, fragments_max_server_api,
+ fragments_max_server_added_api, fragments_client_api,
+ flags_added_api, bad_fragment_id_client_api,
+ bad_giop_header_api, bad_id_cancel_request_api,
+ implicit_context_api, pseudo_implicit_context_api,
+ pseudo_two_implicit_context_api,
+ implicit_context_roundtrip_api,
+ oneway_implicit_context_api,
+ oneway_pseudo_implicit_context_api,
+ oneway_pseudo_two_implicit_context_api,
+ proxy_interface_api, proxy_interface_ipv6_api,
+ local_interface_api, local_interface_ctx_override_api,
+ local_interface_acl_override_api, close_connections_api,
+ close_connections_local_interface_api,
+ close_connections_local_interface_ctx_override_api,
+ close_connections_alt_iiop_addr_api,
+ close_connections_multiple_profiles_api,
+ multiple_accept_api, max_requests_api,
+ max_requests_added_api, max_connections_api,
+ max_packet_size_exceeded_api, max_packet_size_ok_api,
+ light_ifr_api, multi_pseudo_orber_api, multi_orber_api,
+ light_orber_api, light_orber2_api, basic_PI_api,
+ iiop_timeout_api, iiop_timeout_added_api,
+ setup_connection_timeout_api,
+ setup_multi_connection_timeout_api,
+ setup_multi_connection_timeout_attempts_api,
+ setup_multi_connection_timeout_random_api,
+ ssl_1_multi_orber_api,
+ ssl_1_multi_orber_generation_3_api,
+ ssl_2_multi_orber_api,
+ ssl_2_multi_orber_generation_3_api,
+ ssl_reconfigure_generation_3_api, ssl_reconfigure_api].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -172,7 +158,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     if
 	is_list(Config) ->
 	    Config;
@@ -180,7 +166,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 %%-----------------------------------------------------------------

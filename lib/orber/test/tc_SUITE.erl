@@ -25,7 +25,7 @@
 %%-----------------------------------------------------------------
 -module(tc_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -128,7 +128,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -141,18 +141,23 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["Description", "more description"];
-all(suite) -> 
-    [null, void, 
-     short, ushort, 
-     long, ulong, 
-     longlong, ulonglong, 
-     boolean, char, wchar, octet,
-     float, double, longdouble, 
-     any, typecode, principal, object_reference,
-     struct, union, enum, string, wstring, sequence, array, 
-     alias, exception, fixed, value, value_box, native, 
-     abstract_interface, indirection, get_tc].
+all() -> 
+[null, void, short, ushort, long, ulong, longlong,
+ ulonglong, boolean, char, wchar, octet, float, double,
+ longdouble, any, typecode, principal, object_reference,
+ struct, union, enum, string, wstring, sequence, array,
+ alias, exception, fixed, value, value_box, native,
+ abstract_interface, indirection, get_tc].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

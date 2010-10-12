@@ -25,14 +25,14 @@
 %%-----------------------------------------------------------------
 -module(cdrlib_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
 
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -45,10 +45,19 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["Description", "more description"];
-all(suite) -> 
-    [short, ushort, long, ulong, longlong, ulonglong, boolean, character, octet,
-     float, double, enum].
+all() -> 
+[short, ushort, long, ulong, longlong, ulonglong,
+ boolean, character, octet, float, double, enum].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

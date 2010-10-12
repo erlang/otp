@@ -20,7 +20,7 @@
 
 -module(orber_nat_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -50,7 +50,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2, 
 	 nat_ip_address/1, nat_ip_address_multiple/1,
 	 nat_ip_address_local/1, nat_ip_address_local_local/1,
@@ -68,27 +68,25 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for multi orber interfaces", 
-	     "This suite test intra-ORB communication. There are three scenarios:",
-	     "* No security at all (multi_orber_api)",
-	     "* Two secure orbs using ssl (ssl_multi_orb_api)",
-	     "* One secure and one orb with no security. (ssl_multi_orb_api)"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
 
-cases() ->
-    [
-     nat_ip_address,
-     nat_ip_address_multiple,
-     nat_ip_address_local,
-     nat_iiop_port,
-     nat_iiop_port_local,
-     nat_ip_address_local_local,
-     nat_iiop_port_local_local,
-     nat_iiop_ssl_port,
-     nat_iiop_ssl_port_local
-    ].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+[nat_ip_address, nat_ip_address_multiple,
+ nat_ip_address_local, nat_iiop_port,
+ nat_iiop_port_local, nat_ip_address_local_local,
+ nat_iiop_port_local_local, nat_iiop_ssl_port,
+ nat_iiop_ssl_port_local].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -113,7 +111,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     if
 	is_list(Config) ->
 	    Config;
@@ -121,7 +119,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 %%-----------------------------------------------------------------

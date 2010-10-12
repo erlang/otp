@@ -25,7 +25,7 @@
 %%-----------------------------------------------------------------
 -module(corba_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -51,7 +51,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -64,18 +64,27 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the CORBA/BOA/Object/orber interfaces", ""];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
 
-cases() ->
-    [exception_info_api, corba_api, object_api, orber_api, 
-     orber_objectkeys_api, orber_pseudo_objects, callback_ok_api, 
-     callback_arity_api, callback_module_api, callback_function_api, 
-     callback_precond_api, callback_postcond_api, callback_exit_api, 
-     callback_badarith_api, callback_case_clause_api, 
-     callback_function_clause_api]. 
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+[exception_info_api, corba_api, object_api, orber_api,
+ orber_objectkeys_api, orber_pseudo_objects,
+ callback_ok_api, callback_arity_api,
+ callback_module_api, callback_function_api,
+ callback_precond_api, callback_postcond_api,
+ callback_exit_api, callback_badarith_api,
+ callback_case_clause_api, callback_function_clause_api]. 
 
 %% boa_api, request, locate_request, locate_reply].
 
@@ -97,7 +106,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     corba:orb_init([{orber_debug_level, 10}, {giop_version, {1,2}},
 		    {iiop_port, 0}]),
     mnesia:delete_schema([node()]),
@@ -112,7 +121,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     application:stop(orber),
     application:stop(mnesia),
     mnesia:delete_schema([node()]),

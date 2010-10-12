@@ -27,7 +27,7 @@
 
 
 -include("idl_output/Module.hrl").
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
@@ -36,12 +36,11 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -49,13 +48,26 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["Description", "more description"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+    cases().
 
-cases() ->
-    [types, reply, cancel_request, close_connection, message_error].
+groups() -> 
+    [{types, [],
+      [do_register, null_type, void_type, principal_type,
+       objref_type, struct_type, union_type, string_type,
+       array_type, any_type, typecode_type, alias_type,
+       exception_type, do_unregister]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+    [{group, types}, reply, cancel_request,
+     close_connection, message_error].
 %% request, locate_request, locate_reply].
 
 %%-----------------------------------------------------------------
@@ -76,7 +88,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     orber:jump_start(0),
     if
 	is_list(Config) ->
@@ -85,7 +97,7 @@ init_all(Config) when is_list(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     orber:jump_stop(),
     Config.
 
@@ -94,11 +106,6 @@ finish_all(Config) when is_list(Config) ->
 %% Description: Just testing the complex types, the others are 
 %%              tested in the cdrlib SUITE.
 %%-----------------------------------------------------------------
-types(doc) -> ["Description", "more description"];
-types(suite) -> [do_register, null_type, void_type, principal_type, 
-		 objref_type, struct_type, union_type, string_type,
-		 array_type, any_type, typecode_type, alias_type,
-		 exception_type, do_unregister].
 %types(Config) when list(Config) ->
 %    'oe_orber_test':'oe_register'(),
 %    null_type(), 
