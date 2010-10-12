@@ -18,13 +18,13 @@
 %%
 -module(cover_SUITE).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
 	 distribution/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%----------------------------------------------------------------------
 %% The following directory structure is assumed:
@@ -37,17 +37,28 @@
 %%                                             y
 %%----------------------------------------------------------------------
 
-all(suite) -> 
-    case whereis(cover_server) of
-	undefined ->
-	    [start, compile, analyse, misc, stop, distribution,
-	     export_import,
-	     otp_5031, eif, otp_5305, otp_5418, otp_6115, otp_7095,
-             otp_8188, otp_8270, otp_8273, otp_8340];
-	_pid ->
-	    {skip,"It looks like the test server is running cover. "
-	          "Can't run cover test."}
-    end.
+all() -> 
+case whereis(cover_server) of
+  undefined ->
+      [start, compile, analyse, misc, stop, distribution,
+       export_import, otp_5031, eif, otp_5305, otp_5418,
+       otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
+       otp_8340];
+  _pid ->
+      {skip,
+       "It looks like the test server is running "
+       "cover. Can't run cover test."}
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 start(suite) -> [];
 start(Config) when is_list(Config) ->

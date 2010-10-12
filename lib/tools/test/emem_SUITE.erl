@@ -24,7 +24,7 @@
 	 receive_and_save_trace/2, send_trace/2]).
 
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([live_node/1,
 	 'sparc_sunos5.8_32b_emt2.0'/1,
@@ -41,7 +41,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
@@ -65,26 +65,33 @@
 %%
 %%
 
-all(doc) -> [];
-all(suite) ->
+all() -> 
     case is_debug_compiled() of
-	true -> {skipped, "Not run when debug compiled"};
+	true -> {skip, "Not run when debug compiled"};
 	false -> test_cases()
     end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 		 
-test_cases() ->
-    [live_node,
-     'sparc_sunos5.8_32b_emt2.0',
-     'pc_win2000_32b_emt2.0',
-     'pc.smp_linux2.2.19pre17_32b_emt2.0',
-     'powerpc_darwin7.7.0_32b_emt2.0',
-     'alpha_osf1v5.1_64b_emt2.0',
-     'sparc_sunos5.8_64b_emt2.0',
-     'sparc_sunos5.8_32b_emt1.0',
-     'pc_win2000_32b_emt1.0',
-     'powerpc_darwin7.7.0_32b_emt1.0',
-     'alpha_osf1v5.1_64b_emt1.0',
-     'sparc_sunos5.8_64b_emt1.0'].
+test_cases() -> 
+[live_node, 'sparc_sunos5.8_32b_emt2.0',
+ 'pc_win2000_32b_emt2.0',
+ 'pc.smp_linux2.2.19pre17_32b_emt2.0',
+ 'powerpc_darwin7.7.0_32b_emt2.0',
+ 'alpha_osf1v5.1_64b_emt2.0',
+ 'sparc_sunos5.8_64b_emt2.0',
+ 'sparc_sunos5.8_32b_emt1.0', 'pc_win2000_32b_emt1.0',
+ 'powerpc_darwin7.7.0_32b_emt1.0',
+ 'alpha_osf1v5.1_64b_emt1.0',
+ 'sparc_sunos5.8_64b_emt1.0'].
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     case maybe_skip(Config) of
@@ -700,8 +707,8 @@ start_node(Name, Args) ->
 % stop_node(Node) ->
 %     ?t:stop_node(Node).
 
-is_debug_compiled() ->
-    is_debug_compiled(erlang:system_info(system_version)).
+is_debug_compiled() -> 
+is_debug_compiled(erlang:system_info(system_version)).
 
 is_debug_compiled([$d,$e,$b,$u,$g | _]) ->
     true;

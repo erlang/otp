@@ -41,7 +41,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
  
 -ifdef(debug).
@@ -63,7 +63,7 @@ config(data_dir, _) ->
     "cprof_SUITE_data".
 -else.
 %% When run in test server.
--export([all/1, init_per_testcase/2, end_per_testcase/2, not_run/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, on_load/1, modules/1]).
 	 
 init_per_testcase(_Case, Config) ->
@@ -78,15 +78,21 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test the cprof profiling tool."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	true -> [not_run];
-	false -> [basic, on_load, modules]
-%, on_and_off, info, 
-%		  pause_and_restart, combo]
-    end.
+all() -> 
+case test_server:is_native(cprof_SUITE) of
+  true -> [not_run];
+  false -> [basic, on_load, modules]
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.

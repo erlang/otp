@@ -18,12 +18,12 @@
 %%
 -module(make_SUITE).
 
--export([all/1, make_all/1, make_files/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
 -export([otp_6057_init/1,
 	 otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
 	 otp_6057_end/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -include_lib("kernel/include/file.hrl").
 
@@ -35,9 +35,19 @@
 %% that the file :"test5.erl" shall be compiled with the 'S' option,
 %% i.e. produce "test5.S" instead of "test5.<objext>"
 
-all(suite) -> [make_all, make_files,
-	       {conf, otp_6057_init,
-		[otp_6057_a,otp_6057_b,otp_6057_c], otp_6057_end}].
+all() -> 
+[make_all, make_files, otp_6057_a, otp_6057_b,
+ otp_6057_c].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 test_files() -> ["test1", "test2", "test3", "test4"].
 

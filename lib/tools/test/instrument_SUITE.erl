@@ -18,11 +18,11 @@
 %%
 -module(instrument_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2]).
 
 -export(['+Mim true'/1, '+Mis true'/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=?t:timetrap(10000),
@@ -33,7 +33,18 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> ['+Mim true', '+Mis true'].
+all() -> 
+['+Mim true', '+Mis true'].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 '+Mim true'(doc) -> ["Check that memory data can be read and processed"];
 '+Mim true'(suite) -> [];

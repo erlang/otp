@@ -18,10 +18,10 @@
 %%
 -module(fprof_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server framework exports
--export([all/1, not_run/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, not_run/1]).
 
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
@@ -54,17 +54,24 @@
 
 
 
-all(doc) ->
-    ["Test the 'fprof' profiling tool."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	true ->
-	    [not_run];
-	false ->
-	    [stack_seq, tail_seq, create_file_slow, spawn_simple,
-	     imm_tail_seq, imm_create_file_slow, imm_compile,
-	     cpu_create_file_slow]
-    end.
+all() -> 
+case test_server:is_native(fprof_SUITE) of
+  true -> [not_run];
+  false ->
+      [stack_seq, tail_seq, create_file_slow, spawn_simple,
+       imm_tail_seq, imm_create_file_slow, imm_compile,
+       cpu_create_file_slow]
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 not_run(Config) when is_list(Config) ->
     {skipped, "Native code"}.
