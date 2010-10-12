@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(epmd_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 
@@ -35,7 +35,7 @@
 -record(node_info, {port, node_type, prot, lvsn, hvsn, node_name, extra}).
 
 % Test server specific exports
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export(
    [
@@ -64,7 +64,7 @@
 
     returns_valid_empty_extra/1,
     returns_valid_populated_extra_with_nulls/1,
-    buffer_overrun/1,
+
     buffer_overrun_1/1,
     buffer_overrun_2/1,
     no_nonlocal_register/1,
@@ -101,42 +101,29 @@
 %% all/1
 %%
 
-all(suite) ->
-    [
-     register_name,
-     register_names_1,
-     register_names_2,
-     register_duplicate_name,
-     get_port_nr,
-     slow_get_port_nr,
-     unregister_others_name_1,
-     unregister_others_name_2,
-     register_overflow,
-     name_with_null_inside,
-     name_null_terminated,
-     stupid_names_req,
+all() -> 
+[register_name, register_names_1, register_names_2,
+ register_duplicate_name, get_port_nr, slow_get_port_nr,
+ unregister_others_name_1, unregister_others_name_2,
+ register_overflow, name_with_null_inside,
+ name_null_terminated, stupid_names_req, no_data,
+ one_byte, two_bytes, partial_packet, zero_length,
+ too_large, alive_req_too_small_1, alive_req_too_small_2,
+ alive_req_too_large, returns_valid_empty_extra,
+ returns_valid_populated_extra_with_nulls,
+ {group, buffer_overrun}, no_nonlocal_register,
+ no_nonlocal_kill, no_live_killing].
 
-     no_data,
-     one_byte,
-     two_bytes,
-     partial_packet,
-     zero_length,
-     too_large,
-     alive_req_too_small_1,
-     alive_req_too_small_2,
-     alive_req_too_large,
+groups() -> 
+    [{buffer_overrun, [],
+  [buffer_overrun_1, buffer_overrun_2]}].
 
-     returns_valid_empty_extra,
-     returns_valid_populated_extra_with_nulls,
+init_per_group(_GroupName, Config) ->
+	Config.
 
-     buffer_overrun,
-     %buffer_overrun_1,
-     %buffer_overrun_2,
+end_per_group(_GroupName, Config) ->
+	Config.
 
-     no_nonlocal_register,
-     no_nonlocal_kill,
-     no_live_killing
-    ].
 
 %%
 %% Run before and after each test case
@@ -725,8 +712,6 @@ returns_valid_populated_extra_with_nulls(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-buffer_overrun(suite) ->
-    [buffer_overrun_1,buffer_overrun_2].
 
 buffer_overrun_1(suite) ->
     [];
