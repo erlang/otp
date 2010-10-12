@@ -20,12 +20,12 @@
 %%
 -module(ei_format_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_format_SUITE_data/ei_format_test_cases.hrl").
 
 -export([
 	format_wo_ver/1,
-	all/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
 	atoms/1, 
 	tuples/1, 
 	lists/1
@@ -36,12 +36,18 @@
 %% This test suite test the erl_format() function.
 %% It uses the port program "ei_format_test".
 
-all(suite) -> [
-	format_wo_ver,
-	atoms, 
-	tuples, 
-	lists
-	].
+all() -> 
+[format_wo_ver, atoms, tuples, lists].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% Tests formatting various atoms.
 

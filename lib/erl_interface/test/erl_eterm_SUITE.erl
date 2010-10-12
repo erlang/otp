@@ -20,7 +20,7 @@
 %%
 -module(erl_eterm_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("erl_eterm_SUITE_data/eterm_test_cases.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -33,7 +33,7 @@
 %%% 5. Miscellanous functions.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/1, build_terms/1, round_trip_conversion/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, build_terms/1, round_trip_conversion/1,
 	 decode_terms/1, decode_float/1,
 	 t_erl_mk_int/1, t_erl_mk_list/1,
 	 basic_copy/1,
@@ -73,38 +73,30 @@
 %% This test suite controls the running of the C language functions
 %% in eterm_test.c and print_term.c.
 
-all(suite) -> [build_terms, round_trip_conversion,
-	       decode_terms, decode_float,
-	       t_erl_mk_int, t_erl_mk_list,
-	       basic_copy,
-	       t_erl_mk_atom,
-	       t_erl_mk_binary,
-	       t_erl_mk_empty_list,
-	       t_erl_mk_float,
-	       t_erl_mk_pid,
-	       t_erl_mk_xpid,
-	       t_erl_mk_port,
-	       t_erl_mk_xport,
-	       t_erl_mk_ref,
-	       t_erl_mk_long_ref,
-	       t_erl_mk_string,
-	       t_erl_mk_estring,
-	       t_erl_mk_tuple,
-	       t_erl_mk_uint,
-	       t_erl_mk_var,
-	       t_erl_size,
-	       t_erl_var_content,
-	       t_erl_element,
-	       t_erl_cons,
-	       t_erl_length, t_erl_hd, t_erl_tl,
-	       type_checks, extractor_macros,
-	       t_erl_iolist_length, t_erl_iolist_to_binary,
-	       t_erl_iolist_to_string,
-	       erl_print_term, print_string,
-	       t_erl_free_compound,
-	       high_chaparal,
-	       broken_data,
-	       cnode_1].
+all() -> 
+[build_terms, round_trip_conversion, decode_terms,
+ decode_float, t_erl_mk_int, t_erl_mk_list, basic_copy,
+ t_erl_mk_atom, t_erl_mk_binary, t_erl_mk_empty_list,
+ t_erl_mk_float, t_erl_mk_pid, t_erl_mk_xpid,
+ t_erl_mk_port, t_erl_mk_xport, t_erl_mk_ref,
+ t_erl_mk_long_ref, t_erl_mk_string, t_erl_mk_estring,
+ t_erl_mk_tuple, t_erl_mk_uint, t_erl_mk_var, t_erl_size,
+ t_erl_var_content, t_erl_element, t_erl_cons,
+ t_erl_length, t_erl_hd, t_erl_tl, type_checks,
+ extractor_macros, t_erl_iolist_length,
+ t_erl_iolist_to_binary, t_erl_iolist_to_string,
+ erl_print_term, print_string, t_erl_free_compound,
+ high_chaparal, broken_data, cnode_1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

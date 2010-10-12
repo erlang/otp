@@ -20,19 +20,27 @@
 %%
 -module(ei_decode_encode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_decode_encode_SUITE_data/ei_decode_encode_test_cases.hrl").
 
 -export(
    [
-    all/1,
+all/0,groups/0,init_per_group/2,end_per_group/2,
     test_ei_decode_encode/1
    ]).
 
-all(suite) ->
-    [
-     test_ei_decode_encode
-    ].
+all() -> 
+[test_ei_decode_encode].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% ---------------------------------------------------------------------------
 

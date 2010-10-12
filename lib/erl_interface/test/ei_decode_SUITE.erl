@@ -20,12 +20,12 @@
 %%
 -module(ei_decode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_decode_SUITE_data/ei_decode_test_cases.hrl").
 
 -export(
    [
-    all/1,
+all/0,groups/0,init_per_group/2,end_per_group/2,
     test_ei_decode_long/1,
     test_ei_decode_ulong/1,
     test_ei_decode_longlong/1,
@@ -35,16 +35,21 @@
     test_ei_decode_misc/1
    ]).
 
-all(suite) ->
-    [
-     test_ei_decode_long,
-     test_ei_decode_ulong,
-     test_ei_decode_longlong,
-     test_ei_decode_ulonglong,
-     test_ei_decode_char,
-     test_ei_decode_nonoptimal,
-     test_ei_decode_misc
-    ].
+all() -> 
+[test_ei_decode_long, test_ei_decode_ulong,
+ test_ei_decode_longlong, test_ei_decode_ulonglong,
+ test_ei_decode_char, test_ei_decode_nonoptimal,
+ test_ei_decode_misc].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% ---------------------------------------------------------------------------
 

@@ -1,2 +1,1 @@
-{topcase, {dir, "../erl_interface_test"}}.
-
+{suites,"erl_interface_test",all}.

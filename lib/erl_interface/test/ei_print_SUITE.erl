@@ -20,17 +20,28 @@
 %%
 -module(ei_print_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_print_SUITE_data/ei_print_test_cases.hrl").
 
--export([all/1, atoms/1, tuples/1, lists/1, strings/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, atoms/1, tuples/1, lists/1, strings/1]).
 
 -import(runner, [get_term/1]).
 
 %% This test suite test the ei_print() function.
 %% It uses the port program "ei_format_test".
 
-all(suite) -> [atoms, tuples, lists, strings].
+all() -> 
+[atoms, tuples, lists, strings].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% Tests formatting various atoms.
 

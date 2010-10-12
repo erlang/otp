@@ -20,18 +20,29 @@
 %%
 -module(ei_tmo_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include("ei_tmo_SUITE_data/ei_tmo_test_cases.hrl").
 
 -define(dummy_host,test01).
 
--export([all/1, init_per_testcase/2, end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
 	 framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
 	 ei_recv_tmo/1]).
 
-all(suite) -> [framework_check,ei_accept_tmo,ei_connect_tmo,
-	       ei_send_tmo,ei_recv_tmo].
+all() -> 
+[framework_check, ei_accept_tmo, ei_connect_tmo,
+ ei_send_tmo, ei_recv_tmo].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(1)),

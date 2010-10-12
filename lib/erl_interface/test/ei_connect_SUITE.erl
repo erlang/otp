@@ -20,11 +20,11 @@
 %%
 -module(ei_connect_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
 -export([
-	all/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
 	init_per_testcase/2, 
 	end_per_testcase/2,
 
@@ -40,13 +40,18 @@
 
 -import(runner, [get_term/1,send_term/2]).
 
-all(suite) -> [ ei_send, 
-		ei_reg_send, 
-		ei_format_pid,
-		ei_rpc, 
-		ei_send_funs, 
-		ei_threaded_send,
-		ei_set_get_tracelevel].
+all() -> 
+[ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
+ ei_threaded_send, ei_set_get_tracelevel].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(0.25)),

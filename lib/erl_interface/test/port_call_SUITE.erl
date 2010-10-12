@@ -31,13 +31,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/1, basic/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, basic/1]).
 % Private exports
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
-all(suite) -> 
-    [basic].
+all() -> 
+[basic].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 basic(suite) -> [];
 basic(Config) when is_list(Config) ->
