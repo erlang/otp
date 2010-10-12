@@ -22,7 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(ic_pp_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 
@@ -32,50 +32,55 @@
 -define(GCC, "g++").
 -define(GCC_VER, "2.95.3").
 
--export([all/1]).
--export([arg/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([arg_norm/1]).
--export([cascade/1]).
 -export([cascade_norm/1]).
--export([comment/1]).
 -export([comment_norm/1]).
--export([concat/1]).
 -export([concat_norm/1]).
--export([define/1]).
 -export([define_norm/1]).
--export(['if'/1]).
 -export([if_norm/1]).
 -export([if_zero/1]).
--export([misc/1]).
 -export([misc_norm/1]).
--export([improp_nest_constr/1]).
 -export([improp_nest_constr_norm/1]).
--export([inc/1]).
 -export([inc_norm/1]).
--export([line/1]).
 -export([line_norm/1]).
--export([nopara/1]).
 -export([nopara_norm/1]).
--export([predef/1]).
 -export([predef_norm/1]).
--export([predef_time/1]).
 -export([predef_time_norm/1]).
--export([self_ref/1]).
 -export([self_ref_norm/1]).
--export([separate/1]).
 -export([separate_norm/1]).
--export([swallow_sc/1]).
 -export([swallow_sc_norm/1]).
--export([unintended_grp/1]).
 -export([unintended_grp_norm/1]).
--export([cases/0, init_all/1, finish_all/1]).
+-export([cases/0, init_per_suite/1, end_per_suite/1]).
 
 
-all(doc) -> ["Preprocessing tests for IC"];
-all(suite) ->
-    {req, [], {conf, init_all, cases(), finish_all}}.
+all() -> 
+    cases().
 
-init_all(Config) ->
+groups() -> 
+    [{arg, [], [arg_norm]}, {cascade, [], [cascade_norm]},
+     {comment, [], [comment_norm]},
+     {concat, [], [concat_norm]},
+     {define, [], [define_norm]}, {inc, [], [inc_norm]},
+     {improp_nest_constr, [], [improp_nest_constr_norm]},
+     {misc, [], [misc_norm]}, {line, [], [line_norm]},
+     {nopara, [], [nopara_norm]},
+     {predef, [], [predef_norm]},
+     {predef_time, [], [predef_time_norm]},
+     {self_ref, [], [self_ref_norm]},
+     {separate, [], [separate_norm]},
+     {swallow_sc, [], [swallow_sc_norm]},
+     {unintended_grp, [], [unintended_grp_norm]},
+     {'if', [],[if_norm, if_zero]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+init_per_suite(Config) ->
     if
 	is_list(Config) ->
 	    case os:type() of
@@ -120,14 +125,18 @@ skip_white([$\t|T]) -> skip_white(T);
 skip_white(L) -> L.
     
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 
-cases() ->
-    [arg, cascade, comment, concat, define, misc, 'if', improp_nest_constr, inc,
-     line, nopara, predef, predef_time, self_ref, separate, swallow_sc,
-     unintended_grp].
+cases() -> 
+    [{group, arg}, {group, cascade}, {group, comment},
+     {group, concat}, {group, define}, {group, misc}, {group, 'if'},
+     {group, improp_nest_constr}, {group, inc},
+     {group, line}, {group, nopara}, {group, predef},
+     {group, predef_time}, {group, self_ref},
+     {group, separate}, {group, swallow_sc},
+     {group, unintended_grp}].
     
 
 
@@ -135,8 +144,6 @@ cases() ->
 %% arg
 %%--------------------------------------------------------------------
 
-arg(suite) -> [arg_norm];
-arg(doc) -> ["Check #define with some arguments"].
 
 arg_norm(doc) -> ["Checks arguments for #define."];
 arg_norm(suite) -> [];
@@ -153,8 +160,6 @@ arg_norm(Config) when is_list(Config) ->
 %% cascade
 %%--------------------------------------------------------------------
 
-cascade(suite) -> [cascade_norm];
-cascade(doc) -> ["Check cascade #define"].
 
 cascade_norm(doc) -> ["Check cascade #define."];
 cascade_norm(suite) -> [];
@@ -171,8 +176,6 @@ cascade_norm(Config) when is_list(Config) ->
 %% comment
 %%--------------------------------------------------------------------
 
-comment(suite) -> [comment_norm];
-comment(doc) -> ["Check comments"].
 
 comment_norm(doc) -> ["Check comments."];
 comment_norm(suite) -> [];
@@ -189,8 +192,6 @@ comment_norm(Config) when is_list(Config) ->
 %% concat
 %%--------------------------------------------------------------------
 
-concat(suite) -> [concat_norm];
-concat(doc) -> ["Check concatinations, i.e ## "].
 
 concat_norm(doc) -> ["Check concatinations, i.e ## ."];
 concat_norm(suite) -> [];
@@ -207,8 +208,6 @@ concat_norm(Config) when is_list(Config) ->
 %% define
 %%--------------------------------------------------------------------
 
-define(suite) -> [define_norm];
-define(doc) -> ["Check misceleaneous #define"].
 
 define_norm(doc) -> ["Check misceleaneous #define."];
 define_norm(suite) -> [];
@@ -224,10 +223,6 @@ define_norm(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% if
 %%--------------------------------------------------------------------
-
-'if'(suite) -> [if_norm, if_zero];
-'if'(doc) -> ["Check #if, #elif, and #endif. Note these are not implementen and will ~n
-               result in an error message from internal_pp"].
 
 if_norm(doc) -> ["Check #if, #elif, and #endif. ."];
 if_norm(suite) -> [];
@@ -254,8 +249,6 @@ if_zero(Config) when is_list(Config) ->
 %% inc
 %%--------------------------------------------------------------------
 
-inc(suite) -> [inc_norm];
-inc(doc) -> ["Check #include"].
 
 inc_norm(doc) -> ["Check #include."];
 inc_norm(suite) -> [];
@@ -273,8 +266,6 @@ inc_norm(Config) when is_list(Config) ->
 %% improp_nest_constr
 %%--------------------------------------------------------------------
 
-improp_nest_constr(suite) -> [improp_nest_constr_norm];
-improp_nest_constr(doc) -> ["Check improperly nested constructs"].
 
 improp_nest_constr_norm(doc) -> ["Check improperly nested constructs."];
 improp_nest_constr_norm(suite) -> [];
@@ -291,8 +282,6 @@ improp_nest_constr_norm(Config) when is_list(Config) ->
 %% misc
 %%--------------------------------------------------------------------
 
-misc(suite) -> [misc_norm];
-misc(doc) -> ["Misceleaneous checks"].
 
 misc_norm(doc) -> ["Misceleaneous checks."];
 misc_norm(suite) -> [];
@@ -309,8 +298,6 @@ misc_norm(Config) when is_list(Config) ->
 %% line
 %%--------------------------------------------------------------------
 
-line(suite) -> [line_norm];
-line(doc) -> ["Checks #line"].
 
 line_norm(doc) -> ["Checks #line."];
 line_norm(suite) -> [];
@@ -327,8 +314,6 @@ line_norm(Config) when is_list(Config) ->
 %% nopara
 %%--------------------------------------------------------------------
 
-nopara(suite) -> [nopara_norm];
-nopara(doc) -> ["Checks #define with no parameters"].
 
 nopara_norm(doc) -> ["Checks #define with no parameters."];
 nopara_norm(suite) -> [];
@@ -345,8 +330,6 @@ nopara_norm(Config) when is_list(Config) ->
 %% predef
 %%--------------------------------------------------------------------
 
-predef(suite) -> [predef_norm];
-predef(doc) -> ["Checks predefined macros. Note: not __TIME__ and __DATE__"].
 
 predef_norm(doc) -> ["Checks predefined macros. Note: not __TIME__ and __DATE__."];
 predef_norm(suite) -> [];
@@ -363,8 +346,6 @@ predef_norm(Config) when is_list(Config) ->
 %% predef_time
 %%--------------------------------------------------------------------
 
-predef_time(suite) -> [predef_time_norm];
-predef_time(doc) -> ["Checks the predefined macros __TIME__ and __DATE__"].
 
 predef_time_norm(doc) -> ["Checks the predefined macros __TIME__ and __DATE__."];
 predef_time_norm(suite) -> [];
@@ -381,8 +362,6 @@ predef_time_norm(Config) when is_list(Config) ->
 %% self_ref
 %%--------------------------------------------------------------------
 
-self_ref(suite) -> [self_ref_norm];
-self_ref(doc) -> ["Checks self referring macros"].
 
 self_ref_norm(doc) -> ["Checks self referring macros."];
 self_ref_norm(suite) -> [];
@@ -399,8 +378,6 @@ self_ref_norm(Config) when is_list(Config) ->
 %% separate
 %%--------------------------------------------------------------------
 
-separate(suite) -> [separate_norm];
-separate(doc) -> ["Checks separete expansion of macro arguments"].
 
 separate_norm(doc) -> ["Checks separete expansion of macro arguments."];
 separate_norm(suite) -> [];
@@ -417,8 +394,6 @@ separate_norm(Config) when is_list(Config) ->
 %% swallow_sc
 %%--------------------------------------------------------------------
 
-swallow_sc(suite) -> [swallow_sc_norm];
-swallow_sc(doc) -> ["Checks swallowing an undesirable semicolon"].
 
 swallow_sc_norm(doc) -> ["Checks swallowing an undesirable semicolon."];
 swallow_sc_norm(suite) -> [];
@@ -435,8 +410,6 @@ swallow_sc_norm(Config) when is_list(Config) ->
 %% unintended_grp
 %%--------------------------------------------------------------------
 
-unintended_grp(suite) -> [unintended_grp_norm];
-unintended_grp(doc) -> ["Checks unintended grouping of arithmetic"].
 
 unintended_grp_norm(doc) -> ["Checks unintended grouping of arithmetic."];
 unintended_grp_norm(suite) -> [];

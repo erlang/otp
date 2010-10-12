@@ -23,10 +23,10 @@
 %%----------------------------------------------------------------------
 
 -module(c_client_erl_server_proto_tmo_SUITE).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([init_per_testcase/2, end_per_testcase/2,
-	 all/1, void_test/1, long_test/1, long_long_test/1,
+	all/0,groups/0,init_per_group/2,end_per_group/2, void_test/1, long_test/1, long_long_test/1,
 	 unsigned_short_test/1, unsigned_long_test/1,
 	 unsigned_long_long_test/1, double_test/1, char_test/1,
 	 wchar_test/1, octet_test/1, bool_test/1, struct_test/1,
@@ -62,18 +62,27 @@ end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-all(doc) ->
-    "Test of IC with a C-client and an Erlang generic server. "
-	"The communication is via Erlang distribution."; 
-all(suite) -> 
-    [void_test, long_test, long_long_test, unsigned_short_test,
-     unsigned_long_test, unsigned_long_long_test, double_test,
-     char_test, wchar_test, octet_test, bool_test, struct_test,
-     struct2_test, seq1_test, seq2_test, seq3_test, seq4_test,
-     seq5_test, array1_test, array2_test, enum_test, string1_test,
-     string2_test, string3_test, string4_test, pid_test, port_test,
-     ref_test, term_test, typedef_test, inline_sequence_test,
-     term_sequence_test, term_struct_test, wstring1_test].
+all() -> 
+[void_test, long_test, long_long_test,
+ unsigned_short_test, unsigned_long_test,
+ unsigned_long_long_test, double_test, char_test,
+ wchar_test, octet_test, bool_test, struct_test,
+ struct2_test, seq1_test, seq2_test, seq3_test,
+ seq4_test, seq5_test, array1_test, array2_test,
+ enum_test, string1_test, string2_test, string3_test,
+ string4_test, pid_test, port_test, ref_test, term_test,
+ typedef_test, inline_sequence_test, term_sequence_test,
+ term_struct_test, wstring1_test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 array1_test(doc) -> "";

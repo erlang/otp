@@ -22,9 +22,9 @@
 %%%----------------------------------------------------------------------
 
 -module(ic_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 
 -include_lib("orber/src/orber_ifr.hrl").
@@ -33,36 +33,36 @@
 
 
 %% The type cases
--export([type/1, type_norm/1]).
+-export([ type_norm/1]).
 
 %% The syntax case
--export([syntax/1]).
+-export([]).
 -export([syntax1/1, syntax2/1, syntax3/1, syntax4/1, syntax5/1, syntax6/1]).
 
 %% The constant cases
--export([const/1]).
+-export([]).
 -export([const_norm/1, const_bad_tk/1, const_bad_type/1]).
 -export([const_bad_comb/1]).
 
 %% The union cases
--export([union/1]).
+-export([]).
 -export([union_norm/1, union_type/1, union_mult_err/1, union_case_mult/1]).
 -export([union_default/1]).
 
 %% The enum cases
--export([enum/1]).
+-export([]).
 -export([enum_norm/1]).
 
 %% The struct cases
--export([struct/1]).
+-export([]).
 -export([struct_norm/1]).
 
 %% The oneway cases
--export([oneway/1]).                                                  
+-export([]).                                                  
 -export([oneway_norm/1, oneway_raises/1, oneway_out/1, oneway_void/1, oneway_followed/1]).
 
 %% The attributes cases
--export([attr/1]).
+-export([]).
 -export([attr_norm/1]).
 
 %% The raises registration case
@@ -72,12 +72,12 @@
 %% The typeID case
 
 %% general stuff
--export([general/1]).
+-export([]).
 -export([typeid/1, undef_id/1, dir/1, nasty_names/1, coss/1, mult_ids/1]).
 -export([forward/1, include/1, app_test/1]).
 
 %% inheritance stuff
--export([inherit/1, inherit_norm/1, inherit_warn/1, inherit_err/1]).
+-export([ inherit_norm/1, inherit_warn/1, inherit_err/1]).
 
 %% Standard options to the ic compiler, NOTE unholy use of OutDir
 
@@ -86,10 +86,38 @@
 
 %% Top of cases
 
-all(doc) ->
-    [];
-all(suite) -> [app_test, const, union, enum, attr, type, struct, general, inherit, 
-	       oneway, syntax, raises_reg].
+all() -> 
+[app_test, {group, const}, {group, union},
+ {group, enum}, {group, attr}, {group, type},
+ {group, struct}, {group, general}, {group, inherit},
+ {group, oneway}, {group, syntax}, raises_reg].
+
+groups() -> 
+    [{const, [],
+  [const_norm, const_bad_tk, const_bad_type,
+   const_bad_comb]},
+ {union, [],
+  [union_norm, union_type, union_mult_err,
+   union_case_mult, union_default]},
+ {enum, [], [enum_norm]}, {struct, [], [struct_norm]},
+ {general, [],
+  [typeid, undef_id, mult_ids, forward, include,
+   nasty_names]},
+ {inherit, [],
+  [inherit_norm, inherit_warn, inherit_err]},
+ {oneway, [],
+  [oneway_norm, oneway_out, oneway_raises, oneway_void,
+   oneway_followed]},
+ {attr, [], [attr_norm]}, {type, [], [type_norm]},
+ {syntax, [],
+  [syntax1, syntax2, syntax3, syntax4, syntax5, syntax6]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 app_test(doc) -> [];
@@ -103,7 +131,6 @@ app_test(_Config) ->
 %% Test of constant expressions.
 %%
 
-const(suite) -> [const_norm, const_bad_tk, const_bad_type, const_bad_comb].
 
 
 const_norm(doc) ->
@@ -159,10 +186,6 @@ const_bad_comb(Config) when is_list(Config) ->
 
 
 
-union(suite) -> [union_norm, union_type, union_mult_err, union_case_mult, 
-		 union_default];
-union(doc) -> 
-    ["Checks allowed usage of the union as well as the illegal cases"].
 
 
 union_norm(doc) ->
@@ -277,9 +300,6 @@ union_case_mult(Config) when is_list(Config) ->
 %% Enum cases
 %%
 
-enum(suite) -> [enum_norm];
-enum(doc) -> 
-    ["Checks allowed usage of the enum as well as the illegal cases"].
 
 enum_norm(doc) ->
     ["Checks that normal enum declarations works."];
@@ -300,9 +320,6 @@ enum_norm(Config) when is_list(Config) ->
 %% Struct cases
 %%
 
-struct(suite) -> [struct_norm];
-struct(doc) -> 
-    ["Checks allowed usage of the struct as well as the illegal cases"].
 
 struct_norm(doc) ->
     ["Checks that normal struct declarations works."];
@@ -331,10 +348,6 @@ struct_norm(Config) when is_list(Config) ->
 %% General cases
 %%
 
-general(doc) ->
-    ["Check general things like directories and type identifier",
-     "detection."];
-general(suite) -> [typeid, undef_id, mult_ids, forward, include, nasty_names].
 %% coss (add sometimes, takes 440 seconds!)
 
 typeid(doc) ->
@@ -490,9 +503,6 @@ include(Config) when is_list(Config) ->
 %% Inhertit cases
 %%
 
-inherit(doc) ->
-    ["Check the inheritance mechanism."];
-inherit(suite) -> [inherit_norm, inherit_warn, inherit_err].
 
 inherit_norm(doc) ->
     ["Checks that normal inheritance works."];
@@ -547,9 +557,6 @@ inherit_err(Config) when is_list(Config) ->
     ok.
 
 
-oneway(doc) ->
-    ["Check the oneway operation mechanism."];
-oneway(suite) -> [oneway_norm, oneway_out, oneway_raises, oneway_void, oneway_followed ].
 
 oneway_norm(doc) ->
     ["Checks that normal oneway operations works."];
@@ -618,9 +625,6 @@ oneway_followed(Config) when is_list(Config) ->
     ?line ok = compile(OutDir, oneway_followed_files(), [load]),
     ok.
 
-attr(doc) ->
-    ["Check that attributes work."];
-attr(suite) -> [attr_norm].
 
 attr_norm(doc) ->
     ["Checks that normal attr operations works."];
@@ -636,9 +640,6 @@ attr_norm(Config) when is_list(Config) ->
     ?line ok = compile(OutDir, attr_norm_files(), [load]),
     ok.
 
-type(doc) ->
-    ["Check that typeibutes work."];
-type(suite) -> [type_norm].
 
 type_norm(doc) ->
     ["Checks all types are handled."];
@@ -655,9 +656,6 @@ type_norm(Config) when is_list(Config) ->
     ok.
 
 
-syntax(doc) ->
-    ["Check that syntax errors are discovered."];
-syntax(suite) -> [syntax1, syntax2, syntax3, syntax4, syntax5, syntax6].
 
 syntax1(suite) -> [];
 syntax1(Config) when is_list(Config) ->
