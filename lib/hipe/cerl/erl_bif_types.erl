@@ -2001,12 +2001,6 @@ type(file, get_cwd, 0, _) ->
 	t_tuple([t_atom('error'), t_file_posix_error()]));
 type(file, make_dir, 1, Xs) ->
   strict(arg_types(file, make_dir, 1), Xs, fun (_) -> t_file_return() end);
-type(file, open, 2, Xs) ->
-  strict(arg_types(file, open, 2), Xs,
-	 fun (_) ->
-	     t_sup([t_tuple([t_atom('ok'), t_file_io_device()]),
-		    t_tuple([t_atom('error'), t_file_posix_error()])])
-	 end);
 type(file, read_file, 1, Xs) ->
   strict(arg_types(file, read_file, 1), Xs,
 	 fun (_) ->
@@ -4214,8 +4208,6 @@ arg_types(file, get_cwd, 0) ->
   [];
 arg_types(file, make_dir, 1) ->
   [t_file_name()];
-arg_types(file, open, 2) ->
-  [t_file_name(), t_list(t_file_open_option())];
 arg_types(file, read_file, 1) ->
   [t_file_name()];
 arg_types(file, set_cwd, 1) ->

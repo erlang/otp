@@ -81,19 +81,28 @@
 -type io_device() :: pid() | fd().
 -type location()  :: integer() | {'bof', integer()} | {'cur', integer()}
 		   | {'eof', integer()} | 'bof' | 'cur' | 'eof'.
--type mode()      :: 'read' | 'write' | 'append' | 'raw' | 'binary' | 
-		     {'delayed_write', non_neg_integer(), non_neg_integer()} | 
-		     'delayed_write' | {'read_ahead', pos_integer()} | 
-		     'read_ahead' | 'compressed' | 'exclusive'.
+-type mode()      :: 'read' | 'write' | 'append'
+                   | 'exclusive' | 'raw' | 'binary'
+		   | {'delayed_write', non_neg_integer(), non_neg_integer()}
+		   | 'delayed_write' | {'read_ahead', pos_integer()}
+		   | 'read_ahead' | 'compressed'
+		   | {'encoding', unicode:encoding()}.
 -type name()      :: string() | atom() | [name()].
--type posix()     :: atom().
+-type posix()     :: 'eacces'  | 'eagain'  | 'ebadf'   | 'ebusy'  | 'edquot'
+		   | 'eexist'  | 'efault'  | 'efbig'   | 'eintr'  | 'einval'
+		   | 'eio'     | 'eisdir'  | 'eloop'   | 'emfile' | 'emlink'
+		   | 'enametoolong'
+		   | 'enfile'  | 'enodev'  | 'enoent'  | 'enomem' | 'enospc'
+		   | 'enotblk' | 'enotdir' | 'enotsup' | 'enxio'  | 'eperm'
+		   | 'epipe'   | 'erofs'   | 'espipe'  | 'esrch'  | 'estale'
+		   | 'exdev'.
 -type bindings()  :: any().
 
 -type date()      :: {pos_integer(), pos_integer(), pos_integer()}.
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 -type date_time() :: {date(), time()}.
--type posix_file_advise() :: 'normal' | 'sequential' | 'random' | 'no_reuse' |
-                            'will_need' | 'dont_need'.
+-type posix_file_advise() :: 'normal' | 'sequential' | 'random'
+                           | 'no_reuse' | 'will_need' | 'dont_need'.
 
 %%%-----------------------------------------------------------------
 %%% General functions
@@ -286,7 +295,7 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 %% Contemporary mode specification - list of options
 
 -spec open(Name :: name(), Modes :: [mode()]) ->
-	{'ok', io_device()} | {'error', posix()}.
+	{'ok', io_device()} | {'error', posix() | 'system_limit'}.
 
 open(Item, ModeList) when is_list(ModeList) ->
     case lists:member(raw, ModeList) of

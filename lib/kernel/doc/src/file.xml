@@ -603,8 +603,10 @@ f.txt:  {person, "kalle", 25}.
       <type>
         <v>Filename = name()</v>
         <v>Modes = [Mode]</v>
-        <v>&nbsp;Mode = read | write | append | exclusive | raw | binary | {delayed_write, Size, Delay} | delayed_write | {read_ahead, Size} | read_ahead | compressed</v>
+        <v>&nbsp;Mode = read | write | append | exclusive | raw | binary | {delayed_write, Size, Delay} | delayed_write | {read_ahead, Size} | read_ahead | compressed | {encoding, Encoding}</v>
         <v>&nbsp;&nbsp;Size = Delay = int()</v>
+	<v>&nbsp;&nbsp;Encoding = latin1 | unicode | utf8 | utf16 | {utf16, Endian} | utf32 | {utf32, Endian}</v>
+        <v>&nbsp;&nbsp;&nbsp;&nbsp;Endian = big | little</v>
         <v>IoDevice = io_device()</v>
         <v>Reason = ext_posix() | system_limit</v>
       </type>
