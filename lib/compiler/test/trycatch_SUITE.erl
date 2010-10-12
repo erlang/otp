@@ -18,21 +18,30 @@
 %%
 -module(trycatch_SUITE).
 
--export([all/1,basic/1,lean_throw/1,try_of/1,try_after/1,%after_bind/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,basic/1,lean_throw/1,try_of/1,try_after/1,%after_bind/1,
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
 	 plain_catch_coverage/1,andalso_orelse/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [basic,lean_throw,try_of,try_after,%after_bind,
-     catch_oops,after_oops,eclectic,rethrow,
-     nested_of,nested_catch,nested_after,
-     nested_horrid,last_call_optimization,
-     bool,plain_catch_coverage,andalso_orelse].
+all() -> 
+test_lib:recompile(trycatch_SUITE),
+	[basic, lean_throw, try_of, try_after, catch_oops,
+ after_oops, eclectic, rethrow, nested_of, nested_catch,
+ nested_after, nested_horrid, last_call_optimization,
+ bool, plain_catch_coverage, andalso_orelse].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 basic(Conf) when is_list(Conf) ->

@@ -21,19 +21,30 @@
 
 -module(bs_bit_binaries_SUITE).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 misc/1,horrid_match/1,test_bitstr/1,test_bit_size/1,asymmetric_tests/1,
 	 big_asymmetric_tests/1,binary_to_and_from_list/1,
 	 big_binary_to_and_from_list/1,send_and_receive/1,
 	 send_and_receive_alot/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [misc,horrid_match,test_bitstr,test_bit_size,asymmetric_tests,
-     big_asymmetric_tests,binary_to_and_from_list,big_binary_to_and_from_list,
-     send_and_receive,send_and_receive_alot].
+all() -> 
+test_lib:recompile(bs_bit_binaries_SUITE),
+	[misc, horrid_match, test_bitstr, test_bit_size,
+ asymmetric_tests, big_asymmetric_tests,
+ binary_to_and_from_list, big_binary_to_and_from_list,
+ send_and_receive, send_and_receive_alot].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 misc(Config) when is_list(Config) ->
     ?line <<1:100>> = <<1:100>>,

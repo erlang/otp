@@ -20,7 +20,7 @@
 
 -module(inline_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -compile(export_all).
 -compile({inline,[badarg/2]}).
@@ -28,10 +28,21 @@
 %% Needed by test case `lists'.
 -compile(inline_list_funcs).
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [attribute,bsdecode,bsdes,barnes2,decode1,smith,itracer,pseudoknot,lists,
-     really_inlined,otp_7223,coverage].
+all() -> 
+test_lib:recompile(inline_SUITE),
+	[attribute, bsdecode, bsdes, barnes2, decode1, smith,
+ itracer, pseudoknot, lists, really_inlined, otp_7223,
+ coverage].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 attribute(Config) when is_list(Config) ->
     Name = "attribute",

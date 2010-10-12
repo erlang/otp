@@ -19,15 +19,25 @@
 -module(lc_SUITE).
 
 -author('bjorn@erix.ericsson.se').
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [basic,deeply_nested,no_generator,empty_generator].
+all() -> 
+test_lib:recompile(lc_SUITE),
+	[basic, deeply_nested, no_generator, empty_generator].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),

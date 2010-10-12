@@ -18,14 +18,24 @@
 %%
 -module(error_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1]).
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [head_mismatch_line,warnings_as_errors,bif_clashes].
+all() -> 
+test_lib:recompile(error_SUITE),
+	[head_mismatch_line, warnings_as_errors, bif_clashes].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 bif_clashes(Config) when is_list(Config) ->

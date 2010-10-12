@@ -18,10 +18,10 @@
 %%
 -module(core_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).
@@ -35,9 +35,19 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [dehydrated_itracer,nested_tries].
+all() -> 
+test_lib:recompile(core_SUITE),
+	[dehydrated_itracer, nested_tries].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 ?comp(dehydrated_itracer).
 ?comp(nested_tries).

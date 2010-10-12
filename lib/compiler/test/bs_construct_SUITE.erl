@@ -23,17 +23,28 @@
 
 -module(bs_construct_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [two,test1,fail,float_bin,in_guard,in_catch,nasty_literals,
-     side_effect,opt,otp_7556,float_arith,otp_8054].
+all() -> 
+test_lib:recompile(bs_construct_SUITE),
+	[two, test1, fail, float_bin, in_guard, in_catch,
+ nasty_literals, side_effect, opt, otp_7556, float_arith,
+ otp_8054].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),

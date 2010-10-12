@@ -19,18 +19,28 @@
 
 -module(bs_utf_SUITE).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1,
 	 literals/1,coverage/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [utf8_roundtrip,unused_utf_char,utf16_roundtrip,
-     utf32_roundtrip,guard,extreme_tripping,
-     literals,coverage].
+all() -> 
+test_lib:recompile(bs_utf_SUITE),
+	[utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+ utf32_roundtrip, guard, extreme_tripping, literals,
+ coverage].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 utf8_roundtrip(Config) when is_list(Config) ->
     ?line [utf8_roundtrip_1(P) || P <- utf_data()],

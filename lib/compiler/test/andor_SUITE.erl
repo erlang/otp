@@ -18,16 +18,26 @@
 %%
 -module(andor_SUITE).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 t_case/1,t_and_or/1,t_andalso/1,t_orelse/1,inside/1,overlap/1,
 	 combined/1,in_case/1,before_and_inside_if/1]).
 	 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,combined,in_case,
-     before_and_inside_if].
+all() -> 
+test_lib:recompile(andor_SUITE),
+	[t_case, t_and_or, t_andalso, t_orelse, inside, overlap,
+ combined, in_case, before_and_inside_if].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 t_case(Config) when is_list(Config) ->
     %% We test boolean cases almost but not quite like cases
