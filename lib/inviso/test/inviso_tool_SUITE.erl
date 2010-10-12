@@ -28,20 +28,25 @@
 -module(inviso_tool_SUITE).
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(l,?line).
 
-all(suite) ->
-    [
-     dist_basic_1,
-     dist_rtc,
-     dist_reconnect,
-     dist_adopt,
-     dist_history,
-     dist_start_session_special
-    ].
+all() -> 
+[dist_basic_1, dist_rtc, dist_reconnect, dist_adopt,
+ dist_history, dist_start_session_special].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 %% -----------------------------------------------------------------------------
 
 init_per_suite(Config) ->
@@ -222,6 +227,10 @@ dist_basic_1(Config) when list(Config) ->
 		     Nodes),
     %% Start a test process at every node with a runtime component.
     ?l lists:foreach(fun(N)->spawn(N,?MODULE,test_proc_init,[]) end,Nodes),
+
+    %% Let the processes start
+    timer:sleep(100),
+
     %% Find the pids of the test processes.
     ?l TestProcs=lists:map(fun(N)->rpc:call(N,erlang,whereis,[inviso_tool_test_proc]) end,
 			   Nodes),
@@ -502,6 +511,10 @@ dist_rtc(Config) when is_list(Config) ->
 		     Nodes),
     %% Start a test process at every node with a runtime component.
     ?l lists:foreach(fun(N)->spawn(N,?MODULE,test_proc_init,[]) end,Nodes),
+
+    %% Let the processes start
+    timer:sleep(100),
+
     %% Find the pids of the test processes.
     ?l TestProcs=lists:map(fun(N)->rpc:call(N,erlang,whereis,[inviso_tool_test_proc]) end,
 			   Nodes),
@@ -555,6 +568,10 @@ dist_reconnect(Config) when list(Config) ->
     ?l start_inviso_tool_session(CNode,[],1,Nodes),
     %% Start a test process at every node with a runtime component.
     ?l lists:foreach(fun(N)->spawn(N,?MODULE,test_proc_init,[]) end,Nodes),
+
+    %% Let the processes start
+    timer:sleep(100),
+    
     %% Find the pids of the test processes.
     ?l TestProcs=lists:map(fun(N)->rpc:call(N,erlang,whereis,[inviso_tool_test_proc]) end,
 			   Nodes),
