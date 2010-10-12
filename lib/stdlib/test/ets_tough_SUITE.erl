@@ -17,13 +17,24 @@
 %% %CopyrightEnd%
 %%
 -module(ets_tough_SUITE).
--export([all/1,ex1/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,ex1/1]).
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) -> [ex1].
+all() -> 
+[ex1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 -define(DEBUG(X),debug_disabled).

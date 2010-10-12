@@ -17,11 +17,11 @@
 %% %CopyrightEnd%
 
 -module(epp_SUITE).
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([rec_1/1, predef_mac/1,
-	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
-	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
+	 upcase_mac_1/1, upcase_mac_2/1,
+	 variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
          otp_8562/1, otp_8665/1, otp_8911/1]).
@@ -44,7 +44,7 @@ config(priv_dir, _) ->
 config(data_dir, _) ->
     filename:absname("./epp_SUITE_data").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -59,12 +59,22 @@ end_per_testcase(_, Config) ->
     ok.
 -endif.
 
-all(doc) ->
-    ["Test cases for epp."];
-all(suite) ->
-    [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
-     pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562, otp_8665, otp_8911].
+all() -> 
+    [rec_1, {group, upcase_mac}, predef_mac,
+     {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
+     not_circular, skip_header, otp_6277, otp_7702, otp_8130,
+     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562,
+     otp_8665, otp_8911].
+
+groups() -> 
+    [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
+     {variable, [], [variable_1]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -127,10 +137,6 @@ check_errors([{error, Info} | Rest]) ->
 check_errors([_ | Rest]) ->
     check_errors(Rest).
 
-upcase_mac(doc) ->
-    ["Check that uppercase macro names are implicitly quoted (OTP-2608)"];
-upcase_mac(suite) ->
-    [upcase_mac_1, upcase_mac_2].
 
 upcase_mac_1(doc) ->
     [];
@@ -176,10 +182,6 @@ predef_mac(Config) when is_list(Config) ->
           end,
     ok.
 
-variable(doc) ->
-    ["Check variable as first file component of the include directives."];
-variable(suite) ->
-    [variable_1].
 
 variable_1(doc) ->
     [];

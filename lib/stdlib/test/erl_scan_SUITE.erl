@@ -17,9 +17,9 @@
 %% %CopyrightEnd%
 
 -module(erl_scan_SUITE).
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
--export([error/1, error_1/1, error_2/1, iso88591/1, otp_7810/1]).
+-export([ error_1/1, error_2/1, iso88591/1, otp_7810/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -39,7 +39,7 @@
 %% config(data_dir, _) ->
 %%     ".".
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
@@ -55,15 +55,19 @@ end_per_testcase(_Case, Config) ->
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
-all(doc) ->
-    ["Test cases for the 'erl_scan' module."];
-all(suite) ->
-    [error,iso88591,otp_7810].
+all() -> 
+[{group, error}, iso88591, otp_7810].
 
-error(doc) ->
-    ["Error cases"];
-error(suite) ->
-    [error_1, error_2].
+groups() -> 
+    [{error, [], [error_1, error_2]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 error_1(doc) ->
     ["(OTP-2347)"];

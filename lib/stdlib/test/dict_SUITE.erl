@@ -22,15 +22,25 @@
 
 -module(dict_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 create/1,store/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -import(lists, [foldl/3,reverse/1]).
 
-all(suite) ->
-    [create,store].
+all() -> 
+[create, store].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(5)),

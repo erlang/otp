@@ -19,7 +19,7 @@
 -module(io_proto_SUITE).
 -compile(r12).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -42,7 +42,7 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
@@ -80,12 +80,21 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for the io_protocol."];
-all(suite) ->
-    [setopts_getopts, unicode_options, unicode_options_gen, binary_options, bc_with_r12, 
-     bc_with_r12_gl,bc_with_r12_ogl, read_modes_gl, read_modes_ogl, 
-     broken_unicode,eof_on_pipe,unicode_prompt].
+all() -> 
+[setopts_getopts, unicode_options, unicode_options_gen,
+ binary_options, bc_with_r12, bc_with_r12_gl,
+ bc_with_r12_ogl, read_modes_gl, read_modes_ogl,
+ broken_unicode, eof_on_pipe, unicode_prompt].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 -record(state, {

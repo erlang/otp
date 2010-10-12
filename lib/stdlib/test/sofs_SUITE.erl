@@ -26,13 +26,13 @@
 -define(config(X,Y), foo).
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -endif.
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
--export([sofs/1, from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
+-export([ from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
 	 a_function_1/1, family_1/1, projection/1,
 	 relation_to_family_1/1, domain_1/1, range_1/1, image/1,
 	 inverse_image/1, inverse_1/1, converse_1/1, no_elements_1/1,
@@ -47,7 +47,7 @@
 	 multiple_relative_product/1, digraph/1, constant_function/1,
 	 misc/1]).
 
--export([sofs_family/1, family_specification/1,
+-export([ family_specification/1,
          family_domain_1/1, family_range_1/1,
 	 family_to_relation_1/1, 
          union_of_family_1/1, intersection_of_family_1/1,
@@ -85,8 +85,38 @@
 
 -compile({inline,[{eval,2}]}).
 
-all(suite) ->
-    [sofs, sofs_family].
+all() -> 
+[{group, sofs}, {group, sofs_family}].
+
+groups() -> 
+    [{sofs, [],
+  [from_term_1, set_1, from_sets_1, relation_1,
+   a_function_1, family_1, relation_to_family_1, domain_1,
+   range_1, image, inverse_image, inverse_1, converse_1,
+   no_elements_1, substitution, restriction, drestriction,
+   projection, strict_relation_1, extension,
+   weak_relation_1, to_sets_1, specification, union_1,
+   intersection_1, difference, symdiff,
+   symmetric_partition, is_sofs_set_1, is_set_1, is_equal,
+   is_subset, is_a_function_1, is_disjoint, join,
+   canonical, composite_1, relative_product_1,
+   relative_product_2, product_1, partition_1, partition_3,
+   multiple_relative_product, digraph, constant_function,
+   misc]},
+ {sofs_family, [],
+  [family_specification, family_domain_1, family_range_1,
+   family_to_relation_1, union_of_family_1,
+   intersection_of_family_1, family_projection,
+   family_difference, family_intersection_1,
+   family_intersection_2, family_union_1, family_union_2,
+   partition_family]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
@@ -100,18 +130,6 @@ end_per_testcase(_Case, Config) ->
 %% [{2,b},{1,a,b}] == lists:sort([{2,b},{1,a,b}])
 %% [{1,a,b},{2,b}] == lists:keysort(1,[{2,b},{1,a,b}])
 
-sofs(suite) ->
-    [from_term_1, set_1, from_sets_1, relation_1, a_function_1,
-     family_1, relation_to_family_1, domain_1, range_1, image,
-     inverse_image, inverse_1, converse_1, no_elements_1,
-     substitution, restriction, drestriction, projection,
-     strict_relation_1, extension, weak_relation_1, to_sets_1,
-     specification, union_1, intersection_1, difference, symdiff,
-     symmetric_partition, is_sofs_set_1, is_set_1, is_equal,
-     is_subset, is_a_function_1, is_disjoint, join, canonical,
-     composite_1, relative_product_1, relative_product_2, product_1,
-     partition_1, partition_3, multiple_relative_product, digraph,
-     constant_function, misc].
 
 from_term_1(suite) -> [];
 from_term_1(doc) -> [""];
@@ -1934,12 +1952,6 @@ relational_restriction(R) ->
     Fun = fun(S) -> no_elements(S) > 1 end,
     family_to_relation(family_specification(Fun, relation_to_family(R))).
 
-sofs_family(suite) ->
-    [family_specification, family_domain_1, family_range_1, 
-     family_to_relation_1, union_of_family_1, intersection_of_family_1, 
-     family_projection, family_difference, 
-     family_intersection_1, family_intersection_2, 
-     family_union_1, family_union_2, partition_family].
 
 family_specification(suite) -> [];
 family_specification(doc) -> [""];

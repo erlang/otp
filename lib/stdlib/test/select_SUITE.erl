@@ -37,7 +37,7 @@
 -export([config/2]).
 -define(fmt(A,B),io:format(A,B)).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(fmt(A,B),test_server:format(A,B)).
 -endif.
  
@@ -58,7 +58,7 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/1,select_test/1,init_per_testcase/2, end_per_testcase/2, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,select_test/1,init_per_testcase/2, end_per_testcase/2, 
 	 return_values/1]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
@@ -70,10 +70,18 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test ets:select"];
-all(suite) ->
-    [return_values, select_test].
+all() -> 
+[return_values, select_test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
 select_test(suite) ->
     [];

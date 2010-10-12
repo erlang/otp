@@ -22,13 +22,13 @@
 
 -module(sets_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
 	 is_set/1,fold/1,filter/1,
 	 take_smallest/1,take_largest/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -import(lists, [foldl/3,reverse/1]).
 
@@ -41,10 +41,20 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [create,add_element,del_element,subtract,
-     intersection,union,is_subset,is_set,fold,filter,
-     take_smallest,take_largest].
+all() -> 
+[create, add_element, del_element, subtract,
+ intersection, union, is_subset, is_set, fold, filter,
+ take_smallest, take_largest].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 create(Config) when is_list(Config) ->
     test_all(fun create_1/1).

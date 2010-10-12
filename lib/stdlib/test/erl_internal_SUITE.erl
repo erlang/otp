@@ -18,15 +18,26 @@
 %%
 -module(erl_internal_SUITE).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([behav/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) -> [behav].
+all() -> 
+[behav].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 -define(default_timeout, ?t:minutes(2)).
 

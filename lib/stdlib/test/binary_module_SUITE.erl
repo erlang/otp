@@ -18,7 +18,7 @@
 %%
 -module(binary_module_SUITE).
 
--export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
 
@@ -34,7 +34,7 @@
 
 -else.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 % Some of these testcases are really heavy...
@@ -62,9 +62,21 @@ end_per_testcase(_Case, Config) ->
     ok.
 -endif.
 
-all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
-	       random_ref_comp,parts,bin_to_list, list_to_bin, copy,
-	       referenced,guard,encode_decode,badargs,longest_common_trap].
+all() -> 
+[interesting, random_ref_fla_comp, random_ref_sr_comp,
+ random_ref_comp, parts, bin_to_list, list_to_bin, copy,
+ referenced, guard, encode_decode, badargs,
+ longest_common_trap].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 

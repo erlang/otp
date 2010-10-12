@@ -22,10 +22,10 @@
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([simple/1, loop/1, isolated/1, topsort/1, subgraph/1, 
          condensation/1, tree/1]).
@@ -33,8 +33,19 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) -> {req, [stdlib], [simple, loop, isolated, topsort, 
-			       subgraph, condensation, tree]}.
+all() -> 
+[simple, loop, isolated, topsort, subgraph,
+ condensation, tree].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

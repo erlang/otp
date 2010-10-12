@@ -27,12 +27,12 @@
 -define(t,test_server).
 -define(privdir(_), "./file_sorter_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, basic/1, badarg/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, basic/1, badarg/1, 
 	 term_sort/1, term_keysort/1,
 	 binary_term_sort/1, binary_term_keysort/1,
 	 binary_sort/1, 
@@ -55,19 +55,23 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    {req,[stdlib,kernel],
-     [basic, badarg, 
-      term_sort, term_keysort, 
-      binary_term_sort, binary_term_keysort, 
-      binary_sort, 
-      term_merge, term_keymerge, 
-      binary_term_merge, binary_term_keymerge,
-      binary_merge,
-      term_check, binary_term_keycheck,
-      binary_term_check, binary_term_keycheck,
-      binary_check,
-      inout, misc, many]}.
+all() -> 
+[basic, badarg, term_sort, term_keysort,
+ binary_term_sort, binary_term_keysort, binary_sort,
+ term_merge, term_keymerge, binary_term_merge,
+ binary_term_keymerge, binary_merge, term_check,
+ binary_term_keycheck, binary_term_check,
+ binary_term_keycheck, binary_check, inout, misc, many].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 basic(doc) ->
     ["Basic test case."];

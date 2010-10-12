@@ -18,12 +18,23 @@
 %%
 -module(log_mf_h_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/1, test/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, test/1]).
 
-all(suite) -> [test].
+all() -> 
+[test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%-----------------------------------------------------------------

@@ -30,21 +30,21 @@
 -define(privdir, "erl_pp_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([expr/1, func/1, call/1, recs/1, try_catch/1, if_then/1,
+-export([ func/1, call/1, recs/1, try_catch/1, if_then/1,
             receive_after/1, bits/1, head_tail/1, package/1,
             cond1/1, block/1, case1/1, ops/1, messages/1,
 	    old_mnemosyne_syntax/1,
-         attributes/1, import_export/1, misc_attrs/1,
+ import_export/1, misc_attrs/1,
          hook/1,
          neg_indent/1,
-         tickets/1,
+
             otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
             otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1]).
 
@@ -63,12 +63,27 @@ end_per_testcase(_Case, _Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [expr, attributes, hook, neg_indent, tickets].
+all() -> 
+[{group, expr}, {group, attributes}, hook, neg_indent,
+ {group, tickets}].
 
-expr(suite) ->
-    [func, call, recs, try_catch, if_then, receive_after, bits, head_tail,
-     package, cond1, block, case1, ops, messages, old_mnemosyne_syntax].
+groups() -> 
+    [{expr, [],
+  [func, call, recs, try_catch, if_then, receive_after,
+   bits, head_tail, package, cond1, block, case1, ops,
+   messages, old_mnemosyne_syntax]},
+ {attributes, [], [misc_attrs, import_export]},
+ {tickets, [],
+  [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
+   otp_8473, otp_8522, otp_8567, otp_8664]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 func(suite) ->
     [];
@@ -564,8 +579,6 @@ old_mnemosyne_syntax(Config) when is_list(Config) ->
     ok.
 
 
-attributes(suite) ->
-    [misc_attrs, import_export].
 
 import_export(suite) ->
     [];
@@ -763,9 +776,6 @@ neg_indent(Config) when is_list(Config) ->
 
     ok.
 
-tickets(suite) ->
-    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473, otp_8522,
-     otp_8567, otp_8664].
 
 otp_6321(doc) ->
     "OTP_6321. Bug fix of exprs().";

@@ -17,13 +17,13 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_expand_SUITE).
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -36,10 +36,18 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for edlin_expand."];
-all(suite) ->
-    [normal, quoted_fun, quoted_module, quoted_both].
+all() -> 
+[normal, quoted_fun, quoted_module, quoted_both].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 normal(doc) ->
     [""];

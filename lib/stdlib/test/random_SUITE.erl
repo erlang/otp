@@ -17,13 +17,13 @@
 %% %CopyrightEnd%
 
 -module(random_SUITE).
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([interval_1/1, seed0/1, seed/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -36,10 +36,18 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for random."];
-all(suite) ->
-    [interval_1, seed0, seed].
+all() -> 
+[interval_1, seed0, seed].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 seed0(doc) ->
     ["Test that seed is set implicitly, and always the same."];

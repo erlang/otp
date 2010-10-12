@@ -17,9 +17,9 @@
 %% %CopyrightEnd%
 %%
 -module(sys_SUITE).
--export([all/1,log/1,log_to_file/1,stats/1,trace/1,suspend/1,install/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,log/1,log_to_file/1,stats/1,trace/1,suspend/1,install/1]).
 -export([handle_call/3,terminate/2,init/1]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(server,sys_SUITE_server).
 
@@ -29,7 +29,18 @@
 %% system messages at all.
 
 
-all(suite) -> [log,log_to_file,stats,trace,suspend,install].
+all() -> 
+[log, log_to_file, stats, trace, suspend, install].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

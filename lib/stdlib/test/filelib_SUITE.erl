@@ -19,13 +19,13 @@
 
 -module(filelib_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1]).
 
 -import(lists, [foreach/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 init_per_testcase(_Case, Config) ->
@@ -37,9 +37,19 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [wildcard_one,wildcard_two,wildcard_errors,fold_files,otp_5960,
-     ensure_dir_eexist].
+all() -> 
+[wildcard_one, wildcard_two, wildcard_errors,
+ fold_files, otp_5960, ensure_dir_eexist].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 wildcard_one(Config) when is_list(Config) ->
     ?line {ok,OldCwd} = file:get_cwd(),

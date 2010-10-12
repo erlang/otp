@@ -21,7 +21,7 @@
 %%%----------------------------------------------------------------------
 
 -module(fixtable_SUITE).
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 %%% Test cases
 -export([multiple_fixes/1, multiple_processes/1,
 	 other_process_deletes/1, owner_dies/1,
@@ -31,12 +31,22 @@
 %%% Internal exports
 -export([command_loop/0,start_commander/0]).
 
-all(suite) -> {req, [stdlib],
-	       [multiple_fixes, multiple_processes,
-		other_process_deletes, owner_dies,
-		other_process_closes,insert_same_key,fixbag]}.
+all() -> 
+[multiple_fixes, multiple_processes,
+ other_process_deletes, owner_dies, other_process_closes,
+ insert_same_key, fixbag].
 
--include("test_server.hrl").
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+-include_lib("test_server/include/test_server.hrl").
 
 %%% I wrote this thinking I would use more than one temporary at a time, but 
 %%% I wasn't... Well, maybe in the future...

@@ -20,33 +20,33 @@
 
 -module(supervisor_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Testserver specific export
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %% Indirect spawn export
 -export([init/1]).
 
 %% API tests
--export([sup_start/1, sup_start_normal/1, sup_start_ignore_init/1, 
+-export([ sup_start_normal/1, sup_start_ignore_init/1, 
 	 sup_start_ignore_child/1, sup_start_error_return/1, 
-	 sup_start_fail/1, sup_stop/1, sup_stop_infinity/1, 
+	 sup_start_fail/1, sup_stop_infinity/1, 
 	 sup_stop_timeout/1, sup_stop_brutal_kill/1, child_adm/1,
 	 child_adm_simple/1, child_specs/1, extra_return/1]).
 
 %% Tests concept permanent, transient and temporary 
--export([normal_termination/1, permanent_normal/1, transient_normal/1,
-	 temporary_normal/1, abnormal_termination/1,
+-export([ permanent_normal/1, transient_normal/1,
+	 temporary_normal/1,
 	 permanent_abnormal/1, transient_abnormal/1,
 	 temporary_abnormal/1]).
 
 %% Restart strategy tests 
--export([restart_one_for_one/1, one_for_one/1,
-	 one_for_one_escalation/1, restart_one_for_all/1, one_for_all/1,
-	 one_for_all_escalation/1, restart_simple_one_for_one/1,
+-export([ one_for_one/1,
+	 one_for_one_escalation/1, one_for_all/1,
+	 one_for_all_escalation/1,
 	 simple_one_for_one/1, simple_one_for_one_escalation/1,
-	 restart_rest_for_one/1, rest_for_one/1, rest_for_one_escalation/1,
+	 rest_for_one/1, rest_for_one_escalation/1,
 	 simple_one_for_one_extra/1]).
 
 %% Misc tests
@@ -54,14 +54,46 @@
 
 %-------------------------------------------------------------------------
 
-all(suite) -> 
-    {req,[stdlib], 
-     [sup_start, sup_stop, child_adm,
-      child_adm_simple, extra_return, child_specs,
-      restart_one_for_one, restart_one_for_all,
-      restart_simple_one_for_one, restart_rest_for_one,
-      normal_termination, abnormal_termination, child_unlink, tree,
-      count_children_memory]}.
+all() -> 
+[{group, sup_start}, {group, sup_stop}, child_adm,
+ child_adm_simple, extra_return, child_specs,
+ {group, restart_one_for_one},
+ {group, restart_one_for_all},
+ {group, restart_simple_one_for_one},
+ {group, restart_rest_for_one},
+ {group, normal_termination},
+ {group, abnormal_termination}, child_unlink, tree,
+ count_children_memory].
+
+groups() -> 
+    [{sup_start, [],
+  [sup_start_normal, sup_start_ignore_init,
+   sup_start_ignore_child, sup_start_error_return,
+   sup_start_fail]},
+ {sup_stop, [],
+  [sup_stop_infinity, sup_stop_timeout,
+   sup_stop_brutal_kill]},
+ {normal_termination, [],
+  [permanent_normal, transient_normal, temporary_normal]},
+ {abnormal_termination, [],
+  [permanent_abnormal, transient_abnormal,
+   temporary_abnormal]},
+ {restart_one_for_one, [],
+  [one_for_one, one_for_one_escalation]},
+ {restart_one_for_all, [],
+  [one_for_all, one_for_all_escalation]},
+ {restart_simple_one_for_one, [],
+  [simple_one_for_one, simple_one_for_one_extra,
+   simple_one_for_one_escalation]},
+ {restart_rest_for_one, [],
+  [rest_for_one, rest_for_one_escalation]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 start(InitResult) ->
@@ -88,11 +120,6 @@ get_child_counts(Supervisor) ->
 %
 %-------------------------------------------------------------------------
 
-sup_start(doc) ->
-    ["Test start of a supervisor."];
-sup_start(suite) ->
-    [sup_start_normal, sup_start_ignore_init, sup_start_ignore_child,
-     sup_start_error_return, sup_start_fail].
 
 %-------------------------------------------------------------------------
 sup_start_normal(doc) ->
@@ -192,10 +219,6 @@ sup_start_fail(Config) when is_list(Config) ->
     end,
     ok.
 %-------------------------------------------------------------------------
-sup_stop(doc) ->
-    ["Tests that the supervisor shoutdowns its children if it is " 
-     "shutdown itself."];
-sup_stop(suite) -> [sup_stop_infinity, sup_stop_timeout, sup_stop_brutal_kill].
 
 %-------------------------------------------------------------------------
 
@@ -550,10 +573,6 @@ child_specs(Config) when is_list(Config) ->
     ?line ok = supervisor:check_childspecs([C4]),
     ok.
 %-------------------------------------------------------------------------
-normal_termination(doc) ->
-    ["Testes the supervisors behaviour if a child dies with reason normal"];
-normal_termination(suite) -> 
-    [permanent_normal, transient_normal, temporary_normal].
 
 %-------------------------------------------------------------------------
 permanent_normal(doc) ->
@@ -616,10 +635,6 @@ temporary_normal(Config) when is_list(Config) ->
 
     ok.
 %-------------------------------------------------------------------------
-abnormal_termination(doc) ->
-    ["Testes the supervisors behaviour if a child dies with reason abnormal"];
-abnormal_termination(suite) -> 
-    [permanent_abnormal, transient_abnormal, temporary_abnormal].
 
 %-------------------------------------------------------------------------
 permanent_abnormal(doc) ->
@@ -688,10 +703,6 @@ temporary_abnormal(Config) when is_list(Config) ->
 
     ok.
 %-------------------------------------------------------------------------
-restart_one_for_one(doc) ->
-    ["Test that the one_for_one strategy works."];
-
-restart_one_for_one(suite) -> [one_for_one, one_for_one_escalation].
 
 %-------------------------------------------------------------------------
 one_for_one(doc) ->
@@ -772,11 +783,6 @@ one_for_one_escalation(Config) when is_list(Config) ->
     end,
     ok.
 %-------------------------------------------------------------------------
-restart_one_for_all(doc) ->
-    ["Test that the one_for_all strategy works."];
-
-restart_one_for_all(suite) -> 
-    [one_for_all, one_for_all_escalation].
 
 %-------------------------------------------------------------------------
 one_for_all(doc) ->
@@ -866,12 +872,6 @@ one_for_all_escalation(Config) when is_list(Config) ->
     ok.
 
 %-------------------------------------------------------------------------
-restart_simple_one_for_one(doc) ->
-    ["Test that the simple_one_for_one strategy works."];
-
-restart_simple_one_for_one(suite) -> 
-    [simple_one_for_one, simple_one_for_one_extra,
-     simple_one_for_one_escalation].
 
 %-------------------------------------------------------------------------
 simple_one_for_one(doc) ->
@@ -990,9 +990,6 @@ simple_one_for_one_escalation(Config) when is_list(Config) ->
     end,
     ok.
 %-------------------------------------------------------------------------
-restart_rest_for_one(doc) ->
-    ["Test that the rest_for_one strategy works."];
-restart_rest_for_one(suite) -> [rest_for_one, rest_for_one_escalation].
 
 %-------------------------------------------------------------------------
 rest_for_one(doc) ->

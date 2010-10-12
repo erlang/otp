@@ -27,14 +27,14 @@
 -define(privdir, "erl_lint_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Conf)).
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([unused_vars_warn/1, 
+-export([ 
              unused_vars_warn_basic/1, 
              unused_vars_warn_lc/1, 
              unused_vars_warn_rec/1,
@@ -54,8 +54,7 @@
 	 otp_7550/1,
          otp_8051/1,
 	 format_warn/1,
-	 on_load/1, on_load_successful/1, on_load_failing/1,
-	 too_many_arguments/1
+	 on_load_successful/1, on_load_failing/1, too_many_arguments/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -70,19 +69,30 @@ end_per_testcase(_Case, _Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [unused_vars_warn, export_vars_warn, 
-     shadow_vars, unused_import, unused_function,
-     unsafe_vars, unsafe_vars2, unsafe_vars_try,
-     guard, otp_4886, otp_4988, otp_5091, otp_5276, otp_5338, 
-     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644, otp_5878, otp_5917, otp_6585,
-     otp_6885, export_all, bif_clash,
-     behaviour_basic, behaviour_multiple, otp_7550, otp_8051, format_warn,
-     on_load,too_many_arguments].
+all() -> 
+[{group, unused_vars_warn}, export_vars_warn,
+ shadow_vars, unused_import, unused_function,
+ unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+ otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
+ otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
+ otp_5878, otp_5917, otp_6585, otp_6885, export_all,
+ bif_clash, behaviour_basic, behaviour_multiple,
+ otp_7550, otp_8051, format_warn, {group, on_load}, too_many_arguments].
 
-unused_vars_warn(suite) ->
-    [unused_vars_warn_basic, unused_vars_warn_lc, unused_vars_warn_rec, 
-     unused_vars_warn_fun, unused_vars_OTP_4858].
+groups() -> 
+    [{unused_vars_warn, [],
+  [unused_vars_warn_basic, unused_vars_warn_lc,
+   unused_vars_warn_rec, unused_vars_warn_fun,
+   unused_vars_OTP_4858]},
+ {on_load, [], [on_load_successful, on_load_failing]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 unused_vars_warn_basic(doc) ->
     "Warnings for unused variables in some simple cases.";
@@ -2832,8 +2842,6 @@ format_level(Level, Count, Config) ->
 
 %% Test the -on_load(Name/0) directive.
 
-on_load(suite) ->
-    [on_load_successful, on_load_failing].
 
 on_load_successful(Config) when is_list(Config) ->
     Ts = [{on_load_1,

@@ -17,13 +17,13 @@
 %% %CopyrightEnd%
 %%
 -module(queue_SUITE).
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([do/1, to_list/1, io_test/1, op_test/1, error/1, oops/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -36,10 +36,18 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for queue."];
-all(suite) ->
-    [do, to_list, io_test, op_test, error, oops].
+all() -> 
+[do, to_list, io_test, op_test, error, oops].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 do(doc) ->
     [""];

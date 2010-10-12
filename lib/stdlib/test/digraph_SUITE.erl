@@ -23,19 +23,32 @@
 -ifdef(STANDALONE).
 -define(line, put(line, ?LINE), ).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
--export([opts/1, degree/1, path/1, cycle/1, misc/1, vertices/1,
-	 edges/1, data/1, tickets/1, otp_3522/1, otp_3630/1, otp_8066/1]).
+-export([opts/1, degree/1, path/1, cycle/1, vertices/1,
+	 edges/1, data/1, otp_3522/1, otp_3630/1, otp_8066/1]).
 
 -export([spawn_graph/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) -> {req, [stdlib], [opts, degree, path, cycle, misc, tickets]}.
+all() -> 
+[opts, degree, path, cycle, {group, misc},
+ {group, tickets}].
+
+groups() -> 
+    [{misc, [], [vertices, edges, data]},
+ {tickets, [], [otp_3522, otp_3630, otp_8066]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -147,7 +160,6 @@ cycle(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-misc(suite) -> [vertices, edges, data].
 
 vertices(doc) -> [];
 vertices(suite) -> [];
@@ -210,7 +222,6 @@ data(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-tickets(suite) -> [otp_3522, otp_3630, otp_8066].
 
 otp_3522(doc) -> [];
 otp_3522(suite) -> [];

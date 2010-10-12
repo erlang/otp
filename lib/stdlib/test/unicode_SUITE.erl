@@ -18,9 +18,9 @@
 %%
 -module(unicode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,	 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,	 
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 utf8_illegal_sequences_bif/1,
@@ -38,8 +38,20 @@ end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-all(suite) ->
-    [utf8_illegal_sequences_bif,utf16_illegal_sequences_bif,random_lists,roundtrips,latin1,exceptions].
+all() -> 
+[utf8_illegal_sequences_bif,
+ utf16_illegal_sequences_bif, random_lists, roundtrips,
+ latin1, exceptions].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 exceptions(Config) when is_list(Config) ->

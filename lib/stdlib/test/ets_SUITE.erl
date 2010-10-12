@@ -18,24 +18,24 @@
 %%
 -module(ets_SUITE).
 
--export([all/1]).
--export([new/1,default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1,privacy_owner/2]).
--export([insert/1,empty/1,badinsert/1]).
--export([lookup/1,time_lookup/1,badlookup/1,lookup_order/1]).
--export([delete/1,delete_elem/1,delete_tab/1,delete_large_tab/1,
+-export([empty/1,badinsert/1]).
+-export([time_lookup/1,badlookup/1,lookup_order/1]).
+-export([delete_elem/1,delete_tab/1,delete_large_tab/1,
 	 delete_large_named_table/1,
 	 evil_delete/1,baddelete/1,match_delete/1,table_leak/1]).
 -export([match_delete3/1]).
 -export([firstnext/1,firstnext_concurrent/1]).
 -export([slot/1]).
--export([match/1, match1/1, match2/1, match_object/1, match_object2/1]).
--export([misc/1, dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
--export([files/1, tab2file/1, tab2file2/1, tabfile_ext1/1,
+-export([ match1/1, match2/1, match_object/1, match_object2/1]).
+-export([ dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
+-export([ tab2file2/1, tabfile_ext1/1,
 	tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1]).
--export([heavy/1, heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
--export([lookup_element/1, lookup_element_mult/1]).
--export([fold/1]).
+-export([ heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
+-export([ lookup_element_mult/1]).
+-export([]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1, 
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
@@ -59,7 +59,7 @@
 -export([otp_7665/1]).
 -export([meta_wb/1]).
 -export([grow_shrink/1, grow_pseudo_deleted/1, shrink_pseudo_deleted/1]).
--export([meta_smp/1,
+-export([
 	 meta_lookup_unnamed_read/1, meta_lookup_unnamed_write/1, 
 	 meta_lookup_named_read/1, meta_lookup_named_write/1,
 	 meta_newdel_unnamed/1, meta_newdel_named/1]).
@@ -97,7 +97,7 @@
 
 -export([t_select_reverse/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(Case, Config) ->
     Seed = {S1,S2,S3} = random:seed0(), %now(),
@@ -120,32 +120,63 @@ end_per_suite(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    [
-     new,insert,lookup,delete,firstnext,firstnext_concurrent,slot,match,
-     t_match_spec_run,
-     lookup_element, misc,files, heavy, 
-     ordered, ordered_match, interface_equality,
-     fixtable_next, fixtable_insert, rename, rename_unnamed, evil_rename,
-     update_element, update_counter, evil_update_counter, partly_bound,
-     match_heavy, fold, member,
-     t_delete_object, t_init_table, t_whitebox, 
-     t_delete_all_objects, t_insert_list, t_test_ms,
-     t_select_delete, t_ets_dets, memory, t_select_reverse,
-     t_bucket_disappears,
-     select_fail,t_insert_new, t_repair_continuation, otp_5340, otp_6338,
-     otp_6842_select_1000, otp_7665, otp_8732,
-     meta_wb,
-     grow_shrink, grow_pseudo_deleted, shrink_pseudo_deleted,
-     meta_smp,
-     smp_insert, smp_fixed_delete, smp_unfix_fix, smp_select_delete, otp_8166,
-     exit_large_table_owner,
-     exit_many_large_table_owner,
-     exit_many_tables_owner,
-     exit_many_many_tables_owner,
-     write_concurrency, heir, give_away, setopts,
-     bad_table, types
-    ].
+all() -> 
+[{group, new}, {group, insert}, {group, lookup},
+ {group, delete}, firstnext, firstnext_concurrent, slot,
+ {group, match}, t_match_spec_run,
+ {group, lookup_element}, {group, misc}, {group, files},
+ {group, heavy}, ordered, ordered_match,
+ interface_equality, fixtable_next, fixtable_insert,
+ rename, rename_unnamed, evil_rename, update_element,
+ update_counter, evil_update_counter, partly_bound,
+ match_heavy, {group, fold}, member, t_delete_object,
+ t_init_table, t_whitebox, t_delete_all_objects,
+ t_insert_list, t_test_ms, t_select_delete, t_ets_dets,
+ memory, t_select_reverse, t_bucket_disappears,
+ select_fail, t_insert_new, t_repair_continuation,
+ otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
+ otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
+ shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
+ smp_fixed_delete, smp_unfix_fix, smp_select_delete,
+ otp_8166, exit_large_table_owner,
+ exit_many_large_table_owner, exit_many_tables_owner,
+ exit_many_many_tables_owner, write_concurrency, heir,
+ give_away, setopts, bad_table, types].
+
+groups() -> 
+    [{new, [],
+  [default, setbag, badnew, verybadnew, named, keypos2,
+   privacy]},
+ {insert, [], [empty, badinsert]},
+ {lookup, [], [time_lookup, badlookup, lookup_order]},
+ {lookup_element, [], [lookup_element_mult]},
+ {delete, [],
+  [delete_elem, delete_tab, delete_large_tab,
+   delete_large_named_table, evil_delete, table_leak,
+   baddelete, match_delete, match_delete3]},
+ {match, [],
+  [match1, match2, match_object, match_object2]},
+ {misc, [],
+  [misc1, safe_fixtable, info, dups, tab2list]},
+ {files, [],
+  [tab2file, tab2file2, tab2file3, tabfile_ext1,
+   tabfile_ext2, tabfile_ext3, tabfile_ext4]},
+ {heavy, [],
+  [heavy_lookup, heavy_lookup_element, heavy_concurrent]},
+ {fold, [],
+  [foldl_ordered, foldr_ordered, foldl, foldr,
+   fold_empty]},
+ {meta_smp, [],
+  [meta_lookup_unnamed_read, meta_lookup_unnamed_write,
+   meta_lookup_named_read, meta_lookup_named_write,
+   meta_newdel_unnamed, meta_newdel_named]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -332,7 +363,6 @@ t_repair_continuation_do(Opts) ->
     ?line true = ets:is_compiled_ms(ets:match_spec_compile(MS)),
     ?line verify_etsmem(EtsMem).
 
-new(suite) -> [default,setbag,badnew,verybadnew,named,keypos2,privacy].
 
 default(doc) ->
     ["Check correct default vaules of a new ets table"];
@@ -2720,8 +2750,6 @@ rotate_tuple(Tuple, N) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-insert(doc) ->   ["Test proper and improper inserts into a table."];
-insert(suite) -> [empty,badinsert].
 
 empty(doc) ->
     ["Check lookup in an empty table and lookup of a non-existing key"];
@@ -2761,8 +2789,6 @@ badinsert_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-lookup(doc) -> ["Some tests for lookups (timing, bad lookups, etc.)."];
-lookup(suite) -> [time_lookup,badlookup,lookup_order].
 
 time_lookup(doc) ->   ["Lookup timing."];
 time_lookup(suite) -> [];
@@ -2889,8 +2915,6 @@ fill_tab(Tab,Val) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-lookup_element(doc) -> ["Some tests for lookup_element."];
-lookup_element(suite) -> [lookup_element_mult].
 
 lookup_element_mult(doc) ->   ["Multiple return elements (OTP-2386)"];
 lookup_element_mult(suite) -> [];
@@ -2932,11 +2956,6 @@ lem_crash_3(T) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-delete(doc) ->
-    ["Check delete functionality (proper/improper deletes)"];
-delete(suite) ->
-    [delete_elem,delete_tab,delete_large_tab,delete_large_named_table,evil_delete,
-     table_leak,baddelete,match_delete,match_delete3].
 
 delete_elem(doc) ->
     ["Check delete of an element inserted in a `filled' table."];
@@ -3471,7 +3490,6 @@ slot_loop(Tab,SlotNo,EltsSoFar) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-match(suite) -> [match1, match2, match_object, match_object2].
 
 match1(suite) -> [];
 match1(Config) when is_list(Config) ->
@@ -3606,7 +3624,6 @@ match_object2_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-misc(suite) -> [misc1, safe_fixtable, info, dups, tab2list].
 
 tab2list(doc) -> ["Tests tab2list (OTP-3319)"];
 tab2list(suite) -> [];
@@ -3738,9 +3755,6 @@ dups_do(Opts) ->
     ?line verify_etsmem(EtsMem).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-files(suite) -> [tab2file, tab2file2, tabfile_ext1, tabfile_ext2,
-		 tabfile_ext3, tabfile_ext4].
 
 tab2file(doc) -> ["Check the ets:tab2file function on an empty "
 		  "ets table."];
@@ -3991,7 +4005,6 @@ make_sub_binary(List, Num) when is_list(List) ->
     {_,B} = split_binary(Bin, N+1),
     B.
 
-heavy(suite) -> [heavy_lookup, heavy_lookup_element, heavy_concurrent].
 
 %% Lookup stuff like crazy...
 heavy_lookup(doc) -> ["Performs multiple lookups for every key ",
@@ -4092,9 +4105,6 @@ do_heavy_concurrent_proc(Tab, N, Offs) ->
     _ = ets:lookup(Tab, N),
     do_heavy_concurrent_proc(Tab, N-1, Offs).
 
-fold(suite) -> [foldl_ordered, foldr_ordered,
-		foldl, foldr,
-		fold_empty].
 
 fold_empty(doc) ->
     [];
@@ -4856,13 +4866,6 @@ shrink_pseudo_deleted_do(Type) ->
     process_flag(scheduler,0).
 
     
-meta_smp(suite) ->
-    [meta_lookup_unnamed_read,
-     meta_lookup_unnamed_write,
-     meta_lookup_named_read,
-     meta_lookup_named_write,
-     meta_newdel_unnamed,
-     meta_newdel_named].
 
 meta_lookup_unnamed_read(suite) -> [];
 meta_lookup_unnamed_read(Config) when is_list(Config) ->

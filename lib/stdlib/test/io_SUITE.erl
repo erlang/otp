@@ -18,7 +18,7 @@
 %%
 -module(io_SUITE).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -37,7 +37,7 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
@@ -54,12 +54,22 @@ end_per_testcase(_Case, _Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for io."];
-all(suite) ->
-    [error_1,float_g,otp_5403,otp_5813,otp_6230,otp_6282,otp_6354,otp_6495,
-     otp_6517,otp_6502,manpage,otp_6708,otp_7084,otp_7421,
-     io_lib_collect_line_3_wb,cr_whitespace_in_string,io_fread_newlines].
+all() -> 
+[error_1, float_g, otp_5403, otp_5813, otp_6230,
+ otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
+ manpage, otp_6708, otp_7084, otp_7421,
+ io_lib_collect_line_3_wb, cr_whitespace_in_string,
+ io_fread_newlines].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 error_1(doc) ->
     ["Error cases for output"];

@@ -19,9 +19,9 @@
 -module(ms_transform_SUITE).
 -author('pan@erix.ericsson.se').
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([basic_ets/1]).
 -export([basic_dbg/1]).
 -export([from_shell/1]).
@@ -48,11 +48,22 @@ end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
-all(suite) -> [from_shell,basic_ets,basic_dbg,records,record_index,multipass,
-	       bitsyntax, record_defaults, andalso_orelse,
-               float_1_function, action_function, 
-	       warnings,
-	       top_match, old_guards, autoimported, semicolon].
+all() -> 
+[from_shell, basic_ets, basic_dbg, records,
+ record_index, multipass, bitsyntax, record_defaults,
+ andalso_orelse, float_1_function, action_function,
+ warnings, top_match, old_guards, autoimported,
+ semicolon].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% This may be subject to change
 -define(WARN_NUMBER_SHADOW,50).

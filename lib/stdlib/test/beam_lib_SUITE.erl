@@ -27,19 +27,29 @@
 -define(t,test_server).
 -define(privdir, "beam_lib_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-all(suite) ->
-    [error, normal, cmp, cmp_literals, strip, otp_6711, building, md5,
-     encrypted_abstr, encrypted_abstr_file].
+all() -> 
+[error, normal, cmp, cmp_literals, strip, otp_6711,
+ building, md5, encrypted_abstr, encrypted_abstr_file].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),

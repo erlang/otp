@@ -18,7 +18,7 @@
 
 -module(escript_SUITE).
 -export([
-	 all/1,
+	all/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 basic/1,
@@ -35,23 +35,22 @@
 	 verify_sections/3
 	]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) ->
-    [
-     basic,
-     errors,
-     strange_name,
-     emulator_flags,
-     module_script,
-     beam_script,
-     archive_script,
-     epp,
-     create_and_extract,
-     foldl,
-     overflow
-    ].
+all() -> 
+    [basic, errors, strange_name, emulator_flags,
+     module_script, beam_script, archive_script, epp,
+     create_and_extract, foldl, overflow].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?t:minutes(1)),
