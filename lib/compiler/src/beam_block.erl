@@ -36,12 +36,13 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 
 	%% Collect basic blocks and optimize them.
 	Is2 = blockify(Is1),
-	Is3 = beam_utils:live_opt(Is2),
-	Is4 = opt_blocks(Is3),
-	Is5 = beam_utils:delete_live_annos(Is4),
+	Is3 = move_allocates(Is2),
+	Is4 = beam_utils:live_opt(Is3),
+	Is5 = opt_blocks(Is4),
+	Is6 = beam_utils:delete_live_annos(Is5),
 
 	%% Optimize bit syntax.
-	{Is,Lc} = bsm_opt(Is5, Lc0),
+	{Is,Lc} = bsm_opt(Is6, Lc0),
 
 	%% Done.
 	{{function,Name,Arity,CLabel,Is},Lc}
@@ -156,11 +157,7 @@ opt_blocks([I|Is]) ->
 opt_blocks([]) -> [].
 
 opt_block(Is0) ->
-    %% We explicitly move any allocate instruction upwards before optimising
-    %% moves, to avoid any potential problems with the calculation of live
-    %% registers.
-    Is1 = move_allocates(Is0),
-    Is = find_fixpoint(fun opt/1, Is1),
+    Is = find_fixpoint(fun opt/1, Is0),
     opt_alloc(Is).
 
 find_fixpoint(OptFun, Is0) ->
@@ -170,11 +167,21 @@ find_fixpoint(OptFun, Is0) ->
     end.
 
 %% move_allocates(Is0) -> Is
-%%  Move allocates upwards in the instruction stream, in the hope of
-%%  getting more possibilities for optimizing away moves later.
+%%  Move allocate instructions upwards in the instruction stream, in the
+%%  hope of getting more possibilities for optimizing away moves later.
+%%
+%%  NOTE: Moving allocation instructions is only safe because it is done
+%%  immediately after code generation so that we KNOW that if {x,X} is
+%%  initialized, all x registers with lower numbers are also initialized.
+%%  That assumption may not be true after other optimizations, such as
+%%  the beam_utils:live_opt/1 optimization.
 
-move_allocates(Is) ->
-    move_allocates_1(reverse(Is), []).
+move_allocates([{block,Bl0}|Is]) ->
+    Bl = move_allocates_1(reverse(Bl0), []),
+    [{block,Bl}|move_allocates(Is)];
+move_allocates([I|Is]) ->
+    [I|move_allocates(Is)];
+move_allocates([]) -> [].
 
 move_allocates_1([{set,[],[],{alloc,_,_}=Alloc}|Is0], Acc0) ->
     {Is,Acc} = move_allocates_2(Alloc, Is0, Acc0),
