@@ -24,13 +24,13 @@
 -define(line,erlang:display({line,?LINE}),).
 -define(config(A,B), config(A,B)).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("os_mon/include/OTP-OS-MON-MIB.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 -endif.
 
 % Test server specific exports
--export([all/1, init_per_suite/1, end_per_suite/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
 
@@ -38,8 +38,8 @@
 -export([update_load_table/1]).
 
 -export([get_mem_sys_mark/1, get_mem_proc_mark/1, get_disk_threshold/1,
-	 get_load_table/1, get_next_load_table/1, get_disk_table/1,
-	 get_next_disk_table/1, real_snmp_request/1, load_unload/1]).
+	 get_load_table/1, get_disk_table/1,
+	 real_snmp_request/1, load_unload/1]).
 
 -export([sys_tot_mem/1, sys_used_mem/1, large_erl_process/1,
 	 large_erl_process_mem/1, cpu_load/1, cpu_load5/1, cpu_load15/1,
@@ -47,7 +47,7 @@
 	 large_erl_process_mem64/1, disk_descr/1, disk_kbytes/1,
 	 disk_capacity/1]).
 
--export([tickets/1]).
+-export([]).
 -export([otp_6351/1, otp_7441/1]).
 
 -define(TRAP_UDP, 5000).
@@ -77,17 +77,30 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog),
     Config.
 
-all(doc) ->
-    ["Test os_mon mibs and provided instrumentation functions."];
+all() -> 
+[load_unload, get_mem_sys_mark, get_mem_proc_mark,
+ get_disk_threshold, get_load_table,
+ {group, get_next_load_table}, get_disk_table,
+ {group, get_next_disk_table}, real_snmp_request,
+ update_load_table, {group, tickets}].
 
-all(suite) ->
-    [load_unload, get_mem_sys_mark, get_mem_proc_mark,
-     get_disk_threshold, get_load_table, get_next_load_table,
-     get_disk_table, get_next_disk_table, real_snmp_request,
-     update_load_table, tickets].
+groups() -> 
+    [{tickets, [], [otp_6351, otp_7441]},
+ {get_next_load_table, [],
+  [sys_tot_mem, sys_used_mem, large_erl_process,
+   large_erl_process_mem, cpu_load, cpu_load5, cpu_load15,
+   os_wordsize, sys_tot_mem64, sys_used_mem64,
+   large_erl_process_mem64]},
+ {get_next_disk_table, [],
+  [disk_descr, disk_kbytes, disk_capacity]}].
 
-tickets(suite) ->
-    [otp_6351, otp_7441].
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 -endif.
 %%---------------------------------------------------------------------
@@ -338,21 +351,6 @@ get_load_table(Config) when is_list(Config) ->
 
     ok.
 %%---------------------------------------------------------------------
-get_next_load_table(doc) ->
-    ["Simulates get_next calls to test the instrumentation function "
-     "for the loadTable"];
-get_next_load_table(suite) ->
-    [	sys_tot_mem,
-	sys_used_mem,
-	large_erl_process,
-	large_erl_process_mem,
-	cpu_load,
-	cpu_load5,
-	cpu_load15,
-	os_wordsize,
-	sys_tot_mem64,
-	sys_used_mem64,
-	large_erl_process_mem64].
 
 sys_tot_mem(doc) ->
     [];
@@ -592,11 +590,6 @@ get_disk_table(Config) when is_list(Config) ->
     ok.
 
 %%---------------------------------------------------------------------
-get_next_disk_table(doc) ->
-    ["Simulates get_next calls to test the instrumentation function "
-     "for the diskTable."];
-get_next_disk_table(suite) ->
-    [disk_descr, disk_kbytes, disk_capacity].
 
 disk_descr(doc) ->
     [];

@@ -17,10 +17,10 @@
 %% %CopyrightEnd%
 %%
 -module(os_sup_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -63,16 +63,25 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    case ?t:os_type() of
-	{unix, sunos} ->
-	    [message, config, port];
-	{win32, _OSname} ->
-	    [message];
-	OS ->
-	    Str = io_lib:format("os_sup not available for ~p", [OS]),
-	    {skip, lists:flatten(Str)}
-    end.
+all() -> 
+case test_server:os_type() of
+  {unix, sunos} -> [message, config, port];
+  {win32, _OSname} -> [message];
+  OS ->
+      Str = io_lib:format("os_sup not available for ~p",
+			  [OS]),
+      {skip, lists:flatten(Str)}
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 message(suite) ->
     [];

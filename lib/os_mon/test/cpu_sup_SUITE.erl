@@ -17,10 +17,10 @@
 %% %CopyrightEnd%
 %%
 -module(cpu_sup_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -50,19 +50,25 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    case ?t:os_type() of
-	{unix, sunos} ->
-	    [load_api, util_api, util_values, port,
-	     {conf, terminate, [unavailable], restart}];
-	{unix, linux} ->
-	    [load_api, util_api, util_values, port,
-	     {conf, terminate, [unavailable], restart}];
-	{unix, _OSname} ->
-	    [load_api];
-	_OS ->
-	    [unavailable]
-    end.
+all() -> 
+case test_server:os_type() of
+  {unix, sunos} ->
+      [load_api, util_api, util_values, port, unavailable];
+  {unix, linux} ->
+      [load_api, util_api, util_values, port, unavailable];
+  {unix, _OSname} -> [load_api];
+  _OS -> [unavailable]
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 load_api(suite) ->
     [];
