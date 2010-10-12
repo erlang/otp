@@ -19,11 +19,11 @@
 -module(nc_SUITE).
 
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_suite/1,
 	 end_per_suite/1,
 	 init_per_testcase/2,
@@ -50,24 +50,23 @@
 
 %% Top of cases
 
-all(doc) -> [];
-all(suite) -> [pid_roundtrip,
-	       port_roundtrip,
-	       ref_roundtrip,
-	       new_float,
-	       old_stuff,
-	       binary_roundtrip,
-	       decompress_roundtrip,
-	       compress_roundtrip,
-	       integer_roundtrip,
-	       fun_roundtrip,
-	       lists_roundtrip,
-	       lists_roundtrip_2,
-	       lists_iterator,
-	       unicode,
-	       unicode_list_to_string,
-	       unicode_string_to_list,
-	       connect].
+all() -> 
+[pid_roundtrip, port_roundtrip, ref_roundtrip,
+ new_float, old_stuff, binary_roundtrip,
+ decompress_roundtrip, compress_roundtrip,
+ integer_roundtrip, fun_roundtrip, lists_roundtrip,
+ lists_roundtrip_2, lists_iterator, unicode,
+ unicode_list_to_string, unicode_string_to_list, connect].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 
