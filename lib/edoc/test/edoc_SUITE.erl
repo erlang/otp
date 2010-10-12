@@ -17,16 +17,26 @@
 %%
 -module(edoc_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([build_std/1]).
 
-all(suite) ->
-    [build_std].
+all() -> 
+[build_std].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 build_std(suite) ->
     [];
