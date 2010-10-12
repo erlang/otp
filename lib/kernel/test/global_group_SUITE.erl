@@ -19,7 +19,8 @@
 
 -module(global_group_SUITE).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1, end_per_suite/1]).
 -export([start_gg_proc/1, no_gg_proc/1, no_gg_proc_sync/1, compatible/1, 
 	 one_grp/1, one_grp_x/1, two_grp/1, hidden_groups/1, test_exit/1]).
 -export([init/1, init/2, init2/2, start_proc/1, start_proc_rereg/1]).
@@ -28,16 +29,49 @@
 
 %-compile(export_all).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(NODES, [node()|nodes()]).
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
 
-all(suite) -> 
-    [start_gg_proc, no_gg_proc, no_gg_proc_sync, 
-     compatible, one_grp, one_grp_x, two_grp, test_exit,
-     hidden_groups].
+all() -> 
+[start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
+ one_grp, one_grp_x, two_grp, test_exit, hidden_groups].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+init_per_suite(Config) ->
+
+    %% Copied from test_server_ctrl ln 647, we have to do this here as
+    %% the test_server only does this when run without common_test
+    global:sync(),
+    case global:whereis_name(test_server) of
+	undefined ->
+	    io:format(user, "Registering test_server globally!~n",[]),
+	    global:register_name(test_server, whereis(test_server_ctrl));
+	Pid ->
+	    case node() of
+		N when N == node(Pid) ->
+		    io:format(user, "Warning: test_server already running!\n", []),
+		    global:re_register_name(test_server,self());
+		_ ->
+		    ok
+	    end
+    end,
+    Config.
+
+end_per_suite(_Config) ->
+    global:unregister_name(test_server),
+    ok.
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).

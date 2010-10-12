@@ -18,11 +18,11 @@
 %%
 -module(gen_tcp_misc_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
 
--export([all/1, controlling_process/1, no_accept/1, close_with_pending_output/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, controlling_process/1, no_accept/1, close_with_pending_output/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -50,22 +50,34 @@ end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
-all(suite) ->
-    [controlling_process, no_accept,
-     close_with_pending_output,
-     data_before_close, iter_max_socks, passive_sockets,
-     accept_closed_by_other_process, otp_3924, closed_socket,
-     shutdown_active, shutdown_passive, shutdown_pending,
-     default_options, http_bad_packet, 
-     busy_send, busy_disconnect_passive, busy_disconnect_active,
-     fill_sendq, partial_recv_and_close, 
-     partial_recv_and_close_2, partial_recv_and_close_3, so_priority,
-     primitive_accept,multi_accept_close_listen,accept_timeout,
-     accept_timeouts_in_order,accept_timeouts_in_order2,accept_timeouts_in_order3,
-     accept_timeouts_mixed, 
-     killing_acceptor,killing_multi_acceptors,killing_multi_acceptors2,
-     several_accepts_in_one_go, active_once_closed, send_timeout, otp_7731,
-     zombie_sockets, otp_7816, otp_8102].
+all() -> 
+[controlling_process, no_accept,
+ close_with_pending_output, data_before_close,
+ iter_max_socks, passive_sockets,
+ accept_closed_by_other_process, otp_3924, closed_socket,
+ shutdown_active, shutdown_passive, shutdown_pending,
+ default_options, http_bad_packet, busy_send,
+ busy_disconnect_passive, busy_disconnect_active,
+ fill_sendq, partial_recv_and_close,
+ partial_recv_and_close_2, partial_recv_and_close_3,
+ so_priority, primitive_accept,
+ multi_accept_close_listen, accept_timeout,
+ accept_timeouts_in_order, accept_timeouts_in_order2,
+ accept_timeouts_in_order3, accept_timeouts_mixed,
+ killing_acceptor, killing_multi_acceptors,
+ killing_multi_acceptors2, several_accepts_in_one_go,
+ active_once_closed, send_timeout, otp_7731,
+ zombie_sockets, otp_7816, otp_8102].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 default_options(doc) ->

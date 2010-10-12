@@ -22,19 +22,32 @@
 %% are not tested here, because they are tested indirectly in this and
 %% and other test suites.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([all/1, init_per_testcase/2, end_per_testcase/2,
-	 t_accept/1, t_connect_timeout/1, t_accept_timeout/1,
-	 t_connect/1, t_connect_bad/1,
-	 t_recv/1, t_recv_timeout/1, t_recv_eof/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+	 t_connect_timeout/1, t_accept_timeout/1,
+	 t_connect_bad/1,
+	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_fdopen/1, t_implicit_inet6/1]).
 
-all(suite) -> [t_accept, t_connect, t_recv, t_shutdown_write,
-	       t_shutdown_both, t_shutdown_error, t_fdopen,
-	       t_implicit_inet6].
+all() -> 
+[{group, t_accept}, {group, t_connect}, {group, t_recv},
+ t_shutdown_write, t_shutdown_both, t_shutdown_error,
+ t_fdopen, t_implicit_inet6].
+
+groups() -> 
+    [{t_accept, [], [t_accept_timeout]},
+ {t_connect, [], [t_connect_timeout, t_connect_bad]},
+ {t_recv, [], [t_recv_timeout, t_recv_eof]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
@@ -45,7 +58,6 @@ end_per_testcase(_Func, Config) ->
 
 %%% gen_tcp:accept/1,2
 
-t_accept(suite) -> [t_accept_timeout].
 
 t_accept_timeout(doc) -> "Test that gen_tcp:accept/2 (with timeout) works.";
 t_accept_timeout(suite) -> [];
@@ -55,7 +67,6 @@ t_accept_timeout(Config) when is_list(Config) ->
 
 %%% gen_tcp:connect/X
 
-t_connect(suite) -> [t_connect_timeout, t_connect_bad].
 
 t_connect_timeout(doc) -> "Test that gen_tcp:connect/4 (with timeout) works.";
 t_connect_timeout(Config) when is_list(Config) ->
@@ -84,7 +95,6 @@ t_connect_bad(Config) when is_list(Config) ->
 
 %%% gen_tcp:recv/X
 
-t_recv(suite) -> [t_recv_timeout, t_recv_eof].
 
 t_recv_timeout(doc) -> "Test that gen_tcp:recv/3 (with timeout works).";
 t_recv_timeout(suite) -> [];

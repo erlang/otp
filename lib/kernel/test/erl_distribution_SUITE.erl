@@ -19,13 +19,13 @@
 -module(erl_distribution_SUITE).
 
 %-define(line_trace, 1).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
-	 monitor_nodes/1,
+	
 	 monitor_nodes_nodedown_reason/1,
 	 monitor_nodes_complex_nodedown_reason/1,
 	 monitor_nodes_node_type/1,
@@ -57,10 +57,25 @@
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
 
-all(suite) -> 
-    [tick, tick_change, illegal_nodenames, hidden_node,
-     table_waste, net_setuptime,
-     monitor_nodes].
+all() -> 
+[tick, tick_change, illegal_nodenames, hidden_node,
+ table_waste, net_setuptime, {group, monitor_nodes}].
+
+groups() -> 
+    [{monitor_nodes, [],
+  [monitor_nodes_nodedown_reason,
+   monitor_nodes_complex_nodedown_reason,
+   monitor_nodes_node_type, monitor_nodes_misc,
+   monitor_nodes_otp_6481, monitor_nodes_errors,
+   monitor_nodes_combinations, monitor_nodes_cleanup,
+   monitor_nodes_many]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(4)),
@@ -530,18 +545,6 @@ check_monitor_nodes_res(Pid, Node) ->
     end.
 
 
-monitor_nodes(doc) ->
-    [];
-monitor_nodes(suite) ->
-    [monitor_nodes_nodedown_reason,
-     monitor_nodes_complex_nodedown_reason,
-     monitor_nodes_node_type,
-     monitor_nodes_misc,
-     monitor_nodes_otp_6481,
-     monitor_nodes_errors,
-     monitor_nodes_combinations,
-     monitor_nodes_cleanup,
-     monitor_nodes_many].
 	    
 %%
 %% Testcase:

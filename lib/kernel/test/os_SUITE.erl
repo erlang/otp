@@ -18,15 +18,25 @@
 %%
 -module(os_SUITE).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, evil/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [space_in_cwd, quoting, space_in_name, bad_command, find_executable,
-     unix_comment_in_command, evil].
+all() -> 
+[space_in_cwd, quoting, space_in_name, bad_command,
+ find_executable, unix_comment_in_command, evil].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 space_in_cwd(doc) ->
     "Test that executing a command in a current working directory "

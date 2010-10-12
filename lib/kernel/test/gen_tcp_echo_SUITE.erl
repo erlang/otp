@@ -18,11 +18,11 @@
 %%
 -module(gen_tcp_echo_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%-compile(export_all).
 
--export([all/1, init_per_testcase/2, end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -31,11 +31,21 @@
 -define(TPKT_VRSN, 3).
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
 
-all(suite) ->
-    [active_echo, passive_echo, active_once_echo,
-     slow_active_echo, slow_passive_echo,
-     limit_active_echo, limit_passive_echo,
-     large_limit_active_echo, large_limit_passive_echo].
+all() -> 
+[active_echo, passive_echo, active_once_echo,
+ slow_active_echo, slow_passive_echo, limit_active_echo,
+ limit_passive_echo, large_limit_active_echo,
+ large_limit_passive_echo].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:minutes(5)),

@@ -18,9 +18,9 @@
 %%
 -module(code_SUITE).
 
--include("test_server.hrl").
-%-compile(export_all).
--export([all/1]).
+-include_lib("test_server/include/test_server.hrl").
+
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
 	 delete/1, purge/1, soft_purge/1, is_loaded/1, all_loaded/1,
@@ -43,19 +43,27 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-all(suite) ->
+all() -> 
     [set_path, get_path, add_path, add_paths, del_path,
      replace_path, load_file, load_abs, ensure_loaded,
      delete, purge, soft_purge, is_loaded, all_loaded,
      load_binary, dir_req, object_code, set_path_file,
-     pa_pz_option, add_del_path,
-     dir_disappeared, ext_mod_dep, clash,
-     load_cached, start_node_with_cache, add_and_rehash,
-     where_is_file_no_cache, where_is_file_cached,
-     purge_stacktrace, mult_lib_roots, bad_erl_libs,
-     code_archive, code_archive2, on_load, on_load_embedded,
-     big_boot_embedded,
-     on_load_errors, native_early_modules].
+     pa_pz_option, add_del_path, dir_disappeared,
+     ext_mod_dep, clash, load_cached, start_node_with_cache,
+     add_and_rehash, where_is_file_no_cache,
+     where_is_file_cached, purge_stacktrace, mult_lib_roots,
+     bad_erl_libs, code_archive, code_archive2, on_load,
+     on_load_embedded, big_boot_embedded, on_load_errors, 
+     native_early_modules].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 init_per_suite(Config) ->
     %% The compiler will no longer create a Beam file if
@@ -76,7 +84,17 @@ init_per_testcase(_Func, Config) ->
     P=code:get_path(),
     P=code:get_path(),
     [{watchdog, Dog}, {code_path, P}|Config].
+
+end_per_testcase(mult_lib_roots, Config) ->
+    {ok, HostName} = inet:gethostname(),
+    NodeName = list_to_atom("mult_lib_roots@"++HostName),
+    ?t:stop_node(NodeName),
+    end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->
+    end_per_testcase(Config).
+
+end_per_testcase(Config) ->
+    code:purge(code_b_test),
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     P=?config(code_path, Config),
@@ -906,6 +924,8 @@ add_and_rehash(Config) when is_list(Config) ->
     ?line true = rpc:call(Node, code, add_path, [OkDir]),
     ?line {error,_} = rpc:call(Node, code, add_path, [BadDir]),
     ?line ok = rpc:call(Node, code, rehash, []),
+
+    ?t:stop_node(Node),
     ok.
     
 where_is_file_no_cache(suite) ->
@@ -1007,9 +1027,9 @@ mult_lib_roots(Config) when is_list(Config) ->
 	?t:start_node(mult_lib_roots, slave,
 		      [{args,"-env ERL_LIBS "++ErlLibs}]),
 
-    ?line {ok,Cwd} = file:get_cwd(),
+    ?line TSPath = filename:dirname(code:which(test_server)),
     ?line Path0 = rpc:call(Node, code, get_path, []),
-    ?line [Cwd,"."|Path1] = Path0,
+    ?line [TSPath,"."|Path1] = Path0,
     ?line [Kernel|Path2] = Path1,
     ?line [Stdlib|Path3] = Path2,
     ?line mult_lib_verify_lib(Kernel, "kernel"),
@@ -1028,7 +1048,6 @@ mult_lib_roots(Config) when is_list(Config) ->
 
     ?line true = rpc:call(Node, code_SUITE_mult_root_module, works_fine, []),
 
-    ?line ?t:stop_node(Node),
     ok.
 
 mult_lib_compile(Root, Last) ->

@@ -19,14 +19,14 @@
 
 -module(ram_file_SUITE).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 %% init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
 	 truncate/1, sync/1, get_set_file/1, compress/1, uuencode/1,
 	 large_file_errors/1, large_file_light/1, large_file_heavy/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(FILE_MODULE, file).         % Name of module to test
@@ -34,10 +34,20 @@
 
 %%--------------------------------------------------------------------------
 
-all(suite) ->
-    [open_modes, open_old_modes, pread_pwrite, position, 
-     truncate, sync, get_set_file, compress, uuencode,
-     large_file_errors, large_file_light, large_file_heavy].
+all() -> 
+[open_modes, open_old_modes, pread_pwrite, position,
+ truncate, sync, get_set_file, compress, uuencode,
+ large_file_errors, large_file_light, large_file_heavy].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Time = 

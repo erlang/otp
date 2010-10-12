@@ -20,14 +20,14 @@
 %%% Kernel application test suite.
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
 % Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases must be exported.
@@ -36,10 +36,18 @@
 %%
 %% all/1
 %%
-all(doc) ->
-    [];
-all(suite) ->
-    [app_test].
+all() -> 
+[app_test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),

@@ -20,7 +20,7 @@
 %% NB: The ?line macro cannot be used when testing the dictionary.
 
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(M(A,B),m(A,B,?MODULE,?LINE)).
 -ifdef(DEBUG).
@@ -29,7 +29,7 @@
 -define(DEBUGF(A,B), noop).
 -endif.
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 simple/1, complicated/1, heavy/1, info/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([other_process/2]).
@@ -42,8 +42,18 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [simple, complicated, heavy, info].
+all() -> 
+[simple, complicated, heavy, info].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 simple(doc) ->
     ["Tests simple functionality in process dictionary."];

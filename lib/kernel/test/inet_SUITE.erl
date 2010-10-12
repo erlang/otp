@@ -18,29 +18,63 @@
 %%
 -module(inet_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
--export([all/1, t_gethostbyaddr/1, t_getaddr/1, t_gethostbyname/1,
-	 t_gethostbyaddr_v6/1, t_getaddr_v6/1, t_gethostbyname_v6/1,
-	 ipv4_to_ipv6/1, host_and_addr/1, parse/1, t_gethostnative/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
+	 t_gethostbyaddr/0, t_gethostbyaddr/1,
+	 t_getaddr/0, t_getaddr/1,
+	 t_gethostbyname/0, t_gethostbyname/1,
+	 t_gethostbyaddr_v6/0, t_gethostbyaddr_v6/1,
+	 t_getaddr_v6/0, t_getaddr_v6/1,
+	 t_gethostbyname_v6/0, t_gethostbyname_v6/1,
+	 ipv4_to_ipv6/0, ipv4_to_ipv6/1,
+	 host_and_addr/0, host_and_addr/1,
+	 t_gethostnative/1, 
 	 gethostnative_parallell/1, cname_loop/1, 
-         gethostnative_soft_restart/1,gethostnative_debug_level/1,getif/1,
-	 getif_ifr_name_overflow/1,getservbyname_overflow/1,getifaddrs/1]).
+         gethostnative_soft_restart/0, gethostnative_soft_restart/1,
+	 gethostnative_debug_level/0, gethostnative_debug_level/1,
+	 getif/1,
+	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
+all() -> 
+    [t_gethostbyaddr, t_gethostbyname, t_getaddr,
+     t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
+     ipv4_to_ipv6, host_and_addr, {group, parse},
+     t_gethostnative, gethostnative_parallell, cname_loop,
+     gethostnative_debug_level, gethostnative_soft_restart,
+     getif, getif_ifr_name_overflow, getservbyname_overflow,
+     getifaddrs].
 
-all(suite) ->
-    [t_gethostbyaddr, t_gethostbyname, t_getaddr, 
-     t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6, 
-     ipv4_to_ipv6, host_and_addr, parse,t_gethostnative, 
-     gethostnative_parallell, cname_loop,
-     gethostnative_debug_level,gethostnative_soft_restart,
-     getif,getif_ifr_name_overflow,getservbyname_overflow,getifaddrs].
+groups() -> 
+    [{parse, [], [parse_hosts, parse_address]}].
+
+%% Required configuaration
+required(v4) ->
+    [{require, test_host_ipv4_only},
+     {require, test_dummy_host}];
+required(v6) ->
+    [{require, test_host_ipv6_only},
+     {require, test_dummy_ipv6_host}];
+required(hosts) ->
+    case os:type() of
+	{OS, _} when OS =:= win32; OS =:= vxworks ->
+	    [{require, hardcoded_hosts},
+	     {require, hardcoded_ipv6_hosts}];
+	_Else ->
+	    [{require, test_hosts}]
+    end.     
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
@@ -50,10 +84,12 @@ end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
-
+t_gethostbyaddr() ->
+    required(v4).
 t_gethostbyaddr(doc) -> "Test the inet:gethostbyaddr/1 function.";
 t_gethostbyaddr(Config) when is_list(Config) ->
-    ?line {Name,FullName,IPStr,IP,Aliases,_,_} = ?config(test_host_ipv4_only, Config),
+    ?line {Name,FullName,IPStr,IP,Aliases,_,_} =
+	ct:get_config(test_host_ipv4_only),
     ?line {ok,HEnt} = inet:gethostbyaddr(IPStr),
     ?line {ok,HEnt} = inet:gethostbyaddr(IP),
     ?line {error,Error} = inet:gethostbyaddr(Name),
@@ -75,15 +111,16 @@ t_gethostbyaddr(Config) when is_list(Config) ->
     end,
 
     ?line {_DName, _DFullName, DIPStr, DIP, _, _, _} =
-	?config(test_dummy_host, Config),
+	ct:get_config(test_dummy_host),
     ?line {error,nxdomain} = inet:gethostbyaddr(DIPStr),
     ?line {error,nxdomain} = inet:gethostbyaddr(DIP),
     ok.
 
+t_gethostbyaddr_v6() -> required(v6).
 t_gethostbyaddr_v6(doc) -> "Test the inet:gethostbyaddr/1 inet6 function.";
 t_gethostbyaddr_v6(Config) when is_list(Config) ->
     ?line {Name6, FullName6, IPStr6, IP6, Aliases6} =
-	?config(test_host_ipv6_only, Config),
+	ct:get_config(test_host_ipv6_only),
 
     ?line case inet:gethostbyaddr(IPStr6) of
         %% Even if IPv6 is not supported, the native resolver may succeed
@@ -103,27 +140,28 @@ t_gethostbyaddr_v6(Config) when is_list(Config) ->
 			       {HEnt6#hostent.h_aliases,[[],Aliases6]}]),
 
 	    ?line {_DName6, _DFullName6, DIPStr6, DIP6, _} =
-		      ?config(test_dummy_ipv6_host, Config),
+		      ct:get_config(test_dummy_ipv6_host),
 	    ?line {error,nxdomain} = inet:gethostbyaddr(DIPStr6),
 	    ?line {error,nxdomain} = inet:gethostbyaddr(DIP6),    
 	    ok
     end.
 
+t_gethostbyname() -> required(v4).
 t_gethostbyname(doc) -> "Test the inet:gethostbyname/1 function.";
 t_gethostbyname(suite) -> [];
 t_gethostbyname(Config) when is_list(Config) ->
     ?line {Name,FullName,IPStr,IP,Aliases,IP_46_Str,_} =
-	?config(test_host_ipv4_only, Config),
+	ct:get_config(test_host_ipv4_only),
     ?line {ok,_} = inet:gethostbyname(IPStr),
     ?line {ok,HEnt} = inet:gethostbyname(Name),
     ?line {ok,HEnt} = inet:gethostbyname(list_to_atom(Name)),
     ?line HEnt_ = HEnt#hostent{h_addrtype = inet,
 			       h_length = 4,
 			       h_addr_list = [IP]},
+
     ?line HEnt_ = HEnt,
     ?line check_elems([{HEnt#hostent.h_name,[Name,FullName]},
 		       {HEnt#hostent.h_aliases,[[],Aliases]}]),
-
     ?line {ok,HEntF} = inet:gethostbyname(FullName),
     ?line HEntF_ = HEntF#hostent{h_name = FullName,
 				 h_addrtype = inet,
@@ -133,15 +171,16 @@ t_gethostbyname(Config) when is_list(Config) ->
     ?line check_elems([{HEnt#hostent.h_aliases,[[],Aliases]}]),
 
     ?line {DName, _DFullName, _DIPStr, _DIP, _, _, _} =
-	?config(test_dummy_host, Config),
+	ct:get_config(test_dummy_host),
     ?line {error,nxdomain} = inet:gethostbyname(DName),
     ?line {error,nxdomain} = inet:gethostbyname(IP_46_Str).
 
+t_gethostbyname_v6() -> required(v6).
 t_gethostbyname_v6(doc) -> "Test the inet:gethostbyname/1 inet6 function.";
 t_gethostbyname_v6(suite) -> [];
 t_gethostbyname_v6(Config) when is_list(Config) ->
     ?line {Name, _, _, _,Aliases,IP_46_Str,IP_46} =
-	?config(test_host_ipv4_only, Config),
+	ct:get_config(test_host_ipv4_only),
 
     case {inet:gethostbyname(IP_46_Str, inet6),
 	  inet:gethostbyname(Name, inet6)} of
@@ -154,7 +193,7 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
 	    ?line check_elems([{HEnt46#hostent.h_aliases,[[],Aliases]}]),		  
 
 	    ?line {Name6, FullName6, IPStr6, IP6, Aliases6} =
-		      	?config(test_host_ipv6_only, Config),
+		      	ct:get_config(test_host_ipv6_only),
 	    ?line {ok,_} = inet:gethostbyname(IPStr6, inet6),
 	    ?line {ok,HEnt6} = inet:gethostbyname(Name6, inet6),
 	    ?line {ok,HEnt6} = inet:gethostbyname(list_to_atom(Name6), inet6),
@@ -200,7 +239,7 @@ t_gethostbyname_v6(Config) when is_list(Config) ->
 		  end,
 	    
 	    ?line {DName6, _DFullName6, _DIPStr6, _DIP6, _} =
-		      ?config(test_dummy_ipv6_host, Config),
+		      ct:get_config(test_dummy_ipv6_host),
 	    ?line {error,nxdomain} = inet:gethostbyname(DName6, inet6),
 	    ok;
 	{_,_} ->
@@ -219,11 +258,12 @@ check_elem(Val, [], Tests0) ->
     ?t:fail({no_match,Val,Tests0}).
 
 
+t_getaddr() -> required(v4).
 t_getaddr(doc) -> "Test the inet:getaddr/2 function.";
 t_getaddr(suite) -> [];
 t_getaddr(Config) when is_list(Config) ->
     ?line {Name,FullName,IPStr,IP,_,IP_46_Str,IP46} =
-	?config(test_host_ipv4_only, Config),
+	ct:get_config(test_host_ipv4_only),
     ?line {ok,IP} = inet:getaddr(list_to_atom(Name), inet),
     ?line {ok,IP} = inet:getaddr(Name, inet),
     ?line {ok,IP} = inet:getaddr(FullName, inet),
@@ -232,17 +272,18 @@ t_getaddr(Config) when is_list(Config) ->
     ?line {error,nxdomain} = inet:getaddr(IP_46_Str, inet),
     ?line {error,eafnosupport} = inet:getaddr(IP46, inet),
 
-    ?line {DName, DFullName, DIPStr, DIP, _, _, _} = ?config(test_dummy_host, Config),
+    ?line {DName, DFullName, DIPStr, DIP, _, _, _} = ct:get_config(test_dummy_host),
     ?line {error,nxdomain} = inet:getaddr(DName, inet),
     ?line {error,nxdomain} = inet:getaddr(DFullName, inet),
     ?line {ok,DIP} = inet:getaddr(DIPStr, inet),
     ?line {ok,DIP} = inet:getaddr(DIP, inet).
 
+t_getaddr_v6() -> required(v4) ++ required(v6).
 t_getaddr_v6(doc) -> "Test the inet:getaddr/2 function.";
 t_getaddr_v6(suite) -> [];
 t_getaddr_v6(Config) when is_list(Config) ->
     ?line {Name,FullName,IPStr,_IP,_,IP_46_Str,IP46} =
-	?config(test_host_ipv4_only, Config),
+	ct:get_config(test_host_ipv4_only),
     case {inet:getaddr(IP_46_Str, inet6),inet:getaddr(Name, inet6)} of
 	{{ok,IP46},{ok,_}} -> 
 	    %% Since we suceeded in parsing an IPv6 address string and
@@ -261,7 +302,7 @@ t_getaddr_v6(Config) when is_list(Config) ->
 %% 					   inet_db:res_option(lookup))
 %% 		  end,
 	    ?line {Name6, FullName6, IPStr6, IP6, _} =
-				      	?config(test_host_ipv6_only, Config),
+				      	ct:get_config(test_host_ipv6_only),
 	    ?line {ok,_} = inet:getaddr(list_to_atom(Name6), inet6),
 	    ?line {ok,_} = inet:getaddr(Name6, inet6),
 	    ?line {ok,_} = inet:getaddr(FullName6, inet6),
@@ -269,7 +310,7 @@ t_getaddr_v6(Config) when is_list(Config) ->
 	    ?line {ok,IP6} = inet:getaddr(IPStr6, inet6),
 
 	    ?line {DName6, DFullName6, DIPStr6, DIP6, _} =
-		?config(test_dummy_ipv6_host, Config),
+		ct:get_config(test_dummy_ipv6_host),
 	    ?line {error,nxdomain} = inet:getaddr(DName6, inet6),
 	    ?line {error,nxdomain} = inet:getaddr(DFullName6, inet6),
 	    ?line {ok,DIP6} = inet:getaddr(DIPStr6, inet6),
@@ -279,6 +320,7 @@ t_getaddr_v6(Config) when is_list(Config) ->
  	    {skip, "IPv6 is not supported on this host"}
     end.
 
+ipv4_to_ipv6() -> required(v4).
 ipv4_to_ipv6(doc) -> "Test if IPv4 address is converted to IPv6 address.";
 ipv4_to_ipv6(suite) -> [];
 ipv4_to_ipv6(Config) when is_list(Config) ->
@@ -287,7 +329,7 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
     %% address should be returned. If no IPv6 support on this host, an
     %% error should beturned.
     ?line {_Name,_FullName,IPStr,_IP,Aliases,IP_46_Str,IP_46} =
-	?config(test_host_ipv4_only, Config),
+	ct:get_config(test_host_ipv4_only),
     ?line IP4to6Res =
 	case inet:getaddr(IPStr, inet6) of
 	    {ok,IP_46} ->
@@ -314,6 +356,7 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 	  end,
     ok.
 
+host_and_addr() -> required(hosts).
 host_and_addr(doc) -> ["Test looking up hosts and addresses. Use 'ypcat hosts' ",
 		       "or the local eqivalent to find all hosts."];
 host_and_addr(suite) -> [];
@@ -339,12 +382,12 @@ get_hosts(Config) ->
 	{unix, _} ->
 	    List = lists:map(fun(X) ->
 				     atom_to_list(X)++" "
-			     end, ?config(test_hosts, Config)),
+			     end, ct:get_config(test_hosts)),
 	    Cmd = "ypmatch "++List++" hosts.byname", 
 	    HostFile = os:cmd(Cmd),
 	    get_hosts(HostFile, [], [], []);
 	_ -> 
-	    ?config(hardcoded_hosts, Config)
+	    ct:get_config(hardcoded_hosts)
     end.
 
 get_ipv6_hosts(Config) -> 
@@ -352,12 +395,12 @@ get_ipv6_hosts(Config) ->
 	{unix, _} ->
 	    List = lists:map(fun(X) ->
 				     atom_to_list(X)++" "
-			     end, ?config(test_hosts, Config)),
+			     end, ct:get_config(test_hosts)),
 	    Cmd = "ypmatch "++List++" ipnodes.byname", 
 	    HostFile = os:cmd(Cmd),
 	    get_hosts(HostFile, [], [], []);
 	_ -> 
-	    ?config(hardcoded_ipv6_hosts, Config)
+	    ct:get_config(hardcoded_ipv6_hosts)
     end.
 
 get_hosts([$\t|Rest], Cur, Ip, Result) when Ip /= [] ->
@@ -376,9 +419,6 @@ get_hosts([C|Rest], Cur, Ip, Result) ->
 get_hosts([], _, _, Result) ->
     Result.
     
-parse(suite) -> [parse_hosts, parse_address];
-parse(doc) -> ["Test that parsing of the hosts file or equivalent works,",
-	       "and that erroneous lines are skipped"].
 
 parse_hosts(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir,Config),
@@ -730,6 +770,7 @@ cname_loop(Config) when is_list(Config) ->
 				lookup_count=300,
 				lookup_processes=20}).
 
+gethostnative_soft_restart() -> required(hosts).
 gethostnative_soft_restart(suite) ->    
     [];
 gethostnative_soft_restart(doc) ->
@@ -740,6 +781,8 @@ gethostnative_soft_restart(Config) when is_list(Config) ->
 				#gethostnative_control{
 				  control_seq=[soft_restart]}).
 
+
+gethostnative_debug_level() -> required(hosts).
 gethostnative_debug_level(suite) ->    
     [];
 gethostnative_debug_level(doc) ->

@@ -18,21 +18,51 @@
 %% 
 -module(gen_sctp_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet_sctp.hrl").
 
 %%-compile(export_all).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0,groups/0,
+	 init_per_suite/1,end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2, end_per_testcase/2]).
 -export(
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1]).
 
-all(suite) ->
-    [basic,
-     api_open_close,api_listen,api_connect_init,api_opts,
-     xfer_min,xfer_active,def_sndrcvinfo,implicit_inet6].
+all() -> 
+[basic, api_open_close, api_listen, api_connect_init,
+ api_opts, xfer_min, xfer_active, def_sndrcvinfo,
+ implicit_inet6].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    try gen_sctp:open() of
+	{ok,Socket} ->
+	    gen_sctp:close(Socket),
+	    [];
+	_ ->
+	    []
+    catch
+	error:badarg ->
+	    {skip,"SCTP not supported on this machine"};
+	_:_ ->
+	    Config
+    end.
+
+end_per_suite(_Conifig) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(15)),

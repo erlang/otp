@@ -28,46 +28,46 @@
 -define(config(X,Y), foo).
 -define(t,test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 
-	 halt_int/1, halt_int_inf/1, halt_int_sz/1, 
+	 halt_int_inf/1, 
 	 halt_int_sz_1/1, halt_int_sz_2/1,
 
-	 read_mode/1, halt_int_ro/1, halt_ext_ro/1, wrap_int_ro/1, 
+	 halt_int_ro/1, halt_ext_ro/1, wrap_int_ro/1, 
 	 wrap_ext_ro/1, halt_trunc/1, halt_misc/1, halt_ro_alog/1, 
 	 halt_ro_balog/1, halt_ro_crash/1,
 
-	 wrap_int/1, wrap_int_1/1, wrap_int_2/1, inc_wrap_file/1,
+	 wrap_int_1/1, wrap_int_2/1, inc_wrap_file/1,
 
-	 halt_ext/1, halt_ext_inf/1,
+	 halt_ext_inf/1,
 
-	 halt_ext_sz/1, halt_ext_sz_1/1, halt_ext_sz_2/1,
+	 halt_ext_sz_1/1, halt_ext_sz_2/1,
 
-	 wrap_ext/1, wrap_ext_1/1, wrap_ext_2/1,
+	 wrap_ext_1/1, wrap_ext_2/1,
 
-	 head/1, head_func/1, plain_head/1, one_header/1,
+	 head_func/1, plain_head/1, one_header/1,
 
-	 notif/1, wrap_notif/1, full_notif/1, trunc_notif/1, blocked_notif/1,
+	 wrap_notif/1, full_notif/1, trunc_notif/1, blocked_notif/1,
 
 	 new_idx_vsn/1, 
 
 	 reopen/1, 
 
-	 block/1, block_blocked/1, block_queue/1, block_queue2/1,
+	 block_blocked/1, block_queue/1, block_queue2/1,
 
 	 unblock/1,
 
-	 open/1, open_overwrite/1, open_size/1, open_truncate/1, open_error/1,
+	 open_overwrite/1, open_size/1, open_truncate/1, open_error/1,
 
-	 close/1, close_race/1, close_block/1, close_deadlock/1,
+	 close_race/1, close_block/1, close_deadlock/1,
 
-	 error/1, error_repair/1, error_log/1, error_index/1,
+	 error_repair/1, error_log/1, error_index/1,
 
 	 chunk/1, 
 
@@ -75,15 +75,15 @@
 
 	 many_users/1,
 
-	 info/1, info_current/1, 
+	 info_current/1, 
 
-	 change_size/1, change_size_before/1, change_size_during/1, 
+	 change_size_before/1, change_size_during/1, 
 	 change_size_after/1, default_size/1, change_size2/1,
 	 change_size_truncate/1,
 
 	 change_attribute/1,
 
-	 distribution/1, dist_open/1, dist_error_open/1, dist_notify/1, 
+	 dist_open/1, dist_error_open/1, dist_notify/1, 
 	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
          dist_open2/1, other_groups/1,
 
@@ -142,8 +142,51 @@
 			  change_size_after, default_size]).
 
 
-all(suite) ->
-    ?ALL_TESTS.
+all() -> 
+[{group, halt_int}, {group, wrap_int},
+ {group, halt_ext}, {group, wrap_ext},
+ {group, read_mode}, {group, head}, {group, notif},
+ new_idx_vsn, reopen, {group, block}, unblock,
+ {group, open}, {group, close}, {group, error}, chunk,
+ truncate, many_users, {group, info},
+ {group, change_size}, change_attribute,
+ {group, distribution}, evil, otp_6278].
+
+groups() -> 
+    [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
+ {halt_int_sz, [], [halt_int_sz_1, halt_int_sz_2]},
+ {read_mode, [],
+  [halt_int_ro, halt_ext_ro, wrap_int_ro, wrap_ext_ro,
+   halt_trunc, halt_misc, halt_ro_alog, halt_ro_balog,
+   halt_ro_crash]},
+ {wrap_int, [], [wrap_int_1, wrap_int_2, inc_wrap_file]},
+ {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
+ {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
+ {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
+ {head, [], [head_func, plain_head, one_header]},
+ {notif, [],
+  [wrap_notif, full_notif, trunc_notif, blocked_notif]},
+ {block, [], [block_blocked, block_queue, block_queue2]},
+ {open, [],
+  [open_overwrite, open_size, open_truncate, open_error]},
+ {close, [], [close_race, close_block, close_deadlock]},
+ {error, [], [error_repair, error_log, error_index]},
+ {info, [], [info_current]},
+ {change_size, [],
+  [change_size_before, change_size_during,
+   change_size_after, default_size, change_size2,
+   change_size_truncate]},
+ {distribution, [],
+  [dist_open, dist_error_open, dist_notify,
+   dist_terminate, dist_accessible, dist_deadlock,
+   dist_open2, other_groups]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 init_per_testcase(Case, Config) ->
@@ -172,7 +215,6 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-halt_int(suite) -> [halt_int_inf, halt_int_sz].
 
 halt_int_inf(suite) -> [];
 halt_int_inf(doc) -> ["Test simple halt disk log, size infinity"];
@@ -187,7 +229,6 @@ halt_int_inf(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_int_sz(suite) -> [halt_int_sz_1, halt_int_sz_2].
 
 halt_int_sz_1(suite) -> [];
 halt_int_sz_1(doc) -> ["Test simple halt disk log, size defined"];
@@ -275,10 +316,6 @@ halt_int_sz_2(Conf) when is_list(Conf) ->
     ?line ok = file:delete(File3),
     ok.
 
-read_mode(suite) -> [halt_int_ro, halt_ext_ro, 
-		     wrap_int_ro, wrap_ext_ro,
-		     halt_trunc, halt_misc, halt_ro_alog, halt_ro_balog,
-		     halt_ro_crash].
 
 halt_int_ro(suite) -> [];
 halt_int_ro(doc) -> ["Test simple halt disk log, read only, internal"];
@@ -480,7 +517,6 @@ halt_ro_crash(Conf) when is_list(Conf) ->
 
 
 
-wrap_int(suite) -> [wrap_int_1, wrap_int_2, inc_wrap_file].
 
 wrap_int_1(suite) -> [];
 wrap_int_1(doc) -> ["Test wrap disk log, internal"];
@@ -628,7 +664,6 @@ inc_wrap_file(Conf) when is_list(Conf) ->
 
 
 
-halt_ext(suite) -> [halt_ext_inf, halt_ext_sz].
 
 halt_ext_inf(suite) -> [];
 halt_ext_inf(doc) -> ["Test halt disk log, external, infinity"];
@@ -642,7 +677,6 @@ halt_ext_inf(Conf) when is_list(Conf) ->
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
-halt_ext_sz(suite) -> [halt_ext_sz_1, halt_ext_sz_2].
 
 halt_ext_sz_1(suite) -> [];
 halt_ext_sz_1(doc) -> ["Test halt disk log, external, size defined"];
@@ -734,7 +768,6 @@ halt_ext_sz_2(Conf) when is_list(Conf) ->
     ?line ok = file:delete(File3),
     ok.
 
-wrap_ext(suite) -> [wrap_ext_1, wrap_ext_2].
 
 wrap_ext_1(suite) -> [];
 wrap_ext_1(doc) -> ["Test wrap disk log, external, size defined"];
@@ -1147,7 +1180,6 @@ end_times({T1,W1}) ->
     {W2, _} = statistics(wall_clock),
     {T2-T1, W2-W1}.
 
-head(suite) -> [head_func, plain_head, one_header].
 
 head_func(suite) -> [];
 head_func(doc) -> ["Test head parameter"];
@@ -1327,8 +1359,6 @@ one_header(Conf) when is_list(Conf) ->
     ok.
 
 
-notif(suite) -> [wrap_notif, full_notif, trunc_notif, 
-		 blocked_notif].
 
 wrap_notif(suite) -> [];
 wrap_notif(doc) -> ["Test notify parameter, wrap"];
@@ -1553,7 +1583,6 @@ reopen(Conf) when is_list(Conf) ->
     ?line Q = qlen(),
     ok.
 
-block(suite) -> [block_blocked, block_queue, block_queue2].
 
 block_blocked(suite) -> [];
 block_blocked(doc) -> 
@@ -1826,8 +1855,6 @@ try_unblock(Log) ->
     ?line Error = {error, {not_blocked_by_pid, n}} = disk_log:unblock(Log),
     ?line "The disk log" ++ _ = format_error(Error).
 
-open(suite) -> [open_overwrite, open_size, 
-		open_truncate, open_error].
 
 open_overwrite(suite) -> [];
 open_overwrite(doc) -> 
@@ -2075,7 +2102,6 @@ open_error(Conf) when is_list(Conf) ->
 
     ?line del(File, No).    
 
-close(suite) -> [close_race, close_block, close_deadlock].
 
 close_race(suite) -> [];
 close_race(doc) -> 
@@ -2497,7 +2523,6 @@ lserv(Log) ->
     end,
     lserv(Log).
 
-error(suite) -> [error_repair, error_log, error_index].
 
 error_repair(suite) -> [];
 error_repair(doc) -> 
@@ -3215,7 +3240,6 @@ del_files(_Size, File) ->
 
 
 
-info(suite) -> [info_current].
 
 info_current(suite) -> [];
 info_current(doc) -> 
@@ -3420,11 +3444,6 @@ info_current(Conf) when is_list(Conf) ->
     ok.
 
 
-change_size(suite) -> [change_size_before, 
-		       change_size_during, 
-		       change_size_after, 
-		       default_size, change_size2,
-		       change_size_truncate].
 
 change_size_before(suite) -> [];
 change_size_before(doc) -> 
@@ -4094,13 +4113,6 @@ change_attribute(Conf) when is_list(Conf) ->
     ?line Q = qlen(),
     ?line del(File, No).
     
-distribution(suite) -> [dist_open, dist_error_open, 
-			dist_notify, 
-			dist_terminate, 
-			dist_accessible,
-			dist_deadlock,
-                        dist_open2, 
-                        other_groups].
 
 dist_open(suite) -> [];
 dist_open(doc) -> 

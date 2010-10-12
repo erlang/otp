@@ -18,10 +18,10 @@
 %%
 -module(erl_distribution_wb_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2, whitebox/1, 
 	 switch_options/1, missing_compulsory_dflags/1]).
@@ -77,8 +77,18 @@
 -define(u32(X3,X2,X1,X0),
         (((X3) bsl 24) bor ((X2) bsl 16) bor ((X1) bsl 8) bor (X0))).
 
-all(suite) -> 
-    [whitebox,switch_options,missing_compulsory_dflags].
+all() -> 
+[whitebox, switch_options, missing_compulsory_dflags].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(1)),

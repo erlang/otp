@@ -17,8 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(interactive_shell_SUITE).
--include("test_server.hrl").
--export([all/1, get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
+-include_lib("test_server/include/test_server.hrl").
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
 	 job_control_remote/1,
 	 job_control_remote_noshell/1]).
 
@@ -44,9 +44,19 @@ end_per_testcase(_Func, Config) ->
     test_server:timetrap_cancel(Dog).
 
 
-all(suite) ->
-    [get_columns_and_rows, exit_initial, job_control_local, 
-     job_control_remote, job_control_remote_noshell].
+all() -> 
+[get_columns_and_rows, exit_initial, job_control_local,
+ job_control_remote, job_control_remote_noshell].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %-define(DEBUG,1).
 -ifdef(DEBUG).

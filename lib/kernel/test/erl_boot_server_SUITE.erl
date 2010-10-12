@@ -18,9 +18,9 @@
 %%
 -module(erl_boot_server_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([start/1, start_link/1, stop/1, add/1, delete/1, responses/1]).
 
@@ -33,8 +33,18 @@
 %% Changed for the new erl_boot_server for R3A by Bjorn Gustavsson.
 %%-----------------------------------------------------------------
 
-all(suite) ->
-    [start, start_link, stop, add, delete, responses].
+all() -> 
+[start, start_link, stop, add, delete, responses].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 -define(all_ones, {255, 255, 255, 255}).
 

@@ -40,29 +40,29 @@
 
 -module(?FILE_SUITE).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2,
-	 read_write_file/1, dirs/1, files/1, names/1]).
+	 read_write_file/1, names/1]).
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
-	 pos/1, pos1/1, pos2/1]).
--export([close/1, consult/1, consult1/1, path_consult/1, delete/1]).
--export([eval/1, eval1/1, path_eval/1, script/1, script1/1, path_script/1,
-	 open/1, open1/1,
+	 pos1/1, pos2/1]).
+-export([close/1, consult1/1, path_consult/1, delete/1]).
+-export([ eval1/1, path_eval/1, script1/1, path_script/1,
+	 open1/1,
 	 old_modes/1, new_modes/1, path_open/1, open_errors/1]).
--export([file_info/1, file_info_basic_file/1, file_info_basic_directory/1,
+-export([ file_info_basic_file/1, file_info_basic_directory/1,
 	 file_info_bad/1, file_info_times/1, file_write_file_info/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
--export([errors/1, e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
+-export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 -export([otp_5814/1]).
 
--export([compression/1, read_not_really_compressed/1,
+-export([ read_not_really_compressed/1,
 	 read_compressed_cooked/1, read_compressed_cooked_binary/1,
 	 read_cooked_tar_problem/1,
 	 write_compressed/1, compress_errors/1, catenated_gzips/1]).
 
--export([links/1, make_link/1, read_link_info_for_non_link/1, symlinks/1]).
+-export([ make_link/1, read_link_info_for_non_link/1, symlinks/1]).
 
 -export([copy/1]).
 
@@ -93,21 +93,52 @@
 
 
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 
 
-all(suite) ->
-    {conf, init,
-     [altname, read_write_file, dirs, files, 
-      delete, rename, names, errors,
-      compression, links, copy,
-      delayed_write, read_ahead, segment_read, segment_write,
-      ipread, pid2name, interleaved_read_write, 
-      otp_5814, large_file, read_line_1, read_line_2, read_line_3, read_line_4,
-      standard_io],
-     fini}.
+all() -> 
+[altname, read_write_file, {group, dirs},
+ {group, files}, delete, rename, names, {group, errors},
+ {group, compression}, {group, links}, copy,
+ delayed_write, read_ahead, segment_read, segment_write,
+ ipread, pid2name, interleaved_read_write, otp_5814,
+ large_file, read_line_1, read_line_2, read_line_3,
+ read_line_4, standard_io].
+
+groups() -> 
+    [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1]},
+ {files, [],
+  [{group, open}, {group, pos}, {group, file_info},
+   {group, consult}, {group, eval}, {group, script},
+   truncate, sync, datasync, advise]},
+ {open, [],
+  [open1, old_modes, new_modes, path_open, close, access,
+   read_write, pread_write, append, open_errors,
+   exclusive]},
+ {pos, [], [pos1, pos2]},
+ {file_info, [],
+  [file_info_basic_file, file_info_basic_directory,
+   file_info_bad, file_info_times, file_write_file_info]},
+ {consult, [], [consult1, path_consult]},
+ {eval, [], [eval1, path_eval]},
+ {script, [], [script1, path_script]},
+ {errors, [],
+  [e_delete, e_rename, e_make_dir, e_del_dir]},
+ {compression, [],
+  [read_compressed_cooked, read_compressed_cooked_binary,
+   read_cooked_tar_problem, read_not_really_compressed,
+   write_compressed, compress_errors, catenated_gzips]},
+ {links, [],
+  [make_link, read_link_info_for_non_link, symlinks]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init(Config) when is_list(Config) ->
     case os:type() of
@@ -314,7 +345,6 @@ read_write_file(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dirs(suite) -> [make_del_dir, cur_dir_0, cur_dir_1].
 
 make_del_dir(suite) -> [];
 make_del_dir(doc) -> [];
@@ -461,12 +491,7 @@ win_cur_dir_1(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files(suite) ->
-    [open,pos,file_info,consult,eval,script,truncate,
-     sync,datasync,advise].
 
-open(suite) -> [open1,old_modes,new_modes,path_open,close,access,read_write,
-	       pread_write,append,open_errors,exclusive].
 
 open1(suite) -> [];
 open1(doc) -> [];
@@ -858,7 +883,6 @@ exclusive(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pos(suite) -> [pos1,pos2].
 
 pos1(suite) -> [];
 pos1(doc) -> [];
@@ -950,8 +974,6 @@ pos2(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-file_info(suite) -> [file_info_basic_file, file_info_basic_directory,
-		     file_info_bad, file_info_times, file_write_file_info].
 
 file_info_basic_file(suite) -> [];
 file_info_basic_file(doc) -> [];
@@ -1217,7 +1239,6 @@ file_write_file_info(Config) when is_list(Config) ->
 get_good_directory(Config) ->
     ?line ?config(priv_dir, Config).
 
-consult(suite) -> [consult1, path_consult].
 
 consult1(suite) -> [];
 consult1(doc) -> [];
@@ -1278,7 +1299,6 @@ path_consult(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-eval(suite) -> [eval1,path_eval].
 
 eval1(suite) -> [];
 eval1(doc) -> [];
@@ -1351,7 +1371,6 @@ path_eval(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-script(suite) -> [script1,path_script].
 
 script1(suite) -> [];
 script1(doc) -> "";
@@ -1702,7 +1721,6 @@ names(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-errors(suite) -> [e_delete, e_rename, e_make_dir, e_del_dir].
 
 e_delete(suite) -> [];
 e_delete(doc) -> [];
@@ -1959,12 +1977,6 @@ e_del_dir(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-compression(suite) ->
-    [read_compressed_cooked, read_compressed_cooked_binary,
-     read_cooked_tar_problem,
-     read_not_really_compressed,
-     write_compressed, compress_errors,
-     catenated_gzips].
 
 %% Trying reading and positioning from a compressed file.
 
@@ -2258,8 +2270,6 @@ altname(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     Result.
 
-links(doc) -> "Test the link functions.";
-links(suite) -> [make_link, read_link_info_for_non_link, symlinks].
 
 make_link(doc) -> "Test creating a hard link.";
 make_link(suite) -> [];

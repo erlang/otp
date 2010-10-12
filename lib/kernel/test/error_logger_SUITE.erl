@@ -18,7 +18,7 @@
 %%
 -module(error_logger_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%-----------------------------------------------------------------
 %% We don't have to test the normal behaviour here, i.e. the tty
@@ -27,7 +27,7 @@
 %% error_logger deliver the expected events.
 %%-----------------------------------------------------------------
 
--export([all/1, error_report/1, info_report/1, error/1, info/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, error_report/1, info_report/1, error/1, info/1,
 	 emulator/1, tty/1, logfile/1, add/1, delete/1]).
 
 -export([generate_error/0]).
@@ -37,9 +37,19 @@
 	 terminate/2]).
 
 
-all(suite) ->
-    [error_report, info_report, error, info,
-     emulator, tty, logfile, add, delete].
+all() -> 
+[error_report, info_report, error, info, emulator, tty,
+ logfile, add, delete].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 

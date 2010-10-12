@@ -20,13 +20,13 @@
 %%-----------------------------------------------------------------
 -module(pg2_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
--export([tickets/1,
+-export([
              otp_7277/1, otp_8259/1, otp_8653/1,
          compat/1, basic/1]).
 
@@ -49,11 +49,20 @@ end_per_testcase(_Case, _Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [tickets].
+all() -> 
+[{group, tickets}].
 
-tickets(suite) ->
-    [otp_7277, otp_8259, otp_8653, compat, basic].
+groups() -> 
+    [{tickets, [],
+  [otp_7277, otp_8259, otp_8653, compat, basic]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 otp_7277(doc) ->
     "OTP-7277. Bugfix leave().";

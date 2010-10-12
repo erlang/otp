@@ -20,7 +20,8 @@
 
 %-define(line_trace, 1).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1, end_per_suite/1,
 	 names/1, names_hidden/1, locks/1, locks_hidden/1,
 	 bad_input/1, names_and_locks/1, lock_die/1, name_die/1,
 	 basic_partition/1, basic_name_partition/1,
@@ -42,14 +43,14 @@
 
 -export([global_load/3, lock_global/2, lock_global2/2]).
 
--export([ttt/1]).
+-export([]).
 -export([mass_spawn/1]).
 
 -export([start_tracer/0, stop_tracer/0, get_trace/0]).
 
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(NODES, [node()|nodes()]).
 
@@ -58,40 +59,59 @@
 %% The resource used by the global module.
 -define(GLOBAL_LOCK, global).
 
-ttt(suite) ->
-    [
-%% 5&6: succeeds
-%% 4&5&6: succeeds
-%% 3&4&5&6: succeeds
-%% 1&2&3&6: fails
-%% 1&2&6: succeeds
-%% 3&6: succeeds
-     names, names_hidden, locks, locks_hidden,
-     bad_input,
-     names_and_locks, lock_die, name_die, basic_partition,
-%     advanced_partition, basic_name_partition,
-%     stress_partition, simple_ring, simple_line,
-     ring].
 
-all(suite) -> 
-    case init:get_argument(ring_line) of
-	{ok, _} ->
-	    [ring_line];
-	_ ->
-	    [names, names_hidden, locks, locks_hidden,
-	     bad_input,
-	     names_and_locks, lock_die, name_die, basic_partition,
-	     advanced_partition, basic_name_partition,
-	     stress_partition, simple_ring, simple_line,
-	     ring, line, global_lost_nodes, otp_1849,
-	     otp_3162, otp_5640, otp_5737, otp_6931,
-             simple_disconnect, simple_resolve, simple_resolve2, 
-             simple_resolve3,
-             leftover_name, re_register_name, name_exit, 
-             external_nodes, many_nodes, sync_0, global_groups_change,
-	     register_1, both_known_1, lost_unregister, 
-             mass_death, garbage_messages]
-    end.
+all() -> 
+case init:get_argument(ring_line) of
+  {ok, _} -> [ring_line];
+  _ ->
+      [names, names_hidden, locks, locks_hidden, bad_input,
+       names_and_locks, lock_die, name_die, basic_partition,
+       advanced_partition, basic_name_partition,
+       stress_partition, simple_ring, simple_line, ring, line,
+       global_lost_nodes, otp_1849, otp_3162, otp_5640,
+       otp_5737, otp_6931, simple_disconnect, simple_resolve,
+       simple_resolve2, simple_resolve3, leftover_name,
+       re_register_name, name_exit, external_nodes, many_nodes,
+       sync_0, global_groups_change, register_1, both_known_1,
+       lost_unregister, mass_death, garbage_messages]
+end.
+
+groups() -> 
+    [{ttt, [],
+  [names, names_hidden, locks, locks_hidden, bad_input,
+   names_and_locks, lock_die, name_die, basic_partition,
+   ring]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+init_per_suite(Config) ->
+
+    %% Copied from test_server_ctrl ln 647, we have to do this here as
+    %% the test_server only does this when run without common_test
+    global:sync(),
+    case global:whereis_name(test_server) of
+	undefined ->
+	    io:format(user, "Registering test_server globally!~n",[]),
+	    global:register_name(test_server, whereis(test_server_ctrl));
+	Pid ->
+	    case node() of
+		N when N == node(Pid) ->
+		    io:format(user, "Warning: test_server already running!\n", []),
+		    global:re_register_name(test_server,self());
+		_ ->
+		    ok
+	    end
+    end,
+    Config.
+
+end_per_suite(_Config) ->
+    global:unregister_name(test_server),
+    ok.
+
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).

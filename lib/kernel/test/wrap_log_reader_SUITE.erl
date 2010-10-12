@@ -28,25 +28,38 @@
 -define(config(X,Y), foo).
 -define(t,test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 no_file/1,
-	 one/1, one_empty/1, one_filled/1,
-	 two/1, two_filled/1,
-	 four/1, four_filled/1,
-	 wrap/1, wrap_filled/1,
+	 one_empty/1, one_filled/1,
+	 two_filled/1,
+	 four_filled/1,
+	 wrap_filled/1,
 	 wrapping/1,
 	 external/1,
 	 error/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-all(suite) ->
-    [no_file, one, two, four, wrap, wrapping, external, error].
+all() -> 
+[no_file, {group, one}, {group, two}, {group, four},
+ {group, wrap}, wrapping, external, error].
+
+groups() -> 
+    [{one, [], [one_empty, one_filled]},
+ {two, [], [two_filled]}, {four, [], [four_filled]},
+ {wrap, [], [wrap_filled]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(60)),
@@ -76,8 +89,6 @@ no_file(Conf) when is_list(Conf) ->
     delete_files(File),
     ok.
 
-one(suite) -> [one_empty, one_filled];
-one(doc) -> ["One index file"].
 
 one_empty(suite) -> [];
 one_empty(doc) -> ["One empty index file"];
@@ -139,8 +150,6 @@ test_one(File) ->
 		    {chunk, 1, ["first round, two"]}, eof], wlt, ?LINE),
     ok.
 
-two(suite) -> [two_filled];
-two(doc) -> ["Two index files"].
 
 two_filled(suite) -> [];
 two_filled(doc) -> ["Two filled index files"];
@@ -181,8 +190,6 @@ test_two(File) ->
 		    {chunk, 2, ["first round, 12"]}, eof], wlt, ?LINE),
     ok.
 
-four(suite) -> [four_filled];
-four(doc) -> ["Four index files"].
 
 four_filled(suite) -> [];
 four_filled(doc) -> ["Four filled index files"];
@@ -226,8 +233,6 @@ test_four(File) ->
 		    {chunk, 2, ["first round, 42"]}, eof], wlt, ?LINE),
     ok.
 
-wrap(suite) -> [wrap_filled];
-wrap(doc) -> ["Wrap index file, first wrapping"].
 
 wrap_filled(suite) -> [];
 wrap_filled(doc) -> ["First wrap, open, filled index file"];
