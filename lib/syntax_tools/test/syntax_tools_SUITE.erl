@@ -17,16 +17,26 @@
 %%
 -module(syntax_tools_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %% Test cases
 -export([smoke_test/1]).
 
-all(suite) ->
-    [smoke_test].
+all() -> 
+[smoke_test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% Read and parse all source in the OTP release.
 smoke_test(Config) when is_list(Config) ->
