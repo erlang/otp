@@ -1,0 +1,78 @@
+/*
+ * %CopyrightBegin%
+ * 
+ * Copyright Ericsson AB 2006-2010. All Rights Reserved.
+ * 
+ * The contents of this file are subject to the Erlang Public License,
+ * Version 1.1, (the "License"); you may not use this file except in
+ * compliance with the License. You should have received a copy of the
+ * Erlang Public License along with this software. If not, it can be
+ * retrieved online at http://www.erlang.org/.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ * the License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * %CopyrightEnd%
+ */
+
+/*
+ * Description:	Check I/O
+ *
+ * Author: 	Rickard Green
+ */
+
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
+#include "sys.h"
+#include "global.h"
+
+#if !defined(__WIN32__)
+#include <locale.h>
+#if !defined(HAVE_SETLOCALE) || !defined(HAVE_NL_LANGINFO) || !defined(HAVE_LANGINFO_H)
+#define PRIMITIVE_UTF8_CHECK 1
+#else
+#include <langinfo.h>
+#endif
+#endif
+
+/* Written once and only once */
+
+static int filename_encoding = ERL_FILENAME_UNKNOWN;
+
+void erts_init_sys_common_misc(void)
+{
+#if defined(__WIN32__)
+    filename_encoding = ERL_FILENAME_WIN_WCHAR;
+#else
+    char *l;
+    filename_encoding = ERL_FILENAME_LATIN1;
+#  ifdef PRIMITIVE_UTF8_CHECK
+    setlocale(LC_CTYPE, "");  /* Set international environment, 
+				 ignore result */
+    if (((l = getenv("LC_ALL"))   && *l) ||
+	((l = getenv("LC_CTYPE")) && *l) ||
+	((l = getenv("LANG"))     && *l)) {
+	if (strstr(l, "UTF-8")) {
+	    filename_encoding = ERL_FILENAME_UTF8;
+	} 
+    }
+    
+#  else
+    l = setlocale(LC_CTYPE, "");  /* Set international environment */
+    if (l != NULL) {
+	if (strcmp(nl_langinfo(CODESET), "UTF-8") == 0) {
+	    filename_encoding = ERL_FILENAME_UTF8;
+	}
+    }
+#  endif
+#endif
+}
+
+int erts_get_native_filename_encoding(void)
+{
+    return filename_encoding;
+}

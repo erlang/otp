@@ -796,7 +796,8 @@ endif
 
 OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
-		$(OBJDIR)/erl_mtrace_sys_wrap.o
+		$(OBJDIR)/erl_mtrace_sys_wrap.o \
+		$(OBJDIR)/erl_sys_common_misc.o
 
 HIPE_x86_OS_OBJS=$(HIPE_x86_$(OPSYS)_OBJS)
 HIPE_x86_OBJS=$(OBJDIR)/hipe_x86.o $(OBJDIR)/hipe_x86_glue.o $(OBJDIR)/hipe_x86_bifs.o $(OBJDIR)/hipe_x86_signal.o $(OBJDIR)/hipe_x86_stack.o $(HIPE_x86_OS_OBJS)

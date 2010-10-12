@@ -251,6 +251,7 @@ erl_init(int ncpu)
     erts_init_monitors();
     erts_init_gc();
     init_time();
+    erts_init_sys_common_misc();
     erts_init_process(ncpu);
     erts_init_scheduling(use_multi_run_queue,
 			 no_schedulers,

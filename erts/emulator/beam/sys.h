@@ -1253,6 +1253,18 @@ char* win32_errorstr(int);
 
 #endif
 
+/************************************************************************
+ * Find out the native filename encoding of the process (look at locale of 
+ * Unix processes and just do UTF16 on windows 
+ ************************************************************************/
+#define ERL_FILENAME_UNKNOWN 0
+#define ERL_FILENAME_LATIN1 1
+#define ERL_FILENAME_UTF8 2
+#define ERL_FILENAME_WIN_WCHAR 3
+
+int erts_get_native_filename_encoding(void);
+
+void erts_init_sys_common_misc(void);
 
 #endif
 

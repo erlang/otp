@@ -463,7 +463,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			}
 			objp = list_val(ioterm);
 			obj = CAR(objp);
-			if (!is_byte(obj))
+			if (!is_small(obj))
 			    break;
 		    }
 		} else if (is_nil(obj)) {
@@ -1812,4 +1812,386 @@ BIF_RETTYPE binary_to_atom_2(BIF_ALIST_2)
 BIF_RETTYPE binary_to_existing_atom_2(BIF_ALIST_2)
 {
     return binary_to_atom(BIF_P, BIF_ARG_1, BIF_ARG_2, 1);
+}
+
+/**********************************************************
+ * Simpler non-interruptable routines for UTF-8 and 
+ * Windowish UTF-16 (restricted)
+ **********************************************************/
+static Sint simple_char_need(Eterm ioterm, int encoding) 
+{
+    Eterm *objp;
+    Eterm obj;
+    DECLARE_ESTACK(stack);
+    Sint need = 0;
+
+    if (is_atom(ioterm)) {
+	Atom* ap;
+	int i;
+	ap = atom_tab(atom_val(ioterm));
+	switch (encoding) {
+	case ERL_FILENAME_LATIN1:
+	    need = ap->len;
+	    break;
+	case ERL_FILENAME_UTF8:
+	    for (i = 0; i < ap->len; i++) {
+		need += (ap->name[i] >= 0x80) ? 2 : 1;
+	    }
+	    break;
+	case ERL_FILENAME_WIN_WCHAR:
+	    need = 2*(ap->len);
+	    break;
+	default:
+	    need = -1;
+	}
+	DESTROY_ESTACK(stack);
+	return need;
+    }
+
+    if (is_nil(ioterm)) {
+	DESTROY_ESTACK(stack);
+	return need;
+    }
+    if (!is_list(ioterm)) {
+	DESTROY_ESTACK(stack);
+	return (Sint) -1;
+    }
+    /* OK a list, needs to be processed in order, handling each flat list-level
+       as they occur, just like io_list_to_binary would */
+    ESTACK_PUSH(stack,ioterm);
+    while (!ESTACK_ISEMPTY(stack)) {
+	ioterm = ESTACK_POP(stack);	
+	if (is_nil(ioterm)) {
+	    /* ignore empty lists */
+	    continue;
+	}
+	if(is_list(ioterm)) {
+L_Again:   /* Restart with sublist, old listend was pushed on stack */
+	    objp = list_val(ioterm);
+	    obj = CAR(objp);
+	    for(;;) { /* loop over one flat list of bytes and binaries
+		         until sublist or list end is encountered */
+		if (is_small(obj)) { /* Always small */
+		    for(;;) {
+			Uint x = unsigned_val(obj);
+			switch (encoding) {
+			case ERL_FILENAME_LATIN1:
+			    need += 1;
+			    break;
+			case ERL_FILENAME_UTF8:
+			    if (x < 0x80) {
+				need +=1;
+			    } else if (x < 0x800) {
+				need += 2;
+			    } else if (x < 0x10000) {
+				if ((x >= 0xD800 && x <= 0xDFFF) ||
+				    (x == 0xFFFE) ||
+				    (x == 0xFFFF)) { /* Invalid unicode range */
+				    DESTROY_ESTACK(stack);
+				    return ((Sint) -1);
+				}
+				need += 3;
+			    } else  if (x < 0x110000) {
+				need += 4; 
+			    } else {
+				DESTROY_ESTACK(stack);
+				return ((Sint) -1);
+			    }
+			    break;
+			case ERL_FILENAME_WIN_WCHAR:
+			    if (x <= 0xffff) { 
+				need += 2;
+				break;
+			    } /* else fall throug to error */
+			default:
+			    DESTROY_ESTACK(stack);
+			    return ((Sint) -1);
+			}
+			    
+			/* everything else will give badarg later 
+			   in the process, so we dont check */
+			ioterm = CDR(objp);
+			if (!is_list(ioterm)) {
+			    break;
+			}
+			objp = list_val(ioterm);
+			obj = CAR(objp);
+			if (!is_small(obj))
+			    break;
+		    }
+		} else if (is_nil(obj)) {
+		    ioterm = CDR(objp);
+		    if (!is_list(ioterm)) {
+			break;
+		    }
+		    objp = list_val(ioterm);
+		    obj = CAR(objp);
+		} else if (is_list(obj)) {
+		    /* push rest of list for later processing, start 
+		       again with sublist */
+		    ESTACK_PUSH(stack,CDR(objp));
+		    ioterm = obj;
+		    goto L_Again;
+		} else {
+		    DESTROY_ESTACK(stack);
+		    return ((Sint) -1);
+		} 
+		if (is_nil(ioterm) || !is_list(ioterm)) {
+		    break;
+		}
+	    } /* for(;;) */
+	} /* is_list(ioterm) */
+	
+	if (!is_list(ioterm) && !is_nil(ioterm)) {
+	    /* inproper list end */
+	    DESTROY_ESTACK(stack);
+	    return ((Sint) -1);
+	}
+    } /* while  not estack empty */
+    DESTROY_ESTACK(stack);
+    return need;
+}
+
+static void simple_put_chars(Eterm ioterm, int encoding, byte *p) 
+{
+    Eterm *objp;
+    Eterm obj;
+    DECLARE_ESTACK(stack);
+
+    if (is_atom(ioterm)) {
+	Atom* ap;
+	int i;
+	ap = atom_tab(atom_val(ioterm));
+	switch (encoding) {
+	case ERL_FILENAME_LATIN1:
+	    for (i = 0; i < ap->len; i++) {
+		*p++ = ap->name[i];
+	    }
+	    break;
+	case ERL_FILENAME_UTF8:
+	    for (i = 0; i < ap->len; i++) {
+		if(ap->name[i] < 0x80) {
+		    *p++ = ap->name[i];
+		} else {
+		    *p++ = (((ap->name[i]) >> 6) | ((byte) 0xC0));
+		    *p++ = (((ap->name[i]) & 0x3F) | ((byte) 0x80));
+		}
+	    }
+	    break;
+	case ERL_FILENAME_WIN_WCHAR:
+	    for (i = 0; i < ap->len; i++) {
+		/* Little endian */
+		*p++ = ap->name[i];
+		*p++ = 0;
+	    }
+	    break;
+	default:
+	    ASSERT(0);
+	}
+	DESTROY_ESTACK(stack);
+	return;
+    }
+
+    if (is_nil(ioterm)) {
+	DESTROY_ESTACK(stack);
+	return;
+    }
+    ASSERT(is_list(ioterm));
+    /* OK a list, needs to be processed in order, handling each flat list-level
+       as they occur, just like io_list_to_binary would */
+    ESTACK_PUSH(stack,ioterm);
+    while (!ESTACK_ISEMPTY(stack)) {
+	ioterm = ESTACK_POP(stack);	
+	if (is_nil(ioterm)) {
+	    /* ignore empty lists */
+	    continue;
+	}
+	if(is_list(ioterm)) {
+L_Again:   /* Restart with sublist, old listend was pushed on stack */
+	    objp = list_val(ioterm);
+	    obj = CAR(objp);
+	    for(;;) { /* loop over one flat list of bytes and binaries
+		         until sublist or list end is encountered */
+		if (is_small(obj)) { /* Always small */
+		    for(;;) {
+			Uint x = unsigned_val(obj);
+			switch (encoding) {
+			case ERL_FILENAME_LATIN1:
+			    ASSERT( x < 256);
+			    *p++ = (byte) x;
+			    break;
+			case ERL_FILENAME_UTF8:
+			    if (x < 0x80) {
+				*p++ = (byte) x;
+			    }
+			    else if (x < 0x800) {
+				*p++ = (((byte) (x >> 6)) | 
+					((byte) 0xC0));
+				*p++ = (((byte) (x & 0x3F)) | 
+					((byte) 0x80));
+			    } else if (x < 0x10000) {
+				ASSERT(!((x >= 0xD800 && x <= 0xDFFF) ||
+					 (x == 0xFFFE) ||
+					 (x == 0xFFFF)));
+				*p++ = (((byte) (x >> 12)) | 
+					((byte) 0xE0));
+				*p++ = ((((byte) (x >> 6)) & 0x3F)  | 
+					((byte) 0x80));
+				*p++ = (((byte) (x & 0x3F)) | 
+					((byte) 0x80));
+			    } else {
+				ASSERT(x < 0x110000);
+				*p++ = (((byte) (x >> 18)) | 
+					((byte) 0xF0));
+				*p++ = ((((byte) (x >> 12)) & 0x3F)  | 
+					((byte) 0x80));
+				*p++ = ((((byte) (x >> 6)) & 0x3F)  | 
+					((byte) 0x80));
+				*p++ = (((byte) (x & 0x3F)) | 
+					((byte) 0x80));
+			    }
+			    break;
+			case ERL_FILENAME_WIN_WCHAR:
+			    ASSERT(x <= 0xFFFF); 
+			    *p++ = (byte) (x & 0xFFU);
+			    *p++ = (byte) ((x >> 8) & 0xFFU);
+			    break;
+			default:
+			    ASSERT(0);
+			}
+			    
+			/* everything else will give badarg later 
+			   in the process, so we dont check */
+			ioterm = CDR(objp);
+			if (!is_list(ioterm)) {
+			    break;
+			}
+			objp = list_val(ioterm);
+			obj = CAR(objp);
+			if (!is_small(obj))
+			    break;
+		    }
+		} else if (is_nil(obj)) {
+		    ioterm = CDR(objp);
+		    if (!is_list(ioterm)) {
+			break;
+		    }
+		    objp = list_val(ioterm);
+		    obj = CAR(objp);
+		} else if (is_list(obj)) {
+		    /* push rest of list for later processing, start 
+		       again with sublist */
+		    ESTACK_PUSH(stack,CDR(objp));
+		    ioterm = obj;
+		    goto L_Again;
+		} else {
+		    ASSERT(0);
+		} 
+		if (is_nil(ioterm) || !is_list(ioterm)) {
+		    break;
+		}
+	    } /* for(;;) */
+	} /* is_list(ioterm) */
+	
+	ASSERT(is_list(ioterm) || is_nil(ioterm));
+    } /* while  not estack empty */
+    DESTROY_ESTACK(stack);
+    return;
+}
+
+
+
+BIF_RETTYPE file_name2native_1(BIF_ALIST_1)
+{
+    int encoding = erts_get_native_filename_encoding();
+    Sint need;
+    Eterm bin_term;
+    byte* bin_p;
+    if ((need = simple_char_need(BIF_ARG_1,encoding)) < 0) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    bin_term = new_binary(BIF_P, 0, need);
+    bin_p = binary_bytes(bin_term);
+    simple_put_chars(BIF_ARG_1,encoding,bin_p); 
+    BIF_RET(bin_term);
+}
+
+BIF_RETTYPE file_native2name_1(BIF_ALIST_1)
+{
+    Eterm real_bin;
+    Uint offset;
+    Uint size,num_chars;
+    Uint bitsize;
+    Uint bitoffs;
+    Eterm *hp;
+    byte *temp_alloc = NULL;
+    byte *bytes;
+    byte *err_pos;
+    Uint num_built; /* characters */
+    Uint num_eaten; /* bytes */
+    Eterm ret;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    size = binary_size(BIF_ARG_1);
+    ERTS_GET_REAL_BIN(BIF_ARG_1, real_bin, offset, bitoffs, bitsize);
+    if (bitsize != 0) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    if (size == 0) {
+	BIF_RET(NIL);
+    }
+    switch (erts_get_native_filename_encoding()) {
+    case ERL_FILENAME_LATIN1:
+	goto simple;
+    case ERL_FILENAME_UTF8:
+	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	if (analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != UTF8_OK) {
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    goto simple;
+	}
+	num_built = 0;
+	num_eaten = 0;
+	ret = do_utf8_to_list(BIF_P, num_chars, bytes, size, num_chars, &num_built, &num_eaten, NIL);
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_RET(ret);
+    case ERL_FILENAME_WIN_WCHAR:
+	if ((size % 2) != 0) {
+	    goto simple;
+	}
+	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	hp = HAlloc(BIF_P, size);
+	ret = NIL;
+	bytes += size-1;
+	while (size > 0) {
+	    Uint x = ((Uint) *bytes--) << 8;
+	    x |= ((Uint) *bytes--);
+	    ret = CONS(hp,make_small(x),ret);
+	    size -= 2;
+	}	    
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_RET(ret);
+    default:
+	goto simple;
+    }
+ simple:
+    hp = HAlloc(BIF_P, 2 * size);
+    bytes = binary_bytes(real_bin)+offset;
+    
+    BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
+}
+
+BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
+{
+    switch (erts_get_native_filename_encoding()) {
+    case ERL_FILENAME_LATIN1:
+	BIF_RET(am_latin1);
+    case ERL_FILENAME_UTF8:
+	BIF_RET(am_utf8);
+    case ERL_FILENAME_WIN_WCHAR:
+	BIF_RET(am_win_wchar);
+    default:
+	BIF_RET(am_undefined);
+    }
 }
