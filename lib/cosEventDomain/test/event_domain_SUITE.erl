@@ -22,7 +22,7 @@
 
 -module(event_domain_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("cosNotification/include/CosNotifyChannelAdmin.hrl").
 -include_lib("cosNotification/include/CosNotification.hrl").
@@ -56,21 +56,29 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, event_domain_api/1, event_domain_factory_api/1,
-	 cases/0, init_all/1, finish_all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, event_domain_api/1, event_domain_factory_api/1,
+	 cases/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2, app_test/1]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
 
-all(doc) -> ["API tests for the cosEventDomain interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber, cosNotification],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
-cases() ->
-    [event_domain_api, event_domain_factory_api, app_test].
+cases() -> 
+[event_domain_api, event_domain_factory_api, app_test].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -86,7 +94,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     mnesia:delete_schema([node()]),
     mnesia:create_schema([node()]),
     ok = corba:orb_init([{flags, 16#02}, 
@@ -102,7 +110,7 @@ init_all(Config) when is_list(Config) ->
     cosEventDomainApp:start(),
     Config.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     cosEventDomainApp:stop(),
     cosEventDomainApp:uninstall(),
     cosNotificationApp:stop(),
