@@ -18,12 +18,22 @@
 %%
 -module(eunit_SUITE).
 
--export([all/1,eunit_test/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,eunit_test/1]).
 	 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-all(suite) ->
-    [eunit_test].
+all() -> 
+[eunit_test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 eunit_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
