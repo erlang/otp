@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
@@ -98,14 +98,22 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test start/stop of odbc"];
+all() -> 
+case odbc_test_lib:odbc_check() of
+  ok -> [start];
+  Other -> {skip, Other}
+end.
 
-all(suite) -> 
-    case odbc_test_lib:odbc_check() of
-	ok -> [start];
-	Other -> {skip, Other}
-    end.						  
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+					  
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

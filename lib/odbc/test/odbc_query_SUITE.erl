@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
@@ -38,20 +38,45 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Tests SQL queries"];
-all(suite) ->
-    case odbc_test_lib:odbc_check() of
-	ok ->
-	    [sql_query, first, last, next, prev, select_count,select_next,
-	     select_relative, select_absolute, create_table_twice,
-	     delete_table_twice, duplicate_key, not_connection_owner,
-	     no_result_set, query_error, multiple_select_result_sets,
-	     multiple_mix_result_sets, multiple_result_sets_error,
-	     parameterized_queries, describe_table,
-	     delete_nonexisting_row];
-	Other -> {skip, Other}
-    end.						  
+all() -> 
+case odbc_test_lib:odbc_check() of
+  ok ->
+      [sql_query, first, last, next, prev, select_count,
+       select_next, select_relative, select_absolute,
+       create_table_twice, delete_table_twice, duplicate_key,
+       not_connection_owner, no_result_set, query_error,
+       multiple_select_result_sets, multiple_mix_result_sets,
+       multiple_result_sets_error,
+       {group, parameterized_queries}, {group, describe_table},
+       delete_nonexisting_row];
+  Other -> {skip, Other}
+end.
+
+groups() -> 
+    [{parameterized_queries, [],
+  [{group, param_integers}, param_insert_decimal,
+   param_insert_numeric, {group, param_insert_string},
+   param_insert_float, param_insert_real,
+   param_insert_double, param_insert_mix, param_update,
+   param_delete, param_select]},
+ {param_integers, [],
+  [param_insert_tiny_int, param_insert_small_int,
+   param_insert_int, param_insert_integer]},
+ {param_insert_string, [],
+  [param_insert_char, param_insert_character,
+   param_insert_char_varying,
+   param_insert_character_varying]},
+ {describe_table, [],
+  [describe_integer, describe_string, describe_floating,
+   describe_dec_num, describe_no_such_table]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+					  
 
 
 %%--------------------------------------------------------------------
@@ -636,19 +661,8 @@ multiple_result_sets_error(Config) when is_list(Config) ->
     end.   
 
 %%-------------------------------------------------------------------------
-parameterized_queries(suite) ->
-    [param_integers,
-     param_insert_decimal, param_insert_numeric,
-     param_insert_string, 
-     param_insert_float, param_insert_real, param_insert_double,
-     param_insert_mix, param_update, param_delete, param_select].
 
 %%-------------------------------------------------------------------------
-param_integers(doc)->
-    ["Test insertion of integers by parameterized queries."];
-param_integers(suite) ->
-    [param_insert_tiny_int,
-     param_insert_small_int, param_insert_int, param_insert_integer].
 %%-------------------------------------------------------------------------
 param_insert_tiny_int(doc)->
     ["Test insertion of tiny ints by parameterized queries."];
@@ -885,11 +899,6 @@ param_insert_numeric(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-param_insert_string(doc) ->
-    ["Test insertion of strings by parameterized queries."];
-param_insert_string(suite) ->
-    [param_insert_char, param_insert_character, param_insert_char_varying,
-     param_insert_character_varying].
 
 %%-------------------------------------------------------------------------
 param_insert_char(doc)->
@@ -1314,11 +1323,6 @@ param_select(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-describe_table(doc) ->
-    ["Test describe_table/[2,3]"];
-describe_table(suite) ->
-    [describe_integer, describe_string, describe_floating, describe_dec_num,
-     describe_no_such_table].
 
 %%-------------------------------------------------------------------------
 describe_integer(doc) ->

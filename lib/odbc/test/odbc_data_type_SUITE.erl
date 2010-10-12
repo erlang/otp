@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 -include("test_server_line.hrl").
 -include("odbc_test.hrl").
@@ -39,13 +39,46 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Tests data types"];
-all(suite) ->
-    case odbc_test_lib:odbc_check() of
-	ok -> [char, int, floats, dec_and_num, timestamp];
-	Other -> {skip,Other}
-    end.						  
+all() -> 
+case odbc_test_lib:odbc_check() of
+  ok ->
+      [{group, char}, {group, int}, {group, floats},
+       {group, dec_and_num}, timestamp];
+  Other -> {skip, Other}
+end.
+
+groups() -> 
+    [{char, [],
+  [char_fixed_lower_limit, char_fixed_upper_limit,
+   char_fixed_padding, varchar_lower_limit,
+   varchar_upper_limit, varchar_no_padding,
+   text_lower_limit, text_upper_limit, unicode]},
+ {binary_char, [],
+  [binary_char_fixed_lower_limit,
+   binary_char_fixed_upper_limit,
+   binary_char_fixed_padding, binary_varchar_lower_limit,
+   binary_varchar_upper_limit, binary_varchar_no_padding,
+   binary_text_lower_limit, binary_text_upper_limit,
+   unicode]},
+ {int, [],
+  [tiny_int_lower_limit, tiny_int_upper_limit,
+   small_int_lower_limit, small_int_upper_limit,
+   int_lower_limit, int_upper_limit, big_int_lower_limit,
+   big_int_upper_limit, bit_false, bit_true]},
+ {floats, [],
+  [float_lower_limit, float_upper_limit, float_zero,
+   real_zero]},
+ {dec_and_num, [],
+  [dec_long, dec_double, dec_bignum, num_long, num_double,
+   num_bignum]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+					  
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -121,14 +154,6 @@ end_per_testcase(_TestCase, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-char(doc) ->
-    ["Tests char data types"]; 
-
-char(suite) ->
-    [char_fixed_lower_limit, char_fixed_upper_limit,
-     char_fixed_padding, varchar_lower_limit, varchar_upper_limit,
-     varchar_no_padding, text_lower_limit, text_upper_limit, unicode
-    ].
 
 char_fixed_lower_limit(doc) ->
     ["Tests fixed length char data type lower boundaries."];
@@ -421,14 +446,6 @@ text_upper_limit(Config) when is_list(Config) ->
 %%     ok.
 
 %%-------------------------------------------------------------------------
-binary_char(doc) ->
-    ["Tests char data types returned as erlang binaries"]; 
-
-binary_char(suite) ->
-    [binary_char_fixed_lower_limit, binary_char_fixed_upper_limit,
-     binary_char_fixed_padding, binary_varchar_lower_limit, binary_varchar_upper_limit,
-     binary_varchar_no_padding, binary_text_lower_limit, binary_text_upper_limit, unicode
-    ].
 
 binary_char_fixed_lower_limit(doc) ->
     ["Tests fixed length char data type lower boundaries."];
@@ -723,13 +740,6 @@ binary_text_upper_limit(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-int(doc) ->
-    ["Tests integer data types"]; 
-
-int(suite) ->
-    [tiny_int_lower_limit, tiny_int_upper_limit, small_int_lower_limit,
-     small_int_upper_limit, int_lower_limit, int_upper_limit,
-     big_int_lower_limit, big_int_upper_limit, bit_false, bit_true].
 
 %%-------------------------------------------------------------------------
 
@@ -1050,10 +1060,6 @@ bit_true(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-floats(doc) ->
-    ["Test the datatype float."];
-floats(suite) ->
-    [float_lower_limit, float_upper_limit, float_zero, real_zero].
 
 %%-------------------------------------------------------------------------
 float_lower_limit(doc) ->
@@ -1181,10 +1187,6 @@ real_zero(Config) when is_list(Config) ->
 	    ok
     end.
 %%-------------------------------------------------------------------------
-dec_and_num(doc) ->
-    ["Tests decimal and numeric datatypes."];
-dec_and_num(suite) ->
-    [dec_long, dec_double, dec_bignum, num_long, num_double, num_bignum].
 %%------------------------------------------------------------------------
 dec_long(doc) ->
     [""];

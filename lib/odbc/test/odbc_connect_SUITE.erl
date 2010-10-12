@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
@@ -41,17 +41,29 @@
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
 
-all(suite) ->
-    case odbc_test_lib:odbc_check() of
-	ok ->
-	    [not_exist_db, commit, rollback, not_explicit_commit,
-	     no_c_node, port_dies, control_process_dies, client_dies,
-	     connect_timeout, timeout, many_timeouts, timeout_reset,
-	     disconnect_on_timeout, connection_closed,
-	     disable_scrollable_cursors, return_rows_as_lists, api_missuse];
-	Other ->
-	    {skip, Other}
-    end.
+all() -> 
+case odbc_test_lib:odbc_check() of
+  ok ->
+      [not_exist_db, commit, rollback, not_explicit_commit,
+       no_c_node, port_dies, control_process_dies,
+       {group, client_dies}, connect_timeout, timeout,
+       many_timeouts, timeout_reset, disconnect_on_timeout,
+       connection_closed, disable_scrollable_cursors,
+       return_rows_as_lists, api_missuse];
+  Other -> {skip, Other}
+end.
+
+groups() -> 
+    [{client_dies, [],
+  [client_dies_normal, client_dies_timeout,
+   client_dies_error]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -281,11 +293,6 @@ control_process_dies(_Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-client_dies(doc) ->
-    ["Test that the odbc process is terminated when the client process "
-     "dies"];
-client_dies(suite) -> 
-    [client_dies_normal, client_dies_timeout, client_dies_error].
 
 %%-------------------------------------------------------------------------
 client_dies_normal(doc) ->
