@@ -43,25 +43,22 @@
 -define(NIST6, "2.16.840.1.101.3.2.1.48.6").
 
 %%
-all(doc) ->
-    ["PKITS tests for RFC3280 compliance"];
-all(suite) ->    
-    [signature_verification,
-     validity_periods,
-     verifying_name_chaining,
-     %% basic_certificate_revocation_tests,
-     verifying_paths_with_self_issued_certificates,
-     verifying_basic_constraints,
-     key_usage,
-%%      certificate_policies,
-%%      require_explicit_policy,
-%%      policy_mappings,
-%%      inhibit_policy_mapping,
-%%      inhibit_any_policy,
-     name_constraints,	     
-%%      distribution_points,
-%%      delta_crls,
-     private_certificate_extensions].
+all() -> 
+[signature_verification, validity_periods,
+ verifying_name_chaining,
+ verifying_paths_with_self_issued_certificates,
+ verifying_basic_constraints, key_usage,
+ name_constraints, private_certificate_extensions].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 signature_verification(doc) ->    [""];
 signature_verification(suite) -> [];
