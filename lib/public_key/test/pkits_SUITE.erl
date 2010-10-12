@@ -25,8 +25,8 @@
 
 -compile(export_all).
 
-%%-include_lib("public_key/include/public_key.hrl").
--include("public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
+%%-include("public_key.hrl").
 
 -define(error(Format,Args), error(Format,Args,?FILE,?LINE)).
 -define(warning(Format,Args), warning(Format,Args,?FILE,?LINE)).

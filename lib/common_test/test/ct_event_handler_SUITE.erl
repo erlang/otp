@@ -28,7 +28,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %-include_lib("common_test/include/ct_event.hrl").
 
@@ -56,11 +56,18 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) -> 
-    [];
+all() -> 
+[start_stop, results].
 
-all(suite) -> 
-    [start_stop, results].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%--------------------------------------------------------------------

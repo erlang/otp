@@ -26,7 +26,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("test_server/include/test_server_line.hrl").
 
--include("public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -define(TIMEOUT, 120000). % 2 min
 

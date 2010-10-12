@@ -27,7 +27,7 @@
 
 
 %%--------------- INCLUDES -----------------------------------
--include("../src/cosTimeApp.hrl").
+-include_lib("cosTime/src/cosTimeApp.hrl").
 
 -include("test_server.hrl").
 

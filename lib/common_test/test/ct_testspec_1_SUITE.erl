@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -56,24 +56,26 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) ->
-    ["Run smoke tests of Common Test."];
+all() -> 
+[all_suites, skip_all_suites, suite, skip_suite,
+ all_testcases, skip_all_testcases, testcase,
+ skip_testcase, all_groups, skip_all_groups, group,
+ skip_group, group_all_testcases,
+ skip_group_all_testcases, group_testcase,
+ skip_group_testcase, topgroup, subgroup, skip_subgroup,
+ subgroup_all_testcases, skip_subgroup_all_testcases,
+ subgroup_testcase, skip_subgroup_testcase,
+ sub_skipped_by_top, testcase_in_multiple_groups].
 
-all(suite) ->
-    [all_suites, skip_all_suites,
-     suite, skip_suite,
-     all_testcases, skip_all_testcases,
-     testcase, skip_testcase,
-     all_groups, skip_all_groups,
-     group, skip_group,
-     group_all_testcases, skip_group_all_testcases,
-     group_testcase, skip_group_testcase,
-     topgroup,
-     subgroup, skip_subgroup,
-     subgroup_all_testcases, skip_subgroup_all_testcases,
-     subgroup_testcase, skip_subgroup_testcase,
-     sub_skipped_by_top,
-     testcase_in_multiple_groups].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%--------------------------------------------------------------------
 %% TEST CASES
