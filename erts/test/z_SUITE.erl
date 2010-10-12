@@ -35,11 +35,11 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export([search_for_core_files/1, core_files/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
     
 
 init_per_testcase(Case, Config) ->
@@ -51,9 +51,18 @@ fin_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(doc) -> [];
-all(suite) ->
-    [core_files].
+all() -> 
+[core_files].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 core_files(doc) ->

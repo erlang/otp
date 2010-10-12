@@ -20,14 +20,24 @@
 
 %% Tests the erlc command by compiling various types of files.
 
--export([all/1, compile_erl/1, compile_yecc/1, compile_script/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, compile_erl/1,
+	 compile_yecc/1, compile_script/1,
 	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
+all() -> 
     [compile_erl, compile_yecc, compile_script, compile_mib,
      good_citizen, deep_cwd, arg_overflow].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 %% Copy from erlc_SUITE_data/include/erl_test.hrl.
 

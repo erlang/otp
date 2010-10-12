@@ -31,7 +31,7 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(1)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1, zdbbl_dist_buf_busy_limit/1]).
 
@@ -51,11 +51,18 @@ fin_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(doc) -> [];
-all(suite) ->
-    [args_file, evil_args_file, env, args_file_env, otp_7461, otp_8209,
-     zdbbl_dist_buf_busy_limit].
+all() -> 
+    [args_file, evil_args_file, env, args_file_env,
+     otp_7461, otp_8209, zdbbl_dist_buf_busy_limit].
 
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 otp_8209(doc) ->
     ["Test that plain first argument does not "

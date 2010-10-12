@@ -22,7 +22,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
 	 middleman/1,service_basic/1, service_env/1, user_env/1, synced/1, 
 	 service_prio/1, 
 	 logout/1, debug/1, restart/1, restart_always/1,stopaction/1,
@@ -31,14 +31,24 @@
 
 -define(TEST_SERVICES, [1,2,3,4,5,6,7,8,9,10,11]).
 
-all(suite) ->
-    case os:type() of
-	{win32,nt} ->
-	    [nt, service_basic, service_env, user_env, synced, service_prio, 
-	     logout, debug,
-	     restart, restart_always, stopaction];
-	_ -> [nt] %%% Just to give a little hint why they are skipped...
-    end.
+all() -> 
+case os:type() of
+  {win32, nt} ->
+      [nt, service_basic, service_env, user_env, synced,
+       service_prio, logout, debug, restart, restart_always,
+       stopaction];
+  _ -> [nt]
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(?TEST_TIMEOUT),

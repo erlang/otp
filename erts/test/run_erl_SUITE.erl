@@ -19,7 +19,7 @@
 
 -module(run_erl_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 basic/1,heavy/1,heavier/1,defunct/1]).
 -export([ping_me_back/1]).
 
@@ -34,8 +34,18 @@ fin_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [basic,heavy,heavier,defunct].
+all() -> 
+[basic, heavy, heavier, defunct].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 basic(Config) when is_list(Config) ->
     case os:type() of

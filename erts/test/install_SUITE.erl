@@ -29,7 +29,7 @@
 
 %-define(line_trace, 1).
 
--export([all/1, init_per_suite/1, end_per_suite/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, fin_per_testcase/2]).
 
 -export([bin_default/1,
@@ -64,26 +64,29 @@
 	       erlang_bindir = "",
 	       bindir_symlinks = ""}).
 
-need_symlink_cases() ->
-    [bin_unreachable_absolute,
-     bin_unreachable_relative,
-     bin_same_dir,
-     bin_ok_symlink,
-     bin_dirname_fail,
-     bin_no_use_dirname_fail].
+need_symlink_cases() -> 
+[bin_unreachable_absolute, bin_unreachable_relative,
+ bin_same_dir, bin_ok_symlink, bin_dirname_fail,
+ bin_no_use_dirname_fail].
 
-dont_need_symlink_cases() ->
-    [bin_default,
-     bin_default_dirty,
-     bin_outside_eprfx,
-     bin_outside_eprfx_dirty,
-     bin_not_abs,
-     bin_unreasonable_path,
-     'bin white space',
-     bin_no_srcfile].
+dont_need_symlink_cases() -> 
+[bin_default, bin_default_dirty, bin_outside_eprfx,
+ bin_outside_eprfx_dirty, bin_not_abs,
+ bin_unreasonable_path, 'bin white space',
+ bin_no_srcfile].
 
-all(suite) ->
-    dont_need_symlink_cases() ++ need_symlink_cases().
+all() -> 
+dont_need_symlink_cases() ++ need_symlink_cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%
 %% The test cases

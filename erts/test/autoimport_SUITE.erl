@@ -20,10 +20,21 @@
 -module(autoimport_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
--export([all/1,init_per_testcase/2,fin_per_testcase/2,autoimports/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,autoimports/1]).
 -define(TEST_TIMEOUT, ?t:seconds(180)).
 
-all(suite) -> [autoimports].
+all() -> 
+[autoimports].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(?TEST_TIMEOUT),
