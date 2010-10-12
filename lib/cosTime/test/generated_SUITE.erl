@@ -25,7 +25,7 @@
 
 -module(generated_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -71,7 +71,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -84,12 +84,22 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["This suite is for testing IC generated files"];
-all(suite) -> 
-    ['TimeBase_IntervalT', 'TimeBase_UtcT', 'CosTime_TimeUnavailable', 
-     'CosTimerEvent_TimerEventT', 'CosTime_TIO', 'CosTime_TimeService',
-     'CosTime_UTO', 'CosTimerEvent_TimerEventHandler', 
-     'CosTimerEvent_TimerEventService'].
+all() -> 
+['TimeBase_IntervalT', 'TimeBase_UtcT',
+ 'CosTime_TimeUnavailable', 'CosTimerEvent_TimerEventT',
+ 'CosTime_TIO', 'CosTime_TimeService', 'CosTime_UTO',
+ 'CosTimerEvent_TimerEventHandler',
+ 'CosTimerEvent_TimerEventService'].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

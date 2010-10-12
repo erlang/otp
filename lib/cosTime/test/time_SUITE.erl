@@ -29,7 +29,7 @@
 %%--------------- INCLUDES -----------------------------------
 -include_lib("cosTime/src/cosTimeApp.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).
@@ -67,7 +67,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, time_api/1, timerevent_api/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, time_api/1, timerevent_api/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 app_test/1]).
 
@@ -76,13 +76,21 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosTime interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
-cases() ->
-    [time_api, timerevent_api, app_test].
+cases() -> 
+[time_api, timerevent_api, app_test].
 
 
 	
@@ -104,7 +112,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     mnesia:delete_schema([node()]),
@@ -123,7 +131,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
  
-finish_all(Config) ->
+end_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     cosTime:uninstall_time(),
