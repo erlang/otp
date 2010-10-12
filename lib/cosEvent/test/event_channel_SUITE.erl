@@ -22,7 +22,7 @@
 
 -module(event_channel_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -53,21 +53,30 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, event_objects_api/1, events_api/1, events_sync_api/1, 
-	 cases/0, init_all/1, finish_all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, event_objects_api/1, events_api/1, events_sync_api/1, 
+	 cases/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2, app_test/1]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
 
-all(doc) -> ["API tests for the cosEvent interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
-cases() ->
-    [events_api, events_sync_api, event_objects_api, app_test].
+cases() -> 
+[events_api, events_sync_api, event_objects_api,
+ app_test].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -83,7 +92,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     mnesia:delete_schema([node()]),
@@ -96,7 +105,7 @@ init_all(Config) when is_list(Config) ->
     oe_event_test_server:oe_register(),
     Config.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     oe_event_test_server:oe_unregister(),
     cosEventApp:stop(),
     cosEventApp:uninstall(),
