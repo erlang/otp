@@ -194,6 +194,36 @@ case $host_os in
 	;;
 esac
 
+dnl  
+dnl  Opengl tests
+dnl
+
+if test X"$host_os" != X"win32" ; then
+    AC_CHECK_HEADERS([GL/gl.h], [],
+    	[AC_CHECK_HEADERS([OpenGL/gl.h])])
+    if test X"$ac_cv_header_GL_gl_h" != Xyes &&
+       	test X"$ac_cv_header_OpenGL_gl_h" != Xyes
+    then
+       	saved_CPPFLAGS="$CPPFLAGS"
+	AC_MSG_NOTICE(Checking for OpenGL headers in /usr/X11R6)
+       	CPPFLAGS="-isystem /usr/X11R6/include $CPPFLAGS"
+       	$as_unset ac_cv_header_GL_gl_h
+       	AC_CHECK_HEADERS([GL/gl.h])
+       	if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+	    AC_MSG_NOTICE(Checking for OpenGL headers in /usr/local)
+	    CPPFLAGS="-isystem /usr/local/include $saved_CPPFLAGS"
+	    $as_unset ac_cv_header_GL_gl_h
+	    AC_CHECK_HEADERS([GL/gl.h])
+	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
+		AC_MSG_WARN([No OpenGL headers found, wx will NOT be usable])
+		CPPFLAGS="$saved_CPPFLAGS"
+	    fi
+       	fi
+    fi
+else
+    AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
+fi
+
 CXXFLAGS="$CFLAGS $CPPFLAGS" 
 CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
 
@@ -385,17 +415,6 @@ if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
 
 AC_SUBST(WX_HAVE_STATIC_LIBS)
 AC_SUBST(RC_FILE_TYPE)
-
-dnl  
-dnl  Opengl tests
-dnl
-
-if test X"$host_os" != X"win32" ; then
-    AC_CHECK_HEADERS([GL/gl.h])
-    AC_CHECK_HEADERS([OpenGL/gl.h])
-else
-    AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
-fi
 
 AC_MSG_CHECKING(if wxwidgets have opengl support)
 AC_LANG_PUSH(C++)
