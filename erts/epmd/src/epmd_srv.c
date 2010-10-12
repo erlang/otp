@@ -39,8 +39,10 @@
  *  server keeps the socket open where the request for registration was
  *  made.
  *
- *  The protocol is briefly documented in "erl_ext_dist.txt". All requests
- *  to this server are done with a packet
+ *  The protocol is briefly documented in the ERTS User's Guide, see
+ *  http://www.erlang.org/doc/apps/erts/erl_dist_protocol.html
+ *
+ *  All requests to this server are done with a packet
  *
  *      2        n
  *  +--------+---------+
