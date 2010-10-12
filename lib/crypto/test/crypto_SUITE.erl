@@ -18,10 +18,9 @@
 %%
 -module(crypto_SUITE).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 info/1,
@@ -44,7 +43,7 @@
 	 aes_cfb/1,
 	 aes_cbc/1,
 	 aes_cbc_iter/1,
-     aes_ctr/1,
+	 aes_ctr/1,
 	 mod_exp_test/1,
 	 rand_uniform_test/1,
 	 rsa_verify_test/1,
@@ -62,41 +61,25 @@
 
 -export([hexstr2bin/1]).
 
-all(suite) ->
-    [link_test,
-     {conf,info,[md5,
-		 md5_update,
-		 md4,
-		 md4_update,
-		 md5_mac,
-		 md5_mac_io,
-		 sha,
-		 sha_update,
-%% 		 sha256,
-%% 		 sha256_update,
-%% 		 sha512,
-%% 		 sha512_update,
-		 des_cbc,
-		 aes_cfb,
-		 aes_cbc,
-		 aes_cbc_iter,
-         aes_ctr,
-		 des_cbc_iter,
-		 des_ecb,
-		 rand_uniform_test,
-		 rsa_verify_test,
-		 dsa_verify_test,
-		 rsa_sign_test,
-		 dsa_sign_test,	 
-		 rsa_encrypt_decrypt,
-		 dh, 
-		 exor_test,
-		 rc4_test,
-		 rc4_stream_test,
-		 mod_exp_test,
-		 blowfish_cfb64,
-		 smp],
-      cleanup}].
+all() -> 
+    [link_test, md5, md5_update, md4, md4_update, md5_mac,
+     md5_mac_io, sha, sha_update, 
+     %% sha256, sha256_update, sha512,sha512_update,
+     des_cbc, aes_cfb, aes_cbc,
+     aes_cbc_iter, aes_ctr, des_cbc_iter, des_ecb, rand_uniform_test,
+     rsa_verify_test, dsa_verify_test, rsa_sign_test,
+     dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
+     rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
+     smp].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 init_per_testcase(_Name,Config) ->
     io:format("init_per_testcase\n"),
