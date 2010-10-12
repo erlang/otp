@@ -23,11 +23,11 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -39,9 +39,19 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [byte_aligned,bit_aligned,extended_byte_aligned,
-     extended_bit_aligned,mixed].
+all() -> 
+[byte_aligned, bit_aligned, extended_byte_aligned,
+ extended_bit_aligned, mixed].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 byte_aligned(Config) when is_list(Config) ->

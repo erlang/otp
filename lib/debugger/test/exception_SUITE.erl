@@ -20,18 +20,28 @@
 %%
 -module(exception_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,init_all/1,finish_all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
 	 badmatch/1,pending_errors/1,nil_arith/1]).
 
 -export([bad_guy/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [{conf,init_all,cases(),finish_all}].
+all() -> 
+[cases()].
 
-cases() ->
-    [badmatch, pending_errors, nil_arith].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+[badmatch, pending_errors, nil_arith].
 
 -define(try_match(E),
 	catch ?MODULE:bar(),
@@ -47,12 +57,12 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
     ok.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     ok.
 
 badmatch(doc) -> "Test that deliberately bad matches are reported correctly.";

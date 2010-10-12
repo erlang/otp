@@ -20,7 +20,7 @@
 %%
 -module(guard_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,init_all/1,finish_all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
 	 bad_arith/1,bad_tuple/1,test_heap_guards/1,guard_bifs/1,
 	 type_tests/1,const_guard/1,
 	 const_cond/1,basic_not/1,complex_not/1,
@@ -35,24 +35,33 @@
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -export([init/4]).
 -import(lists, [member/2]).
 
-all(suite) ->
-    [{conf,init_all,cases(),finish_all}].
+all() -> 
+[cases()].
 
-cases() ->
-    [bad_arith,bad_tuple,test_heap_guards,guard_bifs,type_tests,const_guard,
-     const_cond,basic_not,complex_not,
-     semicolon,complex_semicolon,
-     comma,or_guard,more_or_guards,
-     complex_or_guards,and_guard,
-     xor_guard,more_xor_guards,
-     build_in_guard,old_guard_tests,gbif,
-     t_is_boolean,is_function_2,tricky,rel_ops,
-     basic_andalso_orelse,traverse_dcd,check_qlc_hrl].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+cases() -> 
+[bad_arith, bad_tuple, test_heap_guards, guard_bifs,
+ type_tests, const_guard, const_cond, basic_not,
+ complex_not, semicolon, complex_semicolon, comma,
+ or_guard, more_or_guards, complex_or_guards, and_guard,
+ xor_guard, more_xor_guards, build_in_guard,
+ old_guard_tests, gbif, t_is_boolean, is_function_2,
+ tricky, rel_ops, basic_andalso_orelse, traverse_dcd,
+ check_qlc_hrl].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -64,12 +73,12 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
     ok.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     ok.
 
 bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";

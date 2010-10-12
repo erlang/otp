@@ -20,14 +20,24 @@
 %%
 -module(andor_SUITE).
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,init_all/1,finish_all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
 	 t_andalso/1,t_orelse/1,inside/1,overlap/1,
 	 combined/1,in_case/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [{conf,init_all,cases(),finish_all}].
+all() -> 
+[cases()].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -39,16 +49,17 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
     ok.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     ok.
 
-cases() ->
-    [t_andalso,t_orelse,inside,overlap,combined,in_case].
+cases() -> 
+[t_andalso, t_orelse, inside, overlap, combined,
+ in_case].
 
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],

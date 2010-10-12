@@ -20,11 +20,22 @@
 %%
 -module(cleanup).
 
--export([all/1, cleanup/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cleanup/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) -> {req, [interpreter], [cleanup]}.
+all() -> 
+[cleanup].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 cleanup(suite) -> [];
 cleanup(_) ->

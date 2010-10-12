@@ -22,14 +22,25 @@
 
 %% Test break points.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,end_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 app_test/1,erts_debug/1,encrypted_debug_info/1,
 	 no_abstract_code/1]).
 
-all(suite) ->
-    [app_test,erts_debug,no_abstract_code,encrypted_debug_info].
+all() -> 
+[app_test, erts_debug, no_abstract_code,
+ encrypted_debug_info].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog=test_server:timetrap(?t:minutes(0.5)),

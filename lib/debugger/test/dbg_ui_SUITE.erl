@@ -21,11 +21,11 @@
 -module(dbg_ui_SUITE).
 
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 % Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([function_tests/1]).
 
 
@@ -37,7 +37,7 @@
 
 
 % Manual test suites/cases exports
--export([manual_tests/1]).
+-export([]).
 -export([start1/1, interpret1/1, quit1/1,
 	 start2/1, interpret2/1, break2/1, options2/1, quit2/1,
 	 interpret3/1, all_step3/1,all_next3/1,save3/1,restore3/1,finish3/1,
@@ -62,8 +62,24 @@ end_per_testcase(_Func, Config) ->
     test_server:timetrap_cancel(Dog).
 
 
-all (suite)->
-    {req, [debugger], [function_tests, manual_tests]}.
+all() -> 
+[function_tests, {group, manual_tests}].
+
+groups() -> 
+    [{manual_tests, [],
+  [start1, interpret1, quit1, start2, interpret2, break2,
+   options2, interpret3, all_step3, all_next3, save3,
+   restore3, finish3, killinit3, killone3, killall3,
+   deleteone3, deleteall3, viewbreak4, delete4, attach5,
+   normal5, exit5, options5, distsetup6, all_step6,
+   all_next6]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 function_tests (doc) ->
@@ -164,15 +180,6 @@ check(Case, Config) ->
 
 
 
-manual_tests(doc) -> ["Manual tests"];
-manual_tests(suite) -> [start1, interpret1, quit1,
-			start2, interpret2, break2, options2,
-			interpret3, all_step3,all_next3,save3,restore3,finish3,
-			killinit3, killone3, killall3, deleteone3, deleteall3,
-			viewbreak4, delete4,
-			attach5, normal5, exit5, options5,
-			distsetup6, all_step6, all_next6
-		       ].
 
 
 
