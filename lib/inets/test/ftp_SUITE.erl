@@ -20,28 +20,28 @@
 
 -module(ftp_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 % -export([init_per_testcase/2, end_per_testcase/2]).
 -export([init_per_suite/1, end_per_suite/1]).
 
 %% Test cases must be exported.
--export([solaris8_test/1,
-	 solaris9_test/1,
-	 solaris10_test/1,
-	 linux_x86_test/1,
-	 linux_ppc_test/1,
-	 macosx_x86_test/1,
-	 macosx_ppc_test/1,
-	 openbsd_test/1,
-	 freebsd_test/1,
-	 netbsd_test/1,
-	 windows_xp_test/1,
-	 windows_2003_server_test/1,
-	 ticket_tests/1]).
+-export([
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+]).
 
 -define(FTP_USER, "anonymous").
 -define(FTP_PASS, passwd()).
@@ -72,52 +72,42 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test the ftp client in the inets application."];
-all(suite) ->
-    [
-     solaris8_test,
-     solaris9_test,
-     solaris10_test,
-     linux_x86_test,
-     linux_ppc_test,
-     macosx_x86_test,
-     macosx_ppc_test,
-     openbsd_test,
-     freebsd_test,
-     netbsd_test,
-     windows_xp_test,
-     windows_2003_server_test,
-     ticket_tests
-    ].
+all() -> 
+[{group, solaris8_test}, {group, solaris9_test},
+ {group, solaris10_test}, {group, linux_x86_test},
+ {group, linux_ppc_test}, {group, macosx_x86_test},
+ {group, macosx_ppc_test}, {group, openbsd_test},
+ {group, freebsd_test}, {group, netbsd_test},
+ {group, windows_xp_test},
+ {group, windows_2003_server_test},
+ {group, ticket_tests}].
 
-solaris8_test(suite) ->
-    [{ftp_solaris8_sparc_test,all}].
-solaris9_test(suite) ->
-    [{ftp_solaris9_sparc_test,all}].
-solaris10_test(suite) ->
-    [{ftp_solaris10_sparc_test,all}, {ftp_solaris10_x86_test,all}].
-linux_x86_test(suite) ->
-    [{ftp_linux_x86_test,all}].
-linux_ppc_test(suite) ->
-    [{ftp_linux_ppc_test,all}].
-macosx_x86_test(suite) ->
-    [{ftp_macosx_x86_test,all}].
-macosx_ppc_test(suite) ->
-    [{ftp_macosx_ppc_test,all}].
-openbsd_test(suite) ->
-    [{ftp_openbsd_x86_test,all}].
-freebsd_test(suite) ->
-    [{ftp_freebsd_x86_test,all}].
-netbsd_test(suite) ->
-    [{ftp_netbsd_x86_test,all}].
-windows_xp_test(suite) ->
-    [{ftp_windows_xp_test,all}].
-windows_2003_server_test(suite) ->
-    [{ftp_windows_2003_server_test,all}].
+groups() -> 
+    [{solaris8_test, [], [{ftp_solaris8_sparc_test, all}]},
+ {solaris9_test, [], [{ftp_solaris9_sparc_test, all}]},
+ {solaris10_test, [],
+  [{ftp_solaris10_sparc_test, all},
+   {ftp_solaris10_x86_test, all}]},
+ {linux_x86_test, [], [{ftp_linux_x86_test, all}]},
+ {linux_ppc_test, [], [{ftp_linux_ppc_test, all}]},
+ {macosx_x86_test, [], [{ftp_macosx_x86_test, all}]},
+ {macosx_ppc_test, [], [{ftp_macosx_ppc_test, all}]},
+ {openbsd_test, [], [{ftp_openbsd_x86_test, all}]},
+ {freebsd_test, [], [{ftp_freebsd_x86_test, all}]},
+ {netbsd_test, [], [{ftp_netbsd_x86_test, all}]},
+ {windows_xp_test, [], [{ftp_windows_xp_test, all}]},
+ {windows_2003_server_test, [],
+  [{ftp_windows_2003_server_test, all}]},
+ {ticket_tests, [], [{ftp_ticket_test, all}]}].
 
-ticket_tests(suite) ->
-    [{ftp_ticket_test, all}].
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config

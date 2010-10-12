@@ -24,7 +24,7 @@
 
 -module(httpc_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 -include_lib("kernel/include/file.hrl").
@@ -59,63 +59,44 @@
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
 
-all(doc) ->
-    ["Test the http client in the intes application."];
-all(suite) ->
-    [
-     proxy_options, 
-     proxy_head, 
-     proxy_get, 
-     proxy_trace, 
-     proxy_post,
-     proxy_put, 
-     proxy_delete,
-     proxy_auth,
-     proxy_headers,
-     proxy_emulate_lower_versions,
-     http_options, 
-     http_head, 
-     http_get, 
-     http_post,
-     http_dummy_pipe,
-     http_inets_pipe,
-     http_trace,
-     http_async,
-     http_save_to_file,
-     http_save_to_file_async,
-     http_headers,
-     http_headers_dummy,
-     http_bad_response,
-     ssl_head, 
-     ossl_head, 
-     essl_head, 
-     ssl_get, 
-     ossl_get, 
-     essl_get, 
-     ssl_trace, 
-     ossl_trace, 
-     essl_trace, 
-     http_redirect, 
-     http_redirect_loop,
-     http_internal_server_error,
-     http_userinfo,
-     http_cookie,
-     http_server_does_not_exist,
-     http_invalid_http,
-     http_emulate_lower_versions,
-     http_relaxed, 
-     page_does_not_exist, 
-     proxy_page_does_not_exist, 
-     proxy_https_not_supported,
-     http_stream,
-     http_stream_once,
-     proxy_stream,
-     parse_url,
-     options,
-     ipv6,
-     headers_as_is,
-     tickets
-    ].
+all() -> 
+[proxy_options, proxy_head, proxy_get, proxy_trace,
+ proxy_post, proxy_put, proxy_delete, proxy_auth,
+ proxy_headers, proxy_emulate_lower_versions,
+ http_options, http_head, http_get, http_post,
+ http_dummy_pipe, http_inets_pipe, http_trace,
+ http_async, http_save_to_file, http_save_to_file_async,
+ http_headers, http_headers_dummy, http_bad_response,
+ ssl_head, ossl_head, essl_head, ssl_get, ossl_get,
+ essl_get, ssl_trace, ossl_trace, essl_trace,
+ http_redirect, http_redirect_loop,
+ http_internal_server_error, http_userinfo, http_cookie,
+ http_server_does_not_exist, http_invalid_http,
+ http_emulate_lower_versions, http_relaxed,
+ page_does_not_exist, proxy_page_does_not_exist,
+ proxy_https_not_supported, http_stream,
+ http_stream_once, proxy_stream, parse_url, options,
+ ipv6, headers_as_is, {group, tickets}].
+
+groups() -> 
+    [{tickets, [],
+  [hexed_query_otp_6191, empty_body_otp_6243,
+   empty_response_header_otp_6830,
+   transfer_encoding_otp_6807, proxy_not_modified_otp_6821,
+   no_content_204_otp_6982, missing_CR_otp_7304,
+   {group, otp_7883}, {group, otp_8154}, {group, otp_8106},
+   otp_8056, otp_8352, otp_8371, otp_8739]},
+ {otp_7883, [], [otp_7883_1, otp_7883_2]},
+ {otp_8154, [], [otp_8154_1]},
+ {otp_8106, [],
+  [otp_8106_pid, otp_8106_fun, otp_8106_mfa]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -295,25 +276,6 @@ finish(Config) ->
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 
-tickets(doc) ->
-    ["."];
-tickets(suite) ->
-    [
-     hexed_query_otp_6191, 
-     empty_body_otp_6243, 
-     empty_response_header_otp_6830, 
-     transfer_encoding_otp_6807,
-     proxy_not_modified_otp_6821, 
-     no_content_204_otp_6982,
-     missing_CR_otp_7304,
-     otp_7883,
-     otp_8154,
-     otp_8106,
-     otp_8056,
-     otp_8352, 
-     otp_8371,
-     otp_8739
-    ].
 
 
 %%-------------------------------------------------------------------------
@@ -1979,8 +1941,6 @@ missing_CR_otp_7304(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-otp_7883(suite) ->
-    [otp_7883_1, otp_7883_2].
 
 otp_7883_1(doc) ->
     ["OTP-7883-sync"];
@@ -2028,8 +1988,6 @@ otp_7883_2(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
-otp_8154(suite) ->
-    [otp_8154_1].
 
 otp_8154_1(doc) ->
     ["OTP-8154"];
@@ -2309,12 +2267,6 @@ f(F, A) -> lists:flatten(io_lib:format(F,A)).
 
 %%-------------------------------------------------------------------------
 
-otp_8106(suite) ->
-    [
-     otp_8106_pid, 
-     otp_8106_fun, 
-     otp_8106_mfa
-    ].
 
 
 otp_8106_pid(doc) ->

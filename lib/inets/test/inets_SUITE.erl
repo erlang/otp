@@ -19,7 +19,7 @@
 %%
 -module(inets_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("inets_test_lib.hrl").
 
@@ -28,25 +28,24 @@
 
 -define(NUM_DEFAULT_SERVICES, 1).
 
-all(doc) ->
-    ["Test suites for the inets application."];
+all() -> 
+[{group, app_test}, {group, appup_test},
+ {group, services_test}, httpd_reload].
 
-all(suite) ->
-    [
-     app_test,
-     appup_test,
-     services_test,
-     httpd_reload
-    ].
+groups() -> 
+    [{services_test, [],
+  [start_inets, start_httpc, start_httpd, start_ftpc,
+   start_tftpd]},
+ {app_test, [], [{inets_app_test, all}]},
+ {appup_test, [], [{inets_appup_test, all}]}].
 
-services_test(suite) ->
-    [
-     start_inets,
-     start_httpc,
-     start_httpd,
-     start_ftpc,
-     start_tftpd
-    ].
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 
 %%--------------------------------------------------------------------
@@ -100,11 +99,7 @@ end_per_testcase(_, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-app_test(suite) ->
-    [{inets_app_test, all}].
 
-appup_test(suite) ->
-    [{inets_appup_test, all}].
 
 
 %%-------------------------------------------------------------------------

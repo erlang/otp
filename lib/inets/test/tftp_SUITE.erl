@@ -71,17 +71,19 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 %% Top test case
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(doc) ->
-    ["Test suites for TFTP."];
+all() -> 
+[simple, extra, reuse_connection, resend_client,
+ resend_server].
 
-all(suite) ->
-    [
-     simple,
-     extra,
-     reuse_connection,
-     resend_client,
-     resend_server
-    ].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Simple
