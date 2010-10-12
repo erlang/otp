@@ -20,12 +20,12 @@
 -module(crashdump_viewer_SUITE).
 
 %% Test functions
--export([all/1,translate/1,start/1,fini/1,load_file/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,translate/1,start/1,fini/1,load_file/1,
 	 non_existing/1,not_a_crashdump/1,old_crashdump/1]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -46,9 +46,19 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [translate,{conf,start,[load_file,non_existing,not_a_crashdump,
-			    old_crashdump],fini}].
+all() -> 
+[translate, load_file, non_existing, not_a_crashdump,
+ old_crashdump].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_suite(doc) ->
     ["Create a lot of crashdumps which can be used in the testcases below"];

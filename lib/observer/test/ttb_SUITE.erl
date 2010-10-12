@@ -21,14 +21,14 @@
 
 -compile(export_all).
 %% Test functions
--export([all/1,file/1,file_no_pi/1,file_fetch/1,wrap/1,wrap_merge/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,file/1,file_no_pi/1,file_fetch/1,wrap/1,wrap_merge/1,
 	 wrap_merge_fetch_format/1,write_config1/1,write_config2/1,
 	 write_config3/1,history/1,write_trace_info/1,seq_trace/1,
 	 diskless/1,otp_4967_1/1,otp_4967_2/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([foo/0]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 
@@ -41,10 +41,21 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [file,file_no_pi,file_fetch,wrap,wrap_merge,
-	       wrap_merge_fetch_format,write_config1,write_config2,
-	       write_config3,history,write_trace_info,seq_trace,diskless,
-	       otp_4967_1,otp_4967_2].
+all() -> 
+[file, file_no_pi, file_fetch, wrap, wrap_merge,
+ wrap_merge_fetch_format, write_config1, write_config2,
+ write_config3, history, write_trace_info, seq_trace,
+ diskless, otp_4967_1, otp_4967_2].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 file(suite) ->
     [];
