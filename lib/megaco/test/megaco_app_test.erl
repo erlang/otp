@@ -44,16 +44,20 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 fields,
-	 modules,
-	 exportall,
-	 app_depend,
-         undef_funcs
-	],
-    {req, [], {conf, app_init, Cases, app_fin}}.
+all() -> 
+Cases = [fields, modules, exportall, app_depend,
+	 undef_funcs],
+	Cases.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

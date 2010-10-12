@@ -37,7 +37,7 @@
 -export([t/0]).
 
 %% Test suite exports
--export([all/1, encode_first/1, decode_first/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	init_per_testcase/2, end_per_testcase/2]).  
 
 
@@ -57,17 +57,21 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     encode_first,
-     decode_first
-    ].
+all() -> 
+[{group, encode_first}, {group, decode_first}].
 
-encode_first(suite) ->
-    encode_first_cases().
+groups() -> 
+    [{encode_first, [], encode_first_cases()},
+ {decode_first, [], decode_first_cases()}].
 
-decode_first(suite) ->
-    decode_first_cases().
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+
 
 
 %% Test server callbacks
@@ -89,11 +93,12 @@ t() ->
 
 cases() -> encode_first_cases() ++ decode_first_cases().
 
-encode_first_cases() -> [te01,te02,te03,te04,te05,
-			 te06,te07,te08,te09,te10,
-			 te11,te12,te13,te14,te15,
-			 te16,te17,te18,te19].
-decode_first_cases() -> [td01,td02,td03,td04,td05,td06].
+encode_first_cases() -> 
+[te01, te02, te03, te04, te05, te06, te07, te08, te09,
+ te10, te11, te12, te13, te14, te15, te16, te17, te18,
+ te19].
+decode_first_cases() -> 
+[td01, td02, td03, td04, td05, td06].
 
 do(Case) ->
     case doc(Case) of

@@ -78,21 +78,21 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 pretty_text,
-	 flex_pretty_text,
-	 compact_text,
-	 flex_compact_text,
-	 erl_dist,
-	 erl_dist_mc,
-	 ber_bin,
-	 ber_bin_drv,
-	 ber_bin_native,
-	 ber_bin_drv_native
-	],
-    Cases.
+all() -> 
+Cases = [pretty_text, flex_pretty_text, compact_text,
+	 flex_compact_text, erl_dist, erl_dist_mc, ber_bin,
+	 ber_bin_drv, ber_bin_native, ber_bin_drv_native],
+	Cases.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

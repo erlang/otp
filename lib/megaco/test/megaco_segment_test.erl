@@ -25,9 +25,9 @@
 
 -export([t/0, t/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 
-	 send/1,
+	
 	 send_segmented_msg_plain1/1, 
 	 send_segmented_msg_plain2/1, 
 	 send_segmented_msg_plain3/1, 
@@ -36,7 +36,7 @@
 	 send_segmented_msg_missing_seg_reply1/1, 
 	 send_segmented_msg_missing_seg_reply2/1, 
 
-	 recv/1,
+	
 	 recv_segmented_msg_plain/1, 
 	 recv_segmented_msg_ooo_seg/1, 
 	 recv_segmented_msg_missing_seg1/1, 
@@ -73,33 +73,29 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    [
-     send,
-     recv
-     
-     %% Tickets last 
-     %% tickets
-    ].
+all() -> 
+[{group, send}, {group, recv}].
 
-send(suite) ->
-    [
-     send_segmented_msg_plain1,
-     send_segmented_msg_plain2,
-     send_segmented_msg_plain3,
-     send_segmented_msg_plain4,
-     send_segmented_msg_ooo1,
-     send_segmented_msg_missing_seg_reply1,
-     send_segmented_msg_missing_seg_reply2
-    ].
+groups() -> 
+    [{send, [],
+  [send_segmented_msg_plain1, send_segmented_msg_plain2,
+   send_segmented_msg_plain3, send_segmented_msg_plain4,
+   send_segmented_msg_ooo1,
+   send_segmented_msg_missing_seg_reply1,
+   send_segmented_msg_missing_seg_reply2]},
+ {recv, [],
+  [recv_segmented_msg_plain, recv_segmented_msg_ooo_seg,
+   recv_segmented_msg_missing_seg1,
+   recv_segmented_msg_missing_seg2]}].
 
-recv(suite) ->
-    [
-     recv_segmented_msg_plain,
-     recv_segmented_msg_ooo_seg,
-     recv_segmented_msg_missing_seg1,
-     recv_segmented_msg_missing_seg2
-    ].
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+
 
 tickets(suite) ->
     [

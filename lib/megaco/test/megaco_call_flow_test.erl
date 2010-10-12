@@ -56,31 +56,23 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     text,
-     binary
-    ].
+all() -> 
+[{group, text}, {group, binary}].
 
-text(suite) ->
-    [
-     pretty,
-     compact
-    ].
+groups() -> 
+    [{text, [], [pretty, compact]},
+ {flex, [], [pretty_flex, compact_flex]},
+ {binary, [], [bin, ber, ber_bin, per]}].
 
-flex(suite) ->
-    [
-     pretty_flex,
-     compact_flex
-    ].
+init_per_group(_GroupName, Config) ->
+	Config.
 
-binary(suite) ->
-    [
-     bin,
-     ber,
-     ber_bin,
-     per
-    ].
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+
+
 
 pretty(suite) ->
     [];

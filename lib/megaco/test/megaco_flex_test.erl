@@ -34,7 +34,7 @@
 
 	 init_per_testcase/2, end_per_testcase/2,
 
-	 all/1,
+	all/0,groups/0,init_per_group/2,end_per_group/2,
 	 flex_init/1, flex_fin/1, 
 
 	 plain/1,
@@ -61,14 +61,19 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 plain,
-	 port_exit,
-	 garbage_in
-	],
-    {req, [], {conf, flex_init, Cases, flex_fin}}.
+all() -> 
+Cases = [plain, port_exit, garbage_in],
+	Cases.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 flex_init(suite) ->
     [];

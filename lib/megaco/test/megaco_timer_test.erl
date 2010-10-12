@@ -27,13 +27,13 @@
 	 t/0, t/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 
-	 all/1,
+	all/0,groups/0,init_per_group/2,end_per_group/2,
 
-	 simple/1,
+	
 	 simple_init/1,
 	 simple_usage/1,
 
-	 integer_timer/1,
+	
 	 integer_timer_start_and_expire/1, 
 	 integer_timer_start_and_stop/1%% ,
 
@@ -88,32 +88,30 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 simple,
- 	 integer_timer%% ,
-%% 	 incr_timer
-	],
-    Cases.
+all() -> 
+Cases = [{group, simple}, {group, integer_timer}],
+	Cases.
+
+groups() -> 
+    [{simple, [],
+  begin Cases = [simple_init, simple_usage], Cases end},
+ {integer_timer, [],
+  begin
+    Cases = [integer_timer_start_and_expire,
+	     integer_timer_start_and_stop],
+    Cases
+  end}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 
-simple(suite) ->
-    Cases = 
-	[
-	 simple_init,
-	 simple_usage
-	],
-    Cases.
 
 
-integer_timer(suite) ->
-    Cases = 
-	[
-	 integer_timer_start_and_expire,
-	 integer_timer_start_and_stop
-	],
-    Cases.
+
 
 
 %% incr_timer(suite) ->

@@ -34,10 +34,10 @@
 
 -export([t/0, t/1]).
 
--export([all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 
 	 tickets/0, 
-	 tickets/1, 
+	 
 	 otp7672_msg01/1,
  	 otp7672_msg02/1,
  
@@ -89,16 +89,19 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     tickets
-    ].
+all() -> 
+[{group, tickets}].
 
-tickets(suite) ->
-    [
-     otp7672_msg01, 
-     otp7672_msg02
-    ].
+groups() -> 
+    [{tickets, [], [otp7672_msg01, otp7672_msg02]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 %% ----
 

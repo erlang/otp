@@ -106,19 +106,23 @@ end_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
- 	 single_user_light_load,
- 	 single_user_medium_load,
- 	 single_user_heavy_load,
- 	 single_user_extreme_load,
- 	 multi_user_light_load,
- 	 multi_user_medium_load,
-  	 multi_user_heavy_load,
- 	 multi_user_extreme_load
-	],
-    Cases.
+all() -> 
+Cases = [single_user_light_load,
+	 single_user_medium_load, single_user_heavy_load,
+	 single_user_extreme_load, multi_user_light_load,
+	 multi_user_medium_load, multi_user_heavy_load,
+	 multi_user_extreme_load],
+	Cases.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

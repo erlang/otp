@@ -70,13 +70,18 @@ purge_examples() ->
 %% Top test case
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Run all examples mentioned in the documentation",
-     "Are really all examples covered?"];
-all(suite) ->
-    [
-     simple
-    ].
+all() -> 
+[simple].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 simple(suite) ->
     [];
