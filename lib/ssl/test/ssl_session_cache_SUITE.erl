@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 500).
 -define(TIMEOUT, 60000).
@@ -145,13 +145,19 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test session cach API"];
+all() -> 
+    [session_cache_process_list,
+     session_cache_process_mnesia].
 
-all(suite) ->
-    [
-     session_cache_process_list, session_cache_process_mnesia
-    ].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 session_cache_process_list(doc) ->
     ["Test reuse of sessions (short handshake)"];

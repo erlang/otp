@@ -20,13 +20,13 @@
 %%
 -module(old_ssl_protocol_SUITE).
 
--export([all/1, init_per_testcase/2, end_per_testcase/2, config/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2, config/1,
 	 finish/1, sslv2/1, sslv3/1, tlsv1/1, sslv2_sslv3/1,
 	 sslv2_tlsv1/1, sslv3_tlsv1/1, sslv2_sslv3_tlsv1/1]).
 
 -import(ssl_test_MACHINE, [mk_ssl_cert_opts/1, test_one_listener/7,
 			   test_server_only/6]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ssl_test_MACHINE.hrl").
 
 
@@ -38,14 +38,19 @@ end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-all(doc) ->
-    "Test of configuration protocol_version.";
-all(suite) ->
-    {conf,
-     config,
-     [sslv2, sslv3, tlsv1, sslv2_sslv3, sslv2_tlsv1, sslv3_tlsv1, 
-      sslv2_sslv3_tlsv1],
-     finish}.
+all() -> 
+[sslv2, sslv3, tlsv1, sslv2_sslv3, sslv2_tlsv1,
+ sslv3_tlsv1, sslv2_sslv3_tlsv1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 config(doc) ->
     "Want to se what Config contains.";

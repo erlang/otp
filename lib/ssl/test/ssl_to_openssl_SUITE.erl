@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(TIMEOUT, 120000).
 -define(LONG_TIMEOUT, 600000).
@@ -143,37 +143,41 @@ end_per_testcase(_, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test erlangs ssl against openssl"];
+all() -> 
+[erlang_client_openssl_server,
+ erlang_server_openssl_client,
+ tls1_erlang_client_openssl_server_dsa_cert,
+ tls1_erlang_server_openssl_client_dsa_cert,
+ ssl3_erlang_client_openssl_server_dsa_cert,
+ ssl3_erlang_server_openssl_client_dsa_cert,
+ erlang_server_openssl_client_reuse_session,
+ erlang_client_openssl_server_renegotiate,
+ erlang_client_openssl_server_no_wrap_sequence_number,
+ erlang_server_openssl_client_no_wrap_sequence_number,
+ erlang_client_openssl_server_no_server_ca_cert,
+ ssl3_erlang_client_openssl_server,
+ ssl3_erlang_server_openssl_client,
+ ssl3_erlang_client_openssl_server_client_cert,
+ ssl3_erlang_server_openssl_client_client_cert,
+ ssl3_erlang_server_erlang_client_client_cert,
+ tls1_erlang_client_openssl_server,
+ tls1_erlang_server_openssl_client,
+ tls1_erlang_client_openssl_server_client_cert,
+ tls1_erlang_server_openssl_client_client_cert,
+ tls1_erlang_server_erlang_client_client_cert,
+ ciphers_rsa_signed_certs, ciphers_dsa_signed_certs,
+ erlang_client_bad_openssl_server, expired_session,
+ ssl2_erlang_server_openssl_client].
 
-all(suite) -> 
-    [erlang_client_openssl_server, 
-     erlang_server_openssl_client,
-     tls1_erlang_client_openssl_server_dsa_cert,
-     tls1_erlang_server_openssl_client_dsa_cert,
-     ssl3_erlang_client_openssl_server_dsa_cert,
-     ssl3_erlang_server_openssl_client_dsa_cert,
-     erlang_server_openssl_client_reuse_session,
-     erlang_client_openssl_server_renegotiate,
-     erlang_client_openssl_server_no_wrap_sequence_number,
-     erlang_server_openssl_client_no_wrap_sequence_number,
-     erlang_client_openssl_server_no_server_ca_cert,
-     ssl3_erlang_client_openssl_server, 
-     ssl3_erlang_server_openssl_client,
-     ssl3_erlang_client_openssl_server_client_cert,
-     ssl3_erlang_server_openssl_client_client_cert,
-     ssl3_erlang_server_erlang_client_client_cert,
-     tls1_erlang_client_openssl_server, 
-     tls1_erlang_server_openssl_client,
-     tls1_erlang_client_openssl_server_client_cert,
-     tls1_erlang_server_openssl_client_client_cert,
-     tls1_erlang_server_erlang_client_client_cert,
-     ciphers_rsa_signed_certs,
-     ciphers_dsa_signed_certs,
-     erlang_client_bad_openssl_server,
-     expired_session,
-     ssl2_erlang_server_openssl_client
-    ].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

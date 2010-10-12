@@ -29,13 +29,13 @@
 %%%-------------------------------------------------------------------
 -module(old_ssl_dist_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
 
 -define(AWAIT_SLL_NODE_UP_TIMEOUT, 30000).
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1,
 	 end_per_suite/1,
 	 init_per_testcase/2,
@@ -46,10 +46,18 @@
 
 -record(node_handle, {connection_handler, socket, name, nodename}).
 
-all(doc) ->
-    [];
-all(suite) ->
-    [basic].
+all() -> 
+[basic].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_suite(Config) ->
     add_ssl_opts_config(Config).

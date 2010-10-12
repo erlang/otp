@@ -19,14 +19,14 @@
 
 %%
 -module(old_transport_accept_SUITE).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 %% Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 -define(application, ssh).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 config/1,
@@ -47,10 +47,18 @@ end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-all(doc) ->
-    "Test transport_accept and ssl_accept";
-all(suite) ->
-    [config, echo_once, echo_twice, close_before_ssl_accept].
+all() -> 
+[config, echo_once, echo_twice, close_before_ssl_accept].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 config(doc) ->
     "Want to se what Config contains.";

@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
@@ -173,51 +173,64 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test the basic ssl functionality"];
-
-all(suite) -> 
+all() -> 
     [app, alerts, connection_info, protocol_versions,
-     empty_protocol_versions, controlling_process, controller_dies,
-     client_closes_socket, peercert, connect_dist, peername, sockname,
-     socket_options, misc_ssl_options, versions, cipher_suites,
-     upgrade, upgrade_with_timeout, tcp_connect, ipv6, ekeyfile,
-     ecertfile, ecacertfile, eoptions, shutdown, shutdown_write,
-     shutdown_both, shutdown_error, 
+     empty_protocol_versions, controlling_process,
+     controller_dies, client_closes_socket, peercert,
+     connect_dist, peername, sockname, socket_options,
+     misc_ssl_options, versions, cipher_suites, upgrade,
+     upgrade_with_timeout, tcp_connect, ipv6, ekeyfile,
+     ecertfile, ecacertfile, eoptions, shutdown,
+     shutdown_write, shutdown_both, shutdown_error,
      ciphers_rsa_signed_certs, ciphers_rsa_signed_certs_ssl3,
      ciphers_rsa_signed_certs_openssl_names,
      ciphers_rsa_signed_certs_openssl_names_ssl3,
-     ciphers_dsa_signed_certs, 
-     ciphers_dsa_signed_certs_ssl3,
+     ciphers_dsa_signed_certs, ciphers_dsa_signed_certs_ssl3,
      ciphers_dsa_signed_certs_openssl_names,
      ciphers_dsa_signed_certs_openssl_names_ssl3,
      anonymous_cipher_suites,
      default_reject_anonymous,
      send_close,
-     close_transport_accept, dh_params, server_verify_peer_passive,
-     server_verify_peer_active, server_verify_peer_active_once,
+     close_transport_accept, dh_params,
+     server_verify_peer_passive, server_verify_peer_active,
+     server_verify_peer_active_once,
      server_verify_none_passive, server_verify_none_active,
-     server_verify_none_active_once, server_verify_no_cacerts,
-     server_require_peer_cert_ok, server_require_peer_cert_fail,
+     server_verify_none_active_once,
+     server_verify_no_cacerts, server_require_peer_cert_ok,
+     server_require_peer_cert_fail,
      server_verify_client_once_passive,
      server_verify_client_once_active,
-     server_verify_client_once_active_once, client_verify_none_passive,
-     client_verify_none_active, client_verify_none_active_once,
-     reuse_session, reuse_session_expired,
-     server_does_not_want_to_reuse_session, client_renegotiate,
-     server_renegotiate, client_renegotiate_reused_session,
-     server_renegotiate_reused_session, client_no_wrap_sequence_number,
-     server_no_wrap_sequence_number,
-     extended_key_usage_verify_peer, extended_key_usage_verify_none,
-     no_authority_key_identifier,
-     invalid_signature_client, invalid_signature_server, cert_expired,
-     client_with_cert_cipher_suites_handshake, unknown_server_ca_fail,
-     der_input, unknown_server_ca_accept_verify_none, unknown_server_ca_accept_verify_peer,
+     server_verify_client_once_active_once,
+     client_verify_none_passive, client_verify_none_active,
+     client_verify_none_active_once,
+     reuse_session,
+     reuse_session_expired,
+     server_does_not_want_to_reuse_session,
+     client_renegotiate, server_renegotiate,
+     client_renegotiate_reused_session,
+     server_renegotiate_reused_session,
+     client_no_wrap_sequence_number,
+     server_no_wrap_sequence_number, extended_key_usage_verify_peer,
+     extended_key_usage_verify_none,
+     no_authority_key_identifier, invalid_signature_client,
+     invalid_signature_server, cert_expired,
+     client_with_cert_cipher_suites_handshake,
+     unknown_server_ca_fail, der_input,
+     unknown_server_ca_accept_verify_none,
+     unknown_server_ca_accept_verify_peer,
      unknown_server_ca_accept_backwardscompatibilty,
-     %different_ca_peer_sign,
+     %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
-     no_reuses_session_server_restart_new_cert_file, reuseaddr
-    ].
+     no_reuses_session_server_restart_new_cert_file, reuseaddr].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
