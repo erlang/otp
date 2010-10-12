@@ -30,33 +30,68 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Evil dirty access, regardless of transaction scope.",
-     "Invoke all functions in the API and try to cover all legal uses",
-     "cases as well the illegal dito. This is a complement to the",
-     "other more explicit test cases."];
-all(suite) ->
-    [
-     dirty_write,
-     dirty_read, 
-     dirty_update_counter,
-     dirty_delete,
-     dirty_delete_object, 
-     dirty_match_object,
-     dirty_index,
-     dirty_iter,
-     admin_tests
-    ].
+all() -> 
+[{group, dirty_write}, {group, dirty_read},
+ {group, dirty_update_counter}, {group, dirty_delete},
+ {group, dirty_delete_object},
+ {group, dirty_match_object}, {group, dirty_index},
+ {group, dirty_iter}, {group, admin_tests}].
+
+groups() -> 
+    [{dirty_write, [],
+  [dirty_write_ram, dirty_write_disc,
+   dirty_write_disc_only]},
+ {dirty_read, [],
+  [dirty_read_ram, dirty_read_disc,
+   dirty_read_disc_only]},
+ {dirty_update_counter, [],
+  [dirty_update_counter_ram, dirty_update_counter_disc,
+   dirty_update_counter_disc_only]},
+ {dirty_delete, [],
+  [dirty_delete_ram, dirty_delete_disc,
+   dirty_delete_disc_only]},
+ {dirty_delete_object, [],
+  [dirty_delete_object_ram, dirty_delete_object_disc,
+   dirty_delete_object_disc_only]},
+ {dirty_match_object, [],
+  [dirty_match_object_ram, dirty_match_object_disc,
+   dirty_match_object_disc_only]},
+ {dirty_index, [],
+  [{group, dirty_index_match_object},
+   {group, dirty_index_read},
+   {group, dirty_index_update}]},
+ {dirty_index_match_object, [],
+  [dirty_index_match_object_ram,
+   dirty_index_match_object_disc,
+   dirty_index_match_object_disc_only]},
+ {dirty_index_read, [],
+  [dirty_index_read_ram, dirty_index_read_disc,
+   dirty_index_read_disc_only]},
+ {dirty_index_update, [],
+  [dirty_index_update_set_ram,
+   dirty_index_update_set_disc,
+   dirty_index_update_set_disc_only,
+   dirty_index_update_bag_ram, dirty_index_update_bag_disc,
+   dirty_index_update_bag_disc_only]},
+ {dirty_iter, [],
+  [dirty_iter_ram, dirty_iter_disc,
+   dirty_iter_disc_only]},
+ {admin_tests, [],
+  [del_table_copy_1, del_table_copy_2, del_table_copy_3,
+   add_table_copy_1, add_table_copy_2, add_table_copy_3,
+   add_table_copy_4, move_table_copy_1, move_table_copy_2,
+   move_table_copy_3, move_table_copy_4]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Write records dirty
 
-dirty_write(suite) ->
-    [
-     dirty_write_ram,
-     dirty_write_disc,
-     dirty_write_disc_only
-    ].
 
 dirty_write_ram(suite) -> [];
 dirty_write_ram(Config) when is_list(Config) ->
@@ -88,12 +123,6 @@ dirty_write(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Read records dirty
 
-dirty_read(suite) ->
-    [
-     dirty_read_ram,
-     dirty_read_disc,
-     dirty_read_disc_only
-    ].
 
 dirty_read_ram(suite) -> [];
 dirty_read_ram(Config) when is_list(Config) ->
@@ -137,12 +166,6 @@ dirty_read(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Update counter record dirty
 
-dirty_update_counter(suite) ->
-    [
-     dirty_update_counter_ram,
-     dirty_update_counter_disc,
-     dirty_update_counter_disc_only
-    ].
 
 dirty_update_counter_ram(suite) -> [];
 dirty_update_counter_ram(Config) when is_list(Config) ->
@@ -180,12 +203,6 @@ dirty_update_counter(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Delete record dirty
 
-dirty_delete(suite) ->
-    [
-     dirty_delete_ram,
-     dirty_delete_disc,
-     dirty_delete_disc_only
-    ].
 
 dirty_delete_ram(suite) -> [];
 dirty_delete_ram(Config) when is_list(Config) ->
@@ -223,12 +240,6 @@ dirty_delete(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Delete matching record dirty
 
-dirty_delete_object(suite) ->
-    [
-     dirty_delete_object_ram,
-     dirty_delete_object_disc,
-     dirty_delete_object_disc_only
-    ].
 
 dirty_delete_object_ram(suite) -> [];
 dirty_delete_object_ram(Config) when is_list(Config) ->
@@ -272,12 +283,6 @@ dirty_delete_object(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Read matching records dirty
 
-dirty_match_object(suite) ->
-    [
-     dirty_match_object_ram,
-     dirty_match_object_disc,
-     dirty_match_object_disc_only
-    ].
 
 dirty_match_object_ram(suite) -> [];
 dirty_match_object_ram(Config) when is_list(Config) ->
@@ -311,22 +316,10 @@ dirty_match_object(Config, Storage) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dirty_index(suite) ->
-    [
-     dirty_index_match_object,
-     dirty_index_read,
-     dirty_index_update
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Dirty read matching records by using an index
 
-dirty_index_match_object(suite) ->
-    [
-     dirty_index_match_object_ram,  
-     dirty_index_match_object_disc,  
-     dirty_index_match_object_disc_only
-    ].
 
 dirty_index_match_object_ram(suite) -> [];
 dirty_index_match_object_ram(Config) when is_list(Config) ->
@@ -364,12 +357,6 @@ dirty_index_match_object(Config, Storage) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Read records by using an index
 
-dirty_index_read(suite) ->
-    [
-     dirty_index_read_ram,
-     dirty_index_read_disc,
-     dirty_index_read_disc_only
-    ].
 
 dirty_index_read_ram(suite) -> [];
 dirty_index_read_ram(Config) when is_list(Config) ->
@@ -413,19 +400,6 @@ dirty_index_read(Config, Storage) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-dirty_index_update(suite) ->
-    [
-     dirty_index_update_set_ram,
-     dirty_index_update_set_disc,
-     dirty_index_update_set_disc_only,
-     dirty_index_update_bag_ram,
-     dirty_index_update_bag_disc,
-     dirty_index_update_bag_disc_only
-    ];
-dirty_index_update(doc) ->
-    ["See Ticket OTP-2083, verifies that a table with a index is "
-     "update in the correct way i.e. the index finds the correct "
-     "records after a update"].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dirty_index_update_set_ram(suite) -> [];
@@ -631,12 +605,6 @@ dirty_index_update_bag(Config, Storage) ->
 %% Dirty iteration
 %% dirty_slot,  dirty_first,  dirty_next
 
-dirty_iter(suite) ->
-    [
-     dirty_iter_ram,
-     dirty_iter_disc,
-     dirty_iter_disc_only
-    ].
 
 dirty_iter_ram(suite) -> [];
 dirty_iter_ram(Config) when is_list(Config) ->
@@ -700,21 +668,6 @@ all_nexts(Tab, PrevKey) ->
     [PrevKey] ++ all_nexts(Tab, Key).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-admin_tests(doc) ->
-    ["Verifies that dirty operations work during schema operations"];
-
-admin_tests(suite) -> 
-    [del_table_copy_1,
-     del_table_copy_2,
-     del_table_copy_3,
-     add_table_copy_1,
-     add_table_copy_2,
-     add_table_copy_3,
-     add_table_copy_4,
-     move_table_copy_1,
-     move_table_copy_2,
-     move_table_copy_3,
-     move_table_copy_4].
 
 update_trans(Tab, Key, Acc) ->
     Update = 

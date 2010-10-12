@@ -32,12 +32,18 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Test nice usage of the entire API",
-     "Invoke all functions in the API, at least once.",
-     "Try to verify that all functions exists and that they perform",
-     "reasonable things when used in the most simple way."];
-all(suite) -> [nice].
+all() -> 
+[nice].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 nice(doc) -> [""];
 nice(suite) -> [];

@@ -35,40 +35,47 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(doc) ->
-    ["Verify durability",
-     "Verify that the effects of committed transactions are durable.",
-     "The content of the tables tables must be restored at startup."];
-all(suite) ->
-    [
-     load_tables,
-     durability_of_dump_tables,
-     durability_of_disc_copies,
-     durability_of_disc_only_copies
-    ].
+all() -> 
+[{group, load_tables},
+ {group, durability_of_dump_tables},
+ durability_of_disc_copies,
+ durability_of_disc_only_copies].
+
+groups() -> 
+    [{load_tables, [],
+  [load_latest_data, load_local_contents_directly,
+   load_directly_when_all_are_ram_copiesA,
+   load_directly_when_all_are_ram_copiesB,
+   {group, late_load_when_all_are_ram_copies_on_ram_nodes},
+   load_when_last_replica_becomes_available,
+   load_when_we_have_down_from_all_other_replica_nodes,
+   late_load_transforms_into_disc_load,
+   late_load_leads_to_hanging,
+   force_load_when_nobody_intents_to_load,
+   force_load_when_someone_has_decided_to_load,
+   force_load_when_someone_else_already_has_loaded,
+   force_load_when_we_has_loaded,
+   force_load_on_a_non_local_table,
+   force_load_when_the_table_does_not_exist,
+   {group, load_tables_with_master_tables}]},
+ {late_load_when_all_are_ram_copies_on_ram_nodes, [],
+  [late_load_when_all_are_ram_copies_on_ram_nodes1,
+   late_load_when_all_are_ram_copies_on_ram_nodes2]},
+ {load_tables_with_master_tables, [],
+  [master_nodes, starting_master_nodes,
+   master_on_non_local_tables,
+   remote_force_load_with_local_master_node]},
+ {durability_of_dump_tables, [],
+  [dump_ram_copies, dump_disc_copies, dump_disc_only]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-load_tables(doc) ->
-    ["Try to provoke all kinds of table load scenarios."];
-load_tables(suite) ->
-    [
-     load_latest_data,
-     load_local_contents_directly,
-     load_directly_when_all_are_ram_copiesA,
-     load_directly_when_all_are_ram_copiesB,
-     late_load_when_all_are_ram_copies_on_ram_nodes,
-     load_when_last_replica_becomes_available,
-     load_when_we_have_down_from_all_other_replica_nodes,
-     late_load_transforms_into_disc_load,
-     late_load_leads_to_hanging,
-     force_load_when_nobody_intents_to_load,
-     force_load_when_someone_has_decided_to_load,
-     force_load_when_someone_else_already_has_loaded,
-     force_load_when_we_has_loaded,
-     force_load_on_a_non_local_table,
-     force_load_when_the_table_does_not_exist,
-     load_tables_with_master_tables
-    ].
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 load_latest_data(doc) ->
@@ -284,13 +291,6 @@ load_directly_when_all_are_ram_copiesB(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-late_load_when_all_are_ram_copies_on_ram_nodes(doc) ->
-    ["Load of ram_copies tables when all replicas resides on disc less nodes"];
-late_load_when_all_are_ram_copies_on_ram_nodes(suite) ->
-    [
-     late_load_when_all_are_ram_copies_on_ram_nodes1,
-     late_load_when_all_are_ram_copies_on_ram_nodes2
-    ].
 
 late_load_when_all_are_ram_copies_on_ram_nodes1(suite) -> [];
 late_load_when_all_are_ram_copies_on_ram_nodes1(Config) when is_list(Config) ->
@@ -916,22 +916,6 @@ force_load_when_the_table_does_not_exist(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-load_tables_with_master_tables(doc) ->
-    ["Verifies the semantics of different master nodes settings",
-     "The semantics should be:",
-     "1. Mnesia downs, Normally decides from where mnesia should load tables",
-     "2. Master tables (overrides mnesia downs) ",
-     "3. Force load (overrides Master tables) ",
-     "--- 1st from active master nodes",
-     "--- 2nd from active nodes",
-     "--- 3rd get local copy (if ram create new one)" 
-    ];
-
-load_tables_with_master_tables(suite) ->
-    [master_nodes,
-     starting_master_nodes,
-     master_on_non_local_tables,
-     remote_force_load_with_local_master_node].
 
 
 -define(SDwrite(Tup), fun() -> mnesia:write(Tup) end).			            
@@ -1156,13 +1140,6 @@ remote_force_load_with_local_master_node(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-durability_of_dump_tables(doc) ->
-    [ "Verify that all tables contain the correct data when Mnesia",
-      "is restarted and tables are loaded from disc to recover",
-      " their previous contents. "   ];
-durability_of_dump_tables(suite) -> [dump_ram_copies,
-                                     dump_disc_copies,
-                                     dump_disc_only].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

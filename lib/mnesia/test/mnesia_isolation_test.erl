@@ -31,42 +31,49 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Verify the isolation property.", 
-     "Operations of concurrent transactions must yield results which",
-     "are indistinguishable from the results which would be obtained by",
-     "forcing each transaction to be serially executed to completion in",
-     "some order. This means that repeated reads of the same records",
-     "within any committed transaction must have returned identical",
-     "data when run concurrently with any mix of arbitary transactions.",
-     "Updates in one transaction must not be visible in any other",
-     "transaction before the transaction has been committed."];
-all(suite) ->
-    [
-     locking, 
-     visibility
-    ].
+all() -> 
+[{group, locking}, {group, visibility}].
+
+groups() -> 
+    [{locking, [],
+  [no_conflict, simple_queue_conflict,
+   advanced_queue_conflict, simple_deadlock_conflict,
+   advanced_deadlock_conflict, lock_burst,
+   {group, sticky_locks}, {group, unbound_locking},
+   {group, admin_conflict}, nasty]},
+ {sticky_locks, [], [basic_sticky_functionality]},
+ {unbound_locking, [], [unbound1, unbound2]},
+ {admin_conflict, [],
+  [create_table, delete_table, move_table_copy,
+   add_table_index, del_table_index, transform_table,
+   snmp_open_table, snmp_close_table,
+   change_table_copy_type, change_table_access,
+   add_table_copy, del_table_copy, dump_tables,
+   {group, extra_admin_tests}]},
+ {extra_admin_tests, [],
+  [del_table_copy_1, del_table_copy_2, del_table_copy_3,
+   add_table_copy_1, add_table_copy_2, add_table_copy_3,
+   add_table_copy_4, move_table_copy_1, move_table_copy_2,
+   move_table_copy_3, move_table_copy_4]},
+ {visibility, [],
+  [dirty_updates_visible_direct,
+   dirty_reads_regardless_of_trans,
+   trans_update_invisibible_outside_trans,
+   trans_update_visible_inside_trans, write_shadows,
+   delete_shadows, write_delete_shadows_bag,
+   write_delete_shadows_bag2, {group, iteration},
+   shadow_search, snmp_shadows]},
+ {removed_resources, [], [rr_kill_copy]},
+ {iteration, [], [foldl, first_next]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-locking(doc) ->
-    ["Verify locking semantics for various configurations",
-     " NoLock = lock_funs(no_lock, any_granularity)",
-     " SharedLock = lock_funs(shared_lock, any_granularity)",
-     " ExclusiveLock = lock_funs(exclusive_lock, any_granularity)",
-     " AnyLock = lock_funs(any_lock, any_granularity)"];
-locking(suite) ->
-    [no_conflict, 
-     simple_queue_conflict, 
-     advanced_queue_conflict, 
-     simple_deadlock_conflict, 
-     advanced_deadlock_conflict,      
-     lock_burst, 
-     sticky_locks,
-     unbound_locking,
-     admin_conflict,
-%%     removed_resources,
-     nasty
-    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -431,14 +438,6 @@ burst_incr(Tab, Father) ->
     Father ! burst_incr_done.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-sticky_locks(doc) ->
-    ["Simple Tests of sticky locks"];
-
-sticky_locks(suite) ->
-    [
-     basic_sticky_functionality
-     %% Needs to be expandand a little bit further
-    ].
 
 basic_sticky_functionality(suite) -> [];
 basic_sticky_functionality(Config) when is_list(Config) -> 
@@ -519,12 +518,6 @@ get_held() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-unbound_locking(suite) ->
-    [unbound1, unbound2];
-
-unbound_locking(doc) ->
-    ["Check that mnesia handles unbound key variables, GPRS bug."
-     "Ticket id: OTP-3342"].
 
 unbound1(suite) -> [];
 unbound1(Config) when is_list(Config) ->
@@ -637,25 +630,6 @@ receiver() ->
     end.   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-admin_conflict(doc) ->
-    ["Provoke lock conflicts with schema transactions and checkpoints."];
-admin_conflict(suite) -> 
-    [
-     create_table,
-     delete_table,
-     move_table_copy,
-     add_table_index,
-     del_table_index,
-     transform_table,
-     snmp_open_table,
-     snmp_close_table,
-     change_table_copy_type,
-     change_table_access,
-     add_table_copy,
-     del_table_copy,
-     dump_tables,
-     extra_admin_tests
-    ].
 
 create_table(suite) -> [];
 create_table(Config) when is_list(Config) ->
@@ -1088,18 +1062,6 @@ insert(Tab, N) when N > 0 ->
     ok = mnesia:sync_dirty(fun() -> mnesia:write({Tab, N, N, 0}) end),
     insert(Tab, N-1).
 
-extra_admin_tests(suite) -> 
-    [del_table_copy_1,
-     del_table_copy_2,
-     del_table_copy_3,
-     add_table_copy_1,
-     add_table_copy_2,
-     add_table_copy_3,
-     add_table_copy_4,
-     move_table_copy_1,
-     move_table_copy_2,
-     move_table_copy_3,
-     move_table_copy_4].
 
 update_own(Tab, Key, Acc) ->
     Update = 
@@ -1347,23 +1309,6 @@ move_table(CallFrom, FromNode, ToNode, [Node1, Node2, Node3], Def) ->
     ?verify_mnesia([Node1, Node2, Node3], []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-visibility(doc) ->
-    ["Verify the visibility semantics for various configurations"];
-visibility(suite) ->
-    [
-     dirty_updates_visible_direct, 
-     dirty_reads_regardless_of_trans, 
-     trans_update_invisibible_outside_trans, 
-     trans_update_visible_inside_trans, 
-     write_shadows, 
-     delete_shadows, 
-%%     delete_shadows2,
-     write_delete_shadows_bag,
-     write_delete_shadows_bag2,
-     iteration,
-     shadow_search,
-     snmp_shadows
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dirty_updates_visible_direct(doc) ->
@@ -1969,10 +1914,6 @@ shadow_search(Config) when is_list(Config) ->
     
     ?verify_mnesia([Node1], []).
 
-removed_resources(suite) ->     
-    [rr_kill_copy];
-removed_resources(doc) -> 
-    ["Verify that the locking behave when resources are removed"].
 
 rr_kill_copy(suite) -> [];
 rr_kill_copy(Config) when is_list(Config) ->
@@ -2138,11 +2079,6 @@ get_exit(Pid) ->
 	    ?error("Timeout EXIT ~p~n", [Pid])
     end.
 
-iteration(doc) ->
-    ["Verify that the updates before/during iteration are visable "
-     "and that the order is preserved for ordered_set tables"];
-iteration(suite) ->
-    [foldl,first_next].
 
 foldl(doc) ->
     [""];

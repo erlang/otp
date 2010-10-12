@@ -31,29 +31,117 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Verify transaction consistency",
-     "Consistency is the property of the application that requires any",
-     "execution of the transaction to take the database from one",
-     "consistent state to another. Verify that the database is",
-     "consistent at any point in time.",
-     "Verify for various configurations.", 
-     " Verify for both set and bag"];
-all(suite) ->
-    [
-     consistency_after_restart,
-     consistency_after_dump_tables,
-     consistency_after_add_replica,
-     consistency_after_del_replica,
-     consistency_after_move_replica,
-     consistency_after_transform_table,
-     consistency_after_change_table_copy_type,
-     consistency_after_fallback,
-     consistency_after_restore,
-     consistency_after_rename_of_node,
-     checkpoint_retainer_consistency,
-     backup_consistency
-    ].
+all() -> 
+[{group, consistency_after_restart},
+ {group, consistency_after_dump_tables},
+ {group, consistency_after_add_replica},
+ {group, consistency_after_del_replica},
+ {group, consistency_after_move_replica},
+ {group, consistency_after_transform_table},
+ consistency_after_change_table_copy_type,
+ {group, consistency_after_fallback},
+ {group, consistency_after_restore},
+ consistency_after_rename_of_node,
+ {group, checkpoint_retainer_consistency},
+ {group, backup_consistency}].
+
+groups() -> 
+    [{consistency_after_restart, [],
+  [consistency_after_restart_1_ram,
+   consistency_after_restart_1_disc,
+   consistency_after_restart_1_disc_only,
+   consistency_after_restart_2_ram,
+   consistency_after_restart_2_disc,
+   consistency_after_restart_2_disc_only]},
+ {consistency_after_dump_tables, [],
+  [consistency_after_dump_tables_1_ram,
+   consistency_after_dump_tables_2_ram]},
+ {consistency_after_add_replica, [],
+  [consistency_after_add_replica_2_ram,
+   consistency_after_add_replica_2_disc,
+   consistency_after_add_replica_2_disc_only,
+   consistency_after_add_replica_3_ram,
+   consistency_after_add_replica_3_disc,
+   consistency_after_add_replica_3_disc_only]},
+ {consistency_after_del_replica, [],
+  [consistency_after_del_replica_2_ram,
+   consistency_after_del_replica_2_disc,
+   consistency_after_del_replica_2_disc_only,
+   consistency_after_del_replica_3_ram,
+   consistency_after_del_replica_3_disc,
+   consistency_after_del_replica_3_disc_only]},
+ {consistency_after_move_replica, [],
+  [consistency_after_move_replica_2_ram,
+   consistency_after_move_replica_2_disc,
+   consistency_after_move_replica_2_disc_only,
+   consistency_after_move_replica_3_ram,
+   consistency_after_move_replica_3_disc,
+   consistency_after_move_replica_3_disc_only]},
+ {consistency_after_transform_table, [],
+  [consistency_after_transform_table_ram,
+   consistency_after_transform_table_disc,
+   consistency_after_transform_table_disc_only]},
+ {consistency_after_fallback, [],
+  [consistency_after_fallback_2_ram,
+   consistency_after_fallback_2_disc,
+   consistency_after_fallback_2_disc_only,
+   consistency_after_fallback_3_ram,
+   consistency_after_fallback_3_disc,
+   consistency_after_fallback_3_disc_only]},
+ {consistency_after_restore, [],
+  [consistency_after_restore_clear_ram,
+   consistency_after_restore_clear_disc,
+   consistency_after_restore_clear_disc_only,
+   consistency_after_restore_recreate_ram,
+   consistency_after_restore_recreate_disc,
+   consistency_after_restore_recreate_disc_only]},
+ {checkpoint_retainer_consistency, [],
+  [{group, updates_during_checkpoint_activation},
+   {group, updates_during_checkpoint_iteration},
+   {group, load_table_with_activated_checkpoint},
+   {group,
+    add_table_copy_to_table_with_activated_checkpoint}]},
+ {updates_during_checkpoint_activation, [],
+  [updates_during_checkpoint_activation_2_ram,
+   updates_during_checkpoint_activation_2_disc,
+   updates_during_checkpoint_activation_2_disc_only,
+   updates_during_checkpoint_activation_3_ram,
+   updates_during_checkpoint_activation_3_disc,
+   updates_during_checkpoint_activation_3_disc_only]},
+ {updates_during_checkpoint_iteration, [],
+  [updates_during_checkpoint_iteration_2_ram,
+   updates_during_checkpoint_iteration_2_disc,
+   updates_during_checkpoint_iteration_2_disc_only]},
+ {load_table_with_activated_checkpoint, [],
+  [load_table_with_activated_checkpoint_ram,
+   load_table_with_activated_checkpoint_disc,
+   load_table_with_activated_checkpoint_disc_only]},
+ {add_table_copy_to_table_with_activated_checkpoint, [],
+  [add_table_copy_to_table_with_activated_checkpoint_ram,
+   add_table_copy_to_table_with_activated_checkpoint_disc,
+   add_table_copy_to_table_with_activated_checkpoint_disc_only]},
+ {backup_consistency, [],
+  [{group, interupted_install_fallback},
+   {group, interupted_uninstall_fallback},
+   {group, mnesia_down_during_backup_causes_switch},
+   {group, mnesia_down_during_backup_causes_abort},
+   {group, schema_transactions_during_backup}]},
+ {interupted_install_fallback, [],
+  [inst_fallback_process_dies, fatal_when_inconsistency]},
+ {interupted_uninstall_fallback, [], [after_delete]},
+ {mnesia_down_during_backup_causes_switch, [],
+  [cause_switch_before, cause_switch_after]},
+ {mnesia_down_during_backup_causes_abort, [],
+  [cause_abort_before, cause_abort_after]},
+ {schema_transactions_during_backup, [],
+  [change_schema_before, change_schema_after]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -185,15 +273,6 @@ receive_messages(ListOfMsgs) ->
     end.  
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_restart(suite) ->
-    [
-     consistency_after_restart_1_ram,
-     consistency_after_restart_1_disc,
-     consistency_after_restart_1_disc_only,
-     consistency_after_restart_2_ram,
-     consistency_after_restart_2_disc,
-     consistency_after_restart_2_disc_only
-    ].
 
 consistency_after_restart_1_ram(suite) -> [];
 consistency_after_restart_1_ram(Config) when is_list(Config) ->
@@ -237,11 +316,6 @@ consistency_after_restart(ReplicaType, NodeConfig, Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_dump_tables(suite) ->
-    [
-     consistency_after_dump_tables_1_ram,
-     consistency_after_dump_tables_2_ram
-    ].
 
 consistency_after_dump_tables_1_ram(suite) -> [];
 consistency_after_dump_tables_1_ram(Config) when is_list(Config) ->
@@ -274,15 +348,6 @@ consistency_after_dump_tables(ReplicaType, NodeConfig, Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_add_replica(suite) -> 
-    [
-     consistency_after_add_replica_2_ram,
-     consistency_after_add_replica_2_disc,
-     consistency_after_add_replica_2_disc_only,
-     consistency_after_add_replica_3_ram,
-     consistency_after_add_replica_3_disc,
-     consistency_after_add_replica_3_disc_only
-    ].
 
 consistency_after_add_replica_2_ram(suite) -> [];
 consistency_after_add_replica_2_ram(Config) when is_list(Config) ->
@@ -326,15 +391,6 @@ consistency_after_add_replica(ReplicaType, NodeConfig, Config) ->
     ?verify_mnesia(Nodes0, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_del_replica(suite) ->
-    [
-     consistency_after_del_replica_2_ram,
-     consistency_after_del_replica_2_disc,
-     consistency_after_del_replica_2_disc_only,
-     consistency_after_del_replica_3_ram,
-     consistency_after_del_replica_3_disc,
-     consistency_after_del_replica_3_disc_only
-    ].
 
 consistency_after_del_replica_2_ram(suite) -> [];
 consistency_after_del_replica_2_ram(Config) when is_list(Config) ->
@@ -377,15 +433,6 @@ consistency_after_del_replica(ReplicaType, NodeConfig, Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_move_replica(suite) ->
-    [
-     consistency_after_move_replica_2_ram,
-     consistency_after_move_replica_2_disc,
-     consistency_after_move_replica_2_disc_only,
-     consistency_after_move_replica_3_ram,
-     consistency_after_move_replica_3_disc,
-     consistency_after_move_replica_3_disc_only
-    ].
 
 consistency_after_move_replica_2_ram(suite) -> [];
 consistency_after_move_replica_2_ram(Config) when is_list(Config) ->
@@ -430,16 +477,6 @@ consistency_after_move_replica(ReplicaType, NodeConfig, Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_transform_table(doc) ->
-    ["Check that the database is consistent after transform_table.",
-     " While applications are updating the involved tables. "];
-
-consistency_after_transform_table(suite) ->
-    [
-     consistency_after_transform_table_ram,
-     consistency_after_transform_table_disc,
-     consistency_after_transform_table_disc_only
-    ].
 
 
 consistency_after_transform_table_ram(suite) -> [];
@@ -498,20 +535,6 @@ consistency_after_change_table_copy_type(doc) ->
      " While applications are updating the involved tables. "].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_fallback(doc) ->
-    ["Check that installed fallbacks are consistent. Check this by starting ",
-     "some nodes, run tpcb on them, take a backup at any time, install it ",
-     "as a fallback, kill all nodes, start mnesia again and check for ",
-     "any inconsistencies"];
-consistency_after_fallback(suite) ->
-    [
-     consistency_after_fallback_2_ram,
-     consistency_after_fallback_2_disc,
-     consistency_after_fallback_2_disc_only,
-     consistency_after_fallback_3_ram,
-     consistency_after_fallback_3_disc
-     , consistency_after_fallback_3_disc_only
-    ].
 
 consistency_after_fallback_2_ram(suite) -> [];
 consistency_after_fallback_2_ram(Config) when is_list(Config) ->
@@ -583,18 +606,6 @@ consistency_after_fallback(ReplicaType, NodeConfig, Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consistency_after_restore(doc) ->
-    ["Verify consistency after restore operations."];
-
-consistency_after_restore(suite) ->
-    [
-     consistency_after_restore_clear_ram,
-     consistency_after_restore_clear_disc,
-     consistency_after_restore_clear_disc_only,
-     consistency_after_restore_recreate_ram,
-     consistency_after_restore_recreate_disc,
-     consistency_after_restore_recreate_disc_only
-    ].
 
 consistency_after_restore_clear_ram(suite) -> [];
 consistency_after_restore_clear_ram(Config) when is_list(Config) ->
@@ -716,32 +727,8 @@ consistency_after_rename_of_node(doc) ->
     ["Skipped because it is an unimportant case."].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-checkpoint_retainer_consistency(doc) ->
-    ["Verify that the contents of a checkpoint retainer has the expected",
-     "contents in various situations."];
-checkpoint_retainer_consistency(suite) ->
-    [
-     updates_during_checkpoint_activation,
-     updates_during_checkpoint_iteration,
-     load_table_with_activated_checkpoint,
-     add_table_copy_to_table_with_activated_checkpoint
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-updates_during_checkpoint_activation(doc) ->
-    ["Perform updates while the checkpoint getting activated",
-     "and verify that all checkpoint retainers associated with",
-     "different replicas of the same table really has the same",
-     "contents."];
-updates_during_checkpoint_activation(suite) ->
-    [
-     updates_during_checkpoint_activation_2_ram,
-     updates_during_checkpoint_activation_2_disc,
-     updates_during_checkpoint_activation_2_disc_only,
-     updates_during_checkpoint_activation_3_ram,
-     updates_during_checkpoint_activation_3_disc
-     , updates_during_checkpoint_activation_3_disc_only
-    ].
 
 updates_during_checkpoint_activation_2_ram(suite) -> [];
 updates_during_checkpoint_activation_2_ram(Config) when is_list(Config) ->
@@ -808,17 +795,6 @@ updates_during_checkpoint_activation(ReplicaType,NodeConfig,Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-updates_during_checkpoint_iteration(doc) ->
-    ["Perform updates while someone is iterating over a checkpoint",
-     "and verify that the iterator really finds the expected data",
-     "regardless of ongoing upates."];
-
-updates_during_checkpoint_iteration(suite) ->
-    [
-     updates_during_checkpoint_iteration_2_ram,
-     updates_during_checkpoint_iteration_2_disc
-     , updates_during_checkpoint_iteration_2_disc_only
-    ].
 
 updates_during_checkpoint_iteration_2_ram(suite) -> [];
 updates_during_checkpoint_iteration_2_ram(Config) when is_list(Config) ->
@@ -890,17 +866,6 @@ loop_accounts(N_br, N_acc) when N_acc >= 1 ->
 loop_accounts(_,_) -> done.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-load_table_with_activated_checkpoint(doc) ->
-    ["Load a table with a checkpoint attached to it and verify that the",
-     "newly loaded replica also gets a checkpoint retainer attached to it",
-     "and that it is consistent with the original retainer."];
-
-load_table_with_activated_checkpoint(suite) ->
-    [
-     load_table_with_activated_checkpoint_ram,
-     load_table_with_activated_checkpoint_disc,
-     load_table_with_activated_checkpoint_disc_only
-    ].
 
 load_table_with_activated_checkpoint_ram(suite) -> [];
 load_table_with_activated_checkpoint_ram(Config) when is_list(Config) ->
@@ -986,18 +951,6 @@ view(Source, Mod) ->
     lists:sort(TabList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-add_table_copy_to_table_with_activated_checkpoint(doc) ->
-    ["Add a replica to a table with a checkpoint attached to it",
-     "and verify that the new replica also gets a checkpoint",
-     "retainer attached to it and that it is consistent with the",
-     "original retainer."];
-
-add_table_copy_to_table_with_activated_checkpoint(suite) ->
-    [
-     add_table_copy_to_table_with_activated_checkpoint_ram,
-     add_table_copy_to_table_with_activated_checkpoint_disc,
-     add_table_copy_to_table_with_activated_checkpoint_disc_only
-    ].
 
 add_table_copy_to_table_with_activated_checkpoint_ram(suite) -> [];
 add_table_copy_to_table_with_activated_checkpoint_ram(Config) when is_list(Config) ->
@@ -1070,25 +1023,8 @@ add_table_copy_to_table_with_activated_checkpoint(Type,Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-backup_consistency(suite) ->
-    [
-     interupted_install_fallback,
-     interupted_uninstall_fallback,
-     mnesia_down_during_backup_causes_switch,
-     mnesia_down_during_backup_causes_abort,
-     schema_transactions_during_backup
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-interupted_install_fallback(doc) ->
-    ["Verify that a interrupted install_fallback really",
-     "is performed on all nodes or none"];
-
-interupted_install_fallback(suite) ->
-    [
-     inst_fallback_process_dies,
-     fatal_when_inconsistency
-    ].
 
 inst_fallback_process_dies(suite) -> 
     [];
@@ -1232,13 +1168,6 @@ is_running(Node, Shouldbe) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-interupted_uninstall_fallback(doc) ->
-    ["Verify that a interrupted uninstall_fallback really",
-     "is performed on all nodes or none"];
-interupted_uninstall_fallback(suite) ->
-    [
-     after_delete
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1371,17 +1300,6 @@ do_uninstall(Config,DebugPoint) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-mnesia_down_during_backup_causes_switch(doc) ->
-    ["Verify that  an ongoing backup is not disturbed",
-     "even if the node hosting the replica that currently",
-     "is being backup'ed is stopped. The backup utility",
-     "is expected to switch over to another replica and",
-     "fulfill the backup."];
-mnesia_down_during_backup_causes_switch(suite) ->
-    [
-     cause_switch_before,
-     cause_switch_after
-    ].
 
 %%%%%%%%%%%%%%%
 
@@ -1401,16 +1319,6 @@ cause_switch_after(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-mnesia_down_during_backup_causes_abort(doc) ->
-    ["Verify that an ongoing backup is aborted nicely",
-     "without leaving any backup file if the last replica",
-     "of a table becomes unavailable due to a node down",
-     "or some crash."];
-mnesia_down_during_backup_causes_abort(suite) ->
-    [
-     cause_abort_before,
-     cause_abort_after
-    ].
 
 %%%%%%%%%%%%%%%%%%
 
@@ -1432,14 +1340,6 @@ cause_abort_after(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-schema_transactions_during_backup(doc) ->
-    ["Verify that an schema transactions does not",
-     "affect an ongoing backup."];
-schema_transactions_during_backup(suite) ->
-    [
-     change_schema_before,
-     change_schema_after
-    ].
 
 %%%%%%%%%%%%%
 

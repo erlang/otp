@@ -27,14 +27,14 @@
 -record(test_table2,{i, b}).
 
 -export([
-	 all/1,
+	all/0,groups/0,init_per_group/2,end_per_group/2,
 	 access_module/1,
 	 auto_repair/1,
 	 backup_module/1,
 	 debug/1,
 	 dir/1,
 	 dump_log_load_regulation/1,
-	 dump_log_thresholds/1,
+	
 	 dump_log_update_in_place/1,
 	 embedded_mnemosyne/1,
 	 event_module/1,
@@ -44,7 +44,7 @@
 	 send_compressed/1,
 
 	 app_test/1,
-	 schema_config/1,
+	
 	 schema_merge/1,
 	 unknown_config/1,
 
@@ -56,7 +56,7 @@
 	 start_first_one_disc_less_then_two_more_disc_less/1,
 	 schema_location_and_extra_db_nodes_combinations/1,
 	 table_load_to_disc_less_nodes/1,
-	 dynamic_connect/1,
+	
 	 dynamic_basic/1,
 	 dynamic_ext/1,
 	 dynamic_bad/1,
@@ -101,40 +101,34 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-all(doc) ->
-    [
-     "Test all configuration parameters",
-     "Perform an exhaustive test of all the various parameters that",
-     "may be used to configure the Mnesia application.",
-     "",
-     "Hint: Check out the unofficial function mnesia:start/1.",
-     "      But be careful to cleanup all configuration parameters",
-     "      afterwards since the rest of the test suite may rely on",
-     "      these default configurations. Perhaps it is best to run",
-     "      these tests in a separate node which is dropped afterwards.",
-     "Are really all configuration parameters covered?"];
+all() -> 
+[access_module, auto_repair, backup_module, debug, dir,
+ dump_log_load_regulation, {group, dump_log_thresholds},
+ dump_log_update_in_place, embedded_mnemosyne,
+ event_module, ignore_fallback_at_startup,
+ inconsistent_database, max_wait_for_decision,
+ send_compressed, app_test, {group, schema_config},
+ unknown_config].
 
-all(suite) ->
-    [
-     access_module,
-     auto_repair,
-     backup_module,
-     debug,
-     dir,
-     dump_log_load_regulation,
-     dump_log_thresholds,
-     dump_log_update_in_place,
-     embedded_mnemosyne,
-     event_module,
-     ignore_fallback_at_startup,
-     inconsistent_database,
-     max_wait_for_decision,
-     send_compressed,
+groups() -> 
+    [{dump_log_thresholds, [],
+  [dump_log_time_threshold, dump_log_write_threshold]},
+ {schema_config, [],
+  [start_one_disc_full_then_one_disc_less,
+   start_first_one_disc_less_then_one_disc_full,
+   start_first_one_disc_less_then_two_more_disc_less,
+   schema_location_and_extra_db_nodes_combinations,
+   table_load_to_disc_less_nodes, schema_merge,
+   {group, dynamic_connect}]},
+ {dynamic_connect, [],
+  [dynamic_basic, dynamic_ext, dynamic_bad]}].
 
-     app_test,
-     schema_config,
-     unknown_config
-    ].
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -445,21 +439,6 @@ dump_log_update_in_place(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-dump_log_thresholds(doc) ->
-    ["Elaborate with various values of the dump log thresholds and how",
-     "they affects each others. Both the dump_log_time_threshold and the",
-     "dump_log_write_threshold must be covered. Do also check that both",
-     "kinds of overload events are generated as expected.",
-     "",
-     "Logs are checked by first doing whatever has to be done to trigger ",
-     "a dump, and then stopping Mnesia and then look in the ",
-     "data files and see that the correct amount of transactions ",
-     "have been done."];
-dump_log_thresholds(suite) ->
-    [
-     dump_log_time_threshold,
-     dump_log_write_threshold
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dump_log_write_threshold(doc)->
@@ -783,22 +762,6 @@ event_module(Config) when is_list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-schema_config(doc) ->
-    ["Try many configurations with various schema_location's with and",
-     "without explicit extra_db_nodes. Do also provoke various schema merge",
-     "situations. Most of the other test suites focusses on tests where the",
-     "schema is residing on disc. Now it is time to perform an exhaustive",
-     "elaboration with various disc less configurations."];
-schema_config(suite) ->
-    [
-     start_one_disc_full_then_one_disc_less,
-     start_first_one_disc_less_then_one_disc_full,
-     start_first_one_disc_less_then_two_more_disc_less,
-     schema_location_and_extra_db_nodes_combinations,
-     table_load_to_disc_less_nodes,
-     schema_merge,
-     dynamic_connect
-    ].
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 start_one_disc_full_then_one_disc_less(doc)->
     ["Start a disk node and then a disk less one. Distribute some",
@@ -1160,15 +1123,6 @@ sort(NS) when is_list(NS) ->
     lists:sort(NS).
 
 
-dynamic_connect(doc) ->
-    ["Test the new functionality where we start mnesia first and then "
-     "connect to the other mnesia nodes"];
-dynamic_connect(suite) -> 
-    [
-     dynamic_basic,
-     dynamic_ext,
-     dynamic_bad
-    ].
 
 
 dynamic_basic(suite) -> [];

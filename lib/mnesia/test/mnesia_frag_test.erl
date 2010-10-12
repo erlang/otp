@@ -37,34 +37,29 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(doc) ->
-    ["Verify the functionality of fragmented tables"];
-all(suite) ->
-    [
-     light,
-     medium
-    ].
+all() -> 
+[{group, light}, {group, medium}].
 
-light(suite) ->
-    [
-     nice,
-     evil
-    ].
+groups() -> 
+    [{light, [], [{group, nice}, {group, evil}]},
+ {medium, [], [consistency]},
+ {nice, [],
+  [nice_single, nice_multi, nice_access, iter_access]},
+ {evil, [],
+  [evil_create, evil_delete, evil_change, evil_combine,
+   evil_loop, evil_delete_db_node]}].
 
-medium(suite) ->
-    [
-     consistency 
-    ].
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-nice(suite) ->
-    [
-     nice_single,
-     nice_multi,
-     nice_access,
-     iter_access
-    ].
 
 nice_single(suite) -> [];
 nice_single(Config) when is_list(Config) ->
@@ -503,17 +498,6 @@ consistency(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-evil(doc) ->
-    ["Evil coverage of fragmentation API."];
-evil(suite) ->
-    [
-     evil_create,
-     evil_delete,
-     evil_change,
-     evil_combine,
-     evil_loop,
-     evil_delete_db_node
-    ].
 
 evil_create(suite) -> [];
 evil_create(Config) when is_list(Config) ->

@@ -31,25 +31,18 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Run some small but demanding test cases in order to verify",
-     "that the basic functionality in Mnesia still works.",
-     "",
-     "Try some very simple things to begin with and increase the",
-     "difficulty stepwise. This test suite should be run before",
-     "all the others if you expect to find bugs.",
-     "",
-     "The function mnesia_install_test:silly() does not use the whole",
-     "infra structure of the test suite. Invoke it on a single node to",
-     "begin with. If that works, proceed with pong = net_adm:ping(SomeOtherNode)",
-     "and rerun silly() in order to perform some distributed tests."];
-all(suite) ->
-    [
-     silly_durability,
-     silly_move,
-     silly_upgrade
-     %,stress
-    ].
+all() -> 
+[silly_durability, silly_move, silly_upgrade].
+
+groups() -> 
+    [{stress, [], stress_cases()}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Stepwise of more and more advanced features
@@ -286,16 +279,9 @@ transform_some_records(Tab1, _Tab2, Old) ->
     lists:sort(lists:zf(Filter, Old)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-stress(doc) ->
-    ["Stress the system a little"];
-stress(suite) ->
-    stress_cases().
 
-stress_cases() ->
-    [
-     conflict,
-     dist
-    ].
+stress_cases() -> 
+[conflict, dist].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 dist(doc) ->

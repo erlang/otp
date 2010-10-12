@@ -37,101 +37,62 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(doc) ->
-    ["Measure various aspects of Mnesia",
-     "Verify that Mnesia has predictable response times,",
-     "that the transaction system has fair algoritms,",
-     "resource consumption, scalabilitym system limits etc.",
-     "Perform some benchmarks."];
-all(suite) ->
-    [
-     prediction,
-     consumption,
-     scalability,
-     benchmarks
-    ].
+all() -> 
+[{group, prediction}, {group, consumption},
+ {group, scalability}, {group, benchmarks}].
+
+groups() -> 
+    [{prediction, [],
+  [reader_disturbed_by_node_down,
+   writer_disturbed_by_node_down,
+   reader_disturbed_by_node_up,
+   writer_disturbed_by_node_up,
+   reader_disturbed_by_schema_ops,
+   writer_disturbed_by_schema_ops,
+   reader_disturbed_by_checkpoint,
+   writer_disturbed_by_checkpoint,
+   reader_disturbed_by_dump_log,
+   writer_disturbed_by_dump_log,
+   reader_disturbed_by_backup, writer_disturbed_by_backup,
+   reader_disturbed_by_restore,
+   writer_disturbed_by_restore, {group, fairness}]},
+ {fairness, [],
+  [reader_competing_with_reader,
+   reader_competing_with_writer,
+   writer_competing_with_reader,
+   writer_competing_with_writer]},
+ {consumption, [],
+  [measure_resource_consumption,
+   determine_resource_leakage]},
+ {scalability, [],
+  [determine_system_limits, performance_at_min_config,
+   performance_at_max_config, performance_at_full_load,
+   resource_consumption_at_min_config,
+   resource_consumption_at_max_config,
+   resource_consumption_at_full_load]},
+ {benchmarks, [],
+  [{group, meter}, cost, dbn_meters,
+   measure_all_api_functions, {group, tpcb},
+   mnemosyne_vs_mnesia_kernel]},
+ {tpcb, [], [ram_tpcb, disc_tpcb, disc_only_tpcb]},
+ {meter, [], [ram_meter, disc_meter, disc_only_meter]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
      
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-prediction(doc) ->
-    ["The system must have predictable response times.",
-     "The maintenance of the system should not impact on the",
-     "availability. Make sure that the response times does not vary too",
-     "much from the undisturbed normal usage.",
-     "Verify that deadlocks never occurs."];
-prediction(suite) ->
-    [
-     reader_disturbed_by_node_down,
-     writer_disturbed_by_node_down,
-     reader_disturbed_by_node_up,
-     writer_disturbed_by_node_up,
-     reader_disturbed_by_schema_ops,
-     writer_disturbed_by_schema_ops,
-     reader_disturbed_by_checkpoint,
-     writer_disturbed_by_checkpoint,
-     reader_disturbed_by_dump_log,
-     writer_disturbed_by_dump_log,
-     reader_disturbed_by_backup,
-     writer_disturbed_by_backup,
-     reader_disturbed_by_restore,
-     writer_disturbed_by_restore,
-     fairness
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-fairness(doc) ->
-    ["Verify that the transaction system behaves fair, even under intense",
-     "stress. Combine different access patterns (transaction profiles)",
-     "in order to verify that concurrent applications gets a fair share",
-     "of the database resource. Verify that starvation never may occur."];
-fairness(suite) ->
-    [
-     reader_competing_with_reader,
-     reader_competing_with_writer,
-     writer_competing_with_reader,
-     writer_competing_with_writer
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-consumption(doc) ->
-    ["Measure the resource consumption and publish the outcome. Make",
-     "sure that resources are released after failures."];
-consumption(suite) ->
-    [
-     measure_resource_consumption,
-     determine_resource_leakage
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-scalability(doc) ->
-    ["Try out where the system limits are. We must at least meet the",
-     "documented system limits.",
-     "Redo the performance meters for various configurations and load,",
-     "especially near system limits."];
-scalability(suite) ->
-    [
-     determine_system_limits,
-     performance_at_min_config,
-     performance_at_max_config,
-     performance_at_full_load,
-     resource_consumption_at_min_config,
-     resource_consumption_at_max_config,
-     resource_consumption_at_full_load
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-benchmarks(doc) ->
-    ["Measure typical database operations and publish them. Try to",
-     "verify that new releases of Mnesia always outperforms old",
-     "releases, or at least that the meters does not get worse."];
-benchmarks(suite) ->
-    [
-     meter,
-     cost,
-     dbn_meters,
-     measure_all_api_functions,
-     tpcb,
-     mnemosyne_vs_mnesia_kernel
-    ].
 
 dbn_meters(suite) -> [];
 dbn_meters(Config) when is_list(Config) ->
@@ -139,12 +100,6 @@ dbn_meters(Config) when is_list(Config) ->
     ?match(ok, mnesia_dbn_meters:start()),
     ok.
 
-tpcb(suite) ->
-    [
-     ram_tpcb,
-     disc_tpcb,
-     disc_only_tpcb
-    ].
 
 tpcb(ReplicaType, Config) ->
     HarakiriDelay = {tc_timeout, timer:minutes(20)},
@@ -171,12 +126,6 @@ disc_only_tpcb(suite) -> [];
 disc_only_tpcb(Config) when is_list(Config) ->
     tpcb(disc_only_copies, Config).
 
-meter(suite) ->
-    [
-     ram_meter,
-     disc_meter,
-     disc_only_meter
-    ].
 
 ram_meter(suite) -> [];
 ram_meter(Config) when is_list(Config) ->
