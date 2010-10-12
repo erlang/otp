@@ -19,7 +19,7 @@
 -module(dbg_SUITE).
 
 %% Test functions
--export([all/1, big/1, tiny/1, simple/1, message/1, distributed/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, big/1, tiny/1, simple/1, message/1, distributed/1,
 	 ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
 	 ip_port_busy/1, wrap_port/1, wrap_port_time/1,
 	 with_seq_trace/1, dead_suspend/1, local_trace/1,
@@ -28,7 +28,7 @@
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
@@ -39,10 +39,21 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [big, tiny, simple, message, distributed,
-	       ip_port, file_port, file_port2, file_port_schedfix,
-	       ip_port_busy, wrap_port, wrap_port_time,
-	       with_seq_trace, dead_suspend, local_trace, saved_patterns].
+all() -> 
+[big, tiny, simple, message, distributed, ip_port,
+ file_port, file_port2, file_port_schedfix, ip_port_busy,
+ wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
+ local_trace, saved_patterns].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 big(suite) -> [];
 big(doc) -> ["Rudimentary interface test"];

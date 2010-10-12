@@ -21,10 +21,10 @@
 
 %-define(line_trace, 1).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Testcases
 -export([basic/1]).
@@ -34,8 +34,18 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(2)).
 
-all(doc) -> [];
-all(suite) -> [basic].
+all() -> 
+[basic].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     [{testcase, Case},
