@@ -26,7 +26,7 @@
 
 -module(generated_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -72,7 +72,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -85,20 +85,40 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["This suite is for testing IC generated files"];
-all(suite) -> 
-    ['CosTransactions_Control', 'CosTransactions_Coordinator',
-     'CosTransactions_HeuristicCommit', 'CosTransactions_HeuristicHazard',
-     'CosTransactions_HeuristicMixed', 'CosTransactions_HeuristicRollback',
-     'CosTransactions_Inactive', 'CosTransactions_InvalidControl',
-     'CosTransactions_NoTransaction', 'CosTransactions_NotPrepared',
-     'CosTransactions_NotSubtransaction', 'CosTransactions_RecoveryCoordinator',
-     'CosTransactions_Resource', 'CosTransactions_SubtransactionAwareResource',
-     'CosTransactions_SubtransactionsUnavailable', 'CosTransactions_Terminator',
-     'CosTransactions_TransactionFactory', 'CosTransactions_Unavailable',
-     'CosTransactions_SynchronizationUnavailable', 'CosTransactions_TransIdentity',
-     'CosTransactions_PropagationContext', 'CosTransactions_otid_t',
-     'CosTransactions_WrongTransaction', 'ETraP_Server'].
+all() -> 
+['CosTransactions_Control',
+ 'CosTransactions_Coordinator',
+ 'CosTransactions_HeuristicCommit',
+ 'CosTransactions_HeuristicHazard',
+ 'CosTransactions_HeuristicMixed',
+ 'CosTransactions_HeuristicRollback',
+ 'CosTransactions_Inactive',
+ 'CosTransactions_InvalidControl',
+ 'CosTransactions_NoTransaction',
+ 'CosTransactions_NotPrepared',
+ 'CosTransactions_NotSubtransaction',
+ 'CosTransactions_RecoveryCoordinator',
+ 'CosTransactions_Resource',
+ 'CosTransactions_SubtransactionAwareResource',
+ 'CosTransactions_SubtransactionsUnavailable',
+ 'CosTransactions_Terminator',
+ 'CosTransactions_TransactionFactory',
+ 'CosTransactions_Unavailable',
+ 'CosTransactions_SynchronizationUnavailable',
+ 'CosTransactions_TransIdentity',
+ 'CosTransactions_PropagationContext',
+ 'CosTransactions_otid_t',
+ 'CosTransactions_WrongTransaction', 'ETraP_Server'].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
