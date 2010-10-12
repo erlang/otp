@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,12 +19,12 @@
 
 -module(ref_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2]).
 -export([wrap_1/1]).
 
 -export([loop_ref/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(2)),
@@ -35,7 +35,18 @@ fin_per_testcase(_, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [wrap_1].
+all() -> 
+[wrap_1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 wrap_1(doc) -> "Check that refs don't wrap around easily.";
 wrap_1(Config) when is_list(Config) ->

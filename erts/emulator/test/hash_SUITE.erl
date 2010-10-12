@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,7 +49,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
 
 -ifdef(debug).
@@ -69,7 +69,7 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/1,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
 	 fin_per_testcase/2,init_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
@@ -80,11 +80,19 @@ fin_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
-all(doc) ->
-    ["Test erlang:phash"];
-all(suite) ->
-    [test_basic, test_cmp, test_range, test_spread, test_phash2, otp_5292,
-     bit_level_binaries, otp_7127].
+all() -> 
+[test_basic, test_cmp, test_range, test_spread,
+ test_phash2, otp_5292, bit_level_binaries, otp_7127].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 test_basic(suite) ->
     [];

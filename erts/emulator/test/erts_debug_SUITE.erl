@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,13 +18,23 @@
 %%
 
 -module(erts_debug_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 flat_size/1,flat_size_big/1,df/1,instructions/1]).
 
-all(suite) ->
-    [flat_size,flat_size_big,df,instructions].
+all() -> 
+[flat_size, flat_size_big, df, instructions].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(2)),

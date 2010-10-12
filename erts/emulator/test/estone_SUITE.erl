@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,7 +18,7 @@
 
 -module(estone_SUITE).
 %% Test functions
--export([all/1,estone/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,estone/1]).
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
 %% Internal exports for EStone tests
@@ -44,7 +44,7 @@
 	 run_micro/3,p1/1,ppp/3,macro/2,micros/0]).
 
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test suite defines
 -define(default_timeout, ?t:minutes(10)).
@@ -73,7 +73,18 @@ fin_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [estone].
+all() -> 
+[estone].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 estone(suite) ->
     [];

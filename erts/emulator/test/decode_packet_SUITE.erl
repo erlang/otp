@@ -21,13 +21,23 @@
 
 -module(decode_packet_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1]).
 
-all(suite) ->
-    [basic, packet_size, neg, http, line, ssl, otp_8536].
+all() -> 
+[basic, packet_size, neg, http, line, ssl, otp_8536].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Seed = {S1,S2,S3} = now(),

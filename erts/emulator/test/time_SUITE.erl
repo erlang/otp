@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,14 +29,14 @@
 %%	now/0
 %%
 
--export([all/1, univ_to_local/1, local_to_univ/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
 	 bad_univ_to_local/1, bad_local_to_univ/1,
 	 consistency/1,
-	 now/1, now_unique/1, now_update/1, timestamp/1]).
+	 now_unique/1, now_update/1, timestamp/1]).
 
 -export([local_to_univ_utc/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -export([linear_time/1]).
 
@@ -54,10 +54,20 @@
 
 -define(dst_timezone, 2).
 
-all(suite) -> [univ_to_local, local_to_univ,
-	       local_to_univ_utc,
-	       bad_univ_to_local, bad_local_to_univ,
-	       consistency, now, timestamp].
+all() -> 
+[univ_to_local, local_to_univ, local_to_univ_utc,
+ bad_univ_to_local, bad_local_to_univ, consistency,
+ {group, now}, timestamp].
+
+groups() -> 
+    [{now, [], [now_unique, now_update]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 local_to_univ_utc(suite) ->
     [];
@@ -283,7 +293,6 @@ repeating_timestamp_check(N) ->
 
 %% Test now/0.
 
-now(suite) -> [now_unique, now_update].
 
 %% Tests that successive calls to now/0 returns different values.
 %% Also returns a comment string with the median difference between

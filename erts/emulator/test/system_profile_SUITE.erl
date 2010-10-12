@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -module(system_profile_SUITE).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	system_profile_on_and_off/1,
 	runnable_procs/1,
 	runnable_ports/1,
@@ -33,7 +33,7 @@
 
 -export([profiler_process/1, ring_loop/1, port_echo_start/0, list_load/0, run_load/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
 
@@ -45,12 +45,19 @@ fin_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> 
-    %% Test specification on test suite level
-    [system_profile_on_and_off,
-    runnable_procs,
-    runnable_ports,
-    scheduler].
+all() -> 
+[system_profile_on_and_off, runnable_procs,
+ runnable_ports, scheduler].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% No specification clause needed for an init function in a conf case!!!
 

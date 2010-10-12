@@ -73,18 +73,18 @@
 %%
 
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1,
-	 stream/1, stream_small/1, stream_big/1,
+	 stream_small/1, stream_big/1,
 	 basic_ping/1, slow_writes/1, bad_packet/1, bad_port_messages/1,
-	 multiple_packets/1, mul_basic/1, mul_slow_writes/1,
+	 mul_basic/1, mul_slow_writes/1,
 	 dying_port/1, port_program_with_path/1,
 	 open_input_file_port/1, open_output_file_port/1,
 	 iter_max_ports/1, eof/1, input_only/1, output_only/1,
 	 name1/1,
-	 t_binary/1, options/1, parallell/1, t_exit/1,
+	 t_binary/1, parallell/1, t_exit/1,
 	 env/1, bad_env/1, cd/1, exit_status/1,
-	 tps/1, tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
+	 tps_16_bytes/1, tps_1K/1, line/1, stderr_to_stdout/1,
 	 otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
 	 exit_status_multi_scheduling_block/1, ports/1,
@@ -98,24 +98,33 @@
 -export([otp_3906_forker/5, otp_3906_start_forker_starter/4]).
 -export([env_slave_main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) ->
-    [
-     otp_6224, stream, basic_ping, slow_writes, bad_packet,
-     bad_port_messages, options, multiple_packets, parallell,
-     dying_port, port_program_with_path,
-     open_input_file_port, open_output_file_port,
-     name1,
-     env, bad_env, cd, exit_status,
-     iter_max_ports, t_exit, tps, line, stderr_to_stdout,
-     otp_3906, otp_4389, win_massive, mix_up_ports,
-     otp_5112, otp_5119,
-     exit_status_multi_scheduling_block,
-     ports, spawn_driver, spawn_executable, close_deaf_port,
-     unregister_name
-    ].
+all() -> 
+[otp_6224, {group, stream}, basic_ping, slow_writes,
+ bad_packet, bad_port_messages, {group, options},
+ {group, multiple_packets}, parallell, dying_port,
+ port_program_with_path, open_input_file_port,
+ open_output_file_port, name1, env, bad_env, cd,
+ exit_status, iter_max_ports, t_exit, {group, tps}, line,
+ stderr_to_stdout, otp_3906, otp_4389, win_massive,
+ mix_up_ports, otp_5112, otp_5119,
+ exit_status_multi_scheduling_block, ports, spawn_driver,
+ spawn_executable, close_deaf_port, unregister_name].
+
+groups() -> 
+    [{stream, [], [stream_small, stream_big]},
+ {options, [], [t_binary, eof, input_only, output_only]},
+ {multiple_packets, [], [mul_basic, mul_slow_writes]},
+ {tps, [], [tps_16_bytes, tps_1K]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
@@ -191,7 +200,6 @@ win_massive_loop(P,N) ->
     
 
 
-stream(suite) -> [stream_small, stream_big].
 
 %% Test that we can send a stream of bytes and get it back.
 %% We will send only a small amount of data, to avoid deadlock.
@@ -304,7 +312,6 @@ bad_message(PortTest, Message) ->
 %% Tests various options (stream and {packet, Number} are implicitly
 %% tested in other test cases).
 
-options(suite) -> [t_binary, eof, input_only, output_only].
 
 %% Tests the 'binary' option for a port.
 
@@ -416,7 +423,6 @@ output_and_verify(Config, Filename, Options, Data) ->
 %% Test that receiving several packages written in the same
 %% write operation works.
 
-multiple_packets(suite) -> [mul_basic, mul_slow_writes].
 
 %% Basic test of receiving multiple packages, written in
 %% one operation by the other end.
@@ -740,7 +746,6 @@ suicide_port(Config) when is_list(Config) ->
     ?line exit(Port, die),
     ?line receive after infinity -> ok end.
 
-tps(suite) -> [tps_16_bytes, tps_1K].
 
 tps_16_bytes(doc) -> "";
 tps_16_bytes(suite) -> [];

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,9 +23,9 @@
 -define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
 %%-define(CHECK(Exp,Got), ?line Exp = Got).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 %%init_per_testcase/2, 
 	 fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
@@ -48,11 +48,23 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
-all(suite) ->
-    [basic, reload, upgrade, heap_frag, types, many_args, binaries, get_string,
-     get_atom, api_macros, from_array, iolist_as_binary, resource, resource_binary,
-     resource_takeover, threading, send, send2, send3, send_threaded, neg, is_checks,
-     get_length, make_atom, make_string].
+all() -> 
+[basic, reload, upgrade, heap_frag, types, many_args,
+ binaries, get_string, get_atom, api_macros, from_array,
+ iolist_as_binary, resource, resource_binary,
+ resource_takeover, threading, send, send2, send3,
+ send_threaded, neg, is_checks, get_length, make_atom,
+ make_string].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%init_per_testcase(_Case, Config) ->
 %%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),

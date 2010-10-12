@@ -19,12 +19,12 @@
 
 -module(send_term_SUITE).
 
--export([all/1,basic/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,basic/1]).
 -export([init_per_testcase/2,fin_per_testcase/2]).
 
 -export([generate_external_terms_files/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(3)),
@@ -34,8 +34,18 @@ fin_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-all(suite) ->
-    [basic].
+all() -> 
+[basic].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 basic(Config) when is_list(Config) ->
     Drv = "send_term_drv",

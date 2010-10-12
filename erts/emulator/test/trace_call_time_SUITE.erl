@@ -57,10 +57,10 @@
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% When run in test server.
--export([all/1, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
 -export([basic/1, on_and_off/1, info/1,
 	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, bif/1, nif/1]).
 
@@ -79,14 +79,23 @@ fin_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test call count tracing of local function calls."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	true -> [not_run];
-	false -> [basic, on_and_off, info,
-		  pause_and_restart, scheduling, combo, bif, nif, called_function]
-    end.
+all() -> 
+case test_server:is_native(trace_call_time_SUITE) of
+  true -> [not_run];
+  false ->
+      [basic, on_and_off, info, pause_and_restart, scheduling,
+       combo, bif, nif, called_function]
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 not_run(Config) when is_list(Config) ->
     {skipped,"Native code"}.

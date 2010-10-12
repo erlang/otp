@@ -19,16 +19,27 @@
 
 -module(guard_SUITE).
 
--export([all/1, bad_arith/1, bad_tuple/1, test_heap_guards/1, guard_bifs/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, bad_arith/1, bad_tuple/1, test_heap_guards/1, guard_bifs/1,
 	 type_tests/1,guard_bif_binary_part/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -export([init/3]).
 -import(lists, [member/2]).
 
-all(suite) -> [bad_arith, bad_tuple, test_heap_guards, guard_bifs,
-	       type_tests, guard_bif_binary_part].
+all() -> 
+[bad_arith, bad_tuple, test_heap_guards, guard_bifs,
+ type_tests, guard_bif_binary_part].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
 bad_arith(Config) when is_list(Config) ->

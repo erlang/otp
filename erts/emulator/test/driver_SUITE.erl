@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,12 +27,12 @@
 %%% - queueing
 
 -module(driver_SUITE).
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 fin_per_testcase/2,
 	 end_per_suite/1,
 	 outputv_echo/1,
-	 timer/1,
+	
 	 timer_measure/1,
 	 timer_cancel/1,
 	 timer_change/1,
@@ -51,7 +51,7 @@
 	 'driver_system_info_ver1.1'/1,
 	 driver_system_info_current_ver/1,
 	 driver_monitor/1,
-	 ioq_exit/1,
+	
 	 ioq_exit_ready_input/1,
 	 ioq_exit_ready_output/1,
 	 ioq_exit_timeout/1,
@@ -78,7 +78,7 @@
 
 -export([bin_prefix/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 % First byte in communication with the timer driver
@@ -129,40 +129,37 @@ fin_per_testcase(Case, Config) ->
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
-all(suite) ->
-    [
-     fun_to_port,
-     outputv_echo,
-     queue_echo,
-     timer,
-     driver_unloaded,
-     io_ready_exit,
-     use_fallback_pollset,
-     bad_fd_in_pollset,
-     driver_event,
-     fd_change,
-     steal_control,
-     otp_6602,
-     'driver_system_info_ver1.0',
-     'driver_system_info_ver1.1',
-     driver_system_info_current_ver,
-     driver_monitor,
-     ioq_exit,
-     zero_extended_marker_garb_drv,
-     invalid_extended_marker_drv,
-     larger_major_vsn_drv,
-     larger_minor_vsn_drv,
-     smaller_major_vsn_drv,
-     smaller_minor_vsn_drv,
-     peek_non_existing_queue,
-     otp_6879,
-     caller,
-     many_events,
-     missing_callbacks,
-     smp_select,
-     driver_select_use,
-     thread_mseg_alloc_cache_clean
-    ].
+all() -> 
+[fun_to_port, outputv_echo, queue_echo, {group, timer},
+ driver_unloaded, io_ready_exit, use_fallback_pollset,
+ bad_fd_in_pollset, driver_event, fd_change,
+ steal_control, otp_6602, 'driver_system_info_ver1.0',
+ 'driver_system_info_ver1.1',
+ driver_system_info_current_ver, driver_monitor,
+ {group, ioq_exit}, zero_extended_marker_garb_drv,
+ invalid_extended_marker_drv, larger_major_vsn_drv,
+ larger_minor_vsn_drv, smaller_major_vsn_drv,
+ smaller_minor_vsn_drv, peek_non_existing_queue,
+ otp_6879, caller, many_events, missing_callbacks,
+ smp_select, driver_select_use,
+ thread_mseg_alloc_cache_clean].
+
+groups() -> 
+    [{timer, [],
+  [timer_measure, timer_cancel, timer_delay,
+   timer_change]},
+ {ioq_exit, [],
+  [ioq_exit_ready_input, ioq_exit_ready_output,
+   ioq_exit_timeout, ioq_exit_ready_async, ioq_exit_event,
+   ioq_exit_ready_input_async, ioq_exit_ready_output_async,
+   ioq_exit_timeout_async, ioq_exit_event_async]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 fun_to_port(doc) -> "Test sending a fun to port with an outputv-capable driver.";
 fun_to_port(Config) when is_list(Config) ->
@@ -308,7 +305,6 @@ compare(Got, Expected) ->
 %% 		Driver timer test suites
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-timer(suite) -> [timer_measure,timer_cancel,timer_delay,timer_change].
 
 timer_measure(doc) -> ["Check that timers time out in good time."];
 timer_measure(Config) when is_list(Config) ->
@@ -1299,17 +1295,6 @@ driver_monitor(Config) when is_list(Config) ->
     ?line stop_driver(Port, Name),
     ?line ok.
 
-ioq_exit(doc) -> [];
-ioq_exit(suite) ->
-    [ioq_exit_ready_input,
-     ioq_exit_ready_output,
-     ioq_exit_timeout,
-     ioq_exit_ready_async,
-     ioq_exit_event,
-     ioq_exit_ready_input_async,
-     ioq_exit_ready_output_async,
-     ioq_exit_timeout_async,
-     ioq_exit_event_async].
 
 -define(IOQ_EXIT_READY_INPUT, 1).
 -define(IOQ_EXIT_READY_OUTPUT, 2).

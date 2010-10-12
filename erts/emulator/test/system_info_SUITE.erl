@@ -30,17 +30,28 @@
 
 %-define(line_trace, 1).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1, wordsize/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(2)).
 
-all(doc) -> [];
-all(suite) -> [process_count, system_version, misc_smoke_tests, heap_size, wordsize].
+all() -> 
+[process_count, system_version, misc_smoke_tests,
+ heap_size, wordsize].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),

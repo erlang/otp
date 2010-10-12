@@ -21,13 +21,13 @@
 
 %% Tests the statistics/1 bif.
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 fin_per_testcase/2,
-	 wall_clock/1, wall_clock_zero_diff/1, wall_clock_update/1,
-	 runtime/1, runtime_zero_diff/1,
+	 wall_clock_zero_diff/1, wall_clock_update/1,
+	 runtime_zero_diff/1,
 	 runtime_update/1, runtime_diff/1,
-	 run_queue/1, run_queue_one/1,
+	 run_queue_one/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
 	 badarg/1]).
 
@@ -35,7 +35,7 @@
 
 -export([hog/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_, Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(300)),
@@ -46,13 +46,28 @@ fin_per_testcase(_, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> [wall_clock, runtime, reductions, reductions_big, run_queue,
-	       garbage_collection, io, badarg].
+all() -> 
+[{group, wall_clock}, {group, runtime}, reductions,
+ reductions_big, {group, run_queue}, garbage_collection,
+ io, badarg].
+
+groups() -> 
+    [{wall_clock, [],
+  [wall_clock_zero_diff, wall_clock_update]},
+ {runtime, [],
+  [runtime_zero_diff, runtime_update, runtime_diff]},
+ {run_queue, [], [run_queue_one]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%% Testing statistics(wall_clock).
 
-wall_clock(suite) -> [wall_clock_zero_diff, wall_clock_update].
 
 
 wall_clock_zero_diff(doc) ->
@@ -99,7 +114,6 @@ wall_clock_update1(0) ->
 
 %%% Test statistics(runtime).
 
-runtime(suite) -> [runtime_zero_diff, runtime_update, runtime_diff].
 
 runtime_zero_diff(doc) ->
     "Tests that the difference between the times returned from two consectuitive "
@@ -225,7 +239,6 @@ reductions_big_loop() ->
 
 %%% Tests of statistics(run_queue).
 
-run_queue(suite) -> [run_queue_one].
 
 run_queue_one(doc) ->
     "Tests that statistics(run_queue) returns 1 if we start a "

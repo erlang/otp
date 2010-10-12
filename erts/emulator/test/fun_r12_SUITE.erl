@@ -20,12 +20,23 @@
 -module(fun_r12_SUITE).
 -compile(r12).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,dist_old_release/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,dist_old_release/1]).
 
 -define(default_timeout, ?t:minutes(1)).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) -> [dist_old_release].
+all() -> 
+[dist_old_release].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?default_timeout),

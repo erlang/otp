@@ -30,10 +30,10 @@
 
 %-define(line_trace, 1).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/1, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
 
 -export([equal/1,
 	 few_low/1,
@@ -44,7 +44,7 @@
 	 equal_with_high/1,
 	 equal_with_high_max/1,
 	 bound_process/1,
-	 scheduler_bind/1,
+	
 	 scheduler_bind_types/1,
 	 cpu_topology/1,
 	 update_cpu_info/1,
@@ -57,20 +57,25 @@
 
 -define(MIN_SCHEDULER_TEST_TIMEOUT, ?t:minutes(1)).
 
-all(doc) -> [];
-all(suite) ->
-    [equal,
-     few_low,
-     many_low,
-     equal_with_part_time_high,
-     equal_with_part_time_max,
-     equal_and_high_with_part_time_max,
-     equal_with_high,
-     equal_with_high_max,
-     bound_process,
-     scheduler_bind,
-     scheduler_suspend,
-     reader_groups].
+all() -> 
+[equal, few_low, many_low, equal_with_part_time_high,
+ equal_with_part_time_max,
+ equal_and_high_with_part_time_max, equal_with_high,
+ equal_with_high_max, bound_process,
+ {group, scheduler_bind}, scheduler_suspend,
+ reader_groups].
+
+groups() -> 
+    [{scheduler_bind, [],
+  [scheduler_bind_types, cpu_topology, update_cpu_info,
+   sct_cmd, sbt_cmd]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
@@ -247,12 +252,6 @@ bound_loop(NS, N, M, Sched) ->
     Sched = erlang:system_info(scheduler_id),
     bound_loop(NS, N-1, M, Sched).
 
-scheduler_bind(suite) ->
-    [scheduler_bind_types,
-     cpu_topology,
-     update_cpu_info,
-     sct_cmd,
-     sbt_cmd].
 
 -define(TOPOLOGY_A_CMD,
 	"+sct"

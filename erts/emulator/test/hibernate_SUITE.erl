@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,17 +19,28 @@
 
 -module(hibernate_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 basic/1,min_heap_size/1,bad_args/1,
 	 messages_in_queue/1,undefined_mfa/1, no_heap/1]).
 
 %% Used by test cases.
 -export([basic_hibernator/1,messages_in_queue_restart/2, no_heap_loop/0]).
 
-all(suite) ->
-    [basic,min_heap_size,bad_args,messages_in_queue,undefined_mfa,no_heap].
+all() -> 
+[basic, min_heap_size, bad_args, messages_in_queue,
+ undefined_mfa, no_heap].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),

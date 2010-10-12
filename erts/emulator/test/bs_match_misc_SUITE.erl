@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,18 +18,28 @@
 %%
 -module(bs_match_misc_SUITE).
 
--export([all/1,bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
 	 writable_binary_matched/1,otp_7198/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [bound_var,bound_tail,t_float,little_float,sean,
-     kenneth,encode_binary,native,happi,
-     size_var,wiger,x0_context,huge_float_field,
-     writable_binary_matched,otp_7198].
+all() -> 
+[bound_var, bound_tail, t_float, little_float, sean,
+ kenneth, encode_binary, native, happi, size_var, wiger,
+ x0_context, huge_float_field, writable_binary_matched,
+ otp_7198].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 bound_var(doc) -> "Test matching of bound variables.";
 bound_var(Config) when is_list(Config) ->

@@ -22,25 +22,23 @@
 
 %% Tests distribution and the tcp driver.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,
-	 ping/1, bulk_send/1, bulk_send_small/1,
-	 bulk_send_big/1,
-	 bulk_send_bigbig/1,
-	 local_send/1, local_send_small/1, local_send_big/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
+	 ping/1, bulk_send_small/1,
+	 bulk_send_big/1, bulk_send_bigbig/1,
+	 local_send_small/1, local_send_big/1,
 	 local_send_legal/1, link_to_busy/1, exit_to_busy/1,
 	 lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
 	 applied_monitor_node/1, ref_port_roundtrip/1, nil_roundtrip/1,
-	 trap_bif/1, trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
-	 stop_dist/1, dist_auto_connect/1, 
+	 trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
+	 stop_dist/1, 
 	 dist_auto_connect_never/1, dist_auto_connect_once/1,
 	 dist_parallel_send/1,
 	 atom_roundtrip/1,
 	 atom_roundtrip_r12b/1,
 	 contended_atom_cache_entry/1,
 	 bad_dist_structure/1,
-	 bad_dist_ext/1,
 	 bad_dist_ext_receive/1,
 	 bad_dist_ext_process_info/1,
 	 bad_dist_ext_control/1,
@@ -55,16 +53,31 @@
 	 dist_evil_parallel_receiver/0,
          sendersender/4, sendersender2/4]).
 
-all(suite) -> [
-	       ping, bulk_send, local_send, link_to_busy, exit_to_busy,
-	       lost_exit, link_to_dead, link_to_dead_new_node,
-	       applied_monitor_node, ref_port_roundtrip, nil_roundtrip,
-	       stop_dist, trap_bif, dist_auto_connect, dist_parallel_send,
-	       atom_roundtrip, atom_roundtrip_r12b,
-	       contended_atom_cache_entry,
-	       bad_dist_structure,
-	       bad_dist_ext
-	      ].
+all() -> 
+    [ping, {group, bulk_send}, {group, local_send},
+     link_to_busy, exit_to_busy, lost_exit, link_to_dead,
+     link_to_dead_new_node, applied_monitor_node,
+     ref_port_roundtrip, nil_roundtrip, stop_dist,
+     {group, trap_bif}, {group, dist_auto_connect},
+     dist_parallel_send, atom_roundtrip, atom_roundtrip_r12b,
+     contended_atom_cache_entry, bad_dist_structure, {group, bad_dist_ext}].
+
+groups() -> 
+    [{bulk_send, [], [bulk_send_small, bulk_send_big, bulk_send_bigbig]},
+     {local_send, [],
+      [local_send_small, local_send_big, local_send_legal]},
+     {trap_bif, [], [trap_bif_1, trap_bif_2, trap_bif_3]},
+     {dist_auto_connect, [],
+      [dist_auto_connect_never, dist_auto_connect_once]},
+     {bad_dist_ext, [],
+      [bad_dist_ext_receive, bad_dist_ext_process_info,
+       bad_dist_ext_control, bad_dist_ext_connection_id]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 -define(DEFAULT_TIMETRAP, 4*60*1000).
 
@@ -119,13 +132,6 @@ ping(Config) when is_list(Config) ->
     ?line test_server:do_times(Times, fun() -> pong = net_adm:ping(Node),sleep() end),
 
     ok.
-
-bulk_send(doc) ->
- ["Tests sending large amount of data to another node and measure",
-  "the time. This tests that a process that is suspended on a ",
-  "busy port will eventually be resumed."];
-bulk_send(suite) ->
-    [bulk_send_small, bulk_send_big, bulk_send_bigbig].
 
 bulk_send_small(Config) when is_list(Config) ->
     ?line bulk_send(64, 32).
@@ -257,11 +263,6 @@ receiver(Terms, Size) ->
     end.
 
 
-local_send(suite) ->
-    [local_send_small, local_send_big, local_send_legal];
-local_send(doc) ->
-    ["Tests sending small and big messages to a non-existing ",
-     "local registered process."].
 
 local_send_big(doc) ->
     ["Sends several big message to an non-registered process on ",
@@ -755,9 +756,6 @@ stop_dist(Config) when is_list(Config) ->
 
     ok.
 
-trap_bif(doc) ->
-    ["Verifies that BIFs which are traps to Erlang work (OTP-2680)."];
-trap_bif(suite) -> [trap_bif_1, trap_bif_2, trap_bif_3].
 
 trap_bif_1(doc) ->
     [""];
@@ -794,10 +792,6 @@ tr3() ->
 
 
 
-dist_auto_connect(doc) ->
-    ["Tests the kernel parameter 'dist_auto_connect'."];
-dist_auto_connect(suite) ->
-    [dist_auto_connect_never, dist_auto_connect_once].
 
 % This has to be done by nodes with differrent cookies, otherwise global
 % will connect nodes, which is correct, but makes it hard to test.
@@ -1440,12 +1434,6 @@ bad_dist_structure(Config) when is_list(Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-bad_dist_ext(doc) -> [];
-bad_dist_ext(suite) ->
-    [bad_dist_ext_receive,
-     bad_dist_ext_process_info,
-     bad_dist_ext_control,
-     bad_dist_ext_connection_id].
 
 
 bad_dist_ext_receive(Config) when is_list(Config) ->

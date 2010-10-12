@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% Copyright Ericsson AB 2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,9 @@
 
 -module(trace_nif_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([trace_nif/1,
 	 trace_nif_timestamp/1,
 	 trace_nif_local/1,
@@ -32,18 +32,24 @@
 
 -export([nif_process/0, nif/0, nif/1]).
 
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	true -> [not_run];
-	false ->
-	    [trace_nif,
- 	     trace_nif_timestamp,
-	     trace_nif_local,
-	     trace_nif_meta,
-	     trace_nif_timestamp_local,
- 	     trace_nif_return
-	    ]
-    end.
+all() -> 
+case test_server:is_native(trace_nif_SUITE) of
+  true -> [not_run];
+  false ->
+      [trace_nif, trace_nif_timestamp, trace_nif_local,
+       trace_nif_meta, trace_nif_timestamp_local,
+       trace_nif_return]
+end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.

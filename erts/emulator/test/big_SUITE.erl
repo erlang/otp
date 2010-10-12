@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,9 +19,9 @@
 -module(big_SUITE).
 
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
-	 borders/1, negative/1, big_float/1, big_float_1/1, big_float_2/1,
+	 borders/1, negative/1, big_float_1/1, big_float_2/1,
 	 shift_limit_1/1, powmod/1, system_limit/1, otp_6692/1]).
 
 %% Internal exports.
@@ -32,11 +32,22 @@
 
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [t_div, eq_28, eq_32, eq_big, eq_math, big_literals, borders,
-     negative, big_float, shift_limit_1, powmod, system_limit, otp_6692].
+all() -> 
+[t_div, eq_28, eq_32, eq_big, eq_math, big_literals,
+ borders, negative, {group, big_float}, shift_limit_1,
+ powmod, system_limit, otp_6692].
+
+groups() -> 
+    [{big_float, [], [big_float_1, big_float_2]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(3)),
@@ -260,10 +271,6 @@ big_literals(Config) when is_list(Config) ->
     ?line ok = Mod:t(),
     ok.
 
-big_float(doc) ->
-    ["Test cases for mixing bignums and floats"];
-big_float(suite) ->
-    [big_float_1, big_float_2].
 
 big_float_1(doc) ->
     ["OTP-2436, part 1"];

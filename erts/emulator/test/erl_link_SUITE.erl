@@ -28,9 +28,9 @@
 -author('rickard.green@uab.ericsson.se').
 
 %-define(line_trace, 1).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 % Test cases
 -export([links/1,
@@ -77,11 +77,21 @@
 
 
 
-all(suite) -> [links, dist_links, monitor_nodes, process_monitors,
-	       dist_process_monitors, busy_dist_port_monitor,
-	       busy_dist_port_link, otp_5772_link, otp_5772_dist_link,
-	       otp_5772_monitor, otp_5772_dist_monitor,
-	       otp_7946].
+all() -> 
+[links, dist_links, monitor_nodes, process_monitors,
+ dist_process_monitors, busy_dist_port_monitor,
+ busy_dist_port_link, otp_5772_link, otp_5772_dist_link,
+ otp_5772_monitor, otp_5772_dist_monitor, otp_7946].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 links(doc) -> ["Tests node local links"];
 links(suite) -> [];
