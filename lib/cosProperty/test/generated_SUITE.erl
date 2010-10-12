@@ -25,7 +25,7 @@
 
 -module(generated_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -71,7 +71,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -84,21 +84,43 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["This suite is for testing IC generated files"];
-all(suite) -> 
-    ['CosPropertyService_ConflictingProperty', 'CosPropertyService_ConstraintNotSupported',
-     'CosPropertyService_FixedProperty', 'CosPropertyService_InvalidPropertyName', 
-     'CosPropertyService_MultipleExceptions', 'CosPropertyService_Properties', 
-     'CosPropertyService_Property', 'CosPropertyService_PropertyDef', 
-     'CosPropertyService_PropertyDefs', 'CosPropertyService_PropertyException', 
-     'CosPropertyService_PropertyExceptions', 'CosPropertyService_PropertyMode', 
-     'CosPropertyService_PropertyModes', 'CosPropertyService_PropertyNames', 
-     'CosPropertyService_PropertyNotFound', 'CosPropertyService_PropertyTypes', 
-     'CosPropertyService_ReadOnlyProperty', 'CosPropertyService_UnsupportedMode', 
-     'CosPropertyService_UnsupportedProperty', 'CosPropertyService_UnsupportedTypeCode', 
-     'CosPropertyService_PropertyNamesIterator', 'CosPropertyService_PropertiesIterator', 
-     'CosPropertyService_PropertySet', 'CosPropertyService_PropertySetDef', 
-     'CosPropertyService_PropertySetDefFactory', 'CosPropertyService_PropertySetFactory'].
+all() -> 
+['CosPropertyService_ConflictingProperty',
+ 'CosPropertyService_ConstraintNotSupported',
+ 'CosPropertyService_FixedProperty',
+ 'CosPropertyService_InvalidPropertyName',
+ 'CosPropertyService_MultipleExceptions',
+ 'CosPropertyService_Properties',
+ 'CosPropertyService_Property',
+ 'CosPropertyService_PropertyDef',
+ 'CosPropertyService_PropertyDefs',
+ 'CosPropertyService_PropertyException',
+ 'CosPropertyService_PropertyExceptions',
+ 'CosPropertyService_PropertyMode',
+ 'CosPropertyService_PropertyModes',
+ 'CosPropertyService_PropertyNames',
+ 'CosPropertyService_PropertyNotFound',
+ 'CosPropertyService_PropertyTypes',
+ 'CosPropertyService_ReadOnlyProperty',
+ 'CosPropertyService_UnsupportedMode',
+ 'CosPropertyService_UnsupportedProperty',
+ 'CosPropertyService_UnsupportedTypeCode',
+ 'CosPropertyService_PropertyNamesIterator',
+ 'CosPropertyService_PropertiesIterator',
+ 'CosPropertyService_PropertySet',
+ 'CosPropertyService_PropertySetDef',
+ 'CosPropertyService_PropertySetDefFactory',
+ 'CosPropertyService_PropertySetFactory'].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%-----------------------------------------------------------------
