@@ -62,58 +62,77 @@ bool0, bool1 = asn1_DEFAULT, bool2 = asn1_DEFAULT, bool3 = asn1_DEFAULT}).
 
 
 
-all(suite) -> [compile,parse,default_per,default_ber,default_per_opt,per,
-	       ber,testPrim, 
-	       testPrimStrings, testPrimExternal, testChoPrim, 
-	       testChoExtension, testChoExternal, testChoOptional, 
-	       testChoOptionalImplicitTag, testChoRecursive, 
-	       testChoTypeRefCho, testChoTypeRefPrim, testChoTypeRefSeq, 
-	       testChoTypeRefSet, testDef, testOpt, testSeqDefault, 
-	       testSeqExtension, testSeqExternal, testSeqOptional, 
-	       testSeqPrim, testSeqTag, testSeqTypeRefCho, 
-	       testSeqTypeRefPrim, testSeqTypeRefSeq, testSeqTypeRefSet, 
-	       testSeqOf, testSeqOfIndefinite, testSeqOfCho, 
-	       testSeqOfExternal, testSetDefault, testSetExtension, 
-	       testExtensionAdditionGroup,
-	       testSetExternal, testSeqOfTag, testSetOptional, testSetPrim, 
-	       testSetTag, testSetTypeRefCho, testSetTypeRefPrim,
-	       testSetTypeRefSeq, testSetTypeRefSet, testSetOf, testSetOfCho,
-	       testSetOfExternal, testSetOfTag, testEnumExt, value_test, 
-	       testSeq2738, constructed, ber_decode_error,
-	       h323test, testSeqIndefinite, testSetIndefinite,
-	       testChoiceIndefinite, 
-	       per_GeneralString, per_open_type, testInfObjectClass, 
-	       testParameterizedInfObj, testMergeCompile, testobj, 
-	       testDeepTConstr, testConstraints,
-	       testInvokeMod, testExport, testImport, testCompactBitString,
-	       testMegaco, testParamBasic, testMvrasn6,
-	       testContextSwitchingTypes, testTypeValueNotation,
-	       testOpenTypeImplicitTag,duplicate_tags,rtUI,testROSE,
-	       testINSTANCE_OF,testTCAP,testDER,specialized_decodes,
-	       special_decode_performance,test_driver_load,
-	       test_ParamTypeInfObj, test_WS_ParamClass, 
-	       test_Defed_ObjectIdentifier, testSelectionType,
-	       testSSLspecs, testNortel,test_undecoded_rest,
-	       test_inline, testTcapsystem, testNBAPsystem,
-	       test_compile_options,testDoubleEllipses, test_modified_x420,
-	       testX420, test_x691,ticket_6143, testExtensionAdditionGroup
-               ] ++ common() ++ particular().
+all() -> 
+[{group, compile}, parse, default_per, default_ber,
+ default_per_opt, per, {group, ber}, testPrim,
+ testPrimStrings, testPrimExternal, testChoPrim,
+ testChoExtension, testChoExternal, testChoOptional,
+ testChoOptionalImplicitTag, testChoRecursive,
+ testChoTypeRefCho, testChoTypeRefPrim,
+ testChoTypeRefSeq, testChoTypeRefSet, testDef, testOpt,
+ testSeqDefault, testSeqExtension, testSeqExternal,
+ testSeqOptional, testSeqPrim, testSeqTag,
+ testSeqTypeRefCho, testSeqTypeRefPrim,
+ testSeqTypeRefSeq, testSeqTypeRefSet, testSeqOf,
+ testSeqOfIndefinite, testSeqOfCho, testSeqOfExternal,
+ testSetDefault, testSetExtension,
+ testExtensionAdditionGroup, testSetExternal,
+ testSeqOfTag, testSetOptional, testSetPrim, testSetTag,
+ testSetTypeRefCho, testSetTypeRefPrim,
+ testSetTypeRefSeq, testSetTypeRefSet, testSetOf,
+ testSetOfCho, testSetOfExternal, testSetOfTag,
+ testEnumExt, value_test, testSeq2738, constructed,
+ ber_decode_error, h323test, testSeqIndefinite,
+ testSetIndefinite, testChoiceIndefinite,
+ per_GeneralString, per_open_type, testInfObjectClass,
+ testParameterizedInfObj, testMergeCompile, testobj,
+ testDeepTConstr, testConstraints, testInvokeMod,
+ testExport, testImport, testCompactBitString,
+ testMegaco, testParamBasic, testMvrasn6,
+ testContextSwitchingTypes, testTypeValueNotation,
+ testOpenTypeImplicitTag, duplicate_tags, rtUI, testROSE,
+ testINSTANCE_OF, testTCAP, testDER, specialized_decodes,
+ special_decode_performance, test_driver_load,
+ test_ParamTypeInfObj, test_WS_ParamClass,
+ test_Defed_ObjectIdentifier, testSelectionType,
+ testSSLspecs, testNortel, test_undecoded_rest,
+ test_inline, testTcapsystem, testNBAPsystem,
+ test_compile_options, testDoubleEllipses,
+ test_modified_x420, testX420, test_x691, ticket_6143,
+ testExtensionAdditionGroup]
+  ++ common() ++ particular().
+
+groups() -> 
+    [{option_tests, [],
+  [test_compile_options, ticket_6143]},
+ {infobj, [],
+  [testInfObjectClass, testParameterizedInfObj,
+   testMergeCompile, testobj, testDeepTConstr]},
+ {performance, [],
+  [testTimer_ber, testTimer_ber_opt_driver, testTimer_per,
+   testTimer_per_opt, testTimer_uper_bin]},
+ {bugs, [],
+  [test_ParamTypeInfObj, test_WS_ParamClass,
+   test_Defed_ObjectIdentifier]},
+ {compile, [],
+  [c_syntax, c_string_per, c_string_ber,
+   c_implicit_before_choice]},
+ {ber, [],
+  [ber_choiceinseq, ber_optional, ber_optional_keyed_list,
+   ber_other]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %all(suite) -> [test_inline,testNBAPsystem,test_compile_options,ticket_6143].
 
-option_tests(suite) ->
-    [test_compile_options,ticket_6143].
 
-infobj(suite) ->
-    [testInfObjectClass, testParameterizedInfObj, testMergeCompile, 
-     testobj, testDeepTConstr].
 
-performance(suite) ->
-    [testTimer_ber, testTimer_ber_opt_driver, 
-     testTimer_per, testTimer_per_opt, testTimer_uper_bin].
 
-bugs(suite) ->
-   [test_ParamTypeInfObj, test_WS_ParamClass,test_Defed_ObjectIdentifier].
 
 init_per_testcase(Func,Config) ->
     %%?line test_server:format("Func: ~p~n",[Func]),
@@ -1368,21 +1387,6 @@ testSetOfTag(Config) ->
 testSetOfTag_cases(Rules) ->
     ?line testSetOfTag:main(Rules).
 
-compile(suite) -> [c_syntax,c_string_per,c_string_ber,c_implicit_before_choice];
-compile(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line TempDir = ?config(priv_dir,Config),
-    ?line True = lists:member(TempDir,code:get_path()),
-    ?line test_server:format("~p~n",[True]),
-    ?line test_server:format("~p~n",[code:get_path()]),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line {error,_R1} = asn1ct:compile(filename:join(DataDir,"Syntax")),
-    ?line ok = asn1ct:compile(filename:join(DataDir,"String"),[?PER,{outdir,TempDir}]),
-    test_server:format("first String ok~n"),
-    ?line ok = asn1ct:compile(filename:join(DataDir,"String"),[?BER,{outdir,TempDir}]),
-    ?line {error,_R2} = asn1ct:compile(filename:join(DataDir,"CCSNARG3"),[?BER,{outdir,TempDir}]),
-    ?line {error,_} = asn1ct:compile(filename:join(DataDir,"ImportsFrom"),[?BER,{outdir,TempDir}]),
-    ok.
 
 c_syntax(suite) -> [];
 c_syntax(Config) ->
@@ -1487,7 +1491,6 @@ per1_opt([M|T],DataDir,OutDir) ->
 per1_opt([],_,_) ->
     ok.
 
-ber(suite) -> [ber_choiceinseq,ber_optional,ber_optional_keyed_list,ber_other].
 
 ber_choiceinseq(suite) ->[];
 ber_choiceinseq(Config) ->
@@ -2369,6 +2372,8 @@ test_modules() ->
 	].
 
 
-common() -> [].
+common() -> 
+[].
 
-particular() -> [].
+particular() -> 
+[].

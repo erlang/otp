@@ -26,15 +26,19 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 fields,
-	 modules,
-	 exportall,
-	 app_depend
-	],
-    {req, [], {conf, init_per_suite, Cases, end_per_suite}}.
+all() -> 
+Cases = [fields, modules, exportall, app_depend],
+	Cases.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
