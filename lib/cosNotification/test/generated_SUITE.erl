@@ -25,7 +25,7 @@
 
 -module(generated_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -71,7 +71,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -84,51 +84,101 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["This suite is for testing IC generated files"];
-all(suite) -> 
-    ['CosNotification', 'CosNotification_AdminPropertiesAdmin', 
-     'CosNotification_EventHeader', 'CosNotification_EventType',
-     'CosNotification_FixedEventHeader', 'CosNotification_NamedPropertyRange',
-     'CosNotification_Property', 'CosNotification_PropertyError',
-     'CosNotification_PropertyRange', 'CosNotification_QoSAdmin',
-     'CosNotification_StructuredEvent', 'CosNotification_UnsupportedAdmin',
-     'CosNotification_UnsupportedQoS', 'CosNotification_EventBatch',
-     'CosNotification_EventTypeSeq', 'CosNotification_NamedPropertyRangeSeq',
-     'CosNotification_PropertyErrorSeq', 'CosNotifyChannelAdmin_AdminLimit',
-     'CosNotifyChannelAdmin_AdminNotFound', 'CosNotifyChannelAdmin_ChannelNotFound',
-     'CosNotifyChannelAdmin_ConnectionAlreadyActive', 'CosNotifyChannelAdmin_ConnectionAlreadyInactive',
-     'CosNotifyChannelAdmin_NotConnected', 'CosNotifyChannelAdmin_AdminIDSeq',
-     'CosNotifyChannelAdmin_ChannelIDSeq', 'CosNotifyChannelAdmin_ProxyIDSeq',
-     'CosNotifyFilter_CallbackNotFound', 'CosNotifyFilter_ConstraintExp',
-     'CosNotifyFilter_ConstraintInfo', 'CosNotifyFilter_ConstraintNotFound',
-     'CosNotifyFilter_DuplicateConstraintID', 'CosNotifyFilter_FilterNotFound',
-     'CosNotifyFilter_InvalidConstraint', 'CosNotifyFilter_InvalidGrammar',
-     'CosNotifyFilter_InvalidValue', 'CosNotifyFilter_MappingConstraintInfo',
-     'CosNotifyFilter_MappingConstraintPair', 'CosNotifyFilter_UnsupportedFilterableData',
-     'CosNotifyFilter_CallbackIDSeq', 'CosNotifyFilter_ConstraintExpSeq',
-     'CosNotifyFilter_ConstraintIDSeq', 'CosNotifyFilter_ConstraintInfoSeq',
-     'CosNotifyFilter_FilterIDSeq', 'CosNotifyFilter_MappingConstraintInfoSeq',
-     'CosNotifyFilter_MappingConstraintPairSeq', 'CosNotifyComm_InvalidEventType',
-     'CosNotifyChannelAdmin_ConsumerAdmin', 'CosNotifyChannelAdmin_EventChannel',
-     'CosNotifyChannelAdmin_EventChannelFactory', 'CosNotifyChannelAdmin_ProxyConsumer',
-     'CosNotifyChannelAdmin_ProxyNotFound', 'CosNotifyChannelAdmin_ProxyPullConsumer',
-     'CosNotifyChannelAdmin_ProxyPullSupplier', 'CosNotifyChannelAdmin_ProxyPushConsumer',
-     'CosNotifyChannelAdmin_ProxyPushSupplier', 'CosNotifyChannelAdmin_ProxySupplier',
-     'CosNotifyChannelAdmin_SequenceProxyPullConsumer', 'CosNotifyChannelAdmin_SequenceProxyPullSupplier',
-     'CosNotifyChannelAdmin_SequenceProxyPushConsumer', 'CosNotifyChannelAdmin_SequenceProxyPushSupplier',
-     'CosNotifyChannelAdmin_StructuredProxyPullConsumer', 'CosNotifyChannelAdmin_StructuredProxyPullSupplier',
-     'CosNotifyChannelAdmin_StructuredProxyPushConsumer', 'CosNotifyChannelAdmin_StructuredProxyPushSupplier',
-     'CosNotifyChannelAdmin_SupplierAdmin', 'CosNotifyFilter_Filter',
-     'CosNotifyFilter_FilterAdmin', 'CosNotifyFilter_FilterFactory',
-     'CosNotifyFilter_MappingFilter', 'CosNotifyComm_NotifyPublish',
-     'CosNotifyComm_NotifySubscribe', 'CosNotifyComm_PullConsumer',
-     'CosNotifyComm_PullSupplier', 'CosNotifyComm_PushConsumer',
-     'CosNotifyComm_PushSupplier', 'CosNotifyComm_SequencePullConsumer',
-     'CosNotifyComm_SequencePullSupplier', 'CosNotifyComm_SequencePushConsumer',
-     'CosNotifyComm_SequencePushSupplier', 'CosNotifyComm_StructuredPullConsumer',
-     'CosNotifyComm_StructuredPullSupplier', 'CosNotifyComm_StructuredPushConsumer',
-     'CosNotifyComm_StructuredPushSupplier', 'oe_CosNotificationComm_Event',
-     'CosNotification_PropertySeq'].
+all() -> 
+['CosNotification',
+ 'CosNotification_AdminPropertiesAdmin',
+ 'CosNotification_EventHeader',
+ 'CosNotification_EventType',
+ 'CosNotification_FixedEventHeader',
+ 'CosNotification_NamedPropertyRange',
+ 'CosNotification_Property',
+ 'CosNotification_PropertyError',
+ 'CosNotification_PropertyRange',
+ 'CosNotification_QoSAdmin',
+ 'CosNotification_StructuredEvent',
+ 'CosNotification_UnsupportedAdmin',
+ 'CosNotification_UnsupportedQoS',
+ 'CosNotification_EventBatch',
+ 'CosNotification_EventTypeSeq',
+ 'CosNotification_NamedPropertyRangeSeq',
+ 'CosNotification_PropertyErrorSeq',
+ 'CosNotifyChannelAdmin_AdminLimit',
+ 'CosNotifyChannelAdmin_AdminNotFound',
+ 'CosNotifyChannelAdmin_ChannelNotFound',
+ 'CosNotifyChannelAdmin_ConnectionAlreadyActive',
+ 'CosNotifyChannelAdmin_ConnectionAlreadyInactive',
+ 'CosNotifyChannelAdmin_NotConnected',
+ 'CosNotifyChannelAdmin_AdminIDSeq',
+ 'CosNotifyChannelAdmin_ChannelIDSeq',
+ 'CosNotifyChannelAdmin_ProxyIDSeq',
+ 'CosNotifyFilter_CallbackNotFound',
+ 'CosNotifyFilter_ConstraintExp',
+ 'CosNotifyFilter_ConstraintInfo',
+ 'CosNotifyFilter_ConstraintNotFound',
+ 'CosNotifyFilter_DuplicateConstraintID',
+ 'CosNotifyFilter_FilterNotFound',
+ 'CosNotifyFilter_InvalidConstraint',
+ 'CosNotifyFilter_InvalidGrammar',
+ 'CosNotifyFilter_InvalidValue',
+ 'CosNotifyFilter_MappingConstraintInfo',
+ 'CosNotifyFilter_MappingConstraintPair',
+ 'CosNotifyFilter_UnsupportedFilterableData',
+ 'CosNotifyFilter_CallbackIDSeq',
+ 'CosNotifyFilter_ConstraintExpSeq',
+ 'CosNotifyFilter_ConstraintIDSeq',
+ 'CosNotifyFilter_ConstraintInfoSeq',
+ 'CosNotifyFilter_FilterIDSeq',
+ 'CosNotifyFilter_MappingConstraintInfoSeq',
+ 'CosNotifyFilter_MappingConstraintPairSeq',
+ 'CosNotifyComm_InvalidEventType',
+ 'CosNotifyChannelAdmin_ConsumerAdmin',
+ 'CosNotifyChannelAdmin_EventChannel',
+ 'CosNotifyChannelAdmin_EventChannelFactory',
+ 'CosNotifyChannelAdmin_ProxyConsumer',
+ 'CosNotifyChannelAdmin_ProxyNotFound',
+ 'CosNotifyChannelAdmin_ProxyPullConsumer',
+ 'CosNotifyChannelAdmin_ProxyPullSupplier',
+ 'CosNotifyChannelAdmin_ProxyPushConsumer',
+ 'CosNotifyChannelAdmin_ProxyPushSupplier',
+ 'CosNotifyChannelAdmin_ProxySupplier',
+ 'CosNotifyChannelAdmin_SequenceProxyPullConsumer',
+ 'CosNotifyChannelAdmin_SequenceProxyPullSupplier',
+ 'CosNotifyChannelAdmin_SequenceProxyPushConsumer',
+ 'CosNotifyChannelAdmin_SequenceProxyPushSupplier',
+ 'CosNotifyChannelAdmin_StructuredProxyPullConsumer',
+ 'CosNotifyChannelAdmin_StructuredProxyPullSupplier',
+ 'CosNotifyChannelAdmin_StructuredProxyPushConsumer',
+ 'CosNotifyChannelAdmin_StructuredProxyPushSupplier',
+ 'CosNotifyChannelAdmin_SupplierAdmin',
+ 'CosNotifyFilter_Filter', 'CosNotifyFilter_FilterAdmin',
+ 'CosNotifyFilter_FilterFactory',
+ 'CosNotifyFilter_MappingFilter',
+ 'CosNotifyComm_NotifyPublish',
+ 'CosNotifyComm_NotifySubscribe',
+ 'CosNotifyComm_PullConsumer',
+ 'CosNotifyComm_PullSupplier',
+ 'CosNotifyComm_PushConsumer',
+ 'CosNotifyComm_PushSupplier',
+ 'CosNotifyComm_SequencePullConsumer',
+ 'CosNotifyComm_SequencePullSupplier',
+ 'CosNotifyComm_SequencePushConsumer',
+ 'CosNotifyComm_SequencePushSupplier',
+ 'CosNotifyComm_StructuredPullConsumer',
+ 'CosNotifyComm_StructuredPullSupplier',
+ 'CosNotifyComm_StructuredPushConsumer',
+ 'CosNotifyComm_StructuredPushSupplier',
+ oe_CosNotificationComm_Event,
+ 'CosNotification_PropertySeq'].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

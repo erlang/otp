@@ -40,7 +40,7 @@
 
 -include("idl_output/notify_test.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).
@@ -123,7 +123,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, qos_api/1, adm_api/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, qos_api/1, adm_api/1,
 	 cosevent_api/1, filter_adm_api/1, events_api/1, events2_api/1,
 	 event_qos_api/1, filter_api/1, mapping_filter_api/1, subscription_api/1, 
 	 init_per_testcase/2, end_per_testcase/2, persistent_max_events_api/1,
@@ -137,16 +137,26 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosNotification interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
-cases() ->
-    [persistent_max_events_api, persistent_timeout_events_api,
-     persistent_recover_events_api, mapping_filter_api, filter_api, filter_adm_api,
-     event_qos_api, qos_api, adm_api, cosevent_api, subscription_api, 
-     events_api, events2_api, app_test].
+cases() -> 
+[persistent_max_events_api,
+ persistent_timeout_events_api,
+ persistent_recover_events_api, mapping_filter_api,
+ filter_api, filter_adm_api, event_qos_api, qos_api,
+ adm_api, cosevent_api, subscription_api, events_api,
+ events2_api, app_test].
 
 
 	
@@ -168,7 +178,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     ok = corba:orb_init([{flags, 16#02}, {orber_debug_level, 10}]),
@@ -184,7 +194,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
  
-finish_all(Config) ->
+end_per_suite(Config) ->
     cosNotificationApp:stop(),
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),

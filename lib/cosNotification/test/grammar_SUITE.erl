@@ -42,7 +42,7 @@
 
 -include("idl_output/notify_test.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).
@@ -64,7 +64,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, 
 	 union_api/1, enum_api/1, simple_types_api/1,
 	 components_api/1, positional_api/1, variable_api/1,
 	 init_per_testcase/2, end_per_testcase/2]).
@@ -76,14 +76,22 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosNotification interfaces", ""];
-all(suite) -> {req,
-               [],
-               {conf, init_all, cases(), finish_all}}.
+all() -> 
+cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
-cases() ->
-    [variable_api, union_api, enum_api, simple_types_api, components_api,
-     positional_api].
+cases() -> 
+[variable_api, union_api, enum_api, simple_types_api,
+ components_api, positional_api].
 	
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -103,7 +111,7 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     if
@@ -113,7 +121,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
  
-finish_all(Config) ->
+end_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     Config.
