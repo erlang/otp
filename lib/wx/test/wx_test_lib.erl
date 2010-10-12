@@ -35,7 +35,7 @@ init_per_suite(Config) ->
 		exit("Can not test on MacOSX");
 	    {unix, _} ->
 		io:format("DISPLAY ~s~n", [os:getenv("DISPLAY")]),
-		case proplists:get_value(xserver, Config, none) of
+		case ct:get_config(xserver, none) of
 		    none -> ignore;
 		    Server -> 
 			os:putenv("DISPLAY", Server)

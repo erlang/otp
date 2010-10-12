@@ -47,14 +47,18 @@ end_per_testcase(Func,Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    [
-     fields,
-     modules,
-     exportall,
-     app_depend,
-     undef_funcs
-    ].
+all() -> 
+[fields, modules, exportall, app_depend, undef_funcs].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

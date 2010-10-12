@@ -22,7 +22,7 @@
 %%% Created :  3 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_event_SUITE).
--export([all/1, init_per_suite/1, end_per_suite/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -42,16 +42,19 @@ end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-all(suite) ->
-    [
-     connect,
-     disconnect,
-     connect_msg_20,
-     connect_cb_20,
-     mouse_on_grid,
-     spin_event,
-     connect_in_callback
-    ].
+all() -> 
+[connect, disconnect, connect_msg_20, connect_cb_20,
+ mouse_on_grid, spin_event, connect_in_callback].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
   
 %% The test cases
 

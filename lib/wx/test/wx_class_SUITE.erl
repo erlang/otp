@@ -24,7 +24,7 @@
 %%%-------------------------------------------------------------------
 -module(wx_class_SUITE).
 
--export([all/1, init_per_suite/1, end_per_suite/1, 
+-export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -44,19 +44,19 @@ end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-all(suite) ->
-    [
-     calendarCtrl, 
-     treeCtrl,
-     notebook,
-     staticBoxSizer,
-     clipboard,
-     helpFrame,
-     htmlWindow,
-     listCtrlSort,
-     radioBox,
-     systemSettings
-    ].
+all() -> 
+[calendarCtrl, treeCtrl, notebook, staticBoxSizer,
+ clipboard, helpFrame, htmlWindow, listCtrlSort,
+ radioBox, systemSettings].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 %% The test cases
 
