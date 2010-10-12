@@ -25,7 +25,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 
 
@@ -33,7 +33,7 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1, 
+	 all/0, 
          init_per_testcase/2, end_per_testcase/2
 	]).
 
@@ -64,8 +64,8 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%======================================================================
 %% Test case definitions
 %%======================================================================
-all(_) ->
-    ?SKIP(not_yet_implemented).
+all() ->
+    {skip,not_yet_implemented}.
 
 
 %%======================================================================

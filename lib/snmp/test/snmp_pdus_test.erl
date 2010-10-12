@@ -25,7 +25,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 
@@ -34,8 +34,8 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1, 
-	 tickets/1,
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	
 	 otp7575/1,
 	 otp8563/1, 
          init_per_testcase/2, end_per_testcase/2
@@ -71,16 +71,19 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%======================================================================
 %% Test case definitions
 %%======================================================================
-all(suite) ->
-    [
-     tickets
-    ].
+all() -> 
+[{group, tickets}].
 
-tickets(suite) ->
-    [
-     otp7575,
-     otp8563
-    ].
+groups() -> 
+    [{tickets, [], [otp7575, otp8563]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 
 

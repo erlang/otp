@@ -25,7 +25,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
 
@@ -34,7 +34,7 @@
 %%----------------------------------------------------------------------
 -export([
          init_per_testcase/2, end_per_testcase/2,
-	 all/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 start_and_stop/1,
 	 notes/1,
 	 info/1,
@@ -69,14 +69,18 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%======================================================================
 %% Test case definitions
 %%======================================================================
-all(suite) ->
-    [
-     start_and_stop,
-     notes,
-     info,
-     garbage_in
-     
-    ].
+all() -> 
+[start_and_stop, notes, info, garbage_in].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%======================================================================

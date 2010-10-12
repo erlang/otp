@@ -31,7 +31,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -include("snmp_test_data/Test2.hrl").
 
@@ -43,10 +43,10 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
 
-	 start_and_stop_tests/1,
+	
 	 simple_start_and_stop1/1,
 	 simple_start_and_stop2/1,
 	 simple_start_and_monitor_crash1/1,
@@ -54,49 +54,49 @@
 	 notify_started01/1,
 	 notify_started02/1,
 
-	 user_tests/1,
+	
 	 register_user1/1,
 	 
-	 agent_tests/1,
+	
 	 register_agent1/1,
 	 register_agent2/1,
 
-	 misc_tests/1,
+	
 	 info/1,
 	 
-	 request_tests/1, 
+	 
 
-	 get_tests/1,
+	
 	 simple_sync_get1/1, 
 	 simple_sync_get2/1, 
 	 simple_async_get1/1, 
 	 simple_async_get2/1, 
 
-	 get_next_tests/1,
+	
   	 simple_sync_get_next1/1, 
   	 simple_sync_get_next2/1, 
   	 simple_async_get_next1/1, 
   	 simple_async_get_next2/1, 
 
-	 set_tests/1, 
+	 
 	 simple_sync_set1/1, 
 	 simple_sync_set2/1, 
 	 simple_async_set1/1, 
 	 simple_async_set2/1, 
 
-	 bulk_tests/1, 
+	 
   	 simple_sync_get_bulk1/1, 
   	 simple_sync_get_bulk2/1, 
   	 simple_async_get_bulk1/1, 
   	 simple_async_get_bulk2/1, 
 
-	 misc_request_tests/1, 
+	 
   	 misc_async1/1, 
   	 misc_async2/1, 
 
 	 discovery/1,
 
-	 event_tests/1, 
+	 
 	 
 	 trap1/1,
 	 trap2/1,
@@ -109,10 +109,10 @@
 
 	 report/1,
 
-	 tickets/1,
-	 otp8015/1,
+	
+	
 	 otp8015_1/1, 
-	 otp8395/1,
+	
 	 otp8395_1/1
 
 	]).
@@ -359,118 +359,64 @@ end_per_testcase2(Case, Config) ->
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
-    [
-     start_and_stop_tests,
-     misc_tests,
-     user_tests,
-     agent_tests,
-     request_tests,
-     event_tests, 
-     discovery,
-     tickets
-    ].
+all() -> 
+[{group, start_and_stop_tests}, {group, misc_tests},
+ {group, user_tests}, {group, agent_tests},
+ {group, request_tests}, {group, event_tests}, discovery,
+ {group, tickets}].
 
-start_and_stop_tests(suite) ->
-    [
-     simple_start_and_stop1,
-     simple_start_and_stop2,
-     simple_start_and_monitor_crash1,
-     simple_start_and_monitor_crash2,
-     notify_started01,
-     notify_started02
-    ].
+groups() -> 
+    [{start_and_stop_tests, [],
+  [simple_start_and_stop1, simple_start_and_stop2,
+   simple_start_and_monitor_crash1,
+   simple_start_and_monitor_crash2, notify_started01,
+   notify_started02]},
+ {misc_tests, [], [info]},
+ {user_tests, [], [register_user1]},
+ {agent_tests, [], [register_agent1, register_agent2]},
+ {request_tests, [],
+  [{group, get_tests}, {group, get_next_tests},
+   {group, set_tests}, {group, bulk_tests},
+   {group, misc_request_tests}]},
+ {get_tests, [],
+  [simple_sync_get1, simple_sync_get2, simple_async_get1,
+   simple_async_get2]},
+ {get_next_tests, [],
+  [simple_sync_get_next1, simple_sync_get_next2,
+   simple_async_get_next1, simple_async_get_next2]},
+ {set_tests, [],
+  [simple_sync_set1, simple_sync_set2, simple_async_set1,
+   simple_async_set2]},
+ {bulk_tests, [],
+  [simple_sync_get_bulk1, simple_sync_get_bulk2,
+   simple_async_get_bulk1, simple_async_get_bulk2]},
+ {misc_request_tests, [], [misc_async1, misc_async2]},
+ {event_tests, [],
+  [trap1, trap2, inform1, inform2, inform3, inform4,
+   inform_swarm, report]},
+ {tickets, [], [{group, otp8015}, {group, otp8395}]},
+ {otp8015, [], [otp8015_1]}, {otp8395, [], [otp8395_1]}].
 
-misc_tests(suite) ->
-    [
-     info
-    ].
+init_per_group(_GroupName, Config) ->
+	Config.
 
-user_tests(suite) ->
-    [
-     register_user1
-    ].
+end_per_group(_GroupName, Config) ->
+	Config.
 
-agent_tests(suite) ->
-    [
-     register_agent1, 
-     register_agent2
-    ].
 
-request_tests(suite) ->
-    [
-     get_tests,
-     get_next_tests,
-     set_tests,
-     bulk_tests,
-     misc_request_tests
-    ].
 
-get_tests(suite) ->
-    [
-     simple_sync_get1,
-     simple_sync_get2,
-     simple_async_get1,
-     simple_async_get2
-    ].
 
-get_next_tests(suite) ->
-    [
-     simple_sync_get_next1,
-     simple_sync_get_next2,
-     simple_async_get_next1,
-     simple_async_get_next2
-    ].
 
-set_tests(suite) ->
-    [
-     simple_sync_set1,
-     simple_sync_set2,
-     simple_async_set1,
-     simple_async_set2
-    ].
 
-bulk_tests(suite) ->
-    [
-     simple_sync_get_bulk1,
-     simple_sync_get_bulk2,
-     simple_async_get_bulk1,
-     simple_async_get_bulk2
-    ].
 
-misc_request_tests(suite) ->
-    [
-     misc_async1,
-     misc_async2
-    ].
 
-event_tests(suite) ->
-    [
-     trap1,
-     trap2,
-     inform1,
-     inform2,
-     inform3,
-     inform4,
-     inform_swarm,
-     report
-    ].
 
-tickets(suite) ->
-    [
-     otp8015,
-     otp8395
-    ].
 
-otp8015(suite) ->
-    [
-     otp8015_1
-    ].
 
-otp8395(suite) ->
-    [
-     otp8395_1
-    ].
+
+
+
+
 
 
 %%======================================================================

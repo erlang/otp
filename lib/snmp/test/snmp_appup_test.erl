@@ -23,25 +23,33 @@
 -module(snmp_appup_test).
 
 -export([
-	 all/1, init_per_suite/1, fin_suite/1,
+	 all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1,
+	 end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2, 
 
 	 appup_file/1
 
 	]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 appup_file
-	],
-    {conf, init_per_suite, Cases, fin_suite}.
+all() -> 
+Cases = [appup_file],
+	Cases.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -76,9 +84,9 @@ file_name(App, Ext) ->
     filename:join([LibDir, "ebin", atom_to_list(App) ++ Ext]).
 
 
-fin_suite(suite) -> [];
-fin_suite(doc) -> [];
-fin_suite(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
