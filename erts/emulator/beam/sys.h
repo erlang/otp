@@ -1263,6 +1263,9 @@ char* win32_errorstr(int);
 #define ERL_FILENAME_WIN_WCHAR 3
 
 int erts_get_native_filename_encoding(void);
+/* The set function is only to be used by erl_init! */
+void erts_set_user_requested_filename_encoding(int encoding); 
+int erts_get_user_requested_filename_encoding(void);
 
 void erts_init_sys_common_misc(void);
 

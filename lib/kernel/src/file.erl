@@ -75,7 +75,7 @@
 -define(RAM_FILE, ram_file).           % Module
 
 %% data types
--type filename()  :: string().
+-type filename()  :: string() | binary().
 -type file_info() :: #file_info{}.
 -type fd()        :: #file_descriptor{}.
 -type io_device() :: pid() | fd().
@@ -87,7 +87,7 @@
 		   | 'delayed_write' | {'read_ahead', pos_integer()}
 		   | 'read_ahead' | 'compressed'
 		   | {'encoding', unicode:encoding()}.
--type name()      :: string() | atom() | [name()].
+-type name()      :: string() | atom() | [name()] | binary().
 -type posix()     :: 'eacces'  | 'eagain'  | 'ebadf'   | 'ebusy'  | 'edquot'
 		   | 'eexist'  | 'efault'  | 'efbig'   | 'eintr'  | 'einval'
 		   | 'eio'     | 'eisdir'  | 'eloop'   | 'emfile' | 'emlink'

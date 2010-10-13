@@ -42,33 +42,51 @@
 /* Written once and only once */
 
 static int filename_encoding = ERL_FILENAME_UNKNOWN;
+#if defined(__WIN32__)
+static int user_filename_encoding = ERL_FILENAME_UTF8; /* Default unicode on windows */
+#else
+static int user_filename_encoding = ERL_FILENAME_LATIN1;
+#endif
+void erts_set_user_requested_filename_encoding(int encoding)
+{
+    user_filename_encoding = encoding;
+}
+
+int erts_get_user_requested_filename_encoding(void)
+{
+    return user_filename_encoding;
+}
 
 void erts_init_sys_common_misc(void)
 {
 #if defined(__WIN32__)
     filename_encoding = ERL_FILENAME_WIN_WCHAR;
 #else
-    char *l;
-    filename_encoding = ERL_FILENAME_LATIN1;
+    if (user_filename_encoding != ERL_FILENAME_UNKNOWN) {
+	filename_encoding = user_filename_encoding;
+    } else {
+	char *l;
+	filename_encoding = ERL_FILENAME_LATIN1;
 #  ifdef PRIMITIVE_UTF8_CHECK
-    setlocale(LC_CTYPE, "");  /* Set international environment, 
-				 ignore result */
-    if (((l = getenv("LC_ALL"))   && *l) ||
-	((l = getenv("LC_CTYPE")) && *l) ||
-	((l = getenv("LANG"))     && *l)) {
-	if (strstr(l, "UTF-8")) {
-	    filename_encoding = ERL_FILENAME_UTF8;
-	} 
-    }
-    
-#  else
-    l = setlocale(LC_CTYPE, "");  /* Set international environment */
-    if (l != NULL) {
-	if (strcmp(nl_langinfo(CODESET), "UTF-8") == 0) {
-	    filename_encoding = ERL_FILENAME_UTF8;
+	setlocale(LC_CTYPE, "");  /* Set international environment, 
+				     ignore result */
+	if (((l = getenv("LC_ALL"))   && *l) ||
+	    ((l = getenv("LC_CTYPE")) && *l) ||
+	    ((l = getenv("LANG"))     && *l)) {
+	    if (strstr(l, "UTF-8")) {
+		filename_encoding = ERL_FILENAME_UTF8;
+	    } 
 	}
-    }
+	
+#  else
+	l = setlocale(LC_CTYPE, "");  /* Set international environment */
+	if (l != NULL) {
+	    if (strcmp(nl_langinfo(CODESET), "UTF-8") == 0) {
+		filename_encoding = ERL_FILENAME_UTF8;
+	    }
+	}
 #  endif
+    }
 #endif
 }
 

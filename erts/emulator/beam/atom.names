@@ -549,7 +549,6 @@ atom waiting
 atom wall_clock
 atom warning
 atom warning_msg
-atom win_wchar
 atom wordsize
 atom write_concurrency
 atom xor

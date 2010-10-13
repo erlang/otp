@@ -1876,6 +1876,10 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			Uint x = unsigned_val(obj);
 			switch (encoding) {
 			case ERL_FILENAME_LATIN1:
+			    if (x > 255) {
+				DESTROY_ESTACK(stack);
+				return ((Sint) -1);
+			    }
 			    need += 1;
 			    break;
 			case ERL_FILENAME_UTF8:
@@ -2101,12 +2105,76 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 
 
 
-BIF_RETTYPE file_name2native_1(BIF_ALIST_1)
+BIF_RETTYPE file_internal_name2native_1(BIF_ALIST_1)
 {
     int encoding = erts_get_native_filename_encoding();
     Sint need;
     Eterm bin_term;
     byte* bin_p;
+    if (is_binary(BIF_ARG_1)) {
+	byte *temp_alloc = NULL;
+	byte *bytes;
+	byte *err_pos;
+	Uint size,num_chars;
+	Uint unipoint;
+	/* Uninterpreted encoding except if windows widechar, in case we convert from 
+	   utf8 to win_wchar */
+	if (encoding != ERL_FILENAME_WIN_WCHAR) {
+	    BIF_RET(BIF_ARG_1);
+	} 
+	/* In a wchar world, the emulator flags only affect how
+	   binaries are interpreted when sent from the user. */
+	/* Determine real length and create a new binary */
+	size = binary_size(BIF_ARG_1);
+	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	if (analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != UTF8_OK || 
+	    erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
+	    /* What to do now? Maybe latin1, so just take byte for byte instead */
+	    bin_term = new_binary(BIF_P, 0, size*2);
+	    bin_p = binary_bytes(bin_term);
+	    while (size--) {
+		*bin_p++ = *bytes++;
+		*bin_p++ = 0;
+	    }
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    BIF_RET(bin_term);
+	}
+	/* OK, UTF8 ok, number of characters is in num_chars */
+	bin_term = new_binary(BIF_P, 0, num_chars*2);
+	bin_p = binary_bytes(bin_term);
+	while (num_chars--) {
+	    if (((*bytes) & ((byte) 0x80)) == 0) {
+		unipoint = (Uint) *bytes;
+		++bytes;
+	    } else if (((*bytes) & ((byte) 0xE0)) == 0xC0) {
+		unipoint = 
+		    (((Uint) ((*bytes) & ((byte) 0x1F))) << 6) |
+		    ((Uint) (bytes[1] & ((byte) 0x3F))); 	
+		bytes += 2;
+	    } else if (((*bytes) & ((byte) 0xF0)) == 0xE0) {
+		unipoint = 
+		    (((Uint) ((*bytes) & ((byte) 0xF))) << 12) |
+		    (((Uint) (bytes[1] & ((byte) 0x3F))) << 6) |
+		    ((Uint) (bytes[2] & ((byte) 0x3F)));
+		bytes +=3;
+	    } else if (((*bytes) & ((byte) 0xF8)) == 0xF0) {
+		unipoint = 
+		    (((Uint) ((*bytes) & ((byte) 0x7))) << 18) |
+		    (((Uint) (bytes[1] & ((byte) 0x3F))) << 12) |
+		    (((Uint) (bytes[2] & ((byte) 0x3F))) << 6) |
+		    ((Uint) (bytes[3] & ((byte) 0x3F)));
+		bytes += 4;
+	    } else {
+		erl_exit(1,"Internal unicode error in file:name2native/1");
+	    }
+	    *bin_p++ = (byte) (unipoint & 0xFF);
+	    *bin_p++ = (byte) ((unipoint >> 8) & 0xFF);
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_RET(bin_term);
+    } /* binary */   
+	    
+
     if ((need = simple_char_need(BIF_ARG_1,encoding)) < 0) {
 	BIF_ERROR(BIF_P,BADARG);
     }
@@ -2116,7 +2184,7 @@ BIF_RETTYPE file_name2native_1(BIF_ALIST_1)
     BIF_RET(bin_term);
 }
 
-BIF_RETTYPE file_native2name_1(BIF_ALIST_1)
+BIF_RETTYPE file_internal_native2name_1(BIF_ALIST_1)
 {
     Eterm real_bin;
     Uint offset;
@@ -2144,12 +2212,15 @@ BIF_RETTYPE file_native2name_1(BIF_ALIST_1)
     }
     switch (erts_get_native_filename_encoding()) {
     case ERL_FILENAME_LATIN1:
-	goto simple;
+	hp = HAlloc(BIF_P, 2 * size);
+	bytes = binary_bytes(real_bin)+offset;
+    
+	BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
     case ERL_FILENAME_UTF8:
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != UTF8_OK) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
-	    goto simple;
+	    goto noconvert;
 	}
 	num_built = 0;
 	num_eaten = 0;
@@ -2157,12 +2228,16 @@ BIF_RETTYPE file_native2name_1(BIF_ALIST_1)
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(ret);
     case ERL_FILENAME_WIN_WCHAR:
-	if ((size % 2) != 0) {
-	    goto simple;
-	}
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
-	hp = HAlloc(BIF_P, size);
-	ret = NIL;
+	if ((size % 2) != 0) { /* Panic fixup to avoid crashing the emulator */
+	    size--;
+	    hp = HAlloc(BIF_P, size+2);
+	    ret = CONS(hp,make_small((Uint) bytes[size]),NIL);
+	    hp += 2;
+	} else {
+	    hp = HAlloc(BIF_P, size);
+	    ret = NIL;
+	}
 	bytes += size-1;
 	while (size > 0) {
 	    Uint x = ((Uint) *bytes--) << 8;
@@ -2173,13 +2248,10 @@ BIF_RETTYPE file_native2name_1(BIF_ALIST_1)
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(ret);
     default:
-	goto simple;
+	goto noconvert;
     }
- simple:
-    hp = HAlloc(BIF_P, 2 * size);
-    bytes = binary_bytes(real_bin)+offset;
-    
-    BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
+ noconvert:
+    BIF_RET(BIF_ARG_1);
 }
 
 BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
@@ -2190,7 +2262,11 @@ BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
     case ERL_FILENAME_UTF8:
 	BIF_RET(am_utf8);
     case ERL_FILENAME_WIN_WCHAR:
-	BIF_RET(am_win_wchar);
+	if (erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
+	    BIF_RET(am_latin1);
+	} else {
+	    BIF_RET(am_utf8);
+	}
     default:
 	BIF_RET(am_undefined);
     }
