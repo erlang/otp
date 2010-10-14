@@ -106,6 +106,8 @@ static int eiformat(const char** fmt, union arg** args, ei_x_buff* x)
     default:
 	if (isdigit((int)*p))
 	    res = pdigit(&p, x);
+	else if ((*p == '-' || *p == '+') && isdigit((int)*(p+1)))
+	    res = pdigit(&p, x);
 	else if (islower((int)*p))
 	    res = patom(&p, x);
 	else
@@ -149,6 +151,8 @@ static int pdigit(const char** fmt, ei_x_buff* x)
     double d;
     long l;
 
+    if (**fmt == '-' || **fmt == '+')
+	(*fmt)++;
     for (;;) {
 	c = *(*fmt)++;
 	if (isdigit((int)c))
