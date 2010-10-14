@@ -29,7 +29,7 @@
 %% In late 2008, Manouk Manoukian and Kostis Sagonas added support for
 %% opaque types to the structure-based representation of types.
 %% During February and March 2009, Kostis Sagonas significantly
-%% cleaned up the type representation added spec declarations.
+%% cleaned up the type representation and added spec declarations.
 %%
 %% Author contact: richardc@it.uu.se, tobiasl@it.uu.se, kostis@cs.ntua.gr
 %% ======================================================================
@@ -714,12 +714,13 @@ t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
           case lookup_type(Name, RemDict) of
             {type, {_Mod, Type, ArgNames}} when ArgsLen =:= length(ArgNames) ->
               {NewType, NewCycle, NewRR} =
-                case unfold(RemType, C) of
+                case can_unfold_more(RemType, C) of
                   true ->
                     List = lists:zip(ArgNames, Args),
                     TmpVarDict = dict:from_list(List),
                     {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
-                  false -> {t_any(), C, [RemType]}
+                  false ->
+		    {t_any(), C, [RemType]}
                 end,
               {RT, RR} = t_solve_remote(NewType, ET, R, NewCycle),
               RetRR = NewRR ++ RR,
@@ -733,9 +734,11 @@ t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
               List = lists:zip(ArgNames, Args),
               TmpVarDict = dict:from_list(List),
               {Rep, NewCycle, NewRR} =
-                case unfold(RemType, C) of
-                  true -> {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
-                  false -> {t_any(), C, [RemType]}
+                case can_unfold_more(RemType, C) of
+                  true ->
+		    {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
+                  false ->
+		    {t_any(), C, [RemType]}
                 end,
               {NewRep, RR} = t_solve_remote(Rep, ET, R, NewCycle),
               RetRR = NewRR ++ RR,
@@ -2388,9 +2391,9 @@ inf_tuple_sets([{Arity, Tuples1}|Left1], [{Arity, Tuples2}|Left2], Acc, Mode) ->
     [] -> inf_tuple_sets(Left1, Left2, Acc, Mode);
     NewTuples -> inf_tuple_sets(Left1, Left2, [{Arity, NewTuples}|Acc], Mode)
   end;
-inf_tuple_sets(L1 = [{Arity1, _}|Left1], L2 = [{Arity2, _}|Left2], Acc, Mode) ->
-  if Arity1 < Arity2 -> inf_tuple_sets(Left1, L2, Acc, Mode);
-     Arity1 > Arity2 -> inf_tuple_sets(L1, Left2, Acc, Mode)
+inf_tuple_sets([{Arity1, _}|Ts1] = L1, [{Arity2, _}|Ts2] = L2, Acc, Mode) ->
+  if Arity1 < Arity2 -> inf_tuple_sets(Ts1, L2, Acc, Mode);
+     Arity1 > Arity2 -> inf_tuple_sets(L1, Ts2, Acc, Mode)
   end;
 inf_tuple_sets([], _, Acc, _Mode) -> lists:reverse(Acc);
 inf_tuple_sets(_, [], Acc, _Mode) -> lists:reverse(Acc).
@@ -2406,17 +2409,17 @@ inf_tuples_in_sets(L1, [?tuple(Elements2, _, ?any)], Mode) ->
 inf_tuples_in_sets(L1, L2, Mode) ->
   inf_tuples_in_sets(L1, L2, [], Mode).
 
-inf_tuples_in_sets([?tuple(Elements1, Arity, Tag)|Left1], 
-		   [?tuple(Elements2, Arity, Tag)|Left2], Acc, Mode) ->
+inf_tuples_in_sets([?tuple(Elements1, Arity, Tag)|Ts1],
+		   [?tuple(Elements2, Arity, Tag)|Ts2], Acc, Mode) ->
   case t_inf_lists_strict(Elements1, Elements2, Mode) of
-    bottom -> inf_tuples_in_sets(Left1, Left2, Acc, Mode);
-    NewElements -> 
-      inf_tuples_in_sets(Left1, Left2, [?tuple(NewElements, Arity, Tag)|Acc], Mode)
+    bottom -> inf_tuples_in_sets(Ts1, Ts2, Acc, Mode);
+    NewElements ->
+      inf_tuples_in_sets(Ts1, Ts2, [?tuple(NewElements, Arity, Tag)|Acc], Mode)
   end;
-inf_tuples_in_sets([?tuple(_, _, Tag1)|Left1] = L1, 
-		   [?tuple(_, _, Tag2)|Left2] = L2, Acc, Mode) ->
-  if Tag1 < Tag2 -> inf_tuples_in_sets(Left1, L2, Acc, Mode);
-     Tag1 > Tag2 -> inf_tuples_in_sets(L1, Left2, Acc, Mode)
+inf_tuples_in_sets([?tuple(_, _, Tag1)|Ts1] = L1,
+		   [?tuple(_, _, Tag2)|Ts2] = L2, Acc, Mode) ->
+  if Tag1 < Tag2 -> inf_tuples_in_sets(Ts1, L2, Acc, Mode);
+     Tag1 > Tag2 -> inf_tuples_in_sets(L1, Ts2, Acc, Mode)
   end;
 inf_tuples_in_sets([], _, Acc, _Mode) -> lists:reverse(Acc);
 inf_tuples_in_sets(_, [], Acc, _Mode) -> lists:reverse(Acc).
@@ -2791,13 +2794,13 @@ t_subtract(?opaque(Set1), ?opaque(Set2)) ->
     Set -> ?opaque(Set)
   end;
 t_subtract(?matchstate(Pres1, Slots1), ?matchstate(Pres2, _Slots2)) ->
-  Pres = t_subtract(Pres1,Pres2),
+  Pres = t_subtract(Pres1, Pres2),
   case t_is_none(Pres) of
     true -> ?none;
-    false -> ?matchstate(Pres,Slots1)
+    false -> ?matchstate(Pres, Slots1)
   end;
-t_subtract(?matchstate(Present,Slots),_) ->
-  ?matchstate(Present,Slots);
+t_subtract(?matchstate(Present, Slots), _) ->
+  ?matchstate(Present, Slots);
 t_subtract(?nil, ?nil) ->
   ?none;
 t_subtract(?nil, ?nonempty_list(_, _)) ->
@@ -3634,7 +3637,7 @@ t_from_form({type, _L, union, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
 t_from_form({type, _L, Name, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
   case lookup_type(Name, RecDict) of
     {type, {_Module, Type, ArgNames}} when length(Args) =:= length(ArgNames) ->
-      case unfold({type, Name}, TypeNames) of
+      case can_unfold_more({type, Name}, TypeNames) of
         true ->
           List = lists:zipwith(
                    fun(ArgName, ArgType) ->
@@ -3655,7 +3658,7 @@ t_from_form({type, _L, Name, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
       end;
     {opaque, {Module, Type, ArgNames}} when length(Args) =:= length(ArgNames) ->
       {Rep, Rret} =
-        case unfold({opaque, Name}, TypeNames) of
+        case can_unfold_more({opaque, Name}, TypeNames) of
           true ->
             List = lists:zipwith(
                      fun(ArgName, ArgType) ->
@@ -3698,7 +3701,7 @@ t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames, _InOpaque,
 
 record_from_form({atom, _, Name}, ModFields, TypeNames, InOpaque, RecDict,
                  VarDict) ->
-  case unfold({record, Name}, TypeNames) of
+  case can_unfold_more({record, Name}, TypeNames) of
     true ->
       case lookup_record(Name, RecDict) of
         {ok, DeclFields} ->
@@ -3716,7 +3719,7 @@ record_from_form({atom, _, Name}, ModFields, TypeNames, InOpaque, RecDict,
                                            RecDict, VarDict),
           case GetModRec of
             {error, FieldName} ->
-              throw({error, io_lib:format("Illegal declaration of ~w#{~w}\n",
+              throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
                                           [Name, FieldName])});
             {ok, NewFields} ->
               {t_tuple(
@@ -3724,8 +3727,7 @@ record_from_form({atom, _, Name}, ModFields, TypeNames, InOpaque, RecDict,
                R1 ++ R2}
           end;
         error ->
-          throw({error, erlang:error(io_lib:format("Unknown record #~w{}\n",
-                                                   [Name]))})
+          throw({error, io_lib:format("Unknown record #~w{}\n", [Name])})
       end;
     false -> {t_any(), []}
   end.
@@ -3946,8 +3948,9 @@ lookup_type(Name, RecDict) ->
 type_is_defined(TypeOrOpaque, Name, RecDict) ->
   dict:is_key({TypeOrOpaque, Name}, RecDict).
 
-unfold(TypeName, TypeNames) ->
-  not lists:member(TypeName, TypeNames).
+can_unfold_more(TypeName, TypeNames) ->
+  Fun = fun(E, Acc) -> case E of TypeName -> Acc + 1; _ -> Acc end end,
+  lists:foldl(Fun, 0, TypeNames) < ?REC_TYPE_LIMIT.
 
 %% -----------------------------------
 %% Set
