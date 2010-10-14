@@ -33,7 +33,9 @@
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3]).
 -export([handle_cast/2]).
 
--export_type([child_spec/0, strategy/0]).
+%%--------------------------------------------------------------------------
+
+-export_type([child_spec/0, del_err/0, startchild_ret/0, strategy/0]).
 
 %%--------------------------------------------------------------------------
 
@@ -76,6 +78,10 @@
 -type state() :: #state{}.
 
 -define(is_simple(State), State#state.strategy =:= simple_one_for_one).
+
+%%--------------------------------------------------------------------------
+
+-spec behaviour_info(atom()) -> 'undefined' | [{atom(), arity()}].
 
 behaviour_info(callbacks) ->
     [{init,1}];
@@ -160,11 +166,13 @@ check_childspecs(X) -> {error, {badarg, X}}.
 %%% 
 %%% ---------------------------------------------------
 
+-type init_sup_name() :: sup_name() | 'self'.
+
 -type stop_rsn() :: 'shutdown' | {'bad_return', {module(),'init', term()}}
                   | {'bad_start_spec', term()} | {'start_spec', term()}
                   | {'supervisor_data', term()}.
 
--spec init({sup_name(), module(), [term()]}) ->
+-spec init({init_sup_name(), module(), [term()]}) ->
         {'ok', state()} | 'ignore' | {'stop', stop_rsn()}.
 
 init({SupName, Mod, Args}) ->
@@ -184,7 +192,7 @@ init({SupName, Mod, Args}) ->
 	Error ->
 	    {stop, {bad_return, {Mod, init, Error}}}
     end.
-	
+
 init_children(State, StartSpec) ->
     SupName = State#state.name,
     case check_startspec(StartSpec) of
