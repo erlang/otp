@@ -266,7 +266,7 @@ int ei_reg_restore(int fd, ei_reg *reg, const char *mntab)
   /* make sure receive buffer can handle largest expected message */
   len = maxkey + maxobj + 512; 
   if (len > EISMALLBUF)
-    if (!(dbuf = malloc(index))) {
+    if (!(dbuf = malloc(len))) {
       ei_send_exit(fd,&self,&mnesia,"cannot allocate space for incoming data");
       return -1;
     }
