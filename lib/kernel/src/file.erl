@@ -1033,6 +1033,8 @@ path_open_first([], _Name, _Mode, LastError) ->
 %% 	Generates a flat file name from a deep list of atoms and 
 %% 	characters (integers).
 
+file_name(N) when is_binary(N) ->
+    N;
 file_name(N) ->
     try 
         file_name_1(N)

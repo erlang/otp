@@ -67,6 +67,8 @@
 #define FILE_RESP_LDATA      6
 #define FILE_RESP_N2DATA     7
 #define FILE_RESP_EOF        8
+#define FILE_RESP_FNAME      9
+#define FILE_RESP_ALL_DATA  10
 
 /* Options */
 
@@ -1591,7 +1593,7 @@ static void invoke_readdir(void *data)
 	    buf_sz = READDIR_BUFSIZE - 4/* EOB */;
 	}
 
-	p[4] = FILE_RESP_OK;
+	p[4] = FILE_RESP_FNAME;
 	buf_sz -= 4 + 1;
 	str = p + 4 + 1;
 	ASSERT(buf_sz >= MAXPATHLEN + 1);
@@ -1911,7 +1913,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	if (!d->result_ok)
 	    reply_error(desc, &d->errInfo);
 	else {
-	    header[0] = FILE_RESP_OK;
+	    header[0] = FILE_RESP_ALL_DATA;
 	    TRACE_C('R');
 	    driver_output_binary(desc->port, header, 1,
 				 d->c.read_file.binp,
@@ -1968,10 +1970,10 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	    if (!d->result_ok)
 		reply_error(desc, &d->errInfo);
 	    else {
-		resbuf[0] = FILE_RESP_OK;
+		resbuf[0] = FILE_RESP_FNAME;
 		length = 1+strlen((char*) resbuf+1);
 		TRACE_C('R');
-		driver_output2(desc->port, resbuf, length, NULL, 0);
+		driver_output2(desc->port, resbuf, 1, resbuf+1, length-1);
 	    }
 	    free_data(data);
 	    break;
@@ -2031,7 +2033,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		int sz = get_int32(p);
 		while (sz) { /* 0 == EOB */
 		    p += 4;
-		    driver_output2(desc->port, p, sz, NULL, 0);
+		    driver_output2(desc->port, p, 1, p+1, sz-1);
 		    p += sz;
 		    sz = get_int32(p);
 		}
@@ -2210,12 +2212,12 @@ file_output(ErlDrvData e, char* buf, int count)
 
 	    errInfo.posix_errno = 0;
 	    dir_handle = NULL;
-	    resbuf[0] = FILE_RESP_OK;
+	    resbuf[0] = FILE_RESP_FNAME;
 
 	    while (efile_readdir(&errInfo, name, &dir_handle,
 				 resbuf+1, RESBUFSIZE)) {
-		int length = 1 + strlen(resbuf+1);
-		driver_output2(desc->port, resbuf, length, NULL, 0);
+		int length = strlen(resbuf+1);
+		driver_output2(desc->port, resbuf, 1, resbuf+1, length);
 	    }
 	    if (errInfo.posix_errno != 0) {
 		reply_error(desc, &errInfo);

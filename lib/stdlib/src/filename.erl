@@ -228,7 +228,7 @@ basename([$/|[]], Ext, Tail, DrvSep2) ->
     basename([], Ext, Tail, DrvSep2);
 basename([$/|Rest], Ext, _Tail, DrvSep2) ->
     basename(Rest, Ext, [], DrvSep2);
-basename([$\\|Rest], Ext, Tail, DirSep2) when is_integer(DirSep2) ->
+basename([DirSep2|Rest], Ext, Tail, DirSep2) when is_integer(DirSep2) ->
     basename([$/|Rest], Ext, Tail, DirSep2);
 basename([Char|Rest], Ext, Tail, DrvSep2) when is_integer(Char) ->
     basename(Rest, Ext, [Char|Tail], DrvSep2);
@@ -241,6 +241,39 @@ basename([], _Ext, Tail, _DrvSep2) ->
 %%	    dirname("kalle.erl") -> "."
 
 -spec dirname(file:name()) -> file:filename().
+dirname(Name) when is_binary(Name) ->
+    {Dsep,Drivesep} = separators(),
+    SList = case Dsep of
+		Sep when is_integer(Sep) -> 
+		    [ <<Sep>> ];
+		_ ->
+		    []
+	    end,
+    {XPart0,Dirs} = case Drivesep of
+		       X when is_integer(X) ->
+			   case Name of
+			       <<DL,X,Rest/binary>> when ?IS_DRIVELETTER(DL) ->
+				   {<<DL,X>>,Rest};
+			       _ ->
+				   {<<>>,Name}
+			   end;
+		       _ ->
+			   {<<>>,Name} 
+		   end,
+    Parts0 = binary:split(Dirs,[<<"/">>|SList],[global]),
+    %% Fairly short lists of parts, OK to reverse twice...
+    Parts = case Parts0 of
+		[] -> [];
+		_ -> lists:reverse(fstrip(tl(lists:reverse(Parts0))))
+	    end,
+    XPart = case {Parts,XPart0} of
+		{[],<<>>} ->
+		    <<".">>;
+		_ ->
+		    XPart0
+	    end,
+    dirjoin(Parts,XPart,<<"/">>);
+
 dirname(Name0) ->
     Name = flatten(Name0),
     dirname(Name, [], [], separators()).
@@ -271,6 +304,26 @@ dirname([], [DrvSep,Dl], File, {_,DrvSep}) ->
     end;
 dirname([], Dir, _, _) ->
     lists:reverse(Dir).
+
+%% Compatibility with lists variant, remove trailing slashes
+fstrip([<<>>,X|Y]) ->
+    fstrip([X|Y]);
+fstrip(A) ->
+    A.
+			   
+
+dirjoin([<<>>|T],Acc,Sep) ->
+    dirjoin1(T,<<Acc/binary,"/">>,Sep);
+dirjoin(A,B,C) ->
+    dirjoin1(A,B,C).
+
+dirjoin1([],Acc,_) ->
+    Acc;
+dirjoin1([One],Acc,_) ->
+    <<Acc/binary,One/binary>>;
+dirjoin1([H|T],Acc,Sep) ->
+    dirjoin(T,<<Acc/binary,H/binary,Sep/binary>>,Sep).
+
     
 %% Given a filename string, returns the file extension,
 %% including the period.  Returns an empty list if there
@@ -282,6 +335,30 @@ dirname([], Dir, _, _) ->
 %% On Windows:  fn:dirname("\\usr\\src/kalle.erl") -> "/usr/src"
 
 -spec extension(file:name()) -> file:filename().
+extension(Name) when is_binary(Name) ->
+    {Dsep,_} = separators(),
+    SList = case Dsep of
+		Sep when is_integer(Sep) -> 
+		    [ <<Sep>> ];
+		_ ->
+		    []
+	    end,
+    case binary:matches(Name,[<<".">>]) of
+	nomatch -> % Bug in binary workaround :(
+	    <<>>;
+	[] ->
+	    <<>>;
+	List ->
+	    {Pos,_} = lists:last(List),
+	    <<_:Pos/binary,Part/binary>> = Name,
+	    case binary:match(Part,[<<"/">>|SList]) of
+		nomatch ->
+		    Part;
+		_ ->
+		    <<>>
+	    end
+    end;
+
 extension(Name0) ->
     Name = flatten(Name0),
     extension(Name, [], major_os_type()).

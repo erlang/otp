@@ -2105,7 +2105,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 
 
 
-BIF_RETTYPE file_internal_name2native_1(BIF_ALIST_1)
+BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 {
     int encoding = erts_get_native_filename_encoding();
     Sint need;
@@ -2184,7 +2184,7 @@ BIF_RETTYPE file_internal_name2native_1(BIF_ALIST_1)
     BIF_RET(bin_term);
 }
 
-BIF_RETTYPE file_internal_native2name_1(BIF_ALIST_1)
+BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 {
     Eterm real_bin;
     Uint offset;
