@@ -1477,7 +1477,7 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 	goto badarg;
     }
     if (hsend == 0) {
-	BIF_RET(am_nomatch);
+	BIF_RET(NIL);
     }
     if (is_tuple(BIF_ARG_2)) {
 	tp = tuple_val(BIF_ARG_2);
