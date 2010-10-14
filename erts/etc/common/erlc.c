@@ -148,10 +148,6 @@ int
 main(int argc, char** argv)
 {
     char cwd[MAXPATHLEN];	/* Current working directory. */
-    char** rpc_eargv;		/* Pointer to the beginning of arguments
-				 * if calling a running Erlang system
-				 * via erl_rpc().
-				 */
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
@@ -159,6 +155,9 @@ main(int argc, char** argv)
 
     env = get_env("ERLC_EMULATOR");
     emulator = env ? env : get_default_emulator(argv[0]);
+
+    if (strlen(emulator) >= MAXPATHLEN)
+        error("Value of environment variable ERLC_EMULATOR is too large");
 
     /*
      * Allocate the argv vector to be used for arguments to Erlang.
@@ -170,7 +169,7 @@ main(int argc, char** argv)
      * base of the eargv vector, and move it up later.
      */
 
-    eargv_size = argc*4+100;
+    eargv_size = argc*6+100;
     eargv_base = (char **) emalloc(eargv_size*sizeof(char*));
     eargv = eargv_base;
     eargc = 0;
@@ -189,7 +188,6 @@ main(int argc, char** argv)
     PUSH2("-mode", "minimal");
     PUSH2("-boot", "start_clean");
     PUSH3("-s", "erl_compile", "compile_cmdline");
-    rpc_eargv = eargv+eargc;
 
     /*
      * Push standard arguments to Erlang.
@@ -419,7 +417,7 @@ process_opt(int* pArgc, char*** pArgv, int offset)
 static void
 push_words(char* src)
 {
-    char sbuf[1024];
+    char sbuf[MAXPATHLEN];
     char* dst;
 
     dst = sbuf;
@@ -595,7 +593,7 @@ error(char* format, ...)
     va_list ap;
     
     va_start(ap, format);
-    vsprintf(sbuf, format, ap);
+    erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
     fprintf(stderr, "erlc: %s\n", sbuf);
     exit(1);
@@ -623,6 +621,9 @@ get_default_emulator(char* progname)
 {
     char sbuf[MAXPATHLEN];
     char* s;
+
+    if (strlen(progname) >= sizeof(sbuf))
+        return ERL_NAME;
 
     strcpy(sbuf, progname);
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {

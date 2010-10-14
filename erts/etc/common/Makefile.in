@@ -327,31 +327,31 @@ $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c
 	$(CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/erlc.o: erlc.c
 	$(CC) $(CFLAGS) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/dialyzer.o: dialyzer.c
 	$(CC) $(CFLAGS) -o $@ -c dialyzer.c
 
 $(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/typer.o: typer.c
 	$(CC) $(CFLAGS) -o $@ -c typer.c
 
 $(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/escript.o: escript.c
 	$(CC) $(CFLAGS) -o $@ -c escript.c
 
 $(BINDIR)/run_test@EXEEXT@: $(OBJDIR)/run_test.o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/run_test.o -L$(OBJDIR) $(LIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/run_test.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/run_test.o: run_test.c
 	$(CC) $(CFLAGS) -o $@ -c run_test.c

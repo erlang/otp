@@ -375,7 +375,8 @@ main(int argc, char **argv)
     _setmode(erlin_fd,_O_BINARY);
     _setmode(erlout_fd,_O_BINARY);
 #endif
-    strcpy(program_name, argv[0]);
+    strncpy(program_name, argv[0], sizeof(program_name));
+    program_name[sizeof(program_name)-1] = '\0';
     notify_ack(erlout_fd);
     cmd[0] = '\0';
     do_terminate(message_loop(erlin_fd,erlout_fd));
@@ -728,7 +729,11 @@ heart_cmd_reply(int fd, char *s)
   struct msg m;
   int len = strlen(s) + 1;	/* Include \0 */
 
-  /* FIXME if s >= MSG_BODY_SIZE error */
+  /* if s >= MSG_BODY_SIZE, return a write
+   * failure immediately.
+   */
+  if (len > sizeof(m.fill))
+      return -1;
 
   m.op = HEART_CMD;
   m.len = htons(len + 2);	/* Include Op */

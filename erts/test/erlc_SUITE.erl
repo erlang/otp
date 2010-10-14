@@ -21,13 +21,13 @@
 %% Tests the erlc command by compiling various types of files.
 
 -export([all/1, compile_erl/1, compile_yecc/1, compile_script/1,
-	 compile_mib/1, good_citizen/1, deep_cwd/1]).
+	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 all(suite) ->
     [compile_erl, compile_yecc, compile_script, compile_mib,
-     good_citizen, deep_cwd].
+     good_citizen, deep_cwd, arg_overflow].
 
 %% Copy from erlc_SUITE_data/include/erl_test.hrl.
 
@@ -187,6 +187,18 @@ deep_cwd_1(PrivDir) ->
     ?line ok = file:write_file("test.erl", "-module(test).\n\n"),
     ?line io:format("~s\n", [os:cmd("erlc test.erl")]),
     ?line true = filelib:is_file("test.beam"),
+    ok.
+
+%% Test that a large number of command line switches does not
+%% overflow the argument buffer
+arg_overflow(Config) when is_list(Config) ->
+    ?line {SrcDir, _OutDir, Cmd} = get_cmd(Config),
+    ?line FileName = filename:join(SrcDir, "erl_test_ok.erl"),
+    ?line Args = lists:flatten([ ["-D", integer_to_list(N), "=1 "] ||
+            N <- lists:seq(1,10000) ]),
+    ?line run(Config, Cmd, FileName, Args,
+	      ["Warning: function foo/0 is unused\$",
+	       "_OK_"]),
     ok.
 
 erlc() ->
