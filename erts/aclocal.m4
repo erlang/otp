@@ -386,14 +386,24 @@ AC_DEFUN(LM_SYS_IPV6,
 AC_CACHE_VAL(ac_cv_sys_ipv6_support,
 [ok_so_far=yes
  AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>],
+#ifdef __WIN32__
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <netinet/in.h>
+#endif],
    [struct in6_addr a6; struct sockaddr_in6 s6;], ok_so_far=yes, ok_so_far=no)
 
 if test $ok_so_far = yes; then
   ac_cv_sys_ipv6_support=yes
 else
   AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>],
+#ifdef __WIN32__
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <netinet/in.h>
+#endif],
     [struct in_addr6 a6; struct sockaddr_in6 s6;],
     ac_cv_sys_ipv6_support=in_addr6, ac_cv_sys_ipv6_support=no)
 fi

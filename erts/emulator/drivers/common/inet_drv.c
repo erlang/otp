@@ -88,6 +88,7 @@
 #include <winsock2.h>
 #endif
 #include <windows.h>
+#include <iphlpapi.h>
 
 #include <Ws2tcpip.h>   /* NEED VC 6.0 !!! */
 
@@ -3864,7 +3865,6 @@ static char* sockaddr_to_buf(struct sockaddr* addr, char* ptr, char* end)
     return ptr;
  error:
     return NULL;
-
 }
 
 static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
@@ -3891,6 +3891,19 @@ static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 }
 
 
+#if defined (IFF_POINTOPOINT)
+#define IFGET_FLAGS(cflags) IFGET_FLAGS_P2P(cflags, IFF_POINTOPOINT)
+#elif defined IFF_POINTTOPOINT
+#define IFGET_FLAGS(cflags) IFGET_FLAGS_P2P(cflags, IFF_POINTTOPOINT)
+#endif
+
+#define IFGET_FLAGS_P2P(cflags, iff_ptp)				\
+    ((((cflags) & IFF_UP) ? INET_IFF_UP : 0) |				\
+     (((cflags) & IFF_BROADCAST) ? INET_IFF_BROADCAST : 0) |		\
+     (((cflags) & IFF_LOOPBACK) ? INET_IFF_LOOPBACK : 0) |		\
+     (((cflags) & iff_ptp) ? INET_IFF_POINTTOPOINT : 0) |		\
+     (((cflags) & IFF_UP) ? INET_IFF_RUNNING : 0) |  /* emulate running ? */ \
+     (((cflags) & IFF_MULTICAST) ? INET_IFF_MULTICAST : 0))
 
 #if defined(__WIN32__) && defined(SIO_GET_INTERFACE_LIST)
 
@@ -4124,14 +4137,6 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
 #ifndef IFHWADDRLEN
 #define IFHWADDRLEN 6
 #endif
-
-#define IFGET_FLAGS(cflags)                                                  \
-    ((((cflags) & IFF_UP) ? INET_IFF_UP : 0) |				     \
-     (((cflags) & IFF_BROADCAST) ? INET_IFF_BROADCAST : 0) |		     \
-     (((cflags) & IFF_LOOPBACK) ? INET_IFF_LOOPBACK : 0) |		     \
-     (((cflags) & IFF_POINTOPOINT) ? INET_IFF_POINTTOPOINT : 0) |	     \
-     (((cflags) & IFF_UP) ? INET_IFF_RUNNING : 0) |  /* emulate running ? */ \
-     (((cflags) & IFF_MULTICAST) ? INET_IFF_MULTICAST : 0))
 
 static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4456,7 +4461,619 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 
 
 
-#if defined(HAVE_GETIFADDRS)
+static int utf8_len(const char *c, int m) {
+    int l;
+    for (l = 0;  m;  c++, l++, m--) {
+	if (*c == '\0') break;
+	if ((*c & 0x7f) != *c) l++;
+    }
+    return l;
+}
+
+static void utf8_encode(const char *c, int m, char *p) {
+    for (;  m;  c++, m--) {
+	if (*c == '\0') break;
+	if ((*c & 0x7f) != *c) {
+	    *p++ = (char) (0xC0 | (0x03 & (*c >> 6)));
+	    *p++ = (char) (0x80 | (0x3F & *c));
+	} else {
+	    *p++ = (char) *c;
+	}
+    }
+}
+
+#if defined(__WIN32__)
+
+#if 0
+static void print_addr(char *f, char *g, char *h, char *b, int len) {
+    unsigned char *p = (unsigned char *)b;
+    for (;  len > 0;  len--, p++) {
+	erts_printf(len == 1 ? h : len & 1 ? g : f, *p);
+    }
+}
+
+static void print_ipv4_address(char *b) {
+    print_addr("%d.","%d.","%d", b, 4);
+}
+
+static void print_hwaddr(char *b, int len) {
+    print_addr("%02x:","%02x:","%02x", b, len);
+}
+
+static void print_sockaddr(struct sockaddr *sa_p) {
+    if (sa_p->sa_family == AF_INET) {
+	struct sockaddr_in *sin_p =
+	    (struct sockaddr_in *) sa_p;
+	print_ipv4_address((char *) &sin_p->sin_addr);
+    } else if(sa_p->sa_family == AF_INET6) {
+	struct sockaddr_in6 *sin6_p =
+	    (struct sockaddr_in6 *) sa_p;
+	print_addr("%02x","%02x:","%02x", (char *) &sin6_p->sin6_addr, 16);
+    }
+}
+
+static void print_flags(MIB_IFROW *ifrow_p) {
+    /* Interface flags */
+    switch (ifrow_p->dwType) {
+    case IF_TYPE_ETHERNET_CSMACD:
+	/* Fake broadcast and multicast flag */
+	erts_printf("broadcast multicast ");
+	break;
+    case IF_TYPE_SOFTWARE_LOOPBACK:
+	erts_printf("loopback ");
+	break;
+    }
+    if (ifrow_p->dwAdminStatus) {
+	erts_printf("up ");
+	switch (ifrow_p->dwOperStatus) {
+	case IF_OPER_STATUS_CONNECTING:
+	    erts_printf("pointtopoint ");
+	    break;
+	case IF_OPER_STATUS_CONNECTED:
+	    erts_printf("running pointtopoint ");
+	    break;
+	case IF_OPER_STATUS_OPERATIONAL:
+	    erts_printf("running ");
+	    break;
+	}
+    }
+}
+#endif
+
+static void set_netmask_bytes(char *c, int len, int pref_len) {
+    int i, m;
+    for (i = 0, m = pref_len >> 3;  i < m && i < len;  i++) c[i] = '\xFF';
+    if (i < len) c[i++] = 0xFF << (8 - (pref_len & 7));
+    for (;  i < len;  i++) c[i] = '\0';
+}
+
+
+int eq_masked_bytes(char *a, char *b, int pref_len) {
+    int i, m;
+    for (i = 0, m = pref_len >> 3;  i < m;  i++) {
+	if (a[i] != b[i]) return 0;
+    }
+    m = pref_len & 7;
+    if (m) {
+	m = 0xFF & (0xFF << (8 - m));
+	if ((a[i] & m) != (b[i] & m)) return 0;
+    }
+    return !0;
+}
+
+#if 0
+static void set_netmask(struct sockaddr *sa_p, int pref_len) {
+    switch (sa_p->sa_family) {
+    case AF_INET: {
+	    struct sockaddr_in *sin_p = (struct sockaddr_in *) sa_p;
+	    set_netmask_bytes((char *) &sin_p->sin_addr, 4, pref_len);
+	    break;
+	}
+    case AF_INET6: {
+	    struct sockaddr_in6 *sin6_p = (struct sockaddr_in6 *) sa_p;
+	    set_netmask_bytes((char *) &sin6_p->sin6_addr, 16, pref_len);
+	    break;
+	}
+    }
+}
+#endif
+
+static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
+			       char **rbuf_pp, int rsize)
+{
+    int i;
+    DWORD ret, n;
+    IP_INTERFACE_INFO *info_p;
+    MIB_IPADDRTABLE *ip_addrs_p;
+    IP_ADAPTER_ADDRESSES *ip_adaddrs_p, *ia_p;
+
+    char *buf_p;
+    char *buf_alloc_p;
+    int buf_size =512;
+#   define BUF_ENSURE(Size)						\
+    do {								\
+	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
+	NEED_ = GOT_ + (Size);						\
+	if (NEED_ > buf_size) {						\
+	    buf_size = NEED_ + 512;					\
+	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+	    buf_p = buf_alloc_p + GOT_;					\
+	}								\
+    } while(0)
+#   define SOCKADDR_TO_BUF(opt, sa)					\
+    do {								\
+	if (sa) {							\
+	    char *P_;							\
+	    *buf_p++ = (opt);						\
+	    while (! (P_ = sockaddr_to_buf((sa), buf_p,			\
+					   buf_alloc_p+buf_size))) {    \
+		int GOT_ = buf_p - buf_alloc_p;				\
+		buf_size += 512;					\
+		buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+		buf_p = buf_alloc_p + GOT_;				\
+	    }								\
+	    if (P_ == buf_p) {						\
+		buf_p--;						\
+	    } else {							\
+		buf_p = P_;						\
+	    }								\
+	}								\
+    } while (0)
+
+    {
+	/* Try GetAdaptersAddresses, if it is available */
+	unsigned long ip_adaddrs_size = 16 * 1024;
+	ULONG family = AF_UNSPEC;
+	ULONG flags =
+	    GAA_FLAG_INCLUDE_PREFIX | GAA_FLAG_SKIP_ANYCAST |
+	    GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_SKIP_FRIENDLY_NAME |
+	    GAA_FLAG_SKIP_MULTICAST;
+	ULONG (WINAPI *fpGetAdaptersAddresses)
+	    (ULONG, ULONG, PVOID, PIP_ADAPTER_ADDRESSES, PULONG);
+	HMODULE iphlpapi = GetModuleHandle("iphlpapi");
+	/*iphlpapi = NULL*/;
+	fpGetAdaptersAddresses = (void *)
+	    (iphlpapi ?
+		GetProcAddress(iphlpapi, "GetAdaptersAddresses") :
+		NULL);
+	if (fpGetAdaptersAddresses) {
+	    ip_adaddrs_p = ALLOC(ip_adaddrs_size);
+	    for (i = 17;  i;  i--) {
+		ret = fpGetAdaptersAddresses(
+		    family, flags, NULL, ip_adaddrs_p, &ip_adaddrs_size);
+		ip_adaddrs_p = REALLOC(ip_adaddrs_p, ip_adaddrs_size);
+		if (ret == NO_ERROR) break;
+		if (ret == ERROR_BUFFER_OVERFLOW) continue;
+		i = 0;
+	    }
+	    if (! i) {
+		FREE(ip_adaddrs_p);
+		ip_adaddrs_p = NULL;
+	    }
+	} else ip_adaddrs_p = NULL;
+    }
+
+    {
+	/* Load the IP_INTERFACE_INFO table (only IPv4 interfaces),
+	 * reliable source of interface names on XP
+	 */
+	unsigned long info_size = 4 * 1024;
+	info_p = ALLOC(info_size);
+	for (i = 17;  i;  i--) {
+	    ret = GetInterfaceInfo(info_p, &info_size);
+	    info_p = REALLOC(info_p, info_size);
+	    if (ret == NO_ERROR) break;
+	    if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
+	    i = 0;
+	}
+	if (! i) {
+	    FREE(info_p);
+	    info_p = NULL;
+	}
+    }
+
+    if (! ip_adaddrs_p) {
+	/* If GetAdaptersAddresses gave nothing we fall back to
+	 * MIB_IPADDRTABLE (only IPv4 interfaces)
+	 */
+	unsigned long ip_addrs_size = 16 * sizeof(*ip_addrs_p);
+	ip_addrs_p = ALLOC(ip_addrs_size);
+	for (i = 17;  i;  i--) {
+	    ret = GetIpAddrTable(ip_addrs_p, &ip_addrs_size, FALSE);
+	    ip_addrs_p = REALLOC(ip_addrs_p, ip_addrs_size);
+	    if (ret == NO_ERROR) break;
+	    if (ret == ERROR_INSUFFICIENT_BUFFER) continue;
+	    i = 0;
+	}
+	if (! i) {
+	    if (info_p) FREE(info_p);
+	    FREE(ip_addrs_p);
+	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf_pp, rsize);
+	}
+    } else ip_addrs_p = NULL;
+
+#if 0
+    /* Debug printout of what GetAdaptersAddresses returned */
+    if (ip_adaddrs_p) {
+	IP_ADAPTER_ADDRESSES *p = ip_adaddrs_p;
+	printf("* GetAdaptersAddresses:\n");
+	for (;  p;  p = p->Next) {
+	    IP_ADAPTER_UNICAST_ADDRESS *iaua_p;
+	    IP_ADAPTER_ANYCAST_ADDRESS *iaaa_p;
+	    IP_ADAPTER_PREFIX *iap_p;
+	    MIB_IFROW ifrow;
+	    erts_printf("AdapterName: %s\n", p->AdapterName);
+	    if (p->Flags & IP_ADAPTER_NO_MULTICAST) {
+		erts_printf("AdapterFlags: -multicast\n");
+	    }
+	    for (iaua_p = p->FirstUnicastAddress;
+		iaua_p;
+		iaua_p = iaua_p->Next) {
+		erts_printf("UnicastAddress: ");
+		print_sockaddr(iaua_p->Address.lpSockaddr);
+		erts_printf("\n");
+	    }
+	    for (iaaa_p = p->FirstAnycastAddress;
+		iaaa_p;
+		iaaa_p = iaaa_p->Next) {
+		erts_printf("AnycastAddress: ");
+		print_sockaddr(iaaa_p->Address.lpSockaddr);
+		erts_printf("\n");
+	    }
+	    for (iap_p = p->FirstPrefix;
+		iap_p;
+		iap_p = iap_p->Next) {
+		erts_printf("AddressPrefix: ");
+		print_sockaddr(iap_p->Address.lpSockaddr);
+		erts_printf("/%lu\n", iap_p->PrefixLength);
+	    }
+	    erts_printf("PhysicalAddress: ");
+	    print_hwaddr(p->PhysicalAddress, p->PhysicalAddressLength);
+	    erts_printf("\n");
+	    if (p->IfIndex) {
+		erts_printf(
+		    "IPv4AdapterIndex: %lu\n", (unsigned long) p->IfIndex);
+		sys_memzero(&ifrow, sizeof(ifrow));
+		ifrow.dwIndex = p->IfIndex;
+		if (GetIfEntry(&ifrow) == NO_ERROR) {
+		    printf("InterfaceName: %ws\n", ifrow.wszName);
+		    printf("InterfaceFlags: ");
+		    print_flags(&ifrow);
+		    erts_printf("\n");
+		}
+	    }
+	    if (p->Ipv6IfIndex) {
+		erts_printf(
+		    "IPv6AdapterIndex: %lu\n", (unsigned long) p->Ipv6IfIndex);
+		sys_memzero(&ifrow, sizeof(ifrow));
+		ifrow.dwIndex = p->Ipv6IfIndex;
+		if (GetIfEntry(&ifrow) == NO_ERROR) {
+		    printf("InterfaceName: %ws\n", ifrow.wszName);
+		    printf("InterfaceFlags: ");
+		    print_flags(&ifrow);
+		    erts_printf("\n");
+		}
+	    }
+	}
+    }
+#endif
+
+#if 0
+    /* Debug printout of what GetInterfaceInfo returned */
+    if (info_p) {
+	printf("* GetInterfaceInfo:\n");
+	for (i = 0;  i < info_p->NumAdapters;  i++) {
+	    printf("AdapterIndex[%d]: %ld\n", i, info_p->Adapter[i].Index);
+	    printf("AdapterName[%d]: %lws\n", i, info_p->Adapter[i].Name);
+	}
+    }
+#endif
+
+    buf_p = buf_alloc_p = ALLOC(buf_size);
+    *buf_p++ = INET_REP_OK;
+
+    /* Iterate over MIB_IPADDRTABLE or IP_ADAPTER_ADDRESSES */
+    for (ia_p = NULL, ip_addrs_p ? ((void *)(i = 0)) : (ia_p = ip_adaddrs_p);
+	 ip_addrs_p ? (i < ip_addrs_p->dwNumEntries) : (ia_p != NULL);
+	 ip_addrs_p ? ((void *)(i++)) : (ia_p = ia_p->Next)) {
+	MIB_IPADDRROW *ipaddrrow_p = NULL;
+	DWORD flags = INET_IFF_MULTICAST;
+	DWORD index = 0;
+	WCHAR *wname_p = NULL;
+	MIB_IFROW ifrow;
+
+	if (ip_addrs_p) {
+	    ipaddrrow_p = ip_addrs_p->table + i;
+	    index = ipaddrrow_p->dwIndex;
+	} else {
+	    index = ia_p->IfIndex;
+	    if (ia_p->Flags & IP_ADAPTER_NO_MULTICAST) {
+		flags &= ~INET_IFF_MULTICAST;
+	    }
+	}
+index:
+	if (! index) goto done;
+	sys_memzero(&ifrow, sizeof(ifrow));
+	ifrow.dwIndex = index;
+	if (GetIfEntry(&ifrow) != NO_ERROR) break;
+/*	printf("Index[%d]: %ld\n", i, (long) ifrow.dwIndex);*/
+	/* Find the interface name - first try MIB_IFROW.wzname */
+	if (ifrow.wszName[0] != 0) {
+	    wname_p = ifrow.wszName;
+	} else {
+	    /* Then try IP_ADAPTER_INDEX_MAP.Name (only IPv4 adapters) */
+	    int j;
+	    for (j = 0;  j < info_p->NumAdapters;  j++) {
+		if (info_p->Adapter[j].Index == (ULONG) ifrow.dwIndex) {
+		    if (info_p->Adapter[j].Name[0] != 0) {
+			wname_p = info_p->Adapter[j].Name;
+		    }
+		    break;
+		}
+	    }
+	}
+	if (wname_p) {
+	    int len;
+/*	    printf("InterfaceName [%d]: %ws\n", i, ifrow.wszName);*/
+	    /* Convert interface name to UTF-8 */
+	    len =
+		WideCharToMultiByte(
+		    CP_UTF8, 0, wname_p, -1, NULL, 0, NULL, NULL);
+	    if (! len) break;
+	    BUF_ENSURE(len);
+	    WideCharToMultiByte(
+		CP_UTF8, 0, wname_p, -1, buf_p, len, NULL, NULL);
+	    buf_p += len;
+	} else {
+	    /* Found no name -
+	    * use "MIB_IFROW.dwIndex: MIB_IFROW.bDescr" as name instead */
+	    int l;
+	    l = utf8_len(ifrow.bDescr, ifrow.dwDescrLen);
+/*	    printf("Adapter Name[%d]: ", i);*/
+	    BUF_ENSURE(9 + l+1);
+	    buf_p +=
+		erts_sprintf(
+		    buf_p, "%lu: ", (unsigned long) ifrow.dwIndex);
+	    utf8_encode(ifrow.bDescr, ifrow.dwDescrLen, buf_p);
+	    buf_p += l;
+	    *buf_p++ = '\0';
+	}
+	/* Interface flags, often make up broadcast and multicast flags */
+	switch (ifrow.dwType) {
+	case IF_TYPE_ETHERNET_CSMACD:
+	    flags |= INET_IFF_BROADCAST;
+	    break;
+	case IF_TYPE_SOFTWARE_LOOPBACK:
+	    flags |= INET_IFF_LOOPBACK;
+	    flags &= ~INET_IFF_MULTICAST;
+	    break;
+	default:
+	    flags &= ~INET_IFF_MULTICAST;
+	    break;
+	}
+	if (ifrow.dwAdminStatus) {
+	    flags |= INET_IFF_UP;
+	    switch (ifrow.dwOperStatus) {
+	    case IF_OPER_STATUS_CONNECTING:
+		flags |= INET_IFF_POINTTOPOINT;
+		break;
+	    case IF_OPER_STATUS_CONNECTED:
+		flags |= INET_IFF_RUNNING | INET_IFF_POINTTOPOINT;
+		break;
+	    case IF_OPER_STATUS_OPERATIONAL:
+		flags |= INET_IFF_RUNNING;
+		break;
+	    }
+	}
+	BUF_ENSURE(1 + 4);
+	*buf_p++ = INET_IFOPT_FLAGS;
+	put_int32(flags, buf_p); buf_p += 4;
+	if (ipaddrrow_p) {
+	    /* Legacy implementation through GetIpAddrTable */
+	    struct sockaddr_in sin;
+	    /* IP Address */
+	    sys_memzero(&sin, sizeof(sin));
+	    sin.sin_family = AF_INET;
+	    sin.sin_addr.s_addr = ipaddrrow_p->dwAddr;
+/*	    erts_printf("IP Address: ");
+ *	    print_sockaddr((struct sockaddr *) &sin);
+ *	    erts_printf("\n");*/
+	    BUF_ENSURE(1);
+	    /* Netmask */
+	    SOCKADDR_TO_BUF(INET_IFOPT_ADDR, (struct sockaddr *) &sin);
+	    sin.sin_addr.s_addr = ipaddrrow_p->dwMask;
+/*	    erts_printf("IP Mask: ");
+ *	    print_sockaddr((struct sockaddr *) &sin);
+ *	    erts_printf("\n");*/
+	    BUF_ENSURE(1);
+	    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, (struct sockaddr *) &sin);
+	    if (flags & INET_IFF_BROADCAST) {
+		/* Broadcast address - fake it*/
+		sin.sin_addr.s_addr = ipaddrrow_p->dwAddr;
+		sin.sin_addr.s_addr |= ~ipaddrrow_p->dwMask;
+/*		erts_printf("IP Broadcast: ");
+ *		print_sockaddr((struct sockaddr *) &sin);
+ *		erts_printf("\n");*/
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(
+		    INET_IFOPT_BROADADDR, (struct sockaddr *) &sin);
+	    }
+	} else {
+	    IP_ADAPTER_UNICAST_ADDRESS *p;
+	    /* IP Address(es) */
+	    for (p = ia_p->FirstUnicastAddress;
+		p;
+		p = p->Next)
+	    {
+		IP_ADAPTER_PREFIX *q;
+		ULONG shortest_length;
+		struct sockaddr *shortest_p, *sa_p = p->Address.lpSockaddr;
+/*		erts_printf("UnicastAddress: ");
+ *		print_sockaddr(sa_p);
+ *		erts_printf("\n");*/
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_ADDR, sa_p);
+		shortest_p = NULL;
+		shortest_length = 0;
+		for (q = ia_p->FirstPrefix;
+		     q;
+		     q = q->Next) {
+		    struct sockaddr *sp_p = q->Address.lpSockaddr;
+		    if (sa_p->sa_family != sp_p->sa_family) continue;
+		    switch (sa_p->sa_family) {
+		    case AF_INET: {
+			struct sockaddr_in sin;
+			DWORD sa, sp, mask;
+			sa = ntohl((DWORD)
+				   ((struct sockaddr_in *)
+				    sa_p)->sin_addr.s_addr);
+			sp = ntohl((DWORD)
+				   ((struct sockaddr_in *)
+				    sp_p)->sin_addr.s_addr);
+			mask = 0xFFFFFFFF << (32 - q->PrefixLength);
+			if ((sa & mask) != (sp & mask)) continue;
+			if ((! shortest_p)
+			    || q->PrefixLength < shortest_length) {
+			    shortest_p = sp_p;
+			    shortest_length = q->PrefixLength;
+			}
+		    }   break;
+		    case AF_INET6: {
+			struct sockaddr_in6 sin6;
+			if (!eq_masked_bytes((char *)
+					     &((struct sockaddr_in6 *)
+					       sa_p)->sin6_addr,
+					     (char *)
+					     &((struct sockaddr_in6 *)
+					       sp_p)->sin6_addr,
+					     q->PrefixLength)) {
+			    continue;
+			}
+			if ((! shortest_p)
+			    || q->PrefixLength < shortest_length) {
+			    shortest_p = sp_p;
+			    shortest_length = q->PrefixLength;
+			}
+		    }   break;
+		    }
+		}
+		if (! shortest_p) {
+		    /* Found no shortest prefix */
+		    shortest_p = sa_p;
+		    switch (shortest_p->sa_family) {
+		    case AF_INET: {
+			/* Fall back to old classfull network addresses */
+/*			erts_printf("! shortest_p: ");
+ *			print_sockaddr(shortest_p);
+ *			erts_printf("\n");*/
+			DWORD addr = ntohl(((struct sockaddr_in *)shortest_p)
+					   ->sin_addr.s_addr);
+			if (! (addr & 0x800000)) {
+			    /* Class A */
+			    shortest_length = 8;
+			} else if (! (addr & 0x400000)) {
+			    /* Class B */
+			    shortest_length = 16;
+			} else if (! (addr & 0x200000)) {
+			    /* Class C */
+			    shortest_length = 24;
+			} else {
+			    shortest_length = 32;
+			}
+		    }   break;
+		    case AF_INET6: {
+			/* Just play it safe */
+			shortest_length = 128;
+		    }   break;
+		    }
+		} else {
+/*		    erts_printf("shortest_p: ");
+ *		    print_sockaddr(shortest_p);
+ *		    erts_printf("\n");*/
+		}
+		switch (shortest_p->sa_family) {
+		case AF_INET: {
+		    struct sockaddr_in sin;
+		    DWORD mask = 0xFFFFFFFF << (32 - shortest_length);
+		    sys_memzero(&sin, sizeof(sin));
+		    sin.sin_family = shortest_p->sa_family;
+		    sin.sin_addr.s_addr = htonl(mask);
+/*		    erts_printf("IP Mask: ");
+ *		    print_sockaddr((struct sockaddr *) &sin);
+ *		    erts_printf("\n");*/
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK,
+				    (struct sockaddr *) &sin);
+		    if (flags & INET_IFF_BROADCAST) {
+			DWORD sp =
+			    ntohl((DWORD)
+				  ((struct sockaddr_in *)shortest_p)
+				  -> sin_addr.s_addr);
+			sin.sin_addr.s_addr = htonl(sp | ~mask);
+/*			erts_printf("IP Broadcast: ");
+ *			print_sockaddr((struct sockaddr *) &sin);
+ *			erts_printf("\n");*/
+			BUF_ENSURE(1);
+			SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR,
+					(struct sockaddr *) &sin);
+		    }
+		}   break;
+		case AF_INET6: {
+		    struct sockaddr_in6 sin6;
+		    sys_memzero(&sin6, sizeof(sin6));
+		    sin6.sin6_family = shortest_p->sa_family;
+		    set_netmask_bytes((char *) &sin6.sin6_addr,
+				      16,
+				      shortest_length);
+/*		    erts_printf("IP Mask: ");
+ *		    print_sockaddr((struct sockaddr *) &sin6);
+ *		    erts_printf("\n");*/
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK,
+				    (struct sockaddr *) &sin6);
+		}   break;
+		}
+	    }
+	}
+	if (ifrow.dwPhysAddrLen) {
+	    /* Hardware Address */
+/*	    printf("Physical Addr:");
+ *	    print_hwaddr(ifrow.bPhysAddr, ifrow.dwPhysAddrLen);
+ *	    erts_printf("\n");*/
+	    BUF_ENSURE(1 + 2 + ifrow.dwPhysAddrLen);
+	    *buf_p++ = INET_IFOPT_HWADDR;
+	    put_int16(ifrow.dwPhysAddrLen, buf_p); buf_p += 2;
+	    sys_memcpy(buf_p, ifrow.bPhysAddr, ifrow.dwPhysAddrLen);
+	    buf_p += ifrow.dwPhysAddrLen;
+	}
+
+done:
+	/* That is all for this interface */
+	BUF_ENSURE(1);
+	*buf_p++ = '\0';
+	if (ia_p &&
+	    ia_p->Ipv6IfIndex &&
+	    ia_p->Ipv6IfIndex != index)
+	{
+	    /* Oops, there was an other interface for IPv6. Possible? XXX */
+	    index = ia_p->Ipv6IfIndex;
+	    goto index;
+	}
+    }
+
+    if (ip_adaddrs_p) FREE(ip_adaddrs_p);
+    if (info_p) FREE(info_p);
+    if (ip_addrs_p) FREE(ip_addrs_p);
+
+    buf_size = buf_p - buf_alloc_p;
+    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);
+    /* buf_p is now unreliable */
+    *rbuf_pp = buf_alloc_p;
+    return buf_size;
+#   undef BUF_ENSURE
+}
+
+#elif defined(HAVE_GETIFADDRS)
 
 static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 			       char **rbuf_pp, int rsize)
@@ -4470,31 +5087,32 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
     buf_size = 512;
     buf_alloc_p = ALLOC(buf_size);
     buf_p = buf_alloc_p;
-#   define BUF_ENSURE(Size)                               \
-    do {                                                  \
-	int need, got = buf_p - buf_alloc_p;              \
-	need = got + (Size);                              \
-	if (need > buf_size) {                            \
-	    buf_size = need + 512;                        \
-	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size); \
-	    buf_p = buf_alloc_p + got;                    \
-	}                                                 \
-    } while(0)
+#   define BUF_ENSURE(Size)						\
+    do {								\
+	int NEED_, GOT_ = buf_p - buf_alloc_p;				\
+	NEED_ = GOT_ + (Size);						\
+	if (NEED_ > buf_size) {						\
+	    buf_size = NEED_ + 512;					\
+	    buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+	    buf_p = buf_alloc_p + GOT_;					\
+	}								\
+    } while (0)
 #   define SOCKADDR_TO_BUF(opt, sa)				        \
     do {    						                \
 	if (sa) {                                                       \
-	    char *p;							\
+	    char *P_;							\
 	    *buf_p++ = (opt);						\
-	    while (! (p = sockaddr_to_buf((sa), buf_p,                  \
-					  buf_alloc_p+buf_size))) {	\
-		int got = buf_p - buf_alloc_p;				\
-		buf_alloc_p = REALLOC(buf_alloc_p, buf_size+512);	\
-		buf_p = buf_alloc_p + got;				\
+	    while (! (P_ = sockaddr_to_buf((sa), buf_p,			\
+					   buf_alloc_p+buf_size))) {	\
+		int GOT_ = buf_p - buf_alloc_p;				\
+		buf_size += 512;					\
+		buf_alloc_p = REALLOC(buf_alloc_p, buf_size);		\
+		buf_p = buf_alloc_p + GOT_;				\
 	    }								\
-	    if (p == buf_p) {						\
+	    if (P_ == buf_p) {						\
 		buf_p--;						\
 	    } else {							\
-		buf_p = p;						\
+		buf_p = P_;						\
 	    }								\
 	}                                                               \
     } while (0)
@@ -4505,13 +5123,13 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
     ifa_free_p = ifa_p;
     *buf_p++ = INET_REP_OK;
     for (;  ifa_p;  ifa_p = ifa_p->ifa_next) {
-	int len = strlen(ifa_p->ifa_name) + 1;
-	BUF_ENSURE(len + 1+4 + 1);
-	sys_memcpy(buf_p, ifa_p->ifa_name, len);
+	int len = utf8_len(ifa_p->ifa_name, -1);
+	BUF_ENSURE(len+1 + 1+4 + 1);
+	utf8_encode(ifa_p->ifa_name, -1, buf_p);
 	buf_p += len;
+	*buf_p++ = '\0';
 	*buf_p++ = INET_IFOPT_FLAGS;
-	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p);
-	buf_p += 4;
+	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p); buf_p += 4;
 	if (ifa_p->ifa_addr->sa_family == AF_INET
 #if defined(AF_INET6)
 	    || ifa_p->ifa_addr->sa_family == AF_INET6
@@ -4539,8 +5157,10 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 		 || ifa_p->ifa_addr->sa_family == AF_PACKET
 #endif
 		 ) {
+	    char *bp = buf_p;
 	    BUF_ENSURE(1);
 	    SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+	    if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
 	}
 #endif
 	BUF_ENSURE(1);

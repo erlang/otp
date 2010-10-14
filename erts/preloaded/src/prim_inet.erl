@@ -658,7 +658,7 @@ getifaddrs(S) when is_port(S) ->
 	{error,enotsup} ->
 	    case getiflist(S) of
 		{ok, IFs} ->
-		    getifaddrs_ifget(S, IFs);
+		    {ok, getifaddrs_ifget(S, IFs)};
 		Err1 -> Err1
 	    end;
 	Err2 -> Err2
@@ -674,14 +674,18 @@ comp_ifaddrs([{If,Opts}|IfOpts], T) ->
 	false ->
 	    OptSet = comp_ifaddrs_add(ktree_empty(), Opts),
 	    comp_ifaddrs(IfOpts, ktree_insert(If, OptSet, T))
-    end;
+     end;
 comp_ifaddrs([], T) ->
     [{If,ktree_keys(ktree_get(If, T))} || If <- ktree_keys(T)].
 
 comp_ifaddrs_add(OptSet, [Opt|Opts]) ->
     case ktree_is_defined(Opt, OptSet) of
-	true -> comp_ifaddrs_add(OptSet, Opts);
-	false -> comp_ifaddrs_add(ktree_insert(Opt, undefined, OptSet), Opts)
+	true
+	  when element(1, Opt) =:= flags;
+	       element(1, Opt) =:= hwaddr ->
+	    comp_ifaddrs_add(OptSet, Opts);
+	_ ->
+	    comp_ifaddrs_add(ktree_insert(Opt, undefined, OptSet), Opts)
     end;
 comp_ifaddrs_add(OptSet, []) -> OptSet.
 
@@ -2018,9 +2022,9 @@ build_ifaddrs(Cs) ->
 build_ifaddrs([], []) ->
     [];
 build_ifaddrs([0|Cs], Acc) ->
-    Name = rev(Acc),
+    Name = utf8_to_characters(rev(Acc)),
     {Opts,Rest} = build_ifaddrs_opts(Cs, []),
-    [{Name,rev(Opts)}|build_ifaddrs(Rest)];
+    [{Name,Opts}|build_ifaddrs(Rest)];
 build_ifaddrs([C|Cs], Acc) ->
     build_ifaddrs(Cs, [C|Acc]).
 
@@ -2029,7 +2033,7 @@ build_ifaddrs_opts([0|Cs], Acc) ->
 build_ifaddrs_opts([C|Cs]=CCs, Acc) ->
     case dec_ifopt(C) of
 	undefined ->
-	    erlang:error([CCs,Acc]);
+	    erlang:error(badarg, [CCs,Acc]);
 	Opt ->
 	    Type = type_ifopt(Opt),
 	    {Val,Rest} = dec_value(Type, Cs),
@@ -2111,6 +2115,27 @@ tree({K0,V0,L,R}, K, Op, H) ->
     end.
 
 
+
+utf8_to_characters([]) -> [];
+utf8_to_characters([B|Bs]=Arg) when (B band 16#FF) =:= B ->
+    if  16#F8 =< B ->
+	    erlang:error(badarg, [Arg]);
+	16#F0 =< B ->
+	    utf8_to_characters(Bs, B band 16#07, 3);
+	16#E0 =< B ->
+	    utf8_to_characters(Bs, B band 16#0F, 2);
+	16#C0 =< B ->
+	    utf8_to_characters(Bs, B band 16#1F, 1);
+	16#80 =< B ->
+	    erlang:error(badarg, [Arg]);
+	true ->
+	    [B|utf8_to_characters(Bs)]
+    end.
+%%
+utf8_to_characters(Bs, U, 0) ->
+    [U|utf8_to_characters(Bs)];
+utf8_to_characters([B|Bs], U, N) when ((B band 16#3F) bor 16#80) =:= B ->
+    utf8_to_characters(Bs, (U bsl 6) bor (B band 16#3F), N-1).
 
 ip_to_bytes(IP) when tuple_size(IP) =:= 4 -> ip4_to_bytes(IP);
 ip_to_bytes(IP) when tuple_size(IP) =:= 8 -> ip6_to_bytes(IP).
