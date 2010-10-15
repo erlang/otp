@@ -694,7 +694,7 @@ userdata(TestDir, Suite, Case) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec get_status() -> TestStatus | {error,Reason}
+%%% @spec get_status() -> TestStatus | {error,Reason} | no_tests_running
 %%%       TestStatus = [StatusElem]
 %%%       StatusElem = {current,{Suite,TestCase}} | {successful,Successful} |
 %%%                    {failed,Failed} | {skipped,Skipped} | {total,Total}
