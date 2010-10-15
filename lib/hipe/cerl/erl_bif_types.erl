@@ -4686,16 +4686,16 @@ t_HttpRequest() ->
   t_tuple([t_atom('http_request'), t_HttpMethod(), t_HttpUri(), t_HttpVersion()]).
 
 t_HttpResponse() ->
-   t_tuple([t_atom('http_response'), t_HttpVersion(), t_integer(), t_string()]).
+   t_tuple([t_atom('http_response'), t_HttpVersion(), t_integer(), t_HttpString()]).
 
 t_HttpHeader() ->
-  t_tuple([t_atom('http_header'), t_integer(), t_HttpField(), t_any(), t_string()]).
+  t_tuple([t_atom('http_header'), t_integer(), t_HttpField(), t_any(), t_HttpString()]).
 
 t_HttpError() ->
-  t_tuple([t_atom('http_error'), t_string()]).
+  t_tuple([t_atom('http_error'), t_HttpString()]).
 
 t_HttpMethod() ->
-  t_sup(t_HttpMethodAtom(), t_string()).
+  t_sup(t_HttpMethodAtom(), t_HttpString()).
 
 t_HttpMethodAtom() ->
   t_atoms(['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']).
@@ -4704,18 +4704,18 @@ t_HttpUri() ->
   t_sup([t_atom('*'),
 	 t_tuple([t_atom('absoluteURI'),
 		  t_sup(t_atom('http'), t_atom('https')),
-		  t_string(),
+		  t_HttpString(),
 		  t_sup(t_non_neg_integer(), t_atom('undefined')),
-		  t_string()]),
-	 t_tuple([t_atom('scheme'), t_string(), t_string()]),
-	 t_tuple([t_atom('abs_path'), t_string()]),
-	 t_string()]).
+		  t_HttpString()]),
+	 t_tuple([t_atom('scheme'), t_HttpString(), t_HttpString()]),
+	 t_tuple([t_atom('abs_path'), t_HttpString()]),
+	 t_HttpString()]).
 
 t_HttpVersion() ->
   t_tuple([t_non_neg_integer(), t_non_neg_integer()]).
 
 t_HttpField() ->
-  t_sup(t_HttpFieldAtom(), t_string()).
+  t_sup(t_HttpFieldAtom(), t_HttpString()).
 
 t_HttpFieldAtom() ->
   t_atoms(['Cache-Control', 'Connection', 'Date', 'Pragma', 'Transfer-Encoding',
@@ -4731,6 +4731,9 @@ t_HttpFieldAtom() ->
 	   'Etag', 'Expires', 'Last-Modified', 'Accept-Ranges',
 	   'Set-Cookie', 'Set-Cookie2', 'X-Forwarded-For', 'Cookie',
 	   'Keep-Alive', 'Proxy-Connection']).
+
+t_HttpString() ->
+  t_sup(t_string(),t_binary()).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'code'
