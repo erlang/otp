@@ -369,6 +369,10 @@ trans_fun([{bif,BifName,{f,Lbl},[_] = Args,Reg}|Instructions], Env) ->
 trans_fun([{bif,BifName,{f,Lbl},[_,_] = Args,Reg}|Instructions], Env) ->
   {BifInsts,Env1} = trans_bif(2,BifName,Lbl,Args,Reg,Env),
   [hipe_icode:mk_comment({bif2,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
+%%--- bif3 ---
+trans_fun([{bif,BifName,{f,Lbl},[_,_,_] = Args,Reg}|Instructions], Env) ->
+  {BifInsts,Env1} = trans_bif(3,BifName,Lbl,Args,Reg,Env),
+  [hipe_icode:mk_comment({bif3,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
 %%--- allocate
 trans_fun([{allocate,StackSlots,_}|Instructions], Env) ->
   trans_allocate(StackSlots) ++ trans_fun(Instructions,Env);
