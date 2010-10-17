@@ -138,11 +138,17 @@ cl(["-pa", Path|T]) ->
     true -> cl(T);
     {error, _} -> error("Bad directory for -pa: "++Path)
   end;
-cl(["--plt", PLT|T]) ->
-  put(dialyzer_init_plt, PLT),
-  cl(T);
 cl(["--plt"]) ->
   error("No plt specified for --plt");
+cl(["--plt", PLT|T]) ->
+  put(dialyzer_init_plts, [PLT]),
+  cl(T);
+cl(["--plts"]) ->
+  error("No plts specified for --plts");
+cl(["--plts"|T]) ->
+  {PLTs, NewT} = get_plts(T, []),
+  put(dialyzer_init_plts, PLTs),
+  cl(NewT);
 cl(["-q"|T]) ->
   put(dialyzer_options_report_mode, quiet),
   cl(T);
@@ -284,7 +290,7 @@ common_options() ->
   [{defines, get(dialyzer_options_defines)},
    {from, get(dialyzer_options_from)},
    {include_dirs, get(dialyzer_include)},
-   {init_plt, get(dialyzer_init_plt)},
+   {plts, get(dialyzer_init_plts)},
    {output_plt, get(dialyzer_output_plt)},
    {report_mode, get(dialyzer_options_report_mode)},
    {use_spec, get(dialyzer_options_use_contracts)},
@@ -309,6 +315,13 @@ get_lib_dir([], Acc) ->
 
 %%-----------------------------------------------------------------------
 
+get_plts(["--"|T], Acc) -> {lists:reverse(Acc), T};
+get_plts(["-"++_Opt = H|T], Acc) -> {lists:reverse(Acc), [H|T]};
+get_plts([H|T], Acc) -> get_plts(T, [H|Acc]);
+get_plts([], Acc) -> {lists:reverse(Acc), []}.
+
+%%-----------------------------------------------------------------------
+
 help_warnings() ->
   S = warning_options_msg(),
   io:put_chars(S),
@@ -316,9 +329,10 @@ help_warnings() ->
 
 help_message() ->
   S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
-		[-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]* 
-		[--output_plt file] [-Wwarn]* [--src] [--gui | --wx]
-		[files_or_dirs] [-r dirs] [--apps applications] [-o outfile]
+		[-pa dir]* [--plt plt] [--plts plts] [-Ddefine]*
+                [-I include_dir]* [--output_plt file] [-Wwarn]*
+                [--src] [--gui | --wx] [files_or_dirs] [-r dirs]
+                [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--no_native]
@@ -362,6 +376,10 @@ Options:
   --plt plt
       Use the specified plt as the initial plt (if the plt was built 
       during setup the files will be checked for consistency)
+  --plts plts
+      Merges the specified plts to create the initial plt -- requires
+      that the plts are disjoint (i.e., do not have any module
+      appearing in more than one plt)
   -Wwarn
       A family of options which selectively turn on/off warnings
       (for help on the names of warnings use dialyzer -Whelp)
@@ -378,12 +396,12 @@ Options:
   --build_plt
       The analysis starts from an empty plt and creates a new one from the
       files specified with -c and -r. Only works for beam files.
-      Use --plt or --output_plt to override the default plt location.
+      Use --plt(s) or --output_plt to override the default plt location.
   --add_to_plt
       The plt is extended to also include the files specified with -c and -r.
-      Use --plt to specify wich plt to start from, and --output_plt to 
-      specify where to put the plt. Note that the analysis might include 
-      files from the plt if they depend on the new files. 
+      Use --plt(s) to specify wich plt to start from, and --output_plt to
+      specify where to put the plt. Note that the analysis might include
+      files from the plt if they depend on the new files.
       This option only works with beam files.
   --remove_from_plt
       The information from the files specified with -c and -r is removed
@@ -396,8 +414,8 @@ Options:
       Skip the plt check when running Dialyzer. Useful when working with
       installed plts that never change.
   --plt_info
-      Makes Dialyzer print information about the plt and then quit. The plt 
-      can be specified with --plt.
+      Makes Dialyzer print information about the plt and then quit. The plt
+      can be specified with --plt(s).
   --get_warnings
       Makes Dialyzer emit warnings even when manipulating the plt. Only 
       emits warnings for files that are actually analyzed.

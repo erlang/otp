@@ -123,9 +123,10 @@ The exit status of the command line version is:
 
 
 Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
-		[-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]* 
-		[--output_plt file] [-Wwarn]* [--src]  [--gui | --wx]
-		[files_or_dirs] [-r dirs] [--apps applications] [-o outfile]
+		[-pa dir]* [--plt plt] [--plts plts] [-Ddefine]*
+                [-I include_dir]* [--output_plt file] [-Wwarn]*
+                [--src]  [--gui | --wx] [files_or_dirs] [-r dirs]
+                [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--no_native]
@@ -167,6 +168,10 @@ Options:
    --plt plt
        Use the specified plt as the initial plt (if the plt was built 
        during setup the files will be checked for consistency)
+   --plts plts
+       Merges the specified plts to create the initial plt -- requires
+       that the plts are disjoint (i.e., do not have any module
+       appearing in more than one plt)
    -Wwarn
        A family of options which selectively turn on/off warnings
        (for help on the names of warnings use dialyzer -Whelp)
@@ -294,6 +299,7 @@ Option   :: {files,          [Filename :: string()]}
 	  | {defines,        [{Macro :: atom(), Value :: term()}]}
 	  | {from,           src_code | byte_code} %% Defaults to byte_code
 	  | {init_plt,       FileName :: string()} %% If changed from default
+          | {plts,           [FileName :: string()]} %% If changed from default
 	  | {include_dirs,   [DirName :: string()]} 
 	  | {output_file,    FileName :: string()}
 	  | {output_plt,     FileName :: string()}

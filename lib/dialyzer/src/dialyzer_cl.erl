@@ -81,11 +81,15 @@ build_plt(Opts) ->
 init_opts_for_build(Opts) ->
   case Opts#options.output_plt =:= none of
     true ->
-      case Opts#options.init_plt of
-	none -> Opts#options{init_plt = none, output_plt = get_default_plt()};
-	Plt  -> Opts#options{init_plt = none, output_plt = Plt}
+      case Opts#options.init_plts of
+	[] -> Opts#options{output_plt = get_default_output_plt()};
+	[Plt] -> Opts#options{init_plts = [], output_plt = Plt};
+        Plts ->
+          Msg = io_lib:format("Could not build multiple PLT files: ~s\n",
+                              [format_plts(Plts)]),
+          error(Msg)
       end;
-    false -> Opts#options{init_plt = none}
+    false -> Opts#options{init_plts = []}
   end.
 
 %%--------------------------------------------------------------------
@@ -98,39 +102,58 @@ add_to_plt(Opts) ->
 init_opts_for_add(Opts) ->
   case Opts#options.output_plt =:= none of
     true ->
-      case Opts#options.init_plt of
-	none -> Opts#options{output_plt = get_default_plt(),
-			     init_plt = get_default_plt()};
-	Plt  -> Opts#options{output_plt = Plt}
+      case Opts#options.init_plts of
+	[] -> Opts#options{output_plt = get_default_output_plt(),
+                           init_plts = get_default_init_plt()};
+	[Plt] -> Opts#options{output_plt = Plt};
+        Plts ->
+          Msg = io_lib:format("Could not add to multiple PLT files: ~s\n",
+                              [format_plts(Plts)]),
+          error(Msg)
       end;
     false ->
-      case Opts#options.init_plt =:= none of
-	true  -> Opts#options{init_plt = get_default_plt()};
+      case Opts#options.init_plts =:= [] of
+	true  -> Opts#options{init_plts = get_default_init_plt()};
 	false -> Opts
       end
   end.
 
 %%--------------------------------------------------------------------
 
-check_plt(Opts) ->
+check_plt(#options{init_plts = []} = Opts) ->
   Opts1 = init_opts_for_check(Opts),
-  report_check(Opts),
-  plt_common(Opts1, [], []).
+  report_check(Opts1),
+  plt_common(Opts1, [], []);
+check_plt(#options{init_plts = Plts} = Opts) ->
+  check_plt_aux(Plts, Opts).
+
+check_plt_aux([_] = Plt, Opts) ->
+  Opts1 = Opts#options{init_plts = Plt},
+  Opts2 = init_opts_for_check(Opts1),
+  report_check(Opts2),
+  plt_common(Opts2, [], []);
+check_plt_aux([Plt|Plts], Opts) ->
+  Opts1 = Opts#options{init_plts = [Plt]},
+  Opts2 = init_opts_for_check(Opts1),
+  report_check(Opts2),
+  plt_common(Opts2, [], []),
+  check_plt_aux(Plts, Opts).
 
 init_opts_for_check(Opts) ->
-  Plt =
-    case Opts#options.init_plt of
-      none -> get_default_plt();
-      Plt0 -> Plt0
+  InitPlt =
+    case Opts#options.init_plts of
+      []-> get_default_init_plt();
+      Plt -> Plt
     end,
+  [OutputPlt] = InitPlt,
   Opts#options{files         = [],
 	       files_rec     = [],
 	       analysis_type = plt_check,
 	       defines       = [],
 	       from          = byte_code,
-	       init_plt      = Plt,
+	       init_plts     = InitPlt,
 	       include_dirs  = [],
-	       output_plt    = Plt,
+	       output_plt    = OutputPlt,
 	       use_contracts = true
 	      }.
 
@@ -144,21 +167,25 @@ remove_from_plt(Opts) ->
 init_opts_for_remove(Opts) ->
   case Opts#options.output_plt =:= none of
     true ->
-      case Opts#options.init_plt of
-	none -> Opts#options{output_plt = get_default_plt(),
-			     init_plt = get_default_plt()};
-	Plt  -> Opts#options{output_plt = Plt}
+      case Opts#options.init_plts of
+	[] -> Opts#options{output_plt = get_default_output_plt(),
+                           init_plts = get_default_init_plt()};
+	[Plt] -> Opts#options{output_plt = Plt};
+        Plts ->
+          Msg = io_lib:format("Could not remove from multiple PLT files: ~s\n",
+                              [format_plts(Plts)]),
+          error(Msg)
       end;
     false ->
-      case Opts#options.init_plt =:= none of
-	true  -> Opts#options{init_plt = get_default_plt()};
+      case Opts#options.init_plts =:= [] of
+	true  -> Opts#options{init_plts = get_default_init_plt()};
 	false -> Opts
       end
   end.
 
 %%--------------------------------------------------------------------
 
-plt_common(Opts, RemoveFiles, AddFiles) ->
+plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
   case check_plt(Opts, RemoveFiles, AddFiles) of
     ok ->
       case Opts#options.report_mode of
@@ -174,7 +201,7 @@ plt_common(Opts, RemoveFiles, AddFiles) ->
       report_failed_plt_check(Opts, DiffMd5),
       {AnalFiles, RemovedMods, ModDeps1} = 
 	expand_dependent_modules(Md5, DiffMd5, ModDeps),
-      Plt = clean_plt(Opts#options.init_plt, RemovedMods),
+      Plt = clean_plt(InitPlt, RemovedMods),
       case AnalFiles =:= [] of
 	true ->
 	  %% Only removed stuff. Just write the PLT.
@@ -186,19 +213,19 @@ plt_common(Opts, RemoveFiles, AddFiles) ->
       end;
     {error, no_such_file} ->
       Msg = io_lib:format("Could not find the PLT: ~s\n~s",
-			  [Opts#options.init_plt, default_plt_error_msg()]),
+			  [InitPlt, default_plt_error_msg()]),
       error(Msg);
     {error, not_valid} ->
       Msg = io_lib:format("The file: ~s is not a valid PLT file\n~s",
-			  [Opts#options.init_plt, default_plt_error_msg()]),
+			  [InitPlt, default_plt_error_msg()]),
       error(Msg);
     {error, read_error} ->
       Msg = io_lib:format("Could not read the PLT: ~s\n~s",
-			  [Opts#options.init_plt, default_plt_error_msg()]),
+			  [InitPlt, default_plt_error_msg()]),
       error(Msg);
     {error, {no_file_to_remove, F}} ->
       Msg = io_lib:format("Could not remove the file ~s from the PLT: ~s\n",
-			  [F, Opts#options.init_plt]),
+			  [F, InitPlt]),
       error(Msg)
   end.
 
@@ -218,8 +245,7 @@ default_plt_error_msg() ->
 
 %%--------------------------------------------------------------------
 
-check_plt(Opts, RemoveFiles, AddFiles) ->
-  Plt = Opts#options.init_plt,
+check_plt(#options{init_plts = [Plt]} = Opts, RemoveFiles, AddFiles) ->
   case dialyzer_plt:check_plt(Plt, RemoveFiles, AddFiles) of
     {old_version, _MD5} = OldVersion ->
       report_old_version(Opts),
@@ -234,14 +260,14 @@ check_plt(Opts, RemoveFiles, AddFiles) ->
 
 %%--------------------------------------------------------------------
 
-report_check(#options{report_mode = ReportMode, init_plt = InitPlt}) ->
+report_check(#options{report_mode = ReportMode, init_plts = [InitPlt]}) ->
   case ReportMode of
     quiet -> ok;
     _ ->
       io:format("  Checking whether the PLT ~s is up-to-date...", [InitPlt])
   end.
 
-report_old_version(#options{report_mode = ReportMode, init_plt = InitPlt}) ->
+report_old_version(#options{report_mode = ReportMode, init_plts = [InitPlt]}) ->
   case ReportMode of
     quiet -> ok;
     _ ->
@@ -264,7 +290,7 @@ report_failed_plt_check(#options{analysis_type = AnalType,
 
 report_analysis_start(#options{analysis_type = Type,
 			       report_mode = ReportMode,
-			       init_plt = InitPlt, 
+			       init_plts = InitPlts,
 			       output_plt = OutputPlt}) ->
   case ReportMode of
     quiet -> ok;
@@ -272,6 +298,7 @@ report_analysis_start(#options{analysis_type = Type,
       io:format("  "),
       case Type of
 	plt_add ->
+          [InitPlt] = InitPlts,
 	  case InitPlt =:= OutputPlt of
 	    true -> io:format("Adding information to ~s...", [OutputPlt]);
 	    false -> io:format("Adding information from ~s to ~s...", 
@@ -282,6 +309,7 @@ report_analysis_start(#options{analysis_type = Type,
 	plt_check ->
 	  io:format("Rebuilding the information in ~s...", [OutputPlt]);
 	plt_remove ->
+          [InitPlt] = InitPlts,
 	  case InitPlt =:= OutputPlt of
 	    true -> io:format("Removing information from ~s...", [OutputPlt]);
 	    false -> io:format("Removing information from ~s to ~s...", 
@@ -320,16 +348,28 @@ report_md5_diff(List) ->
 
 %%--------------------------------------------------------------------
 
-get_default_plt() ->
+get_default_init_plt() ->
+  [dialyzer_plt:get_default_plt()].
+
+get_default_output_plt() ->
   dialyzer_plt:get_default_plt().
+
+%%--------------------------------------------------------------------
+
+format_plts([Plt]) -> Plt;
+format_plts([Plt|Plts]) ->
+  Plt ++ ", " ++ format_plts(Plts).
 
 %%--------------------------------------------------------------------
 
 do_analysis(Options) ->
   Files = get_files_from_opts(Options),
-  case Options#options.init_plt of
-    none -> do_analysis(Files, Options, dialyzer_plt:new(), none);
-    File -> do_analysis(Files, Options, dialyzer_plt:from_file(File), none)
+  case Options#options.init_plts of
+    [] -> do_analysis(Files, Options, dialyzer_plt:new(), none);
+    PltFiles ->
+      Plts = [dialyzer_plt:from_file(F) || F <- PltFiles],
+      Plt = dialyzer_plt:merge_plts_or_report_conflicts(PltFiles, Plts),
+      do_analysis(Files, Options, Plt, none)
   end.
   
 do_analysis(Files, Options, Plt, PltInfo) ->
