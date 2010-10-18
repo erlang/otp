@@ -21,7 +21,7 @@
 -module(receive_SUITE).
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 recv/1,coverage/1,otp_7980/1,ref_opt/1]).
+	 recv/1,coverage/1,otp_7980/1,ref_opt/1,export/1]).
 
 -include("test_server.hrl").
 
@@ -36,7 +36,7 @@ fin_per_testcase(_Case, Config) ->
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [recv,coverage,otp_7980,ref_opt].
+    [recv,coverage,otp_7980,ref_opt,export].
 
 -record(state, {ena = true}).
 
@@ -204,5 +204,26 @@ collect_recv_opt_instrs(Code) ->
 		    end
 		end] || {function,_,_,_,Is} <- Code],
     lists:append(L).
+
+export(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    ?line self() ! {result,Ref,42},
+    ?line 42 = export_1(Ref),
+    ?line {error,timeout} = export_1(Ref),
+    ok.
+
+export_1(Reference) ->
+    id(Reference),
+    receive
+	{result,Reference,Result} ->
+	    Result
+    after 1 ->
+	    Result = {error,timeout}
+    end,
+    %% Result ({x,1}) is used, but not the return value ({x,0})
+    %% of the receive. Used to be incorrectly optimized
+    %% by beam_block.
+    id({build,self()}),
+    Result.
 
 id(I) -> I.
