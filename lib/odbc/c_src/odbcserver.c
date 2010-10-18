@@ -1727,12 +1727,8 @@ static byte * receive_erlang_port_msg(void)
 }
  
 /* ------------- Socket communication functions --------------------------*/
-#define USE_IPV4
-#ifdef UNIX
-#define SOCKET int   
-#endif
 
-#if defined WIN32 || defined USE_IPV4
+#if defined WIN32
 /* Currently only an old windows compiler is supported so we do not have ipv6
   capabilities */
 static SOCKET connect_to_erlang(const char *port)
