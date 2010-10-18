@@ -27,6 +27,7 @@ my $outdir = ".";		# Directory for output files.
 my $verbose = 0;
 my $hot = 1;
 my $num_file_opcodes = 0;
+my $wordsize = 32;
 
 # This is shift counts and mask for the packer.
 my $WHOLE_WORD = '';
@@ -171,6 +172,7 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     ($target = \&emulator_output), next if /^emulator/;
     ($target = \&compiler_output), next if /^compiler/;
     ($outdir = shift), next if /^outdir/;
+    ($wordsize = shift), next if /^wordsize/;
     ($verbose = 1), next if /^v/;
     die "$0: Bad option: -$_\n";
 }
