@@ -919,7 +919,10 @@ sub basic_generator {
 	$var_decls .= "BeamInstr tmp_packed2;"
 	    if $macro_code =~ /tmp_packed2/;
 	if ($flags =~ /-nonext/) {
-	    $code = "$macro_code\n";
+	    $code = join("\n",
+			 "{ $var_decls",
+			 $macro_code,
+			 "}");
 	} else {
 	    $code = join("\n",
 			 "{ $var_decls",
