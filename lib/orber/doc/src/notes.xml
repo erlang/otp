@@ -33,6 +33,64 @@
   </header>
 
   <section>
+    <title>Orber 3.6.18</title>
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A corbaloc http string could return an EXIT message, instead
+             of a system exception, if the HTTP server closed the socket
+             without returning a complete message. I.e. header and a body
+             containing a stringified IOR.</p>
+          <p>Own id: OTP-8900 Aux Id: seq11704</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.17</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+            Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.16</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Test suites published.</p>
+          <p>
+            Own Id: OTP-8543O Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Added missing trailing bracket to define in hrl-file.</p>
+          <p>Own id: OTP-8489 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>Orber 3.6.15</title>
 
     <section>
