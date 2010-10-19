@@ -60,15 +60,14 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     SHA = hash_final(?SHA, SHAHash),
     prf(MasterSecret, finished_label(Role), [MD5, SHA], 12).
 
--spec certificate_verify(key_algo(), {binary(), binary()}) -> binary().
+-spec certificate_verify(OID::tuple(), {binary(), binary()}) -> binary().
 
-certificate_verify(Algorithm, {MD5Hash, SHAHash}) when Algorithm == rsa;
-						       Algorithm == dhe_rsa ->
+certificate_verify(?'rsaEncryption', {MD5Hash, SHAHash}) ->
     MD5 = hash_final(?MD5, MD5Hash),
     SHA = hash_final(?SHA, SHAHash),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(dhe_dss, {_, SHAHash}) ->
+certificate_verify(?'id-dsa', {_, SHAHash}) ->
     hash_final(?SHA, SHAHash).
 
 -spec setup_keys(binary(), binary(), binary(), integer(), 

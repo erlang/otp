@@ -79,10 +79,9 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     SHA = handshake_hash(?SHA, MasterSecret, Sender, SHAHash),
     <<MD5/binary, SHA/binary>>.
 
--spec certificate_verify(key_algo(), binary(), {binary(), binary()}) -> binary().
+-spec certificate_verify(OID::tuple(), binary(), {binary(), binary()}) -> binary().
 
-certificate_verify(Algorithm, MasterSecret, {MD5Hash, SHAHash}) 
-  when Algorithm == rsa; Algorithm == dhe_rsa ->
+certificate_verify(?'rsaEncryption', MasterSecret, {MD5Hash, SHAHash}) ->
      %% md5_hash
      %%           MD5(master_secret + pad_2 +
      %%               MD5(handshake_messages + master_secret + pad_1));
@@ -94,7 +93,7 @@ certificate_verify(Algorithm, MasterSecret, {MD5Hash, SHAHash})
     SHA = handshake_hash(?SHA, MasterSecret, undefined, SHAHash),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(dhe_dss, MasterSecret, {_, SHAHash}) ->
+certificate_verify(?'id-dsa', MasterSecret, {_, SHAHash}) ->
      %% sha_hash
      %%           SHA(master_secret + pad_2 +
      %%               SHA(handshake_messages + master_secret + pad_1));

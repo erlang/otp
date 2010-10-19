@@ -33,11 +33,11 @@
 
 -export([master_secret/4, client_hello/5, server_hello/4, hello/4,
 	 hello_request/0, certify/6, certificate/3,
-	 client_certificate_verify/6, certificate_verify/6,
+	 client_certificate_verify/5, certificate_verify/5,
 	 certificate_request/2, key_exchange/2, server_key_exchange_hash/2,
 	 finished/4, verify_connection/5, get_tls_handshake/2,
-	 decode_client_key/3, server_hello_done/0, sig_alg/1,
-	 encode_handshake/3, init_hashes/0, update_hashes/2,
+	 decode_client_key/3, server_hello_done/0,
+	 encode_handshake/2, init_hashes/0, update_hashes/2,
 	 decrypt_premaster_secret/2]).
 
 -type tls_handshake() :: #client_hello{} | #server_hello{} |
@@ -252,17 +252,17 @@ certificate(OwnCert, CertDbRef, server) ->
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
-				tls_version(), key_algo(), private_key(),
+				tls_version(), private_key(),
 				{{binary(), binary()},{binary(), binary()}}) ->  
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
-client_certificate_verify(undefined, _, _, _, _, _) ->
+client_certificate_verify(undefined, _, _, _, _) ->
     ignore;
-client_certificate_verify(_, _, _, _, undefined, _) ->
+client_certificate_verify(_, _, _, undefined, _) ->
     ignore;
-client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
+client_certificate_verify(OwnCert, MasterSecret, Version,
 			  PrivateKey, {Hashes0, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
 	true ->
@@ -270,33 +270,30 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
 	false ->	    
 	    Hashes = 
 		calc_certificate_verify(Version, MasterSecret,
-					Algorithm, Hashes0), 
+					alg_oid(PrivateKey), Hashes0),
 	    Signed = digitally_signed(Hashes, PrivateKey),
 	    #certificate_verify{signature = Signed}
     end.
 
 %%--------------------------------------------------------------------
-%% -spec certificate_verify(binary(), public_key_info(), tls_version(),
-%% 			 binary(), key_algo(), 
-%% 			 {_, {binary(), binary()}}) -> valid | #alert{}.
+-spec certificate_verify(binary(), public_key_info(), tls_version(),
+			 binary(), {_, {binary(), binary()}}) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
-certificate_verify(Signature, {_, PublicKey, _}, Version, 
-		   MasterSecret, Algorithm, {_, Hashes0}) 
-  when Algorithm == rsa;
-       Algorithm == dhe_rsa ->
+certificate_verify(Signature, {?'rsaEncryption'= Algorithm, PublicKey, _}, Version,
+		   MasterSecret, {_, Hashes0}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 					   Algorithm, Hashes0),
-    case public_key:decrypt_public(Signature, PublicKey, 
+    case public_key:decrypt_public(Signature, PublicKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hashes ->
 	    valid;
 	_ ->
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end;
-certificate_verify(Signature, {_, PublicKey, PublicKeyParams}, Version, 
-		   MasterSecret, dhe_dss = Algorithm, {_, Hashes0}) ->
+certificate_verify(Signature, {?'id-dsa' = Algorithm, PublicKey, PublicKeyParams}, Version,
+		   MasterSecret, {_, Hashes0}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 				     Algorithm, Hashes0),
     case public_key:verify(Hashes, none, Signature, {PublicKey, PublicKeyParams}) of
@@ -441,13 +438,12 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec encode_handshake(tls_handshake(), tls_version(), key_algo()) -> iolist().
+-spec encode_handshake(tls_handshake(), tls_version()) -> iolist().
 %%     
 %% Description: Encode a handshake packet to binary
 %%--------------------------------------------------------------------
-encode_handshake(Package, Version, KeyAlg) ->
-    SigAlg = sig_alg(KeyAlg),
-    {MsgType, Bin} = enc_hs(Package, Version, SigAlg),
+encode_handshake(Package, Version) ->
+    {MsgType, Bin} = enc_hs(Package, Version),
     Len = byte_size(Bin),
     [MsgType, ?uint24(Len), Bin].
 
@@ -884,14 +880,14 @@ certs_from_list(ACList) ->
                         <<?UINT24(CertLen), Cert/binary>>
 		    end || Cert <- ACList]).
 
-enc_hs(#hello_request{}, _Version, _) ->
+enc_hs(#hello_request{}, _Version) ->
     {?HELLO_REQUEST, <<>>};
 enc_hs(#client_hello{client_version = {Major, Minor},
 		     random = Random,
 		     session_id = SessionID,
 		     cipher_suites = CipherSuites,
 		     compression_methods = CompMethods, 
-		     renegotiation_info = RenegotiationInfo}, _Version, _) ->
+		     renegotiation_info = RenegotiationInfo}, _Version) ->
     SIDLength = byte_size(SessionID),
     BinCompMethods = list_to_binary(CompMethods),
     CmLength = byte_size(BinCompMethods),
@@ -909,20 +905,20 @@ enc_hs(#server_hello{server_version = {Major, Minor},
 		     session_id = Session_ID,
 		     cipher_suite = Cipher_suite,
 		     compression_method = Comp_method,
-		     renegotiation_info = RenegotiationInfo}, _Version, _) ->
+		     renegotiation_info = RenegotiationInfo}, _Version) ->
     SID_length = byte_size(Session_ID),
     Extensions  = hello_extensions(RenegotiationInfo),
     ExtensionsBin = enc_hello_extensions(Extensions),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		     ?BYTE(SID_length), Session_ID/binary,
                      Cipher_suite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
-enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version, _) ->
+enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
 enc_hs(#server_key_exchange{params = #server_dh_params{
 			      dh_p = P, dh_g = G, dh_y = Y},
-	signed_params = SignedParams}, _Version, _) ->
+	signed_params = SignedParams}, _Version) ->
     PLen = byte_size(P),
     GLen = byte_size(G),
     YLen = byte_size(Y),
@@ -934,21 +930,21 @@ enc_hs(#server_key_exchange{params = #server_dh_params{
     };
 enc_hs(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths}, 
-       _Version, _) ->
+       _Version) ->
     CertTypesLen = byte_size(CertTypes),
     CertAuthsLen = byte_size(CertAuths),
     {?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes/binary,
 	?UINT16(CertAuthsLen), CertAuths/binary>>
     };
-enc_hs(#server_hello_done{}, _Version, _) ->
+enc_hs(#server_hello_done{}, _Version) ->
     {?SERVER_HELLO_DONE, <<>>};
-enc_hs(#client_key_exchange{exchange_keys = ExchangeKeys}, Version, _) ->
+enc_hs(#client_key_exchange{exchange_keys = ExchangeKeys}, Version) ->
     {?CLIENT_KEY_EXCHANGE, enc_cke(ExchangeKeys, Version)};
-enc_hs(#certificate_verify{signature = BinSig}, _, _) ->
+enc_hs(#certificate_verify{signature = BinSig}, _) ->
     EncSig = enc_bin_sig(BinSig),
     {?CERTIFICATE_VERIFY, EncSig};
-enc_hs(#finished{verify_data = VerifyData}, _Version, _) ->
+enc_hs(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
 
 enc_cke(#encrypted_premaster_secret{premaster_secret = PKEPMS},{3, 0}) ->
@@ -1107,15 +1103,6 @@ server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
 server_key_exchange_hash(dhe_dss, Value) ->
     crypto:sha(Value).
 
-sig_alg(dh_anon) ->
-    ?SIGNATURE_ANONYMOUS;
-sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa ->
-    ?SIGNATURE_RSA;
-sig_alg(dhe_dss) ->
-    ?SIGNATURE_DSA;
-sig_alg(_) ->
-    ?NULL.
-
 key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;
 key_exchange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
@@ -1133,3 +1120,8 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
     end.
+
+alg_oid(#'RSAPrivateKey'{}) ->
+    ?'rsaEncryption';
+alg_oid(#'DSAPrivateKey'{}) ->
+    ?'id-dsa'.
