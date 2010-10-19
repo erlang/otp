@@ -1765,7 +1765,7 @@ load_code(LoaderState* stp)
 	    }
 
 	    stp->specific_op = specific;
-	    CodeNeed(opc[stp->specific_op].sz+2); /* Extra margin for packing */
+	    CodeNeed(opc[stp->specific_op].sz+16); /* Extra margin for packing */
 	    code[ci++] = BeamOpCode(stp->specific_op);
 	}
 	
