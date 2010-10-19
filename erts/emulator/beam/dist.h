@@ -99,7 +99,7 @@ typedef struct {
 #define ERTS_DE_IS_CONNECTED(DEP) \
   (!ERTS_DE_IS_NOT_CONNECTED((DEP)))
 
-#define ERTS_DE_BUSY_LIMIT (128*1024)
+#define ERTS_DE_BUSY_LIMIT (1024*1024)
 extern int erts_dist_buf_busy_limit;
 extern int erts_is_alive;
 
@@ -154,10 +154,10 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     }
     if (no_suspend) {
 	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_smp_spin_lock(&dep->qlock);
+	erts_smp_mtx_lock(&dep->qlock);
 	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
 	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	erts_smp_spin_unlock(&dep->qlock);
+	erts_smp_mtx_unlock(&dep->qlock);
 	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
 	    goto fail;
     }

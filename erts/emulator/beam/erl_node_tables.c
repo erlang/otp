@@ -107,7 +107,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->nlinks				= NULL;
     dep->monitors			= NULL;
 
-    erts_smp_spinlock_init_x(&dep->qlock, "dist_entry_out_queue", chnl_nr);
+    erts_smp_mtx_init_x(&dep->qlock, "dist_entry_out_queue", chnl_nr);
     dep->qflgs				= 0;
     dep->qsize				= 0;
     dep->out_queue.first		= NULL;
@@ -172,7 +172,7 @@ dist_table_free(void *vdep)
     ASSERT(!dep->cache);
     erts_smp_rwmtx_destroy(&dep->rwmtx);
     erts_smp_mtx_destroy(&dep->lnk_mtx);
-    erts_smp_spinlock_destroy(&dep->qlock);
+    erts_smp_mtx_destroy(&dep->qlock);
 
 #ifdef DEBUG
     sys_memset(vdep, 0x77, sizeof(DistEntry));
@@ -755,9 +755,9 @@ void erts_init_node_tables(void)
     erts_this_dist_entry->nlinks			= NULL;
     erts_this_dist_entry->monitors			= NULL;
 
-    erts_smp_spinlock_init_x(&erts_this_dist_entry->qlock,
-			     "dist_entry_out_queue",
-			     make_small(ERST_INTERNAL_CHANNEL_NO));
+    erts_smp_mtx_init_x(&erts_this_dist_entry->qlock,
+			"dist_entry_out_queue",
+			make_small(ERST_INTERNAL_CHANNEL_NO));
     erts_this_dist_entry->qflgs				= 0;
     erts_this_dist_entry->qsize				= 0;
     erts_this_dist_entry->out_queue.first		= NULL;
