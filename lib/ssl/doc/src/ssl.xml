@@ -114,7 +114,7 @@
     <p><c>ciphersuite() =
       {key_exchange(), cipher(), hash()}</c></p>
     
-    <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa
+    <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa | dh_anon
     </c></p>
 
    <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
@@ -170,8 +170,13 @@
 
       <tag>{ciphers, ciphers()}</tag>
       <item>The cipher suites that should be supported. The function
-      <c>ciphers_suites/0</c> can be used to find all available
-      ciphers.
+      <c>cipher_suites/0</c> can be used to find all available
+      ciphers. Additionally some anonymous cipher suites ({dh_anon,
+      rc4_128, md5}, {dh_anon, des_cbc, sha}, {dh_anon,
+      '3des_ede_cbc', sha}, {dh_anon, aes_128_cbc, sha}, {dh_anon,
+      aes_256_cbc, sha}) are supported for testing purposes and will
+      only work if explicitly enabled by this option and they are supported/enabled
+      by the peer also.
       </item>
 
       <tag>{ssl_imp, ssl_imp()}</tag>

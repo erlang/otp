@@ -40,6 +40,7 @@ MODULES = \
 	ssl_packet_SUITE \
 	ssl_payload_SUITE \
 	ssl_to_openssl_SUITE \
+	ssl_session_cache_SUITE	\
 	ssl_test_MACHINE \
 	old_ssl_active_SUITE \
 	old_ssl_active_once_SUITE \

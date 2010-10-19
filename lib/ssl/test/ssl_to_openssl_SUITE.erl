@@ -1116,8 +1116,6 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    test_server:fail(cipher_suite_failed_see_test_case_log) 
     end.
 
-
-
 cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->   
     process_flag(trap_exit, true),
     test_server:format("Testing CipherSuite ~p~n", [CipherSuite]),
@@ -1128,8 +1126,8 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
    
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
-	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "", 
-    
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "",
+
     test_server:format("openssl cmd: ~p~n", [Cmd]),
     
     OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
@@ -1140,11 +1138,11 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
-			   {options, 
-			    [{ciphers,[CipherSuite]} | 
-			     ClientOpts]}]), 
+					{from, self()},
+					{mfa, {ssl_test_lib, cipher_result, [ConnectionInfo]}},
+					{options,
+					 [{ciphers,[CipherSuite]} |
+			     ClientOpts]}]),
 
     port_command(OpenSslPort, "Hello\n"),
     

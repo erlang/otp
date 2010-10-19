@@ -104,7 +104,7 @@
 -type tls_atom_version()  :: sslv3 | tlsv1.
 -type cache_ref()         :: term(). 
 -type certdb_ref()        :: term(). 
--type key_algo()          :: null | rsa | dhe_rsa | dhe_dss.
+-type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | dh_anon.
 -type enum_algo()          :: integer().
 -type public_key()        :: #'RSAPublicKey'{} | integer().
 -type public_key_params() :: #'Dss-Parms'{} | term().

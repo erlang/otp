@@ -36,7 +36,7 @@
 	 client_certificate_verify/6, certificate_verify/6,
 	 certificate_request/2, key_exchange/2, server_key_exchange_hash/2,
 	 finished/4, verify_connection/5, get_tls_handshake/2,
-	 decode_client_key/3, server_hello_done/0, sig_alg/1,
+	 decode_client_key/3, server_hello_done/0,
 	 encode_handshake/3, init_hashes/0, update_hashes/2,
 	 decrypt_premaster_secret/2]).
 
@@ -237,7 +237,7 @@ certificate(OwnCert, CertDbRef, client) ->
 	    {error, _} -> 
 		%% If no suitable certificate is available, the client
 		%% SHOULD send a certificate message containing no
-		%% certificates. (chapter 7.4.6. rfc 4346) 
+		%% certificates. (chapter 7.4.6. RFC 4346)
 		[]	 
 	end,
     #certificate{asn1_certificates = Chain};
@@ -355,15 +355,22 @@ key_exchange(server, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
     YLen = byte_size(PublicKey),
     ServerDHParams = #server_dh_params{dh_p = PBin, 
 				       dh_g = GBin, dh_y = PublicKey},    
-    Hash = 
-	server_key_exchange_hash(KeyAlgo, <<ClientRandom/binary, 
-					    ServerRandom/binary, 
-					    ?UINT16(PLen), PBin/binary, 
-					    ?UINT16(GLen), GBin/binary,
-					    ?UINT16(YLen), PublicKey/binary>>),
-    Signed = digitally_signed(Hash, PrivateKey),
-    #server_key_exchange{params = ServerDHParams,
-			 signed_params = Signed}.
+
+    case KeyAlgo of
+	dh_anon ->
+	    #server_key_exchange{params = ServerDHParams,
+				 signed_params = <<>>};
+	_ ->
+	    Hash =
+		server_key_exchange_hash(KeyAlgo, <<ClientRandom/binary,
+						    ServerRandom/binary,
+						    ?UINT16(PLen), PBin/binary,
+						    ?UINT16(GLen), GBin/binary,
+						    ?UINT16(YLen), PublicKey/binary>>),
+	    Signed = digitally_signed(Hash, PrivateKey),
+	    #server_key_exchange{params = ServerDHParams,
+				 signed_params = Signed}
+    end.
 
 %%--------------------------------------------------------------------
 -spec master_secret(tls_version(), #session{} | binary(), #connection_states{},
@@ -445,9 +452,8 @@ server_hello_done() ->
 %%     
 %% Description: Encode a handshake packet to binary
 %%--------------------------------------------------------------------
-encode_handshake(Package, Version, KeyAlg) ->
-    SigAlg = sig_alg(KeyAlg),
-    {MsgType, Bin} = enc_hs(Package, Version, SigAlg),
+encode_handshake(Package, Version, _KeyAlg) ->
+    {MsgType, Bin} = enc_hs(Package, Version),
     Len = byte_size(Bin),
     [MsgType, ?uint24(Len), Bin].
 
@@ -526,7 +532,7 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
     end.
 
 %%--------------------------------------------------------------------
--spec server_key_exchange_hash(rsa | dhe_rsa| dhe_dss, binary()) -> binary().
+-spec server_key_exchange_hash(rsa | dhe_rsa| dhe_dss | dh_anon, binary()) -> binary().
 
 %%
 %% Description: Calculate server key exchange hash
@@ -539,21 +545,6 @@ server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
 
 server_key_exchange_hash(dhe_dss, Value) ->
     crypto:sha(Value).
-
-%%--------------------------------------------------------------------
--spec sig_alg(atom()) -> integer().
-
-%%
-%% Description: Translate atom representation to enum representation.
-%%--------------------------------------------------------------------
-sig_alg(dh_anon) ->
-    ?SIGNATURE_ANONYMOUS;
-sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa ->
-    ?SIGNATURE_RSA;
-sig_alg(dhe_dss) ->
-    ?SIGNATURE_DSA;
-sig_alg(_) ->
-    ?NULL.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -876,6 +867,13 @@ dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
+			       ?UINT16(0)>>) -> %% May happen if key_algorithm is dh_anon
+    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G,
+						    dh_y = Y},
+			 signed_params = <<>>};
+dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
+			      ?UINT16(GLen), G:GLen/binary,
+			      ?UINT16(YLen), Y:YLen/binary,
 			      ?UINT16(Len), Sig:Len/binary>>) ->
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
 						    dh_y = Y},
@@ -958,14 +956,14 @@ certs_from_list(ACList) ->
                         <<?UINT24(CertLen), Cert/binary>>
 		    end || Cert <- ACList]).
 
-enc_hs(#hello_request{}, _Version, _) ->
+enc_hs(#hello_request{}, _Version) ->
     {?HELLO_REQUEST, <<>>};
 enc_hs(#client_hello{client_version = {Major, Minor},
 		     random = Random,
 		     session_id = SessionID,
 		     cipher_suites = CipherSuites,
 		     compression_methods = CompMethods, 
-		     renegotiation_info = RenegotiationInfo}, _Version, _) ->
+		     renegotiation_info = RenegotiationInfo}, _Version) ->
     SIDLength = byte_size(SessionID),
     BinCompMethods = list_to_binary(CompMethods),
     CmLength = byte_size(BinCompMethods),
@@ -983,20 +981,20 @@ enc_hs(#server_hello{server_version = {Major, Minor},
 		     session_id = Session_ID,
 		     cipher_suite = Cipher_suite,
 		     compression_method = Comp_method,
-		     renegotiation_info = RenegotiationInfo}, _Version, _) ->
+		     renegotiation_info = RenegotiationInfo}, _Version) ->
     SID_length = byte_size(Session_ID),
     Extensions  = hello_extensions(RenegotiationInfo),
     ExtensionsBin = enc_hello_extensions(Extensions),
     {?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		     ?BYTE(SID_length), Session_ID/binary,
                      Cipher_suite/binary, ?BYTE(Comp_method), ExtensionsBin/binary>>};
-enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version, _) ->
+enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
 enc_hs(#server_key_exchange{params = #server_dh_params{
 			      dh_p = P, dh_g = G, dh_y = Y},
-	signed_params = SignedParams}, _Version, _) ->
+	signed_params = SignedParams}, _Version) ->
     PLen = byte_size(P),
     GLen = byte_size(G),
     YLen = byte_size(Y),
@@ -1008,21 +1006,21 @@ enc_hs(#server_key_exchange{params = #server_dh_params{
     };
 enc_hs(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths}, 
-       _Version, _) ->
+       _Version) ->
     CertTypesLen = byte_size(CertTypes),
     CertAuthsLen = byte_size(CertAuths),
     {?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes/binary,
 	?UINT16(CertAuthsLen), CertAuths/binary>>
     };
-enc_hs(#server_hello_done{}, _Version, _) ->
+enc_hs(#server_hello_done{}, _Version) ->
     {?SERVER_HELLO_DONE, <<>>};
-enc_hs(#client_key_exchange{exchange_keys = ExchangeKeys}, Version, _) ->
+enc_hs(#client_key_exchange{exchange_keys = ExchangeKeys}, Version) ->
     {?CLIENT_KEY_EXCHANGE, enc_cke(ExchangeKeys, Version)};
-enc_hs(#certificate_verify{signature = BinSig}, _, _) ->
+enc_hs(#certificate_verify{signature = BinSig}, _) ->
     EncSig = enc_bin_sig(BinSig),
     {?CERTIFICATE_VERIFY, EncSig};
-enc_hs(#finished{verify_data = VerifyData}, _Version, _) ->
+enc_hs(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
 
 enc_cke(#encrypted_premaster_secret{premaster_secret = PKEPMS},{3, 0}) ->
@@ -1152,7 +1150,7 @@ calc_certificate_verify({3, N}, _, Algorithm, Hashes)
 key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;
 key_exchange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
-			    Alg == dh_dss; Alg == dh_rsa  ->
+			    Alg == dh_dss; Alg == dh_rsa; Alg == dh_anon ->
     ?KEY_EXCHANGE_DIFFIE_HELLMAN;
 key_exchange_alg(_) ->
     ?NULL.
