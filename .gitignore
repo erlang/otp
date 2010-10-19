@@ -286,10 +286,12 @@ a.out.dSYM/
 /lib/wx/api_gen/wx_xml/*
 /lib/wx/api_gen/gl_xml/*
 /lib/wx/api_gen/??_doxygen
-/lib/wx/api_gen/??xml_generated
+/lib/wx/api_gen/*_generated
 /lib/wx/wx-*.ez
 /lib/wx/CONF_INFO
 /lib/wx/doc/src/wx*.xml
+/lib/wx/priv/wxe_driver.*
+/lib/wx/priv/erl_gl.*
 
 # xmerl
 
