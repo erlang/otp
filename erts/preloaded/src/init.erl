@@ -721,6 +721,7 @@ do_boot(Init,Flags,Start) ->
     BootList = get_boot(BootFile,Root),
     LoadMode = b2a(get_flag('-mode',Flags,false)),
     Deb = b2a(get_flag('-init_debug',Flags,false)),
+    catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_flag_args('-boot_var',Flags),
     ParallelLoad = 
 	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
@@ -1343,18 +1344,21 @@ start_on_load_handler_process() ->
 	     spawn(fun on_load_handler_init/0)).
 
 on_load_handler_init() ->
-    on_load_loop([]).
+    on_load_loop([], false).
 
-on_load_loop(Mods) ->
+on_load_loop(Mods, Debug0) ->
     receive
+	{init_debug_flag,Debug} ->
+	    on_load_loop(Mods, Debug);
 	{loaded,Mod} ->
-	    on_load_loop([Mod|Mods]);
+	    on_load_loop([Mod|Mods], Debug0);
 	run_on_load ->
-	    run_on_load_handlers(Mods),
+	    run_on_load_handlers(Mods, Debug0),
 	    exit(on_load_done)
     end.
 
-run_on_load_handlers([M|Ms]) ->
+run_on_load_handlers([M|Ms], Debug) ->
+    debug(Debug, {running_on_load_handler,M}),
     Fun = fun() ->
 		  Res = erlang:call_on_load_function(M),
 		  exit(Res)
@@ -1366,9 +1370,12 @@ run_on_load_handlers([M|Ms]) ->
 	    erlang:finish_after_on_load(M, Keep),
 	    case Keep of
 		false ->
-		    exit({on_load_function_failed,M});
+		    Error = {on_load_function_failed,M},
+		    debug(Debug, Error),
+		    exit(Error);
 		true ->
-		    run_on_load_handlers(Ms)
+		    debug(Debug, {on_load_handler_returned_ok,M}),
+		    run_on_load_handlers(Ms, Debug)
 	    end
     end;
-run_on_load_handlers([]) -> ok.
+run_on_load_handlers([], _) -> ok.
