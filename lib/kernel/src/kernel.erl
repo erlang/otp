@@ -143,6 +143,13 @@ init(safe) ->
     Boot = start_boot_server(),
     DiskLog = start_disk_log(),
     Pg2 = start_pg2(),
+
+    %% Run the on_load handlers for all modules that have been
+    %% loaded so far. Running them at this point means that
+    %% on_load handlers can safely call kernel processes
+    %% (and in particular call code:priv_dir/1 or code:lib_dir/1).
+    init:run_on_load_handlers(),
+
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
 
 get_code_args() ->

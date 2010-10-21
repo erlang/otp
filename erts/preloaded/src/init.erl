@@ -51,6 +51,9 @@
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
+%% for the on_load functionality; not for general use
+-export([run_on_load_handlers/0]).
+
 %% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
@@ -308,24 +311,6 @@ boot_loop(BootPid, State) ->
 	{stop,Reason} ->
 	    stop(Reason,State);
 	{From,fetch_loaded} ->   %% Fetch and reset initially loaded modules.
-	    case whereis(?ON_LOAD_HANDLER) of
-		undefined ->
-		    %% There is no on_load handler process,
-		    %% probably because init:restart/0 has been
-		    %% called and it is not the first time we
-		    %% pass through here.
-		    ok;
-		Pid when is_pid(Pid) ->
-		    Pid ! run_on_load,
-		    receive
-			{'EXIT',Pid,on_load_done} ->
-			    ok;
-			{'EXIT',Pid,Res} ->
-			    %% Failure to run an on_load handler.
-			    %% This is fatal during start-up.
-			    exit(Res)
-		    end
-	    end,
 	    From ! {init,State#state.loaded},
 	    garb_boot_loop(BootPid,State#state{loaded = []});
 	{From,{ensure_loaded,Module}} ->
@@ -736,6 +721,7 @@ do_boot(Init,Flags,Start) ->
     BootList = get_boot(BootFile,Root),
     LoadMode = b2a(get_flag('-mode',Flags,false)),
     Deb = b2a(get_flag('-init_debug',Flags,false)),
+    catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_flag_args('-boot_var',Flags),
     ParallelLoad = 
 	(Pgm =:= "efile") and (erlang:system_info(thread_pool_size) > 0),
@@ -1335,23 +1321,44 @@ archive_extension() ->
 %%% Support for handling of on_load functions.
 %%%
 
+run_on_load_handlers() ->
+    Ref = monitor(process, ?ON_LOAD_HANDLER),
+    catch ?ON_LOAD_HANDLER ! run_on_load,
+    receive
+	{'DOWN',Ref,process,_,noproc} ->
+	    %% There is no on_load handler process,
+	    %% probably because init:restart/0 has been
+	    %% called and it is not the first time we
+	    %% pass through here.
+	    ok;
+	{'DOWN',Ref,process,_,on_load_done} ->
+	    ok;
+	{'DOWN',Ref,process,_,Res} ->
+	    %% Failure to run an on_load handler.
+	    %% This is fatal during start-up.
+	    exit(Res)
+    end.
+
 start_on_load_handler_process() ->
     register(?ON_LOAD_HANDLER,
-	     spawn_link(fun on_load_handler_init/0)).
+	     spawn(fun on_load_handler_init/0)).
 
 on_load_handler_init() ->
-    on_load_loop([]).
+    on_load_loop([], false).
 
-on_load_loop(Mods) ->
+on_load_loop(Mods, Debug0) ->
     receive
+	{init_debug_flag,Debug} ->
+	    on_load_loop(Mods, Debug);
 	{loaded,Mod} ->
-	    on_load_loop([Mod|Mods]);
+	    on_load_loop([Mod|Mods], Debug0);
 	run_on_load ->
-	    run_on_load_handlers(Mods),
+	    run_on_load_handlers(Mods, Debug0),
 	    exit(on_load_done)
     end.
 
-run_on_load_handlers([M|Ms]) ->
+run_on_load_handlers([M|Ms], Debug) ->
+    debug(Debug, {running_on_load_handler,M}),
     Fun = fun() ->
 		  Res = erlang:call_on_load_function(M),
 		  exit(Res)
@@ -1363,9 +1370,12 @@ run_on_load_handlers([M|Ms]) ->
 	    erlang:finish_after_on_load(M, Keep),
 	    case Keep of
 		false ->
-		    exit({on_load_function_failed,M});
+		    Error = {on_load_function_failed,M},
+		    debug(Debug, Error),
+		    exit(Error);
 		true ->
-		    run_on_load_handlers(Ms)
+		    debug(Debug, {on_load_handler_returned_ok,M}),
+		    run_on_load_handlers(Ms, Debug)
 	    end
     end;
-run_on_load_handlers([]) -> ok.
+run_on_load_handlers([], _) -> ok.
