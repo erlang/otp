@@ -126,8 +126,8 @@ handle_cast(_, State) ->
 %% handle_info(ssh_connected, State) ->
 %%     {stop, normal, State};
 %% Servant termination.
-handle_info({'EXIT', _Pid, normal}, State) ->
-    {stop, normal, State}.
+handle_info({'EXIT', _Pid, Reason}, State) ->
+    {stop, Reason, State}.
 
 %%-----------------------------------------------------------------
 %% Func: code_change/3

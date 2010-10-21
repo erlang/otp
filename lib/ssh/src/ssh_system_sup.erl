@@ -33,7 +33,8 @@
 	 stop_system/2, system_supervisor/2,
 	 subsystem_supervisor/1, channel_supervisor/1, 
 	 connection_supervisor/1, 
-	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2, restart_acceptor/2]).
+	 acceptor_supervisor/1, start_subsystem/2, restart_subsystem/2,
+	 restart_acceptor/2, stop_subsystem/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -82,6 +83,23 @@ acceptor_supervisor(SystemSup) ->
 start_subsystem(SystemSup, Options) ->
     Spec = ssh_subsystem_child_spec(Options),
     supervisor:start_child(SystemSup, Spec).
+
+stop_subsystem(SystemSup, SubSys) ->
+    case lists:keyfind(SubSys, 2, supervisor:which_children(SystemSup)) of
+	false ->
+	    {error, not_found};
+	{Id, _, _, _} ->
+	    spawn(fun() -> supervisor:terminate_child(SystemSup, Id),
+			   supervisor:delete_child(SystemSup, Id) end),
+	    ok;
+	{'EXIT', {noproc, _}} ->
+	    %% Already terminated; probably shutting down.
+	    ok;
+	{'EXIT', {shutdown, _}} ->
+	    %% Already shutting down.
+	    ok
+    end.
+
 
 restart_subsystem(Address, Port) ->
     SysSupName = make_name(Address, Port),
