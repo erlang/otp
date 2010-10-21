@@ -30,6 +30,29 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.14.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In embedded mode, on_load handlers that called
+	    <c>code:priv_dir/1</c> or other functions in <c>code</c>
+	    would hang the system. Since the <c>crypto</c>
+	    application now contains an on_loader handler that calls
+	    <c>code:priv_dir/1</c>, including the <c>crypto</c>
+	    application in the boot file would prevent the system
+	    from starting.</p>
+	    <p>Also extended the <c>-init_debug</c> option to print
+	    information about on_load handlers being run to
+	    facilitate debugging.</p>
+          <p>
+	    Own Id: OTP-8902 Aux Id: seq11703 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.14.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
