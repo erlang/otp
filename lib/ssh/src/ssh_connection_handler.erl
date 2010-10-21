@@ -705,11 +705,19 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	Byte == ?SSH_MSG_CHANNEL_REQUEST;
 	Byte == ?SSH_MSG_CHANNEL_SUCCESS;
 	Byte == ?SSH_MSG_CHANNEL_FAILURE ->
-    ssh_connection_manager:event(Pid, Msg),
-    State = generate_event_new_state(State0, EncData),
-    next_packet(State),
-    {next_state, StateName, State};
 
+    try 
+	ssh_connection_manager:event(Pid, Msg),
+	State = generate_event_new_state(State0, EncData),
+	next_packet(State),
+	{next_state, StateName, State}
+    catch
+	exit:{noproc, _Reason} ->
+	    Report = io_lib:format("~p Connection Handler terminated: ~p~n",
+				   [self(), Pid]),
+	    error_logger:info_report(Report),
+	    {stop, normal, State0}
+    end;
 generate_event(Msg, StateName, State0, EncData) ->
     Event = ssh_bits:decode(Msg),
     State = generate_event_new_state(State0, EncData),
