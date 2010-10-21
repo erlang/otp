@@ -1381,9 +1381,6 @@ stream_op(Head, Pids, C, N, Pid, {lookup_keys,Keys}, Fxd) ->
 stream_op(Head, Pids, C, N, Pid, {insert, _Objects} = Op, Fxd) ->
     NC = [Op | C],
     stream_loop(Head, [Pid | Pids], NC, N, Fxd);
-stream_op(Head, Pids, C, N, Pid, {insert_new, _Objects} = Op, Fxd) ->
-    NC = [Op | C],
-    stream_loop(Head, [Pid | Pids], NC, N, Fxd);
 stream_op(Head, Pids, C, N, Pid, {delete_key, _Keys} = Op, Fxd) ->
     NC = [Op | C],
     stream_loop(Head, [Pid | Pids], NC, N, Fxd);

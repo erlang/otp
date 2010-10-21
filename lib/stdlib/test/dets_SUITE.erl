@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
-         otp_8070/1]).
+         otp_8070/1, otp_8856/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -108,7 +108,7 @@ all(suite) ->
 	      cache_duplicate_bags_v9, otp_4208, otp_4989, many_clients,
               otp_4906, otp_5402, simultaneous_open, insert_new, 
               repair_continuation, otp_5487, otp_6206, otp_6359, otp_4738,
-              otp_7146, otp_8070]} 
+              otp_7146, otp_8070, otp_8856]} 
     end.
 
 not_run(suite) -> [];
@@ -3698,6 +3698,31 @@ otp_8070(Config) when is_list(Config) ->
     ?line false = dets:insert_new(Tab, [{3,1},{3,1}]),
     ?line [{3,0}] = dets:lookup(Tab, 3),
     ?line ok = dets:close(Tab),
+    file:delete(File),
+    ok.
+
+otp_8856(doc) ->
+    ["OTP-8856. insert_new() bug."];
+otp_8856(suite) ->
+    [];
+otp_8856(Config) when is_list(Config) ->
+    Tab = otp_8856,
+    File = filename(Tab, Config),
+    file:delete(File),
+    Me = self(),
+    ?line {ok, _} = dets:open_file(Tab, [{type, bag}, {file, File}]),
+    spawn(fun()-> Me ! {1, dets:insert(Tab, [])} end),
+    spawn(fun()-> Me ! {2, dets:insert_new(Tab, [])} end),
+    ?line ok = dets:close(Tab),
+    ?line receive {1, ok} -> ok end,
+    ?line receive {2, true} -> ok end,
+    file:delete(File),
+
+    ?line {ok, _} = dets:open_file(Tab, [{type, set}, {file, File}]),
+    spawn(fun() -> dets:delete(Tab, 0) end),
+    spawn(fun() -> Me ! {3, dets:insert_new(Tab, {0,0})} end),
+    ?line ok = dets:close(Tab),
+    ?line receive {3, true} -> ok end,
     file:delete(File),
     ok.
 
