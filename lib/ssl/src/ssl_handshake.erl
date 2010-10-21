@@ -33,11 +33,11 @@
 
 -export([master_secret/4, client_hello/5, server_hello/4, hello/4,
 	 hello_request/0, certify/6, certificate/3,
-	 client_certificate_verify/6, certificate_verify/6,
+	 client_certificate_verify/5, certificate_verify/5,
 	 certificate_request/2, key_exchange/2, server_key_exchange_hash/2,
 	 finished/4, verify_connection/5, get_tls_handshake/2,
 	 decode_client_key/3, server_hello_done/0,
-	 encode_handshake/3, init_hashes/0, update_hashes/2,
+	 encode_handshake/2, init_hashes/0, update_hashes/2,
 	 decrypt_premaster_secret/2]).
 
 -type tls_handshake() :: #client_hello{} | #server_hello{} |
@@ -252,17 +252,17 @@ certificate(OwnCert, CertDbRef, server) ->
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
-				tls_version(), key_algo(), private_key(),
+				tls_version(), private_key(),
 				{{binary(), binary()},{binary(), binary()}}) ->  
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
-client_certificate_verify(undefined, _, _, _, _, _) ->
+client_certificate_verify(undefined, _, _, _, _) ->
     ignore;
-client_certificate_verify(_, _, _, _, undefined, _) ->
+client_certificate_verify(_, _, _, undefined, _) ->
     ignore;
-client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
+client_certificate_verify(OwnCert, MasterSecret, Version,
 			  PrivateKey, {Hashes0, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
 	true ->
@@ -270,33 +270,30 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
 	false ->	    
 	    Hashes = 
 		calc_certificate_verify(Version, MasterSecret,
-					Algorithm, Hashes0), 
+					alg_oid(PrivateKey), Hashes0),
 	    Signed = digitally_signed(Hashes, PrivateKey),
 	    #certificate_verify{signature = Signed}
     end.
 
 %%--------------------------------------------------------------------
 -spec certificate_verify(binary(), public_key_info(), tls_version(),
-			 binary(), key_algo(),
-			 {_, {binary(), binary()}}) -> valid | #alert{}.
+			 binary(), {_, {binary(), binary()}}) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
-certificate_verify(Signature, {_, PublicKey, _}, Version, 
-		   MasterSecret, Algorithm, {_, Hashes0}) 
-  when Algorithm == rsa;
-       Algorithm == dhe_rsa ->
+certificate_verify(Signature, {?'rsaEncryption'= Algorithm, PublicKey, _}, Version,
+		   MasterSecret, {_, Hashes0}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 					   Algorithm, Hashes0),
-    case public_key:decrypt_public(Signature, PublicKey, 
+    case public_key:decrypt_public(Signature, PublicKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hashes ->
 	    valid;
 	_ ->
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end;
-certificate_verify(Signature, {_, PublicKey, PublicKeyParams}, Version, 
-		   MasterSecret, dhe_dss = Algorithm, {_, Hashes0}) ->
+certificate_verify(Signature, {?'id-dsa' = Algorithm, PublicKey, PublicKeyParams}, Version,
+		   MasterSecret, {_, Hashes0}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 				     Algorithm, Hashes0),
     case public_key:verify(Hashes, none, Signature, {PublicKey, PublicKeyParams}) of
@@ -448,11 +445,11 @@ server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
--spec encode_handshake(tls_handshake(), tls_version(), key_algo()) -> iolist().
+-spec encode_handshake(tls_handshake(), tls_version()) -> iolist().
 %%     
 %% Description: Encode a handshake packet to binary
 %%--------------------------------------------------------------------
-encode_handshake(Package, Version, _KeyAlg) ->
+encode_handshake(Package, Version) ->
     {MsgType, Bin} = enc_hs(Package, Version),
     Len = byte_size(Bin),
     [MsgType, ?uint24(Len), Bin].
@@ -1164,3 +1161,8 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
     end.
+
+alg_oid(#'RSAPrivateKey'{}) ->
+    ?'rsaEncryption';
+alg_oid(#'DSAPrivateKey'{}) ->
+    ?'id-dsa'.

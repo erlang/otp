@@ -638,12 +638,10 @@ cipher(#certificate_verify{signature = Signature},
 	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret},
-	      key_algorithm = Algorithm,
 	      tls_handshake_hashes = Hashes
 	     } = State0) -> 
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
-					  Version, MasterSecret, 
-					  Algorithm, Hashes) of
+					  Version, MasterSecret, Hashes) of
 	valid ->
 	    {Record, State} = next_record(State0),
 	    next_state(cipher, Record, State);
@@ -1169,16 +1167,15 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 			  negotiated_version = Version,
 			  own_cert = OwnCert,
 			  socket = Socket,
-			  key_algorithm = KeyAlg,
 			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret},
 			  tls_handshake_hashes = Hashes0} = State) ->
+
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret, 
-						 Version, KeyAlg, 
-						 PrivateKey, Hashes0) of
+						 Version, PrivateKey, Hashes0) of
         #certificate_verify{} = Verified ->
             {BinVerified, ConnectionStates1, Hashes1} = 
-                encode_handshake(Verified, KeyAlg, Version, 
+                encode_handshake(Verified, Version,
                                  ConnectionStates0, Hashes0),
             Transport:send(Socket, BinVerified),
             State#state{connection_states = ConnectionStates1,
@@ -1584,13 +1581,9 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
     ?DBG_TERM(#change_cipher_spec{}),
     ssl_record:encode_change_cipher_spec(Version, ConnectionStates).
 
-encode_handshake(HandshakeRec, Version, ConnectionStates, Hashes) ->
-    encode_handshake(HandshakeRec, null, Version, 
-		     ConnectionStates, Hashes).
-
-encode_handshake(HandshakeRec, SigAlg, Version, ConnectionStates0, Hashes0) ->
+encode_handshake(HandshakeRec, Version, ConnectionStates0, Hashes0) ->
     ?DBG_TERM(HandshakeRec),
-    Frag = ssl_handshake:encode_handshake(HandshakeRec, Version, SigAlg),
+    Frag = ssl_handshake:encode_handshake(HandshakeRec, Version),
     Hashes1 = ssl_handshake:update_hashes(Hashes0, Frag),
     {E, ConnectionStates1} =
         ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
@@ -2178,7 +2171,7 @@ renegotiate(#state{role = server,
 		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State0) ->
     HelloRequest = ssl_handshake:hello_request(),
-    Frag = ssl_handshake:encode_handshake(HelloRequest, Version, null),
+    Frag = ssl_handshake:encode_handshake(HelloRequest, Version),
     Hs0 = ssl_handshake:init_hashes(),
     {BinMsg, ConnectionStates} = 
 	ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
