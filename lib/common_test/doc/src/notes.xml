@@ -32,6 +32,22 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.5.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added vts.tool file to common_test so that vts shows up
+	    in webtool</p>
+          <p>
+	    Own Id: OTP-8894</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
