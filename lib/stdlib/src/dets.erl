@@ -1363,34 +1363,35 @@ start_auto_save_timer(Head) ->
 %% lookup requests in parallel. Evalute delete_object, delete and
 %% insert as well.
 stream_op(Op, Pid, Pids, Head, N) ->
-    stream_op(Head, Pids, [], N, Pid, Op, Head#head.fixed).
+    #head{fixed = Fxd, update_mode = M} = Head, 
+    stream_op(Head, Pids, [], N, Pid, Op, Fxd, M).
 
-stream_loop(Head, Pids, C, N, false = Fxd) ->
+stream_loop(Head, Pids, C, N, false = Fxd, M) ->
     receive
 	?DETS_CALL(From, Message) ->
-	    stream_op(Head, Pids, C, N, From, Message, Fxd)
+	    stream_op(Head, Pids, C, N, From, Message, Fxd, M)
     after 0 ->
 	    stream_end(Head, Pids, C, N, no_more)
     end;
-stream_loop(Head, Pids, C, N, _Fxd) ->
+stream_loop(Head, Pids, C, N, _Fxd, _M) ->
     stream_end(Head, Pids, C, N, no_more).
 
-stream_op(Head, Pids, C, N, Pid, {lookup_keys,Keys}, Fxd) ->
+stream_op(Head, Pids, C, N, Pid, {lookup_keys,Keys}, Fxd, M) ->
     NC = [{{lookup,Pid},Keys} | C],
-    stream_loop(Head, Pids, NC, N, Fxd);
-stream_op(Head, Pids, C, N, Pid, {insert, _Objects} = Op, Fxd) ->
+    stream_loop(Head, Pids, NC, N, Fxd, M);
+stream_op(Head, Pids, C, N, Pid, {insert, _Objects} = Op, Fxd, dirty = M) ->
     NC = [Op | C],
-    stream_loop(Head, [Pid | Pids], NC, N, Fxd);
-stream_op(Head, Pids, C, N, Pid, {delete_key, _Keys} = Op, Fxd) ->
+    stream_loop(Head, [Pid | Pids], NC, N, Fxd, M);
+stream_op(Head, Pids, C, N, Pid, {delete_key, _Keys} = Op, Fxd, dirty = M) ->
     NC = [Op | C],
-    stream_loop(Head, [Pid | Pids], NC, N, Fxd);
-stream_op(Head, Pids, C, N, Pid, {delete_object, _Objects} = Op, Fxd) ->
+    stream_loop(Head, [Pid | Pids], NC, N, Fxd, M);
+stream_op(Head, Pids, C, N, Pid, {delete_object, _Os} = Op, Fxd, dirty = M) ->
     NC = [Op | C],
-    stream_loop(Head, [Pid | Pids], NC, N, Fxd);
-stream_op(Head, Pids, C, N, Pid, {member, Key}, Fxd) ->
+    stream_loop(Head, [Pid | Pids], NC, N, Fxd, M);
+stream_op(Head, Pids, C, N, Pid, {member, Key}, Fxd, M) ->
     NC = [{{lookup,[Pid]},[Key]} | C],
-    stream_loop(Head, Pids, NC, N, Fxd);
-stream_op(Head, Pids, C, N, Pid, Op, _Fxd) ->
+    stream_loop(Head, Pids, NC, N, Fxd, M);
+stream_op(Head, Pids, C, N, Pid, Op, _Fxd, _M) ->
     stream_end(Head, Pids, C, N, {Pid,Op}).
 
 stream_end(Head, Pids0, C, N, Next) ->

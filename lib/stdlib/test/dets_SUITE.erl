@@ -50,7 +50,7 @@
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
-         otp_8070/1, otp_8856/1]).
+         otp_8070/1, otp_8856/1, otp_8898/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -108,7 +108,7 @@ all(suite) ->
 	      cache_duplicate_bags_v9, otp_4208, otp_4989, many_clients,
               otp_4906, otp_5402, simultaneous_open, insert_new, 
               repair_continuation, otp_5487, otp_6206, otp_6359, otp_4738,
-              otp_7146, otp_8070, otp_8856]} 
+              otp_7146, otp_8070, otp_8856, otp_8898]} 
     end.
 
 not_run(suite) -> [];
@@ -2934,6 +2934,29 @@ ets_init(_Tab, 0) ->
 ets_init(Tab, N) ->
     ets:insert(Tab, {N,N}),
     ets_init(Tab, N - 1).
+
+otp_8898(doc) ->
+    ["OTP-8898. Truncated Dets file."];
+otp_8898(suite) ->
+    [];
+otp_8898(Config) when is_list(Config) ->
+    Tab = otp_8898,
+    ?line FName = filename(Tab, Config),
+
+    Server = self(),
+
+    ?line file:delete(FName),
+    ?line {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    ?line [P1,P2,P3] = new_clients(3, Tab),
+
+    Seq = [{P1,[sync]},{P2,[{lookup,1,[]}]},{P3,[{insert,{1,b}}]}],
+    ?line atomic_requests(Server, Tab, [[]], Seq),
+    ?line true = get_replies([{P1,ok},{P2,ok},{P3,ok}]),
+    ?line ok = dets:close(Tab),
+    ?line {ok, _} = dets:open_file(Tab,[{file, FName}]),
+    ?line file:delete(FName),
+
+    ok.
 
 many_clients(doc) ->
     ["Several clients accessing a table simultaneously."];
