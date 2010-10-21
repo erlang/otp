@@ -1094,7 +1094,9 @@ do_apply_op(Op, From, Head, N) ->
         {N2, H2} when is_record(H2, head), is_integer(N2) ->
             open_file_loop(H2, N2);
         H2 when is_record(H2, head) ->
-            open_file_loop(H2, N)
+            open_file_loop(H2, N);
+        {{more,From1,Op1,N1}, NewHead} ->
+            do_apply_op(Op1, From1, NewHead, N1)
     catch 
         exit:normal -> 
             exit(normal);
@@ -1436,7 +1438,7 @@ stream_end2([], Ps, no_more, N, C, Head, _Reply) ->
     penalty(Head, Ps, C),
     {N, Head};
 stream_end2([], _Ps, {From, Op}, N, _C, Head, _Reply) ->
-    apply_op(Op, From, Head, N).
+    {{more,From,Op,N},Head}.
 
 penalty(H, _Ps, _C) when H#head.fixed =:= false ->
     ok;

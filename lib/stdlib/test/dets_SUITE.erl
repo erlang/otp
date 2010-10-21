@@ -50,7 +50,7 @@
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
-         otp_8070/1, otp_8856/1, otp_8898/1]).
+         otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -108,7 +108,7 @@ all(suite) ->
 	      cache_duplicate_bags_v9, otp_4208, otp_4989, many_clients,
               otp_4906, otp_5402, simultaneous_open, insert_new, 
               repair_continuation, otp_5487, otp_6206, otp_6359, otp_4738,
-              otp_7146, otp_8070, otp_8856, otp_8898]} 
+              otp_7146, otp_8070, otp_8856, otp_8898, otp_8899]}
     end.
 
 not_run(suite) -> [];
@@ -2958,6 +2958,34 @@ otp_8898(Config) when is_list(Config) ->
 
     ok.
 
+otp_8899(doc) ->
+    ["OTP-8899. Several clients. Updated Head was ignored."];
+otp_8899(suite) ->
+    [];
+otp_8899(Config) when is_list(Config) ->
+    Tab = many_clients,
+    ?line FName = filename(Tab, Config),
+
+    Server = self(),
+
+    ?line file:delete(FName),
+    ?line {ok, _} = dets:open_file(Tab,[{file, FName},{version,9}]),
+    ?line [P1,P2,P3,P4] = new_clients(4, Tab),
+
+    MC = [Tab],
+    Seq6a = [{P1,[{insert,[{used_to_be_skipped_by,match}]},
+                  {lookup,1,[{1,a}]}]},
+             {P2,[{verbose,true,MC}]},
+             {P3,[{lookup,1,[{1,a}]}]}, {P4,[{verbose,true,MC}]}],
+    ?line atomic_requests(Server, Tab, [[{1,a},{2,b},{3,c}]], Seq6a),
+    ?line true = get_replies([{P1,ok}, {P2,ok}, {P3,ok}, {P4,ok}]),
+    ?line [{1,a},{2,b},{3,c},{used_to_be_skipped_by,match}] =
+        lists:sort(dets:match_object(Tab, '_')),
+    ?line _ = dets:close(Tab),
+    ?line file:delete(FName),
+
+    ok.
+
 many_clients(doc) ->
     ["Several clients accessing a table simultaneously."];
 many_clients(suite) ->
@@ -3094,6 +3122,11 @@ client(S, Tab) ->
 
 eval([], _Tab) ->
     ok;
+eval([{verbose,Bool,Expected} | L], Tab) ->
+    ?line case dets:verbose(Bool) of
+	      Expected -> eval(L, Tab);
+	      Error -> {error, {verbose,Error}}
+	  end;
 eval([sync | L], Tab) ->
     ?line case dets:sync(Tab) of
 	      ok -> eval(L, Tab);
