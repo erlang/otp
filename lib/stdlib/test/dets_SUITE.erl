@@ -50,7 +50,7 @@
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
-         otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1]).
+         otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -108,7 +108,7 @@ all(suite) ->
 	      cache_duplicate_bags_v9, otp_4208, otp_4989, many_clients,
               otp_4906, otp_5402, simultaneous_open, insert_new, 
               repair_continuation, otp_5487, otp_6206, otp_6359, otp_4738,
-              otp_7146, otp_8070, otp_8856, otp_8898, otp_8899]}
+              otp_7146, otp_8070, otp_8856, otp_8898, otp_8899, otp_8903]}
     end.
 
 not_run(suite) -> [];
@@ -3779,6 +3779,29 @@ otp_8856(Config) when is_list(Config) ->
     spawn(fun() -> Me ! {3, dets:insert_new(Tab, {0,0})} end),
     ?line ok = dets:close(Tab),
     ?line receive {3, true} -> ok end,
+    file:delete(File),
+    ok.
+
+otp_8903(doc) ->
+    ["OTP-8903. bchunk/match/select bug."];
+otp_8903(suite) ->
+    [];
+otp_8903(Config) when is_list(Config) ->
+    Tab = otp_8903,
+    File = filename(Tab, Config),
+    ?line {ok,T} = dets:open_file(bug, [{file,File}]),
+    ?line ok = dets:insert(T, [{1,a},{2,b},{3,c}]),
+    ?line dets:safe_fixtable(T, true),
+    ?line {[_],C1} = dets:match_object(T, '_', 1),
+    ?line {BC1,_D} = dets:bchunk(T, start),
+    ?line ok = dets:close(T),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
+    ?line {ok,T} = dets:open_file(bug, [{file,File}]),
+    ?line false = dets:info(T, safe_fixed),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
+    ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
+    ?line ok = dets:close(T),
     file:delete(File),
     ok.
 
