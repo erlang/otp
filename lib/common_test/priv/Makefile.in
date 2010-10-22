@@ -56,8 +56,8 @@ ifneq ($(findstring win32,$(TARGET)),win32)
 #
 # Files
 #
-FILES =
-SCRIPTS =
+FILES = vts.tool
+SCRIPTS = 
 IMAGES = tile1.jpg
 
 #
