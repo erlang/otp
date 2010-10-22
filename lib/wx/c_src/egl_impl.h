@@ -125,14 +125,20 @@ typedef int64_t GLint64EXT;
 typedef uint64_t GLuint64EXT;
 #endif
 
+#ifndef GL_ARB_sync
+typedef int64_t GLint64;
+typedef uint64_t GLuint64;
+typedef struct __GLsync *GLsync;
+#endif
+
 /* External Api */
 
 #ifdef _WIN32
 extern "C" __declspec(dllexport) int  egl_init_opengl(void *);
-extern "C" __declspec(dllexport) void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **);
+extern "C" __declspec(dllexport) void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **, int *);
 #else 
 extern "C" int egl_init_opengl(void *);
-extern "C" void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **);
+extern "C" void egl_dispatch(int, char *, ErlDrvPort, ErlDrvTermData, char **, int *);
 #endif
 
 /* internal */

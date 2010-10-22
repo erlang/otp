@@ -50,6 +50,9 @@
 -define(GLintptr,64/native-unsigned).
 -define(GLUquadric,64/native-unsigned).
 -define(GLhandleARB,64/native-unsigned).
+-define(GLsync,64/native-unsigned).
+-define(GLuint64,64/native-unsigned).
+-define(GLint64,64/native-signed).
 -type enum() :: non_neg_integer().
 -type mem() :: binary() | tuple().
 
@@ -121,13 +124,11 @@ build3DMipmaps(Target,InternalFormat,Width,Height,Depth,Format,Type,Data) ->
   send_bin(Data),
   call(5015, <<Target:?GLenum,InternalFormat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Format:?GLenum,Type:?GLenum>>).
 
-%% @spec (ExtName::[integer()],ExtString::[integer()]) -> 0|1
+%% @spec (ExtName::string(),ExtString::string()) -> 0|1
 %% @doc See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluCheckExtension.xml">external</a> documentation.
--spec checkExtension([integer()],[integer()]) -> 0|1.
+-spec checkExtension(string(),string()) -> 0|1.
 checkExtension(ExtName,ExtString) ->
-  call(5016, <<(length(ExtName)):?GLuint,
-        (<< <<C:?GLubyte>> || C <- ExtName>>)/binary,0:((8-((length(ExtName)+ 4) rem 8)) rem 8),(length(ExtString)):?GLuint,
-        (<< <<C:?GLubyte>> || C <- ExtString>>)/binary,0:((8-((length(ExtString)+ 4) rem 8)) rem 8)>>).
+  call(5016, <<(list_to_binary([ExtName|[0]]))/binary,0:((8-((length(ExtName)+ 1) rem 8)) rem 8),(list_to_binary([ExtString|[0]]))/binary,0:((8-((length(ExtString)+ 1) rem 8)) rem 8)>>).
 
 %% @spec (Quad::integer(),Base::float(),Top::float(),Height::float(),Slices::integer(),Stacks::integer()) -> ok
 %% @doc See <a href="http://www.opengl.org/sdk/docs/man/xhtml/gluCylinder.xml">external</a> documentation.

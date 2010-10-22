@@ -35,7 +35,7 @@ int erl_gl_initiated = FALSE;
 ErlDrvTermData gl_active = 0;
 wxeGLC glc;
 
-typedef void (*WXE_GL_DISPATCH) (int, char *, ErlDrvPort, ErlDrvTermData, char **);
+typedef void (*WXE_GL_DISPATCH) (int, char *, ErlDrvPort, ErlDrvTermData, char **, int *);
 WXE_GL_DISPATCH wxe_gl_dispatch;
 
 #ifdef _WIN32
@@ -146,12 +146,15 @@ void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
     }
   };
   char * bs[3];
+  int bs_sz[3];
   for(int i=0; i<3; i++) {
-    if(bins[i]) 
+    if(bins[i]) {
       bs[i] = bins[i]->base;
+      bs_sz[i] = bins[i]->size;
+    }
     else 
       bs[i] = NULL;
   }
-  wxe_gl_dispatch(op, bp, WXE_DRV_PORT, caller, bs);
+  wxe_gl_dispatch(op, bp, WXE_DRV_PORT, caller, bs, bs_sz);
 }
 

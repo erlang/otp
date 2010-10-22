@@ -78,7 +78,11 @@ types() ->
      {"GLsizeiptr","64/native-unsigned"}, % 64 bits int, convert on c-side
      {"GLintptr",  "64/native-unsigned"}, % 64 bits int, convert on c-sidew
      {"GLUquadric", "64/native-unsigned"},% Handle 32bits aargh 64bits on mac64
-     {"GLhandleARB","64/native-unsigned"} % Handle 32bits aargh 64bits on mac64
+     {"GLhandleARB","64/native-unsigned"},% Handle 32bits aargh 64bits on mac64
+     
+     {"GLsync",     "64/native-unsigned"}, % Pointer to record
+     {"GLuint64",     "64/native-unsigned"},
+     {"GLint64",     "64/native-signed"}
     ].
 
 gl_api(Fs) ->
@@ -344,12 +348,8 @@ doc_arg_type2(T=#type{single={tuple,Sz}}) ->
     "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
 doc_arg_type2(T=#type{single=list}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(T=#type{single={list, Max}}) when is_integer(Max) ->
+doc_arg_type2(T=#type{single={list, _Max}}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
-doc_arg_type2(_T=#type{single={list,null}}) ->
-    "string()";
-doc_arg_type2(T=#type{base=string}) ->
-    doc_arg_type3(T);
 doc_arg_type2(T=#type{single={list,_,_}}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
 doc_arg_type2(T=#type{single={tuple_list,Sz}}) ->
