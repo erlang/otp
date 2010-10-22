@@ -906,6 +906,25 @@
           <seealso marker="kernel:error_logger#warning_map/0">error_logger(3)</seealso>
           for further information.</p>
       </item>
+      <tag><c><![CDATA[+zFlag Value]]></c></tag>
+      <item>
+        <p>Miscellaneous flags.</p>
+        <taglist>
+          <tag><marker id="+zdbbl"><c>+zdbbl size</c></marker></tag>
+          <item>
+            <p>Set the distribution buffer busy limit
+	    (<seealso marker="erlang#system_info_dist_buf_busy_limit">dist_buf_busy_limit</seealso>)
+	    in kilobytes. Valid range is 1-2097151. Default is 128.</p>
+            <p>A larger buffer limit will allow processes to buffer
+            more outgoing messages over the distribution. When the
+            buffer limit has been reached, sending processes will be
+            suspended until the buffer size has shrunk. The buffer
+            limit is per distribution channel. A higher limit will
+            give lower latency and higher throughput at the expense
+            of higher memory usage.</p>
+          </item>
+        </taglist>
+      </item>
     </taglist>
   </section>
 

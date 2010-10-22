@@ -535,7 +535,8 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-W<i|w>     set error logger warnings mapping,\n");
     erts_fprintf(stderr, "            see error_logger documentation for details\n");
-
+    erts_fprintf(stderr, "-zdbbl size set the distribution buffer busy limit in kilobytes\n");
+    erts_fprintf(stderr, "            valid range is [1-%d]\n", INT_MAX/1024);
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -818,7 +819,7 @@ early_init(int *argc, char **argv) /*
     erl_sys_args(argc, argv);
 
     erts_ets_realloc_always_moves = 0;
-
+    erts_dist_buf_busy_limit = ERTS_DE_BUSY_LIMIT;
 }
 
 #ifndef ERTS_SMP
@@ -1345,6 +1346,26 @@ erl_start(int argc, char **argv)
 		erts_usage();
 	    }
 	    break;
+
+	case 'z': {
+	    char *sub_param = argv[i]+2;
+	    int new_limit;
+
+	    if (has_prefix("dbbl", sub_param)) {
+		arg = get_arg(sub_param+4, argv[i+1], &i);
+		new_limit = atoi(arg);
+		if (new_limit < 1 || INT_MAX/1024 < new_limit) {
+		    erts_fprintf(stderr, "Invalid dbbl limit: %d\n", new_limit);
+		    erts_usage();
+		} else {
+		    erts_dist_buf_busy_limit = new_limit*1024;
+		}
+	    } else {
+		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);
+		erts_usage();
+	    }
+	    break;
+        }
 
 	default:
 	    erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);

@@ -5624,6 +5624,13 @@ true</pre>
 	      The return value will always be <c>false</c> since
 	      the elib_malloc allocator has been removed.</p>
           </item>
+          <tag><marker id="system_info_dist_buf_busy_limit"><c>dist_buf_busy_limit</c></marker></tag>
+          <item>
+            <p>Returns the value of the distribution buffer busy limit
+	    in bytes. This limit can be set on startup by passing the
+	    <seealso marker="erl#+zdbbl">+zdbbl</seealso> command line
+	    flag to <c>erl</c>.</p>
+          </item>
           <tag><c>fullsweep_after</c></tag>
           <item>
             <p>Returns <c>{fullsweep_after, int()}</c> which is the

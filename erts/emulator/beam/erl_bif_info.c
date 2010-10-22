@@ -2533,6 +2533,13 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_nif_taints(BIF_P));
     } else if (ERTS_IS_ATOM_STR("reader_groups_map", BIF_ARG_1)) {
 	BIF_RET(erts_get_reader_groups_map(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("dist_buf_busy_limit", BIF_ARG_1)) {
+	Uint hsz = 0;
+
+ 	(void) erts_bld_uint(NULL, &hsz, erts_dist_buf_busy_limit);
+	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
+	res = erts_bld_uint(&hp, NULL, erts_dist_buf_busy_limit);
+	BIF_RET(res);
     }
 
     BIF_ERROR(BIF_P, BADARG);

@@ -33,7 +33,7 @@
 
 -export([all/1, init_per_testcase/2, fin_per_testcase/2]).
 
--export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1]).
+-export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1, zdbbl_dist_buf_busy_limit/1]).
 
 -include_lib("test_server/include/test_server.hrl").
     
@@ -53,7 +53,8 @@ fin_per_testcase(_Case, Config) ->
 
 all(doc) -> [];
 all(suite) ->
-    [args_file, evil_args_file, env, args_file_env, otp_7461, otp_8209].
+    [args_file, evil_args_file, env, args_file_env, otp_7461, otp_8209,
+     zdbbl_dist_buf_busy_limit].
 
 
 otp_8209(doc) ->
@@ -330,6 +331,25 @@ otp_7461_remote([halt, Pid]) ->
     io:format("halt order from ~p to node ~p\n",[Pid,node()]),
     halt().
 
+zdbbl_dist_buf_busy_limit(doc) ->    
+    ["Check +zdbbl flag"];
+zdbbl_dist_buf_busy_limit(suite) ->
+    [];
+zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
+    LimKB = 1122233,
+    LimB = LimKB*1024,
+    ?line {ok,[[PName]]} = init:get_argument(progname),
+    ?line SNameS = "erlexec_test_02",
+    ?line SName = list_to_atom(SNameS++"@"++
+                         hd(tl(string:tokens(atom_to_list(node()),"@")))),
+    ?line Cmd = PName ++ " -sname "++SNameS++" -setcookie "++
+        atom_to_list(erlang:get_cookie()) ++
+	" +zdbbl " ++ integer_to_list(LimKB),
+    ?line open_port({spawn,Cmd},[]),
+    ?line pong = loop_ping(SName,40),
+    ?line LimB = rpc:call(SName,erlang,system_info,[dist_buf_busy_limit]),
+    ?line ok = cleanup_node(SNameS, 10),
+    ok.
     
 
 %%
