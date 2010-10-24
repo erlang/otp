@@ -59,6 +59,11 @@ int ei_unpublish_tmo(const char *alive, unsigned ms)
     int len = 1 + strlen(alive);
     int fd, res;
 
+    if (len > sizeof(buf)-3) {
+	erl_errno = ERANGE;
+	return -1;
+    }
+
     put16be(s,len);
     put8(s,EI_EPMD_STOP_REQ);
     strcpy(s, alive);

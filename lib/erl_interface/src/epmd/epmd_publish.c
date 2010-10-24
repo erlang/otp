@@ -69,6 +69,12 @@ static int ei_epmd_r4_publish (int port, const char *alive, unsigned ms)
   int n;
   int res, creation;
   
+  if (len > sizeof(buf)-2)
+  {
+    erl_errno = ERANGE;
+    return -1;
+  }
+
   s = buf;
   put16be(s,len);
 
