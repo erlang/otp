@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -85,7 +85,7 @@ start_subsystem(SystemSup, Options) ->
     supervisor:start_child(SystemSup, Spec).
 
 stop_subsystem(SystemSup, SubSys) ->
-    case lists:keyfind(SubSys, 2, supervisor:which_children(SystemSup)) of
+    case catch lists:keyfind(SubSys, 2, supervisor:which_children(SystemSup)) of
 	false ->
 	    {error, not_found};
 	{Id, _, _, _} ->
