@@ -29,6 +29,22 @@
     <file>notes.xml</file>
   </header>
 
+ <section><title>Ssh 1.1.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The fix regarding OTP-8863 was not included in the previous
+            version as stated.</p>
+          <p>
+	    Own Id: OTP-8908</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
  <section><title>Ssh 1.1.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
