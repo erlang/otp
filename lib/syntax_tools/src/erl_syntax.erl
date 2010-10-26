@@ -1818,7 +1818,7 @@ char_value(Node) ->
 %%
 %% @see char/1
 
--spec char_literal(syntaxTree()) -> string().
+-spec char_literal(syntaxTree()) -> nonempty_string().
 
 char_literal(Node) ->
     io_lib:write_char(char_value(Node)).
@@ -1908,7 +1908,7 @@ string_value(Node) ->
 %%
 %% @see string/1
 
--spec string_literal(syntaxTree()) -> string().
+-spec string_literal(syntaxTree()) -> nonempty_string().
 
 string_literal(Node) ->
     io_lib:write_string(string_value(Node)).

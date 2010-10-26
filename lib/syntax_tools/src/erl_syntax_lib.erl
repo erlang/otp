@@ -49,10 +49,6 @@
 -export_type([info_pair/0]).
 
 %% =====================================================================
-
--type ordset(X) :: [X].  % XXX: TAKE ME OUT
-
-%% =====================================================================
 %% @spec map(Function, Tree::syntaxTree()) -> syntaxTree()
 %%
 %%          Function = (syntaxTree()) -> syntaxTree()
@@ -480,7 +476,7 @@ new_variable_names(0, Names, _, _, _) ->
 %% @see annotate_bindings/1
 %% @see //stdlib/ordsets
 
--spec annotate_bindings(erl_syntax:syntaxTree(), ordset(atom())) ->
+-spec annotate_bindings(erl_syntax:syntaxTree(), ordsets:ordset(atom())) ->
         erl_syntax:syntaxTree().
 
 annotate_bindings(Tree, Env) ->
