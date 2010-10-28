@@ -1599,7 +1599,7 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 	    break;
     case SQL_C_TYPE_TIMESTAMP:
 	    ts = (TIMESTAMP_STRUCT*) param->values.string;
-	    ei_decode_tuple_header(buffer, index, &val);
+	    ei_decode_tuple_header(buffer, index, &size);
 	    ei_decode_long(buffer, index, &val);
 	    ts[j].year = (SQLUSMALLINT)val;
 	    ei_decode_long(buffer, index, &val);
@@ -1728,69 +1728,47 @@ static byte * receive_erlang_port_msg(void)
  
 /* ------------- Socket communication functions --------------------------*/
 
-#if defined WIN32
-/* Currently only an old windows compiler is supported so we do not have ipv6
-  capabilities */
+#if defined(WIN32)
 static SOCKET connect_to_erlang(const char *port)
-{
-    SOCKET sock;
-    struct sockaddr_in sin;
-    
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_port = htons ((unsigned short)atoi(port));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-    
-    if (connect(sock, (struct sockaddr*)&sin, sizeof(sin)) != 0) {
-        close_socket(sock);
-        DO_EXIT(EXIT_SOCKET_CONNECT);
-    }
-    return sock;
-}
 #elif defined(UNIX)
 static int connect_to_erlang(const char *port)
-{
-    int sock;
-    
-    struct addrinfo hints;
-    struct addrinfo *erlang_ai, *first;
-    
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = PF_UNSPEC; /* PF_INET or PF_INET6 */
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-    
-    if (getaddrinfo("localhost", port, &hints, &first) != 0) {
-  	DO_EXIT(EXIT_FAILURE);
-    }
-    
-    for (erlang_ai = first; erlang_ai; erlang_ai = erlang_ai->ai_next) {
-	
-	sock = socket(erlang_ai->ai_family, erlang_ai->ai_socktype,
-		      erlang_ai->ai_protocol);
-	if (sock < 0)
-	    continue;
-	if (connect(sock,  (struct sockaddr*)erlang_ai->ai_addr,
-		    erlang_ai->ai_addrlen) < 0) {
-	    close(sock); 
-	    sock = -1;
-	    continue;
-	} else {
-	    break;
-	}
-    }
-    freeaddrinfo(first); 
-    
-    if (sock < 0){
-	close_socket(sock); 
-	DO_EXIT(EXIT_SOCKET_CONNECT); 
-    }
-    
-    return sock;
-}
 #endif
+{
+#if defined(WIN32)
+	SOCKET sock;
+#elif defined(UNIX)
+	int sock;
+#endif
+	struct sockaddr_in sin;
+
+#if defined(AF_INET6)
+	struct sockaddr_in6 sin6;
+
+	sock = socket(AF_INET6, SOCK_STREAM, 0);
+
+	memset(&sin6, 0, sizeof(sin6));
+	sin6.sin6_port = htons ((unsigned short)atoi(port));
+	sin6.sin6_family = AF_INET6;
+	sin6.sin6_addr = in6addr_loopback;
+    
+	if (connect(sock, (struct sockaddr*)&sin6, sizeof(sin6)) == 0) {
+		return sock;
+	}
+	close_socket(sock);
+#endif
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+
+	memset(&sin, 0, sizeof(sin));
+	sin.sin_port = htons ((unsigned short)atoi(port));
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	
+	if (connect(sock, (struct sockaddr*)&sin, sizeof(sin)) != 0) {
+		close_socket(sock);
+		DO_EXIT(EXIT_SOCKET_CONNECT);
+	}
+	return sock;
+}
 
 #ifdef WIN32
 static void close_socket(SOCKET socket)
@@ -2173,9 +2151,9 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
       params->type.sql = SQL_TYPE_TIMESTAMP;
       params->type.len = sizeof(TIMESTAMP_STRUCT);
       params->type.c = SQL_C_TYPE_TIMESTAMP;
-      params->type.col_size = (SQLUINTEGER)19;//;sizeof(TIMESTAMP_STRUCT);
+      params->type.col_size = (SQLUINTEGER)COL_SQL_TIMESTAMP;
       params->values.string =
-        (TIMESTAMP_STRUCT *)safe_malloc(num_param_values * params->type.len);      
+        (byte *)safe_malloc(num_param_values * params->type.len);
       break;
     case USER_FLOAT:
 	params->type.sql = SQL_FLOAT;

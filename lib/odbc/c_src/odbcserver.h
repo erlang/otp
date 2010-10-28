@@ -98,6 +98,7 @@
 #define COL_SQL_REAL 7
 #define COL_SQL_DOUBLE 15
 #define COL_SQL_TINYINT 4
+#define COL_SQL_TIMESTAMP 19
 
 /* Types of parameters given to param_query*/
 #define USER_SMALL_INT 1
