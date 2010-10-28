@@ -72,6 +72,64 @@
   </section>
 
   <section>
+    <title>Orber 3.6.18</title>
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A corbaloc http string could return an EXIT message, instead
+             of a system exception, if the HTTP server closed the socket
+             without returning a complete message. I.e. header and a body
+             containing a stringified IOR.</p>
+          <p>Own Id: OTP-8900 Aux Id: seq11704</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.17</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Eliminated warnings for auto-imported BIF clashes.</p>
+          <p>
+            Own Id: OTP-8840</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.16</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Test suites published.</p>
+          <p>
+            Own Id: OTP-8543O Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Added missing trailing bracket to define in hrl-file.</p>
+          <p>Own Id: OTP-8489 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>Orber 3.6.15</title>
 
     <section>
@@ -104,11 +162,11 @@
       <list type="bulleted">
         <item>
           <p>Removed superfluous VT in the documentation.</p>
-          <p>Own id: OTP-8353 Aux Id:</p>
+          <p>Own Id: OTP-8353 Aux Id:</p>
         </item>
         <item>
           <p>Removed superfluous backslash in the documentation.</p>
-          <p>Own id: OTP-8354 Aux Id:</p>
+          <p>Own Id: OTP-8354 Aux Id:</p>
         </item>
       </list>
     </section>
@@ -140,7 +198,7 @@
         <item>
           <p>Obsolete guards, e.g. record vs is_record, has been changed 
              to avoid compiler warnings.</p>
-          <p>Own id: OTP-7987</p>
+          <p>Own Id: OTP-7987</p>
         </item>
       </list>
     </section>
@@ -158,7 +216,7 @@
              Naming Service (INS) instead. INS is a part of the OMG
              standard specification.</p>
           <p>*** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>Own id: OTP-7906 Aux Id: seq11243</p>
+          <p>Own Id: OTP-7906 Aux Id: seq11243</p>
         </item>
       </list>
     </section>
@@ -172,7 +230,7 @@
       <list type="bulleted">
         <item>
           <p>Updated file headers.</p>
-          <p>Own id: OTP-7837</p>
+          <p>Own Id: OTP-7837</p>
         </item>
       </list>
     </section>
@@ -186,7 +244,7 @@
       <list type="bulleted">
         <item>
           <p>Documentation source included in open source releases.</p>
-          <p>Own id: OTP-7595</p>
+          <p>Own Id: OTP-7595</p>
         </item>
       </list>
     </section>
@@ -200,11 +258,11 @@
       <list type="bulleted">
         <item>
           <p>Updated file headers.</p>
-          <p>Own id: OTP-7011</p>
+          <p>Own Id: OTP-7011</p>
         </item>
         <item>
           <p>Now compliant with the new behavior of stdlib.</p>
-          <p>Own id: OTP-7030 Aux Id: seq10827</p>
+          <p>Own Id: OTP-7030 Aux Id: seq10827</p>
         </item>
       </list>
     </section>
