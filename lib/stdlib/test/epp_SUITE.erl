@@ -24,7 +24,7 @@
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
-         otp_8562/1, otp_8665/1]).
+         otp_8562/1, otp_8665/1, otp_8911/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -64,7 +64,7 @@ all(doc) ->
 all(suite) ->
     [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
      pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562, otp_8665].
+     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562, otp_8665, otp_8911].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -1195,6 +1195,40 @@ otp_8562(Config) when is_list(Config) ->
                     {{2,13},epp,missing_parenthesis}], []}}
          ],
     ?line [] = compile(Config, Cs),
+    ok.
+
+otp_8911(doc) ->
+    ["OTP-8911. -file and file inclusion bug"];
+otp_8911(suite) ->
+    [];
+otp_8911(Config) when is_list(Config) ->
+    ?line {ok, CWD} = file:get_cwd(),
+    ?line ok = file:set_cwd(?config(priv_dir, Config)),
+
+    File = "i.erl",
+    Cont = <<"-module(i).
+              -compile(export_all).
+              -file(\"fil1\", 100).
+              -include(\"i1.erl\").
+              t() ->
+                  a.
+           ">>,
+    ?line ok = file:write_file(File, Cont),
+    Incl = <<"-file(\"fil2\", 35).
+              t1() ->
+                  b.
+           ">>,
+    File1 = "i1.erl",
+    ?line ok = file:write_file(File1, Incl),
+
+    ?line {ok, i} = cover:compile(File),
+    ?line a = i:t(),
+    ?line {ok,[{{i,6},1}]} = cover:analyse(i, calls, line),
+    ?line cover:stop(),
+
+    file:delete(File),
+    file:delete(File1),
+    ?line file:set_cwd(CWD),
     ok.
 
 otp_8665(doc) ->

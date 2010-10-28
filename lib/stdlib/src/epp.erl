@@ -33,7 +33,9 @@
 %% Epp state record.
 -record(epp, {file,				%Current file
 	      location,         		%Current location
+              delta,                            %Offset from Location (-file)
 	      name="",				%Current file name
+              name2="",                         %-"-, modified by -file
 	      istk=[],				%Ifdef stack
 	      sstk=[],				%State stack
 	      path=[],				%Include-path
@@ -234,8 +236,8 @@ init_server(Pid, Name, File, AtLocation, Path, Pdm, Pre) ->
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
 	    epp_reply(Pid, {ok,self()}),
-	    St = #epp{file=File, location=AtLocation, name=Name,
-                      path=Path, macs=Ms1, pre_opened = Pre},
+	    St = #epp{file=File, location=AtLocation, delta=0, name=Name,
+                      name2=Name, path=Path, macs=Ms1, pre_opened = Pre},
 	    From = wait_request(St),
 	    enter_file_reply(From, Name, AtLocation, AtLocation),
 	    wait_req_scan(St);
@@ -358,8 +360,8 @@ enter_file2(NewF, Pname, From, St, AtLocation, ExtraPath) ->
     enter_file_reply(From, Pname, Loc, AtLocation),
     Ms = dict:store({atom,'FILE'}, {none,[{string,Loc,Pname}]}, St#epp.macs),
     Path = St#epp.path ++ ExtraPath,
-    #epp{location=Loc,file=NewF,
-         name=Pname,sstk=[St|St#epp.sstk],path=Path,macs=Ms}.
+    #epp{file=NewF,location=Loc,name=Pname,delta=0,
+         sstk=[St|St#epp.sstk],path=Path,macs=Ms}.
 
 enter_file_reply(From, Name, Location, AtLocation) ->
     Attr = loc_attr(AtLocation),
@@ -391,14 +393,23 @@ leave_file(From, St) ->
 	    case St#epp.sstk of
 		[OldSt|Sts] ->
 		    close_file(St),
-		    enter_file_reply(From, OldSt#epp.name,
-                                     OldSt#epp.location, OldSt#epp.location),
+                    #epp{location=OldLoc, delta=Delta, name=OldName,
+                         name2=OldName2} = OldSt,
+                    CurrLoc = add_line(OldLoc, Delta),
 		    Ms = dict:store({atom,'FILE'},
-				    {none,
-				     [{string,OldSt#epp.location,
-                                       OldSt#epp.name}]},
+				    {none,[{string,CurrLoc,OldName2}]},
 				    St#epp.macs),
-		    wait_req_scan(OldSt#epp{sstk=Sts,macs=Ms});
+                    NextSt = OldSt#epp{sstk=Sts,macs=Ms},
+		    enter_file_reply(From, OldName, CurrLoc, CurrLoc),
+                    case OldName2 =:= OldName of
+                        true ->
+                            From;
+                        false ->
+                            NFrom = wait_request(NextSt),
+                            enter_file_reply(NFrom, OldName2, OldLoc,
+                                             neg_line(CurrLoc))
+                        end,
+                    wait_req_scan(NextSt);
 		[] ->
 		    epp_reply(From, {eof,St#epp.location}),
 		    wait_req_scan(St)
@@ -768,7 +779,8 @@ scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
     Ms = dict:store({atom,'FILE'}, {none,[{string,1,Name}]}, St#epp.macs),
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
-    wait_req_scan(St#epp{name=Name,location=NewLoc,macs=Ms});
+    Delta = abs(get_line(element(2, Tf)))-Ln + St#epp.delta, 
+    wait_req_scan(St#epp{name2=Name,location=NewLoc,delta=Delta,macs=Ms});
 scan_file(_Toks, Tf, From, St) ->
     epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
     wait_req_scan(St).
@@ -1132,6 +1144,9 @@ neg_line(L) ->
 abs_line(L) ->
     erl_scan:set_attribute(line, L, fun(Line) -> abs(Line) end).
 
+add_line(L, Offset) ->
+    erl_scan:set_attribute(line, L, fun(Line) -> Line+Offset end).
+
 start_loc(Line) when is_integer(Line) ->
     1;
 start_loc({_Line, _Column}) ->
@@ -1191,10 +1206,10 @@ interpret_file_attr([{attribute,Loc,file,{File,Line}}=Form | Forms],
             %% -include or -include_lib
             % true = L =:= Line,
             case Fs of
-                [_, Delta1, File | Fs1] -> % end of included file
-                    [Form | interpret_file_attr(Forms, Delta1, [File | Fs1])];
+                [_, File | Fs1] -> % end of included file
+                    [Form | interpret_file_attr(Forms, 0, [File | Fs1])];
                 _ -> % start of included file
-                    [Form | interpret_file_attr(Forms, 0, [File, Delta | Fs])]
+                    [Form | interpret_file_attr(Forms, 0, [File | Fs])]
             end
     end;
 interpret_file_attr([Form0 | Forms], Delta, Fs) ->
