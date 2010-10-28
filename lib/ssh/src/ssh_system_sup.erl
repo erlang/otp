@@ -85,7 +85,7 @@ start_subsystem(SystemSup, Options) ->
     supervisor:start_child(SystemSup, Spec).
 
 stop_subsystem(SystemSup, SubSys) ->
-    case lists:keyfind(SubSys, 2, supervisor:which_children(SystemSup)) of
+    case catch lists:keyfind(SubSys, 2, supervisor:which_children(SystemSup)) of
 	false ->
 	    {error, not_found};
 	{Id, _, _, _} ->
