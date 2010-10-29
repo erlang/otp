@@ -201,7 +201,7 @@ chars(C, 0, Tail) when is_integer(C) ->
 
 -spec copies(string(), non_neg_integer()) -> string().
 
-copies(CharList, Num) when is_list(CharList), Num >= 0 ->
+copies(CharList, Num) when is_list(CharList), is_integer(Num), Num >= 0 ->
     copies(CharList, Num, []).
 
 copies(_CharList, 0, R) ->

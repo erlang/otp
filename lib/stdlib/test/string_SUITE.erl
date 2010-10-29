@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -240,7 +240,8 @@ copies(Config) when is_list(Config) ->
     ?line "." = string:copies(".", 1),
     ?line 30 = length(string:copies("123", 10)),
     %% invalid arg type
-    ?line {'EXIT',_} = (catch string:chars("hej", -1)),
+    ?line {'EXIT',_} = (catch string:copies("hej", -1)),
+    ?line {'EXIT',_} = (catch string:copies("hej", 2.0)),
     ok.
 
 words(suite) ->
