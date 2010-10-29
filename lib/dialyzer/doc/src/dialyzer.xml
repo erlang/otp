@@ -101,9 +101,9 @@
       <tag><c><![CDATA[--output_plt file]]></c></tag>
       <item>Store the PLT at the specified location after building it.</item>
       <tag><c><![CDATA[--plt plt]]></c></tag>
-      <item>Use the specified plt as the initial persistent lookup table.</item>
+      <item>Use the specified PLT as the initial persistent lookup table.</item>
       <tag><c><![CDATA[-Wwarn]]></c></tag>
-      <item>a family of option which selectively turn on/off warnings.
+      <item>a family of options which selectively turn on/off warnings.
        (for help on the names of warnings use <c><![CDATA[dialyzer -Whelp]]></c>)</item>
       <tag><c><![CDATA[--shell]]></c></tag>
       <item>do not disable the Erlang shell while running the GUI</item>
