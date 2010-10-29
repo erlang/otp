@@ -973,7 +973,7 @@ atom_name(Node) ->
 
 %% TODO: replace the use of the unofficial 'write_string/2'.
 
--spec atom_lit(cerl()) -> string().
+-spec atom_lit(cerl()) -> nonempty_string().
 
 atom_lit(Node) ->
     io_lib:write_string(atom_name(Node), $'). %' stupid Emacs.
@@ -1079,7 +1079,7 @@ char_val(Node) ->
 %%
 %% @see c_char/1
 
--spec char_lit(c_literal()) -> string().
+-spec char_lit(c_literal()) -> nonempty_string().
 
 char_lit(Node) ->
     io_lib:write_char(char_val(Node)).
@@ -1178,7 +1178,7 @@ string_val(Node) ->
 %%
 %% @see c_string/1
 
--spec string_lit(c_literal()) -> string().
+-spec string_lit(c_literal()) -> nonempty_string().
 
 string_lit(Node) ->
     io_lib:write_string(string_val(Node)).

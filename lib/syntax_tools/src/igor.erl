@@ -119,20 +119,16 @@
 
 %% =====================================================================
 
--type ordset(X) :: [X].  % XXX: TAKE ME OUT
-
-%% =====================================================================
-
 %% Data structure for module information
 
 -record(module, {name        :: atom(),
 		 vars = none :: [atom()] | 'none',
-		 functions   :: ordset({atom(), arity()}),
-		 exports     :: ordset({atom(), arity()})
-			      | ordset({{atom(), arity()}, term()}),
-		 aliases     :: ordset({{atom(), arity()},
-					{atom(), {atom(), arity()}}}),
-		 attributes  :: ordset({atom(), term()}),
+		 functions   :: ordsets:ordset({atom(), arity()}),
+		 exports     :: ordsets:ordset({atom(), arity()})
+			      | ordsets:ordset({{atom(), arity()}, term()}),
+		 aliases     :: ordsets:ordset({{atom(), arity()},
+						{atom(), {atom(), arity()}}}),
+		 attributes  :: ordsets:ordset({atom(), term()}),
 		 records     :: [{atom(), [{atom(), term()}]}]
 		}).
 
@@ -149,7 +145,7 @@ default_printer(Tree, Options) ->
 -type moduleName()     :: atom().
 -type functionName()   :: {atom(), arity()}.
 -type functionPair()   :: {functionName(), {moduleName(), functionName()}}.
--type stubDescriptor() :: [{moduleName(), [functionPair()], [attribute()]}].
+-type stubDescriptor() :: {moduleName(), [functionPair()], [attribute()]}.
 
 -type notes() :: 'always' | 'yes' | 'no'.
 
@@ -209,7 +205,7 @@ parse_transform(Forms, Options) ->
 %% @spec merge(Name::atom(), Files::[filename()]) -> [filename()]
 %% @equiv merge(Name, Files, [])
 
--spec merge(atom(), [file:filename()]) -> [file:filename()].
+-spec merge(atom(), [file:filename()]) -> [file:filename(),...].
 
 merge(Name, Files) ->
     merge(Name, Files, []).
@@ -343,7 +339,7 @@ merge(Name, Files) ->
 	 {suffix, ?DEFAULT_SUFFIX},
 	 {verbose, false}]).
 
--spec merge(atom(), [file:filename()], [option()]) -> [file:filename()].
+-spec merge(atom(), [file:filename()], [option()]) -> [file:filename(),...].
 
 merge(Name, Files, Opts) ->
     Opts1 = Opts ++ ?DEFAULT_MERGE_OPTS,
@@ -484,7 +480,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%
 %%     Forms = syntaxTree() | [syntaxTree()]
 %%
-%% @type stubDescriptor() = [{ModuleName, Functions, [Attribute]}]
+%% @type stubDescriptor() = {ModuleName, Functions, [Attribute]}
 %%	    ModuleName = atom()
 %%	    Functions = [{FunctionName, {ModuleName, FunctionName}}]
 %%	    FunctionName = {atom(), integer()}
@@ -687,15 +683,15 @@ merge_files(Name, Trees, Files, Opts) ->
 %% Data structure for merging environment.
 
 -record(merge, {target     :: atom(),
-		sources    :: ordset(atom()),
-		export     :: ordset(atom()),
-		static     :: ordset(atom()),
-		safe       :: ordset(atom()),
+		sources    :: ordsets:ordset(atom()),
+		export     :: ordsets:ordset(atom()),
+		static     :: ordsets:ordset(atom()),
+		safe       :: ordsets:ordset(atom()),
 		preserved  :: boolean(),
 		no_headers :: boolean(),
 		notes      :: notes(),
 		redirect   :: dict(),	% = dict(atom(), atom())
-		no_imports :: ordset(atom()),
+		no_imports :: ordsets:ordset(atom()),
 		options	   :: [option()]
 	       }).
 
