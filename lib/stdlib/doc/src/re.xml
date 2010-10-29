@@ -37,29 +37,24 @@
   <modulesummary>Perl like regular expressions for Erlang</modulesummary>
   <description>
 
-    <p>This module contains functions for regular expression
-      matching for strings and binaries.</p>
+    <p>This module contains regular expression matching functions for
+    strings and binaries.</p>
 
     <p>The regular expression syntax and semantics resemble that of
-    Perl.  This library in many ways replaces the old regexp library
-    written purely in Erlang, as it has a richer syntax as well as
-    many more options. The library is also faster than the
-    older regexp implementation.</p>
+    Perl. This library replaces the deprecated pure-Erlang regexp
+    library; it has a richer syntax, more options and is faster.</p>
 
-    <p>Although the library's matching algorithms are currently based
-    on the PCRE library, it is not to be viewed as an Erlang to PCRE
-    mapping. Only parts of the PCRE library is interfaced and the re
-    library in some ways extend PCRE. The PCRE documentation contains
-    many parts of no interest to the Erlang programmer, why only the
-    relevant part of the documentation is included here. There should
-    bee no need to go directly to the PCRE library documentation.</p>
+    <p>The library's matching algorithms are currently based on the
+    PCRE library, but not all of the PCRE library is interfaced and
+    some parts of the library go beyond what PCRE offers. The sections of
+    the PCRE documentation which are relevant to this module are included
+    here.</p>
 
     <note>
-    <p>The Erlang literal syntax for strings give special
-    meaning to the &quot;\&quot; (backslash) character. To literally write
-    a regular expression or a replacement string containing a
-    backslash in your code or in the shell, two backslashes have to be written:
-    &quot;\\&quot;.</p>
+    <p>The Erlang literal syntax for strings uses the &quot;\&quot;
+    (backslash) character as an escape code. You need to escape
+    backslashes in literal strings, both in your code and in the shell,
+    with an additional backslash, i.e.: &quot;\\&quot;.</p>
     </note>
 
 
@@ -72,7 +67,7 @@
       - a binary is allowed as the tail of the list</code>
       <code type="none">
     unicode_binary() = binary() with characters encoded in UTF-8 coding standard
-    unicode_char() = integer() representing valid unicode codepoint
+    unicode_char() = integer() representing a valid unicode codepoint
 
     chardata() = charlist() | unicode_binary()
 
@@ -82,9 +77,9 @@
       <code type="none">
     mp() = Opaque datatype containing a compiled regular expression.
       - The mp() is guaranteed to be a tuple() having the atom
-	're_pattern' as it's first element, to allow for matching in
+	're_pattern' as its first element, to allow for matching in
         guards. The arity of the tuple() or the content of the other fields
-	is however not to be trusted.</code>
+	may change in future releases.</code>
   </section>
   <funcs>
     <func>
@@ -132,7 +127,7 @@
       <tag><c>dollar_endonly</c></tag>
       <item>A dollar metacharacter in the pattern matches only at the end of the subject string. Without this option, a dollar also matches immediately before a newline at the end of the string (but not before any other newlines). The <c>dollar_endonly</c> option is ignored if <c>multiline</c> is given. There is no equivalent option in Perl, and no way to set it within a pattern.</item>
       <tag><c>dotall</c></tag>
-      <item>A dot maturate in the pattern matches all characters, including those that indicate newline. Without it, a dot does not match when the current position is at a newline. This option is equivalent to Perl's /s option, and it can be changed within a pattern by a (?s) option setting. A negative class such as [^a] always matches newline characters, independent of the setting of this option.</item>
+      <item>A dot in the pattern matches all characters, including those that indicate newline. Without it, a dot does not match when the current position is at a newline. This option is equivalent to Perl's /s option, and it can be changed within a pattern by a (?s) option setting. A negative class such as [^a] always matches newline characters, independent of this option's setting.</item>
       <tag><c>extended</c></tag>
       <item>Whitespace data characters in the pattern are ignored except when escaped or inside a character class. Whitespace does not include the VT character (ASCII 11). In addition, characters between an unescaped # outside a character class and the next newline, inclusive, are also ignored. This is equivalent to Perl's /x option, and it can be changed within a pattern by a (?x) option setting.
 
@@ -214,9 +209,10 @@ This option makes it possible to include comments inside complicated patterns. N
       or as a pre compiled <c>mp()</c> in which case it is executed
       against the subject directly.</p>
 
-      <p>When compilation is involved, the exception <c>badarg</c> is thrown if
-      a compilation error occurs. To locate the error in the regular
-      expression, use the function <c>re:compile/2</c> to get more information.</p>
+      <p>When compilation is involved, the exception <c>badarg</c> is
+      thrown if a compilation error occurs. Call <c>re:compile/2</c>
+      to get information about the location of the error in the
+      regular expression.</p>
 
       <p>If the regular expression is previously compiled, the option
       list can only contain the options <c>anchored</c>,
@@ -246,7 +242,7 @@ This option makes it possible to include comments inside complicated patterns. N
       how captured substrings are to be returned (as index tuples,
       lists or binaries). The <c>capture</c> option makes the function
       quite flexible and powerful. The different options are described
-      in detail below</p>
+      in detail below.</p>
 
       <p>If the capture options describe that no substring capturing
       at all is to be done (<c>{capture, none}</c>), the function will
@@ -256,7 +252,7 @@ This option makes it possible to include comments inside complicated patterns. N
       be done either by specifying <c>none</c> or an empty list as
       <c>ValueSpec</c>.</p>
 
-      <p>A description of all the options relevant for execution follows:</p>
+      <p>The options relevant for execution are:</p>
 
       <taglist>
       <tag><c>anchored</c></tag>
@@ -270,27 +266,25 @@ This option makes it possible to include comments inside complicated patterns. N
       <tag><c>global</c></tag>
       <item>
 
-      <p>Implements global (repetitive) search as the <c>g</c> flag in
-      i.e. Perl. Each match found is returned as a separate
+      <p>Implements global (repetitive) search (the <c>g</c> flag in
+      Perl). Each match is returned as a separate
       <c>list()</c> containing the specific match as well as any
       matching subexpressions (or as specified by the <c>capture
       option</c>). The <c>Captured</c> part of the return value will
-      hence be a <c>list()</c> of <c>list()</c>'s when this
+      hence be a <c>list()</c> of <c>list()</c>s when this
       option is given.</p>
 
-      <p>When the regular expression matches an empty string, the
-      behaviour might seem non-intuitive, why the behaviour requites
-      some clarifying.  With the global option, <c>re:run/3</c>
-      handles empty matches in the same way as Perl, meaning that a
-      match at any point giving an empty string (with length 0) will
-      be retried with the options
-      <c>[anchored, notempty]</c> as well. If that 
-      search gives a result of length &gt; 0, the result is included. 
-      An example:</p>
+      <p>The interaction of the global option with a regular
+      expression which matches an empty string surprises some users.
+      When the global option is given, <c>re:run/3</c> handles empty
+      matches in the same way as Perl: a zero-length match at any
+      point will be retried with the options <c>[anchored,
+      notempty]</c> as well. If that search gives a result of length
+      &gt; 0, the result is included.  For example:</p>
       
 <code>    re:run("cat","(|at)",[global]).</code>
 
-      <p>The matching will be performed as following:</p>
+      <p>The following matching will be performed:</p>
       <taglist>
       <tag>At offset <c>0</c></tag>
       <item>The regexp <c>(|at)</c> will first match at the initial
@@ -302,11 +296,11 @@ This option makes it possible to include comments inside complicated patterns. N
       <item> The search is retried
       with the options <c>[anchored, notempty]</c> at the same
       position, which does not give any interesting result of longer
-      length, why the search position is now advanced to the next
+      length, so the search position is now advanced to the next
       character (<c>a</c>).</item>
       <tag>At offset <c>1</c></tag>
-      <item>Now the search results in
-      <c>[{1,0},{1,0}]</c> meaning this search will also be repeated
+      <item>This time, the search results in
+      <c>[{1,0},{1,0}]</c>, so this search will also be repeated
       with the extra options.</item>
       <tag>At offset <c>1</c> with <c>[anchored, notempty]</c></tag>
       <item>Now the <c>ab</c> alternative
@@ -333,16 +327,17 @@ This option makes it possible to include comments inside complicated patterns. N
       entire match fails. For example, if the pattern</p>
 <code>    a?b?</code>
       <p>is applied to a string not beginning with "a" or "b", it
-      matches the empty string at the start of the subject. With
-      <c>notempty</c> given, this match is not valid, so re:run/3 searches
-      further into the string for occurrences of "a" or "b".</p>
+      would normally match the empty string at the start of the
+      subject. With the <c>notempty</c> option, this match is not
+      valid, so re:run/3 searches further into the string for
+      occurrences of "a" or "b".</p>
 
       <p>Perl has no direct equivalent of <c>notempty</c>, but it does
       make a special case of a pattern match of the empty string
       within its split() function, and when using the /g modifier. It
       is possible to emulate Perl's behavior after matching a null
       string by first trying the match again at the same offset with
-      <c>notempty</c> and <c>anchored</c>, and then if that fails by
+      <c>notempty</c> and <c>anchored</c>, and then, if that fails, by
       advancing the starting offset (see below) and trying an ordinary
       match again.</p>
       </item>
@@ -352,7 +347,7 @@ This option makes it possible to include comments inside complicated patterns. N
       string is not the beginning of a line, so the circumflex
       metacharacter should not match before it. Setting this without
       <c>multiline</c> (at compile time) causes circumflex never to
-      match. This option affects only the behavior of the circumflex
+      match. This option only affects the behavior of the circumflex
       metacharacter. It does not affect \A.</item>
 
       <tag><c>noteol</c></tag>
@@ -388,7 +383,7 @@ This option makes it possible to include comments inside complicated patterns. N
       </taglist>
       </item>
       <tag><c>bsr_anycrlf</c></tag>
-      <item>Specifies specifically that \R is to match only the cr, lf or crlf sequences, not the Unicode specific newline characters.(overrides compilation option)</item>
+      <item>Specifies specifically that \R is to match only the cr, lf or crlf sequences, not the Unicode specific newline characters. (overrides compilation option)</item>
       <tag><c>bsr_unicode</c></tag>
       <item>Specifies specifically that \R is to match all the Unicode newline characters (including crlf etc, the default).(overrides compilation option)</item>
 
@@ -444,7 +439,7 @@ This option makes it possible to include comments inside complicated patterns. N
         <tag><c>none</c></tag>
         <item>Do not return matching subpatterns at all, yielding the single atom <c>match</c> as the return value of the function when matching successfully instead of the <c>{match, list()}</c> return. Specifying an empty list gives the same behavior.</item>
         </taglist>
-      <p>The value list is a list of indexes for the subpatterns to return, where index 0 is for all of the pattern, and 1 is for the first explicit capturing subpattern in the regular expression, and so forth. When using named captured subpatterns (see below) in the regular expression, one can use <c>atom()</c>'s or <c>string()</c>'s to specify the subpatterns to be returned. This deserves an example, consider the following regular expression:</p>
+      <p>The value list is a list of indexes for the subpatterns to return, where index 0 is for all of the pattern, and 1 is for the first explicit capturing subpattern in the regular expression, and so forth. When using named captured subpatterns (see below) in the regular expression, one can use <c>atom()</c>s or <c>string()</c>s to specify the subpatterns to be returned. For example, consider the regular expression:</p>
       <code>    ".*(abcd).*"</code>
       <p>matched against the string ""ABCabcdABC", capturing only the "abcd" part (the first explicit subpattern):</p>
       <code>    re:run("ABCabcdABC",".*(abcd).*",[{capture,[1]}]).</code>
@@ -455,7 +450,7 @@ This option makes it possible to include comments inside complicated patterns. N
       <code>    ".*(?&lt;FOO&gt;abcd).*"</code>
       <p>With this expression, we could still give the index of the subpattern with the following call:</p>
       <code>    re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,[1]}]).</code>
-      <p>giving the same result as before. But as the subpattern is named, we can also give its name in the value list:</p>
+      <p>giving the same result as before. But, since the subpattern is named, we can also specify its name in the value list:</p>
       <code>    re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,['FOO']}]).</code>
       <p>which would yield the same result as the earlier examples, namely:</p>
       <code>    {match,[{3,4}]}</code>
@@ -473,15 +468,15 @@ This option makes it possible to include comments inside complicated patterns. N
       <item><p>Optionally specifies how captured substrings are to be returned. If omitted, the default of <c>index</c> is used. The <c>Type</c> can be one of the following:</p>
         <taglist>
         <tag><c>index</c></tag> 
-        <item>Return captured substrings as pairs of byte indexes into the subject string and length of the matching string in the subject (as if the subject string was flattened with <c>iolist_to_binary/1</c> or <c>unicode:characters_to_binary/2</c> prior to matching). Note that the <c>unicode</c> option results in <em>byte-oriented</em> indexes in a (possibly imagined) <em>UTF-8 encoded</em> binary. A byte index tuple <c>{0,2}</c> might therefore represent one or two characters when <c>unicode</c> is in effect. This might seem contra-intuitive, but has been deemed the most effective and useful way to way to do it. To return lists instead might result in simpler code if that is desired. This return type is the default.</item>
+        <item>Return captured substrings as pairs of byte indexes into the subject string and length of the matching string in the subject (as if the subject string was flattened with <c>iolist_to_binary/1</c> or <c>unicode:characters_to_binary/2</c> prior to matching). Note that the <c>unicode</c> option results in <em>byte-oriented</em> indexes in a (possibly virtual) <em>UTF-8 encoded</em> binary. A byte index tuple <c>{0,2}</c> might therefore represent one or two characters when <c>unicode</c> is in effect. This might seem counter-intuitive, but has been deemed the most effective and useful way to way to do it. To return lists instead might result in simpler code if that is desired. This return type is the default.</item>
         <tag><c>list</c></tag> 
-        <item>Return matching substrings as lists of characters (Erlang <c>string()</c>'s). It the <c>unicode</c> option is used in combination with the \C sequence in the regular expression, a captured subpattern can contain bytes that has is not valid UTF-8 (\C matches bytes regardless of character encoding). In that case the <c>list</c> capturing may result in the same types of tuples that <c>unicode:characters_to_list/2</c> can return, namely three-tuples with the tag <c>incomplete</c> or <c>error</c>, the successfully converted characters and the invalid UTF-8 tail of the conversion as a binary. The best strategy is to avoid using the \C sequence when capturing lists.</item>
+        <item>Return matching substrings as lists of characters (Erlang <c>string()</c>s). It the <c>unicode</c> option is used in combination with the \C sequence in the regular expression, a captured subpattern can contain bytes that are not valid UTF-8 (\C matches bytes regardless of character encoding). In that case the <c>list</c> capturing may result in the same types of tuples that <c>unicode:characters_to_list/2</c> can return, namely three-tuples with the tag <c>incomplete</c> or <c>error</c>, the successfully converted characters and the invalid UTF-8 tail of the conversion as a binary. The best strategy is to avoid using the \C sequence when capturing lists.</item>
         <tag><c>binary</c></tag> 
-        <item>Return matching substrings as binaries. If the <c>unicode</c> option is used, these binaries is in UTF-8. If the \C sequence is used together with <c>unicode</c> the binaries may be invalid UTF-8.</item>
+        <item>Return matching substrings as binaries. If the <c>unicode</c> option is used, these binaries are in UTF-8. If the \C sequence is used together with <c>unicode</c> the binaries may be invalid UTF-8.</item>
         </taglist>
       </item>
       </taglist>
-      <p>In general, subpatterns that got assigned no value in the match are returned as the tuple <c>{-1,0}</c> when <c>type</c> is <c>index</c>. Unassigned subpatterns are returned as the empty binary or list respectively for other return types. Consider the regular expression:</p>
+      <p>In general, subpatterns that were not assigned a value in the match are returned as the tuple <c>{-1,0}</c> when <c>type</c> is <c>index</c>. Unassigned subpatterns are returned as the empty binary or list, respectively, for other return types. Consider the regular expression:</p>
 <code>    ".*((?&lt;FOO&gt;abdd)|a(..d)).*"</code>
       <p>There are three explicitly capturing subpatterns, where the opening parenthesis position determines the order in the result, hence <c>((?&lt;FOO&gt;abdd)|a(..d))</c> is subpattern index 1, <c>(?&lt;FOO&gt;abdd)</c> is subpattern index 2 and <c>(..d)</c> is subpattern index 3. When matched against the following string:</p>
 <code>    "ABCabcdABC"</code>
@@ -533,8 +528,8 @@ This option makes it possible to include comments inside complicated patterns. N
 	<v>NLSpec = cr | crlf | lf | anycrlf | any </v>
       </type>
       <desc>
-      <p>Replaces the matched part of the <c>Subject</c> string with the content of <c>Replacement</c>.</p>
-      <p>Options are given as to the <c>re:run/3</c> function except that the <c>capture</c> option of <c>re:run/3</c> is not allowed. 
+      <p>Replaces the matched part of the <c>Subject</c> string with the contents of <c>Replacement</c>.</p>
+      <p>The permissible options are the same as for <c>re:run/3</c>, except that the <c>capture</c> option is not allowed.
       Instead a <c>{return, ReturnType}</c> is present. The default return type is <c>iodata</c>, constructed in a 
       way to minimize copying. The <c>iodata</c> result can be used directly in many i/o-operations. If a flat <c>list()</c> is
       desired, specify <c>{return, list}</c> and if a binary is preferred, specify <c>{return, binary}</c>.</p>
@@ -544,7 +539,7 @@ This option makes it possible to include comments inside complicated patterns. N
       a Unicode <c>charlist()</c>. If compilation is done implicitly
       and the <c>unicode</c> compilation option is given to this
       function, both the regular expression and the <c>Subject</c>
-      should be given as valid Unicode <c>charlist()</c>'s.</p>
+      should be given as valid Unicode <c>charlist()</c>s.</p>
 
       <p>The replacement string can contain the special character
       <c>&amp;</c>, which inserts the whole matching expression in the
@@ -554,7 +549,7 @@ This option makes it possible to include comments inside complicated patterns. N
       generated by the regular expression, nothing is inserted.</p>
       <p>To insert an <c>&amp;</c> or <c>\</c> in the result, precede it
       with a <c>\</c>. Note that Erlang already gives a special
-      meaning to <c>\</c> in literal strings, why a single <c>\</c>
+      meaning to <c>\</c> in literal strings, so a single <c>\</c>
       has to be written as <c>"\\"</c> and therefore a double <c>\</c>
       as <c>"\\\\"</c>. Example:</p>
       <code>    re:replace("abcd","c","[&amp;]",[{return,list}]).</code>
@@ -611,7 +606,7 @@ This option makes it possible to include comments inside complicated patterns. N
       a Unicode <c>charlist()</c>. If compilation is done implicitly
       and the <c>unicode</c> compilation option is given to this
       function, both the regular expression and the <c>Subject</c>
-      should be given as valid Unicode <c>charlist()</c>'s.</p>
+      should be given as valid Unicode <c>charlist()</c>s.</p>
 
       <p>The result is given as a list of &quot;strings&quot;, the
       preferred datatype given in the <c>return</c> option (default iodata).</p> 
@@ -656,25 +651,25 @@ This option makes it possible to include comments inside complicated patterns. N
       <p>Here the regular expression matched first the &quot;l&quot;,
       causing &quot;Er&quot; to be the first part in the result. When
       the regular expression matched, the (only) subexpression was
-      bound to the &quot;l&quot;, why the &quot;l&quot; is inserted
+      bound to the &quot;l&quot;, so the &quot;l&quot; is inserted
       in the group together with &quot;Er&quot;. The next match is of
       the &quot;n&quot;, making &quot;a&quot; the next part to be
-      returned. As the subexpression is bound to the substring
+      returned. Since the subexpression is bound to the substring
       &quot;n&quot; in this case, the &quot;n&quot; is inserted into
       this group. The last group consists of the rest of the string,
       as no more matches are found.</p>
 
 
       <p>By default, all parts of the string, including the empty
-      strings are returned from the function. As an example:</p>      
+      strings, are returned from the function. For example:</p>
 
 <code>    re:split("Erlang","[lg]",[{return,list}]).</code>
 
-      <p>The result will be:</p>
+      <p>will return:</p>
 
 <code>    ["Er","an",[]]</code>
 
-      <p>as the matching of the &quot;g&quot; in the end of the string
+      <p>since the matching of the &quot;g&quot; in the end of the string
       leaves an empty rest which is also returned. This behaviour
       differs from the default behaviour of the split function in
       Perl, where empty strings at the end are by default removed. To
@@ -701,10 +696,10 @@ This option makes it possible to include comments inside complicated patterns. N
 
       <p>Note that the last part is &quot;ang&quot;, not
       &quot;an&quot;, as we only specified splitting into two parts,
-      and the splitting stops when enough parts are given, why the
-      result differs from that of <c>trim</c>.</p>
+      and the splitting stops when enough parts are given, which is
+      why the result differs from that of <c>trim</c>.</p>
 
-      <p>More than three parts are not possible with this indata, why</p>
+      <p>More than three parts are not possible with this indata, so</p>
 
 <code>    re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
 
@@ -745,7 +740,7 @@ This option makes it possible to include comments inside complicated patterns. N
       the parts of the string matching the subexpressions of the
       regexp.</p>
       <p>The return value from the function will in this case be a
-      <c>list()</c> of <c>list()</c>'s.  Each sublist begins with the
+      <c>list()</c> of <c>list()</c>s.  Each sublist begins with the
       string picked out of the subject string, followed by the parts
       matching each of the subexpressions in order of occurrence in the
       regular expression.</p>
@@ -782,10 +777,8 @@ This option makes it possible to include comments inside complicated patterns. N
     <title>PERL LIKE REGULAR EXPRESSIONS SYNTAX</title>
     <p>The following sections contain reference material for the
     regular expressions used by this module. The regular expression
-    reference is taken from the PCRE documentation, but converted as
-    needed.</p>
-    <p>The documentation is altered where appropriate and where the re 
-    module behaves differently than the PCRE library.</p>
+    reference is based on the PCRE documentation, with changes in
+    cases where the re module behaves differently to the PCRE library.</p>
   </section>
 
 <section><title>PCRE regular expression details</title>
