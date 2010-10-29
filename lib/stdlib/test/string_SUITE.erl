@@ -241,6 +241,7 @@ copies(Config) when is_list(Config) ->
     ?line 30 = length(string:copies("123", 10)),
     %% invalid arg type
     ?line {'EXIT',_} = (catch string:copies("hej", -1)),
+    ?line {'EXIT',_} = (catch string:copies("hej", 2.0)),
     ok.
 
 words(suite) ->
