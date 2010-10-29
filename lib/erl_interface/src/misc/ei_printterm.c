@@ -253,7 +253,8 @@ static int print_term(FILE* fp, ei_x_buff* x,
             erlang_big *b;
             char *ds;
 
-            b = ei_alloc_big(n);
+            if ( (b = ei_alloc_big(n)) == NULL) goto err;
+
             if (ei_decode_big(buf, index, b) < 0) {
                 ei_free_big(b);
                 goto err;
