@@ -235,9 +235,7 @@
         <seealso marker="Mnesia_chap3#start_mnesia">Starting Mnesia</seealso>.
         </item>
       </list>
-      <p>Continuing the dialogue with the Erlang shell will produce the following
-        the following:
-        </p>
+      <p>Continuing the dialogue with the Erlang shell will produce the following:</p>
       <pre><![CDATA[
         3> company:init().
         {atomic,ok}
@@ -418,7 +416,7 @@ In_proj</tcaption>
         interchangeably throughout this book. 
         </p>
       <p>A Mnesia table is populated by Mnesia records. For example,
-        the tuple <c>{boss, klacke, bjarne}</c> is an record.  The
+        the tuple <c>{boss, klacke, bjarne}</c> is a record.  The
         second element in this tuple is the key. In order to uniquely
         identify a table row both the key and the table name is
         needed. The term <em>object identifier</em>, 

@@ -2835,7 +2835,7 @@ raise(Name, Amount) ->
     </func>
     <func>
       <name>write(Tab, Record, LockKind) -> transaction abort | ok </name>
-      <fsummary>Write an record into the database.</fsummary>
+      <fsummary>Write a record into the database.</fsummary>
       <desc>
         <p>Writes the record <c>Record</c> to the table <c>Tab</c>.
           </p>

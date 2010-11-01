@@ -132,7 +132,7 @@
             function changes the format on all records in table
             <c>Tab</c>. It applies the argument <c>Fun</c> to all
             records in the table. <c>Fun</c> shall be a function which
-            takes an record of the old type, and returns the record of the new
+            takes a record of the old type, and returns the record of the new
             type. The table key may not be changed.</p>
           <code type="none">
 -record(old, {key, val}).
