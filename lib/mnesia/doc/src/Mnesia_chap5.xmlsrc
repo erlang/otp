@@ -335,7 +335,7 @@ ok
             explicitly be set at table creation. The default is
             <c>0</c>, but if <c>n_disc_copies</c> and
             <c>n_disc_only_copies</c> also are <c>0</c>,
-            <c>n_ram_copies</c>\011will default be set to <c>1</c>. 
+            <c>n_ram_copies</c> will default be set to <c>1</c>.
             </p>
         </item>
         <tag><c>{n_disc_copies, Int}</c></tag>
@@ -408,7 +408,7 @@ ok
 (a@sam)4> SecProps = [{foreign_key, {prim_dict, sec_val}}].
 [{foreign_key,{prim_dict,sec_val}}]
 (a@sam)5> mnesia:create_table(sec_dict, 
-\011                      [{frag_properties, SecProps},
+                              [{frag_properties, SecProps},
 (a@sam)5>                      {attributes, [sec_key, sec_val]}]).
 {atomic,ok}
 (a@sam)6> Write = fun(Rec) -> mnesia:write(Rec) end.
@@ -418,23 +418,23 @@ ok
 (a@sam)8> SecKey = 42.
 42
 (a@sam)9> mnesia:activity(sync_dirty, Write,
-\011\011          [{prim_dict, PrimKey, -11}], mnesia_frag).
+                          [{prim_dict, PrimKey, -11}], mnesia_frag).
 ok
 (a@sam)10> mnesia:activity(sync_dirty, Write,
-\011\011           [{sec_dict, SecKey, PrimKey}], mnesia_frag).
+                           [{sec_dict, SecKey, PrimKey}], mnesia_frag).
 ok
 (a@sam)11> mnesia:change_table_frag(prim_dict, {add_frag, [node()]}).
 {atomic,ok}
 (a@sam)12> SecRead = fun(PrimKey, SecKey) ->
-\011\011       mnesia:read({sec_dict, PrimKey}, SecKey, read) end.
+               mnesia:read({sec_dict, PrimKey}, SecKey, read) end.
 #Fun<erl_eval>
 (a@sam)13> mnesia:activity(transaction, SecRead,
-\011\011           [PrimKey, SecKey], mnesia_frag).
+                           [PrimKey, SecKey], mnesia_frag).
 [{sec_dict,42,11}]
 (a@sam)14> Info = fun(Tab, Item) -> mnesia:table_info(Tab, Item) end.
 #Fun<erl_eval>
 (a@sam)15> mnesia:activity(sync_dirty, Info,
-\011\011           [prim_dict, frag_size], mnesia_frag).
+                           [prim_dict, frag_size], mnesia_frag).
 [{prim_dict,0},
  {prim_dict_frag2,0},
  {prim_dict_frag3,0},
@@ -444,7 +444,7 @@ ok
  {prim_dict_frag7,0},
  {prim_dict_frag8,0}]
 (a@sam)16> mnesia:activity(sync_dirty, Info,
-\011\011           [sec_dict, frag_size], mnesia_frag).
+                           [sec_dict, frag_size], mnesia_frag).
 [{sec_dict,0},
  {sec_dict_frag2,0},
  {sec_dict_frag3,0},
@@ -1051,7 +1051,7 @@ ok
            ActivityID will be received.  Note that this event may still be received even
            if no table events with a corresponding ActivityID were received, depending on
            the tables to which the receiving process is subscribed.</p>
-	 <p>Dirty operations always only contain one update and thus no activity event is sent.</p>
+         <p>Dirty operations always only contain one update and thus no activity event is sent.</p>
        </item>
      </taglist>
     </section>
