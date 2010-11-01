@@ -441,10 +441,12 @@ init(Args) ->
 
     {ok, ListenSocketSup} =
 	gen_tcp:listen(0, [Inet, binary, {packet, ?LENGTH_INDICATOR_SIZE},
-			   {active, false}, {nodelay, true}]),
+			   {active, false}, {nodelay, true},
+			   {ip, loopback}]),
     {ok, ListenSocketOdbc} =
 	gen_tcp:listen(0, [Inet, binary, {packet, ?LENGTH_INDICATOR_SIZE},
-			   {active, false}, {nodelay, true}]),
+			   {active, false}, {nodelay, true},
+			   {ip, loopback}]),
 
     %% Start the port program (a c program) that utilizes the odbc driver 
     case os:find_executable(?SERVERPROG, ?SERVERDIR) of
