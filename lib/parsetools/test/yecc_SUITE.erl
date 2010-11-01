@@ -46,7 +46,7 @@
          bugs/1, 
              otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
          improvements/1,
-             otp_7292/1, otp_7969/1]).
+             otp_7292/1, otp_7969/1, otp_8919/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -1541,7 +1541,7 @@ otp_8486(Config) when is_list(Config) ->
     ok.
 
 improvements(suite) ->
-    [otp_7292, otp_7969].
+    [otp_7292, otp_7969, otp_8919].
 
 otp_7292(doc) ->
     "OTP-7292. Header declarations for edoc.";
@@ -1771,6 +1771,14 @@ otp_7969(Config) when is_list(Config) ->
     ?line {ok, Ts21, EL} = erl_scan:string("f() -> a; g() -> b. ", {1,1}),
     ?line F6 = fun() -> {ok, Ts21, EL} end,
     ?line {error,{{1,11},erl_parse,_}} = erl_parse:parse_and_scan({F6, []}),
+    ok.
+
+otp_8919(doc) ->
+    "OTP-8919. Improve formating of Yecc error messages.";
+otp_8919(suite) -> [];
+otp_8919(Config) when is_list(Config) ->
+    {error,{1,Mod,Mess}} = erl_parse:parse([{cat,1,"hello"}]),
+    "syntax error before: \"hello\"" = lists:flatten(Mod:format_error(Mess)),
     ok.
 
 yeccpre_size() ->
