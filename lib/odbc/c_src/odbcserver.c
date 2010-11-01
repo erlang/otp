@@ -1741,7 +1741,7 @@ static int connect_to_erlang(const char *port)
 #endif
 	struct sockaddr_in sin;
 
-#if defined(AF_INET6)
+#if defined(HAVE_STRUCT_SOCKADDR_IN6_SIN6_ADDR) && defined(AF_INET6)
 	struct sockaddr_in6 sin6;
 
 	sock = socket(AF_INET6, SOCK_STREAM, 0);
