@@ -118,11 +118,18 @@ AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h])
+AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
+AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_addr], [], [],
+			 [#if HAVE_WINSOCK2_H
+			  #include <winsock2.h>
+			  #include <windows.h>
+			  #else
+			  #include <netinet/in.h>
+			  #endif])
 
 dnl Checks for library functions.
 AC_CHECK_FUNCS([memset socket])
