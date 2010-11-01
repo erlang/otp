@@ -29,7 +29,21 @@
     <file>notes.xml</file>
   </header>
 
- <section><title>Ssh 2.0.2</title>
+<section><title>Ssh 2.0.3</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The fix regarding OTP-8849 was not included in the
+            previous version as stated.</p>
+          <p>
+            Own Id: OTP-8918</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+<section><title>Ssh 2.0.2</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -60,7 +74,6 @@
       </list>
     </section>
  </section>
-
  <section><title>Ssh 2.0.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
