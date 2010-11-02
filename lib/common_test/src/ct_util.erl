@@ -556,9 +556,36 @@ listenv(Telnet) ->
 %%% @hidden
 %%% @equiv ct:parse_table/1
 parse_table(Data) ->
-    [Heading|Lines]=
-	[remove_space(string:tokens(L, "|"),[]) || L <- Data, hd(L)==$|],
+    {Heading, Rest} = get_headings(Data),
+    Lines = parse_row(Rest,[],size(Heading)),
     {Heading,Lines}.
+
+get_headings(["|" ++ Headings | Rest]) ->
+    {remove_space(string:tokens(Headings, "|"),[]), Rest};
+get_headings([_ | Rest]) ->
+    get_headings(Rest);
+get_headings([]) ->
+    {{},[]}.
+
+parse_row(["|" ++ _ = Row | T], Rows, NumCols) when NumCols > 1 ->
+    case string:tokens(Row, "|") of
+	Values when length(Values) =:= NumCols ->
+	    parse_row(T,[remove_space(Values,[])|Rows], NumCols);
+	Values when length(Values) < NumCols ->
+	    parse_row([Row ++"\n"++ hd(T) | tl(T)], Rows, NumCols)
+    end;
+parse_row(["|" ++ _ = Row | T], Rows, 1 = NumCols) ->
+    case string:rchr(Row, $|) of
+	1 ->
+	    parse_row([Row ++"\n"++hd(T) | tl(T)], Rows, NumCols);
+	_Else ->
+	    parse_row(T, [remove_space(string:tokens(Row,"|"),[])|Rows],
+		      NumCols)
+    end;
+parse_row([_Skip | T], Rows, NumCols) ->
+    parse_row(T, Rows, NumCols);
+parse_row([], Rows, _NumCols) ->
+    lists:reverse(Rows).
 
 remove_space([Str|Rest],Acc) ->
     remove_space(Rest,[string:strip(string:strip(Str),both,$')|Acc]);

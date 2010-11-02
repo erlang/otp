@@ -62,7 +62,7 @@ all(doc) ->
 
 all(suite) ->
     [
-     beam_me_up
+     beam_me_up, parse_table
     ].
 
 %%--------------------------------------------------------------------
@@ -106,6 +106,66 @@ beam_me_up(Config) when is_list(Config) ->
     TestEvents = events_to_check(beam_me_up, 1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
+
+parse_table(suite) ->
+    [parse_table_empty, parse_table_single,
+     parse_table_multiline_row,
+     parse_table_one_column_multiline,
+     parse_table_one_column_simple].
+
+parse_table_empty(Config) when is_list(Config) ->
+
+    String = ["+----+-------+---------+---------+----------+------+--------+",
+	      "| id | col11 | col2222 | col3333 | col4     | col5 | col6666 |",
+	      "+----+-------+---------+---------+----------+------+--------+",
+	      "+----+-------+---------+---------+----------+------+--------+",
+	      "Query Done: 0 records selected"],
+
+    {{"id","col11","col2222","col3333","col4","col5","col6666"},[]} =
+	ct:parse_table(String).
+
+
+parse_table_single(Config) when is_list(Config) ->
+
+    String = ["+------+--------+--------------+------------+------------------+---------+--------+---------+-----------+",
+	      "| id | col1 | col2 | col3 | col4 | col5 | col6 | col7 | col8 |",
+"+------+--------+--------------+------------+------------------+---------+--------+---------+-----------+",
+	      "| 0 | 0 | -1407231560 | -256 | -1407231489 | 1500 | 1 | 1 | 1 |",
+	      "+------+--------+--------------+------------+------------------+---------+--------+---------+-----------+"
+	      "Query Done: 1 record selected"],
+
+    {{"id","col1","col2","col3","col4","col5","col6","col7","col8"},
+     [{"0","0","-1407231560","-256","-1407231489", "1500","1","1","1"}]} =
+	ct:parse_table(String).
+
+parse_table_multiline_row(Config) when is_list(Config) ->
+    
+    String = ["+------+--------+--------------+------------+------------------+---------+--------+---------+-----------+",
+	      "| id | col1 | col2 | col3 | col4 | col5 | col6 | col7 | col8 |",
+"+------+--------+--------------+------------+------------------+---------+--------+---------+-----------+",
+	      "| 0 | 0 | Free test string",
+	      " on more lines",
+	      "than one",
+	      "| -256 | -1407231489 | 1500 | 1 | 1 | 1 |",
+	      "+------+--------+--------------+------------+------------------+---------+--------+---------+-----------+"
+	      "Query Done: 1 record selected"],
+
+    {{"id","col1","col2","col3","col4","col5","col6","col7","col8"},
+     [{"0","0","Free test string\n on more lines\nthan one\n",
+       "-256","-1407231489", "1500","1","1","1"}]} =
+	ct:parse_table(String).
+
+parse_table_one_column_simple(Config) when is_list(Config) ->
+
+    String = ["|test|","|test value|"],
+
+    {{"test"},[{"test value"}]} = ct:parse_table(String).
+
+parse_table_one_column_multiline(Config) when is_list(Config) ->
+    String = ["|test|","|test","value|"],
+
+    {{"test"},[{"test\nvalue"}]} = ct:parse_table(String).
+	
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
