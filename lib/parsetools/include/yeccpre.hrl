@@ -167,7 +167,7 @@ yecctoken2string({char,_,C}) -> io_lib:write_char(C);
 yecctoken2string({var,_,V}) -> io_lib:format("~s", [V]);
 yecctoken2string({string,_,S}) -> io_lib:write_unicode_string(S);
 yecctoken2string({reserved_symbol, _, A}) -> io_lib:write(A);
-yecctoken2string({_Cat, _, Val}) -> io_lib:write(Val);
+yecctoken2string({_Cat, _, Val}) -> io_lib:format("~p",[Val]);
 yecctoken2string({dot, _}) -> "'.'";
 yecctoken2string({'$end', _}) ->
     [];
