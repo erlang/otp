@@ -138,6 +138,12 @@ static char *plusr_val_switches[] = {
     NULL
 };
 
+/* +z arguments with values */
+static char *plusz_val_switches[] = {
+    "dbbl",
+    NULL
+};
+
 
 /*
  * Define sleep(seconds) in terms of Sleep() on Windows.
@@ -909,6 +915,20 @@ int main(int argc, char **argv)
 			  i++;
 		      }
 		      break;
+		  case 'z':
+		      if (!is_one_of_strings(&argv[i][2], plusz_val_switches)) {
+			  goto the_default;
+		      } else {
+			  if (i+1 >= argc
+			      || argv[i+1][0] == '-'
+			      || argv[i+1][0] == '+')
+			      usage(argv[i]);
+			  argv[i][0] = '-';
+			  add_Eargs(argv[i]);
+			  add_Eargs(argv[i+1]);
+			  i++;
+		      }
+		      break;
 		  default:
 		  the_default:
 		    argv[i][0] = '-'; /* Change +option to -option. */
@@ -1096,7 +1116,7 @@ usage_aux(void)
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "
 	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] [+T LEVEL] [+V] [+v] "
-	  "[+W<i|w>] [args ...]\n");
+	  "[+W<i|w>] [+z MISC_OPTION] [args ...]\n");
   exit(1);
 }
 

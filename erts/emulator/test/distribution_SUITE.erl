@@ -27,6 +27,7 @@
 -export([all/1,
 	 ping/1, bulk_send/1, bulk_send_small/1,
 	 bulk_send_big/1,
+	 bulk_send_bigbig/1,
 	 local_send/1, local_send_small/1, local_send_big/1,
 	 local_send_legal/1, link_to_busy/1, exit_to_busy/1,
 	 lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
@@ -50,7 +51,8 @@
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
 	 roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
 	 dist_parallel_sender/3, dist_parallel_receiver/0,
-	 dist_evil_parallel_receiver/0]).
+	 dist_evil_parallel_receiver/0,
+         sendersender/4, sendersender2/4]).
 
 all(suite) -> [
 	       ping, bulk_send, local_send, link_to_busy, exit_to_busy,
@@ -121,13 +123,16 @@ bulk_send(doc) ->
   "the time. This tests that a process that is suspended on a ",
   "busy port will eventually be resumed."];
 bulk_send(suite) ->
-    [bulk_send_small, bulk_send_big].
+    [bulk_send_small, bulk_send_big, bulk_send_bigbig].
 
 bulk_send_small(Config) when is_list(Config) ->
     ?line bulk_send(64, 32).
 
 bulk_send_big(Config) when is_list(Config) ->
     ?line bulk_send(32, 64).
+
+bulk_send_bigbig(Config) when is_list(Config) ->
+    ?line bulk_sendsend(32*5, 4).
 
 bulk_send(Terms, BinSize) ->
     ?line Dog = test_server:timetrap(test_server:seconds(30)),
@@ -145,6 +150,53 @@ bulk_send(Terms, BinSize) ->
     ?line test_server:timetrap_cancel(Dog),
     {comment, integer_to_list(trunc(Size/1024/Elapsed+0.5)) ++ " K/s"}.
 
+bulk_sendsend(Terms, BinSize) ->
+    {Rate1, MonitorCount1} = bulk_sendsend2(Terms, BinSize,   5),
+    {Rate2, MonitorCount2} = bulk_sendsend2(Terms, BinSize, 995),
+    Ratio = if MonitorCount2 == 0 -> MonitorCount1 / 1.0;
+               true               -> MonitorCount1 / MonitorCount2
+            end,
+    %% A somewhat arbitrary ratio, but hopefully one that will accomodate
+    %% a wide range of CPU speeds.
+    true = (Ratio > 8.0),
+    {comment,
+     integer_to_list(Rate1) ++ " K/s, " ++
+     integer_to_list(Rate2) ++ " K/s, " ++
+     integer_to_list(MonitorCount1) ++ " monitor msgs, " ++
+     integer_to_list(MonitorCount2) ++ " monitor msgs, " ++
+     float_to_list(Ratio) ++ " monitor ratio"}.    
+
+bulk_sendsend2(Terms, BinSize, BusyBufSize) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(30)),
+
+    ?line io:format("Sending ~w binaries, each of size ~w K",
+		    [Terms, BinSize]),
+    ?line {ok, NodeRecv} = start_node(bulk_receiver),
+    ?line Recv = spawn(NodeRecv, erlang, apply, [fun receiver/2, [0, 0]]),
+    ?line Bin = list_to_binary(lists:duplicate(BinSize*1024, 253)),
+    ?line Size = Terms*size(Bin),
+
+    %% SLF LEFT OFF HERE.
+    %% When the caller uses small hunks, like 4k via
+    %% bulk_sendsend(32*5, 4), then (on my laptop at least), we get
+    %% zero monitor messages.  But if we use "+zdbbl 5", then we
+    %% get a lot of monitor messages.  So, if we can count up the
+    %% total number of monitor messages that we get when running both
+    %% default busy size and "+zdbbl 5", and if the 5 case gets
+    %% "many many more" monitor messages, then we know we're working.
+
+    ?line {ok, NodeSend} = start_node(bulk_sender, "+zdbbl " ++ integer_to_list(BusyBufSize)),
+    ?line _Send = spawn(NodeSend, erlang, apply, [fun sendersender/4, [self(), Recv, Bin, Terms]]),
+    ?line {Elapsed, {TermsN, SizeN}, MonitorCount} =
+        receive {sendersender, BigRes} ->
+                BigRes
+        end,
+    ?line stop_node(NodeRecv),
+    ?line stop_node(NodeSend),
+
+    ?line test_server:timetrap_cancel(Dog),
+    {trunc(SizeN/1024/Elapsed+0.5), MonitorCount}.
+
 sender(To, _Bin, 0) ->
     To ! {done, self()},
     receive
@@ -154,6 +206,43 @@ sender(To, _Bin, 0) ->
 sender(To, Bin, Left) ->
     To ! {term, Bin},
     sender(To, Bin, Left-1).
+
+%% Sender process to be run on a slave node
+
+sendersender(Parent, To, Bin, Left) ->
+    erlang:system_monitor(self(), [busy_dist_port]),
+    [spawn(fun() -> sendersender2(To, Bin, Left, false) end) ||
+        _ <- lists:seq(1,1)],
+    {USec, {Res, MonitorCount}} =
+        timer:tc(?MODULE, sendersender2, [To, Bin, Left, true]),
+    Parent ! {sendersender, {USec/1000000, Res, MonitorCount}}.
+
+sendersender2(To, Bin, Left, SendDone) ->
+    sendersender3(To, Bin, Left, SendDone, 0).
+
+sendersender3(To, _Bin, 0, SendDone, MonitorCount) ->
+    if SendDone ->
+            To ! {done, self()};
+       true ->
+            ok
+    end,
+    receive
+        {monitor, _Pid, _Type, _Info} = M ->
+            sendersender3(To, _Bin, 0, SendDone, MonitorCount + 1)
+    after 0 ->
+            if SendDone ->
+                    receive
+                        Any when is_tuple(Any), size(Any) == 2 ->
+                            {Any, MonitorCount}
+                    end;
+               true ->
+                    exit(normal)
+            end
+    end;
+sendersender3(To, Bin, Left, SendDone, MonitorCount) ->
+    To ! {term, Bin},
+    %%timer:sleep(50),
+    sendersender3(To, Bin, Left-1, SendDone, MonitorCount).
 
 %% Receiver process to be run on a slave node.
 
