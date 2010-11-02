@@ -522,6 +522,7 @@ union erl_off_heap_ptr {
     struct erl_fun_thing* fun;
     struct external_thing_* ext;
     Eterm* ep;
+    void* voidp;
 };
 
 /* arrays that get malloced at startup */

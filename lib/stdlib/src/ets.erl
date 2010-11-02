@@ -512,7 +512,7 @@ file2tab(File) ->
 
 file2tab(File, Opts) ->
     try
-	{ok,Verify} = parse_f2t_opts(Opts,false),
+	{ok,Verify,TabArg} = parse_f2t_opts(Opts,false,[]),
 	Name = make_ref(),
 	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} = 
 	    case disk_log:open([{name, Name}, 
@@ -540,7 +540,7 @@ file2tab(File, Opts) ->
 		true ->
 		    ok
 	    end,
-	    {ok, Tab, HeadCount} = create_tab(FullHeader),
+	    {ok, Tab, HeadCount} = create_tab(FullHeader, TabArg),
 	    StrippedOptions = 				   
 	        case Verify of
 		    true ->
@@ -676,15 +676,17 @@ do_read_and_verify(ReadFun,InitState,Tab,FtOptions,HeadCount,Verify) ->
 	    {ok,Tab}
     end.
 
-parse_f2t_opts([],Verify) ->
-    {ok,Verify};
-parse_f2t_opts([{verify, true}|T],_OV) ->
-    parse_f2t_opts(T,true);
-parse_f2t_opts([{verify,false}|T],OV) ->
-    parse_f2t_opts(T,OV);
-parse_f2t_opts([Unexpected|_],_) ->
+parse_f2t_opts([],Verify,Tab) ->
+    {ok,Verify,Tab};
+parse_f2t_opts([{verify, true}|T],_OV,Tab) ->
+    parse_f2t_opts(T,true,Tab);
+parse_f2t_opts([{verify,false}|T],OV,Tab) ->
+    parse_f2t_opts(T,OV,Tab);
+parse_f2t_opts([{table,Tab}|T],OV,[]) ->
+    parse_f2t_opts(T,OV,Tab);
+parse_f2t_opts([Unexpected|_],_,_) ->
     throw({unknown_option,Unexpected});
-parse_f2t_opts(Malformed,_) ->
+parse_f2t_opts(Malformed,_,_) ->
     throw({malformed_option,Malformed}).
 			   
 count_mandatory([]) ->
@@ -860,19 +862,28 @@ load_table(ReadFun, State, Tab) ->
 	    load_table(ReadFun, NewState, Tab)
     end.
 
-create_tab(I) ->
+create_tab(I, TabArg) ->
     {name, Name} = lists:keyfind(name, 1, I),
     {type, Type} = lists:keyfind(type, 1, I),
     {protection, P} = lists:keyfind(protection, 1, I),
     {named_table, Val} = lists:keyfind(named_table, 1, I),
     {keypos, _Kp} = Keypos = lists:keyfind(keypos, 1, I),
     {size, Sz} = lists:keyfind(size, 1, I),
-    try
-	Tab = ets:new(Name, [Type, P, Keypos | named_table(Val)]),
-	{ok, Tab, Sz}
-    catch
-	_:_ ->
-	    throw(cannot_create_table)
+    Comp = case lists:keyfind(compressed, 1, I) of
+	{compressed, true} -> [compressed];
+	{compressed, false} -> [];
+	false -> []
+    end,
+    case TabArg of
+        [] ->
+	    try
+		Tab = ets:new(Name, [Type, P, Keypos] ++ named_table(Val) ++ Comp),
+		{ok, Tab, Sz}
+	    catch _:_ ->
+		throw(cannot_create_table)
+            end;
+        _ ->
+            {ok, TabArg, Sz}
     end.
 
 named_table(true) -> [named_table];

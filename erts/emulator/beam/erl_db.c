@@ -179,6 +179,7 @@ extern DbTableMethod db_tree;
 
 int user_requested_db_max_tabs;
 int erts_ets_realloc_always_moves;
+int erts_ets_always_compress;
 static int db_max_tabs;
 static DbTable *meta_pid_to_tab; /* Pid mapped to owned tables */
 static DbTable *meta_pid_to_fixed_tab; /* Pid mapped to fixed tables */
@@ -931,7 +932,7 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 		position > arityval(handle.dbterm->tpl[0])) {
 		goto finalize;
 	    }
-	    oldcnt = handle.dbterm->tpl[position];
+	    oldcnt = db_do_read_element(&handle, position);
 	    if (is_big(oldcnt)) {
 		halloc_size += BIG_NEED_SIZE(big_arity(oldcnt));
 	    }
@@ -1276,7 +1277,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     UWord heir_data;
     Uint32 status;
     Sint keypos;
-    int is_named, is_fine_locked, frequent_read;
+    int is_named, is_fine_locked, frequent_read, is_compressed;
     int cret;
     DeclareTmpHeap(meta_tuple,3,BIF_P);
     DbTableMethod* meth;
@@ -1296,6 +1297,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     frequent_read = 0;
     heir = am_none;
     heir_data = (UWord) am_undefined;
+    is_compressed = erts_ets_always_compress;
 
     list = BIF_ARG_2;
     while(is_list(list)) {
@@ -1358,6 +1360,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	else if (val == am_named_table) {
 	    is_named = 1;
 	}
+	else if (val == am_compressed) {
+	    is_compressed = 1;
+	}
 	else if (val == am_set || val == am_protected)
 	    ;
 	else break;
@@ -1418,6 +1423,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     erts_smp_atomic_init(&tb->common.nitems, 0);
 
     tb->common.fixations = NULL;
+    tb->common.compress = is_compressed;
 
     cret = meth->db_create(BIF_P, tb);
     ASSERT(cret == DB_ERROR_NONE);
@@ -2572,7 +2578,7 @@ BIF_RETTYPE ets_match_object_3(BIF_ALIST_3)
 BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 {
     static Eterm fields[] = {am_protection, am_keypos, am_type, am_named_table,
-	am_node, am_size, am_name, am_heir, am_owner, am_memory};
+	am_node, am_size, am_name, am_heir, am_owner, am_memory, am_compressed};
     Eterm results[sizeof(fields)/sizeof(Eterm)];
     DbTable* tb;
     Eterm res;
@@ -2837,6 +2843,7 @@ void init_db(void)
     erts_smp_atomic_init(&meta_pid_to_tab->common.nitems, 0);
     meta_pid_to_tab->common.slot   = -1;
     meta_pid_to_tab->common.meth   = &db_hash;
+    meta_pid_to_tab->common.compress = 0;
 
     erts_refc_init(&meta_pid_to_tab->common.ref, 1);
     erts_refc_init(&meta_pid_to_tab->common.fixref, 0);
@@ -2869,6 +2876,7 @@ void init_db(void)
     erts_smp_atomic_init(&meta_pid_to_fixed_tab->common.nitems, 0);
     meta_pid_to_fixed_tab->common.slot   = -1;
     meta_pid_to_fixed_tab->common.meth   = &db_hash;
+    meta_pid_to_fixed_tab->common.compress = 0;
 
     erts_refc_init(&meta_pid_to_fixed_tab->common.ref, 1);
     erts_refc_init(&meta_pid_to_fixed_tab->common.fixref, 0);
@@ -3077,7 +3085,7 @@ retry:
     db_unlock(tb,LCK_WRITE);
     heir_data = tb->common.heir_data;
     if (!is_immed(heir_data)) {
-	Eterm* tpv = DBTERM_BUF((DbTerm*)heir_data); /* tuple_val */
+	Eterm* tpv = ((DbTerm*)heir_data)->tpl; /* tuple_val */
 	ASSERT(arityval(*tpv) == 1);
 	heir_data = tpv[1];
     }
@@ -3251,7 +3259,8 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 			  pp = &(*pp)->next) {
 			if ((*pp)->pid == pid) {
 			    DbFixation* fix = *pp;
-			    erts_refc_add(&tb->common.fixref,-fix->counter,0);
+			    long diff = -(long)fix->counter;
+			    erts_refc_add(&tb->common.fixref,diff,0);
 			    *pp = fix->next;
 			    erts_db_free(ERTS_ALC_T_DB_FIXATION,
 					 tb, fix, sizeof(DbFixation));
@@ -3469,8 +3478,8 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 
 	UseTmpHeap(2,me);
 	/* Make a dummy 1-tuple around data to use db_get_term() */
-	heir_data = (UWord) db_get_term(&tb->common, NULL, 0,
-					TUPLE1(tmp,heir_data));
+	heir_data = (UWord) db_store_term(&tb->common, NULL, 0,
+					  TUPLE1(tmp,heir_data));
 	UnUseTmpHeap(2,me);
 	ASSERT(!is_immed(heir_data));
     }
@@ -3481,7 +3490,7 @@ static void free_heir_data(DbTable* tb)
 {
     if (tb->common.heir != am_none && !is_immed(tb->common.heir_data)) {
 	DbTerm* p = (DbTerm*) tb->common.heir_data;
-	db_free_term_data(p);
+	db_cleanup_offheap_comp(p);
 	erts_db_free(ERTS_ALC_T_DB_TERM, tb, (void *)p,
 		     sizeof(DbTerm) + (p->size-1)*sizeof(Eterm));
     }
@@ -3618,10 +3627,13 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	ret = erts_this_dist_entry->sysname;
     } else if (What == am_named_table) {
 	ret = is_atom(tb->common.id) ? am_true : am_false;
+    } else if (What == am_compressed) {
+	ret = tb->common.compress ? am_true : am_false;
+    }
     /*
      * For debugging purposes
      */
-    } else if (What == am_data) { 
+    else if (What == am_data) {
 	print_table(ERTS_PRINT_STDOUT, NULL, 1, tb);
 	ret = am_true;
     } else if (What == am_atom_put("fixed",5)) { 

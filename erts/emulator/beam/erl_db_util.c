@@ -25,7 +25,6 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
@@ -890,6 +889,8 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace);
 
 static Eterm seq_trace_fake(Process *p, Eterm arg1);
 
+static void db_free_tmp_uncompressed(DbTerm* obj);
+
 
 /*
 ** Interface routines.
@@ -1604,6 +1605,7 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
     }
     return ret;
 }
+
 /*
 ** Execution of the match program, this is Pam.
 ** May return THE_NON_VALUE, which is a bailout.
@@ -2391,33 +2393,46 @@ void db_do_update_element(DbUpdateHandle* handle,
 
     if (is_both_immed(newval,oldval)) {
 	handle->dbterm->tpl[position] = newval;
+#ifdef DEBUG_CLONE
+	if (handle->dbterm->debug_clone) {
+	    handle->dbterm->debug_clone[position] = newval;
+	}
+#endif
 	return;
     }
-    else if (!handle->mustResize && is_boxed(newval)) {
-	newp = boxed_val(newval);
-	switch (*newp & _TAG_HEADER_MASK) {
-	case _TAG_HEADER_POS_BIG:
-	case _TAG_HEADER_NEG_BIG:
-	case _TAG_HEADER_FLOAT:
-	case _TAG_HEADER_HEAP_BIN:	    
-	    newval_sz = header_arity(*newp) + 1;	    
-	    if (is_boxed(oldval)) {
-		oldp = boxed_val(oldval);
-		switch (*oldp & _TAG_HEADER_MASK) {
-		case _TAG_HEADER_POS_BIG:
-		case _TAG_HEADER_NEG_BIG:
-		case _TAG_HEADER_FLOAT:
-		case _TAG_HEADER_HEAP_BIN:
-		    oldval_sz = header_arity(*oldp) + 1;
-		    if (oldval_sz == newval_sz) {
-			/* "self contained" terms of same size, do memcpy */
-			sys_memcpy(oldp, newp, newval_sz*sizeof(Eterm));			
-			return;
+    if (!handle->mustResize) {
+	if (handle->tb->common.compress) {
+	    handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
+						       handle->dbterm);
+	    handle->mustResize = 1;
+	    oldval = handle->dbterm->tpl[position];
+	}
+	else if (is_boxed(newval)) {
+	    newp = boxed_val(newval);
+	    switch (*newp & _TAG_HEADER_MASK) {
+	    case _TAG_HEADER_POS_BIG:
+	    case _TAG_HEADER_NEG_BIG:
+	    case _TAG_HEADER_FLOAT:
+	    case _TAG_HEADER_HEAP_BIN:
+		newval_sz = header_arity(*newp) + 1;
+		if (is_boxed(oldval)) {
+		    oldp = boxed_val(oldval);
+		    switch (*oldp & _TAG_HEADER_MASK) {
+		    case _TAG_HEADER_POS_BIG:
+		    case _TAG_HEADER_NEG_BIG:
+		    case _TAG_HEADER_FLOAT:
+		    case _TAG_HEADER_HEAP_BIN:
+			oldval_sz = header_arity(*oldp) + 1;
+			if (oldval_sz == newval_sz) {
+			    /* "self contained" terms of same size, do memcpy */
+				sys_memcpy(oldp, newp, newval_sz*sizeof(Eterm));
+			    return;
+			}
+			goto both_size_set;
 		    }
-		    goto both_size_set;
 		}
+		goto new_size_set;
 	    }
-	    goto new_size_set;
 	}
     }
     /* Not possible for simple memcpy or dbterm is already non-contiguous, */
@@ -2436,83 +2451,371 @@ both_size_set:
     handle->mustResize = 1;
 }
 
+static ERTS_INLINE byte* db_realloc_term(DbTableCommon* tb, void* old,
+					 Uint old_sz, Uint new_sz, Uint offset)
+{
+    byte* ret;
+    if (erts_ets_realloc_always_moves) {
+	ret = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable*)tb, new_sz);
+	sys_memcpy(ret, old, offset);
+	erts_db_free(ERTS_ALC_T_DB_TERM, (DbTable*)tb, old, old_sz);
+    } else {
+	ret = erts_db_realloc(ERTS_ALC_T_DB_TERM, (DbTable*)tb,
+			      old, old_sz, new_sz);
+    }
+    return ret;
+}
+
+/* Allocated size of a compressed dbterm
+*/
+static ERTS_INLINE Uint db_alloced_size_comp(DbTerm* obj)
+{
+    return obj->tpl[arityval(*obj->tpl) + 1];
+}
+
+void db_free_term(DbTable *tb, void* basep, Uint offset)
+{
+    DbTerm* db = (DbTerm*) ((byte*)basep + offset);
+    Uint size;
+    if (tb->common.compress) {
+	db_cleanup_offheap_comp(db);
+	size = db_alloced_size_comp(db);
+    }
+    else {
+	ErlOffHeap tmp_oh;
+	tmp_oh.first = db->first_oh;
+	erts_cleanup_offheap(&tmp_oh);
+	size = offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
+    }
+    erts_db_free(ERTS_ALC_T_DB_TERM, tb, basep, size);
+}
+
+static ERTS_INLINE Uint align_up(Uint value, Uint pow2)
+{
+    ASSERT((pow2 & (pow2-1)) == 0);
+    return (value + (pow2-1)) & ~(pow2-1);
+}
+
+/* Compressed size of an uncompressed term
+*/
+static Uint db_size_dbterm_comp(DbTableCommon* tb, Eterm obj)
+{
+    Eterm* tpl = tuple_val(obj);
+    int i;
+    Uint size = sizeof(DbTerm)
+	+ arityval(*tpl) * sizeof(Eterm)
+        + sizeof(Uint); /* "alloc_size" */
+
+    for (i = arityval(*tpl); i>0; i--) {
+	if (i != tb->keypos && is_not_immed(tpl[i])) {
+	    size += erts_encode_ext_size_ets(tpl[i]);
+	}
+    }
+    size += size_object(tpl[tb->keypos]) * sizeof(Eterm);
+    return align_up(size, sizeof(Uint));
+}
+
+/* Conversion between top tuple element and pointer to compressed data
+*/
+static ERTS_INLINE Eterm ext2elem(Eterm* tpl, byte* ext)
+{
+    return (((Uint)(ext - (byte*)tpl)) << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+}
+static ERTS_INLINE byte* elem2ext(Eterm* tpl, Uint ix)
+{
+    ASSERT(is_header(tpl[ix]));
+    return (byte*)tpl + (tpl[ix] >> _TAG_PRIMARY_SIZE);
+}
+
+static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
+			  Uint alloc_size)
+{
+    ErlOffHeap tmp_offheap;
+    Eterm* src = tuple_val(obj);
+    Eterm* tpl = dest->tpl;
+    Eterm key = src[tb->keypos];
+    int arity = arityval(src[0]);
+    union {
+	Eterm* ep;
+	byte* cp;
+	UWord ui;
+    }top;
+    int i;
+
+    top.ep = tpl+ 1 + arity + 1;
+    tpl[0] = src[0];
+    tpl[arity + 1] = alloc_size;
+
+    tmp_offheap.first = NULL;
+    tpl[tb->keypos] = copy_struct(key, size_object(key), &top.ep, &tmp_offheap);
+    dest->first_oh = tmp_offheap.first;
+    for (i=1; i<=arity; i++) {
+	if (i != tb->keypos) {
+	    if (is_immed(src[i])) {
+		tpl[i] = src[i];
+	    }
+	    else {
+		tpl[i] = ext2elem(tpl, top.cp);
+		top.cp = erts_encode_ext_ets(src[i], top.cp, &dest->first_oh);
+	    }
+	}
+    }
+
+#ifdef DEBUG_CLONE
+    {
+	Eterm* dbg_top = erts_alloc(ERTS_ALC_T_DB_TERM, dest->size * sizeof(Eterm));
+	dest->debug_clone = dbg_top;
+	tmp_offheap.first = dest->first_oh;
+	copy_struct(obj, dest->size, &dbg_top, &tmp_offheap);
+	dest->first_oh = tmp_offheap.first;
+	ASSERT(dbg_top == dest->debug_clone + dest->size);
+    }
+#endif
+    return top.cp;
+}
 
 /*
 ** Copy the object into a possibly new DbTerm, 
 ** offset is the offset of the DbTerm from the start
-** of the sysAllocaed structure, The possibly realloced and copied
+** of the allocated structure, The possibly realloced and copied
 ** structure is returned. Make sure (((char *) old) - offset) is a 
 ** pointer to a ERTS_ALC_T_DB_TERM allocated data area.
 */
-void* db_get_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
+void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 {
+    byte* basep;
+    DbTerm* newp;
+    Eterm* top;
     int size = size_object(obj);
-    void *structp = ((char*) old) - offset;
-    DbTerm* p;
-    Eterm copy;
-    Eterm *top;
     ErlOffHeap tmp_offheap;
 
     if (old != 0) {
+	basep = ((byte*) old) - offset;
 	tmp_offheap.first  = old->first_oh;
-	tmp_offheap.overhead = 0;
 	erts_cleanup_offheap(&tmp_offheap);
 	old->first_oh = tmp_offheap.first;
 	if (size == old->size) {
-	    p = old;
-	} else {
+	    newp = old;
+	}
+	else {
 	    Uint new_sz = offset + sizeof(DbTerm) + sizeof(Eterm)*(size-1);
 	    Uint old_sz = offset + sizeof(DbTerm) + sizeof(Eterm)*(old->size-1);
 
-	    if (erts_ets_realloc_always_moves) {
-		void *nstructp = erts_db_alloc(ERTS_ALC_T_DB_TERM,
-					       (DbTable *) tb,
-					       new_sz);
-		memcpy(nstructp,structp,offset);
-		erts_db_free(ERTS_ALC_T_DB_TERM,
-			     (DbTable *) tb,
-			     structp,
-			     old_sz);
-		structp = nstructp;
-	    } else {
-		structp = erts_db_realloc(ERTS_ALC_T_DB_TERM,
-					  (DbTable *) tb,
-					  structp,
-					  old_sz,
-					  new_sz);
-	    }
-	    p = (DbTerm*) ((void *)(((char *) structp) + offset));
+	    basep = db_realloc_term(tb, basep, old_sz, new_sz, offset);
+	    newp = (DbTerm*) (basep + offset);
 	}
     }
     else {
-	structp = erts_db_alloc(ERTS_ALC_T_DB_TERM,
-				(DbTable *) tb,
-				(offset
-				 + sizeof(DbTerm)
-				 + sizeof(Eterm)*(size-1)));
-	p = (DbTerm*) ((void *)(((char *) structp) + offset));
+	basep = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
+			      (offset + sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
+	newp = (DbTerm*) (basep + offset);
     }
-    p->size = size;
+    newp->size = size;
+    top = newp->tpl;
     tmp_offheap.first  = NULL;
-    tmp_offheap.overhead = 0;
-
-    top = DBTERM_BUF(p);
-    copy = copy_struct(obj, size, &top, &tmp_offheap);
-    p->first_oh = tmp_offheap.first;
-    DBTERM_SET_TPL(p,tuple_val(copy));
-
-    return structp;
+    copy_struct(obj, size, &top, &tmp_offheap);
+    newp->first_oh = tmp_offheap.first;
+#ifdef DEBUG_CLONE
+    newp->debug_clone = NULL;
+#endif
+    return basep;
 }
 
 
-void db_free_term_data(DbTerm* p)
+void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
+{
+    Uint new_sz = offset + db_size_dbterm_comp(tb, obj);
+    byte* basep;
+    DbTerm* newp;
+    byte* top;
+
+    ASSERT(tb->compress);
+    if (old != 0) {
+	Uint old_sz = db_alloced_size_comp(old);
+	db_cleanup_offheap_comp(old);
+
+	basep = ((byte*) old) - offset;
+	if (new_sz == old_sz) {
+	    newp = old;
+	}
+	else {
+	    basep = db_realloc_term(tb, basep, old_sz, new_sz, offset);
+	    newp = (DbTerm*) (basep + offset);
+	}
+    }
+    else {
+	basep = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable*)tb, new_sz);
+	newp = (DbTerm*) (basep + offset);
+    }
+
+    newp->size = size_object(obj);
+    top = copy_to_comp(tb, obj, newp, new_sz);
+    ASSERT(top <= basep + new_sz);
+
+    // SVERK: realloc?
+
+    return basep;
+}
+
+
+void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
+{
+    DbTable* tbl = handle->tb;
+    DbTerm* newDbTerm;
+    Uint alloc_sz = offset +
+	(tbl->common.compress ?
+	 db_size_dbterm_comp(&tbl->common, make_tuple(handle->dbterm->tpl)) :
+	 sizeof(DbTerm)+sizeof(Eterm)*(handle->new_size-1));
+    byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
+    byte* oldp = *(handle->bp);
+
+    sys_memcpy(newp, oldp, offset);  /* copy only hash/tree header */
+    *(handle->bp) = newp;
+    newDbTerm = (DbTerm*) (newp + offset);
+    newDbTerm->size = handle->new_size;
+
+    /* make a flat copy */
+
+    if (tbl->common.compress) {
+	copy_to_comp(&tbl->common, make_tuple(handle->dbterm->tpl),
+		     newDbTerm, alloc_sz);
+	db_free_tmp_uncompressed(handle->dbterm);
+    }
+    else {
+	Eterm* top;
+	ErlOffHeap tmp_offheap;
+	tmp_offheap.first = NULL;
+	top = newDbTerm->tpl;
+	copy_struct(make_tuple(handle->dbterm->tpl), handle->new_size,
+		    &top, &tmp_offheap);
+	newDbTerm->first_oh = tmp_offheap.first;
+#ifdef DEBUG_CLONE
+	newDbTerm->debug_clone = NULL;
+#endif
+	ASSERT((byte*)top <= (newp + alloc_sz));
+    }
+}
+
+Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
+			     ErlOffHeap* off_heap)
+{
+    Eterm* hp = *hpp;
+    int i, arity = arityval(bp->tpl[0]);
+
+    hp[0] = bp->tpl[0];
+    *hpp += arity + 1;
+
+    hp[tb->keypos] = copy_struct(bp->tpl[tb->keypos],
+				 size_object(bp->tpl[tb->keypos]),
+				 hpp, off_heap);
+    for (i=arity; i>0; i--) {
+	if (i != tb->keypos) {
+	    if (is_immed(bp->tpl[i])) {
+		hp[i] = bp->tpl[i];
+	    }
+	    else {
+		hp[i] = erts_decode_ext_ets(hpp, off_heap,
+					    elem2ext(bp->tpl, i));
+	    }
+	}
+    }
+    ASSERT((*hpp - hp) <= bp->size);
+#ifdef DEBUG_CLONE
+    ASSERT(eq(make_tuple(hp),make_tuple(bp->debug_clone)));
+#endif
+    return make_tuple(hp);
+}
+
+Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p,
+			       DbTerm* obj, Uint pos,
+			       Eterm** hpp, Uint extra)
+{
+    if (is_immed(obj->tpl[pos])) {
+	*hpp = HAlloc(p, extra);
+	return obj->tpl[pos];
+    }
+    if (tb->compress && pos != tb->keypos) {
+	byte* ext = elem2ext(obj->tpl, pos);
+	Sint sz = erts_decode_ext_size_ets(ext, db_alloced_size_comp(obj)) + extra;
+	Eterm* hp = HAlloc(p, sz);
+	Eterm* endp = hp + sz;
+	Eterm copy = erts_decode_ext_ets(&hp, &MSO(p), ext);
+	*hpp = hp;
+	hp += extra;
+	HRelease(p, endp, hp);
+#ifdef DEBUG_CLONE
+	ASSERT(eq(copy,obj->debug_clone[pos]));
+#endif
+	return copy;
+    }
+    else {
+	Uint sz = size_object(obj->tpl[pos]);
+	*hpp = HAlloc(p, sz + extra);
+	return copy_struct(obj->tpl[pos], sz, hpp, &MSO(p));
+    }
+}
+
+
+/* Our own "cleanup_offheap"
+ * as refc-binaries may be unaligned in compressed terms
+*/
+void db_cleanup_offheap_comp(DbTerm* obj)
+{
+    union erl_off_heap_ptr u;
+    ProcBin tmp;
+
+    for (u.hdr = obj->first_oh; u.hdr; u.hdr = u.hdr->next) {
+	if ((UWord)u.voidp % sizeof(UWord) != 0) { /* unaligned ptr */
+	    sys_memcpy(&tmp, u.voidp, sizeof(tmp));
+	    /* Warning, must pass (void*)-variable to memcpy. Otherwise it will
+	       cause Bus error on Sparc due to false compile time assumptions
+	       about word aligned memory (type cast is not enough) */
+	    u.pb = &tmp;
+	}
+	switch (thing_subtag(u.hdr->thing_word)) {
+	case REFC_BINARY_SUBTAG:
+	    if (erts_refc_dectest(&u.pb->val->refc, 0) == 0) {
+		erts_bin_free(u.pb->val);
+	    }
+	    break;
+	case FUN_SUBTAG:
+	    ASSERT(u.pb != &tmp);
+	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+		erts_erase_fun_entry(u.fun->fe);
+	    }
+	    break;
+	default:
+	    ASSERT(is_external_header(u.hdr->thing_word));
+	    ASSERT(u.pb != &tmp);
+	    erts_deref_node_entry(u.ext->node);
+	    break;
+	}
+    }
+#ifdef DEBUG_CLONE
+    if (obj->debug_clone != NULL) {
+	erts_free(ERTS_ALC_T_DB_TERM, obj->debug_clone);
+	obj->debug_clone = NULL;
+    }
+#endif
+}
+
+int db_eq_comp(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     ErlOffHeap tmp_offheap;
-    tmp_offheap.first = p->first_oh;
-    tmp_offheap.overhead = 0;
-    erts_cleanup_offheap(&tmp_offheap);
-}
+    Eterm* allocp;
+    Eterm* hp;
+    Eterm tmp_b;
+    int is_eq;
 
+    ASSERT(tb->compress);
+    hp = allocp = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
+    tmp_offheap.first = NULL;
+    tmp_b = db_copy_from_comp(tb, b, &hp, &tmp_offheap);
+    is_eq = eq(a,tmp_b);
+    erts_cleanup_offheap(&tmp_offheap);
+    erts_free(ERTS_ALC_T_TMP, allocp);
+    return is_eq;
+}
 
 /*
 ** Check if object represents a "match" variable 
@@ -4404,7 +4707,65 @@ static Eterm seq_trace_fake(Process *p, Eterm arg1)
     }
     return result;
 }
-    
+
+DbTerm* db_alloc_tmp_uncompressed(DbTableCommon* tb, DbTerm* org)
+{
+    ErlOffHeap tmp_offheap;
+    DbTerm* res = erts_alloc(ERTS_ALC_T_TMP,
+			     sizeof(DbTerm) + org->size*sizeof(Eterm));
+    Eterm* hp = res->tpl;
+    tmp_offheap.first = NULL;
+    db_copy_from_comp(tb, org, &hp, &tmp_offheap);
+    res->first_oh = tmp_offheap.first;
+    res->size = org->size;
+#ifdef DEBUG_CLONE
+    res->debug_clone = NULL;
+#endif
+    return res;
+}
+
+void db_free_tmp_uncompressed(DbTerm* obj)
+{
+    ErlOffHeap off_heap;
+    off_heap.first = obj->first_oh;
+    erts_cleanup_offheap(&off_heap);
+#ifdef DEBUG_CLONE
+    ASSERT(obj->debug_clone == NULL);
+#endif
+    erts_free(ERTS_ALC_T_TMP, obj);
+}
+
+Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
+			     int all, DbTerm* obj, Eterm** hpp, Uint extra)
+{
+    Uint32 dummy;
+    Eterm res;
+
+    if (tb->compress) {
+	obj = db_alloc_tmp_uncompressed(tb, obj);
+    }
+
+    res = db_prog_match(c_p, bprog, make_tuple(obj->tpl), NULL, 0, &dummy);
+
+    if (is_value(res) && hpp!=NULL) {
+	if (all) {
+	    *hpp = HAlloc(c_p, obj->size + extra);
+	    res = copy_shallow(obj->tpl, obj->size, hpp, &MSO(c_p));
+	}
+	else {
+	    Uint sz = size_object(res);
+	    *hpp = HAlloc(c_p, sz + extra);
+	    res = copy_struct(res, sz, hpp, &MSO(c_p));
+	}
+    }
+
+    if (tb->compress) {
+	db_free_tmp_uncompressed(obj);
+    }
+    return res;
+}
+
+
 #ifdef DMC_DEBUG
 /*
 ** Disassemble match program

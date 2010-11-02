@@ -541,6 +541,15 @@
 	<p>Calling <c>erlang:halt/1</c> with a string argument will still
 	produce a crash dump.</p>
       </item>
+      <tag><c><![CDATA[+e Number]]></c></tag>
+      <item>
+        <p>Set max number of ETS tables.</p>
+      </item>
+      <tag><c><![CDATA[+ec]]></c></tag>
+      <item>
+        <p>Force the <c>compressed</c> option on all ETS tables.
+              Only intended for test and evaluation.</p>
+      </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
         <p>Sets the default heap size of processes to the size

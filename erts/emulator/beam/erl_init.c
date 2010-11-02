@@ -807,6 +807,7 @@ early_init(int *argc, char **argv) /*
     erl_sys_args(argc, argv);
 
     erts_ets_realloc_always_moves = 0;
+    erts_ets_always_compress = 0;
     erts_dist_buf_busy_limit = ERTS_DE_BUSY_LIMIT;
 
     return ncpu;
@@ -1028,15 +1029,20 @@ erl_start(int argc, char **argv)
 	    break;
 
 	case 'e':
-	    /* set maximum number of ets tables */
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
-	    if (( user_requested_db_max_tabs = atoi(arg) ) < 0) {
-		erts_fprintf(stderr, "bad maximum number of ets tables %s\n", arg);
-		erts_usage();
+	    if (sys_strcmp("c", argv[i]+2) == 0) {
+		erts_ets_always_compress = 1;
 	    }
-	    VERBOSE(DEBUG_SYSTEM,
-                    ("using maximum number of ets tables %d\n",
-                     user_requested_db_max_tabs));
+	    else {
+		/* set maximum number of ets tables */
+		arg = get_arg(argv[i]+2, argv[i+1], &i);
+		if (( user_requested_db_max_tabs = atoi(arg) ) < 0) {
+		    erts_fprintf(stderr, "bad maximum number of ets tables %s\n", arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("using maximum number of ets tables %d\n",
+			 user_requested_db_max_tabs));
+	    }
 	    break;
 
 	case 'i':

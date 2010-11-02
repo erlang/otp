@@ -1166,6 +1166,15 @@ void* sys_calloc2(Uint, Uint);
                             ((char*)(s))[3] = (char)(i)         & 0xff;} \
                         while (0)
 
+#define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
+                      (((unsigned char*) (s))[1] << 8)  | \
+                      (((unsigned char*) (s))[2]))
+
+#define put_int24(i, s) do {((char*)(s))[0] = (char)((i) >> 16) & 0xff;  \
+                            ((char*)(s))[1] = (char)((i) >> 8)  & 0xff;  \
+                            ((char*)(s))[2] = (char)(i)         & 0xff;} \
+                        while (0)
+
 #define get_int16(s) ((((unsigned char*)  (s))[0] << 8) | \
                       (((unsigned char*)  (s))[1]))
 
@@ -1178,6 +1187,7 @@ void* sys_calloc2(Uint, Uint);
 
 
 #define put_int8(i, s) do {((unsigned char*)(s))[0] = (i) & 0xff;} while (0)
+
 
 /*
  * Use DEBUGF as you would use printf, but use double parentheses:

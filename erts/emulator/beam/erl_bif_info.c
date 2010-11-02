@@ -2002,6 +2002,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(db_get_trace_control_word_0(BIF_P));
     } else if (ERTS_IS_ATOM_STR("ets_realloc_moves", BIF_ARG_1)) {
  	BIF_RET((erts_ets_realloc_always_moves) ? am_true : am_false);
+    } else if (ERTS_IS_ATOM_STR("ets_always_compress", BIF_ARG_1)) {
+	BIF_RET((erts_ets_always_compress) ? am_true : am_false);
     } else if (ERTS_IS_ATOM_STR("snifs", BIF_ARG_1)) {
 	Uint size = 0;
 	Uint *szp;
