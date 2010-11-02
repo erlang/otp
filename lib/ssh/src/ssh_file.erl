@@ -198,12 +198,17 @@ read_public_key_v1(File) ->
 %% pem_type("ssh-rsa") -> "RSA".
 
 read_private_key_v2(File, Type) ->
-     case catch (public_key:pem_to_der(File)) of
-	 {ok, [{_, Bin, not_encrypted}]} ->
-	     decode_private_key_v2(Bin, Type);
-	 Error -> %% Note we do not handle password encrypted keys at the moment
-	     {error, Error}
-     end.
+    case file:read_file(File) of
+        {ok, PemBin} ->
+            case catch (public_key:pem_decode(PemBin)) of
+                [{_, Bin, not_encrypted}] ->
+                    decode_private_key_v2(Bin, Type);
+                Error -> %% Note we do not handle password encrypted keys at the moment
+                    {error, Error}
+            end;
+        {error, Reason} ->
+            {error, Reason}
+    end.
 %%  case file:read_file(File) of
 %% 	{ok,Bin} ->
 %% 	    case read_pem(binary_to_list(Bin), pem_type(Type)) of
