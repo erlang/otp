@@ -27,7 +27,7 @@
 	 ipv4_to_ipv6/1, host_and_addr/1, parse/1, t_gethostnative/1, 
 	 gethostnative_parallell/1, cname_loop/1, 
          gethostnative_soft_restart/1,gethostnative_debug_level/1,getif/1,
-	 getif_ifr_name_overflow/1,getservbyname_overflow/1]).
+	 getif_ifr_name_overflow/1,getservbyname_overflow/1,getifaddrs/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0]).
@@ -40,7 +40,7 @@ all(suite) ->
      ipv4_to_ipv6, host_and_addr, parse,t_gethostnative, 
      gethostnative_parallell, cname_loop,
      gethostnative_debug_level,gethostnative_soft_restart,
-     getif,getif_ifr_name_overflow,getservbyname_overflow].
+     getif,getif_ifr_name_overflow,getservbyname_overflow,getifaddrs].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
@@ -873,6 +873,14 @@ getif(suite) ->
 getif(doc) ->
     ["Tests basic functionality of getiflist, getif, and ifget"];
 getif(Config) when is_list(Config) ->
+    ?line case os:type() of
+	      {unix,Osname} ->
+		  ?line do_getif(Osname);
+	      {_,_} ->
+		  {skip,"inet:getif/0 probably not supported"}
+	  end.
+
+do_getif(Osname) ->
     ?line {ok,Hostname} = inet:gethostname(),
     ?line {ok,Address} = inet:getaddr(Hostname, inet),
     ?line {ok,Loopback} = inet:getaddr("localhost", inet),
@@ -887,7 +895,8 @@ getif(Config) when is_list(Config) ->
 		    end
 	    end, [], Interfaces)),
     ?line io:format("HWAs = ~p~n", [HWAs]),
-    ?line length(HWAs) > 0 orelse ?t:fail(no_HWAs),
+    ?line (Osname =/= sunos)
+	andalso ((length(HWAs) > 0) orelse (?t:fail(no_HWAs))),
     ?line Addresses = 
 	lists:sort(
 	  lists:foldl(
@@ -906,6 +915,14 @@ getif(Config) when is_list(Config) ->
 getif_ifr_name_overflow(doc) ->
     "Test long interface names do not overrun buffer";
 getif_ifr_name_overflow(Config) when is_list(Config) ->
+    ?line case os:type() of
+	      {unix,Osname} ->
+		  ?line do_getif_ifr_name_overflow(Osname);
+	      {_,_} ->
+		  {skip,"inet:ifget/2 probably not supported"}
+	  end.
+
+do_getif_ifr_name_overflow(_) ->
     %% emulator should not crash
     ?line {ok,[]} = inet:ifget(lists:duplicate(128, "x"), [addr]),
     ok.
@@ -916,6 +933,112 @@ getservbyname_overflow(Config) when is_list(Config) ->
     %% emulator should not crash
     ?line {error,einval} = inet:getservbyname(list_to_atom(lists:flatten(lists:duplicate(128, "x"))), tcp),
     ok.
+
+getifaddrs(doc) ->
+    "Test inet:gifaddrs/0";
+getifaddrs(Config) when is_list (Config) ->
+    ?line {ok,IfAddrs} = inet:getifaddrs(),
+    ?line ?t:format("IfAddrs = ~p.~n", [IfAddrs]),
+    ?line
+	case
+	    {os:type(),
+	     [If ||
+		 {If,Opts} <- IfAddrs,
+		 lists:keymember(hwaddr, 1, Opts)]} of
+	    {{unix,sunos},[]} -> ok;
+	    {OT,[]} ->
+		?t:fail({should_have_hwaddr,OT});
+	    _ -> ok
+	end,
+    ?line Addrs =
+	[element(1, A) || A <- ifaddrs(IfAddrs)],
+    ?line ?t:format("Addrs = ~p.~n", [Addrs]),
+    ?line [check_addr(Addr) || Addr <- Addrs],
+    ok.
+
+check_addr(Addr)
+  when tuple_size(Addr) =:= 8,
+       element(1, Addr) band 16#FFC0 =:= 16#FE80 ->
+    ?line ?t:format("Addr: ~p link local; SKIPPED!~n", [Addr]),
+    ok;
+check_addr(Addr) ->
+    ?line ?t:format("Addr: ~p.~n", [Addr]),
+    ?line Ping = "ping",
+    ?line Pong = "pong",
+    ?line {ok,L} = gen_tcp:listen(0, [{ip,Addr},{active,false}]),
+    ?line {ok,P} = inet:port(L),
+    ?line {ok,S1} = gen_tcp:connect(Addr, P, [{active,false}]),
+    ?line {ok,S2} = gen_tcp:accept(L),
+    ?line ok = gen_tcp:send(S2, Ping),
+    ?line {ok,Ping} = gen_tcp:recv(S1, length(Ping)),
+    ?line ok = gen_tcp:send(S1, Pong),
+    ?line ok = gen_tcp:close(S1),
+    ?line {ok,Pong} = gen_tcp:recv(S2, length(Pong)),
+    ?line ok = gen_tcp:close(S2),
+    ?line ok = gen_tcp:close(L),
+    ok.
+
+-record(ifopts, {name,flags,addrs=[],hwaddr}).
+
+ifaddrs([]) -> [];
+ifaddrs([{If,Opts}|IOs]) ->
+    ?line #ifopts{flags=Flags} = Ifopts =
+	check_ifopts(Opts, #ifopts{name=If}),
+    ?line case Flags =/= undefined andalso lists:member(up, Flags) of
+	      true  ->
+		  Ifopts#ifopts.addrs;
+	      false ->
+		  []
+	  end++ifaddrs(IOs).
+
+check_ifopts([], #ifopts{name=If,flags=Flags,addrs=Raddrs}=Ifopts) ->
+    Addrs = lists:reverse(Raddrs),
+    R = Ifopts#ifopts{addrs=Addrs},
+    ?t:format("~p.~n", [R]),
+    %% See how we did...
+    if  is_list(Flags) -> ok;
+	true ->
+	    ?t:fail({flags_undefined,If})
+    end,
+    case lists:member(broadcast, Flags) of
+	true ->
+	    [case A of
+		 {_,_,_} -> A;
+		 {T,_} when tuple_size(T) =:= 8 -> A;
+		 _ ->
+		     ?t:fail({broaddr_missing,If,A})
+	     end || A <- Addrs];
+	false ->
+	    [case A of {_,_} -> A;
+		 _ ->
+		     ?t:fail({should_have_netmask,If,A})
+	     end || A <- Addrs]
+    end,
+    R;
+check_ifopts([{flags,Flags}|Opts], #ifopts{flags=undefined}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{flags=Flags});
+check_ifopts([{flags,Fs}|Opts], #ifopts{flags=Flags}=Ifopts) ->
+    case Fs of
+	Flags ->
+	    check_ifopts(Opts, Ifopts#ifopts{});
+	_ ->
+	    ?t:fail({multiple_flags,Fs,Ifopts})
+    end;
+check_ifopts(
+  [{addr,Addr},{netmask,Netmask},{broadaddr,Broadaddr}|Opts],
+  #ifopts{addrs=Addrs}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask,Broadaddr}|Addrs]});
+check_ifopts(
+  [{addr,Addr},{netmask,Netmask}|Opts],
+  #ifopts{addrs=Addrs}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr,Netmask}|Addrs]});
+check_ifopts([{addr,Addr}|Opts], #ifopts{addrs=Addrs}=Ifopts) ->
+    check_ifopts(Opts, Ifopts#ifopts{addrs=[{Addr}|Addrs]});
+check_ifopts([{hwaddr,Hwaddr}|Opts], #ifopts{hwaddr=undefined}=Ifopts)
+  when is_list(Hwaddr) ->
+    check_ifopts(Opts, Ifopts#ifopts{hwaddr=Hwaddr});
+check_ifopts([{hwaddr,HwAddr}|_], #ifopts{}=Ifopts) ->
+    ?t:fail({multiple_hwaddrs,HwAddr,Ifopts}).
 
 %% Works just like lists:member/2, except that any {127,_,_,_} tuple
 %% matches any other {127,_,_,_}. We do this to handle Linux systems
