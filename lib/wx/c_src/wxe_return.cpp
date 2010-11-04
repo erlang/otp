@@ -64,11 +64,14 @@ int wxeReturn::send() {
     int res = driver_send_term(port, caller, rtData, rtLength);
     driver_free(rtData);
 
+#ifdef DEBUG
     if(res == -1) {
       wxString msg;
       msg.Printf(wxT("Failed to send return or event msg"));
       send_msg("internal_error", &msg);
     }
+#endif
+
     reset();
     return res;
 }
