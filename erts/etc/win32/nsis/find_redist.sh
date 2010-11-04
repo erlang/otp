@@ -108,15 +108,28 @@ for x in cl bin vc; do
     BPATH="$NBPATH"
 done
 #echo $BPATH
-for x in sdk v2.0 bootstrapper packages vcredist_x86 vcredist_x86.exe; do
+STARTPATH=$BPATH
+for verdir in v2.0 v3.5; do
+BPATH=$STARTPATH
+fail=false
+for x in sdk $verdir bootstrapper packages vcredist_x86 vcredist_x86.exe; do
     #echo "x=$x"
     #echo "BPATH=$BPATH"
     NBPATH=`add_path_element $x "$BPATH"`
     if [ "$NBPATH" = "$BPATH" ]; then
-	echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
-	exit 3
+	fail=true
+	break;
     fi
     BPATH="$NBPATH"
 done
-echo $BPATH
-exit 0
+if [ $fail = false ]; then
+    break;
+fi
+done
+if [ $fail = false ]; then
+    echo $BPATH
+    exit 0
+else
+    echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
+    exit 3
+fi
