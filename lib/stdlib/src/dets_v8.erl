@@ -1074,6 +1074,8 @@ wl([], _Type, Del, Lookup, I, Objs) ->
     [{Del, Lookup, Objs} | I].
 
 %% -> {NewHead, ok} | {NewHead, Error}
+may_grow(Head, 0, once) ->
+    {Head, ok};
 may_grow(Head, _N, _How) when Head#head.fixed =/= false ->
     {Head, ok};
 may_grow(#head{access = read}=Head, _N, _How) ->

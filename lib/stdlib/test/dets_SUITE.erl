@@ -50,7 +50,8 @@
 	 otp_4208/1, otp_4989/1, many_clients/1, otp_4906/1, otp_5402/1,
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
-         otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1]).
+         otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
+         otp_8923/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -108,7 +109,8 @@ all(suite) ->
 	      cache_duplicate_bags_v9, otp_4208, otp_4989, many_clients,
               otp_4906, otp_5402, simultaneous_open, insert_new, 
               repair_continuation, otp_5487, otp_6206, otp_6359, otp_4738,
-              otp_7146, otp_8070, otp_8856, otp_8898, otp_8899, otp_8903]}
+              otp_7146, otp_8070, otp_8856, otp_8898, otp_8899, otp_8903,
+              otp_8923]}
     end.
 
 not_run(suite) -> [];
@@ -3802,6 +3804,39 @@ otp_8903(Config) when is_list(Config) ->
     ?line {'EXIT', {badarg, _}} = (catch {foo,dets:match_object(C1)}),
     ?line {'EXIT', {badarg, _}} = (catch {foo,dets:bchunk(T, BC1)}),
     ?line ok = dets:close(T),
+    file:delete(File),
+    ok.
+
+otp_8923(doc) ->
+    ["OTP-8923. rehash due to lookup after initialization."];
+otp_8923(suite) ->
+    [];
+otp_8923(Config) when is_list(Config) ->
+    Tab = otp_8923,
+    File = filename(Tab, Config),
+    %% Create a file with more than 256 keys:
+    file:delete(File),
+    Bin = list_to_binary([ 0 || _ <- lists:seq(1, 400) ]),
+    BigBin = list_to_binary([ 0 ||_ <- lists:seq(1, 4000)]),
+    Ets = ets:new(temp, [{keypos,1}]),
+    ?line [ true = ets:insert(Ets, {C,Bin}) || C <- lists:seq(1, 700) ],
+    ?line true = ets:insert(Ets, {helper_data,BigBin}),
+    ?line true = ets:insert(Ets, {prim_btree,BigBin}),
+    ?line true = ets:insert(Ets, {sec_btree,BigBin}),
+    %% Note: too few slots; re-hash will take place
+    ?line {ok, Tab} = dets:open_file(Tab, [{file,File}]),
+    ?line Tab = ets:to_dets(Ets, Tab),
+    ?line ok = dets:close(Tab),
+    ?line true = ets:delete(Ets),
+    
+    ?line {ok,Ref} = dets:open_file(File),
+    ?line [{1,_}] = dets:lookup(Ref, 1),
+    ?line ok = dets:close(Ref),
+
+    ?line {ok,Ref2} = dets:open_file(File),
+    ?line [{helper_data,_}] = dets:lookup(Ref2, helper_data),
+    ?line ok = dets:close(Ref2),
+
     file:delete(File),
     ok.
 
