@@ -199,7 +199,7 @@ open_int({Driver, Portopts}, File, Mode, Setopts) ->
     end;
 open_int(Port, File, Mode, Setopts) ->
     M = Mode band ?EFILE_MODE_MASK,
-    case drv_command(Port, [<<?FILE_OPEN, M:32>>, pathname(File), 0]) of
+    case drv_command(Port, [<<?FILE_OPEN, M:32>>, pathname(File)]) of
 	{ok, Number} ->
 	    open_int_setopts(Port, Number, Setopts);
 	Error ->
@@ -642,7 +642,7 @@ set_cwd_int(Port, Dir0) ->
 	 end),
     %% Dir is now either a string or an EXIT tuple.
     %% An EXIT tuple will fail in the following catch.
-    drv_command(Port, [?FILE_CHDIR, pathname(Dir), 0]).
+    drv_command(Port, [?FILE_CHDIR, pathname(Dir)]).
 
 
 
@@ -655,7 +655,7 @@ delete(Port, File) when is_port(Port) ->
     delete_int(Port, File).
 
 delete_int(Port, File) ->
-    drv_command(Port, [?FILE_DELETE, pathname(File), 0]).
+    drv_command(Port, [?FILE_DELETE, pathname(File)]).
 
 
 
@@ -668,7 +668,7 @@ rename(Port, From, To) when is_port(Port) ->
     rename_int(Port, From, To).
 
 rename_int(Port, From, To) ->
-    drv_command(Port, [?FILE_RENAME, pathname(From), 0, pathname(To), 0]).
+    drv_command(Port, [?FILE_RENAME, pathname(From), pathname(To)]).
 
 
 
@@ -681,7 +681,7 @@ make_dir(Port, Dir) when is_port(Port) ->
     make_dir_int(Port, Dir).
 
 make_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_MKDIR, pathname(Dir), 0]).
+    drv_command(Port, [?FILE_MKDIR, pathname(Dir)]).
 
 
 
@@ -694,7 +694,7 @@ del_dir(Port, Dir) when is_port(Port) ->
     del_dir_int(Port, Dir).
 
 del_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_RMDIR, pathname(Dir), 0]).
+    drv_command(Port, [?FILE_RMDIR, pathname(Dir)]).
 
 
 
@@ -707,7 +707,7 @@ read_file_info(Port, File) when is_port(Port) ->
     read_file_info_int(Port, File).
 
 read_file_info_int(Port, File) ->
-    drv_command(Port, [?FILE_FSTAT, pathname(File), 0]).
+    drv_command(Port, [?FILE_FSTAT, pathname(File)]).
 
 %% altname/{1,2}
 
@@ -718,7 +718,7 @@ altname(Port, File) when is_port(Port) ->
     altname_int(Port, File).
 
 altname_int(Port, File) ->
-    drv_command(Port, [?FILE_ALTNAME, pathname(File), 0]).
+    drv_command(Port, [?FILE_ALTNAME, pathname(File)]).
 
 %% write_file_info/{2,3}
 
@@ -749,7 +749,7 @@ write_file_info_int(Port,
 			date_to_bytes(Atime), 
 			date_to_bytes(Mtime), 
 			date_to_bytes(Ctime),
-			pathname(File), 0]).
+			pathname(File)]).
 
 
 
@@ -762,7 +762,7 @@ make_link(Port, Old, New) when is_port(Port) ->
     make_link_int(Port, Old, New).
 
 make_link_int(Port, Old, New) ->
-    drv_command(Port, [?FILE_LINK, pathname(Old), 0, pathname(New), 0]).
+    drv_command(Port, [?FILE_LINK, pathname(Old), pathname(New)]).
 
 
 
@@ -775,7 +775,7 @@ make_symlink(Port, Old, New) when is_port(Port) ->
     make_symlink_int(Port, Old, New).
 
 make_symlink_int(Port, Old, New) ->
-    drv_command(Port, [?FILE_SYMLINK, pathname(Old), 0, pathname(New), 0]).
+    drv_command(Port, [?FILE_SYMLINK, pathname(Old), pathname(New)]).
 
 
 
@@ -788,7 +788,7 @@ read_link(Port, Link) when is_port(Port) ->
     read_link_int(Port, Link).
 
 read_link_int(Port, Link) ->
-    drv_command(Port, [?FILE_READLINK, pathname(Link), 0]).
+    drv_command(Port, [?FILE_READLINK, pathname(Link)]).
 
 
 
@@ -801,7 +801,7 @@ read_link_info(Port, Link) when is_port(Port) ->
     read_link_info_int(Port, Link).
 
 read_link_info_int(Port, Link) ->
-    drv_command(Port, [?FILE_LSTAT, pathname(Link), 0]).
+    drv_command(Port, [?FILE_LSTAT, pathname(Link)]).
 
 
 
@@ -814,7 +814,7 @@ list_dir(Port, Dir) when is_port(Port) ->
     list_dir_int(Port, Dir).
 
 list_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_READDIR, pathname(Dir), 0], []).
+    drv_command(Port, [?FILE_READDIR, pathname(Dir)], []).
 
 
 
@@ -1227,5 +1227,6 @@ lists_split([Hd | Tl], N, Rev) ->
 reverse(X) -> lists:reverse(X, []).
 reverse(L, T) -> lists:reverse(L, T).
 
+% Will add zero termination too
 pathname(File) ->
     prim_file:internal_name2native(File).

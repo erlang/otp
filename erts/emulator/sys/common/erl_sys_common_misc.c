@@ -60,6 +60,7 @@ int erts_get_user_requested_filename_encoding(void)
 void erts_init_sys_common_misc(void)
 {
 #if defined(__WIN32__)
+    /* win_efile will totally fail if this is not set. */
     filename_encoding = ERL_FILENAME_WIN_WCHAR;
 #else
     if (user_filename_encoding != ERL_FILENAME_UNKNOWN) {

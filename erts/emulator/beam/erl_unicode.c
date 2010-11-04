@@ -2104,7 +2104,11 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 }
 
 
-
+/*
+ * This internal bif converts a filename to whatever format is suitable for the file driver
+ * It also adds zero termination so that prim_file neednt bother with the character encoding
+ * of the file driver 
+ */
 BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 {
     int encoding = erts_get_native_filename_encoding();
@@ -2119,28 +2123,36 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	Uint unipoint;
 	/* Uninterpreted encoding except if windows widechar, in case we convert from 
 	   utf8 to win_wchar */
+	size = binary_size(BIF_ARG_1);
+	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (encoding != ERL_FILENAME_WIN_WCHAR) {
-	    BIF_RET(BIF_ARG_1);
+	    /*Add 0 termination only*/
+	    bin_term = new_binary(BIF_P, NULL, size+1);
+	    bin_p = binary_bytes(bin_term);
+	    memcpy(bin_p,bytes,size);
+	    bin_p[size]=0;
+	    erts_free_aligned_binary_bytes(temp_alloc);
+	    BIF_RET(bin_term);
 	} 
 	/* In a wchar world, the emulator flags only affect how
 	   binaries are interpreted when sent from the user. */
 	/* Determine real length and create a new binary */
-	size = binary_size(BIF_ARG_1);
-	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != UTF8_OK || 
 	    erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
 	    /* What to do now? Maybe latin1, so just take byte for byte instead */
-	    bin_term = new_binary(BIF_P, 0, size*2);
+	    bin_term = new_binary(BIF_P, 0, (size+1)*2);
 	    bin_p = binary_bytes(bin_term);
 	    while (size--) {
 		*bin_p++ = *bytes++;
 		*bin_p++ = 0;
 	    }
+	    *bin_p++ = 0;
+	    *bin_p++ = 0;
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_RET(bin_term);
 	}
 	/* OK, UTF8 ok, number of characters is in num_chars */
-	bin_term = new_binary(BIF_P, 0, num_chars*2);
+	bin_term = new_binary(BIF_P, 0, (num_chars+1)*2);
 	bin_p = binary_bytes(bin_term);
 	while (num_chars--) {
 	    if (((*bytes) & ((byte) 0x80)) == 0) {
@@ -2170,6 +2182,9 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	    *bin_p++ = (byte) (unipoint & 0xFF);
 	    *bin_p++ = (byte) ((unipoint >> 8) & 0xFF);
 	}
+	/* zero termination */
+	*bin_p++ = 0;
+	*bin_p++ = 0;
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(bin_term);
     } /* binary */   
@@ -2178,9 +2193,19 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
     if ((need = simple_char_need(BIF_ARG_1,encoding)) < 0) {
 	BIF_ERROR(BIF_P,BADARG);
     }
+    if (encoding == ERL_FILENAME_WIN_WCHAR) {
+	need += 2;
+    } else {
+	++need;
+    }
+    
     bin_term = new_binary(BIF_P, 0, need);
     bin_p = binary_bytes(bin_term);
     simple_put_chars(BIF_ARG_1,encoding,bin_p); 
+    bin_p[need-1] = 0;
+    if (encoding == ERL_FILENAME_WIN_WCHAR) {
+	bin_p[need-2] = 0;
+    }
     BIF_RET(bin_term);
 }
 
@@ -2243,6 +2268,7 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 	    Uint x = ((Uint) *bytes--) << 8;
 	    x |= ((Uint) *bytes--);
 	    ret = CONS(hp,make_small(x),ret);
+	    hp += 2;
 	    size -= 2;
 	}	    
 	erts_free_aligned_binary_bytes(temp_alloc);

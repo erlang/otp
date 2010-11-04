@@ -587,7 +587,8 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 						   open directory.*/
 	      char* buffer,		/* Pointer to buffer for 
 					   one filename. */
-	      size_t size)		/* Size of buffer. */
+	      size_t *size)		/* in-out Size of buffer, length
+					   of name. */
 {
     DIR *dp;			/* Pointer to directory structure. */
     struct dirent* dirp;	/* Pointer to directory entry. */
@@ -620,6 +621,7 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    continue;
 	buffer[0] = '\0';
 	strncat(buffer, dirp->d_name, size-1);
+	*size = strlen(dirp->d_name);
 	return 1;
     }
 }
