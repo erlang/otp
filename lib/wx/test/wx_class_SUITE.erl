@@ -58,7 +58,8 @@ all(suite) ->
      helpFrame,
      htmlWindow,
      listCtrlSort,
-     radioBox
+     radioBox,
+     systemSettings
     ].
 
 %% The test cases
@@ -389,6 +390,20 @@ radioBox(Config) ->
     io:format("~p~n", [catch wxControlWithItems:setClientData(TrSortRadioBox, 0, timestamp)]),
     %?m(_, wxListBox:append(TrSortRadioBox, "Session Id", session_id)),
     %?m(_, wxListBox:insert(TrSortRadioBox, "Session Id", 0, session_id)),
+
+    wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+
+systemSettings(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+systemSettings(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+    
+    ?m({_,_,_,_}, wxSystemSettings:getColour(?wxSYS_COLOUR_DESKTOP)),
+    ?mt(wxFont, wxSystemSettings:getFont(?wxSYS_SYSTEM_FONT)),
+    ?m(true, is_integer(wxSystemSettings:getMetric(?wxSYS_MOUSE_BUTTONS))),
+    ?m(true, is_integer(wxSystemSettings:getScreenType())),
 
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
