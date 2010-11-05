@@ -33,6 +33,13 @@
 #  define ETHR_MTX_HARD_DEBUG
 #endif
 
+#if 0
+#  define ETHR_MTX_CHK_EXCL
+#if 1
+#    define ETHR_MTX_CHK_NON_EXCL
+#endif
+#endif
+
 #ifdef ETHR_MTX_HARD_DEBUG
 #  ifdef __GNUC__
 #    warning ETHR_MTX_HARD_DEBUG
@@ -48,6 +55,15 @@
 #endif
 
 #if defined(ETHR_USE_OWN_RWMTX_IMPL__) || defined(ETHR_USE_OWN_MTX_IMPL__)
+
+#ifdef ETHR_DEBUG
+#  ifndef ETHR_MTX_CHK_EXCL
+#    define ETHR_MTX_CHK_EXCL
+#  endif
+#  ifndef ETHR_MTX_CHK_NON_EXCL
+#    define ETHR_MTX_CHK_NON_EXCL
+#  endif
+#endif
 
 #if 0
 #  define ETHR_MTX_Q_LOCK_SPINLOCK__
@@ -68,8 +84,8 @@
 
 /* frequent read kind */
 #define ETHR_RWMTX_R_FLG__		(((long) 1) << 28)
-#define ETHR_RWMTX_R_PEND_UNLCK_MASK__	(ETHR_RWMTX_R_FLG__ - 1)
-#define ETHR_RWMTX_R_MASK__		(ETHR_RWMTX_R_WAIT_FLG__ - 1)
+#define ETHR_RWMTX_R_ABRT_UNLCK_FLG__	(((long) 1) << 27)
+#define ETHR_RWMTX_R_PEND_UNLCK_MASK__	(ETHR_RWMTX_R_ABRT_UNLCK_FLG__ - 1)
 
 /* normal kind */
 #define ETHR_RWMTX_RS_MASK__		(ETHR_RWMTX_R_WAIT_FLG__ - 1)
@@ -90,6 +106,12 @@ struct ethr_mutex_base_ {
     short main_scnt;
 #ifdef ETHR_MTX_HARD_DEBUG_WSQ
     int ws;
+#endif
+#ifdef ETHR_MTX_CHK_EXCL
+    ethr_atomic_t exclusive;
+#endif
+#ifdef ETHR_MTX_CHK_NON_EXCL
+    ethr_atomic_t non_exclusive;
 #endif
 #ifdef ETHR_MTX_HARD_DEBUG_LFS
     ethr_atomic_t hdbg_lfs;
@@ -344,6 +366,116 @@ do { \
 #define ETHR_MTX_HARD_DEBUG_FENCE_INIT(X)
 #endif
 
+#ifdef ETHR_MTX_CHK_EXCL
+
+#if !defined(ETHR_DEBUG) && defined(__GNUC__)
+#warning "check exclusive is enabled"
+#endif
+
+#  define ETHR_MTX_CHK_EXCL_INIT__(MTXB)		\
+    ethr_atomic_init(&(MTXB)->exclusive, 0)
+
+#  define ETHR_MTX_CHK_EXCL_IS_EXCL(MTXB)		\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    if (!ethr_atomic_read(&(MTXB)->exclusive))		\
+	ethr_assert_failed(__FILE__, __LINE__, __func__,\
+			   "is exclusive");		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#  define ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(MTXB)		\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    if (ethr_atomic_read(&(MTXB)->exclusive))		\
+	ethr_assert_failed(__FILE__, __LINE__, __func__,\
+			   "is not exclusive");		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#  define ETHR_MTX_CHK_EXCL_SET_EXCL(MTXB)		\
+do {							\
+    ETHR_MTX_CHK_EXCL_IS_NOT_EXCL((MTXB));		\
+    ethr_atomic_set(&(MTXB)->exclusive, 1);		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#  define ETHR_MTX_CHK_EXCL_UNSET_EXCL(MTXB)		\
+do {							\
+    ETHR_MTX_CHK_EXCL_IS_EXCL((MTXB));			\
+    ethr_atomic_set(&(MTXB)->exclusive, 0);		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+
+#ifdef ETHR_MTX_CHK_NON_EXCL
+
+#if !defined(ETHR_DEBUG) && defined(__GNUC__)
+#warning "check non-exclusive is enabled"
+#endif
+
+#    define ETHR_MTX_CHK_NON_EXCL_INIT__(MTXB)		\
+    ethr_atomic_init(&(MTXB)->non_exclusive, 0)
+#    define ETHR_MTX_CHK_EXCL_IS_NON_EXCL(MTXB)		\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    if (!ethr_atomic_read(&(MTXB)->non_exclusive))	\
+	ethr_assert_failed(__FILE__, __LINE__, __func__,\
+			   "is non-exclusive");		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#    define ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(MTXB)	\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    if (ethr_atomic_read(&(MTXB)->non_exclusive))	\
+	ethr_assert_failed(__FILE__, __LINE__, __func__,\
+			   "is not non-exclusive");	\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#    define ETHR_MTX_CHK_EXCL_SET_NON_EXCL(MTXB)	\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    ethr_atomic_inc(&(MTXB)->non_exclusive);		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#    define ETHR_MTX_CHK_EXCL_SET_NON_EXCL_NO(MTXB, NO)	\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    ethr_atomic_add(&(MTXB)->non_exclusive, (NO));	\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#    define ETHR_MTX_CHK_EXCL_UNSET_NON_EXCL(MTXB)	\
+do {							\
+    ETHR_COMPILER_BARRIER;				\
+    ethr_atomic_dec(&(MTXB)->non_exclusive);		\
+    ETHR_COMPILER_BARRIER;				\
+} while (0)
+#else
+#    define ETHR_MTX_CHK_NON_EXCL_INIT__(MTXB)
+#    define ETHR_MTX_CHK_EXCL_IS_NON_EXCL(MTXB)
+#    define ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(MTXB)
+#    define ETHR_MTX_CHK_EXCL_SET_NON_EXCL_NO(MTXB, NO)
+#    define ETHR_MTX_CHK_EXCL_SET_NON_EXCL(MTXB)
+#    define ETHR_MTX_CHK_EXCL_UNSET_NON_EXCL(MTXB)
+#endif
+
+#else
+#  define ETHR_MTX_CHK_EXCL_INIT__(MTXB)
+#  define ETHR_MTX_CHK_EXCL_IS_EXCL(MTXB)
+#  define ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(MTXB)
+#  define ETHR_MTX_CHK_EXCL_SET_EXCL(MTXB)
+#  define ETHR_MTX_CHK_EXCL_UNSET_EXCL(MTXB)
+#  define ETHR_MTX_CHK_NON_EXCL_INIT__(MTXB)
+#  define ETHR_MTX_CHK_EXCL_IS_NON_EXCL(MTXB)
+#  define ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(MTXB)
+#  define ETHR_MTX_CHK_EXCL_SET_NON_EXCL_NO(MTXB, NO)
+#  define ETHR_MTX_CHK_EXCL_SET_NON_EXCL(MTXB)
+#  define ETHR_MTX_CHK_EXCL_UNSET_NON_EXCL(MTXB)
+#endif
+
+#  define ETHR_MTX_CHK_EXCL_INIT(MTXB)			\
+do {							\
+    ETHR_MTX_CHK_EXCL_INIT__((MTXB));			\
+    ETHR_MTX_CHK_NON_EXCL_INIT__((MTXB));		\
+} while (0)
+
+
 #ifdef ETHR_USE_OWN_MTX_IMPL__
 
 #define ETHR_MTX_DEFAULT_MAIN_SPINCOUNT_MAX 2000
@@ -369,6 +501,11 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
     act = ethr_atomic_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
     res = (act == 0) ? 0 : EBUSY;
 
+#ifdef ETHR_MTX_CHK_EXCL
+    if (res == 0)
+	ETHR_MTX_CHK_EXCL_SET_EXCL(&mtx->mtxb);
+#endif
+
     ETHR_MTX_HARD_DEBUG_LFS_TRYRWLOCK(&mtx->mtxb, res);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
 
@@ -386,6 +523,8 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
     if (act != 0)
 	ethr_mutex_lock_wait__(mtx, act);
 
+    ETHR_MTX_CHK_EXCL_SET_EXCL(&mtx->mtxb);
+
     ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(&mtx->mtxb);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
 
@@ -399,6 +538,8 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
     ETHR_COMPILER_BARRIER;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(&mtx->mtxb);
+
+    ETHR_MTX_CHK_EXCL_UNSET_EXCL(&mtx->mtxb);
 
     act = ethr_atomic_cmpxchg_relb(&mtx->mtxb.flgs, 0, ETHR_RWMTX_W_FLG__);
     if (act != ETHR_RWMTX_W_FLG__)
