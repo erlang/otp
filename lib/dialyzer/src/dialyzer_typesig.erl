@@ -314,6 +314,7 @@ traverse(Tree, DefinedVars, State) ->
 	  error -> t_fun(length(Vars), t_none());
 	  {ok, Dom} -> t_fun(Dom, t_none())
 	end,
+      TreeVar = mk_var(Tree),
       State2 =
 	try
 	  State1 = case state__add_prop_constrs(Tree, State0) of
@@ -321,20 +322,21 @@ traverse(Tree, DefinedVars, State) ->
 		     PropState -> PropState
 		   end,
 	  {BodyState, BodyVar} = traverse(Body, DefinedVars1, State1),
-	  state__store_conj(mk_var(Tree), eq,
+	  state__store_conj(TreeVar, eq,
 			    t_fun(mk_var_list(Vars), BodyVar), BodyState)
 	catch
 	  throw:error ->
-	    state__store_conj(mk_var(Tree), eq, FunFailType, State0)
+	    state__store_conj(TreeVar, eq, FunFailType, State0)
 	end,
       Cs = state__cs(State2),
-      State3 = state__store_constrs(mk_var(Tree), Cs, State2),
-      Ref = mk_constraint_ref(mk_var(Tree), get_deps(Cs)),
+      State3 = state__store_constrs(TreeVar, Cs, State2),
+      Ref = mk_constraint_ref(TreeVar, get_deps(Cs)),
       OldCs = state__cs(State),
       State4 = state__new_constraint_context(State3),
       State5 = state__store_conj_list([OldCs, Ref], State4),
       State6 = state__store_fun_arity(Tree, State5),
-      {State6, mk_var(Tree)};
+      State7 = state__add_fun_to_scc(TreeVar, State6),
+      {State7, TreeVar};
     'let' ->
       Vars = cerl:let_vars(Tree),
       Arg = cerl:let_arg(Tree),
@@ -580,7 +582,7 @@ handle_try(Tree, DefinedVars, State) ->
 	      mk_conj_constraint_list([HandlerCs,
 				       mk_constraint(TreeVar, eq, HandlerVar)]),
 	    Disj = mk_disj_constraint_list([Conj1, Conj2]),
-	    {Disj, mk_var(Tree)};
+	    {Disj, TreeVar};
 	  {false, true} ->
 	    {mk_conj_constraint_list([ArgBodyCs,
 				      mk_constraint(TreeVar, eq, BodyVar)]),
@@ -2070,7 +2072,7 @@ new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
   NameMap = dict:from_list([{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0]),
   SCC = [mk_var(Fun) || {_MFA, {_Var, Fun}, _Rec} <- SCC0],
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
-	 prop_types = PropTypes, plt = Plt, scc = SCC}.
+	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC)}.
 
 state__set_rec_dict(State, RecDict) ->
   State#state{records = RecDict}.
@@ -2160,6 +2162,9 @@ get_apply_constr(FunLabels, Dst, ArgTypes, #state{callgraph = CG} = State) ->
 
 state__scc(#state{scc = SCC}) ->
   SCC.
+
+state__add_fun_to_scc(Fun, #state{scc = SCC} = State) ->
+  State#state{scc = ordsets:add_element(Fun, SCC)}.
 
 state__plt(#state{plt = PLT}) ->
   PLT.
