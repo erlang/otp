@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1908,6 +1908,9 @@ write_cache(Head) ->
     end.
 
 %% -> {NewHead, ok} | {NewHead, Error}
+may_grow(Head, 0, once) ->
+    %% Do not re-hash if there is a chance that the file is not dirty.
+    {Head, ok};
 may_grow(Head, _N, _How) when Head#head.fixed =/= false ->
     {Head, ok};
 may_grow(#head{access = read}=Head, _N, _How) ->
