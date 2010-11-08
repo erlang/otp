@@ -659,7 +659,7 @@ portformat(Name, Id, Cmd) ->
 pwd() ->
     case file:get_cwd() of
 	{ok, Str} ->
-	    ok = io:format("~s\n", [fixup_one_bin(Str)]);
+	    ok = io:format("~ts\n", [fixup_one_bin(Str)]);
 	{error, _} ->
 	    ok = io:format("Cannot determine current directory\n")
     end.
@@ -714,7 +714,7 @@ ls_print(X, Width, Len) when Width + Len >= 80 ->
     io:nl(),
     ls_print(X, Width, 0);
 ls_print([H|T], Width, Len) ->
-    io:format("~-*s",[Width,H]),
+    io:format("~-*ts",[Width,H]),
     ls_print(T, Width, Len+Width);
 ls_print([], _, _) ->
     io:nl().
