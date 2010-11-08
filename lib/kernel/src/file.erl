@@ -1037,20 +1037,22 @@ file_name(N) when is_binary(N) ->
     N;
 file_name(N) ->
     try 
-        file_name_1(N)
+        file_name_1(N,file:native_name_encoding())
     catch Reason ->
         {error, Reason}
     end.
 
-file_name_1([C|T]) when is_integer(C), C > 0, C =< 255 ->
-    [C|file_name_1(T)];
-file_name_1([H|T]) ->
-    file_name_1(H) ++ file_name_1(T);
-file_name_1([]) ->
+file_name_1([C|T],latin1) when is_integer(C), C < 256->
+    [C|file_name_1(T,latin1)];
+file_name_1([C|T],utf8) when is_integer(C) ->
+    [C|file_name_1(T,utf8)];
+file_name_1([H|T],E) ->
+    file_name_1(H,E) ++ file_name_1(T,E);
+file_name_1([],_) ->
     [];
-file_name_1(N) when is_atom(N) ->
+file_name_1(N,_) when is_atom(N) ->
     atom_to_list(N);
-file_name_1(_) ->
+file_name_1(_,_) ->
     throw(badarg).
 
 make_binary(Bin) when is_binary(Bin) ->
