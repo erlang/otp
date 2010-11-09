@@ -1260,7 +1260,8 @@ char* win32_errorstr(int);
 #define ERL_FILENAME_UNKNOWN 0
 #define ERL_FILENAME_LATIN1 1
 #define ERL_FILENAME_UTF8 2
-#define ERL_FILENAME_WIN_WCHAR 3
+#define ERL_FILENAME_UTF8_MAC 3
+#define ERL_FILENAME_WIN_WCHAR 4
 
 int erts_get_native_filename_encoding(void);
 /* The set function is only to be used by erl_init! */

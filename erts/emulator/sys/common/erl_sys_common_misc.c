@@ -17,10 +17,11 @@
  * %CopyrightEnd%
  */
 
+
+
 /*
- * Description:	Check I/O
- *
- * Author: 	Rickard Green
+ * Darwin needs conversion!
+ * http://developer.apple.com/library/mac/#qa/qa2001/qa1235.html
  */
 
 #ifdef HAVE_CONFIG_H
@@ -29,6 +30,10 @@
 
 #include "sys.h"
 #include "global.h"
+
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
 
 #if !defined(__WIN32__)
 #include <locale.h>
@@ -42,7 +47,7 @@
 /* Written once and only once */
 
 static int filename_encoding = ERL_FILENAME_UNKNOWN;
-#if defined(__WIN32__)
+#if defined(__WIN32__) || defined(__DARWIN__)
 static int user_filename_encoding = ERL_FILENAME_UTF8; /* Default unicode on windows */
 #else
 static int user_filename_encoding = ERL_FILENAME_LATIN1;
@@ -88,6 +93,11 @@ void erts_init_sys_common_misc(void)
 	}
 #  endif
     }
+#  if defined(__DARWIN__)
+    if (filename_encoding == ERL_FILENAME_UTF8) {
+	filename_encoding = ERL_FILENAME_UTF8_MAC;
+    }
+#  endif
 #endif
 }
 

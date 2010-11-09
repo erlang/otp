@@ -30,6 +30,8 @@
 #include "big.h"
 
 #include "erl_unicode.h"
+#include "erl_unicode_normalize.h"
+
 
 typedef struct _restart_context {
     byte *bytes;
@@ -54,13 +56,6 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 					 Uint num_resulting_chars, 
 					 int state, int left,
 					 Eterm tail);
-static int analyze_utf8(byte *source, Uint size, 
-			byte **err_pos, Uint *num_chars, int *left);
-#define UTF8_OK 0
-#define UTF8_INCOMPLETE 1
-#define UTF8_ERROR 2
-#define UTF8_ANALYZE_MORE 3
-
 static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3);
 static BIF_RETTYPE characters_to_list_trap_1(BIF_ALIST_3);
 static BIF_RETTYPE characters_to_list_trap_2(BIF_ALIST_3);
@@ -970,11 +965,11 @@ static int is_valid_utf8(Eterm orig_bin)
 	bytes = erts_get_aligned_binary_bytes(orig_bin, &temp_alloc);
     }
     size = binary_size(orig_bin);
-    ret = analyze_utf8(bytes,
+    ret = erts_analyze_utf8(bytes,
 		       size,
 		       &endpos,&numchar,NULL);
     erts_free_aligned_binary_bytes(temp_alloc);
-    return (ret == UTF8_OK);
+    return (ret == ERTS_UTF8_OK);
 }
 
 BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
@@ -1084,14 +1079,14 @@ static BIF_RETTYPE build_list_return(Process *p, byte *bytes, int pos, Uint char
 	    hp += 2;
 	    rest_term = CONS(hp,leftover_bin,rest_term);
 	}
-	BIF_RET(finalize_list_to_list(p, bytes, rest_term, 0U, pos, characters, UTF8_ERROR, left, NIL));
+	BIF_RET(finalize_list_to_list(p, bytes, rest_term, 0U, pos, characters, ERTS_UTF8_ERROR, left, NIL));
     } else if (rest_term == NIL && num_leftovers != 0) {
 	Eterm leftover_bin = new_binary(p, leftover, num_leftovers);
 	if (check_leftovers(leftover,num_leftovers) != 0) {
-	    BIF_RET(finalize_list_to_list(p, bytes, leftover_bin, 0U, pos, characters, UTF8_ERROR, 
+	    BIF_RET(finalize_list_to_list(p, bytes, leftover_bin, 0U, pos, characters, ERTS_UTF8_ERROR, 
 					  left, NIL));
 	} else {
-	    BIF_RET(finalize_list_to_list(p, bytes, leftover_bin, 0U, pos, characters, UTF8_INCOMPLETE, 
+	    BIF_RET(finalize_list_to_list(p, bytes, leftover_bin, 0U, pos, characters, ERTS_UTF8_INCOMPLETE, 
 					  left, NIL));
 	}
     } else { /* All OK */	    
@@ -1107,11 +1102,11 @@ static BIF_RETTYPE build_list_return(Process *p, byte *bytes, int pos, Uint char
 	    rc.num_processed_bytes = 0; /* not used */
 	    rc.num_bytes_to_process = pos;
 	    rc.num_resulting_chars = characters;
-	    rc.state = UTF8_OK; /* not used */
+	    rc.state = ERTS_UTF8_OK; /* not used */
 	    BIF_TRAP3(&characters_to_list_trap_1_exp, p, make_magic_bin_for_restart(p,&rc), 
 		      rest_term, latin1);
 	} else { /* Success */
-	    BIF_RET(finalize_list_to_list(p, bytes, NIL, 0U, pos, characters, UTF8_OK, left, NIL));
+	    BIF_RET(finalize_list_to_list(p, bytes, NIL, 0U, pos, characters, ERTS_UTF8_OK, left, NIL));
 	}
     }
 }
@@ -1205,7 +1200,7 @@ BIF_RETTYPE unicode_characters_to_list_2(BIF_ALIST_2)
  * When input to characters_to_list is a plain binary and the format is 'unicode', we do
  * a faster analyze and size count with this function.
  */
-static int analyze_utf8(byte *source, Uint size, 
+int erts_analyze_utf8(byte *source, Uint size, 
 			byte **err_pos, Uint *num_chars, int *left)
 {
     *err_pos = source;
@@ -1216,60 +1211,60 @@ static int analyze_utf8(byte *source, Uint size,
 	    --size; 
 	} else if (((*source) & ((byte) 0xE0)) == 0xC0) {
 	    if (size < 2) {
-		return UTF8_INCOMPLETE;
+		return ERTS_UTF8_INCOMPLETE;
 	    }
 	    if (((source[1] & ((byte) 0xC0)) != 0x80) ||
 		((*source) < 0xC2) /* overlong */) {
-		return UTF8_ERROR;
+		return ERTS_UTF8_ERROR;
 	    }
 	    source += 2;
 	    size -= 2;
 	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
 	    if (size < 3) {
-		return UTF8_INCOMPLETE;
+		return ERTS_UTF8_INCOMPLETE;
 	    }
 	    if (((source[1] & ((byte) 0xC0)) != 0x80) ||
 		((source[2] & ((byte) 0xC0)) != 0x80) ||
 		(((*source) == 0xE0) && (source[1] < 0xA0)) /* overlong */ ) {
-		return UTF8_ERROR;
+		return ERTS_UTF8_ERROR;
 	    }
 	    if ((((*source) & ((byte) 0xF)) == 0xD) && 
 		((source[1] & 0x20) != 0)) {
-		return UTF8_ERROR;
+		return ERTS_UTF8_ERROR;
 	    }
 	    if (((*source) == 0xEF) && (source[1] == 0xBF) &&
 		((source[2] == 0xBE) || (source[2] == 0xBF))) {
-		return UTF8_ERROR;
+		return ERTS_UTF8_ERROR;
 	    }
 	    source += 3;
 	    size -= 3;
 	} else if (((*source) & ((byte) 0xF8)) == 0xF0) {
 	    if (size < 4) {
-		return UTF8_INCOMPLETE;
+		return ERTS_UTF8_INCOMPLETE;
 	    }
 	    if (((source[1] & ((byte) 0xC0)) != 0x80) ||
 		((source[2] & ((byte) 0xC0)) != 0x80) ||
 		((source[3] & ((byte) 0xC0)) != 0x80) ||
 		(((*source) == 0xF0) && (source[1] < 0x90)) /* overlong */) {
-		return UTF8_ERROR;
+		return ERTS_UTF8_ERROR;
 	    }
 	    if ((((*source) & ((byte)0x7)) > 0x4U) ||
 		((((*source) & ((byte)0x7)) == 0x4U) && 
 		 ((source[1] & ((byte)0x3F)) > 0xFU))) {
-		return UTF8_ERROR;
+		return ERTS_UTF8_ERROR;
 	    }
 	    source += 4;
 	    size -= 4; 
 	} else {
-	    return UTF8_ERROR;
+	    return ERTS_UTF8_ERROR;
 	}
 	++(*num_chars);
 	*err_pos = source;
 	if (left && --(*left) <= 0) {
-	    return UTF8_ANALYZE_MORE;
+	    return ERTS_UTF8_ANALYZE_MORE;
 	}
     }
-    return UTF8_OK;
+    return ERTS_UTF8_OK;
 }
 
 /*
@@ -1304,7 +1299,7 @@ static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
 	} else if (((*source) & ((byte) 0xE0)) == 0xC0) {
 	    unipoint = 
 		(((Uint) ((*source) & ((byte) 0x1F))) << 6) |
-		((Uint) (source[1] & ((byte) 0x3F))); 	
+		((Uint) (source[1] & ((byte) 0x3F)));
 	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
 	    unipoint = 
 		(((Uint) ((*source) & ((byte) 0xF))) << 12) |
@@ -1327,6 +1322,216 @@ static Eterm do_utf8_to_list(Process *p, Uint num, byte *bytes, Uint sz,
 	}
     }
     *num_eaten = (ssource - source);
+    return ret;
+}
+
+static int is_candidate(Uint cp)
+{
+    int index,pos;
+    if (cp < 768) return 0;
+    if (cp > 4023) {
+	if (cp == 12441 || cp == 12442) return 1;
+	return 0;
+    }
+    index = cp / 32 - COMP_CANDIDATE_MAP_OFFSET;
+    pos = cp % 32;
+    return !!(comp_candidate_map[index] & (1UL << pos));
+}
+
+static int hashsearch(int *htab, int htab_size, CompEntry *cv, Uint16 c)
+{
+	int bucket = c % htab_size;
+	while (htab[bucket] != -1 && cv[htab[bucket]].c != c)
+	    bucket = (bucket + 1) % htab_size;
+	return htab[bucket];
+}
+
+#define TRANSLATE_NO 0
+#define TRANSLATE_MAYBE -1
+
+/* The s array is reversed */
+static int translate(Uint16 *s, int slen, Uint16 *res)
+{
+    /* Go backwards through buffer and match against tree */
+    int pos = 0;
+    CompEntry *cv = compose_tab;
+    int *hc = hash_compose_tab;
+    int cvs = compose_tab_size;
+    int x;
+    while (pos < slen) {
+	x = hashsearch(hc,cvs*HASH_SIZE_FACTOR,cv,s[pos]);
+	if (x < 0) {
+	    return TRANSLATE_NO;
+	} 
+	if (cv[x].res) {
+	    *res = cv[x].res;
+	    return pos;
+	}
+	cvs = cv[x].num_subs;
+	hc = cv[x].hash;
+	cv = cv[x].subs;
+	++pos;
+    }
+    return TRANSLATE_MAYBE;
+}
+
+static void handle_first_norm(Uint16 *savepoints, int *numpointsp, Uint unipoint)
+{
+    /*erts_fprintf(stderr,"CP = %d, numpoints = %d\n",(int) unipoint,(int) *numpointsp);*/
+    *numpointsp = 1;
+    savepoints[0] = (Uint16) unipoint;
+}
+
+static void cleanup_norm(Eterm **hpp, Uint16 *savepoints, int numpoints, Eterm *retp)
+{
+    Eterm *hp = *hpp;
+    int res,i;
+    Uint16 newpoint;
+    Eterm ret = *retp;
+    
+    ret = CONS(hp,make_small((Uint) savepoints[0]),ret);
+    hp += 2;
+    
+    for (i = 1;i < numpoints;) {
+	if(!is_candidate(savepoints[i]) || 
+	   ((res = translate(savepoints+i,numpoints - i, &newpoint)) <= 0)) {
+	    ret = CONS(hp,make_small((Uint) savepoints[i]),ret);
+	    hp += 2;
+	    ++i;
+	} else {
+	    ret = CONS(hp,make_small((Uint) newpoint),ret);
+	    hp += 2;
+	    i += res;
+	}
+    }
+    *retp = ret;
+}
+    
+static void handle_potential_norm(Eterm **hpp, Uint16 *savepoints, int *numpointsp, Uint unipoint, Eterm *retp)
+{
+    Eterm *hp = *hpp;
+    int numpoints = *numpointsp;
+    int res,i;
+    Uint16 newpoint;
+    Eterm ret = *retp;
+
+    /* erts_fprintf(stderr,"CP = %d, numpoints = %d\n",(int) unipoint,(int) numpoints);*/
+    if ((unipoint >> 16) == 0) { /* otherwise we're done here */ 
+	savepoints[numpoints++] = (Uint16) unipoint;
+	res = translate(savepoints,numpoints,&newpoint);
+	if (res == TRANSLATE_NO) {
+	    ret = CONS(hp,make_small((Uint) savepoints[0]),ret);
+	    hp += 2;
+	    for (i = 1;i < numpoints;) {
+		if(!is_candidate(savepoints[i]) ||
+		   ((res = translate(savepoints+i,numpoints - i, &newpoint)) == 0)) {
+		    ret = CONS(hp,make_small((Uint) savepoints[i]),ret);
+		    hp += 2;
+		    ++i;
+		} else if (res > 0) {
+		    ret = CONS(hp,make_small((Uint) newpoint),ret);
+		    hp += 2;
+		    i += res;
+		} else { /* res < 0 */
+		    /* A "maybe", means we are not done yet */
+		    int j = 0;
+		    while (i < numpoints) {
+			savepoints[j++] = savepoints[i++];
+		    }
+		    numpoints = j;
+		    goto breakaway;
+		}
+	    }
+	    numpoints = 0;
+	breakaway:
+	    ;
+	} else if (res > 0) {
+	    numpoints = 0;
+	    ret = CONS(hp,make_small((Uint) newpoint),ret);
+	    hp += 2;
+	} /* < 0 means go on */
+    } else {
+	/* Unconditional rollup, this character is larger than 16 bit */
+	ret = CONS(hp,make_small((Uint) savepoints[0]),ret);
+	hp += 2;
+	
+	for (i = 1;i < numpoints;) {
+	    if(!is_candidate(savepoints[i]) || 
+	       ((res = translate(savepoints+i,numpoints - i, &newpoint)) <= 0)) {
+		ret = CONS(hp,make_small((Uint) savepoints[i]),ret);
+		hp += 2;
+		++i;
+	    } else {
+		ret = CONS(hp,make_small((Uint) newpoint),ret);
+		hp += 2;
+		i += res;
+	    }
+	}
+	ret = CONS(hp,make_small(unipoint),ret);
+	hp += 2;
+	numpoints = 0;
+    }	
+    *hpp = hp;
+    *numpointsp = numpoints;
+    *retp = ret;
+} 
+
+static Eterm do_utf8_to_list_normalize(Process *p, Uint num, byte *bytes, Uint sz)
+{
+    Eterm *hp,*hp_end;
+    Eterm ret;
+    byte *source;
+    Uint unipoint;
+    Uint16 savepoints[4];
+    int numpoints = 0;
+
+    ASSERT(num > 0);
+
+    hp = HAlloc(p,num * 2); /* May be to much */
+    hp_end = hp + num * 2;
+    ret = NIL;
+    source = bytes + sz;
+    while(--source >= bytes) {
+	if (((*source) & ((byte) 0x80)) == 0) {
+	    unipoint = (Uint) *source;
+	} else if (((*source) & ((byte) 0xE0)) == 0xC0) {
+	    unipoint = 
+		(((Uint) ((*source) & ((byte) 0x1F))) << 6) |
+		((Uint) (source[1] & ((byte) 0x3F))); 	
+	} else if (((*source) & ((byte) 0xF0)) == 0xE0) {
+	    unipoint = 
+		(((Uint) ((*source) & ((byte) 0xF))) << 12) |
+		(((Uint) (source[1] & ((byte) 0x3F))) << 6) |
+		((Uint) (source[2] & ((byte) 0x3F))); 	 	
+	} else if (((*source) & ((byte) 0xF8)) == 0xF0) {
+	    unipoint = 
+		(((Uint) ((*source) & ((byte) 0x7))) << 18) |
+		(((Uint) (source[1] & ((byte) 0x3F))) << 12) |
+		(((Uint) (source[2] & ((byte) 0x3F))) << 6) |
+		((Uint) (source[3] & ((byte) 0x3F))); 	 	
+	} else {
+	    /* ignore 2#10XXXXXX */
+	    continue;
+	}
+	if (numpoints) {
+	    handle_potential_norm(&hp,savepoints,&numpoints,unipoint,&ret);
+	    continue;
+	}
+	/* We are not building up any normalizations yet, look that we shouldn't start... */
+	if (is_candidate(unipoint)) {
+	    handle_first_norm(savepoints,&numpoints,unipoint);
+	    continue;
+	} 
+	ret = CONS(hp,make_small(unipoint),ret);
+	hp += 2;
+    }
+    /* so, we'we looped to the beginning, do we have anything saved? */
+    if (numpoints) {
+	cleanup_norm(&hp,savepoints,numpoints,&ret);
+    }
+    if (hp_end != hp) {
+	HRelease(p,hp_end,hp);
+    }
     return ret;
 }
 
@@ -1378,10 +1583,10 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
      */
 
     free_restart(bytes);
-    if (state == UTF8_INCOMPLETE) {
+    if (state == ERTS_UTF8_INCOMPLETE) {
 	hp = HAlloc(p,4);
 	ret = TUPLE3(hp,am_incomplete,converted,rest);
-    } else if (state == UTF8_ERROR) {
+    } else if (state == ERTS_UTF8_ERROR) {
 	hp = HAlloc(p,4);
 	ret = TUPLE3(hp,am_error,converted,rest);
     } else {
@@ -1408,7 +1613,7 @@ static BIF_RETTYPE characters_to_list_trap_2(BIF_ALIST_3)
 
 /*
  * Hooks into the process of decoding a binary depending on state.
- * If last_state is UTF8_ANALYZE_MORE, num_bytes_to_process 
+ * If last_state is ERTS_UTF8_ANALYZE_MORE, num_bytes_to_process 
  * and num_resulting_chars will grow
  * until we're done analyzing the binary. Then we'll eat 
  * the bytes to process, lowering num_bytes_to_process and num_resulting_chars,
@@ -1465,14 +1670,14 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 
     left = allowed_iterations(p);
     
-    if (state == UTF8_ANALYZE_MORE) {
-	state = analyze_utf8(bytes + num_bytes_to_process,
+    if (state == ERTS_UTF8_ANALYZE_MORE) {
+	state = erts_analyze_utf8(bytes + num_bytes_to_process,
 			     size - num_bytes_to_process,
 			     &endpos,&numchar,&left);
 	cost_to_proc(p,numchar);
 	num_resulting_chars += numchar;
 	num_bytes_to_process = endpos - bytes;
-	if (state == UTF8_ANALYZE_MORE) {
+	if (state == ERTS_UTF8_ANALYZE_MORE) {
 	    Eterm epos = erts_make_integer(num_bytes_to_process,p);
 	    Eterm enumchar = erts_make_integer(num_resulting_chars,p);
 	    erts_free_aligned_binary_bytes(temp_alloc);
@@ -1528,7 +1733,7 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 	ErlSubBin *sb;
 	Eterm orig;
 	Uint offset;
-	ASSERT(state != UTF8_OK);
+	ASSERT(state != ERTS_UTF8_OK);
 	hp = HAlloc(p, ERL_SUB_BIN_SIZE);
 	sb = (ErlSubBin *) hp;
 	ERTS_GET_REAL_BIN(orig_bin, orig, offset, bitoffs, bitsize);
@@ -1544,14 +1749,14 @@ static BIF_RETTYPE do_bif_utf8_to_list(Process *p,
 
     /* Done */
 
-    if (state == UTF8_INCOMPLETE) {
+    if (state == ERTS_UTF8_INCOMPLETE) {
 	if (check_leftovers(bytes + num_bytes_to_process + num_processed_bytes,
 			    b_sz) != 0) {
 	    goto error_return;
 	}
 	hp = HAlloc(p,4);
 	ret = TUPLE3(hp,am_incomplete,converted,rest);
-    } else if (state == UTF8_ERROR) {
+    } else if (state == ERTS_UTF8_ERROR) {
  error_return:
 	hp = HAlloc(p,4);
 	ret = TUPLE3(hp,am_error,converted,rest);
@@ -1589,7 +1794,7 @@ static BIF_RETTYPE characters_to_list_trap_3(BIF_ALIST_3)
 			       0U, /* nothing processed yet */
 			       num_bytes_to_process, 
 			       num_resulting_chars,
-			       UTF8_ANALYZE_MORE, /* always this state here */
+			       ERTS_UTF8_ANALYZE_MORE, /* always this state here */
 			       NIL); /* Nothing built -> no tail yet */
 	
 }
@@ -1642,7 +1847,7 @@ static BIF_RETTYPE utf8_to_list(BIF_ALIST_1)
 	BIF_ERROR(BIF_P,BADARG);
     }
     return do_bif_utf8_to_list(BIF_P, BIF_ARG_1, 0U, 0U, 0U, 
-			       UTF8_ANALYZE_MORE,NIL);
+			       ERTS_UTF8_ANALYZE_MORE,NIL);
 }
 
 
@@ -1728,8 +1933,8 @@ binary_to_atom(Process* p, Eterm bin, Eterm enc, int must_exist)
 	    Uint n;
 	    int reds_left = bin_size+1; /* Number of reductions left. */
 
-	    if (analyze_utf8(bytes, bin_size, &err_pos,
-			     &n, &reds_left) == UTF8_OK) {
+	    if (erts_analyze_utf8(bytes, bin_size, &err_pos,
+			     &n, &reds_left) == ERTS_UTF8_OK) {
 		/* 
 		 * Correct UTF-8 encoding, but too many characters to
 		 * fit in an atom.
@@ -1818,7 +2023,7 @@ BIF_RETTYPE binary_to_existing_atom_2(BIF_ALIST_2)
  * Simpler non-interruptable routines for UTF-8 and 
  * Windowish UTF-16 (restricted)
  **********************************************************/
-static Sint simple_char_need(Eterm ioterm, int encoding) 
+Sint erts_native_filename_need(Eterm ioterm, int encoding) 
 {
     Eterm *objp;
     Eterm obj;
@@ -1833,6 +2038,7 @@ static Sint simple_char_need(Eterm ioterm, int encoding)
 	case ERL_FILENAME_LATIN1:
 	    need = ap->len;
 	    break;
+	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
 	    for (i = 0; i < ap->len; i++) {
 		need += (ap->name[i] >= 0x80) ? 2 : 1;
@@ -1882,6 +2088,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    }
 			    need += 1;
 			    break;
+			case ERL_FILENAME_UTF8_MAC:
 			case ERL_FILENAME_UTF8:
 			    if (x < 0x80) {
 				need +=1;
@@ -1956,7 +2163,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
     return need;
 }
 
-static void simple_put_chars(Eterm ioterm, int encoding, byte *p) 
+void erts_native_filename_put(Eterm ioterm, int encoding, byte *p) 
 {
     Eterm *objp;
     Eterm obj;
@@ -1972,6 +2179,7 @@ static void simple_put_chars(Eterm ioterm, int encoding, byte *p)
 		*p++ = ap->name[i];
 	    }
 	    break;
+	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
 	    for (i = 0; i < ap->len; i++) {
 		if(ap->name[i] < 0x80) {
@@ -2024,6 +2232,7 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 			    ASSERT( x < 256);
 			    *p++ = (byte) x;
 			    break;
+			case ERL_FILENAME_UTF8_MAC:
 			case ERL_FILENAME_UTF8:
 			    if (x < 0x80) {
 				*p++ = (byte) x;
@@ -2102,7 +2311,39 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
     DESTROY_ESTACK(stack);
     return;
 }
-
+void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars)
+{
+    Uint unipoint;
+    
+    while (num_chars--) {
+	if (((*bytes) & ((byte) 0x80)) == 0) {
+	    unipoint = (Uint) *bytes;
+	    ++bytes;
+	} else if (((*bytes) & ((byte) 0xE0)) == 0xC0) {
+	    unipoint = 
+		(((Uint) ((*bytes) & ((byte) 0x1F))) << 6) |
+		((Uint) (bytes[1] & ((byte) 0x3F))); 	
+	    bytes += 2;
+	} else if (((*bytes) & ((byte) 0xF0)) == 0xE0) {
+	    unipoint = 
+		(((Uint) ((*bytes) & ((byte) 0xF))) << 12) |
+		(((Uint) (bytes[1] & ((byte) 0x3F))) << 6) |
+		((Uint) (bytes[2] & ((byte) 0x3F)));
+	    bytes +=3;
+	} else if (((*bytes) & ((byte) 0xF8)) == 0xF0) {
+	    unipoint = 
+		(((Uint) ((*bytes) & ((byte) 0x7))) << 18) |
+		(((Uint) (bytes[1] & ((byte) 0x3F))) << 12) |
+		(((Uint) (bytes[2] & ((byte) 0x3F))) << 6) |
+		((Uint) (bytes[3] & ((byte) 0x3F)));
+	    bytes += 4;
+	} else {
+	    erl_exit(1,"Internal unicode error in prim_file:internal_name2native/1");
+	}
+	*target++ = (byte) (unipoint & 0xFF);
+	*target++ = (byte) ((unipoint >> 8) & 0xFF);
+    }
+}
 
 /*
  * This internal bif converts a filename to whatever format is suitable for the file driver
@@ -2120,7 +2361,6 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	byte *bytes;
 	byte *err_pos;
 	Uint size,num_chars;
-	Uint unipoint;
 	/* Uninterpreted encoding except if windows widechar, in case we convert from 
 	   utf8 to win_wchar */
 	size = binary_size(BIF_ARG_1);
@@ -2137,7 +2377,7 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	/* In a wchar world, the emulator flags only affect how
 	   binaries are interpreted when sent from the user. */
 	/* Determine real length and create a new binary */
-	if (analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != UTF8_OK || 
+	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK || 
 	    erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
 	    /* What to do now? Maybe latin1, so just take byte for byte instead */
 	    bin_term = new_binary(BIF_P, 0, (size+1)*2);
@@ -2154,43 +2394,16 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	/* OK, UTF8 ok, number of characters is in num_chars */
 	bin_term = new_binary(BIF_P, 0, (num_chars+1)*2);
 	bin_p = binary_bytes(bin_term);
-	while (num_chars--) {
-	    if (((*bytes) & ((byte) 0x80)) == 0) {
-		unipoint = (Uint) *bytes;
-		++bytes;
-	    } else if (((*bytes) & ((byte) 0xE0)) == 0xC0) {
-		unipoint = 
-		    (((Uint) ((*bytes) & ((byte) 0x1F))) << 6) |
-		    ((Uint) (bytes[1] & ((byte) 0x3F))); 	
-		bytes += 2;
-	    } else if (((*bytes) & ((byte) 0xF0)) == 0xE0) {
-		unipoint = 
-		    (((Uint) ((*bytes) & ((byte) 0xF))) << 12) |
-		    (((Uint) (bytes[1] & ((byte) 0x3F))) << 6) |
-		    ((Uint) (bytes[2] & ((byte) 0x3F)));
-		bytes +=3;
-	    } else if (((*bytes) & ((byte) 0xF8)) == 0xF0) {
-		unipoint = 
-		    (((Uint) ((*bytes) & ((byte) 0x7))) << 18) |
-		    (((Uint) (bytes[1] & ((byte) 0x3F))) << 12) |
-		    (((Uint) (bytes[2] & ((byte) 0x3F))) << 6) |
-		    ((Uint) (bytes[3] & ((byte) 0x3F)));
-		bytes += 4;
-	    } else {
-		erl_exit(1,"Internal unicode error in file:name2native/1");
-	    }
-	    *bin_p++ = (byte) (unipoint & 0xFF);
-	    *bin_p++ = (byte) ((unipoint >> 8) & 0xFF);
-	}
+	erts_copy_utf8_to_utf16_little(bin_p, bytes, num_chars);
 	/* zero termination */
-	*bin_p++ = 0;
-	*bin_p++ = 0;
+	bin_p[num_chars*2] = 0;
+	bin_p[num_chars*2+1] = 0;
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(bin_term);
     } /* binary */   
 	    
 
-    if ((need = simple_char_need(BIF_ARG_1,encoding)) < 0) {
+    if ((need = erts_native_filename_need(BIF_ARG_1,encoding)) < 0) {
 	BIF_ERROR(BIF_P,BADARG);
     }
     if (encoding == ERL_FILENAME_WIN_WCHAR) {
@@ -2201,7 +2414,7 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
     
     bin_term = new_binary(BIF_P, 0, need);
     bin_p = binary_bytes(bin_term);
-    simple_put_chars(BIF_ARG_1,encoding,bin_p); 
+    erts_native_filename_put(BIF_ARG_1,encoding,bin_p); 
     bin_p[need-1] = 0;
     if (encoding == ERL_FILENAME_WIN_WCHAR) {
 	bin_p[need-2] = 0;
@@ -2223,6 +2436,7 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     Uint num_built; /* characters */
     Uint num_eaten; /* bytes */
     Eterm ret;
+    int mac = 0;
 
     if (is_not_binary(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P,BADARG);
@@ -2241,15 +2455,21 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 	bytes = binary_bytes(real_bin)+offset;
     
 	BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
+    case ERL_FILENAME_UTF8_MAC:
+	mac = 1;
     case ERL_FILENAME_UTF8:
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
-	if (analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != UTF8_OK) {
+	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    goto noconvert;
 	}
 	num_built = 0;
 	num_eaten = 0;
-	ret = do_utf8_to_list(BIF_P, num_chars, bytes, size, num_chars, &num_built, &num_eaten, NIL);
+	if (mac) {
+	    ret = do_utf8_to_list_normalize(BIF_P, num_chars, bytes, size);
+	} else {
+	    ret = do_utf8_to_list(BIF_P, num_chars, bytes, size, num_chars, &num_built, &num_eaten, NIL);
+	} 
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(ret);
     case ERL_FILENAME_WIN_WCHAR:
@@ -2267,9 +2487,9 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
 	while (size > 0) {
 	    Uint x = ((Uint) *bytes--) << 8;
 	    x |= ((Uint) *bytes--);
+	    size -= 2;
 	    ret = CONS(hp,make_small(x),ret);
 	    hp += 2;
-	    size -= 2;
 	}	    
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(ret);
@@ -2280,11 +2500,45 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     BIF_RET(BIF_ARG_1);
 }
 
+BIF_RETTYPE prim_file_internal_normalize_utf8_1(BIF_ALIST_1)
+{
+    Eterm real_bin;
+    Uint offset;
+    Uint size,num_chars;
+    Uint bitsize;
+    Uint bitoffs;
+    Eterm ret;
+    byte *temp_alloc = NULL;
+    byte *bytes;
+    byte *err_pos;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    size = binary_size(BIF_ARG_1);
+    ERTS_GET_REAL_BIN(BIF_ARG_1, real_bin, offset, bitoffs, bitsize);
+    if (bitsize != 0) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    if (size == 0) {
+	BIF_RET(NIL);
+    }
+    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+    if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    ret = do_utf8_to_list_normalize(BIF_P, num_chars, bytes, size);
+    erts_free_aligned_binary_bytes(temp_alloc);
+    BIF_RET(ret);
+}  
+
 BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
 {
     switch (erts_get_native_filename_encoding()) {
     case ERL_FILENAME_LATIN1:
 	BIF_RET(am_latin1);
+    case ERL_FILENAME_UTF8_MAC:
     case ERL_FILENAME_UTF8:
 	BIF_RET(am_utf8);
     case ERL_FILENAME_WIN_WCHAR:
