@@ -344,6 +344,7 @@ extern int count_instructions;
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
 #define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
 #define fb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
+#define Qb(N) (N)
 #define x(N) reg[N]
 #define y(N) E[N]
 #define r(N) x##N

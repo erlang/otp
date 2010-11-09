@@ -525,6 +525,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'P':	/* Byte offset into tuple (see beam_load.c) */
+	case 'Q':	/* Like 'P', but packable */
 	    erts_print(to, to_arg, "%d", (*ap / sizeof(Eterm)) - 1);
 	    ap++;
 	    break;

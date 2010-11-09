@@ -129,7 +129,8 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		't' => 1,	# untagged integer -- can be packed
 		'b' => 1,	# pointer to bif
 		'A' => 1,	# arity value
-		'P' => 1,	# byte offset into tuple
+		'P' => 1,	# byte offset into tuple or stack
+		'Q' => 1,	# like 'P', but packable
 		'h' => 1,	# character
 		'l' => 1,	# float reg
 		'q' => 1,	# literal term
@@ -168,6 +169,7 @@ my @tag_type;
     $type_bit{'U'} = $type_bit{'u'};
     $type_bit{'e'} = $type_bit{'u'};
     $type_bit{'P'} = $type_bit{'u'};
+    $type_bit{'Q'} = $type_bit{'u'};
 }
 
 #
@@ -809,6 +811,7 @@ sub basic_generator {
 		     'I' => 1,
 		     't' => 1,
 		     'P' => 1,
+		     'Q' => 1,
 		     );
 
     # Pick up the macro to use and its flags (if any).
@@ -959,7 +962,7 @@ sub do_pack {
     # arguments, packing is not possible.
     #
     for ($i = 0; $i < @args; $i++) {
-	if ($args[$i] =~ /[xyt]/) {
+	if ($args[$i] =~ /[xytQ]/) {
 	    $packable_args++;
 	} elsif ($args[$i] =~ /[sd]/) {
 	    return ('', '', @args);
@@ -1005,7 +1008,7 @@ sub do_pack {
     for ($i = 0; $i < @args; $i++) {
 	my($reg) = $args[$i];
 	my($this_size) = $arg_size{$reg};
-	if ($reg =~ /[xyt]/) {
+	if ($reg =~ /[xytQ]/) {
 	    $this_size = 0;
 	    $did_some_packing = 1;
 

@@ -1929,7 +1929,8 @@ load_code(LoaderState* stp)
 		}
 		code[ci++] = (BeamInstr) stp->import[i].bf;
 		break;
-	    case 'P':		/* Byte offset into tuple */
+	    case 'P':		/* Byte offset into tuple or stack */
+	    case 'Q':		/* Like 'P', but packable */
 		VerifyTag(stp, tag, TAG_u);
 		tmp = tmp_op->a[arg].val;
 		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));

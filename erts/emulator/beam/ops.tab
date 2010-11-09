@@ -464,16 +464,16 @@ move_return n r
 
 move S r | deallocate D | return => move_deallocate_return S r D
 
-%macro: move_deallocate_return MoveDeallocateReturn -nonext
-move_deallocate_return x r P
-move_deallocate_return y r P
-move_deallocate_return c r P
-move_deallocate_return n r P
+%macro: move_deallocate_return MoveDeallocateReturn -pack -nonext
+move_deallocate_return x r Q
+move_deallocate_return y r Q
+move_deallocate_return c r Q
+move_deallocate_return n r Q
 
 deallocate D | return => deallocate_return D
 
 %macro: deallocate_return DeallocateReturn -nonext
-deallocate_return P
+deallocate_return Q
 
 test_heap Need u==1 | put_list Y=y r r => test_heap_1_put_list Need Y
 
@@ -940,11 +940,11 @@ move S r | call_last Ar P=f D => move_call_last S r P D
 
 i_move_call_last f P c r
 
-%macro:move_call_last MoveCallLast -arg_f -nonext
+%macro:move_call_last MoveCallLast -arg_f -nonext -pack
 
 move_call_last/4
-move_call_last x r f P
-move_call_last y r f P
+move_call_last x r f Q
+move_call_last y r f Q
 
 move S=c r | call_only Ar P=f => i_move_call_only P S r
 move S=x r | call_only Ar P=f => move_call_only S r P
