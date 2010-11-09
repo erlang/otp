@@ -56,8 +56,8 @@
       Even if there are no references to a table from any process, it
       will not automatically be destroyed unless the owner process
       terminates. It can be destroyed explicitly by using
-      <c>delete/1</c>.</p>
-    <p>Since R13B01, table ownership can be transferred at process termination
+      <c>delete/1</c>. The default owner is the process that created the
+      table. Table ownership can be transferred at process termination
       by using the <seealso marker="#heir">heir</seealso> option or explicitly
       by calling <seealso marker="#give_away/3">give_away/3</seealso>.</p>
     <p>Some implementation details:</p>
@@ -82,11 +82,15 @@
       <c>float()</c> that extends to the same value, hence the key
       <c>1</c> and the key <c>1.0</c> are regarded as equal in an
       <c>ordered_set</c> table.</p>
-    <p>In general, the functions below will exit with reason
-      <c>badarg</c> if any argument is of the wrong format, or if the
-      table identifier is invalid.</p>
   </description>
-
+  <section>
+    <title>Failure</title>
+    <p>In general, the functions below will exit with reason
+      <c>badarg</c> if any argument is of the wrong format, if the
+      table identifier is invalid or if the operation is denied due to
+      table access rights (<seealso marker="#protected">protected</seealso>
+      or <seealso marker="#private">private</seealso>).</p>
+  </section>
   <section><marker id="concurrency"></marker>
     <title>Concurrency</title>
       <p>This module provides some limited support for concurrent access.
@@ -947,7 +951,7 @@ ets:select(Table,MatchSpec),</code>
       <type>
         <v>Name = atom()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | {write_concurrency,bool()}</v>
+        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | {write_concurrency,bool()} | {read_concurrency,bool()}</v>
         <v>&nbsp;&nbsp;Type = set | ordered_set | bag | duplicate_bag</v>
         <v>&nbsp;&nbsp;Access = public | protected | private</v>
         <v>&nbsp;&nbsp;Pos = int()</v>
@@ -963,7 +967,7 @@ ets:select(Table,MatchSpec),</code>
           table is named or not. If one or more options are left out,
           the default values are used. This means that not specifying
           any options (<c>[]</c>) is the same as specifying
-          <c>[set,protected,{keypos,1},{heir,none},{write_concurrency,false}]</c>.</p>
+          <c>[set,protected,{keypos,1},{heir,none},{write_concurrency,false},{read_concurrency,false}]</c>.</p>
         <list type="bulleted">
           <item>
             <p><c>set</c>
@@ -1002,12 +1006,14 @@ ets:select(Table,MatchSpec),</code>
               Any process may read or write to the table.</p>
           </item>
           <item>
+            <marker id="protected"></marker>
             <p><c>protected</c>
               The owner process can read and write to the table. Other
               processes can only read the table. This is the default
               setting for the access rights.</p>
           </item>
           <item>
+            <marker id="private"></marker>
             <p><c>private</c>
               Only the owner process can read or write to the table.</p>
           </item>

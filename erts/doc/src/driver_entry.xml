@@ -172,7 +172,7 @@ typedef struct erl_drv_entry {
           added to the driver list.) The driver should return 0, or if
           the driver can't initialize, -1.</p>
       </item>
-      <tag><marker id="start"/>int (*start)(ErlDrvPort port, char* command)</tag>
+      <tag><marker id="start"/>ErlDrvData (*start)(ErlDrvPort port, char* command)</tag>
       <item>
         <p>This is called when the driver is instantiated, when
           <c>open_port/2</c> is called. The driver should return a
@@ -188,7 +188,9 @@ typedef struct erl_drv_entry {
         <p>This is called when the port is closed, with
           <c>port_close/1</c> or <c>Port ! {self(), close}</c>. Note
           that terminating the port owner process also closes the
-          port.</p>
+          port. If <c>drv_data</c> is a pointer to memory allocated in
+	  <c>start</c>, then <c>stop</c> is the place to deallocate that
+	  memory.</p>
       </item>
       <tag><marker id="output"/>void (*output)(ErlDrvData drv_data, char *buf, int len)</tag>
       <item>
