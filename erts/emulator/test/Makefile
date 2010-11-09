@@ -83,6 +83,7 @@ MODULES= \
 	receive_SUITE \
 	ref_SUITE \
 	register_SUITE \
+	mtx_SUITE \
 	save_calls_SUITE \
 	send_term_SUITE \
 	sensitive_SUITE \
