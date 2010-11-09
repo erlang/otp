@@ -220,6 +220,69 @@ fe80::204:acff:fe17:bf38
         <p>Returns the local hostname. Will never fail.</p>
       </desc>
     </func>
+
+    <func>
+      <name>getifaddrs() -> {ok,Iflist} | {error,posix}</name>
+      <fsummary>Return a list of interfaces and their addresses</fsummary>
+      <type>
+	<v>Iflist = {Ifname,[Ifopt]}</v>
+	<v>Ifname = string()</v>
+	<v>Ifopt = {flag,[Flag]} | {addr,Addr} | {netmask,Netmask}
+	           | {broadaddr,Broadaddr} | {dstaddr,Dstaddr}
+	           | {hwaddr,Hwaddr}</v>
+	<v>Flag = up | broadcast | loopback | pointtopoint
+	          | running | multicast</v>
+	<v>Addr = Netmask = Broadadddr = Dstaddr = ip_address()</v>
+	<v>Hwaddr = [byte()]</v>
+      </type>
+    </func>
+    <desc>
+      <p>
+	Returns a list of 2-tuples containing interface names and the
+	interface's addresses. <c>Ifname</c> is a Unicode string.
+	<c>Hwaddr</c> is hardware dependent, e.g on Ethernet interfaces
+	it is the 6-byte Ethernet address (MAC address (EUI-48 address)).
+      </p>
+      <p>
+	The <c>{addr,Addr}</c>, <c>{netmask,_}</c> and <c>{broadaddr,_}</c>
+	tuples are repeated in the result list iff the interface has multiple
+	addresses. If you come across an interface that has
+	multiple <c>{flag,_}</c> or <c>{hwaddr,_}</c> tuples you have
+	a really strange interface or possibly a bug in this function.
+	The <c>{flag,_}</c> tuple is mandatory, all other optional.
+      </p>
+      <p>
+	Do not rely too much on the order of <c>Flag</c> atoms or
+	<c>Ifopt</c> tuples. There are some rules, though:
+	<list>
+	  <item>
+	    Immediately after <c>{addr,_}</c> follows <c>{netmask,_}</c>
+	  </item>
+	  <item>
+	    Immediately thereafter follows <c>{broadaddr,_}</c> if
+	    the <c>broadcast</c> flag is <em>not</em> set and the
+	    <c>pointtopoint</c>flag <em>is</em> set.
+	  </item>
+	  <item>
+	    Any <c>{netmask,_}</c>, <c>{broadaddr,_}</c> or
+	    <c>{dstaddr,_}</c> tuples that follow an <c>{addr,_}</c>
+	    tuple concerns that address.
+	  </item>
+	</list>
+      </p>
+      <p>
+	The <c>{hwaddr,_}</c> tuple is not returned on Solaris since the
+	hardware address historically belongs to the link layer and only
+	the superuser can read such addresses.
+      </p>
+      <p>
+	On Windows, the data is fetched from quite different OS API
+	functions, so the <c>Netmask</c> and <c>Broadaddr</c>
+	values may be calculated, just as some <c>Flag</c> values.
+	You have been warned. Report flagrant bugs.
+      </p>
+    </desc>
+
     <func>
       <name>getopts(Socket, Options) -> {ok, OptionValues} | {error, posix()}</name>
       <fsummary>Get one or more options for a socket</fsummary>
