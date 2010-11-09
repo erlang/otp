@@ -4461,6 +4461,8 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 
 
 
+/* Latin-1 to utf8 */
+
 static int utf8_len(const char *c, int m) {
     int l;
     for (l = 0;  m;  c++, l++, m--) {
@@ -4484,62 +4486,6 @@ static void utf8_encode(const char *c, int m, char *p) {
 
 #if defined(__WIN32__)
 
-#if 0
-static void print_addr(char *f, char *g, char *h, char *b, int len) {
-    unsigned char *p = (unsigned char *)b;
-    for (;  len > 0;  len--, p++) {
-	erts_printf(len == 1 ? h : len & 1 ? g : f, *p);
-    }
-}
-
-static void print_ipv4_address(char *b) {
-    print_addr("%d.","%d.","%d", b, 4);
-}
-
-static void print_hwaddr(char *b, int len) {
-    print_addr("%02x:","%02x:","%02x", b, len);
-}
-
-static void print_sockaddr(struct sockaddr *sa_p) {
-    if (sa_p->sa_family == AF_INET) {
-	struct sockaddr_in *sin_p =
-	    (struct sockaddr_in *) sa_p;
-	print_ipv4_address((char *) &sin_p->sin_addr);
-    } else if(sa_p->sa_family == AF_INET6) {
-	struct sockaddr_in6 *sin6_p =
-	    (struct sockaddr_in6 *) sa_p;
-	print_addr("%02x","%02x:","%02x", (char *) &sin6_p->sin6_addr, 16);
-    }
-}
-
-static void print_flags(MIB_IFROW *ifrow_p) {
-    /* Interface flags */
-    switch (ifrow_p->dwType) {
-    case IF_TYPE_ETHERNET_CSMACD:
-	/* Fake broadcast and multicast flag */
-	erts_printf("broadcast multicast ");
-	break;
-    case IF_TYPE_SOFTWARE_LOOPBACK:
-	erts_printf("loopback ");
-	break;
-    }
-    if (ifrow_p->dwAdminStatus) {
-	erts_printf("up ");
-	switch (ifrow_p->dwOperStatus) {
-	case IF_OPER_STATUS_CONNECTING:
-	    erts_printf("pointtopoint ");
-	    break;
-	case IF_OPER_STATUS_CONNECTED:
-	    erts_printf("running pointtopoint ");
-	    break;
-	case IF_OPER_STATUS_OPERATIONAL:
-	    erts_printf("running ");
-	    break;
-	}
-    }
-}
-#endif
-
 static void set_netmask_bytes(char *c, int len, int pref_len) {
     int i, m;
     for (i = 0, m = pref_len >> 3;  i < m && i < len;  i++) c[i] = '\xFF';
@@ -4560,23 +4506,6 @@ int eq_masked_bytes(char *a, char *b, int pref_len) {
     }
     return !0;
 }
-
-#if 0
-static void set_netmask(struct sockaddr *sa_p, int pref_len) {
-    switch (sa_p->sa_family) {
-    case AF_INET: {
-	    struct sockaddr_in *sin_p = (struct sockaddr_in *) sa_p;
-	    set_netmask_bytes((char *) &sin_p->sin_addr, 4, pref_len);
-	    break;
-	}
-    case AF_INET6: {
-	    struct sockaddr_in6 *sin6_p = (struct sockaddr_in6 *) sa_p;
-	    set_netmask_bytes((char *) &sin6_p->sin6_addr, 16, pref_len);
-	    break;
-	}
-    }
-}
-#endif
 
 static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 			       char **rbuf_pp, int rsize)
@@ -4631,7 +4560,6 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	ULONG (WINAPI *fpGetAdaptersAddresses)
 	    (ULONG, ULONG, PVOID, PIP_ADAPTER_ADDRESSES, PULONG);
 	HMODULE iphlpapi = GetModuleHandle("iphlpapi");
-	/*iphlpapi = NULL*/;
 	fpGetAdaptersAddresses = (void *)
 	    (iphlpapi ?
 		GetProcAddress(iphlpapi, "GetAdaptersAddresses") :
@@ -4692,83 +4620,6 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	}
     } else ip_addrs_p = NULL;
 
-#if 0
-    /* Debug printout of what GetAdaptersAddresses returned */
-    if (ip_adaddrs_p) {
-	IP_ADAPTER_ADDRESSES *p = ip_adaddrs_p;
-	printf("* GetAdaptersAddresses:\n");
-	for (;  p;  p = p->Next) {
-	    IP_ADAPTER_UNICAST_ADDRESS *iaua_p;
-	    IP_ADAPTER_ANYCAST_ADDRESS *iaaa_p;
-	    IP_ADAPTER_PREFIX *iap_p;
-	    MIB_IFROW ifrow;
-	    erts_printf("AdapterName: %s\n", p->AdapterName);
-	    if (p->Flags & IP_ADAPTER_NO_MULTICAST) {
-		erts_printf("AdapterFlags: -multicast\n");
-	    }
-	    for (iaua_p = p->FirstUnicastAddress;
-		iaua_p;
-		iaua_p = iaua_p->Next) {
-		erts_printf("UnicastAddress: ");
-		print_sockaddr(iaua_p->Address.lpSockaddr);
-		erts_printf("\n");
-	    }
-	    for (iaaa_p = p->FirstAnycastAddress;
-		iaaa_p;
-		iaaa_p = iaaa_p->Next) {
-		erts_printf("AnycastAddress: ");
-		print_sockaddr(iaaa_p->Address.lpSockaddr);
-		erts_printf("\n");
-	    }
-	    for (iap_p = p->FirstPrefix;
-		iap_p;
-		iap_p = iap_p->Next) {
-		erts_printf("AddressPrefix: ");
-		print_sockaddr(iap_p->Address.lpSockaddr);
-		erts_printf("/%lu\n", iap_p->PrefixLength);
-	    }
-	    erts_printf("PhysicalAddress: ");
-	    print_hwaddr(p->PhysicalAddress, p->PhysicalAddressLength);
-	    erts_printf("\n");
-	    if (p->IfIndex) {
-		erts_printf(
-		    "IPv4AdapterIndex: %lu\n", (unsigned long) p->IfIndex);
-		sys_memzero(&ifrow, sizeof(ifrow));
-		ifrow.dwIndex = p->IfIndex;
-		if (GetIfEntry(&ifrow) == NO_ERROR) {
-		    printf("InterfaceName: %ws\n", ifrow.wszName);
-		    printf("InterfaceFlags: ");
-		    print_flags(&ifrow);
-		    erts_printf("\n");
-		}
-	    }
-	    if (p->Ipv6IfIndex) {
-		erts_printf(
-		    "IPv6AdapterIndex: %lu\n", (unsigned long) p->Ipv6IfIndex);
-		sys_memzero(&ifrow, sizeof(ifrow));
-		ifrow.dwIndex = p->Ipv6IfIndex;
-		if (GetIfEntry(&ifrow) == NO_ERROR) {
-		    printf("InterfaceName: %ws\n", ifrow.wszName);
-		    printf("InterfaceFlags: ");
-		    print_flags(&ifrow);
-		    erts_printf("\n");
-		}
-	    }
-	}
-    }
-#endif
-
-#if 0
-    /* Debug printout of what GetInterfaceInfo returned */
-    if (info_p) {
-	printf("* GetInterfaceInfo:\n");
-	for (i = 0;  i < info_p->NumAdapters;  i++) {
-	    printf("AdapterIndex[%d]: %ld\n", i, info_p->Adapter[i].Index);
-	    printf("AdapterName[%d]: %lws\n", i, info_p->Adapter[i].Name);
-	}
-    }
-#endif
-
     buf_p = buf_alloc_p = ALLOC(buf_size);
     *buf_p++ = INET_REP_OK;
 
@@ -4796,7 +4647,6 @@ index:
 	sys_memzero(&ifrow, sizeof(ifrow));
 	ifrow.dwIndex = index;
 	if (GetIfEntry(&ifrow) != NO_ERROR) break;
-/*	printf("Index[%d]: %ld\n", i, (long) ifrow.dwIndex);*/
 	/* Find the interface name - first try MIB_IFROW.wzname */
 	if (ifrow.wszName[0] != 0) {
 	    wname_p = ifrow.wszName;
@@ -4814,7 +4664,6 @@ index:
 	}
 	if (wname_p) {
 	    int len;
-/*	    printf("InterfaceName [%d]: %ws\n", i, ifrow.wszName);*/
 	    /* Convert interface name to UTF-8 */
 	    len =
 		WideCharToMultiByte(
@@ -4829,7 +4678,6 @@ index:
 	    * use "MIB_IFROW.dwIndex: MIB_IFROW.bDescr" as name instead */
 	    int l;
 	    l = utf8_len(ifrow.bDescr, ifrow.dwDescrLen);
-/*	    printf("Adapter Name[%d]: ", i);*/
 	    BUF_ENSURE(9 + l+1);
 	    buf_p +=
 		erts_sprintf(
@@ -4875,25 +4723,16 @@ index:
 	    sys_memzero(&sin, sizeof(sin));
 	    sin.sin_family = AF_INET;
 	    sin.sin_addr.s_addr = ipaddrrow_p->dwAddr;
-/*	    erts_printf("IP Address: ");
- *	    print_sockaddr((struct sockaddr *) &sin);
- *	    erts_printf("\n");*/
 	    BUF_ENSURE(1);
 	    /* Netmask */
 	    SOCKADDR_TO_BUF(INET_IFOPT_ADDR, (struct sockaddr *) &sin);
 	    sin.sin_addr.s_addr = ipaddrrow_p->dwMask;
-/*	    erts_printf("IP Mask: ");
- *	    print_sockaddr((struct sockaddr *) &sin);
- *	    erts_printf("\n");*/
 	    BUF_ENSURE(1);
 	    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, (struct sockaddr *) &sin);
 	    if (flags & INET_IFF_BROADCAST) {
 		/* Broadcast address - fake it*/
 		sin.sin_addr.s_addr = ipaddrrow_p->dwAddr;
 		sin.sin_addr.s_addr |= ~ipaddrrow_p->dwMask;
-/*		erts_printf("IP Broadcast: ");
- *		print_sockaddr((struct sockaddr *) &sin);
- *		erts_printf("\n");*/
 		BUF_ENSURE(1);
 		SOCKADDR_TO_BUF(
 		    INET_IFOPT_BROADADDR, (struct sockaddr *) &sin);
@@ -4908,9 +4747,6 @@ index:
 		IP_ADAPTER_PREFIX *q;
 		ULONG shortest_length;
 		struct sockaddr *shortest_p, *sa_p = p->Address.lpSockaddr;
-/*		erts_printf("UnicastAddress: ");
- *		print_sockaddr(sa_p);
- *		erts_printf("\n");*/
 		BUF_ENSURE(1);
 		SOCKADDR_TO_BUF(INET_IFOPT_ADDR, sa_p);
 		shortest_p = NULL;
@@ -4963,9 +4799,6 @@ index:
 		    switch (shortest_p->sa_family) {
 		    case AF_INET: {
 			/* Fall back to old classfull network addresses */
-/*			erts_printf("! shortest_p: ");
- *			print_sockaddr(shortest_p);
- *			erts_printf("\n");*/
 			DWORD addr = ntohl(((struct sockaddr_in *)shortest_p)
 					   ->sin_addr.s_addr);
 			if (! (addr & 0x800000)) {
@@ -4986,10 +4819,6 @@ index:
 			shortest_length = 128;
 		    }   break;
 		    }
-		} else {
-/*		    erts_printf("shortest_p: ");
- *		    print_sockaddr(shortest_p);
- *		    erts_printf("\n");*/
 		}
 		switch (shortest_p->sa_family) {
 		case AF_INET: {
@@ -4998,9 +4827,6 @@ index:
 		    sys_memzero(&sin, sizeof(sin));
 		    sin.sin_family = shortest_p->sa_family;
 		    sin.sin_addr.s_addr = htonl(mask);
-/*		    erts_printf("IP Mask: ");
- *		    print_sockaddr((struct sockaddr *) &sin);
- *		    erts_printf("\n");*/
 		    BUF_ENSURE(1);
 		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK,
 				    (struct sockaddr *) &sin);
@@ -5010,9 +4836,6 @@ index:
 				  ((struct sockaddr_in *)shortest_p)
 				  -> sin_addr.s_addr);
 			sin.sin_addr.s_addr = htonl(sp | ~mask);
-/*			erts_printf("IP Broadcast: ");
- *			print_sockaddr((struct sockaddr *) &sin);
- *			erts_printf("\n");*/
 			BUF_ENSURE(1);
 			SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR,
 					(struct sockaddr *) &sin);
@@ -5025,9 +4848,6 @@ index:
 		    set_netmask_bytes((char *) &sin6.sin6_addr,
 				      16,
 				      shortest_length);
-/*		    erts_printf("IP Mask: ");
- *		    print_sockaddr((struct sockaddr *) &sin6);
- *		    erts_printf("\n");*/
 		    BUF_ENSURE(1);
 		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK,
 				    (struct sockaddr *) &sin6);
@@ -5037,9 +4857,6 @@ index:
 	}
 	if (ifrow.dwPhysAddrLen) {
 	    /* Hardware Address */
-/*	    printf("Physical Addr:");
- *	    print_hwaddr(ifrow.bPhysAddr, ifrow.dwPhysAddrLen);
- *	    erts_printf("\n");*/
 	    BUF_ENSURE(1 + 2 + ifrow.dwPhysAddrLen);
 	    *buf_p++ = INET_IFOPT_HWADDR;
 	    put_int16(ifrow.dwPhysAddrLen, buf_p); buf_p += 2;
