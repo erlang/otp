@@ -250,10 +250,12 @@ move R R =>
 
 move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 move Y1=y X1=x | move Y2=y X2=x => move2 Y1 X1 Y2 X2
+move X1=x X2=x | move X3=x X4=x => move2 X1 X2 X3 X4
 
 %macro: move2 Move2 -pack
 move2 x y x y
 move2 y x y x
+move2 x x x x
 
 %macro:move Move -pack -gen_dest
 move x x
