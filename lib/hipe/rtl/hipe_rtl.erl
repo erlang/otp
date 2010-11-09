@@ -354,6 +354,8 @@
          phi_arglist_update/2,
          phi_redirect_pred/3]).
 
+-export_type([alub_cond/0]).
+
 %%
 %% RTL
 %%
@@ -589,6 +591,9 @@ branch_pred(#branch{p=P}) -> P.
 %%
 %% alub
 %%
+
+-type alub_cond() :: 'eq' | 'ne' | 'ge' | 'geu' | 'gt' | 'gtu' | 'le'
+                   | 'leu' | 'lt' | 'ltu' | 'overflow' | 'not_overflow'.
 
 mk_alub(Dst, Src1, Op, Src2, Cond, True, False) ->
   mk_alub(Dst, Src1, Op, Src2, Cond, True, False, 0.5).

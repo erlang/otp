@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% ====================================================================
@@ -25,7 +25,6 @@
 %%  Purpose  :  
 %%  Notes    : 
 %%  History  : * 1998-01-28 Erik Johansson (happi@it.uu.se): Created.
-%%  CVS      : $Id$
 %% ====================================================================
 %% @doc This is the direct interface to the HiPE compiler.
 %%
@@ -506,7 +505,7 @@ compile(Name, File, Opts0) ->
       run_compiler(Name, DisasmFun, IcodeFun, NewOpts)
   end.
 
--spec compile_core(mod(), _, compile_file(), comp_options()) ->
+-spec compile_core(mod(), cerl:c_module(), compile_file(), comp_options()) ->
 	 {'ok', compile_ret()} | {'error', term()}.
 
 compile_core(Name, Core0, File, Opts) ->
@@ -535,7 +534,7 @@ compile_core(Name, Core0, File, Opts) ->
 %%
 %% @see compile/3
 
--spec compile(mod(), _, compile_file(), comp_options()) ->
+-spec compile(mod(), cerl:c_module() | [], compile_file(), comp_options()) ->
 	 {'ok', compile_ret()} | {'error', term()}.
 
 compile(Name, [], File, Opts) ->
@@ -790,7 +789,7 @@ finalize_fun(MfaIcodeList, Exports, Opts) ->
     FalseVal when (FalseVal =:= undefined) orelse (FalseVal =:= false) ->
       [finalize_fun_sequential(MFAIcode, Opts, #comp_servers{})
        || {_MFA, _Icode} = MFAIcode <- MfaIcodeList];
-    TrueVal when (TrueVal =:= true) or (TrueVal =:= debug) ->
+    TrueVal when (TrueVal =:= true) orelse (TrueVal =:= debug) ->
       finalize_fun_concurrent(MfaIcodeList, Exports, Opts)
   end.
 
@@ -939,6 +938,8 @@ assemble(CompiledCode, Closures, Exports, Options) ->
       hipe_sparc_assemble:assemble(CompiledCode, Closures, Exports, Options);
     powerpc ->
       hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+    ppc64 ->
+      hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
     arm ->
       hipe_arm_assemble:assemble(CompiledCode, Closures, Exports, Options);
     x86 ->
@@ -1048,7 +1049,7 @@ post(Res, Icode, Options) ->
 %% --------------------------------------------------------------------
 
 %% @doc Returns the current HiPE version as a string().
--spec version() -> string().
+-spec version() -> nonempty_string().
 
 version() ->
   ?VERSION_STRING().
@@ -1390,6 +1391,8 @@ o1_opts() ->
       Common;
     powerpc ->
       Common;
+    ppc64 ->
+      Common;
     arm ->
       Common -- [inline_fp]; % Pointless optimising for absent hardware
     x86 ->
@@ -1411,6 +1414,8 @@ o2_opts() ->
       Common;
     powerpc ->
       Common;
+    ppc64 ->
+      Common;
     arm ->
       Common;
     x86 ->
@@ -1428,6 +1433,8 @@ o3_opts() ->
     ultrasparc ->
       Common;
     powerpc ->
+      Common;
+    ppc64 ->
       Common;
     arm ->
       Common;

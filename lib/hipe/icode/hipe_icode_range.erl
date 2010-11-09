@@ -843,7 +843,7 @@ compare_with_integer(N, OldVarRange) ->
 
 %%== Ranges ==================================================================
 
--spec pp_ann(#ann{} | erl_types:erl_type()) -> [string()].
+-spec pp_ann(#ann{} | erl_types:erl_type()) -> string().
 
 pp_ann(#ann{range=#range{range=R, other=false}}) ->
   pp_range(R);
@@ -1365,7 +1365,7 @@ range_bnot(Range) ->
   Minus_one = range_init({-1,-1}, false),
   range_add(range_mult(Range, Minus_one), Minus_one).
 
--spec width(range_rep() | integer()) -> 'pos_inf' | non_neg_integer().
+-spec width(range_rep() | inf_integer()) -> 'pos_inf' | non_neg_integer().
 
 width({Min, Max}) -> inf_max([width(Min), width(Max)]);
 width(pos_inf) -> pos_inf;
