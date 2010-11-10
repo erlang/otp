@@ -3992,14 +3992,17 @@ transform_engine(LoaderState* st)
 	case TOP_rest_args:
 	    {
 		int n = *pc++;
+		int formal_arity = gen_opc[instr->op].arity;
+		int num_vars = n + (instr->arity - formal_arity);
+		int j = formal_arity;
+
 		var = erts_alloc(ERTS_ALC_T_LOADER_TMP,
-				 instr->arity * sizeof(GenOpArg));
+				 num_vars * sizeof(GenOpArg));
 		for (i = 0; i < n; i++) {
 		    var[i] = def_vars[i];
 		}
-		while (i < instr->arity) {
-		    var[i] = instr->a[i];
-		    i++;
+		while (i < num_vars) {
+		    var[i++] = instr->a[j++];
 		}
 	    }
 	    break;
