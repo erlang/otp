@@ -105,10 +105,10 @@
 -type cache_ref()         :: term(). 
 -type certdb_ref()        :: term(). 
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | dh_anon.
--type enum_algo()          :: integer().
+-type oid()               :: tuple().
 -type public_key()        :: #'RSAPublicKey'{} | integer().
 -type public_key_params() :: #'Dss-Parms'{} | term().
--type public_key_info()   :: {enum_algo(), public_key(), public_key_params()}.
+-type public_key_info()   :: {oid(), public_key(), public_key_params()}.
 -type der_cert()          :: binary().
 -type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{}.
 -type issuer()            :: tuple().

@@ -164,22 +164,22 @@ decipher(?AES, HashSz, CipherState, Fragment, Version) ->
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment, Version) ->
-    ?DBG_HEX(Key),
-    ?DBG_HEX(IV),
-    ?DBG_HEX(Fragment),
-    T = Fun(Key, IV, Fragment),
-    ?DBG_HEX(T),
-    GBC = generic_block_cipher_from_bin(T, HashSz),
-    case is_correct_padding(GBC, Version) of  
-	true ->
-	    Content = GBC#generic_block_cipher.content,
-	    Mac = GBC#generic_block_cipher.mac,
-	    CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
-	    {Content, Mac, CipherState1};
-	false ->
-	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    try Fun(Key, IV, Fragment) of
+	Text ->
+	    GBC = generic_block_cipher_from_bin(Text, HashSz),
+	    case is_correct_padding(GBC, Version) of
+		true ->
+		    Content = GBC#generic_block_cipher.content,
+		    Mac = GBC#generic_block_cipher.mac,
+		    CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
+		    {Content, Mac, CipherState1};
+		false ->
+		    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+	    end
+    catch
+	_:_ ->
+	    ?ALERT_REC(?FATAL, ?DECRYPTION_FAILED)
     end.
-	    
 %%--------------------------------------------------------------------
 -spec suites(tls_version()) -> [cipher_suite()].
 %%
