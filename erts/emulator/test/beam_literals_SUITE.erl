@@ -48,6 +48,7 @@ matching_bigs(doc) -> "Test matching of a few big number literals (in Beam,"
 matching_bigs(Config) when is_list(Config) ->
     a = matching1(3972907842873739),
     b = matching1(-389789298378939783333333333333333333784),
+    other = matching1(3141699999999999999999999999999999999),
     other = matching1(42).
 
 matching_smalls(doc) -> "Test matching small numbers (both positive and negative).";
