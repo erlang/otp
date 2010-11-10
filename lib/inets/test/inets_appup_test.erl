@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,11 +18,12 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Verify the application specifics of the Megaco application
+%% Purpose: Verify the application specifics of the Inets application
 %%----------------------------------------------------------------------
 -module(inets_appup_test).
 
 -compile(export_all).
+-compile({no_auto_import,[error/1]}).
 
 -include("inets_test_lib.hrl").
 
