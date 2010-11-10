@@ -33,6 +33,7 @@
 
 static void usage(EpmdVars *);
 static void run_daemon(EpmdVars*);
+static char* get_addresses(void);
 static int get_port_no(void);
 static int check_relaxed(void);
 #ifdef __WIN32__
@@ -133,6 +134,7 @@ int main(int argc, char** argv)
 {
     EpmdVars g_empd_vars;
     EpmdVars *g = &g_empd_vars;
+    int i;
 #ifdef __WIN32__
     WORD wVersionRequested;
     WSADATA wsaData;
@@ -158,8 +160,9 @@ int main(int argc, char** argv)
     g->argv = NULL;
 #endif
 
-    g->port  = get_port_no();
-    g->debug = 0;
+    g->addresses      = get_addresses();
+    g->port           = get_port_no();
+    g->debug          = 0;
 
     g->silent         = 0; 
     g->is_daemon      = 0;
@@ -168,11 +171,13 @@ int main(int argc, char** argv)
     g->delay_accept   = 0;
     g->delay_write    = 0;
     g->progname       = argv[0];
-    g->listenfd       = -1;
     g->conn           = NULL;
     g->nodes.reg = g->nodes.unreg = g->nodes.unreg_tail = NULL;
     g->nodes.unreg_count = 0;
     g->active_conn    = 0;
+
+    for (i = 0; i < MAX_LISTEN_SOCKETS; i++)
+	g->listenfd[i] = -1;
 
     argc--;
     argv++;
@@ -208,6 +213,11 @@ int main(int argc, char** argv)
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
+	} else if (strcmp(argv[0], "-address") == 0) {
+	    if (argc == 1)
+	      usage(g);
+	    g->addresses = argv[1];
+	    argv += 2; argc -= 2;
 	} else if (strcmp(argv[0], "-port") == 0) {
 	    if ((argc == 1) ||
 		((g->port = atoi(argv[1])) == 0))
@@ -252,13 +262,10 @@ int main(int argc, char** argv)
     /*
      * max_conn must not be greater than FD_SETSIZE.
      * (at least QNX crashes)
-     *
-     * More correctly, it must be FD_SETSIZE - 1, beacuse the
-     * listen FD is stored outside the connection array.
      */
   
     if (g->max_conn > FD_SETSIZE) {
-      g->max_conn = FD_SETSIZE - 1;
+      g->max_conn = FD_SETSIZE;
     }
 
     if (g->is_daemon)  {
@@ -393,11 +400,14 @@ static void run_daemon(EpmdVars *g)
 
 static void usage(EpmdVars *g)
 {
-    fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon]\n");
-    fprintf(stderr, "            [-relaxed_command_check]\n");
+    fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-address List]\n");
+    fprintf(stderr, "            [-port No] [-daemon] [-relaxed_command_check]\n");
     fprintf(stderr, "       epmd [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
     fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n\n");
     fprintf(stderr, "Regular options\n");
+    fprintf(stderr, "    -address List\n");
+    fprintf(stderr, "        Let epmd listen only on the comma-separated list of IP\n");
+    fprintf(stderr, "        addresses (and on the loopback interface).\n");
     fprintf(stderr, "    -port No\n");
     fprintf(stderr, "        Let epmd listen to another port than default %d\n",
 	    EPMD_PORT_NO);
@@ -555,8 +565,9 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
 	      epmd_conn_close(g,&g->conn[i]);
       free(g->conn);
   }
-  if(g->listenfd >= 0)
-      close(g->listenfd);
+  for(i=0; i < MAX_LISTEN_SOCKETS; i++)
+      if(g->listenfd[i] >= 0)
+          close(g->listenfd[i]);
   free_all_nodes(g);
   if(g->argv){
       for(i=0; g->argv[i] != NULL; ++i)
@@ -568,6 +579,10 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
   exit(exitval);
 }
 
+static char* get_addresses(void)
+{
+    return getenv("ERL_EPMD_ADDRESS");
+}
 static int get_port_no(void)
 {
     char* port_str = getenv("ERL_EPMD_PORT");

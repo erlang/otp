@@ -116,6 +116,16 @@
 
     <p>These options are available when starting the actual name server. The name server is normally started automatically by the <c>erl</c> command (if not already available), but it can also be started at i.e. system start-up.</p>
     <taglist>
+    <tag><c><![CDATA[-address List]]></c></tag>
+    <item>
+    <p>Let this instance of <c>epmd</c> listen only on the
+      comma-separated list of IP addresses and on the loopback address
+      (which is implicitely added to the list if it has not been
+      specified). This can also be set using the
+      <c><![CDATA[ERL_EPMD_ADDRESS]]></c> environment variable, see the
+      section <seealso marker="#environment_variables">Environment
+      variables</seealso> below.</p>
+    </item>
     <tag><c><![CDATA[-port No]]></c></tag>
     <item>
       <p>Let this instance of epmd listen to another TCP port than
@@ -228,6 +238,15 @@
     <marker id="environment_variables"></marker>
     <title>Environment variables</title>
     <taglist>
+      <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
+      <item>
+        <p>This environment variable may be set to a comma-separated
+          list of IP addresses, in which case the <c>epmd</c> daemon
+          will listen only on the specified address(es) and on the
+          loopback address (which is implicitely added to the list if it
+          has not been specified). The default behaviour is to listen on
+          all available IP addresses.</p>
+      </item>
       <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
       <item>
         <p>This environment variable can contain the port number epmd will use.
