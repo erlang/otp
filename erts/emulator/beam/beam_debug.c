@@ -48,7 +48,6 @@
 void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
-static void print_big(int to, void *to_arg, Eterm* addr);
 static int print_op(int to, void *to_arg, int op, int size, BeamInstr* addr);
 Eterm
 erts_debug_same_2(Process* p, Eterm term1, Eterm term2)
@@ -593,39 +592,8 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_big_sf:
-	while (ap[0]) {
-	    Eterm *bigp = (Eterm *) ap;
-	    int arity = thing_arityval(*bigp);
-	    print_big(to, to_arg, bigp);
-	    size += TermWords(arity+1);
-	    ap += TermWords(arity+1);
-	    erts_print(to, to_arg, " f(" HEXF ") ", ap[0]);
-	    ap++;
-	    size++;
-	}
-	ap++;
-	size++;
-	break;
     }
     erts_print(to, to_arg, "\n");
 
     return size;
-}
-
-static void
-print_big(int to, void *to_arg, Eterm* addr)
-{
-    int i;
-    int k;
-
-    i = BIG_SIZE(addr);
-    if (BIG_SIGN(addr))
-	erts_print(to, to_arg, "-#integer(%d) = {", i);
-    else
-	erts_print(to, to_arg, "#integer(%d) = {", i);
-    erts_print(to, to_arg, "0x%x", BIG_DIGIT(addr, 0));
-    for (k = 1; k < i; k++)
-	erts_print(to, to_arg, ",0x%x", BIG_DIGIT(addr, k));
-    erts_print(to, to_arg, "}");
 }
