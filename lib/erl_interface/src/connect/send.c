@@ -87,8 +87,7 @@ int ei_send_encoded_tmo(int fd, const erlang_pid *to,
     put8(s, ERL_PASS_THROUGH);			      /*   1 */
 				/*** sum: 1070 */
 
-    /* FIXME incorrect level */
-    if (ei_tracelevel > 0)
+    if (ei_tracelevel >= 4)
 	ei_show_sendmsg(stderr,header,msg);
 
 #ifdef HAVE_WRITEV
