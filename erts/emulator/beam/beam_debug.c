@@ -330,6 +330,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     BeamInstr packed = 0;		/* Accumulator for packed operations. */
     BeamInstr args[8];		/* Arguments for this instruction. */
     BeamInstr* ap;			/* Pointer to arguments. */
+    BeamInstr* unpacked;		/* Unpacked arguments */
 
     start_prog = opc[op].pack;
 
@@ -551,6 +552,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
      * Print more information about certain instructions.
      */
 
+    unpacked = ap;
     ap = addr + size;
     switch (op) {
     case op_i_select_val_sfI:
@@ -595,6 +597,32 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
 		ap++;
 		size++;
+	    }
+	}
+	break;
+    case op_i_put_tuple_rI:
+    case op_i_put_tuple_xI:
+    case op_i_put_tuple_yI:
+	{
+	    int n = unpacked[-1];
+
+	    while (n > 0) {
+		if (!is_header(ap[0])) {
+		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		} else {
+		    switch ((ap[0] >> 2) & 0x03) {
+		    case R_REG_DEF:
+			erts_print(to, to_arg, " x(0)");
+			break;
+		    case X_REG_DEF:
+			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
+			break;
+		    case Y_REG_DEF:
+			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
+			break;
+		    }
+		}
+		ap++, size++, n--;
 	    }
 	}
 	break;

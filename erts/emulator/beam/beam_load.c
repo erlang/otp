@@ -2015,6 +2015,30 @@ load_code(LoaderState* stp)
 		stp->labels[tmp_op->a[arg].val].patches = ci;
 		ci++;
 		break;
+	    case TAG_r:
+		CodeNeed(1);
+		code[ci++] = (R_REG_DEF << _TAG_PRIMARY_SIZE) |
+		    TAG_PRIMARY_HEADER;
+		break;
+	    case TAG_x:
+		CodeNeed(1);
+		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
+		    (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		break;
+	    case TAG_y:
+		CodeNeed(1);
+		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
+		    (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		break;
+	    case TAG_n:
+		CodeNeed(1);
+		code[ci++] = NIL;
+		break;
+	    case TAG_q:
+		CodeNeed(1);
+		new_literal_patch(stp, ci);
+		code[ci++] = tmp_op->a[arg].val;
+		break;
 	    default:
 		LoadError1(stp, "unsupported primitive type '%c'",
 			   tag_to_letter[tmp_op->a[arg].type]);
@@ -3439,6 +3463,56 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->next = NULL;
     return op;
 }
+
+static GenOp*
+tuple_append_put5(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
+		  GenOpArg* Puts, GenOpArg S1, GenOpArg S2, GenOpArg S3,
+		  GenOpArg S4, GenOpArg S5)
+{
+    GenOp* op;
+    int arity = Arity.val;	/* Arity of tuple, not the instruction */
+    int i;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    GENOP_ARITY(op, arity+2+5);
+    op->op = genop_i_put_tuple_2;
+    op->a[0] = Dst;
+    op->a[1].type = TAG_u;
+    op->a[1].val = arity + 5;
+    for (i = 0; i < arity; i++) {
+	op->a[i+2] = Puts[i];
+    }
+    op->a[arity+2] = S1;
+    op->a[arity+3] = S2;
+    op->a[arity+4] = S3;
+    op->a[arity+5] = S4;
+    op->a[arity+6] = S5;
+    return op;
+}
+
+static GenOp*
+tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
+		 GenOpArg* Puts, GenOpArg S)
+{
+    GenOp* op;
+    int arity = Arity.val;	/* Arity of tuple, not the instruction */
+    int i;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    GENOP_ARITY(op, arity+2+1);
+    op->op = genop_i_put_tuple_2;
+    op->a[0] = Dst;
+    op->a[1].type = TAG_u;
+    op->a[1].val = arity + 1;
+    for (i = 0; i < arity; i++) {
+	op->a[i+2] = Puts[i];
+    }
+    op->a[arity+2] = S;
+    return op;
+}
+
 
 
 /*

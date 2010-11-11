@@ -525,6 +525,11 @@ extern int count_instructions;
      SWAPIN;							\
   } while (0)
 
+#define PutTuple(Dst, Arity)			\
+ do {						\
+   Dst = make_tuple(HTOP);			\
+   pt_arity = (Arity);				\
+ } while (0)
 
 /*
  * Check that we haven't used the reductions and jump to function pointed to by
@@ -731,15 +736,6 @@ extern int count_instructions;
      tmp_arg1 += (Element);			\
      (Dest) = (* (Eterm *) EXPAND_POINTER(tmp_arg1));		\
   } while (0)
-
-#define PutTuple(Arity, Src, Dest)		\
-     ASSERT(is_arity_value(Arity));		\
-     Dest = make_tuple(HTOP);			\
-     HTOP[0] = (Arity);				\
-     HTOP[1] = (Src);				\
-     HTOP += 2
-
-#define Put(Word) *HTOP++ = (Word)
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
 
@@ -1154,6 +1150,8 @@ void process_main(void)
 #endif
 
     Uint temp_bits; /* Temporary used by BsSkipBits2 & BsGetInteger2 */
+
+    Eterm pt_arity;		/* Used by do_put_tuple */
 
     ERL_BITS_DECLARE_STATEP; /* Has to be last declaration */
 
@@ -1921,6 +1919,32 @@ void process_main(void)
 	 }
      }
      SET_I((BeamInstr *) Arg(1));
+     Goto(*I);
+ }
+
+ do_put_tuple: {
+     Eterm* hp = HTOP;
+
+     *hp++ = make_arityval(pt_arity);
+
+     do {
+	 Eterm term = *I++;
+	 switch (term & _TAG_IMMED1_MASK) {
+	 case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	     *hp++ = r(0);
+	     break;
+	 case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	     *hp++ = x(term >> _TAG_IMMED1_SIZE);
+	     break;
+	 case (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
+	     *hp++ = y(term >> _TAG_IMMED1_SIZE);
+	     break;
+	 default:
+	     *hp++ = term;
+	     break;
+	 }
+     } while (--pt_arity != 0);
+     HTOP = hp;
      Goto(*I);
  }
 

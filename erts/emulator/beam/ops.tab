@@ -345,25 +345,21 @@ i_is_eq_immed f y c
 # Putting things.
 #
 
-put_tuple Arity Dst | put V => i_put_tuple Arity V Dst
+put_tuple Arity Dst => i_put_tuple Dst u
 
-%macro: i_put_tuple PutTuple -pack
-i_put_tuple A x x
-i_put_tuple A y x
-i_put_tuple A r x
-i_put_tuple A n x
-i_put_tuple A c x
-i_put_tuple A x y
-i_put_tuple A x r
-i_put_tuple A y r
-i_put_tuple A n r
-i_put_tuple A c r
+i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
+  put S3 | put S4 | put S5 => \
+	    tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5)
 
-%cold
-i_put_tuple A r y
-i_put_tuple A y y
-i_put_tuple A c y
-%hot
+i_put_tuple Dst Arity Puts=* | put S => \
+	    tuple_append_put(Arity, Dst, Puts, S)
+
+i_put_tuple/2
+
+%macro:i_put_tuple PutTuple -pack -goto:do_put_tuple
+i_put_tuple r I
+i_put_tuple x I
+i_put_tuple y I
 
 %macro:put_list PutList -pack -gen_dest
 
@@ -415,13 +411,6 @@ put_list c y y
 put_list x r r
 put_list s s d
 %hot
-
-%macro: put Put
-put x
-put r
-put y
-put c
-put n
 
 %macro: i_fetch FetchArgs -pack
 i_fetch c c
