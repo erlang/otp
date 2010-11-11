@@ -2260,6 +2260,14 @@ mixed_types(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     return 0;
 }
 
+static int
+same_label(LoaderState* stp, GenOpArg Target, GenOpArg Label)
+{
+    return Target.type = TAG_f && Label.type == TAG_u &&
+	Target.val == Label.val;
+}
+
+
 /*
  * Generate an instruction for element/2.
  */

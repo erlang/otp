@@ -163,6 +163,11 @@ i_select_tuple_arity s f I
 i_jump_on_val_zero s f I
 i_jump_on_val s f I I
 
+jump Target | label Lbl | same_label(Target, Lbl) => label Lbl
+
+is_ne_exact L1 S1 S2 | jump Fail | label L2 | same_label(L1, L2) => \
+  is_eq_exact Fail S1 S2 | label L2
+
 %macro: get_list GetList -pack
 get_list x x x
 get_list x x y
