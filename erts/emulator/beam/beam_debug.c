@@ -559,10 +559,33 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
+    case op_i_select_tuple_arity_sfI:
+	{
+	    int n = ap[-1];
+
+	    while (n > 0) {
+		Uint arity = arityval(ap[0]);
+		erts_print(to, to_arg, " {%d} f(" HEXF ")", arity, ap[1]);
+		ap += 2;
+		size += 2;
+		n--;
+	    }
+	}
+	break;
     case op_i_jump_on_val_sfII:
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
+		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
+		ap++;
+		size++;
+	    }
+	}
+	break;
+    case op_i_jump_on_val_zero_sfI:
+	{
+	    int n;
+	    for (n = ap[-1]; n > 0; n--) {
 		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
 		ap++;
 		size++;
