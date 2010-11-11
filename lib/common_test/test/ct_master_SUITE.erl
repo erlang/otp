@@ -55,6 +55,8 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
+all() ->
+    all(suite).
 all(doc) ->
     [""];
 
@@ -75,7 +77,28 @@ ct_master_test(Config) when is_list(Config)->
     FileName = filename:join(PrivDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
     TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
+    ERPid = ct_test_support:start_event_receiver(Config),
+    spawn(ct@ancalagon,
+	  fun() ->
+		  dbg:tracer(),dbg:p(all,c),
+		  dbg:tpl(erlang, spawn_link, 4,x),
+		  receive ok -> ok end
+	  end),
+
     [{TSFile, ok}] = run_test(ct_master_test, FileName, Config),
+
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(groups_suite_1, 
+			       reformat(Events, ?eh), 
+			       ?config(priv_dir, Config)),
+    find_events(NodeNames, [{tc_start,{master_SUITE,init_per_suite}},
+			    {tc_start,{master_SUITE,first_testcase}},
+			    {tc_start,{master_SUITE,second_testcase}},
+			    {tc_start,{master_SUITE,third_testcase}},
+			    {tc_start,{master_SUITE,end_per_suite}}],
+	       Events),
+    
     ok.
 
 %%%-----------------------------------------------------------------
@@ -115,8 +138,12 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 	     {logdir, NodeName, get_log_dir(PrivDir, NodeName)}
          end,
 	 NodeNames) ++ [{logdir, master, PrivDir}],
+    EvHArgs = [{cbm,ct_test_support},{trace_level,?config(trace_level,Config)}],
+    EH = [{event_handler,master,[?eh],EvHArgs}],
 
-    ct_test_support:write_testspec(N++C++S++LD++NS, FileName).
+    Include = [{include,filename:join([DataDir,"master/include"])}],
+
+    ct_test_support:write_testspec(N++Include++EH++C++S++LD++NS, FileName).
 
 get_log_dir(PrivDir, NodeName)->
     LogDir = filename:join(PrivDir, io_lib:format("slave.~p", [NodeName])),
@@ -126,11 +153,34 @@ get_log_dir(PrivDir, NodeName)->
 run_test(_Name, FileName, Config)->
     [{FileName, ok}] = ct_test_support:run(ct_master, run, [FileName], Config).
 
-reformat_events(Events, EH) ->
+reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+find_events([], _CheckEvents, _) ->
+    ok;
+find_events([NodeName|NodeNames],CheckEvents,AllEvents) ->
+    find_events(NodeNames, CheckEvents,
+		remove_events(add_host(NodeName),CheckEvents, AllEvents, [])).
+
+remove_events(Node,[{Name,Data} | RestChecks],
+	      [{?eh,#event{ name = Name, node = Node, data = Data }}|RestEvs],
+	       Acc) ->
+    remove_events(Node, RestChecks, RestEvs, Acc);
+remove_events(Node, Checks, [Event|RestEvs], Acc) ->
+    remove_events(Node, Checks, RestEvs, [Event | Acc]);
+remove_events(_Node, [], [], Acc) ->
+    lists:reverse(Acc);
+remove_events(Node, Events, [], Acc) ->
+    test_server:format("Could not find events: ~p in ~p for node ~p",
+	   [Events, lists:reverse(Acc), Node]),
+    exit(event_not_found).
+
+add_host(NodeName) ->
+    {ok, HostName} = inet:gethostname(),
+    list_to_atom(atom_to_list(NodeName)++"@"++HostName).
+    
 expected_events(_)->
-[].
+    [].
