@@ -3096,6 +3096,29 @@ gen_jump_tab(LoaderState* stp, GenOpArg S, GenOpArg Fail, GenOpArg Size, GenOpAr
     ASSERT(Size.val >= 2 && Size.val % 2 == 0);
 
     /*
+     * If there is only one choice, don't generate a jump table.
+     */
+    if (Size.val == 2) {
+	GenOp* jump;
+
+	NEW_GENOP(stp, op);
+	op->arity = 3;
+	op->op = genop_is_ne_exact_3;
+	op->a[0] = Rest[1];
+	op->a[1] = S;
+	op->a[2] = Rest[0];
+
+	NEW_GENOP(stp, jump);
+	jump->next = NULL;
+	jump->arity = 1;
+	jump->op = genop_jump_1;
+	jump->a[0] = Fail;
+
+	op->next = jump;
+	return op;
+    }
+
+    /*
      * Calculate the minimum and maximum values and size of jump table.
      */
 
