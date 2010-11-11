@@ -80,6 +80,8 @@ my %cold_code;
 my @unnumbered_generic;
 my %unnumbered;
 
+my %is_transformed;
+
 #
 # Code transformations.
 #
@@ -474,8 +476,9 @@ sub emulator_output {
 		$gen_transform_offset{$key} : -1;
 	    my($spec_op) = $gen_to_spec{$key};
 	    my($num_specific) = $num_specific{$key};
-	    defined $spec_op or $tr != -1 or
+	    defined $spec_op or
 		$obsolete[$gen_opnum{$name,$arity}] or
+		$is_transformed{$name,$arity} or
 		error("instruction $key has no specific instruction");
 	    $spec_op = -1 unless defined $spec_op;
 	    &init_item($name, $arity, $spec_op, $num_specific, $tr, $min_window{$key});
@@ -1102,6 +1105,10 @@ sub compile_transform {
 
     if ($obsolete[$gen_opnum{$name,$arity}]) {
 	error("obsolete function must not be used in transformations");
+    }
+
+    if ($src) {
+	$is_transformed{$name,$arity} = 1;
     }
     
     [$name,$arity,@ops];
