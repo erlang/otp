@@ -1307,6 +1307,8 @@ fconv Arg=iqan Dst=l => move Arg x | fconv x Dst
 
 fmove q l
 fmove d l
+fmove l d
+
 fconv d l
 
 i_fadd l l l
@@ -1321,12 +1323,6 @@ fcheckerror p => i_fcheckerror
 
 i_fcheckerror
 fclearerror
-
-fmove FR=l Dst=d | new_float_allocation() => fmove_new FR Dst
- 
-# The new instruction for moving a float out of a floating point register.
-# (No allocation.)
-fmove_new l d
 
 #
 # New apply instructions in R10B.

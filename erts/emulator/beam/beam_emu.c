@@ -4723,7 +4723,7 @@ apply_bif_or_nif_epilogue:
      NextPF(2, next);
  }
 
- OpCase(fmove_new_ld): {
+ OpCase(fmove_ld): {
      Eterm fr = Arg(0);
      Eterm dest = make_float(HTOP);
 
@@ -4752,11 +4752,6 @@ apply_bif_or_nif_epilogue:
      }
      NextPF(2, next);
  }
-
- /*
-  * Old allocating fmove.
-  */
-
 
 #ifdef NO_FPE_SIGNALS
      OpCase(fclearerror):

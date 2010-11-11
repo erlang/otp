@@ -326,11 +326,6 @@ typedef struct {
     Literal* literals;		/* Array of literals. */
     LiteralPatch* literal_patches; /* Operands that need to be patched. */
     Uint total_literal_size;	/* Total heap size for all literals. */
-
-    /*
-     * Floating point.
-     */
-    int new_float_instructions;	/* New allocation scheme for floating point. */
 } LoaderState;
 
 typedef struct {
@@ -818,7 +813,6 @@ init_state(LoaderState* stp)
     stp->total_literal_size = 0;
     stp->literal_patches = 0;
     stp->string_patches = 0;
-    stp->new_float_instructions = 0;
     stp->may_load_nif = 0;
     stp->on_load = 0;
 }
@@ -1618,7 +1612,6 @@ load_code(LoaderState* stp)
 			    BeamInstr val;
 			    BeamInstr words = 0;
 			    
-			    stp->new_float_instructions = 1;
 			    GetTagAndValue(stp, tag, n);
 			    VerifyTag(stp, tag, TAG_u);
 			    while (n-- > 0) {
@@ -2594,8 +2587,6 @@ binary_too_big_bits(LoaderState* stp, GenOpArg Size)
 {
     return Size.type == TAG_u && (((Size.val+7)/8) >> (8*sizeof(Uint)-3) != 0);
 }
-
-#define new_float_allocation(Stp) ((Stp)->new_float_instructions)
 
 static GenOp*
 gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
