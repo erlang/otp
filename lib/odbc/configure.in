@@ -126,7 +126,7 @@ AC_TYPE_SIZE_T
 AC_CHECK_MEMBERS([struct sockaddr_in6.sin6_addr], [], [],
 			 [#if HAVE_WINSOCK2_H
 			  #include <winsock2.h>
-			  #include <windows.h>
+			  #include <ws2tcpip.h>
 			  #else
 			  #include <netinet/in.h>
 			  #endif])
