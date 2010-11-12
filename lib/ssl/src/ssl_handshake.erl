@@ -428,13 +428,11 @@ finished(Version, Role, MasterSecret, {Hashes, _}) -> % use the current hashes
 verify_connection(Version, #finished{verify_data = Data}, 
 		  Role, MasterSecret, {_, {MD5, SHA}}) -> 
     %% use the previous hashes
-    ?DBG_HEX(crypto:md5_final(MD5)),
-    ?DBG_HEX(crypto:sha_final(SHA)),
     case calc_finished(Version, Role, MasterSecret, {MD5, SHA}) of
 	Data ->
 	    verified;
-	_E ->
- 	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
+	_ ->
+	    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
     end.
 %%--------------------------------------------------------------------
 -spec server_hello_done() ->  #server_hello_done{}.
@@ -507,11 +505,8 @@ update_hashes(Hashes, % special-case SSL2 client hello
 		   CipherSuites:CSLength/binary,
 		   ChallengeData:CDLength/binary>>);
 update_hashes({{MD50, SHA0}, _Prev}, Data) ->
-    ?DBG_HEX(Data),
     {MD51, SHA1} = {crypto:md5_update(MD50, Data),
 		    crypto:sha_update(SHA0, Data)},
-    ?DBG_HEX(crypto:md5_final(MD51)),
-    ?DBG_HEX(crypto:sha_final(SHA1)),
     {{MD51, SHA1}, {MD50, SHA0}}.
 
 %%--------------------------------------------------------------------
@@ -525,7 +520,7 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
 				   [{rsa_pad, rsa_pkcs1_padding}])
     catch
 	_:_ ->
-	    throw(?ALERT_REC(?FATAL, ?DECRYPTION_FAILED))
+	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
     end.
 
 %%--------------------------------------------------------------------
@@ -782,8 +777,7 @@ master_secret(Version, MasterSecret, #security_parameters{
      ServerWriteKey, ClientIV, ServerIV} =
 	setup_keys(Version, MasterSecret, ServerRandom, 
 		   ClientRandom, HashSize, KML, EKML, IVS),
-    ?DBG_HEX(ClientWriteKey),
-    ?DBG_HEX(ClientIV),
+
     ConnStates1 = ssl_record:set_master_secret(MasterSecret, ConnectionStates),
     ConnStates2 =
 	ssl_record:set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret,
@@ -807,8 +801,6 @@ dec_hs(?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor),
 		       ?UINT16(CDLength), 
 		       CipherSuites:CSLength/binary, 
 		       ChallengeData:CDLength/binary>>) ->
-    ?DBG_HEX(CipherSuites),
-    ?DBG_HEX(CipherSuites),
     #client_hello{client_version = {Major, Minor},
 		  random = ssl_ssl2:client_random(ChallengeData, CDLength),
 		  session_id = 0,

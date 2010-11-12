@@ -75,20 +75,12 @@ cipher(?RC4, CipherState, Mac, Fragment) ->
                  S -> S
              end,
     GenStreamCipherList = [Fragment, Mac],
-
-    ?DBG_HEX(GenStreamCipherList),
-    ?DBG_HEX(State0),
     {State1, T} = crypto:rc4_encrypt_with_state(State0, GenStreamCipherList),
-    ?DBG_HEX(T),
     {T, CipherState#cipher_state{state = State1}};
 cipher(?DES, CipherState, Mac, Fragment) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:des_cbc_encrypt(Key, IV, T)
 		 end, block_size(des_cbc), CipherState, Mac, Fragment);
-%% cipher(?DES40, CipherState, Mac, Fragment) ->
-%%     block_cipher(fun(Key, IV, T) ->
-%% 			 crypto:des_cbc_encrypt(Key, IV, T)
-%% 		 end, block_size(des_cbc), CipherState, Mac, Fragment);
 cipher(?'3DES', CipherState, Mac, Fragment) ->
     block_cipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			 crypto:des3_cbc_encrypt(K1, K2, K3, IV, T)
@@ -109,11 +101,7 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
     {PaddingLength, Padding} = get_padding(TotSz, BlockSz),
     L = [Fragment, Mac, PaddingLength, Padding],
-    ?DBG_HEX(Key),
-    ?DBG_HEX(IV),
-    ?DBG_HEX(L),
     T = Fun(Key, IV, L),
-    ?DBG_HEX(T),
     NextIV = next_iv(T, IV),
     {T, CS0#cipher_state{iv=NextIV}}.
 
@@ -127,26 +115,29 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 decipher(?NULL, _HashSz, CipherState, Fragment, _) ->
     {Fragment, <<>>, CipherState};
 decipher(?RC4, HashSz, CipherState, Fragment, _) ->
-    ?DBG_TERM(CipherState#cipher_state.key),
     State0 = case CipherState#cipher_state.state of
                  undefined -> crypto:rc4_set_key(CipherState#cipher_state.key);
                  S -> S
              end,
-    ?DBG_HEX(State0),
-    ?DBG_HEX(Fragment),
-    {State1, T} = crypto:rc4_encrypt_with_state(State0, Fragment),
-    ?DBG_HEX(T),
-    GSC = generic_stream_cipher_from_bin(T, HashSz),
-    #generic_stream_cipher{content=Content, mac=Mac} = GSC,
-    {Content, Mac, CipherState#cipher_state{state=State1}};
+    try crypto:rc4_encrypt_with_state(State0, Fragment) of
+	{State, Text} ->
+	    GSC = generic_stream_cipher_from_bin(Text, HashSz),
+	    #generic_stream_cipher{content = Content, mac = Mac} = GSC,
+	    {Content, Mac, CipherState#cipher_state{state = State}}
+    catch
+	_:_ ->
+	    %% This is a DECRYPTION_FAILED but
+	    %% "differentiating between bad_record_mac and decryption_failed
+	    %% alerts may permit certain attacks against CBC mode as used in
+	    %% TLS [CBCATT].  It is preferable to uniformly use the
+	    %% bad_record_mac alert to hide the specific type of the error."
+	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end;
+
 decipher(?DES, HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(Key, IV, T) ->
 			   crypto:des_cbc_decrypt(Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version);
-%% decipher(?DES40, HashSz, CipherState, Fragment, Version) ->
-%%     block_decipher(fun(Key, IV, T) ->
-%% 			   crypto:des_cbc_decrypt(Key, IV, T)
-%% 		   end, CipherState, HashSz, Fragment, Version);
 decipher(?'3DES', HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			   crypto:des3_cbc_decrypt(K1, K2, K3, IV, T)
@@ -178,7 +169,12 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	    end
     catch
 	_:_ ->
-	    ?ALERT_REC(?FATAL, ?DECRYPTION_FAILED)
+	    %% This is a DECRYPTION_FAILED but
+	    %% "differentiating between bad_record_mac and decryption_failed
+	    %% alerts may permit certain attacks against CBC mode as used in
+	    %% TLS [CBCATT].  It is preferable to uniformly use the
+	    %% bad_record_mac alert to hide the specific type of the error."
+	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
     end.
 %%--------------------------------------------------------------------
 -spec suites(tls_version()) -> [cipher_suite()].
@@ -416,8 +412,6 @@ bulk_cipher_algorithm(null) ->
 %%     ?IDEA;
 bulk_cipher_algorithm(rc4_128) ->
     ?RC4;
-%% bulk_cipher_algorithm(des40_cbc) ->
-%%     ?DES40;
 bulk_cipher_algorithm(des_cbc) ->
     ?DES;
 bulk_cipher_algorithm('3des_ede_cbc') ->
@@ -431,7 +425,6 @@ type(Cipher) when Cipher == null;
     ?STREAM;
 
 type(Cipher) when Cipher == idea_cbc;
-		  Cipher == des40_cbc;
 		  Cipher == des_cbc;
 		  Cipher == '3des_ede_cbc';
 		  Cipher == aes_128_cbc;
@@ -443,8 +436,6 @@ key_material(null) ->
 key_material(Cipher) when Cipher == idea_cbc;
  			  Cipher == rc4_128 ->
     16;
-%%key_material(des40_cbc) ->	
-%%   5;
 key_material(des_cbc) ->
     8;
 key_material('3des_ede_cbc') ->
@@ -459,8 +450,7 @@ expanded_key_material(null) ->
 expanded_key_material(Cipher) when Cipher == idea_cbc;
  				   Cipher == rc4_128 ->
     16;
-expanded_key_material(Cipher) when Cipher == des_cbc;
- 				   Cipher == des40_cbc ->
+expanded_key_material(Cipher) when Cipher == des_cbc ->
     8;
 expanded_key_material('3des_ede_cbc') ->
     24;
@@ -471,8 +461,6 @@ expanded_key_material(Cipher) when Cipher == aes_128_cbc;
 
 effective_key_bits(null) ->
     0;
-%%effective_key_bits(des40_cbc) -> 
-%%    40;
 effective_key_bits(des_cbc) ->
     56;
 effective_key_bits(Cipher) when Cipher == idea_cbc;
@@ -491,7 +479,6 @@ iv_size(Cipher) ->
     block_size(Cipher).
 
 block_size(Cipher) when Cipher == idea_cbc;
-			Cipher == des40_cbc;
 			Cipher == des_cbc;
 			Cipher == '3des_ede_cbc' -> 
     8;
