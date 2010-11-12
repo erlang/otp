@@ -37,7 +37,7 @@
 -export([setopt/3, setopts/2, getopt/2, getopts/2, is_sockopt_val/2]).
 -export([chgopt/3, chgopts/2]).
 -export([getstat/2, getfd/1, getindex/1, getstatus/1, gettype/1, 
-	 getiflist/1, ifget/3, ifset/3,
+	 getifaddrs/1, getiflist/1, ifget/3, ifset/3,
 	 gethostname/1]).
 -export([getservbyname/3, getservbyport/3]).
 -export([peername/1, setpeername/2]).
@@ -216,9 +216,10 @@ bindx(S, AddFlag, Addrs) ->
 	sctp ->
 	    %% Really multi-homed "bindx". Stringified args:
 	    %% [AddFlag, (Port, IP)+]:
-	    Args = ?int8(AddFlag) ++
-		lists:concat([?int16(Port)++ip_to_bytes(IP) ||
-				 {IP, Port} <- Addrs]),
+	    Args =
+		[?int8(AddFlag)|
+		 [[?int16(Port)|ip_to_bytes(IP)] ||
+		     {IP, Port} <- Addrs]],
 	    case ctl_cmd(S, ?SCTP_REQ_BINDX, Args) of
 		{ok,_} -> {ok, S};
 		Error  -> Error
@@ -623,7 +624,7 @@ chgopt(S, Opt, Value) when is_port(S) ->
     chgopts(S, [{Opt,Value}]).
 
 chgopts(S, Opts) when is_port(S), is_list(Opts) ->
-    case inet:getopts(S, need_template(Opts)) of
+    case getopts(S, need_template(Opts)) of
 	{ok,Templates} ->
 	    try merge_options(Opts, Templates) of
 		NewOpts ->
@@ -636,7 +637,94 @@ chgopts(S, Opts) when is_port(S), is_list(Opts) ->
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% IFLIST(insock()) -> {ok,IfNameList} | {error, Reason}
+%% getifaddrs(insock()) -> {ok,IfAddrsList} | {error, Reason}
+%%
+%%   IfAddrsList = [{Name,[Opts]}]
+%%   Name = string()
+%%   Opts = {flags,[Flag]} | {addr,Addr} | {netmask,Addr} | {broadaddr,Addr}
+%%        | {dstaddr,Addr} | {hwaddr,HwAddr} | {mtu,integer()}
+%%   Flag = up | broadcast | loopback | running | multicast
+%%   Addr = ipv4addr() | ipv6addr()
+%%   HwAddr = ethernet_addr()
+%%
+%% get interface name and addresses list
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+getifaddrs(S) when is_port(S) ->
+    case ctl_cmd(S, ?INET_REQ_GETIFADDRS, []) of
+	{ok, Data} ->
+	    {ok, comp_ifaddrs(build_ifaddrs(Data), ktree_empty())};
+	{error,enotsup} ->
+	    case getiflist(S) of
+		{ok, IFs} ->
+		    {ok, getifaddrs_ifget(S, IFs)};
+		Err1 -> Err1
+	    end;
+	Err2 -> Err2
+    end.
+
+%% Restructure interface properties per interface and remove duplicates
+
+comp_ifaddrs([{If,Opts}|IfOpts], T) ->
+    case ktree_is_defined(If, T) of
+	true ->
+	    OptSet = comp_ifaddrs_add(ktree_get(If, T), Opts),
+	    comp_ifaddrs(IfOpts, ktree_update(If, OptSet, T));
+	false ->
+	    OptSet = comp_ifaddrs_add(ktree_empty(), Opts),
+	    comp_ifaddrs(IfOpts, ktree_insert(If, OptSet, T))
+     end;
+comp_ifaddrs([], T) ->
+    [{If,ktree_keys(ktree_get(If, T))} || If <- ktree_keys(T)].
+
+comp_ifaddrs_add(OptSet, [Opt|Opts]) ->
+    case ktree_is_defined(Opt, OptSet) of
+	true
+	  when element(1, Opt) =:= flags;
+	       element(1, Opt) =:= hwaddr ->
+	    comp_ifaddrs_add(OptSet, Opts);
+	_ ->
+	    comp_ifaddrs_add(ktree_insert(Opt, undefined, OptSet), Opts)
+    end;
+comp_ifaddrs_add(OptSet, []) -> OptSet.
+
+%% Legacy emulation of getifaddrs
+
+getifaddrs_ifget(_, []) -> [];
+getifaddrs_ifget(S, [IF|IFs]) ->
+    case ifget(S, IF, [flags]) of
+	{ok,[{flags,Flags}]=FlagsVals} ->
+	    BroadOpts =
+		case member(broadcast, Flags) of
+		    true ->
+			[broadaddr,hwaddr];
+		    false ->
+			[hwaddr]
+		end,
+	    P2POpts =
+		case member(pointtopoint, Flags) of
+		    true ->
+			[dstaddr|BroadOpts];
+		    false ->
+			BroadOpts
+		end,
+	    getifaddrs_ifget(S, IFs, IF, FlagsVals, [addr,netmask|P2POpts]);
+	_ ->
+	    getifaddrs_ifget(S, IFs, IF, [], [addr,netmask,hwaddr])
+    end.
+
+getifaddrs_ifget(S, IFs, IF, FlagsVals, Opts) ->
+    OptVals =
+	case ifget(S, IF, Opts) of
+	    {ok,OVs} -> OVs;
+	    _ -> []
+	end,
+    [{IF,FlagsVals++OptVals}|getifaddrs_ifget(S, IFs)].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% getiflist(insock()) -> {ok,IfNameList} | {error, Reason}
 %%
 %% get interface name list
 %%
@@ -1325,6 +1413,19 @@ type_value_2({enum,List}, Enum) ->
 	{value,_} 				    -> true;
 	false                                       -> false
     end;
+type_value_2(sockaddr, Addr) ->
+    case Addr of
+	any                                         -> true;
+	loopback                                    -> true;
+	{A,B,C,D} when ?ip(A,B,C,D)                 -> true;
+	{A,B,C,D,E,F,G,H} when ?ip6(A,B,C,D,E,F,G,H) -> true;
+	_                                           -> false
+    end;
+type_value_2(linkaddr, Addr) when is_list(Addr) ->
+    case len(Addr, 32768) of
+	undefined                                   -> false;
+	_                                           -> true
+    end;
 type_value_2({bitenumlist,List}, EnumList) -> 
     case enum_vals(EnumList, List) of
 	Ls when is_list(Ls)                         -> true;
@@ -1413,14 +1514,21 @@ enc_value_2(addr, {any,Port}) ->
     [?INET_AF_ANY|?int16(Port)];
 enc_value_2(addr, {loopback,Port}) ->
     [?INET_AF_LOOPBACK|?int16(Port)];
-enc_value_2(addr, {IP,Port}) ->
-    case tuple_size(IP) of
-	4 ->
-	    [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
-	8 ->
-	    [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)]
-    end;
+enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 4 ->
+    [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
+enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 8 ->
+    [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)];
 enc_value_2(ether, [X1,X2,X3,X4,X5,X6]) -> [X1,X2,X3,X4,X5,X6];
+enc_value_2(sockaddr, any) ->
+    [?INET_AF_ANY];
+enc_value_2(sockaddr, loopback) ->
+    [?INET_AF_LOOPBACK];
+enc_value_2(sockaddr, IP) when tuple_size(IP) =:= 4 ->
+    [?INET_AF_INET|ip4_to_bytes(IP)];
+enc_value_2(sockaddr, IP) when tuple_size(IP) =:= 8 ->
+    [?INET_AF_INET6|ip6_to_bytes(IP)];
+enc_value_2(linkaddr, Linkaddr) ->
+    [?int16(length(Linkaddr)),Linkaddr];
 enc_value_2(sctp_assoc_id, Val) -> ?int32(Val);
 %% enc_value_2(sctp_assoc_id, Bin) -> [byte_size(Bin),Bin];
 enc_value_2({enum,List}, Enum) ->
@@ -1465,6 +1573,10 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
     end;
 dec_value(ip, [A,B,C,D|T])             -> {{A,B,C,D}, T};
 dec_value(ether,[X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
+dec_value(sockaddr, [X|T]) ->
+    get_ip(X, T);
+dec_value(linkaddr, [X1,X0|T]) ->
+    split(?i16(X1,X0), T);
 dec_value({enum,List}, [X3,X2,X1,X0|T]) ->
     Val = ?i32(X3,X2,X1,X0),
     case enum_name(Val, List) of
@@ -1480,7 +1592,7 @@ dec_value({bitenumlist,List}, [X3,X2,X1,X0|T]) ->
 %%     {enum_names(Val, List), T};
 dec_value(binary,[L0,L1,L2,L3|List]) ->
     Len = ?i32(L0,L1,L2,L3),
-    {X,T}=lists:split(Len,List),
+    {X,T}=split(Len,List),
     {list_to_binary(X),T};
 dec_value(Types, List) when is_tuple(Types) ->
     {L,T} = dec_value_tuple(Types, List, 1, []),
@@ -1495,7 +1607,7 @@ dec_value_tuple(Types, List, N, Acc)
     {Term,Tail} = dec_value(element(N, Types), List),
     dec_value_tuple(Types, Tail, N+1, [Term|Acc]);
 dec_value_tuple(_, List, _, Acc) ->
-    {lists:reverse(Acc),List}.
+    {rev(Acc),List}.
 
 borlist([V|Vs], Value) ->
     borlist(Vs, V bor Value);
@@ -1702,11 +1814,11 @@ merge_fields(_, _, _) -> [].
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-type_ifopt(addr)      -> ip;
-type_ifopt(broadaddr) -> ip;
-type_ifopt(dstaddr)   -> ip;
+type_ifopt(addr)      -> sockaddr;
+type_ifopt(broadaddr) -> sockaddr;
+type_ifopt(dstaddr)   -> sockaddr;
 type_ifopt(mtu)       -> int;
-type_ifopt(netmask)   -> ip;
+type_ifopt(netmask)   -> sockaddr;
 type_ifopt(flags)     ->
     {bitenumlist,
      [{up, ?INET_IFF_UP},
@@ -1718,7 +1830,7 @@ type_ifopt(flags)     ->
       {no_pointtopoint, ?INET_IFF_NPOINTTOPOINT},
       {running, ?INET_IFF_RUNNING},
       {multicast, ?INET_IFF_MULTICAST}]};
-type_ifopt(hwaddr)    -> ether;
+type_ifopt(hwaddr)    -> linkaddr;
 type_ifopt(Opt) when is_atom(Opt) -> undefined.
 
 enc_ifopt(addr)      -> ?INET_IFOPT_ADDR;
@@ -1903,6 +2015,30 @@ encode_ifname(Name) ->
     if N > 255 -> {error, einval};
        true -> {ok,[N | Name]}
     end.
+
+build_ifaddrs(Cs) ->
+    build_ifaddrs(Cs, []).
+%%
+build_ifaddrs([], []) ->
+    [];
+build_ifaddrs([0|Cs], Acc) ->
+    Name = utf8_to_characters(rev(Acc)),
+    {Opts,Rest} = build_ifaddrs_opts(Cs, []),
+    [{Name,Opts}|build_ifaddrs(Rest)];
+build_ifaddrs([C|Cs], Acc) ->
+    build_ifaddrs(Cs, [C|Acc]).
+
+build_ifaddrs_opts([0|Cs], Acc) ->
+    {rev(Acc),Cs};
+build_ifaddrs_opts([C|Cs]=CCs, Acc) ->
+    case dec_ifopt(C) of
+	undefined ->
+	    erlang:error(badarg, [CCs,Acc]);
+	Opt ->
+	    Type = type_ifopt(Opt),
+	    {Val,Rest} = dec_value(Type, Cs),
+	    build_ifaddrs_opts(Rest, [{Opt,Val}|Acc])
+    end.
     
 build_iflist(Cs) ->
     build_iflist(Cs, [], []).
@@ -1926,6 +2062,80 @@ build_iflist([], Acc, List) ->
 rev(L) -> rev(L,[]).
 rev([C|L],Acc) -> rev(L,[C|Acc]);
 rev([],Acc) -> Acc.
+
+split(N, L) -> split(N, L, []).
+split(0, L, R) when is_list(L) -> {rev(R),L};
+split(N, [H|T], R) when is_integer(N), N > 0 -> split(N-1, T, [H|R]).
+
+len(L, N) -> len(L, N, 0).
+len([], N, C) when is_integer(N), N >= 0 -> C;
+len(L, 0, _) when is_list(L) -> undefined;
+len([_|L], N, C) when is_integer(N), N >= 0 -> len(L, N-1, C+1).
+
+member(X, [X|_]) -> true;
+member(X, [_|Xs]) -> member(X, Xs);
+member(_, []) -> false.
+
+
+
+%% Lookup tree that keeps key insert order
+
+ktree_empty() -> {[],tree()}.
+ktree_is_defined(Key, {_,T}) -> tree(T, Key, is_defined).
+ktree_get(Key, {_,T}) -> tree(T, Key, get).
+ktree_insert(Key, V, {Keys,T}) -> {[Key|Keys],tree(T, Key, {insert,V})}.
+ktree_update(Key, V, {Keys,T}) -> {Keys,tree(T, Key, {update,V})}.
+ktree_keys({Keys,_}) -> rev(Keys).
+
+%% Simple lookup tree. Hash the key to get statistical balance.
+%% Key is matched equal, not compared equal.
+
+tree() -> nil.
+tree(T, Key, Op) -> tree(T, Key, Op, erlang:phash2(Key)).
+
+tree(nil, _, is_defined, _) -> false;
+tree(nil, K, {insert,V}, _) -> {K,V,nil,nil};
+tree({K,_,_,_}, K, is_defined, _) -> true;
+tree({K,V,_,_}, K, get, _) -> V;
+tree({K,_,L,R}, K, {update,V}, _) -> {K,V,L,R};
+tree({K0,V0,L,R}, K, Op, H) ->
+    H0 = erlang:phash2(K0),
+    if  H0 < H;  H0 =:= H, K0 < K ->
+	    if  is_tuple(Op) ->
+		    {K0,V0,tree(L, K, Op, H),R};
+		true ->
+		    tree(L, K, Op, H)
+	    end;
+	true ->
+	    if  is_tuple(Op) ->
+		    {K0,V0,L,tree(R, K, Op, H)};
+		true ->
+		    tree(R, K, Op, H)
+	    end
+    end.
+
+
+
+utf8_to_characters([]) -> [];
+utf8_to_characters([B|Bs]=Arg) when (B band 16#FF) =:= B ->
+    if  16#F8 =< B ->
+	    erlang:error(badarg, [Arg]);
+	16#F0 =< B ->
+	    utf8_to_characters(Bs, B band 16#07, 3);
+	16#E0 =< B ->
+	    utf8_to_characters(Bs, B band 16#0F, 2);
+	16#C0 =< B ->
+	    utf8_to_characters(Bs, B band 16#1F, 1);
+	16#80 =< B ->
+	    erlang:error(badarg, [Arg]);
+	true ->
+	    [B|utf8_to_characters(Bs)]
+    end.
+%%
+utf8_to_characters(Bs, U, 0) ->
+    [U|utf8_to_characters(Bs)];
+utf8_to_characters([B|Bs], U, N) when ((B band 16#3F) bor 16#80) =:= B ->
+    utf8_to_characters(Bs, (U bsl 6) bor (B band 16#3F), N-1).
 
 ip_to_bytes(IP) when tuple_size(IP) =:= 4 -> ip4_to_bytes(IP);
 ip_to_bytes(IP) when tuple_size(IP) =:= 8 -> ip6_to_bytes(IP).

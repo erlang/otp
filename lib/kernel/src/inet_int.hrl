@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -82,6 +82,7 @@
 -define(INET_REQ_IFGET,         22).
 -define(INET_REQ_IFSET,         23).
 -define(INET_REQ_SUBSCRIBE,     24).
+-define(INET_REQ_GETIFADDRS,    25).
 %% TCP requests
 -define(TCP_REQ_ACCEPT,         40).
 -define(TCP_REQ_LISTEN,         41).

@@ -53,7 +53,7 @@ while test -n "$1" ; do
 	    STDLIB_FORCED=true;
 	    STDLIB=LIBCMTD.LIB;; 
 	-lsocket)
-	    DEFAULT_LIBRARIES="$DEFAULT_LIBRARIES WS2_32.LIB";;
+	    DEFAULT_LIBRARIES="$DEFAULT_LIBRARIES WS2_32.LIB IPHLPAPI.LIB";;
 	-l*)
 	    y=`echo $x | sed 's,^-l\(.*\),\1,g'`;
 	    MPATH=`cygpath -m $y`;
