@@ -108,8 +108,8 @@
 
 #if defined WIN32
 #include <winsock2.h> 
-/*  #include <ws2tcpip.h >  When we can support a newer c-compiler*/
 #include <windows.h> 
+#include <ws2tcpip.h >
 #include <fcntl.h>
 #include <sql.h>
 #include <sqlext.h>
