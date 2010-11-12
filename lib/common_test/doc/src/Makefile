@@ -51,7 +51,7 @@ CT_MODULES = \
 CT_XML_FILES = $(CT_MODULES:=.xml)
 
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF1_FILES = run_test.xml
+XML_REF1_FILES = ct_run.xml
 XML_REF3_FILES = $(CT_XML_FILES)
 XML_REF6_FILES = common_test_app.xml
 

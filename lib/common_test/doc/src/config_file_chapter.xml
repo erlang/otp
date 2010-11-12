@@ -248,7 +248,7 @@
 
       <p><c>Callback:check_parameter/1</c></p>
       <p>The input argument will be passed from Common Test, as defined in the test
-	specification or given as an option to <c>run_test</c>.</p>
+	specification or given as an option to <c>ct_run</c> or <c>ct:run_test</c>.</p>
 
       <p>The return value should be any of the following values indicating if given
 	configuration parameter is valid:</p>

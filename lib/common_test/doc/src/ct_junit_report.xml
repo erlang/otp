@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<erlref>
+<header>
+<title>ct_junit_report</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno>1</docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>A</rev>
+<file>ct_junit_report.xml</file></header>
+<module>ct_junit_report</module>
+<modulesummary>Common Test Framework functions handling test specifications.</modulesummary>
+<description>
+<p>Common Test Framework functions handling test specifications.</p>
+  
+   <p>This module creates a junit report of the test run if plugged in
+    as a suite_callback.</p></description>
+<funcs>
+<func>
+<name>init(Opts) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="init-1"/>
+ </desc></func>
+<func>
+<name>post_end_group(Group, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="post_end_group-3"/>
+ </desc></func>
+<func>
+<name>post_end_suite(Suite, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="post_end_suite-3"/>
+ </desc></func>
+<func>
+<name>post_end_tc(TC, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="post_end_tc-3"/>
+ </desc></func>
+<func>
+<name>post_init_group(Group, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="post_init_group-3"/>
+ </desc></func>
+<func>
+<name>post_init_suite(Suite, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="post_init_suite-3"/>
+ </desc></func>
+<func>
+<name>pre_end_group(Group, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="pre_end_group-3"/>
+ </desc></func>
+<func>
+<name>pre_end_suite(Suite, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="pre_end_suite-3"/>
+ </desc></func>
+<func>
+<name>pre_init_group(Group, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="pre_init_group-3"/>
+ </desc></func>
+<func>
+<name>pre_init_suite(Suite, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="pre_init_suite-3"/>
+ </desc></func>
+<func>
+<name>pre_init_tc(TC, Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="pre_init_tc-3"/>
+ </desc></func>
+<func>
+<name>terminate(Config, State) -&gt; term()
+</name>
+<fsummary> </fsummary>
+
+<desc><marker id="terminate-2"/>
+ </desc></func></funcs>
+
+<authors>
+<aname> </aname>
+<email> </email></authors></erlref>

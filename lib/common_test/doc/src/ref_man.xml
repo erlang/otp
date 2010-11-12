@@ -63,7 +63,7 @@
       Server application.</p>
   </description>
   <xi:include href="common_test_app.xml"/>
-  <xi:include href="run_test.xml"/>
+  <xi:include href="ct_run.xml"/>
   <!-- If you make modifications in the module list below,
        you also need to update CT_MODULES in Makefile. -->
   <xi:include href="ct.xml"/>
