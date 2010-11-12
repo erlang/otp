@@ -394,7 +394,7 @@ run_erlang(char* progname, char** argv)
 
     status = my_spawnvp(argv)/*_spawnvp(_P_WAIT,progname,argv)*/;
     if (status == -1) {
-	fprintf(stderr, "run_test: Error executing '%s': %d", progname,
+	fprintf(stderr, "ct_run: Error executing '%s': %d", progname,
 		GetLastError());
     }
     return status;
@@ -414,7 +414,7 @@ error(char* format, ...)
     va_start(ap, format);
     erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
-    fprintf(stderr, "run_test: %s\n", sbuf);
+    fprintf(stderr, "ct_run: %s\n", sbuf);
     exit(1);
 }
 
