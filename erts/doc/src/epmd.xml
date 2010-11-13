@@ -119,7 +119,7 @@
     <tag><c><![CDATA[-port No]]></c></tag>
     <item>
       <p>Let this instance of epmd listen to another TCP port than
-      default 4369. This can be also be set using the
+      default 4369. This can also be set using the
       <c><![CDATA[ERL_EPMD_PORT]]></c> environment variable, see the
       section <seealso marker="#environment_variables">Environment
       variables</seealso> below</p>
@@ -186,7 +186,7 @@
     <tag><c><![CDATA[-port No]]></c></tag>
     <item>
       <p>Contacts the <c>epmd</c> listening on the given TCP port number
-      (default 4369). This can be also be set using the
+      (default 4369). This can also be set using the
       <c><![CDATA[ERL_EPMD_PORT]]></c> environment variable, see the
       section <seealso marker="#environment_variables">Environment
       variables</seealso> below</p>
