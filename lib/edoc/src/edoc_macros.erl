@@ -14,8 +14,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @private
 %% @copyright 2001-2005 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>
@@ -316,6 +314,14 @@ macro_content([C | Cs], As, L, N) ->
     macro_content(Cs, [C | As], L, N);
 macro_content([], _As, _L, _N) ->
     throw('end').
+
+-type line() :: erl_scan:line().
+-type err()  :: 'unterminated_macro'
+	      | 'macro_name'
+	      | {'macro_name', string()}
+	      | {string(), [string()]}.
+
+-spec throw_error(line(), err()) -> no_return().
 
 throw_error(L, unterminated_macro) ->
     throw_error(L, {"unexpected end of macro.", []});

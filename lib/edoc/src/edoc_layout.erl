@@ -482,7 +482,7 @@ local_defs([]) -> [];
 local_defs(Es) ->
     [?NL,
      {ul, [{class, "definitions"}],
-      lists:concat([[{li, [{tt, localdef(E)}]}, ?NL] || E <- Es])}].
+      lists:append([[{li, [{tt, localdef(E)}]}, ?NL] || E <- Es])}].
 
 localdef(E = #xmlElement{content = Es}) ->
     (case get_elem(typevar, Es) of
