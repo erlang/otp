@@ -168,6 +168,7 @@ RES=$?
 CMANIFEST=`cygpath $MANIFEST`
 if [ "$RES" = "0" -a -f "$CMANIFEST" ]; then
     # Add stuff to manifest to turn off "virtualization"
+    sed -n -i '1h;1!H;${;g;s,<trustInfo.*</trustInfo>.,,g;p;}' $CMANIFEST
     sed -i "s/<\/assembly>/ <ms_asmv2:trustInfo xmlns:ms_asmv2=\"urn:schemas-microsoft-com:asm.v2\">\n  <ms_asmv2:security>\n   <ms_asmv2:requestedPrivileges>\n    <ms_asmv2:requestedExecutionLevel level=\"AsInvoker\" uiAccess=\"false\"\/>\n   <\/ms_asmv2:requestedPrivileges>\n  <\/ms_asmv2:security>\n <\/ms_asmv2:trustInfo>\n<\/assembly>/" $CMANIFEST
 
     eval mt.exe -nologo -manifest "$MANIFEST" -outputresource:"$OUTPUTRES" >>/tmp/link.exe.${p}.1 2>>/tmp/link.exe.${p}.2
