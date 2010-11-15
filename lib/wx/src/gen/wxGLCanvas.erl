@@ -105,7 +105,6 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
           ({palette, #wx_ref{type=PaletteT,ref=PaletteRef}}, Acc) ->   ?CLASS(PaletteT,wxPalette),[<<7:32/?UI,PaletteRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  {ok, _} = wxe_master:init_opengl(),
   wxe_util:construct(?wxGLCanvas_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
@@ -131,7 +130,6 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Opt
           ({palette, #wx_ref{type=PaletteT,ref=PaletteRef}}, Acc) ->   ?CLASS(PaletteT,wxPalette),[<<7:32/?UI,PaletteRef:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
-  {ok, _} = wxe_master:init_opengl(),
   wxe_util:construct(SharedOP,
   <<ParentRef:32/?UI,SharedRef:32/?UI, BinOpt/binary>>).
 
@@ -146,8 +144,10 @@ getContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvassetcurrent">external documentation</a>.
 setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
-  wxe_util:cast(?wxGLCanvas_SetCurrent,
-  <<ThisRef:32/?UI>>).
+  _Result =  wxe_util:cast(?wxGLCanvas_SetCurrent,
+  <<ThisRef:32/?UI>>),
+  {ok, _} = wxe_master:init_opengl(),
+  _Result.
 
 %% @spec (This::wxGLCanvas()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvasswapbuffers">external documentation</a>.

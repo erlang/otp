@@ -270,14 +270,14 @@ gen_method2(M=#method{name=N,alias=A,params=Ps,type=T,method_type=MT,id=MethodId
     MId = arg_type_tests(Args, "?" ++ get_unique_name(MethodId)),
     {MArgs,Align} = marshal_args(Args),
     MOpts = marshal_opts(Optional, Align, Args),
-    case M#method.pre_hook of
-	{erl,Pre} -> w("  ~s~n", [Pre]);
-	_ -> skip
+    case gen_util:get_hook(erl, M#method.pre_hook) of
+	ignore -> skip;
+	Pre -> w("  ~s~n", [Pre])
     end,
 
-    case M#method.post_hook of
-	{erl,_} -> w("  _Result = ~n", []);
-	_ -> skip
+    case gen_util:get_hook(erl, M#method.post_hook) of
+	ignore -> skip;
+	_ -> w("  _Result =", [])
     end,
     
     case have_return_vals(T, Ps) of
@@ -288,11 +288,11 @@ gen_method2(M=#method{name=N,alias=A,params=Ps,type=T,method_type=MT,id=MethodId
 	false -> 
 	    w("  wxe_util:cast(~s,~n  <<~s~s>>)", [MId, MArgs,MOpts])
     end,
-    case M#method.post_hook of
-	{erl,Post} -> 
-	    w("  ~s~n", [Post]),
-	    w("  _Result~n", []);
-	_ -> skip
+    case gen_util:get_hook(erl, M#method.post_hook) of
+	ignore -> skip;
+	Post -> 
+	    w(",~n  ~s~n", [Post]),
+	    w("  _Result", [])
     end,
    
     erase(current_func),

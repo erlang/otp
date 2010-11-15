@@ -40,6 +40,10 @@ strip_name([H|R1],[H|R2]) ->
     strip_name(R1,R2);
 strip_name(String,[]) -> String.
 
+
+get_hook(_Type, undefined) -> ignore;
+get_hook(Type, List) -> proplists:get_value(Type, List, ignore).
+  
 open_write(File) ->
     %% io:format("Generating ~s~n",[File]),
     {ok, Fd} = file:open(File++".temp", [write]),

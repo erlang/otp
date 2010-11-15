@@ -269,14 +269,14 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     Opts = [Opt || Opt = #param{def=Def,in=In,where=Where} <- Ps2, 
 		   Def =/= none, In =/= false, Where =/= c],
     decode_options(Opts, Align),
-    case M#method.pre_hook of
-	{c,Pre} -> w(" ~s;~n", [Pre]);
-	_ -> skip
+    case gen_util:get_hook(c, M#method.pre_hook) of
+	ignore -> skip;
+	Pre -> w(" ~s;~n", [Pre])
     end,
     Ps3 = call_wx(N,{MT,CName},T,Ps2),
-    case M#method.post_hook of
-	{c, Post} -> w(" ~s;~n", [Post]);
-	_ -> skip
+    case gen_util:get_hook(c, M#method.post_hook) of
+	ignore -> skip;
+	Post -> w(" ~s;~n", [Post])
     end,
     free_args(),
     build_return_vals(T,Ps3),
