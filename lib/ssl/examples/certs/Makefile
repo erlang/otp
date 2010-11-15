@@ -57,5 +57,5 @@ release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/examples/certs
 	tar cf - etc | \
 		(cd $(RELSYSDIR)/examples/certs; tar xf -)
-	chmod -f -R ug+rw $(RELSYSDIR)/examples
+	chmod -R ug+rw $(RELSYSDIR)/examples
 release_docs_spec:

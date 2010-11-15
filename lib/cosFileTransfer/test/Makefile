@@ -129,4 +129,4 @@ release_tests_spec: tests
 	$(INSTALL_DATA) $(IDL_FILES)  $(TEST_SPEC_FILE) \
 		$(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(SUITE_TARGET_FILES) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
