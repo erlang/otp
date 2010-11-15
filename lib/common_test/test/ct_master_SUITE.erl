@@ -33,6 +33,13 @@
 
 -define(eh, ct_test_support_eh).
 
+-define(TEMP_DIR, case os:type() of
+		      {win32,_} ->
+			  "c:/Temp";
+		      _ ->
+			  "/tmp"
+		  end).
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -43,16 +50,35 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    ct_test_support:init_per_suite(Config).
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
 init_per_testcase(TestCase, Config) ->
-    ct_test_support:init_per_testcase(TestCase, [{master, true}|Config]).
+    NodeCount = 5,
+    NodeNames = [list_to_atom("t_"++integer_to_list(N)) ||
+		 N <- lists:seq(1, NodeCount)],
+    ct_test_support:init_per_testcase(
+      TestCase,[{node_names,NodeNames},
+		{master, true}|Config]).
 
 end_per_testcase(TestCase, Config) ->
+    case os:type() of
+	{win32,_} ->
+	    %% If this is a windows run the logs are saved to /tmp and
+	    %% then moved to private_dir as a tar because otherwise
+	    %% the file names become too long! :(
+	    Files = filelib:wildcard(filename:join(?TEMP_DIR,"slave.*")),
+	    erl_tar:create(
+	      filename:join(
+		proplists:get_value(priv_dir,Config),"slaves.tar.gz"),
+	      Files,[compressed]),
+	    os:cmd("rm -rf "++filename:join(?TEMP_DIR,"slave.*"));
+	_ ->
+	    ok
+    end,
+    
     ct_test_support:end_per_testcase(TestCase, Config).
 
 all() ->
@@ -69,11 +95,10 @@ all(suite) ->
 %% TEST CASES
 %%--------------------------------------------------------------------
 ct_master_test(Config) when is_list(Config)->
-    NodeCount = 5,
+    NodeNames = proplists:get_value(node_names, Config),
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
-    NodeNames = [list_to_atom("testnode_"++integer_to_list(N)) ||
-		 N <- lists:seq(1, NodeCount)],
+
     FileName = filename:join(PrivDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
     TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
@@ -135,7 +160,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 
     PrivDir = ?config(priv_dir, Config),
     LD = lists:map(fun(NodeName)->
-	     {logdir, NodeName, get_log_dir(PrivDir, NodeName)}
+	     {logdir, NodeName, get_log_dir(os:type(),PrivDir, NodeName)}
          end,
 	 NodeNames) ++ [{logdir, master, PrivDir}],
     EvHArgs = [{cbm,ct_test_support},{trace_level,?config(trace_level,Config)}],
@@ -145,7 +170,15 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 
     ct_test_support:write_testspec(N++Include++EH++C++S++LD++NS, FileName).
 
-get_log_dir(PrivDir, NodeName)->
+get_log_dir({win32,_},PrivDir, NodeName)->
+    case filelib:is_dir(?TEMP_DIR) of
+	false ->
+	    file:make_dir(?TEMP_DIR);
+	_ ->
+	    ok
+    end,
+    get_log_dir(tmp, ?TEMP_DIR,NodeName);
+get_log_dir(_,PrivDir,NodeName) ->
     LogDir = filename:join(PrivDir, io_lib:format("slave.~p", [NodeName])),
     file:make_dir(LogDir),
     LogDir.
