@@ -218,7 +218,12 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 			undefined ->
 			    ct_suite_init(Mod, FuncSpec, FinalConfig);
 			Fun ->
-			    Fun(init_tc, FinalConfig)
+			    case Fun(init_tc, FinalConfig) of
+				NewConfig when is_list(NewConfig) ->
+				    {ok,NewConfig};
+				Else ->
+				    Else
+			    end
 		    end
 	    end
     end.
