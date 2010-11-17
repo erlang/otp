@@ -1095,12 +1095,13 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		Skip = {skip,Reason} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}],
-		    NewRes = do_end_tc_call(Mod,Func,{Skip,[Conf]}, skipped),
+		    NewRes = do_end_tc_call(Mod,Func,{Skip,[Conf]}, Skip),
 		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
-		    NewRes = do_end_tc_call(Mod, Func, {{skip, Reason}, [Conf]}, skipped_and_saved),
+		    NewRes = do_end_tc_call(Mod, Func, {{skip, Reason}, [Conf]},
+					    {skip, Reason}),
 		    {{0,NewRes},Line,[]};
 		{ok,NewConf} ->
 		    put(test_server_init_or_end_conf,undefined),
