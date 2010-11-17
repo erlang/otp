@@ -72,14 +72,14 @@ char *argv[];
 {
     int x;
     if (argc < 2) {
-	fprintf(stderr,"Usage %s <seconds>\n",argv[0]);
+	fprintf(stderr,"Usage %s <milliseconds>\n",argv[0]);
 	return 1;
     }
     if ((x = atoi(argv[1])) <= 0) {
-	fprintf(stderr,"Usage %s <seconds>\n",argv[0]);
+	fprintf(stderr,"Usage %s <milliseconds>\n",argv[0]);
 	return 1;
     }
-    delay(x*1000);
+    delay(x);
     return 0;
 }
 

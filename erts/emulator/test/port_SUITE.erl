@@ -2308,8 +2308,28 @@ close_deaf_port(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(100)),
     ?line DataDir = ?config(data_dir, Config),
     ?line DeadPort = os:find_executable("dead_port", DataDir),
-
     ?line Port = open_port({spawn,DeadPort++" 60"},[]),
     ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
     ?line port_close(Port),
-    ok.
+
+    close_deaf_port_1(0, DeadPort).
+
+close_deaf_port_1(1000, _) ->
+    ok;
+close_deaf_port_1(N, Cmd) ->
+    Timeout = integer_to_list(random:uniform(10*1000)),
+    try open_port({spawn,Cmd++" "++Timeout},[]) of
+    	Port ->
+	    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
+	    ?line port_close(Port),
+	    close_deaf_port_1(N+1, Cmd)
+    catch
+    	exit:eagain ->
+	    {comment, "Could not spawn more than " ++ integer_to_list(N) ++ " OS processes."}
+    end.
+    
+
+repeat(0, _) -> ok;
+repeat(Cnt, Fun) ->
+    Fun(),
+    repeat(Cnt-1, Fun).
