@@ -136,8 +136,8 @@ call([], Config, _Meta, CBs) ->
     Config.
 
 remove(Key,List) when is_list(List) ->
-    [Conf || Conf <- List,
-	     element(1, Conf) =/= Key];
+    [Conf || Conf <- List, is_tuple(Conf) =:= false
+		 orelse element(1, Conf) =/= Key];
 remove(_, Else) ->
     Else.
 
