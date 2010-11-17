@@ -2306,12 +2306,14 @@ do_trace(Terms) ->
 			      _ -> ok
 			  end;
 		     ({me,M}) ->
-			  case dbg:tp(M,[{'_',[],[x,{message,{caller}}]}]) of
+			  case dbg:tp(M,[{'_',[],[{exception_trace},
+						  {message,{caller}}]}]) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;
 		     ({f,M,F}) ->
-			  case dbg:tpl(M,F,x) of
+			  case dbg:tpl(M,F,[{'_',[],[{exception_trace},
+						     {message,{caller}}]}]) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;
