@@ -277,7 +277,8 @@ Some of the available `configure` options are:
     x86 processors before pentium 4 (back to 486) in the ethread library. If
     not passed the ethread library (part of the runtime system) will use
     instructions that first appeared on the pentium 4 processor when building
-    for x86.
+    for x86. This option will be automatically enabled if required on the
+    build machine.
 *   `--with-libatomic_ops=PATH` - Use the `libatomic_ops` library for atomic
     memory accesses. If `configure` should inform you about no native atomic
     implementation available, you typically want to try using the
