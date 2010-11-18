@@ -51,6 +51,7 @@ MODULES= \
 	error_logger_SUITE \
 	error_logger_warn_SUITE \
 	file_SUITE \
+	file_name_SUITE \
 	prim_file_SUITE \
 	ram_file_SUITE \
 	gen_tcp_api_SUITE \
