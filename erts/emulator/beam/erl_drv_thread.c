@@ -528,7 +528,7 @@ erl_drv_tsd_get(ErlDrvTSDKey key)
     if (!dtid)
 	return NULL;
 #endif
-    if (ERL_DRV_TSD_LEN__ < key)
+    if (ERL_DRV_TSD_LEN__ <= key)
 	return NULL;
     return ERL_DRV_TSD__[key];
 }
