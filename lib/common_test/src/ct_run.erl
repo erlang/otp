@@ -172,7 +172,7 @@ script_start1(Parent, Args) ->
 			       ([]) -> true
 			    end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
-    SuiteCBs = get_start_opt(suite_callback,
+    SuiteCBs = get_start_opt(suite_callbacks,
 			     fun(CBs) -> [list_to_atom(CB) || CB <- CBs] end,
 			     [], Args),
 
@@ -524,7 +524,7 @@ script_usage() ->
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
-	      "\n\t[-suite_callback SuiteCB1 SuiteCB2 .. SuiteCBN]"
+	      "\n\t[-suite_callbacks SuiteCB1 SuiteCB2 .. SuiteCBN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -543,7 +543,7 @@ script_usage() ->
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
-	      "\n\t[-suite_callback SuiteCB1 SuiteCB2 .. SuiteCBN]"
+	      "\n\t[-suite_callbacks SuiteCB1 SuiteCB2 .. SuiteCBN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
