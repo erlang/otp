@@ -786,6 +786,8 @@ early_init(int *argc, char **argv) /*
 	elid.mem.ll.free = ethr_ll_free;
 
 #ifdef ERTS_SMP
+	if (erts_max_main_threads > no_schedulers)
+	    erts_max_main_threads = no_schedulers;
 	elid.main_threads = erts_max_main_threads;
 #else
 	elid.main_threads = 1;
