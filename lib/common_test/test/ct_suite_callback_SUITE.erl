@@ -71,7 +71,8 @@ all() ->
 
 all(suite) -> 
     [
-     one_scb, two_scb, faulty_scb_no_init
+     one_scb, two_scb, faulty_scb_no_init, minimal_scb, 
+     minimal_and_maximal_scb, faulty_scb_undef
     ].
      
 
@@ -91,6 +92,18 @@ two_scb(Config) when is_list(Config) ->
 faulty_scb_no_init(Config) when is_list(Config) ->
     do_test(faulty_scb_no_init, "ct_scb_empty_SUITE.erl",[askjhdkljashdkaj],
 	   Config).
+
+minimal_scb(Config) when is_list(Config) ->
+    do_test(minimal_scb, "ct_scb_empty_SUITE.erl",[minimal_scb],Config).
+
+minimal_and_maximal_scb(Config) when is_list(Config) ->
+    do_test(minimal_and_maximal_scb, "ct_scb_empty_SUITE.erl",
+	    [minimal_scb, empty_scb],Config).
+    
+faulty_scb_undef(Config) when is_list(Config) ->
+    do_test(faulty_scb_undef, "ct_scb_empty_SUITE.erl",
+	    [undef_scb],Config).
+
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -206,6 +219,68 @@ test_events(faulty_scb_no_init) ->
      
      {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
      {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(minimal_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{minimal_scb,init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(minimal_and_maximal_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{minimal_scb,init,[[]]}},
+     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,scb,{empty_scb,pre_init_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,post_init_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
+     {?eh,scb,{empty_scb,pre_init_per_testcase,[test_case,[]]}},
+     {?eh,scb,{empty_scb,post_end_per_testcase,[test_case,[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
+     {?eh,scb,{empty_scb,pre_end_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,post_end_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{empty_scb,terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(faulty_scb_undef) ->
+    FailReasonStr = "undef_scb:pre_init_per_suite/3 SCB call failed",
+    FailReason = {ct_scb_empty_SUITE,init_per_suite,
+		  {failed,FailReasonStr}},
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{undef_scb,init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
+		  {fail, FailReasonStr}}},
+
+     {?eh,tc_auto_skip,{ct_scb_empty_SUITE,test_case,
+			{failed, FailReason}}},
+     {?eh,tc_auto_skip,{ct_scb_empty_SUITE,end_per_suite,
+			{failed, FailReason}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
