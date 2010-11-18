@@ -71,6 +71,19 @@
 			(CPUSET)) != 0 ? -errno : 0)
 #define ERTS_MU_SET_THR_AFFINITY__(SETP)				\
      (sched_setaffinity(0, sizeof(cpu_set_t), (SETP)) != 0 ? -errno : 0)
+#elif defined(HAVE_CPUSET_xETAFFINITY)
+#  include <sys/param.h>
+#  include <sys/cpuset.h>
+#  define ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__
+#define ERTS_MU_GET_PROC_AFFINITY__(CPUINFOP, CPUSET)			\
+     (cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, 	    \
+			sizeof(cpuset_t),				\
+			(CPUSET)) != 0 ? -errno : 0)
+#define ERTS_MU_SET_THR_AFFINITY__(CPUSETP)				\
+     (cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_TID, -1,    \
+            sizeof(cpuset_t),               \
+            (CPUSETP)) != 0 ? -errno : 0)
+#  define cpu_set_t cpuset_t
 #elif defined(__WIN32__)
 #  define ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__
 #  define cpu_set_t DWORD
@@ -98,6 +111,11 @@
 #ifdef __linux__
 #  define ERTS_SYS_NODE_PATH	"/sys/devices/system/node"
 #  define ERTS_SYS_CPU_PATH	"/sys/devices/system/cpu"
+#endif
+
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #endif
 
 static int read_topology(erts_cpu_info_t *cpuinfo);
@@ -1376,6 +1394,245 @@ read_topology(erts_cpu_info_t *cpuinfo)
 	free(slpip);
     if (core_id)
 	free(core_id);
+
+    return res;
+}
+
+#elif defined(__FreeBSD__)
+
+/**
+ * FreeBSD topology detection is based on kern.sched.topology_spec XML as
+ * exposed by the ULE scheduler and described in SMP(4). It is available in
+ * 8.0 and higher.
+ *
+ * Threads are identified in this XML chunk with a THREAD flag. The function
+ * (simplistically) distinguishes cores and processors by the amount of cache
+ * they share (0 => processor, otherwise => core). Nodes are not identified
+ * (ULE doesn't handle NUMA yet, I believe).
+ */
+
+/**
+ * Recursively parse a topology_spec <group> tag.
+ */
+static
+const char* parse_topology_spec_group(erts_cpu_info_t *cpuinfo, const char* xml, int parentCacheLevel, int* processor_p, int* core_p, int* index_procs_p) {
+    int error = 0;
+    int cacheLevel = parentCacheLevel;
+    const char* next_group_start = strstr(xml + 1, "<group");
+    int is_thread_group = 0;
+    const char* next_cache_level;
+    const char* next_thread_flag;
+    const char* next_group_end;
+    const char* next_children;
+    const char* next_children_end;
+
+    /* parse the cache level */
+    next_cache_level = strstr(xml, "cache-level=\"");
+    if (next_cache_level && (next_group_start == NULL || next_cache_level < next_group_start)) {
+	sscanf(next_cache_level, "cache-level=\"%i\"", &cacheLevel);
+    }
+
+    /* parse the threads flag */
+    next_thread_flag = strstr(xml, "THREAD");
+    if (next_thread_flag && (next_group_start == NULL || next_thread_flag < next_group_start))
+	is_thread_group = 1;
+
+    /* Determine if it's a leaf with the position of the next children tag */
+    next_group_end = strstr(xml, "</group>");
+    next_children = strstr(xml, "<children>");
+    next_children_end = strstr(xml, "</children>");
+    if (next_children == NULL || next_group_end < next_children) {
+	do {
+	    const char* next_cpu_start;
+	    const char* next_cpu_cdata;
+	    const char* next_cpu_end;
+	    int cpu_str_size;
+	    char* cpu_str;
+	    char* cpu_crsr;
+	    char* brkb;
+	    int thread = 0;
+	    int index_procs = *index_procs_p;
+
+	    next_cpu_start = strstr(xml, "<cpu");
+	    if (!next_cpu_start) {
+		error = 1;
+		break;
+	    }
+	    next_cpu_cdata = strstr(next_cpu_start, ">") + 1;
+	    if (!next_cpu_cdata) {
+		error = 1;
+		break;
+	    }
+	    next_cpu_end = strstr(next_cpu_cdata, "</cpu>");
+	    if (!next_cpu_end) {
+		error = 1;
+		break;
+	    }
+	    cpu_str_size = next_cpu_end - next_cpu_cdata;
+	    cpu_str = (char*) malloc(cpu_str_size + 1);
+	    memcpy(cpu_str, (const char*) next_cpu_cdata, cpu_str_size);
+	    cpu_str[cpu_str_size] = 0;
+	    for (cpu_crsr = strtok_r(cpu_str, " \t,", &brkb); cpu_crsr; cpu_crsr = strtok_r(NULL, " \t,", &brkb)) {
+		int cpu_id;
+		if (index_procs >= cpuinfo->configured) {
+		    void* t = realloc(cpuinfo->topology, (sizeof(erts_cpu_topology_t) * (index_procs + 1)));
+		    if (t) {
+			cpuinfo->topology = t;
+		    } else {
+			error = 1;
+			break;
+		    }
+		}
+		cpu_id = atoi(cpu_crsr);
+		cpuinfo->topology[index_procs].node = -1;
+		cpuinfo->topology[index_procs].processor = *processor_p;
+		cpuinfo->topology[index_procs].processor_node = -1;
+		cpuinfo->topology[index_procs].core = *core_p;
+		cpuinfo->topology[index_procs].thread = thread;
+		cpuinfo->topology[index_procs].logical = cpu_id;
+		if (is_thread_group) {
+		    thread++;
+		} else {
+		    *core_p = (*core_p)++;
+		}
+		index_procs++;
+	    }
+	    *index_procs_p = index_procs;
+	    free(cpu_str);
+	} while (0);
+	xml = next_group_end;
+    } else {
+	while (next_group_start != NULL && next_group_start < next_children_end) {
+	    xml = parse_topology_spec_group(cpuinfo, next_group_start, cacheLevel, processor_p, core_p, index_procs_p);
+	    if (!xml)
+		break;
+	    next_group_start = strstr(xml, "<group");
+	    next_children_end = strstr(xml, "</children>");
+	}
+    }
+
+    if (cacheLevel == 0) {
+	*core_p = 0;
+	*processor_p = (*processor_p)++;
+    } else {
+	*core_p = (*core_p)++;
+    }
+
+    if (error)
+	xml = NULL;
+
+    return xml;
+}
+
+/**
+ * Parse the topology_spec. Return the number of CPUs or 0 if parsing failed.
+ */
+static
+int parse_topology_spec(erts_cpu_info_t *cpuinfo, const char* xml) {
+    int res = 1;
+    int index_procs = 0;
+    int core = 0;
+    int processor = 0;
+    xml = strstr(xml, "<groups");
+    if (!xml)
+	return -1;
+
+    xml += 7;
+    xml = strstr(xml, "<group");
+    while (xml) {
+	xml = parse_topology_spec_group(cpuinfo, xml, 0, &processor, &core, &index_procs);
+	if (!xml) {
+	    res = 0;
+	    break;
+	}
+	xml = strstr(xml, "<group");
+    }
+
+    if (res)
+	res = index_procs;
+
+    return res;
+}
+
+static int
+read_topology(erts_cpu_info_t *cpuinfo)
+{
+    int ix;
+    int res = 0;
+    size_t topology_spec_size = 0;
+    void* topology_spec = NULL;
+
+    errno = 0;
+
+    if (cpuinfo->configured < 1)
+	goto error;
+
+    cpuinfo->topology_size = cpuinfo->configured;
+    cpuinfo->topology = malloc(sizeof(erts_cpu_topology_t)
+			       * cpuinfo->configured);
+    if (!cpuinfo->topology) {
+	res = -ENOMEM;
+	goto error;
+    }
+
+    for (ix = 0; ix < cpuinfo->configured; ix++) {
+	cpuinfo->topology[ix].node = -1;
+	cpuinfo->topology[ix].processor = -1;
+	cpuinfo->topology[ix].processor_node = -1;
+	cpuinfo->topology[ix].core = -1;
+	cpuinfo->topology[ix].thread = -1;
+	cpuinfo->topology[ix].logical = -1;
+    }
+
+    if (!sysctlbyname("kern.sched.topology_spec", NULL, &topology_spec_size, NULL, 0)) {
+	topology_spec = malloc(topology_spec_size);
+	if (!topology_spec) {
+	    res = -ENOMEM;
+	    goto error;
+	}
+
+	if (sysctlbyname("kern.sched.topology_spec", topology_spec, &topology_spec_size, NULL, 0)) {
+	    goto error;
+	}
+
+	res = parse_topology_spec(cpuinfo, topology_spec);
+	if (!res || res < cpuinfo->online)
+	    res = 0;
+	else {
+	    cpuinfo->topology_size = res;
+
+	    if (cpuinfo->topology_size != cpuinfo->configured) {
+		void *t = realloc(cpuinfo->topology, (sizeof(erts_cpu_topology_t)
+						  * cpuinfo->topology_size));
+		if (t)
+		    cpuinfo->topology = t;
+	    }
+
+	    adjust_processor_nodes(cpuinfo, 1);
+
+	    qsort(cpuinfo->topology,
+	        cpuinfo->topology_size,
+	        sizeof(erts_cpu_topology_t),
+	        cpu_cmp);
+	}
+    }
+
+error:
+
+    if (res == 0) {
+	cpuinfo->topology_size = 0;
+	if (cpuinfo->topology) {
+	    free(cpuinfo->topology);
+	    cpuinfo->topology = NULL;
+	}
+	if (errno)
+	    res = -errno;
+	else
+	    res = -EINVAL;
+    }
+
+    if (topology_spec)
+	free(topology_spec);
 
     return res;
 }

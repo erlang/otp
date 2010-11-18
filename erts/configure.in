@@ -1858,6 +1858,27 @@ if test $processor_bind_functionality = yes; then
 	AC_DEFINE(HAVE_PROCESSOR_BIND, 1, [Define if you have processor_bind functionality])
 fi
 
+AC_MSG_CHECKING([for cpuset_getaffinity/cpuset_setaffinity])
+AC_TRY_COMPILE([
+#include <sys/param.h>
+#include <sys/cpuset.h>
+],
+[
+	int res;
+	cpuset_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(1, &cpuset);
+	res = cpuset_setaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &cpuset);
+	res = cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &cpuset);
+	res = CPU_ISSET(1, &cpuset);
+	CPU_CLR(1, &cpuset);
+],
+		cpuset_xetaffinity=yes,
+		cpuset_xetaffinity=no)
+AC_MSG_RESULT([$cpuset_xetaffinity])
+if test $cpuset_xetaffinity = yes; then
+	AC_DEFINE(HAVE_CPUSET_xETAFFINITY, 1, [Define if you have cpuset_getaffinity/cpuset_setaffinity])
+fi
 
 AC_CACHE_CHECK([for 'end' symbol],
 		erts_cv_have_end_symbol,
