@@ -7497,6 +7497,15 @@ erts_schedule_misc_op(void (*func)(void *), void *arg)
     ErtsRunQueue *rq = erts_get_runq_current(NULL);
     ErtsMiscOpList *molp = misc_op_list_alloc();
 
+    if (!rq) {
+	/*
+	 * This can only happen when the sys msg dispatcher
+	 * thread schedules misc ops (this happens *very*
+	 * seldom; only when trace drivers are unloaded).
+	 */
+	rq =  ERTS_RUNQ_IX(0);
+    }
+
     erts_smp_runq_lock(rq);
 
     while (rq->misc.evac_runq) {
