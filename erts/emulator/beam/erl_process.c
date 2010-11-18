@@ -1060,6 +1060,8 @@ scheduler_wait(long *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	sys_poll_aux_work:
 
+	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
+
 	    erl_sys_schedule(1); /* Might give us something to do */
 
 	    dt = do_time_read_and_reset();
@@ -1154,6 +1156,8 @@ scheduler_wait(long *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    ASSERT(flgs & ERTS_SSI_FLG_WAITING);
 
 	    erts_smp_runq_unlock(rq);
+
+	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
 
 	    erl_sys_schedule(0);
 
@@ -7165,7 +7169,9 @@ Process *schedule(Process *p, int calls)
 
 	    erts_smp_atomic_set(&function_calls, 0);
 	    fcalls = 0;
+
 	    ASSERT(!erts_port_task_have_outstanding_io_tasks());
+
 #ifdef ERTS_SMP
 	    /* erts_sys_schedule_interrupt(0); */
 #endif
