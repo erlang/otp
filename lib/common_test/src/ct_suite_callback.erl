@@ -27,7 +27,7 @@
 -export([init/1]).
 -export([init_tc/3]).
 -export([end_tc/4]).
--export([terminate/2]).
+-export([terminate/1]).
 
 -type proplist() :: [{atom(),term()}].
 
@@ -47,9 +47,12 @@ init(Opts) ->
 		      
 
 %% @doc Called after all suites are done.
--spec terminate(Config :: proplist(),State :: term()) ->
+-spec terminate(Callbacks :: term()) ->
     ok.
-terminate(_Config, _State) ->
+terminate(Callbacks) ->
+    io:format("Callbacks: ~p",[Callbacks]),
+    call([{CBId, fun call_terminate/3} || {CBId,_} <- Callbacks],
+	 ct_suite_callback_init_dummy, undefined, Callbacks),
     ok.
 
 %% @doc Called as each test case is started. This includes all configuration
@@ -104,6 +107,10 @@ call_init(Mod, Config, Meta) when is_atom(Mod) ->
 call_init({Mod, State}, Config, _) ->
     {Id, NewState} = Mod:init(State),
     {Config, {Id, {Mod, NewState}}}.
+
+call_terminate({Mod, State}, _, _) ->
+    Mod:terminate(State),
+    {[],{Mod,State}}.
 
 call_generic({Mod, State}, Config, {Function, undefined}) ->
     {NewConf, NewState} = Mod:Function(Config, State),
