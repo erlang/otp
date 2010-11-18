@@ -1687,6 +1687,8 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	return erts_get_cpu_topology_term(BIF_P, *tp);
     } else if (ERTS_IS_ATOM_STR("cpu_topology", sel) && arity == 2) {
 	Eterm res = erts_get_cpu_topology_term(BIF_P, *tp);
+	if (res == THE_NON_VALUE)
+	    goto badarg;
 	ERTS_BIF_PREP_TRAP1(ret, erts_format_cpu_topology_trap, BIF_P, res);
 	return ret;
 #if defined(PURIFY) || defined(VALGRIND)
