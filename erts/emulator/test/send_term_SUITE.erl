@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,7 +61,7 @@ basic(Config) when is_list(Config) ->
     ?line ExpectExt2Term = term(P, 5),
 
     %% ERL_DRV_INT, ERL_DRV_UINT
-    ?line case erlang:system_info(wordsize) of
+    ?line case erlang:system_info({wordsize, external}) of
 	      4 ->
 		  ?line {-1, 4294967295} = term(P, 6);
 	      8 ->

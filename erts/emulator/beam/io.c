@@ -2802,17 +2802,25 @@ driver_deliver_term(ErlDrvPort port,
 	    break;
 	case ERL_DRV_INT:  /* signed int argument */
 	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
+#if HALFWORD_HEAP
+	    erts_bld_sint64(NULL, &need, (Sint64)ptr[0]);
+#else
 	    /* check for bignum */
 	    if (!IS_SSMALL((Sint)ptr[0]))
 		need += BIG_UINT_HEAP_SIZE;  /* use small_to_big */
+#endif
 	    ptr++;
 	    depth++;
 	    break;
 	case ERL_DRV_UINT:  /* unsigned int argument */
 	    ERTS_DDT_CHK_ENOUGH_ARGS(1);
+#if HALFWORD_HEAP
+	    erts_bld_uint64(NULL, &need, (Uint64)ptr[0]);
+#else
 	    /* check for bignum */
 	    if (!IS_USMALL(0, (Uint)ptr[0]))
 		need += BIG_UINT_HEAP_SIZE;  /* use small_to_big */
+#endif
 	    ptr++;
 	    depth++;
 	    break;
@@ -2979,22 +2987,30 @@ driver_deliver_term(ErlDrvPort port,
 	    break;
 
 	case ERL_DRV_INT:  /* signed int argument */
+#if HALFWORD_HEAP
+	    mess = erts_bld_sint64(&hp, NULL, (Sint64)ptr[0]);
+#else
 	    if (IS_SSMALL((Sint)ptr[0]))
 		mess = make_small((Sint)ptr[0]);
 	    else {
 		mess = small_to_big((Sint)ptr[0], hp);
 		hp += BIG_UINT_HEAP_SIZE;
 	    }
+#endif
 	    ptr++;
 	    break;
 
 	case ERL_DRV_UINT:  /* unsigned int argument */
+#if HALFWORD_HEAP
+	    mess = erts_bld_uint64(&hp, NULL, (Uint64)ptr[0]);
+#else
 	    if (IS_USMALL(0, (Uint)ptr[0]))
 		mess = make_small((Uint)ptr[0]);
 	    else {
 		mess = uint_to_big((Uint)ptr[0], hp);
 		hp += BIG_UINT_HEAP_SIZE;
 	    }
+#endif
 	    ptr++;
 	    break;
 
