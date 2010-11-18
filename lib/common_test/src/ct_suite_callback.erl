@@ -103,7 +103,7 @@ end_tc(_Mod, TC, _Config, Result) ->
 %% Internal Functions
 %% -------------------------------------------------------------------------
 call_init(Mod, Config, Meta) when is_atom(Mod) ->
-    call_init({Mod, undefined}, Config, Meta);
+    call_init({Mod, []}, Config, Meta);
 call_init({Mod, State}, Config, _) ->
     {Id, NewState} = Mod:init(State),
     {Config, {Id, {Mod, NewState}}}.
