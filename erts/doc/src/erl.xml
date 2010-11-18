@@ -914,7 +914,7 @@
           <item>
             <p>Set the distribution buffer busy limit
 	    (<seealso marker="erlang#system_info_dist_buf_busy_limit">dist_buf_busy_limit</seealso>)
-	    in kilobytes. Valid range is 1-2097151. Default is 128.</p>
+	    in kilobytes. Valid range is 1-2097151. Default is 1024.</p>
             <p>A larger buffer limit will allow processes to buffer
             more outgoing messages over the distribution. When the
             buffer limit has been reached, sending processes will be
