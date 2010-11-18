@@ -107,16 +107,18 @@ call_init(Mod, Config, Meta) when is_atom(Mod) ->
 call_init({Mod, State}, Config, _) ->
     {Id, NewState} = Mod:init(State),
     {Config, {Id, {Mod, NewState}}}.
-
+	
 call_terminate({Mod, State}, _, _) ->
     Mod:terminate(State),
     {[],{Mod,State}}.
 
 call_generic({Mod, State}, Config, {Function, undefined}) ->
-    {NewConf, NewState} = Mod:Function(Config, State),
+    {NewConf, NewState} = catch_apply(Mod,Function,[Config, State],
+				      {Config, State}),
     {NewConf, {Mod, NewState}};
 call_generic({Mod, State}, Config, {Function, Tag}) ->
-    {NewConf, NewState} = Mod:Function(Tag, Config, State),
+    {NewConf, NewState} = catch_apply(Mod,Function,[Tag, Config, State],
+				     {Config,State}),
     {NewConf, {Mod, NewState}}.
 
 %% Generic call function
@@ -126,18 +128,35 @@ call(Fun, Config, Meta) ->
 	     remove(?config_name,Config), Meta, CBs).
 
 call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
-    {Config, {NewId, _} = NewCB} = call_init(CB, Config, Meta),
-    {NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
-			    undefined -> {CBs ++ [NewCB],Rest};
-			    ExistingCB when is_tuple(ExistingCB) -> {CBs, Rest};
-			    _ -> {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
-			end,
-    call(NewRest, Config, Meta, NewCBs);
+    try
+	{Config, {NewId, {Mod,_State}} = NewCB} = call_init(CB, Config, Meta),
+	{NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
+				undefined -> {CBs ++ [NewCB],Rest};
+				ExistingCB when is_tuple(ExistingCB) ->
+				    {CBs, Rest};
+				_ ->
+				    {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
+			    end,
+	ct_logs:log("Suite Callback","Started a SCB: Mod: ~p, Id: ~p",
+		    [Mod,NewId]),
+	call(NewRest, Config, Meta, NewCBs)
+    catch Error:Reason ->
+	    ct_logs:log("Suite Callback","Failed to start a SCB: ~p:~p",
+			[Error,{Reason,erlang:get_stacktrace()}]),
+	    call(Rest, Config, Meta, CBs)
+    end;
 call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
-    {NewConf, NewCBInfo} =  Fun(proplists:get_value(CBId, CBs), Config, Meta),
-    NewCalls = get_new_callbacks(NewConf, Fun),
-    call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
-	 lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}));
+    try
+	{NewConf, NewCBInfo} =  Fun(proplists:get_value(CBId, CBs),
+				    Config, Meta),
+	NewCalls = get_new_callbacks(NewConf, Fun),
+	call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
+	     lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}))
+    catch Error:Reason ->
+	    ct_logs:log("Suite Callback","Call to SCB failed: ~p:~p",
+			[Error,{Reason,erlang:get_stacktrace()}]),
+	    call(Rest, Config, Meta, CBs)
+    end;
 call([], Config, _Meta, CBs) ->
     ct_util:save_suite_data_async(?config_name, CBs),
     Config.
@@ -165,3 +184,15 @@ get_new_callbacks(_Config) ->
 
 get_callbacks() ->
     ct_util:read_suite_data(?config_name).
+
+catch_apply(M,F,A, Default) ->
+    try
+	apply(M,F,A)
+    catch error:undef ->
+	    case erlang:get_stacktrace() of
+		[{M,F,A}|_] ->
+		    Default;
+		_Else ->
+		    error(undef,[M,F,A])
+	    end
+    end.
