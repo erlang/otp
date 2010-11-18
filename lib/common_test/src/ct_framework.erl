@@ -482,12 +482,20 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	end,
     ct_util:reset_silent_connections(),
 
+    FinalResult = case get('$test_server_framework_test') of
+		      undefined ->
+			  ct_suite_callback:end_tc(
+			    Mod, FuncSpec, Args, Return);
+		      Fun ->
+			  Fun(end_tc, ok)
+		  end,
+
     %% send sync notification so that event handlers may print
     %% in the log file before it gets closed
     ct_event:sync_notify(#event{name=tc_done,
 				node=node(),
-				data={Mod,FuncSpec,tag(Result)}}),
-    case Result of
+				data={Mod,FuncSpec,tag(FinalResult)}}),
+    case FinalResult of
 	{skip,{sequence_failed,_,_}} ->
 	    %% ct_logs:init_tc is never called for a skipped test case
 	    %% in a failing sequence, so neither should end_tc	    
@@ -505,14 +513,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	    ct_util:match_delete_suite_data({seq,Mod,'_'});
 	_ -> 
 	    ok
-    end,
-    case get('$test_server_framework_test') of
-	undefined ->
-	    ct_suite_callback:end_tc(
-	      Mod, FuncSpec, Args, Return);
-	Fun ->
-	    Fun(end_tc, ok)
-    end.
+    end, FinalResult.
 
 %% {error,Reason} | {skip,Reason} | {timetrap_timeout,TVal} | 
 %% {testcase_aborted,Reason} | testcase_aborted_or_killed | 
@@ -525,6 +526,8 @@ tag(E = {ETag,_}) when ETag == error; ETag == 'EXIT';
     {failed,E};
 tag(E = testcase_aborted_or_killed) ->
     {failed,E};
+tag(Other) when is_list(Other) ->
+    ok;
 tag(Other) ->
     Other.
 
