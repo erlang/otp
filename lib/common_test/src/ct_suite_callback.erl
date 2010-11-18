@@ -62,15 +62,15 @@ terminate(_Config, _State) ->
 init_tc(ct_framework, _Func, Args) ->
     Args;
 init_tc(Mod, init_per_suite, Config) ->
-    call(fun call_generic/3, Config, {pre_init_suite, Mod});
+    call(fun call_generic/3, Config, {pre_init_per_suite, Mod});
 init_tc(Mod, end_per_suite, Config) ->
-    call(fun call_generic/3, Config, {pre_end_suite, Mod});
+    call(fun call_generic/3, Config, {pre_end_per_suite, Mod});
 init_tc(_Mod, {init_per_group, GroupName, _}, Config) ->
-    call(fun call_generic/3, Config, {pre_init_group, GroupName});
+    call(fun call_generic/3, Config, {pre_init_per_group, GroupName});
 init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
-    call(fun call_generic/3, Config, {pre_end_group, GroupName});
+    call(fun call_generic/3, Config, {pre_end_per_group, GroupName});
 init_tc(_Mod, TC, Config) ->
-    call(fun call_generic/3, Config, {pre_init_group, TC}).
+    call(fun call_generic/3, Config, {pre_init_per_testcase, TC}).
 
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
@@ -86,15 +86,15 @@ init_tc(_Mod, TC, Config) ->
 end_tc(ct_framework, _Func, _Args, Result) ->
     Result;
 end_tc(Mod, init_per_suite, _Config, Result) ->
-    call(fun call_generic/3, Result, {post_init_suite, Mod});
+    call(fun call_generic/3, Result, {post_init_per_suite, Mod});
 end_tc(Mod, end_per_suite, _Config, Result) ->
-    call(fun call_generic/3, Result, {post_end_suite, Mod});
+    call(fun call_generic/3, Result, {post_end_per_suite, Mod});
 end_tc(_Mod, {init_per_group, GroupName, _}, _Config, Result) ->
-    call(fun call_generic/3, Result, {post_init_group, GroupName});
+    call(fun call_generic/3, Result, {post_init_per_group, GroupName});
 end_tc(_Mod, {end_per_group, GroupName, _}, _Config, Result) ->
-    call(fun call_generic/3, Result, {post_end_group, GroupName});
+    call(fun call_generic/3, Result, {post_end_per_group, GroupName});
 end_tc(_Mod, TC, _Config, Result) ->
-    call(fun call_generic/3, Result, {post_end_tc, TC}).
+    call(fun call_generic/3, Result, {post_end_per_testcase, TC}).
 
 %% -------------------------------------------------------------------------
 %% Internal Functions
