@@ -50,7 +50,6 @@ init(Opts) ->
 -spec terminate(Callbacks :: term()) ->
     ok.
 terminate(Callbacks) ->
-    io:format("Callbacks: ~p",[Callbacks]),
     call([{CBId, fun call_terminate/3} || {CBId,_} <- Callbacks],
 	 ct_suite_callback_init_dummy, undefined, Callbacks),
     ok.
@@ -109,7 +108,7 @@ call_init({Mod, State}, Config, _) ->
     {Config, {Id, {Mod, NewState}}}.
 	
 call_terminate({Mod, State}, _, _) ->
-    Mod:terminate(State),
+    catch_apply(Mod,terminate,[State], ok),
     {[],{Mod,State}}.
 
 call_generic({Mod, State}, Config, {Function, undefined}) ->
@@ -152,10 +151,8 @@ call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
 	NewCalls = get_new_callbacks(NewConf, Fun),
 	call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
 	     lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}))
-    catch Error:Reason ->
-	    ct_logs:log("Suite Callback","Call to SCB failed: ~p:~p",
-			[Error,{Reason,erlang:get_stacktrace()}]),
-	    call(Rest, Config, Meta, CBs)
+    catch throw:{error_in_scb_call,Reason} ->
+	    call(Rest, {fail, Reason}, Meta, CBs)
     end;
 call([], Config, _Meta, CBs) ->
     ct_util:save_suite_data_async(?config_name, CBs),
@@ -188,11 +185,16 @@ get_callbacks() ->
 catch_apply(M,F,A, Default) ->
     try
 	apply(M,F,A)
-    catch error:undef ->
+    catch error:Reason ->
 	    case erlang:get_stacktrace() of
-		[{M,F,A}|_] ->
+		[{M,F,A}|_] when Reason == undef ->
 		    Default;
-		_Else ->
-		    error(undef,[M,F,A])
+		Trace ->
+		    ct_logs:log("Suite Callback","Call to SCB failed: ~p:~p",
+				[error,{Reason,Trace}]),
+		    throw({error_in_scb_call,
+			   lists:flatten(
+			     io_lib:format("~p:~p/~p SCB call failed",
+					   [M,F,length(A)]))})
 	    end
     end.
