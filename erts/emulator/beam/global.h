@@ -1728,11 +1728,6 @@ Uint erts_current_reductions(Process* current, Process *p);
 
 int erts_print_system_version(int to, void *arg, Process *c_p);
 
-/*
- * Interface to erl_init
- */
-void erl_init(void);
-
 #define seq_trace_output(token, msg, type, receiver, process) \
 seq_trace_output_generic((token), (msg), (type), (receiver), (process), NIL)
 #define seq_trace_output_exit(token, msg, type, receiver, exitfrom) \

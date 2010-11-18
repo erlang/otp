@@ -128,8 +128,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "removed_fd_pre_alloc_lock",            NULL                    },
     {   "state_prealloc",                       NULL                    },
     {	"schdlr_sspnd",				NULL			},
-    {	"cpu_bind",				NULL			},
     {	"run_queue",				"address"		},
+    {	"cpu_info",				NULL			},
     {	"pollset",				"address"		},
 #ifdef __WIN32__
     {	"pollwaiter",				"address"		},

@@ -31,7 +31,7 @@
 #include "global.h"
 #include "erl_threads.h"
 #include "../../drivers/win32/win_con.h"
-
+#include "erl_cpu_topology.h"
 
 
 void erts_sys_init_float(void);
@@ -2973,13 +2973,50 @@ check_supported_os_version(void)
 }
 
 #ifdef USE_THREADS
-#ifdef ERTS_ENABLE_LOCK_COUNT
+
+typedef struct {
+    int sched_bind_data;
+} erts_thr_create_data_t;
+
+/*
+ * thr_create_prepare() is called in parent thread before thread creation.
+ * Returned value is passed as argument to thr_create_cleanup().
+ */
+static void *
+thr_create_prepare(void)
+{
+    erts_thr_create_data_t *tcdp;
+
+    tcdp = erts_alloc(ERTS_ALC_T_TMP, sizeof(erts_thr_create_data_t));
+    tcdp->sched_bind_data = erts_sched_bind_atthrcreate_prepare();
+
+    return (void *) tcdp;
+}
+
+
+/* thr_create_cleanup() is called in parent thread after thread creation. */
+static void
+thr_create_cleanup(void *vtcdp)
+{
+    erts_thr_create_data_t *tcdp = (erts_thr_create_data_t *) vtcdp;
+
+    erts_sched_bind_atthrcreate_parent(tcdp->sched_bind_data);
+
+    erts_free(ERTS_ALC_T_TMP, tcdp);
+}
+
 static void
 thr_create_prepare_child(void *vtcdp)
 {
+    erts_thr_create_data_t *tcdp = (erts_thr_create_data_t *) vtcdp;
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_thread_setup();
-}
 #endif /* ERTS_ENABLE_LOCK_COUNT */
+
+    erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
+}
+
 #endif /* USE_THREADS */
 
 void
@@ -2991,9 +3028,13 @@ erts_sys_pre_init(void)
 #ifdef USE_THREADS
     {
 	erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
-#ifdef ERTS_ENABLE_LOCK_COUNT
+
 	eid.thread_create_child_func = thr_create_prepare_child;
-#endif
+	/* Before creation in parent */
+	eid.thread_create_prepare_func = thr_create_prepare;
+	/* After creation in parent */
+	eid.thread_create_parent_func = thr_create_cleanup,
+
 	erts_thr_init(&eid);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_lcnt_init();

@@ -117,10 +117,9 @@ static int aux_thr_proc_lock_spin_count;
 static void cleanup_tse(void);
 
 void
-erts_init_proc_lock(void)
+erts_init_proc_lock(int cpus)
 {
     int i;
-    int cpus;
     erts_smp_spinlock_init(&qs_lock, "proc_lck_qs_alloc");
     for (i = 0; i < ERTS_NO_OF_PIX_LOCKS; i++) {
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -138,7 +137,6 @@ erts_init_proc_lock(void)
     lc_id.proc_lock_msgq	= erts_lc_get_lock_order_id("proc_msgq");
     lc_id.proc_lock_status	= erts_lc_get_lock_order_id("proc_status");
 #endif
-    cpus = erts_get_cpu_configured(erts_cpuinfo);
     if (cpus > 1) {
 	proc_lock_spin_count = ERTS_PROC_LOCK_SPIN_COUNT_BASE;
 	proc_lock_spin_count += (ERTS_PROC_LOCK_SPIN_COUNT_SCHED_INC
