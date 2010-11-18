@@ -71,7 +71,7 @@ all() ->
 
 all(suite) -> 
     [
-     empty
+     one_scb, two_scb, faulty_scb_no_init
     ].
      
 
@@ -81,24 +81,37 @@ all(suite) ->
 
 %%%-----------------------------------------------------------------
 %%% 
-empty(Config) when is_list(Config) -> 
-    DataDir = ?config(data_dir, Config),
-    Suites = [filename:join(DataDir,"scb/tests/ct_scb_empty_SUITE.erl")],
-    {Opts,ERPid} = setup([{suite,Suites},
-			  {suite_callbacks,[empty_scb]}], Config),
-    ok = ct_test_support:run(Opts, Config),
-    Events = ct_test_support:get_events(ERPid, Config),
+one_scb(Config) when is_list(Config) -> 
+    do_test(one_empty_scb, "ct_scb_empty_SUITE.erl",[empty_scb], Config).
 
-    ct_test_support:log_events(empty_scb, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+two_scb(Config) when is_list(Config) -> 
+    do_test(two_empty_scb, "ct_scb_empty_SUITE.erl",[empty_scb,empty_scb],
+	    Config).
 
-    TestEvents = events_to_check(empty),
-    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+faulty_scb_no_init(Config) when is_list(Config) ->
+    do_test(faulty_scb_no_init, "ct_scb_empty_SUITE.erl",[askjhdkljashdkaj],
+	   Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
+
+do_test(Tag, SuiteWildCard, SCBs, Config) ->
+    
+    DataDir = ?config(data_dir, Config),
+    Suites = filelib:wildcard(
+	       filename:join([DataDir,"scb/tests",SuiteWildCard])),
+    {Opts,ERPid} = setup([{suite,Suites},
+			  {suite_callbacks,SCBs}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(Tag, 
+			       reformat(Events, ?eh), 
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(Tag),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -125,7 +138,7 @@ events_to_check(_, 0) ->
 events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
-test_events(empty) ->
+test_events(one_empty_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,scb,{empty_scb,init,[[]]}},
@@ -147,4 +160,55 @@ test_events(empty) ->
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,scb,{empty_scb,terminate,[[]]}},
      {?eh,stop_logging,[]}
-    ].
+    ];
+
+test_events(two_empty_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,scb,{empty_scb,pre_init_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,pre_init_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,post_init_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,post_init_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
+     {?eh,scb,{empty_scb,pre_init_per_testcase,[test_case,[]]}},
+     {?eh,scb,{empty_scb,pre_init_per_testcase,[test_case,[]]}},
+     {?eh,scb,{empty_scb,post_end_per_testcase,[test_case,[]]}},
+     {?eh,scb,{empty_scb,post_end_per_testcase,[test_case,[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
+     {?eh,scb,{empty_scb,pre_end_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,pre_end_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,post_end_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,scb,{empty_scb,post_end_per_suite,[ct_scb_empty_SUITE,[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{empty_scb,terminate,[[]]}},
+     {?eh,scb,{empty_scb,terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(faulty_scb_no_init) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(ok) ->
+    ok.
