@@ -42,7 +42,7 @@
 			       {error, Reason :: term()}.
 init(Opts) ->
     call([{CB, call_init, undefined} || CB <- get_new_callbacks(Opts)],
-	 ct_suite_callback_init_dummy, undefined, []),
+	 ct_suite_callback_init_dummy, init, []),
     ok.
 		      
 
@@ -50,8 +50,8 @@ init(Opts) ->
 -spec terminate(Callbacks :: term()) ->
     ok.
 terminate(Callbacks) ->
-    call([{CBId, fun call_terminate/3} || {CBId,_} <- Callbacks],
-	 ct_suite_callback_init_dummy, undefined, Callbacks),
+    call([{CBId, fun call_terminate/3} || {CBId,_,_} <- Callbacks],
+	 ct_suite_callback_terminate_dummy, terminate, Callbacks),
     ok.
 
 %% @doc Called as each test case is started. This includes all configuration
@@ -103,9 +103,9 @@ end_tc(_Mod, TC, _Config, Result) ->
 %% -------------------------------------------------------------------------
 call_init(Mod, Config, Meta) when is_atom(Mod) ->
     call_init({Mod, []}, Config, Meta);
-call_init({Mod, State}, Config, _) ->
+call_init({Mod, State}, Config, Scope) ->
     {Id, NewState} = Mod:init(State),
-    {Config, {Id, {Mod, NewState}}}.
+    {Config, {Id, scope(Scope), {Mod, NewState}}}.
 	
 call_terminate({Mod, State}, _, _) ->
     catch_apply(Mod,terminate,[State], ok),
@@ -123,12 +123,12 @@ call_generic({Mod, State}, Config, {Function, Tag}) ->
 %% Generic call function
 call(Fun, Config, Meta) ->
     CBs = get_callbacks(),
-    call([{CBId,Fun} || {CBId, _} <- CBs] ++ get_new_callbacks(Config, Fun),
+    call([{CBId,Fun} || {CBId,_, _} <- CBs] ++ get_new_callbacks(Config, Fun),
 	     remove(?config_name,Config), Meta, CBs).
 
 call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
     try
-	{Config, {NewId, {Mod,_State}} = NewCB} = call_init(CB, Config, Meta),
+	{Config, {NewId, _, {Mod,_State}} = NewCB} = call_init(CB, Config, Meta),
 	{NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
 				undefined -> {CBs ++ [NewCB],Rest};
 				ExistingCB when is_tuple(ExistingCB) ->
@@ -146,16 +146,18 @@ call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
     end;
 call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
     try
-	{NewConf, NewCBInfo} =  Fun(proplists:get_value(CBId, CBs),
-				    Config, Meta),
-	NewCalls = get_new_callbacks(NewConf, Fun),
-	call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
-	     lists:keyreplace(CBId, 1, CBs, {CBId, NewCBInfo}))
+        {_,Scope,ModState} = lists:keyfind(CBId, 1, CBs),
+        {NewConf, NewCBInfo} =  Fun(ModState, Config, Meta),
+        NewCalls = get_new_callbacks(NewConf, Fun),
+        NewCBs = lists:keyreplace(CBId, 1, CBs, {CBId, Scope, NewCBInfo}),
+        call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
+             terminate_if_scope_ends(CBId, Meta, NewCBs))
     catch throw:{error_in_scb_call,Reason} ->
-	    call(Rest, {fail, Reason}, Meta, CBs)
+            call(Rest, {fail, Reason}, Meta,
+                 terminate_if_scope_ends(CBId, Meta, CBs))
     end;
 call([], Config, _Meta, CBs) ->
-    ct_util:save_suite_data_async(?config_name, CBs),
+    save_suite_data_async(CBs),
     Config.
 
 remove(Key,List) when is_list(List) ->
@@ -163,6 +165,29 @@ remove(Key,List) when is_list(List) ->
 		 orelse element(1, Conf) =/= Key];
 remove(_, Else) ->
     Else.
+
+%% Translate scopes, i.e. init_per_group,group1 -> end_per_group,group1 etc
+scope({pre_init_per_testcase, TC}) ->
+    {post_end_per_testcase, TC};
+scope({pre_init_per_group, GroupName}) ->
+    {post_end_per_group, GroupName};
+scope({post_init_per_group, GroupName}) ->
+    {post_end_per_group, GroupName};
+scope({pre_init_per_suite, SuiteName}) ->
+    {post_end_per_suite, SuiteName};
+scope({post_init_per_suite, SuiteName}) ->
+    {post_end_per_suite, SuiteName};
+scope(init) ->
+    none.
+
+terminate_if_scope_ends(CBId, Function, CBs) ->
+    case lists:keyfind(CBId, 1, CBs) of
+        {CBId, Function, _ModState} = CB ->
+            terminate([CB]),
+            lists:keydelete(CBId, 1, CBs);
+        _ ->
+            CBs
+    end.
 
 %% Fetch callback functions
 get_new_callbacks(Config, Fun) ->
@@ -179,6 +204,9 @@ get_new_callbacks(Config) when is_list(Config) ->
 get_new_callbacks(_Config) ->
     [].
 
+save_suite_data_async(CBs) ->
+    ct_util:save_suite_data_async(?config_name, CBs).
+
 get_callbacks() ->
     ct_util:read_suite_data(?config_name).
 
@@ -187,6 +215,7 @@ catch_apply(M,F,A, Default) ->
 	apply(M,F,A)
     catch error:Reason ->
 	    case erlang:get_stacktrace() of
+            %% Return the default if it was the SCB module which did not have the function.
 		[{M,F,A}|_] when Reason == undef ->
 		    Default;
 		Trace ->
