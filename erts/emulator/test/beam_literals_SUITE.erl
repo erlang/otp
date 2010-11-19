@@ -406,10 +406,15 @@ fconv_2(F) when is_float(F) ->
 literal_case_expression(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line Src = filename:join(DataDir, "literal_case_expression"),
-    ?line {ok,literal_case_expression=Mod,Code} = compile:file(Src, [from_asm,binary]),
+    ?line {ok,literal_case_expression=Mod,Code} =
+	compile:file(Src, [from_asm,binary]),
     ?line {module,Mod} = code:load_binary(Mod, Src, Code),
     ?line ok = Mod:x(),
     ?line ok = Mod:y(),
+    ?line ok = Mod:zi1(),
+    ?line ok = Mod:zi2(),
+    ?line ok = Mod:za1(),
+    ?line ok = Mod:za2(),
     ?line true = code:delete(Mod),
     ?line code:purge(Mod),
     ok.

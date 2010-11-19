@@ -555,7 +555,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_sfI:
+    case op_i_select_val_rfI:
+    case op_i_select_val_xfI:
+    case op_i_select_val_yfI:
 	{
 	    int n = ap[-1];
 
@@ -567,7 +569,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_tuple_arity_sfI:
+    case op_i_select_tuple_arity_rfI:
+    case op_i_select_tuple_arity_xfI:
+    case op_i_select_tuple_arity_yfI:
 	{
 	    int n = ap[-1];
 

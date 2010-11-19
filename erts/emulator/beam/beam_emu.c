@@ -1865,9 +1865,19 @@ void process_main(void)
  {
      Eterm select_val;
 
- OpCase(i_select_tuple_arity_sfI):
-     GetArg1(0, select_val);
+ OpCase(i_select_tuple_arity_xfI):
+     select_val = xb(Arg(0));
+     goto do_select_tuple_arity;
 
+ OpCase(i_select_tuple_arity_yfI):
+     select_val = yb(Arg(0));
+     goto do_select_tuple_arity;
+
+ OpCase(i_select_tuple_arity_rfI):
+     select_val = r(0);
+     I--;
+
+ do_select_tuple_arity:
      if (is_tuple(select_val)) {
 	 select_val = *tuple_val(select_val);
 	 goto do_binary_search;
@@ -1875,9 +1885,17 @@ void process_main(void)
      SET_I((BeamInstr *) Arg(1));
      Goto(*I);
 
+ OpCase(i_select_val_xfI):
+     select_val = xb(Arg(0));
+     goto do_binary_search;
 
- OpCase(i_select_val_sfI):
-     GetArg1(0, select_val);
+ OpCase(i_select_val_yfI):
+     select_val = yb(Arg(0));
+     goto do_binary_search;
+     
+ OpCase(i_select_val_rfI):
+     select_val = r(0);
+     I--;
 
  do_binary_search:
  {

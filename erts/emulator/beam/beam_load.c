@@ -3282,7 +3282,6 @@ const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     int i;
 
     ASSERT(Size.type == TAG_u);
-    ASSERT(S.type == TAG_q);
 
     NEW_GENOP(stp, op);
     op->next = NULL;
@@ -3293,18 +3292,32 @@ const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
      * Search for a literal matching the controlling expression.
      */
 
-    if (S.type == TAG_q) {
-	Eterm expr = stp->literals[S.val].term;
-	for (i = 0; i < Size.val; i += 2) {
-	    if (Rest[i].type == TAG_q) {
-		Eterm term = stp->literals[Rest[i].val].term;
-		if (eq(term, expr)) {
-		    ASSERT(Rest[i+1].type == TAG_f);
-		    op->a[0] = Rest[i+1];
-		    return op;
+    switch (S.type) {
+    case TAG_q:
+	{
+	    Eterm expr = stp->literals[S.val].term;
+	    for (i = 0; i < Size.val; i += 2) {
+		if (Rest[i].type == TAG_q) {
+		    Eterm term = stp->literals[Rest[i].val].term;
+		    if (eq(term, expr)) {
+			ASSERT(Rest[i+1].type == TAG_f);
+			op->a[0] = Rest[i+1];
+			return op;
+		    }
 		}
 	    }
 	}
+	break;
+    case TAG_i:
+    case TAG_a:
+	for (i = 0; i < Size.val; i += 2) {
+	    if (Rest[i].val == S.val && Rest[i].type == S.type) {
+		ASSERT(Rest[i+1].type == TAG_f);
+		op->a[0] = Rest[i+1];
+		return op;
+	    }
+	}
+	break;
     }
 
     /*

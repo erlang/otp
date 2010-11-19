@@ -124,7 +124,7 @@ init Y1 | init Y2 => init2 Y1 Y2
 
 # Selecting values
 
-select_val S=q Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
+select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
   gen_jump_tab(S, Fail, Size, Rest)
@@ -139,26 +139,30 @@ is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
 select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) => \
   gen_split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_integer Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
   fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_atom Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
   fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) => \
   gen_select_literals(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
+select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
   gen_select_val(S, Fail, Size, Rest)
 
-is_tuple Fail=f S | select_tuple_arity S=s Fail=f Size=u Rest=* => \
+is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-select_tuple_arity S=s Fail=f Size=u Rest=* => \
+select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val s f I
-i_select_tuple_arity s f I
+i_select_val r f I
+i_select_val x f I
+i_select_val y f I
+i_select_tuple_arity r f I
+i_select_tuple_arity x f I
+i_select_tuple_arity y f I
 
 i_jump_on_val_zero s f I
 i_jump_on_val s f I I
