@@ -160,14 +160,8 @@ int load_gl_functions() {
 }
 
 void gl_error() {
-  // int AP = 0; ErlDrvTermData rt[8];
-  // rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *)"_wxe_error_");
-  // rt[AP++] = ERL_DRV_INT;  rt[AP++] = (int) gl_error_op;
-  // rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *)"undef");
-  // rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
-  // driver_send_term(WXE_DRV_PORT,gl_active,rt,AP);
-  // BUGBUG
-  fprintf(stderr, "OpenGL Extension not available : %d\r\n", gl_error_op);
+  // fprintf(stderr, "OpenGL Extension not available \r\n");
+  throw "undef_extension";
 }
 
 /* *******************************************************************************

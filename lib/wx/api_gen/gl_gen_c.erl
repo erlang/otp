@@ -48,20 +48,28 @@ gen(GLFuncs, GLUFuncs) ->
     w("#include <stdio.h>~n", []),
     w("#include <string.h>~n", []),    
     w("#include \"../egl_impl.h\"~n", []),
-    w("#include \"gl_fdefs.h\"~n", []),
+    w("#include \"gl_fdefs.h\"~n~n", []),
+    w("extern gl_fns_t gl_fns[];~n~n", []),
 
-    w("~nint gl_error_op;~n", []),
     w("void egl_dispatch(int op, char *bp, ErlDrvPort port, "
       "ErlDrvTermData caller, char *bins[], int bins_sz[]){~n",
       []),
-    w(" gl_error_op = op;~n", []),
-
+    w(" try {~n",[]),
     w(" switch(op)~n{~n",[]),
     w(" case 5000:~n   erl_tess_impl(bp, port, caller);~n   break;~n", []),
 
     [funcs(F) || F <- GLUFuncs],
     [funcs(F) || F <- GLFuncs],
     
+    w("}} catch (char *err_msg) {\n"
+      "int AP = 0; ErlDrvTermData rt[12];\n"
+      "rt[AP++] = ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) \"_egl_error_\");\n"
+      "rt[AP++] = ERL_DRV_INT; rt[AP++] = (int) op;\n"
+      "rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) err_msg);\n"
+      "// rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) gl_fns[op-GLE_GL_FUNC_START].name);\n"
+      "// rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;\n"
+      "rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;\n"
+      "driver_send_term(port,caller,rt,AP);\n", []),
     w("}} /* The End */~n~n",[]),
     
     close().
@@ -530,6 +538,19 @@ gen_defines(GLFuncs,GLUFuncs) ->
     w("# define WXE_EXTERN~n", []),
     w("#else~n# define WXE_EXTERN extern~n", []),
     w("#endif~n~n", []),
+
+    w("typedef struct {\n"      
+      "   const char * name;\n"      
+      "   const char * alt;\n"
+      "   void * func;\n"
+      "} gl_fns_t;\n\n", []),
+
+    GLFirst = case hd(GLFuncs) of 
+		  [First|_] when is_list(First) -> get(First);
+		  First -> get(First)
+	      end,
+    w("#define GLE_GL_FUNC_START ~p~n", [GLFirst#func.id]),
+
     [fdefs(F) || F <- GLFuncs],
     [fdefs(F) || F <- GLUFuncs],
     close().
@@ -577,11 +598,7 @@ gl_gen_init(Funcs) ->
     open_write("../c_src/gen/gl_finit.h"),
     c_copyright(),
     w("/***** This file is generated do not edit ****/~n~n", []),
-    w("static struct {\n"      
-      "   const char * name;\n"      
-      "   const char * alt;\n"
-      "   void * func;\n"
-      "} gl_fns[] = \n"
+    w("gl_fns_t gl_fns[] = \n"
       "{\n", []),
     [finits(F) || F <- Funcs],
     w(" { NULL, NULL, NULL}};\n",[]),

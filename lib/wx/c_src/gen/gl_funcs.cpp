@@ -23,9 +23,10 @@
 #include "../egl_impl.h"
 #include "gl_fdefs.h"
 
-int gl_error_op;
+extern gl_fns_t gl_fns[];
+
 void egl_dispatch(int op, char *bp, ErlDrvPort port, ErlDrvTermData caller, char *bins[], int bins_sz[]){
- gl_error_op = op;
+ try {
  switch(op)
 {
  case 5000:
@@ -6955,5 +6956,14 @@ case 5863: { // glStencilClearTagEXT
  GLuint *stencilClearTag = (GLuint *) bp; bp += 4;
  weglStencilClearTagEXT(*stencilTagBits,*stencilClearTag);
 }; break;
+}} catch (char *err_msg) {
+int AP = 0; ErlDrvTermData rt[12];
+rt[AP++] = ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_error_");
+rt[AP++] = ERL_DRV_INT; rt[AP++] = (int) op;
+rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) err_msg);
+// rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) gl_fns[op-GLE_GL_FUNC_START].name);
+// rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
+driver_send_term(port,caller,rt,AP);
 }} /* The End */
 

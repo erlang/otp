@@ -24,6 +24,13 @@
 # define WXE_EXTERN extern
 #endif
 
+typedef struct {
+   const char * name;
+   const char * alt;
+   void * func;
+} gl_fns_t;
+
+#define GLE_GL_FUNC_START 5037
 typedef void (APIENTRY * WXEGLACCUM)(GLenum,GLfloat);
 WXE_EXTERN WXEGLACCUM weglAccum;
 typedef void (APIENTRY * WXEGLALPHAFUNC)(GLenum,GLclampf);

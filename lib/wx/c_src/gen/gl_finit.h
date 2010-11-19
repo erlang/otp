@@ -18,11 +18,7 @@
 */
 /***** This file is generated do not edit ****/
 
-static struct {
-   const char * name;
-   const char * alt;
-   void * func;
-} gl_fns[] = 
+gl_fns_t gl_fns[] = 
 {
  {"glAccum", NULL, &weglAccum},
  {"glAlphaFunc", NULL, &weglAlphaFunc},

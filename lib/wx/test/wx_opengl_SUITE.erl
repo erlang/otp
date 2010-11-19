@@ -113,7 +113,7 @@ canvas(Config) ->
     Data = {?FACES,?VS},
     drawBox(0, Data),
     ?m(ok, wxGLCanvas:swapBuffers(Canvas)),
-
+    ?m([], flush()),
     Env = wx:get_env(),
     Tester = self(),
     spawn_link(fun() -> 
@@ -125,15 +125,29 @@ canvas(Config) ->
 		       %% This may fail when window is deleted
 		       catch draw_loop(2,Data,Canvas)
 	       end),
-
     ?m_receive(works),
+    ?m([], flush()),
+    io:format("Undef func ~p ~n", [catch gl:uniform1d(2, 0.75)]),
+    timer:sleep(500),
+    ?m([], flush()),
     wx_test_lib:wx_destroy(Frame, Config).
-    
+
+flush() ->
+    flush([]).
+
+flush(Collected) ->
+    receive Msg -> 
+	    flush([Msg|Collected])
+    after 1 ->
+	    lists:reverse(Collected)
+    end.
+    	  
 draw_loop(Deg,Data,Canvas) ->
     timer:sleep(15),
     drawBox(Deg,Data),
     ?m(ok, wxGLCanvas:swapBuffers(Canvas)),
     draw_loop(Deg+1, Data,Canvas).
+
 
 
 drawBox(Deg,{Fs,Vs}) ->
