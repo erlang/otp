@@ -13,8 +13,6 @@
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
 # 
-#     $Id: Makefile,v 1.1.1.1 2004/10/04 13:53:33 richardc Exp $
-#
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
