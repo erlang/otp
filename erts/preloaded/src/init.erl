@@ -72,6 +72,7 @@
 		script_id = [],
 		loaded = [],
 		subscribed = []}).
+-type state() :: #state{}.
 
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
 
@@ -146,10 +147,10 @@ restart() -> init ! {stop,restart}, ok.
 -spec reboot() -> 'ok'.
 reboot() -> init ! {stop,reboot}, ok.
 
--spec stop() -> no_return().
+-spec stop() -> 'ok'.
 stop() -> init ! {stop,stop}, ok.
 
--spec stop(non_neg_integer() | string()) -> no_return().
+-spec stop(non_neg_integer() | string()) -> 'ok'.
 stop(Status) -> init ! {stop,{stop,Status}}, ok.
 
 -spec boot([binary()]) -> no_return().
@@ -278,7 +279,7 @@ crash(String, List) ->
     halt(halt_string(String, List)).
 
 %% Status is {InternalStatus,ProvidedStatus}
--spec boot_loop(pid(), #state{}) -> no_return().
+-spec boot_loop(pid(), state()) -> no_return().
 boot_loop(BootPid, State) ->
     receive
 	{BootPid,loaded,ModLoaded} ->
