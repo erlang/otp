@@ -5,6 +5,13 @@
 
 Version 2.x.x (in Erlang/OTP R14B01)
 ------------------------------------
+ - Fixed pretty rare infinite loop when refining the types of an SCC whose
+   functions all returned none() (thanks to Stavros Aronis).
+ - Fixed pretty rare crash when taking the infimum of two tuple_sets.
+ - Fixed pretty rare crash when using parameterized types containing unbound
+   variables (thanks to Nicolas Trangez for reporting it).
+ - Deeper unfolding of recursive types (thanks to Maria Christakis).
+ - Fixed some incomplete and erroneous specs in modules of kernel and stdlib.
  - Fixed problems in the handling of remote types in records used as types
    (thanks to Nico Kruber for the report and to Maria Christakis for the fix).
  - Fixed handling of nested opaque types (thanks to Thorsten Schuett for

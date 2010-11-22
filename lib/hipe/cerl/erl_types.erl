@@ -2127,7 +2127,8 @@ t_elements(?identifier(IDs)) ->
 t_elements(?list(_, _, _) = T) -> [T];
 t_elements(?number(_, _) = T) ->
   case T of
-    ?number(?any, ?unknown_qual) -> [T]; 
+    ?number(?any, ?unknown_qual) ->
+      [?float, ?integer(?any)];
     ?float -> [T];
     ?integer(?any) -> [T];
     ?int_range(_, _) -> [T];
@@ -2174,10 +2175,10 @@ t_inf(?var(_), T, _Mode) -> subst_all_vars_to_any(T);
 t_inf(T, ?var(_), _Mode) -> subst_all_vars_to_any(T);
 t_inf(?any, T, _Mode) -> subst_all_vars_to_any(T);
 t_inf(T, ?any, _Mode) -> subst_all_vars_to_any(T);
-t_inf(?unit, _, _Mode) -> ?unit;
-t_inf(_, ?unit, _Mode) -> ?unit;
 t_inf(?none, _, _Mode) -> ?none;
 t_inf(_, ?none, _Mode) -> ?none;
+t_inf(?unit, _, _Mode) -> ?unit;	% ?unit cases should appear below ?none
+t_inf(_, ?unit, _Mode) -> ?unit;
 t_inf(T, T, _Mode) -> subst_all_vars_to_any(T);
 t_inf(?atom(Set1), ?atom(Set2), _) ->
   case set_intersection(Set1, Set2) of
@@ -2386,10 +2387,12 @@ inf_tuple_sets(L1, L2, Mode) ->
     List -> ?tuple_set(List)
   end.
 
-inf_tuple_sets([{Arity, Tuples1}|Left1], [{Arity, Tuples2}|Left2], Acc, Mode) ->
+inf_tuple_sets([{Arity, Tuples1}|Ts1], [{Arity, Tuples2}|Ts2], Acc, Mode) ->
   case inf_tuples_in_sets(Tuples1, Tuples2, Mode) of
-    [] -> inf_tuple_sets(Left1, Left2, Acc, Mode);
-    NewTuples -> inf_tuple_sets(Left1, Left2, [{Arity, NewTuples}|Acc], Mode)
+    [] -> inf_tuple_sets(Ts1, Ts2, Acc, Mode);
+    [?tuple_set([{Arity, NewTuples}])] ->
+      inf_tuple_sets(Ts1, Ts2, [{Arity, NewTuples}|Acc], Mode);
+    NewTuples -> inf_tuple_sets(Ts1, Ts2, [{Arity, NewTuples}|Acc], Mode)
   end;
 inf_tuple_sets([{Arity1, _}|Ts1] = L1, [{Arity2, _}|Ts2] = L2, Acc, Mode) ->
   if Arity1 < Arity2 -> inf_tuple_sets(Ts1, L2, Acc, Mode);
@@ -2766,7 +2769,9 @@ t_subtract_list(T, []) ->
 -spec t_subtract(erl_type(), erl_type()) -> erl_type().
 
 t_subtract(_, ?any) -> ?none;
+t_subtract(_, ?var(_)) -> ?none;
 t_subtract(?any, _) -> ?any;
+t_subtract(?var(_) = T, _) -> T;
 t_subtract(T, ?unit) -> T;
 t_subtract(?unit, _) -> ?unit;
 t_subtract(?none, _) -> ?none;
@@ -2922,7 +2927,7 @@ t_subtract(T, ?product(_)) ->
   T;
 t_subtract(?union(U1), ?union(U2)) ->
   subtract_union(U1, U2);
-t_subtract(T1, T2) ->  
+t_subtract(T1, T2) ->
   ?union(U1) = force_union(T1),
   ?union(U2) = force_union(T2),
   subtract_union(U1, U2).
