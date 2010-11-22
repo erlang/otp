@@ -288,11 +288,13 @@ parse_expr(S, L) ->
 %% content in e.g.
 %% <a href="overview-summary.html#mtag-author">`@author'</a> tags.
 
-%% @type info() = #info{name = string(),
-%%                      mail = string(),
-%%                      uri = string()}
+%% @type info() = #info{name  = string(),
+%%                      email = string(),
+%%                      uri   = string()}
 
--record(info, {name = "", email = "", uri = ""}).
+-record(info, {name = ""  :: string(),
+	       email = "" :: string(),
+	       uri = ""   :: string()}).
 
 parse_contact(S, L) ->
     I = scan_name(S, L, #info{}, []),
@@ -987,6 +989,14 @@ get_plugin(Key, Default, Opts) ->
 
 %% ---------------------------------------------------------------------
 %% Error handling
+
+-type line() :: erl_scan:line().
+-type err()  :: 'eof'
+	      | {'missing', char()}
+	      | {line(), atom(), string()}
+	      | string().
+
+-spec throw_error(err(), line()) -> no_return().
 
 throw_error({missing, C}, L) ->
     throw_error({"missing '~c'.", [C]}, L);

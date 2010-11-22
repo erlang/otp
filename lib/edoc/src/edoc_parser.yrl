@@ -404,6 +404,8 @@ parse_throws(S, L) ->
 
 %% ---------------------------------------------------------------------
 
+-spec throw_error(term(), erl_scan:line()) -> no_return().
+
 throw_error({L, M, D}, _L0) ->
     throw({error,L,{format_error,M,D}});
 throw_error({parse_spec, E}, L) ->

@@ -330,6 +330,10 @@ parse_typedef(Data, Line, _Env, _Where) ->
 	    Def
     end.
 
+-type line() :: erl_scan:line().
+
+-spec parse_file(_, line(), _, _) -> no_return().
+
 parse_file(Data, Line, Env, _Where) ->
     case edoc_lib:parse_expr(Data, Line) of
 	{string, _, File0} ->
@@ -343,6 +347,8 @@ parse_file(Data, Line, Env, _Where) ->
 	_ ->
 	    throw_error(Line, file_not_string)
     end.
+
+-spec parse_header(_, line(), _, _) -> no_return().
 
 parse_header(Data, Line, Env, {Where, _}) ->
     parse_header(Data, Line, Env, Where);
@@ -361,6 +367,13 @@ parse_header(Data, Line, Env, Where) when is_list(Where) ->
 	_ ->
 	    throw_error(Line, file_not_string)
     end.
+
+-type err() :: 'file_not_string'
+             | {'file_not_found', file:filename()}
+             | {'read_file', file:filename(), term()}
+             | string().
+
+-spec throw_error(line(), err()) -> no_return().
 
 throw_error(L, {read_file, File, R}) ->
     throw_error(L, {"error reading file '~s': ~w",
