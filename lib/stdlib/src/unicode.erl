@@ -25,8 +25,17 @@
 %%                         InEncoding is not {latin1 | unicode | utf8})
 %%
 
--export([characters_to_list/1, characters_to_list_int/2, characters_to_binary/1,characters_to_binary_int/2, characters_to_binary/3,bom_to_encoding/1, encoding_to_bom/1]).
+-export([characters_to_list/1, characters_to_list_int/2,
+	 characters_to_binary/1, characters_to_binary_int/2,
+	 characters_to_binary/3,
+	 bom_to_encoding/1, encoding_to_bom/1]).
 
+-export_type([encoding/0]).
+
+-type encoding()  :: 'latin1' | 'unicode' | 'utf8'
+                   | 'utf16' | {'utf16', endian()}
+                   | 'utf32' | {'utf32', endian()}.
+-type endian()    :: 'big' | 'little'.
 
 characters_to_list(ML) ->
     unicode:characters_to_list(ML,unicode).
