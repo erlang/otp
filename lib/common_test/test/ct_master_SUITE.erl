@@ -33,6 +33,13 @@
 
 -define(eh, ct_test_support_eh).
 
+-define(TEMP_DIR, case os:type() of
+		      {win32,_} ->
+			  "c:/Temp";
+		      _ ->
+			  "/tmp"
+		  end).
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -43,18 +50,39 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    ct_test_support:init_per_suite(Config).
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
 
 init_per_testcase(TestCase, Config) ->
-    ct_test_support:init_per_testcase(TestCase, [{master, true}|Config]).
+    NodeCount = 5,
+    NodeNames = [list_to_atom("t_"++integer_to_list(N)) ||
+		 N <- lists:seq(1, NodeCount)],
+    ct_test_support:init_per_testcase(
+      TestCase,[{node_names,NodeNames},
+		{master, true}|Config]).
 
 end_per_testcase(TestCase, Config) ->
+    case os:type() of
+	{win32,_} ->
+	    %% If this is a windows run the logs are saved to /tmp and
+	    %% then moved to private_dir as a tar because otherwise
+	    %% the file names become too long! :(
+	    Files = filelib:wildcard(filename:join(?TEMP_DIR,"slave.*")),
+	    erl_tar:create(
+	      filename:join(
+		proplists:get_value(priv_dir,Config),"slaves.tar.gz"),
+	      Files,[compressed]),
+	    os:cmd("rm -rf "++filename:join(?TEMP_DIR,"slave.*"));
+	_ ->
+	    ok
+    end,
+    
     ct_test_support:end_per_testcase(TestCase, Config).
 
+all() ->
+    all(suite).
 all(doc) ->
     [""];
 
@@ -67,15 +95,35 @@ all(suite) ->
 %% TEST CASES
 %%--------------------------------------------------------------------
 ct_master_test(Config) when is_list(Config)->
-    NodeCount = 5,
+    NodeNames = proplists:get_value(node_names, Config),
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
-    NodeNames = [list_to_atom("testnode_"++integer_to_list(N)) ||
-		 N <- lists:seq(1, NodeCount)],
+
     FileName = filename:join(PrivDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
     TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
+    ERPid = ct_test_support:start_event_receiver(Config),
+    spawn(ct@ancalagon,
+	  fun() ->
+		  dbg:tracer(),dbg:p(all,c),
+		  dbg:tpl(erlang, spawn_link, 4,x),
+		  receive ok -> ok end
+	  end),
+
     [{TSFile, ok}] = run_test(ct_master_test, FileName, Config),
+
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(groups_suite_1, 
+			       reformat(Events, ?eh), 
+			       ?config(priv_dir, Config)),
+    find_events(NodeNames, [{tc_start,{master_SUITE,init_per_suite}},
+			    {tc_start,{master_SUITE,first_testcase}},
+			    {tc_start,{master_SUITE,second_testcase}},
+			    {tc_start,{master_SUITE,third_testcase}},
+			    {tc_start,{master_SUITE,end_per_suite}}],
+	       Events),
+    
     ok.
 
 %%%-----------------------------------------------------------------
@@ -112,13 +160,25 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 
     PrivDir = ?config(priv_dir, Config),
     LD = lists:map(fun(NodeName)->
-	     {logdir, NodeName, get_log_dir(PrivDir, NodeName)}
+	     {logdir, NodeName, get_log_dir(os:type(),PrivDir, NodeName)}
          end,
 	 NodeNames) ++ [{logdir, master, PrivDir}],
+    EvHArgs = [{cbm,ct_test_support},{trace_level,?config(trace_level,Config)}],
+    EH = [{event_handler,master,[?eh],EvHArgs}],
 
-    ct_test_support:write_testspec(N++C++S++LD++NS, FileName).
+    Include = [{include,filename:join([DataDir,"master/include"])}],
 
-get_log_dir(PrivDir, NodeName)->
+    ct_test_support:write_testspec(N++Include++EH++C++S++LD++NS, FileName).
+
+get_log_dir({win32,_},PrivDir, NodeName)->
+    case filelib:is_dir(?TEMP_DIR) of
+	false ->
+	    file:make_dir(?TEMP_DIR);
+	_ ->
+	    ok
+    end,
+    get_log_dir(tmp, ?TEMP_DIR,NodeName);
+get_log_dir(_,PrivDir,NodeName) ->
     LogDir = filename:join(PrivDir, io_lib:format("slave.~p", [NodeName])),
     file:make_dir(LogDir),
     LogDir.
@@ -126,11 +186,34 @@ get_log_dir(PrivDir, NodeName)->
 run_test(_Name, FileName, Config)->
     [{FileName, ok}] = ct_test_support:run(ct_master, run, [FileName], Config).
 
-reformat_events(Events, EH) ->
+reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+find_events([], _CheckEvents, _) ->
+    ok;
+find_events([NodeName|NodeNames],CheckEvents,AllEvents) ->
+    find_events(NodeNames, CheckEvents,
+		remove_events(add_host(NodeName),CheckEvents, AllEvents, [])).
+
+remove_events(Node,[{Name,Data} | RestChecks],
+	      [{?eh,#event{ name = Name, node = Node, data = Data }}|RestEvs],
+	       Acc) ->
+    remove_events(Node, RestChecks, RestEvs, Acc);
+remove_events(Node, Checks, [Event|RestEvs], Acc) ->
+    remove_events(Node, Checks, RestEvs, [Event | Acc]);
+remove_events(_Node, [], [], Acc) ->
+    lists:reverse(Acc);
+remove_events(Node, Events, [], Acc) ->
+    test_server:format("Could not find events: ~p in ~p for node ~p",
+	   [Events, lists:reverse(Acc), Node]),
+    exit(event_not_found).
+
+add_host(NodeName) ->
+    {ok, HostName} = inet:gethostname(),
+    list_to_atom(atom_to_list(NodeName)++"@"++HostName).
+    
 expected_events(_)->
-[].
+    [].

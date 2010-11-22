@@ -101,12 +101,14 @@ run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 	    TSRec=#testspec{logdir=AllLogDirs,
 			    config=StdCfgFiles,
 			    userconfig=UserCfgFiles,
+			    include=AllIncludes,
 			    init=AllInitOpts,
 			    event_handler=AllEvHs} ->
 	        AllCfgFiles = {StdCfgFiles, UserCfgFiles},
 		RunSkipPerNode = ct_testspec:prepare_tests(TSRec),
 		RunSkipPerNode2 = exclude_nodes(ExclNodes,RunSkipPerNode),
-		run_all(RunSkipPerNode2,AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllInitOpts,TS1)
+		run_all(RunSkipPerNode2,AllLogDirs,AllCfgFiles,AllEvHs,
+			AllIncludes,[],[],AllInitOpts,TS1)
 	end,
     [{TS,Result} | run(TestSpecs,AllowUserTerms,InclNodes,ExclNodes)];
 run([],_,_,_) ->
@@ -163,11 +165,13 @@ run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) -
 	    TSRec=#testspec{logdir=AllLogDirs,
 			    config=StdCfgFiles,
 			    init=AllInitOpts,
+			    include=AllIncludes,
 			    userconfig=UserCfgFiles,
 			    event_handler=AllEvHs} ->
 	        AllCfgFiles = {StdCfgFiles, UserCfgFiles},
 		{Run,Skip} = ct_testspec:prepare_tests(TSRec,Node),
-		run_all([{Node,Run,Skip}],AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllInitOpts,TS1)
+		run_all([{Node,Run,Skip}],AllLogDirs,AllCfgFiles,AllEvHs,
+			AllIncludes, [],[],AllInitOpts,TS1)
 	end,
     [{TS,Result} | run_on_node(TestSpecs,AllowUserTerms,Node)];
 run_on_node([],_,_) ->
@@ -189,7 +193,7 @@ run_on_node(TestSpecs,Node) ->
 
 run_all([{Node,Run,Skip}|Rest],AllLogDirs,
 	{AllStdCfgFiles, AllUserCfgFiles}=AllCfgFiles,
-	AllEvHs,NodeOpts,LogDirs,InitOptions,Specs) ->
+	AllEvHs,AllIncludes,NodeOpts,LogDirs,InitOptions,Specs) ->
     LogDir =
 	lists:foldl(fun({N,Dir},_Found) when N == Node ->
 			    Dir;
@@ -211,6 +215,14 @@ run_all([{Node,Run,Skip}|Rest],AllLogDirs,
 		       ({_N,_F},Fs) -> Fs;
 		       (F,Fs) -> [{userconfig, F}|Fs]
 		    end,[],AllUserCfgFiles),
+    
+    Includes = lists:foldr(fun({N,I},Acc) when N =:= Node ->
+				   [I|Acc];
+			      ({_,_},Acc) ->
+				   Acc;
+			      (I,Acc) ->
+				   [I | Acc]
+			   end, [], AllIncludes),
     EvHs =
 	lists:foldr(fun({N,H,A},Hs) when N == Node -> [{H,A}|Hs];
 		       ({_N,_H,_A},Hs) -> Hs;
@@ -219,10 +231,13 @@ run_all([{Node,Run,Skip}|Rest],AllLogDirs,
 
     NO = {Node,[{prepared_tests,{Run,Skip},Specs},
 		{logdir,LogDir},
+		{include, Includes},
 		{config,StdCfgFiles},
 		{event_handler,EvHs}] ++ UserCfgFiles},
-    run_all(Rest,AllLogDirs,AllCfgFiles,AllEvHs,[NO|NodeOpts],[LogDir|LogDirs],InitOptions,Specs);
-run_all([],AllLogDirs,_,AllEvHs,NodeOpts,LogDirs,InitOptions,Specs) ->
+    run_all(Rest,AllLogDirs,AllCfgFiles,AllEvHs,AllIncludes,
+	    [NO|NodeOpts],[LogDir|LogDirs],InitOptions,Specs);
+run_all([],AllLogDirs,_,AllEvHs,_AllIncludes,
+	NodeOpts,LogDirs,InitOptions,Specs) ->
     Handlers = [{H,A} || {Master,H,A} <- AllEvHs, Master == master],
     MasterLogDir = case lists:keysearch(master,1,AllLogDirs) of
 		       {value,{_,Dir}} -> Dir;
