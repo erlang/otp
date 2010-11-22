@@ -73,8 +73,9 @@ all(suite) ->
     lists:reverse(
       [
        one_scb, two_scb, faulty_scb_no_init, minimal_scb, 
-       minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
-       scope_per_tc_scb, scope_per_group_scb, scope_suite_scb
+       minimal_and_maximal_scb, faulty_scb_undef%, scope_per_suite_scb,
+%       scope_per_tc_scb, scope_per_group_scb, scope_suite_scb,
+%       fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb, skip_post_suite_scb
       ]).
 
 
@@ -156,7 +157,7 @@ do_test(Tag, SuiteWildCard, SCBs, Config) ->
     Suites = filelib:wildcard(
 	       filename:join([DataDir,"scb/tests",SuiteWildCard])),
     {Opts,ERPid} = setup([{suite,Suites},
-			  {suite_callbacks,SCBs}], Config),
+			  {suite_callbacks,SCBs},{label,Tag}], Config),
     ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
@@ -316,7 +317,7 @@ test_events(faulty_scb_undef) ->
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
-		  {fail, FailReasonStr}}},
+		  {failed, {error,FailReasonStr}}}},
 
      {?eh,tc_auto_skip,{ct_scb_empty_SUITE,test_case,
 			{failed, FailReason}}},
@@ -488,7 +489,6 @@ test_events(skip_post_suite_scb) ->
      
      {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
      {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
-
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
