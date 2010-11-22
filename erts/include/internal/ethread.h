@@ -759,7 +759,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_atomic_set_relb)(ethr_atomic_t *var, long val)
 #ifdef ETHR_HAVE_NATIVE_ATOMICS
     ethr_native_atomic_set_relb(var, val);
 #else
-    return ETHR_INLINE_FUNC_NAME_(ethr_atomic_set)(var, val);
+    ETHR_INLINE_FUNC_NAME_(ethr_atomic_set)(var, val);
 #endif
 }
 
