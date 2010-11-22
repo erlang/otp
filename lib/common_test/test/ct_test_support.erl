@@ -877,21 +877,33 @@ locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
     end;
 
 %% matches any event of type Name
-locate({TEH,Name,Data}, Node, [Ev|Evs], Config) when Data == '_' ->
-    case Ev of
-	{TEH,#event{name=Name, node=Node}} ->
-	    {Config,Evs};
-	_ ->
+locate({TEH,Name,Data}, Node, [{TEH,#event{name=Name,
+					   data = EvData,
+					   node = Node}}|Evs],
+       Config) ->
+    try match_data(Data, EvData) of
+	match ->
+	    {Config,Evs}
+    catch _:_ ->
 	    nomatch
     end;
 
-locate({TEH,Name,Data}, Node, [Ev|Evs], Config) ->
-    case Ev of
-	{TEH,#event{name=Name, node=Node, data=Data}} ->
-	    {Config,Evs};
-	_ ->
-	    nomatch
-    end.
+locate({TEH,Name,Data}, Node, [_|Evs], Config) ->
+    nomatch.
+
+match_data([H1|MatchT],[H2|ValT]) ->
+    match_data(H1,H2),
+    match_data(MatchT,ValT);
+match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
+    match_data(tuple_to_list(Tuple1),tuple_to_list(Tuple2));
+match_data(D,D) ->
+    match;
+match_data('_',_) ->
+    match;
+match_data('$proplist',Proplist) ->
+    lists:foreach(fun({_,_}) -> ok end,Proplist);
+match_data([],[]) ->
+    match.
 
 log_events(TC, Events, PrivDir) ->
     LogFile = filename:join(PrivDir, atom_to_list(TC)++".events"),
