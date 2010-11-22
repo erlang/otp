@@ -73,7 +73,7 @@ basic(Config) when is_list(Config) ->
     ?line true = (lib_version() =/= undefined),
     ?line [{load,1,1,101},{lib_version,1,2,102}] = call_history(),
     ?line [] = call_history(),
-    ?line [?MODULE] = erlang:system_info(taints),
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
     ok.
 
 reload(doc) -> ["Test reload callback in nif lib"];
@@ -107,7 +107,8 @@ reload(Config) when is_list(Config) ->
     ?line true = erlang:purge_module(nif_mod),
     ?line [{unload,1,3,103}] = nif_mod_call_history(),    
 
-    ?line [?MODULE, nif_mod] = erlang:system_info(taints),
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
+    ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),
     ok.
 
@@ -197,7 +198,8 @@ upgrade(Config) when is_list(Config) ->
     ?line true = erlang:purge_module(nif_mod),
     ?line [{unload,2,4,204}] = nif_mod_call_history(),    
 
-    ?line [?MODULE, nif_mod] = erlang:system_info(taints),    
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
+    ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),
     ok.
 
@@ -727,7 +729,8 @@ resource_takeover(Config) when is_list(Config) ->
     ?line ok = forget_resource(AN4),
     ?line [] = nif_mod_call_history(),
 
-    ?line [?MODULE, nif_mod] = erlang:system_info(taints),
+    ?line true = lists:member(?MODULE, erlang:system_info(taints)),
+    ?line true = lists:member(nif_mod, erlang:system_info(taints)),
     ?line verify_tmpmem(TmpMem),    
     ok.
 
