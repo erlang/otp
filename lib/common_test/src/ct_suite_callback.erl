@@ -26,7 +26,7 @@
 %% API Exports
 -export([init/1]).
 -export([init_tc/3]).
--export([end_tc/4]).
+-export([end_tc/5]).
 -export([terminate/1]).
 
 -type proplist() :: [{atom(),term()}].
@@ -79,23 +79,34 @@ init_tc(_Mod, TC, Config) ->
 -spec end_tc(Mod :: atom(),
 	     Func :: atom(),
 	     Args :: list(),
-	     Result :: term()) ->
+	     Result :: term(),
+	     Resturn :: term()) ->
     NewConfig :: proplist() |
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()} |
     ok.
-end_tc(ct_framework, _Func, _Args, Result) ->
+end_tc(ct_framework, _Func, _Args, Result, _Return) ->
     Result;
-end_tc(Mod, init_per_suite, _Config, Result) ->
+
+end_tc(Mod, init_per_suite, _Config, _Result, Return) when is_list(Return) ->
+    call(fun call_generic/3, Return, {post_init_per_suite, Mod});
+end_tc(Mod, init_per_suite, _Config, Result, _Return) ->
     call(fun call_generic/3, Result, {post_init_per_suite, Mod});
-end_tc(Mod, end_per_suite, _Config, Result) ->
+
+end_tc(Mod, end_per_suite, _Config, Result, _Return) ->
     call(fun call_generic/3, Result, {post_end_per_suite, Mod});
-end_tc(_Mod, {init_per_group, GroupName, _}, _Config, Result) ->
+
+end_tc(_Mod, {init_per_group, GroupName, _}, _Config, _Result, Return)
+  when is_list(Return) ->
+    call(fun call_generic/3, Return, {post_init_per_group, GroupName});
+end_tc(_Mod, {init_per_group, GroupName, _}, _Config, Result, _Return) ->
     call(fun call_generic/3, Result, {post_init_per_group, GroupName});
-end_tc(_Mod, {end_per_group, GroupName, _}, _Config, Result) ->
+
+end_tc(_Mod, {end_per_group, GroupName, _}, _Config, Result, _Return) ->
     call(fun call_generic/3, Result, {post_end_per_group, GroupName});
-end_tc(_Mod, TC, _Config, Result) ->
+
+end_tc(_Mod, TC, _Config, Result, _Return) ->
     call(fun call_generic/3, Result, {post_end_per_testcase, TC}).
 
 %% -------------------------------------------------------------------------

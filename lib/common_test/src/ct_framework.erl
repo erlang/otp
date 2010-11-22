@@ -485,12 +485,13 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     case get('$test_server_framework_test') of
 	undefined ->
 	    FinalResult = ct_suite_callback:end_tc(
-			    Mod, FuncSpec, Args, Result),
+			    Mod, FuncSpec, Args, Result, Return),
 	    % send sync notification so that event handlers may print
 	    % in the log file before it gets closed
 	    ct_event:sync_notify(#event{name=tc_done,
 					node=node(),
-					data={Mod,FuncSpec,tag(FinalResult)}});
+					data={Mod,FuncSpec,
+					      tag_scb(FinalResult)}});
 	Fun ->
 	    % send sync notification so that event handlers may print
 	    % in the log file before it gets closed
@@ -540,6 +541,21 @@ tag(E = {ETag,_}) when ETag == error; ETag == 'EXIT';
 tag(E = testcase_aborted_or_killed) ->
     {failed,E};
 tag(Other) ->
+    Other.
+
+tag_scb({STag,Reason}) when STag == skip; STag == skipped -> 
+    {skipped,Reason};
+tag_scb({fail, Reason}) ->
+    {failed, Reason};
+tag_scb(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
+                       ETag == timetrap_timeout;
+                       ETag == testcase_aborted -> 
+    {failed,E};
+tag_scb(E = testcase_aborted_or_killed) ->
+    {failed,E};
+tag_scb(List) when is_list(List) ->
+    ok;
+tag_scb(Other) ->
     Other.
 
 %%%-----------------------------------------------------------------
