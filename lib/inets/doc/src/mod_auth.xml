@@ -111,7 +111,8 @@
       </desc>
     </func>
     <func>
-      <name>list_users(Options) -> {ok, Users} | {error, Reason} &lt;name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
+      <name>list_users(Options) -> {ok, Users} | {error, Reason}</name>
+      <name>list_users(Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <name>list_users(Address, Port, Dir) -> {ok, Users} | {error, Reason}</name>
       <fsummary>List users in the user database.</fsummary>
       <type>
