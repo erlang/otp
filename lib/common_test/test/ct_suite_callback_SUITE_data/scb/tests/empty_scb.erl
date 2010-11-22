@@ -51,6 +51,7 @@
 -export([post_end_per_testcase/3]).
 
 -export([on_tc_fail/3]).
+-export([on_tc_skip/3]).
 
 -export([terminate/1]).
 
@@ -216,12 +217,28 @@ post_end_per_testcase(TC,Config,State) ->
 %% It is not possible to modify the config or the status of the test run.
 -spec on_tc_fail(TC :: init_per_suite | end_per_suite |
 		 init_per_group | end_per_group | atom(),
-		 Config :: config(), State :: #state{}) ->
+		 Reason :: term(), State :: #state{}) ->
     ok.
-on_tc_fail(TC, Config, State) ->
+on_tc_fail(TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, on_tc_fail,
+				     [TC,State]}}),
+    ok.
+
+%% @doc Called when a test case is skipped by either user action
+%% or due to an init function failing. Test case can be
+%% end_per_suite, init_per_group, end_per_group and the actual test cases. 
+-spec on_tc_skip(TC :: end_per_suite |
+		 init_per_group | end_per_group | atom(),
+		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(), Reason :: term()}}} |
+         {tc_user_skip, {skipped, Reason :: term()}},
+          State :: #state{}) ->
+    ok.
+on_tc_skip(TC, Reason, State) ->
+    gen_event:notify(
+      ?CT_EVMGR_REF, #event{ name = scb, node = node(),
+			     data = {?MODULE, on_tc_skip,
 				     [TC,State]}}),
     ok.
 
