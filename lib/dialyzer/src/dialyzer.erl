@@ -385,7 +385,7 @@ message_to_string({spec_missing_fun, [M, F, A]}) ->
 		[M, F, A]);
 %%----- Warnings for opaque type violations -------------------
 message_to_string({call_with_opaque, [M, F, Args, ArgNs, ExpArgs]}) ->
-  io_lib:format("The call ~w:~w~s contains ~s argument when ~s\n",
+  io_lib:format("The call ~w:~w~s contains ~s when ~s\n",
 		[M, F, Args, form_positions(ArgNs), form_expected(ExpArgs)]);
 message_to_string({call_without_opaque, [M, F, Args, ExpectedTriples]}) ->
   io_lib:format("The call ~w:~w~s does not have ~s\n",
