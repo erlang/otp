@@ -610,6 +610,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     int binary_io;
     int soft_eof;
     Sint linebuf;
+    Eterm edir = NIL;
     byte dir[MAXPATHLEN];
 
     /* These are the defaults */
@@ -686,19 +687,10 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 
 		} else if (option == am_arg0) {
 		    char *a0;
-		    int n;
-		    if (is_nil(*tp)) {
-			n = 0;
-		    } else if( (n = is_string(*tp)) == 0) {
+
+		    if ((a0 = erts_convert_filename_to_native(*tp, ERTS_ALC_T_TMP, 1)) == NULL) {
 			goto badarg;
 		    }
-		    a0 = (char *) erts_alloc(ERTS_ALC_T_TMP, 
-					    (n + 1) * sizeof(byte));
-		    if (intlist_to_buf(*tp, a0, n) != n) {
-			erl_exit(1, "%s:%d: Internal error\n",
-				 __FILE__, __LINE__);
-		    }
-		    a0[n] = '\0';		    
 		    if (opts.argv == NULL) {
 			opts.argv = erts_alloc(ERTS_ALC_T_TMP, 
 					       2 * sizeof(char **));
@@ -711,22 +703,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 			opts.argv[0] = a0;
 		    }
 		} else if (option == am_cd) {
-		    Eterm iolist;
-		    DeclareTmpHeap(heap,4,p);
-		    int r;
-
-		    UseTmpHeap(4,p);
-		    heap[0] = *tp;
-		    heap[1] = make_list(heap+2);
-		    heap[2] = make_small(0);
-		    heap[3] = NIL;
-		    iolist = make_list(heap);
-		    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
-		    UnUseTmpHeap(4,p);
-		    if (r < 0) {
-			goto badarg;
-		    }
-		    opts.wd = (char *) dir;
+		    edir = *tp;
 		} else {
 		    goto badarg;
 		}
@@ -838,19 +815,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 		goto badarg;
 	    }
 	    name = tp[1];
-	    if (is_atom(name)) {
-		name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP,
-					       atom_tab(atom_val(name))->len+1);
-		sys_memcpy((void *) name_buf,
-			   (void *) atom_tab(atom_val(name))->name, 
-			   atom_tab(atom_val(name))->len);
-		name_buf[atom_tab(atom_val(name))->len] = '\0';
-	    } else if ((i = is_string(name))) {
-		name_buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
-		if (intlist_to_buf(name, name_buf, i) != i)
-		    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-		name_buf[i] = '\0';
-	    } else {
+	    if ((name_buf = erts_convert_filename_to_native(name,ERTS_ALC_T_TMP,0)) == NULL) {
 		goto badarg;
 	    }
 	    opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
@@ -892,7 +857,33 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 	/* Argument vector only if explicit spawn_executable */
 	goto badarg;
     }
-	
+
+    if (edir != NIL) {
+	/* A working directory is expressed differently if spawn_executable, i.e. Unicode is handles 
+	   for spawn_executable... */
+	if (opts.spawn_type != ERTS_SPAWN_EXECUTABLE) {
+	    Eterm iolist;
+	    DeclareTmpHeap(heap,4,p);
+	    int r;
+	    
+	    UseTmpHeap(4,p);
+	    heap[0] = edir;
+	    heap[1] = make_list(heap+2);
+	    heap[2] = make_small(0);
+	    heap[3] = NIL;
+	    iolist = make_list(heap);
+	    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
+	    UnUseTmpHeap(4,p);
+	    if (r < 0) {
+		goto badarg;
+	    }
+	    opts.wd = (char *) dir;
+	} else {
+	    if ((opts.wd = erts_convert_filename_to_native(edir,ERTS_ALC_T_TMP,0)) == NULL) {
+		goto badarg;
+	    }
+	}
+    }
 
     if (driver != &spawn_driver && opts.exit_status) {
 	goto badarg;
@@ -941,6 +932,9 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     if (opts.argv) {
 	free_args(opts.argv);
     }
+    if (opts.wd && opts.wd != ((char *)dir)) {
+	erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
+    }
     return port_num;
     
  badarg:
@@ -950,6 +944,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 #undef OPEN_PORT_ERROR
 }
 
+/* Arguments can be given i unicode and as raw binaries, convert filename is used to convert */
 static char **convert_args(Eterm l)
 {
     char **pp;
@@ -966,22 +961,14 @@ static char **convert_args(Eterm l)
     pp[i++] = erts_default_arg0;
     while (is_list(l)) {
 	str = CAR(list_val(l));
-
-	if (is_nil(str)) {
-	    n = 0;
-	} else if( (n = is_string(str)) == 0) {
-	    /* Not a string... */
+	if ((b = erts_convert_filename_to_native(str,ERTS_ALC_T_TMP,1)) == NULL) {
 	    int j;
 	    for (j = 1; j < i; ++j)
 		erts_free(ERTS_ALC_T_TMP, pp[j]);
 	    erts_free(ERTS_ALC_T_TMP, pp);
 	    return NULL;
-	}
-	b = (char *) erts_alloc(ERTS_ALC_T_TMP, (n + 1) * sizeof(byte));
-	pp[i++] = (char *) b;
-	if (intlist_to_buf(str, b, n) != n)
-	    erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-	b[n] = '\0';
+	}	    
+	pp[i++] = b;
 	l = CDR(list_val(l));
     }
     pp[i] = NULL;

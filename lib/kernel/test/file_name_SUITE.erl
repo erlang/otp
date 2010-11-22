@@ -745,12 +745,7 @@ rand_comp_decomp(Max) ->
     L = [ rand_decomp() || _ <- lists:seq(1,N) ],
     LC = [ A || {A,_} <- L],
     LD = lists:flatten([B || {_,B} <- L]),
-    LB = case os:type() of
-	     {win32,_} ->
-		 unicode:characters_to_binary(LD,unicode,{utf16,little});
-	     _ ->
-		 unicode:characters_to_binary(LD,unicode,utf8)
-	 end,
+    LB = unicode:characters_to_binary(LD,unicode,utf8),
     {LC,LB}.
     
 rand_decomp() ->

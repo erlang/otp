@@ -2023,6 +2023,79 @@ BIF_RETTYPE binary_to_existing_atom_2(BIF_ALIST_2)
  * Simpler non-interruptable routines for UTF-8 and 
  * Windowish UTF-16 (restricted)
  **********************************************************/
+/*
+ * This function is the heart of the Unicode support for 
+ * open_port - spawn_executable. It converts both the name
+ * of the executable and the arguments according to the same rules
+ * as for filename conversion. That means as if your arguments are
+ * to be raw, you supply binaries, else unicode characters are allowed up to
+ * the encoding maximum (256 of the unicode max).
+ * Depending on the filename encoding standard, the vector is then
+ * converted to whatever is used, which might mean win_utf16 if on windows.
+ * Do not peek into the argument vector or filenam with ordinary
+ * string routines, that will certainly fail on some OS.
+ */
+
+char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int allow_empty)
+{
+    int encoding = erts_get_native_filename_encoding();
+    char* name_buf = NULL;
+
+    if (is_atom(name) || is_list(name) || (allow_empty && is_nil(name))) {
+	Sint need;
+	if ((need = erts_native_filename_need(name,encoding)) < 0) {
+	    return NULL;
+	}
+	if (encoding == ERL_FILENAME_WIN_WCHAR) {
+	    need += 2;
+	} else {
+	    ++need;
+	}
+	name_buf = (char *) erts_alloc(alloc_type, need);
+	erts_native_filename_put(name,encoding,(byte *)name_buf); 
+	name_buf[need-1] = 0;
+	if (encoding == ERL_FILENAME_WIN_WCHAR) {
+	    name_buf[need-2] = 0;
+	}
+    } else if (is_binary(name)) {
+	byte *temp_alloc = NULL;
+	byte *bytes;
+	byte *err_pos;
+	Uint size,num_chars;
+	
+	size = binary_size(name);
+	bytes = erts_get_aligned_binary_bytes(name, &temp_alloc);
+	if (encoding != ERL_FILENAME_WIN_WCHAR) {
+	    /*Add 0 termination only*/
+	    name_buf = (char *) erts_alloc(alloc_type, size+1);
+	    memcpy(name_buf,bytes,size);
+	    name_buf[size]=0;
+	} else if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK || 
+		   erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
+	    byte *p;
+	    /* What to do now? Maybe latin1, so just take byte for byte instead */
+	    name_buf = (char *) erts_alloc(alloc_type, (size+1)*2);
+	    p = (byte *) name_buf;
+	    while (size--) {
+		*p++ = *bytes++;
+		*p++ = 0;
+	    }
+	    *p++ = 0;
+	    *p++ = 0;
+	} else { /* WIN_WCHAR and valid UTF8 */
+	    name_buf = (char *) erts_alloc(alloc_type, (num_chars+1)*2);
+	    erts_copy_utf8_to_utf16_little((byte *) name_buf, bytes, num_chars);
+	    name_buf[num_chars*2] = 0;
+	    name_buf[num_chars*2+1] = 0;
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+    } else {
+	return NULL;
+    }
+    return name_buf;
+}
+
+
 Sint erts_native_filename_need(Eterm ioterm, int encoding) 
 {
     Eterm *objp;

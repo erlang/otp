@@ -1401,7 +1401,7 @@ static void invoke_readlink(void *data)
     d->result_ok = efile_readlink(&d->errInfo, d->b, resbuf+1,
 				  RESBUFSIZE-1);
     if (d->result_ok != 0)
-	strcpy((char *) d->b + 1, resbuf+1);
+	FILENAME_COPY((char *) d->b + 1, resbuf+1);
 }
 
 static void invoke_altname(void *data)
@@ -1413,7 +1413,7 @@ static void invoke_altname(void *data)
     d->result_ok = efile_altname(&d->errInfo, d->b, resbuf+1,
 				  RESBUFSIZE-1);
     if (d->result_ok != 0)
-	strcpy((char *) d->b + 1, resbuf+1);
+	FILENAME_COPY((char *) d->b + 1, resbuf+1);
 }
 
 static void invoke_pwritev(void *data) {
