@@ -1890,8 +1890,11 @@ static int cmp_big_big(unsigned char**e1, unsigned char **e2)
     ei_get_type((char *)*e1,&i1,&t1,&n1);
     ei_get_type((char *)*e2,&i2,&t2,&n2);
     
-    b1 = ei_alloc_big(n1);
-    b2 = ei_alloc_big(n2);
+    if ( (b1 = ei_alloc_big(n1)) == NULL) return -1;
+    if ( (b2 = ei_alloc_big(n2)) == NULL) {
+        ei_free_big(b1);
+        return 1;
+    }
     
     ei_decode_big((char *)*e1,&i1,b1);
     ei_decode_big((char *)*e2,&i2,b2);

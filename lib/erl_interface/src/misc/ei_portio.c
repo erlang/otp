@@ -166,6 +166,9 @@ int ei_writev_fill_t(int fd,  const  struct  iovec  *iov,  int iovcnt, unsigned 
 	if (done < sum) {
 	    if (iov_base == NULL) {
 		iov_base = malloc(sizeof(struct iovec) * iovcnt);
+		if (iov_base == NULL) {
+		return -1;
+		}
 		memcpy(iov_base, iov, sizeof(struct iovec) * iovcnt);
 		current_iov = iov_base;
 	    }

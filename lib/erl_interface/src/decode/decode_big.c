@@ -74,7 +74,7 @@ erlang_big *ei_alloc_big(unsigned int digit_bytes) {
     memset(b,(char)0,sizeof(erlang_big));
     if ( (b->digits = malloc(2*n)) == NULL) {
         free(b);
-        return 0;
+        return NULL;
     }
    
     b->arity = digit_bytes;
