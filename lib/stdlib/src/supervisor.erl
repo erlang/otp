@@ -668,14 +668,15 @@ terminate_children([], _SupName, Res) ->
     Res.
 
 do_terminate(Child, SupName) when Child#child.pid =/= undefined ->
-    case shutdown(Child#child.pid,
-		  Child#child.shutdown) of
-	ok ->
-	    Child#child{pid = undefined};
-	{error, OtherReason} ->
-	    report_error(shutdown_error, OtherReason, Child, SupName),
-	    Child#child{pid = undefined}
-    end;
+    case shutdown(Child#child.pid, Child#child.shutdown) of
+        ok ->
+            ok;
+        {error, normal} when Child#child.restart_type =/= permanent ->
+            ok;
+        {error, OtherReason} ->
+            report_error(shutdown_error, OtherReason, Child, SupName)
+    end,
+    Child#child{pid = undefined};
 do_terminate(Child, _SupName) ->
     Child.
 
