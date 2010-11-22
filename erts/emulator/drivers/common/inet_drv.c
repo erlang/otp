@@ -637,15 +637,12 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define IS_BUSY(d) \
   (((d)->state & INET_F_BUSY) == INET_F_BUSY)
 
+#define INET_MAX_OPT_BUFFER (64*1024)
+
 #define INET_DEF_BUFFER     1460        /* default buffer size */
 #define INET_MIN_BUFFER     1           /* internal min buffer */
-#define INET_MAX_BUFFER     (1024*64)   /* internal max buffer */
 
-/* Note: INET_HIGH_WATERMARK MUST be less than 2*INET_MAX_BUFFER */
 #define INET_HIGH_WATERMARK (1024*8) /* 8k pending high => busy  */
-/* Note: INET_LOW_WATERMARK MUST be less than INET_MAX_BUFFER and
-** less than INET_HIGH_WATERMARK
-*/
 #define INET_LOW_WATERMARK  (1024*4) /* 4k pending => allow more */
 
 #define INET_INFINITY  0xffffffff  /* infinity value */
@@ -1256,139 +1253,136 @@ static int load_ip_and_port
 	LOAD_ATOM((spec), (i), (flag) ? am_true : am_false);
 #endif /* HAVE_SCTP */
 
+/* Assume a cache line size of 64 bytes */
+#define INET_DRV_CACHE_LINE_SIZE ((ErlDrvUInt) 64)
+#define INET_DRV_CACHE_LINE_MASK (INET_DRV_CACHE_LINE_SIZE - 1)
+
 /*
 ** Binary Buffer Managment
 ** We keep a stack of usable buffers 
 */
-#define BUFFER_STACK_SIZE 16
+#define BUFFER_STACK_SIZE 14
+#define BUFFER_STACK_MAX_MEM_SIZE (1024*1024)
 
-static erts_smp_spinlock_t inet_buffer_stack_lock;
-static ErlDrvBinary* buffer_stack[BUFFER_STACK_SIZE];
-static int buffer_stack_pos = 0;
+ErlDrvTSDKey buffer_stack_key;
 
+typedef struct {
+    int mem_size;
+    int pos;
+    ErlDrvBinary* stk[BUFFER_STACK_SIZE];
+} InetDrvBufStkBase;
 
-/*
- * XXX
- * The erts_smp_spin_* functions should not be used by drivers (but this
- * driver is special). Replace when driver locking api has been implemented.
- * /rickard
- */
-#define BUFSTK_LOCK	erts_smp_spin_lock(&inet_buffer_stack_lock);
-#define BUFSTK_UNLOCK	erts_smp_spin_unlock(&inet_buffer_stack_lock);
+typedef struct {
+    InetDrvBufStkBase buf;
+    char align[(((sizeof(InetDrvBufStkBase) - 1) / INET_DRV_CACHE_LINE_SIZE) + 1)
+	       * INET_DRV_CACHE_LINE_SIZE];
+} InetDrvBufStk;
 
-#ifdef DEBUG
-static int tot_buf_allocated = 0;  /* memory in use for i_buf */
-static int tot_buf_stacked = 0;   /* memory on stack */
-static int max_buf_allocated = 0; /* max allocated */
+static InetDrvBufStk *get_bufstk(void)
+{
+    InetDrvBufStk *bs = erl_drv_tsd_get(buffer_stack_key);
+    if (bs)
+	return bs;
+    bs = driver_alloc(sizeof(InetDrvBufStk)
+		      + INET_DRV_CACHE_LINE_SIZE - 1);
+    if (!bs)
+	return NULL;
+    if ((((ErlDrvUInt) bs) & INET_DRV_CACHE_LINE_MASK) != 0)
+	bs = ((InetDrvBufStk *)
+	      ((((ErlDrvUInt) bs) & ~INET_DRV_CACHE_LINE_MASK)
+	       + INET_DRV_CACHE_LINE_SIZE));
+    erl_drv_tsd_set(buffer_stack_key, bs);
+    bs->buf.pos = 0;
+    bs->buf.mem_size = 0;
 
-#define COUNT_BUF_ALLOC(sz) do { \
-  BUFSTK_LOCK; \
-  tot_buf_allocated += (sz); \
-  if (tot_buf_allocated > max_buf_allocated) \
-    max_buf_allocated = tot_buf_allocated; \
-  BUFSTK_UNLOCK; \
-} while(0)
+    ASSERT(bs == erl_drv_tsd_get(buffer_stack_key));
 
-#define COUNT_BUF_FREE(sz) do { \
- BUFSTK_LOCK; \
- tot_buf_allocated -= (sz); \
- BUFSTK_UNLOCK; \
- } while(0)
-
-#define COUNT_BUF_STACK(sz) do { \
- BUFSTK_LOCK; \
- tot_buf_stacked += (sz); \
- BUFSTK_UNLOCK; \
- } while(0)
-
-#else
-
-#define COUNT_BUF_ALLOC(sz)
-#define COUNT_BUF_FREE(sz)
-#define COUNT_BUF_STACK(sz)
-
-#endif
+    return bs;
+}
 
 static ErlDrvBinary* alloc_buffer(long minsz)
 {
-    ErlDrvBinary* buf = NULL;
+    InetDrvBufStk *bs = get_bufstk();
 
-    BUFSTK_LOCK;
+    DEBUGF(("alloc_buffer: %ld\r\n", minsz));
 
-    DEBUGF(("alloc_buffer: sz = %ld, tot = %d, max = %d\r\n", 
-	    minsz, tot_buf_allocated, max_buf_allocated));
+    if (bs && bs->buf.pos > 0) {
+	long size;
+	ErlDrvBinary* buf = bs->buf.stk[--bs->buf.pos];
+	size = buf->orig_size;
+	bs->buf.mem_size -= size;
+	ASSERT(0 <= bs->buf.mem_size
+	       && bs->buf.mem_size <= BUFFER_STACK_MAX_MEM_SIZE);
+	if (size >= minsz)
+	    return buf;
 
-    if (buffer_stack_pos > 0) {
-	int origsz;
-
-	buf = buffer_stack[--buffer_stack_pos];
-	origsz = buf->orig_size;
-	BUFSTK_UNLOCK;
-	COUNT_BUF_STACK(-origsz);
-	if (origsz < minsz) {
-	    if ((buf = driver_realloc_binary(buf, minsz)) == NULL)
-		return NULL;
-	    COUNT_BUF_ALLOC(buf->orig_size - origsz);
-	}
+	driver_free_binary(buf);
     }
-    else {
-	BUFSTK_UNLOCK;
-	if ((buf = driver_alloc_binary(minsz)) == NULL)
-	    return NULL;
-	COUNT_BUF_ALLOC(buf->orig_size);
-    }
-    return buf;
+
+    ASSERT(!bs || bs->buf.pos != 0 || bs->buf.mem_size == 0);
+
+    return driver_alloc_binary(minsz);
 }
 
-/*
-** Max buffer memory "cached" BUFFER_STACK_SIZE * INET_MAX_BUFFER
-** (16 * 64k ~ 1M)
-*/
 /*#define CHECK_DOUBLE_RELEASE 1*/
+#ifdef CHECK_DOUBLE_RELEASE
+static void
+check_double_release(InetDrvBufStk *bs, ErlDrvBinary* buf)
+{
+#ifdef __GNUC__
+#warning CHECK_DOUBLE_RELEASE is enabled, this is a custom build emulator
+#endif
+    int i;
+    for (i = 0; i < bs->buf.pos; ++i) {
+	if (bs->buf.stk[i] == buf) {
+	    erl_exit(ERTS_ABORT_EXIT,
+		     "Multiple buffer release in inet_drv, this "
+		     "is a bug, save the core and send it to "
+		     "support@erlang.ericsson.se!");
+	}
+    }
+}
+#endif
+
 static void release_buffer(ErlDrvBinary* buf)
 {
+    InetDrvBufStk *bs;
+    long size;
+
     DEBUGF(("release_buffer: %ld\r\n", (buf==NULL) ? 0 : buf->orig_size));
-    if (buf == NULL)
+
+    if (!buf)
 	return;
-    BUFSTK_LOCK;
-    if ((buf->orig_size > INET_MAX_BUFFER) || 
-	(buffer_stack_pos >= BUFFER_STACK_SIZE)) {
-	BUFSTK_UNLOCK;
-	COUNT_BUF_FREE(buf->orig_size);
+
+    size = buf->orig_size;
+
+    if (size > BUFFER_STACK_MAX_MEM_SIZE)
+	goto free_binary;
+
+    bs = get_bufstk();
+    if (!bs
+	|| (bs->buf.mem_size + size > BUFFER_STACK_MAX_MEM_SIZE)
+	|| (bs->buf.pos >= BUFFER_STACK_SIZE)) {
+    free_binary:
 	driver_free_binary(buf);
     }
     else {
 #ifdef CHECK_DOUBLE_RELEASE
-#ifdef __GNUC__
-#warning CHECK_DOUBLE_RELEASE is enabled, this is a custom build emulator
+	check_double_release(bs, buf);
 #endif
-	int i;
-	for (i = 0; i < buffer_stack_pos; ++i) {
-	    if (buffer_stack[i] == buf) {
-		erl_exit(1,"Multiple buffer release in inet_drv, this is a "
-			 "bug, save the core and send it to "
-			 "support@erlang.ericsson.se!");
-	    }
-	}
-#endif
-	buffer_stack[buffer_stack_pos++] = buf;
-	BUFSTK_UNLOCK;
-	COUNT_BUF_STACK(buf->orig_size);
+	ASSERT(bs->buf.pos != 0 || bs->buf.mem_size == 0);
+
+	bs->buf.mem_size += size;
+	bs->buf.stk[bs->buf.pos++] = buf;
+
+	ASSERT(0 <= bs->buf.mem_size
+	       && bs->buf.mem_size <= BUFFER_STACK_MAX_MEM_SIZE);
     }
 }
 
 static ErlDrvBinary* realloc_buffer(ErlDrvBinary* buf, long newsz)
 {
-    ErlDrvBinary* bin;
-#ifdef DEBUG
-    long orig_size =  buf->orig_size;
-#endif
-
-    if ((bin = driver_realloc_binary(buf,newsz)) != NULL) {
-	COUNT_BUF_ALLOC(newsz - orig_size);
-	;
-    }
-    return bin;
+    return driver_realloc_binary(buf, newsz);
 }
 
 /* use a TRICK, access the refc field to see if any one else has
@@ -1402,10 +1396,8 @@ static void free_buffer(ErlDrvBinary* buf)
     if (buf != NULL) {
 	if (driver_binary_get_refc(buf) == 1)
 	    release_buffer(buf);
-	else {
-	    COUNT_BUF_FREE(buf->orig_size);
+	else
 	    driver_free_binary(buf);
-	}
     }
 }
 
@@ -3409,20 +3401,14 @@ static int inet_init()
     if (!sock_init())
 	goto error;
 
-    buffer_stack_pos = 0;
-
-    erts_smp_spinlock_init(&inet_buffer_stack_lock, "inet_buffer_stack_lock");
+    if (0 != erl_drv_tsd_key_create("inet_buffer_stack_key", &buffer_stack_key))
+	goto error;
 
     ASSERT(sizeof(struct in_addr) == 4);
 #   if defined(HAVE_IN6) && defined(AF_INET6)
     ASSERT(sizeof(struct in6_addr) == 16);
 #   endif
 
-#ifdef DEBUG
-    tot_buf_allocated = 0;
-    max_buf_allocated = 0;
-    tot_buf_stacked = 0;
-#endif
     INIT_ATOM(ok);
     INIT_ATOM(tcp);
     INIT_ATOM(udp);
@@ -5165,8 +5151,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_LOPT_BUFFER:
 	    DEBUGF(("inet_set_opts(%ld): s=%d, BUFFER=%d\r\n",
 		    (long)desc->port, desc->s, ival));
-	    if (ival > INET_MAX_BUFFER)  ival = INET_MAX_BUFFER;
-	    else if (ival < INET_MIN_BUFFER) ival = INET_MIN_BUFFER;
+	    if (ival < INET_MIN_BUFFER) ival = INET_MIN_BUFFER;
 	    desc->bufsz = ival;
 	    continue;
 
@@ -5231,7 +5216,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (desc->stype == SOCK_STREAM) {
 		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
 		if (ival < 0) ival = 0;
-		else if (ival > INET_MAX_BUFFER*2) ival = INET_MAX_BUFFER*2;
 		if (tdesc->low > ival)
 		    tdesc->low = ival;
 		tdesc->high = ival;
@@ -5242,7 +5226,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    if (desc->stype == SOCK_STREAM) {
 		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
 		if (ival < 0) ival = 0;
-		else if (ival > INET_MAX_BUFFER) ival = INET_MAX_BUFFER;
 		if (tdesc->high < ival)
 		    tdesc->high = ival;
 		tdesc->low = ival;
@@ -5588,9 +5571,6 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	case INET_LOPT_BUFFER:
 	    desc->bufsz  = get_int32(curr);		curr += 4;
 
-            if (desc->bufsz > INET_MAX_BUFFER)
-		desc->bufsz = INET_MAX_BUFFER;
-            else
 	    if (desc->bufsz < INET_MIN_BUFFER)
 		desc->bufsz = INET_MIN_BUFFER;
 	    res = 0;	  /* This does not affect the kernel buffer size */
@@ -6028,7 +6008,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 #define PLACE_FOR(Size,Ptr)						   \
     do {								   \
 	int need = dest_used + (Size);					   \
-	if (need > INET_MAX_BUFFER) {					   \
+	if (need > INET_MAX_OPT_BUFFER) {				   \
 	    RETURN_ERROR();						   \
 	}								   \
 	if (need > dest_allocated) {					   \
@@ -6252,7 +6232,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 		buf += 4;
 		data_provided = (int) *buf++;
 		arg_sz = get_int32(buf);
-		if (arg_sz > INET_MAX_BUFFER) {	
+		if (arg_sz > INET_MAX_OPT_BUFFER) {
 		    RETURN_ERROR();
 		}
 		buf += 4;
@@ -6366,7 +6346,7 @@ static int sctp_fill_opts(inet_descriptor* desc, char* buf, int buflen,
 		     "miscalculated buffer size");              \
 	}                                                       \
 	need = (Index) + (N);                                   \
-	if (need > INET_MAX_BUFFER/sizeof(ErlDrvTermData)) {    \
+	if (need > INET_MAX_OPT_BUFFER/sizeof(ErlDrvTermData)) {\
 	    RETURN_ERROR((Spec), -ENOMEM);                      \
 	}                                                       \
 	if (need > spec_allocated) {                            \
@@ -7219,7 +7199,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	      }
 	  }
 	  DEBUGF(("inet_ctl(%ld): GETSTAT\r\n", (long) desc->port)); 
-	  if (dstlen > INET_MAX_BUFFER) /* sanity check */
+	  if (dstlen > INET_MAX_OPT_BUFFER) /* sanity check */
 	      return 0;
 	  if (dstlen > rsize) {
 	      if ((dst = (char*) ALLOC(dstlen)) == NULL)
@@ -7235,7 +7215,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	  char* dst;
 	  int dstlen = 1 /* Reply code */ + len*5;
 	  DEBUGF(("inet_ctl(%ld): INET_REQ_SUBSCRIBE\r\n", (long) desc->port)); 
-	  if (dstlen > INET_MAX_BUFFER) /* sanity check */
+	  if (dstlen > INET_MAX_OPT_BUFFER) /* sanity check */
 	      return 0;
 	  if (dstlen > rsize) {
 	      if ((dst = (char*) ALLOC(dstlen)) == NULL)
