@@ -119,7 +119,8 @@ eval_alu(Op, Arg1, Arg2) ->
 %% there are cases where we can evaluate a subset of the bits, but can
 %% not do a full eval-alub call (eg. a + 0 gives no carry)
 %%
--spec eval_cond_bits(atom(), boolean(), boolean(), boolean(), boolean()) -> boolean().
+-spec eval_cond_bits(hipe_rtl:alub_cond(), boolean(),
+		     boolean(), boolean(), boolean()) -> boolean().
 
 eval_cond_bits(Cond, N, Z, V, C) ->
   case Cond of
@@ -146,9 +147,7 @@ eval_cond_bits(Cond, N, Z, V, C) ->
     'overflow' ->
       V;
     'not_overflow' ->
-      not V;
-    _ ->
-      ?EXIT({'condition code not handled',Cond})
+      not V
   end.
 
 eval_alub(Op, Cond, Arg1, Arg2) ->

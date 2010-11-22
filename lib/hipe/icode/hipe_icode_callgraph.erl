@@ -25,8 +25,6 @@
 %%           in hipe_icode_type.erl.
 %%
 %% Created :  7 Jun 2004 by Tobias Lindahl <tobiasl@it.uu.se>
-%%
-%% $Id$
 %%-----------------------------------------------------------------------
 -module(hipe_icode_callgraph).
 
@@ -48,7 +46,7 @@
 
 -type mfa_icode() :: {mfa(), #icode{}}.
 
--record(icode_callgraph, {codedict :: dict(), ordered_sccs :: [[atom()]]}).
+-record(icode_callgraph, {codedict :: dict(), ordered_sccs :: [[mfa()]]}).
 
 %%------------------------------------------------------------------------
 %% Exported functions
@@ -78,7 +76,7 @@ construct_callgraph(List) ->
 
 to_list(#icode_callgraph{codedict = Dict, ordered_sccs = SCCs}) ->
   FlatList = lists:flatten(SCCs),
-  [{Mod, dict:fetch(Mod, Dict)} || Mod <- FlatList].
+  [{MFA, dict:fetch(MFA, Dict)} || MFA <- FlatList].
 
 %%------------------------------------------------------------------------
 

@@ -56,9 +56,9 @@
 
 -record(state, {win_created = false	:: boolean(),
 		mindex = 0		:: integer(),
-		mod			:: module(),
+		mod			:: atom(),
 		funs = []		:: [fa()],
-		mods = [] 		:: [module()],
+		mods = [] 		:: [atom()],
 		options = [o2]		:: comp_options(),
 		compiling = false	:: 'false' | pid()
 	       }).
@@ -291,8 +291,7 @@ update_code_listbox(State) ->
 		      integer_to_list(length(Mods))++")"),
 	  catch gs:config(code_listbox, [{data, Mods},
 					 {items, Mods},
-					 {selection, 0}
-					]),
+					 {selection, 0}]),
 	  update_module_box(State#state{mods = Mods}, 0, Mods, "")  
       end
   end.
@@ -367,7 +366,7 @@ update_text(Lab, Text) ->
 %% @doc Returns a list of all loaded modules. 
 %%---------------------------------------------------------------------
 
--spec mods() -> [module()].
+-spec mods() -> [atom()].
 
 mods() ->
   [Mod || {Mod,_File} <- code:all_loaded()].
@@ -382,25 +381,26 @@ funs(Mod) ->
 native_code(Mod) ->
   Mod:module_info(native_addresses).
 
--spec mfas(module(), [fa()]) -> [mfa()].
+-spec mfas(atom(), [fa()]) -> [mfa()].
 
 mfas(Mod, Funs) ->
   [{Mod,F,A} || {F,A} <- Funs].
 
--spec fun_names(module(), [fa()], [fa_address()], boolean()) -> string().
+-spec fun_names(atom(), [fa()], [fa_address()], boolean()) -> [string()].
 
 fun_names(M, Funs, NativeCode, Prof) ->
-  [list_to_atom(atom_to_list(F) ++ "/" ++ integer_to_list(A) ++
-		(case in_native(F, A, NativeCode) of
-		   true -> " [native] ";
-		   false -> ""
-		 end)
-		++
-		if Prof -> 
-		    (catch integer_to_list(hipe_bifs:call_count_get({M,F,A})));
-		   true -> ""
-		end) ||
-      {F,A} <- Funs].
+  [atom_to_list(F) ++ "/" ++ integer_to_list(A)
+   ++
+     (case in_native(F, A, NativeCode) of
+	true -> " [native] ";
+	false -> ""
+      end)
+   ++
+     if Prof ->
+	 (catch integer_to_list(hipe_bifs:call_count_get({M,F,A})));
+	true -> ""
+     end
+   || {F,A} <- Funs].
 
 -spec in_native(atom(), arity(), [fa_address()]) -> boolean().
 
@@ -461,7 +461,7 @@ get_compile(Info) ->
     false -> []
   end.
 
--spec is_profiled(module()) -> boolean().
+-spec is_profiled(atom()) -> boolean().
 
 is_profiled(Mod) ->
   case hipe_bifs:call_count_get({Mod,module_info,0}) of
@@ -478,7 +478,7 @@ compile(State) ->
   P = spawn(fun() -> c(Parent, State#state.mod, State#state.options) end),
   State#state{compiling = P}.
 
--spec c(pid(), module(), comp_options()) -> 'ok'.
+-spec c(pid(), atom(), comp_options()) -> 'ok'.
 
 c(Parent, Mod, Options) ->
   Res = hipe:c(Mod, Options),
