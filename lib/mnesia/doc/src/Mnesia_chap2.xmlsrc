@@ -235,9 +235,7 @@
         <seealso marker="Mnesia_chap3#start_mnesia">Starting Mnesia</seealso>.
         </item>
       </list>
-      <p>Continuing the dialogue with the Erlang shell will produce the following
-        the following:
-        </p>
+      <p>Continuing the dialogue with the Erlang shell will produce the following:</p>
       <pre><![CDATA[
         3> company:init().
         {atomic,ok}
@@ -418,7 +416,7 @@ In_proj</tcaption>
         interchangeably throughout this book. 
         </p>
       <p>A Mnesia table is populated by Mnesia records. For example,
-        the tuple <c>{boss, klacke, bjarne}</c> is an record.  The
+        the tuple <c>{boss, klacke, bjarne}</c> is a record.  The
         second element in this tuple is the key. In order to uniquely
         identify a table row both the key and the table name is
         needed. The term <em>object identifier</em>, 
@@ -553,7 +551,7 @@ In_proj</tcaption>
           stored in the database: 
           </p>
         <pre>
-\011  mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1']}]).
+mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1']}]).
         </pre>
         <p>Select must always run within an activity such as a
           transaction. To be able to call from the shell we might
@@ -587,8 +585,8 @@ In_proj</tcaption>
           </p>
         <pre>
           Q = qlc:q([E#employee.name || E <![CDATA[<-]]> mnesia:table(employee),
-\011                                E#employee.sex == female]),
-\011  qlc:e(Q),
+                                E#employee.sex == female]),
+          qlc:e(Q),
         </pre>
         <p>Accessing mnesia tables from a QLC list comprehension must
           always be done within a transaction. Consider the following

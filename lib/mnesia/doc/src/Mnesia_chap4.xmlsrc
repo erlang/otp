@@ -514,13 +514,13 @@ The behavior is undefined if any process perform a write
        of the table itself. This is an implementation detail, but remember
        the dirty functions are low level functions. 
       </item>
-      <item><c>mnesia:dirty_last(Tab)</c> This function works exactly as
+      <item><c>mnesia:dirty_last(Tab)</c> This function works exactly like
       <c>mnesia:dirty_first/1</c> but returns the last object in
        Erlang  term  order for the <c>ordered_set</c> table type. For
        all other table types, <c>mnesia:dirty_first/1</c> and 
       <c>mnesia:dirty_last/1</c> are synonyms.
       </item>
-      <item><c>mnesia:dirty_prev(Tab, Key)</c> This function works exactly as
+      <item><c>mnesia:dirty_prev(Tab, Key)</c> This function works exactly like
       <c>mnesia:dirty_next/2</c> but returns the previous object in
        Erlang term  order for the ordered_set table type. For
        all other table types, <c>mnesia:dirty_next/2</c> and 

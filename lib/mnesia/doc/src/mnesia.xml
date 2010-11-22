@@ -799,7 +799,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
           </item>
           <item>
             <p><c>{local_content, Bool}</c>, where <c>Bool</c> must be
-              either <c>true</c> or <c>false</c>. The default value is <c>false</c>.\011      </p>
+              either <c>true</c> or <c>false</c>. The default value is <c>false</c>.</p>
           </item>
         </list>
         <p>For example, the following call creates the <c>person</c> table
@@ -1022,7 +1022,7 @@ mnesia:create_table(person,
       <name>dirty_last(Tab) ->  Key | exit({aborted, Reason}) </name>
       <fsummary>Return the key for the last record in a table.</fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:dirty_first/1</c> but returns the last object in
           Erlang  term  order for the <c>ordered_set</c> table type. For
           all other table types, <c>mnesia:dirty_first/1</c> and 
@@ -1063,11 +1063,11 @@ mnesia:create_table(person,
       <name>dirty_prev(Tab, Key) -> Key | exit({aborted, Reason}) </name>
       <fsummary>Return the previous key in a table. </fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:dirty_next/2</c> but returns the previous object in
           Erlang term  order for the ordered_set table type. For
           all other table types, <c>mnesia:dirty_next/2</c> and 
-          <c>mnesia:dirty_prev/2</c> are synonyms.\011  </p>
+          <c>mnesia:dirty_prev/2</c> are synonyms.</p>
       </desc>
     </func>
     <func>
@@ -1334,7 +1334,7 @@ mnesia:create_table(person,
       <name>foldr(Function, Acc, Table) -> NewAcc | transaction abort </name>
       <fsummary>Call Function for each record in Table  </fsummary>
       <desc>
-        <p>This function works exactly as 
+        <p>This function works exactly like
           <c>foldl/3</c> but iterates the table in the opposite order 
           for the <c>ordered_set</c> table type. For
           all other table types, <c>foldr/3</c> and 
@@ -1512,14 +1512,14 @@ mnesia:create_table(person,
       <fsummary>Check if code is running in a transaction.</fsummary>
       <desc>
         <p>When this function is executed inside a transaction context
-	  it returns <c>true</c>, otherwise <c>false</c>.</p>
+          it returns <c>true</c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
       <name>last(Tab) ->  Key | transaction abort </name>
       <fsummary>Return the key for the last record in a table.</fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:first/1</c> but returns the last object in
           Erlang  term  order for the <c>ordered_set</c> table type. For
           all other table types, <c>mnesia:first/1</c> and 
@@ -1698,11 +1698,11 @@ mnesia:create_table(person,
       <name>prev(Tab, Key) -> Key | transaction abort </name>
       <fsummary>Return the previous key in a table. </fsummary>
       <desc>
-        <p>This function works exactly 
+        <p>This function works exactly like
           <c>mnesia:next/2</c> but returns the previous object in
           Erlang term  order for the ordered_set table type. For
           all other table types, <c>mnesia:next/2</c> and 
-          <c>mnesia:prev/2</c> are synonyms.\011  </p>
+          <c>mnesia:prev/2</c> are synonyms.</p>
       </desc>
     </func>
     <func>
@@ -1891,10 +1891,10 @@ mnesia:create_table(person,
         <p>For example to find the names of all male persons with an age over 30 in table
           Tab do:</p>
         <code type="none">
-\011  MatchHead = #person{name='$1', sex=male, age='$2', _='_'},
-\011  Guard = {'>', '$2', 30},
-\011  Result = '$1',
-\011  mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),
+MatchHead = #person{name='$1', sex=male, age='$2', _='_'},
+Guard = {'>', '$2', 30},
+Result = '$1',
+mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),
         </code>
       </desc>
     </func>
@@ -2835,7 +2835,7 @@ raise(Name, Amount) ->
     </func>
     <func>
       <name>write(Tab, Record, LockKind) -> transaction abort | ok </name>
-      <fsummary>Write an record into the database.</fsummary>
+      <fsummary>Write a record into the database.</fsummary>
       <desc>
         <p>Writes the record <c>Record</c> to the table <c>Tab</c>.
           </p>

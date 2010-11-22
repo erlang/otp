@@ -132,7 +132,7 @@
             function changes the format on all records in table
             <c>Tab</c>. It applies the argument <c>Fun</c> to all
             records in the table. <c>Fun</c> shall be a function which
-            takes an record of the old type, and returns the record of the new
+            takes a record of the old type, and returns the record of the new
             type. The table key may not be changed.</p>
           <code type="none">
 -record(old, {key, val}).
@@ -418,8 +418,8 @@ skeppet %<input>erl -sname b -mnesia dir '"/ldisc/scratch/Mnesia.company"'</inpu
               type <c>set</c> and <c>bag</c>: </p>
             <pre>
  f() -> F =  fun() ->
-\011      mnesia:write({foo, 1, 2}), mnesia:write({foo, 1, 3}),
-\011      mnesia:read({foo, 1}) end, mnesia:transaction(F).             </pre>
+     mnesia:write({foo, 1, 2}), mnesia:write({foo, 1, 3}),
+     mnesia:read({foo, 1}) end, mnesia:transaction(F).             </pre>
             <p>This transaction will return the list <c>[{foo,1,3}]</c> if
               the <c>foo</c> table is of type <c>set</c>.  However, list
               <c>[{foo,1,2}, {foo,1,3}]</c> will return if the table is
