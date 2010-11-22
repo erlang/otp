@@ -415,15 +415,15 @@ sort_mfa(Bpfs, mfa) when is_list(Bpfs) ->
 	end, Bpfs);
 sort_mfa(Bpfs, time) when is_list(Bpfs) ->
     lists:sort(fun
-	    ({_,{A,_}}, {_,{B,_}}) when A < B -> true;
+	    ({_,{_,A}}, {_,{_,B}}) when A < B -> true;
 	    (_, _) -> false
 	end, Bpfs);
 sort_mfa(Bpfs, calls) when is_list(Bpfs) ->
     lists:sort(fun
-	    ({_,{_,A}}, {_,{_,B}}) when A < B -> true;
+	    ({_,{A,_}}, {_,{B,_}}) when A < B -> true;
 	    (_, _) -> false
 	end, Bpfs);
-sort_mfa(Bpfs, _) when is_list(Bpfs) -> sort_mfa(Bpfs, calls).
+sort_mfa(Bpfs, _) when is_list(Bpfs) -> sort_mfa(Bpfs, time).
 
 filter_mfa(Bpfs, Ts) when is_list(Ts) ->
     filter_mfa(Bpfs, [], proplists:get_value(calls, Ts, 0), proplists:get_value(time, Ts, 0));
