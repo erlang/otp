@@ -559,7 +559,7 @@ cl_loop(State, LogCache) ->
       cl_loop(State, LogCache)
   end.
 
--spec failed_anal_msg(string(), [_]) -> string().
+-spec failed_anal_msg(string(), [_]) -> nonempty_string().
 
 failed_anal_msg(Reason, LogCache) ->
   Msg = "Analysis failed with error: " ++ Reason ++ "\n",

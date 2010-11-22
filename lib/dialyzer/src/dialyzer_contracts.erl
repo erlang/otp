@@ -163,20 +163,23 @@ process_contract_remote_types(CodeServer) ->
 check_contracts(Contracts, Callgraph, FunTypes) ->
   FoldFun =
     fun(Label, Type, NewContracts) ->
-	{ok, {M,F,A} = MFA} = dialyzer_callgraph:lookup_name(Label, Callgraph),
-	case orddict:find(MFA, Contracts) of
-	  {ok, {_FileLine, Contract}} ->
-	    case check_contract(Contract, Type) of
-	      ok ->
-		case erl_bif_types:is_known(M, F, A) of
-		  true ->
-		    %% Disregard the contracts since
-		    %% this is a known function.
-		    NewContracts;
-		  false ->
-		    [{MFA, Contract}|NewContracts]
+	case dialyzer_callgraph:lookup_name(Label, Callgraph) of
+	  {ok, {M,F,A} = MFA} ->
+	    case orddict:find(MFA, Contracts) of
+	      {ok, {_FileLine, Contract}} ->
+		case check_contract(Contract, Type) of
+		  ok ->
+		    case erl_bif_types:is_known(M, F, A) of
+		      true ->
+			%% Disregard the contracts since
+			%% this is a known function.
+			NewContracts;
+		      false ->
+			[{MFA, Contract}|NewContracts]
+		    end;
+		  {error, _Error} -> NewContracts
 		end;
-	      {error, _Error} -> NewContracts
+	      error -> NewContracts
 	    end;
 	  error -> NewContracts
 	end

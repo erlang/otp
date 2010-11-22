@@ -225,6 +225,8 @@ plt_info(Plt) ->
 %% Machinery
 %%-----------
 
+-type doit_ret() :: {'ok', dial_ret()} | {'error', string()}.
+
 doit(F) ->
   try
     {ok, F()}
@@ -233,13 +235,17 @@ doit(F) ->
       {error, lists:flatten(Msg)}
   end.
 
+-spec cl_error(string()) -> no_return().
+
 cl_error(Msg) ->
   cl_halt({error, Msg}, #options{}).
+
+-spec gui_halt(doit_ret(), #options{}) -> no_return().
 
 gui_halt(R, Opts) ->
   cl_halt(R, Opts#options{report_mode = quiet}).
 
--spec cl_halt({'ok',dial_ret()} | {'error',string()}, #options{}) -> no_return().
+-spec cl_halt(doit_ret(), #options{}) -> no_return().
 
 cl_halt({ok, R = ?RET_NOTHING_SUSPICIOUS}, #options{report_mode = quiet}) ->
   halt(R);
