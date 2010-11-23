@@ -74,9 +74,9 @@ all(suite) ->
       [
        one_scb, two_scb, faulty_scb_no_init, minimal_scb, 
        minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
-       scope_per_group_scb, scope_suite_scb%,
-%       fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
-%       skip_post_suite_scb
+       scope_per_group_scb, scope_suite_scb,
+       fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
+       skip_post_suite_scb
       ]).
 
 
@@ -404,70 +404,112 @@ test_events(scope_per_group_scb) ->
 test_events(fail_pre_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{fail_pre_suite_scb,init,[[]]}},
+     {?eh,scb,{'_',init,[[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
-                   {fail, "Test failure"}}},
 
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {?eh,scb,{'_',post_init_per_suite,[ct_scb_empty_SUITE,
+					{error,"Test failure"},[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
+                   {failed, {error,"Test failure"}}}},
+     {?eh,scb,{'_',on_tc_fail,
+	       [init_per_suite,{failed,"Test failure"},[]]}},
+
+     
      {?eh,tc_auto_skip,{ct_scb_empty_SUITE,test_case,
-                        {failed,
-                         {ct_scb_empty_SUITE,init_per_suite,{failed,"Test failure"}}}}},
+                        {failed,{ct_scb_empty_SUITE,init_per_suite,
+				 {failed,"Test failure"}}}}},
+     {?eh,scb,{'_',on_tc_skip,
+	       [test_case, {tc_auto_skip,
+			    {failed, {ct_scb_empty_SUITE, init_per_suite,
+				     {failed, "Test failure"}}}},[]]}},
+
      
      {?eh,tc_auto_skip, {ct_scb_empty_SUITE, end_per_suite,
-                         {failed, {ct_scb_empty_SUITE, init_per_suite, {failed, "Test failure"}}}}},
+                         {failed, {ct_scb_empty_SUITE, init_per_suite,
+				   {failed, "Test failure"}}}}},
+     {?eh,scb,{'_',on_tc_skip,
+	       [end_per_suite, {tc_auto_skip,
+				{failed, {ct_scb_empty_SUITE, init_per_suite,
+					  {failed, "Test failure"}}}},[]]}},
+
      
      {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb, {'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
 test_events(fail_post_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{minimal_scb,init,[[]]}},
+     {?eh,scb,{'_',init,[[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+     {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {?eh,scb,{'_',post_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
+		   {failed,{error,"Test failure"}}}},
+     {?eh,scb,{'_',on_tc_fail,[init_per_suite, {failed,"Test failure"}, []]}},
 
-     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     {?eh,tc_auto_skip,{ct_scb_empty_SUITE,test_case,
+                        {failed,{ct_scb_empty_SUITE,init_per_suite,
+				 {failed,"Test failure"}}}}},
+     {?eh,scb,{'_',on_tc_skip,[test_case,{tc_auto_skip,'_'},[]]}},
      
-     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,tc_auto_skip, {ct_scb_empty_SUITE, end_per_suite,
+                         {failed, {ct_scb_empty_SUITE, init_per_suite,
+				   {failed, "Test failure"}}}}},
+     {?eh,scb,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,'_'},[]]}},
+
      {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb, {'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
 test_events(skip_pre_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{minimal_scb,init,[[]]}},
+     {?eh,scb,{'_',init,[[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+     {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {?eh,scb,{'_',post_init_per_suite,[ct_scb_empty_SUITE,{skip,"Test skip"},[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,{skipped,"Test skip"}}},
+     {?eh,scb,{'_',on_tc_skip,
+	       [init_per_suite,{tc_user_skip,{skipped,"Test skip"}},[]]}},
 
-     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     {?eh,tc_auto_skip,{ct_scb_empty_SUITE,test_case,"Test skip"}},
+     {?eh,scb,{'_',on_tc_skip,[test_case,{tc_auto_skip,"Test skip"},[]]}},
      
-     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,tc_auto_skip, {ct_scb_empty_SUITE, end_per_suite,"Test skip"}},
+     {?eh,scb,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,"Test skip"},[]]}},
+
      {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb, {'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
 test_events(skip_post_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{minimal_scb,init,[[]]}},
+     {?eh,scb,{'_',init,[[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
-
-     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
      
-     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {?eh,scb,{'_',post_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,{skipped,"Test skip"}}},
+     {?eh,scb,{'_',on_tc_skip,
+	       [init_per_suite,{tc_user_skip,{skipped,"Test skip"}},[]]}},
+
+     {?eh,tc_auto_skip,{ct_scb_empty_SUITE,test_case,"Test skip"}},
+     {?eh,scb,{'_',on_tc_skip,[test_case,{tc_auto_skip,"Test skip"},[]]}},
+     
+     {?eh,tc_auto_skip, {ct_scb_empty_SUITE, end_per_suite,"Test skip"}},
+     {?eh,scb,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,"Test skip"},[]]}},
+     
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
