@@ -28,6 +28,8 @@
 -export([init_tc/3]).
 -export([end_tc/5]).
 -export([terminate/1]).
+-export([on_tc_skip/2]).
+-export([on_tc_fail/2]).
 
 -type proplist() :: [{atom(),term()}].
 
@@ -109,6 +111,12 @@ end_tc(_Mod, {end_per_group, GroupName, _}, _Config, Result, _Return) ->
 end_tc(_Mod, TC, _Config, Result, _Return) ->
     call(fun call_generic/3, Result, {post_end_per_testcase, TC}).
 
+on_tc_skip(How, {_Suite, Case, Reason}) ->
+    call(fun call_cleanup/3, {How, Reason}, {on_tc_skip, Case}).
+
+on_tc_fail(How, {_Suite, Case, Reason}) ->
+    call(fun call_cleanup/3, Reason, {on_tc_fail, Case}).
+
 %% -------------------------------------------------------------------------
 %% Internal Functions
 %% -------------------------------------------------------------------------
@@ -121,6 +129,11 @@ call_init({Mod, State}, Config, Scope) ->
 call_terminate({Mod, State}, _, _) ->
     catch_apply(Mod,terminate,[State], ok),
     {[],{Mod,State}}.
+
+call_cleanup({Mod, State}, Reason, {Function, Tag}) ->
+    NewState = catch_apply(Mod,Function,[Tag, Reason, State],
+			   {Reason,State}),
+    {Reason, {Mod, NewState}}.
 
 call_generic({Mod, State}, Config, {Function, undefined}) ->
     {NewConf, NewState} = catch_apply(Mod,Function,[Config, State],

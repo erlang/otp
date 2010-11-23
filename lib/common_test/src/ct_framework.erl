@@ -546,7 +546,7 @@ tag(Other) ->
 tag_scb({STag,Reason}) when STag == skip; STag == skipped -> 
     {skipped,Reason};
 tag_scb({fail, Reason}) ->
-    {failed, Reason};
+    {failed, {error,Reason}};
 tag_scb(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
                        ETag == timetrap_timeout;
                        ETag == testcase_aborted -> 
@@ -1184,6 +1184,18 @@ report(What,Data) ->
 	    ok;
 	tc_done ->
 	    {_Suite,Case,Result} = Data,
+	    case Result of
+		{failed, _} ->
+		    ct_suite_callback:on_tc_fail(What, Data);
+		{skipped,{failed,{_,init_per_testcase,_}}} ->
+		    ct_suite_callback:on_tc_skip(tc_auto_skip, Data);
+		{skipped,{require_failed,_}} ->
+		    ct_suite_callback:on_tc_skip(tc_auto_skip, Data);
+		{skipped,_} ->
+		    ct_suite_callback:on_tc_skip(tc_user_skip, Data);
+		_Else ->
+		    ok
+	    end,
 	    case {Case,Result} of
 		{init_per_suite,_} ->
 		    ok;
@@ -1201,8 +1213,8 @@ report(What,Data) ->
 		    add_to_stats(auto_skipped);
 		{_,{skipped,_}} ->
 		    add_to_stats(user_skipped);
-		{_,{FailOrSkip,_Reason}} ->
-		    add_to_stats(FailOrSkip)
+		{_,{SkipOrFail,_Reason}} ->
+		    add_to_stats(SkipOrFail)
 	    end;
 	tc_user_skip ->	    
 	    %% test case specified as skipped in testspec
@@ -1210,6 +1222,7 @@ report(What,Data) ->
 	    ct_event:sync_notify(#event{name=tc_user_skip,
 					node=node(),
 					data=Data}),
+	    ct_suite_callback:on_tc_skip(What, Data),
 	    add_to_stats(user_skipped);
 	tc_auto_skip ->
 	    %% test case skipped because of error in init_per_suite
@@ -1222,6 +1235,7 @@ report(What,Data) ->
 	    ct_event:sync_notify(#event{name=tc_auto_skip,
 					node=node(),
 					data=Data}),
+	    ct_suite_callback:on_tc_skip(What, Data),
 	    if Case /= end_per_suite, Case /= end_per_group -> 
 		    add_to_stats(auto_skipped);
 	       true -> 
