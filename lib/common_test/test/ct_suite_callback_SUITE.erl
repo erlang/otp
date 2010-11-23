@@ -73,9 +73,10 @@ all(suite) ->
     lists:reverse(
       [
        one_scb, two_scb, faulty_scb_no_init, minimal_scb, 
-       minimal_and_maximal_scb, faulty_scb_undef%, scope_per_suite_scb,
-%       scope_per_tc_scb, scope_per_group_scb, scope_suite_scb,
-%       fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb, skip_post_suite_scb
+       minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
+       scope_per_group_scb, scope_suite_scb%,
+%       fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
+%       skip_post_suite_scb
       ]).
 
 
@@ -115,10 +116,6 @@ scope_suite_scb(Config) when is_list(Config) ->
     do_test(scope_suite_scb, "ct_scope_suite_scb_SUITE.erl",
 	    [],Config).
 
-scope_per_tc_scb(Config) when is_list(Config) ->
-    do_test(scope_per_tc_scb, "ct_scope_per_tc_scb_SUITE.erl",
-	    [],Config).
-
 scope_per_group_scb(Config) when is_list(Config) ->
     do_test(scope_per_group_scb, "ct_scope_per_group_scb_SUITE.erl",
 	    [],Config).
@@ -138,14 +135,6 @@ skip_pre_suite_scb(Config) ->
 skip_post_suite_scb(Config) ->
     do_test(skip_post_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [skip_post_suite_scb],Config).
-
-scope_tc_scb(Config) when is_list(Config) ->
-    do_test(scope_tc_scb, "ct_scope_tc_scb_SUITE.erl",
-	    [],Config).
-
-scope_group_scb(Config) when is_list(Config) ->
-    do_test(scope_group_scb, "ct_scope_group_scb_SUITE.erl",
-	    [],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -379,25 +368,6 @@ test_events(scope_suite_scb) ->
      {?eh,scb,{'_',post_end_per_suite,[ct_scope_suite_scb_SUITE,'_',[]]}},
      {?eh,scb,{'_',terminate,[[]]}},
      {?eh,tc_done,{ct_scope_suite_scb_SUITE,end_per_suite,ok}},
-     {?eh,test_done,{'DEF','STOP_TIME'}},
-     {?eh,stop_logging,[]}
-    ];
-
-test_events(scope_per_tc_scb) ->
-    [
-     {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,tc_start,{ct_scope_per_tc_scb_SUITE,init_per_suite}},
-     {?eh,tc_done,{ct_scope_per_tc_scb_SUITE,init_per_suite,ok}},
-
-     {?eh,tc_start,{ct_scope_per_tc_scb_SUITE,test_case}},
-     {?eh,scb,{empty_scb,init,[[]]}},
-     {?eh,scb,{empty_scb,post_end_per_testcase,[test_case,[]]}},
-     {?eh,scb,{empty_scb,terminate,[[]]}},
-     {?eh,tc_done,{ct_scope_per_tc_scb_SUITE,test_case,ok}},
-     
-     {?eh,tc_start,{ct_scope_per_tc_scb_SUITE,end_per_suite}},
-     {?eh,tc_done,{ct_scope_per_tc_scb_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
