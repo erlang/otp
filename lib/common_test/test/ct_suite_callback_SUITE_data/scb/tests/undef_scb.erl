@@ -26,14 +26,46 @@
 
 
 %% Suite Callbacks
--export([init/1]).
--export([pre_init_per_suite/3]).
+-compile(export_all).
 
 init(Opts) ->
-    gen_event:notify(?CT_EVMGR_REF, #event{ name = scb, node = node(),
-					    data = {?MODULE, init, [Opts]}}),
-    {now(), Opts}.
+    empty_scb:init(Opts).
 
-
-pre_init_per_suite(Suite, Config, State) ->
+pre_init_per_suite(_Suite, _Config, _State) ->
     lists:flaten([1,2,[3,4]]).
+
+post_init_per_suite(Suite,Config,State) ->
+    empty_scb:post_init_per_suite(Suite,Config,State).
+
+pre_end_per_suite(Suite,Config,State) ->
+    empty_scb:pre_end_per_suite(Suite,Config,State).
+
+post_end_per_suite(Suite,Config,State) ->
+    empty_scb:post_end_per_suite(Suite,Config,State).
+
+pre_init_per_group(Group,Config,State) ->
+    empty_scb:pre_init_per_group(Group,Config,State).
+
+post_init_per_group(Group,Config,State) ->
+    empty_scb:post_init_per_group(Group,Config,State).
+
+pre_end_per_group(Group,Config,State) ->
+    empty_scb:pre_end_per_group(Group,Config,State).
+
+post_end_per_group(Group,Config,State) ->
+    empty_scb:post_end_per_group(Group,Config,State).
+
+pre_init_per_testcase(TC,Config,State) ->
+    empty_scb:pre_init_per_testcase(TC,Config,State).
+
+post_end_per_testcase(TC,Config,State) ->
+    empty_scb:post_end_per_testcase(TC,Config,State).
+
+on_tc_fail(TC, Reason, State) ->
+    empty_scb:on_tc_fail(TC,Reason,State).
+
+on_tc_skip(TC, Reason, State) ->
+    empty_scb:on_tc_skip(TC,Reason,State).
+
+terminate(State) ->
+    empty_scb:terminate(State).

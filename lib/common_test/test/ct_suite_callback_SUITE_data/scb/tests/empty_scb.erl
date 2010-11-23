@@ -91,7 +91,7 @@ pre_init_per_suite(Suite,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, pre_init_per_suite,
-				     [Suite,State]}}),
+				     [Suite,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after init_per_suite.
@@ -104,7 +104,7 @@ post_init_per_suite(Suite,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_init_per_suite,
-				     [Suite,State]}}),
+				     [Suite,Config,State]}}),
     {Config, State}.
 
 %% @doc Called before end_per_suite. Note that the config cannot be
@@ -117,7 +117,7 @@ pre_end_per_suite(Suite,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, pre_end_per_suite,
-				     [Suite,State]}}),
+				     [Suite,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after end_per_suite. Note that the config cannot be
@@ -130,7 +130,7 @@ post_end_per_suite(Suite,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_end_per_suite,
-				     [Suite,State]}}),
+				     [Suite,Config,State]}}),
     {Config, State}.
 
 %% @doc Called before each init_per_group.
@@ -143,7 +143,7 @@ pre_init_per_group(Group,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, pre_init_per_group,
-				     [Group,State]}}),
+				     [Group,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after each init_per_group.
@@ -156,7 +156,7 @@ post_init_per_group(Group,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_init_per_group,
-				     [Group,State]}}),
+				     [Group,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after each end_per_group. Note that the config cannot be
@@ -169,7 +169,7 @@ pre_end_per_group(Group,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, pre_end_per_group,
-				     [Group,State]}}),
+				     [Group,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after each end_per_group. Note that the config cannot be
@@ -182,7 +182,7 @@ post_end_per_group(Group,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_end_per_group,
-				     [Group,State]}}),
+				     [Group,Config,State]}}),
     {Config, State}.
 
 %% @doc Called before each test case.
@@ -195,7 +195,7 @@ pre_init_per_testcase(TC,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, pre_init_per_testcase,
-				     [TC,State]}}),
+				     [TC,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after each test case. Note that the config cannot be
@@ -208,7 +208,7 @@ post_end_per_testcase(TC,Config,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_end_per_testcase,
-				     [TC,State]}}),
+				     [TC,Config,State]}}),
     {Config, State}.
 
 %% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
@@ -218,13 +218,13 @@ post_end_per_testcase(TC,Config,State) ->
 -spec on_tc_fail(TC :: init_per_suite | end_per_suite |
 		 init_per_group | end_per_group | atom(),
 		 Reason :: term(), State :: #state{}) ->
-    ok.
+    NewState :: #state{}.
 on_tc_fail(TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, on_tc_fail,
-				     [TC,State]}}),
-    ok.
+				     [TC,Reason,State]}}),
+    State.
 
 %% @doc Called when a test case is skipped by either user action
 %% or due to an init function failing. Test case can be
@@ -234,13 +234,13 @@ on_tc_fail(TC, Reason, State) ->
 		 {tc_auto_skip, {failed, {Mod :: atom(), Function :: atom(), Reason :: term()}}} |
          {tc_user_skip, {skipped, Reason :: term()}},
           State :: #state{}) ->
-    ok.
+    NewState :: #state{}.
 on_tc_skip(TC, Reason, State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, on_tc_skip,
-				     [TC,State]}}),
-    ok.
+				     [TC,Reason,State]}}),
+    State.
 
 %% @doc Called when the scope of the SCB is done, this depends on
 %% when the SCB was specified. This translation table describes when this
@@ -253,7 +253,6 @@ on_tc_skip(TC, Reason, State) ->
 %%  | suite/0             | after SUITE is done     |
 %%  | init_per_suite/1    | after SUITE is done     |
 %%  | init_per_group/2    | after group is done     |
-%%  | init_per_testcase/2 | after test case is done |
 %%  |-----------------------------------------------|
 %%
 -spec terminate(State :: #state{}) ->

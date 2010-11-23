@@ -29,7 +29,5 @@
 -export([init/1]).
 
 init(Opts) ->
-    gen_event:notify(?CT_EVMGR_REF, #event{ name = scb, node = node(),
-					    data = {?MODULE, init, [Opts]}}),
-    {now(), Opts}.
+    empty_scb:init(Opts).
 
