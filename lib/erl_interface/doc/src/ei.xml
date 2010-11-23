@@ -641,6 +641,7 @@ ei_x_encode_empty_list(&amp;x);
         <p></p>
         <pre>
 ~a - an atom, char*
+~c - a character, char
 ~s - a string, char*
 ~i - an integer, int
 ~l - a long integer, long int

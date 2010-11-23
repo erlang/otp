@@ -155,7 +155,7 @@ format_wo_ver(suite) -> [];
 format_wo_ver(Config) when is_list(Config) ->
     ?line P = runner:start(?format_wo_ver),
 
-    ?line {term, [-1, 2, {a, "b"}, {c, 10}]} = get_term(P),
+    ?line {term, [-1, 2, $c, {a, "b"}, {c, 10}]} = get_term(P),
 
     ?line runner:recv_eot(P),
     ok.

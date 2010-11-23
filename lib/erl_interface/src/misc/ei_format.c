@@ -47,6 +47,7 @@
  * array of unions.
  */
 union arg {
+  char c;
   char* s;
   long l;
   unsigned long u;
@@ -224,6 +225,7 @@ static int pquotedatom(const char** fmt, ei_x_buff* x)
  /* 
   * The format letters are:
   *   a  -  An atom
+  *   c  -  A character
   *   s  -  A string
   *   i  -  An integer
   *   l  -  A long integer
@@ -238,6 +240,10 @@ static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
     switch (*(*fmt)++) {
     case 'a': 
 	res = ei_x_encode_atom(x, (*args)->s);
+	(*args)++;
+	break;
+    case 'c':
+	res = ei_x_encode_char(x, (*args)->c);
 	(*args)++;
 	break;
     case 's':
@@ -396,6 +402,9 @@ static int read_args(const char* fmt, va_list ap, union arg **argp)
 	  return -1;	/* Error, string not complete */
 	}
 	switch (*p++) {
+	case 'c':
+	  args[i++].c = (char) va_arg(ap, int);
+	  break;
 	case 'a': 
 	case 's':
 	  args[i++].s = va_arg(ap, char*);
