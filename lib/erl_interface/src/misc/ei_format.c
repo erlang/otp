@@ -52,6 +52,7 @@ union arg {
   long l;
   unsigned long u;
   double d;
+  erlang_pid* pid;
 };
 
 static int eiformat(const char** s, union arg** args, ei_x_buff* x);
@@ -232,6 +233,7 @@ static int pquotedatom(const char** fmt, ei_x_buff* x)
   *   u  -  An unsigned long integer
   *   f  -  A float 
   *   d  -  A double float 
+  *   p  -  An Erlang PID
   */
 static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 {
@@ -267,6 +269,10 @@ static int pformat(const char** fmt, union arg** args, ei_x_buff* x)
 	res = ei_x_encode_double(x, (*args)->d);
 	(*args)++;
 	break;	
+    case 'p':
+	res = ei_x_encode_pid(x, (*args)->pid);
+	(*args)++;
+	break;
     default:
 	res = -1;
 	break;
@@ -424,6 +430,9 @@ static int read_args(const char* fmt, va_list ap, union arg **argp)
 	case 'd':
 	  args[i++].d = va_arg(ap, double);
 	  break;	
+	case 'p':
+	  args[i++].pid = va_arg(ap, erlang_pid*);
+	  break;
 	default:
 	  ei_free(args);	/* Invalid specifier */
 	  return -1;

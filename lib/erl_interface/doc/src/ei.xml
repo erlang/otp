@@ -648,6 +648,7 @@ ei_x_encode_empty_list(&amp;x);
 ~u - a unsigned long integer, unsigned long int
 ~f - a float, float
 ~d - a double float, double float
+~p - an Erlang PID, erlang_pid*
         </pre>
         <p>For instance, to encode a tuple with some stuff:</p>
         <pre>
