@@ -76,7 +76,7 @@ all(suite) ->
        minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
        scope_per_group_scb, scope_suite_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
-       skip_post_suite_scb
+       skip_post_suite_scb, update_config_scb
       ]).
 
 
@@ -135,6 +135,10 @@ skip_pre_suite_scb(Config) ->
 skip_post_suite_scb(Config) ->
     do_test(skip_post_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [skip_post_suite_scb],Config).
+
+update_config_scb(Config) ->
+    do_test(update_config_scb, "ct_update_config_SUITE.erl",
+	    [update_config_scb],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -511,8 +515,133 @@ test_events(skip_post_suite_scb) ->
      {?eh,scb,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,"Test skip"},[]]}},
      
      {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{'_',terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(update_config_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{'_',init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     
+     {?eh,tc_start,{ct_update_config_SUITE,init_per_suite}},
+     {?eh,scb,{'_',pre_init_per_suite,
+	       [ct_update_config_SUITE,contains([]),[]]}},
+     {?eh,scb,{'_',post_init_per_suite,
+	       [ct_update_config_SUITE,
+		'$proplist',
+		contains(
+			  [init_per_suite,
+			   pre_init_per_suite]),
+		[]]}},
+     {?eh,tc_done,{ct_update_config_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_update_config_SUITE, {init_per_group,group1,[]}}},
+     {?eh,scb,{'_',pre_init_per_group,
+	       [group1,contains(
+			 [post_init_per_suite,
+			  init_per_suite,
+			  pre_init_per_suite]),
+		[]]}},
+     {?eh,scb,{'_',post_init_per_group,
+	       [group1,
+		contains(
+		  [post_init_per_suite,
+		   init_per_suite,
+		   pre_init_per_suite]),
+		contains(
+		  [init_per_group,
+		   pre_init_per_group,
+		   post_init_per_suite,
+		   init_per_suite,
+		   pre_init_per_suite]),
+	       []]}},
+     {?eh,tc_done,{ct_update_config_SUITE,{init_per_group,group1,[]},ok}},
+
+     {?eh,tc_start,{ct_update_config_SUITE,test_case}},
+     {?eh,scb,{'_',pre_init_per_testcase,
+	       [test_case,contains(
+			    [post_init_per_group,
+			     init_per_group,
+			     pre_init_per_group,
+			     post_init_per_suite,
+			     init_per_suite,
+			     pre_init_per_suite]),
+		[]]}},
+     {?eh,scb,{'_',post_end_per_testcase,
+	       [test_case,contains(
+			    [init_per_testcase,
+			     pre_init_per_testcase,
+			     post_init_per_group,
+			     init_per_group,
+			     pre_init_per_group,
+			     post_init_per_suite,
+			     init_per_suite,
+			     pre_init_per_suite]),
+		ok,[]]}},
+     {?eh,tc_done,{ct_update_config_SUITE,test_case,ok}},
+
+     {?eh,tc_start,{ct_update_config_SUITE, {end_per_group,group1,[]}}},
+     {?eh,scb,{'_',pre_end_per_group,
+	       [group1,contains(
+			 [post_init_per_group,
+			  init_per_group,
+			  pre_init_per_group,
+			  post_init_per_suite,
+			  init_per_suite,
+			  pre_init_per_suite]),
+		[]]}},
+     {?eh,scb,{'_',post_end_per_group,
+	       [group1,
+		contains(
+		  [pre_end_per_group,
+		   post_init_per_group,
+		   init_per_group,
+		   pre_init_per_group,
+		   post_init_per_suite,
+		   init_per_suite,
+		   pre_init_per_suite]),
+	       ok,[]]}},
+     {?eh,tc_done,{ct_update_config_SUITE,{end_per_group,group1,[]},ok}},
+     
+     {?eh,tc_start,{ct_update_config_SUITE,end_per_suite}},
+     {?eh,scb,{'_',pre_end_per_suite,
+	       [ct_update_config_SUITE,contains(
+					 [post_init_per_suite,
+					  init_per_suite,
+					  pre_init_per_suite]),
+		[]]}},
+     {?eh,scb,{'_',post_end_per_suite,
+	       [ct_update_config_SUITE,contains(
+					 [pre_end_per_suite,
+					  post_init_per_suite,
+					  init_per_suite,
+					  pre_init_per_suite]),
+	       '_',[]]}},
+     {?eh,tc_done,{ct_update_config_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{'_',terminate,[contains(
+				[post_end_per_suite,
+				 pre_end_per_suite,
+				 post_init_per_suite,
+				 init_per_suite,
+				 pre_init_per_suite])]}},
      {?eh,stop_logging,[]}
     ];
 
 test_events(ok) ->
     ok.
+
+
+%% test events help functions
+contains(List) ->
+    fun(Proplist) when is_list(Proplist) ->
+	    contains(List,Proplist)
+    end.
+contains([Ele|T],[{Ele,_}|T2])->
+    contains(T,T2);
+contains(List,[_|T]) ->
+    contains(List,T);
+contains([],_) ->
+    match.
