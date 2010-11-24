@@ -573,9 +573,7 @@ string(S, F, Adj, F, Pad) ->
     string(S, none, Adj, F, Pad);
 string(S, F, Adj, P, Pad) when F > P ->
     N = lists:flatlength(S),
-    if N > F  -> flat_trunc(S, F);
-       N =:= F -> S;
-       N > P   -> adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
+    if N > P   -> adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
        N =:= P -> adjust(S, chars(Pad, F-P), Adj);
        true    -> adjust([S|chars(Pad, P-N)], chars(Pad, F-P), Adj)
     end.
