@@ -99,6 +99,16 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
     return hp;
 }
 
+#if SIZEOF_LONG != ERTS_SIZEOF_ETERM
+static ERTS_INLINE void ensure_heap(ErlNifEnv* env, unsigned may_need)
+{
+    if (env->hp + may_need > env->hp_end) {
+	alloc_heap_heavy(env, may_need, env->hp);
+	env->hp -= may_need;
+    }
+}
+#endif
+
 void erts_pre_nif(ErlNifEnv* env, Process* p, struct erl_module_nif* mod_nif)
 {
     env->mod_nif = mod_nif;
@@ -730,9 +740,8 @@ int enif_get_long(ErlNifEnv* env, Eterm term, long* ip)
 {
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return term_to_Sint(term, ip);
-#elif SIZEOF_INT == ERTS_SIZEOF_ETERM
-    Sint i;
-    return term_to_Sint(term, &i) ? (*ip = (long) i, 1) : 0;
+#elif SIZEOF_LONG == 8
+    return term_to_Sint64(term, ip);
 #else
 #  error Unknown long word size 
 #endif     
@@ -742,9 +751,8 @@ int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
 {
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return term_to_Uint(term, ip);
-#elif SIZEOF_INT == ERTS_SIZEOF_ETERM
-    Uint u;
-    return term_to_Uint(term, &u) ? (*ip = (unsigned long) u, 1) : 0;
+#elif SIZEOF_LONG == 8
+    return term_to_Uint64(term, ip);
 #else
 #  error Unknown long word size 
 #endif     
@@ -821,12 +829,22 @@ ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned i)
 
 ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long i)
 {
+#if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return IS_SSMALL(i) ? make_small(i) : small_to_big(i, alloc_heap(env,2));
+#elif SIZEOF_LONG == 8
+    ensure_heap(env,3);
+    return erts_sint64_to_big(i, &env->hp);
+#endif
 }
 
 ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)
 {
+#if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return IS_USMALL(0,i) ? make_small(i) : uint_to_big(i,alloc_heap(env,2));
+#elif SIZEOF_LONG == 8
+    ensure_heap(env,3);
+    return erts_uint64_to_big(i, &env->hp);    
+#endif
 }
 
 #if HAVE_INT64 && SIZEOF_LONG != 8
