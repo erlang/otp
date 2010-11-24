@@ -126,6 +126,7 @@ static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -194,6 +195,8 @@ static ErlNifFunc nif_funcs[] = {
     {"des_ecb_crypt", 3, des_ecb_crypt},
     {"des_ede3_cbc_crypt", 6, des_ede3_cbc_crypt},
     {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
+    {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
+    {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
     {"rand_bytes", 1, rand_bytes_1},
     {"rand_bytes", 3, rand_bytes_3},
     {"rand_uniform_nif", 2, rand_uniform_nif},
@@ -651,6 +654,34 @@ static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 		       enif_make_new_binary(env, text.size, &ret), 
 		       text.size, &aes_key, ivec_clone, &new_ivlen,
 		       (argv[3] == atom_true));
+    return ret;
+}
+
+/* Common for both encrypt and decrypt
+*/
+static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data) */    
+    ErlNifBinary key, ivec, text;
+    AES_KEY aes_key;
+    unsigned char ivec_clone[16]; /* writable copy */
+    unsigned char ecount_buf[AES_BLOCK_SIZE];
+    unsigned int num = 0;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(ivec_clone, ivec.data, 16);    
+    memset(ecount_buf, 0, sizeof(ecount_buf));
+    AES_ctr128_encrypt((unsigned char *) text.data,
+		       enif_make_new_binary(env, text.size, &ret), 
+		       text.size, &aes_key, ivec_clone, ecount_buf, &num);
+
+    /* To do an incremental {en|de}cryption, the state to to keep between calls
+	must include ivec_clone, ecount_buf and num. */
     return ret;
 }
 

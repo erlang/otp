@@ -51,6 +51,7 @@
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
 -export([aes_cbc_ivec/1]).
+-export([aes_ctr_encrypt/3, aes_ctr_decrypt/3]).
 
 -export([dh_generate_parameters/2, dh_check/1]). %% Testing see below
 
@@ -80,6 +81,7 @@
 		    rc2_40_cbc_encrypt, rc2_40_cbc_decrypt,
 		    %% idea_cbc_encrypt, idea_cbc_decrypt,
 		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
+            aes_ctr_encrypt, aes_ctr_decrypt,
 		    info_lib]).
 
 -type rsa_digest_type() :: 'md5' | 'sha'.
@@ -542,6 +544,16 @@ aes_cbc_ivec(Data) when is_binary(Data) ->
 aes_cbc_ivec(Data) when is_list(Data) ->
     aes_cbc_ivec(list_to_binary(Data)).
 
+%%
+%% AES - in counter mode (CTR)
+%%
+-spec aes_ctr_encrypt(iodata(), binary(), iodata()) ->
+				 binary().
+-spec aes_ctr_decrypt(iodata(), binary(), iodata()) ->
+				 binary().
+ 
+aes_ctr_encrypt(_Key, _IVec, _Data) -> ?nif_stub.
+aes_ctr_decrypt(_Key, _IVec, _Cipher) -> ?nif_stub.
 
 %%
 %% XOR - xor to iolists and return a binary

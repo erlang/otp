@@ -44,6 +44,7 @@
 	 aes_cfb/1,
 	 aes_cbc/1,
 	 aes_cbc_iter/1,
+     aes_ctr/1,
 	 mod_exp_test/1,
 	 rand_uniform_test/1,
 	 rsa_verify_test/1,
@@ -79,6 +80,7 @@ all(suite) ->
 		 aes_cfb,
 		 aes_cbc,
 		 aes_cbc_iter,
+         aes_ctr,
 		 des_cbc_iter,
 		 des_ecb,
 		 rand_uniform_test,
@@ -618,6 +620,65 @@ aes_cbc_decrypt_iter(Key,IVec,Data, Acc) ->
     ?line IVec2 = crypto:aes_cbc_ivec(Chunk),
     aes_cbc_decrypt_iter(Key,IVec2,Rest, <<Acc/binary, Plain/binary>>).
 
+
+aes_ctr(doc) -> "CTR";
+aes_ctr(Config) when is_list(Config) ->
+    %% Sample data from NIST Spec.Publ. 800-38A
+    %% F.5.1 CTR-AES128.Encrypt
+    Key128 = hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+    Samples128 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", % Input Block
+                   "6bc1bee22e409f96e93d7e117393172a", % Plaintext
+                   "874d6191b620e3261bef6864990db6ce"},% Ciphertext
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                   "ae2d8a571e03ac9c9eb76fac45af8e51",
+                   "9806f66b7970fdff8617187bb9fffdff"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                   "30c81c46a35ce411e5fbc1191a0a52ef",
+                   "5ae4df3edbd5d35e5b4f09020db03eab"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                   "f69f2445df4f9b17ad2b417be66c3710",
+                   "1e031dda2fbe03d1792170a0f3009cee"}],
+    lists:foreach(fun(S) -> aes_ctr_do(Key128,S) end, Samples128),
+
+    %% F.5.3  CTR-AES192.Encrypt
+    Key192 =  hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+    Samples192 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff", % Input Block
+                   "6bc1bee22e409f96e93d7e117393172a", % Plaintext
+                   "1abc932417521ca24f2b0459fe7e6e0b"},% Ciphertext
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                   "ae2d8a571e03ac9c9eb76fac45af8e51",
+                   "090339ec0aa6faefd5ccc2c6f4ce8e94"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                   "30c81c46a35ce411e5fbc1191a0a52ef",
+                   "1e36b26bd1ebc670d1bd1d665620abf7"},
+                  {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                   "f69f2445df4f9b17ad2b417be66c3710",
+                   "4f78a7f6d29809585a97daec58c6b050"}],    
+    lists:foreach(fun(S) -> aes_ctr_do(Key192,S) end, Samples192),
+
+    %% F.5.5  CTR-AES256.Encrypt
+    Key256 = hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+    Samples256 = [{"f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",  % Input Block
+                    "6bc1bee22e409f96e93d7e117393172a", % Plaintext
+                    "601ec313775789a5b7a7f504bbf3d228"},% Ciphertext
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff00",
+                    "ae2d8a571e03ac9c9eb76fac45af8e51",
+                    "f443e3ca4d62b59aca84e990cacaf5c5"},
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff01",
+                    "30c81c46a35ce411e5fbc1191a0a52ef",
+                    "2b0930daa23de94ce87017ba2d84988d"},
+                   {"f0f1f2f3f4f5f6f7f8f9fafbfcfdff02",
+                    "f69f2445df4f9b17ad2b417be66c3710",
+                    "dfc9c58db67aada613c2dd08457941a6"}],
+    lists:foreach(fun(S) -> aes_ctr_do(Key256,S) end, Samples256).
+
+
+aes_ctr_do(Key,{IVec, Plain, Cipher}) ->
+    ?line I = hexstr2bin(IVec),
+    ?line P = hexstr2bin(Plain),
+    ?line C = crypto:aes_ctr_encrypt(Key, I, P),
+    ?line m(C, hexstr2bin(Cipher)),
+    ?line m(P, crypto:aes_ctr_decrypt(Key, I, C)).
 
 %%
 %%
