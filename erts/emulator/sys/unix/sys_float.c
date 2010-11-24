@@ -36,11 +36,6 @@ erts_sys_init_float(void)
 # endif
 }
 
-static ERTS_INLINE void set_current_fp_exception(unsigned long pc)
-{
-    /* nothing to do */
-}
-
 #else  /* !NO_FPE_SIGNALS */
 
 #ifdef ERTS_SMP

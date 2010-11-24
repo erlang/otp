@@ -71,6 +71,7 @@ typedef struct erl_heap_bin {
  */
 
 #define binary_size(Bin) (binary_val(Bin)[1])
+#define binary_size_rel(Bin,BasePtr) (binary_val_rel(Bin,BasePtr)[1])
 
 #define binary_bitsize(Bin)			\
   ((*binary_val(Bin) == HEADER_SUB_BIN) ?	\
@@ -93,9 +94,12 @@ typedef struct erl_heap_bin {
  * Bitsize: output variable (Uint)
  */
 
-#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize)		\
+#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize) \
+     ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,NULL)
+
+#define ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,BasePtr)    \
 do {									\
-    Eterm* _real_bin = binary_val(Bin);					\
+    Eterm* _real_bin = binary_val_rel(Bin,BasePtr);			\
     Uint _offs = 0;							\
     Bitoffs = Bitsize = 0;						\
     if (*_real_bin == HEADER_SUB_BIN) {					\
@@ -103,7 +107,7 @@ do {									\
 	_offs = _sb->offs;						\
         Bitoffs = _sb->bitoffs;						\
         Bitsize = _sb->bitsize;						\
-	_real_bin = binary_val(_sb->orig);				\
+	_real_bin = binary_val_rel(_sb->orig,BasePtr);			\
     }									\
     if (*_real_bin == HEADER_PROC_BIN) {				\
 	Bytep = ((ProcBin *) _real_bin)->bytes + _offs;			\
@@ -125,9 +129,12 @@ do {									\
  * BitSize: Extra bit size (Uint)
  */
 
-#define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize)	\
+#define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize) \
+     ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, NULL)
+
+#define ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, BasePtr) \
   do {									\
-    ErlSubBin* _sb = (ErlSubBin *) binary_val(Bin);			\
+    ErlSubBin* _sb = (ErlSubBin *) binary_val_rel(Bin,BasePtr);	        \
     if (_sb->thing_word == HEADER_SUB_BIN) {				\
       RealBin = _sb->orig;						\
       ByteOffset = _sb->offs;						\

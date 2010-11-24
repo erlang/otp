@@ -1391,8 +1391,7 @@ update_element_opts(Tuple,KeyPos,UpdPos,Opts) ->
     ok.
 
 update_element(T,Tuple,KeyPos,UpdPos) -> 
-    KeyList = [Key || Key <- [17,"seventeen",<<"seventeen">>,{17},list_to_binary(lists:seq(1,100)),
-			      make_ref(), self()]],
+    KeyList = [17,"seventeen",<<"seventeen">>,{17},list_to_binary(lists:seq(1,100)),make_ref(), self()],
     lists:foreach(fun(Key) -> 
 			  TupleWithKey = setelement(KeyPos,Tuple,Key),
 			  update_element_do(T,TupleWithKey,Key,UpdPos)
@@ -1406,6 +1405,8 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
     % This will try all combinations of {fromValue,toValue}
     %
     % IMPORTANT: size(Values) must be a prime number for this to work!!!
+
+    %io:format("update_element_do for key=~p\n",[Key]),
     Big32 = 16#12345678,
     Big64 = 16#123456789abcdef0,
     Values = { 623, -27, 0, Big32, -Big32, Big64, -Big64, Big32*Big32,
@@ -1426,7 +1427,7 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
 		    (ToIx, [], Pos, _Rand, _MeF) ->
 			 {Pos, element(ToIx+1,Values)}   % single {pos,value} arg
 		 end,
-			 			
+
     UpdateF = fun(ToIx,Rand) -> 
 		      PosValArg = PosValArgF(ToIx,[],UpdPos,Rand,PosValArgF),
 		      %%io:format("update_element(~p)~n",[PosValArg]),
@@ -1553,6 +1554,7 @@ update_counter_for(T) ->
 		 (Obj, Times, Arg3, Myself) ->
 		      ?line {NewObj, Ret} = uc_mimic(Obj,Arg3),
 		      ArgHash = erlang:phash2({T,a,Arg3}),
+		      %%io:format("update_counter(~p, ~p, ~p) expecting ~p\n",[T,a,Arg3,Ret]),
 		      ?line Ret = ets:update_counter(T,a,Arg3),
 		      ?line ArgHash = erlang:phash2({T,a,Arg3}),
 		      %%io:format("NewObj=~p~n ",[NewObj]),
@@ -3416,7 +3418,7 @@ firstnext_concurrent(Config) when is_list(Config) ->
     [dynamic_go() || _ <- lists:seq(1, 2)],
     receive
 	after 5000 -> ok
-	end.
+    end.
 
 ets_init(Tab, N) ->
     ets_new(Tab, [named_table,public,ordered_set]),

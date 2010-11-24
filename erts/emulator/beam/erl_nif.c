@@ -574,7 +574,7 @@ int enif_is_identical(Eterm lhs, Eterm rhs)
 
 int enif_compare(Eterm lhs, Eterm rhs)
 {
-    return cmp(lhs,rhs);
+    return CMP(lhs,rhs);
 }
 
 int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)

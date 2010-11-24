@@ -378,7 +378,7 @@ keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 		Eterm *tuple_ptr = tuple_val(term);
 		if (pos <= arityval(*tuple_ptr)) {
 		    Eterm element = tuple_ptr[pos];
-		    if (cmp(Key, element) == 0) {
+		    if (CMP(Key, element) == 0) {
 			return term;
 		    }
 		}

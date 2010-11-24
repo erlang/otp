@@ -910,7 +910,8 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 	Eterm upop;
 	Eterm* tpl;
 	Sint position;
-	Eterm incr, warp, oldcnt;
+	Eterm incr, warp;
+	Wterm oldcnt;
 
 	if (is_not_list(iter)) {
 	    goto finalize;
@@ -985,7 +986,7 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 	Eterm* tpl = tuple_val(CAR(list_val(iter)));
 	Sint position = signed_val(tpl[1]);
 	Eterm incr = tpl[2];
-	Eterm oldcnt = handle.dbterm->tpl[position];
+	Wterm oldcnt = db_do_read_element(&handle,position);
 	Eterm newcnt = db_add_counter(&htop, oldcnt, incr);
 
 	if (newcnt == NIL) {
@@ -998,9 +999,9 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 
 	if (arityval(*tpl) == 4) { /* Maybe warp it */
 	    Eterm threshold = tpl[3];
-	    if ((cmp(incr,make_small(0)) < 0) ? /* negative increment? */
-		(cmp(newcnt,threshold) < 0) :  /* if negative, check if below */
-		(cmp(newcnt,threshold) > 0)) { /* else check if above threshold */
+	    if ((CMP(incr,make_small(0)) < 0) ? /* negative increment? */
+		(CMP(newcnt,threshold) < 0) :  /* if negative, check if below */
+		(CMP(newcnt,threshold) > 0)) { /* else check if above threshold */
 
 		newcnt = tpl[4];
 	    }
@@ -3490,11 +3491,25 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 
     if (!is_immed(heir_data)) {
 	DeclareTmpHeap(tmp,2,me);
+	Eterm wrap_tpl;
+	int size;
+	DbTerm* dbterm;
+	Eterm* top;
+	ErlOffHeap tmp_offheap;
 
 	UseTmpHeap(2,me);
-	/* Make a dummy 1-tuple around data to use db_get_term() */
-	heir_data = (UWord) db_store_term(&tb->common, NULL, 0,
-					  TUPLE1(tmp,heir_data));
+	/* Make a dummy 1-tuple around data to use DbTerm */
+	wrap_tpl = TUPLE1(tmp,heir_data);
+	size = size_object(wrap_tpl);
+	// SVERK: Must be low memory
+	dbterm = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
+			       (sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
+	dbterm->size = size;
+	top = dbterm->tpl;
+	tmp_offheap.first  = NULL;
+	copy_struct(wrap_tpl, size, &top, &tmp_offheap);
+	dbterm->first_oh = tmp_offheap.first;
+	heir_data = (UWord)dbterm;
 	UnUseTmpHeap(2,me);
 	ASSERT(!is_immed(heir_data));
     }

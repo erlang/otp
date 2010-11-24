@@ -1558,7 +1558,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 ** Convert a bignum to a double float
 */
 int
-big_to_double(Eterm x, double* resp)
+big_to_double(Wterm x, double* resp)
 {
     double d = 0.0;
     Eterm* xp = big_val(x);
@@ -1725,7 +1725,7 @@ static Eterm big_norm(Eterm *x, dsize_t xl, short sign)
 /*
 ** Compare bignums
 */
-int big_comp(Eterm x, Eterm y)
+int big_comp(Wterm x, Wterm y)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);
@@ -2060,7 +2060,7 @@ static Eterm B_plus_minus(ErtsDigit *x, dsize_t xl, short xsgn,
 /*
 ** Add bignums
 */
-Eterm big_plus(Eterm x, Eterm y, Eterm *r)
+Eterm big_plus(Wterm x, Wterm y, Eterm *r)
 {
     Eterm* xp = big_val(x);
     Eterm* yp = big_val(y);

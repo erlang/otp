@@ -448,6 +448,7 @@ link_cd(cache_desc_t *cd)
     cache_size++;
 }
 
+#if CAN_PARTLY_DESTROY
 static ERTS_INLINE void
 end_link_cd(cache_desc_t *cd)
 {
@@ -465,6 +466,7 @@ end_link_cd(cache_desc_t *cd)
 
     cache_size++;
 }
+#endif
 
 static ERTS_INLINE void
 unlink_cd(cache_desc_t *cd)

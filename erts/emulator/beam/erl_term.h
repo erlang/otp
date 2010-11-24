@@ -22,6 +22,8 @@
 
 #include "sys.h" /* defines HALFWORD_HEAP */
 
+typedef UWord Wterm;  /* Full word terms */
+
 #if HALFWORD_HEAP
 #  define HEAP_ON_C_STACK 0
 #  if HALFWORD_ASSERT
@@ -204,7 +206,7 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
 #define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
-_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,boxed_val,Wterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
@@ -226,7 +228,7 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define _list_precond(x)       (is_list(x))
 #endif
 #define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
-_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,list_val,Wterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
 #define CONS(hp, car, cdr) \
@@ -240,6 +242,8 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
+#define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
+#define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
 
 /* fixnum ("small") access methods */
 #if defined(ARCH_64) && !HALFWORD_HEAP
@@ -305,6 +309,7 @@ _ET_DECLARE_CHECKED(Uint,arityval,Eterm)
 
 /* thing access methods */
 #define is_thing(x)	(is_header((x)) && header_is_thing((x)))
+#define is_thing_ptr(t) (is_thing((t)->header))
 #define _unchecked_thing_arityval(x)	_unchecked_header_arity((x))
 _ET_DECLARE_CHECKED(Uint,thing_arityval,Eterm)
 #define thing_arityval(x)	_ET_APPLY(thing_arityval,(x))
@@ -339,7 +344,7 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 #define is_binary(x)	(is_boxed((x)) && is_binary_header(*boxed_val((x))))
 #define is_not_binary(x) (!is_binary((x)))
 #define _unchecked_binary_val(x) _unchecked_boxed_val((x))
-_ET_DECLARE_CHECKED(Eterm*,binary_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 #define binary_val(x)	_ET_APPLY(binary_val,(x))
 
 /* process binaries stuff (special case of binaries) */
@@ -354,17 +359,19 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Eterm)
 #define is_fun_header(x)	((x) == HEADER_FUN)
 #define make_fun(x)		make_boxed((Eterm*)(x))
 #define is_fun(x)		(is_boxed((x)) && is_fun_header(*boxed_val((x))))
+#define is_fun_rel(x,Base)	(is_boxed((x)) && is_fun_header(*boxed_val_rel((x),Base)))
 #define is_not_fun(x)		(!is_fun((x)))
 #define _unchecked_fun_val(x)   _unchecked_boxed_val((x))
-_ET_DECLARE_CHECKED(Eterm*,fun_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
 #define fun_val(x)		_ET_APPLY(fun_val,(x))
 
 /* export access methods */
 #define make_export(x)	 make_boxed((x))
 #define is_export(x)     (is_boxed((x)) && is_export_header(*boxed_val((x))))
+#define is_export_rel(x,Base)     (is_boxed((x)) && is_export_header(*boxed_val_rel((x),Base)))
 #define is_not_export(x) (!is_export((x)))
 #define _unchecked_export_val(x)   _unchecked_boxed_val(x)
-_ET_DECLARE_CHECKED(Eterm*,export_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,export_val,Wterm)
 #define export_val(x)	_ET_APPLY(export_val,(x))
 #define is_export_header(x)	((x) == HEADER_EXPORT)
 #if HALFWORD_HEAP
@@ -389,9 +396,10 @@ _ET_DECLARE_CHECKED(Uint,bignum_header_arity,Eterm)
 #define BIG_ARITY_MAX		((1 << 19)-1)
 #define make_big(x)	make_boxed((x))
 #define is_big(x)	(is_boxed((x)) && _is_bignum_header(*boxed_val((x))))
+#define is_big_rel(x,Base) (is_boxed((x)) && _is_bignum_header(*boxed_val_rel((x),Base)))
 #define is_not_big(x)	(!is_big((x)))
 #define _unchecked_big_val(x)	_unchecked_boxed_val((x))
-_ET_DECLARE_CHECKED(Eterm*,big_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,big_val,Wterm)
 #define big_val(x)		_ET_APPLY(big_val,(x))
 
 /* flonum ("float") access methods */
@@ -402,9 +410,10 @@ _ET_DECLARE_CHECKED(Eterm*,big_val,Eterm)
 #endif
 #define make_float(x)	make_boxed((x))
 #define is_float(x)	(is_boxed((x)) && *boxed_val((x)) == HEADER_FLONUM)
+#define is_float_rel(x,Base) (is_boxed((x)) && *boxed_val_rel((x),Base) == HEADER_FLONUM)
 #define is_not_float(x)	(!is_float(x))
 #define _unchecked_float_val(x)	_unchecked_boxed_val((x))
-_ET_DECLARE_CHECKED(Eterm*,float_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,float_val,Wterm)
 #define float_val(x)	_ET_APPLY(float_val,(x))
 
 /* Float definition for byte and word access */
@@ -422,15 +431,16 @@ typedef union float_def
 } FloatDef;
 
 #if defined(ARCH_64) && !HALFWORD_HEAP
-#define GET_DOUBLE(x, f) (f).fdw = *(float_val(x)+1)
+
+#define FLOAT_VAL_GET_DOUBLE(fval, f) (f).fdw = *((fval)+1)
 
 #define PUT_DOUBLE(f, x)  *(x) = HEADER_FLONUM, \
                           *((x)+1) = (f).fdw
 #define GET_DOUBLE_DATA(p, f) (f).fdw = *((Uint *) (p))
 #define PUT_DOUBLE_DATA(f,p) *((Uint *) (p)) = (f).fdw
 #else
-#define GET_DOUBLE(x, f) (f).fw[0] = *(float_val(x)+1), \
-                         (f).fw[1] = *(float_val(x)+2)
+#define FLOAT_VAL_GET_DOUBLE(fval, f) (f).fw[0] = *((fval)+1), \
+				      (f).fw[1] = *((fval)+2)
 
 #define PUT_DOUBLE(f, x)  *(x) = HEADER_FLONUM, \
                           *((x)+1) = (f).fw[0], \
@@ -440,18 +450,23 @@ typedef union float_def
 #define PUT_DOUBLE_DATA(f,p) *((Uint *) (p)) = (f).fw[0],\
                              *(((Uint *) (p))+1) = (f).fw[1]
 #endif
+
+#define GET_DOUBLE(x, f) FLOAT_VAL_GET_DOUBLE(float_val(x),f)
+#define GET_DOUBLE_REL(x, f, Base) FLOAT_VAL_GET_DOUBLE(float_val_rel(x,Base),f)
+
 #define DOUBLE_DATA_WORDS (sizeof(ieee754_8)/sizeof(Eterm))
 #define FLOAT_SIZE_OBJECT (DOUBLE_DATA_WORDS+1)
 
 /* tuple access methods */
 #define make_tuple(x)	make_boxed((x))
 #define is_tuple(x)	(is_boxed((x)) && is_arity_value(*boxed_val((x))))
+#define is_tuple_rel(x,Base) (is_boxed((x)) && is_arity_value(*boxed_val_rel((x),Base)))
 #define is_not_tuple(x)	(!is_tuple((x)))
 #define is_tuple_arity(x, a) \
    (is_boxed((x)) && *boxed_val((x)) == make_arityval((a)))
 #define is_not_tuple_arity(x, a) (!is_tuple_arity((x),(a)))
 #define _unchecked_tuple_val(x)	_unchecked_boxed_val(x)
-_ET_DECLARE_CHECKED(Eterm*,tuple_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define tuple_val(x)	_ET_APPLY(tuple_val,(x))
 
 #define TUPLE0(t) \
@@ -788,23 +803,30 @@ do {									\
   ((RefThing*) _unchecked_internal_ref_val(x))
 #define ref_thing_ptr(x) \
   ((RefThing*) internal_ref_val(x))
+#define ref_thing_ptr_rel(x,Base) \
+  ((RefThing*) internal_ref_val_rel(x,Base))
+
 
 #define is_internal_ref(x) \
   (_unchecked_is_boxed((x)) && is_ref_thing_header(*boxed_val((x))))
+#define is_internal_ref_rel(x,Base) \
+  (_unchecked_is_boxed((x)) && is_ref_thing_header(*boxed_val_rel((x),Base)))
 #define is_not_internal_ref(x) \
   (!is_internal_ref((x)))
 
 #define _unchecked_internal_ref_val(x) _unchecked_boxed_val((x))
-_ET_DECLARE_CHECKED(Eterm*,internal_ref_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,internal_ref_val,Wterm)
 #define internal_ref_val(x) _ET_APPLY(internal_ref_val,(x))
 
+#define internal_thing_ref_data_words(t) (thing_arityval(*(Eterm*)(t)))
 #define _unchecked_internal_ref_data_words(x) \
  (_unchecked_thing_arityval(*_unchecked_internal_ref_val(x)))
-_ET_DECLARE_CHECKED(Uint,internal_ref_data_words,Eterm)
+_ET_DECLARE_CHECKED(Uint,internal_ref_data_words,Wterm)
 #define internal_ref_data_words(x) _ET_APPLY(internal_ref_data_words,(x))
 
-#define _unchecked_internal_ref_data(x) (_unchecked_ref_thing_ptr(x)->data.ui32)
-_ET_DECLARE_CHECKED(Uint32*,internal_ref_data,Eterm)
+#define internal_thing_ref_data(thing) ((thing)->data.ui32)
+#define _unchecked_internal_ref_data(x) (internal_thing_ref_data(_unchecked_ref_thing_ptr(x)))
+_ET_DECLARE_CHECKED(Uint32*,internal_ref_data,Wterm)
 #define internal_ref_data(x) _ET_APPLY(internal_ref_data,(x))
 
 #define _unchecked_internal_ref_node(x) erts_this_node
@@ -891,12 +913,18 @@ typedef struct external_thing_ {
 
 #define is_external(x) \
   (is_boxed((x)) && is_external_header(*boxed_val((x))))
+#define is_external_rel(x,Base) \
+  (is_boxed((x)) && is_external_header(*boxed_val_rel((x),Base)))
 #define is_external_pid(x) \
   (is_boxed((x)) && is_external_pid_header(*boxed_val((x))))
 #define is_external_port(x) \
   (is_boxed((x)) && is_external_port_header(*boxed_val((x))))
+#define is_external_port_rel(x,Base) \
+  (is_boxed((x)) && is_external_port_header(*boxed_val_rel((x),Base)))
 #define is_external_ref(x) \
   (_unchecked_is_boxed((x)) && is_external_ref_header(*boxed_val((x))))
+#define is_external_ref_rel(x,Base) \
+  (_unchecked_is_boxed((x)) && is_external_ref_header(*boxed_val_rel((x),Base)))
 
 #define _unchecked_is_external(x) \
   (_unchecked_is_boxed((x)) && is_external_header(*_unchecked_boxed_val((x))))
@@ -914,36 +942,43 @@ typedef struct external_thing_ {
 #define make_external_ref		make_external
 
 #define _unchecked_external_val(x) _unchecked_boxed_val((x))
-_ET_DECLARE_CHECKED(Eterm*,external_val,Eterm)
+_ET_DECLARE_CHECKED(Eterm*,external_val,Wterm)
 #define external_val(x) _ET_APPLY(external_val,(x))
 
 #define external_thing_ptr(x) ((ExternalThing *) external_val((x)))
 #define _unchecked_external_thing_ptr(x) \
   ((ExternalThing *) _unchecked_external_val((x)))
 
+#define _unchecked_external_thing_data_words(thing) \
+    (_unchecked_thing_arityval((thing)->header) + (1 - EXTERNAL_THING_HEAD_SIZE))
+_ET_DECLARE_CHECKED(Uint,external_thing_data_words,ExternalThing*)
+#define external_thing_data_words(thing) _ET_APPLY(external_thing_data_words,(thing))
+
 #define _unchecked_external_data_words(x) \
-  (_unchecked_thing_arityval(_unchecked_external_thing_ptr((x))->header) \
-   + (1 - EXTERNAL_THING_HEAD_SIZE))
-_ET_DECLARE_CHECKED(Uint,external_data_words,Eterm)
+    _unchecked_external_thing_data_words(_unchecked_external_thing_ptr((x)))
+_ET_DECLARE_CHECKED(Uint,external_data_words,Wterm)
 #define external_data_words(x) _ET_APPLY(external_data_words,(x))
+#define external_data_words_rel(x,Base) \
+    external_thing_data_words(external_thing_ptr_rel((x),Base))
 
 #define _unchecked_external_data(x) (_unchecked_external_thing_ptr((x))->data.ui)
 #define _unchecked_external_node(x) (_unchecked_external_thing_ptr((x))->node)
 
 #define external_data(x) (external_thing_ptr((x))->data.ui)
 #define external_node(x) (external_thing_ptr((x))->node)
+#define external_node_rel(x,Base) (external_thing_ptr_rel((x),Base)->node)
 
 #define _unchecked_external_pid_data_words(x) \
   _unchecked_external_data_words((x))
-_ET_DECLARE_CHECKED(Uint,external_pid_data_words,Eterm)
+_ET_DECLARE_CHECKED(Uint,external_pid_data_words,Wterm)
 #define external_pid_data_words(x) _ET_APPLY(external_pid_data_words,(x))
 
 #define _unchecked_external_pid_data(x) _unchecked_external_data((x))[0]
-_ET_DECLARE_CHECKED(Uint,external_pid_data,Eterm)
+_ET_DECLARE_CHECKED(Uint,external_pid_data,Wterm)
 #define external_pid_data(x) _ET_APPLY(external_pid_data,(x))
 
 #define _unchecked_external_pid_node(x) _unchecked_external_node((x))
-_ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Eterm)
+_ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Wterm)
 #define external_pid_node(x) _ET_APPLY(external_pid_node,(x))
 
 #define external_pid_number(x) _GET_PID_NUM(external_pid_data((x)))
@@ -951,27 +986,29 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_pid_node,Eterm)
 
 #define _unchecked_external_port_data_words(x) \
   _unchecked_external_data_words((x))
-_ET_DECLARE_CHECKED(Uint,external_port_data_words,Eterm)
+_ET_DECLARE_CHECKED(Uint,external_port_data_words,Wterm)
 #define external_port_data_words(x) _ET_APPLY(external_port_data_words,(x))
 
 #define _unchecked_external_port_data(x) _unchecked_external_data((x))[0]
-_ET_DECLARE_CHECKED(Uint,external_port_data,Eterm)
+_ET_DECLARE_CHECKED(Uint,external_port_data,Wterm)
 #define external_port_data(x) _ET_APPLY(external_port_data,(x))
 
 #define _unchecked_external_port_node(x) _unchecked_external_node((x))
-_ET_DECLARE_CHECKED(struct erl_node_*,external_port_node,Eterm)
+_ET_DECLARE_CHECKED(struct erl_node_*,external_port_node,Wterm)
 #define external_port_node(x) _ET_APPLY(external_port_node,(x))
 
 #define external_port_number(x) _GET_PORT_NUM(external_port_data((x)))
 
 #define _unchecked_external_ref_data_words(x) \
   _unchecked_external_data_words((x))
-_ET_DECLARE_CHECKED(Uint,external_ref_data_words,Eterm)
+_ET_DECLARE_CHECKED(Uint,external_ref_data_words,Wterm)
 #define external_ref_data_words(x) _ET_APPLY(external_ref_data_words,(x))
+#define external_thing_ref_data_words(thing) external_thing_data_words(thing)
 
 #define _unchecked_external_ref_data(x) (_unchecked_external_thing_ptr((x))->data.ui32)
-_ET_DECLARE_CHECKED(Uint32*,external_ref_data,Eterm)
+_ET_DECLARE_CHECKED(Uint32*,external_ref_data,Wterm)
 #define external_ref_data(x) _ET_APPLY(external_ref_data,(x))
+#define external_thing_ref_data(thing) ((thing)->data.ui32)
 
 #define _unchecked_external_ref_node(x) _unchecked_external_node((x))
 _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
@@ -1083,10 +1120,10 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define SMALL_DEF		0xf
 
 #if ET_DEBUG
-extern unsigned tag_val_def_debug(Eterm, const char*, unsigned);
+extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);
 #define tag_val_def(x)	tag_val_def_debug((x),__FILE__,__LINE__)
 #else
-extern unsigned tag_val_def(Eterm);
+extern unsigned tag_val_def(Wterm);
 #endif
 #define not_eq_tags(X,Y)	(tag_val_def((X)) ^ tag_val_def((Y)))
 
@@ -1101,6 +1138,65 @@ extern unsigned tag_val_def(Eterm);
 #define FLOAT_SMALL 	_NUMBER_CODE(FLOAT_DEF,SMALL_DEF)
 #define FLOAT_BIG 	_NUMBER_CODE(FLOAT_DEF,BIG_DEF)
 #define FLOAT_FLOAT	_NUMBER_CODE(FLOAT_DEF,FLOAT_DEF)
+
+#if HALFWORD_HEAP
+#define ptr2rel(PTR,BASE) ((Eterm*)((char*)(PTR) - (char*)(BASE)))
+#define rel2ptr(REL,BASE) ((typeof(REL)) ((UWord)(REL) + (char*)(BASE)))
+#define rterm2wterm(REL,BASE) ((Wterm)(REL) + (Wterm)(BASE))
+
+#else /* HALFWORD_HEAP */
+
+#define ptr2rel(PTR,BASE) (PTR)
+#define rel2ptr(REL,BASE) (REL)
+#define rterm2wterm(REL,BASE) (REL)
+
+#endif /* !HALFWORD_HEAP */
+
+#define make_list_rel(PTR, BASE) make_list(ptr2rel(PTR,BASE))
+#define make_boxed_rel(PTR, BASE) make_boxed(ptr2rel(PTR,BASE))
+#define make_fun_rel make_boxed_rel
+#define make_binary_rel make_boxed_rel
+#define make_tuple_rel make_boxed_rel
+#define make_external_rel make_boxed_rel
+
+#define binary_val_rel(RTERM, BASE) binary_val(rterm2wterm(RTERM, BASE))
+#define list_val_rel(RTERM, BASE) list_val(rterm2wterm(RTERM, BASE))
+#define boxed_val_rel(RTERM, BASE) boxed_val(rterm2wterm(RTERM, BASE))
+#define tuple_val_rel(RTERM, BASE) tuple_val(rterm2wterm(RTERM, BASE))
+#define export_val_rel(RTERM, BASE) export_val(rterm2wterm(RTERM, BASE))
+#define fun_val_rel(RTERM, BASE) fun_val(rterm2wterm(RTERM, BASE))
+#define big_val_rel(RTERM,BASE)	big_val(rterm2wterm(RTERM,BASE))
+#define float_val_rel(RTERM,BASE) float_val(rterm2wterm(RTERM,BASE))
+#define internal_ref_val_rel(RTERM,BASE) internal_ref_val(rterm2wterm(RTERM,BASE))
+
+#define external_thing_ptr_rel(RTERM, BASE) external_thing_ptr(rterm2wterm(RTERM, BASE))
+#define external_port_node_rel(RTERM,BASE) external_port_node(rterm2wterm(RTERM,BASE))
+#define external_port_data_rel(RTERM,BASE) external_port_data(rterm2wterm(RTERM,BASE))
+
+#define is_external_pid_rel(RTERM,BASE) is_external_pid(rterm2wterm(RTERM,BASE))
+#define external_pid_node_rel(RTERM,BASE) external_pid_node(rterm2wterm(RTERM,BASE))
+#define external_pid_data_rel(RTERM,BASE) external_pid_data(rterm2wterm(RTERM,BASE))
+
+#define is_binary_rel(RTERM,BASE) is_binary(rterm2wterm(RTERM,BASE))
+
+#if HALFWORD_HEAP
+ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
+{
+    if (a_base == b_base) {
+	return a == b;
+    }
+    /* Assume a and b are on different "heaps", ie can only be same if immed */
+    ASSERT(is_immed(a) || is_immed(b) || rterm2wterm(a,a_base) != rterm2wterm(b,b_base));
+    return is_immed(a) && a == b;
+}
+#endif
+
+#else /* !HALFWORD_HEAP */
+#define is_same(A,A_BASE,B,B_BASE) ((A)==(B))
+#endif
 
 #endif	/* __ERL_TERM_H */
 

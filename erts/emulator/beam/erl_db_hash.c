@@ -258,12 +258,6 @@ static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
 }
 
 
-/* 
- * tplp is an untagged pointer to a tuple we know is large enough 
- * and dth is a pointer to a DbTableHash.   
- */
-#define GETKEY(dth, tplp)   (*((tplp) +  (dth)->common.keypos))
-
 /*
  * Some special binary flags
  */
@@ -434,6 +428,9 @@ static ERTS_INLINE void try_shrink(DbTableHash* tb)
     }
 }	
 
+#define EQ_REL(x,y,y_base) \
+    (is_same(x,NULL,y,y_base) || (is_not_both_immed((x),(y)) && eq_rel((x),(y),y_base)))
+
 /* Is this a live object (not pseodo-deleted) with the specified key? 
 */
 static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
@@ -443,7 +440,7 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
-	return EQ(key,itemKey);
+	return EQ_REL(key, itemKey, b->dbterm.tpl);
     }
 }
 
@@ -456,7 +453,7 @@ static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
 	ASSERT(!is_header(itemKey));
-	return EQ(key,itemKey);
+	return EQ_REL(key, itemKey, b->dbterm.tpl);
     }
 }
 
@@ -696,9 +693,7 @@ static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
 	}
     }
     if (list != NULL) {
-	Eterm key = GETKEY(tb, list->dbterm.tpl);
-	
-	COPY_OBJECT(key, p, ret);
+	*ret = db_copy_key(p, tbl, &list->dbterm);
 	RUNLOCK_HASH(lck);
     }
     else {
@@ -746,7 +741,7 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 	*ret = am_EOT;
     }
     else {
-	COPY_OBJECT(GETKEY(tb, b->dbterm.tpl), p, ret);
+	*ret = db_copy_key(p, tbl, &b->dbterm);
 	RUNLOCK_HASH(lck);
     }    
     return DB_ERROR_NONE;
@@ -2695,6 +2690,9 @@ static int db_lookup_dbterm_hash(DbTable *tbl, Eterm key, DbUpdateHandle* handle
 	    handle->dbterm = &b->dbterm;
 	    handle->mustResize = 0;
 	    handle->new_size = b->dbterm.size;
+	    #if HALFWORD_HEAP
+	    handle->new_tuple = handle->dbterm->tpl;
+	    #endif
 	    handle->lck = lck;
 	    /* KEEP hval WLOCKED, db_finalize_dbterm_hash will WUNLOCK */
 	    return 1;
