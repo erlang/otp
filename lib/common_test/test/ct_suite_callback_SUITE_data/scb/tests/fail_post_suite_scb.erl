@@ -34,33 +34,33 @@ init(Opts) ->
 pre_init_per_suite(Suite, Config, State) ->
     empty_scb:pre_init_per_suite(Suite,Config,State).
 
-post_init_per_suite(Suite,Config,State) ->
-    empty_scb:post_init_per_suite(Suite,Config,State),
+post_init_per_suite(Suite,Config,Return,State) ->
+    empty_scb:post_init_per_suite(Suite,Config,Return,State),
     {{fail, "Test failure"}, State}.
 
 pre_end_per_suite(Suite,Config,State) ->
     empty_scb:pre_end_per_suite(Suite,Config,State).
 
-post_end_per_suite(Suite,Config,State) ->
-    empty_scb:post_end_per_suite(Suite,Config,State).
+post_end_per_suite(Suite,Config,Return,State) ->
+    empty_scb:post_end_per_suite(Suite,Config,Return,State).
 
 pre_init_per_group(Group,Config,State) ->
     empty_scb:pre_init_per_group(Group,Config,State).
 
-post_init_per_group(Group,Config,State) ->
-    empty_scb:post_init_per_group(Group,Config,State).
+post_init_per_group(Group,Config,Return,State) ->
+    empty_scb:post_init_per_group(Group,Config,Return,State).
 
 pre_end_per_group(Group,Config,State) ->
     empty_scb:pre_end_per_group(Group,Config,State).
 
-post_end_per_group(Group,Config,State) ->
-    empty_scb:post_end_per_group(Group,Config,State).
+post_end_per_group(Group,Config,Return,State) ->
+    empty_scb:post_end_per_group(Group,Config,Return,State).
 
 pre_init_per_testcase(TC,Config,State) ->
     empty_scb:pre_init_per_testcase(TC,Config,State).
 
-post_end_per_testcase(TC,Config,State) ->
-    empty_scb:post_end_per_testcase(TC,Config,State).
+post_end_per_testcase(TC,Config,Return,State) ->
+    empty_scb:post_end_per_testcase(TC,Config,Return,State).
 
 on_tc_fail(TC, Reason, State) ->
     empty_scb:on_tc_fail(TC,Reason,State).

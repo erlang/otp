@@ -38,17 +38,17 @@
 -export([init/1]).
 
 -export([pre_init_per_suite/3]).
--export([post_init_per_suite/3]).
+-export([post_init_per_suite/4]).
 -export([pre_end_per_suite/3]).
--export([post_end_per_suite/3]).
+-export([post_end_per_suite/4]).
 
 -export([pre_init_per_group/3]).
--export([post_init_per_group/3]).
+-export([post_init_per_group/4]).
 -export([pre_end_per_group/3]).
--export([post_end_per_group/3]).
+-export([post_end_per_group/4]).
 
 -export([pre_init_per_testcase/3]).
--export([post_end_per_testcase/3]).
+-export([post_end_per_testcase/4]).
 
 -export([on_tc_fail/3]).
 -export([on_tc_skip/3]).
@@ -95,22 +95,23 @@ pre_init_per_suite(Suite,Config,State) ->
     {Config, State}.
 
 %% @doc Called after init_per_suite.
-%% you can change the config in this function.
+%% you can change the return value in this function.
 -spec post_init_per_suite(Suite :: atom(),
-		      Config :: config(),
-		      State :: #state{}) ->
+			  Config :: config(),
+			  Return :: config() | skip_or_fail(),
+			  State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
-post_init_per_suite(Suite,Config,State) ->
+post_init_per_suite(Suite,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_init_per_suite,
-				     [Suite,Config,State]}}),
-    {Config, State}.
+				     [Suite,Config,Return,State]}}),
+    {Return, State}.
 
-%% @doc Called before end_per_suite. Note that the config cannot be
-%% changed here, only the status of the suite.
+%% @doc Called before end_per_suite. The config/state can be changed here,
+%% though it will only affect the *end_per_suite function.
 -spec pre_end_per_suite(Suite :: atom(),
-		    Config :: config(),
+		    Config :: config() | skip_or_fail(),
 		    State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 pre_end_per_suite(Suite,Config,State) ->
@@ -123,15 +124,16 @@ pre_end_per_suite(Suite,Config,State) ->
 %% @doc Called after end_per_suite. Note that the config cannot be
 %% changed here, only the status of the suite.
 -spec post_end_per_suite(Suite :: atom(),
-		     Config :: config(),
-		     State :: #state{}) ->
+			 Config :: config(),
+			 Return :: term(),
+			 State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
-post_end_per_suite(Suite,Config,State) ->
+post_end_per_suite(Suite,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_end_per_suite,
-				     [Suite,Config,State]}}),
-    {Config, State}.
+				     [Suite,Config,Return,State]}}),
+    {Return, State}.
 
 %% @doc Called before each init_per_group.
 %% You can change the config in this function.
@@ -147,23 +149,24 @@ pre_init_per_group(Group,Config,State) ->
     {Config, State}.
 
 %% @doc Called after each init_per_group.
-%% You can change the config in this function.
+%% You can change the return value in this function.
 -spec post_init_per_group(Group :: atom(),
-		      Config :: config(),
-		      State :: #state{}) ->
+			  Config :: config(),
+			  Return :: config() | skip_or_fail(),
+			  State :: #state{}) ->
     {config() | skip_or_fail(), NewState :: #state{}}.
-post_init_per_group(Group,Config,State) ->
+post_init_per_group(Group,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_init_per_group,
-				     [Group,Config,State]}}),
-    {Config, State}.
+				     [Group,Config,Return,State]}}),
+    {Return, State}.
 
-%% @doc Called after each end_per_group. Note that the config cannot be
-%% changed here, only the status of the group.
+%% @doc Called after each end_per_group. The config/state can be changed here,
+%% though it will only affect the *end_per_group functions.
 -spec pre_end_per_group(Group :: atom(),
-		    Config :: config(),
-		    State :: #state{}) ->
+			Config :: config() | skip_or_fail(),
+			State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
 pre_end_per_group(Group,Config,State) ->
     gen_event:notify(
@@ -175,15 +178,16 @@ pre_end_per_group(Group,Config,State) ->
 %% @doc Called after each end_per_group. Note that the config cannot be
 %% changed here, only the status of the group.
 -spec post_end_per_group(Group :: atom(),
-		     Config :: config(),
-		     State :: #state{}) ->
+			 Config :: config(),
+			 Return :: term(),
+			 State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
-post_end_per_group(Group,Config,State) ->
+post_end_per_group(Group,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_end_per_group,
-				     [Group,Config,State]}}),
-    {Config, State}.
+				     [Group,Config,Return,State]}}),
+    {Return, State}.
 
 %% @doc Called before each test case.
 %% You can change the config in this function.
@@ -201,15 +205,16 @@ pre_init_per_testcase(TC,Config,State) ->
 %% @doc Called after each test case. Note that the config cannot be
 %% changed here, only the status of the test case.
 -spec post_end_per_testcase(TC :: atom(),
-		  Config :: config(),
-		  State :: #state{}) ->
+			    Config :: config(),
+			    Return :: term(),
+			    State :: #state{}) ->
     {ok | skip_or_fail(), NewState :: #state{}}.
-post_end_per_testcase(TC,Config,State) ->
+post_end_per_testcase(TC,Config,Return,State) ->
     gen_event:notify(
       ?CT_EVMGR_REF, #event{ name = scb, node = node(),
 			     data = {?MODULE, post_end_per_testcase,
-				     [TC,Config,State]}}),
-    {Config, State}.
+				     [TC,Config,Return,State]}}),
+    {Return, State}.
 
 %% @doc Called after post_init_per_suite, post_end_per_suite, post_init_per_group,
 %% post_end_per_group and post_end_per_tc if the suite, group or test case failed.

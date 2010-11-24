@@ -66,15 +66,15 @@ terminate(Callbacks) ->
 init_tc(ct_framework, _Func, Args) ->
     Args;
 init_tc(Mod, init_per_suite, Config) ->
-    call(fun call_generic/3, Config, {pre_init_per_suite, Mod});
+    call(fun call_generic/3, Config, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->
-    call(fun call_generic/3, Config, {pre_end_per_suite, Mod});
+    call(fun call_generic/3, Config, [pre_end_per_suite, Mod]);
 init_tc(_Mod, {init_per_group, GroupName, _}, Config) ->
-    call(fun call_generic/3, Config, {pre_init_per_group, GroupName});
+    call(fun call_generic/3, Config, [pre_init_per_group, GroupName]);
 init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
-    call(fun call_generic/3, Config, {pre_end_per_group, GroupName});
+    call(fun call_generic/3, Config, [pre_end_per_group, GroupName]);
 init_tc(_Mod, TC, Config) ->
-    call(fun call_generic/3, Config, {pre_init_per_testcase, TC}).
+    call(fun call_generic/3, Config, [pre_init_per_testcase, TC]).
 
 %% @doc Called as each test case is completed. This includes all configuration
 %% tests.
@@ -91,31 +91,31 @@ init_tc(_Mod, TC, Config) ->
 end_tc(ct_framework, _Func, _Args, Result, _Return) ->
     Result;
 
-end_tc(Mod, init_per_suite, _Config, _Result, Return) when is_list(Return) ->
-    call(fun call_generic/3, Return, {post_init_per_suite, Mod});
-end_tc(Mod, init_per_suite, _Config, Result, _Return) ->
-    call(fun call_generic/3, Result, {post_init_per_suite, Mod});
+end_tc(Mod, init_per_suite, Config, _Result, Return) when is_list(Return) ->
+    call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config]);
+end_tc(Mod, init_per_suite, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_init_per_suite, Mod, Config]);
 
-end_tc(Mod, end_per_suite, _Config, Result, _Return) ->
-    call(fun call_generic/3, Result, {post_end_per_suite, Mod});
+end_tc(Mod, end_per_suite, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_end_per_suite, Mod, Config]);
 
-end_tc(_Mod, {init_per_group, GroupName, _}, _Config, _Result, Return)
+end_tc(_Mod, {init_per_group, GroupName, _}, Config, _Result, Return)
   when is_list(Return) ->
-    call(fun call_generic/3, Return, {post_init_per_group, GroupName});
-end_tc(_Mod, {init_per_group, GroupName, _}, _Config, Result, _Return) ->
-    call(fun call_generic/3, Result, {post_init_per_group, GroupName});
+    call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config]);
+end_tc(_Mod, {init_per_group, GroupName, _}, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_init_per_group, GroupName, Config]);
 
-end_tc(_Mod, {end_per_group, GroupName, _}, _Config, Result, _Return) ->
-    call(fun call_generic/3, Result, {post_end_per_group, GroupName});
+end_tc(_Mod, {end_per_group, GroupName, _}, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_end_per_group, GroupName, Config]);
 
-end_tc(_Mod, TC, _Config, Result, _Return) ->
-    call(fun call_generic/3, Result, {post_end_per_testcase, TC}).
+end_tc(_Mod, TC, Config, Result, _Return) ->
+    call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config]).
 
 on_tc_skip(How, {_Suite, Case, Reason}) ->
-    call(fun call_cleanup/3, {How, Reason}, {on_tc_skip, Case}).
+    call(fun call_cleanup/3, {How, Reason}, [on_tc_skip, Case]).
 
-on_tc_fail(How, {_Suite, Case, Reason}) ->
-    call(fun call_cleanup/3, Reason, {on_tc_fail, Case}).
+on_tc_fail(_How, {_Suite, Case, Reason}) ->
+    call(fun call_cleanup/3, Reason, [on_tc_fail, Case]).
 
 %% -------------------------------------------------------------------------
 %% Internal Functions
@@ -130,19 +130,15 @@ call_terminate({Mod, State}, _, _) ->
     catch_apply(Mod,terminate,[State], ok),
     {[],{Mod,State}}.
 
-call_cleanup({Mod, State}, Reason, {Function, Tag}) ->
-    NewState = catch_apply(Mod,Function,[Tag, Reason, State],
+call_cleanup({Mod, State}, Reason, [Function | Args]) ->
+    NewState = catch_apply(Mod,Function, Args ++ [Reason, State],
 			   {Reason,State}),
     {Reason, {Mod, NewState}}.
 
-call_generic({Mod, State}, Config, {Function, undefined}) ->
-    {NewConf, NewState} = catch_apply(Mod,Function,[Config, State],
-				      {Config, State}),
-    {NewConf, {Mod, NewState}};
-call_generic({Mod, State}, Config, {Function, Tag}) ->
-    {NewConf, NewState} = catch_apply(Mod,Function,[Tag, Config, State],
-				     {Config,State}),
-    {NewConf, {Mod, NewState}}.
+call_generic({Mod, State}, Value, [Function | Args]) ->
+    {NewValue, NewState} = catch_apply(Mod, Function, Args ++ [Value, State],
+				       {Value,State}),
+    {NewValue, {Mod, NewState}}.
 
 %% Generic call function
 call(Fun, Config, Meta) ->
@@ -191,19 +187,21 @@ remove(_, Else) ->
     Else.
 
 %% Translate scopes, i.e. init_per_group,group1 -> end_per_group,group1 etc
-scope({pre_init_per_testcase, TC}) ->
-    {post_end_per_testcase, TC};
-scope({pre_init_per_group, GroupName}) ->
-    {post_end_per_group, GroupName};
-scope({post_init_per_group, GroupName}) ->
-    {post_end_per_group, GroupName};
-scope({pre_init_per_suite, SuiteName}) ->
-    {post_end_per_suite, SuiteName};
-scope({post_init_per_suite, SuiteName}) ->
-    {post_end_per_suite, SuiteName};
+scope([pre_init_per_testcase, TC|_]) ->
+    [post_end_per_testcase, TC];
+scope([pre_init_per_group, GroupName|_]) ->
+    [post_end_per_group, GroupName];
+scope([post_init_per_group, GroupName|_]) ->
+    [post_end_per_group, GroupName];
+scope([pre_init_per_suite, SuiteName|_]) ->
+    [post_end_per_suite, SuiteName];
+scope([post_init_per_suite, SuiteName|_]) ->
+    [post_end_per_suite, SuiteName];
 scope(init) ->
     none.
 
+terminate_if_scope_ends(CBId, [Function,Tag|T], CBs) when T =/= [] ->
+    terminate_if_scope_ends(CBId,[Function,Tag],CBs);
 terminate_if_scope_ends(CBId, Function, CBs) ->
     case lists:keyfind(CBId, 1, CBs) of
         {CBId, Function, _ModState} = CB ->
