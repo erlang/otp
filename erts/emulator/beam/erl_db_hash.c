@@ -267,11 +267,11 @@ static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
  */
 #define BIN_FLAG_ALL_OBJECTS         BIN_FLAG_USR1
 
-/*
- * Size calculations
- */
-#define SIZ_OVERHEAD ((sizeof(HashDbTerm)/sizeof(Eterm)) - 1)
-#define SIZ_DBTERM(HDT) (SIZ_OVERHEAD + (HDT)->dbterm.size)
+
+static ERTS_INLINE void free_term(DbTableHash *tb, HashDbTerm* p)
+{
+    db_free_term((DbTable*)tb, p, offsetof(HashDbTerm, dbterm));
+}
 
 /*
  * Local types 
@@ -358,10 +358,8 @@ static HashDbTerm* search_list(DbTableHash* tb, Eterm key,
 			       HashValue hval, HashDbTerm *list);
 static void shrink(DbTableHash* tb, int nactive);
 static void grow(DbTableHash* tb, int nactive);
-static void free_term(DbTableHash *tb, HashDbTerm* p);
-static Eterm put_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2);
-static HashDbTerm* get_term(DbTableHash* tb, HashDbTerm* old, 
-			    Eterm obj, HashValue hval);
+static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
+			   DbTableHash*);
 static int analyze_pattern(DbTableHash *tb, Eterm pattern, 
 			   struct mp_info *mpi);
 
@@ -442,6 +440,7 @@ static ERTS_INLINE int has_live_key(DbTableHash* tb, HashDbTerm* b,
     if (b->hvalue != hval) return 0;
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
+	ASSERT(!is_header(itemKey));
 	return EQ(key,itemKey);
     }
 }
@@ -454,9 +453,37 @@ static ERTS_INLINE int has_key(DbTableHash* tb, HashDbTerm* b,
     if (b->hvalue != hval && b->hvalue != INVALID_HASH) return 0;
     else {
 	Eterm itemKey = GETKEY(tb, b->dbterm.tpl);
+	ASSERT(!is_header(itemKey));
 	return EQ(key,itemKey);
     }
 }
+
+static ERTS_INLINE HashDbTerm* new_dbterm(DbTableHash* tb, Eterm obj)
+{
+    HashDbTerm* p;
+    if (tb->common.compress) {
+	p = db_store_term_comp(&tb->common, NULL, offsetof(HashDbTerm,dbterm), obj);
+    }
+    else {
+	p = db_store_term(&tb->common, NULL, offsetof(HashDbTerm,dbterm), obj);
+    }
+    return p;
+}
+
+static ERTS_INLINE HashDbTerm* replace_dbterm(DbTableHash* tb, HashDbTerm* old,
+					      Eterm obj)
+{
+    HashDbTerm* ret;
+    ASSERT(old != NULL);
+    if (tb->common.compress) {
+	ret = db_store_term_comp(&tb->common, &(old->dbterm), offsetof(HashDbTerm,dbterm), obj);
+    }
+    else {
+	ret = db_store_term(&tb->common, &(old->dbterm), offsetof(HashDbTerm,dbterm), obj);
+    }
+    return ret;
+}
+
 
 
 /*
@@ -764,7 +791,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	    ret = DB_ERROR_BADKEY;
 	    goto Ldone;
 	}
-	q = get_term(tb, b, obj, hval);
+	q = replace_dbterm(tb, b, obj);
 	q->next = bnext;
 	q->hvalue = hval; /* In case of INVALID_HASH */
 	*bp = q;
@@ -784,7 +811,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	HashDbTerm** qp = bp;
 	q = b;
 	do {
-	    if (eq(make_tuple(q->dbterm.tpl), obj)) {
+	    if (db_eq(&tb->common,obj,&q->dbterm)) {
 		if (q->hvalue == INVALID_HASH) {
 		    erts_smp_atomic_inc(&tb->common.nitems);
 		    q->hvalue = hval;
@@ -803,7 +830,8 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     /*else DB_DUPLICATE_BAG */
 
 Lnew:
-    q = get_term(tb, NULL, obj, hval);
+    q = new_dbterm(tb, obj);
+    q->hvalue = hval;
     q->next = b;
     *bp = q;
     nitems = erts_smp_atomic_inctest(&tb->common.nitems);
@@ -844,7 +872,7 @@ int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 		while(b2 != NULL && has_key(tb,b2,key,hval))
 		    b2 = b2->next;
 	    }
-	    copy = put_term_list(p, b1, b2);
+	    copy = build_term_list(p, b1, b2, tb);
 	    CHECK_TABLES();
 	    *ret = copy;
 	    goto done;
@@ -967,13 +995,10 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 
     while(b1 != 0) {
 	if (has_live_key(tb,b1,key,hval)) {
-	    Eterm copy;
-
 	    if (ndex > arityval(b1->dbterm.tpl[0])) {
 		retval = DB_ERROR_BADITEM;
 		goto done;
 	    }
-
 	    if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
 		HashDbTerm* b;
 		HashDbTerm* b2 = b1->next;
@@ -987,15 +1012,12 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 		    }
 		    b2 = b2->next;
 		}
-
 		b = b1;
 		while(b != b2) {
 		    if (b->hvalue != INVALID_HASH) {
 			Eterm *hp;
-			Uint sz = size_object(b->dbterm.tpl[ndex])+2;
-			
-			hp = HAlloc(p, sz);
-			copy = copy_struct(b->dbterm.tpl[ndex], sz-2, &hp, &MSO(p));
+			Eterm copy = db_copy_element_from_ets(&tb->common, p,
+							      &b->dbterm, ndex, &hp, 2);
 			elem_list = CONS(hp, copy, elem_list);
 			hp += 2;
 		    }
@@ -1004,8 +1026,8 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 		*ret = elem_list;
 	    }
 	    else {
-		COPY_OBJECT(b1->dbterm.tpl[ndex], p, &copy);
-		*ret = copy;
+		Eterm* hp;
+		*ret = db_copy_element_from_ets(&tb->common, p, &b1->dbterm, ndex, &hp, 0);
 	    }
 	    retval = DB_ERROR_NONE;
 	    goto done;
@@ -1040,6 +1062,7 @@ int db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value)
 
     ASSERT(!IS_FIXED(tb));
     ASSERT((tb->common.status & DB_BAG));
+    ASSERT(!tb->common.compress);
 
     while(b != 0) {
 	if (has_live_key(tb,b,key,hval)) {
@@ -1139,7 +1162,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
     while(b != 0) {
 	if (has_live_key(tb,b,key,hval)) {
 	    ++nkeys;
-	    if (eq(object, make_tuple(b->dbterm.tpl))) {
+	    if (db_eq(&tb->common,object, &b->dbterm)) {
 		--nitems_diff;
 		if (nkeys==1 && IS_FIXED(tb)) { /* Pseudo remove */
 		    add_fixed_deletion(tb,ix);
@@ -1188,7 +1211,7 @@ static int db_slot_hash(Process *p, DbTable *tbl, Eterm slot_term, Eterm *ret)
     lck = RLOCK_HASH(tb, slot);
     nactive = NACTIVE(tb);
     if (slot < nactive) {
-	*ret = put_term_list(p, BUCKET(tb, slot), 0);
+	*ret = build_term_list(p, BUCKET(tb, slot), 0, tb);
 	retval = DB_ERROR_NONE;
     }
     else if (slot == nactive) {
@@ -1232,8 +1255,6 @@ static int db_select_continue_hash(Process *p,
     int num_left = 1000;
     HashDbTerm *current = 0;
     Eterm match_list;
-    Uint32 dummy;
-    unsigned sz;
     Eterm *hp;
     Eterm match_res;
     Sint got;
@@ -1285,26 +1306,14 @@ static int db_select_continue_hash(Process *p,
     }	  
     for(;;) {
 	if (current->hvalue != INVALID_HASH && 
-	    (match_res = 
-	     db_prog_match(p,mp,
-			   make_tuple(current->dbterm.tpl),
-			   NULL,0,&dummy),
+	    (match_res = db_prog_match_and_copy(&tb->common, p, mp, all_objects,
+						&current->dbterm, &hp, 2),
 	     is_value(match_res))) {
-	    if (all_objects) {
-		hp = HAlloc(p, current->dbterm.size + 2);
-		match_res = copy_shallow(DBTERM_BUF(&current->dbterm),
-					 current->dbterm.size,
-					 &hp,
-					 &MSO(p));
-	    } else {
-		sz = size_object(match_res);
-	    
-		hp = HAlloc(p, sz + 2);
-		match_res = copy_struct(match_res, sz, &hp, &MSO(p));
-	    }
-            match_list = CONS(hp, match_res, match_list);
+
+	    match_list = CONS(hp, match_res, match_list);
 	    ++got;
 	}
+
 	--num_left;
 	save_slot_ix = slot_ix;
 	if ((current = next(tb, (Uint*)&slot_ix, &lck, current)) == NULL) {
@@ -1395,9 +1404,7 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
     HashDbTerm *current = 0;
     unsigned current_list_pos = 0;
     Eterm match_list;
-    Uint32 dummy;
     Eterm match_res;
-    unsigned sz;
     Eterm *hp;
     int num_left = 1000;
     Uint got = 0;
@@ -1464,22 +1471,9 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
     for(;;) {
 	if (current != NULL) {
 	    if (current->hvalue != INVALID_HASH) {
-		match_res = db_prog_match(p,mpi.mp,
-					  make_tuple(current->dbterm.tpl),
-					  NULL,0,&dummy);
+		match_res = db_prog_match_and_copy(&tb->common, p, mpi.mp, 0,
+						   &current->dbterm, &hp, 2);
 		if (is_value(match_res)) {
-		    if (mpi.all_objects) {
-			hp = HAlloc(p, current->dbterm.size + 2);
-			match_res = copy_shallow(DBTERM_BUF(&current->dbterm),
-						 current->dbterm.size,
-						 &hp,
-						 &MSO(p));
-		    } else {
-			sz = size_object(match_res);
-			
-			hp = HAlloc(p, sz + 2);
-			match_res = copy_struct(match_res, sz, &hp, &MSO(p));
-		    }
 		    match_list = CONS(hp, match_res, match_list);
 		    ++got;
 		}
@@ -1594,7 +1588,6 @@ static int db_select_count_hash(Process *p,
     Uint slot_ix = 0;
     HashDbTerm* current = NULL;
     unsigned current_list_pos = 0;
-    Uint32 dummy;
     Eterm *hp;
     int num_left = 1000;
     Uint got = 0;
@@ -1644,8 +1637,8 @@ static int db_select_count_hash(Process *p,
     for(;;) {
 	if (current != NULL) {
 	    if (current->hvalue != INVALID_HASH) {
-		if (db_prog_match(p, mpi.mp, make_tuple(current->dbterm.tpl),
-				  NULL,0, &dummy) == am_true) {
+		if (db_prog_match_and_copy(&tb->common, p, mpi.mp, 0,
+					   &current->dbterm, NULL,0) == am_true) {
 		    ++got;
 		}
 		--num_left;
@@ -1713,7 +1706,6 @@ static int db_select_delete_hash(Process *p,
     Uint slot_ix = 0;
     HashDbTerm **current = NULL;
     unsigned current_list_pos = 0;
-    Uint32 dummy;
     Eterm *hp;
     int num_left = 1000;
     Uint got = 0;
@@ -1794,9 +1786,8 @@ static int db_select_delete_hash(Process *p,
 	} 
 	else {
 	    int did_erase = 0;
-	    if ((db_prog_match(p,mpi.mp,
-			       make_tuple((*current)->dbterm.tpl),
-			       NULL,0,&dummy)) == am_true) {
+	    if (db_prog_match_and_copy(&tb->common, p, mpi.mp, 0,
+				       &(*current)->dbterm, NULL, 0) == am_true) {
 		if (NFIXED(tb) > fixated_by_me) { /* fixated by others? */
 		    if (slot_ix != last_pseudo_delete) {
 			add_fixed_deletion(tb, slot_ix);
@@ -1859,7 +1850,6 @@ static int db_select_delete_continue_hash(Process *p,
     Uint slot_ix;
     Uint last_pseudo_delete = (Uint)-1;
     HashDbTerm **current = NULL;
-    Uint32 dummy;
     Eterm *hp;
     int num_left = 1000;
     Uint got;
@@ -1907,8 +1897,8 @@ static int db_select_delete_continue_hash(Process *p,
 	} 
 	else {
 	    int did_erase = 0;
-	    if ((db_prog_match(p,mp,make_tuple((*current)->dbterm.tpl),
-			       NULL,0,&dummy)) == am_true) {
+	    if (db_prog_match_and_copy(&tb->common, p, mp, 0,
+				       &(*current)->dbterm, NULL, 0) == am_true) {
 		if (NFIXED(tb) > fixated_by_me) { /* fixated by others? */
 		    if (slot_ix != last_pseudo_delete) {
 			add_fixed_deletion(tb, slot_ix);
@@ -1970,7 +1960,6 @@ static int db_select_count_continue_hash(Process *p,
     DbTableHash *tb = &tbl->hash;
     Uint slot_ix;
     HashDbTerm* current;
-    Uint32 dummy;
     Eterm *hp;
     int num_left = 1000;
     Uint got;
@@ -2008,8 +1997,8 @@ static int db_select_count_continue_hash(Process *p,
 		current = current->next;
 		continue;
 	    }
-	    if (db_prog_match(p, mp, make_tuple(current->dbterm.tpl),
-			      NULL,0,&dummy) == am_true) {
+	    if (db_prog_match_and_copy(&tb->common, p, mp, 0, &current->dbterm,
+				       NULL, 0) == am_true) {
 		++got;
 	    }
 	    --num_left;
@@ -2454,31 +2443,19 @@ static int free_seg(DbTableHash *tb, int free_records)
 }
 
 
-static HashDbTerm* get_term(DbTableHash* tb, HashDbTerm* old, 
-			    Eterm obj, HashValue hval)
-{
-    HashDbTerm* p = db_get_term((DbTableCommon *) tb,
-				(old != NULL) ? &(old->dbterm) : NULL, 
-				((char *) &(old->dbterm)) - ((char *) old),
-				obj);
-    p->hvalue = hval;
-    /*p->next = NULL;*/ /*No Need */
-    return p;
-}
-
-
 /*
 ** Copy terms from ptr1 until ptr2
 ** works for ptr1 == ptr2 == 0  => []
 ** or ptr2 == 0
 */
-static Eterm put_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2)
+static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
+			   DbTableHash* tb)
 {
     int sz = 0;
     HashDbTerm* ptr;
     Eterm list = NIL;
     Eterm copy;
-    Eterm *hp;
+    Eterm *hp, *hend;
 
     ptr = ptr1;
     while(ptr != ptr2) {
@@ -2490,26 +2467,20 @@ static Eterm put_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2)
     }
 
     hp = HAlloc(p, sz);
+    hend = hp + sz;
 
     ptr = ptr1;
     while(ptr != ptr2) {
 	if (ptr->hvalue != INVALID_HASH) {
-	    copy = copy_shallow(DBTERM_BUF(&ptr->dbterm), ptr->dbterm.size, &hp, &MSO(p));
+	    copy = db_copy_object_from_ets(&tb->common, &ptr->dbterm, &hp, &MSO(p));
 	    list = CONS(hp, copy, list);
 	    hp  += 2;
 	}
 	ptr = ptr->next;
     }
-    return list;
-}
+    HRelease(p,hend,hp);
 
-static void free_term(DbTableHash *tb, HashDbTerm* p)
-{
-    db_free_term_data(&(p->dbterm));
-    erts_db_free(ERTS_ALC_T_DB_TERM,
-		 (DbTable *) tb,
-		 (void *) p,
-		 SIZ_DBTERM(p)*sizeof(Eterm));
+    return list;
 }
 
 /* Grow table with one new bucket.
@@ -2720,8 +2691,8 @@ static int db_lookup_dbterm_hash(DbTable *tbl, Eterm key, DbUpdateHandle* handle
 	    handle->tb = tbl;
 	    handle->bp = (void**) prevp;
 	    handle->dbterm = &b->dbterm;
-	    handle->new_size = b->dbterm.size;
 	    handle->mustResize = 0;
+	    handle->new_size = b->dbterm.size;
 	    handle->lck = lck;
 	    /* KEEP hval WLOCKED, db_finalize_dbterm_hash will WUNLOCK */
 	    return 1;
@@ -2742,37 +2713,14 @@ static void db_finalize_dbterm_hash(DbUpdateHandle* handle)
     erts_smp_rwmtx_t* lck = (erts_smp_rwmtx_t*) handle->lck;
 
     ERTS_SMP_LC_ASSERT(IS_HASH_WLOCKED(&tbl->hash,lck));  /* locked by db_lookup_dbterm_hash */
-    ASSERT(&oldp->dbterm == handle->dbterm);
+
+    ASSERT((&oldp->dbterm == handle->dbterm) == !(tbl->common.compress && handle->mustResize));
 
     if (handle->mustResize) {
-	ErlOffHeap tmp_offheap;
-	Eterm* top;
-	Eterm copy;
-	DbTerm* newDbTerm;
-	HashDbTerm* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl,
-					 sizeof(HashDbTerm)+sizeof(Eterm)*(handle->new_size-1));    
-	sys_memcpy(newp, oldp, sizeof(HashDbTerm)-sizeof(DbTerm));  /* copy only hashtab header */
-	*(handle->bp) = newp;
-	newDbTerm = &newp->dbterm;
-    
-	newDbTerm->size = handle->new_size;
-	tmp_offheap.first = NULL;
-	tmp_offheap.overhead = 0;
-	
-	/* make a flat copy */
-	top = DBTERM_BUF(newDbTerm);
-	copy = copy_struct(make_tuple(handle->dbterm->tpl),
-			   handle->new_size,
-			   &top, &tmp_offheap);
-	newDbTerm->first_oh = tmp_offheap.first;
-	DBTERM_SET_TPL(newDbTerm,tuple_val(copy));
-
+	db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
 	WUNLOCK_HASH(lck);
-		
-	db_free_term_data(handle->dbterm);
-	erts_db_free(ERTS_ALC_T_DB_TERM, tbl,
-		     (void *) (((char *) handle->dbterm) - (sizeof(HashDbTerm) - sizeof(DbTerm))),
-		     sizeof(HashDbTerm) + sizeof(Eterm)*(handle->dbterm->size-1));
+
+	free_term(&tbl->hash, oldp);
     }
     else {
 	WUNLOCK_HASH(lck);
@@ -2781,7 +2729,7 @@ static void db_finalize_dbterm_hash(DbUpdateHandle* handle)
     handle->dbterm = 0;
 #endif
     return;
-}   
+}
 
 static int db_delete_all_objects_hash(Process* p, DbTable* tbl)
 {

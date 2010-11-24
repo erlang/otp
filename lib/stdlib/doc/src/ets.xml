@@ -485,6 +485,9 @@ Error: fun containing local Erlang function calls
           <item><c>Item=protection, Value=public|protected|private</c>          <br></br>
 
            The table access rights.</item>
+           <item><c>Item=compressed, Value=true|false</c>          <br></br>
+
+            Indicates if the table is compressed or not.</item>
         </list>
       </desc>
     </func>
@@ -951,9 +954,10 @@ ets:select(Table,MatchSpec),</code>
       <type>
         <v>Name = atom()</v>
         <v>Options = [Option]</v>
-        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | {write_concurrency,bool()} | {read_concurrency,bool()}</v>
+        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | Tweaks</v>
         <v>&nbsp;&nbsp;Type = set | ordered_set | bag | duplicate_bag</v>
         <v>&nbsp;&nbsp;Access = public | protected | private</v>
+        <v>&nbsp;&nbsp;Tweaks = {write_concurrency,bool()} | {read_concurrency,bool()} | compressed</v>
         <v>&nbsp;&nbsp;Pos = int()</v>
         <v>&nbsp;&nbsp;HeirData = term()</v>
       </type>
@@ -1047,13 +1051,13 @@ ets:select(Table,MatchSpec),</code>
           <item>
             <marker id="new_2_write_concurrency"></marker>
             <p><c>{write_concurrency,bool()}</c>
-              Performance tuning. Default is <c>false</c>. An operation that
+              Performance tuning. Default is <c>false</c>, in which case an operation that
               mutates (writes to) the table will obtain exclusive access,
               blocking any concurrent access of the same table until finished.
               If set to <c>true</c>, the table is optimized towards concurrent
               write access. Different objects of the same table can be mutated
               (and read) by concurrent processes. This is achieved to some degree
-              at the expense of single access and concurrent reader performance.
+              at the expense of sequential access and concurrent reader performance.
 	      The <c>write_concurrency</c> option can be combined with the
 	      <seealso marker="#new_2_read_concurrency">read_concurrency</seealso>
 	      option. You typically want to combine these when large concurrent
@@ -1090,6 +1094,15 @@ ets:select(Table,MatchSpec),</code>
 	      <seealso marker="#new_2_write_concurrency">write_concurrency</seealso>
 	      option. You typically want to combine these when large concurrent
 	      read bursts and large concurrent write bursts are common.</p>
+          </item>
+          <item>
+            <marker id="new_2_compressed"></marker>
+	          <p><c>compressed</c>
+              If this option is present, the table data will be stored in a more compact format to
+              consume less memory. The downside is that it will make table operations slower.
+              Especially operations that need to inspect entire objects,
+              such as <c>match</c> and <c>select</c>, will get much slower. The key element
+              is not compressed in current implementation.</p>
           </item>
         </list>
       </desc>

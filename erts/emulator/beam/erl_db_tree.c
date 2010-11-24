@@ -122,12 +122,41 @@ static void release_stack(DbTableTree* tb, DbTreeStack* stack)
     }
 }
 
-static void reset_static_stack(DbTableTree* tb)
+static ERTS_INLINE void reset_static_stack(DbTableTree* tb)
 {
     tb->static_stack.pos = 0;
     tb->static_stack.slot = 0;
 }
 
+static ERTS_INLINE void free_term(DbTableTree *tb, TreeDbTerm* p)
+{
+    db_free_term((DbTable*)tb, p, offsetof(TreeDbTerm, dbterm));
+}
+
+static ERTS_INLINE TreeDbTerm* new_dbterm(DbTableTree *tb, Eterm obj)
+{
+    TreeDbTerm* p;
+    if (tb->common.compress) {
+	p = db_store_term_comp(&tb->common, NULL, offsetof(TreeDbTerm,dbterm), obj);
+    }
+    else {
+	p = db_store_term(&tb->common, NULL, offsetof(TreeDbTerm,dbterm), obj);
+    }
+    return p;
+}
+static ERTS_INLINE TreeDbTerm* replace_dbterm(DbTableTree *tb, TreeDbTerm* old,
+					      Eterm obj)
+{
+    TreeDbTerm* p;
+    ASSERT(old != NULL);
+    if (tb->common.compress) {
+	p = db_store_term_comp(&tb->common, &(old->dbterm), offsetof(TreeDbTerm,dbterm), obj);
+    }
+    else {
+	p = db_store_term(&tb->common, &(old->dbterm), offsetof(TreeDbTerm,dbterm), obj);
+    }
+    return p;
+}
 
 /*
 ** Some macros for "direction stacks"
@@ -176,12 +205,6 @@ static void do_dump_tree2(int to, void *to_arg, int show, TreeDbTerm *t,
 #define DBG /* nothing */
 
 #endif
-
-/*
- * Size calculations
- */
-#define SIZ_OVERHEAD ((sizeof(TreeDbTerm)/sizeof(Eterm)) - 1)
-#define SIZ_DBTERM(TDT) (SIZ_OVERHEAD + (TDT)->dbterm.size)
 
 /*
 ** Datatypes
@@ -263,9 +286,6 @@ static TreeDbTerm *linkout_tree(DbTableTree *tb, Eterm key);
 static TreeDbTerm *linkout_object_tree(DbTableTree *tb, 
 				       Eterm object);
 static int do_free_tree_cont(DbTableTree *tb, int num_left);
-static TreeDbTerm* get_term(DbTableTree *tb,
-			    TreeDbTerm* old, 
-			    Eterm obj);
 static void free_term(DbTableTree *tb, TreeDbTerm* p);
 static int balance_left(TreeDbTerm **this); 
 static int balance_right(TreeDbTerm **this); 
@@ -622,7 +642,7 @@ static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail)
 		erts_smp_atomic_dec(&tb->common.nitems);
 		return DB_ERROR_SYSRES;
 	    }
-	    *this = get_term(tb, NULL, obj);
+	    *this = new_dbterm(tb, obj);
 	    (*this)->balance = 0;
 	    (*this)->left = (*this)->right = NULL;
 	    break;
@@ -636,7 +656,7 @@ static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail)
 	    tstack[tpos++] = this;
 	    this = &((*this)->right);
 	} else if (!key_clash_fail) { /* Equal key and this is a set, replace. */
-	    *this = get_term(tb, *this, obj);
+	    *this = replace_dbterm(tb, *this, obj);
 	    break;
 	} else {
 	    return DB_ERROR_BADKEY; /* key already exists */
@@ -714,7 +734,7 @@ static int db_get_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
     Eterm copy;
-    Eterm *hp;
+    Eterm *hp, *hend;
     TreeDbTerm *this;
 
     /*
@@ -728,11 +748,11 @@ static int db_get_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 	*ret = NIL;
     } else {
 	hp = HAlloc(p, this->dbterm.size + 2);
-	copy = copy_shallow(DBTERM_BUF(&this->dbterm), 
-			    this->dbterm.size, 
-			    &hp, 
-			    &MSO(p));
+	hend = hp + this->dbterm.size + 2;
+	copy = db_copy_object_from_ets(&tb->common, &this->dbterm, &hp, &MSO(p));
 	*ret = CONS(hp, copy, NIL);
+	hp += 2;
+	HRelease(p,hend,hp);
     }
     return DB_ERROR_NONE;
 }
@@ -766,18 +786,10 @@ static int db_get_element_tree(Process *p, DbTable *tbl,
     if (this == NULL) {
 	return DB_ERROR_BADKEY;
     } else {
-	Eterm element;
-	Uint sz;
 	if (ndex > arityval(this->dbterm.tpl[0])) {
 	    return DB_ERROR_BADPARAM;
 	}
-	element = this->dbterm.tpl[ndex];
-	sz = size_object(element);
-	hp = HAlloc(p, sz);
-	*ret = copy_struct(element, 
-			   sz, 
-			   &hp, 
-			   &MSO(p));
+	*ret = db_copy_element_from_ets(&tb->common, p, &this->dbterm, ndex, &hp, 0);
     }
     return DB_ERROR_NONE;
 }
@@ -815,7 +827,7 @@ static int db_slot_tree(Process *p, DbTable *tbl,
     DbTableTree *tb = &tbl->tree;
     Sint slot;
     TreeDbTerm *st;
-    Eterm *hp;
+    Eterm *hp, *hend;
     Eterm copy;
 
     /*
@@ -847,11 +859,11 @@ static int db_slot_tree(Process *p, DbTable *tbl,
 	return DB_ERROR_UNSPEC;
     }
     hp = HAlloc(p, st->dbterm.size + 2);
-    copy = copy_shallow(DBTERM_BUF(&st->dbterm), 
-			st->dbterm.size, 
-			&hp, 
-			&MSO(p));
+    hend = hp + st->dbterm.size + 2;
+    copy = db_copy_object_from_ets(&tb->common, &st->dbterm, &hp, &MSO(p));
     *ret = CONS(hp, copy, NIL);
+    hp += 2;
+    HRelease(p,hend,hp);
     return DB_ERROR_NONE;
 }
 
@@ -1738,7 +1750,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 ** Other interface routines (not directly coupled to one bif)
 */
 
-/* Display hash table contents (for dump) */
+/* Display tree contents (for dump) */
 static void db_print_tree(int to, void *to_arg, 
 			  int show,
 			  DbTable *tbl)
@@ -1926,7 +1938,7 @@ static TreeDbTerm *linkout_object_tree(DbTableTree *tb,
 	    tstack[tpos++] = this;
 	    this = &((*this)->right);
 	} else { /* Equal key, found the only possible matching object*/
-	    if (!eq(object,make_tuple((*this)->dbterm.tpl))) {
+	    if (!db_eq(&tb->common,object,&(*this)->dbterm)) {
 		return NULL;
 	    }
 	    q = (*this);
@@ -2079,15 +2091,6 @@ static void do_dump_tree(int to, void *to_arg, TreeDbTerm *t)
     }
 }
 
-static void free_term(DbTableTree *tb, TreeDbTerm* p)
-{
-    db_free_term_data(&(p->dbterm));
-    erts_db_free(ERTS_ALC_T_DB_TERM,
-		 (DbTable *) tb,
-		 (void *) p,
-		 SIZ_DBTERM(p)*sizeof(Uint));
-}
-
 static int do_free_tree_cont(DbTableTree *tb, int num_left)
 {
     TreeDbTerm *root;
@@ -2116,17 +2119,6 @@ static int do_free_tree_cont(DbTableTree *tb, int num_left)
 	}
     }
     return 1;
-}
-
-static TreeDbTerm* get_term(DbTableTree *tb,
-			    TreeDbTerm* old, 
-			    Eterm obj) 
-{
-    TreeDbTerm* p = db_get_term((DbTableCommon *) tb,
-				(old != NULL) ? &(old->dbterm) : NULL, 
-				((char *) &(old->dbterm)) - ((char *) old),
-				obj);
-    return p;
 }
 
 /*
@@ -2570,46 +2562,21 @@ static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle
 
     handle->tb = tbl;
     handle->dbterm = &(*pp)->dbterm;
+    handle->mustResize = 0;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
-    handle->mustResize = 0;
     return 1;
 }
 
 static void db_finalize_dbterm_tree(DbUpdateHandle* handle)
 {
     if (handle->mustResize) {
-	ErlOffHeap tmp_offheap;
-	Eterm* top;
-	Eterm copy;
-	DbTerm* newDbTerm;
-	DbTableTree *tb = &handle->tb->tree;
 	TreeDbTerm* oldp = (TreeDbTerm*) *handle->bp;
-	TreeDbTerm* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM,
-					 handle->tb,
-					 sizeof(TreeDbTerm)+sizeof(Eterm)*(handle->new_size-1));
-	memcpy(newp, oldp, sizeof(TreeDbTerm)-sizeof(DbTerm));  /* copy only tree header */
-	*(handle->bp) = newp;
-	reset_static_stack(tb);
-	newDbTerm = &newp->dbterm;
-    
-	newDbTerm->size = handle->new_size;
-	tmp_offheap.first = NULL;
-	tmp_offheap.overhead = 0;
-	
-	/* make a flat copy */
-	top = DBTERM_BUF(newDbTerm);
-	copy = copy_struct(make_tuple(handle->dbterm->tpl),
-			   handle->new_size,
-			   &top, &tmp_offheap);
-	newDbTerm->first_oh = tmp_offheap.first;
-	DBTERM_SET_TPL(newDbTerm,tuple_val(copy));
-    
-	db_free_term_data(handle->dbterm);
-	erts_db_free(ERTS_ALC_T_DB_TERM,
-		     handle->tb,
-		     (void *) (((char *) handle->dbterm) - (sizeof(TreeDbTerm) - sizeof(DbTerm))),
-		     sizeof(TreeDbTerm) + sizeof(Eterm)*(handle->dbterm->size-1));
+
+	db_finalize_resize(handle, offsetof(TreeDbTerm,dbterm));
+	reset_static_stack(&handle->tb->tree);
+
+	free_term(&handle->tb->tree, oldp);
     }
 #ifdef DEBUG
     handle->dbterm = 0;
@@ -3009,7 +2976,7 @@ static int doit_select(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 {
     struct select_context *sc = (struct select_context *) ptr;
     Eterm ret;
-    Uint32 dummy;
+    Eterm* hp;
 
     sc->lastobj = this->dbterm.tpl;
     
@@ -3024,24 +2991,9 @@ static int doit_select(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 					   this->dbterm.tpl)) > 0))) {
 	return 0;
     }
-    ret = db_prog_match(sc->p, sc->mp,
-			make_tuple(this->dbterm.tpl), 
-			NULL,0, &dummy);
+    ret = db_prog_match_and_copy(&tb->common,sc->p,sc->mp,sc->all_objects,
+				 &this->dbterm, &hp, 2);
     if (is_value(ret)) {
-	Uint sz;
-	Eterm *hp;
-	if (sc->all_objects) {
-	    hp = HAlloc(sc->p, this->dbterm.size + 2);
-	    ret = copy_shallow(DBTERM_BUF(&this->dbterm),
-				     this->dbterm.size,
-				     &hp,
-			             &MSO(sc->p));
-	} else {
-	    sz = size_object(ret);
-	    hp = HAlloc(sc->p, sz + 2);
-	    ret = copy_struct(ret, sz, 
-			      &hp, &MSO(sc->p));
-	}
 	sc->accum = CONS(hp, ret, sc->accum);
     }
     if (MBUF(sc->p)) {
@@ -3062,7 +3014,6 @@ static int doit_select_count(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 {
     struct select_count_context *sc = (struct select_count_context *) ptr;
     Eterm ret;
-    Uint32 dummy;
 
     sc->lastobj = this->dbterm.tpl;
     
@@ -3073,9 +3024,8 @@ static int doit_select_count(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 					  this->dbterm.tpl)) > 0)) {
 	return 0;
     }
-    ret = db_prog_match(sc->p, sc->mp,
-			make_tuple(this->dbterm.tpl), 
-			NULL,0, &dummy);
+    ret = db_prog_match_and_copy(&tb->common, sc->p, sc->mp, 0,
+				 &this->dbterm, NULL, 0);
     if (ret == am_true) {
 	++(sc->got);
     }
@@ -3090,7 +3040,7 @@ static int doit_select_chunk(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 {
     struct select_context *sc = (struct select_context *) ptr;
     Eterm ret;
-    Uint32 dummy;
+    Eterm* hp;
 
     sc->lastobj = this->dbterm.tpl;
     
@@ -3106,25 +3056,10 @@ static int doit_select_chunk(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 	return 0;
     }
 
-    ret = db_prog_match(sc->p, sc->mp,
-			make_tuple(this->dbterm.tpl), 
-			NULL,0, &dummy);
+    ret = db_prog_match_and_copy(&tb->common, sc->p, sc->mp, sc->all_objects,
+				 &this->dbterm, &hp, 2);
     if (is_value(ret)) {
-	Uint sz;
-	Eterm *hp;
-
 	++(sc->got);
-	if (sc->all_objects) {
-	    hp = HAlloc(sc->p, this->dbterm.size + 2);
-	    ret = copy_shallow(DBTERM_BUF(&this->dbterm),
-				     this->dbterm.size,
-				     &hp,
-			             &MSO(sc->p));
-	} else {
-	    sz = size_object(ret);
-	    hp = HAlloc(sc->p, sz + 2);
-	    ret = copy_struct(ret, sz, &hp, &MSO(sc->p));
-	}
 	sc->accum = CONS(hp, ret, sc->accum);
     }
     if (MBUF(sc->p)) {
@@ -3146,7 +3081,6 @@ static int doit_select_delete(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 {
     struct select_delete_context *sc = (struct select_delete_context *) ptr;
     Eterm ret;
-    Uint32 dummy;
     Eterm key;
 
     if (sc->erase_lastterm)
@@ -3159,9 +3093,8 @@ static int doit_select_delete(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 			 GETKEY_WITH_POS(sc->keypos, 
 					 this->dbterm.tpl)) > 0)
 	return 0;
-    ret = db_prog_match(sc->p, sc->mp,
-			make_tuple(this->dbterm.tpl), 
-			NULL,0, &dummy);
+    ret = db_prog_match_and_copy(&tb->common, sc->p, sc->mp, 0,
+				 &this->dbterm, NULL, 0);
     if (ret == am_true) {
 	key = GETKEY(sc->tb, this->dbterm.tpl);
 	linkout_tree(sc->tb, key);

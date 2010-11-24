@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -61,6 +61,7 @@ void erts_db_foreach_offheap(DbTable *,
 
 extern int user_requested_db_max_tabs; /* set in erl_init */
 extern int erts_ets_realloc_always_moves;  /* set in erl_init */
+extern int erts_ets_always_compress;  /* set in erl_init */
 extern Export ets_select_delete_continue_exp;
 extern Export ets_select_count_continue_exp;
 extern Export ets_select_continue_exp;
