@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -98,13 +98,29 @@ static void encode_decode(ETERM* original, const char* text)
 {
     static unsigned char encoded[16*1024];
     ETERM* new_terms;
-    int bytes = erl_encode(original, encoded);
+    ETERM* head;
+    int bytes;
+    int len;
 
+    /* If a list, check the elements one by one first */
+    head = erl_hd(original);
+    if (head != NULL) {
+	encode_decode(head, "CAR");
+	encode_decode(erl_tl(original), "CDR");
+    }
+
+    bytes = erl_encode(original, encoded);
     if (bytes == 0) {
 	fail("failed to encode terms");
     } 
     else if (bytes > sizeof(encoded)) {
 	fail("encoded terms buffer overflow");
+    }
+    else if (bytes != (len=erl_term_len(original))) {
+	fprintf(stderr, "bytes(%d) != len(%d) for term ", bytes, len);
+	erl_print_term(stderr, original);
+	fprintf(stderr, " [%s]\r\n", text);
+	fail("erl_encode and erl_term_len do not agree");
     }
     else if ((new_terms = erl_decode(encoded)) == NULL) {
 	fail("failed to decode terms");
