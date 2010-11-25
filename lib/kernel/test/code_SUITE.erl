@@ -1339,6 +1339,18 @@ filter_app("safe",_) ->
 % OS_mon does not find it's port program when running cerl
 filter_app("os_mon",true) ->
     false;
+% The following apps may be loaded due to earlier test suites and shuld 
+% not be included
+filter_app("app0",_) ->
+    false;
+filter_app("app1",_) ->
+    false;
+filter_app("app2",_) ->
+    false;
+filter_app("group_leader",_) ->
+    false;
+filter_app("app_start_error",_) ->
+    false;
 % Other apps should be OK.
 filter_app(_,_) ->
     true.
