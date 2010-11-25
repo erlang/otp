@@ -85,7 +85,7 @@ static char* strsave(char* string);
 static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
-static void print_deprication_warning(char *progname); 
+static void print_deprecation_warning(char *progname); 
 #ifdef __WIN32__
 static char* possibly_quote(char* arg);
 #endif
@@ -132,7 +132,7 @@ main(int argc, char** argv)
     int erl_args;
     char** argv0 = argv;
 
-    print_deprication_warning(argv[0]);
+    print_deprecation_warning(argv[0]);
 
     emulator = get_default_emulator(argv[0]);
 
@@ -440,19 +440,19 @@ static char *simple_basename(char *path)
 {
     char *ptr;
     for (ptr = path; *ptr != '\0'; ++ptr) {
-	if (*ptr == '/') {
+	if (*ptr == '/' || *ptr == '\\') {
 	    path = ptr + 1;
 	}
     }
     return path;
 }
 
-static void print_deprication_warning(char* progpath)
+static void print_deprecation_warning(char* progpath)
 {
   char *basename = simple_basename(progpath);
   if(strcmp(basename,"run_test") == 0 ||
        strcmp(basename, "run_test.exe") == 0) {
-    printf("---***---\nDepricated: run_test is depricated and will be removed in R16B,\n            please use ct_run instead\n---***---\n");
+    printf("---***---\nDeprecated: run_test is deprecated and will be removed in R16B,\n            please use ct_run instead\n---***---\n");
   }
 }
 
