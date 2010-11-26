@@ -186,7 +186,7 @@ badargs(Config) when is_list(Config) ->
 	   binary:match(<<1,2,3>>,
 			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
 			[{scope,{0,1}}])),
-     ?line nomatch =
+     ?line [] =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
     ?line badarg =
 	?MASK_ERROR(binary:matches(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),

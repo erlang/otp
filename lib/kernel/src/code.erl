@@ -286,6 +286,8 @@ do_start(Flags) ->
 
     ets:module_info(module),
     os:module_info(module),
+    binary:module_info(module),
+    unicode:module_info(module),
     filename:module_info(module),
     lists:module_info(module),
 

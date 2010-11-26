@@ -645,7 +645,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     %% These modules should be loaded by code.erl before 
     %% the code_server is started.
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
-	  code_server, lists, lists_sort, filename, packages, 
+	  code_server, lists, lists_sort, unicode, binary, filename, packages, 
 	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
 	  prim_zip, zlib],
     ErrCnt1 = 
@@ -673,6 +673,22 @@ analyse2(MFA={_,_,_}, Path, Visited0) ->
 
 %%%% We need to check these manually...
 % fun's are ok as long as they are defined locally.
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,ml_map,3},
+	    {unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,do_o_binary2,2},
+	    {unicode,do_o_binary,2},
+	    {unicode,o_trans,1},
+	    {unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{code_server,load_native_code,4},
 	    {code_server,load_native_code_1,2},
