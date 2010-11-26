@@ -41,9 +41,6 @@
 -spec master_secret(binary(), binary(), binary()) -> binary().
 
 master_secret(PremasterSecret, ClientRandom, ServerRandom) ->
-    ?DBG_HEX(PremasterSecret),
-    ?DBG_HEX(ClientRandom),
-    ?DBG_HEX(ServerRandom),
     %%  draft-ietf-tls-ssl-version3-00 - 6.2.2 
     %% key_block =
     %%   MD5(master_secret + SHA(`A' + master_secret +
@@ -55,9 +52,8 @@ master_secret(PremasterSecret, ClientRandom, ServerRandom) ->
     %%   MD5(master_secret + SHA(`CCC' + master_secret +
     %%                           ServerHello.random +
     %%                           ClientHello.random)) + [...];
-    B = generate_keyblock(PremasterSecret, ClientRandom, ServerRandom, 48),
-    ?DBG_HEX(B),
-    B.
+    Block = generate_keyblock(PremasterSecret, ClientRandom, ServerRandom, 48),
+    Block.
 
 -spec finished(client | server, binary(), {binary(), binary()}) -> binary().
 
@@ -110,14 +106,11 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Length, Fragment) ->
     case Method of
         ?NULL -> ok;
         _ ->
-	    ?DBG_HEX(Mac_write_secret),
-	    ?DBG_HEX(hash(Method, Fragment)),
             ok
     end,
     Mac = mac_hash(Method, Mac_write_secret, 
 		   [<<?UINT64(Seq_num), ?BYTE(Type), 
 		     ?UINT16(Length)>>, Fragment]),
-    ?DBG_HEX(Mac),
     Mac.
 
 -spec setup_keys(binary(), binary(), binary(),  
@@ -139,12 +132,6 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     <<ClientWriteMacSecret:HS/binary, ServerWriteMacSecret:HS/binary,
      ClientWriteKey:KML/binary, ServerWriteKey:KML/binary,
      ClientIV:IVS/binary, ServerIV:IVS/binary>> = KeyBlock,
-    ?DBG_HEX(ClientWriteMacSecret),
-    ?DBG_HEX(ServerWriteMacSecret),
-    ?DBG_HEX(ClientWriteKey),
-    ?DBG_HEX(ServerWriteKey),
-    ?DBG_HEX(ClientIV),
-    ?DBG_HEX(ServerIV),
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
 

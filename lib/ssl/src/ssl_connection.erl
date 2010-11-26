@@ -967,15 +967,14 @@ handle_info(Msg, StateName, State) ->
 %% necessary cleaning up. When it returns, the gen_fsm terminates with
 %% Reason. The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, connection, #state{negotiated_version = Version,
+terminate(Reason, connection, #state{negotiated_version = Version,
 				      connection_states = ConnectionStates,
 				      transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate}) ->
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
-    {BinAlert, _} = encode_alert(?ALERT_REC(?WARNING,?CLOSE_NOTIFY),
-				 Version, ConnectionStates),
+    BinAlert = terminate_alert(Reason, Version, ConnectionStates),
     Transport:send(Socket, BinAlert),
     workaround_transport_delivery_problems(Socket, Transport),
     Transport:close(Socket);
@@ -1519,7 +1518,7 @@ handle_server_key(
 	true ->
 	    dh_master_secret(P, G, ServerPublicDhKey, undefined, State);
 	false ->
-	    ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)
+	    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
     end.
 
 verify_dh_params(Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
@@ -1574,15 +1573,12 @@ cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0
 							     tls_handshake_hashes =
 							     Hashes})).
 encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
-    ?DBG_TERM(Alert),
     ssl_record:encode_alert_record(Alert, Version, ConnectionStates).
 
 encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
-    ?DBG_TERM(#change_cipher_spec{}),
     ssl_record:encode_change_cipher_spec(Version, ConnectionStates).
 
 encode_handshake(HandshakeRec, Version, ConnectionStates0, Hashes0) ->
-    ?DBG_TERM(HandshakeRec),
     Frag = ssl_handshake:encode_handshake(HandshakeRec, Version),
     Hashes1 = ssl_handshake:update_hashes(Hashes0, Frag),
     {E, ConnectionStates1} =
@@ -1840,7 +1836,6 @@ next_state(StateName, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, State
 next_state(StateName, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = <<1>>} = 
  	   _ChangeCipher, 
  	   #state{connection_states = ConnectionStates0} = State0) ->
-    ?DBG_TERM(_ChangeCipher),
     ConnectionStates1 =
  	ssl_record:activate_pending_connection_state(ConnectionStates0, read),
     {Record, State} = next_record(State0#state{connection_states = ConnectionStates1}),
@@ -2190,6 +2185,15 @@ notify_renegotiater({true, From}) when not is_atom(From)  ->
     gen_fsm:reply(From, {error, closed});
 notify_renegotiater(_) ->
     ok.
+
+terminate_alert(Reason, Version, ConnectionStates) when Reason == normal; Reason == shutdown ->
+    {BinAlert, _} = encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+				 Version, ConnectionStates),
+    BinAlert;
+terminate_alert(_, Version, ConnectionStates) ->
+    {BinAlert, _} = encode_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR),
+				 Version, ConnectionStates),
+    BinAlert.
 
 workaround_transport_delivery_problems(Socket, Transport) ->
     %% Standard trick to try to make sure all
