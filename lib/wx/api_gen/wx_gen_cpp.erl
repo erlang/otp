@@ -152,6 +152,7 @@ gen_funcs(Defs) ->
     w("#include \"../wxe_impl.h\"~n"),
     w("#include \"../wxe_events.h\"~n"),
     w("#include \"../wxe_return.h\"~n"),
+    w("#include \"../wxe_gl.h\"~n"),
     w("#include \"wxe_macros.h\"~n"),
     w("#include \"wxe_derived_dest.h\"~n~n"),
 
@@ -176,6 +177,9 @@ gen_funcs(Defs) ->
       "     rt.addAtom(\"ok\");~n"
       "     break;~n"
       " }~n"),
+    w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
+    w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(Ecmd.bin[0]->bin);~n   break;~n",[]),
+    w(" case WXE_INIT_OPENGL:~n  wxe_initOpenGL(rt, bp);~n   break;~n",[]),
 
     Res = [gen_class(Class) || Class <- Defs],
 
@@ -265,13 +269,13 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     Opts = [Opt || Opt = #param{def=Def,in=In,where=Where} <- Ps2, 
 		   Def =/= none, In =/= false, Where =/= c],
     decode_options(Opts, Align),
-    case M#method.pre_hook of
-	undefined -> skip;
+    case gen_util:get_hook(c, M#method.pre_hook) of
+	ignore -> skip;
 	Pre -> w(" ~s;~n", [Pre])
     end,
     Ps3 = call_wx(N,{MT,CName},T,Ps2),
-    case M#method.post_hook of
-	undefined -> skip;
+    case gen_util:get_hook(c, M#method.post_hook) of
+	ignore -> skip;
 	Post -> w(" ~s;~n", [Post])
     end,
     free_args(),

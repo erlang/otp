@@ -67,7 +67,7 @@ gen_code() ->
 
     gl_gen_erl:gl_defines(GLDefines),
     gl_gen_erl:gl_api(GLFuncs),
-    gl_gen_erl:gen_debug(GLFuncs,GLUFuncs),
+    %%gl_gen_erl:gen_debug(GLFuncs,GLUFuncs),
     gl_gen_c:gen(GLFuncs,GLUFuncs),
     ok.
 
@@ -206,10 +206,10 @@ parse_define([], D, _Opts) ->
 
 parse_func(Xml, Opts) ->
     {Func,_} = foldl(fun(X,Acc) -> parse_func(X,Acc,Opts) end, {#func{},1}, Xml),
+    put(current_func, Func#func.name),
     #func{params=Args0,type=Type0} = Func,
     Args = filter(fun(#arg{type=void}) -> false; (_) -> true end, Args0),
-    #arg{type=Type} = 
-	patch_param(Func#func.name,#arg{name="result",type=Type0},Opts),
+    #arg{type=Type} = patch_param(Func#func.name,#arg{name="result",type=Type0},Opts),
     Func#func{params=reverse(Args), type=Type}.
 
 parse_func(#xmlElement{name=type, content=C}, {F,AC}, Os) ->
@@ -220,6 +220,7 @@ parse_func(#xmlElement{name=name, content=[#xmlText{value=C}]},{F,AC},Os) ->
     put(current_func, Func),
     {F#func{name=name(Func,Os)},AC};
 parse_func(#xmlElement{name=param, content=C},{F,AC},Os) -> 
+    put(current_func, F#func.name),
     Parse  = fun(Con, Ac) -> parse_param(Con, Ac, Os) end,
     Param0 = foldl(Parse, #arg{}, drop_empty(C)),
     Param = fix_param_name(Param0, F, AC),
@@ -314,11 +315,17 @@ handle_arg_opt(both, P) -> P#arg{in=both};
 handle_arg_opt(binary, P=#arg{type=T}) -> 
     P#arg{type=T#type{size=undefined,base=binary}};
 handle_arg_opt({binary,Sz}, P=#arg{type=T}) -> 
-    P#arg{type=T#type{size=Sz,base=binary}};
+    P#arg{type=T#type{size={Sz, Sz},base=binary}};
+handle_arg_opt({binary,Max, Sz}, P=#arg{type=T}) -> 
+    P#arg{type=T#type{size={Max, Sz},base=binary}};
 handle_arg_opt({type,Type}, P=#arg{type=T}) -> P#arg{type=T#type{name=Type}};
 handle_arg_opt({single,Opt},P=#arg{type=T}) -> P#arg{type=T#type{single=Opt}};
+handle_arg_opt({base,{Opt, Sz}},  P=#arg{type=T}) -> P#arg{type=T#type{base=Opt, size=Sz}};
 handle_arg_opt({base,Opt},  P=#arg{type=T}) -> P#arg{type=T#type{base=Opt}};
-handle_arg_opt({c_only,Opt},P) -> P#arg{where=c, alt=Opt}.
+handle_arg_opt({c_only,Opt},P) -> P#arg{where=c, alt=Opt};
+handle_arg_opt(string,  P=#arg{type=T}) -> P#arg{type=T#type{base=string}};
+handle_arg_opt({string,Max,Sz}, P=#arg{type=T}) ->
+    P#arg{type=T#type{base=string, size={Max,Sz}}}.
 
 parse_type([], _Os) -> void;
 parse_type(C, Os) -> 
@@ -367,6 +374,8 @@ parse_type2([N="GLbitfield"|R],T,Opts) ->
     parse_type2(R,T#type{name=N, size=4, base=int},Opts);
 parse_type2([N="GLvoid"|R],T,Opts) -> 
     parse_type2(R,T#type{name=N, base=idx_binary},Opts);
+parse_type2([N="GLsync"|R],T,Opts) -> 
+    parse_type2(R,T#type{name=N, base=int, size=8},Opts);
 
 parse_type2([N="GLbyte"|R],T,Opts) -> 
     parse_type2(R,T#type{name=N, size=1, base=int},Opts);
@@ -378,6 +387,11 @@ parse_type2([N="GLushort"|R],T,Opts) ->
     parse_type2(R,T#type{name=N, size=2, base=int},Opts);
 parse_type2([N="GLint"|R],T,Opts) -> 
     parse_type2(R,T#type{name=N, size=4, base=int},Opts);
+parse_type2([N="GLint64"|R],T,Opts) -> 
+    parse_type2(R,T#type{name=N, size=8, base=int},Opts);
+parse_type2([N="GLuint64"|R],T,Opts) -> 
+    parse_type2(R,T#type{name=N, size=8, base=int},Opts);
+
 parse_type2([N="GLuint"|R],T,Opts) -> 
     parse_type2(R,T#type{name=N, size=4, base=int},Opts);
 parse_type2([N="GLsizei"|R],T,Opts) -> 
@@ -548,8 +562,10 @@ setup_idx_binary(Name,Ext,_Opts) ->
 
     %% Ok warn if single is undefined
     lists:foreach(fun(#arg{type=#type{base=memory}}) -> ok;
+		     (#arg{type=#type{base=string}}) -> ok;
 		     (#arg{type=#type{base=idx_binary}}) -> ok;
 		     (#arg{type=#type{name="GLUquadric"}}) -> ok;
+		     (#arg{type=#type{base=binary, size=Sz}}) when Sz =/= undefined -> ok;
 		     (A=#arg{type=#type{single=undefined}}) -> 
 			  ?warning("~p Unknown size of~n ~p~n",
 				   [get(current_func),A]),

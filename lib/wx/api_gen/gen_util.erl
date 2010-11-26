@@ -40,6 +40,10 @@ strip_name([H|R1],[H|R2]) ->
     strip_name(R1,R2);
 strip_name(String,[]) -> String.
 
+
+get_hook(_Type, undefined) -> ignore;
+get_hook(Type, List) -> proplists:get_value(Type, List, ignore).
+  
 open_write(File) ->
     %% io:format("Generating ~s~n",[File]),
     {ok, Fd} = file:open(File++".temp", [write]),
@@ -58,10 +62,10 @@ close() ->
 		[] -> 
 		    ok = file:delete(File ++ ".temp"),
 		    %% So that make understands that we have made this
-		    case os:getenv("CLEARCASE_ROOT") of
-			false -> os:cmd("touch " ++ File);
-			_ ->  ignore
-		    end,
+		    %% case os:getenv("CLEARCASE_ROOT") of
+		    %% 	false -> os:cmd("touch " ++ File);
+		    %% 	_ ->  ignore
+		    %% end,
 		    ok;
 		Diff ->
 		    case check_diff(Diff) of

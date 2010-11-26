@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -96,7 +96,8 @@ new() ->
 %% @doc Starts a wx server. 
 %% Option may be {debug, Level}, see debug/1.
 new(Options) when is_list(Options) ->
-    #wx_env{} = wxe_server:start(),
+    #wx_env{port=Port} = wxe_server:start(),
+    put(opengl_port, Port),
     Debug = proplists:get_value(debug, Options, 0),
     debug(Debug),
     null().
@@ -121,8 +122,9 @@ get_env() ->
 %% @spec (wx_env()) -> ok
 %% @doc Sets the process wx environment, allows this process to use
 %% another process wx environment.
-set_env(#wx_env{sv=Pid} = Env) ->
-    put(?WXE_IDENTIFIER, Env),
+set_env(#wx_env{sv=Pid, port=Port} = Env) ->
+    put(?WXE_IDENTIFIER, Env),    
+    put(opengl_port, Port),
     %%    wxe_util:cast(?REGISTER_PID, <<>>),
     wxe_server:register_me(Pid),
     ok.

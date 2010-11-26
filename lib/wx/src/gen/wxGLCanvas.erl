@@ -144,8 +144,10 @@ getContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvassetcurrent">external documentation</a>.
 setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
-  wxe_util:cast(?wxGLCanvas_SetCurrent,
-  <<ThisRef:32/?UI>>).
+  _Result =  wxe_util:cast(?wxGLCanvas_SetCurrent,
+  <<ThisRef:32/?UI>>),
+  {ok, _} = wxe_master:init_opengl(),
+  _Result.
 
 %% @spec (This::wxGLCanvas()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvasswapbuffers">external documentation</a>.

@@ -20,37 +20,17 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "../wxe_impl.h"
-#include "../wxe_gl.h"
+#include "../egl_impl.h"
 #include "gl_fdefs.h"
 
-int gl_error_op;
-void gl_dispatch(int op, char *bp,ErlDrvTermData caller,WXEBinRef *bins[]){
- gl_error_op = op;
- if(caller != gl_active) {
-   wxGLCanvas * current = glc[caller];
-   if(current) { gl_active = caller; current->SetCurrent();}
-   else {
-       ErlDrvTermData rt[] = // Error msg
-      {ERL_DRV_ATOM, driver_mk_atom((char *) "_wxe_error_"),
-       ERL_DRV_INT,  op,
-       ERL_DRV_ATOM, driver_mk_atom((char *) "no_gl_context"),
-       ERL_DRV_TUPLE,3};
-      driver_send_term(WXE_DRV_PORT,caller,rt,8);
-      return ;
-   }
- };
+extern gl_fns_t gl_fns[];
 
+void egl_dispatch(int op, char *bp, ErlDrvPort port, ErlDrvTermData caller, char *bins[], int bins_sz[]){
+ try {
  switch(op)
 {
  case 5000:
-   wxe_tess_impl(bp, caller);
-   break;
- case WXE_BIN_INCR:
-   driver_binary_inc_refc(bins[0]->bin);
-   break;
- case WXE_BIN_DECR:
-   driver_binary_dec_refc(bins[0]->bin);
+   erl_tess_impl(bp, port, caller);
    break;
 case 5010: { // gluBuild1DMipmapLevels
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -61,14 +41,13 @@ case 5010: { // gluBuild1DMipmapLevels
  GLint *level = (GLint *) bp; bp += 4;
  GLint *base = (GLint *) bp; bp += 4;
  GLint *max = (GLint *) bp; bp += 4;
- void *data = (void *) bins[0]->base;
+ void *data = (void *) bins[0];
  GLint result = wegluBuild1DMipmapLevels(*target,*internalFormat,*width,*format,*type,*level,*base,*max,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5011: { // gluBuild1DMipmaps
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -76,14 +55,13 @@ case 5011: { // gluBuild1DMipmaps
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- void *data = (void *) bins[0]->base;
+ void *data = (void *) bins[0];
  GLint result = wegluBuild1DMipmaps(*target,*internalFormat,*width,*format,*type,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5012: { // gluBuild2DMipmapLevels
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -95,14 +73,13 @@ case 5012: { // gluBuild2DMipmapLevels
  GLint *level = (GLint *) bp; bp += 4;
  GLint *base = (GLint *) bp; bp += 4;
  GLint *max = (GLint *) bp; bp += 4;
- void *data = (void *) bins[0]->base;
+ void *data = (void *) bins[0];
  GLint result = wegluBuild2DMipmapLevels(*target,*internalFormat,*width,*height,*format,*type,*level,*base,*max,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5013: { // gluBuild2DMipmaps
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -111,14 +88,13 @@ case 5013: { // gluBuild2DMipmaps
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- void *data = (void *) bins[0]->base;
+ void *data = (void *) bins[0];
  GLint result = wegluBuild2DMipmaps(*target,*internalFormat,*width,*height,*format,*type,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5014: { // gluBuild3DMipmapLevels
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -131,14 +107,13 @@ case 5014: { // gluBuild3DMipmapLevels
  GLint *level = (GLint *) bp; bp += 4;
  GLint *base = (GLint *) bp; bp += 4;
  GLint *max = (GLint *) bp; bp += 4;
- void *data = (void *) bins[0]->base;
+ void *data = (void *) bins[0];
  GLint result = wegluBuild3DMipmapLevels(*target,*internalFormat,*width,*height,*depth,*format,*type,*level,*base,*max,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5015: { // gluBuild3DMipmaps
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -148,27 +123,25 @@ case 5015: { // gluBuild3DMipmaps
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- void *data = (void *) bins[0]->base;
+ void *data = (void *) bins[0];
  GLint result = wegluBuild3DMipmaps(*target,*internalFormat,*width,*height,*depth,*format,*type,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5016: { // gluCheckExtension
- int * extNameLen = (int *) bp; bp += 4;
- GLubyte * extName = (GLubyte *) bp;  bp += (8-((*extNameLen*1+4)%8))%8;
- int * extStringLen = (int *) bp; bp += 4;
- GLubyte * extString = (GLubyte *) bp;  bp += (8-((*extStringLen*1+4)%8))%8;
+ GLubyte *extName = (GLubyte *) bp;
+ int extNameLen[1] = {strlen((char *)extName)}; bp += extNameLen[0]+1+((8-((1+extNameLen[0]+0)%8))%8);
+ GLubyte *extString = (GLubyte *) bp;
+ int extStringLen[1] = {strlen((char *)extString)}; bp += extStringLen[0]+1+((8-((1+extStringLen[0]+0)%8))%8);
  GLboolean result = wegluCheckExtension(extName,extString);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5017: { // gluCylinder
  GLUquadric * quad = (GLUquadric *) * (GLuint64EXT *) bp; bp += 8;
@@ -195,21 +168,19 @@ case 5020: { // gluErrorString
  GLenum *error = (GLenum *) bp; bp += 4;
  const GLubyte *  result = wegluErrorString(*error);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) result; rt[AP++] = strlen((char *) result);
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5021: { // gluGetString
  GLenum *name = (GLenum *) bp; bp += 4;
  const GLubyte *  result = wegluGetString(*name);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) result; rt[AP++] = strlen((char *) result);
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5022: { // gluLookAt
  GLdouble *eyeX = (GLdouble *) bp; bp += 8;
@@ -226,11 +197,10 @@ case 5022: { // gluLookAt
 case 5023: { // gluNewQuadric
  GLUquadric *  result = wegluNewQuadric();
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5024: { // gluOrtho2D
  GLdouble *left = (GLdouble *) bp; bp += 8;
@@ -276,15 +246,14 @@ case 5028: { // gluProject
  GLdouble winZ[1] = {0.0};
  GLint result = wegluProject(*objX,*objY,*objZ,model,proj,view,winX,winY,winZ);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) winX;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) winY;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) winZ;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5029: { // gluQuadricDrawStyle
  GLUquadric * quad = (GLUquadric *) * (GLuint64EXT *) bp; bp += 8;
@@ -311,18 +280,17 @@ case 5033: { // gluScaleImage
  GLsizei *wIn = (GLsizei *) bp; bp += 4;
  GLsizei *hIn = (GLsizei *) bp; bp += 4;
  GLenum *typeIn = (GLenum *) bp; bp += 4;
- void *dataIn = (void *) bins[0]->base;
+ void *dataIn = (void *) bins[0];
  GLsizei *wOut = (GLsizei *) bp; bp += 4;
  GLsizei *hOut = (GLsizei *) bp; bp += 4;
  GLenum *typeOut = (GLenum *) bp; bp += 4;
- GLvoid *dataOut = (GLvoid *) bins[1]->base;
+ GLvoid *dataOut = (GLvoid *) bins[1];
  GLint result = wegluScaleImage(*format,*wIn,*hIn,*typeIn,dataIn,*wOut,*hOut,*typeOut,dataOut);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5034: { // gluSphere
  GLUquadric * quad = (GLUquadric *) * (GLuint64EXT *) bp; bp += 8;
@@ -343,15 +311,14 @@ case 5035: { // gluUnProject
  GLdouble objZ[1] = {0.0};
  GLint result = wegluUnProject(*winX,*winY,*winZ,model,proj,view,objX,objY,objZ);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) objX;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) objY;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) objZ;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5036: { // gluUnProject4
  GLdouble *winX = (GLdouble *) bp; bp += 8;
@@ -369,7 +336,7 @@ case 5036: { // gluUnProject4
  GLdouble objW[1] = {0.0};
  GLint result = wegluUnProject4(*winX,*winY,*winZ,*clipW,model,proj,view,*nearVal,*farVal,objX,objY,objZ,objW);
  int AP = 0; ErlDrvTermData rt[16];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) objX;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) objY;
@@ -377,8 +344,7 @@ case 5036: { // gluUnProject4
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) objW;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 5;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 16 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,16);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5037: { // glAccum
  GLenum *op = (GLenum *) bp; bp += 4;
@@ -398,15 +364,14 @@ case 5039: { // glAreTexturesResident
  GLboolean result = weglAreTexturesResident(*texturesLen,textures,residences);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(11 + (*texturesLen)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  for(int i=0; i < *texturesLen; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) residences[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*texturesLen)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 11 + (*texturesLen)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,11 + (*texturesLen)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(residences);
 }; break;
@@ -440,7 +405,7 @@ case 5044: { // glBitmap
  GLfloat *yorig = (GLfloat *) bp; bp += 4;
  GLfloat *xmove = (GLfloat *) bp; bp += 4;
  GLfloat *ymove = (GLfloat *) bp; bp += 4;
- GLubyte *bitmap = (GLubyte *) bins[0]->base;
+ GLubyte *bitmap = (GLubyte *) bins[0];
  weglBitmap(*width,*height,*xorig,*yorig,*xmove,*ymove,bitmap);
 }; break;
 case 5045: { // glBlendFunc
@@ -580,7 +545,7 @@ case 5074: { // glColorPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglColorPointer(*size,*type,*stride,pointer);
 }; break;
 case 5075: { // glCopyPixels
@@ -688,7 +653,7 @@ case 5091: { // glDrawElements
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) bins[0]->base;
+ GLvoid *indices = (GLvoid *) bins[0];
  weglDrawElements(*mode,*count,*type,indices);
 }; break;
 case 5092: { // glDrawPixels
@@ -704,7 +669,7 @@ case 5093: { // glDrawPixels
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglDrawPixels(*width,*height,*format,*type,pixels);
 }; break;
 case 5094: { // glEdgeFlagv
@@ -718,7 +683,7 @@ case 5095: { // glEdgeFlagPointer
 }; break;
 case 5096: { // glEdgeFlagPointer
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglEdgeFlagPointer(*stride,pointer);
 }; break;
 case 5097: { // glEnable
@@ -777,13 +742,13 @@ case 5108: { // glEvalPoint2
 case 5109: { // glFeedbackBuffer
  GLsizei *size = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLfloat *buffer = (GLfloat *) bins[0]->base;
+ GLfloat *buffer = (GLfloat *) bins[0];
  weglFeedbackBuffer(*size,*type,buffer);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5110: { // glFinish
  weglFinish();
@@ -830,11 +795,10 @@ case 5118: { // glGenLists
  GLsizei *range = (GLsizei *) bp; bp += 4;
  GLuint result = weglGenLists(*range);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5119: { // glGenTextures
  GLsizei *n = (GLsizei *) bp; bp += 4;
@@ -843,13 +807,12 @@ case 5119: { // glGenTextures
  weglGenTextures(*n,textures);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) textures[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(textures);
 }; break;
@@ -858,7 +821,7 @@ case 5120: { // glGetBooleanv
  GLboolean params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetBooleanv(*pname,params);
  int AP = 0; ErlDrvTermData rt[39];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLboolean *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -878,15 +841,14 @@ case 5120: { // glGetBooleanv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 39 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,39);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5121: { // glGetClipPlane
  GLenum *plane = (GLenum *) bp; bp += 4;
  GLdouble equation[4] = {0.0,0.0,0.0,0.0};
  weglGetClipPlane(*plane,equation);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble *equationTmp = equation;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
@@ -894,15 +856,14 @@ case 5121: { // glGetClipPlane
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5122: { // glGetDoublev
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLdouble params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
  weglGetDoublev(*pname,params);
  int AP = 0; ErlDrvTermData rt[39];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble *paramsTmp = params;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -922,24 +883,22 @@ case 5122: { // glGetDoublev
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 39 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,39);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5123: { // glGetError
  GLenum result = weglGetError();
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5124: { // glGetFloatv
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
  weglGetFloatv(*pname,params);
  int AP = 0; ErlDrvTermData rt[39];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[16], *paramsTmp = paramsConv; 
  for(int i=0; i < 16; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -960,15 +919,14 @@ case 5124: { // glGetFloatv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 39 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,39);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5125: { // glGetIntegerv
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetIntegerv(*pname,params);
  int AP = 0; ErlDrvTermData rt[39];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -988,8 +946,7 @@ case 5125: { // glGetIntegerv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 39 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,39);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5126: { // glGetLightfv
  GLenum *light = (GLenum *) bp; bp += 4;
@@ -997,7 +954,7 @@ case 5126: { // glGetLightfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetLightfv(*light,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -1006,8 +963,7 @@ case 5126: { // glGetLightfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5127: { // glGetLightiv
  GLenum *light = (GLenum *) bp; bp += 4;
@@ -1015,7 +971,7 @@ case 5127: { // glGetLightiv
  GLint params[4] = {0,0,0,0};
  weglGetLightiv(*light,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -1023,41 +979,40 @@ case 5127: { // glGetLightiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5128: { // glGetMapdv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *query = (GLenum *) bp; bp += 4;
- GLdouble *v = (GLdouble *) bins[0]->base;
+ GLdouble *v = (GLdouble *) bins[0];
  weglGetMapdv(*target,*query,v);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5129: { // glGetMapfv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *query = (GLenum *) bp; bp += 4;
- GLfloat *v = (GLfloat *) bins[0]->base;
+ GLfloat *v = (GLfloat *) bins[0];
  weglGetMapfv(*target,*query,v);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5130: { // glGetMapiv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *query = (GLenum *) bp; bp += 4;
- GLint *v = (GLint *) bins[0]->base;
+ GLint *v = (GLint *) bins[0];
  weglGetMapiv(*target,*query,v);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5131: { // glGetMaterialfv
  GLenum *face = (GLenum *) bp; bp += 4;
@@ -1065,7 +1020,7 @@ case 5131: { // glGetMaterialfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetMaterialfv(*face,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -1074,8 +1029,7 @@ case 5131: { // glGetMaterialfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5132: { // glGetMaterialiv
  GLenum *face = (GLenum *) bp; bp += 4;
@@ -1083,7 +1037,7 @@ case 5132: { // glGetMaterialiv
  GLint params[4] = {0,0,0,0};
  weglGetMaterialiv(*face,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -1091,61 +1045,56 @@ case 5132: { // glGetMaterialiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5133: { // glGetPixelMapfv
  GLenum *map = (GLenum *) bp; bp += 4;
- GLfloat *values = (GLfloat *) bins[0]->base;
+ GLfloat *values = (GLfloat *) bins[0];
  weglGetPixelMapfv(*map,values);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5134: { // glGetPixelMapuiv
  GLenum *map = (GLenum *) bp; bp += 4;
- GLuint *values = (GLuint *) bins[0]->base;
+ GLuint *values = (GLuint *) bins[0];
  weglGetPixelMapuiv(*map,values);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5135: { // glGetPixelMapusv
  GLenum *map = (GLenum *) bp; bp += 4;
- GLushort *values = (GLushort *) bins[0]->base;
+ GLushort *values = (GLushort *) bins[0];
  weglGetPixelMapusv(*map,values);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5136: { // glGetPolygonStipple
- GLubyte mask[128];
- weglGetPolygonStipple(mask);
+ ErlDrvBinary *mask = driver_alloc_binary(128);
+ weglGetPolygonStipple((GLubyte*) mask->orig_bytes);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
- ErlDrvBinary * BinCopy = driver_alloc_binary(128);
- memcpy(BinCopy->orig_bytes, mask, 128);
- rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) BinCopy; rt[AP++] = 128; rt[AP++] = 0;
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) mask; rt[AP++] = 128; rt[AP++] = 0;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
- driver_free_binary(BinCopy);
+ driver_send_term(port,caller,rt,AP);
+ driver_free_binary(mask);
 }; break;
 case 5137: { // glGetString
  GLenum *name = (GLenum *) bp; bp += 4;
  const GLubyte *  result = weglGetString(*name);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) result; rt[AP++] = strlen((char *) result);
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5138: { // glGetTexEnvfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1153,7 +1102,7 @@ case 5138: { // glGetTexEnvfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetTexEnvfv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -1162,8 +1111,7 @@ case 5138: { // glGetTexEnvfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5139: { // glGetTexEnviv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1171,7 +1119,7 @@ case 5139: { // glGetTexEnviv
  GLint params[4] = {0,0,0,0};
  weglGetTexEnviv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -1179,8 +1127,7 @@ case 5139: { // glGetTexEnviv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5140: { // glGetTexGendv
  GLenum *coord = (GLenum *) bp; bp += 4;
@@ -1188,7 +1135,7 @@ case 5140: { // glGetTexGendv
  GLdouble params[4] = {0.0,0.0,0.0,0.0};
  weglGetTexGendv(*coord,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble *paramsTmp = params;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -1196,8 +1143,7 @@ case 5140: { // glGetTexGendv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5141: { // glGetTexGenfv
  GLenum *coord = (GLenum *) bp; bp += 4;
@@ -1205,7 +1151,7 @@ case 5141: { // glGetTexGenfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetTexGenfv(*coord,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -1214,8 +1160,7 @@ case 5141: { // glGetTexGenfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5142: { // glGetTexGeniv
  GLenum *coord = (GLenum *) bp; bp += 4;
@@ -1223,7 +1168,7 @@ case 5142: { // glGetTexGeniv
  GLint params[4] = {0,0,0,0};
  weglGetTexGeniv(*coord,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -1231,21 +1176,20 @@ case 5142: { // glGetTexGeniv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5143: { // glGetTexImage
  GLenum *target = (GLenum *) bp; bp += 4;
  GLint *level = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglGetTexImage(*target,*level,*format,*type,pixels);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5144: { // glGetTexLevelParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1254,14 +1198,13 @@ case 5144: { // glGetTexLevelParameterfv
  GLfloat params[1] = {0.0};
  weglGetTexLevelParameterfv(*target,*level,*pname,params);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[1], *paramsTmp = paramsConv; 
  for(int i=0; i < 1; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5145: { // glGetTexLevelParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1270,13 +1213,12 @@ case 5145: { // glGetTexLevelParameteriv
  GLint params[1] = {0};
  weglGetTexLevelParameteriv(*target,*level,*pname,params);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5146: { // glGetTexParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1284,7 +1226,7 @@ case 5146: { // glGetTexParameterfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetTexParameterfv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -1293,8 +1235,7 @@ case 5146: { // glGetTexParameterfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5147: { // glGetTexParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1302,7 +1243,7 @@ case 5147: { // glGetTexParameteriv
  GLint params[4] = {0,0,0,0};
  weglGetTexParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -1310,8 +1251,7 @@ case 5147: { // glGetTexParameteriv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5148: { // glHint
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -1331,7 +1271,7 @@ case 5150: { // glIndexPointer
 case 5151: { // glIndexPointer
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglIndexPointer(*type,*stride,pointer);
 }; break;
 case 5152: { // glIndexdv
@@ -1366,38 +1306,35 @@ case 5158: { // glInterleavedArrays
 case 5159: { // glInterleavedArrays
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglInterleavedArrays(*format,*stride,pointer);
 }; break;
 case 5160: { // glIsEnabled
  GLenum *cap = (GLenum *) bp; bp += 4;
  GLboolean result = weglIsEnabled(*cap);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5161: { // glIsList
  GLuint *list = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsList(*list);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5162: { // glIsTexture
  GLuint *texture = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsTexture(*texture);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5163: { // glLightModelf
  GLenum *pname = (GLenum *) bp; bp += 4;
@@ -1486,7 +1423,7 @@ case 5179: { // glMap1d
  GLdouble *u2 = (GLdouble *) bp; bp += 8;
  GLint *stride = (GLint *) bp; bp += 4;
  GLint *order = (GLint *) bp; bp += 4;
- GLdouble *points = (GLdouble *) bins[0]->base;
+ GLdouble *points = (GLdouble *) bins[0];
  weglMap1d(*target,*u1,*u2,*stride,*order,points);
 }; break;
 case 5180: { // glMap1f
@@ -1495,7 +1432,7 @@ case 5180: { // glMap1f
  GLfloat *u2 = (GLfloat *) bp; bp += 4;
  GLint *stride = (GLint *) bp; bp += 4;
  GLint *order = (GLint *) bp; bp += 4;
- GLfloat *points = (GLfloat *) bins[0]->base;
+ GLfloat *points = (GLfloat *) bins[0];
  weglMap1f(*target,*u1,*u2,*stride,*order,points);
 }; break;
 case 5181: { // glMap2d
@@ -1509,7 +1446,7 @@ case 5181: { // glMap2d
  GLdouble *v2 = (GLdouble *) bp; bp += 8;
  GLint *vstride = (GLint *) bp; bp += 4;
  GLint *vorder = (GLint *) bp; bp += 4;
- GLdouble *points = (GLdouble *) bins[0]->base;
+ GLdouble *points = (GLdouble *) bins[0];
  weglMap2d(*target,*u1,*u2,*ustride,*uorder,*v1,*v2,*vstride,*vorder,points);
 }; break;
 case 5182: { // glMap2f
@@ -1522,7 +1459,7 @@ case 5182: { // glMap2f
  GLfloat *v2 = (GLfloat *) bp; bp += 4;
  GLint *vstride = (GLint *) bp; bp += 4;
  GLint *vorder = (GLint *) bp; bp += 4;
- GLfloat *points = (GLfloat *) bins[0]->base;
+ GLfloat *points = (GLfloat *) bins[0];
  weglMap2f(*target,*u1,*u2,*ustride,*uorder,*v1,*v2,*vstride,*vorder,points);
 }; break;
 case 5183: { // glMapGrid1d
@@ -1630,7 +1567,7 @@ case 5200: { // glNormalPointer
 case 5201: { // glNormalPointer
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglNormalPointer(*type,*stride,pointer);
 }; break;
 case 5202: { // glOrtho
@@ -1649,19 +1586,19 @@ case 5203: { // glPassThrough
 case 5204: { // glPixelMapfv
  GLenum *map = (GLenum *) bp; bp += 4;
  GLsizei *mapsize = (GLsizei *) bp; bp += 4;
- GLfloat *values = (GLfloat *) bins[0]->base;
+ GLfloat *values = (GLfloat *) bins[0];
  weglPixelMapfv(*map,*mapsize,values);
 }; break;
 case 5205: { // glPixelMapuiv
  GLenum *map = (GLenum *) bp; bp += 4;
  GLsizei *mapsize = (GLsizei *) bp; bp += 4;
- GLuint *values = (GLuint *) bins[0]->base;
+ GLuint *values = (GLuint *) bins[0];
  weglPixelMapuiv(*map,*mapsize,values);
 }; break;
 case 5206: { // glPixelMapusv
  GLenum *map = (GLenum *) bp; bp += 4;
  GLsizei *mapsize = (GLsizei *) bp; bp += 4;
- GLushort *values = (GLushort *) bins[0]->base;
+ GLushort *values = (GLushort *) bins[0];
  weglPixelMapusv(*map,*mapsize,values);
 }; break;
 case 5207: { // glPixelStoref
@@ -1704,7 +1641,7 @@ case 5214: { // glPolygonOffset
  weglPolygonOffset(*factor,*units);
 }; break;
 case 5215: { // glPolygonStipple
- GLubyte *mask = (GLubyte *) bins[0]->base;
+ GLubyte *mask = (GLubyte *) bins[0];
  weglPolygonStipple(mask);
 }; break;
 case 5216: { // glPopAttrib
@@ -1800,13 +1737,13 @@ case 5238: { // glReadPixels
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglReadPixels(*x,*y,*width,*height,*format,*type,pixels);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5239: { // glRectd
  GLdouble *x1 = (GLdouble *) bp; bp += 8;
@@ -1860,11 +1797,10 @@ case 5247: { // glRenderMode
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLint result = weglRenderMode(*mode);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5248: { // glRotated
  GLdouble *angle = (GLdouble *) bp; bp += 8;
@@ -1901,13 +1837,13 @@ case 5252: { // glScissor
 }; break;
 case 5253: { // glSelectBuffer
  GLsizei *size = (GLsizei *) bp; bp += 4;
- GLuint *buffer = (GLuint *) bins[0]->base;
+ GLuint *buffer = (GLuint *) bins[0];
  weglSelectBuffer(*size,buffer);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5254: { // glShadeModel
  GLenum *mode = (GLenum *) bp; bp += 4;
@@ -2004,7 +1940,7 @@ case 5275: { // glTexCoordPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglTexCoordPointer(*size,*type,*stride,pointer);
 }; break;
 case 5276: { // glTexEnvf
@@ -2091,7 +2027,7 @@ case 5287: { // glTexImage1D
  GLint *border = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglTexImage1D(*target,*level,*internalformat,*width,*border,*format,*type,pixels);
 }; break;
 case 5288: { // glTexImage2D
@@ -2115,7 +2051,7 @@ case 5289: { // glTexImage2D
  GLint *border = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglTexImage2D(*target,*level,*internalformat,*width,*height,*border,*format,*type,pixels);
 }; break;
 case 5290: { // glTexParameterf
@@ -2161,7 +2097,7 @@ case 5295: { // glTexSubImage1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglTexSubImage1D(*target,*level,*xoffset,*width,*format,*type,pixels);
 }; break;
 case 5296: { // glTexSubImage2D
@@ -2185,7 +2121,7 @@ case 5297: { // glTexSubImage2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*type,pixels);
 }; break;
 case 5298: { // glTranslated
@@ -2259,7 +2195,7 @@ case 5313: { // glVertexPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglVertexPointer(*size,*type,*stride,pointer);
 }; break;
 case 5314: { // glViewport
@@ -2295,7 +2231,7 @@ case 5318: { // glDrawRangeElements
  GLuint *end = (GLuint *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) bins[0]->base;
+ GLvoid *indices = (GLvoid *) bins[0];
  weglDrawRangeElements(*mode,*start,*end,*count,*type,indices);
 }; break;
 case 5319: { // glTexImage3D
@@ -2321,7 +2257,7 @@ case 5320: { // glTexImage3D
  GLint *border = (GLint *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglTexImage3D(*target,*level,*internalformat,*width,*height,*depth,*border,*format,*type,pixels);
 }; break;
 case 5321: { // glTexSubImage3D
@@ -2349,7 +2285,7 @@ case 5322: { // glTexSubImage3D
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0]->base;
+ GLvoid *pixels = (GLvoid *) bins[0];
  weglTexSubImage3D(*target,*level,*xoffset,*yoffset,*zoffset,*width,*height,*depth,*format,*type,pixels);
 }; break;
 case 5323: { // glCopyTexSubImage3D
@@ -2379,7 +2315,7 @@ case 5325: { // glColorTable
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *table = (GLvoid *) bins[0]->base;
+ GLvoid *table = (GLvoid *) bins[0];
  weglColorTable(*target,*internalformat,*width,*format,*type,table);
 }; break;
 case 5326: { // glColorTableParameterfv
@@ -2406,13 +2342,13 @@ case 5329: { // glGetColorTable
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *table = (GLvoid *) bins[0]->base;
+ GLvoid *table = (GLvoid *) bins[0];
  weglGetColorTable(*target,*format,*type,table);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5330: { // glGetColorTableParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2420,7 +2356,7 @@ case 5330: { // glGetColorTableParameterfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetColorTableParameterfv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -2429,8 +2365,7 @@ case 5330: { // glGetColorTableParameterfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5331: { // glGetColorTableParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2438,7 +2373,7 @@ case 5331: { // glGetColorTableParameteriv
  GLint params[4] = {0,0,0,0};
  weglGetColorTableParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -2446,8 +2381,7 @@ case 5331: { // glGetColorTableParameteriv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5332: { // glColorSubTable
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2464,7 +2398,7 @@ case 5333: { // glColorSubTable
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglColorSubTable(*target,*start,*count,*format,*type,data);
 }; break;
 case 5334: { // glCopyColorSubTable
@@ -2490,7 +2424,7 @@ case 5336: { // glConvolutionFilter1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *image = (GLvoid *) bins[0]->base;
+ GLvoid *image = (GLvoid *) bins[0];
  weglConvolutionFilter1D(*target,*internalformat,*width,*format,*type,image);
 }; break;
 case 5337: { // glConvolutionFilter2D
@@ -2510,7 +2444,7 @@ case 5338: { // glConvolutionFilter2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *image = (GLvoid *) bins[0]->base;
+ GLvoid *image = (GLvoid *) bins[0];
  weglConvolutionFilter2D(*target,*internalformat,*width,*height,*format,*type,image);
 }; break;
 case 5339: { // glConvolutionParameterfv
@@ -2548,13 +2482,13 @@ case 5343: { // glGetConvolutionFilter
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *image = (GLvoid *) bins[0]->base;
+ GLvoid *image = (GLvoid *) bins[0];
  weglGetConvolutionFilter(*target,*format,*type,image);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5344: { // glGetConvolutionParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2562,7 +2496,7 @@ case 5344: { // glGetConvolutionParameterfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetConvolutionParameterfv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -2571,8 +2505,7 @@ case 5344: { // glGetConvolutionParameterfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5345: { // glGetConvolutionParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2580,7 +2513,7 @@ case 5345: { // glGetConvolutionParameteriv
  GLint params[4] = {0,0,0,0};
  weglGetConvolutionParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -2588,8 +2521,7 @@ case 5345: { // glGetConvolutionParameteriv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5346: { // glSeparableFilter2D
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2609,8 +2541,8 @@ case 5347: { // glSeparableFilter2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *row = (GLvoid *) bins[0]->base;
- GLvoid *column = (GLvoid *) bins[1]->base;
+ GLvoid *row = (GLvoid *) bins[0];
+ GLvoid *column = (GLvoid *) bins[1];
  weglSeparableFilter2D(*target,*internalformat,*width,*height,*format,*type,row,column);
 }; break;
 case 5348: { // glGetHistogram
@@ -2619,13 +2551,13 @@ case 5348: { // glGetHistogram
  bp += 3;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *values = (GLvoid *) bins[0]->base;
+ GLvoid *values = (GLvoid *) bins[0];
  weglGetHistogram(*target,*reset,*format,*type,values);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5349: { // glGetHistogramParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2633,14 +2565,13 @@ case 5349: { // glGetHistogramParameterfv
  GLfloat params[1] = {0.0};
  weglGetHistogramParameterfv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[1], *paramsTmp = paramsConv; 
  for(int i=0; i < 1; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5350: { // glGetHistogramParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2648,13 +2579,12 @@ case 5350: { // glGetHistogramParameteriv
  GLint params[1] = {0};
  weglGetHistogramParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5351: { // glGetMinmax
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2662,13 +2592,13 @@ case 5351: { // glGetMinmax
  bp += 3;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *values = (GLvoid *) bins[0]->base;
+ GLvoid *values = (GLvoid *) bins[0];
  weglGetMinmax(*target,*reset,*format,*type,values);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5352: { // glGetMinmaxParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2676,14 +2606,13 @@ case 5352: { // glGetMinmaxParameterfv
  GLfloat params[1] = {0.0};
  weglGetMinmaxParameterfv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[1], *paramsTmp = paramsConv; 
  for(int i=0; i < 1; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5353: { // glGetMinmaxParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2691,13 +2620,12 @@ case 5353: { // glGetMinmaxParameteriv
  GLint params[1] = {0};
  weglGetMinmaxParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[8];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 8 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,8);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5354: { // glHistogram
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2750,7 +2678,7 @@ case 5361: { // glCompressedTexImage3D
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLint *border = (GLint *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglCompressedTexImage3D(*target,*level,*internalformat,*width,*height,*depth,*border,*imageSize,data);
 }; break;
 case 5362: { // glCompressedTexImage2D
@@ -2772,7 +2700,7 @@ case 5363: { // glCompressedTexImage2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLint *border = (GLint *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglCompressedTexImage2D(*target,*level,*internalformat,*width,*height,*border,*imageSize,data);
 }; break;
 case 5364: { // glCompressedTexImage1D
@@ -2792,7 +2720,7 @@ case 5365: { // glCompressedTexImage1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLint *border = (GLint *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglCompressedTexImage1D(*target,*level,*internalformat,*width,*border,*imageSize,data);
 }; break;
 case 5366: { // glCompressedTexSubImage3D
@@ -2820,7 +2748,7 @@ case 5367: { // glCompressedTexSubImage3D
  GLsizei *depth = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglCompressedTexSubImage3D(*target,*level,*xoffset,*yoffset,*zoffset,*width,*height,*depth,*format,*imageSize,data);
 }; break;
 case 5368: { // glCompressedTexSubImage2D
@@ -2844,7 +2772,7 @@ case 5369: { // glCompressedTexSubImage2D
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglCompressedTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*imageSize,data);
 }; break;
 case 5370: { // glCompressedTexSubImage1D
@@ -2864,19 +2792,19 @@ case 5371: { // glCompressedTexSubImage1D
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLsizei *imageSize = (GLsizei *) bp; bp += 4;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglCompressedTexSubImage1D(*target,*level,*xoffset,*width,*format,*imageSize,data);
 }; break;
 case 5372: { // glGetCompressedTexImage
  GLenum *target = (GLenum *) bp; bp += 4;
  GLint *level = (GLint *) bp; bp += 4;
- GLvoid *img = (GLvoid *) bins[0]->base;
+ GLvoid *img = (GLvoid *) bins[0];
  weglGetCompressedTexImage(*target,*level,img);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5373: { // glClientActiveTexture
  GLenum *texture = (GLenum *) bp; bp += 4;
@@ -3036,7 +2964,7 @@ case 5402: { // glFogCoordPointer
 case 5403: { // glFogCoordPointer
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglFogCoordPointer(*type,*stride,pointer);
 }; break;
 case 5404: { // glSecondaryColor3bv
@@ -3082,7 +3010,7 @@ case 5413: { // glSecondaryColorPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglSecondaryColorPointer(*size,*type,*stride,pointer);
 }; break;
 case 5414: { // glWindowPos2dv
@@ -3124,13 +3052,12 @@ case 5422: { // glGenQueries
  weglGenQueries(*n,ids);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) ids[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(ids);
 }; break;
@@ -3143,11 +3070,10 @@ case 5424: { // glIsQuery
  GLuint *id = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsQuery(*id);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5425: { // glBeginQuery
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -3164,11 +3090,10 @@ case 5427: { // glGetQueryiv
  GLint params[1] = {0};
  weglGetQueryiv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5428: { // glGetQueryObjectiv
  GLuint *id = (GLuint *) bp; bp += 4;
@@ -3176,11 +3101,10 @@ case 5428: { // glGetQueryObjectiv
  GLint params[1] = {0};
  weglGetQueryObjectiv(*id,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5429: { // glGetQueryObjectuiv
  GLuint *id = (GLuint *) bp; bp += 4;
@@ -3188,11 +3112,10 @@ case 5429: { // glGetQueryObjectuiv
  GLuint params[1] = {0};
  weglGetQueryObjectuiv(*id,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5430: { // glBindBuffer
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -3211,13 +3134,12 @@ case 5432: { // glGenBuffers
  weglGenBuffers(*n,buffers);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) buffers[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(buffers);
 }; break;
@@ -3225,11 +3147,10 @@ case 5433: { // glIsBuffer
  GLuint *buffer = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsBuffer(*buffer);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5434: { // glBufferData
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -3243,7 +3164,7 @@ case 5435: { // glBufferData
  GLenum *target = (GLenum *) bp; bp += 4;
  bp += 4;
  GLsizeiptr size = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  GLenum *usage = (GLenum *) bp; bp += 4;
  weglBufferData(*target,size,data,*usage);
 }; break;
@@ -3260,7 +3181,7 @@ case 5437: { // glBufferSubData
  bp += 4;
  GLintptr offset = (GLintptr) * (GLuint64EXT *) bp; bp += 8;
  GLsizeiptr size = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglBufferSubData(*target,offset,size,data);
 }; break;
 case 5438: { // glGetBufferSubData
@@ -3268,13 +3189,13 @@ case 5438: { // glGetBufferSubData
  bp += 4;
  GLintptr offset = (GLintptr) * (GLuint64EXT *) bp; bp += 8;
  GLsizeiptr size = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
- GLvoid *data = (GLvoid *) bins[0]->base;
+ GLvoid *data = (GLvoid *) bins[0];
  weglGetBufferSubData(*target,offset,size,data);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5439: { // glGetBufferParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -3282,11 +3203,10 @@ case 5439: { // glGetBufferParameteriv
  GLint params[1] = {0};
  weglGetBufferParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5440: { // glBlendEquationSeparate
  GLenum *modeRGB = (GLenum *) bp; bp += 4;
@@ -3306,11 +3226,11 @@ case 5442: { // glStencilOpSeparate
  weglStencilOpSeparate(*face,*sfail,*dpfail,*dppass);
 }; break;
 case 5443: { // glStencilFuncSeparate
- GLenum *frontfunc = (GLenum *) bp; bp += 4;
- GLenum *backfunc = (GLenum *) bp; bp += 4;
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *func = (GLenum *) bp; bp += 4;
  GLint *ref = (GLint *) bp; bp += 4;
  GLuint *mask = (GLuint *) bp; bp += 4;
- weglStencilFuncSeparate(*frontfunc,*backfunc,*ref,*mask);
+ weglStencilFuncSeparate(*face,*func,*ref,*mask);
 }; break;
 case 5444: { // glStencilMaskSeparate
  GLenum *face = (GLenum *) bp; bp += 4;
@@ -3326,7 +3246,7 @@ case 5446: { // glBindAttribLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+0)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  weglBindAttribLocation(*program,*index,name);
 }; break;
 case 5447: { // glCompileShader
@@ -3336,21 +3256,19 @@ case 5447: { // glCompileShader
 case 5448: { // glCreateProgram
  GLuint result = weglCreateProgram();
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5449: { // glCreateShader
  GLenum *type = (GLenum *) bp; bp += 4;
  GLuint result = weglCreateShader(*type);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5450: { // glDeleteProgram
  GLuint *program = (GLuint *) bp; bp += 4;
@@ -3384,14 +3302,13 @@ case 5455: { // glGetActiveAttrib
  name = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetActiveAttrib(*program,*index,*bufSize,length,size,type,name);
  int AP = 0; ErlDrvTermData rt[13];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *size;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *type;
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 13 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,13);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(name);
 }; break;
 case 5456: { // glGetActiveUniform
@@ -3405,14 +3322,13 @@ case 5456: { // glGetActiveUniform
  name = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetActiveUniform(*program,*index,*bufSize,length,size,type,name);
  int AP = 0; ErlDrvTermData rt[13];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *size;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *type;
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 13 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,13);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(name);
 }; break;
 case 5457: { // glGetAttachedShaders
@@ -3424,27 +3340,25 @@ case 5457: { // glGetAttachedShaders
  weglGetAttachedShaders(*program,*maxCount,count,obj);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*count)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *count; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) obj[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*count)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*count)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*count)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(obj);
 }; break;
 case 5458: { // glGetAttribLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+4)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetAttribLocation(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5459: { // glGetProgramiv
  GLuint *program = (GLuint *) bp; bp += 4;
@@ -3452,11 +3366,10 @@ case 5459: { // glGetProgramiv
  GLint params[1] = {0};
  weglGetProgramiv(*program,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5460: { // glGetProgramInfoLog
  GLuint *program = (GLuint *) bp; bp += 4;
@@ -3466,11 +3379,10 @@ case 5460: { // glGetProgramInfoLog
  infoLog = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetProgramInfoLog(*program,*bufSize,length,infoLog);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) infoLog; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(infoLog);
 }; break;
 case 5461: { // glGetShaderiv
@@ -3479,11 +3391,10 @@ case 5461: { // glGetShaderiv
  GLint params[1] = {0};
  weglGetShaderiv(*shader,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5462: { // glGetShaderInfoLog
  GLuint *shader = (GLuint *) bp; bp += 4;
@@ -3493,11 +3404,10 @@ case 5462: { // glGetShaderInfoLog
  infoLog = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetShaderInfoLog(*shader,*bufSize,length,infoLog);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) infoLog; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(infoLog);
 }; break;
 case 5463: { // glGetShaderSource
@@ -3508,24 +3418,22 @@ case 5463: { // glGetShaderSource
  source = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetShaderSource(*shader,*bufSize,length,source);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) source; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(source);
 }; break;
 case 5464: { // glGetUniformLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+4)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetUniformLocation(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5465: { // glGetUniformfv
  GLuint *program = (GLuint *) bp; bp += 4;
@@ -3533,7 +3441,7 @@ case 5465: { // glGetUniformfv
  GLfloat params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
  weglGetUniformfv(*program,*location,params);
  int AP = 0; ErlDrvTermData rt[38];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[16], *paramsTmp = paramsConv; 
  for(int i=0; i < 16; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -3554,8 +3462,7 @@ case 5465: { // glGetUniformfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 38 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,38);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5466: { // glGetUniformiv
  GLuint *program = (GLuint *) bp; bp += 4;
@@ -3563,7 +3470,7 @@ case 5466: { // glGetUniformiv
  GLint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetUniformiv(*program,*location,params);
  int AP = 0; ErlDrvTermData rt[38];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -3583,8 +3490,7 @@ case 5466: { // glGetUniformiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 38 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,38);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5467: { // glGetVertexAttribdv
  GLuint *index = (GLuint *) bp; bp += 4;
@@ -3592,7 +3498,7 @@ case 5467: { // glGetVertexAttribdv
  GLdouble params[4] = {0.0,0.0,0.0,0.0};
  weglGetVertexAttribdv(*index,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble *paramsTmp = params;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -3600,8 +3506,7 @@ case 5467: { // glGetVertexAttribdv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5468: { // glGetVertexAttribfv
  GLuint *index = (GLuint *) bp; bp += 4;
@@ -3609,7 +3514,7 @@ case 5468: { // glGetVertexAttribfv
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetVertexAttribfv(*index,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -3618,8 +3523,7 @@ case 5468: { // glGetVertexAttribfv
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5469: { // glGetVertexAttribiv
  GLuint *index = (GLuint *) bp; bp += 4;
@@ -3627,7 +3531,7 @@ case 5469: { // glGetVertexAttribiv
  GLint params[4] = {0,0,0,0};
  weglGetVertexAttribiv(*index,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -3635,28 +3539,25 @@ case 5469: { // glGetVertexAttribiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5470: { // glIsProgram
  GLuint *program = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsProgram(*program);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5471: { // glIsShader
  GLuint *shader = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsShader(*shader);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5472: { // glLinkProgram
  GLuint *program = (GLuint *) bp; bp += 4;
@@ -3942,7 +3843,7 @@ case 5519: { // glVertexAttribPointer
  GLboolean *normalized = (GLboolean *) bp; bp += 1;
  bp += 3;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglVertexAttribPointer(*index,*size,*type,*normalized,*stride,pointer);
 }; break;
 case 5520: { // glUniformMatrix2x3fv
@@ -4007,7 +3908,7 @@ case 5527: { // glGetBooleani_v
  GLboolean data[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetBooleani_v(*target,*index,data);
  int AP = 0; ErlDrvTermData rt[39];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLboolean *dataTmp = data;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
@@ -4027,8 +3928,7 @@ case 5527: { // glGetBooleani_v
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 39 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,39);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5528: { // glGetIntegeri_v
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -4036,7 +3936,7 @@ case 5528: { // glGetIntegeri_v
  GLint data[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetIntegeri_v(*target,*index,data);
  int AP = 0; ErlDrvTermData rt[39];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *dataTmp = data;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
@@ -4056,8 +3956,7 @@ case 5528: { // glGetIntegeri_v
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 39 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,39);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5529: { // glEnablei
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -4074,11 +3973,10 @@ case 5531: { // glIsEnabledi
  GLuint *index = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsEnabledi(*target,*index);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5532: { // glBeginTransformFeedback
  GLenum *primitiveMode = (GLenum *) bp; bp += 4;
@@ -4126,14 +4024,13 @@ case 5537: { // glGetTransformFeedbackVarying
  name = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetTransformFeedbackVarying(*program,*index,*bufSize,length,size,type,name);
  int AP = 0; ErlDrvTermData rt[13];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *size;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *type;
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 13 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,13);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(name);
 }; break;
 case 5538: { // glClampColor
@@ -4162,7 +4059,7 @@ case 5542: { // glVertexAttribIPointer
  GLint *size = (GLint *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0]->base;
+ GLvoid *pointer = (GLvoid *) bins[0];
  weglVertexAttribIPointer(*index,*size,*type,*stride,pointer);
 }; break;
 case 5543: { // glGetVertexAttribIiv
@@ -4171,7 +4068,7 @@ case 5543: { // glGetVertexAttribIiv
  GLint params[4] = {0,0,0,0};
  weglGetVertexAttribIiv(*index,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -4179,8 +4076,7 @@ case 5543: { // glGetVertexAttribIiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5544: { // glGetVertexAttribIuiv
  GLuint *index = (GLuint *) bp; bp += 4;
@@ -4188,7 +4084,7 @@ case 5544: { // glGetVertexAttribIuiv
  GLuint params[4] = {0,0,0,0};
  weglGetVertexAttribIuiv(*index,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLuint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -4196,16 +4092,75 @@ case 5544: { // glGetVertexAttribIuiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5545: { // glGetUniformuiv
+case 5545: { // glVertexAttribI1iv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint *v = (GLint *) bp; bp += 4;
+ weglVertexAttribI1iv(*index,v);
+}; break;
+case 5546: { // glVertexAttribI2iv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint *v = (GLint *) bp; bp += 4;
+ weglVertexAttribI2iv(*index,v);
+}; break;
+case 5547: { // glVertexAttribI3iv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint *v = (GLint *) bp; bp += 4;
+ weglVertexAttribI3iv(*index,v);
+}; break;
+case 5548: { // glVertexAttribI4iv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint * v = (GLint *) bp; bp += 16;
+ weglVertexAttribI4iv(*index,v);
+}; break;
+case 5549: { // glVertexAttribI1uiv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLuint *v = (GLuint *) bp; bp += 4;
+ weglVertexAttribI1uiv(*index,v);
+}; break;
+case 5550: { // glVertexAttribI2uiv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLuint *v = (GLuint *) bp; bp += 4;
+ weglVertexAttribI2uiv(*index,v);
+}; break;
+case 5551: { // glVertexAttribI3uiv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLuint *v = (GLuint *) bp; bp += 4;
+ weglVertexAttribI3uiv(*index,v);
+}; break;
+case 5552: { // glVertexAttribI4uiv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLuint * v = (GLuint *) bp; bp += 16;
+ weglVertexAttribI4uiv(*index,v);
+}; break;
+case 5553: { // glVertexAttribI4bv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLbyte * v = (GLbyte *) bp; bp += 4;
+ weglVertexAttribI4bv(*index,v);
+}; break;
+case 5554: { // glVertexAttribI4sv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLshort * v = (GLshort *) bp; bp += 8;
+ weglVertexAttribI4sv(*index,v);
+}; break;
+case 5555: { // glVertexAttribI4ubv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLubyte * v = (GLubyte *) bp; bp += 4;
+ weglVertexAttribI4ubv(*index,v);
+}; break;
+case 5556: { // glVertexAttribI4usv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLushort * v = (GLushort *) bp; bp += 8;
+ weglVertexAttribI4usv(*index,v);
+}; break;
+case 5557: { // glGetUniformuiv
  GLuint *program = (GLuint *) bp; bp += 4;
  GLint *location = (GLint *) bp; bp += 4;
  GLuint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetUniformuiv(*program,*location,params);
  int AP = 0; ErlDrvTermData rt[38];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLuint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -4225,47 +4180,45 @@ case 5545: { // glGetUniformuiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 38 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,38);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5546: { // glBindFragDataLocation
+case 5558: { // glBindFragDataLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *color = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+0)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  weglBindFragDataLocation(*program,*color,name);
 }; break;
-case 5547: { // glGetFragDataLocation
+case 5559: { // glGetFragDataLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+4)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetFragDataLocation(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5548: { // glUniform1ui
+case 5560: { // glUniform1ui
  GLint *location = (GLint *) bp; bp += 4;
  GLuint *v0 = (GLuint *) bp; bp += 4;
  weglUniform1ui(*location,*v0);
 }; break;
-case 5549: { // glUniform2ui
+case 5561: { // glUniform2ui
  GLint *location = (GLint *) bp; bp += 4;
  GLuint *v0 = (GLuint *) bp; bp += 4;
  GLuint *v1 = (GLuint *) bp; bp += 4;
  weglUniform2ui(*location,*v0,*v1);
 }; break;
-case 5550: { // glUniform3ui
+case 5562: { // glUniform3ui
  GLint *location = (GLint *) bp; bp += 4;
  GLuint *v0 = (GLuint *) bp; bp += 4;
  GLuint *v1 = (GLuint *) bp; bp += 4;
  GLuint *v2 = (GLuint *) bp; bp += 4;
  weglUniform3ui(*location,*v0,*v1,*v2);
 }; break;
-case 5551: { // glUniform4ui
+case 5563: { // glUniform4ui
  GLint *location = (GLint *) bp; bp += 4;
  GLuint *v0 = (GLuint *) bp; bp += 4;
  GLuint *v1 = (GLuint *) bp; bp += 4;
@@ -4273,51 +4226,51 @@ case 5551: { // glUniform4ui
  GLuint *v3 = (GLuint *) bp; bp += 4;
  weglUniform4ui(*location,*v0,*v1,*v2,*v3);
 }; break;
-case 5552: { // glUniform1uiv
+case 5564: { // glUniform1uiv
  GLint *location = (GLint *) bp; bp += 4;
  int * valueLen = (int *) bp; bp += 4;
  GLuint * value = (GLuint *) bp;  bp += (8-((*valueLen*4+0)%8))%8;
  weglUniform1uiv(*location,*valueLen,value);
 }; break;
-case 5553: { // glUniform2uiv
+case 5565: { // glUniform2uiv
  GLint *location = (GLint *) bp; bp += 4;
  int *valueLen = (int *) bp; bp += 4;
  GLuint * value = (GLuint *) bp; bp += *valueLen*8;
  weglUniform2uiv(*location,*valueLen,value);
 }; break;
-case 5554: { // glUniform3uiv
+case 5566: { // glUniform3uiv
  GLint *location = (GLint *) bp; bp += 4;
  int *valueLen = (int *) bp; bp += 4;
  GLuint * value = (GLuint *) bp; bp += *valueLen*12;
  weglUniform3uiv(*location,*valueLen,value);
 }; break;
-case 5555: { // glUniform4uiv
+case 5567: { // glUniform4uiv
  GLint *location = (GLint *) bp; bp += 4;
  int *valueLen = (int *) bp; bp += 4;
  GLuint * value = (GLuint *) bp; bp += *valueLen*16;
  weglUniform4uiv(*location,*valueLen,value);
 }; break;
-case 5556: { // glTexParameterIiv
+case 5568: { // glTexParameterIiv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  int *paramsLen = (int *) bp; bp += 4;
  GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
  weglTexParameterIiv(*target,*pname,params);
 }; break;
-case 5557: { // glTexParameterIuiv
+case 5569: { // glTexParameterIuiv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  int *paramsLen = (int *) bp; bp += 4;
  GLuint *params = (GLuint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
  weglTexParameterIuiv(*target,*pname,params);
 }; break;
-case 5558: { // glGetTexParameterIiv
+case 5570: { // glGetTexParameterIiv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[4] = {0,0,0,0};
  weglGetTexParameterIiv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -4325,16 +4278,15 @@ case 5558: { // glGetTexParameterIiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5559: { // glGetTexParameterIuiv
+case 5571: { // glGetTexParameterIuiv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLuint params[4] = {0,0,0,0};
  weglGetTexParameterIuiv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLuint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -4342,107 +4294,45 @@ case 5559: { // glGetTexParameterIuiv
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5560: { // glClearBufferiv
+case 5572: { // glClearBufferiv
  GLenum *buffer = (GLenum *) bp; bp += 4;
  GLint *drawbuffer = (GLint *) bp; bp += 4;
  int *valueLen = (int *) bp; bp += 4;
  GLint *value = (GLint *) bp; bp += *valueLen*4+((*valueLen)+1)%2*4;
  weglClearBufferiv(*buffer,*drawbuffer,value);
 }; break;
-case 5561: { // glClearBufferuiv
+case 5573: { // glClearBufferuiv
  GLenum *buffer = (GLenum *) bp; bp += 4;
  GLint *drawbuffer = (GLint *) bp; bp += 4;
  int *valueLen = (int *) bp; bp += 4;
  GLuint *value = (GLuint *) bp; bp += *valueLen*4+((*valueLen)+1)%2*4;
  weglClearBufferuiv(*buffer,*drawbuffer,value);
 }; break;
-case 5562: { // glClearBufferfv
+case 5574: { // glClearBufferfv
  GLenum *buffer = (GLenum *) bp; bp += 4;
  GLint *drawbuffer = (GLint *) bp; bp += 4;
  int *valueLen = (int *) bp; bp += 4;
  GLfloat *value = (GLfloat *) bp; bp += *valueLen*4+((*valueLen)+1)%2*4;
  weglClearBufferfv(*buffer,*drawbuffer,value);
 }; break;
-case 5563: { // glClearBufferfi
+case 5575: { // glClearBufferfi
  GLenum *buffer = (GLenum *) bp; bp += 4;
  GLint *drawbuffer = (GLint *) bp; bp += 4;
  GLfloat *depth = (GLfloat *) bp; bp += 4;
  GLint *stencil = (GLint *) bp; bp += 4;
  weglClearBufferfi(*buffer,*drawbuffer,*depth,*stencil);
 }; break;
-case 5564: { // glGetStringi
+case 5576: { // glGetStringi
  GLenum *name = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  const GLubyte *  result = weglGetStringi(*name,*index);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) result; rt[AP++] = strlen((char *) result);
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
-}; break;
-case 5565: { // glVertexAttribI1iv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLint *v = (GLint *) bp; bp += 4;
- weglVertexAttribI1iv(*index,v);
-}; break;
-case 5566: { // glVertexAttribI2iv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLint *v = (GLint *) bp; bp += 4;
- weglVertexAttribI2iv(*index,v);
-}; break;
-case 5567: { // glVertexAttribI3iv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLint *v = (GLint *) bp; bp += 4;
- weglVertexAttribI3iv(*index,v);
-}; break;
-case 5568: { // glVertexAttribI4iv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLint * v = (GLint *) bp; bp += 16;
- weglVertexAttribI4iv(*index,v);
-}; break;
-case 5569: { // glVertexAttribI1uiv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLuint *v = (GLuint *) bp; bp += 4;
- weglVertexAttribI1uiv(*index,v);
-}; break;
-case 5570: { // glVertexAttribI2uiv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLuint *v = (GLuint *) bp; bp += 4;
- weglVertexAttribI2uiv(*index,v);
-}; break;
-case 5571: { // glVertexAttribI3uiv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLuint *v = (GLuint *) bp; bp += 4;
- weglVertexAttribI3uiv(*index,v);
-}; break;
-case 5572: { // glVertexAttribI4uiv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLuint * v = (GLuint *) bp; bp += 16;
- weglVertexAttribI4uiv(*index,v);
-}; break;
-case 5573: { // glVertexAttribI4bv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLbyte * v = (GLbyte *) bp; bp += 4;
- weglVertexAttribI4bv(*index,v);
-}; break;
-case 5574: { // glVertexAttribI4sv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLshort * v = (GLshort *) bp; bp += 8;
- weglVertexAttribI4sv(*index,v);
-}; break;
-case 5575: { // glVertexAttribI4ubv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLubyte * v = (GLubyte *) bp; bp += 4;
- weglVertexAttribI4ubv(*index,v);
-}; break;
-case 5576: { // glVertexAttribI4usv
- GLuint *index = (GLuint *) bp; bp += 4;
- GLushort * v = (GLushort *) bp; bp += 8;
- weglVertexAttribI4usv(*index,v);
+ driver_send_term(port,caller,rt,AP);
 }; break;
 case 5577: { // glDrawArraysInstanced
  GLenum *mode = (GLenum *) bp; bp += 4;
@@ -4463,7 +4353,7 @@ case 5579: { // glDrawElementsInstanced
  GLenum *mode = (GLenum *) bp; bp += 4;
  GLsizei *count = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) bins[0]->base;
+ GLvoid *indices = (GLvoid *) bins[0];
  GLsizei *primcount = (GLsizei *) bp; bp += 4;
  weglDrawElementsInstanced(*mode,*count,*type,indices,*primcount);
 }; break;
@@ -4477,120 +4367,216 @@ case 5581: { // glPrimitiveRestartIndex
  GLuint *index = (GLuint *) bp; bp += 4;
  weglPrimitiveRestartIndex(*index);
 }; break;
-case 5582: { // glLoadTransposeMatrixfARB
+case 5582: { // glGetInteger64i_v
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint64 data[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+ weglGetInteger64i_v(*target,*index,data);
+ int AP = 0; ErlDrvTermData rt[39];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint64 *dataTmp = data;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *dataTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5583: { // glGetBufferParameteri64v
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint64 params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+ weglGetBufferParameteri64v(*target,*pname,params);
+ int AP = 0; ErlDrvTermData rt[39];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint64 *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5584: { // glFramebufferTexture
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *attachment = (GLenum *) bp; bp += 4;
+ GLuint *texture = (GLuint *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ weglFramebufferTexture(*target,*attachment,*texture,*level);
+}; break;
+case 5585: { // glVertexAttribDivisor
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLuint *divisor = (GLuint *) bp; bp += 4;
+ weglVertexAttribDivisor(*index,*divisor);
+}; break;
+case 5586: { // glMinSampleShading
+ GLclampf *value = (GLclampf *) bp; bp += 4;
+ weglMinSampleShading(*value);
+}; break;
+case 5587: { // glBlendEquationi
+ GLuint *buf = (GLuint *) bp; bp += 4;
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglBlendEquationi(*buf,*mode);
+}; break;
+case 5588: { // glBlendEquationSeparatei
+ GLuint *buf = (GLuint *) bp; bp += 4;
+ GLenum *modeRGB = (GLenum *) bp; bp += 4;
+ GLenum *modeAlpha = (GLenum *) bp; bp += 4;
+ weglBlendEquationSeparatei(*buf,*modeRGB,*modeAlpha);
+}; break;
+case 5589: { // glBlendFunci
+ GLuint *buf = (GLuint *) bp; bp += 4;
+ GLenum *src = (GLenum *) bp; bp += 4;
+ GLenum *dst = (GLenum *) bp; bp += 4;
+ weglBlendFunci(*buf,*src,*dst);
+}; break;
+case 5590: { // glBlendFuncSeparatei
+ GLuint *buf = (GLuint *) bp; bp += 4;
+ GLenum *srcRGB = (GLenum *) bp; bp += 4;
+ GLenum *dstRGB = (GLenum *) bp; bp += 4;
+ GLenum *srcAlpha = (GLenum *) bp; bp += 4;
+ GLenum *dstAlpha = (GLenum *) bp; bp += 4;
+ weglBlendFuncSeparatei(*buf,*srcRGB,*dstRGB,*srcAlpha,*dstAlpha);
+}; break;
+case 5591: { // glLoadTransposeMatrixfARB
  GLfloat * m = (GLfloat *) bp; bp += 64;
  weglLoadTransposeMatrixfARB(m);
 }; break;
-case 5583: { // glLoadTransposeMatrixdARB
+case 5592: { // glLoadTransposeMatrixdARB
  GLdouble * m = (GLdouble *) bp; bp += 128;
  weglLoadTransposeMatrixdARB(m);
 }; break;
-case 5584: { // glMultTransposeMatrixfARB
+case 5593: { // glMultTransposeMatrixfARB
  GLfloat * m = (GLfloat *) bp; bp += 64;
  weglMultTransposeMatrixfARB(m);
 }; break;
-case 5585: { // glMultTransposeMatrixdARB
+case 5594: { // glMultTransposeMatrixdARB
  GLdouble * m = (GLdouble *) bp; bp += 128;
  weglMultTransposeMatrixdARB(m);
 }; break;
-case 5586: { // glWeightbvARB
+case 5595: { // glWeightbvARB
  int * weightsLen = (int *) bp; bp += 4;
  GLbyte * weights = (GLbyte *) bp;  bp += (8-((*weightsLen*1+4)%8))%8;
  weglWeightbvARB(*weightsLen,weights);
 }; break;
-case 5587: { // glWeightsvARB
+case 5596: { // glWeightsvARB
  int * weightsLen = (int *) bp; bp += 4;
  GLshort * weights = (GLshort *) bp;  bp += (8-((*weightsLen*2+4)%8))%8;
  weglWeightsvARB(*weightsLen,weights);
 }; break;
-case 5588: { // glWeightivARB
+case 5597: { // glWeightivARB
  int * weightsLen = (int *) bp; bp += 4;
  GLint * weights = (GLint *) bp;  bp += (8-((*weightsLen*4+4)%8))%8;
  weglWeightivARB(*weightsLen,weights);
 }; break;
-case 5589: { // glWeightfvARB
+case 5598: { // glWeightfvARB
  int * weightsLen = (int *) bp; bp += 4;
  GLfloat * weights = (GLfloat *) bp;  bp += (8-((*weightsLen*4+4)%8))%8;
  weglWeightfvARB(*weightsLen,weights);
 }; break;
-case 5590: { // glWeightdvARB
+case 5599: { // glWeightdvARB
  int * weightsLen = (int *) bp; bp += 8;
  GLdouble * weights = (GLdouble *) bp;  bp += (8-((*weightsLen*8+0)%8))%8;
  weglWeightdvARB(*weightsLen,weights);
 }; break;
-case 5591: { // glWeightubvARB
+case 5600: { // glWeightubvARB
  int * weightsLen = (int *) bp; bp += 4;
  GLubyte * weights = (GLubyte *) bp;  bp += (8-((*weightsLen*1+4)%8))%8;
  weglWeightubvARB(*weightsLen,weights);
 }; break;
-case 5592: { // glWeightusvARB
+case 5601: { // glWeightusvARB
  int * weightsLen = (int *) bp; bp += 4;
  GLushort * weights = (GLushort *) bp;  bp += (8-((*weightsLen*2+4)%8))%8;
  weglWeightusvARB(*weightsLen,weights);
 }; break;
-case 5593: { // glWeightuivARB
+case 5602: { // glWeightuivARB
  int * weightsLen = (int *) bp; bp += 4;
  GLuint * weights = (GLuint *) bp;  bp += (8-((*weightsLen*4+4)%8))%8;
  weglWeightuivARB(*weightsLen,weights);
 }; break;
-case 5594: { // glVertexBlendARB
+case 5603: { // glVertexBlendARB
  GLint *count = (GLint *) bp; bp += 4;
  weglVertexBlendARB(*count);
 }; break;
-case 5595: { // glCurrentPaletteMatrixARB
+case 5604: { // glCurrentPaletteMatrixARB
  GLint *index = (GLint *) bp; bp += 4;
  weglCurrentPaletteMatrixARB(*index);
 }; break;
-case 5596: { // glMatrixIndexubvARB
+case 5605: { // glMatrixIndexubvARB
  int * indicesLen = (int *) bp; bp += 4;
  GLubyte * indices = (GLubyte *) bp;  bp += (8-((*indicesLen*1+4)%8))%8;
  weglMatrixIndexubvARB(*indicesLen,indices);
 }; break;
-case 5597: { // glMatrixIndexusvARB
+case 5606: { // glMatrixIndexusvARB
  int * indicesLen = (int *) bp; bp += 4;
  GLushort * indices = (GLushort *) bp;  bp += (8-((*indicesLen*2+4)%8))%8;
  weglMatrixIndexusvARB(*indicesLen,indices);
 }; break;
-case 5598: { // glMatrixIndexuivARB
+case 5607: { // glMatrixIndexuivARB
  int * indicesLen = (int *) bp; bp += 4;
  GLuint * indices = (GLuint *) bp;  bp += (8-((*indicesLen*4+4)%8))%8;
  weglMatrixIndexuivARB(*indicesLen,indices);
 }; break;
-case 5599: { // glProgramStringARB
+case 5608: { // glProgramStringARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLvoid *string = (GLvoid *) bp;
- int stringLen = strlen((char *)string); bp += stringLen+1+((8-((1+stringLen+0)%8))%8);
- weglProgramStringARB(*target,*format,stringLen,string);
+ int stringLen[1] = {strlen((char *)string)}; bp += stringLen[0]+1+((8-((1+stringLen[0]+0)%8))%8);
+ weglProgramStringARB(*target,*format,*stringLen,string);
 }; break;
-case 5600: { // glBindProgramARB
+case 5609: { // glBindProgramARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *program = (GLuint *) bp; bp += 4;
  weglBindProgramARB(*target,*program);
 }; break;
-case 5601: { // glDeleteProgramsARB
+case 5610: { // glDeleteProgramsARB
  int * programsLen = (int *) bp; bp += 4;
  GLuint * programs = (GLuint *) bp;  bp += (8-((*programsLen*4+4)%8))%8;
  weglDeleteProgramsARB(*programsLen,programs);
 }; break;
-case 5602: { // glGenProgramsARB
+case 5611: { // glGenProgramsARB
  GLsizei *n = (GLsizei *) bp; bp += 4;
  GLuint *programs;
  programs = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
  weglGenProgramsARB(*n,programs);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) programs[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(programs);
 }; break;
-case 5603: { // glProgramEnvParameter4dARB
+case 5612: { // glProgramEnvParameter4dARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLdouble *x = (GLdouble *) bp; bp += 8;
@@ -4599,13 +4585,13 @@ case 5603: { // glProgramEnvParameter4dARB
  GLdouble *w = (GLdouble *) bp; bp += 8;
  weglProgramEnvParameter4dARB(*target,*index,*x,*y,*z,*w);
 }; break;
-case 5604: { // glProgramEnvParameter4dvARB
+case 5613: { // glProgramEnvParameter4dvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLdouble * params = (GLdouble *) bp; bp += 32;
  weglProgramEnvParameter4dvARB(*target,*index,params);
 }; break;
-case 5605: { // glProgramEnvParameter4fARB
+case 5614: { // glProgramEnvParameter4fARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLfloat *x = (GLfloat *) bp; bp += 4;
@@ -4614,13 +4600,13 @@ case 5605: { // glProgramEnvParameter4fARB
  GLfloat *w = (GLfloat *) bp; bp += 4;
  weglProgramEnvParameter4fARB(*target,*index,*x,*y,*z,*w);
 }; break;
-case 5606: { // glProgramEnvParameter4fvARB
+case 5615: { // glProgramEnvParameter4fvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLfloat * params = (GLfloat *) bp; bp += 16;
  weglProgramEnvParameter4fvARB(*target,*index,params);
 }; break;
-case 5607: { // glProgramLocalParameter4dARB
+case 5616: { // glProgramLocalParameter4dARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLdouble *x = (GLdouble *) bp; bp += 8;
@@ -4629,13 +4615,13 @@ case 5607: { // glProgramLocalParameter4dARB
  GLdouble *w = (GLdouble *) bp; bp += 8;
  weglProgramLocalParameter4dARB(*target,*index,*x,*y,*z,*w);
 }; break;
-case 5608: { // glProgramLocalParameter4dvARB
+case 5617: { // glProgramLocalParameter4dvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLdouble * params = (GLdouble *) bp; bp += 32;
  weglProgramLocalParameter4dvARB(*target,*index,params);
 }; break;
-case 5609: { // glProgramLocalParameter4fARB
+case 5618: { // glProgramLocalParameter4fARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLfloat *x = (GLfloat *) bp; bp += 4;
@@ -4644,19 +4630,19 @@ case 5609: { // glProgramLocalParameter4fARB
  GLfloat *w = (GLfloat *) bp; bp += 4;
  weglProgramLocalParameter4fARB(*target,*index,*x,*y,*z,*w);
 }; break;
-case 5610: { // glProgramLocalParameter4fvARB
+case 5619: { // glProgramLocalParameter4fvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLfloat * params = (GLfloat *) bp; bp += 16;
  weglProgramLocalParameter4fvARB(*target,*index,params);
 }; break;
-case 5611: { // glGetProgramEnvParameterdvARB
+case 5620: { // glGetProgramEnvParameterdvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLdouble params[4] = {0.0,0.0,0.0,0.0};
  weglGetProgramEnvParameterdvARB(*target,*index,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble *paramsTmp = params;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -4664,16 +4650,15 @@ case 5611: { // glGetProgramEnvParameterdvARB
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5612: { // glGetProgramEnvParameterfvARB
+case 5621: { // glGetProgramEnvParameterfvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetProgramEnvParameterfvARB(*target,*index,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -4682,16 +4667,15 @@ case 5612: { // glGetProgramEnvParameterfvARB
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5613: { // glGetProgramLocalParameterdvARB
+case 5622: { // glGetProgramLocalParameterdvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLdouble params[4] = {0.0,0.0,0.0,0.0};
  weglGetProgramLocalParameterdvARB(*target,*index,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble *paramsTmp = params;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -4699,16 +4683,15 @@ case 5613: { // glGetProgramLocalParameterdvARB
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5614: { // glGetProgramLocalParameterfvARB
+case 5623: { // glGetProgramLocalParameterfvARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
  weglGetProgramLocalParameterfvARB(*target,*index,params);
  int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[4], *paramsTmp = paramsConv; 
  for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -4717,50 +4700,75 @@ case 5614: { // glGetProgramLocalParameterfvARB
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 14 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,14);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5615: { // glGetProgramStringARB
+case 5624: { // glGetProgramStringARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
- GLvoid *string = (GLvoid *) bins[0]->base;
+ GLvoid *string = (GLvoid *) bins[0];
  weglGetProgramStringARB(*target,*pname,string);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5616: { // glDeleteObjectARB
+case 5625: { // glGetBufferParameterivARB
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+ weglGetBufferParameterivARB(*target,*pname,params);
+ int AP = 0; ErlDrvTermData rt[39];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5626: { // glDeleteObjectARB
  GLhandleARB obj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglDeleteObjectARB(obj);
 }; break;
-case 5617: { // glGetHandleARB
+case 5627: { // glGetHandleARB
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLhandleARB result = weglGetHandleARB(*pname);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5618: { // glDetachObjectARB
+case 5628: { // glDetachObjectARB
  GLhandleARB containerObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLhandleARB attachedObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglDetachObjectARB(containerObj,attachedObj);
 }; break;
-case 5619: { // glCreateShaderObjectARB
+case 5629: { // glCreateShaderObjectARB
  GLenum *shaderType = (GLenum *) bp; bp += 4;
  GLhandleARB result = weglCreateShaderObjectARB(*shaderType);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5620: { // glShaderSourceARB
+case 5630: { // glShaderSourceARB
  GLhandleARB shaderObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  int * stringLen = (int *) bp; bp += 4;
  int * stringTotSize = (int *) bp; bp += 4;
@@ -4772,62 +4780,59 @@ case 5620: { // glShaderSourceARB
  weglShaderSourceARB(shaderObj,*stringLen,(const GLchar **) string,NULL);
  driver_free(string);
 }; break;
-case 5621: { // glCompileShaderARB
+case 5631: { // glCompileShaderARB
  GLhandleARB shaderObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglCompileShaderARB(shaderObj);
 }; break;
-case 5622: { // glCreateProgramObjectARB
+case 5632: { // glCreateProgramObjectARB
  GLhandleARB result = weglCreateProgramObjectARB();
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5623: { // glAttachObjectARB
+case 5633: { // glAttachObjectARB
  GLhandleARB containerObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLhandleARB obj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglAttachObjectARB(containerObj,obj);
 }; break;
-case 5624: { // glLinkProgramARB
+case 5634: { // glLinkProgramARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglLinkProgramARB(programObj);
 }; break;
-case 5625: { // glUseProgramObjectARB
+case 5635: { // glUseProgramObjectARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglUseProgramObjectARB(programObj);
 }; break;
-case 5626: { // glValidateProgramARB
+case 5636: { // glValidateProgramARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  weglValidateProgramARB(programObj);
 }; break;
-case 5627: { // glGetObjectParameterfvARB
+case 5637: { // glGetObjectParameterfvARB
  GLhandleARB obj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[1] = {0.0};
  weglGetObjectParameterfvARB(obj,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv = (double) *params; 
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) &paramsConv;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5628: { // glGetObjectParameterivARB
+case 5638: { // glGetObjectParameterivARB
  GLhandleARB obj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[1] = {0};
  weglGetObjectParameterivARB(obj,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5629: { // glGetInfoLogARB
+case 5639: { // glGetInfoLogARB
  GLhandleARB obj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLsizei *maxLength = (GLsizei *) bp; bp += 4;
  GLsizei length[1] = {0};
@@ -4835,14 +4840,13 @@ case 5629: { // glGetInfoLogARB
  infoLog = (GLchar *) driver_alloc(sizeof(GLchar) * *maxLength);
  weglGetInfoLogARB(obj,*maxLength,length,infoLog);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) infoLog; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(infoLog);
 }; break;
-case 5630: { // glGetAttachedObjectsARB
+case 5640: { // glGetAttachedObjectsARB
  GLhandleARB containerObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLsizei *maxCount = (GLsizei *) bp; bp += 4;
  GLsizei count[1] = {0};
@@ -4851,29 +4855,27 @@ case 5630: { // glGetAttachedObjectsARB
  weglGetAttachedObjectsARB(containerObj,*maxCount,count,obj);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*count)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *count; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) obj[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*count)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*count)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*count)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(obj);
 }; break;
-case 5631: { // glGetUniformLocationARB
+case 5641: { // glGetUniformLocationARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+0)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLint result = weglGetUniformLocationARB(programObj,name);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5632: { // glGetActiveUniformARB
+case 5642: { // glGetActiveUniformARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLsizei *maxLength = (GLsizei *) bp; bp += 4;
@@ -4884,23 +4886,22 @@ case 5632: { // glGetActiveUniformARB
  name = (GLchar *) driver_alloc(sizeof(GLchar) * *maxLength);
  weglGetActiveUniformARB(programObj,*index,*maxLength,length,size,type,name);
  int AP = 0; ErlDrvTermData rt[13];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *size;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *type;
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 13 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,13);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(name);
 }; break;
-case 5633: { // glGetUniformfvARB
+case 5643: { // glGetUniformfvARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLint *location = (GLint *) bp; bp += 4;
  GLfloat params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
  weglGetUniformfvARB(programObj,*location,params);
  int AP = 0; ErlDrvTermData rt[38];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLdouble paramsConv[16], *paramsTmp = paramsConv; 
  for(int i=0; i < 16; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
@@ -4921,16 +4922,15 @@ case 5633: { // glGetUniformfvARB
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 38 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,38);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5634: { // glGetUniformivARB
+case 5644: { // glGetUniformivARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLint *location = (GLint *) bp; bp += 4;
  GLint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetUniformivARB(programObj,*location,params);
  int AP = 0; ErlDrvTermData rt[38];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
@@ -4950,10 +4950,9 @@ case 5634: { // glGetUniformivARB
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 38 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,38);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5635: { // glGetShaderSourceARB
+case 5645: { // glGetShaderSourceARB
  GLhandleARB obj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLsizei *maxLength = (GLsizei *) bp; bp += 4;
  GLsizei length[1] = {0};
@@ -4961,21 +4960,20 @@ case 5635: { // glGetShaderSourceARB
  source = (GLchar *) driver_alloc(sizeof(GLchar) * *maxLength);
  weglGetShaderSourceARB(obj,*maxLength,length,source);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) source; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(source);
 }; break;
-case 5636: { // glBindAttribLocationARB
+case 5646: { // glBindAttribLocationARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+4)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  weglBindAttribLocationARB(programObj,*index,name);
 }; break;
-case 5637: { // glGetActiveAttribARB
+case 5647: { // glGetActiveAttribARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLsizei *maxLength = (GLsizei *) bp; bp += 4;
@@ -4986,132 +4984,124 @@ case 5637: { // glGetActiveAttribARB
  name = (GLchar *) driver_alloc(sizeof(GLchar) * *maxLength);
  weglGetActiveAttribARB(programObj,*index,*maxLength,length,size,type,name);
  int AP = 0; ErlDrvTermData rt[13];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *size;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *type;
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 13 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,13);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(name);
 }; break;
-case 5638: { // glGetAttribLocationARB
+case 5648: { // glGetAttribLocationARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLchar *name = (GLchar *) bp;
- int nameLen = strlen((char *)name); bp += nameLen+1+((8-((1+nameLen+0)%8))%8);
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLint result = weglGetAttribLocationARB(programObj,name);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5639: { // glIsRenderbuffer
+case 5649: { // glIsRenderbuffer
  GLuint *renderbuffer = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsRenderbuffer(*renderbuffer);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5640: { // glBindRenderbuffer
+case 5650: { // glBindRenderbuffer
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *renderbuffer = (GLuint *) bp; bp += 4;
  weglBindRenderbuffer(*target,*renderbuffer);
 }; break;
-case 5641: { // glDeleteRenderbuffers
+case 5651: { // glDeleteRenderbuffers
  int * renderbuffersLen = (int *) bp; bp += 4;
  GLuint * renderbuffers = (GLuint *) bp;  bp += (8-((*renderbuffersLen*4+4)%8))%8;
  weglDeleteRenderbuffers(*renderbuffersLen,renderbuffers);
 }; break;
-case 5642: { // glGenRenderbuffers
+case 5652: { // glGenRenderbuffers
  GLsizei *n = (GLsizei *) bp; bp += 4;
  GLuint *renderbuffers;
  renderbuffers = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
  weglGenRenderbuffers(*n,renderbuffers);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) renderbuffers[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(renderbuffers);
 }; break;
-case 5643: { // glRenderbufferStorage
+case 5653: { // glRenderbufferStorage
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *internalformat = (GLenum *) bp; bp += 4;
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLsizei *height = (GLsizei *) bp; bp += 4;
  weglRenderbufferStorage(*target,*internalformat,*width,*height);
 }; break;
-case 5644: { // glGetRenderbufferParameteriv
+case 5654: { // glGetRenderbufferParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[1] = {0};
  weglGetRenderbufferParameteriv(*target,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5645: { // glIsFramebuffer
+case 5655: { // glIsFramebuffer
  GLuint *framebuffer = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsFramebuffer(*framebuffer);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5646: { // glBindFramebuffer
+case 5656: { // glBindFramebuffer
  GLenum *target = (GLenum *) bp; bp += 4;
  GLuint *framebuffer = (GLuint *) bp; bp += 4;
  weglBindFramebuffer(*target,*framebuffer);
 }; break;
-case 5647: { // glDeleteFramebuffers
+case 5657: { // glDeleteFramebuffers
  int * framebuffersLen = (int *) bp; bp += 4;
  GLuint * framebuffers = (GLuint *) bp;  bp += (8-((*framebuffersLen*4+4)%8))%8;
  weglDeleteFramebuffers(*framebuffersLen,framebuffers);
 }; break;
-case 5648: { // glGenFramebuffers
+case 5658: { // glGenFramebuffers
  GLsizei *n = (GLsizei *) bp; bp += 4;
  GLuint *framebuffers;
  framebuffers = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
  weglGenFramebuffers(*n,framebuffers);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) framebuffers[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(framebuffers);
 }; break;
-case 5649: { // glCheckFramebufferStatus
+case 5659: { // glCheckFramebufferStatus
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum result = weglCheckFramebufferStatus(*target);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5650: { // glFramebufferTexture1D
+case 5660: { // glFramebufferTexture1D
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLenum *textarget = (GLenum *) bp; bp += 4;
@@ -5119,7 +5109,7 @@ case 5650: { // glFramebufferTexture1D
  GLint *level = (GLint *) bp; bp += 4;
  weglFramebufferTexture1D(*target,*attachment,*textarget,*texture,*level);
 }; break;
-case 5651: { // glFramebufferTexture2D
+case 5661: { // glFramebufferTexture2D
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLenum *textarget = (GLenum *) bp; bp += 4;
@@ -5127,7 +5117,7 @@ case 5651: { // glFramebufferTexture2D
  GLint *level = (GLint *) bp; bp += 4;
  weglFramebufferTexture2D(*target,*attachment,*textarget,*texture,*level);
 }; break;
-case 5652: { // glFramebufferTexture3D
+case 5662: { // glFramebufferTexture3D
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLenum *textarget = (GLenum *) bp; bp += 4;
@@ -5136,31 +5126,30 @@ case 5652: { // glFramebufferTexture3D
  GLint *zoffset = (GLint *) bp; bp += 4;
  weglFramebufferTexture3D(*target,*attachment,*textarget,*texture,*level,*zoffset);
 }; break;
-case 5653: { // glFramebufferRenderbuffer
+case 5663: { // glFramebufferRenderbuffer
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLenum *renderbuffertarget = (GLenum *) bp; bp += 4;
  GLuint *renderbuffer = (GLuint *) bp; bp += 4;
  weglFramebufferRenderbuffer(*target,*attachment,*renderbuffertarget,*renderbuffer);
 }; break;
-case 5654: { // glGetFramebufferAttachmentParameteriv
+case 5664: { // glGetFramebufferAttachmentParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[1] = {0};
  weglGetFramebufferAttachmentParameteriv(*target,*attachment,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5655: { // glGenerateMipmap
+case 5665: { // glGenerateMipmap
  GLenum *target = (GLenum *) bp; bp += 4;
  weglGenerateMipmap(*target);
 }; break;
-case 5656: { // glBlitFramebuffer
+case 5666: { // glBlitFramebuffer
  GLint *srcX0 = (GLint *) bp; bp += 4;
  GLint *srcY0 = (GLint *) bp; bp += 4;
  GLint *srcX1 = (GLint *) bp; bp += 4;
@@ -5173,7 +5162,7 @@ case 5656: { // glBlitFramebuffer
  GLenum *filter = (GLenum *) bp; bp += 4;
  weglBlitFramebuffer(*srcX0,*srcY0,*srcX1,*srcY1,*dstX0,*dstY0,*dstX1,*dstY1,*mask,*filter);
 }; break;
-case 5657: { // glRenderbufferStorageMultisample
+case 5667: { // glRenderbufferStorageMultisample
  GLenum *target = (GLenum *) bp; bp += 4;
  GLsizei *samples = (GLsizei *) bp; bp += 4;
  GLenum *internalformat = (GLenum *) bp; bp += 4;
@@ -5181,7 +5170,7 @@ case 5657: { // glRenderbufferStorageMultisample
  GLsizei *height = (GLsizei *) bp; bp += 4;
  weglRenderbufferStorageMultisample(*target,*samples,*internalformat,*width,*height);
 }; break;
-case 5658: { // glFramebufferTextureLayer
+case 5668: { // glFramebufferTextureLayer
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLuint *texture = (GLuint *) bp; bp += 4;
@@ -5189,20 +5178,7 @@ case 5658: { // glFramebufferTextureLayer
  GLint *layer = (GLint *) bp; bp += 4;
  weglFramebufferTextureLayer(*target,*attachment,*texture,*level,*layer);
 }; break;
-case 5659: { // glProgramParameteriARB
- GLuint *program = (GLuint *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *value = (GLint *) bp; bp += 4;
- weglProgramParameteriARB(*program,*pname,*value);
-}; break;
-case 5660: { // glFramebufferTextureARB
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *attachment = (GLenum *) bp; bp += 4;
- GLuint *texture = (GLuint *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- weglFramebufferTextureARB(*target,*attachment,*texture,*level);
-}; break;
-case 5661: { // glFramebufferTextureFaceARB
+case 5669: { // glFramebufferTextureFaceARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *attachment = (GLenum *) bp; bp += 4;
  GLuint *texture = (GLuint *) bp; bp += 4;
@@ -5210,55 +5186,48 @@ case 5661: { // glFramebufferTextureFaceARB
  GLenum *face = (GLenum *) bp; bp += 4;
  weglFramebufferTextureFaceARB(*target,*attachment,*texture,*level,*face);
 }; break;
-case 5662: { // glVertexAttribDivisorARB
- GLuint *index = (GLuint *) bp; bp += 4;
- GLuint *divisor = (GLuint *) bp; bp += 4;
- weglVertexAttribDivisorARB(*index,*divisor);
-}; break;
-case 5663: { // glFlushMappedBufferRange
+case 5670: { // glFlushMappedBufferRange
  GLenum *target = (GLenum *) bp; bp += 4;
  bp += 4;
  GLintptr offset = (GLintptr) * (GLuint64EXT *) bp; bp += 8;
  GLsizeiptr length = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
  weglFlushMappedBufferRange(*target,offset,length);
 }; break;
-case 5664: { // glBindVertexArray
+case 5671: { // glBindVertexArray
  GLuint *array = (GLuint *) bp; bp += 4;
  weglBindVertexArray(*array);
 }; break;
-case 5665: { // glDeleteVertexArrays
+case 5672: { // glDeleteVertexArrays
  int * arraysLen = (int *) bp; bp += 4;
  GLuint * arrays = (GLuint *) bp;  bp += (8-((*arraysLen*4+4)%8))%8;
  weglDeleteVertexArrays(*arraysLen,arrays);
 }; break;
-case 5666: { // glGenVertexArrays
+case 5673: { // glGenVertexArrays
  GLsizei *n = (GLsizei *) bp; bp += 4;
  GLuint *arrays;
  arrays = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
  weglGenVertexArrays(*n,arrays);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *n; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) arrays[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*n)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*n)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(arrays);
 }; break;
-case 5667: { // glIsVertexArray
+case 5674: { // glIsVertexArray
  GLuint *array = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsVertexArray(*array);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5668: { // glGetUniformIndices
+case 5675: { // glGetUniformIndices
  GLuint *program = (GLuint *) bp; bp += 4;
  int * uniformNamesLen = (int *) bp; bp += 4;
  int * uniformNamesTotSize = (int *) bp; bp += 4;
@@ -5272,18 +5241,17 @@ case 5668: { // glGetUniformIndices
  weglGetUniformIndices(*program,*uniformNamesLen,(const GLchar **) uniformNames,uniformIndices);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*uniformNamesLen)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *uniformNamesLen; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) uniformIndices[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*uniformNamesLen)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*uniformNamesLen)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*uniformNamesLen)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(uniformIndices);
  driver_free(uniformNames);
 }; break;
-case 5669: { // glGetActiveUniformsiv
+case 5676: { // glGetActiveUniformsiv
  GLuint *program = (GLuint *) bp; bp += 4;
  int * uniformIndicesLen = (int *) bp; bp += 4;
  GLuint * uniformIndices = (GLuint *) bp;  bp += (8-((*uniformIndicesLen*4+0)%8))%8;
@@ -5293,17 +5261,16 @@ case 5669: { // glGetActiveUniformsiv
  weglGetActiveUniformsiv(*program,*uniformIndicesLen,uniformIndices,*pname,params);
  int AP = 0; ErlDrvTermData *rt;
  rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*uniformIndicesLen)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  for(int i=0; i < *uniformIndicesLen; i++) {
     rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) params[i];}
  rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*uniformIndicesLen)+1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 + (*uniformIndicesLen)*2 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7 + (*uniformIndicesLen)*2);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(rt);
  driver_free(params);
 }; break;
-case 5670: { // glGetActiveUniformName
+case 5677: { // glGetActiveUniformName
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *uniformIndex = (GLuint *) bp; bp += 4;
  GLsizei *bufSize = (GLsizei *) bp; bp += 4;
@@ -5312,38 +5279,36 @@ case 5670: { // glGetActiveUniformName
  uniformName = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetActiveUniformName(*program,*uniformIndex,*bufSize,length,uniformName);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) uniformName; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(uniformName);
 }; break;
-case 5671: { // glGetUniformBlockIndex
+case 5678: { // glGetUniformBlockIndex
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *uniformBlockName = (GLchar *) bp;
- int uniformBlockNameLen = strlen((char *)uniformBlockName); bp += uniformBlockNameLen+1+((8-((1+uniformBlockNameLen+4)%8))%8);
+ int uniformBlockNameLen[1] = {strlen((char *)uniformBlockName)}; bp += uniformBlockNameLen[0]+1+((8-((1+uniformBlockNameLen[0]+4)%8))%8);
  GLuint result = weglGetUniformBlockIndex(*program,uniformBlockName);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 6 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,6);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5672: { // glGetActiveUniformBlockiv
+case 5679: { // glGetActiveUniformBlockiv
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *uniformBlockIndex = (GLuint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *params = (GLint *) bins[0]->base;
+ GLint *params = (GLint *) bins[0];
  weglGetActiveUniformBlockiv(*program,*uniformBlockIndex,*pname,params);
  int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
 }; break;
-case 5673: { // glGetActiveUniformBlockName
+case 5680: { // glGetActiveUniformBlockName
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *uniformBlockIndex = (GLuint *) bp; bp += 4;
  GLsizei *bufSize = (GLsizei *) bp; bp += 4;
@@ -5352,20 +5317,19 @@ case 5673: { // glGetActiveUniformBlockName
  uniformBlockName = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
  weglGetActiveUniformBlockName(*program,*uniformBlockIndex,*bufSize,length,uniformBlockName);
  int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_wxe_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) uniformBlockName; rt[AP++] = *length;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- if (AP != 7 )  fprintf(stderr, "%d: ERROR AP mismatch %d %d\r\n",__LINE__,AP,7);
- driver_send_term(WXE_DRV_PORT,caller,rt,AP);
+ driver_send_term(port,caller,rt,AP);
  driver_free(uniformBlockName);
 }; break;
-case 5674: { // glUniformBlockBinding
+case 5681: { // glUniformBlockBinding
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *uniformBlockIndex = (GLuint *) bp; bp += 4;
  GLuint *uniformBlockBinding = (GLuint *) bp; bp += 4;
  weglUniformBlockBinding(*program,*uniformBlockIndex,*uniformBlockBinding);
 }; break;
-case 5675: { // glCopyBufferSubData
+case 5682: { // glCopyBufferSubData
  GLenum *readTarget = (GLenum *) bp; bp += 4;
  GLenum *writeTarget = (GLenum *) bp; bp += 4;
  GLintptr readOffset = (GLintptr) * (GLuint64EXT *) bp; bp += 8;
@@ -5373,34 +5337,1633 @@ case 5675: { // glCopyBufferSubData
  GLsizeiptr size = (GLsizeiptr) * (GLuint64EXT *) bp; bp += 8;
  weglCopyBufferSubData(*readTarget,*writeTarget,readOffset,writeOffset,size);
 }; break;
-case 5676: { // glResizeBuffersMESA
+case 5683: { // glDrawElementsBaseVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ weglDrawElementsBaseVertex(*mode,*count,*type,indices,*basevertex);
+}; break;
+case 5684: { // glDrawElementsBaseVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) bins[0];
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ weglDrawElementsBaseVertex(*mode,*count,*type,indices,*basevertex);
+}; break;
+case 5685: { // glDrawRangeElementsBaseVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLuint *start = (GLuint *) bp; bp += 4;
+ GLuint *end = (GLuint *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ weglDrawRangeElementsBaseVertex(*mode,*start,*end,*count,*type,indices,*basevertex);
+}; break;
+case 5686: { // glDrawRangeElementsBaseVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLuint *start = (GLuint *) bp; bp += 4;
+ GLuint *end = (GLuint *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) bins[0];
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ weglDrawRangeElementsBaseVertex(*mode,*start,*end,*count,*type,indices,*basevertex);
+}; break;
+case 5687: { // glDrawElementsInstancedBaseVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) * (int *) bp; bp += 4;
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ weglDrawElementsInstancedBaseVertex(*mode,*count,*type,indices,*primcount,*basevertex);
+}; break;
+case 5688: { // glDrawElementsInstancedBaseVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) bins[0];
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ weglDrawElementsInstancedBaseVertex(*mode,*count,*type,indices,*primcount,*basevertex);
+}; break;
+case 5689: { // glProvokingVertex
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglProvokingVertex(*mode);
+}; break;
+case 5690: { // glFenceSync
+ GLenum *condition = (GLenum *) bp; bp += 4;
+ GLbitfield *flags = (GLbitfield *) bp; bp += 4;
+ GLsync result = weglFenceSync(*condition,*flags);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5691: { // glIsSync
+ GLsync sync = (GLsync) * (GLuint64EXT *) bp; bp += 8;
+ GLboolean result = weglIsSync(sync);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5692: { // glDeleteSync
+ GLsync sync = (GLsync) * (GLuint64EXT *) bp; bp += 8;
+ weglDeleteSync(sync);
+}; break;
+case 5693: { // glClientWaitSync
+ GLsync sync = (GLsync) * (GLuint64EXT *) bp; bp += 8;
+ GLbitfield *flags = (GLbitfield *) bp; bp += 4;
+ bp += 4;
+ GLuint64 timeout = (GLuint64) * (GLuint64EXT *) bp; bp += 8;
+ GLenum result = weglClientWaitSync(sync,*flags,timeout);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5694: { // glWaitSync
+ GLsync sync = (GLsync) * (GLuint64EXT *) bp; bp += 8;
+ GLbitfield *flags = (GLbitfield *) bp; bp += 4;
+ bp += 4;
+ GLuint64 timeout = (GLuint64) * (GLuint64EXT *) bp; bp += 8;
+ weglWaitSync(sync,*flags,timeout);
+}; break;
+case 5695: { // glGetInteger64v
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint64 params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+ weglGetInteger64v(*pname,params);
+ int AP = 0; ErlDrvTermData rt[39];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint64 *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5696: { // glGetSynciv
+ GLsync sync = (GLsync) * (GLuint64EXT *) bp; bp += 8;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLsizei *bufSize = (GLsizei *) bp; bp += 4;
+ GLsizei length[1] = {0};
+ GLint *values;
+ values = (GLint *) driver_alloc(sizeof(GLint) * *bufSize);
+ weglGetSynciv(sync,*pname,*bufSize,length,values);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*length)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ for(int i=0; i < *length; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) values[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*length)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(values);
+}; break;
+case 5697: { // glTexImage2DMultisample
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLsizei *samples = (GLsizei *) bp; bp += 4;
+ GLint *internalformat = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLboolean *fixedsamplelocations = (GLboolean *) bp; bp += 1;
+ weglTexImage2DMultisample(*target,*samples,*internalformat,*width,*height,*fixedsamplelocations);
+}; break;
+case 5698: { // glTexImage3DMultisample
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLsizei *samples = (GLsizei *) bp; bp += 4;
+ GLint *internalformat = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLsizei *depth = (GLsizei *) bp; bp += 4;
+ GLboolean *fixedsamplelocations = (GLboolean *) bp; bp += 1;
+ weglTexImage3DMultisample(*target,*samples,*internalformat,*width,*height,*depth,*fixedsamplelocations);
+}; break;
+case 5699: { // glGetMultisamplefv
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLfloat val[2] = {0.0,0.0};
+ weglGetMultisamplefv(*pname,*index,val);
+ int AP = 0; ErlDrvTermData rt[10];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble valConv[2], *valTmp = valConv; 
+ for(int i=0; i < 2; i++) valConv[i] = (GLdouble) val[i];
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) valTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) valTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5700: { // glSampleMaski
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLbitfield *mask = (GLbitfield *) bp; bp += 4;
+ weglSampleMaski(*index,*mask);
+}; break;
+case 5701: { // glNamedStringARB
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ GLchar *string = (GLchar *) bp;
+ int stringLen[1] = {strlen((char *)string)}; bp += stringLen[0]+1+((8-((1+stringLen[0]+0)%8))%8);
+ weglNamedStringARB(*type,*nameLen,name,*stringLen,string);
+}; break;
+case 5702: { // glDeleteNamedStringARB
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ weglDeleteNamedStringARB(*nameLen,name);
+}; break;
+case 5703: { // glCompileShaderIncludeARB
+ GLuint *shader = (GLuint *) bp; bp += 4;
+ int * pathLen = (int *) bp; bp += 4;
+ int * pathTotSize = (int *) bp; bp += 4;
+ GLchar **path;
+ path = (GLchar **) driver_alloc(sizeof(GLchar *) * *pathLen);
+ for(int i=0;i<*pathLen;i++) {
+    path[i] = (GLchar *) bp; bp += 1+strlen(bp);};
+ bp += (8 - ((0 + *pathTotSize) % 8)) % 8;
+ weglCompileShaderIncludeARB(*shader,*pathLen,(const GLchar **) path,NULL);
+ driver_free(path);
+}; break;
+case 5704: { // glIsNamedStringARB
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ GLboolean result = weglIsNamedStringARB(*nameLen,name);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5705: { // glGetNamedStringARB
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ GLsizei *bufSize = (GLsizei *) bp; bp += 4;
+ GLint stringlen[1] = {0};
+ GLchar *string;
+ string = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
+ weglGetNamedStringARB(*nameLen,name,*bufSize,stringlen,string);
+ int AP = 0; ErlDrvTermData rt[7];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) string; rt[AP++] = *stringlen;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(string);
+}; break;
+case 5706: { // glGetNamedStringivARB
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[1] = {0};
+ weglGetNamedStringivARB(*nameLen,name,*pname,params);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5707: { // glBindFragDataLocationIndexed
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLuint *colorNumber = (GLuint *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ weglBindFragDataLocationIndexed(*program,*colorNumber,*index,name);
+}; break;
+case 5708: { // glGetFragDataIndex
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ GLint result = weglGetFragDataIndex(*program,name);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5709: { // glGenSamplers
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLuint *samplers;
+ samplers = (GLuint *) driver_alloc(sizeof(GLuint) * *count);
+ weglGenSamplers(*count,samplers);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*count)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ for(int i=0; i < *count; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) samplers[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*count)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(samplers);
+}; break;
+case 5710: { // glDeleteSamplers
+ int * samplersLen = (int *) bp; bp += 4;
+ GLuint * samplers = (GLuint *) bp;  bp += (8-((*samplersLen*4+4)%8))%8;
+ weglDeleteSamplers(*samplersLen,samplers);
+}; break;
+case 5711: { // glIsSampler
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLboolean result = weglIsSampler(*sampler);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5712: { // glBindSampler
+ GLuint *unit = (GLuint *) bp; bp += 4;
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ weglBindSampler(*unit,*sampler);
+}; break;
+case 5713: { // glSamplerParameteri
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglSamplerParameteri(*sampler,*pname,*param);
+}; break;
+case 5714: { // glSamplerParameteriv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int * paramLen = (int *) bp; bp += 4;
+ GLint * param = (GLint *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ weglSamplerParameteriv(*sampler,*pname,param);
+}; break;
+case 5715: { // glSamplerParameterf
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglSamplerParameterf(*sampler,*pname,*param);
+}; break;
+case 5716: { // glSamplerParameterfv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int * paramLen = (int *) bp; bp += 4;
+ GLfloat * param = (GLfloat *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ weglSamplerParameterfv(*sampler,*pname,param);
+}; break;
+case 5717: { // glSamplerParameterIiv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int * paramLen = (int *) bp; bp += 4;
+ GLint * param = (GLint *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ weglSamplerParameterIiv(*sampler,*pname,param);
+}; break;
+case 5718: { // glSamplerParameterIuiv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int * paramLen = (int *) bp; bp += 4;
+ GLuint * param = (GLuint *) bp;  bp += (8-((*paramLen*4+4)%8))%8;
+ weglSamplerParameterIuiv(*sampler,*pname,param);
+}; break;
+case 5719: { // glGetSamplerParameteriv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[4] = {0,0,0,0};
+ weglGetSamplerParameteriv(*sampler,*pname,params);
+ int AP = 0; ErlDrvTermData rt[15];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 4+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5720: { // glGetSamplerParameterIiv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[4] = {0,0,0,0};
+ weglGetSamplerParameterIiv(*sampler,*pname,params);
+ int AP = 0; ErlDrvTermData rt[15];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 4+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5721: { // glGetSamplerParameterfv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat params[4] = {0.0,0.0,0.0,0.0};
+ weglGetSamplerParameterfv(*sampler,*pname,params);
+ int AP = 0; ErlDrvTermData rt[15];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble paramsConv[4], *paramsTmp = paramsConv; 
+ for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 4+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5722: { // glGetSamplerParameterIuiv
+ GLuint *sampler = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLuint params[4] = {0,0,0,0};
+ weglGetSamplerParameterIuiv(*sampler,*pname,params);
+ int AP = 0; ErlDrvTermData rt[15];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLuint *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 4+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5723: { // glQueryCounter
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLenum *target = (GLenum *) bp; bp += 4;
+ weglQueryCounter(*id,*target);
+}; break;
+case 5724: { // glGetQueryObjecti64v
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint64 params[1] = {0};
+ weglGetQueryObjecti64v(*id,*pname,params);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5725: { // glGetQueryObjectui64v
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLuint64 params[1] = {0};
+ weglGetQueryObjectui64v(*id,*pname,params);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5726: { // glDrawArraysIndirect
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLvoid *indirect = (GLvoid *) * (int *) bp; bp += 4;
+ weglDrawArraysIndirect(*mode,indirect);
+}; break;
+case 5727: { // glDrawArraysIndirect
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLvoid *indirect = (GLvoid *) bins[0];
+ weglDrawArraysIndirect(*mode,indirect);
+}; break;
+case 5728: { // glDrawElementsIndirect
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indirect = (GLvoid *) * (int *) bp; bp += 4;
+ weglDrawElementsIndirect(*mode,*type,indirect);
+}; break;
+case 5729: { // glDrawElementsIndirect
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indirect = (GLvoid *) bins[0];
+ weglDrawElementsIndirect(*mode,*type,indirect);
+}; break;
+case 5730: { // glUniform1d
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ weglUniform1d(*location,*x);
+}; break;
+case 5731: { // glUniform2d
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ GLdouble *y = (GLdouble *) bp; bp += 8;
+ weglUniform2d(*location,*x,*y);
+}; break;
+case 5732: { // glUniform3d
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ GLdouble *y = (GLdouble *) bp; bp += 8;
+ GLdouble *z = (GLdouble *) bp; bp += 8;
+ weglUniform3d(*location,*x,*y,*z);
+}; break;
+case 5733: { // glUniform4d
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ GLdouble *y = (GLdouble *) bp; bp += 8;
+ GLdouble *z = (GLdouble *) bp; bp += 8;
+ GLdouble *w = (GLdouble *) bp; bp += 8;
+ weglUniform4d(*location,*x,*y,*z,*w);
+}; break;
+case 5734: { // glUniform1dv
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ int * valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp;  bp += (8-((*valueLen*8+0)%8))%8;
+ weglUniform1dv(*location,*valueLen,value);
+}; break;
+case 5735: { // glUniform2dv
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*16;
+ weglUniform2dv(*location,*valueLen,value);
+}; break;
+case 5736: { // glUniform3dv
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*24;
+ weglUniform3dv(*location,*valueLen,value);
+}; break;
+case 5737: { // glUniform4dv
+ GLint *location = (GLint *) bp; bp += 4;
+ bp += 4;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*32;
+ weglUniform4dv(*location,*valueLen,value);
+}; break;
+case 5738: { // glUniformMatrix2dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*32;
+ weglUniformMatrix2dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5739: { // glUniformMatrix3dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*72;
+ weglUniformMatrix3dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5740: { // glUniformMatrix4dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*128;
+ weglUniformMatrix4dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5741: { // glUniformMatrix2x3dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*48;
+ weglUniformMatrix2x3dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5742: { // glUniformMatrix2x4dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*64;
+ weglUniformMatrix2x4dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5743: { // glUniformMatrix3x2dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*48;
+ weglUniformMatrix3x2dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5744: { // glUniformMatrix3x4dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*96;
+ weglUniformMatrix3x4dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5745: { // glUniformMatrix4x2dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*64;
+ weglUniformMatrix4x2dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5746: { // glUniformMatrix4x3dv
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*96;
+ weglUniformMatrix4x3dv(*location,*valueLen,*transpose,value);
+}; break;
+case 5747: { // glGetUniformdv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLdouble params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+ weglGetUniformdv(*program,*location,params);
+ int AP = 0; ErlDrvTermData rt[38];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble *paramsTmp = params;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5748: { // glGetSubroutineUniformLocation
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ GLint result = weglGetSubroutineUniformLocation(*program,*shadertype,name);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5749: { // glGetSubroutineIndex
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLchar *name = (GLchar *) bp;
+ int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ GLuint result = weglGetSubroutineIndex(*program,*shadertype,name);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5750: { // glGetActiveSubroutineUniformName
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLsizei *bufsize = (GLsizei *) bp; bp += 4;
+ GLsizei length[1] = {0};
+ GLchar *name;
+ name = (GLchar *) driver_alloc(sizeof(GLchar) * *bufsize);
+ weglGetActiveSubroutineUniformName(*program,*shadertype,*index,*bufsize,length,name);
+ int AP = 0; ErlDrvTermData rt[7];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(name);
+}; break;
+case 5751: { // glGetActiveSubroutineName
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLsizei *bufsize = (GLsizei *) bp; bp += 4;
+ GLsizei length[1] = {0};
+ GLchar *name;
+ name = (GLchar *) driver_alloc(sizeof(GLchar) * *bufsize);
+ weglGetActiveSubroutineName(*program,*shadertype,*index,*bufsize,length,name);
+ int AP = 0; ErlDrvTermData rt[7];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) name; rt[AP++] = *length;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(name);
+}; break;
+case 5752: { // glUniformSubroutinesuiv
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ int * indicesLen = (int *) bp; bp += 4;
+ GLuint * indices = (GLuint *) bp;  bp += (8-((*indicesLen*4+0)%8))%8;
+ weglUniformSubroutinesuiv(*shadertype,*indicesLen,indices);
+}; break;
+case 5753: { // glGetUniformSubroutineuiv
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLuint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+ weglGetUniformSubroutineuiv(*shadertype,*location,params);
+ int AP = 0; ErlDrvTermData rt[38];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLuint *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 16;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5754: { // glGetProgramStageiv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint values[1] = {0};
+ weglGetProgramStageiv(*program,*shadertype,*pname,values);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *values;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5755: { // glPatchParameteri
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *value = (GLint *) bp; bp += 4;
+ weglPatchParameteri(*pname,*value);
+}; break;
+case 5756: { // glPatchParameterfv
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int * valuesLen = (int *) bp; bp += 4;
+ GLfloat * values = (GLfloat *) bp;  bp += (8-((*valuesLen*4+0)%8))%8;
+ weglPatchParameterfv(*pname,values);
+}; break;
+case 5757: { // glBindTransformFeedback
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ weglBindTransformFeedback(*target,*id);
+}; break;
+case 5758: { // glDeleteTransformFeedbacks
+ int * idsLen = (int *) bp; bp += 4;
+ GLuint * ids = (GLuint *) bp;  bp += (8-((*idsLen*4+4)%8))%8;
+ weglDeleteTransformFeedbacks(*idsLen,ids);
+}; break;
+case 5759: { // glGenTransformFeedbacks
+ GLsizei *n = (GLsizei *) bp; bp += 4;
+ GLuint *ids;
+ ids = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
+ weglGenTransformFeedbacks(*n,ids);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ for(int i=0; i < *n; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) ids[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(ids);
+}; break;
+case 5760: { // glIsTransformFeedback
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLboolean result = weglIsTransformFeedback(*id);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5761: { // glPauseTransformFeedback
+ weglPauseTransformFeedback();
+}; break;
+case 5762: { // glResumeTransformFeedback
+ weglResumeTransformFeedback();
+}; break;
+case 5763: { // glDrawTransformFeedback
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ weglDrawTransformFeedback(*mode,*id);
+}; break;
+case 5764: { // glDrawTransformFeedbackStream
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLuint *stream = (GLuint *) bp; bp += 4;
+ weglDrawTransformFeedbackStream(*mode,*id,*stream);
+}; break;
+case 5765: { // glBeginQueryIndexed
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ weglBeginQueryIndexed(*target,*index,*id);
+}; break;
+case 5766: { // glEndQueryIndexed
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ weglEndQueryIndexed(*target,*index);
+}; break;
+case 5767: { // glGetQueryIndexediv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[1] = {0};
+ weglGetQueryIndexediv(*target,*index,*pname,params);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5768: { // glReleaseShaderCompiler
+ weglReleaseShaderCompiler();
+}; break;
+case 5769: { // glShaderBinary
+ int * shadersLen = (int *) bp; bp += 4;
+ GLuint * shaders = (GLuint *) bp;  bp += (8-((*shadersLen*4+4)%8))%8;
+ GLenum *binaryformat = (GLenum *) bp; bp += 4;
+ GLvoid *binary = (GLvoid *) bins[0];
+ GLsizei binary_size = bins_sz[0];
+ weglShaderBinary(*shadersLen,shaders,*binaryformat,binary,binary_size);
+}; break;
+case 5770: { // glGetShaderPrecisionFormat
+ GLenum *shadertype = (GLenum *) bp; bp += 4;
+ GLenum *precisiontype = (GLenum *) bp; bp += 4;
+ GLint range[2] = {0,0};
+ GLint precision[1] = {0};
+ weglGetShaderPrecisionFormat(*shadertype,*precisiontype,range,precision);
+ int AP = 0; ErlDrvTermData rt[14];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLint *rangeTmp = range;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *rangeTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *rangeTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *precision;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5771: { // glDepthRangef
+ GLclampf *n = (GLclampf *) bp; bp += 4;
+ GLclampf *f = (GLclampf *) bp; bp += 4;
+ weglDepthRangef(*n,*f);
+}; break;
+case 5772: { // glClearDepthf
+ GLclampf *d = (GLclampf *) bp; bp += 4;
+ weglClearDepthf(*d);
+}; break;
+case 5773: { // glGetProgramBinary
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLsizei *bufSize = (GLsizei *) bp; bp += 4;
+ GLsizei length[1] = {0};
+ GLenum binaryFormat[1] = {0};
+ ErlDrvBinary *binary = driver_alloc_binary(*bufSize);
+ weglGetProgramBinary(*program,*bufSize,length,binaryFormat,(GLvoid*) binary->orig_bytes);
+ int AP = 0; ErlDrvTermData rt[12];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *binaryFormat;
+ rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) binary; rt[AP++] = *length; rt[AP++] = 0;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free_binary(binary);
+}; break;
+case 5774: { // glProgramBinary
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *binaryFormat = (GLenum *) bp; bp += 4;
+ GLvoid *binary = (GLvoid *) bins[0];
+ GLsizei binary_size = bins_sz[0];
+ weglProgramBinary(*program,*binaryFormat,binary,binary_size);
+}; break;
+case 5775: { // glProgramParameteri
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *value = (GLint *) bp; bp += 4;
+ weglProgramParameteri(*program,*pname,*value);
+}; break;
+case 5776: { // glUseProgramStages
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ GLbitfield *stages = (GLbitfield *) bp; bp += 4;
+ GLuint *program = (GLuint *) bp; bp += 4;
+ weglUseProgramStages(*pipeline,*stages,*program);
+}; break;
+case 5777: { // glActiveShaderProgram
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ GLuint *program = (GLuint *) bp; bp += 4;
+ weglActiveShaderProgram(*pipeline,*program);
+}; break;
+case 5778: { // glCreateShaderProgramv
+ GLenum *type = (GLenum *) bp; bp += 4;
+ int * stringsLen = (int *) bp; bp += 4;
+ int * stringsTotSize = (int *) bp; bp += 4;
+ GLchar **strings;
+ strings = (GLchar **) driver_alloc(sizeof(GLchar *) * *stringsLen);
+ for(int i=0;i<*stringsLen;i++) {
+    strings[i] = (GLchar *) bp; bp += 1+strlen(bp);};
+ bp += (8 - ((0 + *stringsTotSize) % 8)) % 8;
+ GLuint result = weglCreateShaderProgramv(*type,*stringsLen,(const GLchar **) strings);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(strings);
+}; break;
+case 5779: { // glBindProgramPipeline
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ weglBindProgramPipeline(*pipeline);
+}; break;
+case 5780: { // glDeleteProgramPipelines
+ int * pipelinesLen = (int *) bp; bp += 4;
+ GLuint * pipelines = (GLuint *) bp;  bp += (8-((*pipelinesLen*4+4)%8))%8;
+ weglDeleteProgramPipelines(*pipelinesLen,pipelines);
+}; break;
+case 5781: { // glGenProgramPipelines
+ GLsizei *n = (GLsizei *) bp; bp += 4;
+ GLuint *pipelines;
+ pipelines = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
+ weglGenProgramPipelines(*n,pipelines);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ for(int i=0; i < *n; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) pipelines[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(pipelines);
+}; break;
+case 5782: { // glIsProgramPipeline
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ GLboolean result = weglIsProgramPipeline(*pipeline);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5783: { // glGetProgramPipelineiv
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[1] = {0};
+ weglGetProgramPipelineiv(*pipeline,*pname,params);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *params;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5784: { // glProgramUniform1i
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLint *v0 = (GLint *) bp; bp += 4;
+ weglProgramUniform1i(*program,*location,*v0);
+}; break;
+case 5785: { // glProgramUniform1iv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int * valueLen = (int *) bp; bp += 4;
+ GLint * value = (GLint *) bp;  bp += (8-((*valueLen*4+4)%8))%8;
+ weglProgramUniform1iv(*program,*location,*valueLen,value);
+}; break;
+case 5786: { // glProgramUniform1f
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLfloat *v0 = (GLfloat *) bp; bp += 4;
+ weglProgramUniform1f(*program,*location,*v0);
+}; break;
+case 5787: { // glProgramUniform1fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int * valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp;  bp += (8-((*valueLen*4+4)%8))%8;
+ weglProgramUniform1fv(*program,*location,*valueLen,value);
+}; break;
+case 5788: { // glProgramUniform1d
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLdouble *v0 = (GLdouble *) bp; bp += 8;
+ weglProgramUniform1d(*program,*location,*v0);
+}; break;
+case 5789: { // glProgramUniform1dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int * valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp;  bp += (8-((*valueLen*8+0)%8))%8;
+ weglProgramUniform1dv(*program,*location,*valueLen,value);
+}; break;
+case 5790: { // glProgramUniform1ui
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLuint *v0 = (GLuint *) bp; bp += 4;
+ weglProgramUniform1ui(*program,*location,*v0);
+}; break;
+case 5791: { // glProgramUniform1uiv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int * valueLen = (int *) bp; bp += 4;
+ GLuint * value = (GLuint *) bp;  bp += (8-((*valueLen*4+4)%8))%8;
+ weglProgramUniform1uiv(*program,*location,*valueLen,value);
+}; break;
+case 5792: { // glProgramUniform2i
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLint *v0 = (GLint *) bp; bp += 4;
+ GLint *v1 = (GLint *) bp; bp += 4;
+ weglProgramUniform2i(*program,*location,*v0,*v1);
+}; break;
+case 5793: { // glProgramUniform2iv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLint * value = (GLint *) bp; bp += *valueLen*8;
+ weglProgramUniform2iv(*program,*location,*valueLen,value);
+}; break;
+case 5794: { // glProgramUniform2f
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLfloat *v0 = (GLfloat *) bp; bp += 4;
+ GLfloat *v1 = (GLfloat *) bp; bp += 4;
+ weglProgramUniform2f(*program,*location,*v0,*v1);
+}; break;
+case 5795: { // glProgramUniform2fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*8;
+ weglProgramUniform2fv(*program,*location,*valueLen,value);
+}; break;
+case 5796: { // glProgramUniform2d
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLdouble *v0 = (GLdouble *) bp; bp += 8;
+ GLdouble *v1 = (GLdouble *) bp; bp += 8;
+ weglProgramUniform2d(*program,*location,*v0,*v1);
+}; break;
+case 5797: { // glProgramUniform2dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*16;
+ weglProgramUniform2dv(*program,*location,*valueLen,value);
+}; break;
+case 5798: { // glProgramUniform2ui
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLuint *v0 = (GLuint *) bp; bp += 4;
+ GLuint *v1 = (GLuint *) bp; bp += 4;
+ weglProgramUniform2ui(*program,*location,*v0,*v1);
+}; break;
+case 5799: { // glProgramUniform2uiv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLuint * value = (GLuint *) bp; bp += *valueLen*8;
+ weglProgramUniform2uiv(*program,*location,*valueLen,value);
+}; break;
+case 5800: { // glProgramUniform3i
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLint *v0 = (GLint *) bp; bp += 4;
+ GLint *v1 = (GLint *) bp; bp += 4;
+ GLint *v2 = (GLint *) bp; bp += 4;
+ weglProgramUniform3i(*program,*location,*v0,*v1,*v2);
+}; break;
+case 5801: { // glProgramUniform3iv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLint * value = (GLint *) bp; bp += *valueLen*12;
+ weglProgramUniform3iv(*program,*location,*valueLen,value);
+}; break;
+case 5802: { // glProgramUniform3f
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLfloat *v0 = (GLfloat *) bp; bp += 4;
+ GLfloat *v1 = (GLfloat *) bp; bp += 4;
+ GLfloat *v2 = (GLfloat *) bp; bp += 4;
+ weglProgramUniform3f(*program,*location,*v0,*v1,*v2);
+}; break;
+case 5803: { // glProgramUniform3fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*12;
+ weglProgramUniform3fv(*program,*location,*valueLen,value);
+}; break;
+case 5804: { // glProgramUniform3d
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLdouble *v0 = (GLdouble *) bp; bp += 8;
+ GLdouble *v1 = (GLdouble *) bp; bp += 8;
+ GLdouble *v2 = (GLdouble *) bp; bp += 8;
+ weglProgramUniform3d(*program,*location,*v0,*v1,*v2);
+}; break;
+case 5805: { // glProgramUniform3dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*24;
+ weglProgramUniform3dv(*program,*location,*valueLen,value);
+}; break;
+case 5806: { // glProgramUniform3ui
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLuint *v0 = (GLuint *) bp; bp += 4;
+ GLuint *v1 = (GLuint *) bp; bp += 4;
+ GLuint *v2 = (GLuint *) bp; bp += 4;
+ weglProgramUniform3ui(*program,*location,*v0,*v1,*v2);
+}; break;
+case 5807: { // glProgramUniform3uiv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLuint * value = (GLuint *) bp; bp += *valueLen*12;
+ weglProgramUniform3uiv(*program,*location,*valueLen,value);
+}; break;
+case 5808: { // glProgramUniform4i
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLint *v0 = (GLint *) bp; bp += 4;
+ GLint *v1 = (GLint *) bp; bp += 4;
+ GLint *v2 = (GLint *) bp; bp += 4;
+ GLint *v3 = (GLint *) bp; bp += 4;
+ weglProgramUniform4i(*program,*location,*v0,*v1,*v2,*v3);
+}; break;
+case 5809: { // glProgramUniform4iv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLint * value = (GLint *) bp; bp += *valueLen*16;
+ weglProgramUniform4iv(*program,*location,*valueLen,value);
+}; break;
+case 5810: { // glProgramUniform4f
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLfloat *v0 = (GLfloat *) bp; bp += 4;
+ GLfloat *v1 = (GLfloat *) bp; bp += 4;
+ GLfloat *v2 = (GLfloat *) bp; bp += 4;
+ GLfloat *v3 = (GLfloat *) bp; bp += 4;
+ weglProgramUniform4f(*program,*location,*v0,*v1,*v2,*v3);
+}; break;
+case 5811: { // glProgramUniform4fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*16;
+ weglProgramUniform4fv(*program,*location,*valueLen,value);
+}; break;
+case 5812: { // glProgramUniform4d
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLdouble *v0 = (GLdouble *) bp; bp += 8;
+ GLdouble *v1 = (GLdouble *) bp; bp += 8;
+ GLdouble *v2 = (GLdouble *) bp; bp += 8;
+ GLdouble *v3 = (GLdouble *) bp; bp += 8;
+ weglProgramUniform4d(*program,*location,*v0,*v1,*v2,*v3);
+}; break;
+case 5813: { // glProgramUniform4dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*32;
+ weglProgramUniform4dv(*program,*location,*valueLen,value);
+}; break;
+case 5814: { // glProgramUniform4ui
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLuint *v0 = (GLuint *) bp; bp += 4;
+ GLuint *v1 = (GLuint *) bp; bp += 4;
+ GLuint *v2 = (GLuint *) bp; bp += 4;
+ GLuint *v3 = (GLuint *) bp; bp += 4;
+ weglProgramUniform4ui(*program,*location,*v0,*v1,*v2,*v3);
+}; break;
+case 5815: { // glProgramUniform4uiv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ int *valueLen = (int *) bp; bp += 4;
+ GLuint * value = (GLuint *) bp; bp += *valueLen*16;
+ weglProgramUniform4uiv(*program,*location,*valueLen,value);
+}; break;
+case 5816: { // glProgramUniformMatrix2fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*16;
+ weglProgramUniformMatrix2fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5817: { // glProgramUniformMatrix3fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*36;
+ weglProgramUniformMatrix3fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5818: { // glProgramUniformMatrix4fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*64;
+ weglProgramUniformMatrix4fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5819: { // glProgramUniformMatrix2dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*32;
+ weglProgramUniformMatrix2dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5820: { // glProgramUniformMatrix3dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*72;
+ weglProgramUniformMatrix3dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5821: { // glProgramUniformMatrix4dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*128;
+ weglProgramUniformMatrix4dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5822: { // glProgramUniformMatrix2x3fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*24;
+ weglProgramUniformMatrix2x3fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5823: { // glProgramUniformMatrix3x2fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*24;
+ weglProgramUniformMatrix3x2fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5824: { // glProgramUniformMatrix2x4fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*32;
+ weglProgramUniformMatrix2x4fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5825: { // glProgramUniformMatrix4x2fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*32;
+ weglProgramUniformMatrix4x2fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5826: { // glProgramUniformMatrix3x4fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*48;
+ weglProgramUniformMatrix3x4fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5827: { // glProgramUniformMatrix4x3fv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ int *valueLen = (int *) bp; bp += 4;
+ GLfloat * value = (GLfloat *) bp; bp += *valueLen*48;
+ weglProgramUniformMatrix4x3fv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5828: { // glProgramUniformMatrix2x3dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*48;
+ weglProgramUniformMatrix2x3dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5829: { // glProgramUniformMatrix3x2dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*48;
+ weglProgramUniformMatrix3x2dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5830: { // glProgramUniformMatrix2x4dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*64;
+ weglProgramUniformMatrix2x4dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5831: { // glProgramUniformMatrix4x2dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*64;
+ weglProgramUniformMatrix4x2dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5832: { // glProgramUniformMatrix3x4dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*96;
+ weglProgramUniformMatrix3x4dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5833: { // glProgramUniformMatrix4x3dv
+ GLuint *program = (GLuint *) bp; bp += 4;
+ GLint *location = (GLint *) bp; bp += 4;
+ GLboolean *transpose = (GLboolean *) bp; bp += 1;
+ bp += 7;
+ int *valueLen = (int *) bp; bp += 8;
+ GLdouble * value = (GLdouble *) bp; bp += *valueLen*96;
+ weglProgramUniformMatrix4x3dv(*program,*location,*valueLen,*transpose,value);
+}; break;
+case 5834: { // glValidateProgramPipeline
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ weglValidateProgramPipeline(*pipeline);
+}; break;
+case 5835: { // glGetProgramPipelineInfoLog
+ GLuint *pipeline = (GLuint *) bp; bp += 4;
+ GLsizei *bufSize = (GLsizei *) bp; bp += 4;
+ GLsizei length[1] = {0};
+ GLchar *infoLog;
+ infoLog = (GLchar *) driver_alloc(sizeof(GLchar) * *bufSize);
+ weglGetProgramPipelineInfoLog(*pipeline,*bufSize,length,infoLog);
+ int AP = 0; ErlDrvTermData rt[7];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) infoLog; rt[AP++] = *length;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(infoLog);
+}; break;
+case 5836: { // glVertexAttribL1dv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertexAttribL1dv(*index,v);
+}; break;
+case 5837: { // glVertexAttribL2dv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertexAttribL2dv(*index,v);
+}; break;
+case 5838: { // glVertexAttribL3dv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertexAttribL3dv(*index,v);
+}; break;
+case 5839: { // glVertexAttribL4dv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ bp += 4;
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertexAttribL4dv(*index,v);
+}; break;
+case 5840: { // glVertexAttribLPointer
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) * (int *) bp; bp += 4;
+ weglVertexAttribLPointer(*index,*size,*type,*stride,pointer);
+}; break;
+case 5841: { // glVertexAttribLPointer
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) bins[0];
+ weglVertexAttribLPointer(*index,*size,*type,*stride,pointer);
+}; break;
+case 5842: { // glGetVertexAttribLdv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLdouble params[4] = {0.0,0.0,0.0,0.0};
+ weglGetVertexAttribLdv(*index,*pname,params);
+ int AP = 0; ErlDrvTermData rt[14];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble *paramsTmp = params;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5843: { // glViewportArrayv
+ GLuint *first = (GLuint *) bp; bp += 4;
+ int *vLen = (int *) bp; bp += 4;
+ GLfloat * v = (GLfloat *) bp; bp += *vLen*16;
+ weglViewportArrayv(*first,*vLen,v);
+}; break;
+case 5844: { // glViewportIndexedf
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLfloat *x = (GLfloat *) bp; bp += 4;
+ GLfloat *y = (GLfloat *) bp; bp += 4;
+ GLfloat *w = (GLfloat *) bp; bp += 4;
+ GLfloat *h = (GLfloat *) bp; bp += 4;
+ weglViewportIndexedf(*index,*x,*y,*w,*h);
+}; break;
+case 5845: { // glViewportIndexedfv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLfloat * v = (GLfloat *) bp; bp += 16;
+ weglViewportIndexedfv(*index,v);
+}; break;
+case 5846: { // glScissorArrayv
+ GLuint *first = (GLuint *) bp; bp += 4;
+ int *vLen = (int *) bp; bp += 4;
+ GLint * v = (GLint *) bp; bp += *vLen*16;
+ weglScissorArrayv(*first,*vLen,v);
+}; break;
+case 5847: { // glScissorIndexed
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint *left = (GLint *) bp; bp += 4;
+ GLint *bottom = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ weglScissorIndexed(*index,*left,*bottom,*width,*height);
+}; break;
+case 5848: { // glScissorIndexedv
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLint * v = (GLint *) bp; bp += 16;
+ weglScissorIndexedv(*index,v);
+}; break;
+case 5849: { // glDepthRangeArrayv
+ GLuint *first = (GLuint *) bp; bp += 4;
+ bp += 4;
+ int *vLen = (int *) bp; bp += 8;
+ GLclampd * v = (GLclampd *) bp; bp += *vLen*16;
+ weglDepthRangeArrayv(*first,*vLen,v);
+}; break;
+case 5850: { // glDepthRangeIndexed
+ GLuint *index = (GLuint *) bp; bp += 4;
+ bp += 4;
+ GLclampd *n = (GLclampd *) bp; bp += 8;
+ GLclampd *f = (GLclampd *) bp; bp += 8;
+ weglDepthRangeIndexed(*index,*n,*f);
+}; break;
+case 5851: { // glGetFloati_v
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLfloat data[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+ weglGetFloati_v(*target,*index,data);
+ int AP = 0; ErlDrvTermData rt[39];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble dataConv[16], *dataTmp = dataConv; 
+ for(int i=0; i < 16; i++) dataConv[i] = (GLdouble) data[i];
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5852: { // glGetDoublei_v
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *index = (GLuint *) bp; bp += 4;
+ GLdouble data[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+ weglGetDoublei_v(*target,*index,data);
+ int AP = 0; ErlDrvTermData rt[39];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble *dataTmp = data;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) dataTmp++;
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = 16+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5853: { // glDebugMessageControlARB
+ GLenum *source = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLenum *severity = (GLenum *) bp; bp += 4;
+ int * idsLen = (int *) bp; bp += 4;
+ GLuint * ids = (GLuint *) bp;  bp += (8-((*idsLen*4+0)%8))%8;
+ GLboolean *enabled = (GLboolean *) bp; bp += 1;
+ weglDebugMessageControlARB(*source,*type,*severity,*idsLen,ids,*enabled);
+}; break;
+case 5854: { // glDebugMessageInsertARB
+ GLenum *source = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLenum *severity = (GLenum *) bp; bp += 4;
+ GLchar *buf = (GLchar *) bp;
+ int bufLen[1] = {strlen((char *)buf)}; bp += bufLen[0]+1+((8-((1+bufLen[0]+0)%8))%8);
+ weglDebugMessageInsertARB(*source,*type,*id,*severity,*bufLen,buf);
+}; break;
+case 5855: { // glGetDebugMessageLogARB
+ GLuint *count = (GLuint *) bp; bp += 4;
+ GLsizei *bufsize = (GLsizei *) bp; bp += 4;
+ GLenum *sources;
+ sources = (GLenum *) driver_alloc(sizeof(GLenum) * *count);
+ GLenum *types;
+ types = (GLenum *) driver_alloc(sizeof(GLenum) * *count);
+ GLuint *ids;
+ ids = (GLuint *) driver_alloc(sizeof(GLuint) * *count);
+ GLenum *severities;
+ severities = (GLenum *) driver_alloc(sizeof(GLenum) * *count);
+ GLsizei *lengths;
+ lengths = (GLsizei *) driver_alloc(sizeof(GLsizei) * *count);
+ GLchar *messageLog;
+ messageLog = (GLchar *) driver_alloc(sizeof(GLchar) * *bufsize);
+ GLuint result = weglGetDebugMessageLogARB(*count,*bufsize,sources,types,ids,severities,lengths,messageLog);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(23 + result*3 + result*2 + result*2 + result*2 + result*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ for(int i=0; i < (int) result; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) sources[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = ((int) result)+1;
+ for(int i=0; i < (int) result; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) types[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = ((int) result)+1;
+ for(int i=0; i < (int) result; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) ids[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = ((int) result)+1;
+ for(int i=0; i < (int) result; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) severities[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = ((int) result)+1;
+ for(int i=0; i < (int) result; i++) {
+    rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) messageLog; rt[AP++] = lengths[i]-1;
+    messageLog += lengths[i]; }
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = ((int) result)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 6;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(messageLog);
+ driver_free(lengths);
+ driver_free(severities);
+ driver_free(ids);
+ driver_free(types);
+ driver_free(sources);
+}; break;
+case 5856: { // glGetGraphicsResetStatusARB
+ GLenum result = weglGetGraphicsResetStatusARB();
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5857: { // glResizeBuffersMESA
  weglResizeBuffersMESA();
 }; break;
-case 5677: { // glWindowPos4dvMESA
+case 5858: { // glWindowPos4dvMESA
  GLdouble *v = (GLdouble *) bp; bp += 8;
  weglWindowPos4dvMESA(v);
 }; break;
-case 5678: { // glWindowPos4fvMESA
+case 5859: { // glWindowPos4fvMESA
  GLfloat *v = (GLfloat *) bp; bp += 4;
  weglWindowPos4fvMESA(v);
 }; break;
-case 5679: { // glWindowPos4ivMESA
+case 5860: { // glWindowPos4ivMESA
  GLint *v = (GLint *) bp; bp += 4;
  weglWindowPos4ivMESA(v);
 }; break;
-case 5680: { // glWindowPos4svMESA
+case 5861: { // glWindowPos4svMESA
  GLshort *v = (GLshort *) bp; bp += 2;
  weglWindowPos4svMESA(v);
 }; break;
-case 5681: { // glDepthBoundsEXT
+case 5862: { // glDepthBoundsEXT
  GLclampd *zmin = (GLclampd *) bp; bp += 8;
  GLclampd *zmax = (GLclampd *) bp; bp += 8;
  weglDepthBoundsEXT(*zmin,*zmax);
 }; break;
-case 5682: { // glStencilClearTagEXT
+case 5863: { // glStencilClearTagEXT
  GLsizei *stencilTagBits = (GLsizei *) bp; bp += 4;
  GLuint *stencilClearTag = (GLuint *) bp; bp += 4;
  weglStencilClearTagEXT(*stencilTagBits,*stencilClearTag);
 }; break;
+}} catch (char *err_msg) {
+int AP = 0; ErlDrvTermData rt[12];
+rt[AP++] = ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_error_");
+rt[AP++] = ERL_DRV_INT; rt[AP++] = (int) op;
+rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) err_msg);
+// rt[AP++] = ERL_DRV_ATOM; rt[AP++] = driver_mk_atom((char *) gl_fns[op-GLE_GL_FUNC_START].name);
+// rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 3;
+driver_send_term(port,caller,rt,AP);
 }} /* The End */
 

@@ -162,16 +162,20 @@ esac
 case $host_os in
     darwin*)
 	CFLAGS="-no-cpp-precomp $CFLAGS"
-	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC -framework OpenGL $LDFLAGS"
+	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC $LDFLAGS"
+	GL_LIBS="-framework OpenGL"
 	;;
     win32)
         LDFLAGS="-dll $LDFLAGS"
+	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     mingw32)
 	LDFLAGS="-shared -fPIC $LDFLAGS"
+	GL_LIBS="-lglu32 -lOpengl32"
 	;;
     *)
 	LDFLAGS="-shared -fPIC $LDFLAGS"
+	GL_LIBS="-lGL -lGLU"
 	;;
 esac
 
@@ -217,12 +221,18 @@ if test X"$host_os" != X"win32" ; then
 	    if test X"$ac_cv_header_GL_gl_h" != Xyes ; then
 		AC_MSG_WARN([No OpenGL headers found, wx will NOT be usable])
 		CPPFLAGS="$saved_CPPFLAGS"
+	    else 
+	    	GL_LIBS="-L/usr/local/lib $GL_LIBS"
 	    fi
+	else 
+    	    GL_LIBS="-L/usr/X11R6/lib $GL_LIBS"
        	fi
     fi
 else
     AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
 fi
+
+AC_SUBST(GL_LIBS)
 
 CXXFLAGS="$CFLAGS $CPPFLAGS" 
 CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"

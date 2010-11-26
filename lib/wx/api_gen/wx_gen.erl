@@ -887,7 +887,7 @@ add_method2(M0=#method{name=Name,params=Ps0,type=T0},#class{name=CName,parent=Pa
 		   id = next_id(func_id),
 		   pre_hook  = get_opt(pre_hook, Name, length(Ps), Opts),
 		   post_hook = get_opt(post_hook, Name, length(Ps), Opts),
-		   doc = get_opt(doc, Name, length(Ps), Opts) 
+		   doc = get_opt(doc, Name, length(Ps), Opts)
 		  },
     M = case Name of
 	    CName ->

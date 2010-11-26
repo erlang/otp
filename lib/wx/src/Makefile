@@ -47,7 +47,6 @@ GEN_FILES       = $(wildcard gen/wx*.erl) \
 GEN_MODS        = $(GEN_FILES:gen/%.erl=  %,\n )
 
 GEN_HRL		= \
-		$(EGEN)/gl_debug.hrl \
 		$(EGEN)/wxe_debug.hrl \
 		$(EGEN)/wxe_funcs.hrl
 
