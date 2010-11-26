@@ -407,16 +407,23 @@ check_liveness(R, [{bif,Op,{f,Fail},Ss,D}|Is], St0) ->
 	Other ->
 	    Other
     end;
-check_liveness(R, [{gc_bif,Op,{f,Fail},_,Ss,D}|Is], St0) ->
-    case check_liveness_fail(R, Op, Ss, Fail, St0) of
-	{killed,St} = Killed ->
-	    case member(R, Ss) of
-		true -> {used,St};
-		false when R =:= D -> Killed;
-		false -> check_liveness(R, Is, St)
-	    end;
-	Other ->
-	    Other
+check_liveness(R, [{gc_bif,Op,{f,Fail},Live,Ss,D}|Is], St0) ->
+    case R of
+	{x,X} when X >= Live ->
+	    {killed,St0};
+	{x,_} ->
+	    {used,St0};
+	_ ->
+	    case check_liveness_fail(R, Op, Ss, Fail, St0) of
+		{killed,St}=Killed ->
+		    case member(R, Ss) of
+			true -> {used,St};
+			false when R =:= D -> Killed;
+			false -> check_liveness(R, Is, St)
+		    end;
+		Other ->
+		    Other
+	    end
     end;
 check_liveness(R, [{bs_add,{f,0},Ss,D}|Is], St) ->
     case member(R, Ss) of
