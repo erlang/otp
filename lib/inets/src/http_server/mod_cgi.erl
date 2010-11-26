@@ -27,6 +27,7 @@
 -export([do/1, load/2, store/2]).
 
 -include("http_internal.hrl").
+-include("httpd_internal.hrl").
 -include("httpd.hrl").
 
 -define(VMODULE,"CGI").

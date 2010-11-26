@@ -21,6 +21,7 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include("inets_internal.hrl").
 
 %% Internal application API
 -export([start_link/5, start_link/6]).

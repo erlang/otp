@@ -304,9 +304,9 @@ validate_uri(RequestURI) ->
     UriNoQueryNoHex = 
 	case string:str(RequestURI, "?") of
 	    0 ->
-		(catch httpd_util:decode_hex(RequestURI));
+		(catch http_uri:decode(RequestURI));
 	    Ndx ->
-		(catch httpd_util:decode_hex(string:left(RequestURI, Ndx)))	
+		(catch http_uri:decode(string:left(RequestURI, Ndx)))
 	end,
     case UriNoQueryNoHex of
 	{'EXIT',_Reason} ->

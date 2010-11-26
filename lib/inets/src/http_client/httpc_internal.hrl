@@ -60,7 +60,11 @@
 	  relaxed = false, 
 
 	  %% integer() - ms before a connect times out
-	  connect_timeout = ?HTTP_REQUEST_CTIMEOUT  
+	  connect_timeout = ?HTTP_REQUEST_CTIMEOUT,
+
+	  %% bool() - Use %-encoding rfc 2396
+	  url_encode
+
 	 }
        ).
 
