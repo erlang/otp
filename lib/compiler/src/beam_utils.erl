@@ -489,10 +489,13 @@ check_liveness(R, [{bs_context_to_binary,S}|Is], St) ->
 	S -> {used,St};
 	_ -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{loop_rec,{f,_},{x,0}}|Is], St) ->
+check_liveness(R, [{loop_rec,{f,_},{x,0}}|_], St) ->
     case R of
-	{x,_} -> {killed,St};
-	_ -> check_liveness(R, Is, St)
+	{x,_} ->
+	    {killed,St};
+	_ ->
+	    %% y register. Rarely happens. Be very conversative.
+	    {unknown,St}
     end;
 check_liveness(R, [{loop_rec_end,{f,Fail}}|_], St) ->
     check_liveness_at(R, Fail, St);

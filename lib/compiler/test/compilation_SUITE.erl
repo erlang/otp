@@ -46,7 +46,7 @@ all(suite) ->
      trycatch_4, opt_crash,
      otp_5404,otp_5436,otp_5481,otp_5553,otp_5632,
      otp_5714,otp_5872,otp_6121,otp_6121a,otp_6121b,
-     otp_7202,otp_7345,on_load,string_table,otp_8949_a
+     otp_7202,otp_7345,on_load,string_table,otp_8949_a,otp_8949_a
     ].
 
 -define(comp(N),
@@ -626,6 +626,24 @@ otp_8949_a() ->
 		Cs#cs.flags band (1 bsl 22) =/= 0 ->
 		    ok
 	    end
+    end.
+    
+otp_8949_b(Config) when is_list(Config) ->
+    self() ! something,
+    ?line value = otp_8949_b([], false),
+    ?line {'EXIT',_} = (catch otp_8949_b([], true)),
+    ok.
+
+%% Would cause an endless loop in beam_utils.
+otp_8949_b(A, B) ->
+    Var = id(value),
+    if
+	A == [], B == false ->
+	    ok
+    end,
+    receive
+        something ->
+	    id(Var)
     end.
     
 
