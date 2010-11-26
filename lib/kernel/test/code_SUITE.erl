@@ -1339,18 +1339,6 @@ filter_app("safe",_) ->
 % OS_mon does not find it's port program when running cerl
 filter_app("os_mon",true) ->
     false;
-% The following apps may be loaded due to earlier test suites and shuld 
-% not be included
-filter_app("app0",_) ->
-    false;
-filter_app("app1",_) ->
-    false;
-filter_app("app2",_) ->
-    false;
-filter_app("group_leader",_) ->
-    false;
-filter_app("app_start_error",_) ->
-    false;
 % Other apps should be OK.
 filter_app(_,_) ->
     true.
@@ -1358,6 +1346,12 @@ create_big_script(Config,Local) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Name = filename:join(PrivDir,"full_script_test"),
     ?line InitialApplications=application:loaded_applications(),
+    %% Applications left loaded by the application suite, unload them!
+    ?line UnloadFix=[app0,app1,app2,group_leader,app_start_error],
+    ?line [application:unload(Leftover) || 
+	      Leftover <- UnloadFix,
+	      lists:keymember(Leftover,1,InitialApplications) ],
+    %% Now we should have only "real" applications...
     ?line [application:load(list_to_atom(Y)) || {match,[Y]} <- [ re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",[{capture,[1],list}]) || X <- code:get_path()],filter_app(Y,Local)],
     ?line Apps = [ {N,V} || {N,_,V} <- application:loaded_applications()],
     ?line {ok,Fd} = file:open(Name ++ ".rel", write),
