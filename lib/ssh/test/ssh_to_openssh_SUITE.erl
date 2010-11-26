@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -96,7 +96,8 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 all() -> 
     case os:find_executable("ssh") of
-	false -> {skip, "openSSH not installed on host"};
+	false -> 
+	    {skip, "openSSH not installed on host"};
 	_ ->
 	    [erlang_shell_client_openssh_server,
 	     erlang_client_openssh_server_exec,
@@ -118,7 +119,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
-
 
 %% TEST cases starts here.
 %%--------------------------------------------------------------------

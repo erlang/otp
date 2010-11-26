@@ -115,7 +115,11 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)
+<<<<<<< HEAD
 	$(INSTALL_DATA) ssh.spec ssh.cover $(RELSYSDIR)
+=======
+	$(INSTALL_DATA) ssh.spec $(RELSYSDIR)
+>>>>>>> Add test suite for ssh
 	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) $(RELSYSDIR)
 	@for dir in $(DATA_DIRS); do \
           if test ! -d $$dir ; then \
