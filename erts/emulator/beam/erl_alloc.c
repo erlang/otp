@@ -1348,6 +1348,13 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	    argv[j++] = argv[i];
     }
     *argc = j;
+#if HALFWORD_HEAP
+    /* If halfword heap, silently ignore any disabling of internal 
+       allocators */
+    for (i = 0; i < aui_sz; ++i)
+	aui[i]->enable = 1;
+#endif
+
     
 }
 
