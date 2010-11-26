@@ -1886,6 +1886,9 @@ do {									\
 static void
 check_balance(ErtsRunQueue *c_rq)
 {
+#if ERTS_MAX_PROCESSES >= (1 << 27)
+#  error check_balance() assumes ERTS_MAX_PROCESS < (1 << 27)
+#endif
     ErtsRunQueueBalance avg = {0};
     Sint64 scheds_reds, full_scheds_reds;
     int forced, active, current_active, oowc, half_full_scheds, full_scheds,
@@ -2009,12 +2012,14 @@ check_balance(ErtsRunQueue *c_rq)
 		    run_queue_info[qix].prio[pix].avail = 0;
 	    }
 	    else {
-		int xreds = 0;
-		int procreds = treds;
-		procreds -= run_queue_info[qix].prio[ERTS_PORT_PRIO_LEVEL].reds;
+		Sint64 xreds = 0;
+		Sint64 procreds = treds;
+		procreds -= 
+		    ((Sint64)
+		     run_queue_info[qix].prio[ERTS_PORT_PRIO_LEVEL].reds);
 
 		for (pix = 0; pix < ERTS_NO_PROC_PRIO_LEVELS; pix++) {
-		    int av;
+		    Sint64 av;
 
 		    if (xreds == 0)
 			av = 100;
@@ -2025,9 +2030,10 @@ check_balance(ErtsRunQueue *c_rq)
 			if (av == 0)
 			    av = 1;
 		    }
-		    run_queue_info[qix].prio[pix].avail = av;
+		    run_queue_info[qix].prio[pix].avail = (int) av;
+		    ASSERT(run_queue_info[qix].prio[pix].avail >= 0);
 		    if (pix < PRIORITY_NORMAL) /* ie., max or high */
-			xreds += run_queue_info[qix].prio[pix].reds;
+			xreds += (Sint64) run_queue_info[qix].prio[pix].reds;
 		}
 		run_queue_info[qix].prio[ERTS_PORT_PRIO_LEVEL].avail = 100;
 	    }
@@ -2132,7 +2138,8 @@ check_balance(ErtsRunQueue *c_rq)
 	    if (max_len != 0) {
 		int avail = avg.prio[pix].avail;
 		if (avail != 0) {
-		    max_len = ((100*max_len - 1) / avail) + 1;
+		    max_len = (int) ((100*((Sint64) max_len) - 1)
+				     / ((Sint64) avail)) + 1;
 		    avg.prio[pix].max_len = max_len;
 		    ASSERT(max_len >= 0);
 		}
@@ -2149,9 +2156,10 @@ check_balance(ErtsRunQueue *c_rq)
 		    || run_queue_info[qix].prio[pix].avail == 0)
 		    limit = 0;
 		else
-		    limit = (((avg.prio[pix].max_len
-			       * run_queue_info[qix].prio[pix].avail) - 1)
-			     / 100 + 1);
+		    limit = (int) (((((Sint64) avg.prio[pix].max_len)
+				     * ((Sint64) run_queue_info[qix].prio[pix].avail))
+				    - 1)
+				   / 100 + 1);
 		run_queue_info[qix].prio[pix].migration_limit = limit;
 	    }
 	}
