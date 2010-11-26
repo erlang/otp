@@ -2429,6 +2429,13 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
     Sint need;
     Eterm bin_term;
     byte* bin_p;
+    /* Prim file explicitly does not allow atoms, although we could 
+       very well cope with it. Instead of letting 'file' handle them,
+       it would probably be more efficient to handle them here. Subject to 
+       change in R15. */ 
+    if (is_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
     if (is_binary(BIF_ARG_1)) {
 	byte *temp_alloc = NULL;
 	byte *bytes;

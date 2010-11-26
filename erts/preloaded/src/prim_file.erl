@@ -1228,5 +1228,7 @@ reverse(X) -> lists:reverse(X, []).
 reverse(L, T) -> lists:reverse(L, T).
 
 % Will add zero termination too
+% The 'EXIT' tuple from a bad argument will eventually generate an error
+% in list_to_binary, which is caught and generates the {error,badarg} return
 pathname(File) ->
-    prim_file:internal_name2native(File).
+    (catch prim_file:internal_name2native(File)).
