@@ -183,7 +183,7 @@ make_dir(Name) ->
 del_dir(Name) ->
     check_and_call(del_dir, [file_name(Name)]).
 
--spec read_file_info(Name :: name()) -> {'ok', #file_info{}} | {'error', posix()}.
+-spec read_file_info(Name :: name()) -> {'ok', file_info()} | {'error', posix()}.
 
 read_file_info(Name) ->
     check_and_call(read_file_info, [file_name(Name)]).
@@ -193,7 +193,7 @@ read_file_info(Name) ->
 altname(Name) ->
     check_and_call(altname, [file_name(Name)]).
 
--spec read_link_info(Name :: name()) -> {'ok', #file_info{}} | {'error', posix()}.
+-spec read_link_info(Name :: name()) -> {'ok', file_info()} | {'error', posix()}.
 
 read_link_info(Name) ->
     check_and_call(read_link_info, [file_name(Name)]).
@@ -203,7 +203,7 @@ read_link_info(Name) ->
 read_link(Name) ->
     check_and_call(read_link, [file_name(Name)]).
 
--spec write_file_info(Name :: name(), Info :: #file_info{}) ->
+-spec write_file_info(Name :: name(), Info :: file_info()) ->
 	'ok' | {'error', posix()}.
 
 write_file_info(Name, Info = #file_info{}) ->
@@ -214,7 +214,8 @@ write_file_info(Name, Info = #file_info{}) ->
 list_dir(Name) ->
     check_and_call(list_dir, [file_name(Name)]).
 
--spec read_file(Name :: name()) -> {'ok', binary()} | {'error', posix()}.
+-spec read_file(Name :: name()) ->
+	{'ok', binary()} | {'error', posix() | 'terminated' | 'system_limit'}.
 
 read_file(Name) ->
     check_and_call(read_file, [file_name(Name)]).
@@ -229,15 +230,15 @@ make_link(Old, New) ->
 make_symlink(Old, New) ->
     check_and_call(make_symlink, [file_name(Old), file_name(New)]).
 
--spec write_file(Name :: name(), Bin :: binary()) -> 'ok' | {'error', posix()}.
+-spec write_file(Name :: name(), Bin :: iodata()) ->
+	'ok' | {'error', posix() | 'terminated' | 'system_limit'}.
 
 write_file(Name, Bin) ->
     check_and_call(write_file, [file_name(Name), make_binary(Bin)]).
 
 %% This whole operation should be moved to the file_server and prim_file
 %% when it is time to change file server protocol again.
-%% Meanwhile, it is implemented here, slihtly less efficient.
-%%
+%% Meanwhile, it is implemented here, slightly less efficient.
 
 -spec write_file(Name :: name(), Bin :: binary(), Modes :: [mode()]) -> 
 	'ok' | {'error', posix()}.
@@ -348,7 +349,7 @@ open(Item, Mode) ->
 %%% The File argument must be either a Pid or a handle 
 %%% returned from ?PRIM_FILE:open.
 
--spec close(File :: io_device()) -> 'ok' | {'error', posix()}.
+-spec close(File :: io_device()) -> 'ok' | {'error', posix() | 'terminated'}.
 
 close(File) when is_pid(File) ->
     R = file_request(File, close),
@@ -367,7 +368,7 @@ close(_) ->
     {error, badarg}.
 
 -spec advise(File :: io_device(), Offset :: integer(),
-        Length :: integer(), Advise :: posix_file_advise()) ->
+	     Length :: integer(), Advise :: posix_file_advise()) ->
 	'ok' | {'error', posix()}.
 
 advise(File, Offset, Length, Advise) when is_pid(File) ->
@@ -449,7 +450,7 @@ pread(_, _, _) ->
     {error, badarg}.
 
 -spec write(File :: io_device() | atom(), Byte :: iodata()) ->
-	'ok' | {'error', posix()}.
+	'ok' | {'error', posix() | 'terminated'}.
 
 write(File, Bytes) when (is_pid(File) orelse is_atom(File)) ->
     case make_binary(Bytes) of

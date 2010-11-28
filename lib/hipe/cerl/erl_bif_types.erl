@@ -192,7 +192,7 @@ type(binary, referenced_byte_size, 1, Xs) ->
 type(code, add_path, 1, Xs) ->
   strict(arg_types(code, add_path, 1), Xs,
 	 fun (_) ->
-	     t_sup(t_boolean(),
+	     t_sup(t_atom('true'),
 		   t_tuple([t_atom('error'), t_atom('bad_directory')]))
 	 end);
 type(code, add_patha, 1, Xs) ->
@@ -1991,29 +1991,6 @@ type(ets, update_counter, 3, Xs) ->
 	 end);
 type(ets, update_element, 3, Xs) ->
   strict(arg_types(ets, update_element, 3), Xs, fun (_) -> t_boolean() end);
-%%-- file ---------------------------------------------------------------------
-type(file, close, 1, Xs) ->
-  strict(arg_types(file, close, 1), Xs, fun (_) -> t_file_return() end);
-type(file, delete, 1, Xs) ->
-  strict(arg_types(file, delete, 1), Xs, fun (_) -> t_file_return() end);
-type(file, get_cwd, 0, _) ->
-  t_sup(t_tuple([t_atom('ok'), t_string()]),
-	t_tuple([t_atom('error'), t_file_posix_error()]));
-type(file, make_dir, 1, Xs) ->
-  strict(arg_types(file, make_dir, 1), Xs, fun (_) -> t_file_return() end);
-type(file, read_file, 1, Xs) ->
-  strict(arg_types(file, read_file, 1), Xs,
-	 fun (_) ->
-	     t_sup([t_tuple([t_atom('ok'), t_binary()]),
-		    t_tuple([t_atom('error'), t_file_posix_error()])])
-	 end);
-type(file, set_cwd, 1, Xs) ->
-  strict(arg_types(file, set_cwd, 1), Xs, 
-	 fun (_) -> t_sup(t_atom('ok'),
-			  t_tuple([t_atom('error'), t_file_posix_error()]))
-	 end);
-type(file, write_file, 2, Xs) ->
-  strict(arg_types(file, write_file, 2), Xs, fun (_) -> t_file_return() end);
 %%-- gen_tcp ------------------------------------------------------------------
 %% NOTE: All type information for this module added to avoid loss of precision
 type(gen_tcp, accept, 1, Xs) ->
@@ -3357,7 +3334,7 @@ arg_types(code, all_loaded, 0) ->
 arg_types(code, compiler_dir, 0) ->
   [];
 arg_types(code, del_path, 1) ->
-  [t_sup(t_string(), t_atom())];  % OBS: doc differs from add_path/1 - why?
+  [t_sup(t_string(), t_atom())];  % OBS: differs from add_path/1
 arg_types(code, delete, 1) ->
   [t_atom()];
 arg_types(code, ensure_loaded, 1) ->
@@ -3405,7 +3382,7 @@ arg_types(code, replace_path, 2) ->
 arg_types(code, root_dir, 0) ->
   [];
 arg_types(code, set_path, 1) ->
-  [t_string()];
+  [t_list(t_string())];
 arg_types(code, soft_purge, 1) ->
   arg_types(code, delete, 1);
 arg_types(code, stick_mod, 1) ->
@@ -4199,23 +4176,6 @@ arg_types(ets, update_counter, 3) ->
 arg_types(ets, update_element, 3) ->
   PosValue = t_tuple([t_integer(), t_any()]),
   [t_tab(), t_any(), t_sup(PosValue, t_list(PosValue))];
-%%------- file ----------------------------------------------------------------
-arg_types(file, close, 1) ->
-  [t_file_io_device()];
-arg_types(file, delete, 1) ->
-  [t_file_name()];
-arg_types(file, get_cwd, 0) ->
-  [];
-arg_types(file, make_dir, 1) ->
-  [t_file_name()];
-arg_types(file, read_file, 1) ->
-  [t_file_name()];
-arg_types(file, set_cwd, 1) ->
-  [t_file_name()];
-arg_types(file, write, 2) ->
-  [t_file_io_device(), t_iodata()];
-arg_types(file, write_file, 2) ->
-  [t_file_name(), t_sup(t_binary(), t_list())];
 %%------- gen_tcp -------------------------------------------------------------
 arg_types(gen_tcp, accept, 1) ->
   [t_socket()];
@@ -4647,7 +4607,7 @@ t_httppacket() ->
 	 t_HttpHeader(), t_atom('http_eoh'), t_HttpError()]).
 
 t_endian() ->
-  t_sup([t_atom('big'), t_atom('little')]).
+  t_sup(t_atom('big'), t_atom('little')).
 
 %% =====================================================================
 %% Types for the binary module
@@ -4988,70 +4948,6 @@ t_ets_info_items() ->
 	 t_atom('type')]).
 
 %% =====================================================================
-%% These are used for the built-in functions of 'file'
-%% =====================================================================
-
-t_file_io_device() ->
-  t_sup(t_pid(), t_tuple([t_atom('file_descriptor'), t_atom(), t_any()])).
-
-t_file_name() ->
-  t_sup([t_atom(),
-	 t_string(),
-	 %% DeepList = [char() | atom() | DeepList] -- approximation below
-	 t_list(t_sup([t_atom(), t_string(), t_list()]))]).
-
-t_file_open_option() ->
-  t_sup([t_atom('read'),
-	 t_atom('write'),
-	 t_atom('append'),
-	 t_atom('raw'),
-	 t_atom('binary'),
-	 t_atom('delayed_write'),
-	 t_atom('read_ahead'),
-	 t_atom('compressed'),
-	 t_tuple([t_atom('delayed_write'),
-		  t_pos_integer(), t_non_neg_integer()]),
-	 t_tuple([t_atom('read_ahead'), t_pos_integer()])]).
-
-%% This lists all Posix errors that can occur in file:*/* functions
-t_file_posix_error() ->
-  t_sup([t_atom('eacces'),
-	 t_atom('eagain'),
-	 t_atom('ebadf'),
-	 t_atom('ebusy'),
-	 t_atom('edquot'),
-	 t_atom('eexist'),
-	 t_atom('efault'),
-	 t_atom('efbig'),
-	 t_atom('eintr'),
-	 t_atom('einval'),
-	 t_atom('eio'),
-	 t_atom('eisdir'),
-	 t_atom('eloop'),
-	 t_atom('emfile'),
-	 t_atom('emlink'),
-	 t_atom('enametoolong'),
-	 t_atom('enfile'),
-	 t_atom('enodev'),
-	 t_atom('enoent'),
-	 t_atom('enomem'),
-	 t_atom('enospc'),
-	 t_atom('enotblk'),
-	 t_atom('enotdir'),
-	 t_atom('enotsup'),
-	 t_atom('enxio'),
-	 t_atom('eperm'),
-	 t_atom('epipe'),
-	 t_atom('erofs'),
-	 t_atom('espipe'),
-	 t_atom('esrch'),
-	 t_atom('estale'),
-	 t_atom('exdev')]).
-
-t_file_return() ->
-  t_sup(t_atom('ok'), t_tuple([t_atom('error'), t_file_posix_error()])).
-
-%% =====================================================================
 %% These are used for the built-in functions of 'gen_tcp'
 %% =====================================================================
 
@@ -5251,7 +5147,9 @@ t_ML() ->     % a binary or a possibly deep list of integers or binaries
   t_sup(t_list(t_sup([t_integer(), t_binary(), t_list()])), t_binary()).
 
 t_encoding() ->
-  t_atoms(['latin1', 'unicode', 'utf8', 'utf16', 'utf32']).
+  t_sup([t_atoms(['latin1', 'unicode', 'utf8', 'utf16', 'utf32']),
+	 t_tuple([t_atom('utf16'), t_endian()]),
+	 t_tuple([t_atom('utf32'), t_endian()])]).
 
 t_encoding_a2b() -> % for the 2nd arg of atom_to_binary/2 and binary_to_atom/2
   t_atoms(['latin1', 'unicode', 'utf8']).
