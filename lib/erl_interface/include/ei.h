@@ -80,21 +80,24 @@
 #define ERL_NO_TIMEOUT -1
 
 /* these are the control message types */
-#define ERL_LINK          1
-#define ERL_SEND          2
-#define ERL_EXIT          3
-#define ERL_UNLINK        4
-#define ERL_NODE_LINK     5
-#define ERL_REG_SEND      6
-#define ERL_GROUP_LEADER  7
-#define ERL_EXIT2         8
-#define ERL_PASS_THROUGH      'p'
+#define ERL_LINK           1
+#define ERL_SEND           2
+#define ERL_EXIT           3
+#define ERL_UNLINK         4
+#define ERL_NODE_LINK      5
+#define ERL_REG_SEND       6
+#define ERL_GROUP_LEADER   7
+#define ERL_EXIT2          8
+#define ERL_PASS_THROUGH  'p'
 
 /* new ones for tracing, from Kenneth */
-#define ERL_SEND_TT      12
-#define ERL_EXIT_TT      13
-#define ERL_REG_SEND_TT  16
-#define ERL_EXIT2_TT     18
+#define ERL_SEND_TT        12
+#define ERL_EXIT_TT        13
+#define ERL_REG_SEND_TT    16
+#define ERL_EXIT2_TT       18
+#define ERL_MONITOR_P      19
+#define ERL_DEMONITOR_P    20
+#define ERL_MONITOR_P_EXIT 21
 
 
 /* -------------------------------------------------------------------- */

@@ -33,6 +33,7 @@ MODULES= \
 	ei_print_SUITE \
 	ei_tmo_SUITE \
 	erl_connect_SUITE \
+	erl_global_SUITE \
 	erl_eterm_SUITE \
 	erl_ext_SUITE \
 	erl_format_SUITE \

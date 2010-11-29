@@ -1329,6 +1329,7 @@ static int send_name_or_challenge(int fd, char *nodename,
     put8(s, 'n');
     put16be(s, version);
     put32be(s, (DFLAG_EXTENDED_REFERENCES
+		| DFLAG_DIST_MONITOR
 		| DFLAG_EXTENDED_PIDS_PORTS
 		| DFLAG_FUN_TAGS
 		| DFLAG_NEW_FUN_TAGS
