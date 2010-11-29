@@ -218,12 +218,12 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	application is encountered. Additionally it will be called
 	when a certificate is considered valid by the path validation
 	to allow access to each certificate in the path to the user
-	application. Note that the it will differentiate between
-	the peer certificate and CA certificates by using valid_peer
-	or valid as the second argument to the verify fun.
-	See
-	<seealso marker="public_key:application">public_key(3)</seealso>
-	for definition of #'OTPCertificate'{} and #'Extension'{}.</p>
+	application. Note that the it will differentiate between the
+	peer certificate and CA certificates by using valid_peer or
+	valid as the second argument to the verify fun.  See <seealso
+	marker="public_key:cert_records">the public_key User's
+	Guide</seealso> for definition of #'OTPCertificate'{} and
+	#'Extension'{}.</p>
 
 	<p>If the verify callback fun returns {fail, Reason}, the
 	verification process is immediately stopped and an alert is

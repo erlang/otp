@@ -164,7 +164,7 @@ validate_signature(OtpCert, DerCert, Key, KeyParams,
 	    verify_fun(OtpCert, {bad_cert, invalid_signature}, UserState, VerifyFun)
     end.
 %%--------------------------------------------------------------------
--spec validate_names(#'OTPCertificate'{}, list(), list(),
+-spec validate_names(#'OTPCertificate'{}, no_constraints | list(), list(),
 		     term(), term(), fun())-> term().
 %%
 %% Description: Validate Subject Alternative Name.
