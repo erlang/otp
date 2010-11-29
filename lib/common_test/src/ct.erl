@@ -97,7 +97,7 @@
 %%% <code>install([{config,["config_node.ctc","config_user.ctc"]}])</code>.</p>
 %%%
 %%% <p>Note that this function is automatically run by the
-%%% <code>run_test</code> program.</p>
+%%% <code>ct_run</code> program.</p>
 install(Opts) ->
     ct_run:install(Opts).
 
@@ -179,10 +179,10 @@ run(TestDirs) ->
 %%%   Result = [TestResult] | {error,Reason}
 %%% @doc Run tests as specified by the combination of options in <code>Opts</code>.
 %%% The options are the same as those used with the
-%%% <seealso marker="run_test#run_test"><code>run_test</code></seealso> program.
+%%% <seealso marker="ct_run#ct_run"><code>ct_run</code></seealso> program.
 %%% Note that here a <code>TestDir</code> can be used to point out the path to 
 %%% a <code>Suite</code>. Note also that the option <code>testcase</code>
-%%% corresponds to the <code>-case</code> option in the <code>run_test</code> 
+%%% corresponds to the <code>-case</code> option in the <code>ct_run</code> 
 %%% program. Configuration files specified in <code>Opts</code> will be
 %%% installed automatically at startup.
 run_test(Opts) ->
@@ -225,7 +225,7 @@ step(TestDir,Suite,Case,Opts) ->
 %%%
 %%% <p>From this mode all test case support functions can be executed
 %%% directly from the erlang shell. The interactive mode can also be
-%%% started from the OS command line with <code>run_test -shell
+%%% started from the OS command line with <code>ct_run -shell
 %%% [-config File...]</code>.</p>
 %%%
 %%% <p>If any functions using "required config data" (e.g. telnet or
