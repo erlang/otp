@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -643,7 +643,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 			true -> ignore;
 			false ->
 			    mnesia_log:open_log(temp, 
-						mnesia_log:dcl_log_header(),
+						mnesia_log:dcd_log_header(),
 						Dcd, 
 						false, 
 						false,
