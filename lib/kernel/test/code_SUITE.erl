@@ -19,7 +19,7 @@
 -module(code_SUITE).
 
 -include("test_server.hrl").
-
+%-compile(export_all).
 -export([all/1]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
@@ -31,6 +31,7 @@
 	 where_is_file_cached/1, where_is_file_no_cache/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1,
+	 big_boot_embedded/1,
 	 on_load_embedded/1, on_load_errors/1, native_early_modules/1]).
 
 -export([init_per_testcase/2, fin_per_testcase/2, 
@@ -53,6 +54,7 @@ all(suite) ->
      where_is_file_no_cache, where_is_file_cached,
      purge_stacktrace, mult_lib_roots, bad_erl_libs,
      code_archive, code_archive2, on_load, on_load_embedded,
+     big_boot_embedded,
      on_load_errors, native_early_modules].
 
 init_per_suite(Config) ->
@@ -1153,6 +1155,22 @@ compile_files([File | Files], SrcDir, OutDir) ->
 compile_files([], _, _) ->
     ok.
 
+big_boot_embedded(suite) ->
+    [];
+big_boot_embedded(doc) ->
+    ["Test that a boot file with (almost) all of OTP can be used to start an"
+     " embeddedd system."];
+big_boot_embedded(Config) when is_list(Config) ->
+    ?line {BootArg,AppsInBoot} = create_big_boot(Config),
+    ?line {ok, Node} = 
+	?t:start_node(big_boot_embedded, slave,
+		      [{args,"-boot "++BootArg++" -mode embedded"}]),
+    ?line RemoteNodeApps = 
+	[ {X,Y} || {X,_,Y} <- 
+		       rpc:call(Node,application,loaded_applications,[]) ],
+    ?line true = lists:sort(AppsInBoot) =:=  lists:sort(RemoteNodeApps),
+    ok.
+
 on_load(Config) when is_list(Config) ->
     Master = on_load_test_case_process,
 
@@ -1288,6 +1306,73 @@ create_script(Config) ->
 		    [KernelVer,StdlibVer]),
     ?line file:close(Fd),
     {filename:dirname(Name),filename:basename(Name)}.
+
+create_big_boot(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {Options,Local} = case is_source_dir() of 
+				true -> {[no_module_tests,local],true}; 
+				_ -> {[no_module_tests],false} 
+			    end,
+    ?line {LatestDir,LatestName,Apps} = create_big_script(Config,Local),
+    ?line ok = file:set_cwd(LatestDir),
+    ?line ok = systools:make_script(LatestName, Options),
+    ?line ok = file:set_cwd(OldDir),
+    {filename:join(LatestDir, LatestName),Apps}.
+
+% The following apps cannot be loaded 
+% hipe .app references (or can reference) files that have no
+% corresponding beam file (if hipe is not enabled)
+filter_app("hipe",_) ->
+    false;
+% Dialyzer and typer depends on hipe
+filter_app("dialyzer",_) ->
+    false;
+filter_app("typer",_) ->
+    false;
+% Orber requires explicit configuration
+filter_app("orber",_) ->
+    false;
+% cos* depends on orber
+filter_app("cos"++_,_) ->
+    false;
+% ic has a mod instruction in the app file but no corresponding start function
+filter_app("ic",_) ->
+    false;
+% Netconf has some dependency that I really do not understand (maybe like orber)
+filter_app("netconf",_) ->
+    false;
+% Safe has the same kind of error in the .app file as ic
+filter_app("safe",_) ->
+    false;
+% OS_mon does not find it's port program when running cerl
+filter_app("os_mon",true) ->
+    false;
+% Other apps should be OK.
+filter_app(_,_) ->
+    true.
+create_big_script(Config,Local) ->
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Name = filename:join(PrivDir,"full_script_test"),
+    ?line InitialApplications=application:loaded_applications(),
+    %% Applications left loaded by the application suite, unload them!
+    ?line UnloadFix=[app0,app1,app2,group_leader,app_start_error],
+    ?line [application:unload(Leftover) || 
+	      Leftover <- UnloadFix,
+	      lists:keymember(Leftover,1,InitialApplications) ],
+    %% Now we should have only "real" applications...
+    ?line [application:load(list_to_atom(Y)) || {match,[Y]} <- [ re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",[{capture,[1],list}]) || X <- code:get_path()],filter_app(Y,Local)],
+    ?line Apps = [ {N,V} || {N,_,V} <- application:loaded_applications()],
+    ?line {ok,Fd} = file:open(Name ++ ".rel", write),
+    ?line io:format(Fd,
+		    "{release, {\"Test release 3\", \"P2A\"}, \n"
+		    " {erts, \"9.42\"}, \n"
+		    " ~p}.\n",
+		    [Apps]),
+    ?line file:close(Fd),
+    ?line NewlyLoaded = 
+	application:loaded_applications() -- InitialApplications,
+    ?line [ application:unload(N) || {N,_,_} <- NewlyLoaded],
+    {filename:dirname(Name),filename:basename(Name),Apps}.
 
 is_source_dir() ->
     filename:basename(code:lib_dir(kernel)) =:= "kernel" andalso
