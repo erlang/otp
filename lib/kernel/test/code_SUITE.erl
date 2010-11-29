@@ -584,13 +584,21 @@ clash(Config) when is_list(Config) ->
     TmpEzFile = Priv++"foobar-0.tmp.ez",
     ?line {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
     ?line true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
-    ?line ok = file:delete(TmpEzFile),
+    case os:type() of
+        {win32,_} ->
+	    %% The file wont be deleted on windows until it's closed, why we 
+	    %% need to rename instead.
+	    ?line ok = file:rename(TmpEzFile,TmpEzFile++".moved");
+	 _ ->
+    	    ?line ok = file:delete(TmpEzFile)
+    end,
     test_server:capture_start(),
     ?line ok = code:clash(),
     test_server:capture_stop(),
     ?line [BadPathMsg|_] = test_server:capture_get(),
     ?line true = lists:prefix("** Bad path can't read", BadPathMsg),
     ?line true = code:set_path(P),
+    file:delete(TmpEzFile++".moved"), %% Only effect on windows
     ok.
 
 ext_mod_dep(suite) ->
