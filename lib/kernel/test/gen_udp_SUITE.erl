@@ -423,7 +423,11 @@ connect(Config) when is_list(Config) ->
     ?line ok = gen_udp:close(S1),
     ?line ok = gen_udp:connect(S2, Addr, P1),
     ?line ok = gen_udp:send(S2, <<16#deadbeef:32>>),
-    ?line {error,econnrefused} = gen_udp:recv(S2, 0, 5),
+    ?line ok = case gen_udp:recv(S2, 0, 5) of
+        {error,econnrefused} -> ok;
+	{error,econnreset} -> ok;
+	Other -> Other
+    end,
     ok.
 
 implicit_inet6(Config) when is_list(Config) ->
