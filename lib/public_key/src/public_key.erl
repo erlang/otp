@@ -287,8 +287,8 @@ encrypt_private(PlainText, #'RSAPrivateKey'{modulus = N,
 sign(PlainText, DigestType,  #'RSAPrivateKey'{modulus = N,  publicExponent = E,
 					      privateExponent = D}) 
   when is_binary(PlainText),
-       DigestType == md5;
-       DigestType == sha ->
+       (DigestType == md5 orelse
+	DigestType == sha) ->
     
     crypto:rsa_sign(DigestType, sized_binary(PlainText), [crypto:mpint(E),
 							  crypto:mpint(N),

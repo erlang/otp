@@ -249,10 +249,8 @@ sign_verify(Config) when is_list(Config) ->
     true = public_key:pkix_verify(Cert2, {Y, #'Dss-Parms'{p=P, q=Q, g=G}}),
     
     %% RSA sign
-    Msg0 = lists:duplicate(5, "Foo bar 100"),
-    Msg  = list_to_binary(Msg0),
+    Msg = list_to_binary(lists:duplicate(5, "Foo bar 100")),
 
-    RSASign = public_key:sign(Msg0, sha, PrivateRSA),
     RSASign = public_key:sign(Msg, sha, PrivateRSA),
     true = public_key:verify(Msg, sha, RSASign, PublicRSA), 
     false = public_key:verify(<<1:8, Msg/binary>>, sha, RSASign, PublicRSA), 
