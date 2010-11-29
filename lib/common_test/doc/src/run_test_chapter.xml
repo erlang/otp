@@ -71,7 +71,7 @@
 
     <p>If test suites or help modules include header files stored in other
       locations than the test directory, you may specify these include directories
-      by means of the <c><![CDATA[-include]]></c> flag with <c><![CDATA[run_test]]></c>, 
+      by means of the <c><![CDATA[-include]]></c> flag with <c><![CDATA[ct_run]]></c>, 
       or the <c><![CDATA[include]]></c> option with <c><![CDATA[ct:run_test/1]]></c>.
       In addition to this, an include path may be specified with an OS
       environment variable; <c><![CDATA[CT_INCLUDE_PATH]]></c>. Example (bash):</p>
@@ -93,7 +93,7 @@
       there instead.</p>
 
     <p>It is possible to disable the automatic compilation feature by using the
-      <c><![CDATA[-no_auto_compile]]></c> flag with <c><![CDATA[run_test]]></c>, or
+      <c><![CDATA[-no_auto_compile]]></c> flag with <c><![CDATA[ct_run]]></c>, or
       the <c><![CDATA[{auto_compile,false}]]></c> option with 
       <c><![CDATA[ct:run_test/1]]></c>. With automatic compilation
       disabled, the user is responsible for compiling the test suite modules 
@@ -108,26 +108,26 @@
   <section>
     <title>Running tests from the OS command line</title>
     
-    <p>The <c>run_test</c> program can be used for running tests from
+    <p>The <c>ct_run</c> program can be used for running tests from
       the OS command line, e.g.
     </p>
     <list>
-      <item><c><![CDATA[run_test -config <configfilenames> -dir <dirs>]]></c></item>
-      <item><c><![CDATA[run_test -config <configfilenames> -suite <suiteswithfullpath>]]></c>
+      <item><c><![CDATA[ct_run -config <configfilenames> -dir <dirs>]]></c></item>
+      <item><c><![CDATA[ct_run -config <configfilenames> -suite <suiteswithfullpath>]]></c>
       </item>
-      <item><c><![CDATA[run_test -userconfig <callbackmodulename> <configfilenames> -suite <suiteswithfullpath>]]></c>
+      <item><c><![CDATA[ct_run -userconfig <callbackmodulename> <configfilenames> -suite <suiteswithfullpath>]]></c>
       </item>
-      <item><c><![CDATA[run_test -config <configfilenames> -suite <suitewithfullpath>
+      <item><c><![CDATA[ct_run -config <configfilenames> -suite <suitewithfullpath>
 	      -group <groupnames> -case <casenames>]]></c></item>
     </list>
     <p>Examples:</p>
-    <p><c>$ run_test -config $CFGS/sys1.cfg $CFGS/sys2.cfg -dir $SYS1_TEST $SYS2_TEST</c></p>
-    <p><c>$ run_test -userconfig ct_config_xml $CFGS/sys1.xml $CFGS/sys2.xml -dir $SYS1_TEST $SYS2_TEST</c></p>
-    <p><c>$ run_test -suite $SYS1_TEST/setup_SUITE $SYS2_TEST/config_SUITE</c></p>
-    <p><c>$ run_test -suite $SYS1_TEST/setup_SUITE -case start stop</c></p>
-    <p><c>$ run_test -suite $SYS1_TEST/setup_SUITE -group installation -case start stop</c></p>
+    <p><c>$ ct_run -config $CFGS/sys1.cfg $CFGS/sys2.cfg -dir $SYS1_TEST $SYS2_TEST</c></p>
+    <p><c>$ ct_run -userconfig ct_config_xml $CFGS/sys1.xml $CFGS/sys2.xml -dir $SYS1_TEST $SYS2_TEST</c></p>
+    <p><c>$ ct_run -suite $SYS1_TEST/setup_SUITE $SYS2_TEST/config_SUITE</c></p>
+    <p><c>$ ct_run -suite $SYS1_TEST/setup_SUITE -case start stop</c></p>
+    <p><c>$ ct_run -suite $SYS1_TEST/setup_SUITE -group installation -case start stop</c></p>
     
-    <p>Other flags that may be used with <c>run_test</c>:</p>
+    <p>Other flags that may be used with <c>ct_run</c>:</p>
     <list>
       <item><c><![CDATA[-logdir <dir>]]></c>, specifies where the HTML log files are to be written.</item>
       <item><c><![CDATA[-label <name_of_test_run>]]></c>, associates the test run with a name that gets printed
@@ -167,20 +167,20 @@
     <note><p>Directories passed to Common Test may have either relative or absolute paths.</p></note>
 
     <note><p>Arbitrary start flags to the Erlang Runtime System may also be passed as
-             parameters to <c>run_test</c>. It is, for example, useful to be able to
+             parameters to <c>ct_run</c>. It is, for example, useful to be able to
 	     pass directories that should be added to the Erlang code server search path
 	     with the <c>-pa</c> or <c>-pz</c> flag. If you have common help- or library 
 	     modules for test suites (separately compiled), stored in other directories 
 	     than the test suite directories, these help/lib directories are preferrably
 	     added to the code path this way. Example:</p>
-	  <p><c>$ run_test -dir ./chat_server -logdir ./chat_server/testlogs -pa $PWD/chat_server/ebin</c></p>
+	  <p><c>$ ct_run -dir ./chat_server -logdir ./chat_server/testlogs -pa $PWD/chat_server/ebin</c></p>
 	  <p>Note how in this example, the absolute path of the <c>chat_server/ebin</c>
 	     directory is passed to the code server. This is essential since relative
 	     paths are stored by the code server as relative, and Common Test changes 
 	     the current working directory of the Erlang Runtime System during the test run!</p>
     </note>
     
-    <p>For more information about the <c>run_test</c> program, see the
+    <p>For more information about the <c>ct_run</c> program, see the
       <seealso marker="install_chapter#general">Installation</seealso> chapter.
     </p>
   </section>
@@ -188,7 +188,7 @@
   <section>
     <title>Running tests from the Web based GUI</title>
     
-    <p>The web based GUI, VTS, is started with the <c>run_test</c>
+    <p>The web based GUI, VTS, is started with the <c>ct_run</c>
       program. From the GUI you can load config files, and select
       directories, suites and cases to run. You can also state the
       config files, directories, suites and cases on the command line
@@ -196,22 +196,22 @@
     </p>
     
     <list>
-      <item><c>run_test -vts</c></item>
-      <item><c><![CDATA[run_test -vts -config <configfilename>]]></c></item>
-      <item><c><![CDATA[run_test -vts -config <configfilename> -suite <suitewithfullpath>
+      <item><c>ct_run -vts</c></item>
+      <item><c><![CDATA[ct_run -vts -config <configfilename>]]></c></item>
+      <item><c><![CDATA[ct_run -vts -config <configfilename> -suite <suitewithfullpath>
 	      -case <casename>]]></c></item>
     </list>
     
     <p>From the GUI you can run tests and view the result and the logs.
     </p>
     
-    <p>Note that <c>run_test -vts</c> will try to open the Common Test start
+    <p>Note that <c>ct_run -vts</c> will try to open the Common Test start
       page in an existing web browser window or start the browser if it is
       not running. Which browser should be started may be specified with
       the browser start command option:</p>
-      <p><c><![CDATA[run_test -vts -browser <browser_start_cmd>]]></c></p>
+      <p><c><![CDATA[ct_run -vts -browser <browser_start_cmd>]]></c></p>
       <p>Example:</p>
-      <p><c><![CDATA[$ run_test -vts -browser 'firefox&']]></c></p>
+      <p><c><![CDATA[$ ct_run -vts -browser 'firefox&']]></c></p>
       <p>Note that the browser must run as a separate OS process or VTS will hang!</p>
       <p>If no specific browser start command is specified, Firefox will
         be the default browser on Unix platforms and Internet Explorer on Windows.
@@ -227,10 +227,10 @@
     <p>Common Test provides an Erlang API for running tests. The main (and most
       flexible) function for specifying and executing tests is called
       <c>ct:run_test/1</c>. This function takes the same start parameters as
-      the <c>run_test</c> program described above, only the flags are instead
+      the <c>ct_run</c> program described above, only the flags are instead
       given as options in a list of key-value tuples. E.g. a test specified 
-      with <c>run_test</c> like:</p>
-      <p><c>$ run_test -suite ./my_SUITE -logdir ./results</c></p> 
+      with <c>ct_run</c> like:</p>
+      <p><c>$ ct_run -suite ./my_SUITE -logdir ./results</c></p> 
       <p>is with <c>ct:run_test/1</c> specified as:</p> 
       <p><c>1> ct:run_test([{suite,"./my_SUITE"},{logdir,"./results"}]).</c></p>
       <p>For detailed documentation, please see the <c>ct</c> manual page.</p>    
@@ -253,17 +253,17 @@
       manually and call <c>ct:install/1</c> to install any configuration
       data you might need (use <c>[]</c> as argument otherwise), then
       call <c>ct:start_interactive/0</c> to start Common Test. If you use
-      the <c>run_test</c> program, you may start the Erlang shell and Common Test
+      the <c>ct_run</c> program, you may start the Erlang shell and Common Test
       in the same go by using the <c>-shell</c> and, optionally, the <c>-config</c>
       and/or <c>-userconfig</c> flag. Examples:
     </p>
     <list>
-      <item><c>run_test -shell</c></item>
-      <item><c><![CDATA[run_test -shell -config cfg/db.cfg]]></c></item>
-      <item><c><![CDATA[run_test -shell -userconfig db_login testuser x523qZ]]></c></item>
+      <item><c>ct_run -shell</c></item>
+      <item><c><![CDATA[ct_run -shell -config cfg/db.cfg]]></c></item>
+      <item><c><![CDATA[ct_run -shell -userconfig db_login testuser x523qZ]]></c></item>
     </list>
     
-    <p>If no config file is given with the <c>run_test</c> command,
+    <p>If no config file is given with the <c>ct_run</c> command,
       a warning will be displayed. If Common Test has been run from the same
       directory earlier, the same config file(s) will be used
       again. If Common Test has not been run from this directory before, no
@@ -293,7 +293,7 @@
       <c>ctlog.html</c> in the <c><![CDATA[ct_run.<timestamp>]]></c>
       directory. A link to this file will be available in the file
       named <c>last_interactive.html</c> in the directory from which
-      you executed <c>run_test</c>. Currently, specifying a different
+      you executed <c>ct_run</c>. Currently, specifying a different
       root directory for the logs than the current working directory,
       is not supported.</p>
     
@@ -309,7 +309,7 @@
   <section>
     <title>Step by step execution of test cases with the Erlang Debugger</title>
    
-    <p>By means of <c>run_test -step [opts]</c>, or by passing the 
+    <p>By means of <c>ct_run -step [opts]</c>, or by passing the 
        <c>{step,Opts}</c> option to <c>ct:run_test/1</c>, it is possible
        to get the Erlang Debugger started automatically and use its
        graphical interface to investigate the state of the current test 
@@ -345,12 +345,12 @@
       for <c>ct</c>). There are two general types of terms:
       configuration terms and test specification terms.</p>
     <p>With configuration terms it is possible to e.g. label the test
-      run (similar to <c>run_test -label</c>), evaluate arbitrary expressions
+      run (similar to <c>ct_run -label</c>), evaluate arbitrary expressions
       before starting a test, import configuration
       data (similar to
-      <c>run_test -config/-userconfig</c>), specify HTML log directories (similar
+      <c>ct_run -config/-userconfig</c>), specify HTML log directories (similar
       to
-      <c>run_test -logdir</c>), give aliases to test nodes and test
+      <c>ct_run -logdir</c>), give aliases to test nodes and test
       directories (to make a specification easier to read and
       maintain), enable code coverage analysis (see
       the <seealso marker="cover_chapter#cover">Code Coverage
@@ -359,7 +359,7 @@
       Event Handling</seealso> chapter). There is also a term for
       specifying include directories that should be passed on to the
       compiler when automatic compilation is performed (similar
-      to <c>run_test -include</c>, see above).</p>
+      to <c>ct_run -include</c>, see above).</p>
     <p>With test specification terms it is possible to state exactly
       which tests should run and in which order. A test term specifies
       either one or more suites, one or more test case groups, or one
@@ -535,7 +535,7 @@
     <p>It is possible for the user to provide a test specification that
       includes (for Common Test) unrecognizable terms. If this is desired,
       the <c>-allow_user_terms</c> flag should be used when starting tests with
-      <c>run_test</c>. This forces Common Test to ignore unrecognizable terms.
+      <c>ct_run</c>. This forces Common Test to ignore unrecognizable terms.
       Note that in this mode, Common Test is not able to check the specification 
       for errors as efficiently as if the scanner runs in default mode. 
       If <c>ct:run_test/1</c> is used for starting the tests, the relaxed scanner 
@@ -661,11 +661,11 @@
 	</pre>
 
 	<p>To install the CSS file (Common Test inlines the definition in the 
-	  HTML code), the name may be provided when executing <c>run_test</c>.
+	  HTML code), the name may be provided when executing <c>ct_run</c>.
 	  Example:</p>
 
 	<pre>
-	  $ run_test -dir $TEST/prog -stylesheet $TEST/styles/test_categories.css
+	  $ ct_run -dir $TEST/prog -stylesheet $TEST/styles/test_categories.css
 	</pre>
 
 	  <p>Categories in a CSS file installed with the <c>-stylesheet</c> flag
@@ -738,7 +738,7 @@
        means of time, it is also possible to specify what action Common Test should 
        take upon timeout. Either Common Test performs all tests in the current run before stopping, 
        or it stops as soon as the current test job is finished. Repetition can be activated by
-       means of <c>run_test</c> start flags, or tuples in the <c>ct:run:test/1</c>
+       means of <c>ct_run</c> start flags, or tuples in the <c>ct:run:test/1</c>
        option list argument. The flags (options in parenthesis) are:</p>
        <list>
        <item><c>-repeat N ({repeat,N})</c>, where <c>N</c> is a positive integer.</item>
@@ -774,7 +774,7 @@
 
        <p>Example 1:</p>
        <pre>
-          $ run_test -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -force_stop</pre>
+          $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -duration 001000 -force_stop</pre>
        <p>Here the suites in test directory to1, followed by the suites in to2, will be executed 
           in one test run. A timeout event will occur after 10 minutes. As long as there is time 
 	  left, Common Test will repeat the test run (i.e. starting over with the to1 test). 
@@ -787,7 +787,7 @@
           $ date
 	  Fri Sep 28 15:00:00 MEST 2007
 
-          $ run_test -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -until 160000</pre>
+          $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -until 160000</pre>
        <p>Here the same test run as in the example above will be executed (and possibly repeated). 
           In this example, however, the timeout will occur after 1 hour and when that happens,
 	  Common Test will finish the entire test run before stopping (i.e. the to1 and to2 test
@@ -795,7 +795,7 @@
        
        <p>Example 3:</p>
        <pre>
-          $ run_test -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -repeat 5</pre>
+          $ ct_run -dir $TEST_ROOT/to1 $TEST_ROOT/to2 -repeat 5</pre>
        <p>Here the test run, including both the to1 and the to2 test, will be repeated 5 times.</p>
 
        <note><p>This feature should not be confused with the <c>repeat</c> property of a test
@@ -814,7 +814,7 @@
 	of the <c>-silent_connections</c> flag:</p>
       
       <pre>
-	run_test -silent_connections [conn_types]
+	ct_run -silent_connections [conn_types]
       </pre>
       
       <p>where <c>conn_types</c> specifies <c>telnet, ftp, rpc</c> and/or <c>snmp</c>.</p>
@@ -822,11 +822,11 @@
       <p>Example:</p>
       
       <pre>
-	run_test ... -silent_connections telnet ftp</pre>
+	ct_run ... -silent_connections telnet ftp</pre>
       <p>switches off logging for telnet and ftp connections.</p>
       
       <pre>
-	run_test ... -silent_connections</pre>
+	ct_run ... -silent_connections</pre>
       <p>switches off logging for all connection types.</p>
       
       

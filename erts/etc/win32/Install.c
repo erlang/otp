@@ -46,7 +46,7 @@ int main(int argc, char **argv)
     HANDLE module = GetModuleHandle(NULL);
     char *binaries[] = { "erl.exe", "werl.exe", "erlc.exe",
 			 "dialyzer.exe", "typer.exe",
-			 "escript.exe", "run_test.exe", NULL };
+			 "escript.exe", "ct_run.exe", NULL };
     char *scripts[] = { "start_clean.boot", "start_sasl.boot", NULL };
     char fromname[MAX_PATH];
     char toname[MAX_PATH];
@@ -172,6 +172,20 @@ int main(int argc, char **argv)
 	}
     }
 
+    // Remove in R16B
+    sprintf(fromname,"%s\\%s",bin_dir,"ct_run.exe");
+    sprintf(toname,"%s\\%s",bin_dir,"run_test.exe");
+    if (GetFileAttributes(fromname) == 0xFFFFFFFF) {
+      fprintf(stderr,"Could not find file %s\n",
+	      fromname);
+      exit(1);
+    }
+    if (!CopyFile(fromname,toname,FALSE)) {
+      fprintf(stderr,"Could not copy file %s to %s\n",
+	      fromname,toname);
+      fprintf(stderr,"Continuing installation anyway...\n");
+    }
+    
     for (i = 0; scripts[i] != NULL; ++i) {
 	sprintf(fromname,"%s\\%s",release_dir,scripts[i]);
 	sprintf(toname,"%s\\%s",bin_dir,scripts[i]);

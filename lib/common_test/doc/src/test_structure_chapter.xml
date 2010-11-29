@@ -144,7 +144,7 @@
 	be used when the test suite needs to write to files.
       </item>
 
-      <tag><em>run_test</em></tag>
+      <tag><em>ct_run</em></tag>
       <item>
         The name of an executable program that may be
 	used as an interface for specifying and running

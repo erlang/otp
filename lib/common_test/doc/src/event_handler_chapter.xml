@@ -63,12 +63,12 @@
   <section>
     <title>Usage</title>
     <p>Event handlers may be installed by means of an <c>event_handler</c>
-    start flag (<c>run_test</c>) or option (<c>ct:run_test/1</c>), where the
+    start flag (<c>ct_run</c>) or option (<c>ct:run_test/1</c>), where the
     argument specifies the names of one or more event handler modules.
     Example:</p>
-    <p><c>$ run_test -suite test/my_SUITE -event_handler handlers/my_evh1 
+    <p><c>$ ct_run -suite test/my_SUITE -event_handler handlers/my_evh1 
     handlers/my_evh2 -pa $PWD/handlers</c></p>
-    <p>Use the <c><![CDATA[run_test -event_handler_init]]></c> option instead of
+    <p>Use the <c><![CDATA[ct_run -event_handler_init]]></c> option instead of
       <c><![CDATA[-event_handler]]></c> to pass start arguments to the event handler
       init function.</p>
     <p>All event handler modules must have gen_event behaviour. Note also that 

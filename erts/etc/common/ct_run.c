@@ -85,6 +85,7 @@ static char* strsave(char* string);
 static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
+static void print_deprecation_warning(char *progname); 
 #ifdef __WIN32__
 static char* possibly_quote(char* arg);
 #endif
@@ -130,6 +131,8 @@ main(int argc, char** argv)
     int cnt;
     int erl_args;
     char** argv0 = argv;
+
+    print_deprecation_warning(argv[0]);
 
     emulator = get_default_emulator(argv[0]);
 
@@ -391,7 +394,7 @@ run_erlang(char* progname, char** argv)
 
     status = my_spawnvp(argv)/*_spawnvp(_P_WAIT,progname,argv)*/;
     if (status == -1) {
-	fprintf(stderr, "run_test: Error executing '%s': %d", progname,
+	fprintf(stderr, "ct_run: Error executing '%s': %d", progname,
 		GetLastError());
     }
     return status;
@@ -411,7 +414,7 @@ error(char* format, ...)
     va_start(ap, format);
     erts_vsnprintf(sbuf, sizeof(sbuf), format, ap);
     va_end(ap);
-    fprintf(stderr, "run_test: %s\n", sbuf);
+    fprintf(stderr, "ct_run: %s\n", sbuf);
     exit(1);
 }
 
@@ -430,6 +433,27 @@ strsave(char* string)
     char* p = emalloc(strlen(string)+1);
     strcpy(p, string);
     return p;
+}
+
+/* Instead of making sure basename exists, we do our own */
+static char *simple_basename(char *path)
+{
+    char *ptr;
+    for (ptr = path; *ptr != '\0'; ++ptr) {
+	if (*ptr == '/' || *ptr == '\\') {
+	    path = ptr + 1;
+	}
+    }
+    return path;
+}
+
+static void print_deprecation_warning(char* progpath)
+{
+  char *basename = simple_basename(progpath);
+  if(strcmp(basename,"run_test") == 0 ||
+       strcmp(basename, "run_test.exe") == 0) {
+    printf("---***---\nDeprecated: run_test is deprecated and will be removed in R16B,\n            please use ct_run instead\n---***---\n");
+  }
 }
 
 static char*
