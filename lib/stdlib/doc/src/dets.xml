@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -816,7 +816,7 @@ ok
           </item>
           <item>
             <p><c>{max_no_slots, no_slots()}</c>, the maximum number
-              of slots that will be used. The default value is 2 M, and
+              of slots that will be used. The default value as well as
               the maximal value is 32 M. Note that a higher value may
               increase the fragmentation of the table, and conversely,
               that a smaller value may decrease the fragmentation, at
