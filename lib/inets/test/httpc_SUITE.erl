@@ -254,8 +254,11 @@ init_per_testcase(Case, Timeout, Config) ->
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
+    %% httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
+    %% 				["localhost", ?IPV6_LOCAL_HOST]}}]),
+
     httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-				["localhost", ?IPV6_LOCAL_HOST]}},
+     				["localhost", ?IPV6_LOCAL_HOST]}},
 		       {ipfamily, inet6fb4}]),
 
     %% snmp:set_trace([gen_tcp]),
