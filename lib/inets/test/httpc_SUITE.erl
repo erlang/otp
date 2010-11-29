@@ -254,9 +254,14 @@ init_per_testcase(Case, Timeout, Config) ->
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
+    %% httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
+    %% 				["localhost", ?IPV6_LOCAL_HOST]}}]),
+
     httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-				["localhost", ?IPV6_LOCAL_HOST]}}]),
-    %% snmp:set_trace([gen_tcp, inet_tcp, prim_inet]),
+     				["localhost", ?IPV6_LOCAL_HOST]}},
+		       {ipfamily, inet6fb4}]),
+
+    %% snmp:set_trace([gen_tcp]),
     NewConfig.
 
 
@@ -471,7 +476,7 @@ http_relaxed(Config) when is_list(Config) ->
 
     DummyServerPid ! stop,
     ok = httpc:set_options([{ipv6, enabled}]),   
-    %% ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    %% ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -489,7 +494,7 @@ http_dummy_pipe(Config) when is_list(Config) ->
     test_pipeline(URL),
 
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 http_inets_pipe(doc) ->
@@ -851,7 +856,7 @@ http_headers_dummy(Config) when is_list(Config) ->
 		      ], "text/plain", FooBar}, 
 		     [], []),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
     
 
@@ -875,7 +880,7 @@ http_bad_response(Config) when is_list(Config) ->
     test_server:format("Wrong Statusline: ~p~n", [Reason]),
 
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1157,7 +1162,7 @@ http_redirect(Config) when is_list(Config) ->
 	    tsp("http_redirect -> stop dummy server"),
 	    DummyServerPid ! stop,
 	    tsp("http_redirect -> reset ipfamily option (to inet6fb4)"),
-	    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+	    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
 	    tsp("http_redirect -> done"),
 	    ok;
 
@@ -1181,7 +1186,7 @@ http_redirect_loop(Config) when is_list(Config) ->
     {ok, {{_,300,_}, [_ | _], _}} 
  	= httpc:request(get, {URL, []}, [], []),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1215,7 +1220,7 @@ http_internal_server_error(Config) when is_list(Config) ->
 
     ets:delete(unavailable),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1242,7 +1247,7 @@ http_userinfo(Config) when is_list(Config) ->
 	httpc:request(get, {URLUnAuth, []}, [], []),
     
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1271,9 +1276,9 @@ http_cookie(Config) when is_list(Config) ->
     
     ets:delete(cookie),
 
-    ok = httpc:set_options([{cookies, disabled}, {ipfamily, inet6fb4}]), % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{cookies, disabled}]), 
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),                      % ********** ipfamily = inet6************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1643,7 +1648,7 @@ http_stream_once(Config) when is_list(Config) ->
     p("http_stream_once -> stop dummy server", []),
     DummyServerPid ! stop,
     p("http_stream_once -> set ipfamily to inet6fb4", []),
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     p("http_stream_once -> done", []),
     ok.
   
@@ -1847,7 +1852,7 @@ http_invalid_http(Config) when is_list(Config) ->
     
     test_server:format("Parse error: ~p ~n", [Reason]),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1901,7 +1906,7 @@ transfer_encoding_otp_6807(Config) when is_list(Config) ->
 	"/capital_transfer_encoding.html",
     {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1933,7 +1938,7 @@ empty_response_header_otp_6830(Config) when is_list(Config) ->
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_headers.html",
     {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1950,7 +1955,7 @@ no_content_204_otp_6982(Config) when is_list(Config) ->
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_content.html",
     {ok, {{_,204,_}, [], []}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1968,7 +1973,7 @@ missing_CR_otp_7304(Config) when is_list(Config) ->
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_CR.html",
     {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
@@ -1990,7 +1995,7 @@ otp_7883_1(Config) when is_list(Config) ->
     {error, socket_closed_remotely} = httpc:request(URL),
     DummyServerPid ! stop,
 
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 otp_7883_2(doc) ->
@@ -2017,7 +2022,7 @@ otp_7883_2(Config) when is_list(Config) ->
     end,
     DummyServerPid ! stop,
 
-    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
 
 
