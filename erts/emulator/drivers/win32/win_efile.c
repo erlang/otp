@@ -877,26 +877,28 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	    /*
 	     * given that we know this is a symlink,
 	     we should be able to find its target */
-	    char target_name[256];
-	    if (efile_readlink(errInfo, name, target_name,256) == 1) {
+	    WCHAR target_name[_MAX_PATH];
+	    if (efile_readlink(errInfo, (char *) name, 
+			       (char *) target_name,256) == 1) {
+		FindClose(findhandle);
 		return efile_fileinfo(errInfo, pInfo,
-				      target_name, info_for_link);
+				      (char *) target_name, info_for_link);
 	    }
 	}
 
-#if 0
 	/* number of links: */
 	{
 	    HANDLE handle;	/* Handle returned by CreateFile() */
 	    BY_HANDLE_FILE_INFORMATION fileInfo; /* from  CreateFile() */
-	    if (handle = CreateFile(name, GENERIC_READ, 0,NULL,
+	    if (handle = CreateFileW(name, GENERIC_READ, 0,NULL,
 				    OPEN_EXISTING, 0, NULL)) {
 		GetFileInformationByHandle(handle, &fileInfo);
 		pInfo->links = fileInfo.nNumberOfLinks;
 		CloseHandle(handle);
-	    }
+	    } else {
+		pInfo->links = 1;
+	    }	
 	}
-#endif
 
 #define GET_TIME(dst, src) \
 if (!FileTimeToLocalFileTime(&findbuf.src, &LocalFTime) || \
@@ -1384,28 +1386,40 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
      * (Vista only)
      */
     HINSTANCE hModule = NULL;
+    WCHAR *wname = (WCHAR *) name;
+    WCHAR *wbuffer = (WCHAR *) buffer;
     if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
 	typedef DWORD (WINAPI * GETFINALPATHNAMEBYHANDLEPTR)(
 							     HANDLE hFile,
-							     LPCSTR lpFilePath,
+							     LPCWSTR lpFilePath,
 							     DWORD cchFilePath,
 							     DWORD dwFlags);
 
 	GETFINALPATHNAMEBYHANDLEPTR pGetFinalPathNameByHandle =
-	    (GETFINALPATHNAMEBYHANDLEPTR)GetProcAddress(hModule, "GetFinalPathNameByHandleA");
+	    (GETFINALPATHNAMEBYHANDLEPTR)GetProcAddress(hModule, "GetFinalPathNameByHandleW");
 
 	if (pGetFinalPathNameByHandle == NULL) {
 	    FreeLibrary(hModule);
 	} else {
 	    /* first check if file is a symlink; {error, einval} otherwise */
-	    DWORD fileAttributes =  GetFileAttributes(name);
+	    DWORD fileAttributes =  GetFileAttributesW(wname);
 	    if ((fileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
 		BOOLEAN success = 0;
-		HANDLE h = CreateFile(name, GENERIC_READ, 0,NULL, OPEN_EXISTING, 0, NULL);
+		HANDLE h = CreateFileW(wname, GENERIC_READ, 0,NULL, OPEN_EXISTING, 0, NULL);
+		int len;
 		if(h != INVALID_HANDLE_VALUE) {
-		    success = pGetFinalPathNameByHandle(h, buffer, size,0);
+		    success = pGetFinalPathNameByHandle(h, wbuffer, size,0);
 		    /* GetFinalPathNameByHandle prepends path with "\\?\": */
-		    sprintf(buffer, buffer+4);
+		    len = wcslen(wbuffer);
+		    wmemmove(wbuffer,wbuffer+4,len-3);
+		    if (len - 4 >= 2 && wbuffer[1] == L':' && wbuffer[0] >= L'A' &&
+			wbuffer[0] <= L'Z') {
+			wbuffer[0] = wbuffer[0] + L'a' - L'A';
+		    }
+			
+		    for ( ; *wbuffer; wbuffer++) 
+			if (*wbuffer == L'\\')
+			    *wbuffer = L'/';
 		    CloseHandle(h);
 		}
 		FreeLibrary(hModule);
@@ -1501,7 +1515,7 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
     if (!*wbuffer) {
 	wcscpy(wbuffer,wfd.cFileName);
     }
-
+    FindClose(fh);
     return 1;
 }
 
@@ -1512,7 +1526,9 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
 int
 efile_link(Efile_error* errInfo, char* old, char* new)
 {
-    if(!CreateHardLink(new, old, NULL)) {
+    WCHAR *wold = (WCHAR *) old;
+    WCHAR *wnew = (WCHAR *) new;
+    if(!CreateHardLinkW(wnew, wold, NULL)) {
 	return set_error(errInfo);
     }
     return 1;
@@ -1526,22 +1542,24 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
      * (Vista only)
      */
     HINSTANCE hModule = NULL;
+    WCHAR *wold = (WCHAR *) old;
+    WCHAR *wnew = (WCHAR *) new;
     if ((hModule = LoadLibrary("kernel32.dll")) != NULL) {
 	typedef BOOLEAN (WINAPI  * CREATESYMBOLICLINKFUNCPTR) (
-	     LPCSTR lpSymlinkFileName,
-	     LPCSTR lpTargetFileName,
+	     LPCWSTR lpSymlinkFileName,
+	     LPCWSTR lpTargetFileName,
 	     DWORD dwFlags);
 
 	CREATESYMBOLICLINKFUNCPTR pCreateSymbolicLink =
 	    (CREATESYMBOLICLINKFUNCPTR) GetProcAddress(hModule,
-						       "CreateSymbolicLinkA");
-	/* A for MBCS, W for UNICODE... char* above implies 'A'! */
+						       "CreateSymbolicLinkW");
+	/* A for MBCS, W for UNICODE... char* above implies 'W'! */
 	if (pCreateSymbolicLink != NULL) {
-	    DWORD attr = GetFileAttributes(old);
+	    DWORD attr = GetFileAttributesW(wold);
 	    int flag = (attr != INVALID_FILE_ATTRIBUTES &&
 			attr & FILE_ATTRIBUTE_DIRECTORY) ? 1 : 0;
 	    /*  SYMBOLIC_LINK_FLAG_DIRECTORY = 1 */
-	    BOOLEAN success = pCreateSymbolicLink(new, old, flag);
+	    BOOLEAN success = pCreateSymbolicLink(wnew, wold, flag);
 	    FreeLibrary(hModule);
 
 	    if (success) {
