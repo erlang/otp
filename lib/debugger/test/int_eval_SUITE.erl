@@ -65,10 +65,7 @@ bifs_outside_erlang(Config) when is_list(Config) ->
 		  Self = self(),
 		  ok = io:format("Self: ~p", [Self]),
 		  Info = ets:info(Id),
-		  {owner,Self} = lists:nth(2, Info),
-		  %% Was
-		  %%   {owner,Self} = element(2, Info),
-		  %% in R10B.
+		  Self = proplists:get_value(owner, Info),
 		  ?IM:ets_delete(Id),
 		  ok
 	  end,
