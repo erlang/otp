@@ -193,7 +193,7 @@ check_normal(Mod) ->
 	?line Syms = [ {S,Targ,list_to_binary(get_data(Targ,normal_dir()))} 
 		 || {T,S,Targ} <- normal_dir(), T =:= symlink ],
 	?line [ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
-	?line [ {ok, Targ} = Mod:read_link(SymL) || {SymL,Targ,_} <- Syms ],
+	?line [ {ok, Targ} = fixlink(Mod:read_link(SymL)) || {SymL,Targ,_} <- Syms ],
 	?line chk_cre_dir(Mod,[{directory,"temp_dir",normal_dir()}]),
 	?line {ok,BeginAt} = Mod:get_cwd(),
 	?line true = is_list(BeginAt),
@@ -279,7 +279,7 @@ check_icky(Mod) ->
  	?line Syms = [ {S,conv(Targ),list_to_binary(get_data(Targ,icky_dir()))} 
  		 || {T,S,Targ} <- icky_dir(), T =:= symlink ],
  	?line [ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
- 	?line [ {ok, Targ} = Mod:read_link(SymL) || {SymL,Targ,_} <- Syms ],
+ 	?line [ {ok, Targ} = fixlink(Mod:read_link(SymL)) || {SymL,Targ,_} <- Syms ],
  	?line chk_cre_dir(Mod,[{directory,"едц_dir",icky_dir()}]),
  	?line {ok,BeginAt} = Mod:get_cwd(),
  	?line true = is_list(BeginAt),
@@ -416,7 +416,7 @@ check_very_icky(Mod) ->
  	?line Syms = [ {S,conv(Targ),list_to_binary(get_data(Targ,very_icky_dir()))} 
  		 || {T,S,Targ} <- very_icky_dir(), T =:= symlink ],
  	?line [ {ok, Cont} = Mod:read_file(SymL) || {SymL,_,Cont} <- Syms ],
- 	?line [ {ok, Targ} = Mod:read_link(SymL) || {SymL,Targ,_} <- Syms ],
+ 	?line [ {ok, Targ} = fixlink(Mod:read_link(SymL)) || {SymL,Targ,_} <- Syms ],
  	?line chk_cre_dir(Mod,[{directory,[1088,1079,1091]++"_dir",very_icky_dir()}]),
  	?line {ok,BeginAt} = Mod:get_cwd(),
  	?line true = is_list(BeginAt),
@@ -690,6 +690,11 @@ treat_icky(Bin) ->
 	_ ->
 	    Bin
     end.
+
+fixlink({ok,Link}) ->
+    {ok,filename:basename(Link)};
+fixlink(X) ->
+    X.
 
 procentify(<<>>) ->
     <<>>;
