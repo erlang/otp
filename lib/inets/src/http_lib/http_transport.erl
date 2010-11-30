@@ -192,24 +192,31 @@ listen_ip_comm(Addr, Port) ->
     case IpFamily of
 	inet6fb4 -> 
 	    Opts2 = [inet6 | Opts], 
+	    ?hlrt("try ipv6 listen", [{port, NewPort}, {opts, Opts2}]),
 	    case (catch gen_tcp:listen(NewPort, Opts2)) of
 		{error, Reason} when ((Reason =:= nxdomain) orelse 
 				      (Reason =:= eafnosupport)) ->
 		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
+			  [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
 		    gen_tcp:listen(NewPort, Opts3);
 
 		%% This is when a given hostname has resolved to a 
 		%% IPv4-address. The inet6-option together with a 
 		%% {ip, IPv4} option results in badarg
-		{'EXIT', _} -> 
+		{'EXIT', Reason} -> 
 		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
+			  [{reason, Reason}, {port, NewPort}, {opts, Opts3}]),
 		    gen_tcp:listen(NewPort, Opts3); 
 
 		Other ->
+		    ?hlrt("ipv6 listen done", [{other, Other}]),
 		    Other
 	    end;
 	_ ->
 	    Opts2 = [IpFamily | Opts],
+	    ?hlrt("listen", [{port, NewPort}, {opts, Opts2}]),
 	    gen_tcp:listen(NewPort, Opts2)
     end.
 
