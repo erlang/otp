@@ -76,7 +76,7 @@ all(suite) ->
        minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
        scope_per_group_scb, scope_suite_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
-       skip_post_suite_scb, update_config_scb
+       skip_post_suite_scb, recover_post_suite_scb, update_config_scb
       ]).
 
 
@@ -135,6 +135,10 @@ skip_pre_suite_scb(Config) ->
 skip_post_suite_scb(Config) ->
     do_test(skip_post_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [skip_post_suite_scb],Config).
+
+recover_post_suite_scb(Config) ->
+    do_test(recover_post_suite_scb, "ct_scb_fail_per_suite_SUITE.erl",
+	    [recover_post_suite_scb],Config).
 
 update_config_scb(Config) ->
     do_test(update_config_scb, "ct_update_config_SUITE.erl",
@@ -415,7 +419,7 @@ test_events(fail_pre_suite_scb) ->
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
      {?eh,scb,{'_',post_init_per_suite,[ct_scb_empty_SUITE,'$proplist',
-					{error,"Test failure"},[]]}},
+					{fail,"Test failure"},[]]}},
      {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
                    {failed, {error,"Test failure"}}}},
      {?eh,scb,{'_',on_tc_fail,
@@ -514,6 +518,36 @@ test_events(skip_post_suite_scb) ->
      {?eh,tc_auto_skip, {ct_scb_empty_SUITE, end_per_suite,"Test skip"}},
      {?eh,scb,{'_',on_tc_skip,[end_per_suite,{tc_auto_skip,"Test skip"},[]]}},
      
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{'_',terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(recover_post_suite_scb) ->
+    Suite = ct_scb_fail_per_suite_SUITE,
+    [
+     {?eh,start_logging,'_'},
+     {?eh,scb,{'_',init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{Suite,init_per_suite}},
+     {?eh,scb,{'_',pre_init_per_suite,[Suite,'$proplist','$proplist']}},
+     {?eh,scb,{'_',post_init_per_suite,[Suite,contains([tc_status]),
+					{'EXIT',{'_','_'}},[]]}},
+     {?eh,tc_done,{Suite,init_per_suite,ok}},
+
+     {?eh,tc_start,{Suite,test_case}},
+     {?eh,scb,{'_',pre_init_per_testcase,
+	       [test_case, not_contains([tc_status]),[]]}},
+     {?eh,scb,{'_',post_end_per_testcase,
+	       [test_case, contains([tc_status]),'_',[]]}},
+     {?eh,tc_done,{Suite,test_case,ok}},
+     
+     {?eh,tc_start,{Suite,end_per_suite}},
+     {?eh,scb,{'_',pre_end_per_suite,
+	       [Suite,not_contains([tc_status]),[]]}},
+     {?eh,scb,{'_',post_end_per_suite,
+	       [Suite,not_contains([tc_status]),'_',[]]}},
+     {?eh,tc_done,{Suite,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,scb,{'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
@@ -639,9 +673,23 @@ contains(List) ->
     fun(Proplist) when is_list(Proplist) ->
 	    contains(List,Proplist)
     end.
+contains([{Ele,Pos}|T] = L,[H|T2]) ->
+    case element(Pos,H) of
+	Ele ->
+	    contains(T,T2);
+	_ ->
+	    contains(L,T2)
+    end;
 contains([Ele|T],[{Ele,_}|T2])->
     contains(T,T2);
 contains(List,[_|T]) ->
     contains(List,T);
 contains([],_) ->
     match.
+
+not_contains(List) ->
+    fun(Proplist) when is_list(Proplist) ->
+	    [] = [Ele || {Ele,_} <- Proplist,
+			 Test <- List,
+			 Test =:= Ele]
+    end.
