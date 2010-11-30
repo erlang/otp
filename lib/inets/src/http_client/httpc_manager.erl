@@ -734,10 +734,11 @@ handle_connect_and_send(_StarterPid, ReqId, HandlerPid, Result,
 	    ok;
 
 	[] ->
-	    error_report(Profile, 
-			 "handler (~p) successfully started "
-			 "for unknown request ~p => canceling",
-			 [HandlerPid, ReqId]),
+	    ?hcri("handler successfully started "
+		  "for unknown request => canceling",
+		  [{profile, Profile}, 
+		   {handler, HandlerPid}, 
+		   {request, ReqId}]),
 	    httpc_handler:cancel(ReqId, HandlerPid)
     end.
 
