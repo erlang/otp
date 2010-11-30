@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,6 +59,7 @@ newtypename
 objectidentifier
 objectname
 objecttypev1
+prodrelpart
 range_num
 referpart
 size
@@ -101,6 +102,7 @@ textualconvention
 objectgroup
 notificationgroup
 modulecompliance
+agentcapabilities
 modulepart
 modules
 module
@@ -161,6 +163,8 @@ integer variable atom string quote '{' '}' '::=' ':' '=' ',' '.' '(' ')' ';' '|'
 'CONTACT-INFO'
 'MODULE-IDENTITY'
 'NOTIFICATION-TYPE'
+'PRODUCT-RELEASE'
+'AGENT-CAPABILITIES'
 'MODULE-COMPLIANCE'
 'OBJECT-GROUP'
 'NOTIFICATION-GROUP'
@@ -505,6 +509,7 @@ definitionv2 -> notification : '$1'.
 definitionv2 -> objectgroup : '$1'.
 definitionv2 -> notificationgroup : '$1'.
 definitionv2 -> modulecompliance : '$1'.
+definitionv2 -> agentcapabilities : '$1'.
 
 listofdefinitionsv2 -> '$empty' : [] .
 listofdefinitionsv2 -> listofdefinitionsv2 definitionv2 : ['$2' | '$1'].
@@ -539,6 +544,15 @@ modulecompliance -> objectname 'MODULE-COMPLIANCE' 'STATUS' statusv2
                     MC = make_module_compliance('$1', '$4', '$5', '$6', 
                                                 '$7', '$8'),
                     {MC, line_of('$2')}.
+
+agentcapabilities -> objectname 'AGENT-CAPABILITIES' 
+                    'PRODUCT-RELEASE' prodrelpart 'STATUS' statusv2
+                    description referpart modulepart nameassign : 
+                    MC = make_agent_capabilities('$1', '$4', '$6', '$7', 
+                                                 '$8', '$9', '$10'),
+                    {MC, line_of('$2')}.
+
+prodrelpart -> string : $1.
 
 modulepart -> '$empty'.
 modulepart -> modules.
@@ -743,6 +757,15 @@ make_notification(Name, Vars, Status, Desc, Ref, NA) ->
                      description = Desc,
 	             reference   = Ref,
 	             name_assign = NA}.
+
+make_agent_capabilities(Name, ProdRel, Status, Desc, Ref, Mod, NA) ->
+    #mc_agent_capabilities{name            = Name,
+                           product_release = ProdRel,
+                           status          = Status,
+                           description     = Desc,
+	                   reference       = Ref,
+                           module          = Mod,
+	                   name_assign     = NA}.
 
 make_module_compliance(Name, Status, Desc, Ref, Mod, NA) ->
     #mc_module_compliance{name        = Name,

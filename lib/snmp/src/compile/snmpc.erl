@@ -921,6 +921,12 @@ definitions_loop([{#mc_notification{name        = TrapName,
     snmpc_lib:add_cdata(#cdata.traps, [Notif]),
     definitions_loop(T, Data);    
 
+definitions_loop([{#mc_agent_capabilities{name = Name},Line}|T], Data) ->
+    ?vlog2("defloop -> agent_capabilities:"
+	   "~n   Name: ~p", [Name], Line),
+    ensure_macro_imported('AGENT-CAPABILITIES', Line),
+    definitions_loop(T, Data);
+
 definitions_loop([{#mc_module_compliance{name = Name},Line}|T], Data) ->
     ?vlog2("defloop -> module_compliance:"
 	   "~n   Name: ~p", [Name], Line),
