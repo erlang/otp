@@ -2314,13 +2314,15 @@ close_deaf_port(Config) when is_list(Config) ->
     ?line port_close(Port),
 
     Res = close_deaf_port_1(0, DeadPort),
+    io:format("Waiting for OS procs to terminate...\n"),
+    receive after 5*1000 -> ok end,
     ?line test_server:timetrap_cancel(Dog),
     Res.
 
 close_deaf_port_1(1000, _) ->
     ok;
 close_deaf_port_1(N, Cmd) ->
-    Timeout = integer_to_list(random:uniform(10*1000)),
+    Timeout = integer_to_list(random:uniform(5*1000)),
     ?line try open_port({spawn_executable,Cmd},[{args,[Timeout]}]) of
     	Port ->
 	    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
