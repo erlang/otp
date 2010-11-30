@@ -140,36 +140,46 @@ icky(suite) ->
 icky(doc) ->
     "Check file operations on normal file names regardless of unicode mode";
 icky(Config) when is_list(Config) ->
-    {ok,Dir} = file:get_cwd(),
-    try
-	Priv = ?config(priv_dir, Config),
-	file:set_cwd(Priv),
-	put(file_module,prim_file),
-	ok = check_icky(prim_file),
-	put(file_module,file),
-	ok = check_icky(file)
-    after
-	file:set_cwd(Dir)
+    case hopeless_darwin() of
+	true ->
+	    {skipped,"This version of darwin does not support icky names at all."};
+	false ->
+	    {ok,Dir} = file:get_cwd(),
+	    try
+		Priv = ?config(priv_dir, Config),
+		file:set_cwd(Priv),
+		put(file_module,prim_file),
+		ok = check_icky(prim_file),
+		put(file_module,file),
+		ok = check_icky(file)
+	    after
+		file:set_cwd(Dir)
+	    end
     end.
 very_icky(suite) ->
     [];
 very_icky(doc) ->
     "Check file operations on normal file names regardless of unicode mode";
 very_icky(Config) when is_list(Config) ->
-    {ok,Dir} = file:get_cwd(),
-    try
-	Priv = ?config(priv_dir, Config),
-	file:set_cwd(Priv),
-	put(file_module,prim_file),
-	case check_very_icky(prim_file) of
-	    need_unicode_mode ->
-		{skipped,"VM needs to be started in Unicode filename mode"};
-	    ok ->
-		put(file_module,file),
-		ok = check_very_icky(file)
-	end
-    after
-	file:set_cwd(Dir)
+    case hopeless_darwin() of
+	true ->
+	    {skipped,"This version of darwin does not support icky names at all."};
+	false ->
+	    {ok,Dir} = file:get_cwd(),
+	    try
+		Priv = ?config(priv_dir, Config),
+		file:set_cwd(Priv),
+		put(file_module,prim_file),
+		case check_very_icky(prim_file) of
+		    need_unicode_mode ->
+			{skipped,"VM needs to be started in Unicode filename mode"};
+		    ok ->
+			put(file_module,file),
+			ok = check_very_icky(file)
+		end
+	    after
+		file:set_cwd(Dir)
+	    end
     end.
     
 
@@ -481,6 +491,21 @@ check_very_icky(Mod) ->
 				       FI#file_info{mode = NewMode2}),
  	?line {ok,#file_info{mode = NewMode2}} = 
 	          Mod:read_file_info([956,965,963,954,959,49]),
+	?line NumOK0 = case has_links() of
+			  true -> 5;
+			  false -> 3
+		      end,
+	?line NumNOK0 = case has_links() of
+			   true -> 4;
+			   false -> 3
+		       end,
+	?line {NumOK,NumNOK} = case is_binary(treat_icky(<<"foo">>)) of
+				   false ->
+				       {NumOK0+NumNOK0,0};
+				   true ->
+				       {NumOK0,NumNOK0}
+			       end,
+	?line {NumOK,NumNOK} = filelib:fold_files(".",".*",true,fun(_F,{N,M}) when is_list(_F) ->  io:format("~ts~n",[_F]),{N+1,M}; (_F,{N,M}) ->  io:format("~p~n",[_F]),{N,M+1} end,{0,0}),
 	ok
     catch
 	throw:need_unicode_mode ->
@@ -548,6 +573,7 @@ rm_r2(Mod,Dir) ->
 chk_cre_dir(_,[]) ->
     ok;
 chk_cre_dir(Mod,[{regular,Name,Content}|T]) ->
+    %io:format("~p~n",[Name]),
     ok = Mod:write_file(Name,Content),
     chk_cre_dir(Mod,T);
 chk_cre_dir(Mod,[{link,Name,Target}|T]) ->
@@ -558,7 +584,9 @@ chk_cre_dir(Mod,[{symlink,Name,Target}|T]) ->
     chk_cre_dir(Mod,T);
 chk_cre_dir(Mod,[{directory,Name,Content}|T]) ->
     ok = Mod:make_dir(Name),
+    %io:format("Content = ~p~n",[Content]),
     Content2 = [{Ty,filename:join(Name,N),case Ty of link -> filename:join(Name,C); _ -> C end} || {Ty,N,C} <- Content ],
+    %io:format("Content2 = ~p~n",[Content2]),
     chk_cre_dir(Mod,Content2),
     chk_cre_dir(Mod,T).
  
@@ -626,6 +654,14 @@ linkify(Passed,[{directory, Name, Content}|T]) ->
     [{directory,Name, linkify(Content,Content)}|linkify(Passed,T)];
 linkify(Passed,[H|T]) ->
     [H|linkify([H|Passed],T)].
+
+hopeless_darwin() ->
+    case {os:type(),os:version()} of
+	{{unix,darwin},{Major,_,_}} when Major < 9 ->
+	    true;
+	_ ->
+	    false
+    end.
 
 icky_dir() ->
     [{regular,"fil1","fil1"},

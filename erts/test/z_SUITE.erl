@@ -253,6 +253,8 @@ core_file_search(#core_search_conf{search_dir = Base,
 				     core_cand(Conf, Core, Cores);
 				 "core." ++ _ ->
 				     core_cand(Conf, Core, Cores);
+				 Bin when is_binary(Bin) -> %Icky filename; ignore
+				     Cores;
 				 BName ->
 				     case lists:suffix(".core", BName) of
 					 true -> core_cand(Conf, Core, Cores);

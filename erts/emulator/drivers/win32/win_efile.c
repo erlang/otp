@@ -1519,9 +1519,6 @@ efile_altname(Efile_error* errInfo, char* orig_name, char* buffer, size_t size)
     return 1;
 }
 
-/*
- * XXX: link and symlink Implemented in pu (?), will need conversion
- */
 
 int
 efile_link(Efile_error* errInfo, char* old, char* new)

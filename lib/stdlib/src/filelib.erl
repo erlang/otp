@@ -166,36 +166,41 @@ do_is_regular(File, Mod) ->
 %%   If <Recursive> is true all sub-directories to <Dir> are processed
 
 do_fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod) ->
-    {ok, Re1} = re:compile(RegExp),
-    do_fold_files1(Dir, Re1, Recursive, Fun, Acc, Mod).
+    {ok, Re1} = re:compile(RegExp,[unicode]),
+    do_fold_files1(Dir, Re1, RegExp, Recursive, Fun, Acc, Mod).
 
-do_fold_files1(Dir, RegExp, Recursive, Fun, Acc, Mod) ->
+do_fold_files1(Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod) ->
     case eval_list_dir(Dir, Mod) of
-	{ok, Files} -> do_fold_files2(Files, Dir, RegExp, Recursive, Fun, Acc, Mod);
+	{ok, Files} -> do_fold_files2(Files, Dir, RegExp, OrigRE,
+				      Recursive, Fun, Acc, Mod);
 	{error, _}  -> Acc
     end.
 
-do_fold_files2([], _Dir, _RegExp, _Recursive, _Fun, Acc, _Mod) -> 
+%% OrigRE is not to be compiled as it's for non conforming filenames,
+%% i.e. for filenames that does not comply to the current encoding, which should
+%% be very rare. We use it only in those cases and do not want to precompile.
+do_fold_files2([], _Dir, _RegExp, _OrigRE, _Recursive, _Fun, Acc, _Mod) -> 
     Acc;
-do_fold_files2([File|T], Dir, RegExp, Recursive, Fun, Acc0, Mod) ->
+do_fold_files2([File|T], Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod) ->
     FullName = filename:join(Dir, File),
     case do_is_regular(FullName, Mod) of
 	true  ->
-	    case re:run(File, RegExp, [{capture,none}]) of
+	    case re:run(File, if is_binary(File) -> OrigRE; true -> RegExp end, 
+			[{capture,none}]) of
 		match  -> 
 		    Acc = Fun(FullName, Acc0),
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc, Mod);
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod);
 		nomatch ->
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc0, Mod)
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
 	    end;
 	false ->
 	    case Recursive andalso do_is_dir(FullName, Mod) of
 		true ->
-		    Acc1 = do_fold_files1(FullName, RegExp, Recursive,
+		    Acc1 = do_fold_files1(FullName, RegExp, OrigRE, Recursive,
 					  Fun, Acc0, Mod),
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc1, Mod);
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc1, Mod);
 		false ->
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc0, Mod)
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
 	    end
     end.
 
