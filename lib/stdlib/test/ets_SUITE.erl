@@ -5231,8 +5231,6 @@ smp_select_delete(Config) when is_list(Config) ->
 types(doc) -> ["Test different types"];
 types(Config) when is_list(Config) ->
     init_externals(),
-    io:format("ets:i() before test:\n",[]),
-    ets:i(),  % SVERK: trouble shooting
     repeat_for_opts(types_do,[[set,ordered_set],compressed]).
 
 types_do(Opts) ->
@@ -5328,6 +5326,10 @@ my_tab_to_list(Ts,Key, Acc) ->
     my_tab_to_list(Ts,ets:next(Ts,Key),[ets:lookup(Ts, Key)| Acc]).
 
 etsmem() ->
+    AllTabs = lists:map(fun(T) -> {T,ets:info(T,name),ets:info(T,size),
+				   ets:info(T,memory),ets:info(T,type)} 
+			end, ets:all()),
+    Mem =
     {try erlang:memory(ets) catch error:notsup -> notsup end,
      case erlang:system_info({allocator,ets_alloc}) of
 	 false -> undefined;
@@ -5346,12 +5348,13 @@ etsmem() ->
 		       {value,{_,BlSz,_,_}} = lists:keysearch(blocks_size, 1, L),
 		       {Bl0+Bl,BlSz0+BlSz}
 	       end, {0,0}, MSBCS)
-     end}.
+     end},
+     {Mem,AllTabs}.
 
-verify_etsmem(MemInfo) ->
+verify_etsmem({MemInfo,AllTabs}) ->
     wait_for_test_procs(),
     case etsmem() of
-	MemInfo ->
+	{MemInfo,_} ->
 	    io:format("Ets mem info: ~p", [MemInfo]),
 	    case MemInfo of
 		{ErlMem,EtsAlloc} when ErlMem == notsup; EtsAlloc == undefined ->
@@ -5360,12 +5363,14 @@ verify_etsmem(MemInfo) ->
 		_ ->
 		    ok
 	    end;
-	Other ->
+	{MemInfo2, AllTabs2} ->
 	    io:format("Expected: ~p", [MemInfo]),
-	    io:format("Actual:   ~p", [Other]),
-	    ets:i(),
+	    io:format("Actual:   ~p", [MemInfo2]),
+	    io:format("Changed tables before: ~p\n",[AllTabs -- AllTabs2]),
+	    io:format("Changed tables after: ~p\n", [AllTabs2 -- AllTabs]),
 	    ?t:fail()
     end.
+
 
 start_loopers(N, Prio, Fun, State) ->
     lists:map(fun (_) ->
