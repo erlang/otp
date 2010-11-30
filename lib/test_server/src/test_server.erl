@@ -1068,20 +1068,23 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		do_end_tc_call(Mod,Func,{Error,Args0}, Error),
-		{{0,{skip,{failed,Error}}},{Mod,Func},[]};
+		NewResult = do_end_tc_call(Mod,Func,{Error,Args0},
+					   {skip,{failed,Error}}),
+		{{0,NewResult},{Mod,Func},[]};
 	    {fail,Reason} ->
 		[Conf] = Args0,
 		Conf1 = [{tc_status,{failed,Reason}} | Conf],
 		fw_error_notify(Mod, Func, Conf, Reason),
-		do_end_tc_call(Mod,Func, {{error,Reason},[Conf1]},{fail, Reason}),
-		{{0,{failed,Reason}},{Mod,Func},[]};
+		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf1]},
+					   {fail, Reason}),
+		{{0,NewResult},{Mod,Func},[]};
 	    Skip = {skip,_Reason} ->
-		do_end_tc_call(Mod,Func,{Skip,Args0},Skip),
-		{{0,Skip},{Mod,Func},[]};
+		NewResult = do_end_tc_call(Mod,Func,{Skip,Args0},Skip),
+		{{0,NewResult},{Mod,Func},[]};
 	    {auto_skip,Reason} ->
-		do_end_tc_call(Mod, Func, {{skip,Reason},Args0}, {auto_skip, Reason}),
-		{{0,{skip,{fw_auto_skip,Reason}}},{Mod,Func},[]}
+		NewResult = do_end_tc_call(Mod, Func, {{skip,Reason},Args0},
+					   {skip, {fw_auto_skip,Reason}}),
+		{{0,NewResult},{Mod,Func},[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
 
@@ -1187,7 +1190,12 @@ do_end_tc_call(M,F,Res,Return) ->
 		{fail,FWReason} ->
 		    {failed,FWReason};
 		ok ->
-		    Return;
+		    case Return of
+			{fail,Reason} ->
+			    {failed,Reason};
+			Return ->
+			    Return
+		    end;
 		NewReturn ->
 		    NewReturn
 	    end;
@@ -1231,8 +1239,8 @@ process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts)
 			     [[{tc_status,{failed,TCError}}|Args]]}, Failed) of
 	{failed,FWReason} ->
 	    {{failed,FWReason},SaveOpts};
-	_ ->
-	    {Failed,SaveOpts}
+	NewReturn ->
+	    {NewReturn,SaveOpts}
     end;
 process_return_val1([SaveCfg={save_config,_}|Opts], M,F,[Args], Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,[[SaveCfg|Args]], Loc, Final, SaveOpts);
@@ -1249,8 +1257,8 @@ process_return_val1([], M,F,A, _Loc, Final, SaveOpts) ->
     case do_end_tc_call(M,F,{Final,A}, Final) of
 	{failed,FWReason} ->
 	    {{failed,FWReason},SaveOpts};
-	_ ->
-	    {Final,lists:reverse(SaveOpts)}
+	NewReturn ->
+	    {NewReturn,lists:reverse(SaveOpts)}
     end.
 
 user_callback(undefined, _, _, _, Args) ->

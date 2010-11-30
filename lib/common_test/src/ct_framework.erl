@@ -484,21 +484,27 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 
     case get('$test_server_framework_test') of
 	undefined ->
-	    FinalResult = ct_suite_callback:end_tc(
-			    Mod, FuncSpec, Args, Result, Return),
+	    {FinalResult,FinalNotify} =
+		case ct_suite_callback:end_tc(
+			    Mod, FuncSpec, Args, Result, Return) of
+		    '$ct_no_change' ->
+			{FinalResult = ok,Result};
+		    FinalResult ->
+			{FinalResult,FinalResult}
+		end,
 	    % send sync notification so that event handlers may print
 	    % in the log file before it gets closed
 	    ct_event:sync_notify(#event{name=tc_done,
 					node=node(),
 					data={Mod,FuncSpec,
-					      tag_scb(FinalResult)}});
+					      tag_scb(FinalNotify)}});
 	Fun ->
 	    % send sync notification so that event handlers may print
 	    % in the log file before it gets closed
 	    ct_event:sync_notify(#event{name=tc_done,
 					node=node(),
 					data={Mod,FuncSpec,tag(Result)}}),
-	    FinalResult = Fun(end_tc, ok)
+	    FinalResult = Fun(end_tc, Return)
     end,
 
     
@@ -521,13 +527,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	_ -> 
 	    ok
     end,
-    case FinalResult of
-	Result ->
-	    ok;
-	_Else ->
-	    FinalResult
-    end.
-	    
+    FinalResult.	    
 
 %% {error,Reason} | {skip,Reason} | {timetrap_timeout,TVal} | 
 %% {testcase_aborted,Reason} | testcase_aborted_or_killed | 

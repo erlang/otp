@@ -91,25 +91,25 @@ init_tc(_Mod, TC, Config) ->
 end_tc(ct_framework, _Func, _Args, Result, _Return) ->
     Result;
 
-end_tc(Mod, init_per_suite, Config, _Result, Return) when is_list(Return) ->
-    call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config]);
-end_tc(Mod, init_per_suite, Config, Result, _Return) ->
-    call(fun call_generic/3, Result, [post_init_per_suite, Mod, Config]);
+end_tc(Mod, init_per_suite, Config, Result, Return) ->
+    call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config],
+	 '$ct_no_change');
 
 end_tc(Mod, end_per_suite, Config, Result, _Return) ->
-    call(fun call_generic/3, Result, [post_end_per_suite, Mod, Config]);
+    call(fun call_generic/3, Result, [post_end_per_suite, Mod, Config],
+	'$ct_no_change');
 
-end_tc(_Mod, {init_per_group, GroupName, _}, Config, _Result, Return)
-  when is_list(Return) ->
-    call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config]);
-end_tc(_Mod, {init_per_group, GroupName, _}, Config, Result, _Return) ->
-    call(fun call_generic/3, Result, [post_init_per_group, GroupName, Config]);
+end_tc(_Mod, {init_per_group, GroupName, _}, Config, Result, Return) ->
+    call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config],
+	 '$ct_no_change');
 
 end_tc(_Mod, {end_per_group, GroupName, _}, Config, Result, _Return) ->
-    call(fun call_generic/3, Result, [post_end_per_group, GroupName, Config]);
+    call(fun call_generic/3, Result, [post_end_per_group, GroupName, Config],
+	'$ct_no_change');
 
 end_tc(_Mod, TC, Config, Result, _Return) ->
-    call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config]).
+    call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
+	'$ct_no_change').
 
 on_tc_skip(How, {_Suite, Case, Reason}) ->
     call(fun call_cleanup/3, {How, Reason}, [on_tc_skip, Case]).
@@ -145,6 +145,12 @@ call(Fun, Config, Meta) ->
     CBs = get_callbacks(),
     call([{CBId,Fun} || {CBId,_, _} <- CBs] ++ get_new_callbacks(Config, Fun),
 	     remove(?config_name,Config), Meta, CBs).
+
+call(Fun, Config, Meta, NoChangeRet) when is_function(Fun) ->
+    case call(Fun,Config,Meta) of
+	Config -> NoChangeRet;
+	NewReturn -> NewReturn
+    end;
 
 call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
     try
