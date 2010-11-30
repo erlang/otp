@@ -65,12 +65,12 @@
 %%%-----------------------------------------------------------------
 %%% @spec script_start() -> void()
 %%%
-%%% @doc Start tests via the run_test program or script.
+%%% @doc Start tests via the ct_run program or script.
 %%%
-%%% <p>Example:<br/><code>./run_test -config config.ctc -dir
+%%% <p>Example:<br/><code>./ct_run -config config.ctc -dir
 %%% $TEST_DIR</code></p>
 %%%
-%%% <p>Example:<br/><code>./run_test -config config.ctc -suite
+%%% <p>Example:<br/><code>./ct_run -config config.ctc -suite
 %%% $SUITE_PATH/$SUITE_NAME [-case $CASE_NAME]</code></p>
 %%%
 script_start() ->
@@ -80,7 +80,7 @@ script_start() ->
 				(_) -> true end, Init),
 
     %% convert relative dirs added with pa or pz (pre erl_args on
-    %% the run_test command line) to absolute so that app modules
+    %% the ct_run command line) to absolute so that app modules
     %% can be found even after CT changes CWD to logdir
     rel_to_abs(CtArgs),
 
@@ -482,11 +482,11 @@ script_start4(Opts = #opts{tests = Tests}, Args) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec script_usage() -> ok
-%%% @doc Print usage information for <code>run_test</code>.
+%%% @doc Print usage information for <code>ct_run</code>.
 script_usage() ->
     io:format("\n\nUsage:\n\n"),
     io:format("Run tests in web based GUI:\n\n"
-	      "\trun_test -vts [-browser Browser]"
+	      "\tct_run -vts [-browser Browser]"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-dir TestDir1 TestDir2 .. TestDirN] |"
@@ -497,7 +497,7 @@ script_usage() ->
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-basic_html]\n\n"),
     io:format("Run tests from command line:\n\n"
-	      "\trun_test [-dir TestDir1 TestDir2 .. TestDirN] |"
+	      "\tct_run [-dir TestDir1 TestDir2 .. TestDirN] |"
 	      "\n\t[-suite Suite1 Suite2 .. SuiteN [-case Case1 Case2 .. CaseN]]"
 	      "\n\t[-step [config | keep_inactive]]"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
@@ -517,7 +517,7 @@ script_usage() ->
 	      "\n\t[-duration HHMMSS [-force_stop]] |"
 	      "\n\t[-until [YYMoMoDD]HHMMSS [-force_stop]]\n\n"),
     io:format("Run tests using test specification:\n\n"
-	      "\trun_test -spec TestSpec1 TestSpec2 .. TestSpecN"
+	      "\tct_run -spec TestSpec1 TestSpec2 .. TestSpecN"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-logdir LogDir]"
@@ -535,11 +535,11 @@ script_usage() ->
 	      "\n\t[-duration HHMMSS [-force_stop]] |"
 	      "\n\t[-until [YYMoMoDD]HHMMSS [-force_stop]]\n\n"),
     io:format("Refresh the HTML index files:\n\n"
-	      "\trun_test -refresh_logs [LogDir]"
+	      "\tct_run -refresh_logs [LogDir]"
 	      "[-logdir LogDir] "
 	      "[-basic_html]\n\n"),
     io:format("Run CT in interactive mode:\n\n"
-	      "\trun_test -shell"
+	      "\tct_run -shell"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]\n\n").
 
@@ -2103,7 +2103,7 @@ get_pa_pz([], PA, PZ) ->
     {PA,PZ}.
 
 %% This function translates ct:run_test/1 start options
-%% to run_test start arguments (on the init arguments format) -
+%% to ct_run start arguments (on the init arguments format) -
 %% this is useful mainly for testing the ct_run start functions.
 opts2args(EnvStartOpts) ->
     lists:flatmap(fun({config,CfgFiles}) ->
