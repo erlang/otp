@@ -31,6 +31,7 @@
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
+-define(LONG_TIMEOUT, 600000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
 
@@ -45,7 +46,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Dog = ssl_test_lib:timetrap(?TIMEOUT *2),
+    Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
     crypto:start(),
     application:start(public_key),
     ssl:start(),
