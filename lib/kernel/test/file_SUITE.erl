@@ -3329,6 +3329,17 @@ do_large_file(Config) ->
     ?line {ok,P}  = ?FILE_MODULE:position(F, {eof,-L}),
     ?line {ok,Rs} = ?FILE_MODULE:read(F, L+1),
     ?line ok      = ?FILE_MODULE:close(F),
+    %% Reopen the file with 'append'; used to fail on Windows causing
+    %% writes to go to the beginning of the file for files > 4GB.
+    ?line PL = P + L,
+    ?line PLL = PL + L,
+    ?line {ok,F1}  = ?FILE_MODULE:open(Name, [raw,read,write,append]),
+    ?line ok       = ?FILE_MODULE:write(F1, R),
+    ?line {ok,PLL} = ?FILE_MODULE:position(F1, {cur,0}),
+    ?line {ok,Rs}  = ?FILE_MODULE:pread(F1, P, L),
+    ?line {ok,PL}  = ?FILE_MODULE:position(F1, {eof,-L}),
+    ?line {ok,R}   = ?FILE_MODULE:read(F1, L+1),
+    ?line ok       = ?FILE_MODULE:close(F1),
     %%
     ?line Mref = erlang:monitor(process, Deleter),
     ?line Deleter ! {Tester,done},
