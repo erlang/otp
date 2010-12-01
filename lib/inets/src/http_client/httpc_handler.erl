@@ -713,33 +713,38 @@ terminate(normal,
 		 profile_name = ProfileName,
 		 request      = Request,
 		 timers       = Timers,
-		 pipeline     = Pipeline}) ->  
+		 pipeline     = Pipeline,
+		 keep_alive   = KeepAlive} = State) ->  
     ?hcrt("terminate(normal) - remote close", 
 	  [{id, Id}, {profile, ProfileName}]),
 
     %% Clobber session
     (catch httpc_manager:delete_session(Id, ProfileName)),
 
+    maybe_retry_queue(Pipeline, State),
+    maybe_retry_queue(KeepAlive, State),
+
     %% Cancel timers
-    #timers{request_timers = ReqTmrs, queue_timer = QTmr} = Timers, 
-    cancel_timer(QTmr, timeout_queue),
-    lists:foreach(fun({_, Timer}) -> cancel_timer(Timer, timeout) end, 
-		  ReqTmrs),
+    cancel_timers(Timers),
 
     %% Maybe deliver answers to requests
-    deliver_answers([Request | queue:to_list(Pipeline)]),
+    deliver_answer(Request),
 
     %% And, just in case, close our side (**really** overkill)
     http_transport:close(SocketType, Socket);
 
-terminate(_, #state{session      = #session{id          = Id,
-					    socket      = Socket, 
-					    socket_type = SocketType},
+terminate(Reason, #state{session      = #session{id          = Id,
+						 socket      = Socket, 
+						 socket_type = SocketType},
 		    request      = undefined,
 		    profile_name = ProfileName,
 		    timers       = Timers,
 		    pipeline     = Pipeline,
 		    keep_alive   = KeepAlive} = State) -> 
+    ?hcrt("terminate", 
+	  [{id, Id}, {profile, ProfileName}, {reason, Reason}]),
+
+    %% Clobber session
     (catch httpc_manager:delete_session(Id, ProfileName)),
 
     maybe_retry_queue(Pipeline, State),
@@ -772,59 +777,55 @@ maybe_send_answer(#request{from = answer_sent}, _Reason, State) ->
 maybe_send_answer(Request, Answer, State) ->
     answer_request(Request, Answer, State).
 
-deliver_answers([]) ->
-    ?hcrd("deliver answer done", []),
-    ok;
-deliver_answers([#request{id = Id, from = From} = Request | Requests]) 
+deliver_answer(#request{id = Id, from = From} = Request) 
   when is_pid(From) ->
     Response = httpc_response:error(Request, socket_closed_remotely),
     ?hcrd("deliver answer", [{id, Id}, {from, From}, {response, Response}]),
-    httpc_response:send(From, Response),
-    deliver_answers(Requests);
-deliver_answers([Request|Requests]) ->
+    httpc_response:send(From, Response);
+deliver_answer(Request) ->
     ?hcrd("skip deliver answer", [{request, Request}]),
-    deliver_answers(Requests).
+    ok.
 
 
 %%--------------------------------------------------------------------
 %% Func: code_change(_OldVsn, State, Extra) -> {ok, NewState}
 %% Purpose: Convert process state when code is changed
 %%--------------------------------------------------------------------
-code_change(_, #state{request = Request, pipeline = Queue} = State, 
-	    [{from, '5.0.1'}, {to, '5.0.2'}]) ->
-    Settings = new_http_options(Request#request.settings),
-    NewRequest = Request#request{settings = Settings},
-    NewQueue = new_queue(Queue, fun new_http_options/1),
-    {ok, State#state{request = NewRequest, pipeline = NewQueue}};
+%% code_change(_, #state{request = Request, pipeline = Queue} = State, 
+%% 	    [{from, '5.0.1'}, {to, '5.0.2'}]) ->
+%%     Settings = new_http_options(Request#request.settings),
+%%     NewRequest = Request#request{settings = Settings},
+%%     NewQueue = new_queue(Queue, fun new_http_options/1),
+%%     {ok, State#state{request = NewRequest, pipeline = NewQueue}};
 
-code_change(_, #state{request = Request, pipeline = Queue} = State, 
-	    [{from, '5.0.2'}, {to, '5.0.1'}]) ->
-    Settings = old_http_options(Request#request.settings),
-    NewRequest = Request#request{settings = Settings},
-    NewQueue = new_queue(Queue, fun old_http_options/1),
-    {ok, State#state{request = NewRequest, pipeline = NewQueue}};
+%% code_change(_, #state{request = Request, pipeline = Queue} = State, 
+%% 	    [{from, '5.0.2'}, {to, '5.0.1'}]) ->
+%%     Settings = old_http_options(Request#request.settings),
+%%     NewRequest = Request#request{settings = Settings},
+%%     NewQueue = new_queue(Queue, fun old_http_options/1),
+%%     {ok, State#state{request = NewRequest, pipeline = NewQueue}};
 
 code_change(_, State, _) ->
     {ok, State}.
 
-new_http_options({http_options, TimeOut, AutoRedirect, SslOpts,
-		  Auth, Relaxed}) ->
-    {http_options, "HTTP/1.1", TimeOut, AutoRedirect, SslOpts,
-     Auth, Relaxed}.
+%% new_http_options({http_options, TimeOut, AutoRedirect, SslOpts,
+%% 		  Auth, Relaxed}) ->
+%%     {http_options, "HTTP/1.1", TimeOut, AutoRedirect, SslOpts,
+%%      Auth, Relaxed}.
 
-old_http_options({http_options, _, TimeOut, AutoRedirect,
-		  SslOpts, Auth, Relaxed}) ->
-    {http_options, TimeOut, AutoRedirect, SslOpts, Auth, Relaxed}.
+%% old_http_options({http_options, _, TimeOut, AutoRedirect,
+%% 		  SslOpts, Auth, Relaxed}) ->
+%%     {http_options, TimeOut, AutoRedirect, SslOpts, Auth, Relaxed}.
 
-new_queue(Queue, Fun) ->
-    List = queue:to_list(Queue),
-    NewList = 
-	lists:map(fun(Request) ->
-			  Settings = 
-			      Fun(Request#request.settings),
-			  Request#request{settings = Settings}
-		  end, List),
-    queue:from_list(NewList).
+%% new_queue(Queue, Fun) ->
+%%     List = queue:to_list(Queue),
+%%     NewList = 
+%% 	lists:map(fun(Request) ->
+%% 			  Settings = 
+%% 			      Fun(Request#request.settings),
+%% 			  Request#request{settings = Settings}
+%% 		  end, List),
+%%     queue:from_list(NewList).
     
 
 %%%--------------------------------------------------------------------
@@ -1446,6 +1447,12 @@ answer_request(#request{id = RequestId, from = From} = Request, Msg,
 		timers = 
 		Timers#timers{request_timers =
 			      lists:delete(Timer, RequestTimers)}}.
+
+cancel_timers(#timers{request_timers = ReqTmrs, queue_timer = QTmr}) ->
+    cancel_timer(QTmr, timeout_queue),
+    CancelTimer = fun({_, Timer}) -> cancel_timer(Timer, timeout) end, 
+    lists:foreach(CancelTimer, ReqTmrs).
+
 cancel_timer(undefined, _) ->
     ok;
 cancel_timer(Timer, TimeoutMsg) ->
