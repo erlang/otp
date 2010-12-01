@@ -185,11 +185,14 @@ do_fold_files2([File|T], Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod) ->
     FullName = filename:join(Dir, File),
     case do_is_regular(FullName, Mod) of
 	true  ->
-	    case re:run(File, if is_binary(File) -> OrigRE; true -> RegExp end, 
-			[{capture,none}]) of
+	    case (catch re:run(File, if is_binary(File) -> OrigRE; 
+					true -> RegExp end, 
+			       [{capture,none}])) of
 		match  -> 
 		    Acc = Fun(FullName, Acc0),
 		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod);
+		{'EXIT',_} ->
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod);
 		nomatch ->
 		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
 	    end;
