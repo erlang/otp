@@ -171,7 +171,15 @@ max_threads(doc) ->
 max_threads(suite) ->
     [];
 max_threads(Config) ->
-    run_case(Config, "max_threads", "").
+    case {os:type(), os:version()} of
+	{{unix,darwin}, {9, _, _}} ->
+	    %% For some reason pthread_create() crashes when more
+	    %% threads cannot be created, instead of returning an
+	    %% error code on our MacOS X Leopard machine...
+	    {skipped, "MacOS X Leopard cannot cope with this test..."};
+	_ ->
+	    run_case(Config, "max_threads", "")
+    end.
 
 tsd(doc) ->
     ["Tests thread specific data."];
