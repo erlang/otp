@@ -36,14 +36,23 @@
   <description>
     <p>This module contains utilities on a higher level than the <c>file</c>
       module.</p>
+    <p>The module supports Unicode file names, so that it will match against regular expressions given in Unicode and that it will find and process raw file names (i.e. files named in a way that does not confirm to the expected encoding).</p>
+    <p>If the VM operates in Unicode file naming mode on a machine with transparent file naming, the <c>fun()</c> provided to <c>fold_files/5</c> needs to be prepared to handle binary file names.</p>
+    <p>For more information about raw file names, see the <seealso marker="kernel:file">file</seealso> module.</p>
   </description>
 
   <section>
     <title>DATA TYPES</title>
     <code type="none">
-filename() = string() | atom() | DeepList
-dirname() = filename()
-DeepList = [char() | atom() | DeepList]</code>
+filename() =  = string() | atom() | DeepList | RawFilename
+  DeepList = [char() | atom() | DeepList]
+  RawFilename = binary()
+  If VM is in unicode filename mode, string() and char() are allowed to be > 255.
+  RawFilename is a filename not subject to Unicode translation, meaning that it 
+  can contain characters not conforming to the Unicode encoding expected from the 
+  filesystem (i.e. non-UTF-8 characters although the VM is started in Unicode 
+  filename mode).
+dirname() = filename()</code>
   </section>
 
   <funcs>
@@ -90,6 +99,18 @@ DeepList = [char() | atom() | DeepList]</code>
           If <c>Recursive</c> is true all sub-directories to <c>Dir</c>
           are processed. The regular expression matching is done on just
 	  the filename without the directory part.</p>
+
+	  <p>If Unicode file name translation is in effect and the file
+	  system is completely transparent, file names that cannot be
+	  interpreted as Unicode may be encountered, in which case the
+	  <c>fun()</c> must be prepared to handle raw file names
+	  (i.e. binaries). If the regular expression contains
+	  codepoints beyond 255, it will not match file names that does
+	  not conform to the expected character encoding (i.e. are not
+	  encoded in valid UTF-8).</p>
+
+	  <p>For more information about raw file names, see the 
+          <seealso marker="kernel:file">file</seealso> module.</p>
       </desc>
     </func>
     <func>

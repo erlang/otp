@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -43,13 +43,22 @@
       only, even if the arguments contain back slashes. Use
       <c>join/1</c> to normalize a file name by removing redundant
       directory separators.</p>
+    <p>The module supports raw file names in the way that if a binary is present, or the file name cannot be interpreted according to the return value of 
+    <seealso marker="kernel:file#native_name_encoding/0">file:native_name_encoding/0</seealso>, a raw file name will also be returned. For example filename:join/1 provided with a path component being a binary (and also not being possible to interpret under the current native file name encoding) will result in a raw file name being returned (the join operation will have been performed of course). For more information about raw file names, see the <seealso marker="kernel:file">file</seealso> module.</p>
   </description>
 
   <section>
     <title>DATA TYPES</title>
     <code type="none">
-name() = string() | atom() | DeepList
-DeepList = [char() | atom() | DeepList]</code>
+name() = string() | atom() | DeepList | RawFilename
+  DeepList = [char() | atom() | DeepList]
+  RawFilename = binary()
+  If VM is in unicode filename mode, string() and char() are allowed to be > 255.
+  RawFilename is a filename not subject to Unicode translation, meaning that it 
+  can contain characters not conforming to the Unicode encoding expected from the 
+  filesystem (i.e. non-UTF-8 characters although the VM is started in Unicode 
+  filename mode).
+    </code>
   </section>
   <funcs>
     <func>
