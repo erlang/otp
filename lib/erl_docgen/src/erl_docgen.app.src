@@ -1,0 +1,12 @@
+{application, erl_docgen,
+ [{description, "Misc tools for building documentation"},
+  {vsn, "%VSN%"},
+  {modules, [otp_specs
+	    ]
+  },
+  {registered,[]},
+  {applications, [kernel,stdlib]},
+  {env, []
+  }
+ ]
+}.

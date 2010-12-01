@@ -21,13 +21,30 @@
 # Targets for the new documentation support
 # ----------------------------------------------------
 
+ifneq ($(TOP_SPECS_FILE),)
+TOP_SPECS_PARAM = --stringparam specs_file "`pwd`/$(TOP_SPECS_FILE)"
+endif
+
+MOD2APP = $(ERL_TOP)/make/$(TARGET)/mod2app.xml
+ifneq ($(wildcard $(MOD2APP)),)
+MOD2APP_PARAM = --stringparam mod2app_file "$(MOD2APP)"
+endif
+
 ifeq ($(TOPDOC),)
-$(HTMLDIR)/index.html: $(XML_FILES)
+$(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
-	$(XSLTPROC) --noout --stringparam outdir $(HTMLDIR) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
-		--stringparam pdfdir "$(PDFDIR)" \
-		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude \
-		-path $(DOCGEN)/priv/docbuilder_dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_html.xsl book.xml
+	$(XSLTPROC) --noout \
+          --stringparam outdir $(HTMLDIR) \
+          --stringparam docgen "$(DOCGEN)" \
+          --stringparam topdocdir "$(TOPDOCDIR)" \
+          --stringparam pdfdir "$(PDFDIR)" \
+          --xinclude $(TOP_SPECS_PARAM) $(MOD2APP_PARAM) \
+          --stringparam gendate "$$date" \
+          --stringparam appname "$(APPLICATION)" \
+          --stringparam appver "$(VSN)" \
+          -path $(DOCGEN)/priv/docbuilder_dtd \
+          -path $(DOCGEN)/priv/dtd_html_entities \
+            $(DOCGEN)/priv/xsl/db_html.xsl book.xml
 endif
 
 $(HTMLDIR)/users_guide.html: $(XML_FILES)
@@ -37,14 +54,17 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 		--stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude  \
 		-path $(DOCGEN)/priv/docbuilder_dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_html.xsl book.xml
 
-
-%.fo: $(XML_FILES)
+%.fo: $(XML_FILES) $(SPECS_FILES)
 	date=`date +"%B %e %Y"`; \
-	$(XSLTPROC) --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" \
-		--stringparam appver "$(VSN)" --xinclude \
-		-path $(DOCGEN)/priv/docbuilder_dtd -path $(DOCGEN)/priv/dtd_html_entities $(DOCGEN)/priv/xsl/db_pdf.xsl book.xml > $@
-
-
+	$(XSLTPROC) \
+         --stringparam docgen "$(DOCGEN)" \
+         --stringparam gendate "$$date" \
+         --stringparam appname "$(APPLICATION)" \
+         --stringparam appver "$(VSN)" \
+         --xinclude $(TOP_SPECS_PARAM) \
+         -path $(DOCGEN)/priv/docbuilder_dtd \
+         -path $(DOCGEN)/priv/dtd_html_entities \
+           $(DOCGEN)/priv/xsl/db_pdf.xsl book.xml > $@
 
 # ------------------------------------------------------------------------
 # The following targets just exist in the documentation directory
