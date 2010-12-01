@@ -28,6 +28,7 @@
 
 -define(SLEEP, 500).
 -define(TIMEOUT, 60000).
+-define(LONG_TIMEOUT, 600000).
 -behaviour(ssl_session_cache_api).
 
 %% For the session cache tests
@@ -45,7 +46,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Dog = ssl_test_lib:timetrap(?TIMEOUT *2),
+    Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
     crypto:start(),
     application:start(public_key),
     ssl:start(),
@@ -119,7 +120,7 @@ end_per_testcase(session_cache_process_list, Config) ->
 end_per_testcase(session_cache_process_mnesia, Config) ->
     application:unset_env(ssl, session_cb),
     application:unset_env(ssl, session_cb_init_args),
-    mnesia:stop(),
+    mnesia:kill(),
     ssl:stop(),
     ssl:start(),
     end_per_testcase(default_action, Config);

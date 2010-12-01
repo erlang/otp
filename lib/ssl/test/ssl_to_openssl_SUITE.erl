@@ -27,6 +27,7 @@
 -include("test_server.hrl").
 
 -define(TIMEOUT, 120000).
+-define(LONG_TIMEOUT, 600000).
 -define(SLEEP, 1000).
 -define(OPENSSL_RENEGOTIATE, "r\n").
 -define(OPENSSL_QUIT, "Q\n").
@@ -44,7 +45,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Dog = ssl_test_lib:timetrap(?TIMEOUT *2),
+    Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
     case os:find_executable("openssl") of
 	false ->
 	    {skip, "Openssl not found"};

@@ -854,12 +854,18 @@ connect(SocketType, ToAddress,
 	inet6fb4 ->
 	    Opts3 = [inet6 | Opts2],
 	    case http_transport:connect(SocketType, ToAddress, Opts3, Timeout) of
-		{error, Reason} when ((Reason =:= nxdomain) orelse 
-				      (Reason =:= eafnosupport)) -> 
+		{error, _Reason} = Error ->
 		    Opts4 = [inet | Opts2], 
-		    http_transport:connect(SocketType, ToAddress, Opts4, Timeout);
-		Other ->
-		    Other
+		    case http_transport:connect(SocketType, 
+						ToAddress, Opts4, Timeout) of
+			{error, _} ->
+			    %% Reply with the "original" error
+			    Error;
+			OK ->
+			    OK
+		    end;
+		OK ->
+		    OK
 	    end;
 	_ ->
 	    Opts3 = [IpFamily | Opts2], 

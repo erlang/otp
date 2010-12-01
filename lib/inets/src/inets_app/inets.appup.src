@@ -18,6 +18,11 @@
 
 {"%VSN%",
  [
+  {"5.5",
+   [
+    {restart_application, inets}
+   ]
+  }, 
   {"5.4",
    [
     {restart_application, inets}
@@ -25,6 +30,11 @@
   } 
  ],
  [	
+  {"5.4",
+   [
+    {restart_application, inets}
+   ]
+  },     
   {"5.4",
    [
     {restart_application, inets}

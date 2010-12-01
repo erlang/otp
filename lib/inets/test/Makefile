@@ -288,16 +288,20 @@ release_spec: opt
 	$(INSTALL_DATA) $(INETS_FILES) $(RELSYSDIR)/test
 	@for d in $(DATADIRS); do \
             echo "installing data dir $$d"; \
-            echo $$d/TAR.exclude2 > $$d/TAR.exclude2; \
-            cat $$d/TAR.exclude >> $$d/TAR.exclude2; \
-            find $$d -name '*.contrib*'     >> $$d/TAR.exclude2; \
-            find $$d -name '*.keep*'        >> $$d/TAR.exclude2; \
-            find $$d -name '*.mkelem*'      >> $$d/TAR.exclude2; \
-            find $$d -name '*~'             >> $$d/TAR.exclude2; \
-            find $$d -name 'erl_crash.dump' >> $$d/TAR.exclude2; \
-            find $$d -name 'core'           >> $$d/TAR.exclude2; \
-            find $$d -name '.cmake.state'   >> $$d/TAR.exclude2; \
-            tar cfX - $$d/TAR.exclude2 $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+            if test -f $$d/TAR.exclude; then \
+                echo $$d/TAR.exclude2 > $$d/TAR.exclude2; \
+                cat $$d/TAR.exclude >> $$d/TAR.exclude2; \
+                find $$d -name '*.contrib*'     >> $$d/TAR.exclude2; \
+                find $$d -name '*.keep*'        >> $$d/TAR.exclude2; \
+                find $$d -name '*.mkelem*'      >> $$d/TAR.exclude2; \
+                find $$d -name '*~'             >> $$d/TAR.exclude2; \
+                find $$d -name 'erl_crash.dump' >> $$d/TAR.exclude2; \
+                find $$d -name 'core'           >> $$d/TAR.exclude2; \
+                find $$d -name '.cmake.state'   >> $$d/TAR.exclude2; \
+                tar cfX - $$d/TAR.exclude2 $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+            else \
+                tar cf - $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+            fi; \
         done
 
 release_tests_spec: opt
