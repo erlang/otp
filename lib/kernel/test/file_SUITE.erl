@@ -3268,7 +3268,7 @@ large_file(Config) when is_list(Config) ->
 	{{unix,sunos},{A,B,C}}
 	when A == 5, B == 5, C >= 1;   A == 5, B >= 6;   A >= 6 ->
 	    do_large_file(Config);
-	{{unix,Unix},_} when Unix =:= linux; Unix =:= darwin ->
+	{{unix,Unix},_} when Unix =/= sunos ->
 	    N = unix_free(Config),
 	    io:format("Free: ~w KByte~n", [N]),
 	    if N < 5 * (1 bsl 20) ->
@@ -3278,7 +3278,7 @@ large_file(Config) when is_list(Config) ->
 		    do_large_file(Config)
 	    end;
 	_ -> 
-	    {skipped,"Only supported on Win32, Linux, or SunOS >= 5.5.1"}
+	    {skipped,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
     end.
 
 unix_free(Config) ->
@@ -3290,7 +3290,7 @@ unix_free(Config) ->
     N.
 
 do_large_file(Config) ->
-    ?line Watchdog = ?t:timetrap(?t:minutes(4)),
+    ?line Watchdog = ?t:timetrap(?t:minutes(5)),
     %%
     ?line Name = filename:join(?config(priv_dir, Config),
 			       ?MODULE_STRING ++ "_large_file"),
