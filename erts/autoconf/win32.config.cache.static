@@ -61,7 +61,6 @@ ac_cv_func_fork=${ac_cv_func_fork=no}
 ac_cv_func_fork_works=${ac_cv_func_fork_works=no}
 ac_cv_func_fpsetmask=${ac_cv_func_fpsetmask=no}
 ac_cv_func_fstat=${ac_cv_func_fstat=yes}
-ac_cv_func_getaddrinfo=${ac_cv_func_getaddrinfo=no}
 ac_cv_func_gethostbyaddr=${ac_cv_func_gethostbyaddr=no}
 ac_cv_func_gethostbyaddr_r=${ac_cv_func_gethostbyaddr_r=no}
 ac_cv_func_gethostbyname=${ac_cv_func_gethostbyname=no}
@@ -71,7 +70,6 @@ ac_cv_func_gethostname=${ac_cv_func_gethostname=no}
 ac_cv_func_gethrtime=${ac_cv_func_gethrtime=no}
 ac_cv_func_getipnodebyaddr=${ac_cv_func_getipnodebyaddr=no}
 ac_cv_func_getipnodebyname=${ac_cv_func_getipnodebyname=no}
-ac_cv_func_getnameinfo=${ac_cv_func_getnameinfo=no}
 ac_cv_func_getpagesize=${ac_cv_func_getpagesize=no}
 ac_cv_func_gettimeofday=${ac_cv_func_gettimeofday=no}
 ac_cv_func_gmtime_r=${ac_cv_func_gmtime_r=no}
