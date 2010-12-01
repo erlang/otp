@@ -29,13 +29,13 @@
 %% Internal application API
 -export([start_link/1, 
 	 connection_init/2, cache_pem_file/1,
-	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/3, 
-	 server_session_id/3,
+	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/4,
+	 server_session_id/4,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
 % Spawn export
--export([init_session_validator/1]).
+-export([init_session_validator/1, recache_pem/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -43,6 +43,7 @@
 
 -include("ssl_handshake.hrl").
 -include("ssl_internal.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -record(state, {
 	  session_cache,
@@ -76,16 +77,17 @@ start_link(Opts) ->
 connection_init(Trustedcerts, Role) ->
     call({connection_init, Trustedcerts, Role}).
 %%--------------------------------------------------------------------
--spec cache_pem_file(string()) -> {ok, term()}.	
+-spec cache_pem_file(string()) -> {ok, term()} | {error, reason()}.
 %%		    
-%% Description: Cach a pem file and 
+%% Description: Cach a pem file and return its content.
 %%--------------------------------------------------------------------
-cache_pem_file(File) ->   
-    case ssl_certificate_db:lookup_cached_certs(File) of
-	[{_,Content}] ->
-	    {ok, Content};
-	[] ->
-	    call({cache_pem, File})
+cache_pem_file(File) ->
+    try file:read_file_info(File) of
+	{ok, #file_info{mtime = LastWrite}} ->
+	    cache_pem_file(File, LastWrite)
+    catch
+	_:Reason ->
+	    {error, Reason}
     end.
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> 
@@ -106,20 +108,21 @@ lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
 issuer_candidate(PrevCandidateKey) ->
     ssl_certificate_db:issuer_candidate(PrevCandidateKey).
 %%--------------------------------------------------------------------
--spec client_session_id(host(), port_num(), #ssl_options{}) -> session_id().
+-spec client_session_id(host(), port_num(), #ssl_options{},
+			der_cert() | undefined) -> session_id().
 %%
 %% Description: Select a session id for the client.
 %%--------------------------------------------------------------------
-client_session_id(Host, Port, SslOpts) ->
-    call({client_session_id, Host, Port, SslOpts}).
+client_session_id(Host, Port, SslOpts, OwnCert) ->
+    call({client_session_id, Host, Port, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
--spec server_session_id(host(), port_num(), #ssl_options{}) -> session_id().
+-spec server_session_id(host(), port_num(), #ssl_options{}, der_cert()) -> session_id().
 %%
 %% Description: Select a session id for the server.
 %%--------------------------------------------------------------------
-server_session_id(Port, SuggestedSessionId, SslOpts) ->
-    call({server_session_id, Port, SuggestedSessionId, SslOpts}).
+server_session_id(Port, SuggestedSessionId, SslOpts, OwnCert) ->
+    call({server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
 -spec register_session(port_num(), #session{}) -> ok.
@@ -201,28 +204,35 @@ handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
 	end,
     {reply, Result, State};
 
-handle_call({{client_session_id, Host, Port, SslOpts}, _}, _, 
+handle_call({{client_session_id, Host, Port, SslOpts, OwnCert}, _}, _,
 	    #state{session_cache = Cache,
 		  session_cache_cb = CacheCb} = State) ->
-    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb),
+    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
     {reply, Id, State};
 
-handle_call({{server_session_id, Port, SuggestedSessionId, SslOpts}, _},
+handle_call({{server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}, _},
 	    _, #state{session_cache_cb = CacheCb,
 		      session_cache = Cache,
 		      session_lifetime = LifeTime} = State) ->
     Id = ssl_session:id(Port, SuggestedSessionId, SslOpts,
-			Cache, CacheCb, LifeTime),
+			Cache, CacheCb, LifeTime, OwnCert),
     {reply, Id, State};
 
-handle_call({{cache_pem, File},Pid}, _, State = #state{certificate_db = Db}) ->
-    try ssl_certificate_db:cache_pem_file(Pid,File,Db) of
+handle_call({{cache_pem, File, LastWrite}, Pid}, _, 
+	    #state{certificate_db = Db} = State) ->
+    try ssl_certificate_db:cache_pem_file(Pid, File, LastWrite, Db) of
 	Result ->
 	    {reply, Result, State}
     catch 
 	_:Reason ->
 	    {reply, {error, Reason}, State}
-    end.
+    end;
+handle_call({{recache_pem, File, LastWrite}, Pid}, From,
+	    #state{certificate_db = Db} = State) ->
+    ssl_certificate_db:uncache_pem_file(File, Pid, Db),
+    spawn_link(?MODULE, recache_pem, [File, Db, LastWrite, From]),
+    {noreply, State}.
+
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
 %% Possible return values not used now.  
@@ -286,12 +296,14 @@ handle_info({'EXIT', _, _}, State) ->
 handle_info({'DOWN', _Ref, _Type, _Pid, ecacertfile}, State) ->
     {noreply, State};
 
+handle_info({'DOWN', _Ref, _Type, Pid, shutdown}, State) ->
+    handle_info({remove_trusted_certs, Pid}, State);
 handle_info({'DOWN', _Ref, _Type, Pid, _Reason}, State) ->
     erlang:send_after(?CERTIFICATE_CACHE_CLEANUP, self(), 
 		      {remove_trusted_certs, Pid}),
     {noreply, State};
 handle_info({remove_trusted_certs, Pid}, 
-	    State = #state{certificate_db = Db}) ->
+	    #state{certificate_db = Db} = State) ->
     ssl_certificate_db:remove_trusted_certs(Pid, Db),
     {noreply, State};
 
@@ -362,3 +374,27 @@ session_validation({{{Host, Port}, _}, Session}, LifeTime) ->
 session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
+
+cache_pem_file(File, LastWrite) ->
+    case ssl_certificate_db:lookup_cached_certs(File) of
+	[{_, {Mtime, Content}}] ->
+	    case LastWrite of
+		Mtime ->
+		    {ok, Content};
+		_ ->
+		    call({recache_pem, File, LastWrite})
+	    end;
+	[] ->
+	    call({cache_pem, File, LastWrite})
+    end.
+
+
+recache_pem(File, Db, LastWrite, From) ->
+    case ssl_certificate_db:ref_count(File, Db, 0) of
+	0 ->
+	    Result = call({cache_pem, File, LastWrite}),
+	    gen_server:reply(From, Result);
+	_ ->
+	    timer:sleep(1000),
+	    recache_pem(File, Db, LastWrite, From)
+    end.

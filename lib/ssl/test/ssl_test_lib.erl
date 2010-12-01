@@ -327,8 +327,8 @@ cert_options(Config) ->
 
 make_dsa_cert(Config) ->
     
-    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_dsa_cert_files("server", Config),
-    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_dsa_cert_files("client", Config),
+    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa, dsa, ""),
+    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa, dsa, ""),
     [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 				 {cacertfile, ServerCaCertFile},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -342,21 +342,40 @@ make_dsa_cert(Config) ->
      | Config].
 
 
-    
-make_dsa_cert_files(RoleStr, Config) ->    
-    CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, dsa}]),
-    {Cert, CertKey} = erl_make_certs:make_cert([{key, dsa}, {issuer, CaInfo}]),
+make_mix_cert(Config) ->
+    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa,
+									rsa, "mix"),
+    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa,
+									rsa, "mix"),
+    [{server_mix_opts, [{ssl_imp, new},{reuseaddr, true},
+				 {cacertfile, ServerCaCertFile},
+				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+     {server_mix_verify_opts, [{ssl_imp, new},{reuseaddr, true},
+			       {cacertfile, ClientCaCertFile},
+			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+			       {verify, verify_peer}]},
+     {client_mix_opts, [{ssl_imp, new},{reuseaddr, true},
+			{cacertfile, ClientCaCertFile},
+			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+     | Config].
+
+make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix) ->
+    Alg1Str = atom_to_list(Alg1),
+    Alg2Str = atom_to_list(Alg2),
+    CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, Alg1}]),
+    {Cert, CertKey} = erl_make_certs:make_cert([{key, Alg2}, {issuer, CaInfo}]),
     CaCertFile = filename:join([?config(priv_dir, Config), 
-				RoleStr, "dsa_cacerts.pem"]),
+				RoleStr, Prefix ++ Alg1Str ++ "_cacerts.pem"]),
     CertFile = filename:join([?config(priv_dir, Config), 
-			      RoleStr, "dsa_cert.pem"]),
+			      RoleStr, Alg2Str ++ "_cert.pem"]),
     KeyFile = filename:join([?config(priv_dir, Config), 
-				   RoleStr, "dsa_key.pem"]),
+				   RoleStr, Prefix ++ Alg2Str ++ "_key.pem"]),
     
     der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
     der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
     der_to_pem(KeyFile, [CertKey]),
     {CaCertFile, CertFile, KeyFile}.
+
 
 start_upgrade_server(Args) ->
     Result = spawn_link(?MODULE, run_upgrade_server, [Args]),

@@ -125,6 +125,9 @@ init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:start(),
     Config;
 
+init_per_testcase(different_ca_peer_sign, Config0) ->
+    ssl_test_lib:make_mix_cert(Config0);
+
 init_per_testcase(_TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = test_server:timetrap(?TIMEOUT),
@@ -205,7 +208,9 @@ all(suite) ->
      invalid_signature_client, invalid_signature_server, cert_expired,
      client_with_cert_cipher_suites_handshake, unknown_server_ca_fail,
      der_input, unknown_server_ca_accept_verify_none, unknown_server_ca_accept_verify_peer,
-     unknown_server_ca_accept_backwardscompatibilty
+     unknown_server_ca_accept_backwardscompatibilty,
+     different_ca_peer_sign, no_reuses_session_server_restart_new_cert,
+     no_reuses_session_server_restart_new_cert_file
     ].
 
 %% Test cases starts here.
@@ -3050,6 +3055,196 @@ der_input_opts(Opts) ->
 			  CaCert
 		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
     {Cert, {rsa, Key}, CaCerts, DHParams}.
+
+%%--------------------------------------------------------------------
+different_ca_peer_sign(doc) ->
+    ["Check that a CA can have a different signature algorithm than the peer cert."];
+
+different_ca_peer_sign(suite) ->
+    [];
+
+different_ca_peer_sign(Config) when is_list(Config) ->
+    ClientOpts =  ?config(client_mix_opts, Config),
+    ServerOpts =  ?config(server_mix_verify_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, send_recv_result_active_once, []}},
+			   {options, [{active, once},
+				      {verify, verify_peer} | ServerOpts]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE,
+					       send_recv_result_active_once,
+					       []}},
+					{options, [{active, once},
+						   {verify, verify_peer}
+						   | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+no_reuses_session_server_restart_new_cert(doc) ->
+    ["Check that a session is not reused if the server is restarted with a new cert."];
+
+no_reuses_session_server_restart_new_cert(suite) ->
+    [];
+
+no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
+
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    DsaServerOpts = ?config(server_dsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+		      {mfa, {?MODULE, session_info_result, []}},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client0 =
+	ssl_test_lib:start_client([{node, ClientNode},
+		      {port, Port}, {host, Hostname},
+			    {mfa, {ssl_test_lib, no_result, []}},
+		      {from, self()},  {options, ClientOpts}]),
+    SessionInfo =
+	receive
+	    {Server, Info} ->
+		Info
+	end,
+
+    Server ! listen,
+
+    %% Make sure session is registered
+    test_server:sleep(?SLEEP),
+    ssl_test_lib:close(Server),
+    %% Make sure port is free
+    test_server:sleep(?SLEEP * 3),
+
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
+				   {from, self()},
+		      {mfa, {?MODULE, session_info_result, []}},
+				   {options, DsaServerOpts}]),
+    receive
+	{Server1, _} ->
+	    ok
+    end,
+
+    Client1 =
+	ssl_test_lib:start_client([{node, ClientNode},
+		      {port, Port}, {host, Hostname},
+		      {mfa, {?MODULE, session_info_result, []}},
+		      {from, self()},  {options, ClientOpts}]),
+    receive
+	{Client1, SessionInfo} ->
+	    test_server:fail(session_reused_when_server_has_new_cert);
+	{Client1, _Other} ->
+	   ok
+    end,
+
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Client1),
+    process_flag(trap_exit, false).
+
+%%--------------------------------------------------------------------
+no_reuses_session_server_restart_new_cert_file(doc) ->
+    ["Check that a session is not reused if a server is restarted with a new "
+     "cert contained in a file with the same name as the old cert."];
+
+no_reuses_session_server_restart_new_cert_file(suite) ->
+    [];
+
+no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    DsaServerOpts = ?config(server_dsa_opts, Config),
+    PrivDir =  ?config(priv_dir, Config),
+
+    NewServerOpts = new_config(PrivDir, ServerOpts),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+		      {mfa, {?MODULE, session_info_result, []}},
+				   {options, NewServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client0 =
+	ssl_test_lib:start_client([{node, ClientNode},
+		      {port, Port}, {host, Hostname},
+			    {mfa, {ssl_test_lib, no_result, []}},
+		      {from, self()},  {options, ClientOpts}]),
+    SessionInfo =
+	receive
+	    {Server, Info} ->
+		Info
+	end,
+
+    Server ! listen,
+
+    %% Make sure session is registered
+    test_server:sleep(?SLEEP),
+    ssl_test_lib:close(Server),
+    %% Make sure port is free
+    test_server:sleep(?SLEEP),
+
+    NewServerOpts = new_config(PrivDir, DsaServerOpts),
+
+    Server1 =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
+				   {from, self()},
+		      {mfa, {?MODULE, session_info_result, []}},
+				   {options, NewServerOpts}]),
+
+    receive
+	{Server1, _} ->
+	    ok
+    end,
+
+    Client1 =
+	ssl_test_lib:start_client([{node, ClientNode},
+		      {port, Port}, {host, Hostname},
+		      {mfa, {?MODULE, session_info_result, []}},
+				   {from, self()},  {options, ClientOpts}]),
+    receive
+	{Client1, SessionInfo} ->
+	    test_server:fail(session_reused_when_server_has_new_cert);
+	{Client1, _Other} ->
+	   ok
+    end,
+
+    ssl_test_lib:close(Server1),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(Client1),
+    process_flag(trap_exit, false).
+
+new_config(PrivDir, ServerOpts0) ->
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts0),
+    CertFile = proplists:get_value(certfile, ServerOpts0),
+    KeyFile = proplists:get_value(keyfile, ServerOpts0),
+    NewCaCertFile = filename:join(PrivDir, "new_ca.pem"),
+    NewCertFile = filename:join(PrivDir, "new_cert.pem"),
+    NewKeyFile = filename:join(PrivDir, "new_key.pem"),
+    file:copy(CaCertFile, NewCaCertFile),
+    file:copy(CertFile, NewCertFile),
+    file:copy(KeyFile, NewKeyFile),
+    ServerOpts1 = proplists:delete(cacertfile, ServerOpts0),
+    ServerOpts2 = proplists:delete(certfile, ServerOpts1),
+    ServerOpts = proplists:delete(keyfile, ServerOpts2),
+    [{cacertfile, NewCaCertFile}, {certfile, NewCertFile},
+     {keyfile, NewKeyFile} | ServerOpts].
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions

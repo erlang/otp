@@ -30,7 +30,7 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([master_secret/4, client_hello/5, server_hello/4, hello/4,
+-export([master_secret/4, client_hello/6, server_hello/4, hello/4,
 	 hello_request/0, certify/6, certificate/3,
 	 client_certificate_verify/5, certificate_verify/5,
 	 certificate_request/2, key_exchange/2, server_key_exchange_hash/2,
@@ -49,13 +49,13 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(host(), port_num(), #connection_states{},
-		   #ssl_options{}, boolean()) -> #client_hello{}.
+		   #ssl_options{}, boolean(), der_cert()) -> #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
 							ciphers = UserSuites} 
-	     = SslOpts, Renegotiation) ->
+	     = SslOpts, Renegotiation, OwnCert) ->
     
     Fun = fun(Version) ->
 		  ssl_record:protocol_version(Version)
@@ -65,7 +65,7 @@ client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
     SecParams = Pending#connection_state.security_parameters,
     Ciphers = available_suites(UserSuites, Version),
 
-    Id = ssl_manager:client_session_id(Host, Port, SslOpts),
+    Id = ssl_manager:client_session_id(Host, Port, SslOpts, OwnCert),
 
     #client_hello{session_id = Id, 
 		  client_version = Version,
@@ -571,7 +571,7 @@ select_session(Hello, Port, Session, Version,
 	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
     SuggestedSessionId = Hello#client_hello.session_id,
     SessionId = ssl_manager:server_session_id(Port, SuggestedSessionId, 
-					      SslOpts),
+					      SslOpts, Cert),
     
     Suites = available_suites(Cert, UserSuites, Version), 
     case ssl_session:is_new(SuggestedSessionId, SessionId) of

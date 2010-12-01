@@ -70,7 +70,7 @@
 	  %% {{md5_hash, sha_hash}, {prev_md5, prev_sha}} (binary())
           tls_handshake_hashes, % see above 
           tls_cipher_texts,     % list() received but not deciphered yet
-          own_cert,             % binary()  
+          own_cert,             % binary() | undefined
           session,              % #session{} from ssl_handshake.hrl
 	  session_cache,        % 
 	  session_cache_cb,     %
@@ -304,8 +304,10 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 
     try ssl_init(SSLOpts0, Role) of
 	{ok, Ref, CacheRef, OwnCert, Key, DHParams} ->	   
+	    Session = State0#state.session,
 	    State = State0#state{tls_handshake_hashes = Hashes0,
 				 own_cert = OwnCert,
+				 session = Session#session{own_certificate = OwnCert},
 				 cert_db_ref = Ref,
 				 session_cache = CacheRef,
 				 private_key = Key,
@@ -331,6 +333,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 %%--------------------------------------------------------------------
 hello(start, #state{host = Host, port = Port, role = client,
 		    ssl_options = SslOpts, 
+		    own_cert = Cert,
 		    transport_cb = Transport, socket = Socket,
 		    connection_states = ConnectionStates,
 		    renegotiation = {Renegotiation, _}}
@@ -338,7 +341,7 @@ hello(start, #state{host = Host, port = Port, role = client,
 
     Hello = ssl_handshake:client_hello(Host, Port, 
 				       ConnectionStates, 
-				       SslOpts, Renegotiation),
+				       SslOpts, Renegotiation, Cert),
 
     Version = Hello#client_hello.client_version,
     Hashes0 = ssl_handshake:init_hashes(),
@@ -678,6 +681,7 @@ cipher(Msg, State) ->
 %%--------------------------------------------------------------------
 connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
+				    own_cert = Cert,
 				    ssl_options = SslOpts,
 				    negotiated_version = Version,
 				    transport_cb = Transport,
@@ -686,7 +690,7 @@ connection(#hello_request{}, #state{host = Host, port = Port,
 				    tls_handshake_hashes = Hashes0} = State0) ->
    
     Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates0,
-				       SslOpts, Renegotiation),
+				       SslOpts, Renegotiation, Cert),
   
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Hello, Version, ConnectionStates0, Hashes0),
