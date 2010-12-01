@@ -48,7 +48,7 @@ end_per_testcase(_TestCase, _Config) ->
     ok.
 
 groups() ->
-    [{group1,[],[test_case1,test_case2,test_case3]}].
+    [{group1,[parallel],[{group2,[parallel],[test_case1,test_case2,test_case3]}]}].
 
 all() ->
     [{group,group1}].

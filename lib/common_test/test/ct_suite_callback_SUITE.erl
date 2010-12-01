@@ -682,20 +682,24 @@ test_events(state_update_scb) ->
      {?eh,scb,{'_',terminate,[contains(
 				[post_end_per_suite,pre_end_per_suite,
 				 post_end_per_group,pre_end_per_group,
-				 post_end_per_testcase,pre_init_per_testcase,
-				 on_tc_skip,post_end_per_testcase,
-				 pre_init_per_testcase,on_tc_fail,
-				 post_end_per_testcase,pre_init_per_testcase,
+				 {not_in_order,
+				  [post_end_per_testcase,pre_init_per_testcase,
+				   on_tc_skip,post_end_per_testcase,
+				   pre_init_per_testcase,on_tc_fail,
+				   post_end_per_testcase,pre_init_per_testcase]
+				 },
 				 post_init_per_group,pre_init_per_group,
 				 post_init_per_suite,pre_init_per_suite,
 				 init])]}},
      {?eh,scb,{'_',terminate,[contains(
 				[post_end_per_suite,pre_end_per_suite,
 				 post_end_per_group,pre_end_per_group,
-				 post_end_per_testcase,pre_init_per_testcase,
-				 on_tc_skip,post_end_per_testcase,
-				 pre_init_per_testcase,on_tc_fail,
-				 post_end_per_testcase,pre_init_per_testcase,
+				 {not_in_order,
+				  [post_end_per_testcase,pre_init_per_testcase,
+				   on_tc_skip,post_end_per_testcase,
+				   pre_init_per_testcase,on_tc_fail,
+				   post_end_per_testcase,pre_init_per_testcase]
+				 },
 				 post_init_per_group,pre_init_per_group,
 				 post_init_per_suite,pre_init_per_suite,
 				 init]
@@ -712,6 +716,10 @@ contains(List) ->
     fun(Proplist) when is_list(Proplist) ->
 	    contains(List,Proplist)
     end.
+
+contains([{not_in_order,List}|T],Rest) ->
+    contains_parallel(List,Rest),
+    contains(T,Rest);
 contains([{Ele,Pos}|T] = L,[H|T2]) ->
     case element(Pos,H) of
 	Ele ->
@@ -726,6 +734,12 @@ contains([Ele|T],[Ele|T2])->
 contains(List,[_|T]) ->
     contains(List,T);
 contains([],_) ->
+    match.
+
+contains_parallel([Key | T], Elems) ->
+    contains([Key],Elems),
+    contains_parallel(T,Elems);
+contains_parallel([],Elems) ->
     match.
 
 not_contains(List) ->

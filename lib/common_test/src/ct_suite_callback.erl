@@ -34,6 +34,8 @@
 -type proplist() :: [{atom(),term()}].
 
 -define(config_name, suite_callbacks).
+-define(LOCK_STATE_TIMEOUT, 500).
+-define(LOCK_NAME, '$ct_suite_callback_lock').
 
 %% -------------------------------------------------------------------------
 %% API Functions
@@ -69,7 +71,8 @@ init_tc(Mod, init_per_suite, Config) ->
     call(fun call_generic/3, Config, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_suite, Mod]);
-init_tc(_Mod, {init_per_group, GroupName, _}, Config) ->
+init_tc(Mod, {init_per_group, GroupName, Opts}, Config) ->
+    maybe_start_locker(Mod, GroupName, Opts),
     call(fun call_generic/3, Config, [pre_init_per_group, GroupName]);
 init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_group, GroupName]);
@@ -91,7 +94,7 @@ init_tc(_Mod, TC, Config) ->
 end_tc(ct_framework, _Func, _Args, Result, _Return) ->
     Result;
 
-end_tc(Mod, init_per_suite, Config, Result, Return) ->
+end_tc(Mod, init_per_suite, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config],
 	 '$ct_no_change');
 
@@ -99,13 +102,15 @@ end_tc(Mod, end_per_suite, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_suite, Mod, Config],
 	'$ct_no_change');
 
-end_tc(_Mod, {init_per_group, GroupName, _}, Config, Result, Return) ->
+end_tc(_Mod, {init_per_group, GroupName, _}, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config],
 	 '$ct_no_change');
 
-end_tc(_Mod, {end_per_group, GroupName, _}, Config, Result, _Return) ->
-    call(fun call_generic/3, Result, [post_end_per_group, GroupName, Config],
-	'$ct_no_change');
+end_tc(Mod, {end_per_group, GroupName, Opts}, Config, Result, _Return) ->
+    Res = call(fun call_generic/3, Result,
+	       [post_end_per_group, GroupName, Config], '$ct_no_change'),
+    maybe_stop_locker(Mod, GroupName,Opts),
+    Res;
 
 end_tc(_Mod, TC, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
@@ -142,9 +147,13 @@ call_generic({Mod, State}, Value, [Function | Args]) ->
 
 %% Generic call function
 call(Fun, Config, Meta) ->
+    maybe_lock(),
     CBs = get_callbacks(),
-    call([{CBId,Fun} || {CBId,_, _} <- CBs] ++ get_new_callbacks(Config, Fun),
-	     remove(?config_name,Config), Meta, CBs).
+    Res = call([{CBId,Fun} || {CBId,_, _} <- CBs] ++
+	       get_new_callbacks(Config, Fun),
+	       remove(?config_name,Config), Meta, CBs),
+    maybe_unlock(),
+    Res.
 
 call(Fun, Config, Meta, NoChangeRet) when is_function(Fun) ->
     case call(Fun,Config,Meta) of
@@ -255,3 +264,30 @@ catch_apply(M,F,A, Default) ->
 					   [M,F,length(A)]))})
 	    end
     end.
+
+
+%% We need to lock around the state for parallel groups only. This is because
+%% we will get several processes reading and writing the state for a single
+%% scb at the same time.
+maybe_start_locker(Mod,GroupName,Opts) ->
+    case lists:member(parallel,Opts) of
+	true ->
+	    {ok, _Pid} = ct_suite_callback_lock:start({Mod,GroupName});
+	false ->
+	    ok
+    end.
+
+maybe_stop_locker(Mod,GroupName,Opts) ->
+    case lists:member(parallel,Opts) of
+	true ->
+	    stopped = ct_suite_callback_lock:stop({Mod,GroupName});
+	false ->
+	    ok
+    end.
+
+
+maybe_lock() ->
+    locked = ct_suite_callback_lock:request().
+
+maybe_unlock() ->
+    unlocked = ct_suite_callback_lock:release().
