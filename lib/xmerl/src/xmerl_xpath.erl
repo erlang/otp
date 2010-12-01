@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,7 +57,9 @@
 %% @type option_list(). <p>Options allows to customize the behaviour of the
 %%     XPath scanner.
 %% </p>
+%% <p>
 %% Possible options are:
+%% </p>
 %% <dl>
 %%  <dt><code>{namespace, #xmlNamespace}</code></dt>
 %%    <dd>Set namespace nodes, from XmlNamspace, in xmlContext</dd>
