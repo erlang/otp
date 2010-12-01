@@ -1,26 +1,26 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
 -module(http_uri).
 
--export([parse/1]).
+-export([parse/1, encode/1, decode/1]).
 
 %%%=========================================================================
 %%%  API
@@ -34,9 +34,24 @@ parse(AbsURI) ->
 		{UserInfo, Host, Port, Path, Query} ->
 		    {Scheme, UserInfo, Host, Port, Path, Query};
 		_  ->
-		    {error, {malformed_url, AbsURI}}    
+		    {error, {malformed_url, AbsURI}}
 	    end
     end.
+
+encode(URI) ->
+    Reserved = sets:from_list([$;, $:, $@, $&, $=, $+, $,, $/, $?,
+			       $#, $[, $], $<, $>, $\", ${, $}, $|,
+			       $\\, $', $^, $%, $ ]),
+    lists:append(lists:map(fun(Char) ->
+				   uri_encode(Char, Reserved)
+			   end, URI)).
+
+decode([$%,Hex1,Hex2|Rest]) ->
+    [hex2dec(Hex1)*16+hex2dec(Hex2)|decode(Rest)];
+decode([First|Rest]) ->
+    [First|decode(Rest)];
+decode([]) ->
+    [].
 
 %%%========================================================================
 %%% Internal functions
@@ -56,7 +71,7 @@ parse_scheme(AbsURI) ->
 
 parse_uri_rest(Scheme, "//" ++ URIPart) ->
 
-    {Authority, PathQuery} = 
+    {Authority, PathQuery} =
 	case split_uri(URIPart, "/", URIPart, 1, 0) of
 	    Split = {_, _} ->
 		Split;
@@ -68,7 +83,7 @@ parse_uri_rest(Scheme, "//" ++ URIPart) ->
 			{URIPart,""}
 		end
 	end,
-    
+
     {UserInfo, HostPort} = split_uri(Authority, "@", {"", Authority}, 1, 1),
     {Host, Port} = parse_host_port(Scheme, HostPort),
     {Path, Query} = parse_path_query(PathQuery),
@@ -78,7 +93,6 @@ parse_uri_rest(Scheme, "//" ++ URIPart) ->
 parse_path_query(PathQuery) ->
     {Path, Query} =  split_uri(PathQuery, "\\?", {PathQuery, ""}, 1, 0),
     {path(Path), Query}.
-    
 
 parse_host_port(Scheme,"[" ++ HostPort) -> %ipv6
     DefaultPort = default_port(Scheme),
@@ -90,12 +104,12 @@ parse_host_port(Scheme, HostPort) ->
     DefaultPort = default_port(Scheme),
     {Host, Port} = split_uri(HostPort, ":", {HostPort, DefaultPort}, 1, 1),
     {Host, int_port(Port)}.
-    
+
 split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
     case inets_regexp:first_match(UriPart, SplitChar) of
 	{match, Match, _} ->
 	    {string:substr(UriPart, 1, Match - SkipLeft),
-	     string:substr(UriPart, Match + SkipRight, length(UriPart))}; 
+	     string:substr(UriPart, Match + SkipRight, length(UriPart))};
 	nomatch ->
 	    NoMatchResult
     end.
@@ -114,3 +128,15 @@ path("") ->
     "/";
 path(Path) ->
     Path.
+
+uri_encode(Char, Reserved) ->
+    case sets:is_element(Char, Reserved) of
+	true ->
+	    [ $% | http_util:integer_to_hexlist(Char)];
+	false ->
+	    [Char]
+    end.
+
+hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
+hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
+hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.

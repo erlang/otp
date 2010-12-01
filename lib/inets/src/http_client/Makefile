@@ -51,7 +51,6 @@ MODULES = \
 	httpc_profile_sup \
 	httpc_response \
 	httpc_request \
-	http_uri \
 
 HRL_FILES = httpc_internal.hrl
 

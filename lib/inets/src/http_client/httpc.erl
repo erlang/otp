@@ -442,18 +442,23 @@ handle_request(Method, Url,
 	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
 	    Receiver   = proplists:get_value(receiver, Options),
 	    SocketOpts = proplists:get_value(socket_opts, Options),
+	    UrlEncodeBool =  HTTPOptions#http_options.url_encode,
+	    MaybeEscPath = url_encode(Path, UrlEncodeBool),
+	    MaybeEscQuery = url_encode(Query, UrlEncodeBool),
+	    AbsUri  = url_encode(Url, UrlEncodeBool),
+
 	    Request = #request{from          = Receiver,
 			       scheme        = Scheme, 
 			       address       = {Host, Port},
-			       path          = Path, 
-			       pquery        = Query, 
+			       path          = MaybeEscPath,
+			       pquery        = MaybeEscQuery,
 			       method        = Method,
 			       headers       = HeadersRecord, 
 			       content       = {ContentType, Body},
 			       settings      = HTTPOptions, 
-			       abs_uri       = Url, 
+			       abs_uri       = AbsUri,
 			       userinfo      = UserInfo, 
-			       stream        = Stream, 
+			       stream        = Stream,
 			       headers_as_is = headers_as_is(Headers, Options),
 			       socket_opts   = SocketOpts, 
 			       started       = Started},
@@ -471,6 +476,10 @@ handle_request(Method, Url,
 	    Error
     end.
 
+url_encode(URI, true) ->
+    http_uri:encode(URI);
+url_encode(URI, false) ->
+    URI.
 
 handle_answer(RequestId, false, _) ->
     {ok, RequestId};
@@ -578,12 +587,8 @@ http_options_default() ->
 		     (_) ->
 			  error
 		  end,
-    AutoRedirectPost = fun(Value) when (Value =:= true) orelse 
-				       (Value =:= false) ->
-			       {ok, Value};
-			  (_) ->
-			       error
-		       end,
+    AutoRedirectPost =  boolfun(),
+
     SslPost = fun(Value) when is_list(Value) ->
 		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
 		 ({ssl, SslOptions}) when is_list(SslOptions) ->
@@ -601,12 +606,8 @@ http_options_default() ->
 		       (_) ->
 			    error
 		    end,
-    RelaxedPost = fun(Value) when (Value =:= true) orelse 
-				  (Value =:= false) ->
-			  {ok, Value};
-		     (_) ->
-			  error
-		  end,
+    RelaxedPost =  boolfun(),
+
     ConnTimeoutPost = 
 	fun(Value) when is_integer(Value) andalso (Value >= 0) ->
 		{ok, Value};
@@ -615,6 +616,8 @@ http_options_default() ->
 	   (_) ->
 		error
 	end,
+
+    UrlDecodePost =  boolfun(),
     [
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
@@ -622,18 +625,21 @@ http_options_default() ->
      {ssl,             {value, {?HTTP_DEFAULT_SSL_KIND, []}}, #http_options.ssl,             SslPost},
      {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
      {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
+     {url_encode,      {value, false},                 #http_options.url_encode,      UrlDecodePost},
      %% this field has to be *after* the timeout option (as that field is used for the default value)
      {connect_timeout, {field, #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
     ].
 
+boolfun() ->
+    fun(Value) when (Value =:= true) orelse
+		    (Value =:= false) ->
+	    {ok, Value};
+       (_) ->
+	    error
+    end.
 
 request_options_defaults() ->
-    VerifyBoolean = 
-	fun(Value) when ((Value =:= true) orelse (Value =:= false)) ->
-		ok;
-	   (_) ->
-		error
-	end,
+    VerifyBoolean = boolfun(),
 
     VerifySync = VerifyBoolean,
 

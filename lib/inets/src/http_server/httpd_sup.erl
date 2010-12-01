@@ -37,7 +37,7 @@
 
 -define(TIMEOUT, 15000).
 -include("httpd_internal.hrl").
-
+-include("inets_internal.hrl").
 
 %%%=========================================================================
 %%%  API

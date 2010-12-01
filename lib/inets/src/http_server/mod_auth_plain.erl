@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,6 +22,8 @@
 -include("httpd.hrl").
 -include("mod_auth.hrl").
 -include("httpd_internal.hrl").
+-include("inets_internal.hrl").
+
 
 -define(VMODULE,"AUTH_PLAIN").
 

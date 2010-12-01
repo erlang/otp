@@ -31,8 +31,8 @@
 	 validate_properties/1]).
 
 -define(VMODULE,"CONF").
--include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include("httpd.hrl").
 -include_lib("inets/src/http_lib/http_internal.hrl").
 
 

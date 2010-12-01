@@ -24,7 +24,6 @@
 
 -include("httpd.hrl").
 
-
 %% Behavior callbacks
 -export([
 	 start_standalone/1, 
@@ -271,8 +270,8 @@ foreach([KeyValue|Rest]) ->
   {ok, Plus2Space, _} = inets_regexp:gsub(KeyValue,"[\+]"," "),
   case inets_regexp:split(Plus2Space,"=") of
     {ok,[Key|Value]} ->
-      [{httpd_util:decode_hex(Key),
-	httpd_util:decode_hex(lists:flatten(Value))}|foreach(Rest)];
+      [{http_uri:decode(Key),
+	http_uri:decode(lists:flatten(Value))}|foreach(Rest)];
     {ok,_} ->
       foreach(Rest)
   end.

@@ -30,6 +30,7 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include("inets_internal.hrl").
 
 -define(VMODULE,"ESI").
 -define(DEFAULT_ERL_TIMEOUT,15000).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,9 +18,11 @@
 %%
 %%
 -module(mod_dir).
--export([do/1]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
+
+-export([do/1]).
 
 %% do
 
@@ -57,7 +59,7 @@ do_dir(Info) ->
     case file:read_file_info(DefaultPath) of
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
 	    DecodedRequestURI =
-		httpd_util:decode_hex(Info#mod.request_uri),
+		http_uri:decode(Info#mod.request_uri),
 	    ?DEBUG("do_dir -> ~n"
 		   "      Path:              ~p~n"
 		   "      DefaultPath:       ~p~n"

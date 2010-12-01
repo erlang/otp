@@ -45,7 +45,8 @@ MODULES = \
 	http_transport\
 	http_util \
 	http_request \
-	http_response
+	http_response \
+	http_uri
 
 HRL_FILES = http_internal.hrl
 

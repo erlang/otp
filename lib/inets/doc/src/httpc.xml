@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -172,7 +172,8 @@ ssl_options() = {verify,     code()}   |
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
-                           {relaxed,         boolean()}</v>
+                           {relaxed,         boolean()} |
+	                   {url_encode,      boolean()}</v>
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
@@ -276,6 +277,11 @@ ssl_options() = {verify,     code()}   |
             <p>Defaults to <c>false</c>. </p>
 	  </item>
 
+	  <tag><c><![CDATA[url_encode]]></c></tag>
+          <item>
+            <p>Will apply Percent-encoding, also known as URL encoding on the URL.</p>
+	    <p>Defaults to <c>false</c>. </p>
+	  </item>
         </taglist>
 
         <p>Option (<c>option()</c>) details: </p>
@@ -342,7 +348,7 @@ ssl_options() = {verify,     code()}   |
             <p>Socket options to be used for this and subsequent 
               request(s). </p>
             <p>Overrides any value set by the 
-              <seealso marker="set_options">set_options</seealso> 
+              <seealso marker="#set_options">set_options</seealso>
               function. </p>
             <p>Note that the validity of the options are <em>not</em>
               checked in any way. </p>
@@ -632,4 +638,3 @@ apply(Module, Function, [ReplyInfo | Args])
   </section>
   
 </erlref>
-

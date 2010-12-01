@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -421,7 +421,7 @@ bytes
 
         Beware of trailing space in Replacement that will be used.
         If you must have a space in Re use e.g the character encoding
-        <code>\040</code> see <seealso marker="re">re(3)</seealso>.
+        <code>\040</code> see <seealso marker="stdlib:re">re(3)</seealso>.
       </item>
 
       <tag>{directory_index, [string()]}</tag>
@@ -931,6 +931,10 @@ bytes
 		connection
 	}).
     </code>
+
+    <p>To acess the record in your callback-module use </p>
+    <code> -include_lib("inets/include/httpd.hrl"). </code>
+
     <p>The fields of the <c>mod</c> record has the following meaning:
       </p>
     <taglist>
@@ -978,10 +982,10 @@ bytes
       <c>parsed_header</c> contains all HTTP header fields from the
       HTTP-request stored in a list as key-value tuples. See RFC 2616
       for a listing of all header fields. For example the date field
-      would be stored as: <c>{"date","Wed, 15 Oct 1997 14:35:17 GMT"}.
+      would be stored as: <c>{"date","Wed, 15 Oct 1997 14:35:17 GMT"} </c>.
       RFC 2616 defines that HTTP is a case insensitive protocol and
       the header fields may be in lower case or upper case. Httpd will
-      ensure that all header field names are in lower case.  </c>.
+      ensure that all header field names are in lower case.
       </item>
       <tag><c>entity_body</c></tag>
       <item>The <c>Entity-Body</c> as defined

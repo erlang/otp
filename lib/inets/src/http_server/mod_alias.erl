@@ -29,6 +29,7 @@
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
+-include("inets_internal.hrl").
 
 -define(VMODULE,"ALIAS").
 
