@@ -594,7 +594,7 @@ has_links() ->
     case os:type() of
 	{win32,_} ->
 	    case os:version() of
-		{N,NN,_} when (N > 5) orelse (NN > 1) ->
+		{N,NN,_} when (N > 5) andalso (NN >= 1) ->
 		    true;
 		_ ->
 		    false
