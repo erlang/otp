@@ -232,7 +232,7 @@ send_integers(P) ->
     ?line send_term_as_binary(P, 16#80000000),  % SMALL_BIG_EXT new smallest pos(*)
     ?line send_term_as_binary(P,-16#80000001),	% SMALL_BIG_EXT new largest neg (*)
  
-    case erlang:system_info(wordsize) of
+    case erlang:system_info({wordsize,external}) of
 	4 ->	 
           ?line send_term_as_binary(P, 16#80000000),% SMALL_BIG_EXT u32
           ?line send_term_as_binary(P, 16#ffffffff),% SMALL_BIG_EXT largest u32

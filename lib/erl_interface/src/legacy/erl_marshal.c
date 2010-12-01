@@ -511,29 +511,28 @@ static int erl_term_len_helper(ETERM *ep, int dist)
 
     case ERL_INTEGER:
       i = ep->uval.ival.i;
-      if ((i > ERL_MAX) || (i < ERL_MIN)) len = 7;
-      else if ((i < 256) && (i >= 0)) len = 2; 
+      if ((i < 256) && (i >= 0)) len = 2; 
       else len = 5;
       break;
 
     case ERL_U_INTEGER:
       u = ep->uval.uival.u;
-      if (u > ERL_MAX) len = 7;
+      if ((int)u < 0) len = 7;
       else if (u  < 256) len = 2;
       else len = 5;
       break;
 
     case ERL_LONGLONG:
       l = ep->uval.llval.i;
-      if ((l > ((long long) ERL_MAX)) || 
-         (l < ((long long) ERL_MIN))) len = 11;
+      if ((l > ((long long) INT_MAX)) || 
+         (l < ((long long) INT_MIN))) len = 11;
       else if ((l < 256) && (l >= 0)) len = 2; 
       else len = 5;
       break;
 
     case ERL_U_LONGLONG:
       ul = ep->uval.ullval.u;
-      if (ul > ((unsigned long long) ERL_MAX)) len = 11;
+      if (ul > ((unsigned long long) INT_MAX)) len = 11;
       else if (ul  < 256) len = 2;
       else len = 5;
       break;
@@ -546,12 +545,7 @@ static int erl_term_len_helper(ETERM *ep, int dist)
 
     case ERL_REF:
       i = strlen((char *)ERL_REF_NODE(ep));
-      if (dist >= 4 && ERL_REF_LEN(ep) > 1) {
-	  len = 1 + 2 + (i+3) + 1 + ERL_REF_LEN(ep) * 4;
-      } else {
-	  /* 1 + N + 4 + 1 where N = 3 + strlen */
-	  len = 9 + i;
-      }
+      len = 1 + 2 + (i+3) + 1 + ERL_REF_LEN(ep) * 4;
       break;
 
     case ERL_PORT:
