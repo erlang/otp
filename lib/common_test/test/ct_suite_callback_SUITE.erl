@@ -76,7 +76,8 @@ all(suite) ->
        minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
        scope_per_group_scb, scope_suite_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
-       skip_post_suite_scb, recover_post_suite_scb, update_config_scb
+       skip_post_suite_scb, recover_post_suite_scb, update_config_scb,
+       state_update_scb
       ]).
 
 
@@ -143,6 +144,10 @@ recover_post_suite_scb(Config) ->
 update_config_scb(Config) ->
     do_test(update_config_scb, "ct_update_config_SUITE.erl",
 	    [update_config_scb],Config).
+
+state_update_scb(Config) ->
+    do_test(state_update_scb, "ct_scb_fail_one_skip_one_SUITE.erl",
+	    [state_update_scb,state_update_scb],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -664,6 +669,40 @@ test_events(update_config_scb) ->
      {?eh,stop_logging,[]}
     ];
 
+test_events(state_update_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{'_',init_per_suite}},
+     
+     {?eh,tc_done,{'_',end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{'_',terminate,[contains(
+				[post_end_per_suite,pre_end_per_suite,
+				 post_end_per_group,pre_end_per_group,
+				 post_end_per_testcase,pre_init_per_testcase,
+				 on_tc_skip,post_end_per_testcase,
+				 pre_init_per_testcase,on_tc_fail,
+				 post_end_per_testcase,pre_init_per_testcase,
+				 post_init_per_group,pre_init_per_group,
+				 post_init_per_suite,pre_init_per_suite,
+				 init])]}},
+     {?eh,scb,{'_',terminate,[contains(
+				[post_end_per_suite,pre_end_per_suite,
+				 post_end_per_group,pre_end_per_group,
+				 post_end_per_testcase,pre_init_per_testcase,
+				 on_tc_skip,post_end_per_testcase,
+				 pre_init_per_testcase,on_tc_fail,
+				 post_end_per_testcase,pre_init_per_testcase,
+				 post_init_per_group,pre_init_per_group,
+				 post_init_per_suite,pre_init_per_suite,
+				 init]
+			       )]}},
+     {?eh,stop_logging,[]}
+    ];
+
 test_events(ok) ->
     ok.
 
@@ -681,6 +720,8 @@ contains([{Ele,Pos}|T] = L,[H|T2]) ->
 	    contains(L,T2)
     end;
 contains([Ele|T],[{Ele,_}|T2])->
+    contains(T,T2);
+contains([Ele|T],[Ele|T2])->
     contains(T,T2);
 contains(List,[_|T]) ->
     contains(List,T);
