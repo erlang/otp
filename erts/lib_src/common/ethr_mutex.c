@@ -205,9 +205,14 @@ static void hard_debug_chk_q__(struct ethr_mutex_base_ *, int);
 
 #ifdef ETHR_USE_OWN_RWMTX_IMPL__
 static void
+rwmutex_transfer_read_lock(ethr_rwmutex *rwmtx,
+			   long initial,
+			   int q_locked);
+static void
 rwmutex_unlock_wake(ethr_rwmutex *rwmtx,
 		    int have_w,
-		    long initial);
+		    long initial,
+		    int transfer_read_lock);
 static int
 rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 			     long initial,
@@ -334,7 +339,7 @@ rwmutex_freqread_rdrs_read(ethr_rwmutex *rwmtx, int ix)
 	ETHR_ASSERT(res >= 0);
 	break;
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ:
-	ETHR_ASSERT(res == 0 || res == 1);
+	ETHR_ASSERT(ix == 0 ? res >= 0 : (res == 0 || res == 1));
 	break;
     default:
 	ETHR_ASSERT(0);
@@ -400,6 +405,7 @@ event_wait(struct ethr_mutex_base_ *mtxb,
     int locked = 0;
     long act;
     int need_try_complete_runlock = 0;
+    int transfer_read_lock = 0;
 
     /* Need to enqueue and wait... */
 
@@ -444,8 +450,8 @@ event_wait(struct ethr_mutex_base_ *mtxb,
 
 	while (1) {
 	    long new, exp = act;
-	    int freqread_tryrlock = 0;
 	    need_try_complete_runlock = 0;
+	    transfer_read_lock = 0;
 
 	    if (type == ETHR_RWMTX_W_WAIT_FLG__) {
 		if (is_freq_read && act == ETHR_RWMTX_R_FLG__)
@@ -465,14 +471,11 @@ event_wait(struct ethr_mutex_base_ *mtxb,
 			new = act + 1; /* Try to get it */
 		}
 		else {
-		    if (act & ~ETHR_RWMTX_R_FLG__)
-			new = act | ETHR_RWMTX_R_WAIT_FLG__;
-		    else { /* Try to get it */
-			ethr_rwmutex *rwmtx = (ethr_rwmutex *) mtxb;
-			rwmutex_freqread_rdrs_inc(rwmtx, tse);
-			ETHR_MEMORY_BARRIER;
-			new = act | ETHR_RWMTX_R_FLG__;
-			freqread_tryrlock = 1;
+		    new = act | ETHR_RWMTX_R_WAIT_FLG__;
+		    if ((act & (ETHR_RWMTX_W_FLG__
+				| ETHR_RWMTX_W_WAIT_FLG__)) == 0) {
+			/* Transfer read lock to this thread. */
+			transfer_read_lock = 1;
 		    }
 		}
 	    }
@@ -487,24 +490,6 @@ event_wait(struct ethr_mutex_base_ *mtxb,
 		    /* Got it */
 		    goto done;
 		}
-	    }
-
-	    if (freqread_tryrlock) {
-		ethr_rwmutex *rwmtx = (ethr_rwmutex *) mtxb;
-
-		/* We didn't set ETHR_RWMTX_R_FLG__, however someone
-		   else might have */
-		if (act == ETHR_RWMTX_R_FLG__)
-		    goto done; /* Got it by help from someone else */
-
-		ETHR_ASSERT((act & ETHR_RWMTX_WAIT_FLGS__) == 0);
-		/*
-		 * We know that no waiter flags have been set, i.e.,
-		 * we cannot get into a situation where we need to wake
-		 * someone up here. Just restore the readers counter
-		 * and do it over again...
-		 */
-		rwmutex_freqread_rdrs_dec(rwmtx, tse);
 	    }
 	}
 
@@ -535,20 +520,36 @@ event_wait(struct ethr_mutex_base_ *mtxb,
 
     /* Wait */
     locked = 0;
-    ETHR_MTX_Q_UNLOCK(&mtxb->qlck);
 
-    if (need_try_complete_runlock) {
+    ETHR_ASSERT(!(transfer_read_lock && need_try_complete_runlock));
+
+    if (transfer_read_lock) {
 	ETHR_ASSERT(((ethr_rwmutex *) mtxb)->type
 		    != ETHR_RWMUTEX_TYPE_NORMAL);
 	/*
-	 * We were the only one in queue when we enqueued, and it
-	 * was seemingly read locked. We need to try to complete a
-	 * runlock otherwise we might be hanging forever. If the
-	 * runlock could be completed we will be dequeued and
-	 * woken by ourselves.
+	 * We are the only one in the queue and we are not write
+	 * locked; rwmutex_transfer_read_lock() will:
+	 * - transfer a read lock to us (since we're first in q)
+	 * - unlock the Q-lock
 	 */
-	rwmutex_try_complete_runlock((ethr_rwmutex *) mtxb,
-				     act, tse, 0, 1, 0);
+	rwmutex_transfer_read_lock(((ethr_rwmutex *) mtxb), act, 1);
+    }
+    else {
+	ETHR_MTX_Q_UNLOCK(&mtxb->qlck);
+
+	if (need_try_complete_runlock) {
+	    ETHR_ASSERT(((ethr_rwmutex *) mtxb)->type
+			!= ETHR_RWMUTEX_TYPE_NORMAL);
+	    /*
+	     * We were the only one in queue when we enqueued, and it
+	     * was seemingly read locked. We need to try to complete a
+	     * runlock otherwise we might be hanging forever. If the
+	     * runlock could be completed we will be dequeued and
+	     * woken by ourselves.
+	     */
+	    rwmutex_try_complete_runlock((ethr_rwmutex *) mtxb,
+					 act, tse, 0, 1, 0);
+	}
     }
 
     while (1) {
@@ -653,8 +654,6 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
     ethr_ts_event *tse = NULL;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
     int res;
-    int freq_read_size = -1;
-    int freq_read_start_ix = -1;
 
     ETHR_ASSERT(!is_freq_read || is_rwmtx);
 
@@ -666,44 +665,23 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
      */
 
     while (1) {
-	long exp;
-
 	while (act != 0) {
 
 	    if (is_freq_read && act == ETHR_RWMTX_R_FLG__) {
 		ethr_rwmutex *rwmtx = (ethr_rwmutex *) mtxb;
+		scnt--;
 		if (!tse)
 		    tse = ethr_get_ts_event();
-		if (freq_read_size < 0) {
-		    if (rwmtx->type == ETHR_RWMUTEX_TYPE_FREQUENT_READ) {
-			freq_read_size = reader_groups_array_size;
-			freq_read_start_ix = tse->rgix;
-		    }
-		    else {
-			freq_read_size = main_threads_array_size;
-			freq_read_start_ix = tse->mtix;
-		    }
-		}
-		res = check_readers_array(rwmtx,
-					  freq_read_start_ix,
-					  freq_read_size);
-		scnt--;
-		if (res == 0) {
-		    act = ethr_atomic_read(&mtxb->flgs);
-		    if (act & ETHR_RWMTX_R_MASK__) {
-			res = rwmutex_try_complete_runlock(rwmtx, act,
-							   tse, 0, 0,
-							   1);
-			if (res != EBUSY)
-			    goto done; /* Got it */
-		    }
-		    if (scnt <= 0)
-			goto chk_spin;
-		    if (--until_yield == 0) {
-			until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-			ETHR_YIELD();
-		    }
-		    continue;
+		res = rwmutex_try_complete_runlock(rwmtx, act,
+						   tse, 0, 0,
+						   1);
+		if (res != EBUSY)
+		    goto done; /* Got it */
+		if (scnt <= 0)
+		    goto chk_spin;
+		if (--until_yield == 0) {
+		    until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
+		    ETHR_YIELD();
 		}
 	    }
 
@@ -728,11 +706,9 @@ write_lock_wait(struct ethr_mutex_base_ *mtxb,
 	    scnt--;
 	}
 
-	exp = act;
-
 	act = ethr_atomic_cmpxchg_acqb(&mtxb->flgs,
 				       ETHR_RWMTX_W_FLG__,
-				       exp);
+				       0);
 	if (act == 0)
 	    goto done; /* Got it */
     }
@@ -753,6 +729,7 @@ mtxb_init(struct ethr_mutex_base_ *mtxb,
 #ifdef ETHR_MTX_HARD_DEBUG_WSQ
     mtxb->ws = 0;
 #endif
+    ETHR_MTX_CHK_EXCL_INIT(mtxb);
     if (no_spin) {
 	mtxb->main_scnt = 0;
 	mtxb->aux_scnt = 0;
@@ -1254,7 +1231,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
     ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(&mtx->mtxb);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(cnd);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
-
+    ETHR_MTX_CHK_EXCL_SET_EXCL(&mtx->mtxb);
     tse->udata = udata;
     ethr_leave_ts_event(tse);
     return 0;
@@ -1499,7 +1476,62 @@ int check_readers_array(ethr_rwmutex *rwmtx,
     return 0;
 }
 
-static ETHR_INLINE void
+static void
+rwmutex_freqread_rdrs_dec_chk_wakeup(ethr_rwmutex *rwmtx,
+				     ethr_ts_event *tse,
+				     long initial)
+{
+    long act = initial;
+
+    if ((act & (ETHR_RWMTX_W_FLG__|
+		ETHR_RWMTX_R_ABRT_UNLCK_FLG__)) == 0) {
+	if ((act & ETHR_RWMTX_WAIT_FLGS__) == 0) {
+	    if (act & ETHR_RWMTX_R_PEND_UNLCK_MASK__) {
+		/*
+		 * We *need* to try to complete the runlock.
+		 * A writer that just enqueued (not seen by us
+		 * in flag field) may depend on someone else
+		 * completing the runlock. We just took over
+		 * that responsibilty since we modified reader
+		 * groups.
+		 */
+		rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 0, 0);
+	    }
+	}
+	else if ((act & ETHR_RWMTX_WAIT_FLGS__) == ETHR_RWMTX_R_WAIT_FLG__)
+	    rwmutex_transfer_read_lock(rwmtx, act, 0);
+	else if ((act & ETHR_RWMTX_WAIT_FLGS__) == ETHR_RWMTX_W_WAIT_FLG__)
+	    rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 0, 0);
+	else {
+	    /*
+	     * Don't know if we got readers or writers
+	     * first in queue; need to peek
+	     */
+	    ETHR_MTX_Q_LOCK(&rwmtx->mtxb.qlck);
+	    if (!rwmtx->mtxb.q)
+		ETHR_MTX_Q_UNLOCK(&rwmtx->mtxb.qlck);
+	    else if (is_w_waiter(rwmtx->mtxb.q)) {
+		act = ethr_atomic_read(&rwmtx->mtxb.flgs);
+		ETHR_MTX_Q_UNLOCK(&rwmtx->mtxb.qlck);
+		if ((act & ETHR_RWMTX_W_FLG__) == 0)
+		    rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 0, 0);
+	    }
+	    else {
+		/*
+		 * rwmutex_transfer_read_lock() will
+		 * unlock Q lock.
+		 */
+		act = ethr_atomic_read(&rwmtx->mtxb.flgs);
+		if (act & ETHR_RWMTX_W_FLG__)
+		    ETHR_MTX_Q_UNLOCK(&rwmtx->mtxb.qlck);
+		else
+		    rwmutex_transfer_read_lock(rwmtx, act, 1);
+	    }
+	}
+    }
+}
+
+static void
 rwmutex_freqread_restore_failed_tryrlock(ethr_rwmutex *rwmtx,
 					 ethr_ts_event *tse)
 {
@@ -1509,24 +1541,11 @@ rwmutex_freqread_restore_failed_tryrlock(ethr_rwmutex *rwmtx,
      */
     act = rwmutex_freqread_rdrs_dec_read(rwmtx, tse);
 
-    ETHR_WRITE_MEMORY_BARRIER;
+    ETHR_MEMORY_BARRIER;
 
     if (act == 0) {
-
-#ifndef ETHR_WRITE_MEMORY_BARRIER_IS_FULL
-	ETHR_READ_MEMORY_BARRIER;
-#endif
-
 	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
-
-	if ((act & ETHR_RWMTX_W_FLG__) == 0
-	    && act & (ETHR_RWMTX_WAIT_FLGS__|ETHR_RWMTX_R_PEND_UNLCK_MASK__)) {
-	    /*
-	     * We either got waiters, or someone else trying
-	     * to read unlock which we might have to help.
-	     */
-	    rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 1, 0);
-	}
+	rwmutex_freqread_rdrs_dec_chk_wakeup(rwmtx, tse, act);
     }
 }
 
@@ -1542,12 +1561,16 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
     long act = initial;
     int six, res, length;
 
+    ETHR_ASSERT((act & ETHR_RWMTX_W_FLG__) == 0);
+
+    if (act & ETHR_RWMTX_R_ABRT_UNLCK_FLG__)
+	return try_write_lock ? EBUSY : 0;
+
     tse_tmp = tse;
     if (!tse_tmp)
 	tse_tmp = ethr_get_ts_event();
 
-    if ((act & ETHR_RWMTX_WAIT_FLGS__)
-	&& (act & ~ETHR_RWMTX_WAIT_FLGS__) == 0)
+    if ((act & ETHR_RWMTX_WAIT_FLGS__) && (act & ~ETHR_RWMTX_WAIT_FLGS__) == 0)
 	goto check_waiters;
 
     if (rwmtx->type == ETHR_RWMUTEX_TYPE_FREQUENT_READ) {
@@ -1569,13 +1592,20 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 
     if (check_before_try) {
 	res = check_readers_array(rwmtx, six, length);
+
+	ETHR_MEMORY_BARRIER;
+
 	if (res == EBUSY)
 	    return try_write_lock ? EBUSY : 0;
     }
 
+ restart:
+
     while (1) {
 	long exp = act;
 	long new = act+1;
+
+	ETHR_ASSERT((act & ETHR_RWMTX_R_ABRT_UNLCK_FLG__) == 0);
 
 	ETHR_ASSERT((act & ETHR_RWMTX_R_PEND_UNLCK_MASK__)
 		    < ETHR_RWMTX_R_PEND_UNLCK_MASK__);
@@ -1585,8 +1615,10 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 	    act = new;
 	    break;
 	}
+
 	if (!try_write_lock) {
-	    if (act == ETHR_RWMTX_W_FLG__ || act == 0)
+	    if (act == 0 || (act & (ETHR_RWMTX_W_FLG__
+				    | ETHR_RWMTX_R_ABRT_UNLCK_FLG__)))
 		return 0;
 	    if ((act & ETHR_RWMTX_WAIT_FLGS__) == 0) {
 		if ((act & ETHR_RWMTX_R_FLG__) == 0)
@@ -1601,33 +1633,50 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
 	else {
 	    if (act == 0)
 		goto tryrwlock;
-	    if (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_WAIT_FLGS__))
+	    if (act & (ETHR_RWMTX_W_FLG__
+		       | ETHR_RWMTX_R_ABRT_UNLCK_FLG__))
 		return EBUSY;
 	}
     }
 
     res = check_readers_array(rwmtx, six, length);
-    if (res == EBUSY) {
-	act = ethr_atomic_dec_read(&rwmtx->mtxb.flgs);
-	if (act & ETHR_RWMTX_R_MASK__)
-	    return try_write_lock ? EBUSY : 0;
-    }
-    else {
-	while (1) {
-	    long exp = act;
-	    long new = act;
-	    new &= ~ETHR_RWMTX_R_FLG__;
-	    new--;
 
-	    ETHR_ASSERT(act & ETHR_RWMTX_R_PEND_UNLCK_MASK__);
+    ETHR_MEMORY_BARRIER;
 
-	    act = ethr_atomic_cmpxchg(&rwmtx->mtxb.flgs, new, exp);
-	    if (exp == act) {
-		if (new & ETHR_RWMTX_R_PEND_UNLCK_MASK__)
-		    return try_write_lock ? EBUSY : 0;
-		act = new;
-		break;
+    ETHR_ASSERT((act & ETHR_RWMTX_W_FLG__) == 0);
+
+    while (1) {
+	int finished_abort = 0;
+	long exp = act;
+	long new = act;
+
+	new--;
+	if (act & ETHR_RWMTX_R_ABRT_UNLCK_FLG__) {
+	    if ((new & ETHR_RWMTX_R_PEND_UNLCK_MASK__) == 0) {
+		new &= ~ETHR_RWMTX_R_ABRT_UNLCK_FLG__;
+		finished_abort = 1;
 	    }
+	    ETHR_ASSERT(act & ETHR_RWMTX_R_FLG__);
+	}
+	else if ((act & ETHR_RWMTX_R_FLG__) && res != EBUSY) {
+	    new &= ~ETHR_RWMTX_R_FLG__;
+	}
+
+	ETHR_ASSERT(act & ETHR_RWMTX_R_PEND_UNLCK_MASK__);
+
+	act = ethr_atomic_cmpxchg(&rwmtx->mtxb.flgs, new, exp);
+	if (exp == act) {
+	    act = new;
+	    if (act & ETHR_RWMTX_W_FLG__)
+		return try_write_lock ? EBUSY : 0;
+	    if (finished_abort && (act & ETHR_RWMTX_WAIT_FLGS__))
+		goto restart;
+	    if (act & (ETHR_RWMTX_R_FLG__
+		       | ETHR_RWMTX_R_ABRT_UNLCK_FLG__
+		       | ETHR_RWMTX_R_PEND_UNLCK_MASK__))
+		return try_write_lock ? EBUSY : 0;
+	    /* Read unlock completed */
+	    break;
 	}
     }
 
@@ -1637,12 +1686,9 @@ rwmutex_try_complete_runlock(ethr_rwmutex *rwmtx,
      * to write lock it).
      */
 
-    if (act & ETHR_RWMTX_W_FLG__)
-	return try_write_lock ? EBUSY : 0;
-
     if (act & ETHR_RWMTX_WAIT_FLGS__) {
     check_waiters:
-	rwmutex_unlock_wake(rwmtx, 0, act);
+	rwmutex_unlock_wake(rwmtx, 0, act, 0);
 	return try_write_lock ? EBUSY : 0;
     }
 
@@ -1670,7 +1716,7 @@ rwmutex_incdec_restore_failed_tryrlock(ethr_rwmutex *rwmtx)
     act = ethr_atomic_dec_read(&rwmtx->mtxb.flgs);
     if ((act & ETHR_RWMTX_WAIT_FLGS__)
 	&& (act & ~ETHR_RWMTX_WAIT_FLGS__) == 0) {
-	rwmutex_unlock_wake(rwmtx, 0, act);
+	rwmutex_unlock_wake(rwmtx, 0, act, 0);
     }
 }
 
@@ -1700,7 +1746,7 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx,
 #endif
 
 	while (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
-	    if (scnt >= 0) {
+	    if (scnt <= 0) {
 		tse = ethr_get_ts_event();
 		if (update_spincount(&rwmtx->mtxb, tse, &start_scnt, &scnt)) {
 		    event_wait(&rwmtx->mtxb, tse, scnt,
@@ -1736,10 +1782,83 @@ rwmutex_normal_rlock_wait(ethr_rwmutex *rwmtx,
 
 static void
 rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
-			    ethr_ts_event *tse,
-			    long initial)
+			    ethr_ts_event *tse);
+
+static int
+rwmutex_freqread_rlock(ethr_rwmutex *rwmtx, ethr_ts_event *tse, int trylock)
 {
-    long act = initial;
+    int res = 0;
+    long act;
+
+    rwmutex_freqread_rdrs_inc(rwmtx, tse);
+
+    ETHR_MEMORY_BARRIER;
+
+    act = ethr_atomic_read_acqb(&rwmtx->mtxb.flgs);
+
+    if (act != ETHR_RWMTX_R_FLG__) {
+	int wake_other_readers;
+
+	while (1) {
+	    long exp, new;
+
+	    wake_other_readers = 0;
+
+	    if (act == 0)
+		new = act | ETHR_RWMTX_R_FLG__;
+	    else if (act == ETHR_RWMTX_R_FLG__)
+		break; /* Got it */
+	    else if (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
+		rwmutex_freqread_restore_failed_tryrlock(rwmtx, tse);
+		if (trylock)
+		    res = EBUSY;
+		else
+		    rwmutex_freqread_rlock_wait(rwmtx, tse);
+		break;
+	    }
+	    else if (act & ETHR_RWMTX_R_ABRT_UNLCK_FLG__) {
+		if ((act & ETHR_RWMTX_R_FLG__) == 0)
+		    ETHR_FATAL_ERROR__(EFAULT);
+		/*
+		 * An aborted runlock, not write locked, and no write
+		 * waiters, i.e., we got it...
+		 */
+		if (act & ETHR_RWMTX_R_WAIT_FLG__)
+		    wake_other_readers = 1;
+		break;
+	    }
+	    else {
+		new = act | ETHR_RWMTX_R_FLG__;
+		if (act & ETHR_RWMTX_R_PEND_UNLCK_MASK__) {
+		    /*
+		     * Someone is doing tryrwlock (no writer and no
+		     * write waiters); we will try to abort that...
+		     */
+		    new |= ETHR_RWMTX_R_ABRT_UNLCK_FLG__;
+		}
+
+		if (act & ETHR_RWMTX_R_WAIT_FLG__)
+		    wake_other_readers = 1;
+	    }
+
+	    exp = act;
+	    act = ethr_atomic_cmpxchg_acqb(&rwmtx->mtxb.flgs, new, exp);
+	    if (act == exp)
+		break;
+	}
+
+	if (wake_other_readers)
+	    rwmutex_transfer_read_lock(rwmtx, act, 0);
+    }
+
+    return res;
+}
+
+static void
+rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
+			    ethr_ts_event *tse)
+{
+    long act;
     int scnt, start_scnt;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
@@ -1752,12 +1871,10 @@ rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
 
     while (1) {
 
-	rwmutex_freqread_restore_failed_tryrlock(rwmtx, tse);
-
 	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
 
-	while (act & ~(ETHR_RWMTX_R_FLG__|ETHR_RWMTX_R_WAIT_FLG__)) {
-	    if (scnt >= 0) {
+	while (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
+	    if (scnt <= 0) {
 		if (update_spincount(&rwmtx->mtxb, tse, &start_scnt, &scnt)) {
 		    event_wait(&rwmtx->mtxb, tse, scnt,
 			       ETHR_RWMTX_R_WAIT_FLG__, 1, 1);
@@ -1773,30 +1890,8 @@ rwmutex_freqread_rlock_wait(ethr_rwmutex *rwmtx,
 	    scnt--;
 	}
 
-	rwmutex_freqread_rdrs_inc(rwmtx, tse);
-
-	ETHR_MEMORY_BARRIER;
-
-	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
-
-	if (act == ETHR_RWMTX_R_FLG__)
-	    return; /* Got it */
-
-	while (1) {
-	    long exp, new;
-
-	    if (act & ~(ETHR_RWMTX_R_FLG__|ETHR_RWMTX_R_WAIT_FLG__))
-		break; /* Busy (need to restore inc) */
-
-	    if (act & ETHR_RWMTX_R_FLG__)
-		return; /* Got it */
-
-	    exp = act;
-	    new = act | ETHR_RWMTX_R_FLG__;
-	    act = ethr_atomic_cmpxchg(&rwmtx->mtxb.flgs, new, exp);
-	    if (act == exp)
-		return; /* Got it */
-	}
+	if (rwmutex_freqread_rlock(rwmtx, tse, 1) != EBUSY)
+	    break; /* Got it */
     }
 }
 
@@ -1816,14 +1911,23 @@ static ETHR_INLINE void
 rwlock_wake_set_flags(ethr_rwmutex *rwmtx, long new_initial, int act_initial)
 {
     long act, act_mask;
+    int chk_abrt_flg;
+
+    ETHR_MEMORY_BARRIER;
+
     if (rwmtx->type != ETHR_RWMUTEX_TYPE_NORMAL) {
 	/* r pend unlock mask may vary and must be retained */
 	act_mask = ETHR_RWMTX_R_PEND_UNLCK_MASK__;
+	if (new_initial & ETHR_RWMTX_R_FLG__)
+	    chk_abrt_flg = 1;
+	else
+	    chk_abrt_flg = 0;
     }
     else {
 #ifdef ETHR_RLOCK_WITH_INC_DEC
 	/* rs mask may vary and must be retained */
 	act_mask = ETHR_RWMTX_RS_MASK__;
+	chk_abrt_flg = 0;
 #else
 	/* rs mask always zero */
 	ETHR_ASSERT((act_initial & ETHR_RWMTX_RS_MASK__) == 0);
@@ -1836,6 +1940,8 @@ rwlock_wake_set_flags(ethr_rwmutex *rwmtx, long new_initial, int act_initial)
     while (1) {
 	long exp = act;
 	long new = new_initial + (act & act_mask);
+	if (chk_abrt_flg && (act & act_mask))
+	    new |= ETHR_RWMTX_R_ABRT_UNLCK_FLG__;
 	act = ethr_atomic_cmpxchg(&rwmtx->mtxb.flgs, new, exp);
 	if (act == exp)
 	    break;
@@ -1883,6 +1989,14 @@ dbg_unlock_wake(ethr_rwmutex *rwmtx,
 	exp |= ETHR_RWMTX_R_WAIT_FLG__;
 	if (rwmtx->rq_end->next != rwmtx->mtxb.q)
 	    exp |= ETHR_RWMTX_W_WAIT_FLG__;
+	else if (exp == ETHR_RWMTX_R_WAIT_FLG__) {
+	    if (!have_w) {
+		if (rwmtx->type != ETHR_RWMUTEX_TYPE_NORMAL)
+		    imask |= ETHR_RWMTX_R_FLG__;
+		else
+		    imask |= ETHR_RWMTX_RS_MASK__;
+	    }
+	}
 	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
 	ETHR_ASSERT((exp & ~imask) == (act & ~imask));
 
@@ -1894,41 +2008,83 @@ dbg_unlock_wake(ethr_rwmutex *rwmtx,
 #endif
 
 static void
-rwmutex_unlock_wake(ethr_rwmutex *rwmtx, int have_w, long initial)
+rwmutex_transfer_read_lock(ethr_rwmutex *rwmtx, long initial, int q_locked)
+{
+    long act = initial;
+
+    if (!q_locked) {
+	ethr_ts_event *tse;
+	ETHR_ASSERT(initial & ETHR_RWMTX_R_WAIT_FLG__);
+	ETHR_ASSERT((initial & ETHR_RWMTX_W_FLG__) == 0);
+	ETHR_MTX_Q_LOCK(&rwmtx->mtxb.qlck);
+
+	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
+	tse = rwmtx->mtxb.q;
+	if ((act & ETHR_RWMTX_W_FLG__) || !tse || is_w_waiter(tse)) {
+	    /* Someone else woke the readers up... */
+	    ETHR_MTX_Q_UNLOCK(&rwmtx->mtxb.qlck);
+	    return;
+	}
+    }
+
+    rwmutex_unlock_wake(rwmtx, 0, initial, 1);
+}
+
+static void
+rwmutex_unlock_wake(ethr_rwmutex *rwmtx, int have_w, long initial,
+		    int transfer_read_lock)
 {
     long new, act = initial;
     ethr_ts_event *tse;
 
-    if ((act & ETHR_RWMTX_WAIT_FLGS__) == 0) {
-	if (!have_w)
-	    return;
-	else {
-	    while ((act & ETHR_RWMTX_WAIT_FLGS__) == 0) {
-		long exp = act;
-		new = exp & ~ETHR_RWMTX_W_FLG__;
-		act = ethr_atomic_cmpxchg(&rwmtx->mtxb.flgs, new, exp);
-		if (act == exp)
-		    return;
+    if (transfer_read_lock) {
+	/*
+	 * - Q already locked
+	 * - Got R waiters first in Q
+	 * - Not W locked
+	 */
+	tse = rwmtx->mtxb.q;
+
+	ETHR_ASSERT(act & ETHR_RWMTX_R_WAIT_FLG__);
+	ETHR_ASSERT((act & (ETHR_RWMTX_W_FLG__)) == 0);
+	ETHR_ASSERT(tse && !is_w_waiter(tse));
+    }
+    else {
+
+	if ((act & ETHR_RWMTX_WAIT_FLGS__) == 0) {
+	    if (!have_w)
+		return;
+	    else {
+		while ((act & ETHR_RWMTX_WAIT_FLGS__) == 0) {
+		    long exp = act;
+		    new = exp & ~ETHR_RWMTX_W_FLG__;
+		    act = ethr_atomic_cmpxchg(&rwmtx->mtxb.flgs, new, exp);
+		    if (act == exp)
+			return;
+		}
 	    }
 	}
-    }
 
-    ETHR_MTX_Q_LOCK(&rwmtx->mtxb.qlck);
-    tse = rwmtx->mtxb.q;
+	ETHR_MTX_Q_LOCK(&rwmtx->mtxb.qlck);
+	tse = rwmtx->mtxb.q;
 
-    if (!have_w) {
-	if (!tse) {
+	if (!have_w) {
+	    if (!tse) {
 #ifdef ETHR_DEBUG
-	    act = ethr_atomic_read(&rwmtx->mtxb.flgs);
-	    ETHR_ASSERT((act & ETHR_RWMTX_WAIT_FLGS__) == 0);
+		act = ethr_atomic_read(&rwmtx->mtxb.flgs);
+		ETHR_ASSERT((act & ETHR_RWMTX_WAIT_FLGS__) == 0);
 #endif
-	    goto already_served;
-	}
-	act = ethr_atomic_read(&rwmtx->mtxb.flgs);
-	if (act & ~ETHR_RWMTX_WAIT_FLGS__) {
-	already_served:
-	    ETHR_MTX_Q_UNLOCK(&rwmtx->mtxb.qlck);
-	    return;
+		goto already_served;
+	    }
+	    act = ethr_atomic_read(&rwmtx->mtxb.flgs);
+	    if (act == (ETHR_RWMTX_R_WAIT_FLG__|ETHR_RWMTX_R_FLG__)) {
+		ETHR_ASSERT(tse && !is_w_waiter(tse));
+	    }
+	    else if (act & ~ETHR_RWMTX_WAIT_FLGS__) {
+	    already_served:
+		ETHR_MTX_Q_UNLOCK(&rwmtx->mtxb.qlck);
+		return;
+	    }
 	}
     }
 
@@ -1988,6 +2144,7 @@ rwmutex_unlock_wake(ethr_rwmutex *rwmtx, int have_w, long initial)
 		    rwmutex_freqread_rdrs_add(rwmtx, type, ix, wrs);
 		}
 	    }
+
 	    new = ETHR_RWMTX_R_FLG__;
 	}
 
@@ -1995,6 +2152,7 @@ rwmutex_unlock_wake(ethr_rwmutex *rwmtx, int have_w, long initial)
 	    new |= ETHR_RWMTX_W_WAIT_FLG__;
 
 	rwlock_wake_set_flags(rwmtx, new, act);
+
 	wake_readers(rwmtx, rs);
     }
 }
@@ -2225,38 +2383,18 @@ ethr_rwmutex_tryrlock(ethr_rwmutex *rwmtx)
     case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
 	ethr_ts_event *tse = ethr_get_ts_event();
-
-	rwmutex_freqread_rdrs_inc(rwmtx, tse);
-
-	ETHR_MEMORY_BARRIER;
-
-	act = ethr_atomic_read_acqb(&rwmtx->mtxb.flgs);
-
-	if (act != ETHR_RWMTX_R_FLG__) {
-	    while (1) {
-		long exp, new;
-
-		if (act & ~(ETHR_RWMTX_R_FLG__|ETHR_RWMTX_R_WAIT_FLG__)) {
-		    rwmutex_freqread_restore_failed_tryrlock(rwmtx, tse);
-		    res = EBUSY;
-		    break;
-		}
-
-		if (act & ETHR_RWMTX_R_FLG__)
-		    break;
-
-		exp = act;
-		new = act | ETHR_RWMTX_R_FLG__;
-		act = ethr_atomic_cmpxchg_acqb(&rwmtx->mtxb.flgs, new, exp);
-		if (act == exp)
-		    break;
-	    }
-	}
-
+	res = rwmutex_freqread_rlock(rwmtx, tse, 1);
 	ethr_leave_ts_event(tse);
 	break;
     }
     }
+
+#ifdef ETHR_MTX_CHK_EXCL
+    if (res == 0) {
+	ETHR_MTX_CHK_EXCL_SET_NON_EXCL(&rwmtx->mtxb);
+	ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(&rwmtx->mtxb);
+    }
+#endif
 
     ETHR_MTX_HARD_DEBUG_LFS_TRYRLOCK(&rwmtx->mtxb, res);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
@@ -2286,9 +2424,8 @@ ethr_rwmutex_rlock(ethr_rwmutex *rwmtx)
 
 	while (1) {
 	    act = ethr_atomic_cmpxchg_acqb(&rwmtx->mtxb.flgs, exp+1, exp);
-	    if (act == exp) {
+	    if (act == exp)
 		break;
-	    }
 
 	    if (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_W_WAIT_FLG__)) {
 		rwmutex_normal_rlock_wait(rwmtx, act);
@@ -2303,38 +2440,14 @@ ethr_rwmutex_rlock(ethr_rwmutex *rwmtx)
     case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
 	ethr_ts_event *tse = ethr_get_ts_event();
-
-	rwmutex_freqread_rdrs_inc(rwmtx, tse);
-
-	ETHR_MEMORY_BARRIER;
-
-	act = ethr_atomic_read_acqb(&rwmtx->mtxb.flgs);
-
-	if (act != ETHR_RWMTX_R_FLG__) {
-	    while (1) {
-		long exp, new;
-
-		if (act & ~(ETHR_RWMTX_R_FLG__|ETHR_RWMTX_R_WAIT_FLG__)) {
-		    rwmutex_freqread_rlock_wait(rwmtx, tse, act);
-		    break;
-		}
-
-		if (act & ETHR_RWMTX_R_FLG__)
-		    break;
-
-		exp = act;
-		new = act | ETHR_RWMTX_R_FLG__;
-		act = ethr_atomic_cmpxchg_acqb(&rwmtx->mtxb.flgs, new, exp);
-		if (act == exp)
-		    break;
-	    }
-	}
-
+	rwmutex_freqread_rlock(rwmtx, tse, 0);
 	ethr_leave_ts_event(tse);
 	break;
     }
     }
 
+    ETHR_MTX_CHK_EXCL_SET_NON_EXCL(&rwmtx->mtxb);
+    ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_LFS_RLOCK(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
 }
@@ -2344,6 +2457,8 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
 {
     long act;
 
+    ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(&rwmtx->mtxb);
+    ETHR_MTX_CHK_EXCL_UNSET_NON_EXCL(&rwmtx->mtxb);
     ETHR_ASSERT(!ethr_not_inited__);
     ETHR_ASSERT(rwmtx);
     ETHR_ASSERT(rwmtx->initialized == ETHR_RWMUTEX_INITIALIZED);
@@ -2357,7 +2472,7 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
 	if ((act & ETHR_RWMTX_WAIT_FLGS__)
 	    && (act & ~ETHR_RWMTX_WAIT_FLGS__) == 0) {
 	    ETHR_ASSERT((act & ETHR_RWMTX_W_FLG__) == 0);
-	    rwmutex_unlock_wake(rwmtx, 0, act);
+	    rwmutex_unlock_wake(rwmtx, 0, act, 0);
 	}
 	break;
 
@@ -2369,21 +2484,12 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
 
 	ETHR_ASSERT(act >= 0);
 
-	ETHR_WRITE_MEMORY_BARRIER;
+	ETHR_MEMORY_BARRIER;
 
 	if (act == 0) {
-
-#ifndef ETHR_WRITE_MEMORY_BARRIER_IS_FULL
-	    ETHR_READ_MEMORY_BARRIER;
-#endif
 	    act = ethr_atomic_read(&rwmtx->mtxb.flgs);
-
-	    if ((act & ETHR_RWMTX_W_FLG__) == 0
-		&& (act & (ETHR_RWMTX_WAIT_FLGS__
-			   | ETHR_RWMTX_R_PEND_UNLCK_MASK__))) {
-		rwmutex_try_complete_runlock(rwmtx, act, tse, 1, 0, 0);
-	    }
-
+	    if (act != ETHR_RWMTX_R_FLG__)
+		rwmutex_freqread_rdrs_dec_chk_wakeup(rwmtx, tse, act);
 	}
 
 	ethr_leave_ts_event(tse);
@@ -2422,24 +2528,30 @@ ethr_rwmutex_tryrwlock(ethr_rwmutex *rwmtx)
 
 	do {
 
-	    if (act & (ETHR_RWMTX_W_FLG__|ETHR_RWMTX_WAIT_FLGS__)) {
-		res = EBUSY;
-		break;
-	    }
-
-	    if (act & ETHR_RWMTX_R_MASK__) {
+	    if (act == 0)
+		act = ethr_atomic_cmpxchg_acqb(&rwmtx->mtxb.flgs,
+					       ETHR_RWMTX_W_FLG__, 0);
+	    else if (act == ETHR_RWMTX_R_FLG__) {
 		res = rwmutex_try_complete_runlock(rwmtx, act, NULL,
 						   0, 1, 1);
 		break;
 	    }
-
-	    act = ethr_atomic_cmpxchg_acqb(&rwmtx->mtxb.flgs,
-					   ETHR_RWMTX_W_FLG__, 0);
+	    else {
+		res = EBUSY;
+		break;
+	    }
 
 	} while (act != 0);
 
 	break;
     }
+
+#ifdef ETHR_MTX_CHK_EXCL
+    if (res == 0) {
+	ETHR_MTX_CHK_EXCL_SET_EXCL(&rwmtx->mtxb);
+	ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(&rwmtx->mtxb);
+    }
+#endif
 
     ETHR_MTX_HARD_DEBUG_LFS_TRYRWLOCK(&rwmtx->mtxb, res);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
@@ -2485,6 +2597,8 @@ ethr_rwmutex_rwlock(ethr_rwmutex *rwmtx)
 	break;
     }
 
+    ETHR_MTX_CHK_EXCL_SET_EXCL(&rwmtx->mtxb);
+    ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
 
@@ -2501,12 +2615,15 @@ ethr_rwmutex_rwunlock(ethr_rwmutex *rwmtx)
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
     ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(&rwmtx->mtxb);
 
+    ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(&rwmtx->mtxb);
+    ETHR_MTX_CHK_EXCL_UNSET_EXCL(&rwmtx->mtxb);
+
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL:
 	act = ethr_atomic_cmpxchg_relb(&rwmtx->mtxb.flgs,
 				       0, ETHR_RWMTX_W_FLG__);
 	if (act != ETHR_RWMTX_W_FLG__)
-	    rwmutex_unlock_wake(rwmtx, 1, act);
+	    rwmutex_unlock_wake(rwmtx, 1, act, 0);
 	break;
 
     case ETHR_RWMUTEX_TYPE_FREQUENT_READ:
@@ -2514,7 +2631,7 @@ ethr_rwmutex_rwunlock(ethr_rwmutex *rwmtx)
 	act = ethr_atomic_cmpxchg_relb(&rwmtx->mtxb.flgs, 0,
 				       ETHR_RWMTX_W_FLG__);
 	if (act != ETHR_RWMTX_W_FLG__)
-	    rwmutex_unlock_wake(rwmtx, 1, act);
+	    rwmutex_unlock_wake(rwmtx, 1, act, 0);
 	break;
     }
 
