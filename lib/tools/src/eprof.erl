@@ -136,7 +136,7 @@ handle_call({analyze, procs, Opts}, _, #state{ bpd = #bpd{ p = Ps, us = Tus} = B
     lists:foreach(fun
 	    ({Pid, Mfas}) ->
 		{Pn, Pus} =  sum_bp_total_n_us(Mfas),
-		format(Fd, "~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*(Pus/Tus)])]),
+		format(Fd, "~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*divide(Pus,Tus)])]),
 		print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
 		ok
 	end, gb_trees:to_list(Ps)),
@@ -443,8 +443,8 @@ string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpC
 	Smfa   = s(Mfa),
 	Scount = s(Count),
 	Stime  = s(Time),
-	Sperc  = s("~.2f", [100*(Time/Tus)]),
-	Stpc   = s("~.2f", [Time/Count]),
+	Sperc  = s("~.2f", [100*divide(Time,Tus)]),
+	Stpc   = s("~.2f", [divide(Time,Count)]),
 
 	string_bp_mfa(Mfas, Tus, {
 		erlang:max(MfaW,  length(Smfa)),
@@ -484,3 +484,6 @@ format(Fd, Format, Strings) ->
     io:format(Fd, Format, Strings),
     io:format(Format, Strings),
     ok.
+
+divide(_,0) -> 0.0;
+divide(T,N) -> T/N.
