@@ -506,6 +506,7 @@ check_very_icky(Mod) ->
 				       {NumOK0,NumNOK0}
 			       end,
 	?line {NumOK,NumNOK} = filelib:fold_files(".",".*",true,fun(_F,{N,M}) when is_list(_F) ->  io:format("~ts~n",[_F]),{N+1,M}; (_F,{N,M}) ->  io:format("~p~n",[_F]),{N,M+1} end,{0,0}),
+	?line ok = filelib:fold_files(".",[1076,1089,1072,124,46,42],true,fun(_F,_) -> ok end,false),
 	ok
     catch
 	throw:need_unicode_mode ->
@@ -727,8 +728,14 @@ treat_icky(Bin) ->
 	    Bin
     end.
 
+% Handle windows having absolute soft link targets.
 fixlink({ok,Link}) ->
-    {ok,filename:basename(Link)};
+    case os:type() of
+	{win32,_} ->
+	    {ok,filename:basename(Link)};
+	_ ->
+	    {ok,Link}
+    end;
 fixlink(X) ->
     X.
 
