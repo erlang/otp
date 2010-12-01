@@ -25,7 +25,6 @@
 -module(ssl_ssl3).
 
 -include("ssl_cipher.hrl").
--include("ssl_debug.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl"). 			% MD5 and SHA
 

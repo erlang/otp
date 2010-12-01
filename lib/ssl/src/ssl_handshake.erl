@@ -28,7 +28,6 @@
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
--include("ssl_debug.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([master_secret/4, client_hello/5, server_hello/4, hello/4,

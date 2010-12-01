@@ -29,7 +29,6 @@
 
 -behaviour(gen_fsm).
 
--include("ssl_debug.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_record.hrl").

@@ -27,7 +27,6 @@
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl"). 			
--include("ssl_debug.hrl").
 
 -export([master_secret/3, finished/3, certificate_verify/2, mac_hash/7, 
 	 setup_keys/6, suites/0]).

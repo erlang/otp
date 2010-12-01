@@ -30,7 +30,6 @@
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_cipher.hrl").
--include("ssl_debug.hrl").
 
 %% Connection state handling
 -export([init_connection_states/1, 

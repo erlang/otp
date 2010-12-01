@@ -213,10 +213,13 @@ decrypt_private(CipherText,
 				crypto:mpint(D)], Padding).
 
 %%--------------------------------------------------------------------
--spec decrypt_public(CipherText :: binary(), rsa_public_key()) -> 
+-spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
 			    PlainText :: binary().
--spec decrypt_public(CipherText :: binary(), rsa_public_key(), 
+-spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key(),
 		     public_crypt_options()) -> PlainText :: binary().
+%% NOTE: The rsa_private_key() is not part of the documented API it is
+%% here for testing purposes, in a real situation this is not a relevant
+%% thing to do.
 %%
 %% Description: Public key decryption using the public key.
 %%--------------------------------------------------------------------
@@ -232,10 +235,14 @@ decrypt_public(CipherText,#'RSAPrivateKey'{modulus = N, publicExponent = E},
     decrypt_public(CipherText, N,E, Options).
 
 %%--------------------------------------------------------------------
--spec encrypt_public(PlainText :: binary(), rsa_public_key()) ->  
+-spec encrypt_public(PlainText :: binary(), rsa_public_key() | rsa_private_key()) ->
 			    CipherText :: binary().
--spec encrypt_public(PlainText :: binary(), rsa_public_key(), 
+-spec encrypt_public(PlainText :: binary(), rsa_public_key() | rsa_private_key(),
 		     public_crypt_options()) ->  CipherText :: binary().
+
+%% NOTE: The rsa_private_key() is not part of the documented API it is
+%% here for testing purposes, in a real situation this is not a relevant
+%% thing to do.
 %%
 %% Description: Public key encryption using the public key.
 %%--------------------------------------------------------------------
@@ -280,8 +287,8 @@ encrypt_private(PlainText, #'RSAPrivateKey'{modulus = N,
 sign(PlainText, DigestType,  #'RSAPrivateKey'{modulus = N,  publicExponent = E,
 					      privateExponent = D}) 
   when is_binary(PlainText),
-       DigestType == md5;
-       DigestType == sha ->
+       (DigestType == md5 orelse
+	DigestType == sha) ->
     
     crypto:rsa_sign(DigestType, sized_binary(PlainText), [crypto:mpint(E),
 							  crypto:mpint(N),
@@ -571,11 +578,9 @@ validate(DerCert, #path_validation_state{working_issuer_name = Issuer,
 
     pubkey_cert:prepare_for_next_cert(OtpCert, ValidationState).
 
-sized_binary(Binary) when is_binary(Binary) ->
+sized_binary(Binary) ->
     Size = size(Binary),
-    <<?UINT32(Size), Binary/binary>>;
-sized_binary(List) ->
-    sized_binary(list_to_binary(List)).
+    <<?UINT32(Size), Binary/binary>>.
 
 %%--------------------------------------------------------------------
 %%% Deprecated functions

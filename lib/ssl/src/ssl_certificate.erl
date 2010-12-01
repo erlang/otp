@@ -28,7 +28,6 @@
 -include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
--include("ssl_debug.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
 -export([trusted_cert_and_path/2,

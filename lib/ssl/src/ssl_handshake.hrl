@@ -26,6 +26,13 @@
 -ifndef(ssl_handshake).
 -define(ssl_handshake, true).
 
+-include_lib("public_key/include/public_key.hrl").
+
+-type algo_oid()          :: ?'rsaEncryption' | ?'id-dsa'.
+-type public_key()        :: #'RSAPublicKey'{} | integer().
+-type public_key_params() :: #'Dss-Parms'{} | term().
+-type public_key_info()   :: {algo_oid(), public_key(), public_key_params()}.
+
 -record(session, {
 	  session_id,
 	  peer_certificate,

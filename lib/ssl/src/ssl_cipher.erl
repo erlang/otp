@@ -29,7 +29,6 @@
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
--include("ssl_debug.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, suite_definition/1,
