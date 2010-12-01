@@ -115,13 +115,13 @@ change_pattern({Mod, Pattern}) when is_atom(Mod) ->
 
 old_ctp({Mod, _Fun, Args}) ->
     case Mod of
-	et -> ignore;
+	et -> {ok, ignore};
 	_  -> dbg:ctp({Mod, report_event, Args})
     end.
 
 old_tp({Mod, _Fun, Args}, Pattern) ->
     case Mod of
-	et -> ignore;
+	et -> {ok, ignore};
 	_  -> dbg:tp({Mod, report_event, Args}, Pattern)
     end.
 
