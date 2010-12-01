@@ -8,7 +8,7 @@ run_me() ->
     LibDir = code:lib_dir(on_load_app),
     PrivDir = code:priv_dir(on_load_app),
     LibDir = filename:dirname(PrivDir),
-    ModPath = code:which(?MODULE),
+    ModPath = filename:join(filename:split(code:which(?MODULE))),
     LibDir = filename:dirname(filename:dirname(ModPath)),
 
     %% Start a process to remember that the on_load was called.

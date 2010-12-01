@@ -1268,7 +1268,8 @@ on_load_embedded_1(Config) ->
     ?line LibRoot = code:lib_dir(),
     ?line LinkName = filename:join(LibRoot, "on_load_app-1.0"),
     ?line OnLoadApp = filename:join(DataDir, "on_load_app-1.0"),
-    ?line file:delete(LinkName),
+    ?line del_link(LinkName),
+    io:format("LinkName :~p, OnLoadApp: ~p~n",[LinkName,OnLoadApp]),
     case file:make_symlink(OnLoadApp, LinkName) of
 	{error,enotsup} ->
 	    throw({skip,"Support for symlinks required"});
@@ -1297,7 +1298,15 @@ on_load_embedded_1(Config) ->
 
     %% Clean up.
     ?line stop_node(Node),
-    ?line ok = file:delete(LinkName).
+    ?line ok = del_link(LinkName).
+
+del_link(LinkName) ->
+   case file:delete(LinkName) of
+       {error,eperm} ->
+             file:del_dir(LinkName);
+       Other ->
+       	     Other
+   end.			   
 
 create_boot(Config, Options) ->
     ?line {ok, OldDir} = file:get_cwd(),
