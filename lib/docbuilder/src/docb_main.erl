@@ -34,14 +34,23 @@
 %% Parses the source file File and transforms the result to html,
 %% latex and/or man page format.
 process(File, Opts) ->
+    
+    SrcType = docb_util:lookup_option(src_type, Opts),
 
-    File1 = File ++ ".tmpconv",
-    os:cmd("sed -e 's/xi:include[ \t]*href/include file/g' -e 's/xmlns:xi=\"http:\\/\\/www.w3.org\\/2001\\/XInclude\"//g' < " ++ 
-	   File ++ ".xml > " ++ File1 ++ ".xml"), %LATH
+    File1 = 
+	case SrcType of
+	    ".xml" ->
+		FileTmp = File ++ ".tmpconv",
+		os:cmd("sed -e 's/xi:include[ \t]*href/include file/g' -e 's/xmlns:xi=\"http:\\/\\/www.w3.org\\/2001\\/XInclude\"//g' < " ++ 
+		       File ++ ".xml > " ++ FileTmp ++ ".xml"),
+		FileTmp;
+	    ".sgml"  ->
+		File
+	end,		
     
     case parse1(File1, Opts) of
 	errors ->
-	    file:delete(File1 ++ ".xml"),
+	    delete_tmp_file(SrcType, File1),
 	    errors;
 	{ok, Tree} ->
 	    From = element(1, Tree),
@@ -62,14 +71,20 @@ process(File, Opts) ->
 	    Result = [transform(From, To, Opts, File, Tree)||To <- Tos], 
 	    case lists:member(transformation_error,Result) of 
 		true -> 	
-		    file:delete(File1 ++ ".xml"),
+		    delete_tmp_file(SrcType, File1),
 		    errors;
 		_ -> 
-		    file:delete(File1 ++ ".xml"),
+		    delete_tmp_file(SrcType, File1),
 		    ok
 	    end
     
     end.
+
+
+delete_tmp_file(".xml", File) ->
+    file:delete(File ++ ".xml");
+delete_tmp_file(_, _) ->
+    ok.
 
 %%----------------------------------------------------------------------
 
