@@ -51,6 +51,7 @@
 	 lookup_contract/2,
 	 lookup_module/2,
 	 merge_plts/1,
+         merge_plts_or_report_conflicts/2,
 	 new/0,
 	 plt_and_info_from_file/1,
 	 get_specs/1,
@@ -292,6 +293,38 @@ merge_plts(List) ->
        exported_types = sets_merge(ExpTypesList),
        contracts = table_merge(ContractsList)}.
 
+-spec merge_disj_plts([plt()]) -> plt().
+
+merge_disj_plts(List) ->
+  InfoList = [Info || #plt{info = Info} <- List],
+  TypesList = [Types || #plt{types = Types} <- List],
+  ExpTypesList = [ExpTypes || #plt{exported_types = ExpTypes} <- List],
+  ContractsList = [Contracts || #plt{contracts = Contracts} <- List],
+  #plt{info = table_disj_merge(InfoList),
+       types = table_disj_merge(TypesList),
+       exported_types = sets_disj_merge(ExpTypesList),
+       contracts = table_disj_merge(ContractsList)}.
+
+-spec merge_plts_or_report_conflicts([file:filename()], [plt()]) -> plt().
+
+merge_plts_or_report_conflicts(PltFiles, Plts) ->
+  try
+    merge_disj_plts(Plts)
+  catch throw:{dialyzer_error, not_disjoint_plts} ->
+      IncFiles = lists:append([begin {ok, Fs} = included_files(F), Fs end
+                               || F <- PltFiles]),
+      ConfFiles = find_duplicates(IncFiles),
+      Msg = io_lib:format("Could not merge PLTs since they are not disjoint\n"
+                          "The following files are included in more than one "
+                          "PLTs:\n~p\n", [ConfFiles]),
+      error(Msg)
+  end.
+
+find_duplicates(List) ->
+  ModList = [filename:basename(E) || E <- List],
+  SortedList = lists:usort(ModList),
+  lists:usort(ModList -- SortedList).
+  
 -spec to_file(file:filename(), plt(), mod_deps(), {[file_md5()], mod_deps()}) -> 'ok'.
 
 to_file(FileName,
@@ -556,6 +589,25 @@ table_merge([Plt|Plts], Acc) ->
   NewAcc = dict:merge(fun(_Key, Val, Val) -> Val end, Plt, Acc),
   table_merge(Plts, NewAcc).
 
+table_disj_merge([H|T]) ->
+  table_disj_merge(T, H).
+
+table_disj_merge([], Acc) ->
+  Acc;
+table_disj_merge([Plt|Plts], Acc) ->
+  case table_is_disjoint(Plt, Acc) of
+    true ->
+      NewAcc = dict:merge(fun(_Key, _Val1, _Val2) -> gazonk end,
+                          Plt, Acc),
+      table_disj_merge(Plts, NewAcc);
+    false -> throw({dialyzer_error, not_disjoint_plts})
+  end.
+
+table_is_disjoint(T1, T2) ->
+  K1 = dict:fetch_keys(T1),
+  K2 = dict:fetch_keys(T2),
+  lists:all(fun(E) -> not lists:member(E, K2) end, K1).
+
 sets_merge([H|T]) ->
   sets_merge(T, H).
 
@@ -564,6 +616,19 @@ sets_merge([], Acc) ->
 sets_merge([Plt|Plts], Acc) ->
   NewAcc = sets:union(Plt, Acc),
   sets_merge(Plts, NewAcc).
+
+sets_disj_merge([H|T]) ->
+  sets_disj_merge(T, H).
+
+sets_disj_merge([], Acc) ->
+  Acc;
+sets_disj_merge([Plt|Plts], Acc) ->
+  case sets:is_disjoint(Plt, Acc) of
+    true ->
+      NewAcc = sets:union(Plt, Acc),
+      sets_disj_merge(Plts, NewAcc);
+    false -> throw({dialyzer_error, not_disjoint_plts})
+  end.
 
 %%---------------------------------------------------------------------------
 %% Debug utilities.

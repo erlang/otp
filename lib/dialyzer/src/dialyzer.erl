@@ -106,27 +106,35 @@ cl_print_plt_info(Opts) ->
       end,
   doit(F).
 
-print_plt_info(#options{init_plt = PLT, output_file = OutputFile}) ->
+print_plt_info(#options{init_plts = PLTs, output_file = OutputFile}) ->
+  PLTInfo = get_plt_info(PLTs),
+  do_print_plt_info(PLTInfo, OutputFile).
+
+get_plt_info([PLT|PLTs]) ->
   String =
     case dialyzer_plt:included_files(PLT) of
       {ok, Files} ->
-	io_lib:format("The PLT ~s includes the following files:\n~p\n",
+	io_lib:format("The PLT ~s includes the following files:\n~p\n\n",
 		      [PLT, Files]);
       {error, read_error} ->
-	Msg = io_lib:format("Could not read the PLT file ~p\n", [PLT]),
+	Msg = io_lib:format("Could not read the PLT file ~p\n\n", [PLT]),
 	throw({dialyzer_error, Msg});
       {error, no_such_file} ->
-	Msg = io_lib:format("The PLT file ~p does not exist\n", [PLT]),
+	Msg = io_lib:format("The PLT file ~p does not exist\n\n", [PLT]),
 	throw({dialyzer_error, Msg})
     end,
+  String ++ get_plt_info(PLTs);
+get_plt_info([]) -> "".
+
+do_print_plt_info(PLTInfo, OutputFile) ->
   case OutputFile =:= none of
     true ->
-      io:format("~s", [String]),
+      io:format("~s", [PLTInfo]),
       ?RET_NOTHING_SUSPICIOUS;
     false ->
       case file:open(OutputFile, [write]) of
 	{ok, FileDesc} ->
-	  io:format(FileDesc, "~s", [String]),
+	  io:format(FileDesc, "~s", [PLTInfo]),
 	  ok = file:close(FileDesc),
 	  ?RET_NOTHING_SUSPICIOUS;
 	{error, Reason} ->

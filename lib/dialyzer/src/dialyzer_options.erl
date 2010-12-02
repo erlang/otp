@@ -53,13 +53,20 @@ build(Opts) ->
   InitPlt = dialyzer_plt:get_default_plt(),
   DefaultOpts = #options{},
   DefaultOpts1 = DefaultOpts#options{legal_warnings = DefaultWarns1,
-				      init_plt = InitPlt},
-  try 
-    NewOpts = build_options(Opts, DefaultOpts1),
+                                     init_plts = [InitPlt]},
+  try
+    Opts1 = preprocess_opts(Opts),
+    NewOpts = build_options(Opts1, DefaultOpts1),
     postprocess_opts(NewOpts)
   catch
     throw:{dialyzer_options_error, Msg} -> {error, Msg}
   end.
+
+preprocess_opts([]) -> [];
+preprocess_opts([{init_plt, File}|Opts]) ->
+  [{plts, [File]}|preprocess_opts(Opts)];
+preprocess_opts([Opt|Opts]) ->
+  [Opt|preprocess_opts(Opts)].
 
 postprocess_opts(Opts = #options{}) ->
   Opts1 = check_output_plt(Opts),
@@ -144,9 +151,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       build_options(Rest, Options#options{from = Value});
     get_warnings ->
       build_options(Rest, Options#options{get_warnings = Value});
-    init_plt ->
-      assert_filenames([Term], [Value]),
-      build_options(Rest, Options#options{init_plt = Value});
+    plts ->
+      assert_filenames(Term, Value),
+      build_options(Rest, Options#options{init_plts = Value});
     include_dirs ->
       assert_filenames(Term, Value),
       OldVal = Options#options.include_dirs,

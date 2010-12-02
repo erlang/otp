@@ -88,7 +88,7 @@ start(DialyzerOptions) ->
   State = wx:batch(fun() -> create_window(Wx, DialyzerOptions) end),
   gui_loop(State).
 
-create_window(Wx, DialyzerOptions) ->
+create_window(Wx, #options{init_plts = InitPltFiles} = DialyzerOptions) ->
   {ok, Host} = inet:gethostname(),
 
   %%---------- initializing frame ---------
@@ -258,11 +258,15 @@ create_window(Wx, DialyzerOptions) ->
 	       plt = PltMenu,
 	       options =OptionsMenu,
 	       help = HelpMenu},
- 
-  InitPlt = try dialyzer_plt:from_file(DialyzerOptions#options.init_plt)
-	    catch throw:{dialyzer_error, _} -> dialyzer_plt:new()
-	    end,
 
+  InitPlt =
+    case InitPltFiles of
+      [] -> dialyzer_plt:new();
+      _ ->
+        Plts = [dialyzer_plt:from_file(F) || F <- InitPltFiles],
+        dialyzer_plt:merge_plts_or_report_conflicts(InitPltFiles, Plts)
+    end,
+  
   #gui_state{add = AddButton,
 	     add_dir = AddDirButton,
 	     add_rec = AddRecButton,

@@ -129,7 +129,7 @@
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
 		  get_warnings    = maybe          :: boolean() | 'maybe',
-		  init_plt        = none	   :: 'none' | file:filename(),
+		  init_plts       = []	           :: [file:filename()],
 		  include_dirs    = []		   :: [file:filename()],
 		  output_plt      = none           :: 'none' | file:filename(),
 		  legal_warnings  = ordsets:new()  :: ordset(dial_warn_tag()),
