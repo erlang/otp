@@ -71,7 +71,10 @@ load_driver(Reason) ->
     end.
 
 init(FromPid,FromRef) ->
-    register(asn1_driver_owner,self()),
+    case catch register(asn1_driver_owner,self()) of
+	true -> true;
+	_Other -> exit(normal)
+    end,
     Dir = filename:join([code:priv_dir(asn1),"lib"]),
     case catch erl_ddll:load_driver(Dir,asn1_erl_drv) of
 	ok ->
