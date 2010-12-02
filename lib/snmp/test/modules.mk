@@ -62,6 +62,7 @@ COMPILER_MIB_FILES = \
 	OTP8574-MIB
 
 MIB_FILES = \
+	AC-TEST-MIB.mib \
 	OLD-SNMPEA-MIB.mib \
 	OLD-SNMPEA-MIB-v2.mib \
 	Klas1.mib \

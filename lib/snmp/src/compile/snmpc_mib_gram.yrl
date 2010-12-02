@@ -59,7 +59,7 @@ newtypename
 objectidentifier
 objectname
 objecttypev1
-prodrelpart
+prodrel
 range_num
 referpart
 size
@@ -103,6 +103,17 @@ objectgroup
 notificationgroup
 modulecompliance
 agentcapabilities
+ac_status
+ac_modulepart
+ac_modules
+ac_module
+ac_modulenamepart
+ac_variationpart
+ac_variations
+ac_variation
+ac_accesspart
+ac_access
+ac_creationpart
 modulepart
 modules
 module
@@ -165,6 +176,10 @@ integer variable atom string quote '{' '}' '::=' ':' '=' ',' '.' '(' ')' ';' '|'
 'NOTIFICATION-TYPE'
 'PRODUCT-RELEASE'
 'AGENT-CAPABILITIES'
+'INCLUDES'
+'SUPPORTS'
+'VARIATION'
+'CREATION-REQUIRES'
 'MODULE-COMPLIANCE'
 'OBJECT-GROUP'
 'NOTIFICATION-GROUP'
@@ -255,6 +270,8 @@ import_stuff -> 'MODULE-IDENTITY'
        : ensure_ver(2,'$1'), {builtin, 'MODULE-IDENTITY'}.
 import_stuff -> 'NOTIFICATION-TYPE' 
        : ensure_ver(2,'$1'), {builtin, 'NOTIFICATION-TYPE'}.
+import_stuff -> 'AGENT-CAPABILITIES' 
+       : ensure_ver(2,'$1'), {builtin, 'AGENT-CAPABILITIES'}.
 import_stuff -> 'MODULE-COMPLIANCE' 
        : ensure_ver(2,'$1'), {builtin, 'MODULE-COMPLIANCE'}.
 import_stuff -> 'NOTIFICATION-GROUP' 
@@ -545,14 +562,56 @@ modulecompliance -> objectname 'MODULE-COMPLIANCE' 'STATUS' statusv2
                                                 '$7', '$8'),
                     {MC, line_of('$2')}.
 
-agentcapabilities -> objectname 'AGENT-CAPABILITIES' 
-                    'PRODUCT-RELEASE' prodrelpart 'STATUS' statusv2
-                    description referpart modulepart nameassign : 
-                    MC = make_agent_capabilities('$1', '$4', '$6', '$7', 
-                                                 '$8', '$9', '$10'),
-                    {MC, line_of('$2')}.
 
-prodrelpart -> string : $1.
+agentcapabilities -> objectname 'AGENT-CAPABILITIES' 
+                     'PRODUCT-RELEASE' prodrel 
+                     'STATUS' ac_status
+                     description referpart ac_modulepart nameassign : 
+                     AC = make_agent_capabilities('$1', '$4', '$6', '$7', 
+                                                  '$8', '$9', '$10'),
+                     {AC, line_of('$2')}.
+
+prodrel -> string : lists:reverse(val('$1')).
+
+ac_status -> atom : ac_status('$1').
+
+ac_modulepart -> ac_modules : lists:reverse('$1').
+ac_modulepart -> '$empty' : [].
+
+ac_modules -> ac_module : ['$1'].
+ac_modules -> ac_modules ac_module : ['$2' | '$1'].
+
+ac_module -> 'SUPPORTS' ac_modulenamepart 'INCLUDES' '{' objects '}' ac_variationpart : 
+             {'$2', '$5', '$7'}.
+
+ac_modulenamepart -> mibname : '$1'.
+ac_modulenamepart -> '$empty' : undefined.
+    
+ac_variationpart -> '$empty' : [].
+ac_variationpart -> ac_variations : lists:reverse('$1').
+
+ac_variations -> ac_variation : ['$1'].
+ac_variations -> ac_variations ac_variation : ['$2' | '$1'].
+
+%% ac_variation -> ac_objectvariation.
+%% ac_variation -> ac_notificationvariation.
+
+ac_variation -> 'VARIATION' objectname syntaxpart writesyntaxpart ac_accesspart ac_creationpart defvalpart description : 
+                      make_ac_variation('$2', '$3', '$4', '$5', '$6', '$7', '$8').
+
+%% ac_objectvariation -> 'VARIATION' objectname syntaxpart writesyntaxpart ac_accesspart ac_creationpart ac_defvalpart description : 
+%%                       make_ac_object_variation('$2', '$3', '$4', '$5', '$6', '$7', '$8').
+
+%% ac_notificationvariation -> 'VARIATION' objectname ac_accesspart description : 
+%%                             make_ac_notification_variation('$2', '$3', '$4').
+
+ac_accesspart -> 'ACCESS' ac_access : '$2'.
+ac_accesspart -> '$empty' : undefined. 
+
+ac_access -> atom: ac_access('$1').     
+
+ac_creationpart -> 'CREATION-REQUIRES' '{' objects '}' : lists:reverse('$3').
+ac_creationpart -> '$empty' : []. 
 
 modulepart -> '$empty'.
 modulepart -> modules.
@@ -669,6 +728,14 @@ statusv2(Tok) ->
                              "syntax error before: " ++ atom_to_list(Else))
     end.
 
+ac_status(Tok) ->
+    case val(Tok) of
+        current -> current;
+        obsolete -> obsolete;
+        Else -> return_error(line_of(Tok),
+                             "syntax error before: " ++ atom_to_list(Else))
+    end.
+
 accessv1(Tok) ->
     case val(Tok) of
         'read-only' -> 'read-only';
@@ -686,6 +753,18 @@ accessv2(Tok) ->
         'read-only' -> 'read-only';
         'read-write' -> 'read-write';
         'read-create' -> 'read-create';
+        Else -> return_error(line_of(Tok),
+                             "syntax error before: " ++ atom_to_list(Else))
+    end.
+
+ac_access(Tok) ->
+    case val(Tok) of
+        'not-implemented' -> 'not-implemented'; % only for notifications
+        'accessible-for-notify' -> 'accessible-for-notify';
+        'read-only' -> 'read-only';
+        'read-write' -> 'read-write';
+        'read-create' -> 'read-create';
+        'write-only' -> 'write-only'; % for backward-compatibility only
         Else -> return_error(line_of(Tok),
                              "syntax error before: " ++ atom_to_list(Else))
     end.
@@ -758,14 +837,48 @@ make_notification(Name, Vars, Status, Desc, Ref, NA) ->
 	             reference   = Ref,
 	             name_assign = NA}.
 
-make_agent_capabilities(Name, ProdRel, Status, Desc, Ref, Mod, NA) ->
+make_agent_capabilities(Name, ProdRel, Status, Desc, Ref, Mods, NA) ->
     #mc_agent_capabilities{name            = Name,
                            product_release = ProdRel,
                            status          = Status,
                            description     = Desc,
 	                   reference       = Ref,
-                           module          = Mod,
+                           modules         = Mods,
 	                   name_assign     = NA}.
+
+make_ac_variation(Name, 
+		  undefined = _Syntax, 
+		  undefined = _WriteSyntax, 
+		  Access, 
+		  undefined = _Creation, 
+		  undefined = _DefVal, 
+		  Desc) ->
+%%     io:format("make_ac_variation -> entry with"
+%% 	      "~n   Name:        ~p"
+%% 	      "~n   Access:      ~p"
+%% 	      "~n   Desc:        ~p"
+%% 	      "~n", [Name, Access, Desc]),
+    #mc_ac_notification_variation{name        = Name, 
+ 				  access      = Access,
+ 				  description = Desc};
+
+make_ac_variation(Name, Syntax, WriteSyntax, Access, Creation, DefVal, Desc) ->
+%%     io:format("make_ac_variation -> entry with"
+%% 	      "~n   Name:        ~p"
+%% 	      "~n   Syntax:      ~p"
+%% 	      "~n   WriteSyntax: ~p"
+%% 	      "~n   Access:      ~p"
+%% 	      "~n   Creation:    ~p"
+%% 	      "~n   DefVal:      ~p"
+%% 	      "~n   Desc:        ~p"
+%% 	      "~n", [Name, Syntax, WriteSyntax, Access, Creation, DefVal, Desc]),
+    #mc_ac_object_variation{name          = Name, 
+			    syntax        = Syntax, 
+			    write_syntax  = WriteSyntax, 
+			    access        = Access,
+			    creation      = Creation,
+			    default_value = DefVal,
+			    description   = Desc}.
 
 make_module_compliance(Name, Status, Desc, Ref, Mod, NA) ->
     #mc_module_compliance{name        = Name,

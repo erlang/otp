@@ -44,6 +44,7 @@
 	 oid_conflicts/1,
 	 imports/1,
 	 module_identity/1,
+	 agent_capabilities/1,
 
 	 tickets/1,
 	 otp_6150/1,
@@ -96,6 +97,7 @@ all(suite) ->
      oid_conflicts,
      imports,
      module_identity,
+     agent_capabilities,
      tickets
     ].
 
@@ -167,6 +169,19 @@ module_identity(suite) ->
     [];
 module_identity(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
+
+
+agent_capabilities(suite) ->
+    [];
+agent_capabilities(Config) when is_list(Config) ->
+    put(tname,agent_capabilities),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir = ?config(comp_dir, Config),
+    Mib = join(Dir,"AC-TEST-MIB.mib"),
+    ?line {ok, Mib} = snmpc:compile(Mib, [{outdir, Dir}, {verbosity,trace}]),
+    io:format("agent_capabilities -> Mib: ~n~p~n", [Mib]),
+    ok.
 
 
 otp_6150(suite) ->

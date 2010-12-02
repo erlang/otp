@@ -109,11 +109,28 @@
 	 status,
 	 description,
 	 reference,
-	 module,
+	 modules,
 	 name_assign
 	}
        ).
 
+-record(mc_ac_object_variation,
+	{name,
+	 syntax, 
+	 write_syntax,
+	 access,
+	 creation,
+	 default_value,
+	 description
+	}
+       ).
+
+-record(mc_ac_notification_variation,
+	{name,
+	 access,
+	 description
+	}
+       ).
 
 
 -record(mc_module_compliance,

@@ -921,10 +921,42 @@ definitions_loop([{#mc_notification{name        = TrapName,
     snmpc_lib:add_cdata(#cdata.traps, [Notif]),
     definitions_loop(T, Data);    
 
-definitions_loop([{#mc_agent_capabilities{name = Name},Line}|T], Data) ->
-    ?vlog2("defloop -> agent_capabilities:"
-	   "~n   Name: ~p", [Name], Line),
+definitions_loop([{#mc_agent_capabilities{name        = Name,
+					  status      = Status,
+					  description = Desc,
+					  reference   = Ref,
+					  modules     = Mods, 
+					  name_assign = {Parent, SubIdx}},Line}|T], Data) ->
+    ?vlog2("defloop -> agent_capabilities ~p:"
+	   "~n   Status:       ~p"
+	   "~n   Desc:         ~p"
+	   "~n   Parent:       ~p"
+	   "~n   SubIndex:     ~p", 
+	   [Name, Status, Desc, Parent, SubIdx], Line),
     ensure_macro_imported('AGENT-CAPABILITIES', Line),
+    snmpc_lib:register_oid(Line, Name, Parent, SubIdx),
+    NewME  = snmpc_lib:makeInternalNode2(false, Name),
+    Description = make_description(Desc), 
+    Reference = 
+	case Ref of
+	    undefined ->
+		[];
+	    _ ->
+		[{reference, Ref}]
+	end,
+    Modules = 
+	case Mods of
+	    undefined ->
+		[];
+	    [] ->
+		[];
+	    _ ->
+		[{modules, Mods}]
+	end,
+    AssocList = Reference ++ Modules,
+    NewME2 = NewME#me{description = Description,
+		      assocList   = AssocList}, 
+    snmpc_lib:add_cdata(#cdata.mes, [NewME2]),
     definitions_loop(T, Data);
 
 definitions_loop([{#mc_module_compliance{name = Name},Line}|T], Data) ->
@@ -1334,22 +1366,26 @@ save(Filename, MibName, Options) ->
 
 
 parse(FileName) ->
+    ?vtrace("parse -> start tokenizer for ~p", [FileName]),
     case snmpc_tok:start_link(reserved_words(),
 			      [{file, FileName ++ ".mib"},
 			       {forget_stringdata, true}]) of
 	{error,ReasonStr} ->
 	    snmpc_lib:error(lists:flatten(ReasonStr),[]);
 	{ok, TokPid} ->
+	    ?vtrace("parse ->  tokenizer start, now get tokens", []),
 	    Toks = snmpc_tok:get_all_tokens(TokPid),
+	    ?vtrace("parse ->  tokens: ~p", [Toks]),
 	    set_version(Toks),
 	    %% io:format("parse -> lexical analysis: ~n~p~n", [Toks]),
-	    %% t("parse -> lexical analysis: ~n~p", [Toks]),
+	    %% ?vtrace("parse -> lexical analysis: ~n~p", [Toks]),
             CDataArg =
                 case lists:keysearch(module, 1, get(options)) of
                     {value, {module, M}} -> {module, M};
                     _ -> {file, FileName ++ ".funcs"}
                 end,
             put(cdata,snmpc_lib:make_cdata(CDataArg)),
+	    ?vtrace("parse ->  stop tokenizer and then do the actual parse", []),
 	    snmpc_tok:stop(TokPid),
 	    Res = if 
 		      is_list(Toks) ->
@@ -1357,7 +1393,7 @@ parse(FileName) ->
 		      true ->
 			  Toks
 		  end,
-	    %% t("parse -> parsed: ~n~p", [Res]),
+	    ?vtrace("parse -> parsed result: ~n~p", [Res]),
 	    case Res of
 		{ok, PData} ->
 		    {ok, PData};
@@ -1449,6 +1485,10 @@ reserved_words() ->
       'NOTIFICATION-GROUP',
       'NOTIFICATIONS',
       'MODULE-COMPLIANCE',
+      'AGENT-CAPABILITIES',
+      'PRODUCT-RELEASE',
+      'SUPPORTS',
+      'INCLUDES',
       'MODULE',
       'MANDATORY-GROUPS',
       'GROUP',
