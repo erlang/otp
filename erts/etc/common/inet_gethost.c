@@ -1760,11 +1760,7 @@ static int worker_loop(void)
 		struct addrinfo hints;
 		
 		memset(&hints, 0, sizeof(hints));
-#ifdef __WIN32__
-		hints.ai_flags = (AI_CANONNAME);
-#else
-		hints.ai_flags = (AI_CANONNAME|AI_V4MAPPED|AI_ADDRCONFIG);
-#endif
+		hints.ai_flags = AI_CANONNAME;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_family = AF_INET6;
 		DEBUGF(5, ("Starting getaddrinfo(%s, ...)", data));

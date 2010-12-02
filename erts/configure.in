@@ -1734,11 +1734,7 @@ if test $have_getaddrinfo = yes; then
 [
     struct addrinfo hints, *ai;
     memset(&hints, 0, sizeof(hints));
-#ifndef __WIN32__
-    hints.ai_flags = (AI_CANONNAME|AI_V4MAPPED|AI_ADDRCONFIG);
-#else
     hints.ai_flags = AI_CANONNAME;
-#endif
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_family = AF_INET6;
     if (getaddrinfo("::", NULL, &hints, &ai) == 0) {

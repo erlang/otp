@@ -5811,8 +5811,11 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    char *after;
 #	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_FLAGS
 	    int eflags, cflags, hb_enable, hb_disable,
-		pmtud_enable, pmtud_disable,
+		pmtud_enable, pmtud_disable;
+#	    ifdef HAVE_STRUCT_SCTP_PADDRPARAMS_SPP_SACKDELAY
+	    int
 		sackdelay_enable, sackdelay_disable;
+#           endif
 #           endif
 	    
 	    CHKLEN(curr, ASSOC_ID_LEN);
