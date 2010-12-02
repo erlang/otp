@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@ all(suite) ->
      trycatch_4, opt_crash,
      otp_5404,otp_5436,otp_5481,otp_5553,otp_5632,
      otp_5714,otp_5872,otp_6121,otp_6121a,otp_6121b,
-     otp_7202,otp_7345,on_load,string_table
+     otp_7202,otp_7345,on_load,string_table,otp_8949_a,otp_8949_a
     ].
 
 -define(comp(N),
@@ -606,5 +606,45 @@ string_table(Config) when is_list(Config) ->
     ?line {"StrT", <<"stringabletringtable">>} = StringTableChunk,
     ok.
 
+otp_8949_a(Config) when is_list(Config) ->
+    value = otp_8949_a(),
+    ok.
+
+-record(cs, {exs,keys = [],flags = 1}).
+-record(exs, {children = []}).
+
+otp_8949_a() ->
+    case id([#cs{}]) of
+        [#cs{}=Cs] ->
+            SomeVar = id(value),
+	    if
+		Cs#cs.flags band 1 =/= 0 ->
+		    id(SomeVar);
+		(((Cs#cs.exs)#exs.children /= [])
+                 and
+		   (Cs#cs.flags band (1 bsl 0 bor (1 bsl 22)) == 0));
+		Cs#cs.flags band (1 bsl 22) =/= 0 ->
+		    ok
+	    end
+    end.
+    
+otp_8949_b(Config) when is_list(Config) ->
+    self() ! something,
+    ?line value = otp_8949_b([], false),
+    ?line {'EXIT',_} = (catch otp_8949_b([], true)),
+    ok.
+
+%% Would cause an endless loop in beam_utils.
+otp_8949_b(A, B) ->
+    Var = id(value),
+    if
+	A == [], B == false ->
+	    ok
+    end,
+    receive
+        something ->
+	    id(Var)
+    end.
+    
 
 id(I) -> I.
