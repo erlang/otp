@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="latin1" ?>
+
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2010</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Suite Callbacks</title>
+    <prepared>Lukas Larsson</prepared>
+    <responsible>Lukas Larsson</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2010-12-02</date>
+    <rev>PA1</rev>
+    <file>suite_callback.sgml</file>
+  </header>
+  <module>ct_suite_callback</module> 
+  <modulesummary>A callback interface on top of common test</modulesummary>
+
+  <description>
+
+    <p>The <em>Suite Callback</em> framework allows extensions of the default
+       behaviour of Common Test by means of callbacks before and after all 
+       test suite calls. </p>
+
+    <p>In brief, Suite Callbacks allows you to:</p>
+
+    <list>
+      <item>Manipulating the runtime config before each suite configuration calls</item>
+      <item>Manipulating the return of all suite configuration calls</item>
+    </list>
+    
+    <p>The following sections describe the mandatory and optional suite callback
+      functions Common Test will call during test execution. For more details
+      see <seealso marker="suite_callbacks">Suite Callbacks</seealso> in the User's Guide.</p>
+    
+  </description>
+
+  <section>
+    <title>CALLBACK FUNCTIONS</title>
+    <p>The following functions define the callback interface
+      for a suite callback.</p>
+  </section>
+  
+  <funcs>
+    <func>
+      <name>Module:init(Opts) -> {Id,State} </name>
+      <fsummary>asdas</fsummary>
+      <type>
+	<v>Opts = term()</v>
+	<v>Id = term()</v>
+	<v>GroupName = term()</v>
+      </type>
+      
+      <desc>	
+	<p> MANDATORY </p>
+	
+	<p></p>
+	
+	<p> If <c>{skip,Reason}</c> is returned, all test cases
+          in the module will be skipped, and the <c>Reason</c> will
+          be printed on the HTML result page.</p>
+
+	<p>For details on groups, see 
+	  <seealso marker="write_test_chapter#test_case_groups">Test case 
+	  groups</seealso> in the User's Guide.</p>
+      
+    </desc>
+    </func>
+
+    
+  </funcs>
+
+</erlref>
+
+

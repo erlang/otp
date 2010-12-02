@@ -76,6 +76,7 @@
   <xi:include href="ct_telnet.xml"/>
   <xi:include href="unix_telnet.xml"/>
   <xi:include href="ct_slave.xml"/>
+  <xi:include href="ct_suite_callbacks.xml"/>
 </application>
 
 
