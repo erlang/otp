@@ -3268,7 +3268,7 @@ large_file(Config) when is_list(Config) ->
 	{{unix,sunos},{A,B,C}}
 	when A == 5, B == 5, C >= 1;   A == 5, B >= 6;   A >= 6 ->
 	    do_large_file(Config);
-	{{unix,Unix},_} when Unix =:= linux; Unix =:= darwin ->
+	{{unix,Unix},_} when Unix =/= sunos ->
 	    N = unix_free(Config),
 	    io:format("Free: ~w KByte~n", [N]),
 	    if N < 5 * (1 bsl 20) ->
@@ -3278,7 +3278,7 @@ large_file(Config) when is_list(Config) ->
 		    do_large_file(Config)
 	    end;
 	_ -> 
-	    {skipped,"Only supported on Win32, Linux, or SunOS >= 5.5.1"}
+	    {skipped,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
     end.
 
 unix_free(Config) ->
@@ -3290,7 +3290,7 @@ unix_free(Config) ->
     N.
 
 do_large_file(Config) ->
-    ?line Watchdog = ?t:timetrap(?t:minutes(4)),
+    ?line Watchdog = ?t:timetrap(?t:minutes(5)),
     %%
     ?line Name = filename:join(?config(priv_dir, Config),
 			       ?MODULE_STRING ++ "_large_file"),
@@ -3329,6 +3329,17 @@ do_large_file(Config) ->
     ?line {ok,P}  = ?FILE_MODULE:position(F, {eof,-L}),
     ?line {ok,Rs} = ?FILE_MODULE:read(F, L+1),
     ?line ok      = ?FILE_MODULE:close(F),
+    %% Reopen the file with 'append'; used to fail on Windows causing
+    %% writes to go to the beginning of the file for files > 4GB.
+    ?line PL = P + L,
+    ?line PLL = PL + L,
+    ?line {ok,F1}  = ?FILE_MODULE:open(Name, [raw,read,write,append]),
+    ?line ok       = ?FILE_MODULE:write(F1, R),
+    ?line {ok,PLL} = ?FILE_MODULE:position(F1, {cur,0}),
+    ?line {ok,Rs}  = ?FILE_MODULE:pread(F1, P, L),
+    ?line {ok,PL}  = ?FILE_MODULE:position(F1, {eof,-L}),
+    ?line {ok,R}   = ?FILE_MODULE:read(F1, L+1),
+    ?line ok       = ?FILE_MODULE:close(F1),
     %%
     ?line Mref = erlang:monitor(process, Deleter),
     ?line Deleter ! {Tester,done},
