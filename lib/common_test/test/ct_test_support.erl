@@ -43,6 +43,14 @@ init_per_suite(Config) ->
     init_per_suite(Config, 50).
 
 init_per_suite(Config, Level) ->
+    case os:type() of
+	{win32, _} ->
+	    %% Extend timeout for windows as starting node
+	    %% can take a long time there
+	    test_server:timetrap( 120000 * test_server:timetrap_scale_factor());
+	_ ->
+	    ok
+    end,
     case delete_old_logs(os:type(), Config) of
 	{'EXIT',DelLogsReason} ->
 	    test_server:format(0, "Failed to delete old log directories: ~p~n", 
@@ -51,6 +59,8 @@ init_per_suite(Config, Level) ->
 	    ok
     end,
     [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    
+    test_server:format(0, "Trying to start ~s~n", ["ct@"++Host]),
     case slave:start(Host, ct, []) of
 	{error,Reason} ->
 	    test_server:fail(Reason);
