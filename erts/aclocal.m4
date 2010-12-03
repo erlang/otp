@@ -1087,6 +1087,13 @@ fi
 AC_CHECK_SIZEOF(void *)
 AC_DEFINE_UNQUOTED(ETHR_SIZEOF_PTR, $ac_cv_sizeof_void_p, [Define to the size of pointers])
 
+AC_CHECK_SIZEOF(int)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF_INT, $ac_cv_sizeof_int, [Define to the size of int])
+AC_CHECK_SIZEOF(long)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF_LONG, $ac_cv_sizeof_long, [Define to the size of long])
+AC_CHECK_SIZEOF(long long)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF_LONG_LONG, $ac_cv_sizeof_long_long, [Define to the size of long long])
+
 AC_ARG_ENABLE(native-ethr-impls,
 	      AS_HELP_STRING([--disable-native-ethr-impls],
                              [disable native ethread implementations]),

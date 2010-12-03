@@ -20,6 +20,15 @@
 /* Define to the size of pointers */
 #undef ETHR_SIZEOF_PTR
 
+/* Define to the size of int */
+#undef ETHR_SIZEOF_INT
+
+/* Define to the size of long */
+#undef ETHR_SIZEOF_LONG
+
+/* Define to the size of long long */
+#undef ETHR_SIZEOF_LONG_LONG
+
 /* Define if you want to disable native ethread implementations */
 #undef ETHR_DISABLE_NATIVE_IMPLS
 

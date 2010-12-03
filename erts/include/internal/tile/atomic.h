@@ -26,6 +26,10 @@
 
 #include <atomic.h>
 
+#if ETHR_SIZEOF_LONG != ETHR_SIZEOF_PTR
+#  error "Incompatible size of 'long'"
+#endif
+
 /* An atomic is an aligned int accessed via locked operations.
  */
 typedef struct {

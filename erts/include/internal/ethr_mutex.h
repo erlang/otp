@@ -78,13 +78,13 @@
 #  error Need a qlock implementation
 #endif
 
-#define ETHR_RWMTX_W_FLG__		(((long) 1) << 31)
-#define ETHR_RWMTX_W_WAIT_FLG__		(((long) 1) << 30)
-#define ETHR_RWMTX_R_WAIT_FLG__		(((long) 1) << 29)
+#define ETHR_RWMTX_W_FLG__		(((ethr_sint_t) 1) << 31)
+#define ETHR_RWMTX_W_WAIT_FLG__		(((ethr_sint_t) 1) << 30)
+#define ETHR_RWMTX_R_WAIT_FLG__		(((ethr_sint_t) 1) << 29)
 
 /* frequent read kind */
-#define ETHR_RWMTX_R_FLG__		(((long) 1) << 28)
-#define ETHR_RWMTX_R_ABRT_UNLCK_FLG__	(((long) 1) << 27)
+#define ETHR_RWMTX_R_FLG__		(((ethr_sint_t) 1) << 28)
+#define ETHR_RWMTX_R_ABRT_UNLCK_FLG__	(((ethr_sint_t) 1) << 27)
 #define ETHR_RWMTX_R_PEND_UNLCK_MASK__	(ETHR_RWMTX_R_ABRT_UNLCK_FLG__ - 1)
 
 /* normal kind */
@@ -302,7 +302,7 @@ do {									\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RLOCK(MTXB)				\
 do {									\
-    long val__;								\
+    ethr_sint_t val__;							\
     ETHR_COMPILER_BARRIER;						\
     val__ = ethr_atomic_inc_read(&(MTXB)->hdbg_lfs);			\
     ETHR_MTX_HARD_ASSERT(val__ > 0);					\
@@ -317,13 +317,13 @@ do {									\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RUNLOCK(MTXB)				\
 do {									\
-    long val__ = ethr_atomic_dec_read(&(MTXB)->hdbg_lfs);		\
+    ethr_sint_t val__ = ethr_atomic_dec_read(&(MTXB)->hdbg_lfs);	\
     ETHR_MTX_HARD_ASSERT(val__ >= 0);					\
     ETHR_COMPILER_BARRIER;						\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(MTXB)				\
 do {									\
-    long val__;								\
+    ethr_sint_t val__;							\
     ETHR_COMPILER_BARRIER;						\
     val__ = ethr_atomic_dec_read(&(MTXB)->hdbg_lfs);			\
     ETHR_MTX_HARD_ASSERT(val__ == -1);					\
@@ -338,7 +338,7 @@ do {									\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(MTXB)			\
 do {									\
-    long val__ = ethr_atomic_inctest(&(MTXB)->hdbg_lfs);		\
+    ethr_sint_t val__ = ethr_atomic_inctest(&(MTXB)->hdbg_lfs);		\
     ETHR_MTX_HARD_ASSERT(val__ == 0);					\
     ETHR_COMPILER_BARRIER;						\
 } while (0)
@@ -501,13 +501,13 @@ do {							\
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_MUTEX_IMPL__)
 
-void ethr_mutex_lock_wait__(ethr_mutex *, long);
-void ethr_mutex_unlock_wake__(ethr_mutex *, long);
+void ethr_mutex_lock_wait__(ethr_mutex *, ethr_sint_t);
+void ethr_mutex_unlock_wake__(ethr_mutex *, ethr_sint_t);
 
 static ETHR_INLINE int
 ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 {
-    long act;
+    ethr_sint_t act;
     int res;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
@@ -531,7 +531,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 {
-    long act;
+    ethr_sint_t act;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
@@ -551,7 +551,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 {
-    long act;
+    ethr_sint_t act;
     ETHR_COMPILER_BARRIER;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(&mtx->mtxb);

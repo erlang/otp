@@ -46,8 +46,7 @@
  * - AO_store()
  * - AO_compare_and_swap()
  *
- * The `AO_t' type also have to be at least as large as
- * `void *' and `long' types.
+ * The `AO_t' type also have to be at least as large as the `void *' type.
  */
 
 #if ETHR_SIZEOF_AO_T < ETHR_SIZEOF_PTR
@@ -78,49 +77,49 @@ typedef struct {
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
-ethr_native_atomic_set(ethr_native_atomic_t *var, long value)
+ethr_native_atomic_set(ethr_native_atomic_t *var, ethr_sint_t value)
 {
     AO_store(&var->counter, (AO_t) value);
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_init(ethr_native_atomic_t *var, long value)
+ethr_native_atomic_init(ethr_native_atomic_t *var, ethr_sint_t value)
 {
     ethr_native_atomic_set(var, value);
 }
 
-static ETHR_INLINE long
+static ETHR_INLINE ethr_sint_t
 ethr_native_atomic_read(ethr_native_atomic_t *var)
 {
-    return (long) AO_load(&var->counter);
+    return (ethr_sint_t) AO_load(&var->counter);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_add_return(ethr_native_atomic_t *var, long incr)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_add_return(ethr_native_atomic_t *var, ethr_sint_t incr)
 {
 #ifdef AO_HAVE_fetch_and_add
-    return ((long) AO_fetch_and_add(&var->counter, (AO_t) incr)) + incr;
+    return ((ethr_sint_t) AO_fetch_and_add(&var->counter, (AO_t) incr)) + incr;
 #else
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	AO_t new = exp + (AO_t) incr;
 	if (AO_compare_and_swap(&var->counter, exp, new))
-	    return (long) new;
+	    return (ethr_sint_t) new;
     }
 #endif
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_add(ethr_native_atomic_t *var, long incr)
+ethr_native_atomic_add(ethr_native_atomic_t *var, ethr_sint_t incr)
 {
     (void) ethr_native_atomic_add_return(var, incr);
 }
 
-static ETHR_INLINE long
+static ETHR_INLINE ethr_sint_t
 ethr_native_atomic_inc_return(ethr_native_atomic_t *var)
 {
 #ifdef AO_HAVE_fetch_and_add1
-    return ((long) AO_fetch_and_add1(&var->counter)) + 1;
+    return ((ethr_sint_t) AO_fetch_and_add1(&var->counter)) + 1;
 #else
     return ethr_native_atomic_add_return(var, 1);
 #endif
@@ -132,11 +131,11 @@ ethr_native_atomic_inc(ethr_native_atomic_t *var)
     (void) ethr_native_atomic_inc_return(var);
 }
 
-static ETHR_INLINE long
+static ETHR_INLINE ethr_sint_t
 ethr_native_atomic_dec_return(ethr_native_atomic_t *var)
 {
 #ifdef AO_HAVE_fetch_and_sub1
-    return ((long) AO_fetch_and_sub1(&var->counter)) - 1;
+    return ((ethr_sint_t) AO_fetch_and_sub1(&var->counter)) - 1;
 #else
     return ethr_native_atomic_add_return(var, -1);
 #endif
@@ -148,47 +147,49 @@ ethr_native_atomic_dec(ethr_native_atomic_t *var)
     (void) ethr_native_atomic_dec_return(var);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_and_retold(ethr_native_atomic_t *var, long mask)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_and_retold(ethr_native_atomic_t *var, ethr_sint_t mask)
 {
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	AO_t new = exp & ((AO_t) mask);
 	if (AO_compare_and_swap(&var->counter, exp, new))
-	    return (long) exp;
+	    return (ethr_sint_t) exp;
     }
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_or_retold(ethr_native_atomic_t *var, long mask)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_or_retold(ethr_native_atomic_t *var, ethr_sint_t mask)
 {
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	AO_t new = exp | ((AO_t) mask);
 	if (AO_compare_and_swap(&var->counter, exp, new))
-	    return (long) exp;
+	    return (ethr_sint_t) exp;
     }
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, long new, long exp)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var,
+			   ethr_sint_t new,
+			   ethr_sint_t exp)
 {
-    long act;
+    ethr_sint_t act;
     do {
 	if (AO_compare_and_swap(&var->counter, (AO_t) exp, (AO_t) new))
 	    return exp;
-	act = (long) AO_load(&var->counter);
+	act = (ethr_sint_t) AO_load(&var->counter);
     } while (act == exp);
     return act;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_xchg(ethr_native_atomic_t *var, long new)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_xchg(ethr_native_atomic_t *var, ethr_sint_t new)
 {
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	if (AO_compare_and_swap(&var->counter, exp, (AO_t) new))
-	    return (long) exp;
+	    return (ethr_sint_t) exp;
     }
 }
 
@@ -196,32 +197,32 @@ ethr_native_atomic_xchg(ethr_native_atomic_t *var, long new)
  * Atomic ops with at least specified barriers.
  */
 
-static ETHR_INLINE long
+static ETHR_INLINE ethr_sint_t
 ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
 {
 #ifdef AO_HAVE_load_acquire
-    return (long) AO_load_acquire(&var->counter);
+    return (ethr_sint_t) AO_load_acquire(&var->counter);
 #else
-    long res = ethr_native_atomic_read(var);
+    ethr_sint_t res = ethr_native_atomic_read(var);
     ETHR_MEMORY_BARRIER;
     return res;
 #endif
 }
 
-static ETHR_INLINE long
+static ETHR_INLINE ethr_sint_t
 ethr_native_atomic_inc_return_acqb(ethr_native_atomic_t *var)
 {
 #ifdef AO_HAVE_fetch_and_add1_acquire
-    return ((long) AO_fetch_and_add1_acquire(&var->counter)) + 1;
+    return ((ethr_sint_t) AO_fetch_and_add1_acquire(&var->counter)) + 1;
 #else
-    long res = ethr_native_atomic_add_return(var, 1);
+    ethr_sint_t res = ethr_native_atomic_add_return(var, 1);
     ETHR_MEMORY_BARRIER;
     return res;
 #endif
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_set_relb(ethr_native_atomic_t *var, long value)
+ethr_native_atomic_set_relb(ethr_native_atomic_t *var, ethr_sint_t value)
 {
 #ifdef AO_HAVE_store_release
     AO_store_release(&var->counter, (AO_t) value);
@@ -231,11 +232,11 @@ ethr_native_atomic_set_relb(ethr_native_atomic_t *var, long value)
 #endif
 }
 
-static ETHR_INLINE long
+static ETHR_INLINE ethr_sint_t
 ethr_native_atomic_dec_return_relb(ethr_native_atomic_t *var)
 {
 #ifdef AO_HAVE_fetch_and_sub1_release
-    return ((long) AO_fetch_and_sub1_release(&var->counter)) - 1;
+    return ((ethr_sint_t) AO_fetch_and_sub1_release(&var->counter)) - 1;
 #else
     ETHR_MEMORY_BARRIER;
     return ethr_native_atomic_dec_return(var);
@@ -248,34 +249,38 @@ ethr_native_atomic_dec_relb(ethr_native_atomic_t *var)
     (void) ethr_native_atomic_dec_return_relb(var);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg_acqb(ethr_native_atomic_t *var, long new, long exp)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_cmpxchg_acqb(ethr_native_atomic_t *var,
+				ethr_sint_t new,
+				ethr_sint_t exp)
 {
 #ifdef AO_HAVE_compare_and_swap_acquire
-    long act;
+    ethr_sint_t act;
     do {
 	if (AO_compare_and_swap_acquire(&var->counter, (AO_t) exp, (AO_t) new))
 	    return exp;
-	act = (long) AO_load(&var->counter);
+	act = (ethr_sint_t) AO_load(&var->counter);
     } while (act == exp);
     AO_nop_full();
     return act;
 #else
-    long act = ethr_native_atomic_cmpxchg(var, new, exp);
+    ethr_sint_t act = ethr_native_atomic_cmpxchg(var, new, exp);
     ETHR_MEMORY_BARRIER;
     return act;
 #endif
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg_relb(ethr_native_atomic_t *var, long new, long exp)
+static ETHR_INLINE ethr_sint_t
+ethr_native_atomic_cmpxchg_relb(ethr_native_atomic_t *var,
+				ethr_sint_t new,
+				ethr_sint_t exp)
 {
 #ifdef AO_HAVE_compare_and_swap_release
-    long act;
+    ethr_sint_t act;
     do {
 	if (AO_compare_and_swap_release(&var->counter, (AO_t) exp, (AO_t) new))
 	    return exp;
-	act = (long) AO_load(&var->counter);
+	act = (ethr_sint_t) AO_load(&var->counter);
     } while (act == exp);
     return act;
 #else

@@ -28,6 +28,10 @@
 #ifndef ETHREAD_PPC_ATOMIC_H
 #define ETHREAD_PPC_ATOMIC_H
 
+#if ETHR_SIZEOF_LONG != ETHR_SIZEOF_PTR
+#  error "Incompatible size of 'int'"
+#endif
+
 typedef struct {
     volatile int counter;
 } ethr_native_atomic_t;

@@ -93,20 +93,20 @@ static void thr_exit_cleanup(ethr_tid *tid, void *res)
 static unsigned __stdcall thr_wrapper(LPVOID vtwd)
 {
     ethr_tid my_tid;
-    long result;
+    ethr_sint_t result;
     void *res;
     ethr_thr_wrap_data__ *twd = (ethr_thr_wrap_data__ *) vtwd;
     void *(*thr_func)(void *) = twd->thr_func;
     void *arg = twd->arg;
     ethr_ts_event *tsep = NULL;
 
-    result = (long) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint_t) ethr_make_ts_event__(&tsep);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
 	my_tid = *twd->tid;
 	if (!TlsSetValue(own_tid_key, (LPVOID) &my_tid)) {
-	    result = (long) ethr_win_get_errno__();
+	    result = (ethr_sint_t) ethr_win_get_errno__();
 	    ethr_free_ts_event__(tsep);
 	}
 	else {
@@ -352,7 +352,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 
 	/* Wait for child to initialize... */
 	while (1) {
-	    long result;
+	    ethr_sint_t result;
 	    int err;
 	    ethr_event_reset(&twd.tse->event);
 

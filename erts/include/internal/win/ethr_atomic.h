@@ -66,7 +66,6 @@
 #pragma intrinsic(_InterlockedCompareExchange_rel)
 #endif
 
-
 typedef struct {
     volatile LONG value;
 } ethr_native_atomic_t;

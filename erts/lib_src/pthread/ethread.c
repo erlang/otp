@@ -81,14 +81,14 @@ typedef struct {
 
 static void *thr_wrapper(void *vtwd)
 {
-    long result;
+    ethr_sint_t result;
     void *res;
     ethr_thr_wrap_data__ *twd = (ethr_thr_wrap_data__ *) vtwd;
     void *(*thr_func)(void *) = twd->thr_func;
     void *arg = twd->arg;
     ethr_ts_event *tsep = NULL;
 
-    result = (long) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint_t) ethr_make_ts_event__(&tsep);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
@@ -191,7 +191,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     }
 #endif
 
-    ethr_atomic_init(&twd.result, -1);
+    ethr_atomic_init(&twd.result, (ethr_sint_t) -1);
     twd.tse = ethr_get_ts_event();
     twd.thr_func = func;
     twd.arg = arg;
@@ -252,7 +252,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 
 	/* Wait for child to initialize... */
 	while (1) {
-	    long result;
+	    ethr_sint_t result;
 	    ethr_event_reset(&twd.tse->event);
 
 	    result = ethr_atomic_read(&twd.result);

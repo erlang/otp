@@ -40,15 +40,15 @@
 
 #if ETHR_SIZEOF_PTR == 8
 
-#define ETHR_EVENT_OFF_WAITER__		0xffffffffffffffffL
-#define ETHR_EVENT_OFF__		0x7777777777777777L
-#define ETHR_EVENT_ON__ 		0L
+#define ETHR_EVENT_OFF_WAITER__		((ethr_sint_t) 0xffffffffffffffffL)
+#define ETHR_EVENT_OFF__		((ethr_sint_t) 0x7777777777777777L)
+#define ETHR_EVENT_ON__ 		((ethr_sint_t) 0L)
 
 #elif  ETHR_SIZEOF_PTR == 4
 
-#define ETHR_EVENT_OFF_WAITER__		0xffffffffL
-#define ETHR_EVENT_OFF__		0x77777777L
-#define ETHR_EVENT_ON__ 		0L
+#define ETHR_EVENT_OFF_WAITER__		((ethr_sint_t) 0xffffffffL)
+#define ETHR_EVENT_OFF__		((ethr_sint_t) 0x77777777L)
+#define ETHR_EVENT_ON__ 		((ethr_sint_t) 0L)
 
 #else
 
@@ -77,7 +77,7 @@ typedef struct {
 static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
-    long val;
+    ethr_sint_t val;
     ETHR_WRITE_MEMORY_BARRIER;
     val = ethr_atomic_xchg(&e->futex, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
@@ -114,7 +114,7 @@ typedef struct {
 static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
-    long val;
+    ethr_sint_t val;
     ETHR_WRITE_MEMORY_BARRIER;
     val = ethr_atomic_xchg(&e->state, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {

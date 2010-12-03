@@ -24,6 +24,10 @@
 #ifndef ETHR_SPARC32_ATOMIC_H
 #define ETHR_SPARC32_ATOMIC_H
 
+#if ETHR_SIZEOF_LONG != ETHR_SIZEOF_PTR
+#  error "Incompatible size of 'long'"
+#endif
+
 typedef struct {
     volatile long counter;
 } ethr_native_atomic_t;

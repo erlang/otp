@@ -24,6 +24,10 @@
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHR_EVENT_IMPL__
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "ethread.h"
 
 #if defined(ETHR_LINUX_FUTEX_IMPL__)
@@ -52,7 +56,7 @@ wait__(ethr_event *e, int spincount)
 {
     unsigned sc = spincount;
     int res;
-    long val;
+    ethr_sint_t val;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
     if (spincount < 0)
@@ -131,7 +135,7 @@ static ETHR_INLINE int
 wait__(ethr_event *e, int spincount)
 {
     int sc = spincount;
-    long val;
+    ethr_sint_t val;
     int res, ulres;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 

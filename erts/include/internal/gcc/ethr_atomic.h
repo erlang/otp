@@ -36,10 +36,13 @@
 #  define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 1
 #endif
 
+#if ETHR_SIZEOF_LONG != ETHR_SIZEOF_PTR
+#  error "Incompatible size of 'long'"
+#endif
+
 typedef struct {
     volatile long counter;
 } ethr_native_atomic_t;
-
 
 /*
  * According to the documentation this is what we want:

@@ -26,6 +26,10 @@
 #ifndef ETHREAD_I386_ATOMIC_H
 #define ETHREAD_I386_ATOMIC_H
 
+#if ETHR_SIZEOF_LONG != ETHR_SIZEOF_PTR
+#  error "Incompatible size of 'long'"
+#endif
+
 /* An atomic is an aligned long accessed via locked operations.
  */
 typedef struct {
