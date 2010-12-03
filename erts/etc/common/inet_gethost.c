@@ -65,10 +65,8 @@
 #include <stdlib.h>
 
 /* These are not used even if they would exist which they should not */
-#undef HAVE_GETADDRINFO
 #undef HAVE_GETIPNODEBYNAME
 #undef HAVE_GETHOSTBYNAME2
-#undef HAVE_GETNAMEINFO
 #undef HAVE_GETIPNODEBYADDR
 
 #else /* Unix */
@@ -1762,7 +1760,7 @@ static int worker_loop(void)
 		struct addrinfo hints;
 		
 		memset(&hints, 0, sizeof(hints));
-		hints.ai_flags = (AI_CANONNAME|AI_V4MAPPED|AI_ADDRCONFIG);
+		hints.ai_flags = AI_CANONNAME;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_family = AF_INET6;
 		DEBUGF(5, ("Starting getaddrinfo(%s, ...)", data));

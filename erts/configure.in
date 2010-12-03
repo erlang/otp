@@ -1679,18 +1679,62 @@ LIBS="$LIBS $EMU_THR_X_LIBS"
 
 dnl Check if we have these, in which case we'll try to build
 dnl inet_gethost with ipv6 support.
-AC_CHECK_FUNC(getaddrinfo, have_getaddrinfo=yes, have_getaddrinfo=no)
-if test $have_getaddrinfo = yes; then
-        AC_MSG_CHECKING([whether getaddrinfo accepts enough flags])
-        AC_TRY_RUN([
+AC_CHECK_HEADERS(windows.h)
+AC_CHECK_HEADERS(winsock2.h)
+AC_CHECK_HEADERS(ws2tcpip.h,[],[],[
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif
+#ifdef HAVE_WINDOWS_H
+#include <windows.h>
+#endif
+])
+dnl AC_CHECK_FUNC(getaddrinfo, have_getaddrinfo=yes, have_getaddrinfo=no)
+AC_MSG_CHECKING(for getaddrinfo)
+AC_TRY_LINK([
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif
+#ifdef HAVE_WINDOWS_H
+#include <windows.h>
+#endif
+#ifdef HAVE_WS2TCPIP_H
+#include <ws2tcpip.h>
+#endif
+#ifndef __WIN32__
 #include <sys/socket.h>
 #include <netdb.h>
-int main(int argc, char **argv) {
+#endif
+], 
+[
+getaddrinfo("","",NULL,NULL);
+],have_getaddrinfo=yes, have_getaddrinfo=no)
+if test $have_getaddrinfo = yes; then
+        AC_MSG_RESULT([yes])
+        AC_MSG_CHECKING([whether getaddrinfo accepts enough flags])
+        AC_TRY_COMPILE([
+#include <stdlib.h>
+#include <string.h>
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif
+#ifdef HAVE_WINDOWS_H
+#include <windows.h>
+#endif
+#ifdef HAVE_WS2TCPIP_H
+#include <ws2tcpip.h>
+#endif
+#ifndef __WIN32__
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
+],
+[
     struct addrinfo hints, *ai;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_flags = (AI_CANONNAME|AI_V4MAPPED|AI_ADDRCONFIG);
+    hints.ai_flags = AI_CANONNAME;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_family = AF_INET6;
     if (getaddrinfo("::", NULL, &hints, &ai) == 0) {
@@ -1699,26 +1743,48 @@ int main(int argc, char **argv) {
     } else {
 	exit(1);
     }
-}
-	],, have_getaddrinfo=no,
-	[
-	case X$erl_xcomp_getaddrinfo in
-	    X) have_getaddrinfo=cross;;
-	    Xyes|Xno) have_getaddrinfo=$erl_xcomp_getaddrinfo;;
-	    *) AC_MSG_ERROR([Bad erl_xcomp_getaddrinfo value: $erl_xcomp_getaddrinfo]);;
-	esac
-	])
+],, have_getaddrinfo=no)
 	AC_MSG_RESULT($have_getaddrinfo)
 	case $have_getaddrinfo in
 	    yes)
 		AC_DEFINE(HAVE_GETADDRINFO, [1], 
 		          [Define to 1 if you have a good `getaddrinfo' function.]);;
-	    cross)
-		AC_MSG_WARN([result no guessed because of cross compilation]);;
 	    *) ;;
 	esac
+else
+    AC_MSG_RESULT([no])
 fi
-AC_CHECK_FUNCS([getnameinfo getipnodebyname getipnodebyaddr gethostbyname2])
+AC_MSG_CHECKING(for getnameinfo)
+AC_TRY_LINK([
+#include <stdlib.h>
+#include <string.h>
+#ifdef HAVE_WINSOCK2_H
+#include <winsock2.h>
+#endif
+#ifdef HAVE_WINDOWS_H
+#include <windows.h>
+#endif
+#ifdef HAVE_WS2TCPIP_H
+#include <ws2tcpip.h>
+#endif
+#ifndef __WIN32__
+#include <sys/socket.h>
+#include <netdb.h>
+#endif
+], 
+[
+getnameinfo(NULL,0,NULL,0,NULL,0,0);
+],have_getnameinfo=yes, have_getnameinfo=no)
+if test $have_getnameinfo = yes; then
+        AC_MSG_RESULT([yes])
+	AC_DEFINE(HAVE_GETNAMEINFO, [1], 
+		  [Define to 1 if you have a good `getnameinfo' function.])
+else
+	AC_MSG_RESULT([no])	  
+fi
+
+
+AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite writev memmove strerror strerror_r strncasecmp \

@@ -329,6 +329,9 @@ connect(ip_comm, Host, Port, Opts) ->
 	{error, eafnosupport}  ->
 	    tsp("eafnosupport opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+	{error, enetunreach}  ->
+	    tsp("eafnosupport opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, {enfile,_}} ->
 	    tsp("Error enfile"),
 	    {error, enfile};
