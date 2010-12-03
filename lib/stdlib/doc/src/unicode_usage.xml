@@ -189,7 +189,7 @@ Eshell V5.7  (abort with ^G)
 
 <p>For most systems, turning on Unicode file name translation is no problem even if it uses transparent file naming. Very few systems have mixed file name encodings. A consistent UTF-8 named system will work perfectly in Unicode file name mode. It is still however considered experimental in R14B01. Unicode file name translation is turned on with the <c>+fnu</c> switch to the <c>erl</c> program. If the VM is started in Unicode file name translation mode, <c>file:native_name_encoding/0</c> will return the atom <c>utf8</c>.</p>
 
-<p>In Unicode file name mode, file names given to the BIF <c>open_port/2</c> with the option <c>{spawn_executable,...}</c> are also interpreted as Unicode. So is the parameter list given in the <c>argv</c> option available when using <c>spawn_executable</c>. The UTF-8 translation of arguments can be avoided using binaries, see the discussion about raw file names below.</p>
+<p>In Unicode file name mode, file names given to the BIF <c>open_port/2</c> with the option <c>{spawn_executable,...}</c> are also interpreted as Unicode. So is the parameter list given in the <c>args</c> option available when using <c>spawn_executable</c>. The UTF-8 translation of arguments can be avoided using binaries, see the discussion about raw file names below.</p>
 
 <p>It is worth noting that the file <c>encoding</c> options given when opening a file has nothing to do with the file <em>name</em> encoding convention. You can very well open files containing UTF-8 but having file names in ISO-latin-1 or vice versa.</p>
 
