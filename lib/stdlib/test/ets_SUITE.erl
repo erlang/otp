@@ -5688,6 +5688,7 @@ make_ext_ref() ->
     Ref.
 
 init_externals() ->
+    SysDistSz = ets:info(sys_dist,size), 
     ?line Pa = filename:dirname(code:which(?MODULE)),
     ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
     ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
@@ -5696,6 +5697,17 @@ init_externals() ->
 		    R -> R
 	        end,
     ?line test_server:stop_node(Node),
+
+    %% Wait for table 'sys_dist' to stabilize
+    repeat_while(fun() ->
+		    case ets:info(sys_dist,size) of
+			SysDistSz -> false;
+			Sz ->
+			    io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
+				      [Sz, SysDistSz]),
+			    receive after 1000 -> true end
+		    end
+		end),   
     put(externals, Res).
 
 rpc_externals() ->
