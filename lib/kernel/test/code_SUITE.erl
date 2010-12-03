@@ -645,7 +645,7 @@ analyse([], [This={M,F,A}|Path], Visited, ErrCnt0) ->
     %% These modules should be loaded by code.erl before 
     %% the code_server is started.
     OK = [erlang, os, prim_file, erl_prim_loader, init, ets,
-	  code_server, lists, lists_sort, filename, packages, 
+	  code_server, lists, lists_sort, unicode, binary, filename, packages, 
 	  gb_sets, gb_trees, hipe_unified_loader, hipe_bifs,
 	  prim_zip, zlib],
     ErrCnt1 = 
@@ -673,6 +673,22 @@ analyse2(MFA={_,_,_}, Path, Visited0) ->
 
 %%%% We need to check these manually...
 % fun's are ok as long as they are defined locally.
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,ml_map,3},
+	    {unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
+check_funs({'$M_EXPR','$F_EXPR',_},
+	   [{unicode,do_o_binary2,2},
+	    {unicode,do_o_binary,2},
+	    {unicode,o_trans,1},
+	    {unicode,characters_to_binary_int,3},
+	    {unicode,characters_to_binary,3},
+	    {filename,filename_string_to_binary,1}|_]) -> 0;
 check_funs({'$M_EXPR','$F_EXPR',_},
 	   [{code_server,load_native_code,4},
 	    {code_server,load_native_code_1,2},
@@ -1252,7 +1268,8 @@ on_load_embedded_1(Config) ->
     ?line LibRoot = code:lib_dir(),
     ?line LinkName = filename:join(LibRoot, "on_load_app-1.0"),
     ?line OnLoadApp = filename:join(DataDir, "on_load_app-1.0"),
-    ?line file:delete(LinkName),
+    ?line del_link(LinkName),
+    io:format("LinkName :~p, OnLoadApp: ~p~n",[LinkName,OnLoadApp]),
     case file:make_symlink(OnLoadApp, LinkName) of
 	{error,enotsup} ->
 	    throw({skip,"Support for symlinks required"});
@@ -1281,7 +1298,15 @@ on_load_embedded_1(Config) ->
 
     %% Clean up.
     ?line stop_node(Node),
-    ?line ok = file:delete(LinkName).
+    ?line ok = del_link(LinkName).
+
+del_link(LinkName) ->
+   case file:delete(LinkName) of
+       {error,eperm} ->
+             file:del_dir(LinkName);
+       Other ->
+       	     Other
+   end.			   
 
 create_boot(Config, Options) ->
     ?line {ok, OldDir} = file:get_cwd(),

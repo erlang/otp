@@ -53,8 +53,11 @@ wildcard_one(Config) when is_list(Config) ->
 
 wildcard_two(Config) when is_list(Config) ->
     ?line Dir = filename:join(?config(priv_dir, Config), "wildcard_two"),
+    ?line DirB = unicode:characters_to_binary(Dir, file:native_name_encoding()),
     ?line ok = file:make_dir(Dir),
-    ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir) end),
+    ?line do_wildcard_1(Dir, fun(Wc) -> io:format("~p~n",[{Wc,Dir, X = filelib:wildcard(Wc, Dir)}]),X  end),
+    ?line do_wildcard_1(Dir, fun(Wc) -> io:format("~p~n",[{Wc,DirB, X = filelib:wildcard(Wc, DirB)}]),
+					[unicode:characters_to_list(Y,file:native_name_encoding()) || Y <- X] end),
     ?line do_wildcard_1(Dir, fun(Wc) -> filelib:wildcard(Wc, Dir++"/") end),
     case os:type() of
 	{win32,_} ->
@@ -253,5 +256,7 @@ ensure_dir_eexist(Config) when is_list(Config) ->
     %% There already is a file with the name of the directory
     %% we want to create.
     ?line NeedFile = filename:join(Name, "file"),
+    ?line NeedFileB = filename:join(Name, <<"file">>),
     ?line {error, eexist} = filelib:ensure_dir(NeedFile),
+    ?line {error, eexist} = filelib:ensure_dir(NeedFileB),
     ok.

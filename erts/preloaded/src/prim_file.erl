@@ -109,6 +109,8 @@
 -define(FILE_RESP_LDATA,       6).
 -define(FILE_RESP_N2DATA,      7).
 -define(FILE_RESP_EOF,         8).
+-define(FILE_RESP_FNAME,       9).
+-define(FILE_RESP_ALL_DATA,   10).
 
 %% Open modes for the driver's open function.
 -define(EFILE_MODE_READ,       1).
@@ -153,7 +155,7 @@
 %% Opens a file using the driver port Port. Returns {error, Reason}
 %% | {ok, FileDescriptor}
 open(Port, File, ModeList) when is_port(Port), 
-                                is_list(File), 
+                                (is_list(File) orelse is_binary(File)), 
                                 is_list(ModeList) ->
     case open_mode(ModeList) of
 	{Mode, _Portopts, _Setopts} ->
@@ -165,10 +167,11 @@ open(_,_,_) ->
     {error, badarg}.
 
 %% Opens a file. Returns {error, Reason} | {ok, FileDescriptor}.
-open(File, ModeList) when is_list(File), is_list(ModeList) ->
+open(File, ModeList) when (is_list(File) orelse is_binary(File)), 
+			  is_list(ModeList) ->
     case open_mode(ModeList) of
 	{Mode, Portopts, Setopts} ->
-	    open_int({?FD_DRV, Portopts}, File, Mode, Setopts);
+	    open_int({?FD_DRV, Portopts},File, Mode, Setopts);
 	Reason ->
 	    {error, Reason}
     end;
@@ -196,7 +199,7 @@ open_int({Driver, Portopts}, File, Mode, Setopts) ->
     end;
 open_int(Port, File, Mode, Setopts) ->
     M = Mode band ?EFILE_MODE_MASK,
-    case drv_command(Port, [<<?FILE_OPEN, M:32>>, File, 0]) of
+    case drv_command(Port, [<<?FILE_OPEN, M:32>>, pathname(File)]) of
 	{ok, Number} ->
 	    open_int_setopts(Port, Number, Setopts);
 	Error ->
@@ -489,7 +492,7 @@ ipread_s32bu_p32bu(#file_descriptor{module = ?MODULE, data = {_, _}},
 
 
 %% Returns {ok, Contents} | {error, Reason}
-read_file(File) ->
+read_file(File) when (is_list(File) orelse is_binary(File)) ->
     case drv_open(?FD_DRV, [binary]) of
 	{ok, Port} ->
 	    Result = read_file(Port, File),
@@ -497,11 +500,14 @@ read_file(File) ->
 	    Result;
 	{error, _} = Error ->
 	    Error
-    end.
+    end;
+read_file(_) ->
+    {error, badarg}.
 
 %% Takes a Port opened with open/1.
-read_file(Port, File) when is_port(Port) ->
-    Cmd = [?FILE_READ_FILE | File],
+read_file(Port, File) when is_port(Port),
+			   (is_list(File) orelse is_binary(File))->
+    Cmd = [?FILE_READ_FILE | pathname(File)],
     case drv_command(Port, Cmd) of
 	{error, enomem} ->
 	    %% It could possibly help to do a 
@@ -512,12 +518,14 @@ read_file(Port, File) when is_port(Port) ->
 	    drv_command(Port, Cmd);
 	Result ->
 	    Result
-    end.
+    end;
+read_file(_,_) ->
+    {error, badarg}.
 
     
 
 %% Returns {error, Reason} | ok.
-write_file(File, Bin) ->
+write_file(File, Bin) when (is_list(File) orelse is_binary(File)) ->
     case open(File, [binary, write]) of
 	{ok, Handle} ->
 	    Result = write(Handle, Bin),
@@ -525,8 +533,10 @@ write_file(File, Bin) ->
 	    Result;
 	Error ->
 	    Error
-    end.
-
+    end;
+write_file(_, _) -> 
+    {error, badarg}.
+    
 
 
 %%%-----------------------------------------------------------------
@@ -539,7 +549,7 @@ write_file(File, Bin) ->
 %% Returns {ok, Port}, the Port should be used as first argument in all
 %% the following functions. Returns {error, Reason} upon failure.
 start() ->
-    try erlang:open_port({spawn, atom_to_list(?DRV)}, []) of
+    try erlang:open_port({spawn, atom_to_list(?DRV)}, [binary]) of
 	Port ->
 	    {ok, Port}
     catch
@@ -596,7 +606,7 @@ get_cwd(_, _) ->
     {error, badarg}.
 
 get_cwd_int(Drive) ->
-    get_cwd_int({?DRV, []}, Drive).
+    get_cwd_int({?DRV, [binary]}, Drive).
 
 get_cwd_int(Port, Drive) ->
     drv_command(Port, <<?FILE_PWD, Drive>>).
@@ -606,7 +616,7 @@ get_cwd_int(Port, Drive) ->
 %% set_cwd/{1,2}
 
 set_cwd(Dir) ->
-    set_cwd_int({?DRV, []}, Dir).
+    set_cwd_int({?DRV, [binary]}, Dir).
 
 set_cwd(Port, Dir) when is_port(Port) ->
     set_cwd_int(Port, Dir).
@@ -632,89 +642,88 @@ set_cwd_int(Port, Dir0) ->
 	 end),
     %% Dir is now either a string or an EXIT tuple.
     %% An EXIT tuple will fail in the following catch.
-    drv_command(Port, [?FILE_CHDIR, Dir, 0]).
+    drv_command(Port, [?FILE_CHDIR, pathname(Dir)]).
 
 
 
 %% delete/{1,2}
 
 delete(File) ->
-    delete_int({?DRV, []}, File).
+    delete_int({?DRV, [binary]}, File).
 
 delete(Port, File) when is_port(Port) ->
     delete_int(Port, File).
 
 delete_int(Port, File) ->
-    drv_command(Port, [?FILE_DELETE, File, 0]).
+    drv_command(Port, [?FILE_DELETE, pathname(File)]).
 
 
 
 %% rename/{2,3}
 
 rename(From, To) ->
-    rename_int({?DRV, []}, From, To).
+    rename_int({?DRV, [binary]}, From, To).
 
 rename(Port, From, To) when is_port(Port) ->
     rename_int(Port, From, To).
 
 rename_int(Port, From, To) ->
-    drv_command(Port, [?FILE_RENAME, From, 0, To, 0]).
+    drv_command(Port, [?FILE_RENAME, pathname(From), pathname(To)]).
 
 
 
 %% make_dir/{1,2}
 
 make_dir(Dir) ->
-    make_dir_int({?DRV, []}, Dir).
+    make_dir_int({?DRV, [binary]}, Dir).
 
 make_dir(Port, Dir) when is_port(Port) ->
     make_dir_int(Port, Dir).
 
 make_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_MKDIR, Dir, 0]).
+    drv_command(Port, [?FILE_MKDIR, pathname(Dir)]).
 
 
 
 %% del_dir/{1,2}
 
 del_dir(Dir) ->
-    del_dir_int({?DRV, []}, Dir).
+    del_dir_int({?DRV, [binary]}, Dir).
 
 del_dir(Port, Dir) when is_port(Port) ->
     del_dir_int(Port, Dir).
 
 del_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_RMDIR, Dir, 0]).
+    drv_command(Port, [?FILE_RMDIR, pathname(Dir)]).
 
 
 
 %% read_file_info/{1,2}
 
 read_file_info(File) ->
-    read_file_info_int({?DRV, []}, File).
+    read_file_info_int({?DRV, [binary]}, File).
 
 read_file_info(Port, File) when is_port(Port) ->
     read_file_info_int(Port, File).
 
 read_file_info_int(Port, File) ->
-    drv_command(Port, [?FILE_FSTAT, File, 0]).
+    drv_command(Port, [?FILE_FSTAT, pathname(File)]).
 
 %% altname/{1,2}
 
 altname(File) ->
-    altname_int({?DRV, []}, File).
+    altname_int({?DRV, [binary]}, File).
 
 altname(Port, File) when is_port(Port) ->
     altname_int(Port, File).
 
 altname_int(Port, File) ->
-    drv_command(Port, [?FILE_ALTNAME, File, 0]).
-
+    drv_command(Port, [?FILE_ALTNAME, pathname(File)]).
 
 %% write_file_info/{2,3}
 
 write_file_info(File, Info) ->
-    write_file_info_int({?DRV, []}, File, Info).
+    write_file_info_int({?DRV, [binary]}, File, Info).
 
 write_file_info(Port, File, Info) when is_port(Port) ->
     write_file_info_int(Port, File, Info).
@@ -740,72 +749,72 @@ write_file_info_int(Port,
 			date_to_bytes(Atime), 
 			date_to_bytes(Mtime), 
 			date_to_bytes(Ctime),
-			File, 0]).
+			pathname(File)]).
 
 
 
 %% make_link/{2,3}
 
 make_link(Old, New) ->
-    make_link_int({?DRV, []}, Old, New).
+    make_link_int({?DRV, [binary]}, Old, New).
 
 make_link(Port, Old, New) when is_port(Port) ->
     make_link_int(Port, Old, New).
 
 make_link_int(Port, Old, New) ->
-    drv_command(Port, [?FILE_LINK, Old, 0, New, 0]).
+    drv_command(Port, [?FILE_LINK, pathname(Old), pathname(New)]).
 
 
 
 %% make_symlink/{2,3}
 
 make_symlink(Old, New) ->
-    make_symlink_int({?DRV, []}, Old, New).
+    make_symlink_int({?DRV, [binary]}, Old, New).
 
 make_symlink(Port, Old, New) when is_port(Port) ->
     make_symlink_int(Port, Old, New).
 
 make_symlink_int(Port, Old, New) ->
-    drv_command(Port, [?FILE_SYMLINK, Old, 0, New, 0]).
+    drv_command(Port, [?FILE_SYMLINK, pathname(Old), pathname(New)]).
 
 
 
 %% read_link/{2,3}
 
 read_link(Link) ->
-    read_link_int({?DRV, []}, Link).
+    read_link_int({?DRV, [binary]}, Link).
 
 read_link(Port, Link) when is_port(Port) ->
     read_link_int(Port, Link).
 
 read_link_int(Port, Link) ->
-    drv_command(Port, [?FILE_READLINK, Link, 0]).
+    drv_command(Port, [?FILE_READLINK, pathname(Link)]).
 
 
 
 %% read_link_info/{2,3}
 
 read_link_info(Link) ->
-    read_link_info_int({?DRV, []}, Link).
+    read_link_info_int({?DRV, [binary]}, Link).
 
 read_link_info(Port, Link) when is_port(Port) ->
     read_link_info_int(Port, Link).
 
 read_link_info_int(Port, Link) ->
-    drv_command(Port, [?FILE_LSTAT, Link, 0]).
+    drv_command(Port, [?FILE_LSTAT, pathname(Link)]).
 
 
 
 %% list_dir/{1,2}
 
 list_dir(Dir) ->
-    list_dir_int({?DRV, []}, Dir).
+    list_dir_int({?DRV, [binary]}, Dir).
 
 list_dir(Port, Dir) when is_port(Port) ->
     list_dir_int(Port, Dir).
 
 list_dir_int(Port, Dir) ->
-    drv_command(Port, [?FILE_READDIR, Dir, 0], []).
+    drv_command(Port, [?FILE_READDIR, pathname(Dir)], []).
 
 
 
@@ -1026,8 +1035,6 @@ lseek_position(_) ->
 
 translate_response(?FILE_RESP_OK, []) ->
     ok;
-translate_response(?FILE_RESP_OK, Data) ->
-    {ok, Data};
 translate_response(?FILE_RESP_ERROR, List) when is_list(List) ->
     {error, list_to_atom(List)};
 translate_response(?FILE_RESP_NUMBER, List) ->
@@ -1074,6 +1081,16 @@ translate_response(?FILE_RESP_N2DATA = X, L0) when is_list(L0) ->
     end;
 translate_response(?FILE_RESP_EOF, []) ->
     eof;
+translate_response(?FILE_RESP_FNAME, []) ->
+    ok;
+translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
+    {ok, prim_file:internal_native2name(Data)};
+translate_response(?FILE_RESP_FNAME, Data) ->
+    {ok, Data};
+
+translate_response(?FILE_RESP_ALL_DATA, Data) ->
+    {ok, Data};
+
 translate_response(X, Data) ->
     {error, {bad_response_from_port, [X | Data]}}.
 
@@ -1209,3 +1226,9 @@ lists_split([Hd | Tl], N, Rev) ->
 
 reverse(X) -> lists:reverse(X, []).
 reverse(L, T) -> lists:reverse(L, T).
+
+% Will add zero termination too
+% The 'EXIT' tuple from a bad argument will eventually generate an error
+% in list_to_binary, which is caught and generates the {error,badarg} return
+pathname(File) ->
+    (catch prim_file:internal_name2native(File)).

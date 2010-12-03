@@ -217,8 +217,8 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t al
     return bytes;
 }
 
-static Eterm
-bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs)
+Eterm
+erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, Uint bitoffs)
 {
     if (bitoffs == 0) {
 	while (size) {
@@ -263,7 +263,7 @@ BIF_RETTYPE binary_to_list_1(BIF_ALIST_1)
 	Eterm* hp = HAlloc(BIF_P, 2 * size);
 	byte* bytes = binary_bytes(real_bin)+offset;
 
-	BIF_RET(bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
+	BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes, size, bitoffs));
     }
 
     error:
@@ -295,7 +295,7 @@ BIF_RETTYPE binary_to_list_3(BIF_ALIST_3)
     }
     i = stop-start+1;
     hp = HAlloc(BIF_P, 2*i);
-    BIF_RET(bin_bytes_to_list(NIL, hp, bytes+start-1, i, bitoffs));
+    BIF_RET(erts_bin_bytes_to_list(NIL, hp, bytes+start-1, i, bitoffs));
     
     error:
 	BIF_ERROR(BIF_P, BADARG);
@@ -339,7 +339,7 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 	previous = CONS(hp, make_binary(last), previous);
 	hp += 2;
     }
-    BIF_RET(bin_bytes_to_list(previous, hp, bytes, size, bitoffs));
+    BIF_RET(erts_bin_bytes_to_list(previous, hp, bytes, size, bitoffs));
 }
 
 

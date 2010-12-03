@@ -75,7 +75,7 @@
 -define(RAM_FILE, ram_file).           % Module
 
 %% data types
--type filename()  :: string().
+-type filename()  :: string() | binary().
 -type file_info() :: #file_info{}.
 -type fd()        :: #file_descriptor{}.
 -type io_device() :: pid() | fd().
@@ -87,7 +87,7 @@
 		   | 'delayed_write' | {'read_ahead', pos_integer()}
 		   | 'read_ahead' | 'compressed'
 		   | {'encoding', unicode:encoding()}.
--type name()      :: string() | atom() | [name()].
+-type name()      :: string() | atom() | [name()] | binary().
 -type posix()     :: 'eacces'  | 'eagain'  | 'ebadf'   | 'ebusy'  | 'edquot'
 		   | 'eexist'  | 'efault'  | 'efbig'   | 'eintr'  | 'einval'
 		   | 'eio'     | 'eisdir'  | 'eloop'   | 'emfile' | 'emlink'
@@ -1033,22 +1033,26 @@ path_open_first([], _Name, _Mode, LastError) ->
 %% 	Generates a flat file name from a deep list of atoms and 
 %% 	characters (integers).
 
+file_name(N) when is_binary(N) ->
+    N;
 file_name(N) ->
     try 
-        file_name_1(N)
+        file_name_1(N,file:native_name_encoding())
     catch Reason ->
         {error, Reason}
     end.
 
-file_name_1([C|T]) when is_integer(C), C > 0, C =< 255 ->
-    [C|file_name_1(T)];
-file_name_1([H|T]) ->
-    file_name_1(H) ++ file_name_1(T);
-file_name_1([]) ->
+file_name_1([C|T],latin1) when is_integer(C), C < 256->
+    [C|file_name_1(T,latin1)];
+file_name_1([C|T],utf8) when is_integer(C) ->
+    [C|file_name_1(T,utf8)];
+file_name_1([H|T],E) ->
+    file_name_1(H,E) ++ file_name_1(T,E);
+file_name_1([],_) ->
     [];
-file_name_1(N) when is_atom(N) ->
+file_name_1(N,_) when is_atom(N) ->
     atom_to_list(N);
-file_name_1(_) ->
+file_name_1(_,_) ->
     throw(badarg).
 
 make_binary(Bin) when is_binary(Bin) ->

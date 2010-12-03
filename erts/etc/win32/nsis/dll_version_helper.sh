@@ -2,7 +2,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2009. All Rights Reserved.
+# Copyright Ericsson AB 2007-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -41,9 +41,15 @@ if [ '!' -f hello.exe.manifest ]; then
     exit 0
 fi
 VERSION=`grep '<assemblyIdentity' hello.exe.manifest | sed 's,.*version=.\([0-9\.]*\).*,\1,g' | grep -v '<'`
+NAME=`grep '<assemblyIdentity' hello.exe.manifest | sed 's,.*name=.[A-Za-z\.]*\([0-9]*\).*,msvcr\1.dll,g' | grep -v '<'`
 rm -f hello.c hello.obj hello.exe hello.exe.manifest
-if [ -z "$VERSION" ]; then
+if [ "$1" = "-n" ]; then
+    ASKEDFOR=$NAME
+else
+    ASKEDFOR=$VERSION
+fi
+if [ -z "$ASKEDFOR" ]; then
     exit 1
 fi
-echo $VERSION
+echo $ASKEDFOR
 exit 0

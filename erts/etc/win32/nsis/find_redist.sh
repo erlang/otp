@@ -2,7 +2,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2009. All Rights Reserved.
+# Copyright Ericsson AB 2007-2010. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -107,16 +107,56 @@ for x in cl bin vc; do
     fi
     BPATH="$NBPATH"
 done
-#echo $BPATH
-for x in sdk v2.0 bootstrapper packages vcredist_x86 vcredist_x86.exe; do
-    #echo "x=$x"
-    #echo "BPATH=$BPATH"
-    NBPATH=`add_path_element $x "$BPATH"`
-    if [ "$NBPATH" = "$BPATH" ]; then
-	echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
-	exit 3
+BPATH_LIST=$BPATH
+
+# rc.exe is in the Microsoft SDK directory of VS2008
+RCPATH=`lookup_prog_in_path rc`
+fail=false
+if [ '!' -z "$RCPATH" ]; then 
+    BPATH=$RCPATH
+    for x in rc bin v6.0A ; do 
+	NBPATH=`remove_path_element $x "$BPATH"`
+	if [ "$NBPATH" = "$BPATH" ]; then
+	    fail=true
+	    break;
+	fi
+	BPATH="$NBPATH"
+    done
+    if [ $fail = false ]; then
+	BPATH_LIST="$BPATH_LIST $BPATH"
     fi
-    BPATH="$NBPATH"
+fi
+
+# Frantic search through two roots with different 
+# version directories. We want to be very specific about the
+# directory structures as we woildnt want to find the wrong 
+# redistributables...
+
+#echo $BPATH
+for BP in $BPATH_LIST; do
+    for verdir in "sdk v2.0" "sdk v3.5" "v6.0A"; do
+	BPATH=$BP
+	fail=false
+	for x in $verdir bootstrapper packages vcredist_x86 vcredist_x86.exe; do
+	    #echo "x=$x"
+	    #echo "BPATH=$BPATH"
+	    NBPATH=`add_path_element $x "$BPATH"`
+	    if [ "$NBPATH" = "$BPATH" ]; then
+		fail=true
+		break;
+	    fi
+	    BPATH="$NBPATH"
+	done
+	if [ $fail = false ]; then
+	    break;
+	fi
+    done
+    if [ $fail = false ]; then
+	echo $BPATH
+	exit 0
+    fi
 done
-echo $BPATH
-exit 0
+
+echo "Failed to locate vcredist_x86.exe because directory structure was unexpected" >&2
+exit 3
+

@@ -47,14 +47,14 @@ wildcard(Pattern) when is_list(Pattern) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, file)).
 
 -spec wildcard(file:name(), file:name() | atom()) -> [file:filename()].
-wildcard(Pattern, Cwd) when is_list(Pattern), is_list(Cwd) ->
+wildcard(Pattern, Cwd) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, file));
 wildcard(Pattern, Mod) when is_list(Pattern), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Mod)).
 
 -spec wildcard(file:name(), file:name(), atom()) -> [file:filename()].
 wildcard(Pattern, Cwd, Mod)
-  when is_list(Pattern), is_list(Cwd), is_atom(Mod) ->
+  when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, Mod)).
 
 -spec is_dir(file:name()) -> boolean().
@@ -118,7 +118,7 @@ do_wildcard_comp({compiled_wildcard,{exists,File}}, Mod) ->
 do_wildcard_comp({compiled_wildcard,[Base|Rest]}, Mod) ->
     do_wildcard_1([Base], Rest, Mod).
 
-do_wildcard(Pattern, Cwd, Mod) when is_list(Pattern), is_list(Cwd) ->
+do_wildcard(Pattern, Cwd, Mod) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
     do_wildcard_comp(do_compile_wildcard(Pattern), Cwd, Mod).
 
 do_wildcard_comp({compiled_wildcard,{exists,File}}, Cwd, Mod) ->
@@ -127,9 +127,18 @@ do_wildcard_comp({compiled_wildcard,{exists,File}}, Cwd, Mod) ->
 	_ -> []
     end;
 do_wildcard_comp({compiled_wildcard,[current|Rest]}, Cwd0, Mod) ->
-    Cwd = filename:join([Cwd0]),		%Slash away redundant slashes.
-    PrefixLen = length(Cwd)+1,
-    [lists:nthtail(PrefixLen, N) || N <- do_wildcard_1([Cwd], Rest, Mod)];
+    {Cwd,PrefixLen} = case filename:join([Cwd0]) of
+	      Bin when is_binary(Bin) -> {Bin,byte_size(Bin)+1};
+	      Other -> {Other,length(Other)+1}
+	  end,		%Slash away redundant slashes.
+    [
+     if 
+	 is_binary(N) ->
+	     <<_:PrefixLen/binary,Res/binary>> = N,
+	     Res;
+	 true ->
+	     lists:nthtail(PrefixLen, N)
+     end || N <- do_wildcard_1([Cwd], Rest, Mod)];
 do_wildcard_comp({compiled_wildcard,[Base|Rest]}, _Cwd, Mod) ->
     do_wildcard_1([Base], Rest, Mod).
 
@@ -166,36 +175,44 @@ do_is_regular(File, Mod) ->
 %%   If <Recursive> is true all sub-directories to <Dir> are processed
 
 do_fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod) ->
-    {ok, Re1} = re:compile(RegExp),
-    do_fold_files1(Dir, Re1, Recursive, Fun, Acc, Mod).
+    {ok, Re1} = re:compile(RegExp,[unicode]),
+    do_fold_files1(Dir, Re1, RegExp, Recursive, Fun, Acc, Mod).
 
-do_fold_files1(Dir, RegExp, Recursive, Fun, Acc, Mod) ->
+do_fold_files1(Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod) ->
     case eval_list_dir(Dir, Mod) of
-	{ok, Files} -> do_fold_files2(Files, Dir, RegExp, Recursive, Fun, Acc, Mod);
+	{ok, Files} -> do_fold_files2(Files, Dir, RegExp, OrigRE,
+				      Recursive, Fun, Acc, Mod);
 	{error, _}  -> Acc
     end.
 
-do_fold_files2([], _Dir, _RegExp, _Recursive, _Fun, Acc, _Mod) -> 
+%% OrigRE is not to be compiled as it's for non conforming filenames,
+%% i.e. for filenames that does not comply to the current encoding, which should
+%% be very rare. We use it only in those cases and do not want to precompile.
+do_fold_files2([], _Dir, _RegExp, _OrigRE, _Recursive, _Fun, Acc, _Mod) -> 
     Acc;
-do_fold_files2([File|T], Dir, RegExp, Recursive, Fun, Acc0, Mod) ->
+do_fold_files2([File|T], Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod) ->
     FullName = filename:join(Dir, File),
     case do_is_regular(FullName, Mod) of
 	true  ->
-	    case re:run(File, RegExp, [{capture,none}]) of
+	    case (catch re:run(File, if is_binary(File) -> OrigRE; 
+					true -> RegExp end, 
+			       [{capture,none}])) of
 		match  -> 
 		    Acc = Fun(FullName, Acc0),
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc, Mod);
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc, Mod);
+		{'EXIT',_} ->
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod);
 		nomatch ->
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc0, Mod)
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
 	    end;
 	false ->
 	    case Recursive andalso do_is_dir(FullName, Mod) of
 		true ->
-		    Acc1 = do_fold_files1(FullName, RegExp, Recursive,
+		    Acc1 = do_fold_files1(FullName, RegExp, OrigRE, Recursive,
 					  Fun, Acc0, Mod),
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc1, Mod);
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc1, Mod);
 		false ->
-		    do_fold_files2(T, Dir, RegExp, Recursive, Fun, Acc0, Mod)
+		    do_fold_files2(T, Dir, RegExp, OrigRE, Recursive, Fun, Acc0, Mod)
 	    end
     end.
 
@@ -268,6 +285,13 @@ do_wildcard_3(Base, [Pattern|Rest], Result, Mod) ->
 do_wildcard_3(Base, [], Result, _Mod) ->
     [Base|Result].
 
+wildcard_4(Pattern, [File|Rest], Base, Result) when is_binary(File) ->
+    case wildcard_5(Pattern, binary_to_list(File)) of
+	true ->
+	    wildcard_4(Pattern, Rest, Base, [join(Base, File)|Result]);
+	false ->
+	    wildcard_4(Pattern, Rest, Base, Result)
+    end;
 wildcard_4(Pattern, [File|Rest], Base, Result) ->
     case wildcard_5(Pattern, File) of
 	true ->

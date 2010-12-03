@@ -59,6 +59,14 @@
 #define FA_WRITE 	1
 #define FA_READ		2
 
+/* Some OS'es (i.e. Windows) has filenames in wide charaqcters. That requires special handling */
+/* Note that we do *not* honor alignment in the communication to the OS specific driver, */
+/* which is not a problem on x86, but might be on other platforms. The OS specific efile */
+/* implementation is expected to align if needed */
+#ifdef __WIN32__
+#define FILENAMES_16BIT 1
+#endif
+
 /*
  * An handle to an open directory.  To be cast to the correct type
  * in the system-dependent directory functions.
@@ -123,7 +131,7 @@ int efile_getdcwd(Efile_error* errInfo, int drive,
 		  char* buffer, size_t size);
 int efile_readdir(Efile_error* errInfo, char* name, 
 		  EFILE_DIR_HANDLE* dir_handle,
-		  char* buffer, size_t size);
+		  char* buffer, size_t *size);
 int efile_openfile(Efile_error* errInfo, char* name, int flags,
 		   int* pfd, Sint64* pSize);
 void efile_closefile(int fd);

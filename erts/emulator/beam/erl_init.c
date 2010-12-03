@@ -251,6 +251,7 @@ erl_init(int ncpu)
     erts_init_monitors();
     erts_init_gc();
     init_time();
+    erts_init_sys_common_misc();
     erts_init_process(ncpu);
     erts_init_scheduling(use_multi_run_queue,
 			 no_schedulers,
@@ -907,7 +908,27 @@ erl_start(int argc, char **argv)
 	    VERBOSE(DEBUG_SYSTEM,
                     ("using display items %d\n",display_items));
 	    break;
-
+	case 'f':
+	    if (!strncmp(argv[i],"-fn",3)) {
+		arg = get_arg(argv[i]+3, argv[i+1], &i);
+		switch (*arg) {
+		case 'u':
+		    erts_set_user_requested_filename_encoding(ERL_FILENAME_UTF8);
+		    break;
+		case 'l':
+		    erts_set_user_requested_filename_encoding(ERL_FILENAME_LATIN1);
+		    break;
+		case 'a':
+		    erts_set_user_requested_filename_encoding(ERL_FILENAME_UNKNOWN);
+		default:
+		    erts_fprintf(stderr, "bad filename encoding %s, can be (l,u or a)\n", arg);
+		    erts_usage();
+		}
+		break;
+	    } else {
+		erts_fprintf(stderr, "%s unknown flag %s\n", argv[0], argv[i]);
+		erts_usage();
+	    }
 	case 'l':
 	    display_loads++;
 	    break;

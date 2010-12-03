@@ -44,11 +44,11 @@ format_error(ErrorId) ->
     erl_posix_msg:message(ErrorId).
 
 start(Owner, FileName, ModeList) 
-  when is_pid(Owner), is_list(FileName), is_list(ModeList) ->
+  when is_pid(Owner), (is_list(FileName) orelse is_binary(FileName)), is_list(ModeList) ->
     do_start(spawn, Owner, FileName, ModeList).
 
 start_link(Owner, FileName, ModeList) 
-  when is_pid(Owner), is_list(FileName), is_list(ModeList) ->
+  when is_pid(Owner), (is_list(FileName) orelse is_binary(FileName)), is_list(ModeList) ->
     do_start(spawn_link, Owner, FileName, ModeList).
 
 %%%-----------------------------------------------------------------

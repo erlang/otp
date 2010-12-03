@@ -67,6 +67,8 @@
 #define FILE_RESP_LDATA      6
 #define FILE_RESP_N2DATA     7
 #define FILE_RESP_EOF        8
+#define FILE_RESP_FNAME      9
+#define FILE_RESP_ALL_DATA  10
 
 /* Options */
 
@@ -109,11 +111,11 @@ void erl_exit(int n, char *fmt, ...);
 static ErlDrvSysInfo sys_info;
 
 
-/*#define TRACE 1*/
+/* #define TRACE 1 */
 #ifdef TRACE
-#    define TRACE_C(c) (putchar(c))
-#    define TRACE_S(s) (fputs((s), stdout))
-#    define TRACE_F(args) (printf args)
+#    define TRACE_C(c) do { putchar(c); fflush(stdout); } while (0)
+#    define TRACE_S(s) do { fputs((s), stdout); fflush(stdout); } while (0)
+#    define TRACE_F(args) do { printf args ;fflush(stdout); } while (0)
 #else
 #    define TRACE_C(c) ((void)(0))
 #    define TRACE_S(s) ((void)(0))
@@ -137,23 +139,53 @@ static ErlDrvSysInfo sys_info;
 #define MUTEX_UNLOCK(m)
 #endif
 
-
-
 #if 0
 /* Experimental, for forcing all file operations to use the same thread. */
-static unsigned file_fixed_key = 1;
-#define KEY(desc) (&file_fixed_key)
+   static unsigned file_fixed_key = 1;
+#  define KEY(desc) (&file_fixed_key)
 #else
-#define KEY(desc) (&(desc)->key)
+#  define KEY(desc) (&(desc)->key)
+#endif
+
+
+#ifdef FILENAMES_16BIT
+#  define FILENAME_BYTELEN(Str) filename_len_16bit(Str)
+#  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From)) 
+#  define FILENAME_CHARSIZE 2
+
+   static int filename_len_16bit(char *str) 
+   {
+       char *p = str;
+       while(*p != '\0' || p[1] != '\0') {
+	   p += 2;
+       }
+       return (p - str);
+   }
+
+   static void filename_cpy_16bit(char *to, char *from) 
+   {
+       while(*from != '\0' || from[1] != '\0') {
+	   *to++ = *from++;
+	   *to++ = *from++;
+       }
+       *to++ = *from++;
+       *to++ = *from++;
+   }
+
+#else
+#  define FILENAME_BYTELEN(Str) strlen(Str)
+#  define FILENAME_COPY(To,From) strcpy(To,From) 
+#  define FILENAME_CHARSIZE 1
+#endif
+
+#if     (MAXPATHLEN+1)*FILENAME_CHARSIZE+1 > BUFSIZ
+#  define    RESBUFSIZE  ((MAXPATHLEN+1)*FILENAME_CHARSIZE+1)
+#else
+#  define    RESBUFSIZE  BUFSIZ
 #endif
 
 
 
-#if     MAXPATHLEN >= BUFSIZ
-#define    RESBUFSIZE  MAXPATHLEN+1
-#else
-#define    RESBUFSIZE  BUFSIZ
-#endif
 
 #define GET_TIME(i, b) \
     (i).year  = get_int32((b) + 0 * 4); \
@@ -286,9 +318,9 @@ struct t_preadv {
 };
 
 #define READDIR_BUFSIZE (8*1024)
-#if READDIR_BUFSIZE < (2*MAXPATHLEN)
-#undef READDIR_BUFSIZE
-#define READDIR_BUFSIZE (2*MAXPATHLEN)
+#if READDIR_BUFSIZE < (FILENAME_CHARSIZE*2*(MAXPATHLEN+1))
+#  undef READDIR_BUFSIZE
+#  define READDIR_BUFSIZE (FILENAME_CHARSIZE*2*(MAXPATHLEN+1))
 #endif
 
 struct t_readdir_buf {
@@ -367,6 +399,7 @@ struct t_data
     } c;
     char b[1];
 };
+
 
 
 #define EF_ALLOC(S)		driver_alloc((S))
@@ -1288,7 +1321,7 @@ static void invoke_writev(void *data) {
 	 p < size && iovcnt < iovlen;
 	 p += iov0[iovcnt++].iov_len)
 	;
-    iov = EF_ALLOC(sizeof(SysIOVec)*iovcnt);
+    iov = EF_SAFE_ALLOC(sizeof(SysIOVec)*iovcnt);
     memcpy(iov,iov0,iovcnt*sizeof(SysIOVec));
     MUTEX_UNLOCK(d->c.writev.q_mtx);
     /* Let go of lock until we deque from original vector */
@@ -1368,7 +1401,7 @@ static void invoke_readlink(void *data)
     d->result_ok = efile_readlink(&d->errInfo, d->b, resbuf+1,
 				  RESBUFSIZE-1);
     if (d->result_ok != 0)
-	strcpy((char *) d->b + 1, resbuf+1);
+	FILENAME_COPY((char *) d->b + 1, resbuf+1);
 }
 
 static void invoke_altname(void *data)
@@ -1380,7 +1413,7 @@ static void invoke_altname(void *data)
     d->result_ok = efile_altname(&d->errInfo, d->b, resbuf+1,
 				  RESBUFSIZE-1);
     if (d->result_ok != 0)
-	strcpy((char *) d->b + 1, resbuf+1);
+	FILENAME_COPY((char *) d->b + 1, resbuf+1);
 }
 
 static void invoke_pwritev(void *data) {
@@ -1405,7 +1438,7 @@ static void invoke_pwritev(void *data) {
     /* Lock the queue just for a while, we don't want it locked during write */
     MUTEX_LOCK(c->q_mtx);
     iov0 = driver_peekq(c->port, &iovlen);
-    iov = EF_ALLOC(sizeof(SysIOVec)*iovlen);
+    iov = EF_SAFE_ALLOC(sizeof(SysIOVec)*iovlen);
     memcpy(iov,iov0,sizeof(SysIOVec)*iovlen);
     MUTEX_UNLOCK(c->q_mtx);
 
@@ -1499,7 +1532,7 @@ static void invoke_link(void *data)
     char *new_name;
 
     d->again = 0;
-    new_name = name+strlen(name)+1;
+    new_name = name+FILENAME_BYTELEN(name)+FILENAME_CHARSIZE;
     d->result_ok = efile_link(&d->errInfo, name, new_name);
 }
 
@@ -1510,7 +1543,7 @@ static void invoke_symlink(void *data)
     char *new_name;
 
     d->again = 0;
-    new_name = name+strlen(name)+1;
+    new_name = name+FILENAME_BYTELEN(name)+FILENAME_CHARSIZE;
     d->result_ok = efile_symlink(&d->errInfo, name, new_name);
 }
 
@@ -1521,7 +1554,7 @@ static void invoke_rename(void *data)
     char *new_name;
 
     d->again = 0;
-    new_name = name+strlen(name)+1;
+    new_name = name+FILENAME_BYTELEN(name)+FILENAME_CHARSIZE;
     d->result_ok = efile_rename(&d->errInfo, name, new_name);
 }
 
@@ -1569,13 +1602,15 @@ static void invoke_readdir(void *data)
     int s;
     char *p = NULL;
     int buf_sz = 0;
+    size_t tmp_bs;
 
     d->again = 0;
     d->errInfo.posix_errno = 0;
 
     while (1) {
 	char *str;
-	if (buf_sz < (4 /* sz */ + 1 /* cmd */ + MAXPATHLEN + 1 /* '\0' */)) {
+	if (buf_sz < (4 /* sz */ + 1 /* cmd */ + 
+		      FILENAME_CHARSIZE*(MAXPATHLEN + 1))) {
 	    struct t_readdir_buf *b;
 	    if (p) {
 		put_int32(0, p); /* EOB */
@@ -1591,18 +1626,18 @@ static void invoke_readdir(void *data)
 	    buf_sz = READDIR_BUFSIZE - 4/* EOB */;
 	}
 
-	p[4] = FILE_RESP_OK;
+	p[4] = FILE_RESP_FNAME;
 	buf_sz -= 4 + 1;
 	str = p + 4 + 1;
 	ASSERT(buf_sz >= MAXPATHLEN + 1);
-	s = efile_readdir(&d->errInfo, d->b, &d->dir_handle, str, buf_sz);
+	tmp_bs = buf_sz;
+	s = efile_readdir(&d->errInfo, d->b, &d->dir_handle, str, &tmp_bs);
 
 	if (s) {
-	    int str_sz = strlen(str);
-	    int sz = str_sz + 1;
-	    put_int32(sz, p);
-	    p += 4 + sz;
-	    buf_sz -= str_sz;
+	    put_int32(tmp_bs + 1 /* 1 byte for opcode */, p);
+	    p += 4 + tmp_bs + 1;
+	    ASSERT(p == (str + tmp_bs));
+	    buf_sz -= tmp_bs;
 	}
 	else {
 	    put_int32(1, p);
@@ -1911,7 +1946,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	if (!d->result_ok)
 	    reply_error(desc, &d->errInfo);
 	else {
-	    header[0] = FILE_RESP_OK;
+	    header[0] = FILE_RESP_ALL_DATA;
 	    TRACE_C('R');
 	    driver_output_binary(desc->port, header, 1,
 				 d->c.read_file.binp,
@@ -1968,10 +2003,10 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	    if (!d->result_ok)
 		reply_error(desc, &d->errInfo);
 	    else {
-		resbuf[0] = FILE_RESP_OK;
-		length = 1+strlen((char*) resbuf+1);
+		resbuf[0] = FILE_RESP_FNAME;
+		length = 1+FILENAME_BYTELEN((char*) resbuf+1);
 		TRACE_C('R');
-		driver_output2(desc->port, resbuf, length, NULL, 0);
+		driver_output2(desc->port, resbuf, 1, resbuf+1, length-1);
 	    }
 	    free_data(data);
 	    break;
@@ -2031,13 +2066,18 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 		int sz = get_int32(p);
 		while (sz) { /* 0 == EOB */
 		    p += 4;
-		    driver_output2(desc->port, p, sz, NULL, 0);
+		    if (sz - 1 > 0) {
+			driver_output2(desc->port, p, 1, p+1, sz-1);
+		    } else {
+			driver_output2(desc->port, p, 1, NULL, 0);
+		    }
 		    p += sz;
 		    sz = get_int32(p);
 		}
 		b1 = b1->next;
 		EF_FREE(b2);
 	    }
+	    
 	    d->c.read_dir.first_buf = NULL;
 	    d->c.read_dir.last_buf = NULL;
 	}
@@ -2113,9 +2153,9 @@ file_output(ErlDrvData e, char* buf, int count)
 
     case FILE_MKDIR:
     {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(name) + 1);
+	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
-	strcpy(d->b, name);
+	FILENAME_COPY(d->b, name);
 	d->command = command;
 	d->invoke = invoke_mkdir;
 	d->free = free_data;
@@ -2124,9 +2164,9 @@ file_output(ErlDrvData e, char* buf, int count)
     }
     case FILE_RMDIR:
     {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(name) + 1);
+	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
-	strcpy(d->b, name);
+	FILENAME_COPY(d->b, name);
 	d->command = command;
 	d->invoke = invoke_rmdir;
 	d->free = free_data;
@@ -2135,9 +2175,9 @@ file_output(ErlDrvData e, char* buf, int count)
     }
     case FILE_DELETE:
     {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(name) + 1);
+	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
-	strcpy(d->b, name);
+	FILENAME_COPY(d->b, name);
 	d->command = command;
 	d->invoke = invoke_delete_file;
 	d->free = free_data;
@@ -2147,14 +2187,14 @@ file_output(ErlDrvData e, char* buf, int count)
     case FILE_RENAME:
 	{
 	    char* new_name;
-
-	    new_name = name+strlen(name)+1;
+	    int namelen = FILENAME_BYTELEN(name)+FILENAME_CHARSIZE;
+	    new_name = name+namelen;
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
-			      + strlen(name) + 1
-			      + strlen(new_name) + 1);
+			      + namelen
+			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
 	
-	    strcpy(d->b, name);
-	    strcpy(d->b + strlen(name) + 1, new_name);
+	    FILENAME_COPY(d->b, name);
+	    FILENAME_COPY(d->b + namelen, new_name);
 	    d->flags = desc->flags;
 	    d->fd = fd;
 	    d->command = command;
@@ -2165,9 +2205,9 @@ file_output(ErlDrvData e, char* buf, int count)
 	}
     case FILE_CHDIR:
     {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(name) + 1);
+	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
-	strcpy(d->b, name);
+	FILENAME_COPY(d->b, name);
 	d->command = command;
 	d->invoke = invoke_chdir;
 	d->free = free_data;
@@ -2190,9 +2230,10 @@ file_output(ErlDrvData e, char* buf, int count)
 #ifdef USE_THREADS
 	if (sys_info.async_threads > 0)
 	{
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(name) + 1);
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + 
+			      FILENAME_CHARSIZE);
 	
-	    strcpy(d->b, name);
+	    FILENAME_COPY(d->b, name);
 	    d->dir_handle = NULL;
 	    d->command = command;
 	    d->invoke = invoke_readdir;
@@ -2205,17 +2246,19 @@ file_output(ErlDrvData e, char* buf, int count)
 	else   
 #endif
 	{
+	    size_t resbufsize;
 	    char resbuf[RESBUFSIZE+1];
 	    EFILE_DIR_HANDLE dir_handle; /* Handle to open directory. */
 
 	    errInfo.posix_errno = 0;
 	    dir_handle = NULL;
-	    resbuf[0] = FILE_RESP_OK;
+	    resbuf[0] = FILE_RESP_FNAME;
+	    resbufsize = RESBUFSIZE;
 
 	    while (efile_readdir(&errInfo, name, &dir_handle,
-				 resbuf+1, RESBUFSIZE)) {
-		int length = 1 + strlen(resbuf+1);
-		driver_output2(desc->port, resbuf, length, NULL, 0);
+				 resbuf+1, &resbufsize)) {
+		driver_output2(desc->port, resbuf, 1, resbuf+1, resbufsize);
+		resbufsize = RESBUFSIZE;
 	    }
 	    if (errInfo.posix_errno != 0) {
 		reply_error(desc, &errInfo);
@@ -2227,11 +2270,12 @@ file_output(ErlDrvData e, char* buf, int count)
 	}
     case FILE_OPEN:
 	{
-	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(buf+4) + 1);
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(buf+4) + 
+			      FILENAME_CHARSIZE);
 	
 	    d->flags = get_int32((uchar*)buf);
 	    name = buf+4;
-	    strcpy(d->b, name);
+	    FILENAME_COPY(d->b, name);
 	    d->command = command;
 	    d->invoke = invoke_open;
 	    d->free = free_data;
@@ -2240,44 +2284,45 @@ file_output(ErlDrvData e, char* buf, int count)
 	}
 
     case FILE_FDATASYNC:
-    {
+	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
-
+	    
 	    d->fd = fd;
 	    d->command = command;
 	    d->invoke = invoke_fdatasync;
 	    d->free = free_data;
 	    d->level = 2;
 	    goto done;
-    }
+	}
 
     case FILE_FSYNC:
-    {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data));
-	
-	d->fd = fd;
-	d->command = command;
-	d->invoke = invoke_fsync;
-	d->free = free_data;
-	d->level = 2;
-	goto done;
-    }
+	{
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
+	    
+	    d->fd = fd;
+	    d->command = command;
+	    d->invoke = invoke_fsync;
+	    d->free = free_data;
+	    d->level = 2;
+	    goto done;
+	}
 
 
     case FILE_FSTAT: 
     case FILE_LSTAT:
-    {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + strlen(name) + 1);
+	{
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + 
+			      FILENAME_CHARSIZE);
+	    
+	    FILENAME_COPY(d->b, name);
+	    d->fd = fd;
+	    d->command = command;
+	    d->invoke = invoke_flstat;
+	    d->free = free_data;
+	    d->level = 2;
+	    goto done;
+	}
 	
-	strcpy(d->b, name);
-	d->fd = fd;
-	d->command = command;
-	d->invoke = invoke_flstat;
-	d->free = free_data;
-	d->level = 2;
-	goto done;
-    }
-
     case FILE_TRUNCATE:
         {
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
@@ -2294,7 +2339,7 @@ file_output(ErlDrvData e, char* buf, int count)
     case FILE_WRITE_INFO:
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
-			      + strlen(buf+21*4) + 1);
+			      + FILENAME_BYTELEN(buf+21*4) + FILENAME_CHARSIZE);
 	    
 	    d->info.mode = get_int32(buf + 0 * 4);
 	    d->info.uid = get_int32(buf + 1 * 4);
@@ -2302,7 +2347,7 @@ file_output(ErlDrvData e, char* buf, int count)
 	    GET_TIME(d->info.accessTime, buf + 3 * 4);
 	    GET_TIME(d->info.modifyTime, buf + 9 * 4);
 	    GET_TIME(d->info.cTime, buf + 15 * 4);
-	    strcpy(d->b, buf+21*4);
+	    FILENAME_COPY(d->b, buf+21*4);
 	    d->command = command;
 	    d->invoke = invoke_write_info;
 	    d->free = free_data;
@@ -2314,7 +2359,7 @@ file_output(ErlDrvData e, char* buf, int count)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	
-	    strcpy(d->b, name);
+	    FILENAME_COPY(d->b, name);
 	    d->command = command;
 	    d->invoke = invoke_readlink;
 	    d->free = free_data;
@@ -2323,28 +2368,29 @@ file_output(ErlDrvData e, char* buf, int count)
 	}
 
     case FILE_ALTNAME:
-    {
-	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
-	strcpy(d->b, name);
-	d->command = command;
-	d->invoke = invoke_altname;
-	d->free = free_data;
-	d->level = 2;
-	goto done;
-    }
+	{
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
+	    FILENAME_COPY(d->b, name);
+	    d->command = command;
+	    d->invoke = invoke_altname;
+	    d->free = free_data;
+	    d->level = 2;
+	    goto done;
+	}
 
 
     case FILE_LINK:
 	{
 	    char* new_name;
+	    int namelen = FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 
-	    new_name = name+strlen(name)+1;
+	    new_name = name+namelen;
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
-			      + strlen(name) + 1
-			      + strlen(new_name) + 1);
+			      + namelen
+			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
 	
-	    strcpy(d->b, name);
-	    strcpy(d->b + strlen(name) + 1, new_name);
+	    FILENAME_COPY(d->b, name);
+	    FILENAME_COPY(d->b + namelen, new_name);
 	    d->flags = desc->flags;
 	    d->fd = fd;
 	    d->command = command;
@@ -2357,14 +2403,15 @@ file_output(ErlDrvData e, char* buf, int count)
     case FILE_SYMLINK:
 	{
 	    char* new_name;
+	    int namelen = FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 
-	    new_name = name+strlen(name)+1;
+	    new_name = name+namelen;
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1
-			      + strlen(name) + 1
-			      + strlen(new_name) + 1);
+			      + namelen
+			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
 	
-	    strcpy(d->b, name);
-	    strcpy(d->b + strlen(name) + 1, new_name);
+	    FILENAME_COPY(d->b, name);
+	    FILENAME_COPY(d->b + namelen, new_name);
 	    d->flags = desc->flags;
 	    d->fd = fd;
 	    d->command = command;
@@ -3004,6 +3051,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
     case FILE_READ_FILE: {
 	struct t_data *d;
+	char *filename;
 	if (ev->size < 1+1) {
 	    /* Buffer contains empty name */
 	    reply_posix_error(desc, ENOENT);
@@ -3014,7 +3062,8 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-	d = EF_ALLOC(sizeof(struct t_data) + ev->size);
+	filename = EV_CHAR_P(ev, p, q);
+	d = EF_ALLOC(sizeof(struct t_data) -1 + FILENAME_BYTELEN(filename) + FILENAME_CHARSIZE);
 	if (! d) {
 	    reply_posix_error(desc, ENOMEM);
 	    goto done;
@@ -3022,8 +3071,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	/* Copy name */
-	memcpy(d->c.read_file.name, EV_CHAR_P(ev, p, q), ev->size-1);
-	d->c.read_file.name[ev->size-1] = '\0';
+	FILENAME_COPY(d->c.read_file.name, filename);
 	d->c.read_file.binp = NULL;
 	d->invoke = invoke_read_file;
 	d->free = free_read_file;

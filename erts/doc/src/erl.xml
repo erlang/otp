@@ -550,6 +550,19 @@
         <p>Force the <c>compressed</c> option on all ETS tables.
               Only intended for test and evaluation.</p>
       </item>
+      <tag><c><![CDATA[+fnl]]></c></tag>
+      <item>
+        <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255. This is default on operating systems that have transparent file naming, i.e. all Unixes except MacOSX.</p>
+      </item>
+      <tag><c><![CDATA[+fnu]]></c></tag>
+      <item>
+        <p>The VM works with file names as if they are encoded using UTF-8 (or some other system specific Unicode encoding). This is the default on operating systems that enforce Unicode encoding, i.e. Windows and MacOSX.</p>
+	<p>By enabling Unicode file name translation on systems where this is not default, you open up to the possibility that some file names can not be interpreted by the VM and therefore will be returned to the program as raw binaries. The option is therefore considered experimental.</p>
+      </item>
+      <tag><c><![CDATA[+fna]]></c></tag>
+      <item>
+        <p>Selection between <c>+fnl</c> and <c>+fnu</c> is done based on the current locale settings in the OS, meaning that if you have set your terminal for UTF-8 encoding, the filesystem is expected to use the same encoding for filenames (use with care).</p>
+      </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
         <p>Sets the default heap size of processes to the size

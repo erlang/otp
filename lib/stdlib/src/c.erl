@@ -659,7 +659,7 @@ portformat(Name, Id, Cmd) ->
 pwd() ->
     case file:get_cwd() of
 	{ok, Str} ->
-	    ok = io:format("~s\n", [Str]);
+	    ok = io:format("~ts\n", [fixup_one_bin(Str)]);
 	{error, _} ->
 	    ok = io:format("Cannot determine current directory\n")
     end.
@@ -684,10 +684,26 @@ ls() ->
 ls(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Entries} ->
-	    ls_print(sort(Entries));
+	    ls_print(sort(fixup_bin(Entries)));
 	{error,_E} ->
 	    format("Invalid directory\n")
     end.
+
+fixup_one_bin(X) when is_binary(X) ->
+    L = binary_to_list(X),
+    [ if 
+	  El > 127 ->
+	      $?;
+	  true ->
+	      El
+      end || El <- L];
+fixup_one_bin(X) -> 
+    X.
+fixup_bin([H|T]) ->
+    [fixup_one_bin(H) | fixup_bin(T)];
+fixup_bin([]) ->
+    [].
+	      
 
 ls_print([]) -> ok;
 ls_print(L) ->
@@ -698,7 +714,7 @@ ls_print(X, Width, Len) when Width + Len >= 80 ->
     io:nl(),
     ls_print(X, Width, 0);
 ls_print([H|T], Width, Len) ->
-    io:format("~-*s",[Width,H]),
+    io:format("~-*ts",[Width,H]),
     ls_print(T, Width, Len+Width);
 ls_print([], _, _) ->
     io:nl().

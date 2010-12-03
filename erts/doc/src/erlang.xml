@@ -2781,14 +2781,17 @@ os_prompt%</pre>
       <name>open_port(PortName, PortSettings) -> port()</name>
       <fsummary>Open a port</fsummary>
       <type>
-        <v>PortName = {spawn, Command} | {spawn_driver, Command} | {spawn_executable, Command} | {fd, In, Out}</v>
+        <v>PortName = {spawn, Command} | {spawn_driver, Command} | {spawn_executable, FileName} | {fd, In, Out}</v>
         <v>&nbsp;Command = string()</v>
+	<v>&nbsp;FileName = [ FileNameChar ] | binary()</v>
+	<v>&nbsp;FileNameChar = int() (1..255 or any Unicode codepoint, see description)</v> 
         <v>&nbsp;In = Out = int()</v>
         <v>PortSettings = [Opt]</v>
-        <v>&nbsp;Opt = {packet, N} | stream | {line, L} | {cd, Dir} | {env, Env} | {args, [ string() ]} | {arg0, string()} | exit_status | use_stdio | nouse_stdio | stderr_to_stdout | in | out | binary | eof</v>
+        <v>&nbsp;Opt = {packet, N} | stream | {line, L} | {cd, Dir} | {env, Env} | {args, [ ArgString ]} | {arg0, ArgString} | exit_status | use_stdio | nouse_stdio | stderr_to_stdout | in | out | binary | eof</v>
         <v>&nbsp;&nbsp;N = 1 | 2 | 4</v>
         <v>&nbsp;&nbsp;L = int()</v>
         <v>&nbsp;&nbsp;Dir = string()</v>
+	<v>&nbsp;&nbsp;ArgString = [ FileNameChar ] | binary()</v>
         <v>&nbsp;&nbsp;Env = [{Name, Val}]</v>
         <v>&nbsp;&nbsp;&nbsp;Name = string()</v>
         <v>&nbsp;&nbsp;&nbsp;Val = string() | false</v>
@@ -2851,7 +2854,26 @@ os_prompt%</pre>
 	      executed, the appropriate command interpreter will
 	      implicitly be invoked, but there will still be no
 	      command argument expansion or implicit PATH search.</p>
-	      
+
+	      <p>The name of the executable as well as the arguments
+	      given in <c>args</c> and <c>arg0</c> is subject to
+	      Unicode file name translation if the system is running
+	      in Unicode file name mode. To avoid
+	      translation or force i.e. UTF-8, supply the executable
+	      and/or arguments as a binary in the correct
+	      encoding. See the <seealso
+	      marker="kernel:file">file</seealso> module, the
+	      <seealso marker="kernel:file#native_name_encoding/0">
+	      file:native_name_encoding/0</seealso> function and the 
+	      <seealso marker="stdlib:unicode_usage">stdlib users guide
+	      </seealso> for details.</p>
+
+	      <note>The characters in the name (if given as a list)
+	      can only be &gt; 255 if the Erlang VM is started in
+	      Unicode file name translation mode, otherwise the name
+	      of the executable is limited to the ISO-latin-1
+	      character set.</note>
+  
 	      <p>If the <c>Command</c> cannot be run, an error
 	      exception, with the posix error code as the reason, is
 	      raised. The error reason may differ between operating
@@ -2954,6 +2976,21 @@ os_prompt%</pre>
 	    should not be given in this list. The proper executable name will
 	    automatically be used as argv[0] where applicable.</p>
 
+	    <p>When the Erlang VM is running in Unicode file name
+	    mode, the arguments can contain any Unicode characters and
+	    will be translated into whatever is appropriate on the
+	    underlying OS, which means UTF-8 for all platforms except
+	    Windows, which has other (more transparent) ways of
+	    dealing with Unicode arguments to programs. To avoid
+	    Unicode translation of arguments, they can be supplied as
+	    binaries in whatever encoding is deemed appropriate.</p>
+
+	      <note>The characters in the arguments (if given as a
+	      list of characters) can only be &gt; 255 if the Erlang
+	      VM is started in Unicode file name mode,
+	      otherwise the arguments are limited to the
+	      ISO-latin-1 character set.</note>
+
 	    <p>If one, for any reason, wants to explicitly set the
 	    program name in the argument vector, the <c>arg0</c>
 	    option can be used.</p>
@@ -2968,6 +3005,9 @@ os_prompt%</pre>
 	    on some operating systems, be desirable. How the program
 	    responds to this is highly system dependent and no specific 
 	    effect is guaranteed.</p>
+
+	    <p>The unicode file name translation rules of the
+	    <c>args</c> option apply to this option as well.</p>
 
 	  </item> 
 

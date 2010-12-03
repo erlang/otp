@@ -795,6 +795,13 @@ bif erlang:nif_error/1
 bif erlang:nif_error/2
 
 #
+# Helpers for unicode filenames
+#
+bif prim_file:internal_name2native/1
+bif prim_file:internal_native2name/1
+bif prim_file:internal_normalize_utf8/1
+bif file:native_name_encoding/0
+#
 # Obsolete
 #
 

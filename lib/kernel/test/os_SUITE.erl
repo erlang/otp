@@ -204,8 +204,9 @@ evil(Config) when is_list(Config) ->
 					      evil_loop(Parent, ?EVIL_LOOPS,N)
 				      end)
 		   end, lists:seq(1, ?EVIL_PROCS)),
-    Devil = spawn(fun () -> devil(hd(Ps), hd(lists:reverse(Ps))) end),
+    Devil = spawn_link(fun () -> devil(hd(Ps), hd(lists:reverse(Ps))) end),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Ps),
+    unlink(Devil),
     exit(Devil, kill),
     test_server:timetrap_cancel(Dog),
     ok.

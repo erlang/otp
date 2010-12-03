@@ -2014,6 +2014,18 @@ type(file, set_cwd, 1, Xs) ->
 	 end);
 type(file, write_file, 2, Xs) ->
   strict(arg_types(file, write_file, 2), Xs, fun (_) -> t_file_return() end);
+type(file, native_name_encoding, 0, _) ->
+  t_file_encoding();
+%%-- prim_file ----------------------------------------------------------------
+type(prim_file, internal_name2native, 1, Xs) ->
+  strict(arg_types(prim_file, internal_name2native, 1), Xs,  
+	 fun (_) -> t_binary() end);
+type(prim_file, internal_native2name, 1, Xs) ->
+  strict(arg_types(prim_file, internal_native2name, 1), Xs,  
+	 fun (_) -> t_prim_file_name() end);
+type(prim_file, internal_normalize_utf8, 1, Xs) ->
+  strict(arg_types(prim_file, internal_normalize_utf8, 1), Xs,  
+	 fun (_) -> t_binary() end);
 %%-- gen_tcp ------------------------------------------------------------------
 %% NOTE: All type information for this module added to avoid loss of precision
 type(gen_tcp, accept, 1, Xs) ->
@@ -4216,6 +4228,15 @@ arg_types(file, write, 2) ->
   [t_file_io_device(), t_iodata()];
 arg_types(file, write_file, 2) ->
   [t_file_name(), t_sup(t_binary(), t_list())];
+arg_types(file, native_name_encoding, 0) ->
+  [];
+%%-- prim_file ----------------------------------------------------------------
+arg_types(prim_file, internal_name2native, 1) ->
+  [t_prim_file_name()];
+arg_types(prim_file, internal_native2name, 1) ->
+  [t_binary()];
+arg_types(prim_file, internal_normalize_utf8, 1) ->
+  [t_binary()];
 %%------- gen_tcp -------------------------------------------------------------
 arg_types(gen_tcp, accept, 1) ->
   [t_socket()];
@@ -5000,6 +5021,7 @@ t_file_io_device() ->
 t_file_name() ->
   t_sup([t_atom(),
 	 t_string(),
+	 t_binary(),
 	 %% DeepList = [char() | atom() | DeepList] -- approximation below
 	 t_list(t_sup([t_atom(), t_string(), t_list()]))]).
 
@@ -5053,6 +5075,10 @@ t_file_posix_error() ->
 
 t_file_return() ->
   t_sup(t_atom('ok'), t_tuple([t_atom('error'), t_file_posix_error()])).
+
+t_prim_file_name() ->
+   t_sup([t_string(),
+	  t_binary()]).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'gen_tcp'
@@ -5255,6 +5281,9 @@ t_ML() ->     % a binary or a possibly deep list of integers or binaries
 
 t_encoding() ->
   t_atoms(['latin1', 'unicode', 'utf8', 'utf16', 'utf32']).
+
+t_file_encoding() ->
+  t_atoms(['latin1', 'utf8']).
 
 t_encoding_a2b() -> % for the 2nd arg of atom_to_binary/2 and binary_to_atom/2
   t_atoms(['latin1', 'unicode', 'utf8']).

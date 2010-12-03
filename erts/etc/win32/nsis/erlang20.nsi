@@ -311,23 +311,23 @@ FunctionEnd
 
 Function .onInit
    SectionGetFlags 0 $MYTEMP 
-;   MessageBox MB_YESNO "Found $SYSDIR\msvcr80.dll" IDYES FoundLbl
-   IfFileExists $SYSDIR\msvcr80.dll MaybeFoundInSystemLbl
+   ;MessageBox MB_YESNO "Found $SYSDIR\${REDIST_DLL_NAME}" IDYES FoundLbl
+   IfFileExists $SYSDIR\${REDIST_DLL_NAME} MaybeFoundInSystemLbl
    SearchSxsLbl:	
         FindFirst $0 $1 $WINDIR\WinSxS\x86*
         LoopLbl:
 	    StrCmp $1 "" NotFoundLbl
-	    IfFileExists $WINDIR\WinSxS\$1\msvcr80.dll MaybeFoundInSxsLbl
+	    IfFileExists $WINDIR\WinSxS\$1\${REDIST_DLL_NAME} MaybeFoundInSxsLbl
 	    FindNext $0 $1
 	    Goto LoopLbl
         MaybeFoundInSxsLbl:
-	    GetDllVersion $WINDIR\WinSxS\$1\msvcr80.dll $R0 $R1
+	    GetDllVersion $WINDIR\WinSxS\$1\${REDIST_DLL_NAME} $R0 $R1
 	    Call DllVersionGoodEnough
 	    FindNext $0 $1
 	    IntCmp 2 $R0 LoopLbl
 	    Goto FoundLbl  
    MaybeFoundInSystemLbl:
-	GetDllVersion $SYSDIR\msvcr80.dll $R0 $R1
+	GetDllVersion $SYSDIR\${REDIST_DLL_NAME} $R0 $R1
 	Call DllVersionGoodEnough
 	IntCmp 2 $R0 SearchSxSLbl  
    FoundLbl:
