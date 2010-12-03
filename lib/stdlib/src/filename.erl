@@ -151,10 +151,10 @@ win_basenameb(O) ->
     basenameb(O,[<<"/">>,<<"\\">>]).
 basenameb(Bin,Sep) ->
     Parts = [ X || X <- binary:split(Bin,Sep,[global]),
-		   X =:= <<>> ],
+		   X =/= <<>> ],
     if
 	Parts =:= [] ->
-	    [];
+	    <<>>;
 	true ->
 	    lists:last(Parts)
     end.
@@ -201,17 +201,19 @@ basename(Name, Ext) when is_list(Name), is_binary(Ext) ->
     basename(filename_string_to_binary(Name),Ext);
 basename(Name, Ext) when is_binary(Name), is_binary(Ext) ->
     BName = basename(Name),
+    LAll = byte_size(Name),
     LN = byte_size(BName),
     LE = byte_size(Ext),
     case LN - LE of
 	Neg when Neg < 0 ->
 	    BName;
 	Pos ->
-	    case BName of
-		<<Part:Pos/binary,Ext/binary>> ->
+	    StartLen = LAll - Pos - LE,
+	    case Name of
+		<<_:StartLen/binary,Part:Pos/binary,Ext/binary>> ->
 		    Part;
-		Other ->
-		    Other
+		_Other ->
+		    BName
 	    end
     end;
 
@@ -447,7 +449,7 @@ join1b(<<UcLetter, $:, Rest/binary>>, RelativeName, [], win32)
 when is_integer(UcLetter), UcLetter >= $A, UcLetter =< $Z ->
     join1b(Rest, RelativeName, [$:, UcLetter+$a-$A], win32);
 join1b(<<$\\,Rest/binary>>, RelativeName, Result, win32) ->
-    join1b(<<$/,Rest>>, RelativeName, Result, win32);
+    join1b(<<$/,Rest/binary>>, RelativeName, Result, win32);
 join1b(<<$/,Rest/binary>>, RelativeName, [$., $/|Result], OsType) ->
     join1b(Rest, RelativeName, [$/|Result], OsType);
 join1b(<<$/,Rest/binary>>, RelativeName, [$/|Result], OsType) ->
@@ -546,6 +548,8 @@ win32_pathtype(_) 		  -> relative.
 %%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
 
 -spec rootname(file:name()) -> file:filename().
+rootname(Name) when is_binary(Name) ->
+    list_to_binary(rootname(binary_to_list(Name))); % No need to handle unicode, . is < 128
 rootname(Name0) ->
     Name = flatten(Name0),
     rootname(Name, [], [], major_os_type()).
@@ -573,6 +577,12 @@ rootname([], Root, _Ext, _OsType) ->
 %%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
 
 -spec rootname(file:name(), file:name()) -> file:filename().
+rootname(Name, Ext) when is_binary(Name), is_binary(Ext) ->
+    list_to_binary(rootname(binary_to_list(Name),binary_to_list(Ext)));
+rootname(Name, Ext) when is_binary(Name) ->
+    rootname(Name,filename_string_to_binary(Ext));
+rootname(Name, Ext) when is_binary(Ext) ->
+    rootname(filename_string_to_binary(Name),Ext);
 rootname(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
@@ -639,7 +649,7 @@ win32_splitb(<<Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/))
     [<<$/>> | [ X || X <- L, X =/= <<>> ]];
 win32_splitb(Name) ->
     L = binary:split(Name,[<<"/">>,<<"\\">>],[global]),
-    [<<$/>> | [ X || X <- L, X =/= <<>> ]].
+    [ X || X <- L, X =/= <<>> ].
     
 
 unix_split(Name) ->
@@ -900,7 +910,7 @@ do_flatten(Atom, Tail) when is_atom(Atom) ->
     atom_to_list(Atom) ++ flatten(Tail).
 
 filename_string_to_binary(List) ->
-    case unicode:characters_to_binary(List,unicode,file:native_name_encoding()) of
+    case unicode:characters_to_binary(flatten(List),unicode,file:native_name_encoding()) of
 	{error,_,_} ->
 	    erlang:error(badarg);
 	Bin when is_binary(Bin) ->

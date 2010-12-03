@@ -47,14 +47,14 @@ wildcard(Pattern) when is_list(Pattern) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, file)).
 
 -spec wildcard(file:name(), file:name() | atom()) -> [file:filename()].
-wildcard(Pattern, Cwd) when is_list(Pattern), is_list(Cwd) ->
+wildcard(Pattern, Cwd) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, file));
 wildcard(Pattern, Mod) when is_list(Pattern), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Mod)).
 
 -spec wildcard(file:name(), file:name(), atom()) -> [file:filename()].
 wildcard(Pattern, Cwd, Mod)
-  when is_list(Pattern), is_list(Cwd), is_atom(Mod) ->
+  when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, Mod)).
 
 -spec is_dir(file:name()) -> boolean().
@@ -118,7 +118,7 @@ do_wildcard_comp({compiled_wildcard,{exists,File}}, Mod) ->
 do_wildcard_comp({compiled_wildcard,[Base|Rest]}, Mod) ->
     do_wildcard_1([Base], Rest, Mod).
 
-do_wildcard(Pattern, Cwd, Mod) when is_list(Pattern), is_list(Cwd) ->
+do_wildcard(Pattern, Cwd, Mod) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
     do_wildcard_comp(do_compile_wildcard(Pattern), Cwd, Mod).
 
 do_wildcard_comp({compiled_wildcard,{exists,File}}, Cwd, Mod) ->
@@ -127,9 +127,18 @@ do_wildcard_comp({compiled_wildcard,{exists,File}}, Cwd, Mod) ->
 	_ -> []
     end;
 do_wildcard_comp({compiled_wildcard,[current|Rest]}, Cwd0, Mod) ->
-    Cwd = filename:join([Cwd0]),		%Slash away redundant slashes.
-    PrefixLen = length(Cwd)+1,
-    [lists:nthtail(PrefixLen, N) || N <- do_wildcard_1([Cwd], Rest, Mod)];
+    {Cwd,PrefixLen} = case filename:join([Cwd0]) of
+	      Bin when is_binary(Bin) -> {Bin,byte_size(Bin)+1};
+	      Other -> {Other,length(Other)+1}
+	  end,		%Slash away redundant slashes.
+    [
+     if 
+	 is_binary(N) ->
+	     <<_:PrefixLen/binary,Res/binary>> = N,
+	     Res;
+	 true ->
+	     lists:nthtail(PrefixLen, N)
+     end || N <- do_wildcard_1([Cwd], Rest, Mod)];
 do_wildcard_comp({compiled_wildcard,[Base|Rest]}, _Cwd, Mod) ->
     do_wildcard_1([Base], Rest, Mod).
 
@@ -276,6 +285,13 @@ do_wildcard_3(Base, [Pattern|Rest], Result, Mod) ->
 do_wildcard_3(Base, [], Result, _Mod) ->
     [Base|Result].
 
+wildcard_4(Pattern, [File|Rest], Base, Result) when is_binary(File) ->
+    case wildcard_5(Pattern, binary_to_list(File)) of
+	true ->
+	    wildcard_4(Pattern, Rest, Base, [join(Base, File)|Result]);
+	false ->
+	    wildcard_4(Pattern, Rest, Base, Result)
+    end;
 wildcard_4(Pattern, [File|Rest], Base, Result) ->
     case wildcard_5(Pattern, File) of
 	true ->
