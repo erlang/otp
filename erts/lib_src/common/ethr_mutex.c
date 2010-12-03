@@ -270,6 +270,8 @@ rwmutex_freqread_rdrs_inc(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
     }
 }
 
+#if 0 /* Not used */
+
 static ETHR_INLINE void
 rwmutex_freqread_rdrs_dec(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 {
@@ -288,6 +290,8 @@ rwmutex_freqread_rdrs_dec(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 	ethr_atomic_set(&rwmtx->tdata.ra[ix].data.readers, (long) 0);
     }
 }
+
+#endif
 
 static ETHR_INLINE long
 rwmutex_freqread_rdrs_dec_read(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
@@ -1908,7 +1912,7 @@ rwmutex_freqread_rwlock_wait(ethr_rwmutex *rwmtx, long initial)
 }
 
 static ETHR_INLINE void
-rwlock_wake_set_flags(ethr_rwmutex *rwmtx, long new_initial, int act_initial)
+rwlock_wake_set_flags(ethr_rwmutex *rwmtx, long new_initial, long act_initial)
 {
     long act, act_mask;
     int chk_abrt_flg;
@@ -2315,6 +2319,7 @@ ethr_rwmutex_destroy(ethr_rwmutex *rwmtx)
 	return EINVAL;
     }
 #endif
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
     if (rwmtx->type != ETHR_RWMUTEX_TYPE_NORMAL) {
 	long act = ethr_atomic_read(&rwmtx->mtxb.flgs);
 	if (act == ETHR_RWMTX_R_FLG__)
@@ -2344,6 +2349,8 @@ ethr_rwmutex_tryrlock(ethr_rwmutex *rwmtx)
     ETHR_ASSERT(rwmtx->initialized == ETHR_RWMUTEX_INITIALIZED);
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
+
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL: {
@@ -2399,6 +2406,7 @@ ethr_rwmutex_tryrlock(ethr_rwmutex *rwmtx)
     ETHR_MTX_HARD_DEBUG_LFS_TRYRLOCK(&rwmtx->mtxb, res);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
 
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
     return res;
 }
 
@@ -2412,6 +2420,8 @@ ethr_rwmutex_rlock(ethr_rwmutex *rwmtx)
     ETHR_ASSERT(rwmtx->initialized == ETHR_RWMUTEX_INITIALIZED);
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
+
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL: {
@@ -2446,6 +2456,7 @@ ethr_rwmutex_rlock(ethr_rwmutex *rwmtx)
     }
     }
 
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
     ETHR_MTX_CHK_EXCL_SET_NON_EXCL(&rwmtx->mtxb);
     ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_LFS_RLOCK(&rwmtx->mtxb);
@@ -2465,6 +2476,8 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
     ETHR_MTX_HARD_DEBUG_LFS_RUNLOCK(&rwmtx->mtxb);
+
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL:
@@ -2497,6 +2510,7 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
     }
     }
 
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
 }
 
@@ -2511,6 +2525,8 @@ ethr_rwmutex_tryrwlock(ethr_rwmutex *rwmtx)
     ETHR_ASSERT(rwmtx->initialized == ETHR_RWMUTEX_INITIALIZED);
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
+
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL:
@@ -2553,6 +2569,7 @@ ethr_rwmutex_tryrwlock(ethr_rwmutex *rwmtx)
     }
 #endif
 
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
     ETHR_MTX_HARD_DEBUG_LFS_TRYRWLOCK(&rwmtx->mtxb, res);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
 
@@ -2568,6 +2585,8 @@ ethr_rwmutex_rwlock(ethr_rwmutex *rwmtx)
     ETHR_ASSERT(rwmtx->initialized == ETHR_RWMUTEX_INITIALIZED);
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
+
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL:
@@ -2601,6 +2620,7 @@ ethr_rwmutex_rwlock(ethr_rwmutex *rwmtx)
     ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(&rwmtx->mtxb);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
 }
 
@@ -2617,6 +2637,8 @@ ethr_rwmutex_rwunlock(ethr_rwmutex *rwmtx)
 
     ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(&rwmtx->mtxb);
     ETHR_MTX_CHK_EXCL_UNSET_EXCL(&rwmtx->mtxb);
+
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 
     switch (rwmtx->type) {
     case ETHR_RWMUTEX_TYPE_NORMAL:
@@ -2636,6 +2658,7 @@ ethr_rwmutex_rwunlock(ethr_rwmutex *rwmtx)
     }
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(rwmtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(rwmtx);
 }
 
 #else

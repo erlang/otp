@@ -95,6 +95,19 @@
 
 #define ETHR_CND_WAIT_FLG__		ETHR_RWMTX_R_WAIT_FLG__
 
+#ifdef ETHR_DEBUG
+#define ETHR_DBG_CHK_UNUSED_FLG_BITS(V)			\
+  ETHR_ASSERT(!((V) & ~(ETHR_RWMTX_W_FLG__		\
+			| ETHR_RWMTX_W_WAIT_FLG__	\
+			| ETHR_RWMTX_R_WAIT_FLG__	\
+			| ETHR_RWMTX_RS_MASK__)))
+#else
+#define ETHR_DBG_CHK_UNUSED_FLG_BITS(V)
+#endif
+
+#define ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(MTX)		\
+  ETHR_DBG_CHK_UNUSED_FLG_BITS(ethr_atomic_read(&(MTX)->mtxb.flgs))
+
 struct ethr_mutex_base_ {
 #ifdef ETHR_MTX_HARD_DEBUG_FENCE
     long pre_fence;
@@ -497,6 +510,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
     long act;
     int res;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
     act = ethr_atomic_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
     res = (act == 0) ? 0 : EBUSY;
@@ -508,6 +522,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 
     ETHR_MTX_HARD_DEBUG_LFS_TRYRWLOCK(&mtx->mtxb, res);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
     ETHR_COMPILER_BARRIER;
     return res;
@@ -518,6 +533,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 {
     long act;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
     act = ethr_atomic_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
     if (act != 0)
@@ -527,6 +543,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 
     ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(&mtx->mtxb);
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
     ETHR_COMPILER_BARRIER;
 }
@@ -538,6 +555,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
     ETHR_COMPILER_BARRIER;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(&mtx->mtxb);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
     ETHR_MTX_CHK_EXCL_UNSET_EXCL(&mtx->mtxb);
 
@@ -546,6 +564,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 	ethr_mutex_unlock_wake__(mtx, act);
 
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
+    ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 }
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
