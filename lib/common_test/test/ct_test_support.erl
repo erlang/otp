@@ -351,13 +351,33 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 		case Evs of		
 		    [{TEH,#event{name=tc_start, 
 				 node=Node, 
-				 data={M,{init_per_group,GroupName,Props}}}},
-		     {TEH,#event{name=tc_done, 
-				 node=Node, 
-				 data={M,{init_per_group,GroupName,Props},R}}} | Es] ->
+				 data={M,{init_per_group,
+					  GroupName,Props}}}}|Es] ->
+			%% Use dropwhile here as a tc_done from a
+			%% previous testcase might sneak in here
+			EvsG = lists:dropwhile(
+				fun({EH,#event{name=tc_done, 
+						node=EvNode, 
+						data={EvM,{init_per_group,
+							   EvGroupName,
+							   EvProps},EvR}}})
+				   when TEH == EH, EvNode == Node, EvM == M,
+					EvGroupName == GroupName,
+					EvProps == Props,
+					EvR == R ->
+					false;
+				   ({EH,#event{name=stop_logging,
+						node=EvNode,data=_}})
+				   when EH == TEH, EvNode == Node ->
+					exit({group_init_done_not_found,
+					      GroupName,Props});
+				   (_) ->
+					true
+				end, Es),	      
+			
 			test_server:format("Found ~p!", [InitStart]),
 			test_server:format("Found ~p!", [InitDone]),
-			{TEs,Es};
+			{TEs,EvsG};
 		    _ ->
 			nomatch
 		end;
