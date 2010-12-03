@@ -213,19 +213,20 @@ unstick_mod(Mod) when is_atom(Mod) -> call({unstick_mod,Mod}).
 -spec is_sticky(Module :: atom()) -> boolean().
 is_sticky(Mod) when is_atom(Mod) -> call({is_sticky,Mod}).
 
--spec set_path(Directories :: [file:filename()]) -> 'true' | {'error', term()}.
+-spec set_path(Directories :: [file:filename()]) ->
+	'true' | {'error', 'bad_directory' | 'bad_path'}.
 set_path(PathList) when is_list(PathList) -> call({set_path,PathList}).
 
 -spec get_path() -> [file:filename()].
 get_path() -> call(get_path).
 
--spec add_path(Directory :: file:filename()) -> 'true' | {'error', term()}.
+-spec add_path(Directory :: file:filename()) -> 'true' | {'error', 'bad_directory'}.
 add_path(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
 
--spec add_pathz(Directory :: file:filename()) -> 'true' | {'error', term()}.
+-spec add_pathz(Directory :: file:filename()) -> 'true' | {'error', 'bad_directory'}.
 add_pathz(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
 
--spec add_patha(Directory :: file:filename()) -> 'true' | {'error', term()}.
+-spec add_patha(Directory :: file:filename()) -> 'true' | {'error', 'bad_directory'}.
 add_patha(Dir) when is_list(Dir) -> call({add_path,first,Dir}).
 
 -spec add_paths(Directories :: [file:filename()]) -> 'ok'.
@@ -237,7 +238,6 @@ add_pathsz(Dirs) when is_list(Dirs) -> call({add_paths,last,Dirs}).
 -spec add_pathsa(Directories :: [file:filename()]) -> 'ok'.
 add_pathsa(Dirs) when is_list(Dirs) -> call({add_paths,first,Dirs}).
 
-%% XXX Contract's input argument differs from add_path/1 -- why?
 -spec del_path(Name :: file:filename() | atom()) -> boolean() | {'error', 'bad_name'}.
 del_path(Name) when is_list(Name) ; is_atom(Name) -> call({del_path,Name}).
 
