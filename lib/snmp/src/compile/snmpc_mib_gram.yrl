@@ -114,15 +114,15 @@ ac_variation
 ac_accesspart
 ac_access
 ac_creationpart
-modulepart
-modules
-module
-modulenamepart
-mandatorypart
-compliancepart
-compliances
-compliance
-compliancegroup
+mc_modulepart
+mc_modules
+mc_module
+mc_modulenamepart
+mc_mandatorypart
+mc_compliancepart
+mc_compliances
+mc_compliance
+mc_compliancegroup
 object
 syntaxpart
 writesyntaxpart
@@ -557,7 +557,7 @@ notificationgroup -> objectname 'NOTIFICATION-GROUP' 'NOTIFICATIONS' '{'
                      {NG, line_of('$2')}.
 
 modulecompliance -> objectname 'MODULE-COMPLIANCE' 'STATUS' statusv2
-                    description referpart modulepart nameassign : 
+                    description referpart mc_modulepart nameassign : 
                     MC = make_module_compliance('$1', '$4', '$5', '$6', 
                                                 '$7', '$8'),
                     {MC, line_of('$2')}.
@@ -582,7 +582,7 @@ ac_modules -> ac_module : ['$1'].
 ac_modules -> ac_modules ac_module : ['$2' | '$1'].
 
 ac_module -> 'SUPPORTS' ac_modulenamepart 'INCLUDES' '{' objects '}' ac_variationpart : 
-             {'$2', '$5', '$7'}.
+             make_ac_module('$2', '$5', '$7').
 
 ac_modulenamepart -> mibname : '$1'.
 ac_modulenamepart -> '$empty' : undefined.
@@ -599,44 +599,40 @@ ac_variations -> ac_variations ac_variation : ['$2' | '$1'].
 ac_variation -> 'VARIATION' objectname syntaxpart writesyntaxpart ac_accesspart ac_creationpart defvalpart description : 
                       make_ac_variation('$2', '$3', '$4', '$5', '$6', '$7', '$8').
 
-%% ac_objectvariation -> 'VARIATION' objectname syntaxpart writesyntaxpart ac_accesspart ac_creationpart ac_defvalpart description : 
-%%                       make_ac_object_variation('$2', '$3', '$4', '$5', '$6', '$7', '$8').
-
-%% ac_notificationvariation -> 'VARIATION' objectname ac_accesspart description : 
-%%                             make_ac_notification_variation('$2', '$3', '$4').
-
 ac_accesspart -> 'ACCESS' ac_access : '$2'.
 ac_accesspart -> '$empty' : undefined. 
 
 ac_access -> atom: ac_access('$1').     
 
 ac_creationpart -> 'CREATION-REQUIRES' '{' objects '}' : lists:reverse('$3').
-ac_creationpart -> '$empty' : []. 
+ac_creationpart -> '$empty'                            : []. 
 
-modulepart -> '$empty'.
-modulepart -> modules.
+mc_modulepart -> '$empty'   : [].
+mc_modulepart -> mc_modules : lists:reverse('$1').
 
-modules -> module.
-modules -> modules module.
+mc_modules -> mc_module.
+mc_modules -> mc_modules mc_module.
     
-module -> 'MODULE' modulenamepart mandatorypart compliancepart.
+mc_module -> 'MODULE' mc_modulenamepart mc_mandatorypart mc_compliancepart : 
+             make_mc_module('$2', '$3', '$4').
 
-modulenamepart -> mibname.
-modulenamepart -> '$empty'.
+mc_modulenamepart -> mibname : '$1'.
+mc_modulenamepart -> '$empty' : undefined.
 
-mandatorypart -> 'MANDATORY-GROUPS' '{' objects '}'.
-mandatorypart -> '$empty'.
+mc_mandatorypart -> 'MANDATORY-GROUPS' '{' objects '}' : lists:reverse('$3').
+mc_mandatorypart -> '$empty' : [].
     
-compliancepart -> compliances.
-compliancepart -> '$empty'.
+mc_compliancepart -> mc_compliances.
+mc_compliancepart -> '$empty'.
 
-compliances -> compliance.
-compliances -> compliances compliance.
+mc_compliances -> mc_compliance.
+mc_compliances -> mc_compliances mc_compliance.
 
-compliance -> compliancegroup.
-compliance -> object.
+mc_compliance -> mc_compliancegroup.
+mc_compliance -> object.
 
-compliancegroup -> 'GROUP' objectname description.
+mc_compliancegroup -> 'GROUP' objectname description : 
+                      make_mc_compliance_group('$2', '$3').
 
 object -> 'OBJECT' objectname syntaxpart writesyntaxpart accesspart description.
 
@@ -880,6 +876,12 @@ make_ac_variation(Name, Syntax, WriteSyntax, Access, Creation, DefVal, Desc) ->
 			    default_value = DefVal,
 			    description   = Desc}.
 
+make_ac_module(Name, Grps, Var) ->
+    #mc_ac_module{name      = Name, 
+		  groups    = Grps,
+		  variation = Var}.
+
+
 make_module_compliance(Name, Status, Desc, Ref, Mod, NA) ->
     #mc_module_compliance{name        = Name,
                           status      = Status,
@@ -887,6 +889,15 @@ make_module_compliance(Name, Status, Desc, Ref, Mod, NA) ->
 	                  reference   = Ref,
                           module      = Mod,
 	                  name_assign = NA}.
+
+make_mc_module(Name, Mand, Compl) ->
+    #mc_mc_module{name       = Name, 
+		  mandatory  = Mand,
+		  compliance = Compl}.
+
+make_mc_compliance_group(Name, Desc) ->
+    #mc_mc_compliance_group{name        = Name,
+			    description = Desc}.
 
 make_object_group(Name, Objs, Status, Desc, Ref, NA) ->
     #mc_object_group{name        = Name,

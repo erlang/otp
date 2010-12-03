@@ -132,6 +132,13 @@
 	}
        ).
 
+-record(mc_ac_module, 
+	{name,
+	 groups,
+	 variation
+	}
+       ).
+
 
 -record(mc_module_compliance,
 	{name,
@@ -140,6 +147,19 @@
 	 reference,
 	 module,
 	 name_assign
+	}
+       ).
+
+-record(mc_mc_compliance_group, 
+	{name,
+	 description
+	}
+       ).
+
+-record(mc_mc_module, 
+	{name,
+	 mandatory,
+	 compliance
 	}
        ).
 

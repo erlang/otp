@@ -79,10 +79,10 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     MibDir = join(lists:reverse(["snmp_test_data"|RL])),
     CompDir = join(Dir, "comp_dir/"),
     ?line ok = file:make_dir(CompDir),
-    [{comp_dir, CompDir},{mib_dir, MibDir}|Config].
+    [{comp_dir, CompDir}, {mib_dir, MibDir} | Config].
 
 fin_per_testcase(_Case, Config) when is_list(Config) ->
-    CompDir = ?config(comp_dir, Config),
+    CompDir  = ?config(comp_dir, Config),
     ?line ok = ?DEL_DIR(CompDir),
     lists:keydelete(comp_dir, 1, Config).
 
@@ -177,9 +177,17 @@ agent_capabilities(Config) when is_list(Config) ->
     put(tname,agent_capabilities),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir = ?config(comp_dir, Config),
-    Mib = join(Dir,"AC-TEST-MIB.mib"),
-    ?line {ok, Mib} = snmpc:compile(Mib, [{outdir, Dir}, {verbosity,trace}]),
+    SnmpPrivDir    = code:priv_dir(snmp),
+    SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
+    OtpMibsPrivDir = code:priv_dir(otp_mibs),
+    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
+    Dir   = ?config(mib_dir, Config),
+    AcMib = join(Dir,"AC-TEST-MIB.mib"),
+    ?line {ok, Mib} = snmpc:compile(AcMib, [options,
+					    version,
+					    {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+					    {outdir,    Dir}, 
+					    {verbosity, trace}]),
     io:format("agent_capabilities -> Mib: ~n~p~n", [Mib]),
     ok.
 

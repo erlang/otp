@@ -1366,18 +1366,17 @@ save(Filename, MibName, Options) ->
 
 
 parse(FileName) ->
-    ?vtrace("parse -> start tokenizer for ~p", [FileName]),
+%%     ?vtrace("parse -> start tokenizer for ~p", [FileName]),
     case snmpc_tok:start_link(reserved_words(),
 			      [{file, FileName ++ ".mib"},
 			       {forget_stringdata, true}]) of
 	{error,ReasonStr} ->
 	    snmpc_lib:error(lists:flatten(ReasonStr),[]);
 	{ok, TokPid} ->
-	    ?vtrace("parse ->  tokenizer start, now get tokens", []),
+%% 	    ?vtrace("parse ->  tokenizer start, now get tokens", []),
 	    Toks = snmpc_tok:get_all_tokens(TokPid),
-	    ?vtrace("parse ->  tokens: ~p", [Toks]),
+%% 	    ?vtrace("parse ->  tokens: ~p", [Toks]),
 	    set_version(Toks),
-	    %% io:format("parse -> lexical analysis: ~n~p~n", [Toks]),
 	    %% ?vtrace("parse -> lexical analysis: ~n~p", [Toks]),
             CDataArg =
                 case lists:keysearch(module, 1, get(options)) of
@@ -1385,7 +1384,8 @@ parse(FileName) ->
                     _ -> {file, FileName ++ ".funcs"}
                 end,
             put(cdata,snmpc_lib:make_cdata(CDataArg)),
-	    ?vtrace("parse ->  stop tokenizer and then do the actual parse", []),
+%% 	    ?vtrace("parse ->  stop tokenizer and then do the actual parse", 
+%% 		    []),
 	    snmpc_tok:stop(TokPid),
 	    Res = if 
 		      is_list(Toks) ->
@@ -1393,7 +1393,7 @@ parse(FileName) ->
 		      true ->
 			  Toks
 		  end,
-	    ?vtrace("parse -> parsed result: ~n~p", [Res]),
+%% 	    ?vtrace("parse -> parsed result: ~n~p", [Res]),
 	    case Res of
 		{ok, PData} ->
 		    {ok, PData};
