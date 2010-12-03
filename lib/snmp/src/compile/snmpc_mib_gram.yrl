@@ -102,6 +102,17 @@ textualconvention
 objectgroup
 notificationgroup
 modulecompliance
+mc_modulepart
+mc_modules
+mc_module
+mc_modulenamepart
+mc_mandatorypart
+mc_compliancepart
+mc_compliances
+mc_compliance
+mc_compliancegroup
+mc_object
+mc_accesspart
 agentcapabilities
 ac_status
 ac_modulepart
@@ -114,19 +125,8 @@ ac_variation
 ac_accesspart
 ac_access
 ac_creationpart
-mc_modulepart
-mc_modules
-mc_module
-mc_modulenamepart
-mc_mandatorypart
-mc_compliancepart
-mc_compliances
-mc_compliance
-mc_compliancegroup
-object
 syntaxpart
 writesyntaxpart
-accesspart
 fsyntax
 defbitsvalue
 defbitsnames
@@ -622,28 +622,29 @@ mc_modulenamepart -> '$empty' : undefined.
 mc_mandatorypart -> 'MANDATORY-GROUPS' '{' objects '}' : lists:reverse('$3').
 mc_mandatorypart -> '$empty' : [].
     
-mc_compliancepart -> mc_compliances.
-mc_compliancepart -> '$empty'.
+mc_compliancepart -> mc_compliances : lists:reverse('$1').
+mc_compliancepart -> '$empty'       : [].
 
-mc_compliances -> mc_compliance.
-mc_compliances -> mc_compliances mc_compliance.
+mc_compliances -> mc_compliance : '$1'.
+mc_compliances -> mc_compliances mc_compliance : ['$2' | '$1'].
 
-mc_compliance -> mc_compliancegroup.
-mc_compliance -> object.
+mc_compliance -> mc_compliancegroup : '$1'.
+mc_compliance -> mc_object          : '$1'.
 
 mc_compliancegroup -> 'GROUP' objectname description : 
                       make_mc_compliance_group('$2', '$3').
 
-object -> 'OBJECT' objectname syntaxpart writesyntaxpart accesspart description.
+mc_object -> 'OBJECT' objectname syntaxpart writesyntaxpart mc_accesspart description : 
+             make_mc_object('$2', '$3', '$4', '$5', '$6').
 
-syntaxpart -> 'SYNTAX' syntax.
-syntaxpart -> '$empty'.
+syntaxpart -> 'SYNTAX' syntax : '$2'.
+syntaxpart -> '$empty'        : undefined.
 
-writesyntaxpart -> 'WRITE-SYNTAX' syntax.
-writesyntaxpart -> '$empty'.
+writesyntaxpart -> 'WRITE-SYNTAX' syntax : '$2'.
+writesyntaxpart -> '$empty'              : undefined.
     
-accesspart -> 'MIN-ACCESS' accessv2.
-accesspart -> '$empty'.
+mc_accesspart -> 'MIN-ACCESS' accessv2 : '$2'.
+mc_accesspart -> '$empty'              : undefined.
     
 objecttypev2 ->	objectname 'OBJECT-TYPE' 
 		'SYNTAX' syntax
@@ -898,6 +899,13 @@ make_mc_module(Name, Mand, Compl) ->
 make_mc_compliance_group(Name, Desc) ->
     #mc_mc_compliance_group{name        = Name,
 			    description = Desc}.
+
+make_mc_object(Name, Syntax, WriteSyntax, Access, Desc) ->
+    #mc_mc_object{name         = Name,
+		  syntax       = Syntax,
+		  write_syntax = WriteSyntax,
+		  access       = Access, 
+		  description  = Desc}.
 
 make_object_group(Name, Objs, Status, Desc, Ref, NA) ->
     #mc_object_group{name        = Name,

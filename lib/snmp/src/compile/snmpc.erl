@@ -933,18 +933,19 @@ definitions_loop([{#mc_agent_capabilities{name        = Name,
 	   "~n   Parent:       ~p"
 	   "~n   SubIndex:     ~p", 
 	   [Name, Status, Desc, Parent, SubIdx], Line),
+    update_status(Name, Status),
     ensure_macro_imported('AGENT-CAPABILITIES', Line),
     snmpc_lib:register_oid(Line, Name, Parent, SubIdx),
-    NewME  = snmpc_lib:makeInternalNode2(false, Name),
+    NewME       = snmpc_lib:makeInternalNode2(false, Name),
     Description = make_description(Desc), 
-    Reference = 
+    Reference   = 
 	case Ref of
 	    undefined ->
 		[];
 	    _ ->
 		[{reference, Ref}]
 	end,
-    Modules = 
+    Modules     = 
 	case Mods of
 	    undefined ->
 		[];

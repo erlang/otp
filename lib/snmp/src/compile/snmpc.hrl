@@ -114,6 +114,13 @@
 	}
        ).
 
+-record(mc_ac_module, 
+	{name,
+	 groups,
+	 variation
+	}
+       ).
+
 -record(mc_ac_object_variation,
 	{name,
 	 syntax, 
@@ -132,13 +139,6 @@
 	}
        ).
 
--record(mc_ac_module, 
-	{name,
-	 groups,
-	 variation
-	}
-       ).
-
 
 -record(mc_module_compliance,
 	{name,
@@ -152,6 +152,15 @@
 
 -record(mc_mc_compliance_group, 
 	{name,
+	 description
+	}
+       ).
+
+-record(mc_mc_object, 
+	{name,
+	 syntax,
+	 write_syntax,
+	 access, 
 	 description
 	}
        ).
