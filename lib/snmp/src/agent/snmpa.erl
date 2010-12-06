@@ -105,6 +105,8 @@
 	 set_request_limit/1, set_request_limit/2
 	]).
 
+-export([print_tables/0, print_tables/1]).
+
 -include("snmpa_atl.hrl").
 
 -define(EXTRA_INFO, undefined).
@@ -279,6 +281,26 @@ whereis_mib(Mib) ->
     whereis_mib(snmp_master_agent, Mib).
 whereis_mib(Agent, Mib) when is_atom(Mib) ->
     snmpa_agent:whereis_mib(Agent, Mib).
+
+
+%% -
+
+print_tables() ->
+    Tables = [
+	      {snmp_view_based_acm_mib, [vacmAccessTable, 
+					 vacmSecurityToGroupTable, 
+					 vacmViewTreeFamilyTable]},
+	      {snmp_target_mib, [snmpTargetAddrTable, snmpTargetParamsTable]}
+	     ],
+    print_tables(Tables).
+
+print_tables([]) ->
+    ok;
+print_tables([{Mod, Tables}|MibTables]) ->
+    [(catch Mod:Table(print)) || Table <- Tables],
+    print_tables(MibTables);
+print_tables([_|MibTables]) ->
+    print_tables(MibTables).
 
 
 %% -
