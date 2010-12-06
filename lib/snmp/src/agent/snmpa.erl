@@ -314,6 +314,12 @@ make_pretty_mib(snmp_view_based_acm_mib) ->
     "SNMP-VIEW-BASED-ACM-MIB";
 make_pretty_mib(snmp_target_mib) ->
     "SNMP-TARGET-MIB";
+make_pretty_mib(snmp_target_mib) ->
+    "SNMP-COMMUNITY-MIB";
+make_pretty_mib(snmp_target_mib) ->
+    "SNMP-NOTIFICATION-MIB";
+make_pretty_mib(snmp_target_mib) ->
+    "SNMP-USER-BASED-SM-MIB";
 make_pretty_mib(Mod) ->
     atom_to_list(Mod).
 
