@@ -402,13 +402,13 @@ verify_vacmSecurityToGroupTable_cols([{Col, Val0}|Cols], Acc) ->
 verify_vacmSecurityToGroupTable_col(?vacmSecurityModel, Model) ->
     case Model of
 	any      -> ?SEC_ANY;
-	v1       -> ?SEC_ANY;
-	v2c      -> ?SEC_ANY;
-	usm      -> ?SEC_ANY;
+	v1       -> ?SEC_V1;
+	v2c      -> ?SEC_V2C;
+	usm      -> ?SEC_USM;
 	?SEC_ANY -> ?SEC_ANY;
-	?SEC_V1  -> ?SEC_ANY;
-	?SEC_V2C -> ?SEC_ANY;
-	?SEC_USM -> ?SEC_ANY;
+	?SEC_V1  -> ?SEC_V1;
+	?SEC_V2C -> ?SEC_V2C;
+	?SEC_USM -> ?SEC_USM;
 	_ ->
 	    ?vlog("verification of vacmSecurityModel(~w) ~p failed", 
 		  [?vacmSecurityModel, Model]),
