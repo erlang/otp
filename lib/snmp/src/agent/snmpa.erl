@@ -290,7 +290,10 @@ print_tables() ->
 	      {snmp_view_based_acm_mib, [vacmAccessTable, 
 					 vacmSecurityToGroupTable, 
 					 vacmViewTreeFamilyTable]},
-	      {snmp_target_mib, [snmpTargetAddrTable, snmpTargetParamsTable]}
+	      {snmp_target_mib, [snmpTargetAddrTable, snmpTargetParamsTable]},
+	      {snmp_community_mib, [snmpCommunityTable]},
+	      {snmp_notification_mib, [snmpNotifyTable]},
+	      {snmp_user_based_sm_mib, [usmUserTable]}
 	     ],
     print_tables(Tables).
 
