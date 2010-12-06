@@ -3,8 +3,13 @@
 		(in reversed chronological order)
 ==============================================================================
 
-Version 2.x.x (in Erlang/OTP R14B01)
+Version 2.4.0 (in Erlang/OTP R14B01)
 ------------------------------------
+ - Added ability to supply multiple PLTs for the analysis (option --plts).
+   Currently these PLTs must be independent (i.e., no module appears in more
+   than one PLT) and there must not include files with module name clashes.
+ - Strengthened and streamlined hard-coded type information for some BIFs
+   and key library functions.
  - Fixed pretty rare infinite loop when refining the types of an SCC whose
    functions all returned none() (thanks to Stavros Aronis).
  - Fixed pretty rare crash when taking the infimum of two tuple_sets.
