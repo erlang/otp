@@ -38,7 +38,36 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.4.15</title>
+  <section><title>Mnesia 4.4.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Sometimes a 'log_header' record was added to tables when
+	    invoking mnesia:restore/2 with the option
+	    'recreate_tables'. Thanks Vance Shipley.</p>
+          <p>
+	    Own Id: OTP-8960</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Compiler warnings were eliminated.</p>
+          <p>
+	    Own Id: OTP-8855</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.15</title>
 
     <section><title>Improvements and New Features</title>
       <list>

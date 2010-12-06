@@ -31,6 +31,40 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> - Fixed pretty rare infinite loop when refining the
+	    types of an SCC whose functions all returned none()
+	    (thanks to Stavros Aronis). </p><p> - Fixed pretty rare
+	    crash when taking the infimum of two tuple_sets. </p>
+          <p>
+	    Own Id: OTP-8979</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> - Added ability to supply multiple PLTs for the
+	    analysis (option --plts). Currently these PLTs must be
+	    independent (i.e., no module appears in more than one
+	    PLT) and there must not include files with module name
+	    clashes.</p><p> - Strengthened and streamlined hard-coded
+	    type information for some BIFs and key library
+	    functions.</p>
+          <p>
+	    Own Id: OTP-8962</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.3.1</title>
 
     <section><title>Improvements and New Features</title>

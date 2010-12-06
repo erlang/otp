@@ -31,6 +31,25 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.98.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add wxSystemSettings which was missing in the previous
+	    release, despite previous comments.</p> <p>Fix an
+	    external loop when stopping erlang nicely.</p>
+	    <p>Separate OpenGL to it's own dynamic loaded library, so
+	    other graphic libraries can reuse the gl module and it
+	    will not waste memory if not used.</p>
+          <p>
+	    Own Id: OTP-8951</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.98.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

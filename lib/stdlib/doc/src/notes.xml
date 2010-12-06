@@ -30,6 +30,126 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.17.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> When several clients accessed a Dets table
+	    simultaneously, one of them calling
+	    <c>dets:insert_new/2</c>, the Dets server could crash.
+	    Alternatively, under the same conditions, <c>ok</c> was
+	    sometimes returned instead of <c>true</c>. (Thanks to
+	    John Hughes.) </p>
+          <p>
+	    Own Id: OTP-8856</p>
+        </item>
+        <item>
+	    <p> When several clients accessed a Dets table
+	    simultaneously, inserted or updated objects were
+	    sometimes lost due to the Dets file being truncated.
+	    (Thanks to John Hughes.) </p>
+          <p>
+	    Own Id: OTP-8898</p>
+        </item>
+        <item>
+	    <p> When several clients accessed a Dets table
+	    simultaneously, modifications of the Dets server's
+	    internal state were sometimes thrown away. The symptoms
+	    are diverse: error with reason <c>bad_object</c>;
+	    inserted objects not returned by <c>lookup()</c>; et
+	    cetera. (Thanks to John Hughes.) </p>
+          <p>
+	    Own Id: OTP-8899</p>
+        </item>
+        <item>
+	    <p> If a Dets table was closed after calling
+	    <c>bchunk/2</c>, <c>match/1,3</c>,
+	    <c>match_object/1,3</c>, or <c>select/1,3</c> and then
+	    opened again, a subsequent call using the returned
+	    continuation would normally return a reply. This bug has
+	    fixed; now the call fails with reason <c>badarg</c>. </p>
+          <p>
+	    Own Id: OTP-8903</p>
+        </item>
+        <item>
+	    <p> Cover did not collect coverage data for files such as
+	    Yecc parses containing include directives. The bug has
+	    been fixed by modifying <c>epp</c>, the Erlang Code
+	    Preprocessor. </p>
+          <p>
+	    Own Id: OTP-8911</p>
+        </item>
+        <item>
+	    <p> If a Dets table with fewer slots than keys was opened
+	    and then closed after just a lookup, the contents were no
+	    longer well-formed. This bug has been fixed. (Thanks to
+	    Matthew Evans.) </p>
+          <p>
+	    Own Id: OTP-8923</p>
+        </item>
+        <item>
+          <p>
+	    In a supervisor, when it terminates a child, if that
+	    child happens to have exited fractionally early, with
+	    normal, the supervisor reports this as an error. This
+	    should not be reported as an error.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8938 Aux Id: seq11615 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation filelib:wildcard/1,2 now describes the
+	    character set syntax for wildcards.</p>
+          <p>
+	    Own Id: OTP-8879 Aux Id: seq11683 </p>
+        </item>
+        <item>
+	    <p>Buffer overflows have been prevented in <c>erlc</c>,
+	    <c>dialyzer</c>, <c>typer</c>, <c>run_test</c>,
+	    <c>heart</c>, <c>escript</c>, and <c>erlexec</c>.</p>
+	    (Thanks to Michael Santos.)
+          <p>
+	    Own Id: OTP-8892</p>
+        </item>
+        <item>
+          <p>
+	    Using a float for the number of copies for
+	    <c>string:copies/2</c> resulted in an infinite loop. Now
+	    it will fail with an exception instead. (Thanks to
+	    Michael Santos.)</p>
+          <p>
+	    Own Id: OTP-8915</p>
+        </item>
+        <item>
+          <p>
+	    New ETS option <c>compressed</c>, to enable a more
+	    compact storage format at the expence of heavier table
+	    operations. For test and evaluation, <c>erl +ec</c> can
+	    be used to force compression on all ETS tables.</p>
+          <p>
+	    Own Id: OTP-8922 Aux Id: seq11658 </p>
+        </item>
+        <item>
+	    <p> The default maximum number of slots of a Dets table
+	    has been changed as to be equal to the maximum number of
+	    slots. (Thanks to Richard Carlsson.) </p>
+          <p>
+	    Own Id: OTP-8959</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.17.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

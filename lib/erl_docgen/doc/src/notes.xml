@@ -29,7 +29,36 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the erl_docgen application.</p>
-    <section><title>Erl_Docgen 0.2.2</title>
+    <section><title>Erl_Docgen 0.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Support for using Dialyzer specifications and types
+	    has been added. This is an experimental release; changes
+	    are expected before the new functionality is used when
+	    building the OTP documentation. </p>
+          <p>
+	    Own Id: OTP-8720</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

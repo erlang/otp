@@ -30,6 +30,273 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+        <item>
+          <p>
+	    The <c>configure</c> command line argument <seealso
+	    marker="doc/installation_guide:INSTALL#How-to-Build-and-Install-ErlangOTP_A-Closer-Look-at-the-individual-Steps_Configuring">--enable-ethread-pre-pentium4-compatibility</seealso>
+	    had no effect. This option is now also automatically
+	    enabled if required on the build machine.</p>
+          <p>
+	    Own Id: OTP-8847</p>
+        </item>
+        <item>
+          <p>
+	    Windows 2003 and Windows XP pre SP3 would sometimes not
+	    start the Erlang R14B VM at all due to a bug in the cpu
+	    topology detection. The bug affects Windows only, no
+	    other platform is even remotely affected. The bug is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-8876</p>
+        </item>
+        <item>
+          <p>
+	    The HiPE run-time in the 64-bit emulator could do a
+	    64-bit write to a 32-bit struct field. It happened to be
+	    harmless on Intel/AMD processors. Corrected. (Thanks to
+	    Mikael Pettersson.)</p>
+          <p>
+	    Own Id: OTP-8877</p>
+        </item>
+        <item>
+          <p>
+	    A bug in <seealso
+	    marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get()</seealso>
+	    and <seealso
+	    marker="erl_nif#enif_tsd_get">enif_tsd_get()</seealso>
+	    could cause an emulator crash. These functions are
+	    currently not used in OTP. That is, the crash only occur
+	    on systems with user implemented NIF libraries, or
+	    drivers that use one of these functions.</p>
+          <p>
+	    Own Id: OTP-8889</p>
+        </item>
+        <item>
+          <p>
+	    Calling <c>erlang:system_info({cpu_topology,
+	    CpuTopologyType})</c> with another <c>CpuTopologyType</c>
+	    element than one of the documented atoms <c>defined</c>,
+	    <c>detected</c>, or <c>used</c> caused an emulator crash.
+	    (Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-8914</p>
+        </item>
+        <item>
+          <p>
+	    The ERTS internal rwlock implementation could get into an
+	    inconsistent state. This bug was very seldom triggered,
+	    but could be during heavy contention. The bug was
+	    introduced in R14B (erts-5.8.1).</p>
+          <p>
+	    The bug was most likely to be triggered when using the
+	    <c>read_concurrency</c> option on an ETS table that was
+	    frequently accessed from multiple processes doing lots of
+	    writes and reads. That is, in a situation where you
+	    typically don't want to use the <c>read_concurrency</c>
+	    option in the first place.</p>
+          <p>
+	    Own Id: OTP-8925 Aux Id: OTP-8544 </p>
+        </item>
+        <item>
+          <p>
+	    Tracing to port could cause an emulator crash when
+	    unloading the trace driver.</p>
+          <p>
+	    Own Id: OTP-8932</p>
+        </item>
+        <item>
+          <p>
+	    Removed use of CancelIoEx on Windows that had been shown
+	    to cause problems with some drivers.</p>
+          <p>
+	    Own Id: OTP-8937</p>
+        </item>
+        <item>
+          <p>
+	    The fallback implementation used when no native atomic
+	    implementation was found did not compile. (Thanks to
+	    Patrick Baggett, and Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-8944</p>
+        </item>
+        <item>
+          <p>
+	    Some integer values used during load balancing could
+	    under rare circumstances wrap causing a load unbalance
+	    between schedulers.</p>
+          <p>
+	    Own Id: OTP-8950</p>
+        </item>
+        <item>
+          <p>
+	    The windows VM now correctly handles appending to large
+	    files (> 4GB).</p>
+          <p>
+	    Own Id: OTP-8958</p>
+        </item>
+        <item>
+          <p>
+	    Name resolving of IPv6 addresses has been implemented for
+	    Windows versions that support it. The use of ancient
+	    resolver flags (AI_V4MAPPED | AI_ADDRCONFIG) to the
+	    getaddrinfo() function has been removed since e.g FreeBSD
+	    regard mapped IPv4 addresses to be a security problem and
+	    the semantics of the address configured flag is
+	    uncertain.</p>
+          <p>
+	    Own Id: OTP-8969</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The help texts produced by the <c>configure</c> scripts
+	    in the top directory and in the erts directory have been
+	    aligned and cleaned up.</p>
+          <p>
+	    Own Id: OTP-8859</p>
+        </item>
+        <item>
+          <p>
+	    When the runtime system had fewer schedulers than logical
+	    processors, the system could get an unnecessarily large
+	    amount reader groups.</p>
+          <p>
+	    Own Id: OTP-8861</p>
+        </item>
+        <item>
+          <p>
+	    <c>run_rel</c> has been updated to support Solaris's
+	    /dev/ptmx device and to load the necessary STREAMS
+	    modules so that <c>to_erl</c> can provide terminal echo
+	    of keyboard input. (Thanks to Ryan Tilder.)</p>
+          <p>
+	    Own Id: OTP-8878</p>
+        </item>
+        <item>
+          <p>
+	    The Erlang VM now supports Unicode filenames. The feature
+	    is turned on by default on systems where Unicode
+	    filenames are mandatory (Windows and MacOSX), but can be
+	    enabled on other systems with the '+fnu' emulator option.
+	    Enabling the Unicode filename feature on systems where it
+	    is not default is however considered experimental and not
+	    to be used for production. Together with the Unicode file
+	    name support, the concept of "raw filenames" is
+	    introduced, which means filenames provided without
+	    implicit unicode encoding translation. Raw filenames are
+	    provided as binaries, not lists. For further information,
+	    see stdlib users guide and the chapter about using
+	    Unicode in Erlang. Also see the file module manual page.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8887</p>
+        </item>
+        <item>
+	    <p>Buffer overflows have been prevented in <c>erlc</c>,
+	    <c>dialyzer</c>, <c>typer</c>, <c>run_test</c>,
+	    <c>heart</c>, <c>escript</c>, and <c>erlexec</c>.</p>
+	    (Thanks to Michael Santos.)
+          <p>
+	    Own Id: OTP-8892</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system is now less eager to suspend processes
+	    sending messages over the distribution. The default value
+	    of the distribution buffer busy limit has also been
+	    increased from 128 KB to 1 MB. This in order to improve
+	    throughput.</p>
+          <p>
+	    Own Id: OTP-8901</p>
+        </item>
+        <item>
+          <p>
+	    The distribution buffer busy limit can now be configured
+	    at system startup. For more information see the
+	    documentation of the <c>erl</c> <seealso
+	    marker="erl#+zdbbl">+zdbbl</seealso> command line flag.
+	    (Thanks to Scott Lystig Fritchie)</p>
+          <p>
+	    Own Id: OTP-8912</p>
+        </item>
+        <item>
+          <p>
+	    The inet driver internal buffer stack implementation has
+	    been rewritten in order to reduce lock contention.</p>
+          <p>
+	    Own Id: OTP-8916</p>
+        </item>
+        <item>
+          <p>
+	    New ETS option <c>compressed</c>, to enable a more
+	    compact storage format at the expence of heavier table
+	    operations. For test and evaluation, <c>erl +ec</c> can
+	    be used to force compression on all ETS tables.</p>
+          <p>
+	    Own Id: OTP-8922 Aux Id: seq11658 </p>
+        </item>
+        <item>
+          <p>
+	    There is now a new function inet:getifaddrs/0 modeled
+	    after C library function getifaddrs() on BSD and LInux
+	    that reports existing interfaces and their addresses on
+	    the host. This replaces the undocumented and unsupported
+	    inet:getiflist/0 and inet:ifget/2.</p>
+          <p>
+	    Own Id: OTP-8926</p>
+        </item>
+        <item>
+          <p>
+	    Support for detection of CPU topology and binding of
+	    schedulers on FreeBSD 8 have been added. (Thanks to Paul
+	    Guyot)</p>
+          <p>
+	    Own Id: OTP-8939</p>
+        </item>
+        <item>
+          <p>
+	    Several bugs related to hibernate/3 and HiPE have been
+	    corrected. (Thanks to Paul Guyot.)</p>
+          <p>
+	    Own Id: OTP-8952</p>
+        </item>
+        <item>
+          <p>
+	    Support for soft and hard links on Windows versions and
+	    filesystems that support them is added.</p>
+          <p>
+	    Own Id: OTP-8955</p>
+        </item>
+        <item>
+          <p>
+	    The win32 virtual machine is now linked large address
+	    aware. his allows the Erlang VM to use up to 3 gigs of
+	    address space on Windows instead of the default of 2
+	    gigs.</p>
+          <p>
+	    Own Id: OTP-8956</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,20 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Miscellaneous updates</p>
+          <p>
+	    Own Id: OTP-8976</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

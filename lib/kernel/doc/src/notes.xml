@@ -30,6 +30,45 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.14.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Erlang VM now supports Unicode filenames. The feature
+	    is turned on by default on systems where Unicode
+	    filenames are mandatory (Windows and MacOSX), but can be
+	    enabled on other systems with the '+fnu' emulator option.
+	    Enabling the Unicode filename feature on systems where it
+	    is not default is however considered experimental and not
+	    to be used for production. Together with the Unicode file
+	    name support, the concept of "raw filenames" is
+	    introduced, which means filenames provided without
+	    implicit unicode encoding translation. Raw filenames are
+	    provided as binaries, not lists. For further information,
+	    see stdlib users guide and the chapter about using
+	    Unicode in Erlang. Also see the file module manual page.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8887</p>
+        </item>
+        <item>
+          <p>
+	    There is now a new function inet:getifaddrs/0 modeled
+	    after C library function getifaddrs() on BSD and LInux
+	    that reports existing interfaces and their addresses on
+	    the host. This replaces the undocumented and unsupported
+	    inet:getiflist/0 and inet:ifget/2.</p>
+          <p>
+	    Own Id: OTP-8926</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.14.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

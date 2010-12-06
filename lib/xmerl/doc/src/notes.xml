@@ -31,6 +31,40 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> An empty element declared as simpleContent was not
+	    properly validated. </p>
+          <p>
+	    Own Id: OTP-8599</p>
+        </item>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Fix entity checking so there are no fatal errors for
+	    undefined entities when option skip_external_dtd is used.
+	    </p>
+          <p>
+	    Own Id: OTP-8947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

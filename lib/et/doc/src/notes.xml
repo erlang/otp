@@ -36,6 +36,21 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix error when module et was used in et_selector
+	    trace patterns. </p>
+          <p>
+	    Own Id: OTP-8904</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

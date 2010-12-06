@@ -31,7 +31,31 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.8</title>
+  <section><title>ODBC 2.10.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Ipv6 is now supported on Windows as well as on UNIX for
+	    internal socket communication. (ODBC uses sockets instead
+	    of the "Erlang port pipes" as some ODBC-drivers are known
+	    to mess with stdin/stdout.) </p>
+          <p>
+	    Loopback address constants are used when connecting the
+	    c-side to the erlang-side over local socket API avoiding
+	    getaddrinfo problems, and the {ip, loopback} option is
+	    added as a listen option on the erlang-side. Also cleaned
+	    up the TIME_STAMP contribution.</p>
+          <p>
+	    Own Id: OTP-8917</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.8</title>
 
     <section><title>Improvements and New Features</title>
       <list>

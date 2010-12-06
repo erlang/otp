@@ -32,6 +32,57 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Updated ct:get_status documentation to describe
+	    no_tests_running return value.</p>
+          <p>
+	    Own Id: OTP-8895 Aux Id: seq11701 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed race condition test failures in the test suites
+	    testing common test's parallel groups feature.</p>
+          <p>
+	    Own Id: OTP-8921</p>
+        </item>
+        <item>
+          <p>
+	    The include directive of testspecs now work when used on
+	    a remote node.</p>
+          <p>
+	    Own Id: OTP-8935 Aux Id: seq11731 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ct:parse_table can now handle multiline sql rows</p>
+          <p>
+	    Own Id: OTP-8907 Aux Id: seq11702 </p>
+        </item>
+        <item>
+          <p>
+	    The run_test executable has been renamed to the less
+	    generic ct_run to better work with other applications.
+	    run_test will remain until R16B at which point it will be
+	    removed.</p>
+          <p>
+	    Own Id: OTP-8936</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

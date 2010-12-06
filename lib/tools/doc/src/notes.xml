@@ -30,6 +30,26 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>eprof: API sort mismatch has now been fixed. </p>
+          <p>
+	    Own Id: OTP-8853</p>
+        </item>
+        <item>
+          <p>
+	    eprof: fix division by zero in statistics</p>
+          <p>
+	    Own Id: OTP-8963</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

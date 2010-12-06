@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the DocBuilder
      application.</p>
 
+<section><title>Docbuilder 0.9.8.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Fix compatibility issues with docbuilder for R11
+	    documentation patches. </p>
+          <p>
+	    Own Id: OTP-8946</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Docbuilder 0.9.8.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

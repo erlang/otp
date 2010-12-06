@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The formating of Yecc's error messages has been
+	    improved. (Thanks to Joe Armstrong.) </p>
+          <p>
+	    Own Id: OTP-8919</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

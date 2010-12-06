@@ -31,6 +31,56 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Two compiler bugs (that would cause the compiler to
+	    terminate) reported by Christopher Williams have been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8949</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The compiler would translate binary comprehensions
+	    containing tail segments in a way that would would
+	    confuse Dialyzer. For instance:</p>
+	    <p><c>[42 || &lt;&lt;_:8/integer, _/bits&gt;&gt; &lt;=
+	    Bits]</c></p>
+          <p>
+	    would produce a Dialyzer warning.</p>
+          <p>
+	    Own Id: OTP-8864</p>
+        </item>
+        <item>
+          <p>
+	    Code such as <c>foo(A) -&gt; &lt;&lt;A:0&gt;&gt;</c>
+	    would crash the compiler.</p>
+          <p>
+	    Own Id: OTP-8865</p>
+        </item>
+        <item>
+          <p>
+	    The compiler could fail with an internal error when
+	    variables were exported from a receive block but the
+	    return value of the receive block were not used. (Thanks
+	    to Jim Engquist for reporting this error.)</p>
+          <p>
+	    Own Id: OTP-8888</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.7.1</title>
 
     <section><title>Improvements and New Features</title>

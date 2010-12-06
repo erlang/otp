@@ -31,7 +31,48 @@
   <p>This document describes the changes made to the SSL application.
     </p>
 
-    <section><title>SSL 4.1</title>
+    <section><title>SSL 4.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of client certificate verify message
+	    When checking the client certificate verify message the
+	    server used the wrong algorithm identifier to determine
+	    the signing algorithm, causing a function clause error in
+	    the public_key application when the key-exchange
+	    algorithm and the public key algorithm of the client
+	    certificate happen to differ.</p>
+          <p>
+	    Own Id: OTP-8897</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    For testing purposes ssl now also support some anonymous
+	    cipher suites when explicitly configured to do so.</p>
+          <p>
+	    Own Id: OTP-8870</p>
+        </item>
+        <item>
+          <p>
+	    Sends an error alert instead of crashing if a crypto
+	    function for the selected cipher suite fails.</p>
+          <p>
+	    Own Id: OTP-8930 Aux Id: seq11720 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -32,7 +32,50 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.5</title>
+  <section><title>Inets 5.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+        <item>
+          <p>
+	    [httpc] Pipelined and queued requests not processed when
+	    connection closed remotelly.</p>
+          <p>
+	    Own Id: OTP-8906</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous inet6 related problems.</p>
+          <p>
+	    Own Id: OTP-8927</p>
+        </item>
+        <item>
+          <p>
+	    Updated http-server to make sure URLs in error-messages
+	    are URL-encoded. Added support in http-client to use
+	    URL-encoding. Also added the missing include directory
+	    for the inets application.</p>
+          <p>
+	    Own Id: OTP-8940 Aux Id: seq11735 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

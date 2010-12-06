@@ -30,6 +30,56 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    erl_call: remove get_hostent</p>
+          <p>
+	    get_hostent does not properly handle IPv4 addresses on
+	    little endian platforms and fails with hostnames
+	    beginning with a number. Remove get_hostent and use
+	    ei_gethostbyname directly since gethostbyname supports
+	    IPv4 addresses.</p>
+          <p>
+	    (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8890</p>
+        </item>
+        <item>
+	    <p> teach ei_x_format to handle unary - and + (Thanks to
+	    Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-8891</p>
+        </item>
+        <item>
+	    <p>Fix zero byte allocation in registry. (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-8893</p>
+        </item>
+        <item>
+	    <p> Check the length of the node name to prevent an
+	    overflow. Memory error control of ei_alloc_big. (Thanks
+	    to Michael Santos) </p>
+          <p>
+	    Own Id: OTP-8943</p>
+        </item>
+        <item>
+          <p>
+	    erl_term_len() in erl_interface could returned too large
+	    values for integers (since R14B) and too small values for
+	    refs (since R9B).</p>
+          <p>
+	    Own Id: OTP-8945</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.1.1</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

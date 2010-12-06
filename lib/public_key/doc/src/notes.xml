@@ -34,6 +34,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved dialyzer specs.</p>
+          <p>
+	    Own Id: OTP-8964</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.9</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,31 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.6.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of ExtensionAdditionGroup (for PER and UPER)
+	    is corrected.</p>
+          <p>
+	    Own Id: OTP-8866 Aux Id: OTP-8797, SEQ-11557 </p>
+        </item>
+        <item>
+          <p>
+	    A race condition when several processes in parallel start
+	    to do encode/decode using the driver could cause an error
+	    log regarding crashing port owner process. This race is
+	    now eliminated.</p>
+          <p>
+	    Own Id: OTP-8948 Aux Id: seq11733 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.14.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,20 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Miscellaneous updates</p>
+          <p>
+	    Own Id: OTP-8976</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.6</title>
 
     <section><title>Improvements and New Features</title>

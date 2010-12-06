@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    AES CTR encryption support in <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-8752 Aux Id: seq11642 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
