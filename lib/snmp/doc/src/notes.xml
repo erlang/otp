@@ -47,8 +47,8 @@
       <list type="bulleted">
         <item>
           <p>[agent] For the table vacmAccessTable, 
-	  when performing a is_set_ok or a set opteration, 
-	  all values of the <em>vacmAccessSecurityModel</em> column was 
+	  when performing the is_set_ok and set opteration(s), 
+	  all values of the vacmAccessSecurityModel column was
 	  incorrectly translated to <c>any</c>. </p>
 <!-- 
 that is when calling: 
