@@ -591,12 +591,9 @@ snmpTargetAddrTable(print) ->
 				     ?'snmpTargetAddrRowStatus_active' -> active;
 				     _ -> undefined
 				 end,
-				 Prefix,
-				 element(?snmpTargetAddrEngineId, Row),
-				 Prefix,
-				 element(?snmpTargetAddrTMask, Row),
-				 Prefix,
-				 element(?snmpTargetAddrMMS, Row)]))
+				 Prefix, element(?snmpTargetAddrEngineId, Row),
+				 Prefix, element(?snmpTargetAddrTMask, Row),
+				 Prefix, element(?snmpTargetAddrMMS, Row)]))
 	end,
     snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 %% Op == new | delete

@@ -348,6 +348,49 @@ vacmContextTable(Op, Arg1, Arg2) ->
     snmp_framework_mib:intContextTable(Op, Arg1, Arg2).
 
 
+vacmSecurityToGroupTable(print) ->
+    Table = vacmSecurityToGroupTable, 
+    DB    = db(Table),
+    FOI   = foi(Table),
+    PrintRow = 
+	fun(Prefix, Row) ->
+		lists:flatten(
+		  io_lib:format("~sSecurityModel: ~p (~w)"
+				"~sSecurityName:  ~p"
+				"~sGroupName:     ~p"
+				"~sStorageType:   ~p (~w)"
+				"~sStatus:        ~p (~w)", 
+				[Prefix, element(?vacmSecurityModel, Row), 
+				 case element(?vacmSecurityModel, Row) of
+				     ?SEC_ANY -> any;
+				     ?SEC_V1  -> v1;
+				     ?SEC_V2C -> v2c;
+				     ?SEC_USM -> usm;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmSecurityName, Row),
+				 Prefix, element(?vacmGroupName, Row),
+				 Prefix, element(?vacmSecurityToGroupStorageType, Row),
+				 case element(?vacmSecurityToGroupStorageType, Row) of
+				     ?'vacmSecurityToGroupStorageType_readOnly' -> readOnly;
+				     ?'vacmSecurityToGroupStorageType_permanent' -> permanent;
+				     ?'vacmSecurityToGroupStorageType_nonVolatile' -> nonVolatile;
+				     ?'vacmSecurityToGroupStorageType_volatile' -> volatile;
+				     ?'vacmSecurityToGroupStorageType_other' -> other;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmSecurityToGroupStatus, Row), 
+				 case element(?vacmSecurityToGroupStatus, Row) of
+				     ?'vacmSecurityToGroupStatus_destroy' -> destroy;
+				     ?'vacmSecurityToGroupStatus_createAndWait' -> createAndWait;
+				     ?'vacmSecurityToGroupStatus_createAndGo' -> createAndGo;
+				     ?'vacmSecurityToGroupStatus_notReady' -> notReady;
+				     ?'vacmSecurityToGroupStatus_notInService' -> notInService;
+				     ?'vacmSecurityToGroupStatus_active' -> active;
+				     _ -> undefined
+				 end]))
+	end,
+    snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 vacmSecurityToGroupTable(Op) ->
     snmp_generic:table_func(Op, db(vacmSecurityToGroupTable)).
 
@@ -719,6 +762,49 @@ vacmViewSpinLock(set, NewVal) ->
 			       {vacmViewSpinLock, volatile}).
 
 
+vacmViewTreeFamilyTable(print) ->
+    Table = vacmViewTreeFamilyTable, 
+    DB    = db(Table),
+    FOI   = foi(Table),
+    PrintRow = 
+	fun(Prefix, Row) ->
+		lists:flatten(
+		  io_lib:format("~sViewName:    ~p"
+				"~sSubtree:     ~p"
+				"~sMask:        ~p"
+				"~sType:        ~p (~w)"
+				"~sStorageType: ~p (~w)"
+				"~sStatus:      ~p (~w)", 
+				[Prefix, element(?vacmViewTreeFamilyViewName, Row),
+				 Prefix, element(?vacmViewTreeFamilySubtree,  Row),
+				 Prefix, element(?vacmViewTreeFamilyMask, Row),
+				 Prefix, element(?vacmViewTreeFamilyType, Row), 
+				 case element(?vacmViewTreeFamilyType, Row) of
+				     ?vacmViewTreeFamilyType_included -> included;
+				     ?vacmViewTreeFamilyType_excluded -> excluded;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmViewTreeFamilyStorageType, Row), 
+				 case element(?vacmViewTreeFamilyStorageType, Row) of
+				     ?vacmViewTreeFamilyStorageType_readOnly -> readOnly;
+				     ?vacmViewTreeFamilyStorageType_permanent -> permanent;
+				     ?vacmViewTreeFamilyStorageType_nonVolatile -> nonVolatile;
+				     ?vacmViewTreeFamilyStorageType_volatile -> volatile;
+				     ?vacmViewTreeFamilyStorageType_other -> other;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmViewTreeFamilyStatus, Row), 
+				 case element(?vacmViewTreeFamilyStatus, Row) of
+				     ?vacmViewTreeFamilyStatus_destroy -> destroy;
+				     ?vacmViewTreeFamilyStatus_createAndWait -> createAndWait;
+				     ?vacmViewTreeFamilyStatus_createAndGo -> createAndGo;
+				     ?vacmViewTreeFamilyStatus_notReady -> notReady;
+				     ?vacmViewTreeFamilyStatus_notInService -> notInService;
+				     ?vacmViewTreeFamilyStatus_active -> active;
+				     _ -> undefined
+				 end]))
+	end,
+    snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 vacmViewTreeFamilyTable(Op) ->
     snmp_generic:table_func(Op, db(vacmViewTreeFamilyTable)).
 vacmViewTreeFamilyTable(get_next, RowIndex, Cols) ->
