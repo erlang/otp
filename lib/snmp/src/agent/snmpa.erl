@@ -296,11 +296,23 @@ print_tables() ->
 
 print_tables([]) ->
     ok;
-print_tables([{Mod, Tables}|MibTables]) ->
-    [(catch Mod:Table(print)) || Table <- Tables],
+print_tables([{Mod, Tables}|MibTables]) when is_atom(Mod) andalso is_list(Tables) ->
+    print_tables(Mod, Tables),
     print_tables(MibTables);
 print_tables([_|MibTables]) ->
     print_tables(MibTables).
+
+print_tables(Mod, Tables) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    [(catch Mod:Table(print)) || Table <- Tables].
+
+
+make_pretty_mib(snmp_view_based_acm_mib) ->
+    "SNMP-VIEW-BASED-ACM-MIB";
+make_pretty_mib(snmp_target_mib) ->
+    "SNMP-TARGET-MIB";
+make_pretty_mib(Mod) ->
+    atom_to_list(Mod).
 
 
 %% -
