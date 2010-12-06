@@ -18,7 +18,7 @@
 
 -module(reltool_server_SUITE).
 
--export([all/0, init_per_suite/1, end_per_suite/1, 
+-export([all/1, init_per_suite/1, end_per_suite/1, 
          init_per_testcase/2, fin_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -48,8 +48,6 @@ fin_per_testcase(Func,Config) -> %% For test_server
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% SUITE specification
 
-all() ->
-    all(suite).
 all(suite) ->
     [
      start_server,

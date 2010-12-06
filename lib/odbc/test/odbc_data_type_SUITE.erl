@@ -43,12 +43,9 @@ all(doc) ->
     ["Tests data types"];
 all(suite) ->
     case odbc_test_lib:odbc_check() of
-	ok -> all();
+	ok -> [char, int, floats, dec_and_num, timestamp];
 	Other -> {skip,Other}
     end.						  
-
-all() ->
-    [char, int, floats, dec_and_num, timestamp].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config

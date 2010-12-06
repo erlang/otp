@@ -40,20 +40,18 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Tests the ability to connect and disconnet to/from the database"];
+
 all(suite) ->
     case odbc_test_lib:odbc_check() of
-	ok -> all();
-	Other -> {skip, Other}
-    end.						  
-
-all() -> 
-    [not_exist_db, commit, rollback, not_explicit_commit,
-    no_c_node, port_dies, control_process_dies, client_dies,
-    connect_timeout, timeout, many_timeouts, timeout_reset,
-    disconnect_on_timeout, connection_closed,
-    disable_scrollable_cursors, return_rows_as_lists, api_missuse].
+	ok ->
+	    [not_exist_db, commit, rollback, not_explicit_commit,
+	     no_c_node, port_dies, control_process_dies, client_dies,
+	     connect_timeout, timeout, many_timeouts, timeout_reset,
+	     disconnect_on_timeout, connection_closed,
+	     disable_scrollable_cursors, return_rows_as_lists, api_missuse];
+	Other ->
+	    {skip, Other}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config

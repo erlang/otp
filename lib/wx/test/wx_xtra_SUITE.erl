@@ -23,7 +23,7 @@
 %%% Created :  3 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_xtra_SUITE).
--export([all/0, init_per_suite/1, end_per_suite/1, 
+-export([all/1, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, fin_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -45,8 +45,6 @@ fin_per_testcase(Func,Config) -> %% For test_server
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-all() ->
-    all(suite).
 all(suite) ->
     [
      destroy_app,

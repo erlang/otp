@@ -50,9 +50,6 @@ fin_per_testcase(Case, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all() ->
-    all(suite).
-
 all(suite) ->
     [
      fields,

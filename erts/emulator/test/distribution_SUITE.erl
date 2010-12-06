@@ -267,7 +267,9 @@ local_send_big(doc) ->
     ["Sends several big message to an non-registered process on ",
      "the local node."];
 local_send_big(Config) when is_list(Config) ->
-    Data0=local_send_big(doc)++local_send(doc),
+    Data0=local_send_big(doc)++
+	["Tests sending small and big messages to a non-existing ",
+        "local registered process."],
     Data1=[Data0,[Data0, Data0, [Data0], Data0],Data0],
     Data2=Data0++lists:flatten(Data1)++
 	list_to_binary(lists:flatten(Data1)),

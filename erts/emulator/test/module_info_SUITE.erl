@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,6 +30,9 @@
 -export([native_proj/1,native_filter/1]).
 
 all(suite) ->
+    modules().
+
+modules() ->
     [exports,functions,native].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
@@ -42,7 +45,7 @@ end_per_testcase(_Func, Config) ->
 
 %% Should return all functions exported from this module. (local)
 all_exported() ->
-    All = add_arity(all(suite)),
+    All = add_arity(modules()),
     lists:sort([{all,1},{init_per_testcase,2},{end_per_testcase,2},
 		{module_info,0},{module_info,1},{native_proj,1},
 		{native_filter,1}|All]).

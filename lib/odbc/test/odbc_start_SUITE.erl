@@ -103,13 +103,9 @@ all(doc) ->
 
 all(suite) -> 
     case odbc_test_lib:odbc_check() of
-	ok -> all();
+	ok -> [start];
 	Other -> {skip, Other}
     end.						  
-
-all() ->
-    [start].
-
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 %%% Created :  3 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_basic_SUITE).
--export([all/0, init_per_suite/1, end_per_suite/1, 
+-export([all/1, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, fin_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -45,8 +45,6 @@ fin_per_testcase(Func,Config) -> %% For test_server
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-all() ->
-    all(suite).
 all(suite) ->
     [
      create_window,

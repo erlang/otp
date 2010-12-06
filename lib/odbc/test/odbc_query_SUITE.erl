@@ -42,18 +42,16 @@ all(doc) ->
     ["Tests SQL queries"];
 all(suite) ->
     case odbc_test_lib:odbc_check() of
-	ok -> all();
+	ok ->
+	    [sql_query, first, last, next, prev, select_count,select_next,
+	     select_relative, select_absolute, create_table_twice,
+	     delete_table_twice, duplicate_key, not_connection_owner,
+	     no_result_set, query_error, multiple_select_result_sets,
+	     multiple_mix_result_sets, multiple_result_sets_error,
+	     parameterized_queries, describe_table,
+	     delete_nonexisting_row];
 	Other -> {skip, Other}
     end.						  
-
-all() ->
-    [sql_query, first, last, next, prev, select_count,select_next,
-     select_relative, select_absolute, create_table_twice,
-     delete_table_twice, duplicate_key, not_connection_owner,
-     no_result_set, query_error, multiple_select_result_sets,
-     multiple_mix_result_sets, multiple_result_sets_error,
-     parameterized_queries, describe_table,
-     delete_nonexisting_row].
 
 
 %%--------------------------------------------------------------------
