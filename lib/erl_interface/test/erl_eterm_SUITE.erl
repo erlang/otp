@@ -33,7 +33,7 @@
 %%% 5. Miscellanous functions.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, build_terms/1, round_trip_conversion/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, build_terms/1, round_trip_conversion/1,
 	 decode_terms/1, decode_float/1,
 	 t_erl_mk_int/1, t_erl_mk_list/1,
 	 basic_copy/1,
@@ -72,6 +72,8 @@
 
 %% This test suite controls the running of the C language functions
 %% in eterm_test.c and print_term.c.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [build_terms, round_trip_conversion, decode_terms,

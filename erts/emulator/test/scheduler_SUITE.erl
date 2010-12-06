@@ -33,7 +33,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
 
 -export([equal/1,
 	 few_low/1,
@@ -56,6 +56,8 @@
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
 
 -define(MIN_SCHEDULER_TEST_TIMEOUT, ?t:minutes(1)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [equal, few_low, many_low, equal_with_part_time_high,

@@ -22,11 +22,13 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([]).
 
 -export([otp2163/1, otp4845/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, ticket_tests}].

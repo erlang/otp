@@ -18,7 +18,7 @@
 
 -module(evil_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 heap_frag/1,
 	 encode_decode_ext/1,
 	 decode_integer_ext/1,
@@ -31,6 +31,8 @@
 	]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [heap_frag, encode_decode_ext, decode_integer_ext,

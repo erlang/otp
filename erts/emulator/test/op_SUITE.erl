@@ -21,11 +21,13 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,complex_relop/1]).
 
 -export([]).
 -import(lists, [foldl/3,flatmap/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [bsl_bsr, logical, t_not, relop_simple, relop,

@@ -21,12 +21,14 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,tail/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     test_lib:recompile(bs_bincomp_SUITE),

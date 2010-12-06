@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(filename_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([absname/1, absname_2/1, 
 	 basename_1/1, basename_2/1,
 	 dirname/1, extension/1, join/1, t_nativename/1]).
@@ -28,6 +28,8 @@
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     [absname, absname_2, basename_1, basename_2, dirname,

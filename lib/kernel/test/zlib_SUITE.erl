@@ -69,6 +69,8 @@ error(Format, Args, File, Line) ->
 %%     end,
 %%     log("<>ERROR<>~n" ++ Format, Args, File, Line).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [{group, api}, {group, examples}, {group, func}, smp,
  otp_7359].

@@ -259,7 +259,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, reorder_api/1, lookup_api/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, reorder_api/1, lookup_api/1,
 	 discard_api/1, max_events_api/1, gc_api/1, auto_gc_api/1,
 	 start_stop_time_api/1, mapping_filter_api/1, persisten_event_api/1,
 	 init_per_testcase/2, end_per_testcase/2]).
@@ -269,6 +269,8 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 cases().
 

@@ -32,7 +32,7 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, basic/1, badarg/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, basic/1, badarg/1, 
 	 term_sort/1, term_keysort/1,
 	 binary_term_sort/1, binary_term_keysort/1,
 	 binary_sort/1, 
@@ -54,6 +54,8 @@ end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic, badarg, term_sort, term_keysort,

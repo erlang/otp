@@ -86,7 +86,7 @@
 %% External exports
 %%-----------------------------------------------------------------
 %% Fixed exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 %% Test cases
 -export([create_setdef_api/1, create_set_api/1, define_with_mode_api/1,
@@ -98,6 +98,8 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 cases().
 

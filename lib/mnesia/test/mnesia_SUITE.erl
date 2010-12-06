@@ -30,6 +30,8 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [{group, light}, {group, medium}, {group, heavy},
  clean_up_suite].

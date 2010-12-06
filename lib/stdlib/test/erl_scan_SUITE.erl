@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 
 -module(erl_scan_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([ error_1/1, error_2/1, iso88591/1, otp_7810/1]).
 
@@ -54,6 +54,8 @@ end_per_testcase(_Case, Config) ->
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, error}, iso88591, otp_7810].

@@ -25,7 +25,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	 %%init_per_testcase/2, 
 	 fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
@@ -40,13 +40,15 @@
 %% 	 list_seq/1,type_test/0,tuple_2_list/1,is_identical/2,compare/2,
 %% 	 clone_bin/1,make_sub_bin/3,string_to_bin/2,atom_to_bin/2,macros/1,
 %% 	 tuple_2_list_and_tuple/1,iolist_2_bin/1,get_resource_type/1,alloc_resource/2,
-%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0,
+%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0, suite/0,
 %% 	 make_new_resource/2,make_new_resource_binary/1,send_list_seq/2,send_new_blob/2,
 %% 	 alloc_msgenv/0,clear_msgenv/1,grow_blob/2,send_blob/2,send_blob_thread/3,
 %% 	 join_send_thread/1]).
 
 
 -define(nif_stub,nif_stub_error(?LINE)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic, reload, upgrade, heap_frag, types, many_args,

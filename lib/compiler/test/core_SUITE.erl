@@ -18,7 +18,7 @@
 %%
 -module(core_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -34,6 +34,8 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 test_lib:recompile(core_SUITE),

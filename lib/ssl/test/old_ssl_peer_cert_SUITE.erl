@@ -20,7 +20,7 @@
 %%
 -module(old_ssl_peer_cert_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 config/1,
@@ -43,6 +43,8 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [cinit_plain, cinit_both_verify, cinit_cnocert].

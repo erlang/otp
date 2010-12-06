@@ -20,7 +20,7 @@
 %%
 -module(guard_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
 	 bad_arith/1,bad_tuple/1,test_heap_guards/1,guard_bifs/1,
 	 type_tests/1,const_guard/1,
 	 const_cond/1,basic_not/1,complex_not/1,
@@ -39,6 +39,8 @@
 
 -export([init/4]).
 -import(lists, [member/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [cases()].

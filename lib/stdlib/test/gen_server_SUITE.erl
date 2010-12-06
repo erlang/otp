@@ -23,7 +23,7 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([start/1, crash/1, call/1, cast/1, cast_fast/1,
 	 info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
@@ -44,6 +44,8 @@
 % The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, format_status/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [start, crash, call, cast, cast_fast, info, abcast,

@@ -40,7 +40,7 @@
 
 -module(?FILE_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
@@ -97,6 +97,8 @@
 -include_lib("kernel/include/file.hrl").
 
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [altname, read_write_file, {group, dirs},

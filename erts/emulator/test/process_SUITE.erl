@@ -29,7 +29,7 @@
 
 -define(heap_binary_size, 64).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, spawn_with_binaries/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, spawn_with_binaries/1,
 	 t_exit_1/1, t_exit_2_other/1, t_exit_2_other_normal/1,
 	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
@@ -55,6 +55,8 @@
 
 -export([hangaround/2, processes_bif_test/0, do_processes/1,
 	 processes_term_proc_list_test/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [spawn_with_binaries, t_exit_1, {group, t_exit_2},

@@ -18,7 +18,7 @@
 %%
 -module(timer_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([do_big_test/1]).
 -export([big_test/1, collect/3, i_t/3, a_t/2]).
 -export([do_nrev/1, internal_watchdog/2]).
@@ -50,6 +50,8 @@
 %% rewrite: smarter math on the measuring data, test cases with varying
 %% amount of load. The test suite should also include tests that test the
 %% interface of the timer module.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [do_big_test].

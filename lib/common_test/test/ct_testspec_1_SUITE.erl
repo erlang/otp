@@ -56,6 +56,8 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [all_suites, skip_all_suites, suite, skip_suite,
  all_testcases, skip_all_testcases, testcase,

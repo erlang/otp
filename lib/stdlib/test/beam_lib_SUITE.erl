@@ -32,10 +32,12 @@
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, normal/1, error/1, cmp/1, cmp_literals/1, strip/1, otp_6711/1,
          building/1, md5/1, encrypted_abstr/1, encrypted_abstr_file/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [error, normal, cmp, cmp_literals, strip, otp_6711,

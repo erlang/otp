@@ -25,13 +25,15 @@
 -include("ftp_internal.hrl").
 
 %% Test server specific exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
 -export([ ftp_150/1, 
 	 ftp_200/1,  ftp_220/1, ftp_226/1, ftp_257/1, ftp_331/1, ftp_425/1, 
 	 ftp_other_status_codes/1, ftp_multiple_lines/1, 
 	 ftp_multipel_ctrl_messages/1, format_error/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, ftp_response}, format_error].

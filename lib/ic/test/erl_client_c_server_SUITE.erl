@@ -26,7 +26,7 @@
 -module(erl_client_c_server_SUITE).
 -include_lib("common_test/include/ct.hrl").
 
--export([init_per_testcase/2, end_per_testcase/2,all/0,groups/0,init_per_group/2,end_per_group/2, void_test/1,
+-export([init_per_testcase/2, end_per_testcase/2,all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, void_test/1,
 	 long_test/1, longlong_test/1, ushort_test/1, ulong_test/1,
 	 ulonglong_test/1, double_test/1, char_test/1, wchar_test/1,
 	 octet_test/1, bool_test/1, struct_test/1, struct2_test/1,
@@ -62,6 +62,8 @@ end_per_testcase(_Case, Config) ->
     code:del_path(DataDir),
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [void_test, long_test, longlong_test, ushort_test,

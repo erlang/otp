@@ -31,11 +31,13 @@
 %%	round/1
 %%	trunc/1
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_list/1, t_integer_to_list/1,
 	 t_list_to_integer/1,
 	 t_list_to_float_safe/1, t_list_to_float_risky/1,
 	 t_round/1, t_trunc/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [t_abs, t_float, t_float_to_list, t_integer_to_list,

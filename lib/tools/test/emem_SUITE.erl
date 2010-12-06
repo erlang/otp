@@ -24,7 +24,7 @@
 	 receive_and_save_trace/2, send_trace/2]).
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([live_node/1,
 	 'sparc_sunos5.8_32b_emt2.0'/1,
@@ -64,6 +64,8 @@
 %% Exported suite functions
 %%
 %%
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     case is_debug_compiled() of

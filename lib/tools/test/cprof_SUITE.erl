@@ -63,7 +63,7 @@ config(data_dir, _) ->
     "cprof_SUITE_data".
 -else.
 %% When run in test server.
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, on_load/1, modules/1]).
 	 
 init_per_testcase(_Case, Config) ->
@@ -77,6 +77,8 @@ end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 case test_server:is_native(cprof_SUITE) of

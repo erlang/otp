@@ -21,7 +21,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([basic_ets/1]).
 -export([basic_dbg/1]).
 -export([from_shell/1]).
@@ -47,6 +47,8 @@ init_per_testcase(_Func, Config) ->
 end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [from_shell, basic_ets, basic_dbg, records,

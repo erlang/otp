@@ -57,6 +57,8 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [beam_me_up, parse_table].
 

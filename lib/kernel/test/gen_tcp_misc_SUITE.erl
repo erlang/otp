@@ -22,7 +22,7 @@
 
 %-compile(export_all).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, controlling_process/1, no_accept/1, close_with_pending_output/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, controlling_process/1, no_accept/1, close_with_pending_output/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -49,6 +49,8 @@ init_per_testcase(_Func, Config) when is_list(Config) ->
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [controlling_process, no_accept,

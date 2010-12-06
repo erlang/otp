@@ -21,7 +21,7 @@
 -module(timer_simple_SUITE).
 
 %% external
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
 	 apply_after/1,
 	 send_after1/1,
@@ -53,6 +53,8 @@
 
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [apply_after, send_after1, send_after2, send_after3,

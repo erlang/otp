@@ -34,6 +34,8 @@
 
 -define(l,?line).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [basic_dist_trace_1, basic_dist_trace_2,
  basic_dist_trace_3, basic_dist_trace_ti_1,

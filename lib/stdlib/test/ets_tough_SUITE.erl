@@ -17,11 +17,13 @@
 %% %CopyrightEnd%
 %%
 -module(ets_tough_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2,ex1/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,ex1/1]).
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [ex1].

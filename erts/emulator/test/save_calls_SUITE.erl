@@ -21,11 +21,13 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([save_calls_1/1,dont_break_reductions/1]).
 
 -export([do_bopp/1, do_bipp/0, do_bepp/0]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [save_calls_1, dont_break_reductions].

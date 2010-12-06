@@ -20,7 +20,7 @@
 -module(port_bif_SUITE).
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, command/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
 	 connect/1, control/1, echo_to_busy/1]).
@@ -30,6 +30,8 @@
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [command, {group, port_info}, connect, control,

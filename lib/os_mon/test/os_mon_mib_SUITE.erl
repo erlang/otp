@@ -30,7 +30,7 @@
 -endif.
 
 % Test server specific exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
 
@@ -76,6 +76,8 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     Config.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [load_unload, get_mem_sys_mark, get_mem_proc_mark,

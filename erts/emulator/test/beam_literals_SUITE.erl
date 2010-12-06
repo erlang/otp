@@ -18,7 +18,7 @@
 %%
 
 -module(beam_literals_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([putting/1, matching_smalls/1, matching_smalls_jt/1,
 	 matching_bigs/1, matching_more_bigs/1,
 	 matching_bigs_and_smalls/1, badmatch/1, case_clause/1,
@@ -27,6 +27,8 @@
 	 increment/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [putting, matching_smalls, matching_smalls_jt,

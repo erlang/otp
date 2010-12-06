@@ -21,10 +21,12 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 -export([equal/1, many_low/1, few_low/1, max/1, high/1]).
 
 -define(default_timeout, ?t:minutes(11)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 case catch erlang:system_info(modified_timing_level) of

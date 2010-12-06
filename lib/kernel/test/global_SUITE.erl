@@ -20,7 +20,7 @@
 
 %-define(line_trace, 1).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_suite/1, end_per_suite/1,
 	 names/1, names_hidden/1, locks/1, locks_hidden/1,
 	 bad_input/1, names_and_locks/1, lock_die/1, name_die/1,
@@ -59,6 +59,8 @@
 %% The resource used by the global module.
 -define(GLOBAL_LOCK, global).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 case init:get_argument(ring_line) of

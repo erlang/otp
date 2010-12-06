@@ -20,10 +20,12 @@
 -module(list_bif_SUITE).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
 	 t_list_to_float/1,t_list_to_integer/1]).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [hd_test, tl_test, t_length, t_list_to_pid,

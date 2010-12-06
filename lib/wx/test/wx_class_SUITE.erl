@@ -24,7 +24,7 @@
 %%%-------------------------------------------------------------------
 -module(wx_class_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -44,6 +44,8 @@ end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
  clipboard, helpFrame, htmlWindow, listCtrlSort,

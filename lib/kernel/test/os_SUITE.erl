@@ -18,11 +18,13 @@
 %%
 -module(os_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, evil/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [space_in_cwd, quoting, space_in_name, bad_command,
@@ -264,7 +266,9 @@ strip_nl([$\n])      -> [];
 strip_nl([H|T])      -> [H|strip_nl(T)];
 strip_nl([])         -> [].
 
-receive_all() ->
+receive_suite() -> [{suite_callbacks,[ts_install_scb]}].
+
+all() ->
     receive
 	X -> [X|receive_all()]
     after 0 -> []

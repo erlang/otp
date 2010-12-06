@@ -18,7 +18,7 @@
 %%
 -module(ets_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1,privacy_owner/2]).
 -export([empty/1,badinsert/1]).
@@ -119,6 +119,8 @@ end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, new}, {group, insert}, {group, lookup},

@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(shell_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([forget/1, records/1, known_bugs/1, otp_5226/1, otp_5327/1,
                  otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
@@ -70,6 +70,8 @@ end_per_testcase(_Case, Config) ->
     ?line (catch code:delete(user_default)),
     ok.
 -endif.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [forget, records, known_bugs, otp_5226, otp_5327,

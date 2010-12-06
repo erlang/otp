@@ -39,6 +39,8 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 case odbc_test_lib:odbc_check() of
   ok ->

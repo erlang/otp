@@ -143,6 +143,8 @@ end_per_testcase(_, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [erlang_client_openssl_server,
  erlang_server_openssl_client,

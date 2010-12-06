@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 misc/1,const_cond/1,basic_not/1,complex_not/1,nested_nots/1,
 	 semicolon/1,complex_semicolon/1,comma/1,
 	 or_guard/1,more_or_guards/1,
@@ -32,6 +32,8 @@
 	 tricky/1,rel_ops/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 test_lib:recompile(guard_SUITE),

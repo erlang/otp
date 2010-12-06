@@ -20,7 +20,7 @@
 -module(crashdump_viewer_SUITE).
 
 %% Test functions
--export([all/0,groups/0,init_per_group/2,end_per_group/2,translate/1,start/1,fini/1,load_file/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,translate/1,start/1,fini/1,load_file/1,
 	 non_existing/1,not_a_crashdump/1,old_crashdump/1]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -45,6 +45,8 @@ end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [translate, load_file, non_existing, not_a_crashdump,

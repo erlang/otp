@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	 gregorian_days/1,
 	 gregorian_seconds/1,
 	 day_of_the_week/1,
@@ -31,6 +31,8 @@
 
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [gregorian_days, gregorian_seconds, day_of_the_week,

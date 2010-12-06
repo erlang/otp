@@ -23,12 +23,14 @@
 -include_lib("test_server/include/test_server.hrl").
 -include("erl_format_SUITE_data/format_test_cases.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, atoms/1, tuples/1, lists/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, atoms/1, tuples/1, lists/1]).
 
 -import(runner, [get_term/1]).
 
 %% This test suite test the erl_format() function.
 %% It uses the port program "format_test".
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [atoms, tuples, lists].

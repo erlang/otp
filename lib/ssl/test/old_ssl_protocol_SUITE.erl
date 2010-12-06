@@ -20,7 +20,7 @@
 %%
 -module(old_ssl_protocol_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2, config/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2, config/1,
 	 finish/1, sslv2/1, sslv3/1, tlsv1/1, sslv2_sslv3/1,
 	 sslv2_tlsv1/1, sslv3_tlsv1/1, sslv2_sslv3_tlsv1/1]).
 
@@ -37,6 +37,8 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [sslv2, sslv3, tlsv1, sslv2_sslv3, sslv2_tlsv1,

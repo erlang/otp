@@ -23,7 +23,7 @@
 %%% Tests the trace BIF.
 %%%
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
@@ -39,6 +39,8 @@
 
 %%% Internal exports
 -export([process/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [cpu_timestamp, receive_trace, self_send, timeout_trace,

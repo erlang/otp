@@ -19,7 +19,7 @@
 
 -module(ref_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2]).
 -export([wrap_1/1]).
 
 -export([loop_ref/1]).
@@ -34,6 +34,8 @@ fin_per_testcase(_, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [wrap_1].

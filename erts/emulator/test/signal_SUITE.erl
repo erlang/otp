@@ -31,7 +31,7 @@
 
 %-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 % Test cases
 -export([xm_sig_order/1,
@@ -64,6 +64,8 @@ end_per_suite(_Config) ->
     available_internal_state(true),
     erts_debug:set_internal_state(not_running_optimization, true),
     available_internal_state(false).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [xm_sig_order, pending_exit_unlink_process,

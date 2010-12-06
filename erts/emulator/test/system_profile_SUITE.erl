@@ -22,7 +22,7 @@
 
 -module(system_profile_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	system_profile_on_and_off/1,
 	runnable_procs/1,
 	runnable_ports/1,
@@ -44,6 +44,8 @@ fin_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [system_profile_on_and_off, runnable_procs,

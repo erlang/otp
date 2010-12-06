@@ -46,6 +46,8 @@ init() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [{group, app_test}, {group, appup_test},
  {group, config}, {group, flex}, {group, udp},

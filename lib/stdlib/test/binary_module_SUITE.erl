@@ -18,7 +18,7 @@
 %%
 -module(binary_module_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
 
@@ -61,6 +61,8 @@ end_per_testcase(_Case, Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 -endif.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [interesting, random_ref_fla_comp, random_ref_sr_comp,

@@ -22,7 +22,7 @@
 
 %% Purpose: Deeper test of the evaluator.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2, end_per_testcase/2,
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
@@ -34,6 +34,8 @@
 -define(IM, my_int_eval_module).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [bifs_outside_erlang, spawning, applying,

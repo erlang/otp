@@ -81,6 +81,8 @@ end_per_testcase(TestCase, Config) ->
     
     ct_test_support:end_per_testcase(TestCase, Config).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
     [ct_master_test].
 

@@ -25,7 +25,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_suite/1,end_per_suite/1,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_suite/1,end_per_suite/1,init_per_testcase/2,end_per_testcase/2]).
 -export([marshal_ll/1,marshal_ull/1,
 	 marshal_l/1,marshal_ul/1,
 	 marshal_s/1,marshal_us/1,
@@ -35,6 +35,8 @@
 
 
 %% Top of cases
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 cases().

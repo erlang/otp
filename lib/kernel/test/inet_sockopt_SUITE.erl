@@ -48,13 +48,15 @@
 
 -define(C_QUIT,99).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, simple/1, loop_all/1, simple_raw/1, simple_raw_getbin/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, simple/1, loop_all/1, simple_raw/1, simple_raw_getbin/1, 
 	 doc_examples_raw/1,doc_examples_raw_getbin/1,
 	 large_raw/1,large_raw_getbin/1,combined/1,combined_getbin/1,
 	 type_errors/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [simple, loop_all, simple_raw, simple_raw_getbin,

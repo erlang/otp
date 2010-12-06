@@ -20,8 +20,10 @@
 -module(erts_debug_SUITE).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
-	 flat_size/1,flat_size_big/1,df/1,instructions/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+	 flat_size/1,flat_size_big/1,df/1, instructions/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [flat_size, flat_size_big, df, instructions].

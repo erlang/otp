@@ -32,7 +32,7 @@
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([ 
              unused_vars_warn_basic/1, 
@@ -68,6 +68,8 @@ end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, unused_vars_warn}, export_vars_warn,

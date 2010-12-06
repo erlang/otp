@@ -28,6 +28,8 @@
 %% Needed by test case `lists'.
 -compile(inline_list_funcs).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 test_lib:recompile(inline_SUITE),
 	[attribute, bsdecode, bsdes, barnes2, decode1, smith,

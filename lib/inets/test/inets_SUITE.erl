@@ -28,6 +28,8 @@
 
 -define(NUM_DEFAULT_SERVICES, 1).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [{group, app_test}, {group, appup_test},
  {group, services_test}, httpd_reload].

@@ -31,7 +31,7 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([abstract_module/1, attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
@@ -49,6 +49,8 @@ end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [abstract_module, attributes, expr, guard, init,

@@ -24,6 +24,8 @@
 
 -compile(export_all).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
     test_lib:recompile(compilation_SUITE),
     [self_compile_old_inliner, self_compile, compiler_1,

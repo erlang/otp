@@ -35,7 +35,7 @@
 
 -define(AWAIT_SLL_NODE_UP_TIMEOUT, 30000).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1,
 	 end_per_suite/1,
 	 init_per_testcase/2,
@@ -45,6 +45,8 @@
 -export([basic/1]).
 
 -record(node_handle, {connection_handler, socket, name, nodename}).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic].

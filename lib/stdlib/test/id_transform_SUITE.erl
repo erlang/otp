@@ -21,7 +21,7 @@
 
 -include_lib("kernel/include/file.hrl").
           
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 id_transform/1]).
 
 -export([check/2,check2/1,g/0,f/1,t/1,t1/1,t2/1,t3/1,t4/1,
@@ -30,6 +30,8 @@
 % Serves as test...
 -hej(hopp).
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [id_transform].

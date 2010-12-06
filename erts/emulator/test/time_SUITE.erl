@@ -29,7 +29,7 @@
 %%	now/0
 %%
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
 	 bad_univ_to_local/1, bad_local_to_univ/1,
 	 consistency/1,
 	 now_unique/1, now_update/1, timestamp/1]).
@@ -53,6 +53,8 @@
 %% is in use.  [Same range.]
 
 -define(dst_timezone, 2).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [univ_to_local, local_to_univ, local_to_univ_utc,

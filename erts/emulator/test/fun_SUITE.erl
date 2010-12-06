@@ -22,7 +22,7 @@
 
 -define(default_timeout, ?t:minutes(1)).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,
 	 equality/1,ordering/1,
 	 fun_to_port/1,t_hash/1,t_phash/1,t_phash2/1,md5/1,
@@ -33,6 +33,8 @@
 -export([nothing/0]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [bad_apply, bad_fun_call, badarity, ext_badarity,

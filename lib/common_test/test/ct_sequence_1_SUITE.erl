@@ -56,6 +56,8 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [subgroup_return_fail, subgroup_init_fail,
  subgroup_after_failed_case,

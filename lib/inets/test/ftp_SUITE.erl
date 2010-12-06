@@ -24,7 +24,7 @@
 -include("test_server_line.hrl").
 
 %% Test server specific exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 % -export([init_per_testcase/2, end_per_testcase/2]).
 -export([init_per_suite/1, end_per_suite/1]).
 
@@ -72,6 +72,8 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [{group, solaris8_test}, {group, solaris9_test},
  {group, solaris10_test}, {group, linux_x86_test},

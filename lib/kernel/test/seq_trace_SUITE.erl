@@ -18,7 +18,7 @@
 %%
 -module(seq_trace_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2]).
 -export([token_set_get/1, tracer_set_get/1, print/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
@@ -33,6 +33,8 @@
 -include_lib("test_server/include/test_server.hrl").
 
 -define(default_timeout, ?t:minutes(1)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [token_set_get, tracer_set_get, print, send,

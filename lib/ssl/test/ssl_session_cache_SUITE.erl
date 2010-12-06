@@ -145,6 +145,8 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
     [session_cache_process_list,
      session_cache_process_mnesia].
@@ -157,7 +159,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
-
 
 session_cache_process_list(doc) ->
     ["Test reuse of sessions (short handshake)"];

@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([set_path/1, get_path/1, add_path/1, add_paths/1, del_path/1,
 	 replace_path/1, load_file/1, load_abs/1, ensure_loaded/1,
 	 delete/1, purge/1, soft_purge/1, is_loaded/1, all_loaded/1,
@@ -42,6 +42,8 @@
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     [set_path, get_path, add_path, add_paths, del_path,

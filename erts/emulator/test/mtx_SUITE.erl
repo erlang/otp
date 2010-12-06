@@ -28,7 +28,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0,groups/0,
+-export([all/0,suite/0,groups/0,
 	 init_per_group/2,end_per_group/2, init_per_suite/1, 
 	 end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 
@@ -71,6 +71,8 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     [long_rwlock, hammer_rwlock_check, hammer_rwlock,

@@ -21,7 +21,7 @@
 %%%----------------------------------------------------------------------
 
 -module(fixtable_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 %%% Test cases
 -export([multiple_fixes/1, multiple_processes/1,
 	 other_process_deletes/1, owner_dies/1,
@@ -30,6 +30,8 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 %%% Internal exports
 -export([command_loop/0,start_commander/0]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [multiple_fixes, multiple_processes,

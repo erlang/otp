@@ -19,7 +19,7 @@
 
 -module(match_spec_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, not_run/1]).
 -export([test_1/1, test_2/1, test_3/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, 
 	 ms_trace2/1, ms_trace3/1, boxed_and_small/1,
@@ -29,7 +29,7 @@
 
 -export([runner/2]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
--export([do_boxed_and_small/0]).
+-export([do_boxed_and_small/0, suite/0]).
 
 % This test suite assumes that tracing in general works. What we test is
 % the match spec functionality.
@@ -46,6 +46,8 @@ fin_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 case test_server:is_native(match_spec_SUITE) of

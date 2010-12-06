@@ -30,7 +30,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, ddll_test/1, errors/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, ddll_test/1, errors/1,
 	 reference_count/1,
 	 kill_port/1, dont_kill_port/1]).
 -export([unload_on_process_exit/1, delayed_unload_with_ports/1, 
@@ -51,6 +51,8 @@
 -import(ordsets, [subtract/2]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [ddll_test, errors, reference_count, kill_port,

@@ -29,7 +29,7 @@
 
 %-define(line_trace, 1).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, fin_per_testcase/2]).
 
 -export([bin_default/1,
@@ -74,6 +74,8 @@ dont_need_symlink_cases() ->
  bin_outside_eprfx_dirty, bin_not_abs,
  bin_unreasonable_path, 'bin white space',
  bin_no_srcfile].
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 dont_need_symlink_cases() ++ need_symlink_cases().

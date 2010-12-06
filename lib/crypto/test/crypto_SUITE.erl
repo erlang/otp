@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 info/1,
@@ -60,6 +60,8 @@
 	 cleanup/1]).
 
 -export([hexstr2bin/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     [link_test, md5, md5_update, md4, md4_update, md5_mac,

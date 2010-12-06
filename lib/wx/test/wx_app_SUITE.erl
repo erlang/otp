@@ -47,6 +47,8 @@ end_per_testcase(Func,Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [fields, modules, exportall, app_depend, undef_funcs].
 

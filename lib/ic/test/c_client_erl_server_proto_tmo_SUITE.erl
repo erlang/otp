@@ -26,7 +26,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([init_per_testcase/2, end_per_testcase/2,
-	all/0,groups/0,init_per_group/2,end_per_group/2, void_test/1, long_test/1, long_long_test/1,
+	all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, void_test/1, long_test/1, long_long_test/1,
 	 unsigned_short_test/1, unsigned_long_test/1,
 	 unsigned_long_long_test/1, double_test/1, char_test/1,
 	 wchar_test/1, octet_test/1, bool_test/1, struct_test/1,
@@ -61,6 +61,8 @@ end_per_testcase(_Case, Config) ->
     code:del_path(DataDir),
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [void_test, long_test, long_long_test,

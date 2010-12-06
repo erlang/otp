@@ -18,7 +18,7 @@
 %%
 -module(io_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -53,6 +53,8 @@ end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [error_1, float_g, otp_5403, otp_5813, otp_6230,

@@ -19,7 +19,7 @@
 -module(big_SUITE).
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
 	 borders/1, negative/1, big_float_1/1, big_float_2/1,
 	 shift_limit_1/1, powmod/1, system_limit/1, otp_6692/1]).
@@ -33,6 +33,8 @@
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [t_div, eq_28, eq_32, eq_big, eq_math, big_literals,

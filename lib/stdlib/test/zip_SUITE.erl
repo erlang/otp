@@ -18,7 +18,7 @@
 %%
 -module(zip_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, borderline/1, atomic/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, borderline/1, atomic/1,
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
@@ -30,6 +30,8 @@
 -include("test_server_line.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/zip.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [borderline, atomic, bad_zip, unzip_from_binary,

@@ -25,7 +25,7 @@
 
 -export(
    [
-all/0,groups/0,init_per_group/2,end_per_group/2,
+all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
     test_ei_decode_long/1,
     test_ei_decode_ulong/1,
     test_ei_decode_longlong/1,
@@ -34,6 +34,8 @@ all/0,groups/0,init_per_group/2,end_per_group/2,
     test_ei_decode_nonoptimal/1,
     test_ei_decode_misc/1
    ]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [test_ei_decode_long, test_ei_decode_ulong,

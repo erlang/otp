@@ -26,7 +26,7 @@
 -define(default_timeout, ?t:minutes(1)).
 -define(application, ssh).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 config/1,
@@ -46,6 +46,8 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [config, echo_once, echo_twice, close_before_ssl_accept].

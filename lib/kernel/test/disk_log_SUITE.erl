@@ -34,7 +34,7 @@
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 
 	 halt_int_inf/1, 
 	 halt_int_sz_1/1, halt_int_sz_2/1,
@@ -141,6 +141,8 @@
 			  change_size_before, change_size_during, 
 			  change_size_after, default_size]).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, halt_int}, {group, wrap_int},

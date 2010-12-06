@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(tuple_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2, t_size/1, t_tuple_size/1, t_element/1, t_setelement/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, t_size/1, t_tuple_size/1, t_element/1, t_setelement/1,
 	 t_list_to_tuple/1, t_tuple_to_list/1,
 	 t_make_tuple_2/1, t_make_tuple_3/1, t_append_element/1,
 	 build_and_match/1, tuple_with_case/1, tuple_in_guard/1]).
@@ -32,6 +32,8 @@
 %% list_to_tuple/1
 %% make_tuple/2
 %%
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [build_and_match, t_size, t_tuple_size, t_list_to_tuple,

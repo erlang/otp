@@ -22,7 +22,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
 	 middleman/1,service_basic/1, service_env/1, user_env/1, synced/1, 
 	 service_prio/1, 
 	 logout/1, debug/1, restart/1, restart_always/1,stopaction/1,
@@ -30,6 +30,8 @@
 -define(TEST_TIMEOUT, ?t:seconds(180)).
 
 -define(TEST_SERVICES, [1,2,3,4,5,6,7,8,9,10,11]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 case os:type() of

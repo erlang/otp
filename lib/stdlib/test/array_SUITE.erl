@@ -27,7 +27,7 @@
 -define(default_timeout, ?t:seconds(60)).
 
 %% Test server specific exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([
@@ -64,6 +64,8 @@
 %%
 %% all/1
 %%
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [new_test, fix_test, relax_test, resize_test,
  set_get_test, to_list_test, sparse_to_list_test,

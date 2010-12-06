@@ -33,7 +33,7 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 no_file/1,
 	 one_empty/1, one_filled/1,
 	 two_filled/1,
@@ -44,6 +44,8 @@
 	 error/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [no_file, {group, one}, {group, two}, {group, four},

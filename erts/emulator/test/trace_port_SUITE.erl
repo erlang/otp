@@ -20,7 +20,7 @@
 
 -module(trace_port_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 call_trace/1,
 	 return_trace/1,
 	 send/1,
@@ -43,6 +43,8 @@ test_cases() ->
  fake_schedule_after_getting_linked,
  fake_schedule_after_getting_unlinked, gc,
  default_tracer].
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 test_cases().

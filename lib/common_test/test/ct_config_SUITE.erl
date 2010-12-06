@@ -64,6 +64,8 @@ end_per_testcase(install_config = TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [require, install_config, userconfig_static,
  userconfig_dynamic, testspec_legacy, testspec_static,

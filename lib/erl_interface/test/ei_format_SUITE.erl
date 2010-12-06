@@ -25,7 +25,7 @@
 
 -export([
 	format_wo_ver/1,
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	atoms/1, 
 	tuples/1, 
 	lists/1
@@ -35,6 +35,8 @@
 
 %% This test suite test the erl_format() function.
 %% It uses the port program "ei_format_test".
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [format_wo_ver, atoms, tuples, lists].

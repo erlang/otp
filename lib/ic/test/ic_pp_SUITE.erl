@@ -32,7 +32,7 @@
 -define(GCC, "g++").
 -define(GCC_VER, "2.95.3").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([arg_norm/1]).
 -export([cascade_norm/1]).
 -export([comment_norm/1]).
@@ -53,6 +53,8 @@
 -export([unintended_grp_norm/1]).
 -export([cases/0, init_per_suite/1, end_per_suite/1]).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     cases().

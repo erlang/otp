@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(bif_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([ 
 	 spawn1/1, spawn2/1, spawn3/1, spawn4/1,
@@ -47,6 +47,8 @@ end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, spawn_tests}, {group, spawn_link_tests},

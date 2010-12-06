@@ -173,6 +173,8 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
     [app, alerts, connection_info, protocol_versions,
      empty_protocol_versions, controlling_process,

@@ -35,7 +35,7 @@
 -record(node_info, {port, node_type, prot, lvsn, hvsn, node_name, extra}).
 
 % Test server specific exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export(
    [
@@ -100,6 +100,8 @@
 %%
 %% all/1
 %%
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [register_name, register_names_1, register_names_2,

@@ -25,13 +25,15 @@
 -include_lib("test_server/include/test_server.hrl").
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([simple/1, loop/1, isolated/1, topsort/1, subgraph/1, 
          condensation/1, tree/1]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [simple, loop, isolated, topsort, subgraph,

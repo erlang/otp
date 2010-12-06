@@ -69,7 +69,7 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0,groups/0,init_per_group/2,end_per_group/2,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
 	 fin_per_testcase/2,init_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
@@ -80,6 +80,8 @@ fin_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [test_basic, test_cmp, test_range, test_spread,
  test_phash2, otp_5292, bit_level_binaries, otp_7127].

@@ -68,7 +68,7 @@ config(priv_dir,_) ->
 
 %%% When run in test server %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
 	 return/1, on_and_off/1, stack_grow/1,info/1, delete/1,
 	 exception/1, exception_apply/1,
 	 exception_function/1, exception_apply_function/1,
@@ -89,6 +89,8 @@ fin_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 case test_server:is_native(trace_local_SUITE) of
   true -> [not_run];

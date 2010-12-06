@@ -18,9 +18,11 @@
 %%
 -module(eunit_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,eunit_test/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,eunit_test/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [eunit_test].

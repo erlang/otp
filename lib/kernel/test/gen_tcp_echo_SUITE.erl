@@ -22,7 +22,7 @@
 
 %%-compile(export_all).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -30,6 +30,8 @@
 
 -define(TPKT_VRSN, 3).
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [active_echo, passive_echo, active_once_echo,

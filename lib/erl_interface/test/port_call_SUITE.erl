@@ -31,10 +31,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, basic/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, basic/1]).
 % Private exports
 -include_lib("test_server/include/test_server.hrl").
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic].

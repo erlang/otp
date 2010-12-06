@@ -19,7 +19,7 @@
 
 -module(send_term_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,basic/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,basic/1]).
 -export([init_per_testcase/2,fin_per_testcase/2]).
 
 -export([generate_external_terms_files/1]).
@@ -33,6 +33,8 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 fin_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic].

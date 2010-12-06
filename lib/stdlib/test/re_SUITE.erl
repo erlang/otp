@@ -18,10 +18,12 @@
 %%
 -module(re_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1,pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1,pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [pcre, compile_options, run_options, combined_options,

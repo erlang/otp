@@ -18,7 +18,7 @@
 %%
 -module(jinterface_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
@@ -80,6 +80,8 @@
 %%%-----------------------------------------------------------------
 %%% INIT/END
 %%%-----------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 lists:append([fundamental(), ping(), send_receive(),
 	      link_unlink(), status_handler()]).

@@ -59,6 +59,8 @@
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [proxy_options, proxy_head, proxy_get, proxy_trace,
  proxy_post, proxy_put, proxy_delete, proxy_auth,

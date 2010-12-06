@@ -23,7 +23,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, t_after/1, receive_after/1, receive_after_big/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, t_after/1, receive_after/1, receive_after_big/1,
 	 receive_after_errors/1, receive_var_zero/1, receive_zero/1,
 	 multi_timeout/1, receive_after_32bit/1]).
 
@@ -32,6 +32,8 @@
 %% Internal exports.
 
 -export([timeout_g/0]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [t_after, receive_after, receive_after_big,

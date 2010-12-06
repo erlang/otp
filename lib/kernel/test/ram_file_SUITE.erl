@@ -19,7 +19,7 @@
 
 -module(ram_file_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 %% init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
@@ -33,6 +33,8 @@
 -define(RAM_FILE_MODULE, ram_file). % Name of module to test
 
 %%--------------------------------------------------------------------------
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [open_modes, open_old_modes, pread_pwrite, position,

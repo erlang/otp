@@ -24,7 +24,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 ping/1, bulk_send_small/1,
 	 bulk_send_big/1, bulk_send_bigbig/1,
 	 local_send_small/1, local_send_big/1,
@@ -52,6 +52,8 @@
 	 dist_parallel_sender/3, dist_parallel_receiver/0,
 	 dist_evil_parallel_receiver/0,
          sendersender/4, sendersender2/4]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     [ping, {group, bulk_send}, {group, local_send},

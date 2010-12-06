@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 
 -module(erl_eval_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([guard_1/1, guard_2/1,
 	 match_pattern/1,
@@ -71,14 +71,14 @@ end_per_testcase(_Case, Config) ->
     ok.
 -endif.
 
-all(doc) ->
-    ["Test cases for the 'erl_eval' module."];
-all(suite) ->
-    [guard_1, guard_2, match_pattern, string_plusplus, pattern_expr,
-     match_bin, guard_3, guard_4, 
-     lc, simple_cases, unary_plus, apply_atom, otp_5269, otp_6539, otp_6543,
-     otp_6787, otp_6977, otp_7550, otp_8133, funs, try_catch, eval_expr_5,
-     zero_width].
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
+all() -> 
+[guard_1, guard_2, match_pattern, string_plusplus,
+ pattern_expr, match_bin, guard_3, guard_4, lc,
+ simple_cases, unary_plus, apply_atom, otp_5269,
+ otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
+ otp_8133, funs, try_catch, eval_expr_5, zero_width].
 
 groups() -> 
     [].

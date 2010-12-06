@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_expand_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1]).
 
@@ -35,6 +35,8 @@ end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [normal, quoted_fun, quoted_module, quoted_both].

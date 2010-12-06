@@ -23,10 +23,12 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 call_with_huge_message_queue/1,receive_in_between/1]).
 
 -export([init_per_testcase/2,fin_per_testcase/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [call_with_huge_message_queue, receive_in_between].

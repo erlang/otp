@@ -30,7 +30,7 @@
 -define(format(S, A), ok).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([ from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
 	 a_function_1/1, family_1/1, projection/1,
@@ -84,6 +84,8 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -compile({inline,[{eval,2}]}).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, sofs}, {group, sofs_family}].

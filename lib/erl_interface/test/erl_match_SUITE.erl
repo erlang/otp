@@ -23,13 +23,15 @@
 -include_lib("test_server/include/test_server.hrl").
 -include("erl_match_SUITE_data/match_test_cases.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, atoms/1, lists/1, tuples/1, references/1, pids/1, ports/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, atoms/1, lists/1, tuples/1, references/1, pids/1, ports/1,
 	 bind/1, integers/1, floats/1, binaries/1, strings/1]).
 
 %% For interactive running of matcher.
 -export([start_matcher/0, erl_match/3]).
 
 %% This test suite tests the erl_match() function.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [atoms, lists, tuples, references, pids, ports, bind,

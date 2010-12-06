@@ -32,7 +32,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1]).
 -export([ifr_pragma_reg/1, pragma_error/1, uggly_pragmas/1]).
 
 
@@ -53,6 +53,8 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 cases().
 

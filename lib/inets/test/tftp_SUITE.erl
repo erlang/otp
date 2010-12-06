@@ -71,6 +71,8 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 %% Top test case
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 [simple, extra, reuse_connection, resend_client,
  resend_server].

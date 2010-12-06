@@ -18,7 +18,7 @@
 
 -module(alloc_SUITE).
 -author('rickard.green@uab.ericsson.se').
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([basic/1,
 	 coalesce/1,
@@ -34,6 +34,8 @@
 -include_lib("test_server/include/test_server.hrl").
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic, coalesce, threads, realloc_copy, bucket_index,

@@ -51,7 +51,7 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([ 
              badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
@@ -118,6 +118,8 @@ end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, parse_transform}, {group, evaluation},

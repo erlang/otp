@@ -20,7 +20,7 @@
 -module(bs_match_SUITE).
 -compile(nowarn_shadow_vars).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 fun_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,shadowed_size_var/1,
 	 partitioned_bs_match/1,function_clause/1,
@@ -37,6 +37,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 test_lib:recompile(bs_match_SUITE),

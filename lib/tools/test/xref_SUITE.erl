@@ -36,7 +36,7 @@
 -define(copydir, ?config(copy_dir, Conf)).
 -endif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init/1, fini/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init/1, fini/1]).
 
 -export([
 	 addrem/1, convert/1, intergraph/1, lines/1, loops/1,
@@ -67,6 +67,8 @@
 -include_lib("kernel/include/file.hrl").
 
 -include_lib("tools/src/xref.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, xref}, {group, files}, {group, analyses},

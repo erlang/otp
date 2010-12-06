@@ -19,7 +19,7 @@
 
 -module(bs_utf_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
 	 utf8_roundtrip/1,utf16_roundtrip/1,utf32_roundtrip/1,
 	 utf8_illegal_sequences/1,utf16_illegal_sequences/1,
 	 utf32_illegal_sequences/1,
@@ -36,6 +36,8 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 fin_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [utf8_roundtrip, utf16_roundtrip, utf32_roundtrip,

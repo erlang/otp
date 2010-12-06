@@ -25,12 +25,14 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
 	 t_connect_timeout/1, t_accept_timeout/1,
 	 t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1,
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_fdopen/1, t_implicit_inet6/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, t_accept}, {group, t_connect}, {group, t_recv},

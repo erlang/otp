@@ -24,7 +24,7 @@
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	init_per_testcase/2, 
 	end_per_testcase/2,
 
@@ -39,6 +39,8 @@
 	]).
 
 -import(runner, [get_term/1,send_term/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,

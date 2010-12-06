@@ -23,7 +23,7 @@
 %%
 %%-define(STANDALONE,1).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, crash/1, sync_start_nolink/1, sync_start_link/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
 	 hibernate/1]).
 -export([ otp_6345/1]).
@@ -42,6 +42,8 @@
 -else.
 -include_lib("test_server/include/test_server.hrl").
 -endif.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [crash, {group, sync_start}, spawn_opt, hibernate,

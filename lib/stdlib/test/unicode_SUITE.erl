@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,	 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,	 
 	 init_per_testcase/2,
 	 end_per_testcase/2,
 	 utf8_illegal_sequences_bif/1,
@@ -37,6 +37,8 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [utf8_illegal_sequences_bif,

@@ -32,12 +32,14 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export([erlang_display/1, integer/1, float/1, string/1, character/1, snprintf/1, quote/1]).
 
 -include_lib("test_server/include/test_server.hrl").
     
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 test_cases().
 

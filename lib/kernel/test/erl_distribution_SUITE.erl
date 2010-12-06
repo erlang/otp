@@ -21,7 +21,7 @@
 %-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
@@ -56,6 +56,8 @@
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [tick, tick_change, illegal_nodenames, hidden_node,

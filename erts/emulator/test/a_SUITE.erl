@@ -28,7 +28,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, long_timers/1, pollset_size/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, long_timers/1, pollset_size/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [long_timers, pollset_size].

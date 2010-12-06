@@ -26,7 +26,7 @@
 -include("http_internal.hrl").
 
 %% Test server specific exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
 -export([ chunk_decode/1, chunk_encode/1,
@@ -36,6 +36,8 @@
 	 http_response/1, http_request/1, validate_request_line/1,
 	 esi_parse_headers/1, cgi_parse_headers/1,
 	 is_absolut_uri/1, convert_netscapecookie_date/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, chunk}, http_response, http_request,

@@ -20,12 +20,14 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, t_start/1, t_start_link/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, t_start/1, t_start_link/1,
 	 start_link_nodedown/1, errors/1]).
 
 %% Internal exports.
 -export([fun_init/1, test_errors/1]).
 -export([timeout_test/1, auth_test/1, rsh_test/1, start_a_slave/3]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [t_start_link, start_link_nodedown, t_start, errors].

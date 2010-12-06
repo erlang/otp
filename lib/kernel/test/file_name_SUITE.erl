@@ -70,7 +70,7 @@
 %% list_dir
 %% read_link
 
--export([all/0,groups/0,
+-export([all/0,groups/0,suite/0,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([normal/1,icky/1,very_icky/1,normalize/1]).
@@ -84,6 +84,8 @@ end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
     [normal, icky, very_icky, normalize].
 
@@ -95,7 +97,6 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
-
 
 normalize(suite) ->
     [];

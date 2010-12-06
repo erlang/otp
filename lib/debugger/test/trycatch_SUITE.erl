@@ -20,12 +20,14 @@
 %%
 -module(trycatch_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
 	 basic/1,lean_throw/1,try_of/1,try_after/1,%after_bind/1,
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [cases()].
@@ -121,7 +123,9 @@ basic(Conf) when is_list(Conf) ->
 
     ok.
 
-after_call() ->
+after_csuite() -> [{suite_callbacks,[ts_install_scb]}].
+
+all() ->
     put(basic, after_was_called).
 
 after_clean() ->

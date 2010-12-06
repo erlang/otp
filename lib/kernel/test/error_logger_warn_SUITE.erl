@@ -18,7 +18,7 @@
 %%
 -module(error_logger_warn_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 basic/1,warnings_info/1,warnings_warnings/1,
 	 rb_basic/1,rb_warnings_info/1,rb_warnings_warnings/1,
 	 rb_trunc/1,rb_utc/1,file_utc/1]).
@@ -42,6 +42,8 @@
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic, warnings_info, warnings_warnings, rb_basic,

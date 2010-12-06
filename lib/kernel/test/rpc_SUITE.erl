@@ -18,7 +18,7 @@
 %%
 -module(rpc_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([call/1, block_call/1, multicall/1, multicall_timeout/1, 
 	 multicall_dies/1, multicall_node_dies/1,
 	 called_dies/1, called_node_dies/1, 
@@ -27,6 +27,8 @@
 -export([suicide/2, suicide/3, f/0, f2/0]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [call, block_call, multicall, multicall_timeout,

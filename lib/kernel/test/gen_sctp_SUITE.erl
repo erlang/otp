@@ -23,7 +23,7 @@
 
 %%-compile(export_all).
 
--export([all/0,groups/0,
+-export([all/0, suite/0,groups/0,
 	 init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
@@ -31,6 +31,8 @@
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic, api_open_close, api_listen, api_connect_init,

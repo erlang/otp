@@ -21,7 +21,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
 	 demon_2/1, demon_3/1, demonitor_flush/1,
 	 local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
@@ -30,6 +30,8 @@
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [case_1, case_1a, case_2, case_2a, mon_e_1, demon_e_1,

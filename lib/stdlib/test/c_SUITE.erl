@@ -17,13 +17,15 @@
 %% %CopyrightEnd%
 %%
 -module(c_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([c_1/1, c_2/1, c_3/1, c_4/1, nc_1/1, nc_2/1, nc_3/1, nc_4/1,
          memory/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 -import(c, [c/2, nc/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4, memory].

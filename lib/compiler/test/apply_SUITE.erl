@@ -18,11 +18,13 @@
 %%
 -module(apply_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,mfa/1,fun_apply/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,mfa/1,fun_apply/1]).
 
 -export([foo/0,bar/1,baz/2]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 test_lib:recompile(apply_SUITE),

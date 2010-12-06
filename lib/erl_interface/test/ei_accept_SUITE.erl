@@ -23,10 +23,12 @@
 -include_lib("test_server/include/test_server.hrl").
 -include("ei_accept_SUITE_data/ei_accept_test_cases.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
 	 ei_accept/1, ei_threaded_accept/1]).
 
 -import(runner, [get_term/1,send_term/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [ei_accept, ei_threaded_accept].

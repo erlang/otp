@@ -27,7 +27,7 @@
 %%% - queueing
 
 -module(driver_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 fin_per_testcase/2,
 	 end_per_suite/1,
@@ -128,6 +128,8 @@ fin_per_testcase(Case, Config) ->
 
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [fun_to_port, outputv_echo, queue_echo, {group, timer},

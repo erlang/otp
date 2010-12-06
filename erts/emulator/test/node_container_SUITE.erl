@@ -32,7 +32,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1,
 	 node_container_refc_check/1]).
 
 -export([term_to_binary_to_term_eq/1,
@@ -54,6 +54,8 @@
 	 iter_max_procs/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,

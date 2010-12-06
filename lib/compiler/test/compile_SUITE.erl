@@ -22,7 +22,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 app_test/1,
 	 file_1/1, module_mismatch/1, big_file/1, outdir/1, 
 	 binary/1, cond_and_ifdef/1, listings/1, listings_big/1,
@@ -32,11 +32,11 @@
 
 -export([init/3]).
 
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 %% To cover the stripping of 'type' and 'spec' in beam_asm.
 -type all_return_type() :: [atom()].
 -spec all() -> all_return_type().
-
 all() -> 
 test_lib:recompile(compile_SUITE),
 	[app_test, file_1, module_mismatch, big_file, outdir,

@@ -50,7 +50,7 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, basic_PI_api/1, multi_orber_api/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, basic_PI_api/1, multi_orber_api/1,
 	 init_per_testcase/2, end_per_testcase/2, multi_pseudo_orber_api/1, 
 	 light_orber_api/1, light_orber2_api/1, 
 	 ssl_1_multi_orber_api/1, ssl_2_multi_orber_api/1, ssl_reconfigure_api/1,
@@ -86,6 +86,8 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
+suite() -> [{suite_callbacks,[ts_install_scb]}].
+
 all() -> 
 cases().
 

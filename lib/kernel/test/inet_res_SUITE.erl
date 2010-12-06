@@ -24,7 +24,7 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1]).
 -export([
@@ -39,6 +39,8 @@
 	]).
 
 -define(RUN_NAMED, "run-named").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [basic, resolve, edns0, txt_record, files_monitor,

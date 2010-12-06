@@ -53,13 +53,15 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0,groups/0,init_per_group/2,end_per_group/2, event_objects_api/1, events_api/1, events_sync_api/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, event_objects_api/1, events_api/1, events_sync_api/1, 
 	 cases/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2, app_test/1]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 cases().

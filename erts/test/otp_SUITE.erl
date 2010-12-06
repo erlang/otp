@@ -19,7 +19,7 @@
 
 -module(otp_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_suite/1,end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_suite/1,end_per_suite/1]).
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,
 	 obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,strong_components/1]).
@@ -27,6 +27,8 @@
 -include_lib("test_server/include/test_server.hrl").
 
 -import(lists, [filter/2,foldl/3,foreach/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [undefined_functions, deprecated_not_in_obsolete,

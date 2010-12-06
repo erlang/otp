@@ -19,7 +19,7 @@
 -module(dbg_SUITE).
 
 %% Test functions
--export([all/0,groups/0,init_per_group/2,end_per_group/2, big/1, tiny/1, simple/1, message/1, distributed/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, big/1, tiny/1, simple/1, message/1, distributed/1,
 	 ip_port/1, file_port/1, file_port2/1, file_port_schedfix/1,
 	 ip_port_busy/1, wrap_port/1, wrap_port_time/1,
 	 with_seq_trace/1, dead_suspend/1, local_trace/1,
@@ -38,6 +38,8 @@ end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [big, tiny, simple, message, distributed, ip_port,

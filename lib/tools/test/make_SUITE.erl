@@ -18,7 +18,7 @@
 %%
 -module(make_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
 -export([otp_6057_init/1,
 	 otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
 	 otp_6057_end/1]).
@@ -34,6 +34,8 @@
 %% Also, and Emakefile exists in ./make_SUITE_data. This file specifies
 %% that the file :"test5.erl" shall be compiled with the 'S' option,
 %% i.e. produce "test5.S" instead of "test5.<objext>"
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [make_all, make_files, otp_6057_a, otp_6057_b,
@@ -156,7 +158,7 @@ otp_6057_init(Config) when is_list(Config) ->
 otp_6057_a(suite) ->
     [];
 otp_6057_a(doc) ->
-    ["Test that make:all/0 looks for object file in correct place"];
+    ["Test that make:all/0, suite/0 looks for object file in correct place"];
 otp_6057_a(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
 

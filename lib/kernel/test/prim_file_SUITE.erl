@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(prim_file_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	init/1, fini/1,
 	read_write_file/1]).
 -export([cur_dir_0a/1, cur_dir_0b/1, 
@@ -66,6 +66,8 @@
 	    [] -> apply(?PRIM_FILE, F, A);
 	    _ ->  apply(?PRIM_FILE, F, [H | A])
 	end).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [read_write_file, {group, dirs}, {group, files},

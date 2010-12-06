@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 
 -module(erl_eval_SUITE).
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([guard_1/1, guard_2/1,
 	 match_pattern/1,
@@ -69,6 +69,8 @@ end_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 -endif.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [guard_1, guard_2, match_pattern, string_plusplus,

@@ -23,7 +23,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% Testserver specific export
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 %% Indirect spawn export
 -export([init/1]).
@@ -53,6 +53,8 @@
 -export([child_unlink/1, tree/1, count_children_memory/1]).
 
 %-------------------------------------------------------------------------
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, sup_start}, {group, sup_stop}, child_adm,

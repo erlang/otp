@@ -21,7 +21,7 @@
 
 %% Tests the statistics/1 bif.
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 fin_per_testcase/2,
 	 wall_clock_zero_diff/1, wall_clock_update/1,
@@ -45,6 +45,8 @@ fin_per_testcase(_, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [{group, wall_clock}, {group, runtime}, reductions,

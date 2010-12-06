@@ -20,12 +20,14 @@
 %%
 -module(exception_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
 	 badmatch/1,pending_errors/1,nil_arith/1]).
 
 -export([bad_guy/2]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [cases()].

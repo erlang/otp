@@ -22,7 +22,7 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 t_gethostbyaddr/0, t_gethostbyaddr/1,
 	 t_getaddr/0, t_getaddr/1,
 	 t_gethostbyname/0, t_gethostbyname/1,
@@ -41,6 +41,8 @@
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
     [t_gethostbyaddr, t_gethostbyname, t_getaddr,

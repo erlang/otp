@@ -19,7 +19,7 @@
 
 -module(global_group_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_suite/1, end_per_suite/1]).
 -export([start_gg_proc/1, no_gg_proc/1, no_gg_proc_sync/1, compatible/1, 
 	 one_grp/1, one_grp_x/1, two_grp/1, hidden_groups/1, test_exit/1]).
@@ -34,6 +34,8 @@
 -define(NODES, [node()|nodes()]).
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,

@@ -21,7 +21,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% Test server framework exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, not_run/1]).
 
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
@@ -53,6 +53,8 @@
 %%%---------------------------------------------------------------------
 
 
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 case test_server:is_native(fprof_SUITE) of

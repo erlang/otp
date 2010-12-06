@@ -24,7 +24,7 @@
 -include("erl_ext_SUITE_data/ext_test_cases.hrl").
 
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
 	compare_tuple/1,
 	compare_list/1,
 	compare_string/1,
@@ -33,6 +33,8 @@
 	]).
 
 -import(runner, [get_term/1]).
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [compare_tuple, compare_list, compare_string,

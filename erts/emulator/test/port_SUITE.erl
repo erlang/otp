@@ -73,7 +73,7 @@
 %%
 
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1,
 	 stream_small/1, stream_big/1,
 	 basic_ping/1, slow_writes/1, bad_packet/1, bad_port_messages/1,
@@ -100,6 +100,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [otp_6224, {group, stream}, basic_ping, slow_writes,

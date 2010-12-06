@@ -19,7 +19,7 @@
 -module(io_proto_SUITE).
 -compile(r12).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -79,6 +79,8 @@ end_per_testcase(_Case, Config) ->
     os:putenv("TERM",Term),
     test_server:timetrap_cancel(Dog),
     ok.
+
+suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
 [setopts_getopts, unicode_options, unicode_options_gen,
