@@ -2101,7 +2101,10 @@ rwmutex_unlock_wake(ethr_rwmutex *rwmtx, int have_w, long initial,
 	if (!have_w) {
 	    act = ethr_atomic_read_bor(&rwmtx->mtxb.flgs,
 				       ETHR_RWMTX_W_FLG__);
-	    ETHR_ASSERT((act & ~ETHR_RWMTX_WAIT_FLGS__) == 0);
+	    ETHR_ASSERT((act & ~(ETHR_RWMTX_WAIT_FLGS__
+				 | (rwmtx->type == ETHR_RWMUTEX_TYPE_NORMAL
+				    ? 0
+				    : ETHR_RWMTX_R_PEND_UNLCK_MASK__))) == 0);
 	    ETHR_ASSERT(act & ETHR_RWMTX_W_WAIT_FLG__);
 	    act |= ETHR_RWMTX_W_FLG__;
 	}
