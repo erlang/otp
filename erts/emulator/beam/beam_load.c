@@ -2308,23 +2308,23 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     GenOp* op;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_element_4;
     op->arity = 4;
-    op->a[0] = Fail;
-    op->a[1] = Index;
-    op->a[2] = Tuple;
-    op->a[3] = Dst;
     op->next = NULL;
-
-    /*
-     * If safe, generate a faster instruction.
-     */
 
     if (Index.type == TAG_i && Index.val > 0 &&
 	(Tuple.type == TAG_r || Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
-	op->a[1].type = TAG_u;
-	op->a[1].val = Index.val;
+	op->a[0] = Tuple;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = Index.val;
+	op->a[3] = Dst;
+    } else {
+	op->op = genop_i_element_4;
+	op->a[0] = Fail;
+	op->a[1] = Index;
+	op->a[2] = Tuple;
+	op->a[3] = Dst;
     }
 
     return op;

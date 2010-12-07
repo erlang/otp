@@ -920,7 +920,10 @@ node x
 node y
 %hot
 
-i_fast_element j I s d
+i_fast_element r j I d
+i_fast_element x j I d
+i_fast_element y j I d
+
 i_element j s s d
 
 bif1 f b s d

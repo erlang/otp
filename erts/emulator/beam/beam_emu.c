@@ -1492,24 +1492,32 @@ void process_main(void)
     c_p->freason = BADARG;
     goto lb_Cl_error;
 
- OpCase(i_fast_element_jIsd): {
-     Eterm tuple;
+    {
+	Eterm fast_element_tuple;
 
-     /*
-      * Inlined version of element/2 for even more speed.
-      * The first argument is an untagged integer >= 1.
-      * The second argument is guaranteed to be a register operand.
-      */
-     GetArg1(2, tuple);
-     if (is_tuple(tuple)) {
-	 Eterm* tp = tuple_val(tuple);
-	 Eterm pos = Arg(1);
-	 if (pos <= arityval(*tp)) {
-	     Eterm result = tp[pos];
-	     StoreBifResult(3, result);
-	 }
-     }
+    OpCase(i_fast_element_rjId):
+	fast_element_tuple = r(0);
+
+    do_fast_element:
+	if (is_tuple(fast_element_tuple)) {
+	    Eterm* tp = tuple_val(fast_element_tuple);
+	    Eterm pos = Arg(1);	/* Untagged integer >= 1 */
+	    if (pos <= arityval(*tp)) {
+		Eterm result = tp[pos];
+		StoreBifResult(2, result);
+	    }
+	}
      goto badarg;
+
+    OpCase(i_fast_element_xjId):
+     fast_element_tuple = xb(Arg(0));
+     I++;
+     goto do_fast_element;
+
+    OpCase(i_fast_element_yjId):
+     fast_element_tuple = yb(Arg(0));
+     I++;
+     goto do_fast_element;
  }
 
  OpCase(catch_yf):
