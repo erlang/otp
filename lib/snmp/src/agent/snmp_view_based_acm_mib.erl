@@ -540,24 +540,24 @@ verify_vacmAccessTable_col(?vacmAccessContextPrefix, Pref) ->
 verify_vacmAccessTable_col(?vacmAccessSecurityModel, Model) ->
     case Model of
 	any      -> ?SEC_ANY;
-	v1       -> ?SEC_ANY;
-	v2c      -> ?SEC_ANY;
-	usm      -> ?SEC_ANY;
+	v1       -> ?SEC_V1;
+	v2c      -> ?SEC_V2C;
+	usm      -> ?SEC_USM;
 	?SEC_ANY -> ?SEC_ANY;
-	?SEC_V1  -> ?SEC_ANY;
-	?SEC_V2C -> ?SEC_ANY;
-	?SEC_USM -> ?SEC_ANY;
+	?SEC_V1  -> ?SEC_V1;
+	?SEC_V2C -> ?SEC_V2C;
+	?SEC_USM -> ?SEC_USM;
 	_ ->
 	    wrongValue(?vacmAccessSecurityModel)
     end;
 verify_vacmAccessTable_col(?vacmAccessSecurityLevel, Level) ->
     case Level of
-        noAuthNoPriv -> 1;
-        authNoPriv   -> 2;
-        authPriv     -> 3;
-        1            -> 1;
-        2            -> 2;
-        3            -> 3;
+        noAuthNoPriv -> ?vacmAccessSecurityLevel_noAuthNoPriv;
+        authNoPriv   -> ?vacmAccessSecurityLevel_authNoPriv;
+        authPriv     -> ?vacmAccessSecurityLevel_authPriv;
+        ?vacmAccessSecurityLevel_noAuthNoPriv -> ?vacmAccessSecurityLevel_noAuthNoPriv;
+        ?vacmAccessSecurityLevel_authNoPriv   -> ?vacmAccessSecurityLevel_authNoPriv;
+        ?vacmAccessSecurityLevel_authPriv     -> ?vacmAccessSecurityLevel_authPriv;
         _            -> wrongValue(?vacmAccessSecurityLevel)
     end;
 verify_vacmAccessTable_col(?vacmAccessContextMatch, Match) ->
