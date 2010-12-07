@@ -333,10 +333,10 @@ eval_path(rel, PathExpr, C = #xmlContext{}) ->
     Context = C#xmlContext{nodeset = NodeSet},
     S = #state{context = Context},
     path_expr(PathExpr, S);
-eval_path(filter, {PathExpr, PredExpr}, C = #xmlContext{}) ->
+eval_path(filter, {PathExpr, {pred, Pred}}, C = #xmlContext{}) ->
     S = #state{context = C},
-    S1 = path_expr(PathExpr, S),
-    pred_expr(PredExpr, S1).
+    S1 = match_expr(PathExpr, S),
+    eval_pred(Pred, S1).
 
 eval_primary_expr(PrimExpr, S = #state{context = Context}) ->
 %%    NewNodeSet = xmerl_xpath_pred:eval(FC, Context),
