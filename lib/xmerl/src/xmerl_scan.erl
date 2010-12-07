@@ -755,7 +755,7 @@ scan_misc("<!--" ++ T, S0, Pos) -> % Comment
 scan_misc("<?" ++ T, S0, Pos) -> % PI
     ?dbg("prolog(\"<?\")~n", []),
     ?bump_col(2),
-    {_PI, T1, S1} = scan_pi(T, S, Pos),
+    {_PI, T1, S1} = scan_pi(T, S, Pos, []),
     scan_misc(T1,S1,Pos);
 scan_misc(T=[H|_T], S, Pos) when ?whitespace(H) ->
     ?dbg("prolog(whitespace)~n", []),
@@ -1026,50 +1026,53 @@ xml_vsn([H|T], S=#xmerl_scanner{col = C}, Delim, Acc) ->
 
 %%%%%%% [16] PI ::= '<?' PITarget (S (Char* - (Char* '?>' Char*)))? '?>'
 
-scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Pos) ->
+scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Pos, Ps) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Pos) end,
+    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Pos, Ps) end,
       fun(S1) -> ?fatal(unexpected_end, S1) end,
       S);
-scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos)
+scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos, Ps)
   when H1==$x;H1==$X ->
     %% names beginning with [xX][mM][lL] are reserved for future use.
     ?bump_col(3),
     if 
 	((H2==$m) or (H2==$M)) and
 	((H3==$l) or (H3==$L)) ->
-	    scan_wellknown_pi(T,S,Pos);
+	    scan_wellknown_pi(T,S,Pos,Ps);
 	true ->
 	    {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),
-	    scan_pi(T1, S1, Target, L, C, Pos, [])
+	    scan_pi(T1, S1, Target, L, C, Pos, Ps, [])
     end;
-scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos) ->
+scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos, Ps) ->
     {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),
-    scan_pi(T1, S1, Target, L, C, Pos,[]).
+    scan_pi(T1, S1, Target, L, C, Pos, Ps, []).
 
 
 %%% More info on xml-stylesheet can be found at:
 %%%   "Associating Style Sheets with XML documents", Version 1.0,
 %%%   W3C Recommendation 29 June 1999 (http://www.w3.org/TR/xml-stylesheet/)
-scan_wellknown_pi("-stylesheet"++T, S0=#xmerl_scanner{line=L,col=C},Pos) ->
+scan_wellknown_pi("-stylesheet"++T, S0=#xmerl_scanner{line=L,col=C},Pos,Ps) ->
     ?dbg("prolog(\"<?xml-stylesheet\")~n", []),
     ?bump_col(16),
-    scan_pi(T, S, "xml-stylesheet",L,C,Pos,[]);
-scan_wellknown_pi(Str,S,_Pos) ->
+    scan_pi(T, S, "xml-stylesheet",L,C,Pos,Ps,[]);
+scan_wellknown_pi(Str,S,_Pos,_Ps) ->
     ?fatal({invalid_target_name, lists:sublist(Str, 1, 10)}, S).
 
 
 
-scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Target,L, C, Pos, Acc) ->
+scan_pi([], S=#xmerl_scanner{continuation_fun = F}, Target,
+	L, C, Pos, Ps, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Target, L, C, Pos, Acc) end,
+    F(fun(MoreBytes, S1) -> scan_pi(MoreBytes, S1, Target,
+				    L, C, Pos, Ps, Acc) end,
       fun(S1) -> ?fatal(unexpected_end, S1) end,
       S);
 scan_pi("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 				       event_fun = Event}, 
-	Target, L, C, Pos, Acc) ->
+	Target, L, C, Pos, Ps, Acc) ->
     ?bump_col(2),
     PI = #xmlPI{name = Target,
+		parents = Ps,
 		pos = Pos,
 		value = lists:reverse(Acc)},
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
@@ -1078,22 +1081,25 @@ scan_pi("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 					       data = PI}, S),
     {Ret, S2} = Hook(PI, S1),
     {Ret, T, S2};
-scan_pi([H|T], S, Target, L, C, Pos, Acc) when ?whitespace(H) ->
+scan_pi([H|T], S, Target, L, C, Pos, Ps, Acc) when ?whitespace(H) ->
     ?strip1,
-    scan_pi2(T1, S1, Target, L, C, Pos, Acc);
-scan_pi([H|_T],S,_Target, _L, _C, _Pos, _Acc) ->
+    scan_pi2(T1, S1, Target, L, C, Pos, Ps, Acc);
+scan_pi([H|_T],S,_Target, _L, _C, _Pos, _Ps, _Acc) ->
     ?fatal({expected_whitespace_OR_end_of_PI,{char,H}}, S).
 
-scan_pi2([], S=#xmerl_scanner{continuation_fun = F}, Target,L, C, Pos, Acc) ->
+scan_pi2([], S=#xmerl_scanner{continuation_fun = F}, Target,
+	 L, C, Pos, Ps, Acc) ->
     ?dbg("cont()...~n", []),
-    F(fun(MoreBytes, S1) -> scan_pi2(MoreBytes, S1, Target, L, C, Pos, Acc) end,
+    F(fun(MoreBytes, S1) -> scan_pi2(MoreBytes, S1, Target,
+				     L, C, Pos, Ps, Acc) end,
       fun(S1) -> ?fatal(unexpected_end, S1) end,
       S);
 scan_pi2("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 				       event_fun = Event}, 
-	Target, L, C, Pos, Acc) ->
+	 Target, L, C, Pos, Ps, Acc) ->
     ?bump_col(2),
     PI = #xmlPI{name = Target,
+		parents = Ps,
 		pos = Pos,
 		value = lists:reverse(Acc)},
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
@@ -1102,10 +1108,10 @@ scan_pi2("?>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
 					       data = PI}, S),
     {Ret, S2} = Hook(PI, S1),
     {Ret, T, S2};
-scan_pi2(Str, S0, Target, L, C, Pos, Acc) ->
+scan_pi2(Str, S0, Target, L, C, Pos, Ps, Acc) ->
     ?bump_col(1),
     {Ch,T} = wfc_legal_char(Str,S),
-    scan_pi2(T, S, Target, L, C, Pos, [Ch|Acc]).
+    scan_pi2(T, S, Target, L, C, Pos, Ps, [Ch|Acc]).
 
 
 
@@ -1576,7 +1582,7 @@ scan_markup_decl("<!--" ++ T, S0) ->
     scan_comment(T, S);
 scan_markup_decl("<?" ++ T, S0) ->
     ?bump_col(2),
-    {_PI, T1, S1} = scan_pi(T, S,_Pos=markup),
+    {_PI, T1, S1} = scan_pi(T, S,_Pos=markup,[]),
     strip(T1, S1);
 scan_markup_decl("<!ELEMENT" ++ T, 
 		 #xmerl_scanner{rules_read_fun = Read,
@@ -2532,9 +2538,9 @@ scan_content_markup("![CDATA[" ++ T, S0, Pos, _Name, _Attrs,
 		    _Space, _Lang, Parents, _NS) ->
     ?bump_col(8),
     scan_cdata(T, S, Pos, Parents);
-scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,_Parents,_NS) ->
+scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,Parents,_NS) ->
     ?bump_col(1),
-    scan_pi(T, S, Pos);
+    scan_pi(T, S, Pos, Parents);
 scan_content_markup(T, S, Pos, _Name, _Attrs, Space, Lang, Parents, NS) ->
     scan_element(T, S, Pos, Space, Lang, Parents, NS).
 

@@ -103,9 +103,10 @@
 
 %% processing instruction
 -record(xmlPI,{
-	  name,	% atom()
-	  pos,	% integer()
-	  value	% IOlist()
+	  name,		% atom()
+	  parents = [],	% [{atom(),integer()}]
+	  pos,		% integer()
+	  value		% IOlist()
 	 }).
 
 -record(xmlDocument,{
