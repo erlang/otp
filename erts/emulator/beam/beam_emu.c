@@ -1946,15 +1946,26 @@ void process_main(void)
  }
  }
 
- OpCase(i_jump_on_val_zero_sfI):
  {
-     Eterm index;
+     Eterm jump_on_val_zero_index;
+     
+ OpCase(i_jump_on_val_zero_yfI):
+     jump_on_val_zero_index = yb(Arg(0));
+     goto do_jump_on_val_zero_index;
 
-     GetArg1(0, index);
-     if (is_small(index)) {
-	 index = signed_val(index);
-	 if (index < Arg(2)) {
-	     SET_I((BeamInstr *) (&Arg(3))[index]);
+ OpCase(i_jump_on_val_zero_xfI):
+     jump_on_val_zero_index = xb(Arg(0));
+     goto do_jump_on_val_zero_index;
+
+ OpCase(i_jump_on_val_zero_rfI):
+     jump_on_val_zero_index = r(0);
+     I--;
+
+ do_jump_on_val_zero_index:
+     if (is_small(jump_on_val_zero_index)) {
+	 jump_on_val_zero_index = signed_val(jump_on_val_zero_index);
+	 if (jump_on_val_zero_index < Arg(2)) {
+	     SET_I((BeamInstr *) (&Arg(3))[jump_on_val_zero_index]);
 	     Goto(*I);
 	 }
      }
@@ -1962,15 +1973,27 @@ void process_main(void)
      Goto(*I);
  }
 
- OpCase(i_jump_on_val_sfII):
  {
-     Eterm index;
+     Eterm jump_on_val_index;
 
-     GetArg1(0, index);
-     if (is_small(index)) {
-	 index = (Uint) (signed_val(index) - Arg(3));
-	 if (index < Arg(2)) {
-	     SET_I((BeamInstr *) (&Arg(4))[index]);
+ 
+ OpCase(i_jump_on_val_yfII):
+     jump_on_val_index = yb(Arg(0));
+     goto do_jump_on_val_index;
+
+ OpCase(i_jump_on_val_xfII):
+     jump_on_val_index = xb(Arg(0));
+     goto do_jump_on_val_index;
+
+ OpCase(i_jump_on_val_rfII):
+     jump_on_val_index = r(0);
+     I--;
+
+ do_jump_on_val_index:
+     if (is_small(jump_on_val_index)) {
+	 jump_on_val_index = (Uint) (signed_val(jump_on_val_index) - Arg(3));
+	 if (jump_on_val_index < Arg(2)) {
+	     SET_I((BeamInstr *) (&Arg(4))[jump_on_val_index]);
 	     Goto(*I);
 	 }
      }

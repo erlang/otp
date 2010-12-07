@@ -584,7 +584,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_sfII:
+    case op_i_jump_on_val_rfII:
+    case op_i_jump_on_val_xfII:
+    case op_i_jump_on_val_yfII:
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
@@ -594,7 +596,9 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_zero_sfI:
+    case op_i_jump_on_val_zero_rfI:
+    case op_i_jump_on_val_zero_xfI:
+    case op_i_jump_on_val_zero_yfI:
 	{
 	    int n;
 	    for (n = ap[-1]; n > 0; n--) {

@@ -164,8 +164,13 @@ i_select_tuple_arity r f I
 i_select_tuple_arity x f I
 i_select_tuple_arity y f I
 
-i_jump_on_val_zero s f I
-i_jump_on_val s f I I
+i_jump_on_val_zero r f I
+i_jump_on_val_zero x f I
+i_jump_on_val_zero y f I
+
+i_jump_on_val r f I I
+i_jump_on_val x f I I
+i_jump_on_val y f I I
 
 jump Target | label Lbl | same_label(Target, Lbl) => label Lbl
 
