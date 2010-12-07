@@ -338,13 +338,11 @@ eval_path(filter, {PathExpr, PredExpr}, C = #xmlContext{}) ->
     S1 = path_expr(PathExpr, S),
     pred_expr(PredExpr, S1).
 
-eval_primary_expr(FC = {function_call,_,_},S = #state{context = Context}) ->
+eval_primary_expr(PrimExpr, S = #state{context = Context}) ->
 %%    NewNodeSet = xmerl_xpath_pred:eval(FC, Context),
-    NewNodeSet = xmerl_xpath_lib:eval(primary_expr, FC, Context),
+    NewNodeSet = xmerl_xpath_lib:eval(primary_expr, PrimExpr, Context),
     NewContext = Context#xmlContext{nodeset = NewNodeSet},
-    S#state{context = NewContext};
-eval_primary_expr(PrimExpr,_S) ->
-    exit({primary_expression,{not_implemented, PrimExpr}}).
+    S#state{context = NewContext}.
     
 
 %% axis(Axis,NodeTest,Context::xmlContext()) -> xmlContext()
