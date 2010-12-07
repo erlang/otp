@@ -2094,6 +2094,7 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
 		      P+1
 	      end,
     Attr = #xmlAttribute{name = AttName, 
+			 parents = [{Name, Pos}|Parents],
 			 pos = AttrPos,
 			 language = Lang,
 			 nsinfo = NamespaceInfo,
@@ -2161,6 +2162,7 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 		TempNamespace = Namespace#xmlNamespace{default = []},
 		ExpAttrsX = 
 		    [A#xmlAttribute{
+		       namespace=Namespace,
 		       expanded_name=expanded_name(
 				       A#xmlAttribute.name, 
 				       A#xmlAttribute.nsinfo,
