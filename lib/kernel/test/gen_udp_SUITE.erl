@@ -431,36 +431,38 @@ connect(Config) when is_list(Config) ->
     ok.
 
 implicit_inet6(Config) when is_list(Config) ->
-    ?line Hostname = ok(inet:gethostname()),
+    ?line Host = ok(inet:gethostname()),
+    ?line
+	case inet:getaddr(Host, inet6) of
+	    {ok,Addr} ->
+		?line implicit_inet6(Host, Addr);
+	    {error,Reason} ->
+		{skip,
+		 "Can not look up IPv6 address: "
+		 ++atom_to_list(Reason)}
+	end.
+
+implicit_inet6(Host, Addr) ->
     ?line Active = {active,false},
     ?line
 	case gen_udp:open(0, [inet6,Active]) of
 	    {ok,S1} ->
-		?line
-		    case inet:getaddr(Hostname, inet6) of
-			{ok,Host} ->
-			    ?line Loopback = {0,0,0,0,0,0,0,1},
-			    ?line io:format("~s ~p~n", ["Loopback",Loopback]),
-			    ?line implicit_inet6(S1, Active, Loopback),
-			    ?line ok = gen_udp:close(S1),
-			    %%
-			    ?line Localhost =
-				ok(inet:getaddr("localhost", inet6)),
-			    ?line io:format("~s ~p~n", ["localhost",Localhost]),
-			    ?line S2 =
-				ok(gen_udp:open(0, [{ip,Localhost},Active])),
-			    ?line implicit_inet6(S2, Active, Localhost),
-			    ?line ok = gen_udp:close(S2),
-			    %%
-			    ?line io:format("~s ~p~n", [Hostname,Host]),
-			    ?line S3 =
-				ok(gen_udp:open(0, [{ifaddr,Host},Active])),
-			    ?line implicit_inet6(S3, Active, Host),
-			    ?line ok = gen_udp:close(S1);
-			{error,eafnosupport} ->
-			    ?line ok = gen_udp:close(S1),
-			    {skip,"Can not look up IPv6 address"}
-		    end;
+		?line Loopback = {0,0,0,0,0,0,0,1},
+		?line io:format("~s ~p~n", ["::1",Loopback]),
+		?line implicit_inet6(S1, Active, Loopback),
+		?line ok = gen_udp:close(S1),
+		%%
+		?line Localhost = "localhost",
+		?line Localaddr = ok(inet:getaddr(Localhost, inet6)),
+		?line io:format("~s ~p~n", [Localhost,Localaddr]),
+		?line S2 = ok(gen_udp:open(0, [{ip,Localaddr},Active])),
+		?line implicit_inet6(S2, Active, Localaddr),
+		?line ok = gen_udp:close(S2),
+		%%
+		?line io:format("~s ~p~n", [Host,Addr]),
+		?line S3 = ok(gen_udp:open(0, [{ifaddr,Addr},Active])),
+		?line implicit_inet6(S3, Active, Addr),
+		?line ok = gen_udp:close(S3);
 	    _ ->
 		{skip,"IPv6 not supported"}
 	end.
@@ -480,6 +482,5 @@ implicit_inet6(S1, Active, Addr) ->
     ?line ok = gen_udp:send(S2, Addr, P1, "pong"),
     ?line {Addr,P2,"pong"} = ok(gen_udp:recv(S1, 1024)),
     ?line ok = gen_udp:close(S2).
-
 
 ok({ok,V}) -> V.
