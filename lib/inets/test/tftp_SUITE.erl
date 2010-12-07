@@ -80,6 +80,12 @@ all() ->
 groups() -> 
     [].
 
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
 init_per_group(_GroupName, Config) ->
 	Config.
 

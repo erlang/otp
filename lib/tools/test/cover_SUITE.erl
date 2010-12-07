@@ -18,7 +18,7 @@
 %%
 -module(cover_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
 	 distribution/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
@@ -54,6 +54,12 @@ end.
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

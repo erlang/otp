@@ -18,7 +18,7 @@
 %%
 -module(interactive_shell_SUITE).
 -include_lib("test_server/include/test_server.hrl").
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
 	 job_control_remote/1,
 	 job_control_remote_noshell/1]).
 
@@ -52,6 +52,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

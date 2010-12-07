@@ -19,7 +19,7 @@
 
 -module(guard_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, bad_arith/1, bad_tuple/1, test_heap_guards/1, guard_bifs/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, bad_arith/1, bad_tuple/1, test_heap_guards/1, guard_bifs/1,
 	 type_tests/1,guard_bif_binary_part/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -35,6 +35,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

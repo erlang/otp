@@ -31,7 +31,7 @@
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2]).
 
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
@@ -59,6 +59,12 @@ test_lib:recompile(warnings_SUITE),
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 misc/1,const_cond/1,basic_not/1,complex_not/1,nested_nots/1,
 	 semicolon/1,complex_semicolon/1,comma/1,
 	 or_guard/1,more_or_guards/1,
@@ -47,6 +47,12 @@ test_lib:recompile(guard_SUITE),
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

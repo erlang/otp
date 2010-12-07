@@ -18,7 +18,7 @@
 %%
 -module(ets_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1,privacy_owner/2]).
 -export([empty/1,badinsert/1]).
@@ -172,6 +172,12 @@ groups() ->
   [meta_lookup_unnamed_read, meta_lookup_unnamed_write,
    meta_lookup_named_read, meta_lookup_named_write,
    meta_newdel_unnamed, meta_newdel_named]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

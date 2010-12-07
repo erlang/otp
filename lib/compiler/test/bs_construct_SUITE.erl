@@ -23,7 +23,7 @@
 
 -module(bs_construct_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1]).
@@ -40,6 +40,12 @@ test_lib:recompile(bs_construct_SUITE),
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

@@ -34,7 +34,7 @@
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
 
 	 halt_int_inf/1, 
 	 halt_int_sz_1/1, halt_int_sz_2/1,
@@ -182,6 +182,12 @@ groups() ->
   [dist_open, dist_error_open, dist_notify,
    dist_terminate, dist_accessible, dist_deadlock,
    dist_open2, other_groups]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

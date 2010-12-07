@@ -25,7 +25,7 @@
 -define(application, tools).
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
@@ -38,6 +38,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

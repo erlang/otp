@@ -21,7 +21,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([trace_bif/1, trace_bif_timestamp/1, trace_on_and_off/1, trace_bif_local/1,
 	 trace_bif_timestamp_local/1, trace_bif_return/1, not_run/1,
 	 trace_info_old_code/1]).
@@ -41,6 +41,12 @@ end.
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

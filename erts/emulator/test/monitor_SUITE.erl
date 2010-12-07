@@ -21,7 +21,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 case_1/1, case_1a/1, case_2/1, case_2a/1, mon_e_1/1, demon_e_1/1, demon_1/1,
 	 demon_2/1, demon_3/1, demonitor_flush/1,
 	 local_remove_monitor/1, remote_remove_monitor/1, mon_1/1, mon_2/1,
@@ -42,6 +42,12 @@ all() ->
 groups() -> 
     [{remove_monitor, [],
   [local_remove_monitor, remote_remove_monitor]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

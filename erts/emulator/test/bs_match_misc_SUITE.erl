@@ -18,7 +18,7 @@
 %%
 -module(bs_match_misc_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
 	 writable_binary_matched/1,otp_7198/1]).
@@ -35,6 +35,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

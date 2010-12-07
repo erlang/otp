@@ -69,7 +69,7 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
 	 fin_per_testcase/2,init_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
@@ -88,6 +88,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

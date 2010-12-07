@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(shell_SUITE).
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
 -export([forget/1, records/1, known_bugs/1, otp_5226/1, otp_5327/1,
                  otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
@@ -93,6 +93,12 @@ groups() ->
  {tickets, [],
   [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184,
    otp_7232, otp_8393]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

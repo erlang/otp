@@ -20,7 +20,7 @@
 -module(port_bif_SUITE).
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, command/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
 	 connect/1, control/1, echo_to_busy/1]).
@@ -41,6 +41,12 @@ groups() ->
     [{command_e, [],
   [command_e_1, command_e_2, command_e_3, command_e_4]},
  {port_info, [], [port_info1, port_info2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

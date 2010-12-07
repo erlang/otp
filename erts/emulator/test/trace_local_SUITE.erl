@@ -68,7 +68,7 @@ config(priv_dir,_) ->
 
 %%% When run in test server %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
 	 return/1, on_and_off/1, stack_grow/1,info/1, delete/1,
 	 exception/1, exception_apply/1,
 	 exception_function/1, exception_apply_function/1,
@@ -110,6 +110,12 @@ end.
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

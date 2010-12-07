@@ -22,7 +22,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 app_test/1,
 	 file_1/1, module_mismatch/1, big_file/1, outdir/1, 
 	 binary/1, cond_and_ifdef/1, listings/1, listings_big/1,
@@ -48,6 +48,12 @@ test_lib:recompile(compile_SUITE),
 groups() -> 
     [{bad_record_use, [],
   [bad_record_use1, bad_record_use2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

@@ -22,7 +22,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,
 	 middleman/1,service_basic/1, service_env/1, user_env/1, synced/1, 
 	 service_prio/1, 
 	 logout/1, debug/1, restart/1, restart_always/1,stopaction/1,
@@ -44,6 +44,12 @@ end.
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

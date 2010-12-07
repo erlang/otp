@@ -21,7 +21,7 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
 -export([get_path/1, set_path/1, get_file/1,
 	 inet_existing/1, inet_coming_up/1, inet_disconnects/1,
@@ -45,6 +45,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

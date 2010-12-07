@@ -40,7 +40,7 @@
 
 -module(?FILE_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
@@ -134,6 +134,12 @@ groups() ->
    write_compressed, compress_errors, catenated_gzips]},
  {links, [],
   [make_link, read_link_info_for_non_link, symlinks]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

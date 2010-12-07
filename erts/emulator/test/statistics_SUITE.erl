@@ -21,7 +21,7 @@
 
 %% Tests the statistics/1 bif.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 fin_per_testcase/2,
 	 wall_clock_zero_diff/1, wall_clock_update/1,
@@ -59,6 +59,12 @@ groups() ->
  {runtime, [],
   [runtime_zero_diff, runtime_update, runtime_diff]},
  {run_queue, [], [run_queue_one]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

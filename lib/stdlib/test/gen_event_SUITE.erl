@@ -20,7 +20,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([start/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
 	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
@@ -37,6 +37,12 @@ groups() ->
   [add_handler, add_sup_handler, delete_handler,
    swap_handler, swap_sup_handler, notify, sync_notify,
    call, info]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

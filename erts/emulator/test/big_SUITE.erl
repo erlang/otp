@@ -19,7 +19,7 @@
 -module(big_SUITE).
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([t_div/1, eq_28/1, eq_32/1, eq_big/1, eq_math/1, big_literals/1,
 	 borders/1, negative/1, big_float_1/1, big_float_2/1,
 	 shift_limit_1/1, powmod/1, system_limit/1, otp_6692/1]).
@@ -43,6 +43,12 @@ all() ->
 
 groups() -> 
     [{big_float, [], [big_float_1, big_float_2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

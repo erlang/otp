@@ -19,7 +19,7 @@
 
 -module(exception_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, badmatch/1, pending_errors/1, nil_arith/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, badmatch/1, pending_errors/1, nil_arith/1,
          stacktrace/1, nested_stacktrace/1, raise/1, gunilla/1, per/1,
 	 exception_with_heap_frag/1]).
 
@@ -37,6 +37,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

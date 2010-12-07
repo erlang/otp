@@ -33,7 +33,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
 
 -export([equal/1,
 	 few_low/1,
@@ -71,6 +71,12 @@ groups() ->
     [{scheduler_bind, [],
   [scheduler_bind_types, cpu_topology, update_cpu_info,
    sct_cmd, sbt_cmd]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

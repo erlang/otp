@@ -21,7 +21,7 @@
 
 -compile(export_all).
 %% Test functions
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,file/1,file_no_pi/1,file_fetch/1,wrap/1,wrap_merge/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,file/1,file_no_pi/1,file_fetch/1,wrap/1,wrap_merge/1,
 	 wrap_merge_fetch_format/1,write_config1/1,write_config2/1,
 	 write_config3/1,history/1,write_trace_info/1,seq_trace/1,
 	 diskless/1,otp_4967_1/1,otp_4967_2/1]).
@@ -51,6 +51,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

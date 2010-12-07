@@ -34,7 +34,7 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([app_test/1,
  
@@ -74,6 +74,12 @@ groups() ->
  {bugs, [],
   [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
  {improvements, [], [otp_7292, otp_7969]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

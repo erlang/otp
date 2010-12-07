@@ -51,7 +51,7 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([ 
              badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
@@ -146,6 +146,12 @@ groups() ->
    otp_6590, otp_6673, otp_6964, otp_7114, otp_7232,
    otp_7238, otp_7552, otp_6674, otp_7714]},
  {compat, [], [backward, forward]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

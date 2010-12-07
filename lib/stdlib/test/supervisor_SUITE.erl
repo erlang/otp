@@ -23,7 +23,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% Testserver specific export
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
 %% Indirect spawn export
 -export([init/1]).
@@ -89,6 +89,12 @@ groups() ->
    simple_one_for_one_escalation]},
  {restart_rest_for_one, [],
   [rest_for_one, rest_for_one_escalation]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

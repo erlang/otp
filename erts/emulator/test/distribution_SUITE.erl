@@ -24,7 +24,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 ping/1, bulk_send_small/1,
 	 bulk_send_big/1, bulk_send_bigbig/1,
 	 local_send_small/1, local_send_big/1,
@@ -74,6 +74,12 @@ groups() ->
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
        bad_dist_ext_control, bad_dist_ext_connection_id]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

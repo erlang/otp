@@ -30,7 +30,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, ddll_test/1, errors/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, ddll_test/1, errors/1,
 	 reference_count/1,
 	 kill_port/1, dont_kill_port/1]).
 -export([unload_on_process_exit/1, delayed_unload_with_ports/1, 
@@ -70,6 +70,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

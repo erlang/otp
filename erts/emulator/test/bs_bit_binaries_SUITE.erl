@@ -22,7 +22,7 @@
 
 -module(bs_bit_binaries_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 misc/1,horrid_match/1,test_bitstr/1,test_bit_size/1,asymmetric_tests/1,
 	 big_asymmetric_tests/1,binary_to_and_from_list/1,
 	 big_binary_to_and_from_list/1,send_and_receive/1,
@@ -40,6 +40,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

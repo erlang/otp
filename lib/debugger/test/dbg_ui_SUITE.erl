@@ -25,7 +25,7 @@
 
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([function_tests/1]).
 
 
@@ -75,6 +75,12 @@ groups() ->
    deleteone3, deleteall3, viewbreak4, delete4, attach5,
    normal5, exit5, options5, distsetup6, all_step6,
    all_next6]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

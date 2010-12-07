@@ -26,7 +26,7 @@
 -include("http_internal.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
 -export([ chunk_decode/1, chunk_encode/1,
@@ -51,6 +51,12 @@ groups() ->
    chunk_decode_otp_6264,
    chunk_decode_empty_chunk_otp_6511,
    chunk_decode_trailer]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

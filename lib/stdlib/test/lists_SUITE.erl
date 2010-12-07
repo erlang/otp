@@ -30,7 +30,7 @@
 -define(default_timeout, ?t:minutes(4)).
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases must be exported.
@@ -109,6 +109,12 @@ groups() ->
  {flatten, [],
   [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
  {tickets, [], [otp_5939, otp_6023, otp_6606, otp_7230]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

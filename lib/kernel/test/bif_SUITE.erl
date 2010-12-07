@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(bif_SUITE).
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
 -export([ 
 	 spawn1/1, spawn2/1, spawn3/1, spawn4/1,
@@ -60,6 +60,12 @@ groups() ->
   [spawn_link1, spawn_link2, spawn_link3, spawn_link4]},
  {spawn_opt_tests, [],
   [spawn_opt2, spawn_opt3, spawn_opt4, spawn_opt5]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

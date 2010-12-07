@@ -21,7 +21,7 @@
 %-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
@@ -71,6 +71,12 @@ groups() ->
    monitor_nodes_otp_6481, monitor_nodes_errors,
    monitor_nodes_combinations, monitor_nodes_cleanup,
    monitor_nodes_many]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

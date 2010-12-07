@@ -30,7 +30,7 @@
 -define(format(S, A), ok).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
 -export([ from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
 	 a_function_1/1, family_1/1, projection/1,
@@ -112,6 +112,12 @@ groups() ->
    family_difference, family_intersection_1,
    family_intersection_2, family_union_1, family_union_2,
    partition_family]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

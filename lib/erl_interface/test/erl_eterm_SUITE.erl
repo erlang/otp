@@ -33,7 +33,7 @@
 %%% 5. Miscellanous functions.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, build_terms/1, round_trip_conversion/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, build_terms/1, round_trip_conversion/1,
 	 decode_terms/1, decode_float/1,
 	 t_erl_mk_int/1, t_erl_mk_list/1,
 	 basic_copy/1,
@@ -92,6 +92,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

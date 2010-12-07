@@ -22,7 +22,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1, nested_access/1]).
 
@@ -45,6 +45,12 @@ test_lib:recompile(record_SUITE),
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

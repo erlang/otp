@@ -25,7 +25,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
 	 %%init_per_testcase/2, 
 	 fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
@@ -60,6 +60,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

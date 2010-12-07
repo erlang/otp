@@ -24,7 +24,7 @@
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 -export([
              otp_7277/1, otp_8259/1, otp_8653/1,
@@ -57,6 +57,12 @@ all() ->
 groups() -> 
     [{tickets, [],
   [otp_7277, otp_8259, otp_8653, compat, basic]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

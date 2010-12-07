@@ -30,7 +30,7 @@
 %%	round/1
 %%	trunc/1
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_list/1, t_integer_to_list/1,
 	 t_list_to_integer/1,
 	 t_list_to_float_safe/1, t_list_to_float_risky/1,
@@ -47,6 +47,12 @@ test_lib:recompile(num_bif_SUITE),
 groups() -> 
     [{t_list_to_float, [],
   [t_list_to_float_safe, t_list_to_float_risky]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

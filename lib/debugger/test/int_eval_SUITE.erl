@@ -22,7 +22,7 @@
 
 %% Purpose: Deeper test of the evaluator.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2, end_per_testcase/2,
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
@@ -45,6 +45,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

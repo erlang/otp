@@ -21,7 +21,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% Test server framework exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, not_run/1]).
 
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
@@ -67,6 +67,12 @@ end.
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

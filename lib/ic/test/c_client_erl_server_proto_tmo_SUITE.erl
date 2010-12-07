@@ -26,7 +26,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([init_per_testcase/2, end_per_testcase/2,
-	all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, void_test/1, long_test/1, long_long_test/1,
+	all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, void_test/1, long_test/1, long_long_test/1,
 	 unsigned_short_test/1, unsigned_long_test/1,
 	 unsigned_long_long_test/1, double_test/1, char_test/1,
 	 wchar_test/1, octet_test/1, bool_test/1, struct_test/1,
@@ -78,6 +78,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

@@ -32,7 +32,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
@@ -48,6 +48,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

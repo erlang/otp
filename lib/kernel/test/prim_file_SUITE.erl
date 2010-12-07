@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(prim_file_SUITE).
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	init/1, fini/1,
 	read_write_file/1]).
 -export([cur_dir_0a/1, cur_dir_0b/1, 
@@ -99,6 +99,12 @@ groups() ->
  {links, [],
   [make_link_a, make_link_b, read_link_info_for_non_link,
    symlinks_a, symlinks_b]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

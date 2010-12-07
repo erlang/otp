@@ -18,7 +18,7 @@
 %%
 -module(make_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
 -export([otp_6057_init/1,
 	 otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
 	 otp_6057_end/1]).
@@ -43,6 +43,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

@@ -23,7 +23,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -include("erl_connect_SUITE_data/erl_connect_test_cases.hrl").
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
 	 erl_send/1,erl_reg_send/1, erl_send_cookie_file/1]).
 
 -import(runner, [get_term/1,send_term/2]).
@@ -35,6 +35,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

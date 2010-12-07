@@ -49,6 +49,12 @@ all() ->
 groups() -> 
     [{vsn, [], [vsn_1, vsn_2, vsn_3]}].
 
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
 init_per_group(_GroupName, Config) ->
 	Config.
 

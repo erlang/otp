@@ -33,7 +33,7 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
 	 no_file/1,
 	 one_empty/1, one_filled/1,
 	 two_filled/1,
@@ -55,6 +55,12 @@ groups() ->
     [{one, [], [one_empty, one_filled]},
  {two, [], [two_filled]}, {four, [], [four_filled]},
  {wrap, [], [wrap_filled]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

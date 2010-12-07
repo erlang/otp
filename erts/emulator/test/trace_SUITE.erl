@@ -23,7 +23,7 @@
 %%% Tests the trace BIF.
 %%%
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
@@ -55,6 +55,12 @@ all() ->
 
 groups() -> 
     [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.

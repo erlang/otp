@@ -29,7 +29,7 @@
 
 -define(heap_binary_size, 64).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, spawn_with_binaries/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, spawn_with_binaries/1,
 	 t_exit_1/1, t_exit_2_other/1, t_exit_2_other_normal/1,
 	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
@@ -84,6 +84,12 @@ groups() ->
  {otp_7738, [],
   [otp_7738_waiting, otp_7738_suspended,
    otp_7738_resume]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_group(_GroupName, Config) ->
 	Config.
