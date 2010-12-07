@@ -924,7 +924,9 @@ i_fast_element r j I d
 i_fast_element x j I d
 i_fast_element y j I d
 
-i_element j s s d
+i_element r j s d
+i_element x j s d
+i_element y j s d
 
 bif1 f b s d
 bif1_body b s d

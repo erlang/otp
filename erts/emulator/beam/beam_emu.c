@@ -1467,24 +1467,36 @@ void process_main(void)
      goto find_func_info;
  }
 
- OpCase(i_element_jssd): {
-     Eterm index;
-     Eterm tuple;
+    {
+	Eterm element_index;
+	Eterm element_tuple;
 
-     /*
-      * Inlined version of element/2 for speed.
-      */
-     GetArg2(1, index, tuple);
-     if (is_small(index) && is_tuple(tuple)) {
-	 Eterm* tp = tuple_val(tuple);
+    OpCase(i_element_xjsd):
+	element_tuple = xb(Arg(0));
+	I++;
+	goto do_element;
 
-	 if ((signed_val(index) >= 1) &&
-	     (signed_val(index) <= arityval(*tp))) {
-	     Eterm result = tp[signed_val(index)];
-	     StoreBifResult(3, result);
-	 }
-     }
- }
+    OpCase(i_element_yjsd):
+	element_tuple = yb(Arg(0));
+	I++;
+	goto do_element;
+
+    OpCase(i_element_rjsd):
+	element_tuple = r(0);
+	/* Fall through */
+
+    do_element:
+	GetArg1(1, element_index);
+	if (is_small(element_index) && is_tuple(element_tuple)) {
+	    Eterm* tp = tuple_val(element_tuple);
+
+	    if ((signed_val(element_index) >= 1) &&
+		(signed_val(element_index) <= arityval(*tp))) {
+		Eterm result = tp[signed_val(element_index)];
+		StoreBifResult(2, result);
+	    }
+	}
+    }
  /* Fall through */
 
  OpCase(badarg_j):

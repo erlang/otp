@@ -2321,9 +2321,9 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
 	op->a[3] = Dst;
     } else {
 	op->op = genop_i_element_4;
-	op->a[0] = Fail;
-	op->a[1] = Index;
-	op->a[2] = Tuple;
+	op->a[0] = Tuple;
+	op->a[1] = Fail;
+	op->a[2] = Index;
 	op->a[3] = Dst;
     }
 
