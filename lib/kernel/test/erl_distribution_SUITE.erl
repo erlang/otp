@@ -845,13 +845,16 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
     ?line {ok, Node} = start_node(Name, "", this),
     ?line receive {nodeup, Node} -> ok end,
 
-    ?line spawn(Node,
+    ?line RemotePid = spawn(Node,
 		fun () ->
-			receive after 1000 -> ok end,
-			lists:foreach(fun (No) ->
-					      Me ! {NodeMsg, No}
-				      end,
-				      Seq),
+			receive after 1500 -> ok end,
+			% infinit loop of msgs
+			% we want an endless stream of messages and the kill
+			% the node mercilessly.
+			% We then want to ensure that the nodedown message arrives
+			% last ... without garbage after it.
+			Pid = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
+			receive {Me, kill_it} -> ok end, 
 			halt()
 		end),
 
@@ -860,9 +863,11 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 
     %% Verify that '{nodeup, Node}' comes before '{NodeMsg, 1}' (the message
     %% bringing up the connection).
-    %%?line no_msgs(500), % Why wait? It fails test sometimes  /sverker
+    ?line no_msgs(500),
     ?line {nodeup, Node} = receive Msg1 -> Msg1 end,
-    ?line {NodeMsg, 1} = receive Msg2 -> Msg2 end,
+    ?line {NodeMsg, 1}   = receive Msg2 -> Msg2 end,
+    % msg stream has begun, kill the node
+    ?line RemotePid ! {self(), kill_it},
 
     %% Verify that '{nodedown, Node}' comes after the last '{NodeMsg, N}'
     %% message.
@@ -882,6 +887,10 @@ flush_node_msgs(NodeMsg, No) ->
 	{NodeMsg, No} -> flush_node_msgs(NodeMsg, No+1);
 	OtherMsg -> OtherMsg
     end.
+
+node_loop_send(Pid, Msg, No) ->
+    Pid ! {Msg, No},
+    node_loop_send(Pid, Msg, No + 1).
 
 monitor_nodes_errors(doc) ->
     [];
