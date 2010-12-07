@@ -1,1 +1,1 @@
-{suites,"public_key_test",all}.
+{suites,"../public_key_test",all}.

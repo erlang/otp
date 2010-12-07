@@ -1,1 +1,1 @@
-{suites,"runtime_tools_test",all}.
+{suites,"../runtime_tools_test",all}.

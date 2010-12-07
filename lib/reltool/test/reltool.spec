@@ -1,1 +1,1 @@
-{suites,"reltool_test",all}.
+{suites,"../reltool_test",all}.

@@ -1,1 +1,1 @@
-{suites,"epmd_test",all}.
+{suites,"../epmd_test",all}.

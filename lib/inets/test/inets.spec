@@ -1,1 +1,1 @@
-{suites,"inets_test",all}.
+{suites,"../inets_test",all}.

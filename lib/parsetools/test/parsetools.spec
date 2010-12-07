@@ -1,1 +1,1 @@
-{suites,"parsetools_test",all}.
+{suites,"../parsetools_test",all}.

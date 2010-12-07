@@ -1,1 +1,1 @@
-{suites,"snmp_test",all}.
+{suites,"../snmp_test",all}.

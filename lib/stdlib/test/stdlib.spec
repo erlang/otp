@@ -1,1 +1,1 @@
-{suites,"stdlib_test",all}.
+{suites,"../stdlib_test",all}.

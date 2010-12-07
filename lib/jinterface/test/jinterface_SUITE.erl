@@ -163,7 +163,14 @@ status_handler() ->
 
 
 init_per_suite(Config) when is_list(Config) ->
-    jitu:init_all(Config).
+    case case code:priv_dir(jinterface) of
+	     {error,bad_name} -> false;
+	     P -> filelib:is_dir(P) end of
+	true ->
+	    jitu:init_all(Config);
+	false ->
+	    {skip,"No jinterface application"}
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
     jitu:finish_all(Config).

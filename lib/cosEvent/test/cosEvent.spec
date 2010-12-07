@@ -1,1 +1,1 @@
-{suites,"cosEvent_test",all}.
+{suites,"../cosEvent_test",all}.

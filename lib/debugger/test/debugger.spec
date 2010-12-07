@@ -1,1 +1,1 @@
-{suites,"debugger_test",all}.
+{suites,"../debugger_test",all}.

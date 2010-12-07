@@ -1,1 +1,1 @@
-{suites,"ssl_test",all}.
+{suites,"../ssl_test",all}.
