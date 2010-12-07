@@ -303,6 +303,9 @@ write_node(#xmlNode{pos = Pos,
 		    node = #xmlText{value = Txt,
 				    parents = Ps}}) ->
     {text, Pos, Txt, Ps};
+write_node(#xmlNode{pos = Pos,
+		    node = #xmlComment{parents = Ps}}) ->
+    {comment, Pos, '', Ps};
 write_node(_) ->
     other.
 
@@ -628,6 +631,7 @@ node_type(#xmlElement{}) ->	element;
 node_type(#xmlText{}) ->	text;
 node_type(#xmlPI{}) ->		processing_instruction;
 node_type(#xmlNamespace{}) ->	namespace;
+node_type(#xmlComment{}) ->	comment;
 node_type(#xmlDocument{}) ->	root_node.
 
 %% "The namespace axis contains the namespace nodes of the context node;
@@ -729,6 +733,8 @@ node_test({node_type, NT}, #xmlNode{node = N}, _Context) ->
 	{attribute, #xmlAttribute{}} ->
 	    true;
 	{namespace, #xmlNamespace{}} ->
+	    true;
+	{comment, #xmlComment{}} ->
 	    true;
 	_ ->
 	    false

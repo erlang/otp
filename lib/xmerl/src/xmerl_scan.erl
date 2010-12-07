@@ -2553,9 +2553,6 @@ scan_content("&" ++ T, S0, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) -
 	_ ->
 	    scan_content(string_to_char_set(S1#xmerl_scanner.encoding,ExpRef)++T1,S1,Pos,Name,Attrs,Space,Lang,Parents,NS,Acc,[])
     end;
-scan_content("<!--" ++ T, S, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) ->
-    {_, T1, S1} = scan_comment(T, S, Pos, Parents, Lang),
-    scan_content(T1, S1, Pos+1, Name, Attrs, Space, Lang, Parents, NS, Acc,[]);
 scan_content("<" ++ T, S0, Pos, Name, Attrs, Space, Lang, Parents, NS, Acc,[]) ->
     ?bump_col(1),
     {Markup, T1, S1} = 
@@ -2615,6 +2612,10 @@ scan_content_markup("![CDATA[" ++ T, S0, Pos, _Name, _Attrs,
 scan_content_markup("?"++T,S0,Pos,_Name,_Attrs,_Space,_Lang,Parents,_NS) ->
     ?bump_col(1),
     scan_pi(T, S, Pos, Parents);
+scan_content_markup("!--" ++ T, S0, Pos, _Name, _Attrs,
+		    _Space, Lang, Parents, _NS) ->
+    ?bump_col(1),
+    scan_comment(T, S, Pos, Parents, Lang);
 scan_content_markup(T, S, Pos, _Name, _Attrs, Space, Lang, Parents, NS) ->
     scan_element(T, S, Pos, Space, Lang, Parents, NS).
 

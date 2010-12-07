@@ -442,6 +442,9 @@ string_value(El=#xmlNode{type=element}) ->
 string_value(T=#xmlNode{type=text}) ->
     #xmlText{value=Txt} = T#xmlNode.node,
     ?string(Txt);
+string_value(T=#xmlNode{type=comment}) ->
+    #xmlComment{value=Txt} = T#xmlNode.node,
+    ?string(Txt);
 string_value(infinity) -> ?string("Infinity");
 string_value(neg_infinity) -> ?string("-Infinity");
 string_value(A) when is_atom(A) ->
