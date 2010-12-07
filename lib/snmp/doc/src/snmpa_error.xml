@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -51,6 +51,8 @@
       <c>error_report_mod</c>, see
       <seealso marker="snmp_config#configuration_params">configuration parameters</seealso>.
       </p>
+
+      <marker id="config_err"></marker>
   </description>
   <funcs>
     <func>
@@ -67,8 +69,11 @@
           </p>
         <p><c>Format</c> and <c>Args</c> are as in
           <c>io:format(Format, Args)</c>.</p>
+
+	  <marker id="user_err"></marker>
       </desc>
     </func>
+
     <func>
       <name>user_err(Format, Args) -> void()</name>
       <fsummary>Called if a user related error occurs</fsummary>

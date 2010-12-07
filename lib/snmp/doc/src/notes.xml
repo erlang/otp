@@ -32,23 +32,54 @@
     <file>notes.xml</file>
   </header>
 
+  <section>
+    <title>SNMP Development Toolkit 4.18.1</title>
+    <p>Version 4.18.1 supports code replacement in runtime from/to
+      version 4.18, 4.17.1 and 4.17.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p> 
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>[agent] When calling 
+	  <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso> 
+	  on a running node, the table <c>vacmAccessTable</c> was not properly 
+	  cleaned. 
+	  This means that if some entries in the vacm.conf file was removed
+	  (compared to the <c>current</c> config), 
+	  while others where modified and/or added, the removed entrie(s), 
+	  would still exist in the <c>vacmAccessTable</c>. </p>
+          <p>Own Id: OTP-8981</p>
+	  <p>Aux Id: Seq 11750</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.18.1 -->
+
+
   <section><title>SNMP 4.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
-	    When the function FilterMod:accept_recv/2 returned false
-	    the SNMP agent stopped collecting messages from UDP.</p>
-          <p>
-	    Own Id: OTP-8761</p>
+          <p>Prepared for R14B.</p>
         </item>
       </list>
     </section>
 
-</section>
+  </section>
 
-<section>
+  <section>
     <title>SNMP Development Toolkit 4.17.1</title>
     <p>Version 4.17.1 supports code replacement in runtime from/to
       version 4.17, 4.16.2, 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
