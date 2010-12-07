@@ -381,6 +381,8 @@ put_text(S, [$>|Cs], CTag, EmTag, Acc) when CTag /= no ->
     put_text(S, Cs, CTag, EmTag, ["&gt;"|Acc]);
 put_text(S, [$&|Cs], CTag, EmTag, Acc) when CTag /= no ->
     put_text(S, Cs, CTag, EmTag, ["&amp;"|Acc]);
+put_text(S, [$&, $  |Cs], CTag, EmTag, Acc) -> %Workaround for INSTALL-WIN32.md
+     put_text(S, Cs, CTag, EmTag, ["&amp; "|Acc]);
 put_text(S, [$'|Cs], CTag, EmTag, Acc)when CTag /= no  ->
     put_text(S, Cs, CTag, EmTag, ["&apos;"|Acc]);
 put_text(S, [$<|Cs], no, EmTag, Acc) ->
