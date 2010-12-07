@@ -160,6 +160,15 @@ select_tuple_arity S=d Fail=f Size=u Rest=* => \
 i_select_val r f I
 i_select_val x f I
 i_select_val y f I
+
+i_select_val2 r f c f c f
+i_select_val2 x f c f c f
+i_select_val2 y f c f c f
+
+i_select_tuple_arity2 r f A f A f
+i_select_tuple_arity2 x f A f A f
+i_select_tuple_arity2 y f A f A f
+
 i_select_tuple_arity r f I
 i_select_tuple_arity x f I
 i_select_tuple_arity y f I

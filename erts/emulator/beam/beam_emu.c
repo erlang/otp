@@ -1882,6 +1882,53 @@ void process_main(void)
      NextPF(0, next);
  }
 
+
+ {
+     Eterm select_val2;
+
+ OpCase(i_select_tuple_arity2_yfAfAf):
+     select_val2 = yb(Arg(0));
+     goto do_select_tuple_arity2;
+
+ OpCase(i_select_tuple_arity2_xfAfAf):
+     select_val2 = xb(Arg(0));
+     goto do_select_tuple_arity2;
+
+ OpCase(i_select_tuple_arity2_rfAfAf):
+     select_val2 = r(0);
+     I--;
+
+ do_select_tuple_arity2:
+     if (is_not_tuple(select_val2)) {
+	 goto select_val2_fail;
+     }
+     select_val2 = *tuple_val(select_val2);
+     goto do_select_val2;
+
+ OpCase(i_select_val2_yfcfcf):
+     select_val2 = yb(Arg(0));
+     goto do_select_val2;
+
+ OpCase(i_select_val2_xfcfcf):
+     select_val2 = xb(Arg(0));
+     goto do_select_val2;
+
+ OpCase(i_select_val2_rfcfcf):
+     select_val2 = r(0);
+     I--;
+
+ do_select_val2:
+     if (select_val2 == Arg(2)) {
+	 I += 2;
+     } else if (select_val2 == Arg(4)) {
+	 I += 4;
+     }
+
+ select_val2_fail:
+     SET_I((BeamInstr *) Arg(1));
+     Goto(*I);
+ }
+
  {
      Eterm select_val;
 

@@ -2978,6 +2978,21 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	ASSERT(op->a[i].val < op->a[i+2].val);
     }
 #endif
+
+    /*
+     * Use a special-cased instruction if there are only two values.
+     */
+    if (size == 2) {
+	op->op = genop_i_select_tuple_arity2_6;
+	op->arity--;
+	op->a[2].type = TAG_u;
+	op->a[2].val = arityval(op->a[3].val);
+	op->a[3] = op->a[4];
+	op->a[4].type = TAG_u;
+	op->a[4].val = arityval(op->a[5].val);
+	op->a[5] = op->a[6];
+    }
+
     return op;
 }
 
@@ -3227,6 +3242,18 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	ASSERT(op->a[i].val < op->a[i+2].val);
     }
 #endif
+
+    /*
+     * Use a special-cased instruction if there are only two values.
+     */
+    if (size == 2) {
+	op->op = genop_i_select_val2_6;
+	op->arity--;
+	op->a[2] = op->a[3];
+	op->a[3] = op->a[4];
+	op->a[4] = op->a[5];
+	op->a[5] = op->a[6];
+    }
 
     return op;
 }
