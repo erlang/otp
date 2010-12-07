@@ -155,6 +155,7 @@
 	  declarations = [],	   % [{Name, Attrs}]
 	  doctype_name,
 	  doctype_DTD = internal, % internal | DTDId
+	  document = false,
 	  rules,
 	  keep_rules = false,	% delete (ets) tab if false
 	  namespace_conformant = false, % true | false
