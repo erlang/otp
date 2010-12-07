@@ -306,6 +306,10 @@ write_node(#xmlNode{pos = Pos,
 write_node(#xmlNode{pos = Pos,
 		    node = #xmlComment{parents = Ps}}) ->
     {comment, Pos, '', Ps};
+write_node(#xmlNode{pos = Pos,
+		    node = #xmlPI{name = Name,
+				  parents = Ps}}) ->
+    {processing_instruction, Pos, Name, Ps};
 write_node(_) ->
     other.
 
