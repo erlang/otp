@@ -41,18 +41,13 @@
 % xmerl_xpath_parse:parse(xmerl_xpath_scan:tokens("parent::processing-instruction('foo')")).
 %% </pre>
 %%
-%% @type docEntity() = 
+%% @type nodeEntity() =
 %%      xmlElement()
 %%    | xmlAttribute()
 %%    | xmlText() 
 %%    | xmlPI()
 %%    | xmlComment()
-%% @type nodeEntity() = 
-%%      xmlElement()
-%%    | xmlAttribute()
-%%    | xmlText() 
-%%    | xmlPI()
-%%    | xmlNamespace()
+%%    | xmlNsNode()
 %%    | xmlDocument()
 %% @type option_list(). <p>Options allows to customize the behaviour of the
 %%     XPath scanner.
@@ -310,6 +305,10 @@ write_node(#xmlNode{pos = Pos,
 		    node = #xmlPI{name = Name,
 				  parents = Ps}}) ->
     {processing_instruction, Pos, Name, Ps};
+write_node(#xmlNode{pos = Pos,
+		    node = #xmlNsNode{parents = Ps,
+				      prefix = Prefix}}) ->
+    {namespace, Pos, Prefix, Ps};
 write_node(_) ->
     other.
 
@@ -389,8 +388,8 @@ axis1(preceding, Tok, N, Acc, Context) ->
     match_preceding(Tok, N, Acc, Context);
 axis1(attribute, Tok, N, Acc, Context) ->
     match_attribute(Tok, N, Acc, Context);
-%axis1(namespace, Tok, N, Acc, Context) ->
-%    match_namespace(Tok, N, Acc, Context);
+axis1(namespace, Tok, N, Acc, Context) ->
+   match_namespace(Tok, N, Acc, Context);
 axis1(ancestor_or_self, Tok, N, Acc, Context) ->
     match_ancestor_or_self(Tok, N, Acc, Context);
 axis1(descendant_or_self, Tok, N, Acc, Context) ->
@@ -632,15 +631,58 @@ node_type(#xmlAttribute{}) ->	attribute;
 node_type(#xmlElement{}) ->	element;
 node_type(#xmlText{}) ->	text;
 node_type(#xmlPI{}) ->		processing_instruction;
-node_type(#xmlNamespace{}) ->	namespace;
+node_type(#xmlNsNode{}) ->	namespace;
 node_type(#xmlComment{}) ->	comment;
 node_type(#xmlDocument{}) ->	root_node.
 
 %% "The namespace axis contains the namespace nodes of the context node;
 %% the axis will be empty unless the context node is an element."
-%match_namespace(_Tok, _N, _Acc, _Context) ->
-    %% TODO: IMPLEMENT NAMESPACE AXIS
-%    erlang:fault(not_yet_implemented).
+match_namespace(Tok, N, Acc, Context) ->
+    case N#xmlNode.type of
+	element ->
+	    #xmlNode{parents = Ps, node = E} = N,
+	    #xmlElement{name = Name,
+			namespace = NS,
+			parents = EPs,
+			pos = Pos} = E,
+	    #xmlNamespace{default = Default, nodes = NSPairs} = NS,
+	    ThisEPs = [{Name, Pos}|EPs],
+	    ThisPs = [N|Ps],
+	    Acc0 =
+		case Default of
+		    D when D =:= []; D =:= '' ->
+			{[], 1};
+		    URI ->
+			DefaultNSNode = #xmlNsNode{parents = ThisEPs,
+						   pos = 1,
+						   prefix = [],
+						   uri = URI},
+			Node = #xmlNode{type = namespace,
+					node = DefaultNSNode,
+					parents = ThisPs},
+			{[Node], 2}
+		end,
+	    {Nodes, _I} =
+		lists:foldr(
+		  fun ({Prefix, URI}, {AccX, I}) ->
+			  NSNode = #xmlNsNode{parents = ThisEPs,
+					      pos = I,
+					      prefix = Prefix,
+					      uri = URI},
+			  ThisN = #xmlNode{pos = I,
+					   type = namespace,
+					   node = NSNode,
+					   parents = ThisPs},
+			  {[ThisN | AccX], I + 1}
+		  end, Acc0, NSPairs),
+	    lists:foldr(
+	      fun (ThisN, AccX) ->
+		      match_self(Tok, ThisN, AccX, Context)
+	      end, Acc, Nodes);
+	_Other ->
+	    %%[]
+	    Acc
+    end.
 
 
 update_nodeset(Context = #xmlContext{axis_type = AxisType}, NodeSet) ->
@@ -661,8 +703,15 @@ update_nodeset(Context = #xmlContext{axis_type = AxisType}, NodeSet) ->
 
 node_test(F, N, Context) when is_function(F) ->
     F(N, Context);
+node_test(_Test, #xmlNode{type=attribute,node=#xmlAttribute{name=xmlns}},
+	  _Context) ->
+    false;
+node_test(_Test,
+	  #xmlNode{type=attribute,node=#xmlAttribute{nsinfo={"xmlns",_Local}}},
+	  _Context) ->
+    false;
 node_test({wildcard, _}, #xmlNode{type=ElAt}, _Context) 
-  when ElAt==element; ElAt==attribute -> 
+  when ElAt==element; ElAt==attribute; ElAt==namespace ->
     true;
 node_test({prefix_test, Prefix}, #xmlNode{node = N}, _Context) ->
     case N of
@@ -726,6 +775,9 @@ node_test({name, {_Tag, Prefix, Local}},
 		 [{_Tag, Prefix, Local}, write_node(NSNodes)]),
 	    false
     end;
+node_test({name, {_Tag, [], Local}},
+	  #xmlNode{node = #xmlNsNode{prefix = Local}}, _Context) ->
+    true;
 node_test({node_type, NT}, #xmlNode{node = N}, _Context) ->
     case {NT, N} of
 	{text, #xmlText{}} ->
@@ -734,7 +786,7 @@ node_test({node_type, NT}, #xmlNode{node = N}, _Context) ->
 	    true;
 	{attribute, #xmlAttribute{}} ->
 	    true;
-	{namespace, #xmlNamespace{}} ->
+	{namespace, #xmlNsNode{}} ->
 	    true;
 	{comment, #xmlComment{}} ->
 	    true;

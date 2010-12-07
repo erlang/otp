@@ -61,10 +61,11 @@
 	 }).
 
 %% namespace node - i.e. a {Prefix, URI} pair
-%% TODO: these are not currently used?? /RC
 -record(xmlNsNode,{
-	  prefix,
-	  uri = []
+	  parents = [],	% [{atom(),integer()}]
+	  pos,		% integer()
+	  prefix,	% string()
+	  uri = []	% [] | atom()
 	 }).
 
 %% XML Element
