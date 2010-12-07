@@ -251,7 +251,9 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 			      (_) -> false
 			   end, SuiteInfo) of
 		true ->
-		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfo),
+		    SuiteInfoNoSCB = 
+			lists:keydelete(suite_callbacks,1,SuiteInfo),
+		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfoNoSCB),
 		    case add_defaults1(Mod,Func,FuncInfo,SuiteInfo1,DoInit) of
 			Error = {error,_} -> {SuiteInfo1,Error};
 			MergedInfo -> {SuiteInfo1,MergedInfo}

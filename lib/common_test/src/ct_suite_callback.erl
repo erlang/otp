@@ -68,7 +68,13 @@ terminate(Callbacks) ->
 init_tc(ct_framework, _Func, Args) ->
     Args;
 init_tc(Mod, init_per_suite, Config) ->
-    call(fun call_generic/3, Config, [pre_init_per_suite, Mod]);
+    Info = case catch proplists:get_value(suite_callbacks, Mod:suite()) of
+	       List when is_list(List) -> 
+		   [{suite_callbacks,List}];
+	       _Else ->
+		   []
+	   end,
+    call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_suite, Mod]);
 init_tc(Mod, {init_per_group, GroupName, Opts}, Config) ->
