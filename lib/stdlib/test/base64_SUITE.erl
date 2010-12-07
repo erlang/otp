@@ -29,7 +29,7 @@
 %% Test cases must be exported.
 -export([base64_encode/1, base64_decode/1, base64_otp_5635/1,
 	 base64_otp_6279/1, big/1, illegal/1, mime_decode/1,
-	 roundtrip/1]).
+	 mime_decode_to_string/1, roundtrip/1]).
 
 init_per_testcase(_, Config) ->
     Dog = test_server:timetrap(?t:minutes(2)),
@@ -50,7 +50,7 @@ all(doc) ->
 all(suite) ->
     [base64_encode, base64_decode, base64_otp_5635,
      base64_otp_6279, big, illegal, mime_decode,
-     roundtrip].
+     mime_decode_to_string, roundtrip].
 
 
 %%-------------------------------------------------------------------------
@@ -59,7 +59,7 @@ base64_encode(doc) ->
 base64_encode(suite) ->
     [];
 base64_encode(Config) when is_list(Config) ->
-    %% Two pads 
+    %% Two pads
     <<"QWxhZGRpbjpvcGVuIHNlc2FtZQ==">> =
 	base64:encode("Aladdin:open sesame"),
     %% One pad
@@ -77,8 +77,8 @@ base64_decode(doc) ->
 base64_decode(suite) ->
     [];
 base64_decode(Config) when is_list(Config) ->
-    %% Two pads 
-    <<"Aladdin:open sesame">> = 
+    %% Two pads
+    <<"Aladdin:open sesame">> =
 	base64:decode("QWxhZGRpbjpvcGVuIHNlc2FtZQ=="),
     %% One pad
     <<"Hello World">> = base64:decode(<<"SGVsbG8gV29ybGQ=">>),
@@ -138,20 +138,85 @@ illegal(Config) when is_list(Config) ->
     {'EXIT',{function_clause, _}} = (catch base64:decode("()")),
     ok.
 %%-------------------------------------------------------------------------
+%% mime_decode and mime_decode_to_string have different implementations
+%% so test both with the same input separately. Both functions have
+%% the same implementation for binary/string arguments.
 mime_decode(doc) ->
     ["Test base64:mime_decode/1."];
 mime_decode(suite) ->
     [];
 mime_decode(Config) when is_list(Config) ->
-    %% Two pads 
-    <<"Aladdin:open sesame">> = 
+    %% Test correct padding
+    <<"one">> = base64:mime_decode(<<"b25l">>),
+    <<"on">>  = base64:mime_decode(<<"b24=">>),
+    <<"o">>   = base64:mime_decode(<<"bw==">>),
+    %% Test 1 extra padding
+    <<"one">> = base64:mime_decode(<<"b25l= =">>),
+    <<"on">>  = base64:mime_decode(<<"b24== =">>),
+    <<"o">>   = base64:mime_decode(<<"bw=== =">>),
+    %% Test 2 extra padding
+    <<"one">> = base64:mime_decode(<<"b25l===">>),
+    <<"on">>  = base64:mime_decode(<<"b24====">>),
+    <<"o">>   = base64:mime_decode(<<"bw=====">>),
+    %% Test misc embedded padding
+    <<"one">> = base64:mime_decode(<<"b2=5l===">>),
+    <<"on">>  = base64:mime_decode(<<"b=24====">>),
+    <<"o">>   = base64:mime_decode(<<"b=w=====">>),
+    %% Test misc white space and illegals with embedded padding
+    <<"one">> = base64:mime_decode(<<" b~2=\r\n5()l===">>),
+    <<"on">>  = base64:mime_decode(<<"\tb =2\"¤4=¤=   ==">>),
+    <<"o">>   = base64:mime_decode(<<"\nb=w=====">>),
+    %% Two pads
+    <<"Aladdin:open sesame">> =
 	base64:mime_decode("QWxhZGRpbjpvc()GVuIHNlc2FtZQ=="),
-    %% One pad, followed by ignored text
-    <<"Hello World">> = base64:mime_decode(<<"SGVsb)(G8gV29ybGQ=apa">>),
+    %% One pad to ignore, followed by more text
+    <<"Hello World!!">> = base64:mime_decode(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
+    %% No pad
+    <<"Aladdin:open sesam">> =
+	base64:mime_decode("QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft"),
+    %% Encoded base 64 strings may be divided by non base 64 chars.
+    %% In this cases whitespaces.
+    <<"0123456789!@#0^&*();:<>,. []{}">> =
+	base64:mime_decode(
+	  <<"MDEy MzQ1Njc4 \tOSFAIzBeJ \nio)(oKTs6 PD4sLi \r\nBbXXt9">>),
+    ok.
+
+%%-------------------------------------------------------------------------
+
+%% Repeat of mime_decode() tests
+mime_decode_to_string(doc) ->
+    ["Test base64:mime_decode_to_string/1."];
+mime_decode_to_string(suite) ->
+    [];
+mime_decode_to_string(Config) when is_list(Config) ->
+    %% Test correct padding
+    "one" = base64:mime_decode_to_string(<<"b25l">>),
+    "on"  = base64:mime_decode_to_string(<<"b24=">>),
+    "o"   = base64:mime_decode_to_string(<<"bw==">>),
+    %% Test 1 extra padding
+    "one" = base64:mime_decode_to_string(<<"b25l= =">>),
+    "on"  = base64:mime_decode_to_string(<<"b24== =">>),
+    "o"   = base64:mime_decode_to_string(<<"bw=== =">>),
+    %% Test 2 extra padding
+    "one" = base64:mime_decode_to_string(<<"b25l===">>),
+    "on"  = base64:mime_decode_to_string(<<"b24====">>),
+    "o"   = base64:mime_decode_to_string(<<"bw=====">>),
+    %% Test misc embedded padding
+    "one" = base64:mime_decode_to_string(<<"b2=5l===">>),
+    "on"  = base64:mime_decode_to_string(<<"b=24====">>),
+    "o"   = base64:mime_decode_to_string(<<"b=w=====">>),
+    %% Test misc white space and illegals with embedded padding
+    "one" = base64:mime_decode_to_string(<<" b~2=\r\n5()l===">>),
+    "on"  = base64:mime_decode_to_string(<<"\tb =2\"¤4=¤=   ==">>),
+    "o"   = base64:mime_decode_to_string(<<"\nb=w=====">>),
+    %% Two pads
+    "Aladdin:open sesame" =
+	base64:mime_decode_to_string("QWxhZGRpbjpvc()GVuIHNlc2FtZQ=="),
+    %% One pad to ignore, followed by more text
+    "Hello World!!" = base64:mime_decode_to_string(<<"SGVsb)(G8gV29ybGQ=h IQ= =">>),
     %% No pad
     "Aladdin:open sesam" = 
 	base64:mime_decode_to_string("QWxhZGRpbjpvcG¤\")(VuIHNlc2Ft"),
-
     %% Encoded base 64 strings may be divided by non base 64 chars.
     %% In this cases whitespaces.
     "0123456789!@#0^&*();:<>,. []{}" =
@@ -159,6 +224,7 @@ mime_decode(Config) when is_list(Config) ->
 	  <<"MDEy MzQ1Njc4 \tOSFAIzBeJ \nio)(oKTs6 PD4sLi \r\nBbXXt9">>),
     ok.
 
+%%-------------------------------------------------------------------------
 
 roundtrip(Config) when is_list(Config) ->
     Sizes = lists:seq(1, 255) ++ lists:seq(2400-5, 2440),
