@@ -30,7 +30,7 @@
 %%--------------- INCLUDES -----------------------------------
 -include_lib("cosFileTransfer/src/cosFileTransferApp.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).
@@ -70,10 +70,11 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, 
+-export([all/0,groups/0,
+	 init_per_group/2,end_per_group/2, 
 	 cases/0, 
-	 init_all/1, 
-	 finish_all/1, 
+	 init_per_suite/1, 
+	 end_per_suite/1, 
 	 fileIterator_api/1,
 	 fts_ftp_file_api/1, 
 	 fts_ftp_file_ssl_api/1, 
@@ -82,7 +83,7 @@
 	 fts_native_file_ssl_api/1, 
 	 fts_native_dir_api/1, 
 	 init_per_testcase/2, 
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 install_data/2,
 	 uninstall_data/1,
 	 slave_sup/0,
@@ -93,16 +94,28 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosFileTransfer interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
+
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+    
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
  
-cases() ->
-    [fts_ftp_dir_api, fts_ftp_file_api, fts_ftp_file_ssl_api, 
-     fts_native_dir_api, fts_native_file_api, fts_native_file_ssl_api, 
+cases() -> 
+    [fts_ftp_dir_api, fts_ftp_file_api,
+     fts_ftp_file_ssl_api, fts_native_dir_api,
+     fts_native_file_api, fts_native_file_ssl_api,
      fileIterator_api, app_test].
-	
+
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
@@ -112,12 +125,12 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     orber:jump_start(),
     cosProperty:install(),
     cosProperty:start(),
@@ -147,7 +160,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     ssl:stop(),
     crypto:stop(),
     cosFileTransferApp:stop(),
