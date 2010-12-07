@@ -789,7 +789,8 @@ scan_xml_decl(T, S) ->
     Attr = #xmlAttribute{name = version,
 			 parents = [{xml, _XMLPos = 1}],
 			 value = Vsn},
-    scan_xml_decl(T4, S4, #xmlDecl{attributes = [Attr]}).
+    scan_xml_decl(T4, S4, #xmlDecl{vsn = Vsn,
+				   attributes = [Attr]}).
 
 scan_xml_decl([], S=#xmerl_scanner{continuation_fun = F}, Decl) ->
     ?dbg("cont()...~n", []),
