@@ -2787,6 +2787,52 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
     return op;
 }
 
+static GenOp*
+gen_increment(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
+	      GenOpArg Live, GenOpArg Dst)
+{
+    GenOp* op;
+
+    NEW_GENOP(stp, op);
+    op->op = genop_i_increment_4;
+    op->arity = 4;
+    op->next = NULL;
+    op->a[0] = Reg;
+    op->a[1].type = TAG_u;
+    op->a[1].val = Integer.val;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+    return op;
+}
+
+static GenOp*
+gen_increment_from_minus(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
+			 GenOpArg Live, GenOpArg Dst)
+{
+    GenOp* op;
+
+    NEW_GENOP(stp, op);
+    op->op = genop_i_increment_4;
+    op->arity = 4;
+    op->next = NULL;
+    op->a[0] = Reg;
+    op->a[1].type = TAG_u;
+    op->a[1].val = -Integer.val;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+    return op;
+}
+
+/*
+ * Test whether the negation of the given number is small.
+ */
+static int
+negation_is_small(LoaderState* stp, GenOpArg Int)
+{
+    return Int.type == TAG_i && IS_SSMALL(-Int.val);
+}
+
+
 static int
 smp(LoaderState* stp)
 {

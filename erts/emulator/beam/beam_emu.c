@@ -1276,6 +1276,52 @@ void process_main(void)
 #define STORE_ARITH_RESULT(res) StoreBifResult(2, (res));
 #define ARITH_FUNC(name) erts_gc_##name
 
+	{
+	    Eterm increment_reg_val;
+	    Eterm increment_val;
+	    Uint live;
+	    Eterm result;
+
+	OpCase(i_increment_yIId):
+	    increment_reg_val = yb(Arg(0));
+	    goto do_increment;
+
+	OpCase(i_increment_xIId):
+	    increment_reg_val = xb(Arg(0));
+	    goto do_increment;
+
+	OpCase(i_increment_rIId):
+	    increment_reg_val = r(0);
+	    I--;
+
+	do_increment:
+	    increment_val = Arg(1);
+	    if (is_small(increment_reg_val)) {
+		Sint i = signed_val(increment_reg_val) + increment_val;
+		ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
+		if (MY_IS_SSMALL(i)) {
+		    result = make_small(i);
+		store_result:
+		    StoreBifResult(3, result);
+		}
+	    }
+
+	    live = Arg(2);
+	    SWAPOUT;
+	    reg[0] = r(0);
+	    reg[live] = increment_reg_val;
+	    reg[live+1] = make_small(increment_val);
+	    result = erts_gc_mixed_plus(c_p, reg, live);
+	    r(0) = reg[0];
+	    SWAPIN;
+	    ERTS_HOLE_CHECK(c_p);
+	    if (is_value(result)) {
+		goto store_result;
+	    }
+	    ASSERT(c_p->freason != BADMATCH || is_value(c_p->fvalue));
+	    goto find_func_info;
+	}
+	    
  OpCase(i_plus_jId):
  {
      Eterm result;
