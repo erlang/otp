@@ -328,8 +328,8 @@ print_mib_info() ->
 
 print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
-    print_variables(Mod, Variables),
-    print_tables(Mod, Tables),
+    print_mib_variables2(Mod, Variables),
+    print_mib_tables2(Mod, Tables),
     print_mib_info(MibsInfo).
 
 
@@ -339,7 +339,8 @@ print_mib_tables() ->
 
 print_mib_tables([]) ->
     ok;
-print_mib_tables([{Mod, Tabs}|MibTabs]) when is_atom(Mod) andalso is_list(Tabs) ->
+print_mib_tables([{Mod, Tabs}|MibTabs]) 
+  when is_atom(Mod) andalso is_list(Tabs) ->
     print_mib_tables(Mod, Tabs),
     print_mib_tables(MibTabs);
 print_mib_tables([_|MibTabs]) ->
@@ -347,9 +348,9 @@ print_mib_tables([_|MibTabs]) ->
 
 print_mib_tables(Mod, Tables) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
-    print_tables(Mod, Tables).
+    print_mib_tables2(Mod, Tables).
 
-print_tables(Mod, Tables) ->
+print_mib_tables2(Mod, Tables) ->
     [(catch Mod:Table(print)) || Table <- Tables].
 
 
@@ -359,7 +360,8 @@ print_mib_variables() ->
 
 print_mib_variables([]) ->
     ok;
-print_mib_variables([{Mod, Vars}|MibVars]) when is_atom(Mod) andalso is_list(Vars) ->
+print_mib_variables([{Mod, Vars}|MibVars]) 
+  when is_atom(Mod) andalso is_list(Vars) ->
     print_mib_variables(Mod, Vars),
     print_mib_variables(MibVars);
 print_mib_variables([_|MibVars]) ->
@@ -367,9 +369,9 @@ print_mib_variables([_|MibVars]) ->
 
 print_mib_variables(Mod, Vars) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
-    print_variables(Mod, Vars).
+    print_mib_variables2(Mod, Vars).
 
-print_variables(Mod, Variables) ->
+print_mib_variables2(Mod, Variables) ->
     [(catch Mod:Variable(print)) || Variable <- Variables].
 
 

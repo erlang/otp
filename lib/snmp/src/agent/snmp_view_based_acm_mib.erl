@@ -782,32 +782,30 @@ split_cols(Cols, PreCols) ->
     {PreCols, Cols}.
 
 vacmViewSpinLock(print) ->
-    case vacmViewSpinLock(get) of
-	{value, Val} -> io:format("vacmViewSpinLock => ~p~n", [Val]);
-	Error        -> io:format("vacmViewSpinLock => ERROR: ~p~n", [Error])
-    end;
+    VarAndValue = [{vacmViewSpinLock, vacmViewSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 
 vacmViewSpinLock(new) ->
-    snmp_generic:variable_func(new, {vacmViewSpinLock, volatile}),
+    snmp_generic:variable_func(new, volatile_db(vacmViewSpinLock)),
     {A1,A2,A3} = erlang:now(),
     random:seed(A1,A2,A3),
     Val = random:uniform(2147483648) - 1,
-    snmp_generic:variable_func(set, Val, {vacmViewSpinLock, volatile});
+    snmp_generic:variable_func(set, Val, volatile_db(vacmViewSpinLock));
 
 vacmViewSpinLock(delete) ->
     ok;
 
 vacmViewSpinLock(get) ->
-    snmp_generic:variable_func(get, {vacmViewSpinLock, volatile}).
+    snmp_generic:variable_func(get, volatile_db(vacmViewSpinLock)).
 
 vacmViewSpinLock(is_set_ok, NewVal) ->
-    case snmp_generic:variable_func(get, {vacmViewSpinLock, volatile}) of
+    case snmp_generic:variable_func(get, volatile_db(vacmViewSpinLock)) of
 	{value, NewVal} -> noError;
 	_ -> inconsistentValue
     end;
 vacmViewSpinLock(set, NewVal) ->
     snmp_generic:variable_func(set, (NewVal + 1) rem 2147483648,
-			       {vacmViewSpinLock, volatile}).
+			       volatile_db(vacmViewSpinLock)).
 
 
 vacmViewTreeFamilyTable(print) ->
@@ -942,7 +940,9 @@ do_get_vacmAccessTable(Key0, Acc) ->
 
 
 
-db(X) -> snmpa_agent:db(X).
+db(X)          -> snmpa_agent:db(X).
+volatile_db(X) -> {X, volatile}.
+    
 
 fa(vacmSecurityToGroupTable) -> ?vacmGroupName;
 fa(vacmViewTreeFamilyTable) -> ?vacmViewTreeFamilyMask.
