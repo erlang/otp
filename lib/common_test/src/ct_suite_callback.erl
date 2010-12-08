@@ -46,8 +46,7 @@
 			       {error, Reason :: term()}.
 init(Opts) ->
     call([{CB, call_init, undefined} || CB <- get_new_callbacks(Opts)],
-	 ct_suite_callback_init_dummy, init, []),
-    ok.
+	 ok, init, []).
 		      
 
 %% @doc Called after all suites are done.
@@ -181,9 +180,11 @@ call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
 		    [Mod,NewId]),
 	call(NewRest, Config, Meta, NewCBs)
     catch Error:Reason ->
+	    Trace = erlang:get_stacktrace(),
 	    ct_logs:log("Suite Callback","Failed to start a SCB: ~p:~p",
-			[Error,{Reason,erlang:get_stacktrace()}]),
-	    call(Rest, Config, Meta, CBs)
+			[Error,{Reason,Trace}]),
+	    call([], {fail,"Failed to start SCB"
+		      ", see the CT Log for details"}, Meta, CBs)
     end;
 call([{CBId, Fun} | Rest], Config, Meta, CBs) ->
     try

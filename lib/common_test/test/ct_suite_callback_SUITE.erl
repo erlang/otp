@@ -70,15 +70,18 @@ all() ->
     all(suite).
 
 all(suite) -> 
-    lists:reverse(
+    %%    lists:reverse(
       [
-       one_scb, two_scb, faulty_scb_no_init, minimal_scb, 
+       one_scb, two_scb, faulty_scb_no_init, faulty_scb_exit_in_init,
+       faulty_scb_exit_in_init_scope_suite, minimal_scb, 
        minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
        scope_per_group_scb, scope_suite_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
        skip_post_suite_scb, recover_post_suite_scb, update_config_scb,
        state_update_scb
-      ]).
+      ]
+    %%)
+	.
 
 
 %%--------------------------------------------------------------------
@@ -96,7 +99,8 @@ two_scb(Config) when is_list(Config) ->
 
 faulty_scb_no_init(Config) when is_list(Config) ->
     do_test(faulty_scb_no_init, "ct_scb_empty_SUITE.erl",[askjhdkljashdkaj],
-	   Config).
+	    Config,{error,"Failed to start SCB, see the "
+		   "CT Log for details"}).
 
 minimal_scb(Config) when is_list(Config) ->
     do_test(minimal_scb, "ct_scb_empty_SUITE.erl",[minimal_scb],Config).
@@ -108,6 +112,17 @@ minimal_and_maximal_scb(Config) when is_list(Config) ->
 faulty_scb_undef(Config) when is_list(Config) ->
     do_test(faulty_scb_undef, "ct_scb_empty_SUITE.erl",
 	    [undef_scb],Config).
+
+faulty_scb_exit_in_init_scope_suite(Config) when is_list(Config) ->
+    do_test(faulty_scb_exit_in_init_scope_suite, 
+	    "ct_exit_in_init_scope_suite_scb_SUITE.erl",
+	    [],Config).
+
+faulty_scb_exit_in_init(Config) when is_list(Config) ->
+    do_test(faulty_scb_exit_in_init, "ct_scb_empty_SUITE.erl",
+	    [crash_init_scb], Config,
+	    {error,"Failed to start SCB, see the "
+	     "CT Log for details"}).
 
 scope_per_suite_scb(Config) when is_list(Config) ->
     do_test(scope_per_suite_scb, "ct_scope_per_suite_scb_SUITE.erl",
@@ -153,21 +168,28 @@ state_update_scb(Config) ->
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
-do_test(Tag, SuiteWildCard, SCBs, Config) ->
+do_test(Tag, SWC, SCBs, Config) ->
+    do_test(Tag, SWC, SCBs, Config, ok).
+do_test(Tag, SWC, SCBs, Config, {error,_} = Res) ->
+    do_test(Tag, SWC, SCBs, Config, Res, 1);
+do_test(Tag, SWC, SCBs, Config, Res) ->
+    do_test(Tag, SWC, SCBs, Config, Res, 2).
+
+do_test(Tag, SuiteWildCard, SCBs, Config, Res, EC) ->
     
     DataDir = ?config(data_dir, Config),
     Suites = filelib:wildcard(
 	       filename:join([DataDir,"scb/tests",SuiteWildCard])),
     {Opts,ERPid} = setup([{suite,Suites},
 			  {suite_callbacks,SCBs},{label,Tag}], Config),
-    ok = ct_test_support:run(Opts, Config),
+    Res = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(Tag, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = events_to_check(Tag),
+    TestEvents = events_to_check(Tag, EC),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 setup(Test, Config) ->
@@ -258,14 +280,6 @@ test_events(faulty_scb_no_init) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
-
-     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
-     
-     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
-     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -336,6 +350,38 @@ test_events(faulty_scb_undef) ->
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
+
+test_events(faulty_scb_exit_in_init_scope_suite) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{'_',init_per_suite}},
+     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,tc_done,
+      {ct_exit_in_init_scope_suite_scb_SUITE,init_per_suite,
+       {failed,
+	{error,
+	 "Failed to start SCB, see the CT Log for details"}}}},
+     {?eh,tc_auto_skip,
+      {ct_exit_in_init_scope_suite_scb_SUITE,test_case,
+       {failed,
+	{ct_exit_in_init_scope_suite_scb_SUITE,init_per_suite,
+	 {failed,
+	  "Failed to start SCB, see the CT Log for details"}}}}},
+     {?eh,tc_auto_skip,
+      {ct_exit_in_init_scope_suite_scb_SUITE,end_per_suite,
+       {failed,
+	{ct_exit_in_init_scope_suite_scb_SUITE,init_per_suite,
+	 {failed,
+	  "Failed to start SCB, see the CT Log for details"}}}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}];
+
+test_events(faulty_scb_exit_in_init) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}];
 
 test_events(scope_per_suite_scb) ->
     [

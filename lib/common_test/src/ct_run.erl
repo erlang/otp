@@ -2203,6 +2203,8 @@ opts2args(EnvStartOpts) ->
 					   end, EHs),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{event_handler_init,lists:reverse(StrsR)}];
+		     ({suite_callbacks,[]}) ->
+			  [];
 		     ({Opt,As=[A|_]}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
 		     ({Opt,Strs=[S|_]}) when is_list(S) ->

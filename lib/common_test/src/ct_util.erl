@@ -163,8 +163,14 @@ do_start(Parent,Mode,LogDir) ->
     {StartTime,TestLogDir} = ct_logs:init(Mode),
 
     %% Initiate suite_callbacks
-    ok = ct_suite_callback:init(Opts),
-
+    case catch ct_suite_callback:init(Opts) of
+	ok ->
+	    ok;
+	{_,SCBReason} ->
+	    ct_logs:tc_print('Suite Callback',SCBReason,[]),
+	    Parent ! {self(), SCBReason},
+	    self() ! {{stop,normal},{self(),make_ref()}}
+    end,
 
     ct_event:notify(#event{name=test_start,
 			   node=node(),
