@@ -998,8 +998,8 @@ static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 			     BifFunction bf, Eterm args);
 static struct StackTrace * get_trace_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
-static Eterm call_error_handler(Process* p, BeamInstr* ip, Eterm* reg);
-static Eterm call_breakpoint_handler(Process* p, BeamInstr* fi, Eterm* reg);
+static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
+				     Eterm* reg, Eterm func);
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity);
 static BeamInstr* apply(Process* p, Eterm module, Eterm function,
 		     Eterm args, Eterm* reg);
@@ -2976,12 +2976,11 @@ void process_main(void)
      */
     SWAPOUT;
     reg[0] = r(0);
-    tmp_arg1 = call_error_handler(c_p, I-3, reg);
+    I = call_error_handler(c_p, I-3, reg, am_undefined_function);
     r(0) = reg[0];
     SWAPIN;
-    if (tmp_arg1) {
-	SET_I(c_p->i);
-	Dispatch();
+    if (I) {
+	Goto(*I);
     }
 
  /* Fall through */
@@ -4884,12 +4883,11 @@ apply_bif_or_nif_epilogue:
  OpCase(i_debug_breakpoint): {
      SWAPOUT;
      reg[0] = r(0);
-     tmp_arg1 = call_breakpoint_handler(c_p, I-3, reg);
+     I = call_error_handler(c_p, I-3, reg, am_breakpoint);
      r(0) = reg[0];
      SWAPIN;
-     if (tmp_arg1) {
-	 SET_I(c_p->i);
-	 Dispatch();
+     if (I) {
+	 Goto(*I);
      }
      goto no_error_handler;
  }
@@ -5639,8 +5637,8 @@ build_stacktrace(Process* c_p, Eterm exc) {
 }
 
 
-static Eterm
-call_error_handler(Process* p, BeamInstr* fi, Eterm* reg)
+static BeamInstr*
+call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
 {
     Eterm* hp;
     Export* ep;
@@ -5652,14 +5650,12 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg)
     /*
      * Search for the error_handler module.
      */
-    ep = erts_find_function(erts_proc_get_error_handler(p),
-			    am_undefined_function, 3);
+    ep = erts_find_function(erts_proc_get_error_handler(p), func, 3);
     if (ep == NULL) {		/* No error handler */
 	p->current = fi;
 	p->freason = EXC_UNDEF;
 	return 0;
     }
-    p->i = ep->address;
 
     /*
      * Create a list with all arguments in the x registers.
@@ -5679,62 +5675,13 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg)
     }
 
     /*
-     * Set up registers for call to error_handler:undefined_function/3.
+     * Set up registers for call to error_handler:<func>/3.
      */
     reg[0] = fi[0];
     reg[1] = fi[1];
     reg[2] = args;
-    return 1;
+    return ep->address;
 }
-
-static Eterm
-call_breakpoint_handler(Process* p, BeamInstr* fi, Eterm* reg)
-{
-    Eterm* hp;
-    Export* ep;
-    int arity;
-    Eterm args;
-    Uint sz;
-    int i;
-
-    /*
-     * Search for error handler module.
-     */
-    ep = erts_find_function(erts_proc_get_error_handler(p),
-			    am_breakpoint, 3);
-    if (ep == NULL) {		/* No error handler */
-	p->current = fi;
-	p->freason = EXC_UNDEF;
-	return 0;
-    }
-    p->i = ep->address;
-
-    /*
-     * Create a list with all arguments in the x registers.
-     */
-
-    arity = fi[2];
-    sz = 2 * arity;
-    if (HeapWordsLeft(p) < sz) {
-	erts_garbage_collect(p, sz, reg, arity);
-    }
-    hp = HEAP_TOP(p);
-    HEAP_TOP(p) += sz;
-    args = NIL;
-    for (i = arity-1; i >= 0; i--) {
-	args = CONS(hp, reg[i], args);
-	hp += 2;
-    }
-
-    /*
-     * Set up registers for call to error_handler:breakpoint/3.
-     */
-    reg[0] = fi[0];
-    reg[1] = fi[1];
-    reg[2] = args;
-    return 1;
-}
-
 
 
 static Export*
