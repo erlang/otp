@@ -781,6 +781,12 @@ split_cols([Col | Cols], PreCols) when Col =< 3 ->
 split_cols(Cols, PreCols) ->
     {PreCols, Cols}.
 
+vacmViewSpinLock(print) ->
+    case vacmViewSpinLock(get) of
+	{value, Val} -> io:format("vacmViewSpinLock => ~p~n", [Val]);
+	Error        -> io:format("vacmViewSpinLock => ERROR: ~p~n", [Error])
+    end;
+
 vacmViewSpinLock(new) ->
     snmp_generic:variable_func(new, {vacmViewSpinLock, volatile}),
     {A1,A2,A3} = erlang:now(),

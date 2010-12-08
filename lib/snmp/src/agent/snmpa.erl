@@ -105,7 +105,7 @@
 	 set_request_limit/1, set_request_limit/2
 	]).
 
--export([print_tables/0, print_tables/1]).
+-export([print_mib_info/0, print_mib_tables/0, print_mib_variables/0]).
 
 -include("snmpa_atl.hrl").
 
@@ -285,29 +285,92 @@ whereis_mib(Agent, Mib) when is_atom(Mib) ->
 
 %% -
 
-print_tables() ->
-    Tables = [
-	      {snmp_view_based_acm_mib, [vacmAccessTable, 
-					 vacmSecurityToGroupTable, 
-					 vacmViewTreeFamilyTable]},
-	      {snmp_target_mib, [snmpTargetAddrTable, snmpTargetParamsTable]},
-	      {snmp_community_mib, [snmpCommunityTable]},
-	      {snmp_notification_mib, [snmpNotifyTable]},
-	      {snmp_user_based_sm_mib, [usmUserTable]}
-	     ],
-    print_tables(Tables).
+mibs_info() ->
+    [
+     {snmp_view_based_acm_mib, 
+      [
+       vacmAccessTable,
+       vacmSecurityToGroupTable,
+       vacmViewTreeFamilyTable
+      ],
+      [
+       vacmViewSpinLock
+      ]},
+     {snmp_target_mib, 
+      [
+       snmpTargetAddrTable,
+       snmpTargetParamsTable
+      ], 
+      [
+       snmpTargetSpinLock
+      ]},
+     {snmp_community_mib, 
+      [
+       snmpCommunityTable
+      ], 
+      []},
+     {snmp_notification_mib, 
+      [
+       snmpNotifyTable
+      ], 
+      []},
+     {snmp_user_based_sm_mib, 
+      [
+       usmUserTable
+      ], 
+      [
+       usmUserSpinLock
+      ]}].
 
-print_tables([]) ->
-    ok;
-print_tables([{Mod, Tables}|MibTables]) when is_atom(Mod) andalso is_list(Tables) ->
+print_mib_info() ->
+    MibsInfo = mibs_info(),
+    print_mib_info(MibsInfo).
+
+print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    print_variables(Mod, Variables),
     print_tables(Mod, Tables),
-    print_tables(MibTables);
-print_tables([_|MibTables]) ->
-    print_tables(MibTables).
+    print_mib_info(MibsInfo).
+
+
+print_mib_tables() ->
+    Tables = [{Mod, Tabs} || {Mod, Tabs, _Vars} <- mibs_info()],
+    print_mib_tables(Tables).
+
+print_mib_tables([]) ->
+    ok;
+print_mib_tables([{Mod, Tabs}|MibTabs]) when is_atom(Mod) andalso is_list(Tabs) ->
+    print_mib_tables(Mod, Tabs),
+    print_mib_tables(MibTabs);
+print_mib_tables([_|MibTabs]) ->
+    print_mib_tables(MibTabs).
+
+print_mib_tables(Mod, Tables) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    print_tables(Mod, Tables).
 
 print_tables(Mod, Tables) ->
-    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
     [(catch Mod:Table(print)) || Table <- Tables].
+
+
+print_mib_variables() ->
+    Variables = [{Mod, Vars} || {Mod, _Tabs, Vars} <- mibs_info()],
+    print_mib_variables(Variables).
+
+print_mib_variables([]) ->
+    ok;
+print_mib_variables([{Mod, Vars}|MibVars]) when is_atom(Mod) andalso is_list(Vars) ->
+    print_mib_variables(Mod, Vars),
+    print_mib_variables(MibVars);
+print_mib_variables([_|MibVars]) ->
+    print_mib_variables(MibVars).
+
+print_mib_variables(Mod, Vars) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    print_variables(Mod, Vars).
+
+print_variables(Mod, Variables) ->
+    [(catch Mod:Variable(print)) || Variable <- Variables].
 
 
 make_pretty_mib(snmp_view_based_acm_mib) ->
