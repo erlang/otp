@@ -989,8 +989,41 @@ extern int count_instructions;
 #define IsPid(Src, Fail) if (is_not_pid(Src)) { Fail; }
 #define IsRef(Src, Fail) if (is_not_ref(Src)) { Fail; }
 
-static BifFunction translate_gc_bif(void* gcf);
-static BeamInstr* handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf);
+/*
+ * process_main() is already huge, so we want to avoid inlining
+ * into it. Especially functions that are seldom used.
+ */
+#ifdef __GNUC__
+#  define NOINLINE __attribute__((__noinline__))
+#else
+#  define NOINLINE
+#endif
+
+/*
+ * The following functions are called directly by process_main().
+ * Don't inline them.
+ */
+static BifFunction translate_gc_bif(void* gcf) NOINLINE;
+static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
+			       Eterm* reg, BifFunction bf) NOINLINE;
+static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
+				     Eterm* reg, Eterm func) NOINLINE;
+static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity) NOINLINE;
+static BeamInstr* apply(Process* p, Eterm module, Eterm function,
+			Eterm args, Eterm* reg) NOINLINE;
+static int hibernate(Process* c_p, Eterm module, Eterm function,
+		     Eterm args, Eterm* reg) NOINLINE;
+static BeamInstr* call_fun(Process* p, int arity,
+			   Eterm* reg, Eterm args) NOINLINE;
+static BeamInstr* apply_fun(Process* p, Eterm fun,
+			    Eterm args, Eterm* reg) NOINLINE;
+static Eterm new_fun(Process* p, Eterm* reg,
+		     ErlFunEntry* fe, int num_free) NOINLINE;
+
+
+/*
+ * Functions not directly called by process_main(). OK to inline.
+ */
 static BeamInstr* next_catch(Process* c_p, Eterm *reg);
 static void terminate_proc(Process* c_p, Eterm Value);
 static Eterm add_stacktrace(Process* c_p, Eterm Value, Eterm exc);
@@ -998,16 +1031,6 @@ static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 			     BifFunction bf, Eterm args);
 static struct StackTrace * get_trace_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
-static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
-				     Eterm* reg, Eterm func);
-static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity);
-static BeamInstr* apply(Process* p, Eterm module, Eterm function,
-		     Eterm args, Eterm* reg);
-static int hibernate(Process* c_p, Eterm module, Eterm function,
-		     Eterm args, Eterm* reg);
-static BeamInstr* call_fun(Process* p, int arity, Eterm* reg, Eterm args);
-static BeamInstr* apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
-static Eterm new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free);
 
 #if defined(VXWORKS)
 static int init_done;
