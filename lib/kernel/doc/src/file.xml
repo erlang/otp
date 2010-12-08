@@ -660,10 +660,10 @@ f.txt:  {person, "kalle", 25}.
     </func>
     <func>
       <name>native_name_encoding() -> latin1 | utf8</name>
-      <fsummary>Retunr the VMs configure filename encoding.</fsummary>
+      <fsummary>Return the VM's configured filename encoding.</fsummary>
       <desc>
         <p>This function returns the configured default file name encoding to use for raw file names. Generally an application supplying file names raw (as binaries), should obey the character encoding returned by this function.</p>
-	<p>By default, the VM uses ISO-latin-1 file name encoding on filesystems and/or OSes that use completely transparent file naming. This includes all Unix versions except for MacOSX, where the vfs layer enforces UTF-8 file naming. By giving the experimental option <c>+fnu</c> when starting Erlang, UTF-8 translation of file names can be turned on even for those systems. If Unicode file name translation is in effect, the system behaves as usual as long as file names conform to the encoding, but will return file names that are not properly encoded in UTF-8 as raw file names (i.e. binaries).</p> 
+	<p>By default, the VM uses ISO-latin-1 file name encoding on filesystems and/or OSes that use completely transparent file naming. This includes all Unix versions except MacOSX, where the vfs layer enforces UTF-8 file naming. By giving the experimental option <c>+fnu</c> when starting Erlang, UTF-8 translation of file names can be turned on even for those systems. If Unicode file name translation is in effect, the system behaves as usual as long as file names conform to the encoding, but will return file names that are not properly encoded in UTF-8 as raw file names (i.e. binaries).</p> 
 	<p>On Windows, this function also returns <c>utf8</c> by default. The OS uses a pure Unicode naming scheme and file names are always possible to interpret as valid Unicode. The fact that the underlying Windows OS actually encodes file names using little endian UTF-16 can be ignored by the Erlang programmer. Windows and MacOSX are the only operating systems where the VM operates in Unicode file name mode by default.</p>
       </desc>
     </func>

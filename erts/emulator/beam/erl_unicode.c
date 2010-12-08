@@ -2420,7 +2420,7 @@ void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars)
 
 /*
  * This internal bif converts a filename to whatever format is suitable for the file driver
- * It also adds zero termination so that prim_file neednt bother with the character encoding
+ * It also adds zero termination so that prim_file needn't bother with the character encoding
  * of the file driver 
  */
 BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)

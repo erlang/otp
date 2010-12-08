@@ -105,7 +105,7 @@ dirname() = filename()</code>
 	  interpreted as Unicode may be encountered, in which case the
 	  <c>fun()</c> must be prepared to handle raw file names
 	  (i.e. binaries). If the regular expression contains
-	  codepoints beyond 255, it will not match file names that does
+	  codepoints beyond 255, it will not match file names that do
 	  not conform to the expected character encoding (i.e. are not
 	  encoded in valid UTF-8).</p>
 
