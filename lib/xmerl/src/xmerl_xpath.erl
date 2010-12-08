@@ -734,12 +734,14 @@ node_test({node_type, NT}, #xmlNode{node = N}, _Context) ->
 	    true;
 	{comment, #xmlComment{}} ->
 	    true;
+	{processing_instruction, #xmlPI{}} ->
+	    true;
 	_ ->
 	    false
     end;
-node_test({processing_instruction, {literal, _, Name}}, 
-	  #xmlNode{node = {processing_instruction, Name, _Data}}, _Context) ->
-    true;
+node_test({processing_instruction, Name1},
+	  #xmlNode{node = #xmlPI{name = Name2}}, _Context) ->
+    Name1 == atom_to_list(Name2);
 node_test(_Other, _N, _Context) ->
     %io:format("node_test(~p, ~p) -> false.~n", [_Other, write_node(_N)]),
     false.
