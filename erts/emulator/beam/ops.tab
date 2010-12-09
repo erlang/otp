@@ -401,6 +401,13 @@ put_list y y r
 put_list y r x
 put_list r n x
 
+put_list x r x
+put_list x y r
+put_list y x r
+put_list y x x
+
+put_list x r r
+
 # put_list SrcReg Constant Dst
 put_list r c r
 put_list r c x
@@ -428,7 +435,6 @@ put_list c y x
 put_list c y y
 
 %cold
-put_list x r r
 put_list s s d
 %hot
 
