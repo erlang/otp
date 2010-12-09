@@ -70,6 +70,15 @@ clean:
 
 docs:
 
+$(SYS_CONFIG_FILES): $(SYS_CONFIG_SRCS)
+	@echo "sys: $< -> $@"
+
+$(AGENT_CONFIG_FILES): $(AGENT_CONFIG_SRCS)
+	@echo "agent: $< -> $@"
+
+$(MANAGER_CONFIG_FILES): $(MANAGER_CONFIG_SRCS)
+	@echo "manager: $< -> $@"
+
 
 # ----------------------------------------------------
 # Release Target
@@ -105,26 +114,14 @@ release_docs_spec:
 
 
 info:
-	@echo "SNMP_DEBUG        = $(SNMP_DEBUG)"
-	@echo "SNMP_FLAGS        = $(SNMP_FLAGS)"
+	@echo "SYS_CONFIG_SRCS      = $(SYS_CONFIG_SRCS)"
+	@echo "SYS_CONFIG_FILES     = $(SYS_CONFIG_FILES)"
 	@echo ""
-	@echo "SNMP_MIB_DIR      = $(SNMP_MIB_DIR)"
-	@echo "MIB_SOURCE        = $(MIB_SOURCE)"
-	@echo "MIB_TARGETS       = $(MIB_TARGETS)"
-	@echo "SNMP_MIB_FLAGS    = $(SNMP_MIB_FLAGS)"
+	@echo "AGENT_CONFIG_SRCS    = $(AGENT_CONFIG_SRCS)"
+	@echo "AGENT_CONFIG_FILES   = $(AGENT_CONFIG_FILES)"
 	@echo ""
-	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
-	@echo ""
-	@echo "RELSYSDIR         = $(RELSYSDIR)"
-	@echo ""
-	@echo "SOURCE            = $(SOURCE)"
-	@echo ""
-	@echo "TARGET_FILES      = $(TARGET_FILES)"
-	@echo ""
-	@echo "EMAKEFILE         = $(EMAKEFILE)"
-	@echo "MAKE_EMAKE        = $(MAKE_EMAKE)"
-	@echo "BUILDTARGET       = $(BUILDTARGET)"
-	@echo "RELTEST_FILES     = $(RELTEST_FILES)"
+	@echo "MANAGER_CONFIG_SRCS  = $(MANAGER_CONFIG_SRCS)"
+	@echo "MANAGER_CONFIG_FILES = $(MANAGER_CONFIG_FILES)"
 	@echo ""
 
 
