@@ -349,32 +349,6 @@ ethr_leave_ts_event(ethr_ts_event *tsep)
 }
 
 /*
- * Current time
- */
-
-int
-ethr_time_now(ethr_timeval *time)
-{
-    int res;
-    struct timeval tv;
-#if ETHR_XCHK
-    if (ethr_not_inited__) {
-	ETHR_ASSERT(0);
-	return EACCES;
-    }
-    if (!time) {
-	ETHR_ASSERT(0);
-	return EINVAL;
-    }
-#endif
-
-    res = gettimeofday(&tv, NULL);
-    time->tv_sec = (long) tv.tv_sec;
-    time->tv_nsec = ((long) tv.tv_usec)*1000;
-    return res;
-}
-
-/*
  * Thread specific data
  */
 

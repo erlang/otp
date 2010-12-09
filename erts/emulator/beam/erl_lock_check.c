@@ -978,10 +978,10 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 	/* We only force busy if a lock order violation would occur
 	   and when on an even millisecond. */
 	{
-	    erts_thr_timeval_t time;
-	    erts_thr_time_now(&time);
+	    SysTimeval tv;
+	    sys_gettimeofday(&tv);
 
-	    if ((time.tv_nsec / 1000000) & 1)
+	    if ((tv.tv_usec / 1000) & 1)
 		return 0;
 	}
 #endif

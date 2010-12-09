@@ -37,11 +37,6 @@
 #undef ETHR_HAVE_OPTIMIZED_SPINLOCK
 #undef ETHR_HAVE_OPTIMIZED_RWSPINLOCK
 
-typedef struct {
-    long tv_sec;
-    long tv_nsec;
-} ethr_timeval;
-
 #if defined(DEBUG)
 #  define ETHR_DEBUG
 #endif
@@ -418,7 +413,6 @@ void ethr_thr_exit(void *);
 ethr_tid ethr_self(void);
 int ethr_equal_tids(ethr_tid, ethr_tid);
 
-int ethr_time_now(ethr_timeval *);
 int ethr_tsd_key_create(ethr_tsd_key *);
 int ethr_tsd_key_delete(ethr_tsd_key);
 int ethr_tsd_set(ethr_tsd_key, void *);

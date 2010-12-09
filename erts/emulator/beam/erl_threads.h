@@ -113,7 +113,6 @@ typedef struct {
 #endif
 } erts_rwlock_t;
 
-typedef ethr_timeval erts_thr_timeval_t;
 __decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *); 
                                  /* implemented in erl_init.c */
 
@@ -160,10 +159,6 @@ typedef struct { } erts_rwlock_t;
 typedef struct { int gcc_is_buggy; } erts_spinlock_t;
 typedef struct { int gcc_is_buggy; } erts_rwlock_t;
 #endif
-typedef struct {
-    long tv_sec;
-    long tv_nsec;
-} erts_thr_timeval_t;
 
 #define ERTS_MTX_INITER			0
 #define ERTS_CND_INITER			0
@@ -292,7 +287,6 @@ ERTS_GLB_INLINE void erts_write_lock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_write_unlock(erts_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_lc_rwlock_is_rlocked(erts_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock);
-ERTS_GLB_INLINE void erts_thr_time_now(erts_thr_timeval_t *time);
 ERTS_GLB_INLINE void erts_tsd_key_create(erts_tsd_key_t *keyp);
 ERTS_GLB_INLINE void erts_tsd_key_delete(erts_tsd_key_t key);
 ERTS_GLB_INLINE void erts_tsd_set(erts_tsd_key_t key, void *value);
@@ -1424,16 +1418,6 @@ erts_lc_rwlock_is_rwlocked(erts_rwlock_t *lock)
     return res;
 #else
     return 0;
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_thr_time_now(erts_thr_timeval_t *time)
-{
-#ifdef USE_THREADS
-    int res = ethr_time_now(time);
-    if (res)
-	erts_thr_fatal_error(res, "get current time");
 #endif
 }
 

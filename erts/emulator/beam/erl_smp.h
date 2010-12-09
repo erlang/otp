@@ -57,7 +57,6 @@ typedef erts_tsd_key_t erts_smp_tsd_key_t;
 typedef ethr_atomic_t erts_smp_atomic_t;
 typedef erts_spinlock_t erts_smp_spinlock_t;
 typedef erts_rwlock_t erts_smp_rwlock_t;
-typedef erts_thr_timeval_t erts_smp_thr_timeval_t;
 void erts_thr_fatal_error(int, char *); /* implemented in erl_init.c */
 
 #else /* #ifdef ERTS_SMP */
@@ -91,11 +90,6 @@ typedef struct { } erts_smp_rwlock_t;
 typedef struct { int gcc_is_buggy; } erts_smp_spinlock_t;
 typedef struct { int gcc_is_buggy; } erts_smp_rwlock_t;
 #endif
-
-typedef struct {
-    long tv_sec;
-    long tv_nsec;
-} erts_smp_thr_timeval_t;
 
 #endif /* #ifdef ERTS_SMP */
 
@@ -221,7 +215,6 @@ ERTS_GLB_INLINE void erts_smp_write_lock(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_write_unlock(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_smp_lc_rwlock_is_rlocked(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_smp_lc_rwlock_is_rwlocked(erts_smp_rwlock_t *lock);
-ERTS_GLB_INLINE void erts_smp_thr_time_now(erts_smp_thr_timeval_t *time);
 ERTS_GLB_INLINE void erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp);
 ERTS_GLB_INLINE void erts_smp_tsd_key_delete(erts_smp_tsd_key_t key);
 ERTS_GLB_INLINE void erts_smp_tsd_set(erts_smp_tsd_key_t key, void *value);
@@ -984,14 +977,6 @@ erts_smp_lc_rwlock_is_rwlocked(erts_smp_rwlock_t *lock)
     return erts_lc_rwlock_is_rwlocked(lock);
 #else
     return 0;
-#endif
-}
-
-ERTS_GLB_INLINE void
-erts_smp_thr_time_now(erts_smp_thr_timeval_t *time)
-{
-#ifdef ERTS_SMP
-    erts_thr_time_now(time);
 #endif
 }
 

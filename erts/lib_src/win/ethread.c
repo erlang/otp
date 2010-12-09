@@ -128,28 +128,6 @@ static unsigned __stdcall thr_wrapper(LPVOID vtwd)
     return 0;
 }
 
-#ifdef __GNUC__
-#define LL_LITERAL(X) X##LL
-#else
-#define LL_LITERAL(X) X##i64
-#endif
-
-#define EPOCH_JULIAN_DIFF LL_LITERAL(11644473600)
-
-static ETHR_INLINE void
-get_curr_time(long *sec, long *nsec)
-{
-    SYSTEMTIME t;
-    FILETIME ft;
-    LONGLONG lft;
-
-    GetSystemTime(&t);
-    SystemTimeToFileTime(&t, &ft);
-    memcpy(&lft, &ft, sizeof(lft));
-    *nsec = ((long) (lft % LL_LITERAL(10000000)))*100;
-    *sec = (long) ((lft / LL_LITERAL(10000000)) - EPOCH_JULIAN_DIFF);
-}
-
 /* internal exports */
 
 int
@@ -515,23 +493,6 @@ ethr_equal_tids(ethr_tid tid1, ethr_tid tid2)
 {
     /* An invalid tid does not equal any tid, not even an invalid tid */
     return tid1.id == tid2.id && tid1.id != ETHR_INVALID_TID_ID;
-}
-
-int
-ethr_time_now(ethr_timeval *time)
-{
-#if ETHR_XCHK 
-    if (ethr_not_inited__) {
-	ETHR_ASSERT(0);
-	return EACCES;
-    }
-    if (!time) {
-	ETHR_ASSERT(0);
-	return EINVAL;
-    }
-#endif
-    get_curr_time(&time->tv_sec, &time->tv_nsec);
-    return 0;
 }
 
 /*
