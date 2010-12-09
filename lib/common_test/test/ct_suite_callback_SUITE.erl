@@ -80,7 +80,7 @@ all(suite) ->
        scope_suite_state_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
        skip_post_suite_scb, recover_post_suite_scb, update_config_scb,
-       state_update_scb, options_scb
+       state_update_scb, options_scb, same_id_scb
       ]
     )
 	.
@@ -181,6 +181,10 @@ state_update_scb(Config) when is_list(Config) ->
 options_scb(Config) when is_list(Config) ->
     do_test(options_scb, "ct_scb_empty_SUITE.erl",
 	    [{empty_scb,[test]}],Config).
+    
+same_id_scb(Config) when is_list(Config) ->
+    do_test(same_id_scb, "ct_scb_empty_SUITE.erl",
+	    [same_id_scb,same_id_scb],Config).
     
 
 %%%-----------------------------------------------------------------
@@ -873,6 +877,46 @@ test_events(options_scb) ->
      {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,scb,{empty_scb,terminate,[[test]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(same_id_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {negative,
+       {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+      {?eh,scb,{'_',post_init_per_suite,
+		[ct_scb_empty_SUITE,'$proplist','$proplist',[]]}}},
+     {negative,
+      {?eh,scb,{'_',post_init_per_suite,
+		[ct_scb_empty_SUITE,'$proplist','$proplist',[]]}},
+      {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}}},
+
+     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
+     {?eh,scb,{'_',pre_init_per_testcase,[test_case,'$proplist',[]]}},
+     {negative,
+      {?eh,scb,{'_',pre_init_per_testcase,[test_case,'$proplist',[]]}},
+      {?eh,scb,{'_',post_end_per_testcase,[test_case,'$proplist',ok,[]]}}},
+     {negative,
+      {?eh,scb,{'_',post_end_per_testcase,[test_case,'$proplist',ok,[]]}},
+      {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}}},
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
+     {?eh,scb,{'_',pre_end_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+     {negative,
+      {?eh,scb,{'_',pre_end_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
+      {?eh,scb,{'_',post_end_per_suite,[ct_scb_empty_SUITE,'$proplist','_',[]]}}},
+     {negative,
+      {?eh,scb,{'_',post_end_per_suite,
+		[ct_scb_empty_SUITE,'$proplist','_',[]]}},
+      {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 

@@ -876,6 +876,16 @@ locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
 	    nomatch
     end;
 
+%% Negative matching: Given two events, the first should not be present before
+%% the other is matched. 
+locate({negative,NotMatch, Match} = Neg, Node, Evs, Config) ->
+    case locate(NotMatch, Node, Evs, Config) of
+	nomatch ->
+	    locate(Match, Node, Evs, Config);
+	_ ->
+	    exit({found_negative_event,Neg})
+    end;
+
 %% matches any event of type Name
 locate({TEH,Name,Data}, Node, [{TEH,#event{name=Name,
 					   data = EvData,
@@ -888,7 +898,7 @@ locate({TEH,Name,Data}, Node, [{TEH,#event{name=Name,
 	    nomatch
     end;
 
-locate({TEH,Name,Data}, Node, [_|Evs], Config) ->
+locate({_TEH,_Name,_Data}, _Node, [_|_Evs], _Config) ->
     nomatch.
 
 match_data(D,D) ->

@@ -169,8 +169,9 @@ call(Fun, Config, Meta, NoChangeRet) when is_function(Fun) ->
 call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
     try
 	{Config, {NewId, _, {Mod,_State}} = NewCB} = call_init(CB, Config, Meta),
-	{NewCBs, NewRest} = case proplists:get_value(NewId, CBs, NextFun) of
-				undefined -> {CBs ++ [NewCB],Rest};
+	{NewCBs, NewRest} = case lists:keyfind(NewId, 1, CBs) of
+				false when NextFun == undefined -> 
+				    {CBs ++ [NewCB],Rest};
 				ExistingCB when is_tuple(ExistingCB) ->
 				    {CBs, Rest};
 				_ ->
