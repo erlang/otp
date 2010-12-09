@@ -250,11 +250,17 @@ is_number Fail Literal=q => move Literal x | is_number Fail x
 
 jump f
 
-case_end Literal=q => move Literal x | case_end x
-badmatch Literal=q => move Literal x | badmatch x
+case_end Literal=cq => move Literal x | case_end x
+badmatch Literal=cq => move Literal x | badmatch x
 
-case_end s
-badmatch s
+case_end r
+case_end x
+case_end y
+
+badmatch r
+badmatch x
+badmatch y
+
 if_end
 raise s s
 

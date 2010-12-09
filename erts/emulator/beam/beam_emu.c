@@ -3040,10 +3040,21 @@ void process_main(void)
      goto find_func_info;
  }
 
- OpCase(badmatch_s): {
+    {
 	Eterm badmatch_val;
 
-	GetArg1(0, badmatch_val);
+    OpCase(badmatch_y):
+	badmatch_val = yb(Arg(0));
+	goto do_badmatch;
+
+    OpCase(badmatch_x):
+	badmatch_val = xb(Arg(0));
+	goto do_badmatch;
+
+    OpCase(badmatch_r):
+	badmatch_val = r(0);
+
+    do_badmatch:
 	c_p->fvalue = badmatch_val;
 	c_p->freason = BADMATCH;
     }
@@ -3244,11 +3255,22 @@ void process_main(void)
 	StoreBifResult(1, result);
     }
 
- OpCase(case_end_s):
     {
 	Eterm case_end_val;
 
-	GetArg1(0, case_end_val);
+    OpCase(case_end_x):
+	case_end_val = xb(Arg(0));
+	goto do_case_end;
+
+    OpCase(case_end_y):
+	case_end_val = yb(Arg(0));
+	goto do_case_end;
+
+    OpCase(case_end_r):
+	case_end_val = r(0);
+	I--;
+
+    do_case_end:
 	c_p->fvalue = case_end_val;
 	c_p->freason = EXC_CASE_CLAUSE;
 	goto find_func_info;
