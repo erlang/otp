@@ -62,6 +62,7 @@
 		  disc_only_copies = [],           % [Node]
 		  load_order = 0,                  % Integer
 		  access_mode = read_write,        % read_write | read_only
+		  majority = false,                % true | false
 		  index = [],                      % [Integer]
 		  snmp = [],                       % Snmp Ustruct
 		  local_content = false,           % true | false

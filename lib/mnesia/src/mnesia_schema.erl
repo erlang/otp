@@ -178,6 +178,7 @@ do_set_schema(Tab, Cs) ->
     set({Tab, disc_only_copies}, Cs#cstruct.disc_only_copies),
     set({Tab, load_order}, Cs#cstruct.load_order),
     set({Tab, access_mode}, Cs#cstruct.access_mode),
+    set({Tab, majority}, Cs#cstruct.majority),
     set({Tab, snmp}, Cs#cstruct.snmp),
     set({Tab, user_properties}, Cs#cstruct.user_properties),
     [set({Tab, user_property, element(1, P)}, P) || P <- Cs#cstruct.user_properties],
@@ -651,6 +652,7 @@ list2cs(List) when is_list(List) ->
     Snmp = pick(Name, snmp, List, []),
     LoadOrder = pick(Name, load_order, List, 0),
     AccessMode = pick(Name, access_mode, List, read_write),
+    Majority = pick(Name, majority, List, false),
     UserProps = pick(Name, user_properties, List, []),
     verify({alt, [nil, list]}, mnesia_lib:etype(UserProps),
 	   {bad_type, Name, {user_properties, UserProps}}),
@@ -676,6 +678,7 @@ list2cs(List) when is_list(List) ->
              snmp = Snmp,
              load_order = LoadOrder,
              access_mode = AccessMode,
+	     majority = Majority,
              local_content = LC,
 	     record_name = RecName,
              attributes = Attrs,
@@ -809,7 +812,16 @@ verify_cstruct(Cs) when is_record(Cs, cstruct) ->
     Access = Cs#cstruct.access_mode,
     verify({alt, [read_write, read_only]}, Access,
 	   {bad_type, Tab, {access_mode, Access}}),
-
+    Majority = Cs#cstruct.majority,
+    verify({alt, [true, false]}, Majority,
+	   {bad_type, Tab, {majority, Majority}}),
+    case Majority of
+	true ->
+	    verify(false, LC,
+		   {combine_error, Tab, [{local_content,true},{majority,true}]});
+	false ->
+	    ok
+    end,
     Snmp = Cs#cstruct.snmp,
     verify(true, mnesia_snmp_hook:check_ustruct(Snmp),
 	   {badarg, Tab, {snmp, Snmp}}),
@@ -2971,6 +2983,7 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	Cs#cstruct.index == RemoteCs#cstruct.index,
 	Cs#cstruct.snmp == RemoteCs#cstruct.snmp,
 	Cs#cstruct.access_mode == RemoteCs#cstruct.access_mode,
+	Cs#cstruct.majority == RemoteCs#cstruct.majority,
 	Cs#cstruct.load_order == RemoteCs#cstruct.load_order,
 	Cs#cstruct.user_properties == RemoteCs#cstruct.user_properties ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);
