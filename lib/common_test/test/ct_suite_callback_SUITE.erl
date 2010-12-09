@@ -70,17 +70,19 @@ all() ->
     all(suite).
 
 all(suite) -> 
-    %%    lists:reverse(
+    lists:reverse(
       [
        one_scb, two_scb, faulty_scb_no_init, faulty_scb_exit_in_init,
        faulty_scb_exit_in_init_scope_suite, minimal_scb, 
-       minimal_and_maximal_scb, faulty_scb_undef, scope_per_suite_scb,
-       scope_per_group_scb, scope_suite_scb,
+       minimal_and_maximal_scb, faulty_scb_undef, 
+       scope_per_suite_scb, scope_per_group_scb, scope_suite_scb,
+       scope_per_suite_state_scb, scope_per_group_state_scb, 
+       scope_suite_state_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
        skip_post_suite_scb, recover_post_suite_scb, update_config_scb,
-       state_update_scb
+       state_update_scb, options_scb
       ]
-    %%)
+    )
 	.
 
 
@@ -136,33 +138,50 @@ scope_per_group_scb(Config) when is_list(Config) ->
     do_test(scope_per_group_scb, "ct_scope_per_group_scb_SUITE.erl",
 	    [],Config).
 
-fail_pre_suite_scb(Config) ->
+scope_per_suite_state_scb(Config) when is_list(Config) ->
+    do_test(scope_per_suite_state_scb, "ct_scope_per_suite_state_scb_SUITE.erl",
+	    [],Config).
+
+scope_suite_state_scb(Config) when is_list(Config) ->
+    do_test(scope_suite_state_scb, "ct_scope_suite_state_scb_SUITE.erl",
+	    [],Config).
+
+scope_per_group_state_scb(Config) when is_list(Config) ->
+    do_test(scope_per_group_state_scb, "ct_scope_per_group_state_scb_SUITE.erl",
+	    [],Config).
+
+fail_pre_suite_scb(Config) when is_list(Config) ->
     do_test(fail_pre_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [fail_pre_suite_scb],Config).
 
-fail_post_suite_scb(Config) ->
+fail_post_suite_scb(Config) when is_list(Config) ->
     do_test(fail_post_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [fail_post_suite_scb],Config).
 
-skip_pre_suite_scb(Config) ->
+skip_pre_suite_scb(Config) when is_list(Config) ->
     do_test(skip_pre_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [skip_pre_suite_scb],Config).
 
-skip_post_suite_scb(Config) ->
+skip_post_suite_scb(Config) when is_list(Config) ->
     do_test(skip_post_suite_scb, "ct_scb_empty_SUITE.erl",
 	    [skip_post_suite_scb],Config).
 
-recover_post_suite_scb(Config) ->
+recover_post_suite_scb(Config) when is_list(Config) ->
     do_test(recover_post_suite_scb, "ct_scb_fail_per_suite_SUITE.erl",
 	    [recover_post_suite_scb],Config).
 
-update_config_scb(Config) ->
+update_config_scb(Config) when is_list(Config) ->
     do_test(update_config_scb, "ct_update_config_SUITE.erl",
 	    [update_config_scb],Config).
 
-state_update_scb(Config) ->
+state_update_scb(Config) when is_list(Config) ->
     do_test(state_update_scb, "ct_scb_fail_one_skip_one_SUITE.erl",
 	    [state_update_scb,state_update_scb],Config).
+
+options_scb(Config) when is_list(Config) ->
+    do_test(options_scb, "ct_scb_empty_SUITE.erl",
+	    [{empty_scb,[test]}],Config).
+    
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -460,6 +479,83 @@ test_events(scope_per_group_scb) ->
      {?eh,stop_logging,[]}
     ];
 
+test_events(scope_per_suite_state_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scope_per_suite_state_scb_SUITE,init_per_suite}},
+     {?eh,scb,{'_',init,[[test]]}},
+     {?eh,scb,{'_',post_init_per_suite,[ct_scope_per_suite_state_scb_SUITE,'$proplist','$proplist',[test]]}},
+     {?eh,tc_done,{ct_scope_per_suite_state_scb_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scope_per_suite_state_scb_SUITE,test_case}},
+     {?eh,scb,{'_',pre_init_per_testcase,[test_case,'$proplist',[test]]}},
+     {?eh,scb,{'_',post_end_per_testcase,[test_case,'$proplist',ok,[test]]}},
+     {?eh,tc_done,{ct_scope_per_suite_state_scb_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scope_per_suite_state_scb_SUITE,end_per_suite}},
+     {?eh,scb,{'_',pre_end_per_suite,
+	       [ct_scope_per_suite_state_scb_SUITE,'$proplist',[test]]}},
+     {?eh,scb,{'_',post_end_per_suite,[ct_scope_per_suite_state_scb_SUITE,'$proplist','_',[test]]}},
+     {?eh,scb,{'_',terminate,[[test]]}},
+     {?eh,tc_done,{ct_scope_per_suite_state_scb_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(scope_suite_state_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scope_suite_state_scb_SUITE,init_per_suite}},
+     {?eh,scb,{'_',init,[[test]]}},
+     {?eh,scb,{'_',pre_init_per_suite,[ct_scope_suite_state_scb_SUITE,'$proplist',[test]]}},
+     {?eh,scb,{'_',post_init_per_suite,[ct_scope_suite_state_scb_SUITE,'$proplist','$proplist',[test]]}},
+     {?eh,tc_done,{ct_scope_suite_state_scb_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scope_suite_state_scb_SUITE,test_case}},
+     {?eh,scb,{'_',pre_init_per_testcase,[test_case,'$proplist',[test]]}},
+     {?eh,scb,{'_',post_end_per_testcase,[test_case,'$proplist',ok,[test]]}},
+     {?eh,tc_done,{ct_scope_suite_state_scb_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scope_suite_state_scb_SUITE,end_per_suite}},
+     {?eh,scb,{'_',pre_end_per_suite,[ct_scope_suite_state_scb_SUITE,'$proplist',[test]]}},
+     {?eh,scb,{'_',post_end_per_suite,[ct_scope_suite_state_scb_SUITE,'$proplist','_',[test]]}},
+     {?eh,scb,{'_',terminate,[[test]]}},
+     {?eh,tc_done,{ct_scope_suite_state_scb_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(scope_per_group_state_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scope_per_group_state_scb_SUITE,init_per_suite}},
+     {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,init_per_suite,ok}},
+
+     [{?eh,tc_start,{ct_scope_per_group_state_scb_SUITE,{init_per_group,group1,[]}}},
+      {?eh,scb,{'_',init,[[test]]}},
+      {?eh,scb,{'_',post_init_per_group,[group1,'$proplist','$proplist',[test]]}},
+      {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,{init_per_group,group1,[]},ok}},
+      
+      {?eh,tc_start,{ct_scope_per_group_state_scb_SUITE,test_case}},
+      {?eh,scb,{'_',pre_init_per_testcase,[test_case,'$proplist',[test]]}},
+      {?eh,scb,{'_',post_end_per_testcase,[test_case,'$proplist',ok,[test]]}},
+      {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,test_case,ok}},
+      
+      {?eh,tc_start,{ct_scope_per_group_state_scb_SUITE,{end_per_group,group1,[]}}},
+      {?eh,scb,{'_',pre_end_per_group,[group1,'$proplist',[test]]}},
+      {?eh,scb,{'_',post_end_per_group,[group1,'$proplist','_',[test]]}},
+      {?eh,scb,{'_',terminate,[[test]]}},
+      {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,{end_per_group,group1,[]},ok}}],
+     
+     {?eh,tc_start,{ct_scope_per_group_state_scb_SUITE,end_per_suite}},
+     {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
 test_events(fail_pre_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
@@ -750,6 +846,33 @@ test_events(state_update_scb) ->
 				 post_init_per_suite,pre_init_per_suite,
 				 init]
 			       )]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(options_scb) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{empty_scb,init,[[test]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
+     {?eh,scb,{empty_scb,pre_init_per_suite,
+	       [ct_scb_empty_SUITE,'$proplist',[test]]}},
+     {?eh,scb,{empty_scb,post_init_per_suite,
+	       [ct_scb_empty_SUITE,'$proplist','$proplist',[test]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_scb_empty_SUITE,test_case}},
+     {?eh,scb,{empty_scb,pre_init_per_testcase,[test_case,'$proplist',[test]]}},
+     {?eh,scb,{empty_scb,post_end_per_testcase,[test_case,'$proplist','_',[test]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,test_case,ok}},
+     
+     {?eh,tc_start,{ct_scb_empty_SUITE,end_per_suite}},
+     {?eh,scb,{empty_scb,pre_end_per_suite,
+	       [ct_scb_empty_SUITE,'$proplist',[test]]}},
+     {?eh,scb,{empty_scb,post_end_per_suite,[ct_scb_empty_SUITE,'$proplist','_',[test]]}},
+     {?eh,tc_done,{ct_scb_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,scb,{empty_scb,terminate,[[test]]}},
      {?eh,stop_logging,[]}
     ];
 

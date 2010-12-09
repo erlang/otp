@@ -172,9 +172,7 @@ script_start1(Parent, Args) ->
 			       ([]) -> true
 			    end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
-    SuiteCBs = get_start_opt(suite_callbacks,
-			     fun(CBs) -> [list_to_atom(CB) || CB <- CBs] end,
-			     [], Args),
+    SuiteCBs = suite_callbacks_args2opts(Args),
 
     %% check flags and set corresponding application env variables
 
@@ -2076,6 +2074,33 @@ get_start_opt(Key, IfExists, IfNotExists, Args) ->
 	    IfNotExists
     end.
 
+suite_callbacks_args2opts(Args) ->
+    suite_callbacks_args2opts(
+      proplists:get_value(suite_callbacks, Args, []),[]).
+
+suite_callbacks_args2opts([SCB,Arg,"and"| Rest],Acc) ->
+    suite_callbacks_args2opts(Rest,[{list_to_atom(SCB),
+				     parse_scb_args(Arg)}|Acc]);
+suite_callbacks_args2opts([SCB], Acc) ->
+    suite_callbacks_args2opts([SCB,"and"],Acc);
+suite_callbacks_args2opts([SCB, "and" | Rest], Acc) ->
+    suite_callbacks_args2opts(Rest,[list_to_atom(SCB)|Acc]);
+suite_callbacks_args2opts([SCB, Args], Acc) ->
+    suite_callbacks_args2opts([SCB, Args, "and"],Acc);
+suite_callbacks_args2opts([],Acc) ->
+    lists:reverse(Acc).
+
+parse_scb_args(String) ->
+    try
+	true = io_lib:printable_list(String),
+	{ok,Toks,_} = erl_scan:string(String++"."),
+	{ok, Args} = erl_parse:parse_term(Toks),
+	Args
+    catch _:_ ->
+	    String
+    end.
+
+
 event_handler_args2opts(Args) ->
     case proplists:get_value(event_handler, Args) of
 	undefined ->
@@ -2205,6 +2230,20 @@ opts2args(EnvStartOpts) ->
 			  [{event_handler_init,lists:reverse(StrsR)}];
 		     ({suite_callbacks,[]}) ->
 			  [];
+		     ({suite_callbacks,SCBs}) when is_list(SCBs) ->
+			  io:format(user,"suite_callbacks: ~p",[SCBs]),
+			  Strs = lists:flatmap(
+				   fun({SCB,Arg}) ->
+					   [atom_to_list(SCB),
+					    lists:flatten(
+					      io_lib:format("~p",[Arg])),
+					    "and"];
+				      (SCB) when is_atom(SCB) ->
+					   [atom_to_list(SCB),"and"]
+				   end,SCBs),
+			  [_LastAnd|StrsR] = lists:reverse(Strs),
+			  io:format(user,"return: ~p",[lists:reverse(StrsR)]),
+			  [{suite_callbacks,lists:reverse(StrsR)}];
 		     ({Opt,As=[A|_]}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
 		     ({Opt,Strs=[S|_]}) when is_list(S) ->
