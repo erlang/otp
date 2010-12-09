@@ -15,6 +15,6 @@
 
 
 {intAgentUDPPort, 4000}.
-{intAgentIpAddress, [127,0,0,1]}.
+{intAgentIpAddress, %ADDR%}.
 {snmpEngineID, "foo"}.
 {snmpEngineMaxMessageSize, 484}.

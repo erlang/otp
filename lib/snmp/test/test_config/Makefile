@@ -30,54 +30,81 @@ VSN = $(SNMP_VSN)
 
 
 # ----------------------------------------------------
+# Configured variables
+# ----------------------------------------------------
+# PERL = @PERL@
+PERL = perl
+
+
+# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 
 include modules.mk
 
+ERL_TARGETS = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+
 SYS_CONFIG_SRCS     = $(SYS_CONFIG_FILES:%=%.src)
 AGENT_CONFIG_SRCS   = $(AGENT_CONFIG_FILES:%=%.src)
 MANAGER_CONFIG_SRCS = $(MANAGER_CONFIG_FILES:%=%.src)
+
+CONFIG_FILES = \
+	$(SYS_CONFIG_FILES) \
+	$(AGENT_CONFIG_FILES) \
+	$(MANAGER_CONFIG_FILES)
+
+TARGETS = \
+	$(ERL_TARGETS) \
+	$(CONFIG_FILES)
 
 
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)
-
-
-# ----------------------------------------------------
-# SNMP FLAGS
-# ----------------------------------------------------
+ifeq ($(TESTROOT),)
+TESTROOT=/tmp
+endif
+RELSYSDIR = $(TESTROOT)
 
 
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 
+EBIN = .
+
+ERL_COMPILE_FLAGS += +'{parse_transform,sys_pre_attributes}' \
+                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+
+ifeq ($(ADDR),)
+ADDR = $(shell erl -noshell -s test_config ip_address -s init stop)
+endif
+
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(SYS_CONFIG_FILES) $(AGENT_CONFIG_FILES) $(MANAGER_CONFIG_FILES)
+tests debug opt: $(TARGETS) 
 
 clean:
-	rm -f $(SYS_CONFIG_FILES)
-	rm -f $(AGENT_CONFIG_FILES)
-	rm -f $(MANAGER_CONFIG_FILES)
+	rm -f $(CONFIG_FILES)
+	rm -f $(ERL_TARGETS)
 	rm -f core
 
 docs:
 
 $(SYS_CONFIG_FILES): $(SYS_CONFIG_SRCS)
-	@echo "sys: $< -> $@"
+	@echo "$< -> $@"
+	$(PERL) -p -e 's?%DIR%?$(RELSYSDIR)? ' < $< > $@
 
 $(AGENT_CONFIG_FILES): $(AGENT_CONFIG_SRCS)
-	@echo "agent: $< -> $@"
+	@echo "$< -> $@"
+	$(PERL) -p -e 's?%ADDR%?$(ADDR)? ' < $< > $@
 
 $(MANAGER_CONFIG_FILES): $(MANAGER_CONFIG_SRCS)
-	@echo "manager: $< -> $@"
+	@echo "$< -> $@"
+	$(PERL) -p -e 's?%ADDR%?$(ADDR)? ' < $< > $@
 
 
 # ----------------------------------------------------
@@ -114,6 +141,9 @@ release_docs_spec:
 
 
 info:
+	@echo ""
+	@echo "RELSYSDIR            = $(RELSYSDIR)"
+	@echo ""
 	@echo "SYS_CONFIG_SRCS      = $(SYS_CONFIG_SRCS)"
 	@echo "SYS_CONFIG_FILES     = $(SYS_CONFIG_FILES)"
 	@echo ""
@@ -122,6 +152,8 @@ info:
 	@echo ""
 	@echo "MANAGER_CONFIG_SRCS  = $(MANAGER_CONFIG_SRCS)"
 	@echo "MANAGER_CONFIG_FILES = $(MANAGER_CONFIG_FILES)"
+	@echo ""
+	@echo "ADDR  = $(ADDR)"
 	@echo ""
 
 

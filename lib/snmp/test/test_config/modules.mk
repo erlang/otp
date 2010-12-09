@@ -35,3 +35,6 @@ AGENT_CONFIG_FILES = \
 MANAGER_CONFIG_FILES = \
 	manager/manager.conf \
 	manager/usm.conf
+
+MODULES = \
+	test_config
