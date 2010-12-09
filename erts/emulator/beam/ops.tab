@@ -279,6 +279,11 @@ move2 x y x y
 move2 y x y x
 move2 x x x x
 
+# The compiler almost never generates a "move Literal y(Y)" instruction,
+# so let's cheat if we encounter one.
+move S=n D=y => init D
+move S=c D=y => move S x | move x D
+
 %macro:move Move -pack -gen_dest
 move x x
 move x y
@@ -289,14 +294,9 @@ move r x
 move r y
 move c r
 move c x
-move c y
 move n x
 move n r
 move y y
-
-%cold
-move s d
-%hot
 
 # Receive operations.
 
