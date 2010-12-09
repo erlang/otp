@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
-	 io_fread_newlines/1]).
+	 io_fread_newlines/1, otp_8989/1]).
 
 %-define(debug, true).
 
@@ -62,7 +62,7 @@ all() ->
      otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
-     io_fread_newlines].
+     io_fread_newlines, otp_8989].
 
 groups() -> 
     [].
@@ -1917,3 +1917,81 @@ read_newlines(Fd, Acc, N0) ->
 	eof ->
 	    {lists:reverse(Acc),N0}
     end.
+
+
+
+otp_8989(doc) ->
+    "OTP-8989 io:format for ~F.Ps ignores P in some cases";
+otp_8989(Suite) when is_list(Suite) ->
+    Hello = "Hello",
+    ?line " Hello" = fmt("~6.6s", [Hello]),
+    ?line " Hello" = fmt("~*.6s", [6,Hello]),
+    ?line " Hello" = fmt("~6.*s", [6,Hello]),
+    ?line " Hello" = fmt("~*.*s", [6,6,Hello]),
+    %%
+    ?line " Hello" = fmt("~6.5s", [Hello]),
+    ?line " Hello" = fmt("~*.5s", [6,Hello]),
+    ?line " Hello" = fmt("~6.*s", [5,Hello]),
+    ?line " Hello" = fmt("~*.*s", [6,5,Hello]),
+    %%
+    ?line "  Hell" = fmt("~6.4s", [Hello]),
+    ?line "  Hell" = fmt("~*.4s", [6,Hello]),
+    ?line "  Hell" = fmt("~6.*s", [4,Hello]),
+    ?line "  Hell" = fmt("~*.*s", [6,4,Hello]),
+    %%
+    ?line "Hello" = fmt("~5.5s", [Hello]),
+    ?line "Hello" = fmt("~*.5s", [5,Hello]),
+    ?line "Hello" = fmt("~5.*s", [5,Hello]),
+    ?line "Hello" = fmt("~*.*s", [5,5,Hello]),
+    %%
+    ?line " Hell" = fmt("~5.4s", [Hello]),
+    ?line " Hell" = fmt("~*.4s", [5,Hello]),
+    ?line " Hell" = fmt("~5.*s", [4,Hello]),
+    ?line " Hell" = fmt("~*.*s", [5,4,Hello]),
+    %%
+    ?line "Hell" = fmt("~4.4s", [Hello]),
+    ?line "Hell" = fmt("~*.4s", [4,Hello]),
+    ?line "Hell" = fmt("~4.*s", [4,Hello]),
+    ?line "Hell" = fmt("~*.*s", [4,4,Hello]),
+    %%
+    ?line " Hel" = fmt("~4.3s", [Hello]),
+    ?line " Hel" = fmt("~*.3s", [4,Hello]),
+    ?line " Hel" = fmt("~4.*s", [3,Hello]),
+    ?line " Hel" = fmt("~*.*s", [4,3,Hello]),
+    %%
+    %%
+    ?line "Hello " = fmt("~-6.6s", [Hello]),
+    ?line "Hello " = fmt("~*.6s", [-6,Hello]),
+    ?line "Hello " = fmt("~-6.*s", [6,Hello]),
+    ?line "Hello " = fmt("~*.*s", [-6,6,Hello]),
+    %%
+    ?line "Hello " = fmt("~-6.5s", [Hello]),
+    ?line "Hello " = fmt("~*.5s", [-6,Hello]),
+    ?line "Hello " = fmt("~-6.*s", [5,Hello]),
+    ?line "Hello " = fmt("~*.*s", [-6,5,Hello]),
+    %%
+    ?line "Hell  " = fmt("~-6.4s", [Hello]),
+    ?line "Hell  " = fmt("~*.4s", [-6,Hello]),
+    ?line "Hell  " = fmt("~-6.*s", [4,Hello]),
+    ?line "Hell  " = fmt("~*.*s", [-6,4,Hello]),
+    %%
+    ?line "Hello" = fmt("~-5.5s", [Hello]),
+    ?line "Hello" = fmt("~*.5s", [-5,Hello]),
+    ?line "Hello" = fmt("~-5.*s", [5,Hello]),
+    ?line "Hello" = fmt("~*.*s", [-5,5,Hello]),
+    %%
+    ?line "Hell " = fmt("~-5.4s", [Hello]),
+    ?line "Hell " = fmt("~*.4s", [-5,Hello]),
+    ?line "Hell " = fmt("~-5.*s", [4,Hello]),
+    ?line "Hell " = fmt("~*.*s", [-5,4,Hello]),
+    %%
+    ?line "Hell" = fmt("~-4.4s", [Hello]),
+    ?line "Hell" = fmt("~*.4s", [-4,Hello]),
+    ?line "Hell" = fmt("~-4.*s", [4,Hello]),
+    ?line "Hell" = fmt("~*.*s", [-4,4,Hello]),
+    %%
+    ?line "Hel " = fmt("~-4.3s", [Hello]),
+    ?line "Hel " = fmt("~*.3s", [-4,Hello]),
+    ?line "Hel " = fmt("~-4.*s", [3,Hello]),
+    ?line "Hel " = fmt("~*.*s", [-4,3,Hello]),
+    ok.
