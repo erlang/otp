@@ -40,7 +40,8 @@
 	 sticky_wlock_table/3,
 	 wlock/3,
 	 wlock_no_exist/4,
-	 wlock_table/3
+	 wlock_table/3,
+	 load_lock_table/3
 	]).
 
 %% sys callback functions
@@ -657,6 +658,7 @@ rwlock(Tid, Store, Oid) ->
 	    case need_lock(Store, Tab, Key, Lock)  of
 		yes ->
 		    Ns = w_nodes(Tab),
+		    check_majority(Tab, Ns),
 		    Res = get_rwlocks_on_nodes(Ns, rwlock, Node, Store, Tid, Oid),
 		    ?ets_insert(Store, {{locks, Tab, Key}, Lock}),
 		    Res;
@@ -681,6 +683,28 @@ w_nodes(Tab) ->
     case Nodes of
 	[_ | _] -> Nodes;
 	_ ->  mnesia:abort({no_exists, Tab})
+    end.
+
+%% If the table has the 'majority' flag set, we can
+%% only take a write lock if we see a majority of the
+%% nodes.
+
+check_majority(true, Tab, HaveNs) ->
+    check_majority(Tab, HaveNs);
+check_majority(false, _, _) ->
+    ok.
+
+check_majority(Tab, HaveNs) ->
+    case ?catch_val({Tab, majority}) of
+	true ->
+	    case mnesia_lib:have_majority(Tab, HaveNs) of
+		true ->
+		    ok;
+		false ->
+		    mnesia:abort({no_majority, Tab})
+	    end;
+	_ ->
+	    ok
     end.
 
 %% aquire a sticky wlock, a sticky lock is a lock
@@ -773,10 +797,14 @@ sticky_wlock_table(Tid, Store, Tab) ->
 %% local store when we have aquired the lock.
 %% 
 wlock(Tid, Store, Oid) ->
+    wlock(Tid, Store, Oid, _CheckMajority = true).
+
+wlock(Tid, Store, Oid, CheckMajority) ->
     {Tab, Key} = Oid,
     case need_lock(Store, Tab, Key, write) of
 	yes ->
 	    Ns = w_nodes(Tab),
+	    check_majority(CheckMajority, Tab, Ns),
 	    Op = {self(), {write, Tid, Oid}},
 	    ?ets_insert(Store, {{locks, Tab, Key}, write}),
 	    get_wlocks_on_nodes(Ns, Ns, Store, Op, Oid);
@@ -788,6 +816,9 @@ wlock(Tid, Store, Oid) ->
 
 wlock_table(Tid, Store, Tab) ->
     wlock(Tid, Store, {Tab, ?ALL}).
+
+load_lock_table(Tid, Store, Tab) ->
+    wlock(Tid, Store, {Tab, ?ALL}, _CheckMajority = false).
 
 %% Write lock even if the table does not exist
 

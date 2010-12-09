@@ -702,7 +702,7 @@ send_table(Pid, Tab, RemoteS) ->
 prepare_copy(Pid, Tab, Storage) ->
     Trans =
 	fun() ->
-		mnesia:write_lock_table(Tab),
+		mnesia:lock_table(Tab, load),
 		mnesia_subscr:subscribe(Pid, {table, Tab}),
 		update_where_to_write(Tab, node(Pid)),
 		mnesia_lib:db_fixtable(Storage, Tab, true),

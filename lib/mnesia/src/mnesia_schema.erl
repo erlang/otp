@@ -179,6 +179,7 @@ do_set_schema(Tab, Cs) ->
     set({Tab, load_order}, Cs#cstruct.load_order),
     set({Tab, access_mode}, Cs#cstruct.access_mode),
     set({Tab, majority}, Cs#cstruct.majority),
+    set({Tab, all_nodes}, mnesia_lib:cs_to_nodes(Cs)),
     set({Tab, snmp}, Cs#cstruct.snmp),
     set({Tab, user_properties}, Cs#cstruct.user_properties),
     [set({Tab, user_property, element(1, P)}, P) || P <- Cs#cstruct.user_properties],

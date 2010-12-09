@@ -1259,23 +1259,15 @@ needs_majority(Tab, #prep{majority = M}) ->
 		false ->
 		    [{Tab, []} | M];
 		true ->
-		    CopyHolders = all_copy_holders(Tab),
+		    CopyHolders = val({Tab, all_nodes}),
 		    [{Tab, CopyHolders} | M]
 	    end
     end.
 
-all_copy_holders(Tab) ->
-    DC = val({Tab, disc_copies}),
-    DO = val({Tab, disc_only_copies}),
-    RC = val({Tab, ram_copies}),
-    DC ++ DO ++ RC.
-
 have_majority([], _) ->
     ok;
 have_majority([{Tab, AllNodes} | Rest], Nodes) ->
-    Missing = AllNodes -- Nodes,
-    Present = AllNodes -- Missing,
-    case length(Present) > length(Missing) of
+    case mnesia_lib:have_majority(Tab, AllNodes, Nodes) of
 	true ->
 	    have_majority(Rest, Nodes);
 	false ->
