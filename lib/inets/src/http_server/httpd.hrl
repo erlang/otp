@@ -16,12 +16,12 @@
 %%
 %% %CopyrightEnd%
 %%
-%% This is a simple wrapper for code that has not been updated to
+%% This is a simple wrapper for code that has not been updated to 
 %% handle the move of this file to the include dir.
 
--ifndef(src_mod_auth_hrl).
--define(src_mod_auth_hrl, true).
+-ifndef(src_httpd_hrl).
+-define(src_httpd_hrl, true).
 
--include_lib("inets/include/mod_auth.hrl").
+-include_lib("inets/include/httpd.hrl").
 
--endif. % -ifdef(src_mod_auth_hrl).
+-endif. % -ifdef(src_httpd_hrl).

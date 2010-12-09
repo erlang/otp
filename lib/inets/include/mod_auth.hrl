@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,12 +16,18 @@
 %%
 %% %CopyrightEnd%
 %%
-%% This is a simple wrapper for code that has not been updated to
-%% handle the move of this file to the include dir.
+%%
 
--ifndef(src_mod_auth_hrl).
--define(src_mod_auth_hrl, true).
+-ifndef(mod_auth_hrl).
+-define(mod_auth_hrl, true).
 
--include_lib("inets/include/mod_auth.hrl").
+-record(httpd_user,
+	{username,
+	 password,
+	 user_data}).
 
--endif. % -ifdef(src_mod_auth_hrl).
+-record(httpd_group,
+	{name,
+	 userlist}).
+
+-endif. % -ifdef(mod_auth_hrl).
