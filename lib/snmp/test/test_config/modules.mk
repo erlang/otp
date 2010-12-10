@@ -37,4 +37,4 @@ MANAGER_CONFIG_FILES = \
 	manager/usm.conf
 
 MODULES = \
-	test_config
+	snmp_test_config

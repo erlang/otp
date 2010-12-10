@@ -336,6 +336,8 @@ get_target_addr_ext_mms(TDomain, TAddress, Key) ->
 		    get_target_addr_ext_mms(TDomain, TAddress, NextKey)
 	    end
     end.
+
+
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
@@ -347,7 +349,7 @@ snmpCommunityTable(print) ->
     PrintRow = 
 	fun(Prefix, Row) ->
 		lists:flatten(
-		  io_lib:format("~sIndex:             ~p"
+		  io_lib:format("~sIndex:           ~p"
 				"~n~sName:            ~p"
 				"~n~sSecurityName:    ~p"
 				"~n~sContextEngineID: ~p"

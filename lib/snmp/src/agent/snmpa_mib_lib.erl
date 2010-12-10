@@ -90,9 +90,9 @@ print_variables(Variables) when is_list(Variables) ->
     ok.
 
 print_variable(Variable, {value, Val}, Prefix) when is_atom(Variable) ->
-    io:format("~w~s => ~p~n", [Variable, Prefix, Val]);
+    io:format("~w~s=> ~p~n", [Variable, Prefix, Val]);
 print_variable(Variable, Error, Prefix) when is_atom(Variable) ->
-    io:format("~w~s => ERROR: ~p~n", [Variable, Prefix, Error]).
+    io:format("~w~s=> [e] ~p~n", [Variable, Prefix, Error]).
 
 print_variables_prefixify(Variables) ->
     MaxVarLength = print_variables_maxlength(Variables),
@@ -139,10 +139,13 @@ print_table(Table, DB, FOI, PrintRow) ->
     print_table(Table, TableInfo, PrintRow).
 
 print_table(Table, TableInfo, PrintRow) when is_function(PrintRow, 2) ->
-    io:format("~w => ~n", [Table]),
+    io:format("~w =>", [Table]),
     do_print_table(TableInfo, PrintRow).
 
+do_print_table({ok, [] = _TableInfo}, _PrintRow) ->
+    io:format(" -~n", []);
 do_print_table({ok, TableInfo}, PrintRow) when is_function(PrintRow, 2) ->
+    io:format("~n", []),
     lists:foreach(fun({RowIdx, Row}) ->
 			  io:format("   ~w => ~n~s~n", 
 				    [RowIdx, PrintRow("      ", Row)])

@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 
--module(test_config).
+-module(snmp_test_config).
 
 -export([ip_address/0, ip_address2/0]).
 

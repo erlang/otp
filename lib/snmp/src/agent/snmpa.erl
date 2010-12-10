@@ -326,6 +326,9 @@ print_mib_info() ->
     MibsInfo = mibs_info(),
     print_mib_info(MibsInfo).
 
+print_mib_info([]) ->
+    io:format("~n", []),
+    ok;
 print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
     print_mib_variables2(Mod, Variables),
@@ -379,9 +382,9 @@ make_pretty_mib(snmp_view_based_acm_mib) ->
     "SNMP-VIEW-BASED-ACM-MIB";
 make_pretty_mib(snmp_target_mib) ->
     "SNMP-TARGET-MIB";
-make_pretty_mib(snmp_target_mib) ->
+make_pretty_mib(snmp_community_mib) ->
     "SNMP-COMMUNITY-MIB";
-make_pretty_mib(snmp_target_mib) ->
+make_pretty_mib(snmp_notification_mib) ->
     "SNMP-NOTIFICATION-MIB";
 make_pretty_mib(snmp_target_mib) ->
     "SNMP-USER-BASED-SM-MIB";
