@@ -29,7 +29,54 @@
     <file>notes.xml</file>
   </header>
 
- <section><title>Ssh 1.1.11</title>
+ <section><title>Ssh 1.1.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The fix regarding OTP-8863 was not included in the previous
+            version as stated.</p>
+          <p>
+	    Own Id: OTP-8908</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+ <section><title>Ssh 1.1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The processes ssh_subsystem_sup and one ssh_channel_sup
+	    was not terminated when a connection was closed.</p>
+          <p>
+	    Own Id: OTP-8807</p>
+        </item>
+        <item>
+          <p>
+	    The ssh_system_sup did not catch noproc and shutdown
+	    messages.</p>
+          <p>
+	    Own Id: OTP-8863</p>
+        </item>
+        <item>
+          <p>
+	    In some cases a crash report was generated when a
+	    connection was closing down. This was caused by a race
+	    condition between two processes.</p>
+          <p>
+	    Own Id: OTP-8881 Aux Id: seq11656, seq11648 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Ssh 1.1.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

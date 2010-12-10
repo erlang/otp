@@ -19,9 +19,10 @@
 
 {"%VSN%",	
  [
-  {"1.1.10", [{load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
-  {"1.1.9", [{load_module, ssh_channel, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
+  {"1.1.12", [{load_module, ssh_system_sup, soft_purge, soft_purge, []}]},
+  {"1.1.11", [{restart_application, ssh}]},
+  {"1.1.10", [{restart_application, ssh}]},
+  {"1.1.9", [{restart_application, ssh}]},
   {"1.1.8", [{restart_application, ssh}]},
   {"1.1.7", [{restart_application, ssh}]},
   {"1.1.6", [{restart_application, ssh}]},
@@ -31,9 +32,10 @@
   {"1.1.2", [{restart_application, ssh}]}
  ],
  [
-  {"1.1.10", [{load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
-  {"1.1.9", [{load_module, ssh_channel, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
+  {"1.1.12", [{load_module, ssh_system_sup, soft_purge, soft_purge, []}]},
+  {"1.1.11", [{restart_application, ssh}]},
+  {"1.1.10", [{restart_application, ssh}]},
+  {"1.1.9", [{restart_application, ssh}]},
   {"1.1.8", [{restart_application, ssh}]},
   {"1.1.7", [{restart_application, ssh}]},
   {"1.1.6", [{restart_application, ssh}]},

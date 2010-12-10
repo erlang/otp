@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,46 @@
     <file>notes.xml</file>
   </header>
 
+  <section><title>cosNotification 1.1.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Switched from using the deprecated regexp to re instead.</p>
+          <p>
+	    Own Id: OTP-8846</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+    <title>cosNotification 1.1.14</title>
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Test suites published.</p>
+          <p>
+            Own Id: OTP-8543 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Added missing trailing bracket to define in hrl-file.</p>
+          <p>Own Id: OTP-8489 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
   <section>
     <title>cosNotification 1.1.13</title>
 
@@ -39,15 +79,15 @@
       <list type="bulleted">
         <item>
           <p>Removed superfluous VT in the documentation.</p>
-          <p>Own id: OTP-8353 Aux Id:</p>
+          <p>Own Id: OTP-8353 Aux Id:</p>
         </item>
         <item>
           <p>Removed superfluous backslash in the documentation.</p>
-          <p>Own id: OTP-8354 Aux Id:</p>
+          <p>Own Id: OTP-8354 Aux Id:</p>
         </item>
         <item>
           <p>The documentation EIX file was not generated.</p>
-          <p>Own id: OTP-8355 Aux Id:</p>
+          <p>Own Id: OTP-8355 Aux Id:</p>
         </item>
       </list>
     </section>
@@ -79,7 +119,7 @@
         <item>
           <p>Obsolete guards, e.g. record vs is_record, has been changed
              to avoid compiler warnings.</p>
-          <p>Own id: OTP-7987</p>
+          <p>Own Id: OTP-7987</p>
         </item>
       </list>
     </section>
@@ -93,7 +133,7 @@
       <list type="bulleted">
         <item>
           <p>Updated file headers.</p>
-          <p>Own id: OTP-7837 Aux Id:</p>
+          <p>Own Id: OTP-7837 Aux Id:</p>
         </item>
       </list>
     </section>
@@ -107,7 +147,7 @@
       <list type="bulleted">
         <item>
           <p>Documentation source included in open source releases.</p>
-          <p>Own id: OTP-7595 Aux Id:</p>
+          <p>Own Id: OTP-7595 Aux Id:</p>
         </item>
       </list>
     </section>
@@ -122,7 +162,7 @@
         <item>
           <p>The CosNotification proxy objects ignored the gcLimit option, instead
              the gcTime value was used.</p>
-          <p>Own id: OTP-7553 Aux Id:</p>
+          <p>Own Id: OTP-7553 Aux Id:</p>
         </item>
       </list>
     </section>
@@ -136,7 +176,7 @@
       <list type="bulleted">
         <item>
           <p>Updated file headers.</p>
-          <p>Own id: OTP-7011</p>
+          <p>Own Id: OTP-7011</p>
         </item>
       </list>
     </section>
@@ -150,7 +190,7 @@
       <list type="bulleted">
         <item>
           <p>The documentation source has been converted from SGML to XML.</p>
-          <p>Own id: OTP-6754</p>
+          <p>Own Id: OTP-6754</p>
         </item>
       </list>
     </section>
@@ -164,7 +204,7 @@
       <list type="bulleted">
         <item>
           <p>Minor Makefile changes.</p>
-          <p>Own id: OTP-6701</p>
+          <p>Own Id: OTP-6701</p>
         </item>
       </list>
     </section>
@@ -178,7 +218,7 @@
       <list type="bulleted">
         <item>
           <p>Removed some unused code.</p>
-          <p>Own id: OTP-6527</p>
+          <p>Own Id: OTP-6527</p>
         </item>
       </list>
     </section>
@@ -194,7 +234,7 @@
           <p>A user can now define the QoS EventReliability to be 
             Persistent. Note, this is only a lightweight version
             and events will be lost if a proxy is terminated.</p>
-          <p>Own id: OTP-5923</p>
+          <p>Own Id: OTP-5923</p>
         </item>
       </list>
     </section>
@@ -210,7 +250,7 @@
           <p>Possible to configure cosNotification not to type check,
             by invoking corba_object:is_a/2, supplied IOR:s. When
             a type check fails, the feedback has been improved.</p>
-          <p>Own id: OTP-5823 Aux Id: seq10143</p>
+          <p>Own Id: OTP-5823 Aux Id: seq10143</p>
         </item>
       </list>
     </section>
@@ -224,7 +264,7 @@
       <list type="bulleted">
         <item>
           <p>The app-file contained duplicated modules.</p>
-          <p>Own id: OTP-4976</p>
+          <p>Own Id: OTP-4976</p>
         </item>
       </list>
     </section>
@@ -243,7 +283,7 @@
             Interface Repository. It is necessary to re-compile all IDL-files
             and use COS-applications, including Orber, compiled with
             IC-4.2.</p>
-          <p>Own id: OTP-4576</p>
+          <p>Own Id: OTP-4576</p>
         </item>
       </list>
     </section>
