@@ -688,6 +688,11 @@ extern int count_instructions;
     SET_I((BeamInstr *) CallDest);			\
     Dispatch();
 
+#define MoveJump(Src)				\
+     r(0) = (Src);				\
+     SET_I((BeamInstr *) Arg(0));		\
+     Goto(*I);
+
 #define GetList(Src, H, T) do {			\
    Eterm* tmp_ptr = list_val(Src);		\
    H = CAR(tmp_ptr);				\

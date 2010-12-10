@@ -279,6 +279,14 @@ system_limit j
 
 move R R =>
 
+move C=cxy r | jump Lbl => move_jump Lbl C
+
+%macro: move_jump MoveJump -nonext
+move_jump f n
+move_jump f c
+move_jump f x
+move_jump f y
+
 move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 move Y1=y X1=x | move Y2=y X2=x => move2 Y1 X1 Y2 X2
 move X1=x X2=x | move X3=x X4=x => move2 X1 X2 X3 X4
