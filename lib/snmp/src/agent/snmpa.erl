@@ -378,6 +378,7 @@ print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
     print_mib_variables2(Mod, Variables),
     print_mib_tables2(Mod, Tables),
+    io:format("~n", []),
     print_mib_info(MibsInfo).
 
 
@@ -394,9 +395,12 @@ print_mib_tables([{Mod, Tabs}|MibTabs])
 print_mib_tables([_|MibTabs]) ->
     print_mib_tables(MibTabs).
 
+print_mib_tables(_Mod, [] = _Tables) ->
+    ok;
 print_mib_tables(Mod, Tables) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
-    print_mib_tables2(Mod, Tables).
+    print_mib_tables2(Mod, Tables), 
+    io:format("~n", []).
 
 print_mib_tables2(Mod, Tables) ->
     [(catch Mod:Table(print)) || Table <- Tables].
@@ -415,12 +419,16 @@ print_mib_variables([{Mod, Vars}|MibVars])
 print_mib_variables([_|MibVars]) ->
     print_mib_variables(MibVars).
 
+print_mib_variables(_Mod, [] = _Vars) ->
+    ok;
 print_mib_variables(Mod, Vars) ->
     io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
-    print_mib_variables2(Mod, Vars).
+    print_mib_variables2(Mod, Vars), 
+    io:format("~n", []).
 
 print_mib_variables2(Mod, Variables) ->
-    [(catch Mod:Variable(print)) || Variable <- Variables].
+    Vars = [{Var, (catch Mod:Var(get))} || Var <- Variables],
+    snmpa_mib_lib:print_variables(Vars).
 
 
 make_pretty_mib(snmp_view_based_acm_mib) ->

@@ -129,11 +129,6 @@ print_tables(Tables) when is_list(Tables) ->
 		  end, Tables),
     ok.
 
-%% print_table(Table, DB, FOI, PrintRow) ->
-%%     TableInfo = get_table(DB(Table), FOI(Table)),
-%%     print_table(Table, TableInfo, PrintRow),
-%%     ok.
-
 print_table(Table, DB, FOI, PrintRow) ->
     TableInfo = get_table(DB, FOI),
     print_table(Table, TableInfo, PrintRow).
@@ -149,8 +144,7 @@ do_print_table({ok, TableInfo}, PrintRow) when is_function(PrintRow, 2) ->
     lists:foreach(fun({RowIdx, Row}) ->
 			  io:format("   ~w => ~n~s~n", 
 				    [RowIdx, PrintRow("      ", Row)])
-		  end, TableInfo),
-    io:format("~n", []);
+		  end, TableInfo);
 do_print_table({error, {invalid_rowindex, BadRowIndex, []}}, _PrintRow) ->
     io:format("Error: Bad rowindex ~w~n", [BadRowIndex]);
 do_print_table({error, {invalid_rowindex, BadRowIndex, TableInfo}}, PrintRow) ->

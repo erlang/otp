@@ -446,7 +446,9 @@ gen_counter(get, Counter) ->
 %% This is the instrumentation function for sysUpTime.
 %%-----------------------------------------------------------------
 sysUpTime(print) ->
-    sys_up_time(print).
+    sys_up_time(print);
+sysUpTime(get) ->
+    sys_up_time(get).
 
 sys_up_time() ->
     snmpa:sys_up_time().
@@ -464,7 +466,10 @@ sys_up_time(get) ->
 %%-----------------------------------------------------------------
 
 snmpEnableAuthenTraps(print) ->
-    snmp_enable_authen_traps(print).
+    snmp_enable_authen_traps(print);
+snmpEnableAuthenTraps(get) ->
+    snmp_enable_authen_traps(get).
+
 
 snmp_enable_authen_traps(print) ->
     VarAndValue = [{snmpEnableAuthenTraps,  snmp_enable_authen_traps(get)}],
@@ -484,10 +489,12 @@ snmp_enable_authen_traps(set, NewVal) ->
 
 
 %%-----------------------------------------------------------------
-%% This is the instrumentation function for sysObjectId
+%% This is the instrumentation function for sysObjectID
 %%-----------------------------------------------------------------
 sysObjectID(print) ->
-    sys_object_id(print).
+    sys_object_id(print);
+sysObjectID(get) ->
+    sys_object_id(get).
 
 sys_object_id(print) ->
     VarAndValue = [{sysObjectID,  sys_object_id(get)}],
