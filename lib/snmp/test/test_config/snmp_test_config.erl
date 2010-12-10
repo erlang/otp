@@ -19,9 +19,14 @@
 
 -module(test_config).
 
--export([ip_address/0]).
+-export([ip_address/0, ip_address2/0]).
 
 ip_address() ->
     {ok, Hostname} = inet:gethostname(),
     {ok, Address}  = inet:getaddr(Hostname, inet),
     io:format("~w", [tuple_to_list(Address)]).
+
+ip_address2() ->
+    {ok, Hostname} = inet:gethostname(),
+    {ok, {A1, A2, A3, A4}}  = inet:getaddr(Hostname, inet),
+    io:format("~w.~w.~w.~w", [A1, A2, A3, A4]).

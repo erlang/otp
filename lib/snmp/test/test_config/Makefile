@@ -68,7 +68,7 @@ RELSYSDIR = $(TESTROOT)
 
 
 # ----------------------------------------------------
-# FLAGS
+# FLAGS AND VARIABLES
 # ----------------------------------------------------
 
 EBIN = .
@@ -77,8 +77,25 @@ ERL_COMPILE_FLAGS += +'{parse_transform,sys_pre_attributes}' \
                      +'{attribute,insert,app_vsn,$(APP_VSN)}'
 
 ifeq ($(ADDR),)
-ADDR = $(shell erl -noshell -s test_config ip_address -s init stop)
+ADDR = $(shell erl -noshell -s snmp_test_config ip_address -s init stop)
 endif
+
+ifeq ($(TARGET_NAME_PRE),)
+TARGET_NAME_PRE = $(shell erl -noshell -s snmp_test_config ip_address2 -s init stop)
+endif
+
+ifeq ($(SYS_CONTACT),)
+SYS_CONTACT = foo@bar.ericsson.se
+endif
+
+ifeq ($(SYS_LOCATION),)
+SYS_LOCATION = Erlang/OTP
+endif
+
+ifeq ($(SYS_NAME),)
+SYS_NAME = FOO
+endif
+
 
 
 # ----------------------------------------------------
@@ -94,15 +111,19 @@ clean:
 
 docs:
 
-$(SYS_CONFIG_FILES): $(SYS_CONFIG_SRCS)
+%.config: %.config.src
 	@echo "$< -> $@"
 	$(PERL) -p -e 's?%DIR%?$(RELSYSDIR)? ' < $< > $@
 
-$(AGENT_CONFIG_FILES): $(AGENT_CONFIG_SRCS)
+agent/%.conf: agent/%.conf.src
 	@echo "$< -> $@"
-	$(PERL) -p -e 's?%ADDR%?$(ADDR)? ' < $< > $@
+	sed -e 's?%ADDR%?$(ADDR)? ' \
+            -e 's?%SYS_CONTACT%?$(SYS_CONTACT)? ' \
+            -e 's?%SYS_LOCATION%?$(SYS_LOCATION)? ' \
+            -e 's?%SYS_NAME%?$(SYS_NAME)? ' \
+            -e 's?%TARGET_NAME_PRE%?$(TARGET_NAME_PRE)? ' < $< > $@
 
-$(MANAGER_CONFIG_FILES): $(MANAGER_CONFIG_SRCS)
+manager/%.conf: manager/%.conf.src
 	@echo "$< -> $@"
 	$(PERL) -p -e 's?%ADDR%?$(ADDR)? ' < $< > $@
 
@@ -153,7 +174,8 @@ info:
 	@echo "MANAGER_CONFIG_SRCS  = $(MANAGER_CONFIG_SRCS)"
 	@echo "MANAGER_CONFIG_FILES = $(MANAGER_CONFIG_FILES)"
 	@echo ""
-	@echo "ADDR  = $(ADDR)"
+	@echo "ADDR            = $(ADDR)"
+	@echo "TARGET_NAME_PRE = $(TARGET_NAME_PRE)"
 	@echo ""
 
 
