@@ -405,7 +405,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
 	case 'x':		/* x(N) */
 	    if (reg_index(ap[0]) == 0) {
-		erts_print(to, to_arg, "X[0]");
+		erts_print(to, to_arg, "x[0]");
 	    } else {
 		erts_print(to, to_arg, "x(%d)", reg_index(ap[0]));
 	    }
