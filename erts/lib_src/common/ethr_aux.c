@@ -51,10 +51,6 @@ int ethr_not_inited__ = 1;
 
 ethr_memory_allocators ethr_mem__ = ETHR_MEM_ALLOCS_DEF_INITER__;
 
-#ifndef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
-ethr_atomic_protection_t ethr_atomic_protection__[1 << ETHR_ATOMIC_ADDR_BITS];
-#endif
-
 void *(*ethr_thr_prepare_func__)(void) = NULL;
 void (*ethr_thr_parent_func__)(void *) = NULL;
 void (*ethr_thr_child_func__)(void *) = NULL;
@@ -138,16 +134,9 @@ ethr_init_common__(ethr_init_data *id)
 #endif
     ethr_max_stack_size__ = ETHR_B2KW(ethr_max_stack_size__);
 
-#ifndef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
-    {
-	int i;
-	for (i = 0; i < (1 << ETHR_ATOMIC_ADDR_BITS); i++) {
-	    res = ethr_spinlock_init(&ethr_atomic_protection__[i].u.lck);
-	    if (res != 0)
-		return res;
-	}
-    }
-#endif
+    res = ethr_init_atomics();
+    if (res != 0)
+	return res;
 
     res = ethr_mutex_lib_init(erts_get_cpu_configured(ethr_cpu_info__));
     if (res != 0)
@@ -457,170 +446,6 @@ int ethr_get_main_thr_status(int *on)
     }
     return 0;
 }
-
-
-/* Atomics */
-
-void
-ethr_atomic_init(ethr_atomic_t *var, ethr_sint_t i)
-{
-    ETHR_ASSERT(var);
-    ethr_atomic_init__(var, i);
-}
-
-void
-ethr_atomic_set(ethr_atomic_t *var, ethr_sint_t i)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_set__(var, i);
-}
-
-ethr_sint_t
-ethr_atomic_read(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read__(var);
-}
-
-
-ethr_sint_t
-ethr_atomic_add_read(ethr_atomic_t *var, ethr_sint_t incr)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_add_read__(var, incr);
-}   
-
-ethr_sint_t
-ethr_atomic_inc_read(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_inc_read__(var);
-}
-
-ethr_sint_t
-ethr_atomic_dec_read(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_dec_read__(var);
-}
-
-void
-ethr_atomic_add(ethr_atomic_t *var, ethr_sint_t incr)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_add__(var, incr);
-}   
-    
-void
-ethr_atomic_inc(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_inc__(var);
-}
-
-void
-ethr_atomic_dec(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_dec__(var);
-}
-
-ethr_sint_t
-ethr_atomic_read_band(ethr_atomic_t *var, ethr_sint_t mask)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read_band__(var, mask);
-}
-
-ethr_sint_t
-ethr_atomic_read_bor(ethr_atomic_t *var, ethr_sint_t mask)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read_bor__(var, mask);
-}
-
-ethr_sint_t
-ethr_atomic_xchg(ethr_atomic_t *var, ethr_sint_t new)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_xchg__(var, new);
-}   
-
-ethr_sint_t
-ethr_atomic_cmpxchg(ethr_atomic_t *var, ethr_sint_t new, ethr_sint_t expected)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_cmpxchg__(var, new, expected);
-}
-
-ethr_sint_t
-ethr_atomic_read_acqb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read_acqb__(var);
-}
-
-ethr_sint_t
-ethr_atomic_inc_read_acqb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_inc_read_acqb__(var);
-}
-
-void
-ethr_atomic_set_relb(ethr_atomic_t *var, ethr_sint_t i)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_set_relb__(var, i);
-}
-
-void
-ethr_atomic_dec_relb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_dec_relb__(var);
-}
-
-ethr_sint_t
-ethr_atomic_dec_read_relb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_dec_read_relb__(var);
-}
-
-ethr_sint_t
-ethr_atomic_cmpxchg_acqb(ethr_atomic_t *var, ethr_sint_t new, ethr_sint_t exp)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_cmpxchg_acqb__(var, new, exp);
-}
-
-ethr_sint_t
-ethr_atomic_cmpxchg_relb(ethr_atomic_t *var, ethr_sint_t new, ethr_sint_t exp)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_cmpxchg_relb__(var, new, exp);
-}
-
 
 /* Spinlocks and rwspinlocks */
 

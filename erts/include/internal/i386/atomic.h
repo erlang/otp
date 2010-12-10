@@ -51,7 +51,7 @@ do { \
 
 #define ETHR_ATOMIC_HAVE_INC_DEC_INSTRUCTIONS 1
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
 
 #ifdef __x86_64__
 #define LONG_SUFFIX "q"

@@ -38,7 +38,7 @@ typedef struct {
 
 #define ETHR_MEMORY_BARRIER __asm__ __volatile__("sync" : : : "memory")
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_atomic_init(ethr_native_atomic_t *var, int i)

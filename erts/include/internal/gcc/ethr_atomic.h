@@ -65,7 +65,7 @@ do { \
 #endif
 #define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_MEMORY_BARRIER
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_atomic_set(ethr_native_atomic_t *var, long value)

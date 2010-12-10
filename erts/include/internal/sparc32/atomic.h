@@ -36,7 +36,7 @@ typedef struct {
   __asm__ __volatile__("membar #LoadLoad|#LoadStore|#StoreLoad|#StoreStore\n" \
                        : : : "memory")
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
 
 #if defined(__arch64__)
 #define CASX "casx"

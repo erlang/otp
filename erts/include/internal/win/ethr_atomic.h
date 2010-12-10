@@ -141,7 +141,7 @@ typedef struct {
     volatile ETHR_AINT_T__ value;
 } ETHR_ATMC_T__;
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
 
 static ETHR_INLINE void
 ETHR_NATMC_FUNC__(init)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
