@@ -58,6 +58,10 @@ init_per_suite(Config, Level) ->
 	_ ->
 	    ok
     end,
+    
+    start_slave(Config, Level).
+
+start_slave(Config,Level) ->
     [_,Host] = string:tokens(atom_to_list(node()), "@"),
     
     test_server:format(0, "Trying to start ~s~n", ["ct@"++Host]),
@@ -136,9 +140,16 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(_TestCase, Config) ->
     CTNode = ?config(ct_node, Config),
-    wait_for_ct_stop(CTNode),
-    ok.
-
+    case wait_for_ct_stop(CTNode) of
+	%% Common test was not stopped to we restart node.
+	false ->
+	    cover:stop(CTNode),
+	    slave:stop(CTNode),
+	    start_slave(Config,proplists:get_value(trace_level,Config)),
+	    {fail, "Could not stop common_test"};
+	true ->
+	    ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -229,11 +240,11 @@ wait_for_ct_stop(CTNode) ->
 
 wait_for_ct_stop(0, CTNode) ->
     test_server:format(0, "Giving up! Stopping ~p.", [CTNode]),
-    ok;
+    false;
 wait_for_ct_stop(Retries, CTNode) ->
     case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
 	undefined ->
-	    ok;
+	    true;
 	Pid ->
 	    test_server:format(0, "Waiting for CT (~p) to finish (~p)...", 
 			       [Pid,Retries]),
