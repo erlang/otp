@@ -339,31 +339,51 @@ i_wait_error_locked
 send
 
 #
-# Comparisions.
+# Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl=f R=rxy C=ian => i_is_eq_immed Lbl R C
-is_eq Lbl=f R=rxy C=an => i_is_eq_immed Lbl R C
+is_eq_exact Lbl R=rxy C=ian => i_is_eq_exact_immed Lbl R C
+is_eq_exact Lbl R=rxy C=q => i_is_eq_exact_literal R Lbl C
+
+is_ne_exact Lbl R=rxy C=ian => i_is_ne_exact_immed Lbl R C
+is_ne_exact Lbl R=rxy C=q => i_is_ne_exact_literal R Lbl C
+
+%macro: i_is_eq_exact_immed EqualImmed -fail_action
+i_is_eq_exact_immed f r c
+i_is_eq_exact_immed f x c
+i_is_eq_exact_immed f y c
+
+i_is_eq_exact_literal r f c
+i_is_eq_exact_literal x f c
+i_is_eq_exact_literal y f c
+
+%macro: i_is_ne_exact_immed NotEqualImmed -fail_action
+i_is_ne_exact_immed f r c
+i_is_ne_exact_immed f x c
+i_is_ne_exact_immed f y c
+
+i_is_ne_exact_literal r f c
+i_is_ne_exact_literal x f c
+i_is_ne_exact_literal y f c
+
+#
+# All other comparisons.
+#
+
+is_eq_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
+is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
 
 is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_lt Lbl S1 S2 => i_fetch S1 S2 | i_is_lt Lbl
 is_eq Lbl S1 S2 => i_fetch S1 S2 | i_is_eq Lbl
 is_ne Lbl S1 S2 => i_fetch S1 S2 | i_is_ne Lbl
 
-is_eq_exact Lbl=f S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
-is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
-
+i_is_eq_exact f
+i_is_ne_exact f
 i_is_lt f
 i_is_ge f
 i_is_eq f
 i_is_ne f
-i_is_eq_exact f
-i_is_ne_exact f
-
-%macro: i_is_eq_immed EqualImmed -fail_action
-i_is_eq_immed f r c
-i_is_eq_immed f x c
-i_is_eq_immed f y c
 
 #
 # Putting things.

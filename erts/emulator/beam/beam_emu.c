@@ -738,6 +738,7 @@ extern int count_instructions;
   } while (0)
 
 #define EqualImmed(X, Y, Action) if (X != Y) { Action; }
+#define NotEqualImmed(X, Y, Action) if (X == Y) { Action; }
 
 #define IsFloat(Src, Fail) if (is_not_float(Src)) { Fail; }
 
@@ -1384,6 +1385,52 @@ void process_main(void)
 	ClauseFail();
     }
     Next(1);
+
+    {
+	Eterm is_eq_exact_lit_val;
+
+    OpCase(i_is_eq_exact_literal_xfc):
+	is_eq_exact_lit_val = xb(Arg(0));
+	I++;
+	goto do_is_eq_exact_literal;
+
+    OpCase(i_is_eq_exact_literal_yfc):
+	is_eq_exact_lit_val = yb(Arg(0));
+	I++;
+	goto do_is_eq_exact_literal;
+
+    OpCase(i_is_eq_exact_literal_rfc):
+	is_eq_exact_lit_val = r(0);
+
+    do_is_eq_exact_literal:
+	if (!eq(Arg(1), is_eq_exact_lit_val)) {
+	    ClauseFail();
+	}
+	Next(2);
+    }
+
+    {
+	Eterm is_ne_exact_lit_val;
+
+    OpCase(i_is_ne_exact_literal_xfc):
+	is_ne_exact_lit_val = xb(Arg(0));
+	I++;
+	goto do_is_ne_exact_literal;
+
+    OpCase(i_is_ne_exact_literal_yfc):
+	is_ne_exact_lit_val = yb(Arg(0));
+	I++;
+	goto do_is_ne_exact_literal;
+
+    OpCase(i_is_ne_exact_literal_rfc):
+	is_ne_exact_lit_val = r(0);
+
+    do_is_ne_exact_literal:
+	if (eq(Arg(1), is_ne_exact_lit_val)) {
+	    ClauseFail();
+	}
+	Next(2);
+    }
 
  OpCase(i_move_call_only_fcr): {
      r(0) = Arg(1);
