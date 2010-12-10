@@ -287,6 +287,46 @@ whereis_mib(Agent, Mib) when is_atom(Mib) ->
 
 mibs_info() ->
     [
+     {snmp_standard_mib, 
+      [],
+      [
+       sysDescr, 
+       sysObjectID, 
+       sysContact, 
+       sysName, 
+       sysLocation, 
+       sysServices, 
+       snmpEnableAuthenTraps,
+       sysUpTime,
+       snmpInPkts,
+       snmpOutPkts, 
+       snmpInBadVersions, 
+       snmpInBadCommunityNames, 
+       snmpInBadCommunityUses, 
+       snmpInASNParseErrs, 
+       snmpInTooBigs, 
+       snmpInNoSuchNames, 
+       snmpInBadValues, 
+       snmpInReadOnlys, 
+       snmpInGenErrs, 
+       snmpInTotalReqVars, 
+       snmpInTotalSetVars, 
+       snmpInGetRequests, 
+       snmpInSetRequests, 
+       snmpInGetNexts, 
+       snmpInGetResponses, 
+       snmpInTraps, 
+       snmpOutTooBigs, 
+       snmpOutNoSuchNames, 
+       snmpOutBadValues, 
+       snmpOutGenErrs, 
+       snmpOutGetRequests, 
+       snmpOutSetRequests, 
+       snmpOutGetNexts, 
+       snmpOutGetResponses, 
+       snmpOutTraps
+      ]
+     },
      {snmp_view_based_acm_mib, 
       [
        vacmAccessTable,
@@ -295,7 +335,8 @@ mibs_info() ->
       ],
       [
        vacmViewSpinLock
-      ]},
+      ]
+     },
      {snmp_target_mib, 
       [
        snmpTargetAddrTable,
@@ -303,12 +344,14 @@ mibs_info() ->
       ], 
       [
        snmpTargetSpinLock
-      ]},
+      ]
+     },
      {snmp_community_mib, 
       [
        snmpCommunityTable
       ], 
-      []},
+      []
+     },
      {snmp_notification_mib, 
       [
        snmpNotifyTable
@@ -320,7 +363,9 @@ mibs_info() ->
       ], 
       [
        usmUserSpinLock
-      ]}].
+      ]
+     }
+    ].
 
 print_mib_info() ->
     MibsInfo = mibs_info(),
@@ -386,8 +431,10 @@ make_pretty_mib(snmp_community_mib) ->
     "SNMP-COMMUNITY-MIB";
 make_pretty_mib(snmp_notification_mib) ->
     "SNMP-NOTIFICATION-MIB";
-make_pretty_mib(snmp_target_mib) ->
+make_pretty_mib(snmp_user_based_sm_mib) ->
     "SNMP-USER-BASED-SM-MIB";
+make_pretty_mib(snmp_standard_mib) ->
+    "STANDARD-MIB";
 make_pretty_mib(Mod) ->
     atom_to_list(Mod).
 

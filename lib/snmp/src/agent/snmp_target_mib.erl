@@ -511,6 +511,10 @@ set_target_engine_id(TargetAddrName, EngineId) ->
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
+snmpTargetSpinLock(print) ->
+    VarAndValue = [{snmpTargetSpinLock, snmpTargetSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
 snmpTargetSpinLock(new) ->
     snmp_generic:variable_func(new, {snmpTargetSpinLock, volatile}),
     {A1,A2,A3} = erlang:now(),

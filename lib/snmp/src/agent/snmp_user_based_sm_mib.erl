@@ -374,6 +374,11 @@ get_user_from_security_name(EngineID, SecName) ->
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
+
+usmUserSpinLock(print) ->
+    VarAndValue = [{usmUserSpinLock, usmUserSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
 usmUserSpinLock(new) ->
     snmp_generic:variable_func(new, {usmUserSpinLock, volatile}),
     {A1,A2,A3} = erlang:now(),
