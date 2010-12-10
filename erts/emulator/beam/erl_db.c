@@ -3501,8 +3501,8 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 	/* Make a dummy 1-tuple around data to use DbTerm */
 	wrap_tpl = TUPLE1(tmp,heir_data);
 	size = size_object(wrap_tpl);
-	// SVERK: Must be low memory
-	dbterm = erts_db_alloc(ERTS_ALC_T_DB_TERM, (DbTable *)tb,
+	/* SVERK: Must be low memory due to erts_send_message */
+	dbterm = erts_db_alloc(ERTS_ALC_T_DB_HEIR_DATA, (DbTable *)tb,
 			       (sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
 	dbterm->size = size;
 	top = dbterm->tpl;
@@ -3521,7 +3521,7 @@ static void free_heir_data(DbTable* tb)
     if (tb->common.heir != am_none && !is_immed(tb->common.heir_data)) {
 	DbTerm* p = (DbTerm*) tb->common.heir_data;
 	db_cleanup_offheap_comp(p);
-	erts_db_free(ERTS_ALC_T_DB_TERM, tb, (void *)p,
+	erts_db_free(ERTS_ALC_T_DB_HEIR_DATA, tb, (void *)p,
 		     sizeof(DbTerm) + (p->size-1)*sizeof(Eterm));
     }
     #ifdef DEBUG
