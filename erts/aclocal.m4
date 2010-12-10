@@ -1093,6 +1093,8 @@ AC_CHECK_SIZEOF(long)
 AC_DEFINE_UNQUOTED(ETHR_SIZEOF_LONG, $ac_cv_sizeof_long, [Define to the size of long])
 AC_CHECK_SIZEOF(long long)
 AC_DEFINE_UNQUOTED(ETHR_SIZEOF_LONG_LONG, $ac_cv_sizeof_long_long, [Define to the size of long long])
+AC_CHECK_SIZEOF(__int64)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF___INT64, $ac_cv_sizeof___int64, [Define to the size of __int64])
 
 AC_ARG_ENABLE(native-ethr-impls,
 	      AS_HELP_STRING([--disable-native-ethr-impls],

@@ -25,218 +25,286 @@
 #ifndef ETHR_WIN_ATOMIC_H__
 #define ETHR_WIN_ATOMIC_H__
 
-#ifdef _MSC_VER
-#  if _MSC_VER < 1300
-#    define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 0 /* Dont trust really old compilers */
-#  else
-#    if defined(_M_IX86)
-#      define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 1
-#    else /* I.e. IA64 */
-#      if _MSC_VER >= 1400
-#        define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 1
-#      else
-#        define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 0
-#      endif
-#    endif
-#  endif
-#  if _MSC_VER >= 1400
-#    include <intrin.h>
-#    undef ETHR_COMPILER_BARRIER
-#    define ETHR_COMPILER_BARRIER _ReadWriteBarrier()
-#  endif
-#pragma intrinsic(_ReadWriteBarrier)
-#pragma intrinsic(_InterlockedAnd)
-#pragma intrinsic(_InterlockedOr)
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define ETHR_HAVE_NATIVE_ATOMICS 1
+
+#if defined(_M_IX86) || defined(_M_AMD64) || defined(_M_IA64)
+#  define ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__ 1
 #else
-#    define ETHR_IMMED_ATOMIC_SET_GET_SAFE__ 0
+#  define ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__ 0
 #endif
 
+#if defined(_M_AMD64) || (defined(_M_IX86) \
+			  && !defined(ETHR_PRE_PENTIUM4_COMPAT))
+#  define ETHR_READ_ACQB_AND_SET_RELB_COMPILER_BARRIER_ONLY__ 1
+#else
+#  define ETHR_READ_ACQB_AND_SET_RELB_COMPILER_BARRIER_ONLY__ 0
+#endif
 /*
- * No configure test checking for _Interlocked*_{acq,rel} and
- * Interlocked*{Acquire,Release} have been written yet...
+ * No configure test checking for interlocked acquire/release
+ * versions have been written, yet. It should define
+ * ETHR_HAVE_INTERLOCKED_ACQUIRE_RELEASE_BARRIERS if, and
+ * only if, all used interlocked operations with barriers
+ * exists.
  *
  * Note, that these are pure optimizations for the itanium
  * processor.
  */
 
-#ifdef ETHR_HAVE_INTERLOCKEDCOMPAREEXCHANGE_ACQ
-#pragma intrinsic(_InterlockedCompareExchange_acq)
+#include <intrin.h>
+#undef ETHR_COMPILER_BARRIER
+#define ETHR_COMPILER_BARRIER _ReadWriteBarrier()
+#pragma intrinsic(_ReadWriteBarrier)
+#pragma intrinsic(_InterlockedCompareExchange)
+
+#if defined(_M_AMD64) || (defined(_M_IX86) \
+			  && !defined(ETHR_PRE_PENTIUM4_COMPAT))
+#include <emmintrin.h>
+#include <mmintrin.h>
+#pragma intrinsic(_mm_mfence)
+#define ETHR_MEMORY_BARRIER _mm_mfence()
+#pragma intrinsic(_mm_sfence)
+#define ETHR_WRITE_MEMORY_BARRIER _mm_sfence()
+#pragma intrinsic(_mm_lfence)
+#define ETHR_READ_MEMORY_BARRIER _mm_lfence()
+#define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_COMPILER_BARRIER
+
+#else
+
+#define ETHR_MEMORY_BARRIER					\
+do {								\
+    volatile long x___ = 0;					\
+    _InterlockedCompareExchange(&x___, (long) 1, (long) 0);	\
+} while (0)
+
 #endif
-#ifdef ETHR_HAVE_INTERLOCKEDCOMPAREEXCHANGE_REL
+
+#if ETHR_SIZEOF_PTR == 4
+
+#pragma intrinsic(_InterlockedDecrement)
+#pragma intrinsic(_InterlockedIncrement)
+#pragma intrinsic(_InterlockedExchangeAdd)
+#pragma intrinsic(_InterlockedExchange)
+#pragma intrinsic(_InterlockedAnd)
+#pragma intrinsic(_InterlockedOr)
+#ifdef ETHR_HAVE_INTERLOCKED_ACQUIRE_RELEASE_BARRIERS
+#pragma intrinsic(_InterlockedExchangeAdd_acq)
+#pragma intrinsic(_InterlockedIncrement_acq)
+#pragma intrinsic(_InterlockedDecrement_rel)
+#pragma intrinsic(_InterlockedCompareExchange_acq)
 #pragma intrinsic(_InterlockedCompareExchange_rel)
 #endif
 
-typedef struct {
-    volatile LONG value;
-} ethr_native_atomic_t;
+#define ETHR_ATMC__(X) X
+#ifdef ETHR_HAVE_INTERLOCKED_ACQUIRE_RELEASE_BARRIERS
+#define ETHR_ATMC_ACQ__(X) X ## _acq
+#define ETHR_ATMC_REL__(X) X ## _rel
+#else
+#define ETHR_ATMC_ACQ__(X) X
+#define ETHR_ATMC_REL__(X) X
+#endif
 
-#define ETHR_MEMORY_BARRIER \
-do { \
-    volatile LONG x___ = 0; \
-    _InterlockedCompareExchange(&x___, (LONG) 1, (LONG) 0); \
-} while (0)
+#elif ETHR_SIZEOF_PTR == 8
+
+#pragma intrinsic(_InterlockedDecrement64)
+#pragma intrinsic(_InterlockedIncrement64)
+#pragma intrinsic(_InterlockedExchangeAdd64)
+#pragma intrinsic(_InterlockedExchange64)
+#pragma intrinsic(_InterlockedAnd64)
+#pragma intrinsic(_InterlockedOr64)
+#ifdef ETHR_HAVE_INTERLOCKED_ACQUIRE_RELEASE_BARRIERS
+#pragma intrinsic(_InterlockedExchangeAdd64_acq)
+#pragma intrinsic(_InterlockedIncrement64_acq)
+#pragma intrinsic(_InterlockedDecrement64_rel)
+#pragma intrinsic(_InterlockedCompareExchange64_acq)
+#pragma intrinsic(_InterlockedCompareExchange64_rel)
+#endif
+
+#define ETHR_ATMC__(X) X ## 64
+#ifdef ETHR_HAVE_INTERLOCKED_ACQUIRE_RELEASE_BARRIERS
+#define ETHR_ATMC_ACQ__(X) X ## 64_acq
+#define ETHR_ATMC_REL__(X) X ## 64_rel
+#else
+#define ETHR_ATMC_ACQ__(X) X ## 64
+#define ETHR_ATMC_REL__(X) X ## 64
+#endif
+
+#else
+#error "Unsupported word size"
+#endif
+
+#define ETHR_NATMC_FUNC__(X) ethr_native_atomic_ ## X
+#define ETHR_ATMC_T__ ethr_native_atomic_t
+#define ETHR_AINT_T__ ethr_sint_t
+
+typedef struct {
+    volatile ETHR_AINT_T__ value;
+} ETHR_ATMC_T__;
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
-ethr_native_atomic_init(ethr_native_atomic_t *var, long i)
+ETHR_NATMC_FUNC__(init)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
-    var->value = (LONG) i;
-}
-
-static ETHR_INLINE void
-ethr_native_atomic_set(ethr_native_atomic_t *var, long i)
-{
-#if ETHR_IMMED_ATOMIC_SET_GET_SAFE__
-    var->value = (LONG) i;
+#if ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__
+    var->value = i;
 #else
-    (void) InterlockedExchange(&var->value, (LONG) i);
+    (void) ETHR_ATMC__(_InterlockedExchange)(&var->value, i);
 #endif
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_read(ethr_native_atomic_t *var)
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(set)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
-#if ETHR_IMMED_ATOMIC_SET_GET_SAFE__
+#if ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__
+    var->value = i;
+#else
+    (void) ETHR_ATMC__(_InterlockedExchange)(&var->value, i);
+#endif
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(read)(ETHR_ATMC_T__ *var)
+{
+#if ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__
     return var->value;
 #else
-    return InterlockedExchangeAdd(&var->value, (LONG) 0);
+    return ETHR_ATMC__(_InterlockedExchangeAdd)(&var->value, (ETHR_AINT_T__) 0);
 #endif
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_add(ethr_native_atomic_t *var, long incr)
+ETHR_NATMC_FUNC__(add)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 {
-    (void) InterlockedExchangeAdd(&var->value, (LONG) incr);
+    (void) ETHR_ATMC__(_InterlockedExchangeAdd)(&var->value, incr);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_add_return(ethr_native_atomic_t *var, long i)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(add_return)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
-    LONG tmp = InterlockedExchangeAdd(&var->value, (LONG) i);
-    return tmp + i;
-}
-
-static ETHR_INLINE void
-ethr_native_atomic_inc(ethr_native_atomic_t *var)
-{
-    (void) InterlockedIncrement(&var->value);
+    return ETHR_ATMC__(_InterlockedExchangeAdd)(&var->value, i) + i;
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_dec(ethr_native_atomic_t *var)
+ETHR_NATMC_FUNC__(inc)(ETHR_ATMC_T__ *var)
 {
-    (void) InterlockedDecrement(&var->value);
+    (void) ETHR_ATMC__(_InterlockedIncrement)(&var->value);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_inc_return(ethr_native_atomic_t *var)
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(dec)(ETHR_ATMC_T__ *var)
 {
-    return (long) InterlockedIncrement(&var->value);
+    (void) ETHR_ATMC__(_InterlockedDecrement)(&var->value);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_dec_return(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(inc_return)(ETHR_ATMC_T__ *var)
 {
-    return (long) InterlockedDecrement(&var->value);
+    return ETHR_ATMC__(_InterlockedIncrement)(&var->value);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_and_retold(ethr_native_atomic_t *var, long mask)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(dec_return)(ETHR_ATMC_T__ *var)
 {
-    return (long) _InterlockedAnd(&var->value, mask);
+    return ETHR_ATMC__(_InterlockedDecrement)(&var->value);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_or_retold(ethr_native_atomic_t *var, long mask)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(and_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 {
-    return (long) _InterlockedOr(&var->value, mask);
+    return ETHR_ATMC__(_InterlockedAnd)(&var->value, mask);
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(or_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
+{
+    return ETHR_ATMC__(_InterlockedOr)(&var->value, mask);
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
+			   ETHR_AINT_T__ new,
+			   ETHR_AINT_T__ old)
+{
+    return ETHR_ATMC__(_InterlockedCompareExchange)(&var->value, new, old);
 }
 
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, long new, long old)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(xchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new)
 {
-    return (long) _InterlockedCompareExchange(&var->value, (LONG) new, (LONG) old);
-}
-
-
-static ETHR_INLINE long
-ethr_native_atomic_xchg(ethr_native_atomic_t *var, long new)
-{
-    return (long) InterlockedExchange(&var->value, (LONG) new);
+    return ETHR_ATMC__(_InterlockedExchange)(&var->value, new);
 }
 
 /*
  * Atomic ops with at least specified barriers.
  */
 
-static ETHR_INLINE long
-ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(read_acqb)(ETHR_ATMC_T__ *var)
 {
-#ifdef ETHR_HAVE_INTERLOCKEDEXCHANGEADDACQUIRE
-    return (long) InterlockedExchangeAddAcquire(&var->value, (LONG) 0);
+#if ETHR_READ_ACQB_AND_SET_RELB_COMPILER_BARRIER_ONLY__
+    ETHR_AINT_T__ val = var->value;
+    ETHR_COMPILER_BARRIER;
+    return val;
 #else
-    return (long) InterlockedExchangeAdd(&var->value, (LONG) 0);
+    return ETHR_ATMC_ACQ__(_InterlockedExchangeAdd)(&var->value,
+						    (ETHR_AINT_T__) 0);
 #endif
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_inc_return_acqb(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(inc_return_acqb)(ETHR_ATMC_T__ *var)
 {
-#ifdef ETHR_HAVE_INTERLOCKEDINCREMENTACQUIRE
-    return (long) InterlockedIncrementAcquire(&var->value);
+    return ETHR_ATMC_ACQ__(_InterlockedIncrement)(&var->value);
+}
+
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(set_relb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
+{
+#if ETHR_READ_ACQB_AND_SET_RELB_COMPILER_BARRIER_ONLY__
+    ETHR_COMPILER_BARRIER;
+    var->value = i;
 #else
-    return (long) InterlockedIncrement(&var->value);
+    (void) ETHR_ATMC_REL__(_InterlockedExchange)(&var->value, i);
 #endif
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_set_relb(ethr_native_atomic_t *var, long i)
+ETHR_NATMC_FUNC__(dec_relb)(ETHR_ATMC_T__ *var)
 {
-    (void) InterlockedExchange(&var->value, (LONG) i);
+    (void) ETHR_ATMC_REL__(_InterlockedDecrement)(&var->value);
 }
 
-static ETHR_INLINE void
-ethr_native_atomic_dec_relb(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(dec_return_relb)(ETHR_ATMC_T__ *var)
 {
-#ifdef ETHR_HAVE_INTERLOCKEDDECREMENTRELEASE
-    (void) InterlockedDecrementRelease(&var->value);
-#else
-    (void) InterlockedDecrement(&var->value);
+    return ETHR_ATMC_REL__(_InterlockedDecrement)(&var->value);
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
+				ETHR_AINT_T__ new,
+				ETHR_AINT_T__ old)
+{
+    return ETHR_ATMC_ACQ__(_InterlockedCompareExchange)(&var->value, new, old);
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(cmpxchg_relb)(ETHR_ATMC_T__ *var,
+				ETHR_AINT_T__ new,
+				ETHR_AINT_T__ old)
+{
+    return ETHR_ATMC_REL__(_InterlockedCompareExchange)(&var->value, new, old);
+}
+
 #endif
-}
 
-static ETHR_INLINE long
-ethr_native_atomic_dec_return_relb(ethr_native_atomic_t *var)
-{
-#ifdef ETHR_HAVE_INTERLOCKEDDECREMENTRELEASE
-    return (long) InterlockedDecrementRelease(&var->value);
-#else
-    return (long) InterlockedDecrement(&var->value);
-#endif
-}
-
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg_acqb(ethr_native_atomic_t *var, long new, long old)
-{
-#ifdef ETHR_HAVE_INTERLOCKEDCOMPAREEXCHANGE_ACQ
-    return (long) _InterlockedCompareExchange_acq(&var->value, (LONG) new, (LONG) old);
-#else
-    return (long) _InterlockedCompareExchange(&var->value, (LONG) new, (LONG) old);
-#endif
-}
-
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg_relb(ethr_native_atomic_t *var, long new, long old)
-{
-
-#ifdef ETHR_HAVE_INTERLOCKEDCOMPAREEXCHANGE_REL
-    return (long) _InterlockedCompareExchange_rel(&var->value, (LONG) new, (LONG) old);
-#else
-    return (long) _InterlockedCompareExchange(&var->value, (LONG) new, (LONG) old);
-#endif
-}
+#undef ETHR_NATMC_FUNC__
+#undef ETHR_ATMC_T__
+#undef ETHR_AINT_T__
+#undef ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__
+#undef ETHR_READ_ACQB_AND_SET_RELB_COMPILER_BARRIER_ONLY__
 
 #endif
 

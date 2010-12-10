@@ -29,6 +29,9 @@
 /* Define to the size of long long */
 #undef ETHR_SIZEOF_LONG_LONG
 
+/* Define to the size of __int64 */
+#undef ETHR_SIZEOF___INT64
+
 /* Define if you want to disable native ethread implementations */
 #undef ETHR_DISABLE_NATIVE_IMPLS
 

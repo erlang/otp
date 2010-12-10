@@ -167,14 +167,20 @@ typedef pthread_key_t ethr_tsd_key;
 #endif
 
 #if defined(_MSC_VER)
-#if ETHR_SIZEOF_PTR == 4
+
 #define ETHR_HAVE_INT_T 1
-typedef LONG ethr_sint_t;
-typedef ULONG ethr_uint_t;
+#if ETHR_SIZEOF_LONG == ETHR_SIZEOF_PTR
+typedef long ethr_sint_t;
+typedef unsigned long ethr_uint_t;
+#elif ETHR_SIZEOF___INT64 == ETHR_SIZEOF_PTR
+typedef __int64 ethr_sint_t;
+typedef unsigned __int64 ethr_uint_t;
 #else
-#error "Only 32-bit windows is supported"
+#error "No integer type of the same size as pointers found"
 #endif
+
 #endif
+
 struct ethr_join_data_;
 
 /* Types */

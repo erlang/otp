@@ -26,6 +26,5 @@
 #define ETHREAD_WIN_H__
 
 #include "ethr_atomic.h"
-#define ETHR_HAVE_NATIVE_ATOMICS 1
 
 #endif
