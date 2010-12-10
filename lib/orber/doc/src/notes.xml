@@ -33,6 +33,20 @@
   </header>
 
   <section>
+    <title>Orber 3.6.19</title>
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The SSL option {ssl_imp, old} was not used if ssl_generation was
+             set to 2. Only R14B was affected by this.</p>
+          <p>Own Id: OTP-8994 Aux Id: seq11747</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>Orber 3.6.18</title>
     <section>
       <title>Fixed Bugs and Malfunctions</title>
