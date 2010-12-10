@@ -409,7 +409,7 @@ endif
 	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
 
 mod2app:
-	$(ERL_TOP)/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
+	$(ERL_TOP)/bin/escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
 
 # ----------------------------------------------------------------------
 ERLANG_EARS=$(BOOTSTRAP_ROOT)/bootstrap/erts
