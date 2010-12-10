@@ -28,6 +28,9 @@
 
 /* --- Windows implementation of thread events ------------------------------ */
 
+#pragma intrinsic(_InterlockedExchangeAdd)
+#pragma intrinsic(_InterlockedCompareExchange)
+
 int
 ethr_event_init(ethr_event *e)
 {
@@ -72,10 +75,10 @@ wait(ethr_event *e, int spincount)
     while (1) {
 	long on;
 	while (1) {
-#if ETHR_IMMED_ATOMIC_SET_GET_SAFE__
+#if ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__
 	    state = e->state;
 #else
-	    state = InterlockedExchangeAdd(&e->state, (LONG) 0);
+	    state = _InterlockedExchangeAdd(&e->state, (LONG) 0);
 #endif
 	    if (state == ETHR_EVENT_ON__)
 		return 0;

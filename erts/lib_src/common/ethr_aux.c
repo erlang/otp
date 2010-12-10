@@ -31,7 +31,10 @@
 
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHR_AUX_IMPL__
-
+#define ETHR_ATOMIC_IMPL__ /* Needed in order to pull in
+			      native atomic implementations
+			      for optimized fallbacks of
+			      spinlocks and rwspinlocks */
 #include "ethread.h"
 #include "ethr_internal.h"
 #include <string.h>

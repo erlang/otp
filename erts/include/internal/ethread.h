@@ -168,15 +168,16 @@ typedef pthread_key_t ethr_tsd_key;
 
 #if defined(_MSC_VER)
 
-#define ETHR_HAVE_INT_T 1
-#if ETHR_SIZEOF_LONG == ETHR_SIZEOF_PTR
-typedef long ethr_sint_t;
-typedef unsigned long ethr_uint_t;
-#elif ETHR_SIZEOF___INT64 == ETHR_SIZEOF_PTR
-typedef __int64 ethr_sint_t;
-typedef unsigned __int64 ethr_uint_t;
-#else
-#error "No integer type of the same size as pointers found"
+#if ETHR_SIZEOF_LONG == 4
+#define ETHR_HAVE_INT32_T 1
+typedef long ethr_sint32_t;
+typedef unsigned long ethr_uint32_t;
+#endif
+
+#if ETHR_SIZEOF___INT64 == 8
+#define ETHR_HAVE_INT64_T 1
+typedef __int64 ethr_sint64_t;
+typedef unsigned __int64 ethr_uint64_t;
 #endif
 
 #endif
@@ -208,20 +209,46 @@ typedef DWORD ethr_tsd_key;
 
 #endif
 
-#ifndef ETHR_HAVE_INT_T
-#define ETHR_HAVE_INT_T 1
-#if ETHR_SIZEOF_INT == ETHR_SIZEOF_PTR
-typedef int ethr_sint_t;
-typedef unsigned int ethr_uint_t;
-#elif ETHR_SIZEOF_LONG == ETHR_SIZEOF_PTR
-typedef long ethr_sint_t;
-typedef unsigned long ethr_uint_t;
-#elif ETHR_SIZEOF_LONG_LONG == ETHR_SIZEOF_PTR
-typedef long long ethr_sint_t;
-typedef unsigned long long ethr_uint_t;
-#else
-#error "No integer type of the same size as pointers found"
+#ifndef ETHR_HAVE_INT32_T
+#if ETHR_SIZEOF_INT == 4
+#define ETHR_HAVE_INT32_T 1
+typedef int ethr_sint32_t;
+typedef unsigned int ethr_uint32_t;
+#elif ETHR_SIZEOF_LONG == 4
+#define ETHR_HAVE_INT32_T 1
+typedef long ethr_sint32_t;
+typedef unsigned long ethr_uint32_t;
 #endif
+#endif
+
+#ifndef ETHR_HAVE_INT64_T
+#if ETHR_SIZEOF_INT == 8
+#define ETHR_HAVE_INT64_T 1
+typedef int ethr_sint64_t;
+typedef unsigned int ethr_uint64_t;
+#elif ETHR_SIZEOF_LONG == 8
+#define ETHR_HAVE_INT64_T 1
+typedef long ethr_sint64_t;
+typedef unsigned long ethr_uint64_t;
+#elif ETHR_SIZEOF_LONG_LONG == 8
+#define ETHR_HAVE_INT64_T 1
+typedef long long ethr_sint64_t;
+typedef unsigned long long ethr_uint64_t;
+#endif
+#endif
+
+#if ETHR_SIZEOF_PTR == 4
+#ifndef ETHR_HAVE_INT32_T
+#error "No 32-bit integer type found"
+#endif
+typedef ethr_sint32_t ethr_sint_t;
+typedef ethr_uint32_t ethr_uint_t;
+#elif ETHR_SIZEOF_PTR == 8
+#ifndef ETHR_HAVE_INT64_T
+#error "No 64-bit integer type found"
+#endif
+typedef ethr_sint64_t ethr_sint_t;
+typedef ethr_uint64_t ethr_uint_t;
 #endif
 
 /* __builtin_expect() is needed by both native atomics code 

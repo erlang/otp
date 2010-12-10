@@ -382,6 +382,11 @@ $(ERTS_LIB): $(ERTS_LIB_OBJS)
 # Object files
 #
 
+ifeq ($(TYPE)-@GCC@,debug-yes)
+$(r_OBJ_DIR)/ethr_aux.o: common/ethr_aux.c
+	$(CC) $(THR_DEFS) $(CFLAGS) -Wno-unused-function $(INCLUDES) -c $< -o $@
+endif
+
 $(r_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 

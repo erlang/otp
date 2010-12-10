@@ -52,6 +52,17 @@ ethr_init_atomics(void)
     return 0;
 }
 
+/*
+ * --- Pointer size atomics ---------------------------------------------------
+ */
+
+ethr_sint_t *
+ethr_atomic_addr(ethr_atomic_t *var)
+{
+    ETHR_ASSERT(var);
+    return ethr_atomic_addr__(var);
+}
+
 void
 ethr_atomic_init(ethr_atomic_t *var, ethr_sint_t i)
 {
@@ -74,7 +85,6 @@ ethr_atomic_read(ethr_atomic_t *var)
     ETHR_ASSERT(var);
     return ethr_atomic_read__(var);
 }
-
 
 ethr_sint_t
 ethr_atomic_add_read(ethr_atomic_t *var, ethr_sint_t incr)
@@ -210,5 +220,183 @@ ethr_atomic_cmpxchg_relb(ethr_atomic_t *var, ethr_sint_t new, ethr_sint_t exp)
     ETHR_ASSERT(!ethr_not_inited__);
     ETHR_ASSERT(var);
     return ethr_atomic_cmpxchg_relb__(var, new, exp);
+}
+
+
+/*
+ * --- 32-bit atomics ---------------------------------------------------------
+ */
+
+ethr_sint32_t *
+ethr_atomic32_addr(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(var);
+    return ethr_atomic32_addr__(var);
+}
+
+void
+ethr_atomic32_init(ethr_atomic32_t *var, ethr_sint32_t i)
+{
+    ETHR_ASSERT(var);
+    ethr_atomic32_init__(var, i);
+}
+
+void
+ethr_atomic32_set(ethr_atomic32_t *var, ethr_sint32_t i)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    ethr_atomic32_set__(var, i);
+}
+
+ethr_sint32_t
+ethr_atomic32_read(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_read__(var);
+}
+
+
+ethr_sint32_t
+ethr_atomic32_add_read(ethr_atomic32_t *var, ethr_sint32_t incr)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_add_read__(var, incr);
+}   
+
+ethr_sint32_t
+ethr_atomic32_inc_read(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_inc_read__(var);
+}
+
+ethr_sint32_t
+ethr_atomic32_dec_read(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_dec_read__(var);
+}
+
+void
+ethr_atomic32_add(ethr_atomic32_t *var, ethr_sint32_t incr)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    ethr_atomic32_add__(var, incr);
+}   
+    
+void
+ethr_atomic32_inc(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    ethr_atomic32_inc__(var);
+}
+
+void
+ethr_atomic32_dec(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    ethr_atomic32_dec__(var);
+}
+
+ethr_sint32_t
+ethr_atomic32_read_band(ethr_atomic32_t *var, ethr_sint32_t mask)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_read_band__(var, mask);
+}
+
+ethr_sint32_t
+ethr_atomic32_read_bor(ethr_atomic32_t *var, ethr_sint32_t mask)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_read_bor__(var, mask);
+}
+
+ethr_sint32_t
+ethr_atomic32_xchg(ethr_atomic32_t *var, ethr_sint32_t new)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_xchg__(var, new);
+}   
+
+ethr_sint32_t
+ethr_atomic32_cmpxchg(ethr_atomic32_t *var,
+		      ethr_sint32_t new,
+		      ethr_sint32_t expected)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_cmpxchg__(var, new, expected);
+}
+
+ethr_sint32_t
+ethr_atomic32_read_acqb(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_read_acqb__(var);
+}
+
+ethr_sint32_t
+ethr_atomic32_inc_read_acqb(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_inc_read_acqb__(var);
+}
+
+void
+ethr_atomic32_set_relb(ethr_atomic32_t *var, ethr_sint32_t i)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    ethr_atomic32_set_relb__(var, i);
+}
+
+void
+ethr_atomic32_dec_relb(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    ethr_atomic32_dec_relb__(var);
+}
+
+ethr_sint32_t
+ethr_atomic32_dec_read_relb(ethr_atomic32_t *var)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_dec_read_relb__(var);
+}
+
+ethr_sint32_t
+ethr_atomic32_cmpxchg_acqb(ethr_atomic32_t *var,
+			   ethr_sint32_t new,
+			   ethr_sint32_t exp)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_cmpxchg_acqb__(var, new, exp);
+}
+
+ethr_sint32_t
+ethr_atomic32_cmpxchg_relb(ethr_atomic32_t *var,
+			   ethr_sint32_t new,
+			   ethr_sint32_t exp)
+{
+    ETHR_ASSERT(!ethr_not_inited__);
+    ETHR_ASSERT(var);
+    return ethr_atomic32_cmpxchg_relb__(var, new, exp);
 }
 
