@@ -5,7 +5,7 @@
    {agent,
     [
      {priority, normal}, 
-     {versions, [v2]}, 
+     {versions, [v1,v2,v3]}, 
      {db_dir, "%DIR%/agent/db"}, 
      {mib_storage, ets}, 
 %%     {agent_mib_storage, volatile},

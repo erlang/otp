@@ -11,6 +11,7 @@
 /agent/standard.conf
 /agent/target_addr.conf
 /agent/target_params.conf
+/agent/usm.conf
 /agent/vacm.conf
 
 # Manager config files (Generated)

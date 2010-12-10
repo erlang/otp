@@ -94,6 +94,22 @@ ifeq ($(SYS_NAME),)
 SYS_NAME = FOO
 endif
 
+ifeq ($(AGENT_ENGINE_ID),)
+AGENT_ENGINE_ID = Agent engine of $(USER)
+endif
+
+ifeq ($(AGENT_USM_ENGINE_ID),)
+AGENT_USM_ENGINE_ID = $(AGENT_ENGINE_ID)
+endif
+
+ifeq ($(MANAGER_ENGINE_ID),)
+MANAGER_ENGINE_ID = Manager engine of $(USER)
+endif
+
+ifeq ($(MANAGER_USM_ENGINE_ID),)
+MANAGER_USM_ENGINE_ID = $(MANAGER_ENGINE_ID)
+endif
+
 
 
 # ----------------------------------------------------
@@ -119,11 +135,15 @@ agent/%.conf: agent/%.conf.src
             -e 's?%SYS_CONTACT%?$(SYS_CONTACT)? ' \
             -e 's?%SYS_LOCATION%?$(SYS_LOCATION)? ' \
             -e 's?%SYS_NAME%?$(SYS_NAME)? ' \
-            -e 's?%TARGET_NAME_PRE%?$(TARGET_NAME_PRE)? ' < $< > $@
+            -e 's?%TARGET_NAME_PRE%?$(TARGET_NAME_PRE)? ' \
+            -e 's?%ENGINE_ID%?\"$(AGENT_ENGINE_ID)\"? ' \
+            -e 's?%USM_ENGINE_ID%?\"$(AGENT_USM_ENGINE_ID)\"? ' < $< > $@
 
 manager/%.conf: manager/%.conf.src
 	@echo "$< -> $@"
-	$(PERL) -p -e 's?%ADDR%?$(ADDR)? ' < $< > $@
+	sed -e 's?%ADDR%?$(ADDR)? ' \
+            -e 's?%ENGINE_ID%?\"$(MANAGER_ENGINE_ID)\"? ' \
+            -e 's?%USM_ENGINE_ID%?\"$(MANAGER_USM_ENGINE_ID)\"? ' < $< > $@
 
 
 # ----------------------------------------------------
@@ -133,7 +153,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec:
 
-release_tests_spec: opt
+release_tests_spec: clean opt
 	$(INSTALL_DIR)  $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	$(INSTALL_DIR)  $(RELSYSDIR)/agent

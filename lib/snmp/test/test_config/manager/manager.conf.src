@@ -12,5 +12,5 @@
 
 {port, 5000}.
 {address, %ADDR%}.
-{engine_id, "foo"}.
+{engine_id, %ENGINE_ID%}.
 {max_message_size, 484}.

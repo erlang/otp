@@ -327,6 +327,16 @@ mibs_info() ->
        snmpOutTraps
       ]
      },
+     {snmp_framework_mib, 
+      [
+      ],
+      [
+       snmpEngineID,
+       snmpEngineBoots,
+       snmpEngineTime,
+       snmpEngineMaxMessageSize
+      ]
+     },
      {snmp_view_based_acm_mib, 
       [
        vacmAccessTable,
@@ -362,7 +372,13 @@ mibs_info() ->
        usmUserTable
       ], 
       [
-       usmUserSpinLock
+       usmUserSpinLock,
+       usmStatsUnsupportedSecLevels, 
+       usmStatsNotInTimeWindows, 
+       usmStatsUnknownUserNames, 
+       usmStatsUnknownEngineIDs, 
+       usmStatsWrongDigests, 
+       usmStatsDecryptionErrors
       ]
      }
     ].
@@ -441,8 +457,8 @@ make_pretty_mib(snmp_notification_mib) ->
     "SNMP-NOTIFICATION-MIB";
 make_pretty_mib(snmp_user_based_sm_mib) ->
     "SNMP-USER-BASED-SM-MIB";
-make_pretty_mib(snmp_standard_mib) ->
-    "STANDARD-MIB";
+make_pretty_mib(snmp_framework_mib) ->
+    "SNMP-FRAMEWORK-MIB";
 make_pretty_mib(Mod) ->
     atom_to_list(Mod).
 

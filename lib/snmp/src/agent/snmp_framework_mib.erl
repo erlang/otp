@@ -373,15 +373,27 @@ intAgentUDPPort(Op) ->
 intAgentIpAddress(Op) ->
     snmp_generic:variable_func(Op, db(intAgentIpAddress)).
 
+snmpEngineID(print) ->
+    VarAndValue = [{snmpEngineID, snmpEngineID(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineID(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineID)).
 
+snmpEngineMaxMessageSize(print) ->
+    VarAndValue = [{snmpEngineMaxMessageSize, snmpEngineMaxMessageSize(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineMaxMessageSize(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineMaxMessageSize)).
 
+snmpEngineBoots(print) ->
+    VarAndValue = [{snmpEngineBoots, snmpEngineBoots(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineBoots(Op) ->
     snmp_generic:variable_func(Op, db(snmpEngineBoots)).
 
+snmpEngineTime(print) ->
+    VarAndValue = [{snmpEngineTime, snmpEngineTime(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 snmpEngineTime(get) ->
     {value, get_engine_time()}.
 

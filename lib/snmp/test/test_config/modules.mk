@@ -30,6 +30,7 @@ AGENT_CONFIG_FILES = \
 	agent/standard.conf \
 	agent/target_addr.conf \
 	agent/target_params.conf \
+	agent/usm.conf \
 	agent/vacm.conf
 
 MANAGER_CONFIG_FILES = \

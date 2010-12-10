@@ -5,4 +5,5 @@
 %% {EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey}
 %%
 
+{%USM_ENGINE_ID%, "initial", usmNoAuthProtocol, "", usmNoPrivProtocol, ""}.
 
