@@ -27,7 +27,7 @@
 
 -export([create/0, remove/1, add_trusted_certs/3, 
 	 remove_trusted_certs/2, lookup_trusted_cert/3, issuer_candidate/1,
-	 lookup_cached_certs/1, cache_pem_file/4, uncache_pem_file/2, ref_count/3]).
+	 lookup_cached_certs/1, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
 
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 
@@ -122,10 +122,13 @@ cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
 %% but with different content.
 %% --------------------------------------------------------------------
 uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
-    Pids = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
+    [Pids] = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
     lists:foreach(fun(Pid) ->
 			  exit(Pid, shutdown)
 		  end, Pids).
+
+
+
 %%--------------------------------------------------------------------
 -spec remove_trusted_certs(pid(), certdb_ref()) -> term().
 				  
@@ -191,6 +194,22 @@ issuer_candidate(PrevCandidateKey) ->
     end.
 
 %%--------------------------------------------------------------------
+-spec lookup(term(), term()) -> term() | undefined.
+%%
+%% Description: Looks up an element in a certificat <Db>.
+%%--------------------------------------------------------------------
+lookup(Key, Db) ->
+    case ets:lookup(Db, Key) of
+	[] ->
+	    undefined;
+	Contents  ->
+	    Pick = fun({_, Data}) -> Data;
+		      ({_,_,Data}) -> Data
+		   end,
+	    [Pick(Data) || Data <- Contents]
+    end.
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 certificate_db_name() ->
@@ -207,17 +226,6 @@ ref_count(Key, Db,N) ->
 
 delete(Key, Db) ->
     _ = ets:delete(Db, Key).
-
-lookup(Key, Db) ->
-    case ets:lookup(Db, Key) of
-	[] ->
-	    undefined;
-	Contents  ->
-	    Pick = fun({_, Data}) -> Data;
-		      ({_,_,Data}) -> Data
-		   end,
-	    [Pick(Data) || Data <- Contents]
-    end.
 
 select(Db, MatchSpec)->
     ets:select(Db, MatchSpec).

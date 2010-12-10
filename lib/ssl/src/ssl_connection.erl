@@ -90,7 +90,8 @@
 	  log_alert,           % boolean() 
 	  renegotiation,        % {boolean(), From | internal | peer}
 	  recv_during_renegotiation,  %boolean() 
-	  send_queue           % queue()
+	  send_queue,           % queue()
+	  terminated = false   %
 	 }).
 
 -define(DEFAULT_DIFFIE_HELLMAN_PARAMS, 
@@ -781,8 +782,12 @@ handle_sync_event(start, _, connection, State) ->
 handle_sync_event(start, From, StateName, State) ->
     {next_state, StateName, State#state{from = From}};
 
-handle_sync_event(close, _, _StateName, State) ->
-    {stop, normal, ok, State};
+handle_sync_event(close, _, StateName, State) ->
+    %% Run terminate before returning
+    %% so that the reuseaddr inet-option will work
+    %% as intended.
+    (catch terminate(user_close, StateName, State)),
+    {stop, normal, ok, State#state{terminated = true}};
 
 handle_sync_event({shutdown, How0}, _, StateName,
 		  #state{transport_cb = Transport,
@@ -970,6 +975,11 @@ handle_info(Msg, StateName, State) ->
 %% necessary cleaning up. When it returns, the gen_fsm terminates with
 %% Reason. The return value is ignored.
 %%--------------------------------------------------------------------
+terminate(_, _, #state{terminated = true}) ->
+    %% Happens when user closes the connection using ssl:close/1
+    %% we want to guarantee that Transport:close has been called
+    %% when ssl:close/1 returns.
+    ok;
 terminate(Reason, connection, #state{negotiated_version = Version,
 				      connection_states = ConnectionStates,
 				      transport_cb = Transport,
@@ -979,14 +989,14 @@ terminate(Reason, connection, #state{negotiated_version = Version,
     notify_renegotiater(Renegotiate),
     BinAlert = terminate_alert(Reason, Version, ConnectionStates),
     Transport:send(Socket, BinAlert),
-    workaround_transport_delivery_problems(Socket, Transport),
+    workaround_transport_delivery_problems(Socket, Transport, Reason),
     Transport:close(Socket);
-terminate(_Reason, _StateName, #state{transport_cb = Transport, 
+terminate(Reason, _StateName, #state{transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate}) ->
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
-    workaround_transport_delivery_problems(Socket, Transport),
+    workaround_transport_delivery_problems(Socket, Transport, Reason),
     Transport:close(Socket).
 
 %%--------------------------------------------------------------------
@@ -2189,7 +2199,8 @@ notify_renegotiater({true, From}) when not is_atom(From)  ->
 notify_renegotiater(_) ->
     ok.
 
-terminate_alert(Reason, Version, ConnectionStates) when Reason == normal; Reason == shutdown ->
+terminate_alert(Reason, Version, ConnectionStates) when Reason == normal; Reason == shutdown;
+							Reason == user_close ->
     {BinAlert, _} = encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
 				 Version, ConnectionStates),
     BinAlert;
@@ -2198,10 +2209,13 @@ terminate_alert(_, Version, ConnectionStates) ->
 				 Version, ConnectionStates),
     BinAlert.
 
-workaround_transport_delivery_problems(Socket, Transport) ->
+workaround_transport_delivery_problems(_,_, user_close) ->
+    ok;
+workaround_transport_delivery_problems(Socket, Transport, _) ->
     %% Standard trick to try to make sure all
     %% data sent to to tcp port is really sent
-    %% before tcp port is closed.
+    %% before tcp port is closed so that the peer will
+    %% get a correct error message.
     inet:setopts(Socket, [{active, false}]),
     Transport:shutdown(Socket, write),
     Transport:recv(Socket, 0).

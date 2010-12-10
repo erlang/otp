@@ -35,7 +35,7 @@
 	 invalidate_session/3]).
 
 % Spawn export
--export([init_session_validator/1, recache_pem/4]).
+-export([init_session_validator/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -229,8 +229,8 @@ handle_call({{cache_pem, File, LastWrite}, Pid}, _,
     end;
 handle_call({{recache_pem, File, LastWrite}, Pid}, From,
 	    #state{certificate_db = Db} = State) ->
-    ssl_certificate_db:uncache_pem_file(File, Pid, Db),
-    spawn_link(?MODULE, recache_pem, [File, Db, LastWrite, From]),
+    ssl_certificate_db:uncache_pem_file(File, Db),
+    cast({recache_pem, File, LastWrite, Pid, From}),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -269,7 +269,21 @@ handle_cast({invalidate_session, Port, #session{session_id = ID}},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:delete(Cache, {Port, ID}),
-    {noreply, State}.
+    {noreply, State};
+
+handle_cast({recache_pem, File, LastWrite, Pid, From},
+	    #state{certificate_db = [_, FileToRefDb, _]} = State0) ->
+    case ssl_certificate_db:lookup(File, FileToRefDb) of
+	undefined ->
+	    {reply, Msg, State} = handle_call({{cache_pem, File, LastWrite}, Pid}, From, State0),
+	    gen_server:reply(From, Msg),
+	    {noreply, State};
+	_ -> %% Send message to self letting cleanup messages be handled
+	     %% first so that no reference to the old version of file
+             %% exists when we cache the new one.
+	    cast({recache_pem, File, LastWrite, Pid, From}),
+	    {noreply, State0}
+    end.
 
 %%--------------------------------------------------------------------
 -spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
@@ -386,15 +400,4 @@ cache_pem_file(File, LastWrite) ->
 	    end;
 	[] ->
 	    call({cache_pem, File, LastWrite})
-    end.
-
-
-recache_pem(File, Db, LastWrite, From) ->
-    case ssl_certificate_db:ref_count(File, Db, 0) of
-	0 ->
-	    Result = call({cache_pem, File, LastWrite}),
-	    gen_server:reply(From, Result);
-	_ ->
-	    timer:sleep(1000),
-	    recache_pem(File, Db, LastWrite, From)
     end.
