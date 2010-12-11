@@ -91,6 +91,8 @@ typedef ethr_tsd_key erts_tsd_key_t;
 typedef ethr_ts_event erts_tse_t;
 typedef ethr_sint_t erts_aint_t;
 typedef ethr_atomic_t erts_atomic_t;
+typedef ethr_sint32_t erts_aint32_t;
+typedef ethr_atomic32_t erts_atomic32_t;
 
 /* spinlock */
 typedef struct {
@@ -154,6 +156,8 @@ typedef int erts_tsd_key_t;
 typedef int erts_tse_t;
 typedef SWord erts_aint_t;
 typedef SWord erts_atomic_t;
+typedef SWord erts_aint32_t;
+typedef SWord erts_atomic32_t;
 #if __GNUC__ > 2
 typedef struct { } erts_spinlock_t;
 typedef struct { } erts_rwlock_t;
@@ -259,6 +263,36 @@ ERTS_GLB_INLINE erts_aint_t erts_atomic_cmpxchg_acqb(erts_atomic_t *xchgp,
 ERTS_GLB_INLINE erts_aint_t erts_atomic_cmpxchg_relb(erts_atomic_t *xchgp,
 						     erts_aint_t new,
 						     erts_aint_t exp);
+ERTS_GLB_INLINE void erts_atomic32_init(erts_atomic32_t *var, erts_aint32_t i);
+ERTS_GLB_INLINE void erts_atomic32_set(erts_atomic32_t *var, erts_aint32_t i);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_read(erts_atomic32_t *var);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_inctest(erts_atomic32_t *incp);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_dectest(erts_atomic32_t *decp);
+ERTS_GLB_INLINE void erts_atomic32_inc(erts_atomic32_t *incp);
+ERTS_GLB_INLINE void erts_atomic32_dec(erts_atomic32_t *decp);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_addtest(erts_atomic32_t *addp,
+						    erts_aint32_t i);
+ERTS_GLB_INLINE void erts_atomic32_add(erts_atomic32_t *addp, erts_aint32_t i);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_xchg(erts_atomic32_t *xchgp,
+						 erts_aint32_t new);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_cmpxchg(erts_atomic32_t *xchgp,
+						    erts_aint32_t new,
+						    erts_aint32_t expected);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_bor(erts_atomic32_t *var,
+						erts_aint32_t mask);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_band(erts_atomic32_t *var,
+						 erts_aint32_t mask);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_read_acqb(erts_atomic32_t *var);
+ERTS_GLB_INLINE void erts_atomic32_set_relb(erts_atomic32_t *var,
+					    erts_aint32_t i);
+ERTS_GLB_INLINE void erts_atomic32_dec_relb(erts_atomic32_t *decp);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_dectest_relb(erts_atomic32_t *decp);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_cmpxchg_acqb(erts_atomic32_t *xchgp,
+							 erts_aint32_t new,
+							 erts_aint32_t exp);
+ERTS_GLB_INLINE erts_aint32_t erts_atomic32_cmpxchg_relb(erts_atomic32_t *xchgp,
+							 erts_aint32_t new,
+							 erts_aint32_t exp);
 ERTS_GLB_INLINE void erts_spinlock_init_x_opt(erts_spinlock_t *lock,
 					      char *name,
 					      Eterm extra,
@@ -1017,14 +1051,13 @@ erts_atomic_add(erts_atomic_t *addp, erts_aint_t i)
 ERTS_GLB_INLINE erts_aint_t
 erts_atomic_xchg(erts_atomic_t *xchgp, erts_aint_t new)
 {
-    erts_aint_t old;
 #ifdef USE_THREADS
     return ethr_atomic_xchg(xchgp, new);
 #else
-    old = *xchgp;
+    erts_aint_t old = *xchgp;
     *xchgp = new;
-#endif
     return old;
+#endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
@@ -1128,6 +1161,221 @@ ERTS_GLB_INLINE erts_aint_t erts_atomic_cmpxchg_relb(erts_atomic_t *xchgp,
     return ethr_atomic_cmpxchg_relb(xchgp, new, exp);
 #else
     erts_aint_t old = *xchgp;
+    if (old == exp)
+        *xchgp = new;
+    return old;
+#endif
+}
+
+/* atomic32 */
+
+ERTS_GLB_INLINE void
+erts_atomic32_init(erts_atomic32_t *var, erts_aint32_t i)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_init(var, i);
+#else
+    *var = i;
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_atomic32_set(erts_atomic32_t *var, erts_aint32_t i)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_set(var, i);
+#else
+    *var = i;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_read(erts_atomic32_t *var)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_read(var);
+#else
+    return *var;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_inctest(erts_atomic32_t *incp)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_inc_read(incp);
+#else
+    return ++(*incp);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_dectest(erts_atomic32_t *decp)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_dec_read(decp);
+#else
+    return --(*decp);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_atomic32_inc(erts_atomic32_t *incp)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_inc(incp);
+#else
+    ++(*incp);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_atomic32_dec(erts_atomic32_t *decp)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_dec(decp);
+#else
+    --(*decp);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_addtest(erts_atomic32_t *addp, erts_aint32_t i)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_add_read(addp, i);
+#else
+    return *addp += i;
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_atomic32_add(erts_atomic32_t *addp, erts_aint32_t i)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_add(addp, i);
+#else
+    *addp += i;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_xchg(erts_atomic32_t *xchgp, erts_aint32_t new)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_xchg(xchgp, new);
+#else
+    erts_aint32_t old = *xchgp;
+    *xchgp = new;
+    return old;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_cmpxchg(erts_atomic32_t *xchgp,
+		      erts_aint32_t new,
+		      erts_aint32_t expected)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_cmpxchg(xchgp, new, expected);
+#else
+    erts_aint32_t old = *xchgp;
+    if (old == expected)
+        *xchgp = new;
+    return old;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_bor(erts_atomic32_t *var, erts_aint32_t mask)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_read_bor(var, mask);
+#else
+    erts_aint32_t old;
+    old = *var;
+    *var |= mask;
+    return old;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_band(erts_atomic32_t *var, erts_aint32_t mask)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_read_band(var, mask);
+#else
+    erts_aint32_t old;
+    old = *var;
+    *var &= mask;
+    return old;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_read_acqb(erts_atomic32_t *var)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_read_acqb(var);
+#else
+    return *var;
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_atomic32_set_relb(erts_atomic32_t *var, erts_aint32_t i)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_set_relb(var, i);
+#else
+    *var = i;
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_atomic32_dec_relb(erts_atomic32_t *decp)
+{
+#ifdef USE_THREADS
+    ethr_atomic32_dec_relb(decp);
+#else
+    --(*decp);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_dectest_relb(erts_atomic32_t *decp)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_dec_read_relb(decp);
+#else
+    return --(*decp);
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_cmpxchg_acqb(erts_atomic32_t *xchgp,
+			   erts_aint32_t new,
+			   erts_aint32_t exp)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_cmpxchg_acqb(xchgp, new, exp);
+#else
+    erts_aint32_t old = *xchgp;
+    if (old == exp)
+        *xchgp = new;
+    return old;
+#endif
+}
+
+ERTS_GLB_INLINE erts_aint32_t
+erts_atomic32_cmpxchg_relb(erts_atomic32_t *xchgp,
+			   erts_aint32_t new,
+			   erts_aint32_t exp)
+{
+#ifdef USE_THREADS
+    return ethr_atomic32_cmpxchg_relb(xchgp, new, exp);
+#else
+    erts_aint32_t old = *xchgp;
     if (old == exp)
         *xchgp = new;
     return old;
