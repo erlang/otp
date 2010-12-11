@@ -565,7 +565,7 @@ struct ethr_ts_event_ {
     ethr_ts_event *prev;
     ethr_event event;
     void *udata;
-    ethr_atomic_t uaflgs;
+    ethr_atomic32_t uaflgs;
     unsigned uflgs;
     unsigned iflgs;		/* for ethr lib only */
     short rgix;			/* for ethr lib only */

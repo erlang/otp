@@ -413,7 +413,7 @@ transfer_locks(Process *p,
 	do {
 	    erts_tse_t *tmp = wake;
 	    wake = wake->next;
-	    erts_atomic_set(&tmp->uaflgs, 0);
+	    erts_atomic32_set(&tmp->uaflgs, 0);
 	    erts_tse_set(tmp);
 	} while (wake);
 
@@ -509,14 +509,14 @@ wait_for_locks(Process *p,
 
 	ASSERT((wtr->uflgs & ~ERTS_PROC_LOCKS_ALL) == 0);
 
-	erts_atomic_set(&wtr->uaflgs, 1);
+	erts_atomic32_set(&wtr->uaflgs, 1);
 	erts_pix_unlock(pix_lock);
 
 	while (1) {
 	    int res;
 	    erts_tse_reset(wtr);
 
-	    if (erts_atomic_read(&wtr->uaflgs) == 0)
+	    if (erts_atomic32_read(&wtr->uaflgs) == 0)
 		break;
 
 	    /*

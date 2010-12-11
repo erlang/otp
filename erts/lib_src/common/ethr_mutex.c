@@ -415,7 +415,7 @@ event_wait(struct ethr_mutex_base_ *mtxb,
     /* Need to enqueue and wait... */
 
     tse->uflgs = type;
-    ethr_atomic_set(&tse->uaflgs, type);
+    ethr_atomic32_set(&tse->uaflgs, type);
 
     ETHR_MTX_Q_LOCK(&mtxb->qlck);
     locked = 1;
@@ -560,7 +560,7 @@ event_wait(struct ethr_mutex_base_ *mtxb,
     while (1) {
 	ethr_event_reset(&tse->event);
 
-	act = ethr_atomic_read_acqb(&tse->uaflgs);
+	act = ethr_atomic32_read_acqb(&tse->uaflgs);
 	if (!act)
 	    goto done; /* Got it */
 
@@ -568,7 +568,7 @@ event_wait(struct ethr_mutex_base_ *mtxb,
 	ethr_event_swait(&tse->event, spincount);
 	/* swait result: 0 || EINTR */
 
-	act = ethr_atomic_read_acqb(&tse->uaflgs);
+	act = ethr_atomic32_read_acqb(&tse->uaflgs);
 	if (!act)
 	    goto done; /* Got it */
     }
@@ -588,7 +588,7 @@ wake_writer(struct ethr_mutex_base_ *mtxb, int is_rwmtx)
     dequeue(&mtxb->q, tse, tse);
 
     ETHR_ASSERT(tse->uflgs == ETHR_RWMTX_W_WAIT_FLG__);
-    ETHR_ASSERT(ethr_atomic_read(&tse->uaflgs) == ETHR_RWMTX_W_WAIT_FLG__);
+    ETHR_ASSERT(ethr_atomic32_read(&tse->uaflgs) == ETHR_RWMTX_W_WAIT_FLG__);
 #ifdef ETHR_MTX_HARD_DEBUG_WSQ
     mtxb->ws--;
 #endif
@@ -598,7 +598,7 @@ wake_writer(struct ethr_mutex_base_ *mtxb, int is_rwmtx)
 
     ETHR_MTX_Q_UNLOCK(&mtxb->qlck);
 
-    ethr_atomic_set(&tse->uaflgs, 0);
+    ethr_atomic32_set(&tse->uaflgs, 0);
     ethr_event_set(&tse->event);
 }
 
@@ -973,7 +973,7 @@ enqueue_mtx(ethr_mutex *mtx, ethr_ts_event *tse_start, ethr_ts_event *tse_end)
 		    ETHR_MTX_HARD_DEBUG_CHK_Q(mtx);
 		    ETHR_MTX_Q_UNLOCK(&mtx->mtxb.qlck);
 
-		    ethr_atomic_set(&tse_start->uaflgs, 0);
+		    ethr_atomic32_set(&tse_start->uaflgs, 0);
 		    ethr_event_set(&tse_start->event);
 		}
 		break;
@@ -1064,9 +1064,9 @@ ethr_cond_signal(ethr_cond *cnd)
 
 	ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
 	ETHR_ASSERT(tse->uflgs == ETHR_RWMTX_W_WAIT_FLG__);
-	ETHR_ASSERT(ethr_atomic_read(&tse->uaflgs) == ETHR_CND_WAIT_FLG__);
+	ETHR_ASSERT(ethr_atomic32_read(&tse->uaflgs) == ETHR_CND_WAIT_FLG__);
 
-	ethr_atomic_set(&tse->uaflgs, ETHR_RWMTX_W_WAIT_FLG__);
+	ethr_atomic32_set(&tse->uaflgs, ETHR_RWMTX_W_WAIT_FLG__);
 
 	dequeue(&cnd->q, tse, tse);
 
@@ -1117,11 +1117,11 @@ ethr_cond_broadcast(ethr_cond *cnd)
 		    /* The normal case */
 
 		    ETHR_ASSERT(tse_tmp->uflgs == ETHR_RWMTX_W_WAIT_FLG__);
-		    ETHR_ASSERT(ethr_atomic_read(&tse_tmp->uaflgs)
+		    ETHR_ASSERT(ethr_atomic32_read(&tse_tmp->uaflgs)
 				== ETHR_CND_WAIT_FLG__);
 
-		    ethr_atomic_set(&tse_tmp->uaflgs,
-				    ETHR_RWMTX_W_WAIT_FLG__);
+		    ethr_atomic32_set(&tse_tmp->uaflgs,
+				      ETHR_RWMTX_W_WAIT_FLG__);
 		}
 		else {
 		    /* Should be very unusual */
@@ -1174,7 +1174,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
     tse->udata = (void *) mtx;
 
     tse->uflgs = ETHR_RWMTX_W_WAIT_FLG__; /* Prep for mutex lock op */
-    ethr_atomic_set(&tse->uaflgs, ETHR_CND_WAIT_FLG__);
+    ethr_atomic32_set(&tse->uaflgs, ETHR_CND_WAIT_FLG__);
 
     ETHR_MTX_Q_LOCK(&cnd->qlck);
 
@@ -1191,7 +1191,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
 
 	ethr_event_reset(&tse->event);
 
-	act = ethr_atomic_read_acqb(&tse->uaflgs);
+	act = ethr_atomic32_read_acqb(&tse->uaflgs);
 	if (!act)
 	    break; /* Mtx locked */
 
@@ -1207,7 +1207,7 @@ ethr_cond_wait(ethr_cond *cnd, ethr_mutex *mtx)
 	     */
 	    if (act == ETHR_CND_WAIT_FLG__) {
 		ETHR_MTX_Q_LOCK(&cnd->qlck);
-		act = ethr_atomic_read(&tse->uaflgs);
+		act = ethr_atomic32_read(&tse->uaflgs);
 		ETHR_ASSERT(act == ETHR_CND_WAIT_FLG__
 			    || act == ETHR_RWMTX_W_WAIT_FLG__);
 		/*
@@ -1409,7 +1409,7 @@ wake_readers(ethr_rwmutex *rwmtx, int rs)
     rwmtx->rq_end = NULL;
 
     ETHR_ASSERT(!rwmtx->mtxb.q
-		|| (ethr_atomic_read(&rwmtx->mtxb.q->uaflgs)
+		|| (ethr_atomic32_read(&rwmtx->mtxb.q->uaflgs)
 		    == ETHR_RWMTX_W_WAIT_FLG__));
 
     ETHR_RWMTX_HARD_DEBUG_CHK_Q(rwmtx);
@@ -1420,7 +1420,7 @@ wake_readers(ethr_rwmutex *rwmtx, int rs)
 
 #ifdef ETHR_DEBUG
 	ETHR_ASSERT(tse->uflgs == ETHR_RWMTX_R_WAIT_FLG__);
-	ETHR_ASSERT(ethr_atomic_read(&tse->uaflgs)
+	ETHR_ASSERT(ethr_atomic32_read(&tse->uaflgs)
 		    == ETHR_RWMTX_R_WAIT_FLG__);
 	drs++;
 #endif
@@ -1428,7 +1428,7 @@ wake_readers(ethr_rwmutex *rwmtx, int rs)
 	tse_next = tse->next; /* we aren't allowed to read tse->next
 				 after we have reset uaflgs */
 
-	ethr_atomic_set(&tse->uaflgs, 0);
+	ethr_atomic32_set(&tse->uaflgs, 0);
 	ethr_event_set(&tse->event);
 	tse = tse_next;
     }
@@ -2812,7 +2812,7 @@ hard_debug_chk_q__(struct ethr_mutex_base_ *mtxb, int is_rwmtx)
 	    ETHR_MTX_HARD_ASSERT(tse->next->prev == tse);
 	    ETHR_MTX_HARD_ASSERT(tse->prev->next == tse);
 
-	    type = ethr_atomic_read(&tse->uaflgs);
+	    type = ethr_atomic32_read(&tse->uaflgs);
 	    ETHR_MTX_HARD_ASSERT(type == tse->uflgs);
 	    switch (type) {
 	    case ETHR_RWMTX_W_WAIT_FLG__:

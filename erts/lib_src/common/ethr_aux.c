@@ -285,10 +285,10 @@ static ethr_ts_event *ts_event_pool(int size, ethr_ts_event **endpp)
 		  + ETHR_CACHE_LINE_SIZE));
     for (i = 1; i < size; i++) {
 	atsev[i-1].ts_ev.next = &atsev[i].ts_ev;
-	ethr_atomic_init(&atsev[i-1].ts_ev.uaflgs, 0);
+	ethr_atomic32_init(&atsev[i-1].ts_ev.uaflgs, 0);
 	atsev[i-1].ts_ev.iflgs = 0;
     }
-    ethr_atomic_init(&atsev[size-1].ts_ev.uaflgs, 0);
+    ethr_atomic32_init(&atsev[size-1].ts_ev.uaflgs, 0);
     atsev[size-1].ts_ev.iflgs = 0;
     atsev[size-1].ts_ev.next = NULL;
     if (endpp)
