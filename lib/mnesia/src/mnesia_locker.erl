@@ -689,6 +689,7 @@ w_nodes(Tab) ->
 %% only take a write lock if we see a majority of the
 %% nodes.
 
+
 check_majority(true, Tab, HaveNs) ->
     check_majority(Tab, HaveNs);
 check_majority(false, _, _) ->
@@ -732,6 +733,7 @@ sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
     end.
 
 do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
+    sticky_check_majority(Lock, Tab),
     ?MODULE ! {self(), {test_set_sticky, Tid, Oid, Lock}},
     N = node(),
     receive
@@ -759,6 +761,22 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
 	{?MODULE, N, {stuck_elsewhere, _N2}} ->
 	    stuck_elsewhere(Tid, Store, Tab, Key, Oid, Lock),
 	    dirty_sticky_lock(Tab, Key, [N], Lock)
+    end.
+
+sticky_check_majority(read, _) ->
+    ok;
+sticky_check_majority(write, Tab) ->
+    case ?catch_val({Tab, majority}) of
+	true ->
+	    HaveNodes = val({Tab, where_to_write}),
+	    case mnesia_lib:have_majority(Tab, HaveNodes) of
+		true ->
+		    ok;
+		false ->
+		    mnesia:abort({no_majority, Tab})
+	    end;
+	_ ->
+	    ok
     end.
 
 not_stuck(Tid, Store, Tab, _Key, Oid, _Lock, N) ->
