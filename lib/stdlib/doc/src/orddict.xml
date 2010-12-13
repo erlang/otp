@@ -172,8 +172,8 @@ ordered_dictionary()
         <v>Orddict = ordered_dictionary()</v>
       </type>
       <desc>
-        <p>This function converts the key/value list <c>List</c> to a 
-          dictionary.</p>
+        <p>This function converts the <c>Key</c> - <c>Value</c> list
+          <c>List</c> to a dictionary.</p>
       </desc>
     </func>
     <func>
@@ -277,7 +277,7 @@ merge(Fun, D1, D2) ->
         <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
       </type>
       <desc>
-        <p>Update the a value in a dictionary by calling <c>Fun</c> on
+        <p>Update a value in a dictionary by calling <c>Fun</c> on
           the value to get a new value.  An exception is generated if
           <c>Key</c> is not present in the dictionary.</p>
       </desc>
@@ -292,7 +292,7 @@ merge(Fun, D1, D2) ->
         <v>Orddict1 = Orddict2 = ordered_dictionary()</v>
       </type>
       <desc>
-        <p>Update the a value in a dictionary by calling <c>Fun</c> on
+        <p>Update a value in a dictionary by calling <c>Fun</c> on
           the value to get a new value.  If <c>Key</c> is not present
           in the dictionary then <c>Initial</c> will be stored as
           the first value. For example <c>append/3</c> could be defined
