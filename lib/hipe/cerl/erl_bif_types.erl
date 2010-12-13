@@ -48,6 +48,7 @@
 		    t_boolean/0,
 		    t_byte/0,
 		    t_char/0,
+		    t_charlist/0,
 		    t_cons/0,
 		    t_cons/2,
 		    t_cons_hd/1,
@@ -4517,11 +4518,11 @@ arg_types(os, timestamp, 0) ->
 arg_types(re, compile, 1) ->
   [t_iodata()];
 arg_types(re, compile, 2) ->
-  [t_iodata(), t_list(t_re_compile_option())];
+  [t_sup(t_iodata(), t_charlist()), t_list(t_re_compile_option())];
 arg_types(re, run, 2) ->
-  [t_iodata(), t_re_RE()];
+  [t_sup(t_iodata(), t_charlist()), t_re_RE()];
 arg_types(re, run, 3) ->
-  [t_iodata(), t_re_RE(), t_list(t_re_run_option())];
+  [t_sup(t_iodata(), t_charlist()), t_re_RE(), t_list(t_re_run_option())];
 %%------- string --------------------------------------------------------------
 arg_types(string, chars, 2) ->
   [t_char(), t_non_neg_integer()];
@@ -4978,8 +4979,7 @@ t_ets_info_items() ->
 %% =====================================================================
 
 t_prim_file_name() ->
-   t_sup([t_string(),
-	  t_binary()]).
+   t_sup(t_string(), t_binary()).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'gen_tcp'
@@ -5136,13 +5136,14 @@ t_re_MP() ->  %% it's supposed to be an opaque data type
   t_tuple([t_atom('re_pattern'), t_integer(), t_integer(), t_binary()]).
 
 t_re_RE() ->
-  t_sup(t_re_MP(), t_iodata()).
+  t_sup([t_re_MP(), t_iodata(), t_charlist()]).
 
 t_re_compile_option() ->
-  t_sup([t_atoms(['anchored', 'caseless', 'dollar_endonly', 'dotall',
-		  'extended', 'firstline', 'multiline', 'no_auto_capture',
-		  'dupnames', 'ungreedy']),
-	 t_tuple([t_atom('newline'), t_re_NLSpec()])]).
+  t_sup([t_atoms(['unicode', 'anchored', 'caseless', 'dollar_endonly',
+		  'dotall', 'extended', 'firstline', 'multiline',
+		  'no_auto_capture', 'dupnames', 'ungreedy']),
+	 t_tuple([t_atom('newline'), t_re_NLSpec()]),
+	 t_atoms(['bsr_anycrlf', 'bsr_unicode'])]).
 
 t_re_run_option() ->
   t_sup([t_atoms(['anchored', 'global', 'notbol', 'noteol', 'notempty']),
@@ -5159,7 +5160,7 @@ t_re_Type() ->
   t_atoms(['index', 'list', 'binary']).
 
 t_re_NLSpec() ->
-  t_atoms(['cr', 'crlf', 'lf', 'anycrlf']).
+  t_atoms(['cr', 'crlf', 'lf', 'anycrlf', 'any']).
 
 t_re_ValueSpec() ->
   t_sup(t_atoms(['all', 'all_but_first', 'first', 'none']), t_re_ValueList()).
