@@ -555,10 +555,11 @@ fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
 {
     unsigned long offs;
 
-    ASSERT(size != 0);
     offs = BIT_OFFSET(size);
     if (is_small(val)) {
 	Sint v = signed_val(val);
+
+	ASSERT(size != 0);	  /* Tested by caller */
 	if (flags & BSF_LITTLE) { /* Little endian */
 	    sz--;
 	    COPY_VAL(buf,1,v,sz);
@@ -578,6 +579,9 @@ fmt_int(byte *buf, Uint sz, Eterm val, Uint size, Uint flags)
 	ErtsDigit* dp = big_v(val);
 	int n = MIN(sz,ds);
 
+	if (size == 0) {
+	    return 0;
+	}
 	if (flags & BSF_LITTLE) {
 	    sz -= n;                       /* pad with this amount */
 	    if (sign) {
@@ -729,15 +733,13 @@ erts_new_bs_put_integer(ERL_BITS_PROTO_3(Eterm arg, Uint num_bits, unsigned flag
     Uint b;
     byte *iptr;
 
-    if (num_bits == 0) {
-	return 1;
-    }
-
     bit_offset = BIT_OFFSET(bin_offset);
     if (is_small(arg)) {
 	Uint rbits = 8 - bit_offset;
 
-	if (bit_offset + num_bits <= 8) {
+	if (num_bits == 0) {
+	    return 1;
+	} else if (bit_offset + num_bits <= 8) {
 	    /*
 	     * All bits are in the same byte.
 	     */ 

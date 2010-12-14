@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,8 @@
          otp_8133/1,
          funs/1,
 	 try_catch/1,
-	 eval_expr_5/1]).
+	 eval_expr_5/1,
+	 zero_width/1]).
 
 %%
 %% Define to run outside of test server
@@ -76,7 +77,8 @@ all(suite) ->
     [guard_1, guard_2, match_pattern, string_plusplus, pattern_expr,
      match_bin, guard_3, guard_4, 
      lc, simple_cases, unary_plus, apply_atom, otp_5269, otp_6539, otp_6543,
-     otp_6787, otp_6977, otp_7550, otp_8133, funs, try_catch, eval_expr_5].
+     otp_6787, otp_6977, otp_7550, otp_8133, funs, try_catch, eval_expr_5,
+     zero_width].
 
 guard_1(doc) ->
     ["(OTP-2405)"];
@@ -1325,6 +1327,14 @@ eval_expr_5(Config) when is_list(Config) ->
 	error:function_clause ->
 	    ok
     end.
+
+zero_width(Config) when is_list(Config) ->
+    ?line check(fun() ->
+			{'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
+			ok
+		end, "begin {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>), "
+		"ok end.", ok),
+    ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
 check(F, String, Result) ->
