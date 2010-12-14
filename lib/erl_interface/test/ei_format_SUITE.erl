@@ -24,11 +24,13 @@
 -include("ei_format_SUITE_data/ei_format_test_cases.hrl").
 
 -export([
-	format_wo_ver/1,
-	all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
-	atoms/1, 
-	tuples/1, 
-	lists/1
+	 format_wo_ver/1,
+	 all/0, suite/0,groups/0,
+	 init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 atoms/1, 
+	 tuples/1, 
+	 lists/1
 	]).
 
 -import(runner, [get_term/1]).
@@ -39,7 +41,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[format_wo_ver, atoms, tuples, lists].
+    [format_wo_ver, atoms, tuples, lists].
 
 groups() -> 
     [].
@@ -51,10 +53,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Tests formatting various atoms.

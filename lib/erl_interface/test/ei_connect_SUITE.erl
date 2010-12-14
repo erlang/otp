@@ -24,18 +24,19 @@
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
 -export([
-	all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
-	init_per_testcase/2, 
-	end_per_testcase/2,
-
-	ei_send/1, 
-	ei_reg_send/1, 
-	ei_format_pid/1,
-	ei_rpc/1, 
-	rpc_test/1, 
-	ei_send_funs/1,
-	ei_threaded_send/1,
-	ei_set_get_tracelevel/1
+	 all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, 
+	 end_per_testcase/2,
+	 
+	 ei_send/1, 
+	 ei_reg_send/1, 
+	 ei_format_pid/1,
+	 ei_rpc/1, 
+	 rpc_test/1, 
+	 ei_send_funs/1,
+	 ei_threaded_send/1,
+	 ei_set_get_tracelevel/1
 	]).
 
 -import(runner, [get_term/1,send_term/2]).
@@ -43,8 +44,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
- ei_threaded_send, ei_set_get_tracelevel].
+    [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
+     ei_threaded_send, ei_set_get_tracelevel].
 
 groups() -> 
     [].
@@ -56,10 +57,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(0.25)),

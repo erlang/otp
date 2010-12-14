@@ -25,7 +25,8 @@
 
 -export(
    [
-all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+    all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+    init_per_group/2,end_per_group/2,
     test_ei_decode_long/1,
     test_ei_decode_ulong/1,
     test_ei_decode_longlong/1,
@@ -38,10 +39,10 @@ all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[test_ei_decode_long, test_ei_decode_ulong,
- test_ei_decode_longlong, test_ei_decode_ulonglong,
- test_ei_decode_char, test_ei_decode_nonoptimal,
- test_ei_decode_misc].
+    [test_ei_decode_long, test_ei_decode_ulong,
+     test_ei_decode_longlong, test_ei_decode_ulonglong,
+     test_ei_decode_char, test_ei_decode_nonoptimal,
+     test_ei_decode_misc].
 
 groups() -> 
     [].
@@ -53,10 +54,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% ---------------------------------------------------------------------------

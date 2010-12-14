@@ -26,15 +26,17 @@
 
 -define(dummy_host,test01).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
 	 ei_recv_tmo/1]).
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[framework_check, ei_accept_tmo, ei_connect_tmo,
- ei_send_tmo, ei_recv_tmo].
+    [framework_check, ei_accept_tmo, ei_connect_tmo,
+     ei_send_tmo, ei_recv_tmo].
 
 groups() -> 
     [].
@@ -46,10 +48,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) ->

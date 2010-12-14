@@ -33,7 +33,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[ei_accept, ei_threaded_accept].
+    [ei_accept, ei_threaded_accept].
 
 groups() -> 
     [].
@@ -45,10 +45,10 @@ end_per_suite(Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) ->
