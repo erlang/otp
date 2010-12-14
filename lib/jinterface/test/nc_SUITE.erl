@@ -53,21 +53,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[pid_roundtrip, port_roundtrip, ref_roundtrip,
- new_float, old_stuff, binary_roundtrip,
- decompress_roundtrip, compress_roundtrip,
- integer_roundtrip, fun_roundtrip, lists_roundtrip,
- lists_roundtrip_2, lists_iterator, unicode,
- unicode_list_to_string, unicode_string_to_list, connect].
+    [pid_roundtrip, port_roundtrip, ref_roundtrip,
+     new_float, old_stuff, binary_roundtrip,
+     decompress_roundtrip, compress_roundtrip,
+     integer_roundtrip, fun_roundtrip, lists_roundtrip,
+     lists_roundtrip_2, lists_iterator, unicode,
+     unicode_list_to_string, unicode_string_to_list, connect].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

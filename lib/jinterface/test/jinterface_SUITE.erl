@@ -18,7 +18,8 @@
 %%
 -module(jinterface_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
@@ -31,7 +32,8 @@
 	 erl_link_java_exit/1, java_link_erl_exit/1,
 	 internal_link_linking_exits/1, internal_link_linked_exits/1,
 	 internal_unlink_linking_exits/1, internal_unlink_linked_exits/1,
-	 normal_exit/1, kill_erl_proc_from_java/1,
+	 normal_exit/1, kill_mbox/1,kill_erl_proc_from_java/1,
+	 kill_mbox_from_erlang/1,
 	 erl_exit_with_reason_any_term/1,
 	 java_exit_with_reason_any_term/1,
 	 status_handler_localStatus/1, status_handler_remoteStatus/1,
@@ -83,19 +85,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-lists:append([fundamental(), ping(), send_receive(),
-	      link_unlink(), status_handler()]).
+    lists:append([fundamental(), ping(), send_receive(),
+		  link_unlink(), status_handler()]).
 
 groups() -> 
-    [{kill_mbox, [], {skip, "Not yet implemented"}},
- {kill_mbox_from_erlang, [],
-  {skip, "Not yet implemented"}}].
+    [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 fundamental() ->
@@ -168,6 +168,10 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     jitu:finish_all(Config).
 
+init_per_testcase(Case, _Config) 
+  when Case =:= kill_mbox;
+       Case =:= kill_mbox_from_erlang ->
+    {skip, "Not yet implemented"};
 init_per_testcase(_Case,Config) ->
     Dog = ?t:timetrap({seconds,10}),
     [{watch_dog,Dog}|Config].
@@ -485,6 +489,59 @@ normal_exit(Config) when is_list(Config) ->
 
 
 %%%-----------------------------------------------------------------
+kill_mbox(doc) ->
+    ["MboxLinkUnlink.java: "
+     "Test that mbox.exit(new OtpErlangAtom(\"kill\") causes linked "
+     "processes to exit with reason 'killed', which can be trapped."];
+kill_mbox(suite) ->
+    {skip, "Not yet implemented"};
+kill_mbox(Config) when is_list(Config) ->
+    Fun =
+	fun() ->
+		register(erl_link_server,self()),
+		process_flag(trap_exit,true),
+		receive
+		    {Main,Mbox} when is_pid(Main), is_pid(Mbox) ->
+			?dbg("Erlang sending \"~p\"",[kill_mbox]),
+			Pid = spawn_link(fun() ->
+						 process_flag(trap_exit,true),
+						 link(Mbox),
+						 Mbox ! {?kill_mbox},
+						 receive
+						     {'EXIT',Mbox,killed} ->
+							 exit(correct_reason);
+						     {'EXIT',Mbox,R} ->
+							 exit({faulty_reason,R})
+						 end
+					 end),
+			receive
+			    {'EXIT',Pid,{faulty_reason,Reason}} ->
+				receive done -> Main ! done end,
+				exit({faulty_reason,Reason});
+			    {'EXIT',Pid,im_killed} ->
+				receive done -> Main ! done end
+			after 1000 ->
+				receive
+				    Other ->
+					?dbg("Got garbage when waiting for exit:"
+					     " ~p", [Other]),
+					Main ! done,
+					exit({got_unexpected,Other})
+				after 0 ->
+					ok
+				end
+			end;
+		    Other ->
+			?dbg("Got garbage: ~p",[Other]),
+			exit(Other)
+		end
+	end,
+
+    spawn_link(Fun),
+    ok = jitu:java(?config(java, Config),
+		   ?config(data_dir, Config),
+		   "MboxLinkUnlink",
+		   [erlang:get_cookie(),node()]).
 
 %%%-----------------------------------------------------------------
 kill_erl_proc_from_java(doc) ->
@@ -503,6 +560,20 @@ kill_erl_proc_from_java(Config) when is_list(Config) ->
     erl_java_link(LinkFun,kill_erl_proc_from_java,killed,Config).
 
 %%%-----------------------------------------------------------------
+kill_mbox_from_erlang(doc) ->
+    ["MboxLinkUnlink.java: "
+     "Test that exit(Mbox,kill) causes linked the Mbox to be killed, and"
+     "linked processes to exit with reason 'killed', even if trapping exits"];
+kill_mbox_from_erlang(suite) ->
+    {skip, "Not yet implemented"};
+kill_mbox_from_erlang(Config) when is_list(Config) ->
+    LinkFun = fun(Mbox) ->
+		      link(Mbox),
+		      Mbox ! {?kill_mbox_from_erlang},
+		      exit(Mbox,kill),
+		      receive after infinity -> ok end
+	      end,
+    erl_java_link(LinkFun,kill_mbox_from_erlang,killed,Config).
 
 %%%-----------------------------------------------------------------
 erl_exit_with_reason_any_term(doc) ->
