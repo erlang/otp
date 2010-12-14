@@ -25,7 +25,9 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_suite/1,end_per_suite/1,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1,end_per_suite/1,
+	 init_per_testcase/2,end_per_testcase/2]).
 -export([marshal_ll/1,marshal_ull/1,
 	 marshal_l/1,marshal_ul/1,
 	 marshal_s/1,marshal_us/1,
@@ -39,22 +41,22 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[marshal_ll, marshal_ull, marshal_l, marshal_ul,
- marshal_s, marshal_us, marshal_c, marshal_wc,
- marshal_str, marshal_any_3, marshal_any_2].
+    [marshal_ll, marshal_ull, marshal_l, marshal_ul,
+     marshal_s, marshal_us, marshal_c, marshal_wc,
+     marshal_str, marshal_any_3, marshal_any_2].
 
 init_per_suite(Config) when is_list(Config) ->
     case case code:priv_dir(jinterface) of

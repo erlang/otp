@@ -31,7 +31,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1, ifr_reg_unreg/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1, ifr_reg_unreg/1]).
 -export([ifr_inheritence_reg/1,ifr_reg_unreg_with_inheritence/1]).
 -export([ifr_reg_unreg_with_inheritence_bad_order/1]).
 
@@ -60,22 +61,22 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[ifr_reg_unreg, ifr_reg_unreg_with_inheritence,
- ifr_reg_unreg_with_inheritence_bad_order,
- ifr_inheritence_reg].
+    [ifr_reg_unreg, ifr_reg_unreg_with_inheritence,
+     ifr_reg_unreg_with_inheritence_bad_order,
+     ifr_inheritence_reg].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

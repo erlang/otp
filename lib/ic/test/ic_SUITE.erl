@@ -24,7 +24,8 @@
 -module(ic_SUITE).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 
 -include_lib("orber/src/orber_ifr.hrl").
@@ -89,30 +90,30 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[app_test, {group, const}, {group, union},
- {group, enum}, {group, attr}, {group, type},
- {group, struct}, {group, general}, {group, inherit},
- {group, oneway}, {group, syntax}, raises_reg].
+    [app_test, {group, const}, {group, union},
+     {group, enum}, {group, attr}, {group, type},
+     {group, struct}, {group, general}, {group, inherit},
+     {group, oneway}, {group, syntax}, raises_reg].
 
 groups() -> 
     [{const, [],
-  [const_norm, const_bad_tk, const_bad_type,
-   const_bad_comb]},
- {union, [],
-  [union_norm, union_type, union_mult_err,
-   union_case_mult, union_default]},
- {enum, [], [enum_norm]}, {struct, [], [struct_norm]},
- {general, [],
-  [typeid, undef_id, mult_ids, forward, include,
-   nasty_names]},
- {inherit, [],
-  [inherit_norm, inherit_warn, inherit_err]},
- {oneway, [],
-  [oneway_norm, oneway_out, oneway_raises, oneway_void,
-   oneway_followed]},
- {attr, [], [attr_norm]}, {type, [], [type_norm]},
- {syntax, [],
-  [syntax1, syntax2, syntax3, syntax4, syntax5, syntax6]}].
+      [const_norm, const_bad_tk, const_bad_type,
+       const_bad_comb]},
+     {union, [],
+      [union_norm, union_type, union_mult_err,
+       union_case_mult, union_default]},
+     {enum, [], [enum_norm]}, {struct, [], [struct_norm]},
+     {general, [],
+      [typeid, undef_id, mult_ids, forward, include,
+       nasty_names]},
+     {inherit, [],
+      [inherit_norm, inherit_warn, inherit_err]},
+     {oneway, [],
+      [oneway_norm, oneway_out, oneway_raises, oneway_void,
+       oneway_followed]},
+     {attr, [], [attr_norm]}, {type, [], [type_norm]},
+     {syntax, [],
+      [syntax1, syntax2, syntax3, syntax4, syntax5, syntax6]}].
 
 init_per_suite(Config) ->
     Config.
