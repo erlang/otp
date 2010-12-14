@@ -3183,7 +3183,7 @@ erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
 
     *timer_ref = res;
 
-    erl_set_timer(&res->timer.tm,
+    erts_set_timer(&res->timer.tm,
 		  (ErlTimeoutProc) ptimer_timeout,
 		  (ErlCancelProc) ptimer_cancelled,
 		  (void*) res,
@@ -3197,7 +3197,7 @@ erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer)
 	ASSERT(*ptimer->timer.timer_ref == ptimer);
 	*ptimer->timer.timer_ref = NULL;
 	ptimer->timer.flags |= ERTS_PTMR_FLG_CANCELLED;
-	erl_cancel_timer(&ptimer->timer.tm);
+	erts_cancel_timer(&ptimer->timer.tm);
     }
 }
 

@@ -35,6 +35,7 @@
 #include "global.h"
 #include "erl_threads.h"
 #include "erl_mtrace.h"
+#include "erl_time.h"
 #include "big.h"
 
 #if HAVE_ERTS_MSEG
@@ -271,7 +272,7 @@ schedule_cache_check(void)
 #endif
 	{
 	    cache_check_timer.active = 0;
-	    erl_set_timer(&cache_check_timer,
+	    erts_set_timer(&cache_check_timer,
 			  check_cache,
 			  NULL,
 			  NULL,

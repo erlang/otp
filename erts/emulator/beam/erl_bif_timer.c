@@ -478,7 +478,7 @@ setup_bif_timer(Uint32 xflags,
     tab_insert(btm);
     ASSERT(btm == tab_find(ref));
     btm->tm.active = 0; /* MUST be initalized */
-    erl_set_timer(&btm->tm,
+    erts_set_timer(&btm->tm,
 		  (ErlTimeoutProc) bif_timer_timeout,
 		  (ErlCancelProc) bif_timer_cleanup,
 		  (void *) btm,
@@ -550,7 +550,7 @@ BIF_RETTYPE cancel_timer_1(BIF_ALIST_1)
 	res = am_false;
     }
     else {
-	Uint left = time_left(&btm->tm);
+	Uint left = erts_time_left(&btm->tm);
 	if (!(btm->flags & BTM_FLG_BYNAME)) {
 	    erts_smp_proc_lock(btm->receiver.proc.ess, ERTS_PROC_LOCK_MSGQ);
 	    unlink_proc(btm);
@@ -558,7 +558,7 @@ BIF_RETTYPE cancel_timer_1(BIF_ALIST_1)
 	}
 	tab_remove(btm);
 	ASSERT(!tab_find(BIF_ARG_1));
-	erl_cancel_timer(&btm->tm);
+	erts_cancel_timer(&btm->tm);
 	erts_smp_btm_rwunlock();
 	res = erts_make_integer(left, BIF_P);
     }
@@ -587,7 +587,7 @@ BIF_RETTYPE read_timer_1(BIF_ALIST_1)
 	res = am_false;
     }
     else {
-	Uint left = time_left(&btm->tm);
+	Uint left = erts_time_left(&btm->tm);
 	res = erts_make_integer(left, BIF_P);
     }
 
@@ -613,7 +613,7 @@ erts_print_bif_timer_info(int to, void *to_arg)
 			      : btm->receiver.proc.ess->id);
 	    erts_print(to, to_arg, "=timer:%T\n", receiver);
 	    erts_print(to, to_arg, "Message: %T\n", btm->message);
-	    erts_print(to, to_arg, "Time left: %d ms\n", time_left(&btm->tm));
+	    erts_print(to, to_arg, "Time left: %d ms\n", erts_time_left(&btm->tm));
 	}
     }
 
@@ -640,7 +640,7 @@ erts_cancel_bif_timers(Process *p, ErtsProcLocks plocks)
 	tab_remove(btm);
 	tmp_btm = btm;
 	btm = btm->receiver.proc.next;
-	erl_cancel_timer(&tmp_btm->tm);
+	erts_cancel_timer(&tmp_btm->tm);
     }
 
     p->bif_timers = NULL;

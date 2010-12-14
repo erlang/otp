@@ -389,7 +389,7 @@ static void do_erts_deliver_time(const SysTimeval *current)
        this by simply pretend as if the time stood still. :) */
 
     if (elapsed > 0) {
-	do_time_add(elapsed);
+	erts_do_time_add(elapsed);
 	last_delivered = cur_time;
     }
 }
@@ -811,9 +811,9 @@ void erts_time_remaining(SysTimeval *rem_time)
 #endif
     long elapsed;
 
-    /* next_time() returns no of ticks to next timeout or -1 if none */
+    /* erts_next_time() returns no of ticks to next timeout or -1 if none */
 
-    if ((ticks = next_time()) == -1) {
+    if ((ticks = erts_next_time()) == -1) {
 	/* timer queue empty */
 	/* this will cause at most 100000000 ticks */
 	rem_time->tv_sec = 100000;

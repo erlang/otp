@@ -227,7 +227,7 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
 
 #if !defined(ERTS_TIMER_THREAD)
 /* Private export to erl_time_sup.c */
-erts_aint_t next_time(void)
+erts_aint_t erts_next_time(void)
 {
     erts_aint_t ret;
 
@@ -310,19 +310,11 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
     }
 }
 
-#if defined(ERTS_TIMER_THREAD)
-static void timer_thread_bump_timer(void)
-{
-    erts_smp_mtx_lock(&tiw_lock);
-    bump_timer_internal(do_time_reset());
-}
-#else
-void bump_timer(erts_aint_t dt) /* dt is value from do_time */
+void erts_bump_timer(erts_aint_t dt) /* dt is value from do_time */
 {
     erts_smp_mtx_lock(&tiw_lock);
     bump_timer_internal(dt);
 }
-#endif
 
 Uint
 erts_timer_wheel_memory_size(void)
@@ -405,7 +397,7 @@ static ERTS_INLINE void timer_thread_init(void) { }
 /* this routine links the time cells into a free list at the start
    and sets the time queue as empty */
 void
-init_time(void)
+erts_init_time(void)
 {
     int i;
 
@@ -475,7 +467,7 @@ insert_timer(ErlTimer* p, Uint t)
 }
 
 void
-erl_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
+erts_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
 	      void* arg, Uint t)
 {
 
@@ -498,7 +490,7 @@ erl_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
 }
 
 void
-erl_cancel_timer(ErlTimer* p)
+erts_cancel_timer(ErlTimer* p)
 {
     ErlTimer *tp;
     ErlTimer **prev;
@@ -545,7 +537,7 @@ erl_cancel_timer(ErlTimer* p)
   immediately if it hadn't been cancelled).
 */
 Uint
-time_left(ErlTimer *p)
+erts_time_left(ErlTimer *p)
 {
     Uint left;
     erts_aint_t dt;
@@ -573,7 +565,7 @@ time_left(ErlTimer *p)
 }
 
 #ifdef DEBUG
-void p_slpq()
+void erts_p_slpq()
 {
     int i;
     ErlTimer* p;
