@@ -474,6 +474,13 @@ extern int count_instructions;
     HEAP_SPACE_VERIFIED(need);                                      \
   } while (0)
 
+#define TestHeapPutList(Need, Reg)		\
+  do {						\
+     TestHeap((Need), 1);			\
+     PutList(Reg, r(0), r(0), StoreSimpleDest);	\
+     CHECK_TERM(r(0));				\
+  } while (0)
+
 #ifdef HYBRID
 #ifdef INCREMENTAL
 #define TestGlobalHeap(Nh, Live, hp)                                    \
@@ -1405,16 +1412,6 @@ void process_main(void)
     CHECK_TERM(r(0));
     HEAP_SPACE_VERIFIED(0);
     Goto(*I);
- }
-
- OpCase(test_heap_1_put_list_Iy): {
-     BeamInstr *next;
-
-     PreFetch(2, next);
-     TestHeap(Arg(0), 1);
-     PutList(yb(Arg(1)), r(0), r(0), StoreSimpleDest);
-     CHECK_TERM(r(0));
-     NextPF(2, next);
  }
 
     /*

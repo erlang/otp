@@ -101,16 +101,16 @@ return
 %macro: test_heap TestHeap -pack
 
 allocate t t
-allocate_heap I I I
+allocate_heap t I t
 deallocate I
 init y
 allocate_zero t t
-allocate_heap_zero I I I
+allocate_heap_zero t I t
 
 trim N Remaining => i_trim N
 i_trim I
 
-test_heap I I
+test_heap I t
 
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
@@ -486,6 +486,7 @@ deallocate_return Q
 
 test_heap Need u==1 | put_list Y=y r r => test_heap_1_put_list Need Y
 
+%macro: test_heap_1_put_list TestHeapPutList -pack
 test_heap_1_put_list I y
 
 # Test tuple & arity (head)
@@ -585,14 +586,14 @@ is_list f y
 
 is_nonempty_list Fail=f S=rx | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
-%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action
-is_nonempty_list_allocate f x I I
-is_nonempty_list_allocate f r I I
+%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action -pack
+is_nonempty_list_allocate f x I t
+is_nonempty_list_allocate f r I t
 
 is_nonempty_list F=f r | test_heap I1 I2 => is_non_empty_list_test_heap F r I1 I2
 
-%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action
-is_non_empty_list_test_heap f r I I
+%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action -pack
+is_non_empty_list_test_heap f r I t
 
 %macro: is_nonempty_list IsNonemptyList -fail_action
 is_nonempty_list f x
