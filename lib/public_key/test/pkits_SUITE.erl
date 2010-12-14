@@ -46,20 +46,20 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[signature_verification, validity_periods,
- verifying_name_chaining,
- verifying_paths_with_self_issued_certificates,
- verifying_basic_constraints, key_usage,
- name_constraints, private_certificate_extensions].
+    [signature_verification, validity_periods,
+     verifying_name_chaining,
+     verifying_paths_with_self_issued_certificates,
+     verifying_basic_constraints, key_usage,
+     name_constraints, private_certificate_extensions].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 signature_verification(doc) ->    [""];

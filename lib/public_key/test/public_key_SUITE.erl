@@ -102,17 +102,17 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[app, pk_decode_encode, encrypt_decrypt, sign_verify,
- pkix, pkix_path_validation, deprecated].
+    [app, pk_decode_encode, encrypt_decrypt, sign_verify,
+     pkix, pkix_path_validation, deprecated].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Test cases starts here.
