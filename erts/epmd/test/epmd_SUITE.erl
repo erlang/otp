@@ -35,7 +35,9 @@
 -record(node_info, {port, node_type, prot, lvsn, hvsn, node_name, extra}).
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export(
    [
@@ -104,21 +106,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[register_name, register_names_1, register_names_2,
- register_duplicate_name, get_port_nr, slow_get_port_nr,
- unregister_others_name_1, unregister_others_name_2,
- register_overflow, name_with_null_inside,
- name_null_terminated, stupid_names_req, no_data,
- one_byte, two_bytes, partial_packet, zero_length,
- too_large, alive_req_too_small_1, alive_req_too_small_2,
- alive_req_too_large, returns_valid_empty_extra,
- returns_valid_populated_extra_with_nulls,
- {group, buffer_overrun}, no_nonlocal_register,
- no_nonlocal_kill, no_live_killing].
+    [register_name, register_names_1, register_names_2,
+     register_duplicate_name, get_port_nr, slow_get_port_nr,
+     unregister_others_name_1, unregister_others_name_2,
+     register_overflow, name_with_null_inside,
+     name_null_terminated, stupid_names_req, no_data,
+     one_byte, two_bytes, partial_packet, zero_length,
+     too_large, alive_req_too_small_1, alive_req_too_small_2,
+     alive_req_too_large, returns_valid_empty_extra,
+     returns_valid_populated_extra_with_nulls,
+     {group, buffer_overrun}, no_nonlocal_register,
+     no_nonlocal_kill, no_live_killing].
 
 groups() -> 
     [{buffer_overrun, [],
-  [buffer_overrun_1, buffer_overrun_2]}].
+      [buffer_overrun_1, buffer_overrun_2]}].
 
 init_per_suite(Config) ->
     Config.
@@ -127,10 +129,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%
@@ -142,7 +144,7 @@ init_per_testcase(_Func, Config) ->
     cleanup(),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     cleanup(),
     Dog = ?config(watchdog, Config),
     catch test_server:timetrap_cancel(Dog),	% We may have canceled already
