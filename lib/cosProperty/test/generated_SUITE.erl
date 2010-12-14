@@ -71,12 +71,12 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -87,32 +87,32 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-['CosPropertyService_ConflictingProperty',
- 'CosPropertyService_ConstraintNotSupported',
- 'CosPropertyService_FixedProperty',
- 'CosPropertyService_InvalidPropertyName',
- 'CosPropertyService_MultipleExceptions',
- 'CosPropertyService_Properties',
- 'CosPropertyService_Property',
- 'CosPropertyService_PropertyDef',
- 'CosPropertyService_PropertyDefs',
- 'CosPropertyService_PropertyException',
- 'CosPropertyService_PropertyExceptions',
- 'CosPropertyService_PropertyMode',
- 'CosPropertyService_PropertyModes',
- 'CosPropertyService_PropertyNames',
- 'CosPropertyService_PropertyNotFound',
- 'CosPropertyService_PropertyTypes',
- 'CosPropertyService_ReadOnlyProperty',
- 'CosPropertyService_UnsupportedMode',
- 'CosPropertyService_UnsupportedProperty',
- 'CosPropertyService_UnsupportedTypeCode',
- 'CosPropertyService_PropertyNamesIterator',
- 'CosPropertyService_PropertiesIterator',
- 'CosPropertyService_PropertySet',
- 'CosPropertyService_PropertySetDef',
- 'CosPropertyService_PropertySetDefFactory',
- 'CosPropertyService_PropertySetFactory'].
+    ['CosPropertyService_ConflictingProperty',
+     'CosPropertyService_ConstraintNotSupported',
+     'CosPropertyService_FixedProperty',
+     'CosPropertyService_InvalidPropertyName',
+     'CosPropertyService_MultipleExceptions',
+     'CosPropertyService_Properties',
+     'CosPropertyService_Property',
+     'CosPropertyService_PropertyDef',
+     'CosPropertyService_PropertyDefs',
+     'CosPropertyService_PropertyException',
+     'CosPropertyService_PropertyExceptions',
+     'CosPropertyService_PropertyMode',
+     'CosPropertyService_PropertyModes',
+     'CosPropertyService_PropertyNames',
+     'CosPropertyService_PropertyNotFound',
+     'CosPropertyService_PropertyTypes',
+     'CosPropertyService_ReadOnlyProperty',
+     'CosPropertyService_UnsupportedMode',
+     'CosPropertyService_UnsupportedProperty',
+     'CosPropertyService_UnsupportedTypeCode',
+     'CosPropertyService_PropertyNamesIterator',
+     'CosPropertyService_PropertiesIterator',
+     'CosPropertyService_PropertySet',
+     'CosPropertyService_PropertySetDef',
+     'CosPropertyService_PropertySetDefFactory',
+     'CosPropertyService_PropertySetFactory'].
 
 groups() -> 
     [].
@@ -124,10 +124,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
