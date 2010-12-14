@@ -728,11 +728,11 @@ typedef enum {
 } erts_activity_error_t;
 
 typedef struct {
-    erts_smp_atomic_t do_block;
+    erts_smp_atomic32_t do_block;
     struct {
-	erts_smp_atomic_t wait;
-	erts_smp_atomic_t gc;
-	erts_smp_atomic_t io;
+	erts_smp_atomic32_t wait;
+	erts_smp_atomic32_t gc;
+	erts_smp_atomic32_t io;
     } in_activity;
 } erts_system_block_state_t;
 
@@ -883,7 +883,7 @@ ERTS_GLB_INLINE int
 erts_smp_pending_system_block(void)
 {
 #ifdef ERTS_SMP
-    return erts_smp_atomic_read(&erts_system_block_state.do_block);
+    return (int) erts_smp_atomic32_read(&erts_system_block_state.do_block);
 #else
     return 0;
 #endif
@@ -919,7 +919,7 @@ erts_smp_set_activity(erts_activity_t old_activity,
     case ERTS_ACTIVITY_UNDEFINED:
 	break;
     case ERTS_ACTIVITY_WAIT:
-	erts_smp_atomic_dec(&erts_system_block_state.in_activity.wait);
+	erts_smp_atomic32_dec(&erts_system_block_state.in_activity.wait);
 	if (locked) {
 	    /* You are not allowed to leave activity waiting
 	     * without supplying the possibility to block
@@ -930,10 +930,10 @@ erts_smp_set_activity(erts_activity_t old_activity,
 	}
 	break;
     case ERTS_ACTIVITY_GC:
-	erts_smp_atomic_dec(&erts_system_block_state.in_activity.gc);
+	erts_smp_atomic32_dec(&erts_system_block_state.in_activity.gc);
 	break;
     case ERTS_ACTIVITY_IO:
-	erts_smp_atomic_dec(&erts_system_block_state.in_activity.io);
+	erts_smp_atomic32_dec(&erts_system_block_state.in_activity.io);
 	break;
     default:
 	erts_set_activity_error(ERTS_ACT_ERR_LEAVE_UNKNOWN_ACTIVITY,
@@ -949,13 +949,13 @@ erts_smp_set_activity(erts_activity_t old_activity,
     case ERTS_ACTIVITY_UNDEFINED:
 	break;
     case ERTS_ACTIVITY_WAIT:
-	erts_smp_atomic_inc(&erts_system_block_state.in_activity.wait);
+	erts_smp_atomic32_inc(&erts_system_block_state.in_activity.wait);
 	break;
     case ERTS_ACTIVITY_GC:
-	erts_smp_atomic_inc(&erts_system_block_state.in_activity.gc);
+	erts_smp_atomic32_inc(&erts_system_block_state.in_activity.gc);
 	break;
     case ERTS_ACTIVITY_IO:
-	erts_smp_atomic_inc(&erts_system_block_state.in_activity.io);
+	erts_smp_atomic32_inc(&erts_system_block_state.in_activity.io);
 	break;
     default:
 	erts_set_activity_error(ERTS_ACT_ERR_ENTER_UNKNOWN_ACTIVITY,
