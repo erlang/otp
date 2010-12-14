@@ -4945,39 +4945,45 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	*buf_p++ = '\0';
 	*buf_p++ = INET_IFOPT_FLAGS;
 	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p); buf_p += 4;
-	if (ifa_p->ifa_addr->sa_family == AF_INET
+	if (ifa_p->ifa_addr) {
+	    if (ifa_p->ifa_addr->sa_family == AF_INET
 #if defined(AF_INET6)
-	    || ifa_p->ifa_addr->sa_family == AF_INET6
+		|| ifa_p->ifa_addr->sa_family == AF_INET6
 #endif
-	    ) {
-	    SOCKADDR_TO_BUF(INET_IFOPT_ADDR, ifa_p->ifa_addr);
-	    BUF_ENSURE(1);
-	    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, ifa_p->ifa_netmask);
-	    if (ifa_p->ifa_flags & IFF_POINTOPOINT) {
-		BUF_ENSURE(1);
-		SOCKADDR_TO_BUF(INET_IFOPT_DSTADDR, ifa_p->ifa_dstaddr);
-	    } else if (ifa_p->ifa_flags & IFF_BROADCAST) {
-		BUF_ENSURE(1);
-		SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR, ifa_p->ifa_broadaddr);
+		) {
+		SOCKADDR_TO_BUF(INET_IFOPT_ADDR, ifa_p->ifa_addr);
+		if (ifa_p->ifa_netmask) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, ifa_p->ifa_netmask);
+		}
+		if (ifa_p->ifa_dstaddr &&
+		    (ifa_p->ifa_flags & IFF_POINTOPOINT)) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_DSTADDR, ifa_p->ifa_dstaddr);
+		} else if (ifa_p->ifa_broadaddr &&
+			   (ifa_p->ifa_flags & IFF_BROADCAST)) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR, ifa_p->ifa_broadaddr);
+		}
 	    }
-	}
 #if defined(AF_LINK) || defined(AF_PACKET)
-	else if (
+	    else if (
 #if defined(AF_LINK)
-		 ifa_p->ifa_addr->sa_family == AF_LINK
+		     ifa_p->ifa_addr->sa_family == AF_LINK
 #else
-		 0
+		     0
 #endif
 #if defined(AF_PACKET)
-		 || ifa_p->ifa_addr->sa_family == AF_PACKET
+		     || ifa_p->ifa_addr->sa_family == AF_PACKET
 #endif
-		 ) {
-	    char *bp = buf_p;
-	    BUF_ENSURE(1);
-	    SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
-	    if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+		     ) {
+		char *bp = buf_p;
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+		if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+	    }
+#endif
 	}
-#endif
 	BUF_ENSURE(1);
 	*buf_p++ = '\0';
     }
