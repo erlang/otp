@@ -36,17 +36,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[dist_basic_1, dist_rtc, dist_reconnect, dist_adopt,
- dist_history, dist_start_session_special].
+    [dist_basic_1, dist_rtc, dist_reconnect, dist_adopt,
+     dist_history, dist_start_session_special].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% -----------------------------------------------------------------------------
