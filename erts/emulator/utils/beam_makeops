@@ -513,12 +513,14 @@ sub emulator_output {
     print "#define NUM_SPECIFIC_OPS ", scalar(@op_to_name), "\n";
     print "\n";
     print "#ifdef ARCH_64\n";
+    print "#  define BEAM_WIDE_MASK 0xFFFFUL\n";
     print "#  define BEAM_LOOSE_MASK 0x1FFFUL\n";
     print "#if HALFWORD_HEAP\n";
     print "#  define BEAM_TIGHT_MASK 0x1FFCUL\n";
     print "#else\n";
     print "#  define BEAM_TIGHT_MASK 0x1FF8UL\n";
     print "#endif\n";
+    print "#  define BEAM_WIDE_SHIFT 32\n";
     print "#  define BEAM_LOOSE_SHIFT 16\n";
     print "#  define BEAM_TIGHT_SHIFT 16\n";
     print "#else\n";
@@ -956,15 +958,25 @@ sub do_pack {
     my(@args) = @_;
     my($packable_args) = 0;
     my @is_packable;		# Packability (boolean) for each argument.
+    my $wide_packing = 0;
 
     #
     # Count the number of packable arguments.  If we encounter any 's' or 'd'
     # arguments, packing is not possible.
     #
+    my $packable_types = "xytQ";
     foreach my $arg (@args) {
-	if ($arg =~ /^[xytQ]/) {
+	if ($arg =~ /^[$packable_types]/) {
 	    $packable_args++;
 	    push @is_packable, 1;
+	} elsif ($arg =~ /^I/ and $wordsize == 64 and $packable_args < 2) {
+	    $wide_packing = 1;
+	    push @is_packable, 1;
+	    if (++$packable_args == 2) {
+		# We can only pack two arguments. Turn off packing
+		# for the rest of the arguments.
+		$packable_types = "\xFF";
+	    }
 	} elsif ($arg =~ /^[sd]/) {
 	    return ('', '', @args);
 	} else {
@@ -992,9 +1004,19 @@ sub do_pack {
 	$args_per_word = 2;
     }
 
-    my(@shift) = @{$pack_shift[$args_per_word]};
-    my(@mask) = @{$pack_mask[$args_per_word]};
-    my(@pack_instr) = @{$pack_instr[$args_per_word]};
+    my @shift;
+    my @mask;
+    my @instr;
+
+    if ($wide_packing) {
+	@shift = ('0', 'BEAM_WIDE_SHIFT');
+	@mask = ('BEAM_WIDE_MASK', $WHOLE_WORD);
+	@instr = ('w', 'i');
+    } else {
+	@shift = @{$pack_shift[$args_per_word]};
+	@mask = @{$pack_mask[$args_per_word]};
+	@instr = @{$pack_instr[$args_per_word]};
+    }
 
     #
     # Now generate the packing instructions.  One complication is that
@@ -1022,7 +1044,7 @@ sub do_pack {
 		$this_size = 1;
 	    }
 
-	    $down = "$pack_instr[$ap]$down";
+	    $down = "$instr[$ap]$down";
 	    my($unpack) = &make_unpack($tmpnum, $shift[$ap], $mask[$ap]);
 	    $args[$i] = "pack:$this_size:$reg" . "b($unpack)";
 

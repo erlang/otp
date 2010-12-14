@@ -2002,6 +2002,11 @@ load_code(LoaderState* stp)
 		case '6':	/* Shift 16 steps */
 		    packed = (packed << BEAM_LOOSE_SHIFT) | code[--ci];
 		    break;
+#ifdef ARCH_64
+		case 'w':	/* Shift 32 steps */
+		    packed = (packed << BEAM_WIDE_SHIFT) | code[--ci];
+		    break;
+#endif
 		case 'p':	/* Put instruction (from stack). */
 		    code[ci++] = *--sp;
 		    break;

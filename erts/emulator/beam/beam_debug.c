@@ -378,6 +378,12 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		*ap++ = packed & BEAM_LOOSE_MASK;
 		packed >>= BEAM_LOOSE_SHIFT;
 		break;
+#ifdef ARCH_64
+	    case 'w':		/* Shift 32 steps */
+		*ap++ = packed & BEAM_WIDE_MASK;
+		packed >>= BEAM_WIDE_SHIFT;
+		break;
+#endif
 	    case 'p':
 		*sp++ = *--ap;
 		break;
