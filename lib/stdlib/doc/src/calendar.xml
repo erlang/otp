@@ -63,6 +63,14 @@
       given as local time, they must be converted to universal time, in
       order to get the correct value of the elapsed time between epochs.
       Use of the function <c>time_difference/2</c> is discouraged.</p>
+    <p>There exists different definitions for the week of the year.
+      The calendar module contains a week of the year implementation
+      which conforms to the ISO 8601 standard. Since the week number for
+      a given date can fall on the previous, the current or on the next
+      year it is important to provide the information which year is it
+      together with the week number. The function <c>iso_week_number/0</c>
+      and <c>iso_week_number/1</c> returns a tuple of the year and the
+      week number.</p>
   </description>
 
   <section>
@@ -151,6 +159,30 @@ time() = {Hour, Minute, Second}
       <fsummary>Check if a year is a leap year</fsummary>
       <desc>
         <p>This function checks if a year is a leap year.</p>
+      </desc>
+    </func>
+    <func>
+      <name>iso_week_number() -> IsoWeekNumber</name>
+      <fsummary>Compute the iso week number for the actual date</fsummary>
+      <type>
+        <v>IsoWeekNumber = {int(), int()}</v>
+      </type>
+      <desc>
+        <p>This function returns the tuple {Year, WeekNum} representing
+          the iso week number for the actual date. For determining the
+          actual date, the function <c>local_time/0</c> is used.</p>
+      </desc>
+    </func>
+    <func>
+      <name>iso_week_number(Date) -> IsoWeekNumber</name>
+      <fsummary>Compute the iso week number for the given date</fsummary>
+      <type>
+        <v>Date = date()</v>
+        <v>IsoWeekNumber = {int(), int()}</v>
+      </type>
+      <desc>
+        <p>This function returns the tuple {Year, WeekNum} representing
+          the iso week number for the given date.</p>
       </desc>
     </func>
     <func>
