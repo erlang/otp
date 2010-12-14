@@ -37,31 +37,31 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[basic_dist_trace_1, basic_dist_trace_2,
- basic_dist_trace_3, basic_dist_trace_ti_1,
- basic_dist_trace_ti_2, basic_dist_trace_ti_3,
- suspend_dist_trace_ti_1, suspend_dist_trace_ti_2,
- meta_cleanfunc_dist_1, basic_handlerfun_dist_1,
- delete_log_dist_1, autostart_dist_1, autostart_dist_2,
- autostart_dist_3, running_alone_dist_1,
- running_alone_dist_2, running_alone_dist_3,
- running_alone_dist_4, running_alone_dist_5,
- overload_dist_1, overload_dist_2, overload_dist_3,
- overload_dist_4, overload_dist_5, subscribe_dist_1,
- lfm_trace_dist_1, lfm_trace_ti_dist_2,
- handle_logfile_sort_wrapset, fetch_log_dist_trace_1,
- fetch_log_dist_trace_2, fetch_log_dist_trace_3,
- fetch_log_dist_error_1, fetch_log_dist_error_2,
- expand_regexp_dist_1, only_loaded_dist_1].
+    [basic_dist_trace_1, basic_dist_trace_2,
+     basic_dist_trace_3, basic_dist_trace_ti_1,
+     basic_dist_trace_ti_2, basic_dist_trace_ti_3,
+     suspend_dist_trace_ti_1, suspend_dist_trace_ti_2,
+     meta_cleanfunc_dist_1, basic_handlerfun_dist_1,
+     delete_log_dist_1, autostart_dist_1, autostart_dist_2,
+     autostart_dist_3, running_alone_dist_1,
+     running_alone_dist_2, running_alone_dist_3,
+     running_alone_dist_4, running_alone_dist_5,
+     overload_dist_1, overload_dist_2, overload_dist_3,
+     overload_dist_4, overload_dist_5, subscribe_dist_1,
+     lfm_trace_dist_1, lfm_trace_ti_dist_2,
+     handle_logfile_sort_wrapset, fetch_log_dist_trace_1,
+     fetch_log_dist_trace_2, fetch_log_dist_trace_3,
+     fetch_log_dist_error_1, fetch_log_dist_error_2,
+     expand_regexp_dist_1, only_loaded_dist_1].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
