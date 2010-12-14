@@ -28,20 +28,14 @@
 -export([t/0, t/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
-
-	
 	 sent_timer_late_reply/1,
 	 sent_timer_exceeded/1,
 	 sent_timer_exceeded_long/1,
 	 sent_resend_late_reply/1,
 	 sent_resend_exceeded/1,
 	 sent_resend_exceeded_long/1,
-
-	
 	 recv_limit_exceeded1/1,
 	 recv_limit_exceeded2/1,
-
-	
 	 otp_4956/1,
 	 otp_5310/1,
 	 otp_5619/1
@@ -146,27 +140,22 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[{group, sent}, {group, recv}, {group, tickets}].
+    [{group, sent}, {group, recv}, {group, tickets}].
 
 groups() -> 
     [{sent, [],
-  [sent_timer_late_reply, sent_timer_exceeded,
-   sent_timer_exceeded_long, sent_resend_late_reply,
-   sent_resend_exceeded, sent_resend_exceeded_long]},
- {recv, [],
-  [recv_limit_exceeded1, recv_limit_exceeded2]},
- {tickets, [], [otp_4956, otp_5310, otp_5619]}].
+      [sent_timer_late_reply, sent_timer_exceeded,
+       sent_timer_exceeded_long, sent_resend_late_reply,
+       sent_resend_exceeded, sent_resend_exceeded_long]},
+     {recv, [],
+      [recv_limit_exceeded1, recv_limit_exceeded2]},
+     {tickets, [], [otp_4956, otp_5310, otp_5619]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
-
+    Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                                                   %%%

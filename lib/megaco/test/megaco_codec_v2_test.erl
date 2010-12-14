@@ -39,19 +39,13 @@
 
 -export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 
-	 
-
-	 
 	 pretty_test_msgs/1, 
 
-	 
 	 compact_test_msgs/1, 
-
 	 
 	 flex_pretty_init/1, 
 	 flex_pretty_finish/1, 
 	 flex_pretty_test_msgs/1,
-
 	 
 	 flex_compact_init/1, 
 	 flex_compact_finish/1, 
@@ -65,31 +59,20 @@
 	 flex_compact_dm_timers6/1, 
 	 flex_compact_dm_timers7/1, 
 	 flex_compact_dm_timers8/1, 
-
-	 
-	 
 	 
 	 bin_test_msgs/1,
 
-	 
 	 ber_test_msgs/1, 
-
 	 
 	 ber_bin_test_msgs/1, 
-
 	
 	 per_test_msgs/1,
-
 	
 	 per_bin_test_msgs/1,
-
-	
 	
 	 erl_dist_m_test_msgs/1,
 
 	 tickets/0, 
-	 
-
 	 
 	 compact_otp4011_msg1/1, 
 	 compact_otp4011_msg2/1,
@@ -143,7 +126,6 @@
 	 compact_otp7534_msg01/1,
 	 compact_otp7576_msg01/1,
          compact_otp7671_msg01/1,
-
 	 
 	 flex_compact_otp7138_msg01/1, 
 	 flex_compact_otp7138_msg02/1, 
@@ -160,7 +142,6 @@
          flex_compact_otp7534_msg01/1,
          flex_compact_otp7573_msg01/1,
 	 flex_compact_otp7576_msg01/1, 
-
 	 
 	 pretty_otp4632_msg1/1, 
 	 pretty_otp4632_msg2/1, 
@@ -203,7 +184,6 @@
          pretty_otp7671_msg03/1,
          pretty_otp7671_msg04/1,
          pretty_otp7671_msg05/1,
-	 
 	 
 	 flex_pretty_otp5042_msg1/1, 
 	 flex_pretty_otp5085_msg1/1, 

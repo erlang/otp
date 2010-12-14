@@ -43,17 +43,16 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [{group, tickets}],
-	Cases.
+    [{group, tickets}].
 
 groups() -> 
     [{tickets, [],
-  [{group, otp_5750}, {group, otp_5799},
-   {group, otp_5826}, {group, otp_7449}]},
- {otp_5750, [], [otp_5750_01, otp_5750_02]},
- {otp_5799, [], [otp_5799_01]},
- {otp_5826, [], [otp_5826_01, otp_5826_02, otp_5826_03]},
- {otp_7449, [], [otp_7449_1, otp_7449_2]}].
+      [{group, otp_5750}, {group, otp_5799},
+       {group, otp_5826}, {group, otp_7449}]},
+     {otp_5750, [], [otp_5750_01, otp_5750_02]},
+     {otp_5799, [], [otp_5799_01]},
+     {otp_5826, [], [otp_5826_01, otp_5826_02, otp_5826_03]},
+     {otp_7449, [], [otp_7449_1, otp_7449_2]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.

@@ -58,21 +58,17 @@
 %% Top test case
 
 all() -> 
-[{group, encode_first}, {group, decode_first}].
+    [{group, encode_first}, {group, decode_first}].
 
 groups() -> 
     [{encode_first, [], encode_first_cases()},
- {decode_first, [], decode_first_cases()}].
+     {decode_first, [], decode_first_cases()}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
+    Config.
 
 %% Test server callbacks
 init_per_testcase(Case, Config) ->

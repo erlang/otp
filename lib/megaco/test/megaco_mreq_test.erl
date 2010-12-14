@@ -76,17 +76,16 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [req_and_rep, req_and_pending, req_and_cancel],
-	Cases.
+    [req_and_rep, req_and_pending, req_and_cancel].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

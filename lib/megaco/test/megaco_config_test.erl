@@ -59,23 +59,20 @@ end_per_testcase(Case, Config) ->
 %% Top test case
 
 all() -> 
-[config, {group, transaction_id_counter},
- {group, tickets}].
+    [config, {group, transaction_id_counter},
+     {group, tickets}].
 
 groups() -> 
     [{transaction_id_counter, [],
-  [transaction_id_counter_mg,
-   transaction_id_counter_mgc]},
- {tickets, [], [otp_7216, otp_8167, otp_8183]}].
+      [transaction_id_counter_mg,
+       transaction_id_counter_mgc]},
+     {tickets, [], [otp_7216, otp_8167, otp_8183]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

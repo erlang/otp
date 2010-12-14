@@ -35,7 +35,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 
 	all/0,groups/0,init_per_group/2,end_per_group/2,
-	 flex_init/1, flex_fin/1, 
+	 init_per_suite/1, end_per_suite/1, 
 
 	 plain/1,
 	 port_exit/1,
@@ -62,24 +62,24 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [plain, port_exit, garbage_in],
-	Cases.
+    [plain, port_exit, garbage_in].
+
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-flex_init(suite) ->
+init_per_suite(suite) ->
     [];
-flex_init(doc) ->
+init_per_suite(doc) ->
     [];
-flex_init(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     case megaco_flex_scanner:is_enabled() of
 	true ->
 	    Config;
@@ -87,9 +87,9 @@ flex_init(Config) when is_list(Config) ->
 	    ?SKIP(flex_scanner_not_enabled)
     end.
 
-flex_fin(suite) -> [];
-flex_fin(doc) -> [];
-flex_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 

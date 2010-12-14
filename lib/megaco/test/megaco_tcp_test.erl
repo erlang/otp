@@ -36,18 +36,12 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2,
-
-	
+	 all/0,groups/0,init_per_group/2,end_per_group/2,
 	 start_normal/1,
 	 start_invalid_opt/1,
 	 start_and_stop/1,
-
-	
 	 sendreceive/1, 
 	 block_unblock/1, 
-
-	
 	 socket_failure/1,
 	 accept_process/1,
 	 accept_supervisor/1,
@@ -122,25 +116,21 @@ end_per_testcase(Case, Config) ->
 %% Test case definitions
 %%======================================================================
 all() -> 
-[{group, start}, {group, sending}, {group, errors}].
+    [{group, start}, {group, sending}, {group, errors}].
 
 groups() -> 
     [{start, [],
-  [start_normal, start_invalid_opt, start_and_stop]},
- {sending, [], [sendreceive, block_unblock]},
- {errors, [],
-  [socket_failure, accept_process, accept_supervisor,
-   connection_supervisor, tcp_server]}].
+      [start_normal, start_invalid_opt, start_and_stop]},
+     {sending, [], [sendreceive, block_unblock]},
+     {errors, [],
+      [socket_failure, accept_process, accept_supervisor,
+       connection_supervisor, tcp_server]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
+    Config.
 
 
 %% ------------------ start ------------------------

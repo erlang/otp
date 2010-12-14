@@ -34,7 +34,7 @@
 
 %% -compile(export_all).
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	 all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, 
 	 end_per_testcase/2,
 
@@ -347,47 +347,40 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[connect, {group, request_and_reply},
- {group, pending_ack}, dist, {group, tickets}].
+    [connect, {group, request_and_reply},
+     {group, pending_ack}, dist, {group, tickets}].
 
 groups() -> 
     [{request_and_reply, [],
-  [request_and_reply_plain, request_and_no_reply,
-   request_and_reply_pending_ack_no_pending,
-   request_and_reply_pending_ack_one_pending,
-   single_trans_req_and_reply,
-   single_trans_req_and_reply_sendopts,
-   request_and_reply_and_ack, request_and_reply_and_no_ack,
-   request_and_reply_and_late_ack,
-   trans_req_and_reply_and_req]},
- {pending_ack, [],
-  [pending_ack_plain,
-   request_and_pending_and_late_reply]},
- {tickets, [],
-  [otp_4359, otp_4836, otp_5805, otp_5881, otp_5887,
-   otp_6253, otp_6275, otp_6276, {group, otp_6442},
-   {group, otp_6865}, otp_7189, otp_7259, otp_7713,
-   {group, otp_8183}, otp_8212]},
- {otp_6442, [],
-  [otp_6442_resend_request1, otp_6442_resend_request2,
-   otp_6442_resend_reply1, otp_6442_resend_reply2]},
- {otp_6865, [],
-  [otp_6865_request_and_reply_plain_extra1,
-   otp_6865_request_and_reply_plain_extra2]},
- {otp_8183, [], [otp_8183_request1]}].
+      [request_and_reply_plain, request_and_no_reply,
+       request_and_reply_pending_ack_no_pending,
+       request_and_reply_pending_ack_one_pending,
+       single_trans_req_and_reply,
+       single_trans_req_and_reply_sendopts,
+       request_and_reply_and_ack, request_and_reply_and_no_ack,
+       request_and_reply_and_late_ack,
+       trans_req_and_reply_and_req]},
+     {pending_ack, [],
+      [pending_ack_plain,
+       request_and_pending_and_late_reply]},
+     {tickets, [],
+      [otp_4359, otp_4836, otp_5805, otp_5881, otp_5887,
+       otp_6253, otp_6275, otp_6276, {group, otp_6442},
+       {group, otp_6865}, otp_7189, otp_7259, otp_7713,
+       {group, otp_8183}, otp_8212]},
+     {otp_6442, [],
+      [otp_6442_resend_request1, otp_6442_resend_request2,
+       otp_6442_resend_reply1, otp_6442_resend_reply2]},
+     {otp_6865, [],
+      [otp_6865_request_and_reply_plain_extra1,
+       otp_6865_request_and_reply_plain_extra2]},
+     {otp_8183, [], [otp_8183_request1]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
-
-
-
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -90,16 +90,16 @@ end_per_testcase(Case, Config) ->
 %% Top test case
 
 all() -> 
-[{group, tickets}].
+    [{group, tickets}].
 
 groups() -> 
     [{tickets, [], [otp7672_msg01, otp7672_msg02]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

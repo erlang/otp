@@ -27,7 +27,6 @@
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 decode_encode/1,
 
-	 
 	 otp8123/1, 
 
 	 init_per_testcase/2, end_per_testcase/2, 
@@ -56,16 +55,16 @@ end_per_testcase(Case, Config) ->
 
 
 all() -> 
-[decode_encode, {group, tickets}].
+    [decode_encode, {group, tickets}].
 
 groups() -> 
     [{tickets, [], [otp8123]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

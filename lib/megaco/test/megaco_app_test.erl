@@ -45,26 +45,24 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [fields, modules, exportall, app_depend,
-	 undef_funcs],
-	Cases.
+    [fields, modules, exportall, app_depend,
+     undef_funcs].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-app_init(suite) -> [];
-app_init(doc) -> [];
-app_init(Config) when is_list(Config) ->
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     case is_app(megaco) of
 	{ok, AppFile} ->
 	    io:format("AppFile: ~n~p~n", [AppFile]),
@@ -100,9 +98,9 @@ is_app(App) ->
     end.
 
 
-app_fin(suite) -> [];
-app_fin(doc) -> [];
-app_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 

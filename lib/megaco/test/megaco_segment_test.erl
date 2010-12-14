@@ -40,9 +40,7 @@
 	 recv_segmented_msg_plain/1, 
 	 recv_segmented_msg_ooo_seg/1, 
 	 recv_segmented_msg_missing_seg1/1, 
-	 recv_segmented_msg_missing_seg2/1, 
-
-	 tickets/1
+	 recv_segmented_msg_missing_seg2/1
 	
 	]).
 
@@ -74,33 +72,25 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[{group, send}, {group, recv}].
+    [{group, send}, {group, recv}].
 
 groups() -> 
     [{send, [],
-  [send_segmented_msg_plain1, send_segmented_msg_plain2,
-   send_segmented_msg_plain3, send_segmented_msg_plain4,
-   send_segmented_msg_ooo1,
-   send_segmented_msg_missing_seg_reply1,
-   send_segmented_msg_missing_seg_reply2]},
- {recv, [],
-  [recv_segmented_msg_plain, recv_segmented_msg_ooo_seg,
-   recv_segmented_msg_missing_seg1,
-   recv_segmented_msg_missing_seg2]}].
+      [send_segmented_msg_plain1, send_segmented_msg_plain2,
+       send_segmented_msg_plain3, send_segmented_msg_plain4,
+       send_segmented_msg_ooo1,
+       send_segmented_msg_missing_seg_reply1,
+       send_segmented_msg_missing_seg_reply2]},
+     {recv, [],
+      [recv_segmented_msg_plain, recv_segmented_msg_ooo_seg,
+       recv_segmented_msg_missing_seg1,
+       recv_segmented_msg_missing_seg2]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
-tickets(suite) ->
-    [
-    ].
-
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

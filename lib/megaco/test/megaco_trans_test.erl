@@ -103,50 +103,41 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[{group, ack}, {group, trans_req},
- {group, trans_req_and_ack}, {group, pending},
- {group, reply}, {group, tickets}].
+    [{group, ack}, {group, trans_req},
+     {group, trans_req_and_ack}, {group, pending},
+     {group, reply}, {group, tickets}].
 
 groups() -> 
     [{ack, [],
-  [single_ack, multi_ack_timeout, multi_ack_maxcount]},
- {trans_req, [],
-  [single_trans_req, multi_trans_req_timeout,
-   multi_trans_req_maxcount1, multi_trans_req_maxcount2,
-   multi_trans_req_maxsize1, multi_trans_req_maxsize2]},
- {trans_req_and_ack, [],
-  [single_trans_req_and_ack,
-   multi_trans_req_and_ack_timeout,
-   multi_trans_req_and_ack_ackmaxcount,
-   multi_trans_req_and_ack_reqmaxcount,
-   multi_trans_req_and_ack_maxsize1,
-   multi_trans_req_and_ack_maxsize2]},
- {pending, [],
-  [single_trans_req_and_pending,
-   multi_trans_req_and_pending,
-   multi_trans_req_and_ack_and_pending,
-   multi_ack_and_pending]},
- {reply, [],
-  [multi_trans_req_and_reply,
-   multi_trans_req_and_ack_and_reply,
-   multi_ack_and_reply]},
- {tickets, [], [{group, otp_7192}]},
- {otp_7192, [], [otp_7192_1, otp_7192_2, otp_7192_3]}].
+      [single_ack, multi_ack_timeout, multi_ack_maxcount]},
+     {trans_req, [],
+      [single_trans_req, multi_trans_req_timeout,
+       multi_trans_req_maxcount1, multi_trans_req_maxcount2,
+       multi_trans_req_maxsize1, multi_trans_req_maxsize2]},
+     {trans_req_and_ack, [],
+      [single_trans_req_and_ack,
+       multi_trans_req_and_ack_timeout,
+       multi_trans_req_and_ack_ackmaxcount,
+       multi_trans_req_and_ack_reqmaxcount,
+       multi_trans_req_and_ack_maxsize1,
+       multi_trans_req_and_ack_maxsize2]},
+     {pending, [],
+      [single_trans_req_and_pending,
+       multi_trans_req_and_pending,
+       multi_trans_req_and_ack_and_pending,
+       multi_ack_and_pending]},
+     {reply, [],
+      [multi_trans_req_and_reply,
+       multi_trans_req_and_ack_and_reply,
+       multi_ack_and_reply]},
+     {tickets, [], [{group, otp_7192}]},
+     {otp_7192, [], [otp_7192_1, otp_7192_2, otp_7192_3]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
-
-
-
-
-
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

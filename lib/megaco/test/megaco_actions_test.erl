@@ -79,21 +79,18 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [pretty_text, flex_pretty_text, compact_text,
-	 flex_compact_text, erl_dist, erl_dist_mc, ber_bin,
-	 ber_bin_drv, ber_bin_native, ber_bin_drv_native],
-	Cases.
+    [pretty_text, flex_pretty_text, compact_text,
+     flex_compact_text, erl_dist, erl_dist_mc, ber_bin,
+     ber_bin_drv, ber_bin_native, ber_bin_drv_native].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
+    Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
