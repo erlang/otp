@@ -30,7 +30,8 @@
 -endif.
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
 
@@ -80,27 +81,27 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[load_unload, get_mem_sys_mark, get_mem_proc_mark,
- get_disk_threshold, get_load_table,
- {group, get_next_load_table}, get_disk_table,
- {group, get_next_disk_table}, real_snmp_request,
- update_load_table, {group, tickets}].
+    [load_unload, get_mem_sys_mark, get_mem_proc_mark,
+     get_disk_threshold, get_load_table,
+     {group, get_next_load_table}, get_disk_table,
+     {group, get_next_disk_table}, real_snmp_request,
+     update_load_table, {group, tickets}].
 
 groups() -> 
     [{tickets, [], [otp_6351, otp_7441]},
- {get_next_load_table, [],
-  [sys_tot_mem, sys_used_mem, large_erl_process,
-   large_erl_process_mem, cpu_load, cpu_load5, cpu_load15,
-   os_wordsize, sys_tot_mem64, sys_used_mem64,
-   large_erl_process_mem64]},
- {get_next_disk_table, [],
-  [disk_descr, disk_kbytes, disk_capacity]}].
+     {get_next_load_table, [],
+      [sys_tot_mem, sys_used_mem, large_erl_process,
+       large_erl_process_mem, cpu_load, cpu_load5, cpu_load15,
+       os_wordsize, sys_tot_mem64, sys_used_mem64,
+       large_erl_process_mem64]},
+     {get_next_disk_table, [],
+      [disk_descr, disk_kbytes, disk_capacity]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

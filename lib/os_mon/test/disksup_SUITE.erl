@@ -53,23 +53,23 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-Bugs = [otp_5910],
-	case test_server:os_type() of
-  {unix, sunos} ->
-      [api, config, alarm, port, unavailable] ++ Bugs;
-  {unix, _OSname} -> [api, alarm] ++ Bugs;
-  {win32, _OSname} -> [api, alarm] ++ Bugs;
-  _OS -> [unavailable]
-end.
+    Bugs = [otp_5910],
+    case test_server:os_type() of
+	{unix, sunos} ->
+	    [api, config, alarm, port, unavailable] ++ Bugs;
+	{unix, _OSname} -> [api, alarm] ++ Bugs;
+	{win32, _OSname} -> [api, alarm] ++ Bugs;
+	_OS -> [unavailable]
+    end.
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 api(suite) ->

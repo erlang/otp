@@ -66,23 +66,23 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case test_server:os_type() of
-  {unix, sunos} -> [message, config, port];
-  {win32, _OSname} -> [message];
-  OS ->
-      Str = io_lib:format("os_sup not available for ~p",
-			  [OS]),
-      {skip, lists:flatten(Str)}
-end.
+    case test_server:os_type() of
+	{unix, sunos} -> [message, config, port];
+	{win32, _OSname} -> [message];
+	OS ->
+	    Str = io_lib:format("os_sup not available for ~p",
+				[OS]),
+	    {skip, lists:flatten(Str)}
+    end.
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 message(suite) ->

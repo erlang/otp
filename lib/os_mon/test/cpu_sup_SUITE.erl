@@ -41,10 +41,16 @@ end_per_suite(Config) when is_list(Config) ->
     ?line ok = application:stop(os_mon),
     Config.
 
+init_per_testcase(unavailable, Config) ->
+    terminate(Config),
+    init_per_testcase(dummy, Config);
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
+end_per_testcase(unavailable, Config) ->
+    restart(Config),
+    end_per_testcase(dummy, Config);
 end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
@@ -53,23 +59,23 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case test_server:os_type() of
-  {unix, sunos} ->
-      [load_api, util_api, util_values, port, unavailable];
-  {unix, linux} ->
-      [load_api, util_api, util_values, port, unavailable];
-  {unix, _OSname} -> [load_api];
-  _OS -> [unavailable]
-end.
+    case test_server:os_type() of
+	{unix, sunos} ->
+	    [load_api, util_api, util_values, port, unavailable];
+	{unix, linux} ->
+	    [load_api, util_api, util_values, port, unavailable];
+	{unix, _OSname} -> [load_api];
+	_OS -> [unavailable]
+    end.
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 load_api(suite) ->
