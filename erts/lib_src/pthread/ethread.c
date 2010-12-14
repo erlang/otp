@@ -72,7 +72,7 @@ static void thr_exit_cleanup(void)
 
 /* Argument passed to thr_wrapper() */
 typedef struct {
-    ethr_atomic_t result;
+    ethr_atomic32_t result;
     ethr_ts_event *tse;
     void *(*thr_func)(void *);
     void *arg;
@@ -81,14 +81,14 @@ typedef struct {
 
 static void *thr_wrapper(void *vtwd)
 {
-    ethr_sint_t result;
+    ethr_sint32_t result;
     void *res;
     ethr_thr_wrap_data__ *twd = (ethr_thr_wrap_data__ *) vtwd;
     void *(*thr_func)(void *) = twd->thr_func;
     void *arg = twd->arg;
     ethr_ts_event *tsep = NULL;
 
-    result = (ethr_sint_t) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
@@ -99,7 +99,7 @@ static void *thr_wrapper(void *vtwd)
     tsep = twd->tse; /* We aren't allowed to follow twd after
 			result has been set! */
 
-    ethr_atomic_set(&twd->result, result);
+    ethr_atomic32_set(&twd->result, result);
 
     ethr_event_set(&tsep->event);
 
@@ -191,7 +191,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
     }
 #endif
 
-    ethr_atomic_init(&twd.result, (ethr_sint_t) -1);
+    ethr_atomic32_init(&twd.result, (ethr_sint32_t) -1);
     twd.tse = ethr_get_ts_event();
     twd.thr_func = func;
     twd.arg = arg;
@@ -252,10 +252,10 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 
 	/* Wait for child to initialize... */
 	while (1) {
-	    ethr_sint_t result;
+	    ethr_sint32_t result;
 	    ethr_event_reset(&twd.tse->event);
 
-	    result = ethr_atomic_read(&twd.result);
+	    result = ethr_atomic32_read(&twd.result);
 	    if (result == 0)
 		break;
 
