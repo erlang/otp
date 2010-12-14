@@ -102,26 +102,26 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[server_echos_passive_small,
- server_echos_active_once_small,
- server_echos_active_small, client_echos_passive_small,
- client_echos_active_once_small,
- client_echos_active_small, server_echos_passive_big,
- server_echos_active_once_big, server_echos_active_big,
- client_echos_passive_big, client_echos_active_once_big,
- client_echos_active_big, server_echos_passive_huge,
- server_echos_active_once_huge, server_echos_active_huge,
- client_echos_passive_huge,
- client_echos_active_once_huge, client_echos_active_huge].
+    [server_echos_passive_small,
+     server_echos_active_once_small,
+     server_echos_active_small, client_echos_passive_small,
+     client_echos_active_once_small,
+     client_echos_active_small, server_echos_passive_big,
+     server_echos_active_once_big, server_echos_active_big,
+     client_echos_passive_big, client_echos_active_once_big,
+     client_echos_active_big, server_echos_passive_huge,
+     server_echos_active_once_huge, server_echos_active_huge,
+     client_echos_passive_huge,
+     client_echos_active_once_huge, client_echos_active_huge].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Test cases starts here.

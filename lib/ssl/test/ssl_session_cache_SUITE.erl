@@ -155,10 +155,10 @@ groups() ->
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 session_cache_process_list(doc) ->
     ["Test reuse of sessions (short handshake)"];

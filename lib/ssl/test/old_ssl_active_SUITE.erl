@@ -20,11 +20,10 @@
 %%
 -module(old_ssl_active_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
-	 config/1,
-	 finish/1,
 	 cinit_return_chkclose/1,
 	 sinit_return_chkclose/1,
 	 cinit_big_return_chkclose/1,
@@ -56,34 +55,28 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cinit_return_chkclose, sinit_return_chkclose,
- cinit_big_return_chkclose, sinit_big_return_chkclose,
- cinit_big_echo_chkclose, cinit_huge_echo_chkclose,
- sinit_big_echo_chkclose, cinit_few_echo_chkclose,
- cinit_many_echo_chkclose, cinit_cnocert].
+    [cinit_return_chkclose, sinit_return_chkclose,
+     cinit_big_return_chkclose, sinit_big_return_chkclose,
+     cinit_big_echo_chkclose, cinit_huge_echo_chkclose,
+     sinit_big_echo_chkclose, cinit_few_echo_chkclose,
+     cinit_many_echo_chkclose, cinit_cnocert].
 
 groups() -> 
     [].
 
-init_per_suite(Config) ->
+init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-config(doc) ->
+init_per_suite(doc) ->
     "Want to se what Config contains, and record the number of available "
 	"file descriptors";
-config(suite) ->
+init_per_suite(suite) ->
     [];
-config(Config) ->
+init_per_suite(Config) ->
     io:format("Config: ~p~n", [Config]),
     case os:type() of
 	{unix, _} ->
@@ -104,11 +97,11 @@ config(Config) ->
     end,
     Config.
 
-finish(doc) ->
+end_per_suite(doc) ->
     "This test case has no mission other than closing the conf case";
-finish(suite) ->
+end_per_suite(suite) ->
     [];
-finish(Config) ->
+end_per_suite(Config) ->
     Config.
 
 cinit_return_chkclose(doc) ->

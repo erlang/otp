@@ -20,11 +20,10 @@
 %%
 -module(old_ssl_verify_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
 	 end_per_testcase/2,
-	 config/1,
-	 finish/1,
 	 cinit_both_verify/1,
 	 cinit_cnocert/1
 	 ]).
@@ -46,29 +45,23 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cinit_both_verify, cinit_cnocert].
+    [cinit_both_verify, cinit_cnocert].
 
 groups() -> 
     [].
 
-init_per_suite(Config) ->
+init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-config(doc) ->
+init_per_suite(doc) ->
     "Want to se what Config contains.";
-config(suite) ->
+init_per_suite(suite) ->
     [];
-config(Config) ->
+init_per_suite(Config) ->
     io:format("Config: ~p~n", [Config]),
 
     %% Check if SSL exists. If this case fails, all other cases are skipped
@@ -81,11 +74,11 @@ config(Config) ->
     end,
     Config.
 
-finish(doc) ->
+end_per_suite(doc) ->
     "This test case has no mission other than closing the conf case";
-finish(suite) ->
+end_per_suite(suite) ->
     [];
-finish(Config) ->
+end_per_suite(Config) ->
     Config.
 
 cinit_both_verify(doc) ->

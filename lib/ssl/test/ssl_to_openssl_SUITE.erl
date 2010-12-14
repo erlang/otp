@@ -146,39 +146,39 @@ end_per_testcase(_, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[erlang_client_openssl_server,
- erlang_server_openssl_client,
- tls1_erlang_client_openssl_server_dsa_cert,
- tls1_erlang_server_openssl_client_dsa_cert,
- ssl3_erlang_client_openssl_server_dsa_cert,
- ssl3_erlang_server_openssl_client_dsa_cert,
- erlang_server_openssl_client_reuse_session,
- erlang_client_openssl_server_renegotiate,
- erlang_client_openssl_server_no_wrap_sequence_number,
- erlang_server_openssl_client_no_wrap_sequence_number,
- erlang_client_openssl_server_no_server_ca_cert,
- ssl3_erlang_client_openssl_server,
- ssl3_erlang_server_openssl_client,
- ssl3_erlang_client_openssl_server_client_cert,
- ssl3_erlang_server_openssl_client_client_cert,
- ssl3_erlang_server_erlang_client_client_cert,
- tls1_erlang_client_openssl_server,
- tls1_erlang_server_openssl_client,
- tls1_erlang_client_openssl_server_client_cert,
- tls1_erlang_server_openssl_client_client_cert,
- tls1_erlang_server_erlang_client_client_cert,
- ciphers_rsa_signed_certs, ciphers_dsa_signed_certs,
- erlang_client_bad_openssl_server, expired_session,
- ssl2_erlang_server_openssl_client].
+    [erlang_client_openssl_server,
+     erlang_server_openssl_client,
+     tls1_erlang_client_openssl_server_dsa_cert,
+     tls1_erlang_server_openssl_client_dsa_cert,
+     ssl3_erlang_client_openssl_server_dsa_cert,
+     ssl3_erlang_server_openssl_client_dsa_cert,
+     erlang_server_openssl_client_reuse_session,
+     erlang_client_openssl_server_renegotiate,
+     erlang_client_openssl_server_no_wrap_sequence_number,
+     erlang_server_openssl_client_no_wrap_sequence_number,
+     erlang_client_openssl_server_no_server_ca_cert,
+     ssl3_erlang_client_openssl_server,
+     ssl3_erlang_server_openssl_client,
+     ssl3_erlang_client_openssl_server_client_cert,
+     ssl3_erlang_server_openssl_client_client_cert,
+     ssl3_erlang_server_erlang_client_client_cert,
+     tls1_erlang_client_openssl_server,
+     tls1_erlang_server_openssl_client,
+     tls1_erlang_client_openssl_server_client_cert,
+     tls1_erlang_server_openssl_client_client_cert,
+     tls1_erlang_server_erlang_client_client_cert,
+     ciphers_rsa_signed_certs, ciphers_dsa_signed_certs,
+     erlang_client_bad_openssl_server, expired_session,
+     ssl2_erlang_server_openssl_client].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Test cases starts here.

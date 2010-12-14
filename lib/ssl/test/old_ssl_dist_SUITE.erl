@@ -49,16 +49,16 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[basic].
+    [basic].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_suite(Config) ->
