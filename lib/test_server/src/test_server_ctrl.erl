@@ -168,6 +168,7 @@
 	 cross_cover_analyse/1, cross_cover_analyse/2, trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
+-export([kill_slavenodes/0]).
 
 %%% TEST_SERVER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([output/2, print/2, print/3, print_timestamp/2]).
@@ -524,6 +525,9 @@ testcase_callback(ModFunc) ->
 
 set_random_seed(Seed) ->
     controller_call({set_random_seed,Seed}).
+
+kill_slavenodes() ->
+    controller_call(kill_slavenodes).
 
 get_hosts() ->
     get(test_server_hosts).
