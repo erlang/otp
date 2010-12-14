@@ -1273,7 +1273,9 @@ get_user_exception_type(TypeId) ->
 %%-----------------------------------------------------------------
 dec_type_code(Version, Message, Len, ByteOrder, Buff, C) ->
     {TypeNo, Message1, Len1, NewC} = dec_type('tk_ulong', Version, Message, Len, ByteOrder, Buff, C),
-    dec_type_code(TypeNo, Version, Message1, Len1, ByteOrder, Buff, NewC).
+    TC = dec_type_code(TypeNo, Version, Message1, Len1, ByteOrder, Buff, NewC),
+    erase(orber_indirection),
+    TC.
 
 %%-----------------------------------------------------------------
 %% Func: dec_type_code/5
@@ -1482,13 +1484,22 @@ dec_type_code(33, Version, Message, Len, ByteOrder, Buff, C) ->
 					{"name", {'tk_string', 0}}]},
 		 Version, Rest1, 1, ByteOrder1, Buff, C+1+Ex),
     {{'tk_local_interface', RepId, Name}, Message1, Len1, NewC};
-dec_type_code(16#ffffffff, Version, Message, Len, ByteOrder, Buff, C) ->  %% placeholder
+dec_type_code(16#ffffffff, Version, Message, Len, ByteOrder, Buff, C) ->
     {Indirection, Message1, Len1, NewC} =
 	dec_type('tk_long', Version, Message, Len, ByteOrder, Buff, C),
     Position = C+Indirection,
-    <<_:Position/binary, SubBuff/binary>> = Buff,
-    {TC, _, _, _} = dec_type_code(Version, SubBuff, Position, ByteOrder, Buff, Position),
-    {TC, Message1, Len1, NewC};
+    case put(orber_indirection, Position) of
+	Position ->
+%%	    {{'none', Indirection}, Message1, Len1, NewC};
+            %% Recursive TypeCode. Break the loop.
+ 	    orber:dbg("[~p] cdr_decode:dec_type_code(~p); Recursive TC not supported.", 
+ 		      [?LINE,Position], ?DEBUG_LEVEL),
+ 	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_NO});
+	_ ->
+	    <<_:Position/binary, SubBuff/binary>> = Buff,
+	    {TC, _, _, _} = dec_type_code(Version, SubBuff, Position, ByteOrder, Buff, Position),
+	    {TC, Message1, Len1, NewC}
+    end;
 dec_type_code(Type, _, _, _, _, _, _) -> 
     orber:dbg("[~p] cdr_decode:dec_type_code(~p); No match.", 
 			    [?LINE, Type], ?DEBUG_LEVEL),

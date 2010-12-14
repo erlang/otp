@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1998</year><year>2009</year>
+      <year>1998</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,42 @@
     <rev>AC</rev>
     <file>notes.xml</file>
   </header>
+
+   <section>
+    <title>IC 4.2.26</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Partial support for recursive structs and unions. Only available
+            for the erl_corba backend and requires that Light IFR is used.
+            I.e. the IC option {light_ifr, true} and that Orber is configured
+            in such a way that Light IFR is activated. Recursive TypeCode is
+            currently not supported.</p>
+          <p>
+            Own Id: OTP-8868 Aux Id: seq11633</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+   <section>
+    <title>IC 4.2.25</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            The documentation can now be built and installed without Java.</p>
+          <p>
+            Own Id: OTP-8639 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
 
    <section>
     <title>IC 4.2.24</title>
