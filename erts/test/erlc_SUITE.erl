@@ -20,7 +20,8 @@
 
 %% Tests the erlc command by compiling various types of files.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, compile_erl/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, compile_erl/1,
 	 compile_yecc/1, compile_script/1,
 	 compile_mib/1, good_citizen/1, deep_cwd/1, arg_overflow/1]).
 
@@ -42,10 +43,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 %% Copy from erlc_SUITE_data/include/erl_test.hrl.
 

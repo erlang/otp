@@ -29,8 +29,9 @@
 
 %-define(line_trace, 1).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([bin_default/1,
 	 bin_default_dirty/1,
@@ -65,29 +66,29 @@
 	       bindir_symlinks = ""}).
 
 need_symlink_cases() -> 
-[bin_unreachable_absolute, bin_unreachable_relative,
- bin_same_dir, bin_ok_symlink, bin_dirname_fail,
- bin_no_use_dirname_fail].
+    [bin_unreachable_absolute, bin_unreachable_relative,
+     bin_same_dir, bin_ok_symlink, bin_dirname_fail,
+     bin_no_use_dirname_fail].
 
 dont_need_symlink_cases() -> 
-[bin_default, bin_default_dirty, bin_outside_eprfx,
- bin_outside_eprfx_dirty, bin_not_abs,
- bin_unreasonable_path, 'bin white space',
- bin_no_srcfile].
+    [bin_default, bin_default_dirty, bin_outside_eprfx,
+     bin_outside_eprfx_dirty, bin_not_abs,
+     bin_unreasonable_path, 'bin white space',
+     bin_no_srcfile].
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-dont_need_symlink_cases() ++ need_symlink_cases().
+    dont_need_symlink_cases() ++ need_symlink_cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%
@@ -590,7 +591,7 @@ init_per_testcase_aux(true, _OsType, Case, Config) ->
      {test_dir, make_dirs(?config(priv_dir, Config), atom_to_list(Case))}
      | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
