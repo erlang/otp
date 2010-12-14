@@ -119,10 +119,10 @@ end_per_testcase(Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[session_cookies_only, netscape_cookies, cookie_cancel,
- cookie_expires, persistent_cookie, domain_cookie,
- secure_cookie, update_cookie, update_cookie_session,
- cookie_attributes].
+    [session_cookies_only, netscape_cookies, cookie_cancel,
+     cookie_expires, persistent_cookie, domain_cookie,
+     secure_cookie, update_cookie, update_cookie_session,
+     cookie_attributes].
 
 groups() -> 
     [].
@@ -134,10 +134,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Test cases starts here.

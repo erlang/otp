@@ -36,26 +36,26 @@ end_per_testcase(Case, Config) ->
 
 
 all() -> 
-tickets().
+    tickets().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-init(Config) ->
+init_per_suite(Config) ->
     ?LIB_MOD:ftpd_init(ticket_test, Config).
 
 tickets() -> 
-[ticket_6035].
+    [ticket_6035].
 
 
-fin(Config) ->
+end_per_suite(Config) ->
     ?LIB_MOD:ftpd_fin(Config).
 
 ticket_6035(X) -> ?LIB_MOD:ticket_6035(X).

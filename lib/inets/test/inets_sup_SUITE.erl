@@ -29,17 +29,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[default_tree, ftpc_worker, tftpd_worker, httpd_subtree,
- httpc_subtree].
+    [default_tree, ftpc_worker, tftpd_worker, httpd_subtree,
+     httpc_subtree].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%--------------------------------------------------------------------

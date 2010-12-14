@@ -74,8 +74,8 @@ end_per_testcase(Case, Config) when is_list(Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[simple, extra, reuse_connection, resend_client,
- resend_server].
+    [simple, extra, reuse_connection, resend_client,
+     resend_server].
 
 groups() -> 
     [].
@@ -87,10 +87,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

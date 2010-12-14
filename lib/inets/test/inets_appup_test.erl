@@ -28,8 +28,8 @@
 -include("inets_test_lib.hrl").
 
 
-% t()     -> megaco_test_lib:t(?MODULE).
-% t(Case) -> megaco_test_lib:t({?MODULE, Case}).
+						% t()     -> megaco_test_lib:t(?MODULE).
+						% t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 
 
 %% Test server callbacks
@@ -42,24 +42,23 @@ end_per_testcase(_Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [appup],
-	Cases.
+    [appup].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-appup_init(suite) -> [];
-appup_init(doc) -> [];
-appup_init(Config) when is_list(Config) ->
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     AppFile   = file_name(inets, ".app"),
     AppupFile = file_name(inets, ".appup"),
     [{app_file, AppFile}, {appup_file, AppupFile}|Config].
@@ -70,9 +69,9 @@ file_name(App, Ext) ->
     filename:join([LibDir, "ebin", atom_to_list(App) ++ Ext]).
 
 
-appup_fin(suite) -> [];
-appup_fin(doc) -> [];
-appup_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 

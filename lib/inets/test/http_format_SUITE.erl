@@ -30,27 +30,27 @@
 
 %% Test cases must be exported.
 -export([ chunk_decode/1, chunk_encode/1,
-	 chunk_extensions_otp_6005/1, chunk_decode_otp_6264/1,
-	 chunk_decode_empty_chunk_otp_6511/1,
-	 chunk_decode_trailer/1,
-	 http_response/1, http_request/1, validate_request_line/1,
-	 esi_parse_headers/1, cgi_parse_headers/1,
-	 is_absolut_uri/1, convert_netscapecookie_date/1]).
+	  chunk_extensions_otp_6005/1, chunk_decode_otp_6264/1,
+	  chunk_decode_empty_chunk_otp_6511/1,
+	  chunk_decode_trailer/1,
+	  http_response/1, http_request/1, validate_request_line/1,
+	  esi_parse_headers/1, cgi_parse_headers/1,
+	  is_absolut_uri/1, convert_netscapecookie_date/1]).
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, chunk}, http_response, http_request,
- validate_request_line, {group, script}, is_absolut_uri,
- convert_netscapecookie_date].
+    [{group, chunk}, http_response, http_request,
+     validate_request_line, {group, script}, is_absolut_uri,
+     convert_netscapecookie_date].
 
 groups() -> 
     [{script, [], [esi_parse_headers, cgi_parse_headers]},
- {chunk, [],
-  [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
-   chunk_decode_otp_6264,
-   chunk_decode_empty_chunk_otp_6511,
-   chunk_decode_trailer]}].
+     {chunk, [],
+      [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
+       chunk_decode_otp_6264,
+       chunk_decode_empty_chunk_otp_6511,
+       chunk_decode_trailer]}].
 
 init_per_suite(Config) ->
     Config.
@@ -59,10 +59,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_, Config) ->

@@ -31,21 +31,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, app_test}, {group, appup_test},
- {group, services_test}, httpd_reload].
+    [{group, app_test}, {group, appup_test},
+     {group, services_test}, httpd_reload].
 
 groups() -> 
     [{services_test, [],
-  [start_inets, start_httpc, start_httpd, start_ftpc,
-   start_tftpd]},
- {app_test, [], [{inets_app_test, all}]},
- {appup_test, [], [{inets_appup_test, all}]}].
+      [start_inets, start_httpc, start_httpd, start_ftpc,
+       start_tftpd]},
+     {app_test, [], [{inets_app_test, all}]},
+     {appup_test, [], [{inets_appup_test, all}]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

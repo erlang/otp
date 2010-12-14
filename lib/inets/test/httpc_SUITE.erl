@@ -62,44 +62,44 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[proxy_options, proxy_head, proxy_get, proxy_trace,
- proxy_post, proxy_put, proxy_delete, proxy_auth,
- proxy_headers, proxy_emulate_lower_versions,
- http_options, http_head, http_get, http_post,
- http_dummy_pipe, http_inets_pipe, http_trace,
- http_async, http_save_to_file, http_save_to_file_async,
- http_headers, http_headers_dummy, http_bad_response,
- ssl_head, ossl_head, essl_head, ssl_get, ossl_get,
- essl_get, ssl_trace, ossl_trace, essl_trace,
- http_redirect, http_redirect_loop,
- http_internal_server_error, http_userinfo, http_cookie,
- http_server_does_not_exist, http_invalid_http,
- http_emulate_lower_versions, http_relaxed,
- page_does_not_exist, proxy_page_does_not_exist,
- proxy_https_not_supported, http_stream,
- http_stream_once, proxy_stream, parse_url, options,
- ipv6, headers_as_is, {group, tickets}].
+    [proxy_options, proxy_head, proxy_get, proxy_trace,
+     proxy_post, proxy_put, proxy_delete, proxy_auth,
+     proxy_headers, proxy_emulate_lower_versions,
+     http_options, http_head, http_get, http_post,
+     http_dummy_pipe, http_inets_pipe, http_trace,
+     http_async, http_save_to_file, http_save_to_file_async,
+     http_headers, http_headers_dummy, http_bad_response,
+     ssl_head, ossl_head, essl_head, ssl_get, ossl_get,
+     essl_get, ssl_trace, ossl_trace, essl_trace,
+     http_redirect, http_redirect_loop,
+     http_internal_server_error, http_userinfo, http_cookie,
+     http_server_does_not_exist, http_invalid_http,
+     http_emulate_lower_versions, http_relaxed,
+     page_does_not_exist, proxy_page_does_not_exist,
+     proxy_https_not_supported, http_stream,
+     http_stream_once, proxy_stream, parse_url, options,
+     ipv6, headers_as_is, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
-  [hexed_query_otp_6191, empty_body_otp_6243,
-   empty_response_header_otp_6830,
-   transfer_encoding_otp_6807, proxy_not_modified_otp_6821,
-   no_content_204_otp_6982, missing_CR_otp_7304,
-   {group, otp_7883}, {group, otp_8154}, {group, otp_8106},
-   otp_8056, otp_8352, otp_8371, otp_8739]},
- {otp_7883, [], [otp_7883_1, otp_7883_2]},
- {otp_8154, [], [otp_8154_1]},
- {otp_8106, [],
-  [otp_8106_pid, otp_8106_fun, otp_8106_mfa]}].
+      [hexed_query_otp_6191, empty_body_otp_6243,
+       empty_response_header_otp_6830,
+       transfer_encoding_otp_6807, proxy_not_modified_otp_6821,
+       no_content_204_otp_6982, missing_CR_otp_7304,
+       {group, otp_7883}, {group, otp_8154}, {group, otp_8106},
+       otp_8056, otp_8352, otp_8371, otp_8739]},
+     {otp_7883, [], [otp_7883_1, otp_7883_2]},
+     {otp_8154, [], [otp_8154_1]},
+     {otp_8106, [],
+      [otp_8106_pid, otp_8106_fun, otp_8106_mfa]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
+
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
 %% Config - [tuple()]
@@ -211,6 +211,8 @@ init_per_testcase(Case, Timeout, Config) ->
 			tsp("init_per_testcase -> [proxy case] start inets"),
 			inets:start(),
 			tsp("init_per_testcase -> [proxy case] start ssl"),
+			application:start(crypto),
+			application:start(public_key),
 			case (catch application:start(ssl)) of
 			    ok ->
 				[{watchdog, Dog} | TmpConfig];
@@ -1743,7 +1745,7 @@ ipv6(Config) when is_list(Config) ->
     {ok, Hostname} = inet:gethostname(),
     
     case lists:member(list_to_atom(Hostname), 
-		      ?config(ipv6_hosts, Config)) of
+		      ct:get_config(ipv6_hosts)) of
 	true ->
 	    {DummyServerPid, Port} = dummy_server(self(), ipv6),
 	    
