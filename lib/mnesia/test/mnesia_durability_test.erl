@@ -36,43 +36,43 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[{group, load_tables},
- {group, durability_of_dump_tables},
- durability_of_disc_copies,
- durability_of_disc_only_copies].
+    [{group, load_tables},
+     {group, durability_of_dump_tables},
+     durability_of_disc_copies,
+     durability_of_disc_only_copies].
 
 groups() -> 
     [{load_tables, [],
-  [load_latest_data, load_local_contents_directly,
-   load_directly_when_all_are_ram_copiesA,
-   load_directly_when_all_are_ram_copiesB,
-   {group, late_load_when_all_are_ram_copies_on_ram_nodes},
-   load_when_last_replica_becomes_available,
-   load_when_we_have_down_from_all_other_replica_nodes,
-   late_load_transforms_into_disc_load,
-   late_load_leads_to_hanging,
-   force_load_when_nobody_intents_to_load,
-   force_load_when_someone_has_decided_to_load,
-   force_load_when_someone_else_already_has_loaded,
-   force_load_when_we_has_loaded,
-   force_load_on_a_non_local_table,
-   force_load_when_the_table_does_not_exist,
-   {group, load_tables_with_master_tables}]},
- {late_load_when_all_are_ram_copies_on_ram_nodes, [],
-  [late_load_when_all_are_ram_copies_on_ram_nodes1,
-   late_load_when_all_are_ram_copies_on_ram_nodes2]},
- {load_tables_with_master_tables, [],
-  [master_nodes, starting_master_nodes,
-   master_on_non_local_tables,
-   remote_force_load_with_local_master_node]},
- {durability_of_dump_tables, [],
-  [dump_ram_copies, dump_disc_copies, dump_disc_only]}].
+      [load_latest_data, load_local_contents_directly,
+       load_directly_when_all_are_ram_copiesA,
+       load_directly_when_all_are_ram_copiesB,
+       {group, late_load_when_all_are_ram_copies_on_ram_nodes},
+       load_when_last_replica_becomes_available,
+       load_when_we_have_down_from_all_other_replica_nodes,
+       late_load_transforms_into_disc_load,
+       late_load_leads_to_hanging,
+       force_load_when_nobody_intents_to_load,
+       force_load_when_someone_has_decided_to_load,
+       force_load_when_someone_else_already_has_loaded,
+       force_load_when_we_has_loaded,
+       force_load_on_a_non_local_table,
+       force_load_when_the_table_does_not_exist,
+       {group, load_tables_with_master_tables}]},
+     {late_load_when_all_are_ram_copies_on_ram_nodes, [],
+      [late_load_when_all_are_ram_copies_on_ram_nodes1,
+       late_load_when_all_are_ram_copies_on_ram_nodes2]},
+     {load_tables_with_master_tables, [],
+      [master_nodes, starting_master_nodes,
+       master_on_non_local_tables,
+       remote_force_load_with_local_master_node]},
+     {durability_of_dump_tables, [],
+      [dump_ram_copies, dump_disc_copies, dump_disc_only]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

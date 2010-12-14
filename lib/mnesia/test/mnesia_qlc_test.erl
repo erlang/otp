@@ -35,30 +35,30 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 all() -> 
-case code:which(qlc) of
-  non_existing -> [];
-  _ -> all_qlc()
-end.
+    case code:which(qlc) of
+	non_existing -> [];
+	_ -> all_qlc()
+    end.
 
 groups() -> 
     [{dirty, [],
-  [dirty_nice_ram_copies, dirty_nice_disc_copies,
-   dirty_nice_disc_only_copies]},
- {trans, [],
-  [trans_nice_ram_copies, trans_nice_disc_copies,
-   trans_nice_disc_only_copies, {group, atomic}]},
- {atomic, [], [atomic_eval]}].
+      [dirty_nice_ram_copies, dirty_nice_disc_copies,
+       dirty_nice_disc_only_copies]},
+     {trans, [],
+      [trans_nice_ram_copies, trans_nice_disc_copies,
+       trans_nice_disc_only_copies, {group, atomic}]},
+     {atomic, [], [atomic_eval]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 all_qlc() -> 
-[{group, dirty}, {group, trans}, frag, info,
- mnesia_down].
+    [{group, dirty}, {group, trans}, frag, info,
+     mnesia_down].
 
 init_testcases(Type,Config) ->
     Nodes = [N1,N2] = ?acquire_nodes(2, Config),

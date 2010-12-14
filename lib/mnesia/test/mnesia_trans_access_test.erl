@@ -41,39 +41,39 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
-[write, read, wread, delete, delete_object,
- match_object, select, select14, all_keys, transaction,
- {group, nested_activities}, {group, index_tabs},
- {group, index_lifecycle}].
+    [write, read, wread, delete, delete_object,
+     match_object, select, select14, all_keys, transaction,
+     {group, nested_activities}, {group, index_tabs},
+     {group, index_lifecycle}].
 
 groups() -> 
     [{nested_activities, [],
-  [basic_nested, {group, nested_transactions},
-   mix_of_nested_activities]},
- {nested_transactions, [],
-  [nested_trans_both_ok, nested_trans_child_dies,
-   nested_trans_parent_dies, nested_trans_both_dies]},
- {index_tabs, [],
-  [index_match_object, index_read, {group, index_update},
-   index_write]},
- {index_update, [],
-  [index_update_set, index_update_bag]},
- {index_lifecycle, [],
-  [add_table_index_ram, add_table_index_disc,
-   add_table_index_disc_only, create_live_table_index_ram,
-   create_live_table_index_disc,
-   create_live_table_index_disc_only, del_table_index_ram,
-   del_table_index_disc, del_table_index_disc_only,
-   {group, idx_schema_changes}]},
- {idx_schema_changes, [],
-  [idx_schema_changes_ram, idx_schema_changes_disc,
-   idx_schema_changes_disc_only]}].
+      [basic_nested, {group, nested_transactions},
+       mix_of_nested_activities]},
+     {nested_transactions, [],
+      [nested_trans_both_ok, nested_trans_child_dies,
+       nested_trans_parent_dies, nested_trans_both_dies]},
+     {index_tabs, [],
+      [index_match_object, index_read, {group, index_update},
+       index_write]},
+     {index_update, [],
+      [index_update_set, index_update_bag]},
+     {index_lifecycle, [],
+      [add_table_index_ram, add_table_index_disc,
+       add_table_index_disc_only, create_live_table_index_ram,
+       create_live_table_index_disc,
+       create_live_table_index_disc_only, del_table_index_ram,
+       del_table_index_disc, del_table_index_disc_only,
+       {group, idx_schema_changes}]},
+     {idx_schema_changes, [],
+      [idx_schema_changes_ram, idx_schema_changes_disc,
+       idx_schema_changes_disc_only]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Write records

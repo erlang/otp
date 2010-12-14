@@ -32,40 +32,40 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
-[explicit_abort_in_middle_of_trans,
- runtime_error_in_middle_of_trans,
- kill_self_in_middle_of_trans, throw_in_middle_of_trans,
- {group, mnesia_down_in_middle_of_trans}].
+    [explicit_abort_in_middle_of_trans,
+     runtime_error_in_middle_of_trans,
+     kill_self_in_middle_of_trans, throw_in_middle_of_trans,
+     {group, mnesia_down_in_middle_of_trans}].
 
 groups() -> 
     [{mnesia_down_in_middle_of_trans, [],
-  [mnesia_down_during_infinite_trans,
-   {group, lock_waiter}, {group, restart_check}]},
- {lock_waiter, [],
-  [lock_waiter_sw_r, lock_waiter_sw_rt, lock_waiter_sw_wt,
-   lock_waiter_wr_r, lock_waiter_srw_r, lock_waiter_sw_sw,
-   lock_waiter_sw_w, lock_waiter_sw_wr, lock_waiter_sw_srw,
-   lock_waiter_wr_wt, lock_waiter_srw_wt,
-   lock_waiter_wr_sw, lock_waiter_srw_sw, lock_waiter_wr_w,
-   lock_waiter_srw_w, lock_waiter_r_sw, lock_waiter_r_w,
-   lock_waiter_r_wt, lock_waiter_rt_sw, lock_waiter_rt_w,
-   lock_waiter_rt_wt, lock_waiter_wr_wr,
-   lock_waiter_srw_srw, lock_waiter_wt_r, lock_waiter_wt_w,
-   lock_waiter_wt_rt, lock_waiter_wt_wt, lock_waiter_wt_wr,
-   lock_waiter_wt_srw, lock_waiter_wt_sw, lock_waiter_w_wr,
-   lock_waiter_w_srw, lock_waiter_w_sw, lock_waiter_w_r,
-   lock_waiter_w_w, lock_waiter_w_rt, lock_waiter_w_wt]},
- {restart_check, [],
-  [restart_r_one, restart_w_one, restart_rt_one,
-   restart_wt_one, restart_wr_one, restart_sw_one,
-   restart_r_two, restart_w_two, restart_rt_two,
-   restart_wt_two, restart_wr_two, restart_sw_two]}].
+      [mnesia_down_during_infinite_trans,
+       {group, lock_waiter}, {group, restart_check}]},
+     {lock_waiter, [],
+      [lock_waiter_sw_r, lock_waiter_sw_rt, lock_waiter_sw_wt,
+       lock_waiter_wr_r, lock_waiter_srw_r, lock_waiter_sw_sw,
+       lock_waiter_sw_w, lock_waiter_sw_wr, lock_waiter_sw_srw,
+       lock_waiter_wr_wt, lock_waiter_srw_wt,
+       lock_waiter_wr_sw, lock_waiter_srw_sw, lock_waiter_wr_w,
+       lock_waiter_srw_w, lock_waiter_r_sw, lock_waiter_r_w,
+       lock_waiter_r_wt, lock_waiter_rt_sw, lock_waiter_rt_w,
+       lock_waiter_rt_wt, lock_waiter_wr_wr,
+       lock_waiter_srw_srw, lock_waiter_wt_r, lock_waiter_wt_w,
+       lock_waiter_wt_rt, lock_waiter_wt_wt, lock_waiter_wt_wr,
+       lock_waiter_wt_srw, lock_waiter_wt_sw, lock_waiter_w_wr,
+       lock_waiter_w_srw, lock_waiter_w_sw, lock_waiter_w_r,
+       lock_waiter_w_w, lock_waiter_w_rt, lock_waiter_w_wt]},
+     {restart_check, [],
+      [restart_r_one, restart_w_one, restart_rt_one,
+       restart_wt_one, restart_wr_one, restart_sw_one,
+       restart_r_two, restart_w_two, restart_rt_two,
+       restart_wt_two, restart_wr_two, restart_sw_two]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

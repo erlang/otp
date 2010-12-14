@@ -35,48 +35,48 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
-[system_info, table_info, error_description,
- db_node_lifecycle, evil_delete_db_node, start_and_stop,
- checkpoint, table_lifecycle, add_copy_conflict,
- add_copy_when_going_down, replica_management,
- schema_availability, local_content,
- {group, table_access_modifications}, replica_location,
- {group, table_sync}, user_properties, unsupp_user_props,
- {group, record_name}, {group, snmp_access},
- {group, subscriptions}, {group, iteration},
- {group, debug_support}, sorted_ets,
- {mnesia_dirty_access_test, all},
- {mnesia_trans_access_test, all},
- {mnesia_evil_backup, all}].
+    [system_info, table_info, error_description,
+     db_node_lifecycle, evil_delete_db_node, start_and_stop,
+     checkpoint, table_lifecycle, add_copy_conflict,
+     add_copy_when_going_down, replica_management,
+     schema_availability, local_content,
+     {group, table_access_modifications}, replica_location,
+     {group, table_sync}, user_properties, unsupp_user_props,
+     {group, record_name}, {group, snmp_access},
+     {group, subscriptions}, {group, iteration},
+     {group, debug_support}, sorted_ets,
+     {mnesia_dirty_access_test, all},
+     {mnesia_trans_access_test, all},
+     {mnesia_evil_backup, all}].
 
 groups() -> 
     [{table_access_modifications, [],
-  [change_table_access_mode, change_table_load_order,
-   set_master_nodes, offline_set_master_nodes]},
- {table_sync, [],
-  [dump_tables, dump_log, wait_for_tables,
-   force_load_table]},
- {snmp_access, [],
-  [snmp_open_table, snmp_close_table, snmp_get_next_index,
-   snmp_get_row, snmp_get_mnesia_key, snmp_update_counter,
-   snmp_order]},
- {subscriptions, [],
-  [subscribe_standard, subscribe_extended]},
- {iteration, [], [foldl]},
- {debug_support, [],
-  [info, schema_0, schema_1, view_0, view_1, view_2,
-   lkill, kill]},
- {record_name, [], [{group, record_name_dirty_access}]},
- {record_name_dirty_access, [],
-  [record_name_dirty_access_ram,
-   record_name_dirty_access_disc,
-   record_name_dirty_access_disc_only]}].
+      [change_table_access_mode, change_table_load_order,
+       set_master_nodes, offline_set_master_nodes]},
+     {table_sync, [],
+      [dump_tables, dump_log, wait_for_tables,
+       force_load_table]},
+     {snmp_access, [],
+      [snmp_open_table, snmp_close_table, snmp_get_next_index,
+       snmp_get_row, snmp_get_mnesia_key, snmp_update_counter,
+       snmp_order]},
+     {subscriptions, [],
+      [subscribe_standard, subscribe_extended]},
+     {iteration, [], [foldl]},
+     {debug_support, [],
+      [info, schema_0, schema_1, view_0, view_1, view_2,
+       lkill, kill]},
+     {record_name, [], [{group, record_name_dirty_access}]},
+     {record_name_dirty_access, [],
+      [record_name_dirty_access_ram,
+       record_name_dirty_access_disc,
+       record_name_dirty_access_disc_only]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

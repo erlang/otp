@@ -102,32 +102,32 @@ end_per_testcase(Func, Conf) ->
 
 
 all() -> 
-[access_module, auto_repair, backup_module, debug, dir,
- dump_log_load_regulation, {group, dump_log_thresholds},
- dump_log_update_in_place, embedded_mnemosyne,
- event_module, ignore_fallback_at_startup,
- inconsistent_database, max_wait_for_decision,
- send_compressed, app_test, {group, schema_config},
- unknown_config].
+    [access_module, auto_repair, backup_module, debug, dir,
+     dump_log_load_regulation, {group, dump_log_thresholds},
+     dump_log_update_in_place, embedded_mnemosyne,
+     event_module, ignore_fallback_at_startup,
+     inconsistent_database, max_wait_for_decision,
+     send_compressed, app_test, {group, schema_config},
+     unknown_config].
 
 groups() -> 
     [{dump_log_thresholds, [],
-  [dump_log_time_threshold, dump_log_write_threshold]},
- {schema_config, [],
-  [start_one_disc_full_then_one_disc_less,
-   start_first_one_disc_less_then_one_disc_full,
-   start_first_one_disc_less_then_two_more_disc_less,
-   schema_location_and_extra_db_nodes_combinations,
-   table_load_to_disc_less_nodes, schema_merge,
-   {group, dynamic_connect}]},
- {dynamic_connect, [],
-  [dynamic_basic, dynamic_ext, dynamic_bad]}].
+      [dump_log_time_threshold, dump_log_write_threshold]},
+     {schema_config, [],
+      [start_one_disc_full_then_one_disc_less,
+       start_first_one_disc_less_then_one_disc_full,
+       start_first_one_disc_less_then_two_more_disc_less,
+       schema_location_and_extra_db_nodes_combinations,
+       table_load_to_disc_less_nodes, schema_merge,
+       {group, dynamic_connect}]},
+     {dynamic_connect, [],
+      [dynamic_basic, dynamic_ext, dynamic_bad]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

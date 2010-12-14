@@ -38,50 +38,50 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[{group, prediction}, {group, consumption},
- {group, scalability}, {group, benchmarks}].
+    [{group, prediction}, {group, consumption},
+     {group, scalability}, {group, benchmarks}].
 
 groups() -> 
     [{prediction, [],
-  [reader_disturbed_by_node_down,
-   writer_disturbed_by_node_down,
-   reader_disturbed_by_node_up,
-   writer_disturbed_by_node_up,
-   reader_disturbed_by_schema_ops,
-   writer_disturbed_by_schema_ops,
-   reader_disturbed_by_checkpoint,
-   writer_disturbed_by_checkpoint,
-   reader_disturbed_by_dump_log,
-   writer_disturbed_by_dump_log,
-   reader_disturbed_by_backup, writer_disturbed_by_backup,
-   reader_disturbed_by_restore,
-   writer_disturbed_by_restore, {group, fairness}]},
- {fairness, [],
-  [reader_competing_with_reader,
-   reader_competing_with_writer,
-   writer_competing_with_reader,
-   writer_competing_with_writer]},
- {consumption, [],
-  [measure_resource_consumption,
-   determine_resource_leakage]},
- {scalability, [],
-  [determine_system_limits, performance_at_min_config,
-   performance_at_max_config, performance_at_full_load,
-   resource_consumption_at_min_config,
-   resource_consumption_at_max_config,
-   resource_consumption_at_full_load]},
- {benchmarks, [],
-  [{group, meter}, cost, dbn_meters,
-   measure_all_api_functions, {group, tpcb},
-   mnemosyne_vs_mnesia_kernel]},
- {tpcb, [], [ram_tpcb, disc_tpcb, disc_only_tpcb]},
- {meter, [], [ram_meter, disc_meter, disc_only_meter]}].
+      [reader_disturbed_by_node_down,
+       writer_disturbed_by_node_down,
+       reader_disturbed_by_node_up,
+       writer_disturbed_by_node_up,
+       reader_disturbed_by_schema_ops,
+       writer_disturbed_by_schema_ops,
+       reader_disturbed_by_checkpoint,
+       writer_disturbed_by_checkpoint,
+       reader_disturbed_by_dump_log,
+       writer_disturbed_by_dump_log,
+       reader_disturbed_by_backup, writer_disturbed_by_backup,
+       reader_disturbed_by_restore,
+       writer_disturbed_by_restore, {group, fairness}]},
+     {fairness, [],
+      [reader_competing_with_reader,
+       reader_competing_with_writer,
+       writer_competing_with_reader,
+       writer_competing_with_writer]},
+     {consumption, [],
+      [measure_resource_consumption,
+       determine_resource_leakage]},
+     {scalability, [],
+      [determine_system_limits, performance_at_min_config,
+       performance_at_max_config, performance_at_full_load,
+       resource_consumption_at_min_config,
+       resource_consumption_at_max_config,
+       resource_consumption_at_full_load]},
+     {benchmarks, [],
+      [{group, meter}, cost, dbn_meters,
+       measure_all_api_functions, {group, tpcb},
+       mnemosyne_vs_mnesia_kernel]},
+     {tpcb, [], [ram_tpcb, disc_tpcb, disc_only_tpcb]},
+     {meter, [], [ram_meter, disc_meter, disc_only_meter]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
      
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -41,23 +41,23 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[backup, bad_backup, global_backup_checkpoint,
- {group, restore_tables}, traverse_backup,
- selective_backup_checkpoint,
- incremental_backup_checkpoint, install_fallback,
- uninstall_fallback, local_fallback,
- sops_with_checkpoint].
+    [backup, bad_backup, global_backup_checkpoint,
+     {group, restore_tables}, traverse_backup,
+     selective_backup_checkpoint,
+     incremental_backup_checkpoint, install_fallback,
+     uninstall_fallback, local_fallback,
+     sops_with_checkpoint].
 
 groups() -> 
     [{restore_tables, [],
-  [restore_errors, restore_clear, restore_keep,
-   restore_recreate, restore_clear_ram]}].
+      [restore_errors, restore_clear, restore_keep,
+       restore_recreate, restore_clear_ram]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 backup(doc) -> ["Checking the interface to the function backup",

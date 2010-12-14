@@ -62,19 +62,19 @@ opt_load(Mod) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
-[bup, company, meter, {group, tpcb}].
+    [bup, company, meter, {group, tpcb}].
 
 groups() -> 
     [{tpcb, [],
-  [replica_test, sticky_replica_test, dist_test,
-   conflict_test, frag_test, frag2_test, remote_test,
-   remote_frag2_test]}].
+      [replica_test, sticky_replica_test, dist_test,
+       conflict_test, frag_test, frag2_test, remote_test,
+       remote_frag2_test]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

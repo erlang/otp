@@ -32,45 +32,45 @@ end_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 all() -> 
-[{group, locking}, {group, visibility}].
+    [{group, locking}, {group, visibility}].
 
 groups() -> 
     [{locking, [],
-  [no_conflict, simple_queue_conflict,
-   advanced_queue_conflict, simple_deadlock_conflict,
-   advanced_deadlock_conflict, lock_burst,
-   {group, sticky_locks}, {group, unbound_locking},
-   {group, admin_conflict}, nasty]},
- {sticky_locks, [], [basic_sticky_functionality]},
- {unbound_locking, [], [unbound1, unbound2]},
- {admin_conflict, [],
-  [create_table, delete_table, move_table_copy,
-   add_table_index, del_table_index, transform_table,
-   snmp_open_table, snmp_close_table,
-   change_table_copy_type, change_table_access,
-   add_table_copy, del_table_copy, dump_tables,
-   {group, extra_admin_tests}]},
- {extra_admin_tests, [],
-  [del_table_copy_1, del_table_copy_2, del_table_copy_3,
-   add_table_copy_1, add_table_copy_2, add_table_copy_3,
-   add_table_copy_4, move_table_copy_1, move_table_copy_2,
-   move_table_copy_3, move_table_copy_4]},
- {visibility, [],
-  [dirty_updates_visible_direct,
-   dirty_reads_regardless_of_trans,
-   trans_update_invisibible_outside_trans,
-   trans_update_visible_inside_trans, write_shadows,
-   delete_shadows, write_delete_shadows_bag,
-   write_delete_shadows_bag2, {group, iteration},
-   shadow_search, snmp_shadows]},
- {removed_resources, [], [rr_kill_copy]},
- {iteration, [], [foldl, first_next]}].
+      [no_conflict, simple_queue_conflict,
+       advanced_queue_conflict, simple_deadlock_conflict,
+       advanced_deadlock_conflict, lock_burst,
+       {group, sticky_locks}, {group, unbound_locking},
+       {group, admin_conflict}, nasty]},
+     {sticky_locks, [], [basic_sticky_functionality]},
+     {unbound_locking, [], [unbound1, unbound2]},
+     {admin_conflict, [],
+      [create_table, delete_table, move_table_copy,
+       add_table_index, del_table_index, transform_table,
+       snmp_open_table, snmp_close_table,
+       change_table_copy_type, change_table_access,
+       add_table_copy, del_table_copy, dump_tables,
+       {group, extra_admin_tests}]},
+     {extra_admin_tests, [],
+      [del_table_copy_1, del_table_copy_2, del_table_copy_3,
+       add_table_copy_1, add_table_copy_2, add_table_copy_3,
+       add_table_copy_4, move_table_copy_1, move_table_copy_2,
+       move_table_copy_3, move_table_copy_4]},
+     {visibility, [],
+      [dirty_updates_visible_direct,
+       dirty_reads_regardless_of_trans,
+       trans_update_invisibible_outside_trans,
+       trans_update_visible_inside_trans, write_shadows,
+       delete_shadows, write_delete_shadows_bag,
+       write_delete_shadows_bag2, {group, iteration},
+       shadow_search, snmp_shadows]},
+     {removed_resources, [], [rr_kill_copy]},
+     {iteration, [], [foldl, first_next]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

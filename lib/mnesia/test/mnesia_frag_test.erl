@@ -38,22 +38,22 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-[{group, light}, {group, medium}].
+    [{group, light}, {group, medium}].
 
 groups() -> 
     [{light, [], [{group, nice}, {group, evil}]},
- {medium, [], [consistency]},
- {nice, [],
-  [nice_single, nice_multi, nice_access, iter_access]},
- {evil, [],
-  [evil_create, evil_delete, evil_change, evil_combine,
-   evil_loop, evil_delete_db_node]}].
+     {medium, [], [consistency]},
+     {nice, [],
+      [nice_single, nice_multi, nice_access, iter_access]},
+     {evil, [],
+      [evil_create, evil_delete, evil_change, evil_combine,
+       evil_loop, evil_delete_db_node]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
