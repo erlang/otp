@@ -123,7 +123,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, qos_api/1, adm_api/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, 
+	 init_per_suite/1, end_per_suite/1, qos_api/1, adm_api/1,
 	 cosevent_api/1, filter_adm_api/1, events_api/1, events2_api/1,
 	 event_qos_api/1, filter_api/1, mapping_filter_api/1, subscription_api/1, 
 	 init_per_testcase/2, end_per_testcase/2, persistent_max_events_api/1,
@@ -140,28 +141,25 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
 cases() -> 
-[persistent_max_events_api,
- persistent_timeout_events_api,
- persistent_recover_events_api, mapping_filter_api,
- filter_api, filter_adm_api, event_qos_api, qos_api,
- adm_api, cosevent_api, subscription_api, events_api,
- events2_api, app_test].
+    [persistent_max_events_api,
+     persistent_timeout_events_api,
+     persistent_recover_events_api, mapping_filter_api,
+     filter_api, filter_adm_api, event_qos_api, qos_api,
+     adm_api, cosevent_api, subscription_api, events_api,
+     events2_api, app_test].
 
-
-	
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------

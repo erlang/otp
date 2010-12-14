@@ -64,7 +64,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 cases/0, init_per_suite/1, end_per_suite/1, 
 	 union_api/1, enum_api/1, simple_types_api/1,
 	 components_api/1, positional_api/1, variable_api/1,
 	 init_per_testcase/2, end_per_testcase/2]).
@@ -79,22 +80,22 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
+
 cases() -> 
-[variable_api, union_api, enum_api, simple_types_api,
- components_api, positional_api].
-	
+    [variable_api, union_api, enum_api, simple_types_api,
+     components_api, positional_api].
+
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
