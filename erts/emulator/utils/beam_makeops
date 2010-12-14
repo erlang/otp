@@ -954,18 +954,21 @@ sub basic_generator {
 
 sub do_pack {
     my(@args) = @_;
-    my($i);
     my($packable_args) = 0;
+    my @is_packable;		# Packability (boolean) for each argument.
 
     #
     # Count the number of packable arguments.  If we encounter any 's' or 'd'
     # arguments, packing is not possible.
     #
-    for ($i = 0; $i < @args; $i++) {
-	if ($args[$i] =~ /[xytQ]/) {
+    foreach my $arg (@args) {
+	if ($arg =~ /^[xytQ]/) {
 	    $packable_args++;
-	} elsif ($args[$i] =~ /[sd]/) {
+	    push @is_packable, 1;
+	} elsif ($arg =~ /^[sd]/) {
 	    return ('', '', @args);
+	} else {
+	    push @is_packable, 0;
 	}
     }
 
@@ -1005,10 +1008,10 @@ sub do_pack {
     my($ap) = 0;		# Argument number within word.
     my($tmpnum) = 1;		# Number of temporary variable.
     my($expr) = '';
-    for ($i = 0; $i < @args; $i++) {
+    for (my $i = 0; $i < @args; $i++) {
 	my($reg) = $args[$i];
 	my($this_size) = $arg_size{$reg};
-	if ($reg =~ /[xytQ]/) {
+	if ($is_packable[$i]) {
 	    $this_size = 0;
 	    $did_some_packing = 1;
 
