@@ -326,10 +326,10 @@ groups() ->
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% NOTE - the fragment test cases must bu first since we explicitly set a request

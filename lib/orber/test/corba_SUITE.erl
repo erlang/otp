@@ -67,26 +67,26 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[exception_info_api, corba_api, object_api, orber_api,
- orber_objectkeys_api, orber_pseudo_objects,
- callback_ok_api, callback_arity_api,
- callback_module_api, callback_function_api,
- callback_precond_api, callback_postcond_api,
- callback_exit_api, callback_badarith_api,
- callback_case_clause_api, callback_function_clause_api]. 
+    [exception_info_api, corba_api, object_api, orber_api,
+     orber_objectkeys_api, orber_pseudo_objects,
+     callback_ok_api, callback_arity_api,
+     callback_module_api, callback_function_api,
+     callback_precond_api, callback_postcond_api,
+     callback_exit_api, callback_badarith_api,
+     callback_case_clause_api, callback_function_clause_api]. 
 
 %% boa_api, request, locate_request, locate_reply].
 

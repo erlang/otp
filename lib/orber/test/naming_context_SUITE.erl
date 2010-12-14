@@ -43,7 +43,8 @@
 
 -export([name_context/1, check_list/1, name_context_ext/1]).
 
--export([init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
+-export([init_per_suite/1, end_per_suite/1, init_per_testcase/2, 
+	 end_per_testcase/2]).
 
 
 %%-----------------------------------------------------------------
@@ -78,20 +79,20 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[name_context, check_list, name_context_ext].
+    [name_context, check_list, name_context_ext].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

@@ -71,7 +71,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
@@ -87,18 +88,18 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-['OrberApp_IFR', erlang_binary, erlang_pid, erlang_port,
- erlang_ref, 'CosNaming_Binding',
- 'CosNaming_BindingList', 'CosNaming_Name',
- 'CosNaming_NameComponent',
- 'CosNaming_NamingContextExt_InvalidAddress',
- 'CosNaming_NamingContext_AlreadyBound',
- 'CosNaming_NamingContext_CannotProceed',
- 'CosNaming_NamingContext_InvalidName',
- 'CosNaming_NamingContext_NotEmpty',
- 'CosNaming_NamingContext_NotFound',
- 'CosNaming_BindingIterator', 'CosNaming_NamingContext',
- 'CosNaming_NamingContextExt'].
+    ['OrberApp_IFR', erlang_binary, erlang_pid, erlang_port,
+     erlang_ref, 'CosNaming_Binding',
+     'CosNaming_BindingList', 'CosNaming_Name',
+     'CosNaming_NameComponent',
+     'CosNaming_NamingContextExt_InvalidAddress',
+     'CosNaming_NamingContext_AlreadyBound',
+     'CosNaming_NamingContext_CannotProceed',
+     'CosNaming_NamingContext_InvalidName',
+     'CosNaming_NamingContext_NotEmpty',
+     'CosNaming_NamingContext_NotFound',
+     'CosNaming_BindingIterator', 'CosNaming_NamingContext',
+     'CosNaming_NamingContextExt'].
 
 groups() -> 
     [].
@@ -110,10 +111,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------

@@ -128,12 +128,12 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -144,12 +144,12 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[null, void, short, ushort, long, ulong, longlong,
- ulonglong, boolean, char, wchar, octet, float, double,
- longdouble, any, typecode, principal, object_reference,
- struct, union, enum, string, wstring, sequence, array,
- alias, exception, fixed, value, value_box, native,
- abstract_interface, indirection, get_tc].
+    [null, void, short, ushort, long, ulong, longlong,
+     ulonglong, boolean, char, wchar, octet, float, double,
+     longdouble, any, typecode, principal, object_reference,
+     struct, union, enum, string, wstring, sequence, array,
+     alias, exception, fixed, value, value_box, native,
+     abstract_interface, indirection, get_tc].
 
 groups() -> 
     [].
@@ -161,10 +161,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------

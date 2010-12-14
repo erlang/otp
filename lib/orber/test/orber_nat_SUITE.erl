@@ -50,7 +50,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, 
+	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2, 
 	 nat_ip_address/1, nat_ip_address_multiple/1,
 	 nat_ip_address_local/1, nat_ip_address_local_local/1,
@@ -71,24 +72,24 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[nat_ip_address, nat_ip_address_multiple,
- nat_ip_address_local, nat_iiop_port,
- nat_iiop_port_local, nat_ip_address_local_local,
- nat_iiop_port_local_local, nat_iiop_ssl_port,
- nat_iiop_ssl_port_local].
+    [nat_ip_address, nat_ip_address_multiple,
+     nat_ip_address_local, nat_iiop_port,
+     nat_iiop_port_local, nat_ip_address_local_local,
+     nat_iiop_port_local_local, nat_iiop_ssl_port,
+     nat_iiop_ssl_port_local].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

@@ -62,17 +62,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[ipv4_verify, ipv4_range, ipv4_interfaces, ipv4_bm,
- ipv6_verify, ipv6_range, ipv6_interfaces, ipv6_bm].
+    [ipv4_verify, ipv4_range, ipv4_interfaces, ipv4_bm,
+     ipv6_verify, ipv6_range, ipv6_interfaces, ipv6_bm].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------
