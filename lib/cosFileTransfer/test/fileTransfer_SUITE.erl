@@ -25,8 +25,6 @@
 
 -module(fileTransfer_SUITE).
 
-
-
 %%--------------- INCLUDES -----------------------------------
 -include_lib("cosFileTransfer/src/cosFileTransferApp.hrl").
 
@@ -103,15 +101,15 @@ all() ->
 groups() -> 
     [].
 
-    
+
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
+
 cases() -> 
     [fts_ftp_dir_api, fts_ftp_file_api,
      fts_ftp_file_ssl_api, fts_native_dir_api,
