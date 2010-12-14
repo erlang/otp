@@ -59,15 +59,15 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[all_suites, skip_all_suites, suite, skip_suite,
- all_testcases, skip_all_testcases, testcase,
- skip_testcase, all_groups, skip_all_groups, group,
- skip_group, group_all_testcases,
- skip_group_all_testcases, group_testcase,
- skip_group_testcase, topgroup, subgroup, skip_subgroup,
- subgroup_all_testcases, skip_subgroup_all_testcases,
- subgroup_testcase, skip_subgroup_testcase,
- sub_skipped_by_top, testcase_in_multiple_groups].
+    [all_suites, skip_all_suites, suite, skip_suite,
+     all_testcases, skip_all_testcases, testcase,
+     skip_testcase, all_groups, skip_all_groups, group,
+     skip_group, group_all_testcases,
+     skip_group_all_testcases, group_testcase,
+     skip_group_testcase, topgroup, subgroup, skip_subgroup,
+     subgroup_all_testcases, skip_subgroup_all_testcases,
+     subgroup_testcase, skip_subgroup_testcase,
+     sub_skipped_by_top, testcase_in_multiple_groups].
 
 groups() -> 
     [].

@@ -59,13 +59,13 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[repeat_cs, repeat_cs_and_grs, repeat_seq,
- repeat_cs_until_any_ok, repeat_gr_until_any_ok,
- repeat_cs_until_any_fail, repeat_gr_until_any_fail,
- repeat_cs_until_all_ok, repeat_gr_until_all_ok,
- repeat_cs_until_all_fail, repeat_gr_until_all_fail,
- repeat_seq_until_any_fail,
- repeat_shuffled_seq_until_any_fail].
+    [repeat_cs, repeat_cs_and_grs, repeat_seq,
+     repeat_cs_until_any_ok, repeat_gr_until_any_ok,
+     repeat_cs_until_any_fail, repeat_gr_until_any_fail,
+     repeat_cs_until_all_ok, repeat_gr_until_all_ok,
+     repeat_cs_until_all_fail, repeat_gr_until_all_fail,
+     repeat_seq_until_any_fail,
+     repeat_shuffled_seq_until_any_fail].
 
 groups() -> 
     [].

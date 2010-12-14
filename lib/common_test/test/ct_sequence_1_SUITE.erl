@@ -59,10 +59,10 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[subgroup_return_fail, subgroup_init_fail,
- subgroup_after_failed_case,
- case_after_subgroup_return_fail,
- case_after_subgroup_fail_init].
+    [subgroup_return_fail, subgroup_init_fail,
+     subgroup_after_failed_case,
+     case_after_subgroup_return_fail,
+     case_after_subgroup_fail_init].
 
 groups() -> 
     [].

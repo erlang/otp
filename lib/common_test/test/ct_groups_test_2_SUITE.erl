@@ -59,16 +59,16 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[missing_conf, repeat_1].
+    [missing_conf, repeat_1].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%--------------------------------------------------------------------

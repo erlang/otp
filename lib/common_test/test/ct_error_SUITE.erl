@@ -59,19 +59,19 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cfg_error, lib_error, no_compile, timetrap_end_conf,
- timetrap_normal, timetrap_extended].
+    [cfg_error, lib_error, no_compile, timetrap_end_conf,
+     timetrap_normal, timetrap_extended].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
-     
+
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -125,7 +125,7 @@ lib_error(Config) when is_list(Config) ->
 
     TestEvents = events_to_check(lib_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
-    
+
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -143,7 +143,7 @@ no_compile(Config) when is_list(Config) ->
 
     TestEvents = events_to_check(no_compile),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
-    
+
 %%%-----------------------------------------------------------------
 %%%
 timetrap_end_conf(Config) when is_list(Config) ->
@@ -217,8 +217,8 @@ setup(Test, Config) ->
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
-%reformat(Events, _EH) ->
-%    Events.
+						%reformat(Events, _EH) ->
+						%    Events.
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
@@ -251,7 +251,7 @@ test_events(cfg_error) ->
      {?eh,test_stats,{0,0,{0,2}}},
      {?eh,tc_auto_skip,
       {cfg_error_1_SUITE,end_per_suite,{failed,{cfg_error_1_SUITE,init_per_suite,
-				      {'EXIT',init_per_suite_fails}}}}},
+						{'EXIT',init_per_suite_fails}}}}},
 
      {?eh,tc_start,{cfg_error_2_SUITE,init_per_suite}},
      {?eh,tc_done,
@@ -381,12 +381,12 @@ test_events(cfg_error) ->
       {?eh,tc_auto_skip,
        {cfg_error_8_SUITE,tc1,
 	{failed,{cfg_error_8_SUITE,init_per_group,
-	  {'EXIT',{init_per_group_fails,g1}}}}}},
+		 {'EXIT',{init_per_group_fails,g1}}}}}},
       {?eh,test_stats,{4,0,{0,11}}},
       {?eh,tc_auto_skip,
        {cfg_error_8_SUITE,end_per_group,
 	{failed,{cfg_error_8_SUITE,init_per_group,
-	  {'EXIT',{init_per_group_fails,g1}}}}}}],
+		 {'EXIT',{init_per_group_fails,g1}}}}}}],
 
      [{?eh,tc_start,{cfg_error_8_SUITE,{init_per_group,g2,[]}}},
       {?eh,tc_done,{cfg_error_8_SUITE,
@@ -399,7 +399,7 @@ test_events(cfg_error) ->
       {?eh,tc_auto_skip,{cfg_error_8_SUITE,end_per_group,
 			 {failed,{cfg_error_8_SUITE,init_per_group,
 				  {timetrap_timeout,2000}}}}}],
-     
+
      [{?eh,tc_start,{cfg_error_8_SUITE,{init_per_group,g3,[]}}},
       {?eh,tc_done,
        {cfg_error_8_SUITE,{init_per_group,g3,[]},
@@ -439,7 +439,7 @@ test_events(cfg_error) ->
       {?eh,test_stats,{5,0,{0,13}}},
       {?eh,tc_start,{cfg_error_8_SUITE,{end_per_group,g4,[]}}},
       {?eh,tc_done,{cfg_error_8_SUITE,{end_per_group,g4,[]},ok}}],
-     
+
      [{?eh,tc_start,{cfg_error_8_SUITE,{init_per_group,g5,[]}}},
       {?eh,tc_done,{cfg_error_8_SUITE,{init_per_group,g5,[]},ok}},
       {?eh,tc_start,{cfg_error_8_SUITE,tc1}},

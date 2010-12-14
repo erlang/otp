@@ -60,10 +60,14 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[beam_me_up, parse_table].
+    [beam_me_up, {group,parse_table}].
 
 groups() -> 
-    [].
+    [{parse_table,[parallel], 
+      [parse_table_empty, parse_table_single,
+       parse_table_multiline_row,
+       parse_table_one_column_multiline,
+       parse_table_one_column_simple]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -111,13 +115,6 @@ beam_me_up(Config) when is_list(Config) ->
 
     TestEvents = events_to_check(beam_me_up, 1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
-
-
-parse_table(suite) ->
-    [parse_table_empty, parse_table_single,
-     parse_table_multiline_row,
-     parse_table_one_column_multiline,
-     parse_table_one_column_simple].
 
 parse_table_empty(Config) when is_list(Config) ->
 

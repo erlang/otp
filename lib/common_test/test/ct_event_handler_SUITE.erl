@@ -59,13 +59,13 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[start_stop, results].
+    [start_stop, results].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
 	Config.

@@ -59,7 +59,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[auto_skip, user_skip].
+    [auto_skip, user_skip].
 
 groups() -> 
     [].
