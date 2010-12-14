@@ -56,7 +56,8 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, event_domain_api/1, event_domain_factory_api/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 event_domain_api/1, event_domain_factory_api/1,
 	 cases/0, init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2, app_test/1]).
 
@@ -67,20 +68,20 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
+
 cases() -> 
-[event_domain_api, event_domain_factory_api, app_test].
+    [event_domain_api, event_domain_factory_api, app_test].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

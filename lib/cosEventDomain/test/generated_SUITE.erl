@@ -76,7 +76,6 @@
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -87,21 +86,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-['CosEventDomainAdmin',
- 'CosEventDomainAdmin_DiamondSeq',
- 'CosEventDomainAdmin_AlreadyExists',
- 'CosEventDomainAdmin_DomainIDSeq',
- 'CosEventDomainAdmin_Connection',
- 'CosEventDomainAdmin_ConnectionIDSeq',
- 'CosEventDomainAdmin_ConnectionNotFound',
- 'CosEventDomainAdmin_CycleCreationForbidden',
- 'CosEventDomainAdmin_CycleSeq',
- 'CosEventDomainAdmin_DiamondCreationForbidden',
- 'CosEventDomainAdmin_DomainNotFound',
- 'CosEventDomainAdmin_MemberIDSeq',
- 'CosEventDomainAdmin_RouteSeq',
- 'CosEventDomainAdmin_EventDomainFactory',
- 'CosEventDomainAdmin_EventDomain'].
+    ['CosEventDomainAdmin',
+     'CosEventDomainAdmin_DiamondSeq',
+     'CosEventDomainAdmin_AlreadyExists',
+     'CosEventDomainAdmin_DomainIDSeq',
+     'CosEventDomainAdmin_Connection',
+     'CosEventDomainAdmin_ConnectionIDSeq',
+     'CosEventDomainAdmin_ConnectionNotFound',
+     'CosEventDomainAdmin_CycleCreationForbidden',
+     'CosEventDomainAdmin_CycleSeq',
+     'CosEventDomainAdmin_DiamondCreationForbidden',
+     'CosEventDomainAdmin_DomainNotFound',
+     'CosEventDomainAdmin_MemberIDSeq',
+     'CosEventDomainAdmin_RouteSeq',
+     'CosEventDomainAdmin_EventDomainFactory',
+     'CosEventDomainAdmin_EventDomain'].
 
 groups() -> 
     [].
@@ -113,10 +112,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------
