@@ -72,12 +72,12 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -88,29 +88,29 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-['CosTransactions_Control',
- 'CosTransactions_Coordinator',
- 'CosTransactions_HeuristicCommit',
- 'CosTransactions_HeuristicHazard',
- 'CosTransactions_HeuristicMixed',
- 'CosTransactions_HeuristicRollback',
- 'CosTransactions_Inactive',
- 'CosTransactions_InvalidControl',
- 'CosTransactions_NoTransaction',
- 'CosTransactions_NotPrepared',
- 'CosTransactions_NotSubtransaction',
- 'CosTransactions_RecoveryCoordinator',
- 'CosTransactions_Resource',
- 'CosTransactions_SubtransactionAwareResource',
- 'CosTransactions_SubtransactionsUnavailable',
- 'CosTransactions_Terminator',
- 'CosTransactions_TransactionFactory',
- 'CosTransactions_Unavailable',
- 'CosTransactions_SynchronizationUnavailable',
- 'CosTransactions_TransIdentity',
- 'CosTransactions_PropagationContext',
- 'CosTransactions_otid_t',
- 'CosTransactions_WrongTransaction', 'ETraP_Server'].
+    ['CosTransactions_Control',
+     'CosTransactions_Coordinator',
+     'CosTransactions_HeuristicCommit',
+     'CosTransactions_HeuristicHazard',
+     'CosTransactions_HeuristicMixed',
+     'CosTransactions_HeuristicRollback',
+     'CosTransactions_Inactive',
+     'CosTransactions_InvalidControl',
+     'CosTransactions_NoTransaction',
+     'CosTransactions_NotPrepared',
+     'CosTransactions_NotSubtransaction',
+     'CosTransactions_RecoveryCoordinator',
+     'CosTransactions_Resource',
+     'CosTransactions_SubtransactionAwareResource',
+     'CosTransactions_SubtransactionsUnavailable',
+     'CosTransactions_Terminator',
+     'CosTransactions_TransactionFactory',
+     'CosTransactions_Unavailable',
+     'CosTransactions_SynchronizationUnavailable',
+     'CosTransactions_TransIdentity',
+     'CosTransactions_PropagationContext',
+     'CosTransactions_otid_t',
+     'CosTransactions_WrongTransaction', 'ETraP_Server'].
 
 groups() -> 
     [].
@@ -122,10 +122,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------

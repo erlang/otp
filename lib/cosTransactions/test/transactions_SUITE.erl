@@ -48,20 +48,20 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-cases().
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
+
 cases() -> 
-[etrap_api, resource_api, app_test].
+    [etrap_api, resource_api, app_test].
 
 
 	
