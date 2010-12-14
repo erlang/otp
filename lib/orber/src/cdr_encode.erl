@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -815,11 +815,21 @@ enc_wstring(Env, String, MaxLength, Bytes, Len) ->
 %%-----------------------------------------------------------------
 %% Func: enc_union/5
 %%-----------------------------------------------------------------
-enc_union(Env, {_, Label, Value}, DiscrTC, Default, TypeCodeList, Bytes, Len) ->
+enc_union(Env, {_, Label, Value}, DiscrTC, Default, TypeCodeList, 
+	  Bytes, Len) when is_list(TypeCodeList) ->
     {ByteSequence, Len1} = enc_type(DiscrTC, Env, Label, Bytes, Len),
     Label2 = stringify_enum(DiscrTC,Label),
     enc_union2(Env, {Label2, Value},TypeCodeList, Default, 
-	      ByteSequence, Len1, undefined).
+	       ByteSequence, Len1, undefined);
+enc_union(Env, Value, _DiscrTC, _Default, Module, Bytes, Len) when is_atom(Module) ->
+    case catch Module:tc() of
+	{tk_union, _, _, DiscrTC, Default, ElementList} ->
+	    enc_union(Env, Value, DiscrTC, Default, ElementList, Bytes, Len);
+	What ->
+	    orber:dbg("[~p] ~p:enc_union(~p). Union module doesn't exist or incorrect.", 
+		      [?LINE, ?MODULE, What], ?DEBUG_LEVEL),
+	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE})
+    end.  
 
 enc_union2(_Env, _What, [], Default, Bytes, Len, _) when Default < 0 ->
     {Bytes, Len};
@@ -840,9 +850,19 @@ stringify_enum(_, Label) ->
 %%-----------------------------------------------------------------
 %% Func: enc_struct/4
 %%-----------------------------------------------------------------
-enc_struct(Env, Struct, TypeCodeList, Bytes, Len) ->
+enc_struct(Env, Struct, TypeCodeList, Bytes, Len) when is_list(TypeCodeList) ->
     [_Name | StructList] = tuple_to_list(Struct),
-    enc_struct1(Env, StructList, TypeCodeList, Bytes, Len).
+    enc_struct1(Env, StructList, TypeCodeList, Bytes, Len);
+enc_struct(Env, Struct, Module, Bytes, Len) ->
+    [Module | StructList] = tuple_to_list(Struct),
+    case catch Module:tc() of
+	{tk_struct, _, _, TypeCodeList} ->
+	    enc_struct1(Env, StructList, TypeCodeList, Bytes, Len);
+	What ->
+	    orber:dbg("[~p] ~p:enc_struct([], ~p). Struct module doesn't exist or incorrect.", 
+		      [?LINE, ?MODULE, What], ?DEBUG_LEVEL),
+	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE})
+    end.
 
 enc_struct1(_Env, [], [], Bytes, Len) ->
     {Bytes, Len};

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,6 +34,7 @@
 -record(module,		{id, body}).
 -record(interface,	{id, inherit, body, inherit_body, tk}).
 -record(forward,	{id, tk}).
+-record(constr_forward,	{id, tk}).
 -record(const,		{type, id, val, tk}).
 -record(type_dcl,	{type, tk}).
 -record(typedef,	{type, id, tk}).
