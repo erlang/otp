@@ -22,7 +22,8 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 t_gethostbyaddr/0, t_gethostbyaddr/1,
 	 t_getaddr/0, t_getaddr/1,
 	 t_gethostbyname/0, t_gethostbyname/1,
@@ -79,10 +80,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),

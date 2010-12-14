@@ -17,9 +17,9 @@
 %% %CopyrightEnd%
 %%
 -module(prim_file_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
-	init/1, fini/1,
-	read_write_file/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 read_write_file/1]).
 -export([cur_dir_0a/1, cur_dir_0b/1, 
 	 cur_dir_1a/1, cur_dir_1b/1, 
 	 make_del_dir_a/1, make_del_dir_b/1,
@@ -28,25 +28,25 @@
 	 delete_a/1, delete_b/1]).
 -export([ open1/1, modes/1]).
 -export([ 
-	 file_info_basic_file_a/1, file_info_basic_file_b/1,
-	 file_info_basic_directory_a/1, file_info_basic_directory_b/1,
-	 file_info_bad_a/1, file_info_bad_b/1, 
-	 file_info_times_a/1, file_info_times_b/1, 
-	 file_write_file_info_a/1, file_write_file_info_b/1]).
+	  file_info_basic_file_a/1, file_info_basic_file_b/1,
+	  file_info_basic_directory_a/1, file_info_basic_directory_b/1,
+	  file_info_bad_a/1, file_info_bad_b/1, 
+	  file_info_times_a/1, file_info_times_b/1, 
+	  file_write_file_info_a/1, file_write_file_info_b/1]).
 -export([rename_a/1, rename_b/1, 
 	 access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
 -export([ read_not_really_compressed/1,
-	 read_compressed/1, write_compressed/1,
-	 compress_errors/1]).
+	  read_compressed/1, write_compressed/1,
+	  compress_errors/1]).
 
 -export([ 
-	 make_link_a/1, make_link_b/1,
-	 read_link_info_for_non_link/1, 
-	 symlinks_a/1, symlinks_b/1,
-	 list_dir_limit/1]).
+	  make_link_a/1, make_link_b/1,
+	  read_link_info_for_non_link/1, 
+	  symlinks_a/1, symlinks_b/1,
+	  list_dir_limit/1]).
 
 -export([advise/1]).
 
@@ -70,50 +70,44 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[read_write_file, {group, dirs}, {group, files},
- delete_a, delete_b, rename_a, rename_b, {group, errors},
- {group, compression}, {group, links}, list_dir_limit].
+    [read_write_file, {group, dirs}, {group, files},
+     delete_a, delete_b, rename_a, rename_b, {group, errors},
+     {group, compression}, {group, links}, list_dir_limit].
 
 groups() -> 
     [{dirs, [],
-  [make_del_dir_a, make_del_dir_b, cur_dir_0a, cur_dir_0b,
-   cur_dir_1a, cur_dir_1b]},
- {files, [],
-  [{group, open}, {group, pos}, {group, file_info},
-   truncate, sync, datasync, advise]},
- {open, [],
-  [open1, modes, close, access, read_write, pread_write,
-   append, exclusive]},
- {pos, [], [pos1, pos2]},
- {file_info, [],
-  [file_info_basic_file_a, file_info_basic_file_b,
-   file_info_basic_directory_a,
-   file_info_basic_directory_b, file_info_bad_a,
-   file_info_bad_b, file_info_times_a, file_info_times_b,
-   file_write_file_info_a, file_write_file_info_b]},
- {errors, [],
-  [e_delete, e_rename, e_make_dir, e_del_dir]},
- {compression, [],
-  [read_compressed, read_not_really_compressed,
-   write_compressed, compress_errors]},
- {links, [],
-  [make_link_a, make_link_b, read_link_info_for_non_link,
-   symlinks_a, symlinks_b]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
+      [make_del_dir_a, make_del_dir_b, cur_dir_0a, cur_dir_0b,
+       cur_dir_1a, cur_dir_1b]},
+     {files, [],
+      [{group, open}, {group, pos}, {group, file_info},
+       truncate, sync, datasync, advise]},
+     {open, [],
+      [open1, modes, close, access, read_write, pread_write,
+       append, exclusive]},
+     {pos, [], [pos1, pos2]},
+     {file_info, [],
+      [file_info_basic_file_a, file_info_basic_file_b,
+       file_info_basic_directory_a,
+       file_info_basic_directory_b, file_info_bad_a,
+       file_info_bad_b, file_info_times_a, file_info_times_b,
+       file_write_file_info_a, file_write_file_info_b]},
+     {errors, [],
+      [e_delete, e_rename, e_make_dir, e_del_dir]},
+     {compression, [],
+      [read_compressed, read_not_really_compressed,
+       write_compressed, compress_errors]},
+     {links, [],
+      [make_link_a, make_link_b, read_link_info_for_non_link,
+       symlinks_a, symlinks_b]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-init(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    Priv = ?config(priv_dir, Config),
@@ -130,7 +124,7 @@ init(Config) when is_list(Config) ->
 	    Config
     end.
 
-fini(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    os:cmd("subst z: /d");

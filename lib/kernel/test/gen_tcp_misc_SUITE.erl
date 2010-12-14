@@ -22,7 +22,9 @@
 
 %-compile(export_all).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, controlling_process/1, no_accept/1, close_with_pending_output/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 controlling_process/1, no_accept/1, close_with_pending_output/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -34,14 +36,15 @@
 	 partial_recv_and_close_2/1,partial_recv_and_close_3/1,so_priority/1,
 	 % Accept tests
 	 primitive_accept/1,multi_accept_close_listen/1,accept_timeout/1,
-	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,accept_timeouts_in_order3/1,
-	 accept_timeouts_mixed/1, 
+	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
+	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
-	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, otp_7731/1,
-	 zombie_sockets/1, otp_7816/1, otp_8102/1]).
+	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, 
+	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1]).
 
 %% Internal exports.
--export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, otp_7731_server/1, zombie_server/2]).
+-export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
+	 otp_7731_server/1, zombie_server/2]).
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
@@ -53,23 +56,23 @@ end_per_testcase(_Func, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[controlling_process, no_accept,
- close_with_pending_output, data_before_close,
- iter_max_socks, passive_sockets,
- accept_closed_by_other_process, otp_3924, closed_socket,
- shutdown_active, shutdown_passive, shutdown_pending,
- default_options, http_bad_packet, busy_send,
- busy_disconnect_passive, busy_disconnect_active,
- fill_sendq, partial_recv_and_close,
- partial_recv_and_close_2, partial_recv_and_close_3,
- so_priority, primitive_accept,
- multi_accept_close_listen, accept_timeout,
- accept_timeouts_in_order, accept_timeouts_in_order2,
- accept_timeouts_in_order3, accept_timeouts_mixed,
- killing_acceptor, killing_multi_acceptors,
- killing_multi_acceptors2, several_accepts_in_one_go,
- active_once_closed, send_timeout, otp_7731,
- zombie_sockets, otp_7816, otp_8102].
+    [controlling_process, no_accept,
+     close_with_pending_output, data_before_close,
+     iter_max_socks, passive_sockets,
+     accept_closed_by_other_process, otp_3924, closed_socket,
+     shutdown_active, shutdown_passive, shutdown_pending,
+     default_options, http_bad_packet, busy_send,
+     busy_disconnect_passive, busy_disconnect_active,
+     fill_sendq, partial_recv_and_close,
+     partial_recv_and_close_2, partial_recv_and_close_3,
+     so_priority, primitive_accept,
+     multi_accept_close_listen, accept_timeout,
+     accept_timeouts_in_order, accept_timeouts_in_order2,
+     accept_timeouts_in_order3, accept_timeouts_mixed,
+     killing_acceptor, killing_multi_acceptors,
+     killing_multi_acceptors2, several_accepts_in_one_go,
+     active_once_closed, send_timeout, otp_7731,
+     zombie_sockets, otp_7816, otp_8102].
 
 groups() -> 
     [].
@@ -81,10 +84,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

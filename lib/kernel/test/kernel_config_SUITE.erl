@@ -27,16 +27,16 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[sync].
+    [sync].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_suite(doc) -> [];

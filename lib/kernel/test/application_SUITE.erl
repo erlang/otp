@@ -20,7 +20,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, failover/1, failover_comp/1, permissions/1, load/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 failover/1, failover_comp/1, permissions/1, load/1,
 	 load_use_cache/1,
 	 otp_1586/1, otp_2078/1, otp_2012/1, otp_2718/1, otp_2973/1,
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
@@ -44,19 +46,19 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[failover, failover_comp, permissions, load,
- load_use_cache, {group, reported_bugs}, start_phases,
- script_start, nodedown_start, permit_false_start_local,
- permit_false_start_dist, get_key,
- {group, distr_changed}, config_change, shutdown_func].
+    [failover, failover_comp, permissions, load,
+     load_use_cache, {group, reported_bugs}, start_phases,
+     script_start, nodedown_start, permit_false_start_local,
+     permit_false_start_dist, get_key,
+     {group, distr_changed}, config_change, shutdown_func].
 
 groups() -> 
     [{reported_bugs, [],
-  [otp_1586, otp_2078, otp_2012, otp_2718, otp_2973,
-   otp_3002, otp_3184, otp_4066, otp_4227, otp_5363,
-   otp_5606]},
- {distr_changed, [],
-  [distr_changed_tc1, distr_changed_tc2]}].
+      [otp_1586, otp_2078, otp_2012, otp_2718, otp_2973,
+       otp_3002, otp_3184, otp_4066, otp_4227, otp_5363,
+       otp_5606]},
+     {distr_changed, [],
+      [distr_changed_tc1, distr_changed_tc2]}].
 
 init_per_suite(Config) ->
     Config.
@@ -65,10 +67,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

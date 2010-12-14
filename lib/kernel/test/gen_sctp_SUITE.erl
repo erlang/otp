@@ -35,9 +35,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[basic, api_open_close, api_listen, api_connect_init,
- api_opts, xfer_min, xfer_active, def_sndrcvinfo,
- implicit_inet6].
+    [basic, api_open_close, api_listen, api_connect_init,
+     api_opts, xfer_min, xfer_active, def_sndrcvinfo,
+     implicit_inet6].
 
 groups() -> 
     [].
@@ -60,10 +60,10 @@ end_per_suite(_Conifig) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Func, Config) ->

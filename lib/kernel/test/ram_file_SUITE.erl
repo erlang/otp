@@ -19,7 +19,8 @@
 
 -module(ram_file_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 %% init/1, fini/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([open_modes/1, open_old_modes/1, pread_pwrite/1, position/1,
@@ -37,9 +38,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[open_modes, open_old_modes, pread_pwrite, position,
- truncate, sync, get_set_file, compress, uuencode,
- large_file_errors, large_file_light, large_file_heavy].
+    [open_modes, open_old_modes, pread_pwrite, position,
+     truncate, sync, get_set_file, compress, uuencode,
+     large_file_errors, large_file_light, large_file_heavy].
 
 groups() -> 
     [].
@@ -51,10 +52,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->

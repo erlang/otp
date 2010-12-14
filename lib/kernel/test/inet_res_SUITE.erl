@@ -24,7 +24,8 @@
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1]).
 -export([
@@ -43,10 +44,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[basic, resolve, edns0, txt_record, files_monitor,
- gethostbyaddr, gethostbyaddr_v6, gethostbyname,
- gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
- host_and_addr].
+    [basic, resolve, edns0, txt_record, files_monitor,
+     gethostbyaddr, gethostbyaddr_v6, gethostbyname,
+     gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
+     host_and_addr].
 
 groups() -> 
     [].
@@ -58,10 +59,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 zone_dir(basic) ->
     otptest;

@@ -23,16 +23,16 @@
 -include_lib("test_server/include/test_server.hrl").
 
 all() -> 
-[cleanup].
+    [cleanup].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cleanup(suite) -> [];

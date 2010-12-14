@@ -40,8 +40,8 @@
 
 -module(?FILE_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
-	 init/1, fini/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
 -export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
@@ -101,54 +101,48 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[altname, read_write_file, {group, dirs},
- {group, files}, delete, rename, names, {group, errors},
- {group, compression}, {group, links}, copy,
- delayed_write, read_ahead, segment_read, segment_write,
- ipread, pid2name, interleaved_read_write, otp_5814,
- large_file, read_line_1, read_line_2, read_line_3,
- read_line_4, standard_io].
+    [altname, read_write_file, {group, dirs},
+     {group, files}, delete, rename, names, {group, errors},
+     {group, compression}, {group, links}, copy,
+     delayed_write, read_ahead, segment_read, segment_write,
+     ipread, pid2name, interleaved_read_write, otp_5814,
+     large_file, read_line_1, read_line_2, read_line_3,
+     read_line_4, standard_io].
 
 groups() -> 
     [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1]},
- {files, [],
-  [{group, open}, {group, pos}, {group, file_info},
-   {group, consult}, {group, eval}, {group, script},
-   truncate, sync, datasync, advise]},
- {open, [],
-  [open1, old_modes, new_modes, path_open, close, access,
-   read_write, pread_write, append, open_errors,
-   exclusive]},
- {pos, [], [pos1, pos2]},
- {file_info, [],
-  [file_info_basic_file, file_info_basic_directory,
-   file_info_bad, file_info_times, file_write_file_info]},
- {consult, [], [consult1, path_consult]},
- {eval, [], [eval1, path_eval]},
- {script, [], [script1, path_script]},
- {errors, [],
-  [e_delete, e_rename, e_make_dir, e_del_dir]},
- {compression, [],
-  [read_compressed_cooked, read_compressed_cooked_binary,
-   read_cooked_tar_problem, read_not_really_compressed,
-   write_compressed, compress_errors, catenated_gzips]},
- {links, [],
-  [make_link, read_link_info_for_non_link, symlinks]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
+     {files, [],
+      [{group, open}, {group, pos}, {group, file_info},
+       {group, consult}, {group, eval}, {group, script},
+       truncate, sync, datasync, advise]},
+     {open, [],
+      [open1, old_modes, new_modes, path_open, close, access,
+       read_write, pread_write, append, open_errors,
+       exclusive]},
+     {pos, [], [pos1, pos2]},
+     {file_info, [],
+      [file_info_basic_file, file_info_basic_directory,
+       file_info_bad, file_info_times, file_write_file_info]},
+     {consult, [], [consult1, path_consult]},
+     {eval, [], [eval1, path_eval]},
+     {script, [], [script1, path_script]},
+     {errors, [],
+      [e_delete, e_rename, e_make_dir, e_del_dir]},
+     {compression, [],
+      [read_compressed_cooked, read_compressed_cooked_binary,
+       read_cooked_tar_problem, read_not_really_compressed,
+       write_compressed, compress_errors, catenated_gzips]},
+     {links, [],
+      [make_link, read_link_info_for_non_link, symlinks]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
-init(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    Priv = ?config(priv_dir, Config),
@@ -165,7 +159,7 @@ init(Config) when is_list(Config) ->
 	    ?FILE_INIT(Config)
     end.
 
-fini(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    os:cmd("subst z: /d");

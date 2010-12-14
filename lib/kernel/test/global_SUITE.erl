@@ -63,26 +63,26 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case init:get_argument(ring_line) of
-  {ok, _} -> [ring_line];
-  _ ->
-      [names, names_hidden, locks, locks_hidden, bad_input,
-       names_and_locks, lock_die, name_die, basic_partition,
-       advanced_partition, basic_name_partition,
-       stress_partition, simple_ring, simple_line, ring, line,
-       global_lost_nodes, otp_1849, otp_3162, otp_5640,
-       otp_5737, otp_6931, simple_disconnect, simple_resolve,
-       simple_resolve2, simple_resolve3, leftover_name,
-       re_register_name, name_exit, external_nodes, many_nodes,
-       sync_0, global_groups_change, register_1, both_known_1,
-       lost_unregister, mass_death, garbage_messages]
-end.
+    case init:get_argument(ring_line) of
+	{ok, _} -> [ring_line];
+	_ ->
+	    [names, names_hidden, locks, locks_hidden, bad_input,
+	     names_and_locks, lock_die, name_die, basic_partition,
+	     advanced_partition, basic_name_partition,
+	     stress_partition, simple_ring, simple_line, ring, line,
+	     global_lost_nodes, otp_1849, otp_3162, otp_5640,
+	     otp_5737, otp_6931, simple_disconnect, simple_resolve,
+	     simple_resolve2, simple_resolve3, leftover_name,
+	     re_register_name, name_exit, external_nodes, many_nodes,
+	     sync_0, global_groups_change, register_1, both_known_1,
+	     lost_unregister, mass_death, garbage_messages]
+    end.
 
 groups() -> 
     [{ttt, [],
-  [names, names_hidden, locks, locks_hidden, bad_input,
-   names_and_locks, lock_die, name_die, basic_partition,
-   ring]}].
+      [names, names_hidden, locks, locks_hidden, bad_input,
+       names_and_locks, lock_die, name_die, basic_partition,
+       ring]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.

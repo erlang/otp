@@ -48,7 +48,9 @@
 
 -define(C_QUIT,99).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, simple/1, loop_all/1, simple_raw/1, simple_raw_getbin/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 simple/1, loop_all/1, simple_raw/1, simple_raw_getbin/1, 
 	 doc_examples_raw/1,doc_examples_raw_getbin/1,
 	 large_raw/1,large_raw_getbin/1,combined/1,combined_getbin/1,
 	 type_errors/1]).
@@ -59,10 +61,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[simple, loop_all, simple_raw, simple_raw_getbin,
- doc_examples_raw, doc_examples_raw_getbin, large_raw,
- large_raw_getbin, combined, combined_getbin,
- type_errors].
+    [simple, loop_all, simple_raw, simple_raw_getbin,
+     doc_examples_raw, doc_examples_raw_getbin, large_raw,
+     large_raw_getbin, combined, combined_getbin,
+     type_errors].
 
 groups() -> 
     [].
@@ -74,10 +76,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Func, Config) ->

@@ -72,23 +72,23 @@ error(Format, Args, File, Line) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, api}, {group, examples}, {group, func}, smp,
- otp_7359].
+    [{group, api}, {group, examples}, {group, func}, smp,
+     otp_7359].
 
 groups() -> 
     [{api, [],
-  [api_open_close, api_deflateInit,
-   api_deflateSetDictionary, api_deflateReset,
-   api_deflateParams, api_deflate, api_deflateEnd,
-   api_inflateInit, api_inflateSetDictionary,
-   api_inflateSync, api_inflateReset, api_inflate,
-   api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
-   api_adler32, api_getQSize, api_un_compress, api_un_zip,
-   api_g_un_zip]},
- {examples, [], [intro]},
- {func, [],
-  [zip_usage, gz_usage, gz_usage2, compress_usage,
-   dictionary_usage, large_deflate, crc, adler]}].
+      [api_open_close, api_deflateInit,
+       api_deflateSetDictionary, api_deflateReset,
+       api_deflateParams, api_deflate, api_deflateEnd,
+       api_inflateInit, api_inflateSetDictionary,
+       api_inflateSync, api_inflateReset, api_inflate,
+       api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
+       api_adler32, api_getQSize, api_un_compress, api_un_zip,
+       api_g_un_zip]},
+     {examples, [], [intro]},
+     {func, [],
+      [zip_usage, gz_usage, gz_usage2, compress_usage,
+       dictionary_usage, large_deflate, crc, adler]}].
 
 init_per_suite(Config) ->
     Config.
@@ -97,10 +97,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

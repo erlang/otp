@@ -27,7 +27,9 @@
 %% error_logger deliver the expected events.
 %%-----------------------------------------------------------------
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, error_report/1, info_report/1, error/1, info/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 error_report/1, info_report/1, error/1, info/1,
 	 emulator/1, tty/1, logfile/1, add/1, delete/1]).
 
 -export([generate_error/0]).
@@ -40,8 +42,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[error_report, info_report, error, info, emulator, tty,
- logfile, add, delete].
+    [error_report, info_report, error, info, emulator, tty,
+     logfile, add, delete].
 
 groups() -> 
     [].
@@ -53,10 +55,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------

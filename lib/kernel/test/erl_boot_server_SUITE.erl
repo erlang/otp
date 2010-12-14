@@ -36,7 +36,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[start, start_link, stop, add, delete, responses].
+    [start, start_link, stop, add, delete, responses].
 
 groups() -> 
     [].
@@ -48,10 +48,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 -define(all_ones, {255, 255, 255, 255}).

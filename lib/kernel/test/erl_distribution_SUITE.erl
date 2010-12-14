@@ -21,7 +21,8 @@
 %-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
@@ -60,17 +61,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[tick, tick_change, illegal_nodenames, hidden_node,
- table_waste, net_setuptime, {group, monitor_nodes}].
+    [tick, tick_change, illegal_nodenames, hidden_node,
+     table_waste, net_setuptime, {group, monitor_nodes}].
 
 groups() -> 
     [{monitor_nodes, [],
-  [monitor_nodes_nodedown_reason,
-   monitor_nodes_complex_nodedown_reason,
-   monitor_nodes_node_type, monitor_nodes_misc,
-   monitor_nodes_otp_6481, monitor_nodes_errors,
-   monitor_nodes_combinations, monitor_nodes_cleanup,
-   monitor_nodes_many]}].
+      [monitor_nodes_nodedown_reason,
+       monitor_nodes_complex_nodedown_reason,
+       monitor_nodes_node_type, monitor_nodes_misc,
+       monitor_nodes_otp_6481, monitor_nodes_errors,
+       monitor_nodes_combinations, monitor_nodes_cleanup,
+       monitor_nodes_many]}].
 
 init_per_suite(Config) ->
     Config.
@@ -79,10 +80,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->

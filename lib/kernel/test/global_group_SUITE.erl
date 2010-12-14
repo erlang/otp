@@ -38,8 +38,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
- one_grp, one_grp_x, two_grp, test_exit, hidden_groups].
+    [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,
+     one_grp, one_grp_x, two_grp, test_exit, hidden_groups].
 
 groups() -> 
     [].
@@ -200,8 +200,8 @@ no_gg_proc(Config) when is_list(Config) ->
     ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
 			      Cpxnn, Cpynn, Cpznn],
     ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line true = (Own_nodes -- Own_nodes_should) =:= [],
-    ?line true = (Own_nodes_should -- Own_nodes) =:= [],
+    ?line [] = (Own_nodes -- Own_nodes_should),
+    ?line [] = (Own_nodes_should -- Own_nodes),
     
     ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     ?line receive
@@ -375,8 +375,8 @@ no_gg_proc_sync(Config) when is_list(Config) ->
     ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
 			      Cpxnn, Cpynn, Cpznn],
     ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line true = (Own_nodes -- Own_nodes_should) =:= [],
-    ?line true = (Own_nodes_should -- Own_nodes) =:= [],
+    ?line [] = (Own_nodes -- Own_nodes_should),
+    ?line [] = (Own_nodes_should -- Own_nodes),
     
     ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     ?line receive
@@ -549,8 +549,8 @@ compatible(Config) when is_list(Config) ->
     ?line Own_nodes_should = [node(), Cp1nn, Cp2nn, Cp3nn, 
 			      Cpxnn, Cpynn, Cpznn],
     ?line Own_nodes = rpc:call(Cp3, global_group, own_nodes, []), 
-    ?line true = (Own_nodes -- Own_nodes_should) =:= [],
-    ?line true = (Own_nodes_should -- Own_nodes) =:= [],
+    ?line [] = (Own_nodes -- Own_nodes_should),
+    ?line [] = (Own_nodes_should -- Own_nodes),
     
     ?line Pid2 = rpc:call(Cp1, global_group, send, [test2, {ping, self()}]),
     ?line receive

@@ -87,9 +87,10 @@ init_per_testcase(_Func, Config) ->
     P=code:get_path(),
     [{watchdog, Dog}, {code_path, P}|Config].
 
-end_per_testcase(mult_lib_roots, Config) ->
+end_per_testcase(TC, Config) when TC == mult_lib_roots; 
+				  TC == big_boot_embedded ->
     {ok, HostName} = inet:gethostname(),
-    NodeName = list_to_atom("mult_lib_roots@"++HostName),
+    NodeName = list_to_atom(atom_to_list(TC)++"@"++HostName),
     ?t:stop_node(NodeName),
     end_per_testcase(Config);
 end_per_testcase(_Func, Config) ->

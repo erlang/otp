@@ -25,7 +25,9 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/inet.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 t_connect_timeout/1, t_accept_timeout/1,
 	 t_connect_bad/1,
 	 t_recv_timeout/1, t_recv_eof/1,
@@ -35,14 +37,14 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, t_accept}, {group, t_connect}, {group, t_recv},
- t_shutdown_write, t_shutdown_both, t_shutdown_error,
- t_fdopen, t_implicit_inet6].
+    [{group, t_accept}, {group, t_connect}, {group, t_recv},
+     t_shutdown_write, t_shutdown_both, t_shutdown_error,
+     t_fdopen, t_implicit_inet6].
 
 groups() -> 
     [{t_accept, [], [t_accept_timeout]},
- {t_connect, [], [t_connect_timeout, t_connect_bad]},
- {t_recv, [], [t_recv_timeout, t_recv_eof]}].
+     {t_connect, [], [t_connect_timeout, t_connect_bad]},
+     {t_recv, [], [t_recv_timeout, t_recv_eof]}].
 
 init_per_suite(Config) ->
     Config.
@@ -51,10 +53,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Func, Config) ->

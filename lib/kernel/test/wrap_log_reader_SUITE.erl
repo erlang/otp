@@ -33,7 +33,8 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 no_file/1,
 	 one_empty/1, one_filled/1,
 	 two_filled/1,
@@ -48,13 +49,13 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[no_file, {group, one}, {group, two}, {group, four},
- {group, wrap}, wrapping, external, error].
+    [no_file, {group, one}, {group, two}, {group, four},
+     {group, wrap}, wrapping, external, error].
 
 groups() -> 
     [{one, [], [one_empty, one_filled]},
- {two, [], [two_filled]}, {four, [], [four_filled]},
- {wrap, [], [wrap_filled]}].
+     {two, [], [two_filled]}, {four, [], [four_filled]},
+     {wrap, [], [wrap_filled]}].
 
 init_per_suite(Config) ->
     Config.
@@ -63,10 +64,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->

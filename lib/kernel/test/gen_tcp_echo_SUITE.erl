@@ -22,7 +22,9 @@
 
 %%-compile(export_all).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -34,10 +36,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[active_echo, passive_echo, active_once_echo,
- slow_active_echo, slow_passive_echo, limit_active_echo,
- limit_passive_echo, large_limit_active_echo,
- large_limit_passive_echo].
+    [active_echo, passive_echo, active_once_echo,
+     slow_active_echo, slow_passive_echo, limit_active_echo,
+     limit_passive_echo, large_limit_active_echo,
+     large_limit_passive_echo].
 
 groups() -> 
     [].
@@ -49,10 +51,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Func, Config) ->

@@ -18,7 +18,8 @@
 %%
 -module(os_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, evil/1]).
 
@@ -27,8 +28,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[space_in_cwd, quoting, space_in_name, bad_command,
- find_executable, unix_comment_in_command, evil].
+    [space_in_cwd, quoting, space_in_name, bad_command,
+     find_executable, unix_comment_in_command, evil].
 
 groups() -> 
     [].

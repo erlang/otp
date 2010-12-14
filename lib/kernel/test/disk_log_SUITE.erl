@@ -34,7 +34,8 @@
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 
 	 halt_int_inf/1, 
 	 halt_int_sz_1/1, halt_int_sz_2/1,
@@ -145,43 +146,43 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, halt_int}, {group, wrap_int},
- {group, halt_ext}, {group, wrap_ext},
- {group, read_mode}, {group, head}, {group, notif},
- new_idx_vsn, reopen, {group, block}, unblock,
- {group, open}, {group, close}, {group, error}, chunk,
- truncate, many_users, {group, info},
- {group, change_size}, change_attribute,
- {group, distribution}, evil, otp_6278].
+    [{group, halt_int}, {group, wrap_int},
+     {group, halt_ext}, {group, wrap_ext},
+     {group, read_mode}, {group, head}, {group, notif},
+     new_idx_vsn, reopen, {group, block}, unblock,
+     {group, open}, {group, close}, {group, error}, chunk,
+     truncate, many_users, {group, info},
+     {group, change_size}, change_attribute,
+     {group, distribution}, evil, otp_6278].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
- {halt_int_sz, [], [halt_int_sz_1, halt_int_sz_2]},
- {read_mode, [],
-  [halt_int_ro, halt_ext_ro, wrap_int_ro, wrap_ext_ro,
-   halt_trunc, halt_misc, halt_ro_alog, halt_ro_balog,
-   halt_ro_crash]},
- {wrap_int, [], [wrap_int_1, wrap_int_2, inc_wrap_file]},
- {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
- {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
- {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
- {head, [], [head_func, plain_head, one_header]},
- {notif, [],
-  [wrap_notif, full_notif, trunc_notif, blocked_notif]},
- {block, [], [block_blocked, block_queue, block_queue2]},
- {open, [],
-  [open_overwrite, open_size, open_truncate, open_error]},
- {close, [], [close_race, close_block, close_deadlock]},
- {error, [], [error_repair, error_log, error_index]},
- {info, [], [info_current]},
- {change_size, [],
-  [change_size_before, change_size_during,
-   change_size_after, default_size, change_size2,
-   change_size_truncate]},
- {distribution, [],
-  [dist_open, dist_error_open, dist_notify,
-   dist_terminate, dist_accessible, dist_deadlock,
-   dist_open2, other_groups]}].
+     {halt_int_sz, [], [halt_int_sz_1, halt_int_sz_2]},
+     {read_mode, [],
+      [halt_int_ro, halt_ext_ro, wrap_int_ro, wrap_ext_ro,
+       halt_trunc, halt_misc, halt_ro_alog, halt_ro_balog,
+       halt_ro_crash]},
+     {wrap_int, [], [wrap_int_1, wrap_int_2, inc_wrap_file]},
+     {halt_ext, [], [halt_ext_inf, {group, halt_ext_sz}]},
+     {halt_ext_sz, [], [halt_ext_sz_1, halt_ext_sz_2]},
+     {wrap_ext, [], [wrap_ext_1, wrap_ext_2]},
+     {head, [], [head_func, plain_head, one_header]},
+     {notif, [],
+      [wrap_notif, full_notif, trunc_notif, blocked_notif]},
+     {block, [], [block_blocked, block_queue, block_queue2]},
+     {open, [],
+      [open_overwrite, open_size, open_truncate, open_error]},
+     {close, [], [close_race, close_block, close_deadlock]},
+     {error, [], [error_repair, error_log, error_index]},
+     {info, [], [info_current]},
+     {change_size, [],
+      [change_size_before, change_size_during,
+       change_size_after, default_size, change_size2,
+       change_size_truncate]},
+     {distribution, [],
+      [dist_open, dist_error_open, dist_notify,
+       dist_terminate, dist_accessible, dist_deadlock,
+       dist_open2, other_groups]}].
 
 init_per_suite(Config) ->
     Config.
@@ -190,10 +191,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
