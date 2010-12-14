@@ -733,7 +733,8 @@ find_groups(Mod, Name, TCs, GroupDefs) ->
     delete_subs(Trimmed, Trimmed),
     Trimmed.
 
-find(Mod, all, _TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) ->
+find(Mod, all, _TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) 
+  when is_atom(Name), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name, Known),
     [make_conf(Mod, Name, Props,
 	       find(Mod, all, all, Tests, [Name | Known], Defs, true)) |
@@ -755,9 +756,8 @@ find(Mod, Name, TCs, [{Name,Props,Tests} | _Gs], Known, Defs, false)
 find(Mod, Name, TCs, [{Name1,Props,Tests} | Gs], Known, Defs, false)
   when is_atom(Name1), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name1, Known),
-    [make_conf(Mod, Name1, Props,
-	       find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false)) |
-     find(Mod, Name, TCs, Gs, [], Defs, false)];
+    find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false) ++
+	find(Mod, Name, TCs, Gs, [], Defs, false);
 
 find(Mod, Name, _TCs, [{Name,_Props,_Tests} | _Gs], _Known, _Defs, true)
   when is_atom(Name) ->
@@ -772,31 +772,32 @@ find(Mod, Name, all, [{Name1,Props,Tests} | Gs], Known, Defs, true)
 	       find(Mod, Name, all, Tests, [Name1 | Known], Defs, true)) |
      find(Mod, Name, all, Gs, [], Defs, true)];
 
-find(Mod, Name, TCs, [{group,Name1} | Gs], Known, Defs, Found) when is_atom(Name1) ->
+find(Mod, Name, TCs, [{group,Name1} | Gs], Known, Defs, Found) 
+  when is_atom(Name1) ->
     find(Mod, Name, TCs, [expand(Mod, Name1, Defs) | Gs], Known, Defs, Found);
 
-find(Mod, Name, TCs, [{Name1,Tests} | Gs], Known, Defs, false)
+%% Undocumented remote group feature, use with caution
+find(Mod, Name, TCs, [{group, ExtMod, ExtGrp} | Gs], Known, Defs, true)
+  when is_atom(ExtMod), is_atom(ExtGrp) ->
+    ExternalDefs = ExtMod:groups(),
+    ExternalTCs = find(ExtMod, ExtGrp, TCs, [{group, ExtGrp}],
+                       [], ExternalDefs, false),
+     ExternalTCs ++ find(Mod, Name, TCs, Gs, Known, Defs, true);
+
+find(Mod, Name, TCs, [{Name1,Tests} | Gs], Known, Defs, Found)
   when is_atom(Name1), is_list(Tests) ->
-    find(Mod, Name, TCs, [{Name1,[],Tests} | Gs], Known, Defs, false);
+    find(Mod, Name, TCs, [{Name1,[],Tests} | Gs], Known, Defs, Found);
 
-find(Mod, Name, TCs, [{Name1,Groups} | Gs], Known, Defs, true)
-  when is_atom(Name1), is_list(Groups) ->
-    ExternalDefs = Name1:groups(),
-    ExternalGroup = proplists:get_value(group, Groups),
-    ExternalTCs = find(Name1, ExternalGroup, TCs, Groups,
-		       [], ExternalDefs, false),
-    ExternalTCs ++ find(Mod, Name, TCs, Gs, Known, Defs, true);
-
-find(Mod, Name, TCs, [TC | Gs], Known, Defs, false) when is_atom(TC) ->
+find(Mod, Name, TCs, [_TC | Gs], Known, Defs, false) ->
     find(Mod, Name, TCs, Gs, Known, Defs, false);
 
 find(Mod, Name, TCs, [TC | Gs], Known, Defs, true) when is_atom(TC) ->
     [{Mod, TC} | find(Mod, Name, TCs, Gs, Known, Defs, true)];
 
-find(Mod, Name, TCs, [{ExternalTC, Case} = TC | Gs], Known, Defs, Found)
+find(Mod, Name, TCs, [{ExternalTC, Case} = TC | Gs], Known, Defs, true)
   when is_atom(ExternalTC),
        is_atom(Case) ->
-    [TC | find(Mod, Name, TCs, Gs, Known, Defs, Found)];
+    [TC | find(Mod, Name, TCs, Gs, Known, Defs, true)];
 
 find(Mod, _Name, _TCs, [BadTerm | _Gs], Known, _Defs, _Found) ->
     Where = if length(Known) == 0 ->
