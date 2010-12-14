@@ -32,21 +32,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cases()].
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[good_call, bad_apply, bad_fun_call, badarity,
- ext_badarity, otp_6061].
+    [good_call, bad_apply, bad_fun_call, badarity,
+     ext_badarity, otp_6061].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -61,7 +61,7 @@ end_per_testcase(_Case, Config) ->
 init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
-    ok.
+    Config.
 
 end_per_suite(Config) when is_list(Config) ->
     ok.

@@ -25,19 +25,13 @@
 
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
--export([function_tests/1]).
-
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 % Test cases must be exported.
 -export ([dbg_ui/1]).
 
-
-
-
-
 % Manual test suites/cases exports
--export([]).
 -export([start1/1, interpret1/1, quit1/1,
 	 start2/1, interpret2/1, break2/1, options2/1, quit2/1,
 	 interpret3/1, all_step3/1,all_next3/1,save3/1,restore3/1,finish3/1,
@@ -46,12 +40,7 @@
 	 attach5/1, normal5/1, exit5/1, options5/1,
 	 distsetup6/1, all_step6/1, all_next6/1]).
 
-
-
-
 -export([init_per_testcase/2, end_per_testcase/2]).
-
-
 
 init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(60*1000),
@@ -65,16 +54,16 @@ end_per_testcase(_Func, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[function_tests, {group, manual_tests}].
+    [dbg_ui, {group, manual_tests}].
 
 groups() -> 
     [{manual_tests, [],
-  [start1, interpret1, quit1, start2, interpret2, break2,
-   options2, interpret3, all_step3, all_next3, save3,
-   restore3, finish3, killinit3, killone3, killall3,
-   deleteone3, deleteall3, viewbreak4, delete4, attach5,
-   normal5, exit5, options5, distsetup6, all_step6,
-   all_next6]}].
+      [start1, interpret1, quit1, start2, interpret2, break2,
+       options2, interpret3, all_step3, all_next3, save3,
+       restore3, finish3, killinit3, killone3, killall3,
+       deleteone3, deleteall3, viewbreak4, delete4, attach5,
+       normal5, exit5, options5, distsetup6, all_step6,
+       all_next6]}].
 
 init_per_suite(Config) ->
     Config.
@@ -83,20 +72,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-function_tests (doc) ->
-    ["Tests documented functions"];
-
-function_tests (suite) ->
-    [dbg_ui].
-
-
+    Config.
 
 dbg_ui (doc) ->
     ["Debugger GUI"];
@@ -108,7 +87,7 @@ dbg_ui (_Config) ->
     case os:getenv("DISPLAY") of
 	false ->
 	    {skipped,"No display"};
-	Other when list(Other) ->
+	Other when is_list(Other) ->
 %	    ?line {ok, Pid} = debugger:start (),
 %	    ?line ok = is_pid (Pid),
 %	    ?line true = erlang:is_process_alive(Pid),
@@ -116,11 +95,6 @@ dbg_ui (_Config) ->
 %	    ?line false = erlang:is_process_alive(Pid)
 	    {skipped,"Gunilla: Workaround"}
     end.
-
-
-
-
-
 
 %% check/2 - returns the result for the specified testcase.
 %% pass - means the user has run the case, and it passed
@@ -184,14 +158,6 @@ check(Case, Config) ->
 		       ?line {skipped, Description}
 	       end
 		  ).
-
-
-
-
-
-
-
-
 
 
 %% SET 1

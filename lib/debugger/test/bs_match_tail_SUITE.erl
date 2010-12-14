@@ -20,7 +20,9 @@
 -module(bs_match_tail_SUITE).
 
 -author('bjorn@erix.ericsson.se').
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 init_per_suite/1,end_per_suite/1,
 	 aligned/1,unaligned/1,zero_tail/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -28,20 +30,20 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cases()].
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[aligned, unaligned, zero_tail].
+    [aligned, unaligned, zero_tail].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -56,7 +58,7 @@ end_per_testcase(_Case, Config) ->
 init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
-    ok.
+    Config.
 
 end_per_suite(Config) when is_list(Config) ->
     ok.

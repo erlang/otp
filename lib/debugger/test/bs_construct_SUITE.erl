@@ -19,7 +19,9 @@
 
 -module(bs_construct_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,init_per_suite/1,end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 init_per_suite/1,end_per_suite/1,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1, not_used/1, in_guard/1,
 	 coerce_to_float/1]).
 
@@ -28,21 +30,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cases()].
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[test1, test2, test3, test4, test5, testf, not_used,
- in_guard, coerce_to_float].
+    [test1, test2, test3, test4, test5, testf, not_used,
+     in_guard, coerce_to_float].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -57,7 +59,7 @@ end_per_testcase(_Case, Config) ->
 init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
-    ok.
+    Config.
 
 end_per_suite(Config) when is_list(Config) ->
     ok.

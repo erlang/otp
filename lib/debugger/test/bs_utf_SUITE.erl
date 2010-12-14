@@ -21,7 +21,8 @@
 
 -module(bs_utf_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,init_per_suite/1,end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1,end_per_suite/1,
 	 init_per_testcase/2,end_per_testcase/2,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1]).
@@ -32,21 +33,21 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cases()].
+    cases().
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 cases() -> 
-[utf8_roundtrip, unused_utf_char, utf16_roundtrip,
- utf32_roundtrip, guard, extreme_tripping].
+    [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+     utf32_roundtrip, guard, extreme_tripping].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -61,7 +62,7 @@ end_per_testcase(_Case, Config) ->
 init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
-    ok.
+    Config.
 
 end_per_suite(Config) when is_list(Config) ->
     ok.
