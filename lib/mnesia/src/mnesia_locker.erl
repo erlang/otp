@@ -733,13 +733,14 @@ sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
     end.
 
 do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
-    sticky_check_majority(Lock, Tab),
+    WNodes = w_nodes(Tab),
+    sticky_check_majority(Lock, Tab, WNodes),
     ?MODULE ! {self(), {test_set_sticky, Tid, Oid, Lock}},
     N = node(),
     receive
 	{?MODULE, N, granted} ->
 	    ?ets_insert(Store, {{locks, Tab, Key}, write}),
-	    [?ets_insert(Store, {nodes, Node}) || Node <- w_nodes(Tab)],
+	    [?ets_insert(Store, {nodes, Node}) || Node <- WNodes],
 	    granted;
 	{?MODULE, N, {granted, Val}} -> %% for rwlocks
 	    case opt_lookup_in_client(Val, Oid, write) of
@@ -747,7 +748,7 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
 		    exit({aborted, C});
 		Val2 ->
 		    ?ets_insert(Store, {{locks, Tab, Key}, write}),
-		    [?ets_insert(Store, {nodes, Node}) || Node <- w_nodes(Tab)],
+		    [?ets_insert(Store, {nodes, Node}) || Node <- WNodes],
 		    Val2
 	    end;
 	{?MODULE, N, {not_granted, Reason}} ->
@@ -763,13 +764,12 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
 	    dirty_sticky_lock(Tab, Key, [N], Lock)
     end.
 
-sticky_check_majority(read, _) ->
+sticky_check_majority(read, _, _) ->
     ok;
-sticky_check_majority(write, Tab) ->
+sticky_check_majority(write, Tab, WNodes) ->
     case ?catch_val({Tab, majority}) of
 	true ->
-	    HaveNodes = val({Tab, where_to_write}),
-	    case mnesia_lib:have_majority(Tab, HaveNodes) of
+	    case mnesia_lib:have_majority(Tab, WNodes) of
 		true ->
 		    ok;
 		false ->
