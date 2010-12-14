@@ -249,7 +249,7 @@ run_some([Spec|Specs], Opts) ->
 run(Testspec) when is_atom(Testspec) ->
     Options=check_test_get_opts(Testspec, []),
     File = atom_to_list(Testspec),
-    run_test(File, ["SPEC current.spec NAME ",File], Options);
+    run_test(File, [{spec,[File++".spec"]}], Options);
 
 %% This can be used from command line, e.g.
 %% erl -s ts run all_tests <config>
@@ -293,11 +293,11 @@ run(List, Opts) when is_list(List), is_list(Opts) ->
 run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     File=atom_to_list(Testspec),
-    run_test(File, ["SPEC current.spec NAME ", File], Options);
+    run_test(File, [{spec,[File++".spec"]}], Options);
 %% Runs one module in a spec (interactive)
 run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
     run_test({atom_to_list(Testspec), Mod}, 
-	     ["SPEC current.spec NAME ", atom_to_list(Mod)], 
+	     [{suite,Mod}], 
 	     [interactive]).
 
 %% run/3
@@ -305,20 +305,23 @@ run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
 run(Testspec,Mod,Config) when is_atom(Testspec), is_atom(Mod), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     run_test({atom_to_list(Testspec), Mod},
-	     ["SPEC current.spec NAME ", atom_to_list(Mod)], 
+	     [{suite,Mod}], 
 	     Options);
 
 %% Runs one testcase in a module.
 run(Testspec, Mod, Case) when is_atom(Testspec), is_atom(Mod), is_atom(Case) ->
     Options=check_test_get_opts(Testspec, []),
-    Args = ["CASE ",atom_to_list(Mod)," ",atom_to_list(Case)],
+    Args = [{suite,atom_to_list(Mod)},{testcase,atom_to_list(Case)}],
     run_test(atom_to_list(Testspec), Args, Options).
 
 %% run/4
 %% Run one testcase in a module with Options.
-run(Testspec, Mod, Case, Config) when is_atom(Testspec), is_atom(Mod), is_atom(Case), is_list(Config) ->
+run(Testspec, Mod, Case, Config) when is_atom(Testspec), 
+				      is_atom(Mod), 
+				      is_atom(Case), 
+				      is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
-    Args = ["CASE ",atom_to_list(Mod), " ",atom_to_list(Case)],
+    Args = [{suite,atom_to_list(Mod)}, {testcase,atom_to_list(Case)}],
     run_test(atom_to_list(Testspec), Args, Options).
 
 %% Check testspec to be valid and get possible Options

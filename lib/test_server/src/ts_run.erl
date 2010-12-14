@@ -63,32 +63,13 @@ run(File, Args0, Options, Vars0) ->
 	    _ ->
 		{false, fun run_interactive/3}
 	end,
-    HandleTopcase = case member(keep_topcase, Options) of
-			true -> [fun copy_topcase/3];
-			false -> [fun remove_original_topcase/3,
-				  fun init_topcase/3]
-		    end,
-    MakefileHooks = [fun make_make/3,
-		     fun add_make_testcase/3],
-    MakeLoop = fun(V, Sp, St) -> make_loop(MakefileHooks, V, Sp, St) end,
     Hooks = [fun init_state/3,
-	     fun read_spec_file/3] ++
-	     HandleTopcase ++
-             [fun run_preinits/3,
-	     fun find_makefiles/3,
-	     MakeLoop,
-	     fun make_test_suite/3,
-	     fun add_topcase_to_spec/3,
-	     fun write_spec_file/3,
+             fun run_preinits/3,
 	     fun make_command/3,
 	     Runner],
-    Args = make_test_server_args(Args0,Options,Vars),
+    Args = make_common_test_args(Args0,Options,Vars),
     St = #state{file=File,test_server_args=Args,batch=Batch},
     R = execute(Hooks, Vars, [], St),
-    case Batch of
-	true -> ts_reports:make_index();
-	false -> ok % ts_reports:make_index() is run on the test_server node
-    end,
     case R of
 	{ok,_,_,_} -> ok;
 	Error -> Error
@@ -457,6 +438,7 @@ backslashify([]) ->
     [].
 
 make_command(Vars, Spec, State) ->
+    {ok,Cwd} = file:get_cwd(),
     TestDir = State#state.test_dir,
     TestPath = filename:nativename(TestDir),
     Erl = case os:getenv("TS_RUN_VALGRIND") of
@@ -487,7 +469,7 @@ make_command(Vars, Spec, State) ->
 	    {value,{erl_start_args,Args}} -> Args;
 	    false -> ""
 	end,
-    CrashFile = State#state.file ++ "_erl_crash.dump",
+    CrashFile = filename:join(Cwd,State#state.file ++ "_erl_crash.dump"),
     case filelib:is_file(CrashFile) of
 	true -> 
 	    io:format("ts_run: Deleting dump: ~s\n",[CrashFile]),
@@ -495,7 +477,8 @@ make_command(Vars, Spec, State) ->
 	false -> 
 	    ok
     end,
-    Cmd = [Erl, Naming, "test_server -pa ", $", TestPath, $",
+    %% NOTE: Do not use ' in these commands as it wont work on windows
+    Cmd = [Erl, Naming, "test_server"
 	   " -rsh ", ts_lib:var(rsh_name, Vars),
 	   " -env PATH \"",
 	   backslashify(lists:flatten([TestPath, path_separator(),
@@ -505,15 +488,19 @@ make_command(Vars, Spec, State) ->
 	   %% uncomment the line below to disable exception formatting 
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
-	   " -s test_server_ctrl run_test ", State#state.test_server_args,
+	   " -eval \"file:set_cwd(\\\"",TestDir,"\\\")\" "
+	   " -eval \"ct:run_test(", 
+	   backslashify(lists:flatten(State#state.test_server_args)),")\""
 	   " ",
 	   ExtraArgs],
     {ok, Vars, Spec, State#state{command=lists:flatten(Cmd)}}.
+    
 
 run_batch(Vars, _Spec, State) ->
     process_flag(trap_exit, true),
     Command = State#state.command ++ " -noinput -s erlang halt",
     ts_lib:progress(Vars, 1, "Command: ~s~n", [Command]),
+    io:format(user, "Command: ~s~n",[Command]),
     Port = open_port({spawn, Command}, [stream, in, eof]),
     tricky_print_data(Port).
 
@@ -554,7 +541,7 @@ is_testnode_dead([{"test_server",_}|_]) -> false;
 is_testnode_dead([_|T]) -> is_testnode_dead(T).
 
 run_interactive(Vars, _Spec, State) ->
-    Command = State#state.command ++ " -s ts_reports make_index",
+    Command = State#state.command,
     ts_lib:progress(Vars, 1, "Command: ~s~n", [Command]),
     case ts_lib:var(os, Vars) of
 	"Windows 95" ->
@@ -603,6 +590,43 @@ path_separator() ->
 	vxworks ->    ":"
     end.
 
+
+make_common_test_args(Args0, Options, _Vars) ->
+    Trace = 
+	case lists:keysearch(trace,1,Options) of
+	    {value,{trace,TI}} when is_tuple(TI); is_tuple(hd(TI)) ->
+		ok = file:write_file(?tracefile,io_lib:format("~p.~n",[TI])),
+		[{ct_trace,?tracefile}];
+	    {value,{trace,TIFile}} when is_atom(TIFile) ->
+		[{ct_trace,atom_to_list(TIFile)}];
+	    {value,{trace,TIFile}} ->
+		[{ct_trace,TIFile}];
+	    false ->
+		[]
+	end,
+    Cover = 
+	case lists:keysearch(cover,1,Options) of
+	    {value,{cover,_App,File,_Analyse}} -> 
+		[{cover,to_list(File)}];
+	    false -> 
+		[]
+	end,
+
+    Logdir = case lists:keysearch(logdir, 1, Options) of
+		  {value,{logdir, _}} ->
+		      [];
+		  false ->
+		      [{logdir,"../test_server"}]
+	     end,
+
+    ConfigFile = case lists:keysearch(config, 1, Options) of
+		     {value, {config, _}} ->
+			 [];
+		     false ->
+			 [{config, "../test_server/ts.config"}]
+		 end,
+
+    io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++ConfigFile++Options]).
 
 make_test_server_args(Args0,Options,Vars) ->
     Parameters = 
