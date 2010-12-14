@@ -31,10 +31,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(inline_SUITE),
-	[attribute, bsdecode, bsdes, barnes2, decode1, smith,
- itracer, pseudoknot, lists, really_inlined, otp_7223,
- coverage].
+    test_lib:recompile(inline_SUITE),
+    [attribute, bsdecode, bsdes, barnes2, decode1, smith,
+     itracer, pseudoknot, lists, really_inlined, otp_7223,
+     coverage].
 
 groups() -> 
     [].
@@ -46,10 +46,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 attribute(Config) when is_list(Config) ->

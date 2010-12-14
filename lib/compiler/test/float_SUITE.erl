@@ -17,16 +17,18 @@
 %% %CopyrightEnd%
 %%
 -module(float_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(float_SUITE),
-	[pending, bif_calls, math_functions,
- mixed_float_and_int].
+    test_lib:recompile(float_SUITE),
+    [pending, bif_calls, math_functions,
+     mixed_float_and_int].
 
 groups() -> 
     [].
@@ -38,10 +40,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Thanks to Tobias Lindahl <tobias.lindahl@it.uu.se>

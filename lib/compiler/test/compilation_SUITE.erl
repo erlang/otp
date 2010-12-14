@@ -56,10 +56,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).

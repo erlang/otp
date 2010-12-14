@@ -20,7 +20,9 @@
 -module(bs_match_SUITE).
 -compile(nowarn_shadow_vars).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 fun_shadow/1,int_float/1,otp_5269/1,null_fields/1,wiger/1,
 	 bin_tail/1,save_restore/1,shadowed_size_var/1,
 	 partitioned_bs_match/1,function_clause/1,
@@ -41,17 +43,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(bs_match_SUITE),
-	[fun_shadow, int_float, otp_5269, null_fields, wiger,
- bin_tail, save_restore, shadowed_size_var,
- partitioned_bs_match, function_clause, unit,
- shared_sub_bins, bin_and_float, dec_subidentifiers,
- skip_optional_tag, wfbm, degenerated_match, bs_sum,
- coverage, multiple_uses, zero_label, followed_by_catch,
- matching_meets_construction, simon,
- matching_and_andalso, otp_7188, otp_7233, otp_7240,
- otp_7498, match_string, zero_width, bad_size, haystack,
- cover_beam_bool].
+    test_lib:recompile(bs_match_SUITE),
+    [fun_shadow, int_float, otp_5269, null_fields, wiger,
+     bin_tail, save_restore, shadowed_size_var,
+     partitioned_bs_match, function_clause, unit,
+     shared_sub_bins, bin_and_float, dec_subidentifiers,
+     skip_optional_tag, wfbm, degenerated_match, bs_sum,
+     coverage, multiple_uses, zero_label, followed_by_catch,
+     matching_meets_construction, simon,
+     matching_and_andalso, otp_7188, otp_7233, otp_7240,
+     otp_7498, match_string, zero_width, bad_size, haystack,
+     cover_beam_bool].
 
 groups() -> 
     [].
@@ -63,10 +65,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->

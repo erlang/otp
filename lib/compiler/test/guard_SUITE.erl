@@ -20,7 +20,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 misc/1,const_cond/1,basic_not/1,complex_not/1,nested_nots/1,
 	 semicolon/1,complex_semicolon/1,comma/1,
 	 or_guard/1,more_or_guards/1,
@@ -36,14 +37,14 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(guard_SUITE),
-	[misc, const_cond, basic_not, complex_not, nested_nots,
- semicolon, complex_semicolon, comma, or_guard,
- more_or_guards, complex_or_guards, and_guard, xor_guard,
- more_xor_guards, build_in_guard, old_guard_tests, gbif,
- t_is_boolean, is_function_2, tricky, rel_ops,
- literal_type_tests, basic_andalso_orelse, traverse_dcd,
- check_qlc_hrl, andalso_semi, t_tuple_size, binary_part].
+    test_lib:recompile(guard_SUITE),
+    [misc, const_cond, basic_not, complex_not, nested_nots,
+     semicolon, complex_semicolon, comma, or_guard,
+     more_or_guards, complex_or_guards, and_guard, xor_guard,
+     more_xor_guards, build_in_guard, old_guard_tests, gbif,
+     t_is_boolean, is_function_2, tricky, rel_ops,
+     literal_type_tests, basic_andalso_orelse, traverse_dcd,
+     check_qlc_hrl, andalso_semi, t_tuple_size, binary_part].
 
 groups() -> 
     [].
@@ -55,10 +56,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 misc(Config) when is_list(Config) ->
@@ -1153,7 +1154,7 @@ make_test([{T,L}|Ts]) ->
 make_test([]) -> [].
 
 test(T, L) ->
-    S0 = io_lib:format("begin io:format(\"~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T,L,T,L]),
+    S0 = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T,L,T,L]),
     S = lists:flatten(S0),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
@@ -1161,7 +1162,7 @@ test(T, L) ->
     {match,0,{atom,0,Val},hd(E)}.
 
 test(T, L1, L2) ->
-    S0 = io_lib:format("begin io:format(\"~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ", [T,L1,L2,T,L1,L2]),
+    S0 = io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ", [T,L1,L2,T,L1,L2]),
     S = lists:flatten(S0),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),

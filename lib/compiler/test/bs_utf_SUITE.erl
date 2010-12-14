@@ -19,7 +19,8 @@
 
 -module(bs_utf_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1,
 	 literals/1,coverage/1]).
@@ -29,10 +30,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(bs_utf_SUITE),
-	[utf8_roundtrip, unused_utf_char, utf16_roundtrip,
- utf32_roundtrip, guard, extreme_tripping, literals,
- coverage].
+    test_lib:recompile(bs_utf_SUITE),
+    [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+     utf32_roundtrip, guard, extreme_tripping, literals,
+     coverage].
 
 groups() -> 
     [].
@@ -44,10 +45,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 utf8_roundtrip(Config) when is_list(Config) ->

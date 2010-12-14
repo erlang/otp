@@ -18,7 +18,8 @@
 %%
 -module(match_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,underscore/1]).
@@ -28,9 +29,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(match_SUITE),
-	[pmatch, mixed, aliases, match_in_call, untuplify,
- shortcut_boolean, letify_guard, selectify, underscore].
+    test_lib:recompile(match_SUITE),
+    [pmatch, mixed, aliases, match_in_call, untuplify,
+     shortcut_boolean, letify_guard, selectify, underscore].
 
 groups() -> 
     [].
@@ -42,10 +43,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 pmatch(Config) when is_list(Config) ->

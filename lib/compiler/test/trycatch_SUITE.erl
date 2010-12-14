@@ -18,7 +18,9 @@
 %%
 -module(trycatch_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,basic/1,lean_throw/1,try_of/1,try_after/1,%after_bind/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,basic/1,lean_throw/1,
+	 try_of/1,try_after/1,%after_bind/1,
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
@@ -29,11 +31,11 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(trycatch_SUITE),
-	[basic, lean_throw, try_of, try_after, catch_oops,
- after_oops, eclectic, rethrow, nested_of, nested_catch,
- nested_after, nested_horrid, last_call_optimization,
- bool, plain_catch_coverage, andalso_orelse].
+    test_lib:recompile(trycatch_SUITE),
+    [basic, lean_throw, try_of, try_after, catch_oops,
+     after_oops, eclectic, rethrow, nested_of, nested_catch,
+     nested_after, nested_horrid, last_call_optimization,
+     bool, plain_catch_coverage, andalso_orelse].
 
 groups() -> 
     [].
@@ -45,10 +47,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

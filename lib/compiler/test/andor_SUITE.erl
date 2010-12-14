@@ -18,7 +18,8 @@
 %%
 -module(andor_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 t_case/1,t_and_or/1,t_andalso/1,t_orelse/1,inside/1,overlap/1,
 	 combined/1,in_case/1,before_and_inside_if/1]).
 	 
@@ -27,9 +28,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(andor_SUITE),
-	[t_case, t_and_or, t_andalso, t_orelse, inside, overlap,
- combined, in_case, before_and_inside_if].
+    test_lib:recompile(andor_SUITE),
+    [t_case, t_and_or, t_andalso, t_orelse, inside, overlap,
+     combined, in_case, before_and_inside_if].
 
 groups() -> 
     [].

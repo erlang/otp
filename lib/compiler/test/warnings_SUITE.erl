@@ -31,7 +31,9 @@
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 
 -export([pattern/1,pattern2/1,pattern3/1,pattern4/1,
 	 guard/1,bad_arith/1,bool_cases/1,bad_apply/1,
@@ -52,10 +54,10 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(warnings_SUITE),
-	[pattern, pattern2, pattern3, pattern4, guard,
- bad_arith, bool_cases, bad_apply, files, effect,
- bin_opt_info, bin_construction].
+    test_lib:recompile(warnings_SUITE),
+    [pattern, pattern2, pattern3, pattern4, guard,
+     bad_arith, bool_cases, bad_apply, files, effect,
+     bin_opt_info, bin_construction].
 
 groups() -> 
     [].
@@ -67,10 +69,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 pattern(Config) when is_list(Config) ->

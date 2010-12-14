@@ -18,7 +18,9 @@
 %%
 -module(beam_validator_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 beam_files/1,compiler_bug/1,stupid_but_valid/1,
 	 xrange/1,yrange/1,stack/1,call_last/1,merge_undefined/1,
 	 uninit/1,unsafe_catch/1,
@@ -44,15 +46,15 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_lib:recompile(beam_validator_SUITE),
-	[beam_files, compiler_bug, stupid_but_valid, xrange,
- yrange, stack, call_last, merge_undefined, uninit,
- unsafe_catch, dead_code, mult_labels,
- overwrite_catchtag, overwrite_trytag, accessing_tags,
- bad_catch_try, cons_guard, freg_range, freg_uninit,
- freg_state, bin_match, bin_aligned, bad_dsetel,
- state_after_fault_in_catch, no_exception_in_catch,
- undef_label, illegal_instruction, failing_gc_guard_bif].
+    test_lib:recompile(beam_validator_SUITE),
+    [beam_files, compiler_bug, stupid_but_valid, xrange,
+     yrange, stack, call_last, merge_undefined, uninit,
+     unsafe_catch, dead_code, mult_labels,
+     overwrite_catchtag, overwrite_trytag, accessing_tags,
+     bad_catch_try, cons_guard, freg_range, freg_uninit,
+     freg_state, bin_match, bin_aligned, bad_dsetel,
+     state_after_fault_in_catch, no_exception_in_catch,
+     undef_label, illegal_instruction, failing_gc_guard_bif].
 
 groups() -> 
     [].
