@@ -41,42 +41,42 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case odbc_test_lib:odbc_check() of
-  ok ->
-      [sql_query, first, last, next, prev, select_count,
-       select_next, select_relative, select_absolute,
-       create_table_twice, delete_table_twice, duplicate_key,
-       not_connection_owner, no_result_set, query_error,
-       multiple_select_result_sets, multiple_mix_result_sets,
-       multiple_result_sets_error,
-       {group, parameterized_queries}, {group, describe_table},
-       delete_nonexisting_row];
-  Other -> {skip, Other}
-end.
+    case odbc_test_lib:odbc_check() of
+	ok ->
+	    [sql_query, first, last, next, prev, select_count,
+	     select_next, select_relative, select_absolute,
+	     create_table_twice, delete_table_twice, duplicate_key,
+	     not_connection_owner, no_result_set, query_error,
+	     multiple_select_result_sets, multiple_mix_result_sets,
+	     multiple_result_sets_error,
+	     {group, parameterized_queries}, {group, describe_table},
+	     delete_nonexisting_row];
+	Other -> {skip, Other}
+    end.
 
 groups() -> 
     [{parameterized_queries, [],
-  [{group, param_integers}, param_insert_decimal,
-   param_insert_numeric, {group, param_insert_string},
-   param_insert_float, param_insert_real,
-   param_insert_double, param_insert_mix, param_update,
-   param_delete, param_select]},
- {param_integers, [],
-  [param_insert_tiny_int, param_insert_small_int,
-   param_insert_int, param_insert_integer]},
- {param_insert_string, [],
-  [param_insert_char, param_insert_character,
-   param_insert_char_varying,
-   param_insert_character_varying]},
- {describe_table, [],
-  [describe_integer, describe_string, describe_floating,
-   describe_dec_num, describe_no_such_table]}].
+      [{group, param_integers}, param_insert_decimal,
+       param_insert_numeric, {group, param_insert_string},
+       param_insert_float, param_insert_real,
+       param_insert_double, param_insert_mix, param_update,
+       param_delete, param_select]},
+     {param_integers, [],
+      [param_insert_tiny_int, param_insert_small_int,
+       param_insert_int, param_insert_integer]},
+     {param_insert_string, [],
+      [param_insert_char, param_insert_character,
+       param_insert_char_varying,
+       param_insert_character_varying]},
+     {describe_table, [],
+      [describe_integer, describe_string, describe_floating,
+       describe_dec_num, describe_no_such_table]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 					  
 

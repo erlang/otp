@@ -44,27 +44,27 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case odbc_test_lib:odbc_check() of
-  ok ->
-      [not_exist_db, commit, rollback, not_explicit_commit,
-       no_c_node, port_dies, control_process_dies,
-       {group, client_dies}, connect_timeout, timeout,
-       many_timeouts, timeout_reset, disconnect_on_timeout,
-       connection_closed, disable_scrollable_cursors,
-       return_rows_as_lists, api_missuse];
-  Other -> {skip, Other}
-end.
+    case odbc_test_lib:odbc_check() of
+	ok ->
+	    [not_exist_db, commit, rollback, not_explicit_commit,
+	     no_c_node, port_dies, control_process_dies,
+	     {group, client_dies}, connect_timeout, timeout,
+	     many_timeouts, timeout_reset, disconnect_on_timeout,
+	     connection_closed, disable_scrollable_cursors,
+	     return_rows_as_lists, api_missuse];
+	Other -> {skip, Other}
+    end.
 
 groups() -> 
     [{client_dies, [],
-  [client_dies_normal, client_dies_timeout,
-   client_dies_error]}].
+      [client_dies_normal, client_dies_timeout,
+       client_dies_error]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%--------------------------------------------------------------------

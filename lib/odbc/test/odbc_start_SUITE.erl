@@ -101,21 +101,21 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case odbc_test_lib:odbc_check() of
-  ok -> [start];
-  Other -> {skip, Other}
-end.
+    case odbc_test_lib:odbc_check() of
+	ok -> [start];
+	Other -> {skip, Other}
+    end.
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
-					  
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

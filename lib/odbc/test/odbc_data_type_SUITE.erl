@@ -42,43 +42,43 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case odbc_test_lib:odbc_check() of
-  ok ->
-      [{group, char}, {group, int}, {group, floats},
-       {group, dec_and_num}, timestamp];
-  Other -> {skip, Other}
-end.
+    case odbc_test_lib:odbc_check() of
+	ok ->
+	    [{group, char}, {group, int}, {group, floats},
+	     {group, dec_and_num}, timestamp];
+	Other -> {skip, Other}
+    end.
 
 groups() -> 
     [{char, [],
-  [char_fixed_lower_limit, char_fixed_upper_limit,
-   char_fixed_padding, varchar_lower_limit,
-   varchar_upper_limit, varchar_no_padding,
-   text_lower_limit, text_upper_limit, unicode]},
- {binary_char, [],
-  [binary_char_fixed_lower_limit,
-   binary_char_fixed_upper_limit,
-   binary_char_fixed_padding, binary_varchar_lower_limit,
-   binary_varchar_upper_limit, binary_varchar_no_padding,
-   binary_text_lower_limit, binary_text_upper_limit,
-   unicode]},
- {int, [],
-  [tiny_int_lower_limit, tiny_int_upper_limit,
-   small_int_lower_limit, small_int_upper_limit,
-   int_lower_limit, int_upper_limit, big_int_lower_limit,
-   big_int_upper_limit, bit_false, bit_true]},
- {floats, [],
-  [float_lower_limit, float_upper_limit, float_zero,
-   real_zero]},
- {dec_and_num, [],
-  [dec_long, dec_double, dec_bignum, num_long, num_double,
-   num_bignum]}].
+      [char_fixed_lower_limit, char_fixed_upper_limit,
+       char_fixed_padding, varchar_lower_limit,
+       varchar_upper_limit, varchar_no_padding,
+       text_lower_limit, text_upper_limit, unicode]},
+     {binary_char, [],
+      [binary_char_fixed_lower_limit,
+       binary_char_fixed_upper_limit,
+       binary_char_fixed_padding, binary_varchar_lower_limit,
+       binary_varchar_upper_limit, binary_varchar_no_padding,
+       binary_text_lower_limit, binary_text_upper_limit,
+       unicode]},
+     {int, [],
+      [tiny_int_lower_limit, tiny_int_upper_limit,
+       small_int_lower_limit, small_int_upper_limit,
+       int_lower_limit, int_upper_limit, big_int_lower_limit,
+       big_int_upper_limit, bit_false, bit_true]},
+     {floats, [],
+      [float_lower_limit, float_upper_limit, float_zero,
+       real_zero]},
+     {dec_and_num, [],
+      [dec_long, dec_double, dec_bignum, num_long, num_double,
+       num_bignum]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 					  
 
