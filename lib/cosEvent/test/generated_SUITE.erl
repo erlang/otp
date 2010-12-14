@@ -71,12 +71,12 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -87,22 +87,22 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-['CosEventChannelAdmin_AlreadyConnected',
- 'CosEventChannelAdmin_TypeError',
- 'CosEventComm_Disconnected',
- 'CosEventChannelAdmin_ConsumerAdmin',
- 'CosEventChannelAdmin_EventChannel',
- 'CosEventChannelAdmin_ProxyPullConsumer',
- 'CosEventChannelAdmin_ProxyPullSupplier',
- 'CosEventChannelAdmin_ProxyPushConsumer',
- 'CosEventChannelAdmin_ProxyPushSupplier',
- 'CosEventChannelAdmin_SupplierAdmin',
- oe_CosEventComm_CAdmin, oe_CosEventComm_Channel,
- oe_CosEventComm_Event, oe_CosEventComm_PullerS,
- oe_CosEventComm_PusherS, 'CosEventComm_PullConsumer',
- 'CosEventComm_PullSupplier',
- 'CosEventComm_PushConsumer',
- 'CosEventComm_PushSupplier'].
+    ['CosEventChannelAdmin_AlreadyConnected',
+     'CosEventChannelAdmin_TypeError',
+     'CosEventComm_Disconnected',
+     'CosEventChannelAdmin_ConsumerAdmin',
+     'CosEventChannelAdmin_EventChannel',
+     'CosEventChannelAdmin_ProxyPullConsumer',
+     'CosEventChannelAdmin_ProxyPullSupplier',
+     'CosEventChannelAdmin_ProxyPushConsumer',
+     'CosEventChannelAdmin_ProxyPushSupplier',
+     'CosEventChannelAdmin_SupplierAdmin',
+     oe_CosEventComm_CAdmin, oe_CosEventComm_Channel,
+     oe_CosEventComm_Event, oe_CosEventComm_PullerS,
+     oe_CosEventComm_PusherS, 'CosEventComm_PullConsumer',
+     'CosEventComm_PullSupplier',
+     'CosEventComm_PushConsumer',
+     'CosEventComm_PushSupplier'].
 
 groups() -> 
     [].
@@ -114,10 +114,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%-----------------------------------------------------------------
