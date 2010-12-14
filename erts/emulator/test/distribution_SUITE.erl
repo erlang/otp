@@ -24,7 +24,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 ping/1, bulk_send_small/1,
 	 bulk_send_big/1, bulk_send_bigbig/1,
 	 local_send_small/1, local_send_big/1,
@@ -44,7 +45,7 @@
 	 bad_dist_ext_control/1,
 	 bad_dist_ext_connection_id/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
@@ -82,10 +83,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 -define(DEFAULT_TIMETRAP, 4*60*1000).
 
@@ -93,7 +94,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?DEFAULT_TIMETRAP),
     [{watchdog, Dog},{testcase, Func}|Config].
 
-fin_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

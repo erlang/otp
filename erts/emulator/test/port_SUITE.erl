@@ -73,7 +73,8 @@
 %%
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1,
 	 stream_small/1, stream_big/1,
 	 basic_ping/1, slow_writes/1, bad_packet/1, bad_port_messages/1,
@@ -104,28 +105,28 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[otp_6224, {group, stream}, basic_ping, slow_writes,
- bad_packet, bad_port_messages, {group, options},
- {group, multiple_packets}, parallell, dying_port,
- port_program_with_path, open_input_file_port,
- open_output_file_port, name1, env, bad_env, cd,
- exit_status, iter_max_ports, t_exit, {group, tps}, line,
- stderr_to_stdout, otp_3906, otp_4389, win_massive,
- mix_up_ports, otp_5112, otp_5119,
- exit_status_multi_scheduling_block, ports, spawn_driver,
- spawn_executable, close_deaf_port, unregister_name].
+    [otp_6224, {group, stream}, basic_ping, slow_writes,
+     bad_packet, bad_port_messages, {group, options},
+     {group, multiple_packets}, parallell, dying_port,
+     port_program_with_path, open_input_file_port,
+     open_output_file_port, name1, env, bad_env, cd,
+     exit_status, iter_max_ports, t_exit, {group, tps}, line,
+     stderr_to_stdout, otp_3906, otp_4389, win_massive,
+     mix_up_ports, otp_5112, otp_5119,
+     exit_status_multi_scheduling_block, ports, spawn_driver,
+     spawn_executable, close_deaf_port, unregister_name].
 
 groups() -> 
     [{stream, [], [stream_small, stream_big]},
- {options, [], [t_binary, eof, input_only, output_only]},
- {multiple_packets, [], [mul_basic, mul_slow_writes]},
- {tps, [], [tps_16_bytes, tps_1K]}].
+     {options, [], [t_binary, eof, input_only, output_only]},
+     {multiple_packets, [], [mul_basic, mul_slow_writes]},
+     {tps, [], [tps_16_bytes, tps_1K]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
@@ -133,7 +134,7 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(Case, Config) ->
     [{testcase, Case} |Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) when is_list(Config) ->
@@ -1056,8 +1057,10 @@ otp_3906(Config)  when is_list(Config) ->
 -define(OTP_3906_MAX_CONC_OSP, 50).
 
 otp_3906(Config, OSName) ->
-    ?line TSDir = filename:dirname(code:which(test_server)),
-    ?line {ok, Variables} = file:consult(filename:join(TSDir, "variables")),
+    ?line DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
+    ?line {ok, Variables} = file:consult(
+			      filename:join([DataDir,"..","..",
+					     "test_server","variables"])),
     case lists:keysearch('CC', 1, Variables) of
 	{value,{'CC', CC}} ->
 	    SuiteDir = filename:dirname(code:which(?MODULE)),

@@ -18,7 +18,9 @@
 
 -module(evil_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 heap_frag/1,
 	 encode_decode_ext/1,
 	 decode_integer_ext/1,
@@ -35,10 +37,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[heap_frag, encode_decode_ext, decode_integer_ext,
- decode_small_big_ext, decode_large_big_ext,
- decode_small_big_ext_neg, decode_large_big_ext_neg,
- decode_too_small, decode_pos_neg_zero].
+    [heap_frag, encode_decode_ext, decode_integer_ext,
+     decode_small_big_ext, decode_large_big_ext,
+     decode_small_big_ext_neg, decode_large_big_ext_neg,
+     decode_too_small, decode_pos_neg_zero].
 
 groups() -> 
     [].
@@ -50,17 +52,17 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(?t:minutes(0.5)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -21,7 +21,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
 	 bad_float_unpack/1]).
 -export([otp_7178/1]).
@@ -31,15 +33,15 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
     [{watchdog, Dog},{testcase,Func}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
- match, bad_float_unpack].
+    [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
+     match, bad_float_unpack].
 
 groups() -> 
     [].
@@ -51,10 +53,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%

@@ -19,7 +19,9 @@
 
 -module(busy_port_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, io_to_busy/1, message_order/1, send_3/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,
 	 no_trap_exit_unlinked/1, trap_exit/1, multiple_writers/1,
 	 hard_busy_driver/1, soft_busy_driver/1]).
@@ -32,9 +34,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[io_to_busy, message_order, send_3, system_monitor,
- no_trap_exit, no_trap_exit_unlinked, trap_exit,
- multiple_writers, hard_busy_driver, soft_busy_driver].
+    [io_to_busy, message_order, send_3, system_monitor,
+     no_trap_exit, no_trap_exit_unlinked, trap_exit,
+     multiple_writers, hard_busy_driver, soft_busy_driver].
 
 groups() -> 
     [].
@@ -46,10 +48,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% Tests I/O operations to a busy port, to make sure a suspended send

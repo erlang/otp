@@ -68,7 +68,8 @@ config(priv_dir,_) ->
 
 %%% When run in test server %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
 	 return/1, on_and_off/1, stack_grow/1,info/1, delete/1,
 	 exception/1, exception_apply/1,
 	 exception_function/1, exception_apply_function/1,
@@ -79,12 +80,12 @@ config(priv_dir,_) ->
 	 exception_meta_nocatch/1, exception_meta_nocatch_apply/1,
 	 exception_meta_nocatch_function/1,
 	 exception_meta_nocatch_apply_function/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     shutdown(),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
@@ -92,21 +93,21 @@ fin_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case test_server:is_native(trace_local_SUITE) of
-  true -> [not_run];
-  false ->
-      [basic, bit_syntax, return, on_and_off, stack_grow,
-       info, delete, exception, exception_apply,
-       exception_function, exception_apply_function,
-       exception_nocatch, exception_nocatch_apply,
-       exception_nocatch_function,
-       exception_nocatch_apply_function, exception_meta,
-       exception_meta_apply, exception_meta_function,
-       exception_meta_apply_function, exception_meta_nocatch,
-       exception_meta_nocatch_apply,
-       exception_meta_nocatch_function,
-       exception_meta_nocatch_apply_function]
-end.
+    case test_server:is_native(trace_local_SUITE) of
+	true -> [not_run];
+	false ->
+	    [basic, bit_syntax, return, on_and_off, stack_grow,
+	     info, delete, exception, exception_apply,
+	     exception_function, exception_apply_function,
+	     exception_nocatch, exception_nocatch_apply,
+	     exception_nocatch_function,
+	     exception_nocatch_apply_function, exception_meta,
+	     exception_meta_apply, exception_meta_function,
+	     exception_meta_apply_function, exception_meta_nocatch,
+	     exception_meta_nocatch_apply,
+	     exception_meta_nocatch_function,
+	     exception_meta_nocatch_apply_function]
+    end.
 
 groups() -> 
     [].
@@ -118,10 +119,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 not_run(Config) when is_list(Config) -> 

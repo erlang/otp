@@ -21,7 +21,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 stickiness/1,send_trace/1,recv_trace/1,proc_trace/1,call_trace/1,
 	 meta_trace/1,running_trace/1,gc_trace/1,seq_trace/1,
 	 t_process_info/1,t_process_display/1,save_calls/1]).
@@ -34,17 +36,17 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(5)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[stickiness, send_trace, recv_trace, proc_trace,
- call_trace, meta_trace, running_trace, gc_trace,
- seq_trace, t_process_info, t_process_display,
- save_calls].
+    [stickiness, send_trace, recv_trace, proc_trace,
+     call_trace, meta_trace, running_trace, gc_trace,
+     seq_trace, t_process_info, t_process_display,
+     save_calls].
 
 groups() -> 
     [].
@@ -56,10 +58,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
     
 stickiness(Config) when is_list(Config) ->

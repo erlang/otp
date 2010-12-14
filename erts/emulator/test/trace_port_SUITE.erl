@@ -20,7 +20,9 @@
 
 -module(trace_port_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 call_trace/1,
 	 return_trace/1,
 	 send/1,
@@ -37,17 +39,17 @@
 -include_lib("test_server/include/test_server.hrl").
 
 test_cases() -> 
-[call_trace, return_trace, send, receive_trace,
- process_events, schedule, fake_schedule,
- fake_schedule_after_register,
- fake_schedule_after_getting_linked,
- fake_schedule_after_getting_unlinked, gc,
- default_tracer].
+    [call_trace, return_trace, send, receive_trace,
+     process_events, schedule, fake_schedule,
+     fake_schedule_after_register,
+     fake_schedule_after_getting_linked,
+     fake_schedule_after_getting_unlinked, gc,
+     default_tracer].
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-test_cases().
+    test_cases().
 
 groups() -> 
     [].
@@ -59,17 +61,17 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(30)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

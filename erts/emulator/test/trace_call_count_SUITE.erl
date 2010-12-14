@@ -62,7 +62,9 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, on_and_off/1, info/1, 
 	 pause_and_restart/1, combo/1]).
 	 
@@ -70,7 +72,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(30)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_count]),
     erlang:trace_pattern(on_load, false, [local,meta,call_count]),
     erlang:trace(all, false, [all]),
@@ -81,11 +83,11 @@ fin_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case test_server:is_native(trace_call_count_SUITE) of
-  true -> [not_run];
-  false ->
-      [basic, on_and_off, info, pause_and_restart, combo]
-end.
+    case test_server:is_native(trace_call_count_SUITE) of
+	true -> [not_run];
+	false ->
+	    [basic, on_and_off, info, pause_and_restart, combo]
+    end.
 
 groups() -> 
     [].
@@ -97,10 +99,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 not_run(Config) when is_list(Config) -> 

@@ -27,10 +27,10 @@
 %%% - queueing
 
 -module(driver_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, 
+	 end_per_suite/1, init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
-	 end_per_suite/1,
+	 end_per_testcase/2,
 	 outputv_echo/1,
 	
 	 timer_measure/1,
@@ -120,53 +120,50 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ?line 0 = erts_debug:get_internal_state(check_io_debug),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     Dog = ?config(watchdog, Config),
-    erlang:display({fin_per_testcase, Case}),
+    erlang:display({end_per_testcase, Case}),
     ?line 0 = erts_debug:get_internal_state(check_io_debug),
     ?t:timetrap_cancel(Dog).
-
-end_per_suite(_Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false).
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[fun_to_port, outputv_echo, queue_echo, {group, timer},
- driver_unloaded, io_ready_exit, use_fallback_pollset,
- bad_fd_in_pollset, driver_event, fd_change,
- steal_control, otp_6602, 'driver_system_info_ver1.0',
- 'driver_system_info_ver1.1',
- driver_system_info_current_ver, driver_monitor,
- {group, ioq_exit}, zero_extended_marker_garb_drv,
- invalid_extended_marker_drv, larger_major_vsn_drv,
- larger_minor_vsn_drv, smaller_major_vsn_drv,
- smaller_minor_vsn_drv, peek_non_existing_queue,
- otp_6879, caller, many_events, missing_callbacks,
- smp_select, driver_select_use,
- thread_mseg_alloc_cache_clean].
+    [fun_to_port, outputv_echo, queue_echo, {group, timer},
+     driver_unloaded, io_ready_exit, use_fallback_pollset,
+     bad_fd_in_pollset, driver_event, fd_change,
+     steal_control, otp_6602, 'driver_system_info_ver1.0',
+     'driver_system_info_ver1.1',
+     driver_system_info_current_ver, driver_monitor,
+     {group, ioq_exit}, zero_extended_marker_garb_drv,
+     invalid_extended_marker_drv, larger_major_vsn_drv,
+     larger_minor_vsn_drv, smaller_major_vsn_drv,
+     smaller_minor_vsn_drv, peek_non_existing_queue,
+     otp_6879, caller, many_events, missing_callbacks,
+     smp_select, driver_select_use,
+     thread_mseg_alloc_cache_clean].
 
 groups() -> 
     [{timer, [],
-  [timer_measure, timer_cancel, timer_delay,
-   timer_change]},
- {ioq_exit, [],
-  [ioq_exit_ready_input, ioq_exit_ready_output,
-   ioq_exit_timeout, ioq_exit_ready_async, ioq_exit_event,
-   ioq_exit_ready_input_async, ioq_exit_ready_output_async,
-   ioq_exit_timeout_async, ioq_exit_event_async]}].
+      [timer_measure, timer_cancel, timer_delay,
+       timer_change]},
+     {ioq_exit, [],
+      [ioq_exit_ready_input, ioq_exit_ready_output,
+       ioq_exit_timeout, ioq_exit_ready_async, ioq_exit_event,
+       ioq_exit_ready_input_async, ioq_exit_ready_output_async,
+       ioq_exit_timeout_async, ioq_exit_event_async]}].
 
 init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    ok.
+    catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 fun_to_port(doc) -> "Test sending a fun to port with an outputv-capable driver.";

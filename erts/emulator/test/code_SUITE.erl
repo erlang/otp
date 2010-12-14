@@ -18,7 +18,8 @@
 %%
 
 -module(code_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 new_binary_types/1,t_check_process_code/1,t_check_process_code_ets/1,
 	 external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
 	 make_stub_many_funs/1,constant_pools/1,
@@ -29,10 +30,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[new_binary_types, t_check_process_code,
- t_check_process_code_ets, external_fun, get_chunk,
- module_md5, make_stub, make_stub_many_funs,
- constant_pools, false_dependency, coverage].
+    [new_binary_types, t_check_process_code,
+     t_check_process_code_ets, external_fun, get_chunk,
+     module_md5, make_stub, make_stub_many_funs,
+     constant_pools, false_dependency, coverage].
 
 groups() -> 
     [].
@@ -44,10 +45,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 new_binary_types(Config) when is_list(Config) ->

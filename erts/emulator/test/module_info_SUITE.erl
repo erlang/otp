@@ -21,7 +21,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 exports/1,functions/1,native/1]).
 
 %%-compile(native).
@@ -32,7 +34,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-modules().
+    modules().
 
 groups() -> 
     [].
@@ -44,14 +46,14 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 modules() -> 
-[exports, functions, native].
+    [exports, functions, native].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
@@ -64,13 +66,17 @@ end_per_testcase(_Func, Config) ->
 %% Should return all functions exported from this module. (local)
 all_exported() ->
     All = add_arity(modules()),
-    lists:sort([{all,1},{init_per_testcase,2},{end_per_testcase,2},
+    lists:sort([{all,0},{suite,0},{groups,0},
+		{init_per_suite,1},{end_per_suite,1},
+		{init_per_group,2},{end_per_group,2},
+		{init_per_testcase,2},{end_per_testcase,2},
 		{module_info,0},{module_info,1},{native_proj,1},
 		{native_filter,1}|All]).
 
 %% Should return all functions in this module. (local)
 all_functions() ->
-    Locals = [{add_arity,1},{add_arity,2},{all_exported,0},{all_functions,0}],
+    Locals = [{add_arity,1},{add_arity,2},{all_exported,0},{all_functions,0},
+	      {modules,0}],
     lists:sort(Locals++all_exported()).
 
 %% Test that the list of exported functions from this module is correct.

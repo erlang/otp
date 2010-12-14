@@ -33,7 +33,9 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1, wordsize/1]).
 
@@ -42,8 +44,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[process_count, system_version, misc_smoke_tests,
- heap_size, wordsize].
+    [process_count, system_version, misc_smoke_tests,
+     heap_size, wordsize].
 
 groups() -> 
     [].
@@ -55,17 +57,17 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

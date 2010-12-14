@@ -19,7 +19,8 @@
 
 -module(match_spec_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, not_run/1]).
 -export([test_1/1, test_2/1, test_3/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, 
 	 ms_trace2/1, ms_trace3/1, boxed_and_small/1,
@@ -36,13 +37,13 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(10)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -50,15 +51,15 @@ fin_per_testcase(_Func, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case test_server:is_native(match_spec_SUITE) of
-  false ->
-      [test_1, test_2, test_3, bad_match_spec_bin,
-       trace_control_word, silent, silent_no_ms, ms_trace2,
-       ms_trace3, boxed_and_small, destructive_in_test_bif,
-       guard_exceptions, unary_plus, unary_minus, fpe,
-       moving_labels];
-  true -> [not_run]
-end.
+    case test_server:is_native(match_spec_SUITE) of
+	false ->
+	    [test_1, test_2, test_3, bad_match_spec_bin,
+	     trace_control_word, silent, silent_no_ms, ms_trace2,
+	     ms_trace3, boxed_and_small, destructive_in_test_bif,
+	     guard_exceptions, unary_plus, unary_minus, fpe,
+	     moving_labels];
+	true -> [not_run]
+    end.
 
 groups() -> 
     [].
@@ -70,7 +71,7 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
 	Config.

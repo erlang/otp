@@ -19,7 +19,9 @@
 
 -module(ref_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 -export([wrap_1/1]).
 
 -export([loop_ref/1]).
@@ -30,7 +32,7 @@ init_per_testcase(_, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_, Config) ->
+end_per_testcase(_, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -38,7 +40,7 @@ fin_per_testcase(_, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[wrap_1].
+    [wrap_1].
 
 groups() -> 
     [].
@@ -50,10 +52,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 wrap_1(doc) -> "Check that refs don't wrap around easily.";

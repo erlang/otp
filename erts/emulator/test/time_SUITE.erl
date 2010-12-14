@@ -29,7 +29,8 @@
 %%	now/0
 %%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, univ_to_local/1, local_to_univ/1,
 	 bad_univ_to_local/1, bad_local_to_univ/1,
 	 consistency/1,
 	 now_unique/1, now_update/1, timestamp/1]).
@@ -57,9 +58,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[univ_to_local, local_to_univ, local_to_univ_utc,
- bad_univ_to_local, bad_local_to_univ, consistency,
- {group, now}, timestamp].
+    [univ_to_local, local_to_univ, local_to_univ_utc,
+     bad_univ_to_local, bad_local_to_univ, consistency,
+     {group, now}, timestamp].
 
 groups() -> 
     [{now, [], [now_unique, now_update]}].
@@ -71,10 +72,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 local_to_univ_utc(suite) ->

@@ -20,14 +20,15 @@
 -module(bs_match_tail_SUITE).
 
 -author('bjorn@erix.ericsson.se').
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,aligned/1,unaligned/1,zero_tail/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,aligned/1,unaligned/1,zero_tail/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[aligned, unaligned, zero_tail].
+    [aligned, unaligned, zero_tail].
 
 groups() -> 
     [].
@@ -39,10 +40,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 aligned(doc) -> "Test aligned tails.";

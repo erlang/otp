@@ -23,7 +23,8 @@
 %%% Tests the trace BIF.
 %%%
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, receive_trace/1, self_send/1,
 	 timeout_trace/1, send_trace/1,
 	 procs_trace/1, dist_procs_trace/1,
 	 suspend/1, mutual_suspend/1, suspend_exit/1, suspender_exit/1,
@@ -43,15 +44,15 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[cpu_timestamp, receive_trace, self_send, timeout_trace,
- send_trace, procs_trace, dist_procs_trace, suspend,
- mutual_suspend, suspend_exit, suspender_exit,
- suspend_system_limit, suspend_opts, suspend_waiting,
- new_clear, existing_clear, set_on_spawn,
- set_on_first_spawn, system_monitor_args,
- more_system_monitor_args, system_monitor_long_gc_1,
- system_monitor_long_gc_2, system_monitor_large_heap_1,
- system_monitor_large_heap_2, bad_flag, trace_delivered].
+    [cpu_timestamp, receive_trace, self_send, timeout_trace,
+     send_trace, procs_trace, dist_procs_trace, suspend,
+     mutual_suspend, suspend_exit, suspender_exit,
+     suspend_system_limit, suspend_opts, suspend_waiting,
+     new_clear, existing_clear, set_on_spawn,
+     set_on_first_spawn, system_monitor_args,
+     more_system_monitor_args, system_monitor_long_gc_1,
+     system_monitor_long_gc_2, system_monitor_large_heap_1,
+     system_monitor_large_heap_2, bad_flag, trace_delivered].
 
 groups() -> 
     [].
@@ -63,10 +64,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

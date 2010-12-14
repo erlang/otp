@@ -30,7 +30,8 @@
 %-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 % Test cases
 -export([links/1,
@@ -46,7 +47,7 @@
 	 otp_5772_dist_monitor/1,
 	 otp_7946/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 % Internal exports
 -export([test_proc/0]).
@@ -80,10 +81,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[links, dist_links, monitor_nodes, process_monitors,
- dist_process_monitors, busy_dist_port_monitor,
- busy_dist_port_link, otp_5772_link, otp_5772_dist_link,
- otp_5772_monitor, otp_5772_dist_monitor, otp_7946].
+    [links, dist_links, monitor_nodes, process_monitors,
+     dist_process_monitors, busy_dist_port_monitor,
+     busy_dist_port_link, otp_5772_link, otp_5772_dist_link,
+     otp_5772_monitor, otp_5772_dist_monitor, otp_7946].
 
 groups() -> 
     [].
@@ -92,13 +93,13 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    ok.
+    catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 links(doc) -> ["Tests node local links"];
@@ -696,12 +697,9 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     end,
     ?line [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     ?line Dog = ?config(watchdog, Config),
     ?line ?t:timetrap_cancel(Dog).
-
-end_per_suite(_Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false).
 
 tp_call(Tp, Fun) ->
     ?line R = make_ref(),

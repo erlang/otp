@@ -31,7 +31,8 @@
 
 %-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 % Test cases
 -export([xm_sig_order/1,
@@ -49,16 +50,19 @@
 	 pending_exit_group_leader/1,
 	 exit_before_pending_exit/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     ?line Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SECONDS)),
     available_internal_state(true),
     ?line [{testcase, Func},{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     ?line Dog = ?config(watchdog, Config),
     ?line ?t:timetrap_cancel(Dog).
+
+init_per_suite(Config) ->
+    Config.
 
 end_per_suite(_Config) ->
     available_internal_state(true),
@@ -68,30 +72,24 @@ end_per_suite(_Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[xm_sig_order, pending_exit_unlink_process,
- pending_exit_unlink_dist_process,
- pending_exit_unlink_port, pending_exit_trap_exit,
- pending_exit_receive, pending_exit_trap_exit,
- pending_exit_gc, pending_exit_is_process_alive,
- pending_exit_process_display,
- pending_exit_process_info_1,
- pending_exit_process_info_2, pending_exit_group_leader,
- exit_before_pending_exit].
+    [xm_sig_order, pending_exit_unlink_process,
+     pending_exit_unlink_dist_process,
+     pending_exit_unlink_port, pending_exit_trap_exit,
+     pending_exit_receive, pending_exit_trap_exit,
+     pending_exit_gc, pending_exit_is_process_alive,
+     pending_exit_process_display,
+     pending_exit_process_info_1,
+     pending_exit_process_info_2, pending_exit_group_leader,
+     exit_before_pending_exit].
 
 groups() -> 
     [].
 
-init_per_suite(Config) ->
+init_per_group(_GroupName, Config) ->
     Config.
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 xm_sig_order(doc) -> ["Test that exit signals and messages are received "

@@ -22,16 +22,18 @@
 
 -module(system_profile_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	system_profile_on_and_off/1,
 	runnable_procs/1,
 	runnable_ports/1,
 	scheduler/1
         ]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
--export([profiler_process/1, ring_loop/1, port_echo_start/0, list_load/0, run_load/2]).
+-export([profiler_process/1, ring_loop/1, port_echo_start/0, 
+	 list_load/0, run_load/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -40,7 +42,7 @@
 init_per_testcase(_Case, Config) ->
     ?line Dog=?t:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -48,8 +50,8 @@ fin_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[system_profile_on_and_off, runnable_procs,
- runnable_ports, scheduler].
+    [system_profile_on_and_off, runnable_procs,
+     runnable_ports, scheduler].
 
 groups() -> 
     [].
@@ -61,10 +63,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% No specification clause needed for an init function in a conf case!!!

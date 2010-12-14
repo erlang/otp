@@ -29,7 +29,8 @@
 
 -define(heap_binary_size, 64).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, spawn_with_binaries/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, spawn_with_binaries/1,
 	 t_exit_1/1, t_exit_2_other/1, t_exit_2_other_normal/1,
 	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
@@ -51,7 +52,7 @@
 	 otp_7738_resume/1]).
 -export([prio_server/2, prio_client/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([hangaround/2, processes_bif_test/0, do_processes/1,
 	 processes_term_proc_list_test/1]).
@@ -59,56 +60,53 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[spawn_with_binaries, t_exit_1, {group, t_exit_2},
- trap_exit_badarg, trap_exit_badarg_in_bif,
- t_process_info, process_info_other_msg,
- process_info_other_dist_msg, process_info_2_list,
- process_info_lock_reschedule,
- process_info_lock_reschedule2, process_status_exiting,
- bump_reductions, low_prio, yield, yield2, otp_4725,
- bad_register, garbage_collect, process_info_messages,
- process_flag_badarg, process_flag_heap_size,
- spawn_opt_heap_size, otp_6237, {group, processes_bif},
- {group, otp_7738}].
+    [spawn_with_binaries, t_exit_1, {group, t_exit_2},
+     trap_exit_badarg, trap_exit_badarg_in_bif,
+     t_process_info, process_info_other_msg,
+     process_info_other_dist_msg, process_info_2_list,
+     process_info_lock_reschedule,
+     process_info_lock_reschedule2, process_status_exiting,
+     bump_reductions, low_prio, yield, yield2, otp_4725,
+     bad_register, garbage_collect, process_info_messages,
+     process_flag_badarg, process_flag_heap_size,
+     spawn_opt_heap_size, otp_6237, {group, processes_bif},
+     {group, otp_7738}].
 
 groups() -> 
     [{t_exit_2, [],
-  [t_exit_2_other, t_exit_2_other_normal, self_exit,
-   normal_suicide_exit, abnormal_suicide_exit,
-   t_exit_2_catch, exit_and_timeout, exit_twice]},
- {processes_bif, [],
-  [processes_large_tab, processes_default_tab,
-   processes_small_tab, processes_this_tab,
-   processes_last_call_trap, processes_apply_trap,
-   processes_gc_trap, processes_term_proc_list]},
- {otp_7738, [],
-  [otp_7738_waiting, otp_7738_suspended,
-   otp_7738_resume]}].
+      [t_exit_2_other, t_exit_2_other_normal, self_exit,
+       normal_suicide_exit, abnormal_suicide_exit,
+       t_exit_2_catch, exit_and_timeout, exit_twice]},
+     {processes_bif, [],
+      [processes_large_tab, processes_default_tab,
+       processes_small_tab, processes_this_tab,
+       processes_last_call_trap, processes_apply_trap,
+       processes_gc_trap, processes_term_proc_list]},
+     {otp_7738, [],
+      [otp_7738_waiting, otp_7738_suspended,
+       otp_7738_resume]}].
 
 init_per_suite(Config) ->
     Config.
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    Config.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(10)),
     [{watchdog, Dog},{testcase, Func}|Config].
 
-fin_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
-
-end_per_suite(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    Config.
 
 fun_spawn(Fun) ->
     spawn_link(erlang, apply, [Fun, []]).

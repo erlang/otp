@@ -31,7 +31,8 @@
 %%	round/1
 %%	trunc/1
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_list/1, t_integer_to_list/1,
 	 t_list_to_integer/1,
 	 t_list_to_float_safe/1, t_list_to_float_risky/1,
@@ -40,13 +41,13 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[t_abs, t_float, t_float_to_list, t_integer_to_list,
- {group, t_list_to_float}, t_list_to_integer, t_round,
- t_trunc].
+    [t_abs, t_float, t_float_to_list, t_integer_to_list,
+     {group, t_list_to_float}, t_list_to_integer, t_round,
+     t_trunc].
 
 groups() -> 
     [{t_list_to_float, [],
-  [t_list_to_float_safe, t_list_to_float_risky]}].
+      [t_list_to_float_safe, t_list_to_float_risky]}].
 
 init_per_suite(Config) ->
     Config.
@@ -55,10 +56,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 t_abs(Config) when is_list(Config) ->

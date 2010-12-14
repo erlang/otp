@@ -19,7 +19,9 @@
 
 -module(beam_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, packed_registers/1, apply_last/1, apply_last_bif/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 packed_registers/1, apply_last/1, apply_last_bif/1,
 	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1,
 	 select_val/1]).
 
@@ -30,8 +32,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[packed_registers, apply_last, apply_last_bif,
- buildo_mucho, heap_sizes, big_lists, select_val].
+    [packed_registers, apply_last, apply_last_bif,
+     buildo_mucho, heap_sizes, big_lists, select_val].
 
 groups() -> 
     [].
@@ -43,10 +45,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

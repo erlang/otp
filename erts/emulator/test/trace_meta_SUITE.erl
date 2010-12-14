@@ -65,7 +65,9 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, return/1, on_and_off/1, stack_grow/1, 
 	 info/1, tracer/1, combo/1, nosilent/1]).
 	 
@@ -73,7 +75,7 @@ init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(5)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     shutdown(),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),

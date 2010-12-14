@@ -33,7 +33,9 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, end_per_suite/1]).
 
 -export([equal/1,
 	 few_low/1,
@@ -60,29 +62,30 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[equal, few_low, many_low, equal_with_part_time_high,
- equal_with_part_time_max,
- equal_and_high_with_part_time_max, equal_with_high,
- equal_with_high_max, bound_process,
- {group, scheduler_bind}, scheduler_suspend,
- reader_groups].
+    [equal, few_low, many_low, equal_with_part_time_high,
+     equal_with_part_time_max,
+     equal_and_high_with_part_time_max, equal_with_high,
+     equal_with_high_max, bound_process,
+     {group, scheduler_bind}, scheduler_suspend,
+     reader_groups].
 
 groups() -> 
     [{scheduler_bind, [],
-  [scheduler_bind_types, cpu_topology, update_cpu_info,
-   sct_cmd, sbt_cmd]}].
+      [scheduler_bind_types, cpu_topology, update_cpu_info,
+       sct_cmd, sbt_cmd]}].
 
 init_per_suite(Config) ->
     Config.
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    Config.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Case, Config) when is_list(Config) ->
@@ -92,14 +95,10 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     OkRes = ok,
     [{watchdog, Dog}, {testcase, Case}, {ok_res, OkRes} |Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
-
-end_per_suite(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    Config.
 
 -define(ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED, (2000*2000)).
 -define(DEFAULT_TEST_REDS_PER_SCHED, 200000000).

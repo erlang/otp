@@ -22,7 +22,8 @@
 -module(gc_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -define(default_timeout, ?t:minutes(10)).
 
@@ -31,7 +32,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[grow_heap, grow_stack, grow_stack_heap].
+    [grow_heap, grow_stack, grow_stack_heap].
 
 groups() -> 
     [].
@@ -43,10 +44,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 grow_heap(doc) -> ["Produce a growing list of elements, ",

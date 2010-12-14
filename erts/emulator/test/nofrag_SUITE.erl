@@ -21,7 +21,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,end_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 error_handler/1,error_handler_apply/1,
 	 error_handler_fixed_apply/1,error_handler_fun/1,
 	 error_handler_tuple_fun/1,
@@ -33,9 +35,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[error_handler, error_handler_apply,
- error_handler_fixed_apply, error_handler_fun,
- error_handler_tuple_fun, debug_breakpoint].
+    [error_handler, error_handler_apply,
+     error_handler_fixed_apply, error_handler_fun,
+     error_handler_tuple_fun, debug_breakpoint].
 
 groups() -> 
     [].
@@ -47,10 +49,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->

@@ -21,7 +21,9 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 types/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
@@ -30,9 +32,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[types, t_list_to_existing_atom, os_env, otp_7526,
- atom_to_binary, binary_to_atom, binary_to_existing_atom,
- min_max].
+    [types, t_list_to_existing_atom, os_env, otp_7526,
+     atom_to_binary, binary_to_atom, binary_to_existing_atom,
+     min_max].
 
 groups() -> 
     [].
@@ -44,17 +46,17 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(1)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

@@ -18,7 +18,8 @@
 
 -module(alloc_SUITE).
 -author('rickard.green@uab.ericsson.se').
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([basic/1,
 	 coalesce/1,
@@ -29,7 +30,7 @@
 	 rbtree/1,
 	 mseg_clear_cache/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -38,8 +39,8 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[basic, coalesce, threads, realloc_copy, bucket_index,
- bucket_mask, rbtree, mseg_clear_cache].
+    [basic, coalesce, threads, realloc_copy, bucket_index,
+     bucket_mask, rbtree, mseg_clear_cache].
 
 groups() -> 
     [].
@@ -51,10 +52,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
@@ -62,7 +63,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

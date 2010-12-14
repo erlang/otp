@@ -20,27 +20,28 @@
 -module(port_bif_SUITE).
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, command/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
 	 connect/1, control/1, echo_to_busy/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[command, {group, port_info}, connect, control,
- echo_to_busy].
+    [command, {group, port_info}, connect, control,
+     echo_to_busy].
 
 groups() -> 
     [{command_e, [],
-  [command_e_1, command_e_2, command_e_3, command_e_4]},
- {port_info, [], [port_info1, port_info2]}].
+      [command_e_1, command_e_2, command_e_3, command_e_4]},
+     {port_info, [], [port_info1, port_info2]}].
 
 init_per_suite(Config) ->
     Config.
@@ -49,17 +50,17 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog=test_server:timetrap(test_server:minutes(10)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) when is_list(Config) ->
+end_per_testcase(_Func, Config) when is_list(Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 

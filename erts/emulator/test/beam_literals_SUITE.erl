@@ -18,7 +18,8 @@
 %%
 
 -module(beam_literals_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([putting/1, matching_smalls/1, matching_smalls_jt/1,
 	 matching_bigs/1, matching_more_bigs/1,
 	 matching_bigs_and_smalls/1, badmatch/1, case_clause/1,
@@ -31,11 +32,11 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[putting, matching_smalls, matching_smalls_jt,
- matching_bigs, matching_more_bigs,
- matching_bigs_and_smalls, badmatch, case_clause,
- receiving, literal_type_tests, put_list, fconv,
- literal_case_expression, increment].
+    [putting, matching_smalls, matching_smalls_jt,
+     matching_bigs, matching_more_bigs,
+     matching_bigs_and_smalls, badmatch, case_clause,
+     receiving, literal_type_tests, put_list, fconv,
+     literal_case_expression, increment].
 
 groups() -> 
     [].
@@ -47,10 +48,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 putting(doc) -> "Test creating lists and tuples containing big number literals.";
@@ -256,14 +257,14 @@ make_test([{T,L}|Ts]) ->
 make_test([]) -> [].
 
 test(T, L) ->
-    S = lists:flatten(io_lib:format("begin io:format(\"~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T, L, T, L])),
+    S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p}]), if ~w(~w) -> true; true -> false end end. ", [T, L, T, L])),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
     {value,Val,_Bs} = erl_eval:exprs(E, []),
     {match,0,{atom,0,Val},hd(E)}.
 
 test(T, A, L) ->
-    S = lists:flatten(io_lib:format("begin io:format(\"~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ",
+    S = lists:flatten(io_lib:format("begin io:format(\"~~p~n\", [{~p,~p,~p}]), if ~w(~w, ~w) -> true; true -> false end end. ",
 				    [T,L,A,T,L,A])),
     {ok,Toks,_Line} = erl_scan:string(S),
     {ok,E} = erl_parse:parse_exprs(Toks),
