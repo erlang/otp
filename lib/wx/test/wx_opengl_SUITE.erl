@@ -22,7 +22,8 @@
 %%% Created :  3 Nov 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_opengl_SUITE).
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -compile(export_all).
@@ -53,18 +54,18 @@ end_per_testcase(Func,Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[canvas, glu_tesselation].
+    [canvas, glu_tesselation].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
-  
+
 %% The test cases
 
 -define(VS, {{ 0.5,  0.5, -0.5},  %1
