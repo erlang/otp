@@ -18,7 +18,8 @@
 %%
 -module(cover_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
 	 distribution/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
@@ -40,17 +41,17 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-case whereis(cover_server) of
-  undefined ->
-      [start, compile, analyse, misc, stop, distribution,
-       export_import, otp_5031, eif, otp_5305, otp_5418,
-       otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
-       otp_8340];
-  _pid ->
-      {skip,
-       "It looks like the test server is running "
-       "cover. Can't run cover test."}
-end.
+    case whereis(cover_server) of
+	undefined ->
+	    [start, compile, analyse, misc, stop, distribution,
+	     export_import, otp_5031, eif, otp_5305, otp_5418,
+	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
+	     otp_8340];
+	_pid ->
+	    {skip,
+	     "It looks like the test server is running "
+	     "cover. Can't run cover test."}
+    end.
 
 groups() -> 
     [].
@@ -62,10 +63,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 start(suite) -> [];

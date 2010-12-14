@@ -18,7 +18,8 @@
 %%
 -module(make_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, make_all/1, make_files/1]).
 -export([otp_6057_init/1,
 	 otp_6057_a/1, otp_6057_b/1, otp_6057_c/1,
 	 otp_6057_end/1]).
@@ -38,11 +39,11 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[make_all, make_files, otp_6057_a, otp_6057_b,
- otp_6057_c].
+    [make_all, make_files, {group, otp_6057}].
 
 groups() -> 
-    [].
+    [{otp_6057,[],[otp_6057_a, otp_6057_b,
+		   otp_6057_c]}].
 
 init_per_suite(Config) ->
     Config.
@@ -51,10 +52,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    otp_6057_init(Config).
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    otp_6057_end(Config).
 
 
 test_files() -> ["test1", "test2", "test3", "test4"].

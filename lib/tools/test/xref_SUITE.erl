@@ -36,7 +36,8 @@
 -define(copydir, ?config(copy_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init/1, fini/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, init/1, fini/1]).
 
 -export([
 	 addrem/1, convert/1, intergraph/1, lines/1, loops/1,
@@ -71,32 +72,32 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, xref}, {group, files}, {group, analyses},
- {group, misc}].
+    [{group, xref}, {group, files}, {group, analyses},
+     {group, misc}].
 
 groups() -> 
     [{xref, [],
-  [addrem, convert, intergraph, lines, loops, no_data,
-   modules]},
- {files, [],
-  [add, default, info, lib, read, read2, remove, replace,
-   update, deprecated, trycatch, abstract_modules, fun_mfa,
-   qlc]},
- {analyses, [],
-  [analyze, basic, md, q, variables, unused_locals]},
- {misc, [], [format_error, otp_7423, otp_7831]}].
+      [addrem, convert, intergraph, lines, loops, no_data,
+       modules]},
+     {files, [],
+      [add, default, info, lib, read, read2, remove, replace,
+       update, deprecated, trycatch, abstract_modules, fun_mfa,
+       qlc]},
+     {analyses, [],
+      [analyze, basic, md, q, variables, unused_locals]},
+     {misc, [], [format_error, otp_7423, otp_7831]}].
 
 init_per_suite(Config) ->
-    Config.
+    init(Config).
 
 end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init(Conf) when is_list(Conf) ->

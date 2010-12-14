@@ -54,16 +54,16 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[load_v1, conflicts, locations, swap_keys].
+    [load_v1, conflicts, locations, swap_keys].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%----------------------------------------------------------------------

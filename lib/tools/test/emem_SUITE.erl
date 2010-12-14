@@ -24,7 +24,8 @@
 	 receive_and_save_trace/2, send_trace/2]).
 
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([live_node/1,
 	 'sparc_sunos5.8_32b_emt2.0'/1,
@@ -77,23 +78,23 @@ groups() ->
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
-		 
+
 test_cases() -> 
-[live_node, 'sparc_sunos5.8_32b_emt2.0',
- 'pc_win2000_32b_emt2.0',
- 'pc.smp_linux2.2.19pre17_32b_emt2.0',
- 'powerpc_darwin7.7.0_32b_emt2.0',
- 'alpha_osf1v5.1_64b_emt2.0',
- 'sparc_sunos5.8_64b_emt2.0',
- 'sparc_sunos5.8_32b_emt1.0', 'pc_win2000_32b_emt1.0',
- 'powerpc_darwin7.7.0_32b_emt1.0',
- 'alpha_osf1v5.1_64b_emt1.0',
- 'sparc_sunos5.8_64b_emt1.0'].
+    [live_node, 'sparc_sunos5.8_32b_emt2.0',
+     'pc_win2000_32b_emt2.0',
+     'pc.smp_linux2.2.19pre17_32b_emt2.0',
+     'powerpc_darwin7.7.0_32b_emt2.0',
+     'alpha_osf1v5.1_64b_emt2.0',
+     'sparc_sunos5.8_64b_emt2.0',
+     'sparc_sunos5.8_32b_emt1.0', 'pc_win2000_32b_emt1.0',
+     'powerpc_darwin7.7.0_32b_emt1.0',
+     'alpha_osf1v5.1_64b_emt1.0',
+     'sparc_sunos5.8_64b_emt1.0'].
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     case maybe_skip(Config) of
