@@ -27,8 +27,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [fields, modules, exportall, app_depend],
-	Cases.
+    [fields, modules, exportall, app_depend].
 
 groups() -> 
     [].

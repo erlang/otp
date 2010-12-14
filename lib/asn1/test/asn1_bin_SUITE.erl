@@ -51,8 +51,9 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% records used by test-case default
--record('Def1',{
-bool0, bool1 = asn1_DEFAULT, bool2 = asn1_DEFAULT, bool3 = asn1_DEFAULT}).
+-record('Def1',{bool0, bool1 = asn1_DEFAULT, 
+		bool2 = asn1_DEFAULT, 
+		bool3 = asn1_DEFAULT}).
 
 %-record('Def2',{
 %bool10, bool11 = asn1_DEFAULT, bool12 = asn1_DEFAULT, bool13}).
@@ -65,63 +66,62 @@ bool0, bool1 = asn1_DEFAULT, bool2 = asn1_DEFAULT, bool3 = asn1_DEFAULT}).
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, compile}, parse, default_per, default_ber,
- default_per_opt, per, {group, ber}, testPrim,
- testPrimStrings, testPrimExternal, testChoPrim,
- testChoExtension, testChoExternal, testChoOptional,
- testChoOptionalImplicitTag, testChoRecursive,
- testChoTypeRefCho, testChoTypeRefPrim,
- testChoTypeRefSeq, testChoTypeRefSet, testDef, testOpt,
- testSeqDefault, testSeqExtension, testSeqExternal,
- testSeqOptional, testSeqPrim, testSeqTag,
- testSeqTypeRefCho, testSeqTypeRefPrim,
- testSeqTypeRefSeq, testSeqTypeRefSet, testSeqOf,
- testSeqOfIndefinite, testSeqOfCho, testSeqOfExternal,
- testSetDefault, testSetExtension,
- testExtensionAdditionGroup, testSetExternal,
- testSeqOfTag, testSetOptional, testSetPrim, testSetTag,
- testSetTypeRefCho, testSetTypeRefPrim,
- testSetTypeRefSeq, testSetTypeRefSet, testSetOf,
- testSetOfCho, testSetOfExternal, testSetOfTag,
- testEnumExt, value_test, testSeq2738, constructed,
- ber_decode_error, h323test, testSeqIndefinite,
- testSetIndefinite, testChoiceIndefinite,
- per_GeneralString, per_open_type, testInfObjectClass,
- testParameterizedInfObj, testMergeCompile, testobj,
- testDeepTConstr, testConstraints, testInvokeMod,
- testExport, testImport, testCompactBitString,
- testMegaco, testParamBasic, testMvrasn6,
- testContextSwitchingTypes, testTypeValueNotation,
- testOpenTypeImplicitTag, duplicate_tags, rtUI, testROSE,
- testINSTANCE_OF, testTCAP, testDER, specialized_decodes,
- special_decode_performance, test_driver_load,
- test_ParamTypeInfObj, test_WS_ParamClass,
- test_Defed_ObjectIdentifier, testSelectionType,
- testSSLspecs, testNortel, test_undecoded_rest,
- test_inline, testTcapsystem, testNBAPsystem,
- test_compile_options, testDoubleEllipses,
- test_modified_x420, testX420, test_x691, ticket_6143,
- testExtensionAdditionGroup]
-  ++ common() ++ particular().
+    [{group, compile}, parse, default_per, default_ber,
+     default_per_opt, per, {group, ber}, testPrim,
+     testPrimStrings, testPrimExternal, testChoPrim,
+     testChoExtension, testChoExternal, testChoOptional,
+     testChoOptionalImplicitTag, testChoRecursive,
+     testChoTypeRefCho, testChoTypeRefPrim,
+     testChoTypeRefSeq, testChoTypeRefSet, testDef, testOpt,
+     testSeqDefault, testSeqExtension, testSeqExternal,
+     testSeqOptional, testSeqPrim, testSeqTag,
+     testSeqTypeRefCho, testSeqTypeRefPrim,
+     testSeqTypeRefSeq, testSeqTypeRefSet, testSeqOf,
+     testSeqOfIndefinite, testSeqOfCho, testSeqOfExternal,
+     testSetDefault, testSetExtension,
+     testExtensionAdditionGroup, testSetExternal,
+     testSeqOfTag, testSetOptional, testSetPrim, testSetTag,
+     testSetTypeRefCho, testSetTypeRefPrim,
+     testSetTypeRefSeq, testSetTypeRefSet, testSetOf,
+     testSetOfCho, testSetOfExternal, testSetOfTag,
+     testEnumExt, value_test, testSeq2738, constructed,
+     ber_decode_error, h323test, testSeqIndefinite,
+     testSetIndefinite, testChoiceIndefinite,
+     per_GeneralString, per_open_type, testInfObjectClass,
+     testParameterizedInfObj, testMergeCompile, testobj,
+     testDeepTConstr, testConstraints, testInvokeMod,
+     testExport, testImport, testCompactBitString,
+     testMegaco, testParamBasic, testMvrasn6,
+     testContextSwitchingTypes, testTypeValueNotation,
+     testOpenTypeImplicitTag, duplicate_tags, rtUI, testROSE,
+     testINSTANCE_OF, testTCAP, testDER, specialized_decodes,
+     special_decode_performance, test_driver_load,
+     test_ParamTypeInfObj, test_WS_ParamClass,
+     test_Defed_ObjectIdentifier, testSelectionType,
+     testSSLspecs, testNortel, test_undecoded_rest,
+     test_inline, testTcapsystem, testNBAPsystem,
+     test_compile_options, testDoubleEllipses,
+     test_modified_x420, testX420, test_x691, ticket_6143,
+     testExtensionAdditionGroup] ++ common() ++ particular().
 
 groups() -> 
     [{option_tests, [],
-  [test_compile_options, ticket_6143]},
- {infobj, [],
-  [testInfObjectClass, testParameterizedInfObj,
-   testMergeCompile, testobj, testDeepTConstr]},
- {performance, [],
-  [testTimer_ber, testTimer_ber_opt_driver, testTimer_per,
-   testTimer_per_opt, testTimer_uper_bin]},
- {bugs, [],
-  [test_ParamTypeInfObj, test_WS_ParamClass,
-   test_Defed_ObjectIdentifier]},
- {compile, [],
-  [c_syntax, c_string_per, c_string_ber,
-   c_implicit_before_choice]},
- {ber, [],
-  [ber_choiceinseq, ber_optional, ber_optional_keyed_list,
-   ber_other]}].
+      [test_compile_options, ticket_6143]},
+     {infobj, [],
+      [testInfObjectClass, testParameterizedInfObj,
+       testMergeCompile, testobj, testDeepTConstr]},
+     {performance, [],
+      [testTimer_ber, testTimer_ber_opt_driver, testTimer_per,
+       testTimer_per_opt, testTimer_uper_bin]},
+     {bugs, [],
+      [test_ParamTypeInfObj, test_WS_ParamClass,
+       test_Defed_ObjectIdentifier]},
+     {compile, [],
+      [c_syntax, c_string_per, c_string_ber,
+       c_implicit_before_choice]},
+     {ber, [],
+      [ber_choiceinseq, ber_optional, ber_optional_keyed_list,
+       ber_other]}].
 
 init_per_suite(Config) ->
     Config.
@@ -135,12 +135,7 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
 	Config.
 
-
 %all(suite) -> [test_inline,testNBAPsystem,test_compile_options,ticket_6143].
-
-
-
-
 
 init_per_testcase(Func,Config) ->
     %%?line test_server:format("Func: ~p~n",[Func]),
