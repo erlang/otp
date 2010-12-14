@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(edlin_expand_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1]).
 
@@ -39,22 +40,26 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[normal, quoted_fun, quoted_module, quoted_both].
+    [normal, quoted_fun, quoted_module, quoted_both].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    true = code:delete(expand_test),
+    true = code:delete(expand_test1),
+    true = code:delete('ExpandTestCaps'),
+    true = code:delete('ExpandTestCaps1'),
     Config.
 
 end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 normal(doc) ->

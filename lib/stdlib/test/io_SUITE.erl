@@ -18,7 +18,8 @@
 %%
 -module(io_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -57,11 +58,11 @@ end_per_testcase(_Case, _Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[error_1, float_g, otp_5403, otp_5813, otp_6230,
- otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
- manpage, otp_6708, otp_7084, otp_7421,
- io_lib_collect_line_3_wb, cr_whitespace_in_string,
- io_fread_newlines].
+    [error_1, float_g, otp_5403, otp_5813, otp_6230,
+     otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
+     manpage, otp_6708, otp_7084, otp_7421,
+     io_lib_collect_line_3_wb, cr_whitespace_in_string,
+     io_fread_newlines].
 
 groups() -> 
     [].
@@ -73,10 +74,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 error_1(doc) ->

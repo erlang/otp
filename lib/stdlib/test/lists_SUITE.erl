@@ -30,7 +30,8 @@
 -define(default_timeout, ?t:minutes(4)).
 
 % Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases must be exported.
@@ -43,8 +44,8 @@
 	 sublist_2/1, sublist_3/1, sublist_2_e/1, sublist_3_e/1,
 	 flatten_1/1, flatten_2/1, flatten_1_e/1, flatten_2_e/1,
 	 dropwhile/1,
-	 sort/1, sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
- usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
+	 sort_1/1, sort_stable/1, merge/1, rmerge/1, sort_rand/1,
+	 usort_1/1, usort_stable/1, umerge/1, rumerge/1,usort_rand/1,
 	 keymerge/1, rkeymerge/1,
 	 keysort_1/1, keysort_i/1, keysort_stable/1,
 	 keysort_rand/1, keysort_error/1,
@@ -59,7 +60,7 @@
 	 ufunsort_error/1,
 	 zip_unzip/1, zip_unzip3/1, zipwith/1, zipwith3/1,
 	 filter_partition/1, 
- otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
+	 otp_5939/1, otp_6023/1, otp_6606/1, otp_7230/1,
 	 suffix/1, subtract/1]).
 
 %% Sort randomized lists until stopped.
@@ -79,36 +80,37 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, append}, reverse, member, keymember,
- keysearch_keyfind, keystore, keytake, dropwhile, sort,
- {group, usort}, {group, keysort}, {group, ukeysort},
- {group, funsort}, {group, ufunsort}, {group, sublist},
- {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
- zipwith, zipwith3, filter_partition, {group, tickets},
- suffix, subtract].
+    [{group, append}, reverse, member, keymember,
+     keysearch_keyfind, keystore, keytake, dropwhile, {group,sort},
+     {group, usort}, {group, keysort}, {group, ukeysort},
+     {group, funsort}, {group, ufunsort}, {group, sublist},
+     {group, flatten}, {group, seq}, zip_unzip, zip_unzip3,
+     zipwith, zipwith3, filter_partition, {group, tickets},
+     suffix, subtract].
 
 groups() -> 
     [{append, [], [append_1, append_2]},
- {usort, [],
-  [umerge, rumerge, usort_1, usort_rand, usort_stable]},
- {keysort, [],
-  [keymerge, rkeymerge, keysort_1, keysort_rand,
-   keysort_i, keysort_stable, keysort_error]},
- {ukeysort, [],
-  [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
-   ukeysort_i, ukeysort_stable, ukeysort_error]},
- {funsort, [],
-  [funmerge, rfunmerge, funsort_1, funsort_stable,
-   funsort_error, funsort_rand]},
- {ufunsort, [],
-  [ufunmerge, rufunmerge, ufunsort_1, ufunsort_stable,
-   ufunsort_error, ufunsort_rand]},
- {seq, [], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
- {sublist, [],
-  [sublist_2, sublist_3, sublist_2_e, sublist_3_e]},
- {flatten, [],
-  [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
- {tickets, [], [otp_5939, otp_6023, otp_6606, otp_7230]}].
+     {usort, [],
+      [umerge, rumerge, usort_1, usort_rand, usort_stable]},
+     {keysort, [],
+      [keymerge, rkeymerge, keysort_1, keysort_rand,
+       keysort_i, keysort_stable, keysort_error]},
+     {sort,[],[merge, rmerge, sort_1, sort_rand]},
+     {ukeysort, [],
+      [ukeymerge, rukeymerge, ukeysort_1, ukeysort_rand,
+       ukeysort_i, ukeysort_stable, ukeysort_error]},
+     {funsort, [],
+      [funmerge, rfunmerge, funsort_1, funsort_stable,
+       funsort_error, funsort_rand]},
+     {ufunsort, [],
+      [ufunmerge, rufunmerge, ufunsort_1, ufunsort_stable,
+       ufunsort_error, ufunsort_rand]},
+     {seq, [], [seq_loop, seq_2, seq_3, seq_2_e, seq_3_e]},
+     {sublist, [],
+      [sublist_2, sublist_3, sublist_2_e, sublist_3_e]},
+     {flatten, [],
+      [flatten_1, flatten_2, flatten_1_e, flatten_2_e]},
+     {tickets, [], [otp_5939, otp_6023, otp_6606, otp_7230]}].
 
 init_per_suite(Config) ->
     Config.
@@ -117,10 +119,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) ->
@@ -378,12 +380,6 @@ keytake(Config) when is_list(Config) ->
     ?line {value,{c,3},[{a,1},{b,2}]} = lists:keytake(3, 2, L),
     ?line false = lists:keytake(4, 2, L),
     ok.
-
-sort(doc) ->
-    ["Tests merge functions and lists:sort/1"];
-sort(suite) ->
-    %% [merge, rmerge, sort_1, sort_rand, sort_stable].
-    [merge, rmerge, sort_1, sort_rand].
 
 merge(doc) ->   ["merge functions"];
 merge(suite) -> [];

@@ -35,18 +35,20 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([ func/1, call/1, recs/1, try_catch/1, if_then/1,
-            receive_after/1, bits/1, head_tail/1, package/1,
-            cond1/1, block/1, case1/1, ops/1, messages/1,
-	    old_mnemosyne_syntax/1,
- import_export/1, misc_attrs/1,
-         hook/1,
-         neg_indent/1,
+	  receive_after/1, bits/1, head_tail/1, package/1,
+	  cond1/1, block/1, case1/1, ops/1, messages/1,
+	  old_mnemosyne_syntax/1,
+	  import_export/1, misc_attrs/1,
+	  hook/1,
+	  neg_indent/1,
 
-            otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
-            otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1]).
+	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
+	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -66,18 +68,18 @@ end_per_testcase(_Case, _Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, expr}, {group, attributes}, hook, neg_indent,
- {group, tickets}].
+    [{group, expr}, {group, attributes}, hook, neg_indent,
+     {group, tickets}].
 
 groups() -> 
     [{expr, [],
-  [func, call, recs, try_catch, if_then, receive_after,
-   bits, head_tail, package, cond1, block, case1, ops,
-   messages, old_mnemosyne_syntax]},
- {attributes, [], [misc_attrs, import_export]},
- {tickets, [],
-  [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
-   otp_8473, otp_8522, otp_8567, otp_8664]}].
+      [func, call, recs, try_catch, if_then, receive_after,
+       bits, head_tail, package, cond1, block, case1, ops,
+       messages, old_mnemosyne_syntax]},
+     {attributes, [], [misc_attrs, import_export]},
+     {tickets, [],
+      [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
+       otp_8473, otp_8522, otp_8567, otp_8664]}].
 
 init_per_suite(Config) ->
     Config.
@@ -86,10 +88,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

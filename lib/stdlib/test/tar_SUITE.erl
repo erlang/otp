@@ -18,7 +18,8 @@
 %%
 -module(tar_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, borderline/1, atomic/1, long_names/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, borderline/1, atomic/1, long_names/1,
 	 create_long_names/1, bad_tar/1, errors/1, extract_from_binary/1,
 	 extract_from_binary_compressed/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
@@ -30,10 +31,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[borderline, atomic, long_names, create_long_names,
- bad_tar, errors, extract_from_binary,
- extract_from_binary_compressed, extract_from_open_file,
- symlinks, open_add_close, cooked_compressed, memory].
+    [borderline, atomic, long_names, create_long_names,
+     bad_tar, errors, extract_from_binary,
+     extract_from_binary_compressed, extract_from_open_file,
+     symlinks, open_add_close, cooked_compressed, memory].
 
 groups() -> 
     [].
@@ -45,10 +46,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 borderline(doc) ->

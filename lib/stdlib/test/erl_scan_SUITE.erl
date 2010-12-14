@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 
 -module(erl_scan_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([ error_1/1, error_2/1, iso88591/1, otp_7810/1]).
 
@@ -58,7 +59,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, error}, iso88591, otp_7810].
+    [{group, error}, iso88591, otp_7810].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -70,10 +71,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

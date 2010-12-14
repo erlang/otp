@@ -34,7 +34,9 @@
 -define(datadir(Conf), ?config(data_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, not_run/1, newly_started/1, basic_v8/1, basic_v9/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 not_run/1, newly_started/1, basic_v8/1, basic_v9/1,
 	 open_v8/1, open_v9/1, sets_v8/1, sets_v9/1, bags_v8/1,
 	 bags_v9/1, duplicate_bags_v8/1, duplicate_bags_v9/1,
 	 access_v8/1, access_v9/1, dirty_mark/1, dirty_mark2/1,
@@ -123,10 +125,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 not_run(suite) -> [];
 not_run(Conf) when is_list(Conf) ->

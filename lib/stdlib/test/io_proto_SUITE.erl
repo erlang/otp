@@ -19,15 +19,19 @@
 -module(io_proto_SUITE).
 -compile(r12).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, binary_options/1, bc_with_r12/1,
-	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
+-export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, 
+	 binary_options/1, bc_with_r12/1,
+	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, 
+	 read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
 
 
--export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, proxy_setnext/2, proxy_quit/1]).
+-export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, 
+	 proxy_setnext/2, proxy_quit/1]).
 %% For spawn
 -export([toerl_server/3,hold_the_line/3,answering_machine1/3,
 	 answering_machine2/3]).
@@ -83,10 +87,10 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[setopts_getopts, unicode_options, unicode_options_gen,
- binary_options, bc_with_r12, bc_with_r12_gl,
- bc_with_r12_ogl, read_modes_gl, read_modes_ogl,
- broken_unicode, eof_on_pipe, unicode_prompt].
+    [setopts_getopts, unicode_options, unicode_options_gen,
+     binary_options, bc_with_r12, bc_with_r12_gl,
+     bc_with_r12_ogl, read_modes_gl, read_modes_ogl,
+     broken_unicode, eof_on_pipe, unicode_prompt].
 
 groups() -> 
     [].
@@ -98,10 +102,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

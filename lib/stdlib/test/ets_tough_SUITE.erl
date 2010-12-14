@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(ets_tough_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,ex1/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,ex1/1]).
 -export([init/1,terminate/2,handle_call/3,handle_info/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -compile([export_all]).
@@ -26,7 +27,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[ex1].
+    [ex1].
 
 groups() -> 
     [].
@@ -38,10 +39,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

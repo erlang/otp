@@ -23,7 +23,9 @@
 %%
 %%-define(STANDALONE,1).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, crash/1, sync_start_nolink/1, sync_start_link/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
 	 hibernate/1]).
 -export([ otp_6345/1]).
@@ -46,12 +48,12 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[crash, {group, sync_start}, spawn_opt, hibernate,
- {group, tickets}].
+    [crash, {group, sync_start}, spawn_opt, hibernate,
+     {group, tickets}].
 
 groups() -> 
     [{tickets, [], [otp_6345]},
- {sync_start, [], [sync_start_nolink, sync_start_link]}].
+     {sync_start, [], [sync_start_nolink, sync_start_link]}].
 
 init_per_suite(Config) ->
     Config.
@@ -60,10 +62,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

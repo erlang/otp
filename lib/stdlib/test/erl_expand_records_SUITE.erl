@@ -31,11 +31,13 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([abstract_module/1, attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
- otp_5915/1, otp_7931/1, otp_5990/1,
+	 otp_5915/1, otp_7931/1, otp_5990/1,
 	 otp_7078/1, otp_7101/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -53,12 +55,12 @@ end_per_testcase(_Case, _Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[abstract_module, attributes, expr, guard, init,
- pattern, strict, update, {group, tickets}].
+    [abstract_module, attributes, expr, guard, init,
+     pattern, strict, update, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
-  [otp_5915, otp_7931, otp_5990, otp_7078, otp_7101]}].
+      [otp_5915, otp_7931, otp_5990, otp_7078, otp_7101]}].
 
 init_per_suite(Config) ->
     Config.
@@ -67,10 +69,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 abstract_module(doc) ->

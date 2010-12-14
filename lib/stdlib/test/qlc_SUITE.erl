@@ -51,36 +51,33 @@
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([ 
-             badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
-             filter_var/1, single/1, exported_var/1, generator_vars/1,
-             nomatch/1, errors/1, pattern/1, 
+	  badarg/1, nested_qlc/1, unused_var/1, lc/1, fun_clauses/1,
+	  filter_var/1, single/1, exported_var/1, generator_vars/1,
+	  nomatch/1, errors/1, pattern/1, 
 
- 
-             eval/1, cursor/1, fold/1, eval_unique/1, eval_cache/1, append/1, 
-             evaluator/1, string_to_handle/1, table/1, process_dies/1, 
-             sort/1, keysort/1, filesort/1, cache/1, cache_list/1, filter/1, 
-             info/1, nested_info/1, lookup1/1, lookup2/1, lookup_rec/1, 
-             indices/1, pre_fun/1, skip_filters/1,
+	  eval/1, cursor/1, fold/1, eval_unique/1, eval_cache/1, append/1, 
+	  evaluator/1, string_to_handle/1, table/1, process_dies/1, 
+	  sort/1, keysort/1, filesort/1, cache/1, cache_list/1, filter/1, 
+	  info/1, nested_info/1, lookup1/1, lookup2/1, lookup_rec/1, 
+	  indices/1, pre_fun/1, skip_filters/1,
 
+	  ets/1, dets/1,
 
-             ets/1, dets/1,
+	  join_option/1, join_filter/1, join_lookup/1, join_merge/1,
+	  join_sort/1, join_complex/1,
 
+	  otp_5644/1, otp_5195/1, otp_6038_bug/1, otp_6359/1, otp_6562/1,
+	  otp_6590/1, otp_6673/1, otp_6964/1, otp_7114/1, otp_7238/1,
+	  otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1,
 
-             join_option/1, join_filter/1, join_lookup/1, join_merge/1,
-             join_sort/1, join_complex/1,
+	  manpage/1,
 
-
-             otp_5644/1, otp_5195/1, otp_6038_bug/1, otp_6359/1, otp_6562/1,
-             otp_6590/1, otp_6673/1, otp_6964/1, otp_7114/1, otp_7238/1,
-             otp_7232/1, otp_7552/1, otp_6674/1, otp_7714/1,
-
-         manpage/1,
-
-
-             backward/1, forward/1]).
+	  backward/1, forward/1]).
 
 %% Internal exports.
 -export([bad_table_throw/1, bad_table_exit/1, default_table/1, bad_table/1,
@@ -122,30 +119,30 @@ end_per_testcase(_Case, _Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, parse_transform}, {group, evaluation},
- {group, table_impls}, {group, join}, {group, tickets},
- manpage, {group, compat}].
+    [{group, parse_transform}, {group, evaluation},
+     {group, table_impls}, {group, join}, {group, tickets},
+     manpage, {group, compat}].
 
 groups() -> 
     [{parse_transform, [],
-  [badarg, nested_qlc, unused_var, lc, fun_clauses,
-   filter_var, single, exported_var, generator_vars,
-   nomatch, errors, pattern]},
- {evaluation, [],
-  [eval, cursor, fold, eval_unique, eval_cache, append,
-   evaluator, string_to_handle, table, process_dies, sort,
-   keysort, filesort, cache, cache_list, filter, info,
-   nested_info, lookup1, lookup2, lookup_rec, indices,
-   pre_fun, skip_filters]},
- {table_impls, [], [ets, dets]},
- {join, [],
-  [join_option, join_filter, join_lookup, join_merge,
-   join_sort, join_complex]},
- {tickets, [],
-  [otp_5644, otp_5195, otp_6038_bug, otp_6359, otp_6562,
-   otp_6590, otp_6673, otp_6964, otp_7114, otp_7232,
-   otp_7238, otp_7552, otp_6674, otp_7714]},
- {compat, [], [backward, forward]}].
+      [badarg, nested_qlc, unused_var, lc, fun_clauses,
+       filter_var, single, exported_var, generator_vars,
+       nomatch, errors, pattern]},
+     {evaluation, [],
+      [eval, cursor, fold, eval_unique, eval_cache, append,
+       evaluator, string_to_handle, table, process_dies, sort,
+       keysort, filesort, cache, cache_list, filter, info,
+       nested_info, lookup1, lookup2, lookup_rec, indices,
+       pre_fun, skip_filters]},
+     {table_impls, [], [ets, dets]},
+     {join, [],
+      [join_option, join_filter, join_lookup, join_merge,
+       join_sort, join_complex]},
+     {tickets, [],
+      [otp_5644, otp_5195, otp_6038_bug, otp_6359, otp_6562,
+       otp_6590, otp_6673, otp_6964, otp_7114, otp_7232,
+       otp_7238, otp_7552, otp_6674, otp_7714]},
+     {compat, [], [backward, forward]}].
 
 init_per_suite(Config) ->
     Config.
@@ -154,12 +151,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
-
-
+    Config.
 
 badarg(doc) ->
     "Badarg.";

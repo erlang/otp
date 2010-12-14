@@ -21,7 +21,8 @@
 -module(timer_simple_SUITE).
 
 %% external
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
 	 apply_after/1,
 	 send_after1/1,
@@ -57,11 +58,11 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[apply_after, send_after1, send_after2, send_after3,
- exit_after1, exit_after2, kill_after1, kill_after2,
- apply_interval, send_interval1, send_interval2,
- send_interval3, send_interval4, cancel1, cancel2, tc,
- unique_refs, timer_perf].
+    [apply_after, send_after1, send_after2, send_after3,
+     exit_after1, exit_after2, kill_after1, kill_after2,
+     apply_interval, send_interval1, send_interval2,
+     send_interval3, send_interval4, cancel1, cancel2, tc,
+     unique_refs, timer_perf].
 
 groups() -> 
     [].
@@ -73,10 +74,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_, Config) when is_list(Config) ->

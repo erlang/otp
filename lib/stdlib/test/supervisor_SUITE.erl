@@ -23,7 +23,8 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% Testserver specific export
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %% Indirect spawn export
 -export([init/1]).
@@ -57,38 +58,38 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, sup_start}, {group, sup_stop}, child_adm,
- child_adm_simple, extra_return, child_specs,
- {group, restart_one_for_one},
- {group, restart_one_for_all},
- {group, restart_simple_one_for_one},
- {group, restart_rest_for_one},
- {group, normal_termination},
- {group, abnormal_termination}, child_unlink, tree,
- count_children_memory].
+    [{group, sup_start}, {group, sup_stop}, child_adm,
+     child_adm_simple, extra_return, child_specs,
+     {group, restart_one_for_one},
+     {group, restart_one_for_all},
+     {group, restart_simple_one_for_one},
+     {group, restart_rest_for_one},
+     {group, normal_termination},
+     {group, abnormal_termination}, child_unlink, tree,
+     count_children_memory].
 
 groups() -> 
     [{sup_start, [],
-  [sup_start_normal, sup_start_ignore_init,
-   sup_start_ignore_child, sup_start_error_return,
-   sup_start_fail]},
- {sup_stop, [],
-  [sup_stop_infinity, sup_stop_timeout,
-   sup_stop_brutal_kill]},
- {normal_termination, [],
-  [permanent_normal, transient_normal, temporary_normal]},
- {abnormal_termination, [],
-  [permanent_abnormal, transient_abnormal,
-   temporary_abnormal]},
- {restart_one_for_one, [],
-  [one_for_one, one_for_one_escalation]},
- {restart_one_for_all, [],
-  [one_for_all, one_for_all_escalation]},
- {restart_simple_one_for_one, [],
-  [simple_one_for_one, simple_one_for_one_extra,
-   simple_one_for_one_escalation]},
- {restart_rest_for_one, [],
-  [rest_for_one, rest_for_one_escalation]}].
+      [sup_start_normal, sup_start_ignore_init,
+       sup_start_ignore_child, sup_start_error_return,
+       sup_start_fail]},
+     {sup_stop, [],
+      [sup_stop_infinity, sup_stop_timeout,
+       sup_stop_brutal_kill]},
+     {normal_termination, [],
+      [permanent_normal, transient_normal, temporary_normal]},
+     {abnormal_termination, [],
+      [permanent_abnormal, transient_abnormal,
+       temporary_abnormal]},
+     {restart_one_for_one, [],
+      [one_for_one, one_for_one_escalation]},
+     {restart_one_for_all, [],
+      [one_for_all, one_for_all_escalation]},
+     {restart_simple_one_for_one, [],
+      [simple_one_for_one, simple_one_for_one_extra,
+       simple_one_for_one_escalation]},
+     {restart_rest_for_one, [],
+      [rest_for_one, rest_for_one_escalation]}].
 
 init_per_suite(Config) ->
     Config.
@@ -97,10 +98,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

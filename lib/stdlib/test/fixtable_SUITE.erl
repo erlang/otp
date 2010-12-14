@@ -21,7 +21,8 @@
 %%%----------------------------------------------------------------------
 
 -module(fixtable_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 %%% Test cases
 -export([multiple_fixes/1, multiple_processes/1,
 	 other_process_deletes/1, owner_dies/1,
@@ -34,9 +35,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[multiple_fixes, multiple_processes,
- other_process_deletes, owner_dies, other_process_closes,
- insert_same_key, fixbag].
+    [multiple_fixes, multiple_processes,
+     other_process_deletes, owner_dies, other_process_closes,
+     insert_same_key, fixbag].
 
 groups() -> 
     [].
@@ -48,10 +49,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 -include_lib("test_server/include/test_server.hrl").

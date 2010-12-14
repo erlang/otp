@@ -54,7 +54,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[do_big_test].
+    [do_big_test].
 
 groups() -> 
     [].
@@ -66,10 +66,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %% ------------------------------------------------------- %%

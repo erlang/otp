@@ -32,29 +32,32 @@
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([ 
-             unused_vars_warn_basic/1, 
-             unused_vars_warn_lc/1, 
-             unused_vars_warn_rec/1,
-             unused_vars_warn_fun/1, 
-             unused_vars_OTP_4858/1,
-         export_vars_warn/1,
-	 shadow_vars/1,
-	 unused_import/1,
-	 unused_function/1,
-         unsafe_vars/1,unsafe_vars2/1,
-	 unsafe_vars_try/1,
-         guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
-         otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
-         otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
-	 bif_clash/1,
-	 behaviour_basic/1, behaviour_multiple/1,
-	 otp_7550/1,
-         otp_8051/1,
-	 format_warn/1,
-	 on_load_successful/1, on_load_failing/1, too_many_arguments/1
+	  unused_vars_warn_basic/1, 
+	  unused_vars_warn_lc/1, 
+	  unused_vars_warn_rec/1,
+	  unused_vars_warn_fun/1, 
+	  unused_vars_OTP_4858/1,
+	  export_vars_warn/1,
+	  shadow_vars/1,
+	  unused_import/1,
+	  unused_function/1,
+	  unsafe_vars/1,unsafe_vars2/1,
+	  unsafe_vars_try/1,
+	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
+	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
+	  otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
+	  bif_clash/1,
+	  behaviour_basic/1, behaviour_multiple/1,
+	  otp_7550/1,
+	  otp_8051/1,
+	  format_warn/1,
+	  on_load_successful/1, on_load_failing/1, 
+	  too_many_arguments/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -72,21 +75,22 @@ end_per_testcase(_Case, _Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, unused_vars_warn}, export_vars_warn,
- shadow_vars, unused_import, unused_function,
- unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
- otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
- otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
- otp_5878, otp_5917, otp_6585, otp_6885, export_all,
- bif_clash, behaviour_basic, behaviour_multiple,
- otp_7550, otp_8051, format_warn, {group, on_load}, too_many_arguments].
+    [{group, unused_vars_warn}, export_vars_warn,
+     shadow_vars, unused_import, unused_function,
+     unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+     otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
+     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
+     otp_5878, otp_5917, otp_6585, otp_6885, export_all,
+     bif_clash, behaviour_basic, behaviour_multiple,
+     otp_7550, otp_8051, format_warn, {group, on_load},
+     too_many_arguments].
 
 groups() -> 
     [{unused_vars_warn, [],
-  [unused_vars_warn_basic, unused_vars_warn_lc,
-   unused_vars_warn_rec, unused_vars_warn_fun,
-   unused_vars_OTP_4858]},
- {on_load, [], [on_load_successful, on_load_failing]}].
+      [unused_vars_warn_basic, unused_vars_warn_lc,
+       unused_vars_warn_rec, unused_vars_warn_fun,
+       unused_vars_OTP_4858]},
+     {on_load, [], [on_load_successful, on_load_failing]}].
 
 init_per_suite(Config) ->
     Config.
@@ -95,10 +99,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 

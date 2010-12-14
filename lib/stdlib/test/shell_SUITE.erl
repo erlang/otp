@@ -17,21 +17,22 @@
 %% %CopyrightEnd%
 %%
 -module(shell_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([forget/1, records/1, known_bugs/1, otp_5226/1, otp_5327/1,
-                 otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
- bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
-                 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
-                 bs_construct_SUITE/1,
- refman_bit_syntax/1, 
- progex_bit_syntax/1, progex_records/1, 
-                   progex_lc/1, progex_funs/1,
- otp_5990/1, otp_6166/1, otp_6554/1, otp_6785/1,
-                    otp_7184/1, otp_7232/1, otp_8393/1]).
+	 otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
+	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
+	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
+	 bs_construct_SUITE/1,
+	 refman_bit_syntax/1, 
+	 progex_bit_syntax/1, progex_records/1, 
+	 progex_lc/1, progex_funs/1,
+	 otp_5990/1, otp_6166/1, otp_6554/1, otp_6785/1,
+	 otp_7184/1, otp_7232/1, otp_8393/1]).
 
 -export([ start_restricted_from_shell/1, 
-	 start_restricted_on_command_line/1,restricted_local/1]).
+	  start_restricted_on_command_line/1,restricted_local/1]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -74,25 +75,25 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[forget, records, known_bugs, otp_5226, otp_5327,
- otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
- {group, refman}, {group, progex}, {group, tickets},
- {group, restricted}].
+    [forget, records, known_bugs, otp_5226, otp_5327,
+     otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
+     {group, refman}, {group, progex}, {group, tickets},
+     {group, restricted}].
 
 groups() -> 
     [{restricted, [],
-  [start_restricted_from_shell,
-   start_restricted_on_command_line, restricted_local]},
- {bits, [],
-  [bs_match_misc_SUITE, bs_match_tail_SUITE,
-   bs_match_bin_SUITE, bs_construct_SUITE]},
- {refman, [], [refman_bit_syntax]},
- {progex, [],
-  [progex_bit_syntax, progex_records, progex_lc,
-   progex_funs]},
- {tickets, [],
-  [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184,
-   otp_7232, otp_8393]}].
+      [start_restricted_from_shell,
+       start_restricted_on_command_line, restricted_local]},
+     {bits, [],
+      [bs_match_misc_SUITE, bs_match_tail_SUITE,
+       bs_match_bin_SUITE, bs_construct_SUITE]},
+     {refman, [], [refman_bit_syntax]},
+     {progex, [],
+      [progex_bit_syntax, progex_records, progex_lc,
+       progex_funs]},
+     {tickets, [],
+      [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184,
+       otp_7232, otp_8393]}].
 
 init_per_suite(Config) ->
     Config.
@@ -101,10 +102,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 -record(state, {bin, reply, leader}).

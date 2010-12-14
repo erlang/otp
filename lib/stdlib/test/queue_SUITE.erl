@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(queue_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([do/1, to_list/1, io_test/1, op_test/1, error/1, oops/1]).
 
@@ -39,7 +40,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[do, to_list, io_test, op_test, error, oops].
+    [do, to_list, io_test, op_test, error, oops].
 
 groups() -> 
     [].
@@ -51,10 +52,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 do(doc) ->

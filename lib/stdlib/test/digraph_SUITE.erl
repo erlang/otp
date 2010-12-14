@@ -26,7 +26,8 @@
 -include_lib("test_server/include/test_server.hrl").
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([opts/1, degree/1, path/1, cycle/1, vertices/1,
 	 edges/1, data/1, otp_3522/1, otp_3630/1, otp_8066/1]).
@@ -38,12 +39,12 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[opts, degree, path, cycle, {group, misc},
- {group, tickets}].
+    [opts, degree, path, cycle, {group, misc},
+     {group, tickets}].
 
 groups() -> 
     [{misc, [], [vertices, edges, data]},
- {tickets, [], [otp_3522, otp_3630, otp_8066]}].
+     {tickets, [], [otp_3522, otp_3630, otp_8066]}].
 
 init_per_suite(Config) ->
     Config.
@@ -52,10 +53,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

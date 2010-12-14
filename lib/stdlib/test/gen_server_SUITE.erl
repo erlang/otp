@@ -23,7 +23,8 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([start/1, crash/1, call/1, cast/1, cast_fast/1,
 	 info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
@@ -48,14 +49,14 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[start, crash, call, cast, cast_fast, info, abcast,
- multicall, multicall_down, call_remote1, call_remote2,
- call_remote3, call_remote_n1, call_remote_n2,
- call_remote_n3, spec_init,
- spec_init_local_registered_parent,
- spec_init_global_registered_parent, otp_5854, hibernate,
- otp_7669, call_format_status, error_format_status,
- call_with_huge_message_queue].
+    [start, crash, call, cast, cast_fast, info, abcast,
+     multicall, multicall_down, call_remote1, call_remote2,
+     call_remote3, call_remote_n1, call_remote_n2,
+     call_remote_n3, spec_init,
+     spec_init_local_registered_parent,
+     spec_init_global_registered_parent, otp_5854, hibernate,
+     otp_7669, call_format_status, error_format_status,
+     call_with_huge_message_queue].
 
 groups() -> 
     [].
@@ -67,18 +68,33 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 -define(default_timeout, ?t:minutes(1)).
  
+init_per_testcase(Case, Config) when Case == call_remote1;
+				     Case == call_remote2;
+				     Case == call_remote3;
+				     Case == call_remote_n1;
+				     Case == call_remote_n2;
+				     Case == call_remote_n3 ->
+    {ok,N} = start_node(hubba),
+    ?line Dog = ?t:timetrap(?default_timeout),
+    [{node,N},{watchdog, Dog} | Config];
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 end_per_testcase(_Case, Config) ->
+    case proplists:get_value(node, Config) of
+	undefined ->
+	    ok;
+	N ->
+	    test_server:stop_node(N)
+    end,
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -311,8 +327,8 @@ start_node(Name) ->
 
 call_remote1(suite) -> [];
 call_remote1(Config) when is_list(Config) ->
-    ?line N = hubba,
-    ?line {ok, Node} = start_node(N),
+    N = hubba,
+    ?line Node = proplists:get_value(node,Config),
     ?line {ok, Pid} = rpc:call(Node, gen_server, start,
 			       [{global, N}, ?MODULE, [], []]),    
     ?line ok = (catch gen_server:call({global, N}, started_p, infinity)),
@@ -325,7 +341,7 @@ call_remote1(Config) when is_list(Config) ->
 call_remote2(suite) -> [];
 call_remote2(Config) when is_list(Config) ->
     ?line N = hubba,
-    ?line {ok, Node} = start_node(N),
+    ?line Node = proplists:get_value(node,Config),
 
     ?line {ok, Pid} = rpc:call(Node, gen_server, start,
 			       [{global, N}, ?MODULE, [], []]),
@@ -338,8 +354,7 @@ call_remote2(Config) when is_list(Config) ->
 
 call_remote3(suite) -> [];
 call_remote3(Config) when is_list(Config) ->
-    ?line N = hubba,
-    ?line {ok, Node} = start_node(N),
+    ?line Node = proplists:get_value(node,Config),
 
     ?line {ok, Pid} = rpc:call(Node, gen_server, start,
 			       [{local, piller}, ?MODULE, [], []]),
@@ -357,7 +372,7 @@ call_remote3(Config) when is_list(Config) ->
 call_remote_n1(suite) -> [];
 call_remote_n1(Config) when is_list(Config) ->
     ?line N = hubba,
-    ?line {ok, Node} = start_node(N),
+    ?line Node = proplists:get_value(node,Config),    
     ?line {ok, _Pid} = rpc:call(Node, gen_server, start,
 			       [{global, N}, ?MODULE, [], []]),
     ?line _ = test_server:stop_node(Node),
@@ -369,7 +384,7 @@ call_remote_n1(Config) when is_list(Config) ->
 call_remote_n2(suite) -> [];
 call_remote_n2(Config) when is_list(Config) ->
     ?line N = hubba,
-    ?line {ok, Node} = start_node(N),
+    ?line Node = proplists:get_value(node,Config),
 
     ?line {ok, Pid} = rpc:call(Node, gen_server, start,
 			       [{global, N}, ?MODULE, [], []]),
@@ -381,8 +396,7 @@ call_remote_n2(Config) when is_list(Config) ->
 
 call_remote_n3(suite) -> [];
 call_remote_n3(Config) when is_list(Config) ->
-    ?line N = hubba,
-    ?line {ok, Node} = start_node(N),
+    ?line Node = proplists:get_value(node,Config),
 
     ?line {ok, _Pid} = rpc:call(Node, gen_server, start,
 			       [{local, piller}, ?MODULE, [], []]),

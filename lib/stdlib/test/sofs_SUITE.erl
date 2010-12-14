@@ -30,7 +30,8 @@
 -define(format(S, A), ok).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([ from_term_1/1, set_1/1, from_sets_1/1, relation_1/1,
 	 a_function_1/1, family_1/1, projection/1,
@@ -88,30 +89,30 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, sofs}, {group, sofs_family}].
+    [{group, sofs}, {group, sofs_family}].
 
 groups() -> 
     [{sofs, [],
-  [from_term_1, set_1, from_sets_1, relation_1,
-   a_function_1, family_1, relation_to_family_1, domain_1,
-   range_1, image, inverse_image, inverse_1, converse_1,
-   no_elements_1, substitution, restriction, drestriction,
-   projection, strict_relation_1, extension,
-   weak_relation_1, to_sets_1, specification, union_1,
-   intersection_1, difference, symdiff,
-   symmetric_partition, is_sofs_set_1, is_set_1, is_equal,
-   is_subset, is_a_function_1, is_disjoint, join,
-   canonical, composite_1, relative_product_1,
-   relative_product_2, product_1, partition_1, partition_3,
-   multiple_relative_product, digraph, constant_function,
-   misc]},
- {sofs_family, [],
-  [family_specification, family_domain_1, family_range_1,
-   family_to_relation_1, union_of_family_1,
-   intersection_of_family_1, family_projection,
-   family_difference, family_intersection_1,
-   family_intersection_2, family_union_1, family_union_2,
-   partition_family]}].
+      [from_term_1, set_1, from_sets_1, relation_1,
+       a_function_1, family_1, relation_to_family_1, domain_1,
+       range_1, image, inverse_image, inverse_1, converse_1,
+       no_elements_1, substitution, restriction, drestriction,
+       projection, strict_relation_1, extension,
+       weak_relation_1, to_sets_1, specification, union_1,
+       intersection_1, difference, symdiff,
+       symmetric_partition, is_sofs_set_1, is_set_1, is_equal,
+       is_subset, is_a_function_1, is_disjoint, join,
+       canonical, composite_1, relative_product_1,
+       relative_product_2, product_1, partition_1, partition_3,
+       multiple_relative_product, digraph, constant_function,
+       misc]},
+     {sofs_family, [],
+      [family_specification, family_domain_1, family_range_1,
+       family_to_relation_1, union_of_family_1,
+       intersection_of_family_1, family_projection,
+       family_difference, family_intersection_1,
+       family_intersection_2, family_union_1, family_union_2,
+       partition_family]}].
 
 init_per_suite(Config) ->
     Config.
@@ -120,10 +121,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) ->

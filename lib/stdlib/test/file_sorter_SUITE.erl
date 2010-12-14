@@ -32,7 +32,8 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, basic/1, badarg/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, basic/1, badarg/1, 
 	 term_sort/1, term_keysort/1,
 	 binary_term_sort/1, binary_term_keysort/1,
 	 binary_sort/1, 
@@ -58,12 +59,12 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[basic, badarg, term_sort, term_keysort,
- binary_term_sort, binary_term_keysort, binary_sort,
- term_merge, term_keymerge, binary_term_merge,
- binary_term_keymerge, binary_merge, term_check,
- binary_term_keycheck, binary_term_check,
- binary_term_keycheck, binary_check, inout, misc, many].
+    [basic, badarg, term_sort, term_keysort,
+     binary_term_sort, binary_term_keysort, binary_sort,
+     term_merge, term_keymerge, binary_term_merge,
+     binary_term_keymerge, binary_merge, term_check,
+     binary_term_keycheck, binary_term_check,
+     binary_term_keycheck, binary_check, inout, misc, many].
 
 groups() -> 
     [].
@@ -75,10 +76,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 basic(doc) ->

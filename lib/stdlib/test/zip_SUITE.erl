@@ -18,7 +18,8 @@
 %%
 -module(zip_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, borderline/1, atomic/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, borderline/1, atomic/1,
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
@@ -34,10 +35,10 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[borderline, atomic, bad_zip, unzip_from_binary,
- unzip_to_binary, zip_to_binary, unzip_options,
- zip_options, list_dir_options, aliases, openzip_api,
- zip_api, unzip_jar, compress_control, foldl].
+    [borderline, atomic, bad_zip, unzip_from_binary,
+     unzip_to_binary, zip_to_binary, unzip_options,
+     zip_options, list_dir_options, aliases, openzip_api,
+     zip_api, unzip_jar, compress_control, foldl].
 
 groups() -> 
     [].
@@ -49,10 +50,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 borderline(doc) ->

@@ -18,7 +18,8 @@
 %%
 -module(ets_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1,privacy_owner/2]).
 -export([empty/1,badinsert/1]).
@@ -31,7 +32,7 @@
 -export([slot/1]).
 -export([ match1/1, match2/1, match_object/1, match_object2/1]).
 -export([ dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
--export([ tab2file2/1, tabfile_ext1/1,
+-export([ tab2file/1, tab2file2/1, tabfile_ext1/1,
 	tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1]).
 -export([ heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
 -export([ lookup_element_mult/1]).
@@ -72,7 +73,7 @@
 -export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
 
--export([init_per_testcase/2, end_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
 -export([random_test/0]).
 
@@ -112,72 +113,69 @@ end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     wait_for_test_procs(true),
     test_server:timetrap_cancel(Dog).
-    
-
-end_per_suite(_Config) ->
-    stop_spawn_logger(),
-    catch erts_debug:set_internal_state(available_internal_state, false).
+   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, new}, {group, insert}, {group, lookup},
- {group, delete}, firstnext, firstnext_concurrent, slot,
- {group, match}, t_match_spec_run,
- {group, lookup_element}, {group, misc}, {group, files},
- {group, heavy}, ordered, ordered_match,
- interface_equality, fixtable_next, fixtable_insert,
- rename, rename_unnamed, evil_rename, update_element,
- update_counter, evil_update_counter, partly_bound,
- match_heavy, {group, fold}, member, t_delete_object,
- t_init_table, t_whitebox, t_delete_all_objects,
- t_insert_list, t_test_ms, t_select_delete, t_ets_dets,
- memory, t_select_reverse, t_bucket_disappears,
- select_fail, t_insert_new, t_repair_continuation,
- otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
- otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
- shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
- smp_fixed_delete, smp_unfix_fix, smp_select_delete,
- otp_8166, exit_large_table_owner,
- exit_many_large_table_owner, exit_many_tables_owner,
- exit_many_many_tables_owner, write_concurrency, heir,
- give_away, setopts, bad_table, types].
+    [{group, new}, {group, insert}, {group, lookup},
+     {group, delete}, firstnext, firstnext_concurrent, slot,
+     {group, match}, t_match_spec_run,
+     {group, lookup_element}, {group, misc}, {group, files},
+     {group, heavy}, ordered, ordered_match,
+     interface_equality, fixtable_next, fixtable_insert,
+     rename, rename_unnamed, evil_rename, update_element,
+     update_counter, evil_update_counter, partly_bound,
+     match_heavy, {group, fold}, member, t_delete_object,
+     t_init_table, t_whitebox, t_delete_all_objects,
+     t_insert_list, t_test_ms, t_select_delete, t_ets_dets,
+     memory, t_select_reverse, t_bucket_disappears,
+     select_fail, t_insert_new, t_repair_continuation,
+     otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
+     otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
+     shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
+     smp_fixed_delete, smp_unfix_fix, smp_select_delete,
+     otp_8166, exit_large_table_owner,
+     exit_many_large_table_owner, exit_many_tables_owner,
+     exit_many_many_tables_owner, write_concurrency, heir,
+     give_away, setopts, bad_table, types].
 
 groups() -> 
     [{new, [],
-  [default, setbag, badnew, verybadnew, named, keypos2,
-   privacy]},
- {insert, [], [empty, badinsert]},
- {lookup, [], [time_lookup, badlookup, lookup_order]},
- {lookup_element, [], [lookup_element_mult]},
- {delete, [],
-  [delete_elem, delete_tab, delete_large_tab,
-   delete_large_named_table, evil_delete, table_leak,
-   baddelete, match_delete, match_delete3]},
- {match, [],
-  [match1, match2, match_object, match_object2]},
- {misc, [],
-  [misc1, safe_fixtable, info, dups, tab2list]},
- {files, [],
-  [tab2file, tab2file2, tab2file3, tabfile_ext1,
-   tabfile_ext2, tabfile_ext3, tabfile_ext4]},
- {heavy, [],
-  [heavy_lookup, heavy_lookup_element, heavy_concurrent]},
- {fold, [],
-  [foldl_ordered, foldr_ordered, foldl, foldr,
-   fold_empty]},
- {meta_smp, [],
-  [meta_lookup_unnamed_read, meta_lookup_unnamed_write,
-   meta_lookup_named_read, meta_lookup_named_write,
-   meta_newdel_unnamed, meta_newdel_named]}].
+      [default, setbag, badnew, verybadnew, named, keypos2,
+       privacy]},
+     {insert, [], [empty, badinsert]},
+     {lookup, [], [time_lookup, badlookup, lookup_order]},
+     {lookup_element, [], [lookup_element_mult]},
+     {delete, [],
+      [delete_elem, delete_tab, delete_large_tab,
+       delete_large_named_table, evil_delete, table_leak,
+       baddelete, match_delete, match_delete3]},
+     {match, [],
+      [match1, match2, match_object, match_object2]},
+     {misc, [],
+      [misc1, safe_fixtable, info, dups, tab2list]},
+     {files, [],
+      [tab2file, tab2file2, tabfile_ext1,
+       tabfile_ext2, tabfile_ext3, tabfile_ext4]},
+     {heavy, [],
+      [heavy_lookup, heavy_lookup_element, heavy_concurrent]},
+     {fold, [],
+      [foldl_ordered, foldr_ordered, foldl, foldr,
+       fold_empty]},
+     {meta_smp, [],
+      [meta_lookup_unnamed_read, meta_lookup_unnamed_write,
+       meta_lookup_named_read, meta_lookup_named_write,
+       meta_newdel_unnamed, meta_newdel_named]}].
 
 init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    ok.
+    stop_spawn_logger(),
+    catch erts_debug:set_internal_state(available_internal_state, false).
 
 init_per_group(_GroupName, Config) ->
 	Config.

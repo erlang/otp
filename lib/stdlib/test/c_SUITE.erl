@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(c_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([c_1/1, c_2/1, c_3/1, c_4/1, nc_1/1, nc_2/1, nc_3/1, nc_4/1,
          memory/1]).
 
@@ -28,7 +29,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4, memory].
+    [c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4, memory].
 
 groups() -> 
     [].
@@ -40,10 +41,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%% Write output to a directory other than current directory:

@@ -27,7 +27,8 @@
 -define(default_timeout, ?t:seconds(60)).
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([
@@ -67,12 +68,12 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[new_test, fix_test, relax_test, resize_test,
- set_get_test, to_list_test, sparse_to_list_test,
- from_list_test, to_orddict_test, sparse_to_orddict_test,
- from_orddict_test, map_test, sparse_map_test,
- foldl_test, sparse_foldl_test, foldr_test,
- sparse_foldr_test].
+    [new_test, fix_test, relax_test, resize_test,
+     set_get_test, to_list_test, sparse_to_list_test,
+     from_list_test, to_orddict_test, sparse_to_orddict_test,
+     from_orddict_test, map_test, sparse_map_test,
+     foldl_test, sparse_foldl_test, foldr_test,
+     sparse_foldr_test].
 
 groups() -> 
     [].
@@ -84,10 +85,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_testcase(_Case, Config) ->

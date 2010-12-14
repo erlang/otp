@@ -58,13 +58,15 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,select_test/1,init_per_testcase/2, end_per_testcase/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,select_test/1,
+	 init_per_testcase/2, end_per_testcase/2, 
 	 return_values/1]).
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(1200)),
     [{watchdog, Dog}|Config].
- 
+
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
@@ -73,7 +75,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[return_values, select_test].
+    [return_values, select_test].
 
 groups() -> 
     [].
@@ -85,12 +87,12 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
- 
+
 select_test(suite) ->
     [];
 select_test(doc) ->

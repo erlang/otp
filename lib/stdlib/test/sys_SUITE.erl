@@ -17,7 +17,9 @@
 %% %CopyrightEnd%
 %%
 -module(sys_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,log/1,log_to_file/1,stats/1,trace/1,suspend/1,install/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,log/1,log_to_file/1,
+	 stats/1,trace/1,suspend/1,install/1]).
 -export([handle_call/3,terminate/2,init/1]).
 -include_lib("test_server/include/test_server.hrl").
 
@@ -32,7 +34,7 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[log, log_to_file, stats, trace, suspend, install].
+    [log, log_to_file, stats, trace, suspend, install].
 
 groups() -> 
     [].
@@ -44,10 +46,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

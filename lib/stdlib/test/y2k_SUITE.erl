@@ -23,7 +23,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 date_1999_01_01/1, date_1999_02_28/1, 
 	 date_1999_09_09/1, date_2000_01_01/1, 
 	 date_2000_02_29/1, date_2001_01_01/1, 
@@ -33,9 +34,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[date_1999_01_01, date_1999_02_28, date_1999_09_09,
- date_2000_01_01, date_2000_02_29, date_2001_01_01,
- date_2001_02_29, date_2004_02_29].
+    [date_1999_01_01, date_1999_02_28, date_1999_09_09,
+     date_2000_01_01, date_2000_02_29, date_2001_01_01,
+     date_2001_02_29, date_2004_02_29].
 
 groups() -> 
     [].
@@ -47,10 +48,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 date_1999_01_01(doc) ->

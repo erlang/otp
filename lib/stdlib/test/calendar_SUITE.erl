@@ -20,7 +20,8 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 	 gregorian_days/1,
 	 gregorian_seconds/1,
 	 day_of_the_week/1,
@@ -35,9 +36,9 @@
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[gregorian_days, gregorian_seconds, day_of_the_week,
- day_of_the_week_calibrate, leap_years,
- last_day_of_the_month, local_time_to_universal_time_dst].
+    [gregorian_days, gregorian_seconds, day_of_the_week,
+     day_of_the_week_calibrate, leap_years,
+     last_day_of_the_month, local_time_to_universal_time_dst].
 
 groups() -> 
     [].
@@ -49,10 +50,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 gregorian_days(doc) ->
