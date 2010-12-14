@@ -54,16 +54,16 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[webserver, profile, analyze, analyze_dist].
+    [webserver, profile, analyze, analyze_dist].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%----------------------------------------------------------------------

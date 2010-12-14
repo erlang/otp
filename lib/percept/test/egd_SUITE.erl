@@ -57,18 +57,18 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[image_create_and_destroy, image_shape,
- image_primitives, image_colors, image_font,
- image_png_compliant].
+    [image_create_and_destroy, image_shape,
+     image_primitives, image_colors, image_font,
+     image_png_compliant].
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 %%----------------------------------------------------------------------
