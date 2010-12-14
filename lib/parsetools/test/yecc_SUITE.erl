@@ -34,19 +34,21 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([app_test/1,
- 
-             file/1, syntax/1, compile/1, rules/1, expect/1,
-             conflicts/1,
-
-             empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
-             other_examples/1,
- 
-             otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
-
-             otp_7292/1, otp_7969/1, otp_8919/1]).
+	 
+	 file/1, syntax/1, compile/1, rules/1, expect/1,
+	 conflicts/1,
+	 
+	 empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
+	 other_examples/1,
+	 
+	 otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
+	 
+	 otp_7292/1, otp_7969/1, otp_8919/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -63,17 +65,17 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[app_test, {group, checks}, {group, examples},
- {group, bugs}, {group, improvements}].
+    [app_test, {group, checks}, {group, examples},
+     {group, bugs}, {group, improvements}].
 
 groups() -> 
     [{checks, [],
-  [file, syntax, compile, rules, expect, conflicts]},
- {examples, [],
-  [empty, prec, yeccpre, lalr, old_yecc, other_examples]},
- {bugs, [],
-  [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
- {improvements, [], [otp_7292, otp_7969]}].
+      [file, syntax, compile, rules, expect, conflicts]},
+     {examples, [],
+      [empty, prec, yeccpre, lalr, old_yecc, other_examples]},
+     {bugs, [],
+      [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486]},
+     {improvements, [], [otp_7292, otp_7969, otp_8919]}].
 
 init_per_suite(Config) ->
     Config.
@@ -82,10 +84,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 app_test(doc) ->

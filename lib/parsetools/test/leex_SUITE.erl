@@ -35,12 +35,14 @@
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([
-             file/1, compile/1, syntax/1,
-
-             pt/1, man/1, ex/1, ex2/1, not_yet/1]).
+	 file/1, compile/1, syntax/1,
+	 
+	 pt/1, man/1, ex/1, ex2/1, not_yet/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -57,11 +59,11 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{suite_callbacks,[ts_install_scb]}].
 
 all() -> 
-[{group, checks}, {group, examples}].
+    [{group, checks}, {group, examples}].
 
 groups() -> 
     [{checks, [], [file, compile, syntax]},
- {examples, [], [pt, man, ex, ex2, not_yet]}].
+     {examples, [], [pt, man, ex, ex2, not_yet]}].
 
 init_per_suite(Config) ->
     Config.
@@ -70,10 +72,10 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
