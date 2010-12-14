@@ -83,7 +83,8 @@ Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
 
 #define ERTS_DB_ALC_MEM_UPDATE_(TAB, FREE_SZ, ALLOC_SZ)			\
 do {									\
-    long sz__ = ((long) (ALLOC_SZ)) - ((long) (FREE_SZ));		\
+    erts_aint_t sz__ = (((erts_aint_t) (ALLOC_SZ))			\
+			- ((erts_aint_t) (FREE_SZ)));			\
     ASSERT((TAB));							\
     erts_smp_atomic_add(&(TAB)->common.memory_size, sz__);		\
 } while (0)

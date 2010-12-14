@@ -150,6 +150,27 @@ typedef struct {
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
 
 /*
+ * Integer types
+ */
+
+typedef unsigned long ErlDrvTermData;
+typedef unsigned long ErlDrvUInt;
+typedef signed long ErlDrvSInt;
+
+#if defined(__WIN32__)
+typedef unsigned __int64 ErlDrvUInt64;
+typedef __int64 ErlDrvSInt64;
+#elif SIZEOF_LONG == 8
+typedef unsigned long ErlDrvUInt64;
+typedef long ErlDrvSInt64;
+#elif SIZEOF_LONG_LONG == 8
+typedef unsigned long long ErlDrvUInt64;
+typedef long long ErlDrvSInt64;
+#else
+#error No 64-bit integer type
+#endif
+
+/*
  * A binary as seen in a driver. Note that a binary should never be
  * altered by the driver when it has been sent to Erlang.
  */
@@ -178,26 +199,6 @@ struct erl_drv_event_data {
 };
 #endif
 typedef struct erl_drv_event_data *ErlDrvEventData; /* Event data */
-
-/* 
- * Used in monitors...
- */
-typedef unsigned long ErlDrvTermData;
-typedef unsigned long ErlDrvUInt;
-typedef signed long ErlDrvSInt;
-
-#if defined(__WIN32__)
-typedef unsigned __int64 ErlDrvUInt64;
-typedef __int64 ErlDrvSInt64;
-#elif SIZEOF_LONG == 8
-typedef unsigned long ErlDrvUInt64;
-typedef long ErlDrvSInt64;
-#elif SIZEOF_LONG_LONG == 8
-typedef unsigned long long ErlDrvUInt64;
-typedef long long ErlDrvSInt64;
-#else
-#error No 64-bit integer type
-#endif
 
 /*
  * A driver monitor
@@ -394,9 +395,9 @@ EXTERN int driver_exit (ErlDrvPort port, int err);
 EXTERN ErlDrvPDL driver_pdl_create(ErlDrvPort);
 EXTERN void driver_pdl_lock(ErlDrvPDL);
 EXTERN void driver_pdl_unlock(ErlDrvPDL);
-EXTERN long driver_pdl_get_refc(ErlDrvPDL);
-EXTERN long driver_pdl_inc_refc(ErlDrvPDL);
-EXTERN long driver_pdl_dec_refc(ErlDrvPDL);
+EXTERN ErlDrvSInt driver_pdl_get_refc(ErlDrvPDL);
+EXTERN ErlDrvSInt driver_pdl_inc_refc(ErlDrvPDL);
+EXTERN ErlDrvSInt driver_pdl_dec_refc(ErlDrvPDL);
 
 /*
  * Process monitors
@@ -432,9 +433,9 @@ EXTERN ErlDrvBinary* driver_realloc_binary(ErlDrvBinary *bin, int size);
 EXTERN void driver_free_binary(ErlDrvBinary *bin);
 
 /* Referenc count on driver binaries */
-EXTERN long driver_binary_get_refc(ErlDrvBinary *dbp);
-EXTERN long driver_binary_inc_refc(ErlDrvBinary *dbp);
-EXTERN long driver_binary_dec_refc(ErlDrvBinary *dbp);
+EXTERN ErlDrvSInt driver_binary_get_refc(ErlDrvBinary *dbp);
+EXTERN ErlDrvSInt driver_binary_inc_refc(ErlDrvBinary *dbp);
+EXTERN ErlDrvSInt driver_binary_dec_refc(ErlDrvBinary *dbp);
 
 /* Allocation interface */
 EXTERN void *driver_alloc(size_t size);

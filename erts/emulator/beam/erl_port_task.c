@@ -129,7 +129,7 @@ reset_handle(ErtsPortTask *ptp)
 {
     if (ptp->handle) {
 	ASSERT(ptp == handle2task(ptp->handle));
-	erts_smp_atomic_set(ptp->handle, (long) NULL);
+	erts_smp_atomic_set(ptp->handle, (erts_aint_t) NULL);
     }
 }
 
@@ -138,7 +138,7 @@ set_handle(ErtsPortTask *ptp, ErtsPortTaskHandle *pthp)
 {
     ptp->handle = pthp;
     if (pthp) {
-	erts_smp_atomic_set(pthp, (long) ptp);
+	erts_smp_atomic_set(pthp, (erts_aint_t) ptp);
 	ASSERT(ptp == handle2task(ptp->handle));
     }
 }
@@ -568,7 +568,7 @@ erts_port_task_schedule(Eterm id,
 	ErtsRunQueue *xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
 	if (xrunq) {
 	    /* Port emigrated ... */
-	    erts_smp_atomic_set(&pp->run_queue, (long) xrunq);
+	    erts_smp_atomic_set(&pp->run_queue, (erts_aint_t) xrunq);
 	    erts_smp_runq_unlock(runq);
 	    runq = xrunq;
 	}
@@ -727,7 +727,8 @@ resume_after_block(void *vd)
     ErtsPortTaskExeBlockData *d = (ErtsPortTaskExeBlockData *) vd;
     erts_smp_runq_lock(d->runq);
     if (d->resp)
-	*d->resp = erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != (long) 0;
+	*d->resp = (erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks)
+		    != (erts_aint_t) 0);
 }
 
 /*
@@ -748,7 +749,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     ErtsPortTask *ptp;
     int res = 0;
     int reds = ERTS_PORT_REDS_EXECUTE;
-    long io_tasks_executed = 0;
+    erts_aint_t io_tasks_executed = 0;
     int fpe_was_unmasked;
     ErtsPortTaskExeBlockData blk_data = {runq, NULL};
 
@@ -942,7 +943,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	}
 	else {
 	    /* Port emigrated ... */
-	    erts_smp_atomic_set(&pp->run_queue, (long) xrunq);
+	    erts_smp_atomic_set(&pp->run_queue, (erts_aint_t) xrunq);
 	    enqueue_port(xrunq, pp);
 	    ASSERT(pp->sched.exe_taskq);
 	    pp->sched.exe_taskq = NULL;
@@ -953,7 +954,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	port_was_enqueued = 1;
     }
 
-    res = erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != (long) 0;
+    res = (erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks)
+	   != (erts_aint_t) 0);
 
     ERTS_PT_CHK_PRES_PORTQ(runq, pp);
 
@@ -971,7 +973,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_port_release(pp);
 #else
     {
-	long refc;
+	erts_aint_t refc;
 	erts_smp_mtx_unlock(pp->lock);
 	refc = erts_smp_atomic_dectest(&pp->refc);
 	ASSERT(refc >= 0);
@@ -979,7 +981,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    erts_smp_runq_unlock(runq);
 	    erts_port_cleanup(pp); /* Might aquire runq lock */
 	    erts_smp_runq_lock(runq);
-	    res = erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != (long) 0;
+	    res = (erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks)
+		   != (erts_aint_t) 0);
 	}
     }
 #endif
@@ -1112,7 +1115,7 @@ erts_port_migrate(Port *prt, int *prt_locked,
     if (!ERTS_PORT_IS_IN_RUNQ(from_rq, prt))
 	return ERTS_MIGRATE_FAILED_NOT_IN_RUNQ;
     dequeue_port(from_rq, prt);
-    erts_smp_atomic_set(&prt->run_queue, (long) to_rq);
+    erts_smp_atomic_set(&prt->run_queue, (erts_aint_t) to_rq);
     enqueue_port(to_rq, prt);
     return ERTS_MIGRATE_SUCCESS;
 }
@@ -1125,7 +1128,7 @@ erts_port_migrate(Port *prt, int *prt_locked,
 void
 erts_port_task_init(void)
 {
-    erts_smp_atomic_init(&erts_port_task_outstanding_io_tasks, (long) 0);
+    erts_smp_atomic_init(&erts_port_task_outstanding_io_tasks, (erts_aint_t) 0);
     init_port_task_alloc();
     init_port_taskq_alloc();
 }

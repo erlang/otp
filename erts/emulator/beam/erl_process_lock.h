@@ -65,7 +65,7 @@ typedef struct erts_proc_lock_t_ {
     ErtsProcLocks flags;
 #endif
     erts_proc_lock_queues_t *queues;
-    long refc;
+    Sint32 refc;
 #ifdef ERTS_PROC_LOCK_DEBUG
     erts_smp_atomic_t locked[ERTS_PROC_LOCK_MAX_BIT+1];
 #endif
@@ -270,15 +270,17 @@ typedef struct {
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 
 #define ERTS_PROC_LOCK_FLGS_BAND_(L, MSK) \
-  ((ErtsProcLocks) erts_smp_atomic_band(&(L)->flags, (long) (MSK)))
+  ((ErtsProcLocks) erts_smp_atomic_band(&(L)->flags, (erts_aint_t) (MSK)))
 #define ERTS_PROC_LOCK_FLGS_BOR_(L, MSK) \
-  ((ErtsProcLocks) erts_smp_atomic_bor(&(L)->flags, (long) (MSK)))
+  ((ErtsProcLocks) erts_smp_atomic_bor(&(L)->flags, (erts_aint_t) (MSK)))
 #define ERTS_PROC_LOCK_FLGS_CMPXCHG_ACQB_(L, NEW, EXPECTED) \
   ((ErtsProcLocks) erts_smp_atomic_cmpxchg_acqb(&(L)->flags, \
-                                                (long) (NEW), (long) (EXPECTED)))
+                                                (erts_aint_t) (NEW), \
+						(erts_aint_t) (EXPECTED)))
 #define ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(L, NEW, EXPECTED) \
   ((ErtsProcLocks) erts_smp_atomic_cmpxchg_relb(&(L)->flags, \
-                                                (long) (NEW), (long) (EXPECTED)))
+                                                (erts_aint_t) (NEW), \
+						(erts_aint_t) (EXPECTED)))
 #define ERTS_PROC_LOCK_FLGS_READ_(L) \
   ((ErtsProcLocks) erts_smp_atomic_read(&(L)->flags))
 
@@ -619,7 +621,7 @@ erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
     for (i = 0; i <= ERTS_PROC_LOCK_MAX_BIT; i++) {
 	ErtsProcLocks lock = ((ErtsProcLocks) 1) << i;
 	if (locks & lock) {
-	    long lock_count;
+	    erts_aint_t lock_count;
 	    if (locked) {
 		lock_count = erts_smp_atomic_inctest(&p->lock.locked[i]);
 		ERTS_LC_ASSERT(lock_count == 1);

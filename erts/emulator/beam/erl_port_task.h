@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -79,7 +79,7 @@ ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
 ERTS_GLB_INLINE void
 erts_port_task_handle_init(ErtsPortTaskHandle *pthp)
 {
-    erts_smp_atomic_init(pthp, (long) NULL);
+    erts_smp_atomic_init(pthp, (erts_aint_t) NULL);
 }
 
 ERTS_GLB_INLINE int

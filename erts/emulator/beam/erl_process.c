@@ -127,9 +127,9 @@ ErtsLcPSDLocks erts_psd_required_locks[ERTS_PSD_SIZE];
 
 int erts_disable_proc_not_running_opt;
 
-#define ERTS_SCHDLR_SSPND_CHNG_WAITER		(((long) 1) << 0)
-#define ERTS_SCHDLR_SSPND_CHNG_MSB		(((long) 1) << 1)
-#define ERTS_SCHDLR_SSPND_CHNG_ONLN		(((long) 1) << 2)
+#define ERTS_SCHDLR_SSPND_CHNG_WAITER		(((erts_aint_t) 1) << 0)
+#define ERTS_SCHDLR_SSPND_CHNG_MSB		(((erts_aint_t) 1) << 1)
+#define ERTS_SCHDLR_SSPND_CHNG_ONLN		(((erts_aint_t) 1) << 2)
 
 #ifndef DEBUG
 
@@ -140,7 +140,7 @@ int erts_disable_proc_not_running_opt;
 
 #define ERTS_SCHDLR_SSPND_CHNG_SET(VAL, OLD_VAL)			\
 do {									\
-    long old_val__ = erts_smp_atomic_xchg(&schdlr_sspnd.changing,	\
+    erts_aint_t old_val__ = erts_smp_atomic_xchg(&schdlr_sspnd.changing,\
 					  (VAL));			\
     ASSERT(old_val__ == (OLD_VAL));					\
 } while (0)
@@ -568,7 +568,7 @@ erts_psd_set_init(Process *p, ErtsProcLocks plocks, int ix, void *data)
 #ifdef ERTS_SMP
 
 void
-erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, long flags)
+erts_sched_finish_poke(ErtsSchedulerSleepInfo *ssi, erts_aint_t flags)
 {
     switch (flags & ERTS_SSI_FLGS_SLEEP_TYPE) {
     case ERTS_SSI_FLG_POLL_SLEEPING:
@@ -593,7 +593,7 @@ erts_smp_notify_check_children_needed(void)
     int i;
 
     for (i = 0; i < erts_no_schedulers; i++) {
-	long aux_work;
+	erts_aint_t aux_work;
 	ErtsSchedulerSleepInfo *ssi;
 	ssi = ERTS_SCHED_SLEEP_INFO_IX(i);
 	aux_work = erts_smp_atomic_bor(&ssi->aux_work,
@@ -605,10 +605,10 @@ erts_smp_notify_check_children_needed(void)
 #endif
 
 #ifdef ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
-static ERTS_INLINE long
+static ERTS_INLINE erts_aint_t
 blockable_aux_work(ErtsSchedulerData *esdp,
 		   ErtsSchedulerSleepInfo *ssi,
-		   long aux_work)
+		   erts_aint_t aux_work)
 {
     if (aux_work & ERTS_SSI_BLOCKABLE_AUX_WORK_MASK) {
 #ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
@@ -626,10 +626,10 @@ blockable_aux_work(ErtsSchedulerData *esdp,
 #endif
 
 #ifdef ERTS_SCHED_NEED_NONBLOCKABLE_AUX_WORK
-static ERTS_INLINE long
+static ERTS_INLINE erts_aint_t
 nonblockable_aux_work(ErtsSchedulerData *esdp,
 		      ErtsSchedulerSleepInfo *ssi,
-		      long aux_work)
+		      erts_aint_t aux_work)
 {
     if (aux_work & ERTS_SSI_NONBLOCKABLE_AUX_WORK_MASK) {
 
@@ -751,10 +751,11 @@ ongoing_multi_scheduling_block(void)
 static ERTS_INLINE void
 empty_runq(ErtsRunQueue *rq)
 {
-    long oifls = erts_smp_atomic_band(&rq->info_flags, ~ERTS_RUNQ_IFLG_NONEMPTY);
+    erts_aint_t oifls = erts_smp_atomic_band(&rq->info_flags,
+					     ~ERTS_RUNQ_IFLG_NONEMPTY);
     if (oifls & ERTS_RUNQ_IFLG_NONEMPTY) {
 #ifdef DEBUG
-	long empty = erts_smp_atomic_read(&no_empty_run_queues);
+	erts_aint_t empty = erts_smp_atomic_read(&no_empty_run_queues);
 	/*
 	 * For a short period of time no_empty_run_queues may have
 	 * been increased twice for a specific run queue.
@@ -768,10 +769,11 @@ empty_runq(ErtsRunQueue *rq)
 static ERTS_INLINE void
 non_empty_runq(ErtsRunQueue *rq)
 {
-    long oifls = erts_smp_atomic_bor(&rq->info_flags, ERTS_RUNQ_IFLG_NONEMPTY);
+    erts_aint_t oifls = erts_smp_atomic_bor(&rq->info_flags,
+					    ERTS_RUNQ_IFLG_NONEMPTY);
     if (!(oifls & ERTS_RUNQ_IFLG_NONEMPTY)) {
 #ifdef DEBUG
-	long empty = erts_smp_atomic_read(&no_empty_run_queues);
+	erts_aint_t empty = erts_smp_atomic_read(&no_empty_run_queues);
 	/*
 	 * For a short period of time no_empty_run_queues may have
 	 * been increased twice for a specific run queue.
@@ -782,13 +784,13 @@ non_empty_runq(ErtsRunQueue *rq)
     }
 }
 
-static long
+static erts_aint_t
 sched_prep_spin_wait(ErtsSchedulerSleepInfo *ssi)
 {
-    long oflgs;
-    long nflgs = (ERTS_SSI_FLG_SLEEPING
-		  | ERTS_SSI_FLG_WAITING);
-    long xflgs = 0;
+    erts_aint_t oflgs;
+    erts_aint_t nflgs = (ERTS_SSI_FLG_SLEEPING
+			 | ERTS_SSI_FLG_WAITING);
+    erts_aint_t xflgs = 0;
 
     do {
 	oflgs = erts_smp_atomic_cmpxchg(&ssi->flags, nflgs, xflgs);
@@ -799,13 +801,13 @@ sched_prep_spin_wait(ErtsSchedulerSleepInfo *ssi)
     return oflgs;
 }
 
-static long
+static erts_aint_t
 sched_prep_cont_spin_wait(ErtsSchedulerSleepInfo *ssi)
 {
-    long oflgs;
-    long nflgs = (ERTS_SSI_FLG_SLEEPING
-		  | ERTS_SSI_FLG_WAITING);
-    long xflgs = ERTS_SSI_FLG_WAITING;
+    erts_aint_t oflgs;
+    erts_aint_t nflgs = (ERTS_SSI_FLG_SLEEPING
+			 | ERTS_SSI_FLG_WAITING);
+    erts_aint_t xflgs = ERTS_SSI_FLG_WAITING;
 
     do {
 	oflgs = erts_smp_atomic_cmpxchg(&ssi->flags, nflgs, xflgs);
@@ -817,12 +819,12 @@ sched_prep_cont_spin_wait(ErtsSchedulerSleepInfo *ssi)
     return oflgs;
 }
 
-static long
+static erts_aint_t
 sched_spin_wait(ErtsSchedulerSleepInfo *ssi, int spincount)
 {
-    long until_yield = ERTS_SCHED_SPIN_UNTIL_YIELD;
+    int until_yield = ERTS_SCHED_SPIN_UNTIL_YIELD;
     int sc = spincount;
-    long flgs;
+    erts_aint_t flgs;
 
     do {
 	flgs = erts_smp_atomic_read(&ssi->flags);
@@ -839,12 +841,12 @@ sched_spin_wait(ErtsSchedulerSleepInfo *ssi, int spincount)
     return flgs;
 }
 
-static long
-sched_set_sleeptype(ErtsSchedulerSleepInfo *ssi, long sleep_type)
+static erts_aint_t
+sched_set_sleeptype(ErtsSchedulerSleepInfo *ssi, erts_aint_t sleep_type)
 {
-    long oflgs;
-    long nflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING|sleep_type;
-    long xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
+    erts_aint_t oflgs;
+    erts_aint_t nflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING|sleep_type;
+    erts_aint_t xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
 
     if (sleep_type == ERTS_SSI_FLG_TSE_SLEEPING)
 	erts_tse_reset(ssi->event);
@@ -871,10 +873,10 @@ scheduler_wait(long *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 {
     ErtsSchedulerSleepInfo *ssi = esdp->ssi;
     int spincount;
-    long flgs;
+    erts_aint_t flgs;
 #if defined(ERTS_SCHED_NEED_NONBLOCKABLE_AUX_WORK) \
     || defined(ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK)
-    long aux_work;
+    erts_aint_t aux_work;
 #endif
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
@@ -972,7 +974,7 @@ scheduler_wait(long *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
     }
     else {
-	long dt;
+	erts_aint_t dt;
 
 	erts_smp_atomic_set(&function_calls, 0);
 	*fcalls = 0;
@@ -1108,13 +1110,13 @@ scheduler_wait(long *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 }
 
-static ERTS_INLINE long
+static ERTS_INLINE erts_aint_t
 ssi_flags_set_wake(ErtsSchedulerSleepInfo *ssi)
 {
     /* reset all flags but suspended */
-    long oflgs;
-    long nflgs = 0;
-    long xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
+    erts_aint_t oflgs;
+    erts_aint_t nflgs = 0;
+    erts_aint_t xflgs = ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLG_WAITING;
     while (1) {
 	oflgs = erts_smp_atomic_cmpxchg(&ssi->flags, nflgs, xflgs);
 	if (oflgs == xflgs)
@@ -1148,7 +1150,7 @@ wake_scheduler(ErtsRunQueue *rq, int incq, int one)
     if (!ssi)
 	erts_smp_spin_unlock(&sl->lock);
     else if (one) {
-	long flgs;
+	erts_aint_t flgs;
 	if (ssi->prev)
 	    ssi->prev->next = ssi->next;
 	else {
@@ -1195,7 +1197,7 @@ wake_all_schedulers(void)
 static ERTS_INLINE int
 chk_wake_sched(ErtsRunQueue *crq, int ix, int activate)
 {
-    long iflgs;
+    erts_aint_t iflgs;
     ErtsRunQueue *wrq;
     if (crq->ix == ix)
 	return 0;
@@ -1697,7 +1699,7 @@ static ERTS_INLINE int
 check_possible_steal_victim(ErtsRunQueue *rq, int *rq_lockedp, int vix)
 {
     ErtsRunQueue *vrq = ERTS_RUNQ_IX(vix);
-    long iflgs = erts_smp_atomic_read(&vrq->info_flags);
+    erts_aint_t iflgs = erts_smp_atomic_read(&vrq->info_flags);
     if (iflgs & ERTS_RUNQ_IFLG_NONEMPTY)
 	return try_steal_task_from_victim(rq, rq_lockedp, vrq);
     else
@@ -2748,11 +2750,11 @@ static void
 scheduler_ix_resume_wake(Uint ix)
 {
     ErtsSchedulerSleepInfo *ssi = ERTS_SCHED_SLEEP_INFO_IX(ix);
-    long xflgs = (ERTS_SSI_FLG_SLEEPING
-		  | ERTS_SSI_FLG_TSE_SLEEPING
-		  | ERTS_SSI_FLG_WAITING
-		  | ERTS_SSI_FLG_SUSPENDED);
-    long oflgs;
+    erts_aint_t xflgs = (ERTS_SSI_FLG_SLEEPING
+			 | ERTS_SSI_FLG_TSE_SLEEPING
+			 | ERTS_SSI_FLG_WAITING
+			 | ERTS_SSI_FLG_SUSPENDED);
+    erts_aint_t oflgs;
     do {
 	oflgs = erts_smp_atomic_cmpxchg(&ssi->flags, 0, xflgs);
 	if (oflgs == xflgs) {
@@ -2763,14 +2765,14 @@ scheduler_ix_resume_wake(Uint ix)
     } while (oflgs & ERTS_SSI_FLG_SUSPENDED);
 }
 
-static long
-sched_prep_spin_suspended(ErtsSchedulerSleepInfo *ssi, long xpct)
+static erts_aint_t
+sched_prep_spin_suspended(ErtsSchedulerSleepInfo *ssi, erts_aint_t xpct)
 {
-    long oflgs;
-    long nflgs = (ERTS_SSI_FLG_SLEEPING
-		  | ERTS_SSI_FLG_WAITING
-		  | ERTS_SSI_FLG_SUSPENDED);
-    long xflgs = xpct;
+    erts_aint_t oflgs;
+    erts_aint_t nflgs = (ERTS_SSI_FLG_SLEEPING
+			 | ERTS_SSI_FLG_WAITING
+			 | ERTS_SSI_FLG_SUSPENDED);
+    erts_aint_t xflgs = xpct;
 
     do {
 	oflgs = erts_smp_atomic_cmpxchg(&ssi->flags, nflgs, xflgs);
@@ -2782,12 +2784,12 @@ sched_prep_spin_suspended(ErtsSchedulerSleepInfo *ssi, long xpct)
     return oflgs;
 }
 
-static long
+static erts_aint_t
 sched_spin_suspended(ErtsSchedulerSleepInfo *ssi, int spincount)
 {
     int until_yield = ERTS_SCHED_SPIN_UNTIL_YIELD;
     int sc = spincount;
-    long flgs;
+    erts_aint_t flgs;
 
     do {
 	flgs = erts_smp_atomic_read(&ssi->flags);
@@ -2808,17 +2810,17 @@ sched_spin_suspended(ErtsSchedulerSleepInfo *ssi, int spincount)
     return flgs;
 }
 
-static long
+static erts_aint_t
 sched_set_suspended_sleeptype(ErtsSchedulerSleepInfo *ssi)
 {
-    long oflgs;
-    long nflgs = (ERTS_SSI_FLG_SLEEPING
-		  | ERTS_SSI_FLG_TSE_SLEEPING
-		  | ERTS_SSI_FLG_WAITING
-		  | ERTS_SSI_FLG_SUSPENDED);
-    long xflgs = (ERTS_SSI_FLG_SLEEPING
-		  | ERTS_SSI_FLG_WAITING
-		  | ERTS_SSI_FLG_SUSPENDED);
+    erts_aint_t oflgs;
+    erts_aint_t nflgs = (ERTS_SSI_FLG_SLEEPING
+			 | ERTS_SSI_FLG_TSE_SLEEPING
+			 | ERTS_SSI_FLG_WAITING
+			 | ERTS_SSI_FLG_SUSPENDED);
+    erts_aint_t xflgs = (ERTS_SSI_FLG_SLEEPING
+			 | ERTS_SSI_FLG_WAITING
+			 | ERTS_SSI_FLG_SUSPENDED);
 
     erts_tse_reset(ssi->event);
 
@@ -2841,7 +2843,7 @@ sched_set_suspended_sleeptype(ErtsSchedulerSleepInfo *ssi)
 static void
 suspend_scheduler(ErtsSchedulerData *esdp)
 {
-    long flgs;
+    erts_aint_t flgs;
     int changing;
     long no = (long) esdp->no;
     ErtsSchedulerSleepInfo *ssi = esdp->ssi;
@@ -2850,7 +2852,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
     int wake = 0;
 #if defined(ERTS_SCHED_NEED_NONBLOCKABLE_AUX_WORK) \
     || defined(ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK)
-    long aux_work;
+    erts_aint_t aux_work;
 #endif
 
     /*
@@ -2933,7 +2935,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
 	    erts_smp_activity_begin(ERTS_ACTIVITY_WAIT, NULL, NULL, NULL);
 	    while (1) {
-		long flgs;
+		erts_aint_t flgs;
 #ifdef ERTS_SCHED_NEED_NONBLOCKABLE_AUX_WORK
 #ifndef ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
 		aux_work = erts_smp_atomic_read(&ssi->aux_work);
@@ -2941,7 +2943,8 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 		nonblockable_aux_work(esdp, ssi, aux_work);
 #endif
 
-		flgs = sched_spin_suspended(ssi, ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT);
+		flgs = sched_spin_suspended(ssi,
+					    ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT);
 		if (flgs == (ERTS_SSI_FLG_SLEEPING
 			     | ERTS_SSI_FLG_WAITING
 			     | ERTS_SSI_FLG_SUSPENDED)) {
@@ -3062,7 +3065,7 @@ erts_schedulers_state(Uint *total,
 		      int yield_allowed)
 {
     int res;
-    long changing;
+    erts_aint_t changing;
     erts_smp_mtx_lock(&schdlr_sspnd.mtx);
     changing = erts_smp_atomic_read(&schdlr_sspnd.changing);
     if (yield_allowed && (changing & ~ERTS_SCHDLR_SSPND_CHNG_WAITER))
@@ -3085,7 +3088,7 @@ erts_set_schedulers_online(Process *p,
 			   Sint *old_no)
 {
     int ix, res, no, have_unlocked_plocks;
-    long changing;
+    erts_aint_t changing;
 
     if (new_no < 1 || erts_no_schedulers < new_no)
 	return ERTS_SCHDLR_SSPND_EINVAL;
@@ -3236,7 +3239,7 @@ ErtsSchedSuspendResult
 erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 {
     int ix, res, have_unlocked_plocks = 0;
-    long changing;
+    erts_aint_t changing;
     ErtsProcList *plp;
 
     erts_smp_mtx_lock(&schdlr_sspnd.mtx);
@@ -3453,7 +3456,7 @@ void
 erts_dbg_multi_scheduling_return_trap(Process *p, Eterm return_value)
 {
     if (return_value == am_blocked) {
-	long active = erts_smp_atomic_read(&schdlr_sspnd.active);
+	erts_aint_t active = erts_smp_atomic_read(&schdlr_sspnd.active);
 	ASSERT(1 <= active && active <= 2);
 	ASSERT(ERTS_PROC_GET_SCHDATA(p)->no == 1);
     }
@@ -4914,7 +4917,7 @@ Process *schedule(Process *p, int calls)
 {
     ErtsRunQueue *rq;
     ErtsRunPrioQueue *rpq;
-    long dt;
+    erts_aint_t dt;
     ErtsSchedulerData *esdp;
     int context_reds;
     long fcalls;
@@ -5107,7 +5110,7 @@ Process *schedule(Process *p, int calls)
 	|| defined(ERTS_SCHED_NEED_NONBLOCKABLE_AUX_WORK)
 	{
 	    ErtsSchedulerSleepInfo *ssi = esdp->ssi;
-	    long aux_work = erts_smp_atomic_read(&ssi->aux_work);
+	    erts_aint_t aux_work = erts_smp_atomic_read(&ssi->aux_work);
 	    if (aux_work) {
 		erts_smp_runq_unlock(rq);
 #ifdef ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
@@ -5692,7 +5695,7 @@ erts_test_next_pid(int set, Uint next)
 
 Uint erts_process_count(void)
 {
-    long res = erts_smp_atomic_read(&process_count);
+    erts_aint_t res = erts_smp_atomic_read(&process_count);
     ASSERT(res >= 0);
     return (Uint) res;
 }

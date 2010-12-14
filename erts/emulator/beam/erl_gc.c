@@ -2471,7 +2471,7 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 
     old = 0;
     for (u.hdr = MSO(p).first; u.hdr; u.hdr = u.hdr->next) {
-	long refc;
+	erts_aint_t refc;
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
 	    refc = erts_refc_read(&u.pb->val->refc, 1);		

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -33,9 +33,9 @@
 #ifdef ERTS_SMP
 erts_smp_atomic_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 1)
+  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 0)
+  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)

@@ -174,8 +174,8 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_UNSET_RUNQ_FLG_EVACUATE(FLGS, PRIO) \
   ((FLGS) &= ~ERTS_RUNQ_FLG_EVACUATE((PRIO)))
 
-#define ERTS_RUNQ_IFLG_SUSPENDED		(((long) 1) << 0)
-#define ERTS_RUNQ_IFLG_NONEMPTY			(((long) 1) << 1)
+#define ERTS_RUNQ_IFLG_SUSPENDED		(((erts_aint_t) 1) << 0)
+#define ERTS_RUNQ_IFLG_NONEMPTY			(((erts_aint_t) 1) << 1)
 
 
 #ifdef DEBUG
@@ -219,11 +219,11 @@ typedef enum {
     ERTS_MIGRATE_FAILED_RUNQ_SUSPENDED
 } ErtsMigrateResult;
 
-#define ERTS_SSI_FLG_SLEEPING		(((long) 1) << 0)
-#define ERTS_SSI_FLG_POLL_SLEEPING 	(((long) 1) << 1)
-#define ERTS_SSI_FLG_TSE_SLEEPING 	(((long) 1) << 2)
-#define ERTS_SSI_FLG_WAITING		(((long) 1) << 3)
-#define ERTS_SSI_FLG_SUSPENDED	 	(((long) 1) << 4)
+#define ERTS_SSI_FLG_SLEEPING		(((erts_aint_t) 1) << 0)
+#define ERTS_SSI_FLG_POLL_SLEEPING 	(((erts_aint_t) 1) << 1)
+#define ERTS_SSI_FLG_TSE_SLEEPING 	(((erts_aint_t) 1) << 2)
+#define ERTS_SSI_FLG_WAITING		(((erts_aint_t) 1) << 3)
+#define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint_t) 1) << 4)
 
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
@@ -242,7 +242,7 @@ typedef enum {
 #define ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
 #endif
 
-#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((long) 1) << 0)
+#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint_t) 1) << 0)
 
 #define ERTS_SSI_BLOCKABLE_AUX_WORK_MASK \
   (ERTS_SSI_AUX_WORK_CHECK_CHILDREN)
@@ -1555,7 +1555,7 @@ extern int erts_disable_proc_not_running_opt;
 void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
 
 #ifdef ERTS_SMP
-void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, long);
+void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint_t);
 ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -1563,7 +1563,7 @@ ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 ERTS_GLB_INLINE void
 erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 {
-    long flags = erts_smp_atomic_read(&ssi->flags);
+    erts_aint_t flags = erts_smp_atomic_read(&ssi->flags);
     ASSERT(!(flags & ERTS_SSI_FLG_SLEEPING)
 	   || (flags & ERTS_SSI_FLG_WAITING));
     if (flags & ERTS_SSI_FLG_SLEEPING) {

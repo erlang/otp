@@ -428,7 +428,7 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
     old_name = prt->name;
     prt->name = new_name;
 #ifdef ERTS_SMP
-    erts_smp_atomic_set(&prt->run_queue, (long) runq);
+    erts_smp_atomic_set(&prt->run_queue, (erts_aint_t) runq);
 #endif
     ASSERT(!prt->drv_ptr);
     prt->drv_ptr = driver;
@@ -1297,7 +1297,7 @@ void init_io(void)
 	erts_port[i].port_data_lock = NULL;
     }
 
-    erts_smp_atomic_init(&erts_ports_snapshot, (long) 0);
+    erts_smp_atomic_init(&erts_ports_snapshot, (erts_aint_t) 0);
     last_port_num = 0;
     erts_smp_spinlock_init(&get_free_port_lck, "get_free_port");
 
@@ -3252,7 +3252,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, int hlen,
 	return 0;
 
     prt->bytes_in += (hlen + len);
-    erts_smp_atomic_add(&erts_bytes_in, (long) (hlen + len));
+    erts_smp_atomic_add(&erts_bytes_in, (erts_aint_t) (hlen + len));
     if (prt->status & ERTS_PORT_SFLG_DISTRIBUTION) {
 	return erts_net_message(prt,
 				prt->dist_entry,
@@ -3287,7 +3287,7 @@ int driver_output2(ErlDrvPort ix, char* hbuf, int hlen, char* buf, int len)
 	return 0;
     
     prt->bytes_in += (hlen + len);
-    erts_smp_atomic_add(&erts_bytes_in, (long) (hlen + len));
+    erts_smp_atomic_add(&erts_bytes_in, (erts_aint_t) (hlen + len));
     if (prt->status & ERTS_PORT_SFLG_DISTRIBUTION) {
 	if (len == 0)
 	    return erts_net_message(prt,
@@ -3364,7 +3364,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, int hlen, ErlIOVec* vec, int skip)
 
     /* XXX handle distribution !!! */
     prt->bytes_in += (hlen + size);
-    erts_smp_atomic_add(&erts_bytes_in, (long) (hlen + size));
+    erts_smp_atomic_add(&erts_bytes_in, (erts_aint_t) (hlen + size));
     deliver_vec_message(prt, prt->connected, hbuf, hlen, binv, iov, n, size);
     return 0;
 }
@@ -3408,25 +3408,25 @@ int len;
  * reference count on driver binaries...
  */
 
-long
+ErlDrvSInt
 driver_binary_get_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return erts_refc_read(&bp->refc, 1);
+    return (ErlDrvSInt) erts_refc_read(&bp->refc, 1);
 }
 
-long
+ErlDrvSInt
 driver_binary_inc_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return erts_refc_inctest(&bp->refc, 2);
+    return (ErlDrvSInt) erts_refc_inctest(&bp->refc, 2);
 }
 
-long
+ErlDrvSInt
 driver_binary_dec_refc(ErlDrvBinary *dbp)
 {
     Binary* bp = ErlDrvBinary2Binary(dbp);
-    return erts_refc_dectest(&bp->refc, 1);
+    return (ErlDrvSInt) erts_refc_dectest(&bp->refc, 1);
 }
 
 
@@ -3541,12 +3541,12 @@ pdl_init_refc(ErlDrvPDL pdl)
     erts_atomic_init(&pdl->refc, 1);
 }
 
-static ERTS_INLINE long
+static ERTS_INLINE ErlDrvSInt
 pdl_read_refc(ErlDrvPDL pdl)
 {
-    long refc = erts_atomic_read(&pdl->refc);
+    erts_aint_t refc = erts_atomic_read(&pdl->refc);
     ERTS_LC_ASSERT(refc >= 0);
-    return refc;
+    return (ErlDrvSInt) refc;
 }
 
 static ERTS_INLINE void
@@ -3556,12 +3556,12 @@ pdl_inc_refc(ErlDrvPDL pdl)
     ERTS_LC_ASSERT(driver_pdl_get_refc(pdl) > 1);
 }
 
-static ERTS_INLINE long
+static ERTS_INLINE ErlDrvSInt
 pdl_inctest_refc(ErlDrvPDL pdl)
 {
-    long refc = erts_atomic_inctest(&pdl->refc);
+    erts_aint_t refc = erts_atomic_inctest(&pdl->refc);
     ERTS_LC_ASSERT(refc > 1);
-    return refc;
+    return (ErlDrvSInt) refc;
 }
 
 #if 0 /* unused */
@@ -3573,12 +3573,12 @@ pdl_dec_refc(ErlDrvPDL pdl)
 }
 #endif
 
-static ERTS_INLINE long
+static ERTS_INLINE ErlDrvSInt
 pdl_dectest_refc(ErlDrvPDL pdl)
 {
-    long refc = erts_atomic_dectest(&pdl->refc);
+    erts_aint_t refc = erts_atomic_dectest(&pdl->refc);
     ERTS_LC_ASSERT(refc >= 0);
-    return refc;
+    return (ErlDrvSInt) refc;
 }
 
 static ERTS_INLINE void pdl_destroy(ErlDrvPDL pdl)
@@ -3649,7 +3649,7 @@ driver_pdl_lock(ErlDrvPDL pdl)
 void
 driver_pdl_unlock(ErlDrvPDL pdl)
 {
-    long refc;
+    ErlDrvSInt refc;
 #ifdef HARDDEBUG
     erts_fprintf(stderr, "driver_pdl_unlock(0x%08X)\r\n",(unsigned) pdl);
 #endif
@@ -3659,28 +3659,30 @@ driver_pdl_unlock(ErlDrvPDL pdl)
 	pdl_destroy(pdl);
 }
 
-long
+ErlDrvSInt
 driver_pdl_get_refc(ErlDrvPDL pdl)
 {
     return pdl_read_refc(pdl);
 }
 
-long
+ErlDrvSInt
 driver_pdl_inc_refc(ErlDrvPDL pdl)
 {
-    long refc = pdl_inctest_refc(pdl);
+    ErlDrvSInt refc = pdl_inctest_refc(pdl);
 #ifdef HARDDEBUG
-    erts_fprintf(stderr, "driver_pdl_inc_refc(0x%08X) -> %ld\r\n",(unsigned) pdl, refc);
+    erts_fprintf(stderr, "driver_pdl_inc_refc(%p) -> %bpd\r\n",
+		 pdl, refc);
 #endif
     return refc;
 }
 
-long
+ErlDrvSInt
 driver_pdl_dec_refc(ErlDrvPDL pdl)
 {
-    long refc = pdl_dectest_refc(pdl);
+    ErlDrvSInt refc = pdl_dectest_refc(pdl);
 #ifdef HARDDEBUG
-    erts_fprintf(stderr, "driver_pdl_dec_refc(0x%08X) -> %ld\r\n",(unsigned) pdl, refc);
+    erts_fprintf(stderr, "driver_pdl_dec_refc(%p) -> %bpd\r\n",
+		 pdl, refc);
 #endif
     if (!refc)
 	pdl_destroy(pdl);

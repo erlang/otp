@@ -950,8 +950,8 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 	    MatchSetUnref(old_match_spec);
 	} else {
 	    BpDataCount *bdc = (BpDataCount *) bd;
-	    long count = 0;
-	    long res   = 0;
+	    erts_aint_t count = 0;
+	    erts_aint_t res   = 0;
 
 	    ASSERT(! match_spec);
 	    ASSERT(is_nil(tracer_pid));
