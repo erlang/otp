@@ -1,10 +1,12 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
+  {"4.1.1", [{restart_application, ssl}]},
   {"4.1", [{restart_application, ssl}]},
   {"4.0.1", [{restart_application, ssl}]}
  ], 
  [
+  {"4.1.1", [{restart_application, ssl}]},
   {"4.1", [{restart_application, ssl}]},
   {"4.0.1", [{restart_application, ssl}]}
  ]}.
