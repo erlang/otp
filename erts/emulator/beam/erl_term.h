@@ -193,7 +193,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #endif
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
 #define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
-_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*);
+_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
 #define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
@@ -204,12 +204,12 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
 #define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
-_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm);
+_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
 #define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
-_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*);
+_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
 #define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
@@ -226,7 +226,7 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define _list_precond(x)       (is_list(x))
 #endif
 #define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
-_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm);
+_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
 #define CONS(hp, car, cdr) \
@@ -995,14 +995,14 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #endif
 
 #define _unchecked_make_cp(x)	((Eterm) COMPRESS_POINTER(x))
-_ET_DECLARE_CHECKED(Eterm,make_cp,BeamInstr*);
+_ET_DECLARE_CHECKED(Eterm,make_cp,BeamInstr*)
 #define make_cp(x)	_ET_APPLY(make_cp,(x))
 
 #define is_not_CP(x)	((x) & _CPMASK)
 #define is_CP(x)	(!is_not_CP(x))
 
 #define _unchecked_cp_val(x)	((BeamInstr*) EXPAND_POINTER(x))
-_ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm);
+_ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm)
 #define cp_val(x)	_ET_APPLY(cp_val,(x))
 
 #define make_catch(x)	(((x) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_CATCH)
