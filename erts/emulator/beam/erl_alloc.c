@@ -1568,7 +1568,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     Eterm atoms[sizeof(size)/sizeof(Uint)];
     Uint *uintps[sizeof(size)/sizeof(Uint)];
     Eterm euints[sizeof(size)/sizeof(Uint)];
-    int need_atom;
     int want_tot_or_sys;
     int length;
     Eterm res = THE_NON_VALUE;
@@ -1756,7 +1755,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     /* Calculate values needed... */
 
     want_tot_or_sys = want.total || want.system;
-    need_atom = ERTS_MEM_NEED_ALL_ALCU || want.atom;
 
     if (ERTS_MEM_NEED_ALL_ALCU) {
 	size.total = 0;
