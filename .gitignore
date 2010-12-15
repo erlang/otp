@@ -1,5 +1,10 @@
 # Match at any level.
+
+# emacs
 *~
+# vim
+.*.sw[a-z]
+
 autom4te.cache
 *.beam
 *.asn1db
@@ -162,6 +167,7 @@ make/win32/
 /erts/emulator/test/*_SUITE_make.erl
 /erts/emulator/test/*_SUITE_data/Makefile
 /erts/test/install_SUITE_data/install_bin
+/erts/test/autoimport_SUITE_data/erlang.xml
 
 # asn1
 
