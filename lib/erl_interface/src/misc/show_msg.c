@@ -181,11 +181,6 @@ int ei_show_sendmsg(FILE *stream, const char *header, const char *msgbuf)
 	mbuf = header;
 	break;
     
-    case ERL_NODE_LINK:
-	/* nothing to do */
-	mbuf = header;
-	break;
-
     default:
 	break;
     }
@@ -239,10 +234,6 @@ static void show_msg(FILE *stream, int direction, const erlang_msg *msg,
 	show_pid(stream,&msg->from);
 	fprintf(stream," To: ");
 	show_pid(stream,&msg->to);
-	break;
-      
-    case ERL_NODE_LINK:
-	fprintf(stream,"NODE_LINK");
 	break;
       
     case ERL_REG_SEND:

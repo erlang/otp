@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -194,10 +194,6 @@ ei_recv_internal (int fd,
     }
 
     ei_trace(1,&msg->token); /* turn on tracing */
-    break;
-
-  case ERL_NODE_LINK:   /* { NODE_LINK } */
-    if (ei_tracelevel >= 4) show_this_msg = 1;
     break;
 
   default:

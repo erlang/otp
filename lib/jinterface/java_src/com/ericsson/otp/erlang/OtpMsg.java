@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,6 @@ public class OtpMsg {
     public static final int sendTag = 2;
     public static final int exitTag = 3;
     public static final int unlinkTag = 4;
-    /* public static final int nodeLinkTag = 5; */
     public static final int regSendTag = 6;
     /* public static final int groupLeaderTag = 7; */
     public static final int exit2Tag = 8;

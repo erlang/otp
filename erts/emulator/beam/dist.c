@@ -1182,9 +1182,6 @@ int erts_net_message(Port *prt,
 	erts_destroy_monitor(mon);
 	break;
 
-    case DOP_NODE_LINK: /* XXX never sent ?? */
-	break;
-
     case DOP_REG_SEND_TT:
 	if (tuple_arity != 5) {
 	    goto invalid_message;
