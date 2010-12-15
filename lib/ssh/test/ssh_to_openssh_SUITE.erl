@@ -20,7 +20,7 @@
 %%
 -module(ssh_to_openssh_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 %% Note: This directive should only be used in test suites.
@@ -90,13 +90,9 @@ end_per_testcase(_TestCase, _Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test ssh API"];
-
-all(suite) ->
+all() -> 
     case os:find_executable("ssh") of
-	false ->
-	    {skip, "openSSH not installed on host"};
+	false -> {skip, "openSSH not installed on host"};
 	_ ->
 	    [erlang_shell_client_openssh_server,
 	     erlang_client_openssh_server_exec,
@@ -109,6 +105,16 @@ all(suite) ->
 	     erlang_server_openssh_client_pulic_key_dsa,
 	     erlang_client_openssh_server_password]
     end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% TEST cases starts here.
 %%--------------------------------------------------------------------

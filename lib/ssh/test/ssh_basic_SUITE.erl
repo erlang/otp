@@ -21,7 +21,7 @@
 
 -module(ssh_basic_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 %% Note: This directive should only be used in test suites.
@@ -97,12 +97,20 @@ end_per_testcase(_TestCase, _Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test ssh API"];
-
-all(suite) ->
+all() -> 
     [exec, exec_compressed, shell, daemon_allready_started,
-     server_password_option, server_userpassword_option, known_hosts].
+     server_password_option, server_userpassword_option,
+     known_hosts].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

@@ -23,7 +23,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("ssh_xfer.hrl").
 -include("ssh.hrl").
@@ -143,13 +143,21 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test the sftp server"];
+all() -> 
+    [open_close_file, open_close_dir, read_file, read_dir,
+     write_file, rename_file, mk_rm_dir, remove_file,
+     real_path, retrieve_attributes, set_attributes, links,
+     ver3_rename_OTP_6352, seq10670, sshd_read_file].
 
-all(suite) ->
-    [open_close_file, open_close_dir, read_file, read_dir, write_file,
-     rename_file, mk_rm_dir, remove_file, real_path, retrieve_attributes,
-     set_attributes, links, ver3_rename_OTP_6352, seq10670, sshd_read_file].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
