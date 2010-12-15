@@ -1901,7 +1901,7 @@ erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *dsbufp)
  * Returns 0 if not equal, or a non-zero value otherwise.
  */
 #if HALFWORD_HEAP
-int eq_rel(Eterm a, Eterm b, Eterm* b_base)
+int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
 #else
 int eq(Eterm a, Eterm b)
 #endif
@@ -1909,21 +1909,21 @@ int eq(Eterm a, Eterm b)
     DECLARE_WSTACK(stack);
     Sint sz;
     Eterm* aa;
-    Eterm* bb;	
+    Eterm* bb;
 
 tailrecur:
-    if (is_same(a,NULL, b,b_base)) goto pop_next;
+    if (is_same(a, a_base, b, b_base)) goto pop_next;
 tailrecur_ne:
 
     switch (primary_tag(a)) {
     case TAG_PRIMARY_LIST:
 	if (is_list(b)) {
-	    Eterm* aval = list_val(a);
+	    Eterm* aval = list_val_rel(a, a_base);
 	    Eterm* bval = list_val_rel(b, b_base);
 	    while (1) {
 		Eterm atmp = CAR(aval);
 		Eterm btmp = CAR(bval);
-		if (!is_same(atmp,NULL,btmp,b_base)) {
+		if (!is_same(atmp,a_base,btmp,b_base)) {
 		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
 		    a = atmp;
 		    b = btmp;
@@ -1931,7 +1931,7 @@ tailrecur_ne:
 		}
 		atmp = CDR(aval);
 		btmp = CDR(bval);
-		if (is_same(atmp,NULL,btmp,b_base)) {
+		if (is_same(atmp,a_base,btmp,b_base)) {
 		    goto pop_next;
 		}
 		if (is_not_list(atmp) || is_not_list(btmp)) {
@@ -1939,7 +1939,7 @@ tailrecur_ne:
 		    b = btmp;
 		    goto tailrecur_ne;
 		}
-		aval = list_val(atmp);
+		aval = list_val_rel(atmp, a_base);
 		bval = list_val_rel(btmp, b_base);
 	    }
 	}
@@ -1947,11 +1947,11 @@ tailrecur_ne:
 
     case TAG_PRIMARY_BOXED:
 	{	
-	    Eterm hdr = *boxed_val(a);
+	    Eterm hdr = *boxed_val_rel(a,a_base);
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
-		    aa = tuple_val(a);
+		    aa = tuple_val_rel(a, a_base);
 		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
 			goto not_equal;
 		    bb = tuple_val_rel(b,b_base);
@@ -1976,12 +1976,12 @@ tailrecur_ne:
 		    if (!is_binary_rel(b,b_base)) {
 			goto not_equal;
 		    }
-		    a_size = binary_size(a);
+		    a_size = binary_size_rel(a,a_base);
 		    b_size = binary_size_rel(b,b_base);
 		    if (a_size != b_size) {
 			goto not_equal;
 		    }
-		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
+		    ERTS_GET_BINARY_BYTES_REL(a, a_ptr, a_bitoffs, a_bitsize, a_base);
 		    ERTS_GET_BINARY_BYTES_REL(b, b_ptr, b_bitoffs, b_bitsize, b_base);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
 			if (sys_memcmp(a_ptr, b_ptr, a_size) == 0) goto pop_next;
@@ -1994,7 +1994,7 @@ tailrecur_ne:
 	    case EXPORT_SUBTAG:
 		{
 		    if (is_export_rel(b,b_base)) {
-			Export* a_exp = *((Export **) (export_val(a) + 1));
+			Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
 			Export* b_exp = *((Export **) (export_val_rel(b,b_base) + 1));
 			if (a_exp == b_exp) goto pop_next;
 		    }
@@ -2007,7 +2007,7 @@ tailrecur_ne:
   
 		    if (!is_fun_rel(b,b_base))
 			goto not_equal;
-		    f1 = (ErlFunThing *) fun_val(a);
+		    f1 = (ErlFunThing *) fun_val_rel(a,a_base);
 		    f2 = (ErlFunThing *) fun_val_rel(b,b_base);
 		    if (f1->fe->module != f2->fe->module ||
 			f1->fe->old_index != f2->fe->old_index ||
@@ -2029,11 +2029,11 @@ tailrecur_ne:
 		if(!is_external_rel(b,b_base))
 		    goto not_equal;
 
-		ap = external_thing_ptr(a);
+		ap = external_thing_ptr_rel(a,a_base);
 		bp = external_thing_ptr_rel(b,b_base);
 
 		if(ap->header == bp->header && ap->node == bp->node) {
-		    ASSERT(1 == external_data_words(a));
+		    ASSERT(1 == external_data_words_rel(a,a_base));
 		    ASSERT(1 == external_data_words_rel(b,b_base));
 		    
 		    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
@@ -2058,7 +2058,7 @@ tailrecur_ne:
 		if(!is_external_ref_rel(b,b_base))
 		    goto not_equal;
 
-		athing = external_thing_ptr(a);
+		athing = external_thing_ptr_rel(a,a_base);
 		bthing = external_thing_ptr_rel(b,b_base);
 
 		if(athing->node != bthing->node)
@@ -2075,7 +2075,7 @@ tailrecur_ne:
 			goto not_equal;
 
 		    {
-			RefThing* athing = ref_thing_ptr(a);
+			RefThing* athing = ref_thing_ptr_rel(a,a_base);
 			RefThing* bthing = ref_thing_ptr_rel(b,b_base);
 			alen = internal_thing_ref_no_of_numbers(athing);
 			blen = internal_thing_ref_no_of_numbers(bthing);
@@ -2128,7 +2128,7 @@ tailrecur_ne:
   
 		    if (!is_big_rel(b,b_base))
 			goto not_equal;
-		    aa = big_val(a); /* get pointer to thing */
+		    aa = big_val_rel(a,a_base);
 		    bb = big_val_rel(b,b_base);
 		    if (*aa != *bb)
 			goto not_equal;
@@ -2145,7 +2145,7 @@ tailrecur_ne:
 		    FloatDef bf;
   
 		    if (is_float_rel(b,b_base)) {
-			GET_DOUBLE(a, af);
+			GET_DOUBLE_REL(a, af, a_base);
 			GET_DOUBLE_REL(b, bf, b_base);
 			if (af.fd == bf.fd) goto pop_next;
 		    }
@@ -2165,7 +2165,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'sz' */
 	Eterm* bp = bb;
 	Sint i = sz;
 	for (;;) {
-	    if (!is_same(*ap,NULL,*bp,b_base)) break;
+	    if (!is_same(*ap,a_base,*bp,b_base)) break;
 	    if (--i == 0) goto pop_next;
 	    ++ap;
 	    ++bp;

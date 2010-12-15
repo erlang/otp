@@ -429,7 +429,7 @@ static ERTS_INLINE void try_shrink(DbTableHash* tb)
 }	
 
 #define EQ_REL(x,y,y_base) \
-    (is_same(x,NULL,y,y_base) || (is_not_both_immed((x),(y)) && eq_rel((x),(y),y_base)))
+    (is_same(x,NULL,y,y_base) || (is_not_both_immed((x),(y)) && eq_rel((x),NULL,(y),y_base)))
 
 /* Is this a live object (not pseodo-deleted) with the specified key? 
 */

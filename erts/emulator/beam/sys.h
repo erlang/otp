@@ -229,9 +229,11 @@ int real_printf(const char *fmt, ...);
 #  ifdef HALFWORD_HEAP_EMULATOR
 #    define HALFWORD_HEAP 1
 #    define HALFWORD_ASSERT 0
+#    define ASSERT_HALFWORD(COND) ASSERT(COND)
 #  else
 #    define HALFWORD_HEAP 0
 #    define HALFWORD_ASSERT 0
+#    define ASSERT_HALFWORD(COND)
 #  endif
 #endif
 

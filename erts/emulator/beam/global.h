@@ -901,7 +901,7 @@ Eterm copy_struct_rel(Eterm, Uint, Eterm**, ErlOffHeap*, Eterm* src_base, Eterm*
 Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
 #  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
 
-#else /* HALFWORD_HEAP */
+#else /* !HALFWORD_HEAP */
 
 Uint size_object(Eterm);
 #  define size_object_rel(A,B) size_object(A)
@@ -1506,11 +1506,11 @@ erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
 
 #if HALFWORD_HEAP
-int eq_rel(Eterm a, Eterm b, Eterm* b_base);
-#  define eq(A,B) eq_rel(A,B,NULL)
+int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
+#  define eq(A,B) eq_rel(A,NULL,B,NULL)
 #else
 int eq(Eterm, Eterm);
-#  define eq_rel(A,B,B_BASE) eq(A,B)
+#  define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
 #endif
 
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))

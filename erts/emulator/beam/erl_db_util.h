@@ -286,7 +286,7 @@ ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
 	Uint size = size_object_rel(key, obj->tpl);
 	Eterm* hp = HAlloc(p, size);
 	Eterm res = copy_struct_rel(key, size, &hp, &MSO(p), obj->tpl, NULL);
-	ASSERT(eq_rel(res,key,obj->tpl));
+	ASSERT(eq_rel(res,NULL,key,obj->tpl));
 	return res;
     }
 }
@@ -305,7 +305,7 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     if (!tb->compress) {
-	return eq_rel(a, make_tuple_rel(b->tpl,b->tpl), b->tpl);
+	return eq_rel(a, NULL, make_tuple_rel(b->tpl,b->tpl), b->tpl);
     }
     else {
 	return db_eq_comp(tb, a, b);
@@ -427,7 +427,8 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
 			     int all, DbTerm* obj, Eterm** hpp, Uint extra);
 /* Returns newly allocated MatchProg binary with refc == 0*/
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm *termp, int arity,
+Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm* base,
+		    Eterm *termp, int arity,
 		    Uint32 *return_flags /* Zeroed on enter */);
 /* returns DB_ERROR_NONE if matches, 1 if not matches and some db error on 
    error. */

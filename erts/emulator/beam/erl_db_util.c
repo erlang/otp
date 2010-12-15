@@ -1169,7 +1169,7 @@ Eterm erts_match_set_run(Process *p, Binary *mpsp,
     Eterm ret;
 
     ret = db_prog_match(p, mpsp,
-			NIL, args,
+			NIL, NULL, args,
 			num_args, return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
@@ -1194,9 +1194,7 @@ static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
 {
     Eterm ret;
 
-    ret = db_prog_match(p, mpsp,
-			args, NULL,
-			num_args, return_flags);
+    ret = db_prog_match(p, mpsp, args, NULL, NULL, num_args, return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
 	erts_fprintf(stderr, "Failed\n");
@@ -1596,7 +1594,8 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
 ** the parameter 'arity' is only used if 'term' is actually an array,
 ** i.e. 'DCOMP_TRACE' was specified 
 */
-Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term, 
+Eterm db_prog_match(Process *c_p, Binary *bprog,
+		    Eterm term, Eterm* base,
 		    Eterm *termp,
 		    int arity,
 		    Uint32 *return_flags)
@@ -1623,15 +1622,15 @@ Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term,
     Eterm (*bif)(Process*, ...);
     int fail_label;
     int atomic_trace;
-    Eterm* base = is_immed(term) ? NULL : termp;
+#if HALFWORD_HEAP
+    int is_abs_variables = (base == NULL);
+#endif
 #ifdef DMC_DEBUG
     Uint *heap_fence;
     Uint *eheap_fence;
     Uint *stack_fence;
     Uint save_op;
 #endif /* DMC_DEBUG */
-
-    ASSERT(base==NULL);  // SVERK: base not used for now, maybe remove
 
     mpsp = get_match_pseudo_process(c_p, prog->heap_size);
     psp = &mpsp->process;
@@ -1692,6 +1691,12 @@ restart:
     ret = am_true;
     do_catch = 0;
     fail_label = -1;
+
+#if HALFWORD_HEAP  /* clear all variables for matchPushV */
+    for (i=prog->eheap_offset-(1+FENCE_PATTERN_SIZE); i>=0; i--) {
+	hp[i] = NIL;
+    }
+#endif
 
     for (;;) {
 #ifdef DMC_DEBUG
@@ -1761,18 +1766,20 @@ restart:
 	    ep = *(--sp);
 	    break;
 	case matchBind:
+	    ASSERT_HALFWORD(is_abs_variables == !base);
 	    n = *pc++;
 	    hp[n] = *ep++;
 	    break;
 	case matchCmp:
+	    ASSERT_HALFWORD(is_abs_variables == !base);
 	    n = *pc++;
-	    if (!eq_rel(hp[n],*ep,base))
+	    if (!eq_rel(hp[n],base,*ep,base))
 		FAIL();
 	    ++ep;
 	    break;
 	case matchEqBin:
 	    t = (Eterm) *pc++;
-	    if (!eq_rel(t,*ep,base))
+	    if (!eq_rel(t,NULL,*ep,base))
 		FAIL();
 	    ++ep;
 	    break;
@@ -1787,7 +1794,7 @@ restart:
 	case matchEqRef:
 	    if (!is_ref_rel(*ep,base))
 		FAIL();
-	    if (!eq_rel(make_internal_ref((Uint *) pc), *ep, base))
+	    if (!eq_rel(make_internal_ref((Uint *) pc), NULL, *ep, base))
 		FAIL();
 	    i = thing_arityval(*((Uint *) pc));
 	    pc += TermWords(i+1);
@@ -1894,11 +1901,31 @@ restart:
 	    esp[-1] = t;
 	    break;
 	case matchPushV:
-	    *esp++ = hp[*pc++];
+	    n = *pc++;
+	#if HALFWORD_HEAP
+	    if (!is_abs_variables && !is_immed(hp[n])) {
+		for (i=prog->eheap_offset-1; i>=0; i--) if (!is_immed(hp[i])) {
+		    Uint sz = size_object_rel(hp[i], base);
+		    Eterm* top = HAlloc(psp, sz);
+		    hp[i] = copy_struct_rel(hp[i], sz, &top, &MSO(psp), base, NULL);
+		}
+		is_abs_variables = 1;
+	    }
+	#endif
+	    *esp++ = hp[n];
 	    break;
 	case matchPushExpr:
 	    ASSERT(is_tuple_rel(term,base));
-	    *esp++ = make_tuple(tuple_val_rel(term,base));
+	#if HALFWORD_HEAP
+	    if (base) {
+		Uint sz = size_object_rel(term, base);
+		Eterm* top = HAlloc(psp, sz);
+		*esp++ = copy_shallow_rel(tuple_val_rel(term,base), sz,
+					  &top, &MSO(psp), base);
+		break;
+	    }
+	#endif
+	    *esp++ = term;
 	    break;
 	case matchPushArrayAsList:
 	    n = arity; /* Only happens when 'term' is an array */
@@ -4883,35 +4910,22 @@ Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
 			     int all, DbTerm* obj, Eterm** hpp, Uint extra)
 {
     Uint32 dummy;
+    Eterm* base;
     Eterm res;
 
     if (tb->compress) {
 	obj = db_alloc_tmp_uncompressed(tb, obj);
+	base = NULL;
     }
-#if HALFWORD_HEAP
-    else { // SVERK: Heavy solution; make tmp copy
-	ErlOffHeap tmp_offheap;
-	Eterm* hp;
-	DbTerm* tmp = erts_alloc(ERTS_ALC_T_TMP,
-				     sizeof(DbTerm) + obj->size*sizeof(Eterm));
-	hp = tmp->tpl;
-	tmp_offheap.first = NULL;
-	copy_shallow_rel(obj->tpl, obj->size, &hp, &tmp_offheap, obj->tpl);
-	tmp->size = obj->size;
-	tmp->first_oh = tmp_offheap.first;
-	#ifdef DEBUG_CLONE
-	tmp->debug_clone = NULL;
-	#endif
-	obj = tmp;
-    }
-#endif
+    else base = obj->tpl;
 
-    res = db_prog_match(c_p, bprog, make_tuple(obj->tpl), NULL, 0, &dummy);
+    res = db_prog_match(c_p, bprog, make_tuple_rel(obj->tpl,base), base,
+			NULL, 0, &dummy);
 
     if (is_value(res) && hpp!=NULL) {
 	if (all) {
 	    *hpp = HAlloc(c_p, obj->size + extra);
-	    res = copy_shallow(obj->tpl, obj->size, hpp, &MSO(c_p));
+	    res = copy_shallow_rel(obj->tpl, obj->size, hpp, &MSO(c_p), base);
 	}
 	else {
 	    Uint sz = size_object(res);
@@ -4923,9 +4937,6 @@ Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
     if (tb->compress) {
 	db_free_tmp_uncompressed(obj);
     }
-#if HALFWORD_HEAP
-    else db_free_tmp_uncompressed(obj); // SVERK misleading name
-#endif
     return res;
 }
 
