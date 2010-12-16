@@ -258,7 +258,8 @@ delete(Key) ->
 
 
 cleanup() ->
-    ets:delete_all_objects(snmpa_vacm).
+    ets:delete_all_objects(snmpa_vacm),
+    dump_table().
 
 dump_table(true) ->
     dump_table();
