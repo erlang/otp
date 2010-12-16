@@ -36,7 +36,7 @@
     <note>
       <p>When starting the Inets application a manager process for the
 	default profile will be started. The functions in this API
-	that does not explicitly use a profile will accesses the
+	that do not explicitly use a profile will access the
 	default profile. A profile keeps track of proxy options,
 	cookies and other options that can be applied to more than one
 	request. </p>
@@ -209,7 +209,7 @@ ssl_options() = {verify,     code()}   |
           <tag><c><![CDATA[timeout]]></c></tag>
           <item>
             <p>Timeout time for the request. </p>
-            <p>The clock start ticking as soon as the request has been 
+            <p>The clock starts ticking as soon as the request has been
               sent. </p>
             <p>Time is in milliseconds. </p>
             <p>Defaults to <c>infinity</c>. </p>
@@ -246,11 +246,11 @@ ssl_options() = {verify,     code()}   |
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
           <item>
-            <p>Should the client automatically retreive the information 
+            <p>Should the client automatically retrieve the information
               from the new URI and return that as the result instead 
               of a 30X-result code. </p>
             <p>Note that for some 30X-result codes automatic redirect 
-              is not allowed in these cases the 30X-result will always 
+              is not allowed. In these cases the 30X-result will always
               be returned. </p>
             <p>Defaults to <c>true</c>. </p>
 	  </item>
@@ -296,11 +296,11 @@ ssl_options() = {verify,     code()}   |
           <item>
             <p>Streams the body of a 200 or 206 response to the calling 
 	      process or to a file. When streaming to the calling process 
-	      using the option <c>self</c> the the following stream messages
+	      using the option <c>self</c> the following stream messages
 	      will be sent to that process: {http, {RequestId,
 	      stream_start, Headers}, {http, {RequestId, stream,
 	      BinBodyPart}, {http, {RequestId, stream_end, Headers}. When
-	      streaming to to the calling processes using the option
+	      streaming to the calling processes using the option
 	      <c>{self, once}</c> the first message will have an additional
 	      element e.i. {http, {RequestId, stream_start, Headers, Pid},
 	      this is the process id that should be used as an argument to
@@ -338,7 +338,7 @@ ssl_options() = {verify,     code()}   |
               case insenstive. This feature should only be used if there is 
               no other way to communicate with the server or for testing 
               purpose. Also note that when this option is used no headers 
-              will be automatically added, all necessary headers has to be 
+              will be automatically added, all necessary headers have to be
               provided by the user. </p>
             <p>Defaults to <c>false</c>. </p>
 	  </item>
@@ -354,17 +354,17 @@ ssl_options() = {verify,     code()}   |
               checked in any way. </p>
             <p>Note that this may change the socket behaviour 
               (see <seealso marker="kernel:inet#setopts">inet:setopts/2</seealso>) 
-              for an already existing, and therefor already connected 
+              for an already existing one, and therefore an already connected
               request handler. </p>
-            <p>By defaults the socket options set by the 
+            <p>By default the socket options set by the
               <seealso marker="#set_options">set_options/1,2</seealso> 
-              function is used when establishing connection. </p>
+              function are used when establishing the connection. </p>
 	  </item>
 
           <tag><c><![CDATA[receiver]]></c></tag>
           <item>
-            <p>Defines how the client will deliver the result for a 
-              asynchroneous request (<c>sync</c> has the value 
+            <p>Defines how the client will deliver the result for an
+              asynchronous request (<c>sync</c> has the value
               <c>false</c>). </p>
 
             <taglist>
@@ -480,7 +480,7 @@ apply(Module, Function, [ReplyInfo | Args])
         <d>Default is <em>120000</em> (= 2 min). 
           If a persistent connection is idle longer than the 
           keep_alive_timeout the client will close the connection. 
-          The server may also have a such a time out but you should 
+          The server may also have such a timeout but you should
           not count on it!</d>
 	<v>MaxPipeline = integer() </v>
         <d>Default is <em>2</em>. 
@@ -527,7 +527,7 @@ apply(Module, Function, [ReplyInfo | Args])
             ideal to be sent on a persistent connection,
 	    this very much depends on the
             application. Note that a very long queue of requests may cause a
-            user perceived delays as earlier request may take a long time
+            user perceived delay as earlier requests may take a long time
             to complete. The HTTP/1.1 specification does suggest a
             limit of 2 persistent connections per server, which is the
             default value of the max_sessions option. </p>
