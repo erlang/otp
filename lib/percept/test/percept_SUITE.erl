@@ -70,6 +70,8 @@ webserver(Config) when is_list(Config) ->
     % Explicit start inets?
     ?line {started, _, Port} = percept:start_webserver(),
     ?line ok = percept:stop_webserver(Port), 
+    ?line {started, _, NewPort} = percept:start_webserver(),
+    ?line ok = percept:stop_webserver(NewPort),
     ?line application:stop(inets),
     ok.
 
