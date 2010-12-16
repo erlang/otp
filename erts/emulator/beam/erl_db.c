@@ -1436,8 +1436,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 				      "** Too many db tables **\n");
 	free_heir_data(tb);
 	tb->common.meth->db_free_table(tb);
-	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(DbTable));
+	db_unref(tb, LCK_NONE);
 	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
     }
 
