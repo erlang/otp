@@ -2690,9 +2690,9 @@ static int db_lookup_dbterm_hash(DbTable *tbl, Eterm key, DbUpdateHandle* handle
 	    handle->dbterm = &b->dbterm;
 	    handle->mustResize = 0;
 	    handle->new_size = b->dbterm.size;
-	    #if HALFWORD_HEAP
-	    handle->new_tuple = handle->dbterm->tpl;
-	    #endif
+	#if HALFWORD_HEAP
+	    handle->abs_vec = NULL;
+	#endif
 	    handle->lck = lck;
 	    /* KEEP hval WLOCKED, db_finalize_dbterm_hash will WUNLOCK */
 	    return 1;

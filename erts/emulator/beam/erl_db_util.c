@@ -2392,39 +2392,29 @@ Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr)
 
 /* Must be called to read elements after db_lookup_dbterm.
 ** Will decompress if needed.
-** HEALFWORD_HEAP: Will convert from relative to Wterm format if needed.
+** HEALFWORD_HEAP:
+** 	Will convert from relative to Wterm format if needed.
+**      (but only on top level, tuples and lists will still contain rterms)
 */
 Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
 {
-#if HALFWORD_HEAP
-    Eterm elem = handle->new_tuple[position];
-    Eterm* base = handle->dbterm->tpl;
-
-    if (elem == THE_NON_VALUE) {
-	elem = handle->dbterm->tpl[position];
-	ASSERT(is_value(elem));
-    }
-    else if (handle->new_tuple != handle->dbterm->tpl
-	     || handle->tb->common.compress) {
-	base = NULL;
-    }
-    if (!is_header(elem)) {
-	return is_immed(elem) ? elem : rterm2wterm(elem, base);
-    }
-#else
     Eterm elem = handle->dbterm->tpl[position];
     if (!is_header(elem)) {
+#if HALFWORD_HEAP
+	if (!is_immed(elem)
+	    && !handle->tb->common.compress
+	    && !(handle->abs_vec && handle->abs_vec[position])) {
+	    return rterm2wterm(elem, handle->dbterm->tpl);
+	}
+#endif
 	return elem;
     }
-#endif
 
     ASSERT(((DbTableCommon*)handle->tb)->compress);
     ASSERT(!handle->mustResize);
-    handle->dbterm = db_alloc_tmp_uncompressed((DbTableCommon*)handle->tb, handle->dbterm);
+    handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
+					       handle->dbterm);
     handle->mustResize = 1;
-#if HALFWORD_HEAP
-    handle->new_tuple = handle->dbterm->tpl;
-#endif
     return handle->dbterm->tpl[position];
 }
 
@@ -2439,74 +2429,22 @@ void db_do_update_element(DbUpdateHandle* handle,
 			  Sint position,
 			  Eterm newval)
 {
-#if HALFWORD_HEAP
-    Eterm oldval = handle->new_tuple[position];
-    Eterm* old_base;
-    Uint newval_sz;
-    Uint oldval_sz;
-
-    if (is_both_immed(newval,oldval)) {
-	handle->new_tuple[position] = newval;
-#ifdef DEBUG_CLONE
-	if (handle->dbterm->debug_clone) {
-	    handle->dbterm->debug_clone[position] = newval;
-	}
-#endif
-	return;
-    }
-
-    if (handle->tb->common.compress) {
-	if (!handle->mustResize) {
-	    handle->dbterm = db_alloc_tmp_uncompressed(&handle->tb->common,
-						       handle->dbterm);
-	    handle->mustResize = 1;
-	    handle->new_tuple = handle->dbterm->tpl;
-	    oldval = handle->dbterm->tpl[position];
-	}
-	old_base = NULL;
-    }
-    else {
-	if (handle->new_tuple == handle->dbterm->tpl) {
-	    int i = header_arity(handle->new_tuple[0]);
-	    handle->new_tuple = erts_alloc(ERTS_ALC_T_TMP, (i+1)*sizeof(Eterm));
-	    handle->new_tuple[0] =  handle->dbterm->tpl[0];
-	    for ( ; i ; i--) {
-		handle->new_tuple[i] = THE_NON_VALUE;
-	    }
-	}
-	if (handle->new_tuple[position] == THE_NON_VALUE) {
-	    oldval = handle->dbterm->tpl[position];
-	    old_base = handle->dbterm->tpl;
-	}
-	else {
-	    old_base = NULL;
-	}
-    }
-    oldval_sz = is_immed(oldval) ? 0 : size_object_rel(oldval,old_base);
-    newval_sz = is_immed(newval) ? 0 : size_object(newval);
-
-    handle->new_size = handle->new_size - oldval_sz + newval_sz;
-
-    /* write new value in old dbterm, finalize will make a flat copy */
-    handle->new_tuple[position] = newval;
-    handle->mustResize = 1;
-
-
-#else /****** !HALFWORD_HEAP ******/
-
     Eterm oldval = handle->dbterm->tpl[position];
     Eterm* newp;
     Eterm* oldp;
     Uint newval_sz;
     Uint oldval_sz;
+#if HALFWORD_HEAP
+    Eterm* old_base;
+#endif
 
     if (is_both_immed(newval,oldval)) {
 	handle->dbterm->tpl[position] = newval;
-#ifdef DEBUG_CLONE
+    #ifdef DEBUG_CLONE
 	if (handle->dbterm->debug_clone) {
 	    handle->dbterm->debug_clone[position] = newval;
 	}
-#endif
+    #endif
 	return;
     }
     if (!handle->mustResize) {
@@ -2515,50 +2453,78 @@ void db_do_update_element(DbUpdateHandle* handle,
 						       handle->dbterm);
 	    handle->mustResize = 1;
 	    oldval = handle->dbterm->tpl[position];
+        #if HALFWORD_HEAP
+	    old_base = NULL;
+	#endif
 	}
-	else if (is_boxed(newval)) {
-	    newp = boxed_val(newval);
-	    switch (*newp & _TAG_HEADER_MASK) {
-	    case _TAG_HEADER_POS_BIG:
-	    case _TAG_HEADER_NEG_BIG:
-	    case _TAG_HEADER_FLOAT:
-	    case _TAG_HEADER_HEAP_BIN:
-		newval_sz = header_arity(*newp) + 1;
-		if (is_boxed(oldval)) {
-		    oldp = boxed_val(oldval);
-		    switch (*oldp & _TAG_HEADER_MASK) {
-		    case _TAG_HEADER_POS_BIG:
-		    case _TAG_HEADER_NEG_BIG:
-		    case _TAG_HEADER_FLOAT:
-		    case _TAG_HEADER_HEAP_BIN:
-			oldval_sz = header_arity(*oldp) + 1;
-			if (oldval_sz == newval_sz) {
-			    /* "self contained" terms of same size, do memcpy */
-			    sys_memcpy(oldp, newp, newval_sz*sizeof(Eterm));
-			    return;
+	else {
+	#if HALFWORD_HEAP
+	    ASSERT(!handle->abs_vec);
+	    old_base = handle->dbterm->tpl;
+	#endif
+	    if (is_boxed(newval)) {
+		newp = boxed_val(newval);
+		switch (*newp & _TAG_HEADER_MASK) {
+		case _TAG_HEADER_POS_BIG:
+		case _TAG_HEADER_NEG_BIG:
+		case _TAG_HEADER_FLOAT:
+		case _TAG_HEADER_HEAP_BIN:
+		    newval_sz = header_arity(*newp) + 1;
+		    if (is_boxed(oldval)) {
+			oldp = boxed_val_rel(oldval,old_base);
+			switch (*oldp & _TAG_HEADER_MASK) {
+			case _TAG_HEADER_POS_BIG:
+			case _TAG_HEADER_NEG_BIG:
+			case _TAG_HEADER_FLOAT:
+			case _TAG_HEADER_HEAP_BIN:
+			    oldval_sz = header_arity(*oldp) + 1;
+			    if (oldval_sz == newval_sz) {
+				/* "self contained" terms of same size, do memcpy */
+				    sys_memcpy(oldp, newp, newval_sz*sizeof(Eterm));
+				return;
+			    }
+			    goto both_size_set;
 			}
-			goto both_size_set;
 		    }
+		    goto new_size_set;
 		}
-		goto new_size_set;
 	    }
 	}
     }
+#if HALFWORD_HEAP
+    else {
+	old_base = (handle->tb->common.compress
+		    || (handle->abs_vec && handle->abs_vec[position])) ?
+	    NULL : handle->dbterm->tpl;
+    }
+#endif
     /* Not possible for simple memcpy or dbterm is already non-contiguous, */
     /* need to realloc... */
 
     newval_sz = is_immed(newval) ? 0 : size_object(newval);
 new_size_set:
 
-    oldval_sz = is_immed(oldval) ? 0 : size_object(oldval);
+    oldval_sz = is_immed(oldval) ? 0 : size_object_rel(oldval,old_base);
 both_size_set:
 
     handle->new_size = handle->new_size - oldval_sz + newval_sz;
 
-    /* write new value in old dbterm, finalize will make a flat copy */	
+    /* write new value in old dbterm, finalize will make a flat copy */
     handle->dbterm->tpl[position] = newval;
     handle->mustResize = 1;
-#endif /* !HALFWORD_HEAP */
+
+#if HALFWORD_HEAP
+    if (old_base && newval_sz > 0) {
+	ASSERT(!handle->tb->common.compress);
+	if (!handle->abs_vec) {
+	    int i = header_arity(handle->dbterm->tpl[0]);
+	    handle->abs_vec = erts_alloc(ERTS_ALC_T_TMP, (i+1)*sizeof(char));
+	    sys_memset(handle->abs_vec, 0, i+1);
+	    /* abs_vec[0] not used */
+	}
+	handle->abs_vec[position] = 1;
+    }
+#endif
 }
 
 static ERTS_INLINE byte* db_realloc_term(DbTableCommon* tb, void* old,
@@ -2770,7 +2736,6 @@ void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
 {
-#if HALFWORD_HEAP
     DbTable* tbl = handle->tb;
     DbTerm* newDbTerm;
     Uint alloc_sz = offset +
@@ -2784,6 +2749,9 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     *(handle->bp) = newp;
     newDbTerm = (DbTerm*) (newp + offset);
     newDbTerm->size = handle->new_size;
+#ifdef DEBUG_CLONE
+    newDbTerm->debug_clone = NULL;
+#endif
 
     /* make a flat copy */
 
@@ -2794,77 +2762,38 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     }
     else {
 	ErlOffHeap tmp_offheap;
-	int i, arity = header_arity(handle->dbterm->tpl[0]);
-	Eterm* top = newDbTerm->tpl + arity + 1;
+	Eterm* tpl = handle->dbterm->tpl;
+	Eterm* top = newDbTerm->tpl;
 
-	ASSERT(handle->new_tuple != handle->dbterm->tpl);
 	tmp_offheap.first = NULL;
 
-	newDbTerm->tpl[0] = handle->dbterm->tpl[0];
-	for (i=1; i<=arity; i++) {
-	    Eterm* tpl;
-	    Eterm* src_base;
+    #if HALFWORD_HEAP
+	if (handle->abs_vec) {
+	    int i, arity = header_arity(handle->dbterm->tpl[0]);
 
+	    top[0] = tpl[0];
+	    top += arity + 1;
+	    for (i=1; i<=arity; i++) {
+		Eterm* src_base = handle->abs_vec[i] ? NULL : tpl;
 
-	    if (handle->new_tuple[i] == THE_NON_VALUE) {
-		tpl = handle->dbterm->tpl;
-		src_base = tpl;
+		newDbTerm->tpl[i] = copy_struct_rel(tpl[i],
+						    size_object_rel(tpl[i],src_base),
+						    &top, &tmp_offheap, src_base,
+						    newDbTerm->tpl);
 	    }
-	    else {
-		tpl = handle->new_tuple;
-		src_base = NULL;
-	    }
-	    newDbTerm->tpl[i] = copy_struct_rel(tpl[i],
-						size_object_rel(tpl[i],src_base),
-						&top, &tmp_offheap, src_base,
-						newDbTerm->tpl);
+	    newDbTerm->first_oh = tmp_offheap.first;
+	    ASSERT((byte*)top <= (newp + alloc_sz));
+	    erts_free(ERTS_ALC_T_TMP, handle->abs_vec);
 	}
-
-	newDbTerm->first_oh = tmp_offheap.first;
-#ifdef DEBUG_CLONE
-	newDbTerm->debug_clone = NULL;
-#endif
-	ASSERT((byte*)top <= (newp + alloc_sz));
-	ASSERT(handle->new_tuple != handle->dbterm->tpl);
-	erts_free(ERTS_ALC_T_TMP, handle->new_tuple);
+	else
+    #endif /* HALFWORD_HEAP */
+	{
+	    copy_struct_rel(make_tuple_rel(tpl,tpl), handle->new_size, &top,
+			    &tmp_offheap, tpl, top);
+	    newDbTerm->first_oh = tmp_offheap.first;
+	    ASSERT((byte*)top == (newp + alloc_sz));
+	}
     }
-
-#else /***** !HALFWORD_HEAP *****/
-    DbTable* tbl = handle->tb;
-    DbTerm* newDbTerm;
-    Uint alloc_sz = offset +
-	(tbl->common.compress ?
-	 db_size_dbterm_comp(&tbl->common, make_tuple(handle->dbterm->tpl)) :
-	 sizeof(DbTerm)+sizeof(Eterm)*(handle->new_size-1));
-    byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
-    byte* oldp = *(handle->bp);
-
-    sys_memcpy(newp, oldp, offset);  /* copy only hash/tree header */
-    *(handle->bp) = newp;
-    newDbTerm = (DbTerm*) (newp + offset);
-    newDbTerm->size = handle->new_size;
-
-    /* make a flat copy */
-
-    if (tbl->common.compress) {
-	copy_to_comp(&tbl->common, make_tuple(handle->dbterm->tpl),
-		     newDbTerm, alloc_sz);
-	db_free_tmp_uncompressed(handle->dbterm);
-    }
-    else {
-	Eterm* top;
-	ErlOffHeap tmp_offheap;
-	tmp_offheap.first = NULL;
-	top = newDbTerm->tpl;
-	copy_struct(make_tuple(handle->dbterm->tpl), handle->new_size,
-		    &top, &tmp_offheap);
-	newDbTerm->first_oh = tmp_offheap.first;
-#ifdef DEBUG_CLONE
-	newDbTerm->debug_clone = NULL;
-#endif
-	ASSERT((byte*)top <= (newp + alloc_sz));
-    }
-#endif
 }
 
 Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,

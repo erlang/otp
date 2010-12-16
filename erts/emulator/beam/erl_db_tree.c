@@ -2548,9 +2548,9 @@ static int db_lookup_dbterm_tree(DbTable *tbl, Eterm key, DbUpdateHandle* handle
     handle->mustResize = 0;
     handle->bp = (void**) pp;
     handle->new_size = (*pp)->dbterm.size;
-    #if HALFWORD_HEAP
-    handle->new_tuple = handle->dbterm->tpl;
-    #endif
+#if HALFWORD_HEAP
+    handle->abs_vec = NULL;
+#endif
     return 1;
 }
 
