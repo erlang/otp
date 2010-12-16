@@ -31,6 +31,26 @@
   </header>
 
    <section>
+    <title>IC 4.2.26</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Partial support for recursive structs and unions. Only available
+            for the erl_corba backend and requires that Light IFR is used.
+            I.e. the IC option {light_ifr, true} and that Orber is configured
+            in such a way that Light IFR is activated. Recursive TypeCode is
+            currently not supported.</p>
+          <p>
+            Own Id: OTP-8868 Aux Id: seq11633</p>
+        </item>
+      </list>
+    </section>
+   </section>
+
+   <section>
     <title>IC 4.2.25</title>
 
     <section>
