@@ -125,7 +125,8 @@
 		    t_tuple/1,
 		    t_tuple_args/1,
 		    t_tuple_size/1,
-		    t_tuple_subtypes/1
+		    t_tuple_subtypes/1,
+		    t_unicode_string/0
 		   ]).
 
 -ifdef(DO_ERL_BIF_TYPES_TEST).
@@ -3800,7 +3801,7 @@ arg_types(erlang, now, 0) ->
 arg_types(erlang, open_port, 2) ->
   [t_sup(t_atom(), t_sup([t_tuple([t_atom('spawn'), t_string()]),
 			  t_tuple([t_atom('spawn_driver'), t_string()]),
-			  t_tuple([t_atom('spawn_executable'), t_string()]),
+			  t_tuple([t_atom('spawn_executable'), t_sup(t_unicode_string(),t_binary())]),
 			  t_tuple([t_atom('fd'), t_integer(), t_integer()])])),
    t_list(t_sup(t_sup([t_atom('stream'),
 		       t_atom('exit_status'),
@@ -3816,8 +3817,8 @@ arg_types(erlang, open_port, 2) ->
 		       t_tuple([t_atom('line'), t_integer()]),
 		       t_tuple([t_atom('cd'), t_string()]),
 		       t_tuple([t_atom('env'), t_list(t_tuple(2))]), % XXX: More
-		       t_tuple([t_atom('args'), t_list(t_string())]),
-		       t_tuple([t_atom('arg0'), t_string()])])))];
+		       t_tuple([t_atom('args'), t_list(t_sup(t_unicode_string(),t_binary()))]),
+		       t_tuple([t_atom('arg0'),t_sup(t_unicode_string(),t_binary())])])))];
 arg_types(erlang, phash, 2) ->
   [t_any(), t_pos_integer()];
 arg_types(erlang, phash2, 1) ->
@@ -4979,7 +4980,7 @@ t_ets_info_items() ->
 %% =====================================================================
 
 t_prim_file_name() ->
-   t_sup(t_string(), t_binary()).
+   t_sup(t_unicode_string(), t_binary()).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'gen_tcp'
