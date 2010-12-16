@@ -4940,10 +4940,11 @@ t_matchres() ->
 %% From the 'ets' documentation
 %%-----------------------------
 %%   Option = Type | Access | named_table | {keypos,Pos}
-%%          | {heir,pid(),HeirData} | {heir,none}
-%%          | {write_concurrency,boolean()}
+%%          | {heir,pid(),HeirData} | {heir,none} | Tweaks
 %%     Type = set | ordered_set | bag | duplicate_bag
 %%   Access = public | protected | private
+%%   Tweaks = {write_concurrency,boolean()}
+%%          | {read_concurrency,boolean()} | compressed
 %%      Pos = integer()
 %% HeirData = term()
 t_ets_new_options() ->
@@ -4955,10 +4956,12 @@ t_ets_new_options() ->
 		t_atom('protected'),
 		t_atom('private'),
 		t_atom('named_table'),
+		t_tuple([t_atom('keypos'), t_integer()]),
 		t_tuple([t_atom('heir'), t_pid(), t_any()]),
 		t_tuple([t_atom('heir'), t_atom('none')]),
-		t_tuple([t_atom('keypos'), t_integer()]),
-		t_tuple([t_atom('write_concurrency'), t_boolean()])])).
+		t_tuple([t_atom('write_concurrency'), t_boolean()]),
+		t_tuple([t_atom('read_concurrency'), t_boolean()]),
+		t_atom('compressed')])).
 
 t_ets_info_items() ->
   t_sup([t_atom('fixed'),
