@@ -49,7 +49,7 @@
 /* Argument passed to thr_wrapper() */
 typedef struct {
     ethr_tid *tid;
-    ethr_atomic_t result;
+    ethr_atomic32_t result;
     ethr_ts_event *tse;
     void *(*thr_func)(void *);
     void *arg;
@@ -93,20 +93,20 @@ static void thr_exit_cleanup(ethr_tid *tid, void *res)
 static unsigned __stdcall thr_wrapper(LPVOID vtwd)
 {
     ethr_tid my_tid;
-    long result;
+    ethr_sint32_t result;
     void *res;
     ethr_thr_wrap_data__ *twd = (ethr_thr_wrap_data__ *) vtwd;
     void *(*thr_func)(void *) = twd->thr_func;
     void *arg = twd->arg;
     ethr_ts_event *tsep = NULL;
 
-    result = (long) ethr_make_ts_event__(&tsep);
+    result = (ethr_sint32_t) ethr_make_ts_event__(&tsep);
 
     if (result == 0) {
 	tsep->iflgs |= ETHR_TS_EV_ETHREAD;
 	my_tid = *twd->tid;
 	if (!TlsSetValue(own_tid_key, (LPVOID) &my_tid)) {
-	    result = (long) ethr_win_get_errno__();
+	    result = (ethr_sint32_t) ethr_win_get_errno__();
 	    ethr_free_ts_event__(tsep);
 	}
 	else {
@@ -118,7 +118,7 @@ static unsigned __stdcall thr_wrapper(LPVOID vtwd)
     tsep = twd->tse; /* We aren't allowed to follow twd after
 			result has been set! */
 
-    ethr_atomic_set(&twd->result, result);
+    ethr_atomic32_set(&twd->result, result);
 
     ethr_event_set(&tsep->event);
 
@@ -126,28 +126,6 @@ static unsigned __stdcall thr_wrapper(LPVOID vtwd)
 
     thr_exit_cleanup(&my_tid, res);
     return 0;
-}
-
-#ifdef __GNUC__
-#define LL_LITERAL(X) X##LL
-#else
-#define LL_LITERAL(X) X##i64
-#endif
-
-#define EPOCH_JULIAN_DIFF LL_LITERAL(11644473600)
-
-static ETHR_INLINE void
-get_curr_time(long *sec, long *nsec)
-{
-    SYSTEMTIME t;
-    FILETIME ft;
-    LONGLONG lft;
-
-    GetSystemTime(&t);
-    SystemTimeToFileTime(&t, &ft);
-    memcpy(&lft, &ft, sizeof(lft));
-    *nsec = ((long) (lft % LL_LITERAL(10000000)))*100;
-    *sec = (long) ((lft / LL_LITERAL(10000000)) - EPOCH_JULIAN_DIFF);
 }
 
 /* internal exports */
@@ -320,7 +298,7 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 	      ETHR_PAGE_ALIGN(ETHR_KW2B(suggested_stack_size));
     }
 
-    ethr_atomic_init(&twd.result, -1);
+    ethr_atomic32_init(&twd.result, -1);
 
     twd.tid = tid;
     twd.thr_func = func;
@@ -352,11 +330,11 @@ ethr_thr_create(ethr_tid *tid, void * (*func)(void *), void *arg,
 
 	/* Wait for child to initialize... */
 	while (1) {
-	    long result;
+	    ethr_sint32_t result;
 	    int err;
 	    ethr_event_reset(&twd.tse->event);
 
-	    result = ethr_atomic_read(&twd.result);
+	    result = ethr_atomic32_read(&twd.result);
 	    if (result == 0)
 		break;
 
@@ -515,23 +493,6 @@ ethr_equal_tids(ethr_tid tid1, ethr_tid tid2)
 {
     /* An invalid tid does not equal any tid, not even an invalid tid */
     return tid1.id == tid2.id && tid1.id != ETHR_INVALID_TID_ID;
-}
-
-int
-ethr_time_now(ethr_timeval *time)
-{
-#if ETHR_XCHK 
-    if (ethr_not_inited__) {
-	ETHR_ASSERT(0);
-	return EACCES;
-    }
-    if (!time) {
-	ETHR_ASSERT(0);
-	return EINVAL;
-    }
-#endif
-    get_curr_time(&time->tv_sec, &time->tv_nsec);
-    return 0;
 }
 
 /*

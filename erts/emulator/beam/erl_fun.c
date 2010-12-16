@@ -97,7 +97,7 @@ erts_put_fun_entry(Eterm mod, int uniq, int index)
 {
     ErlFunEntry template;
     ErlFunEntry* fe;
-    long refc;
+    erts_aint_t refc;
     ASSERT(is_atom(mod));
     template.old_uniq = uniq;
     template.old_index = index;
@@ -119,7 +119,7 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 {
     ErlFunEntry template;
     ErlFunEntry* fe;
-    long refc;
+    erts_aint_t refc;
 
     ASSERT(is_atom(mod));
     template.old_uniq = old_uniq;
@@ -157,7 +157,7 @@ erts_get_fun_entry(Eterm mod, int uniq, int index)
     erts_fun_read_lock();
     ret = (ErlFunEntry *) hash_get(&erts_fun_table, (void*) &template);
     if (ret) {
-	long refc = erts_refc_inctest(&ret->refc, 1);
+	erts_aint_t refc = erts_refc_inctest(&ret->refc, 1);
 	if (refc < 2) /* Pending delete */
 	    erts_refc_inc(&ret->refc, 1);
     }
@@ -257,7 +257,7 @@ erts_dump_fun_entries(int to, void *to_arg)
 #ifdef HIPE
 	    erts_print(to, to_arg, "Native_address: %p\n", fe->native_address);
 #endif
-	    erts_print(to, to_arg, "Refc: %d\n", erts_refc_read(&fe->refc, 1));
+	    erts_print(to, to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
 	    b = b->next;
 	}
     }

@@ -25,7 +25,11 @@
 #ifndef ETHREAD_WIN_H__
 #define ETHREAD_WIN_H__
 
+#define ETHR_ATOMIC_WANT_32BIT_IMPL__
 #include "ethr_atomic.h"
-#define ETHR_HAVE_NATIVE_ATOMICS 1
+#if ETHR_SIZEOF_PTR == 8
+#  define ETHR_ATOMIC_WANT_64BIT_IMPL__
+#  include "ethr_atomic.h"
+#endif
 
 #endif

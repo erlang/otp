@@ -283,6 +283,7 @@ endif
 ETHR_THR_LIB_BASE_DIR=@ETHR_THR_LIB_BASE_DIR@
 ifneq ($(strip $(ETHR_LIB_NAME)),)
 ETHREAD_LIB_SRC=common/ethr_aux.c \
+		common/ethr_atomics.c \
 		common/ethr_mutex.c \
 		common/ethr_cbf.c \
 		$(ETHR_THR_LIB_BASE_DIR)/ethread.c \
@@ -381,6 +382,11 @@ $(ERTS_LIB): $(ERTS_LIB_OBJS)
 # Object files
 #
 
+ifeq ($(TYPE)-@GCC@,debug-yes)
+$(r_OBJ_DIR)/ethr_aux.o: common/ethr_aux.c
+	$(CC) $(THR_DEFS) $(CFLAGS) -Wno-unused-function $(INCLUDES) -c $< -o $@
+endif
+
 $(r_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
@@ -445,6 +451,7 @@ INTERNAL_RELEASE_INCLUDES= \
 	$(ERTS_INCL_INT)/ethread.h \
 	$(ERTS_INCL_INT)/ethr_mutex.h \
 	$(ERTS_INCL_INT)/ethr_optimized_fallbacks.h \
+	$(ERTS_INCL_INT)/ethr_atomics.h \
 	$(ERTS_INCL_INT)/$(TARGET)/ethread.mk \
 	$(ERTS_INCL_INT)/$(TARGET)/erts_internal.mk \
 	$(ERTS_INCL_INT)/$(TARGET)/ethread_header_config.h \

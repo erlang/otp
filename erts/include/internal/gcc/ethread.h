@@ -25,6 +25,16 @@
 #ifndef ETHREAD_GCC_H__
 #define ETHREAD_GCC_H__
 
+#if !defined(ETHR_HAVE_NATIVE_ATOMICS) && defined(ETHR_HAVE_GCC_ATOMIC_OPS)
+#define ETHR_HAVE_NATIVE_ATOMICS 1
+
+#define ETHR_ATOMIC_WANT_32BIT_IMPL__
 #include "ethr_atomic.h"
+#if ETHR_SIZEOF_PTR == 8
+#  define ETHR_ATOMIC_WANT_64BIT_IMPL__
+#  include "ethr_atomic.h"
+#endif
+
+#endif
 
 #endif

@@ -3259,7 +3259,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 			  pp = &(*pp)->next) {
 			if ((*pp)->pid == pid) {
 			    DbFixation* fix = *pp;
-			    long diff = -(long)fix->counter;
+			    erts_aint_t diff = -((erts_aint_t) fix->counter);
 			    erts_refc_add(&tb->common.fixref,diff,0);
 			    *pp = fix->next;
 			    erts_db_free(ERTS_ALC_T_DB_FIXATION,
@@ -3415,7 +3415,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 unlocked:
 
     if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)
-	&& erts_smp_atomic_read(&tb->hash.fixdel) != (long)NULL) {
+	&& erts_smp_atomic_read(&tb->hash.fixdel) != (erts_aint_t)NULL) {
 #ifdef ERTS_SMP
 	if (*kind_p == LCK_READ && tb->common.is_thread_safe) {
 	    /* Must have write lock while purging pseudo-deleted (OTP-8166) */

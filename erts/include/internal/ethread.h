@@ -37,11 +37,6 @@
 #undef ETHR_HAVE_OPTIMIZED_SPINLOCK
 #undef ETHR_HAVE_OPTIMIZED_RWSPINLOCK
 
-typedef struct {
-    long tv_sec;
-    long tv_nsec;
-} ethr_timeval;
-
 #if defined(DEBUG)
 #  define ETHR_DEBUG
 #endif
@@ -73,7 +68,7 @@ typedef struct {
 #endif
 
 /* Assume 64-byte cache line size */
-#define ETHR_CACHE_LINE_SIZE 64L
+#define ETHR_CACHE_LINE_SIZE ((ethr_uint_t) 64)
 #define ETHR_CACHE_LINE_MASK (ETHR_CACHE_LINE_SIZE - 1)
 
 #define ETHR_CACHE_LINE_ALIGN_SIZE(SZ) \
@@ -171,6 +166,22 @@ typedef pthread_key_t ethr_tsd_key;
 #  undef WIN32_LEAN_AND_MEAN
 #endif
 
+#if defined(_MSC_VER)
+
+#if ETHR_SIZEOF_LONG == 4
+#define ETHR_HAVE_INT32_T 1
+typedef long ethr_sint32_t;
+typedef unsigned long ethr_uint32_t;
+#endif
+
+#if ETHR_SIZEOF___INT64 == 8
+#define ETHR_HAVE_INT64_T 1
+typedef __int64 ethr_sint64_t;
+typedef unsigned __int64 ethr_uint64_t;
+#endif
+
+#endif
+
 struct ethr_join_data_;
 
 /* Types */
@@ -198,10 +209,46 @@ typedef DWORD ethr_tsd_key;
 
 #endif
 
-#ifdef SIZEOF_LONG
-#if SIZEOF_LONG < ETHR_SIZEOF_PTR
-#error size of long currently needs to be at least the same as size of void *
+#ifndef ETHR_HAVE_INT32_T
+#if ETHR_SIZEOF_INT == 4
+#define ETHR_HAVE_INT32_T 1
+typedef int ethr_sint32_t;
+typedef unsigned int ethr_uint32_t;
+#elif ETHR_SIZEOF_LONG == 4
+#define ETHR_HAVE_INT32_T 1
+typedef long ethr_sint32_t;
+typedef unsigned long ethr_uint32_t;
 #endif
+#endif
+
+#ifndef ETHR_HAVE_INT64_T
+#if ETHR_SIZEOF_INT == 8
+#define ETHR_HAVE_INT64_T 1
+typedef int ethr_sint64_t;
+typedef unsigned int ethr_uint64_t;
+#elif ETHR_SIZEOF_LONG == 8
+#define ETHR_HAVE_INT64_T 1
+typedef long ethr_sint64_t;
+typedef unsigned long ethr_uint64_t;
+#elif ETHR_SIZEOF_LONG_LONG == 8
+#define ETHR_HAVE_INT64_T 1
+typedef long long ethr_sint64_t;
+typedef unsigned long long ethr_uint64_t;
+#endif
+#endif
+
+#if ETHR_SIZEOF_PTR == 4
+#ifndef ETHR_HAVE_INT32_T
+#error "No 32-bit integer type found"
+#endif
+typedef ethr_sint32_t ethr_sint_t;
+typedef ethr_uint32_t ethr_uint_t;
+#elif ETHR_SIZEOF_PTR == 8
+#ifndef ETHR_HAVE_INT64_T
+#error "No 64-bit integer type found"
+#endif
+typedef ethr_sint64_t ethr_sint_t;
+typedef ethr_uint64_t ethr_uint_t;
 #endif
 
 /* __builtin_expect() is needed by both native atomics code 
@@ -386,7 +433,6 @@ typedef struct {
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 #  define ETHR_NEED_SPINLOCK_PROTOTYPES__
 #  define ETHR_NEED_RWSPINLOCK_PROTOTYPES__
-#  define ETHR_NEED_ATOMIC_PROTOTYPES__
 #endif
 
 int ethr_init(ethr_init_data *);
@@ -399,7 +445,6 @@ void ethr_thr_exit(void *);
 ethr_tid ethr_self(void);
 int ethr_equal_tids(ethr_tid, ethr_tid);
 
-int ethr_time_now(ethr_timeval *);
 int ethr_tsd_key_create(ethr_tsd_key *);
 int ethr_tsd_key_delete(ethr_tsd_key);
 int ethr_tsd_set(ethr_tsd_key, void *);
@@ -502,312 +547,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_spin_lock)(ethr_spinlock_t *lock)
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-/*
- * Map ethread native atomics to ethread API atomics.
- */
-typedef ethr_native_atomic_t ethr_atomic_t;
-#else
-typedef long ethr_atomic_t;
-#endif
-
-#ifdef ETHR_NEED_ATOMIC_PROTOTYPES__
-void ethr_atomic_init(ethr_atomic_t *, long);
-void ethr_atomic_set(ethr_atomic_t *, long);
-long ethr_atomic_read(ethr_atomic_t *);
-long ethr_atomic_inc_read(ethr_atomic_t *);
-long ethr_atomic_dec_read(ethr_atomic_t *);
-void ethr_atomic_inc(ethr_atomic_t *);
-void ethr_atomic_dec(ethr_atomic_t *);
-long ethr_atomic_add_read(ethr_atomic_t *, long);
-void ethr_atomic_add(ethr_atomic_t *, long);
-long ethr_atomic_read_band(ethr_atomic_t *, long);
-long ethr_atomic_read_bor(ethr_atomic_t *, long);
-long ethr_atomic_xchg(ethr_atomic_t *, long);
-long ethr_atomic_cmpxchg(ethr_atomic_t *, long, long);
-long ethr_atomic_read_acqb(ethr_atomic_t *);
-long ethr_atomic_inc_read_acqb(ethr_atomic_t *);
-void ethr_atomic_set_relb(ethr_atomic_t *, long);
-void ethr_atomic_dec_relb(ethr_atomic_t *);
-long ethr_atomic_dec_read_relb(ethr_atomic_t *);
-long ethr_atomic_cmpxchg_acqb(ethr_atomic_t *, long, long);
-long ethr_atomic_cmpxchg_relb(ethr_atomic_t *, long, long);
-#endif
-
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
-
-#ifndef ETHR_HAVE_NATIVE_ATOMICS
-/*
- * Fallbacks for atomics used in absence of a native implementation.
- */
-
-#define ETHR_ATOMIC_ADDR_BITS 10
-#define ETHR_ATOMIC_ADDR_SHIFT 6
-
-typedef struct {
-    union {
-	ethr_spinlock_t lck;
-	char buf[ETHR_CACHE_LINE_SIZE];
-    } u;
-} ethr_atomic_protection_t;
-
-extern ethr_atomic_protection_t ethr_atomic_protection__[1 << ETHR_ATOMIC_ADDR_BITS];
-
-#define ETHR_ATOMIC_PTR2LCK__(PTR) \
-(&ethr_atomic_protection__[((((unsigned long) (PTR)) >> ETHR_ATOMIC_ADDR_SHIFT) \
-			& ((1 << ETHR_ATOMIC_ADDR_BITS) - 1))].u.lck)
-
-
-#define ETHR_ATOMIC_OP_FALLBACK_IMPL__(AP, EXPS)			\
-do {									\
-    ethr_spinlock_t *slp__ = ETHR_ATOMIC_PTR2LCK__((AP));		\
-    ethr_spin_lock(slp__);						\
-    { EXPS; }								\
-    ethr_spin_unlock(slp__);						\
-} while (0)
-
-#endif
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_init)(ethr_atomic_t *var, long i)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_init(var, i);
-#else
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, *var = i);
-#endif
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_set)(ethr_atomic_t *var, long i)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_set(var, i);
-#else
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, *var = i);
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_read)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_read(var);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, res = (long) *var);
-    return res;
-#endif
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_add)(ethr_atomic_t *var, long incr)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_add(var, incr);
-#else
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, *var += incr);
-#endif
-}   
-    
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_add_read)(ethr_atomic_t *var, long i)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_add_return(var, i);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, *var += i; res = *var);
-    return res;
-#endif
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_inc)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_inc(var);
-#else
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, ++(*var));
-#endif
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_dec)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_dec(var);
-#else
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, --(*var));
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_inc_read)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_inc_return(var);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, res = (long) ++(*var));
-    return res;
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_dec_read)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_dec_return(var);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, res = (long) --(*var));
-    return res;
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_read_band)(ethr_atomic_t *var,
-					      long mask)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_and_retold(var, mask);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, res = *var; *var &= mask);
-    return res;
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_read_bor)(ethr_atomic_t *var,
-					     long mask)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_or_retold(var, mask);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, res = *var; *var |= mask);
-    return res;
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_xchg)(ethr_atomic_t *var,
-					 long new)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_xchg(var, new);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var, res = *var; *var = new);
-    return res;
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_cmpxchg)(ethr_atomic_t *var,
-					    long new,
-                                            long exp)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_cmpxchg(var, new, exp);
-#else
-    long res;
-    ETHR_ATOMIC_OP_FALLBACK_IMPL__(var,
-    {
-	res = *var;
-	if (__builtin_expect(res == exp, 1))
-	    *var = new;
-    });
-    return res;
-#endif
-}
-
-/*
- * Important memory barrier requirements.
- *
- * The following atomic operations *must* supply a memory barrier of
- * at least the type specified by its suffix:
- *    _acqb = acquire barrier
- *    _relb = release barrier
- */
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_read_acqb)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_read_acqb(var);
-#else
-    return ETHR_INLINE_FUNC_NAME_(ethr_atomic_read)(var);
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_inc_read_acqb)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_inc_return_acqb(var);
-#else
-    return ETHR_INLINE_FUNC_NAME_(ethr_atomic_inc_read)(var);
-#endif
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_set_relb)(ethr_atomic_t *var, long val)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_set_relb(var, val);
-#else
-    ETHR_INLINE_FUNC_NAME_(ethr_atomic_set)(var, val);
-#endif
-}
-
-static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_dec_relb)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    ethr_native_atomic_dec_relb(var);
-#else
-    ETHR_INLINE_FUNC_NAME_(ethr_atomic_dec)(var);
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_dec_read_relb)(ethr_atomic_t *var)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_dec_return_relb(var);
-#else
-    return ETHR_INLINE_FUNC_NAME_(ethr_atomic_dec_read)(var);
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_cmpxchg_acqb)(ethr_atomic_t *var,
-						 long new,
-						 long exp)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_cmpxchg_acqb(var, new, exp);
-#else
-    return ETHR_INLINE_FUNC_NAME_(ethr_atomic_cmpxchg)(var, new, exp);
-#endif
-}
-
-static ETHR_INLINE long
-ETHR_INLINE_FUNC_NAME_(ethr_atomic_cmpxchg_relb)(ethr_atomic_t *var,
-						 long new,
-						 long exp)
-{
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-    return ethr_native_atomic_cmpxchg_relb(var, new, exp);
-#else
-    return ETHR_INLINE_FUNC_NAME_(ethr_atomic_cmpxchg)(var, new, exp);
-#endif
-}
-
-#endif /* ETHR_TRY_INLINE_FUNCS */
+#include "ethr_atomics.h"
 
 typedef struct ethr_ts_event_ ethr_ts_event; /* Needed by ethr_mutex.h */
 
@@ -825,7 +565,7 @@ struct ethr_ts_event_ {
     ethr_ts_event *prev;
     ethr_event event;
     void *udata;
-    ethr_atomic_t uaflgs;
+    ethr_atomic32_t uaflgs;
     unsigned uflgs;
     unsigned iflgs;		/* for ethr lib only */
     short rgix;			/* for ethr lib only */

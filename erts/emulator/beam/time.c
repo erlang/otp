@@ -107,12 +107,12 @@ static int itime; /* Constant after init */
 
 #if defined(ERTS_TIMER_THREAD)
 static SysTimeval time_start;	/* start of current time interval */
-static long ticks_end;		/* time_start+ticks_end == time_wakeup */
-static long ticks_latest;	/* delta from time_start at latest time update*/
+static erts_aint_t ticks_end;		/* time_start+ticks_end == time_wakeup */
+static erts_aint_t ticks_latest;	/* delta from time_start at latest time update*/
 
-static ERTS_INLINE long time_gettimeofday(SysTimeval *now)
+static ERTS_INLINE erts_aint_t time_gettimeofday(SysTimeval *now)
 {
-    long elapsed;
+    erts_aint_t elapsed;
 
     erts_get_timeval(now);
     now->tv_usec = 1000 * (now->tv_usec / 1000); /* ms resolution */
@@ -122,25 +122,25 @@ static ERTS_INLINE long time_gettimeofday(SysTimeval *now)
     return elapsed;
 }
 
-static long do_time_update(void)
+static erts_aint_t do_time_update(void)
 {
     SysTimeval now;
-    long elapsed;
+    erts_aint_t elapsed;
 
     elapsed = time_gettimeofday(&now);
     ticks_latest = elapsed;
     return elapsed;
 }
 
-static ERTS_INLINE long do_time_read(void)
+static ERTS_INLINE erts_aint_t do_time_read(void)
 {
     return ticks_latest;
 }
 
-static long do_time_reset(void)
+static erts_aint_t do_time_reset(void)
 {
     SysTimeval now;
-    long elapsed;
+    erts_aint_t elapsed;
 
     elapsed = time_gettimeofday(&now);
     time_start = now;
@@ -156,20 +156,29 @@ static ERTS_INLINE void do_time_init(void)
 
 #else
 erts_smp_atomic_t do_time;	/* set at clock interrupt */
-static ERTS_INLINE long do_time_read(void) { return erts_smp_atomic_read(&do_time); }
-static ERTS_INLINE long do_time_update(void) { return do_time_read(); }
-static ERTS_INLINE void do_time_init(void) { erts_smp_atomic_init(&do_time, 0L); }
+static ERTS_INLINE erts_aint_t do_time_read(void)
+{
+    return erts_smp_atomic_read(&do_time);
+}
+static ERTS_INLINE erts_aint_t do_time_update(void)
+{
+    return do_time_read();
+}
+static ERTS_INLINE void do_time_init(void)
+{
+    erts_smp_atomic_init(&do_time, (erts_aint_t) 0);
+}
 #endif
 
 /* get the time (in units of itime) to the next timeout,
    or -1 if there are no timeouts                     */
 
-static int next_time_internal(void) /* PRE: tiw_lock taken by caller */
+static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
 {
     int i, tm, nto;
     unsigned int min;
     ErlTimer* p;
-    long dt;
+    erts_aint_t dt;
   
     if (tiw_nto == 0)
 	return -1;	/* no timeouts in wheel */
@@ -204,9 +213,9 @@ static int next_time_internal(void) /* PRE: tiw_lock taken by caller */
 
 #if !defined(ERTS_TIMER_THREAD)
 /* Private export to erl_time_sup.c */
-int next_time(void)
+erts_aint_t next_time(void)
 {
-    int ret;
+    erts_aint_t ret;
 
     erts_smp_mtx_lock(&tiw_lock);
     (void)do_time_update();
@@ -216,12 +225,12 @@ int next_time(void)
 }
 #endif
 
-static ERTS_INLINE void bump_timer_internal(long dt) /* PRE: tiw_lock is write-locked */
+static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is write-locked */
 {
     Uint keep_pos;
     Uint count;
     ErlTimer *p, **prev, *timeout_head, **timeout_tail;
-    Uint dtime = (unsigned long)dt;  
+    Uint dtime = (Uint) dt;  
 
     /* no need to bump the position if there aren't any timeouts */
     if (tiw_nto == 0) {
@@ -287,7 +296,7 @@ static void timer_thread_bump_timer(void)
     bump_timer_internal(do_time_reset());
 }
 #else
-void bump_timer(long dt) /* dt is value from do_time */
+void bump_timer(erts_aint_t dt) /* dt is value from do_time */
 {
     erts_smp_mtx_lock(&tiw_lock);
     bump_timer_internal(dt);
@@ -305,8 +314,8 @@ static struct erts_iwait *timer_thread_iwait;
 
 static int timer_thread_setup_delay(SysTimeval *rem_time)
 {
-    long elapsed;
-    int ticks;
+    erts_aint_t elapsed;
+    erts_aint_t ticks;
 
     erts_smp_mtx_lock(&tiw_lock);
     elapsed = do_time_update();
@@ -496,7 +505,7 @@ Uint
 time_left(ErlTimer *p)
 {
     Uint left;
-    long dt;
+    erts_aint_t dt;
 
     erts_smp_mtx_lock(&tiw_lock);
 
@@ -517,7 +526,7 @@ time_left(ErlTimer *p)
 
     erts_smp_mtx_unlock(&tiw_lock);
 
-    return left * itime;
+    return (Uint) left * itime;
 }
 
 #ifdef DEBUG

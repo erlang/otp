@@ -98,7 +98,7 @@ process_killer(void)
 		switch(j) {
 		case 'k':
 		    if (rp->status == P_WAITING) {
-			Uint32 rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
+			ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 			erts_smp_proc_inc_refc(rp);
 			erts_smp_proc_lock(rp, rp_locks);
 			(void) erts_send_exit_signal(NULL,
@@ -624,9 +624,9 @@ bin_check(void)
 		    erts_printf("Process %T holding binary data \n", rp->id);
 		    printed = 1;
 		}
-		erts_printf("0x%08lx orig_size: %ld, norefs = %ld\n",
-			    (unsigned long)bp->val, 
-			    (long)bp->val->orig_size, 
+		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
+			    bp->val, 
+			    bp->val->orig_size, 
 			    erts_smp_atomic_read(&bp->val->refc));
 	    }
 	}

@@ -20,6 +20,21 @@
 /* Define to the size of pointers */
 #undef ETHR_SIZEOF_PTR
 
+/* Define to the size of int */
+#undef ETHR_SIZEOF_INT
+
+/* Define to the size of long */
+#undef ETHR_SIZEOF_LONG
+
+/* Define to the size of long long */
+#undef ETHR_SIZEOF_LONG_LONG
+
+/* Define to the size of __int64 */
+#undef ETHR_SIZEOF___INT64
+
+/* Define if bigendian */
+#undef ETHR_BIGENDIAN
+
 /* Define if you want to disable native ethread implementations */
 #undef ETHR_DISABLE_NATIVE_IMPLS
 
@@ -99,6 +114,27 @@
 
 /* Define to the size of AO_t if libatomic_ops is used */
 #undef ETHR_SIZEOF_AO_T
+
+/* Define if you have _InterlockedCompareExchange64() */
+#undef ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64
+
+/* Define if you have _InterlockedDecrement64() */
+#undef ETHR_HAVE__INTERLOCKEDDECREMENT64
+
+/* Define if you have _InterlockedIncrement64() */
+#undef ETHR_HAVE__INTERLOCKEDINCREMENT64
+
+/* Define if you have _InterlockedExchangeAdd64() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGEADD64
+
+/* Define if you have _InterlockedExchange64() */
+#undef ETHR_HAVE__INTERLOCKEDEXCHANGE64
+
+/* Define if you have _InterlockedAnd64() */
+#undef ETHR_HAVE__INTERLOCKEDAND64
+
+/* Define if you have _InterlockedOr64() */
+#undef ETHR_HAVE__INTERLOCKEDOR64
 
 /* Define if you want to turn on extra sanity checking in the ethread library */
 #undef ETHR_XCHK

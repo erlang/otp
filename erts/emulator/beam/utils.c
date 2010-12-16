@@ -3637,19 +3637,19 @@ erts_set_activity_error(erts_activity_error_t error, char *file, int line)
 }
 
 
-static ERTS_INLINE int
+static ERTS_INLINE erts_aint32_t
 threads_not_under_control(void)
 {
-    int res = system_block_state.threads_to_block;
+    erts_aint32_t res = system_block_state.threads_to_block;
 
     /* Waiting is always an allowed activity... */
-    res -= erts_smp_atomic_read(&erts_system_block_state.in_activity.wait);
+    res -= erts_smp_atomic32_read(&erts_system_block_state.in_activity.wait);
 
     if (system_block_state.allowed_activities & ERTS_BS_FLG_ALLOW_GC)
-	res -= erts_smp_atomic_read(&erts_system_block_state.in_activity.gc);
+	res -= erts_smp_atomic32_read(&erts_system_block_state.in_activity.gc);
 
     if (system_block_state.allowed_activities & ERTS_BS_FLG_ALLOW_IO)
-	res -= erts_smp_atomic_read(&erts_system_block_state.in_activity.io);
+	res -= erts_smp_atomic32_read(&erts_system_block_state.in_activity.io);
 
     if (res < 0) {
 	ASSERT(0);
@@ -3709,7 +3709,7 @@ erts_block_system(Uint32 allowed_activities)
     }
     else {
 
-	erts_smp_atomic_inc(&erts_system_block_state.do_block);
+	erts_smp_atomic32_inc(&erts_system_block_state.do_block);
 
 	/* Someone else might be waiting for us to block... */
 	if (do_block) {
@@ -3761,11 +3761,11 @@ erts_emergency_block_system(long timeout, Uint32 allowed_activities)
 
     another_blocker = erts_smp_pending_system_block();
     system_block_state.emergency = 1;
-    erts_smp_atomic_inc(&erts_system_block_state.do_block);
+    erts_smp_atomic32_inc(&erts_system_block_state.do_block);
 
     if (another_blocker) {
 	if (is_blocker()) {
-	    erts_smp_atomic_dec(&erts_system_block_state.do_block);
+	    erts_smp_atomic32_dec(&erts_system_block_state.do_block);
 	    res = 0;
 	    goto done;
 	}
@@ -3822,7 +3822,7 @@ erts_release_system(void)
     if (system_block_state.recursive_block)
 	system_block_state.recursive_block--;
     else {
-	do_block = erts_smp_atomic_dectest(&erts_system_block_state.do_block);
+	do_block = erts_smp_atomic32_dectest(&erts_system_block_state.do_block);
 	system_block_state.have_blocker = 0;
 	if (is_blockable_thread())
 	    system_block_state.threads_to_block++;
@@ -3957,10 +3957,10 @@ erts_system_block_init(void)
 
     /* Global state... */
 
-    erts_smp_atomic_init(&erts_system_block_state.do_block, 0L);
-    erts_smp_atomic_init(&erts_system_block_state.in_activity.wait, 0L);
-    erts_smp_atomic_init(&erts_system_block_state.in_activity.gc, 0L);
-    erts_smp_atomic_init(&erts_system_block_state.in_activity.io, 0L);
+    erts_smp_atomic32_init(&erts_system_block_state.do_block, 0);
+    erts_smp_atomic32_init(&erts_system_block_state.in_activity.wait, 0);
+    erts_smp_atomic32_init(&erts_system_block_state.in_activity.gc, 0);
+    erts_smp_atomic32_init(&erts_system_block_state.in_activity.io, 0);
 
     /* Make sure blockable threads unregister when exiting... */
     erts_smp_install_exit_handler(erts_unregister_blockable_thread);

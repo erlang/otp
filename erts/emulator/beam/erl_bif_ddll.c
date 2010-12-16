@@ -1193,7 +1193,7 @@ int erts_ddll_driver_ok(DE_Handle *dh)
 static void ddll_no_more_references(void *vdh)
 {
     DE_Handle *dh = (DE_Handle *) vdh;
-    int x;
+    erts_aint_t x;
 
     lock_drv_list();
 
@@ -1604,7 +1604,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	erts_sys_ddll_close(dh->handle);
 	return ERL_DE_LOAD_ERROR_BAD_NAME;
     }
-    erts_smp_atomic_init(&(dh->refc), (long) 0);
+    erts_smp_atomic_init(&(dh->refc), (erts_aint_t) 0);
     dh->port_count = 0;
     dh->full_path = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sys_strlen(path) + 1);
     sys_strcpy(dh->full_path, path);
@@ -1672,7 +1672,7 @@ static int load_driver_entry(DE_Handle **dhp, char *path, char *name)
     dh->handle = NULL;
     dh->procs = NULL;
     dh->port_count = 0;
-    erts_refc_init(&(dh->refc), (long) 0);
+    erts_refc_init(&(dh->refc), (erts_aint_t) 0);
     dh->status = -1;
     dh->reload_full_path = NULL;
     dh->reload_driver_name = NULL;

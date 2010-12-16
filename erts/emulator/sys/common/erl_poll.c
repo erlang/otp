@@ -124,9 +124,9 @@
   erts_smp_mtx_unlock(&(PS)->mtx)
 
 #define ERTS_POLLSET_SET_POLLED_CHK(PS) \
-  ((int) erts_smp_atomic_xchg(&(PS)->polled, (long) 1))
+  ((int) erts_smp_atomic_xchg(&(PS)->polled, (erts_aint_t) 1))
 #define ERTS_POLLSET_UNSET_POLLED(PS) \
-  erts_smp_atomic_set(&(PS)->polled, (long) 0)
+  erts_smp_atomic_set(&(PS)->polled, (erts_aint_t) 0)
 #define ERTS_POLLSET_IS_POLLED(PS) \
   ((int) erts_smp_atomic_read(&(PS)->polled))
 
@@ -134,11 +134,11 @@
 #define ERTS_POLLSET_SET_POLLER_WOKEN(PS) 				\
 do {									\
       ERTS_THR_MEMORY_BARRIER;						\
-      erts_smp_atomic_set(&(PS)->woken, (long) 1);			\
+      erts_smp_atomic_set(&(PS)->woken, (erts_aint_t) 1);		\
 } while (0)
 #define ERTS_POLLSET_UNSET_POLLER_WOKEN(PS)				\
 do {									\
-    erts_smp_atomic_set(&(PS)->woken, (long) 0);			\
+    erts_smp_atomic_set(&(PS)->woken, (erts_aint_t) 0);			\
     ERTS_THR_MEMORY_BARRIER;						\
 } while (0)
 #define ERTS_POLLSET_IS_POLLER_WOKEN(PS)				\
@@ -179,9 +179,9 @@ do {									\
 
 #if ERTS_POLL_USE_UPDATE_REQUESTS_QUEUE
 #define ERTS_POLLSET_SET_HAVE_UPDATE_REQUESTS(PS) \
-  erts_smp_atomic_set(&(PS)->have_update_requests, (long) 1)
+  erts_smp_atomic_set(&(PS)->have_update_requests, (erts_aint_t) 1)
 #define ERTS_POLLSET_UNSET_HAVE_UPDATE_REQUESTS(PS) \
-  erts_smp_atomic_set(&(PS)->have_update_requests, (long) 0)
+  erts_smp_atomic_set(&(PS)->have_update_requests, (erts_aint_t) 0)
 #define ERTS_POLLSET_HAVE_UPDATE_REQUESTS(PS) \
   ((int) erts_smp_atomic_read(&(PS)->have_update_requests))
 #else
@@ -202,13 +202,13 @@ do {									\
 #define ERTS_POLLSET_UNSET_INTERRUPTED_CHK(PS) unset_interrupted_chk((PS))
 #define ERTS_POLLSET_UNSET_INTERRUPTED(PS)				\
 do {									\
-    erts_smp_atomic_set(&(PS)->interrupt, (long) 0);			\
+    erts_smp_atomic_set(&(PS)->interrupt, (erts_aint_t) 0);		\
     ERTS_THR_MEMORY_BARRIER;						\
 } while (0)
 #define ERTS_POLLSET_SET_INTERRUPTED(PS) 				\
 do {									\
       ERTS_THR_MEMORY_BARRIER;						\
-      erts_smp_atomic_set(&(PS)->interrupt, (long) 1);			\
+      erts_smp_atomic_set(&(PS)->interrupt, (erts_aint_t) 1);		\
 } while (0)
 #define ERTS_POLLSET_IS_INTERRUPTED(PS)					\
   ((int) erts_smp_atomic_read(&(PS)->interrupt))
@@ -356,7 +356,7 @@ unset_interrupted_chk(ErtsPollSet ps)
     res = ps->interrupt;
     ps->interrupt = 0;
 #else
-    res = (int) erts_smp_atomic_xchg(&ps->interrupt, (long) 0);
+    res = (int) erts_smp_atomic_xchg(&ps->interrupt, (erts_aint_t) 0);
     ERTS_THR_MEMORY_BARRIER;
 #endif
     return res;
@@ -369,7 +369,7 @@ static ERTS_INLINE int
 set_poller_woken_chk(ErtsPollSet ps)
 {
     ERTS_THR_MEMORY_BARRIER;
-    return (int) erts_smp_atomic_xchg(&ps->woken, (long) 1);
+    return (int) erts_smp_atomic_xchg(&ps->woken, (erts_aint_t) 1);
 }
 
 #endif
@@ -1918,7 +1918,7 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res, int *ps_locked)
 	return 0;
     }
     else {
-	long timeout = tv->tv_sec*1000 + tv->tv_usec/1000;
+	erts_aint_t timeout = tv->tv_sec*1000 + tv->tv_usec/1000;
 	ASSERT(timeout >= 0);
 	erts_smp_atomic_set(&ps->timeout, timeout);
 #if ERTS_POLL_USE_FALLBACK
@@ -2112,7 +2112,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 #endif
 
  done:
-    erts_smp_atomic_set(&ps->timeout, LONG_MAX);
+    erts_smp_atomic_set(&ps->timeout, ERTS_AINT_T_MAX);
 #ifdef ERTS_POLL_DEBUG_PRINT
     erts_printf("Leaving %s = erts_poll_wait()\n",
 		 res == 0 ? "0" : erl_errno_id(res));
@@ -2150,10 +2150,12 @@ ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet ps, int set)
  * is not guaranteed that it will timeout before 'msec' milli seconds.
  */
 void
-ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet ps, int set, long msec)
+ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet ps,
+					    int set,
+					    long msec)
 {
     if (set) {
-	if (erts_smp_atomic_read(&ps->timeout) > msec) {
+	if (erts_smp_atomic_read(&ps->timeout) > (erts_aint_t) msec) {
 	    ERTS_POLLSET_SET_INTERRUPTED(ps);
 #if ERTS_POLL_ASYNC_INTERRUPT_SUPPORT || defined(ERTS_SMP)
 	    wake_poller(ps);
@@ -2315,7 +2317,7 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(void)
 #else
     erts_smp_atomic_init(&ps->interrupt, 0);
 #endif
-    erts_smp_atomic_init(&ps->timeout, LONG_MAX);
+    erts_smp_atomic_init(&ps->timeout, ERTS_AINT_T_MAX);
 #ifdef ERTS_POLL_COUNT_AVOIDED_WAKEUPS
     erts_smp_atomic_init(&ps->no_avoided_wakeups, 0);
     erts_smp_atomic_init(&ps->no_avoided_interrupts, 0);

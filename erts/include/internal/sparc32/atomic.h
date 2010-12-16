@@ -21,49 +21,86 @@
  * Native ethread atomics on SPARC V9.
  * Author: Mikael Pettersson.
  */
-#ifndef ETHR_SPARC32_ATOMIC_H
-#define ETHR_SPARC32_ATOMIC_H
 
-typedef struct {
-    volatile long counter;
-} ethr_native_atomic_t;
+#undef ETHR_INCLUDE_ATOMIC_IMPL__
+#if !defined(ETHR_SPARC_V9_ATOMIC32_H__) && defined(ETHR_ATOMIC_WANT_32BIT_IMPL__)
+#define ETHR_SPARC_V9_ATOMIC32_H__
+#define ETHR_INCLUDE_ATOMIC_IMPL__ 4
+#undef ETHR_ATOMIC_WANT_32BIT_IMPL__
+#elif !defined(ETHR_SPARC_V9_ATOMIC64_H__) && defined(ETHR_ATOMIC_WANT_64BIT_IMPL__)
+#define ETHR_SPARC_V9_ATOMIC64_H__
+#define ETHR_INCLUDE_ATOMIC_IMPL__ 8
+#undef ETHR_ATOMIC_WANT_64BIT_IMPL__
+#endif
+
+#ifdef ETHR_INCLUDE_ATOMIC_IMPL__
+
+#ifndef ETHR_SPARC_V9_ATOMIC_COMMON__
+#define ETHR_SPARC_V9_ATOMIC_COMMON__
 
 #define ETHR_MEMORY_BARRIER \
   __asm__ __volatile__("membar #LoadLoad|#LoadStore|#StoreLoad|#StoreStore\n" \
                        : : : "memory")
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#endif /* ETHR_SPARC_V9_ATOMIC_COMMON__ */
 
-#if defined(__arch64__)
-#define CASX "casx"
+#if ETHR_INCLUDE_ATOMIC_IMPL__ == 4
+#define ETHR_HAVE_NATIVE_ATOMIC32 1
+#define ETHR_NATMC_FUNC__(X) ethr_native_atomic32_ ## X
+#define ETHR_ATMC_T__ ethr_native_atomic32_t
+#define ETHR_AINT_T__ ethr_sint32_t
+#define ETHR_CAS__ "cas"
+#elif ETHR_INCLUDE_ATOMIC_IMPL__ == 8
+#define ETHR_HAVE_NATIVE_ATOMIC64 1
+#define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
+#define ETHR_ATMC_T__ ethr_native_atomic64_t
+#define ETHR_AINT_T__ ethr_sint64_t
+#define ETHR_CAS__ "casx"
 #else
-#define CASX "cas"
+#error "Unsupported integer size"
 #endif
 
+typedef struct {
+    volatile ETHR_AINT_T__ counter;
+} ETHR_ATMC_T__;
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
+
+static ETHR_INLINE ETHR_AINT_T__ *
+ETHR_NATMC_FUNC__(addr)(ETHR_ATMC_T__ *var)
+{
+    return (ETHR_AINT_T__ *) &var->counter;
+}
+
 static ETHR_INLINE void
-ethr_native_atomic_init(ethr_native_atomic_t *var, long i)
+ETHR_NATMC_FUNC__(init)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
     var->counter = i;
 }
-#define ethr_native_atomic_set(v, i)	ethr_native_atomic_init((v), (i))
 
-static ETHR_INLINE long
-ethr_native_atomic_read(ethr_native_atomic_t *var)
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(set)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
+{
+    var->counter = i;
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(read)(ETHR_ATMC_T__ *var)
 {
     return var->counter;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_add_return(ethr_native_atomic_t *var, long incr)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(add_return)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 {
-    long old, tmp;
+    ETHR_AINT_T__ old, tmp;
 
     __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
     do {
 	old = var->counter;
 	tmp = old+incr;
 	__asm__ __volatile__(
-	    CASX " [%2], %1, %0"
+	    ETHR_CAS__ " [%2], %1, %0"
 	    : "=&r"(tmp)
 	    : "r"(old), "r"(&var->counter), "0"(tmp)
 	    : "memory");
@@ -73,46 +110,46 @@ ethr_native_atomic_add_return(ethr_native_atomic_t *var, long incr)
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_add(ethr_native_atomic_t *var, long incr)
+ETHR_NATMC_FUNC__(add)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 {
-    (void)ethr_native_atomic_add_return(var, incr);
+    (void)ETHR_NATMC_FUNC__(add_return)(var, incr);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_inc_return(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(inc_return)(ETHR_ATMC_T__ *var)
 {
-    return ethr_native_atomic_add_return(var, 1);
-}
-
-static ETHR_INLINE void
-ethr_native_atomic_inc(ethr_native_atomic_t *var)
-{
-    (void)ethr_native_atomic_add_return(var, 1);
-}
-
-static ETHR_INLINE long
-ethr_native_atomic_dec_return(ethr_native_atomic_t *var)
-{
-    return ethr_native_atomic_add_return(var, -1);
+    return ETHR_NATMC_FUNC__(add_return)(var, 1);
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_dec(ethr_native_atomic_t *var)
+ETHR_NATMC_FUNC__(inc)(ETHR_ATMC_T__ *var)
 {
-    (void)ethr_native_atomic_add_return(var, -1);
+    (void)ETHR_NATMC_FUNC__(add_return)(var, 1);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_and_retold(ethr_native_atomic_t *var, long mask)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(dec_return)(ETHR_ATMC_T__ *var)
 {
-    long old, tmp;
+    return ETHR_NATMC_FUNC__(add_return)(var, -1);
+}
+
+static ETHR_INLINE void
+ETHR_NATMC_FUNC__(dec)(ETHR_ATMC_T__ *var)
+{
+    (void)ETHR_NATMC_FUNC__(add_return)(var, -1);
+}
+
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(and_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
+{
+    ETHR_AINT_T__ old, tmp;
 
     __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
     do {
 	old = var->counter;
 	tmp = old & mask;
 	__asm__ __volatile__(
-	    CASX " [%2], %1, %0"
+	    ETHR_CAS__ " [%2], %1, %0"
 	    : "=&r"(tmp)
 	    : "r"(old), "r"(&var->counter), "0"(tmp)
 	    : "memory");
@@ -121,17 +158,17 @@ ethr_native_atomic_and_retold(ethr_native_atomic_t *var, long mask)
     return old;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_or_retold(ethr_native_atomic_t *var, long mask)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(or_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 {
-    long old, tmp;
+    ETHR_AINT_T__ old, tmp;
 
     __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
     do {
 	old = var->counter;
 	tmp = old | mask;
 	__asm__ __volatile__(
-	    CASX " [%2], %1, %0"
+	    ETHR_CAS__ " [%2], %1, %0"
 	    : "=&r"(tmp)
 	    : "r"(old), "r"(&var->counter), "0"(tmp)
 	    : "memory");
@@ -140,17 +177,17 @@ ethr_native_atomic_or_retold(ethr_native_atomic_t *var, long mask)
     return old;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_xchg(ethr_native_atomic_t *var, long val)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(xchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ val)
 {
-    long old, new;
+    ETHR_AINT_T__ old, new;
 
     __asm__ __volatile__("membar #LoadLoad|#StoreLoad");
     do {
 	old = var->counter;
 	new = val;
 	__asm__ __volatile__(
-	    CASX " [%2], %1, %0"
+	    ETHR_CAS__ " [%2], %1, %0"
 	    : "=&r"(new)
 	    : "r"(old), "r"(&var->counter), "0"(new)
 	    : "memory");
@@ -159,12 +196,12 @@ ethr_native_atomic_xchg(ethr_native_atomic_t *var, long val)
     return old;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, long new, long old)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ old)
 {
     __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
     __asm__ __volatile__(
-      CASX " [%2], %1, %0"
+      ETHR_CAS__ " [%2], %1, %0"
       : "=&r"(new)
       : "r"(old), "r"(&var->counter), "0"(new)
       : "memory");
@@ -178,58 +215,63 @@ ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, long new, long old)
 
 /* TODO: relax acquire barriers */
 
-static ETHR_INLINE long
-ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(read_acqb)(ETHR_ATMC_T__ *var)
 {
-    long res = ethr_native_atomic_read(var);
+    ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(read)(var);
     __asm__ __volatile__("membar #LoadLoad|#LoadStore|#StoreLoad|#StoreStore" : : : "memory");
     return res;
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_set_relb(ethr_native_atomic_t *var, long i)
+ETHR_NATMC_FUNC__(set_relb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ i)
 {
     __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
-    ethr_native_atomic_set(var, i);
+    ETHR_NATMC_FUNC__(set)(var, i);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_inc_return_acqb(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(inc_return_acqb)(ETHR_ATMC_T__ *var)
 {
-    long res = ethr_native_atomic_inc_return(var);
+    ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(inc_return)(var);
     __asm__ __volatile__("membar #LoadLoad|#LoadStore" : : : "memory");
     return res;
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_dec_relb(ethr_native_atomic_t *var)
+ETHR_NATMC_FUNC__(dec_relb)(ETHR_ATMC_T__ *var)
 {
     __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
-    ethr_native_atomic_dec(var);
+    ETHR_NATMC_FUNC__(dec)(var);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_dec_return_relb(ethr_native_atomic_t *var)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(dec_return_relb)(ETHR_ATMC_T__ *var)
 {
     __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
-    return ethr_native_atomic_dec_return(var);
+    return ETHR_NATMC_FUNC__(dec_return)(var);
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg_acqb(ethr_native_atomic_t *var, long new, long old)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ old)
 {
-    long res = ethr_native_atomic_cmpxchg(var, new, old);
+    ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(cmpxchg)(var, new, old);
     __asm__ __volatile__("membar #LoadLoad|#LoadStore" : : : "memory");
     return res;
 }
 
-static ETHR_INLINE long
-ethr_native_atomic_cmpxchg_relb(ethr_native_atomic_t *var, long new, long old)
+static ETHR_INLINE ETHR_AINT_T__
+ETHR_NATMC_FUNC__(cmpxchg_relb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ old)
 {
     __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
-    return ethr_native_atomic_cmpxchg(var, new, old);
+    return ETHR_NATMC_FUNC__(cmpxchg)(var, new, old);
 }
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 
-#endif /* ETHR_SPARC32_ATOMIC_H */
+#undef ETHR_NATMC_FUNC__
+#undef ETHR_ATMC_T__
+#undef ETHR_AINT_T__
+#undef ETHR_CAS__
+
+#endif /* ETHR_INCLUDE_ATOMIC_IMPL__ */

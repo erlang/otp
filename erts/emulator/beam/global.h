@@ -544,7 +544,7 @@ ERTS_GLB_INLINE void erts_may_save_closed_port(Port *prt)
     if (prt->snapshot != erts_smp_atomic_read(&erts_ports_snapshot)) {
 	/* Dead ports are added from the end of the snapshot buffer */
 	Eterm* tombstone = (Eterm*) erts_smp_atomic_addtest(&erts_dead_ports_ptr,
-							    -(long)sizeof(Eterm));
+							    -(erts_aint_t)sizeof(Eterm));
 	ASSERT(tombstone+1 != NULL);
 	ASSERT(prt->snapshot == (Uint32) erts_smp_atomic_read(&erts_ports_snapshot) - 1);
 	*tombstone = prt->id;
@@ -563,7 +563,7 @@ extern Uint display_items;	/* no of items to display in traces etc */
 extern Uint display_loads;	/* print info about loaded modules */
 
 extern int erts_backtrace_depth;
-extern erts_smp_atomic_t erts_max_gen_gcs;
+extern erts_smp_atomic32_t erts_max_gen_gcs;
 
 extern int erts_disable_tolerant_timeofday;
 
@@ -1206,7 +1206,7 @@ ERTS_GLB_INLINE void
 erts_smp_port_unlock(Port *prt)
 {
 #ifdef ERTS_SMP
-    long refc;
+    erts_aint_t refc;
     erts_smp_mtx_unlock(prt->lock);
     refc = erts_smp_atomic_dectest(&prt->refc);
     ASSERT(refc >= 0);
@@ -1425,29 +1425,29 @@ void erl_drv_thr_init(void);
 
 /* time.c */
 
-ERTS_GLB_INLINE long do_time_read_and_reset(void);
+ERTS_GLB_INLINE erts_aint_t do_time_read_and_reset(void);
 #ifdef ERTS_TIMER_THREAD
 ERTS_GLB_INLINE int next_time(void);
-ERTS_GLB_INLINE void bump_timer(long);
+ERTS_GLB_INLINE void bump_timer(erts_aint_t);
 #else
-int next_time(void);
-void bump_timer(long);
+erts_aint_t next_time(void);
+void bump_timer(erts_aint_t);
 extern erts_smp_atomic_t do_time;	/* set at clock interrupt */
-ERTS_GLB_INLINE void do_time_add(long);
+ERTS_GLB_INLINE void do_time_add(erts_aint_t);
 #endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 #ifdef ERTS_TIMER_THREAD
-ERTS_GLB_INLINE long do_time_read_and_reset(void) { return 0; }
-ERTS_GLB_INLINE int next_time(void) { return -1; }
-ERTS_GLB_INLINE void bump_timer(long ignore) { }
+ERTS_GLB_INLINE erts_aint_t do_time_read_and_reset(void) { return 0; }
+ERTS_GLB_INLINE erts_aint_t next_time(void) { return -1; }
+ERTS_GLB_INLINE void bump_timer(erts_aint_t ignore) { }
 #else
-ERTS_GLB_INLINE long do_time_read_and_reset(void)
+ERTS_GLB_INLINE erts_aint_t do_time_read_and_reset(void)
 {
     return erts_smp_atomic_xchg(&do_time, 0L);
 }
-ERTS_GLB_INLINE void do_time_add(long elapsed)
+ERTS_GLB_INLINE void do_time_add(erts_aint_t elapsed)
 {
     erts_smp_atomic_add(&do_time, elapsed);
 }

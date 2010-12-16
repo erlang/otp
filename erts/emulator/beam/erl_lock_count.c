@@ -159,7 +159,7 @@ static char* lock_opt(Uint16 flag) {
 }
 
 static void print_lock_x(erts_lcnt_lock_t *lock, Uint16 flag, char *action, char *extra) {
-    long int colls, tries, w_state, r_state;
+    erts_aint_t colls, tries, w_state, r_state;
     erts_lcnt_lock_stats_t *stats = NULL;
     
     char *type;
@@ -385,7 +385,7 @@ void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock) {
 /* lock */
 
 void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
-    long r_state = 0, w_state = 0;
+    erts_aint_t r_state = 0, w_state = 0;
     erts_lcnt_thread_data_t *eltd;
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
@@ -418,7 +418,7 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
 }
 
 void erts_lcnt_lock(erts_lcnt_lock_t *lock) {
-    long w_state;
+    erts_aint_t w_state;
     erts_lcnt_thread_data_t *eltd;
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
@@ -471,7 +471,7 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
     erts_lcnt_time_t time_wait;
     erts_lcnt_lock_stats_t *stats;
 #ifdef DEBUG
-    long flowstate;
+    erts_aint_t flowstate;
 #endif
 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
@@ -516,8 +516,8 @@ void erts_lcnt_unlock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
 
 void erts_lcnt_unlock(erts_lcnt_lock_t *lock) {
 #ifdef DEBUG
-    long w_state;  
-    long flowstate;
+    erts_aint_t w_state;  
+    erts_aint_t flowstate;
 #endif
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
 #ifdef DEBUG
@@ -552,7 +552,7 @@ void erts_lcnt_trylock_opt(erts_lcnt_lock_t *lock, int res, Uint16 option) {
 void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res) {
     /* Determine lock_state via res instead of state */
 #ifdef DEBUG
-    long flowstate;
+    erts_aint_t flowstate;
 #endif 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
     if (res != EBUSY) {

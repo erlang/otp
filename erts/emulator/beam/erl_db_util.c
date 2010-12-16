@@ -915,7 +915,7 @@ BIF_RETTYPE db_set_trace_control_word_1(Process *p, Eterm new)
     if (val != ((Uint32)val))
 	BIF_ERROR(p, BADARG);
     
-    old_tcw = (Uint32) erts_smp_atomic_xchg(&trace_control_word, (long) val);
+    old_tcw = (Uint32) erts_smp_atomic_xchg(&trace_control_word, (erts_aint_t) val);
     BIF_RET(erts_make_integer((Uint) old_tcw, p));
 }
 

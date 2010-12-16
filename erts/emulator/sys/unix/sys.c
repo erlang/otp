@@ -237,9 +237,9 @@ static int max_files = -1;
 #ifdef ERTS_SMP
 erts_smp_atomic_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 1)
+  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 0)
+  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)

@@ -297,11 +297,11 @@ struct ErtsPollSet_ {
 #define ERTS_POLLSET_UNLOCK(PS) \
   erts_smp_mtx_unlock(&(PS)->mtx)
 #define ERTS_POLLSET_SET_POLLED_CHK(PS) \
-  ((int) erts_smp_atomic_xchg(&(PS)->polled, (long) 1))
+  ((int) erts_smp_atomic_xchg(&(PS)->polled, (erts_aint_t) 1))
 #define ERTS_POLLSET_SET_POLLED(PS) \
-  erts_smp_atomic_set(&(PS)->polled, (long) 1)
+  erts_smp_atomic_set(&(PS)->polled, (erts_aint_t) 1)
 #define ERTS_POLLSET_UNSET_POLLED(PS) \
-  erts_smp_atomic_set(&(PS)->polled, (long) 0)
+  erts_smp_atomic_set(&(PS)->polled, (erts_aint_t) 0)
 #define ERTS_POLLSET_IS_POLLED(PS) \
   ((int) erts_smp_atomic_read(&(PS)->polled))
 
@@ -309,11 +309,11 @@ struct ErtsPollSet_ {
 #define ERTS_POLLSET_SET_POLLER_WOKEN(PS) 				\
 do {									\
       ERTS_THR_MEMORY_BARRIER;						\
-      erts_smp_atomic_set(&(PS)->woken, (long) 1);			\
+      erts_smp_atomic_set(&(PS)->woken, (erts_aint_t) 1);			\
 } while (0)
 #define ERTS_POLLSET_UNSET_POLLER_WOKEN(PS)				\
 do {									\
-    erts_smp_atomic_set(&(PS)->woken, (long) 0);			\
+    erts_smp_atomic_set(&(PS)->woken, (erts_aint_t) 0);			\
     ERTS_THR_MEMORY_BARRIER;						\
 } while (0)
 #define ERTS_POLLSET_IS_POLLER_WOKEN(PS)				\
@@ -322,13 +322,13 @@ do {									\
 #define ERTS_POLLSET_UNSET_INTERRUPTED_CHK(PS) unset_interrupted_chk((PS))
 #define ERTS_POLLSET_UNSET_INTERRUPTED(PS)				\
 do {									\
-    erts_smp_atomic_set(&(PS)->interrupt, (long) 0);			\
+    erts_smp_atomic_set(&(PS)->interrupt, (erts_aint_t) 0);			\
     ERTS_THR_MEMORY_BARRIER;						\
 } while (0)
 #define ERTS_POLLSET_SET_INTERRUPTED(PS) 				\
 do {									\
       ERTS_THR_MEMORY_BARRIER;						\
-      erts_smp_atomic_set(&(PS)->interrupt, (long) 1);			\
+      erts_smp_atomic_set(&(PS)->interrupt, (erts_aint_t) 1);			\
 } while (0)
 #define ERTS_POLLSET_IS_INTERRUPTED(PS)					\
   ((int) erts_smp_atomic_read(&(PS)->interrupt))
@@ -336,7 +336,7 @@ do {									\
 static ERTS_INLINE int
 unset_interrupted_chk(ErtsPollSet ps)
 {
-    int res = (int) erts_smp_atomic_xchg(&ps->interrupt, (long) 0);
+    int res = (int) erts_smp_atomic_xchg(&ps->interrupt, (erts_aint_t) 0);
     ERTS_THR_MEMORY_BARRIER;
     return res;
 
@@ -346,7 +346,7 @@ static ERTS_INLINE int
 set_poller_woken_chk(ErtsPollSet ps)
 {
     ERTS_THR_MEMORY_BARRIER;
-    return (int) erts_smp_atomic_xchg(&ps->woken, (long) 1);
+    return (int) erts_smp_atomic_xchg(&ps->woken, (erts_aint_t) 1);
 }
 
 #else
@@ -413,9 +413,9 @@ set_poller_woken_chk(ErtsPollSet ps)
 #ifdef ERTS_SMP
 extern erts_smp_atomic_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 1)
+  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (long) 0)
+  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 0)
 #else
 extern volatile int erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -986,7 +986,7 @@ void erts_poll_interrupt_timed(ErtsPollSet ps,
     HARDTRACEF(("In erts_poll_interrupt_timed(%d,%ld)",set,msec));
 #ifdef ERTS_SMP
     if (set) {
-	if (erts_smp_atomic_read(&ps->timeout) > msec) {
+	if (erts_smp_atomic_read(&ps->timeout) > (erts_aint_t) msec) {
 	    ERTS_POLLSET_SET_INTERRUPTED(ps);
 	    wake_poller(ps);
 	}
@@ -1228,7 +1228,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	erts_mtx_unlock(&w->mtx);
     }
  done:
-    erts_smp_atomic_set(&ps->timeout, LONG_MAX);
+    erts_smp_atomic_set(&ps->timeout, ERTS_AINT_T_MAX);
     *len = num;
     ERTS_POLLSET_UNLOCK(ps);
     HARDTRACEF(("Out erts_poll_wait"));
@@ -1314,7 +1314,7 @@ ErtsPollSet erts_poll_create_pollset(void)
     erts_smp_mtx_init(&ps->mtx, "pollset");
     erts_smp_atomic_init(&ps->interrupt, 0);
 #endif
-    erts_smp_atomic_init(&ps->timeout, LONG_MAX);
+    erts_smp_atomic_init(&ps->timeout, ERTS_AINT_T_MAX);
 
     HARDTRACEF(("Out erts_poll_create_pollset"));
     return ps;

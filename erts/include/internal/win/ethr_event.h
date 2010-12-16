@@ -21,22 +21,24 @@
  * Author: Rickard Green
  */
 
-#define ETHR_EVENT_OFF_WAITER__		((LONG) -1)
-#define ETHR_EVENT_OFF__		((LONG) 1)
-#define ETHR_EVENT_ON__ 		((LONG) 0)
+#define ETHR_EVENT_OFF_WAITER__		((long) -1)
+#define ETHR_EVENT_OFF__		((long) 1)
+#define ETHR_EVENT_ON__ 		((long) 0)
 
 typedef struct {
-    volatile LONG state;
+    volatile long state;
     HANDLE handle;
 } ethr_event;
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_EVENT_IMPL__)
 
+#pragma intrinsic(_InterlockedExchange)
+
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
-    /* InterlockedExchange() imply a full memory barrier which is important */
-    LONG state = InterlockedExchange(&e->state, ETHR_EVENT_ON__);
+    /* _InterlockedExchange() imply a full memory barrier which is important */
+    long state = _InterlockedExchange(&e->state, ETHR_EVENT_ON__);
     if (state == ETHR_EVENT_OFF_WAITER__) {
 	if (!SetEvent(e->handle))
 	    ETHR_FATAL_ERROR__(ethr_win_get_errno__());
@@ -46,7 +48,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 {
-    /* InterlockedExchange() imply a full memory barrier which is important */
+    /* _InterlockedExchange() imply a full memory barrier which is important */
     InterlockedExchange(&e->state, ETHR_EVENT_OFF__);
 }
 

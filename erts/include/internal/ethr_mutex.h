@@ -78,13 +78,13 @@
 #  error Need a qlock implementation
 #endif
 
-#define ETHR_RWMTX_W_FLG__		(((long) 1) << 31)
-#define ETHR_RWMTX_W_WAIT_FLG__		(((long) 1) << 30)
-#define ETHR_RWMTX_R_WAIT_FLG__		(((long) 1) << 29)
+#define ETHR_RWMTX_W_FLG__		(((ethr_sint32_t) 1) << 31)
+#define ETHR_RWMTX_W_WAIT_FLG__		(((ethr_sint32_t) 1) << 30)
+#define ETHR_RWMTX_R_WAIT_FLG__		(((ethr_sint32_t) 1) << 29)
 
 /* frequent read kind */
-#define ETHR_RWMTX_R_FLG__		(((long) 1) << 28)
-#define ETHR_RWMTX_R_ABRT_UNLCK_FLG__	(((long) 1) << 27)
+#define ETHR_RWMTX_R_FLG__		(((ethr_sint32_t) 1) << 28)
+#define ETHR_RWMTX_R_ABRT_UNLCK_FLG__	(((ethr_sint32_t) 1) << 27)
 #define ETHR_RWMTX_R_PEND_UNLCK_MASK__	(ETHR_RWMTX_R_ABRT_UNLCK_FLG__ - 1)
 
 /* normal kind */
@@ -106,28 +106,28 @@
 #endif
 
 #define ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(MTX)		\
-  ETHR_DBG_CHK_UNUSED_FLG_BITS(ethr_atomic_read(&(MTX)->mtxb.flgs))
+  ETHR_DBG_CHK_UNUSED_FLG_BITS(ethr_atomic32_read(&(MTX)->mtxb.flgs))
 
 struct ethr_mutex_base_ {
 #ifdef ETHR_MTX_HARD_DEBUG_FENCE
     long pre_fence;
 #endif
-    ethr_atomic_t flgs;
-    ETHR_MTX_QLOCK_TYPE__ qlck;
-    ethr_ts_event *q;
+    ethr_atomic32_t flgs;
     short aux_scnt;
     short main_scnt;
+    ETHR_MTX_QLOCK_TYPE__ qlck;
+    ethr_ts_event *q;
 #ifdef ETHR_MTX_HARD_DEBUG_WSQ
     int ws;
 #endif
 #ifdef ETHR_MTX_CHK_EXCL
-    ethr_atomic_t exclusive;
+    ethr_atomic32_t exclusive;
 #endif
 #ifdef ETHR_MTX_CHK_NON_EXCL
-    ethr_atomic_t non_exclusive;
+    ethr_atomic32_t non_exclusive;
 #endif
 #ifdef ETHR_MTX_HARD_DEBUG_LFS
-    ethr_atomic_t hdbg_lfs;
+    ethr_atomic32_t hdbg_lfs;
 #endif
 };
 
@@ -236,7 +236,7 @@ typedef struct {
 
 typedef union {
     struct {
-	ethr_atomic_t readers;
+	ethr_atomic32_t readers;
 	int waiting_readers;
 	int byte_offset;
 	ethr_rwmutex_lived lived;
@@ -298,13 +298,13 @@ void ethr_rwmutex_rwunlock(ethr_rwmutex *);
 #ifdef ETHR_MTX_HARD_DEBUG_LFS
 #  define ETHR_MTX_HARD_DEBUG_LFS_INIT(MTXB)				\
 do {									\
-    ethr_atomic_init(&(MTXB)->hdbg_lfs, 0);				\
+    ethr_atomic32_init(&(MTXB)->hdbg_lfs, 0);				\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RLOCK(MTXB)				\
 do {									\
-    long val__;								\
+    ethr_sint32_t val__;						\
     ETHR_COMPILER_BARRIER;						\
-    val__ = ethr_atomic_inc_read(&(MTXB)->hdbg_lfs);			\
+    val__ = ethr_atomic32_inc_read(&(MTXB)->hdbg_lfs);			\
     ETHR_MTX_HARD_ASSERT(val__ > 0);					\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_TRYRLOCK(MTXB, RES)			\
@@ -317,15 +317,15 @@ do {									\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RUNLOCK(MTXB)				\
 do {									\
-    long val__ = ethr_atomic_dec_read(&(MTXB)->hdbg_lfs);		\
+    ethr_sint32_t val__ = ethr_atomic32_dec_read(&(MTXB)->hdbg_lfs);	\
     ETHR_MTX_HARD_ASSERT(val__ >= 0);					\
     ETHR_COMPILER_BARRIER;						\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RWLOCK(MTXB)				\
 do {									\
-    long val__;								\
+    ethr_sint32_t val__;						\
     ETHR_COMPILER_BARRIER;						\
-    val__ = ethr_atomic_dec_read(&(MTXB)->hdbg_lfs);			\
+    val__ = ethr_atomic32_dec_read(&(MTXB)->hdbg_lfs);			\
     ETHR_MTX_HARD_ASSERT(val__ == -1);					\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_TRYRWLOCK(MTXB, RES)			\
@@ -338,7 +338,7 @@ do {									\
 } while (0)
 #  define ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(MTXB)			\
 do {									\
-    long val__ = ethr_atomic_inctest(&(MTXB)->hdbg_lfs);		\
+    ethr_sint32_t val__ = ethr_atomic32_inctest(&(MTXB)->hdbg_lfs);	\
     ETHR_MTX_HARD_ASSERT(val__ == 0);					\
     ETHR_COMPILER_BARRIER;						\
 } while (0)
@@ -386,12 +386,12 @@ do { \
 #endif
 
 #  define ETHR_MTX_CHK_EXCL_INIT__(MTXB)		\
-    ethr_atomic_init(&(MTXB)->exclusive, 0)
+    ethr_atomic32_init(&(MTXB)->exclusive, 0)
 
 #  define ETHR_MTX_CHK_EXCL_IS_EXCL(MTXB)		\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    if (!ethr_atomic_read(&(MTXB)->exclusive))		\
+    if (!ethr_atomic32_read(&(MTXB)->exclusive))	\
 	ethr_assert_failed(__FILE__, __LINE__, __func__,\
 			   "is exclusive");		\
     ETHR_COMPILER_BARRIER;				\
@@ -399,7 +399,7 @@ do {							\
 #  define ETHR_MTX_CHK_EXCL_IS_NOT_EXCL(MTXB)		\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    if (ethr_atomic_read(&(MTXB)->exclusive))		\
+    if (ethr_atomic32_read(&(MTXB)->exclusive))		\
 	ethr_assert_failed(__FILE__, __LINE__, __func__,\
 			   "is not exclusive");		\
     ETHR_COMPILER_BARRIER;				\
@@ -407,13 +407,13 @@ do {							\
 #  define ETHR_MTX_CHK_EXCL_SET_EXCL(MTXB)		\
 do {							\
     ETHR_MTX_CHK_EXCL_IS_NOT_EXCL((MTXB));		\
-    ethr_atomic_set(&(MTXB)->exclusive, 1);		\
+    ethr_atomic32_set(&(MTXB)->exclusive, 1);		\
     ETHR_COMPILER_BARRIER;				\
 } while (0)
 #  define ETHR_MTX_CHK_EXCL_UNSET_EXCL(MTXB)		\
 do {							\
     ETHR_MTX_CHK_EXCL_IS_EXCL((MTXB));			\
-    ethr_atomic_set(&(MTXB)->exclusive, 0);		\
+    ethr_atomic32_set(&(MTXB)->exclusive, 0);		\
     ETHR_COMPILER_BARRIER;				\
 } while (0)
 
@@ -424,11 +424,11 @@ do {							\
 #endif
 
 #    define ETHR_MTX_CHK_NON_EXCL_INIT__(MTXB)		\
-    ethr_atomic_init(&(MTXB)->non_exclusive, 0)
+    ethr_atomic32_init(&(MTXB)->non_exclusive, 0)
 #    define ETHR_MTX_CHK_EXCL_IS_NON_EXCL(MTXB)		\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    if (!ethr_atomic_read(&(MTXB)->non_exclusive))	\
+    if (!ethr_atomic32_read(&(MTXB)->non_exclusive))	\
 	ethr_assert_failed(__FILE__, __LINE__, __func__,\
 			   "is non-exclusive");		\
     ETHR_COMPILER_BARRIER;				\
@@ -436,7 +436,7 @@ do {							\
 #    define ETHR_MTX_CHK_EXCL_IS_NOT_NON_EXCL(MTXB)	\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    if (ethr_atomic_read(&(MTXB)->non_exclusive))	\
+    if (ethr_atomic32_read(&(MTXB)->non_exclusive))	\
 	ethr_assert_failed(__FILE__, __LINE__, __func__,\
 			   "is not non-exclusive");	\
     ETHR_COMPILER_BARRIER;				\
@@ -444,19 +444,19 @@ do {							\
 #    define ETHR_MTX_CHK_EXCL_SET_NON_EXCL(MTXB)	\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    ethr_atomic_inc(&(MTXB)->non_exclusive);		\
+    ethr_atomic32_inc(&(MTXB)->non_exclusive);		\
     ETHR_COMPILER_BARRIER;				\
 } while (0)
 #    define ETHR_MTX_CHK_EXCL_SET_NON_EXCL_NO(MTXB, NO)	\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    ethr_atomic_add(&(MTXB)->non_exclusive, (NO));	\
+    ethr_atomic32_add(&(MTXB)->non_exclusive, (NO));	\
     ETHR_COMPILER_BARRIER;				\
 } while (0)
 #    define ETHR_MTX_CHK_EXCL_UNSET_NON_EXCL(MTXB)	\
 do {							\
     ETHR_COMPILER_BARRIER;				\
-    ethr_atomic_dec(&(MTXB)->non_exclusive);		\
+    ethr_atomic32_dec(&(MTXB)->non_exclusive);		\
     ETHR_COMPILER_BARRIER;				\
 } while (0)
 #else
@@ -501,18 +501,18 @@ do {							\
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_MUTEX_IMPL__)
 
-void ethr_mutex_lock_wait__(ethr_mutex *, long);
-void ethr_mutex_unlock_wake__(ethr_mutex *, long);
+void ethr_mutex_lock_wait__(ethr_mutex *, ethr_sint32_t);
+void ethr_mutex_unlock_wake__(ethr_mutex *, ethr_sint32_t);
 
 static ETHR_INLINE int
 ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 {
-    long act;
+    ethr_sint32_t act;
     int res;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
-    act = ethr_atomic_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
+    act = ethr_atomic32_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
     res = (act == 0) ? 0 : EBUSY;
 
 #ifdef ETHR_MTX_CHK_EXCL
@@ -531,11 +531,11 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 {
-    long act;
+    ethr_sint32_t act;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_DBG_CHK_UNUSED_FLG_BITS(mtx);
 
-    act = ethr_atomic_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
+    act = ethr_atomic32_cmpxchg_acqb(&mtx->mtxb.flgs, ETHR_RWMTX_W_FLG__, 0);
     if (act != 0)
 	ethr_mutex_lock_wait__(mtx, act);
 
@@ -551,7 +551,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 {
-    long act;
+    ethr_sint32_t act;
     ETHR_COMPILER_BARRIER;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
     ETHR_MTX_HARD_DEBUG_LFS_RWUNLOCK(&mtx->mtxb);
@@ -559,7 +559,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 
     ETHR_MTX_CHK_EXCL_UNSET_EXCL(&mtx->mtxb);
 
-    act = ethr_atomic_cmpxchg_relb(&mtx->mtxb.flgs, 0, ETHR_RWMTX_W_FLG__);
+    act = ethr_atomic32_cmpxchg_relb(&mtx->mtxb.flgs, 0, ETHR_RWMTX_W_FLG__);
     if (act != ETHR_RWMTX_W_FLG__)
 	ethr_mutex_unlock_wake__(mtx, act);
 

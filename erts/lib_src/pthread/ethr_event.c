@@ -24,6 +24,10 @@
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHR_EVENT_IMPL__
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "ethread.h"
 
 #if defined(ETHR_LINUX_FUTEX_IMPL__)
@@ -37,7 +41,7 @@
 int
 ethr_event_init(ethr_event *e)
 {
-    ethr_atomic_init(&e->futex, ETHR_EVENT_OFF__);
+    ethr_atomic32_init(&e->futex, ETHR_EVENT_OFF__);
     return 0;
 }
 
@@ -52,7 +56,7 @@ wait__(ethr_event *e, int spincount)
 {
     unsigned sc = spincount;
     int res;
-    long val;
+    ethr_sint32_t val;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
     if (spincount < 0)
@@ -60,7 +64,7 @@ wait__(ethr_event *e, int spincount)
 
     while (1) {
 	while (1) {
-	    val = ethr_atomic_read(&e->futex);
+	    val = ethr_atomic32_read(&e->futex);
 	    if (val == ETHR_EVENT_ON__)
 		return 0;
 	    if (sc == 0)
@@ -76,16 +80,18 @@ wait__(ethr_event *e, int spincount)
 	}
 
 	if (val != ETHR_EVENT_OFF_WAITER__) {
-	    val = ethr_atomic_cmpxchg(&e->futex,
-				      ETHR_EVENT_OFF_WAITER__,
-				      ETHR_EVENT_OFF__);
+	    val = ethr_atomic32_cmpxchg(&e->futex,
+					ETHR_EVENT_OFF_WAITER__,
+					ETHR_EVENT_OFF__);
 
 	    if (val == ETHR_EVENT_ON__)
 		return 0;
 	    ETHR_ASSERT(val == ETHR_EVENT_OFF__);
 	}
 
-	res = ETHR_FUTEX__(&e->futex, ETHR_FUTEX_WAIT__, ETHR_EVENT_OFF_WAITER__);
+	res = ETHR_FUTEX__(&e->futex,
+			   ETHR_FUTEX_WAIT__,
+			   ETHR_EVENT_OFF_WAITER__);
 	if (res == EINTR)
 	    break;
 	if (res != 0 && res != EWOULDBLOCK)
@@ -102,7 +108,7 @@ int
 ethr_event_init(ethr_event *e)
 {
     int res;
-    ethr_atomic_init(&e->state, ETHR_EVENT_OFF__);
+    ethr_atomic32_init(&e->state, ETHR_EVENT_OFF__);
     res = pthread_mutex_init(&e->mtx, NULL);
     if (res != 0)
 	return res;
@@ -131,7 +137,7 @@ static ETHR_INLINE int
 wait__(ethr_event *e, int spincount)
 {
     int sc = spincount;
-    long val;
+    ethr_sint32_t val;
     int res, ulres;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
@@ -139,7 +145,7 @@ wait__(ethr_event *e, int spincount)
 	ETHR_FATAL_ERROR__(EINVAL);
 
     while (1) {
-	val = ethr_atomic_read(&e->state);
+	val = ethr_atomic32_read(&e->state);
 	if (val == ETHR_EVENT_ON__)
 	    return 0;
 	if (sc == 0)
@@ -155,9 +161,9 @@ wait__(ethr_event *e, int spincount)
     }
 
     if (val != ETHR_EVENT_OFF_WAITER__) {
-	val = ethr_atomic_cmpxchg(&e->state,
-				  ETHR_EVENT_OFF_WAITER__,
-				  ETHR_EVENT_OFF__);
+	val = ethr_atomic32_cmpxchg(&e->state,
+				    ETHR_EVENT_OFF_WAITER__,
+				    ETHR_EVENT_OFF__);
 	if (val == ETHR_EVENT_ON__)
 	    return 0;
 	ETHR_ASSERT(val == ETHR_EVENT_OFF__);
@@ -172,7 +178,7 @@ wait__(ethr_event *e, int spincount)
 
     while (1) {
 
-	val = ethr_atomic_read(&e->state);
+	val = ethr_atomic32_read(&e->state);
 	if (val == ETHR_EVENT_ON__)
 	    break;
 

@@ -2020,7 +2020,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_garbage_collection){
-	Uint val = (Uint) erts_smp_atomic_read(&erts_max_gen_gcs);
+	Uint val = (Uint) erts_smp_atomic32_read(&erts_max_gen_gcs);
 	Eterm tup;
 	hp = HAlloc(BIF_P, 3+2 + 3+2 + 3+2);
 
@@ -2035,7 +2035,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_fullsweep_after){
-	Uint val = (Uint) erts_smp_atomic_read(&erts_max_gen_gcs);
+	Uint val = (Uint) erts_smp_atomic32_read(&erts_max_gen_gcs);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_fullsweep_after, make_small(val));
 	BIF_RET(res);
@@ -3430,8 +3430,8 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
      */
     if (ERTS_IS_ATOM_STR("available_internal_state", BIF_ARG_1)
 	&& (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false)) {
-	long on = (long) (BIF_ARG_2 == am_true);
-	long prev_on = erts_smp_atomic_xchg(&available_internal_state, on);
+	erts_aint_t on = (erts_aint_t) (BIF_ARG_2 == am_true);
+	erts_aint_t prev_on = erts_smp_atomic_xchg(&available_internal_state, on);
 	if (on) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp, "Process %T ", BIF_P->id);
@@ -3628,7 +3628,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	}
 	else if (ERTS_IS_ATOM_STR("hipe_test_reschedule_suspend", BIF_ARG_1)) {
 	    /* Used by hipe test suites */
-	    long flag = erts_smp_atomic_read(&hipe_test_reschedule_flag);
+	    erts_aint_t flag = erts_smp_atomic_read(&hipe_test_reschedule_flag);
 	    if (!flag && BIF_ARG_2 != am_false) {
 		erts_smp_atomic_set(&hipe_test_reschedule_flag, 1);
 		erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
@@ -3703,7 +3703,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_stats_t *stats, Eterm res) {
-    unsigned long tries = 0, colls = 0;
+    Uint tries = 0, colls = 0;
     unsigned long timer_s = 0, timer_ns = 0, timer_n = 0;
     unsigned int  line = 0;
     
@@ -3716,8 +3716,8 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
      * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}}}]
      */
     
-    tries = (unsigned long) ethr_atomic_read(&stats->tries);
-    colls = (unsigned long) ethr_atomic_read(&stats->colls);
+    tries = (Uint) ethr_atomic_read(&stats->tries);
+    colls = (Uint) ethr_atomic_read(&stats->colls);
    
     line     = stats->line; 
     timer_s  = stats->timer.s;

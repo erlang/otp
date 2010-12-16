@@ -157,7 +157,7 @@ do {                                                             \
     BpData **bds = (BpData **) (pc)[-4];                         \
     BpDataCount *bdc = NULL;                                     \
     Uint ix = bp_sched2ix_proc( (p) );                           \
-    long count = 0;                                              \
+    erts_aint_t count = 0;                                       \
                                                                  \
     ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bds);                                                 \

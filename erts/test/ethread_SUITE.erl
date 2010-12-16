@@ -37,7 +37,6 @@
 	 equal_tids/1,
 	 mutex/1,
 	 try_lock_mutex/1,
-	 time_now/1,
 	 cond_wait/1,
 	 broadcast/1,
 	 detached_thread/1,
@@ -55,7 +54,6 @@ tests() ->
      equal_tids,
      mutex,
      try_lock_mutex,
-     time_now,
      cond_wait,
      broadcast,
      detached_thread,
@@ -103,17 +101,6 @@ try_lock_mutex(suite) ->
     [];
 try_lock_mutex(Config) ->
     run_case(Config, "try_lock_mutex", "").
-
-time_now(doc) ->
-    ["Tests ethr_time_now by comparing time values with Erlang."];
-time_now(suite) ->
-    [];
-time_now(Config) ->
-    run_case(Config, "time_now", "", fun (P) ->
-					     spawn_link(fun () ->
-								watchdog(P)
-							end)
-				     end).
 
 wd_dispatch(P) ->
     receive

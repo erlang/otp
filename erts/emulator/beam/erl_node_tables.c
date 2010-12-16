@@ -235,7 +235,7 @@ erts_sysname_to_connected_dist_entry(Eterm sysname)
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
     res_dep = (DistEntry *) hash_get(&erts_dist_table, (void *) &de);
     if (res_dep) {
-	long refc = erts_refc_inctest(&res_dep->refc, 1);
+	erts_aint_t refc = erts_refc_inctest(&res_dep->refc, 1);
 	if (refc < 2) /* Pending delete */
 	    erts_refc_inc(&res_dep->refc, 1);
     }
@@ -257,7 +257,7 @@ DistEntry *erts_find_or_insert_dist_entry(Eterm sysname)
 {
     DistEntry *res;
     DistEntry de;
-    long refc;
+    erts_aint_t refc;
     res = erts_find_dist_entry(sysname);
     if (res)
 	return res;
@@ -279,7 +279,7 @@ DistEntry *erts_find_dist_entry(Eterm sysname)
     erts_smp_rwmtx_rlock(&erts_dist_table_rwmtx);
     res = hash_get(&erts_dist_table, (void *) &de);
     if (res) {
-	long refc = erts_refc_inctest(&res->refc, 1);
+	erts_aint_t refc = erts_refc_inctest(&res->refc, 1);
 	if (refc < 2) /* Pending delete */
 	    erts_refc_inc(&res->refc, 1);
     }
@@ -586,7 +586,7 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint creation)
     erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
     res = hash_get(&erts_node_table, (void *) &ne);
     if (res && res != erts_this_node) {
-	long refc = erts_refc_inctest(&res->refc, 0);
+	erts_aint_t refc = erts_refc_inctest(&res->refc, 0);
 	if (refc < 2) /* New or pending delete */
 	    erts_refc_inc(&res->refc, 1);
     }
@@ -598,7 +598,7 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint creation)
     res = hash_put(&erts_node_table, (void *) &ne);
     ASSERT(res);
     if (res != erts_this_node) {
-	long refc = erts_refc_inctest(&res->refc, 0);
+	erts_aint_t refc = erts_refc_inctest(&res->refc, 0);
 	if (refc < 2) /* New or pending delete */
 	    erts_refc_inc(&res->refc, 1);
     }

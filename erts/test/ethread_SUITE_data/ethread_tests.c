@@ -514,69 +514,6 @@ try_lock_mutex_test(void)
 }
 
 /*
- * The time now test.
- *
- * Tests ethr_time_now by comparing time values with Erlang.
- */
-#define TNT_MAX_TIME_DIFF 200000
-#define TNT_MAX_TIME_VALUES 52
-
-static void
-time_now_test(void)
-{
-    int scanf_res, time_now_res, i, no_values, max_abs_diff;
-    static ethr_timeval tv[TNT_MAX_TIME_VALUES];
-    static int ms[TNT_MAX_TIME_VALUES];
-
-    i = 0;
-    do {
-	ASSERT(i < TNT_MAX_TIME_VALUES);
-	scanf_res = scanf("%d", &ms[i]);
-	time_now_res = ethr_time_now(&tv[i]);
-	ASSERT(scanf_res == 1);
-	ASSERT(time_now_res == 0);
-#if 0
-	print_line("Got %d; %ld:%ld", ms[i], tv[i].tv_sec, tv[i].tv_nsec);
-#endif
-	i++;
-    } while (ms[i-1] >= 0);
-
-    no_values = i-1;
-
-    ASSERT(ms[0] == 0);
-
-    print_line("TNT_MAX_TIME_DIFF = %d (us)", TNT_MAX_TIME_DIFF);
-
-    max_abs_diff = 0;
-
-    for (i = 1; i < no_values; i++) {
-	long diff;
-	long tn_us;
-	long e_us;
-
-	tn_us = (tv[i].tv_sec - tv[0].tv_sec) * 1000000;
-	tn_us += (tv[i].tv_nsec - tv[0].tv_nsec)/1000;
-
-	e_us = ms[i]*1000;
-	
-	diff = e_us - tn_us;
-
-	print_line("Erlang time = %ld us; ethr_time_now = %ld us; diff %ld us",
-		   e_us, tn_us, diff);
-
-	if (max_abs_diff < abs((int) diff)) {
-	    max_abs_diff = abs((int) diff);
-	}
-
-	ASSERT(e_us - TNT_MAX_TIME_DIFF <= tn_us);
-	ASSERT(tn_us <= e_us + TNT_MAX_TIME_DIFF);
-    }
-
-    print_line("Max absolute diff = %d us", max_abs_diff);
-    succeed("Max absolute diff = %d us", max_abs_diff);
-}
-
-/*
  * The cond wait test case.
  *
  * Tests ethr_cond_wait with ethr_cond_signal and ethr_cond_broadcast.
@@ -1538,8 +1475,6 @@ main(int argc, char *argv[])
 	    mutex_test();
 	else if (strcmp(testcase, "try_lock_mutex") == 0)
 	    try_lock_mutex_test();
-	else if (strcmp(testcase, "time_now") == 0)
-	    time_now_test();
 	else if (strcmp(testcase, "cond_wait") == 0)
 	    cond_wait_test();
 	else if (strcmp(testcase, "broadcast") == 0)

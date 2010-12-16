@@ -813,7 +813,7 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     so.min_heap_size  = H_MIN_SIZE;
     so.min_vheap_size = BIN_VH_MIN_SIZE;
     so.priority       = PRIORITY_NORMAL;
-    so.max_gen_gcs    = (Uint16) erts_smp_atomic_read(&erts_max_gen_gcs);
+    so.max_gen_gcs    = (Uint16) erts_smp_atomic32_read(&erts_max_gen_gcs);
     so.scheduler      = 0;
 
     /*
@@ -3269,12 +3269,13 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
 
     erts_smp_mtx_lock(&ports_snapshot_mtx); /* One snapshot at a time */
 
-    erts_smp_atomic_set(&erts_dead_ports_ptr, (long) (port_buf + erts_max_ports));
+    erts_smp_atomic_set(&erts_dead_ports_ptr,
+			(erts_aint_t) (port_buf + erts_max_ports));
 
     next_ss = erts_smp_atomic_inctest(&erts_ports_snapshot);
 
     if (erts_smp_atomic_read(&erts_ports_alive) > 0) {
-	long i;
+	erts_aint_t i;
 	for (i = erts_max_ports-1; i >= 0; i--) {
 	    Port* prt = &erts_port[i];
 	    erts_smp_port_state_lock(prt);
@@ -3289,7 +3290,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     }
 
     dead_ports = (Eterm*)erts_smp_atomic_xchg(&erts_dead_ports_ptr,
-					      (long)NULL);
+					      (erts_aint_t) NULL);
     erts_smp_mtx_unlock(&ports_snapshot_mtx);
 
     ASSERT(pp <= dead_ports);
@@ -3300,7 +3301,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     ASSERT((alive+dead) <= erts_max_ports);
 
     if (alive+dead > 0) {
-	long i;
+	erts_aint_t i;
 	Eterm *hp = HAlloc(BIF_P, (alive+dead)*2);
 
 	for (i = 0; i < alive; i++) {
@@ -3796,7 +3797,8 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    goto error;
 	}
 	nval = (n > (Sint) ((Uint16) -1)) ? ((Uint16) -1) : ((Uint16) n);
-	oval = (Uint) erts_smp_atomic_xchg(&erts_max_gen_gcs, (long) nval);
+	oval = (Uint) erts_smp_atomic32_xchg(&erts_max_gen_gcs,
+					     (erts_aint32_t) nval);
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_min_heap_size) {
 	int oval = H_MIN_SIZE;
@@ -4139,7 +4141,7 @@ void erts_init_bif(void)
 
     erts_smp_spinlock_init(&make_ref_lock, "make_ref");
     erts_smp_mtx_init(&ports_snapshot_mtx, "ports_snapshot");
-    erts_smp_atomic_init(&erts_dead_ports_ptr, (long)NULL);
+    erts_smp_atomic_init(&erts_dead_ports_ptr, (erts_aint_t) NULL);
 
     /*
      * bif_return_trap/1 is a hidden BIF that bifs that need to

@@ -31,7 +31,10 @@
 
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHR_AUX_IMPL__
-
+#define ETHR_ATOMIC_IMPL__ /* Needed in order to pull in
+			      native atomic implementations
+			      for optimized fallbacks of
+			      spinlocks and rwspinlocks */
 #include "ethread.h"
 #include "ethr_internal.h"
 #include <string.h>
@@ -50,10 +53,6 @@ int ethr_not_completely_inited__ = 1;
 int ethr_not_inited__ = 1;
 
 ethr_memory_allocators ethr_mem__ = ETHR_MEM_ALLOCS_DEF_INITER__;
-
-#ifndef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
-ethr_atomic_protection_t ethr_atomic_protection__[1 << ETHR_ATOMIC_ADDR_BITS];
-#endif
 
 void *(*ethr_thr_prepare_func__)(void) = NULL;
 void (*ethr_thr_parent_func__)(void *) = NULL;
@@ -138,16 +137,9 @@ ethr_init_common__(ethr_init_data *id)
 #endif
     ethr_max_stack_size__ = ETHR_B2KW(ethr_max_stack_size__);
 
-#ifndef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
-    {
-	int i;
-	for (i = 0; i < (1 << ETHR_ATOMIC_ADDR_BITS); i++) {
-	    res = ethr_spinlock_init(&ethr_atomic_protection__[i].u.lck);
-	    if (res != 0)
-		return res;
-	}
-    }
-#endif
+    res = ethr_init_atomics();
+    if (res != 0)
+	return res;
 
     res = ethr_mutex_lib_init(erts_get_cpu_configured(ethr_cpu_info__));
     if (res != 0)
@@ -279,14 +271,6 @@ typedef union {
 static ethr_spinlock_t ts_ev_alloc_lock;
 static ethr_ts_event *free_ts_ev;
 
-#if SIZEOF_VOID_P == SIZEOF_INT
-typedef unsigned int EthrPtrSzUInt;
-#elif  SIZEOF_VOID_P == SIZEOF_LONG
-typedef unsigned long EthrPtrSzUInt;
-#else
-#error No pointer sized integer type
-#endif
-
 static ethr_ts_event *ts_event_pool(int size, ethr_ts_event **endpp)
 {
     int i;
@@ -295,16 +279,16 @@ static ethr_ts_event *ts_event_pool(int size, ethr_ts_event **endpp)
 				 + ETHR_CACHE_LINE_SIZE);
     if (!atsev)
 	return NULL;
-    if ((((EthrPtrSzUInt) atsev) & ETHR_CACHE_LINE_MASK) == 0)
+    if ((((ethr_uint_t) atsev) & ETHR_CACHE_LINE_MASK) == 0)
 	atsev = ((ethr_aligned_ts_event *)
-		 ((((EthrPtrSzUInt) atsev) & ~ETHR_CACHE_LINE_MASK)
+		 ((((ethr_uint_t) atsev) & ~ETHR_CACHE_LINE_MASK)
 		  + ETHR_CACHE_LINE_SIZE));
     for (i = 1; i < size; i++) {
 	atsev[i-1].ts_ev.next = &atsev[i].ts_ev;
-	ethr_atomic_init(&atsev[i-1].ts_ev.uaflgs, 0);
+	ethr_atomic32_init(&atsev[i-1].ts_ev.uaflgs, 0);
 	atsev[i-1].ts_ev.iflgs = 0;
     }
-    ethr_atomic_init(&atsev[size-1].ts_ev.uaflgs, 0);
+    ethr_atomic32_init(&atsev[size-1].ts_ev.uaflgs, 0);
     atsev[size-1].ts_ev.iflgs = 0;
     atsev[size-1].ts_ev.next = NULL;
     if (endpp)
@@ -465,170 +449,6 @@ int ethr_get_main_thr_status(int *on)
     }
     return 0;
 }
-
-
-/* Atomics */
-
-void
-ethr_atomic_init(ethr_atomic_t *var, long i)
-{
-    ETHR_ASSERT(var);
-    ethr_atomic_init__(var, i);
-}
-
-void
-ethr_atomic_set(ethr_atomic_t *var, long i)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_set__(var, i);
-}
-
-long
-ethr_atomic_read(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read__(var);
-}
-
-
-long
-ethr_atomic_add_read(ethr_atomic_t *var, long incr)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_add_read__(var, incr);
-}   
-
-long
-ethr_atomic_inc_read(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_inc_read__(var);
-}
-
-long
-ethr_atomic_dec_read(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_dec_read__(var);
-}
-
-void
-ethr_atomic_add(ethr_atomic_t *var, long incr)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_add__(var, incr);
-}   
-    
-void
-ethr_atomic_inc(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_inc__(var);
-}
-
-void
-ethr_atomic_dec(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_dec__(var);
-}
-
-long
-ethr_atomic_read_band(ethr_atomic_t *var, long mask)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read_band__(var, mask);
-}
-
-long
-ethr_atomic_read_bor(ethr_atomic_t *var, long mask)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read_bor__(var, mask);
-}
-
-long
-ethr_atomic_xchg(ethr_atomic_t *var, long new)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_xchg__(var, new);
-}   
-
-long
-ethr_atomic_cmpxchg(ethr_atomic_t *var, long new, long expected)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_cmpxchg__(var, new, expected);
-}
-
-long
-ethr_atomic_read_acqb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_read_acqb__(var);
-}
-
-long
-ethr_atomic_inc_read_acqb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_inc_read_acqb__(var);
-}
-
-void
-ethr_atomic_set_relb(ethr_atomic_t *var, long i)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_set_relb__(var, i);
-}
-
-void
-ethr_atomic_dec_relb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    ethr_atomic_dec_relb__(var);
-}
-
-long
-ethr_atomic_dec_read_relb(ethr_atomic_t *var)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_dec_read_relb__(var);
-}
-
-long
-ethr_atomic_cmpxchg_acqb(ethr_atomic_t *var, long new, long exp)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_cmpxchg_acqb__(var, new, exp);
-}
-
-long
-ethr_atomic_cmpxchg_relb(ethr_atomic_t *var, long new, long exp)
-{
-    ETHR_ASSERT(!ethr_not_inited__);
-    ETHR_ASSERT(var);
-    return ethr_atomic_cmpxchg_relb__(var, new, exp);
-}
-
 
 /* Spinlocks and rwspinlocks */
 

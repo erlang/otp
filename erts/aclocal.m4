@@ -747,9 +747,124 @@ case "$THR_LIB_NAME" in
         if test $found_win32_winnt = no; then
 	    AC_MSG_ERROR([-D_WIN32_WINNT missing in CPPFLAGS])
         fi
-	ethr_have_native_atomics=yes
-	ethr_have_native_spinlock=yes
+
 	AC_DEFINE(ETHR_WIN32_THREADS, 1, [Define if you have win32 threads])
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedCompareExchange64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedCompareExchange64(var, (__int64) 1, (__int64) 0);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDCOMPAREEXCHANGE64, 1, [Define if you have _InterlockedCompareExchange64()])
+
+	AC_CHECK_SIZEOF(void *)
+	case "$ac_cv_sizeof_void_p-$have_ilckd" in
+	    8-no)
+		ethr_have_native_atomics=no
+	  	ethr_have_native_spinlock=no;;
+	    *)
+		ethr_have_native_atomics=yes
+	  	ethr_have_native_spinlock=yes;;
+	esac
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedDecrement64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedDecrement64(var);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDDECREMENT64, 1, [Define if you have _InterlockedDecrement64()])
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedIncrement64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedIncrement64(var);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDINCREMENT64, 1, [Define if you have _InterlockedIncrement64()])
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedExchangeAdd64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedExchangeAdd64(var, (__int64) 1);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDEXCHANGEADD64, 1, [Define if you have _InterlockedExchangeAdd64()])
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedExchange64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedExchange64(var, (__int64) 1);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDEXCHANGE64, 1, [Define if you have _InterlockedExchange64()])
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedAnd64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedAnd64(var, (__int64) 1);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDAND64, 1, [Define if you have _InterlockedAnd64()])
+
+	have_ilckd=no
+	AC_MSG_CHECKING([for _InterlockedOr64()])
+	AC_TRY_LINK([
+			#define WIN32_LEAN_AND_MEAN
+			#include <windows.h>
+		    ],
+		    [
+			volatile __int64 *var;
+			_InterlockedOr64(var, (__int64) 1);
+			return 0;
+		    ],
+		    have_ilckd=yes)
+	AC_MSG_RESULT([$have_ilckd])
+	test $have_ilckd = yes && AC_DEFINE(ETHR_HAVE__INTERLOCKEDOR64, 1, [Define if you have _InterlockedOr64()])
+
 	;;
 
     pthread)
@@ -1086,6 +1201,28 @@ fi
 
 AC_CHECK_SIZEOF(void *)
 AC_DEFINE_UNQUOTED(ETHR_SIZEOF_PTR, $ac_cv_sizeof_void_p, [Define to the size of pointers])
+
+AC_CHECK_SIZEOF(int)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF_INT, $ac_cv_sizeof_int, [Define to the size of int])
+AC_CHECK_SIZEOF(long)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF_LONG, $ac_cv_sizeof_long, [Define to the size of long])
+AC_CHECK_SIZEOF(long long)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF_LONG_LONG, $ac_cv_sizeof_long_long, [Define to the size of long long])
+AC_CHECK_SIZEOF(__int64)
+AC_DEFINE_UNQUOTED(ETHR_SIZEOF___INT64, $ac_cv_sizeof___int64, [Define to the size of __int64])
+
+
+case X$erl_xcomp_bigendian in
+    X) ;;
+    Xyes|Xno) ac_cv_c_bigendian=$erl_xcomp_bigendian;;
+    *) AC_MSG_ERROR([Bad erl_xcomp_bigendian value: $erl_xcomp_bigendian]);;
+esac
+
+AC_C_BIGENDIAN
+
+if test "$ac_cv_c_bigendian" = "yes"; then
+    AC_DEFINE(ETHR_BIGENDIAN, 1, [Define if bigendian])
+fi
 
 AC_ARG_ENABLE(native-ethr-impls,
 	      AS_HELP_STRING([--disable-native-ethr-impls],

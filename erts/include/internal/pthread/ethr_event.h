@@ -30,31 +30,9 @@
 #include <linux/futex.h>
 #include <sys/time.h>
 
-/*
- * Note: Linux futexes operate on 32-bit integers, but
- *       ethr_native_atomic_t are 64-bits on 64-bit
- *       platforms. This has to be taken into account.
- *       Therefore, in each individual value used each
- *       byte look the same.
- */
-
-#if ETHR_SIZEOF_PTR == 8
-
-#define ETHR_EVENT_OFF_WAITER__		0xffffffffffffffffL
-#define ETHR_EVENT_OFF__		0x7777777777777777L
-#define ETHR_EVENT_ON__ 		0L
-
-#elif  ETHR_SIZEOF_PTR == 4
-
-#define ETHR_EVENT_OFF_WAITER__		0xffffffffL
-#define ETHR_EVENT_OFF__		0x77777777L
-#define ETHR_EVENT_ON__ 		0L
-
-#else
-
-#error ehrm...
-
-#endif
+#define ETHR_EVENT_OFF_WAITER__		((ethr_sint32_t) -1)
+#define ETHR_EVENT_OFF__		((ethr_sint32_t) 1)
+#define ETHR_EVENT_ON__ 		((ethr_sint32_t) 0)
 
 #if defined(FUTEX_WAIT_PRIVATE) && defined(FUTEX_WAKE_PRIVATE)
 #  define ETHR_FUTEX_WAIT__ FUTEX_WAIT_PRIVATE
@@ -65,11 +43,17 @@
 #endif
 
 typedef struct {
-    ethr_atomic_t futex;
+    ethr_atomic32_t futex;
 } ethr_event;
 
-#define ETHR_FUTEX__(FTX, OP, VAL) \
-  (-1 == syscall(__NR_futex, (void *) (FTX), (OP), (int) (VAL), NULL, NULL, 0)\
+#define ETHR_FUTEX__(FTX, OP, VAL)			\
+  (-1 == syscall(__NR_futex,				\
+		 (void *) ethr_atomic32_addr((FTX)),	\
+		 (OP),					\
+		 (int) (VAL),				\
+		 NULL,					\
+		 NULL,					\
+		 0)					\
    ? errno : 0)
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_EVENT_IMPL__)
@@ -77,9 +61,9 @@ typedef struct {
 static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
-    long val;
+    ethr_sint32_t val;
     ETHR_WRITE_MEMORY_BARRIER;
-    val = ethr_atomic_xchg(&e->futex, ETHR_EVENT_ON__);
+    val = ethr_atomic32_xchg(&e->futex, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
 	int res = ETHR_FUTEX__(&e->futex, ETHR_FUTEX_WAKE__, 1);
 	if (res != 0)
@@ -90,7 +74,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 {
-    ethr_atomic_set(&e->futex, ETHR_EVENT_OFF__);
+    ethr_atomic32_set(&e->futex, ETHR_EVENT_OFF__);
     ETHR_MEMORY_BARRIER;
 }
 
@@ -100,7 +84,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 /* --- Posix mutex/cond implementation of events ---------------------------- */
 
 typedef struct {
-    ethr_atomic_t state;
+    ethr_atomic32_t state;
     pthread_mutex_t mtx;
     pthread_cond_t cnd;
 } ethr_event;
@@ -114,9 +98,9 @@ typedef struct {
 static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
-    long val;
+    ethr_sint32_t val;
     ETHR_WRITE_MEMORY_BARRIER;
-    val = ethr_atomic_xchg(&e->state, ETHR_EVENT_ON__);
+    val = ethr_atomic32_xchg(&e->state, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
 	int res = pthread_mutex_lock(&e->mtx);
 	if (res != 0)
@@ -133,7 +117,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 {
-    ethr_atomic_set(&e->state, ETHR_EVENT_OFF__);
+    ethr_atomic32_set(&e->state, ETHR_EVENT_OFF__);
     ETHR_MEMORY_BARRIER;
 }
 

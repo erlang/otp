@@ -28,31 +28,39 @@
 #ifndef ETHREAD_PPC_ATOMIC_H
 #define ETHREAD_PPC_ATOMIC_H
 
+#define ETHR_HAVE_NATIVE_ATOMIC32 1
+
 typedef struct {
-    volatile int counter;
-} ethr_native_atomic_t;
+    volatile ethr_sint32_t counter;
+} ethr_native_atomic32_t;
 
 #define ETHR_MEMORY_BARRIER __asm__ __volatile__("sync" : : : "memory")
 
-#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_ATOMIC_IMPL__)
+
+static ETHR_INLINE ethr_sint32_t *
+ethr_native_atomic32_addr(ethr_native_atomic32_t *var)
+{
+    return (ethr_sint32_t *) &var->counter;
+}
 
 static ETHR_INLINE void
-ethr_native_atomic_init(ethr_native_atomic_t *var, int i)
+ethr_native_atomic32_init(ethr_native_atomic32_t *var, ethr_sint32_t i)
 {
     var->counter = i;
 }
-#define ethr_native_atomic_set(v, i)	ethr_native_atomic_init((v), (i))
+#define ethr_native_atomic32_set(v, i)	ethr_native_atomic32_init((v), (i))
 
-static ETHR_INLINE int
-ethr_native_atomic_read(ethr_native_atomic_t *var)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_read(ethr_native_atomic32_t *var)
 {
     return var->counter;
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_add_return(ethr_native_atomic_t *var, int incr)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_add_return(ethr_native_atomic32_t *var, ethr_sint32_t incr)
 {
-    int tmp;
+    ethr_sint32_t tmp;
 
     __asm__ __volatile__(
 	"eieio\n\t"
@@ -69,16 +77,16 @@ ethr_native_atomic_add_return(ethr_native_atomic_t *var, int incr)
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_add(ethr_native_atomic_t *var, int incr)
+ethr_native_atomic32_add(ethr_native_atomic32_t *var, ethr_sint32_t incr)
 {
     /* XXX: could use weaker version here w/o eieio+isync */
-    (void)ethr_native_atomic_add_return(var, incr);
+    (void)ethr_native_atomic32_add_return(var, incr);
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_inc_return(ethr_native_atomic_t *var)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_inc_return(ethr_native_atomic32_t *var)
 {
-    int tmp;
+    ethr_sint32_t tmp;
 
     __asm__ __volatile__(
 	"eieio\n\t"
@@ -95,16 +103,16 @@ ethr_native_atomic_inc_return(ethr_native_atomic_t *var)
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_inc(ethr_native_atomic_t *var)
+ethr_native_atomic32_inc(ethr_native_atomic32_t *var)
 {
     /* XXX: could use weaker version here w/o eieio+isync */
-    (void)ethr_native_atomic_inc_return(var);
+    (void)ethr_native_atomic32_inc_return(var);
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_dec_return(ethr_native_atomic_t *var)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_dec_return(ethr_native_atomic32_t *var)
 {
-    int tmp;
+    ethr_sint32_t tmp;
 
     __asm__ __volatile__(
 	"eieio\n\t"
@@ -121,16 +129,16 @@ ethr_native_atomic_dec_return(ethr_native_atomic_t *var)
 }
 
 static ETHR_INLINE void
-ethr_native_atomic_dec(ethr_native_atomic_t *var)
+ethr_native_atomic32_dec(ethr_native_atomic32_t *var)
 {
     /* XXX: could use weaker version here w/o eieio+isync */
-    (void)ethr_native_atomic_dec_return(var);
+    (void)ethr_native_atomic32_dec_return(var);
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_and_retold(ethr_native_atomic_t *var, int mask)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_and_retold(ethr_native_atomic32_t *var, ethr_sint32_t mask)
 {
-    int old, new;
+    ethr_sint32_t old, new;
 
     __asm__ __volatile__(
 	"eieio\n\t"
@@ -146,10 +154,10 @@ ethr_native_atomic_and_retold(ethr_native_atomic_t *var, int mask)
     return old;
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_or_retold(ethr_native_atomic_t *var, int mask)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_or_retold(ethr_native_atomic32_t *var, ethr_sint32_t mask)
 {
-    int old, new;
+    ethr_sint32_t old, new;
 
     __asm__ __volatile__(
 	"eieio\n\t"
@@ -165,10 +173,10 @@ ethr_native_atomic_or_retold(ethr_native_atomic_t *var, int mask)
     return old;
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_xchg(ethr_native_atomic_t *var, int val)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_xchg(ethr_native_atomic32_t *var, ethr_sint32_t val)
 {
-    int tmp;
+    ethr_sint32_t tmp;
 
     __asm__ __volatile__(
 	"eieio\n\t"
@@ -183,10 +191,12 @@ ethr_native_atomic_xchg(ethr_native_atomic_t *var, int val)
     return tmp;
 }
 
-static ETHR_INLINE int
-ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, int new, int expected)
+static ETHR_INLINE ethr_sint32_t
+ethr_native_atomic32_cmpxchg(ethr_native_atomic32_t *var,
+			     ethr_sint32_t new,
+			     ethr_sint32_t expected)
 {
-  int old;
+  ethr_sint32_t old;
 
   __asm__ __volatile__(
     "eieio\n\t"
@@ -210,20 +220,20 @@ ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, int new, int expected)
  */
 
 static ETHR_INLINE long
-ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
+ethr_native_atomic32_read_acqb(ethr_native_atomic32_t *var)
 {
-    long res = ethr_native_atomic_read(var);
+    long res = ethr_native_atomic32_read(var);
     ETHR_MEMORY_BARRIER;
     return res;
 }
 
-#define ethr_native_atomic_set_relb ethr_native_atomic_xchg
-#define ethr_native_atomic_inc_return_acqb ethr_native_atomic_inc_return
-#define ethr_native_atomic_dec_relb ethr_native_atomic_dec_return
-#define ethr_native_atomic_dec_return_relb ethr_native_atomic_dec_return
+#define ethr_native_atomic32_set_relb ethr_native_atomic32_xchg
+#define ethr_native_atomic32_inc_return_acqb ethr_native_atomic32_inc_return
+#define ethr_native_atomic32_dec_relb ethr_native_atomic32_dec_return
+#define ethr_native_atomic32_dec_return_relb ethr_native_atomic32_dec_return
 
-#define ethr_native_atomic_cmpxchg_acqb ethr_native_atomic_cmpxchg
-#define ethr_native_atomic_cmpxchg_relb ethr_native_atomic_cmpxchg
+#define ethr_native_atomic32_cmpxchg_acqb ethr_native_atomic32_cmpxchg
+#define ethr_native_atomic32_cmpxchg_relb ethr_native_atomic32_cmpxchg
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 

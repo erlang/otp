@@ -124,7 +124,7 @@ erts_init_proc_lock(int cpus)
     for (i = 0; i < ERTS_NO_OF_PIX_LOCKS; i++) {
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_smp_spinlock_init_x(&erts_pix_locks[i].u.spnlck,
-				      "pix_lock", make_small(i));
+				 "pix_lock", make_small(i));
 #else
 	erts_smp_spinlock_init(&erts_pix_locks[i].u.spnlck, "pix_lock");
 #endif
@@ -413,7 +413,7 @@ transfer_locks(Process *p,
 	do {
 	    erts_tse_t *tmp = wake;
 	    wake = wake->next;
-	    erts_atomic_set(&tmp->uaflgs, 0);
+	    erts_atomic32_set(&tmp->uaflgs, 0);
 	    erts_tse_set(tmp);
 	} while (wake);
 
@@ -509,14 +509,14 @@ wait_for_locks(Process *p,
 
 	ASSERT((wtr->uflgs & ~ERTS_PROC_LOCKS_ALL) == 0);
 
-	erts_atomic_set(&wtr->uaflgs, 1);
+	erts_atomic32_set(&wtr->uaflgs, 1);
 	erts_pix_unlock(pix_lock);
 
 	while (1) {
 	    int res;
 	    erts_tse_reset(wtr);
 
-	    if (erts_atomic_read(&wtr->uaflgs) == 0)
+	    if (erts_atomic32_read(&wtr->uaflgs) == 0)
 		break;
 
 	    /*
@@ -955,7 +955,7 @@ erts_proc_lock_init(Process *p)
 {
     /* We always start with all locks locked */
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
-    erts_smp_atomic_init(&p->lock.flags, (long) ERTS_PROC_LOCKS_ALL);
+    erts_smp_atomic32_init(&p->lock.flags, (erts_aint32_t) ERTS_PROC_LOCKS_ALL);
 #else
     p->lock.flags = ERTS_PROC_LOCKS_ALL;
 #endif
@@ -974,7 +974,7 @@ erts_proc_lock_init(Process *p)
     {
 	int i;
 	for (i = 0; i <= ERTS_PROC_LOCK_MAX_BIT; i++)
-	    erts_smp_atomic_init(&p->lock.locked[i], (long) 1);
+	    erts_smp_atomic32_init(&p->lock.locked[i], (erts_aint32_t) 1);
     }
 #endif
 }
