@@ -1520,6 +1520,17 @@ void process_main(void)
      NextPF(1, next);
  }
 
+ OpCase(move_x1_c): {
+	x(1) = Arg(0);
+	Next(1);
+    }
+
+ OpCase(move_x2_c): {
+	x(2) = Arg(0);
+	Next(1);
+    }
+
+
  OpCase(return): {
     SET_I(c_p->cp);
     /*

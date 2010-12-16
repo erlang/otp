@@ -291,6 +291,12 @@ move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 move Y1=y X1=x | move Y2=y X2=x => move2 Y1 X1 Y2 X2
 move X1=x X2=x | move X3=x X4=x => move2 X1 X2 X3 X4
 
+move C=aiq X=x==1 => move_x1 C
+move C=aiq X=x==2 => move_x2 C
+
+move_x1 c
+move_x2 c
+
 %macro: move2 Move2 -pack
 move2 x y x y
 move2 y x y x
