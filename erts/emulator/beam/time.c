@@ -165,6 +165,31 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
     return ((min >= dt) ? (min - dt) : 0);
 }
 
+static void remove_timer(ErlTimer *p) {
+    /* first */
+    if (!p->prev) {
+	tiw[p->slot] = p->next;
+	if(p->next)
+	    p->next->prev = NULL;
+    } else {
+	p->prev->next = p->next;
+    }
+
+    /* last */
+    if (!p->next) {
+	if (p->prev)
+	    p->prev->next = NULL;
+    } else {
+	p->next->prev = p->prev;
+    }
+
+    p->next = NULL;
+    p->prev = NULL;
+    /* Make sure cancel callback isn't called */
+    p->active = 0;
+    tiw_nto--;
+}
+
 /* Private export to erl_time_sup.c */
 erts_aint_t erts_next_time(void)
 {
@@ -210,11 +235,9 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
 		    tiw_min_ptr = NULL;
 		    tiw_min = 0;
 		}
-		*prev = p->next;	/* Remove from list */
-		tiw_nto--;
-		p->next = NULL;
-		p->active = 0;		/* Make sure cancel callback
-					   isn't called */
+
+		/* Remove from list */
+		remove_timer(p);
 		*timeout_tail = p;	/* Insert in timeout queue */
 		timeout_tail = &p->next;
 	    }
@@ -244,6 +267,7 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
 	 * callback is called.
 	 */
 	p->next = NULL;
+	p->prev = NULL;
 	p->slot = 0;
 	(*p->timeout)(p->arg);
     }
@@ -284,6 +308,9 @@ erts_init_time(void)
     tiw_min = 0;
 }
 
+
+
+
 /*
 ** Insert a process into the time queue, with a timeout 't'
 */
@@ -313,7 +340,11 @@ insert_timer(ErlTimer* p, Uint t)
   
     /* insert at head of list at slot */
     p->next = tiw[tm];
+    p->prev = NULL;
+    if (p->next != NULL)
+	p->next->prev = p;
     tiw[tm] = p;
+
 
     /* insert min time */
     if ((tiw_nto == 0) || ((tiw_min_ptr != NULL) && (ticks < tiw_min))) {
@@ -355,40 +386,25 @@ erts_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
 void
 erts_cancel_timer(ErlTimer* p)
 {
-    ErlTimer *tp;
-    ErlTimer **prev;
-
     erts_smp_mtx_lock(&tiw_lock);
     if (!p->active) { /* allow repeated cancel (drivers) */
 	erts_smp_mtx_unlock(&tiw_lock);
 	return;
     }
-    /* find p in linked list at slot p->slot and remove it */
-    prev = &tiw[p->slot];
-    while ((tp = *prev) != NULL) {
-	if (tp == p) {
 
-	    /* is it the 'min' timer ? */
-	    if (p == tiw_min_ptr) {
-		tiw_min_ptr = NULL;
-		tiw_min     = 0;
-	    }
+    /* is it the 'min' timer, remove min */
+    if (p == tiw_min_ptr) {
+	tiw_min_ptr = NULL;
+	tiw_min     = 0;
+    }
 
-	    *prev = p->next;	/* Remove from list */
-	    tiw_nto--;
-	    p->next = NULL;
-	    p->slot = p->count = 0;
-	    p->active = 0;
-	    if (p->cancel != NULL) {
-		erts_smp_mtx_unlock(&tiw_lock);
-		(*p->cancel)(p->arg);
-	    } else {
-		erts_smp_mtx_unlock(&tiw_lock);
-	    }
-	    return;
-	} else {
-	    prev = &tp->next;
-	}
+    remove_timer(p);
+    p->slot = p->count = 0;
+
+    if (p->cancel != NULL) {
+	erts_smp_mtx_unlock(&tiw_lock);
+	(*p->cancel)(p->arg);
+	return;
     }
     erts_smp_mtx_unlock(&tiw_lock);
 }

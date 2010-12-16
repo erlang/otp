@@ -28,6 +28,7 @@ extern SysTimeval erts_first_emu_time;
 */
 typedef struct erl_timer {
     struct erl_timer* next;	/* next entry tiw slot or chain */
+    struct erl_timer* prev;	/* prev entry tiw slot or chain */
     Uint slot;			/* slot in timer wheel */
     Uint count;			/* number of loops remaining */
     int    active;		/* 1=activated, 0=deactivated */
