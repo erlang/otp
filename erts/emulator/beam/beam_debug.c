@@ -157,6 +157,25 @@ void debug_dump_code(BeamInstr *I, int num)
 }
 #endif
 
+BIF_RETTYPE
+erts_debug_instructions_0(BIF_ALIST_0)
+{
+    int i = 0;
+    Uint needed = num_instructions * 2;
+    Eterm* hp;
+    Eterm res = NIL;
+
+    for (i = 0; i < num_instructions; i++) {
+	needed += 2*strlen(opc[i].name);
+    }
+    hp = HAlloc(BIF_P, needed);
+    for (i = num_instructions-1; i >= 0; i--) {
+	Eterm s = erts_bld_string_n(&hp, 0, opc[i].name, strlen(opc[i].name));
+	res = erts_bld_cons(&hp, 0, s, res);
+    }
+    return res;
+}
+
 Eterm
 erts_debug_disassemble_1(Process* p, Eterm addr)
 {

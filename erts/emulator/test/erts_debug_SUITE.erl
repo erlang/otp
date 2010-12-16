@@ -21,10 +21,10 @@
 -include("test_server.hrl").
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 flat_size/1,flat_size_big/1,df/1]).
+	 flat_size/1,flat_size_big/1,df/1,instructions/1]).
 
 all(suite) ->
-    [flat_size,flat_size_big,df].
+    [flat_size,flat_size_big,df,instructions].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
@@ -70,3 +70,8 @@ df(Config) when is_list(Config) ->
 
 pps() ->
     {erlang:ports()}.
+
+instructions(Config) when is_list(Config) ->
+    ?line Is = erts_debug:instructions(),
+    ?line _ = [list_to_atom(I) || I <- Is],
+    ok.

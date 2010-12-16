@@ -660,6 +660,7 @@ bif erts_debug:display/1
 bif 'erl.system.debug':display/1 ebif_erts_debug_display_1
 bif erts_debug:dist_ext_to_term/2
 bif 'erl.system.debug':dist_ext_to_term/2 ebif_erts_debug_dist_ext_to_term_2
+bif erts_debug:instructions/0
 
 #
 # Monitor testing bif's...
