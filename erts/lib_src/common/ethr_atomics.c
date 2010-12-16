@@ -43,7 +43,7 @@ ethr_init_atomics(void)
     {
 	int i;
 	for (i = 0; i < (1 << ETHR_ATOMIC_ADDR_BITS); i++) {
-	    res = ethr_spinlock_init(&ethr_atomic_protection__[i].u.lck);
+	    int res = ethr_spinlock_init(&ethr_atomic_protection__[i].u.lck);
 	    if (res != 0)
 		return res;
 	}
