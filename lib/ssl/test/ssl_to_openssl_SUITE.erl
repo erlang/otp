@@ -1164,10 +1164,6 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     close_port(OpenSslPort),
     %% Clean close down!
     ssl_test_lib:close(Client),
-    receive 
-	{'EXIT', Client, normal} ->
-	    ok
-    end,
     
     Return = case Result of
 		 ok ->

@@ -28,7 +28,7 @@
 -include("ssl_internal.hrl").
 
 %% Internal application API
--export([is_new/2, id/3, id/6, valid_session/2]).
+-export([is_new/2, id/4, id/7, valid_session/2]).
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 
@@ -48,13 +48,14 @@ is_new(_ClientSuggestion, _ServerDecision) ->
     true.
 
 %%--------------------------------------------------------------------
--spec id({host(), port_num(), #ssl_options{}}, cache_ref(), atom()) -> binary().
+-spec id({host(), port_num(), #ssl_options{}}, cache_ref(), atom(),
+	 undefined | binary()) -> binary().
 %%
 %% Description: Should be called by the client side to get an id 
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-id(ClientInfo, Cache, CacheCb) ->
-    case select_session(ClientInfo, Cache, CacheCb) of
+id(ClientInfo, Cache, CacheCb, OwnCert) ->
+    case select_session(ClientInfo, Cache, CacheCb, OwnCert) of
 	no_session ->
 	    <<>>;
 	SessionId ->
@@ -63,19 +64,19 @@ id(ClientInfo, Cache, CacheCb) ->
 
 %%--------------------------------------------------------------------
 -spec id(port_num(), binary(), #ssl_options{}, cache_ref(), 
-	 atom(), seconds()) -> binary().
+	 atom(), seconds(), binary()) -> binary().
 %%
 %% Description: Should be called by the server side to get an id 
 %%              for the server hello message.
 %%--------------------------------------------------------------------
-id(Port, <<>>, _, Cache, CacheCb, _) ->
+id(Port, <<>>, _, Cache, CacheCb, _, _) ->
     new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb);
 
 id(Port, SuggestedSessionId, #ssl_options{reuse_sessions = ReuseEnabled,
 					  reuse_session = ReuseFun}, 
-   Cache, CacheCb, SecondLifeTime) ->
+   Cache, CacheCb, SecondLifeTime, OwnCert) ->
     case is_resumable(SuggestedSessionId, Port, ReuseEnabled, 
-		      ReuseFun, Cache, CacheCb, SecondLifeTime) of
+		      ReuseFun, Cache, CacheCb, SecondLifeTime, OwnCert) of
 	true ->
 	    SuggestedSessionId;
 	false ->
@@ -93,19 +94,20 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-select_session({HostIP, Port, SslOpts}, Cache, CacheCb) ->    
+select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCert) ->
     Sessions = CacheCb:select_session(Cache, {HostIP, Port}),
-    select_session(Sessions, SslOpts).
+    select_session(Sessions, SslOpts, OwnCert).
 
-select_session([], _) ->
+select_session([], _, _) ->
     no_session;
 
 select_session(Sessions, #ssl_options{ciphers = Ciphers,
-				      reuse_sessions = ReuseSession}) ->
+				      reuse_sessions = ReuseSession}, OwnCert) ->
     IsResumable = 
  	fun(Session) -> 
  		ReuseSession andalso (Session#session.is_resumable) andalso  
  		    lists:member(Session#session.cipher_suite, Ciphers)
+		    andalso (OwnCert == Session#session.own_certificate)
  	end,
     case [Id || [Id, Session] <- Sessions, IsResumable(Session)] of
  	[] ->
@@ -140,14 +142,16 @@ new_id(Port, Tries, Cache, CacheCb) ->
     end.
 
 is_resumable(SuggestedSessionId, Port, ReuseEnabled, ReuseFun, Cache, 
-	     CacheCb, SecondLifeTime) ->
+	     CacheCb, SecondLifeTime, OwnCert) ->
     case CacheCb:lookup(Cache, {Port, SuggestedSessionId}) of
 	#session{cipher_suite = CipherSuite,
+		 own_certificate = SessionOwnCert,
 		 compression_method = Compression,
 		 is_resumable = Is_resumable,
 		 peer_certificate = PeerCert} = Session ->
 	    ReuseEnabled 
 		andalso Is_resumable  
+		andalso (OwnCert == SessionOwnCert)
 		andalso valid_session(Session, SecondLifeTime) 
 		andalso ReuseFun(SuggestedSessionId, PeerCert, 
 				 Compression, CipherSuite);
