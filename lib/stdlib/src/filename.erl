@@ -165,8 +165,6 @@ basename1([$/|[]], Tail, DirSep2) ->
     basename1([], Tail, DirSep2);
 basename1([$/|Rest], _Tail, DirSep2) ->
     basename1(Rest, [], DirSep2);
-basename1([[_|_]=List|Rest], Tail, DirSep2) ->
-    basename1(List++Rest, Tail, DirSep2);
 basename1([DirSep2|Rest], Tail, DirSep2) when is_integer(DirSep2) ->
     basename1([$/|Rest], Tail, DirSep2);
 basename1([Char|Rest], Tail, DirSep2) when is_integer(Char) ->
@@ -280,8 +278,6 @@ dirname(Name0) ->
     Name = flatten(Name0),
     dirname(Name, [], [], separators()).
 
-dirname([[_|_]=List|Rest], Dir, File, Seps) ->
-    dirname(List++Rest, Dir, File, Seps);
 dirname([$/|Rest], Dir, File, Seps) ->
     dirname(Rest, File++Dir, [$/], Seps);
 dirname([DirSep|Rest], Dir, File, {DirSep,_}=Seps) when is_integer(DirSep) ->
@@ -346,8 +342,6 @@ extension(Name) when is_binary(Name) ->
 		    []
 	    end,
     case binary:matches(Name,[<<".">>]) of
-	nomatch -> % Bug in binary workaround :(
-	    <<>>;
 	[] ->
 	    <<>>;
 	List ->
@@ -479,6 +473,12 @@ maybe_remove_dirsep(Name, _) ->
 %% by a previous call to join/{1,2}.
 
 -spec append(file:filename(), file:name()) -> file:filename().
+append(Dir, Name) when is_binary(Dir), is_binary(Name) ->
+    <<Dir/binary,$/:8,Name/binary>>;
+append(Dir, Name) when is_binary(Dir) ->
+    append(Dir,filename_string_to_binary(Name));
+append(Dir, Name) when is_binary(Name) ->
+    append(filename_string_to_binary(Dir),Name);
 append(Dir, Name) ->
     Dir ++ [$/|Name].
 
@@ -685,8 +685,6 @@ split([$/|Rest], Comp, Components, OsType) ->
     split(Rest, [], [lists:reverse(Comp)|Components], OsType);
 split([Char|Rest], Comp, Components, OsType) when is_integer(Char) ->
     split(Rest, [Char|Comp], Components, OsType);
-split([List|Rest], Comp, Components, OsType) when is_list(List) ->
-    split(List++Rest, Comp, Components, OsType);
 split([], [], Components, _OsType) ->
     lists:reverse(Components);
 split([], Comp, Components, OsType) ->
