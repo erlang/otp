@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,9 @@
 	 testing_iiop_void/2,
 	 testing_iiop_context/2,
 	 testing_iiop_server_marshal/3,
+	 testing_iiop_rec_any/3,
+	 testing_iiop_rec_struct/3,
+	 testing_iiop_rec_union/3,
 	 relay_call/3,
 	 relay_cast/3,
 	 %% Testing pseudo calls.
@@ -196,6 +199,16 @@ testing_iiop_context(_Self, State) ->
 
 testing_iiop_server_marshal(_Self, State, _String) ->
     {reply, {ok, false}, State}.
+
+testing_iiop_rec_any(_Self, State, RAny) ->
+    {reply, RAny, State}.
+
+testing_iiop_rec_struct(_Self, State, RecS) ->
+    {reply, RecS, State}.
+
+testing_iiop_rec_union(_Self, State, RecU) ->
+    {reply, RecU, State}.
+
 
 testing_iiop_oneway_delay(_Self, State, Time) ->
     timer:sleep(Time),

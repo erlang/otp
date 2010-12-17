@@ -496,27 +496,17 @@ check_port(Port, _, _) ->
 
 %%-----------------------------------------------------------------
 %% Check Options. 
-%% We need this as a work-around since the SSL-app doesn't allow us
-%% to pass 'inet' as an option. Also needed for R9B :-(
 check_options(normal, Options, _Generation) ->
-    case orber:ip_version() of
-	inet ->
-	    Options;
-	inet6 ->
-	    %% Necessary for R9B. Should be [orber:ip_version()|Options];
-	    [inet6|Options]
-    end;
+    [orber:ip_version()|Options];
 check_options(ssl, Options, Generation) ->
     case orber:ip_version() of
 	inet when Generation > 2 ->
 	    [{ssl_imp, new}|Options];
 	inet ->
-	    Options;
+	    [{ssl_imp, old}|Options];
 	inet6 when Generation > 2 ->
 	    [{ssl_imp, new}, inet6|Options];
 	inet6 ->
-	    %% Will fail until SSL supports this option. 
-	    %% Note, we want this happen!
-	    [inet6|Options]
+	    [{ssl_imp, old}, inet6|Options]
     end.
 

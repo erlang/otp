@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -407,6 +407,18 @@ check(G, S, N, X) when is_record(X, forward) ->
     tktab_add(G, S, N, X, {tk_objref, ictk:get_IR_ID(G, N, X), ic_forms:get_id2(X)}),
     X;
 
+check(G, S, N, #constr_forward{tk = tk_struct} = X) ->
+    ?STDDBG,
+    ID = ic_forms:get_id2(X),
+    Module = list_to_atom(string:join(lists:reverse([ID|N]), "_")),
+    tktab_add(G, S, N, X, {tk_struct, ictk:get_IR_ID(G, N, X), ID, Module}),
+    X;
+check(G, S, N, #constr_forward{tk = tk_union} = X) ->
+    ?STDDBG,
+    ID = ic_forms:get_id2(X),
+    Module = list_to_atom(string:join(lists:reverse([ID|N]), "_")),
+    tktab_add(G, S, N, X, {tk_union, ictk:get_IR_ID(G, N, X), ID, [], [], Module}),
+    X;
 
 check(G, S, N, X) when is_record(X, const) ->
     ?STDDBG,
@@ -420,21 +432,6 @@ check(G, S, N, X) when is_record(X, const) ->
 		    V = iceval:get_val(Val),
 		    tktab_add(G, S, N, X, NewTK, V),
 		    X#const{val=V, tk=NewTK};
-		Val ->
-		    V = iceval:get_val(Val),
-		    tktab_add(G, S, N, X, TK, V),
-		    X#const{val=V, tk=TK}
-	    end
-    end;
-
-check(G, S, N, X) when is_record(X, const) ->
-    ?STDDBG,
-    case tk_base(G, S, N, ic_forms:get_type(X)) of
-	Err when element(1, Err) == error -> X;
-	TK ->
-	    check_const_tk(G, S, N, X, TK),
-	    case iceval:eval_const(G, S, N, TK, X#const.val) of
-		Err when element(1, Err) == error -> X;
 		Val ->
 		    V = iceval:get_val(Val),
 		    tktab_add(G, S, N, X, TK, V),
@@ -795,9 +792,15 @@ tktab_add_id(G, S, N, X, Id, TK, Aux) ->
     Name = [Id | N],
     UName = mk_uppercase(Name),
     case ets:lookup(S, Name) of
-	[{_, forward, _, _}] when is_record(X, interface) -> ok;
-	[XX] when is_record(X, forward) andalso element(2, XX)==interface -> ok;
-	[_] -> ic_error:error(G, {multiply_defined, X});
+	[{_, forward, _, _}] when is_record(X, interface) ->
+	    ok;
+	[{_, constr_forward, _, _}] when is_record(X, union) orelse 
+					 is_record(X, struct) -> 
+	    ok;
+	[XX] when is_record(X, forward) andalso element(2, XX)==interface -> 
+	    ok;
+	[_] -> 
+	    ic_error:error(G, {multiply_defined, X});
 	[] ->
 	    case ets:lookup(S, UName) of
 		[] -> ok;

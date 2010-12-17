@@ -120,7 +120,11 @@ GEN_MOD_TEST_SERVER = \
 	orber_test_server_uni \
 	orber_test_server_uni_d \
 	orber_test_timeout_server \
-	orber_parent_inherrit
+	orber_parent_inherrit \
+	orber_test_server_rec_struct \
+	orber_test_server_rec_struct_seq \
+	orber_test_server_rec_union \
+	orber_test_server_rec_union_seq
 
 GEN_HRL_TEST_SERVER = \
 	oe_orber_test_server.hrl \
