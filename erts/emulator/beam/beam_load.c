@@ -1952,34 +1952,6 @@ load_code(LoaderState* stp)
 	}
 
 	/*
-	 * Load any list arguments using the primitive tags.
-	 */
-
-	for ( ; arg < tmp_op->arity; arg++) {
-	    switch (tmp_op->a[arg].type) {
-	    case TAG_i:
-		CodeNeed(1);
-		code[ci++] = make_small(tmp_op->a[arg].val);
-		break;
-	    case TAG_u:
-	    case TAG_a:
-	    case TAG_v:
-		CodeNeed(1);
-		code[ci++] = tmp_op->a[arg].val;
-		break;
-	    case TAG_f:
-		CodeNeed(1);
-		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		stp->labels[tmp_op->a[arg].val].patches = ci;
-		ci++;
-		break;
-	    default:
-		LoadError1(stp, "unsupported primitive type '%c'",
-			   tag_to_letter[tmp_op->a[arg].type]);
-	    }
-	}
-
-	/*
 	 * The packing engine.
 	 */
 	if (opc[stp->specific_op].pack[0]) {
@@ -2019,6 +1991,34 @@ load_code(LoaderState* stp)
 		}
 	    }
 	    ASSERT(sp == stack); /* Incorrect program? */
+	}
+
+	/*
+	 * Load any list arguments using the primitive tags.
+	 */
+
+	for ( ; arg < tmp_op->arity; arg++) {
+	    switch (tmp_op->a[arg].type) {
+	    case TAG_i:
+		CodeNeed(1);
+		code[ci++] = make_small(tmp_op->a[arg].val);
+		break;
+	    case TAG_u:
+	    case TAG_a:
+	    case TAG_v:
+		CodeNeed(1);
+		code[ci++] = tmp_op->a[arg].val;
+		break;
+	    case TAG_f:
+		CodeNeed(1);
+		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
+		stp->labels[tmp_op->a[arg].val].patches = ci;
+		ci++;
+		break;
+	    default:
+		LoadError1(stp, "unsupported primitive type '%c'",
+			   tag_to_letter[tmp_op->a[arg].type]);
+	    }
 	}
 
 	/*
