@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -766,7 +766,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
 	<code>
 -module(mnesia_test).
 -export([start/0,load_data/0]).
--include("mod_auth.hrl").   
+-include_lib("mod_auth.hrl").
 
 first_start() ->
     mnesia:create_schema([node()]),
