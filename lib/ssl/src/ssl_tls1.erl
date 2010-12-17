@@ -128,11 +128,6 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     %% HMAC_hash(MAC_write_secret, seq_num + TLSCompressed.type +
     %%              TLSCompressed.version + TLSCompressed.length +
     %%              TLSCompressed.fragment));
-    case Method of
-        ?NULL -> ok;
-        _ ->
-            ok
-    end,
     Mac = hmac_hash(Method, Mac_write_secret, 
 		    [<<?UINT64(Seq_num), ?BYTE(Type), 
 		      ?BYTE(Major), ?BYTE(Minor), ?UINT16(Length)>>, 

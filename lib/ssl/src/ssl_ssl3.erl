@@ -102,11 +102,6 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Length, Fragment) ->
     %%      hash(MAC_write_secret + pad_1 + seq_num +
     %%           SSLCompressed.type + SSLCompressed.length +
     %%           SSLCompressed.fragment));
-    case Method of
-        ?NULL -> ok;
-        _ ->
-            ok
-    end,
     Mac = mac_hash(Method, Mac_write_secret, 
 		   [<<?UINT64(Seq_num), ?BYTE(Type), 
 		     ?UINT16(Length)>>, Fragment]),
