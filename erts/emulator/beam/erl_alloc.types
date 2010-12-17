@@ -263,6 +263,8 @@ type	XPORTS_LIST	SHORT_LIVED	SYSTEM		extra_port_list
 type	PROC_LCK_WTR	LONG_LIVED	SYSTEM		proc_lock_waiter
 type	PROC_LCK_QS	LONG_LIVED	SYSTEM		proc_lock_queues
 type	RUNQ_BLNS	LONG_LIVED	SYSTEM		run_queue_balancing
+type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
+type	MISC_AUX_WORK	SHORT_LIVED	SYSTEM		misc_aux_work
 +endif
 
 #

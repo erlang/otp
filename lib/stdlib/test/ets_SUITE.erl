@@ -5325,7 +5325,25 @@ my_tab_to_list(_Ts,'$end_of_table', Acc) -> lists:reverse(Acc);
 my_tab_to_list(Ts,Key, Acc) ->
     my_tab_to_list(Ts,ets:next(Ts,Key),[ets:lookup(Ts, Key)| Acc]).
 
+wait_for_all_schedulers_online_to_execute() ->
+    PMs = lists:map(fun (Sched) ->
+			    spawn_opt(fun () -> ok end,
+				      [monitor, {scheduler, Sched}])
+		    end,
+		    lists:seq(1,erlang:system_info(schedulers_online))),
+    lists:foreach(fun ({P, M}) ->
+			  receive
+			      {'DOWN', M, process, P, _} -> ok
+			  end
+		  end,
+		  PMs),
+    ok.
+
 etsmem() ->
+    %% Wait until it is guaranteed that all already scheduled
+    %% deallocations of DbTable structures have completed.
+    wait_for_all_schedulers_online_to_execute(),
+
     AllTabs = lists:map(fun(T) -> {T,ets:info(T,name),ets:info(T,size),
 				   ets:info(T,memory),ets:info(T,type)} 
 			end, ets:all()),

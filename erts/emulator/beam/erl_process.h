@@ -236,16 +236,14 @@ typedef enum {
   | ERTS_SSI_FLG_WAITING				\
   | ERTS_SSI_FLG_SUSPENDED)
 
-
-#if !defined(ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK) \
-    && defined(ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN)
 #define ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
-#endif
 
 #define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 0)
+#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 1)
 
 #define ERTS_SSI_BLOCKABLE_AUX_WORK_MASK \
-  (ERTS_SSI_AUX_WORK_CHECK_CHILDREN)
+  (ERTS_SSI_AUX_WORK_CHECK_CHILDREN \
+   | ERTS_SSI_AUX_WORK_MISC)
 #define ERTS_SSI_NONBLOCKABLE_AUX_WORK_MASK \
   (0)
 
@@ -1034,6 +1032,7 @@ int erts_sched_set_wakeup_limit(char *str);
 #ifdef DEBUG
 void erts_dbg_multi_scheduling_return_trap(Process *, Eterm);
 #endif
+int erts_get_max_no_executing_schedulers(void);
 #ifdef ERTS_SMP
 ErtsSchedSuspendResult
 erts_schedulers_state(Uint *, Uint *, Uint *, int);
@@ -1048,6 +1047,11 @@ int erts_is_multi_scheduling_blocked(void);
 Eterm erts_multi_scheduling_blockers(Process *);
 void erts_start_schedulers(void);
 void erts_smp_notify_check_children_needed(void);
+void
+erts_smp_schedule_misc_aux_work(int ignore_self,
+				int max_sched,
+				void (*func)(void *),
+				void *arg);
 #endif
 void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);

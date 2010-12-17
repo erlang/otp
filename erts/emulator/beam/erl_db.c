@@ -227,10 +227,10 @@ static ERTS_INLINE DbTable* db_ref(DbTable* tb, db_lock_kind_t kind)
     }
     return tb;
 }
-
-static ERTS_INLINE DbTable* db_unref(DbTable* tb, db_lock_kind_t kind)
+	
+static void
+free_dbtable(DbTable* tb)
 {
-    if (kind != LCK_READ && !erts_refc_dectest(&tb->common.ref, 0)) {
 #ifdef HARDDEBUG
 	if (erts_smp_atomic_read(&tb->common.memory_size) != sizeof(DbTable)) {
 	    erts_fprintf(stderr, "ets: db_unref memory remain=%ld fix=%x\n",
@@ -257,6 +257,36 @@ static ERTS_INLINE DbTable* db_unref(DbTable* tb, db_lock_kind_t kind)
 	ASSERT(is_immed(tb->common.heir_data));
 	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));		     
 	ERTS_ETS_MISC_MEM_ADD(-sizeof(DbTable));
+}
+
+#ifdef ERTS_SMP
+static void
+chk_free_dbtable(void *vtb)
+{
+    DbTable * tb = (DbTable *) vtb;
+    ERTS_THR_MEMORY_BARRIER;
+    if (erts_refc_dectest(&tb->common.ref, 0) == 0)
+	free_dbtable(tb);
+}
+#endif
+
+static ERTS_INLINE DbTable* db_unref(DbTable* tb, db_lock_kind_t kind)
+{
+    if (kind != LCK_READ && erts_refc_dectest(&tb->common.ref, 0) == 0) {
+#ifdef ERTS_SMP
+	int scheds = erts_get_max_no_executing_schedulers();
+	if (scheds == 1)
+	    free_dbtable(tb);
+	else {
+	    int refs = scheds - 1;
+	    ASSERT(scheds > 1);
+	    ERTS_THR_MEMORY_BARRIER;
+	    erts_refc_add(&tb->common.ref, refs, refs);
+	    erts_smp_schedule_misc_aux_work(1, scheds, chk_free_dbtable, tb);
+	}
+#else
+	free_dbtable(tb);
+#endif
 	return NULL;
     }
     return tb;
@@ -1436,8 +1466,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 				      "** Too many db tables **\n");
 	free_heir_data(tb);
 	tb->common.meth->db_free_table(tb);
-	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(DbTable));
+	db_unref(tb, LCK_NONE);
 	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
     }
 
