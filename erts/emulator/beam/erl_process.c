@@ -678,7 +678,7 @@ erts_smp_schedule_misc_aux_work(int ignore_self,
     ASSERT(0 <= max_sched && max_sched <= erts_no_schedulers);
 
     for (ix = 0; ix < max_sched; ix++) {
-	long aux_work;
+	erts_aint32_t aux_work;
 	erts_misc_aux_work_t *mawp;
 	ErtsSchedulerSleepInfo *ssi;
 	if (ix == ignore_ix)
