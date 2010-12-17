@@ -938,6 +938,14 @@ sub basic_generator {
 			 "{ $var_decls",
 			 $macro_code,
 			 "}");
+	} elsif ($flags =~ /-goto:(\S*)/) {
+	    my $goto = $1;
+	    $code = join("\n",
+			 "{ $var_decls",
+			 $macro_code,
+			 "I += $size + 1;",
+			 "goto $goto;",
+			 "}");
 	} else {
 	    $code = join("\n",
 			 "{ $var_decls",
