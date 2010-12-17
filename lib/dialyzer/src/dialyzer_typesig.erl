@@ -1406,9 +1406,13 @@ get_bif_constr({erlang, 'or', 2}, Dst, [Arg1, Arg2] = Args, _State) ->
   ArgV1 = mk_fun_var(ArgFun(Arg2), [Arg2, Dst]),
   ArgV2 = mk_fun_var(ArgFun(Arg1), [Arg1, Dst]),
   DstV = mk_fun_var(DstFun, Args),
-  Disj = mk_disj_constraint_list([mk_constraint(Arg1, sub, True),
-				  mk_constraint(Arg2, sub, True),
-				  mk_constraint(Dst, sub, False)]),
+  F = fun(A) ->
+	  try [mk_constraint(A, sub, True)]
+	  catch throw:error -> []
+	  end
+      end,
+  Constrs = F(Arg1) ++ F(Arg2),
+  Disj = mk_disj_constraint_list([mk_constraint(Dst, sub, False)|Constrs]),
   mk_conj_constraint_list([mk_constraint(Dst, sub, DstV),
 			   mk_constraint(Arg1, sub, ArgV1),
 			   mk_constraint(Arg2, sub, ArgV2),
