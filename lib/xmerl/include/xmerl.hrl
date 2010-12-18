@@ -156,6 +156,7 @@
 	  doctype_name,
 	  doctype_DTD = internal, % internal | DTDId
 	  document = false,
+	  default_attrs = false,
 	  rules,
 	  keep_rules = false,	% delete (ets) tab if false
 	  namespace_conformant = false, % true | false

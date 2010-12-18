@@ -103,6 +103,9 @@
 %%  <dt><code>{document, Flag}</code></dt>
 %%    <dd>Set to 'true' if xmerl should return a complete XML document
 %%    as an xmlDocument record (default 'false').</dd>
+%%  <dt><code>{default_attrs, Flag}</code></dt>
+%%    <dd>Set to 'true' if xmerl should add to elements missing attributes
+%%    with a defined default value (default 'false').</dd>
 %% </dl>
 %% @type document() = xmlElement() | xmlDocument(). <p>
 %% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
@@ -391,6 +394,8 @@ initial_state([{doctype_DTD,DTD}|T], S) ->
     initial_state(T,S#xmerl_scanner{doctype_DTD = DTD});
 initial_state([{document, F}|T], S) when is_boolean(F) ->
     initial_state(T,S#xmerl_scanner{document = F});
+initial_state([{default_attrs, F}|T], S) when is_boolean(F) ->
+    initial_state(T,S#xmerl_scanner{default_attrs = F});
 initial_state([{text_decl,Bool}|T], S) ->
     initial_state(T,S#xmerl_scanner{text_decl=Bool});
 initial_state([{environment,Env}|T], S) ->
@@ -2161,6 +2166,14 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
     scan_element(T4, S5, Pos, Name, StartL, StartC, [Attr|Attrs], 
 		 Lang, Parents, NSI, NewNS, SpaceDefault).
 
+get_default_attrs(S = #xmerl_scanner{rules_read_fun = Read}, ElemName) ->
+    case Read(elem_def, ElemName, S) of
+	#xmlElement{attributes = Attrs} ->
+	    [ {AttName, AttValue} ||
+	      {AttName, _, AttValue, _, _} <- Attrs, AttValue =/= no_value ];
+	_ -> []
+    end.
+
 get_att_type(S=#xmerl_scanner{rules_read_fun=Read},AttName,ElemName) ->
     case Read(elem_def,ElemName,S) of
 	#xmlElement{attributes = Attrs} ->
@@ -2190,6 +2203,23 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 			Pos, Name, Attrs, Lang, Parents, NSI, Namespace) ->
     Language = check_language(Attrs, Lang),
 
+    AllAttrs =
+	case S#xmerl_scanner.default_attrs of
+	    true ->
+		[ #xmlAttribute{name = AttName,
+				parents = [{Name, Pos} | Parents],
+				language = Lang,
+				nsinfo = NSI,
+				namespace = Namespace,
+				value = AttValue,
+				normalized = true} ||
+		  {AttName, AttValue} <- get_default_attrs(S, Name),
+		  AttValue =/= no_value,
+		  not lists:keymember(AttName, #xmlAttribute.name, Attrs) ];
+	    false ->
+		Attrs
+	end,
+
     {ExpName, ExpAttrs} = 
 	case S#xmerl_scanner.namespace_conformant of
 	    true ->
@@ -2209,10 +2239,10 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 				       A#xmlAttribute.name, 
 				       A#xmlAttribute.nsinfo,
 						% NSI,
-				       TempNamespace, S)} || A <- Attrs],
+				       TempNamespace, S)} || A <- AllAttrs],
 		{expanded_name(Name, NSI, Namespace, S), ExpAttrsX};
 	    false ->
-		{Name, Attrs}
+		{Name, AllAttrs}
 	end,
 
     #xmlElement{name = Name,
