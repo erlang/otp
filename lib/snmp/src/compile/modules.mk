@@ -21,6 +21,9 @@ PARSER_SRC = snmpc_mib_gram.yrl
 
 PARSER_MODULE = $(PARSER_SRC:%.yrl=%)
 
+ESCRIPT_SRC = \
+	snmpc.src
+
 MODULES = \
 	$(PARSER_MODULE) \
 	snmpc \

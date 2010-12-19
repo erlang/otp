@@ -1,0 +1,129 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%
+
+-record(state, 
+        {
+	 version = %VSN%, 
+         mib_file,
+         outdir = "./",
+         db = volatile,
+	 include_dirs = ["./"],
+         include_lib_dirs = [],
+	 deprecated = true,
+	 group_check = true,
+	 description = false,
+	 reference   = false,
+	 imports     = false,
+	 module_identity = false,
+	 module,
+	 no_defs     = false,
+	 relaxed_row_name_assigne_check,
+	 verbosity
+        }).
+
+%% --o Dir [defaults to "./"]
+%% --i Dir [defaults to "./"]
+%% --il Dir
+%% --gc
+%% --db DB [defaults to volatile]
+%% --dep
+%% --desc
+%% --ref
+%% --imp
+%% --mi
+%% --mod Mod
+%% --nd
+%% --rrnac
+%% --version
+%% --verbosity V
+main(Args) when is_list(Args) ->
+    case (catch process_args(Args)) of
+	ok ->
+	    usage();
+        {ok, State} when is_record(State, state) ->
+            io:format("snmpc: ~p~n", [State]);
+        {ok, Str} when is_list(Str) ->
+            io:format("~s~n~n", [Str]),
+            halt(1);
+        {error, ReasonStr} ->
+            usage(ReasonStr)
+    end;
+main(_) ->
+    usage().
+
+process_args([]) ->
+    {error, lists:flatten(io_lib:format("No MIB-file", []))};
+process_args(Args) ->
+    %% CWD = "./",
+    process_args(Args, #state{}).
+    
+process_args([], State) ->
+    {ok, State};
+process_args(["--help"|_Args], _State) ->
+    ok;
+process_args(["--version"|_Args], State) ->
+    {ok, lists:flatten(io_lib:format("snmpc ~s", [State#state.version]))};
+process_args(["--verbosity", Verbosity0|Args], #state{verbosity = V} = State) 
+  when (V =:= undefined) ->
+    Verbosity = list_to_atom(Verbosity0),
+    case lists:member(Verbosity, [trace,debug,log,info,silence]) of
+	true ->
+	    process_args(Args, State#state{verbosity = Verbosity});
+	false ->
+	    e(lists:flatten(io_lib:format("Unknown verbosity: ~s", [Verbosity0])))
+    end;
+process_args(["--verbosity"|_Args], #state{verbosity = V}) 
+  when (V =/= undefined) ->
+    e(lists:flatten(io_lib:format("Verbosity already set to ~w", [V])));
+process_args([Arg|Args], State) ->
+    io:format("Arg: ~p~n", [Arg]),
+    process_args(Args, State).
+
+usage(ReasonStr) ->
+    io:format("ERROR: ~s~n", [ReasonStr]),
+    usage().
+
+usage() ->
+    io:format("Usage: snmpc [options] MIB.mib"
+	      "~nOptions:"
+	      "~n   --help                   - Prints this info."
+	      "~n   --version                - Prints compiler version."
+	      "~n   --verbosity <verbosity>  - Print debug info."
+	      "~n                              verbosity = trace | debug | log | info | silence"
+	      "~n                              Defaults to silence."
+	      "~n   --warnings               - Print warning messages."
+	      "~n   --i <include dir>        - Add this dir to the list of dirs that will be"
+	      "~n                              searched for imported (compiled) MIB files."
+	      "~n                              The current workin dir will always be included. "
+	      "~n   --il <include_dir dir>   - Add this dir to the list of dirs that will be"
+	      "~n                              searched for imported (compiled) MIB files."
+	      "~n                              It assumes that the first element in the dir name"
+	      "~n                              correspond to an OTP application. For example snmp/mibs/"
+	      "~n                              The current workin dir and the <snmp-home>/priv/mibs "
+	      "~n                              are always listed last the includ path. "
+	      "~n   --db <DB>                - Database ro used for the defaul instrumentation."
+	      "~n                              Defaults to volatile."
+	      "~n   --deprecated             - Keep deprecated definition(s)."
+	      "~n                              If not specified the compiler will ignore"
+	      "~n                              deprecated definitions."
+	      "~n   --description            - The DESCRIPTION field will be included."
+	      "~n   --reference              - The REFERENCE field will be included."
+	      "~n   --imports                - The IMPORTS field will be included."
+	      "~n   --module_id              - The MODULE-IDENTITY field will be included."
+	      "~n   --module <module         - The module which implements all the instrumentation"
+	      "~n                              functions. "
+	      "~n                              The name of the of all instrumentation functions"
+	      "~n                              must be the same as the corresponding managed object"
+	      "~n                              it implements."
+	      "~n   --no_defs                - The default instrumentation functions will *not* be used"
+	      "~n                              if a managed object have no instrumentation function. "
+	      "~n                              Instead this will be reported as an error, and the "
+	      "~n                              compilation aborts. "
+	      "~n   "
+	      "~n", []),
+    halt(1).
+
+
+e(Reason) ->
+    throw({error, Reason}).
