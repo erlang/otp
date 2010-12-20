@@ -59,13 +59,6 @@
 
 /* profile_scheduler mini message queue */
 
-#ifdef ERTS_TIMER_THREAD
-/* A timer thread is not welcomed with this lock violation work around.
- * - Björn-Egil
- */
-#error Timer thread may not be enabled due to lock violation.
-#endif
-
 typedef struct {
     Uint scheduler_id;
     Uint no_schedulers;

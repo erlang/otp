@@ -39,13 +39,6 @@
 #define ENABLE_CHILD_WAITER_THREAD 1
 #endif
 
-/* The ERTS_TIMER_TREAD #define must be visible to the
-   erl_${OS}_sys.h #include files: it controls whether
-   certain optional facilities should be defined or not. */
-#if defined(ERTS_SMP) && 0
-#define ERTS_TIMER_THREAD
-#endif
-
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
 #elif defined (VXWORKS) 
@@ -562,11 +555,7 @@ extern char *erts_default_arg0;
 extern char os_type[];
 
 extern int sys_init_time(void);
-#if defined(ERTS_TIMER_THREAD)
-#define erts_deliver_time()
-#else
 extern void erts_deliver_time(void);
-#endif
 extern void erts_time_remaining(SysTimeval *);
 extern int erts_init_time_sup(void);
 extern void erts_sys_init_float(void);
