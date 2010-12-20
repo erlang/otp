@@ -52,7 +52,7 @@
 #define DOP_SEND		2
 #define DOP_EXIT		3
 #define DOP_UNLINK		4
-#define DOP_NODE_LINK		5
+/* Ancient DOP_NODE_LINK (5) was here, can be reused */
 #define DOP_REG_SEND		6
 #define DOP_GROUP_LEADER	7
 #define DOP_EXIT2		8
@@ -69,7 +69,6 @@
 /* distribution trap functions */
 extern Export* dsend2_trap;
 extern Export* dsend3_trap;
-/*extern Export* dsend_nosuspend_trap;*/
 extern Export* dlink_trap;
 extern Export* dunlink_trap;
 extern Export* dmonitor_node_trap;

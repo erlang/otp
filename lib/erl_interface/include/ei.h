@@ -84,7 +84,7 @@
 #define ERL_SEND          2
 #define ERL_EXIT          3
 #define ERL_UNLINK        4
-#define ERL_NODE_LINK     5
+
 #define ERL_REG_SEND      6
 #define ERL_GROUP_LEADER  7
 #define ERL_EXIT2         8

@@ -917,6 +917,7 @@ int erts_net_message(Port *prt,
     Eterm token_size;
     ErtsMonitor *mon;
     ErtsLink *lnk;
+    Uint tuple_arity;
     int res;
 #ifdef ERTS_DIST_MSG_DBG
     int orig_len = len;
@@ -1003,29 +1004,23 @@ int erts_net_message(Port *prt,
 #endif
 
     if (is_not_tuple(arg) || 
-	(tuple = tuple_val(arg), arityval(*tuple) < 1) ||
+	(tuple = tuple_val(arg), (tuple_arity = arityval(*tuple)) < 1) ||
 	is_not_small(tuple[1])) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
-	erts_send_error_to_logger_nogl(dsbufp);
-	goto data_error;
+ 	goto invalid_message;
     }
 
     token_size = 0;
 
     switch (type = unsigned_val(tuple[1])) {
     case DOP_LINK:
+	if (tuple_arity != 3) {
+	    goto invalid_message;
+	}
 	from = tuple[2];
 	to   = tuple[3];  /* local proc to link to */
 
 	if (is_not_pid(from) || is_not_pid(to)) {
-	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    PURIFY_MSG("data error");
-	    erts_dsprintf(dsbufp,
-			  "Invalid DOP_LINK distribution message: %.200T",
-			  arg);
-	    erts_send_error_to_logger_nogl(dsbufp);
-	    goto data_error;
+	    goto invalid_message;
 	}
 
 	rp = erts_pid2proc_opt(NULL, 0,
@@ -1064,8 +1059,14 @@ int erts_net_message(Port *prt,
 
     case DOP_UNLINK: {
 	ErtsDistLinkData dld;
+	if (tuple_arity != 3) {
+	    goto invalid_message;
+	}
 	from = tuple[2];
 	to = tuple[3];
+	if (is_not_pid(from) || is_not_pid(to)) {
+	    goto invalid_message;
+	}
 	
 	rp = erts_pid2proc_opt(NULL, 0,
 			       to, ERTS_PROC_LOCK_LINK,
@@ -1092,10 +1093,18 @@ int erts_net_message(Port *prt,
 	/* A remote process wants to monitor us, we get:
 	   {DOP_MONITOR_P, Remote pid, local pid or name, ref} */
 	Eterm name;
+	
+	if (tuple_arity != 4) {
+	    goto invalid_message;
+	}
 
 	watcher = tuple[2];
 	watched = tuple[3];  /* local proc to monitor */
 	ref     = tuple[4];
+
+	if (is_not_ref(ref)) {
+	    goto invalid_message;
+	}
 
 	if (is_atom(watched)) {
 	    name = watched;
@@ -1138,9 +1147,16 @@ int erts_net_message(Port *prt,
 	   We get {DOP_DEMONITOR_P, Remote pid, Local pid or name, ref},
 	   We need only the ref of course */
 
+	if (tuple_arity != 4) {
+	    goto invalid_message;
+	}
 	/* watcher = tuple[2]; */
 	/* watched = tuple[3]; May be an atom in case of monitor name */
 	ref = tuple[4];
+
+	if(is_not_ref(ref)) {
+	    goto invalid_message;
+	}
 
 	erts_smp_de_links_lock(dep);
 	mon = erts_remove_monitor(&(dep->monitors),ref);
@@ -1166,10 +1182,11 @@ int erts_net_message(Port *prt,
 	erts_destroy_monitor(mon);
 	break;
 
-    case DOP_NODE_LINK: /* XXX never sent ?? */
-	break;
-
     case DOP_REG_SEND_TT:
+	if (tuple_arity != 5) {
+	    goto invalid_message;
+	}
+
 	token_size = size_object(tuple[5]);
 	/* Fall through ... */
     case DOP_REG_SEND:
@@ -1180,12 +1197,19 @@ int erts_net_message(Port *prt,
 	 * There is intentionally no testing of the cookie (it is always '')
 	 * from R9B and onwards.
 	 */
+	if (type != DOP_REG_SEND_TT && tuple_arity != 4) {
+	    goto invalid_message;
+	}
+
 #ifdef ERTS_DIST_MSG_DBG
 	dist_msg_dbg(&ede, "MSG", buf, orig_len);
 #endif
 
 	from = tuple[2];
 	to = tuple[4];
+	if (is_not_pid(from) || is_not_atom(to)){
+	    goto invalid_message;
+	}
 	rp = erts_whereis_process(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
 	if (rp) {
 	    Uint xsize = (type == DOP_REG_SEND
@@ -1217,6 +1241,10 @@ int erts_net_message(Port *prt,
 	break;
 
     case DOP_SEND_TT:
+	if (tuple_arity != 4) {
+	    goto invalid_message;
+	}
+	
 	token_size = size_object(tuple[4]);
 	/* Fall through ... */
     case DOP_SEND:
@@ -1227,8 +1255,13 @@ int erts_net_message(Port *prt,
 #ifdef ERTS_DIST_MSG_DBG
 	dist_msg_dbg(&ede, "MSG", buf, orig_len);
 #endif
-
+	if (type != DOP_SEND_TT && tuple_arity != 3) {
+	    goto invalid_message;
+	}
 	to = tuple[3];
+	if (is_not_pid(to)) {
+	    goto invalid_message;
+	}
 	rp = erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
 	if (rp) {
 	    Uint xsize = type == DOP_SEND ? 0 : ERTS_HEAP_FRAG_SIZE(token_size);
@@ -1266,10 +1299,18 @@ int erts_net_message(Port *prt,
 	Eterm sysname;
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_MSG_SEND|ERTS_PROC_LOCK_LINK;
 
+	if (tuple_arity != 5) {
+	    goto invalid_message;
+	}
+
 	/* watched = tuple[2]; */  /* remote proc which died */
 	/* watcher = tuple[3]; */
 	ref     = tuple[4];
 	reason  = tuple[5];
+
+	if(is_not_ref(ref)) {
+	    goto invalid_message;
+	}
 
 	erts_smp_de_links_lock(dep);
 	sysname = dep->sysname;
@@ -1317,24 +1358,25 @@ int erts_net_message(Port *prt,
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCKS_XSIG_SEND;
 	/* 'from', which 'to' is linked to, died */
 	if (type == DOP_EXIT) {
-	   from = tuple[2];
-	   to = tuple[3];
-	   reason = tuple[4];
-	   token = NIL;
+	    if (tuple_arity != 4) {
+		goto invalid_message;
+	    }
+	    
+	    from = tuple[2];
+	    to = tuple[3];
+	    reason = tuple[4];
+	    token = NIL;
 	} else {
-	   from = tuple[2];
-	   to = tuple[3];
-	   token = tuple[4];
-	   reason = tuple[5];
+	    if (tuple_arity != 5) {
+		goto invalid_message;
+	    }
+	    from = tuple[2];
+	    to = tuple[3];
+	    token = tuple[4];
+	    reason = tuple[5];
 	}
-	if (is_not_internal_pid(to)) {
-	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    PURIFY_MSG("data error");
-	    erts_dsprintf(dsbufp,
-			  "Invalid DOP_EXIT distribution message: %.200T",
-			  arg);
-	    erts_send_error_to_logger_nogl(dsbufp);
-	    goto data_error;
+	if (is_not_pid(from) || is_not_internal_pid(to)) {
+	    goto invalid_message;
 	}
 
 	rp = erts_pid2proc(NULL, 0, to, rp_locks);
@@ -1381,15 +1423,24 @@ int erts_net_message(Port *prt,
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 	/* 'from' is send an exit signal to 'to' */
 	if (type == DOP_EXIT2) {
-	   from = tuple[2];
-	   to = tuple[3];
-	   reason = tuple[4];
-	   token = NIL;
+	    if (tuple_arity != 4) {
+		goto invalid_message;
+	    }
+	    from = tuple[2];
+	    to = tuple[3];
+	    reason = tuple[4];
+	    token = NIL;
 	} else {
-	   from = tuple[2];
-	   to = tuple[3];
-	   token = tuple[4];
-	   reason = tuple[5];
+	    if (tuple_arity != 5) {
+		goto invalid_message;
+	    }
+	    from = tuple[2];
+	    to = tuple[3];
+	    token = tuple[4];
+	    reason = tuple[5];
+	}
+	if (is_not_pid(from) || is_not_internal_pid(to)) {
+	    goto invalid_message;
 	}
 	rp = erts_pid2proc_opt(NULL, 0, to, rp_locks,
 			       ERTS_P2P_FLG_SMP_INC_REFC);
@@ -1408,10 +1459,14 @@ int erts_net_message(Port *prt,
 	break;
     }
     case DOP_GROUP_LEADER:
+	if (tuple_arity != 3) {
+	    goto invalid_message;
+	}
 	from = tuple[2];   /* Group leader  */
 	to = tuple[3];     /* new member */
-	if (is_not_pid(from))
-	    break;
+	if (is_not_pid(from) || is_not_pid(to)) {
+	    goto invalid_message;
+	}
 
 	rp = erts_pid2proc(NULL, 0, to, ERTS_PROC_LOCK_MAIN);
 	if (!rp)
@@ -1420,16 +1475,8 @@ int erts_net_message(Port *prt,
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 	break;
 
-    default: {
-	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp,
-			  "Illegal value in distribution dispatch switch: "
-			  "%.200T",
-			  arg);
-	    erts_send_error_to_logger_nogl(dsbufp);
-	    PURIFY_MSG("data error");
-	    goto data_error;
-	}
+    default: 
+	goto invalid_message;
     }
 
     erts_cleanup_offheap(&off_heap);
@@ -1441,8 +1488,14 @@ int erts_net_message(Port *prt,
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return 0;
-
+ invalid_message:
+    {
+	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
+	erts_dsprintf(dsbufp, "Invalid distribution message: %.200T", arg);
+	erts_send_error_to_logger_nogl(dsbufp);
+    }
  data_error:
+    PURIFY_MSG("data error");
     erts_cleanup_offheap(&off_heap);
 #ifndef HYBRID /* FIND ME! */
     if (ctl != ctl_default) {

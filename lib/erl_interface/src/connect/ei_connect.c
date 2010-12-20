@@ -938,7 +938,7 @@ int ei_do_receive_msg(int fd, int staticbuffer_p,
 	return ERL_ERROR;
     }
     x->index = x->buffsz;
-    switch (msg->msgtype) {	/* FIXME are these all? */
+    switch (msg->msgtype) {	/* FIXME does not handle trace tokens and monitors */
     case ERL_SEND:
     case ERL_REG_SEND:
     case ERL_LINK:
@@ -946,7 +946,6 @@ int ei_do_receive_msg(int fd, int staticbuffer_p,
     case ERL_GROUP_LEADER:
     case ERL_EXIT:
     case ERL_EXIT2:
-    case ERL_NODE_LINK:
 	return ERL_MSG;
 	
     default:

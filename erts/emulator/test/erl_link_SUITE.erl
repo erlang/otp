@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1050,7 +1050,6 @@ stop_node(Node) ->
 -define(DOP_SEND,		2).
 -define(DOP_EXIT,		3).
 -define(DOP_UNLINK,		4).
--define(DOP_NODE_LINK,		5).
 -define(DOP_REG_SEND,		6).
 -define(DOP_GROUP_LEADER,	7).
 -define(DOP_EXIT2,		8).
