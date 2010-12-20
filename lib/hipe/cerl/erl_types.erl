@@ -62,6 +62,7 @@
 	 t_boolean/0,
 	 t_byte/0,
 	 t_char/0,
+	 t_charlist/0,
 	 t_collect_vars/1,
 	 t_cons/0,
 	 t_cons/2,
@@ -1455,6 +1456,21 @@ t_is_tuple(_) -> false.
 %% Non-primitive types, including some handy syntactic sugar types
 %%
 
+-spec t_charlist() -> erl_type().
+
+t_charlist() ->
+  t_charlist(1).
+
+-spec t_charlist(non_neg_integer()) -> erl_type().
+
+t_charlist(N) when N > 0 ->
+  t_maybe_improper_list(t_sup([t_unicode_char(),
+			       t_unicode_binary(),
+			       t_charlist(N-1)]),
+		        t_sup(t_unicode_binary(), t_nil()));
+t_charlist(0) ->
+  t_maybe_improper_list(t_any(), t_sup(t_unicode_binary(), t_nil())).
+
 -spec t_constant() -> erl_type().
 
 t_constant() ->
@@ -1548,6 +1564,16 @@ t_parameterized_module() ->
 
 t_timeout() ->
   t_sup(t_non_neg_integer(), t_atom('infinity')).
+
+-spec t_unicode_binary() -> erl_type().
+
+t_unicode_binary() ->
+  t_binary().  % with characters encoded in UTF-8 coding standard
+
+-spec t_unicode_char() -> erl_type().
+
+t_unicode_char() ->
+  t_integer(). % representing a valid unicode codepoint
 
 %%-----------------------------------------------------------------------------
 %% Some built-in opaque types
@@ -2825,7 +2851,7 @@ t_subtract(?list(Contents1, Termination1, Size1) = T,
 	true ->
 	  case {Size1, Size2} of
 	    {?nonempty_qual, ?unknown_qual} -> ?none;
-	    {?unknown_qual, ?nonempty_qual} -> Termination1;
+	    {?unknown_qual, ?nonempty_qual} -> ?nil;
 	    {S, S} -> ?none
 	  end;
 	false ->
