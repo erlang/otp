@@ -31,7 +31,31 @@
   <p>This document describes the changes made to the SSL application.
     </p>
 
-    <section><title>SSL 4.1.1</title>
+    <section><title>SSL 4.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ssl application caches certificate files, it will now
+	    invalidate cache entries if the diskfile is changed.</p>
+          <p>
+	    Own Id: OTP-8965 Aux Id: seq11739 </p>
+        </item>
+        <item>
+          <p>
+	    Now runs the terminate function before returning from the
+	    call made by ssl:close/1, as before the caller of
+	    ssl:close/1 could get problems with the reuseaddr option.</p>
+          <p>
+	    Own Id: OTP-8992</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -36,6 +36,7 @@
 -record(session, {
 	  session_id,
 	  peer_certificate,
+	  own_certificate,
 	  compression_method,
 	  cipher_suite,
 	  master_secret,
