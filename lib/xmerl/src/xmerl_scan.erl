@@ -1981,7 +1981,7 @@ scan_element(T, S, Pos) ->
 scan_element(T, S=#xmerl_scanner{line=L,col=C},
 	     Pos, SpaceDefault,Lang, Parents, NS) ->
     {Name, NamespaceInfo, T1, S1} = scan_name(T, S),
-    vc_Element_valid(Name,S),
+    vc_Element_valid(Name,NamespaceInfo,S),
     ?strip2,
     scan_element(T2, S2, Pos, Name, L, C, _Attrs = [], 
 		 Lang, Parents, NamespaceInfo, NS, 
@@ -2016,7 +2016,8 @@ scan_element("/>" ++ T, S0 = #xmerl_scanner{hook_fun = Hook,
     Attrs = lists:reverse(Attrs0),
     E=processed_whole_element(S, Pos, Name, Attrs, Lang, Parents,NSI,Namespace),
     
-    wfc_unique_att_spec(Attrs,S),
+    #xmlElement{attributes = Attrs1} = E,
+    wfc_unique_att_spec(Attrs1,S),
     S1 = #xmerl_scanner{} = Event(#xmerl_event{event = ended,
 					       line = L,
 					       col = C,
@@ -2088,7 +2089,7 @@ scan_element(T, S, Pos, Name, StartL, StartC, Attrs, Lang, Parents,
     Attr = #xmlAttribute{name = AttName, 
 			 pos = AttrPos,
 			 language = Lang,
-			 namespace = NamespaceInfo,
+			 nsinfo = NamespaceInfo,
 			 value = AttValue,
 			 normalized = IsNorm},
     XMLBase=if
@@ -2155,7 +2156,7 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
 		    [A#xmlAttribute{
 		       expanded_name=expanded_name(
 				       A#xmlAttribute.name, 
-				       A#xmlAttribute.namespace,
+				       A#xmlAttribute.nsinfo,
 						% NSI,
 				       TempNamespace, S)} || A <- Attrs],
 		{expanded_name(Name, NSI, Namespace, S), ExpAttrsX};
@@ -2194,10 +2195,32 @@ check_namespace(_, _, _, NS) ->
 
 expanded_name(Name, [], #xmlNamespace{default = []}, _S) ->
     Name;
-expanded_name(Name, [], #xmlNamespace{default = URI}, _S) ->
-    {URI, Name};
-expanded_name(_Name, {"xmlns", Local}, _NS, _S) -> % CHECK THIS /JB
-    {"xmlns",Local};
+expanded_name(Name, [], #xmlNamespace{default = URI}, S) ->
+    case URI of
+	'http://www.w3.org/XML/1998/namespace' ->
+	    ?fatal(cannot_bind_default_namespace_to_xml_namespace_name, S);
+	'http://www.w3.org/2000/xmlns/' ->
+	    ?fatal(cannot_bind_default_namespace_to_xmlns_namespace_name, S);
+	_ ->
+	    {URI, Name}
+    end;
+expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
+    {_, Value} = lists:keyfind(Local, 1, Ns),
+    case Name of
+	'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
+	    ?fatal({xml_prefix_cannot_be_redeclared, Value}, S);
+	'xmlns:xmlns' ->
+	    ?fatal({xmlns_prefix_cannot_be_declared, Value}, S);
+	_ ->
+	    case Value of
+		'http://www.w3.org/XML/1998/namespace' ->
+		    ?fatal({cannot_bind_prefix_to_xml_namespace, Local}, S);
+		'http://www.w3.org/2000/xmlns/' ->
+		    ?fatal({cannot_bind_prefix_to_xmlns_namespace, Local}, S);
+		_ ->
+		    N
+	    end
+    end;
 expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
     case lists:keysearch(Prefix, 1, Ns) of
 	{value, {_, URI}} ->
@@ -3259,12 +3282,18 @@ mandatory_delimeter_wfc(T,S) ->
 
 wfc_unique_att_spec([],_S) ->
     ok;
-wfc_unique_att_spec([#xmlAttribute{name=N}|Atts],S) ->
+wfc_unique_att_spec([#xmlAttribute{name=N,expanded_name=EN}|Atts],S) ->
     case lists:keymember(N,#xmlAttribute.name,Atts) of
 	true ->
 	    ?fatal({error,{unique_att_spec_required,N}},S);
 	_ ->
-	    wfc_unique_att_spec(Atts,S)
+	    case S#xmerl_scanner.namespace_conformant andalso
+		    lists:keymember(EN, #xmlAttribute.expanded_name, Atts) of
+		true ->
+		    ?fatal({error,{unique_att_spec_required,EN}},S);
+		_ ->
+		    wfc_unique_att_spec(Atts,S)
+	    end
     end.
 
 wfc_legal_char(Chars,S) when is_list(Chars)->
@@ -3313,6 +3342,11 @@ wfc_Internal_parsed_entity(internal,Value,S) ->
 wfc_Internal_parsed_entity(_,_,_) ->
     ok.
 
+vc_Element_valid(_Name, {"xmlns", _},
+		 S = #xmerl_scanner{namespace_conformant = true}) ->
+    ?fatal({error,{illegal_element_prefix,xmlns}},S);
+vc_Element_valid(Name, _, S) ->
+    vc_Element_valid(Name, S).
 
 vc_Element_valid(_Name,#xmerl_scanner{environment=internal_parsed_entity}) ->
     ok;
