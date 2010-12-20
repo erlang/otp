@@ -30,6 +30,8 @@
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
 
+-export([sign_data/2, verify_data/3]).
+
 %%--------------------------------------------------------------------
 %% Function: start([, Type]) -> ok
 %%
@@ -95,6 +97,8 @@ connect(Host, Port, Options, Timeout) ->
 		    {error, Other};
 		{'DOWN', MRef, _, Manager, Reason} when is_pid(Manager) ->
 		    receive %% Clear EXIT message from queue
+			{'EXIT', Manager, _What} when Reason == normal -> 
+			    {error, channel_closed};
 			{'EXIT', Manager, _What} -> 
 			    {error, Reason}
 		    after 0 ->
@@ -238,6 +242,43 @@ shell(Host, Port, Options) ->
 	Error ->
 	    Error
     end.
+
+
+%%--------------------------------------------------------------------
+%% Function: sign_data(Data, Algorithm) -> binary() | 
+%%                                         {error, Reason}
+%%
+%%   Data = binary()
+%%   Algorithm = "ssh-rsa"
+%%
+%% Description: Use SSH key to sign data.
+%%--------------------------------------------------------------------
+sign_data(Data, Algorithm) when is_binary(Data) ->
+    case ssh_file:private_identity_key(Algorithm,[]) of
+	{ok, Key} when Algorithm == "ssh-rsa" ->
+	    ssh_rsa:sign(Key, Data);
+	Error ->
+	    Error
+    end.
+
+%%--------------------------------------------------------------------
+%% Function: verify_data(Data, Signature, Algorithm) -> ok | 
+%%                                                      {error, Reason}
+%%
+%%   Data = binary()
+%%   Signature = binary()
+%%   Algorithm = "ssh-rsa"
+%%
+%% Description: Use SSH signature to verify data.
+%%--------------------------------------------------------------------
+verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signature) ->
+    case ssh_file:public_identity_key(Algorithm, []) of
+	{ok, Key} when Algorithm == "ssh-rsa" ->
+	    ssh_rsa:verify(Key, Data, Signature);
+	Error ->
+	    Error
+    end.
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions

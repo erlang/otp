@@ -202,8 +202,7 @@ rsassa_pkcs1_v1_5_verify(Public=#ssh_key { public={N,_E}}, Mb, Sb) ->
     case emsa_pkcs1_v1_5_encode(Mb, K) of
 	EM -> ok;
 	_S ->
-	    io:format("S: ~p~n", [_S]),
-	    {error, invalid_signature} % exit(invalid_signature)
+	    {error, invalid_signature}
     end.
 
 

@@ -29,6 +29,31 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.0.4</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>In some cases SSH returned {error, normal} when a channel was terminated
+             unexpectedly. This has now been changed to {error, channel_closed}.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8986 Aux Id: seq11748</p>
+        </item>
+      </list>
+    </section>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            It is now possible to use SSH to sign and verify binary data.</p>
+          <p>
+            Own Id: OTP-8986</p>
+        </item>
+      </list>
+    </section>
+ </section>
+
 <section><title>Ssh 2.0.3</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
