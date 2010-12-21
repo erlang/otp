@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
 	 mem_leak/1, coerce_to_float/1, bjorn/1,
 	 huge_float_field/1, huge_binary/1, system_limit/1, badarg/1,
 	 copy_writable_binary/1, kostis/1, dynamic/1, bs_add/1,
-	 otp_7422/1]).
+	 otp_7422/1, zero_width/1]).
 
 -include("test_server.hrl").
 
@@ -36,7 +36,7 @@ all(suite) ->
      not_used, in_guard, mem_leak, coerce_to_float, bjorn,
      huge_float_field, huge_binary, system_limit, badarg,
      copy_writable_binary, kostis, dynamic, bs_add,
-     otp_7422].
+     otp_7422, zero_width].
 
 big(1) ->
     57285702734876389752897683.
@@ -786,5 +786,20 @@ otp_7422_bin(N) when N < 512 ->
 	       end),
     otp_7422_bin(N+1);
 otp_7422_bin(_) -> ok.
+
+zero_width(Config) when is_list(Config) ->
+    ?line Z = id(0),
+    Small = id(42),
+    Big = id(1 bsl 128),
+    ?line <<>> = <<Small:Z>>,
+    ?line <<>> = <<Small:0>>,
+    ?line <<>> = <<Big:Z>>,
+    ?line <<>> = <<Big:0>>,
+    
+    ?line {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
+    ?line {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
+    ?line {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
+
+    ok.
     
 id(I) -> I.
