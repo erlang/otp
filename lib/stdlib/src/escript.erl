@@ -570,9 +570,7 @@ parse_beam(S, File, HeaderSz, CheckOnly) ->
 			    forms_or_bin = Bin}
 	    end;
 	{error, beam_lib, Reason} when is_tuple(Reason) ->
-            fatal(element(1, Reason));
-        {error, beam_lib, Reason} ->
-            fatal(Reason)
+            fatal(element(1, Reason))
     end.
 
 parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->

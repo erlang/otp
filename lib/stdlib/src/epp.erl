@@ -427,10 +427,7 @@ scan_toks(From, St) ->
 	    epp_reply(From, {error,E}),
 	    wait_req_scan(St#epp{location=Cl});
 	{eof,Cl} ->
-	    leave_file(From, St#epp{location=Cl});
-	{error,_E} ->
-            epp_reply(From, {error,{St#epp.location,epp,cannot_parse}}),
-	    leave_file(wait_request(St), St)	%This serious, just exit!
+	    leave_file(From, St#epp{location=Cl})
     end.
 
 scan_toks([{'-',_Lh},{atom,_Ld,define}=Define|Toks], From, St) ->
@@ -811,10 +808,7 @@ skip_toks(From, St, [I|Sis]) ->
 	{error,_E,Cl} ->
 	    skip_toks(From, St#epp{location=Cl}, [I|Sis]);
 	{eof,Cl} ->
-	    leave_file(From, St#epp{location=Cl,istk=[I|Sis]});
-	{error,_E} ->
-            epp_reply(From, {error,{St#epp.location,epp,cannot_parse}}),
-	    leave_file(wait_request(St), St)	%This serious, just exit!
+	    leave_file(From, St#epp{location=Cl,istk=[I|Sis]})
     end;
 skip_toks(From, St, []) ->
     scan_toks(From, St).
