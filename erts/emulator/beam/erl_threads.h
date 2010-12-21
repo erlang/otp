@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -35,6 +35,16 @@
 #include "erl_lock_check.h"
 #include "erl_lock_count.h"
 #include "erl_term.h"
+
+#if defined(__GLIBC__) && (__GLIBC__ << 16) + __GLIBC_MINOR__ < (2 << 16) + 4
+/*
+ * pthread_mutex_destroy() may return EBUSY when it shouldn't :( We have
+ * only seen this bug in glibc versions before 2.4. Note that condition
+ * variables, rwmutexes, spinlocks, and rwspinlocks also may be effected by
+ * this bug since these implementations may use mutexes internally.
+ */
+#  define ERTS_THR_HAVE_BUSY_DESTROY_BUG
+#endif
 
 #define ERTS_THR_MEMORY_BARRIER ETHR_MEMORY_BARRIER
 
@@ -551,8 +561,16 @@ erts_mtx_destroy(erts_mtx_t *mtx)
     erts_lcnt_destroy_lock(&mtx->lcnt);
 #endif
     res = ethr_mutex_destroy(&mtx->mtx);
-    if (res)
+    if (res != 0) {
+#ifdef ERTS_THR_HAVE_BUSY_DESTROY_BUG
+	if (res == EBUSY) {
+	    char *warn = "Ignoring busy mutex destroy. "
+		"Most likely a bug in pthread implementation.";
+	    erts_send_warning_to_logger_str_nogl(warn);
+	}
+#endif
 	erts_thr_fatal_error(res, "destroy mutex");
+    }
 #endif
 }
 
@@ -647,8 +665,16 @@ erts_cnd_destroy(erts_cnd_t *cnd)
 {
 #ifdef USE_THREADS
     int res = ethr_cond_destroy(cnd);
-    if (res)
+    if (res != 0) {
+#ifdef ERTS_THR_HAVE_BUSY_DESTROY_BUG
+	if (res == EBUSY) {
+	    char *warn = "Ignoring busy cond destroy. "
+		"Most likely a bug in pthread implementation.";
+	    erts_send_warning_to_logger_str_nogl(warn);
+	}
+#endif
 	erts_thr_fatal_error(res, "destroy condition variable");
+    }
 #endif
 }
 
@@ -774,8 +800,16 @@ erts_rwmtx_destroy(erts_rwmtx_t *rwmtx)
     erts_lcnt_destroy_lock(&rwmtx->lcnt);
 #endif
     res = ethr_rwmutex_destroy(&rwmtx->rwmtx);
-    if (res != 0)
+    if (res != 0) {
+#ifdef ERTS_THR_HAVE_BUSY_DESTROY_BUG
+	if (res == EBUSY) {
+	    char *warn = "Ignoring busy rwmutex destroy. "
+		"Most likely a bug in pthread implementation.";
+	    erts_send_warning_to_logger_str_nogl(warn);
+	}
+#endif
 	erts_thr_fatal_error(res, "destroy rwmutex");
+    }
 #endif
 }
 
@@ -1452,8 +1486,16 @@ erts_spinlock_destroy(erts_spinlock_t *lock)
     erts_lcnt_destroy_lock(&lock->lcnt);
 #endif
     res = ethr_spinlock_destroy(&lock->slck);
-    if (res)
-	erts_thr_fatal_error(res, "destroy spinlock");
+    if (res != 0) {
+#ifdef ERTS_THR_HAVE_BUSY_DESTROY_BUG
+	if (res == EBUSY) {
+	    char *warn = "Ignoring busy spinlock destroy. "
+		"Most likely a bug in pthread implementation.";
+	    erts_send_warning_to_logger_str_nogl(warn);
+	}
+#endif
+	erts_thr_fatal_error(res, "destroy rwlock");
+    }
 #else
     (void)lock;
 #endif
@@ -1562,8 +1604,16 @@ erts_rwlock_destroy(erts_rwlock_t *lock)
     erts_lcnt_destroy_lock(&lock->lcnt);
 #endif
     res = ethr_rwlock_destroy(&lock->rwlck);
-    if (res)
+    if (res != 0) {
+#ifdef ERTS_THR_HAVE_BUSY_DESTROY_BUG
+	if (res == EBUSY) {
+	    char *warn = "Ignoring busy rwlock destroy. "
+		"Most likely a bug in pthread implementation.";
+	    erts_send_warning_to_logger_str_nogl(warn);
+	}
+#endif
 	erts_thr_fatal_error(res, "destroy rwlock");
+    }
 #else
     (void)lock;
 #endif
