@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -4056,7 +4056,7 @@ do_lookup_element(Tab, N, M) ->
     end.
 
 
-heavy_concurrent(_Config) ->
+heavy_concurrent(Config) when is_list(Config) ->
     repeat_for_opts(do_heavy_concurrent).
 
 do_heavy_concurrent(Opts) ->

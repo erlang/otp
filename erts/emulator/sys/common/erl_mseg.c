@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -362,20 +362,23 @@ mseg_create(MemKind* mk, Uint size)
 }
 
 static ERTS_INLINE void
-mseg_destroy(void *seg, Uint size)
+mseg_destroy(MemKind* mk, void *seg, Uint size)
 {
 #if defined(ERTS_MSEG_FAKE_SEGMENTS)
     erts_sys_free(ERTS_ALC_N_INVALID, NULL, seg);
 #elif HAVE_MMAP
+    int res;
 
-#ifdef DEBUG
-    int res =
-#endif
 #if HALFWORD_HEAP
-	pmunmap((void *) seg, size);
-#else
-	munmap((void *) seg, size);
+    if (mk == &low_mem) {
+	res = pmunmap((void *) seg, size);
+    }
+    else
 #endif
+    {
+	res = munmap((void *) seg, size);
+    }
+
     ASSERT(size % page_size == 0);
     ASSERT(res == 0);
 #else
@@ -389,7 +392,7 @@ mseg_destroy(void *seg, Uint size)
 #if HAVE_MSEG_RECREATE
 
 static ERTS_INLINE void *
-mseg_recreate(void *old_seg, Uint old_size, Uint new_size)
+mseg_recreate(MemKind* mk, void *old_seg, Uint old_size, Uint new_size)
 {
     void *new_seg;
 
@@ -400,25 +403,29 @@ mseg_recreate(void *old_seg, Uint old_size, Uint new_size)
     new_seg = erts_sys_realloc(ERTS_ALC_N_INVALID, NULL, old_seg, new_size);
 #elif HAVE_MREMAP
 #if HALFWORD_HEAP
-     new_seg = (void *) pmremap((void *) old_seg,
-				(size_t) old_size,
-				(size_t) new_size);
-#elif defined(__NetBSD__)
-    new_seg = (void *) mremap((void *) old_seg,
-			      (size_t) old_size,
-			      NULL,
-			      (size_t) new_size,
-			      0);
-    if (new_seg == (void *) MAP_FAILED)
-	new_seg = NULL;
-#else
-    new_seg = (void *) mremap((void *) old_seg,
-			      (size_t) old_size,
-			      (size_t) new_size,
-			      MREMAP_MAYMOVE);
-    if (new_seg == (void *) MAP_FAILED)
-	new_seg = NULL;
+    if (mk == &low_mem) {
+	new_seg = (void *) pmremap((void *) old_seg,
+				   (size_t) old_size,
+				   (size_t) new_size);
+    }
+    else
 #endif
+    {
+    #if defined(__NetBSD__)
+	new_seg = (void *) mremap((void *) old_seg,
+				  (size_t) old_size,
+				  NULL,
+				  (size_t) new_size,
+				  0);
+    #else
+	new_seg = (void *) mremap((void *) old_seg,
+				  (size_t) old_size,
+				  (size_t) new_size,
+				  MREMAP_MAYMOVE);
+    #endif
+	if (new_seg == (void *) MAP_FAILED)
+	    new_seg = NULL;
+    }
 #else
 #error "Missing mseg_recreate() implementation"
 #endif
@@ -538,7 +545,7 @@ adjust_cache_size(MemKind* mk, int force_check_limits)
 	}
 	if (erts_mtrace_enabled)
 	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, cd->seg);
-	mseg_destroy(cd->seg, cd->size);
+	mseg_destroy(mk, cd->seg, cd->size);
 	unlink_cd(mk,cd);
 	free_cd(mk,cd);
     }
@@ -593,7 +600,14 @@ mseg_clear_cache(MemKind* mk)
 static ERTS_INLINE MemKind* type2mk(ErtsAlcType_t atype)
 {
 #if HALFWORD_HEAP
-    return (atype == ERTS_ALC_A_ETS) ? &hi_mem : &low_mem;
+    switch (atype) {
+    case ERTS_ALC_A_ETS:
+    //case ERTS_ALC_A_BINARY:
+    //case ERTS_ALC_A_FIXED_SIZE:
+	return &hi_mem;
+    default:
+	return &low_mem;
+    }
 #else
     return &the_mem;
 #endif
@@ -726,7 +740,7 @@ mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size,
     if (!opt->cache || max_cache_size == 0) {
 	if (erts_mtrace_enabled)
 	    erts_mtrace_crr_free(atype, SEGTYPE, seg);
-	mseg_destroy(seg, size);
+	mseg_destroy(mk, seg, size);
     }
     else {
 	int check_limits = 0;
@@ -744,7 +758,7 @@ mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size,
 	    }
 	    if (erts_mtrace_enabled)
 		erts_mtrace_crr_free(SEGTYPE, SEGTYPE, cd->seg);
-	    mseg_destroy(cd->seg, cd->size);
+	    mseg_destroy(mk, cd->seg, cd->size);
 	    unlink_cd(mk,cd);
 	    free_cd(mk,cd);
 	}
@@ -841,7 +855,7 @@ mseg_realloc(ErtsAlcType_t atype, void *seg, Uint old_size, Uint *new_size_p,
 					    SEGTYPE,
 					    seg,
 					    new_size);
-		mseg_destroy(((char *) seg) + new_size, shrink_sz);
+		mseg_destroy(mk, ((char *) seg) + new_size, shrink_sz);
 	    }
 
 #elif HAVE_MSEG_RECREATE
@@ -875,7 +889,7 @@ mseg_realloc(ErtsAlcType_t atype, void *seg, Uint old_size, Uint *new_size_p,
 #if !CAN_PARTLY_DESTROY
 	do_recreate:
 #endif
-	    new_seg = mseg_recreate((void *) seg, old_size, new_size);
+	    new_seg = mseg_recreate(mk, (void *) seg, old_size, new_size);
 	    if (erts_mtrace_enabled)
 		erts_mtrace_crr_realloc(new_seg, atype, SEGTYPE, seg, new_size);
 	    if (!new_seg)
@@ -1828,6 +1842,7 @@ static int pmunmap(void *p, size_t size)
     FreeBlock *last;
     FreeBlock *nb = (FreeBlock *) p;
 
+    ASSERT(((unsigned long)p & CHECK_POINTER_MASK)==0);
     if (real_size > pagsz) {
 	if (do_unmap(((char *) p) + pagsz,real_size - pagsz)) {
 	    return 1;

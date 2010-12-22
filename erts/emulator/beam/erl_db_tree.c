@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2753,7 +2753,7 @@ static Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key, Eterm* bk_
 	erts_fprintf(stderr," > ");
     else
 	erts_fprintf(stderr," == ");
-    erts_fprintf(stderr,"%T\n",bound_key);  // SVERK: printing rterm
+    erts_fprintf(stderr,"%T\n",bound_key);  // HALFWORD BUG: printing rterm
 #endif
     return ret;
 }

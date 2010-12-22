@@ -225,16 +225,14 @@ int real_printf(const char *fmt, ...);
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
-#ifdef ARCH_64
-#  ifdef HALFWORD_HEAP_EMULATOR
+#if defined(ARCH_64) && defined(HALFWORD_HEAP_EMULATOR)
 #    define HALFWORD_HEAP 1
 #    define HALFWORD_ASSERT 0
 #    define ASSERT_HALFWORD(COND) ASSERT(COND)
-#  else
+#else
 #    define HALFWORD_HEAP 0
 #    define HALFWORD_ASSERT 0
 #    define ASSERT_HALFWORD(COND)
-#  endif
 #endif
 
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -359,7 +359,6 @@ _ET_DECLARE_CHECKED(Eterm*,binary_val,Wterm)
 #define is_fun_header(x)	((x) == HEADER_FUN)
 #define make_fun(x)		make_boxed((Eterm*)(x))
 #define is_fun(x)		(is_boxed((x)) && is_fun_header(*boxed_val((x))))
-#define is_fun_rel(x,Base)	(is_boxed((x)) && is_fun_header(*boxed_val_rel((x),Base)))
 #define is_not_fun(x)		(!is_fun((x)))
 #define _unchecked_fun_val(x)   _unchecked_boxed_val((x))
 _ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
@@ -368,7 +367,6 @@ _ET_DECLARE_CHECKED(Eterm*,fun_val,Wterm)
 /* export access methods */
 #define make_export(x)	 make_boxed((x))
 #define is_export(x)     (is_boxed((x)) && is_export_header(*boxed_val((x))))
-#define is_export_rel(x,Base)     (is_boxed((x)) && is_export_header(*boxed_val_rel((x),Base)))
 #define is_not_export(x) (!is_export((x)))
 #define _unchecked_export_val(x)   _unchecked_boxed_val(x)
 _ET_DECLARE_CHECKED(Eterm*,export_val,Wterm)
@@ -396,7 +394,6 @@ _ET_DECLARE_CHECKED(Uint,bignum_header_arity,Eterm)
 #define BIG_ARITY_MAX		((1 << 19)-1)
 #define make_big(x)	make_boxed((x))
 #define is_big(x)	(is_boxed((x)) && _is_bignum_header(*boxed_val((x))))
-#define is_big_rel(x,Base) (is_boxed((x)) && _is_bignum_header(*boxed_val_rel((x),Base)))
 #define is_not_big(x)	(!is_big((x)))
 #define _unchecked_big_val(x)	_unchecked_boxed_val((x))
 _ET_DECLARE_CHECKED(Eterm*,big_val,Wterm)
@@ -410,7 +407,6 @@ _ET_DECLARE_CHECKED(Eterm*,big_val,Wterm)
 #endif
 #define make_float(x)	make_boxed((x))
 #define is_float(x)	(is_boxed((x)) && *boxed_val((x)) == HEADER_FLONUM)
-#define is_float_rel(x,Base) (is_boxed((x)) && *boxed_val_rel((x),Base) == HEADER_FLONUM)
 #define is_not_float(x)	(!is_float(x))
 #define _unchecked_float_val(x)	_unchecked_boxed_val((x))
 _ET_DECLARE_CHECKED(Eterm*,float_val,Wterm)
@@ -451,8 +447,7 @@ typedef union float_def
                              *(((Uint *) (p))+1) = (f).fw[1]
 #endif
 
-#define GET_DOUBLE(x, f) FLOAT_VAL_GET_DOUBLE(float_val(x),f)
-#define GET_DOUBLE_REL(x, f, Base) FLOAT_VAL_GET_DOUBLE(float_val_rel(x,Base),f)
+#define GET_DOUBLE(x, f) FLOAT_VAL_GET_DOUBLE(float_val(x), f)
 
 #define DOUBLE_DATA_WORDS (sizeof(ieee754_8)/sizeof(Eterm))
 #define FLOAT_SIZE_OBJECT (DOUBLE_DATA_WORDS+1)
@@ -460,7 +455,6 @@ typedef union float_def
 /* tuple access methods */
 #define make_tuple(x)	make_boxed((x))
 #define is_tuple(x)	(is_boxed((x)) && is_arity_value(*boxed_val((x))))
-#define is_tuple_rel(x,Base) (is_boxed((x)) && is_arity_value(*boxed_val_rel((x),Base)))
 #define is_not_tuple(x)	(!is_tuple((x)))
 #define is_tuple_arity(x, a) \
    (is_boxed((x)) && *boxed_val((x)) == make_arityval((a)))
@@ -803,14 +797,10 @@ do {									\
   ((RefThing*) _unchecked_internal_ref_val(x))
 #define ref_thing_ptr(x) \
   ((RefThing*) internal_ref_val(x))
-#define ref_thing_ptr_rel(x,Base) \
-  ((RefThing*) internal_ref_val_rel(x,Base))
-
 
 #define is_internal_ref(x) \
-  (_unchecked_is_boxed((x)) && is_ref_thing_header(*boxed_val((x))))
-#define is_internal_ref_rel(x,Base) \
-  (_unchecked_is_boxed((x)) && is_ref_thing_header(*boxed_val_rel((x),Base)))
+    (_unchecked_is_boxed((x)) && is_ref_thing_header(*boxed_val((x))))
+
 #define is_not_internal_ref(x) \
   (!is_internal_ref((x)))
 
@@ -911,20 +901,14 @@ typedef struct external_thing_ {
 #define is_external_header(x) \
   (((x) & (_TAG_HEADER_MASK-_BINARY_XXX_MASK)) == _TAG_HEADER_EXTERNAL_PID)
 
-#define is_external(x) \
-  (is_boxed((x)) && is_external_header(*boxed_val((x))))
-#define is_external_rel(x,Base) \
-  (is_boxed((x)) && is_external_header(*boxed_val_rel((x),Base)))
+#define is_external(x) (is_boxed((x)) && is_external_header(*boxed_val((x))))
+
 #define is_external_pid(x) \
   (is_boxed((x)) && is_external_pid_header(*boxed_val((x))))
 #define is_external_port(x) \
-  (is_boxed((x)) && is_external_port_header(*boxed_val((x))))
-#define is_external_port_rel(x,Base) \
-  (is_boxed((x)) && is_external_port_header(*boxed_val_rel((x),Base)))
-#define is_external_ref(x) \
-  (_unchecked_is_boxed((x)) && is_external_ref_header(*boxed_val((x))))
-#define is_external_ref_rel(x,Base) \
-  (_unchecked_is_boxed((x)) && is_external_ref_header(*boxed_val_rel((x),Base)))
+    (is_boxed((x)) && is_external_port_header(*boxed_val((x))))
+
+#define is_external_ref(x) (_unchecked_is_boxed((x)) && is_external_ref_header(*boxed_val((x))))
 
 #define _unchecked_is_external(x) \
   (_unchecked_is_boxed((x)) && is_external_header(*_unchecked_boxed_val((x))))
@@ -958,15 +942,12 @@ _ET_DECLARE_CHECKED(Uint,external_thing_data_words,ExternalThing*)
     _unchecked_external_thing_data_words(_unchecked_external_thing_ptr((x)))
 _ET_DECLARE_CHECKED(Uint,external_data_words,Wterm)
 #define external_data_words(x) _ET_APPLY(external_data_words,(x))
-#define external_data_words_rel(x,Base) \
-    external_thing_data_words(external_thing_ptr_rel((x),Base))
 
 #define _unchecked_external_data(x) (_unchecked_external_thing_ptr((x))->data.ui)
 #define _unchecked_external_node(x) (_unchecked_external_thing_ptr((x))->node)
 
 #define external_data(x) (external_thing_ptr((x))->data.ui)
 #define external_node(x) (external_thing_ptr((x))->node)
-#define external_node_rel(x,Base) (external_thing_ptr_rel((x),Base)->node)
 
 #define _unchecked_external_pid_data_words(x) \
   _unchecked_external_data_words((x))
@@ -1141,13 +1122,11 @@ extern unsigned tag_val_def(Wterm);
 
 #if HALFWORD_HEAP
 #define ptr2rel(PTR,BASE) ((Eterm*)((char*)(PTR) - (char*)(BASE)))
-#define rel2ptr(REL,BASE) ((typeof(REL)) ((UWord)(REL) + (char*)(BASE)))
 #define rterm2wterm(REL,BASE) ((Wterm)(REL) + (Wterm)(BASE))
 
 #else /* HALFWORD_HEAP */
 
 #define ptr2rel(PTR,BASE) (PTR)
-#define rel2ptr(REL,BASE) (REL)
 #define rterm2wterm(REL,BASE) (REL)
 
 #endif /* !HALFWORD_HEAP */
@@ -1170,6 +1149,8 @@ extern unsigned tag_val_def(Wterm);
 #define internal_ref_val_rel(RTERM,BASE) internal_ref_val(rterm2wterm(RTERM,BASE))
 
 #define external_thing_ptr_rel(RTERM, BASE) external_thing_ptr(rterm2wterm(RTERM, BASE))
+#define external_data_words_rel(RTERM,BASE) external_data_words(rterm2wterm(RTERM,BASE))
+
 #define external_port_node_rel(RTERM,BASE) external_port_node(rterm2wterm(RTERM,BASE))
 #define external_port_data_rel(RTERM,BASE) external_port_data(rterm2wterm(RTERM,BASE))
 
@@ -1178,6 +1159,22 @@ extern unsigned tag_val_def(Wterm);
 #define external_pid_data_rel(RTERM,BASE) external_pid_data(rterm2wterm(RTERM,BASE))
 
 #define is_binary_rel(RTERM,BASE) is_binary(rterm2wterm(RTERM,BASE))
+#define is_float_rel(RTERM,BASE) is_float(rterm2wterm(RTERM,BASE))
+#define is_fun_rel(RTERM,BASE) is_fun(rterm2wterm(RTERM,BASE))
+#define is_big_rel(RTERM,BASE) is_big(rterm2wterm(RTERM,BASE))
+#define is_export_rel(RTERM,BASE) is_export(rterm2wterm(RTERM,BASE))
+#define is_tuple_rel(RTERM,BASE) is_tuple(rterm2wterm(RTERM,BASE))
+
+#define GET_DOUBLE_REL(RTERM, f, BASE) GET_DOUBLE(rterm2wterm(RTERM,BASE), f)
+
+#define ref_thing_ptr_rel(RTERM,BASE) ref_thing_ptr(rterm2wterm(RTERM,BASE))
+#define is_internal_ref_rel(RTERM,BASE) is_internal_ref(rterm2wterm(RTERM,BASE))
+#define is_external_rel(RTERM,BASE) is_external(rterm2wterm(RTERM,BASE))
+#define is_external_port_rel(RTERM,BASE) is_external_port(rterm2wterm(RTERM,BASE))
+#define is_external_ref_rel(RTERM,BASE) is_external_ref(rterm2wterm(RTERM,BASE))
+
+#define external_node_rel(RTERM,BASE) external_node(rterm2wterm(RTERM,BASE))
+
 
 #if HALFWORD_HEAP
 ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
@@ -1185,12 +1182,12 @@ ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE int is_same(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
 {
-    if (a_base == b_base) {
-	return a == b;
-    }
-    /* Assume a and b are on different "heaps", ie can only be same if immed */
-    ASSERT(is_immed(a) || is_immed(b) || rterm2wterm(a,a_base) != rterm2wterm(b,b_base));
-    return is_immed(a) && a == b;
+    /* If bases differ, assume a and b are on different "heaps",
+       ie can only be same if immed */
+    ASSERT(a_base == b_base || is_immed(a) || is_immed(b)
+	   || rterm2wterm(a,a_base) != rterm2wterm(b,b_base));
+
+    return a == b && (a_base == b_base || is_immed(a));
 }
 #endif
 

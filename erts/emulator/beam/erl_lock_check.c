@@ -155,7 +155,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"alcu_allocator",			"index"			},
     {	"alcu_delayed_free",			"index"			},
     {	"mseg",					NULL			},
-#ifdef HALFWORD_HEAP
+#if HALFWORD_HEAP
     {	"pmmap",				NULL			},
 #endif
 #ifdef ERTS_SMP

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -3501,7 +3501,6 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 	/* Make a dummy 1-tuple around data to use DbTerm */
 	wrap_tpl = TUPLE1(tmp,heir_data);
 	size = size_object(wrap_tpl);
-	/* SVERK: Must be low memory due to erts_send_message */
 	dbterm = erts_db_alloc(ERTS_ALC_T_DB_HEIR_DATA, (DbTable *)tb,
 			       (sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
 	dbterm->size = size;

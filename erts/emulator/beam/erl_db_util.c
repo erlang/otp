@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1915,11 +1915,13 @@ restart:
 	    *esp++ = hp[n];
 	    break;
 	case matchPushExpr:
-	    ASSERT(is_tuple_rel(term,base));
 	#if HALFWORD_HEAP
 	    if (base) {
-		Uint sz = size_object_rel(term, base);
-		Eterm* top = HAlloc(psp, sz);
+		Uint sz;
+		Eterm* top;
+		ASSERT(is_tuple_rel(term,base)); /* assume ETS */
+		sz = size_object_rel(term, base);
+		top = HAlloc(psp, sz);
 		*esp++ = copy_shallow_rel(tuple_val_rel(term,base), sz,
 					  &top, &MSO(psp), base);
 		break;
