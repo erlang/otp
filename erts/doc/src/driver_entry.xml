@@ -36,7 +36,7 @@
   <description>
     <p>As of erts version 5.5.3 the driver interface has been extended
       (see <seealso marker="driver_entry#extended_marker">extended marker</seealso>).
-      The extended interface introduce
+      The extended interface introduces
       <seealso marker="erl_driver#version_management">version management</seealso>,
       the possibility to pass capability flags
       (see <seealso marker="driver_entry#driver_flags">driver flags</seealso>)
@@ -45,21 +45,21 @@
     <note>
       <p>Old drivers (compiled with an <c>erl_driver.h</c> from an
         earlier erts version than 5.5.3) have to be recompiled
-        (but does not have to use the extended interface).</p>
+        (but do not have to use the extended interface).</p>
     </note>
     <p>The <c>driver_entry</c> structure is a C struct that all erlang
-      drivers defines. It contains entry points for the erlang driver
+      drivers define. It contains entry points for the erlang driver
       that are called by the erlang emulator when erlang code accesses
       the driver.</p>
     <p>      
       <marker id="emulator"></marker>
       The <seealso marker="driver_entry">erl_driver</seealso> driver
-      API functions needs a port handle
+      API functions need a port handle
       that identifies the driver instance (and the port in the
       emulator). This is only passed to the <c>start</c> function, but
       not to the other functions. The <c>start</c> function returns a
       driver-defined handle that is passed to the other functions. A
-      common practice is to have the <c>start</c> function allocating
+      common practice is to have the <c>start</c> function allocate
       some application-defined structure and stash the <c>port</c>
       handle in it, to use it later with the driver API functions.</p>
     <p>The driver call-back functions are called synchronously from the
@@ -235,7 +235,7 @@ typedef struct erl_drv_entry {
       </item>
       <tag>void *handle</tag>
       <item>
-        <p>This field is reserved for the emulators internal use. The
+        <p>This field is reserved for the emulator's internal use. The
           emulator will modify this field; therefore, it is important
           that the <c>driver_entry</c> isn't declared <c>const</c>.</p> 
       </item>
@@ -399,7 +399,7 @@ typedef struct erl_drv_entry {
       <tag>void *handle2</tag>
       <item>
         <p>
-          This field is reserved for the emulators internal use. The
+          This field is reserved for the emulator's internal use. The
           emulator will modify this field; therefore, it is important
           that the <c>driver_entry</c> isn't declared <c>const</c>.
         </p>
