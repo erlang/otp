@@ -96,13 +96,17 @@ connect(Host, Port, Options, Timeout) ->
 		    do_demonitor(MRef, Manager),
 		    {error, Other};
 		{'DOWN', MRef, _, Manager, Reason} when is_pid(Manager) ->
+		    error_logger:warning_report([{ssh, connect},
+						 {diagnose,
+						  "Connection was closed before properly set up."},
+						 {host, Host},
+						 {port, Port},
+						 {reason, Reason}]),
 		    receive %% Clear EXIT message from queue
-			{'EXIT', Manager, _What} when Reason == normal -> 
-			    {error, channel_closed};
 			{'EXIT', Manager, _What} -> 
-			    {error, Reason}
+			    {error, channel_closed}
 		    after 0 ->
-			    {error, Reason}
+			    {error, channel_closed}
 		    end
 	    after Timeout  ->
 		    do_demonitor(MRef, Manager),
