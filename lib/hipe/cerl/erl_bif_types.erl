@@ -48,6 +48,7 @@
 		    t_boolean/0,
 		    t_byte/0,
 		    t_char/0,
+		    t_charlist/0,
 		    t_cons/0,
 		    t_cons/2,
 		    t_cons_hd/1,
@@ -124,7 +125,8 @@
 		    t_tuple/1,
 		    t_tuple_args/1,
 		    t_tuple_size/1,
-		    t_tuple_subtypes/1
+		    t_tuple_subtypes/1,
+		    t_unicode_string/0
 		   ]).
 
 -ifdef(DO_ERL_BIF_TYPES_TEST).
@@ -3799,7 +3801,7 @@ arg_types(erlang, now, 0) ->
 arg_types(erlang, open_port, 2) ->
   [t_sup(t_atom(), t_sup([t_tuple([t_atom('spawn'), t_string()]),
 			  t_tuple([t_atom('spawn_driver'), t_string()]),
-			  t_tuple([t_atom('spawn_executable'), t_string()]),
+			  t_tuple([t_atom('spawn_executable'), t_sup(t_unicode_string(),t_binary())]),
 			  t_tuple([t_atom('fd'), t_integer(), t_integer()])])),
    t_list(t_sup(t_sup([t_atom('stream'),
 		       t_atom('exit_status'),
@@ -3815,8 +3817,8 @@ arg_types(erlang, open_port, 2) ->
 		       t_tuple([t_atom('line'), t_integer()]),
 		       t_tuple([t_atom('cd'), t_string()]),
 		       t_tuple([t_atom('env'), t_list(t_tuple(2))]), % XXX: More
-		       t_tuple([t_atom('args'), t_list(t_string())]),
-		       t_tuple([t_atom('arg0'), t_string()])])))];
+		       t_tuple([t_atom('args'), t_list(t_sup(t_unicode_string(),t_binary()))]),
+		       t_tuple([t_atom('arg0'),t_sup(t_unicode_string(),t_binary())])])))];
 arg_types(erlang, phash, 2) ->
   [t_any(), t_pos_integer()];
 arg_types(erlang, phash2, 1) ->
@@ -4517,11 +4519,11 @@ arg_types(os, timestamp, 0) ->
 arg_types(re, compile, 1) ->
   [t_iodata()];
 arg_types(re, compile, 2) ->
-  [t_iodata(), t_list(t_re_compile_option())];
+  [t_sup(t_iodata(), t_charlist()), t_list(t_re_compile_option())];
 arg_types(re, run, 2) ->
-  [t_iodata(), t_re_RE()];
+  [t_sup(t_iodata(), t_charlist()), t_re_RE()];
 arg_types(re, run, 3) ->
-  [t_iodata(), t_re_RE(), t_list(t_re_run_option())];
+  [t_sup(t_iodata(), t_charlist()), t_re_RE(), t_list(t_re_run_option())];
 %%------- string --------------------------------------------------------------
 arg_types(string, chars, 2) ->
   [t_char(), t_non_neg_integer()];
@@ -4978,8 +4980,7 @@ t_ets_info_items() ->
 %% =====================================================================
 
 t_prim_file_name() ->
-   t_sup([t_string(),
-	  t_binary()]).
+   t_sup(t_unicode_string(), t_binary()).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'gen_tcp'
@@ -5136,13 +5137,14 @@ t_re_MP() ->  %% it's supposed to be an opaque data type
   t_tuple([t_atom('re_pattern'), t_integer(), t_integer(), t_binary()]).
 
 t_re_RE() ->
-  t_sup(t_re_MP(), t_iodata()).
+  t_sup([t_re_MP(), t_iodata(), t_charlist()]).
 
 t_re_compile_option() ->
-  t_sup([t_atoms(['anchored', 'caseless', 'dollar_endonly', 'dotall',
-		  'extended', 'firstline', 'multiline', 'no_auto_capture',
-		  'dupnames', 'ungreedy']),
-	 t_tuple([t_atom('newline'), t_re_NLSpec()])]).
+  t_sup([t_atoms(['unicode', 'anchored', 'caseless', 'dollar_endonly',
+		  'dotall', 'extended', 'firstline', 'multiline',
+		  'no_auto_capture', 'dupnames', 'ungreedy']),
+	 t_tuple([t_atom('newline'), t_re_NLSpec()]),
+	 t_atoms(['bsr_anycrlf', 'bsr_unicode'])]).
 
 t_re_run_option() ->
   t_sup([t_atoms(['anchored', 'global', 'notbol', 'noteol', 'notempty']),
@@ -5159,7 +5161,7 @@ t_re_Type() ->
   t_atoms(['index', 'list', 'binary']).
 
 t_re_NLSpec() ->
-  t_atoms(['cr', 'crlf', 'lf', 'anycrlf']).
+  t_atoms(['cr', 'crlf', 'lf', 'anycrlf', 'any']).
 
 t_re_ValueSpec() ->
   t_sup(t_atoms(['all', 'all_but_first', 'first', 'none']), t_re_ValueList()).
