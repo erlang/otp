@@ -185,3 +185,4 @@ int efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length,
 int efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 		      off_t *offset, Uint64 *nbytes, struct t_sendfile_hdtl *hdtl);
 #endif /* HAVE_SENDFILE */
+int efile_fallocate(Efile_error* errInfo, int fd, Sint64 offset, Sint64 length);

@@ -38,7 +38,7 @@
 %% Specialized
 -export([ipread_s32bu_p32bu/3]).
 %% Generic file contents.
--export([open/2, close/1, advise/4,
+-export([open/2, close/1, advise/4, allocate/3,
 	 read/2, write/2, 
 	 pread/2, pread/3, pwrite/2, pwrite/3,
 	 read_line/1,
@@ -489,6 +489,18 @@ advise(#file_descriptor{module = Module} = Handle, Offset, Length, Advise) ->
     Module:advise(Handle, Offset, Length, Advise);
 advise(_, _, _, _) ->
     {error, badarg}.
+
+-spec allocate(File, Offset, Length) ->
+	'ok' | {'error', posix()} when
+      File :: io_device(),
+      Offset :: non_neg_integer(),
+      Length :: non_neg_integer().
+
+allocate(File, Offset, Length) when is_pid(File) ->
+    R = file_request(File, {allocate, Offset, Length}),
+    wait_file_reply(File, R);
+allocate(#file_descriptor{module = Module} = Handle, Offset, Length) ->
+    Module:allocate(Handle, Offset, Length).
 
 -spec read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason} when
       IoDevice :: io_device() | atom(),

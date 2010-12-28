@@ -170,6 +170,18 @@
       </desc>
     </func>
     <func>
+      <name name="allocate" arity="3"/>
+      <fsummary>Allocate file space</fsummary>
+      <desc>
+        <p><c>allocate/3</c> can be used to preallocate space for a file.</p>
+        <p>This function only succeeds in platforms that implement this
+          feature. When it succeeds, space is preallocated for the file but
+          the file size might not be updated. This behaviour depends on the
+          preallocation implementation. To guarantee the file size is updated
+          one must truncate the file to the new size.</p>
+      </desc>
+    </func>
+    <func>
       <name name="change_group" arity="2"/>
       <fsummary>Change group of a file</fsummary>
       <desc>

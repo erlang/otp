@@ -57,6 +57,8 @@
 %% System probe functions that might be handy to check from the shell
 -export([unix_free/1]).
 
+-export([allocate/1]).
+
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -87,7 +89,7 @@ groups() ->
        cur_dir_1a, cur_dir_1b]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
-       truncate, sync, datasync, advise, large_write]},
+       truncate, sync, datasync, advise, large_write, allocate]},
      {open, [],
       [open1, modes, close, access, read_write, pread_write,
        append, exclusive]},
@@ -1356,6 +1358,76 @@ check_large_write(Dog, Fd, _, _, []) ->
     eof = prim_file:read(Fd, 1),
     test_server:timetrap_cancel(Dog),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+allocate(suite) -> [];
+allocate(doc) -> "Tests that ?PRIM_FILE:allocate/3 at least doesn't crash.";
+allocate(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Allocate = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_allocate.fil"),
+
+    Line1 = "Hello\n",
+    Line2 = "World!\n",
+
+    ?line {ok, Fd} = ?PRIM_FILE:open(Allocate, [write, binary]),
+    allocate_and_assert(Fd, 1, iolist_size([Line1, Line2])),
+    ?line ok = ?PRIM_FILE:write(Fd, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line {ok, Fd2} = ?PRIM_FILE:open(Allocate, [write, binary]),
+    allocate_and_assert(Fd2, 1, iolist_size(Line1)),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd2),
+
+    ?line {ok, Fd3} = ?PRIM_FILE:open(Allocate, [write, binary]),
+    allocate_and_assert(Fd3, 1, iolist_size(Line1) + 1),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd3),
+
+    ?line {ok, Fd4} = ?PRIM_FILE:open(Allocate, [write, binary]),
+    allocate_and_assert(Fd4, 1, 4 * iolist_size([Line1, Line2])),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd4),
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+allocate_and_assert(Fd, Offset, Length) ->
+    % Just verify that calls to ?PRIM_FILE:allocate/3 don't crash or have
+    % any other negative side effect. We can't really asssert against a
+    % specific return value, because support for file space pre-allocation
+    % depends on the OS, OS version and underlying filesystem.
+    %
+    % The Linux kernel added support for fallocate() in version 2.6.23,
+    % which currently works only for the ext4, ocfs2, xfs and btrfs file
+    % systems. posix_fallocate() is available in glibc as of version
+    % 2.1.94, but it was buggy until glibc version 2.7.
+    %
+    % Mac OS X, as of version 10.3, supports the fcntl operation F_PREALLOCATE.
+    %
+    % Solaris supports posix_fallocate() but only for the UFS file system
+    % apparently (not supported for ZFS).
+    %
+    % FreeBSD 9.0 is the first FreeBSD release supporting posix_fallocate().
+    %
+    % For Windows there's apparently no way to pre-allocate file space, at
+    % least with similar API/semantics as posix_fallocate(), fallocate() or
+    % fcntl F_PREALLOCATE.
+    Result = ?PRIM_FILE:allocate(Fd, Offset, Length),
+    case os:type() of
+        {win32, _} ->
+            ?line {error, enotsup} = Result;
+        _ ->
+            ?line _ = Result
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
