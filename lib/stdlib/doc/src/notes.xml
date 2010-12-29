@@ -30,6 +30,24 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.17.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Several type specifications for standard libraries were
+	    wrong in the R14B01 release. This is now corrected. The
+	    corrections concern types in re,io,filename and the
+	    module erlang itself.</p>
+          <p>
+	    Own Id: OTP-9008</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.17.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
