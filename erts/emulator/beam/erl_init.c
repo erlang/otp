@@ -250,7 +250,7 @@ erl_init(int ncpu)
 
     erts_init_monitors();
     erts_init_gc();
-    init_time();
+    erts_init_time();
     erts_init_sys_common_misc();
     erts_init_process(ncpu);
     erts_init_scheduling(use_multi_run_queue,
@@ -289,7 +289,7 @@ erl_init(int ncpu)
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
     erts_late_init_process();
 #if HAVE_ERTS_MSEG
-    erts_mseg_late_init(); /* Must be after timer (init_time()) and thread
+    erts_mseg_late_init(); /* Must be after timer (erts_init_time()) and thread
 			      initializations */
 #endif
 #ifdef HIPE

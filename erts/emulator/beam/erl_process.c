@@ -1119,8 +1119,8 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	    erl_sys_schedule(1); /* Might give us something to do */
 
-	    dt = do_time_read_and_reset();
-	    if (dt) bump_timer(dt);
+	    dt = erts_do_time_read_and_reset();
+	    if (dt) erts_bump_timer(dt);
 
 	sys_aux_work:
 
@@ -1216,8 +1216,8 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	    erl_sys_schedule(0);
 
-	    dt = do_time_read_and_reset();
-	    if (dt) bump_timer(dt);
+	    dt = erts_do_time_read_and_reset();
+	    if (dt) erts_bump_timer(dt);
 
 	    flgs = sched_prep_cont_spin_wait(ssi);
 	    if (flgs & ERTS_SSI_FLG_WAITING)
@@ -5207,10 +5207,10 @@ Process *schedule(Process *p, int calls)
 
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-	dt = do_time_read_and_reset();
+	dt = erts_do_time_read_and_reset();
 	if (dt) {
 	    erts_smp_runq_unlock(rq);
-	    bump_timer(dt);
+	    erts_bump_timer(dt);
 	    erts_smp_runq_lock(rq);
 	}
 	BM_STOP_TIMER(system);
@@ -5351,8 +5351,8 @@ Process *schedule(Process *p, int calls)
 #endif
 	    erts_smp_runq_unlock(rq);
 	    erl_sys_schedule(runnable);
-	    dt = do_time_read_and_reset();
-	    if (dt) bump_timer(dt);
+	    dt = erts_do_time_read_and_reset();
+	    if (dt) erts_bump_timer(dt);
 #ifdef ERTS_SMP
 	    erts_smp_runq_lock(rq);
 	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
@@ -7613,7 +7613,7 @@ cancel_timer(Process* p)
 #ifdef ERTS_SMP
     erts_cancel_smp_ptimer(p->u.ptimer);
 #else
-    erl_cancel_timer(&p->u.tm);
+    erts_cancel_timer(&p->u.tm);
 #endif
 }
 
@@ -7639,7 +7639,7 @@ set_timer(Process* p, Uint timeout)
 			   (ErlTimeoutProc) timeout_proc,
 			   timeout);
 #else
-    erl_set_timer(&p->u.tm,
+    erts_set_timer(&p->u.tm,
 		  (ErlTimeoutProc) timeout_proc,
 		  NULL,
 		  (void*) p,

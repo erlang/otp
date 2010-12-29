@@ -59,13 +59,6 @@
 
 /* profile_scheduler mini message queue */
 
-#ifdef ERTS_TIMER_THREAD
-/* A timer thread is not welcomed with this lock violation work around.
- * - Björn-Egil
- */
-#error Timer thread may not be enabled due to lock violation.
-#endif
-
 typedef struct {
     Uint scheduler_id;
     Uint no_schedulers;
@@ -3183,7 +3176,7 @@ erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
 
     *timer_ref = res;
 
-    erl_set_timer(&res->timer.tm,
+    erts_set_timer(&res->timer.tm,
 		  (ErlTimeoutProc) ptimer_timeout,
 		  (ErlCancelProc) ptimer_cancelled,
 		  (void*) res,
@@ -3197,7 +3190,7 @@ erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer)
 	ASSERT(*ptimer->timer.timer_ref == ptimer);
 	*ptimer->timer.timer_ref = NULL;
 	ptimer->timer.flags |= ERTS_PTMR_FLG_CANCELLED;
-	erl_cancel_timer(&ptimer->timer.tm);
+	erts_cancel_timer(&ptimer->timer.tm);
     }
 }
 
