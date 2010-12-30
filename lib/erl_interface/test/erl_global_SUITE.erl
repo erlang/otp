@@ -31,7 +31,7 @@
 -define(GLOBAL_NAME, global_register_node_test).
 
 all(suite) ->
-    [erl_global_registration].
+    [erl_global_registration, erl_global_whereis, erl_global_names].
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(0.25)),
@@ -59,7 +59,7 @@ erl_global_whereis(Config) when is_list(Config) ->
     ?line {ok, Fd} = erl_connect(P, node(), 42, erlang:get_cookie(), 0),
 
     ?line Self = self(),
-    ?line global:register_name(?GLOBAL_NAME, Self),
+    ?line yes = global:register_name(?GLOBAL_NAME, Self),
     ?line Self = erl_global_whereis(P, Fd, ?GLOBAL_NAME),
     ?line global:unregister_name(?GLOBAL_NAME),
     ?line 0 = erl_close_connection(P, Fd),
@@ -73,14 +73,16 @@ erl_global_names(Config) when is_list(Config) ->
 
     ?line Self = self(),
     ?line global:register_name(?GLOBAL_NAME, Self),
-    ?line {[?GLOBAL_NAME], 1} = erl_global_names(P, Fd),
+    ?line {Names1, _N1} = erl_global_names(P, Fd),
+    ?line true = lists:member(atom_to_list(?GLOBAL_NAME), Names1),
     ?line global:unregister_name(?GLOBAL_NAME),
+    ?line {Names2, _N2} = erl_global_names(P, Fd),
+    ?line false = lists:member(atom_to_list(?GLOBAL_NAME), Names2),
     ?line 0 = erl_close_connection(P, Fd),
     ?line runner:send_eot(P),
     ?line runner:recv_eot(P),
     ok.
 
-
 %%% Interface functions for erl_interface functions.
 
 erl_connect(P, Node, Num, Cookie, Creation) ->
@@ -102,11 +104,17 @@ erl_global_register(P, Fd, Name) ->
 
 erl_global_whereis(P, Fd, Name) ->
     send_command(P, erl_global_whereis, [Fd,Name]),
-    get_send_result(P).
+    case get_term(P) of
+	{term, What} ->
+	    What
+    end.
 
 erl_global_names(P, Fd) ->
     send_command(P, erl_global_names, [Fd]),
-    get_send_result(P).
+    case get_term(P) of
+	{term, What} ->
+	    What
+    end.
 
 erl_global_unregister(P, Fd, Name) ->
     send_command(P, erl_global_unregister, [Fd,Name]),

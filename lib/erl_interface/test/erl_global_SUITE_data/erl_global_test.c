@@ -46,8 +46,8 @@ static struct {
     "erl_connect", 	     4, cmd_erl_connect,
     "erl_close_connection",  1, cmd_erl_close_connection,
     "erl_global_register",   2, cmd_erl_global_register,
-    "erl_global_whereis",    1, cmd_erl_global_whereis,
-    "erl_global_names",      0, cmd_erl_global_names,
+    "erl_global_whereis",    2, cmd_erl_global_whereis,
+    "erl_global_names",      1, cmd_erl_global_names,
     "erl_global_unregister", 2, cmd_erl_global_unregister,
 };
 
