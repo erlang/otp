@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -21,12 +21,12 @@
  * Author: Rickard Green
  */
 
-#define ETHR_EVENT_OFF_WAITER__		((long) -1)
-#define ETHR_EVENT_OFF__		((long) 1)
-#define ETHR_EVENT_ON__ 		((long) 0)
+#define ETHR_EVENT_OFF_WAITER__		((ethr_sint32_t) -1)
+#define ETHR_EVENT_OFF__		((ethr_sint32_t) 1)
+#define ETHR_EVENT_ON__ 		((ethr_sint32_t) 0)
 
 typedef struct {
-    volatile long state;
+    ethr_atomic32_t state;
     HANDLE handle;
 } ethr_event;
 
@@ -38,7 +38,7 @@ static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
     /* _InterlockedExchange() imply a full memory barrier which is important */
-    long state = _InterlockedExchange(&e->state, ETHR_EVENT_ON__);
+    ethr_sint32_t state = ethr_atomic32_xchg_wb(&e->state, ETHR_EVENT_ON__);
     if (state == ETHR_EVENT_OFF_WAITER__) {
 	if (!SetEvent(e->handle))
 	    ETHR_FATAL_ERROR__(ethr_win_get_errno__());
@@ -48,8 +48,8 @@ ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 static ETHR_INLINE void
 ETHR_INLINE_FUNC_NAME_(ethr_event_reset)(ethr_event *e)
 {
-    /* _InterlockedExchange() imply a full memory barrier which is important */
-    InterlockedExchange(&e->state, ETHR_EVENT_OFF__);
+    ethr_atomic32_set(&e->state, ETHR_EVENT_OFF__);
+    ETHR_MEMORY_BARRIER;
 }
 
 #endif

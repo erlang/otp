@@ -2545,6 +2545,70 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
 	res = erts_bld_uint(&hp, NULL, erts_dist_buf_busy_limit);
 	BIF_RET(res);
+    } else if (ERTS_IS_ATOM_STR("print_ethread_info", BIF_ARG_1)) {
+	int i;
+	char **str;
+#ifdef ETHR_NATIVE_ATOMIC32_IMPL
+	erts_printf("32-bit native atomics: %s\n",
+		    ETHR_NATIVE_ATOMIC32_IMPL);
+	str = ethr_native_atomic32_ops();
+	for (i = 0; str[i]; i++)
+	    erts_printf("ethr_native_atomic32_%s()\n", str[i]);
+#endif
+#ifdef ETHR_NATIVE_ATOMIC64_IMPL
+	erts_printf("64-bit native atomics: %s\n",
+		    ETHR_NATIVE_ATOMIC64_IMPL);
+	str = ethr_native_atomic64_ops();
+	for (i = 0; str[i]; i++)
+	    erts_printf("ethr_native_atomic64_%s()\n", str[i]);
+#endif
+#ifdef ETHR_NATIVE_DW_ATOMIC_IMPL
+	if (ethr_have_native_dw_atomic()) {
+	    erts_printf("Double word native atomics: %s\n",
+			ETHR_NATIVE_DW_ATOMIC_IMPL);
+	    str = ethr_native_dw_atomic_ops();
+	    for (i = 0; str[i]; i++)
+		erts_printf("ethr_native_dw_atomic_%s()\n", str[i]);
+	    str = ethr_native_su_dw_atomic_ops();
+	    for (i = 0; str[i]; i++)
+		erts_printf("ethr_native_su_dw_atomic_%s()\n", str[i]);
+	}
+#endif
+#ifdef ETHR_NATIVE_SPINLOCK_IMPL
+	erts_printf("Native spin-locks: %s\n", ETHR_NATIVE_SPINLOCK_IMPL);
+#endif
+#ifdef ETHR_NATIVE_RWSPINLOCK_IMPL
+	erts_printf("Native rwspin-locks: %s\n", ETHR_NATIVE_RWSPINLOCK_IMPL);
+#endif
+#ifdef ETHR_X86_RUNTIME_CONF_HAVE_SSE2__
+	erts_printf("SSE2 support: %s\n", (ETHR_X86_RUNTIME_CONF_HAVE_SSE2__
+					   ? "yes" : "no"));
+#endif
+#ifdef ETHR_X86_OUT_OF_ORDER
+	erts_printf("x86"
+#ifdef ARCH_64
+		    "_64"
+#endif
+		    " out of order\n");
+#endif
+#ifdef ETHR_SPARC_TSO
+	erts_printf("Sparc TSO\n");
+#endif
+#ifdef ETHR_SPARC_PSO
+	erts_printf("Sparc PSO\n");
+#endif
+#ifdef ETHR_SPARC_RMO
+	erts_printf("Sparc RMO\n");
+#endif
+#if defined(ETHR_PPC_HAVE_LWSYNC)
+	erts_printf("Have lwsync instruction: yes\n");
+#elif defined(ETHR_PPC_HAVE_NO_LWSYNC)
+	erts_printf("Have lwsync instruction: no\n");
+#elif defined(ETHR_PPC_RUNTIME_CONF_HAVE_LWSYNC__)
+	erts_printf("Have lwsync instruction: %s (runtime test)\n",
+		    ETHR_PPC_RUNTIME_CONF_HAVE_LWSYNC__ ? "yes" : "no");
+#endif
+	BIF_RET(am_true);
     }
 
     BIF_ERROR(BIF_P, BADARG);

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2010. All Rights Reserved.
+# Copyright Ericsson AB 2004-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -65,7 +65,7 @@ TYPE_SUFFIX=.purecov
 PRE_LD=purecov $(PURECOV_BUILD_OPTIONS)
 else
 ifeq ($(TYPE),gcov)
-CFLAGS=@DEBUG_CFLAGS@ -fprofile-arcs -ftest-coverage -O0
+CFLAGS=@DEBUG_CFLAGS@ -DGCOV -fprofile-arcs -ftest-coverage -O0
 TYPE_SUFFIX=.gcov
 PRE_LD=
 else
@@ -288,6 +288,10 @@ ETHREAD_LIB_SRC=common/ethr_aux.c \
 		common/ethr_cbf.c \
 		$(ETHR_THR_LIB_BASE_DIR)/ethread.c \
 		$(ETHR_THR_LIB_BASE_DIR)/ethr_event.c
+ETHR_X86_SSE2_ASM=@ETHR_X86_SSE2_ASM@
+ifeq ($(ETHR_X86_SSE2_ASM),yes)
+ETHREAD_LIB_SRC += pthread/ethr_x86_sse2_asm.c
+endif
 ETHREAD_LIB_NAME=ethread$(TYPE_SUFFIX)
 
 ifeq ($(USING_VC),yes)
@@ -382,10 +386,8 @@ $(ERTS_LIB): $(ERTS_LIB_OBJS)
 # Object files
 #
 
-ifeq ($(TYPE)-@GCC@,debug-yes)
-$(r_OBJ_DIR)/ethr_aux.o: common/ethr_aux.c
-	$(CC) $(THR_DEFS) $(CFLAGS) -Wno-unused-function $(INCLUDES) -c $< -o $@
-endif
+$(r_OBJ_DIR)/ethr_x86_sse2_asm.o: pthread/ethr_x86_sse2_asm.c
+	$(CC) -msse2 $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 $(r_OBJ_DIR)/%.o: common/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) $(INCLUDES) -c $< -o $@

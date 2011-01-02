@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -41,10 +41,10 @@
 #define ERTS_PROC_LOCK_SPINLOCK_IMPL 0
 #define ERTS_PROC_LOCK_MUTEX_IMPL 0
 
-#if defined(ETHR_HAVE_OPTIMIZED_ATOMIC_OPS)
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
 #  undef ERTS_PROC_LOCK_ATOMIC_IMPL
 #  define ERTS_PROC_LOCK_ATOMIC_IMPL 1
-#elif defined(ETHR_HAVE_OPTIMIZED_SPINLOCK)
+#elif defined(ETHR_HAVE_NATIVE_SPINLOCKS)
 #  undef ERTS_PROC_LOCK_SPINLOCK_IMPL
 #  define ERTS_PROC_LOCK_SPINLOCK_IMPL 1
 #else

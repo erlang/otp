@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -32,10 +32,6 @@
 
 #include <stdlib.h>
 #include "erl_errno.h"
-
-#undef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
-#undef ETHR_HAVE_OPTIMIZED_SPINLOCK
-#undef ETHR_HAVE_OPTIMIZED_RWSPINLOCK
 
 #if defined(DEBUG)
 #  define ETHR_DEBUG
@@ -68,7 +64,7 @@
 #endif
 
 /* Assume 64-byte cache line size */
-#define ETHR_CACHE_LINE_SIZE ((ethr_uint_t) 64)
+#define ETHR_CACHE_LINE_SIZE 64
 #define ETHR_CACHE_LINE_MASK (ETHR_CACHE_LINE_SIZE - 1)
 
 #define ETHR_CACHE_LINE_ALIGN_SIZE(SZ) \
@@ -251,13 +247,90 @@ typedef ethr_sint64_t ethr_sint_t;
 typedef ethr_uint64_t ethr_uint_t;
 #endif
 
-/* __builtin_expect() is needed by both native atomics code 
- * and the fallback code */
-#if !defined(__GNUC__) || (__GNUC__ < 2) || (__GNUC__ == 2 && __GNUC_MINOR__ < 96)
+#if defined(ETHR_SIZEOF___INT128_T) && ETHR_SIZEOF___INT128_T == 16
+#define ETHR_HAVE_INT128_T
+typedef __int128_t ethr_sint128_t;
+typedef __uint128_t ethr_uint128_t;
+#endif
+
+#define ETHR_FATAL_ERROR__(ERR) \
+  ethr_fatal_error__(__FILE__, __LINE__, __func__, (ERR))
+
+ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
+					 int line,
+					 const char *func,
+					 int err);
+
+#if !defined(__GNUC__)
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
+#elif !defined(__GNUC_MINOR__)
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#elif !defined(__GNUC_PATCHLEVEL__)
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#else
+#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
+  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
+#endif
+
+#if !ETHR_AT_LEAST_GCC_VSN__(2, 96, 0)
 #define __builtin_expect(X, Y) (X)
 #endif
 
-/* For CPU-optimised atomics, spinlocks, and rwlocks. */
+#if ETHR_AT_LEAST_GCC_VSN__(3, 1, 1)
+#  define ETHR_CHOOSE_EXPR __builtin_choose_expr
+#else
+#  define ETHR_CHOOSE_EXPR(B, E1, E2) ((B) ? (E1) : (E2))
+#endif
+
+#if ((defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))) \
+     || (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_AMD64))))
+#  define ETHR_X86_RUNTIME_CONF__
+
+#  define ETHR_X86_RUNTIME_CONF_HAVE_DW_CMPXCHG__ \
+  (__builtin_expect(ethr_runtime__.conf.have_dw_cmpxchg != 0, 1))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_DW_CMPXCHG__ \
+  (__builtin_expect(ethr_runtime__.conf.have_dw_cmpxchg == 0, 0))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_SSE2__ \
+  (__builtin_expect(ethr_runtime__.conf.have_sse2 != 0, 1))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__ \
+  (__builtin_expect(ethr_runtime__.conf.have_sse2 == 0, 0))
+#endif
+
+#if (defined(__GNUC__) \
+     && !defined(ETHR_PPC_HAVE_LWSYNC) \
+     && !defined(ETHR_PPC_HAVE_NO_LWSYNC) \
+     && (defined(__powerpc__) || defined(__ppc__) || defined(__powerpc64__)))
+#  define ETHR_PPC_RUNTIME_CONF__
+
+#  define ETHR_PPC_RUNTIME_CONF_HAVE_LWSYNC__ \
+  (__builtin_expect(ethr_runtime__.conf.have_lwsync != 0, 1))  
+#  define ETHR_PPC_RUNTIME_CONF_HAVE_NO_LWSYNC__ \
+  (__builtin_expect(ethr_runtime__.conf.have_lwsync == 0, 0))
+#endif
+
+typedef struct {
+#if defined(ETHR_X86_RUNTIME_CONF__)
+    int have_dw_cmpxchg;
+    int have_sse2;
+#endif
+#if defined(ETHR_PPC_RUNTIME_CONF__)
+    int have_lwsync;
+#endif
+    int dummy;
+} ethr_runtime_conf_t;
+
+
+typedef union {
+    ethr_runtime_conf_t conf;
+    char pad__[ETHR_CACHE_LINE_ALIGN_SIZE(sizeof(ethr_runtime_conf_t))+ETHR_CACHE_LINE_SIZE];
+} ethr_runtime_t;
+
+
+extern ethr_runtime_t ethr_runtime__;
+
+/* For native CPU-optimised atomics, spinlocks, and rwlocks. */
 #if !defined(ETHR_DISABLE_NATIVE_IMPLS)
 #  if defined(__GNUC__)
 #    if defined(ETHR_PREFER_GCC_NATIVE_IMPLS)
@@ -265,7 +338,7 @@ typedef ethr_uint64_t ethr_uint_t;
 #    elif defined(ETHR_PREFER_LIBATOMIC_OPS_NATIVE_IMPLS)
 #      include "libatomic_ops/ethread.h"
 #    endif
-#    ifndef ETHR_HAVE_NATIVE_ATOMICS
+#    if !defined(ETHR_HAVE_NATIVE_ATOMIC32) && !defined(ETHR_HAVE_NATIVE_ATOMIC64)
 #      if ETHR_SIZEOF_PTR == 4
 #        if defined(__i386__)
 #          include "i386/ethread.h"
@@ -283,8 +356,10 @@ typedef ethr_uint64_t ethr_uint_t;
 #          include "sparc64/ethread.h"
 #        endif
 #      endif
+#if 0
 #      include "gcc/ethread.h"
 #      include "libatomic_ops/ethread.h"
+#endif
 #    endif
 #  elif defined(ETHR_HAVE_LIBATOMIC_OPS)
 #    include "libatomic_ops/ethread.h"
@@ -293,10 +368,9 @@ typedef ethr_uint64_t ethr_uint_t;
 #  endif
 #endif /* !ETHR_DISABLE_NATIVE_IMPLS */
 
+#include "ethr_atomics.h" /* The atomics API */
+
 #if defined(__GNUC__)
-#  ifndef ETHR_COMPILER_BARRIER
-#    define ETHR_COMPILER_BARRIER __asm__ __volatile__("" : : : "memory")
-#  endif
 #  ifndef ETHR_SPIN_BODY
 #    if defined(__i386__) || defined(__x86_64__)
 #      define ETHR_SPIN_BODY __asm__ __volatile__("rep;nop" : : : "memory")
@@ -309,54 +383,12 @@ typedef ethr_uint64_t ethr_uint_t;
 #    endif
 #  endif
 #elif defined(ETHR_WIN32_THREADS)
-#  ifndef ETHR_COMPILER_BARRIER
-#    include <intrin.h>
-#    pragma intrinsic(_ReadWriteBarrier)
-#    define ETHR_COMPILER_BARRIER _ReadWriteBarrier()
-#  endif
 #  ifndef ETHR_SPIN_BODY
 #    define ETHR_SPIN_BODY do {YieldProcessor();ETHR_COMPILER_BARRIER;} while(0)
 #  endif
 #endif
 
 #define ETHR_YIELD_AFTER_BUSY_LOOPS 50
-
-#ifndef ETHR_HAVE_NATIVE_ATOMICS
-/*
- * ETHR_*MEMORY_BARRIER orders between locked and atomic accesses only,
- * i.e. when our lock based atomic fallback is used, a noop is sufficient.
- */
-#define ETHR_MEMORY_BARRIER do { } while (0)
-#define ETHR_WRITE_MEMORY_BARRIER do { } while (0)
-#define ETHR_READ_MEMORY_BARRIER do { } while (0)
-#define ETHR_READ_DEPEND_MEMORY_BARRIER do { } while (0)
-#endif
-
-#ifndef ETHR_WRITE_MEMORY_BARRIER
-#  define ETHR_WRITE_MEMORY_BARRIER ETHR_MEMORY_BARRIER
-#  define ETHR_WRITE_MEMORY_BARRIER_IS_FULL
-#endif
-#ifndef ETHR_READ_MEMORY_BARRIER
-#  define ETHR_READ_MEMORY_BARRIER ETHR_MEMORY_BARRIER
-#  define ETHR_READ_MEMORY_BARRIER_IS_FULL
-#endif
-#ifndef ETHR_READ_DEPEND_MEMORY_BARRIER
-#  define ETHR_READ_DEPEND_MEMORY_BARRIER ETHR_COMPILER_BARRIER
-#  define ETHR_READ_DEPEND_MEMORY_BARRIER_IS_COMPILER_BARRIER
-#endif
-
-#define ETHR_FATAL_ERROR__(ERR) \
-  ethr_fatal_error__(__FILE__, __LINE__, __func__, (ERR))
-
-ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
-					 int line,
-					 const char *func,
-					 int err);
-
-void ethr_compiler_barrier_fallback(void);
-#ifndef ETHR_COMPILER_BARRIER
-#  define ETHR_COMPILER_BARRIER ethr_compiler_barrier_fallback()
-#endif
 
 #ifndef ETHR_SPIN_BODY
 #  define ETHR_SPIN_BODY ETHR_COMPILER_BARRIER
@@ -460,8 +492,6 @@ void ethr_compiler_barrier(void);
 
 #if defined(ETHR_HAVE_NATIVE_SPINLOCKS)
 typedef ethr_native_spinlock_t ethr_spinlock_t;
-#elif defined(ETHR_HAVE_OPTIMIZED_SPINLOCKS)
-typedef ethr_opt_spinlock_t ethr_spinlock_t;
 #elif defined(__WIN32__)
 typedef CRITICAL_SECTION ethr_spinlock_t;
 #else
@@ -483,8 +513,6 @@ ETHR_INLINE_FUNC_NAME_(ethr_spinlock_init)(ethr_spinlock_t *lock)
 #ifdef ETHR_HAVE_NATIVE_SPINLOCKS
     ethr_native_spinlock_init(lock);
     return 0;
-#elif defined(ETHR_HAVE_OPTIMIZED_SPINLOCKS)
-    return ethr_opt_spinlock_init((ethr_opt_spinlock_t *) lock);
 #elif defined(__WIN32__)
     if (!InitializeCriticalSectionAndSpinCount((CRITICAL_SECTION *) lock, INT_MAX))
 	return ethr_win_get_errno__();
@@ -498,9 +526,7 @@ static ETHR_INLINE int
 ETHR_INLINE_FUNC_NAME_(ethr_spinlock_destroy)(ethr_spinlock_t *lock)
 {
 #ifdef ETHR_HAVE_NATIVE_SPINLOCKS
-    return 0;
-#elif defined(ETHR_HAVE_OPTIMIZED_SPINLOCKS)
-    return ethr_opt_spinlock_destroy((ethr_opt_spinlock_t *) lock);
+    return ethr_native_spinlock_destroy(lock);
 #elif defined(__WIN32__)
     DeleteCriticalSection((CRITICAL_SECTION *) lock);
     return 0;
@@ -514,10 +540,6 @@ ETHR_INLINE_FUNC_NAME_(ethr_spin_unlock)(ethr_spinlock_t *lock)
 {
 #ifdef ETHR_HAVE_NATIVE_SPINLOCKS
     ethr_native_spin_unlock(lock);
-#elif defined(ETHR_HAVE_OPTIMIZED_SPINLOCKS)
-    int err = ethr_opt_spin_unlock((ethr_opt_spinlock_t *) lock);
-    if (err)
-	ETHR_FATAL_ERROR__(err);
 #elif defined(__WIN32__)
     LeaveCriticalSection((CRITICAL_SECTION *) lock);
 #else
@@ -532,10 +554,6 @@ ETHR_INLINE_FUNC_NAME_(ethr_spin_lock)(ethr_spinlock_t *lock)
 {
 #ifdef ETHR_HAVE_NATIVE_SPINLOCKS
     ethr_native_spin_lock(lock);
-#elif defined(ETHR_HAVE_OPTIMIZED_SPINLOCKS)
-    int err = ethr_opt_spin_lock((ethr_opt_spinlock_t *) lock);
-    if (err)
-	ETHR_FATAL_ERROR__(err);
 #elif defined(__WIN32__)
     EnterCriticalSection((CRITICAL_SECTION *) lock);
 #else
@@ -546,8 +564,6 @@ ETHR_INLINE_FUNC_NAME_(ethr_spin_lock)(ethr_spinlock_t *lock)
 }
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
-
-#include "ethr_atomics.h"
 
 typedef struct ethr_ts_event_ ethr_ts_event; /* Needed by ethr_mutex.h */
 

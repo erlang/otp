@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -26,8 +26,9 @@
 #include "config.h"
 #endif
 
-#define ETHR_INLINE_FUNC_NAME_(X) X ## __
+#define ETHR_INLINE_MTX_FUNC_NAME_(X) X ## __
 #define ETHR_MUTEX_IMPL__
+#define ETHR_TRY_INLINE_FUNCS
 
 #include <limits.h>
 #include "ethread.h"

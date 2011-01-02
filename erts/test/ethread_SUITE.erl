@@ -47,14 +47,29 @@
 	 spinlock/1,
 	 rwspinlock/1,
 	 rwmutex/1,
-	 atomic/1]).
+	 atomic/1,
+	 dw_atomic_massage/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-tests() -> 
-    [create_join_thread, equal_tids, mutex, try_lock_mutex,
-     cond_wait, broadcast, detached_thread,
-     max_threads, tsd, spinlock, rwspinlock, rwmutex, atomic].
+tests() ->
+    [create_join_thread,
+     equal_tids,
+     mutex,
+     try_lock_mutex,
+     cond_wait,
+     broadcast,
+     detached_thread,
+     max_threads,
+     tsd,
+     spinlock,
+     rwspinlock,
+     rwmutex,
+     atomic,
+     dw_atomic_massage].
+
+all(doc) -> [];
+all(suite) -> tests().
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -210,6 +225,13 @@ atomic(suite) ->
     [];
 atomic(Config) ->
     run_case(Config, "atomic", "").
+
+dw_atomic_massage(doc) ->
+    ["Massage double word atomics"];
+dw_atomic_massage(suite) ->
+    [];
+dw_atomic_massage(Config) ->
+    run_case(Config, "dw_atomic_massage", "").
 
 %%
 %%

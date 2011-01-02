@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1310,6 +1310,9 @@ rwmutex_test(void)
  * Tests atomics.
  */
 
+#define AT_AINT32_MAX 0x7fffffff
+#define AT_AINT32_MIN 0x80000000
+
 #define AT_THREADS 4
 #define AT_ITER 10000
 
@@ -1320,12 +1323,428 @@ static ethr_atomic_t at_go;
 static ethr_atomic_t at_done;
 static ethr_atomic_t at_data;
 
+#define AT_TEST_INIT(T, A, B) \
+do { \
+    ethr_ ## A ## _init ## B(&A, 17); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 17); \
+} while (0)
+
+#define AT_TEST_SET(T, A, B) \
+do { \
+    ethr_ ## A ## _set ## B(&A, 4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 4711); \
+} while (0)
+
+#define AT_TEST_XCHG(T, A, B) \
+do { \
+    ethr_ ## A ## _set ## B(&A, 4711); \
+    ASSERT(ethr_ ## A ## _xchg ## B(&A, 17) == 4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 17); \
+} while (0)
+
+#define AT_TEST_CMPXCHG(T, A, B) \
+do { \
+    ethr_ ## A ## _set ## B(&A, 4711); \
+    ASSERT(ethr_ ## A ## _cmpxchg ## B(&A, 17, 33) == 4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 4711); \
+    ASSERT(ethr_ ## A ## _cmpxchg ## B(&A, 17, 4711) == 4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 17); \
+} while (0)
+
+#define AT_TEST_ADD_READ(T, A, B) \
+do { \
+    T var_ = AT_AINT32_MAX; \
+    var_ += 4711; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MAX); \
+    ASSERT(ethr_ ## A ## _add_read ## B(&A, 4711) == var_); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    var_ = AT_AINT32_MIN; \
+    var_ -= 4711; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MIN); \
+    ASSERT(ethr_ ## A ## _add_read ## B(&A, -4711) == var_); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    ethr_ ## A ## _set ## B(&A, 4711); \
+    ASSERT(ethr_ ## A ## _add_read ## B(&A, 10) == 4721); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 4721); \
+} while (0)
+
+#define AT_TEST_ADD(T, A, B) \
+do { \
+    T var_ = AT_AINT32_MAX; \
+    var_ += 4711; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MAX); \
+    ethr_ ## A ## _add ## B(&A, 4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    var_ = AT_AINT32_MIN; \
+    var_ -= 4711; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MIN); \
+    ethr_ ## A ## _add ## B(&A, -4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    ethr_ ## A ## _set ## B(&A, 11); \
+    ethr_ ## A ## _add ## B(&A, 4700); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 4711); \
+} while (0)
+
+#define AT_TEST_INC_READ(T, A, B) \
+do { \
+    T var_ = AT_AINT32_MAX; \
+    var_++; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MAX); \
+    ASSERT(ethr_ ## A ## _inc_read ## B(&A) == var_); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    ethr_ ## A ## _set ## B(&A, 4710); \
+    ASSERT(ethr_ ## A ## _inc_read ## B(&A) == 4711); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 4711); \
+} while (0)
+
+#define AT_TEST_DEC_READ(T, A, B) \
+do { \
+    T var_ = AT_AINT32_MIN; \
+    var_--; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MIN); \
+    ASSERT(ethr_ ## A ## _dec_read ## B(&A) == var_); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    ethr_ ## A ## _set ## B(&A, 17); \
+    ASSERT(ethr_ ## A ## _dec_read ## B(&A) == 16); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 16); \
+} while (0)
+
+
+#define AT_TEST_INC(T, A, B) \
+do { \
+    T var_ = AT_AINT32_MAX; \
+    var_++; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MAX); \
+    ethr_ ## A ## _inc ## B(&A); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    ethr_ ## A ## _set ## B(&A, 4710); \
+    ethr_ ## A ## _inc ## B(&A); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 4711); \
+} while (0)
+
+#define AT_TEST_DEC(T, A, B) \
+do { \
+    T var_ = AT_AINT32_MIN; \
+    var_--; \
+    ethr_ ## A ## _set ## B(&A, AT_AINT32_MIN); \
+    ethr_ ## A ## _dec ## B(&A); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == var_); \
+    ethr_ ## A ## _set ## B(&A, 17); \
+    ethr_ ## A ## _dec ## B(&A); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 16); \
+} while (0)
+
+#define AT_TEST_READ_BAND(T, A, B) \
+do { \
+    ethr_ ## A ## _set ## B(&A, 0x13131313); \
+    ASSERT(ethr_ ## A ## _read_band ## B(&A, 0x31313131) == 0x13131313); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 0x11111111); \
+} while (0)
+
+#define AT_TEST_READ_BOR(T, A, B) \
+do { \
+    ethr_ ## A ## _set ## B(&A, 0x11111111); \
+    ASSERT(ethr_ ## A ## _read_bor ## B(&A, 0x23232323) == 0x11111111); \
+    ASSERT(ethr_ ## A ## _read ## B(&A) == 0x33333333); \
+} while (0)
+
+
+static void
+atomic_basic_test(void)
+{
+    /*
+     * Verify that each op does what it is expected
+     * to do for at least one input.
+     */
+    ethr_atomic32_t atomic32;
+    ethr_atomic_t atomic;
+
+    print_line("AT_AINT32_MAX=%d",AT_AINT32_MAX);
+    print_line("AT_AINT32_MIN=%d",AT_AINT32_MIN);
+
+    AT_TEST_INIT(ethr_sint32_t, atomic32, );
+    AT_TEST_SET(ethr_sint32_t, atomic32, );
+    AT_TEST_XCHG(ethr_sint32_t, atomic32, );
+    AT_TEST_CMPXCHG(ethr_sint32_t, atomic32, );
+    AT_TEST_ADD_READ(ethr_sint32_t, atomic32, );
+    AT_TEST_ADD(ethr_sint32_t, atomic32, );
+    AT_TEST_INC_READ(ethr_sint32_t, atomic32, );
+    AT_TEST_DEC_READ(ethr_sint32_t, atomic32, );
+    AT_TEST_INC(ethr_sint32_t, atomic32, );
+    AT_TEST_DEC(ethr_sint32_t, atomic32, );
+    AT_TEST_READ_BAND(ethr_sint32_t, atomic32, );
+    AT_TEST_READ_BOR(ethr_sint32_t, atomic32, );
+
+    AT_TEST_INIT(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_SET(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_XCHG(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_CMPXCHG(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_ADD_READ(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_ADD(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_INC_READ(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_DEC_READ(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_INC(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_DEC(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_READ_BAND(ethr_sint32_t, atomic32, _acqb);
+    AT_TEST_READ_BOR(ethr_sint32_t, atomic32, _acqb);
+
+    AT_TEST_INIT(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_SET(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_XCHG(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_CMPXCHG(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_ADD_READ(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_ADD(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_INC_READ(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_DEC_READ(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_INC(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_DEC(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_READ_BAND(ethr_sint32_t, atomic32, _relb);
+    AT_TEST_READ_BOR(ethr_sint32_t, atomic32, _relb);
+
+    AT_TEST_INIT(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_SET(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_XCHG(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_CMPXCHG(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_ADD_READ(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_ADD(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_INC_READ(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_DEC_READ(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_INC(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_DEC(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_READ_BAND(ethr_sint32_t, atomic32, _rb);
+    AT_TEST_READ_BOR(ethr_sint32_t, atomic32, _rb);
+
+    AT_TEST_INIT(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_SET(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_XCHG(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_CMPXCHG(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_ADD_READ(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_ADD(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_INC_READ(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_DEC_READ(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_INC(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_DEC(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_READ_BAND(ethr_sint32_t, atomic32, _wb);
+    AT_TEST_READ_BOR(ethr_sint32_t, atomic32, _wb);
+
+    AT_TEST_INIT(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_SET(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_XCHG(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_CMPXCHG(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_ADD_READ(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_ADD(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_INC_READ(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_DEC_READ(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_INC(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_DEC(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_READ_BAND(ethr_sint32_t, atomic32, _mb);
+    AT_TEST_READ_BOR(ethr_sint32_t, atomic32, _mb);
+
+    AT_TEST_INIT(ethr_sint_t, atomic, );
+    AT_TEST_SET(ethr_sint_t, atomic, );
+    AT_TEST_XCHG(ethr_sint_t, atomic, );
+    AT_TEST_CMPXCHG(ethr_sint_t, atomic, );
+    AT_TEST_ADD_READ(ethr_sint_t, atomic, );
+    AT_TEST_ADD(ethr_sint_t, atomic, );
+    AT_TEST_INC_READ(ethr_sint_t, atomic, );
+    AT_TEST_DEC_READ(ethr_sint_t, atomic, );
+    AT_TEST_INC(ethr_sint_t, atomic, );
+    AT_TEST_DEC(ethr_sint_t, atomic, );
+    AT_TEST_READ_BAND(ethr_sint_t, atomic, );
+    AT_TEST_READ_BOR(ethr_sint_t, atomic, );
+
+    AT_TEST_INIT(ethr_sint_t, atomic, _acqb);
+    AT_TEST_SET(ethr_sint_t, atomic, _acqb);
+    AT_TEST_XCHG(ethr_sint_t, atomic, _acqb);
+    AT_TEST_CMPXCHG(ethr_sint_t, atomic, _acqb);
+    AT_TEST_ADD_READ(ethr_sint_t, atomic, _acqb);
+    AT_TEST_ADD(ethr_sint_t, atomic, _acqb);
+    AT_TEST_INC_READ(ethr_sint_t, atomic, _acqb);
+    AT_TEST_DEC_READ(ethr_sint_t, atomic, _acqb);
+    AT_TEST_INC(ethr_sint_t, atomic, _acqb);
+    AT_TEST_DEC(ethr_sint_t, atomic, _acqb);
+    AT_TEST_READ_BAND(ethr_sint_t, atomic, _acqb);
+    AT_TEST_READ_BOR(ethr_sint_t, atomic, _acqb);
+
+    AT_TEST_INIT(ethr_sint_t, atomic, _relb);
+    AT_TEST_SET(ethr_sint_t, atomic, _relb);
+    AT_TEST_XCHG(ethr_sint_t, atomic, _relb);
+    AT_TEST_CMPXCHG(ethr_sint_t, atomic, _relb);
+    AT_TEST_ADD_READ(ethr_sint_t, atomic, _relb);
+    AT_TEST_ADD(ethr_sint_t, atomic, _relb);
+    AT_TEST_INC_READ(ethr_sint_t, atomic, _relb);
+    AT_TEST_DEC_READ(ethr_sint_t, atomic, _relb);
+    AT_TEST_INC(ethr_sint_t, atomic, _relb);
+    AT_TEST_DEC(ethr_sint_t, atomic, _relb);
+    AT_TEST_READ_BAND(ethr_sint_t, atomic, _relb);
+    AT_TEST_READ_BOR(ethr_sint_t, atomic, _relb);
+
+    AT_TEST_INIT(ethr_sint_t, atomic, _rb);
+    AT_TEST_SET(ethr_sint_t, atomic, _rb);
+    AT_TEST_XCHG(ethr_sint_t, atomic, _rb);
+    AT_TEST_CMPXCHG(ethr_sint_t, atomic, _rb);
+    AT_TEST_ADD_READ(ethr_sint_t, atomic, _rb);
+    AT_TEST_ADD(ethr_sint_t, atomic, _rb);
+    AT_TEST_INC_READ(ethr_sint_t, atomic, _rb);
+    AT_TEST_DEC_READ(ethr_sint_t, atomic, _rb);
+    AT_TEST_INC(ethr_sint_t, atomic, _rb);
+    AT_TEST_DEC(ethr_sint_t, atomic, _rb);
+    AT_TEST_READ_BAND(ethr_sint_t, atomic, _rb);
+    AT_TEST_READ_BOR(ethr_sint_t, atomic, _rb);
+
+    AT_TEST_INIT(ethr_sint_t, atomic, _wb);
+    AT_TEST_SET(ethr_sint_t, atomic, _wb);
+    AT_TEST_XCHG(ethr_sint_t, atomic, _wb);
+    AT_TEST_CMPXCHG(ethr_sint_t, atomic, _wb);
+    AT_TEST_ADD_READ(ethr_sint_t, atomic, _wb);
+    AT_TEST_ADD(ethr_sint_t, atomic, _wb);
+    AT_TEST_INC_READ(ethr_sint_t, atomic, _wb);
+    AT_TEST_DEC_READ(ethr_sint_t, atomic, _wb);
+    AT_TEST_INC(ethr_sint_t, atomic, _wb);
+    AT_TEST_DEC(ethr_sint_t, atomic, _wb);
+    AT_TEST_READ_BAND(ethr_sint_t, atomic, _wb);
+    AT_TEST_READ_BOR(ethr_sint_t, atomic, _wb);
+
+    AT_TEST_INIT(ethr_sint_t, atomic, _mb);
+    AT_TEST_SET(ethr_sint_t, atomic, _mb);
+    AT_TEST_XCHG(ethr_sint_t, atomic, _mb);
+    AT_TEST_CMPXCHG(ethr_sint_t, atomic, _mb);
+    AT_TEST_ADD_READ(ethr_sint_t, atomic, _mb);
+    AT_TEST_ADD(ethr_sint_t, atomic, _mb);
+    AT_TEST_INC_READ(ethr_sint_t, atomic, _mb);
+    AT_TEST_DEC_READ(ethr_sint_t, atomic, _mb);
+    AT_TEST_INC(ethr_sint_t, atomic, _mb);
+    AT_TEST_DEC(ethr_sint_t, atomic, _mb);
+    AT_TEST_READ_BAND(ethr_sint_t, atomic, _mb);
+    AT_TEST_READ_BOR(ethr_sint_t, atomic, _mb);
+
+    /* Double word */
+    {
+	ethr_dw_atomic_t dw_atomic;
+	ethr_dw_sint_t dw0, dw1;
+	dw0.sint[0] = 4711;
+	dw0.sint[1] = 4712;
+
+	/* init */
+	ethr_dw_atomic_init(&dw_atomic, &dw0);
+	ethr_dw_atomic_read(&dw_atomic, &dw1);
+	ETHR_ASSERT(dw1.sint[0] == 4711);
+	ETHR_ASSERT(dw1.sint[1] == 4712);
+	
+	/* set */
+	dw0.sint[0] = 42;
+	dw0.sint[1] = ~((ethr_sint_t) 0);
+	ethr_dw_atomic_set(&dw_atomic, &dw0);
+	ethr_dw_atomic_read(&dw_atomic, &dw1);
+	ASSERT(dw1.sint[0] == 42);
+	ASSERT(dw1.sint[1] == ~((ethr_sint_t) 0));
+
+	/* cmpxchg */
+	dw0.sint[0] = 17;
+	dw0.sint[1] = 18;
+	dw1.sint[0] = 19;
+	dw1.sint[1] = 20;
+	ASSERT(!ethr_dw_atomic_cmpxchg(&dw_atomic, &dw1, &dw0));
+	ethr_dw_atomic_read(&dw_atomic, &dw0);
+	ASSERT(dw0.sint[0] == 42);
+	ASSERT(dw0.sint[1] == ~((ethr_sint_t) 0));
+
+	ASSERT(ethr_dw_atomic_cmpxchg(&dw_atomic, &dw1, &dw0));
+
+	ethr_dw_atomic_read(&dw_atomic, &dw0);
+	ASSERT(dw0.sint[0] == 19);
+	ASSERT(dw0.sint[1] == 20);
+    }
+}
+
+
+#define AT_DW_MIN 12
+#define AT_DW_MAX 42
+#define AT_DW_THREADS (AT_DW_MAX - AT_DW_MIN + 1)
+
+#define AT_DW_LOOPS 200000
+#define AT_DW_R_LOOPS 10
+
+ethr_dw_atomic_t at_dw_atomic;
+
+void
+at_dw_valid(ethr_dw_sint_t *dw)
+{
+    int i;
+    char c;
+    char *cp;
+
+    ASSERT(dw->sint[0] == dw->sint[1]);
+
+    cp = (char *) &dw->sint[0];
+    c = cp[0];
+
+    ASSERT(AT_DW_MIN <= c && c <= AT_DW_MAX);
+
+    for (i = 0; i < sizeof(ethr_sint_t); i++)
+	ASSERT(c == cp[i]);
+}
+
+void *
+at_dw_thr(void *vval)
+{
+    int l, r;
+    ethr_sint_t val = (ethr_sint_t) vval;
+    ethr_dw_sint_t dw;
+    ethr_dw_sint_t my_dw;
+
+    my_dw.sint[0] = val;
+    my_dw.sint[1] = val;
+
+    ethr_dw_atomic_set(&at_dw_atomic, &my_dw);
+    for (l = 0; l < AT_DW_LOOPS; l++) {
+	for (r = 0; r < AT_DW_R_LOOPS; r++) {
+	    ethr_dw_atomic_read(&at_dw_atomic, &dw);
+	    at_dw_valid(&dw);
+	}
+	ethr_dw_atomic_set(&at_dw_atomic, &my_dw);
+	for (r = 0; r < AT_DW_R_LOOPS; r++) {
+	    ethr_dw_atomic_read(&at_dw_atomic, &dw);
+	    at_dw_valid(&dw);
+	}
+	dw.sint[0] = 0;
+	dw.sint[1] = 0;
+	while (1) {
+	    if (ethr_dw_atomic_cmpxchg(&at_dw_atomic, &my_dw, &dw))
+		break;
+	}
+    }
+}
+
+static void
+dw_atomic_massage_test(void)
+{
+    int i, res;
+    ethr_tid tid[AT_DW_THREADS];
+    ethr_thr_opts thr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
+    ethr_dw_sint_t dw;
+
+    dw.sint[0] = dw.sint[1] = 0;
+
+    ethr_dw_atomic_init(&at_dw_atomic, &dw);
+
+    for (i = AT_DW_MIN; i <= AT_DW_MAX; i++) {
+	ethr_sint_t val;
+	memset(&val, i, sizeof(ethr_sint_t));
+	res = ethr_thr_create(&tid[i-AT_DW_MIN], at_dw_thr, (void *) val, &thr_opts);
+	ASSERT(res == 0);
+    }
+    for (i = AT_DW_MIN; i <= AT_DW_MAX; i++) {
+	res = ethr_thr_join(tid[i-AT_DW_MIN], NULL);
+	ASSERT(res == 0);
+    }
+}
+
 void *
 at_thread(void *unused)
 {
     int i;
     long val, go;
-    
 
     val = ethr_atomic_inc_read(&at_ready);
     ASSERT(val > 0);
@@ -1373,7 +1792,6 @@ at_thread(void *unused)
     return NULL;
 }
 
-
 static void
 atomic_test(void)
 {
@@ -1381,6 +1799,8 @@ atomic_test(void)
     int res, i;
     ethr_tid tid[AT_THREADS];
     ethr_thr_opts thr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
+
+    atomic_basic_test();
 
 #if ETHR_SIZEOF_PTR > 4
 	at_rm_val = ((long) 1) << 57;
@@ -1493,6 +1913,8 @@ main(int argc, char *argv[])
 	    rwmutex_test();
 	else if (strcmp(testcase, "atomic") == 0)
 	    atomic_test();
+	else if (strcmp(testcase, "dw_atomic_massage") == 0)
+	    dw_atomic_massage_test();
 	else
 	    skip("Test case \"%s\" not implemented yet", testcase);
 

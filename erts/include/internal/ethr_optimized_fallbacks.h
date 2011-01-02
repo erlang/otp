@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -18,152 +18,172 @@
  */
 
 /*
- * Description: "Optimized" fallbacks used when native ops are missing
+ * Description: Optimized fallbacks used when native ops are missing
  * Author: Rickard Green
  */
 
 #ifndef ETHR_OPTIMIZED_FALLBACKS_H__
 #define ETHR_OPTIMIZED_FALLBACKS_H__
 
-#ifdef ETHR_HAVE_NATIVE_ATOMICS
-#define ETHR_HAVE_OPTIMIZED_ATOMIC_OPS 1
-#endif
-
-#ifdef ETHR_HAVE_NATIVE_SPINLOCKS
-#define ETHR_HAVE_OPTIMIZED_SPINLOCKS 1
-#elif defined(ETHR_HAVE_PTHREAD_SPIN_LOCK)
-/* --- Optimized spinlocks using pthread spinlocks -------------------------- */
-#define ETHR_HAVE_OPTIMIZED_SPINLOCKS 1
-
-typedef pthread_spinlock_t ethr_opt_spinlock_t;
+#if defined(ETHR_HAVE_NATIVE_SPINLOCKS)
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE int
-ethr_opt_spinlock_init(ethr_opt_spinlock_t *lock)
+ethr_native_spinlock_destroy(ethr_native_spinlock_t *lock)
 {
-    return pthread_spin_init((pthread_spinlock_t *) lock, 0);
-}
-
-static ETHR_INLINE int
-ethr_opt_spinlock_destroy(ethr_opt_spinlock_t *lock)
-{
-    return pthread_spin_destroy((pthread_spinlock_t *) lock);
-}
-
-
-static ETHR_INLINE int
-ethr_opt_spin_unlock(ethr_opt_spinlock_t *lock)
-{
-    return pthread_spin_unlock((pthread_spinlock_t *) lock);
-}
-
-static ETHR_INLINE int
-ethr_opt_spin_lock(ethr_opt_spinlock_t *lock)
-{
-    return pthread_spin_lock((pthread_spinlock_t *) lock);
+    return 0;
 }
 
 #endif
 
-#elif defined(ETHR_HAVE_NATIVE_ATOMICS)
-/* --- Native spinlocks using native atomics -------------------------------- */
+#elif defined(ETHR_HAVE_PTHREAD_SPIN_LOCK)
+/* --- Native spinlocks using pthread spinlocks -------------------------- */
 #define ETHR_HAVE_NATIVE_SPINLOCKS 1
-#define ETHR_HAVE_OPTIMIZED_SPINLOCKS 1
 
-#if defined(ETHR_HAVE_NATIVE_ATOMIC32)
-typedef ethr_native_atomic32_t ethr_native_spinlock_t;
-#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic32_ ## X
-#elif defined(ETHR_HAVE_NATIVE_ATOMIC64)
-typedef ethr_native_atomic64_t ethr_native_spinlock_t;
-#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
-#else
-#  error "Missing native atomic implementation"
-#endif
+#define ETHR_NATIVE_SPINLOCK_IMPL "pthread"
+
+typedef pthread_spinlock_t ethr_native_spinlock_t;
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_spinlock_init(ethr_native_spinlock_t *lock)
 {
-    ETHR_NATMC_FUNC__(init)(lock, 0);
+    int err = pthread_spin_init((pthread_spinlock_t *) lock, 0);
+    if (err)
+	ETHR_FATAL_ERROR__(err);
+}
+
+static ETHR_INLINE int
+ethr_native_spinlock_destroy(ethr_native_spinlock_t *lock)
+{
+    return pthread_spin_destroy((pthread_spinlock_t *) lock);
 }
 
 static ETHR_INLINE void
 ethr_native_spin_unlock(ethr_native_spinlock_t *lock)
 {
-    ETHR_COMPILER_BARRIER;
-    ETHR_ASSERT(ETHR_NATMC_FUNC__(read)(lock) == 1);
-    ETHR_NATMC_FUNC__(set_relb)(lock, 0);
+    int err = pthread_spin_unlock((pthread_spinlock_t *) lock);
+    if (err)
+	ETHR_FATAL_ERROR__(err);
 }
 
 static ETHR_INLINE void
 ethr_native_spin_lock(ethr_native_spinlock_t *lock)
 {
-    while (ETHR_NATMC_FUNC__(cmpxchg_acqb)(lock, 1, 0) != 0) {
-	while (ETHR_NATMC_FUNC__(read)(lock) != 0)
+    int err = pthread_spin_lock((pthread_spinlock_t *) lock);
+    if (err)
+	ETHR_FATAL_ERROR__(err);
+}
+
+#endif
+
+#elif defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+/* --- Native spinlocks using native atomics -------------------------------- */
+#define ETHR_HAVE_NATIVE_SPINLOCKS 1
+
+#define ETHR_NATIVE_SPINLOCK_IMPL "native-atomics"
+
+typedef ethr_atomic32_t ethr_native_spinlock_t;
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+
+#undef ETHR_NSPN_AOP__
+#define ETHR_NSPN_AOP__(X) ETHR_INLINE_ATMC32_FUNC_NAME_(ethr_atomic32_ ## X)
+
+static ETHR_INLINE void
+ethr_native_spinlock_init(ethr_native_spinlock_t *lock)
+{
+    ETHR_NSPN_AOP__(init)(lock, 0);
+}
+
+static ETHR_INLINE int
+ethr_native_spinlock_destroy(ethr_native_spinlock_t *lock)
+{
+    return ETHR_NSPN_AOP__(read)(lock) == 0 ? 0 : EBUSY;
+}
+
+static ETHR_INLINE void
+ethr_native_spin_unlock(ethr_native_spinlock_t *lock)
+{
+    ETHR_ASSERT(ETHR_NSPN_AOP__(read)(lock) == 1);
+    ETHR_NSPN_AOP__(set_relb)(lock, 0);
+}
+
+static ETHR_INLINE void
+ethr_native_spin_lock(ethr_native_spinlock_t *lock)
+{
+    while (ETHR_NSPN_AOP__(cmpxchg_acqb)(lock, 1, 0) != 0) {
+	while (ETHR_NSPN_AOP__(read)(lock) != 0)
 	    ETHR_SPIN_BODY;
     }
     ETHR_COMPILER_BARRIER;
 }
 
-#endif
-
-#undef ETHR_NATMC_FUNC__
+#undef ETHR_NSPN_AOP__
 
 #endif
 
-
-#ifdef ETHR_HAVE_NATIVE_RWSPINLOCKS
-#define ETHR_HAVE_OPTIMIZED_RWSPINLOCKS 1
-#elif defined(ETHR_HAVE_NATIVE_ATOMICS)
-/* --- Native rwspinlocks using native atomics ------------------------------ */
-#define ETHR_HAVE_NATIVE_RWSPINLOCKS 1
-#define ETHR_HAVE_OPTIMIZED_RWSPINLOCKS 1
-
-#if defined(ETHR_HAVE_NATIVE_ATOMIC32)
-typedef ethr_native_atomic32_t ethr_native_rwlock_t;
-#  define ETHR_NAINT_T__ ethr_sint32_t
-#  define ETHR_WLOCK_FLAG__ (((ethr_sint32_t) 1) << 30)
-#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic32_ ## X
-#elif defined(ETHR_HAVE_NATIVE_ATOMIC64)
-typedef ethr_native_atomic64_t ethr_native_rwlock_t;
-#  define ETHR_NAINT_T__ ethr_sint64_t
-#  define ETHR_WLOCK_FLAG__ (((ethr_sint64_t) 1) << 62)
-#  define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
-#else
-#  error "Missing native atomic implementation"
 #endif
+
+
+#if defined(ETHR_HAVE_NATIVE_RWSPINLOCKS)
 
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+
+static ETHR_INLINE int
+ethr_native_rwlock_destroy(ethr_native_rwlock_t *lock)
+{
+    return 0;
+}
+
+#endif
+
+#elif defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+/* --- Native rwspinlocks using native atomics ------------------------------ */
+#define ETHR_HAVE_NATIVE_RWSPINLOCKS 1
+#define ETHR_NATIVE_RWSPINLOCK_IMPL "native-atomics"
+
+typedef ethr_atomic32_t ethr_native_rwlock_t;
+#  define ETHR_WLOCK_FLAG__ (((ethr_sint32_t) 1) << 30)
+
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
+
+#undef ETHR_NRWSPN_AOP__
+#define ETHR_NRWSPN_AOP__(X) ETHR_INLINE_ATMC32_FUNC_NAME_(ethr_atomic32_ ## X)
 
 static ETHR_INLINE void
 ethr_native_rwlock_init(ethr_native_rwlock_t *lock)
 {
-    ETHR_NATMC_FUNC__(init)(lock, 0);
+    ETHR_NRWSPN_AOP__(init)(lock, 0);
+}
+
+static ETHR_INLINE int
+ethr_native_rwlock_destroy(ethr_native_rwlock_t *lock)
+{
+    return ETHR_NRWSPN_AOP__(read)(lock) == 0 ? 0 : EBUSY;
 }
 
 static ETHR_INLINE void
 ethr_native_read_unlock(ethr_native_rwlock_t *lock)
 {
-    ETHR_COMPILER_BARRIER;
-#ifdef DEBUG
-    ETHR_ASSERT(ETHR_NATMC_FUNC__(read)(lock) >= 0);
-#endif
-    ETHR_NATMC_FUNC__(dec_relb)(lock);
+    ETHR_ASSERT(ETHR_NRWSPN_AOP__(read)(lock) >= 0);
+    ETHR_NRWSPN_AOP__(dec_relb)(lock);
 }
 
 static ETHR_INLINE void
 ethr_native_read_lock(ethr_native_rwlock_t *lock)
 {
-    ETHR_NAINT_T__ act, exp = 0;
+    ethr_sint32_t act, exp = 0;
     while (1) {
-	act = ETHR_NATMC_FUNC__(cmpxchg_acqb)(lock, exp+1, exp);
+	act = ETHR_NRWSPN_AOP__(cmpxchg_acqb)(lock, exp+1, exp);
 	if (act == exp)
 	    break;
+	/* Wait for writer to leave */
 	while (act & ETHR_WLOCK_FLAG__) {
 	    ETHR_SPIN_BODY;
-	    act = ETHR_NATMC_FUNC__(read)(lock);
+	    act = ETHR_NRWSPN_AOP__(read)(lock);
 	}
 	exp = act;
     }
@@ -173,36 +193,37 @@ ethr_native_read_lock(ethr_native_rwlock_t *lock)
 static ETHR_INLINE void
 ethr_native_write_unlock(ethr_native_rwlock_t *lock)
 {
-    ETHR_COMPILER_BARRIER;
-    ETHR_ASSERT(ETHR_NATMC_FUNC__(read)(lock) == ETHR_WLOCK_FLAG__);
-    ETHR_NATMC_FUNC__(set_relb)(lock, 0);
+    ETHR_ASSERT(ETHR_NRWSPN_AOP__(read)(lock) == ETHR_WLOCK_FLAG__);
+    ETHR_NRWSPN_AOP__(set_relb)(lock, 0);
 }
 
 static ETHR_INLINE void
 ethr_native_write_lock(ethr_native_rwlock_t *lock)
 {
-    ETHR_NAINT_T__ act, exp = 0;
+    ethr_sint32_t act, exp = 0;
     while (1) {
-	act = ETHR_NATMC_FUNC__(cmpxchg_acqb)(lock, exp|ETHR_WLOCK_FLAG__, exp);
+	act = ETHR_NRWSPN_AOP__(cmpxchg_acqb)(lock, exp|ETHR_WLOCK_FLAG__, exp);
 	if (act == exp)
 	    break;
-	ETHR_SPIN_BODY;
-	exp = act & ~ETHR_WLOCK_FLAG__;
+	/* Wait for writer to leave */
+	while (act & ETHR_WLOCK_FLAG__) {
+	    ETHR_SPIN_BODY;
+	    act = ETHR_NRWSPN_AOP__(read)(lock);
+	}
+	exp = act;
     }
     act |= ETHR_WLOCK_FLAG__;
     /* Wait for readers to leave */
     while (act != ETHR_WLOCK_FLAG__) {
 	ETHR_SPIN_BODY;
-	act = ETHR_NATMC_FUNC__(read_acqb)(lock);
+	act = ETHR_NRWSPN_AOP__(read_acqb)(lock);
     }
     ETHR_COMPILER_BARRIER;
 }
 
-#endif
+#undef ETHR_NRWSPN_AOP__
 
-#undef ETHR_NAINT_T__
-#undef ETHR_NATMC_FUNC__
-#undef ETHR_WLOCK_FLAG__
+#endif
 
 #endif
 

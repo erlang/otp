@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -28,13 +28,10 @@
 
 /* --- Windows implementation of thread events ------------------------------ */
 
-#pragma intrinsic(_InterlockedExchangeAdd)
-#pragma intrinsic(_InterlockedCompareExchange)
-
 int
 ethr_event_init(ethr_event *e)
 {
-    e->state = ETHR_EVENT_OFF__;
+    ethr_atomic32_init(&e->state, ETHR_EVENT_OFF__);
     e->handle = CreateEvent(NULL, FALSE, FALSE, NULL);
     if (e->handle == INVALID_HANDLE_VALUE)
 	return ethr_win_get_errno__();
@@ -63,7 +60,6 @@ ethr_event_reset(ethr_event *e)
 static ETHR_INLINE int
 wait(ethr_event *e, int spincount)
 {
-    LONG state;
     DWORD code;
     int sc, res, until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
 
@@ -73,13 +69,9 @@ wait(ethr_event *e, int spincount)
     sc = spincount;
 
     while (1) {
-	long on;
+	ethr_sint32_t state;
 	while (1) {
-#if ETHR_READ_AND_SET_WITHOUT_INTERLOCKED_OP__
-	    state = e->state;
-#else
-	    state = _InterlockedExchangeAdd(&e->state, (LONG) 0);
-#endif
+	    state = ethr_atomic32_read(&e->state);
 	    if (state == ETHR_EVENT_ON__)
 		return 0;
 	    if (sc == 0)
@@ -95,9 +87,9 @@ wait(ethr_event *e, int spincount)
 	}
 
 	if (state != ETHR_EVENT_OFF_WAITER__) {
-	    state = _InterlockedCompareExchange(&e->state,
-						ETHR_EVENT_OFF_WAITER__,
-						ETHR_EVENT_OFF__);
+	    state = ethr_atomic32_cmpxchg(&e->state,
+					  ETHR_EVENT_OFF_WAITER__,
+					  ETHR_EVENT_OFF__);
 	    if (state == ETHR_EVENT_ON__)
 		return 0;
 	    ETHR_ASSERT(state == ETHR_EVENT_OFF__);
