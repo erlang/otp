@@ -1748,7 +1748,7 @@ bind_opaque_pats(GenType, Type, Pat, Map, State, Rev) ->
 
 bind_guard(Guard, Map, State) ->
   try bind_guard(Guard, Map, dict:new(), pos, State) of
-      {Map1, _Type} -> Map1
+    {Map1, _Type} -> Map1
   catch
     throw:{fail, Warning} -> {error, Warning};
     throw:{fatal_fail, Warning} -> {error, Warning}
@@ -2274,7 +2274,7 @@ handle_guard_and(Guard, Map, Env, Eval, State) ->
 handle_guard_or(Guard, Map, Env, Eval, State) ->
   [Arg1, Arg2] = cerl:call_args(Guard),
   case Eval of
-	pos ->
+    pos ->
       {Map1, Bool1} =
 	try bind_guard(Arg1, Map, Env, pos, State)
 	catch
