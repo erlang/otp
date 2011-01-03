@@ -2250,24 +2250,30 @@ handle_guard_and(Guard, Map, Env, Eval, State) ->
 	catch throw:{fail, _} -> bind_guard(Arg2, Map, Env, pos, State)
 	end,
       {Map2, Type2} =
-	try bind_guard(Arg1, Map, Env, neg, State)
-	catch throw:{fail, _} -> bind_guard(Arg2, Map, Env, pos, State)
+	try bind_guard(Arg2, Map, Env, neg, State)
+	catch throw:{fail, _} -> bind_guard(Arg1, Map, Env, pos, State)
 	end,
       case t_is_atom(false, Type1) orelse t_is_atom(false, Type2) of
 	true -> {join_maps([Map1, Map2], Map), t_atom(false)};
 	false -> throw({fail, none})
       end;
     dont_know ->
-      True = t_atom(true),
       {Map1, Type1} = bind_guard(Arg1, Map, Env, dont_know, State),
-      case t_is_none(t_inf(Type1, t_boolean())) of
-	true -> throw({fail, none});
+      {Map2, Type2} = bind_guard(Arg2, Map, Env, dont_know, State),
+      Bool1 = t_inf(Type1, t_boolean()),
+      Bool2 = t_inf(Type2, t_boolean()),
+      case t_is_none(Bool1) orelse t_is_none(Bool2) of
+	true -> throw({fatal_fail, none});
 	false ->
-	  {Map2, Type2} = bind_guard(Arg2, Map1, Env, Eval, State),
-	  case t_is_none(t_inf(Type2, t_boolean())) of
-	    true -> throw({fail, none});
-	    false -> {Map2, True}
-	  end
+	  NewMap = join_maps([Map1, Map2], Map),
+	  NewType =
+	    case {t_atom_vals(Bool1), t_atom_vals(Bool2)} of
+	      {['true'] , ['true'] } -> t_atom(true);
+	      {['false'], _        } -> t_atom(false);
+	      {_        , ['false']} -> t_atom(false);
+	      {_        , _        } -> t_boolean()
+	    end,
+	  {NewMap, NewType}
       end
   end.
 
@@ -2303,11 +2309,22 @@ handle_guard_or(Guard, Map, Env, Eval, State) ->
 	  end
       end;
     dont_know ->
-      {Map1, Bool1} = bind_guard(Arg1, Map, Env, dont_know, State),
-      {Map2, Bool2} = bind_guard(Arg2, Map, Env, dont_know, State),
-      case t_is_boolean(Bool1) andalso t_is_boolean(Bool2) of
-	true -> {join_maps([Map1, Map2], Map), t_sup(Bool1, Bool2)};
-	false -> throw({fail, none})
+      {Map1, Type1} = bind_guard(Arg1, Map, Env, dont_know, State),
+      {Map2, Type2} = bind_guard(Arg2, Map, Env, dont_know, State),
+      Bool1 = t_inf(Type1, t_boolean()),
+      Bool2 = t_inf(Type2, t_boolean()),
+      case t_is_none(Bool1) orelse t_is_none(Bool2) of
+	true -> throw({fatal_fail, none});
+	false ->
+	  NewMap = join_maps([Map1, Map2], Map),
+	  NewType =
+	    case {t_atom_vals(Bool1), t_atom_vals(Bool2)} of
+	      {['false'], ['false']} -> t_atom(false);
+	      {['true'] , _        } -> t_atom(true);
+	      {_        , ['true'] } -> t_atom(true);
+	      {_        , _        } -> t_boolean()
+	    end,
+	  {NewMap, NewType}
       end
   end.
 
