@@ -82,6 +82,11 @@ TESTCASE(compare_list) {
     // erlang:term_to_binary([34,{a,n},a,erlang])
     unsigned char term2[] = {131,108,0,0,0,4,97,34,104,2,100,0,1,97,100,0,1,110,100,0,1,97,100,0,6,101,114,108,97,110,103,106};
 
+    // erlang:term_to_binary([0])
+    unsigned char term3[] = {131,107,0,1,0};
+    // erlang:term_to_binary([0, 1000])
+    unsigned char term4[] = {131,108,0,0,0,2,97,0,98,0,0,3,232,106};
+
     erl_init(NULL, 0);
     start_a = term1;
     start_b = term2;
@@ -89,6 +94,13 @@ TESTCASE(compare_list) {
     end_b   = term2 + 32;
     
     test_compare_ext("lists", start_a, end_a, start_b, end_b, 1);
+
+    start_a = term3;
+    start_b = term4;
+    end_a   = term3 + sizeof(term3);
+    end_b   = term4 + sizeof(term4);
+
+    test_compare_ext("lists1", start_a, end_a, start_b, end_b, -1);
 
     report(1);
 }

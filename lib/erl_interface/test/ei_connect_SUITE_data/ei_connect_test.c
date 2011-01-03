@@ -35,6 +35,7 @@
 static void cmd_ei_connect_init(char* buf, int len);
 static void cmd_ei_connect(char* buf, int len);
 static void cmd_ei_send(char* buf, int len);
+static void cmd_ei_format_pid(char* buf, int len);
 static void cmd_ei_send_funs(char* buf, int len);
 static void cmd_ei_reg_send(char* buf, int len);
 static void cmd_ei_rpc(char* buf, int len);
@@ -57,6 +58,7 @@ static struct {
     "ei_reg_send", 	     3, cmd_ei_reg_send,
     "ei_rpc",  		     4, cmd_ei_rpc,
     "ei_set_get_tracelevel", 1, cmd_ei_set_get_tracelevel,
+    "ei_format_pid",         2, cmd_ei_format_pid,
 };
 
 
@@ -111,7 +113,7 @@ static void cmd_ei_connect_init(char* buf, int len)
     ei_x_buff res;
     if (ei_decode_long(buf, &index, &l) < 0)
 	fail("expected int");
-    sprintf(b, "c%d", l);
+    sprintf(b, "c%ld", l);
     /* FIXME don't use internal and maybe use skip?! */
     ei_get_type_internal(buf, &index, &type, &size);
     if (ei_decode_atom(buf, &index, cookie) < 0)
@@ -179,6 +181,25 @@ static void cmd_ei_send(char* buf, int len)
 	fail("ei_x_new_with_version");
     if (ei_x_append_buf(&x, &buf[index], len - index) < 0)
 	fail("append");
+    send_errno_result(ei_send(fd, &pid, x.buff, x.index));
+    ei_x_free(&x);
+}
+
+static void cmd_ei_format_pid(char* buf, int len)
+{
+    int index = 0;
+    long fd;
+    erlang_pid pid;
+    ei_x_buff x;
+
+    if (ei_decode_long(buf, &index, &fd) < 0)
+	fail("expected long");
+    if (ei_decode_pid(buf, &index, &pid) < 0)
+	fail("expected pid (node)");
+    if (ei_x_new_with_version(&x) < 0)
+	fail("ei_x_new_with_version");
+    if (ei_x_format_wo_ver(&x, "~p", &pid) < 0)
+	fail("ei_x_format_wo_ver");
     send_errno_result(ei_send(fd, &pid, x.buff, x.index));
     ei_x_free(&x);
 }

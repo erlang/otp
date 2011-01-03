@@ -42,6 +42,8 @@ all(suite) ->
 basic(suite) -> [];
 basic(Config) when is_list(Config) ->
     case os:type() of
+	{unix, linux} ->
+	    do_basic(Config);
 	{unix, sunos} ->
 	    do_basic(Config);
 	{win32,_} ->

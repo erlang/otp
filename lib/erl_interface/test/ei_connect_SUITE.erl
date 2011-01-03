@@ -30,6 +30,7 @@
 
 	ei_send/1, 
 	ei_reg_send/1, 
+	ei_format_pid/1,
 	ei_rpc/1, 
 	rpc_test/1, 
 	ei_send_funs/1,
@@ -41,6 +42,7 @@
 
 all(suite) -> [ ei_send, 
 		ei_reg_send, 
+		ei_format_pid,
 		ei_rpc, 
 		ei_send_funs, 
 		ei_threaded_send,
@@ -62,6 +64,19 @@ ei_send(Config) when is_list(Config) ->
 
     ?line ok = ei_send(P, Fd, self(), AMsg={a,message}),
     ?line receive AMsg -> ok end,
+
+    ?line runner:send_eot(P),
+    ?line runner:recv_eot(P),
+    ok.
+
+ei_format_pid(Config) when is_list(Config) ->
+    ?line S = self(),
+    ?line P = runner:start(?interpret),
+    ?line 0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    ?line {ok,Fd} = ei_connect(P, node()),
+
+    ?line ok = ei_format_pid(P, Fd, S),
+    ?line receive S -> ok end,
 
     ?line runner:send_eot(P),
     ?line runner:recv_eot(P),
@@ -187,6 +202,10 @@ ei_set_get_tracelevel(P, Tracelevel) ->
 
 ei_send(P, Fd, To, Msg) ->
     send_command(P, ei_send, [Fd,To,Msg]),
+    get_send_result(P).
+
+ei_format_pid(P, Fd, To) ->
+    send_command(P, ei_format_pid, [Fd, To]),
     get_send_result(P).
 
 ei_send_funs(P, Fd, To, Msg) ->
