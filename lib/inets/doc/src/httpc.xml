@@ -576,7 +576,7 @@ apply(Module, Function, [ReplyInfo | Args])
 
     <func>
       <name>cookie_header(Url) -> </name>
-      <name>cookie_header(Url, Profile) -> header() | {error, Rason}</name>
+      <name>cookie_header(Url, Profile) -> header() | {error, Reason}</name>
       <fsummary>Returns the cookie header that would be sent when
       making a request to Url using the profile <c>Profile</c>.</fsummary>
       <type>
