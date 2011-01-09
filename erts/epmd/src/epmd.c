@@ -433,7 +433,7 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        List names registered with the currently "
 	    "running epmd\n");
     fprintf(stderr, "    -kill\n");
-    fprintf(stderr, "        Kill the currently runniing epmd\n");
+    fprintf(stderr, "        Kill the currently running epmd\n");
     fprintf(stderr, "        (only allowed if -names show empty database or\n");
     fprintf(stderr, "        -relaxed_command_check was given when epmd was started).\n");
     fprintf(stderr, "    -stop Name\n");
