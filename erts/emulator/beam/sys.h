@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -335,8 +335,8 @@ typedef unsigned char byte;
 
 #ifdef ERTS_WANT_BREAK_HANDLING
 #  ifdef ERTS_SMP
-extern erts_smp_atomic_t erts_break_requested;
-#    define ERTS_BREAK_REQUESTED ((int) erts_smp_atomic_read(&erts_break_requested))
+extern erts_smp_atomic32_t erts_break_requested;
+#    define ERTS_BREAK_REQUESTED ((int) erts_smp_atomic32_read(&erts_break_requested))
 #  else
 extern volatile int erts_break_requested;
 #    define ERTS_BREAK_REQUESTED erts_break_requested
@@ -349,8 +349,8 @@ void erts_do_break_handling(void);
 #    define ERTS_GOT_SIGUSR1 0
 #  else
 #    ifdef ERTS_SMP
-extern erts_smp_atomic_t erts_got_sigusr1;
-#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic_read(&erts_got_sigusr1))
+extern erts_smp_atomic32_t erts_got_sigusr1;
+#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic32_read(&erts_got_sigusr1))
 #    else
 extern volatile int erts_got_sigusr1;
 #      define ERTS_GOT_SIGUSR1 erts_got_sigusr1

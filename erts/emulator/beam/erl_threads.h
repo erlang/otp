@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -175,6 +175,9 @@ typedef struct { int gcc_is_buggy; } erts_rwlock_t;
 #endif /* #ifdef USE_THREADS */
 
 #define ERTS_AINT_T_MAX (~(((erts_aint_t) 1) << (sizeof(erts_aint_t)*8-1)))
+#define ERTS_AINT_T_MIN ((((erts_aint_t) 1) << (sizeof(erts_aint_t)*8-1)))
+#define ERTS_AINT32_T_MAX (~(((erts_aint32_t) 1) << (sizeof(erts_aint32_t)*8-1)))
+#define ERTS_AINT32_T_MIN ((((erts_aint32_t) 1) << (sizeof(erts_aint32_t)*8-1)))
 
 ERTS_GLB_INLINE void erts_thr_init(erts_thr_init_data_t *id);
 ERTS_GLB_INLINE void erts_thr_late_init(erts_thr_late_init_data_t *id);
