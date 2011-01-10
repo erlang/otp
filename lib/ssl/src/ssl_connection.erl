@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1096,6 +1096,7 @@ init_private_key({rsa, PrivateKey}, _, _,_) ->
 init_private_key({dsa, PrivateKey},_,_,_) ->
     public_key:der_decode('DSAPrivateKey', PrivateKey).
 
+-spec(handle_file_error/6 :: (_,_,_,_,_,_) -> no_return()).
 handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->
     file_error(Line, Error, Reason, File, Throw, Stack);
 handle_file_error(Line, Error, Reason, File, Throw, Stack) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,6 +49,27 @@
 		 inet_ssl,          %% inet options for internal ssl socket 
 		 cb                 %% Callback info
 		}).
+-type option()       :: socketoption() | ssloption() | transportoption().
+-type socketoption() :: [{property(), term()}]. %% See gen_tcp and inet
+-type property()     :: atom().
+
+-type ssloption()    :: {verify, verify_type()} |
+			{verify_fun, {fun(), InitialUserState::term()}} |
+                        {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
+                        {cert, der_encoded()} | {certfile, path()} | {key, der_encoded()} |
+                        {keyfile, path()} | {password, string()} | {cacerts, [der_encoded()]} |
+                        {cacertfile, path()} | {dh, der_encoded()} | {dhfile, path()} |
+                        {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
+                        {reuse_session, fun()}.
+
+-type verify_type()  :: verify_none | verify_peer.
+-type path()         :: string().
+-type ciphers()      :: [erl_cipher_suite()] |
+			string(). % (according to old API)
+-type ssl_imp()      :: new | old.
+
+-type transportoption() :: {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom()}.
+
 
 %%--------------------------------------------------------------------
 -spec start() -> ok.
@@ -77,8 +98,8 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
--spec connect(host() | port(), list()) -> {ok, #sslsocket{}}.
--spec connect(host() | port(), list() | port_num(), timeout() | list()) -> {ok, #sslsocket{}}.
+-spec connect(host() | port(), [option()]) -> {ok, #sslsocket{}}.
+-spec connect(host() | port(), [option()] | port_num(), timeout() | list()) -> {ok, #sslsocket{}}.
 -spec connect(host() | port(), port_num(), list(), timeout()) -> {ok, #sslsocket{}}.      
 
 %%
@@ -126,7 +147,7 @@ connect(Host, Port, Options0, Timeout) ->
     end.
 
 %%--------------------------------------------------------------------
--spec listen(port_num(), list()) ->{ok, #sslsocket{}} | {error, reason()}.
+-spec listen(port_num(), [option()]) ->{ok, #sslsocket{}} | {error, reason()}.
 		    
 %%
 %% Description: Creates a ssl listen socket.
@@ -189,9 +210,10 @@ transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
     ssl_broker:transport_accept(Pid, ListenSocket, Timeout).
 
 %%--------------------------------------------------------------------
--spec ssl_accept(#sslsocket{}) -> {ok, #sslsocket{}} | {error, reason()}.
--spec ssl_accept(#sslsocket{}, list() | timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
--spec ssl_accept(port(), list(), timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
+-spec ssl_accept(#sslsocket{}) -> ok | {error, reason()}.
+-spec ssl_accept(#sslsocket{} | port(), timeout()| [option()]) ->
+			ok | {ok, #sslsocket{}} | {error, reason()}.
+-spec ssl_accept(port(), [option()], timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on a ssl listen socket. e.i. performs
 %%              ssl handshake. 
