@@ -19,8 +19,9 @@
 
 %%% @doc TS Installed SCB
 %%%
-%%% This module does what the ts:install/0 command combined with the make
-%%% parts of the ts:run/x command did. 
+%%% This module does what the make parts of the ts:run/x command did,
+%%% but not the Makefile.first parts! So they have to be done by ts or
+%%% manually!!
 
 -module(ts_install_scb).
 
@@ -106,9 +107,7 @@ pre_init_per_suite(_Suite,Config,State) ->
 	
 	make_non_erlang(DataDir, Variables),
 
-	{lists:keystore(nodenames, 1, Config, 
-			{nodenames,generate_nodenames(State#state.nodenames)}),
-			State}
+	{add_node_name(Config, State), State}
     catch Error:Reason ->
 	    Stack = erlang:get_stacktrace(),
 	    ct:pal("~p failed! ~p:{~p,~p}",[?MODULE,Error,Reason,Stack]),
@@ -148,7 +147,7 @@ post_end_per_suite(_Suite,_Config,Return,State) ->
 			 State :: #state{}) ->
 	{config() | skip_or_fail(), NewState :: #state{}}.
 pre_init_per_group(_Group,Config,State) ->
-    {Config, State}.
+    {add_node_name(Config, State), State}.
 
 %% @doc Called after each init_per_group.
 -spec post_init_per_group(Group :: atom(),
@@ -182,7 +181,7 @@ post_end_per_group(_Group,_Config,Return,State) ->
 			    State :: #state{}) ->
 	{config() | skip_or_fail(), NewState :: #state{}}.
 pre_init_per_testcase(_TC,Config,State) ->
-    {Config, State}.
+    {add_node_name(Config, State), State}.
 
 %% @doc Called after each test case. 
 -spec post_end_per_testcase(TC :: atom(),
@@ -283,6 +282,17 @@ get_mtime(File) ->
 	    MTime;
 	_Else ->
 	    {{0,0,0},{0,0,0}}
+    end.
+
+%% Add a nodename to config if it does not exist
+add_node_name(Config, State) ->
+    case proplists:get_value(nodenames, Config) of
+	undefined ->
+	    lists:keystore(
+	       nodenames, 1, Config, 
+	       {nodenames,generate_nodenames(State#state.nodenames)});
+	_Else ->
+	    Config
     end.
 
 
