@@ -2,7 +2,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -157,20 +157,10 @@ void run(EpmdVars *g)
 
   dbg_printf(g,2,"starting");
 
-  if(listen(listensock, SOMAXCONN) < 0)
-    {
-      if (errno == EADDRINUSE)
-	{
-	  dbg_tty_printf(g,1,"there is already a epmd running at port %d",
-			 g->port);
-	  epmd_cleanup_exit(g,0);
-	}
-      else
-	{
-	  dbg_perror(g,"failed to listen on socket");
-	  epmd_cleanup_exit(g,1);
-	}
-    }
+  if(listen(listensock, SOMAXCONN) < 0) {
+      dbg_perror(g,"failed to listen on socket");
+      epmd_cleanup_exit(g,1);
+  }
 
   FD_ZERO(&g->orig_read_mask);
   FD_SET(listensock,&g->orig_read_mask);
