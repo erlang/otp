@@ -1791,15 +1791,18 @@ restart:
 	    pc += TermWords(2);
 	    ++ep;
 	    break;
-	case matchEqRef:
+	case matchEqRef: {
+	    Eterm* epc = (Eterm*)pc;
 	    if (!is_ref_rel(*ep,base))
 		FAIL();
-	    if (!eq_rel(make_internal_ref((Uint *) pc), NULL, *ep, base))
+	    if (!eq_rel(make_internal_ref_rel(epc, epc), epc, *ep, base)) {
 		FAIL();
-	    i = thing_arityval(*((Uint *) pc));
+	    }
+	    i = thing_arityval(*epc);
 	    pc += TermWords(i+1);
 	    ++ep;
 	    break;
+	}
 	case matchEqBig:
 	    if (!is_big_rel(*ep,base))
 		FAIL();
@@ -3143,6 +3146,8 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*stack, c);
 	    break;
 	case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
+	{
+	    Eterm* ref_val = internal_ref_val(c);
 	    DMC_PUSH(*text, matchEqRef);
 #if HALFWORD_HEAP
 	    {
@@ -3150,25 +3155,27 @@ static DMCRet dmc_one_term(DMCContext *context,
 		    UWord u;
 		    Uint t[2];
 		} fiddle;
-		ASSERT(thing_arityval(*internal_ref_val(c)) == 3);
-		fiddle.t[0] = *internal_ref_val(c);
-		fiddle.t[1] = (Uint) internal_ref_val(c)[1];
+		ASSERT(thing_arityval(ref_val[0]) == 3);
+		fiddle.t[0] = ref_val[0];
+		fiddle.t[1] = ref_val[1];
 		DMC_PUSH(*text, fiddle.u);
-		fiddle.t[0] = (Uint) internal_ref_val(c)[2];
-		fiddle.t[1] = (Uint) internal_ref_val(c)[3];
+		fiddle.t[0] = ref_val[2];
+		fiddle.t[1] = ref_val[3];
 		DMC_PUSH(*text, fiddle.u);
 	    }
 #else
-	    n = thing_arityval(*internal_ref_val(c));
-	    DMC_PUSH(*text, *internal_ref_val(c));
-	    for (i = 1; i <= n; ++i) {
-		DMC_PUSH(*text, (Uint) internal_ref_val(c)[i]);
+	    n = thing_arityval(ref_val[0]);
+	    for (i = 0; i <= n; ++i) {
+		DMC_PUSH(*text, ref_val[i]);
 	    }
 #endif
 	    break;
+	}
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-	    n = thing_arityval(*big_val(c));
+	{
+	    Eterm* bval = big_val(c);
+	    n = thing_arityval(bval[0]);
 	    DMC_PUSH(*text, matchEqBig);
 #if HALFWORD_HEAP
 	    {
@@ -3177,13 +3184,13 @@ static DMCRet dmc_one_term(DMCContext *context,
 		    Uint t[2];
 		} fiddle;
 		ASSERT(n >= 1);
-		fiddle.t[0] = *big_val(c);
-		fiddle.t[1] = big_val(c)[1];
+		fiddle.t[0] = bval[0];
+		fiddle.t[1] = bval[1];
 		DMC_PUSH(*text, fiddle.u);
 		for (i = 2; i <= n; ++i) {
-		    fiddle.t[0] = big_val(c)[i];
+		    fiddle.t[0] = bval[i];
 		    if (++i <= n) {
-			fiddle.t[1] = big_val(c)[i];
+			fiddle.t[1] = bval[i];
 		    } else {
 			fiddle.t[1] = (Uint) 0;
 		    }
@@ -3191,12 +3198,12 @@ static DMCRet dmc_one_term(DMCContext *context,
 		}
 	    }
 #else
-	    DMC_PUSH(*text, *big_val(c));
-	    for (i = 1; i <= n; ++i) {
-		DMC_PUSH(*text, (Uint) big_val(c)[i]);
+	    for (i = 0; i <= n; ++i) {
+		DMC_PUSH(*text, (Uint) bval[i]);
 	    }
 #endif
 	    break;
+	}
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    DMC_PUSH(*text,matchEqFloat);
 #if HALFWORD_HEAP

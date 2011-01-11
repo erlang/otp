@@ -1137,6 +1137,7 @@ extern unsigned tag_val_def(Wterm);
 #define make_binary_rel make_boxed_rel
 #define make_tuple_rel make_boxed_rel
 #define make_external_rel make_boxed_rel
+#define make_internal_ref_rel make_boxed_rel
 
 #define binary_val_rel(RTERM, BASE) binary_val(rterm2wterm(RTERM, BASE))
 #define list_val_rel(RTERM, BASE) list_val(rterm2wterm(RTERM, BASE))

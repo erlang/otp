@@ -602,8 +602,9 @@ static ERTS_INLINE MemKind* type2mk(ErtsAlcType_t atype)
 #if HALFWORD_HEAP
     switch (atype) {
     case ERTS_ALC_A_ETS:
-    //case ERTS_ALC_A_BINARY:
-    //case ERTS_ALC_A_FIXED_SIZE:
+    case ERTS_ALC_A_BINARY:
+    case ERTS_ALC_A_FIXED_SIZE:
+    case ERTS_ALC_A_DRIVER:
 	return &hi_mem;
     default:
 	return &low_mem;

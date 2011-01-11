@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -939,21 +939,26 @@ ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, Eterm car, Eterm cdr)
 
 ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)
 {
-    Eterm* hp = alloc_heap(env,cnt*2);
-    Eterm ret = make_list(hp);
-    Eterm* last = &ret;
-    va_list ap;
-
-    va_start(ap,cnt);
-    while (cnt--) {
-	*last = make_list(hp);
-	*hp = va_arg(ap,Eterm);
-	last = ++hp;
-	++hp;
+    if (cnt == 0) {
+	return NIL;
     }
-    va_end(ap);
-    *last = NIL;
-    return ret;
+    else {
+	Eterm* hp = alloc_heap(env,cnt*2);
+	Eterm ret = make_list(hp);
+	Eterm* last = &ret;
+	va_list ap;
+
+	va_start(ap,cnt);
+	while (cnt--) {
+	    *last = make_list(hp);
+	    *hp = va_arg(ap,Eterm);
+	    last = ++hp;
+	    ++hp;
+	}
+	va_end(ap);
+	*last = NIL;
+	return ret;
+    }
 }
 
 ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)
