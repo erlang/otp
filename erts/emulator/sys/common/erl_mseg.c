@@ -171,6 +171,7 @@ struct mem_kind_t {
     Uint cache_size;
     Uint min_cached_seg_size;
     Uint max_cached_seg_size;
+    Uint cache_hits;
 
     struct {
 	struct {
@@ -188,6 +189,7 @@ struct mem_kind_t {
 	} max_ever;
     } segments;
 
+    const char* name;
     MemKind* next;
 };/*MemKind*/
 
@@ -198,7 +200,6 @@ static MemKind the_mem;
 #endif
 static MemKind* mk_list = NULL;
 
-static Uint cache_hits;
 static Uint max_cache_size;
 static Uint abs_max_cache_bad_fit;
 static Uint rel_max_cache_bad_fit;
@@ -708,7 +709,7 @@ mseg_alloc(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
 	goto create_seg;
     }
 
-    cache_hits++;
+    mk->cache_hits++;
 
     size = cand_cd->size;
     seg = cand_cd->seg;
@@ -929,6 +930,8 @@ static struct {
     Eterm mcs;
     Eterm cci;
 
+    Eterm memkind;
+    Eterm name;
     Eterm status;
     Eterm cached_segments;
     Eterm cache_hits;
@@ -978,6 +981,8 @@ init_atoms(void)
 #endif
 
 	AM_INIT(version);
+	AM_INIT(memkind);
+	AM_INIT(name);
 
 	AM_INIT(options);
 	AM_INIT(amcbf);
@@ -1188,14 +1193,10 @@ info_calls(int *print_to_p, void *print_to_arg, Uint **hpp, Uint *szp)
 }
 
 static Eterm
-info_status(int *print_to_p,
-	    void *print_to_arg,
-	    int begin_new_max_period,
-	    Uint **hpp,
-	    Uint *szp)
+info_status(MemKind* mk, int *print_to_p, void *print_to_arg,
+	    int begin_new_max_period, Uint **hpp, Uint *szp)
 {
     Eterm res = THE_NON_VALUE;
-    MemKind* mk = type2mk(0); // SVERK cheat
     
     if (mk->segments.max_ever.no < mk->segments.max.no)
 	mk->segments.max_ever.no = mk->segments.max.no;
@@ -1207,7 +1208,7 @@ info_status(int *print_to_p,
 	void *arg = print_to_arg;
 
 	erts_print(to, arg, "cached_segments: %bpu\n", mk->cache_size);
-	erts_print(to, arg, "cache_hits: %bpu\n", cache_hits);
+	erts_print(to, arg, "cache_hits: %bpu\n", mk->cache_hits);
 	erts_print(to, arg, "segments: %bpu %bpu %bpu\n",
 		   mk->segments.current.no, mk->segments.max.no, mk->segments.max_ever.no);
 	erts_print(to, arg, "segments_size: %bpu %bpu %bpu\n",
@@ -1233,7 +1234,7 @@ info_status(int *print_to_p,
 		 bld_unstable_uint(hpp, szp, mk->segments.max_ever.no));
 	add_2tup(hpp, szp, &res,
 		 am.cache_hits,
-		 bld_unstable_uint(hpp, szp, cache_hits));
+		 bld_unstable_uint(hpp, szp, mk->cache_hits));
 	add_2tup(hpp, szp, &res,
 		 am.cached_segments,
 		 bld_unstable_uint(hpp, szp, mk->cache_size));
@@ -1247,6 +1248,32 @@ info_status(int *print_to_p,
 
     return res;
 }
+
+static Eterm info_memkind(MemKind* mk, int *print_to_p, void *print_to_arg,
+			  int begin_max_per, Uint **hpp, Uint *szp)
+{
+    Eterm res = THE_NON_VALUE;
+    Eterm atoms[3];
+    Eterm values[3];
+
+    if (print_to_p) {
+	erts_print(*print_to_p, print_to_arg, "memory kind: %s\n", mk->name);
+    }
+    if (hpp || szp) {
+	atoms[0] = am.name;
+	atoms[1] = am.status;
+	atoms[2] = am.calls;
+	values[0] = erts_bld_string(hpp, szp, mk->name);
+    }
+    values[1] = info_status(mk, print_to_p, print_to_arg, begin_max_per, hpp, szp);
+    values[2] = info_calls(print_to_p, print_to_arg, hpp, szp);
+
+    if (hpp || szp)
+	res = bld_2tup_list(hpp, szp, 3, atoms, values);
+
+    return res;
+}
+
 
 static Eterm
 info_version(int *print_to_p, void *print_to_arg, Uint **hpp, Uint *szp)
@@ -1294,6 +1321,7 @@ erts_mseg_info(int *print_to_p,
     Eterm res = THE_NON_VALUE;
     Eterm atoms[4];
     Eterm values[4];
+    Uint n = 0;
 
     erts_mtx_lock(&mseg_mutex);
 
@@ -1304,17 +1332,19 @@ erts_mseg_info(int *print_to_p,
 
 	atoms[0] = am.version;
 	atoms[1] = am.options;
-	atoms[2] = am.status;
-	atoms[3] = am.calls;
+	atoms[2] = am.memkind;
+	atoms[3] = am.memkind;
     }
-
-    values[0] = info_version(print_to_p, print_to_arg, hpp, szp);
-    values[1] = info_options("option ", print_to_p, print_to_arg, hpp, szp);
-    values[2] = info_status(print_to_p, print_to_arg, begin_max_per, hpp, szp);
-    values[3] = info_calls(print_to_p, print_to_arg, hpp, szp);
-
+    values[n++] = info_version(print_to_p, print_to_arg, hpp, szp);
+    values[n++] = info_options("option ", print_to_p, print_to_arg, hpp, szp);
+#if HALFWORD_HEAP
+    values[n++] = info_memkind(&low_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
+    values[n++] = info_memkind(&hi_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
+#else
+    values[n++] = info_memkind(&the_mem, print_to_p, print_to_arg, begin_max_per, hpp, szp);
+#endif
     if (hpp || szp)
-	res = bld_2tup_list(hpp, szp, 4, atoms, values);
+	res = bld_2tup_list(hpp, szp, n, atoms, values);
 
     erts_mtx_unlock(&mseg_mutex);
 
@@ -1400,7 +1430,7 @@ erts_mseg_unit_size(void)
     return page_size;
 }
 
-static void mem_kind_init(MemKind* mk)
+static void mem_kind_init(MemKind* mk, const char* name)
 {
     unsigned i;
 
@@ -1409,6 +1439,7 @@ static void mem_kind_init(MemKind* mk)
     mk->max_cached_seg_size = 0;
     mk->min_cached_seg_size = ~((Uint) 0);
     mk->cache_size = 0;
+    mk->cache_hits = 0;
 
     if (max_cache_size > 0) {
 	for (i = 0; i < max_cache_size - 1; i++)
@@ -1427,6 +1458,7 @@ static void mem_kind_init(MemKind* mk)
     mk->segments.max_ever.no = 0;
     mk->segments.max_ever.sz = 0;
 
+    mk->name = name;
     mk->next = mk_list;
     mk_list = mk;
 }
@@ -1480,13 +1512,11 @@ erts_mseg_init(ErtsMsegInit_t *init)
     if (max_cache_size > MAX_CACHE_SIZE)
 	max_cache_size = MAX_CACHE_SIZE;
 
-    cache_hits = 0;
-
 #if HALFWORD_HEAP
-    mem_kind_init(&low_mem);
-    mem_kind_init(&hi_mem);
+    mem_kind_init(&low_mem, "low memory");
+    mem_kind_init(&hi_mem, "high memory");
 #else
-    mem_kind_init(&the_mem);
+    mem_kind_init(&the_mem, "all memory");
 #endif
 
     is_cache_check_scheduled = 0;
