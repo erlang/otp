@@ -200,7 +200,8 @@ SOURCE = $(ERL_FILES) $(HRL_FILES)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-INETS_SPECS = inets.spec inets.spec.vxworks
+INETS_SPECS = inets.spec
+COVER_FILE = inets.cover
 INETS_FILES = inets.config $(INETS_SPECS)
 
 # SUB_SUITES = \
@@ -222,10 +223,10 @@ MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
 
 ifeq ($(MAKE_EMAKE),)
 BUILDTARGET   = $(TARGET_FILES)
-RELTEST_FILES = $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
 else
 BUILDTARGET   = emakebuild
-RELTEST_FILES = $(EMAKEFILE) $(INETS_SPECS) $(SOURCE)
+RELTEST_FILES = $(EMAKEFILE) $(COVER_FILE) $(INETS_SPECS) $(SOURCE)
 endif
 
 

@@ -45,8 +45,8 @@ HRL_FILES= odbc_test.hrl\
 TARGET_FILES= \
 	$(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-SPEC_FILES = odbc.spec odbc.dynspec \
-	odbc.spec.win 
+SPEC_FILES = odbc.spec
+COVER_FILE = odbc.cover
 
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
@@ -101,7 +101,7 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
 
 
 release_docs_spec:

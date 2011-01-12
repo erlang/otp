@@ -1,5 +1,7 @@
 %% -*- erlang -*-
-{exclude,
+{incl_app,snmp,details}.
+
+{excl_mods,snmp,
  [snmp_index,
   snmpa_error_io, 
   snmpa_authentication_service, 

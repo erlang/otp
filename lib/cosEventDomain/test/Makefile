@@ -34,6 +34,7 @@ RELSYSDIR = $(RELEASE_PATH)/cosEventDomain_test
 # Target Specs
 # ----------------------------------------------------
 TEST_SPEC_FILE = cosEventDomain.spec
+COVER_FILE = cosEventDomain.cover
 
 
 MODULES =  \
@@ -99,6 +100,6 @@ release_docs_spec:
 release_tests_spec: tests
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
-		$(ERL_FILES) $(RELSYSDIR)
+		$(COVER_FILE) $(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(SUITE_TARGET_FILES) $(RELSYSDIR)
 

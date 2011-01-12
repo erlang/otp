@@ -62,7 +62,7 @@ release_spec:
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) wx.spec wx_test_lib.hrl $(ErlSrc) $(ErlTargets) $(RELSYSDIR)
+	$(INSTALL_DATA) wx.spec wx.cover wx_test_lib.hrl $(ErlSrc) $(ErlTargets) $(RELSYSDIR)
 	$(INSTALL_SCRIPT) wxt $(RELSYSDIR)
 
 release_docs_spec:

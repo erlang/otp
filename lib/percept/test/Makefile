@@ -82,7 +82,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) percept.spec $(EMAKEFILE) $(SOURCE) $(RELSYSDIR)
+	$(INSTALL_DATA) percept.spec percept.cover $(EMAKEFILE) $(SOURCE) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

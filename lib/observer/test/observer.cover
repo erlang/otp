@@ -1,2 +1,4 @@
-{exclude,[multitrace]}.
-{include,[observer_backend]}.
+{incl_app,observer,details}.
+
+{excl_mods,observer,[multitrace]}.
+{incl_mods,observer,[observer_backend]}.

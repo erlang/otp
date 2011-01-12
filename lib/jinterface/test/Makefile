@@ -33,6 +33,7 @@ RELSYSDIR = $(RELEASE_PATH)/jinterface_test
 # Target Specs
 # ----------------------------------------------------
 TEST_SPEC_FILE = jinterface.spec
+COVER_FILE = jinterface.cover
 
 MODULES = nc_SUITE \
 	  jinterface_SUITE
@@ -80,5 +81,5 @@ release_docs_spec:
 
 release_tests_spec: tests
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(ERL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(COVER_FILE) $(ERL_FILES) $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
