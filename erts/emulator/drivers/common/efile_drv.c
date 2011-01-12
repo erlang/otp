@@ -385,7 +385,6 @@ struct t_data
 	    ErlDrvBinary *binp;
 	    int           size;
 	    int           offset;
-	    char          name[1];
 	} read_file;
 	struct {
 	    struct t_readdir_buf *first_buf;
@@ -1117,7 +1116,7 @@ static void invoke_read_file(void *data)
 	Sint64 size;
 	
 	if (! (d->result_ok = 
-	       efile_openfile(&d->errInfo, d->c.read_file.name, 
+	       efile_openfile(&d->errInfo, d->b, 
 			      EFILE_MODE_READ, &fd, &size))) {
 	    goto done;
 	}
@@ -3071,7 +3070,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	/* Copy name */
-	FILENAME_COPY(d->c.read_file.name, filename);
+	FILENAME_COPY(d->b, filename);
 	d->c.read_file.binp = NULL;
 	d->invoke = invoke_read_file;
 	d->free = free_read_file;
