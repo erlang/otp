@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1178,6 +1178,9 @@ void process_main(void)
  do_schedule1:
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+#if HALFWORD_HEAP
+    ASSERT(erts_get_scheduler_data()->num_tmp_heap_used == 0);
+#endif
     c_p = schedule(c_p, reds_used);
 #ifdef DEBUG
     pid = c_p->id;

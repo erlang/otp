@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -7068,11 +7068,11 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    DeclareTmpHeapNoproc(lhp,3);
 	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_MSG_SEND);
-	    UseTmpHeapNoproc(3);
 	    rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
 	    if (rp == NULL) {
 		goto done;
 	    }
+	    UseTmpHeapNoproc(3);
 	    rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
 	    if (rmon) {
 		erts_destroy_monitor(rmon);
