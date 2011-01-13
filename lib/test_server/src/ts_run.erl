@@ -411,6 +411,15 @@ write_spec_file(Vars, Spec, _State) ->
     MoreConfig = io_lib:format("~p.\n", [{config,Conf}]),
     file:write_file("current.spec", [DiskLess,Hosts,MoreConfig,SpecFile]).
 
+get_config_files() ->
+    TSConfig = "ts.config",
+    [TSConfig | case os:type() of
+		    {unix,_} -> ["ts.unix.config"];
+		    {win32,_} -> ["ts.win32.config"];
+		    vxworks -> ["ts.vxworks.config"];
+		    _ -> []
+		end].
+
 consult_config() ->
     {ok,Conf} = file:consult("ts.config"),
     case os:type() of
@@ -624,7 +633,8 @@ make_common_test_args(Args0, Options, _Vars) ->
 		     {value, {config, _}} ->
 			 [];
 		     false ->
-			 [{config, "../test_server/ts.config"}]
+			 [{config, [filename:join("../test_server",File)
+				    || File <- get_config_files()]}]
 		 end,
 
     io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++ConfigFile++Options]).
