@@ -41,7 +41,7 @@
 	 pread/2, pread/3, pwrite/2, pwrite/3,
 	 read_line/1,
 	 position/2, truncate/1, datasync/1, sync/1,
-	 copy/2, copy/3]).
+	 copy/2, copy/3, sendfile/4, sendfile/2]).
 %% High level operations
 -export([consult/1, path_consult/2]).
 -export([eval/1, eval/2, path_eval/2, path_eval/3, path_open/3]).
@@ -334,6 +334,62 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 	Error ->
 	    Error
     end.
+
+%% sendfile/5
+%% TODO: add more guards? export sendfile/5?
+-spec sendfile(File, Sock, Offset, Bytes, ChunkSize)
+	      -> {'ok', non_neg_integer()} | {'error', posix()} when
+      File::io_device(), Sock::port() | integer(),
+      Offset::non_neg_integer(), Bytes::non_neg_integer(),
+      ChunkSize::non_neg_integer().
+sendfile(File, Sock, Offset, Bytes, ChunkSize) when is_integer(Sock)
+						    andalso is_pid(File) ->
+    R = file_request(File, {sendfile, Sock, Offset, Bytes, ChunkSize}),
+    wait_file_reply(File, R);
+sendfile(File, Sock, Offset, Bytes, ChunkSize) when is_port(Sock)
+						    andalso is_pid(File) ->
+    {ok, SockFD} = prim_inet:getfd(Sock),
+    sendfile(File, SockFD, Offset, Bytes, ChunkSize);
+sendfile(#file_descriptor{module = Module} = Handle, Sock,
+	 Offset, Bytes, ChunkSize) when is_integer(Sock) ->
+    Module:sendfile(Handle, Sock, Offset, Bytes, ChunkSize);
+sendfile(#file_descriptor{module = _Module} = Handle, Sock,
+	 Offset, Bytes, ChunkSize) when is_port(Sock) ->
+    {ok, SockFD} = prim_inet:getfd(Sock),
+    sendfile(Handle, SockFD, Offset, Bytes, ChunkSize);
+sendfile(_, _, _, _, _) ->
+    {error, badarg}.
+
+-define(SENDFILE_CHUNK_LIMIT, 2147483648).	% 2GB
+
+%% Limit chunksize to work around 4 byte off_t/size_t limits
+sendfile_chunksize(Bytes, Limit) ->
+    case Bytes >= Limit of
+	true -> Limit - 1;
+	false -> Bytes
+    end.
+
+-spec sendfile(File, Sock, Offset, Bytes)
+	      -> {'ok', non_neg_integer()} | {'error', posix()} when
+      File::io_device(), Sock::port() | integer(),
+      Offset::non_neg_integer(), Bytes::non_neg_integer().
+sendfile(File, Sock, Offset, Bytes) ->
+    ChunkSize = sendfile_chunksize(Bytes, ?SENDFILE_CHUNK_LIMIT),
+    sendfile(File, Sock, Offset, Bytes, ChunkSize).
+
+%% sendfile/2
+%% TODO: add guards?
+-spec sendfile(File, Sock) -> {'ok', non_neg_integer()} | {'error', posix()}
+				  when File::name(), Sock::port().
+sendfile(File, Sock) ->
+    Offset = 0,
+    {ok, #file_info{size = Bytes}} = read_file_info(File),
+    %% TODO: use file:open/2 and file:read_file_info/1 instead of local calls?
+    {ok, Fd} = open(File, [read, raw, binary]),
+    ChunkSize = sendfile_chunksize(Bytes, ?SENDFILE_CHUNK_LIMIT),
+    Res = sendfile(Fd, Sock, Offset, Bytes, ChunkSize),
+    ok = close(Fd),
+    Res.
 
 %%%-----------------------------------------------------------------
 %%% File io server functions.

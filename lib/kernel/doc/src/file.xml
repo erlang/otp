@@ -1574,6 +1574,28 @@
       </desc>
     </func>
     <func>
+      <name name="sendfile" arity="4"/>
+      <fsummary>send a file to a socket</fsummary>
+      <desc>
+        <p>Sends <c>Bytes</c> in from the file
+        referenced by <c>IoDevice</c> beginning at <c>Offset</c> to
+        <c>Socket</c>.
+        Returns <c>{ok, BytesSent}</c> if successful,
+        otherwise <c>{error, Reason}</c>.</p>
+        <p>Available on Linux, FreeBSD, DragonflyBSD, Solaris, Darwin and Windows</p>
+      </desc>
+    </func>
+    <func>
+      <name name="sendfile" arity="2"/>
+      <fsummary>send a file to a socket</fsummary>
+      <desc>
+        <p>Sends the file <c>Filename</c> to <c>Socket</c>.
+        Returns <c>{ok, BytesSent}</c> if successful,
+        otherwise <c>{error, Reason}</c>.</p>
+        <p>Available on Linux, FreeBSD, DragonflyBSD, Solaris, Darwin and Windows</p>
+      </desc>
+    </func>
+    <func>
       <name name="write" arity="2"/>
       <fsummary>Write to a file</fsummary>
       <desc>

@@ -249,6 +249,14 @@ file_request(close,
 file_request({position,At}, 
 	     #state{handle=Handle,buf=Buf}=State) ->
     std_reply(position(Handle, At, Buf), State);
+file_request({sendfile,DestFD,Offset,Bytes,ChunkSize},
+	     #state{handle=Handle}=State) ->
+    case ?PRIM_FILE:sendfile(Handle, DestFD, Offset, Bytes, ChunkSize) of
+	{error,_}=Reply ->
+	    {stop,normal,Reply,State};
+	Reply ->
+	    {reply,Reply,State}
+    end;
 file_request(truncate, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:truncate(Handle) of
