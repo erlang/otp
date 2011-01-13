@@ -853,7 +853,7 @@ static DMCRet dmc_one_term(DMCContext *context,
 
 #ifdef DMC_DEBUG
 static int test_disassemble_next = 0;
-static void db_match_dis(Binary *prog);
+void db_match_dis(Binary *prog);
 #define TRACE erts_fprintf(stderr,"Trace: %s:%d\n",__FILE__,__LINE__)
 #define FENCE_PATTERN_SIZE 1
 #define FENCE_PATTERN 0xDEADBEEFUL
@@ -1588,6 +1588,7 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
     return ret;
 }
 
+
 /*
 ** Execution of the match program, this is Pam.
 ** May return THE_NON_VALUE, which is a bailout.
@@ -1623,7 +1624,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     int fail_label;
     int atomic_trace;
 #if HALFWORD_HEAP
-    int is_abs_variables = (base == NULL);
+    Eterm* variable_base;     /* base for $n-variables (hp[n]) */
 #endif
 #ifdef DMC_DEBUG
     Uint *heap_fence;
@@ -1696,6 +1697,7 @@ restart:
     for (i=prog->eheap_offset-(1+FENCE_PATTERN_SIZE); i>=0; i--) {
 	hp[i] = NIL;
     }
+    variable_base = base;
 #endif
 
     for (;;) {
@@ -1718,6 +1720,7 @@ restart:
 #endif
 	switch (*pc++) {
 	case matchTryMeElse:
+	    ASSERT(fail_label == -1);
 	    fail_label = *pc++;
 	    break;
 	case matchArray: /* only when DCOMP_TRACE, is always first
@@ -1766,14 +1769,13 @@ restart:
 	    ep = *(--sp);
 	    break;
 	case matchBind:
-	    ASSERT_HALFWORD(is_abs_variables == !base);
+	    ASSERT_HALFWORD(variable_base == base);
 	    n = *pc++;
 	    hp[n] = *ep++;
 	    break;
 	case matchCmp:
-	    ASSERT_HALFWORD(is_abs_variables == !base);
 	    n = *pc++;
-	    if (!eq_rel(hp[n],base,*ep,base))
+	    if (!eq_rel(hp[n], variable_base, *ep, base))
 		FAIL();
 	    ++ep;
 	    break;
@@ -1906,13 +1908,13 @@ restart:
 	case matchPushV:
 	    n = *pc++;
 	#if HALFWORD_HEAP
-	    if (!is_abs_variables && !is_immed(hp[n])) {
+	    if (variable_base!=NULL && !is_immed(hp[n])) {
 		for (i=prog->eheap_offset-1; i>=0; i--) if (!is_immed(hp[i])) {
 		    Uint sz = size_object_rel(hp[i], base);
 		    Eterm* top = HAlloc(psp, sz);
 		    hp[i] = copy_struct_rel(hp[i], sz, &top, &MSO(psp), base, NULL);
 		}
-		is_abs_variables = 1;
+		variable_base = NULL;
 	    }
 	#endif
 	    *esp++ = hp[n];
@@ -4880,10 +4882,11 @@ Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
 
 
 #ifdef DMC_DEBUG
+
 /*
 ** Disassemble match program
 */
-static void db_match_dis(Binary *bp)
+void db_match_dis(Binary *bp)
 {
     MatchProg *prog = Binary2MatchProg(bp);
     UWord *t = prog->text;

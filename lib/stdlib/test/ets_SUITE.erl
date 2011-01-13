@@ -99,6 +99,8 @@
 
 -include("test_server.hrl").
 
+-define(m(A,B), ?line assert_eq(A,B)).
+
 init_per_testcase(Case, Config) ->
     Seed = {S1,S2,S3} = random:seed0(), %now(),
     random:seed(S1,S2,S3),
@@ -176,29 +178,114 @@ t_match_spec_run(suite) ->
 t_match_spec_run(doc) ->
     ["Check ets:match_spec_run/2."];
 t_match_spec_run(Config) when is_list(Config) ->
+    init_externals(),
     ?line EtsMem = etsmem(),
-    ?line [2,3] = ets:match_spec_run([{1},{2},{3}],
-				     ets:match_spec_compile(
-				       [{{'$1'},[{'>','$1',1}],['$1']}])),
+
+    t_match_spec_run_test([{1},{2},{3}],
+			  [{{'$1'},[{'>','$1',1}],['$1']}],
+			  [2,3]),
+
     ?line Huge = [{X} || X <- lists:seq(1,2500)],
     ?line L = lists:seq(2476,2500),
-    ?line L = ets:match_spec_run(Huge,
-				 ets:match_spec_compile(
-				   [{{'$1'},[{'>','$1',2475}],['$1']}])),
+    t_match_spec_run_test(Huge, [{{'$1'},[{'>','$1',2475}],['$1']}], L),
+
     ?line L2 = [{X*16#FFFFFFF} || X <- L],
-    ?line L2 = ets:match_spec_run(Huge,
-				  ets:match_spec_compile(
-				    [{{'$1'},
-				      [{'>','$1',2475}],
-				      [{{{'*','$1',16#FFFFFFF}}}]}])),
-    ?line [500,1000,1500,2000,2500] = 
-	ets:match_spec_run(Huge,
-			   ets:match_spec_compile(
-			     [{{'$1'},
-			       [{'=:=',{'rem','$1',500},0}],
-			       ['$1']}])),
+    t_match_spec_run_test(Huge,
+			  [{{'$1'}, [{'>','$1',2475}], [{{{'*','$1',16#FFFFFFF}}}]}],
+			  L2),
+
+    t_match_spec_run_test(Huge, [{{'$1'}, [{'=:=',{'rem','$1',500},0}], ['$1']}],
+			  [500,1000,1500,2000,2500]),
+
+    %% More matching fun with several match clauses and guards,
+    %% applied to a variety of terms.
+    Fun = fun(Term) ->
+		  CTerm = {const, Term},
+
+		  N_List = [{Term, "0", "v-element"},
+			    {"=hidden_node", "0", Term},
+			    {"0", Term, Term},
+			    {"something", Term, "something else"},
+			    {"guard and res", Term, 872346},
+			    {Term, {'and',Term,'again'}, 3.14},
+			    {Term, {'and',Term,'again'}, "m&g"},
+			    {Term, {'and',Term,'again'}, "m&g&r"},
+			    {[{second,Term}, 'and', "tail"], Term, ['and',"tail"]}],
+
+		  N_MS = [{{'$1','$2','$3'},
+			   [{'=:=','$1',CTerm}, {'=:=','$2',{const,"0"}}],
+			   [{{"Guard only for $1",'$3'}}]},
+
+			  {{'$3','$1','$4'},
+			   [{'=:=','$3',"=hidden_node"}, {'=:=','$1',{const,"0"}}],
+			   [{{"Result only for $4",'$4'}}]},
+
+			  {{'$2','$1','$1'},
+			   [{'=:=','$2',{const,"0"}}],
+			   [{{"Match only for $1",'$2'}}]},
+
+			  {{'$2',Term,['$3'|'_']},
+			   [{is_list,'$2'},{'=:=','$3',$s}],
+			   [{{"Matching term",'$2'}}]},
+
+			  {{'$1','$2',872346},
+			   [{'=:=','$2',CTerm}, {is_list,'$1'}],
+			   [{{"Guard and result",'$2'}}]},
+
+			  {{'$1', {'and','$1','again'}, '$2'},
+			   [{is_float,'$2'}],
+			   [{{"Match and result",'$1'}}]},
+
+			  {{'$1', {'and','$1','again'}, '$2'},
+			   [{'=:=','$1',CTerm}, {'=:=', '$2', "m&g"}],
+			   [{{"Match and guard",'$2'}}]},
+
+			  {{'$1', {'and','$1','again'}, "m&g&r"},
+			   [{'=:=','$1',CTerm}],
+			   [{{"Match, guard and result",'$1'}}]},
+
+			  {{'$1', '$2', '$3'},
+			   [{'=:=','$1',[{{second,'$2'}} | '$3']}],
+			   [{{"Building guard"}}]}
+			 ],
+
+		  N_Result = [{"Guard only for $1", "v-element"},
+			      {"Result only for $4", Term},
+			      {"Match only for $1", "0"},
+			      {"Matching term","something"},
+			      {"Guard and result",Term},
+			      {"Match and result",Term},
+			      {"Match and guard","m&g"},
+			      {"Match, guard and result",Term},
+			      {"Building guard"}],
+
+		  F = fun(N_MS_Perm) ->
+			      t_match_spec_run_test(N_List, N_MS_Perm, N_Result)
+		      end,
+		  repeat_for_permutations(F, N_MS)
+	  end,
+
+    test_terms(Fun),
+
     ?line verify_etsmem(EtsMem).
 
+t_match_spec_run_test(List, MS, Result) ->
+
+    %%io:format("ms = ~p\n",[MS]),
+
+    ?m(Result, ets:match_spec_run(List, ets:match_spec_compile(MS))),
+
+    %% Check that ets:select agree
+    Tab = ets:new(xxx, [bag]),
+    ets:insert(Tab, List),
+    SRes = lists:sort(Result),
+    ?m(SRes, lists:sort(ets:select(Tab, MS))),
+    ets:delete(Tab).
+
+assert_eq(A,A) -> ok;
+assert_eq(A,B) ->
+    io:format("FAILED MATCH:\n~p\n =/=\n~p\n",[A,B]),
+    ?t:fail("assert_eq failed").
 
 
 t_repair_continuation(suite) -> 
@@ -5496,6 +5583,20 @@ repeat_while(Fun, Arg0) ->
 	{false,Ret} -> Ret
     end.
 
+%% Some (but not all) permutations of List
+repeat_for_permutations(Fun, List) ->
+    repeat_for_permutations(Fun, List, length(List)-1).
+repeat_for_permutations(Fun, List, 0) ->
+    Fun(List);
+repeat_for_permutations(Fun, List, N) ->
+    {A,B} = lists:split(N, List),
+    L1 = B++A,
+    L2 = lists:reverse(L1),
+    L3 = B++lists:reverse(A),
+    L4 = lists:reverse(B)++A,
+    Fun(L1), Fun(L2), Fun(L3), Fun(L4),
+    repeat_for_permutations(Fun, List, N-1).
+
 receive_any() ->
     receive M ->
 	    io:format("Process ~p got msg ~p\n", [self(),M]),
@@ -5677,6 +5778,7 @@ test_terms(Test_Func) ->
     ?line Pib0 = process_info(self(),binary),
     ok.
 
+
 id(I) -> I.
 
 very_big_num() ->
@@ -5708,27 +5810,32 @@ make_ext_ref() ->
     Ref.
 
 init_externals() ->
-    SysDistSz = ets:info(sys_dist,size), 
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
-    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
-	            {badrpc, {'EXIT', E}} ->
-                        test_server:fail({rpcresult, E});
-		    R -> R
-	        end,
-    ?line test_server:stop_node(Node),
+    case get(externals) of
+	undefined ->
+	    SysDistSz = ets:info(sys_dist,size),
+	    ?line Pa = filename:dirname(code:which(?MODULE)),
+	    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
+	    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
+			    {badrpc, {'EXIT', E}} ->
+				test_server:fail({rpcresult, E});
+			    R -> R
+			end,
+	    ?line test_server:stop_node(Node),
 
-    %% Wait for table 'sys_dist' to stabilize
-    repeat_while(fun() ->
-		    case ets:info(sys_dist,size) of
-			SysDistSz -> false;
-			Sz ->
-			    io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
-				      [Sz, SysDistSz]),
-			    receive after 1000 -> true end
-		    end
-		end),   
-    put(externals, Res).
+	    %% Wait for table 'sys_dist' to stabilize
+	    repeat_while(fun() ->
+				 case ets:info(sys_dist,size) of
+				     SysDistSz -> false;
+				     Sz ->
+					 io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
+						   [Sz, SysDistSz]),
+					 receive after 1000 -> true end
+				 end
+			 end),
+	    put(externals, Res);
+
+	{_,_,_} -> ok
+    end.
 
 rpc_externals() ->
     {self(), make_port(), make_ref()}.
