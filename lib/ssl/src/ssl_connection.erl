@@ -70,7 +70,6 @@
 	  %% {{md5_hash, sha_hash}, {prev_md5, prev_sha}} (binary())
           tls_handshake_hashes, % see above 
           tls_cipher_texts,     % list() received but not deciphered yet
-          own_cert,             % binary() | undefined
           session,              % #session{} from ssl_handshake.hrl
 	  session_cache,        % 
 	  session_cache_cb,     %
@@ -307,7 +306,6 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 	{ok, Ref, CacheRef, OwnCert, Key, DHParams} ->	   
 	    Session = State0#state.session,
 	    State = State0#state{tls_handshake_hashes = Hashes0,
-				 own_cert = OwnCert,
 				 session = Session#session{own_certificate = OwnCert},
 				 cert_db_ref = Ref,
 				 session_cache = CacheRef,
@@ -334,12 +332,10 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 %%--------------------------------------------------------------------
 hello(start, #state{host = Host, port = Port, role = client,
 		    ssl_options = SslOpts, 
-		    own_cert = Cert,
+		    session = #session{own_certificate = Cert} = Session0,
 		    transport_cb = Transport, socket = Socket,
 		    connection_states = ConnectionStates,
-		    renegotiation = {Renegotiation, _}}
-      = State0) ->
-
+		    renegotiation = {Renegotiation, _}} = State0) ->
     Hello = ssl_handshake:client_hello(Host, Port, 
 				       ConnectionStates, 
 				       SslOpts, Renegotiation, Cert),
@@ -351,13 +347,13 @@ hello(start, #state{host = Host, port = Port, role = client,
     Transport:send(Socket, BinMsg),
     State1 = State0#state{connection_states = CS2,
 			 negotiated_version = Version, %% Requested version
-			 session = 
-                         #session{session_id = Hello#client_hello.session_id,
-                                  is_resumable = false},
+			  session =
+			      Session0#session{session_id = Hello#client_hello.session_id,
+					       is_resumable = false},
 			  tls_handshake_hashes = Hashes1},
     {Record, State} = next_record(State1),
     next_state(hello, Record, State);
-    
+
 hello(start, #state{role = server} = State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -374,7 +370,6 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	     negotiated_version = ReqVersion,
 	     renegotiation = {Renegotiation, _},
 	     ssl_options = SslOptions} = State0) ->
-
     case ssl_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	{Version, NewId, ConnectionStates} ->
 	    {KeyAlgorithm, _, _} =
@@ -400,13 +395,11 @@ hello(#server_hello{cipher_suite = CipherSuite,
 
 hello(Hello = #client_hello{client_version = ClientVersion}, 
       State = #state{connection_states = ConnectionStates0,
-		     port = Port, session = Session0,
+		     port = Port, session = #session{own_certificate = Cert} = Session0,
 		     renegotiation = {Renegotiation, _},
 		     session_cache = Cache,		  
 		     session_cache_cb = CacheCb,
-		     ssl_options = SslOpts,
-		     own_cert = Cert}) ->
-    
+		     ssl_options = SslOpts}) ->
     case ssl_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 				     ConnectionStates0, Cert}, Renegotiation) of
         {Version, {Type, Session}, ConnectionStates} ->       
@@ -540,7 +533,7 @@ certify(#server_hello_done{},
 	       connection_states = ConnectionStates0,
 	       negotiated_version = Version,
 	       premaster_secret = undefined,
-	       role = client} = State0) ->    
+	       role = client} = State0) ->
     case ssl_handshake:master_secret(Version, Session, 
 				     ConnectionStates0, client) of
 	{MasterSecret, ConnectionStates1} -> 
@@ -617,7 +610,6 @@ certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPubl
 				   diffie_hellman_params = #'DHParameter'{prime = P,
 									  base = G},
 				   diffie_hellman_keys = {_, ServerDhPrivateKey}} = State0) ->
-
     case dh_master_secret(crypto:mpint(P), crypto:mpint(G), ClientPublicDhKey, ServerDhPrivateKey, State0) of
 	#state{} = State1 ->
 	    {Record, State} = next_record(State1),
@@ -660,8 +652,7 @@ cipher(#finished{verify_data = Data} = Finished,
 	      role = Role,
 	      session = #session{master_secret = MasterSecret} 
 	      = Session0,
-	      tls_handshake_hashes = Hashes0} = State) ->    
-    
+	      tls_handshake_hashes = Hashes0} = State) ->
     case ssl_handshake:verify_connection(Version, Finished, 
 					 opposite_role(Role), 
                                          MasterSecret, Hashes0) of
@@ -682,14 +673,13 @@ cipher(Msg, State) ->
 %%--------------------------------------------------------------------
 connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
-				    own_cert = Cert,
+				    session = #session{own_certificate = Cert},
 				    ssl_options = SslOpts,
 				    negotiated_version = Version,
 				    transport_cb = Transport,
 				    connection_states = ConnectionStates0,
 				    renegotiation = {Renegotiation, _},
 				    tls_handshake_hashes = Hashes0} = State0) ->
-   
     Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates0,
 				       SslOpts, Renegotiation, Cert),
   
@@ -1162,7 +1152,7 @@ certify_client(#state{client_certificate_requested = true, role = client,
                       transport_cb = Transport,
                       negotiated_version = Version,
                       cert_db_ref = CertDbRef,
-                      own_cert = OwnCert,
+		      session = #session{own_certificate = OwnCert},
                       socket = Socket,
                       tls_handshake_hashes = Hashes0} = State) ->
     Certificate = ssl_handshake:certificate(OwnCert, CertDbRef, client),
@@ -1178,10 +1168,10 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 			  connection_states = ConnectionStates0,
 			  transport_cb = Transport,
 			  negotiated_version = Version,
-			  own_cert = OwnCert,
 			  socket = Socket,
 			  private_key = PrivateKey,
-			  session = #session{master_secret = MasterSecret},
+			  session = #session{master_secret = MasterSecret,
+					     own_certificate = OwnCert},
 			  tls_handshake_hashes = Hashes0} = State) ->
 
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret, 
@@ -1347,7 +1337,7 @@ certify_server(#state{transport_cb = Transport,
 		      connection_states = ConnectionStates,
 		      tls_handshake_hashes = Hashes,
 		      cert_db_ref = CertDbRef,
-		      own_cert = OwnCert} = State) ->
+		      session = #session{own_certificate = OwnCert}} = State) ->
     case ssl_handshake:certificate(OwnCert, CertDbRef, server) of
 	CertMsg = #certificate{} ->
 	    {BinCertMsg, NewConnectionStates, NewHashes} =
@@ -1374,7 +1364,6 @@ key_exchange(#state{role = server, key_algorithm = Algo,
   when Algo == dhe_dss;
        Algo == dhe_rsa;
        Algo == dh_anon ->
-
     Keys = crypto:dh_generate_key([crypto:mpint(P), crypto:mpint(G)]),
     ConnectionState = 
 	ssl_record:pending_connection_state(ConnectionStates0, read),
@@ -1926,14 +1915,22 @@ next_state_connection(StateName, #state{send_queue = Queue0,
 	    next_state_is_connection(State)
     end.
 
+%% In next_state_is_connection/1: clear tls_handshake_hashes,
+%% premaster_secret and public_key_info (only needed during handshake)
+%% to reduce memory foot print of a connection.
 next_state_is_connection(State = 
 		      #state{recv_during_renegotiation = true, socket_options = 
 			     #socket_options{active = false}})  -> 
-    passive_receive(State#state{recv_during_renegotiation = false}, connection);
+    passive_receive(State#state{recv_during_renegotiation = false,
+				premaster_secret = undefined,
+				public_key_info = undefined,
+				tls_handshake_hashes = {<<>>, <<>>}}, connection);
 
 next_state_is_connection(State0) ->
     {Record, State} = next_record_if_active(State0),
-    next_state(connection, Record, State).
+    next_state(connection, Record, State#state{premaster_secret = undefined,
+					       public_key_info = undefined,
+					       tls_handshake_hashes = {<<>>, <<>>}}).
 
 register_session(_, _, _, #session{is_resumable = true} = Session) ->
     Session; %% Already registered
