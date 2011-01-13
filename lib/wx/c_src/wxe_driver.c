@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -146,7 +146,6 @@ static void
 wxe_driver_unload(void) 
 {
    // fprintf(stderr, "%s:%d: UNLOAD \r\n", __FILE__,__LINE__);
-   meta_command(WXE_SHUTDOWN, wxe_master);
    stop_native_gui(wxe_master);
    unload_native_gui();
    free(wxe_master);

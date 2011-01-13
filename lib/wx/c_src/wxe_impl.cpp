@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -117,6 +117,9 @@ int start_native_gui(wxe_data *sd)
 
 void stop_native_gui(wxe_data *sd)
 {
+  if(wxe_status == WXE_INITIATED) {
+    meta_command(WXE_SHUTDOWN, sd);
+  }
   erl_drv_thread_join(wxe_thread, NULL);
   erl_drv_mutex_destroy(wxe_status_m);
   erl_drv_cond_destroy(wxe_status_c);
