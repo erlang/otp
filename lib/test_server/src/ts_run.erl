@@ -616,6 +616,9 @@ make_common_test_args(Args0, Options, _Vars) ->
 	end,
     Cover = 
 	case lists:keysearch(cover,1,Options) of
+	    {value,{cover, App, none, _Analyse}} ->
+		io:format("No cover file found for ~p~n",[App]),
+		[];
 	    {value,{cover,_App,File,_Analyse}} -> 
 		[{cover,to_list(File)}];
 	    false -> 
