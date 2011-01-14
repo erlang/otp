@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -217,12 +217,12 @@ mime_decode_binary(Result0, <<C:8,T/bits>>) ->
 			    Result0;
 			4 when Eq ->
 			    %% enforce at least one more '=' only ignoring illegals and spacing
-			    Split = size(Result0),
+			    Split =  byte_size(Result0) - 1,
 			    <<Result:Split/bytes,_:4>> = Result0,
 			    Result;
 			2 ->
 			    %% remove 2 bits
-			    Split = size(Result0),
+			    Split =  byte_size(Result0) - 1,
 			    <<Result:Split/bytes,_:2>> = Result0,
 			    Result
 		    end;
