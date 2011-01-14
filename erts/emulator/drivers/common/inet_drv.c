@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -5095,6 +5095,9 @@ static int setopt_prio_tos_trick
 					   SO_PRIORITY,
 					   (char *) &tmp_ival_prio, 
 					   tmp_arg_sz_prio);
+			if (res != 0 && sock_errno() == EPERM) {
+			    res = 0;
+			}
 		    }
 		}
 	    }
