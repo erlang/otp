@@ -73,7 +73,13 @@ all(suite) ->
      subgroup_all_testcases, skip_subgroup_all_testcases,
      subgroup_testcase, skip_subgroup_testcase,
      sub_skipped_by_top,
-     testcase_in_multiple_groups].
+     testcase_in_multiple_groups,
+     order_of_tests_in_multiple_dirs,
+     order_of_tests_in_multiple_suites,
+     order_of_suites_in_multiple_dirs,
+     order_of_groups_in_multiple_dirs,
+     order_of_groups_in_multiple_suites
+    ].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -366,6 +372,74 @@ testcase_in_multiple_groups(Config) when is_list(Config) ->
     setup_and_execute(testcase_in_multiple_groups, TestSpec, Config).
 
 %%%-----------------------------------------------------------------
+%%%
+
+order_of_tests_in_multiple_dirs(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestDir1 = filename:join(DataDir, "groups_1"),
+    TestDir2 = filename:join(DataDir, "groups_2"),
+    TestSpec = [{cases,TestDir1,groups_12_SUITE,[testcase_1a]},
+		{cases,TestDir2,groups_22_SUITE,[testcase_1]},
+		{cases,TestDir1,groups_12_SUITE,[testcase_1b]}],
+
+    setup_and_execute(order_of_tests_in_multiple_dirs, TestSpec, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+order_of_tests_in_multiple_suites(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestDir1 = filename:join(DataDir, "groups_1"),
+    TestSpec = [{cases,TestDir1,groups_12_SUITE,[testcase_1a]},
+		{cases,TestDir1,groups_11_SUITE,[testcase_1]},
+		{cases,TestDir1,groups_12_SUITE,[testcase_1b]}],
+
+    setup_and_execute(order_of_tests_in_multiple_suites, TestSpec, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+order_of_suites_in_multiple_dirs(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestDir1 = filename:join(DataDir, "groups_1"),
+    TestDir2 = filename:join(DataDir, "groups_2"),
+    TestSpec = [{suites,TestDir1,groups_12_SUITE},
+		{suites,TestDir2,groups_22_SUITE},
+		{suites,TestDir1,groups_11_SUITE}],
+
+    setup_and_execute(order_of_suites_in_multiple_dirs, TestSpec, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+order_of_groups_in_multiple_dirs(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestDir1 = filename:join(DataDir, "groups_1"),
+    TestDir2 = filename:join(DataDir, "groups_2"),
+    TestSpec = [{groups,TestDir1,groups_12_SUITE,test_group_1a},
+		{groups,TestDir2,groups_22_SUITE,test_group_1a},
+		{groups,TestDir1,groups_12_SUITE,test_group_1b}],
+
+    setup_and_execute(order_of_groups_in_multiple_dirs, TestSpec, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+order_of_groups_in_multiple_suites(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestDir1 = filename:join(DataDir, "groups_1"),
+    TestSpec = [{groups,TestDir1,groups_12_SUITE,test_group_1a},
+		{groups,TestDir1,groups_11_SUITE,test_group_1a},
+		{groups,TestDir1,groups_12_SUITE,test_group_1b}],
+
+    setup_and_execute(order_of_groups_in_multiple_suites, TestSpec, Config).
+
+%%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
@@ -428,6 +502,84 @@ events_to_check(_, 0) ->
 events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
+
+test_events(order_of_tests_in_multiple_dirs) ->
+    [{ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
+     {ct_test_support_eh,tc_start,{groups_12_SUITE,testcase_1a}},
+     {ct_test_support_eh,tc_done,
+      {groups_12_SUITE,testcase_1a,
+       {failed,{error,{test_case_failed,no_group_data}}}}},
+     {ct_test_support_eh,tc_start,{groups_22_SUITE,testcase_1}},
+     {ct_test_support_eh,tc_done,{groups_22_SUITE,testcase_1,ok}},
+     {ct_test_support_eh,tc_start,{groups_12_SUITE,testcase_1b}},
+     {ct_test_support_eh,tc_done,
+      {groups_12_SUITE,testcase_1b,
+       {failed,{error,{test_case_failed,no_group_data}}}}},
+     {ct_test_support_eh,stop_logging,[]}
+    ];
+test_events(order_of_tests_in_multiple_suites) ->
+    [{ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
+     {ct_test_support_eh,tc_start,{groups_12_SUITE,testcase_1a}},
+     {ct_test_support_eh,tc_done,{groups_12_SUITE,testcase_1a,'_'}},
+     {ct_test_support_eh,tc_start,{groups_11_SUITE,testcase_1}},
+     {ct_test_support_eh,tc_done,{groups_11_SUITE,testcase_1,ok}},
+     {ct_test_support_eh,tc_start,{groups_12_SUITE,testcase_1b}},
+     {ct_test_support_eh,tc_done,{groups_12_SUITE,testcase_1b,'_'}},
+     {ct_test_support_eh,stop_logging,[]}
+    ];
+test_events(order_of_suites_in_multiple_dirs) ->
+    [{ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
+     {ct_test_support_eh,tc_start,{groups_12_SUITE,init_per_suite}},
+     {ct_test_support_eh,tc_done,{groups_12_SUITE,init_per_suite,'_'}},
+     {ct_test_support_eh,tc_start,{groups_12_SUITE,end_per_suite}},
+     {ct_test_support_eh,tc_done,{groups_12_SUITE,end_per_suite,'_'}},
+     {ct_test_support_eh,tc_start,{groups_22_SUITE,init_per_suite}},
+     {ct_test_support_eh,tc_done,{groups_22_SUITE,init_per_suite,'_'}},
+     {ct_test_support_eh,tc_start,{groups_22_SUITE,end_per_suite}},
+     {ct_test_support_eh,tc_done,{groups_22_SUITE,end_per_suite,'_'}},
+     {ct_test_support_eh,tc_start,{groups_11_SUITE,init_per_suite}},
+     {ct_test_support_eh,tc_done,{groups_11_SUITE,init_per_suite,'_'}},
+     {ct_test_support_eh,tc_start,{groups_11_SUITE,end_per_suite}},
+     {ct_test_support_eh,tc_done,{groups_11_SUITE,end_per_suite,'_'}},
+     {ct_test_support_eh,stop_logging,[]}];
+test_events(order_of_groups_in_multiple_dirs) ->
+    [{ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
+     
+     {ct_test_support_eh,tc_start,
+      {groups_12_SUITE,{init_per_group,test_group_1a,'_'}}},
+     {ct_test_support_eh,tc_done,
+      {groups_12_SUITE,{end_per_group,test_group_1a,'_'},'_'}},
+
+     {ct_test_support_eh,tc_start,
+      {groups_22_SUITE,{init_per_group,test_group_1a,'_'}}},
+     {ct_test_support_eh,tc_done,
+      {groups_22_SUITE,{end_per_group,test_group_1a,'_'},'_'}},
+      
+     {ct_test_support_eh,tc_start,
+      {groups_12_SUITE,{init_per_group,test_group_1b,'_'}}},
+     {ct_test_support_eh,tc_done,
+      {groups_12_SUITE,{end_per_group,test_group_1b,'_'},'_'}},
+
+     {ct_test_support_eh,stop_logging,[]}];
+test_events(order_of_groups_in_multiple_suites) ->
+    [{ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
+     
+     {ct_test_support_eh,tc_start,
+      {groups_12_SUITE,{init_per_group,test_group_1a,'_'}}},
+     {ct_test_support_eh,tc_done,
+      {groups_12_SUITE,{end_per_group,test_group_1a,'_'},'_'}},
+
+     {ct_test_support_eh,tc_start,
+      {groups_11_SUITE,{init_per_group,test_group_1a,'_'}}},
+     {ct_test_support_eh,tc_done,
+      {groups_11_SUITE,{end_per_group,test_group_1a,'_'},'_'}},
+      
+     {ct_test_support_eh,tc_start,
+      {groups_12_SUITE,{init_per_group,test_group_1b,'_'}}},
+     {ct_test_support_eh,tc_done,
+      {groups_12_SUITE,{end_per_group,test_group_1b,'_'},'_'}},
+
+     {ct_test_support_eh,stop_logging,[]}];
 test_events(_) ->
     [
     ].
