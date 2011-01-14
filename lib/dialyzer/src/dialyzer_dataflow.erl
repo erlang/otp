@@ -1457,6 +1457,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 		  false ->
 		    WarnType = case Msg of
 				 {guard_fail, _} -> ?WARN_MATCHING;
+				 {neg_guard_fail, _} -> ?WARN_MATCHING;
 				 {opaque_guard, _} -> ?WARN_OPAQUE
 			       end,
 		    state__add_warning(State1, WarnType, FailGuard, Msg);
@@ -1869,8 +1870,8 @@ handle_guard_gen_fun({M, F, A}, Guard, Map, Env, Eval, State) ->
     true ->
       %% Is this an error-bif?
       case t_is_none(erl_bif_types:type(M, F, A)) of
-	true -> signal_guard_fail(Guard, As, State);
-	false -> signal_guard_fatal_fail(Guard, As, State)
+	true -> signal_guard_fail(Eval, Guard, As, State);
+	false -> signal_guard_fatal_fail(Eval, Guard, As, State)
       end;
     false ->
       BifArgs = case erl_bif_types:arg_types(M, F, A) of
@@ -1887,7 +1888,7 @@ handle_guard_gen_fun({M, F, A}, Guard, Map, Env, Eval, State) ->
       case t_is_none(Ret) of
 	true ->
 	  case Eval =:= pos of
-	    true -> signal_guard_fail(Guard, As, State);
+	    true -> signal_guard_fail(Eval, Guard, As, State);
 	    false -> throw({fail, none})
 	  end;
 	false -> {Map2, Ret}
@@ -1900,7 +1901,7 @@ handle_guard_type_test(Guard, F, Map, Env, Eval, State) ->
   case bind_type_test(Eval, F, ArgType, State) of
     error ->
       ?debug("Type test: ~w failed\n", [F]),
-      signal_guard_fail(Guard, [ArgType], State);
+      signal_guard_fail(Eval, Guard, [ArgType], State);
     {ok, NewArgType, Ret} ->
       ?debug("Type test: ~w succeeded, NewType: ~s, Ret: ~s\n",
 	     [F, t_to_string(NewArgType), t_to_string(Ret)]),
@@ -1963,18 +1964,19 @@ handle_guard_comp(Guard, Comp, Map, Env, Eval, State) ->
 	true  when Eval =:= pos ->       {Map, t_atom(true)};
 	true  when Eval =:= dont_know -> {Map, t_atom(true)};
 	true  when Eval =:= neg ->       {Map, t_atom(true)};
-	false when Eval =:= pos -> signal_guard_fail(Guard, ArgTypes, State);
+	false when Eval =:= pos ->
+	  signal_guard_fail(Eval, Guard, ArgTypes, State);
 	false when Eval =:= dont_know -> {Map, t_atom(false)};
 	false when Eval =:= neg ->       {Map, t_atom(false)}
       end;
     {literal, var} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
       case bind_comp_literal_var(Arg1, Arg2, Type2, Comp, Map1) of
-	error -> signal_guard_fail(Guard, ArgTypes, State);
+	error -> signal_guard_fail(Eval, Guard, ArgTypes, State);
 	{ok, NewMap} -> {NewMap, t_atom(true)}
       end;
     {var, literal} when IsInt1 andalso IsInt2 andalso (Eval =:= pos) ->
       case bind_comp_literal_var(Arg2, Arg1, Type1, invert_comp(Comp), Map1) of
-	error -> signal_guard_fail(Guard, ArgTypes, State);
+	error -> signal_guard_fail(Eval, Guard, ArgTypes, State);
 	{ok, NewMap} -> {NewMap, t_atom(true)}
       end;
     {_, _} ->
@@ -2014,7 +2016,7 @@ handle_guard_is_function(Guard, Map, Env, Eval, State) ->
   [FunType0, ArityType0] = ArgTypes0,
   ArityType = t_inf(ArityType0, t_integer()),
   case t_is_none(ArityType) of
-    true -> signal_guard_fail(Guard, ArgTypes0, State);
+    true -> signal_guard_fail(Eval, Guard, ArgTypes0, State);
     false ->
       FunTypeConstr =
 	case t_number_vals(ArityType) of
@@ -2026,7 +2028,7 @@ handle_guard_is_function(Guard, Map, Env, Eval, State) ->
       case t_is_none(FunType) of
 	true ->
 	  case Eval of
-	    pos -> signal_guard_fail(Guard, ArgTypes0, State);
+	    pos -> signal_guard_fail(Eval, Guard, ArgTypes0, State);
 	    neg -> {Map1, t_atom(false)};
 	    dont_know -> {Map1, t_atom(false)}
 	  end;
@@ -2062,7 +2064,7 @@ handle_guard_is_record(Guard, Map, Env, Eval, State) ->
   case t_is_none(Type) of
     true ->
       case Eval of
-	pos -> signal_guard_fail(Guard,
+	pos -> signal_guard_fail(Eval, Guard,
 				 [RecType, t_from_term(Tag),
 				  t_from_term(Arity)],
 				 State);
@@ -2095,7 +2097,7 @@ handle_guard_eq(Guard, Map, Env, Eval, State) ->
 	    Eval =:= pos ->
 	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
 			  t_from_term(cerl:concrete(Arg2))],
-	      signal_guard_fail(Guard, ArgTypes, State)
+	      signal_guard_fail(Eval, Guard, ArgTypes, State)
 	  end
       end;
     {literal, _} when Eval =:= pos ->
@@ -2150,7 +2152,7 @@ handle_guard_eqeq(Guard, Map, Env, Eval, State) ->
 	     Eval =:= pos ->
 	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
 			  t_from_term(cerl:concrete(Arg2))],
-	      signal_guard_fail(Guard, ArgTypes, State)
+	      signal_guard_fail(Eval, Guard, ArgTypes, State)
 	  end
       end;
     {literal, _} when Eval =:= pos ->
@@ -2172,7 +2174,7 @@ bind_eqeq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State) ->
       case Eval of
 	neg -> {Map2, t_atom(false)};
 	dont_know -> {Map2, t_atom(false)};
-	pos -> signal_guard_fail(Guard, [Type1, Type2], State)
+	pos -> signal_guard_fail(Eval, Guard, [Type1, Type2], State)
       end;
     false ->
       case Eval of
@@ -2199,29 +2201,29 @@ bind_eqeq_guard(Guard, Arg1, Arg2, Map, Env, Eval, State) ->
   end.
 
 bind_eqeq_guard_lit_other(Guard, Arg1, Arg2, Map, Env, State) ->
-  %% Assumes positive evaluation
+  Eval = dont_know,
   case cerl:concrete(Arg1) of
     true ->
       {_, Type} = MT = bind_guard(Arg2, Map, Env, pos, State),
       case t_is_atom(true, Type) of
 	true -> MT;
 	false ->
-	  {_, Type0} = bind_guard(Arg2, Map, Env, dont_know, State),
-	  signal_guard_fail(Guard, [Type0, t_atom(true)], State)
+	  {_, Type0} = bind_guard(Arg2, Map, Env, Eval, State),
+	  signal_guard_fail(Eval, Guard, [Type0, t_atom(true)], State)
       end;
     false ->
       {Map1, Type} = bind_guard(Arg2, Map, Env, neg, State),
       case t_is_atom(false, Type) of
 	true -> {Map1, t_atom(true)};
 	false ->
-	  {_, Type0} = bind_guard(Arg2, Map, Env, dont_know, State),
-	  signal_guard_fail(Guard, [Type0, t_atom(true)], State)
+	  {_, Type0} = bind_guard(Arg2, Map, Env, Eval, State),
+	  signal_guard_fail(Eval, Guard, [Type0, t_atom(true)], State)
       end;
     Term ->
       LitType = t_from_term(Term),
-      {Map1, Type} = bind_guard(Arg2, Map, Env, dont_know, State),
+      {Map1, Type} = bind_guard(Arg2, Map, Env, Eval, State),
       case t_is_subtype(LitType, Type) of
-	false -> signal_guard_fail(Guard, [Type, LitType], State);
+	false -> signal_guard_fail(Eval, Guard, [Type, LitType], State);
 	true ->
 	  case cerl:is_c_var(Arg2) of
 	    true -> {enter_type(Arg2, LitType, Map1), t_atom(true)};
@@ -2366,10 +2368,12 @@ bind_guard_list([G|Gs], Map, Env, Eval, State, Acc) ->
 bind_guard_list([], Map, _Env, _Eval, _State, Acc) ->
   {Map, lists:reverse(Acc)}.
 
--spec signal_guard_fail(cerl:c_call(), [erl_types:erl_type()], state()) ->
-        no_return().
+-type eval() :: 'pos' | 'neg' | 'dont_know'.
 
-signal_guard_fail(Guard, ArgTypes, State) ->
+-spec signal_guard_fail(eval(), cerl:c_call(), [erl_types:erl_type()],
+			state()) -> no_return().
+
+signal_guard_fail(Eval, Guard, ArgTypes, State) ->
   Args = cerl:call_args(Guard),
   F = cerl:atom_val(cerl:call_name(Guard)),
   MFA = {cerl:atom_val(cerl:call_module(Guard)), F, length(Args)},
@@ -2382,7 +2386,7 @@ signal_guard_fail(Guard, ArgTypes, State) ->
 		      atom_to_list(F),
 		      format_args_1([Arg2], [ArgType2], State)]};
       false ->
-	mk_guard_msg(F, Args, ArgTypes, State)
+	mk_guard_msg(Eval, F, Args, ArgTypes, State)
     end,
   throw({fail, {Guard, Msg}}).
 
@@ -2397,20 +2401,25 @@ is_infix_op({erlang, '>=', 2}) -> true;
 is_infix_op({M, F, A}) when is_atom(M), is_atom(F),
 			    is_integer(A), 0 =< A, A =< 255 -> false.
 
--spec signal_guard_fatal_fail(cerl:c_call(), [erl_types:erl_type()], state()) ->
-        no_return().
+-spec signal_guard_fatal_fail(eval(), cerl:c_call(), [erl_types:erl_type()],
+			      state()) -> no_return().
 
-signal_guard_fatal_fail(Guard, ArgTypes, State) ->
+signal_guard_fatal_fail(Eval, Guard, ArgTypes, State) ->
   Args = cerl:call_args(Guard),
   F = cerl:atom_val(cerl:call_name(Guard)),
-  Msg = mk_guard_msg(F, Args, ArgTypes, State),
+  Msg = mk_guard_msg(Eval, F, Args, ArgTypes, State),
   throw({fatal_fail, {Guard, Msg}}).
 
-mk_guard_msg(F, Args, ArgTypes, State) ->
+mk_guard_msg(Eval, F, Args, ArgTypes, State) ->
   FArgs = [F, format_args(Args, ArgTypes, State)],
   case any_has_opaque_subtype(ArgTypes) of
     true -> {opaque_guard, FArgs};
-    false -> {guard_fail, FArgs}
+    false ->
+      case Eval of
+	neg -> {neg_guard_fail, FArgs};
+	pos -> {guard_fail, FArgs};
+	dont_know -> {guard_fail, FArgs}
+      end
   end.
 
 bind_guard_case_clauses(Arg, Clauses, Map, Env, Eval, State) ->

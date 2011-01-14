@@ -325,6 +325,8 @@ message_to_string({guard_fail, [Arg1, Infix, Arg2]}) ->
   io_lib:format("Guard test ~s ~s ~s can never succeed\n", [Arg1, Infix, Arg2]);
 message_to_string({guard_fail, [Guard, Args]}) ->
   io_lib:format("Guard test ~w~s can never succeed\n", [Guard, Args]);
+message_to_string({neg_guard_fail, [Guard, Args]}) ->
+  io_lib:format("Guard test not(~w~s) can never succeed\n", [Guard, Args]);
 message_to_string({guard_fail_pat, [Pat, Type]}) ->
   io_lib:format("Clause guard cannot succeed. The ~s was matched"
 		" against the type ~s\n", [Pat, Type]);
