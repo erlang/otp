@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,31 +42,31 @@
 -spec help() -> 'ok'.
 
 help() ->
-    format("bt(Pid)    -- stack backtrace for a process\n"
-	   "c(File)    -- compile and load code in <File>\n"
-	   "cd(Dir)    -- change working directory\n"
-	   "flush()    -- flush any messages sent to the shell\n"
-	   "help()     -- help info\n"
-	   "i()        -- information about the system\n"
-	   "ni()       -- information about the networked system\n"
-	   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
-	   "l(Module)  -- load or reload module\n"
-	   "lc([File]) -- compile a list of Erlang modules\n"
-	   "ls()       -- list files in the current directory\n"
-	   "ls(Dir)    -- list files in directory <Dir>\n"
-	   "m()        -- which modules are loaded\n"
-	   "m(Mod)     -- information about module <Mod>\n"
-	   "memory()   -- memory allocation information\n"
-	   "memory(T)  -- memory allocation information of type <T>\n"
-	   "nc(File)   -- compile and load code in <File> on all nodes\n"
-	   "nl(Module) -- load module on all nodes\n"
-	   "pid(X,Y,Z) -- convert X,Y,Z to a Pid\n"
-	   "pwd()      -- print working directory\n"
-	   "q()        -- quit - shorthand for init:stop()\n"
-	   "regs()     -- information about registered processes\n"
-	   "nregs()    -- information about all registered processes\n"
-	   "xm(M)      -- cross reference check a module\n"
-           "y(File)    -- generate a Yecc parser\n").
+    io:put_chars(<<"bt(Pid)    -- stack backtrace for a process\n"
+		   "c(File)    -- compile and load code in <File>\n"
+		   "cd(Dir)    -- change working directory\n"
+		   "flush()    -- flush any messages sent to the shell\n"
+		   "help()     -- help info\n"
+		   "i()        -- information about the system\n"
+		   "ni()       -- information about the networked system\n"
+		   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
+		   "l(Module)  -- load or reload module\n"
+		   "lc([File]) -- compile a list of Erlang modules\n"
+		   "ls()       -- list files in the current directory\n"
+		   "ls(Dir)    -- list files in directory <Dir>\n"
+		   "m()        -- which modules are loaded\n"
+		   "m(Mod)     -- information about module <Mod>\n"
+		   "memory()   -- memory allocation information\n"
+		   "memory(T)  -- memory allocation information of type <T>\n"
+		   "nc(File)   -- compile and load code in <File> on all nodes\n"
+		   "nl(Module) -- load module on all nodes\n"
+		   "pid(X,Y,Z) -- convert X,Y,Z to a Pid\n"
+		   "pwd()      -- print working directory\n"
+		   "q()        -- quit - shorthand for init:stop()\n"
+		   "regs()     -- information about registered processes\n"
+		   "nregs()    -- information about all registered processes\n"
+		   "xm(M)      -- cross reference check a module\n"
+		   "y(File)    -- generate a Yecc parser\n">>).
 
 %% c(FileName)
 %%  Compile a file/module.
