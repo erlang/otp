@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -5476,6 +5476,9 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	if (state.lambdas != state.def_lambdas) {
 	    erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.lambdas);
 	}
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.labels);
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.atom);
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.export);
 	if (bin != NULL) {
 	    driver_free_binary(bin);
 	}
@@ -5487,8 +5490,17 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     if (code != NULL) {
 	erts_free(ERTS_ALC_T_CODE, code);
     }
+    if (state.labels != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.labels);
+    }
     if (state.lambdas != state.def_lambdas) {
 	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.lambdas);
+    }
+    if (state.atom != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.atom);
+    }
+    if (state.export != NULL) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.export);
     }
     if (bin != NULL) {
 	driver_free_binary(bin);
