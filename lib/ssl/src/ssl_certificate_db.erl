@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -122,8 +122,8 @@ cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
 %% but with different content.
 %% --------------------------------------------------------------------
 uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
-    [Pids] = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
-    lists:foreach(fun(Pid) ->
+    Pids = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
+    lists:foreach(fun([Pid]) ->
 			  exit(Pid, shutdown)
 		  end, Pids).
 
