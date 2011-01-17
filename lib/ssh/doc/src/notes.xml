@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -28,6 +28,20 @@
     <rev>%VSN%</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Ssh 2.0.4</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            SSH did not handle the error reason enetunreach
+            when trying to open a IPv6 connection.</p>
+          <p>
+            Own Id: OTP-9031</p>
+        </item>
+      </list>
+    </section>
+</section>
 
 <section><title>Ssh 2.0.3</title>
     <section><title>Fixed Bugs and Malfunctions</title>
