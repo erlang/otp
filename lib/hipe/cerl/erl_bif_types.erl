@@ -1867,6 +1867,8 @@ type(erts_debug, flat_size, 1, Xs) ->
   strict(arg_types(erts_debug, flat_size, 1), Xs, fun (_) -> t_integer() end);
 type(erts_debug, get_internal_state, 1, _) ->
   t_any();
+type(erts_debug, instructions, 0, _) ->
+  t_list(t_list(t_byte()));
 type(erts_debug, lock_counters, 1, Xs) ->
   strict(arg_types(erts_debug, lock_counters, 1), Xs,
 	 fun ([Arg]) ->
@@ -4093,6 +4095,8 @@ arg_types(erts_debug, flat_size, 1) ->
   [t_any()];
 arg_types(erts_debug, get_internal_state, 1) ->
   [t_any()];
+arg_types(erts_debug, instructions, 0) ->
+  [];
 arg_types(erts_debug, lock_counters, 1) ->
   [t_sup([t_atom(enabled),
 	  t_atom(info),

@@ -505,8 +505,10 @@ ifdef HIPE_ENABLED
 OPCODE_TABLES += hipe/hipe_ops.tab
 endif
 
-$(TTF_DIR)/beam_opcodes.h $(TTF_DIR)/beam_opcodes.c: $(OPCODE_TABLES)
-	LANG=C $(PERL) utils/beam_makeops -outdir $(TTF_DIR) \
+$(TTF_DIR)/beam_opcodes.h $(TTF_DIR)/beam_opcodes.c: $(OPCODE_TABLES) utils/beam_makeops
+	LANG=C $(PERL) utils/beam_makeops \
+		-wordsize @EXTERNAL_WORD_SIZE@ \
+		-outdir $(TTF_DIR) \
 		-emulator $(OPCODE_TABLES)
 
 # bif and atom table

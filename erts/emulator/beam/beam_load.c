@@ -89,13 +89,12 @@ typedef struct {
 } Label;
 
 /*
- * Type for a operand for a generic instruction.
+ * Type for an operand for a generic instruction.
  */
 
 typedef struct {
     unsigned type;		/* Type of operand. */
-    BeamInstr val;			/* Value of operand. */
-    Uint bigarity;		/* Arity for bignumbers (only). */
+    BeamInstr val;		/* Value of operand. */
 } GenOpArg;
 
 /*
@@ -326,11 +325,6 @@ typedef struct {
     Literal* literals;		/* Array of literals. */
     LiteralPatch* literal_patches; /* Operands that need to be patched. */
     Uint total_literal_size;	/* Total heap size for all literals. */
-
-    /*
-     * Floating point.
-     */
-    int new_float_instructions;	/* New allocation scheme for floating point. */
 } LoaderState;
 
 typedef struct {
@@ -476,12 +470,14 @@ static int read_code_header(LoaderState* stp);
 static int load_code(LoaderState* stp);
 static GenOp* gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
 			  GenOpArg Tuple, GenOpArg Dst);
-static GenOp* gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg Fail,
+static GenOp* gen_split_values(LoaderState* stp, GenOpArg S,
+			       GenOpArg TypeFail, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
 static GenOp* gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 			     GenOpArg Size, GenOpArg* Rest);
-static GenOp* gen_select_big(LoaderState* stp, GenOpArg S, GenOpArg Fail,
-			     GenOpArg Size, GenOpArg* Rest);
+static GenOp* gen_select_literals(LoaderState* stp, GenOpArg S,
+				  GenOpArg Fail, GenOpArg Size,
+				  GenOpArg* Rest);
 static GenOp* const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
 static GenOp* gen_func_info(LoaderState* stp, GenOpArg mod, GenOpArg Func,
@@ -818,7 +814,6 @@ init_state(LoaderState* stp)
     stp->total_literal_size = 0;
     stp->literal_patches = 0;
     stp->string_patches = 0;
-    stp->new_float_instructions = 0;
     stp->may_load_nif = 0;
     stp->on_load = 0;
 }
@@ -1618,7 +1613,6 @@ load_code(LoaderState* stp)
 			    BeamInstr val;
 			    BeamInstr words = 0;
 			    
-			    stp->new_float_instructions = 1;
 			    GetTagAndValue(stp, tag, n);
 			    VerifyTag(stp, tag, TAG_u);
 			    while (n-- > 0) {
@@ -1772,7 +1766,7 @@ load_code(LoaderState* stp)
 	    }
 
 	    stp->specific_op = specific;
-	    CodeNeed(opc[stp->specific_op].sz+2); /* Extra margin for packing */
+	    CodeNeed(opc[stp->specific_op].sz+16); /* Extra margin for packing */
 	    code[ci++] = BeamOpCode(stp->specific_op);
 	}
 	
@@ -1936,7 +1930,8 @@ load_code(LoaderState* stp)
 		}
 		code[ci++] = (BeamInstr) stp->import[i].bf;
 		break;
-	    case 'P':		/* Byte offset into tuple */
+	    case 'P':		/* Byte offset into tuple or stack */
+	    case 'Q':		/* Like 'P', but packable */
 		VerifyTag(stp, tag, TAG_u);
 		tmp = tmp_op->a[arg].val;
 		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));
@@ -1954,84 +1949,6 @@ load_code(LoaderState* stp)
 	    }
 	    sign++;
 	    arg++;
-	}
-
-	/*
-	 * Load any list arguments using the primitive tags.
-	 */
-
-	for ( ; arg < tmp_op->arity; arg++) {
-	    switch (tmp_op->a[arg].type) {
-	    case TAG_i:
-		CodeNeed(1);
-		code[ci++] = make_small(tmp_op->a[arg].val);
-		break;
-	    case TAG_u:
-	    case TAG_a:
-	    case TAG_v:
-		CodeNeed(1);
-		code[ci++] = tmp_op->a[arg].val;
-		break;
-	    case TAG_f:
-		CodeNeed(1);
-		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		stp->labels[tmp_op->a[arg].val].patches = ci;
-		ci++;
-		break;
-	    case TAG_q:
-		{
-		    Eterm lit;
-
-		    lit = stp->literals[tmp_op->a[arg].val].term;
-		    if (is_big(lit)) {
-			Eterm* bigp;
-			Eterm *tmp;
-			Uint size;
-			Uint term_size;
-
-			bigp = big_val(lit);
-			term_size = bignum_header_arity(*bigp);
-			size = TermWords(term_size + 1);
-			CodeNeed(size);
-			tmp = (Eterm *) (code + ci);
-			*tmp++ = *bigp++;
-			while (term_size-- > 0) {
-			    *tmp++ = *bigp++;
-			}
-			ci +=size;
-		    } else if (is_float(lit)) {
-#if defined(ARCH_64) && !HALFWORD_HEAP
-			CodeNeed(1);
-			code[ci++] = float_val(stp->literals[tmp_op->a[arg].val].term)[1];
-#elif HALFWORD_HEAP
-			Eterm* fptr;
-			Uint size;
-			Eterm *tmp;
-
-			fptr = float_val(stp->literals[tmp_op->a[arg].val].term)+1;
-			size = TermWords(2);
-			CodeNeed(size);
-			tmp = (Eterm *) (code + ci);
-			*tmp++ = *fptr++;
-			*tmp = *fptr;
-			ci += size;
-#else
-			Eterm* fptr;
-
-			fptr = float_val(stp->literals[tmp_op->a[arg].val].term)+1;
-			CodeNeed(2);
-			code[ci++] = *fptr++;
-			code[ci++] = *fptr;
-#endif
-		    } else {
-			LoadError0(stp, "literal is neither float nor big");
-		    }
-		}
-		break;
-	    default:
-		LoadError1(stp, "unsupported primitive type '%c'",
-			   tag_to_letter[tmp_op->a[arg].type]);
-	    }
 	}
 
 	/*
@@ -2057,6 +1974,11 @@ load_code(LoaderState* stp)
 		case '6':	/* Shift 16 steps */
 		    packed = (packed << BEAM_LOOSE_SHIFT) | code[--ci];
 		    break;
+#ifdef ARCH_64
+		case 'w':	/* Shift 32 steps */
+		    packed = (packed << BEAM_WIDE_SHIFT) | code[--ci];
+		    break;
+#endif
 		case 'p':	/* Put instruction (from stack). */
 		    code[ci++] = *--sp;
 		    break;
@@ -2069,6 +1991,58 @@ load_code(LoaderState* stp)
 		}
 	    }
 	    ASSERT(sp == stack); /* Incorrect program? */
+	}
+
+	/*
+	 * Load any list arguments using the primitive tags.
+	 */
+
+	for ( ; arg < tmp_op->arity; arg++) {
+	    switch (tmp_op->a[arg].type) {
+	    case TAG_i:
+		CodeNeed(1);
+		code[ci++] = make_small(tmp_op->a[arg].val);
+		break;
+	    case TAG_u:
+	    case TAG_a:
+	    case TAG_v:
+		CodeNeed(1);
+		code[ci++] = tmp_op->a[arg].val;
+		break;
+	    case TAG_f:
+		CodeNeed(1);
+		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
+		stp->labels[tmp_op->a[arg].val].patches = ci;
+		ci++;
+		break;
+	    case TAG_r:
+		CodeNeed(1);
+		code[ci++] = (R_REG_DEF << _TAG_PRIMARY_SIZE) |
+		    TAG_PRIMARY_HEADER;
+		break;
+	    case TAG_x:
+		CodeNeed(1);
+		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
+		    (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		break;
+	    case TAG_y:
+		CodeNeed(1);
+		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |
+		    (Y_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER;
+		break;
+	    case TAG_n:
+		CodeNeed(1);
+		code[ci++] = NIL;
+		break;
+	    case TAG_q:
+		CodeNeed(1);
+		new_literal_patch(stp, ci);
+		code[ci++] = tmp_op->a[arg].val;
+		break;
+	    default:
+		LoadError1(stp, "unsupported primitive type '%c'",
+			   tag_to_letter[tmp_op->a[arg].type]);
+	    }
 	}
 
 	/*
@@ -2239,11 +2213,12 @@ use_jump_tab(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 }
 
 /*
- * Predicate to test whether all values in a table are big numbers.
+ * Predicate to test whether all values in a table are either
+ * floats or bignums.
  */
 
 static int
-all_values_are_big(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
+floats_or_bignums(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 {
     int i;
 
@@ -2253,9 +2228,6 @@ all_values_are_big(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
 
     for (i = 0; i < Size.val; i += 2) {
 	if (Rest[i].type != TAG_q) {
-	    return 0;
-	}
-	if (is_not_big(stp->literals[Rest[i].val].term)) {
 	    return 0;
 	}
 	if (Rest[i+1].type != TAG_f) {
@@ -2317,6 +2289,14 @@ mixed_types(LoaderState* stp, GenOpArg Size, GenOpArg* Rest)
     return 0;
 }
 
+static int
+same_label(LoaderState* stp, GenOpArg Target, GenOpArg Label)
+{
+    return Target.type = TAG_f && Label.type == TAG_u &&
+	Target.val == Label.val;
+}
+
+
 /*
  * Generate an instruction for element/2.
  */
@@ -2328,23 +2308,23 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     GenOp* op;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_element_4;
     op->arity = 4;
-    op->a[0] = Fail;
-    op->a[1] = Index;
-    op->a[2] = Tuple;
-    op->a[3] = Dst;
     op->next = NULL;
-
-    /*
-     * If safe, generate a faster instruction.
-     */
 
     if (Index.type == TAG_i && Index.val > 0 &&
 	(Tuple.type == TAG_r || Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
-	op->a[1].type = TAG_u;
-	op->a[1].val = Index.val;
+	op->a[0] = Tuple;
+	op->a[1] = Fail;
+	op->a[2].type = TAG_u;
+	op->a[2].val = Index.val;
+	op->a[3] = Dst;
+    } else {
+	op->op = genop_i_element_4;
+	op->a[0] = Tuple;
+	op->a[1] = Fail;
+	op->a[2] = Index;
+	op->a[3] = Dst;
     }
 
     return op;
@@ -2595,8 +2575,6 @@ binary_too_big_bits(LoaderState* stp, GenOpArg Size)
     return Size.type == TAG_u && (((Size.val+7)/8) >> (8*sizeof(Uint)-3) != 0);
 }
 
-#define new_float_allocation(Stp) ((Stp)->new_float_instructions)
-
 static GenOp*
 gen_put_binary(LoaderState* stp, GenOpArg Fail,GenOpArg Size,
 	       GenOpArg Unit, GenOpArg Flags, GenOpArg Src)
@@ -2809,6 +2787,52 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
     return op;
 }
 
+static GenOp*
+gen_increment(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
+	      GenOpArg Live, GenOpArg Dst)
+{
+    GenOp* op;
+
+    NEW_GENOP(stp, op);
+    op->op = genop_i_increment_4;
+    op->arity = 4;
+    op->next = NULL;
+    op->a[0] = Reg;
+    op->a[1].type = TAG_u;
+    op->a[1].val = Integer.val;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+    return op;
+}
+
+static GenOp*
+gen_increment_from_minus(LoaderState* stp, GenOpArg Reg, GenOpArg Integer,
+			 GenOpArg Live, GenOpArg Dst)
+{
+    GenOp* op;
+
+    NEW_GENOP(stp, op);
+    op->op = genop_i_increment_4;
+    op->arity = 4;
+    op->next = NULL;
+    op->a[0] = Reg;
+    op->a[1].type = TAG_u;
+    op->a[1].val = -Integer.val;
+    op->a[2] = Live;
+    op->a[3] = Dst;
+    return op;
+}
+
+/*
+ * Test whether the negation of the given number is small.
+ */
+static int
+negation_is_small(LoaderState* stp, GenOpArg Int)
+{
+    return Int.type == TAG_i && IS_SSMALL(-Int.val);
+}
+
+
 static int
 smp(LoaderState* stp)
 {
@@ -3000,6 +3024,21 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	ASSERT(op->a[i].val < op->a[i+2].val);
     }
 #endif
+
+    /*
+     * Use a special-cased instruction if there are only two values.
+     */
+    if (size == 2) {
+	op->op = genop_i_select_tuple_arity2_6;
+	op->arity--;
+	op->a[2].type = TAG_u;
+	op->a[2].val = arityval(op->a[3].val);
+	op->a[3] = op->a[4];
+	op->a[4].type = TAG_u;
+	op->a[4].val = arityval(op->a[5].val);
+	op->a[5] = op->a[6];
+    }
+
     return op;
 }
 
@@ -3009,17 +3048,23 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
  */
 
 static GenOp*
-gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg Fail,
-		 GenOpArg Size, GenOpArg* Rest)
+gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg TypeFail,
+		 GenOpArg Fail, GenOpArg Size, GenOpArg* Rest)
 
 {
     GenOp* op1;
     GenOp* op2;
     GenOp* label;
-    Uint type;
+    GenOp* is_integer;
     int i;
 
     ASSERT(Size.val >= 2 && Size.val % 2 == 0);
+
+    NEW_GENOP(stp, is_integer);
+    is_integer->op = genop_is_integer_2;
+    is_integer->arity = 2;
+    is_integer->a[0] = TypeFail;
+    is_integer->a[1] = S;
 
     NEW_GENOP(stp, label);
     label->op = genop_label_1;
@@ -3046,15 +3091,13 @@ gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op2->a[2].type = TAG_u;
     op2->a[2].val = 0;
 
-    op1->next = label;
-    label->next = op2;
-    op2->next = NULL;
-
-    type = Rest[0].type;
+    /*
+     * Split the list.
+     */
 
     ASSERT(Size.type == TAG_u);
     for (i = 0; i < Size.val; i += 2) {
-	GenOp* op = (Rest[i].type == type) ? op1 : op2;
+	GenOp* op = (Rest[i].type == TAG_q) ? op2 : op1;
 	int dst = 3 + op->a[2].val;
 
 	ASSERT(Rest[i+1].type == TAG_f);
@@ -3063,13 +3106,36 @@ gen_split_values(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	op->arity += 2;
 	op->a[2].val += 2;
     }
-
-    /*
-     * None of the instructions should have zero elements in the list.
-     */
-
     ASSERT(op1->a[2].val > 0);
     ASSERT(op2->a[2].val > 0);
+
+    /*
+     * Order the instruction sequence appropriately.
+     */
+
+    if (TypeFail.val == Fail.val) {
+	/*
+	 * select_val L1 S ... (small numbers)
+	 * label L1
+	 * is_integer Fail S
+	 * select_val Fail S ... (bignums)
+	 */
+	op1->next = label;
+	label->next = is_integer;
+	is_integer->next = op2;
+    } else {
+	/*
+	 * is_integer TypeFail S
+	 * select_val L1 S ... (small numbers)
+	 * label L1
+	 * select_val Fail S ... (bignums)
+	 */
+	is_integer->next = op1;
+	op1->next = label;
+	label->next = op2;
+	op1 = is_integer;
+    }
+    op2->next = NULL;
 
     return op1;
 }
@@ -3089,6 +3155,29 @@ gen_jump_tab(LoaderState* stp, GenOpArg S, GenOpArg Fail, GenOpArg Size, GenOpAr
     GenOp* op;
 
     ASSERT(Size.val >= 2 && Size.val % 2 == 0);
+
+    /*
+     * If there is only one choice, don't generate a jump table.
+     */
+    if (Size.val == 2) {
+	GenOp* jump;
+
+	NEW_GENOP(stp, op);
+	op->arity = 3;
+	op->op = genop_is_ne_exact_3;
+	op->a[0] = Rest[1];
+	op->a[1] = S;
+	op->a[2] = Rest[0];
+
+	NEW_GENOP(stp, jump);
+	jump->next = NULL;
+	jump->arity = 1;
+	jump->op = genop_jump_1;
+	jump->a[0] = Fail;
+
+	op->next = jump;
+	return op;
+    }
 
     /*
      * Calculate the minimum and maximum values and size of jump table.
@@ -3162,8 +3251,9 @@ genopargcompare(GenOpArg* a, GenOpArg* b)
 }
 
 /*
- * Generate a select_val instruction.  We know that a jump table is not suitable,
- * and that all values are of the same type (integer, atoms, floats; never bignums).
+ * Generate a select_val instruction.  We know that a jump table
+ * is not suitable, and that all values are of the same type
+ * (integer or atoms).
  */
 
 static GenOp*
@@ -3177,12 +3267,7 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    if (Rest[0].type != TAG_q) {
-	op->op = genop_i_select_val_3;
-    } else {
-	ASSERT(is_float(stp->literals[Rest[0].val].term));
-	op->op = genop_i_select_float_3;
-    }
+    op->op = genop_i_select_val_3;
     GENOP_ARITY(op, arity);
     op->a[0] = S;
     op->a[1] = Fail;
@@ -3204,19 +3289,19 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     }
 #endif
 
+    /*
+     * Use a special-cased instruction if there are only two values.
+     */
+    if (size == 2) {
+	op->op = genop_i_select_val2_6;
+	op->arity--;
+	op->a[2] = op->a[3];
+	op->a[3] = op->a[4];
+	op->a[4] = op->a[5];
+	op->a[5] = op->a[6];
+    }
+
     return op;
-}
-
-/* 
- *  Compare function for qsort().
- */
-
-static int
-genbigcompare(GenOpArg* a, GenOpArg* b)
-{
-    int val = (int)(b->bigarity - a->bigarity);
-    
-    return val != 0 ? val : ((int) (a->val - b->val));
 }
 
 /*
@@ -3224,37 +3309,35 @@ genbigcompare(GenOpArg* a, GenOpArg* b)
  */
 
 static GenOp*
-gen_select_big(LoaderState* stp, GenOpArg S, GenOpArg Fail,
+gen_select_literals(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	       GenOpArg Size, GenOpArg* Rest)
 {
     GenOp* op;
-    int arity = Size.val + 2 + 1;
-    int size = Size.val / 2;
+    GenOp* jump;
+    GenOp** prev_next = &op;
+
     int i;
 
-    NEW_GENOP(stp, op);
-    op->next = NULL;
-    op->op = genop_i_select_big_2;
-    GENOP_ARITY(op, arity);
-    op->a[0] = S;
-    op->a[1] = Fail;
     for (i = 0; i < Size.val; i += 2) {
+	GenOp* op;
 	ASSERT(Rest[i].type == TAG_q);
-	op->a[i+2] = Rest[i];
-	op->a[i+2].bigarity = *big_val(stp->literals[op->a[i+2].val].term);
-	op->a[i+3] = Rest[i+1];
+
+	NEW_GENOP(stp, op);
+	op->op = genop_is_ne_exact_3;
+	op->arity = 3;
+	op->a[0] = Rest[i+1];
+	op->a[1] = S;
+	op->a[2] = Rest[i];
+	*prev_next = op;
+	prev_next = &op->next;
     }
-    ASSERT(i+2 == arity-1);
-    op->a[arity-1].type = TAG_u;
-    op->a[arity-1].val = 0;
 
-    /*
-     * Sort the values in descending arity order.
-     */
-
-    qsort(op->a+2, size, 2*sizeof(GenOpArg), 
-	  (int (*)(const void *, const void *)) genbigcompare);
-
+    NEW_GENOP(stp, jump);
+    jump->next = NULL;
+    jump->op = genop_jump_1;
+    jump->arity = 1;
+    jump->a[0] = Fail;
+    *prev_next = jump;
     return op;
 }
 
@@ -3272,7 +3355,6 @@ const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     int i;
 
     ASSERT(Size.type == TAG_u);
-    ASSERT(S.type == TAG_q);
 
     NEW_GENOP(stp, op);
     op->next = NULL;
@@ -3283,18 +3365,32 @@ const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
      * Search for a literal matching the controlling expression.
      */
 
-    if (S.type == TAG_q) {
-	Eterm expr = stp->literals[S.val].term;
-	for (i = 0; i < Size.val; i += 2) {
-	    if (Rest[i].type == TAG_q) {
-		Eterm term = stp->literals[Rest[i].val].term;
-		if (eq(term, expr)) {
-		    ASSERT(Rest[i+1].type == TAG_f);
-		    op->a[0] = Rest[i+1];
-		    return op;
+    switch (S.type) {
+    case TAG_q:
+	{
+	    Eterm expr = stp->literals[S.val].term;
+	    for (i = 0; i < Size.val; i += 2) {
+		if (Rest[i].type == TAG_q) {
+		    Eterm term = stp->literals[Rest[i].val].term;
+		    if (eq(term, expr)) {
+			ASSERT(Rest[i+1].type == TAG_f);
+			op->a[0] = Rest[i+1];
+			return op;
+		    }
 		}
 	    }
 	}
+	break;
+    case TAG_i:
+    case TAG_a:
+	for (i = 0; i < Size.val; i += 2) {
+	    if (Rest[i].val == S.val && Rest[i].type == S.type) {
+		ASSERT(Rest[i+1].type == TAG_f);
+		op->a[0] = Rest[i+1];
+		return op;
+	    }
+	}
+	break;
     }
 
     /*
@@ -3476,6 +3572,56 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->next = NULL;
     return op;
 }
+
+static GenOp*
+tuple_append_put5(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
+		  GenOpArg* Puts, GenOpArg S1, GenOpArg S2, GenOpArg S3,
+		  GenOpArg S4, GenOpArg S5)
+{
+    GenOp* op;
+    int arity = Arity.val;	/* Arity of tuple, not the instruction */
+    int i;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    GENOP_ARITY(op, arity+2+5);
+    op->op = genop_i_put_tuple_2;
+    op->a[0] = Dst;
+    op->a[1].type = TAG_u;
+    op->a[1].val = arity + 5;
+    for (i = 0; i < arity; i++) {
+	op->a[i+2] = Puts[i];
+    }
+    op->a[arity+2] = S1;
+    op->a[arity+3] = S2;
+    op->a[arity+4] = S3;
+    op->a[arity+5] = S4;
+    op->a[arity+6] = S5;
+    return op;
+}
+
+static GenOp*
+tuple_append_put(LoaderState* stp, GenOpArg Arity, GenOpArg Dst,
+		 GenOpArg* Puts, GenOpArg S)
+{
+    GenOp* op;
+    int arity = Arity.val;	/* Arity of tuple, not the instruction */
+    int i;
+
+    NEW_GENOP(stp, op);
+    op->next = NULL;
+    GENOP_ARITY(op, arity+2+1);
+    op->op = genop_i_put_tuple_2;
+    op->a[0] = Dst;
+    op->a[1].type = TAG_u;
+    op->a[1].val = arity + 1;
+    for (i = 0; i < arity; i++) {
+	op->a[i+2] = Puts[i];
+    }
+    op->a[arity+2] = S;
+    return op;
+}
+
 
 
 /*
@@ -3876,8 +4022,20 @@ transform_engine(LoaderState* st)
 	    if (i == 0)
 		goto restart;
 	    break;
+#if defined(TOP_is_eq)
 	case TOP_is_eq:
 	    ASSERT(ap < instr->arity);
+	    if (*pc++ != instr->a[ap].val)
+		goto restart;
+	    break;
+#endif
+	case TOP_is_type_eq:
+	    mask = *pc++;
+
+	    ASSERT(ap < instr->arity);
+	    ASSERT(instr->a[ap].type < BEAM_NUM_TAGS);
+	    if (((1 << instr->a[ap].type) & mask) == 0)
+		goto restart;
 	    if (*pc++ != instr->a[ap].val)
 		goto restart;
 	    break;
@@ -4001,14 +4159,17 @@ transform_engine(LoaderState* st)
 	case TOP_rest_args:
 	    {
 		int n = *pc++;
+		int formal_arity = gen_opc[instr->op].arity;
+		int num_vars = n + (instr->arity - formal_arity);
+		int j = formal_arity;
+
 		var = erts_alloc(ERTS_ALC_T_LOADER_TMP,
-				 instr->arity * sizeof(GenOpArg));
+				 num_vars * sizeof(GenOpArg));
 		for (i = 0; i < n; i++) {
 		    var[i] = def_vars[i];
 		}
-		while (i < instr->arity) {
-		    var[i] = instr->a[i];
-		    i++;
+		while (i < num_vars) {
+		    var[i++] = instr->a[j++];
 		}
 	    }
 	    break;

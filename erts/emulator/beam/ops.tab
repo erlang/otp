@@ -101,16 +101,16 @@ return
 %macro: test_heap TestHeap -pack
 
 allocate t t
-allocate_heap I I I
+allocate_heap t I t
 deallocate I
 init y
 allocate_zero t t
-allocate_heap_zero I I I
+allocate_heap_zero t I t
 
 trim N Remaining => i_trim N
 i_trim I
 
-test_heap I I
+test_heap I t
 
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
@@ -124,7 +124,7 @@ init Y1 | init Y2 => init2 Y1 Y2
 
 # Selecting values
 
-select_val S=q Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
+select_val S=aiq Fail=f Size=u Rest=* => const_select_val(S, Fail, Size, Rest)
 
 select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
   gen_jump_tab(S, Fail, Size, Rest)
@@ -132,34 +132,59 @@ select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
 is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | use_jump_tab(Size, Rest) => \
   gen_jump_tab(S, Fail, Size, Rest)
 
+is_integer TypeFail=f S | select_val S=s Fail=f Size=u Rest=* | \
+	   mixed_types(Size, Rest) => \
+  gen_split_values(S, TypeFail, Fail, Size, Rest)
+
 select_val S=s Fail=f Size=u Rest=* | mixed_types(Size, Rest) => \
-  gen_split_values(S, Fail, Size, Rest)
+  gen_split_values(S, Fail, Fail, Size, Rest)
 
-is_integer Fail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_integer Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
   fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
 
-is_atom Fail=f S | select_val S=s Fail=f Size=u Rest=* | \
+is_atom Fail=f S | select_val S=d Fail=f Size=u Rest=* | \
   fixed_size_values(Size, Rest) => gen_select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
+select_val S=s Fail=f Size=u Rest=* | floats_or_bignums(Size, Rest) => \
+  gen_select_literals(S, Fail, Size, Rest)
+
+select_val S=d Fail=f Size=u Rest=* | fixed_size_values(Size, Rest) => \
   gen_select_val(S, Fail, Size, Rest)
 
-select_val S=s Fail=f Size=u Rest=* | all_values_are_big(Size, Rest) => \
-  gen_select_big(S, Fail, Size, Rest)
-
-is_tuple Fail=f S | select_tuple_arity S=s Fail=f Size=u Rest=* => \
+is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-select_tuple_arity S=s Fail=f Size=u Rest=* => \
+select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val s f I
-i_select_tuple_arity s f I
-i_select_big s f
-i_select_float s f I
+i_select_val r f I
+i_select_val x f I
+i_select_val y f I
 
-i_jump_on_val_zero s f I
-i_jump_on_val s f I I
+i_select_val2 r f c f c f
+i_select_val2 x f c f c f
+i_select_val2 y f c f c f
+
+i_select_tuple_arity2 r f A f A f
+i_select_tuple_arity2 x f A f A f
+i_select_tuple_arity2 y f A f A f
+
+i_select_tuple_arity r f I
+i_select_tuple_arity x f I
+i_select_tuple_arity y f I
+
+i_jump_on_val_zero r f I
+i_jump_on_val_zero x f I
+i_jump_on_val_zero y f I
+
+i_jump_on_val r f I I
+i_jump_on_val x f I I
+i_jump_on_val y f I I
+
+jump Target | label Lbl | same_label(Target, Lbl) => label Lbl
+
+is_ne_exact L1 S1 S2 | jump Fail | label L2 | same_label(L1, L2) => \
+  is_eq_exact Fail S1 S2 | label L2
 
 %macro: get_list GetList -pack
 get_list x x x
@@ -234,11 +259,17 @@ is_number Fail Literal=q => move Literal x | is_number Fail x
 
 jump f
 
-case_end Literal=q => move Literal x | case_end x
-badmatch Literal=q => move Literal x | badmatch x
+case_end Literal=cq => move Literal x | case_end x
+badmatch Literal=cq => move Literal x | badmatch x
 
-case_end s
-badmatch s
+case_end r
+case_end x
+case_end y
+
+badmatch r
+badmatch x
+badmatch y
+
 if_end
 raise s s
 
@@ -248,12 +279,33 @@ system_limit j
 
 move R R =>
 
+move C=cxy r | jump Lbl => move_jump Lbl C
+
+%macro: move_jump MoveJump -nonext
+move_jump f n
+move_jump f c
+move_jump f x
+move_jump f y
+
 move X1=x Y1=y | move X2=x Y2=y => move2 X1 Y1 X2 Y2
 move Y1=y X1=x | move Y2=y X2=x => move2 Y1 X1 Y2 X2
+move X1=x X2=x | move X3=x X4=x => move2 X1 X2 X3 X4
+
+move C=aiq X=x==1 => move_x1 C
+move C=aiq X=x==2 => move_x2 C
+
+move_x1 c
+move_x2 c
 
 %macro: move2 Move2 -pack
 move2 x y x y
 move2 y x y x
+move2 x x x x
+
+# The compiler almost never generates a "move Literal y(Y)" instruction,
+# so let's cheat if we encounter one.
+move S=n D=y => init D
+move S=c D=y => move S x | move x D
 
 %macro:move Move -pack -gen_dest
 move x x
@@ -265,14 +317,9 @@ move r x
 move r y
 move c r
 move c x
-move c y
 move n x
 move n r
 move y y
-
-%cold
-move s d
-%hot
 
 # Receive operations.
 
@@ -306,55 +353,78 @@ i_wait_error_locked
 send
 
 #
-# Comparisions.
+# Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl=f R=rxy C=ian => i_is_eq_immed Lbl R C
-is_eq Lbl=f R=rxy C=an => i_is_eq_immed Lbl R C
+is_eq_exact Lbl R=rxy C=ian => i_is_eq_exact_immed Lbl R C
+is_eq_exact Lbl R=rxy C=q => i_is_eq_exact_literal R Lbl C
+
+is_ne_exact Lbl R=rxy C=ian => i_is_ne_exact_immed Lbl R C
+is_ne_exact Lbl R=rxy C=q => i_is_ne_exact_literal R Lbl C
+
+%macro: i_is_eq_exact_immed EqualImmed -fail_action
+i_is_eq_exact_immed f r c
+i_is_eq_exact_immed f x c
+i_is_eq_exact_immed f y c
+
+i_is_eq_exact_literal r f c
+i_is_eq_exact_literal x f c
+i_is_eq_exact_literal y f c
+
+%macro: i_is_ne_exact_immed NotEqualImmed -fail_action
+i_is_ne_exact_immed f r c
+i_is_ne_exact_immed f x c
+i_is_ne_exact_immed f y c
+
+i_is_ne_exact_literal r f c
+i_is_ne_exact_literal x f c
+i_is_ne_exact_literal y f c
+
+#
+# All other comparisons.
+#
+
+is_eq_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
+is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
 
 is_ge Lbl S1 S2 => i_fetch S1 S2 | i_is_ge Lbl
 is_lt Lbl S1 S2 => i_fetch S1 S2 | i_is_lt Lbl
 is_eq Lbl S1 S2 => i_fetch S1 S2 | i_is_eq Lbl
 is_ne Lbl S1 S2 => i_fetch S1 S2 | i_is_ne Lbl
 
-is_eq_exact Lbl=f S1 S2 => i_fetch S1 S2 | i_is_eq_exact Lbl
-is_ne_exact Lbl S1 S2 => i_fetch S1 S2 | i_is_ne_exact Lbl
-
+i_is_eq_exact f
+i_is_ne_exact f
 i_is_lt f
 i_is_ge f
 i_is_eq f
 i_is_ne f
-i_is_eq_exact f
-i_is_ne_exact f
-
-%macro: i_is_eq_immed EqualImmed -fail_action
-i_is_eq_immed f r c
-i_is_eq_immed f x c
-i_is_eq_immed f y c
 
 #
 # Putting things.
 #
 
-put_tuple Arity Dst | put V => i_put_tuple Arity V Dst
+put_tuple Arity Dst => i_put_tuple Dst u
 
-%macro: i_put_tuple PutTuple -pack
-i_put_tuple A x x
-i_put_tuple A y x
-i_put_tuple A r x
-i_put_tuple A n x
-i_put_tuple A c x
-i_put_tuple A x y
-i_put_tuple A x r
-i_put_tuple A y r
-i_put_tuple A n r
-i_put_tuple A c r
+i_put_tuple Dst Arity Puts=* | put S1 | put S2 | \
+  put S3 | put S4 | put S5 => \
+	    tuple_append_put5(Arity, Dst, Puts, S1, S2, S3, S4, S5)
 
-%cold
-i_put_tuple A r y
-i_put_tuple A y y
-i_put_tuple A c y
-%hot
+i_put_tuple Dst Arity Puts=* | put S => \
+	    tuple_append_put(Arity, Dst, Puts, S)
+
+i_put_tuple/2
+
+%macro:i_put_tuple PutTuple -pack -goto:do_put_tuple
+i_put_tuple r I
+i_put_tuple x I
+i_put_tuple y I
+
+#
+# The instruction "put_list Const [] Dst" will not be generated by
+# the current BEAM compiler. But until R15A, play it safe by handling
+# that instruction with the following transformation.
+#
+put_list Const=c n Dst => move Const x | put_list x n Dst
 
 %macro:put_list PutList -pack -gen_dest
 
@@ -362,10 +432,8 @@ put_list x n x
 put_list y n x
 put_list x x x
 put_list y x x
-put_list c n x
 put_list x x r
 put_list y r r
-put_list c n r
 
 put_list y y x
 put_list x y x
@@ -375,6 +443,13 @@ put_list r x r
 put_list y y r
 put_list y r x
 put_list r n x
+
+put_list x r x
+put_list x y r
+put_list y x r
+put_list y x x
+
+put_list x r r
 
 # put_list SrcReg Constant Dst
 put_list r c r
@@ -403,16 +478,8 @@ put_list c y x
 put_list c y y
 
 %cold
-put_list x r r
 put_list s s d
 %hot
-
-%macro: put Put
-put x
-put r
-put y
-put c
-put n
 
 %macro: i_fetch FetchArgs -pack
 i_fetch c c
@@ -464,19 +531,20 @@ move_return n r
 
 move S r | deallocate D | return => move_deallocate_return S r D
 
-%macro: move_deallocate_return MoveDeallocateReturn -nonext
-move_deallocate_return x r P
-move_deallocate_return y r P
-move_deallocate_return c r P
-move_deallocate_return n r P
+%macro: move_deallocate_return MoveDeallocateReturn -pack -nonext
+move_deallocate_return x r Q
+move_deallocate_return y r Q
+move_deallocate_return c r Q
+move_deallocate_return n r Q
 
 deallocate D | return => deallocate_return D
 
 %macro: deallocate_return DeallocateReturn -nonext
-deallocate_return P
+deallocate_return Q
 
 test_heap Need u==1 | put_list Y=y r r => test_heap_1_put_list Need Y
 
+%macro: test_heap_1_put_list TestHeapPutList -pack
 test_heap_1_put_list I y
 
 # Test tuple & arity (head)
@@ -576,14 +644,14 @@ is_list f y
 
 is_nonempty_list Fail=f S=rx | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
-%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action
-is_nonempty_list_allocate f x I I
-is_nonempty_list_allocate f r I I
+%macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action -pack
+is_nonempty_list_allocate f x I t
+is_nonempty_list_allocate f r I t
 
 is_nonempty_list F=f r | test_heap I1 I2 => is_non_empty_list_test_heap F r I1 I2
 
-%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action
-is_non_empty_list_test_heap f r I I
+%macro: is_non_empty_list_test_heap IsNonemptyListTestHeap -fail_action -pack
+is_non_empty_list_test_heap f r I t
 
 %macro: is_nonempty_list IsNonemptyList -fail_action
 is_nonempty_list f x
@@ -912,8 +980,13 @@ node x
 node y
 %hot
 
-i_fast_element j I s d
-i_element j s s d
+i_fast_element r j I d
+i_fast_element x j I d
+i_fast_element y j I d
+
+i_element r j s d
+i_element x j s d
+i_element y j s d
 
 bif1 f b s d
 bif1_body b s d
@@ -940,11 +1013,11 @@ move S r | call_last Ar P=f D => move_call_last S r P D
 
 i_move_call_last f P c r
 
-%macro:move_call_last MoveCallLast -arg_f -nonext
+%macro:move_call_last MoveCallLast -arg_f -nonext -pack
 
 move_call_last/4
-move_call_last x r f P
-move_call_last y r f P
+move_call_last x r f Q
+move_call_last y r f Q
 
 move S=c r | call_only Ar P=f => i_move_call_only P S r
 move S=x r | call_only Ar P=f => move_call_only S r P
@@ -1307,6 +1380,8 @@ fconv Arg=iqan Dst=l => move Arg x | fconv x Dst
 
 fmove q l
 fmove d l
+fmove l d
+
 fconv d l
 
 i_fadd l l l
@@ -1322,12 +1397,6 @@ fcheckerror p => i_fcheckerror
 i_fcheckerror
 fclearerror
 
-fmove FR=l Dst=d | new_float_allocation() => fmove_new FR Dst
- 
-# The new instruction for moving a float out of a floating point register.
-# (No allocation.)
-fmove_new l d
-
 #
 # New apply instructions in R10B.
 #
@@ -1336,7 +1405,21 @@ apply I
 apply_last I P
 
 #
-# New GCing arithmetic instructions.
+# Optimize addition and subtraction of small literals using
+# the i_increment/4 instruction (in bodies, not in guards).
+#
+
+gc_bif2 p Live u$bif:erlang:splus/2 Int=i Reg=d Dst => \
+	gen_increment(Reg, Int, Live, Dst)
+gc_bif2 p Live u$bif:erlang:splus/2 Reg=d Int=i Dst => \
+	gen_increment(Reg, Int, Live, Dst)
+
+gc_bif2 p Live u$bif:erlang:sminus/2 Reg=d Int=i Dst | \
+	negation_is_small(Int) => \
+	gen_increment_from_minus(Reg, Int, Live, Dst)
+
+#
+# GCing arithmetic instructions.
 #
 
 gc_bif2 Fail I u$bif:erlang:splus/2 S1 S2 Dst=d => i_fetch S1 S2 | i_plus Fail I Dst
@@ -1358,6 +1441,10 @@ gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
 gc_bif1 Fail I u$bif:erlang:sminus/1 Src Dst=d => i_fetch i Src | i_minus Fail I Dst
 gc_bif1 Fail I u$bif:erlang:splus/1 Src Dst=d => i_fetch i Src | i_plus Fail I Dst
+
+i_increment r I I d
+i_increment x I I d
+i_increment y I I d
 
 i_plus j I d
 i_minus j I d
