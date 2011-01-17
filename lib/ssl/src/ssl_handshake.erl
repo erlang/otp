@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -194,14 +194,12 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
 		{fun(OtpCert, ExtensionOrError, {SslState, UserState}) ->
 			 case ssl_certificate:validate_extension(OtpCert,
 								 ExtensionOrError,
-								SslState) of
-			    {valid, _} ->
-				apply_user_fun(Fun, OtpCert,
-					       ExtensionOrError, UserState,
-					       SslState);
-			    {fail, Reason} ->
-				apply_user_fun(Fun, OtpCert, Reason, UserState,
-					       SslState);
+								 SslState) of
+			     {valid, NewSslState} ->
+				 {valid, {NewSslState, UserState}};
+			     {fail, Reason} ->
+				 apply_user_fun(Fun, OtpCert, Reason, UserState,
+						SslState);
 			     {unknown, _} ->
 				 apply_user_fun(Fun, OtpCert,
 						ExtensionOrError, UserState, SslState)
