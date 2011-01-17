@@ -1603,6 +1603,133 @@ int sys_double_to_chars(double fp, char *buf)
   return strlen(buf);
 }
 
+int
+sys_double_to_chars_fast(double f, char *outbuf, int maxlen, int precision, int compact)
+{
+    enum {
+          FRAC_SIZE = 52
+        , EXP_SIZE  = 11
+        , EXP_MASK  = (1ll << EXP_SIZE) - 1
+        , FRAC_MASK = (1ll << FRAC_SIZE) - 1
+        , FRAC_MASK2 = (1ll << (FRAC_SIZE + 1)) - 1
+        , MAX_FLOAT  = 1ll << (FRAC_SIZE+1)
+    };
+
+    long long mantissa, int_part, int_part2, frac_part;
+    short exp;
+    int sign, i, n, m, max;
+    double absf;
+    union { long long L; double F; } x;
+    char c, *p = outbuf;
+    int digit, roundup;
+
+    x.F = f;
+
+    exp      = (x.L >> FRAC_SIZE) & EXP_MASK;
+    mantissa = x.L & FRAC_MASK;
+    sign     = x.L >= 0 ? 1 : -1;
+    if (exp == EXP_MASK) {
+        if (mantissa == 0) {
+            if (sign == -1)
+                *p++ = '-';
+            *p++ = 'i';
+            *p++ = 'n';
+            *p++ = 'f';
+        } else {
+            *p++ = 'n';
+            *p++ = 'a';
+            *p++ = 'n';
+        }
+        *p = '\0';
+        return p - outbuf;
+    }
+
+    exp     -= EXP_MASK >> 1;
+    mantissa |= (1ll << FRAC_SIZE);
+    frac_part = 0;
+    int_part  = 0;
+    absf      = f * sign;
+
+    /* Don't bother with optimizing too large numbers and precision */
+    if (absf > MAX_FLOAT || precision > maxlen-17) {
+       int len = snprintf(outbuf, maxlen, "%.*f", precision, f);
+       return len;
+    }
+
+    if (exp >= FRAC_SIZE)
+        int_part  = mantissa << (exp - FRAC_SIZE);
+    else if (exp >= 0) {
+        int_part  = mantissa >> (FRAC_SIZE - exp);
+        frac_part = (mantissa << (exp + 1)) & FRAC_MASK2;
+    }
+    else /* if (exp < 0) */
+        frac_part = (mantissa & FRAC_MASK2) >> -(exp + 1);
+
+    if (int_part == 0) {
+        if (sign == -1)
+            *p++ = '-';
+        *p++ = '0';
+    } else {
+        int ret;
+        while (int_part != 0) {
+            int_part2 = int_part / 10;
+            *p++ = (char)(int_part - ((int_part2 << 3) + (int_part2 << 1)) + '0');
+            int_part = int_part2;
+        }
+        if (sign == -1)
+            *p++ = '-';
+        /* Reverse string */
+        ret = p - outbuf;
+        for (i = 0, n = ret/2; i < n; i++) {
+            c = outbuf[i];
+            outbuf[i] = outbuf[ret - i - 1];
+            outbuf[ret - i - 1] = c;
+        }
+    }
+    if (precision != 0)
+        *p++ = '.';
+
+    max = maxlen - (p - outbuf);
+    if (max > precision)
+        max = precision;
+    for (m = 0; m < max; m++) {
+        /* frac_part *= 10; */
+        frac_part = (frac_part << 3) + (frac_part << 1);
+
+        *p++ = (char)((frac_part >> (FRAC_SIZE + 1)) + '0');
+        frac_part &= FRAC_MASK2;
+    }
+    /* Delete ending zeroes */
+    if (compact)
+        for (--p; *p == '0' && *(p-1) == '0'; --p);
+
+    roundup = 0;
+    /* Rounding - look at the next digit */
+    frac_part = (frac_part << 3) + (frac_part << 1);
+    digit = (frac_part >> (FRAC_SIZE + 1));
+    if (digit > 5)
+        roundup = 1;
+    else if (digit == 5) {
+        frac_part &= FRAC_MASK2;
+        if (frac_part != 0) roundup = 1;
+    }
+    if (roundup) {
+        char d;
+        int pos = p - outbuf - 1;
+        do {
+            d = outbuf[pos];
+            if (d == '-') break;
+            if (d == '.') { pos--; continue; }
+            d++; outbuf[pos] = d;
+            if (d != ':') break;
+            outbuf[pos] = '0';
+            pos--;
+        } while (pos);
+    }
+
+    *p = '\0';
+    return p - outbuf;
+}
 
 /* Floating point exceptions */
 

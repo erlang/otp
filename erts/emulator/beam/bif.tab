@@ -91,6 +91,8 @@ ubif erlang:float/1
 ubif 'erl.lang.number':to_float/1	ebif_to_float_1 float_1
 bif erlang:float_to_list/1
 bif 'erl.lang.float':to_string/1	ebif_float_to_string_1 float_to_list_1
+bif erlang:float_to_list/2
+bif 'erl.lang.float':to_string/2	ebif_float_to_string_2 float_to_list_2
 bif erlang:fun_info/2
 bif 'erl.lang.function':info/2		ebif_fun_info_2
 bif erlang:garbage_collect/0

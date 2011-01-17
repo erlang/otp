@@ -656,6 +656,7 @@ void fini_getenv_state(GETENV_STATE *);
 void init_sys_float(void);
 int sys_chars_to_double(char*, double*);
 int sys_double_to_chars(double, char*);
+int sys_double_to_chars_fast(double, char*, int, int, int);
 void sys_get_pid(char *);
 
 /* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */

@@ -2656,6 +2656,51 @@ BIF_RETTYPE float_to_list_1(BIF_ALIST_1)
      BIF_RET(buf_to_intlist(&hp, fbuf, i, NIL));
  }
 
+BIF_RETTYPE float_to_list_2(BIF_ALIST_2)
+{
+    int precision = 4;
+    int compact = 0;
+    Eterm list = BIF_ARG_2;
+    Eterm arg;
+    int i;
+    Uint need;
+    Eterm* hp;
+    FloatDef f;
+    char fbuf[256];
+
+    /* check the arguments */
+    if (is_not_float(BIF_ARG_1))
+	    goto badarg;
+
+    while (is_list(list)) {
+        arg = CAR(list_val(list));
+        if (arg == am_compact)
+            compact = 1;
+        else if (is_tuple(arg)) {
+            Eterm* tp = tuple_val(arg);
+            if (*tp == make_arityval(2) && tp[1] == am_precision && is_small(tp[2]))
+                precision = signed_val(tp[2]);
+            else
+                goto badarg;
+        } else {
+            goto badarg;
+        }
+        list = CDR(list_val(list));
+    }
+    if (is_not_nil(list)) {
+        goto badarg;
+    }
+
+    GET_DOUBLE(BIF_ARG_1, f);
+    if ((i = sys_double_to_chars_fast(f.fd, fbuf, sizeof(fbuf), precision, compact)) <= 0)
+        BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+    need = i*2;
+    hp = HAlloc(BIF_P, need);
+    BIF_RET(buf_to_intlist(&hp, fbuf, i, NIL));
+badarg:
+	BIF_ERROR(BIF_P, BADARG);
+}
+
 /**********************************************************************/
 
 /* convert a list of ascii  integer values e's +'s and -'s to a float */

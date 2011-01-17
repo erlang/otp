@@ -1069,6 +1069,28 @@ b</pre>
       </desc>
     </func>
     <func>
+      <name>float_to_list(Float, Options) -> string()</name>
+      <fsummary>Text representation of a float formatted using given options</fsummary>
+      <type>
+        <v>Float = float()</v>
+        <v>Options = [Option]</v>
+        <v>Option = {precision, Precision::integer()} | compact</v>
+      </type>
+      <desc>
+        <p>Returns a string which corresponds to the text
+          representation of <c>Float</c> using fixed decimal point formatting.
+          When <c>precision</c> option is specified
+          the returned value will contain at most <c>Precision</c> number of
+          digits past the decimal point.  When <c>compact</c> option is provided
+          the trailing zeros at the end of the list are truncated.</p>
+        <pre>
+> <input>float_to_list(7.12, [{precision, 4}]).</input>
+"7.1200"
+> <input>float_to_list(7.12, [{precision, 4}, compact]).</input>
+"7.12"</pre>
+      </desc>
+    </func>
+    <func>
       <name>erlang:fun_info(Fun) -> [{Item, Info}]</name>
       <fsummary>Information about a fun</fsummary>
       <type>
