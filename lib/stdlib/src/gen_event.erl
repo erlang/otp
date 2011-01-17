@@ -106,8 +106,10 @@
 -type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
 -type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
 
--type emgr_name() :: {'local', atom()} | {'global', atom()}.
--type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()} | pid().
+-type emgr_name() :: {'local', atom()} | {'global', atom()}
+		   | {'via', atom(), term()}.
+-type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()}
+		   | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
 
 %%---------------------------------------------------------------------------
@@ -142,6 +144,7 @@ init_it(Starter, Parent, Name0, _, _, Options) ->
 
 name({local,Name}) -> Name;
 name({global,Name}) -> Name;
+name({via,_, Name}) -> Name;
 name(Pid) when is_pid(Pid) -> Pid.
 
 -spec add_handler(emgr_ref(), handler(), term()) -> term().
@@ -207,6 +210,9 @@ call1(M, Handler, Query, Timeout) ->
 
 send({global, Name}, Cmd) ->
     catch global:send(Name, Cmd),
+    ok;
+send({via, Mod, Name}, Cmd) ->
+    catch Mod:send(Name, Cmd),
     ok;
 send(M, Cmd) ->
     M ! Cmd,

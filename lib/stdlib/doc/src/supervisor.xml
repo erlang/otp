@@ -271,8 +271,14 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <p>If <c><anno>SupName</anno>={local,Name}</c> the supervisor is registered
           locally as <c>Name</c> using <c>register/2</c>. If
           <c><anno>SupName</anno>={global,Name}</c> the supervisor is registered
-          globally as <c>Name</c> using <c>global:register_name/2</c>.
-          If no name is provided, the supervisor is not registered.</p>
+          globally as <c>Name</c> using <c>global:register_name/2</c>. If
+          <c><anno>SupName</anno>={via,Module,Name}</c> the supervisor
+	  is registered as <c>Name</c> using the registry represented by
+	  <c>Module</c>. The <c>Module</c> callback should export the functions
+	  <c>register_name/2</c>, <c>unregister_name/1</c> and <c>send/2</c>,
+	  which should behave like the corresponding functions in <c>global</c>.
+	  Thus, <c>{via,global,Name}</c> is a valid reference.</p>
+          <p>If no name is provided, the supervisor is not registered.</p>
         <p><c><anno>Module</anno></c> is the name of the callback module.</p>
         <p><c><anno>Args</anno></c> is an arbitrary term which is passed as
           the argument to <c><anno>Module</anno>:init/1</c>.</p>
@@ -315,6 +321,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
            registered at another node, or</item>
           <item><c>{global,Name}</c>, if the supervisor is globally
            registered.</item>
+          <item><c>{via,Module,Name}</c>, if the supervisor is registered
+	  through an alternative process registry.</item>
         </list>
         <p><c><anno>ChildSpec</anno></c> should be a valid child specification
           (unless the supervisor is a <c>simple_one_for_one</c>

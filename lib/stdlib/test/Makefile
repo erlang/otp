@@ -20,6 +20,7 @@ MODULES= \
 	digraph_utils_SUITE \
 	dummy1_h \
 	dummy_h \
+	dummy_via \
 	edlin_expand_SUITE \
 	epp_SUITE \
 	erl_eval_helper \

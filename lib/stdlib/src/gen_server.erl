@@ -142,7 +142,7 @@
 %%% start(Name, Mod, Args, Options)
 %%% start_link(Mod, Args, Options)
 %%% start_link(Name, Mod, Args, Options) where:
-%%%    Name ::= {local, atom()} | {global, atom()}
+%%%    Name ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
 %%%    Mod  ::= atom(), callback module implementing the 'real' server
 %%%    Args ::= term(), init arguments (to Mod:init/1)
 %%%    Options ::= [{timeout, Timeout} | {debug, [Flag]}]
@@ -193,6 +193,9 @@ call(Name, Request, Timeout) ->
 %% -----------------------------------------------------------------
 cast({global,Name}, Request) ->
     catch global:send(Name, cast_msg(Request)),
+    ok;
+cast({via, Mod, Name}, Request) ->
+    catch Mod:send(Name, cast_msg(Request)),
     ok;
 cast({Name,Node}=Dest, Request) when is_atom(Name), is_atom(Node) -> 
     do_cast(Dest, Request);
@@ -266,7 +269,11 @@ multi_call(Nodes, Name, Req, Timeout)
 enter_loop(Mod, Options, State) ->
     enter_loop(Mod, Options, State, self(), infinity).
 
-enter_loop(Mod, Options, State, ServerName = {_, _}) ->
+enter_loop(Mod, Options, State, ServerName = {Scope, _})
+  when Scope == local; Scope == local ->
+    enter_loop(Mod, Options, State, ServerName, infinity);
+
+enter_loop(Mod, Options, State, ServerName = {via, _, _}) ->
     enter_loop(Mod, Options, State, ServerName, infinity);
 
 enter_loop(Mod, Options, State, Timeout) ->
@@ -327,12 +334,15 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 
 name({local,Name}) -> Name;
 name({global,Name}) -> Name;
+name({via,_, Name}) -> Name;
 name(Pid) when is_pid(Pid) -> Pid.
 
 unregister_name({local,Name}) ->
     _ = (catch unregister(Name));
 unregister_name({global,Name}) ->
     _ = global:unregister_name(Name);
+unregister_name({via, Mod, Name}) ->
+    _ = Mod:unregister_name(Name);
 unregister_name(Pid) when is_pid(Pid) ->
     Pid.
     
@@ -827,6 +837,15 @@ get_proc_name({global, Name}) ->
 	    Name;
 	_Pid ->
 	    exit(process_not_registered_globally)
+    end;
+get_proc_name({via, Mod, Name}) ->
+    case Mod:whereis_name(Name) of
+	undefined ->
+	    exit({process_not_registered_via, Mod});
+	Pid when Pid =:= self() ->
+	    Name;
+	_Pid ->
+	    exit({process_not_registered_via, Mod})
     end.
 
 get_parent() ->
