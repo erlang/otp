@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -204,7 +204,8 @@ all(suite) ->
      server_does_not_want_to_reuse_session, client_renegotiate,
      server_renegotiate, client_renegotiate_reused_session,
      server_renegotiate_reused_session, client_no_wrap_sequence_number,
-     server_no_wrap_sequence_number, extended_key_usage,
+     server_no_wrap_sequence_number,
+     extended_key_usage_verify_peer, extended_key_usage_verify_none,
      no_authority_key_identifier,
      invalid_signature_client, invalid_signature_server, cert_expired,
      client_with_cert_cipher_suites_handshake, unknown_server_ca_fail,
@@ -2481,13 +2482,13 @@ server_no_wrap_sequence_number(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
-extended_key_usage(doc) -> 
-    ["Test cert that has a critical extended_key_usage extension"];
+extended_key_usage_verify_peer(doc) ->
+    ["Test cert that has a critical extended_key_usage extension in verify_peer mode"];
 
-extended_key_usage(suite) -> 
+extended_key_usage_verify_peer(suite) ->
     [];
 
-extended_key_usage(Config) when is_list(Config) -> 
+extended_key_usage_verify_peer(Config) when is_list(Config) ->
     ClientOpts = ?config(client_verification_opts, Config),
     ServerOpts = ?config(server_verification_opts, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -2503,13 +2504,13 @@ extended_key_usage(Config) when is_list(Config) ->
     ServerExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-serverAuth']},
     ServerOTPTbsCert = ServerOTPCert#'OTPCertificate'.tbsCertificate,
     ServerExtensions =  ServerOTPTbsCert#'OTPTBSCertificate'.extensions,
-    NewServerOTPTbsCert = ServerOTPTbsCert#'OTPTBSCertificate'{extensions = 
-							       [ServerExtKeyUsageExt | 
+    NewServerOTPTbsCert = ServerOTPTbsCert#'OTPTBSCertificate'{extensions =
+							       [ServerExtKeyUsageExt |
 								ServerExtensions]},
-    NewServerDerCert = public_key:pkix_sign(NewServerOTPTbsCert, Key), 
+    NewServerDerCert = public_key:pkix_sign(NewServerOTPTbsCert, Key),
     ssl_test_lib:der_to_pem(NewServerCertFile, [{'Certificate', NewServerDerCert, not_encrypted}]),
     NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
-    
+
     ClientCertFile = proplists:get_value(certfile, ClientOpts),
     NewClientCertFile = filename:join(PrivDir, "client/new_cert.pem"),
     [{'Certificate', ClientDerCert, _}] = ssl_test_lib:pem_to_der(ClientCertFile),
@@ -2517,28 +2518,90 @@ extended_key_usage(Config) when is_list(Config) ->
     ClientExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-clientAuth']},
     ClientOTPTbsCert = ClientOTPCert#'OTPCertificate'.tbsCertificate,
     ClientExtensions =  ClientOTPTbsCert#'OTPTBSCertificate'.extensions,
-    NewClientOTPTbsCert = ClientOTPTbsCert#'OTPTBSCertificate'{extensions = 
+    NewClientOTPTbsCert = ClientOTPTbsCert#'OTPTBSCertificate'{extensions =
  							       [ClientExtKeyUsageExt |
  								ClientExtensions]},
-    NewClientDerCert = public_key:pkix_sign(NewClientOTPTbsCert, Key), 
+    NewClientDerCert = public_key:pkix_sign(NewClientOTPTbsCert, Key),
     ssl_test_lib:der_to_pem(NewClientCertFile, [{'Certificate', NewClientDerCert, not_encrypted}]),
     NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
-    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-					{from, self()}, 
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
 			   {mfa, {?MODULE, send_recv_result_active, []}},
 			   {options, [{verify, verify_peer} | NewServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
 					{host, Hostname},
-			   {from, self()}, 
+			   {from, self()},
 			   {mfa, {?MODULE, send_recv_result_active, []}},
 					{options, [{verify, verify_peer} | NewClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+extended_key_usage_verify_none(doc) ->
+    ["Test cert that has a critical extended_key_usage extension in verify_none mode"];
+
+extended_key_usage_verify_none(suite) ->
+    [];
+
+extended_key_usage_verify_none(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    [KeyEntry] = ssl_test_lib:pem_to_der(KeyFile),
+    Key = public_key:pem_entry_decode(KeyEntry),
+
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    NewServerCertFile = filename:join(PrivDir, "server/new_cert.pem"),
+    [{'Certificate', ServerDerCert, _}] = ssl_test_lib:pem_to_der(ServerCertFile),
+    ServerOTPCert = public_key:pkix_decode_cert(ServerDerCert, otp),
+    ServerExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-serverAuth']},
+    ServerOTPTbsCert = ServerOTPCert#'OTPCertificate'.tbsCertificate,
+    ServerExtensions =  ServerOTPTbsCert#'OTPTBSCertificate'.extensions,
+    NewServerOTPTbsCert = ServerOTPTbsCert#'OTPTBSCertificate'{extensions =
+							       [ServerExtKeyUsageExt |
+								ServerExtensions]},
+    NewServerDerCert = public_key:pkix_sign(NewServerOTPTbsCert, Key),
+    ssl_test_lib:der_to_pem(NewServerCertFile, [{'Certificate', NewServerDerCert, not_encrypted}]),
+    NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
+
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    NewClientCertFile = filename:join(PrivDir, "client/new_cert.pem"),
+    [{'Certificate', ClientDerCert, _}] = ssl_test_lib:pem_to_der(ClientCertFile),
+    ClientOTPCert = public_key:pkix_decode_cert(ClientDerCert, otp),
+    ClientExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-clientAuth']},
+    ClientOTPTbsCert = ClientOTPCert#'OTPCertificate'.tbsCertificate,
+    ClientExtensions =  ClientOTPTbsCert#'OTPTBSCertificate'.extensions,
+    NewClientOTPTbsCert = ClientOTPTbsCert#'OTPTBSCertificate'{extensions =
+								   [ClientExtKeyUsageExt |
+								    ClientExtensions]},
+    NewClientDerCert = public_key:pkix_sign(NewClientOTPTbsCert, Key),
+    ssl_test_lib:der_to_pem(NewClientCertFile, [{'Certificate', NewClientDerCert, not_encrypted}]),
+    NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options, [{verify, verify_none} | NewServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+					{options, [{verify, verify_none} | NewClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
