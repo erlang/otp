@@ -62,6 +62,7 @@
 -type dss_digest_type()      :: 'none' | 'sha'.
 
 -define(UINT32(X), X:32/unsigned-big-integer).
+-define(DER_NULL, <<5, 0>>).
 
 %%====================================================================
 %% API
@@ -90,6 +91,17 @@ pem_encode(PemEntries) when is_list(PemEntries) ->
 %% Description: Decodes a pem entry. pem_decode/1 returns a list of
 %% pem entries.
 %%--------------------------------------------------------------------
+pem_entry_decode({'SubjectPublicKeyInfo', Der, _}) ->
+    {_, {'AlgorithmIdentifier', AlgId, Params}, {0, Key0}}
+        = der_decode('SubjectPublicKeyInfo', Der),
+    KeyType = pubkey_cert_records:supportedPublicKeyAlgorithms(AlgId),
+    case KeyType of
+        'RSAPublicKey' ->
+            der_decode(KeyType, Key0);
+        'DSAPublicKey' ->
+            {params, DssParams} = der_decode('DSAParams', Params),
+            {der_decode(KeyType, Key0), DssParams}
+    end;
 pem_entry_decode({Asn1Type, Der, not_encrypted}) when is_atom(Asn1Type),
 						      is_binary(Der) ->
     der_decode(Asn1Type, Der).
@@ -114,6 +126,18 @@ pem_entry_decode({Asn1Type, CryptDer, {Cipher, Salt}} = PemEntry,
 %
 %% Description: Creates a pem entry that can be feed to pem_encode/1.
 %%--------------------------------------------------------------------
+pem_entry_encode('SubjectPublicKeyInfo', Entity=#'RSAPublicKey'{}) ->
+    Der = der_encode('RSAPublicKey', Entity),
+    Spki = {'SubjectPublicKeyInfo',
+            {'AlgorithmIdentifier', ?'rsaEncryption', ?DER_NULL}, {0, Der}},
+    pem_entry_encode('SubjectPublicKeyInfo', Spki);
+pem_entry_encode('SubjectPublicKeyInfo',
+                 {DsaInt, Params=#'Dss-Parms'{}}) when is_integer(DsaInt) ->
+    KeyDer = der_encode('DSAPublicKey', DsaInt),
+    ParamDer = der_encode('DSAParams', {params, Params}),
+    Spki = {'SubjectPublicKeyInfo',
+            {'AlgorithmIdentifier', ?'id-dsa', ParamDer}, {0, KeyDer}},
+    pem_entry_encode('SubjectPublicKeyInfo', Spki);
 pem_entry_encode(Asn1Type, Entity)  when is_atom(Asn1Type) ->
     Der = der_encode(Asn1Type, Entity),
     {Asn1Type, Der, not_encrypted}.

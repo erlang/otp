@@ -93,11 +93,11 @@ encode_pem_entries(Entries) ->
 
 encode_pem_entry({Asn1Type, Der, not_encrypted}) ->
     StartStr = pem_start(Asn1Type),
-    [StartStr, "\n", b64encode_and_split(Der), pem_end(StartStr) ,"\n\n"];
+    [StartStr, "\n", b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"];
 encode_pem_entry({Asn1Type, Der, {Cipher, Salt}}) ->
     StartStr = pem_start(Asn1Type),
     [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n",
-     b64encode_and_split(Der), pem_end(StartStr) ,"\n\n"].
+     b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"].
 
 decode_pem_entries([], Entries) ->
     lists:reverse(Entries);
@@ -145,15 +145,21 @@ split_bin(N, Bin) ->
 b64encode_and_split(Bin) ->
     split_lines(base64:encode(Bin)).
 
+split_lines(<<Text:?ENCODED_LINE_LENGTH/binary>>) ->
+    [Text];
 split_lines(<<Text:?ENCODED_LINE_LENGTH/binary, Rest/binary>>) ->
     [Text, $\n | split_lines(Rest)];
 split_lines(Bin) ->
-    [Bin, $\n].
+    [Bin].
 
 %% Ignore white space at end of line
 join_entry([<<"-----END CERTIFICATE-----", _/binary>>| Lines], Entry) ->
     {lists:reverse(Entry), Lines};
 join_entry([<<"-----END RSA PRIVATE KEY-----", _/binary>>| Lines], Entry) ->
+    {lists:reverse(Entry), Lines};
+join_entry([<<"-----END PUBLIC KEY-----", _/binary>>| Lines], Entry) ->
+    {lists:reverse(Entry), Lines};
+join_entry([<<"-----END RSA PUBLIC KEY-----", _/binary>>| Lines], Entry) ->
     {lists:reverse(Entry), Lines};
 join_entry([<<"-----END DSA PRIVATE KEY-----", _/binary>>| Lines], Entry) ->
     {lists:reverse(Entry), Lines};
@@ -210,15 +216,22 @@ pem_start('Certificate') ->
     <<"-----BEGIN CERTIFICATE-----">>;
 pem_start('RSAPrivateKey') ->
     <<"-----BEGIN RSA PRIVATE KEY-----">>;
+pem_start('RSAPublicKey') ->
+    <<"-----BEGIN RSA PUBLIC KEY-----">>;
+pem_start('SubjectPublicKeyInfo') ->
+    <<"-----BEGIN PUBLIC KEY-----">>;
 pem_start('DSAPrivateKey') ->
     <<"-----BEGIN DSA PRIVATE KEY-----">>;
 pem_start('DHParameter') ->
     <<"-----BEGIN DH PARAMETERS-----">>.
-
 pem_end(<<"-----BEGIN CERTIFICATE-----">>) ->
     <<"-----END CERTIFICATE-----">>;
 pem_end(<<"-----BEGIN RSA PRIVATE KEY-----">>) ->
     <<"-----END RSA PRIVATE KEY-----">>;
+pem_end(<<"-----BEGIN RSA PUBLIC KEY-----">>) ->
+    <<"-----END RSA PUBLIC KEY-----">>;
+pem_end(<<"-----BEGIN PUBLIC KEY-----">>) ->
+    <<"-----END PUBLIC KEY-----">>;
 pem_end(<<"-----BEGIN DSA PRIVATE KEY-----">>) ->
     <<"-----END DSA PRIVATE KEY-----">>;
 pem_end(<<"-----BEGIN DH PARAMETERS-----">>) ->
@@ -230,6 +243,10 @@ asn1_type(<<"-----BEGIN CERTIFICATE-----">>) ->
     'Certificate';
 asn1_type(<<"-----BEGIN RSA PRIVATE KEY-----">>) ->
     'RSAPrivateKey';
+asn1_type(<<"-----BEGIN RSA PUBLIC KEY-----">>) ->
+    'RSAPublicKey';
+asn1_type(<<"-----BEGIN PUBLIC KEY-----">>) ->
+    'SubjectPublicKeyInfo';
 asn1_type(<<"-----BEGIN DSA PRIVATE KEY-----">>) ->
     'DSAPrivateKey';
 asn1_type(<<"-----BEGIN DH PARAMETERS-----">>) ->

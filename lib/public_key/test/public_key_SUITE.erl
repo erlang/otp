@@ -139,6 +139,14 @@ pk_decode_encode(Config) when is_list(Config) ->
     DSAKey = public_key:der_decode('DSAPrivateKey', DerDSAKey),
     
     DSAKey = public_key:pem_entry_decode(Entry0),
+
+    {ok, DSAPubPem} = file:read_file(filename:join(Datadir, "dsa_pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(DSAPubPem),
+    DSAPubKey = public_key:pem_entry_decode(PubEntry0),
+    true = check_entry_type(DSAPubKey, 'DSAPublicKey'),
+    PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', DSAPubKey),
+    DSAPubPem = public_key:pem_encode([PubEntry0]),
     
     [{'RSAPrivateKey', DerRSAKey, not_encrypted} =  Entry1 ] = 
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
@@ -152,6 +160,20 @@ pk_decode_encode(Config) when is_list(Config) ->
     
     true = check_entry_type(public_key:pem_entry_decode(Entry2, "abcd1234"), 
 			    'RSAPrivateKey'),
+
+    {ok, RSAPubPem} = file:read_file(filename:join(Datadir, "rsa_pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry1] =
+        public_key:pem_decode(RSAPubPem),
+    RSAPubKey = public_key:pem_entry_decode(PubEntry1),
+    true = check_entry_type(RSAPubKey, 'RSAPublicKey'),
+    PubEntry1 = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey),
+    RSAPubPem = public_key:pem_encode([PubEntry1]),
+
+    {ok, RSARawPem} = file:read_file(filename:join(Datadir, "rsa_pub_key.pem")),
+    [{'RSAPublicKey', _, _} = PubEntry2] =
+        public_key:pem_decode(RSARawPem),
+    RSAPubKey = public_key:pem_entry_decode(PubEntry2),
+    RSARawPem = public_key:pem_encode([PubEntry2]),
 
     Salt0 = crypto:rand_bytes(8),
     Entry3 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey0, 
@@ -431,6 +453,10 @@ deprecated(Config) when is_list(Config) ->
 check_entry_type(#'DSAPrivateKey'{}, 'DSAPrivateKey') ->
     true;
 check_entry_type(#'RSAPrivateKey'{}, 'RSAPrivateKey') ->
+    true;
+check_entry_type(#'RSAPublicKey'{}, 'RSAPublicKey') ->
+    true;
+check_entry_type({_Int, #'Dss-Parms'{}}, 'DSAPublicKey') when is_integer(_Int) ->
     true;
 check_entry_type(#'DHParameter'{}, 'DHParameter') ->
     true;
