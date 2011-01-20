@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,8 @@
 	 gui/0,
 	 gui/1,
 	 plt_info/1,
-	 format_warning/1]).
+	 format_warning/1,
+	 format_warning/2]).
 
 -include("dialyzer.hrl").
 
@@ -48,6 +49,8 @@
 %%  - run/1:            Erlang interface for a command line-like analysis
 %%  - gui/0/1:          Erlang interface for the gui.
 %%  - format_warning/1: Get the string representation of a warning.
+%%  - format_warning/1: Likewise, but with an option whether
+%%			to display full path names or not
 %%  - plt_info/1:       Get information of the specified plt.
 %%--------------------------------------------------------------------
 
@@ -281,11 +284,19 @@ cl_check_log(Output) ->
 
 -spec format_warning(dial_warning()) -> string().
 
-format_warning({_Tag, {File, Line}, Msg}) when is_list(File),
-					       is_integer(Line) ->
-  BaseName = filename:basename(File),
+format_warning(W) ->
+  format_warning(W, basename).
+
+-spec format_warning(dial_warning(), fopt()) -> string().
+
+format_warning({_Tag, {File, Line}, Msg}, FOpt) when is_list(File),
+						     is_integer(Line) ->
+  F = case FOpt of
+	fullpath -> File;
+	basename -> filename:basename(File)
+      end,
   String = lists:flatten(message_to_string(Msg)),
-  lists:flatten(io_lib:format("~s:~w: ~s", [BaseName, Line, String])).
+  lists:flatten(io_lib:format("~s:~w: ~s", [F, Line, String])).
 
 
 %%-----------------------------------------------------------------------------

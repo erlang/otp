@@ -129,7 +129,7 @@ Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native]
+                [--no_native] [--fullpath]
 
 Options: 
    files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
@@ -231,6 +231,8 @@ Options:
        Bypass the native code compilation of some key files that Dialyzer
        heuristically performs when dialyzing many files; this avoids the
        compilation time but it may result in (much) longer analysis time.
+  --fullpath
+      Display the full path names of files for which warnings are emitted.
    --gui
        Use the gs-based GUI.
    --wx
