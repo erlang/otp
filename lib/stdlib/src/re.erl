@@ -208,29 +208,25 @@ replace(Subject,RE,Replacement,Options) ->
 	process_repl_params(Options,iodata,false),
     FlatSubject = to_binary(Subject, Unicode),
     FlatReplacement = to_binary(Replacement, Unicode),
-    case do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt) of
-	{error,_Err} ->
-	    throw(badre);
-	IoList ->
-	    case Convert of
-		iodata ->
-		    IoList;
-		binary ->
-		    case Unicode of
-			false ->
-			    iolist_to_binary(IoList);
-			true ->
-			    unicode:characters_to_binary(IoList,unicode)
-		    end;
-		list ->
-		    case Unicode of
-			false ->
-			    binary_to_list(iolist_to_binary(IoList));
-			true ->
-			    unicode:characters_to_list(IoList,unicode)
-		    end
-	    end
-    end
+    IoList = do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt),
+	case Convert of
+	    iodata ->
+		IoList;
+	    binary ->
+		case Unicode of
+		    false ->
+			iolist_to_binary(IoList);
+		    true ->
+			unicode:characters_to_binary(IoList,unicode)
+		end;
+	    list ->
+		case Unicode of
+		    false ->
+			binary_to_list(iolist_to_binary(IoList));
+		    true ->
+			unicode:characters_to_list(IoList,unicode)
+		end
+	end
     catch
 	throw:badopt ->
 	    erlang:error(badarg,[Subject,RE,Replacement,Options]);

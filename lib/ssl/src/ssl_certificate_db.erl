@@ -27,7 +27,9 @@
 
 -export([create/0, remove/1, add_trusted_certs/3, 
 	 remove_trusted_certs/2, lookup_trusted_cert/3, issuer_candidate/1,
-	 lookup_cached_certs/1, cache_pem_file/3]).
+	 lookup_cached_certs/1, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
+
+-type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 
 %%====================================================================
 %% Internal application API
@@ -98,16 +100,34 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
     insert(Pid, File, PidToFileDb),
     {ok, Ref}.
 %%--------------------------------------------------------------------
--spec cache_pem_file(pid(), string(), certdb_ref()) -> term().
+-spec cache_pem_file(pid(), string(), time(), certdb_ref()) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
-cache_pem_file(Pid, File, [CertsDb, _FileToRefDb, PidToFileDb]) ->
+cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
     {ok, PemBin} = file:read_file(File), 
     Content = public_key:pem_decode(PemBin),
-    insert({file, File}, Content, CertsDb),
+    insert({file, File}, {Time, Content}, CertsDb),
     insert(Pid, File, PidToFileDb),
     {ok, Content}.
+
+%--------------------------------------------------------------------
+-spec uncache_pem_file(string(), certdb_ref()) -> no_return().
+%%
+%% Description: If a cached file is no longer valid (changed on disk)
+%% we must terminate the connections using the old file content, and
+%% when those processes are finish the cache will be cleaned. It is
+%% a rare but possible case a new ssl client/server is started with
+%% a filename with the same name as previously started client/server
+%% but with different content.
+%% --------------------------------------------------------------------
+uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
+    [Pids] = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
+    lists:foreach(fun(Pid) ->
+			  exit(Pid, shutdown)
+		  end, Pids).
+
+
 
 %%--------------------------------------------------------------------
 -spec remove_trusted_certs(pid(), certdb_ref()) -> term().
@@ -174,6 +194,22 @@ issuer_candidate(PrevCandidateKey) ->
     end.
 
 %%--------------------------------------------------------------------
+-spec lookup(term(), term()) -> term() | undefined.
+%%
+%% Description: Looks up an element in a certificat <Db>.
+%%--------------------------------------------------------------------
+lookup(Key, Db) ->
+    case ets:lookup(Db, Key) of
+	[] ->
+	    undefined;
+	Contents  ->
+	    Pick = fun({_, Data}) -> Data;
+		      ({_,_,Data}) -> Data
+		   end,
+	    [Pick(Data) || Data <- Contents]
+    end.
+
+%%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 certificate_db_name() ->
@@ -191,16 +227,8 @@ ref_count(Key, Db,N) ->
 delete(Key, Db) ->
     _ = ets:delete(Db, Key).
 
-lookup(Key, Db) ->
-    case ets:lookup(Db, Key) of
-	[] ->
-	    undefined;
-	Contents  ->
-	    Pick = fun({_, Data}) -> Data;
-		      ({_,_,Data}) -> Data
-		   end,
-	    [Pick(Data) || Data <- Contents]
-    end.
+select(Db, MatchSpec)->
+    ets:select(Db, MatchSpec).
 
 remove_certs(Ref, CertsDb) ->
     ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}).

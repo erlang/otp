@@ -1280,6 +1280,22 @@ test_coding(Obj, Local) ->
     ?match({'EXCEPTION',{'MARSHAL',_,_,_}}, 
           orber_test_server:
 		 testing_iiop_server_marshal(Obj, "string")),
+    
+    RecS = #orber_test_server_rec_struct{chain = [#orber_test_server_rec_struct{chain = []}]},
+    ?match(RecS, orber_test_server:testing_iiop_rec_struct(Obj, RecS)),
+    
+    RecU = #orber_test_server_rec_union{label = 'RecursiveType', 
+					value = [#orber_test_server_rec_union{label = 'RecursiveType',
+									      value = []}]},
+    ?match(RecU, orber_test_server:testing_iiop_rec_union(Obj, RecU)),
+
+%%     RecA1 = #any{typecode = unsupported, value = RecS},
+%%     RecA2 = #any{typecode = unsupported, value = RecU},
+%%     ?match(RecA1, 
+%% 	   orber_test_server:testing_iiop_rec_any(Obj, RecA1)),    
+%%     ?match(RecA2, 
+%% 	   orber_test_server:testing_iiop_rec_any(Obj, RecA2)),    
+
     ok.
 
 %%--------------- Testing Post- & Pre-cond -------------------
