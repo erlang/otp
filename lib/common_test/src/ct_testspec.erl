@@ -68,7 +68,8 @@ prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
     %% Create initial list of {Node,{Run,Skip}} tuples
     NodeList = lists:map(fun(N) -> {N,{[],[]}} end, list_nodes(TestSpec)),
     %% Get all Run tests sorted per node basis.
-    NodeList1 = run_per_node(Run,NodeList),    
+    NodeList1 = run_per_node(Run,NodeList, 
+			     TestSpec#testspec.merge_tests),    
     %% Get all Skip entries sorted per node basis.
     NodeList2 = skip_per_node(Skip,NodeList1),
     %% Change representation.
@@ -89,11 +90,17 @@ prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
 %% run_per_node/2 takes the Run list as input and returns a list
 %% of {Node,RunPerNode,[]} tuples where the tests have been sorted
 %% on a per node basis.
-run_per_node([{{Node,Dir},Test}|Ts],Result) ->
+run_per_node([{{Node,Dir},Test}|Ts],Result, MergeTests) ->
     {value,{Node,{Run,Skip}}} = lists:keysearch(Node,1,Result),
-    Run1 = merge_tests(Dir,Test,Run),
-    run_per_node(Ts,insert_in_order({Node,{Run1,Skip}},Result));
-run_per_node([],Result) ->
+    Run1 = case MergeTests of
+	       false ->
+		   append({Dir, Test}, Run);
+	       true ->
+		   merge_tests(Dir,Test,Run)
+	   end,
+    run_per_node(Ts,insert_in_order({Node,{Run1,Skip}},Result), 
+		 MergeTests);
+run_per_node([],Result,_) ->
     Result.
 
 merge_tests(Dir,Test={all,_},TestDirs) ->
@@ -281,6 +288,8 @@ collect_tests(Terms,TestSpec,Relaxed) ->
     {Terms2, TestSpec3} = filter_init_terms(Terms, [], TestSpec2),
     add_tests(Terms2,TestSpec3).
 
+get_global([{merge_tests, Bool} | Ts], Spec) ->
+    get_global(Ts,Spec#testspec{ merge_tests = Bool });
 get_global([{alias,Ref,Dir}|Ts],Spec=#testspec{alias=Refs}) ->
     get_global(Ts,Spec#testspec{alias=[{Ref,get_absdir(Dir,Spec)}|Refs]});
 get_global([{node,Ref,Node}|Ts],Spec=#testspec{nodes=Refs}) ->
@@ -656,7 +665,7 @@ add_tests([{suites,Node,Dir,Ss}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_suites(ref2node(Node,Spec#testspec.nodes),
 			   ref2dir(Dir,Spec#testspec.alias),
-			   Ss,Tests),
+			   Ss,Tests, Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- groups ---
@@ -682,13 +691,15 @@ add_tests([{groups,Node,Dir,Suite,Gs}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_groups(ref2node(Node,Spec#testspec.nodes),
 			   ref2dir(Dir,Spec#testspec.alias),
-			   Suite,Gs,all,Tests),
+			   Suite,Gs,all,Tests,
+			   Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 add_tests([{groups,Node,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_groups(ref2node(Node,Spec#testspec.nodes),
 			   ref2dir(Dir,Spec#testspec.alias),
-			   Suite,Gs,TCs,Tests),
+			   Suite,Gs,TCs,Tests,
+			   Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- cases ---
@@ -703,7 +714,7 @@ add_tests([{cases,Node,Dir,Suite,Cs}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_cases(ref2node(Node,Spec#testspec.nodes),
 			  ref2dir(Dir,Spec#testspec.alias),
-			  Suite,Cs,Tests),
+			  Suite,Cs,Tests, Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- skip_suites ---
@@ -718,7 +729,8 @@ add_tests([{skip_suites,Node,Dir,Ss,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_suites(ref2node(Node,Spec#testspec.nodes),
 			 ref2dir(Dir,Spec#testspec.alias),
-			 Ss,Cmt,Tests),
+			 Ss,Cmt,Tests,
+			 Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- skip_groups ---
@@ -740,13 +752,15 @@ add_tests([{skip_groups,Node,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_groups(ref2node(Node,Spec#testspec.nodes),
 			 ref2dir(Dir,Spec#testspec.alias),
-			 Suite,Gs,all,Cmt,Tests),
+			 Suite,Gs,all,Cmt,Tests,
+			 Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 add_tests([{skip_groups,Node,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_groups(ref2node(Node,Spec#testspec.nodes),
 			 ref2dir(Dir,Spec#testspec.alias),
-			 Suite,Gs,TCs,Cmt,Tests),
+			 Suite,Gs,TCs,Cmt,Tests,
+			 Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- skip_cases ---
@@ -761,7 +775,7 @@ add_tests([{skip_cases,Node,Dir,Suite,Cs,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_cases(ref2node(Node,Spec#testspec.nodes),
 			ref2dir(Dir,Spec#testspec.alias),
-			Suite,Cs,Cmt,Tests),
+			Suite,Cs,Cmt,Tests,Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- handled/errors ---
@@ -769,6 +783,9 @@ add_tests([{alias,_,_}|Ts],Spec) ->		% handled
     add_tests(Ts,Spec);
 
 add_tests([{node,_,_}|Ts],Spec) ->		% handled
+    add_tests(Ts,Spec);
+
+add_tests([{merge_tests, _} | Ts], Spec) -> % handled
     add_tests(Ts,Spec);
 
 %% check if it's a CT term that has bad format or if the user seems to
@@ -823,17 +840,22 @@ separate([],_,_,_) ->
 %%              {Suite2,[{GrOrCase21,{skip,Cmt}},GrOrCase22,...]},...]}
 %% GrOrCase = {GroupName,[Case1,Case2,...]} | Case
 
-insert_suites(Node,Dir,[S|Ss],Tests) ->
-    Tests1 = insert_cases(Node,Dir,S,all,Tests),
-    insert_suites(Node,Dir,Ss,Tests1);
-insert_suites(_Node,_Dir,[],Tests) ->
+insert_suites(Node,Dir,[S|Ss],Tests, MergeTests) ->
+    Tests1 = insert_cases(Node,Dir,S,all,Tests,MergeTests),
+    insert_suites(Node,Dir,Ss,Tests1,MergeTests);
+insert_suites(_Node,_Dir,[],Tests,_MergeTests) ->
     Tests;
-insert_suites(Node,Dir,S,Tests) ->
-    insert_suites(Node,Dir,[S],Tests).
+insert_suites(Node,Dir,S,Tests,MergeTests) ->
+    insert_suites(Node,Dir,[S],Tests,MergeTests).
 
-insert_groups(Node,Dir,Suite,Group,Cases,Tests) when is_atom(Group) ->
-    insert_groups(Node,Dir,Suite,[Group],Cases,Tests);
-insert_groups(Node,Dir,Suite,Groups,Cases,Tests) when
+insert_groups(Node,Dir,Suite,Group,Cases,Tests,MergeTests) 
+  when is_atom(Group) ->
+    insert_groups(Node,Dir,Suite,[Group],Cases,Tests,MergeTests);
+insert_groups(Node,Dir,Suite,Groups,Cases,Tests,false) when
+      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+    Groups1 = [{Gr,Cases} || Gr <- Groups],
+    append({{Node,Dir},[{Suite,Groups1}]},Tests);
+insert_groups(Node,Dir,Suite,Groups,Cases,Tests,true) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
     case lists:keysearch({Node,Dir},1,Tests) of
 	{value,{{Node,Dir},[{all,_}]}} ->
@@ -847,9 +869,10 @@ insert_groups(Node,Dir,Suite,Groups,Cases,Tests) when
 	    Groups1 = [{Gr,Cases} || Gr <- Groups],
 	    insert_in_order({{Node,Dir},[{Suite,Groups1}]},Tests)
     end;
-insert_groups(Node,Dir,Suite,Groups,Case,Tests) when is_atom(Case) ->
+insert_groups(Node,Dir,Suite,Groups,Case,Tests, MergeTests) 
+  when is_atom(Case) ->
     Cases = if Case == all -> all; true -> [Case] end,
-    insert_groups(Node,Dir,Suite,Groups,Cases,Tests).
+    insert_groups(Node,Dir,Suite,Groups,Cases,Tests, MergeTests).
 
 insert_groups1(_Suite,_Groups,all) ->
     all;
@@ -879,7 +902,9 @@ insert_groups2([Group={GrName,Cases}|Groups],GrAndCases) ->
 insert_groups2([],GrAndCases) ->
     GrAndCases.
 
-insert_cases(Node,Dir,Suite,Cases,Tests) when is_list(Cases) ->
+insert_cases(Node,Dir,Suite,Cases,Tests,false) when is_list(Cases) ->
+    append({{Node,Dir},[{Suite,Cases}]},Tests);
+insert_cases(Node,Dir,Suite,Cases,Tests,true) when is_list(Cases) ->
     case lists:keysearch({Node,Dir},1,Tests) of
 	{value,{{Node,Dir},[{all,_}]}} ->
 	    Tests;
@@ -889,8 +914,8 @@ insert_cases(Node,Dir,Suite,Cases,Tests) when is_list(Cases) ->
 	false ->
 	    insert_in_order({{Node,Dir},[{Suite,Cases}]},Tests)
     end;
-insert_cases(Node,Dir,Suite,Case,Tests) when is_atom(Case) ->
-    insert_cases(Node,Dir,Suite,[Case],Tests).
+insert_cases(Node,Dir,Suite,Case,Tests,MergeTests) when is_atom(Case) ->
+    insert_cases(Node,Dir,Suite,[Case],Tests,MergeTests).
 
 insert_cases1(_Suite,_Cases,all) ->
     all;
@@ -905,22 +930,28 @@ insert_cases1(Suite,Cases,Suites0) ->
 	    insert_in_order({Suite,Cases},Suites0)
     end.
 
-skip_suites(Node,Dir,[S|Ss],Cmt,Tests) ->
-    Tests1 = skip_cases(Node,Dir,S,all,Cmt,Tests),
-    skip_suites(Node,Dir,Ss,Cmt,Tests1);
-skip_suites(_Node,_Dir,[],_Cmt,Tests) ->
+skip_suites(Node,Dir,[S|Ss],Cmt,Tests,MergeTests) ->
+    Tests1 = skip_cases(Node,Dir,S,all,Cmt,Tests,MergeTests),
+    skip_suites(Node,Dir,Ss,Cmt,Tests1,MergeTests);
+skip_suites(_Node,_Dir,[],_Cmt,Tests,_MergeTests) ->
     Tests;
-skip_suites(Node,Dir,S,Cmt,Tests) ->
-    skip_suites(Node,Dir,[S],Cmt,Tests).
+skip_suites(Node,Dir,S,Cmt,Tests,MergeTests) ->
+    skip_suites(Node,Dir,[S],Cmt,Tests,MergeTests).
 
-skip_groups(Node,Dir,Suite,Group,all,Cmt,Tests) when is_atom(Group) ->
-    skip_groups(Node,Dir,Suite,[Group],all,Cmt,Tests);
-skip_groups(Node,Dir,Suite,Group,Cases,Cmt,Tests) when is_atom(Group) ->
-    skip_groups(Node,Dir,Suite,[Group],Cases,Cmt,Tests);
-skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests) when is_atom(Case),
-						       Case =/= all ->
-    skip_groups(Node,Dir,Suite,Groups,[Case],Cmt,Tests);
-skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests) when
+skip_groups(Node,Dir,Suite,Group,all,Cmt,Tests,MergeTests) 
+  when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],all,Cmt,Tests,MergeTests);
+skip_groups(Node,Dir,Suite,Group,Cases,Cmt,Tests,MergeTests) 
+  when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],Cases,Cmt,Tests,MergeTests);
+skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests,MergeTests) 
+  when is_atom(Case),Case =/= all ->
+    skip_groups(Node,Dir,Suite,Groups,[Case],Cmt,Tests,MergeTests);
+skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,false) when
+      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+    Suites1 = skip_groups1(Suite,[{Gr,Cases} || Gr <- Groups],Cmt,[]),
+    append({{Node,Dir},Suites1},Tests);
+skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,true) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
     Suites =
 	case lists:keysearch({Node,Dir},1,Tests) of
@@ -931,9 +962,10 @@ skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests) when
 	end,
     Suites1 = skip_groups1(Suite,[{Gr,Cases} || Gr <- Groups],Cmt,Suites),
     insert_in_order({{Node,Dir},Suites1},Tests);
-skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests) when is_atom(Case) ->
+skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests,MergeTests) 
+  when is_atom(Case) ->
     Cases = if Case == all -> all; true -> [Case] end,
-    skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests).
+    skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests,MergeTests).
 
 skip_groups1(Suite,Groups,Cmt,Suites0) ->
     SkipGroups = lists:map(fun(Group) ->
@@ -947,7 +979,10 @@ skip_groups1(Suite,Groups,Cmt,Suites0) ->
 	    insert_in_order({Suite,SkipGroups},Suites0)
     end.
 
-skip_cases(Node,Dir,Suite,Cases,Cmt,Tests) when is_list(Cases) ->
+skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
+    Suites1 = skip_cases1(Suite,Cases,Cmt,[]),
+    append({{Node,Dir},Suites1},Tests);
+skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,true) when is_list(Cases) ->
     Suites =
 	case lists:keysearch({Node,Dir},1,Tests) of
 	    {value,{{Node,Dir},Suites0}} ->
@@ -957,8 +992,8 @@ skip_cases(Node,Dir,Suite,Cases,Cmt,Tests) when is_list(Cases) ->
 	end,
     Suites1 = skip_cases1(Suite,Cases,Cmt,Suites),
     insert_in_order({{Node,Dir},Suites1},Tests);
-skip_cases(Node,Dir,Suite,Case,Cmt,Tests) when is_atom(Case) ->
-    skip_cases(Node,Dir,Suite,[Case],Cmt,Tests).
+skip_cases(Node,Dir,Suite,Case,Cmt,Tests,MergeTests) when is_atom(Case) ->
+    skip_cases(Node,Dir,Suite,[Case],Cmt,Tests,MergeTests).
 
 skip_cases1(Suite,Cases,Cmt,Suites0) ->
     SkipCases = lists:map(fun(C) ->
@@ -971,6 +1006,9 @@ skip_cases1(Suite,Cases,Cmt,Suites0) ->
 	false ->
 	    insert_in_order({Suite,SkipCases},Suites0)
     end.
+
+append(Elem, List) ->
+    List ++ [Elem].
 
 insert_in_order([E|Es],List) ->
     List1 = insert_elem(E,List,[]),
@@ -1044,6 +1082,7 @@ valid_terms() ->
      {userconfig,2},
      {userconfig,3},
      {alias,3},
+     {merge_tests,1},
      {logdir,2},
      {logdir,3},
      {label,2},
