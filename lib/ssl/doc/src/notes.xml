@@ -31,7 +31,29 @@
   <p>This document describes the changes made to the SSL application.
     </p>
 
-    <section><title>SSL 4.1.2</title>
+    <section><title>SSL 4.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed error in cache-handling fix from ssl-4.1.2</p>
+          <p>
+	    Own Id: OTP-9018 Aux Id: seq11739 </p>
+        </item>
+        <item>
+          <p>
+	    Verification of a critical extended_key_usage-extension
+	    corrected</p>
+          <p>
+	    Own Id: OTP-9029 Aux Id: seq11541 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 4.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
