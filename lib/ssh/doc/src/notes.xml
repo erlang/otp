@@ -40,6 +40,13 @@
           <p>
             Own Id: OTP-8987 Aux Id: seq11748</p>
         </item>
+        <item>
+          <p>
+            SSH did not handle the error reason enetunreach
+            when trying to open a IPv6 connection.</p>
+          <p>
+            Own Id: OTP-9031</p>
+        </item>
       </list>
     </section>
     <section><title>Improvements and New Features</title>
@@ -50,9 +57,16 @@
           <p>
             Own Id: OTP-8986</p>
         </item>
+        <item>
+          <p>
+            SSH now ensures that the .ssh directory exists before trying
+            to access files located in that directory.</p>
+          <p>
+            Own Id: OTP-9010</p>
+        </item>
       </list>
     </section>
- </section>
+</section>
 
 <section><title>Ssh 2.0.3</title>
     <section><title>Fixed Bugs and Malfunctions</title>
