@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,19 +47,23 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
-    crypto:start(),
-    application:start(public_key),
-    ssl:start(),
+    case crypto:start() of
+	ok ->
+	    application:start(public_key),
+	    ssl:start(),
 
-    %% make rsa certs using oppenssl
-    Result =
-	(catch make_certs:all(?config(data_dir, Config0),
-			      ?config(priv_dir, Config0))),
-    test_server:format("Make certs  ~p~n", [Result]),
+	    %% make rsa certs using oppenssl
+	    Result =
+		(catch make_certs:all(?config(data_dir, Config0),
+				      ?config(priv_dir, Config0))),
+	    test_server:format("Make certs  ~p~n", [Result]),
 
-    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-    Config = ssl_test_lib:cert_options(Config1),
-    [{watchdog, Dog} | Config].
+	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
+	    Config = ssl_test_lib:cert_options(Config1),
+	    [{watchdog, Dog} | Config];
+	_ ->
+	    {skip, "Crypto did not start"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _

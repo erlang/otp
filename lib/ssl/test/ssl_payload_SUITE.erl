@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,12 +37,15 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    crypto:start(),
-    application:start(public_key),
-    ssl:start(),
-    make_certs:all(?config(data_dir, Config), ?config(priv_dir, Config)),
-    ssl_test_lib:cert_options(Config).
-
+    case crypto:start() of
+	ok ->
+	    application:start(public_key),
+	    ssl:start(),
+	    make_certs:all(?config(data_dir, Config), ?config(priv_dir, Config)),
+	    ssl_test_lib:cert_options(Config);
+	_  ->
+	    {skip, "Crypto did not start"}
+    end.
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]
