@@ -122,9 +122,16 @@ end_per_suite(_Config) ->
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok = gen_server:call(global_name_server, high_level_trace_start,infinity),
+
+    %% Make sure that everything is dead and done. Otherwise there are problems
+    %% on platforms on which it takes a long time to shut down a node.
+    stop_nodes(nodes()),
+    timer:sleep(1000),
+
     [{?TESTCASE, Case}, {registered, registered()} | Config].
 
 end_per_testcase(_Case, Config) ->
+    ct:log("Calling end_per_testcase!",[]),
     ?line write_high_level_trace(Config),
     ?line _ = 
         gen_server:call(global_name_server, high_level_trace_stop, infinity),
@@ -136,6 +143,7 @@ end_per_testcase(_Case, Config) ->
               {What, N} <- [{"Added", Registered -- InitRegistered},
                             {"Removed", InitRegistered -- Registered}],
               N =/= []],
+
     ok.
 
 %%% General comments:
