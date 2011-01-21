@@ -66,7 +66,7 @@ init_per_suite(Config) ->
 
 end_per_suite(_Config) ->
     available_internal_state(true),
-    erts_debug:set_internal_state(not_running_optimization, true),
+    catch erts_debug:set_internal_state(not_running_optimization, true),
     available_internal_state(false).
 
 suite() -> [{suite_callbacks,[ts_install_scb]}].
