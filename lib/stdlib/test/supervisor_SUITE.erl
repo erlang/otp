@@ -24,7 +24,8 @@
 
 %% Testserver specific export
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+	 init_per_group/2,end_per_group/2, init_per_testcase/2,
+	 end_per_testcase/2]).
 
 %% Indirect spawn export
 -export([init/1]).
@@ -103,6 +104,18 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(count_children_memory, Config) ->
+    MemoryState = erlang:system_info(allocator),
+    case count_children_allocator_test(MemoryState) of
+	true -> Config;
+	false ->
+	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
+    end;
+init_per_testcase(_Case, Config) ->
+    Config.
+
+end_per_testcase(_Case, _Config) ->
+    ok.
 
 
 start(InitResult) ->
@@ -1273,26 +1286,8 @@ tree(Config) when is_list(Config) ->
     
     ok.
 %-------------------------------------------------------------------------
-count_children_allocator_test(MemoryState) ->
-    Allocators = [temp_alloc, eheap_alloc, binary_alloc, ets_alloc,
-		  driver_alloc, sl_alloc, ll_alloc, fix_alloc, std_alloc,
-		  sys_alloc],
-    MemoryStateList = element(4, MemoryState),
-    AllocTypes = [lists:keyfind(Alloc, 1, MemoryStateList)
-		  || Alloc <- Allocators],
-    AllocStates = [lists:keyfind(e, 1, AllocValue)
-		   || {_Type, AllocValue} <- AllocTypes],
-    lists:all(fun(State) -> State == {e, true} end, AllocStates).
-
 count_children_memory(doc) ->
     ["Test that which_children eats memory, but count_children does not."];
-count_children_memory(suite) ->
-    MemoryState = erlang:system_info(allocator),
-    case count_children_allocator_test(MemoryState) of
-	true -> [];
-	false ->
-	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
-    end;
 count_children_memory(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
@@ -1358,3 +1353,14 @@ count_children_memory(Config) when is_list(Config) ->
     ?line [1,0,0,0] = get_child_counts(sup_test),
 
     ok.
+
+count_children_allocator_test(MemoryState) ->
+    Allocators = [temp_alloc, eheap_alloc, binary_alloc, ets_alloc,
+		  driver_alloc, sl_alloc, ll_alloc, fix_alloc, std_alloc,
+		  sys_alloc],
+    MemoryStateList = element(4, MemoryState),
+    AllocTypes = [lists:keyfind(Alloc, 1, MemoryStateList)
+		  || Alloc <- Allocators],
+    AllocStates = [lists:keyfind(e, 1, AllocValue)
+		   || {_Type, AllocValue} <- AllocTypes],
+    lists:all(fun(State) -> State == {e, true} end, AllocStates).
