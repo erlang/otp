@@ -78,7 +78,7 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:start(odbc),  
-    case odbc:connect(?RDBMS:connection_string(), 
+    case catch odbc:connect(?RDBMS:connection_string(), 
 		      [{auto_commit, off}]) of
 	{ok, Ref} ->
 	    odbc:disconnect(Ref),
