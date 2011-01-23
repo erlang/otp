@@ -34,6 +34,8 @@ int ei_decode_port(const char *buf, int *index, erlang_port *p)
 
   len = get16be(s);
 
+  if (len > MAXATOMLEN) return -1;
+
   if (p) {
     memmove(p->node, s, len);
     p->node[len] = (char)0;
