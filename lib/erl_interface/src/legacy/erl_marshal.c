@@ -662,7 +662,7 @@ len = i
 #define STATIC_NODE_BUF_SZ 30
 
 #define SET_NODE(node,node_buf,cp,len) \
-if (len >= STATIC_NODE_BUF_SZ) node = malloc(len+1); \
+if (len >= STATIC_NODE_BUF_SZ) node = erl_malloc(len+1); \
 else node = node_buf; \
 memcpy(node, cp, len); \
 node[len] = '\0'
@@ -1534,7 +1534,7 @@ static int cmp_string_list(unsigned char **e1, unsigned char **e2) {
   if ( e1_len < 256 ) {
     bp = buf;
   } else {
-    bp = malloc(5+(2*e1_len)+1);
+    bp = erl_malloc(5+(2*e1_len)+1);
   }
 
   bp[0] = ERL_LIST_EXT;

@@ -180,9 +180,7 @@ int erl_xconnect(Erl_IpAddr addr, char *alivename)
  *
  *  Close a connection. FIXME call ei_close_connection() later. 
  *
- *  Returns valid file descriptor on success and < 0 on failure.
- *  Set erl_errno to EHOSTUNREACH, ENOMEM, EIO or errno from socket(2)
- *  or connect(2).
+ *  Returns 0 on success and -1 on failure.
  *
  ***************************************************************************/
 
@@ -250,7 +248,8 @@ int erl_send(int fd, ETERM *to ,ETERM *msg)
 	return -1;
     }
     
-    strcpy(topid.node, (char *)ERL_PID_NODE(to));
+    strncpy(topid.node, (char *)ERL_PID_NODE(to), sizeof(topid.node));
+    topid.node[sizeof(topid.node)-1] = '\0';
     topid.num = ERL_PID_NUMBER(to);
     topid.serial = ERL_PID_SERIAL(to);
     topid.creation = ERL_PID_CREATION(to);

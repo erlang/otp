@@ -74,7 +74,7 @@ jmp_buf *timeout_setup(int ms)
   t.it_value.tv_usec = (ms % 1000) * 1000;
 
   /* get a jump buffer and save it */
-  j = malloc(sizeof(*j));	/* FIXME check result */
+  j = erl_malloc(sizeof(*j));
   j->siginfo = s;
   push(j);
 
