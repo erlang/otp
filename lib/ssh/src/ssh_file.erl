@@ -35,8 +35,8 @@
 	 lookup_host_key/3, add_host_key/3, % del_host_key/2,
 	 lookup_user_key/3, ssh_dir/2, file_name/3]).
 
--export([private_identity_key/2]).
-%% , public_identity_key/2,
+-export([private_identity_key/2, 
+	 public_identity_key/2]).
 %% 	 identity_keys/2]).
 
 -export([encode_public_key/1, decode_public_key_v2/2]).
@@ -146,6 +146,11 @@ identity_key_filename("ssh-rsa") -> "id_rsa".
 private_identity_key(Alg, Opts) ->
     Path = file_name(user, identity_key_filename(Alg), Opts),
     read_private_key_v2(Path, Alg).
+
+public_identity_key(Alg, Opts) ->
+    Path = file_name(user, identity_key_filename(Alg) ++ ".pub", Opts),
+    read_public_key_v2(Path, Alg).
+
 
 read_public_key_v2(File, Type) ->
     case file:read_file(File) of
