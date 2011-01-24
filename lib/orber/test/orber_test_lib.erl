@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -126,13 +126,22 @@ version_ok() ->
 		_ ->
 		    case gen_tcp:listen(0, [{reuseaddr, true}, inet6]) of
 			{ok, LSock} ->
-			    gen_tcp:close(LSock),
-			    true;
+			    {ok, Port} = inet:port(LSock),
+			    case gen_tcp:connect(Hostname, Port, [inet6]) of
+				{error, _} ->
+				    gen_tcp:close(LSock),
+				    {skipped, "Inet cannot handle IPv6"};
+				{ok, Socket} ->
+				    gen_tcp:close(Socket),
+				    gen_tcp:close(LSock),
+				    true
+			    end;
 			{error, _} ->
 			    {skipped, "Inet cannot handle IPv6"}
 		    end
 	    end
     end.
+
 %%------------------------------------------------------------
 %% function : get_host
 %% Arguments: Family - inet | inet6
