@@ -45,8 +45,12 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    crypto:start(),
-    Config.
+    case catch crypto:start() of
+	ok ->
+	    Config;
+	_Else ->
+	    {skip,"Could not start crypto!"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _

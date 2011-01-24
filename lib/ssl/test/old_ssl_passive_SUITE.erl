@@ -79,20 +79,25 @@ init_per_suite(Config) ->
     io:format("Config: ~p~n", [Config]),
 
     %% Check if SSL exists. If this case fails, all other cases are skipped
-    crypto:start(),
-    application:start(public_key),
-    case ssl:start() of
-	ok -> ssl:stop();
-	{error, {already_started, _}} -> ssl:stop();
-	Error -> ?t:fail({failed_starting_ssl,Error})
-    end,
-    Config.
+    case catch crypto:start() of
+	ok ->
+	    application:start(public_key),
+	    case ssl:start() of
+		ok -> ssl:stop();
+		{error, {already_started, _}} -> ssl:stop();
+		Error -> ?t:fail({failed_starting_ssl,Error})
+	    end,
+	    Config;
+	_Else ->
+	    {skip,"Could not start crypto"}
+    end.
 
 end_per_suite(doc) ->
     "This test case has no mission other than closing the conf case";
 end_per_suite(suite) ->
     [];
 end_per_suite(Config) ->
+    crypto:stop(),
     Config.
 
 server_accept_timeout(doc) ->

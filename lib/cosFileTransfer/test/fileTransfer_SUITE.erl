@@ -131,33 +131,38 @@ end_per_testcase(_Case, Config) ->
     ok.
 
 init_per_suite(Config) ->
-    orber:jump_start(),
-    cosProperty:install(),
-    cosProperty:start(),
-    Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    %% Client
-    cosFileTransferApp:configure(ssl_client_certfile,
-				 filename:join([Dir, "client", "cert.pem"])),
-    cosFileTransferApp:configure(ssl_client_cacertfile,
-				 filename:join([Dir, "client", "cacerts.pem"])),
-    cosFileTransferApp:configure(ssl_client_verify, 1),
-    cosFileTransferApp:configure(ssl_client_depth, 0),
-    %% Server
-    cosFileTransferApp:configure(ssl_server_certfile,
-				 filename:join([Dir, "server", "cert.pem"])),
-    cosFileTransferApp:configure(ssl_server_cacertfile,
-				 filename:join([Dir, "server", "cacerts.pem"])),
-    cosFileTransferApp:configure(ssl_server_verify, 1),
-    cosFileTransferApp:configure(ssl_server_depth, 0),
-    crypto:start(),
-    ssl:start(),
-    cosFileTransferApp:install(),
-    cosFileTransferApp:start(),
-    if
-        is_list(Config) ->
-	    Config;
-        true ->
-            exit("Config not a list")
+    case code:which(crypto) of
+	Res when is_atom(Res) ->
+	    {skip,"Could not start crypto!"};
+	_Else ->
+	    orber:jump_start(),
+	    cosProperty:install(),
+	    cosProperty:start(),
+	    Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
+	    %% Client
+	    cosFileTransferApp:configure(ssl_client_certfile,
+					 filename:join([Dir, "client", "cert.pem"])),
+	    cosFileTransferApp:configure(ssl_client_cacertfile,
+					 filename:join([Dir, "client", "cacerts.pem"])),
+	    cosFileTransferApp:configure(ssl_client_verify, 1),
+	    cosFileTransferApp:configure(ssl_client_depth, 0),
+	    %% Server
+	    cosFileTransferApp:configure(ssl_server_certfile,
+					 filename:join([Dir, "server", "cert.pem"])),
+	    cosFileTransferApp:configure(ssl_server_cacertfile,
+					 filename:join([Dir, "server", "cacerts.pem"])),
+	    cosFileTransferApp:configure(ssl_server_verify, 1),
+	    cosFileTransferApp:configure(ssl_server_depth, 0),
+	    crypto:start(),
+	    ssl:start(),
+	    cosFileTransferApp:install(),
+	    cosFileTransferApp:start(),
+	    if
+		is_list(Config) ->
+		    Config;
+		true ->
+		    exit("Config not a list")
+	    end
     end.
 
 end_per_suite(Config) ->
