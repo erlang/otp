@@ -44,17 +44,20 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ssh:stop(),
-    crypto:start(),
-    DataDir = ?config(data_dir, Config),
-    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
-    c:c(FileAlt),
-    FileName = filename:join(DataDir, "test.txt"),
-    {ok, FileInfo} = file:read_file_info(FileName),
-    ok = file:write_file_info(FileName,
-			      FileInfo#file_info{mode = 8#400}),
-
-    Config.
+    catch ssh:stop(),
+    case catch crypto:start() of
+	ok ->
+	    DataDir = ?config(data_dir, Config),
+	    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
+	    c:c(FileAlt),
+	    FileName = filename:join(DataDir, "test.txt"),
+	    {ok, FileInfo} = file:read_file_info(FileName),
+	    ok = file:write_file_info(FileName,
+				      FileInfo#file_info{mode = 8#400}),
+	    Config;
+	_Else ->
+	    {skip,"Could not start ssh!"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _

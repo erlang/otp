@@ -46,13 +46,21 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    crypto:start(),
-    ssh:start(),
-    Dir = ?config(priv_dir, Config),
-    ssh_test_lib:save_known_hosts(Dir),
-    %% More like copy_id_keys!!!
-    {ok, _} = ssh_test_lib:get_id_keys(Dir),
-    Config.
+    case {catch crypto:start(),catch ssh:start()} of
+	{ok,ok} ->
+	    Dir = ?config(priv_dir, Config),
+	    ssh_test_lib:save_known_hosts(Dir),
+	    %% More like copy_id_keys!!!
+	    {ok, _} = ssh_test_lib:get_id_keys(Dir),
+	    Config;
+	{ok,_} ->
+	    {skip,"Could not start ssh!"};
+	{_,ok} ->
+	    {skip,"Could not start crypto!"};
+	{_,_} ->
+	    {skip,"Could not start crypto and ssh!"}
+    end.
+	    
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]

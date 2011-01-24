@@ -53,9 +53,16 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ssh:stop(),
-    crypto:start(),
-    Config.
+    case {catch ssh:stop(),catch crypto:start()} of
+	{ok,ok} ->
+	    Config;
+	{ok,_} ->
+	    {skip,"Could not start ssh!"};
+	{_,ok} ->
+	    {skip,"Could not start crypto!"};
+	{_,_} ->
+	    {skip,"Could not start crypto and ssh!"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
