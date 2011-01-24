@@ -27,6 +27,8 @@
 -include("PKCS-1.hrl").
 -include("DSS.hrl").
 
+-include_lib("kernel/include/file.hrl").
+
 -export([public_host_dsa_key/2,private_host_dsa_key/2,
 	 public_host_rsa_key/2,private_host_rsa_key/2,
 	 public_host_key/2,private_host_key/2,
@@ -42,6 +44,9 @@
 -import(lists, [reverse/1, append/1]).
 
 -define(DBG_PATHS, true).
+
+-define(PERM_700, 8#700).
+-define(PERM_644, 8#644).
 
 %% API
 public_host_dsa_key(Type, Opts) ->
@@ -113,8 +118,10 @@ do_lookup_host_key(Host, Alg, Opts) ->
 
 add_host_key(Host, Key, Opts) ->
     Host1 = add_ip(replace_localhost(Host)),
-    case file:open(file_name(user, "known_hosts", Opts),[write,append]) of
+    KnownHosts = file_name(user, "known_hosts", Opts),
+    case file:open(KnownHosts, [write,append]) of
    	{ok, Fd} ->
+	    ok = file:change_mode(KnownHosts, ?PERM_644),
    	    Res = add_key_fd(Fd, Host1, Key),
    	    file:close(Fd),
    	    Res;
@@ -532,4 +539,7 @@ file_name(Type, Name, Opts) ->
 
 default_user_dir()->
     {ok,[[Home|_]]} = init:get_argument(home),
-    filename:join(Home, ".ssh").
+    UserDir = filename:join(Home, ".ssh"),
+    ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
+    ok = file:change_mode(UserDir, ?PERM_700),
+    UserDir.
