@@ -37,7 +37,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case crypto:start() of
+    case application:start(crypto) of
 	ok ->
 	    application:start(public_key),
 	    ssl:start(),
@@ -54,7 +54,7 @@ init_per_suite(Config) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ssl:stop(),
-    crypto:stop().
+    application:stop(crypto).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config) -> Config

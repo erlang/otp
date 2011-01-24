@@ -129,7 +129,6 @@ private_certificate_extensions(Config) when is_list(Config) ->
     run(private_certificate_extensions()).
     
 run() ->
-    catch crypto:start(),
     Tests = 
 	[signature_verification(),
 	 validity_periods(),
@@ -587,7 +586,7 @@ fin_per_testcase(_Func, Config) ->
     Config.
 
 init_per_suite(Config) ->
-    case crypto:start() of
+    case application:start(crypto) of
 	ok ->
 	    Config;
 	_  ->
@@ -595,7 +594,7 @@ init_per_suite(Config) ->
     end.
 
 end_per_suite(_Config) ->
-    crypto:stop().
+    application:stop(crypto).
 
 error(Format, Args, File0, Line) ->
     File = filename:basename(File0),
