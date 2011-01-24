@@ -41,7 +41,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case crypto:start() of
+    case application:start(crypto) of
 	ok ->
 	    Config;
 	_ ->
@@ -54,7 +54,7 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-    crypto:stop().
+    application:stop(crypto).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config) -> Config
