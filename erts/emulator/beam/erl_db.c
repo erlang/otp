@@ -2713,7 +2713,6 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
     Binary *mp;
     Eterm res;
     Uint32 dummy;
-    Uint sz;
 
     if (!(is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) || !is_binary(BIF_ARG_2)) {
     error:
@@ -2738,11 +2737,10 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 	    BIF_TRAP3(bif_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
-	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, NULL, 0, &dummy);
+	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, NULL, 0,
+			    ERTS_PAM_COPY_RESULT, &dummy);
 	if (is_value(res)) {
-	    sz = size_object(res);
-	    hp = HAlloc(BIF_P, sz + 2);
-	    res = copy_struct(res, sz, &hp, &MSO(BIF_P));
+	    hp = HAlloc(BIF_P, 2);
 	    ret = CONS(hp,res,ret);
 	    /*hp += 2;*/
 	} 

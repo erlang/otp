@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1668,7 +1668,7 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	return_flags = 0;
 	if (match_spec) {
 	    pam_result = erts_match_set_run(p, match_spec, args, arity,
-					    &return_flags);
+					    ERTS_PAM_TMP_RESULT, &return_flags);
 	    if (is_non_value(pam_result)) {
 		erts_match_set_release_result(p);
 #if !HEAP_ON_C_STACK
@@ -1815,7 +1815,7 @@ erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 	return_flags = 0;
 	if (match_spec) {
 	    pam_result = erts_match_set_run(p, match_spec, args, arity,
-					    &return_flags);
+					    ERTS_PAM_TMP_RESULT, &return_flags);
 	    if (is_non_value(pam_result)) {
 		erts_match_set_release_result(p);
 		UnUseTmpHeap(ERL_SUB_BIN_SIZE,p);

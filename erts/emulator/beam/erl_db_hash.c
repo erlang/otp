@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1303,8 +1303,8 @@ static int db_select_continue_hash(Process *p,
     }	  
     for(;;) {
 	if (current->hvalue != INVALID_HASH && 
-	    (match_res = db_prog_match_and_copy(&tb->common, p, mp, all_objects,
-						&current->dbterm, &hp, 2),
+	    (match_res = db_match_dbterm(&tb->common, p, mp, all_objects,
+					 &current->dbterm, &hp, 2),
 	     is_value(match_res))) {
 
 	    match_list = CONS(hp, match_res, match_list);
@@ -1468,8 +1468,8 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
     for(;;) {
 	if (current != NULL) {
 	    if (current->hvalue != INVALID_HASH) {
-		match_res = db_prog_match_and_copy(&tb->common, p, mpi.mp, 0,
-						   &current->dbterm, &hp, 2);
+		match_res = db_match_dbterm(&tb->common, p, mpi.mp, 0,
+					    &current->dbterm, &hp, 2);
 		if (is_value(match_res)) {
 		    match_list = CONS(hp, match_res, match_list);
 		    ++got;
@@ -1634,8 +1634,8 @@ static int db_select_count_hash(Process *p,
     for(;;) {
 	if (current != NULL) {
 	    if (current->hvalue != INVALID_HASH) {
-		if (db_prog_match_and_copy(&tb->common, p, mpi.mp, 0,
-					   &current->dbterm, NULL,0) == am_true) {
+		if (db_match_dbterm(&tb->common, p, mpi.mp, 0,
+				    &current->dbterm, NULL,0) == am_true) {
 		    ++got;
 		}
 		--num_left;
@@ -1783,8 +1783,8 @@ static int db_select_delete_hash(Process *p,
 	} 
 	else {
 	    int did_erase = 0;
-	    if (db_prog_match_and_copy(&tb->common, p, mpi.mp, 0,
-				       &(*current)->dbterm, NULL, 0) == am_true) {
+	    if (db_match_dbterm(&tb->common, p, mpi.mp, 0,
+				&(*current)->dbterm, NULL, 0) == am_true) {
 		if (NFIXED(tb) > fixated_by_me) { /* fixated by others? */
 		    if (slot_ix != last_pseudo_delete) {
 			add_fixed_deletion(tb, slot_ix);
@@ -1894,8 +1894,8 @@ static int db_select_delete_continue_hash(Process *p,
 	} 
 	else {
 	    int did_erase = 0;
-	    if (db_prog_match_and_copy(&tb->common, p, mp, 0,
-				       &(*current)->dbterm, NULL, 0) == am_true) {
+	    if (db_match_dbterm(&tb->common, p, mp, 0,
+				&(*current)->dbterm, NULL, 0) == am_true) {
 		if (NFIXED(tb) > fixated_by_me) { /* fixated by others? */
 		    if (slot_ix != last_pseudo_delete) {
 			add_fixed_deletion(tb, slot_ix);
@@ -1994,8 +1994,8 @@ static int db_select_count_continue_hash(Process *p,
 		current = current->next;
 		continue;
 	    }
-	    if (db_prog_match_and_copy(&tb->common, p, mp, 0, &current->dbterm,
-				       NULL, 0) == am_true) {
+	    if (db_match_dbterm(&tb->common, p, mp, 0, &current->dbterm,
+				NULL, 0) == am_true) {
 		++got;
 	    }
 	    --num_left;
@@ -2174,7 +2174,7 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
     HashValue hval = NIL;      
     int num_heads = 0;
     int i;
-    
+
     mpi->lists = mpi->dlists;
     mpi->num_lists = 0;
     mpi->key_given = 1;

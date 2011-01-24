@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -424,12 +424,16 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Eterm *body, int num_matches, 
 			 Uint flags, 
 			 DMCErrInfo *err_info);
-Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
-			     int all, DbTerm* obj, Eterm** hpp, Uint extra);
 /* Returns newly allocated MatchProg binary with refc == 0*/
+
+Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
+		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
+
 Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm* base,
 		    Eterm *termp, int arity,
+		    enum erts_pam_run_flags in_flags,
 		    Uint32 *return_flags /* Zeroed on enter */);
+
 /* returns DB_ERROR_NONE if matches, 1 if not matches and some db error on 
    error. */
 DMCErrInfo *db_new_dmc_err_info(void);

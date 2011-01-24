@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1757,8 +1757,15 @@ do {								\
 extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr);
 Eterm erts_match_set_lint(Process *p, Eterm matchexpr); 
 extern void erts_match_set_release_result(Process* p);
+
+enum erts_pam_run_flags {
+    ERTS_PAM_TMP_RESULT=0,
+    ERTS_PAM_COPY_RESULT=1,
+    ERTS_PAM_CONTIGUOUS_TUPLE=2
+};
 extern Eterm erts_match_set_run(Process *p, Binary *mpsp, 
 				Eterm *args, int num_args,
+				enum erts_pam_run_flags in_flags,
 				Uint32 *return_flags);
 extern Eterm erts_match_set_get_source(Binary *mpsp);
 extern void erts_match_prog_foreach_offheap(Binary *b,
