@@ -972,14 +972,25 @@ remote_start(MainNode) ->
 	    {error,{already_started,Pid}}
     end.
 
-%% Load a set of cover compiled modules on remote nodes
-remote_load_compiled(Nodes,Compiled0) ->
-    Compiled = lists:map(fun get_data_for_remote_loading/1,Compiled0),
+%% Load a set of cover compiled modules on remote nodes,
+%% We do it ?MAX_MODS modules at a time so that we don't
+%% run out of memory on the cover_server node. 
+-define(MAX_MODS, 10).
+remote_load_compiled(Nodes,Compiled) ->
+    remote_load_compiled(Nodes, Compiled, [], 0).
+remote_load_compiled(_Nodes, [], [], _ModNum) ->
+    ok;
+remote_load_compiled(Nodes, Compiled, Acc, ModNum) 
+  when Compiled == []; ModNum == ?MAX_MODS ->
     lists:foreach(
       fun(Node) -> 
-	      remote_call(Node,{remote,load_compiled,Compiled})
+	      remote_call(Node,{remote,load_compiled,Acc})
       end,
-      Nodes).
+      Nodes),
+    remote_load_compiled(Nodes, Compiled, [], 0);
+remote_load_compiled(Nodes, [MF | Rest], Acc, ModNum) ->
+    remote_load_compiled(
+      Nodes, Rest, [get_data_for_remote_loading(MF) | Acc], ModNum + 1).
 
 %% Read all data needed for loading a cover compiled module on a remote node
 %% Binary is the beam code for the module and InitialTable is the initial
@@ -993,8 +1004,8 @@ get_data_for_remote_loading({Module,File}) ->
 %% Create a match spec which returns the clause info {Module,InitInfo} and 
 %% all #bump keys for the given module with 0 number of calls.
 ms(Module) ->
-    ets:fun2ms(fun({Module,InitInfo})  -> 
-		       {Module,InitInfo};
+    ets:fun2ms(fun({Mod,InitInfo})  -> 
+		       {Mod,InitInfo};
 		  ({Key,_}) when is_record(Key,bump),Key#bump.module=:=Module -> 
 		       {Key,0}
 	       end).
