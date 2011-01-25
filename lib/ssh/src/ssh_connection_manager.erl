@@ -147,7 +147,7 @@ close(ConnectionManager, ChannelId) ->
     try   call(ConnectionManager, {close, ChannelId}) of
 	  ok ->
 	    ok;
-	  {error,normal} ->
+	  {error, channel_closed} ->
 	    ok
     catch
 	exit:{noproc, _} ->
@@ -158,7 +158,7 @@ stop(ConnectionManager) ->
     try call(ConnectionManager, stop) of
 	ok ->
 	    ok;
-	{error,normal} ->
+	{error, channel_closed} ->
 	    ok
     catch
 	exit:{noproc, _} ->
@@ -604,7 +604,7 @@ call(Pid, Msg, Timeout) ->
 	exit:{timeout, _} ->
 	    {error, timeout};
 	exit:{normal, _} ->
-	    {error, normal}
+	    {error, channel_closed}
     end.
 
 cast(Pid, Msg) ->
