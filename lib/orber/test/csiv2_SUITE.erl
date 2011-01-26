@@ -361,11 +361,11 @@ end_per_testcase(_Case, Config) ->
     ok.
 
 init_per_suite(Config) ->
-    if
-	is_list(Config) ->
-	    Config;
-	true ->
-	    exit("Config not a list")
+    case orber_test_lib:ssl_version() of
+	no_ssl ->
+	    {skip,"SSL is not installed!"};
+	_ ->
+	    Config
     end.
 
 end_per_suite(Config) ->

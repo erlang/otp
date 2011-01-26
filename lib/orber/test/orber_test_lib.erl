@@ -95,16 +95,21 @@
 %%            
 %%------------------------------------------------------------
 ssl_version() ->
-    case catch erlang:system_info(otp_release) of
-	Version when is_list(Version) ->
-	    if
-		"R12B" < Version ->
-		    3;
-		true ->
-		    2
-	    end;
-	_ ->
-	    2	    
+    try 
+	ssl:module_info(),
+	case catch erlang:system_info(otp_release) of
+	    Version when is_list(Version) ->
+		if
+		    "R12B" < Version ->
+			3;
+		    true ->
+			2
+		end;
+	    _ ->
+		2
+	end
+    catch error:undef ->
+	    no_ssl
     end.
 
 %%------------------------------------------------------------
