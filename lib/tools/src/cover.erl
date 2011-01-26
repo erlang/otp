@@ -500,6 +500,8 @@ remote_call(Node,Request) ->
 	    Return
     end.
     
+remote_reply(Proc,Reply) when is_pid(Proc) ->
+    Proc ! {?SERVER,Reply};
 remote_reply(MainNode,Reply) ->
     {?SERVER,MainNode} ! {?SERVER,Reply}.
 
@@ -593,40 +595,10 @@ main_process_loop(State) ->
 	    end;
 
 	{From, {export,OutFile,Module}} ->
-	    case file:open(OutFile,[write,binary,raw]) of
-		{ok,Fd} ->
-		    Reply = 
-			case Module of
-			    '_' ->
-				export_info(State#main_state.imported),
-				collect(State#main_state.nodes),
-				do_export_table(State#main_state.compiled,
-						State#main_state.imported,
-						Fd);
-			    _ ->
-				export_info(Module,State#main_state.imported),
-				case is_loaded(Module, State) of
-				    {loaded, File} ->
-					[{Module,Clauses}] = 
-					    ets:lookup(?COVER_TABLE,Module),
-					collect(Module, Clauses,
-						State#main_state.nodes),
-					do_export_table([{Module,File}],[],Fd);
-				    {imported, File, ImportFiles} ->
-					%% don't know if I should allow this - 
-					%% export a module which is only imported
-					Imported = [{Module,File,ImportFiles}],
-					do_export_table([],Imported,Fd);
-				    _NotLoaded ->
-					{error,{not_cover_compiled,Module}}
-				end
-			end,
-		    file:close(Fd),
-		    reply(From, Reply);
-		{error,Reason} ->
-		    reply(From, {error, {cant_open_file,OutFile,Reason}})
-	    
-	    end,
+	    spawn(fun() ->
+			  io:format(user, "EXPORTING: ~p to ~p~n",[Module, OutFile]),
+			  do_export(Module, OutFile, From, State)
+		  end),
 	    main_process_loop(State);
 	
 	{From, {import,File}} ->
@@ -692,107 +664,95 @@ main_process_loop(State) ->
             unregister(?SERVER),
 	    reply(From, ok);
 
-	{From, {Request, Module}} ->
-	    case is_loaded(Module, State) of
-		{loaded, File} ->
-		    {Reply,State1} = 
-			case Request of
-			    {analyse, Analysis, Level} ->
-				analyse_info(Module,State#main_state.imported),
+	{From, {{analyse, Analysis, Level}, Module}} ->
+	    S = try 
+		    Loaded = is_loaded(Module, State),
+		    analyse_info(Module,State#main_state.imported),
+		    C = case Loaded of
+			    {loaded, _File} ->
 				[{Module,Clauses}] = 
 				    ets:lookup(?COVER_TABLE,Module),
 				collect(Module,Clauses,State#main_state.nodes),
-				R = do_analyse(Module, Analysis, Level, Clauses),
-				{R,State};
-			    
-			    {analyse_to_file, OutFile, Opts} ->
-				R = case find_source(File) of
-					{beam,_BeamFile} ->
-					    {error,no_source_code_found};
-					ErlFile ->
-					    Imported = State#main_state.imported,
-					    analyse_info(Module,Imported),
-					    [{Module,Clauses}] = 
-						ets:lookup(?COVER_TABLE,Module),
-					    collect(Module, Clauses,
-						    State#main_state.nodes),
-					    HTML = lists:member(html,Opts),
-					    do_analyse_to_file(Module,OutFile,
-							       ErlFile,HTML)
-				    end,
-				{R,State};
-			    
-			    is_compiled ->
-				{{file, File},State};
-			    
-			    reset ->
-				R = do_reset_main_node(Module,
-						       State#main_state.nodes),
-				Imported = 
-				    remove_imported(Module,
-						    State#main_state.imported),
-				{R,State#main_state{imported=Imported}}
-			end,
-		    reply(From, Reply),
-		    main_process_loop(State1);
-		
-		{imported,File,_ImportFiles} ->
-		    {Reply,State1} = 
-			case Request of
-			    {analyse, Analysis, Level} ->
-				analyse_info(Module,State#main_state.imported),
+				Clauses;
+			    _ ->
 				[{Module,Clauses}] = 
 				    ets:lookup(?COLLECTION_TABLE,Module),
-				R = do_analyse(Module, Analysis, Level, Clauses),
-				{R,State};
-			    
-			    {analyse_to_file, OutFile, Opts} ->
-				R = case find_source(File) of
-					{beam,_BeamFile} ->
-					    {error,no_source_code_found};
-					ErlFile ->
-					    Imported = State#main_state.imported,
-					    analyse_info(Module,Imported),
-					    HTML = lists:member(html,Opts),
-					    do_analyse_to_file(Module,OutFile,
-							   ErlFile,HTML)
-				    end,
-				{R,State};
-			    
-			    is_compiled ->
-				{false,State};
-			    
-			    reset ->
-				R = do_reset_collection_table(Module),
-				Imported = 
-				    remove_imported(Module,
-						    State#main_state.imported),
-				{R,State#main_state{imported=Imported}}
+				Clauses
 			end,
-		    reply(From, Reply),
-		    main_process_loop(State1);		    
-		
-		NotLoaded ->
-		    Reply = 
-			case Request of
-			    is_compiled ->
-				false;
-			    _ ->
-				{error, {not_cover_compiled,Module}}
+		    R = do_analyse(Module, Analysis, Level, C),
+		    reply(From, R),
+		    State
+		catch throw:Reason ->
+			reply(From,{error, {not_cover_compiled,Module}}),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);
+
+	{From, {{analyse_to_file, OutFile, Opts},Module}} ->
+	    S = try 
+		    Loaded = is_loaded(Module, State),
+		    File = case Loaded of
+			{loaded, File0} ->
+			    [{Module,Clauses}] = 
+				ets:lookup(?COVER_TABLE,Module),
+			    collect(Module, Clauses,
+				    State#main_state.nodes),
+			    File0;
+			{imported, File0, _} ->
+			    File0
+		    end,
+		    case find_source(File) of
+			{beam,_BeamFile} ->
+			    reply(From, {error,no_source_code_found}),
+			    State;
+			ErlFile ->
+			    analyse_info(Module,State#main_state.imported),
+			    HTML = lists:member(html,Opts),
+			    R = do_analyse_to_file(Module,OutFile,
+						   ErlFile,HTML),
+			    reply(From, R),
+			    State
+		    end
+		catch throw:Reason ->
+			reply(From,{error, {not_cover_compiled,Module}}),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);
+
+	{From, {is_compiled, Module}} ->
+	    S = try is_loaded(Module, State) of
+		    {loaded, File} ->
+			reply(From,{file, File}),
+			State;
+		    {imported,_File,_ImportFiles} ->
+			reply(From,false),
+			State
+		catch throw:Reason ->
+			reply(From,false),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);
+
+	{From, {reset, Module}} ->
+	    S = try 
+		    Loaded = is_loaded(Module,State),
+		    R = case Loaded of
+			    {loaded, _File} ->
+				do_reset_main_node(
+				  Module, State#main_state.nodes);
+			    {imported, _File, _} ->
+				do_reset_collection_table(Module)
 			end,
-		    Compiled = 
-			case NotLoaded of
-			    unloaded ->
-				do_clear(Module),
-				remote_unload(State#main_state.nodes,[Module]),
-				update_compiled([Module],
-						State#main_state.compiled);
-			    false ->
-				State#main_state.compiled
-			end,
-		    reply(From, Reply),
-		    main_process_loop(State#main_state{compiled=Compiled})
-	    end;
+		    Imported = 
+			remove_imported(Module,
+					State#main_state.imported),
+		    reply(From, R),
+		    State#main_state{imported=Imported}
+		catch throw:Reason ->
+			reply(From,{error, {not_cover_compiled,Module}}),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);		    
 	
 	{'EXIT',Pid,_Reason} ->
 	    %% Exit is trapped on the main node only, so this will only happen 
@@ -806,10 +766,6 @@ main_process_loop(State) ->
 	    io:format("~p~n",[State]),
 	    main_process_loop(State)
     end.
-
-
-
-
 
 %%%----------------------------------------------------------------------
 %%% cover_server on remote node
@@ -843,6 +799,10 @@ remote_process_loop(State) ->
 	    remote_process_loop(State);
 
 	{remote,collect,Module,CollectorPid} ->
+	    self() ! {remote,collect,Module,CollectorPid, ?SERVER};
+
+	{remote,collect,Module,CollectorPid,From} ->
+%	    spawn(?MODULE, do_remote_collect, [Module, CollectorPid]),
 	    MS = 
 		case Module of
 		    '_' -> ets:fun2ms(fun({M,C}) when is_atom(M) -> C end);
@@ -865,7 +825,7 @@ remote_process_loop(State) ->
 	      end,
 	      AllClauses),
 	    CollectorPid ! done,
-	    remote_reply(State#remote_state.main_node, ok),
+	    remote_reply(From, ok),
 	    remote_process_loop(State);
 
 	{remote,stop} ->
@@ -1028,27 +988,37 @@ remote_reset(Module,Nodes) ->
 
 %% Collect data from remote nodes - used for analyse or stop(Node)
 remote_collect(Module,Nodes,Stop) ->
-    CollectorPid = spawn(fun() -> collector_proc(length(Nodes)) end),
-    lists:foreach(
-      fun(Node) -> 
-	      remote_call(Node,{remote,collect,Module,CollectorPid}),
-	      if Stop -> remote_call(Node,{remote,stop});
-		 true -> ok
-	      end
-      end,
-      Nodes).
+    Pids = lists:map(
+	     fun(Node) -> 
+		     spawn(fun() -> 
+				   do_collection(Node, Module, Stop)
+			   end)
+	     end,
+	     Nodes),
+    RefsNPids = [{erlang:monitor(process, Pid),Pid} || Pid <- Pids],
+    lists:foreach(fun({Ref,Pid}) ->
+			  receive
+			      {'DOWN', Ref, process, Pid, _} ->
+				  ok
+			  end
+		  end,RefsNPids).
+
+do_collection(Node, Module, Stop) ->
+    CollectorPid = spawn(fun collector_proc/0),
+    remote_call(Node,{remote,collect,Module,CollectorPid, self()}),
+    if Stop -> remote_call(Node,{remote,stop});
+       true -> ok
+    end.
 
 %% Process which receives chunks of data from remote nodes - either when
 %% analysing or when stopping cover on the remote nodes.
-collector_proc(0) ->
-    ok;
-collector_proc(N) ->
+collector_proc() ->
     receive 
 	{chunk,Chunk} ->
 	    insert_in_collection_table(Chunk),
-	    collector_proc(N);
+	    collector_proc();
 	done ->
-	    collector_proc(N-1)
+	    ok
     end.
 
 insert_in_collection_table([{Key,Val}|Chunk]) ->
@@ -1063,7 +1033,13 @@ insert_in_collection_table(Key,Val) ->
 	    ets:update_counter(?COLLECTION_TABLE,
 			       Key,Val);
 	false ->
-	    ets:insert(?COLLECTION_TABLE,{Key,Val})
+	    %% Make sure that there are no race conditions from ets:member
+	    case ets:insert_new(?COLLECTION_TABLE,{Key,Val}) of
+		false ->
+		    insert_in_collection_table(Key,Val);
+		_ ->
+		    ok
+	    end
     end.
 
 
@@ -1164,14 +1140,14 @@ is_loaded(Module, State) ->
 	{ok, File} ->
 	    case code:which(Module) of
 		?TAG -> {loaded, File};
-		_ -> unloaded
+		_ -> throw(unloaded)
 	    end;
 	false ->
 	    case get_file(Module,State#main_state.imported) of
 		{ok,File,ImportFiles} ->
 		    {imported, File, ImportFiles};
 		false ->
-		    false
+		    throw(not_loaded)
 	    end
     end.
 
@@ -2038,6 +2014,42 @@ fill2() ->       ".|  ".
 fill3() ->        "|  ".
 
 %%%--Export--------------------------------------------------------------
+do_export(Module, OutFile, From, State) ->
+    case file:open(OutFile,[write,binary,raw]) of
+	{ok,Fd} ->
+	    Reply = 
+		case Module of
+		    '_' ->
+			export_info(State#main_state.imported),
+			collect(State#main_state.nodes),
+			do_export_table(State#main_state.compiled,
+					State#main_state.imported,
+					Fd);
+		    _ ->
+			export_info(Module,State#main_state.imported),
+			try is_loaded(Module, State) of
+			    {loaded, File} ->
+				[{Module,Clauses}] = 
+				    ets:lookup(?COVER_TABLE,Module),
+				collect(Module, Clauses,
+					State#main_state.nodes),
+				do_export_table([{Module,File}],[],Fd);
+			    {imported, File, ImportFiles} ->
+				%% don't know if I should allow this - 
+				%% export a module which is only imported
+				Imported = [{Module,File,ImportFiles}],
+				do_export_table([],Imported,Fd)
+			catch throw:_ ->
+				{error,{not_cover_compiled,Module}}
+			end
+		end,
+	    file:close(Fd),
+	    reply(From, Reply);
+	{error,Reason} ->
+	    reply(From, {error, {cant_open_file,OutFile,Reason}})
+
+    end.
+
 do_export_table(Compiled, Imported, Fd) ->
     ModList = merge(Imported,Compiled),
     write_module_data(ModList,Fd).
@@ -2163,6 +2175,15 @@ do_clear(Module) ->
     ets:match_delete(?COVER_TABLE, {Module,'_'}),
     ets:match_delete(?COVER_TABLE, {#bump{module=Module},'_'}),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
+
+not_loaded(Module, unloaded, State) ->
+    do_clear(Module),
+    remote_unload(State#main_state.nodes,[Module]),
+    Compiled = update_compiled([Module],
+			       State#main_state.compiled),
+    State#main_state{ compiled = Compiled };
+not_loaded(_Module,_Else, State) ->
+    State.
 
 
 
