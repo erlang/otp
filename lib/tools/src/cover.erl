@@ -596,7 +596,6 @@ main_process_loop(State) ->
 
 	{From, {export,OutFile,Module}} ->
 	    spawn(fun() ->
-			  io:format(user, "EXPORTING: ~p to ~p~n",[Module, OutFile]),
 			  do_export(Module, OutFile, From, State)
 		  end),
 	    main_process_loop(State);
@@ -667,20 +666,11 @@ main_process_loop(State) ->
 	{From, {{analyse, Analysis, Level}, Module}} ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
-		    analyse_info(Module,State#main_state.imported),
-		    C = case Loaded of
-			    {loaded, _File} ->
-				[{Module,Clauses}] = 
-				    ets:lookup(?COVER_TABLE,Module),
-				collect(Module,Clauses,State#main_state.nodes),
-				Clauses;
-			    _ ->
-				[{Module,Clauses}] = 
-				    ets:lookup(?COLLECTION_TABLE,Module),
-				Clauses
-			end,
-		    R = do_analyse(Module, Analysis, Level, C),
-		    reply(From, R),
+		    spawn(fun() ->
+				  do_parallel_analysis(
+				    Module, Analysis, Level, 
+				    Loaded, From, State)
+			  end),
 		    State
 		catch throw:Reason ->
 			reply(From,{error, {not_cover_compiled,Module}}),
@@ -691,28 +681,12 @@ main_process_loop(State) ->
 	{From, {{analyse_to_file, OutFile, Opts},Module}} ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
-		    File = case Loaded of
-			{loaded, File0} ->
-			    [{Module,Clauses}] = 
-				ets:lookup(?COVER_TABLE,Module),
-			    collect(Module, Clauses,
-				    State#main_state.nodes),
-			    File0;
-			{imported, File0, _} ->
-			    File0
-		    end,
-		    case find_source(File) of
-			{beam,_BeamFile} ->
-			    reply(From, {error,no_source_code_found}),
-			    State;
-			ErlFile ->
-			    analyse_info(Module,State#main_state.imported),
-			    HTML = lists:member(html,Opts),
-			    R = do_analyse_to_file(Module,OutFile,
-						   ErlFile,HTML),
-			    reply(From, R),
-			    State
-		    end
+		    spawn(fun() ->
+				  do_parallel_analysis_to_file(
+				    Module, OutFile, Opts, 
+				    Loaded, From, State)
+			  end),
+		    State
 		catch throw:Reason ->
 			reply(From,{error, {not_cover_compiled,Module}}),
 			not_loaded(Module, Reason, State)
@@ -1842,6 +1816,22 @@ find_source(File0) ->
 	    end
     end.
 
+do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
+    analyse_info(Module,State#main_state.imported),
+    C = case Loaded of
+	    {loaded, _File} ->
+		[{Module,Clauses}] = 
+		    ets:lookup(?COVER_TABLE,Module),
+		collect(Module,Clauses,State#main_state.nodes),
+		Clauses;
+	    _ ->
+		[{Module,Clauses}] = 
+		    ets:lookup(?COLLECTION_TABLE,Module),
+		Clauses
+	end,
+    R = do_analyse(Module, Analysis, Level, C),
+    reply(From, R).
+
 %% do_analyse(Module, Analysis, Level, Clauses)-> {ok,Answer} | {error,Error}
 %%   Clauses = [{Module,Function,Arity,Clause,Lines}]
 do_analyse(Module, Analysis, line, _Clauses) ->
@@ -1917,6 +1907,28 @@ merge_functions([{_MFA,R}|Functions], MFun, Result) ->
     merge_functions(Functions, MFun, MFun(Result, R));
 merge_functions([], _MFun, Result) ->
     Result.
+
+do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
+    File = case Loaded of
+	       {loaded, File0} ->
+		   [{Module,Clauses}] = 
+		       ets:lookup(?COVER_TABLE,Module),
+		   collect(Module, Clauses,
+			   State#main_state.nodes),
+		   File0;
+	       {imported, File0, _} ->
+		   File0
+	   end,
+    case find_source(File) of
+	{beam,_BeamFile} ->
+	    reply(From, {error,no_source_code_found});
+	ErlFile ->
+	    analyse_info(Module,State#main_state.imported),
+	    HTML = lists:member(html,Opts),
+	    R = do_analyse_to_file(Module,OutFile,
+				   ErlFile,HTML),
+	    reply(From, R)
+    end.
 
 %% do_analyse_to_file(Module,OutFile,ErlFile) -> {ok,OutFile} | {error,Error}
 %%   Module = atom()
