@@ -64,7 +64,7 @@ end_per_testcase(TestCase, Config) ->
 
 
 suite() ->
-    [{timetrap,{seconds,15}}].
+    [{timetrap,{seconds,20}}].
 
 all() ->
     all(suite).
