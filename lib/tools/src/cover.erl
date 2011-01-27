@@ -114,6 +114,8 @@
             true -> ?BLOCK(Expr)
         end).
 
+-define(SPAWN_DBG(Tag,Value),put(Tag,Value)).
+
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %%%----------------------------------------------------------------------
@@ -127,7 +129,10 @@ start() ->
     case whereis(?SERVER) of
 	undefined ->
 	    Starter = self(),
-	    Pid = spawn(fun() -> init_main(Starter) end),
+	    Pid = spawn(fun() -> 
+				?SPAWN_DBG(start,[]),
+				init_main(Starter) 
+			end),
 	    Ref = erlang:monitor(process,Pid),
 	    Return = 
 		receive 
@@ -596,6 +601,7 @@ main_process_loop(State) ->
 
 	{From, {export,OutFile,Module}} ->
 	    spawn(fun() ->
+			  ?SPAWN_DBG(export,{OutFile, Module}),
 			  do_export(Module, OutFile, From, State)
 		  end),
 	    main_process_loop(State);
@@ -667,6 +673,7 @@ main_process_loop(State) ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
 		    spawn(fun() ->
+				  ?SPAWN_DBG(analyse,{Module,Analysis, Level}),
 				  do_parallel_analysis(
 				    Module, Analysis, Level, 
 				    Loaded, From, State)
@@ -682,6 +689,8 @@ main_process_loop(State) ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
 		    spawn(fun() ->
+				  ?SPAWN_DBG(analyse_to_file,
+					     {Module,OutFile, Opts}),
 				  do_parallel_analysis_to_file(
 				    Module, OutFile, Opts, 
 				    Loaded, From, State)
@@ -777,6 +786,8 @@ remote_process_loop(State) ->
 
 	{remote,collect,Module,CollectorPid,From} ->
 	   spawn(fun() ->
+			 ?SPAWN_DBG(remote_collect, 
+				    {Module, CollectorPid, From}),
 			 do_collect(Module, CollectorPid, From)
 		 end),
 	    remote_process_loop(State);
@@ -894,7 +905,10 @@ remote_start(MainNode) ->
     case whereis(?SERVER) of
 	undefined ->
 	    Starter = self(),
-	    Pid = spawn(fun() -> init_remote(Starter,MainNode) end),
+	    Pid = spawn(fun() -> 
+				?SPAWN_DBG(remote_start,{MainNode}),
+				init_remote(Starter,MainNode) 
+			end),
 	    Ref = erlang:monitor(process,Pid),
 	    Return = 
 		receive 
@@ -968,6 +982,8 @@ remote_collect(Module,Nodes,Stop) ->
     Pids = lists:map(
 	     fun(Node) -> 
 		     spawn(fun() -> 
+				   ?SPAWN_DBG(remote_collect, 
+					      {Module, Nodes, Stop}),
 				   do_collection(Node, Module, Stop)
 			   end)
 	     end,
@@ -990,6 +1006,7 @@ do_collection(Node, Module, Stop) ->
 %% Process which receives chunks of data from remote nodes - either when
 %% analysing or when stopping cover on the remote nodes.
 collector_proc() ->
+    ?SPAWN_DBG(collector_proc, []),
     receive 
 	{chunk,Chunk} ->
 	    insert_in_collection_table(Chunk),
