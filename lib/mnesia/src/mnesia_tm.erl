@@ -1257,7 +1257,7 @@ needs_majority(Tab, #prep{majority = M}) ->
 		{'EXIT', _} ->
 		    M;
 		false ->
-		    [{Tab, []} | M];
+		    M;
 		true ->
 		    CopyHolders = val({Tab, all_nodes}),
 		    [{Tab, CopyHolders} | M]
