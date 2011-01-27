@@ -1034,14 +1034,15 @@ analyse_info(Module,Imported) ->
 
 export_info(_Module,[]) ->
     ok;
-export_info(Module,Imported) ->
-    imported_info("Export",Module,Imported).
+export_info(_Module,_Imported) ->
+    %% Do not print that the export includes imported modules
+    ok.
 
 export_info([]) ->
     ok;
-export_info(Imported) ->
-    AllImportFiles = get_all_importfiles(Imported,[]),
-    io:format("Export includes data from imported files\n~p\n",[AllImportFiles]).
+export_info(_Imported) ->
+    %% Do not print that the export includes imported modules
+    ok.
 
 get_all_importfiles([{_M,_F,ImportFiles}|Imported],Acc) ->
     NewAcc = do_get_all_importfiles(ImportFiles,Acc),
