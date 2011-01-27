@@ -776,30 +776,9 @@ remote_process_loop(State) ->
 	    self() ! {remote,collect,Module,CollectorPid, ?SERVER};
 
 	{remote,collect,Module,CollectorPid,From} ->
-%	    spawn(?MODULE, do_remote_collect, [Module, CollectorPid]),
-	    MS = 
-		case Module of
-		    '_' -> ets:fun2ms(fun({M,C}) when is_atom(M) -> C end);
-		    _ -> ets:fun2ms(fun({M,C}) when M=:=Module -> C end)
-		end,
-	    AllClauses = lists:flatten(ets:select(?COVER_TABLE,MS)),
-	    
-	    %% Sending clause by clause in order to avoid large lists
-	    lists:foreach(
-	      fun({M,F,A,C,_L}) ->
-		      Pattern = 
-			  {#bump{module=M, function=F, arity=A, clause=C}, '_'},
-		      Bumps = ets:match_object(?COVER_TABLE, Pattern),
-		      %% Reset
-		      lists:foreach(fun({Bump,_N}) ->
-					    ets:insert(?COVER_TABLE, {Bump,0})
-				    end,
-				    Bumps),
-		      CollectorPid ! {chunk,Bumps}
-	      end,
-	      AllClauses),
-	    CollectorPid ! done,
-	    remote_reply(From, ok),
+	   spawn(fun() ->
+			 do_collect(Module, CollectorPid, From)
+		 end),
 	    remote_process_loop(State);
 
 	{remote,stop} ->
@@ -828,6 +807,30 @@ remote_process_loop(State) ->
 	    
     end.
 
+do_collect(Module, CollectorPid, From) ->
+    MS = 
+	case Module of
+	    '_' -> ets:fun2ms(fun({M,C}) when is_atom(M) -> C end);
+	    _ -> ets:fun2ms(fun({M,C}) when M=:=Module -> C end)
+	end,
+    AllClauses = lists:flatten(ets:select(?COVER_TABLE,MS)),
+
+    %% Sending clause by clause in order to avoid large lists
+    lists:foreach(
+      fun({M,F,A,C,_L}) ->
+	      Pattern = 
+		  {#bump{module=M, function=F, arity=A, clause=C}, '_'},
+	      Bumps = ets:match_object(?COVER_TABLE, Pattern),
+	      %% Reset
+	      lists:foreach(fun({Bump,_N}) ->
+				    ets:insert(?COVER_TABLE, {Bump,0})
+			    end,
+			    Bumps),
+	      CollectorPid ! {chunk,Bumps}
+      end,
+      AllClauses),
+    CollectorPid ! done,
+    remote_reply(From, ok).
 
 reload_originals([{Module,_File}|Compiled]) ->
     do_reload_original(Module),
@@ -938,7 +941,7 @@ get_data_for_remote_loading({Module,File}) ->
 %% Create a match spec which returns the clause info {Module,InitInfo} and 
 %% all #bump keys for the given module with 0 number of calls.
 ms(Module) ->
-    ets:fun2ms(fun({Mod,InitInfo})  -> 
+    ets:fun2ms(fun({Mod,InitInfo}) when Mod =:= Module -> 
 		       {Mod,InitInfo};
 		  ({Key,_}) when is_record(Key,bump),Key#bump.module=:=Module -> 
 		       {Key,0}
