@@ -74,7 +74,7 @@
     <title>What to look for</title>
     <p>When analyzing the result file from the profiling activity
       you should look for functions that are called many
-      times and have a long "own" execution time (time excluded calls
+      times and have a long "own" execution time (time excluding calls
       to other functions). Functions that just are called very
       many times can also be interesting, as even small things can add
       up to quite a bit if they are repeated often. Then you need to
@@ -87,7 +87,7 @@
       <item>Are there redundant tests that can be removed? </item>
       <item>Is there some expression calculated giving the same result
        each time? </item>
-      <item>Is there other ways of doing this that are equivalent and
+      <item>Are there other ways of doing this that are equivalent and
        more efficient?</item>
       <item>Can I use another internal data representation to make
        things more efficient? </item>
@@ -138,7 +138,7 @@
       <p><c>cprof</c> is something in between <c>fprof</c> and
         <c>cover</c> regarding features. It counts how many times each
         function is called when the program is run, on a per module
-        basis. <c>cprof</c> has a low performance degradation (versus
+        basis. <c>cprof</c> has a low performance degradation effect (versus
         <c>fprof</c> and <c>eprof</c>) and does not need to recompile
         any modules to profile (versus <c>cover</c>).</p>
     </section>
@@ -231,7 +231,7 @@
     consistent from run to run. The disadvantage is that the time
     spent in the operating system kernel (such as swapping and I/O)
     are not included. Therefore, measuring CPU time is misleading if
-    any I/O (file or sockets) are involved.</p>
+    any I/O (file or socket) is involved.</p>
 
     <p>It is probably a good idea to do both wall-clock measurements and
     CPU time measurements.</p>
@@ -239,18 +239,18 @@
     <p>Some additional advice:</p>
 
     <list type="bulleted">
-    <item>The granularity of both types measurement could be quite
+    <item>The granularity of both types of measurement could be quite
     high so you should make sure that each individual measurement
     lasts for at least several seconds.</item>
 
     <item>To make the test fair, each new test run should run in its own,
-    newly created Erlang process. Otherwise, if all tests runs in the
+    newly created Erlang process. Otherwise, if all tests run in the
     same process, the later tests would start out with larger heap sizes
-    and therefore probably does less garbage collections. You could
+    and therefore probably do less garbage collections. You could
     also consider restarting the Erlang emulator between each test.</item>
 
     <item>Do not assume that the fastest implementation of a given algorithm
-    on computer architecture X also is the fast on computer architecture Y.</item>
+    on computer architecture X also is the fastest on computer architecture Y.</item>
 
     </list>
   </section>

@@ -40,7 +40,7 @@
     any code in a driver.</p>
 
     <p>By default, that lock will be at the driver level, meaning that
-    if several ports has been opened to the same driver, only code for
+    if several ports have been opened to the same driver, only code for
     one port at the same time can be running.</p>
 
     <p>A driver can be configured to instead have one lock for each port.</p>
