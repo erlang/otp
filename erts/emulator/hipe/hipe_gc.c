@@ -28,7 +28,6 @@
 
 #include "hipe_stack.h"
 #include "hipe_gc.h"
-#include "hipe_bif0.h"		/* for hipe_constants_{start,next} */
 
 Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 {

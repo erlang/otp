@@ -450,52 +450,13 @@ BIF_RETTYPE hipe_bifs_alloc_data_2(BIF_ALIST_2)
 }
 
 /*
- * Memory area for constant Erlang terms.
- *
- * These constants must not be forwarded by the gc.
- * Therefore, the gc needs to be able to distinguish between
- * collectible objects and constants. Unfortunately, an Erlang
- * process' collectible objects are scattered around in two
- * heaps and a list of message buffers, so testing "is X a
- * collectible object?" can be expensive.
- *
- * Instead, constants are placed in a single contiguous area,
- * which allows for an inexpensive "is X a constant?" test.
- *
- * XXX: Allow this area to be grown.
+ * Statistics on hipe constants: size of HiPE constants, in words.
  */
-
-/* not static, needed by garbage collector */
-Eterm *hipe_constants_start = NULL;
-Eterm *hipe_constants_next = NULL;
-static unsigned constants_avail_words = 0;
-#define CONSTANTS_BYTES	(1536*1024*sizeof(Eterm))  /* 1.5 M words */
-
-static Eterm *constants_alloc(unsigned nwords)
-{
-    Eterm *next;
-
-    /* initialise at the first call */
-    if ((next = hipe_constants_next) == NULL) {
-	next = (Eterm*)erts_alloc(ERTS_ALC_T_HIPE, CONSTANTS_BYTES);
-	hipe_constants_start = next;
-	hipe_constants_next = next;
-	constants_avail_words = CONSTANTS_BYTES / sizeof(Eterm);
-    }
-    if (nwords > constants_avail_words) {
-	fprintf(stderr, "Native code constants pool depleted!\r\n");
-	/* Must terminate immediately. erl_exit() seems to
-	   continue running some code which then SIGSEGVs. */
-	exit(1);
-    }
-    constants_avail_words -= nwords;
-    hipe_constants_next = next + nwords;
-    return next;
-}
+unsigned int hipe_constants_size = 0;
 
 BIF_RETTYPE hipe_bifs_constants_size_0(BIF_ALIST_0)
 {
-    BIF_RET(make_small(hipe_constants_next - hipe_constants_start));
+    BIF_RET(make_small(hipe_constants_size));
 }
 
 /*
@@ -526,14 +487,17 @@ static void *const_term_alloc(void *tmpl)
 {
     Eterm obj;
     Uint size;
+    Uint alloc_size;
     Eterm *hp;
     struct const_term *p;
 
     obj = (Eterm)tmpl;
     ASSERT(is_not_immed(obj));
     size = size_object(obj);
+    alloc_size = size + (offsetof(struct const_term, mem)/sizeof(Eterm));
+    hipe_constants_size += alloc_size;
 
-    p = (struct const_term*)constants_alloc(size + (offsetof(struct const_term, mem)/sizeof(Eterm)));
+    p = (struct const_term*)erts_alloc(ERTS_ALC_T_HIPE, alloc_size * sizeof(Eterm));
 
     /* I have absolutely no idea if having a private 'off_heap'
        works or not. _Some_ off_heap object is required for

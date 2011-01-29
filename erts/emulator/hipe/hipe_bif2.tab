@@ -26,7 +26,6 @@ bif hipe_bifs:show_nstack/1
 bif hipe_bifs:nstack_used_size/0
 bif hipe_bifs:show_pcb/1
 bif hipe_bifs:show_term/1
-bif hipe_bifs:show_literals/0
 bif hipe_bifs:in_native/0
 bif hipe_bifs:modeswitch_debug_on/0
 bif hipe_bifs:modeswitch_debug_off/0

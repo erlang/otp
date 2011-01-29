@@ -26,7 +26,6 @@
 #include "erl_nmgc.h"
 #include "erl_debug.h"
 #if HIPE
-#include "hipe_bif0.h" /* for hipe_constants_{start,next} */
 #include "hipe_stack.h"
 #endif
 
