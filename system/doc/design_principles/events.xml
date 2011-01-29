@@ -217,5 +217,22 @@ terminate(_Args, Fd) ->
 ok</pre>
     </section>
   </section>
+  <section>
+    <title>Handling Other Messages</title>
+    <p>If the gen_event should be able to receive other messages than
+      events, the callback function <c>handle_info(Info, StateName, StateData)</c>
+      must be implemented to handle them. Examples of
+      other messages are exit messages, if the gen_event is linked to
+      other processes (than the supervisor) and trapping exit signals.</p>
+    <code type="none">
+handle_info({'EXIT', Pid, Reason}, State) ->
+    ..code to handle exits here..
+    {ok, NewState}.</code>
+    <p>The code_change method also has to be implemented.</p>
+    <code type="none">
+code_change(OldVsn, State, Extra) ->
+    ..code to convert state (and more) during code change
+    {ok, NewState}</code>
+  </section>
 </chapter>
 
