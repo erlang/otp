@@ -469,6 +469,9 @@ To activate the workaround, place the following in your `~/.emacs' file:
   "*Indentation of Erlang calls/clauses within blocks.")
 (put 'erlang-indent-level 'safe-local-variable 'integerp)
 
+(defvar erlang-icr-indent 4
+  "*Indentation of Erlang if/case/receive/ patterns")
+
 (defvar erlang-indent-guard 2
   "*Indentation of Erlang guards.")
 (put 'erlang-indent-guard 'safe-local-variable 'integerp)
@@ -2791,31 +2794,30 @@ Return nil if inside string, t if in a comment."
 		  (skip-chars-forward " \t")
 		  (current-column))))
 	  
-          ((memq (car stack-top) '(icr fun spec))
-           ;; The default indentation is the column of the option
-           ;; directly following the keyword. (This does not apply to
-           ;; `case'.)  Should no option be on the same line, the
-           ;; indentation is the indentation of the keyword +
-           ;; `erlang-indent-level'.
-           ;;
-           ;; `after' should be indented to the same level as the
-           ;; corresponding receive.
-           (cond ((looking-at "\\(after\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
-		  (nth 2 stack-top))
-		 ((looking-at "when[^_a-zA-Z0-9]")
-		  ;; Handling one when part
-		  (+ (nth 2 stack-top) erlang-indent-level erlang-indent-guard))
-		 (t
-		  (save-excursion
-		    (goto-char (nth 1 stack-top))
-		    (if (looking-at "case[^_a-zA-Z0-9]")
-			(+ (nth 2 stack-top) erlang-indent-level)
-		      (skip-chars-forward "a-z")
-		      (skip-chars-forward " \t")
-		      (if (memq (following-char) '(?% ?\n))
-			  (+ (nth 2 stack-top) erlang-indent-level)
-			(current-column))))))
-           )
+      ((memq (car stack-top) '(icr fun spec))
+       ;; The default indentation is the column of the option
+       ;; directly following the keyword. (This does not apply to
+       ;; `case'.)  Should no option be on the same line, the
+       ;; indentation is the indentation of the keyword +
+       ;; `erlang-indent-level'.
+       ;;
+       ;; `after' should be indented to the same level as the
+       ;; corresponding receive.
+       (cond ((looking-at "\\(after\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
+              (nth 2 stack-top))
+             ((looking-at "when[^_a-zA-Z0-9]")
+              ;; Handling one when part
+              (+ (nth 2 stack-top) erlang-indent-level erlang-indent-guard))
+             (t
+              (save-excursion
+                (goto-char (nth 1 stack-top))
+                (if (looking-at "\\(if\\|case\\|receive\\)[^_a-zA-Z0-9]")
+                    (+ (nth 2 stack-top) erlang-icr-indent)
+                  (skip-chars-forward "a-z")
+                  (skip-chars-forward " \t")
+                  (if (memq (following-char) '(?% ?\n))
+                      (+ (nth 2 stack-top) erlang-indent-level)
+                    (current-column)))))))
 	  ((and (eq (car stack-top) '||) (looking-at "\\(]\\|>>\\)[^_a-zA-Z0-9]"))
 	   (nth 2 (car (cdr stack))))
           ;; Real indentation, where operators create extra indentation etc.
@@ -2837,7 +2839,7 @@ Return nil if inside string, t if in a comment."
 		      ;; If in fun definition use standard indent level not double
 		      ;;(if (not (eq (car (car (cdr stack))) 'fun))
 		      ;; Removed it made multi clause fun's look to bad
-		      (setq off (* 2 erlang-indent-level)))) ;; ) 
+		      (setq off (+ erlang-indent-level erlang-icr-indent)))) 
 	       (let ((base (erlang-indent-find-base stack indent-point off skip)))
 		 ;; Special cases
 		 (goto-char indent-point)
