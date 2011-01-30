@@ -473,6 +473,13 @@ dets:close(N).      </pre>
       <c>mnesia:table_info(Tab, master_nodes)</c> may be used to
       obtain information about the potential master nodes.
       </p>
+    <p>Determining which data to keep after communication failure is outside
+    the scope of Mnesia. One approach would be to determine which "island"
+    contains a majority of the nodes. Using the <c>{majority,true}</c> option
+    for critical tables can be a way of ensuring that nodes that are not part
+    of a "majority island" are not able to update those tables. Note that this
+    constitutes a reduction in service on the minority nodes. This would be
+    a tradeoff in favour of higher consistency guarantees.</p>
     <p>The function <c>mnesia:force_load_table(Tab)</c> may be used to
       force load the table regardless of which table load mechanism
       is activated.
