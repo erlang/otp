@@ -142,6 +142,105 @@ silly() ->
     mnesia_install_test:silly().
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+light(doc) ->
+    ["The 'light' test suite runs a selected set of test suites and is",
+     "intended to be the smallest test suite that is meaningful",
+     "to run. It starts with an installation test (which in essence is the",
+     "'silly' test case) and then it covers all functions in the API in",
+     "various depths. All configuration parameters and examples are also",
+     "covered."];
+light(suite) ->
+    [
+     install,
+     nice,
+     evil,
+     {mnesia_frag_test, light},
+     qlc,
+     registry,
+     config,
+     examples
+    ].
+
+install(suite) ->
+    [{mnesia_install_test, all}].
+
+nice(suite) ->
+    [{mnesia_nice_coverage_test, all}].
+
+evil(suite) ->
+    [{mnesia_evil_coverage_test, all}].
+
+qlc(suite) ->
+    [{mnesia_qlc_test, all}].
+
+registry(suite) ->
+    [{mnesia_registry_test, all}].
+
+config(suite) ->
+    [{mnesia_config_test, all}].
+
+examples(suite) ->
+    [{mnesia_examples_test, all}].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+medium(doc) ->
+    ["The 'medium' test suite verfies the ACID (atomicity, consistency",
+     "isolation and durability) properties and various recovery scenarios",
+     "These tests may take quite while to run."];
+medium(suite) ->
+    [
+     install,
+     atomicity,
+     isolation,
+     durability,
+     recovery,
+     consistency,
+     majority,
+     {mnesia_frag_test, medium}
+    ].
+
+atomicity(suite) ->
+     [{mnesia_atomicity_test, all}].
+
+isolation(suite) ->
+    [{mnesia_isolation_test, all}].
+
+durability(suite) ->
+    [{mnesia_durability_test, all}].
+
+recovery(suite) ->
+    [{mnesia_recovery_test, all}].
+
+consistency(suite) ->
+     [{mnesia_consistency_test, all}].
+
+majority(suite) ->
+    [{mnesia_majority_test, all}].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+heavy(doc) ->
+    ["The 'heavy' test suite runs some resource consuming tests and",
+     "benchmarks"];
+heavy(suite) ->
+    [measure].
+
+measure(suite) ->
+    [{mnesia_measure_test, all}].
+
+prediction(suite) ->
+    [{mnesia_measure_test, prediction}].
+
+fairness(suite) ->
+    [{mnesia_measure_test, fairness}].
+
+benchmarks(suite) ->
+    [{mnesia_measure_test, benchmarks}].
+
+consumption(suite) ->
+    [{mnesia_measure_test, consumption}].
+
+scalability(suite) ->
+    [{mnesia_measure_test, scalability}].
 
 clean_up_suite(doc) -> ["Not a test case only kills mnesia and nodes, that where" 
 			"started during the tests"];
