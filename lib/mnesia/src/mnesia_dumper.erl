@@ -896,6 +896,14 @@ insert_op(Tid, _, {op, change_table_access_mode,TabDef, _OldAccess, _Access}, In
     end,
     insert_cstruct(Tid, Cs, true, InPlace, InitBy);
 
+insert_op(Tid, _, {op, change_table_majority,TabDef, _OldAccess, _Access}, InPlace, InitBy) ->
+    Cs = mnesia_schema:list2cs(TabDef),
+    case InitBy of
+	startup -> ignore;
+	_ -> mnesia_controller:change_table_majority(Cs)
+    end,
+    insert_cstruct(Tid, Cs, true, InPlace, InitBy);
+
 insert_op(Tid, _, {op, change_table_load_order, TabDef, _OldLevel, _Level}, InPlace, InitBy) ->
     Cs = mnesia_schema:list2cs(TabDef),
     insert_cstruct(Tid, Cs, true, InPlace, InitBy);

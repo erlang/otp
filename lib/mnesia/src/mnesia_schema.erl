@@ -37,6 +37,7 @@
          change_table_copy_type/3,
          change_table_access_mode/2,
          change_table_load_order/2,
+	 change_table_majority/2,
 	 change_table_frag/2,
 	 clear_table/1,
          create_table/1,
@@ -1505,6 +1506,43 @@ make_change_table_load_order(Tab, LoadOrder) ->
     Cs2 = Cs#cstruct{load_order = LoadOrder},
     verify_cstruct(Cs2),
     [{op, change_table_load_order, cs2list(Cs2), OldLoadOrder, LoadOrder}].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+change_table_majority(Tab, Majority) when is_boolean(Majority) ->
+    schema_transaction(fun() -> do_change_table_majority(Tab, Majority) end).
+
+do_change_table_majority(schema, _Majority) ->
+    mnesia:abort({bad_type, schema});
+do_change_table_majority(Tab, Majority) ->
+    TidTs = get_tid_ts_and_lock(schema, write),
+    get_tid_ts_and_lock(Tab, none),
+    insert_schema_ops(TidTs, make_change_table_majority(Tab, Majority)).
+
+make_change_table_majority(Tab, Majority) ->
+    ensure_writable(schema),
+    Cs = incr_version(val({Tab, cstruct})),
+    ensure_active(Cs),
+    OldMajority = Cs#cstruct.majority,
+    Cs2 = Cs#cstruct{majority = Majority},
+    FragOps = case lists:keyfind(base_table, 1, Cs#cstruct.frag_properties) of
+		  {_, Tab} ->
+		      FragNames = mnesia_frag:frag_names(Tab) -- [Tab],
+		      lists:map(
+			fun(T) ->
+				get_tid_ts_and_lock(Tab, none),
+				CsT = incr_version(val({T, cstruct})),
+				ensure_active(CsT),
+				CsT2 = CsT#cstruct{majority = Majority},
+				verify_cstruct(CsT2),
+				{op, change_table_majority, cs2list(CsT2),
+				 OldMajority, Majority}
+			end, FragNames);
+		  false    -> [];
+		  {_, _}   -> mnesia:abort({bad_type, Tab})
+	      end,
+    verify_cstruct(Cs2),
+    [{op, change_table_majority, cs2list(Cs2), OldMajority, Majority} | FragOps].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

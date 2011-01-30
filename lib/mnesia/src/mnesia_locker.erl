@@ -657,17 +657,17 @@ rwlock(Tid, Store, Oid) ->
 	    Lock = write,
 	    case need_lock(Store, Tab, Key, Lock)  of
 		yes ->
-		    Ns = w_nodes(Tab),
-		    check_majority(Tab, Ns),
+		    {Ns, Majority} = w_nodes(Tab),
+		    check_majority(Majority, Tab, Ns),
 		    Res = get_rwlocks_on_nodes(Ns, rwlock, Node, Store, Tid, Oid),
 		    ?ets_insert(Store, {{locks, Tab, Key}, Lock}),
 		    Res;
 		no ->
 		    if
 			Key == ?ALL ->
-			    w_nodes(Tab);
+			    element(2, w_nodes(Tab));
 			Tab == ?GLOBAL ->
-			    w_nodes(Tab);
+			    element(2, w_nodes(Tab));
 			true ->
 			    dirty_rpc(Node, Tab, Key, Lock)
 		    end
@@ -679,9 +679,8 @@ rwlock(Tid, Store, Oid) ->
 %% in the local store under the key == nodes
 
 w_nodes(Tab) ->
-    Nodes = ?catch_val({Tab, where_to_write}),
-    case Nodes of
-	[_ | _] -> Nodes;
+    case ?catch_val({Tab, where_to_wlock}) of
+	{[_ | _], _} = Where -> Where;
 	_ ->  mnesia:abort({no_exists, Tab})
     end.
 
@@ -733,8 +732,8 @@ sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
     end.
 
 do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
-    WNodes = w_nodes(Tab),
-    sticky_check_majority(Lock, Tab, WNodes),
+    {WNodes, Majority} = w_nodes(Tab),
+    sticky_check_majority(Lock, Tab, Majority, WNodes),
     ?MODULE ! {self(), {test_set_sticky, Tid, Oid, Lock}},
     N = node(),
     receive
@@ -764,20 +763,15 @@ do_sticky_lock(Tid, Store, {Tab, Key} = Oid, Lock) ->
 	    dirty_sticky_lock(Tab, Key, [N], Lock)
     end.
 
-sticky_check_majority(read, _, _) ->
-    ok;
-sticky_check_majority(write, Tab, WNodes) ->
-    case ?catch_val({Tab, majority}) of
+sticky_check_majority(W, Tab, true, WNodes) when W==write; W==read_write ->
+    case mnesia_lib:have_majority(Tab, WNodes) of
 	true ->
-	    case mnesia_lib:have_majority(Tab, WNodes) of
-		true ->
-		    ok;
-		false ->
-		    mnesia:abort({no_majority, Tab})
-	    end;
-	_ ->
-	    ok
-    end.
+	    ok;
+	false ->
+	    mnesia:abort({no_majority, Tab})
+    end;
+sticky_check_majority(_, _, _, _) ->
+    ok.
 
 not_stuck(Tid, Store, Tab, _Key, Oid, _Lock, N) ->
     rlock(Tid, Store, {Tab, ?ALL}),   %% needed?
@@ -821,15 +815,19 @@ wlock(Tid, Store, Oid, CheckMajority) ->
     {Tab, Key} = Oid,
     case need_lock(Store, Tab, Key, write) of
 	yes ->
-	    Ns = w_nodes(Tab),
-	    check_majority(CheckMajority, Tab, Ns),
+	    {Ns, Majority} = w_nodes(Tab),
+	    if CheckMajority ->
+		    check_majority(Majority, Tab, Ns);
+	       true ->
+		    ignore
+	    end,
 	    Op = {self(), {write, Tid, Oid}},
 	    ?ets_insert(Store, {{locks, Tab, Key}, write}),
 	    get_wlocks_on_nodes(Ns, Ns, Store, Op, Oid);
 	no when Key /= ?ALL, Tab /= ?GLOBAL ->
 	    [];
 	no ->
-	    w_nodes(Tab)
+	    element(2, w_nodes(Tab))
     end.
 
 wlock_table(Tid, Store, Tab) ->

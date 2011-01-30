@@ -93,7 +93,7 @@
 	 add_table_copy/3, del_table_copy/2, move_table_copy/3,
 	 add_table_index/2, del_table_index/2,
 	 transform_table/3, transform_table/4,
-	 change_table_copy_type/3,
+	 change_table_copy_type/3, change_table_majority/2,
 	 read_table_property/2, write_table_property/2, delete_table_property/2,
 	 change_table_frag/2,
 	 clear_table/1, clear_table/4,
@@ -2460,6 +2460,9 @@ change_table_access_mode(T, Access) ->
 
 change_table_load_order(T, O) -> 
     mnesia_schema:change_table_load_order(T, O).
+
+change_table_majority(T, M) ->
+    mnesia_schema:change_table_majority(T, M).
 
 set_master_nodes(Nodes) when is_list(Nodes) ->
     UseDir = system_info(use_dir),
