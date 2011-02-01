@@ -100,8 +100,10 @@
 	      }).
 
 -define(COVER_TABLE, 'cover_internal_data_table').
+-define(COVER_CLAUSE_TABLE, 'cover_internal_clause_table').
 -define(BINARY_TABLE, 'cover_binary_code_table').
 -define(COLLECTION_TABLE, 'cover_collected_remote_data_table').
+-define(COLLECTION_CLAUSE_TABLE, 'cover_collected_remote_clause_table').
 -define(TAG, cover_compiled).
 -define(SERVER, cover_server).
 
@@ -517,8 +519,10 @@ remote_reply(MainNode,Reply) ->
 init_main(Starter) ->
     register(?SERVER,self()),
     ets:new(?COVER_TABLE, [set, public, named_table]),
+    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
     ets:new(?BINARY_TABLE, [set, named_table]),
     ets:new(?COLLECTION_TABLE, [set, public, named_table]),
+    ets:new(?COLLECTION_CLAUSE_TABLE, [set, public, named_table]),
     process_flag(trap_exit,true),
     Starter ! {?SERVER,started},
     main_process_loop(#main_state{}).
@@ -757,6 +761,7 @@ main_process_loop(State) ->
 init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
     ets:new(?COVER_TABLE, [set, public, named_table]),
+    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
     Starter ! {self(),started},
     remote_process_loop(#remote_state{main_node=MainNode}).
 
@@ -819,27 +824,27 @@ remote_process_loop(State) ->
     end.
 
 do_collect(Module, CollectorPid, From) ->
-    MS = 
+    AllClauses = 
 	case Module of
-	    '_' -> ets:fun2ms(fun({M,C}) when is_atom(M) -> C end);
-	    _ -> ets:fun2ms(fun({M,C}) when M=:=Module -> C end)
+	    '_' -> ets:tab2list(?COVER_CLAUSE_TABLE);
+	    _ -> ets:lookup(?COVER_CLAUSE_TABLE, Module)
 	end,
-    AllClauses = lists:flatten(ets:select(?COVER_TABLE,MS)),
 
     %% Sending clause by clause in order to avoid large lists
-    lists:foreach(
-      fun({M,F,A,C,_L}) ->
-	      Pattern = 
-		  {#bump{module=M, function=F, arity=A, clause=C}, '_'},
-	      Bumps = ets:match_object(?COVER_TABLE, Pattern),
-	      %% Reset
-	      lists:foreach(fun({Bump,_N}) ->
-				    ets:insert(?COVER_TABLE, {Bump,0})
-			    end,
-			    Bumps),
-	      CollectorPid ! {chunk,Bumps}
-      end,
-      AllClauses),
+    pmap(
+      fun({_Mod,Clauses}) ->
+	      pmap(fun({M,F,A,C,_L}) ->
+			   Pattern = 
+			       {#bump{module=M, function=F, arity=A, clause=C}, '_'},
+			   Bumps = ets:match_object(?COVER_TABLE, Pattern),
+			   %% Reset
+			   lists:foreach(fun({Bump,_N}) ->
+						 ets:insert(?COVER_TABLE, {Bump,0})
+					 end,
+					 Bumps),
+			   CollectorPid ! {chunk,Bumps}
+		   end,Clauses)
+      end,AllClauses),
     CollectorPid ! done,
     remote_reply(From, ok).
 
@@ -880,6 +885,9 @@ load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
 load_compiled([],Acc) ->
     Acc.
 
+insert_initial_data([Item|Items]) when is_atom(element(1,Item)) ->
+    ets:insert(?COVER_CLAUSE_TABLE, Item),
+    insert_initial_data(Items);
 insert_initial_data([Item|Items]) ->
     ets:insert(?COVER_TABLE, Item),
     insert_initial_data(Items);
@@ -949,15 +957,15 @@ remote_load_compiled(Nodes, [MF | Rest], Acc, ModNum) ->
 get_data_for_remote_loading({Module,File}) ->
     [{Module,Binary}] = ets:lookup(?BINARY_TABLE,Module),
     %%! The InitialTable list will be long if the module is big - what to do??
-    InitialTable = ets:select(?COVER_TABLE,ms(Module)),
-    {Module,File,Binary,InitialTable}.
+    InitialBumps = ets:select(?COVER_TABLE,ms(Module)),
+    InitialClauses = ets:lookup(?COVER_CLAUSE_TABLE,Module),
+
+    {Module,File,Binary,InitialBumps ++ InitialClauses}.
 
 %% Create a match spec which returns the clause info {Module,InitInfo} and 
 %% all #bump keys for the given module with 0 number of calls.
 ms(Module) ->
-    ets:fun2ms(fun({Mod,InitInfo}) when Mod =:= Module -> 
-		       {Mod,InitInfo};
-		  ({Key,_}) when is_record(Key,bump),Key#bump.module=:=Module -> 
+    ets:fun2ms(fun({Key,_}) when Key#bump.module=:=Module -> 
 		       {Key,0}
 	       end).
 
@@ -979,22 +987,12 @@ remote_reset(Module,Nodes) ->
 
 %% Collect data from remote nodes - used for analyse or stop(Node)
 remote_collect(Module,Nodes,Stop) ->
-    Pids = lists:map(
-	     fun(Node) -> 
-		     spawn(fun() -> 
-				   ?SPAWN_DBG(remote_collect, 
-					      {Module, Nodes, Stop}),
-				   do_collection(Node, Module, Stop)
-			   end)
-	     end,
-	     Nodes),
-    RefsNPids = [{erlang:monitor(process, Pid),Pid} || Pid <- Pids],
-    lists:foreach(fun({Ref,Pid}) ->
-			  receive
-			      {'DOWN', Ref, process, Pid, _} ->
-				  ok
-			  end
-		  end,RefsNPids).
+    pmap(fun(Node) -> 
+		 ?SPAWN_DBG(remote_collect, 
+			    {Module, Nodes, Stop}),
+		 do_collection(Node, Module, Stop)
+	 end,
+	 Nodes).
 
 do_collection(Node, Module, Stop) ->
     CollectorPid = spawn(fun collector_proc/0),
@@ -1241,7 +1239,7 @@ do_compile_beam(Module,Beam) ->
 		    
 		    %% Store info about all function clauses in database
 		    InitInfo = reverse(Vars#vars.init_info),
-		    ets:insert(?COVER_TABLE, {Module, InitInfo}),
+		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
 		    
 		    %% Store binary code so it can be loaded on remote nodes
 		    ets:insert(?BINARY_TABLE, {Module, Binary}),
@@ -1775,9 +1773,8 @@ common_elems(L1, L2) ->
 %% Collect data for all modules
 collect(Nodes) ->
     %% local node
-    MS = ets:fun2ms(fun({M,C}) when is_atom(M) -> {M,C} end),
-    AllClauses = ets:select(?COVER_TABLE,MS),
-    move_modules(AllClauses),
+    AllClauses = ets:tab2list(?COVER_CLAUSE_TABLE),
+    pmap(fun move_modules/1,AllClauses),
     
     %% remote nodes
     remote_collect('_',Nodes,false).
@@ -1785,7 +1782,7 @@ collect(Nodes) ->
 %% Collect data for one module
 collect(Module,Clauses,Nodes) ->
     %% local node
-    move_modules([{Module,Clauses}]),
+    move_modules({Module,Clauses}),
     
     %% remote nodes
     remote_collect(Module,Nodes,false).
@@ -1793,12 +1790,9 @@ collect(Module,Clauses,Nodes) ->
 
 %% When analysing, the data from the local ?COVER_TABLE is moved to the
 %% ?COLLECTION_TABLE. Resetting data in ?COVER_TABLE
-move_modules([{Module,Clauses}|AllClauses]) ->
-    ets:insert(?COLLECTION_TABLE,{Module,Clauses}),
-    move_clauses(Clauses),
-    move_modules(AllClauses);
-move_modules([]) ->
-    ok.
+move_modules({Module,Clauses}) ->
+    ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses}),
+    move_clauses(Clauses).
     
 move_clauses([{M,F,A,C,_L}|Clauses]) ->
     Pattern = {#bump{module=M, function=F, arity=A, clause=C}, '_'},
@@ -1842,12 +1836,12 @@ do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
     C = case Loaded of
 	    {loaded, _File} ->
 		[{Module,Clauses}] = 
-		    ets:lookup(?COVER_TABLE,Module),
+		    ets:lookup(?COVER_CLAUSE_TABLE,Module),
 		collect(Module,Clauses,State#main_state.nodes),
 		Clauses;
 	    _ ->
 		[{Module,Clauses}] = 
-		    ets:lookup(?COLLECTION_TABLE,Module),
+		    ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
 		Clauses
 	end,
     R = do_analyse(Module, Analysis, Level, C),
@@ -1933,7 +1927,7 @@ do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
     File = case Loaded of
 	       {loaded, File0} ->
 		   [{Module,Clauses}] = 
-		       ets:lookup(?COVER_TABLE,Module),
+		       ets:lookup(?COVER_CLAUSE_TABLE,Module),
 		   collect(Module, Clauses,
 			   State#main_state.nodes),
 		   File0;
@@ -2063,7 +2057,7 @@ do_export(Module, OutFile, From, State) ->
 			try is_loaded(Module, State) of
 			    {loaded, File} ->
 				[{Module,Clauses}] = 
-				    ets:lookup(?COVER_TABLE,Module),
+				    ets:lookup(?COVER_CLAUSE_TABLE,Module),
 				collect(Module, Clauses,
 					State#main_state.nodes),
 				do_export_table([{Module,File}],[],Fd);
@@ -2099,7 +2093,7 @@ merge([],ModuleList) ->
 
 write_module_data([{Module,File}|ModList],Fd) ->
     write({file,Module,File},Fd),
-    [Clauses] = ets:lookup(?COLLECTION_TABLE,Module),
+    [Clauses] = ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
     write(Clauses,Fd),
     ModuleData = ets:match_object(?COLLECTION_TABLE,{#bump{module=Module},'_'}),
     do_write_module_data(ModuleData,Fd),
@@ -2149,7 +2143,7 @@ do_import_to_table(Fd,ImportFile,Imported,DontImport) ->
 	{Module,Clauses} ->
 	    case lists:member(Module,DontImport) of
 		false ->
-		    ets:insert(?COLLECTION_TABLE,{Module,Clauses});
+		    ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses});
 		true ->
 			    ok
 	    end,
@@ -2183,14 +2177,14 @@ do_reset_main_node(Module,Nodes) ->
     remote_reset(Module,Nodes).
 
 do_reset_collection_table(Module) ->
-    ets:delete(?COLLECTION_TABLE,Module),
+    ets:delete(?COLLECTION_CLAUSE_TABLE,Module),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
 %% do_reset(Module) -> ok
 %% The reset is done on a per-clause basis to avoid building
 %% long lists in the case of very large modules
 do_reset(Module) ->
-    [{Module,Clauses}] = ets:lookup(?COVER_TABLE, Module),
+    [{Module,Clauses}] = ets:lookup(?COVER_CLAUSE_TABLE, Module),
     do_reset2(Clauses).
 
 do_reset2([{M,F,A,C,_L}|Clauses]) ->
@@ -2205,7 +2199,7 @@ do_reset2([]) ->
     ok.    
 
 do_clear(Module) ->
-    ets:match_delete(?COVER_TABLE, {Module,'_'}),
+    ets:match_delete(?COVER_CLAUSE_TABLE, {Module,'_'}),
     ets:match_delete(?COVER_TABLE, {#bump{module=Module},'_'}),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
@@ -2245,3 +2239,18 @@ escape_lt_and_gt1([],Acc) ->
     lists:reverse(Acc);
 escape_lt_and_gt1([H|T],Acc) ->
     escape_lt_and_gt1(T,[H|Acc]).
+
+pmap(Fun,List) ->
+    Collector = self(),
+    Pids = lists:map(fun(E) ->
+			     spawn_link(fun() ->
+						?SPAWN_DBG(pmap,E),
+						Collector ! {res,self(),Fun(E)} 
+					end) 
+		     end, List),
+    lists:map(fun(Pid) ->
+		      receive
+			  {res,Pid,Res} ->
+			      Res
+		      end
+	      end, Pids).

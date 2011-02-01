@@ -18,7 +18,7 @@
 %%
 -module(cover_SUITE).
 
--export([all/1]).
+-export([all/1, init_per_testcase/2, end_per_testcase/2]).
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
 	 distribution/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
@@ -48,6 +48,13 @@ all(suite) ->
 	    {skip,"It looks like the test server is running cover. "
 	          "Can't run cover test."}
     end.
+
+init_per_testcase(_TestCase, Config) ->
+    Config.
+
+end_per_testcase(_TestCase, _Config) ->
+    %cover:stop(),
+    ok.
 
 start(suite) -> [];
 start(Config) when is_list(Config) ->
@@ -381,8 +388,8 @@ export_import(Config) when is_list(Config) ->
     ?line {ok,a} = cover:compile(a),
     ?line ?t:capture_start(),
     ?line ok = cover:export("all_exported"),
-    ?line [Text2] = ?t:capture_get(),
-    ?line "Export includes data from imported files"++_ = lists:flatten(Text2),
+    ?line [] = ?t:capture_get(),
+%    ?line "Export includes data from imported files"++_ = lists:flatten(Text2),
     ?line ?t:capture_stop(),
     ?line ok = cover:stop(),
     ?line ok = cover:import("all_exported"),

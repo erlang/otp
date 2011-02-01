@@ -499,10 +499,6 @@ pmap(Fun,List) ->
 			      Res
 		      end
 	      end, Pids).
-    
-				      
-		      
-
 
 unstick_all_sticky(Node) ->
     lists:filter(
