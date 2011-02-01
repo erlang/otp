@@ -336,7 +336,6 @@ typedef struct dmc_context {
     Eterm *bodyexpr;
     int num_match;
     int current_match;
-    int eheap_need;
     Uint cflags;
     int is_guard; /* 1 if in guard, 0 if in body */
     int special; /* 1 if the head in the match was a single expression */ 
@@ -1289,7 +1288,6 @@ Binary *db_match_compile(Eterm *matchexpr,
     int structure_checked;
     DMCRet res;
     int current_try_label;
-    Uint max_eheap_need;
     Binary *bp = NULL;
     unsigned clause_start;
 
@@ -1302,7 +1300,6 @@ Binary *db_match_compile(Eterm *matchexpr,
     context.matchexpr = matchexpr;
     context.guardexpr = guards;
     context.bodyexpr = body;
-    context.eheap_need = 0;
     context.err_info = err_info;
     context.cflags = flags;
 
@@ -1314,7 +1311,6 @@ Binary *db_match_compile(Eterm *matchexpr,
     */
 restart:
     heap.vars_used = 0;
-    max_eheap_need = 0;
     for (context.current_match = 0; 
 	 context.current_match < num_progs; 
 	 ++context.current_match) { /* This loop is long, 
@@ -1322,7 +1318,6 @@ restart:
 	memset(heap.vars, 0, heap.size * sizeof(*heap.vars));
 	t = context.matchexpr[context.current_match];
 	context.stack_used = 0;
-	context.eheap_need = 0;
 	structure_checked = 0;
 	if (context.current_match < num_progs - 1) {
 	    DMC_PUSH(text,matchTryMeElse);
@@ -1494,10 +1489,6 @@ restart:
 	if (current_try_label >= 0) {
 	    DMC_POKE(text, current_try_label, DMC_STACK_NUM(text));
 	}
-	/* So, how much eheap did this part of the match program need? */
-	if (context.eheap_need > max_eheap_need) {
-	    max_eheap_need = context.eheap_need;
-	}
     } /* for (context.current_match = 0 ...) */
 
 
@@ -1537,8 +1528,7 @@ restart:
     ret->single_variable = context.special;
     sys_memcpy(ret->text, DMC_STACK_DATA(text), 
 	       DMC_STACK_NUM(text) * sizeof(UWord));
-    ret->eheap_offset = heap.vars_used*sizeof(MatchVariable) + FENCE_PATTERN_SIZE;
-    ret->stack_offset = ret->eheap_offset + max_eheap_need*sizeof(Eterm) + FENCE_PATTERN_SIZE;
+    ret->stack_offset = heap.vars_used*sizeof(MatchVariable) + FENCE_PATTERN_SIZE;
     ret->heap_size = ret->stack_offset + context.stack_need * sizeof(Eterm*) + FENCE_PATTERN_SIZE;
 
 #ifdef DMC_DEBUG
@@ -1613,7 +1603,6 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
     return ret;
 }
 
-//void heap_consistency_check(Process*); // SVERK
 
 #if HALFWORD_HEAP
 struct heap_checkpoint_t
@@ -1720,16 +1709,10 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 #endif
 #ifdef DMC_DEBUG
     Uint *heap_fence;
-    Uint *eheap_fence;
     Uint *stack_fence;
     Uint save_op;
 #endif /* DMC_DEBUG */
 
-//  if (base == NULL) {
-//      erts_fprintf(stderr, "SVERK prog_match = %T\r\n", term);
-//  } else {
-//      erts_fprintf(stderr, "SVERK prog_match = REL-TERM\r\n");
-//  }
     ASSERT(base==NULL || HALFWORD_HEAP);
 
     mpsp = get_match_pseudo_process(c_p, prog->heap_size);
@@ -1763,11 +1746,9 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 
 #ifdef DMC_DEBUG
     save_op = 0;
-    heap_fence =  (Eterm*)((char*) mpsp->u.heap + prog->eheap_offset) - 1;
-    eheap_fence = (Eterm*)((char*) mpsp->u.heap + prog->stack_offset) - 1;
+    heap_fence = (Eterm*)((char*) mpsp->u.heap + prog->stack_offset) - 1;
     stack_fence = (Eterm*)((char*) mpsp->u.heap + prog->heap_size) - 1;
     *heap_fence = FENCE_PATTERN;
-    *eheap_fence = FENCE_PATTERN;
     *stack_fence = FENCE_PATTERN;
 #endif /* DMC_DEBUG */
 
@@ -1790,7 +1771,6 @@ restart:
     ep = &term;
     esp = (Eterm*)((char*)mpsp->u.heap + prog->stack_offset);
     sp = (Eterm **) esp;
-    //ehp = (char*)mpsp->u.heap + prog->eheap_offset;
     ret = am_true;
     do_catch = 0;
     fail_label = -1;
@@ -1813,11 +1793,6 @@ restart:
 	if (*heap_fence != FENCE_PATTERN) {
 	    erl_exit(1, "Heap fence overwritten in db_prog_match after op "
 		     "0x%08x, overwritten with 0x%08x.", save_op, *heap_fence);
-	}
-	if (*eheap_fence != FENCE_PATTERN) {
-	    erl_exit(1, "Eheap fence overwritten in db_prog_match after op "
-		     "0x%08x, overwritten with 0x%08x.", save_op, 
-		     *eheap_fence);
 	}
 	if (*stack_fence != FENCE_PATTERN) {
 	    erl_exit(1, "Stack fence overwritten in db_prog_match after op "
@@ -1957,14 +1932,12 @@ restart:
 	    CDR(ehp) = *--esp;
 	    CAR(ehp) = esp[-1];
 	    esp[-1] = make_list(ehp);
-	    //ehp += 2;
 	    break;
 	case matchConsB:
 	    ehp = HAlloc(build_proc, 2);
 	    CAR(ehp) = *--esp;
 	    CDR(ehp) = esp[-1];
 	    esp[-1] = make_list(ehp);
-	    //ehp += 2;
 	    break;
 	case matchMkTuple:
 	    n = *pc++;
@@ -2303,7 +2276,6 @@ restart:
 		ehp[1] = cp[0];
 		ehp[2] = cp[1];
 		ehp[3] = make_small((Uint) cp[2]);
-		//ehp += 4;
 	    }
 	    break;
 	case matchSilent:
@@ -2417,11 +2389,6 @@ success:
 	erl_exit(1, "Heap fence overwritten in db_prog_match after op "
 		 "0x%08x, overwritten with 0x%08x.", save_op, *heap_fence);
     }
-    if (*eheap_fence != FENCE_PATTERN) {
-	erl_exit(1, "Eheap fence overwritten in db_prog_match after op "
-		 "0x%08x, overwritten with 0x%08x.", save_op, 
-		 *eheap_fence);
-    }
     if (*stack_fence != FENCE_PATTERN) {
 	erl_exit(1, "Stack fence overwritten in db_prog_match after op "
 		 "0x%08x, overwritten with 0x%08x.", save_op, 
@@ -2433,9 +2400,6 @@ success:
 
     END_ATOMIC_TRACE(c_p);
 
-    #ifdef DEBUG
-    //heap_consistency_check(c_p);  // SVERK
-    #endif
     return ret;
 #undef FAIL
 #undef FAIL_TERM
@@ -3501,7 +3465,6 @@ static DMCRet dmc_list(DMCContext *context,
 	DMC_PUSH(*text, matchConsB);
     }
     --context->stack_used; /* Two objects on stack becomes one */
-    context->eheap_need += 2;
     return retOk;
 }
 
@@ -3560,7 +3523,6 @@ static DMCRet dmc_tuple(DMCContext *context,
     DMC_PUSH(*text, matchMkTuple);
     DMC_PUSH(*text, nelems);
     context->stack_used -= (nelems - 1);
-    context->eheap_need += (nelems + 1);
     *constant = 0;
     return retOk;
 }
@@ -3578,9 +3540,6 @@ static DMCRet dmc_whole_expression(DMCContext *context,
 	} else { 
 	    ASSERT(is_tuple(context->matchexpr
 			    [context->current_match]));
-	    context->eheap_need += 
-		arityval(*(tuple_val(context->matchexpr
-				     [context->current_match]))) * 2;
 	    DMC_PUSH(*text, matchPushArrayAsList);
 	}
     } else {
@@ -3670,7 +3629,6 @@ static DMCRet dmc_all_bindings(DMCContext *context,
     ++context->stack_used;
     if ((context->stack_used + 1) > context->stack_need)
 	context->stack_need = (context->stack_used + 1);
-    context->eheap_need += heap_used;
     *constant = 0;
     return retOk;
 }
@@ -4073,10 +4031,6 @@ static DMCRet dmc_get_seq_token(DMCContext *context,
 
     *constant = 0;
     DMC_PUSH(*text, matchGetSeqToken);
-    context->eheap_need += (6 /* A 5-tuple is built */
-			    + EXTERNAL_THING_HEAD_SIZE + 2 /* Sender can
-							      be an external
-							      pid */);
     if (++context->stack_used > context->stack_need)
  	context->stack_need = context->stack_used;
     return retOk;
@@ -4373,7 +4327,6 @@ static DMCRet dmc_caller(DMCContext *context,
     }
     *constant = 0;
     DMC_PUSH(*text, matchCaller); /* Creates binary */
-    context->eheap_need += 4;     /* A 3-tuple is built */
     if (++context->stack_used > context->stack_need)
  	context->stack_need = context->stack_used;
     return retOk;
@@ -5412,7 +5365,6 @@ void db_match_dis(Binary *bp)
     erts_printf("}\n");
     erts_printf("num_bindings: %d\n", prog->num_bindings);
     erts_printf("heap_size: %bpu\n", prog->heap_size);
-    erts_printf("eheap_offset: %bpu\n", prog->eheap_offset);
     erts_printf("stack_offset: %bpu\n", prog->stack_offset);
     erts_printf("text: 0x%08x\n", (unsigned long) prog->text);
     erts_printf("stack_size: %d (words)\n", prog->heap_size-prog->stack_offset);

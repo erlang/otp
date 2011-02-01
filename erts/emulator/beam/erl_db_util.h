@@ -360,7 +360,6 @@ typedef struct match_prog {
     struct erl_heap_fragment *saved_program_buf;
     Eterm saved_program;
     Uint heap_size;          /* size of: heap + eheap + stack */
-    Uint eheap_offset;
     Uint stack_offset;
 #ifdef DMC_DEBUG
     UWord* prog_end;		/* End of program */

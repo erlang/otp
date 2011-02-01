@@ -92,7 +92,8 @@
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
 	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
 	 do_heavy_concurrent/1, tab2file2_do/2, exit_large_table_owner_do/2,
-         types_do/1, sleeper/0, rpc_externals/0, memory_do/1
+         types_do/1, sleeper/0, rpc_externals/0, memory_do/1,
+	 ms_tracee_dummy/1, ms_tracee_dummy/2, ms_tracee_dummy/3, ms_tracee_dummy/4
 	]).
 
 -export([t_select_reverse/1]).
@@ -265,7 +266,7 @@ t_match_spec_run(Config) when is_list(Config) ->
 		  repeat_for_permutations(F, N_MS)
 	  end,
 
-    test_terms(Fun),
+    test_terms(Fun, skip_refc_check),
 
     ?line verify_etsmem(EtsMem).
 
@@ -280,7 +281,73 @@ t_match_spec_run_test(List, MS, Result) ->
     ets:insert(Tab, List),
     SRes = lists:sort(Result),
     ?m(SRes, lists:sort(ets:select(Tab, MS))),
-    ets:delete(Tab).
+    ets:delete(Tab),
+
+    %% Check that tracing agree
+    Self = self(),
+    {Tracee, MonRef} = spawn_monitor(fun() -> ms_tracee(Self, List) end),
+    receive {Tracee, ready} -> ok end,
+
+    MST = lists:map(fun(Clause) -> ms_clause_ets_to_trace(Clause) end, MS),
+
+    %%io:format("MS = ~p\nMST= ~p\n",[MS,MST]),
+
+    erlang:trace_pattern({?MODULE,ms_tracee_dummy,'_'}, MST , [local]),
+    erlang:trace(Tracee, true, [call]),
+    Tracee ! start,
+    TRes = ms_tracer_collect(Tracee, MonRef, []),
+    %erlang:trace(Tracee, false, [call]),
+    %Tracee ! stop,
+    case TRes of
+	SRes -> ok;
+	_ ->
+	    io:format("TRACE MATCH FAILED\n"),
+	    io:format("Input = ~p\nMST = ~p\nExpected = ~p\nGot = ~p\n", [List, MST, SRes, TRes]),
+	    ?t:fail("TRACE MATCH FAILED")
+    end,
+    ok.
+
+
+
+ms_tracer_collect(Tracee, Ref, Acc) ->
+    receive
+	{trace, Tracee, call, Args, [Msg]} ->
+	    %io:format("trace Args=~p  Msg=~p\n", [Args, Msg]),
+	    ms_tracer_collect(Tracee, Ref, [Msg | Acc]);
+
+	{'DOWN', Ref, process, Tracee, _} ->
+	    %io:format("monitor DOWN for ~p\n", [Tracee]),
+	    TDRef = erlang:trace_delivered(Tracee),
+	    ms_tracer_collect(Tracee, TDRef, Acc);
+
+	{trace_delivered, Tracee, Ref} ->
+	    %%io:format("trace delivered for ~p\n", [Tracee]),
+	    lists:sort(Acc);
+
+	Other ->
+	    io:format("Unexpected message = ~p\n", [Other]),
+	    ?t:fail("Unexpected tracer msg")
+    end.
+
+
+ms_tracee(Parent, CallArgList) ->
+    %io:format("ms_tracee ~p started with ArgList = ~p\n", [self(), CallArgList]),
+    Parent ! {self(), ready},
+    receive start -> ok end,
+    lists:foreach(fun(Args) ->
+			  erlang:apply(?MODULE, ms_tracee_dummy, tuple_to_list(Args))
+		  end, CallArgList).
+    %%receive stop -> ok end.
+
+
+
+ms_tracee_dummy(_) -> ok.
+ms_tracee_dummy(_,_) -> ok.
+ms_tracee_dummy(_,_,_) -> ok.
+ms_tracee_dummy(_,_,_,_) -> ok.
+
+ms_clause_ets_to_trace({Head, Guard, Body}) ->
+    {tuple_to_list(Head), Guard, [{message, Body}]}.
 
 assert_eq(A,A) -> ok;
 assert_eq(A,B) ->
@@ -5339,7 +5406,7 @@ types_do(Opts) ->
             ets:delete_all_objects(T),
             ?line 0 = ets:info(T,size)
           end,
-    test_terms(Fun),
+    test_terms(Fun, strict),
     ets:delete(T),
     ?line verify_etsmem(EtsMem).
 
@@ -5654,7 +5721,7 @@ only_if_smp(Schedulers, Func) ->
 
 %% Copy-paste from emulator/test/binary_SUITE.erl
 -define(heap_binary_size, 64).
-test_terms(Test_Func) ->
+test_terms(Test_Func, Mode) ->
     garbage_collect(),
     ?line Pib0 = process_info(self(),binary),
 
@@ -5731,7 +5798,10 @@ test_terms(Test_Func) ->
     Pib = process_info(self(),binary),
     ?line Test_Func(Bin3),
     garbage_collect(),
-    ?line Pib = process_info(self(),binary),
+    case Mode of
+	strict -> ?line Pib = process_info(self(),binary);
+	skip_refc_check -> ok
+    end,
 
     ?line Test_Func(make_unaligned_sub_binary(Bin0)),
     ?line Test_Func(make_unaligned_sub_binary(Bin1)),
@@ -5775,7 +5845,10 @@ test_terms(Test_Func) ->
     ?line Test_Func(lists:duplicate(32, FF)),
 
     garbage_collect(),
-    ?line Pib0 = process_info(self(),binary),
+    case Mode of
+	strict -> ?line Pib0 = process_info(self(),binary);
+	skip_refc_check -> ok
+    end,
     ok.
 
 
