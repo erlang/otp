@@ -81,7 +81,6 @@ static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
 
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 {    
-    unsigned frag_sz;
     env->hp = hp;
     if (env->heap_frag == NULL) {       
 	ASSERT(HEAP_LIMIT(env->proc) == env->hp_end);
@@ -91,11 +90,11 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 	env->heap_frag->used_size = hp - env->heap_frag->mem;
 	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
-    frag_sz = need + MIN_HEAP_FRAG_SZ;
-    hp = erts_heap_alloc(env->proc, frag_sz);
-    env->hp = hp + need;
-    env->hp_end = hp + frag_sz;
+    hp = erts_heap_alloc(env->proc, need, MIN_HEAP_FRAG_SZ);
     env->heap_frag = MBUF(env->proc);
+    env->hp = hp + need;
+    env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
+
     return hp;
 }
 

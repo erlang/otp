@@ -57,6 +57,7 @@
 DBIF_TABLE_GUARD | DBIF_TABLE_BODY | DBIF_TRACE_GUARD | DBIF_TRACE_BODY
 
 
+#define HEAP_XTRA 100
 
 /*
 ** Some convenience macros for stacks (DMC == db_match_compile)
@@ -1594,7 +1595,7 @@ erts_match_prog_foreach_offheap(Binary *bprog,
 */
 static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
 {
-    Eterm *hp = HAlloc(psp, arity * 2);
+    Eterm *hp = HAllocX(psp, arity * 2, HEAP_XTRA);
     Eterm ret = NIL;
     while (--arity >= 0) {
 	ret = CONS(hp, arr[arity], ret);
@@ -1661,7 +1662,7 @@ static ERTS_INLINE Eterm copy_object_rel(Process* p, Eterm term, Eterm* base)
 {
     if (!is_immed(term)) {
 	Uint sz = size_object_rel(term, base);
-	Eterm* top = HAlloc(p, sz);
+	Eterm* top = HAllocX(p, sz, HEAP_XTRA);
 	return copy_struct_rel(term, sz, &top, &MSO(p), base, NULL);
     }
     return term;
@@ -1928,20 +1929,20 @@ restart:
 	    }
 	    break;
 	case matchConsA:
-	    ehp = HAlloc(build_proc, 2);
+	    ehp = HAllocX(build_proc, 2, HEAP_XTRA);
 	    CDR(ehp) = *--esp;
 	    CAR(ehp) = esp[-1];
 	    esp[-1] = make_list(ehp);
 	    break;
 	case matchConsB:
-	    ehp = HAlloc(build_proc, 2);
+	    ehp = HAllocX(build_proc, 2, HEAP_XTRA);
 	    CAR(ehp) = *--esp;
 	    CDR(ehp) = esp[-1];
 	    esp[-1] = make_list(ehp);
 	    break;
 	case matchMkTuple:
 	    n = *pc++;
-	    ehp = HAlloc(build_proc, n+1);
+	    ehp = HAllocX(build_proc, n+1, HEAP_XTRA);
 	    t = make_tuple(ehp);
 	    *ehp++ = make_arityval(n);
 	    while (n--) {
@@ -2042,7 +2043,7 @@ restart:
 		Uint sz;
 		Eterm* top;
 		sz = size_object_rel(term, base);
-		top = HAlloc(build_proc, sz);
+		top = HAllocX(build_proc, sz, HEAP_XTRA);
 		if (in_flags & ERTS_PAM_CONTIGUOUS_TUPLE) {
 		    ASSERT(is_tuple_rel(term,base));
 		    *esp++ = copy_shallow_rel(tuple_val_rel(term,base), sz,
@@ -2061,7 +2062,7 @@ restart:
 	    ASSERT_HALFWORD(base == NULL);
 	    n = arity; /* Only happens when 'term' is an array */
 	    tp = termp;
-	    ehp = HAlloc(build_proc, n*2);
+	    ehp = HAllocX(build_proc, n*2, HEAP_XTRA);
 	    *esp++  = make_list(ehp);
 	    while (n--) {
 		*ehp++ = *tp++;
@@ -2207,7 +2208,7 @@ restart:
 	    else {
 		Eterm sender = SEQ_TRACE_TOKEN_SENDER(c_p);
 		Uint sender_sz = is_immed(sender) ? 0 : size_object(sender);
-		ehp = HAlloc(build_proc, 6 + sender_sz);
+		ehp = HAllocX(build_proc, 6 + sender_sz, HEAP_XTRA);
  		*esp++ = make_tuple(ehp);
  		ehp[0] = make_arityval(5);
  		ehp[1] = SEQ_TRACE_TOKEN_FLAGS(c_p);
@@ -2270,7 +2271,7 @@ restart:
 	    if (!(c_p->cp) || !(cp = find_function_from_pc(c_p->cp))) {
  		*esp++ = am_undefined;
  	    } else {
-		ehp = HAlloc(build_proc, 4);
+		ehp = HAllocX(build_proc, 4, HEAP_XTRA);
  		*esp++ = make_tuple(ehp);
 		ehp[0] = make_arityval(3);
 		ehp[1] = cp[0];

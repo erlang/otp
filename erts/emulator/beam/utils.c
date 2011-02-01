@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,7 @@ dispatch_profile_msg_q(profile_sched_msg_q *psmq)
 
 
 Eterm*
-erts_heap_alloc(Process* p, Uint need)
+erts_heap_alloc(Process* p, Uint need, Uint xtra)
 {
     ErlHeapFragment* bp;
     Eterm* htop;
@@ -117,7 +117,7 @@ erts_heap_alloc(Process* p, Uint need)
     p->space_verified_from = NULL;
 #endif /* FORCE_HEAP_FRAGS */
 
-    n = need;
+    n = need + xtra;
     bp = MBUF(p);
     if (bp != NULL && need <= (bp->alloc_size - bp->used_size)) {
 	Eterm* ret = bp->mem + bp->used_size;
@@ -153,7 +153,7 @@ erts_heap_alloc(Process* p, Uint need)
     bp->next = MBUF(p);
     MBUF(p) = bp;
     bp->alloc_size = n;
-    bp->used_size = n;
+    bp->used_size = need;
     MBUF_SIZE(p) += n;
     bp->off_heap.first = NULL;
     bp->off_heap.overhead = 0;

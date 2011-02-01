@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -120,14 +120,15 @@
  * Allocate heap memory, first on the ordinary heap;
  * failing that, in a heap fragment.
  */
-#define HAlloc(p, sz)			                              \
+#define HAllocX(p, sz, xtra)		                              \
     (ASSERT_EXPR((sz) >= 0),					      \
      ErtsHAllocLockCheck(p),					      \
      (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
-      ? erts_heap_alloc((p),(sz))                                     \
+      ? erts_heap_alloc((p),(sz),(xtra))                              \
       : (INIT_HEAP_MEM(p,sz),		                              \
          HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 
+#define HAlloc(P, SZ) HAllocX(P,SZ,0)
 
 #define HRelease(p, endp, ptr)					\
   if ((ptr) == (endp)) {					\
