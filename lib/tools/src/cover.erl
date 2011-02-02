@@ -407,14 +407,14 @@ analyze_to_file(Module, OutFile, Options) ->
     analyse_to_file(Module, OutFile, Options).
 
 async_analyse_to_file(Module) ->
-    do_spawn(?MODULE,analyse_to_file, [Module]).
+    do_spawn(?MODULE, analyse_to_file, [Module]).
 async_analyse_to_file(Module, OutFileOrOpts) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFileOrOpts]).
 async_analyse_to_file(Module, OutFile, Options) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFile, Options]).
 
 do_spawn(M,F,A) ->
-    spawn(fun() ->
+    spawn_link(fun() ->
 		  case apply(M,F,A) of
 		      {ok, _} ->
 			  ok;
@@ -559,7 +559,11 @@ remote_reply(MainNode,Reply) ->
 
 init_main(Starter) ->
     register(?SERVER,self()),
-    ets:new(?COVER_TABLE, [set, public, named_table]),
+    %% Having write concurrancy here gives a 40% performance boost
+    %% when collect/1 is called. 
+    ets:new(?COVER_TABLE, [set, public, named_table
+			   ,{write_concurrency, true}
+			  ]),
     ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
     ets:new(?BINARY_TABLE, [set, named_table]),
     ets:new(?COLLECTION_TABLE, [set, public, named_table]),
@@ -801,7 +805,10 @@ main_process_loop(State) ->
 
 init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
-    ets:new(?COVER_TABLE, [set, public, named_table]),
+    ets:new(?COVER_TABLE, [set, public, named_table
+			   %% write_concurrency here makes otp_8270 break :(
+			   %,{write_concurrency, true}
+			  ]),
     ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
     Starter ! {self(),started},
     remote_process_loop(#remote_state{main_node=MainNode}).
@@ -2284,17 +2291,29 @@ escape_lt_and_gt1([],Acc) ->
 escape_lt_and_gt1([H|T],Acc) ->
     escape_lt_and_gt1(T,[H|Acc]).
 
-pmap(Fun,List) ->
+pmap(Fun, List) ->
+    pmap(Fun, List, 20).
+pmap(Fun, List, Limit) ->
+    pmap(Fun, List, [], Limit, 0, []).
+pmap(Fun, [E | Rest], Pids, Limit, Cnt, Acc) when Cnt < Limit ->
     Collector = self(),
-    Pids = lists:map(fun(E) ->
-			     spawn_link(fun() ->
-						?SPAWN_DBG(pmap,E),
-						Collector ! {res,self(),Fun(E)} 
-					end) 
-		     end, List),
-    lists:map(fun(Pid) ->
-		      receive
-			  {res,Pid,Res} ->
-			      Res
-		      end
-	      end, Pids).
+    Pid = spawn_link(fun() ->
+			     ?SPAWN_DBG(pmap,E),
+			     Collector ! {res,self(),Fun(E)} 
+		     end),
+    erlang:monitor(process, Pid),
+    pmap(Fun, Rest, Pids ++ [Pid], Limit, Cnt + 1, Acc);
+pmap(Fun, List, [Pid | Pids], Limit, Cnt, Acc) ->
+    receive
+	{'DOWN', _Ref, process, _, _} ->
+	    pmap(Fun, List, [Pid | Pids], Limit, Cnt - 1, Acc);
+	{res, Pid, Res} ->
+	    pmap(Fun, List, Pids, Limit, Cnt, [Res | Acc])
+    end;
+pmap(_Fun, [], [], _Limit, 0, Acc) ->
+    lists:reverse(Acc);
+pmap(Fun, [], [], Limit, Cnt, Acc) ->
+    receive
+	{'DOWN', _Ref, process, _, _} ->
+	    pmap(Fun, [], [], Limit, Cnt - 1, Acc)
+    end.
