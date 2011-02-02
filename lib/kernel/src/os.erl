@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -82,8 +82,9 @@ verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
 	    end;
 	_ ->
 	    case file:read_file_info(Name1) of
-		{ok, #file_info{mode=Mode}} when Mode band 8#111 =/= 0 ->
-		    %% XXX This test for execution permission is not full-proof
+		{ok, #file_info{type=regular,mode=Mode}}
+		when Mode band 8#111 =/= 0 ->
+		    %% XXX This test for execution permission is not fool-proof
 		    %% on Unix, since we test if any execution bit is set.
 		    {ok, Name1};
 		_ ->
