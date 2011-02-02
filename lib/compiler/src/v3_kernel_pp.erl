@@ -50,28 +50,34 @@ format(Node) -> format(Node, #ctxt{}).
 
 format(Node, Ctxt) ->
     case canno(Node) of
-%% 	[] ->
-%% 	    format_1(Node, Ctxt);
-%% 	[L,{file,_}] when is_integer(L) ->
-%% 	    format_1(Node, Ctxt);
-%% 	#k{a=Anno}=K when Anno =/= [] ->
-%% 	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
-%% 	List ->
-%% 	    format_anno(List, Ctxt, fun (Ctxt1) ->
-%% 					    format_1(Node, Ctxt1)
-%% 				    end);
-	_ ->
-	    format_1(Node, Ctxt)
+	[] ->
+	    format_1(Node, Ctxt);
+	[L,{file,_}] when is_integer(L) ->
+	    format_1(Node, Ctxt);
+	#k{a=Anno}=K when Anno =/= [] ->
+	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
+	List ->
+	    format_anno(List, Ctxt, fun (Ctxt1) ->
+					    format_1(Node, Ctxt1)
+				    end)
     end.
 
-%% format_anno(Anno, Ctxt0, ObjFun) ->
-%%     Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
-%%     ["( ",
-%%      ObjFun(Ctxt0),
-%%      nl_indent(Ctxt1),
-%%      "-| ",io_lib:write(Anno),
-%%      " )"].
-    
+format_anno(Anno, Ctxt0, ObjFun) ->
+    case annotations_enabled() of
+	true ->
+	    Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
+	    ["( ",
+	     ObjFun(Ctxt0),
+	     nl_indent(Ctxt1),
+	     "-| ",io_lib:write(Anno),
+	     " )"];
+	false ->
+	    ObjFun(Ctxt0)
+    end.
+
+%% By default, don't show annotations since they clutter up the output.
+annotations_enabled() ->
+    false.
 
 %% format_1(Kexpr, Context) -> string().
 
