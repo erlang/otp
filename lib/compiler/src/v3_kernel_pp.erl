@@ -113,6 +113,8 @@ format_1(#k_bin_int{size=Sz,unit=U,flags=Fs,val=Val,next=Next}, Ctxt) ->
     [format_bin_seg_1(S, Ctxt),
      format_bin_seg(Next, ctxt_bump_indent(Ctxt, 2))];
 format_1(#k_bin_end{}, _Ctxt) -> "#<>#";
+format_1(#k_literal{val=Term}, _Ctxt) ->
+    io_lib:format("~p", [Term]);
 format_1(#k_local{name=N,arity=A}, Ctxt) ->
     "local " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_remote{mod=M,name=N,arity=A}, _Ctxt) ->
