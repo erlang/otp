@@ -35,23 +35,37 @@
 %% remote_process_loop/1.
 %%
 %% TABLES
-%% Each nodes has an ets table named 'cover_internal_data_table'
-%% (?COVER_TABLE).  This table contains the coverage data and is
-%% continously updated when cover compiled code is executed.
+%% Each nodes has two tables: cover_internal_data_table (?COVER_TABLE) and.
+%% cover_internal_clause_table (?COVER_CLAUSE_TABLE). 
+%% ?COVER_TABLE contains the bump data i.e. the data about which lines
+%% have been executed how many times.
+%% ?COVER_CLAUSE_TABLE contains information about which clauses in which modules
+%% cover is currently collecting statistics.
 %% 
-%% The main node owns a table named
-%% 'cover_collected_remote_data_table' (?COLLECTION_TABLE). This table
-%% contains data which is collected from remote nodes (either when a
-%% remote node is stopped with cover:stop/1 or when analysing. When
-%% analysing, data is even moved from the ?COVER_TABLE on the main
-%% node to the ?COLLECTION_TABLE.
+%% The main node owns tables named
+%% 'cover_collected_remote_data_table' (?COLLECTION_TABLE) and
+%% 'cover_collected_remote_clause_table' (?COLLECTION_CLAUSE_TABLE). 
+%% These tables contain data which is collected from remote nodes (either when a
+%% remote node is stopped with cover:stop/1 or when analysing). When
+%% analysing, data is even moved from the COVER tables on the main
+%% node to the COLLECTION tables.
 %%
 %% The main node also has a table named 'cover_binary_code_table'
 %% (?BINARY_TABLE). This table contains the binary code for each cover
 %% compiled module. This is necessary so that the code can be loaded
 %% on remote nodes that are started after the compilation.
 %%
-
+%% PARELLALISM
+%% To take advantage of SMP when doing the cover analysis both the data 
+%% collection and analysis has been parallelized. One process is spawned for
+%% each node when collecting data, and on the remote node when collecting data
+%% one process is spawned per module. 
+%% 
+%% When analyzing data it is possible to issue multiple analyse(_to_file)/X 
+%% calls at once. They are however all calls (for backwardscompatability 
+%% reasons) so the user of cover will have to spawn several processes to to the
+%% calls ( or use async_analyse_to_file ). 
+%%
 
 %% External exports
 -export([start/0, start/1,

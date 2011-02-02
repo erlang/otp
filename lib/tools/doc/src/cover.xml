@@ -270,6 +270,8 @@
           defaults to <c>function</c>.</p>
         <p>If <c>Module</c> is not Cover compiled, the function returns
           <c>{error,{not_cover_compiled,Module}}</c>.</p>
+	<p>HINT: It is possible to issue multiple analyse_to_file commands at
+	  the same time. </p>
       </desc>
     </func>
     <func>
@@ -307,6 +309,33 @@
           <c>.beam</c> file, or in <c>../src</c> relative to that
           directory. If no source code is found, 
           <c>,{error,no_source_code_found}</c> is returned.</p>
+	<p>HINT: It is possible to issue multiple analyse_to_file commands at
+	  the same time. </p> 
+      </desc>
+    </func>
+    <func>
+      <name>async_analyse_to_file(Module) -> </name>
+      <name>async_analyse_to_file(Module,Options) -> </name>
+      <name>async_analyse_to_file(Module, OutFile) -> </name>
+      <name>async_analyse_to_file(Module, OutFile, Options) ->  pid()</name>
+      <fsummary>Asynchronous call to analyse_to_file.</fsummary>
+      <type>
+        <v>Module = atom()</v>
+        <v>OutFile = string()</v>
+        <v>Options = [Option]</v>
+        <v>Option = html</v>
+        <v>Error = {not_cover_compiled,Module} | {file,File,Reason} | no_source_code_found | not_main_node</v>
+        <v>&nbsp;File = string()</v>
+        <v>&nbsp;Reason = term()</v>
+      </type>
+      <desc>
+	<p>This function works exactly the same way as 
+	<seealso marker="#analyse_to_file-1">analyse_to_file</seealso> except
+	that it is asynchronous instead of synchronous. The spawned process
+	will link with the caller when created. If an <c>Error</c> occurs
+	while doing the cover analysis the process will crash with the same
+	error reason as <seealso marker="#analyse_to_file-1">analyse_to_file</seealso> 
+	would return.</p>
       </desc>
     </func>
     <func>
