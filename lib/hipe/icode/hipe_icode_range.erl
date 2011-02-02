@@ -641,7 +641,7 @@ analyse_sane_if(If, Info, [Arg1, Arg2], [Range1, Range2], Rewrite) ->
   end,
   %% io:format("TR1 = ~w\nTR2 = ~w\n", [TrueRange1, TrueRange2]),
   True =
-    case lists:any(fun range__is_none/1, [TrueRange1, TrueRange2]) of
+    case lists:all(fun range__is_none/1, [TrueRange1, TrueRange2]) of
       true -> [];
       false ->
 	TrueLabel = hipe_icode:if_true_label(If),
@@ -651,7 +651,7 @@ analyse_sane_if(If, Info, [Arg1, Arg2], [Range1, Range2], Rewrite) ->
     end,
   %% io:format("FR1 = ~w\nFR2 = ~w\n", [FalseRange1, FalseRange2]),
   False =
-    case lists:any(fun range__is_none/1, [FalseRange1, FalseRange2]) of
+    case lists:all(fun range__is_none/1, [FalseRange1, FalseRange2]) of
       true -> [];
       false ->
 	FalseLabel = hipe_icode:if_false_label(If),
