@@ -61,6 +61,9 @@
 	 analyse/1, analyse/2, analyse/3, analyze/1, analyze/2, analyze/3,
 	 analyse_to_file/1, analyse_to_file/2, analyse_to_file/3,
 	 analyze_to_file/1, analyze_to_file/2, analyze_to_file/3,
+	 async_analyse_to_file/1,async_analyse_to_file/2,
+	 async_analyse_to_file/3, async_analyze_to_file/1,
+	 async_analyze_to_file/2, async_analyze_to_file/3,
 	 export/1, export/2, import/1,
 	 modules/0, imported/0, imported_modules/0, which_nodes/0, is_compiled/1,
 	 reset/1, reset/0,
@@ -388,6 +391,30 @@ analyze_to_file(Module) -> analyse_to_file(Module).
 analyze_to_file(Module, OptOrOut) -> analyse_to_file(Module, OptOrOut).
 analyze_to_file(Module, OutFile, Options) -> 
     analyse_to_file(Module, OutFile, Options).
+
+async_analyse_to_file(Module) ->
+    do_spawn(?MODULE,analyse_to_file, [Module]).
+async_analyse_to_file(Module, OutFileOrOpts) ->
+    do_spawn(?MODULE, analyse_to_file, [Module, OutFileOrOpts]).
+async_analyse_to_file(Module, OutFile, Options) ->
+    do_spawn(?MODULE, analyse_to_file, [Module, OutFile, Options]).
+
+do_spawn(M,F,A) ->
+    spawn(fun() ->
+		  case apply(M,F,A) of
+		      {ok, _} ->
+			  ok;
+		      {error, Reason} ->
+			  exit(Reason)
+		  end
+	  end).
+
+async_analyze_to_file(Module) ->
+    async_analyse_to_file(Module).
+async_analyze_to_file(Module, OutFileOrOpts) ->
+    async_analyse_to_file(Module, OutFileOrOpts).
+async_analyze_to_file(Module, OutFile, Options) ->
+    async_analyse_to_file(Module, OutFile, Options).
 
 outfilename(Module,Opts) ->
     case lists:member(html,Opts) of
@@ -824,7 +851,7 @@ remote_process_loop(State) ->
     end.
 
 do_collect(Module, CollectorPid, From) ->
-    AllClauses = 
+    AllMods = 
 	case Module of
 	    '_' -> ets:tab2list(?COVER_CLAUSE_TABLE);
 	    _ -> ets:lookup(?COVER_CLAUSE_TABLE, Module)
@@ -833,20 +860,23 @@ do_collect(Module, CollectorPid, From) ->
     %% Sending clause by clause in order to avoid large lists
     pmap(
       fun({_Mod,Clauses}) ->
-	      pmap(fun({M,F,A,C,_L}) ->
-			   Pattern = 
-			       {#bump{module=M, function=F, arity=A, clause=C}, '_'},
-			   Bumps = ets:match_object(?COVER_TABLE, Pattern),
-			   %% Reset
-			   lists:foreach(fun({Bump,_N}) ->
-						 ets:insert(?COVER_TABLE, {Bump,0})
-					 end,
-					 Bumps),
-			   CollectorPid ! {chunk,Bumps}
-		   end,Clauses)
-      end,AllClauses),
+	      lists:map(fun(Clause) ->
+				send_collected_data(Clause, CollectorPid)
+			end,Clauses)
+      end,AllMods),
     CollectorPid ! done,
     remote_reply(From, ok).
+
+send_collected_data({M,F,A,C,_L}, CollectorPid) ->
+    Pattern = 
+	{#bump{module=M, function=F, arity=A, clause=C}, '_'},
+    Bumps = ets:match_object(?COVER_TABLE, Pattern),
+    %% Reset
+    lists:foreach(fun({Bump,_N}) ->
+			  ets:insert(?COVER_TABLE, {Bump,0})
+		  end,
+		  Bumps),
+    CollectorPid ! {chunk,Bumps}.
 
 reload_originals([{Module,_File}|Compiled]) ->
     do_reload_original(Module),
