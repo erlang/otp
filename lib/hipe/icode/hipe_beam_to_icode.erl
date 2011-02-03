@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -918,7 +918,7 @@ trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
 	    Succ = mk_label(new),
 	    [hipe_icode:mk_primop([Temp], '*', 
 				  [NewVar, hipe_icode:mk_const(Unit)],
-				  hipe_icode:label_name(Succ), Lbl),
+				  hipe_icode:label_name(Succ), map_label(Lbl)),
 	     Succ]
 	end
     end,
@@ -930,7 +930,7 @@ trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
 	 [FailLbl,
 	  hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error)]};
        true ->
-	{Lbl, []}
+	{map_label(Lbl), []}
     end,
   IsPos = 
     [hipe_icode:mk_if('>=', [Temp, hipe_icode:mk_const(0)], 
