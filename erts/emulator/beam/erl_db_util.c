@@ -1588,6 +1588,58 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
     return ret;
 }
 
+void heap_consistency_check(Process*); // SVERK
+
+/************************
+struct heap_checkpoint_t
+{
+    Process *p;
+    Eterm* htop;
+    ErlHeapFragment* mbuf;
+    unsigned used_size;
+    ErlOffHeap off_heap;
+};
+
+static void heap_checkpoint_init(Process* p, struct heap_checkpoint_t* hcp)
+{
+    hcp->p = p;
+    hcp->htop = HEAP_TOP(p);
+    hcp->mbuf = MBUF(p);
+    hcp->used_size = hcp->mbuf ? hcp->mbuf->used_size : 0;
+    hcp->off_heap = MSO(p);
+}
+
+static void heap_checkpoint_revert(struct heap_checkpoint_t* hcp)
+{
+    struct erl_off_heap_header* oh = MSO(hcp->p).first;
+
+    if (oh != hcp->off_heap.first) {
+	ASSERT(oh != NULL);
+	if (hcp->off_heap.first) {
+	    while (oh->next != hcp->off_heap.first) {
+		oh = oh->next;
+	    }
+	    oh->next = NULL;
+	}
+	erts_cleanup_offheap(&MSO(hcp->p));
+	MSO(hcp->p) = hcp->off_heap;
+    }
+    if (MBUF(hcp->p) != hcp->mbuf) {
+	ErlHeapFragment* hf = MBUF(hcp->p);
+	ASSERT(hf != NULL);
+	while (hf->next != hcp->mbuf) {
+	    hf = hf->next;
+	}
+	hf->next = NULL;
+	free_message_buffer(MBUF(hcp->p));
+	MBUF(hcp->p) = hcp->mbuf;
+    }
+    if (hcp->mbuf != NULL && hcp->mbuf->used_size != hcp->used_size) {
+	abort();
+    }
+    HEAP_TOP(hcp->p) = hcp->htop;
+}
+*******************/
 
 /*
 ** Execution of the match program, this is Pam.
@@ -1617,15 +1669,18 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
     unsigned do_catch;
     ErtsMatchPseudoProcess *mpsp;
     Process *psp;
+    Process* build_proc;
+    Process* variable_proc;
+#if HALFWORD_HEAP
+    Eterm* variable_base;     /* base for $n-variables (hp[n]) */
+#endif
     Process *tmpp;
     Process *current_scheduled;
     ErtsSchedulerData *esdp;
     Eterm (*bif)(Process*, ...);
     int fail_label;
     int atomic_trace;
-#if HALFWORD_HEAP
-    Eterm* variable_base;     /* base for $n-variables (hp[n]) */
-#endif
+    int is_ets = 0; // SVERK ToDo!!!
 #ifdef DMC_DEBUG
     Uint *heap_fence;
     Uint *eheap_fence;
@@ -1683,25 +1738,35 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 
     *return_flags = 0U;
 
+    //heap_checkpoint_init(c_p, &heap_checkpoint);
+
+    hp = mpsp->heap;
+
 restart:
     ep = &term;
     esp = mpsp->heap + prog->stack_offset;
     sp = (Eterm **) esp;
-    hp = mpsp->heap;
-    ehp = mpsp->heap + prog->eheap_offset;
+    ASSERT(hp == mpsp->heap);  // SVERK
+    //ehp = mpsp->heap + prog->eheap_offset;
     ret = am_true;
     do_catch = 0;
     fail_label = -1;
+    build_proc = psp;
 
-#if HALFWORD_HEAP  /* clear all variables for matchPushV */
+    /* Clear all variables for matchPushV */
     for (i=prog->eheap_offset-(1+FENCE_PATTERN_SIZE); i>=0; i--) {
 	hp[i] = NIL;
     }
+#if HALFWORD_HEAP
     variable_base = base;
+    variable_proc = NULL;
+#else
+    variable_proc = build_proc;
 #endif
 
     for (;;) {
-#ifdef DMC_DEBUG
+
+    #ifdef DMC_DEBUG
 	if (*heap_fence != FENCE_PATTERN) {
 	    erl_exit(1, "Heap fence overwritten in db_prog_match after op "
 		     "0x%08x, overwritten with 0x%08x.", save_op, *heap_fence);
@@ -1717,7 +1782,7 @@ restart:
 		     *stack_fence);
 	}
 	save_op = *pc;
-#endif
+    #endif
 	switch (*pc++) {
 	case matchTryMeElse:
 	    ASSERT(fail_label == -1);
@@ -1731,6 +1796,8 @@ restart:
 	    ep = termp;
 	    break;
 	case matchArrayBind: /* When the array size is unknown. */
+	    ASSERT_HALFWORD(variable_base == NULL);
+	    ASSERT(build_proc == NULL);
 	    n = *pc++;
 	    hp[n] = dpm_array_to_list(psp, termp, arity);
 	    break;
@@ -1836,22 +1903,30 @@ restart:
 	 * Here comes guard instructions 
 	 */
 	case matchPushC: /* Push constant */
-	    *esp++ = *pc++;
+	    if (do_catch && !is_immed(*pc)) {
+		*esp++ = copy_object(*pc++, build_proc);
+	    }
+	    else {
+		*esp++ = *pc++;
+	    }
 	    break;
 	case matchConsA:
-	    ehp[1] = *--esp;
-	    ehp[0] = esp[-1];
+	    ehp = HAlloc(build_proc, 2);
+	    CDR(ehp) = *--esp;
+	    CAR(ehp) = esp[-1];
 	    esp[-1] = make_list(ehp);
-	    ehp += 2;
+	    //ehp += 2;
 	    break;
 	case matchConsB:
-	    ehp[0] = *--esp;
-	    ehp[1] = esp[-1];
+	    ehp = HAlloc(build_proc, 2);
+	    CAR(ehp) = *--esp;
+	    CDR(ehp) = esp[-1];
 	    esp[-1] = make_list(ehp);
-	    ehp += 2;
+	    //ehp += 2;
 	    break;
 	case matchMkTuple:
 	    n = *pc++;
+	    ehp = HAlloc(build_proc, n+1);
 	    t = make_tuple(ehp);
 	    *ehp++ = make_arityval(n);
 	    while (n--) {
@@ -1861,7 +1936,7 @@ restart:
 	    break;
 	case matchCall0:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(psp);
+	    t = (*bif)(build_proc);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -1872,7 +1947,7 @@ restart:
 	    break;
 	case matchCall1:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(psp, esp[-1]);
+	    t = (*bif)(build_proc, esp[-1]);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -1883,7 +1958,7 @@ restart:
 	    break;
 	case matchCall2:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(psp, esp[-1], esp[-2]);
+	    t = (*bif)(build_proc, esp[-1], esp[-2]);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -1895,7 +1970,7 @@ restart:
 	    break;
 	case matchCall3:
 	    bif = (Eterm (*)(Process*, ...)) *pc++;
-	    t = (*bif)(psp, esp[-1], esp[-2], esp[-3]);
+	    t = (*bif)(build_proc, esp[-1], esp[-2], esp[-3]);
 	    if (is_non_value(t)) {
 		if (do_catch)
 		    t = FAIL_TERM;
@@ -1907,36 +1982,42 @@ restart:
 	    break;
 	case matchPushV:
 	    n = *pc++;
-	#if HALFWORD_HEAP
-	    if (variable_base!=NULL && !is_immed(hp[n])) {
+	    if (variable_proc != build_proc && !is_immed(hp[n])) {
+		ASSERT(build_proc);
 		for (i=prog->eheap_offset-1; i>=0; i--) if (!is_immed(hp[i])) {
-		    Uint sz = size_object_rel(hp[i], base);
-		    Eterm* top = HAlloc(psp, sz);
-		    hp[i] = copy_struct_rel(hp[i], sz, &top, &MSO(psp), base, NULL);
+		    Uint sz = size_object_rel(hp[i], variable_base);
+		    Eterm* top = HAlloc(build_proc, sz);
+		    hp[i] = copy_struct_rel(hp[i], sz, &top, &MSO(build_proc),
+					    variable_base, NULL);
 		}
+	    #if HALFWORD_HEAP
 		variable_base = NULL;
+	    #endif
+		variable_proc = build_proc;
 	    }
-	#endif
 	    *esp++ = hp[n];
 	    break;
-	case matchPushExpr:
-	#if HALFWORD_HEAP
-	    if (base) {
-		Uint sz;
-		Eterm* top;
-		ASSERT(is_tuple_rel(term,base)); /* assume ETS */
-		sz = size_object_rel(term, base);
-		top = HAlloc(psp, sz);
+	case matchPushExpr: {
+	    Uint sz;
+	    Eterm* top;
+	    sz = size_object_rel(term, base);
+	    top = HAlloc(build_proc, sz);
+	    if (is_ets) {
+		ASSERT(is_tuple_rel(term,base));
 		*esp++ = copy_shallow_rel(tuple_val_rel(term,base), sz,
-					  &top, &MSO(psp), base);
-		break;
+					  &top, &MSO(build_proc), base);
 	    }
-	#endif
-	    *esp++ = term;
+	    else {
+		*esp++ = copy_struct_rel(term, sz, &top, &MSO(build_proc),
+				       base, NULL);
+	    }
 	    break;
+	}
 	case matchPushArrayAsList:
+	    ASSERT_HALFWORD(base == NULL);
 	    n = arity; /* Only happens when 'term' is an array */
 	    tp = termp;
+	    ehp = HAlloc(build_proc, n*2);
 	    *esp++  = make_list(ehp);
 	    while (n--) {
 		*ehp++ = *tp++;
@@ -1949,7 +2030,8 @@ restart:
 	    break;
 	case matchPushArrayAsListU:
 	    /* This instruction is NOT efficient. */
-	    *esp++  = dpm_array_to_list(psp, termp, arity);
+	    ASSERT_HALFWORD(base == NULL);
+	    *esp++  = dpm_array_to_list(build_proc, termp, arity);
 	    break;
 	case matchTrue:
 	    if (*--esp != am_true)
@@ -2035,7 +2117,7 @@ restart:
 	case matchProcessDump: {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
 	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p);
-	    *esp++ = new_binary(psp, (byte *)dsbufp->str, (int)dsbufp->str_len);
+	    *esp++ = new_binary(build_proc, (byte *)dsbufp->str, (int)dsbufp->str_len);
 	    erts_destroy_tmp_dsbuf(dsbufp);
 	    break;
 	}
@@ -2079,29 +2161,23 @@ restart:
 	    if (SEQ_TRACE_TOKEN(c_p) == NIL) 
 		*esp++ = NIL;
 	    else {
+		Eterm sender = SEQ_TRACE_TOKEN_SENDER(c_p);
+		Uint sender_sz = is_immed(sender) ? 0 : size_object(sender);
+		ehp = HAlloc(build_proc, 6 + sender_sz);
  		*esp++ = make_tuple(ehp);
  		ehp[0] = make_arityval(5);
  		ehp[1] = SEQ_TRACE_TOKEN_FLAGS(c_p);
  		ehp[2] = SEQ_TRACE_TOKEN_LABEL(c_p);
  		ehp[3] = SEQ_TRACE_TOKEN_SERIAL(c_p);
- 		ehp[4] = SEQ_TRACE_TOKEN_SENDER(c_p);
  		ehp[5] = SEQ_TRACE_TOKEN_LASTCNT(c_p);
 		ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
 		ASSERT(is_immed(ehp[1]));
 		ASSERT(is_immed(ehp[2]));
 		ASSERT(is_immed(ehp[3]));
 		ASSERT(is_immed(ehp[5]));
-		if(!is_immed(ehp[4])) {
-		    Eterm *sender = &ehp[4];
-		    ehp += 6;
-		    *sender = copy_struct(*sender,
-					  size_object(*sender),
-					  &ehp,
-					  &MSO(psp));
-		}
-		else
-		    ehp += 6;
-
+		ehp += 6;
+		ehp[4] = (sender_sz==0) ? sender
+		    : copy_struct(sender, sender_sz, &ehp, &MSO(build_proc));
 	    } 
 	    break;
 	case matchEnableTrace:
@@ -2150,12 +2226,13 @@ restart:
 	    if (!(c_p->cp) || !(cp = find_function_from_pc(c_p->cp))) {
  		*esp++ = am_undefined;
  	    } else {
+		ehp = HAlloc(build_proc, 4);
  		*esp++ = make_tuple(ehp);
 		ehp[0] = make_arityval(3);
 		ehp[1] = cp[0];
 		ehp[2] = cp[1];
 		ehp[3] = make_small((Uint) cp[2]);
-		ehp += 4;
+		//ehp += 4;
 	    }
 	    break;
 	case matchSilent:
@@ -2233,7 +2310,10 @@ restart:
 	    }
 	    break;
 	case matchCatch:
+	    //heap_checkpoint_revert(&heap_checkpoint);
 	    do_catch = 1;
+	    build_proc = c_p;
+	    esdp->current_process = build_proc;
 	    break;
 	case matchHalt:
 	    goto success;
@@ -2242,6 +2322,7 @@ restart:
 	}
     }
 fail:
+    //heap_checkpoint_revert(&heap_checkpoint);
     *return_flags = 0U;
     if (fail_label >= 0) { /* We failed during a "TryMeElse", 
 			      lets restart, with the next match 
@@ -2273,6 +2354,10 @@ success:
     esdp->current_process = current_scheduled;
 
     END_ATOMIC_TRACE(c_p);
+
+    #ifdef DEBUG
+    //heap_consistency_check(c_p);  // SVERK
+    #endif
     return ret;
 #undef FAIL
 #undef FAIL_TERM
@@ -4863,15 +4948,16 @@ Eterm db_prog_match_and_copy(DbTableCommon* tb, Process* c_p, Binary* bprog,
 			NULL, 0, &dummy);
 
     if (is_value(res) && hpp!=NULL) {
-	if (all) {
-	    *hpp = HAlloc(c_p, obj->size + extra);
-	    res = copy_shallow_rel(obj->tpl, obj->size, hpp, &MSO(c_p), base);
-	}
-	else {
-	    Uint sz = size_object(res);
-	    *hpp = HAlloc(c_p, sz + extra);
-	    res = copy_struct(res, sz, hpp, &MSO(c_p));
-	}
+	*hpp = HAlloc(c_p, extra);
+//      if (all) {
+//          *hpp = HAlloc(c_p, obj->size + extra);
+//          res = copy_shallow_rel(obj->tpl, obj->size, hpp, &MSO(c_p), base);
+//      }
+//      else {
+//          Uint sz = size_object(res);
+//          *hpp = HAlloc(c_p, sz + extra);
+//          res = copy_struct(res, sz, hpp, &MSO(c_p));
+//      }
     }
 
     if (tb->compress) {
