@@ -2209,20 +2209,21 @@ restart:
 		Eterm sender = SEQ_TRACE_TOKEN_SENDER(c_p);
 		Uint sender_sz = is_immed(sender) ? 0 : size_object(sender);
 		ehp = HAllocX(build_proc, 6 + sender_sz, HEAP_XTRA);
+		if (sender_sz) {
+		    sender = copy_struct(sender, sender_sz, &ehp, &MSO(build_proc));
+		}
  		*esp++ = make_tuple(ehp);
  		ehp[0] = make_arityval(5);
  		ehp[1] = SEQ_TRACE_TOKEN_FLAGS(c_p);
  		ehp[2] = SEQ_TRACE_TOKEN_LABEL(c_p);
  		ehp[3] = SEQ_TRACE_TOKEN_SERIAL(c_p);
+		ehp[4] = sender;
  		ehp[5] = SEQ_TRACE_TOKEN_LASTCNT(c_p);
 		ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
 		ASSERT(is_immed(ehp[1]));
 		ASSERT(is_immed(ehp[2]));
 		ASSERT(is_immed(ehp[3]));
 		ASSERT(is_immed(ehp[5]));
-		ehp += 6;
-		ehp[4] = (sender_sz==0) ? sender
-		    : copy_struct(sender, sender_sz, &ehp, &MSO(build_proc));
 	    } 
 	    break;
 	case matchEnableTrace:
