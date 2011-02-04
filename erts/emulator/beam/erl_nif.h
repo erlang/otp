@@ -202,6 +202,7 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #define ERL_NIF_INIT(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD) \
 ERL_NIF_INIT_PROLOGUE                   \
 ERL_NIF_INIT_GLOB                       \
+ERL_NIF_INIT_DECL(NAME);		\
 ERL_NIF_INIT_DECL(NAME)			\
 {					\
     static ErlNifEntry entry = 		\
