@@ -1478,7 +1478,13 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	
 	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
 			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
-    }    
+    }   
+    else if (entry->minor >= 1
+	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
+	ret = load_nif_error(BIF_P, bad_lib, "Library (%s) not compiled for "
+			     "this vm variant (%s).",
+			     entry->vm_variant, ERL_NIF_VM_VARIANT);
+    }
     else if (!erts_is_atom_str((char*)entry->name, mod_atom)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library module name '%s' does not"
 			     " match calling module '%T'", entry->name, mod_atom);
