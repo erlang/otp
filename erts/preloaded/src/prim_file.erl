@@ -1041,8 +1041,8 @@ translate_response(?FILE_RESP_NUMBER, List) ->
     {N, []} = get_uint64(List),
     {ok, N};
 translate_response(?FILE_RESP_DATA, List) ->
-    {N, Data} = get_uint64(List),
-    {ok, {N, Data}};
+    {_N, _Data} = ND = get_uint64(List),
+    {ok, ND};
 translate_response(?FILE_RESP_INFO, List) when is_list(List) ->
     {ok, transform_info_ints(get_uint32s(List))};
 translate_response(?FILE_RESP_NUMERR, L0) ->
@@ -1087,10 +1087,8 @@ translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
     {ok, prim_file:internal_native2name(Data)};
 translate_response(?FILE_RESP_FNAME, Data) ->
     {ok, Data};
-
 translate_response(?FILE_RESP_ALL_DATA, Data) ->
     {ok, Data};
-
 translate_response(X, Data) ->
     {error, {bad_response_from_port, [X | Data]}}.
 
@@ -1137,14 +1135,14 @@ date_to_bytes(undefined) ->
 date_to_bytes({{Y, Mon, D}, {H, Min, S}}) ->
     <<Y:32, Mon:32, D:32, H:32, Min:32, S:32>>.
 
-% uint64([[X1, X2, X3, X4] = Y1 | [X5, X6, X7, X8] = Y2]) ->
-%     (uint32(Y1) bsl 32) bor uint32(Y2).
+%% uint64([[X1, X2, X3, X4] = Y1 | [X5, X6, X7, X8] = Y2]) ->
+%%     (uint32(Y1) bsl 32) bor uint32(Y2).
 
-% uint64(X1, X2, X3, X4, X5, X6, X7, X8) ->
-%     (uint32(X1, X2, X3, X4) bsl 32) bor uint32(X5, X6, X7, X8).
+%% uint64(X1, X2, X3, X4, X5, X6, X7, X8) ->
+%%     (uint32(X1, X2, X3, X4) bsl 32) bor uint32(X5, X6, X7, X8).
 
-% uint32([X1,X2,X3,X4]) ->
-%     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
+%% uint32([X1,X2,X3,X4]) ->
+%%     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
 
 uint32(X1,X2,X3,X4) ->
     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
