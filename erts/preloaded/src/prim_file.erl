@@ -64,7 +64,7 @@
 -include("file.hrl").
 
 -define(DRV,    efile).
--define(FD_DRV, efile).
+-define(FD_DRV, "efile").
 
 -define(LARGEFILESIZE, (1 bsl 63)).
 
@@ -506,7 +506,7 @@ read_file(_) ->
 
 %% Takes a Port opened with open/1.
 read_file(Port, File) when is_port(Port),
-			   (is_list(File) orelse is_binary(File))->
+			   (is_list(File) orelse is_binary(File)) ->
     Cmd = [?FILE_READ_FILE | pathname(File)],
     case drv_command(Port, Cmd) of
 	{error, enomem} ->
@@ -832,7 +832,7 @@ drv_open(Driver, Portopts) ->
 	    {ok, Port}
     catch
 	error:Reason ->
-	    {error,Reason}
+	    {error, Reason}
     end.
 
 
