@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%===========================================================================
@@ -39,7 +39,7 @@
 
 process() ->
   ArgList = init:get_plain_arguments(),
-  %% io:format("Args is ~p\n",[Args]),
+  %% io:format("Args is ~p\n", [ArgList]),
   {Args, Analysis} = analyze_args(ArgList, #args{}, #typer_analysis{}),
   %% if the mode has not been set, set it to the default mode (show)
   {Args, case Analysis#typer_analysis.mode of
@@ -73,11 +73,10 @@ cl(["-D"++Def|Opts]) ->
   case Def of
     "" -> typer:error("no variable name specified after -D");
     _ ->
-      L = re:split(Def, "=", [{return, list}]),
-      DefPair = process_def_list(L),
+      DefPair = process_def_list(re:split(Def, "=", [{return, list}])),
       {{def, DefPair}, Opts}
   end;
-cl(["-I",Dir|Opts]) -> {{inc,Dir}, Opts};
+cl(["-I",Dir|Opts]) -> {{inc, Dir}, Opts};
 cl(["-I"++Dir|Opts]) ->
   case Dir of
     "" -> typer:error("no include directory specified after -I");
@@ -87,15 +86,15 @@ cl(["-T"|Opts]) ->
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
   case Files of
     [] -> typer:error("no file or directory specified after -T");
-    [_|_] -> {{trust, Files}, RestOpts}
+    [_|_] -> {{trusted, Files}, RestOpts}
   end;
 cl(["-r"|Opts]) ->
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
-  {{a_dir_r, Files}, RestOpts};
+  {{files_r, Files}, RestOpts};
 cl(["-"++H|_]) -> typer:error("unknown option -"++H);
 cl(Opts) -> 
-  {Args, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
-  {{analyze, Args}, RestOpts}.
+  {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
+  {{files, Files}, RestOpts}.
 
 process_def_list(L) ->
   case L of
@@ -108,15 +107,15 @@ process_def_list(L) ->
   end.
 
 %% Get information about files that the user trusts and wants to analyze
-analyze_result({analyze, Val}, Args, Analysis) -> 
-  NewVal = Args#args.analyze ++ Val,
-  {Args#args{analyze = NewVal}, Analysis};
-analyze_result({a_dir_r, Val}, Args, Analysis) -> 
-  NewVal = Args#args.analyzed_dir_r ++ Val,
-  {Args#args{analyzed_dir_r = NewVal}, Analysis};
-analyze_result({trust, Val}, Args, Analysis) -> 
-  NewVal = Args#args.trust ++ Val,
-  {Args#args{trust = NewVal}, Analysis};
+analyze_result({files, Val}, Args, Analysis) -> 
+  NewVal = Args#args.files ++ Val,
+  {Args#args{files = NewVal}, Analysis};
+analyze_result({files_r, Val}, Args, Analysis) -> 
+  NewVal = Args#args.files_r ++ Val,
+  {Args#args{files_r = NewVal}, Analysis};
+analyze_result({trusted, Val}, Args, Analysis) -> 
+  NewVal = Args#args.trusted ++ Val,
+  {Args#args{trusted = NewVal}, Analysis};
 analyze_result(comments, Args, Analysis) ->
   {Args, Analysis#typer_analysis{contracts = false}};
 %% Get useful information for actual analysis

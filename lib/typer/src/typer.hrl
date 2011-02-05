@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -28,18 +28,18 @@
 -record(typer_analysis,
 	{mode					:: mode(),
 	 macros      = []			:: [{atom(), _}], % {macro_name, value}
-	 includes    = []			:: [string()],
+	 includes    = []			:: [file:filename()],
 	 
 	 %% Esp for Dialyzer
 	 %% ----------------------
 	 code_server = dialyzer_codeserver:new():: dialyzer_codeserver:codeserver(),
 	 callgraph   = dialyzer_callgraph:new() :: dialyzer_callgraph:callgraph(),
-	 ana_files   = []			:: [string()],   % absolute filenames
-	 plt         = none			:: 'none' | string(),
+	 ana_files   = []			:: [file:filename()],   % absolute filenames
+	 plt         = none			:: 'none' | file:filename(),
 	 
 	 %% Esp for TypEr
 	 %% ----------------------
-	 t_files     = []			:: [string()], 
+	 t_files     = []			:: [file:filename()], 
 	 
 	 %% For choosing between contracts or comments
 	 contracts   = true			:: boolean(),
@@ -47,7 +47,7 @@
 	 %% Any file in 'final_files' is compilable.
 	 %% And we need to keep it as {FileName,ModuleName}
 	 %% in case filename does NOT match with moduleName
-	 final_files = []			:: [{string(), atom()}],  
+	 final_files = []			:: [{file:filename(), module()}],
 	 
 	 ex_func     = typer_map:new()		:: dict(),
 	 record      = typer_map:new()		:: dict(),
@@ -58,7 +58,6 @@
 	 inc_func    = typer_map:new()		:: dict(),
 	 trust_plt   = dialyzer_plt:new()	:: dialyzer_plt:plt()}).
 
--record(args,
-	{analyze = []        :: [string()],
-	 analyzed_dir_r = [] :: [string()],
-	 trust = []          :: [string()]}).
+-record(args, {files   = [] :: [file:filename()],
+	       files_r = [] :: [file:filename()],
+	       trusted = [] :: [file:filename()]}).

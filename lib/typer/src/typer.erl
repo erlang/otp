@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -26,10 +26,11 @@
 
 -module(typer).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([start/0]).
 -export([error/1, compile_error/1]).	% for error reporting
+
+%% Avoid warning for local function error/1 clashing with autoimported BIF.
+-compile({no_auto_import, [error/1]}).
 
 -include("typer.hrl").
 
@@ -143,7 +144,13 @@ remove_external(CallGraph, PLT) ->
   case get_external(Ext, PLT) of
     [] -> ok;
     Externals ->
-      msg(io_lib:format(" Unknown functions: ~p\n", [lists:usort(Externals)]))
+      msg(io_lib:format(" Unknown functions: ~p\n", [lists:usort(Externals)])),
+      ExtTypes = rcv_ext_types(),
+      case ExtTypes of
+        [] -> ok;
+        _ ->
+          msg(io_lib:format(" Unknown types: ~p\n", [ExtTypes]))
+      end
   end,
   StrippedCG.
 
@@ -194,6 +201,22 @@ msg(Msg) ->
       ok;
     _ ->  % win32, vxworks
       io:format("~s", [Msg])
+  end.
+
+%%--------------------------------------------------------------------
+%% Handle messages.                         
+%%-------------------------------------------------------------------- 
+
+rcv_ext_types() ->
+  Self = self(),
+  Self ! {Self, done},
+  rcv_ext_types(Self, []).
+
+rcv_ext_types(Self, ExtTypes) ->
+  receive
+    {Self, ext_types, ExtType} ->
+      rcv_ext_types(Self, [ExtType|ExtTypes]);
+    {Self, done} -> lists:usort(ExtTypes)
   end.
 
 %%--------------------------------------------------------------------

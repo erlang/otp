@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -26,19 +26,17 @@
 
 %%----------------------------------------------------------------------------
 
--spec get_all_files(#args{}, 'analysis' | 'trust') -> [string()].
+-spec get_all_files(#args{}, 'analysis' | 'trust') -> [file:filename()].
 
-get_all_files(Args, analysis) ->
-  case internal_get_all_files(Args#args.analyze,
-			      Args#args.analyzed_dir_r,
-			      fun test_erl_file_exclude_ann/1) of
+get_all_files(#args{files=Fs,files_r=Ds}, analysis) ->
+  case files_and_dirs(Fs, Ds, fun test_erl_file_exclude_ann/1) of
     [] -> typer:error("no file(s) to analyze");
     AllFiles -> AllFiles
   end;
-get_all_files(Args, trust) -> 
-  internal_get_all_files(Args#args.trust, [], fun test_erl_file/1).
+get_all_files(#args{trusted=Fs}, trust) -> 
+  files_and_dirs(Fs, [], fun test_erl_file/1).
 
--spec test_erl_file_exclude_ann(string()) -> boolean().
+-spec test_erl_file_exclude_ann(file:filename()) -> boolean().
 
 test_erl_file_exclude_ann(File) ->
   case filename:extension(File) of
@@ -50,57 +48,53 @@ test_erl_file_exclude_ann(File) ->
     _ -> false
   end.
 
--spec test_erl_file(string()) -> boolean().
+-spec test_erl_file(file:filename()) -> boolean().
 
 test_erl_file(File) ->
   filename:extension(File) =:= ".erl".
 
--spec internal_get_all_files([string()], [string()],
-			     fun((string()) -> boolean())) -> [string()].
+-spec files_and_dirs([file:filename()], [file:filename()],
+		     fun((file:filename()) -> boolean())) -> [file:filename()].
 
-internal_get_all_files(File_Dir, Dir_R, Fun) ->
+files_and_dirs(File_Dir, Dir_R, Fun) ->
   All_File_1 = process_file_and_dir(File_Dir, Fun),
-  All_File_2 = process_dir_recursively(Dir_R, Fun),
+  All_File_2 = process_dir_rec(Dir_R, Fun),
   remove_dup(All_File_1 ++ All_File_2).
 
--spec process_file_and_dir([string()],
-			   fun((string()) -> boolean())) -> [string()].
+-spec process_file_and_dir([file:filename()],
+			   fun((file:filename()) -> boolean())) -> [file:filename()].
 
 process_file_and_dir(File_Dir, TestFun) ->
   Fun =
     fun (Elem, Acc) ->
 	case filelib:is_regular(Elem) of
 	  true  -> process_file(Elem, TestFun, Acc);
-	  false -> check_dir(Elem, non_recursive, Acc, TestFun)
+	  false -> check_dir(Elem, false, Acc, TestFun)
 	end
     end,
   lists:foldl(Fun, [], File_Dir).
 
--spec process_dir_recursively([string()],
-			      fun((string()) -> boolean())) -> [string()].
+-spec process_dir_rec([file:filename()],
+		      fun((file:filename()) -> boolean())) -> [file:filename()].
 
-process_dir_recursively(Dirs, TestFun) ->
-  Fun = fun (Dir, Acc) ->
-	    check_dir(Dir, recursive, Acc, TestFun)
-	end,
+process_dir_rec(Dirs, TestFun) ->
+  Fun = fun (Dir, Acc) -> check_dir(Dir, true, Acc, TestFun) end,
   lists:foldl(Fun, [], Dirs).
 
--spec check_dir(string(),
-		'non_recursive' | 'recursive',
-		[string()],
-		fun((string()) -> boolean())) -> [string()].
+-spec check_dir(file:filename(), boolean(), [file:filename()],
+		fun((file:filename()) -> boolean())) -> [file:filename()].
 
-check_dir(Dir, Mode, Acc, Fun) ->
+check_dir(Dir, Recursive, Acc, Fun) ->
   case file:list_dir(Dir) of
     {ok, Files} ->
       {TmpDirs, TmpFiles} = split_dirs_and_files(Files, Dir),
-      case Mode of
-	non_recursive ->
+      case Recursive of
+	false ->
 	  FinalFiles = process_file_and_dir(TmpFiles, Fun),
 	  Acc ++ FinalFiles;
-	recursive ->
+	true ->
 	  TmpAcc1 = process_file_and_dir(TmpFiles, Fun),
-	  TmpAcc2 = process_dir_recursively(TmpDirs, Fun),
+	  TmpAcc2 = process_dir_rec(TmpDirs, Fun),
 	  Acc ++ TmpAcc1 ++ TmpAcc2
       end;
     {error, eacces} ->
@@ -112,7 +106,7 @@ check_dir(Dir, Mode, Acc, Fun) ->
   end.
 
 %% Same order as the input list
--spec process_file(string(), fun((string()) -> boolean()), string()) -> [string()].
+-spec process_file(file:filename(), fun((file:filename()) -> boolean()), [file:filename()]) -> [file:filename()].
 
 process_file(File, TestFun, Acc) ->
   case TestFun(File) of
@@ -121,7 +115,7 @@ process_file(File, TestFun, Acc) ->
   end.
 
 %% Same order as the input list
--spec split_dirs_and_files([string()], string()) -> {[string()], [string()]}.
+-spec split_dirs_and_files([file:filename()], file:filename()) -> {[file:filename()], [file:filename()]}.
 
 split_dirs_and_files(Elems, Dir) ->
   Test_Fun =
@@ -141,7 +135,7 @@ split_dirs_and_files(Elems, Dir) ->
 
 %% Removes duplicate filenames but it keeps the order of the input list
 
--spec remove_dup([string()]) -> [string()].
+-spec remove_dup([file:filename()]) -> [file:filename()].
 
 remove_dup(Files) ->
   Test_Dup = fun (File, Acc) ->

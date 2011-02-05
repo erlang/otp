@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -52,12 +52,18 @@ collect(Analysis) ->
   NewCServer =
     try
       NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer),
+      NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer),
       OldRecords = dialyzer_plt:get_types(NewPlt),
+      OldExpTypes = dialyzer_plt:get_exported_types(NewPlt),
       MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
+      MergedExpTypes = sets:union(NewExpTypes, OldExpTypes),
       %% io:format("Merged Records ~p",[MergedRecords]),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer),
-      TmpCServer2 = dialyzer_utils:process_record_remote_types(TmpCServer1),
-      dialyzer_contracts:process_contract_remote_types(TmpCServer2)
+      TmpCServer2 =
+        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
+                                                       TmpCServer1),
+      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
+      dialyzer_contracts:process_contract_remote_types(TmpCServer3)
     catch
       throw:{error, ErrorMsg} ->
 	typer:error(ErrorMsg)
@@ -80,18 +86,20 @@ collect_one_file_info(File, Analysis) ->
 	{ok, Core} ->
 	  case dialyzer_utils:get_record_and_type_info(AbstractCode) of
 	    {error, Reason} -> typer:compile_error([Reason]);
-	    {ok, Records} -> 
+	    {ok, Records} ->
 	      Mod = list_to_atom(filename:basename(File, ".erl")),
 	      case dialyzer_utils:get_spec_info(Mod, AbstractCode, Records) of
 		{error, Reason} -> typer:compile_error([Reason]);
-		{ok, SpecInfo} -> 
-		  analyze_core_tree(Core, Records, SpecInfo, Analysis, File)
+		{ok, SpecInfo} ->
+                  ExpTypes = get_exported_types_from_core(Core),
+		  analyze_core_tree(Core, Records, SpecInfo, ExpTypes,
+                                    Analysis, File)
 	      end
 	  end
       end
   end.
 
-analyze_core_tree(Core, Records, SpecInfo, Analysis, File) ->
+analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   Module = list_to_atom(filename:basename(File, ".erl")),
   TmpTree = cerl:from_records(Core),
   CS1 = Analysis#typer_analysis.code_server,
@@ -101,6 +109,9 @@ analyze_core_tree(Core, Records, SpecInfo, Analysis, File) ->
   CS3 = dialyzer_codeserver:set_next_core_label(NewLabel, CS2),
   CS4 = dialyzer_codeserver:store_temp_records(Module, Records, CS3),
   CS5 = dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CS4),
+  OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CS5),
+  MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
+  CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),
   Ex_Funcs = [{0,F,A} || {_,_,{F,A}} <- cerl:module_exports(Tree)],
   TmpCG = Analysis#typer_analysis.callgraph,
   CG = dialyzer_callgraph:scan_core_tree(Tree, TmpCG),
@@ -122,7 +133,7 @@ analyze_core_tree(Core, Records, SpecInfo, Analysis, File) ->
   RecordMap = typer_map:insert({File, Records}, Analysis#typer_analysis.record),
   Analysis#typer_analysis{final_files=Final_Files,
 			  callgraph=CG,
-			  code_server=CS5,
+			  code_server=CS6,
 			  ex_func=Exported_FuncMap,
 			  inc_func=IncFuncMap,
 			  record=RecordMap,
@@ -160,3 +171,16 @@ get_dialyzer_plt(#typer_analysis{plt = PltFile0}) ->
       false -> PltFile0
     end,
   dialyzer_plt:from_file(PltFile).
+
+
+%% Exported Types
+
+get_exported_types_from_core(Core) ->
+  Attrs = cerl:module_attrs(Core),
+  ExpTypes1 = [cerl:concrete(L2) || {L1, L2} <- Attrs,
+                                    cerl:is_literal(L1),
+                                    cerl:is_literal(L2),
+                                    cerl:concrete(L1) =:= 'export_type'],
+  ExpTypes2 = lists:flatten(ExpTypes1),
+  M = cerl:atom_val(cerl:module_name(Core)),
+  sets:from_list([{M, F, A} || {F, A} <- ExpTypes2]).
