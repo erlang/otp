@@ -23,9 +23,9 @@
 -export([collect/1]).
 
 -type func_info() :: {non_neg_integer(), atom(), arity()}.
--type inc_file_info() :: {string(), func_info()}.
+-type inc_file_info() :: {file:filename(), func_info()}.
 
--record(tmpAcc, {file		:: string(),
+-record(tmpAcc, {file		:: file:filename(),
 		 module		:: atom(),
 		 funcAcc=[]	:: [func_info()],
 		 incFuncAcc=[]	:: [inc_file_info()],
