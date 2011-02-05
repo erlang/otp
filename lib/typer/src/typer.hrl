@@ -36,6 +36,7 @@
 	 callgraph   = dialyzer_callgraph:new() :: dialyzer_callgraph:callgraph(),
 	 ana_files   = []			:: [file:filename()],   % absolute filenames
 	 plt         = none			:: 'none' | file:filename(),
+	 no_spec     = false                    :: boolean(),
 	 
 	 %% Esp for TypEr
 	 %% ----------------------

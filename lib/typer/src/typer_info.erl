@@ -108,7 +108,11 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   CS2 = dialyzer_codeserver:insert(Module, Tree, CS1),
   CS3 = dialyzer_codeserver:set_next_core_label(NewLabel, CS2),
   CS4 = dialyzer_codeserver:store_temp_records(Module, Records, CS3),
-  CS5 = dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CS4),
+  CS5 =
+    case Analysis#typer_analysis.no_spec of
+      true -> CS4;
+      false -> dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CS4)
+    end,
   OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CS5),
   MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
   CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),

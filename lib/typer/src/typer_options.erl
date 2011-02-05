@@ -60,6 +60,7 @@ analyze_args(ArgList, Args, Analysis) ->
 
 cl(["-h"|_])     -> help_message();
 cl(["--help"|_]) -> help_message();
+cl(["--no_spec"|Opts]) -> {no_spec, Opts};
 cl(["-v"|_])        -> version_message();
 cl(["--version"|_]) -> version_message();
 cl(["--comments"|Opts]) -> {comments, Opts};
@@ -131,7 +132,10 @@ analyze_result({inc, Val}, Args, Analysis) ->
   NewVal = Analysis#typer_analysis.includes ++ [Val],
   {Args, Analysis#typer_analysis{includes = NewVal}};
 analyze_result({plt, Plt}, Args, Analysis) ->
-  {Args, Analysis#typer_analysis{plt = Plt}}.
+  {Args, Analysis#typer_analysis{plt = Plt}};
+analyze_result(no_spec, Args, Analysis) ->
+  {Args, Analysis#typer_analysis{no_spec = true}}.
+
 
 %%--------------------------------------------------------------------
 
