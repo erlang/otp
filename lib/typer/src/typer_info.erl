@@ -87,7 +87,7 @@ collect_one_file_info(File, Analysis) ->
 	  case dialyzer_utils:get_record_and_type_info(AbstractCode) of
 	    {error, Reason} -> typer:compile_error([Reason]);
 	    {ok, Records} ->
-	      Mod = list_to_atom(filename:basename(File, ".erl")),
+	      Mod = cerl:concrete(cerl:module_name(Core)),
 	      case dialyzer_utils:get_spec_info(Mod, AbstractCode, Records) of
 		{error, Reason} -> typer:compile_error([Reason]);
 		{ok, SpecInfo} ->
@@ -100,7 +100,7 @@ collect_one_file_info(File, Analysis) ->
   end.
 
 analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
-  Module = list_to_atom(filename:basename(File, ".erl")),
+  Module = cerl:concrete(cerl:module_name(Core)),
   TmpTree = cerl:from_records(Core),
   CS1 = Analysis#typer_analysis.code_server,
   NextLabel = dialyzer_codeserver:get_next_core_label(CS1),
