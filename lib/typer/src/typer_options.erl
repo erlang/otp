@@ -60,7 +60,6 @@ analyze_args(ArgList, Args, Analysis) ->
 
 cl(["-h"|_])     -> help_message();
 cl(["--help"|_]) -> help_message();
-cl(["--no_spec"|Opts]) -> {no_spec, Opts};
 cl(["-v"|_])        -> version_message();
 cl(["--version"|_]) -> version_message();
 cl(["--comments"|Opts]) -> {comments, Opts};
@@ -69,6 +68,7 @@ cl(["--show_exported"|Opts]) -> {{mode, ?SHOW_EXPORTED}, Opts};
 cl(["--show-exported"|Opts]) -> {{mode, ?SHOW_EXPORTED}, Opts};
 cl(["--annotate"|Opts]) -> {{mode, ?ANNOTATE}, Opts};
 cl(["--annotate-inc-files"|Opts]) -> {{mode, ?ANNOTATE_INC_FILES}, Opts};
+cl(["--no_spec"|Opts]) -> {no_spec, Opts};
 cl(["--plt",Plt|Opts]) -> {{plt, Plt}, Opts};
 cl(["-D"++Def|Opts]) ->
   case Def of
