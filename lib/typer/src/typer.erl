@@ -433,7 +433,7 @@ get_functions(File, Analysis) ->
 normalize_incFuncs(Functions) ->
   [FunInfo || {_FileName, FunInfo} <- Functions].
 
--spec remove_module_info([fun_info()]) -> [fun_info()].
+-spec remove_module_info([func_info()]) -> [func_info()].
 
 remove_module_info(FunInfoList) ->
   F = fun ({_,module_info,0}) -> false;
@@ -873,15 +873,14 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   CG = dialyzer_callgraph:scan_core_tree(Tree, TmpCG),
   Fun = fun analyze_one_function/2,
   All_Defs = cerl:module_defs(Tree),
-  Acc = lists:foldl(Fun, #tmpAcc{file=File, module=Module}, All_Defs),
+  Acc = lists:foldl(Fun, #tmpAcc{file = File, module = Module}, All_Defs),
   Exported_FuncMap = map__insert({File, Ex_Funcs}, Analysis#analysis.ex_func),
-  %% NOTE: we must sort all functions in the file which
+  %% we must sort all functions in the file which
   %% originate from this file by *numerical order* of lineNo
   Sorted_Functions = lists:keysort(1, Acc#tmpAcc.funcAcc),
   FuncMap = map__insert({File, Sorted_Functions}, Analysis#analysis.func),
-  %% NOTE: However we do not need to sort functions
-  %% which are imported from included files.
-  IncFuncMap = map__insert({File, Acc#tmpAcc.incFuncAcc}, 
+  %% we do not need to sort functions which are imported from included files
+  IncFuncMap = map__insert({File, Acc#tmpAcc.incFuncAcc},
 			   Analysis#analysis.inc_func),
   FMs = Analysis#analysis.fms ++ [{File, Module}],
   RecordMap = map__insert({File, Records}, Analysis#analysis.record),
@@ -983,13 +982,15 @@ msg(Msg) ->
 %%--------------------------------------------------------------------
 
 -spec version_message() -> no_return().
+
 version_message() ->
   io:format("TypEr version "++?VSN++"\n"),
   erlang:halt(0).
 
 -spec help_message() -> no_return().
+
 help_message() ->
-  S = " Usage: typer [--help] [--version] [--plt PLT] [--edoc]
+  S = <<" Usage: typer [--help] [--version] [--plt PLT] [--edoc]
               [--show | --show-exported | --annotate | --annotate-inc-files]
               [-Ddefine]* [-I include_dir]* [-T application]* [-r] file*
 
@@ -1028,7 +1029,7 @@ help_message() ->
 
  Note:
    * denotes that multiple occurrences of these options are possible.
-",
+">>,
   io:put_chars(S),
   erlang:halt(0).
 
