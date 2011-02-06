@@ -27,34 +27,23 @@
 
 -record(typer_analysis,
 	{mode					:: mode(),
-	 macros      = []			:: [{atom(), _}], % {macro_name, value}
+	 macros      = []			:: [{atom(), term()}], % {macro_name, value}
 	 includes    = []			:: [file:filename()],
-	 
-	 %% Esp for Dialyzer
-	 %% ----------------------
+	 %% --- for dialyzer ---
 	 code_server = dialyzer_codeserver:new():: dialyzer_codeserver:codeserver(),
 	 callgraph   = dialyzer_callgraph:new() :: dialyzer_callgraph:callgraph(),
 	 ana_files   = []			:: [file:filename()],   % absolute filenames
 	 plt         = none			:: 'none' | file:filename(),
 	 no_spec     = false                    :: boolean(),
-	 
-	 %% Esp for TypEr
-	 %% ----------------------
+	 %% --- for typer ---
 	 t_files     = []			:: [file:filename()], 
-	 
 	 %% For choosing between contracts or comments
 	 contracts   = true			:: boolean(),
-	 
-	 %% Any file in 'final_files' is compilable.
-	 %% And we need to keep it as {FileName,ModuleName}
-	 %% in case filename does NOT match with moduleName
+	 %% Files in 'final_files' are compilable with option 'to_pp'; we keep
+	 %% them as {FileName, ModuleName} in case the ModuleName is different
 	 final_files = []			:: [{file:filename(), module()}],
-	 
 	 ex_func     = typer_map:new()		:: dict(),
 	 record      = typer_map:new()		:: dict(),
-	 
-	 %% Functions: the line number of the function 
-	 %%            should be kept as well
 	 func        = typer_map:new()		:: dict(),
 	 inc_func    = typer_map:new()		:: dict(),
 	 trust_plt   = dialyzer_plt:new()	:: dialyzer_plt:plt()}).
