@@ -4,9 +4,7 @@
  [{description, "TYPe annotator for ERlang programs, version %VSN%"},
   {vsn, "%VSN%"},
   {modules, [typer,
-	     typer_annotator,
-	     typer_info,
-	     typer_options]},
+	     typer_annotator]},
   {registered, []},
   {applications, [compiler, dialyzer, hipe, kernel, stdlib]},
   {env, []}]}.

@@ -45,9 +45,7 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES = typer \
-	typer_annotator \
-	typer_info
+MODULES = typer typer_annotator
 
 HRL_FILES= typer.hrl
 ERL_FILES= $(MODULES:%=%.erl)
