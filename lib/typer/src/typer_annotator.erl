@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,46 +34,46 @@
 
 -include("typer.hrl").
 
-%%----------------------------------------------------------------------------
+ %%----------------------------------------------------------------------------
 
 -define(TYPER_ANN_DIR, "typer_ann").
 
--type func_info() :: {non_neg_integer(), atom(), arity()}.
+-type fun_info() :: {non_neg_integer(), atom(), arity()}.
 
--record(info, {recMap = typer_map:new() :: dict(),
-	       funcs = []               :: [func_info()],
-	       typeMap                  :: dict(),
-	       contracts                :: boolean()}).
+-record(info, {records = typer_map:new() :: dict(),
+	       functions = []            :: [fun_info()],
+	       types                     :: dict(),
+	       no_comment_specs = true	 :: boolean()}).
 -record(inc, {map    = typer_map:new() :: dict(),
-	      filter = []              :: [string()]}).
+	      filter = []              :: [file:filename()]}).
 
 %%----------------------------------------------------------------------------
 
 -spec annotate(#typer_analysis{}) -> 'ok'.
 
-annotate(Analysis) ->
-  case Analysis#typer_analysis.mode of
+annotate(#typer_analysis{mode = Mode, final_files = Files} = Analysis) ->
+  case Mode of
     ?SHOW -> show(Analysis);
     ?SHOW_EXPORTED -> show(Analysis);
     ?ANNOTATE ->
-      Fun = fun({File, Module}) ->
+      Fun = fun ({File, Module}) ->
 		Info = get_final_info(File, Module, Analysis),
 		write_typed_file(File, Info)
 	    end,
-      lists:foreach(Fun, Analysis#typer_analysis.final_files);
+      lists:foreach(Fun, Files);
     ?ANNOTATE_INC_FILES ->
       IncInfo = write_and_collect_inc_info(Analysis),
       write_inc_files(IncInfo)
   end.
 
 write_and_collect_inc_info(Analysis) ->
-  Fun = fun({File, Module}, Inc) ->
+  Fun = fun ({File, Module}, Inc) ->
 	    Info = get_final_info(File, Module, Analysis),
 	    write_typed_file(File, Info),
 	    IncFuns = get_functions(File, Analysis),
-	    collect_imported_funcs(IncFuns, Info#info.typeMap, Inc)
+	    collect_imported_functions(IncFuns, Info#info.types, Inc)
 	end,
-  NewInc = lists:foldl(Fun,#inc{}, Analysis#typer_analysis.final_files),
+  NewInc = lists:foldl(Fun, #inc{}, Analysis#typer_analysis.final_files),
   clean_inc(NewInc).
 
 write_inc_files(Inc) ->
@@ -84,75 +84,75 @@ write_inc_files(Inc) ->
 	%% in form [{{Line,F,A},Type}]
 	Functions = [Key || {Key,_} <- Val],
 	Val1 = [{{F,A},Type} || {{_Line,F,A},Type} <- Val],
-	Info = #info{typeMap = typer_map:from_list(Val1),
-		     recMap = typer_map:new(),
+	Info = #info{types = typer_map:from_list(Val1),
+		     records = typer_map:new(),
 		     %% Note we need to sort functions here!
-		     funcs = lists:keysort(1, Functions)},
-	%% io:format("TypeMap ~p\n", [Info#info.typeMap]),
-	%% io:format("Funcs ~p\n", [Info#info.funcs]),
-	%% io:format("RecMap ~p\n", [Info#info.recMap]),
+		     functions = lists:keysort(1, Functions)},
+	%% io:format("Types ~p\n", [Info#info.types]),
+	%% io:format("Functions ~p\n", [Info#info.functions]),
+	%% io:format("Records ~p\n", [Info#info.records]),
 	write_typed_file(File, Info)
     end,
   lists:foreach(Fun, dict:fetch_keys(Inc#inc.map)).
 
 show(Analysis) ->
-  Fun = fun({File, Module}) -> 
+  Fun = fun ({File, Module}) ->
 	    Info = get_final_info(File, Module, Analysis),
-	    show_type_info_only(File, Info)
+	    show_type_info(File, Info)
 	end,
   lists:foreach(Fun, Analysis#typer_analysis.final_files).
 
 get_final_info(File, Module, Analysis) ->
-  RecMap = get_recMap(File, Analysis),
-  TypeMap = get_typeMap(Module, Analysis,RecMap),
+  Records = get_records(File, Analysis),
+  Types = get_types(Module, Analysis, Records),
   Functions = get_functions(File, Analysis),
-  Contracts = Analysis#typer_analysis.contracts,
-  #info{recMap=RecMap, funcs=Functions, typeMap=TypeMap, contracts=Contracts}.
+  Bool = Analysis#typer_analysis.contracts,
+  #info{records = Records, functions = Functions,
+	types = Types, no_comment_specs = Bool}.
 
-collect_imported_funcs(Funcs, TypeMap, TmpInc) ->
+collect_imported_functions(Functions, Types, Inc) ->
   %% Coming from other sourses, including:
   %% FIXME: How to deal with yecc-generated file????
   %%     --.yrl (yecc-generated file)???
   %%     -- yeccpre.hrl (yecc-generated file)???
   %%     -- other cases
-  Fun = fun({File,_} = Obj, Inc) ->
-	    case is_yecc_file(File, Inc) of
-	      {yecc_generated, NewInc} -> NewInc;
-	      {not_yecc, NewInc} ->
-		check_imported_funcs(Obj, NewInc, TypeMap)
+  Fun = fun ({File, _} = Obj, I) ->
+	    case is_yecc_gen(File, I) of
+	      {true, NewI} -> NewI;
+	      {false, NewI} ->
+		check_imported_functions(Obj, NewI, Types)
 	    end
 	end,
-  lists:foldl(Fun, TmpInc, Funcs).
+  lists:foldl(Fun, Inc, Functions).
 
--spec is_yecc_file(string(), #inc{}) -> {'not_yecc', #inc{}}
-				      | {'yecc_generated', #inc{}}.
-is_yecc_file(File, Inc) ->
-  case lists:member(File, Inc#inc.filter) of
-    true -> {yecc_generated, Inc};
+-spec is_yecc_gen(file:filename(), #inc{}) -> {boolean(), #inc{}}.
+
+is_yecc_gen(File, #inc{filter = Fs} = Inc) ->
+  case lists:member(File, Fs) of
+    true -> {true, Inc};
     false ->
       case filename:extension(File) of
 	".yrl" ->
 	  Rootname = filename:rootname(File, ".yrl"),
 	  Obj = Rootname ++ ".erl",
-	  case lists:member(Obj, Inc#inc.filter) of
-	    true -> {yecc_generated, Inc};
+	  case lists:member(Obj, Fs) of
+	    true -> {true, Inc};
 	    false ->
-	      NewFilter = [Obj|Inc#inc.filter],
-	      NewInc = Inc#inc{filter = NewFilter},
-	      {yecc_generated, NewInc}
+	      NewInc = Inc#inc{filter = [Obj|Fs]},
+	      {true, NewInc}
 	  end;
 	_ ->
 	  case filename:basename(File) of
-	    "yeccpre.hrl" -> {yecc_generated, Inc};
-	    _ -> {not_yecc, Inc}
+	    "yeccpre.hrl" -> {true, Inc};
+	    _ -> {false, Inc}
 	  end
       end
   end.
 
-check_imported_funcs({File, {Line, F, A}}, Inc, TypeMap) ->
+check_imported_functions({File, {Line, F, A}}, Inc, Types) ->
   IncMap = Inc#inc.map,
   FA = {F, A},
-  Type = get_type_info(FA, TypeMap),
+  Type = get_type_info(FA, Types),
   case typer_map:lookup(File, IncMap) of
     none -> %% File is not added. Add it
       Obj = {File,[{FA, {Line, Type}}]},
@@ -190,25 +190,24 @@ clean_inc(Inc) ->
   Inc1 = remove_yecc_generated_file(Inc),
   normalize_obj(Inc1).
 
-remove_yecc_generated_file(TmpInc) ->
-  Fun = fun(Key, Inc) ->
-	    NewMap = typer_map:remove(Key, Inc#inc.map),
-	    Inc#inc{map = NewMap}
+remove_yecc_generated_file(#inc{filter = Filter} = Inc) ->
+  Fun = fun (Key, #inc{map = Map} = I) ->
+	    I#inc{map = typer_map:remove(Key, Map)}
 	end,
-  lists:foldl(Fun, TmpInc, TmpInc#inc.filter).
-  
+  lists:foldl(Fun, Inc, Filter).
+
 normalize_obj(TmpInc) ->
-  Fun = fun(Key, Val, Inc) ->
+  Fun = fun (Key, Val, Inc) ->
 	    NewVal = [{{Line,F,A},Type} || {{F,A},{Line,Type}} <- Val],
 	    typer_map:insert({Key,NewVal}, Inc)
 	end,
   NewMap = typer_map:fold(Fun, typer_map:new(), TmpInc#inc.map),
   TmpInc#inc{map = NewMap}.
 
-get_recMap(File, Analysis) ->
+get_records(File, Analysis) ->
   typer_map:lookup(File, Analysis#typer_analysis.record).
 
-get_typeMap(Module, Analysis, RecMap) ->
+get_types(Module, Analysis, Records) ->
   TypeInfoPlt = Analysis#typer_analysis.trust_plt,
   TypeInfo = 
     case dialyzer_plt:lookup_module(TypeInfoPlt, Module) of
@@ -216,10 +215,10 @@ get_typeMap(Module, Analysis, RecMap) ->
       {value, List} -> List
     end,
   CodeServer = Analysis#typer_analysis.code_server,
-  TypeInfoList = [get_type(I, CodeServer, RecMap) || I <- TypeInfo],
+  TypeInfoList = [get_type(I, CodeServer, Records) || I <- TypeInfo],
   typer_map:from_list(TypeInfoList).
 
-get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, RecMap) ->
+get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
   case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
     error ->
       {{F, A}, {Range, Arg}};
@@ -231,7 +230,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, RecMap) ->
 	  {{F, A}, {contract, Contract}};
 	{error, invalid_contract} ->
 	  CString = dialyzer_contracts:contract_to_string(Contract),
-	  SigString = dialyzer_utils:format_sig(Sig, RecMap),
+	  SigString = dialyzer_utils:format_sig(Sig, Records),
 	  typer:error(
 	    io_lib:format("Error in contract of function ~w:~w/~w\n" 
 			  "\t The contract is: " ++ CString ++ "\n" ++
@@ -260,17 +259,17 @@ get_functions(File, Analysis) ->
       typer_map:lookup(File, Analysis#typer_analysis.inc_func)
   end.
 
-normalize_incFuncs(Funcs) ->
-  [FuncInfo || {_FileName, FuncInfo} <- Funcs].
+normalize_incFuncs(Functions) ->
+  [FunInfo || {_FileName, FunInfo} <- Functions].
 
--spec remove_module_info([func_info()]) -> [func_info()].
+-spec remove_module_info([fun_info()]) -> [fun_info()].
 
-remove_module_info(FuncInfoList) ->
+remove_module_info(FunInfoList) ->
   F = fun ({_,module_info,0}) -> false;
 	  ({_,module_info,1}) -> false;
 	  ({Line,F,A}) when is_integer(Line), is_atom(F), is_integer(A) -> true
       end,
-  lists:filter(F, FuncInfoList).
+  lists:filter(F, FunInfoList).
 
 write_typed_file(File, Info) ->
   io:format("      Processing file: ~p\n", [File]),
@@ -278,7 +277,7 @@ write_typed_file(File, Info) ->
   RootName = filename:basename(filename:rootname(File)),
   Ext = filename:extension(File),
   TyperAnnDir = filename:join(Dir, ?TYPER_ANN_DIR),
-  TmpNewFilename = lists:concat([RootName,".ann",Ext]),
+  TmpNewFilename = lists:concat([RootName, ".ann", Ext]),
   NewFileName = filename:join(TyperAnnDir, TmpNewFilename),
   case file:make_dir(TyperAnnDir) of
     {error, Reason} ->
@@ -291,7 +290,7 @@ write_typed_file(File, Info) ->
 	eacces ->
 	  io:format("  No write permission in ~p\n", [Dir]);
 	_ ->
-	  io:format("Unknown error when writing ~p\n", [Dir]),
+	  io:format("Unhandled error ~s when writing ~p\n", [Reason, Dir]),
 	  halt()
       end;
     ok -> %% Typer dir does NOT exist
@@ -304,14 +303,14 @@ write_typed_file(File, Info, NewFileName) ->
   write_typed_file(Chars, NewFileName, Info, 1, []),
   io:format("             Saved as: ~p\n", [NewFileName]).
 
-write_typed_file(Chars, File, #info{funcs = []}, _LNo, _Acc) ->
+write_typed_file(Chars, File, #info{functions = []}, _LNo, _Acc) ->
   ok = file:write_file(File, list_to_binary(Chars), [append]);
 write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc) ->
-  [{Line,F,A}|RestFuncs] = Info#info.funcs,
+  [{Line,F,A}|RestFuncs] = Info#info.functions,
   case Line of
     1 -> %% This will happen only for inc files
       ok = raw_write(F, A, Info, File, []),
-      NewInfo = Info#info{funcs = RestFuncs},
+      NewInfo = Info#info{functions = RestFuncs},
       NewAcc = [],
       write_typed_file(Chars, File, NewInfo, Line, NewAcc);
     _ ->
@@ -322,7 +321,7 @@ write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc) ->
 	    case NewLineNo of
 	      Line ->
 		ok = raw_write(F, A, Info, File, [Ch|Acc]),
-		{Info#info{funcs = RestFuncs}, []};
+		{Info#info{functions = RestFuncs}, []};
 	      _ ->
 		{Info, [Ch|Acc]}
 	    end,
@@ -339,16 +338,16 @@ raw_write(F, A, Info, File, Content) ->
   file:write_file(File, ContentBin, [append]).
 
 get_type_string(F, A, Info, Mode) ->
-  Type = get_type_info({F,A}, Info#info.typeMap),
+  Type = get_type_info({F,A}, Info#info.types),
   TypeStr =
     case Type of
       {contract, C} -> 
         dialyzer_contracts:contract_to_string(C);
       {RetType, ArgType} ->
-        dialyzer_utils:format_sig(erl_types:t_fun(ArgType, RetType),
-				  Info#info.recMap)
+	Sig = erl_types:t_fun(ArgType, RetType),
+        dialyzer_utils:format_sig(Sig, Info#info.records)
     end,
-  case Info#info.contracts of
+  case Info#info.no_comment_specs of
     true ->
       case {Mode, Type} of
 	{file, {contract, _}} -> "";
@@ -361,7 +360,7 @@ get_type_string(F, A, Info, Mode) ->
       lists:concat([Prefix, TypeStr, "."])
   end.
  
-show_type_info_only(File, Info) ->
+show_type_info(File, Info) ->
   io:format("\n%% File: ~p\n%% ", [File]),
   OutputString = lists:concat(["~.", length(File)+8, "c~n"]),
   io:fwrite(OutputString, [$-]),
@@ -369,10 +368,10 @@ show_type_info_only(File, Info) ->
 	    TypeInfo = get_type_string(F, A, Info, show),
 	    io:format("~s\n", [TypeInfo])
 	end,
-  lists:foreach(Fun, Info#info.funcs).
+  lists:foreach(Fun, Info#info.functions).
 
-get_type_info(Func, TypeMap) ->
-  case typer_map:lookup(Func, TypeMap) of
+get_type_info(Func, Types) ->
+  case typer_map:lookup(Func, Types) of
     none ->
       %% Note: Typeinfo of any function should exist in
       %% the result offered by dialyzer, otherwise there 
