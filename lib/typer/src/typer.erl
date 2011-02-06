@@ -46,27 +46,24 @@
 -type files() :: [file:filename()].
 
 -record(analysis,
-	{mode					:: mode(),
-	 macros      = []			:: [{atom(), term()}], % {macro_name, value}
-	 includes    = []			:: files(),
-	 %% --- for dialyzer ---
+	{mode				  :: mode(),
+	 macros      = []		  :: [{atom(), term()}], % {macro_name, value}
+	 includes    = []		  :: files(),
 	 code_server = dialyzer_codeserver:new():: dialyzer_codeserver:codeserver(),
 	 callgraph   = dialyzer_callgraph:new() :: dialyzer_callgraph:callgraph(),
-	 ana_files   = []			:: files(),   % absolute names
-	 plt         = none			:: 'none' | file:filename(),
-	 no_spec     = false                    :: boolean(),
-	 %% --- for typer ---
-	 t_files     = []			:: files(),
+	 files       = []		  :: files(),   % absolute names
+	 plt         = none		  :: 'none' | file:filename(),
+	 no_spec     = false              :: boolean(),
 	 %% For choosing between specs or edoc @spec comments
-	 edoc        = false			:: boolean(),
-	 %% Files in 'final_files' are compilable with option 'to_pp'; we keep
-	 %% them as {FileName, ModuleName} in case the ModuleName is different
-	 final_files = []			:: [{file:filename(), module()}],
-	 ex_func     = map__new()		:: map(),
-	 record      = map__new()		:: map(),
-	 func        = map__new()		:: map(),
-	 inc_func    = map__new()		:: map(),
-	 trust_plt   = dialyzer_plt:new()	:: dialyzer_plt:plt()}).
+	 edoc        = false		  :: boolean(),
+	 %% Files in 'fms' are compilable with option 'to_pp'; we keep them
+	 %% as {FileName, ModuleName} in case the ModuleName is different
+	 fms         = []		  :: [{file:filename(), module()}],
+	 ex_func     = map__new()	  :: map(),
+	 record      = map__new()	  :: map(),
+	 func        = map__new()	  :: map(),
+	 inc_func    = map__new()	  :: map(),
+	 trust_plt   = dialyzer_plt:new() :: dialyzer_plt:plt()}).
 -type analysis() :: #analysis{}.
 
 -record(args, {files   = [] :: files(),
@@ -83,13 +80,12 @@ start() ->
   %% io:format("Args: ~p\n", [Args]),
   %% io:format("Analysis: ~p\n", [Analysis]),
   TrustedFiles = filter_fd(Args#args.trusted, [], fun is_erl_file/1),
-  Analysis1 = Analysis#analysis{t_files = TrustedFiles},
-  Analysis2 = extract(Analysis1),
+  Analysis2 = extract(Analysis, TrustedFiles),
   All_Files = get_all_files(Args),
   %% io:format("All_Files: ~p\n", [All_Files]),
-  Analysis3 = Analysis2#analysis{ana_files = All_Files},
+  Analysis3 = Analysis2#analysis{files = All_Files},
   Analysis4 = collect_info(Analysis3),
-  %% io:format("Final: ~p\n", [Analysis4#analysis.final_files]),
+  %% io:format("Final: ~p\n", [Analysis4#analysis.fms]),
   TypeInfo = get_type_info(Analysis4),
   show_or_annotate(TypeInfo),
   %% io:format("\nTyper analysis finished\n"),
@@ -97,10 +93,11 @@ start() ->
 
 %%--------------------------------------------------------------------
 
--spec extract(analysis()) -> analysis().
+-spec extract(analysis(), files()) -> analysis().
 
-extract(#analysis{macros = Macros, includes = Includes,
-		  t_files = TFiles, trust_plt = TrustPLT} = Analysis) ->
+extract(#analysis{macros = Macros,
+		  includes = Includes,
+		  trust_plt = TrustPLT} = Analysis, TrustedFiles) ->
   %% io:format("--- Extracting trusted typer_info... "),
   Ds = [{d, Name, Value} || {Name, Value} <- Macros],
   CodeServer = dialyzer_codeserver:new(),
@@ -128,7 +125,7 @@ extract(#analysis{macros = Macros, includes = Includes,
 	  {error, Reason} -> compile_error(Reason)
 	end
     end,
-  CodeServer1 = lists:foldl(Fun, CodeServer, TFiles),
+  CodeServer1 = lists:foldl(Fun, CodeServer, TrustedFiles),
   %% Process remote types
   NewCodeServer =
     try
@@ -224,7 +221,7 @@ get_external(Exts, Plt) ->
 
 -spec show_or_annotate(analysis()) -> 'ok'.
 
-show_or_annotate(#analysis{mode = Mode, final_files = Files} = Analysis) ->
+show_or_annotate(#analysis{mode = Mode, fms = Files} = Analysis) ->
   case Mode of
     ?SHOW -> show(Analysis);
     ?SHOW_EXPORTED -> show(Analysis);
@@ -246,7 +243,7 @@ write_and_collect_inc_info(Analysis) ->
 	    IncFuns = get_functions(File, Analysis),
 	    collect_imported_functions(IncFuns, Info#info.types, Inc)
 	end,
-  NewInc = lists:foldl(Fun, #inc{}, Analysis#analysis.final_files),
+  NewInc = lists:foldl(Fun, #inc{}, Analysis#analysis.fms),
   clean_inc(NewInc).
 
 write_inc_files(Inc) ->
@@ -273,7 +270,7 @@ show(Analysis) ->
 	    Info = get_final_info(File, Module, Analysis),
 	    show_type_info(File, Info)
 	end,
-  lists:foreach(Fun, Analysis#analysis.final_files).
+  lists:foreach(Fun, Analysis#analysis.fms).
 
 get_final_info(File, Module, Analysis) ->
   Records = get_records(File, Analysis),
@@ -455,12 +452,15 @@ write_typed_file(File, Info) ->
 	  ok = file:delete(NewFileName),
 	  write_typed_file(File, Info, NewFileName);
 	enospc ->
-	  io:format("  Not enough space in ~p\n", [Dir]);
+	  Msg = io_lib:format("Not enough space in ~p\n", [Dir]),
+	  fatal_error(Msg);
 	eacces ->
-	  io:format("  No write permission in ~p\n", [Dir]);
+	  Msg = io:format("No write permission in ~p\n", [Dir]),
+	  fatal_error(Msg);
 	_ ->
-	  io:format("Unhandled error ~s when writing ~p\n", [Reason, Dir]),
-	  halt()
+	  Msg = io_lib:format("Unhandled error ~s when writing ~p\n",
+			      [Reason, Dir]),
+	  fatal_error(Msg)
       end;
     ok -> %% Typer dir does NOT exist
       write_typed_file(File, Info, NewFileName)
@@ -772,7 +772,8 @@ remove_dup(Files) ->
 %% Collect information.
 %%--------------------------------------------------------------------
 
--type func_info() :: {non_neg_integer(), atom(), arity()}.
+-type line()          :: non_neg_integer().
+-type func_info()     :: {line(), atom(), arity()}.
 -type inc_file_info() :: {file:filename(), func_info()}.
 
 -record(tmpAcc, {file		  :: file:filename(),
@@ -794,7 +795,7 @@ collect_info(Analysis) ->
     end,
   NewAnalysis = lists:foldl(fun collect_one_file_info/2, 
 			    Analysis#analysis{trust_plt = NewPlt}, 
-			    Analysis#analysis.ana_files),
+			    Analysis#analysis.files),
   %% Process Remote Types
   TmpCServer = NewAnalysis#analysis.code_server,
   NewCServer =
@@ -879,9 +880,9 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   %% which are imported from included files.
   IncFuncMap = map__insert({File, Acc#tmpAcc.incFuncAcc}, 
 			   Analysis#analysis.inc_func),
-  Final_Files = Analysis#analysis.final_files ++ [{File, Module}],
+  FMs = Analysis#analysis.fms ++ [{File, Module}],
   RecordMap = map__insert({File, Records}, Analysis#analysis.record),
-  Analysis#analysis{final_files = Final_Files,
+  Analysis#analysis{fms = FMs,
 		    callgraph = CG,
 		    code_server = CS6,
 		    ex_func = Exported_FuncMap,
@@ -947,6 +948,7 @@ fatal_error(Slogan) ->
   erlang:halt(1).
 
 -spec mode_error(mode(), mode()) -> no_return().
+
 mode_error(OldMode, NewMode) ->
   Msg = io_lib:format("Mode was previously set to '~s'; "
 		      "can not set it to '~s' now",
