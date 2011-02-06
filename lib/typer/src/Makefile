@@ -45,9 +45,9 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES = typer typer_annotator
+MODULES = typer
 
-HRL_FILES= typer.hrl
+HRL_FILES=
 ERL_FILES= $(MODULES:%=%.erl)
 INSTALL_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 TARGET_FILES= $(INSTALL_FILES)
@@ -91,12 +91,9 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
 # ---------------------------------------------------------------------
-# dependencies -- I wish they were somehow automatically generated
+# dependencies
 # ---------------------------------------------------------------------
 
-$(EBIN)/typer.beam: typer.hrl
-$(EBIN)/typer_annotator.beam: typer.hrl
-$(EBIN)/typer_info.beam: typer.hrl
 
 # ----------------------------------------------------
 # Release Target

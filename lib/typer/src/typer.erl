@@ -31,8 +31,6 @@
 -module(typer).
 
 -export([start/0]).
--export([fatal_error/1]).	% for error reporting
--export([map__new/0, map__insert/2, map__lookup/2, map__from_list/1, map__remove/2, map__fold/3]).
 
 %%-----------------------------------------------------------------------
 
@@ -47,7 +45,7 @@
 
 -type files() :: [file:filename()].
 
--record(typer_analysis,
+-record(analysis,
 	{mode					:: mode(),
 	 macros      = []			:: [{atom(), term()}], % {macro_name, value}
 	 includes    = []			:: files(),
@@ -69,11 +67,12 @@
 	 func        = map__new()		:: map(),
 	 inc_func    = map__new()		:: map(),
 	 trust_plt   = dialyzer_plt:new()	:: dialyzer_plt:plt()}).
--type analysis() :: #typer_analysis{}.
+-type analysis() :: #analysis{}.
 
 -record(args, {files   = [] :: files(),
 	       files_r = [] :: files(),
 	       trusted = [] :: files()}).
+-type args() :: #args{}.
 
 %%--------------------------------------------------------------------
 
@@ -84,15 +83,15 @@ start() ->
   %% io:format("Args: ~p\n", [Args]),
   %% io:format("Analysis: ~p\n", [Analysis]),
   TrustedFiles = filter_fd(Args#args.trusted, [], fun is_erl_file/1),
-  Analysis1 = Analysis#typer_analysis{t_files = TrustedFiles},
+  Analysis1 = Analysis#analysis{t_files = TrustedFiles},
   Analysis2 = extract(Analysis1),
   All_Files = get_all_files(Args),
   %% io:format("All_Files: ~p\n", [All_Files]),
-  Analysis3 = Analysis2#typer_analysis{ana_files = All_Files},
+  Analysis3 = Analysis2#analysis{ana_files = All_Files},
   Analysis4 = collect_info(Analysis3),
-  %% io:format("Final: ~p\n", [Analysis4#typer_analysis.final_files]),
+  %% io:format("Final: ~p\n", [Analysis4#analysis.final_files]),
   TypeInfo = get_type_info(Analysis4),
-  typer_annotator:annotate(TypeInfo),
+  show_or_annotate(TypeInfo),
   %% io:format("\nTyper analysis finished\n"),
   erlang:halt(0).
 
@@ -100,8 +99,8 @@ start() ->
 
 -spec extract(analysis()) -> analysis().
 
-extract(#typer_analysis{macros = Macros, includes = Includes,
-			t_files = TFiles, trust_plt = TrustPLT} = Analysis) ->
+extract(#analysis{macros = Macros, includes = Includes,
+		  t_files = TFiles, trust_plt = TrustPLT} = Analysis) ->
   %% io:format("--- Extracting trusted typer_info... "),
   Ds = [{d, Name, Value} || {Name, Value} <- Macros],
   CodeServer = dialyzer_codeserver:new(),
@@ -154,21 +153,21 @@ extract(#typer_analysis{macros = Macros, includes = Includes,
 	dialyzer_plt:insert_contract_list(TmpPlt, SpecList)
     end,
   NewTrustPLT = lists:foldl(FoldFun, TrustPLT, Modules),
-  Analysis#typer_analysis{trust_plt = NewTrustPLT}.
+  Analysis#analysis{trust_plt = NewTrustPLT}.
 
 %%--------------------------------------------------------------------
 
 -spec get_type_info(analysis()) -> analysis().
 
-get_type_info(#typer_analysis{callgraph = CallGraph,
-			      trust_plt = TrustPLT,
-			      code_server = CodeServer} = Analysis) ->
+get_type_info(#analysis{callgraph = CallGraph,
+			trust_plt = TrustPLT,
+			code_server = CodeServer} = Analysis) ->
   StrippedCallGraph = remove_external(CallGraph, TrustPLT),
   %% io:format("--- Analyzing callgraph... "),
   try 
     NewPlt = dialyzer_succ_typings:analyze_callgraph(StrippedCallGraph, 
 						     TrustPLT, CodeServer),
-    Analysis#typer_analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
+    Analysis#analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
     error:What ->
       fatal_error(io_lib:format("Analysis failed with message: ~p", 
@@ -210,18 +209,361 @@ get_external(Exts, Plt) ->
   lists:foldl(Fun, [], Exts).
 
 %%--------------------------------------------------------------------
+%% Showing type information or annotating files with such information.
+%%--------------------------------------------------------------------
+
+-define(TYPER_ANN_DIR, "typer_ann").
+
+-type fun_info() :: {non_neg_integer(), atom(), arity()}.
+
+-record(info, {records = map__new() :: map(),
+	       functions = []       :: [fun_info()],
+	       types = map__new()   :: map(),
+	       edoc = false	    :: boolean()}).
+-record(inc, {map = map__new() :: map(), filter = [] :: files()}).
+
+-spec show_or_annotate(analysis()) -> 'ok'.
+
+show_or_annotate(#analysis{mode = Mode, final_files = Files} = Analysis) ->
+  case Mode of
+    ?SHOW -> show(Analysis);
+    ?SHOW_EXPORTED -> show(Analysis);
+    ?ANNOTATE ->
+      Fun = fun ({File, Module}) ->
+		Info = get_final_info(File, Module, Analysis),
+		write_typed_file(File, Info)
+	    end,
+      lists:foreach(Fun, Files);
+    ?ANNOTATE_INC_FILES ->
+      IncInfo = write_and_collect_inc_info(Analysis),
+      write_inc_files(IncInfo)
+  end.
+
+write_and_collect_inc_info(Analysis) ->
+  Fun = fun ({File, Module}, Inc) ->
+	    Info = get_final_info(File, Module, Analysis),
+	    write_typed_file(File, Info),
+	    IncFuns = get_functions(File, Analysis),
+	    collect_imported_functions(IncFuns, Info#info.types, Inc)
+	end,
+  NewInc = lists:foldl(Fun, #inc{}, Analysis#analysis.final_files),
+  clean_inc(NewInc).
+
+write_inc_files(Inc) ->
+  Fun =
+    fun (File) ->
+	Val = map__lookup(File, Inc#inc.map),
+	%% Val is function with its type info
+	%% in form [{{Line,F,A},Type}]
+	Functions = [Key || {Key,_} <- Val],
+	Val1 = [{{F,A},Type} || {{_Line,F,A},Type} <- Val],
+	Info = #info{types = map__from_list(Val1),
+		     records = map__new(),
+		     %% Note we need to sort functions here!
+		     functions = lists:keysort(1, Functions)},
+	%% io:format("Types ~p\n", [Info#info.types]),
+	%% io:format("Functions ~p\n", [Info#info.functions]),
+	%% io:format("Records ~p\n", [Info#info.records]),
+	write_typed_file(File, Info)
+    end,
+  lists:foreach(Fun, dict:fetch_keys(Inc#inc.map)).
+
+show(Analysis) ->
+  Fun = fun ({File, Module}) ->
+	    Info = get_final_info(File, Module, Analysis),
+	    show_type_info(File, Info)
+	end,
+  lists:foreach(Fun, Analysis#analysis.final_files).
+
+get_final_info(File, Module, Analysis) ->
+  Records = get_records(File, Analysis),
+  Types = get_types(Module, Analysis, Records),
+  Functions = get_functions(File, Analysis),
+  Edoc = Analysis#analysis.edoc,
+  #info{records = Records, functions = Functions, types = Types, edoc = Edoc}.
+
+collect_imported_functions(Functions, Types, Inc) ->
+  %% Coming from other sourses, including:
+  %% FIXME: How to deal with yecc-generated file????
+  %%     --.yrl (yecc-generated file)???
+  %%     -- yeccpre.hrl (yecc-generated file)???
+  %%     -- other cases
+  Fun = fun ({File, _} = Obj, I) ->
+	    case is_yecc_gen(File, I) of
+	      {true, NewI} -> NewI;
+	      {false, NewI} ->
+		check_imported_functions(Obj, NewI, Types)
+	    end
+	end,
+  lists:foldl(Fun, Inc, Functions).
+
+-spec is_yecc_gen(file:filename(), #inc{}) -> {boolean(), #inc{}}.
+
+is_yecc_gen(File, #inc{filter = Fs} = Inc) ->
+  case lists:member(File, Fs) of
+    true -> {true, Inc};
+    false ->
+      case filename:extension(File) of
+	".yrl" ->
+	  Rootname = filename:rootname(File, ".yrl"),
+	  Obj = Rootname ++ ".erl",
+	  case lists:member(Obj, Fs) of
+	    true -> {true, Inc};
+	    false ->
+	      NewInc = Inc#inc{filter = [Obj|Fs]},
+	      {true, NewInc}
+	  end;
+	_ ->
+	  case filename:basename(File) of
+	    "yeccpre.hrl" -> {true, Inc};
+	    _ -> {false, Inc}
+	  end
+      end
+  end.
+
+check_imported_functions({File, {Line, F, A}}, Inc, Types) ->
+  IncMap = Inc#inc.map,
+  FA = {F, A},
+  Type = get_type_info(FA, Types),
+  case map__lookup(File, IncMap) of
+    none -> %% File is not added. Add it
+      Obj = {File,[{FA, {Line, Type}}]},
+      NewMap = map__insert(Obj, IncMap),
+      Inc#inc{map = NewMap};
+    Val -> %% File is already in. Check.
+      case lists:keyfind(FA, 1, Val) of
+	false ->
+	  %% Function is not in; add it
+	  Obj = {File, Val ++ [{FA, {Line, Type}}]},
+	  NewMap = map__insert(Obj, IncMap),
+	  Inc#inc{map = NewMap};
+	Type ->
+	  %% Function is in and with same type
+	  Inc;
+	_ ->
+	  %% Function is in but with diff type
+	  inc_warning(FA, File),
+	  Elem = lists:keydelete(FA, 1, Val),
+	  NewMap = case Elem of
+		     [] -> map__remove(File, IncMap);
+		     _  -> map__insert({File, Elem}, IncMap)
+		   end,
+	  Inc#inc{map = NewMap}
+      end
+  end.
+
+inc_warning({F, A}, File) ->
+  io:format("      ***Warning: Skip function ~p/~p ", [F, A]),
+  io:format("in file ~p because of inconsistent type\n", [File]).
+
+clean_inc(Inc) ->
+  Inc1 = remove_yecc_generated_file(Inc),
+  normalize_obj(Inc1).
+
+remove_yecc_generated_file(#inc{filter = Filter} = Inc) ->
+  Fun = fun (Key, #inc{map = Map} = I) ->
+	    I#inc{map = map__remove(Key, Map)}
+	end,
+  lists:foldl(Fun, Inc, Filter).
+
+normalize_obj(TmpInc) ->
+  Fun = fun (Key, Val, Inc) ->
+	    NewVal = [{{Line,F,A},Type} || {{F,A},{Line,Type}} <- Val],
+	    map__insert({Key, NewVal}, Inc)
+	end,
+  TmpInc#inc{map = map__fold(Fun, map__new(), TmpInc#inc.map)}.
+
+get_records(File, Analysis) ->
+  map__lookup(File, Analysis#analysis.record).
+
+get_types(Module, Analysis, Records) ->
+  TypeInfoPlt = Analysis#analysis.trust_plt,
+  TypeInfo = 
+    case dialyzer_plt:lookup_module(TypeInfoPlt, Module) of
+      none -> [];
+      {value, List} -> List
+    end,
+  CodeServer = Analysis#analysis.code_server,
+  TypeInfoList = [get_type(I, CodeServer, Records) || I <- TypeInfo],
+  map__from_list(TypeInfoList).
+
+get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
+  case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
+    error ->
+      {{F, A}, {Range, Arg}};
+    {ok, {_FileLine, Contract}} ->
+      Sig = erl_types:t_fun(Arg, Range),
+      case dialyzer_contracts:check_contract(Contract, Sig) of
+	ok -> {{F, A}, {contract, Contract}};
+	{error, {extra_range, _, _}} ->
+	  {{F, A}, {contract, Contract}};
+	{error, invalid_contract} ->
+	  CString = dialyzer_contracts:contract_to_string(Contract),
+	  SigString = dialyzer_utils:format_sig(Sig, Records),
+	  Msg = io_lib:format("Error in contract of function ~w:~w/~w\n" 
+			      "\t The contract is: " ++ CString ++ "\n" ++
+			      "\t but the inferred signature is: ~s",
+			      [M, F, A, SigString]),
+	  fatal_error(Msg);
+	{error, ErrorStr} when is_list(ErrorStr) -> % ErrorStr is a string()
+	  Msg = io_lib:format("Error in contract of function ~w:~w/~w: ~s",
+			      [M, F, A, ErrorStr]),
+	  fatal_error(Msg)
+      end
+  end.
+
+get_functions(File, Analysis) ->
+  case Analysis#analysis.mode of
+    ?SHOW ->
+      Funcs = map__lookup(File, Analysis#analysis.func),
+      Inc_Funcs = map__lookup(File, Analysis#analysis.inc_func),
+      remove_module_info(Funcs) ++ normalize_incFuncs(Inc_Funcs);
+    ?SHOW_EXPORTED ->
+      Ex_Funcs = map__lookup(File, Analysis#analysis.ex_func),
+      remove_module_info(Ex_Funcs);
+    ?ANNOTATE ->
+      Funcs = map__lookup(File, Analysis#analysis.func),
+      remove_module_info(Funcs);
+    ?ANNOTATE_INC_FILES ->
+      map__lookup(File, Analysis#analysis.inc_func)
+  end.
+
+normalize_incFuncs(Functions) ->
+  [FunInfo || {_FileName, FunInfo} <- Functions].
+
+-spec remove_module_info([fun_info()]) -> [fun_info()].
+
+remove_module_info(FunInfoList) ->
+  F = fun ({_,module_info,0}) -> false;
+	  ({_,module_info,1}) -> false;
+	  ({Line,F,A}) when is_integer(Line), is_atom(F), is_integer(A) -> true
+      end,
+  lists:filter(F, FunInfoList).
+
+write_typed_file(File, Info) ->
+  io:format("      Processing file: ~p\n", [File]),
+  Dir = filename:dirname(File),
+  RootName = filename:basename(filename:rootname(File)),
+  Ext = filename:extension(File),
+  TyperAnnDir = filename:join(Dir, ?TYPER_ANN_DIR),
+  TmpNewFilename = lists:concat([RootName, ".ann", Ext]),
+  NewFileName = filename:join(TyperAnnDir, TmpNewFilename),
+  case file:make_dir(TyperAnnDir) of
+    {error, Reason} ->
+      case Reason of
+	eexist -> %% TypEr dir exists; remove old typer files
+	  ok = file:delete(NewFileName),
+	  write_typed_file(File, Info, NewFileName);
+	enospc ->
+	  io:format("  Not enough space in ~p\n", [Dir]);
+	eacces ->
+	  io:format("  No write permission in ~p\n", [Dir]);
+	_ ->
+	  io:format("Unhandled error ~s when writing ~p\n", [Reason, Dir]),
+	  halt()
+      end;
+    ok -> %% Typer dir does NOT exist
+      write_typed_file(File, Info, NewFileName)
+  end.
+
+write_typed_file(File, Info, NewFileName) ->
+  {ok, Binary} = file:read_file(File),
+  Chars = binary_to_list(Binary),
+  write_typed_file(Chars, NewFileName, Info, 1, []),
+  io:format("             Saved as: ~p\n", [NewFileName]).
+
+write_typed_file(Chars, File, #info{functions = []}, _LNo, _Acc) ->
+  ok = file:write_file(File, list_to_binary(Chars), [append]);
+write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc) ->
+  [{Line,F,A}|RestFuncs] = Info#info.functions,
+  case Line of
+    1 -> %% This will happen only for inc files
+      ok = raw_write(F, A, Info, File, []),
+      NewInfo = Info#info{functions = RestFuncs},
+      NewAcc = [],
+      write_typed_file(Chars, File, NewInfo, Line, NewAcc);
+    _ ->
+      case Ch of
+	10 ->
+	  NewLineNo = LineNo + 1,
+	  {NewInfo, NewAcc} =
+	    case NewLineNo of
+	      Line ->
+		ok = raw_write(F, A, Info, File, [Ch|Acc]),
+		{Info#info{functions = RestFuncs}, []};
+	      _ ->
+		{Info, [Ch|Acc]}
+	    end,
+	  write_typed_file(Chs, File, NewInfo, NewLineNo, NewAcc);
+	_ ->
+	  write_typed_file(Chs, File, Info, LineNo, [Ch|Acc])
+      end
+  end.
+
+raw_write(F, A, Info, File, Content) ->
+  TypeInfo = get_type_string(F, A, Info, file),
+  ContentList = lists:reverse(Content) ++ TypeInfo ++ "\n",
+  ContentBin = list_to_binary(ContentList),
+  file:write_file(File, ContentBin, [append]).
+
+get_type_string(F, A, Info, Mode) ->
+  Type = get_type_info({F,A}, Info#info.types),
+  TypeStr =
+    case Type of
+      {contract, C} -> 
+        dialyzer_contracts:contract_to_string(C);
+      {RetType, ArgType} ->
+	Sig = erl_types:t_fun(ArgType, RetType),
+        dialyzer_utils:format_sig(Sig, Info#info.records)
+    end,
+  case Info#info.edoc of
+    false ->
+      case {Mode, Type} of
+	{file, {contract, _}} -> "";
+	_ ->
+	  Prefix = lists:concat(["-spec ", F]),
+	  lists:concat([Prefix, TypeStr, "."])
+      end;
+    true ->
+      Prefix = lists:concat(["%% @spec ", F]),
+      lists:concat([Prefix, TypeStr, "."])
+  end.
+ 
+show_type_info(File, Info) ->
+  io:format("\n%% File: ~p\n%% ", [File]),
+  OutputString = lists:concat(["~.", length(File)+8, "c~n"]),
+  io:fwrite(OutputString, [$-]),
+  Fun = fun ({_LineNo, F, A}) ->
+	    TypeInfo = get_type_string(F, A, Info, show),
+	    io:format("~s\n", [TypeInfo])
+	end,
+  lists:foreach(Fun, Info#info.functions).
+
+get_type_info(Func, Types) ->
+  case map__lookup(Func, Types) of
+    none ->
+      %% Note: Typeinfo of any function should exist in
+      %% the result offered by dialyzer, otherwise there 
+      %% *must* be something wrong with the analysis
+      Msg = io_lib:format("No type info for function: ~p\n", [Func]),
+      fatal_error(Msg);
+    {contract, _Fun} = C -> C;
+    {_RetType, _ArgType} = RA -> RA 
+  end.
+
+%%--------------------------------------------------------------------
 %% Processing of command-line options and arguments.
 %%--------------------------------------------------------------------
 
--spec process_cl_args() -> {#args{}, #typer_analysis{}}.
+-spec process_cl_args() -> {args(), analysis()}.
 
 process_cl_args() ->
   ArgList = init:get_plain_arguments(),
   %% io:format("Args is ~p\n", [ArgList]),
-  {Args, Analysis} = analyze_args(ArgList, #args{}, #typer_analysis{}),
+  {Args, Analysis} = analyze_args(ArgList, #args{}, #analysis{}),
   %% if the mode has not been set, set it to the default mode (show)
-  {Args, case Analysis#typer_analysis.mode of
-	   undefined -> Analysis#typer_analysis{mode = ?SHOW};
+  {Args, case Analysis#analysis.mode of
+	   undefined -> Analysis#analysis{mode = ?SHOW};
 	   Mode when is_atom(Mode) -> Analysis
 	 end}.
 
@@ -292,29 +634,29 @@ analyze_result({trusted, Val}, Args, Analysis) ->
   NewVal = Args#args.trusted ++ Val,
   {Args#args{trusted = NewVal}, Analysis};
 analyze_result(edoc, Args, Analysis) ->
-  {Args, Analysis#typer_analysis{edoc = true}};
+  {Args, Analysis#analysis{edoc = true}};
 %% Get useful information for actual analysis
 analyze_result({mode, Mode}, Args, Analysis) ->
-  case Analysis#typer_analysis.mode of
-    undefined -> {Args, Analysis#typer_analysis{mode = Mode}};
+  case Analysis#analysis.mode of
+    undefined -> {Args, Analysis#analysis{mode = Mode}};
     OldMode -> mode_error(OldMode, Mode)
   end;
 analyze_result({def, Val}, Args, Analysis) ->
-  NewVal = Analysis#typer_analysis.macros ++ [Val],
-  {Args, Analysis#typer_analysis{macros = NewVal}};
+  NewVal = Analysis#analysis.macros ++ [Val],
+  {Args, Analysis#analysis{macros = NewVal}};
 analyze_result({inc, Val}, Args, Analysis) ->
-  NewVal = Analysis#typer_analysis.includes ++ [Val],
-  {Args, Analysis#typer_analysis{includes = NewVal}};
+  NewVal = Analysis#analysis.includes ++ [Val],
+  {Args, Analysis#analysis{includes = NewVal}};
 analyze_result({plt, Plt}, Args, Analysis) ->
-  {Args, Analysis#typer_analysis{plt = Plt}};
+  {Args, Analysis#analysis{plt = Plt}};
 analyze_result(no_spec, Args, Analysis) ->
-  {Args, Analysis#typer_analysis{no_spec = true}}.
+  {Args, Analysis#analysis{no_spec = true}}.
 
 %%--------------------------------------------------------------------
 %% File processing.
 %%--------------------------------------------------------------------
 
--spec get_all_files(#args{}) -> files().
+-spec get_all_files(args()) -> files().
 
 get_all_files(#args{files = Fs, files_r = Ds}) ->
   case filter_fd(Fs, Ds, fun test_erl_file_exclude_ann/1) of
@@ -445,16 +787,16 @@ collect_info(Analysis) ->
   NewPlt =
     try get_dialyzer_plt(Analysis) of
 	DialyzerPlt ->
-	dialyzer_plt:merge_plts([Analysis#typer_analysis.trust_plt, DialyzerPlt])
+	dialyzer_plt:merge_plts([Analysis#analysis.trust_plt, DialyzerPlt])
     catch
       throw:{dialyzer_error,_Reason} ->
 	fatal_error("Dialyzer's PLT is missing or is not up-to-date; please (re)create it")
     end,
   NewAnalysis = lists:foldl(fun collect_one_file_info/2, 
-			    Analysis#typer_analysis{trust_plt = NewPlt}, 
-			    Analysis#typer_analysis.ana_files),
+			    Analysis#analysis{trust_plt = NewPlt}, 
+			    Analysis#analysis.ana_files),
   %% Process Remote Types
-  TmpCServer = NewAnalysis#typer_analysis.code_server,
+  TmpCServer = NewAnalysis#analysis.code_server,
   NewCServer =
     try
       NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer),
@@ -474,12 +816,12 @@ collect_info(Analysis) ->
       throw:{error, ErrorMsg} ->
 	fatal_error(ErrorMsg)
     end,
-  NewAnalysis#typer_analysis{code_server = NewCServer}.
+  NewAnalysis#analysis{code_server = NewCServer}.
 
 collect_one_file_info(File, Analysis) ->
-  Ds = [{d,Name,Val} || {Name,Val} <- Analysis#typer_analysis.macros],
+  Ds = [{d,Name,Val} || {Name,Val} <- Analysis#analysis.macros],
   %% Current directory should also be included in "Includes".
-  Includes = [filename:dirname(File)|Analysis#typer_analysis.includes],
+  Includes = [filename:dirname(File)|Analysis#analysis.includes],
   Is = [{i,Dir} || Dir <- Includes],
   Options = dialyzer_utils:src_compiler_opts() ++ Is ++ Ds,
   case dialyzer_utils:get_abstract_code_from_src(File, Options) of
@@ -508,14 +850,14 @@ collect_one_file_info(File, Analysis) ->
 analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   Module = cerl:concrete(cerl:module_name(Core)),
   TmpTree = cerl:from_records(Core),
-  CS1 = Analysis#typer_analysis.code_server,
+  CS1 = Analysis#analysis.code_server,
   NextLabel = dialyzer_codeserver:get_next_core_label(CS1),
   {Tree, NewLabel} = cerl_trees:label(TmpTree, NextLabel),
   CS2 = dialyzer_codeserver:insert(Module, Tree, CS1),
   CS3 = dialyzer_codeserver:set_next_core_label(NewLabel, CS2),
   CS4 = dialyzer_codeserver:store_temp_records(Module, Records, CS3),
   CS5 =
-    case Analysis#typer_analysis.no_spec of
+    case Analysis#analysis.no_spec of
       true -> CS4;
       false -> dialyzer_codeserver:store_temp_contracts(Module, SpecInfo, CS4)
     end,
@@ -523,30 +865,29 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
   CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),
   Ex_Funcs = [{0,F,A} || {_,_,{F,A}} <- cerl:module_exports(Tree)],
-  TmpCG = Analysis#typer_analysis.callgraph,
+  TmpCG = Analysis#analysis.callgraph,
   CG = dialyzer_callgraph:scan_core_tree(Tree, TmpCG),
   Fun = fun analyze_one_function/2,
   All_Defs = cerl:module_defs(Tree),
   Acc = lists:foldl(Fun, #tmpAcc{file=File, module=Module}, All_Defs),
-  Exported_FuncMap = map__insert({File, Ex_Funcs},
-				 Analysis#typer_analysis.ex_func),
+  Exported_FuncMap = map__insert({File, Ex_Funcs}, Analysis#analysis.ex_func),
   %% NOTE: we must sort all functions in the file which
   %% originate from this file by *numerical order* of lineNo
   Sorted_Functions = lists:keysort(1, Acc#tmpAcc.funcAcc),
-  FuncMap = map__insert({File, Sorted_Functions}, Analysis#typer_analysis.func),
+  FuncMap = map__insert({File, Sorted_Functions}, Analysis#analysis.func),
   %% NOTE: However we do not need to sort functions
   %% which are imported from included files.
   IncFuncMap = map__insert({File, Acc#tmpAcc.incFuncAcc}, 
-			   Analysis#typer_analysis.inc_func),
-  Final_Files = Analysis#typer_analysis.final_files ++ [{File, Module}],
-  RecordMap = map__insert({File, Records}, Analysis#typer_analysis.record),
-  Analysis#typer_analysis{final_files=Final_Files,
-			  callgraph=CG,
-			  code_server=CS6,
-			  ex_func=Exported_FuncMap,
-			  inc_func=IncFuncMap,
-			  record=RecordMap,
-			  func=FuncMap}.
+			   Analysis#analysis.inc_func),
+  Final_Files = Analysis#analysis.final_files ++ [{File, Module}],
+  RecordMap = map__insert({File, Records}, Analysis#analysis.record),
+  Analysis#analysis{final_files = Final_Files,
+		    callgraph = CG,
+		    code_server = CS6,
+		    ex_func = Exported_FuncMap,
+		    inc_func = IncFuncMap,
+		    record = RecordMap,
+		    func = FuncMap}.
 
 analyze_one_function({Var, FunBody} = Function, Acc) ->
   F = cerl:fname_id(Var),
@@ -573,14 +914,15 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
 	     incFuncAcc = IncFuncAcc,
 	     dialyzerObj = NewDialyzerObj}.
 
-get_dialyzer_plt(#typer_analysis{plt = PltFile0}) ->
+-spec get_dialyzer_plt(analysis()) -> dialyzer_plt:plt().
+
+get_dialyzer_plt(#analysis{plt = PltFile0}) ->
   PltFile =
     case PltFile0 =:= none of
       true -> dialyzer_plt:get_default_plt();
       false -> PltFile0
     end,
   dialyzer_plt:from_file(PltFile).
-
 
 %% Exported Types
 
