@@ -40,11 +40,11 @@
 
 -type fun_info() :: {non_neg_integer(), atom(), arity()}.
 
--record(info, {records = typer_map:new() :: dict(),
+-record(info, {records = typer:map__new() :: dict(),
 	       functions = []            :: [fun_info()],
 	       types                     :: dict(),
 	       no_comment_specs = true	 :: boolean()}).
--record(inc, {map    = typer_map:new() :: dict(),
+-record(inc, {map    = typer:map__new() :: dict(),
 	      filter = []              :: [file:filename()]}).
 
 %%----------------------------------------------------------------------------
@@ -79,13 +79,13 @@ write_and_collect_inc_info(Analysis) ->
 write_inc_files(Inc) ->
   Fun =
     fun (File) ->
-	Val = typer_map:lookup(File,Inc#inc.map),
+	Val = typer:map__lookup(File,Inc#inc.map),
 	%% Val is function with its type info
 	%% in form [{{Line,F,A},Type}]
 	Functions = [Key || {Key,_} <- Val],
 	Val1 = [{{F,A},Type} || {{_Line,F,A},Type} <- Val],
-	Info = #info{types = typer_map:from_list(Val1),
-		     records = typer_map:new(),
+	Info = #info{types = typer:map__from_list(Val1),
+		     records = typer:map__new(),
 		     %% Note we need to sort functions here!
 		     functions = lists:keysort(1, Functions)},
 	%% io:format("Types ~p\n", [Info#info.types]),
@@ -153,17 +153,17 @@ check_imported_functions({File, {Line, F, A}}, Inc, Types) ->
   IncMap = Inc#inc.map,
   FA = {F, A},
   Type = get_type_info(FA, Types),
-  case typer_map:lookup(File, IncMap) of
+  case typer:map__lookup(File, IncMap) of
     none -> %% File is not added. Add it
       Obj = {File,[{FA, {Line, Type}}]},
-      NewMap = typer_map:insert(Obj, IncMap),
+      NewMap = typer:map__insert(Obj, IncMap),
       Inc#inc{map = NewMap};
     Val -> %% File is already in. Check.
       case lists:keyfind(FA, 1, Val) of
 	false ->
 	  %% Function is not in; add it
 	  Obj = {File, Val ++ [{FA, {Line, Type}}]},
-	  NewMap = typer_map:insert(Obj, IncMap),
+	  NewMap = typer:map__insert(Obj, IncMap),
 	  Inc#inc{map = NewMap};
 	Type ->
 	  %% Function is in and with same type
@@ -174,9 +174,9 @@ check_imported_functions({File, {Line, F, A}}, Inc, Types) ->
 	  Elem = lists:keydelete(FA, 1, Val),
 	  NewMap = case Elem of
 		     [] ->
-		       typer_map:remove(File, IncMap);
+		       typer:map__remove(File, IncMap);
 		     _  ->
-		       typer_map:insert({File, Elem}, IncMap)
+		       typer:map__insert({File, Elem}, IncMap)
 		   end,
 	  Inc#inc{map = NewMap}
       end
@@ -192,20 +192,20 @@ clean_inc(Inc) ->
 
 remove_yecc_generated_file(#inc{filter = Filter} = Inc) ->
   Fun = fun (Key, #inc{map = Map} = I) ->
-	    I#inc{map = typer_map:remove(Key, Map)}
+	    I#inc{map = typer:map__remove(Key, Map)}
 	end,
   lists:foldl(Fun, Inc, Filter).
 
 normalize_obj(TmpInc) ->
   Fun = fun (Key, Val, Inc) ->
 	    NewVal = [{{Line,F,A},Type} || {{F,A},{Line,Type}} <- Val],
-	    typer_map:insert({Key,NewVal}, Inc)
+	    typer:map__insert({Key,NewVal}, Inc)
 	end,
-  NewMap = typer_map:fold(Fun, typer_map:new(), TmpInc#inc.map),
+  NewMap = typer:map__fold(Fun, typer:map__new(), TmpInc#inc.map),
   TmpInc#inc{map = NewMap}.
 
 get_records(File, Analysis) ->
-  typer_map:lookup(File, Analysis#typer_analysis.record).
+  typer:map__lookup(File, Analysis#typer_analysis.record).
 
 get_types(Module, Analysis, Records) ->
   TypeInfoPlt = Analysis#typer_analysis.trust_plt,
@@ -216,7 +216,7 @@ get_types(Module, Analysis, Records) ->
     end,
   CodeServer = Analysis#typer_analysis.code_server,
   TypeInfoList = [get_type(I, CodeServer, Records) || I <- TypeInfo],
-  typer_map:from_list(TypeInfoList).
+  typer:map__from_list(TypeInfoList).
 
 get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
   case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
@@ -231,32 +231,32 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
 	{error, invalid_contract} ->
 	  CString = dialyzer_contracts:contract_to_string(Contract),
 	  SigString = dialyzer_utils:format_sig(Sig, Records),
-	  typer:error(
-	    io_lib:format("Error in contract of function ~w:~w/~w\n" 
-			  "\t The contract is: " ++ CString ++ "\n" ++
-			  "\t but the inferred signature is: ~s",
-			  [M, F, A, SigString]));
-	{error, Msg} when is_list(Msg) -> % Msg is a string()
-	  typer:error(
-	    io_lib:format("Error in contract of function ~w:~w/~w: ~s",
-			  [M, F, A, Msg]))
+	  Msg = io_lib:format("Error in contract of function ~w:~w/~w\n" 
+			      "\t The contract is: " ++ CString ++ "\n" ++
+			      "\t but the inferred signature is: ~s",
+			      [M, F, A, SigString]),
+	  typer:fatal_error(Msg);
+	{error, ErrorStr} when is_list(ErrorStr) -> % ErrorStr is a string()
+	  Msg = io_lib:format("Error in contract of function ~w:~w/~w: ~s",
+			      [M, F, A, ErrorStr]),
+	  typer:fatal_error(Msg)
       end
   end.
 
 get_functions(File, Analysis) ->
   case Analysis#typer_analysis.mode of
     ?SHOW ->
-      Funcs = typer_map:lookup(File, Analysis#typer_analysis.func),
-      Inc_Funcs = typer_map:lookup(File, Analysis#typer_analysis.inc_func),
+      Funcs = typer:map__lookup(File, Analysis#typer_analysis.func),
+      Inc_Funcs = typer:map__lookup(File, Analysis#typer_analysis.inc_func),
       remove_module_info(Funcs) ++ normalize_incFuncs(Inc_Funcs);
     ?SHOW_EXPORTED ->
-      Ex_Funcs = typer_map:lookup(File, Analysis#typer_analysis.ex_func),
+      Ex_Funcs = typer:map__lookup(File, Analysis#typer_analysis.ex_func),
       remove_module_info(Ex_Funcs);
     ?ANNOTATE ->
-      Funcs = typer_map:lookup(File, Analysis#typer_analysis.func),
+      Funcs = typer:map__lookup(File, Analysis#typer_analysis.func),
       remove_module_info(Funcs);
     ?ANNOTATE_INC_FILES ->
-      typer_map:lookup(File, Analysis#typer_analysis.inc_func)
+      typer:map__lookup(File, Analysis#typer_analysis.inc_func)
   end.
 
 normalize_incFuncs(Functions) ->
@@ -371,7 +371,7 @@ show_type_info(File, Info) ->
   lists:foreach(Fun, Info#info.functions).
 
 get_type_info(Func, Types) ->
-  case typer_map:lookup(Func, Types) of
+  case typer:map__lookup(Func, Types) of
     none ->
       %% Note: Typeinfo of any function should exist in
       %% the result offered by dialyzer, otherwise there 

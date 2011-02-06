@@ -30,7 +30,7 @@
 
 get_all_files(#args{files=Fs,files_r=Ds}, analysis) ->
   case files_and_dirs(Fs, Ds, fun test_erl_file_exclude_ann/1) of
-    [] -> typer:error("no file(s) to analyze");
+    [] -> typer:fatal_error("no file(s) to analyze");
     AllFiles -> AllFiles
   end;
 get_all_files(#args{trusted=Fs}, trust) -> 
@@ -98,11 +98,11 @@ check_dir(Dir, Recursive, Acc, Fun) ->
 	  Acc ++ TmpAcc1 ++ TmpAcc2
       end;
     {error, eacces} ->
-      typer:error("no access permission to dir \""++Dir++"\"");
+      typer:fatal_error("no access permission to dir \""++Dir++"\"");
     {error, enoent} ->
-      typer:error("cannot access "++Dir++": No such file or directory");
+      typer:fatal_error("cannot access "++Dir++": No such file or directory");
     {error, _Reason} ->
-      typer:error("error involving a use of file:list_dir/1")
+      typer:fatal_error("error involving a use of file:list_dir/1")
   end.
 
 %% Same order as the input list

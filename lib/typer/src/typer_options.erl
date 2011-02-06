@@ -72,7 +72,7 @@ cl(["--no_spec"|Opts]) -> {no_spec, Opts};
 cl(["--plt",Plt|Opts]) -> {{plt, Plt}, Opts};
 cl(["-D"++Def|Opts]) ->
   case Def of
-    "" -> typer:error("no variable name specified after -D");
+    "" -> typer:fatal_error("no variable name specified after -D");
     _ ->
       DefPair = process_def_list(re:split(Def, "=", [{return, list}])),
       {{def, DefPair}, Opts}
@@ -80,19 +80,19 @@ cl(["-D"++Def|Opts]) ->
 cl(["-I",Dir|Opts]) -> {{inc, Dir}, Opts};
 cl(["-I"++Dir|Opts]) ->
   case Dir of
-    "" -> typer:error("no include directory specified after -I");
+    "" -> typer:fatal_error("no include directory specified after -I");
     _ -> {{inc, Dir}, Opts}
   end;
 cl(["-T"|Opts]) ->
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
   case Files of
-    [] -> typer:error("no file or directory specified after -T");
+    [] -> typer:fatal_error("no file or directory specified after -T");
     [_|_] -> {{trusted, Files}, RestOpts}
   end;
 cl(["-r"|Opts]) ->
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
   {{files_r, Files}, RestOpts};
-cl(["-"++H|_]) -> typer:error("unknown option -"++H);
+cl(["-"++H|_]) -> typer:fatal_error("unknown option -"++H);
 cl(Opts) -> 
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
   {{files, Files}, RestOpts}.
@@ -141,7 +141,7 @@ analyze_result(no_spec, Args, Analysis) ->
 
 -spec mode_error() -> no_return().
 mode_error() ->
-  typer:error("can not do \"show\", \"show-exported\", \"annotate\", and \"annotate-inc-files\" at the same time").
+  typer:fatal_error("can not do \"show\", \"show-exported\", \"annotate\", and \"annotate-inc-files\" at the same time").
 
 -spec version_message() -> no_return().
 version_message() ->

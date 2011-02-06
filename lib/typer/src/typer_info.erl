@@ -42,7 +42,7 @@ collect(Analysis) ->
 	dialyzer_plt:merge_plts([Analysis#typer_analysis.trust_plt, DialyzerPlt])
     catch
       throw:{dialyzer_error,_Reason} ->
-	typer:error("Dialyzer's PLT is missing or is not up-to-date; please (re)create it")
+	typer:fatal_error("Dialyzer's PLT is missing or is not up-to-date; please (re)create it")
     end,
   NewAnalysis = lists:foldl(fun collect_one_file_info/2, 
 			    Analysis#typer_analysis{trust_plt = NewPlt}, 
@@ -66,7 +66,7 @@ collect(Analysis) ->
       dialyzer_contracts:process_contract_remote_types(TmpCServer3)
     catch
       throw:{error, ErrorMsg} ->
-	typer:error(ErrorMsg)
+	typer:fatal_error(ErrorMsg)
     end,
   NewAnalysis#typer_analysis{code_server = NewCServer}.
 
@@ -122,19 +122,19 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   Fun = fun analyze_one_function/2,
   All_Defs = cerl:module_defs(Tree),
   Acc = lists:foldl(Fun, #tmpAcc{file=File, module=Module}, All_Defs),
-  Exported_FuncMap = typer_map:insert({File, Ex_Funcs},
+  Exported_FuncMap = typer:map__insert({File, Ex_Funcs},
 				      Analysis#typer_analysis.ex_func),
   %% NOTE: we must sort all functions in the file which
   %% originate from this file by *numerical order* of lineNo
   Sorted_Functions = lists:keysort(1, Acc#tmpAcc.funcAcc),
-  FuncMap = typer_map:insert({File, Sorted_Functions},
+  FuncMap = typer:map__insert({File, Sorted_Functions},
 			     Analysis#typer_analysis.func),
   %% NOTE: However we do not need to sort functions
   %% which are imported from included files.
-  IncFuncMap = typer_map:insert({File, Acc#tmpAcc.incFuncAcc}, 
+  IncFuncMap = typer:map__insert({File, Acc#tmpAcc.incFuncAcc}, 
 				Analysis#typer_analysis.inc_func),
   Final_Files = Analysis#typer_analysis.final_files ++ [{File, Module}],
-  RecordMap = typer_map:insert({File, Records}, Analysis#typer_analysis.record),
+  RecordMap = typer:map__insert({File, Records}, Analysis#typer_analysis.record),
   Analysis#typer_analysis{final_files=Final_Files,
 			  callgraph=CG,
 			  code_server=CS6,

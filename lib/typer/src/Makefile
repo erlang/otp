@@ -49,7 +49,6 @@ MODULES =  \
 	typer \
 	typer_annotator \
 	typer_info \
-	typer_map \
 	typer_options \
 	typer_preprocess
 

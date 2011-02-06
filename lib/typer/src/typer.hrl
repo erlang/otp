@@ -42,10 +42,10 @@
 	 %% Files in 'final_files' are compilable with option 'to_pp'; we keep
 	 %% them as {FileName, ModuleName} in case the ModuleName is different
 	 final_files = []			:: [{file:filename(), module()}],
-	 ex_func     = typer_map:new()		:: dict(),
-	 record      = typer_map:new()		:: dict(),
-	 func        = typer_map:new()		:: dict(),
-	 inc_func    = typer_map:new()		:: dict(),
+	 ex_func     = typer:map__new()		:: dict(),
+	 record      = typer:map__new()		:: dict(),
+	 func        = typer:map__new()		:: dict(),
+	 inc_func    = typer:map__new()		:: dict(),
 	 trust_plt   = dialyzer_plt:new()	:: dialyzer_plt:plt()}).
 
 -record(args, {files   = [] :: [file:filename()],

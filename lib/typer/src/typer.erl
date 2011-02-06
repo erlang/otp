@@ -18,21 +18,60 @@
 %% %CopyrightEnd%
 %%
 
-%%--------------------------------------------------------------------
+%%-----------------------------------------------------------------------
 %% File        : typer.erl
-%% Author      : Bingwen He <Bingwen.He@gmail.com>
-%% Description : The main driver of the TypEr application
-%%--------------------------------------------------------------------
+%% Author(s)   : The first version of typer was written by Bingwen He
+%%               with guidance from Kostis Sagonas and Tobias Lindahl.
+%%               Since June 2008 typer is maintained by Kostis Sagonas.
+%% Description : An Erlang/OTP application that shows type information
+%%               for Erlang modules to the user. Additionally, it can
+%%               annotates the code of files with such type information.
+%%-----------------------------------------------------------------------
 
 -module(typer).
 
 -export([start/0]).
--export([error/1, compile_error/1]).	% for error reporting
+-export([fatal_error/1, compile_error/1]).	% for error reporting
+-export([map__new/0, map__insert/2, map__lookup/2, map__from_list/1, map__remove/2, map__fold/3]).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import, [error/1]}).
+%%-----------------------------------------------------------------------
 
--include("typer.hrl").
+-define(SHOW, show).
+-define(SHOW_EXPORTED, show_exported).
+-define(ANNOTATE, annotate).
+-define(ANNOTATE_INC_FILES, annotate_inc_files).
+
+-type mode() :: ?SHOW | ?SHOW_EXPORTED | ?ANNOTATE | ?ANNOTATE_INC_FILES.
+
+%%-----------------------------------------------------------------------
+
+-record(typer_analysis,
+	{mode					:: mode(),
+	 macros      = []			:: [{atom(), term()}], % {macro_name, value}
+	 includes    = []			:: [file:filename()],
+	 %% --- for dialyzer ---
+	 code_server = dialyzer_codeserver:new():: dialyzer_codeserver:codeserver(),
+	 callgraph   = dialyzer_callgraph:new() :: dialyzer_callgraph:callgraph(),
+	 ana_files   = []			:: [file:filename()],   % absolute filenames
+	 plt         = none			:: 'none' | file:filename(),
+	 no_spec     = false                    :: boolean(),
+	 %% --- for typer ---
+	 t_files     = []			:: [file:filename()], 
+	 %% For choosing between contracts or comments
+	 contracts   = true			:: boolean(),
+	 %% Files in 'final_files' are compilable with option 'to_pp'; we keep
+	 %% them as {FileName, ModuleName} in case the ModuleName is different
+	 final_files = []			:: [{file:filename(), module()}],
+	 ex_func     = map__new()		:: map(),
+	 record      = map__new()		:: map(),
+	 func        = map__new()		:: map(),
+	 inc_func    = map__new()		:: map(),
+	 trust_plt   = dialyzer_plt:new()	:: dialyzer_plt:plt()}).
+-type analysis() :: #typer_analysis{}.
+
+-record(args, {files   = [] :: [file:filename()],
+	       files_r = [] :: [file:filename()],
+	       trusted = [] :: [file:filename()]}).
 
 %%--------------------------------------------------------------------
 
@@ -57,7 +96,7 @@ start() ->
 
 %%--------------------------------------------------------------------
 
--spec extract(#typer_analysis{}) -> #typer_analysis{}.
+-spec extract(analysis()) -> analysis().
 
 extract(#typer_analysis{macros = Macros, includes = Includes,
 			t_files = TFiles, trust_plt = TrustPLT} = Analysis) ->
@@ -117,7 +156,7 @@ extract(#typer_analysis{macros = Macros, includes = Includes,
 
 %%--------------------------------------------------------------------
 
--spec get_type_info(#typer_analysis{}) -> #typer_analysis{}.
+-spec get_type_info(analysis()) -> analysis().
 
 get_type_info(#typer_analysis{callgraph = CallGraph,
 			      trust_plt = TrustPLT,
@@ -130,10 +169,10 @@ get_type_info(#typer_analysis{callgraph = CallGraph,
     Analysis#typer_analysis{callgraph = StrippedCallGraph, trust_plt = NewPlt}
   catch
     error:What ->
-      error(io_lib:format("Analysis failed with message: ~p", 
-			  [{What, erlang:get_stacktrace()}]));
+      fatal_error(io_lib:format("Analysis failed with message: ~p", 
+				[{What, erlang:get_stacktrace()}]));
     throw:{dialyzer_succ_typing_error, Msg} ->
-      error(io_lib:format("Analysis failed with message: ~s", [Msg]))
+      fatal_error(io_lib:format("Analysis failed with message: ~s", [Msg]))
   end.
 
 -spec remove_external(dialyzer_callgraph:callgraph(), dialyzer_plt:plt()) -> dialyzer_callgraph:callgraph().
@@ -170,31 +209,27 @@ get_external(Exts, Plt) ->
   lists:foldl(Fun, [], Exts).
 
 %%--------------------------------------------------------------------
+%% Utilities for error reporting.
+%%--------------------------------------------------------------------
 
--spec error(string()) -> no_return().
+-spec fatal_error(string()) -> no_return().
 
-error(Slogan) ->
+fatal_error(Slogan) ->
   msg(io_lib:format("typer: ~s\n", [Slogan])),
   erlang:halt(1).
-
-%%--------------------------------------------------------------------
 
 -spec compile_error([string()]) -> no_return().
 
 compile_error(Reason) ->
   JoinedString = lists:flatten([X ++ "\n" || X <- Reason]),
   Msg = "Analysis failed with error report:\n" ++ JoinedString,
-  error(Msg).
-
-%%--------------------------------------------------------------------
-%% Outputs a message on 'stderr', if possible.
-%%--------------------------------------------------------------------
+  fatal_error(Msg).
 
 -spec msg(string()) -> 'ok'.
 
 msg(Msg) ->
   case os:type() of
-    {unix, _} ->
+    {unix, _} -> % Output a message on 'stderr', if possible
       P = open_port({fd, 0, 2}, [out]),
       port_command(P, Msg),
       true = port_close(P),
@@ -216,7 +251,37 @@ rcv_ext_types(Self, ExtTypes) ->
   receive
     {Self, ext_types, ExtType} ->
       rcv_ext_types(Self, [ExtType|ExtTypes]);
-    {Self, done} -> lists:usort(ExtTypes)
+    {Self, done} ->
+      lists:usort(ExtTypes)
   end.
 
 %%--------------------------------------------------------------------
+%% A convenient abstraction of a Key-Value mapping data structure
+%%--------------------------------------------------------------------
+
+-type map() :: dict().
+
+-spec map__new() -> map().
+map__new() ->
+  dict:new().
+
+-spec map__insert({term(), term()}, map()) -> map().
+map__insert(Object, Map) ->
+  {Key, Value} = Object,
+  dict:store(Key, Value, Map).
+
+-spec map__lookup(term(), map()) -> term().
+map__lookup(Key, Map) ->
+  try dict:fetch(Key, Map) catch error:_ -> none end.
+
+-spec map__from_list([{term(), term()}]) -> map().
+map__from_list(List) ->
+  dict:from_list(List).
+
+-spec map__remove(term(), map()) -> map().
+map__remove(Key, Dict) ->
+  dict:erase(Key, Dict).
+
+-spec map__fold(fun((term(), term(), term()) -> term()), term(), map()) -> term().
+map__fold(Fun, Acc0, Dict) -> 
+  dict:fold(Fun, Acc0, Dict).
