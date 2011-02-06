@@ -24,8 +24,8 @@
 %%               with guidance from Kostis Sagonas and Tobias Lindahl.
 %%               Since June 2008 typer is maintained by Kostis Sagonas.
 %% Description : An Erlang/OTP application that shows type information
-%%               for Erlang modules to the user. Additionally, it can
-%%               annotates the code of files with such type information.
+%%               for Erlang modules to the user.  Additionally, it can
+%%               annotate the code of files with such type information.
 %%-----------------------------------------------------------------------
 
 -module(typer).
@@ -43,27 +43,30 @@
 
 %%-----------------------------------------------------------------------
 
--type files() :: [file:filename()].
+-type files()      :: [file:filename()].
+-type callgraph()  :: dialyzer_callgraph:callgraph().
+-type codeserver() :: dialyzer_codeserver:codeserver().
+-type plt()        :: dialyzer_plt:plt().
 
 -record(analysis,
-	{mode				  :: mode(),
-	 macros      = []		  :: [{atom(), term()}], % {macro_name, value}
-	 includes    = []		  :: files(),
-	 code_server = dialyzer_codeserver:new():: dialyzer_codeserver:codeserver(),
-	 callgraph   = dialyzer_callgraph:new() :: dialyzer_callgraph:callgraph(),
-	 files       = []		  :: files(),   % absolute names
-	 plt         = none		  :: 'none' | file:filename(),
-	 no_spec     = false              :: boolean(),
+	{mode				 :: mode() | 'undefined',
+	 macros     = []		 :: [{atom(), term()}],
+	 includes   = []		 :: files(),
+	 codeserver = dialyzer_codeserver:new():: codeserver(),
+	 callgraph  = dialyzer_callgraph:new() :: callgraph(),
+	 files      = []		 :: files(),   % absolute names
+	 plt        = none		 :: 'none' | file:filename(),
+	 no_spec    = false              :: boolean(),
 	 %% For choosing between specs or edoc @spec comments
-	 edoc        = false		  :: boolean(),
+	 edoc       = false		 :: boolean(),
 	 %% Files in 'fms' are compilable with option 'to_pp'; we keep them
 	 %% as {FileName, ModuleName} in case the ModuleName is different
-	 fms         = []		  :: [{file:filename(), module()}],
-	 ex_func     = map__new()	  :: map(),
-	 record      = map__new()	  :: map(),
-	 func        = map__new()	  :: map(),
-	 inc_func    = map__new()	  :: map(),
-	 trust_plt   = dialyzer_plt:new() :: dialyzer_plt:plt()}).
+	 fms        = []		 :: [{file:filename(), module()}],
+	 ex_func    = map__new()	 :: map(),
+	 record     = map__new()	 :: map(),
+	 func       = map__new()	 :: map(),
+	 inc_func   = map__new()	 :: map(),
+	 trust_plt  = dialyzer_plt:new() :: plt()}).
 -type analysis() :: #analysis{}.
 
 -record(args, {files   = [] :: files(),
@@ -158,7 +161,7 @@ extract(#analysis{macros = Macros,
 
 get_type_info(#analysis{callgraph = CallGraph,
 			trust_plt = TrustPLT,
-			code_server = CodeServer} = Analysis) ->
+			codeserver = CodeServer} = Analysis) ->
   StrippedCallGraph = remove_external(CallGraph, TrustPLT),
   %% io:format("--- Analyzing callgraph... "),
   try 
@@ -173,7 +176,7 @@ get_type_info(#analysis{callgraph = CallGraph,
       fatal_error(io_lib:format("Analysis failed with message: ~s", [Msg]))
   end.
 
--spec remove_external(dialyzer_callgraph:callgraph(), dialyzer_plt:plt()) -> dialyzer_callgraph:callgraph().
+-spec remove_external(callgraph(), plt()) -> callgraph().
 
 remove_external(CallGraph, PLT) ->
   {StrippedCG0, Ext} = dialyzer_callgraph:remove_external(CallGraph),
@@ -190,7 +193,7 @@ remove_external(CallGraph, PLT) ->
   end,
   StrippedCG.
 
--spec get_external([{mfa(), mfa()}], dialyzer_plt:plt()) -> [mfa()].
+-spec get_external([{mfa(), mfa()}], plt()) -> [mfa()].
 
 get_external(Exts, Plt) ->
   Fun = fun ({_From, To = {M, F, A}}, Acc) ->
@@ -211,13 +214,15 @@ get_external(Exts, Plt) ->
 
 -define(TYPER_ANN_DIR, "typer_ann").
 
--type fun_info() :: {non_neg_integer(), atom(), arity()}.
+-type line()      :: non_neg_integer().
+-type func_info() :: {line(), atom(), arity()}.
 
 -record(info, {records = map__new() :: map(),
-	       functions = []       :: [fun_info()],
+	       functions = []       :: [func_info()],
 	       types = map__new()   :: map(),
 	       edoc = false	    :: boolean()}).
 -record(inc, {map = map__new() :: map(), filter = [] :: files()}).
+-type inc() :: #inc{}.
 
 -spec show_or_annotate(analysis()) -> 'ok'.
 
@@ -252,7 +257,7 @@ write_inc_files(Inc) ->
 	Val = map__lookup(File, Inc#inc.map),
 	%% Val is function with its type info
 	%% in form [{{Line,F,A},Type}]
-	Functions = [Key || {Key,_} <- Val],
+	Functions = [Key || {Key, _} <- Val],
 	Val1 = [{{F,A},Type} || {{_Line,F,A},Type} <- Val],
 	Info = #info{types = map__from_list(Val1),
 		     records = map__new(),
@@ -294,7 +299,7 @@ collect_imported_functions(Functions, Types, Inc) ->
 	end,
   lists:foldl(Fun, Inc, Functions).
 
--spec is_yecc_gen(file:filename(), #inc{}) -> {boolean(), #inc{}}.
+-spec is_yecc_gen(file:filename(), inc()) -> {boolean(), inc()}.
 
 is_yecc_gen(File, #inc{filter = Fs} = Inc) ->
   case lists:member(File, Fs) of
@@ -380,7 +385,7 @@ get_types(Module, Analysis, Records) ->
       none -> [];
       {value, List} -> List
     end,
-  CodeServer = Analysis#analysis.code_server,
+  CodeServer = Analysis#analysis.codeserver,
   TypeInfoList = [get_type(I, CodeServer, Records) || I <- TypeInfo],
   map__from_list(TypeInfoList).
 
@@ -772,8 +777,6 @@ remove_dup(Files) ->
 %% Collect information.
 %%--------------------------------------------------------------------
 
--type line()          :: non_neg_integer().
--type func_info()     :: {line(), atom(), arity()}.
 -type inc_file_info() :: {file:filename(), func_info()}.
 
 -record(tmpAcc, {file		  :: file:filename(),
@@ -797,7 +800,7 @@ collect_info(Analysis) ->
 			    Analysis#analysis{trust_plt = NewPlt}, 
 			    Analysis#analysis.files),
   %% Process Remote Types
-  TmpCServer = NewAnalysis#analysis.code_server,
+  TmpCServer = NewAnalysis#analysis.codeserver,
   NewCServer =
     try
       NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer),
@@ -817,7 +820,7 @@ collect_info(Analysis) ->
       throw:{error, ErrorMsg} ->
 	fatal_error(ErrorMsg)
     end,
-  NewAnalysis#analysis{code_server = NewCServer}.
+  NewAnalysis#analysis{codeserver = NewCServer}.
 
 collect_one_file_info(File, Analysis) ->
   Ds = [{d,Name,Val} || {Name,Val} <- Analysis#analysis.macros],
@@ -851,7 +854,7 @@ collect_one_file_info(File, Analysis) ->
 analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   Module = cerl:concrete(cerl:module_name(Core)),
   TmpTree = cerl:from_records(Core),
-  CS1 = Analysis#analysis.code_server,
+  CS1 = Analysis#analysis.codeserver,
   NextLabel = dialyzer_codeserver:get_next_core_label(CS1),
   {Tree, NewLabel} = cerl_trees:label(TmpTree, NextLabel),
   CS2 = dialyzer_codeserver:insert(Module, Tree, CS1),
@@ -884,7 +887,7 @@ analyze_core_tree(Core, Records, SpecInfo, ExpTypes, Analysis, File) ->
   RecordMap = map__insert({File, Records}, Analysis#analysis.record),
   Analysis#analysis{fms = FMs,
 		    callgraph = CG,
-		    code_server = CS6,
+		    codeserver = CS6,
 		    ex_func = Exported_FuncMap,
 		    inc_func = IncFuncMap,
 		    record = RecordMap,
@@ -915,7 +918,7 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
 	     incFuncAcc = IncFuncAcc,
 	     dialyzerObj = NewDialyzerObj}.
 
--spec get_dialyzer_plt(analysis()) -> dialyzer_plt:plt().
+-spec get_dialyzer_plt(analysis()) -> plt().
 
 get_dialyzer_plt(#analysis{plt = PltFile0}) ->
   PltFile =
