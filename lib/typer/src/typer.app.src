@@ -6,8 +6,7 @@
   {modules, [typer,
 	     typer_annotator,
 	     typer_info,
-	     typer_options,
-	     typer_preprocess]},
+	     typer_options]},
   {registered, []},
   {applications, [compiler, dialyzer, hipe, kernel, stdlib]},
   {env, []}]}.
