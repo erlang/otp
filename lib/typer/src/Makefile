@@ -47,8 +47,7 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # ----------------------------------------------------
 MODULES = typer \
 	typer_annotator \
-	typer_info \
-	typer_options
+	typer_info
 
 HRL_FILES= typer.hrl
 ERL_FILES= $(MODULES:%=%.erl)
@@ -84,8 +83,8 @@ clean:
 # Special Build Targets
 # ----------------------------------------------------
 
-$(EBIN)/typer_options.$(EMULATOR): typer_options.erl ../vsn.mk Makefile
-	erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer_options.erl
+$(EBIN)/typer.$(EMULATOR): typer.erl ../vsn.mk Makefile
+	erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer.erl
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
@@ -100,8 +99,6 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 $(EBIN)/typer.beam: typer.hrl
 $(EBIN)/typer_annotator.beam: typer.hrl
 $(EBIN)/typer_info.beam: typer.hrl
-$(EBIN)/typer_options.beam: typer.hrl
-$(EBIN)/typer_preprocess.beam: typer.hrl
 
 # ----------------------------------------------------
 # Release Target
