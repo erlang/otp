@@ -235,7 +235,7 @@ match_cg(M, Rs, Le, Vdb, Bef, St0) ->
     I = Le#l.i,
     {Sis,Int0} = adjust_stack(Bef, I, I+1, Vdb),
     {B,St1} = new_label(St0),
-    {Mis,Int1,St2} = match_cg(M, St0#cg.ultimate_failure,
+    {Mis,Int1,St2} = match_cg(M, St1#cg.ultimate_failure,
 			      Int0, St1#cg{break=B}),
     %% Put return values in registers.
     Reg = load_vars(Rs, Int1#sr.reg),
