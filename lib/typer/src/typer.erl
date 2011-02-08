@@ -57,6 +57,7 @@
 	 files      = []		 :: files(),   % absolute names
 	 plt        = none		 :: 'none' | file:filename(),
 	 no_spec    = false              :: boolean(),
+	 show_succ  = false              :: boolean(),
 	 %% For choosing between specs or edoc @spec comments
 	 edoc       = false		 :: boolean(),
 	 %% Files in 'fms' are compilable with option 'to_pp'; we keep them
@@ -386,8 +387,17 @@ get_types(Module, Analysis, Records) ->
       {value, List} -> List
     end,
   CodeServer = Analysis#analysis.codeserver,
-  TypeInfoList = [get_type(I, CodeServer, Records) || I <- TypeInfo],
+  TypeInfoList =
+    case Analysis#analysis.show_succ of
+      true ->
+	[convert_type_info(I) || I <- TypeInfo];
+      false ->
+	[get_type(I, CodeServer, Records) || I <- TypeInfo]
+    end,
   map__from_list(TypeInfoList).
+
+convert_type_info({{_M, F, A}, Range, Arg}) ->
+  {{F, A}, {Range, Arg}}.
 
 get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
   case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
@@ -589,6 +599,7 @@ cl(["--edoc"|Opts]) -> {edoc, Opts};
 cl(["--show"|Opts]) -> {{mode, ?SHOW}, Opts};
 cl(["--show_exported"|Opts]) -> {{mode, ?SHOW_EXPORTED}, Opts};
 cl(["--show-exported"|Opts]) -> {{mode, ?SHOW_EXPORTED}, Opts};
+cl(["--show-success-typings"|Opts]) -> {show_succ, Opts};
 cl(["--annotate"|Opts]) -> {{mode, ?ANNOTATE}, Opts};
 cl(["--annotate-inc-files"|Opts]) -> {{mode, ?ANNOTATE_INC_FILES}, Opts};
 cl(["--no_spec"|Opts]) -> {no_spec, Opts};
@@ -656,6 +667,8 @@ analyze_result({inc, Val}, Args, Analysis) ->
   {Args, Analysis#analysis{includes = NewVal}};
 analyze_result({plt, Plt}, Args, Analysis) ->
   {Args, Analysis#analysis{plt = Plt}};
+analyze_result(show_succ, Args, Analysis) ->
+  {Args, Analysis#analysis{show_succ = true}};
 analyze_result(no_spec, Args, Analysis) ->
   {Args, Analysis#analysis{no_spec = true}}.
 
