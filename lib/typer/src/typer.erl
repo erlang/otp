@@ -399,6 +399,8 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
 	ok -> {{F, A}, {contract, Contract}};
 	{error, {extra_range, _, _}} ->
 	  {{F, A}, {contract, Contract}};
+	{error, {overlapping_contract, []}} ->
+	  {{F, A}, {contract, Contract}};
 	{error, invalid_contract} ->
 	  CString = dialyzer_contracts:contract_to_string(Contract),
 	  SigString = dialyzer_utils:format_sig(Sig, Records),
