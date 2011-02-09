@@ -2,7 +2,7 @@ changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -17,9 +17,7 @@ changecom(`/*', `*/')dnl
  *
  * %CopyrightEnd%
  */
-/*
- * $Id$
- */
+
 
 include(`hipe/hipe_amd64_asm.m4')
 #`include' "hipe_literals.h"
