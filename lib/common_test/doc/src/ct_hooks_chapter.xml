@@ -21,12 +21,12 @@
 
     </legalnotice>
 
-    <title>Suite Callbacks</title>
+    <title>Common Test Hooks</title>
     <prepared>Lukas Larsson</prepared>
     <docno></docno>
     <date></date>
     <rev></rev>
-    <file>suite_callbacks_chapter.xml</file>
+    <file>ct_hooks_chapter.xml</file>
   </header>
 
   <marker id="general"></marker>
@@ -38,74 +38,75 @@
 	that there might be bugs and that the interface might change
 	inbetween releases.</p></warning>
     <p>
-      The <em>Suite Callback</em> (henceforth called SCB) framework allows 
-      extensions of the default behaviour of Common Test by means of callbacks 
-      before and after all test suite calls. SCBs allow advanced Common Test
+      The <em>Common Test Hook</em> (henceforth called CTH) framework allows 
+      extensions of the default behaviour of Common Test by means of hooks 
+      before and after all test suite calls. CTHs allow advanced Common Test
       users to abstract out behaviour which is common to multiple test suites
       without littering all test suites with library calls. Some example 
       usages are: logging, starting and monitoring external systems, 
       building C files needed by the tests and much more!</p>
 
-    <p>In brief, Suite Callbacks allows you to:</p>
+    <p>In brief, Common Test Hooks allows you to:</p>
 
     <list>
       <item>Manipulate the runtime config before each suite 
-      configuration calls</item>
+      configuration call</item>
       <item>Manipulate the return of all suite configuration calls and in 
       extension the result of the test themselves.</item>
     </list>
     
-    <p>The following sections describe how to use SCBs, when they are run 
-      and how to manipulate your test results in an SCB</p>
+    <p>The following sections describe how to use CTHs, when they are run 
+      and how to manipulate your test results in a CTH</p>
 
-    <warning><p>When executing within an SCB all timetraps are shutoff. So
-	if your SCB never returns, the entire test run will be stalled!</p>
+    <warning><p>When executing within a CTH all timetraps are shutoff. So
+	if your CTH never returns, the entire test run will be stalled!</p>
     </warning>
 
   </section>
   
   <marker id="installing"></marker>
   <section>
-    <title>Installing an SCB</title>
-    <p>There are multiple ways to install an SCB in your test run. You can do it
+    <title>Installing a CTH</title>
+    <p>There are multiple ways to install a CTH in your test run. You can do it
       for all tests in a run, for specific test suites and for specific groups 
-      within a test suite. If you want an SCB to be present in all test suites 
-      within your testrun there are three different ways to accomplish that.</p>
+      within a test suite. If you want a CTH to be present in all test suites 
+      within your test run there are three different ways to accomplish that.
+    </p>
 
     <list>
-      <item>Add <c>-suite_callbacks</c> as an argument to 
+      <item>Add <c>-ct_hooks</c> as an argument to 
       <seealso marker="run_test_chapter#ct_run">ct_run</seealso>. 
-      To add multiple SCBs using this method append them to each other
+      To add multiple CTHs using this method append them to each other
       using the keyword <c>and</c>, i.e. 
-      <c>ct_run -suite_callbacks scb1 [{debug,true}] and scb2 ...</c>.</item>
-      <item>Add the <c>suite_callbacks</c> tag to your 
+      <c>ct_run -ct_hooks cth1 [{debug,true}] and cth2 ...</c>.</item>
+      <item>Add the <c>ct_hooks</c> tag to your 
       <seealso marker="run_test_chapter#test_specifications">
       Test Specification</seealso></item>
-      <item>Add the <c>suite_callbacks</c> tag to your call to 
+      <item>Add the <c>ct_hooks</c> tag to your call to 
       <seealso marker="ct#run_test-1">ct:run_test/1</seealso></item>
     </list>
 
-    <p>You can also add SCBs within a test suite. This is done by returning
-    <c>{suite_callbacks,[SCB]}</c> in the config list from 
+    <p>You can also add CTHs within a test suite. This is done by returning
+    <c>{ct_hooks,[CTH]}</c> in the config list from 
     <seealso marker="common_test#Module:suite-0">suite/0</seealso>,
     <seealso marker="common_test#Module:init_per_suite-1">
       init_per_suite/1</seealso> or
       <seealso marker="common_test#Module:init_per_group-2">
-    init_per_group/2</seealso>. <c>SCB</c> in this case can be either
-    only the module name of the SCB or a tuple with the module name and the
-    initial arguments to the SCB. Eg:
-    <c>{suite_callbacks,[my_scb_module]}</c> or 
-    <c>{suite_callbacks,[{my_scb_module,[{debug,true}]}]}</c></p>
+    init_per_group/2</seealso>. <c>CTH</c> in this case can be either
+    only the module name of the CTH or a tuple with the module name and the
+    initial arguments to the CTH. Eg:
+    <c>{ct_hooks,[my_cth_module]}</c> or 
+    <c>{ct_hooks,[{my_cth_module,[{debug,true}]}]}</c></p>
 
     <section>
-      <title>Overriding SCBs</title>
-      <p>By default each installation of an SCB will cause a new instance of it
+      <title>Overriding CTHs</title>
+      <p>By default each installation of a CTH will cause a new instance of it
 	to be activated. This can cause problems if you want to be able to 
-	override SCBs in testspecifications while still having them in the
+	override CTHs in test specifications while still having them in the
 	suite info function. The 
-	<seealso marker="ct_suite_callback#Module:id-1">id/1</seealso>
+	<seealso marker="ct_hooks#Module:id-1">id/1</seealso>
 	callback exists to address this problem. By returning the same
-	<c>id</c> in both places, Common Test knows that this SCB
+	<c>id</c> in both places, Common Test knows that this CTH
 	has already been installed and will not try to install it again.</p>
     </section>
 
@@ -113,19 +114,19 @@
 
   <marker id="scope"/>
   <section>
-    <title>SCB Scope</title>
-    <p>Once the SCB is installed into a certain test run it will be there until
-      it's scope is expired. The scope of an SCB depends on when it is 
+    <title>CTH Scope</title>
+    <p>Once the CTH is installed into a certain test run it will be there until
+      its scope is expired. The scope of a CTH depends on when it is 
       installed.
-      The <seealso marker="ct_suite_callback#Module:init-2">init/2</seealso> is 
+      The <seealso marker="ct_hooks#Module:init-2">init/2</seealso> is 
       called at the beginning of the scope and the 
-      <seealso marker="ct_suite_callback#Module:terminate-1">terminate/1
+      <seealso marker="ct_hooks#Module:terminate-1">terminate/1
     </seealso> function is called when the scope ends.</p>
     <table>
       <row>
-	<cell><em>SCB Installed in</em></cell>
-	<cell><em>SCB scope begins before</em></cell>
-	<cell><em>SCB scope ends after</em></cell>
+	<cell><em>CTH Installed in</em></cell>
+	<cell><em>CTH scope begins before</em></cell>
+	<cell><em>CTH scope ends after</em></cell>
       </row>
       <row>
 	<cell><seealso marker="run_test_chapter#ct_run">ct_run</seealso></cell>
@@ -146,28 +147,28 @@
       <row>
 	<cell><seealso marker="common_test#Module:suite-0">suite/0
 	</seealso></cell>
-	<cell><seealso marker="ct_suite_callback#Module:pre_init_per_suite-3">
+	<cell><seealso marker="ct_hooks#Module:pre_init_per_suite-3">
 	    pre_init_per_suite/3</seealso> is called.</cell>
-	<cell><seealso marker="ct_suite_callback#Module:post_end_per_suite-4">
+	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
 	  post_end_per_suite/4</seealso> has been called for that test suite.</cell>
       </row>
       <row>
 	<cell><seealso marker="common_test#Module:init_per_suite-1">
 	  init_per_suite/1</seealso></cell>
-	<cell><seealso marker="ct_suite_callback#Module:post_init_per_suite-4">
+	<cell><seealso marker="ct_hooks#Module:post_init_per_suite-4">
 	    post_init_per_suite/4</seealso> is called.</cell>
-	<cell><seealso marker="ct_suite_callback#Module:post_end_per_suite-4">
+	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
 	  post_end_per_suite/4</seealso> has been called for that test suite.</cell>
       </row>
       <row>
 	<cell><seealso marker="common_test#Module:init_per_group-2">
 	  init_per_group/2</seealso></cell>
-	<cell><seealso marker="ct_suite_callback#Module:post_init_per_group-4">
+	<cell><seealso marker="ct_hooks#Module:post_init_per_group-4">
 	    post_init_per_group/4</seealso> is called.</cell>
-	<cell><seealso marker="ct_suite_callback#Module:post_end_per_suite-4">
+	<cell><seealso marker="ct_hooks#Module:post_end_per_suite-4">
 	  post_end_per_group/4</seealso> has been called for that group.</cell>
       </row>
-    <tcaption>Scope of an SCB</tcaption>
+    <tcaption>Scope of a CTH</tcaption>
     </table>
     
     <section>
@@ -186,83 +187,89 @@
   <marker id="manipulating"/>
   <section>
     <title>Manipulating tests</title>
-    <p>It is through SCB's possible to manipulate the results of tests and 
-    configuration functions. The main purpose of doing this with SCBs is to
+    <p>It is through CTHs possible to manipulate the results of tests and 
+    configuration functions. The main purpose of doing this with CTHs is to
     allow common patterns to be abstracted out from test test suites and applied to
     multiple test suites without duplicating any code. All of the callback
-    functions for an SCB follow a common interface, this interface is 
+    functions for a CTH follow a common interface, this interface is 
     described below.</p>
+
+    <p>It is only possible to hook into test function which exists in the test 
+      suite. So in order for a CTH to hook in before 
+      <seealso marker="common_test#Module:init_per_suite-1">init_per_suite</seealso>, 
+      the <seealso marker="common_test#Module:init_per_suite-1">init_per_suite</seealso> 
+      function must exist in the test suite.</p>
 
     <marker id="pre"/>
     <section>
-      <title>Pre test manipulation</title>
+      <title>Pre Hooks</title>
       <p>
-	It is possible in an SCB to hook in behaviour before 
+	It is possible in a CTH to hook in behaviour before 
 	<seealso marker="common_test#Module:init_per_suite-1">init_per_suite</seealso>, 
 	<seealso marker="common_test#Module:init_per_suite-1">init_per_group</seealso>, 
 	<seealso marker="common_test#Module:init_per_suite-1">init_per_testcase</seealso>, 
 	<seealso marker="common_test#Module:init_per_suite-1">end_per_group</seealso> and 
 	<seealso marker="common_test#Module:init_per_suite-1">end_per_suite</seealso>. 
-	This is done in the SCB functions called pre_&lt;name of function&gt;.
-	All of these function take the same three arguments: <c>Name</c>, 
-	<c>Config</c> and <c>SCBState</c>. The return value of the SCB function
+	This is done in the CTH functions called pre_&lt;name of function&gt;.
+	All of these functions take the same three arguments: <c>Name</c>, 
+	<c>Config</c> and <c>CTHState</c>. The return value of the CTH function
 	is always a combination of an result for the suite/group/test and an 
-	updated <c>SCBState</c>. If you want the test suite to continue on 
+	updated <c>CTHState</c>. If you want the test suite to continue on 
 	executing you should return the config list which you want the test to 
 	use as the result. If you for some reason want to skip/fail the test, 
 	return a tuple with <c>skip</c> or <c>fail</c> and a reason as the 
 	result. Example:
       </p>
-      <code>pre_init_per_suite(SuiteName, Config, SCBState) -&gt;
+      <code>pre_init_per_suite(SuiteName, Config, CTHState) -&gt;
   case db:connect() of
     {error,_Reason} -&gt;
-      {{fail, "Could not connect to DB"}, SCBState};
+      {{fail, "Could not connect to DB"}, CTHState};
     {ok, Handle} -&gt;
-      {[{db_handle, Handle} | Config], SCBState#state{ handle = Handle }}
+      {[{db_handle, Handle} | Config], CTHState#state{ handle = Handle }}
   end.</code>
 	
     </section>
     
     <marker id="post"/>
     <section>
-      <title>Post test manipulation</title>
-      <p>It is also possible in an SCB to hook in behaviour after 
+      <title>Post Hooks</title>
+      <p>It is also possible in a CTH to hook in behaviour after 
       <seealso marker="common_test#Module:init_per_suite-1">init_per_suite</seealso>, 
       <seealso marker="common_test#Module:init_per_suite-1">init_per_group</seealso>, 
       <seealso marker="common_test#Module:init_per_suite-1">end_per_testcase</seealso>, 
       <seealso marker="common_test#Module:init_per_suite-1">end_per_group</seealso> and 
       <seealso marker="common_test#Module:init_per_suite-1">end_per_suite</seealso>.
-      This is done in the SCB functions called post_&lt;name of function&gt;. 
+      This is done in the CTH functions called post_&lt;name of function&gt;. 
       All of these function take the same four arguments: <c>Name</c>, 
-      <c>Config</c>, <c>Return</c> and <c>SCBState</c>. <c>Config</c> in this
+      <c>Config</c>, <c>Return</c> and <c>CTHState</c>. <c>Config</c> in this
       case is the same <c>Config</c> as the testcase is called with. 
       <c>Return</c> is the value returned by the testcase. If the testcase 
       failed by crashing, <c>Return</c> will be 
       <c>{'EXIT',{{Error,Reason},Stacktrace}}</c>.</p>
       
-      <p>The return value of the SCB function is always a combination of an
-	result for the suite/group/test and an updated <c>SCBState</c>. If
+      <p>The return value of the CTH function is always a combination of an
+	result for the suite/group/test and an updated <c>CTHState</c>. If
 	you want the callback to not affect the outcome of the test you should
-	return the <c>Return</c> data as it is given to the SCB. You can also
+	return the <c>Return</c> data as it is given to the CTH. You can also
 	modify the result of the test. By returning the <c>Config</c> list
 	with the <c>tc_status</c> element removed you can recover from a test 
 	failure. As in all the pre hooks, it is also possible to fail/skip
 	the test case in the post hook. Example: </p>
 
-      <code>post_end_per_testcase(_TC, Config, {'EXIT',{_,_}}, SCBState) -&gt;
+      <code>post_end_per_testcase(_TC, Config, {'EXIT',{_,_}}, CTHState) -&gt;
   case db:check_consistency() of
     true ->
       %% DB is good, pass the test.
-      {proplists:delete(tc_status, Config), SCBState};
+      {proplists:delete(tc_status, Config), CTHState};
     false ->
       %% DB is not good, mark as skipped instead of failing
-      {{skip, "DB is inconsisten!"}, SCBState}
+      {{skip, "DB is inconsisten!"}, CTHState}
   end;
-post_end_per_testcase(_TC, Config, Return, SCBState) -&gt;
+post_end_per_testcase(_TC, Config, Return, CTHState) -&gt;
   %% Do nothing if tc does not crash.
-  {Return, SCBState}.</code>
+  {Return, CTHState}.</code>
 
-      <note>Recovering from a testcase failure using SCBs should only be done as
+      <note>Recovering from a testcase failure using CTHs should only be done as
 	a last resort. If used wrongly it could become very difficult to 
 	determine which tests pass or fail in a test run</note>
   
@@ -270,11 +277,11 @@ post_end_per_testcase(_TC, Config, Return, SCBState) -&gt;
 
     <marker id="skip_n_fail"/>
     <section>
-      <title>Skip and Fail</title>
+      <title>Skip and Fail hooks</title>
       <p>
-	After any post hook has been executed for all installed SCBs, 
-	<seealso marker="ct_suite_callback#Module:on_tc_fail-3">on_tc_fail</seealso>
-	or <seealso marker="ct_suite_callback#Module:on_tc_fail-3">on_tc_skip</seealso> 
+	After any post hook has been executed for all installed CTHs, 
+	<seealso marker="ct_hooks#Module:on_tc_fail-3">on_tc_fail</seealso>
+	or <seealso marker="ct_hooks#Module:on_tc_fail-3">on_tc_skip</seealso> 
 	might be called if the testcase failed or was skipped 
 	respectively. You cannot affect the outcome of the tests any further at 
 	this point. 
@@ -285,14 +292,14 @@ post_end_per_testcase(_TC, Config, Return, SCBState) -&gt;
 
   <marker id="example"/>
   <section>
-     <title>Example SCB</title>
-     <p>The SCB below will log information about a test run into a format 
+     <title>Example CTH</title>
+     <p>The CTH below will log information about a test run into a format 
        parseable by <seealso marker="kernel:file#consult-1">file:consult/1</seealso>.
      </p>
-     <code>%%% @doc Common Test Example Suite Callback module.
--module(example_scb).
+     <code>%%% @doc Common Test Example Common Test Hook module.
+-module(example_cth).
 
-%% Suite Callbacks
+%% Callbacks
 -export([id/1]).
 -export([init/2]).
 
@@ -316,7 +323,7 @@ post_end_per_testcase(_TC, Config, Return, SCBState) -&gt;
 
 -record(state, { file_handle, total, suite_total, ts, tcs, data }).
 
-%% @doc Return a unique id for this SCB.
+%% @doc Return a unique id for this CTH.
 id(Opts) ->
   proplists:get_value(filename, Opts, "/tmp/file.log").
 
@@ -379,7 +386,7 @@ on_tc_fail(TC, Reason, State) ->
 on_tc_skip(TC, Reason, State) ->
     State.
 
-%% @doc Called when the scope of the SCB is done
+%% @doc Called when the scope of the CTH is done
 terminate(State) ->
     io:format(State#state.file_handle, "~p.~n",
                [{test_run, State#state.total, State#state.data}]),

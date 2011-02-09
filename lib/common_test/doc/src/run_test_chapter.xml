@@ -148,8 +148,8 @@
         <seealso marker="event_handler_chapter#event_handling">event handlers</seealso>.</item>
       <item><c><![CDATA[-event_handler_init <event_handlers>]]></c>, to install
         <seealso marker="event_handler_chapter#event_handling">event handlers</seealso> including start arguments.</item>
-      <item><c><![CDATA[-suite_callbacks <suite_callbacks>]]></c>, to install
-        <seealso marker="suite_callbacks_chapter#installing">Suite Callbacks</seealso> including start arguments.</item>
+      <item><c><![CDATA[-ct_hooks <ct_hooks>]]></c>, to install
+        <seealso marker="ct_hooks_chapter#installing">Common Test Hooks</seealso> including start arguments.</item>
       <item><c><![CDATA[-include]]></c>, specifies include directories (see above).</item>
       <item><c><![CDATA[-no_auto_compile]]></c>, disables the automatic test suite compilation feature (see above).</item>
       <item><c><![CDATA[-multiply_timetraps <n>]]></c>, extends <seealso marker="write_test_chapter#timetraps">timetrap
@@ -444,8 +444,8 @@
       {event_handler, EventHandlers, InitArgs}.
       {event_handler, NodeRefs, EventHandlers, InitArgs}.
 
-      {suite_callbacks, SCBModules}.
-      {suite_callbacks, NodeRefs, SCBModules}.
+      {ct_hooks, CTHModules}.
+      {ct_hooks, NodeRefs, CTHModules}.
     </pre>
       <p>Test terms:</p>
     <pre>
@@ -484,9 +484,9 @@
       LogDir        = string()
       EventHandlers = atom() | [atom()]
       InitArgs      = [term()]
-      SCBModules    = [SCBModule | {SCBModule, SCBInitArgs}]
-      SCBModule     = atom()
-      SCBInitArgs   = term()
+      CTHModules    = [CTHModule | {CTHModule, CTHInitArgs}]
+      CTHModule     = atom()
+      CTHInitArgs   = term()
       DirRef        = DirAlias | Dir
       Suites        = atom() | [atom()] | all
       Suite         = atom()

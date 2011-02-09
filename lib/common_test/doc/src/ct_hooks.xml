@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>Suite Callbacks</title>
+    <title>Common Test Hooks</title>
     <prepared>Lukas Larsson</prepared>
     <responsible>Lukas Larsson</responsible>
     <docno></docno>
@@ -30,9 +30,9 @@
     <checked></checked>
     <date>2010-12-02</date>
     <rev>PA1</rev>
-    <file>suite_callback.sgml</file>
+    <file>ct_hooks.sgml</file>
   </header>
-  <module>ct_suite_callback</module> 
+  <module>ct_hooks</module> 
   <modulesummary>A callback interface on top of Common Test</modulesummary>
 
   <description>
@@ -43,46 +43,46 @@
 	that there might be bugs and that the interface might change
 	inbetween releases.</p></warning>
 
-    <p>The <em>Suite Callback</em> (henceforth called SCB) framework allows 
+    <p>The <em>Common Test Hook</em> (henceforth called CTH) framework allows 
       extensions of the default behaviour of Common Test by means of callbacks 
       before and after all test suite calls. It is meant for advanced users of
       Common Test which want to abstract out behaviour which is common to
       multiple test suites. </p>
 
-    <p>In brief, Suite Callbacks allows you to:</p>
+    <p>In brief, Common Test Hooks allows you to:</p>
 
     <list>
       <item>Manipulate the runtime config before each suite 
-      configuration calls</item>
+      configuration call</item>
       <item>Manipulate the return of all suite configuration calls and in 
       extension the result of the test themselves.</item>
     </list>
     
-    <p>The following sections describe the mandatory and optional SCB
+    <p>The following sections describe the mandatory and optional CTH
     functions Common Test will call during test execution. For more details
-    see <seealso marker="suite_callbacks_chapter">Suite Callbacks</seealso> in 
+    see <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso> in 
     the User's Guide.</p>
 
-    <p>For information about how to add a SCB to your suite see 
-    <seealso marker="suite_callbacks_chapter#installing">Installing an SCB
+    <p>For information about how to add a CTH to your suite see 
+    <seealso marker="ct_hooks_chapter#installing">Installing a CTH
     </seealso> in the User's Guide.</p>
 
     <note><p>See the
-	<seealso marker="suite_callbacks_chapter#example">Example SCB</seealso>
-	in the User's Guide for a minimal example of an SCB. </p></note>
+	<seealso marker="ct_hooks_chapter#example">Example CTH</seealso>
+	in the User's Guide for a minimal example of a CTH. </p></note>
     
   </description>
 
   <section>
     <title>CALLBACK FUNCTIONS</title>
     <p>The following functions define the callback interface
-      for a suite callback.</p>
+      for a Common Test Hook.</p>
   </section>
   
   <funcs>
     <func>
       <name>Module:init(Id, Opts) -&gt; State</name>
-      <fsummary>Initiates the Suite Callback</fsummary>
+      <fsummary>Initiates the Common Test Hook</fsummary>
       <type>
 	<v>Id = reference() | term()</v>
 	<v>Opts = term()</v>
@@ -94,29 +94,31 @@
 
 	<p>Always called before any other callback function. 
 	  Use this to initiate any common state. 
-	  It should return a state for this SCB.</p>
+	  It should return a state for this CTH.</p>
 
 	<p><c>Id</c> is the return value of 
 	  <seealso marker="#Module:id-1">id/1</seealso>, or a <c>reference</c>
+	  (created using 
+	  <seealso marker="erts:erlang#make_ref-0">make_ref/0</seealso>)
 	  if <seealso marker="#Module:id-1">id/1</seealso> is not implemented.
 	</p>
 
 	<p>For details about when init is called see
-	  <seealso marker="suite_callbacks_chapter#scope">scope</seealso>
+	  <seealso marker="ct_hooks_chapter#scope">scope</seealso>
 	  in the User's Guide.</p>
 	      
       </desc>
     </func>
 
     <func>
-      <name>Module:pre_init_per_suite(SuiteName, Config, SCBState) -&gt; 
+      <name>Module:pre_init_per_suite(SuiteName, Config, CTHState) -&gt; 
               Result</name>
       <fsummary>Called before init_per_suite</fsummary>
       <type>
 	<v>SuiteName = atom()</v>
 	<v>Config = NewConfig = [{Key,Value}]</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {Return, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {Return, NewCTHState}</v>
 	<v>Return = NewConfig | SkipOrFail</v>
 	<v>SkipOrFail = {fail, Reason} | {skip, Reason}</v>
 	<v>Key = atom()</v>
@@ -140,7 +142,7 @@
 
 	<p><c>Config</c> is the original config list of the test suite.</p>
 
-	<p><c>SCBState</c> is the current internal state of the SCB.</p>
+	<p><c>CTHState</c> is the current internal state of the CTH.</p>
 
 	<p><c>Return</c> is the result of the init_per_suite function.
 	If it is <c>{skip,Reason}</c> or <c>{fail,Reason}</c> 
@@ -149,19 +151,19 @@
 	to be skipped/failed respectively. If a <c>NewConfig</c> list
 	is returned, <seealso marker="common_test#Module:init_per_suite-1">
 	init_per_suite</seealso> will be called with that <c>NewConfig</c> list.
-	See <seealso marker="suite_callbacks_chapter#manipulating">
-	Manipulating tests</seealso> in the User's Guide for more details.</p>
+	See <seealso marker="ct_hooks_chapter#pre">
+	Pre Hooks</seealso> in the User's Guide for more details.</p>
 	
 	
-	<p>Note that this function is only called if the SCB has been added 
+	<p>Note that this function is only called if the CTH has been added 
 	before init_per_suite is run, see 
-	<seealso marker="suite_callbacks_chapter#scope">SCB Scoping</seealso> 
+	<seealso marker="ct_hooks_chapter#scope">CTH Scoping</seealso> 
 	in the User's Guide for details.</p>
       </desc>
     </func>
     
     <func>
-      <name>Module:post_init_per_suite(SuiteName, Config, Return, SCBState) -&gt; 
+      <name>Module:post_init_per_suite(SuiteName, Config, Return, CTHState) -&gt; 
               Result</name>
       <fsummary>Called after init_per_suite</fsummary>
       <type>
@@ -169,8 +171,8 @@
 	<v>Config = [{Key,Value}]</v>
 	<v>Return = NewReturn = Config | SkipOrFail | term()</v>
 	<v>SkipOrFail = {fail, Reason} | {skip, Reason} | term()</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewReturn, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewReturn, NewCTHState}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
 	<v>Reason = term()</v>
@@ -178,6 +180,12 @@
       
       <desc>	
 	<p> OPTIONAL </p>
+
+	<p>This function is called after
+	<seealso marker="common_test#Module:init_per_suite-1">
+	  init_per_suite</seealso> if it exists. It typically contains extra 
+	checks to make sure that all the correct dependencies have
+	been started correctly.</p>
 	
 	<p><c>Return</c> is what 
 	<seealso marker="common_test#Module:init_per_suite-1">init_per_suite
@@ -191,30 +199,27 @@
 	</seealso>. It is here possible to recover from a failure in 
 	<seealso marker="common_test#Module:init_per_suite-1">init_per_suite
 	</seealso> by returning the <c>ConfigList</c> with the <c>tc_status</c>
-	element removed.</p>
+	element removed. See <seealso marker="ct_hooks_chapter#post">
+	Post Hooks</seealso> in the User's Guide for more details.</p>
 
-	<p><c>SCBState</c> is the current internal state of the SCB.</p>
+	<p><c>CTHState</c> is the current internal state of the CTH.</p>
 
-	<p>This function is called after
-	<seealso marker="common_test#Module:init_per_suite-1">
-	init_per_suite</seealso> if it exists.</p>
-
-	<p>Note that this function is only called if the SCB has been added 
+	<p>Note that this function is only called if the CTH has been added 
 	before or in init_per_suite, see 
-	<seealso marker="suite_callbacks_chapter#scope">SCB Scoping</seealso> 
+	<seealso marker="ct_hooks_chapter#scope">CTH Scoping</seealso> 
 	in the User's Guide for details.</p>
       </desc>
     </func>
     
     <func>
-      <name>Module:pre_init_per_group(GroupName, Config, SCBState) -&gt; 
+      <name>Module:pre_init_per_group(GroupName, Config, CTHState) -&gt; 
               Result</name>
       <fsummary>Called before init_per_group</fsummary>
       <type>
 	<v>GroupName = atom()</v>
 	<v>Config = NewConfig = [{Key,Value}]</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewConfig | SkipOrFail, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewConfig | SkipOrFail, NewCTHState}</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
@@ -227,7 +232,7 @@
 	<p>This function is called before
 	<seealso marker="common_test#Module:init_per_group-2">
 	  init_per_group</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:pre_init_per_suite-3">
+	<seealso marker="ct_hooks#Module:pre_init_per_suite-3">
 	pre_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:init_per_group-2">
 	init_per_group</seealso> instead.</p>
@@ -235,7 +240,7 @@
     </func>
     
     <func>
-      <name>Module:post_init_per_group(GroupName, Config, Return, SCBState) -&gt; 
+      <name>Module:post_init_per_group(GroupName, Config, Return, CTHState) -&gt; 
               Result</name>
       <fsummary>Called after init_per_group</fsummary>
       <type>
@@ -243,8 +248,8 @@
 	<v>Config = [{Key,Value}]</v>
 	<v>Return = NewReturn = Config | SkipOrFail | term()</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewReturn, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewReturn, NewCTHState}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
 	<v>Reason = term()</v>
@@ -256,7 +261,7 @@
 	<p>This function is called after
 	<seealso marker="common_test#Module:init_per_group-2">
 	  init_per_group</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:post_init_per_suite-4">
+	<seealso marker="ct_hooks#Module:post_init_per_suite-4">
 	post_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:init_per_group-2">
 	init_per_group</seealso> instead.</p>
@@ -264,14 +269,14 @@
     </func>
 
     <func>
-      <name>Module:pre_init_per_testcase(TestcaseName, Config, SCBState) -&gt; 
+      <name>Module:pre_init_per_testcase(TestcaseName, Config, CTHState) -&gt; 
               Result</name>
       <fsummary>Called before init_per_testcase</fsummary>
       <type>
 	<v>TestcaseName = atom()</v>
 	<v>Config = NewConfig = [{Key,Value}]</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewConfig | SkipOrFail, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewConfig | SkipOrFail, NewCTHState}</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
@@ -284,19 +289,19 @@
 	<p>This function is called before
 	<seealso marker="common_test#Module:init_per_testcase-2">
 	  init_per_testcase</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:pre_init_per_suite-3">
+	<seealso marker="ct_hooks#Module:pre_init_per_suite-3">
 	pre_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:init_per_testcase-2">
 	init_per_testcase</seealso> function instead.</p>
 
-	<p>Note that it is not possible to add SCB's here right now, 
+	<p>Note that it is not possible to add CTH's here right now, 
 	that feature might be added later, 
 	but it would right now break backwards compatability.</p>
       </desc>
     </func>
 
     <func>
-      <name>Module:post_end_per_testcase(TestcaseName, Config, Return, SCBState)
+      <name>Module:post_end_per_testcase(TestcaseName, Config, Return, CTHState)
                -&gt; Result</name>
       <fsummary>Called after end_per_testcase</fsummary>
       <type>
@@ -304,8 +309,8 @@
 	<v>Config = [{Key,Value}]</v>
 	<v>Return = NewReturn = Config | SkipOrFail | term()</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewReturn, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewReturn, NewCTHState}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
 	<v>Reason = term()</v>
@@ -317,7 +322,7 @@
 	<p>This function is called after
 	<seealso marker="common_test#Module:end_per_testcase-2">
 	  end_per_testcase</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:post_init_per_suite-4">
+	<seealso marker="ct_hooks#Module:post_init_per_suite-4">
 	post_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:end_per_testcase-2">
 	end_per_testcase</seealso> function instead.</p>
@@ -325,14 +330,14 @@
     </func>
 
     <func>
-      <name>Module:pre_end_per_group(GroupName, Config, SCBState) -&gt; 
+      <name>Module:pre_end_per_group(GroupName, Config, CTHState) -&gt; 
               Result</name>
       <fsummary>Called before end_per_group</fsummary>
       <type>
 	<v>GroupName = atom()</v>
 	<v>Config = NewConfig = [{Key,Value}]</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewConfig | SkipOrFail, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewConfig | SkipOrFail, NewCTHState}</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
@@ -345,7 +350,7 @@
 	<p>This function is called before
 	<seealso marker="common_test#Module:end_per_group-2">
 	end_per_group</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:pre_init_per_suite-3">
+	<seealso marker="ct_hooks#Module:pre_init_per_suite-3">
 	pre_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:end_per_group-2">
 	end_per_group</seealso> function instead.</p>
@@ -353,7 +358,7 @@
     </func>
 
     <func>
-      <name>Module:post_end_per_group(GroupName, Config, Return, SCBState) -&gt; 
+      <name>Module:post_end_per_group(GroupName, Config, Return, CTHState) -&gt; 
               Result</name>
       <fsummary>Called after end_per_group</fsummary>
       <type>
@@ -361,8 +366,8 @@
 	<v>Config = [{Key,Value}]</v>
 	<v>Return = NewReturn = Config | SkipOrFail | term()</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewReturn, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewReturn, NewCTHState}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
 	<v>Reason = term()</v>
@@ -374,7 +379,7 @@
 	<p>This function is called after
 	<seealso marker="common_test#Module:end_per_group-2">
 	  end_per_group</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:post_init_per_suite-4">
+	<seealso marker="ct_hooks#Module:post_init_per_suite-4">
 	post_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:end_per_group-2">
 	end_per_group</seealso> function instead.</p>
@@ -382,14 +387,14 @@
     </func>
 
     <func>
-      <name>Module:pre_end_per_suite(SuiteName, Config, SCBState) -&gt; 
+      <name>Module:pre_end_per_suite(SuiteName, Config, CTHState) -&gt; 
               Result</name>
       <fsummary>Called before end_per_suite</fsummary>
       <type>
 	<v>SuiteName = atom()</v>
 	<v>Config = NewConfig = [{Key,Value}]</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewConfig | SkipOrFail, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewConfig | SkipOrFail, NewCTHState}</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
@@ -402,7 +407,7 @@
 	<p>This function is called before
 	<seealso marker="common_test#Module:end_per_suite-1">
 	  end_per_suite</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:pre_init_per_suite-3">
+	<seealso marker="ct_hooks#Module:pre_init_per_suite-3">
 	pre_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:end_per_suite-2">
 	end_per_suite</seealso> function instead.</p>
@@ -410,7 +415,7 @@
     </func>
 
     <func>
-      <name>Module:post_end_per_suite(SuiteName, Config, Return, SCBState) -&gt; 
+      <name>Module:post_end_per_suite(SuiteName, Config, Return, CTHState) -&gt; 
               Result</name>
       <fsummary>Called after end_per_suite</fsummary>
       <type>
@@ -418,8 +423,8 @@
 	<v>Config = [{Key,Value}]</v>
 	<v>Return = NewReturn = Config | SkipOrFail | term()</v>
 	<v>SkipOrFail = {fail,Reason} | {skip, Reason}</v>
-	<v>SCBState = NewSCBState = term()</v>
-	<v>Result = {NewReturn, NewSCBState}</v>
+	<v>CTHState = NewCTHState = term()</v>
+	<v>Result = {NewReturn, NewCTHState}</v>
 	<v>Key = atom()</v>
 	<v>Value = term()</v>
 	<v>Reason = term()</v>
@@ -431,7 +436,7 @@
 	<p>This function is called after
 	<seealso marker="common_test#Module:end_per_suite-1">
 	  end_per_suite</seealso> if it exists. It behaves the same way as 
-	<seealso marker="ct_suite_callback#Module:post_init_per_suite-4">
+	<seealso marker="ct_hooks#Module:post_init_per_suite-4">
 	post_init_per_suite</seealso>, but for the
 	<seealso marker="common_test#Module:end_per_suite-2">
 	end_per_suite</seealso> function instead.</p>
@@ -439,14 +444,14 @@
     </func>
 
     <func>
-      <name>Module:on_tc_fail(TestcaseName, Reason, SCBState) -&gt; 
-              NewSCBState</name>
-      <fsummary>Called after the SCB scope ends</fsummary>
+      <name>Module:on_tc_fail(TestcaseName, Reason, CTHState) -&gt; 
+              NewCTHState</name>
+      <fsummary>Called after the CTH scope ends</fsummary>
       <type>
 	<v>TestcaseName = init_per_suite | end_per_suite | 
 	                  init_per_group | end_per_group | atom()</v>
 	<v>Reason = term()</v>
-	<v>SCBState = NewSCBState = term()</v>
+	<v>CTHState = NewCTHState = term()</v>
       </type>
       
       <desc>	
@@ -470,14 +475,14 @@
     </func>
 
     <func>
-      <name>Module:on_tc_skip(TestcaseName, Reason, SCBState) -&gt; 
-              NewSCBState</name>
-      <fsummary>Called after the SCB scope ends</fsummary>
+      <name>Module:on_tc_skip(TestcaseName, Reason, CTHState) -&gt; 
+              NewCTHState</name>
+      <fsummary>Called after the CTH scope ends</fsummary>
       <type>
 	<v>TestcaseName = end_per_suite | init_per_group | 
                           end_per_group | atom()</v>
 	<v>Reason = {tc_auto_skip | tc_user_skip, term()}</v>
-	<v>SCBState = NewSCBState = term()</v>
+	<v>CTHState = NewCTHState = term()</v>
       </type>
       
       <desc>	
@@ -502,24 +507,24 @@
     </func>
 
     <func>
-      <name>Module:terminate(SCBState)</name>
-      <fsummary>Called after the SCB scope ends</fsummary>
+      <name>Module:terminate(CTHState)</name>
+      <fsummary>Called after the CTH scope ends</fsummary>
       <type>
-	<v>SCBState = term()</v>
+	<v>CTHState = term()</v>
       </type>
       
       <desc>	
 	<p> OPTIONAL </p>
 
-	<p>This function is called at the end of an SCB's 
-	<seealso marker="suite_callbacks_chapter#scope">scope</seealso>. 
+	<p>This function is called at the end of a CTH's 
+	<seealso marker="ct_hooks_chapter#scope">scope</seealso>. 
 	</p>
       </desc>
     </func>
 
     <func>
       <name>Module:id(Opts) -&gt; Id</name>
-      <fsummary>Called before the init function of an SCB</fsummary>
+      <fsummary>Called before the init function of a CTH</fsummary>
       <type>
 	<v>Opts = term()</v>
 	<v>Id = term()</v>
@@ -528,18 +533,18 @@
       <desc>
 	<p> OPTIONAL </p>
 	
-	<p>The <c>Id</c> is used to uniquely identify an SCB instance, 
-	if two SCB's return the same <c>Id</c> the second SCB is ignored
-	and subsequent calls to the SCB will only be made to the first
+	<p>The <c>Id</c> is used to uniquely identify a CTH instance, 
+	if two CTH's return the same <c>Id</c> the second CTH is ignored
+	and subsequent calls to the CTH will only be made to the first
 	instance. For more information see 
-	<seealso marker="suite_callbacks_chapter#installing">Installing an SCB
+	<seealso marker="ct_hooks_chapter#installing">Installing a CTH
 	</seealso> in the User's Guide.
         </p>
 
 	<p>This function should NOT have any side effects as it might 
 	be called multiple times by Common Test.</p>
 	
-	<p>If not implemented the SCB will act as if this function returned a
+	<p>If not implemented the CTH will act as if this function returned a
 	  call to <c>make_ref/0</c>.</p>
       </desc>
     </func>

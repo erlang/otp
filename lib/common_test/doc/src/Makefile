@@ -52,7 +52,7 @@ CT_XML_FILES = $(CT_MODULES:=.xml)
 
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF1_FILES = ct_run.xml
-XML_REF3_FILES = $(CT_XML_FILES) ct_suite_callbacks.xml
+XML_REF3_FILES = $(CT_XML_FILES) ct_hooks.xml
 XML_REF6_FILES = common_test_app.xml
 
 XML_PART_FILES = part.xml 
@@ -71,7 +71,7 @@ XML_CHAPTER_FILES = \
 	cover_chapter.xml \
 	ct_master_chapter.xml \
 	event_handler_chapter.xml \
-	suite_callbacks_chapter.xml \
+	ct_hooks_chapter.xml \
 	dependencies_chapter.xml \
 	notes.xml \
 	notes_history.xml 
