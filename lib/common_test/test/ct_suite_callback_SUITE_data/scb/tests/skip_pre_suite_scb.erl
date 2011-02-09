@@ -28,8 +28,8 @@
 %% Suite Callbacks
 -compile(export_all).
 
-init(Opts) ->
-    empty_scb:init(Opts).
+init(Id, Opts) ->
+    empty_scb:init(Id, Opts).
     
 
 pre_init_per_suite(Suite, Config, State) ->

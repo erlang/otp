@@ -26,9 +26,9 @@
 
 
 %% Suite Callbacks
--export([init/1]).
+-export([init/2]).
 
-init(Opts) ->
-    empty_scb:init(Opts),
+init(Id, Opts) ->
+    empty_scb:init(Id, Opts),
     exit(diediedie).
 

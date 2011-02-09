@@ -28,9 +28,12 @@
 %% Suite Callbacks
 -compile(export_all).
 
-init(Opts) ->
-    {_,State} = empty_scb:init(Opts),
-    {?MODULE,State}.
+id(Opts) ->
+    empty_scb:id(Opts),
+    ?MODULE.
+
+init(Id, Opts) ->
+    empty_scb:init(Id, Opts).
 
 pre_init_per_suite(Suite, Config, State) ->
     empty_scb:pre_init_per_suite(Suite,Config,State).

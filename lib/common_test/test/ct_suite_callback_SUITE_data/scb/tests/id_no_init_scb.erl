@@ -18,7 +18,7 @@
 %%
 
 
--module(minimal_scb).
+-module(id_no_init_scb).
 
 
 -include_lib("common_test/src/ct_util.hrl").
@@ -26,8 +26,7 @@
 
 
 %% Suite Callbacks
--export([init/2]).
+-export([id/1]).
 
-init(Id, Opts) ->
-    empty_scb:init(Id, Opts).
-
+id(Opts) ->
+    empty_scb:id(Opts).

@@ -72,7 +72,8 @@ all() ->
 all(suite) -> 
     lists:reverse(
       [
-       one_scb, two_scb, faulty_scb_no_init, faulty_scb_exit_in_init,
+       one_scb, two_scb, faulty_scb_no_init, faulty_scb_id_no_init,
+       faulty_scb_exit_in_init, faulty_scb_exit_in_id,
        faulty_scb_exit_in_init_scope_suite, minimal_scb, 
        minimal_and_maximal_scb, faulty_scb_undef, 
        scope_per_suite_scb, scope_per_group_scb, scope_suite_scb,
@@ -104,6 +105,11 @@ faulty_scb_no_init(Config) when is_list(Config) ->
 	    Config,{error,"Failed to start SCB, see the "
 		   "CT Log for details"}).
 
+faulty_scb_id_no_init(Config) when is_list(Config) ->
+    do_test(faulty_scb_id_no_init, "ct_scb_empty_SUITE.erl",[id_no_init_scb],
+	    Config,{error,"Failed to start SCB, see the "
+		   "CT Log for details"}).
+
 minimal_scb(Config) when is_list(Config) ->
     do_test(minimal_scb, "ct_scb_empty_SUITE.erl",[minimal_scb],Config).
 
@@ -123,6 +129,12 @@ faulty_scb_exit_in_init_scope_suite(Config) when is_list(Config) ->
 faulty_scb_exit_in_init(Config) when is_list(Config) ->
     do_test(faulty_scb_exit_in_init, "ct_scb_empty_SUITE.erl",
 	    [crash_init_scb], Config,
+	    {error,"Failed to start SCB, see the "
+	     "CT Log for details"}).
+
+faulty_scb_exit_in_id(Config) when is_list(Config) ->
+    do_test(faulty_scb_exit_in_id, "ct_scb_empty_SUITE.erl",
+	    [crash_id_scb], Config,
 	    {error,"Failed to start SCB, see the "
 	     "CT Log for details"}).
 
@@ -243,7 +255,8 @@ events_to_check(Test, N) ->
 test_events(one_empty_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,scb,{empty_scb,id,[[]]}},
+     {?eh,scb,{empty_scb,init,[{'_','_','_'},[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{empty_scb,pre_init_per_suite,
@@ -270,8 +283,10 @@ test_events(one_empty_scb) ->
 test_events(two_empty_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
@@ -307,10 +322,21 @@ test_events(faulty_scb_no_init) ->
      {?eh,stop_logging,[]}
     ];
 
+test_events(faulty_scb_id_no_init) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {negative,{?eh,tc_start,'_'},
+      {?eh,test_done,{'DEF','STOP_TIME'}}},
+     {?eh,stop_logging,[]}
+    ];
+
 test_events(minimal_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {negative,{?eh,scb,{'_',id,['_',[]]}},
+      {?eh,scb,{'_',init,['_',[]]}}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,ok}},
@@ -327,8 +353,10 @@ test_events(minimal_scb) ->
 test_events(minimal_and_maximal_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
-     {?eh,scb,{'_',init,[[]]}},
+     {negative,{?eh,scb,{'_',id,['_',[]]}},
+      {?eh,scb,{'_',init,['_',[]]}}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
@@ -355,7 +383,7 @@ test_events(faulty_scb_undef) ->
 		  {failed,FailReasonStr}},
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,tc_done,{ct_scb_empty_SUITE,init_per_suite,
@@ -378,7 +406,7 @@ test_events(faulty_scb_exit_in_init_scope_suite) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{'_',init_per_suite}},
-     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,scb,{empty_scb,init,['_',[]]}},
      {?eh,tc_done,
       {ct_exit_in_init_scope_suite_scb_SUITE,init_per_suite,
        {failed,
@@ -401,9 +429,17 @@ test_events(faulty_scb_exit_in_init_scope_suite) ->
 
 test_events(faulty_scb_exit_in_init) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{empty_scb,init,[[]]}},
+     {?eh,scb,{empty_scb,init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}];
+
+test_events(faulty_scb_exit_in_id) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{empty_scb,id,[[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {negative, {?eh,tc_start,'_'},
+      {?eh,test_done,{'DEF','STOP_TIME'}}},
      {?eh,stop_logging,[]}];
 
 test_events(scope_per_suite_scb) ->
@@ -411,7 +447,8 @@ test_events(scope_per_suite_scb) ->
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scope_per_suite_scb_SUITE,init_per_suite}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,scb,{'_',post_init_per_suite,[ct_scope_per_suite_scb_SUITE,'$proplist','$proplist',[]]}},
      {?eh,tc_done,{ct_scope_per_suite_scb_SUITE,init_per_suite,ok}},
 
@@ -435,7 +472,8 @@ test_events(scope_suite_scb) ->
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scope_suite_scb_SUITE,init_per_suite}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scope_suite_scb_SUITE,'$proplist',[]]}},
      {?eh,scb,{'_',post_init_per_suite,[ct_scope_suite_scb_SUITE,'$proplist','$proplist',[]]}},
      {?eh,tc_done,{ct_scope_suite_scb_SUITE,init_per_suite,ok}},
@@ -462,7 +500,8 @@ test_events(scope_per_group_scb) ->
      {?eh,tc_done,{ct_scope_per_group_scb_SUITE,init_per_suite,ok}},
 
      [{?eh,tc_start,{ct_scope_per_group_scb_SUITE,{init_per_group,group1,[]}}},
-      {?eh,scb,{'_',init,[[]]}},
+      {?eh,scb,{'_',id,[[]]}},
+      {?eh,scb,{'_',init,['_',[]]}},
       {?eh,scb,{'_',post_init_per_group,[group1,'$proplist','$proplist',[]]}},
       {?eh,tc_done,{ct_scope_per_group_scb_SUITE,{init_per_group,group1,[]},ok}},
       
@@ -488,7 +527,8 @@ test_events(scope_per_suite_state_scb) ->
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scope_per_suite_state_scb_SUITE,init_per_suite}},
-     {?eh,scb,{'_',init,[[test]]}},
+     {?eh,scb,{'_',id,[[test]]}},
+     {?eh,scb,{'_',init,['_',[test]]}},
      {?eh,scb,{'_',post_init_per_suite,[ct_scope_per_suite_state_scb_SUITE,'$proplist','$proplist',[test]]}},
      {?eh,tc_done,{ct_scope_per_suite_state_scb_SUITE,init_per_suite,ok}},
 
@@ -512,7 +552,8 @@ test_events(scope_suite_state_scb) ->
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scope_suite_state_scb_SUITE,init_per_suite}},
-     {?eh,scb,{'_',init,[[test]]}},
+     {?eh,scb,{'_',id,[[test]]}},
+     {?eh,scb,{'_',init,['_',[test]]}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scope_suite_state_scb_SUITE,'$proplist',[test]]}},
      {?eh,scb,{'_',post_init_per_suite,[ct_scope_suite_state_scb_SUITE,'$proplist','$proplist',[test]]}},
      {?eh,tc_done,{ct_scope_suite_state_scb_SUITE,init_per_suite,ok}},
@@ -539,7 +580,8 @@ test_events(scope_per_group_state_scb) ->
      {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,init_per_suite,ok}},
 
      [{?eh,tc_start,{ct_scope_per_group_state_scb_SUITE,{init_per_group,group1,[]}}},
-      {?eh,scb,{'_',init,[[test]]}},
+      {?eh,scb,{'_',id,[[test]]}},
+      {?eh,scb,{'_',init,['_',[test]]}},
       {?eh,scb,{'_',post_init_per_group,[group1,'$proplist','$proplist',[test]]}},
       {?eh,tc_done,{ct_scope_per_group_state_scb_SUITE,{init_per_group,group1,[]},ok}},
       
@@ -563,7 +605,7 @@ test_events(scope_per_group_state_scb) ->
 test_events(fail_pre_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
 
      
@@ -603,7 +645,7 @@ test_events(fail_pre_suite_scb) ->
 test_events(fail_post_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
@@ -630,7 +672,7 @@ test_events(fail_post_suite_scb) ->
 test_events(skip_pre_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},
@@ -653,7 +695,7 @@ test_events(skip_pre_suite_scb) ->
 test_events(skip_post_suite_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
@@ -678,7 +720,7 @@ test_events(recover_post_suite_scb) ->
     Suite = ct_scb_fail_per_suite_SUITE,
     [
      {?eh,start_logging,'_'},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{Suite,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[Suite,'$proplist','$proplist']}},
@@ -707,7 +749,7 @@ test_events(recover_post_suite_scb) ->
 test_events(update_config_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      
      {?eh,tc_start,{ct_update_config_SUITE,init_per_suite}},
@@ -818,8 +860,8 @@ test_events(update_config_scb) ->
 test_events(state_update_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
+     {?eh,scb,{'_',init,['_',[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{'_',init_per_suite}},
      
@@ -856,7 +898,7 @@ test_events(state_update_scb) ->
 test_events(options_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{empty_scb,init,[[test]]}},
+     {?eh,scb,{empty_scb,init,['_',[test]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{empty_scb,pre_init_per_suite,
@@ -883,8 +925,9 @@ test_events(options_scb) ->
 test_events(same_id_scb) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,scb,{'_',init,[[]]}},
-     {?eh,scb,{'_',init,[[]]}},
+     {?eh,scb,{'_',id,[[]]}},
+     {?eh,scb,{'_',init,[same_id_scb,[]]}},
+     {?eh,scb,{'_',id,[[]]}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{ct_scb_empty_SUITE,init_per_suite}},
      {?eh,scb,{'_',pre_init_per_suite,[ct_scb_empty_SUITE,'$proplist',[]]}},

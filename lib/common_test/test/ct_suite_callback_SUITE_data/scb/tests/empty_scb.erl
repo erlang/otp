@@ -35,7 +35,8 @@
 -module(empty_scb).
 
 %% Suite Callbacks
--export([init/1]).
+-export([id/1]).
+-export([init/2]).
 
 -export([pre_init_per_suite/3]).
 -export([post_init_per_suite/4]).
@@ -68,16 +69,23 @@
 -record(state, { id = ?MODULE :: term()}).
 
 %% @doc Always called before any other callback function. Use this to initiate
-%% any common state. It should return an ID for this SCB and a state. The ID
-%% is used to uniquly identify an SCB instance, if two SCB's return the same
-%% ID the seconds SCB is ignored. This function should NOT have any side
-%% effects as it might be called multiple times by common test.
--spec init(Opts :: proplist()) ->
+%% any common state. It should return an ID for this SCB and a state.
+-spec init(Id :: term(), Opts :: proplist()) ->
     {Id :: term(), State :: #state{}}.
-init(Opts) ->
+init(Id, Opts) ->
     gen_event:notify(?CT_EVMGR_REF, #event{ name = scb, node = node(),
-					    data = {?MODULE, init, [Opts]}}),
-    {now(), Opts}.
+					    data = {?MODULE, init, [Id, Opts]}}),
+    Opts.
+
+%% @doc The ID is used to uniquly identify an SCB instance, if two SCB's 
+%% return the same ID the seconds SCB is ignored. This function should NOT 
+%% have any side effects as it might be called multiple times by common test.
+-spec id(Opts :: proplist()) ->
+    Id :: term().
+id(Opts) ->
+    gen_event:notify(?CT_EVMGR_REF, #event{ name = scb, node = node(),
+					    data = {?MODULE, id, [Opts]}}),
+    now().
 
 %% @doc Called before init_per_suite is called. Note that this callback is
 %% only called if the SCB is added before init_per_suite is run (eg. in a test

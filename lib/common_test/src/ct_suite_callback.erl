@@ -45,7 +45,7 @@
 -spec init(State :: term()) -> ok |
 			       {error, Reason :: term()}.
 init(Opts) ->
-    call([{CB, call_init, undefined} || CB <- get_new_callbacks(Opts)],
+    call([{CB, call_id, undefined} || CB <- get_new_callbacks(Opts)],
 	 ok, init, []).
 		      
 
@@ -130,12 +130,16 @@ on_tc_fail(_How, {_Suite, Case, Reason}) ->
 %% -------------------------------------------------------------------------
 %% Internal Functions
 %% -------------------------------------------------------------------------
-call_init(Mod, Config, Meta) when is_atom(Mod) ->
-    call_init({Mod, []}, Config, Meta);
-call_init({Mod, State}, Config, Scope) ->
-    {Id, NewState} = Mod:init(State),
-    {Config, {Id, scope(Scope), {Mod, NewState}}}.
+call_id(Mod, Config, Meta) when is_atom(Mod) ->
+    call_id({Mod, []}, Config, Meta);
+call_id({Mod, Opts}, Config, Scope) ->
+    Id = catch_apply(Mod,id,[Opts], make_ref()),
+    {Config, {Id, scope(Scope), {Mod, {Id,Opts}}}}.
 	
+call_init({Mod,{Id,Opts}},Config,_Meta) ->
+    NewState = Mod:init(Id, Opts),
+    {Config, {Mod, NewState}}.
+
 call_terminate({Mod, State}, _, _) ->
     catch_apply(Mod,terminate,[State], ok),
     {[],{Mod,State}}.
@@ -166,19 +170,20 @@ call(Fun, Config, Meta, NoChangeRet) when is_function(Fun) ->
 	NewReturn -> NewReturn
     end;
 
-call([{CB, call_init, NextFun} | Rest], Config, Meta, CBs) ->
+call([{CB, call_id, NextFun} | Rest], Config, Meta, CBs) ->
     try
-	{Config, {NewId, _, {Mod,_State}} = NewCB} = call_init(CB, Config, Meta),
-	{NewCBs, NewRest} = case lists:keyfind(NewId, 1, CBs) of
-				false when NextFun == undefined -> 
-				    {CBs ++ [NewCB],Rest};
-				ExistingCB when is_tuple(ExistingCB) ->
-				    {CBs, Rest};
-				_ ->
-				    {CBs ++ [NewCB],[{NewId, NextFun} | Rest]}
-			    end,
-	ct_logs:log("Suite Callback","Started a SCB: Mod: ~p, Id: ~p",
-		    [Mod,NewId]),
+	{Config, {NewId, _, _} = NewCB} = call_id(CB, Config, Meta),
+	{NewCBs, NewRest} = 
+	    case lists:keyfind(NewId, 1, CBs) of
+		false when NextFun =:= undefined ->
+		    {CBs ++ [NewCB],
+		     [{NewId, fun call_init/3} | Rest]};
+		ExistingCB when is_tuple(ExistingCB) ->
+		    {CBs, Rest};
+		_ ->
+		    {CBs ++ [NewCB],
+		     [{NewId, fun call_init/3},{NewId,NextFun} | Rest]}
+	    end,
 	call(NewRest, Config, Meta, NewCBs)
     catch Error:Reason ->
 	    Trace = erlang:get_stacktrace(),
@@ -237,7 +242,7 @@ terminate_if_scope_ends(CBId, Function, CBs) ->
 %% Fetch callback functions
 get_new_callbacks(Config, Fun) ->
     lists:foldl(fun(NewCB, Acc) ->
-			[{NewCB, call_init, Fun} | Acc]
+			[{NewCB, call_id, Fun} | Acc]
 		end, [], get_new_callbacks(Config)).
 
 get_new_callbacks(Config) when is_list(Config) ->
