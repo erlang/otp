@@ -162,13 +162,13 @@ do_start(Parent,Mode,LogDir) ->
     end,
     {StartTime,TestLogDir} = ct_logs:init(Mode),
 
-    %% Initiate suite_callbacks
-    case catch ct_suite_callback:init(Opts) of
+    %% Initiate ct_hooks
+    case catch ct_hooks:init(Opts) of
 	ok ->
 	    ok;
-	{_,SCBReason} ->
-	    ct_logs:tc_print('Suite Callback',SCBReason,[]),
-	    Parent ! {self(), SCBReason},
+	{_,CTHReason} ->
+	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    Parent ! {self(), CTHReason},
 	    self() ! {{stop,normal},{self(),make_ref()}}
     end,
 
@@ -320,9 +320,9 @@ loop(Mode,TestData,StartDir) ->
 					node=node(),
 					data=Time}),
 	    Callbacks = ets:lookup_element(?suite_table,
-					   suite_callbacks,
+					   ct_hooks,
 					   #suite_data.value),
-	    ct_suite_callback:terminate(Callbacks),
+	    ct_hooks:terminate(Callbacks),
 	    close_connections(ets:tab2list(?conn_table)),
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),

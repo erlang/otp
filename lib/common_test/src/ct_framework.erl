@@ -229,7 +229,7 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
     end.
 
 ct_suite_init(Mod, Func, [Config]) when is_list(Config) ->
-    case ct_suite_callback:init_tc( Mod, Func, Config) of
+    case ct_hooks:init_tc( Mod, Func, Config) of
 	NewConfig when is_list(NewConfig) ->
 	    {ok, [NewConfig]};
 	Else ->
@@ -251,9 +251,9 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 			      (_) -> false
 			   end, SuiteInfo) of
 		true ->
-		    SuiteInfoNoSCB = 
-			lists:keydelete(suite_callbacks,1,SuiteInfo),
-		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfoNoSCB),
+		    SuiteInfoNoCTH = 
+			lists:keydelete(ct_hooks,1,SuiteInfo),
+		    SuiteInfo1 = merge_with_suite_defaults(Mod,SuiteInfoNoCTH),
 		    case add_defaults1(Mod,Func,FuncInfo,SuiteInfo1,DoInit) of
 			Error = {error,_} -> {SuiteInfo1,Error};
 			MergedInfo -> {SuiteInfo1,MergedInfo}
@@ -376,8 +376,8 @@ configure([{timetrap,off}|Rest],Info,SuiteInfo,Scope,Config) ->
 configure([{timetrap,Time}|Rest],Info,SuiteInfo,Scope,Config) ->
     Dog = test_server:timetrap(Time),
     configure(Rest,Info,SuiteInfo,Scope,[{watchdog,Dog}|Config]);
-configure([{suite_callbacks, CB} | Rest], Info, SuiteInfo, Scope, Config) ->
-    configure(Rest, Info, SuiteInfo, Scope, [{suite_callbacks, CB} | Config]);
+configure([{ct_hooks, Hook} | Rest], Info, SuiteInfo, Scope, Config) ->
+    configure(Rest, Info, SuiteInfo, Scope, [{ct_hooks, Hook} | Config]);
 configure([_|Rest],Info,SuiteInfo,Scope,Config) ->
     configure(Rest,Info,SuiteInfo,Scope,Config);
 configure([],_,_,_,Config) ->
@@ -487,7 +487,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     case get('$test_server_framework_test') of
 	undefined ->
 	    {FinalResult,FinalNotify} =
-		case ct_suite_callback:end_tc(
+		case ct_hooks:end_tc(
 			    Mod, FuncSpec, Args, Result, Return) of
 		    '$ct_no_change' ->
 			{FinalResult = ok,Result};
@@ -499,7 +499,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	    ct_event:sync_notify(#event{name=tc_done,
 					node=node(),
 					data={Mod,FuncSpec,
-					      tag_scb(FinalNotify)}});
+					      tag_cth(FinalNotify)}});
 	Fun ->
 	    % send sync notification so that event handlers may print
 	    % in the log file before it gets closed
@@ -545,19 +545,19 @@ tag(E = testcase_aborted_or_killed) ->
 tag(Other) ->
     Other.
 
-tag_scb({STag,Reason}) when STag == skip; STag == skipped -> 
+tag_cth({STag,Reason}) when STag == skip; STag == skipped -> 
     {skipped,Reason};
-tag_scb({fail, Reason}) ->
+tag_cth({fail, Reason}) ->
     {failed, {error,Reason}};
-tag_scb(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
+tag_cth(E = {ETag,_}) when ETag == error; ETag == 'EXIT'; 
                        ETag == timetrap_timeout;
                        ETag == testcase_aborted -> 
     {failed,E};
-tag_scb(E = testcase_aborted_or_killed) ->
+tag_cth(E = testcase_aborted_or_killed) ->
     {failed,E};
-tag_scb(List) when is_list(List) ->
+tag_cth(List) when is_list(List) ->
     ok;
-tag_scb(Other) ->
+tag_cth(Other) ->
     Other.
 
 %%%-----------------------------------------------------------------
@@ -1188,13 +1188,13 @@ report(What,Data) ->
 	    {_Suite,Case,Result} = Data,
 	    case Result of
 		{failed, _} ->
-		    ct_suite_callback:on_tc_fail(What, Data);
+		    ct_hooks:on_tc_fail(What, Data);
 		{skipped,{failed,{_,init_per_testcase,_}}} ->
-		    ct_suite_callback:on_tc_skip(tc_auto_skip, Data);
+		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
 		{skipped,{require_failed,_}} ->
-		    ct_suite_callback:on_tc_skip(tc_auto_skip, Data);
+		    ct_hooks:on_tc_skip(tc_auto_skip, Data);
 		{skipped,_} ->
-		    ct_suite_callback:on_tc_skip(tc_user_skip, Data);
+		    ct_hooks:on_tc_skip(tc_user_skip, Data);
 		_Else ->
 		    ok
 	    end,
@@ -1224,7 +1224,7 @@ report(What,Data) ->
 	    ct_event:sync_notify(#event{name=tc_user_skip,
 					node=node(),
 					data=Data}),
-	    ct_suite_callback:on_tc_skip(What, Data),
+	    ct_hooks:on_tc_skip(What, Data),
 	    add_to_stats(user_skipped);
 	tc_auto_skip ->
 	    %% test case skipped because of error in init_per_suite
@@ -1237,7 +1237,7 @@ report(What,Data) ->
 	    ct_event:sync_notify(#event{name=tc_auto_skip,
 					node=node(),
 					data=Data}),
-	    ct_suite_callback:on_tc_skip(What, Data),
+	    ct_hooks:on_tc_skip(What, Data),
 	    if Case /= end_per_suite, Case /= end_per_group -> 
 		    add_to_stats(auto_skipped);
 	       true -> 

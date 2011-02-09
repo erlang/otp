@@ -36,7 +36,7 @@
 		   config=[],
 		   userconfig=[],
 		   event_handler=[],
-		   suite_callbacks=[],
+		   ct_hooks=[],
 		   include=[],
 		   multiply_timetraps=[],
 		   scale_timetraps=[],
