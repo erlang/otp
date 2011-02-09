@@ -34,8 +34,6 @@
 -type proplist() :: [{atom(),term()}].
 
 -define(config_name, suite_callbacks).
--define(LOCK_STATE_TIMEOUT, 500).
--define(LOCK_NAME, '$ct_suite_callback_lock').
 
 %% -------------------------------------------------------------------------
 %% API Functions
@@ -146,7 +144,7 @@ call_terminate({Mod, State}, _, _) ->
 
 call_cleanup({Mod, State}, Reason, [Function | Args]) ->
     NewState = catch_apply(Mod,Function, Args ++ [Reason, State],
-			   {Reason,State}),
+			   State),
     {Reason, {Mod, NewState}}.
 
 call_generic({Mod, State}, Value, [Function | Args]) ->

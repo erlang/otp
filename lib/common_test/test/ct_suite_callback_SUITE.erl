@@ -81,7 +81,8 @@ all(suite) ->
        scope_suite_state_scb,
        fail_pre_suite_scb, fail_post_suite_scb, skip_pre_suite_scb,
        skip_post_suite_scb, recover_post_suite_scb, update_config_scb,
-       state_update_scb, options_scb, same_id_scb
+       state_update_scb, options_scb, same_id_scb, 
+       fail_n_skip_with_minimal_scb
       ]
     )
 	.
@@ -197,7 +198,10 @@ options_scb(Config) when is_list(Config) ->
 same_id_scb(Config) when is_list(Config) ->
     do_test(same_id_scb, "ct_scb_empty_SUITE.erl",
 	    [same_id_scb,same_id_scb],Config).
-    
+
+fail_n_skip_with_minimal_scb(Config) when is_list(Config) ->
+    do_test(fail_n_skip_with_minimal_scb, "ct_scb_fail_one_skip_one_SUITE.erl",
+	    [minimal_terminate_scb],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -963,6 +967,17 @@ test_events(same_id_scb) ->
      {?eh,stop_logging,[]}
     ];
 
+test_events(fail_n_skip_with_minimal_scb) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,scb,{'_',init,['_',[]]}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{'_',init_per_suite}},
+     
+     {?eh,tc_done,{'_',end_per_suite,ok}},
+     {?eh,scb,{'_',terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
 test_events(ok) ->
     ok.
 
@@ -995,7 +1010,7 @@ contains([],_) ->
 contains_parallel([Key | T], Elems) ->
     contains([Key],Elems),
     contains_parallel(T,Elems);
-contains_parallel([],Elems) ->
+contains_parallel([],_Elems) ->
     match.
 
 not_contains(List) ->
