@@ -58,7 +58,7 @@ TS_MODULES= \
 	ts_autoconf_win32 \
         ts_autoconf_vxworks \
 	ts_install \
-	ts_install_scb
+	ts_install_cth
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 TS_TARGET_MODULES= $(TS_MODULES:%=$(EBIN)/%)

@@ -23,10 +23,11 @@
 %%% but not the Makefile.first parts! So they have to be done by ts or
 %%% manually!!
 
--module(ts_install_scb).
+-module(ts_install_cth).
 
 %% Suite Callbacks
--export([init/1]).
+-export([id/1]).
+-export([init/2]).
 
 -export([pre_init_per_suite/3]).
 -export([post_init_per_suite/4]).
@@ -57,21 +58,27 @@
 
 -record(state, { ts_conf_dir, target_system, install_opts, nodenames, nodes }).
 
+%% @doc The id of this SCB
+-spec id(Opts :: term()) ->
+    Id :: term().
+id(_Opts) ->
+    ?MODULE.
+
 %% @doc Always called before any other callback function.
--spec init(Opts :: proplist()) ->
-	{Id :: term(), State :: #state{}}.
-init(Opts) ->
+-spec init(Id :: term(), Opts :: proplist()) ->
+    State :: #state{}.
+init(_Id, Opts) ->
 %    ct:log("CurrWD: ~p",[file:get_cwd()]),
     Nodenames = proplists:get_value(nodenames, Opts, 0),
     Nodes = proplists:get_value(nodes, Opts, 0),
     TSConfDir = proplists:get_value(ts_conf_dir, Opts),
     TargetSystem = proplists:get_value(target_system, Opts, install_local),
     InstallOpts = proplists:get_value(install_opts, Opts, []),
-    {?MODULE, #state{ nodenames = Nodenames,
-		      nodes = Nodes,
-		      ts_conf_dir = TSConfDir,
-		      target_system = TargetSystem, 
-		      install_opts = InstallOpts }}.
+    #state{ nodenames = Nodenames,
+	    nodes = Nodes,
+	    ts_conf_dir = TSConfDir,
+	    target_system = TargetSystem, 
+	    install_opts = InstallOpts }.
 
 %% @doc Called before init_per_suite is called.
 -spec pre_init_per_suite(Suite :: atom(),
@@ -220,24 +227,6 @@ terminate(_State) ->
 %%% ============================================================================
 %%% Local functions
 %%% ============================================================================
-%% Install the test environment
-install(ConfDir, TargetSystem, InstallOpts) ->
-    {ok,CurrWD} = file:get_cwd(),
-    try
-	ConfVars = filename:join(ConfDir, "variables"),
-	ConfVarsIn = filename:join(ConfDir, "conf_vars.in"),
-	Configure = filename:join(ConfDir, "configure"),
-	case has_changed([ConfVars],[ConfVarsIn, Configure]) of
-	    true ->
-		file:set_cwd(ConfDir),
-		ts_install:install(TargetSystem, InstallOpts);
-	    false ->
-		ct:log("Already installed!",[])
-	end
-    after
-	    file:set_cwd(CurrWD)
-    end.
-
 %% Configure and run all the Makefiles in the data dirs of the suite 
 %% in question
 make_non_erlang(DataDir, Variables) ->
@@ -270,18 +259,6 @@ make_non_erlang(DataDir, Variables) ->
     after
 	file:set_cwd(CurrWD),
 	timer:sleep(100)
-    end.
-
-%% Check if the source files have been changed after the dest files
-has_changed(Dest, Source) ->
-    [] == [D || D <- Dest, S <- Source, get_mtime(D) > get_mtime(S)].
-
-get_mtime(File) ->
-    case file:read_file_info(File) of
-	{ok,#file_info{ mtime = MTime }} ->
-	    MTime;
-	_Else ->
-	    {{0,0,0},{0,0,0}}
     end.
 
 %% Add a nodename to config if it does not exist
