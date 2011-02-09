@@ -71,6 +71,7 @@ XML_CHAPTER_FILES = \
 	cover_chapter.xml \
 	ct_master_chapter.xml \
 	event_handler_chapter.xml \
+	suite_callbacks_chapter.xml \
 	dependencies_chapter.xml \
 	notes.xml \
 	notes_history.xml 

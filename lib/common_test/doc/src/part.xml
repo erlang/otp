@@ -75,6 +75,7 @@
   <xi:include href="ct_master_chapter.xml"/>
   <xi:include href="event_handler_chapter.xml"/>
   <xi:include href="dependencies_chapter.xml"/>
+  <xi:include href="suite_callbacks_chapter.xml"/>
   <xi:include href="why_test_chapter.xml"/>
 </part>
           
