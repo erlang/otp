@@ -116,7 +116,7 @@ end_per_testcase(Case, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [session_cookies_only, netscape_cookies, cookie_cancel,

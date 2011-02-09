@@ -33,7 +33,7 @@
 
 -export([init/3]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 %% To cover the stripping of 'type' and 'spec' in beam_asm.
 -type all_return_type() :: [atom()].

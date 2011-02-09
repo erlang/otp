@@ -28,7 +28,7 @@
 
 -define(default_timeout, ?t:minutes(11)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case catch erlang:system_info(modified_timing_level) of

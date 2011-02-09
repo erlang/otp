@@ -32,7 +32,7 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/zip.hrl").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [borderline, atomic, bad_zip, unzip_from_binary,

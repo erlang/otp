@@ -30,7 +30,7 @@
 
 -export([bif_process/0]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case test_server:is_native(trace_bif_SUITE) of

@@ -24,7 +24,7 @@
 
 -export([init_per_suite/1, end_per_suite/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [sync].

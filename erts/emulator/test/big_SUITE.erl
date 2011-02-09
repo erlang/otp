@@ -35,7 +35,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [t_div, eq_28, eq_32, eq_big, eq_math, big_literals,

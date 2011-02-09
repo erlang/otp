@@ -34,7 +34,7 @@
 all() ->
     [erl_global_registration, erl_global_whereis, erl_global_names].
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 init_per_suite(Config) ->
     Config.

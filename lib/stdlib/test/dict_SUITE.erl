@@ -31,7 +31,7 @@
 
 -import(lists, [foldl/3,reverse/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [create, store].

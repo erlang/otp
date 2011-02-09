@@ -35,7 +35,7 @@
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start_gg_proc, no_gg_proc, no_gg_proc_sync, compatible,

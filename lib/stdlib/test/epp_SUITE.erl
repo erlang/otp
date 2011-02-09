@@ -60,7 +60,7 @@ end_per_testcase(_, Config) ->
     ok.
 -endif.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [rec_1, {group, upcase_mac}, predef_mac,

@@ -72,7 +72,7 @@ end_per_testcase(_Case, Config) ->
     ok.
 -endif.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [guard_1, guard_2, match_pattern, string_plusplus,

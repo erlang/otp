@@ -87,7 +87,7 @@
 
 %% Top of cases
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test, {group, const}, {group, union},

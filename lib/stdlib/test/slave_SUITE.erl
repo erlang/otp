@@ -28,7 +28,7 @@
 -export([fun_init/1, test_errors/1]).
 -export([timeout_test/1, auth_test/1, rsh_test/1, start_a_slave/3]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [t_start_link, start_link_nodedown, t_start, errors].

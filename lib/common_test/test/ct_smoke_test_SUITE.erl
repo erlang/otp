@@ -112,7 +112,7 @@ end_per_testcase(TestCase, Config) ->
 %% Description: Returns a description of the test suite (doc) and a
 %%              list of all test cases in the suite (suite).
 %%--------------------------------------------------------------------
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [dir1, dir2, dir1_2, suite11, suite21, suite11_21,

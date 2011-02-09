@@ -39,7 +39,7 @@ end_per_testcase(Func,Config) ->
     et_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start_all_windows].

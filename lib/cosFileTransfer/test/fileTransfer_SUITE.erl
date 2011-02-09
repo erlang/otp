@@ -93,7 +93,7 @@
 %% Returns: 
 %%-----------------------------------------------------------------
 suite() ->
-    [{suite_callbacks,[ts_install_scb]}].
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     cases().

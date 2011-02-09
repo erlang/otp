@@ -62,7 +62,7 @@ bool0, bool1 = asn1_DEFAULT, bool2 = asn1_DEFAULT, bool3 = asn1_DEFAULT}).
 
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, compile}, parse, default_per, default_ber,

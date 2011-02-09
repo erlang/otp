@@ -29,7 +29,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [pcre, compile_options, run_options, combined_options,

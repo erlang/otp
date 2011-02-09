@@ -46,7 +46,7 @@
 -export([init/1, handle_call/3, handle_cast/2,
 	 handle_info/2, terminate/2, format_status/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, crash, call, cast, cast_fast, info, abcast,

@@ -59,7 +59,7 @@
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [proxy_options, proxy_head, proxy_get, proxy_trace,

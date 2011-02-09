@@ -54,7 +54,7 @@
 	 dist_evil_parallel_receiver/0,
          sendersender/4, sendersender2/4]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [ping, {group, bulk_send}, {group, local_send},

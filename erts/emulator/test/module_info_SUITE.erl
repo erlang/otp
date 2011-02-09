@@ -31,7 +31,7 @@
 %% Helper.
 -export([native_proj/1,native_filter/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     modules().

@@ -55,7 +55,7 @@
 
 -define(dst_timezone, 2).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [univ_to_local, local_to_univ, local_to_univ_utc,

@@ -26,7 +26,7 @@
 
 -define(URL_START, "http://localhost:").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [uri_too_long_414, header_too_long_413, escaped_url_in_error_body].

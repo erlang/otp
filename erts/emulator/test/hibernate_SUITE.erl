@@ -30,7 +30,7 @@
 %% Used by test cases.
 -export([basic_hibernator/1,messages_in_queue_restart/2, no_heap_loop/0]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, min_heap_size, bad_args, messages_in_queue,

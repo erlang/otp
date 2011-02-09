@@ -28,7 +28,7 @@
 
 -export([do_bopp/1, do_bipp/0, do_bepp/0]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [save_calls_1, dont_break_reductions].

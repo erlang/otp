@@ -40,7 +40,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(bs_match_SUITE),

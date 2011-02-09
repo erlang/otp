@@ -46,7 +46,7 @@ end_per_testcase(_Func, Config) ->
     test_server:timetrap_cancel(Dog).
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [get_columns_and_rows, exit_initial, job_control_local,

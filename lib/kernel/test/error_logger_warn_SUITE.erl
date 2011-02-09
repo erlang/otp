@@ -45,7 +45,7 @@
 -define(default_timeout, ?t:minutes(1)).
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, warnings_info, warnings_warnings, rb_basic,

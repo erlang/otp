@@ -40,7 +40,7 @@ end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [sslv2, sslv3, tlsv1, sslv2_sslv3, sslv2_tlsv1,

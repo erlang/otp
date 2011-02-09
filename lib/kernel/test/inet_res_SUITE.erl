@@ -41,7 +41,7 @@
 
 -define(RUN_NAMED, "run-named").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,

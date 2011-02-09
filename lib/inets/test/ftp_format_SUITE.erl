@@ -35,7 +35,7 @@
 	  ftp_other_status_codes/1, ftp_multiple_lines/1, 
 	  ftp_multipel_ctrl_messages/1, format_error/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, ftp_response}, format_error].

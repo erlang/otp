@@ -62,7 +62,7 @@
 %-record('Def3',{
 %bool30 = asn1_DEFAULT, bool31 = asn1_DEFAULT, bool32 = asn1_DEFAULT, bool33 = asn1_DEFAULT}).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, compile}, parse, default_per, default_ber,

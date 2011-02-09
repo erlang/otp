@@ -36,7 +36,7 @@
     test_ei_encode_fails/1
    ]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [test_ei_encode_long, test_ei_encode_ulong,

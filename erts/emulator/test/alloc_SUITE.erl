@@ -36,7 +36,7 @@
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, coalesce, threads, realloc_copy, bucket_index,

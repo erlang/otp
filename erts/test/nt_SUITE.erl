@@ -33,7 +33,7 @@
 
 -define(TEST_SERVICES, [1,2,3,4,5,6,7,8,9,10,11]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case os:type() of

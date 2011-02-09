@@ -23,7 +23,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
 [html].

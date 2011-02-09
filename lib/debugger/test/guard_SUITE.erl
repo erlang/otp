@@ -42,7 +42,7 @@
 -export([init/4]).
 -import(lists, [member/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     cases().

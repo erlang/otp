@@ -34,7 +34,7 @@
 	 t_shutdown_write/1, t_shutdown_both/1, t_shutdown_error/1,
 	 t_fdopen/1, t_implicit_inet6/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, t_accept}, {group, t_connect}, {group, t_recv},

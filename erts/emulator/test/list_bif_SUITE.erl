@@ -27,7 +27,7 @@
 	 t_list_to_float/1,t_list_to_integer/1]).
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [hd_test, tl_test, t_length, t_list_to_pid,

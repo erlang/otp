@@ -59,7 +59,7 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [ipv4_verify, ipv4_range, ipv4_interfaces, ipv4_bm,

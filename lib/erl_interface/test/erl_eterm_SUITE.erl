@@ -75,7 +75,7 @@
 %% This test suite controls the running of the C language functions
 %% in eterm_test.c and print_term.c.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [build_terms, round_trip_conversion, decode_terms,

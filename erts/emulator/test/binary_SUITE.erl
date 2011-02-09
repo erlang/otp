@@ -63,7 +63,7 @@
 %% Internal exports.
 -export([sleeper/0]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]},
+suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,2}}].
 
 all() -> 

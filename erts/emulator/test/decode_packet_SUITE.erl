@@ -28,7 +28,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, packet_size, neg, http, line, ssl, otp_8536].

@@ -53,7 +53,7 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [args_file, evil_args_file, env, args_file_env,

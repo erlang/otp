@@ -46,7 +46,7 @@ init() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-suite() -> [{suite_callbacks,[{ts_install_scb,[{nodenames,1}]}]}].
+suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,1}]}]}].
 
 all() -> 
     [{group, app_test}, {group, appup_test},

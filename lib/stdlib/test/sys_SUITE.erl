@@ -31,7 +31,7 @@
 %% system messages at all.
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [log, log_to_file, stats, trace, suspend, install].

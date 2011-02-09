@@ -56,7 +56,7 @@ end_per_testcase(_Case, Config) ->
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, error}, iso88591, otp_7810].

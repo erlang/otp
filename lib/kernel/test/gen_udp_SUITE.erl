@@ -37,7 +37,7 @@
 	 buffer_size/1, binary_passive_recv/1, bad_address/1,
 	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [send_to_closed, buffer_size, binary_passive_recv,

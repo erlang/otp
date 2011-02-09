@@ -55,7 +55,7 @@ end_per_testcase(_Case, _Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [error_1, float_g, otp_5403, otp_5813, otp_6230,

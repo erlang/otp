@@ -36,7 +36,7 @@
 
 -define(default_timeout, ?t:minutes(1)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [token_set_get, tracer_set_get, print, send,

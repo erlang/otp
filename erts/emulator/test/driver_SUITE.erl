@@ -126,7 +126,7 @@ end_per_testcase(Case, Config) ->
     ?line 0 = erts_debug:get_internal_state(check_io_debug),
     ?t:timetrap_cancel(Dog).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [fun_to_port, outputv_echo, queue_echo, {group, timer},

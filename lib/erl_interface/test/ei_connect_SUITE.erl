@@ -41,7 +41,7 @@
 
 -import(runner, [get_term/1,send_term/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,

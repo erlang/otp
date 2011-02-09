@@ -64,7 +64,7 @@ end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [void_test, long_test, long_long_test,

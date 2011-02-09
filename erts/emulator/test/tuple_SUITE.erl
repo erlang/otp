@@ -35,7 +35,7 @@
 %% make_tuple/2
 %%
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [build_and_match, t_size, t_tuple_size, t_list_to_tuple,

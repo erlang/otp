@@ -32,7 +32,7 @@
 
 -export([y2/1, g/1, g0/0, g1/0, large_exit_sub/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [case_1, case_1a, case_2, case_2a, mon_e_1, demon_e_1,

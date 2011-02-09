@@ -58,7 +58,7 @@
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [tick, tick_change, illegal_nodenames, hidden_node,

@@ -38,7 +38,7 @@
 %% This test suite test the erl_format() function.
 %% It uses the port program "ei_format_test".
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [format_wo_ver, atoms, tuples, lists].

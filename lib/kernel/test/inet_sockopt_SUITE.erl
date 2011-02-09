@@ -58,7 +58,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [simple, loop_all, simple_raw, simple_raw_getbin,

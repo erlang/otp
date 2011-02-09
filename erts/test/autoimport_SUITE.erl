@@ -26,7 +26,7 @@
 	 autoimports/1]).
 -define(TEST_TIMEOUT, ?t:seconds(180)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [autoimports].

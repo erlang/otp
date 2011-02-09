@@ -55,7 +55,7 @@ end_per_testcase(_Func, Config) ->
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, restart, reboot, set_cmd, clear_cmd, kill_pid].

@@ -59,7 +59,7 @@
 
 -define(MIN_SCHEDULER_TEST_TIMEOUT, ?t:minutes(1)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [equal, few_low, many_low, equal_with_part_time_high,

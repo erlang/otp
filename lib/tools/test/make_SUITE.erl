@@ -36,7 +36,7 @@
 %% that the file :"test5.erl" shall be compiled with the 'S' option,
 %% i.e. produce "test5.S" instead of "test5.<objext>"
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [make_all, make_files, {group, otp_6057}].

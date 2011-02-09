@@ -29,7 +29,7 @@
 -export([]).
 -import(lists, [foldl/3,flatmap/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [bsl_bsr, logical, t_not, relop_simple, relop,

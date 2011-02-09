@@ -46,7 +46,7 @@ test_cases() ->
      fake_schedule_after_getting_unlinked, gc,
      default_tracer].
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_cases().

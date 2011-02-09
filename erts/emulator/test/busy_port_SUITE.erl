@@ -31,7 +31,7 @@
 %% Internal exports.
 -export([init/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [io_to_busy, message_order, send_3, system_monitor,

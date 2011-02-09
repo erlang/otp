@@ -33,7 +33,7 @@
 
 -define(l,?line).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [dist_basic_1, dist_rtc, dist_reconnect, dist_adopt,

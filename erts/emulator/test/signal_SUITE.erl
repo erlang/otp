@@ -69,7 +69,7 @@ end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(not_running_optimization, true),
     available_internal_state(false).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [xm_sig_order, pending_exit_unlink_process,

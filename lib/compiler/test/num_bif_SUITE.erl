@@ -37,7 +37,7 @@
 	 t_list_to_float_safe/1, t_list_to_float_risky/1,
 	 t_round/1, t_trunc/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(num_bif_SUITE),

@@ -43,7 +43,7 @@
 -define(NIST6, "2.16.840.1.101.3.2.1.48.6").
 
 %%
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [signature_verification, validity_periods,

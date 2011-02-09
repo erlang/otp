@@ -37,7 +37,7 @@ end_per_testcase(_, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [wrap_1].

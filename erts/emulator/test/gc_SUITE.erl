@@ -29,7 +29,7 @@
 
 -export([grow_heap/1, grow_stack/1, grow_stack_heap/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [grow_heap, grow_stack, grow_stack_heap].

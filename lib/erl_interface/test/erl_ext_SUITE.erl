@@ -35,7 +35,7 @@
 
 -import(runner, [get_term/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [compare_tuple, compare_list, compare_string,

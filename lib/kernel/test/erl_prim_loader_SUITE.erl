@@ -36,7 +36,7 @@
 %% Test suite for erl_prim_loader. (Most code is run during system start/stop.)
 %%-----------------------------------------------------------------
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [get_path, set_path, get_file, inet_existing,

@@ -32,7 +32,7 @@
 %% Exported functions for an error_handler module.
 -export([undefined_function/3,undefined_lambda/3,breakpoint/3]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [error_handler, error_handler_apply,

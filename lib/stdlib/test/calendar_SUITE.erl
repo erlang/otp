@@ -33,7 +33,7 @@
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [gregorian_days, gregorian_seconds, day_of_the_week,

@@ -27,7 +27,7 @@
 	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
 	 call_format_status/1, error_format_status/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, {group, test_all}, hibernate,

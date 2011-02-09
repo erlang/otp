@@ -33,7 +33,7 @@
 %% Changed for the new erl_boot_server for R3A by Bjorn Gustavsson.
 %%-----------------------------------------------------------------
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, start_link, stop, add, delete, responses].

@@ -30,7 +30,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -import(lists, [foreach/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [badmatch, pending_errors, nil_arith, stacktrace,

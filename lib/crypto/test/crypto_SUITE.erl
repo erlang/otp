@@ -61,7 +61,7 @@
 
 -export([hexstr2bin/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [link_test, md5, md5_update, md4, md4_update, md5_mac,

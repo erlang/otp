@@ -29,7 +29,7 @@
 
 -import(lists, [filter/2,foldl/3,foreach/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [undefined_functions, deprecated_not_in_obsolete,

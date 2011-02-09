@@ -63,7 +63,7 @@
 
 
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, compile}, parse, default_per, default_ber,

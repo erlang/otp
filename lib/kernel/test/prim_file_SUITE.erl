@@ -67,7 +67,7 @@
 	    _ ->  apply(?PRIM_FILE, F, [H | A])
 	end).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [read_write_file, {group, dirs}, {group, files},

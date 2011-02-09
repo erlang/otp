@@ -26,7 +26,7 @@
 %% Test cases
 -export([smoke_test/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [smoke_test].

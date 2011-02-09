@@ -41,7 +41,7 @@
 
 -define(P, 20).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     Common = [errors, on_load],

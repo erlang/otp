@@ -33,7 +33,7 @@
 
 %% This test suite tests the erl_match() function.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [atoms, lists, tuples, references, pids, ports, bind,

@@ -37,7 +37,7 @@
 	  esi_parse_headers/1, cgi_parse_headers/1,
 	  is_absolut_uri/1, convert_netscapecookie_date/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, chunk}, http_response, http_request,

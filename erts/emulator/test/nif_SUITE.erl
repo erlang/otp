@@ -52,7 +52,7 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, reload, upgrade, heap_frag, types, many_args,

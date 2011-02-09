@@ -33,7 +33,7 @@
 -define(TPKT_VRSN, 3).
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [active_echo, passive_echo, active_once_echo,

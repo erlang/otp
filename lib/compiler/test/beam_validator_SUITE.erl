@@ -43,7 +43,7 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(beam_validator_SUITE),

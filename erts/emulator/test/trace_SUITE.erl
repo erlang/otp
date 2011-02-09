@@ -41,7 +41,7 @@
 %%% Internal exports
 -export([process/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [cpu_timestamp, receive_trace, self_send, timeout_trace,

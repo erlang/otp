@@ -60,7 +60,7 @@ end_per_testcase(_Case, Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ?line ok.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [interpret, guards, {group, list_suite}, interpretable].

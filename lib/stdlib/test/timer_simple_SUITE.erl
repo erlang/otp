@@ -55,7 +55,7 @@
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [apply_after, send_after1, send_after2, send_after3,

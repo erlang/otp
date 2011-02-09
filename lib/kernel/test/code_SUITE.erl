@@ -43,7 +43,7 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [set_path, get_path, add_path, add_paths, del_path,

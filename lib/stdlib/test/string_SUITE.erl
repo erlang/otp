@@ -41,7 +41,7 @@
 %%
 %% all/1
 %%
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [len, equal, concat, chr_rchr, str_rstr, span_cspan,

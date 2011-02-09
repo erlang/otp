@@ -29,7 +29,7 @@
 -export([init/3]).
 -import(lists, [member/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [bad_arith, bad_tuple, test_heap_guards, guard_bifs,

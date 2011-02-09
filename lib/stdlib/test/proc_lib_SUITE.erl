@@ -45,7 +45,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -endif.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [crash, {group, sync_start}, spawn_opt, hibernate,

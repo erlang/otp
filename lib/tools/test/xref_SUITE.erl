@@ -69,7 +69,7 @@
 
 -include_lib("tools/src/xref.hrl").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, xref}, {group, files}, {group, analyses},

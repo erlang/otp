@@ -28,7 +28,7 @@
 %% Needed by test case `lists'.
 -compile(inline_list_funcs).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(inline_SUITE),

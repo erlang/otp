@@ -26,7 +26,7 @@
 	 t_md5/1,t_md5_update/1,error/1,unaligned_context/1,random_lists/1,
 	 misc_errors/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [t_md5, t_md5_update, error, unaligned_context,

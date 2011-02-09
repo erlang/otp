@@ -31,7 +31,7 @@
 	 date_2001_02_29/1, date_2004_02_29/1
 	]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [date_1999_01_01, date_1999_02_28, date_1999_09_09,

@@ -26,7 +26,7 @@
 	 flat_size/1,flat_size_big/1,df/1,
 	 instructions/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [flat_size, flat_size_big, df, instructions].

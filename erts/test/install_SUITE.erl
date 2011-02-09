@@ -76,7 +76,7 @@ dont_need_symlink_cases() ->
      bin_unreasonable_path, 'bin white space',
      bin_no_srcfile].
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     dont_need_symlink_cases() ++ need_symlink_cases().

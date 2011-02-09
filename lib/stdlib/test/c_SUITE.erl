@@ -26,7 +26,7 @@
 
 -import(c, [c/2, nc/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4, memory].

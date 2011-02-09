@@ -42,7 +42,7 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [schedulers_alive, node_container_refc_check,

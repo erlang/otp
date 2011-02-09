@@ -103,7 +103,7 @@
 %% all/1
 %%
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [register_name, register_names_1, register_names_2,

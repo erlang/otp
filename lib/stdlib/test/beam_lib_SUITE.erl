@@ -39,7 +39,7 @@
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [error, normal, cmp, cmp_literals, strip, otp_6711,

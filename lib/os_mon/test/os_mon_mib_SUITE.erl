@@ -78,7 +78,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog),
     Config.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [load_unload, get_mem_sys_mark, get_mem_proc_mark,

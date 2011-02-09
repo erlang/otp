@@ -40,7 +40,7 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [stickiness, send_trace, recv_trace, proc_trace,

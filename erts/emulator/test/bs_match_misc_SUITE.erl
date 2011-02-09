@@ -27,7 +27,7 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [bound_var, bound_tail, t_float, little_float, sean,

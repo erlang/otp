@@ -69,7 +69,7 @@ error(Format, Args, File, Line) ->
 %%     end,
 %%     log("<>ERROR<>~n" ++ Format, Args, File, Line).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, api}, {group, examples}, {group, func}, smp,

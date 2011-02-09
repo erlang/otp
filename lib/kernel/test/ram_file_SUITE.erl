@@ -35,7 +35,7 @@
 
 %%--------------------------------------------------------------------------
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [open_modes, open_old_modes, pread_pwrite, position,

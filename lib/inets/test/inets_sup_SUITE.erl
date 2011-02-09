@@ -26,7 +26,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [default_tree, ftpc_worker, tftpd_worker, httpd_subtree,

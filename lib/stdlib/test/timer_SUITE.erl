@@ -51,7 +51,7 @@
 %% amount of load. The test suite should also include tests that test the
 %% interface of the timer module.
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [do_big_test].

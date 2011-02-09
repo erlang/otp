@@ -32,7 +32,7 @@
 %%% Internal exports
 -export([command_loop/0,start_commander/0]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [multiple_fixes, multiple_processes,

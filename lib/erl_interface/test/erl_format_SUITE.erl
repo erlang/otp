@@ -31,7 +31,7 @@
 %% This test suite test the erl_format() function.
 %% It uses the port program "format_test".
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [atoms, tuples, lists].

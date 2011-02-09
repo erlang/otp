@@ -30,7 +30,7 @@
 -include_lib("test_server/include/test_server.hrl").
 -compile([no_jopt,time]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     cases().

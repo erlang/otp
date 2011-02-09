@@ -85,7 +85,7 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     ['OrberApp_IFR', erlang_binary, erlang_pid, erlang_port,

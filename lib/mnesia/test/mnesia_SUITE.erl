@@ -30,7 +30,7 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-suite() -> [{suite_callbacks,[{ts_install_scb,[{nodenames,1}]}]}].
+suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,1}]}]}].
 
 
 %% Verify that Mnesia really is a distributed real-time DBMS.

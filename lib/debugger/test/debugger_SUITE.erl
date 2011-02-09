@@ -30,7 +30,7 @@
 	 app_test/1,erts_debug/1,encrypted_debug_info/1,
 	 no_abstract_code/1]).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test, erts_debug, no_abstract_code,

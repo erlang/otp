@@ -57,7 +57,7 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
 
-suite() -> [{suite_callbacks,[ts_install_scb]}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
