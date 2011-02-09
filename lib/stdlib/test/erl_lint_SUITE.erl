@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,8 @@
 	 otp_7550/1,
          otp_8051/1,
 	 format_warn/1,
-	 on_load/1, on_load_successful/1, on_load_failing/1
+	 on_load/1, on_load_successful/1, on_load_failing/1,
+	 too_many_arguments/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -77,7 +78,7 @@ all(suite) ->
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644, otp_5878, otp_5917, otp_6585,
      otp_6885, export_all, bif_clash,
      behaviour_basic, behaviour_multiple, otp_7550, otp_8051, format_warn,
-     on_load].
+     on_load,too_many_arguments].
 
 unused_vars_warn(suite) ->
     [unused_vars_warn_basic, unused_vars_warn_lc, unused_vars_warn_rec, 
@@ -2912,6 +2913,21 @@ on_load_failing(Config) when is_list(Config) ->
 	 ],
     ?line [] = run(Config, Ts),
     ok.
+
+too_many_arguments(doc) ->
+    "Test that too many arguments is not accepted.";
+too_many_arguments(suite) -> [];
+too_many_arguments(Config) when is_list(Config) ->
+    Ts = [{too_many_1,
+	   <<"f(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ok.">>,
+	   [],
+	   {errors,
+	    [{1,erl_lint,{too_many_arguments,256}}],[]}}
+	 ],
+	  
+    ?line [] = run(Config, Ts),
+    ok.
+
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->

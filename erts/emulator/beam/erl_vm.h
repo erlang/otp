@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -47,7 +47,7 @@
 #define SEQ_TRACE 1
 
 #define CONTEXT_REDS 2000	/* Swap process out after this number */
-#define MAX_ARG 256	        /* Max number of arguments allowed */
+#define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
 /* Scheduler stores data for temporary heaps if

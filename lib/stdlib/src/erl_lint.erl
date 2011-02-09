@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,6 +59,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               (Opt, _Def) when Opt =:= Off -> OffVal;
               (_Opt, Def) -> Def
           end, Default, Opts).
+
+%% The maximum number of arguments allowed for a function.
+
+-define(MAX_ARGUMENTS, 255).
 
 %% The error and warning info structures, {Line,Module,Descriptor},
 %% are kept in their seperate fields in the lint state record together
@@ -226,6 +230,9 @@ format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete", [F, A]);
 format_error({reserved_for_future,K}) ->
     io_lib:format("atom ~w: future reserved keyword - rename or quote", [K]);
+format_error({too_many_arguments,Arity}) ->
+    io_lib:format("too many arguments (~w) - "
+		  "maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]);
 %% --- patterns and guards ---
 format_error(illegal_pattern) -> "illegal pattern";
 format_error(illegal_bin_pattern) ->
@@ -1307,12 +1314,17 @@ define_function(Line, Name, Arity, St0) ->
         true ->
             add_error(Line, {redefine_function,NA}, St1);
         false ->
-            St2 = St1#lint{defined=gb_sets:add_element(NA, St1#lint.defined)},
-            case imported(Name, Arity, St2) of
-                {yes,_M} -> add_error(Line, {define_import,NA}, St2);
-                no -> St2
+	    St2 = function_check_max_args(Line, Arity, St1),
+            St3 = St2#lint{defined=gb_sets:add_element(NA, St2#lint.defined)},
+            case imported(Name, Arity, St3) of
+                {yes,_M} -> add_error(Line, {define_import,NA}, St3);
+                no -> St3
             end
     end.
+
+function_check_max_args(Line, Arity, St) when Arity > ?MAX_ARGUMENTS ->
+    add_error(Line, {too_many_arguments,Arity}, St);
+function_check_max_args(_, _, St) -> St.
 
 %% clauses([Clause], VarTable, State) -> {VarTable, State}.
 
