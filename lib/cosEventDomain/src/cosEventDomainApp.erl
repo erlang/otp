@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -272,6 +272,8 @@ get_qos([]) ->
 get_qos(Properties) ->
     get_qos(Properties, [], []).
 
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(get_qos/3 :: (_, _, _) -> no_return()).
 get_qos([], Supported, []) ->
     Supported;
 get_qos([], _, Unsupported) ->

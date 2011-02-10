@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,22 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+  <section>
+    <title>Orber 3.6.20</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Eliminated Dialyzer warnings when using exit or throw.</p>
+          <p>
+            Own Id: OTP-9050 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
 
   <section>
     <title>Orber 3.6.19</title>

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,6 @@
 
 %%--------------- INCLUDES -----------------------------------
 -include_lib("orber/include/corba.hrl").
--include_lib("orber/include/ifr_types.hrl").
 %% Application files
 -include("CosNotification.hrl").
 -include("CosNotifyChannelAdmin.hrl").
@@ -947,6 +946,9 @@ check_limits(LQS, NPR) ->
 validate_event_qos(Wanted, Curr) ->
     v_e_q_helper(Wanted, Curr, []),
     [].
+
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(v_e_q_helper/3 :: (_, _, _) -> no_return()).
 v_e_q_helper([], _Curr, []) ->
     %% Parsed all and foynd no conflicts.
     ok;
@@ -1071,6 +1073,8 @@ v_e_q_helper(What, _, _) ->
 %%            LQS     - local representation of QoS.
 %% Returns  : {NewOMGStyleQoS, NewLocalQoS} | #'CosNotification_UnsupportedQoS'{}
 %%------------------------------------------------------------
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(set_properties/9 :: (_, _, _, _, _, _, _, _, _) -> no_return()).
 set_properties([], Curr, channelAdm, _, [], NewQoS,_,_,LAS) ->
     merge_properties(NewQoS, Curr, LAS);
 set_properties([], Curr, _, _, [], NewQoS,_,_,LQS) ->

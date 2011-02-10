@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -153,6 +153,9 @@ create_initial_propertysetdef(_OE_This, State, PropDefs) ->
 %%======================================================================
 evaluate_propertysetdef(SetDefs) ->
     evaluate_propertysetdef(SetDefs, [], []).
+
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(evaluate_propertysetdef/3 :: (_, _, _) -> no_return()).
 evaluate_propertysetdef([], NewProperties, []) ->
     %% No exceptions found.
     NewProperties;

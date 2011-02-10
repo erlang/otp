@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,34 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+  <section>
+    <title>cosProperty 1.1.11</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Eliminated Dialyzer warnings when using exit or throw.</p>
+          <p>Own id: OTP-9050 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>cosProperty 1.1.12</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Test suites published.</p>
+          <p>Own id: OTP-8543 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
 
   <section>
     <title>cosProperty 1.1.11</title>

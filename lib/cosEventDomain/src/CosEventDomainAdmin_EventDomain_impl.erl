@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -780,6 +780,8 @@ set_qos(_OE_This, State, NewQoS) ->
     QoS = cosEventDomainApp:get_qos(NewQoS),
     set_qos_helper(QoS, State, []).
     
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(set_qos_helper/3 :: (_, _, _) -> no_return()).
 set_qos_helper([], State, []) ->
     {reply, ok, State};
 set_qos_helper([], _, Errors) ->
@@ -830,6 +832,8 @@ validate_qos(_OE_This, State, WantedQoS) ->
     QoS = cosEventDomainApp:get_qos(WantedQoS),
     {reply, {ok, validate_qos_helper(QoS, State, [], [])}, State}.
 
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(validate_qos_helper/4 :: (_, _, _, _) -> no_return()).
 validate_qos_helper([], _, Properties, []) ->
     Properties;
 validate_qos_helper([], _, _, Errors) ->

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,7 @@
 			 id = Obj#Object_type.id,
 			 defined_in = Obj#Object_type.defined_in,
 			 version = Obj#Object_type.version,
-			 type = Obj#Object_type.type}.
+			 type = Obj#Object_type.type}).
 
 -record(exceptiondescription, {name, id, defined_in, version, type}).
 

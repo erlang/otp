@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -98,6 +98,8 @@ Trying to unregister ~p~n", [H,Accum]),
 uninstall() -> 
     uninstall_loop(lists:reverse(?IDL_MODULES), ok).
 
+%% To avoid dialyzer warnings due to the use of exit(..).
+-spec(uninstall_loop/2 :: (_, _) -> no_return()).
 uninstall_loop([],ok) ->
     ok;
 uninstall_loop([],{exit, register}) ->

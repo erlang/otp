@@ -2,10 +2,10 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
+%% Version 1.1, (the "License"); yu may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
@@ -154,6 +154,9 @@ create_initial_propertyset(_OE_This, State, Properties) ->
 %%======================================================================
 evaluate_propertyset(Sets) ->
     evaluate_propertyset(Sets, [], []).
+
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(evaluate_propertyset/3 :: (_, _, _) -> no_return()).
 evaluate_propertyset([], NewProperties, []) ->
     %% No exceptions found.
     NewProperties;

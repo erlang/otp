@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1029,6 +1029,8 @@ remove_node(Node) when is_atom(Node) ->
 remove_tables(Tables, Node) ->
     remove_tables(Tables, Node, []).
 
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(remove_tables/3 :: (_, _, _) -> no_return()).
 remove_tables([], _, []) -> ok;
 remove_tables([], Node, Failed) ->
     ?EFORMAT("orber:remove_node(~p) failed. Unable to remove table(s): ~p", 
