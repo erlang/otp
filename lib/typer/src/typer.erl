@@ -599,6 +599,7 @@ cl(["--edoc"|Opts]) -> {edoc, Opts};
 cl(["--show"|Opts]) -> {{mode, ?SHOW}, Opts};
 cl(["--show_exported"|Opts]) -> {{mode, ?SHOW_EXPORTED}, Opts};
 cl(["--show-exported"|Opts]) -> {{mode, ?SHOW_EXPORTED}, Opts};
+cl(["--show_success_typings"|Opts]) -> {show_succ, Opts};
 cl(["--show-success-typings"|Opts]) -> {show_succ, Opts};
 cl(["--annotate"|Opts]) -> {{mode, ?ANNOTATE}, Opts};
 cl(["--annotate-inc-files"|Opts]) -> {{mode, ?ANNOTATE_INC_FILES}, Opts};
