@@ -55,26 +55,12 @@
 to_tuple(T) when is_tuple(T) -> T;
 to_tuple(T) -> {T}.
 
-%% Problem: the variables Other, Name and Args may collide with surrounding
-%% ones.
-%% Give extra args to macro, being the variables to use.
--define(O_REQUEST(Io, Request),
-    case request(Io, Request) of
-	{error, Reason} ->
-	    [Name | Args] = tuple_to_list(to_tuple(Request)),
-	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
-	Other ->
-	    Other
-    end).
-
 o_request(Io, Request, Func) ->
     case request(Io, Request) of
 	{error, Reason} ->
 	    [_Name | Args] = tuple_to_list(to_tuple(Request)),
-	    {'EXIT',{undef,[_Current|Mfas]}} = (catch erlang:error(undef)),
-	    MFA = {io, Func, [Io | Args]},
-	    exit({conv_reason(Func, Reason),[MFA|Mfas]});
-%	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
+	    {'EXIT',{get_stacktrace,[_Current|Mfas]}} = (catch erlang:error(get_stacktrace)),
+	    erlang:raise(error, conv_reason(Func, Reason), [{io, Func, [Io | Args]}|Mfas]);
 	Other ->
 	    Other
     end.
