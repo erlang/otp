@@ -216,6 +216,7 @@ get_external(Exts, Plt) ->
 -define(TYPER_ANN_DIR, "typer_ann").
 
 -type line()      :: non_neg_integer().
+-type fa()        :: {atom(), arity()}.
 -type func_info() :: {line(), atom(), arity()}.
 
 -record(info, {records = map__new() :: map(),
@@ -677,7 +678,7 @@ analyze_result(no_spec, Args, Analysis) ->
 %% File processing.
 %%--------------------------------------------------------------------
 
--spec get_all_files(args()) -> files().
+-spec get_all_files(args()) -> [file:filename(),...].
 
 get_all_files(#args{files = Fs, files_r = Ds}) ->
   case filter_fd(Fs, Ds, fun test_erl_file_exclude_ann/1) of
@@ -1068,6 +1069,7 @@ rcv_ext_types(Self, ExtTypes) ->
 
 %%--------------------------------------------------------------------
 %% A convenient abstraction of a Key-Value mapping data structure
+%% specialized for the uses in this module
 %%--------------------------------------------------------------------
 
 -type map() :: dict().
@@ -1085,7 +1087,7 @@ map__insert(Object, Map) ->
 map__lookup(Key, Map) ->
   try dict:fetch(Key, Map) catch error:_ -> none end.
 
--spec map__from_list([{term(), term()}]) -> map().
+-spec map__from_list([{fa(), term()}]) -> map().
 map__from_list(List) ->
   dict:from_list(List).
 
@@ -1093,6 +1095,6 @@ map__from_list(List) ->
 map__remove(Key, Dict) ->
   dict:erase(Key, Dict).
 
--spec map__fold(fun((term(), term(), term()) -> term()), term(), map()) -> term().
+-spec map__fold(fun((term(), term(), term()) -> map()), map(), map()) -> map().
 map__fold(Fun, Acc0, Dict) -> 
   dict:fold(Fun, Acc0, Dict).
