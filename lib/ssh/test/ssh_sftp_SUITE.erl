@@ -103,13 +103,13 @@ init_per_testcase(_Case, Config) ->
 	       {ok, ChannelPid, Connection} ->
 		   {ChannelPid, Connection};
 	       _Error ->
-		   {ok, _Sftpd} =
-		       ssh:daemon(?SFPD_PORT,
-				  [{system_dir, SysDir},
-				   {user_passwords,
-				    [{?USER, ?PASSWD}]},
-				   {failfun,
-				    fun ssh_test_lib:failfun/2}]),
+		   {_Sftpd, _Host, _Port} = 
+		       ssh_test_lib:daemon(Host, ?SFPD_PORT,
+					   [{system_dir, SysDir},
+					    {user_passwords,
+					     [{?USER, ?PASSWD}]},
+					    {failfun,
+					     fun ssh_test_lib:failfun/2}]),
 		   Result = (catch ssh_sftp:start_channel(Host, ?SFPD_PORT,
 							  [{user, ?USER},
 							   {password, ?PASSWD},

@@ -76,7 +76,7 @@ end_per_suite(Config) ->
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-    rename_known_hosts(backup),
+    ssh_test_lib:known_hosts(backup),
     ssh:start(),
     Config.
 
@@ -90,7 +90,7 @@ init_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, _Config) ->
     ssh:stop(),
-    rename_known_hosts(restore),
+    ssh_test_lib:known_hosts(restore),
     ok.
 
 %%--------------------------------------------------------------------
@@ -117,6 +117,16 @@ end_per_group(_GroupName, Config) ->
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
+sign_and_verify_rsa(doc) ->
+    ["Test api function ssh:sign_data and ssh:verify_data"];
+
+sign_and_verify_rsa(suite) ->
+    [];
+sign_and_verify_rsa(Config) when is_list(Config) ->
+    Data = ssh:sign_data(<<"correct data">>, "ssh-rsa"),
+    ok = ssh:verify_data(<<"correct data">>, Data, "ssh-rsa"),
+    {error,invalid_signature} = ssh:verify_data(<<"incorrect data">>, Data,"ssh-rsa").
+
 
 exec(doc) ->
     ["Test api function ssh_connection:exec"];
@@ -127,13 +137,11 @@ exec(suite) ->
 exec(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SystemDir},
-				   {failfun, fun ssh_test_lib:failfun/2}]),
-    {ok, ConnectionRef} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user_interaction, false}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_interaction, false}]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "1+1.", infinity),
@@ -171,15 +179,13 @@ exec_compressed(suite) ->
 exec_compressed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SystemDir},
-				  {compression, zlib},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
-
-    {ok, ConnectionRef} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user_interaction, false}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {compression, zlib},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId,
 				  "1+1.", infinity),
@@ -204,9 +210,8 @@ shell(suite) ->
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
-    Port = ssh_test_lib:inet_port(),
-    {ok, _Pid} = ssh:daemon(Port, [{system_dir, SystemDir},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
+    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					       {failfun, fun ssh_test_lib:failfun/2}]),
     test_server:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
@@ -265,21 +270,20 @@ shell(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-daemon_allready_started(doc) ->
+daemon_already_started(doc) ->
     ["Test that get correct error message if you try to start a daemon",
-    "on an adress that allready runs a daemon see also seq10667" ];
+    "on an adress that already runs a daemon see also seq10667" ];
 
-daemon_allready_started(suite) ->
+daemon_already_started(suite) ->
     [];
 
-daemon_allready_started(Config) when is_list(Config) ->
+daemon_already_started(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SystemDir},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
-   {error, eaddrinuse} = ssh:daemon(Port, [{system_dir, SystemDir},
-					   {failfun,
-					    fun ssh_test_lib:failfun/2}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    {error, eaddrinuse} = ssh_test_lib:daemon(Host, Port, [{system_dir, SystemDir},
+							   {failfun,
+							    fun ssh_test_lib:failfun/2}]),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -290,26 +294,23 @@ server_password_option(suite) ->
 server_password_option(Config) when is_list(Config) ->
     UserDir = ?config(data_dir, Config), % to make sure we don't use
     SysDir = ?config(data_dir, Config),	 % public-key-auth
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} =
-	ssh:daemon(Port, [{system_dir, SysDir},
-			  {password, "morot"}]),
-    Host = ssh_test_lib:hostname(),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {password, "morot"}]),
 
-    {ok, ConnectionRef} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user, "foo"},
-				 {password, "morot"},
-				 {user_interaction, false},
-				 {user_dir, UserDir}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_interaction, false},
+					  {user_dir, UserDir}]),
     {error, Reason} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user, "vego"},
-				 {password, "foo"},
-				 {user_interaction, false},
-				 {user_dir, UserDir}]),
-
-    test_server:format("Test of wrong pasword: Error msg: ~p ~n", [Reason]),
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "vego"},
+					  {password, "foo"},
+					  {user_interaction, false},
+					  {user_dir, UserDir}]),
+    
+    test_server:format("Test of wrong password: Error msg: ~p ~n", [Reason]),
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -323,39 +324,36 @@ server_userpassword_option(suite) ->
 server_userpassword_option(Config) when is_list(Config) ->
     UserDir = ?config(data_dir, Config),  % to make sure we don't use
     SysDir = ?config(data_dir, Config),	  % public-key-auth
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} =
-	ssh:daemon(Port, [{system_dir, SysDir},
-			  {user_passwords, [{"vego", "morot"}]}]),
-    Host = ssh_test_lib:hostname(),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_passwords, [{"vego", "morot"}]}]),
 
-    {ok, ConnectionRef} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user, "vego"},
-				 {password, "morot"},
-				 {user_interaction, false},
-				 {user_dir, UserDir}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "vego"},
+					  {password, "morot"},
+					  {user_interaction, false},
+					  {user_dir, UserDir}]),
     ssh:close(ConnectionRef),
 
     {error, Reason0} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user, "foo"},
-				 {password, "morot"},
-				 {user_interaction, false},
-				 {user_dir, UserDir}]),
-
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "foo"},
+					  {password, "morot"},
+					  {user_interaction, false},
+					  {user_dir, UserDir}]),
+    
     test_server:format("Test of user foo that does not exist. "
 		       "Error msg: ~p ~n", [Reason0]),
 
     {error, Reason1} =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
-				 {user, "vego"},
-				 {password, "foo"},
-				 {user_interaction, false},
-				 {user_dir, UserDir}]),
-    test_server:format("Test of wrong Pasword. "
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user, "vego"},
+					  {password, "foo"},
+					  {user_interaction, false},
+					  {user_dir, UserDir}]),
+    test_server:format("Test of wrong Password. "
 		       "Error msg: ~p ~n", [Reason1]),
-
+    
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -366,41 +364,27 @@ known_hosts(suite) ->
 known_hosts(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
-    Port = ssh_test_lib:inet_port(),
 
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SystemDir},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     KnownHosts = filename:join(UserDir, "known_hosts"),
     file:delete(KnownHosts),
     {error, enoent} = file:read_file(KnownHosts),
-    Host = ssh_test_lib:hostname(),
-    {ok, ConnectionRef} =
-	ssh:connect(Host, Port, [{user_dir, UserDir},
-				 {user_interaction, false},
-				 silently_accept_hosts]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{user_dir, UserDir},
+					  {user_interaction, false},
+					  silently_accept_hosts]),
     {ok, _Channel} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh:close(ConnectionRef),
     {ok, Binary} = file:read_file(KnownHosts),
     Lines = string:tokens(binary_to_list(Binary), "\n"),
     [Line] = Lines,
-    {ok, Hostname} = inet:gethostname(),
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
-    [Hostname, _Ip] = string:tokens(HostAndIp, ","),
+    [Host, _Ip] = string:tokens(HostAndIp, ","),
     "ssh-" ++ _ = Alg,
      ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
-
-rename_known_hosts(BR) ->
-    KnownHosts = ssh_file:file_name(user, "known_hosts", []),
-    B = KnownHosts ++ "xxx",
-    case BR of
-	backup ->
-	    file:rename(KnownHosts, B);
-	restore ->
-	    file:delete(KnownHosts),
-	    file:rename(B, KnownHosts)
-    end.

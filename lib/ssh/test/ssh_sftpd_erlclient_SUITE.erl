@@ -115,9 +115,8 @@ init_per_testcase(TestCase, Config) ->
 		 {system_dir, DataDir}]
 	end,
 
-    {ok, Sftpd} = ssh:daemon(any, ?SSHD_PORT, Options),
+    {Sftpd, Host, _Port} = ssh_test_lib:daemon(any, ?SSHD_PORT, Options),
 
-    Host = ssh_test_lib:hostname(),
     {ok, ChannelPid, Connection} =
 	ssh_sftp:start_channel(Host, ?SSHD_PORT,
 			       [{silently_accept_hosts, true},

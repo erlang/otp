@@ -93,16 +93,15 @@ init_per_testcase(TestCase, Config) ->
     SysDir = ?config(data_dir, Config),
     {ok, Sftpd} =
 	ssh_sftpd:listen(?SFPD_PORT, [{system_dir, SysDir},
-				   {user_passwords,[{?USER, ?PASSWD}]}]),
-
-    Host = ssh_test_lib:hostname(),
-    {ok, Cm} = ssh:connect(Host, ?SFPD_PORT,
+				      {user_passwords,[{?USER, ?PASSWD}]}]),
+    
+    Cm = ssh_test_lib:connect(?SFPD_PORT,
 			      [{silently_accept_hosts, true},
 			       {user, ?USER}, {password, ?PASSWD}]),
     {ok, Channel} =
 	ssh_connection:session_channel(Cm, ?XFER_WINDOW_SIZE,
 				       ?XFER_PACKET_SIZE, ?TIMEOUT),
-
+    
     success = ssh_connection:subsystem(Cm, Channel, "sftp", ?TIMEOUT),
 
     ProtocolVer = case atom_to_list(TestCase) of

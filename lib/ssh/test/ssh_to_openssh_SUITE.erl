@@ -159,10 +159,8 @@ erlang_client_openssh_server_exec(suite) ->
     [];
 
 erlang_client_openssh_server_exec(Config) when is_list(Config) ->
-    Host = ssh_test_lib:hostname(),
-    {ok, ConnectionRef} =
-	ssh:connect(Host, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-					      {user_interaction, false}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+							     {user_interaction, false}]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
@@ -203,11 +201,9 @@ erlang_client_openssh_server_exec_compressed(suite) ->
     [];
 
 erlang_client_openssh_server_exec_compressed(Config) when is_list(Config) ->
-    Host = ssh_test_lib:hostname(),
-    {ok, ConnectionRef} =
-	ssh:connect(Host, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-					      {user_interaction, false},
-					      {compression, zlib}]),
+    ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+							     {user_interaction, false},
+							     {compression, zlib}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId,
 				  "echo testing", infinity),
@@ -231,13 +227,11 @@ erlang_server_openssh_client_exec(suite) ->
     [];
 
 erlang_server_openssh_client_exec(Config) when is_list(Config) ->
-    SytemDir = ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
-    Port = ssh_test_lib:inet_port(),
-
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SytemDir},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
-
+    SystemDir = ?config(data_dir, Config),
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    
 
     test_server:sleep(500),
 
@@ -262,12 +256,10 @@ erlang_server_openssh_client_exec_compressed(suite) ->
     [];
 
 erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
-    SytemDir = ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SytemDir},
-				  {compression, zlib},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
+    SystemDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {compression, zlib},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     test_server:sleep(500),
 
@@ -292,10 +284,9 @@ erlang_client_openssh_server_setenv(suite) ->
     [];
 
 erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
-    Host = ssh_test_lib:hostname(),
-    {ok, ConnectionRef} =
-	ssh:connect(Host, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-					      {user_interaction, false}]),
+    ConnectionRef =
+	ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+						 {user_interaction, false}]),
     {ok, ChannelId} =
 	ssh_connection:session_channel(ConnectionRef, infinity),
     Env = case ssh_connection:setenv(ConnectionRef, ChannelId,
@@ -340,16 +331,14 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
     {ok,[[Home]]} = init:get_argument(home),
     SrcDir =  filename:join(Home, ".ssh"),
     UserDir = ?config(priv_dir, Config),
-    Host = ssh_test_lib:hostname(),
-
     case ssh_test_lib:copyfile(SrcDir, UserDir, "id_rsa") of
 	{ok, _} ->
-	    {ok, ConnectionRef} =
-		ssh:connect(Host, ?SSH_DEFAULT_PORT,
-			    [{user_dir, UserDir},
-			     {public_key_alg, ssh_rsa},
-			     {user_interaction, false},
-			     silently_accept_hosts]),
+	    ConnectionRef =
+		ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+				     [{user_dir, UserDir},
+				      {public_key_alg, ssh_rsa},
+				      {user_interaction, false},
+				      silently_accept_hosts]),
 	    {ok, Channel} =
 		ssh_connection:session_channel(ConnectionRef, infinity),
 	    ok = ssh_connection:close(ConnectionRef, Channel),
@@ -368,15 +357,14 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
     {ok,[[Home]]} = init:get_argument(home),
     SrcDir =  filename:join(Home, ".ssh"),
     UserDir = ?config(priv_dir, Config),
-    Host = ssh_test_lib:hostname(),
     case ssh_test_lib:copyfile(SrcDir, UserDir, "id_dsa") of
 	{ok, _} ->
-	    {ok, ConnectionRef} =
-		ssh:connect(Host, ?SSH_DEFAULT_PORT,
-			    [{user_dir, UserDir},
-			     {public_key_alg, ssh_dsa},
-			     {user_interaction, false},
-			     silently_accept_hosts]),
+	    ConnectionRef =
+		ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+				     [{user_dir, UserDir},
+				      {public_key_alg, ssh_dsa},
+				      {user_interaction, false},
+				      silently_accept_hosts]),
 	    {ok, Channel} =
 		ssh_connection:session_channel(ConnectionRef, infinity),
 	    ok = ssh_connection:close(ConnectionRef, Channel),
@@ -394,13 +382,11 @@ erlang_server_openssh_client_pulic_key_dsa(suite) ->
     [];
 
 erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
-    SytemDir = ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
-    Port = ssh_test_lib:inet_port(),
-    {ok, Pid} = ssh:daemon(Port, [{system_dir, SytemDir},
-				  {public_key_alg, ssh_dsa},
-				  {failfun, fun ssh_test_lib:failfun/2}]),
-
+    SystemDir = ?config(data_dir, Config),
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {public_key_alg, ssh_dsa},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    
     test_server:sleep(500),
 
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
@@ -426,15 +412,13 @@ erlang_client_openssh_server_password(suite) ->
 erlang_client_openssh_server_password(Config) when is_list(Config) ->
     %% to make sure we don't public-key-auth
     UserDir = ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
-
     {error, Reason0} =
-	ssh:connect(Host, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
-					      {user, "foo"},
-					      {password, "morot"},
-					      {user_interaction, false},
-					      {user_dir, UserDir}]),
-
+	ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+						 {user, "foo"},
+						 {password, "morot"},
+						 {user_interaction, false},
+						 {user_dir, UserDir}]),
+    
     test_server:format("Test of user foo that does not exist. "
 		       "Error msg: ~p~n", [Reason0]),
 
@@ -443,12 +427,12 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
     case length(string:tokens(User, " ")) of
 	1 ->
 	    {error, Reason1} =
-		ssh:connect(Host, ?SSH_DEFAULT_PORT,
-			    [{silently_accept_hosts, true},
-			     {user, User},
-			     {password, "foo"},
-			     {user_interaction, false},
-			     {user_dir, UserDir}]),
+		ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+				     [{silently_accept_hosts, true},
+				      {user, User},
+				      {password, "foo"},
+				      {user_interaction, false},
+				      {user_dir, UserDir}]),
 	    test_server:format("Test of wrong Pasword.  "
 			       "Error msg: ~p~n", [Reason1]);
 	_ ->
