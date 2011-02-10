@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -58,6 +58,10 @@
 	 mk_blr/0,
 
 	 mk_cmp/3,
+	 cmpop_word/0,
+	 cmpiop_word/0,
+	 cmplop_word/0,
+	 cmpliop_word/0,
 
 	 mk_comment/1,
 
@@ -73,6 +77,8 @@
 	 mk_loadx/4,
 	 mk_load/6,
 	 ldop_to_ldxop/1,
+	 ldop_word/0,
+	 ldop_wordx/0,
 
 	 mk_mfspr/2,
 
@@ -110,6 +116,8 @@
 	 mk_storex/4,
 	 mk_store/6,
 	 stop_to_stxop/1,
+	 stop_word/0,
+	 stop_wordx/0,
 
 	 mk_unary/3,
 
@@ -189,6 +197,31 @@ mk_blr() -> #blr{}.
 
 mk_cmp(CmpOp, Src1, Src2) -> #cmp{cmpop=CmpOp, src1=Src1, src2=Src2}.
 
+cmpop_word() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'cmp';
+    ppc64 -> 'cmpd'
+  end.
+
+cmpiop_word() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'cmpi';
+    ppc64 -> 'cmpdi'
+  end.
+
+cmplop_word() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'cmpl';
+    ppc64 -> 'cmpld'
+  end.
+
+cmpliop_word() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'cmpli';
+    ppc64 -> 'cmpldi'
+  end.
+
+
 mk_comment(Term) -> #comment{term=Term}.
 
 mk_label(Label) -> #label{label=Label}.
@@ -198,9 +231,50 @@ label_label(#label{label=Label}) -> Label.
 %%% Load an integer constant into a register.
 mk_li(Dst, Value) -> mk_li(Dst, Value, []).
 
-mk_li(Dst, Value, Tail) ->
+mk_li(Dst, Value, Tail) ->   % Dst can be R0
   R0 = mk_temp(0, 'untagged'),
-  mk_addi(Dst, R0, Value, Tail).
+  %% Check if immediate can fit in the 32 bits, this is obviously a
+  %% sufficient check for PPC32
+  if Value >= -16#80000000,
+     Value =< 16#7FFFFFFF ->
+      mk_li32(Dst, R0, Value, Tail);
+     true ->
+      Highest = (Value bsr 48),              % Value@highest
+      Higher = (Value bsr 32) band 16#FFFF,  % Value@higher
+      High = (Value bsr 16) band 16#FFFF,    % Value@h
+      Low = Value band 16#FFFF,              % Value@l
+      LdLo =
+	case Low of
+	  0 -> Tail;
+	  _ -> [mk_alu('ori', Dst, Dst, mk_uimm16(Low)) | Tail]
+	end,
+      Ld32bits =
+	case High of
+	  0 -> LdLo;
+	  _ -> [mk_alu('oris', Dst, Dst, mk_uimm16(High)) | LdLo]
+	end,
+      [mk_alu('addis', Dst, R0, mk_simm16(Highest)),
+       mk_alu('ori', Dst, Dst, mk_uimm16(Higher)),
+       mk_alu('sldi', Dst, Dst, mk_uimm16(32)) |
+       Ld32bits]
+  end.
+
+mk_li32(Dst, R0, Value, Tail) ->
+  case at_ha(Value) of
+    0 ->
+      %% Value[31:16] are the sign-extension of Value[15].
+      %% Use a single addi to load and sign-extend 16 bits.
+      [mk_alu('addi', Dst, R0, mk_simm16(at_l(Value))) | Tail];
+    _ ->
+      %% Use addis to load the high 16 bits, followed by an
+      %% optional ori to load non sign-extended low 16 bits.
+      High = simm16sext((Value bsr 16) band 16#FFFF),
+      [mk_alu('addis', Dst, R0, mk_simm16(High)) |
+       case (Value band 16#FFFF) of
+	 0 -> Tail;
+	 Low -> [mk_alu('ori', Dst, Dst, mk_uimm16(Low)) | Tail]
+       end]
+  end.
 
 mk_addi(Dst, R0, Value, Tail) ->
   Low = at_l(Value),
@@ -232,27 +306,6 @@ simm16sext(Value) ->
      true -> Value
   end.
 
-mk_li_new(Dst, Value, Tail) -> % Dst may be R0
-  R0 = mk_temp(0, 'untagged'),
-  case at_ha(Value) of
-    0 ->
-      %% Value[31:16] are the sign-extension of Value[15].
-      %% Use a single addi to load and sign-extend 16 bits.
-      [mk_alu('addi', Dst, R0, mk_simm16(at_l(Value))) |
-       Tail];
-    _ ->
-      %% Use addis to load the high 16 bits, followed by an
-      %% optional ori to load non sign-extended low 16 bits.
-      High = simm16sext((Value bsr 16) band 16#FFFF),
-      [mk_alu('addis', Dst, R0, mk_simm16(High)) |
-       case (Value band 16#FFFF) of
-	 0 -> Tail;
-	 Low ->
-	   [mk_alu('ori', Dst, Dst, mk_uimm16(Low)) |
-	    Tail]
-       end]
-  end.
-
 mk_load(LDop, Dst, Disp, Base) ->
   #load{ldop=LDop, dst=Dst, disp=Disp, base=Base}.
 
@@ -260,8 +313,15 @@ mk_loadx(LdxOp, Dst, Base1, Base2) ->
   #loadx{ldxop=LdxOp, dst=Dst, base1=Base1, base2=Base2}.
 
 mk_load(LdOp, Dst, Offset, Base, Scratch, Rest) when is_integer(Offset) ->
-  if Offset >= -32768, Offset =< 32767 ->
-      [mk_load(LdOp, Dst, Offset, Base) | Rest];
+  RequireAlignment =
+    case LdOp of
+      'ld' -> true;
+      'ldx' -> true;
+      _ -> false
+    end,
+  if Offset >= -32768, Offset =< 32767,
+     not RequireAlignment orelse Offset band 3 =:= 0 ->
+	  [mk_load(LdOp, Dst, Offset, Base) | Rest];
      true ->
       LdxOp = ldop_to_ldxop(LdOp),
       Index =
@@ -272,8 +332,8 @@ mk_load(LdOp, Dst, Offset, Base, Scratch, Rest) when is_integer(Offset) ->
 	     true -> mk_scratch(Scratch)
 	  end
 	end,
-      mk_li_new(Index, Offset,
-		[mk_loadx(LdxOp, Dst, Base, Index) | Rest])
+      mk_li(Index, Offset,
+	    [mk_loadx(LdxOp, Dst, Base, Index) | Rest])
   end.
 
 ldop_to_ldxop(LdOp) ->
@@ -281,7 +341,21 @@ ldop_to_ldxop(LdOp) ->
     'lbz' -> 'lbzx';
     'lha' -> 'lhax';
     'lhz' -> 'lhzx';
-    'lwz' -> 'lwzx'
+    'lwa' -> 'lwax';
+    'lwz' -> 'lwzx';
+    'ld' -> 'ldx'
+  end.
+
+ldop_word() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'lwz';
+    ppc64 -> 'ld'
+  end.
+
+ldop_wordx() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'lwzx';
+    ppc64 -> 'ldx'
   end.
 
 mk_scratch(Scratch) ->
@@ -354,20 +428,40 @@ mk_storex(StxOp, Src, Base1, Base2) ->
   #storex{stxop=StxOp, src=Src, base1=Base1, base2=Base2}.
 
 mk_store(StOp, Src, Offset, Base, Scratch, Rest)when is_integer(Offset) ->
-  if Offset >= -32768, Offset =< 32767 ->
+  RequireAlignment =
+    case StOp of
+      'std' -> true;
+      'stdx' -> true;
+      _ -> false
+    end,
+  if Offset >= -32768, Offset =< 32767,
+     not RequireAlignment orelse Offset band 3 =:= 0 ->
       [mk_store(StOp, Src, Offset, Base) | Rest];
      true ->
       StxOp = stop_to_stxop(StOp),
       Index = mk_scratch(Scratch),
-      mk_li_new(Index, Offset,
-		[mk_storex(StxOp, Src, Base, Index) | Rest])
+      mk_li(Index, Offset,
+	    [mk_storex(StxOp, Src, Base, Index) | Rest])
   end.
 
 stop_to_stxop(StOp) ->
   case StOp of
     'stb' -> 'stbx';
     'sth' -> 'sthx';
-    'stw' -> 'stwx'
+    'stw' -> 'stwx';
+    'std' -> 'stdx'
+  end.
+
+stop_word() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'stw';
+    ppc64 -> 'std'
+  end.
+
+stop_wordx() ->
+  case get(hipe_target_arch) of
+    powerpc -> 'stwx';
+    ppc64 -> 'stdx'
   end.
 
 mk_unary(UnOp, Dst, Src) -> #unary{unop=UnOp, dst=Dst, src=Src}.
@@ -379,7 +473,7 @@ mk_fload(Dst, Offset, Base, Scratch) when is_integer(Offset) ->
       [mk_lfd(Dst, Offset, Base)];
      true ->
       Index = mk_scratch(Scratch),
-      mk_li_new(Index, Offset, [mk_lfdx(Dst, Base, Index)])
+      mk_li(Index, Offset, [mk_lfdx(Dst, Base, Index)])
   end.
 
 mk_stfd(Src, Disp, Base) -> #stfd{src=Src, disp=Disp, base=Base}.
@@ -389,7 +483,7 @@ mk_fstore(Src, Offset, Base, Scratch) when is_integer(Offset) ->
       [mk_stfd(Src, Offset, Base)];
      true ->
       Index = mk_scratch(Scratch),
-      mk_li_new(Index, Offset, [mk_stfdx(Src, Base, Index)])
+      mk_li(Index, Offset, [mk_stfdx(Src, Base, Index)])
   end.
 
 mk_fp_binary(FpBinOp, Dst, Src1, Src2) ->
