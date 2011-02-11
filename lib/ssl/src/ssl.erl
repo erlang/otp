@@ -98,9 +98,12 @@ stop() ->
     application:stop(ssl).
 
 %%--------------------------------------------------------------------
--spec connect(host() | port(), [option()]) -> {ok, #sslsocket{}}.
--spec connect(host() | port(), [option()] | port_num(), timeout() | list()) -> {ok, #sslsocket{}}.
--spec connect(host() | port(), port_num(), list(), timeout()) -> {ok, #sslsocket{}}.      
+-spec connect(host() | port(), [option()]) -> {ok, #sslsocket{}} |
+					      {error, reason()}.
+-spec connect(host() | port(), [option()] | port_num(), timeout() | list()) ->
+		     {ok, #sslsocket{}} | {error, reason()}.
+-spec connect(host() | port(), port_num(), list(), timeout()) ->
+		     {ok, #sslsocket{}} | {error, reason()}.
 
 %%
 %% Description: Connect to a ssl server.
@@ -171,8 +174,10 @@ listen(Port, Options0) ->
     end.
 
 %%--------------------------------------------------------------------
--spec transport_accept(#sslsocket{}) -> {ok, #sslsocket{}}.
--spec transport_accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}}.
+-spec transport_accept(#sslsocket{}) -> {ok, #sslsocket{}} |
+					{error, reason()}.
+-spec transport_accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} |
+						   {error, reason()}.
 %%
 %% Description: Performs transport accept on a ssl listen socket 
 %%--------------------------------------------------------------------
