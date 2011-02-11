@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -112,9 +112,10 @@ noenv_forms(Forms, Opt) when is_atom(Opt) ->
 -spec noenv_output_generated([option()]) -> boolean().
 
 noenv_output_generated(Opts) ->
+    {_,Passes} = passes(file, expand_opts(Opts)),
     any(fun ({save_binary,_F}) -> true;
 	    (_Other) -> false
-	end, passes(file, expand_opts(Opts))).
+	end, Passes).
 
 %%
 %%  Local functions
@@ -240,26 +241,12 @@ internal(Master, Input, Opts) ->
 		      end}.
 
 internal({forms,Forms}, Opts) ->
-    Ps = passes(forms, Opts),
+    {_,Ps} = passes(forms, Opts),
     internal_comp(Ps, "", "", #compile{code=Forms,options=Opts});
 internal({file,File}, Opts) ->
-    Ps = passes(file, Opts),
+    {Ext,Ps} = passes(file, Opts),
     Compile = #compile{options=Opts},
-    case member(from_core, Opts) of
-	true -> internal_comp(Ps, File, ".core", Compile);
-	false ->
-	    case member(from_beam, Opts) of
-		true ->
-		    internal_comp(Ps, File, ".beam", Compile);
-		false ->
-		    case member(from_asm, Opts) orelse member(asm, Opts) of
-			true ->
-			    internal_comp(Ps, File, ".S", Compile);
-			false ->
-			    internal_comp(Ps, File, ".erl", Compile)
-		    end
-	    end
-    end.
+    internal_comp(Ps, File, Ext, Compile).
 
 internal_comp(Passes, File, Suffix, St0) ->
     Dir = filename:dirname(File),
@@ -367,42 +354,52 @@ mpf(Ms) ->
     [{File,[M || {F,M} <- Ms, F =:= File]} ||
 	File <- lists:usort([F || {F,_} <- Ms])].
 
-%% passes(forms|file, [Option]) -> [{Name,PassFun}]
-%%  Figure out which passes that need to be run.
+%% passes(forms|file, [Option]) -> {Extension,[{Name,PassFun}]}
+%%  Figure out the extension of the input file and which passes
+%%  that need to be run.
 
-passes(forms, Opts) ->
-    case member(from_core, Opts) of
-	true ->
-	    select_passes(core_passes(), Opts);
-	false ->
-	    select_passes(standard_passes(), Opts)
+passes(Type, Opts) ->
+    {Ext,Passes0} = passes_1(Opts),
+    Passes1 = case Type of
+		  file -> Passes0;
+		  forms -> tl(Passes0)
+	      end,
+    Passes = select_passes(Passes1, Opts),
+
+    %% If the last pass saves the resulting binary to a file,
+    %% insert a first pass to remove the file (unless the
+    %% source file is a BEAM file).
+    {Ext,case last(Passes) of
+	     {save_binary,_Fun} ->
+		 case Passes of
+		     [{read_beam_file,_}|_] ->
+			 %% The BEAM is both input and output.
+			 %% Don't remove it.
+			 Passes;
+		     _ ->
+			 [?pass(remove_file)|Passes]
+		 end;
+	     _ ->
+		 Passes
+	 end}.
+
+passes_1([Opt|Opts]) ->
+    case pass(Opt) of
+	{_,_}=Res -> Res;
+	none -> passes_1(Opts)
     end;
-passes(file, Opts) ->
-    case member(from_beam, Opts) of
-	true ->
-	    Ps = [?pass(read_beam_file)|binary_passes()],
-	    select_passes(Ps, Opts);
-	false ->
-	    Ps = case member(from_asm, Opts) orelse member(asm, Opts) of
-		     true ->
-			 [?pass(beam_consult_asm)|asm_passes()];
-		     false ->
-			 case member(from_core, Opts) of
-			     true ->
-				 [?pass(parse_core)|core_passes()];
-			     false ->
-				 [?pass(parse_module)|standard_passes()]
-			 end
-		 end,
-	    Fs = select_passes(Ps, Opts),
+passes_1([]) ->
+    {".erl",[?pass(parse_module)|standard_passes()]}.
 
-	    %% If the last pass saves the resulting binary to a file,
-	    %% insert a first pass to remove the file.
-	    case last(Fs)  of
-		{save_binary,_Fun} -> [?pass(remove_file)|Fs];
-		_Other -> Fs
-	    end
-    end.
+pass(from_core) ->
+    {".core",[?pass(parse_core)|core_passes()]};
+pass(from_asm) ->
+    {".S",[?pass(beam_consult_asm)|asm_passes()]};
+pass(asm) ->
+    pass(from_asm);
+pass(from_beam) ->
+    {".beam",[?pass(read_beam_file)|binary_passes()]};
+pass(_) -> none.
 
 %% select_passes([Command], Opts) -> [{Name,Function}]
 %%  Interpret the lists of commands to return a pure list of passes.
