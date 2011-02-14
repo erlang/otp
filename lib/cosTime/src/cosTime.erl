@@ -110,30 +110,34 @@ uninstall_time() ->
 uninstall_timerevent() -> 
     uninstall_loop(lists:reverse(?IDL_TIMEREVENT_MODULES),ok).
 
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(uninstall_loop/2 :: (_, _) -> no_return()).
 uninstall_loop([],ok) ->
     ok;
 uninstall_loop([],{exit, register}) ->
-    exit({?MODULE, "oe_register failed"});
+    do_exit({?MODULE, "oe_register failed"});
 uninstall_loop([],{exit, unregister}) ->
-    exit({?MODULE, "oe_unregister failed"});
+    do_exit({?MODULE, "oe_unregister failed"});
 uninstall_loop([],{exit, both}) ->
-    exit({?MODULE, "oe_register and, for some of those already registered, oe_unregister failed"});
+    do_exit({?MODULE, "oe_register and, for some of those already registered, oe_unregister failed"});
 uninstall_loop([H|T], Status) ->
     case catch H:'oe_unregister'() of
 	ok ->
 	    uninstall_loop(T, Status);
 	_ when Status == ok ->
-	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.
-You are adviced to confirm this.~n",[H]),
+	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.\n"
+			    "You are adviced to confirm this.~n",[H]),
 	    uninstall_loop(T, {exit, unregister});
 	_ ->
-	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.
-You are adviced to confirm this.~n",[H]),
+ 	    ?write_ErrorMsg("Unable to unregister '~p'; propably already unregistered.\n"
+			    "You are adviced to confirm this.~n",[H]),
 	    uninstall_loop(T, {exit, both})
     end.
-	
+
+
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(do_exit/1 :: (_) -> no_return()).
+do_exit(Reason) ->
+    exit(Reason).
+
 %%------------------------------------------------------------
 %% function : start/stop
 %% Arguments: 

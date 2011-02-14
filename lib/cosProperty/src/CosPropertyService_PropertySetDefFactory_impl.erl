@@ -154,8 +154,6 @@ create_initial_propertysetdef(_OE_This, State, PropDefs) ->
 evaluate_propertysetdef(SetDefs) ->
     evaluate_propertysetdef(SetDefs, [], []).
 
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(evaluate_propertysetdef/3 :: (_, _, _) -> no_return()).
 evaluate_propertysetdef([], NewProperties, []) ->
     %% No exceptions found.
     NewProperties;
