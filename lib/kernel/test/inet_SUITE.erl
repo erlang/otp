@@ -386,7 +386,7 @@ try_host({Ip0, Host}) ->
 %% Get all hosts from the system using 'ypcat hosts' or the local
 %% equvivalent.
 
-get_hosts(Config) -> 
+get_hosts(_Config) -> 
     case os:type() of
 	{unix, _} ->
 	    List = lists:map(fun(X) ->
@@ -399,12 +399,12 @@ get_hosts(Config) ->
 	    ct:get_config(hardcoded_hosts)
     end.
 
-get_ipv6_hosts(Config) -> 
+get_ipv6_hosts(_Config) -> 
     case os:type() of
 	{unix, _} ->
 	    List = lists:map(fun(X) ->
 				     atom_to_list(X)++" "
-			     end, ct:get_config(test_hosts)),
+			     end, ct:get_config(ipv6_hosts)),
 	    Cmd = "ypmatch "++List++" ipnodes.byname", 
 	    HostFile = os:cmd(Cmd),
 	    get_hosts(HostFile, [], [], []);
