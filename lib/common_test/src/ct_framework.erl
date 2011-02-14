@@ -756,8 +756,9 @@ find(Mod, Name, TCs, [{Name,Props,Tests} | _Gs], Known, Defs, false)
 find(Mod, Name, TCs, [{Name1,Props,Tests} | Gs], Known, Defs, false)
   when is_atom(Name1), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name1, Known),
-    find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false) ++
-	find(Mod, Name, TCs, Gs, [], Defs, false);
+    [make_conf(Mod,Name1,Props,
+		   find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false)) |
+     find(Mod, Name, TCs, Gs, [], Defs, false)];
 
 find(Mod, Name, _TCs, [{Name,_Props,_Tests} | _Gs], _Known, _Defs, true)
   when is_atom(Name) ->
