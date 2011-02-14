@@ -95,7 +95,13 @@
 -define(DEBUG_LEVEL, 5).
 
 -define(FORMAT(_F, _A), lists:flatten(io_lib:format(_F, _A))).
--define(EFORMAT(_F, _A), exit(lists:flatten(io_lib:format(_F, _A)))).
+-define(EFORMAT(_F, _A), do_exit(lists:flatten(io_lib:format(_F, _A)))).
+
+
+%% To avoid dialyzer warnings due to the use of exit/throw.
+-spec(do_exit/1 :: (_) -> no_return()).
+do_exit(Reason) ->
+    exit(Reason).
 
 
 %%-----------------------------------------------------------------
@@ -1029,8 +1035,6 @@ remove_node(Node) when is_atom(Node) ->
 remove_tables(Tables, Node) ->
     remove_tables(Tables, Node, []).
 
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(remove_tables/3 :: (_, _, _) -> no_return()).
 remove_tables([], _, []) -> ok;
 remove_tables([], Node, Failed) ->
     ?EFORMAT("orber:remove_node(~p) failed. Unable to remove table(s): ~p", 

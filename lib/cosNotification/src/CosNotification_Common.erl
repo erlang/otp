@@ -947,8 +947,6 @@ validate_event_qos(Wanted, Curr) ->
     v_e_q_helper(Wanted, Curr, []),
     [].
 
-%% To avoid dialyzer warnings due to the use of exit/throw.
-%%-spec(v_e_q_helper/3 :: (_, _, _) -> no_return()).
 v_e_q_helper([], _Curr, []) ->
     %% Parsed all and foynd no conflicts.
     ok;
@@ -1073,8 +1071,6 @@ v_e_q_helper(What, _, _) ->
 %%            LQS     - local representation of QoS.
 %% Returns  : {NewOMGStyleQoS, NewLocalQoS} | #'CosNotification_UnsupportedQoS'{}
 %%------------------------------------------------------------
-%% To avoid dialyzer warnings due to the use of exit/throw.
-%%-spec(set_properties/9 :: (_, _, _, _, _, _, _, _, _) -> no_return()).
 set_properties([], Curr, channelAdm, _, [], NewQoS,_,_,LAS) ->
     merge_properties(NewQoS, Curr, LAS);
 set_properties([], Curr, _, _, [], NewQoS,_,_,LQS) ->
