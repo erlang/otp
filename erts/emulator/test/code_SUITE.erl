@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -320,6 +320,9 @@ make_stub(Config) when is_list(Config) ->
 	(catch code:make_stub_module(my_code_test,
 				     bit_sized_binary(Code),
 				     {[],[]})),
+    ?line {'EXIT',{badarg,_}} =
+	(catch code:make_stub_module(my_code_test_with_wrong_name,
+				     Code, {[],[]})),
     ok.
 
 make_stub_many_funs(Config) when is_list(Config) ->
