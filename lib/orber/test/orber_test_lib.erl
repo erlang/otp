@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -287,9 +287,11 @@ start_ssl(true, Node) ->
 start_ssl(_, _) ->
     ok.
 
-start_orber({lightweigth, Options}, Node) ->
+start_orber({lightweight, Options}, Node) ->
+    ok = rpc:call(Node, mnesia, start, []),
     ok = rpc:call(Node, orber, start_lightweight, [Options]);
 start_orber(lightweight, Node) ->
+    ok = rpc:call(Node, mnesia, start, []),
     ok = rpc:call(Node, orber, start_lightweight, []);
 start_orber(_, Node) ->
     ok = rpc:call(Node, orber, jump_start, []).
