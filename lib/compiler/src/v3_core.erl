@@ -180,7 +180,7 @@ body(Cs0, Name, Arity, St0) ->
     {Args,St1} = new_vars(Anno, Arity, St0),
     {Cs1,St2} = clauses(Cs0, St1),
     {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
-    Fc = function_clause(Ps, {Name,Arity}),
+    Fc = function_clause(Ps, Anno, {Name,Arity}),
     {#ifun{anno=#a{anno=Anno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
 %% clause(Clause, State) -> {Cclause,State} | noclause.
@@ -507,15 +507,15 @@ expr({block,_,Es0}, St0) ->
     {E1,Es1 ++ Eps,St2};
 expr({'if',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
-    Fc = fail_clause([], #c_literal{val=if_clause}),
     Lanno = lineno_anno(L, St1),
+    Fc = fail_clause([], Lanno, #c_literal{val=if_clause}),
     {#icase{anno=#a{anno=Lanno},args=[],clauses=Cs1,fc=Fc},[],St1};
 expr({'case',L,E0,Cs0}, St0) ->
     {E1,Eps,St1} = novars(E0, St0),
     {Cs1,St2} = clauses(Cs0, St1),
     {Fpat,St3} = new_var(St2),
-    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=case_clause},Fpat])),
-    Lanno = lineno_anno(L, St3),
+    Lanno = lineno_anno(L, St2),
+    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=case_clause},Fpat])),
     {#icase{anno=#a{anno=Lanno},args=[E1],clauses=Cs1,fc=Fc},Eps,St3};
 expr({'receive',L,Cs0}, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
@@ -541,9 +541,10 @@ expr({'try',L,Es0,Cs0,Ecs,[]}, St0) ->
     {V,St2} = new_var(St1),		%This name should be arbitrary
     {Cs1,St3} = clauses(Cs0, St2),
     {Fpat,St4} = new_var(St3),
-    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=try_clause},Fpat])),
+    Lanno = lineno_anno(L, St4),
+    Fc = fail_clause([Fpat], Lanno,
+		     c_tuple([#c_literal{val=try_clause},Fpat])),
     {Evs,Hs,St5} = try_exception(Ecs, St4),
-    Lanno = lineno_anno(L, St1),
     {#itry{anno=#a{anno=lineno_anno(L, St5)},args=Es1,
 	   vars=[V],body=[#icase{anno=#a{anno=Lanno},args=[V],clauses=Cs1,fc=Fc}],
 	   evars=Evs,handler=Hs},
@@ -607,8 +608,8 @@ expr({match,L,P0,E0}, St0) ->
 		 Thrown
 	 end,
     {Fpat,St4} = new_var(St3),
-    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=badmatch},Fpat])),
     Lanno = lineno_anno(L, St4),
+    Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
     case P2 of
 	nomatch ->
 	    St = add_warning(L, nomatch, St4),
@@ -828,8 +829,9 @@ fun_tq({_,_,Name}=Id, Cs0, L, St0) ->
     {Cs1,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
     {Ps,St3} = new_vars(Arity, St2),		%Need new variables here
-    Fc = function_clause(Ps, {Name,Arity}),
-    Fun = #ifun{anno=#a{anno=lineno_anno(L, St3)},
+    Anno = lineno_anno(L, St3),
+    Fc = function_clause(Ps, Anno, {Name,Arity}),
+    Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
 		vars=Args,clauses=Cs1,fc=Fc},
     {Fun,[],St3}.
@@ -929,7 +931,7 @@ lc_tq(Line, E, [{b_generate,Lg,P,G}|Qs0], Mc, St0) ->
      [],St};
 lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
     %% Special case sequences guard tests.
-    LA = lineno_anno(Line, St0),
+    LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
     case is_guard_test(Fil0) of
 	true ->
@@ -945,7 +947,8 @@ lc_tq(Line, E, [Fil0|Qs0], Mc, St0) ->
 	false ->
 	    {Lc,Lps,St1} = lc_tq(Line, E, Qs0, Mc, St0),
 	    {Fpat,St2} = new_var(St1),
-	    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=case_clause},Fpat])),
+	    Fc = fail_clause([Fpat], LA,
+			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St3} = novars(Fil0, St2),
 	    {#icase{anno=LAnno,
@@ -1072,7 +1075,7 @@ bc_tq1(Line, E, [{b_generate,Lg,P,G}|Qs0], AccExpr, St0) ->
      [],St};
 bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
     %% Special case sequences guard tests.
-    LA = lineno_anno(Line, St0),
+    LA = lineno_anno(element(2, Fil0), St0),
     LAnno = #a{anno=LA},
     case is_guard_test(Fil0) of
 	true ->
@@ -1089,7 +1092,8 @@ bc_tq1(Line, E, [Fil0|Qs0], AccVar, St0) ->
 	false ->
 	    {Bc,Bps,St1} = bc_tq1(Line, E, Qs0, AccVar, St0),
 	    {Fpat,St2} = new_var(St1),
-	    Fc = fail_clause([Fpat], c_tuple([#c_literal{val=case_clause},Fpat])),
+	    Fc = fail_clause([Fpat], LA,
+			     c_tuple([#c_literal{val=case_clause},Fpat])),
 	    %% Do a novars little optimisation here.
 	    {Filc,Fps,St} = novars(Fil0, St2),
 	    {#icase{anno=LAnno,
@@ -1562,16 +1566,10 @@ new_vars_1(N, Anno, St0, Vs) when N > 0 ->
     new_vars_1(N-1, Anno, St1, [V|Vs]);
 new_vars_1(0, _, St, Vs) -> {Vs,St}.
 
-function_clause(Ps, Name) ->
-    function_clause(Ps, [], Name).
-
 function_clause(Ps, LineAnno, Name) ->
-    FcAnno = [{function_name,Name}],
+    FcAnno = [{function_name,Name}|LineAnno],
     fail_clause(Ps, FcAnno,
 		ann_c_tuple(LineAnno, [#c_literal{val=function_clause}|Ps])).
-
-fail_clause(Pats, Arg) ->
-    fail_clause(Pats, [], Arg).
 
 fail_clause(Pats, Anno, Arg) ->
     #iclause{anno=#a{anno=[compiler_generated]},
