@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1279,7 +1279,7 @@ count_children_allocator_test(MemoryState) ->
     lists:all(fun(State) -> State == {e, true} end, AllocStates).
 
 count_children_memory(doc) ->
-    ["Test that which_children eats memory, but count_children does not."];
+    ["Test that count_children does not eat memory."];
 count_children_memory(suite) ->
     MemoryState = erlang:system_info(allocator),
     case count_children_allocator_test(MemoryState) of
@@ -1323,8 +1323,8 @@ count_children_memory(Config) when is_list(Config) ->
     ?line ChildCount3 = ChildCount2,
 
     %% count_children consumes memory using an accumulator function,
-    %% but the space can be reclaimed incrementally, whereas
-    %% which_children generates a return list.
+    %% but the space can be reclaimed incrementally,
+    %% which_children may generate garbage that will reclaimed later.
     case (Size5 =< Size4) of
 	true -> ok;
 	false ->
@@ -1336,19 +1336,7 @@ count_children_memory(Config) when is_list(Config) ->
 	    ?line test_server:fail({count_children, used_more_memory})
     end,
 
-    case Size4 > Size3 of
-	true -> ok;
-	false ->
-	    ?line test_server:fail({which_children, used_no_memory})
-    end,
-    case Size6 > Size5 of
-	true -> ok;
-	false ->
-	    ?line test_server:fail({which_children, used_no_memory})
-    end,
-
     [exit(Pid, kill) || {undefined, Pid, worker, _Modules} <- Children3],
     test_server:sleep(100),
     ?line [1,0,0,0] = get_child_counts(sup_test),
-
     ok.

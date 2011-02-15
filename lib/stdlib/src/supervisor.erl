@@ -562,15 +562,11 @@ handle_start_child(Child, State) ->
 	false ->
 	    case do_start_child(State#state.name, Child) of
 		{ok, Pid} ->
-		    Children = State#state.children,
 		    {{ok, Pid},
-		     State#state{children = 
-				 [Child#child{pid = Pid}|Children]}};
+		     save_child(Child#child{pid = Pid}, State)};
 		{ok, Pid, Extra} ->
-		    Children = State#state.children,
 		    {{ok, Pid, Extra},
-		     State#state{children = 
-				 [Child#child{pid = Pid}|Children]}};
+		     save_child(Child#child{pid = Pid}, State)};
 		{error, What} ->
 		    {{error, {What, Child}}, State}
 	    end;
@@ -593,13 +589,13 @@ restart_child(Pid, Reason, #state{children = [Child]} = State) when ?is_simple(S
 	    NChild = Child#child{pid = Pid, mfargs = {M, F, Args}},
 	    do_restart(RestartType, Reason, NChild, State);
 	error ->
-	    {ok, State}
+            {ok, State}
     end;
+
 restart_child(Pid, Reason, State) ->
     Children = State#state.children,
     case lists:keyfind(Pid, #child.pid, Children) of
-	#child{} = Child ->
-	    RestartType = Child#child.restart_type,
+	#child{restart_type = RestartType} = Child ->
 	    do_restart(RestartType, Reason, Child, State);
 	false ->
 	    {ok, State}
@@ -782,6 +778,17 @@ monitor_child(Pid) ->
 %%-----------------------------------------------------------------
 %% Child/State manipulating functions.
 %%-----------------------------------------------------------------
+
+%% Note we do not want to save the parameter list for temporary processes as
+%% they will not be restarted, and hence we do not need this information.
+%% Especially for dynamic children to simple_one_for_one supervisors
+%% it could become very costly as it is not uncommon to spawn
+%% very many such processes.
+save_child(#child{restart_type = temporary,
+		  mfargs = {M, F, _}} = Child, #state{children = Children} = State) ->
+    State#state{children = [Child#child{mfargs = {M, F, undefined}} |Children]};
+save_child(Child, #state{children = Children} = State) ->
+    State#state{children = [Child |Children]}.
 
 save_dynamic_child(temporary, Pid, _, #state{dynamics = Dynamics} = State) ->
     State#state{dynamics = [Pid | dynamics_db(temporary, Dynamics)]};
