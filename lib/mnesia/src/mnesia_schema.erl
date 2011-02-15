@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2686,7 +2686,8 @@ do_merge_schema(LockTabs0) ->
 		    if 
 			RemoteRunning /= RemoteRunning1 ->
 			    mnesia_lib:error("Mnesia on ~p could not connect to node(s) ~p~n", 
-					     [node(), RemoteRunning1 -- RemoteRunning]);
+					     [node(), RemoteRunning1 -- RemoteRunning]),
+			    mnesia:abort({node_not_running, RemoteRunning1 -- RemoteRunning});
 			true -> ok
 		    end,
 		    NeedsLock = RemoteRunning -- LockedAlready,
@@ -3029,7 +3030,9 @@ announce_im_running([N | Ns], SchemaCs) ->
 	    mnesia_lib:add({current, db_nodes}, N),
 	    mnesia_controller:add_active_replica(schema, N, SchemaCs);
 	false ->
-	    ignore
+	    mnesia_lib:error("Mnesia on ~p could not connect to node ~p~n",
+			     [node(), N]),
+	    mnesia:abort({node_not_running, N})
     end,
     announce_im_running(Ns, SchemaCs);
 announce_im_running([], _) ->
