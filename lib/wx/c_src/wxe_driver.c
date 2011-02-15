@@ -117,8 +117,7 @@ wxe_driver_start(ErlDrvPort port, char *buff)
       if(WXE_DRV_PORT == 0) {
 	 for(; *buff != 32; buff++); 
 	 buff++; 
-	 erl_wx_privdir = malloc(strlen(buff));
-	 strcpy(erl_wx_privdir, buff);
+	 erl_wx_privdir = strdup(buff);
 	 
 	 WXE_DRV_PORT = port;
 	 wxe_master = data;
