@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1682,7 +1682,7 @@ smp_select0(Config) ->
     ProcFun = fun()-> io:format("Worker ~p starting\n",[self()]),	
 		      ?line Port = open_port({spawn, DrvName}, []),
 		      smp_select_loop(Port, 100000),
-		      sleep(500), % wait for driver to handle pending events
+		      sleep(1000), % wait for driver to handle pending events
 		      ?line true = erlang:port_close(Port),
 		      Master ! {ok,self()},
 		      io:format("Worker ~p finished\n",[self()])

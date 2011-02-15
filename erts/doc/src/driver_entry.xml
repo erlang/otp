@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2010</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -219,6 +219,10 @@ typedef struct erl_drv_entry {
           completes, write to the pipe (use <c>SetEvent</c> on
           Windows), this will make the emulator call
           <c>ready_input</c> or <c>ready_output</c>.</p>
+          <p>Spurious events may happen. That is, calls to <c>ready_input</c>
+          or <c>ready_output</c> even though no real events are signaled. In
+          reality it should be rare (and OS dependant), but a robust driver
+          must nevertheless be able to handle such cases.</p>
       </item>
       <tag><marker id="driver_name"/>char *driver_name</tag>
       <item>
