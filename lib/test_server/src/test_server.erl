@@ -856,7 +856,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 	    %% a framework function failed
 	    CB = os:getenv("TEST_SERVER_FRAMEWORK"),
 	    Loc = case CB of
-		      false ->
+		      FW when FW =:= false; FW =:= "undefined" ->
 			  {test_server,Func};
 		      _ ->
 			  {list_to_atom(CB),Func}

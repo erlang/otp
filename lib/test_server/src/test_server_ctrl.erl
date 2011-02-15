@@ -643,7 +643,7 @@ contact_main_target(local) ->
     %% When used by a general framework, global registration of
     %% test_server should not be required.
     case os:getenv("TEST_SERVER_FRAMEWORK") of
-	false ->
+	FW when FW =:= false; FW =:= "undefined" ->
 	    %% Local target! The global test_server process implemented by
 	    %% test_server.erl will not be started, so we simulate it by
 	    %% globally registering this process instead.
@@ -1710,7 +1710,7 @@ do_test_cases(TopCases, SkipCases,
 		  [erlang:system_info(version), code:root_dir()]),
 
 	    case os:getenv("TEST_SERVER_FRAMEWORK") of
-		false ->
+		FW when FW =:= false; FW =:= "undefined" ->
 		    print(html, "<p>Target:<br>\n"),
 		    print_who(TI#target_info.host, TI#target_info.username),
 		    print(html, "<br>Used Erlang ~s in <tt>~s</tt>.\n",
@@ -4063,7 +4063,7 @@ get_font_style1(default) ->
 
 format_exception(Reason={_Error,Stack}) when is_list(Stack) ->
     case os:getenv("TEST_SERVER_FRAMEWORK") of
-	false ->
+	FW when FW =:= false; FW =:= "undefined" ->
 	    case application:get_env(test_server, format_exception) of
 		{ok,false} ->
 		    {"~p",Reason};
@@ -4636,7 +4636,7 @@ collect_case([Case | Cases], St, Acc) ->
 
 collect_case_invoke(Mod, Case, MFA, St) ->
     case os:getenv("TEST_SERVER_FRAMEWORK") of
-	false ->
+	FW when FW =:= false; FW =:= "undefined" ->
 	    case catch apply(Mod, Case, [suite]) of
 		{'EXIT',_} ->
 		    {ok,[MFA],St};
