@@ -1072,15 +1072,7 @@ refresh_logs(LogDir) ->
 which(logdir, undefined) ->
     ".";
 which(logdir, Dir) ->
-    Dir;
-which(multiply_timetraps, undefined) ->
-    1;
-which(multiply_timetraps, MT) ->
-    MT;
-which(scale_timetraps, undefined) ->
-    false;
-which(scale_timetraps, ST) ->
-    ST.
+    Dir.
 
 choose_val(undefined, V1) ->
     V1;
@@ -2068,8 +2060,6 @@ get_start_opt(Key, IfExists, IfNotExists, Args) ->
 	    Val;
 	{value,{Key,_Val}} ->
 	    IfExists;
-	_ when is_function(IfNotExists) ->
-	    IfNotExists();
 	_ ->
 	    IfNotExists
     end.

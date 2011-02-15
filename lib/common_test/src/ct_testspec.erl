@@ -394,8 +394,6 @@ filter_init_terms([Term|Ts], NewTerms, Spec)->
 filter_init_terms([], NewTerms, Spec)->
     {lists:reverse(NewTerms), Spec}.
 
-add_option([], _, List, _)->
-    List;
 add_option({Key, Value}, Node, List, WarnIfExists) when is_list(Value)->
     OldOptions = case lists:keyfind(Node, 1, List) of
 	{Node, Options}->

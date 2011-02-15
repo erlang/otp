@@ -94,7 +94,7 @@ init_tc(_Mod, TC, Config) ->
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()} |
-    ok.
+    ok | '$ct_no_change'.
 end_tc(ct_framework, _Func, _Args, Result, _Return) ->
     Result;
 
