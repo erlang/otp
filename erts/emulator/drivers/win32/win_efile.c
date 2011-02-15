@@ -1016,8 +1016,8 @@ efile_write_info(Efile_error* errInfo,
      } \
     }
 
-    MKTIME(ModifyFileTime, pInfo->accessTime, mtime);
-    MKTIME(AccessFileTime, pInfo->modifyTime, atime);
+    MKTIME(ModifyFileTime, pInfo->modifyTime, mtime);
+    MKTIME(AccessFileTime, pInfo->accessTime, atime);
     MKTIME(CreationFileTime, pInfo->cTime, ctime);
 #undef MKTIME
 
