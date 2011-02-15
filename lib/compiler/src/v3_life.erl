@@ -65,7 +65,7 @@ functions([], Acc) -> reverse(Acc).
 
 %% function(Kfunc) -> Func.
 
-function(#k_fdef{func=F,arity=Ar,vars=Vs,body=Kb}) ->
+function(#k_fdef{anno=#k{a=Anno},func=F,arity=Ar,vars=Vs,body=Kb}) ->
     try
 	As = var_list(Vs),
 	Vdb0 = foldl(fun ({var,N}, Vdb) -> new_var(N, 0, Vdb) end, [], As),
@@ -80,7 +80,7 @@ function(#k_fdef{func=F,arity=Ar,vars=Vs,body=Kb}) ->
 	put(guard_refc, 0),
 	{B1,_,Vdb1} = body(B0, 1, Vdb0),
 	erase(guard_refc),
-	{function,F,Ar,As,B1,Vdb1}
+	{function,F,Ar,As,B1,Vdb1,Anno}
     catch
 	Class:Error ->
 	    Stack = erlang:get_stacktrace(),

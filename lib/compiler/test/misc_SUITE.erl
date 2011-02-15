@@ -179,7 +179,7 @@ silly_coverage(Config) when is_list(Config) ->
     ?line expect_error(fun() -> v3_life:module(BadKernel, []) end),
 
     %% v3_codegen
-    CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b}]},
+    CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b,[]}]},
     ?line expect_error(fun() -> v3_codegen:module(CodegenInput, []) end),
 
     %% beam_block
@@ -187,7 +187,7 @@ silly_coverage(Config) when is_list(Config) ->
 		  [{function,foo,0,2,
 		    [{label,1},
 		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2}|non_proper_list],99}]},
+		     {label,2}|non_proper_list]}],99},
     ?line expect_error(fun() -> beam_block:module(BlockInput, []) end),
 
     %% beam_bool

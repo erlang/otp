@@ -175,6 +175,8 @@ opt_update_regs({label,Lbl}, R, L) ->
     end;
 opt_update_regs({try_end,_}, R, L) ->
     {R,L};
+opt_update_regs({line,_}, R, L) ->
+    {R,L};
 opt_update_regs(_I, _R, L) ->
     %% Unrecognized instruction. Abort the search.
     {regs_init(),L}.

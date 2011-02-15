@@ -79,9 +79,10 @@ module({Mod,Exp,Attr,Forms}, Options) ->
 functions(Forms, AtomMod) ->
     mapfoldl(fun (F, St) -> function(F, AtomMod, St) end, #cg{lcount=1}, Forms).
 
-function({function,Name,Arity,Asm0,Vb,Vdb}, AtomMod, St0) ->
+function({function,Name,Arity,Asm0,Vb,Vdb,Anno}, AtomMod, St0) ->
     try
-	{Asm,EntryLabel,St} = cg_fun(Vb, Asm0, Vdb, AtomMod, {Name,Arity}, St0),
+	{Asm,EntryLabel,St} = cg_fun(Vb, Asm0, Vdb, AtomMod,
+				     {Name,Arity}, Anno, St0),
 	Func = {function,Name,Arity,EntryLabel,Asm},
 	{Func,St}
     catch
@@ -93,7 +94,7 @@ function({function,Name,Arity,Asm0,Vb,Vdb}, AtomMod, St0) ->
 
 %% cg_fun([Lkexpr], [HeadVar], Vdb, State) -> {[Ainstr],State}
 
-cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, St0) ->
+cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
     {Fi,St1} = new_label(St0),			%FuncInfo label
     {Fl,St2} = local_func_label(NameArity, St1),
 
@@ -129,7 +130,7 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, St0) ->
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
     {Name,Arity} = NameArity,
-    Asm = [{label,Fi},{func_info,AtomMod,{atom,Name},Arity},
+    Asm = [{label,Fi},line(Anno),{func_info,AtomMod,{atom,Name},Arity},
 	   {label,Fl}|B++[{label,UltimateMatchFail},if_end]],
     {Asm,Fl,St}.
 
@@ -307,23 +308,23 @@ match_fail_cg({badmatch,Term}, Le, Vdb, Bef, St) ->
     R = cg_reg_arg(Term, Bef),
     Int0 = clear_dead(Bef, Le#l.i, Vdb),
     {Sis,Int} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis ++ [{badmatch,R}],
+    {Sis ++ [line(Le),{badmatch,R}],
      Int#sr{reg=clear_regs(Int0#sr.reg)},St};
 match_fail_cg({case_clause,Reason}, Le, Vdb, Bef, St) ->
     R = cg_reg_arg(Reason, Bef),
     Int0 = clear_dead(Bef, Le#l.i, Vdb),
     {Sis,Int} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis++[{case_end,R}],
+    {Sis++[line(Le),{case_end,R}],
      Int#sr{reg=clear_regs(Bef#sr.reg)},St};
 match_fail_cg(if_clause, Le, Vdb, Bef, St) ->
     Int0 = clear_dead(Bef, Le#l.i, Vdb),
     {Sis,Int1} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis++[if_end],Int1#sr{reg=clear_regs(Int1#sr.reg)},St};
+    {Sis++[line(Le),if_end],Int1#sr{reg=clear_regs(Int1#sr.reg)},St};
 match_fail_cg({try_clause,Reason}, Le, Vdb, Bef, St) ->
     R = cg_reg_arg(Reason, Bef),
     Int0 = clear_dead(Bef, Le#l.i, Vdb),
     {Sis,Int} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis ++ [{try_case_end,R}],
+    {Sis ++ [line(Le),{try_case_end,R}],
      Int#sr{reg=clear_regs(Int0#sr.reg)},St}.
 
 %% bsm_rename_ctx([Clause], Var) -> [Clause]
@@ -1047,7 +1048,7 @@ call_cg({var,_V} = Var, As, Rs, Le, Vdb, Bef, St0) ->
     %% Build complete code and final stack/register state.
     Arity = length(As),
     {Frees,Aft} = free_dead(clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb)),
-    {Sis ++ Frees ++ [{call_fun,Arity}],Aft,
+    {Sis ++ Frees ++ [line(Le),{call_fun,Arity}],Aft,
      need_stack_frame(St0)};
 call_cg({remote,Mod,Name}, As, Rs, Le, Vdb, Bef, St0)
   when element(1, Mod) =:= var;
@@ -1057,11 +1058,10 @@ call_cg({remote,Mod,Name}, As, Rs, Le, Vdb, Bef, St0)
     Reg = load_vars(Rs, clear_regs(Int#sr.reg)),
     %% Build complete code and final stack/register state.
     Arity = length(As),
-    Call = {apply,Arity},
     St = need_stack_frame(St0),
     %%{Call,St1} = build_call(Func, Arity, St0),
     {Frees,Aft} = free_dead(clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb)),
-    {Sis ++ Frees ++ [Call],Aft,St};
+    {Sis ++ Frees ++ [line(Le),{apply,Arity}],Aft,St};
 call_cg(Func, As, Rs, Le, Vdb, Bef, St0) ->
     case St0 of
 	#cg{bfail=Fail} when Fail =/= 0 ->
@@ -1091,7 +1091,7 @@ call_cg(Func, As, Rs, Le, Vdb, Bef, St0) ->
 	    Arity = length(As),
 	    {Call,St1} = build_call(Func, Arity, St0),
 	    {Frees,Aft} = free_dead(clear_dead(Int#sr{reg=Reg}, Le#l.i, Vdb)),
-	    {Sis ++ Frees ++ Call,Aft,St1}
+	    {Sis ++ Frees ++ [line(Le)|Call],Aft,St1}
     end.
 
 build_call({remote,{atom,erlang},{atom,'!'}}, 2, St0) ->
@@ -1118,7 +1118,7 @@ enter_cg({var,_V} = Var, As, Le, Vdb, Bef, St0) ->
     {Sis,Int} = cg_setup_call(As++[Var], Bef, Le#l.i, Vdb),
     %% Build complete code and final stack/register state.
     Arity = length(As),
-    {Sis ++ [{call_fun,Arity},return],
+    {Sis ++ [line(Le),{call_fun,Arity},return],
      clear_dead(Int#sr{reg=clear_regs(Int#sr.reg)}, Le#l.i, Vdb),
      need_stack_frame(St0)};
 enter_cg({remote,Mod,Name}, As, Le, Vdb, Bef, St0)
@@ -1127,9 +1127,8 @@ enter_cg({remote,Mod,Name}, As, Le, Vdb, Bef, St0)
     {Sis,Int} = cg_setup_call(As++[Mod,Name], Bef, Le#l.i, Vdb),
     %% Build complete code and final stack/register state.
     Arity = length(As),
-    Call = {apply_only,Arity},
     St = need_stack_frame(St0),
-    {Sis ++ [Call],
+    {Sis ++ [line(Le),{apply_only,Arity}],
      clear_dead(Int#sr{reg=clear_regs(Int#sr.reg)}, Le#l.i, Vdb),
      St};
 enter_cg(Func, As, Le, Vdb, Bef, St0) ->
@@ -1137,7 +1136,8 @@ enter_cg(Func, As, Le, Vdb, Bef, St0) ->
     %% Build complete code and final stack/register state.
     Arity = length(As),
     {Call,St1} = build_enter(Func, Arity, St0),
-    {Sis ++ Call,
+    Line = enter_line(Func, Arity, Le),
+    {Sis ++ Line ++ Call,
      clear_dead(Int#sr{reg=clear_regs(Int#sr.reg)}, Le#l.i, Vdb),
      St1}.
 
@@ -1152,6 +1152,23 @@ build_enter({remote,{atom,Mod},{atom,Name}}, Arity, St0) ->
 build_enter(Name, Arity, St0) when is_atom(Name) ->
     {Lbl,St1} = local_func_label(Name, Arity, St0),
     {[{call_only,Arity,{f,Lbl}}],St1}.
+
+enter_line({remote,{atom,Mod},{atom,Name}}, Arity, Le) ->
+    case erl_bifs:is_safe(Mod, Name, Arity) of
+	false ->
+	    %% Tail-recursive call, possibly to a BIF.
+	    %% We'll need a line instruction in case the
+	    %% BIF call fails.
+	    [line(Le)];
+	true ->
+	    %% Call to a safe BIF. Since it cannot fail,
+	    %% we don't need any line instruction here.
+	    []
+    end;
+enter_line(_, _, _) ->
+    %% Tail-recursive call to a local function. A line
+    %% instruction will not be useful.
+    [].
 
 %% local_func_label(Name, Arity, State) -> {Label,State'}
 %% local_func_label({Name,Arity}, State) -> {Label,State'}
@@ -1226,9 +1243,10 @@ bif_cg(Bif, As, [{var,V}], Le, Vdb, Bef, St0) ->
     %%   Currently, we are somewhat pessimistic in
     %% that we save any variable that will be live after this BIF call.
 
+    MayFail = not erl_bifs:is_safe(erlang, Bif, length(As)),
     {Sis,Int0} = case St0#cg.in_catch andalso
 		     St0#cg.bfail =:= 0 andalso
-		     not erl_bifs:is_safe(erlang, Bif, length(As)) of
+		     MayFail of
 		     true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
 		     false -> {[],Bef}
 		 end,
@@ -1237,7 +1255,14 @@ bif_cg(Bif, As, [{var,V}], Le, Vdb, Bef, St0) ->
     Int = Int1#sr{reg=Reg},
     Dst = fetch_reg(V, Reg),
     BifFail = {f,St0#cg.bfail},
-    {Sis++[{bif,Bif,BifFail,Ars,Dst}],
+    %% We need a line instructions for BIFs that may fail in a body.
+    Line = case BifFail of
+	       {f,0} when MayFail ->
+		   [line(Le)];
+	       _ ->
+		   []
+	   end,
+    {Sis++Line++[{bif,Bif,BifFail,Ars,Dst}],
      clear_dead(Int, Le#l.i, Vdb), St0}.
 
 
@@ -1266,7 +1291,11 @@ gc_bif_cg(Bif, As, [{var,V}], Le, Vdb, Bef, St0) ->
     Int = Int1#sr{reg=Reg},
     Dst = fetch_reg(V, Reg),
     BifFail = {f,St0#cg.bfail},
-    {Sis++[{gc_bif,Bif,BifFail,max_reg(Bef#sr.reg),Ars,Dst}],
+    Line = case BifFail of
+	       {f,0} -> [line(Le)];
+	       {f,_} -> []
+	   end,
+    {Sis++Line++[{gc_bif,Bif,BifFail,max_reg(Bef#sr.reg),Ars,Dst}],
      clear_dead(Int, Le#l.i, Vdb), St0}.
 
 %% recv_loop_cg(TimeOut, ReceiveVar, ReceiveMatch, TimeOutExprs,
@@ -1284,7 +1313,7 @@ recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, Vdb, Bef, St0) ->
     {Wis,Taft,St6} = cg_recv_wait(Te, Tes, Le#l.i, Int1, St5),
     Int2 = sr_merge(Raft, Taft),		%Merge stack/registers
     Reg = load_vars(Rs, Int2#sr.reg),
-    {Sis ++ Ris ++ [{label,Tl}] ++ Wis ++ [{label,Bl}],
+    {Sis ++ [line(Le)] ++ Ris ++ [{label,Tl}] ++ Wis ++ [{label,Bl}],
      clear_dead(Int2#sr{reg=Reg}, Le#l.i, Vdb),
      St6#cg{break=St0#cg.break,recv=St0#cg.recv}}.
 
@@ -1463,12 +1492,13 @@ cg_binary([{bs_put_binary,Fail,{atom,all},U,_Flags,Src}|PutCode],
 		 {bs_append,Fail,Target,0,MaxRegs,U,Src,BinFlags,Target}
 	 end] ++ PutCode,
     cg_bin_opt(Code);
-cg_binary(PutCode, Target, Temp, Fail, MaxRegs, _Anno) ->
+cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Anno) ->
+    Line = line(Anno),
     Live = cg_live(Target, MaxRegs),
     {InitOp,SzCode} = cg_binary_size(PutCode, Target, Temp, Fail, Live),
 
-    Code = SzCode ++ [{InitOp,Fail,Target,0,MaxRegs,
-		       {field_flags,[]},Target}|PutCode],
+    Code = [Line|SzCode] ++ [{InitOp,Fail,Target,0,MaxRegs,
+			      {field_flags,[]},Target}|PutCode],
     cg_bin_opt(Code).
 
 cg_live({x,X}, MaxRegs) when X =:= MaxRegs -> MaxRegs+1;
@@ -2051,6 +2081,38 @@ drop_catch(Tag, [Other|Stk]) -> [Other|drop_catch(Tag, Stk)].
 
 new_label(#cg{lcount=Next}=St) ->
     {Next,St#cg{lcount=Next+1}}.
+
+%% line(Le) -> {line,[] | {location,File,Line}}
+%%  Create a line instruction, containing information about
+%%  the current filename and line number. A line information
+%%  instruction should be placed before any operation that could
+%%  cause an exception.
+
+line(#l{a=Anno}) ->
+    line(Anno);
+line([Line,{file,Name}]) when is_integer(Line) ->
+    line_1(Name, Line);
+line([_|_]=A) ->
+    {Name,Line} = find_loc(A, no_file, 0),
+    line_1(Name, Line);
+line([]) ->
+    {line,[]}.
+
+line_1(no_file, _) ->
+    {line,[]};
+line_1(_, 0) ->
+    %% Missing line number or line number 0.
+    {line,[]};
+line_1(Name, Line) ->
+    {line,[{location,Name,abs(Line)}]}.
+
+find_loc([Line|T], File, _) when is_integer(Line) ->
+    find_loc(T, File, Line);
+find_loc([{file,File}|T], _, Line) ->
+    find_loc(T, File, Line);
+find_loc([_|T], File, Line) ->
+    find_loc(T, File, Line);
+find_loc([], File, Line) -> {File,Line}.
 
 flatmapfoldl(F, Accu0, [Hd|Tail]) ->
     {R,Accu1} = F(Hd, Accu0),

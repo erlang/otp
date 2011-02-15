@@ -23,7 +23,7 @@
 -export([module/4]).
 -export([encode/2]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2]).
+-import(lists, [map/2,member/2,keymember/3,duplicate/2,splitwith/2]).
 -include("beam_opcodes.hrl").
 
 module(Code, Abst, SourceFile, Opts) ->
@@ -41,18 +41,22 @@ on_load(Fs0, Attr0) ->
 	undefined ->
 	    {Fs0,Attr0};
 	[{Name,0}] ->
-	    Fs = map(fun({function,N,0,Entry,Asm0}) when N =:= Name ->
-			     [{label,_}=L,
-			      {func_info,_,_,_}=Fi,
-			      {label,_}=E|Asm1] = Asm0,
-			     Asm = [L,Fi,E,on_load|Asm1],
-			     {function,N,0,Entry,Asm};
+	    Fs = map(fun({function,N,0,Entry,Is0}) when N =:= Name ->
+			     Is = insert_on_load_instruction(Is0, Entry),
+			     {function,N,0,Entry,Is};
 			(F) ->
 			     F
 		     end, Fs0),
 	    Attr = proplists:delete(on_load, Attr0),
 	    {Fs,Attr}
     end.
+
+insert_on_load_instruction(Is0, Entry) ->
+    {Bef,[{label,Entry}=El|Is]} =
+	splitwith(fun({label,L}) when L =:= Entry -> false;
+		     (_) -> true
+		  end, Is0),
+    Bef ++ [El,on_load|Is].
 
 assemble_1([{function,Name,Arity,Entry,Asm}|T], Exp, Dict0, Acc) ->
     Dict1 = case member({Name,Arity}, Exp) of
