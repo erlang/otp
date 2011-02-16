@@ -1737,6 +1737,8 @@ parse_url(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
+ipv6() ->
+    [{require,ipv6_hosts}].
 ipv6(doc) ->
     ["Test ipv6."];
 ipv6(suite) ->
