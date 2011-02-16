@@ -141,14 +141,20 @@ pending_exit_message(Args, Expected) ->
     end,
     process_flag(trap_exit, false).
 
-pending({badarg, [{erlang,Bif,BifArgs},{?MODULE,Func,Arity}|_]}, Func, Args, _Code)
-  when is_atom(Bif), is_list(BifArgs), length(Args) == Arity ->
+pending({badarg,[{erlang,Bif,BifArgs,Loc1},
+		 {?MODULE,Func,Arity,Loc2}|_]},
+	Func, Args, _Code)
+  when is_atom(Bif), is_list(BifArgs), length(Args) =:= Arity,
+       is_list(Loc1), is_list(Loc2) ->
     ok;
-pending({undef,[{non_existing_module,foo,[]}|_]}, _, _, _) ->
+pending({undef,[{non_existing_module,foo,[],Loc}|_]}, _, _, _)
+  when is_list(Loc) ->
     ok;
-pending({function_clause,[{?MODULE,Func,Args}|_]}, Func, Args, _Code) ->
+pending({function_clause,[{?MODULE,Func,Args,Loc}|_]}, Func, Args, _Code)
+  when is_list(Loc) ->
     ok;
-pending({Code,[{?MODULE,Func,Arity}|_]}, Func, Args, Code) when length(Args) == Arity ->
+pending({Code,[{?MODULE,Func,Arity,Loc}|_]}, Func, Args, Code)
+  when length(Args) =:= Arity, is_list(Loc) ->
     ok;
 pending(Reason, _Function, _Args, _Code) ->
     test_server:fail({bad_exit_reason,Reason}).
@@ -255,24 +261,24 @@ stacktrace(Conf) when is_list(Conf) ->
     ?line {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
     ?line {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
-    ?line {value2,{caught1,badarg,[{erlang,abs,[V]}|_]=St1}} =
+    ?line {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
 	stacktrace_1({'abs',V}, error, {value,V}),
     ?line St1 = erase(stacktrace1),
     ?line St1 = erase(stacktrace2),
     ?line St1 = erlang:get_stacktrace(),
-    ?line {caught2,{error,badarith},[{?MODULE,my_add,2}|_]=St2} =
+    ?line {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
 	stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    ?line [{?MODULE,my_div,2}|_] = erase(stacktrace1),
+    ?line [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
     ?line St2 = erase(stacktrace2),
     ?line St2 = erlang:get_stacktrace(),
-    ?line {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3}|_]=St3} =
+    ?line {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
 	stacktrace_1({value,V}, error, {value,V}),
     ?line St3 = erase(stacktrace1),
     ?line St3 = erase(stacktrace2),
     ?line St3 = erlang:get_stacktrace(),
-    ?line {caught2,{throw,V},[{?MODULE,foo,1}|_]=St4} =
+    ?line {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
 	stacktrace_1({value,V}, error, {throw,V}),
-    ?line [{?MODULE,stacktrace_1,3}|_] = erase(stacktrace1),
+    ?line [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
     ?line St4 = erase(stacktrace2),
     ?line St4 = erlang:get_stacktrace(),
 
@@ -280,8 +286,8 @@ stacktrace(Conf) when is_list(Conf) ->
 	?line stacktrace_2()
     catch
 	error:{badmatch,_} ->
-	    [{?MODULE,stacktrace_2,0},
-	     {?MODULE,stacktrace,1}|_] =
+	    [{?MODULE,stacktrace_2,0,_},
+	     {?MODULE,stacktrace,1,_}|_] =
 		erlang:get_stacktrace(),
 	    ok
     end.
@@ -315,15 +321,15 @@ nested_stacktrace(Conf) when is_list(Conf) ->
 	nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
 			    {void,void,void}),
     ?line {caught1,
-	   [{?MODULE,my_add,2}|_],
+	   [{?MODULE,my_add,2,_}|_],
 	   value2,
-	   [{?MODULE,my_add,2}|_]} =
+	   [{?MODULE,my_add,2,_}|_]} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{value,{V,x2}},void,{V,x2}}),
     ?line {caught1,
-	   [{?MODULE,my_add,2}|_],
-	   {caught2,[{erlang,abs,[V]}|_]},
-	   [{erlang,abs,[V]}|_]} =
+	   [{?MODULE,my_add,2,_}|_],
+	   {caught2,[{erlang,abs,[V],_}|_]},
+	   [{erlang,abs,[V],_}|_]} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{'abs',V},error,badarg}),
     ok.
@@ -362,7 +368,7 @@ raise(Conf) when is_list(Conf) ->
 	end,
     ?line A = erlang:get_stacktrace(),
     ?line A = get(raise),
-    ?line [{?MODULE,my_div,2}|_] = A,
+    ?line [{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
     ?line N = erlang:system_flag(backtrace_depth, N),
@@ -387,12 +393,12 @@ raise(Conf) when is_list(Conf) ->
 odd_even(N, R) when is_integer(N), N > 1 ->
     odd_even(N-1, 
 	     [if (N rem 2) == 0 ->
-		      {?MODULE,even,1};
+		      {?MODULE,even,1,[]};
 		 true ->
-		      {?MODULE,odd,1}
+		      {?MODULE,odd,1,[]}
 	      end|R]);
 odd_even(1, R) ->
-    [{?MODULE,odd,[1]}|R].
+    [{?MODULE,odd,[1],[]}|R].
 
 even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
     odd(N-1)++[N].

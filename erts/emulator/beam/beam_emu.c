@@ -5948,18 +5948,18 @@ build_stacktrace(Process* c_p, Eterm exc) {
     {
 	int i;
 	Eterm mfa;
-	Uint heap_size = 6*(depth+1);
+	Uint heap_size = 7*(depth+1);
 	Eterm* hp = HAlloc(c_p, heap_size);
 	Eterm* hp_end = hp + heap_size;
 
 	if (args != am_true) {
 	    /* We have an arglist - use it */
-	    mfa = TUPLE3(hp, current[0], current[1], args);
+	    mfa = TUPLE4(hp, current[0], current[1], args, NIL);
 	} else {
 	    Eterm arity = make_small(current[2]);
-	    mfa = TUPLE3(hp, current[0], current[1], arity);
+	    mfa = TUPLE4(hp, current[0], current[1], arity, NIL);
 	}
-	hp += 4;
+	hp += 5;
 	ASSERT(*next_p == NIL);
 	*next_p = CONS(hp, mfa, NIL);
 	next_p = &CDR(list_val(*next_p));
@@ -5971,8 +5971,8 @@ build_stacktrace(Process* c_p, Eterm exc) {
 	for (i = 0; i < depth; i++) {
 	    BeamInstr *fi = find_function_from_pc((BeamInstr *) s->trace[i]);
 	    if (fi == NULL) continue;
-	    mfa = TUPLE3(hp, fi[0], fi[1], make_small(fi[2]));
-	    hp += 4;
+	    mfa = TUPLE4(hp, fi[0], fi[1], make_small(fi[2]), NIL);
+	    hp += 5;
 	    ASSERT(*next_p == NIL);
 	    *next_p = CONS(hp, mfa, NIL);
 	    next_p = &CDR(list_val(*next_p));

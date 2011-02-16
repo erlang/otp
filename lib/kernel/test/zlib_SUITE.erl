@@ -42,8 +42,8 @@
 		end
 	end()).
 
--define(BARG, {'EXIT',{badarg,[{zlib,_,_}|_]}}).
--define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_}|_]}}).
+-define(BARG, {'EXIT',{badarg,[{zlib,_,_,_}|_]}}).
+-define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_,_}|_]}}).
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),

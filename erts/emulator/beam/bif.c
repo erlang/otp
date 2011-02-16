@@ -1189,8 +1189,9 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     Eterm l, *hp, *hp_end, *tp;
     int depth, cnt;
     size_t sz;
+    int must_copy = 0;
     struct StackTrace *s;
-    
+
     if (class == am_error) {
 	c_p->fvalue = value;
 	reason = EXC_ERROR;
@@ -1206,35 +1207,74 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     /* Check syntax of stacktrace, and count depth.
      * Accept anything that can be returned from erlang:get_stacktrace/0,
      * as well as a 2-tuple with a fun as first element that the
-     * error_handler may need to give us.
+     * error_handler may need to give us. Also allow old-style
+     * MFA three-tuples.
      */
     for (l = stacktrace, depth = 0;  
 	 is_list(l);  
 	 l = CDR(list_val(l)), depth++) {
 	Eterm t = CAR(list_val(l));
-	int arity;
+	Eterm location = NIL;
+
 	if (is_not_tuple(t)) goto error;
 	tp = tuple_val(t);
-	arity = arityval(tp[0]);
-	if ((arity == 3) && is_atom(tp[1]) && is_atom(tp[2])) continue;
-	if ((arity == 2) && is_fun(tp[1])) continue;
-	goto error;
+	switch (arityval(tp[0])) {
+	case 2:
+	    /* {Fun,Args} */
+	    if (is_fun(tp[1])) {
+		must_copy = 1;
+	    } else {
+		goto error;
+	    }
+	    break;
+	case 3:
+	    /*
+	     * One of:
+	     * {Fun,Args,Location}
+	     * {M,F,A}
+	     */
+	    if (is_fun(tp[1])) {
+		location = tp[3];
+	    } else if (is_atom(tp[1]) && is_atom(tp[2])) {
+		must_copy = 1;
+	    } else {
+		goto error;
+	    }
+	    break;
+	case 4:
+	    if (!(is_atom(tp[1]) && is_atom(tp[2]))) {
+		goto error;
+	    }
+	    location = tp[4];
+	    break;
+	default:
+	    goto error;
+	}
+	if (is_not_list(location) && is_not_nil(location)) {
+	    goto error;
+	}
     }
     if (is_not_nil(l)) goto error;
     
     /* Create stacktrace and store */
-    if (depth <= erts_backtrace_depth) {
+    if (erts_backtrace_depth < depth) {
+	depth = erts_backtrace_depth;
+	must_copy = 1;
+    }
+    if (must_copy) {
+	cnt = depth;
+	c_p->ftrace = NIL;
+    } else {
+	/* No need to copy the stacktrace */
 	cnt = 0;
 	c_p->ftrace = stacktrace;
-    } else {
-	cnt = depth = erts_backtrace_depth;
-	c_p->ftrace = NIL;
     }
+
     tp = &c_p->ftrace;
     sz = (offsetof(struct StackTrace, trace) + sizeof(Eterm) - 1) 
 	/ sizeof(Eterm);
-    hp = HAlloc(c_p, sz + 2*(cnt + 1));
-    hp_end = hp + sz + 2*(cnt + 1);
+    hp = HAlloc(c_p, sz + (2+6)*(cnt + 1));
+    hp_end = hp + sz + (2+6)*(cnt + 1);
     s = (struct StackTrace *) hp;
     s->header = make_neg_bignum_header(sz - 1);
     s->freason = reason;
@@ -1242,13 +1282,29 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     s->current = NULL;
     s->depth = 0;
     hp += sz;
-    if (cnt > 0) {
+    if (must_copy) {
+	int cnt;
+
 	/* Copy list up to depth */
 	for (cnt = 0, l = stacktrace;
 	     cnt < depth;
 	     cnt++, l = CDR(list_val(l))) {
+	    Eterm t;
+	    Eterm *tpp;
+	    int arity;
+
 	    ASSERT(*tp == NIL);
-	    *tp = CONS(hp, CAR(list_val(l)), *tp);
+	    t = CAR(list_val(l));
+	    tpp = tuple_val(t);
+	    arity = arityval(tpp[0]);
+	    if (arity == 2) {
+		t = TUPLE3(hp, tpp[1], tpp[2], NIL);
+		hp += 4;
+	    } else if (arity == 3 && is_atom(tpp[1])) {
+		t = TUPLE4(hp, tpp[1], tpp[2], tpp[3], NIL);
+		hp += 5;
+	    }
+	    *tp = CONS(hp, t, *tp);
 	    tp = &CDR(list_val(*tp));
 	    hp += 2;
 	}
@@ -1256,7 +1312,7 @@ raise_3(Process *c_p, Eterm class, Eterm value, Eterm stacktrace) {
     c_p->ftrace = CONS(hp, c_p->ftrace, make_big((Eterm *) s));
     hp += 2;
     ASSERT(hp <= hp_end);
-    
+    HRelease(c_p, hp_end, hp);
     BIF_ERROR(c_p, reason);
     
  error:

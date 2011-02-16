@@ -263,7 +263,8 @@ my_apply(M, F, A, Init) ->
 
 really_inlined(Config) when is_list(Config) ->
     %% Make sure that badarg/2 really gets inlined.
-    {'EXIT',{badarg,[{?MODULE,fail_me_now,[]}|_]}} = (catch fail_me_now()),
+    {'EXIT',{badarg,[{?MODULE,fail_me_now,[],_}|_]}} =
+	(catch fail_me_now()),
     ok.
 
 fail_me_now() ->

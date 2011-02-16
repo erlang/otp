@@ -157,9 +157,9 @@ stacktrace(_, _, Acc) ->
     lists:reverse(Acc).
 
 normalize(#e{mfa={_,Fun,As}}) when is_function(Fun) ->
-    {{Fun,length(As)},{Fun,As}};
+    {{Fun,length(As),[]},{Fun,As,[]}};
 normalize(#e{mfa={M,F,As}}) ->
-    {{M,F,length(As)},{M,F,As}}.
+    {{M,F,length(As),[]},{M,F,As,[]}}.
 
 %% bindings(SP) -> Bs
 %%   SP = Le  % stack pointer

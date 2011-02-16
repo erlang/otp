@@ -866,7 +866,7 @@ hidden_apply(App, M, F, Args) ->
     catch
 	error:undef ->
 	    case erlang:get_stacktrace() of
-		[{M,F,Args} | _] ->
+		[{M,F,Args,_} | _] ->
 		    Arity = length(Args),
 		    Text = io_lib:format("Call to ~w:~w/~w in application ~w failed.\n",
 					 [M, F, Arity, App]),

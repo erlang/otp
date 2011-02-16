@@ -88,12 +88,12 @@ int() -> int.
 -spec crash(atom(), [term()]) -> no_return().
 
 crash(Fun, Args) ->
-    crash({Fun,Args}).
+    crash({Fun,Args,[]}).
 
 -spec crash(atom(), atom(), arity()) -> no_return().
 
 crash(M, F, A) ->
-    crash({M,F,A}).
+    crash({M,F,A,[]}).
 
 -spec crash(tuple()) -> no_return().
 
@@ -101,7 +101,8 @@ crash(Tuple) ->
     try erlang:error(undef)
     catch
 	error:undef ->
-	    erlang:raise(error, undef, [Tuple|tl(erlang:get_stacktrace())])
+	    Stk = [Tuple|tl(erlang:get_stacktrace())],
+	    erlang:raise(error, undef, Stk)
     end.
 
 %% If the code_server has not been started yet dynamic code loading
@@ -127,7 +128,7 @@ ensure_loaded(Module) ->
 -spec stub_function(atom(), atom(), [_]) -> no_return().
 
 stub_function(Mod, Func, Args) ->
-    exit({undef,[{Mod,Func,Args}]}).
+    exit({undef,[{Mod,Func,Args,[]}]}).
 
 check_inheritance(Module, Args) ->
     Attrs = erlang:get_module_info(Module, attributes),

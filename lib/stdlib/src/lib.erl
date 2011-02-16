@@ -173,12 +173,12 @@ format_fun(Fun) when is_function(Fun) ->
 
 analyze_exception(error, Term, Stack) ->
     case {is_stacktrace(Stack), Stack, Term} of
-        {true, [{_M,_F,As}=MFA|MFAs], function_clause} when is_list(As) -> 
-            {Term,[MFA],MFAs};
-        {true, [{shell,F,A}], function_clause} when is_integer(A) ->
+        {true, [{_,_,As,_}=MFAL|MFAs], function_clause} when is_list(As) ->
+            {Term,[MFAL],MFAs};
+        {true, [{shell,F,A,_}], function_clause} when is_integer(A) ->
             {Term, [{F,A}], []};
-        {true, [{_M,_F,_AorAs}=MFA|MFAs], undef} ->
-            {Term,[MFA],MFAs};
+        {true, [{_,_,_,_}=MFAL|MFAs], undef} ->
+            {Term,[MFAL],MFAs};
 	{true, _, _} ->
 	    {Term,[],Stack};
 	{false, _, _} ->
@@ -194,9 +194,11 @@ analyze_exception(_Class, Term, Stack) ->
 
 is_stacktrace([]) ->
     true;
-is_stacktrace([{M,F,A}|Fs]) when is_atom(M), is_atom(F), is_integer(A) ->
+is_stacktrace([{M,F,A,I}|Fs])
+  when is_atom(M), is_atom(F), is_integer(A), is_list(I) ->
     is_stacktrace(Fs);
-is_stacktrace([{M,F,As}|Fs]) when is_atom(M), is_atom(F), length(As) >= 0 ->
+is_stacktrace([{M,F,As,I}|Fs])
+  when is_atom(M), is_atom(F), length(As) >= 0, is_list(I) ->
     is_stacktrace(Fs);
 is_stacktrace(_) ->
     false.
@@ -225,9 +227,9 @@ explain_reason(function_clause, error, [{F,A}], _PF, _S) ->
     %% Shell commands
     FAs = io_lib:fwrite(<<"~w/~w">>, [F, A]),
     [<<"no function clause matching call to ">> | FAs];
-explain_reason(function_clause, error=Cl, [{M,F,As}], PF, S) ->
+explain_reason(function_clause, error=Cl, [{M,F,As,Loc}], PF, S) ->
     Str = <<"no function clause matching ">>,
-    format_errstr_call(Str, Cl, {M,F}, As, PF, S);
+    [format_errstr_call(Str, Cl, {M,F}, As, PF, S),$\s|location(Loc)];
 explain_reason(if_clause, error, [], _PF, _S) ->
     <<"no true branch found when evaluating an if expression">>;
 explain_reason(noproc, error, [], _PF, _S) ->
@@ -242,11 +244,11 @@ explain_reason({try_clause,V}, error=Cl, [], PF, S) ->
     %% "there is no try clause with a true guard sequence and a
     %% pattern matching..."
     format_value(V, <<"no try clause matching ">>, Cl, PF, S);
-explain_reason(undef, error, [{M,F,A}], _PF, _S) ->
+explain_reason(undef, error, [{M,F,A,_}], _PF, _S) ->
     %% Only the arity is displayed, not the arguments, if there are any.
     io_lib:fwrite(<<"undefined function ~s">>, 
                   [mfa_to_string(M, F, n_args(A))]);
-explain_reason({shell_undef,F,A}, error, [], _PF, _S) ->
+explain_reason({shell_undef,F,A,_}, error, [], _PF, _S) ->
     %% Give nicer reports for undefined shell functions
     %% (but not when the user actively calls shell_default:F(...)).
     io_lib:fwrite(<<"undefined shell command ~s/~w">>, [F, n_args(A)]);
@@ -292,17 +294,19 @@ argss(I) ->
     io_lib:fwrite(<<"~w arguments">>, [I]).
 
 format_stacktrace1(S0, Stack0, PF, SF) ->
-    Stack1 = lists:dropwhile(fun({M,F,A}) -> SF(M, F, A)
+    Stack1 = lists:dropwhile(fun({M,F,A,_}) -> SF(M, F, A)
                              end, lists:reverse(Stack0)),
     S = ["  " | S0],
     Stack = lists:reverse(Stack1),
     format_stacktrace2(S, Stack, 1, PF).
 
-format_stacktrace2(S, [{M,F,A}|Fs], N, PF) when is_integer(A) ->
-    [io_lib:fwrite(<<"~s~s ~s">>, 
-                   [sep(N, S), origin(N, M, F, A), mfa_to_string(M, F, A)])
+format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF) when is_integer(A) ->
+    [io_lib:fwrite(<<"~s~s ~s ~s">>,
+                   [sep(N, S), origin(N, M, F, A),
+		    mfa_to_string(M, F, A),
+		    location(L)])
      | format_stacktrace2(S, Fs, N + 1, PF)];
-format_stacktrace2(S, [{M,F,As}|Fs], N, PF) when is_list(As) ->
+format_stacktrace2(S, [{M,F,As,_}|Fs], N, PF) when is_list(As) ->
     A = length(As),
     CalledAs = [S,<<"   called as ">>],
     C = format_call("", CalledAs, {M,F}, As, PF),
@@ -312,6 +316,16 @@ format_stacktrace2(S, [{M,F,As}|Fs], N, PF) when is_list(As) ->
      | format_stacktrace2(S, Fs, N + 1, PF)];
 format_stacktrace2(_S, [], _N, _PF) ->
     "".
+
+location(L) ->
+    File = proplists:get_value(file, L),
+    Line = proplists:get_value(line, L),
+    if
+	File =/= undefined, Line =/= undefined ->
+	    io_lib:format("(~s, line ~w)", [File, Line]);
+	true ->
+	    ""
+    end.
 
 sep(1, S) -> S;
 sep(_, S) -> [$\n | S].

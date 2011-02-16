@@ -795,7 +795,8 @@ type(erlang, get_module_info, 2, Xs) ->
 	     end
 	 end);
 type(erlang, get_stacktrace, 0, _) ->
-  t_list(t_tuple([t_atom(), t_atom(), t_sup([t_arity(), t_list()])]));
+  t_list(t_tuple([t_atom(), t_atom(), t_sup([t_arity(), t_list()]),
+		  t_list()]));
 type(erlang, group_leader, 0, _) -> t_pid();
 type(erlang, group_leader, 2, Xs) ->
   strict(arg_types(erlang, group_leader, 2), Xs,
@@ -3707,7 +3708,10 @@ arg_types(erlang, purge_module, 1) ->
 arg_types(erlang, put, 2) ->
   [t_any(), t_any()];
 arg_types(erlang, raise, 3) ->
-  [t_raise_errorclass(), t_any(), type(erlang, get_stacktrace, 0, [])];
+  OldStyleType = t_list(t_tuple([t_atom(), t_atom(),
+				 t_sup([t_arity(), t_list()])])),
+  NewStyleType = type(erlang, get_stacktrace, 0, []),
+  [t_raise_errorclass(), t_any(), t_sup(OldStyleType, NewStyleType)];
 arg_types(erlang, read_timer, 1) ->
   [t_reference()];
 arg_types(erlang, ref_to_list, 1) ->

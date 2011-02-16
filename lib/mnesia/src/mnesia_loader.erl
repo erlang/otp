@@ -464,7 +464,7 @@ init_table(Tab, disc_only_copies, Fun, false, DetsInfo,Sender) ->
 	{ErtsVer, DetsData}  ->  
 	    Res = (catch dets:is_compatible_bchunk_format(Tab, DetsData)),
 	    case Res of
-		{'EXIT',{undef,[{dets,_,_}|_]}} ->
+		{'EXIT',{undef,[{dets,_,_,_}|_]}} ->
 		    Sender ! {self(), {old_protocol, Tab}},
 		    dets:init_table(Tab, Fun);  %% Old dets version
 		{'EXIT', What} ->

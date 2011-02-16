@@ -413,7 +413,7 @@ pr_other(Var, Other) ->
 	    [self(), process_info(self(), registered_name),
 	     Var, Other, Why]),
     case Other of
-	{badarg, [{ets, lookup_element, _}|_]} ->
+	{badarg, [{ets, lookup_element, _, _}|_]} ->
 	    exit(Why);
 	_ ->
 	    erlang:error(Why)

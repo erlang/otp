@@ -258,7 +258,9 @@ trap_exit_badarg() ->
     ?line Pid = fun_spawn(fun() -> bad_guy(kb_128()) end),
     ?line Garbage = kb_128(),
     ?line receive
-	      {'EXIT', Pid, {badarg,[{erlang,abs,[Garbage]},{?MODULE,bad_guy,1}|_]}} ->
+	      {'EXIT',Pid,{badarg,[{erlang,abs,[Garbage],Loc1},
+				   {?MODULE,bad_guy,1,Loc2}|_]}}
+	      when is_list(Loc1), is_list(Loc2) ->
 		  ok;
 	      Other ->
 		  ?line ok = io:format("Bad EXIT message: ~P", [Other, 30]),

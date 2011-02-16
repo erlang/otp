@@ -934,6 +934,10 @@ exception_nocatch(Config) when is_list(Config) ->
     exception_nocatch().
 
 exception_nocatch() ->
+    Deep4LocThrow = get_deep_4_loc({throw,[42]}),
+    Deep4LocError = get_deep_4_loc({error,[42]}),
+    Deep4LocBadmatch = get_deep_4_loc({'=',[a,b]}),
+
     Prog = [{'_',[],[{exception_trace}]}],
     ?line 1 = erlang:trace_pattern({?MODULE,deep_1,'_'}, Prog),
     ?line 1 = erlang:trace_pattern({?MODULE,deep_2,'_'}, Prog),
@@ -959,8 +963,9 @@ exception_nocatch() ->
 			   {trace,t2,exception_from,{erlang,throw,1},
 			    {error,{nocatch,Q2}}}],
 			  exception_from, {error,{nocatch,Q2}}),
-    ?line expect({trace,T2,exit,{{nocatch,Q2},[{erlang,throw,[Q2]},
-					       {?MODULE,deep_4,1}]}}),
+    ?line expect({trace,T2,exit,{{nocatch,Q2},[{erlang,throw,[Q2],[]},
+					       {?MODULE,deep_4,1,
+						Deep4LocThrow}]}}),
     ?line Q3 = {dump,[dump,{dump}]},
     ?line T3 = 
 	exception_nocatch(?LINE, error, [Q3], 4, 
@@ -968,17 +973,28 @@ exception_nocatch() ->
 			   {trace,t3,exception_from,{erlang,error,1},
 			    {error,Q3}}],
 			  exception_from, {error,Q3}),
-    ?line expect({trace,T3,exit,{Q3,[{erlang,error,[Q3]},
-				     {?MODULE,deep_4,1}]}}),
+    ?line expect({trace,T3,exit,{Q3,[{erlang,error,[Q3],[]},
+				     {?MODULE,deep_4,1,Deep4LocError}]}}),
     ?line T4 = 
 	exception_nocatch(?LINE, '=', [17,4711], 5, [], 
 			  exception_from, {error,{badmatch,4711}}),
-    ?line expect({trace,T4,exit,{{badmatch,4711},[{?MODULE,deep_4,1}]}}),
+    ?line expect({trace,T4,exit,{{badmatch,4711},
+				 [{?MODULE,deep_4,1,Deep4LocBadmatch}]}}),
     %%
     ?line erlang:trace_pattern({?MODULE,'_','_'}, false),
     ?line erlang:trace_pattern({erlang,'_','_'}, false),
     ?line expect(),
     ?line ok.
+
+get_deep_4_loc(Arg) ->
+    try
+	deep_4(Arg),
+	?t:fail(should_not_return_to_here)
+    catch
+	_:_ ->
+	    [{?MODULE,deep_4,1,Loc0}|_] = erlang:get_stacktrace(),
+	    Loc0
+    end.
 
 exception_nocatch(Line, B, Q, N, Extra, Tag, R) ->
     ?line io:format("== Subtest: ~w", [Line]),

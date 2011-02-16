@@ -421,7 +421,7 @@ try_gbif(Id, X, Y) ->
 
 try_fail_gbif(Id, X, Y) ->
     case catch guard_bif(Id, X, Y) of
-	{'EXIT', {function_clause,[{?MODULE,guard_bif,[Id,X,Y]}|_]}} ->
+	{'EXIT',{function_clause,[{?MODULE,guard_bif,[Id,X,Y],_}|_]}} ->
 	    io:format("guard_bif(~p, ~p, ~p) -- ok", [Id,X,Y]);
 	Other ->
 	    ?line ok = io:format("guard_bif(~p, ~p, ~p) -- bad result: ~p\n",
@@ -493,9 +493,9 @@ type_tests(Test, [Type|T], Allowed) ->
 	    end;
 	false ->
 	    case catch type_test(Test, Value) of
-		{'EXIT', {function_clause, {?MODULE,type_test,[Test,Value]}}} ->
-		    ok;
-		{'EXIT', {function_clause,[{?MODULE,type_test,[Test,Value]}|_]}} ->
+		{'EXIT',{function_clause,
+			 [{?MODULE,type_test,[Test,Value],Loc}|_]}}
+		when is_list(Loc) ->
 		    ok;
 		{'EXIT',Other} ->
 		    ?line test_server:fail({unexpected_error_reason,Other});

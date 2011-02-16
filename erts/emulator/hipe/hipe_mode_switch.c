@@ -648,7 +648,7 @@ Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s)
     if (depth < 1)
 	return NIL;
 
-    heap_size = 6 * depth;	/* each [{M,F,A}|_] is 2+4 == 6 words */
+    heap_size = 7 * depth;	/* each [{M,F,A,[]}|_] is 2+5 == 7 words */
     hp = HAlloc(p, heap_size);
     hp_end = hp + heap_size;
 
@@ -659,8 +659,8 @@ Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s)
 	ra = (const void*)s->trace[i];
 	if (!hipe_find_mfa_from_ra(ra, &m, &f, &a))
 	    continue;
-	mfa = TUPLE3(hp, m, f, make_small(a));
-	hp += 4;
+	mfa = TUPLE4(hp, m, f, make_small(a), NIL);
+	hp += 5;
 	next = CONS(hp, mfa, NIL);
 	*next_p = next;
 	next_p = &CDR(list_val(next));

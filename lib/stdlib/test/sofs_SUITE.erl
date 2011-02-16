@@ -1879,11 +1879,11 @@ digraph(Conf) when is_list(Conf) ->
 
     ?line {'EXIT', {badarg, _}} = 
         (catch family_to_digraph(set([a]))),
-    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_]}|_]}} =
+    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_],_}|_]}} =
         (catch family_to_digraph(set([a]), [foo])),
-    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_]}|_]}} =
+    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_],_}|_]}} =
         (catch family_to_digraph(F, [foo])),
-    ?line {'EXIT', {cyclic, [{sofs,family_to_digraph,[_,_]}|_]}} =
+    ?line {'EXIT', {cyclic, [{sofs,family_to_digraph,[_,_],_}|_]}} =
         (catch family_to_digraph(family([{a,[a]}]),[acyclic])),
 
     ?line G1 = family_to_digraph(E),

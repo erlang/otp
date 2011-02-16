@@ -191,23 +191,23 @@ apply_interpreted_fun(Config) when is_list(Config) ->
     ?line {ok,ATerm} = spawn_eval(fun() -> F2() end),
 
     %% Called from uninterpreted code, badarity
-    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?MODULE,_,_}|_]}} =
+    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?MODULE,_,_,_}|_]}} =
 	spawn_eval(fun() -> F1(snape) end),
 
     %% Called from uninterpreted code, error in fun
     ?line F3 = spawn_eval(fun() -> ?IM:give_me_a_bad_fun() end),
-    ?line {'EXIT',{snape,[{?IM,_FunName,_}|_]}} =
+    ?line {'EXIT',{snape,[{?IM,_FunName,_,_}|_]}} =
 	spawn_eval(fun() -> F3(snape) end),
 
     %% Called from within interpreted code
     ?line perfectly_alright = spawn_eval(fun() -> ?IM:do_apply(F1) end),
 
     %% Called from within interpreted code, badarity
-    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?IM,do_apply,_}|_]}} =
+    ?line {'EXIT',{{badarity,{F1,[snape]}},[{?IM,do_apply,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F1, snape) end),
 
     %% Called from within interpreted code, error in fun
-    ?line {'EXIT',{snape,[{?IM,_FunName,_}|_]}} =
+    ?line {'EXIT',{snape,[{?IM,_FunName,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F3, snape) end),
 
     %% Try some more complex funs.
@@ -239,11 +239,11 @@ apply_uninterpreted_fun(Config) when is_list(Config) ->
 	spawn_eval(fun() -> ?IM:do_apply(F1, any_arg) end),
 
     %% Badarity (evaluated in dbg_debugged, which calls erlang:apply/2)
-    ?line {'EXIT',{{badarity,{F1,[]}},[{erlang,apply,_}|_]}} =
+    ?line {'EXIT',{{badarity,{F1,[]}},[{erlang,apply,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F1) end),
 
     %% Error in fun
-    ?line {'EXIT',{snape,[{?MODULE,_FunName,_}|_]}} =
+    ?line {'EXIT',{snape,[{?MODULE,_FunName,_,_}|_]}} =
 	spawn_eval(fun() -> ?IM:do_apply(F1, snape) end),
 
     ok.

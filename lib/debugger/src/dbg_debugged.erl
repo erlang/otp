@@ -117,5 +117,5 @@ demonitor(Mref) ->
 %% Fix stacktrace - keep all above call to this module.
 %%
 stacktrace_f([]) -> [];
-stacktrace_f([{?MODULE,_,_}|_]) -> [];
+stacktrace_f([{?MODULE,_,_,_}|_]) -> [];
 stacktrace_f([F|S]) -> [F|stacktrace_f(S)].

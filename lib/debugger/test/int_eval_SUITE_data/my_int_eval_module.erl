@@ -117,7 +117,7 @@ more_nocatch(Fun) ->
 %% External calls.
 
 external_call_test(Data) ->
-    {'EXIT',{undef,[{?MODULE,not_exported,[42,Data]}|_]}} =
+    {'EXIT',{undef,[{?MODULE,not_exported,[42,Data],_}|_]}} =
 	(catch ?MODULE:not_exported(42, Data)),
     {yes,Data} = i_am_exported(Data),
     {yes,Data} = ?MODULE:i_am_exported(Data),
@@ -127,7 +127,7 @@ external_call_test(Data) ->
     {ok,Data,[a,b]} = not_exported(Data, [a,b]),
     {yes,Data} = i_am_exported(Data),
     {ok,Data,[a,b]} = not_exported(Data, [a,b]),
-    {'EXIT',{undef,[{?MODULE,not_exported,[7,Data]}|_]}} =
+    {'EXIT',{undef,[{?MODULE,not_exported,[7,Data],_}|_]}} =
 	(catch ?MODULE:not_exported(7, Data)),
     {yes,Data} = ?MODULE:i_am_exported(Data),
     ok.

@@ -8,7 +8,7 @@
     erlang:system_flag(backtrace_depth, OldDepth),
     {done,Stk}.
 
-trim([{int_eval_SUITE,_,_}|_]) ->
+trim([{int_eval_SUITE,_,_,_}|_]) ->
     [];
 trim([H|T]) ->
     [H|trim(T)];

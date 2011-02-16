@@ -123,7 +123,7 @@
 
 -record(setup, {parent}).
 
--define(THROWN_ERROR, {?MODULE, throw_error, _}).
+-define(THROWN_ERROR, {?MODULE, throw_error, _, _}).
 
 -export_type([query_handle/0]).
 
@@ -3701,7 +3701,8 @@ lookup_join(F1, C1, LuF, C2, Rev) ->
 maybe_error_logger(allowed, _) ->
     ok;
 maybe_error_logger(Name, Why) ->
-    [_, _, {?MODULE,maybe_error_logger,_} | Stacktrace] = expand_stacktrace(),
+    [_, _, {?MODULE,maybe_error_logger,_,_} | Stacktrace] =
+	expand_stacktrace(),
     Trimmer = fun(M, _F, _A) -> M =:= erl_eval end,
     Formater = fun(Term, I) -> io_lib:print(Term, I, 80, -1) end,
     X = lib:format_stacktrace(1, Stacktrace, Trimmer, Formater),
@@ -3720,7 +3721,7 @@ expand_stacktrace() ->
 expand_stacktrace(D) ->
     _ = erlang:system_flag(backtrace_depth, D),
     {'EXIT', {foo, Stacktrace}} = (catch erlang:error(foo)),
-    L = lists:takewhile(fun({M,_,_}) -> M =/= ?MODULE 
+    L = lists:takewhile(fun({M,_,_,_}) -> M =/= ?MODULE
                         end, lists:reverse(Stacktrace)),
     if
         length(L) < 3 andalso length(Stacktrace) =:= D ->

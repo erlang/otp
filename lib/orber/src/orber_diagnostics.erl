@@ -130,10 +130,10 @@ missing_modules_helper([[Mod, Type]|T], ErrorsFound) when Type == ?IFR_StructDef
     end;
 missing_modules_helper([[Mod, Type]|T], ErrorsFound) when Type == ?IFR_InterfaceDef ->
     case catch Mod:oe_get_interface() of
-	{'EXIT', {undef,[{Mod, _, _}|_]}} ->
+	{'EXIT', {undef,[{Mod, _, _, _}|_]}} ->
 	    io:format("Missing (Interface): ~p~n", [Mod]),
 	    missing_modules_helper(T, ErrorsFound + 1);
-	{'EXIT', {undef,[{OtherMod, _, _}|_]}} ->
+	{'EXIT', {undef,[{OtherMod, _, _, _}|_]}} ->
 	    io:format("Missing (Inherited by the ~p Interface): ~p~n", 
 		      [Mod, OtherMod]),
 	    missing_modules_helper(T, ErrorsFound + 1);

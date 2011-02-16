@@ -318,17 +318,18 @@ eclectic(Conf) when is_list(Conf) ->
     V = {make_ref(),3.1415926535,[[]|{}]},
     ?line {{value,{value,V},V},V} =
 	eclectic_1({foo,{value,{value,V}}}, undefined, {value,V}),
-    ?line {{'EXIT',{V,[{?MODULE,foo,_}|_]}},V} =
+    ?line {{'EXIT',{V,[{?MODULE,foo,_,_}|_]}},V} =
 	eclectic_1({catch_foo,{error,V}}, undefined, {value,V}),
     ?line {{error,{exit,V},{'EXIT',V}},V} =
 	eclectic_1({foo,{error,{exit,V}}}, error, {value,V}),
-    ?line {{value,{value,V},V},{'EXIT',{badarith,[{?MODULE,my_add,_}|_]}}} =
+    ?line {{value,{value,V},V},{'EXIT',{badarith,[{?MODULE,my_add,_,_}|_]}}} =
 	eclectic_1({foo,{value,{value,V}}}, undefined, {'add',{0,a}}),
     ?line {{'EXIT',V},V} =
 	eclectic_1({catch_foo,{exit,V}}, undefined, {throw,V}),
-    ?line {{error,{'div',{1,0}},{'EXIT',{badarith,[{?MODULE,my_div,_}|_]}}}, {'EXIT',V}} =
+    ?line {{error,{'div',{1,0}},{'EXIT',{badarith,[{?MODULE,my_div,_,_}|_]}}},
+	   {'EXIT',V}} =
 	eclectic_1({foo,{error,{'div',{1,0}}}}, error, {exit,V}),
-    ?line {{{error,V},{'EXIT',{V,[{?MODULE,foo,_}|_]}}},{'EXIT',V}} =
+    ?line {{{error,V},{'EXIT',{V,[{?MODULE,foo,_,_}|_]}}},{'EXIT',V}} =
 	eclectic_1({catch_foo,{throw,{error,V}}}, undefined, {exit,V}),
     %%
     ?line {{value,{value,{value,V},V}},V} =
@@ -337,15 +338,15 @@ eclectic(Conf) when is_list(Conf) ->
 	eclectic_2({throw,{value,V}}, throw, {value,V}),
     ?line {{caught,{'EXIT',V}},undefined} =
 	eclectic_2({value,{value,V}}, undefined, {exit,V}),
-    ?line {{caught,{'EXIT',{V,[{?MODULE,foo,_}|_]}}},undefined} =
+    ?line {{caught,{'EXIT',{V,[{?MODULE,foo,_,_}|_]}}},undefined} =
 	eclectic_2({error,{value,V}}, throw, {error,V}),
-    ?line {{caught,{'EXIT',{badarg,[{erlang,abs,[V]}|_]}}},V} =
+    ?line {{caught,{'EXIT',{badarg,[{erlang,abs,[V],_}|_]}}},V} =
 	eclectic_2({value,{'abs',V}}, undefined, {value,V}),
-    ?line {{caught,{'EXIT',{badarith,[{?MODULE,my_add,_}|_]}}},V} =
+    ?line {{caught,{'EXIT',{badarith,[{?MODULE,my_add,_,_}|_]}}},V} =
 	eclectic_2({exit,{'add',{0,a}}}, exit, {value,V}),
     ?line {{caught,{'EXIT',V}},undefined} =
 	eclectic_2({value,{error,V}}, undefined, {exit,V}),
-    ?line {{caught,{'EXIT',{V,[{?MODULE,foo,_}|_]}}},undefined} =
+    ?line {{caught,{'EXIT',{V,[{?MODULE,foo,_,_}|_]}}},undefined} =
 	eclectic_2({throw,{'div',{1,0}}}, throw, {error,V}),
     ok.
 

@@ -97,11 +97,12 @@ wildcard_errors(Config) when is_list(Config) ->
 
 wcc(Wc, Error) ->
     {'EXIT',{{badpattern,Error},
-	     [{filelib,compile_wildcard,1}|_]}} = (catch filelib:compile_wildcard(Wc)),
+	     [{filelib,compile_wildcard,1,_}|_]}} =
+	(catch filelib:compile_wildcard(Wc)),
     {'EXIT',{{badpattern,Error},
-	     [{filelib,wildcard,1}|_]}} = (catch filelib:wildcard(Wc)),
+	     [{filelib,wildcard,1,_}|_]}} = (catch filelib:wildcard(Wc)),
     {'EXIT',{{badpattern,Error},
-	     [{filelib,wildcard,2}|_]}} = (catch filelib:wildcard(Wc, ".")).
+	     [{filelib,wildcard,2,_}|_]}} = (catch filelib:wildcard(Wc, ".")).
 
 do_wildcard_1(Dir, Wcf0) ->
     do_wildcard_2(Dir, Wcf0),

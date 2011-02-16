@@ -767,8 +767,8 @@ exception_test(Opts, Func0, Args0) ->
 	end,
     
     ?line R1 = exc_slave(ExcOpts, Func, Args),
-    ?line Stack2 = [{?MODULE,exc_top,3},{?MODULE,slave,2}],
-    ?line Stack3 = [{?MODULE,exc,2}|Stack2],
+    ?line Stack2 = [{?MODULE,exc_top,3,[]},{?MODULE,slave,2,[]}],
+    ?line Stack3 = [{?MODULE,exc,2,[]}|Stack2],
     ?line Rs = 
 	case x_exc_top(ExcOpts, Func, Args) of % Emulation
 	    {crash,{Reason,Stack}}=R when is_list(Stack) ->
@@ -789,21 +789,29 @@ exception_test(Opts, Func0, Args0) ->
 	  end,
     ?line expect({nm}).
 
-exception_validate(R1, [R2|Rs]) ->
+exception_validate(R0, Rs0) ->
+    R = clean_location(R0),
+    Rs = [clean_location(E) || E <- Rs0],
+    exception_validate_1(R, Rs).
+
+exception_validate_1(R1, [R2|Rs]) ->
     case [R1|R2] of
 	[R|R] ->
 	    ok;
-	[{crash,{badarg,[{lists,reverse,[L1a,L1b]}|T]}}|
-	 {crash,{badarg,[{lists,reverse,[L2a,L2b]}|T]}}] ->
+	[{crash,{badarg,[{lists,reverse,[L1a,L1b],_}|T]}}|
+	 {crash,{badarg,[{lists,reverse,[L2a,L2b],_}|T]}}] ->
 	    same({crash,{badarg,[{lists,reverse,
-				  [lists:reverse(L1b, L1a),[]]}|T]}},
+				  [lists:reverse(L1b, L1a),[]],[]}|T]}},
 		 {crash,{badarg,[{lists,reverse,
-				  [lists:reverse(L2b, L2a),[]]}|T]}});
+				  [lists:reverse(L2b, L2a),[]],[]}|T]}});
 	_ when is_list(Rs), Rs =/= [] ->
 	    exception_validate(R1, Rs)
     end.
 
-
+clean_location({crash,{Reason,Stk0}}) ->
+    Stk = [{M,F,A,[]} || {M,F,A,_} <- Stk0],
+    {crash,{Reason,Stk}};
+clean_location(Term) -> Term.
 
 %%% Tracee target functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
@@ -1057,10 +1065,10 @@ x_exc_exception(_Rtt, M, F, _, Arity, CR) ->
 x_exc_stacktrace() ->
     x_exc_stacktrace(erlang:get_stacktrace()).
 %% Truncate stacktrace to below exc/2
-x_exc_stacktrace([{?MODULE,x_exc,4}|_]) -> [];
-x_exc_stacktrace([{?MODULE,x_exc_func,4}|_]) -> [];
-x_exc_stacktrace([{?MODULE,x_exc_body,4}|_]) -> [];
-x_exc_stacktrace([{?MODULE,exc,2}|_]) -> [];
+x_exc_stacktrace([{?MODULE,x_exc,4,_}|_]) -> [];
+x_exc_stacktrace([{?MODULE,x_exc_func,4,_}|_]) -> [];
+x_exc_stacktrace([{?MODULE,x_exc_body,4,_}|_]) -> [];
+x_exc_stacktrace([{?MODULE,exc,2,_}|_]) -> [];
 x_exc_stacktrace([H|T]) ->
     [H|x_exc_stacktrace(T)].
 

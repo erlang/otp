@@ -667,16 +667,16 @@ report_error(_Handler, {swapped,_,_}, _, _, _)      -> ok;
 report_error(Handler, Reason, State, LastIn, SName) ->
     Reason1 = 
 	case Reason of
-	    {'EXIT',{undef,[{M,F,A}|MFAs]}} ->
+	    {'EXIT',{undef,[{M,F,A,L}|MFAs]}} ->
 		case code:is_loaded(M) of
 		    false ->
-			{'module could not be loaded',[{M,F,A}|MFAs]};
+			{'module could not be loaded',[{M,F,A,L}|MFAs]};
 		    _ ->
 			case erlang:function_exported(M, F, length(A)) of
 			    true ->
-				{undef,[{M,F,A}|MFAs]};
+				{undef,[{M,F,A,L}|MFAs]};
 			    false ->
-				{'function not exported',[{M,F,A}|MFAs]}
+				{'function not exported',[{M,F,A,L}|MFAs]}
 			end
 		end;
 	    {'EXIT',Why} ->
