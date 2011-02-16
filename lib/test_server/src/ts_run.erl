@@ -632,15 +632,20 @@ make_common_test_args(Args0, Options, _Vars) ->
 		      [{logdir,"../test_server"}]
 	     end,
 
-    ConfigFile = case lists:keysearch(config, 1, Options) of
-		     {value, {config, _}} ->
-			 [];
-		     false ->
-			 [{config, [filename:join("../test_server",File)
-				    || File <- get_config_files()]}]
+    ConfigPath = case {os:getenv("TEST_CONFIG_PATH"),
+		       lists:keysearch(config, 1, Options)} of
+		     {false,{value, {config, Path}}} ->
+			 Path;
+		     {false,false} ->
+			 "../test_server";
+		     {Path,_} ->
+			 Path
 		 end,
+    ConfigFiles = [{config,[filename:join(ConfigPath,File)
+			    || File <- get_config_files()]}],
 
-    io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++ConfigFile++Options]).
+    io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++
+				  ConfigFiles++Options]).
 
 make_test_server_args(Args0,Options,Vars) ->
     Parameters = 

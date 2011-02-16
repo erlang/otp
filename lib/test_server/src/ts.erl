@@ -150,6 +150,14 @@ help(installed) ->
 	 "                      TraceSpec is the name of a file containing\n",
 	 "                      trace specifications or a list of trace\n",
 	 "                      specification elements.\n",
+	 "  {config, Path}    - Specify which directory ts should get it's \n"
+	 "                      config files from. The files should follow\n"
+	 "                      the convention lib/test_server/src/ts*.config.\n"
+	 "                      These config files can also be specified by\n"
+	 "                      setting the TEST_CONFIG_PATH environment\n"
+	 "                      variable to the directory where the config\n"
+	 "                      files are. The default location is\n"
+	 "                      tests/test_server/.\n"
 	 "\n",
 	 "Supported trace information elements\n",
 	 "  {tp | tpl, Mod, [] | match_spec()}\n",
@@ -330,10 +338,11 @@ check_test_get_opts(Testspec, Config) ->
     validate_test(Testspec),
     Mode = configmember(batch, {batch, interactive}, Config),
     Vars = configvars(Config),
-    Trace = configtrace(Config),
+    Trace = get_config(trace,Config),
+    ConfigPath = get_config(config,Config),
     KeepTopcase = configmember(keep_topcase, {keep_topcase,[]}, Config),
     Cover = configcover(Testspec,Config),
-    lists:flatten([Vars,Mode,Trace,KeepTopcase,Cover]).
+    lists:flatten([Vars,Mode,Trace,KeepTopcase,Cover,ConfigPath]).
     
 to_erlang_term(Atom) ->
     String = atom_to_list(Atom),
@@ -401,8 +410,8 @@ special_vars(Config) ->
 	    SpecVars1
     end.
 
-configtrace(Config) ->
-    case lists:keysearch(trace,1,Config) of
+get_config(Key,Config) ->
+    case lists:keysearch(Key,1,Config) of
 	{value,Value} -> Value;
 	false -> []
     end.
