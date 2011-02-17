@@ -270,14 +270,17 @@ create_id() ->
 get_qos([]) ->
     [];
 get_qos(Properties) ->
-    get_qos(Properties, [], []).
+    case get_qos(Properties, [], []) of
+	{ok, Supported} ->
+	    Supported;
+	{error, Unsupported} ->
+	    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupported})
+    end.
 
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(get_qos/3 :: (_, _, _) -> no_return()).
 get_qos([], Supported, []) ->
-    Supported;
+    {ok, Supported};
 get_qos([], _, Unsupported) ->
-    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupported});
+    {error, Unsupported};
 get_qos([#'CosNotification_Property'{name = ?CycleDetection,
 				     value= #any{value = ?AuthorizeCycles}}|T], 
 	Supported, Unsupported) ->

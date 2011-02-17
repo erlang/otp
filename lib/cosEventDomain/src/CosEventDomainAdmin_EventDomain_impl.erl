@@ -778,14 +778,17 @@ get_qos(_OE_This, #state{cyclic = Cyclic, diamonds = Diamonds} = State) ->
 %%----------------------------------------------------------------------
 set_qos(_OE_This, State, NewQoS) ->
     QoS = cosEventDomainApp:get_qos(NewQoS),
-    set_qos_helper(QoS, State, []).
+    case set_qos_helper(QoS, State, []) of
+	{ok, NewState} ->
+	    {reply, ok, NewState};
+	{error, Errors} ->
+	    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Errors})
+    end.
     
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(set_qos_helper/3 :: (_, _, _) -> no_return()).
 set_qos_helper([], State, []) ->
-    {reply, ok, State};
+    {ok, State}; %{reply, ok, State};
 set_qos_helper([], _, Errors) ->
-    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Errors});
+    {error, Errors};
 set_qos_helper([{?DiamondDetection, Diamonds}|T], #state{diamonds = Diamonds} = State,
 	       Errors) ->
     set_qos_helper(T, State, Errors);
@@ -830,14 +833,17 @@ set_qos_helper([{?CycleDetection, _}|T], #state{cyclic = Cyclic} = State, Errors
 %%----------------------------------------------------------------------
 validate_qos(_OE_This, State, WantedQoS) ->
     QoS = cosEventDomainApp:get_qos(WantedQoS),
-    {reply, {ok, validate_qos_helper(QoS, State, [], [])}, State}.
+    case validate_qos_helper(QoS, State, [], []) of
+	{ok, Properties} ->
+	    {reply, {ok, Properties}, State};
+	{error, Errors} ->
+	    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Errors})
+    end.
 
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(validate_qos_helper/4 :: (_, _, _, _) -> no_return()).
 validate_qos_helper([], _, Properties, []) ->
-    Properties;
+    {ok, Properties};
 validate_qos_helper([], _, _, Errors) ->
-    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Errors});
+    {error, Errors};
 validate_qos_helper([{?DiamondDetection, ?ForbidDiamonds}|T], State, Properties, 
 		    Errors) ->
     case get_diamonds_helper(State, false) of
