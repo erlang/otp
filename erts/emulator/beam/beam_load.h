@@ -108,6 +108,11 @@ extern Uint erts_total_code_size;
 #define MI_ON_LOAD_FUNCTION_PTR 10
 
 /*
+ * Pointer to the line table (or NULL if none).
+ */
+#define MI_LINE_TABLE 11
+
+/*
  * Start of function pointer table.  This table contains pointers to
  * all functions in the module plus an additional pointer just beyond
  * the end of the last function.
@@ -116,5 +121,5 @@ extern Uint erts_total_code_size;
  * this table.
  */
 
-#define MI_FUNCTIONS         11
+#define MI_FUNCTIONS         12
 #endif /* _BEAM_LOAD_H */

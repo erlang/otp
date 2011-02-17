@@ -110,6 +110,8 @@ move S r | line Loc | call_ext_only Ar Func => \
 move S r | line Loc | call Ar Func => \
      line Loc | move S r | call Ar Func
 
+line Loc | func_info M F A => func_info M F A | line Loc
+
 line I
 
 

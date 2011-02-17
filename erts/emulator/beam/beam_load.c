@@ -158,6 +158,7 @@ typedef struct {
 #define LITERAL_CHUNK 6
 #define ATTR_CHUNK 7
 #define COMPILE_CHUNK 8
+#define LINE_CHUNK 9
 
 #define NUM_CHUNK_TYPES (sizeof(chunk_types)/sizeof(chunk_types[0]))
 
@@ -182,6 +183,7 @@ static Uint chunk_types[] = {
     MakeIffId('L', 'i', 't', 'T'), /* 6 */
     MakeIffId('A', 't', 't', 'r'), /* 7 */
     MakeIffId('C', 'I', 'n', 'f'), /* 8 */
+    MakeIffId('L', 'i', 'n', 'e'), /* 9 */
 };
 
 /*
@@ -229,6 +231,15 @@ struct string_patch {
     int pos;			/* Position in code */
     StringPatch* next;
 };
+
+/*
+ * This structure associates a code offset with a source code location.
+ */
+
+typedef struct {
+    int pos;			/* Position in code */
+    Uint32 loc;			/* Location in source code */
+} LineInstr;
 
 /*
  * This structure contains all information about the module being loaded.
@@ -325,12 +336,46 @@ typedef struct {
     Literal* literals;		/* Array of literals. */
     LiteralPatch* literal_patches; /* Operands that need to be patched. */
     Uint total_literal_size;	/* Total heap size for all literals. */
+
+    /*
+     * Line table.
+     */
+    BeamInstr* line_item;	/* Line items from the BEAM file. */
+    int num_line_items;		/* Number of line items. */
+    LineInstr* line_instr;	/* Line instructions */
+    int num_line_instrs;	/* Maximum number of line instructions */
+    int current_li;		/* Current line instruction */
+    int* func_line;		/* Mapping from function to first line instr */
+    Eterm* fname;		/* List of file names */
+    int num_fnames;		/* Number of filenames in fname table */
+    int loc_size;		/* Size of location info in bytes (2/4) */
 } LoaderState;
 
 typedef struct {
     unsigned num_functions;	/* Number of functions. */
     Eterm* func_tab[1];		/* Pointers to each function. */
 } LoadedCode;
+
+/*
+ * Layout of the line table.
+ */
+
+#define MI_LINE_FNAME_PTR 0
+#define MI_LINE_LOC_TAB 1
+#define MI_LINE_LOC_SIZE 2
+#define MI_LINE_FUNC_TAB 3
+
+#define LINE_INVALID_LOCATION (0)
+
+/*
+ * Macros for manipulating locations.
+ */
+
+#define IS_VALID_LOCATION(File, Line) \
+    ((unsigned) (File) < 255 && (unsigned) (Line) < ((1 << 24) - 1))
+#define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
+#define LOC_FILE(Loc) ((Loc) >> 24)
+#define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
 
 #define GetTagAndValue(Stp, Tag, Val)					\
    do {									\
@@ -468,6 +513,7 @@ static int load_import_table(LoaderState* stp);
 static int read_export_table(LoaderState* stp);
 static int read_lambda_table(LoaderState* stp);
 static int read_literal_table(LoaderState* stp);
+static int read_line_table(LoaderState* stp);
 static int read_code_header(LoaderState* stp);
 static int load_code(LoaderState* stp);
 static GenOp* gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
@@ -679,6 +725,18 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
     }
 
     /*
+     * Read the line table (if present).
+     */
+
+    CHKBLK(ERTS_ALC_T_CODE,state.code);
+    if (state.chunks[LINE_CHUNK].size > 0) {
+	define_file(&state, "line table", LINE_CHUNK);
+	if (!read_line_table(&state)) {
+	    goto load_error;
+	}
+    }
+
+    /*
      * Load the code chunk.
      */
 
@@ -786,6 +844,22 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 	state.genop_blocks = next;
     }
 
+    if (state.line_item != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, state.line_item);
+    }
+
+    if (state.line_instr != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, state.line_instr);
+    }
+
+    if (state.func_line != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, state.func_line);
+    }
+
+    if (state.fname != 0) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, state.fname);
+    }
+
     return rval;
 }
 
@@ -816,6 +890,10 @@ init_state(LoaderState* stp)
     stp->string_patches = 0;
     stp->may_load_nif = 0;
     stp->on_load = 0;
+    stp->line_item = 0;
+    stp->line_instr = 0;
+    stp->func_line = 0;
+    stp->fname = 0;
 }
 
 static int
@@ -1305,6 +1383,129 @@ read_literal_table(LoaderState* stp)
     return 0;
 }
 
+static int
+read_line_table(LoaderState* stp)
+{
+    unsigned version;
+    unsigned flags;
+    int num_line_items;
+    BeamInstr* lp;
+    int i;
+    BeamInstr fname_index;
+    BeamInstr tag;
+
+    /*
+     * Check version of line table.
+     */
+
+    GetInt(stp, 4, version);
+    if (version != 0) {
+	/*
+	 * Wrong version. Silently ignore the line number chunk.
+	 */
+	return 1;
+    }
+
+    /*
+     * Read the remaining header words. The flag word is reserved
+     * for possible future use; for the moment we ignore it.
+     */
+    GetInt(stp, 4, flags);
+    GetInt(stp, 4, stp->num_line_instrs);
+    GetInt(stp, 4, num_line_items);
+    GetInt(stp, 4, stp->num_fnames);
+
+    /*
+     * Calculate space and allocate memory for the line item table.
+     */
+
+    num_line_items++;
+    lp = (BeamInstr *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+				  num_line_items * sizeof(BeamInstr));
+    stp->line_item = lp;
+    stp->num_line_items = num_line_items;
+
+    /*
+     * The zeroth entry in the line item table is special.
+     * It contains the undefined location.
+     */
+
+    *lp++ = LINE_INVALID_LOCATION;
+    num_line_items--;
+
+    /*
+     * Read all the line items.
+     */
+
+    stp->loc_size = stp->num_fnames ? 4 : 2;
+    fname_index = 0;
+    while (num_line_items-- > 0) {
+	BeamInstr val;
+	BeamInstr loc;
+
+	GetTagAndValue(stp, tag, val);
+	if (tag == TAG_i) {
+	    if (IS_VALID_LOCATION(fname_index, val)) {
+		loc = MAKE_LOCATION(fname_index, val);
+	    } else {
+		/*
+		 * Too many files or huge line number. Silently invalidate
+		 * the location.
+		 */
+		loc = LINE_INVALID_LOCATION;
+	    }
+	    *lp++ = loc;
+	    if (val > 0xFFFF) {
+		stp->loc_size = 4;
+	    }
+	} else if (tag == TAG_a) {
+	    if (val > stp->num_fnames) {
+		LoadError2(stp, "file index overflow (%d/%d)",
+			   val, stp->num_fnames);
+	    }
+	    fname_index = val;
+	    num_line_items++;
+	} else {
+	    LoadError1(stp, "bad tag '%c' (expected 'a' or 'i')",
+		       tag_to_letter[tag]);
+	}
+    }
+
+    /*
+     * Read all filenames.
+     */
+
+    if (stp->num_fnames != 0) {
+	stp->fname = (Eterm *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+					      stp->num_fnames *
+					      sizeof(Eterm));
+	for (i = 0; i < stp->num_fnames; i++) {
+	    byte* fname;
+	    Uint n;
+
+	    GetInt(stp, 2, n);
+	    GetString(stp, fname, n);
+	    stp->fname[i] = am_atom_put((char*)fname, n);
+	}
+    }
+
+    /*
+     * Allocate the arrays to be filled while code is being loaded.
+     */
+    stp->line_instr = (LineInstr *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+					       stp->num_line_instrs *
+					       sizeof(LineInstr));
+    stp->current_li = 0;
+    stp->func_line = (int *)  erts_alloc(ERTS_ALC_T_LOADER_TMP,
+					 stp->num_functions *
+					 sizeof(int));
+
+    return 1;
+
+ load_error:
+    return 0;
+}
+
 
 static int
 read_code_header(LoaderState* stp)
@@ -1414,7 +1615,7 @@ load_code(LoaderState* stp)
 {
     int i;
     int ci;
-    int last_func_start = 0;
+    int last_func_start = 0;	/* Needed by nif loading and line instructions */
     char* sign;
     int arg;			/* Number of current argument. */
     int num_specific;		/* Number of specific ops for current. */
@@ -1426,6 +1627,14 @@ load_code(LoaderState* stp)
     GenOp* last_op = NULL;
     GenOp** last_op_next = NULL;
     int arity;
+
+    /*
+     * The size of the loaded func_info instruction is needed
+     * by both the nif functionality and line instructions.
+     */
+    enum {
+	FUNC_INFO_SZ = 5
+    };
 
     code = stp->code;
     code_buffer_size = stp->code_buffer_size;
@@ -2013,7 +2222,6 @@ load_code(LoaderState* stp)
 	case op_i_func_info_IaaI:
 	    {
 		Uint offset;
-		enum { FINFO_SZ = 5 };
 
 		if (function_number >= stp->num_functions) {
 		    LoadError1(stp, "too many functions in module (header said %d)",
@@ -2021,27 +2229,37 @@ load_code(LoaderState* stp)
 		}
 
 		if (stp->may_load_nif) {
-		    const int finfo_ix = ci - FINFO_SZ;		    
+		    const int finfo_ix = ci - FUNC_INFO_SZ;
 		    enum { MIN_FUNC_SZ = 3 };		    
 		    if (finfo_ix - last_func_start < MIN_FUNC_SZ && last_func_start) {		   
 			/* Must make room for call_nif op */
 			int pad = MIN_FUNC_SZ - (finfo_ix - last_func_start);
 			ASSERT(pad > 0 && pad < MIN_FUNC_SZ);
 			CodeNeed(pad);
-			sys_memmove(&code[finfo_ix+pad], &code[finfo_ix], FINFO_SZ*sizeof(BeamInstr));
+			sys_memmove(&code[finfo_ix+pad], &code[finfo_ix],
+				    FUNC_INFO_SZ*sizeof(BeamInstr));
 			sys_memset(&code[finfo_ix], 0, pad*sizeof(BeamInstr));
 			ci += pad;
 			stp->labels[last_label].value += pad;
 		    }
 		}
 		last_func_start = ci;
+
+		/*
+		 * Save current offset of into the line instruction array.
+		 */
+
+		if (stp->func_line) {
+		    stp->func_line[function_number] = stp->current_li;
+		}
+
 		/*
 		 * Save context for error messages.
 		 */
 		stp->function = code[ci-2];
 		stp->arity = code[ci-1];
 
-		ASSERT(stp->labels[last_label].value == ci - FINFO_SZ);
+		ASSERT(stp->labels[last_label].value == ci - FUNC_INFO_SZ);
 		offset = MI_FUNCTIONS + function_number;
 		code[offset] = stp->labels[last_label].patches;
 		stp->labels[last_label].patches = offset;
@@ -2105,6 +2323,41 @@ load_code(LoaderState* stp)
 	    break;
 
 	case op_line_I:
+	    if (stp->line_item) {
+		BeamInstr item = code[ci-1];
+		BeamInstr loc;
+		int li;
+		if (item >= stp->num_line_items) {
+		    LoadError2(stp, "line instruction index overflow (%d/%d)",
+			       item, stp->num_line_items);
+		}
+		li = stp->current_li;
+		if (li >= stp->num_line_instrs) {
+		    LoadError2(stp, "line instruction table overflow (%d/%d)",
+			       li, stp->num_line_instrs);
+		}
+		loc = stp->line_item[item];
+
+		if (ci - 2 == last_func_start) {
+		    /*
+		     * This line instruction directly follows the func_info
+		     * instruction. Its address must be adjusted to point to
+		     * func_info instruction.
+		     */
+		    stp->line_instr[li].pos = last_func_start - FUNC_INFO_SZ;
+		    stp->line_instr[li].loc = stp->line_item[item];
+		    stp->current_li++;
+		} else if (li <= stp->func_line[function_number-1] ||
+			   stp->line_instr[li-1].loc != loc) {
+		    /*
+		     * Only store the location if it is different
+		     * from the previous location in the same function.
+		     */
+		    stp->line_instr[li].pos = ci - 2;
+		    stp->line_instr[li].loc = stp->line_item[item];
+		    stp->current_li++;
+		}
+	    }
 	    ci -= 2;		/* Get rid of the instruction */
 	    break;
 
@@ -3573,6 +3826,7 @@ freeze_code(LoaderState* stp)
     Uint size;
     unsigned catches;
     Sint decoded_size;
+    Uint line_size;
 
     /*
      * Verify that there was a correct 'FunT' chunk if there were
@@ -3583,13 +3837,19 @@ freeze_code(LoaderState* stp)
 	LoadError0(stp, stp->lambda_error);
     }
 
-    
     /*
      * Calculate the final size of the code.
      */
-
-    size = (stp->ci * sizeof(BeamInstr)) + (stp->total_literal_size * sizeof(Eterm)) +
-	strtab_size + attr_size + compile_size;
+    if (stp->line_instr == 0) {
+	line_size = 0;
+    } else {
+	line_size = (MI_LINE_FUNC_TAB + (stp->num_functions + 1) +
+		     (stp->current_li+1) + stp->num_fnames) *
+	    sizeof(Eterm) + (stp->current_li+1) * stp->loc_size;
+    }
+    size = (stp->ci * sizeof(BeamInstr)) +
+	(stp->total_literal_size * sizeof(Eterm)) +
+	strtab_size + attr_size + compile_size + line_size;
 
     /*
      * Move the code to its final location.
@@ -3677,15 +3937,66 @@ freeze_code(LoaderState* stp)
 	}
 	literal_end += stp->total_literal_size;
     }
-    
-    /*
-     * Place the string table and, optionally, attributes, after the literal heap.
-     */
     CHKBLK(ERTS_ALC_T_CODE,code);
 
-    sys_memcpy(literal_end, stp->chunks[STR_CHUNK].start, strtab_size);
+    /*
+     * If there is line information, place it here.
+     */
+    if (stp->line_instr == 0) {
+	code[MI_LINE_TABLE] = (BeamInstr) 0;
+	str_table = (byte *) literal_end;
+    } else {
+	Eterm* line_tab = (Eterm *) literal_end;
+	Eterm* p;
+	int ftab_size = stp->num_functions;
+	int num_instrs = stp->current_li;
+	Eterm* first_line_item;
+
+	code[MI_LINE_TABLE] = (BeamInstr) line_tab;
+	p = line_tab + MI_LINE_FUNC_TAB;
+
+	first_line_item = (p + ftab_size + 1);
+	for (i = 0; i < ftab_size; i++) {
+	     *p++ = (Eterm) (BeamInstr) (first_line_item + stp->func_line[i]);
+	}
+	*p++ = (Eterm) (BeamInstr) (first_line_item + num_instrs);
+	ASSERT(p == first_line_item);
+	for (i = 0; i < num_instrs; i++) {
+		*p++ = (Eterm) (BeamInstr) (code + stp->line_instr[i].pos);
+	}
+	*p++ = (Eterm) (BeamInstr) (code + stp->ci - 1);
+
+	line_tab[MI_LINE_FNAME_PTR] = (Eterm) (BeamInstr) p;
+	memcpy(p, stp->fname, stp->num_fnames*sizeof(Eterm));
+	p += stp->num_fnames;
+
+	line_tab[MI_LINE_LOC_TAB] = (Eterm) (BeamInstr) p;
+	line_tab[MI_LINE_LOC_SIZE] = stp->loc_size;
+	if (stp->loc_size == 2) {
+	    Uint16* locp = (Uint16 *) p;
+	    for (i = 0; i < num_instrs; i++) {
+		*locp++ = (Uint16) stp->line_instr[i].loc;
+	    }
+	    *locp++ = LINE_INVALID_LOCATION;
+	    str_table = (byte *) locp;
+	} else {
+	    Uint32* locp = (Uint32 *) p;
+	    ASSERT(stp->loc_size == 4);
+	    for (i = 0; i < num_instrs; i++) {
+		*locp++ = stp->line_instr[i].loc;
+	    }
+	    *locp++ = LINE_INVALID_LOCATION;
+	    str_table = (byte *) locp;
+	}
+
+	CHKBLK(ERTS_ALC_T_CODE,code);
+    }
+
+    /*
+     * Place the string table and, optionally, attributes here.
+     */
+    sys_memcpy(str_table, stp->chunks[STR_CHUNK].start, strtab_size);
     CHKBLK(ERTS_ALC_T_CODE,code);
-    str_table = (byte *) literal_end;
     if (attr_size) {
 	byte* attr = str_table + strtab_size;
 	sys_memcpy(attr, stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
