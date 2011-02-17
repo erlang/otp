@@ -152,13 +152,18 @@ create_initial_propertysetdef(_OE_This, State, PropDefs) ->
 %% Internal functions
 %%======================================================================
 evaluate_propertysetdef(SetDefs) ->
-    evaluate_propertysetdef(SetDefs, [], []).
+    case evaluate_propertysetdef(SetDefs, [], []) of
+	{ok, NewProperties} ->
+	    NewProperties;
+	{error, Exc} ->
+	    corba:raise(#'CosPropertyService_MultipleExceptions'{exceptions = Exc})
+    end.
 
 evaluate_propertysetdef([], NewProperties, []) ->
     %% No exceptions found.
-    NewProperties;
+    {ok, NewProperties};
 evaluate_propertysetdef([], _, Exc) ->
-    corba:raise(#'CosPropertyService_MultipleExceptions'{exceptions = Exc});
+    {error, Exc};
 evaluate_propertysetdef([#'CosPropertyService_PropertyDef'
 			 {property_name = Name,
 			  property_value = Value,

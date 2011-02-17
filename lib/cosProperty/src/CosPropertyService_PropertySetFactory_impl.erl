@@ -153,13 +153,18 @@ create_initial_propertyset(_OE_This, State, Properties) ->
 %% Internal functions
 %%======================================================================
 evaluate_propertyset(Sets) ->
-    evaluate_propertyset(Sets, [], []).
+    case evaluate_propertyset(Sets, [], []) of
+	{ok, NewProperties} ->
+	    NewProperties;
+	{error, Exc} ->
+	    corba:raise(#'CosPropertyService_MultipleExceptions'{exceptions = Exc})
+    end.
 
 evaluate_propertyset([], NewProperties, []) ->
     %% No exceptions found.
-    NewProperties;
+    {ok, NewProperties};
 evaluate_propertyset([], _, Exc) ->
-    corba:raise(#'CosPropertyService_MultipleExceptions'{exceptions = Exc});
+    {error, Exc};
 evaluate_propertyset([#'CosPropertyService_Property'
 		      {property_name = Name,
 		       property_value = Value}|T], X, Exc) ->
