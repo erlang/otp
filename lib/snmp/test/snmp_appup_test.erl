@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,8 @@
 	 appup_file/1
 
 	]).
+
+-compile({no_auto_import, [error/1]}).
 
 -include("test_server.hrl").
 -include("snmp_test_lib.hrl").
