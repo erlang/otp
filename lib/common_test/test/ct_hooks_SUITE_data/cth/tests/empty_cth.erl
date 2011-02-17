@@ -64,14 +64,15 @@
 -type reason() :: term().
 -type skip_or_fail() :: {skip, reason()} |
                         {auto_skip, reason()} |
-                        {fail, reason()}.
+                        {fail, reason()} | 
+			{'EXIT',reason()}.
 
 -record(state, { id = ?MODULE :: term()}).
 
 %% @doc Always called before any other callback function. Use this to initiate
 %% any common state. It should return an state for this CTH.
 -spec init(Id :: term(), Opts :: proplist()) ->
-    {Id :: term(), State :: #state{}}.
+    State :: #state{}.
 init(Id, Opts) ->
     gen_event:notify(?CT_EVMGR_REF, #event{ name = cth, node = node(),
 					    data = {?MODULE, init, [Id, Opts]}}),
