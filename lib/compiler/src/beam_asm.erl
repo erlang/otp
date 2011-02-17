@@ -31,10 +31,11 @@ module(Code, Abst, SourceFile, Opts) ->
 
 assemble({Mod,Exp,Attr0,Asm0,NumLabels}, Abst, SourceFile, Opts) ->
     {1,Dict0} = beam_dict:atom(Mod, beam_dict:new()),
+    {0,Dict1} = beam_dict:fname(atom_to_list(Mod) ++ ".erl", Dict0),
     NumFuncs = length(Asm0),
     {Asm,Attr} = on_load(Asm0, Attr0),
-    {Code,Dict1} = assemble_1(Asm, Exp, Dict0, []),
-    build_file(Code, Attr, Dict1, NumLabels, NumFuncs, Abst, SourceFile, Opts).
+    {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
+    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, Abst, SourceFile, Opts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
@@ -136,7 +137,10 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
 			   LitTab = iolist_to_binary(zlib:compress(LitTab2)),
 			   chunk(<<"LitT">>, <<(byte_size(LitTab2)):32>>, LitTab)
 		   end,
+
+    %% Create the line chunk.
     
+    LineChunk = chunk(<<"Line">>, build_line_table(Dict)),
 
     %% Create the attributes and compile info chunks.
 
@@ -154,8 +158,11 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
     %% Create IFF chunk.
 
     Chunks = case member(slim, Opts) of
-		 true -> [Essentials,AttrChunk,AbstChunk];
-		 false -> [Essentials,LocChunk,AttrChunk,CompileChunk,AbstChunk]
+		 true ->
+		     [Essentials,AttrChunk,AbstChunk];
+		 false ->
+		     [Essentials,LocChunk,AttrChunk,
+		      CompileChunk,AbstChunk,LineChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
 
@@ -205,6 +212,31 @@ build_attributes(Opts, SourceFile, Attr, Essentials) ->
     Compile = [{options,Opts},{version,?COMPILER_VSN}|Misc],
     {term_to_binary(calc_vsn(Attr, Essentials)),term_to_binary(Compile)}.
 
+build_line_table(Dict) ->
+    {NumLineInstrs,NumFnames0,Fnames0,NumLines,Lines0} =
+	beam_dict:line_table(Dict),
+    NumFnames = NumFnames0 - 1,
+    [_|Fnames1] = Fnames0,
+    Fnames2 = [unicode:characters_to_binary(F) || F <- Fnames1],
+    Fnames = << <<(byte_size(F)):16,F/binary>> || F <- Fnames2 >>,
+    Lines1 = encode_line_items(Lines0, 0),
+    Lines = iolist_to_binary(Lines1),
+    Ver = 0,
+    Bits = 0,
+    <<Ver:32,Bits:32,NumLineInstrs:32,NumLines:32,NumFnames:32,
+     Lines/binary,Fnames/binary>>.
+
+%% encode_line_items([{FnameIndex,Line}], PrevFnameIndex)
+%%  Encode the line items compactly. Tag the FnameIndex with
+%%  an 'a' tag (atom) and only include it when it has changed.
+%%  Tag the line numbers with an 'i' (integer) tag.
+
+encode_line_items([{F,L}|T], F) ->
+    [encode(?tag_i, L)|encode_line_items(T, F)];
+encode_line_items([{F,L}|T], _) ->
+    [encode(?tag_a, F),encode(?tag_i, L)|encode_line_items(T, F)];
+encode_line_items([], _) -> [].
+
 %%
 %% If the attributes contains no 'vsn' attribute, we'll insert one
 %% with an MD5 "checksum" calculated on the code as its value.
@@ -247,8 +279,9 @@ bif_type(_, 2)      -> bif2.
 
 make_op({'%',_}, Dict) ->
     {[],Dict};
-make_op({line,_}, Dict) ->
-    encode_op(line, [0], Dict);
+make_op({line,Location}, Dict0) ->
+    {Index,Dict} = beam_dict:line(Location, Dict0),
+    encode_op(line, [Index], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);

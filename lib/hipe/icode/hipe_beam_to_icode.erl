@@ -281,10 +281,14 @@ needs_redtest(Leafness) ->
 %%-----------------------------------------------------------------------
 
 %%--- label & func_info combo ---
+trans_fun([{label,_}=F,{func_info,_,_,_}=FI|Instructions], Env) ->
+  %% Handle old code without a line instruction.
+  trans_fun([F,{line,[]},FI|Instructions], Env);
 trans_fun([{label,B},{label,_},
 	   {func_info,M,F,A},{label,L}|Instructions], Env) ->
   trans_fun([{label,B},{func_info,M,F,A},{label,L}|Instructions], Env);
 trans_fun([{label,B},
+	   {line,_},
 	   {func_info,{atom,_M},{atom,_F},_A},
 	   {label,L}|Instructions], Env) ->
   %% Emit code to handle function_clause errors.  The BEAM test instructions
@@ -1873,6 +1877,8 @@ patch_make_funs([], FunIndex, Acc) ->
 %%-----------------------------------------------------------------------
 
 find_mfa([{label,_}|Code]) ->
+  find_mfa(Code);
+find_mfa([{line,_}|Code]) ->
   find_mfa(Code);
 find_mfa([{func_info,{atom,M},{atom,F},A}|_]) 
   when is_atom(M), is_atom(F), is_integer(A), 0 =< A, A =< 255 ->
