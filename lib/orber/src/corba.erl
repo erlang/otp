@@ -621,7 +621,7 @@ get_pid(Objkey) ->
 %% Description: 
 %%----------------------------------------------------------------------
 %% To avoid dialyzer warnings due to the use of exit/throw.
--spec(raise/1 :: (_) -> no_return()).
+-spec raise(term()) -> no_return().
 raise(E) ->
     throw({'EXCEPTION', E}).
 
@@ -632,7 +632,7 @@ raise(E) ->
 %% Description: 
 %%----------------------------------------------------------------------
 %% To avoid dialyzer warnings due to the use of exit/throw.
--spec(raise_with_state/2 :: (_, _) -> no_return()).
+-spec raise_with_state(term(), term()) -> no_return().
 raise_with_state(E, State) ->
     throw({reply, {'EXCEPTION', E}, State}).
 
