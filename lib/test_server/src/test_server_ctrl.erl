@@ -3552,7 +3552,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	    {_,{'EXIT',Reason}} ->
 		progress(failed, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
-	    {_, {failed, Reason}} ->
+	    {_, {Fail, Reason}} when Fail =:= fail; Fail =:= failed ->
 		progress(failed, Num, Mod, Func, Loc, Reason,
 			 Time, Comment, Style);
 	    {_, {Skip, Reason}} when Skip==skip; Skip==skipped ->

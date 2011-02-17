@@ -394,8 +394,6 @@ filter_init_terms([Term|Ts], NewTerms, Spec)->
 filter_init_terms([], NewTerms, Spec)->
     {lists:reverse(NewTerms), Spec}.
 
-add_option([], _, List, _)->
-    List;
 add_option({Key, Value}, Node, List, WarnIfExists) when is_list(Value)->
     OldOptions = case lists:keyfind(Node, 1, List) of
 	{Node, Options}->
@@ -624,6 +622,20 @@ add_tests([{event_handler,Node,H,Args}|Ts],Spec) when is_atom(H) ->
     EvHs = Spec#testspec.event_handler,
     Node1 = ref2node(Node,Spec#testspec.nodes),
     add_tests(Ts,Spec#testspec{event_handler=[{Node1,H,Args}|EvHs]});
+
+%% --- ct_hooks --
+add_tests([{ct_hooks, all_nodes, Hooks} | Ts], Spec) ->
+    Tests = [{ct_hooks,N,Hooks} || N <- list_nodes(Spec)],
+    add_tests(Tests ++ Ts, Spec);
+add_tests([{ct_hooks, Node, [Hook|Hooks]}|Ts], Spec) ->
+    SuiteCbs = Spec#testspec.ct_hooks,
+    Node1 = ref2node(Node,Spec#testspec.nodes),
+    add_tests([{ct_hooks, Node, Hooks} | Ts],
+	      Spec#testspec{ct_hooks = [{Node1,Hook} | SuiteCbs]});
+add_tests([{ct_hooks, _Node, []}|Ts], Spec) ->
+    add_tests(Ts, Spec);
+add_tests([{ct_hooks, Hooks}|Ts], Spec) ->
+    add_tests([{ct_hooks, all_nodes, Hooks}|Ts], Spec);
 
 %% --- include ---
 add_tests([{include,all_nodes,InclDirs}|Ts],Spec) ->
@@ -1051,6 +1063,8 @@ valid_terms() ->
      {event_handler,2},
      {event_handler,3},
      {event_handler,4},
+     {ct_hooks,2},
+     {ct_hooks,3},
      {multiply_timetraps,2},
      {multiply_timetraps,3},
      {scale_timetraps,2},

@@ -58,6 +58,10 @@ init_per_suite(Config, Level) ->
 	_ ->
 	    ok
     end,
+    
+    start_slave(Config, Level).
+
+start_slave(Config,Level) ->
     [_,Host] = string:tokens(atom_to_list(node()), "@"),
     
     test_server:format(0, "Trying to start ~s~n", ["ct@"++Host]),
@@ -136,9 +140,16 @@ init_per_testcase(_TestCase, Config) ->
 
 end_per_testcase(_TestCase, Config) ->
     CTNode = ?config(ct_node, Config),
-    wait_for_ct_stop(CTNode),
-    ok.
-
+    case wait_for_ct_stop(CTNode) of
+	%% Common test was not stopped to we restart node.
+	false ->
+	    cover:stop(CTNode),
+	    slave:stop(CTNode),
+	    start_slave(Config,proplists:get_value(trace_level,Config)),
+	    {fail, "Could not stop common_test"};
+	true ->
+	    ok
+    end.
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -229,11 +240,11 @@ wait_for_ct_stop(CTNode) ->
 
 wait_for_ct_stop(0, CTNode) ->
     test_server:format(0, "Giving up! Stopping ~p.", [CTNode]),
-    ok;
+    false;
 wait_for_ct_stop(Retries, CTNode) ->
     case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
 	undefined ->
-	    ok;
+	    true;
 	Pid ->
 	    test_server:format(0, "Waiting for CT (~p) to finish (~p)...", 
 			       [Pid,Retries]),
@@ -876,22 +887,49 @@ locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
 	    nomatch
     end;
 
-%% matches any event of type Name
-locate({TEH,Name,Data}, Node, [Ev|Evs], Config) when Data == '_' ->
-    case Ev of
-	{TEH,#event{name=Name, node=Node}} ->
-	    {Config,Evs};
+%% Negative matching: Given two events, the first should not be present before
+%% the other is matched. 
+locate({negative,NotMatch, Match} = Neg, Node, Evs, Config) ->
+    case locate(NotMatch, Node, Evs, Config) of
+	nomatch ->
+	    locate(Match, Node, Evs, Config);
 	_ ->
+	    exit({found_negative_event,Neg})
+    end;
+
+%% matches any event of type Name
+locate({TEH,Name,Data}, Node, [{TEH,#event{name=Name,
+					   data = EvData,
+					   node = Node}}|Evs],
+       Config) ->
+    try match_data(Data, EvData) of
+	match ->
+	    {Config,Evs}
+    catch _:_ ->
 	    nomatch
     end;
 
-locate({TEH,Name,Data}, Node, [Ev|Evs], Config) ->
-    case Ev of
-	{TEH,#event{name=Name, node=Node, data=Data}} ->
-	    {Config,Evs};
-	_ ->
-	    nomatch
-    end.
+locate({_TEH,_Name,_Data}, _Node, [_|_Evs], _Config) ->
+    nomatch.
+
+match_data(D,D) ->
+    match;
+match_data('_',_) ->
+    match;
+match_data(Fun,Data) when is_function(Fun) ->
+    Fun(Data);
+match_data('$proplist',Proplist) ->
+    match_data(
+      fun(List) ->
+	      lists:foreach(fun({_,_}) -> ok end,List)
+      end,Proplist);
+match_data([H1|MatchT],[H2|ValT]) ->
+    match_data(H1,H2),
+    match_data(MatchT,ValT);
+match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
+    match_data(tuple_to_list(Tuple1),tuple_to_list(Tuple2));
+match_data([],[]) ->
+    match.
 
 log_events(TC, Events, PrivDir) ->
     LogFile = filename:join(PrivDir, atom_to_list(TC)++".events"),

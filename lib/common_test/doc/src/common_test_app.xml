@@ -131,7 +131,8 @@
 	<type>
 	<v> Info = {timetrap,Time} | {require,Required} | 
 	    {require,Name,Required} | {userdata,UserData} |
-	    {silent_connections,Conns} | {stylesheet,CSSFile}</v>
+	    {silent_connections,Conns} | {stylesheet,CSSFile} | 
+	    {ct_hooks, CTHs}</v>
 	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
 	  | {hours,integer()}</v>
 	<v> MilliSec = integer()</v>
@@ -143,6 +144,9 @@
 	<v> UserData = term()</v>
 	<v> Conns = [atom()]</v>
 	<v> CSSFile = string()</v>
+	<v> CTHs = [CTHModule | {CTHModule, CTHInitArgs}]</v>
+	<v> CTHModule = atom()</v>
+	<v> CTHInitArgs = term()</v>
 	</type>
 	<desc>	
 	  
@@ -170,6 +174,10 @@
 	<p>With <c>userdata</c>, it is possible for the user to
 	  specify arbitrary test suite related information which can be 
 	  read by calling <c>ct:userdata/2</c>.</p>
+
+	  <p>The <c>ct_hooks</c> tag specifies which 
+	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
+	  are to be run together with this suite.</p>
 	
 	<p>Other tuples than the ones defined will simply be ignored.</p>
 

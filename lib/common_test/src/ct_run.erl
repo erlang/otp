@@ -54,6 +54,7 @@
 	       logdir,
 	       config = [],
 	       event_handlers = [],
+	       ct_hooks = [],
 	       include = [],
 	       silent_connections,
 	       stylesheet,
@@ -171,6 +172,7 @@ script_start1(Parent, Args) ->
 			       ([]) -> true
 			    end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
+    CTHooks = ct_hooks_args2opts(Args),
 
     %% check flags and set corresponding application env variables
 
@@ -234,6 +236,7 @@ script_start1(Parent, Args) ->
 
    StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
+		     ct_hooks = CTHooks,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
 		     stylesheet = Stylesheet,
@@ -305,6 +308,10 @@ script_start2(StartOpts = #opts{vts = undefined,
 					     SpecStartOpts#opts.scale_timetraps),
 			AllEvHs = merge_vals([StartOpts#opts.event_handlers,
 					      SpecStartOpts#opts.event_handlers]),
+			AllCTHooks = merge_vals(
+					[StartOpts#opts.ct_hooks,
+					 SpecStartOpts#opts.ct_hooks]),
+			
 			AllInclude = merge_vals([StartOpts#opts.include,
 						 SpecStartOpts#opts.include]),
 			application:set_env(common_test, include, AllInclude),
@@ -315,6 +322,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   logdir = LogDir,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
+					   ct_hooks = AllCTHooks,
 					   include = AllInclude,
 					   multiply_timetraps = MultTT,
 					   scale_timetraps = ScaleTT}}
@@ -332,7 +340,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 	    {error,no_testspec_specified};
 	{undefined,_} ->   % no testspec used
 	    case check_and_install_configfiles(InitConfig, TheLogDir,
-					       Opts#opts.event_handlers) of
+					       Opts#opts.event_handlers,
+					       Opts#opts.ct_hooks) of
 		ok ->      % go on read tests from start flags
 		    script_start3(Opts#opts{config=InitConfig,
 					    logdir=TheLogDir}, Args);
@@ -343,7 +352,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 	    %% merge config from start flags with config from testspec
 	    AllConfig = merge_vals([InitConfig, Opts#opts.config]),
 	    case check_and_install_configfiles(AllConfig, TheLogDir,
-					       Opts#opts.event_handlers) of
+					       Opts#opts.event_handlers,
+					       Opts#opts.ct_hooks) of
 		ok ->      % read tests from spec
 		    {Run,Skip} = ct_testspec:prepare_tests(Terms, node()),
 		    do_run(Run, Skip, Opts#opts{config=AllConfig,
@@ -358,7 +368,8 @@ script_start2(StartOpts, Args) ->
     InitConfig = ct_config:prepare_config_list(Args),
     LogDir = which(logdir, StartOpts#opts.logdir),
     case check_and_install_configfiles(InitConfig, LogDir,
-				       StartOpts#opts.event_handlers) of
+				       StartOpts#opts.event_handlers,
+				       StartOpts#opts.ct_hooks) of
 	ok ->      % go on read tests from start flags
 	    script_start3(StartOpts#opts{config=InitConfig,
 					 logdir=LogDir}, Args);
@@ -366,11 +377,12 @@ script_start2(StartOpts, Args) ->
 	    Error
     end.
 
-check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
+check_and_install_configfiles(Configs, LogDir, EvHandlers, CTHooks) ->
     case ct_config:check_config_files(Configs) of
 	false ->
 	    install([{config,Configs},
-		     {event_handler,EvHandlers}], LogDir);
+		     {event_handler,EvHandlers},
+		     {ct_hooks,CTHooks}], LogDir);
 	{value,{error,{nofile,File}}} ->
 	    {error,{cant_read_config_file,File}};
 	{value,{error,{wrong_config,Message}}}->
@@ -438,11 +450,13 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 
 script_start4(#opts{label = Label, shell = true, config = Config,
 		    event_handlers = EvHandlers,
+		    ct_hooks = CTHooks,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
 
-    InstallOpts = [{config,Config},{event_handler,EvHandlers}],
+    InstallOpts = [{config,Config},{event_handler,EvHandlers},
+		   {ct_hooks, CTHooks}],
     if Config == [] ->
 	    ok;
        true ->
@@ -508,6 +522,7 @@ script_usage() ->
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -526,6 +541,7 @@ script_usage() ->
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -664,6 +680,9 @@ run_test1(StartOpts) ->
 			    end, Hs))
 	end,
 
+    %% CT Hooks
+    CTHooks = get_start_opt(ct_hooks, value, [], StartOpts),
+
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
 				fun(all) -> [];
@@ -733,7 +752,9 @@ run_test1(StartOpts) ->
 
     Opts = #opts{label = Label,
 		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
-		 event_handlers = EvHandlers, include = Include,
+		 event_handlers = EvHandlers,
+		 ct_hooks = CTHooks,
+		 include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
 		 multiply_timetraps = MultiplyTT,
@@ -784,11 +805,16 @@ run_spec_file(Relaxed,
 				  SpecOpts#opts.event_handlers]),
 	    AllInclude = merge_vals([Opts#opts.include,
 				     SpecOpts#opts.include]),
+
+	    AllCTHooks = merge_vals([Opts#opts.ct_hooks,
+				      SpecOpts#opts.ct_hooks]),
+	    
 	    application:set_env(common_test, include, AllInclude),
 
 	    case check_and_install_configfiles(AllConfig,
 					       which(logdir,LogDir),
-					       AllEvHs) of
+					       AllEvHs,
+					       AllCTHooks) of
 		ok ->
 		    Opts1 = Opts#opts{label = Label,
 				      cover = Cover,
@@ -798,7 +824,8 @@ run_spec_file(Relaxed,
 				      include = AllInclude,
 				      testspecs = AbsSpecs,
 				      multiply_timetraps = MultTT,
-				      scale_timetraps = ScaleTT},
+				      scale_timetraps = ScaleTT,
+				      ct_hooks = AllCTHooks},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
@@ -808,10 +835,12 @@ run_spec_file(Relaxed,
 
 run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
 				     config = CfgFiles,
-				     event_handlers = EvHandlers},
+				     event_handlers = EvHandlers,
+				     ct_hooks = CTHooks},
 	     StartOpts) ->
     LogDir1 = which(logdir, LogDir),
-    case check_and_install_configfiles(CfgFiles, LogDir1, EvHandlers) of
+    case check_and_install_configfiles(CfgFiles, LogDir1,
+				       EvHandlers, CTHooks) of
 	ok ->
 	    reformat_result(catch do_run(Run, Skip, Opts#opts{logdir = LogDir1},
 					 StartOpts));
@@ -842,7 +871,8 @@ check_config_file(Callback, File)->
 
 run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
-		     event_handlers = EvHandlers}, StartOpts) ->
+		     event_handlers = EvHandlers,
+		     ct_hooks = CTHook }, StartOpts) ->
     LogDir1 = which(logdir, LogDir),
     Opts1 = Opts#opts{logdir = LogDir1},
     AbsCfgFiles =
@@ -863,7 +893,9 @@ run_dir(Opts = #opts{logdir = LogDir,
 					     check_config_file(Callback, File)
 				     end, FileList)}
 		  end, CfgFiles),
-    case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir1) of
+    case install([{config,AbsCfgFiles},
+		  {event_handler,EvHandlers},
+		  {ct_hooks, CTHook}], LogDir1) of
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
@@ -968,7 +1000,8 @@ run_testspec1(TestSpec) ->
 	    application:set_env(common_test, include, AllInclude),
 	    LogDir1 = which(logdir,Opts#opts.logdir),
 	    case check_and_install_configfiles(Opts#opts.config, LogDir1,
-					       Opts#opts.event_handlers) of
+					       Opts#opts.event_handlers,
+					       Opts#opts.ct_hooks) of
 		ok ->
 		    Opts1 = Opts#opts{testspecs = [],
 				      logdir = LogDir1,
@@ -986,6 +1019,7 @@ get_data_for_node(#testspec{label = Labels,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
+			    ct_hooks = CTHooks,
 			    include = Incl,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs}, Node) ->
@@ -1000,12 +1034,14 @@ get_data_for_node(#testspec{label = Labels,
     ConfigFiles = [{?ct_config_txt,F} || {N,F} <- Cfgs, N==Node] ++
 	[CBF || {N,CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
+    FiltCTHooks = [Hook || {N,Hook} <- CTHooks, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
     #opts{label = Label,
 	  logdir = LogDir,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
+	  ct_hooks = FiltCTHooks,
 	  include = Include,
 	  multiply_timetraps = MT,
 	  scale_timetraps = ST}.
@@ -1036,15 +1072,7 @@ refresh_logs(LogDir) ->
 which(logdir, undefined) ->
     ".";
 which(logdir, Dir) ->
-    Dir;
-which(multiply_timetraps, undefined) ->
-    1;
-which(multiply_timetraps, MT) ->
-    MT;
-which(scale_timetraps, undefined) ->
-    false;
-which(scale_timetraps, ST) ->
-    ST.
+    Dir.
 
 choose_val(undefined, V1) ->
     V1;
@@ -2032,11 +2060,36 @@ get_start_opt(Key, IfExists, IfNotExists, Args) ->
 	    Val;
 	{value,{Key,_Val}} ->
 	    IfExists;
-	_ when is_function(IfNotExists) ->
-	    IfNotExists();
 	_ ->
 	    IfNotExists
     end.
+
+ct_hooks_args2opts(Args) ->
+    ct_hooks_args2opts(
+      proplists:get_value(ct_hooks, Args, []),[]).
+
+ct_hooks_args2opts([CTH,Arg,"and"| Rest],Acc) ->
+    ct_hooks_args2opts(Rest,[{list_to_atom(CTH),
+				     parse_cth_args(Arg)}|Acc]);
+ct_hooks_args2opts([CTH], Acc) ->
+    ct_hooks_args2opts([CTH,"and"],Acc);
+ct_hooks_args2opts([CTH, "and" | Rest], Acc) ->
+    ct_hooks_args2opts(Rest,[list_to_atom(CTH)|Acc]);
+ct_hooks_args2opts([CTH, Args], Acc) ->
+    ct_hooks_args2opts([CTH, Args, "and"],Acc);
+ct_hooks_args2opts([],Acc) ->
+    lists:reverse(Acc).
+
+parse_cth_args(String) ->
+    try
+	true = io_lib:printable_list(String),
+	{ok,Toks,_} = erl_scan:string(String++"."),
+	{ok, Args} = erl_parse:parse_term(Toks),
+	Args
+    catch _:_ ->
+	    String
+    end.
+
 
 event_handler_args2opts(Args) ->
     case proplists:get_value(event_handler, Args) of
@@ -2165,6 +2218,22 @@ opts2args(EnvStartOpts) ->
 					   end, EHs),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{event_handler_init,lists:reverse(StrsR)}];
+		     ({ct_hooks,[]}) ->
+			  [];
+		     ({ct_hooks,CTHs}) when is_list(CTHs) ->
+			  io:format(user,"ct_hooks: ~p",[CTHs]),
+			  Strs = lists:flatmap(
+				   fun({CTH,Arg}) ->
+					   [atom_to_list(CTH),
+					    lists:flatten(
+					      io_lib:format("~p",[Arg])),
+					    "and"];
+				      (CTH) when is_atom(CTH) ->
+					   [atom_to_list(CTH),"and"]
+				   end,CTHs),
+			  [_LastAnd|StrsR] = lists:reverse(Strs),
+			  io:format(user,"return: ~p",[lists:reverse(StrsR)]),
+			  [{ct_hooks,lists:reverse(StrsR)}];
 		     ({Opt,As=[A|_]}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
 		     ({Opt,Strs=[S|_]}) when is_list(S) ->
@@ -2263,12 +2332,19 @@ do_trace(Terms) ->
     dbg:tracer(),
     dbg:p(self(), [sos,call]),
     lists:foreach(fun({m,M}) ->
-			  case dbg:tpl(M,[{'_',[],[{return_trace}]}]) of
+			  case dbg:tpl(M,x) of
+			      {error,What} -> exit({error,{tracing_failed,What}});
+			      _ -> ok
+			  end;
+		     ({me,M}) ->
+			  case dbg:tp(M,[{'_',[],[{exception_trace},
+						  {message,{caller}}]}]) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;
 		     ({f,M,F}) ->
-			  case dbg:tpl(M,F,[{'_',[],[{return_trace}]}]) of
+			  case dbg:tpl(M,F,[{'_',[],[{exception_trace},
+						     {message,{caller}}]}]) of
 			      {error,What} -> exit({error,{tracing_failed,What}});
 			      _ -> ok
 			  end;

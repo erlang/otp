@@ -148,7 +148,8 @@ run(TestDirs) ->
 %%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
-%%%               {refresh_logs,LogDir} | {basic_html,Bool}
+%%%               {refresh_logs,LogDir} | {basic_html,Bool} | 
+%%%               {ct_hooks, CTHs}
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | string()
 %%%   Cases = [atom()] | atom()
@@ -176,6 +177,9 @@ run(TestDirs) ->
 %%%   DecryptKeyOrFile = {key,DecryptKey} | {file,DecryptFile}
 %%%   DecryptKey = string()
 %%%   DecryptFile = string()
+%%%   CTHs = [CTHModule | {CTHModule, CTHInitArgs}]
+%%%   CTHModule = atom()
+%%%   CTHInitArgs = term()
 %%%   Result = [TestResult] | {error,Reason}
 %%% @doc Run tests as specified by the combination of options in <code>Opts</code>.
 %%% The options are the same as those used with the
