@@ -149,7 +149,7 @@ compile1(File,Options) when is_list(Options) ->
 inline(true,Name,Module,Options) ->
     RTmodule = get_runtime_mod(Options),
     IgorOptions = igorify_options(remove_asn_flags(Options)),
-    IgorName = filename:rootname(filename:basename(Name)),
+    IgorName = list_to_atom(filename:rootname(filename:basename(Name))),
 %    io:format("*****~nName: ~p~nModules: ~p~nIgorOptions: ~p~n*****~n",
 %	      [IgorName,Modules++RTmodule,IgorOptions]),
     verbose("Inlining modules: ~p in ~p~n",[[Module]++RTmodule,IgorName],Options),
@@ -1185,6 +1185,7 @@ is_inline(Options) ->
 	_ ->
 	    lists:keymember(inline,1,Options)
     end.
+
 inline_output(Options,Default) ->
     case [X||{inline,X}<-Options] of
 	[OutputName] ->
