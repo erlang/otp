@@ -1092,10 +1092,8 @@ do_set_properties([], Curr, _, _, [], NewQoS,_,_,LQS) ->
     merge_properties(NewQoS, Curr, NewLQS);
 do_set_properties([], _, channelAdm, _, Unsupp, _,_,_,_) ->
     {error, #'CosNotification_UnsupportedAdmin'{admin_err = Unsupp}};
-%    corba:raise(#'CosNotification_UnsupportedAdmin'{admin_err = Unsupp});
 do_set_properties([], _, _, _, Unsupp, _,_,_,_) ->
     {error, #'CosNotification_UnsupportedQoS'{qos_err = Unsupp}};
-%corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupp});
 
 do_set_properties([Req|Tail], Curr, Type, Supported, Unsupp, NewQoS, Parent, Childs,LQS) ->
     %% set_values and is_supported are help functions found at the end of QoS
