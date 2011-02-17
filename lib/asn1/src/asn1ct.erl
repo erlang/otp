@@ -39,7 +39,7 @@
 	 add_tobe_refed_func/1,add_generated_refed_func/1,
 	 maybe_rename_function/3,latest_sindex/0,current_sindex/0,
 	 set_current_sindex/1,next_sindex/0,maybe_saved_sindex/2,
-	 parse_and_save/2,report_verbose/3]).
+	 parse_and_save/2,verbose/3,warning/3,error/3]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
@@ -103,8 +103,8 @@ compile(File,Options) when is_list(Options) ->
 
 
 compile1(File,Options) when is_list(Options) ->
-    report_verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,File],Options),
-    report_verbose("Compiler Options: ~p~n",[Options],Options),
+    verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,File],Options),
+    verbose("Compiler Options: ~p~n",[Options],Options),
     Ext = filename:extension(File),
     Base = filename:basename(File,Ext),
     OutFile = outfile(Base,"",Options),
@@ -152,14 +152,14 @@ inline(true,Name,Module,Options) ->
     IgorName = filename:rootname(filename:basename(Name)),
 %    io:format("*****~nName: ~p~nModules: ~p~nIgorOptions: ~p~n*****~n",
 %	      [IgorName,Modules++RTmodule,IgorOptions]),
-    report_verbose("Inlining modules: ~p in ~p~n",[[Module]++RTmodule,IgorName],Options),
+    verbose("Inlining modules: ~p in ~p~n",[[Module]++RTmodule,IgorName],Options),
     case catch igor:merge(IgorName,[Module]++RTmodule,[{preprocess,true},{stubs,false},{backups,false}]++IgorOptions) of
 	{'EXIT',{undef,Reason}} -> %% module igor first in R10B
-	    io:format("Module igor in syntax_tools must be available:~n~p~n",
-		      [Reason]),
+	    error("Module igor in syntax_tools must be available:~n~p~n",
+		  [Reason],Options),
 	    {error,'no_compilation'};
 	{'EXIT',Reason} ->
-	    io:format("Merge by igor module failed due to ~p~n",[Reason]),
+	    error("Merge by igor module failed due to ~p~n",[Reason],Options),
 	    {error,'no_compilation'};
 	_ ->
 %%	    io:format("compiling output module: ~p~n",[generated_file(Name,IgorOptions)]),
@@ -173,8 +173,8 @@ inline(_,_,_,_) ->
 compile_set(SetBase,Files,Options) 
   when is_list(hd(Files)),is_list(Options) ->
     %% case when there are several input files in a list
-    report_verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,Files],Options),
-    report_verbose("Compiler Options: ~p~n",[Options],Options),
+    verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,Files],Options),
+    verbose("Compiler Options: ~p~n",[Options],Options),
     OutFile = outfile(SetBase,"",Options),
     DbFile = outfile(SetBase,"asn1db",Options),
     Includes = [I || {i,I} <- Options],
@@ -728,7 +728,7 @@ parse_set(ScanRes,Options) ->
 scan(File,Options) ->
     case asn1ct_tok:file(File) of
 	{error,Reason} ->
-	    io:format("~p~n",[Reason]),
+	    error("~p~n",[Reason],Options),
 	    {false,{error,Reason}};
         Tokens ->
 	    case lists:member(ss,Options) of
@@ -753,16 +753,17 @@ parse({true,Tokens},File,Options) ->
 	    if 
 		is_integer(Line) ->
 		    BaseName = filename:basename(File),
-		    io:format("syntax error at line ~p in module ~s:~n",
-			      [Line,BaseName]);
+		    error("syntax error at line ~p in module ~s:~n",
+			  [Line,BaseName],Options);
 		true ->
-		    io:format("syntax error in module ~p:~n",[File])
+		    error("syntax error in module ~p:~n",
+			  [File],Options)
 	    end,
 	    print_error_message(Message),
 	    {false,{error,Message}};
 	{error,{Line,_Mod,[Message,Token]}} ->
-	    io:format("syntax error: ~p ~p at line ~p~n",
-		      [Message,Token,Line]),
+	    error("syntax error: ~p ~p at line ~p~n",
+		  [Message,Token,Line],Options),
 	    {false,{error,{Line,[Message,Token]}}};
 	{ok,M} ->
 	    case lists:member(sp,Options) of
@@ -772,7 +773,7 @@ parse({true,Tokens},File,Options) ->
 		    {true,M}
 	    end;
 	OtherError ->
-	    io:format("~p~n",[OtherError])
+	    error("~p~n",[OtherError],Options)
     end;
 parse({false,Tokens},_,_) ->
     {false,Tokens}.
@@ -802,7 +803,7 @@ check({true,M},File,OutFile,Includes,EncodingRule,DbFile,Options,InputMods) ->
 		    NewM = Module#module{typeorval=NewTypeOrVal},
 		    asn1_db:dbput(NewM#module.name,'MODULE',NewM),
 		    asn1_db:dbsave(DbFile,M#module.name),
-		    report_verbose("--~p--~n",[{generated,DbFile}],Options),
+		    verbose("--~p--~n",[{generated,DbFile}],Options),
 		    {true,{M,NewM,GenTypeOrVal}}
 	    end
     end;
@@ -823,11 +824,11 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
 %    io:format("Options: ~p~n",[Options]),
     case catch specialized_decode_prepare(EncodingRule,M,GenTOrV,Options) of
 	{error, enoent} -> ok;
-	{error, Reason} -> io:format("WARNING: Error in configuration"
-				     "file: ~n~p~n",[Reason]);
-	{'EXIT',Reason} -> io:format("WARNING: Internal error when "
-				     "analyzing configuration"
-				     "file: ~n~p~n",[Reason]);
+	{error, Reason} -> warning("Error in configuration "
+				   "file: ~n~p~n",[Reason],Options);
+	{'EXIT',Reason} -> warning("Internal error when "
+				   "analyzing configuration "
+				   "file: ~n~p~n",[Reason],Options);
 	_ -> ok
     end,
 
@@ -835,7 +836,7 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
 	case (catch asn1ct_gen:pgen(OutFile,EncodingRule,
 				   M#module.name,GenTOrV,Options)) of
 	    {'EXIT',Reason2} ->
-		io:format("ERROR: ~p~n",[Reason2]),
+		error("~p~n",[Reason2],Options),
 		{error,Reason2};
 	    _ ->
 		ok
@@ -878,7 +879,8 @@ parse_and_save(Module,S) ->
 		_ -> ok
 	    end;
 	Err ->
-	    io:format("Warning: could not do a consistency check of the ~p file: no asn1 source file was found.~n",[lists:concat([Module,".asn1db"])]),
+	    warning("could not do a consistency check of the ~p file: no asn1 source file was found.~n",
+		    [lists:concat([Module,".asn1db"])],Options),
 	    {error,{asn1,input_file_error,Err}}
     end.
 parse_and_save1(S,File,Options,Includes) ->
@@ -1207,7 +1209,7 @@ compile_py(File,OutFile,Options) ->
 compile(File, _OutFile, Options) ->
     case catch compile(File, make_erl_options(Options)) of
 	Exit = {'EXIT',_Reason} ->
-	    io:format("~p~n~s~n",[Exit,"error"]),
+	    error("~p~n~s~n",[Exit,"error"],Options),
 	    error;
 	{error,_Reason} ->
 	    %% case occurs due to error in asn1ct_parser2,asn1ct_check
@@ -1223,7 +1225,7 @@ compile(File, _OutFile, Options) ->
 	    io:format("~p~n",[ScanRes]),
 	    ok;
 	Unknown -> 
-	    io:format("~p~n~s~n",[Unknown,"error"]),
+	    error("~p~n~s~n",[Unknown,"error"],Options),
 	    error
     end.
 
@@ -1237,7 +1239,7 @@ make_erl_options(Opts) ->
     Includes = Opts#options.includes,
     Defines = Opts#options.defines,
     Outdir = Opts#options.outdir,
-%%    Warning = Opts#options.warning,
+    Warning = Opts#options.warning,
     Verbose = Opts#options.verbose,
     Specific = Opts#options.specific,
     Optimize = Opts#options.optimize,
@@ -1249,10 +1251,10 @@ make_erl_options(Opts) ->
 	    true ->  [verbose];
 	    false -> []
 	end ++
-%%%	case Warning of
-%%%	    0 -> [];
-%%%	    _ -> [report_warnings]
-%%%	end ++
+	case Warning of
+	    0 -> [];
+	    _ -> [warnings]
+	end ++
 	[] ++
 	case Optimize of
 	    1 -> [optimize];
@@ -1276,7 +1278,7 @@ make_erl_options(Opts) ->
 	    uper_bin -> [uper_bin]
 	end,
 
-    Options++[report_errors, {cwd, Cwd}, {outdir, Outdir}|
+    Options++[errors, {cwd, Cwd}, {outdir, Outdir}|
 	      lists:map(fun(Dir) -> {i, Dir} end, Includes)]++Specific.
 
 pretty2(Module,AbsFile) ->
@@ -2518,13 +2520,48 @@ type_check(#'Externaltypereference'{}) ->
  make_suffix(_) ->
      "".
 
-report_verbose(Format, Args, S) ->
-    case is_verbose(S) of
-        true ->
-            io:format(Format, Args);
-        false ->
-            ok
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Report functions.
+%%
+%% Errors messages are controlled with the 'errors' compiler option
+%% Warning messages are controlled with the 'warnings' compiler option
+%% Verbose messages are controlled with the 'verbose' compiler option
+
+error(Format, Args, S) ->
+    case is_error(S) of
+	true ->
+	    io:format("Error: " ++ Format, Args);
+	false ->
+	    ok
     end.
 
-is_verbose(S) ->
-    lists:member(verbose, S).
+warning(Format, Args, S) ->
+    case is_warning(S) of
+	true ->
+	    io:format("Warning: " ++ Format, Args);
+	false ->
+	    ok
+    end.
+
+verbose(Format, Args, S) ->
+    case is_verbose(S) of
+	true ->
+	    io:format(Format, Args);
+	false ->
+	    ok
+    end.
+
+is_error(S) when is_record(S, state) ->
+    is_error(S#state.options);
+is_error(O) ->
+    lists:member(errors, O) orelse is_verbose(O).
+
+is_warning(S) when is_record(S, state) ->
+    is_warning(S#state.options);
+is_warning(O) ->
+    lists:member(warnings, O) orelse is_verbose(O).
+
+is_verbose(S) when is_record(S, state) ->
+    is_verbose(S#state.options);
+is_verbose(O) ->
+    lists:member(verbose, O).
