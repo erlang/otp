@@ -71,29 +71,39 @@
 %%------------------------------------------------------------
 
 install_time() -> 
-    install_loop(?IDL_TIME_MODULES,[]).
+    case install_loop(?IDL_TIME_MODULES,[]) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    exit(Reason)
+    end.
 
 install_timerevent() -> 
-    install_loop(?IDL_TIMEREVENT_MODULES,[]).
+    case install_loop(?IDL_TIMEREVENT_MODULES,[]) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    exit(Reason)
+    end.
 
 install_loop([], _) ->
     ok;
 install_loop([H|T], Accum) ->
     case catch H:'oe_register'() of
 	{'EXIT',{unregistered,App}} ->
-	    ?write_ErrorMsg("Unable to register '~p'; application ~p not registered.
-Trying to unregister ~p~n", [H,App,Accum]),
+	    ?write_ErrorMsg("Unable to register '~p'; application ~p not registered.\n"
+			    "Trying to unregister ~p\n", [H,App,Accum]),
 	    uninstall_loop(Accum, {exit, register});
 	{'EXCEPTION',_} ->
-	    ?write_ErrorMsg("Unable to register '~p'; propably already registered.
-You are adviced to confirm this.
-Trying to unregister ~p~n", [H,Accum]),
+	    ?write_ErrorMsg("Unable to register '~p'; propably already registered.\n"
+			    "You are adviced to confirm this.\n"
+			    "Trying to unregister ~p\n", [H,Accum]),
 	    uninstall_loop(Accum, {exit, register});
 	ok ->
 	    install_loop(T, [H|Accum]);
 	_ ->
-	    ?write_ErrorMsg("Unable to register '~p'; reason unknown.
-Trying to unregister ~p~n", [H,Accum]),
+ 	    ?write_ErrorMsg("Unable to register '~p'; reason unknown.\n"
+			    "Trying to unregister ~p\n", [H,Accum]),
 	    uninstall_loop(Accum, {exit, register})
     end.
 
@@ -105,19 +115,29 @@ Trying to unregister ~p~n", [H,Accum]),
 %%------------------------------------------------------------
 
 uninstall_time() -> 
-    uninstall_loop(lists:reverse(?IDL_TIME_MODULES),ok).
+    case uninstall_loop(lists:reverse(?IDL_TIME_MODULES),ok) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    exit(Reason)
+    end.
 
 uninstall_timerevent() -> 
-    uninstall_loop(lists:reverse(?IDL_TIMEREVENT_MODULES),ok).
+    case uninstall_loop(lists:reverse(?IDL_TIMEREVENT_MODULES),ok) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    exit(Reason)
+    end.
 
 uninstall_loop([],ok) ->
     ok;
 uninstall_loop([],{exit, register}) ->
-    do_exit({?MODULE, "oe_register failed"});
+    {error, {?MODULE, "oe_register failed"}};
 uninstall_loop([],{exit, unregister}) ->
-    do_exit({?MODULE, "oe_unregister failed"});
+    {error, {?MODULE, "oe_unregister failed"}};
 uninstall_loop([],{exit, both}) ->
-    do_exit({?MODULE, "oe_register and, for some of those already registered, oe_unregister failed"});
+    {error, {?MODULE, "oe_register and, for some of those already registered, oe_unregister failed"}};
 uninstall_loop([H|T], Status) ->
     case catch H:'oe_unregister'() of
 	ok ->
@@ -131,12 +151,6 @@ uninstall_loop([H|T], Status) ->
 			    "You are adviced to confirm this.~n",[H]),
 	    uninstall_loop(T, {exit, both})
     end.
-
-
-%% To avoid dialyzer warnings due to the use of exit/throw.
--spec(do_exit/1 :: (_) -> no_return()).
-do_exit(Reason) ->
-    exit(Reason).
 
 %%------------------------------------------------------------
 %% function : start/stop
