@@ -139,7 +139,7 @@ lambda(Lbl, Index, OldUniq, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
     Lambdas = [{Lbl,{OldIndex,Lbl,Index,NumFree,OldUniq}}|Lambdas0],
     {OldIndex,Dict#asm{lambdas=Lambdas}}.
 
-%% Returns the index for a literal (adding it to the atom table if necessary).
+%% Returns the index for a literal (adding it to the literal table if necessary).
 %%    literal(Literal, Dict) -> {Index,Dict'}
 -spec literal(term(), bdict()) -> {non_neg_integer(), bdict()}.
 
