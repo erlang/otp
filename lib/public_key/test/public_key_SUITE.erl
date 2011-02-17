@@ -146,7 +146,8 @@ pk_decode_encode(Config) when is_list(Config) ->
     DSAPubKey = public_key:pem_entry_decode(PubEntry0),
     true = check_entry_type(DSAPubKey, 'DSAPublicKey'),
     PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', DSAPubKey),
-    DSAPubPem = public_key:pem_encode([PubEntry0]),
+    DSAPubPemNoEndNewLines = strip_ending_newlines(DSAPubPem),
+    DSAPubPemEndNoNewLines = strip_ending_newlines(public_key:pem_encode([PubEntry0])),
     
     [{'RSAPrivateKey', DerRSAKey, not_encrypted} =  Entry1 ] = 
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
@@ -167,13 +168,15 @@ pk_decode_encode(Config) when is_list(Config) ->
     RSAPubKey = public_key:pem_entry_decode(PubEntry1),
     true = check_entry_type(RSAPubKey, 'RSAPublicKey'),
     PubEntry1 = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey),
-    RSAPubPem = public_key:pem_encode([PubEntry1]),
+    RSAPubPemNoEndNewLines = strip_ending_newlines(RSAPubPem),
+    RSAPubPemNoEndNewLines = strip_ending_newlines(public_key:pem_encode([PubEntry1])),
 
     {ok, RSARawPem} = file:read_file(filename:join(Datadir, "rsa_pub_key.pem")),
     [{'RSAPublicKey', _, _} = PubEntry2] =
         public_key:pem_decode(RSARawPem),
     RSAPubKey = public_key:pem_entry_decode(PubEntry2),
-    RSARawPem = public_key:pem_encode([PubEntry2]),
+    RSARawPemNoEndNewLines = strip_ending_newlines(RSARawPem),
+    RSARawPemNoEndNewLines = strip_ending_newlines(public_key:pem_encode([PubEntry2])),
 
     Salt0 = crypto:rand_bytes(8),
     Entry3 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey0, 
@@ -464,3 +467,6 @@ check_entry_type(#'Certificate'{}, 'Certificate') ->
     true;
 check_entry_type(_,_) ->
     false.
+
+strip_ending_newlines(Bin) ->
+    string:strip(binary_to_list(Bin), right, 10).
