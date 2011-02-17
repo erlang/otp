@@ -84,7 +84,7 @@ start_remote_main_target(Parameters) ->
 					 MasterNode,MasterCookie),
     Cmd = 
 	case os:getenv("TEST_SERVER_FRAMEWORK") of
-	    false -> Cmd0;
+	    FW when FW =:= false; FW =:= "undefined" -> Cmd0;
 	    FW -> Cmd0 ++ " -env TEST_SERVER_FRAMEWORK " ++ FW
 	end,
 	

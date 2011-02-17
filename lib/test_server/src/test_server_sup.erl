@@ -494,7 +494,8 @@ framework_call(Func,Args) ->
 framework_call(Func,Args,DefaultReturn) ->
     CB = os:getenv("TEST_SERVER_FRAMEWORK"),
     framework_call(CB,Func,Args,DefaultReturn).
-framework_call(false,_Func,_Args,DefaultReturn) ->
+framework_call(FW,_Func,_Args,DefaultReturn)  
+  when FW =:= false; FW =:= "undefined" ->
     DefaultReturn;
 framework_call(Callback,Func,Args,DefaultReturn) ->
     Mod = list_to_atom(Callback),

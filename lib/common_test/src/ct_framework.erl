@@ -743,12 +743,12 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 			    %% init/end functions for top groups will be executed
 			    case catch proplists:get_value(name, element(2, hd(ConfTests))) of
 				Name ->		% top group
-				    ConfTests;
+				    delete_subs(ConfTests, ConfTests);
 				_ ->
 				    []
 			    end;
 			false ->
-			    ConfTests
+			    delete_subs(ConfTests, ConfTests)
 		    end
 	    end;
 	_ ->
@@ -765,9 +765,25 @@ get_suite(Mod, Name) ->
 find_groups(Mod, Name, TCs, GroupDefs) ->
     Found = find(Mod, Name, TCs, GroupDefs, [], GroupDefs, false),
     Trimmed = trim(Found),
-    delete_subs(Trimmed, Trimmed).
+    %% I cannot find a reason to why this function is called,
+    %% It deletes any group which is referenced in any other
+    %% group. i.e.
+    %% groups() ->
+    %%   [{test, [], [testcase1]},
+    %%    {testcases, [], [{group, test}]}].
+    %% Would be changed to
+    %% groups() ->
+    %%   [{testcases, [], [testcase1]}].
+    %% instead of what I believe is correct:
+    %% groups() ->
+    %%   [{test, [], [testcase1]},
+    %%    {testcases, [], [testcase1]}].
+    %% Have to double check with peppe
+    delete_subs(Trimmed, Trimmed),
+    Trimmed.
 
-find(Mod, all, _TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) ->
+find(Mod, all, _TCs, [{Name,Props,Tests} | Gs], Known, Defs, _) 
+  when is_atom(Name), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name, Known),
     [make_conf(Mod, Name, Props,
 	       find(Mod, all, all, Tests, [Name | Known], Defs, true)) |
@@ -789,8 +805,8 @@ find(Mod, Name, TCs, [{Name,Props,Tests} | _Gs], Known, Defs, false)
 find(Mod, Name, TCs, [{Name1,Props,Tests} | Gs], Known, Defs, false)
   when is_atom(Name1), is_list(Props), is_list(Tests) ->
     cyclic_test(Mod, Name1, Known),
-    [make_conf(Mod, Name1, Props,
-	       find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false)) |
+    [make_conf(Mod,Name1,Props,
+		   find(Mod, Name, TCs, Tests, [Name1 | Known], Defs, false)) |
      find(Mod, Name, TCs, Gs, [], Defs, false)];
 
 find(Mod, Name, _TCs, [{Name,_Props,_Tests} | _Gs], _Known, _Defs, true)
@@ -806,17 +822,31 @@ find(Mod, Name, all, [{Name1,Props,Tests} | Gs], Known, Defs, true)
 	       find(Mod, Name, all, Tests, [Name1 | Known], Defs, true)) |
      find(Mod, Name, all, Gs, [], Defs, true)];
 
-find(Mod, Name, TCs, [{group,Name1} | Gs], Known, Defs, Found) when is_atom(Name1) ->
+find(Mod, Name, TCs, [{group,Name1} | Gs], Known, Defs, Found) 
+  when is_atom(Name1) ->
     find(Mod, Name, TCs, [expand(Mod, Name1, Defs) | Gs], Known, Defs, Found);
+
+%% Undocumented remote group feature, use with caution
+find(Mod, Name, TCs, [{group, ExtMod, ExtGrp} | Gs], Known, Defs, true)
+  when is_atom(ExtMod), is_atom(ExtGrp) ->
+    ExternalDefs = ExtMod:groups(),
+    ExternalTCs = find(ExtMod, ExtGrp, TCs, [{group, ExtGrp}],
+                       [], ExternalDefs, false),
+     ExternalTCs ++ find(Mod, Name, TCs, Gs, Known, Defs, true);
 
 find(Mod, Name, TCs, [{Name1,Tests} | Gs], Known, Defs, Found)
   when is_atom(Name1), is_list(Tests) ->
     find(Mod, Name, TCs, [{Name1,[],Tests} | Gs], Known, Defs, Found);
 
-find(Mod, Name, TCs, [TC | Gs], Known, Defs, false) when is_atom(TC) ->
+find(Mod, Name, TCs, [_TC | Gs], Known, Defs, false) ->
     find(Mod, Name, TCs, Gs, Known, Defs, false);
 
 find(Mod, Name, TCs, [TC | Gs], Known, Defs, true) when is_atom(TC) ->
+    [{Mod, TC} | find(Mod, Name, TCs, Gs, Known, Defs, true)];
+
+find(Mod, Name, TCs, [{ExternalTC, Case} = TC | Gs], Known, Defs, true)
+  when is_atom(ExternalTC),
+       is_atom(Case) ->
     [TC | find(Mod, Name, TCs, Gs, Known, Defs, true)];
 
 find(Mod, _Name, _TCs, [BadTerm | _Gs], Known, _Defs, _Found) ->
@@ -836,7 +866,7 @@ find(_Mod, _Name, _TCs,  [], _Known, _Defs, false) ->
 find(_Mod, _Name, _TCs,  [], _Known, _Defs, _Found) ->
     [].
 
-delete_subs([Conf | Confs], All) ->
+delete_subs([{conf, _,_,_,_} = Conf | Confs], All) ->
     All1 = delete_conf(Conf, All),
     case is_sub(Conf, All1) of
 	true ->
@@ -844,7 +874,8 @@ delete_subs([Conf | Confs], All) ->
 	false ->
 	    delete_subs(Confs, All)
     end;
-
+delete_subs([_Else | Confs], All) ->
+    delete_subs(Confs, All);
 delete_subs([], All) ->
     All.
 
@@ -936,7 +967,9 @@ make_all_conf(Mod) ->
 		[] ->
 		    {error,{invalid_group_spec,Mod}};
 		ConfTests ->
-		    [{conf,Props,Init,all,End} || {conf,Props,Init,_,End} <- ConfTests]
+		    [{conf,Props,Init,all,End} ||
+			{conf,Props,Init,_,End}
+			    <- delete_subs(ConfTests, ConfTests)]
 	    end
     end.
 
@@ -982,31 +1015,11 @@ get_all(Mod, ConfTests) ->
 		    [{?MODULE,error_in_suite,[[{error,What}]]}];
 		SeqsAndTCs ->
 		    %% expand group references in all() using ConfTests
-		    Expand =
-			fun({group,Name}) ->
-				FindConf = 
-				    fun({conf,Props,_,_,_}) ->
-					    case proplists:get_value(name, Props) of
-						Name -> true;
-						_    -> false
-					    end
-					   end,					 
-				case lists:filter(FindConf, ConfTests) of
-				    [ConfTest|_] ->
-					ConfTest;
-				    [] ->
-					E = "Invalid reference to group "++
-					    atom_to_list(Name)++" in "++
-					    atom_to_list(Mod)++":all/0",
-					throw({error,list_to_atom(E)})
-				end;
-			   (SeqOrTC) -> SeqOrTC
-			end,
-		    case catch lists:map(Expand, SeqsAndTCs) of
+		    case catch expand_groups(SeqsAndTCs, ConfTests, Mod) of
 			{error,_} = Error ->
 			    [{?MODULE,error_in_suite,[[Error]]}];
 			Tests ->
-			    Tests
+			    delete_subs(Tests, Tests)
 		    end
 	    end;
 	Skip = {skip,_Reason} ->
@@ -1016,6 +1029,30 @@ get_all(Mod, ConfTests) ->
 		list_to_atom("Bad return value from "++atom_to_list(Mod)++":all/0"),
 	    [{?MODULE,error_in_suite,[[{error,Reason}]]}]
     end.
+
+expand_groups([H | T], ConfTests, Mod) ->
+    [expand_groups(H, ConfTests, Mod) | expand_groups(T, ConfTests, Mod)];
+expand_groups([], _ConfTests, _Mod) ->
+    [];
+expand_groups({group,Name}, ConfTests, Mod) ->
+    FindConf = 
+	fun({conf,Props,_,_,_}) ->
+		case proplists:get_value(name, Props) of
+		    Name -> true;
+		    _    -> false
+		end
+	end,					 
+    case lists:filter(FindConf, ConfTests) of
+	[ConfTest|_] ->
+	    expand_groups(ConfTest, ConfTests, Mod);
+	[] ->
+	    E = "Invalid reference to group "++
+		atom_to_list(Name)++" in "++
+		atom_to_list(Mod)++":all/0",
+	    throw({error,list_to_atom(E)})
+    end;
+expand_groups(SeqOrTC, _ConfTests, _Mod) ->
+    SeqOrTC.
 
 
 %%!============================================================

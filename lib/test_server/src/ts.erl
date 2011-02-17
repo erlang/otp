@@ -150,6 +150,14 @@ help(installed) ->
 	 "                      TraceSpec is the name of a file containing\n",
 	 "                      trace specifications or a list of trace\n",
 	 "                      specification elements.\n",
+	 "  {config, Path}    - Specify which directory ts should get it's \n"
+	 "                      config files from. The files should follow\n"
+	 "                      the convention lib/test_server/src/ts*.config.\n"
+	 "                      These config files can also be specified by\n"
+	 "                      setting the TEST_CONFIG_PATH environment\n"
+	 "                      variable to the directory where the config\n"
+	 "                      files are. The default location is\n"
+	 "                      tests/test_server/.\n"
 	 "\n",
 	 "Supported trace information elements\n",
 	 "  {tp | tpl, Mod, [] | match_spec()}\n",
@@ -249,7 +257,7 @@ run_some([Spec|Specs], Opts) ->
 run(Testspec) when is_atom(Testspec) ->
     Options=check_test_get_opts(Testspec, []),
     File = atom_to_list(Testspec),
-    run_test(File, ["SPEC current.spec NAME ",File], Options);
+    run_test(File, [{spec,[File++".spec"]}], Options);
 
 %% This can be used from command line, e.g.
 %% erl -s ts run all_tests <config>
@@ -293,11 +301,11 @@ run(List, Opts) when is_list(List), is_list(Opts) ->
 run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     File=atom_to_list(Testspec),
-    run_test(File, ["SPEC current.spec NAME ", File], Options);
+    run_test(File, [{spec,[File++".spec"]}], Options);
 %% Runs one module in a spec (interactive)
 run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
     run_test({atom_to_list(Testspec), Mod}, 
-	     ["SPEC current.spec NAME ", atom_to_list(Mod)], 
+	     [{suite,Mod}], 
 	     [interactive]).
 
 %% run/3
@@ -305,20 +313,23 @@ run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
 run(Testspec,Mod,Config) when is_atom(Testspec), is_atom(Mod), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     run_test({atom_to_list(Testspec), Mod},
-	     ["SPEC current.spec NAME ", atom_to_list(Mod)], 
+	     [{suite,Mod}], 
 	     Options);
 
 %% Runs one testcase in a module.
 run(Testspec, Mod, Case) when is_atom(Testspec), is_atom(Mod), is_atom(Case) ->
     Options=check_test_get_opts(Testspec, []),
-    Args = ["CASE ",atom_to_list(Mod)," ",atom_to_list(Case)],
+    Args = [{suite,atom_to_list(Mod)},{testcase,atom_to_list(Case)}],
     run_test(atom_to_list(Testspec), Args, Options).
 
 %% run/4
 %% Run one testcase in a module with Options.
-run(Testspec, Mod, Case, Config) when is_atom(Testspec), is_atom(Mod), is_atom(Case), is_list(Config) ->
+run(Testspec, Mod, Case, Config) when is_atom(Testspec), 
+				      is_atom(Mod), 
+				      is_atom(Case), 
+				      is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
-    Args = ["CASE ",atom_to_list(Mod), " ",atom_to_list(Case)],
+    Args = [{suite,atom_to_list(Mod)}, {testcase,atom_to_list(Case)}],
     run_test(atom_to_list(Testspec), Args, Options).
 
 %% Check testspec to be valid and get possible Options
@@ -327,10 +338,11 @@ check_test_get_opts(Testspec, Config) ->
     validate_test(Testspec),
     Mode = configmember(batch, {batch, interactive}, Config),
     Vars = configvars(Config),
-    Trace = configtrace(Config),
+    Trace = get_config(trace,Config),
+    ConfigPath = get_config(config,Config),
     KeepTopcase = configmember(keep_topcase, {keep_topcase,[]}, Config),
     Cover = configcover(Testspec,Config),
-    lists:flatten([Vars,Mode,Trace,KeepTopcase,Cover]).
+    lists:flatten([Vars,Mode,Trace,KeepTopcase,Cover,ConfigPath]).
     
 to_erlang_term(Atom) ->
     String = atom_to_list(Atom),
@@ -398,8 +410,8 @@ special_vars(Config) ->
 	    SpecVars1
     end.
 
-configtrace(Config) ->
-    case lists:keysearch(trace,1,Config) of
+get_config(Key,Config) ->
+    case lists:keysearch(Key,1,Config) of
 	{value,Value} -> Value;
 	false -> []
     end.

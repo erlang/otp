@@ -168,6 +168,7 @@
 	 cross_cover_analyse/1, cross_cover_analyse/2, trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
+-export([kill_slavenodes/0]).
 
 %%% TEST_SERVER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([output/2, print/2, print/3, print_timestamp/2]).
@@ -525,6 +526,9 @@ testcase_callback(ModFunc) ->
 set_random_seed(Seed) ->
     controller_call({set_random_seed,Seed}).
 
+kill_slavenodes() ->
+    controller_call(kill_slavenodes).
+
 get_hosts() ->
     get(test_server_hosts).
 
@@ -532,6 +536,8 @@ get_target_os_type() ->
     case whereis(?MODULE) of
 	undefined ->
 	    %% This is probably called on the target node
+	    os:type();
+	Pid when Pid =:= self() ->
 	    os:type();
 	_pid ->
 	    %% This is called on the controller, e.g. from a
@@ -637,7 +643,7 @@ contact_main_target(local) ->
     %% When used by a general framework, global registration of
     %% test_server should not be required.
     case os:getenv("TEST_SERVER_FRAMEWORK") of
-	false ->
+	FW when FW =:= false; FW =:= "undefined" ->
 	    %% Local target! The global test_server process implemented by
 	    %% test_server.erl will not be started, so we simulate it by
 	    %% globally registering this process instead.
@@ -1704,7 +1710,7 @@ do_test_cases(TopCases, SkipCases,
 		  [erlang:system_info(version), code:root_dir()]),
 
 	    case os:getenv("TEST_SERVER_FRAMEWORK") of
-		false ->
+		FW when FW =:= false; FW =:= "undefined" ->
 		    print(html, "<p>Target:<br>\n"),
 		    print_who(TI#target_info.host, TI#target_info.username),
 		    print(html, "<br>Used Erlang ~s in <tt>~s</tt>.\n",
@@ -4057,7 +4063,7 @@ get_font_style1(default) ->
 
 format_exception(Reason={_Error,Stack}) when is_list(Stack) ->
     case os:getenv("TEST_SERVER_FRAMEWORK") of
-	false ->
+	FW when FW =:= false; FW =:= "undefined" ->
 	    case application:get_env(test_server, format_exception) of
 		{ok,false} ->
 		    {"~p",Reason};
@@ -4630,7 +4636,7 @@ collect_case([Case | Cases], St, Acc) ->
 
 collect_case_invoke(Mod, Case, MFA, St) ->
     case os:getenv("TEST_SERVER_FRAMEWORK") of
-	false ->
+	FW when FW =:= false; FW =:= "undefined" ->
 	    case catch apply(Mod, Case, [suite]) of
 		{'EXIT',_} ->
 		    {ok,[MFA],St};

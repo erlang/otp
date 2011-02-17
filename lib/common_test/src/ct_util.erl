@@ -288,6 +288,9 @@ loop(Mode,TestData,StartDir) ->
 	    TestData1 = lists:keydelete(Key,1,TestData),
 	    return(From,ok),
 	    loop(Mode,[New|TestData1],StartDir);
+	{{get_testdata, all}, From} ->
+	    return(From, TestData),
+	    loop(From, TestData, StartDir);
 	{{get_testdata,Key},From} ->
 	    case lists:keysearch(Key,1,TestData) of
 		{value,{Key,Val}} ->
