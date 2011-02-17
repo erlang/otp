@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -50,10 +50,10 @@
 	  <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso> 
 	  on a running node, the table <c>vacmAccessTable</c> was not properly 
 	  cleaned. 
-	  This means that if some entries in the vacm.conf file was removed
+	  This meant that if some entries in the vacm.conf file was removed
 	  (compared to the <c>current</c> config), 
-	  while others where modified and/or added, the removed entrie(s), 
-	  would still exist in the <c>vacmAccessTable</c>. </p>
+	  while others where modified and/or added, the removed entrie(s) 
+	  would still exist in the <c>vacmAccessTable</c> table. </p>
           <p>Own Id: OTP-8981</p>
 	  <p>Aux Id: Seq 11750</p>
         </item>
