@@ -19,11 +19,13 @@
 
 -module(base64_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 %% Test server specific exports
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
 -export([base64_encode/1, base64_decode/1, base64_otp_5635/1,
@@ -43,13 +45,28 @@ end_per_testcase(_, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-all(doc) ->
-    ["Test library functions for base64 encode and decode "
-     "(taken from inets/test/http_format_SUITE)"];
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [base64_encode, base64_decode, base64_otp_5635,
-     base64_otp_6279, big, illegal, mime_decode,
-     mime_decode_to_string, roundtrip].
+     base64_otp_6279, big, illegal, mime_decode, mime_decode_to_string,
+     roundtrip].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %%-------------------------------------------------------------------------

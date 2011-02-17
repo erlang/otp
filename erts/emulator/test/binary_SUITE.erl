@@ -40,9 +40,11 @@
 %%      phash2(Binary, N)
 %%
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2,
 	 copy_terms/1, conversions/1, deep_lists/1, deep_bitstr_lists/1,
 	 bad_list_to_binary/1, bad_binary_to_list/1,
 	 t_split_binary/1, bad_split/1, t_concat_binary/1,
@@ -61,24 +63,42 @@
 %% Internal exports.
 -export([sleeper/0]).
 
-all(suite) ->
-    [copy_terms,conversions,deep_lists,deep_bitstr_lists,
+suite() -> [{ct_hooks,[ts_install_cth]},
+	    {timetrap,{minutes,2}}].
+
+all() -> 
+    [copy_terms, conversions, deep_lists, deep_bitstr_lists,
      t_split_binary, bad_split, t_concat_binary,
-     bad_list_to_binary, bad_binary_to_list, terms, terms_float,
-     external_size, t_iolist_size,
-     bad_binary_to_term_2,safe_binary_to_term2,
-     bad_binary_to_term, bad_terms, t_hash, bad_size, bad_term_to_binary,
-     more_bad_terms, otp_5484, otp_5933, ordering, unaligned_order,
-     gc_test, bit_sized_binary_sizes, otp_6817, otp_8117,
-     deep,obsolete_funs,robustness,otp_8180].
+     bad_list_to_binary, bad_binary_to_list, terms,
+     terms_float, external_size, t_iolist_size,
+     bad_binary_to_term_2, safe_binary_to_term2,
+     bad_binary_to_term, bad_terms, t_hash, bad_size,
+     bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
+     ordering, unaligned_order, gc_test,
+     bit_sized_binary_sizes, otp_6817, otp_8117, deep,
+     obsolete_funs, robustness, otp_8180].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(2)),
-    [{watchdog, Dog}|Config].
+    Config.
 
-fin_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 -define(heap_binary_size, 64).
 
@@ -1041,7 +1061,7 @@ test_terms(Test_Func) ->
     ?line Test_Func(F = fun(A) -> 42*A end),
     ?line Test_Func(lists:duplicate(32, F)),
 
-    ?line Test_Func(FF = fun binary_SUITE:all/1),
+    ?line Test_Func(FF = fun binary_SUITE:all/0),
     ?line Test_Func(lists:duplicate(32, FF)),
 
     ok.

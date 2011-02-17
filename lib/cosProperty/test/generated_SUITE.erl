@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 
 -module(generated_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -71,12 +71,12 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -84,21 +84,51 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["This suite is for testing IC generated files"];
-all(suite) -> 
-    ['CosPropertyService_ConflictingProperty', 'CosPropertyService_ConstraintNotSupported',
-     'CosPropertyService_FixedProperty', 'CosPropertyService_InvalidPropertyName', 
-     'CosPropertyService_MultipleExceptions', 'CosPropertyService_Properties', 
-     'CosPropertyService_Property', 'CosPropertyService_PropertyDef', 
-     'CosPropertyService_PropertyDefs', 'CosPropertyService_PropertyException', 
-     'CosPropertyService_PropertyExceptions', 'CosPropertyService_PropertyMode', 
-     'CosPropertyService_PropertyModes', 'CosPropertyService_PropertyNames', 
-     'CosPropertyService_PropertyNotFound', 'CosPropertyService_PropertyTypes', 
-     'CosPropertyService_ReadOnlyProperty', 'CosPropertyService_UnsupportedMode', 
-     'CosPropertyService_UnsupportedProperty', 'CosPropertyService_UnsupportedTypeCode', 
-     'CosPropertyService_PropertyNamesIterator', 'CosPropertyService_PropertiesIterator', 
-     'CosPropertyService_PropertySet', 'CosPropertyService_PropertySetDef', 
-     'CosPropertyService_PropertySetDefFactory', 'CosPropertyService_PropertySetFactory'].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    ['CosPropertyService_ConflictingProperty',
+     'CosPropertyService_ConstraintNotSupported',
+     'CosPropertyService_FixedProperty',
+     'CosPropertyService_InvalidPropertyName',
+     'CosPropertyService_MultipleExceptions',
+     'CosPropertyService_Properties',
+     'CosPropertyService_Property',
+     'CosPropertyService_PropertyDef',
+     'CosPropertyService_PropertyDefs',
+     'CosPropertyService_PropertyException',
+     'CosPropertyService_PropertyExceptions',
+     'CosPropertyService_PropertyMode',
+     'CosPropertyService_PropertyModes',
+     'CosPropertyService_PropertyNames',
+     'CosPropertyService_PropertyNotFound',
+     'CosPropertyService_PropertyTypes',
+     'CosPropertyService_ReadOnlyProperty',
+     'CosPropertyService_UnsupportedMode',
+     'CosPropertyService_UnsupportedProperty',
+     'CosPropertyService_UnsupportedTypeCode',
+     'CosPropertyService_PropertyNamesIterator',
+     'CosPropertyService_PropertiesIterator',
+     'CosPropertyService_PropertySet',
+     'CosPropertyService_PropertySetDef',
+     'CosPropertyService_PropertySetDefFactory',
+     'CosPropertyService_PropertySetFactory'].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %%-----------------------------------------------------------------
@@ -109,7 +139,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

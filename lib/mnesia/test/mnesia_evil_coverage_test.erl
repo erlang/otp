@@ -30,45 +30,54 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Evil usage of the API.",
-     "Invoke all functions in the API and try to cover all legal uses",
-     "cases as well the illegal dito. This is a complement to the",
-     "other more explicit test cases."];
-all(suite) ->
-    [
-     system_info,
-     table_info,
-     error_description,
-     db_node_lifecycle,
-     evil_delete_db_node,
-     start_and_stop,
-     checkpoint,
-     table_lifecycle,     
-     add_copy_conflict,
-     add_copy_when_going_down,
-     replica_management,
-     schema_availability,
-     local_content,
-     table_access_modifications,
-     replica_location,
-     table_sync,
-     user_properties,
-     unsupp_user_props,
-     record_name,
-     snmp_access,
-     subscriptions,
-     iteration,
-     debug_support,
-     sorted_ets,
+all() -> 
+    [system_info, table_info, error_description,
+     db_node_lifecycle, evil_delete_db_node, start_and_stop,
+     checkpoint, table_lifecycle, add_copy_conflict,
+     add_copy_when_going_down, replica_management,
+     schema_availability, local_content,
+     {group, table_access_modifications}, replica_location,
+     {group, table_sync}, user_properties, unsupp_user_props,
+     {group, record_name}, {group, snmp_access},
+     {group, subscriptions}, {group, iteration},
+     {group, debug_support}, sorted_ets,
      {mnesia_dirty_access_test, all},
      {mnesia_trans_access_test, all},
-     {mnesia_evil_backup, all}
-    ].
+     {mnesia_evil_backup, all}].
+
+groups() -> 
+    [{table_access_modifications, [],
+      [change_table_access_mode, change_table_load_order,
+       set_master_nodes, offline_set_master_nodes]},
+     {table_sync, [],
+      [dump_tables, dump_log, wait_for_tables,
+       force_load_table]},
+     {snmp_access, [],
+      [snmp_open_table, snmp_close_table, snmp_get_next_index,
+       snmp_get_row, snmp_get_mnesia_key, snmp_update_counter,
+       snmp_order]},
+     {subscriptions, [],
+      [subscribe_standard, subscribe_extended]},
+     {iteration, [], [foldl]},
+     {debug_support, [],
+      [info, schema_0, schema_1, view_0, view_1, view_2,
+       lkill, kill]},
+     {record_name, [], [{group, record_name_dirty_access}]},
+     {record_name_dirty_access, [],
+      [record_name_dirty_access_ram,
+       record_name_dirty_access_disc,
+       record_name_dirty_access_disc_only]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -910,13 +919,6 @@ local_content(Config) when is_list(Config) ->
 
     ?verify_mnesia(Nodes, []).
 
-table_access_modifications(suite) -> 
-    [
-     change_table_access_mode,
-     change_table_load_order,
-     set_master_nodes,
-     offline_set_master_nodes
-    ].
 
 change_table_access_mode(suite) -> [];
 change_table_access_mode(Config) when is_list(Config) -> 
@@ -1103,13 +1105,6 @@ offline_set_master_nodes(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Syncronize table with log or disc
 %%
-table_sync(suite) ->
-    [
-     dump_tables,
-     dump_log,
-     wait_for_tables,
-     force_load_table
-    ].
 
 %% Dump ram tables on disc
 dump_tables(suite) -> [];
@@ -1359,19 +1354,6 @@ unsupp_user_props(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-snmp_access(doc) ->
-    ["Make Mnesia table accessible via SNMP"];
-
-snmp_access(suite) ->
-    [
-     snmp_open_table,
-     snmp_close_table,
-     snmp_get_next_index,
-     snmp_get_row,
-     snmp_get_mnesia_key,
-     snmp_update_counter,
-     snmp_order
-    ].
 
 snmp_open_table(suite) -> [];
 snmp_open_table(Config) when is_list(Config) -> 
@@ -1779,11 +1761,6 @@ get_keys(Tab, Key) ->
 
 -record(tab, {i, e1, e2}).			% Simple test table
 
-subscriptions(doc) -> 
-    ["Test the event subscription mechanism"];
-subscriptions(suite) -> 
-    [subscribe_standard,
-     subscribe_extended].
 
 subscribe_extended(doc) ->
     ["Test the extended set of events, test with and without checkpoints. "];
@@ -2009,10 +1986,6 @@ recv_event() ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-iteration(doc) ->
-    ["Verify that the iteration functions works as expected"];
-iteration(suite) ->
-    [foldl].
 
 
 foldl(suite) ->
@@ -2074,19 +2047,6 @@ sort_res(Else) ->
     Else.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-debug_support(doc) ->
-    ["Check that the debug support has not decayed."];
-debug_support(suite) ->
-    [
-     info,
-     schema_0,
-     schema_1,
-     view_0,
-     view_1,
-     view_2,
-     lkill,
-     kill
-    ].
 
 info(suite) -> [];
 info(Config) when is_list(Config) ->
@@ -2173,21 +2133,7 @@ kill(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-record_name(doc) ->
-    ["Verify that record names may be differ from the name of ",
-     "the hosting table. Check at least access, restore, "
-     "registry, subscriptions and traveres_backup"];
-record_name(suite) ->
-    [
-     record_name_dirty_access
-    ].
 
-record_name_dirty_access(suite) ->
-    [
-     record_name_dirty_access_ram,
-     record_name_dirty_access_disc,
-     record_name_dirty_access_disc_only
-    ].
 
 record_name_dirty_access_ram(suite) ->
     [];

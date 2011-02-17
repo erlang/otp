@@ -22,7 +22,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(TIMEOUT, 600000).
 
@@ -99,24 +99,30 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test payload over ssl in all socket modes, active, active_once,"
-     "and passive mode."];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [server_echos_passive_small, server_echos_active_once_small, 
-     server_echos_active_small,
-     client_echos_passive_small, client_echos_active_once_small, 
-     client_echos_active_small,
-     server_echos_passive_big, server_echos_active_once_big, 
-     server_echos_active_big,
-     client_echos_passive_big, client_echos_active_once_big, 
-     client_echos_active_big,
-     server_echos_passive_huge, server_echos_active_once_huge, 
-     server_echos_active_huge,
-     client_echos_passive_huge, client_echos_active_once_huge, 
-     client_echos_active_huge    
-    ].
+all() -> 
+    [server_echos_passive_small,
+     server_echos_active_once_small,
+     server_echos_active_small, client_echos_passive_small,
+     client_echos_active_once_small,
+     client_echos_active_small, server_echos_passive_big,
+     server_echos_active_once_big, server_echos_active_big,
+     client_echos_passive_big, client_echos_active_once_big,
+     client_echos_active_big, server_echos_passive_huge,
+     server_echos_active_once_huge, server_echos_active_huge,
+     client_echos_passive_huge,
+     client_echos_active_once_huge, client_echos_active_huge].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

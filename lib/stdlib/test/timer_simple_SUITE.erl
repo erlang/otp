@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,8 @@
 -module(timer_simple_SUITE).
 
 %% external
--export([all/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
 	 apply_after/1,
 	 send_after1/1,
@@ -49,31 +50,35 @@
 	 timer/4,
 	 timer/5]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(MAXREF, (1 bsl 18)).
 -define(REFMARG, 30).
 
-all(doc) -> "Test of the timer module.";
-all(suite) -> 
-    [apply_after,
-     send_after1,
-     send_after2,
-     send_after3,
-     exit_after1,
-     exit_after2,
-     kill_after1,
-     kill_after2,
-     apply_interval,
-     send_interval1,
-     send_interval2,
-     send_interval3,
-     send_interval4,
-     cancel1,
-     cancel2,
-     tc,
-     unique_refs,
-     timer_perf].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [apply_after, send_after1, send_after2, send_after3,
+     exit_after1, exit_after2, kill_after1, kill_after2,
+     apply_interval, send_interval1, send_interval2,
+     send_interval3, send_interval4, cancel1, cancel2, tc,
+     unique_refs, timer_perf].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_, Config) when is_list(Config) ->
     timer:start(),

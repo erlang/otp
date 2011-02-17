@@ -71,7 +71,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) parsetools.spec $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) parsetools.spec parsetools.cover $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	# @tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

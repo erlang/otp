@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,9 +18,11 @@
 %%
 -module(application_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, failover/1, failover_comp/1, permissions/1, load/1, reported_bugs/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 failover/1, failover_comp/1, permissions/1, load/1,
 	 load_use_cache/1,
 	 otp_1586/1, otp_2078/1, otp_2012/1, otp_2718/1, otp_2973/1,
 	 otp_3002/1, otp_3184/1, otp_4066/1, otp_4227/1, otp_5363/1,
@@ -30,23 +32,46 @@
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
 
 -export([config_change/1,
-	 distr_changed/1, distr_changed_tc1/1, distr_changed_tc2/1,
+	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 shutdown_func/1, do_shutdown/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
 
--export([init_per_testcase/2, fin_per_testcase/2, start_type/0, 
+-export([init_per_testcase/2, end_per_testcase/2, start_type/0, 
 	 start_phase/0, conf_change/0]).
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [failover, failover_comp, permissions, load,
-     load_use_cache, reported_bugs, 
-     start_phases, script_start, nodedown_start, 
-     permit_false_start_local, permit_false_start_dist,
-     get_key, distr_changed, config_change, shutdown_func].
+     load_use_cache, {group, reported_bugs}, start_phases,
+     script_start, nodedown_start, permit_false_start_local,
+     permit_false_start_dist, get_key,
+     {group, distr_changed}, config_change, shutdown_func].
+
+groups() -> 
+    [{reported_bugs, [],
+      [otp_1586, otp_2078, otp_2012, otp_2718, otp_2973,
+       otp_3002, otp_3184, otp_4066, otp_4227, otp_5363,
+       otp_5606]},
+     {distr_changed, [],
+      [distr_changed_tc1, distr_changed_tc2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 init_per_testcase(otp_2973=Case, Config) ->
@@ -57,12 +82,12 @@ init_per_testcase(Case, Config) ->
     ?line Dog = test_server:timetrap(?default_timeout),
     [{?TESTCASE, Case}, {watchdog, Dog}|Config].
 
-fin_per_testcase(otp_2973, Config) ->
+end_per_testcase(otp_2973, Config) ->
     code:del_path(?config(data_dir,Config)),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok;
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
@@ -932,9 +957,6 @@ nodedown_start(Conf) when is_list(Conf) ->
 %%%-----------------------------------------------------------------
 %%% Testing of reported bugs and other tickets.
 %%%-----------------------------------------------------------------
-reported_bugs(suite) -> [otp_1586, otp_2078, otp_2012, otp_2718,
-			 otp_2973, otp_3002, otp_3184, otp_4066,
-			 otp_4227, otp_5363, otp_5606].
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1586
@@ -1589,7 +1611,6 @@ get_key(Conf) when is_list(Conf) ->
 %%%-----------------------------------------------------------------
 %%% Testing of change of distributed parameter.
 %%%-----------------------------------------------------------------
-distr_changed(suite) -> [distr_changed_tc1, distr_changed_tc2].
 
 distr_changed_tc1(suite) -> [];
 distr_changed_tc1(doc) -> ["Test change of distributed parameter."];

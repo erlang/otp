@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,9 +24,9 @@
 
 
 -module(erl_client_c_server_proto_SUITE).
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([init_per_testcase/2, fin_per_testcase/2, all/1, void_test/1,
+-export([init_per_testcase/2, end_per_testcase/2,all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, void_test/1,
 	 long_test/1, longlong_test/1, ushort_test/1, ulong_test/1,
 	 ulonglong_test/1, double_test/1, char_test/1, wchar_test/1,
 	 octet_test/1, bool_test/1, struct_test/1, struct2_test/1,
@@ -57,24 +57,40 @@ init_per_testcase(_Case, Config) ->
     WatchDog = test_server:timetrap(?DEFAULT_TIMEOUT),
     [{watchdog, WatchDog}| Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     DataDir = ?config(data_dir, Config),
     code:del_path(DataDir),
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-all(doc) ->
-    "Test of IC with an Erlang client and a C server. "
-	"The communication is via Erlang distribution."; 
-all(suite) -> 
-    [void_test, long_test, longlong_test, ushort_test,
-     ulong_test, ulonglong_test, double_test,
-     char_test, wchar_test, octet_test, bool_test, struct_test,
-     struct2_test, seq1_test, seq2_test, seq3_test, seq4_test,
-     seq5_test, array1_test, array2_test, enum_test, string1_test,
-     string2_test, string3_test, string4_test, pid_test, port_test,
-     ref_test, term_test, typedef_test, inline_sequence_test,
-     term_sequence_test, term_struct_test, wstring1_test].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+[void_test, long_test, longlong_test, ushort_test,
+ ulong_test, ulonglong_test, double_test, char_test,
+ wchar_test, octet_test, bool_test, struct_test,
+ struct2_test, seq1_test, seq2_test, seq3_test,
+ seq4_test, seq5_test, array1_test, array2_test,
+ enum_test, string1_test, string2_test, string3_test,
+ string4_test, pid_test, port_test, ref_test, term_test,
+ typedef_test, inline_sequence_test, term_sequence_test,
+ term_struct_test, wstring1_test].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 array1_test(doc) -> "";

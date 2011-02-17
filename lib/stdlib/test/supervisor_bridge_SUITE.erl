@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,16 +17,37 @@
 %% %CopyrightEnd%
 %%
 -module(supervisor_bridge_SUITE).
--export([all/1,starting/1,mini_terminate/1,mini_die/1,badstart/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,starting/1,
+	 mini_terminate/1,mini_die/1,badstart/1]).
 -export([client/1,init/1,internal_loop_init/1,terminate/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(bridge_name,supervisor_bridge_SUITE_server).
 -define(work_bridge_name,work_supervisor_bridge_SUITE_server).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) -> [starting,mini_terminate,mini_die,badstart].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [starting, mini_terminate, mini_die, badstart].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

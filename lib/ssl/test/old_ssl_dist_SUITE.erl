@@ -29,27 +29,37 @@
 %%%-------------------------------------------------------------------
 -module(old_ssl_dist_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
 
 -define(AWAIT_SLL_NODE_UP_TIMEOUT, 30000).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1,
 	 end_per_suite/1,
 	 init_per_testcase/2,
-	 fin_per_testcase/2]).
+	 end_per_testcase/2]).
 -export([cnct2tstsrvr/1]).
 
 -export([basic/1]).
 
 -record(node_handle, {connection_handler, socket, name, nodename}).
 
-all(doc) ->
-    [];
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [basic].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_suite(Config) ->
     add_ssl_opts_config(Config).
@@ -61,7 +71,7 @@ init_per_testcase(Case, Config) when list(Config) ->
     Dog = ?t:timetrap(?t:seconds(?DEFAULT_TIMETRAP_SECS)),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-fin_per_testcase(_Case, Config) when list(Config) ->
+end_per_testcase(_Case, Config) when list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.

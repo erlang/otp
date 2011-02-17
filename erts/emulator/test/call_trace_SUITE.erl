@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,9 @@
 
 -module(call_trace_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 hipe/1,process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
 	 return_trace/1,exception_trace/1,on_load/1,deep_exception/1,
 	 exception_nocatch/1,bit_syntax/1]).
@@ -35,25 +37,44 @@
 -export([abbr/1,abbr/2]).
 
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(P, 20).
 
-all(suite) ->
-    Common = [errors,on_load],
-    NotHipe = [process_specs,basic,flags,pam,change_pam,return_trace,
-	       exception_trace,deep_exception,exception_nocatch,bit_syntax],
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    Common = [errors, on_load],
+    NotHipe = [process_specs, basic, flags, pam, change_pam,
+	       return_trace, exception_trace, deep_exception,
+	       exception_nocatch, bit_syntax],
     Hipe = [hipe],
-    case test_server:is_native(?MODULE) of
+    case test_server:is_native(call_trace_SUITE) of
 	true -> Hipe ++ Common;
 	false -> NotHipe ++ Common
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:seconds(30)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 

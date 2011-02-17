@@ -18,22 +18,34 @@
 %%
 -module(win32reg_SUITE).
 
--export([all/1,long/1,evil_write/1]).
--export([ostype/1,fini/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,long/1,evil_write/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [{conf,ostype,[long,evil_write],fini}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-ostype(Config) when is_list(Config) ->
+all() -> 
+    [long, evil_write].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_suite(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
 	    Config;
 	_ ->
 	    {skip,"Doesn't run on UNIX."}
     end.
-fini(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 long(doc) -> "Test long keys and entries (OTP-3446).";

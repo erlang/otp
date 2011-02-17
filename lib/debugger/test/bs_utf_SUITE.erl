@@ -21,37 +21,50 @@
 
 -module(bs_utf_SUITE).
 
--export([all/1,init_all/1,finish_all/1,
-	 init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_suite/1,end_per_suite/1,
+	 init_per_testcase/2,end_per_testcase/2,
 	 utf8_roundtrip/1,unused_utf_char/1,utf16_roundtrip/1,
 	 utf32_roundtrip/1,guard/1,extreme_tripping/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -compile([no_jopt,time]).
 
-all(suite) ->
-    [{conf,init_all,cases(),finish_all}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-cases() ->
-    [utf8_roundtrip,unused_utf_char,utf16_roundtrip,
-     utf32_roundtrip,guard,extreme_tripping].
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+cases() -> 
+    [utf8_roundtrip, unused_utf_char, utf16_roundtrip,
+     utf32_roundtrip, guard, extreme_tripping].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
-    ok.
+    Config.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     ok.
 
 utf8_roundtrip(Config) when is_list(Config) ->

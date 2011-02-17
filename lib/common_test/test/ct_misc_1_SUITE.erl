@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("test_server/include/test_server_line.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
@@ -57,13 +57,23 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) ->
-    [""];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-     beam_me_up, parse_table
-    ].
+all() -> 
+    [beam_me_up, {group,parse_table}].
+
+groups() -> 
+    [{parse_table,[parallel], 
+      [parse_table_empty, parse_table_single,
+       parse_table_multiline_row,
+       parse_table_one_column_multiline,
+       parse_table_one_column_simple]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -105,13 +115,6 @@ beam_me_up(Config) when is_list(Config) ->
 
     TestEvents = events_to_check(beam_me_up, 1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
-
-
-parse_table(suite) ->
-    [parse_table_empty, parse_table_single,
-     parse_table_multiline_row,
-     parse_table_one_column_multiline,
-     parse_table_one_column_simple].
 
 parse_table_empty(Config) when is_list(Config) ->
 

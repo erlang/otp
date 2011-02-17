@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -64,19 +64,22 @@ end_per_testcase(install_config = TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) ->
-    [""];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-     require,
-     install_config,
-     userconfig_static,
-     userconfig_dynamic,
-     testspec_legacy,
-     testspec_static,
-     testspec_dynamic
-    ].
+all() -> 
+    [require, install_config, userconfig_static,
+     userconfig_dynamic, testspec_legacy, testspec_static,
+     testspec_dynamic].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -199,74 +202,74 @@ events_to_check(Test, N) ->
     expected_events(Test) ++ events_to_check(Test, N-1).
 
 expected_events(config_static_SUITE)->
-[
- {?eh,start_logging,{'DEF','RUNDIR'}},
- {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
- {?eh,start_info,{1,1,8}},
- {?eh,tc_start,{config_static_SUITE,init_per_suite}},
- {?eh,tc_done,{config_static_SUITE,init_per_suite,ok}},
- {?eh,tc_start,{config_static_SUITE,test_get_config_simple}},
- {?eh,tc_done,{config_static_SUITE,test_get_config_simple,ok}},
- {?eh,test_stats,{1,0,{0,0}}},
- {?eh,tc_start,{config_static_SUITE,test_get_config_nested}},
- {?eh,tc_done,{config_static_SUITE,test_get_config_nested,ok}},
- {?eh,test_stats,{2,0,{0,0}}},
- {?eh,tc_start,{config_static_SUITE,test_default_suitewide}},
- {?eh,tc_done,{config_static_SUITE,test_default_suitewide,ok}},
- {?eh,test_stats,{3,0,{0,0}}},
- {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use1}},
- {?eh,tc_done,
-     {config_static_SUITE,test_config_name_already_in_use1,{skipped,{config_name_already_in_use,[x1]}}}},
- {?eh,test_stats,{3,0,{1,0}}},
- {?eh,tc_start,{config_static_SUITE,test_default_tclocal}},
- {?eh,tc_done,{config_static_SUITE,test_default_tclocal,ok}},
- {?eh,test_stats,{4,0,{1,0}}},
- {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use2}},
- {?eh,tc_done,
-     {config_static_SUITE,test_config_name_already_in_use2,
-         {skipped,{config_name_already_in_use,[x1,alias]}}}},
- {?eh,test_stats,{4,0,{2,0}}},
- {?eh,tc_start,{config_static_SUITE,test_alias_tclocal}},
- {?eh,tc_done,{config_static_SUITE,test_alias_tclocal,ok}},
- {?eh,test_stats,{5,0,{2,0}}},
- {?eh,tc_start,{config_static_SUITE,test_get_config_undefined}},
- {?eh,tc_done,{config_static_SUITE,test_get_config_undefined,ok}},
- {?eh,test_stats,{6,0,{2,0}}},
- {?eh,tc_start,{config_static_SUITE,end_per_suite}},
- {?eh,tc_done,{config_static_SUITE,end_per_suite,ok}},
- {?eh,test_done,{'DEF','STOP_TIME'}},
- {?eh,stop_logging,[]}
-];
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,8}},
+     {?eh,tc_start,{config_static_SUITE,init_per_suite}},
+     {?eh,tc_done,{config_static_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{config_static_SUITE,test_get_config_simple}},
+     {?eh,tc_done,{config_static_SUITE,test_get_config_simple,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_get_config_nested}},
+     {?eh,tc_done,{config_static_SUITE,test_get_config_nested,ok}},
+     {?eh,test_stats,{2,0,{0,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_default_suitewide}},
+     {?eh,tc_done,{config_static_SUITE,test_default_suitewide,ok}},
+     {?eh,test_stats,{3,0,{0,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use1}},
+     {?eh,tc_done,
+      {config_static_SUITE,test_config_name_already_in_use1,{skipped,{config_name_already_in_use,[x1]}}}},
+     {?eh,test_stats,{3,0,{1,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_default_tclocal}},
+     {?eh,tc_done,{config_static_SUITE,test_default_tclocal,ok}},
+     {?eh,test_stats,{4,0,{1,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use2}},
+     {?eh,tc_done,
+      {config_static_SUITE,test_config_name_already_in_use2,
+       {skipped,{config_name_already_in_use,[x1,alias]}}}},
+     {?eh,test_stats,{4,0,{2,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_alias_tclocal}},
+     {?eh,tc_done,{config_static_SUITE,test_alias_tclocal,ok}},
+     {?eh,test_stats,{5,0,{2,0}}},
+     {?eh,tc_start,{config_static_SUITE,test_get_config_undefined}},
+     {?eh,tc_done,{config_static_SUITE,test_get_config_undefined,ok}},
+     {?eh,test_stats,{6,0,{2,0}}},
+     {?eh,tc_start,{config_static_SUITE,end_per_suite}},
+     {?eh,tc_done,{config_static_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
 
 expected_events(config_dynamic_SUITE)->
-[
- {?eh,start_logging,{'DEF','RUNDIR'}},
- {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
- {?eh,start_info,{1,1,5}},
- {?eh,tc_start,{config_dynamic_SUITE,init_per_suite}},
- {?eh,tc_done,{config_dynamic_SUITE,init_per_suite,ok}},
- {?eh,tc_start,{config_dynamic_SUITE,test_get_known_variable}},
- {?eh,tc_done,
-                     {config_dynamic_SUITE,test_get_known_variable,ok}},
- {?eh,test_stats,{1,0,{0,0}}},
- {?eh,tc_start,{config_dynamic_SUITE,test_localtime_update}},
- {?eh,tc_done,{config_dynamic_SUITE,test_localtime_update,ok}},
- {?eh,test_stats,{2,0,{0,0}}},
- {?eh,tc_start,{config_dynamic_SUITE,test_server_pid}},
- {?eh,tc_done,{config_dynamic_SUITE,test_server_pid,ok}},
- {?eh,test_stats,{3,0,{0,0}}},
- {?eh,tc_start,
-                     {config_dynamic_SUITE,test_disappearable_variable}},
- {?eh,tc_done,
-                     {config_dynamic_SUITE,test_disappearable_variable,ok}},
- {?eh,test_stats,{4,0,{0,0}}},
- {?eh,tc_start,
-                     {config_dynamic_SUITE,test_disappearable_variable_alias}},
- {?eh,tc_done,
-     {config_dynamic_SUITE,test_disappearable_variable_alias,ok}},
- {?eh,test_stats,{5,0,{0,0}}},
- {?eh,tc_start,{config_dynamic_SUITE,end_per_suite}},
- {?eh,tc_done,{config_dynamic_SUITE,end_per_suite,ok}},
- {?eh,test_done,{'DEF','STOP_TIME'}},
- {?eh,stop_logging,[]}
-].
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,5}},
+     {?eh,tc_start,{config_dynamic_SUITE,init_per_suite}},
+     {?eh,tc_done,{config_dynamic_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{config_dynamic_SUITE,test_get_known_variable}},
+     {?eh,tc_done,
+      {config_dynamic_SUITE,test_get_known_variable,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     {?eh,tc_start,{config_dynamic_SUITE,test_localtime_update}},
+     {?eh,tc_done,{config_dynamic_SUITE,test_localtime_update,ok}},
+     {?eh,test_stats,{2,0,{0,0}}},
+     {?eh,tc_start,{config_dynamic_SUITE,test_server_pid}},
+     {?eh,tc_done,{config_dynamic_SUITE,test_server_pid,ok}},
+     {?eh,test_stats,{3,0,{0,0}}},
+     {?eh,tc_start,
+      {config_dynamic_SUITE,test_disappearable_variable}},
+     {?eh,tc_done,
+      {config_dynamic_SUITE,test_disappearable_variable,ok}},
+     {?eh,test_stats,{4,0,{0,0}}},
+     {?eh,tc_start,
+      {config_dynamic_SUITE,test_disappearable_variable_alias}},
+     {?eh,tc_done,
+      {config_dynamic_SUITE,test_disappearable_variable_alias,ok}},
+     {?eh,test_stats,{5,0,{0,0}}},
+     {?eh,tc_start,{config_dynamic_SUITE,end_per_suite}},
+     {?eh,tc_done,{config_dynamic_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].

@@ -153,7 +153,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) compiler.dynspec compiler.cover \
+	$(INSTALL_DATA) compiler.spec compiler.cover \
 		$(EMAKEFILE) $(ERL_FILES) $(CORE_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
 		$(INLINE_ERL_FILES) $(RELSYSDIR)

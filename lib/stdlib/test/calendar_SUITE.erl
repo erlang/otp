@@ -18,9 +18,10 @@
 %%
 -module(calendar_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
 	 gregorian_days/1,
 	 gregorian_seconds/1,
 	 day_of_the_week/1,
@@ -32,15 +33,28 @@
 -define(START_YEAR, 1947).			
 -define(END_YEAR, 2012).
 
-all(suite) -> [gregorian_days,
-	       gregorian_seconds,
-	       day_of_the_week,
-	       day_of_the_week_calibrate,
-	       leap_years,
-	       last_day_of_the_month,
-	       local_time_to_universal_time_dst];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(doc) -> "This is the test suite for calendar.erl".
+all() -> 
+    [gregorian_days, gregorian_seconds, day_of_the_week,
+     day_of_the_week_calibrate, leap_years,
+     last_day_of_the_month, local_time_to_universal_time_dst].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 gregorian_days(doc) ->
     "Tests that date_to_gregorian_days and gregorian_days_to_date "

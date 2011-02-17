@@ -23,7 +23,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(BYTE(X),     X:8/unsigned-big-integer).
 -define(UINT16(X),   X:16/unsigned-big-integer).
@@ -118,56 +118,56 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test that erlang:decode_packet/3 seems to be handled correctly."
-     "We only use the most basic packet types in our tests as testing of"
-     "the packet types are for inet to verify"
-    ];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [packet_raw_passive_many_small, 
-     packet_0_passive_many_small, packet_1_passive_many_small,
-     packet_2_passive_many_small, packet_4_passive_many_small, 
-     packet_raw_passive_some_big, packet_0_passive_some_big, 
-     packet_1_passive_some_big,
-     packet_2_passive_some_big, packet_4_passive_some_big, 
-     packet_raw_active_once_many_small, 
-     packet_0_active_once_many_small, packet_1_active_once_many_small,
-     packet_2_active_once_many_small, packet_4_active_once_many_small,
-     packet_raw_active_once_some_big, 
-     packet_0_active_once_some_big, packet_1_active_once_some_big,
-     packet_2_active_once_some_big, packet_4_active_once_some_big,
-     packet_raw_active_many_small, packet_0_active_many_small, 
-     packet_1_active_many_small,
+all() -> 
+    [packet_raw_passive_many_small,
+     packet_0_passive_many_small,
+     packet_1_passive_many_small,
+     packet_2_passive_many_small,
+     packet_4_passive_many_small,
+     packet_raw_passive_some_big, packet_0_passive_some_big,
+     packet_1_passive_some_big, packet_2_passive_some_big,
+     packet_4_passive_some_big,
+     packet_raw_active_once_many_small,
+     packet_0_active_once_many_small,
+     packet_1_active_once_many_small,
+     packet_2_active_once_many_small,
+     packet_4_active_once_many_small,
+     packet_raw_active_once_some_big,
+     packet_0_active_once_some_big,
+     packet_1_active_once_some_big,
+     packet_2_active_once_some_big,
+     packet_4_active_once_some_big,
+     packet_raw_active_many_small,
+     packet_0_active_many_small, packet_1_active_many_small,
      packet_2_active_many_small, packet_4_active_many_small,
-     packet_raw_active_some_big, packet_0_active_some_big, 
-     packet_1_active_some_big, packet_2_active_some_big, 
-     packet_4_active_some_big,
-     packet_send_to_large,
+     packet_raw_active_some_big, packet_0_active_some_big,
+     packet_1_active_some_big, packet_2_active_some_big,
+     packet_4_active_some_big, packet_send_to_large,
      packet_wait_passive, packet_wait_active,
      packet_baddata_passive, packet_baddata_active,
      packet_size_passive, packet_size_active,
-     packet_cdr_decode,
-     packet_cdr_decode_list,
-     packet_http_decode,
-     packet_http_decode_list,
-     packet_http_bin_decode_multi,
-     packet_http_error_passive,
-     packet_line_decode,
-     packet_line_decode_list,
-     packet_asn1_decode, 
-     packet_asn1_decode_list,
-     packet_tpkt_decode,
-     packet_tpkt_decode_list,
-     %packet_fcgi_decode,
-     packet_sunrm_decode,
-     packet_sunrm_decode_list,
-     header_decode_one_byte,
-     header_decode_two_bytes,
+     packet_cdr_decode, packet_cdr_decode_list,
+     packet_http_decode, packet_http_decode_list,
+     packet_http_bin_decode_multi, packet_http_error_passive,
+     packet_line_decode, packet_line_decode_list,
+     packet_asn1_decode, packet_asn1_decode_list,
+     packet_tpkt_decode, packet_tpkt_decode_list,
+     packet_sunrm_decode, packet_sunrm_decode_list,
+     header_decode_one_byte, header_decode_two_bytes,
      header_decode_two_bytes_one_sent,
-     header_decode_two_bytes_two_sent
+     header_decode_two_bytes_two_sent].
 
-    ].
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

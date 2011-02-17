@@ -80,7 +80,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) observer.spec observer.dynspec $(EMAKEFILE) \
+	$(INSTALL_DATA) observer.spec $(EMAKEFILE) \
 		$(COVERFILE) $(ERL_FILES) \
 		$(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)

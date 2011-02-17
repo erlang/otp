@@ -29,49 +29,40 @@
 -module(inviso_SUITE).
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(l,?line).
 
-all(suite) ->
-    [
-     basic_dist_trace_1,
-     basic_dist_trace_2,
-     basic_dist_trace_3,
-     basic_dist_trace_ti_1,
-     basic_dist_trace_ti_2,
-     basic_dist_trace_ti_3,
-     suspend_dist_trace_ti_1,
-     suspend_dist_trace_ti_2,
-     meta_cleanfunc_dist_1,
-     basic_handlerfun_dist_1,
-     delete_log_dist_1,
-     autostart_dist_1,
-     autostart_dist_2,
-     autostart_dist_3,
-     running_alone_dist_1,
-     running_alone_dist_2,
-     running_alone_dist_3,
-     running_alone_dist_4,
-     running_alone_dist_5,
-     overload_dist_1,
-     overload_dist_2,
-     overload_dist_3,
-     overload_dist_4,
-     overload_dist_5,
-     subscribe_dist_1,
-     lfm_trace_dist_1,
-     lfm_trace_ti_dist_2,
-     handle_logfile_sort_wrapset,
-     fetch_log_dist_trace_1,
-     fetch_log_dist_trace_2,
-     fetch_log_dist_trace_3,
-     fetch_log_dist_error_1,
-     fetch_log_dist_error_2,
-     expand_regexp_dist_1,
-     only_loaded_dist_1
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [basic_dist_trace_1, basic_dist_trace_2,
+     basic_dist_trace_3, basic_dist_trace_ti_1,
+     basic_dist_trace_ti_2, basic_dist_trace_ti_3,
+     suspend_dist_trace_ti_1, suspend_dist_trace_ti_2,
+     meta_cleanfunc_dist_1, basic_handlerfun_dist_1,
+     delete_log_dist_1, autostart_dist_1, autostart_dist_2,
+     autostart_dist_3, running_alone_dist_1,
+     running_alone_dist_2, running_alone_dist_3,
+     running_alone_dist_4, running_alone_dist_5,
+     overload_dist_1, overload_dist_2, overload_dist_3,
+     overload_dist_4, overload_dist_5, subscribe_dist_1,
+     lfm_trace_dist_1, lfm_trace_ti_dist_2,
+     handle_logfile_sort_wrapset, fetch_log_dist_trace_1,
+     fetch_log_dist_trace_2, fetch_log_dist_trace_3,
+     fetch_log_dist_error_1, fetch_log_dist_error_2,
+     expand_regexp_dist_1, only_loaded_dist_1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 init_per_suite(Config) ->
@@ -133,7 +124,7 @@ init_per_testcase(_Case,Config) ->
     insert_timetraphandle_config(TH,NewConfig2).
 %% -----------------------------------------------------------------------------
 
-fin_per_testcase(Case,Config) ->
+end_per_testcase(Case,Config) ->
     ?l test_server:stop_node(get_remotenode_config(inviso1,Config)),
     ?l test_server:stop_node(get_remotenode_config(inviso2,Config)),
 
@@ -142,14 +133,14 @@ fin_per_testcase(Case,Config) ->
 	    true;
 	Pid when is_pid(Pid) ->                 % But if it exists...
 	    exit(Pid,kill),                  % Remove it!
-	    io:format("Had to kill the control component in fin_per_testcase,~p.~n",[Case])
+	    io:format("Had to kill the control component in end_per_testcase,~p.~n",[Case])
     end,
     case whereis(inviso_rt) of
 	undefined ->                         % Should not exist.
 	    true;
 	Pid2 when is_pid(Pid2) ->               % But if it exists...
 	    exit(Pid2,kill),                 % Remove it!
-	    io:format("Had to kill local runtime component in fin_per_testcase,~p.~n",[Case])
+	    io:format("Had to kill local runtime component in end_per_testcase,~p.~n",[Case])
     end,
     ?l process_killer([inviso_test_proc,
 		       inviso_tab_proc,

@@ -20,27 +20,16 @@
 
 -module(httpd_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("test_server_line.hrl").
 -include("inets_test_lib.hrl").
 
 -include_lib("kernel/include/file.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).
-
-%% Test cases must be exported.
--export([
-	 ip/1, 
-	 ssl/1, pssl/1, ossl/1, essl/1, 
-	 http_1_1_ip/1, 
-	 http_1_0_ip/1, 
-	 http_0_9_ip/1,
-	 ipv6/1, 
-	 tickets/1
-	]).
 
 %% Core Server tests
 -export([
@@ -249,19 +238,109 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test the http server in the intes application."];
-all(suite) ->
-    [
-     ip, 
-     ssl, 
-     http_1_1_ip, 
-     http_1_0_ip, 
-     http_0_9_ip, 
-     %% ipv6, 
-     tickets
-    ].
- 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, ip}, {group, ssl}, {group, http_1_1_ip},
+     {group, http_1_0_ip}, {group, http_0_9_ip},
+     {group, tickets}].
+
+groups() -> 
+    [{ip, [],
+      [ip_mod_alias, ip_mod_actions, ip_mod_security,
+       ip_mod_auth, ip_mod_auth_api, ip_mod_auth_mnesia_api,
+       ip_mod_htaccess, ip_mod_cgi, ip_mod_esi, ip_mod_get,
+       ip_mod_head, ip_mod_all, ip_load_light, ip_load_medium,
+       ip_load_heavy, ip_dos_hostname, ip_time_test,
+       ip_restart_no_block, ip_restart_disturbing_block,
+       ip_restart_non_disturbing_block,
+       ip_block_disturbing_idle, ip_block_non_disturbing_idle,
+       ip_block_503, ip_block_disturbing_active,
+       ip_block_non_disturbing_active,
+       ip_block_disturbing_active_timeout_not_released,
+       ip_block_disturbing_active_timeout_released,
+       ip_block_non_disturbing_active_timeout_not_released,
+       ip_block_non_disturbing_active_timeout_released,
+       ip_block_disturbing_blocker_dies,
+       ip_block_non_disturbing_blocker_dies]},
+     {ssl, [],
+      [{group, pssl}, {group, ossl}, {group, essl}]},
+     {pssl, [],
+      [pssl_mod_alias, pssl_mod_actions, pssl_mod_security,
+       pssl_mod_auth, pssl_mod_auth_api,
+       pssl_mod_auth_mnesia_api, pssl_mod_htaccess,
+       pssl_mod_cgi, pssl_mod_esi, pssl_mod_get, pssl_mod_head,
+       pssl_mod_all, pssl_load_light, pssl_load_medium,
+       pssl_load_heavy, pssl_dos_hostname, pssl_time_test,
+       pssl_restart_no_block, pssl_restart_disturbing_block,
+       pssl_restart_non_disturbing_block,
+       pssl_block_disturbing_idle,
+       pssl_block_non_disturbing_idle, pssl_block_503,
+       pssl_block_disturbing_active,
+       pssl_block_non_disturbing_active,
+       pssl_block_disturbing_active_timeout_not_released,
+       pssl_block_disturbing_active_timeout_released,
+       pssl_block_non_disturbing_active_timeout_not_released,
+       pssl_block_non_disturbing_active_timeout_released,
+       pssl_block_disturbing_blocker_dies,
+       pssl_block_non_disturbing_blocker_dies]},
+     {ossl, [],
+      [ossl_mod_alias, ossl_mod_actions, ossl_mod_security,
+       ossl_mod_auth, ossl_mod_auth_api,
+       ossl_mod_auth_mnesia_api, ossl_mod_htaccess,
+       ossl_mod_cgi, ossl_mod_esi, ossl_mod_get, ossl_mod_head,
+       ossl_mod_all, ossl_load_light, ossl_load_medium,
+       ossl_load_heavy, ossl_dos_hostname, ossl_time_test,
+       ossl_restart_no_block, ossl_restart_disturbing_block,
+       ossl_restart_non_disturbing_block,
+       ossl_block_disturbing_idle,
+       ossl_block_non_disturbing_idle, ossl_block_503,
+       ossl_block_disturbing_active,
+       ossl_block_non_disturbing_active,
+       ossl_block_disturbing_active_timeout_not_released,
+       ossl_block_disturbing_active_timeout_released,
+       ossl_block_non_disturbing_active_timeout_not_released,
+       ossl_block_non_disturbing_active_timeout_released,
+       ossl_block_disturbing_blocker_dies,
+       ossl_block_non_disturbing_blocker_dies]},
+     {essl, [],
+      [essl_mod_alias, essl_mod_actions, essl_mod_security,
+       essl_mod_auth, essl_mod_auth_api,
+       essl_mod_auth_mnesia_api, essl_mod_htaccess,
+       essl_mod_cgi, essl_mod_esi, essl_mod_get, essl_mod_head,
+       essl_mod_all, essl_load_light, essl_load_medium,
+       essl_load_heavy, essl_dos_hostname, essl_time_test,
+       essl_restart_no_block, essl_restart_disturbing_block,
+       essl_restart_non_disturbing_block,
+       essl_block_disturbing_idle,
+       essl_block_non_disturbing_idle, essl_block_503,
+       essl_block_disturbing_active,
+       essl_block_non_disturbing_active,
+       essl_block_disturbing_active_timeout_not_released,
+       essl_block_disturbing_active_timeout_released,
+       essl_block_non_disturbing_active_timeout_not_released,
+       essl_block_non_disturbing_active_timeout_released,
+       essl_block_disturbing_blocker_dies,
+       essl_block_non_disturbing_blocker_dies]},
+     {http_1_1_ip, [],
+      [ip_host, ip_chunked, ip_expect, ip_range, ip_if_test,
+       ip_http_trace, ip_http1_1_head,
+       ip_mod_cgi_chunked_encoding_test]},
+     {http_1_0_ip, [],
+      [ip_head_1_0, ip_get_1_0, ip_post_1_0]},
+     {http_0_9_ip, [], [ip_get_0_9]},
+     {ipv6, [], [ipv6_hostname, ipv6_address]},
+     {tickets, [],
+      [ticket_5775, ticket_5865, ticket_5913, ticket_6003,
+       ticket_7304]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
 %% Config - [tuple()]
@@ -615,219 +694,23 @@ end_per_testcase2(Case, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-ip(doc) ->
-    ["HTTP tests using TCP/IP"];
-ip(suite) ->
-    [
-     ip_mod_alias, 
-     ip_mod_actions, 
-     ip_mod_security, 
-     ip_mod_auth,
-     ip_mod_auth_api, 
-     ip_mod_auth_mnesia_api,
-     ip_mod_htaccess, 
-     ip_mod_cgi, 
-     ip_mod_esi, 
-     ip_mod_get,
-     ip_mod_head, 
-     ip_mod_all, 
-     ip_load_light, 
-     ip_load_medium, 
-     ip_load_heavy,
-     ip_dos_hostname, 
-     ip_time_test, 
-     ip_restart_no_block, 
-     ip_restart_disturbing_block, 
-     ip_restart_non_disturbing_block, 
-     ip_block_disturbing_idle, 
-     ip_block_non_disturbing_idle, 
-     ip_block_503, 
-     ip_block_disturbing_active, 
-     ip_block_non_disturbing_active, 
-     ip_block_disturbing_active_timeout_not_released, 
-     ip_block_disturbing_active_timeout_released, 
-     ip_block_non_disturbing_active_timeout_not_released, 
-     ip_block_non_disturbing_active_timeout_released, 
-     ip_block_disturbing_blocker_dies, 
-     ip_block_non_disturbing_blocker_dies
-    ].
 
 %%-------------------------------------------------------------------------
-ssl(doc) ->
-    ["HTTP test using SSL"];
-ssl(suite) ->
-    [
-     pssl, 
-     ossl, 
-     essl
-    ].
 
 
-pssl(doc) ->
-    ["HTTP test using SSL - using old way of configuring SSL"];
-pssl(suite) ->
-    [
-     pssl_mod_alias, 
-     pssl_mod_actions, 
-     pssl_mod_security, 
-     pssl_mod_auth,
-     pssl_mod_auth_api, 
-     pssl_mod_auth_mnesia_api,
-     pssl_mod_htaccess, 
-     pssl_mod_cgi, 
-     pssl_mod_esi,
-     pssl_mod_get, 
-     pssl_mod_head, 
-     pssl_mod_all, 
-     pssl_load_light, 
-     pssl_load_medium,
-     pssl_load_heavy, 
-     pssl_dos_hostname, 
-     pssl_time_test,
-     pssl_restart_no_block, 
-     pssl_restart_disturbing_block,
-     pssl_restart_non_disturbing_block, 
-     pssl_block_disturbing_idle, 
-     pssl_block_non_disturbing_idle, 
-     pssl_block_503,
-     pssl_block_disturbing_active, 
-     pssl_block_non_disturbing_active, 
-     pssl_block_disturbing_active_timeout_not_released, 
-     pssl_block_disturbing_active_timeout_released, 
-     pssl_block_non_disturbing_active_timeout_not_released, 
-     pssl_block_non_disturbing_active_timeout_released, 
-     pssl_block_disturbing_blocker_dies,
-     pssl_block_non_disturbing_blocker_dies
-    ].
 
-ossl(doc) ->
-    ["HTTP test using SSL - using new way of configuring usage of old SSL"];
-ossl(suite) ->
-    [
-     ossl_mod_alias, 
-     ossl_mod_actions, 
-     ossl_mod_security,  
-     ossl_mod_auth,
-     ossl_mod_auth_api, 
-     ossl_mod_auth_mnesia_api,
-     ossl_mod_htaccess, 
-     ossl_mod_cgi, 
-     ossl_mod_esi,
-     ossl_mod_get, 
-     ossl_mod_head, 
-     ossl_mod_all, 
-     ossl_load_light, 
-     ossl_load_medium,
-     ossl_load_heavy, 
-     ossl_dos_hostname, 
-     ossl_time_test,
-     ossl_restart_no_block, 
-     ossl_restart_disturbing_block,
-     ossl_restart_non_disturbing_block, 
-     ossl_block_disturbing_idle, 
-     ossl_block_non_disturbing_idle, 
-     ossl_block_503,
-     ossl_block_disturbing_active, 
-     ossl_block_non_disturbing_active, 
-     ossl_block_disturbing_active_timeout_not_released, 
-     ossl_block_disturbing_active_timeout_released, 
-     ossl_block_non_disturbing_active_timeout_not_released, 
-     ossl_block_non_disturbing_active_timeout_released, 
-     ossl_block_disturbing_blocker_dies,
-     ossl_block_non_disturbing_blocker_dies
-    ].
 
-essl(doc) ->
-    ["HTTP test using SSL - using new way of configuring usage of new SSL"];
-essl(suite) ->
-    [
-     essl_mod_alias, 
-     essl_mod_actions, 
-     essl_mod_security, 
-     essl_mod_auth,
-     essl_mod_auth_api, 
-     essl_mod_auth_mnesia_api,
-     essl_mod_htaccess, 
-     essl_mod_cgi, 
-     essl_mod_esi,
-     essl_mod_get, 
-     essl_mod_head, 
-     essl_mod_all, 
-     essl_load_light, 
-     essl_load_medium,
-     essl_load_heavy, 
-     essl_dos_hostname, 
-     essl_time_test,
-     essl_restart_no_block, 
-     essl_restart_disturbing_block,
-     essl_restart_non_disturbing_block, 
-     essl_block_disturbing_idle, 
-     essl_block_non_disturbing_idle, 
-     essl_block_503,
-     essl_block_disturbing_active, 
-     essl_block_non_disturbing_active, 
-     essl_block_disturbing_active_timeout_not_released, 
-     essl_block_disturbing_active_timeout_released, 
-     essl_block_non_disturbing_active_timeout_not_released, 
-     essl_block_non_disturbing_active_timeout_released, 
-     essl_block_disturbing_blocker_dies,
-     essl_block_non_disturbing_blocker_dies
-    ].
 
 
 %%-------------------------------------------------------------------------
-http_1_1_ip(doc) ->
-    ["HTTP/1.1"];
-http_1_1_ip(suite) ->
-    [
-     ip_host, 
-     ip_chunked, 
-     ip_expect, 
-     ip_range, 
-     ip_if_test, 
-     ip_http_trace,
-     ip_http1_1_head, 
-     ip_mod_cgi_chunked_encoding_test
-    ].
 
 %%-------------------------------------------------------------------------
-http_1_0_ip(doc) ->
-    ["HTTP/1.0"];
-http_1_0_ip(suite) ->
-    [
-     ip_head_1_0, 
-     ip_get_1_0, 
-     ip_post_1_0
-    ].
 
 %%-------------------------------------------------------------------------
-http_0_9_ip(doc) ->
-    ["HTTP/0.9"];
-http_0_9_ip(suite) ->
-    [
-     ip_get_0_9
-    ].
 
 %%-------------------------------------------------------------------------
-ipv6(doc) ->
-    ["Tests ipv6 functionality."];
-ipv6(suite) ->
-    [
-     ipv6_hostname, 
-     ipv6_address
-    ].
 
 %%-------------------------------------------------------------------------
-tickets(doc) ->
-    ["Test cases for reported bugs."];
-tickets(suite) ->
-    [
-     ticket_5775, 
-     ticket_5865, 
-     ticket_5913, 
-     ticket_6003, 
-     ticket_7304
-    ].
 
 %%-------------------------------------------------------------------------
 ip_mod_alias(doc) -> 

@@ -1,2 +1,1 @@
-{topcase, {dir, "../reltool_test"}}.
-
+{suites,"../reltool_test",all}.

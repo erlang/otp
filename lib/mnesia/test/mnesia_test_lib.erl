@@ -130,7 +130,7 @@
 	 doc/1,
 	 struct/1,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 kill_tc/2	
 	]).
 
@@ -144,7 +144,7 @@ init_per_testcase(_Func, Config) ->
     global:register_name(mnesia_global_logger, group_leader()),
     Config.
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     global:unregister_name(mnesia_global_logger),
     %% Nodes = select_nodes(all, Config, ?FILE, ?LINE),
     %% rpc:multicall(Nodes, mnesia, lkill, []),
@@ -492,19 +492,19 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
 	{'EXIT', Pid, {skipped, Reason}} ->
 	    log("<WARNING> Test case ~w skipped, because ~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:fin_per_testcase(Fun, Config),
+	    Mod:end_per_testcase(Fun, Config),
 	    {skip, {Mod, Fun}, Reason};
 	{'EXIT', Pid, Reason} ->
 	    log("<>ERROR<> Eval process ~w exited, because ~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:fin_per_testcase(Fun, Config),
+	    Mod:end_per_testcase(Fun, Config),
 	    {crash, {Mod, Fun}, Reason}
     end.
 
 test_case_evaluator(Mod, Fun, [Config]) ->
     NewConfig = Mod:init_per_testcase(Fun, Config),
     R = apply(Mod, Fun, [NewConfig]),
-    Mod:fin_per_testcase(Fun, NewConfig),
+    Mod:end_per_testcase(Fun, NewConfig),
     exit({test_case_ok, R}).
 
 activity_evaluator(Coordinator) ->

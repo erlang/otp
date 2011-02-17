@@ -1,19 +1,21 @@
-% ``The contents of this file are subject to the Erlang Public License,
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
-%% retrieved via the world wide web at http://www.erlang.org/.
-%% 
+%% retrieved online at http://www.erlang.org/.
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
-%% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
-%% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
-%% AB. All Rights Reserved.''
-%% 
-%%     $Id$
+%%
+%% %CopyrightEnd%
+%%
 %%
 %% Description:
 %% Test suite for the inviso_tool. It is here assumed that inviso works
@@ -26,20 +28,27 @@
 -module(inviso_tool_SUITE).
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(l,?line).
 
-all(suite) ->
-    [
-     dist_basic_1,
-     dist_rtc,
-     dist_reconnect,
-     dist_adopt,
-     dist_history,
-     dist_start_session_special
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [dist_basic_1, dist_rtc, dist_reconnect, dist_adopt,
+     dist_history, dist_start_session_special].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 %% -----------------------------------------------------------------------------
 
 init_per_suite(Config) ->
@@ -89,7 +98,7 @@ init_per_testcase(_Case,Config) ->
     insert_timetraphandle_config(TH,NewConfig2).
 %% -----------------------------------------------------------------------------
 
-fin_per_testcase(_Case,Config) ->
+end_per_testcase(_Case,Config) ->
     ?l test_server:stop_node(get_remotenode_config(inviso1,Config)),
     ?l test_server:stop_node(get_remotenode_config(inviso2,Config)),
     ?l test_server:timetrap_cancel(get_timetraphandle_config(Config)),
@@ -220,6 +229,10 @@ dist_basic_1(Config) when list(Config) ->
 		     Nodes),
     %% Start a test process at every node with a runtime component.
     ?l lists:foreach(fun(N)->spawn(N,?MODULE,test_proc_init,[]) end,Nodes),
+
+    %% Let the processes start
+    timer:sleep(100),
+
     %% Find the pids of the test processes.
     ?l TestProcs=lists:map(fun(N)->rpc:call(N,erlang,whereis,[inviso_tool_test_proc]) end,
 			   Nodes),
@@ -500,6 +513,10 @@ dist_rtc(Config) when is_list(Config) ->
 		     Nodes),
     %% Start a test process at every node with a runtime component.
     ?l lists:foreach(fun(N)->spawn(N,?MODULE,test_proc_init,[]) end,Nodes),
+
+    %% Let the processes start
+    timer:sleep(100),
+
     %% Find the pids of the test processes.
     ?l TestProcs=lists:map(fun(N)->rpc:call(N,erlang,whereis,[inviso_tool_test_proc]) end,
 			   Nodes),
@@ -553,6 +570,10 @@ dist_reconnect(Config) when list(Config) ->
     ?l start_inviso_tool_session(CNode,[],1,Nodes),
     %% Start a test process at every node with a runtime component.
     ?l lists:foreach(fun(N)->spawn(N,?MODULE,test_proc_init,[]) end,Nodes),
+
+    %% Let the processes start
+    timer:sleep(100),
+    
     %% Find the pids of the test processes.
     ?l TestProcs=lists:map(fun(N)->rpc:call(N,erlang,whereis,[inviso_tool_test_proc]) end,
 			   Nodes),

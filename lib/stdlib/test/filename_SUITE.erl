@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(filename_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([absname/1, absname_2/1, 
 	 basename_1/1, basename_2/1,
 	 dirname/1, extension/1, join/1, t_nativename/1]).
@@ -26,15 +27,34 @@
 	 basename_bin_1/1, basename_bin_2/1,
 	 dirname_bin/1, extension_bin/1, join_bin/1]).
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
--include("test_server.hrl").
 
-all(suite) ->
+-include_lib("test_server/include/test_server.hrl").
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [absname, absname_2, basename_1, basename_2, dirname,
      extension,
      join, pathtype, rootname, split, t_nativename, find_src,
      absname_bin, absname_bin_2, basename_bin_1, basename_bin_2, dirname_bin,
      extension_bin,
      join_bin, pathtype_bin, rootname_bin, split_bin].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

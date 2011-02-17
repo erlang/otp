@@ -34,6 +34,7 @@ RELSYSDIR = $(RELEASE_PATH)/orber_test
 # Target Specs
 # ----------------------------------------------------
 TEST_SPEC_FILE = orber.spec
+COVER_FILE = orber.cover
 
 
 IDL_FILES = \
@@ -222,7 +223,7 @@ release_docs_spec:
 
 release_tests_spec: tests
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(IDL_FILES)  $(TEST_SPEC_FILE) \
+	$(INSTALL_DATA) $(IDL_FILES)  $(TEST_SPEC_FILE) $(COVER_FILE) \
 		$(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(SUITE_TARGET_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)

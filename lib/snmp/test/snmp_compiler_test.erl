@@ -28,7 +28,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 
@@ -37,15 +37,15 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
 
 	 description/1,
 	 oid_conflicts/1,
 	 imports/1,
 	 module_identity/1,
 
-	 tickets/1,
+	
 	 otp_6150/1,
 	 otp_8574/1, 
 	 otp_8595/1
@@ -80,7 +80,7 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     ?line ok = file:make_dir(CompDir),
     [{comp_dir, CompDir},{mib_dir, MibDir}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     CompDir = ?config(comp_dir, Config),
     ?line ok = ?DEL_DIR(CompDir),
     lists:keydelete(comp_dir, 1, Config).
@@ -90,21 +90,20 @@ fin_per_testcase(_Case, Config) when is_list(Config) ->
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
-    [
-     description,
-     oid_conflicts,
-     imports,
-     module_identity,
-     tickets
-    ].
+all() -> 
+[description, oid_conflicts, imports, module_identity,
+ {group, tickets}].
 
-tickets(suite) ->
-    [
-     otp_6150,
-     otp_8574,
-     otp_8595
-    ].
+groups() -> 
+    [{tickets, [], [otp_6150, otp_8574, otp_8595]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 
 %%======================================================================

@@ -1,1 +1,1 @@
-{topcase, {dir, "../ssl_test"}}.
+{suites,"../ssl_test",all}.

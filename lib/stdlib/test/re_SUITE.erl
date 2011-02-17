@@ -18,12 +18,41 @@
 %%
 -module(re_SUITE).
 
--export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1,pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, pcre/1,compile_options/1,
+	 run_options/1,combined_options/1,replace_autogen/1,
+	 global_capture/1,replace_input_types/1,replace_return/1,
+	 split_autogen/1,split_options/1,split_specials/1,
+	 error_handling/1,pcre_cve_2008_2371/1,
+	 pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371,pcre_compile_workspace_overflow,re_infinite_loop].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [pcre, compile_options, run_options, combined_options,
+     replace_autogen, global_capture, replace_input_types,
+     replace_return, split_autogen, split_options,
+     split_specials, error_handling, pcre_cve_2008_2371,
+     pcre_compile_workspace_overflow, re_infinite_loop].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 pcre(doc) ->
     ["Run all applicable tests from the PCRE testsuites."];

@@ -21,19 +21,36 @@
 
 -module(bs_bincomp_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,
 	 extended_bit_aligned/1,mixed/1,filters/1,trim_coverage/1,
 	 nomatch/1,sizes/1,tail/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [byte_aligned,bit_aligned,extended_byte_aligned,
-     extended_bit_aligned,mixed,filters,trim_coverage,
-     nomatch,sizes,tail].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
+all() -> 
+    test_lib:recompile(bs_bincomp_SUITE),
+    [byte_aligned, bit_aligned, extended_byte_aligned,
+     extended_bit_aligned, mixed, filters, trim_coverage,
+     nomatch, sizes, tail].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 byte_aligned(Config) when is_list(Config) ->
     cs_init(),

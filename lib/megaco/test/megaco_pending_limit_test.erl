@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,22 +26,16 @@
 -module(megaco_pending_limit_test).
 
 -export([t/0, t/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
--export([all/1,
-
-	 sent/1,
+-export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 sent_timer_late_reply/1,
 	 sent_timer_exceeded/1,
 	 sent_timer_exceeded_long/1,
 	 sent_resend_late_reply/1,
 	 sent_resend_exceeded/1,
 	 sent_resend_exceeded_long/1,
-
-	 recv/1,
 	 recv_limit_exceeded1/1,
 	 recv_limit_exceeded2/1,
-
-	 tickets/1,
 	 otp_4956/1,
 	 otp_5310/1,
 	 otp_5619/1
@@ -139,45 +133,29 @@ init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    [
-     sent,
-     recv,
-     
-     %% Tickets last 
-     tickets
-    ].
+all() -> 
+    [{group, sent}, {group, recv}, {group, tickets}].
 
-sent(suite) ->
-    [
-     sent_timer_late_reply,
-     sent_timer_exceeded,
-     sent_timer_exceeded_long,
-     sent_resend_late_reply,
-     sent_resend_exceeded,
-     sent_resend_exceeded_long
-     
-    ].
+groups() -> 
+    [{sent, [],
+      [sent_timer_late_reply, sent_timer_exceeded,
+       sent_timer_exceeded_long, sent_resend_late_reply,
+       sent_resend_exceeded, sent_resend_exceeded_long]},
+     {recv, [],
+      [recv_limit_exceeded1, recv_limit_exceeded2]},
+     {tickets, [], [otp_4956, otp_5310, otp_5619]}].
 
-recv(suite) ->
-    [
-     recv_limit_exceeded1,
-     recv_limit_exceeded2
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
 
-tickets(suite) ->
-    [
-     otp_4956,
-     otp_5310,
-     otp_5619
-    ].
-
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%                                                                   %%%

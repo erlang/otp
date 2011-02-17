@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,78 +95,49 @@ init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    [
-     ack,
-     trans_req,
-     trans_req_and_ack,
-     pending,
-     reply,
+all() -> 
+    [{group, ack}, {group, trans_req},
+     {group, trans_req_and_ack}, {group, pending},
+     {group, reply}, {group, tickets}].
 
-     tickets
-    ].
+groups() -> 
+    [{ack, [],
+      [single_ack, multi_ack_timeout, multi_ack_maxcount]},
+     {trans_req, [],
+      [single_trans_req, multi_trans_req_timeout,
+       multi_trans_req_maxcount1, multi_trans_req_maxcount2,
+       multi_trans_req_maxsize1, multi_trans_req_maxsize2]},
+     {trans_req_and_ack, [],
+      [single_trans_req_and_ack,
+       multi_trans_req_and_ack_timeout,
+       multi_trans_req_and_ack_ackmaxcount,
+       multi_trans_req_and_ack_reqmaxcount,
+       multi_trans_req_and_ack_maxsize1,
+       multi_trans_req_and_ack_maxsize2]},
+     {pending, [],
+      [single_trans_req_and_pending,
+       multi_trans_req_and_pending,
+       multi_trans_req_and_ack_and_pending,
+       multi_ack_and_pending]},
+     {reply, [],
+      [multi_trans_req_and_reply,
+       multi_trans_req_and_ack_and_reply,
+       multi_ack_and_reply]},
+     {tickets, [], [{group, otp_7192}]},
+     {otp_7192, [], [otp_7192_1, otp_7192_2, otp_7192_3]}].
 
-ack(suite) ->
-    [
-     single_ack,
-     multi_ack_timeout,
-     multi_ack_maxcount
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
 
-trans_req(suite) ->
-    [
-     single_trans_req,
-     multi_trans_req_timeout,
-     multi_trans_req_maxcount1,
-     multi_trans_req_maxcount2,
-     multi_trans_req_maxsize1,
-     multi_trans_req_maxsize2
-    ].
-
-trans_req_and_ack(suite) ->
-    [
-     single_trans_req_and_ack,
-     multi_trans_req_and_ack_timeout,
-     multi_trans_req_and_ack_ackmaxcount,
-     multi_trans_req_and_ack_reqmaxcount,
-     multi_trans_req_and_ack_maxsize1,
-     multi_trans_req_and_ack_maxsize2
-    ].
-
-pending(suite) ->
-    [
-     single_trans_req_and_pending,
-     multi_trans_req_and_pending,
-     multi_trans_req_and_ack_and_pending,
-     multi_ack_and_pending
-    ].
-
-reply(suite) ->
-    [
-     multi_trans_req_and_reply,
-     multi_trans_req_and_ack_and_reply,
-     multi_ack_and_reply
-    ].
-
-tickets(suite) ->
-    [
-     otp_7192
-    ].
-
-otp_7192(suite) ->
-    [
-     otp_7192_1,
-     otp_7192_2,
-     otp_7192_3
-    ].
-
+end_per_group(_GroupName, Config) ->
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

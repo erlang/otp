@@ -18,11 +18,12 @@
 %%
 -module(unicode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,	 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,	 
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
+	 end_per_testcase/2,
 	 utf8_illegal_sequences_bif/1,
 	 utf16_illegal_sequences_bif/1,
 	 random_lists/1,
@@ -34,12 +35,32 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(20)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-all(suite) ->
-    [utf8_illegal_sequences_bif,utf16_illegal_sequences_bif,random_lists,roundtrips,latin1,exceptions].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [utf8_illegal_sequences_bif,
+     utf16_illegal_sequences_bif, random_lists, roundtrips,
+     latin1, exceptions].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 exceptions(Config) when is_list(Config) ->

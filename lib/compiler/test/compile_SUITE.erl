@@ -20,32 +20,48 @@
 
 %% Tests compile:file/1 and compile:file/2 with various options.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 app_test/1,
 	 file_1/1, module_mismatch/1, big_file/1, outdir/1, 
 	 binary/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, package_forms/1, encrypted_abstr/1,
-	 bad_record_use/1, bad_record_use1/1, bad_record_use2/1, strict_record/1,
+	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1]).
 
 -export([init/3]).
 
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 %% To cover the stripping of 'type' and 'spec' in beam_asm.
 -type all_return_type() :: [atom()].
--spec all('suite' | [_]) -> all_return_type().
-
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [app_test,
-     file_1, module_mismatch, big_file, outdir, binary,
-     cond_and_ifdef, listings, listings_big,
-     other_output, package_forms,
-     encrypted_abstr,
-     bad_record_use, strict_record,
+-spec all() -> all_return_type().
+all() -> 
+    test_lib:recompile(compile_SUITE),
+    [app_test, file_1, module_mismatch, big_file, outdir,
+     binary, cond_and_ifdef, listings, listings_big,
+     other_output, package_forms, encrypted_abstr,
+     {group, bad_record_use}, strict_record,
      missing_testheap, cover, env, core, asm].
+
+groups() -> 
+    [{bad_record_use, [],
+      [bad_record_use1, bad_record_use2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %% Test that the Application file has no `basic' errors.";
@@ -465,7 +481,6 @@ exists(Name) ->
 	{error, _} -> false
     end.
 
-bad_record_use(suite) ->  [bad_record_use1, bad_record_use2].
 
 %% Tests that the compiler does not accept
 %% bad use of records.

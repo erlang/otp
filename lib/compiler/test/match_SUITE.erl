@@ -18,17 +18,36 @@
 %%
 -module(match_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,underscore/1]).
 	 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [pmatch,mixed,aliases,match_in_call,untuplify,shortcut_boolean,
-     letify_guard,selectify,underscore].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_lib:recompile(match_SUITE),
+    [pmatch, mixed, aliases, match_in_call, untuplify,
+     shortcut_boolean, letify_guard, selectify, underscore].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 pmatch(Config) when is_list(Config) ->
     ?line ok = doit(1),

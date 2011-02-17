@@ -58,22 +58,22 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Func,Config) ->
     reltool_test_lib:end_per_testcase(Func,Config).
 
-fin_per_testcase(Case, Config) ->
-    reltool_test_lib:end_per_testcase(Case, Config).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all() ->
-    all(suite).
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-     fields,
-     modules,
-     export_all,
-     app_depend,
-     undef_funcs
-    ].
+all() -> 
+    [fields, modules, export_all, app_depend, undef_funcs].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

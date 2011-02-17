@@ -29,7 +29,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
@@ -40,19 +40,19 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-         init_per_testcase/2, fin_per_testcase/2,
+         init_per_testcase/2, end_per_testcase/2,
 
-	 all/1, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 open_and_close/1,
-	 open_write_and_close/1,
+	
 	 open_write_and_close1/1,
 	 open_write_and_close2/1,
 	 open_write_and_close3/1,
 	 open_write_and_close4/1,
-	 log_to_io/1,
+	
 	 log_to_io1/1,
 	 log_to_io2/1,
-	 log_to_txt/1,
+	
 	 log_to_txt1/1,
   	 log_to_txt2/1,
   	 log_to_txt3/1
@@ -97,7 +97,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?WD_START(?MINS(5)),
     [{log_dir, CaseDir}, {watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     %% Leave the dirs created above (enable debugging of the test case(s))
     Dog = ?config(watchdog, Config),
     ?WD_STOP(Dog),
@@ -108,37 +108,30 @@ fin_per_testcase(_Case, Config) when is_list(Config) ->
 %% Test case definitions
 %%======================================================================
 %% ?SKIP(not_yet_implemented).
-all(suite) ->
-    [
-     open_and_close,
-     open_write_and_close,
-     log_to_io,
-     log_to_txt
-    ].
+all() -> 
+[open_and_close, {group, open_write_and_close},
+ {group, log_to_io}, {group, log_to_txt}].
+
+groups() -> 
+    [{open_write_and_close, [],
+  [open_write_and_close1, open_write_and_close2,
+   open_write_and_close3, open_write_and_close4]},
+ {log_to_io, [], [log_to_io1, log_to_io2]},
+ {log_to_txt, [],
+  [log_to_txt1, log_to_txt2, log_to_txt3]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 
-open_write_and_close(suite) ->
-    [
-     open_write_and_close1,
-     open_write_and_close2,
-     open_write_and_close3,
-     open_write_and_close4
-    ].
 
 
-log_to_io(suite) ->
-    [
-     log_to_io1,
-     log_to_io2
-    ].
 
 
-log_to_txt(suite) ->
-    [
-     log_to_txt1,
-     log_to_txt2,
-     log_to_txt3
-    ].
+
 
 
 %%======================================================================

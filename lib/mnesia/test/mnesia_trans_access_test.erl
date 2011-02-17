@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,8 +26,8 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 -define(receive_messages(Msgs), mnesia_recovery_test:receive_messages(Msgs, ?FILE, ?LINE)).
 
@@ -40,18 +40,41 @@ fin_per_testcase(Func, Conf) ->
 -endif.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Evil access of records in the scope of transactions",
-     "Invoke all functions in the API and try to cover all legal uses",
-     "cases as well the illegal dito. This is a complement to the",
-     "other more explicit test cases."];
-all(suite) ->
-    [
-     write,  read,  wread,  delete,  delete_object,  
-     match_object,  select, select14, all_keys,  
-     transaction, nested_activities,
-     index_tabs, index_lifecycle
-    ].
+all() -> 
+    [write, read, wread, delete, delete_object,
+     match_object, select, select14, all_keys, transaction,
+     {group, nested_activities}, {group, index_tabs},
+     {group, index_lifecycle}].
+
+groups() -> 
+    [{nested_activities, [],
+      [basic_nested, {group, nested_transactions},
+       mix_of_nested_activities]},
+     {nested_transactions, [],
+      [nested_trans_both_ok, nested_trans_child_dies,
+       nested_trans_parent_dies, nested_trans_both_dies]},
+     {index_tabs, [],
+      [index_match_object, index_read, {group, index_update},
+       index_write]},
+     {index_update, [],
+      [index_update_set, index_update_bag]},
+     {index_lifecycle, [],
+      [add_table_index_ram, add_table_index_disc,
+       add_table_index_disc_only, create_live_table_index_ram,
+       create_live_table_index_disc,
+       create_live_table_index_disc_only, del_table_index_ram,
+       del_table_index_disc, del_table_index_disc_only,
+       {group, idx_schema_changes}]},
+     {idx_schema_changes, [],
+      [idx_schema_changes_ram, idx_schema_changes_disc,
+       idx_schema_changes_disc_only]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Write records
 
@@ -404,12 +427,6 @@ transaction(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-nested_activities(suite) ->
-    [
-     basic_nested,
-     nested_transactions,
-     mix_of_nested_activities     
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -520,13 +537,6 @@ n_f4() ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-nested_transactions(doc) ->
-    ["Verify that nested_transactions are handled as expected"];
-nested_transactions(suite) -> 
-    [nested_trans_both_ok,
-     nested_trans_child_dies,
-     nested_trans_parent_dies,
-     nested_trans_both_dies].
 
 nested_trans_both_ok(suite) -> [];
 nested_trans_both_ok(Config) when is_list(Config) ->
@@ -671,13 +681,6 @@ read_op(Oid) ->
 	    Ops
     end.
 
-index_tabs(suite) ->
-    [
-     index_match_object,  
-     index_read,
-     index_update,
-     index_write
-    ].
 
 %% Read matching records by using an index
 
@@ -767,10 +770,6 @@ index_read(Config) when is_list(Config) ->
     ?match({'EXIT', {aborted, no_transaction}},  mnesia:index_read(Tab, 2, ValPos)), 
     ?verify_mnesia(Nodes, []).
 
-index_update(suite) -> [index_update_set, index_update_bag];
-index_update(doc) -> ["See Ticket OTP-2083, verifies that a table with a index is "
-		      "update in the correct way i.e. the index finds the correct "
-		      "records after a update"].
 index_update_set(suite) -> [];
 index_update_set(Config)when is_list(Config) ->
     [Node1] = Nodes = ?acquire_nodes(1, Config), 
@@ -1046,19 +1045,6 @@ index_write(Config)when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Add and drop indecies
 
-index_lifecycle(suite) ->
-    [
-     add_table_index_ram,
-     add_table_index_disc,
-     add_table_index_disc_only,
-     create_live_table_index_ram,
-     create_live_table_index_disc,
-     create_live_table_index_disc_only,
-     del_table_index_ram,
-     del_table_index_disc,
-     del_table_index_disc_only,
-     idx_schema_changes
-    ].
 
 add_table_index_ram(suite) -> [];
 add_table_index_ram(Config) when is_list(Config) ->
@@ -1171,13 +1157,6 @@ del_table_index(Config, Storage) ->
     ?match({atomic, ok}, mnesia:transaction(NestedFun)),
     ?verify_mnesia(Nodes, []).
 
-idx_schema_changes(suite) -> [idx_schema_changes_ram, 
-			      idx_schema_changes_disc, 
-			      idx_schema_changes_disc_only];
-idx_schema_changes(doc)   ->
-    ["Tests that index tables are handled correctly when schema changes.",
-     "For example when a replica is deleted or inserted",
-     "TICKET OTP-2XXX (ELVIRA)"].
 
 idx_schema_changes_ram(suite) -> [];
 idx_schema_changes_ram(Config) when is_list(Config) ->

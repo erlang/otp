@@ -20,23 +20,42 @@
 
 -module(receive_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 recv/1,coverage/1,otp_7980/1,ref_opt/1,export/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [recv,coverage,otp_7980,ref_opt,export].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_lib:recompile(receive_SUITE),
+    [recv, coverage, otp_7980, ref_opt, export].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 -record(state, {ena = true}).
 

@@ -39,7 +39,8 @@ INSTALL_PROGS= $(TARGET_FILES)
 
 EMAKEFILE=Emakefile
 
-SPEC_FILES= tools.spec tools.spec.win
+SPEC_FILES= tools.spec
+COVER_FILE = tools.cover
 
 # ----------------------------------------------------
 # Release directory specification
@@ -84,7 +85,8 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) $(EMAKEFILE) \
+		$(ERL_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

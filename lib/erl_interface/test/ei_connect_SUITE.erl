@@ -20,39 +20,53 @@
 %%
 -module(ei_connect_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
 -export([
-	all/1, 
-	init_per_testcase/2, 
-	fin_per_testcase/2,
-
-	ei_send/1, 
-	ei_reg_send/1, 
-	ei_format_pid/1,
-	ei_rpc/1, 
-	rpc_test/1, 
-	ei_send_funs/1,
-	ei_threaded_send/1,
-	ei_set_get_tracelevel/1
+	 all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, 
+	 end_per_testcase/2,
+	 
+	 ei_send/1, 
+	 ei_reg_send/1, 
+	 ei_format_pid/1,
+	 ei_rpc/1, 
+	 rpc_test/1, 
+	 ei_send_funs/1,
+	 ei_threaded_send/1,
+	 ei_set_get_tracelevel/1
 	]).
 
 -import(runner, [get_term/1,send_term/2]).
 
-all(suite) -> [ ei_send, 
-		ei_reg_send, 
-		ei_format_pid,
-		ei_rpc, 
-		ei_send_funs, 
-		ei_threaded_send,
-		ei_set_get_tracelevel].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
+     ei_threaded_send, ei_set_get_tracelevel].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(0.25)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

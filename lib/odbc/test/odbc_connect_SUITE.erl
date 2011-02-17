@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
@@ -40,20 +40,32 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Tests the ability to connect and disconnet to/from the database"];
-all(suite) ->
-    case odbc_test_lib:odbc_check() of
-	ok -> all();
-	Other -> {skip, Other}
-    end.						  
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [not_exist_db, commit, rollback, not_explicit_commit,
-    no_c_node, port_dies, control_process_dies, client_dies,
-    connect_timeout, timeout, many_timeouts, timeout_reset,
-    disconnect_on_timeout, connection_closed,
-    disable_scrollable_cursors, return_rows_as_lists, api_missuse].
+    case odbc_test_lib:odbc_check() of
+	ok ->
+	    [not_exist_db, commit, rollback, not_explicit_commit,
+	     no_c_node, port_dies, control_process_dies,
+	     {group, client_dies}, connect_timeout, timeout,
+	     many_timeouts, timeout_reset, disconnect_on_timeout,
+	     connection_closed, disable_scrollable_cursors,
+	     return_rows_as_lists, api_missuse];
+	Other -> {skip, Other}
+    end.
+
+groups() -> 
+    [{client_dies, [],
+      [client_dies_normal, client_dies_timeout,
+       client_dies_error]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -66,7 +78,7 @@ all() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:start(odbc),  
-    case odbc:connect(?RDBMS:connection_string(), 
+    case catch odbc:connect(?RDBMS:connection_string(), 
 		      [{auto_commit, off}]) of
 	{ok, Ref} ->
 	    odbc:disconnect(Ref),
@@ -283,11 +295,6 @@ control_process_dies(_Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-client_dies(doc) ->
-    ["Test that the odbc process is terminated when the client process "
-     "dies"];
-client_dies(suite) -> 
-    [client_dies_normal, client_dies_timeout, client_dies_error].
 
 %%-------------------------------------------------------------------------
 client_dies_normal(doc) ->

@@ -20,18 +20,17 @@
 %%
 -module(old_ssl_misc_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
-	 config/1,
-	 finish/1,
+	 end_per_testcase/2,
 	 seed/1,
 	 app/1
 	]).
 
 -import(ssl_test_MACHINE, [mk_ssl_cert_opts/1, test_one_listener/7,
 			   test_server_only/6]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ssl_test_MACHINE.hrl").
 
 -define(MANYCONNS, 5).
@@ -40,41 +39,52 @@ init_per_testcase(_Case, Config) ->
     WatchDog = ssl_test_lib:timetrap(?DEFAULT_TIMEOUT),
     [{watchdog, WatchDog}| Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     WatchDog = ?config(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
-all(doc) ->
-    "Test of misc in ssl.erl interface.";
-all(suite) ->
-    {conf,
-     config,
-     [seed, app],
-     finish
-    }.
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-config(doc) ->
+all() -> 
+    [seed, app].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_suite(doc) ->
     "Want to se what Config contains.";
-config(suite) ->
+init_per_suite(suite) ->
     [];
-config(Config) ->
+init_per_suite(Config) ->
     io:format("Config: ~p~n", [Config]),
 
     %% Check if SSL exists. If this case fails, all other cases are skipped
-    crypto:start(),
-    application:start(public_key),
-    case ssl:start() of
-	ok -> ssl:stop();
-	{error, {already_started, _}} -> ssl:stop();
-	Error -> ?t:fail({failed_starting_ssl,Error})
-    end,
-    Config.
+    case catch crypto:start() of
+	ok ->
+	    application:start(public_key),
+	    case ssl:start() of
+		ok -> ssl:stop();
+		{error, {already_started, _}} -> ssl:stop();
+		Error -> ?t:fail({failed_starting_ssl,Error})
+	    end,
+	    Config;
+	_Else ->
+	    {skip,"Could not start crypto!"}
+    end.
 
-finish(doc) ->
+end_per_suite(doc) ->
     "This test case has no mission other than closing the conf case";
-finish(suite) ->
+end_per_suite(suite) ->
     [];
-finish(Config) ->
+end_per_suite(Config) ->
+    crypto:stop(),
     Config.
 
 seed(doc) ->

@@ -23,10 +23,10 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("test_server/include/test_server_line.hrl").
 
--include("public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -define(TIMEOUT, 120000). % 2 min
 
@@ -99,18 +99,21 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test the public_key rsa functionality"];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [app, 
-     pk_decode_encode, 
-     encrypt_decrypt, 
-     sign_verify,
-     pkix,
-     pkix_path_validation,
-     deprecated
-    ].
+all() -> 
+    [app, pk_decode_encode, encrypt_decrypt, sign_verify,
+     pkix, pkix_path_validation, deprecated].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

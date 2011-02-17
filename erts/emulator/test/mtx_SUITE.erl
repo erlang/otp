@@ -26,9 +26,11 @@
 
 %%-define(line_trace,true).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--export([all/1, init_per_suite/1, end_per_suite/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,suite/0,groups/0,
+	 init_per_group/2,end_per_group/2, init_per_suite/1, 
+	 end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
 
 -export([long_rwlock/1,
 	 hammer_ets_rwlock/1,
@@ -66,19 +68,16 @@ init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(15)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-all(suite) ->
-    [
-     long_rwlock,
-     hammer_rwlock_check,
-     hammer_rwlock,
-     hammer_tryrwlock_check,
-     hammer_tryrwlock,
-     hammer_ets_rwlock,
-     hammer_sched_long_rwlock_check,
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [long_rwlock, hammer_rwlock_check, hammer_rwlock,
+     hammer_tryrwlock_check, hammer_tryrwlock,
+     hammer_ets_rwlock, hammer_sched_long_rwlock_check,
      hammer_sched_long_rwlock,
      hammer_sched_long_freqread_rwlock_check,
      hammer_sched_long_freqread_rwlock,
@@ -86,15 +85,22 @@ all(suite) ->
      hammer_sched_long_tryrwlock,
      hammer_sched_long_freqread_tryrwlock_check,
      hammer_sched_long_freqread_tryrwlock,
-     hammer_sched_rwlock_check,
-     hammer_sched_rwlock,
+     hammer_sched_rwlock_check, hammer_sched_rwlock,
      hammer_sched_freqread_rwlock_check,
      hammer_sched_freqread_rwlock,
-     hammer_sched_tryrwlock_check,
-     hammer_sched_tryrwlock,
+     hammer_sched_tryrwlock_check, hammer_sched_tryrwlock,
      hammer_sched_freqread_tryrwlock_check,
-     hammer_sched_freqread_tryrwlock
-    ].
+     hammer_sched_freqread_tryrwlock].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 long_rwlock(Config) when is_list(Config) ->
     statistics(runtime),

@@ -18,16 +18,17 @@
 %%
 -module(init_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
 	 get_plain_arguments/1,
-	 reboot/1, stop/1, get_status/1, script_id/1, boot/1]).
+	 reboot/1, stop/1, get_status/1, script_id/1]).
 -export([boot1/1, boot2/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([init/1, fini/1]).
 
@@ -38,17 +39,34 @@
 %% Should be started in a CC view with:
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [get_arguments, get_argument, boot_var,
-     get_plain_arguments,
-     restart,
-     get_status, script_id, boot].
+     get_plain_arguments, restart, get_status, script_id,
+     {group, boot}].
+
+groups() -> 
+    [{boot, [], [boot1, boot2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SEC)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -488,7 +506,6 @@ script_id(Config) when is_list(Config) ->
 %% ------------------------------------------------
 %% Start the slave system with -boot flag.
 %% ------------------------------------------------
-boot(suite) -> [boot1, boot2].
 
 boot1(doc) -> [];
 boot1(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};

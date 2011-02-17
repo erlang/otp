@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,12 +27,13 @@
 %%-----------------------------------------------------------------
 -module(ic_pragma_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, init_all/1, finish_all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1]).
 -export([ifr_pragma_reg/1, pragma_error/1, uggly_pragmas/1]).
 
 
@@ -53,18 +54,28 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["Description", "more description"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-cases() ->
-    [ifr_pragma_reg,pragma_error,uggly_pragmas].
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+cases() -> 
+    [ifr_pragma_reg, pragma_error, uggly_pragmas].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-init_all(Config) ->
+init_per_suite(Config) ->
     io:format("Setting up.....~n"),
     mnesia:stop(),
     mnesia:delete_schema([node()]),
@@ -79,7 +90,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     io:format("Setting down.....~n"),
     orber:stop(),
     orber:uninstall(),

@@ -25,8 +25,8 @@
 
 -compile(export_all).
 
-%%-include_lib("public_key/include/public_key.hrl").
--include("public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
+%%-include("public_key.hrl").
 
 -define(error(Format,Args), error(Format,Args,?FILE,?LINE)).
 -define(warning(Format,Args), warning(Format,Args,?FILE,?LINE)).
@@ -43,25 +43,24 @@
 -define(NIST6, "2.16.840.1.101.3.2.1.48.6").
 
 %%
-all(doc) ->
-    ["PKITS tests for RFC3280 compliance"];
-all(suite) ->    
-    [signature_verification,
-     validity_periods,
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [signature_verification, validity_periods,
      verifying_name_chaining,
-     %% basic_certificate_revocation_tests,
      verifying_paths_with_self_issued_certificates,
-     verifying_basic_constraints,
-     key_usage,
-%%      certificate_policies,
-%%      require_explicit_policy,
-%%      policy_mappings,
-%%      inhibit_policy_mapping,
-%%      inhibit_any_policy,
-     name_constraints,	     
-%%      distribution_points,
-%%      delta_crls,
-     private_certificate_extensions].
+     verifying_basic_constraints, key_usage,
+     name_constraints, private_certificate_extensions].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 signature_verification(doc) ->    [""];
 signature_verification(suite) -> [];
@@ -580,7 +579,7 @@ init_per_testcase(_Func, Config) ->
     put(datadir, Datadir),
     Config.
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     %% Nodes = select_nodes(all, Config, ?FILE, ?LINE),
     %% rpc:multicall(Nodes, mnesia, lkill, []),
     Config.

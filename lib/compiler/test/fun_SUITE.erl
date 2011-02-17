@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,14 +18,33 @@
 %%
 -module(fun_SUITE).
 
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [test1,overwritten_fun,otp_7202,bif_fun].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_lib:recompile(fun_SUITE),
+    [test1, overwritten_fun, otp_7202, bif_fun].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%% The help functions below are copied from emulator:bs_construct_SUITE.
 

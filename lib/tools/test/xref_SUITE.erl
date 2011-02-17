@@ -29,28 +29,29 @@
 -define(privdir, "xref_SUITE_priv").
 -define(copydir, "xref_SUITE_priv/datacopy").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(datadir, ?config(data_dir, Conf)).
 -define(privdir, ?config(priv_dir, Conf)).
 -define(copydir, ?config(copy_dir, Conf)).
 -endif.
 
--export([all/1, init/1, fini/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, init/1, fini/1]).
 
--export([xref/1,
+-export([
 	 addrem/1, convert/1, intergraph/1, lines/1, loops/1,
 	 no_data/1, modules/1]).
 
--export([files/1,
+-export([
 	 add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
 	 replace/1, update/1, deprecated/1, trycatch/1,
          abstract_modules/1, fun_mfa/1, qlc/1]).
 
--export([analyses/1,
+-export([
 	 analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
 
--export([misc/1,
+-export([
 	 format_error/1, otp_7423/1, otp_7831/1]).
 
 -import(lists, [append/2, flatten/1, keysearch/3, member/2, sort/1, usort/1]).
@@ -59,7 +60,7 @@
 	range/1, relation_to_family/1, set/1, to_external/1,
 	union/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Checks some info counters of a server and some relations that should hold.
 -export([check_count/1, check_state/1]).
@@ -68,8 +69,36 @@
 
 -include_lib("tools/src/xref.hrl").
 
-all(suite) ->
-    {conf, init, [xref, files, analyses, misc], fini}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, xref}, {group, files}, {group, analyses},
+     {group, misc}].
+
+groups() -> 
+    [{xref, [],
+      [addrem, convert, intergraph, lines, loops, no_data,
+       modules]},
+     {files, [],
+      [add, default, info, lib, read, read2, remove, replace,
+       update, deprecated, trycatch, abstract_modules, fun_mfa,
+       qlc]},
+     {analyses, [],
+      [analyze, basic, md, q, variables, unused_locals]},
+     {misc, [], [format_error, otp_7423, otp_7831]}].
+
+init_per_suite(Config) ->
+    init(Config).
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init(Conf) when is_list(Conf) ->
     DataDir = ?datadir,
@@ -91,13 +120,11 @@ init_per_testcase(_Case, Config) ->
     Dog=?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog=?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-xref(suite) ->
-    [addrem, convert, intergraph, lines, loops, no_data, modules].
 
 %% Seems a bit short...
 addrem(suite) -> [];
@@ -680,9 +707,6 @@ modules(Conf) when is_list(Conf) ->
     ?line ok = xref_base:delete(S),
     ok.
 
-files(suite) ->
-    [add, default, info, lib, read, read2, remove, replace, update,
-     deprecated, trycatch, abstract_modules, fun_mfa, qlc].
 
 add(suite) -> [];
 add(doc) -> ["Add modules, applications, releases, directories"];
@@ -1788,8 +1812,6 @@ qlc(Conf) when is_list(Conf) ->
     ok.
 
 
-analyses(suite) ->
-    [analyze, basic, md, q, variables, unused_locals].
 
 analyze(suite) -> [];
 analyze(doc) -> ["Simple analyses"];
@@ -2312,8 +2334,6 @@ unused_locals(Conf) when is_list(Conf) ->
     ?line ok = file:delete(Beam2),
     ok.
 
-misc(suite) ->
-    [format_error, otp_7423, otp_7831].
 
 format_error(suite) -> [];
 format_error(doc) -> ["Format error messages"];

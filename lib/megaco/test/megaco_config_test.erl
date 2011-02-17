@@ -44,9 +44,9 @@ do_init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 -record(command, {id, desc, cmd, verify}).
@@ -58,25 +58,21 @@ fin_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     config,
-     transaction_id_counter,
-     tickets
-    ].
+all() -> 
+    [config, {group, transaction_id_counter},
+     {group, tickets}].
 
-transaction_id_counter(suite) ->
-    [
-     transaction_id_counter_mg, 
-     transaction_id_counter_mgc
-    ].
+groups() -> 
+    [{transaction_id_counter, [],
+      [transaction_id_counter_mg,
+       transaction_id_counter_mgc]},
+     {tickets, [], [otp_7216, otp_8167, otp_8183]}].
 
-tickets(suite) ->
-    [
-     otp_7216,
-     otp_8167,
-     otp_8183
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -333,7 +333,7 @@ eval(Mod, Fun, Config) ->
     Config2 = Mod:init_per_testcase(Fun, Config),
     Pid = spawn_link(?MODULE, do_eval, [self(), Mod, Fun, Config2]),
     R = wait_for_evaluator(Pid, Mod, Fun, Config2, []),
-    Mod:fin_per_testcase(Fun, Config2),
+    Mod:end_per_testcase(Fun, Config2),
     erase(megaco_test_server),    
     global:unregister_name(megaco_test_case_sup),
     process_flag(trap_exit, Flag),
@@ -677,11 +677,11 @@ init_per_testcase(_Case, Config) ->
     end,
     set_kill_timer(Config).
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Name = megaco_global_logger,
     case global:whereis_name(Name) of
 	undefined ->
-	    io:format("~w:fin_per_testcase -> already un-registered~n", 
+	    io:format("~w:end_per_testcase -> already un-registered~n", 
 		      [?MODULE]),
 	    ok;
 	Pid when is_pid(Pid) ->

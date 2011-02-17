@@ -72,7 +72,7 @@ C_FILES =
 AUTOCONF_FILES = configure.in conf_vars.in
 COVER_FILES = cross.cover
 PROGRAMS = configure config.sub config.guess install-sh 
-CONFIG = ts.config ts.unix.config ts.win32.config ts.vxworks.config
+CONFIG = ts.config ts.unix.config ts.win32.config
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) \
 	       $(APP_TARGET) $(APPUP_TARGET)

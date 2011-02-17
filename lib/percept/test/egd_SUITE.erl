@@ -18,10 +18,10 @@
 %%
 
 -module(egd_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -54,16 +54,22 @@ end_per_testcase(_Case, Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    % Test cases
-    [	
-	image_create_and_destroy, 
-	image_shape, 
-	image_primitives,
-	image_colors, 
-	image_font, 
-	image_png_compliant
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [image_create_and_destroy, image_shape,
+     image_primitives, image_colors, image_font,
+     image_png_compliant].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%----------------------------------------------------------------------
 %% Tests

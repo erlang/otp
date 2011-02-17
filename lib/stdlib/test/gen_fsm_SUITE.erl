@@ -18,19 +18,20 @@
 %%
 -module(gen_fsm_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test cases
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([start/1, start1/1, start2/1, start3/1, start4/1 , start5/1, start6/1,
+-export([ start1/1, start2/1, start3/1, start4/1 , start5/1, start6/1,
 	 start7/1, start8/1, start9/1, start10/1, start11/1]).
 
--export([abnormal/1, abnormal1/1, abnormal2/1]).
+-export([ abnormal1/1, abnormal2/1]).
 
 -export([shutdown/1]).
 
--export([sys/1, sys1/1, call_format_status/1, error_format_status/1]).
+-export([ sys1/1, call_format_status/1, error_format_status/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
@@ -53,13 +54,31 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-all(suite) ->
-    [start, abnormal, shutdown, sys, hibernate, enter_loop].
-    
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
+all() -> 
+    [{group, start}, {group, abnormal}, shutdown,
+     {group, sys}, hibernate, enter_loop].
 
-start(suite) -> [start1, start2, start3, start4, start5, start6, start7,
-		 start8, start9, start10, start11].
+groups() -> 
+    [{start, [],
+      [start1, start2, start3, start4, start5, start6, start7,
+       start8, start9, start10, start11]},
+     {abnormal, [], [abnormal1, abnormal2]},
+     {sys, [],
+      [sys1, call_format_status, error_format_status]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %% anonymous
 start1(Config) when is_list(Config) ->
@@ -239,7 +258,6 @@ start11(Config) when is_list(Config) ->
     test_server:messages_get(),
     ok.
 
-abnormal(suite) -> [abnormal1, abnormal2].
 
 %% Check that time outs in calls work
 abnormal1(suite) -> [];
@@ -305,7 +323,6 @@ shutdown(Config) when is_list(Config) ->
     ok.
 
 
-sys(suite) -> [sys1, call_format_status, error_format_status].
 
 sys1(Config) when is_list(Config) ->
     ?line {ok, Pid} = 

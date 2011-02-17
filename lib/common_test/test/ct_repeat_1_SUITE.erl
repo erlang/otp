@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -56,24 +56,26 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) ->
-    [];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [repeat_cs,
-     repeat_cs_and_grs,
-     repeat_seq,
-     repeat_cs_until_any_ok,
-     repeat_gr_until_any_ok,
-     repeat_cs_until_any_fail,
-     repeat_gr_until_any_fail,
-     repeat_cs_until_all_ok,
-     repeat_gr_until_all_ok,
-     repeat_cs_until_all_fail,
-     repeat_gr_until_all_fail,
+all() -> 
+    [repeat_cs, repeat_cs_and_grs, repeat_seq,
+     repeat_cs_until_any_ok, repeat_gr_until_any_ok,
+     repeat_cs_until_any_fail, repeat_gr_until_any_fail,
+     repeat_cs_until_all_ok, repeat_gr_until_all_ok,
+     repeat_cs_until_all_fail, repeat_gr_until_all_fail,
      repeat_seq_until_any_fail,
-     repeat_shuffled_seq_until_any_fail
-    ].
+     repeat_shuffled_seq_until_any_fail].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%--------------------------------------------------------------------
 %% TEST CASES

@@ -17,16 +17,4 @@
 %%
 %% %CopyrightEnd%
 %%
-%% You can test this file using this command.
-%%    file:script("jinterface.dynspec", [{'Os',"Unix"}]).
-
-case case code:priv_dir(jinterface) of
-        {error,bad_name} -> false;
-        P -> filelib:is_dir(P) end of
-    true ->
-        [];
-    false ->
-        NoApp = "No jinterface application",
-        [{skip,{nc_SUITE,NoApp}},
-         {skip,{jinterface_SUITE,NoApp}}]
-end.
+{suites,"../jinterface_test",all}.

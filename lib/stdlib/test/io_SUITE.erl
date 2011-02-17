@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,9 +18,10 @@
 %%
 -module(io_SUITE).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([error_1/1, float_g/1, otp_5403/1, otp_5813/1, otp_6230/1, 
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
@@ -37,7 +38,7 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(format(S, A), ok).
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
@@ -49,17 +50,35 @@
 init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test cases for io."];
-all(suite) ->
-    [error_1,float_g,otp_5403,otp_5813,otp_6230,otp_6282,otp_6354,otp_6495,
-     otp_6517,otp_6502,manpage,otp_6708,otp_7084,otp_7421,
-     io_lib_collect_line_3_wb,cr_whitespace_in_string,io_fread_newlines].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [error_1, float_g, otp_5403, otp_5813, otp_6230,
+     otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
+     manpage, otp_6708, otp_7084, otp_7421,
+     io_lib_collect_line_3_wb, cr_whitespace_in_string,
+     io_fread_newlines].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 error_1(doc) ->
     ["Error cases for output"];

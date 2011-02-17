@@ -28,8 +28,8 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 -define(receive_messages(Msgs), receive_messages(Msgs, ?FILE, ?LINE)).
 
@@ -42,34 +42,93 @@ fin_per_testcase(Func, Conf) ->
 -endif.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Verify recoverability",
-     "Verify that the effects of committed transactions are preserved",
-     "after recovery from system failures. It must be possible to",
-     "restore the tables to a consistent state on a node, from (any kind",
-     "of) replica on other nodes as well as from local disk on the failed",
-     "node. The system must also recover from instantaneous",
-     "interruption causing disk files to not be completely synchronized."];
+all() -> 
+    [{group, mnesia_down}, {group, explicit_stop},
+     coord_dies, {group, schema_trans}, {group, async_dirty},
+     {group, sync_dirty}, {group, sym_trans},
+     {group, asym_trans}, after_full_disc_partition,
+     {group, after_corrupt_files}, disc_less, garb_decision,
+     system_upgrade].
 
-all(suite) ->
-    [
-     mnesia_down,
-     explicit_stop,
-     coord_dies,
-     schema_trans,
-     async_dirty,
-     sync_dirty,
-     sym_trans,
-     asym_trans,
-     after_full_disc_partition,
-     after_corrupt_files,
-     disc_less,
-     garb_decision,
-     system_upgrade
-    ].
+groups() -> 
+    [{schema_trans, [],
+      [{mnesia_schema_recovery_test, all}]},
+     {mnesia_down, [],
+      [{group, mnesia_down_during_startup},
+       {group, master_node_tests}, {group, read_during_down},
+       {group, with_checkpoint}, delete_during_start]},
+     {master_node_tests, [],
+      [no_master_2, no_master_3, one_master_2, one_master_3,
+       two_master_2, two_master_3, all_master_2,
+       all_master_3]},
+     {read_during_down, [],
+      [dirty_read_during_down, trans_read_during_down]},
+     {mnesia_down_during_startup, [],
+      [mnesia_down_during_startup_disk_ram,
+       mnesia_down_during_startup_init_ram,
+       mnesia_down_during_startup_init_disc,
+       mnesia_down_during_startup_init_disc_only,
+       mnesia_down_during_startup_tm_ram,
+       mnesia_down_during_startup_tm_disc,
+       mnesia_down_during_startup_tm_disc_only]},
+     {with_checkpoint, [],
+      [with_checkpoint_same, with_checkpoint_other]},
+     {explicit_stop, [], [explicit_stop_during_snmp]},
+     {sym_trans, [],
+      [sym_trans_before_commit_kill_coord_node,
+       sym_trans_before_commit_kill_coord_pid,
+       sym_trans_before_commit_kill_part_after_ask,
+       sym_trans_before_commit_kill_part_before_ask,
+       sym_trans_after_commit_kill_coord_node,
+       sym_trans_after_commit_kill_coord_pid,
+       sym_trans_after_commit_kill_part_after_ask,
+       sym_trans_after_commit_kill_part_do_commit_pre,
+       sym_trans_after_commit_kill_part_do_commit_post]},
+     {sync_dirty, [],
+      [sync_dirty_pre_kill_part,
+       sync_dirty_pre_kill_coord_node,
+       sync_dirty_pre_kill_coord_pid,
+       sync_dirty_post_kill_part,
+       sync_dirty_post_kill_coord_node,
+       sync_dirty_post_kill_coord_pid]},
+     {async_dirty, [],
+      [async_dirty_pre_kill_part,
+       async_dirty_pre_kill_coord_node,
+       async_dirty_pre_kill_coord_pid,
+       async_dirty_post_kill_part,
+       async_dirty_post_kill_coord_node,
+       async_dirty_post_kill_coord_pid]},
+     {asym_trans, [],
+      [asym_trans_kill_part_ask,
+       asym_trans_kill_part_commit_vote,
+       asym_trans_kill_part_pre_commit,
+       asym_trans_kill_part_log_commit,
+       asym_trans_kill_part_do_commit,
+       asym_trans_kill_coord_got_votes,
+       asym_trans_kill_coord_pid_got_votes,
+       asym_trans_kill_coord_log_commit_rec,
+       asym_trans_kill_coord_pid_log_commit_rec,
+       asym_trans_kill_coord_log_commit_dec,
+       asym_trans_kill_coord_pid_log_commit_dec,
+       asym_trans_kill_coord_rec_acc_pre_commit_log_commit,
+       asym_trans_kill_coord_pid_rec_acc_pre_commit_log_commit,
+       asym_trans_kill_coord_rec_acc_pre_commit_done_commit,
+       asym_trans_kill_coord_pid_rec_acc_pre_commit_done_commit]},
+     {after_corrupt_files, [],
+      [after_corrupt_files_decision_log_head,
+       after_corrupt_files_decision_log_tail,
+       after_corrupt_files_latest_log_head,
+       after_corrupt_files_latest_log_tail,
+       after_corrupt_files_table_dat_head,
+       after_corrupt_files_table_dat_tail,
+       after_corrupt_files_schema_dat_head,
+       after_corrupt_files_schema_dat_tail]}].
 
-schema_trans(suite) ->
-    [{mnesia_schema_recovery_test, all}].
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 tpcb_config(ReplicaType, _NodeConfig, Nodes) ->
     [{n_branches, 5},
@@ -83,30 +142,7 @@ tpcb_config(ReplicaType, _NodeConfig, Nodes) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-mnesia_down(doc) -> 
-    [" Various tests about recovery when mnesia goes down on one or several nodes."];
-mnesia_down(suite) -> 
-    [
-     mnesia_down_during_startup,
-     master_node_tests,
-     read_during_down,
-     with_checkpoint,
-     delete_during_start
-    ].
 
-master_node_tests(doc) ->
-    ["Verify that mnesia loads the correct data after it has been down, regarding master node settings."];
-master_node_tests(suite) ->
-    [
-     no_master_2,
-     no_master_3,
-     one_master_2,
-     one_master_3,
-     two_master_2,
-     two_master_3,
-     all_master_2,
-     all_master_3
-    ].
 
 no_master_2(suite) -> [];
 no_master_2(Config) when is_list(Config) ->    mnesia_down_2(no, Config).
@@ -251,13 +287,6 @@ mnesia_down_3(Masters, Config) ->
     ?verify_mnesia(Nodes, []).
 
 
-read_during_down(doc) ->
-    ["Verify that read operation can continue to read when mnesia goes down"];
-read_during_down(suite) ->
-    [
-     dirty_read_during_down,
-     trans_read_during_down
-    ].
 
 dirty_read_during_down(suite) ->
     [];
@@ -325,20 +354,6 @@ loop_and_kill_mnesia(N, Node, Tabs) ->
     timer:sleep(100), 
     loop_and_kill_mnesia(N-1, KN, Tabs).
 
-mnesia_down_during_startup(doc) -> 
-    ["Verify that mnesia can come back up again in a consistent state",
-     "after it has gone down during startup (with different store and",
-     "when it goes down in different situations"];
-mnesia_down_during_startup(suite) -> 
-    [
-     mnesia_down_during_startup_disk_ram,
-     mnesia_down_during_startup_init_ram,
-     mnesia_down_during_startup_init_disc,
-     mnesia_down_during_startup_init_disc_only,
-     mnesia_down_during_startup_tm_ram,
-     mnesia_down_during_startup_tm_disc,
-     mnesia_down_during_startup_tm_disc_only
-    ].
 
 mnesia_down_during_startup_disk_ram(suite) -> [];
 mnesia_down_during_startup_disk_ram(Config) when is_list(Config)->
@@ -433,10 +448,6 @@ mnesia_down_during_startup2(Config, ReplicaType, Debug_Point, _Father) ->
     ?verify_mnesia(Nodes, []).    	    
 
 
-with_checkpoint(doc) ->
-    ["Restart mnesia with checkpoint"];
-with_checkpoint(suite) -> 
-    [with_checkpoint_same, with_checkpoint_other].
 
 with_checkpoint_same(suite) -> [];
 with_checkpoint_same(Config) when is_list(Config) -> 
@@ -581,10 +592,6 @@ verify_where2read([]) -> ok.
 
 
 %%-------------------------------------------------------------------------------------------
-explicit_stop(doc) -> 
-    ["Stop Mnesia in different situations"];
-explicit_stop(suite) ->
-    [explicit_stop_during_snmp].
 %% This is a bad implementation, but at least gives a indication if something is wrong
 explicit_stop_during_snmp(suite) -> [];
 explicit_stop_during_snmp(Config) when is_list(Config) ->
@@ -700,21 +707,7 @@ coord_dies(Config) when is_list(Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-sym_trans(doc) -> 
-    ["Recovery of symmetrical transactions in a couple of different",
-     "situations; when coordinator or participant or node dies"];
-
-sym_trans(suite) -> 
-    [sym_trans_before_commit_kill_coord_node,            %% coordinator node dies
-     sym_trans_before_commit_kill_coord_pid,             %% coordinator process dies
-     sym_trans_before_commit_kill_part_after_ask,        %% participating node dies
-     sym_trans_before_commit_kill_part_before_ask,
-     sym_trans_after_commit_kill_coord_node,
-     sym_trans_after_commit_kill_coord_pid,
-     sym_trans_after_commit_kill_part_after_ask,
-     sym_trans_after_commit_kill_part_do_commit_pre,
-     sym_trans_after_commit_kill_part_do_commit_post]. 
+ 
 
 %kill_after_debug_point(Config, TestCase, {Debug_node, Debug_Point}, TransFun, Tab)
 
@@ -828,17 +821,6 @@ do_sym_trans([Tab], _Fahter) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-sync_dirty(doc) -> 
-    ["Verify recovery of synchronously operations in a couple of different",
-     "situations"];
-sync_dirty(suite) -> 
-    [sync_dirty_pre_kill_part,
-     sync_dirty_pre_kill_coord_node,
-     sync_dirty_pre_kill_coord_pid,
-     sync_dirty_post_kill_part, 
-     sync_dirty_post_kill_coord_node,
-     sync_dirty_post_kill_coord_pid
-   ].
 
 sync_dirty_pre_kill_part(suite) -> [];
 sync_dirty_pre_kill_part(Config) when is_list(Config) ->
@@ -916,16 +898,6 @@ do_sync_dirty([Tab], _Father) ->
     ?dl("SYNC_DIRTY done: ~p ", [Res]),
     ok.
 
-async_dirty(doc) -> 
-    ["Verify recovery of asynchronously dirty operations in a couple of different",
-     "situations"];
-async_dirty(suite) -> 
-    [async_dirty_pre_kill_part,
-     async_dirty_pre_kill_coord_node,
-     async_dirty_pre_kill_coord_pid,
-     async_dirty_post_kill_part, 
-     async_dirty_post_kill_coord_node,
-     async_dirty_post_kill_coord_pid].
 
 async_dirty_pre_kill_part(suite) -> [];
 async_dirty_pre_kill_part(Config) when is_list(Config) ->
@@ -1005,29 +977,6 @@ do_async_dirty([Tab], _Fahter) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-asym_trans(doc) -> 
-    ["Recovery of asymmetrical transactions in a couple of different",
-     "situations, currently the error cases are not covered, i.e. ",
-     "not tested are the situations when we kill mnesia or a process",
-     "during a recovery"];
-asym_trans(suite) -> 
-    [
-     asym_trans_kill_part_ask,
-     asym_trans_kill_part_commit_vote,
-     asym_trans_kill_part_pre_commit,
-     asym_trans_kill_part_log_commit,
-     asym_trans_kill_part_do_commit,
-     asym_trans_kill_coord_got_votes,
-     asym_trans_kill_coord_pid_got_votes,
-     asym_trans_kill_coord_log_commit_rec,
-     asym_trans_kill_coord_pid_log_commit_rec,
-     asym_trans_kill_coord_log_commit_dec,
-     asym_trans_kill_coord_pid_log_commit_dec,
-     asym_trans_kill_coord_rec_acc_pre_commit_log_commit,
-     asym_trans_kill_coord_pid_rec_acc_pre_commit_log_commit,
-     asym_trans_kill_coord_rec_acc_pre_commit_done_commit,
-     asym_trans_kill_coord_pid_rec_acc_pre_commit_done_commit
-    ].
 
 asym_trans_kill_part_ask(suite) -> [];
 asym_trans_kill_part_ask(Config) when is_list(Config) -> 
@@ -1435,18 +1384,6 @@ after_full_disc_partition(doc) ->
 %% interrupted_fallback_start 
 %% is implemented in consistency interupted_install_fallback!
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-after_corrupt_files(doc) ->
-    ["Verify that mnesia (and dets) can handle corrupt files"];
-after_corrupt_files(suite) ->  % cope with unsynced disks
-    [after_corrupt_files_decision_log_head,
-     after_corrupt_files_decision_log_tail,
-     after_corrupt_files_latest_log_head,
-     after_corrupt_files_latest_log_tail,
-     after_corrupt_files_table_dat_head,
-     after_corrupt_files_table_dat_tail,
-     after_corrupt_files_schema_dat_head,
-     after_corrupt_files_schema_dat_tail
-    ].
 
 after_corrupt_files_decision_log_head(suite) -> [];
 after_corrupt_files_decision_log_head(Config) when is_list(Config) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@ init_per_suite(Config) ->
 		exit("Can not test on MacOSX");
 	    {unix, _} ->
 		io:format("DISPLAY ~s~n", [os:getenv("DISPLAY")]),
-		case proplists:get_value(xserver, Config, none) of
+		case ct:get_config(xserver, none) of
 		    none -> ignore;
 		    Server -> 
 			os:putenv("DISPLAY", Server)
@@ -200,7 +200,7 @@ eval_test_case(Mod, Fun, Config) ->
 test_case_evaluator(Mod, Fun, [Config]) ->
     NewConfig = Mod:init_per_testcase(Fun, Config),
     R = apply(Mod, Fun, [NewConfig]),
-    Mod:fin_per_testcase(Fun, NewConfig),
+    Mod:end_per_testcase(Fun, NewConfig),
     exit({test_case_ok, R}).
 
 wait_for_evaluator(Pid, Mod, Fun, Config) ->
@@ -216,12 +216,12 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
 	{'EXIT', Pid, {skipped, Reason}} ->
 	    log("<WARNING> Test case ~w skipped, because ~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:fin_per_testcase(Fun, Config),
+	    Mod:end_per_testcase(Fun, Config),
 	    {skip, {Mod, Fun}, Reason};
 	{'EXIT', Pid, Reason} ->
 	    log("<ERROR> Eval process ~w exited, because ~p~n",
 		[{Mod, Fun}, Reason]),
-	    Mod:fin_per_testcase(Fun, Config),
+	    Mod:end_per_testcase(Fun, Config),
 	    {crash, {Mod, Fun}, Reason}
     end.
 

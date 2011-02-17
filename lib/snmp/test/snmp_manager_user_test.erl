@@ -26,7 +26,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
  
 
@@ -36,10 +36,10 @@
 %% -compile(export_all).
 
 -export([
-         all/1,
-         init_per_testcase/2, fin_per_testcase/2,
+all/0,groups/0,init_per_group/2,end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 	 
-	 register_user/1, 
+	 
 	 simple_register_and_unregister1/1,
 	 simple_register_and_unregister2/1,
 	 simple_register_and_unregister3/1,
@@ -62,7 +62,7 @@
 	 register_monitor_request_and_crash3/1,
 	 register_monitor_request_and_crash4/1, 
 
-	 tickets/1,
+	
 	 otp7902/1
 
 	]).
@@ -123,8 +123,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {manager_log_dir,  MgrLogDir} | Config].
 
 
-fin_per_testcase(Case, Config) when is_list(Config) ->
-    p("fin_per_testcase -> Case: ~p", [Case]),
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> Case: ~p", [Case]),
 %     MgrTopDir = ?config(manager_dir, Config),
 %     ?DEL_DIR(MgrTopDir),
     Config.
@@ -134,42 +134,41 @@ fin_per_testcase(Case, Config) when is_list(Config) ->
 %% Test case definitions
 %%======================================================================
 
-all(suite) ->
-    [
-     register_user,
-     tickets
-    ].
+all() -> 
+[{group, register_user}, {group, tickets}].
 
-register_user(suite) ->
-    [
-     simple_register_and_unregister1,
-     simple_register_and_unregister2,
-     simple_register_and_unregister3,
-     register_and_crash1,
-     register_and_crash2,
-     register_and_crash3,
-     register_request_and_crash1,
-     register_request_and_crash2,
-     register_request_and_crash3,
-     simple_register_monitor_and_unregister1,
-     simple_register_monitor_and_unregister2,
-     simple_register_monitor_and_unregister3,
-     register_monitor_and_crash1,
-     register_monitor_and_crash2,
-     register_monitor_and_crash3,
-     register_monitor_and_crash4,
-     register_monitor_and_crash5,
-     register_monitor_request_and_crash1,
-     register_monitor_request_and_crash2,
-     register_monitor_request_and_crash3,
-     register_monitor_request_and_crash4
-    ].
+groups() -> 
+    [{register_user, [],
+  [simple_register_and_unregister1,
+   simple_register_and_unregister2,
+   simple_register_and_unregister3, register_and_crash1,
+   register_and_crash2, register_and_crash3,
+   register_request_and_crash1,
+   register_request_and_crash2,
+   register_request_and_crash3,
+   simple_register_monitor_and_unregister1,
+   simple_register_monitor_and_unregister2,
+   simple_register_monitor_and_unregister3,
+   register_monitor_and_crash1,
+   register_monitor_and_crash2,
+   register_monitor_and_crash3,
+   register_monitor_and_crash4,
+   register_monitor_and_crash5,
+   register_monitor_request_and_crash1,
+   register_monitor_request_and_crash2,
+   register_monitor_request_and_crash3,
+   register_monitor_request_and_crash4]},
+ {tickets, [], [otp7902]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 
-tickets(suite) ->
-    [
-     otp7902
-    ].
+
+
 
 
 %%======================================================================

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,8 +23,9 @@
 -module(snmp_app_test).
 
 -export([
-	 all/1, init_suite/1, fin_suite/1,
-	 init_per_testcase/2, fin_per_testcase/2, 
+	all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1,
+	 end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2, 
 
 	 fields/1,
 	 modules/1,
@@ -32,7 +33,7 @@
 	 app_depend/1,
 	 undef_funcs/1,
 
-	 start_and_stop/1,
+	
 	 start_and_stop_empty/1, 
 	 start_and_stop_with_agent/1, 
 	 start_and_stop_with_manager/1,
@@ -44,25 +45,34 @@
 
 
 -include_lib("kernel/include/file.hrl").
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 fields,
-	 modules,
-	 exportall,
-	 app_depend,
-         undef_funcs,
-	 start_and_stop
-	],
-    {conf, init_suite, Cases, fin_suite}.
+all() -> 
+Cases = [fields, modules, exportall, app_depend,
+	 undef_funcs, {group, start_and_stop}],
+	Cases.
 
-init_suite(Config) when is_list(Config) ->
+groups() -> 
+    [{start_and_stop, [],
+  [start_and_stop_empty, start_and_stop_with_agent,
+   start_and_stop_with_manager,
+   start_and_stop_with_agent_and_manager,
+   start_epmty_and_then_agent_and_manager_and_stop,
+   start_with_agent_and_then_manager_and_stop,
+   start_with_manager_and_then_agent_and_stop]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
+init_per_suite(Config) when is_list(Config) ->
     ?DISPLAY_SUITE_INFO(), 
     PrivDir = ?config(priv_dir, Config),
     TopDir = filename:join(PrivDir, app),
@@ -97,9 +107,9 @@ is_app(App) ->
 	    {error, {invalid_format, Error}}
     end.
 
-fin_suite(suite) -> [];
-fin_suite(doc) -> [];
-fin_suite(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
@@ -112,7 +122,7 @@ init_per_testcase(undef_funcs, Config) ->
 init_per_testcase(_Case, Config) ->
     Config.
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Config.
 
 
@@ -319,16 +329,6 @@ undef_funcs_make_name(App, PostFix) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-start_and_stop(suite) ->
-    [
-     start_and_stop_empty, 
-     start_and_stop_with_agent, 
-     start_and_stop_with_manager,
-     start_and_stop_with_agent_and_manager,
-     start_epmty_and_then_agent_and_manager_and_stop,
-     start_with_agent_and_then_manager_and_stop,
-     start_with_manager_and_then_agent_and_stop
-    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
