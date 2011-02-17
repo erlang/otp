@@ -49,6 +49,13 @@ all(suite) ->
 	          "Can't run cover test."}
     end.
 
+init_per_testcase(TC, Config) when TC =:= misc; TC =:= compile ->
+    case code:which(crypto) of
+	Path when is_list(Path) ->
+	    init_per_testcase(dummy_tc, Config);
+	_Else ->
+	    {skip, "No crypto file to test with"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     Config.
 
