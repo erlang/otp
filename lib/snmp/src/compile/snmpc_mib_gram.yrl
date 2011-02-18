@@ -231,8 +231,8 @@ mib -> mibname 'DEFINITIONS' implies 'BEGIN'
              defs        = Defs}.
 
 v1orv2 -> moduleidentity listofdefinitionsv2 :
-			  {v2_mib, ['$1'|lists:reverse('$2')]}.
-v1orv2 -> listofdefinitions : {v1_mib, lists:reverse('$1')}.
+			  {v2_mib, ['$1'|lrev(v1orv2_mod, '$2')]}.
+v1orv2 -> listofdefinitions : {v1_mib, lrev(v1orv2_list, '$1')}.
 
 definition -> objectidentifier : '$1'.
 definition -> objecttypev1 : '$1'.
@@ -250,7 +250,7 @@ imports -> imports_from_one_mib : ['$1'].
 imports -> imports_from_one_mib imports : ['$1' | '$2'].
 
 imports_from_one_mib -> listofimports 'FROM' variable :
-                        {{val('$3'), lists:reverse('$1')}, line_of('$2')}.
+                        {{val('$3'), lrev(imports, '$1')}, line_of('$2')}.
 
 listofimports -> import_stuff : ['$1'].
 listofimports -> listofimports ',' import_stuff : ['$3' | '$1'].
@@ -317,7 +317,7 @@ import_stuff -> 'TAddress'
 
 traptype -> objectname 'TRAP-TYPE' 'ENTERPRISE' objectname varpart
 	    description referpart implies integer :
-            Trap = make_trap('$1', '$4', lists:reverse('$5'), 
+            Trap = make_trap('$1', '$4', lrev(trap, '$5'), 
                              '$6', '$7', val('$9')),
             {Trap, line_of('$2')}.
 
@@ -345,7 +345,7 @@ newtype -> newtypename implies syntax :
            {NT, line_of('$2')}.
 
 tableentrydefinition -> newtypename implies 'SEQUENCE' '{' fields '}' : 
-                        Seq = make_sequence('$1', lists:reverse('$5')),
+                        Seq = make_sequence('$1', lrev(table_entry, '$5')),
                         {Seq, line_of('$3')}.
 
 % returns: list of {<fieldname>, <asn1_type>}
@@ -429,9 +429,9 @@ variables -> variables ',' objectname : ['$3' | '$1'].
 
 implies -> '::=' : '$1'.
 implies -> ':' ':' '=' : w("Sloppy asignment on line ~p", [line_of('$1')]), '$1'.
-descriptionfield -> string : lists:reverse(val('$1')).
+descriptionfield -> string : lrev(descriptionfield, val('$1')).
 descriptionfield -> '$empty' : undefined.
-description -> 'DESCRIPTION' string : lists:reverse(val('$2')).
+description -> 'DESCRIPTION' string : lrev(description, val('$2')).
 description -> '$empty' : undefined.
 
 displaypart -> 'DISPLAY-HINT' string : display_hint('$2') .
@@ -439,7 +439,7 @@ displaypart -> '$empty' : undefined .
 
 % returns: {indexes, undefined} 
 %        | {indexes, IndexList} where IndexList is a list of aliasnames.
-indexpartv1 -> 'INDEX' '{' indextypesv1 '}' : {indexes, lists:reverse('$3')}.
+indexpartv1 -> 'INDEX' '{' indextypesv1 '}' : {indexes, lrev(index, '$3')}.
 indexpartv1 -> '$empty' : {indexes, undefined}.
 
 indextypesv1 -> indextypev1 : ['$1'].
@@ -458,13 +458,13 @@ defvalpart -> 'DEFVAL' '{' integer '}' : {defval, val('$3')}.
 defvalpart -> 'DEFVAL' '{' atom '}' : {defval, val('$3')}.
 defvalpart -> 'DEFVAL' '{' '{' defbitsvalue '}' '}' : {defval, '$4'}.
 defvalpart -> 'DEFVAL' '{' quote atom '}' 
-     : {defval, make_defval_for_string(line_of('$1'), lists:reverse(val('$3')),
+     : {defval, make_defval_for_string(line_of('$1'), lrev(defval_atom, val('$3')),
 				       val('$4'))}.
 defvalpart -> 'DEFVAL' '{' quote variable '}' 
-     : {defval, make_defval_for_string(line_of('$1'), lists:reverse(val('$3')),
+     : {defval, make_defval_for_string(line_of('$1'), lrev(defval_variable, val('$3')),
 				       val('$4'))}.
 defvalpart -> 'DEFVAL' '{' string '}' 
-     : {defval, lists:reverse(val('$3'))}.
+     : {defval, lrev(defval_string, val('$3'))}.
 defvalpart -> '$empty' : undefined.
 
 defbitsvalue -> defbitsnames : '$1'.
@@ -482,7 +482,7 @@ accessv1 -> atom: accessv1('$1').
 
 statusv1 -> atom : statusv1('$1').
 
-referpart -> 'REFERENCE' string : lists:reverse(val('$2')).
+referpart -> 'REFERENCE' string : lrev(refer, val('$2')).
 referpart -> '$empty' : undefined.
 
 
@@ -501,20 +501,20 @@ moduleidentity -> mibid 'MODULE-IDENTITY'
                   {MI, line_of('$2')}.
 
 mibid -> atom : val('$1').
-last_updated -> string : lists:reverse(val('$1')) .
-oranization -> string : lists:reverse(val('$1')) .
-contact_info -> string : lists:reverse(val('$1')) .
+last_updated -> string : lrev(last_upd, val('$1')) .
+oranization -> string : lrev(org, val('$1')) .
+contact_info -> string : lrev(contact, val('$1')) .
 
 revisionpart -> '$empty' : [] .
-revisionpart -> revisions : lists:reverse('$1') .
+revisionpart -> revisions : lrev(revision, '$1') .
 
 revisions -> revision : ['$1'] .
 revisions -> revisions revision : ['$2' | '$1'] .
 revision -> 'REVISION' revision_string 'DESCRIPTION' revision_desc : 
             make_revision('$2', '$4') .
 
-revision_string -> string : lists:reverse(val('$1')) .
-revision_desc   -> string : lists:reverse(val('$1')) .
+revision_string -> string : lrev(revision_str, val('$1')) .
+revision_desc   -> string : lrev(revision_desc, val('$1')) .
 
 definitionv2 -> objectidentifier : '$1'.
 definitionv2 -> objecttypev2 : '$1'.
@@ -558,8 +558,19 @@ notificationgroup -> objectname 'NOTIFICATION-GROUP' 'NOTIFICATIONS' '{'
 
 modulecompliance -> objectname 'MODULE-COMPLIANCE' 'STATUS' statusv2
                     description referpart mc_modulepart nameassign : 
+			io:format("modulecompliance -> "
+				  "~n   '$1': ~p"
+				  "~n   '$4': ~p"
+				  "~n   '$5': ~p"
+				  "~n   '$6': ~p"
+				  "~n   '$7': ~p"
+				  "~n   '$8': ~p"
+				  "~n", ['$1', '$4', '$5', '$6', '$7', '$8']),
                     MC = make_module_compliance('$1', '$4', '$5', '$6', 
                                                 '$7', '$8'),
+			io:format("modulecompliance -> "
+				  "~n   MC: ~p"
+				  "~n", [MC]),
                     {MC, line_of('$2')}.
 
 
@@ -571,15 +582,15 @@ agentcapabilities -> objectname 'AGENT-CAPABILITIES'
                                                   '$8', '$9', '$10'),
                      {AC, line_of('$2')}.
 
-prodrel -> string : lists:reverse(val('$1')).
+prodrel -> string : lrev(prodrel, val('$1')).
 
 ac_status -> atom : ac_status('$1').
 
-ac_modulepart -> ac_modules : lists:reverse('$1').
+ac_modulepart -> ac_modules : lrev(ac_module, '$1').
 ac_modulepart -> '$empty' : [].
 
-ac_modules -> ac_module : ['$1'].
-ac_modules -> ac_modules ac_module : ['$2' | '$1'].
+ac_modules -> ac_module : '$1'.
+ac_modules -> ac_modules ac_module : ['$2' | ['$1']].
 
 ac_module -> 'SUPPORTS' ac_modulenamepart 'INCLUDES' '{' objects '}' ac_variationpart : 
              make_ac_module('$2', '$5', '$7').
@@ -588,10 +599,10 @@ ac_modulenamepart -> mibname : '$1'.
 ac_modulenamepart -> '$empty' : undefined.
     
 ac_variationpart -> '$empty' : [].
-ac_variationpart -> ac_variations : lists:reverse('$1').
+ac_variationpart -> ac_variations : lrev(ac_variation, '$1').
 
-ac_variations -> ac_variation : ['$1'].
-ac_variations -> ac_variations ac_variation : ['$2' | '$1'].
+ac_variations -> ac_variation : '$1'.
+ac_variations -> ac_variations ac_variation : ['$2' | ['$1']].
 
 %% ac_variation -> ac_objectvariation.
 %% ac_variation -> ac_notificationvariation.
@@ -604,37 +615,78 @@ ac_accesspart -> '$empty' : undefined.
 
 ac_access -> atom: ac_access('$1').     
 
-ac_creationpart -> 'CREATION-REQUIRES' '{' objects '}' : lists:reverse('$3').
-ac_creationpart -> '$empty'                            : []. 
+ac_creationpart -> 'CREATION-REQUIRES' '{' objects '}' : 
+                   io:format("ac_creationpart -> $3: ~p~n", ['$3']), 
+                   lrev(ac_creation, '$3').
+ac_creationpart -> '$empty'                            : 
+                   []. 
 
-mc_modulepart -> '$empty'   : [].
-mc_modulepart -> mc_modules : lists:reverse('$1').
+mc_modulepart -> '$empty'   : 
+                 io:format("mc_modulepart -> empty~n", []), [].
+mc_modulepart -> mc_modules : 
+                 io:format("mc_modulepart -> $1: ~p~n", ['$1']), 
+                 lrev(mc_modulepart, '$1').
 
-mc_modules -> mc_module.
-mc_modules -> mc_modules mc_module.
+mc_modules -> mc_module: 
+              io:format("mc_modules -> (module) $1: ~p~n", ['$1']), 
+              ['$1'].
+mc_modules -> mc_modules mc_module: 
+              io:format("mc_modules -> (modules module)"
+			"~n   $1: ~p"
+			"~n   $2: ~p"
+			"~n", ['$1', '$2']), 
+              ['$1' | ['$2']].
     
 mc_module -> 'MODULE' mc_modulenamepart mc_mandatorypart mc_compliancepart : 
+		 io:format("mc_module -> "
+			   "~n   $2: ~p"
+			   "~n   $3: ~p"
+			   "~n   $4: ~p"
+			   "~n", ['$2', '$3', '$4']),
              make_mc_module('$2', '$3', '$4').
 
 mc_modulenamepart -> mibname : '$1'.
 mc_modulenamepart -> '$empty' : undefined.
 
-mc_mandatorypart -> 'MANDATORY-GROUPS' '{' objects '}' : lists:reverse('$3').
-mc_mandatorypart -> '$empty' : [].
+mc_mandatorypart -> 'MANDATORY-GROUPS' '{' objects '}' : 
+                    io:format("mc_mandatorypart -> $3: ~p~n", ['$3']), 
+                    lrev(mc_mandatorypart, '$3').
+mc_mandatorypart -> '$empty' : 
+                    io:format("mc_mandatorypart -> empty~n", []), 
+                    [].
     
-mc_compliancepart -> mc_compliances : lists:reverse('$1').
-mc_compliancepart -> '$empty'       : [].
+mc_compliancepart -> mc_compliances : 
+                     io:format("mc_compliancepart -> $1: ~p~n", ['$1']), 
+                     lrev(mc_compliancepart, '$1').
+mc_compliancepart -> '$empty'       : 
+                     io:format("mc_compliancepart -> empty~n", []), 
+                     [].
 
 mc_compliances -> mc_compliance : '$1'.
-mc_compliances -> mc_compliances mc_compliance : ['$2' | '$1'].
+mc_compliances -> mc_compliances mc_compliance : ['$2' | ['$1']].
 
-mc_compliance -> mc_compliancegroup : '$1'.
-mc_compliance -> mc_object          : '$1'.
+mc_compliance -> mc_compliancegroup : 
+                 io:format("mc_compliance -> (compliancegroup) ~p~n", ['$1']), 
+                 '$1'.
+mc_compliance -> mc_object          : 
+                 io:format("mc_compliance -> (object) ~p~n", ['$1']), 
+                 '$1'.
 
 mc_compliancegroup -> 'GROUP' objectname description : 
+             io:format("mc_compliancegroup -> "
+		       "~n   $2: ~p"
+		       "~n   $3: ~p"
+		       "~n", ['$2', '$3']),
                       make_mc_compliance_group('$2', '$3').
 
 mc_object -> 'OBJECT' objectname syntaxpart writesyntaxpart mc_accesspart description : 
+             io:format("mc_object -> "
+		       "~n   $2: ~p"
+		       "~n   $3: ~p"
+		       "~n   $4: ~p"
+		       "~n   $5: ~p"
+		       "~n   $6: ~p"
+		       "~n", ['$2', '$3', '$4', '$5', '$6']),
              make_mc_object('$2', '$3', '$4', '$5', '$6').
 
 syntaxpart -> 'SYNTAX' syntax : '$2'.
@@ -659,7 +711,7 @@ objecttypev2 ->	objectname 'OBJECT-TYPE'
                                       '$11', '$12', Kind, '$15'),
                 {OT, line_of('$2')}.
 
-indexpartv2 -> 'INDEX' '{' indextypesv2 '}' : {indexes, lists:reverse('$3')}.
+indexpartv2 -> 'INDEX' '{' indextypesv2 '}' : {indexes, lrev(indexv2, '$3')}.
 indexpartv2 -> 'AUGMENTS' '{' entry  '}' : {augments, '$3'}.
 indexpartv2 -> '$empty' : {indexes, undefined}.
 
@@ -684,7 +736,7 @@ notification -> objectname 'NOTIFICATION-TYPE' objectspart
                 Not = make_notification('$1','$3','$5', '$7', '$8', '$9'),
                 {Not, line_of('$2')}.
 
-objectspart -> 'OBJECTS' '{' objects '}' : lists:reverse('$3').
+objectspart -> 'OBJECTS' '{' objects '}' : lrev(objects, '$3').
 objectspart -> '$empty' : [].
 
 objects -> objectname : ['$1'].
@@ -1122,6 +1174,23 @@ filter_v2imports(_,Type)         -> {type, Type}.
     
 w(F, A) ->
     ?vwarning(F, A).
+
+lrev(Tag, L) when is_list(L) ->
+    io:format("lrev -> try reverse list ~p: "
+	      "~n   ~p"
+	      "~n", [Tag, L]),
+    case (catch lists:reverse(L)) of
+	RevL when is_list(RevL) ->
+	    RevL;
+	{'EXIT', Reason} ->
+	    io:format("lrev -> failed reversing list: "
+		      "~n   ~p"
+		      "~n", [Reason]),
+	    exit({failed_reversing_list, Reason})
+    end;
+lrev(Tag, X) ->
+    exit({bad_list, Tag, X}).
+
 
 %i(F, A) ->
 %    io:format("~w:" ++ F ++ "~n", [?MODULE|A]).
