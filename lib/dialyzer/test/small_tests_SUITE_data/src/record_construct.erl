@@ -15,7 +15,7 @@ t_loc() ->
 t_opa() ->
   #r_opa{}.
 
--record(r_rem, {a = gazonk :: file:filename()}).
+-record(r_rem, {a = gazonk :: string()}).
 
 t_rem() ->
   #r_rem{}.

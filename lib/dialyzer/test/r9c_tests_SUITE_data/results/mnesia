@@ -6,7 +6,6 @@ mnesia_bup.erl:111: The created fun has no local return
 mnesia_bup.erl:574: Function fallback_receiver/2 has no local return
 mnesia_bup.erl:967: Function uninstall_fallback_master/2 has no local return
 mnesia_checkpoint.erl:1014: The variable Error can never match since previous clauses completely covered the type {'ok',#checkpoint_args{nodes::[any()],retainers::[any(),...]}}
-mnesia_checkpoint.erl:894: The call sys:handle_system_msg(Msg::any(),From::any(),'no_parent','mnesia_checkpoint',[],Cp::#checkpoint_args{}) will never return since the success typing is (any(),{pid(),_},pid(),atom() | tuple(),[{'log' | 'log_to_file' | 'statistics' | 'trace' | fun((_,_,_) -> any()),_}],any()) -> any() and the contract is (term(),{pid(),term()},pid(),module(),[dbg_opt()],term()) -> no_return()
 mnesia_controller.erl:1666: The variable Tab can never match since previous clauses completely covered the type [any()]
 mnesia_controller.erl:1679: The pattern {'stop', Reason, Reply, State2} can never match the type {'noreply',_} | {'reply',_,_} | {'stop','shutdown',#state{}}
 mnesia_controller.erl:1685: The pattern {'noreply', State2, _Timeout} can never match the type {'reply',_,_}
