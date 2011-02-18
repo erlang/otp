@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -910,7 +910,8 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 	Eterm upop;
 	Eterm* tpl;
 	Sint position;
-	Eterm incr, warp, oldcnt;
+	Eterm incr, warp;
+	Wterm oldcnt;
 
 	if (is_not_list(iter)) {
 	    goto finalize;
@@ -985,7 +986,7 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 	Eterm* tpl = tuple_val(CAR(list_val(iter)));
 	Sint position = signed_val(tpl[1]);
 	Eterm incr = tpl[2];
-	Eterm oldcnt = handle.dbterm->tpl[position];
+	Wterm oldcnt = db_do_read_element(&handle,position);
 	Eterm newcnt = db_add_counter(&htop, oldcnt, incr);
 
 	if (newcnt == NIL) {
@@ -998,9 +999,9 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
 
 	if (arityval(*tpl) == 4) { /* Maybe warp it */
 	    Eterm threshold = tpl[3];
-	    if ((cmp(incr,make_small(0)) < 0) ? /* negative increment? */
-		(cmp(newcnt,threshold) < 0) :  /* if negative, check if below */
-		(cmp(newcnt,threshold) > 0)) { /* else check if above threshold */
+	    if ((CMP(incr,make_small(0)) < 0) ? /* negative increment? */
+		(CMP(newcnt,threshold) < 0) :  /* if negative, check if below */
+		(CMP(newcnt,threshold) > 0)) { /* else check if above threshold */
 
 		newcnt = tpl[4];
 	    }
@@ -2712,7 +2713,6 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
     Binary *mp;
     Eterm res;
     Uint32 dummy;
-    Uint sz;
 
     if (!(is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) || !is_binary(BIF_ARG_2)) {
     error:
@@ -2737,11 +2737,10 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 	    BIF_TRAP3(bif_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
-	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, 0, &dummy);
+	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, NULL, 0,
+			    ERTS_PAM_COPY_RESULT, &dummy);
 	if (is_value(res)) {
-	    sz = size_object(res);
-	    hp = HAlloc(BIF_P, sz + 2);
-	    res = copy_struct(res, sz, &hp, &MSO(BIF_P));
+	    hp = HAlloc(BIF_P, 2);
 	    ret = CONS(hp,res,ret);
 	    /*hp += 2;*/
 	} 
@@ -3490,11 +3489,24 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 
     if (!is_immed(heir_data)) {
 	DeclareTmpHeap(tmp,2,me);
+	Eterm wrap_tpl;
+	int size;
+	DbTerm* dbterm;
+	Eterm* top;
+	ErlOffHeap tmp_offheap;
 
 	UseTmpHeap(2,me);
-	/* Make a dummy 1-tuple around data to use db_get_term() */
-	heir_data = (UWord) db_store_term(&tb->common, NULL, 0,
-					  TUPLE1(tmp,heir_data));
+	/* Make a dummy 1-tuple around data to use DbTerm */
+	wrap_tpl = TUPLE1(tmp,heir_data);
+	size = size_object(wrap_tpl);
+	dbterm = erts_db_alloc(ERTS_ALC_T_DB_HEIR_DATA, (DbTable *)tb,
+			       (sizeof(DbTerm) + sizeof(Eterm)*(size-1)));
+	dbterm->size = size;
+	top = dbterm->tpl;
+	tmp_offheap.first  = NULL;
+	copy_struct(wrap_tpl, size, &top, &tmp_offheap);
+	dbterm->first_oh = tmp_offheap.first;
+	heir_data = (UWord)dbterm;
 	UnUseTmpHeap(2,me);
 	ASSERT(!is_immed(heir_data));
     }
@@ -3506,7 +3518,7 @@ static void free_heir_data(DbTable* tb)
     if (tb->common.heir != am_none && !is_immed(tb->common.heir_data)) {
 	DbTerm* p = (DbTerm*) tb->common.heir_data;
 	db_cleanup_offheap_comp(p);
-	erts_db_free(ERTS_ALC_T_DB_TERM, tb, (void *)p,
+	erts_db_free(ERTS_ALC_T_DB_HEIR_DATA, tb, (void *)p,
 		     sizeof(DbTerm) + (p->size-1)*sizeof(Eterm));
     }
     #ifdef DEBUG

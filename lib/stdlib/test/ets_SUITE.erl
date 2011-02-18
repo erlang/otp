@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,12 +93,15 @@
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
 	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
 	 do_heavy_concurrent/1, tab2file2_do/2, exit_large_table_owner_do/2,
-         types_do/1, sleeper/0, rpc_externals/0, memory_do/1
+         types_do/1, sleeper/0, rpc_externals/0, memory_do/1,
+	 ms_tracee_dummy/1, ms_tracee_dummy/2, ms_tracee_dummy/3, ms_tracee_dummy/4
 	]).
 
 -export([t_select_reverse/1]).
 
 -include_lib("test_server/include/test_server.hrl").
+
+-define(m(A,B), ?line assert_eq(A,B)).
 
 init_per_testcase(Case, Config) ->
     Seed = {S1,S2,S3} = random:seed0(), %now(),
@@ -213,29 +216,180 @@ t_match_spec_run(suite) ->
 t_match_spec_run(doc) ->
     ["Check ets:match_spec_run/2."];
 t_match_spec_run(Config) when is_list(Config) ->
+    init_externals(),
     ?line EtsMem = etsmem(),
-    ?line [2,3] = ets:match_spec_run([{1},{2},{3}],
-				     ets:match_spec_compile(
-				       [{{'$1'},[{'>','$1',1}],['$1']}])),
+
+    t_match_spec_run_test([{1},{2},{3}],
+			  [{{'$1'},[{'>','$1',1}],['$1']}],
+			  [2,3]),
+
     ?line Huge = [{X} || X <- lists:seq(1,2500)],
     ?line L = lists:seq(2476,2500),
-    ?line L = ets:match_spec_run(Huge,
-				 ets:match_spec_compile(
-				   [{{'$1'},[{'>','$1',2475}],['$1']}])),
+    t_match_spec_run_test(Huge, [{{'$1'},[{'>','$1',2475}],['$1']}], L),
+
     ?line L2 = [{X*16#FFFFFFF} || X <- L],
-    ?line L2 = ets:match_spec_run(Huge,
-				  ets:match_spec_compile(
-				    [{{'$1'},
-				      [{'>','$1',2475}],
-				      [{{{'*','$1',16#FFFFFFF}}}]}])),
-    ?line [500,1000,1500,2000,2500] = 
-	ets:match_spec_run(Huge,
-			   ets:match_spec_compile(
-			     [{{'$1'},
-			       [{'=:=',{'rem','$1',500},0}],
-			       ['$1']}])),
+    t_match_spec_run_test(Huge,
+			  [{{'$1'}, [{'>','$1',2475}], [{{{'*','$1',16#FFFFFFF}}}]}],
+			  L2),
+
+    t_match_spec_run_test(Huge, [{{'$1'}, [{'=:=',{'rem','$1',500},0}], ['$1']}],
+			  [500,1000,1500,2000,2500]),
+
+    %% More matching fun with several match clauses and guards,
+    %% applied to a variety of terms.
+    Fun = fun(Term) ->
+		  CTerm = {const, Term},
+
+		  N_List = [{Term, "0", "v-element"},
+			    {"=hidden_node", "0", Term},
+			    {"0", Term, Term},
+			    {"something", Term, "something else"},
+			    {"guard and res", Term, 872346},
+			    {Term, {'and',Term,'again'}, 3.14},
+			    {Term, {'and',Term,'again'}, "m&g"},
+			    {Term, {'and',Term,'again'}, "m&g&r"},
+			    {[{second,Term}, 'and', "tail"], Term, ['and',"tail"]}],
+
+		  N_MS = [{{'$1','$2','$3'},
+			   [{'=:=','$1',CTerm}, {'=:=','$2',{const,"0"}}],
+			   [{{"Guard only for $1",'$3'}}]},
+
+			  {{'$3','$1','$4'},
+			   [{'=:=','$3',"=hidden_node"}, {'=:=','$1',{const,"0"}}],
+			   [{{"Result only for $4",'$4'}}]},
+
+			  {{'$2','$1','$1'},
+			   [{'=:=','$2',{const,"0"}}],
+			   [{{"Match only for $1",'$2'}}]},
+
+			  {{'$2',Term,['$3'|'_']},
+			   [{is_list,'$2'},{'=:=','$3',$s}],
+			   [{{"Matching term",'$2'}}]},
+
+			  {{'$1','$2',872346},
+			   [{'=:=','$2',CTerm}, {is_list,'$1'}],
+			   [{{"Guard and result",'$2'}}]},
+
+			  {{'$1', {'and','$1','again'}, '$2'},
+			   [{is_float,'$2'}],
+			   [{{"Match and result",'$1'}}]},
+
+			  {{'$1', {'and','$1','again'}, '$2'},
+			   [{'=:=','$1',CTerm}, {'=:=', '$2', "m&g"}],
+			   [{{"Match and guard",'$2'}}]},
+
+			  {{'$1', {'and','$1','again'}, "m&g&r"},
+			   [{'=:=','$1',CTerm}],
+			   [{{"Match, guard and result",'$1'}}]},
+
+			  {{'$1', '$2', '$3'},
+			   [{'=:=','$1',[{{second,'$2'}} | '$3']}],
+			   [{{"Building guard"}}]}
+			 ],
+
+		  N_Result = [{"Guard only for $1", "v-element"},
+			      {"Result only for $4", Term},
+			      {"Match only for $1", "0"},
+			      {"Matching term","something"},
+			      {"Guard and result",Term},
+			      {"Match and result",Term},
+			      {"Match and guard","m&g"},
+			      {"Match, guard and result",Term},
+			      {"Building guard"}],
+
+		  F = fun(N_MS_Perm) ->
+			      t_match_spec_run_test(N_List, N_MS_Perm, N_Result)
+		      end,
+		  repeat_for_permutations(F, N_MS)
+	  end,
+
+    test_terms(Fun, skip_refc_check),
+
     ?line verify_etsmem(EtsMem).
 
+t_match_spec_run_test(List, MS, Result) ->
+
+    %%io:format("ms = ~p\n",[MS]),
+
+    ?m(Result, ets:match_spec_run(List, ets:match_spec_compile(MS))),
+
+    %% Check that ets:select agree
+    Tab = ets:new(xxx, [bag]),
+    ets:insert(Tab, List),
+    SRes = lists:sort(Result),
+    ?m(SRes, lists:sort(ets:select(Tab, MS))),
+    ets:delete(Tab),
+
+    %% Check that tracing agree
+    Self = self(),
+    {Tracee, MonRef} = spawn_monitor(fun() -> ms_tracee(Self, List) end),
+    receive {Tracee, ready} -> ok end,
+
+    MST = lists:map(fun(Clause) -> ms_clause_ets_to_trace(Clause) end, MS),
+
+    %%io:format("MS = ~p\nMST= ~p\n",[MS,MST]),
+
+    erlang:trace_pattern({?MODULE,ms_tracee_dummy,'_'}, MST , [local]),
+    erlang:trace(Tracee, true, [call]),
+    Tracee ! start,
+    TRes = ms_tracer_collect(Tracee, MonRef, []),
+    %erlang:trace(Tracee, false, [call]),
+    %Tracee ! stop,
+    case TRes of
+	SRes -> ok;
+	_ ->
+	    io:format("TRACE MATCH FAILED\n"),
+	    io:format("Input = ~p\nMST = ~p\nExpected = ~p\nGot = ~p\n", [List, MST, SRes, TRes]),
+	    ?t:fail("TRACE MATCH FAILED")
+    end,
+    ok.
+
+
+
+ms_tracer_collect(Tracee, Ref, Acc) ->
+    receive
+	{trace, Tracee, call, Args, [Msg]} ->
+	    %io:format("trace Args=~p  Msg=~p\n", [Args, Msg]),
+	    ms_tracer_collect(Tracee, Ref, [Msg | Acc]);
+
+	{'DOWN', Ref, process, Tracee, _} ->
+	    %io:format("monitor DOWN for ~p\n", [Tracee]),
+	    TDRef = erlang:trace_delivered(Tracee),
+	    ms_tracer_collect(Tracee, TDRef, Acc);
+
+	{trace_delivered, Tracee, Ref} ->
+	    %%io:format("trace delivered for ~p\n", [Tracee]),
+	    lists:sort(Acc);
+
+	Other ->
+	    io:format("Unexpected message = ~p\n", [Other]),
+	    ?t:fail("Unexpected tracer msg")
+    end.
+
+
+ms_tracee(Parent, CallArgList) ->
+    %io:format("ms_tracee ~p started with ArgList = ~p\n", [self(), CallArgList]),
+    Parent ! {self(), ready},
+    receive start -> ok end,
+    lists:foreach(fun(Args) ->
+			  erlang:apply(?MODULE, ms_tracee_dummy, tuple_to_list(Args))
+		  end, CallArgList).
+    %%receive stop -> ok end.
+
+
+
+ms_tracee_dummy(_) -> ok.
+ms_tracee_dummy(_,_) -> ok.
+ms_tracee_dummy(_,_,_) -> ok.
+ms_tracee_dummy(_,_,_,_) -> ok.
+
+ms_clause_ets_to_trace({Head, Guard, Body}) ->
+    {tuple_to_list(Head), Guard, [{message, Body}]}.
+
+assert_eq(A,A) -> ok;
+assert_eq(A,B) ->
+    io:format("FAILED MATCH:\n~p\n =/=\n~p\n",[A,B]),
+    ?t:fail("assert_eq failed").
 
 
 t_repair_continuation(suite) -> 
@@ -1427,8 +1581,7 @@ update_element_opts(Tuple,KeyPos,UpdPos,Opts) ->
     ok.
 
 update_element(T,Tuple,KeyPos,UpdPos) -> 
-    KeyList = [Key || Key <- [17,"seventeen",<<"seventeen">>,{17},list_to_binary(lists:seq(1,100)),
-			      make_ref(), self()]],
+    KeyList = [17,"seventeen",<<"seventeen">>,{17},list_to_binary(lists:seq(1,100)),make_ref(), self()],
     lists:foreach(fun(Key) -> 
 			  TupleWithKey = setelement(KeyPos,Tuple,Key),
 			  update_element_do(T,TupleWithKey,Key,UpdPos)
@@ -1442,6 +1595,8 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
     % This will try all combinations of {fromValue,toValue}
     %
     % IMPORTANT: size(Values) must be a prime number for this to work!!!
+
+    %io:format("update_element_do for key=~p\n",[Key]),
     Big32 = 16#12345678,
     Big64 = 16#123456789abcdef0,
     Values = { 623, -27, 0, Big32, -Big32, Big64, -Big64, Big32*Big32,
@@ -1462,7 +1617,7 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
 		    (ToIx, [], Pos, _Rand, _MeF) ->
 			 {Pos, element(ToIx+1,Values)}   % single {pos,value} arg
 		 end,
-			 			
+
     UpdateF = fun(ToIx,Rand) -> 
 		      PosValArg = PosValArgF(ToIx,[],UpdPos,Rand,PosValArgF),
 		      %%io:format("update_element(~p)~n",[PosValArg]),
@@ -1589,6 +1744,7 @@ update_counter_for(T) ->
 		 (Obj, Times, Arg3, Myself) ->
 		      ?line {NewObj, Ret} = uc_mimic(Obj,Arg3),
 		      ArgHash = erlang:phash2({T,a,Arg3}),
+		      %%io:format("update_counter(~p, ~p, ~p) expecting ~p\n",[T,a,Arg3,Ret]),
 		      ?line Ret = ets:update_counter(T,a,Arg3),
 		      ?line ArgHash = erlang:phash2({T,a,Arg3}),
 		      %%io:format("NewObj=~p~n ",[NewObj]),
@@ -3441,7 +3597,7 @@ firstnext_concurrent(Config) when is_list(Config) ->
     [dynamic_go() || _ <- lists:seq(1, 2)],
     receive
 	after 5000 -> ok
-	end.
+    end.
 
 ets_init(Tab, N) ->
     ets_new(Tab, [named_table,public,ordered_set]),
@@ -4073,7 +4229,7 @@ do_lookup_element(Tab, N, M) ->
     end.
 
 
-heavy_concurrent(_Config) ->
+heavy_concurrent(Config) when is_list(Config) ->
     repeat_for_opts(do_heavy_concurrent).
 
 do_heavy_concurrent(Opts) ->
@@ -5259,7 +5415,7 @@ types_do(Opts) ->
             ets:delete_all_objects(T),
             ?line 0 = ets:info(T,size)
           end,
-    test_terms(Fun),
+    test_terms(Fun, strict),
     ets:delete(T),
     ?line verify_etsmem(EtsMem).
 
@@ -5503,6 +5659,20 @@ repeat_while(Fun, Arg0) ->
 	{false,Ret} -> Ret
     end.
 
+%% Some (but not all) permutations of List
+repeat_for_permutations(Fun, List) ->
+    repeat_for_permutations(Fun, List, length(List)-1).
+repeat_for_permutations(Fun, List, 0) ->
+    Fun(List);
+repeat_for_permutations(Fun, List, N) ->
+    {A,B} = lists:split(N, List),
+    L1 = B++A,
+    L2 = lists:reverse(L1),
+    L3 = B++lists:reverse(A),
+    L4 = lists:reverse(B)++A,
+    Fun(L1), Fun(L2), Fun(L3), Fun(L4),
+    repeat_for_permutations(Fun, List, N-1).
+
 receive_any() ->
     receive M ->
 	    io:format("Process ~p got msg ~p\n", [self(),M]),
@@ -5560,7 +5730,7 @@ only_if_smp(Schedulers, Func) ->
 
 %% Copy-paste from emulator/test/binary_SUITE.erl
 -define(heap_binary_size, 64).
-test_terms(Test_Func) ->
+test_terms(Test_Func, Mode) ->
     garbage_collect(),
     ?line Pib0 = process_info(self(),binary),
 
@@ -5637,7 +5807,10 @@ test_terms(Test_Func) ->
     Pib = process_info(self(),binary),
     ?line Test_Func(Bin3),
     garbage_collect(),
-    ?line Pib = process_info(self(),binary),
+    case Mode of
+	strict -> ?line Pib = process_info(self(),binary);
+	skip_refc_check -> ok
+    end,
 
     ?line Test_Func(make_unaligned_sub_binary(Bin0)),
     ?line Test_Func(make_unaligned_sub_binary(Bin1)),
@@ -5681,8 +5854,12 @@ test_terms(Test_Func) ->
     ?line Test_Func(lists:duplicate(32, FF)),
 
     garbage_collect(),
-    ?line Pib0 = process_info(self(),binary),
+    case Mode of
+	strict -> ?line Pib0 = process_info(self(),binary);
+	skip_refc_check -> ok
+    end,
     ok.
+
 
 id(I) -> I.
 
@@ -5715,27 +5892,32 @@ make_ext_ref() ->
     Ref.
 
 init_externals() ->
-    SysDistSz = ets:info(sys_dist,size), 
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
-    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
-	            {badrpc, {'EXIT', E}} ->
-                        test_server:fail({rpcresult, E});
-		    R -> R
-	        end,
-    ?line test_server:stop_node(Node),
+    case get(externals) of
+	undefined ->
+	    SysDistSz = ets:info(sys_dist,size),
+	    ?line Pa = filename:dirname(code:which(?MODULE)),
+	    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
+	    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
+			    {badrpc, {'EXIT', E}} ->
+				test_server:fail({rpcresult, E});
+			    R -> R
+			end,
+	    ?line test_server:stop_node(Node),
 
-    %% Wait for table 'sys_dist' to stabilize
-    repeat_while(fun() ->
-		    case ets:info(sys_dist,size) of
-			SysDistSz -> false;
-			Sz ->
-			    io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
-				      [Sz, SysDistSz]),
-			    receive after 1000 -> true end
-		    end
-		end),   
-    put(externals, Res).
+	    %% Wait for table 'sys_dist' to stabilize
+	    repeat_while(fun() ->
+				 case ets:info(sys_dist,size) of
+				     SysDistSz -> false;
+				     Sz ->
+					 io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
+						   [Sz, SysDistSz]),
+					 receive after 1000 -> true end
+				 end
+			 end),
+	    put(externals, Res);
+
+	{_,_,_} -> ok
+    end.
 
 rpc_externals() ->
     {self(), make_port(), make_ref()}.

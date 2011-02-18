@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -890,9 +890,31 @@ void erl_error(char*, va_list);
 /* copy.c */
 void init_copy(void);
 Eterm copy_object(Eterm, Process*);
+
+#if HALFWORD_HEAP
+Uint size_object_rel(Eterm, Eterm*);
+#  define size_object(A) size_object_rel(A,NULL)
+
+Eterm copy_struct_rel(Eterm, Uint, Eterm**, ErlOffHeap*, Eterm* src_base, Eterm* dst_base);
+#  define copy_struct(OBJ,SZ,HPP,OH) copy_struct_rel(OBJ,SZ,HPP,OH, NULL,NULL)
+
+Eterm copy_shallow_rel(Eterm*, Uint, Eterm**, ErlOffHeap*, Eterm* src_base);
+#  define copy_shallow(A,B,C,D) copy_shallow_rel(A,B,C,D,NULL)
+
+#else /* !HALFWORD_HEAP */
+
 Uint size_object(Eterm);
+#  define size_object_rel(A,B) size_object(A)
+
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
+#  define copy_struct_rel(OBJ,SZ,HPP,OH, SB,DB) copy_struct(OBJ,SZ,HPP,OH)
+
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
+#  define copy_shallow_rel(A,B,C,D, BASE) copy_shallow(A,B,C,D)
+
+#endif
+
+
 void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 		      Eterm* refs, unsigned nrefs);
 
@@ -1483,16 +1505,30 @@ void erts_init_utils_mem(void);
 erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
 void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
 
+#if HALFWORD_HEAP
+int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
+#  define eq(A,B) eq_rel(A,NULL,B,NULL)
+#else
 int eq(Eterm, Eterm);
+#  define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
+#endif
+
 #define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
 
+#if HALFWORD_HEAP
+Sint cmp_rel(Eterm, Eterm*, Eterm, Eterm*);
+#define CMP(A,B) cmp_rel(A,NULL,B,NULL)
+#else
 Sint cmp(Eterm, Eterm);
-#define cmp_lt(a,b)	(cmp((a),(b)) < 0)
-#define cmp_le(a,b)	(cmp((a),(b)) <= 0)
-#define cmp_eq(a,b)	(cmp((a),(b)) == 0)
-#define cmp_ne(a,b)	(cmp((a),(b)) != 0)
-#define cmp_ge(a,b)	(cmp((a),(b)) >= 0)
-#define cmp_gt(a,b)	(cmp((a),(b)) > 0)
+#define cmp_rel(A,A_BASE,B,B_BASE) cmp(A,B)
+#define CMP(A,B) cmp(A,B)
+#endif
+#define cmp_lt(a,b)	(CMP((a),(b)) < 0)
+#define cmp_le(a,b)	(CMP((a),(b)) <= 0)
+#define cmp_eq(a,b)	(CMP((a),(b)) == 0)
+#define cmp_ne(a,b)	(CMP((a),(b)) != 0)
+#define cmp_ge(a,b)	(CMP((a),(b)) >= 0)
+#define cmp_gt(a,b)	(CMP((a),(b)) > 0)
 
 #define CMP_LT(a,b)	((a) != (b) && cmp_lt((a),(b)))
 #define CMP_GE(a,b)	((a) == (b) || cmp_ge((a),(b)))
@@ -1721,8 +1757,15 @@ do {								\
 extern Binary *erts_match_set_compile(Process *p, Eterm matchexpr);
 Eterm erts_match_set_lint(Process *p, Eterm matchexpr); 
 extern void erts_match_set_release_result(Process* p);
+
+enum erts_pam_run_flags {
+    ERTS_PAM_TMP_RESULT=0,
+    ERTS_PAM_COPY_RESULT=1,
+    ERTS_PAM_CONTIGUOUS_TUPLE=2
+};
 extern Eterm erts_match_set_run(Process *p, Binary *mpsp, 
 				Eterm *args, int num_args,
+				enum erts_pam_run_flags in_flags,
 				Uint32 *return_flags);
 extern Eterm erts_match_set_get_source(Binary *mpsp);
 extern void erts_match_prog_foreach_offheap(Binary *b,

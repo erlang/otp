@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -225,14 +225,14 @@ int real_printf(const char *fmt, ...);
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
-#ifdef ARCH_64
-#  ifdef HALFWORD_HEAP_EMULATOR
+#if defined(ARCH_64) && defined(HALFWORD_HEAP_EMULATOR)
 #    define HALFWORD_HEAP 1
 #    define HALFWORD_ASSERT 0
-#  else
+#    define ASSERT_HALFWORD(COND) ASSERT(COND)
+#else
 #    define HALFWORD_HEAP 0
 #    define HALFWORD_ASSERT 0
-#  endif
+#    define ASSERT_HALFWORD(COND)
 #endif
 
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T

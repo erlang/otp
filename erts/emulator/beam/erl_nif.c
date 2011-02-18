@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -81,7 +81,6 @@ static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
 
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 {    
-    unsigned frag_sz;
     env->hp = hp;
     if (env->heap_frag == NULL) {       
 	ASSERT(HEAP_LIMIT(env->proc) == env->hp_end);
@@ -91,11 +90,11 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 	env->heap_frag->used_size = hp - env->heap_frag->mem;
 	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
-    frag_sz = need + MIN_HEAP_FRAG_SZ;
-    hp = erts_heap_alloc(env->proc, frag_sz);
-    env->hp = hp + need;
-    env->hp_end = hp + frag_sz;
+    hp = erts_heap_alloc(env->proc, need, MIN_HEAP_FRAG_SZ);
     env->heap_frag = MBUF(env->proc);
+    env->hp = hp + need;
+    env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
+
     return hp;
 }
 
@@ -574,7 +573,7 @@ int enif_is_identical(Eterm lhs, Eterm rhs)
 
 int enif_compare(Eterm lhs, Eterm rhs)
 {
-    return cmp(lhs,rhs);
+    return CMP(lhs,rhs);
 }
 
 int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, const Eterm** array)
@@ -939,21 +938,26 @@ ERL_NIF_TERM enif_make_list_cell(ErlNifEnv* env, Eterm car, Eterm cdr)
 
 ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)
 {
-    Eterm* hp = alloc_heap(env,cnt*2);
-    Eterm ret = make_list(hp);
-    Eterm* last = &ret;
-    va_list ap;
-
-    va_start(ap,cnt);
-    while (cnt--) {
-	*last = make_list(hp);
-	*hp = va_arg(ap,Eterm);
-	last = ++hp;
-	++hp;
+    if (cnt == 0) {
+	return NIL;
     }
-    va_end(ap);
-    *last = NIL;
-    return ret;
+    else {
+	Eterm* hp = alloc_heap(env,cnt*2);
+	Eterm ret = make_list(hp);
+	Eterm* last = &ret;
+	va_list ap;
+
+	va_start(ap,cnt);
+	while (cnt--) {
+	    *last = make_list(hp);
+	    *hp = va_arg(ap,Eterm);
+	    last = ++hp;
+	    ++hp;
+	}
+	va_end(ap);
+	*last = NIL;
+	return ret;
+    }
 }
 
 ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)
@@ -1474,7 +1478,13 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	
 	ret = load_nif_error(BIF_P, bad_lib, "Library version (%d.%d) not compatible (with %d.%d).",
 			     entry->major, entry->minor, ERL_NIF_MAJOR_VERSION, ERL_NIF_MINOR_VERSION);
-    }    
+    }   
+    else if (entry->minor >= 1
+	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
+	ret = load_nif_error(BIF_P, bad_lib, "Library (%s) not compiled for "
+			     "this vm variant (%s).",
+			     entry->vm_variant, ERL_NIF_VM_VARIANT);
+    }
     else if (!erts_is_atom_str((char*)entry->name, mod_atom)) {
 	ret = load_nif_error(BIF_P, bad_lib, "Library module name '%s' does not"
 			     " match calling module '%T'", entry->name, mod_atom);

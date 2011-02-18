@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -120,7 +120,7 @@ char *erts_big_to_string(Eterm x, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 
-Eterm big_plus(Eterm, Eterm, Eterm*);
+Eterm big_plus(Wterm, Wterm, Eterm*);
 Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
 Eterm big_div(Eterm, Eterm, Eterm*);
@@ -137,9 +137,9 @@ Eterm big_bxor(Eterm, Eterm, Eterm*);
 Eterm big_bnot(Eterm, Eterm*);
 
 Eterm big_lshift(Eterm, Sint, Eterm*);
-int big_comp (Eterm, Eterm);
+int big_comp (Wterm, Wterm);
 int big_ucomp (Eterm, Eterm);
-int big_to_double(Eterm x, double* resp);
+int big_to_double(Wterm x, double* resp);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);

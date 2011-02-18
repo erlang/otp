@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -824,7 +824,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 }	
 #endif /* inline */
 
-Eterm* erts_heap_alloc(Process* p, Uint need);
+Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 #ifdef CHECK_FOR_HOLES
 Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
 #endif

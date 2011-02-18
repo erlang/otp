@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1780,8 +1780,8 @@ mseg_alloc_ccc() ->
     mseg_alloc_ccc(erlang:system_info({allocator,mseg_alloc})).
 
 mseg_alloc_ccc(MsegAllocInfo) ->
-    ?line {value,{calls, CL}}
-	= lists:keysearch(calls, 1, MsegAllocInfo),
+    ?line {value,{memkind, MKL}} = lists:keysearch(memkind,1,MsegAllocInfo),
+    ?line {value,{calls, CL}} = lists:keysearch(calls, 1, MKL),
     ?line {value,{mseg_check_cache, GigaCCC, CCC}}
 	= lists:keysearch(mseg_check_cache, 1, CL),
     ?line GigaCCC*1000000000 + CCC.
@@ -1790,11 +1790,27 @@ mseg_alloc_cached_segments() ->
     mseg_alloc_cached_segments(erlang:system_info({allocator,mseg_alloc})).
 
 mseg_alloc_cached_segments(MsegAllocInfo) ->
+    MemName = case is_halfword_vm() of
+	true -> "high memory";
+	false -> "all memory"
+    end,
+    ?line [{memkind,DrvMem}]
+	= lists:filter(fun(E) -> case E of
+				    {memkind, [{name, MemName} | _]} -> true;
+				    _ -> false
+		       end end, MsegAllocInfo),
     ?line {value,{status, SL}}
-	= lists:keysearch(status, 1, MsegAllocInfo),
+	= lists:keysearch(status, 1, DrvMem),
     ?line {value,{cached_segments, CS}}
 	= lists:keysearch(cached_segments, 1, SL),
     ?line CS.
+
+is_halfword_vm() ->
+    case {erlang:system_info({wordsize, internal}),
+	  erlang:system_info({wordsize, external})} of
+	{4, 8} -> true;
+	{WS, WS} -> false
+    end.
 
 driver_alloc_sbct() ->
     {_, _, _, As} = erlang:system_info(allocator),
