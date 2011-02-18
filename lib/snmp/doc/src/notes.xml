@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,10 +42,21 @@
       <list type="bulleted">
         <item>
           <p>[compiler] Added support for the textual convention 
-	  AGENT-CAPABILITIES, exported by the SNMPv2-CONF mib.</p>
+	  <c>AGENT-CAPABILITIES</c>, exported by the SNMPv2-CONF mib.</p>
           <p>The <c>reference</c> and <c>modules</c> part(s) are
 	  stored in the <c>assocList</c> of the mib-entry record 
-	  (<c>me</c>). </p>
+	  (<c>me</c>). 
+	  Only handled <em>if</em> the option <c>agent_capabilities</c>
+	  is provided to the compiler. </p>
+	  <p>Also added ("full") support for MODULE-COMPLIANCE,
+	  which is handled in a similar way. 
+	  Only handled <em>if</em> the option <c>module_compliance</c>
+	  is provided to the compiler. </p>
+	  <p>See <seealso marker="snmpc#compile">compile/2</seealso> 
+	  for more info. </p>
+	  <p>For backward compatibillity, the MIBs provided with 
+	  this appliaction are <em>not</em> compiled with these 
+	  options. </p>
           <p>Own Id: OTP-8966</p>
         </item>
       </list>

@@ -588,13 +588,29 @@ prodrel -> string : lreverse(prodrel, val('$1')).
 
 ac_status -> atom : ac_status('$1').
 
-ac_modulepart -> ac_modules : lreverse(ac_modulepart, '$1').
-ac_modulepart -> '$empty' : [].
+ac_modulepart -> ac_modules : 
+%%                  i("ac_modulepart -> "
+%% 		   "~n   $1: ~p", ['$1']), 
+                 lreverse(ac_modulepart, '$1').
+ac_modulepart -> '$empty' : 
+%%                  i("ac_modulepart -> empty", []), 
+                 [].
 
-ac_modules -> ac_module : '$1'.
-ac_modules -> ac_modules ac_module : ['$2' | ['$1']].
+ac_modules -> ac_module : 
+%%               i("ac_modules -> "
+%% 		"~n   $1: ~p", ['$1']), 
+              ['$1'].
+ac_modules -> ac_module ac_modules : 
+%%               i("ac_modules -> "
+%% 		"~n   $1: ~p"
+%% 		"~n   $2: ~p", ['$1', '$2']), 
+              ['$1' | '$2'].
 
 ac_module -> 'SUPPORTS' ac_modulenamepart 'INCLUDES' '{' objects '}' ac_variationpart : 
+%%               i("ac_module -> "
+%% 		"~n   $2: ~p"
+%% 		"~n   $5: ~p"
+%% 		"~n   $7: ~p", ['$2', '$5', '$7']), 
              make_ac_module('$2', '$5', '$7').
 
 ac_modulenamepart -> mibname : '$1'.
@@ -645,10 +661,10 @@ ac_creationpart -> '$empty'                            :
                    []. 
 
 mc_modulepart -> '$empty'   : 
-%%                  io:format("mc_modulepart -> empty~n", []), 
+%%                  i("mc_modulepart -> empty", []), 
                  [].
 mc_modulepart -> mc_modules : 
-%%                  io:format("mc_modulepart -> $1: ~p~n", ['$1']), 
+%%                  i("mc_modulepart -> $1: ~p", ['$1']), 
                  lreverse(mc_modulepart, '$1').
 
 mc_modules -> mc_module : 
@@ -656,7 +672,7 @@ mc_modules -> mc_module :
 %% 		"~n   $1: ~p", ['$1']), 
               ['$1'].
 mc_modules -> mc_module mc_modules : 
-%%               i("mc_modules -> (modules module)"
+%%               i("mc_modules -> "
 %% 		"~n   $1: ~p"
 %% 		"~n   $2: ~p", ['$1', '$2']), 
               ['$1' | '$2'].
@@ -969,12 +985,12 @@ make_ac_module(Name, Grps, Var) ->
 		  variation = Var}.
 
 
-make_module_compliance(Name, Status, Desc, Ref, Mod, NA) ->
+make_module_compliance(Name, Status, Desc, Ref, Mods, NA) ->
     #mc_module_compliance{name        = Name,
                           status      = Status,
                           description = Desc,
 	                  reference   = Ref,
-                          module      = Mod,
+                          modules     = Mods,
 	                  name_assign = NA}.
 
 make_mc_module(Name, Mand, Compl) ->
