@@ -10,11 +10,13 @@ MODULES= \
 	opaque_tests_SUITE \
 	options1_tests_SUITE \
 	options2_tests_SUITE \
+	plt_tests_SUITE \
 	r9c_tests_SUITE \
 	race_tests_SUITE \
 	small_tests_SUITE \
 	user_tests_SUITE \
-	dialyzer_test
+	dialyzer_common\
+	file_utils
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -66,7 +68,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) dialyzer.spec $(RELSYSDIR)
+	$(INSTALL_DATA) dialyzer.spec dialyzer_test_constants.hrl $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

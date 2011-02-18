@@ -1,2 +1,2 @@
 {dialyzer_options, [{defines, [{vsn, 42}]}]}.
-{time_limit, 6}.
+{time_limit, 20}.

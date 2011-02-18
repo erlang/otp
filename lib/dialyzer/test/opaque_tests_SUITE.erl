@@ -1,151 +1,184 @@
+%% ATTENTION!
+%% This is an automatically generated file. Do not edit.
+%% Use './remake' script to refresh it if needed.
+%% All Dialyzer options should be defined in dialyzer_options
+%% file.
+
 -module(opaque_tests_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include("ct.hrl").
+-include("dialyzer_test_constants.hrl").
 
--export([all/0, groups/0, init_per_group/2, end_per_group/2,
-         init_per_testcase/2, fin_per_testcase/2]).
+-export([suite/0, init_per_suite/0, init_per_suite/1,
+         end_per_suite/1, all/0]).
+-export([opaque_tests_SUITE_consistency/1, array/1, crash/1, dict/1, 
+         ets/1, gb_sets/1, inf_loop1/1, int/1, mixed_opaque/1, 
+         my_digraph/1, my_queue/1, opaque/1, queue/1, rec/1, timer/1, 
+         union/1, wings/1, zoltan_kis1/1, zoltan_kis2/1, zoltan_kis3/1, 
+         zoltan_kis4/1, zoltan_kis5/1, zoltan_kis6/1]).
 
--export([array/1, crash/1, dict/1, ets/1, gb_sets/1, inf_loop1/1, 
-         int/1, mixed_opaque/1, my_digraph/1, my_queue/1, opaque/1, 
-         queue/1, rec/1, timer/1, union/1, wings/1, zoltan_kis1/1, 
-         zoltan_kis2/1, zoltan_kis3/1, zoltan_kis4/1, zoltan_kis5/1, 
-         zoltan_kis6/1]).
+suite() ->
+  [{timetrap, {minutes, 1}}].
 
--define(default_timeout, ?t:minutes(1)).
--define(dialyzer_options, ?config(dialyzer_options, Config)).
--define(datadir, ?config(data_dir, Config)).
--define(privdir, ?config(priv_dir, Config)).
+init_per_suite() ->
+  [{timetrap, ?plt_timeout}].
+init_per_suite(Config) ->
+  OutDir = ?config(priv_dir, Config),
+  case dialyzer_common:check_plt(OutDir) of
+    fail -> {skip, "Plt creation/check failed."};
+    ok -> [{dialyzer_options, [{warnings,[no_unused,no_return]}]}|Config]
+  end.
 
-groups() -> [].
-
-init_per_group(_GroupName, Config) -> Config.
-
-end_per_group(_GroupName, Config) -> Config.
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{dialyzer_options, [{warnings,[no_unused,no_return]}]}, {watchdog, Dog} | Config].
-
-fin_per_testcase(_Case, _Config) ->
-    Dog = ?config(watchdog, _Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
+end_per_suite(_Config) ->
+  ok.
 
 all() ->
-    [array,crash,dict,ets,gb_sets,inf_loop1,int,mixed_opaque,my_digraph,
-     my_queue,opaque,queue,rec,timer,union,wings,zoltan_kis1,zoltan_kis2,
-     zoltan_kis3,zoltan_kis4,zoltan_kis5,zoltan_kis6].
+  [opaque_tests_SUITE_consistency,array,crash,dict,ets,gb_sets,inf_loop1,int,
+   mixed_opaque,my_digraph,my_queue,opaque,queue,rec,timer,union,wings,
+   zoltan_kis1,zoltan_kis2,zoltan_kis3,zoltan_kis4,zoltan_kis5,zoltan_kis6].
 
-array(Config) when is_list(Config) ->
-    ?line run(Config, {array, dir}),
-    ok.
+dialyze(Config, TestCase) ->
+  Opts = ?config(dialyzer_options, Config),
+  Dir = ?config(data_dir, Config),
+  OutDir = ?config(priv_dir, Config),
+  dialyzer_common:check(TestCase, Opts, Dir, OutDir).
 
-crash(Config) when is_list(Config) ->
-    ?line run(Config, {crash, dir}),
-    ok.
+opaque_tests_SUITE_consistency(Config) ->
+  Dir = ?config(data_dir, Config),
+  case dialyzer_common:new_tests(Dir, all()) of
+    []  -> ok;
+    New -> ct:fail({missing_tests,New})
+  end.
 
-dict(Config) when is_list(Config) ->
-    ?line run(Config, {dict, dir}),
-    ok.
+array(Config) ->
+  case dialyze(Config, array) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-ets(Config) when is_list(Config) ->
-    ?line run(Config, {ets, dir}),
-    ok.
+crash(Config) ->
+  case dialyze(Config, crash) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-gb_sets(Config) when is_list(Config) ->
-    ?line run(Config, {gb_sets, dir}),
-    ok.
+dict(Config) ->
+  case dialyze(Config, dict) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-inf_loop1(Config) when is_list(Config) ->
-    ?line run(Config, {inf_loop1, file}),
-    ok.
+ets(Config) ->
+  case dialyze(Config, ets) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-int(Config) when is_list(Config) ->
-    ?line run(Config, {int, dir}),
-    ok.
+gb_sets(Config) ->
+  case dialyze(Config, gb_sets) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-mixed_opaque(Config) when is_list(Config) ->
-    ?line run(Config, {mixed_opaque, dir}),
-    ok.
+inf_loop1(Config) ->
+  case dialyze(Config, inf_loop1) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-my_digraph(Config) when is_list(Config) ->
-    ?line run(Config, {my_digraph, dir}),
-    ok.
+int(Config) ->
+  case dialyze(Config, int) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-my_queue(Config) when is_list(Config) ->
-    ?line run(Config, {my_queue, dir}),
-    ok.
+mixed_opaque(Config) ->
+  case dialyze(Config, mixed_opaque) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-opaque(Config) when is_list(Config) ->
-    ?line run(Config, {opaque, dir}),
-    ok.
+my_digraph(Config) ->
+  case dialyze(Config, my_digraph) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-queue(Config) when is_list(Config) ->
-    ?line run(Config, {queue, dir}),
-    ok.
+my_queue(Config) ->
+  case dialyze(Config, my_queue) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-rec(Config) when is_list(Config) ->
-    ?line run(Config, {rec, dir}),
-    ok.
+opaque(Config) ->
+  case dialyze(Config, opaque) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-timer(Config) when is_list(Config) ->
-    ?line run(Config, {timer, dir}),
-    ok.
+queue(Config) ->
+  case dialyze(Config, queue) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-union(Config) when is_list(Config) ->
-    ?line run(Config, {union, dir}),
-    ok.
+rec(Config) ->
+  case dialyze(Config, rec) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-wings(Config) when is_list(Config) ->
-    ?line run(Config, {wings, dir}),
-    ok.
+timer(Config) ->
+  case dialyze(Config, timer) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-zoltan_kis1(Config) when is_list(Config) ->
-    ?line run(Config, {zoltan_kis1, file}),
-    ok.
+union(Config) ->
+  case dialyze(Config, union) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-zoltan_kis2(Config) when is_list(Config) ->
-    ?line run(Config, {zoltan_kis2, file}),
-    ok.
+wings(Config) ->
+  case dialyze(Config, wings) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-zoltan_kis3(Config) when is_list(Config) ->
-    ?line run(Config, {zoltan_kis3, file}),
-    ok.
+zoltan_kis1(Config) ->
+  case dialyze(Config, zoltan_kis1) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-zoltan_kis4(Config) when is_list(Config) ->
-    ?line run(Config, {zoltan_kis4, file}),
-    ok.
+zoltan_kis2(Config) ->
+  case dialyze(Config, zoltan_kis2) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-zoltan_kis5(Config) when is_list(Config) ->
-    ?line run(Config, {zoltan_kis5, file}),
-    ok.
+zoltan_kis3(Config) ->
+  case dialyze(Config, zoltan_kis3) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-zoltan_kis6(Config) when is_list(Config) ->
-    ?line run(Config, {zoltan_kis6, file}),
-    ok.
+zoltan_kis4(Config) ->
+  case dialyze(Config, zoltan_kis4) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-run(Config, TestCase) ->
-    case run_test(Config, TestCase) of
-        ok -> ok;
-        {fail, Reason} ->
-            ?t:format("~s",[Reason]),
-            fail()
-    end.
+zoltan_kis5(Config) ->
+  case dialyze(Config, zoltan_kis5) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-run_test(Config, {TestCase, Kind}) ->
-    Dog = ?config(watchdog, Config),
-    Options = ?dialyzer_options,
-    Dir = ?datadir,
-    OutDir = ?privdir,
-    case dialyzer_test:dialyzer_test(Options, TestCase, Kind,
-                                     Dir, OutDir, Dog) of
-        same -> ok;
-        {differ, DiffList} ->
-            {fail,
-               io_lib:format("\nTest ~p failed:\n~p\n",
-                            [TestCase, DiffList])}
-    end.
+zoltan_kis6(Config) ->
+  case dialyze(Config, zoltan_kis6) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
 
-fail() ->
-    io:format("failed\n"),
-    ?t:fail().
