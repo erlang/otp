@@ -240,7 +240,7 @@ write_file(Name, Bin) ->
 %% when it is time to change file server protocol again.
 %% Meanwhile, it is implemented here, slightly less efficient.
 
--spec write_file(Name :: name(), Bin :: binary(), Modes :: [mode()]) -> 
+-spec write_file(Name :: name(), Bin :: iodata(), Modes :: [mode()]) ->
 	'ok' | {'error', posix()}.
 
 write_file(Name, Bin, ModeList) when is_list(ModeList) ->
