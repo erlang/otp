@@ -5124,17 +5124,23 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
     return result;
 }
 
-
 /*
- * Returns a pointer to {module, function, arity}, or NULL if not found.
+ * Find a function from the given pc and fill information in
+ * the FunctionInfo struct. If the full_info is non-zero, fill
+ * in all available information (including location in the
+ * source code). If no function is found, the 'current' field
+ * will be set to NULL.
  */
-BeamInstr *
-find_function_from_pc(BeamInstr* pc)
+
+void
+erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 {
     Range* low = modules;
     Range* high = low + num_loaded_modules;
     Range* mid = mid_module;
 
+    fi->current = NULL;
+    fi->needed = 5;
     while (low < high) {
 	if (pc < mid->start) {
 	    high = mid;
@@ -5151,16 +5157,60 @@ find_function_from_pc(BeamInstr* pc)
 		    high1 = mid1;
 		} else if (pc < mid1[1]) {
 		    mid_module = mid;
-		    return mid1[0]+2;
+		    fi->current = mid1[0]+2;
+		    return;
 		} else {
 		    low1 = mid1 + 1;
 		}
 	    }
-	    return NULL;
+	    return;
 	}
 	mid = low + (high-low) / 2;
     }
-    return NULL;
+}
+
+/*
+ * Build a single {M,F,A,Loction} item to be part of
+ * a stack trace.
+ */
+Eterm*
+erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
+{
+    BeamInstr* current = fi->current;
+    Eterm loc = NIL;
+
+    if (is_list(args) || is_nil(args)) {
+	*mfa_p = TUPLE4(hp, current[0], current[1], args, loc);
+    } else {
+	Eterm arity = make_small(current[2]);
+	*mfa_p = TUPLE4(hp, current[0], current[1], arity, loc);
+    }
+    return hp + 5;
+}
+
+/*
+ * Force setting of the current function in a FunctionInfo
+ * structure. No source code location will be associated with
+ * the function.
+ */
+void
+erts_set_current_function(FunctionInfo* fi, BeamInstr* current)
+{
+    fi->current = current;
+    fi->needed = 5;
+}
+
+
+/*
+ * Returns a pointer to {module, function, arity}, or NULL if not found.
+ */
+BeamInstr*
+find_function_from_pc(BeamInstr* pc)
+{
+    FunctionInfo fi;
+
+    erts_lookup_function_info(&fi, pc, 0);
+    return fi.current;
 }
 
 /*

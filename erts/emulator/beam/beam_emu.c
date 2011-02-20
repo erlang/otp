@@ -5903,9 +5903,14 @@ build_stacktrace(Process* c_p, Eterm exc) {
     struct StackTrace* s;
     Eterm  args;
     int    depth;
-    BeamInstr* current;
-    Eterm  Where = NIL;
-    Eterm *next_p = &Where;
+    FunctionInfo fi;
+    FunctionInfo* stk;
+    FunctionInfo* stkp;
+    Eterm res = NIL;
+    Uint heap_size;
+    Eterm* hp;
+    Eterm mfa;
+    int i;
 
     if (! (s = get_trace_from_exc(exc))) {
         return NIL;
@@ -5924,64 +5929,56 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * saved s->current should already contain the proper value.
      */
     if (s->pc != NULL) {
-	current = find_function_from_pc(s->pc);
+	erts_lookup_function_info(&fi, s->pc, 1);
+    } else if (GET_EXC_INDEX(s->freason) ==
+	       GET_EXC_INDEX(EXC_FUNCTION_CLAUSE)) {
+	erts_lookup_function_info(&fi, s->current, 1);
     } else {
-	current = s->current;
+	erts_set_current_function(&fi, s->current);
     }
+
     /*
-     * If current is still NULL, default to the initial function
+     * If fi.current is still NULL, default to the initial function
      * (e.g. spawn_link(erlang, abs, [1])).
      */
-    if (current == NULL) {
-	current = c_p->initial;
+    if (fi.current == NULL) {
+	erts_set_current_function(&fi, c_p->initial);
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);
     }
 
-    depth = s->depth;
-    
     /*
-     * Add the {M,F,A} for the current function 
-     * (where A is arity or [Argument]).
+     * Look up all saved continuation pointers and calculate
+     * needed heap space.
      */
-    {
-	int i;
-	Eterm mfa;
-	Uint heap_size = 7*(depth+1);
-	Eterm* hp = HAlloc(c_p, heap_size);
-	Eterm* hp_end = hp + heap_size;
-
-	if (args != am_true) {
-	    /* We have an arglist - use it */
-	    mfa = TUPLE4(hp, current[0], current[1], args, NIL);
-	} else {
-	    Eterm arity = make_small(current[2]);
-	    mfa = TUPLE4(hp, current[0], current[1], arity, NIL);
+    depth = s->depth;
+    stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
+				      depth*sizeof(FunctionInfo));
+    heap_size = fi.needed + 2;
+    for (i = 0; i < depth; i++) {
+	erts_lookup_function_info(stkp, s->trace[i], 1);
+	if (stkp->current) {
+	    heap_size += stkp->needed + 2;
+	    stkp++;
 	}
-	hp += 5;
-	ASSERT(*next_p == NIL);
-	*next_p = CONS(hp, mfa, NIL);
-	next_p = &CDR(list_val(*next_p));
-	hp += 2;
-
-	/* 
-	 * Finally, we go through the saved continuation pointers.
-	 */
-	for (i = 0; i < depth; i++) {
-	    BeamInstr *fi = find_function_from_pc((BeamInstr *) s->trace[i]);
-	    if (fi == NULL) continue;
-	    mfa = TUPLE4(hp, fi[0], fi[1], make_small(fi[2]), NIL);
-	    hp += 5;
-	    ASSERT(*next_p == NIL);
-	    *next_p = CONS(hp, mfa, NIL);
-	    next_p = &CDR(list_val(*next_p));
-	    hp += 2;
-	}
-	ASSERT(hp <= hp_end);
-	HRelease(c_p, hp_end, hp);
     }
-    return Where;
+
+    /*
+     * Allocate heap space and build the stacktrace.
+     */
+    hp = HAlloc(c_p, heap_size);
+    while (stkp > stk) {
+	stkp--;
+	hp = erts_build_mfa_item(stkp, hp, am_true, &mfa);
+	res = CONS(hp, mfa, res);
+	hp += 2;
+    }
+    hp = erts_build_mfa_item(&fi, hp, args, &mfa);
+    res = CONS(hp, mfa, res);
+
+    erts_free(ERTS_ALC_T_TMP, (void *) stk);
+    return res;
 }
 
 

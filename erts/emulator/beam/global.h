@@ -859,10 +859,19 @@ void erts_system_monitor_clear(Process *c_p);
 void erts_system_profile_clear(Process *c_p);
 
 /* beam_load.c */
+typedef struct {
+    BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
+    Uint needed;		/* Heap space needed for entire tuple */
+} FunctionInfo;
+
 int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm* mod, byte* code, int size);
 void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);
+Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
+			   Eterm args, Eterm* mfa_p);
+void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
+void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
