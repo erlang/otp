@@ -102,13 +102,25 @@ return
 
 move S r | line Loc | call_ext Ar Func => \
      line Loc | move S r | call_ext Ar Func
-move S r | line Loc | call_ext_last Ar Func D => \
+move S r | line Loc | call_ext_last Ar Func=u$is_bif D => \
      line Loc | move S r | call_ext_last Ar Func D
-move S r | line Loc | call_ext_only Ar Func => \
+move S r | line Loc | call_ext_only Ar Func=u$is_bif => \
      line Loc | move S r | call_ext_only Ar Func
-
 move S r | line Loc | call Ar Func => \
      line Loc | move S r | call Ar Func
+
+#
+# A tail-recursive call to an external function (non-BIF) will
+# never be saved on the stack, so there is no reason to keep
+# the line instruction. (The compiler did not remove the line
+# instruction because it cannot tell the difference between
+# BIFs and ordinary Erlang functions.)
+#
+
+line Loc | call_ext_last Ar Func=u$is_not_bif D => \
+     call_ext_last Ar Func D
+line Loc | call_ext_only Ar Func=u$is_not_bif => \
+     call_ext_only Ar Func
 
 line Loc | func_info M F A => func_info M F A | line Loc
 
