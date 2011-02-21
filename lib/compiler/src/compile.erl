@@ -1426,6 +1426,8 @@ iofile(File) when is_atom(File) ->
 iofile(File) ->
     {filename:dirname(File), filename:basename(File, ".erl")}.
 
+erlfile(".", Base, Suffix) ->
+    Base ++ Suffix;
 erlfile(Dir, Base, Suffix) ->
     filename:join(Dir, Base ++ Suffix).
 

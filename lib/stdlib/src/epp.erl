@@ -684,7 +684,7 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
 	{error,_E1} ->
 	    case catch find_lib_dir(NewName) of
 		{LibDir, Rest} when is_list(LibDir) ->
-		    LibName = filename:join([LibDir | Rest]),
+		    LibName = fname_join([LibDir | Rest]),
 		    case file:open(LibName, [read]) of
 			{ok,NewF} ->
 			    ExtraPath = [filename:dirname(LibName)],
@@ -1154,7 +1154,12 @@ expand_var1(NewName) ->
     [[$$ | Var] | Rest] = filename:split(NewName),
     Value = os:getenv(Var),
     true = Value =/= false,
-    {ok, filename:join([Value | Rest])}.
+    {ok, fname_join([Value | Rest])}.
+
+fname_join(["." | [_|_]=Rest]) ->
+    fname_join(Rest);
+fname_join(Components) ->
+    filename:join(Components).
 
 %% The line only. (Other tokens may have the column and text as well...)
 loc_attr(Line) when is_integer(Line) ->

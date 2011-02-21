@@ -1163,7 +1163,7 @@ path_open_first([Path|Rest], Name, Mode, LastError) ->
 	{error, _} = Error ->
 	    Error;
 	FilePath ->
-	    FileName = filename:join(FilePath, Name),
+	    FileName = fname_join(FilePath, Name),
 	    case open(FileName, Mode) of
 		{ok, Fd} ->
 		    {ok, Fd, FileName};
@@ -1175,6 +1175,11 @@ path_open_first([Path|Rest], Name, Mode, LastError) ->
     end;
 path_open_first([], _Name, _Mode, LastError) ->
     {error, LastError}.
+
+fname_join(".", Name) ->
+    Name;
+fname_join(Dir, Name) ->
+    filename:join(Dir, Name).
 
 %%%-----------------------------------------------------------------
 %%% Utility functions.
