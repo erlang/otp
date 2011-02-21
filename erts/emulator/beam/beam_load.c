@@ -552,6 +552,8 @@ static Eterm native_addresses(Process* p, Eterm mod);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
 static int safe_mul(UWord a, UWord b, UWord* resp);
+static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
+		       BeamInstr* modp, int idx);
 
 
 static int must_swap_floats;
@@ -5141,6 +5143,7 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 
     fi->current = NULL;
     fi->needed = 5;
+    fi->loc = LINE_INVALID_LOCATION;
     while (low < high) {
 	if (pc < mid->start) {
 	    high = mid;
@@ -5158,6 +5161,12 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 		} else if (pc < mid1[1]) {
 		    mid_module = mid;
 		    fi->current = mid1[0]+2;
+		    if (full_info) {
+			BeamInstr** fp = (BeamInstr **) (mid->start +
+							 MI_FUNCTIONS);
+			int idx = mid1 - fp;
+			lookup_loc(fi, pc, mid->start, idx);
+		    }
 		    return;
 		} else {
 		    low1 = mid1 + 1;
@@ -5166,6 +5175,61 @@ erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 	    return;
 	}
 	mid = low + (high-low) / 2;
+    }
+}
+
+static void
+lookup_loc(FunctionInfo* fi, BeamInstr* orig_pc, BeamInstr* modp, int idx)
+{
+    Eterm* line = (Eterm *) modp[MI_LINE_TABLE];
+    Eterm* low;
+    Eterm* high;
+    Eterm* mid;
+    Eterm pc;
+
+    if (line == 0) {
+	return;
+    }
+
+    pc = (Eterm) (BeamInstr) orig_pc;
+    fi->fname_ptr = (Eterm *) (BeamInstr) line[MI_LINE_FNAME_PTR];
+    low = (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB+idx];
+    high = (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB+idx+1];
+    while (high > low) {
+	mid = low + (high-low) / 2;
+	if (pc < mid[0]) {
+	    high = mid;
+	} else if (pc < mid[1]) {
+	    int file;
+	    int index = mid - (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB];
+
+	    if (line[MI_LINE_LOC_SIZE] == 2) {
+		Uint16* loc_table =
+		    (Uint16 *) (BeamInstr) line[MI_LINE_LOC_TAB];
+		fi->loc = loc_table[index];
+	    } else {
+		Uint32* loc_table =
+		    (Uint32 *) (BeamInstr) line[MI_LINE_LOC_TAB];
+		ASSERT(line[MI_LINE_LOC_SIZE] == 4);
+		fi->loc = loc_table[index];
+	    }
+	    if (fi->loc == LINE_INVALID_LOCATION) {
+		return;
+	    }
+	    fi->needed += 3+2+3+2;
+	    file = LOC_FILE(fi->loc);
+	    if (file == 0) {
+		/* Special case: Module name with ".erl" appended */
+		Atom* mod_atom = atom_tab(atom_val(fi->current[0]));
+		fi->needed += 2*(mod_atom->len+4);
+	    } else {
+		Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));
+		fi->needed += 2*ap->len;
+	    }
+	    return;
+	} else {
+	    low = mid + 1;
+	}
     }
 }
 
@@ -5178,6 +5242,31 @@ erts_build_mfa_item(FunctionInfo* fi, Eterm* hp, Eterm args, Eterm* mfa_p)
 {
     BeamInstr* current = fi->current;
     Eterm loc = NIL;
+
+    if (fi->loc != LINE_INVALID_LOCATION) {
+	Eterm tuple;
+	int line = LOC_LINE(fi->loc);
+	int file = LOC_FILE(fi->loc);
+	Eterm file_term = NIL;
+
+	if (file == 0) {
+	    Atom* ap = atom_tab(atom_val(fi->current[0]));
+	    file_term = buf_to_intlist(&hp, ".erl", 4, NIL);
+	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, file_term);
+	} else {
+	    Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));
+	    file_term = buf_to_intlist(&hp, (char*)ap->name, ap->len, NIL);
+	}
+
+	tuple = TUPLE2(hp, am_line, make_small(line));
+	hp += 3;
+	loc = CONS(hp, tuple, loc);
+	hp += 2;
+	tuple = TUPLE2(hp, am_file, file_term);
+	hp += 3;
+	loc = CONS(hp, tuple, loc);
+	hp += 2;
+    }
 
     if (is_list(args) || is_nil(args)) {
 	*mfa_p = TUPLE4(hp, current[0], current[1], args, loc);
@@ -5198,6 +5287,7 @@ erts_set_current_function(FunctionInfo* fi, BeamInstr* current)
 {
     fi->current = current;
     fi->needed = 5;
+    fi->loc = LINE_INVALID_LOCATION;
 }
 
 

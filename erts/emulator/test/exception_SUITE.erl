@@ -372,10 +372,10 @@ raise(Conf) when is_list(Conf) ->
     %%
     N = 8, % Must be even
     ?line N = erlang:system_flag(backtrace_depth, N),
+    ?line B = odd_even(N, []),
     ?line try even(N) 
 	  catch error:function_clause -> ok
 	  end,
-    ?line B = odd_even(N, []),
     ?line B = erlang:get_stacktrace(),
     %%
     ?line C0 = odd_even(N+1, []),
@@ -393,19 +393,12 @@ raise(Conf) when is_list(Conf) ->
 odd_even(N, R) when is_integer(N), N > 1 ->
     odd_even(N-1, 
 	     [if (N rem 2) == 0 ->
-		      {?MODULE,even,1,[]};
+		      {?MODULE,even,1,[{file,"odd_even.erl"},{line,3}]};
 		 true ->
-		      {?MODULE,odd,1,[]}
+		      {?MODULE,odd,1,[{file,"odd_even.erl"},{line,6}]}
 	      end|R]);
 odd_even(1, R) ->
-    [{?MODULE,odd,[1],[]}|R].
-
-even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
-    odd(N-1)++[N].
-
-odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
-    even(N-1)++[N].
-    
+    [{?MODULE,odd,[1],[{file,"odd_even.erl"},{line,5}]}|R].
 
 foo({value,Value}) -> Value;
 foo({'div',{A,B}}) ->
@@ -533,3 +526,10 @@ do_exception_with_heap_frag(Bin, [Sz|Sizes]) ->
 do_exception_with_heap_frag(_, []) -> ok.
 
 id(I) -> I.
+
+-file("odd_even.erl", 1).			%Line 1
+even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
+    odd(N-1)++[N].				%Line 3
+
+odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
+    even(N-1)++[N].				%Line 6

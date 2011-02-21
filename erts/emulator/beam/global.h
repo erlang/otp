@@ -862,6 +862,8 @@ void erts_system_profile_clear(Process *c_p);
 typedef struct {
     BeamInstr* current;		/* Pointer to: Mod, Name, Arity */
     Uint needed;		/* Heap space needed for entire tuple */
+    Uint32 loc;			/* Location in source code */
+    Eterm* fname_ptr;		/* Pointer to fname table */
 } FunctionInfo;
 
 int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,

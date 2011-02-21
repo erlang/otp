@@ -2388,12 +2388,12 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"V = lists:seq(1, 20), case V of a -> ok end.">>),
     ?line "exception error: no function clause matching" = 
         comm_err(<<"fun(P) when is_pid(P) -> true end(a).">>),
-    ?line "exception error: {function_clause,[{erl_eval,do_apply,[unproper|list],[]}"++_ =
+    ?line "exception error: {function_clause," =
         comm_err(<<"erlang:error(function_clause, [unproper | list]).">>),
     ?line "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),
     %% Cheating:
-    ?line "exception error: no function clause matching erl_eval:do_apply(4)" = 
+    ?line "exception error: no function clause matching erl_eval:do_apply(4)" ++ _ = 
         comm_err(<<"erlang:error(function_clause, [4]).">>),
     ?line "exception error: no function clause matching" ++ _ = 
         comm_err(<<"fun(a, b, c, d) -> foo end"
@@ -2406,7 +2406,7 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"fun(P, q) when is_pid(P) -> true end(a, b).">>),
     ?line "exception error: no function clause matching lists:reverse(" ++ _ = 
         comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
-    ?line "exception error: no function clause matching lists:reverse(34)" = 
+    ?line "exception error: no function clause matching lists:reverse(34) (lists.erl, line " ++ _ = 
         comm_err(<<"lists:reverse(34).">>),
     ?line "exception error: no true branch found when evaluating an if expression" = 
         comm_err(<<"if length([a,b]) > 17 -> a end.">>),
