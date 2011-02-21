@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -414,16 +414,17 @@ special(Port,File) ->
 		_ ->
 		    ok
 	    end;
-	".250atoms" ->
-	    Html1 = contents(Port,"atoms"),
-	    NextLink1 = next_link(Html1),
-	    "Atoms" = title(Html1),
-	    Html2 = contents(Port,NextLink1),
-	    NextLink2 = next_link(Html2),
-	    "Atoms" = title(Html2),
-	    Html3 = contents(Port,NextLink2),
-	    "" = next_link(Html3),
-	    "Atoms" = title(Html3);
+	%%! No longer needed - all atoms are shown on one page!!
+	%% ".250atoms" ->
+	%%     Html1 = contents(Port,"atoms"),
+	%%     NextLink1 = next_link(Html1),
+	%%     "Atoms" = title(Html1),
+	%%     Html2 = contents(Port,NextLink1),
+	%%     NextLink2 = next_link(Html2),
+	%%     "Atoms" = title(Html2),
+	%%     Html3 = contents(Port,NextLink2),
+	%%     "" = next_link(Html3),
+	%%     "Atoms" = title(Html3);
 	_ ->
 	    ok
     end,
@@ -509,14 +510,14 @@ next_link(Html) ->
 
 
 toggle_menu(Port) ->
-    Html = contents(Port,"toggle?index=10"),
+    Html = contents(Port,"toggle?index=4"),
     check_toggle(Html).
 
 check_toggle(Html) ->
     case Html of
-	"<A HREF=\"./toggle?index=10\"><IMG SRC=\"/crashdump_viewer/collapsd.gif\"" ++ _ ->
+	"<A HREF=\"./toggle?index=4\"><IMG SRC=\"/crashdump_viewer/collapsd.gif\"" ++ _ ->
 	    collapsed;
-	"<A HREF=\"./toggle?index=10\"><IMG SRC=\"/crashdump_viewer/exploded.gif\"" ++ _ ->
+	"<A HREF=\"./toggle?index=4\"><IMG SRC=\"/crashdump_viewer/exploded.gif\"" ++ _ ->
 	    exploded;
 	[_H|T] ->
 	    check_toggle(T)
@@ -543,10 +544,10 @@ expand_link(Html) ->
 
 
 port_details(Port) ->
-    Port1 = contents(Port,"ports?port=Port<0.1>"),
+    Port1 = contents(Port,"port?port=Port<0.1>"),
     "#Port<0.1>" = title(Port1),
     
-    Port0 = contents(Port,"ports?port=Port<0.0>"),
+    Port0 = contents(Port,"port?port=Port<0.0>"),
     "Could not find port: #Port<0.0>" = title(Port0).
 
 is_truncated(File) ->
