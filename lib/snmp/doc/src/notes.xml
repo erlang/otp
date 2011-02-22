@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -33,8 +33,8 @@
   </header>
 
   <section>
-    <title>SNMP Development Toolkit 4.18.1</title>
-    <p>Version 4.18.1 supports code replacement in runtime from/to
+    <title>SNMP Development Toolkit 4.19</title>
+    <p>Version 4.19 supports code replacement in runtime from/to
       version 4.18, 4.17.1 and 4.17.</p>
 
     <section>
@@ -64,7 +64,7 @@
       <title>Incompatibilities</title>
       <p>-</p>
     </section>
-  </section> <!-- 4.18.1 -->
+  </section> <!-- 4.19 -->
 
 
   <section><title>SNMP 4.18</title>
