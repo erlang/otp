@@ -43,7 +43,6 @@ MODULES= test_server_ctrl \
 	 test_server_node \
 	 test_server \
 	 test_server_sup \
-	 test_server_line \
 	 test_server_h \
 	 erl2html2 \
 	 vxworks_client

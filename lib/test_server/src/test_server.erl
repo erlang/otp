@@ -759,7 +759,6 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 						  Comment,undefined);
 			Loc1 ->
-			    {Mod,Func} = get_mf(Loc1),
 			    %% call end_per_testcase on a separate process,
 			    %% only so that the user has a chance to clean up
 			    %% after init_per_testcase, even after a timetrap timeout
@@ -775,6 +774,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 							  TVal),
 					{EndConfPid,{Mod,Func},Conf};
 				    _ ->
+					{Mod,Func} = get_mf(Loc1),
 					%% The framework functions mustn't execute on this
 					%% group leader process or io will cause deadlock,
 					%% so we spawn a dedicated process for the operation
@@ -810,7 +810,6 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 						  Comment,undefined);
 			Loc1 ->
-			    {Mod,Func} = get_mf(Loc1),
 			    %% call end_per_testcase on a separate process, only so
 			    %% that the user has a chance to clean up after init_per_testcase,
 			    %% even after abortion
@@ -828,6 +827,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 							  TVal),
 					{EndConfPid,{Mod,Func},Conf};
 				    _ ->
+					{Mod,Func} = get_mf(Loc1),
 					spawn_fw_call(Mod,Func,Pid,ErrorMsg,
 						      Loc1,self(),Comment),
 					undefined
@@ -1317,13 +1317,12 @@ init_per_testcase(Mod, Func, Args) ->
     end.
 
 do_init_per_testcase(Mod, Args) ->
-    case catch my_apply(Mod, init_per_testcase, Args) of
-	{'$test_server_ok',{Skip,Reason}} when Skip =:= skip;
-					       Skip =:= skipped ->
+    try	apply(Mod, init_per_testcase, Args) of
+	{Skip,Reason} when Skip =:= skip; Skip =:= skipped ->
 	    {skip,Reason};
-	{'$test_server_ok',Res={skip_and_save,_,_}} ->
+	{skip_and_save,_,_}=Res ->
 	    Res;
-	{'$test_server_ok',NewConf} when is_list(NewConf) ->
+	NewConf when is_list(NewConf) ->
 	    case lists:filter(fun(T) when is_tuple(T) -> false;
 				 (_) -> true end, NewConf) of
 		[] ->
@@ -1334,29 +1333,34 @@ do_init_per_testcase(Mod, Args) ->
 				      "bad elements in Config: ~p\n",[Bad]},
 		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 	    end;
-	{'$test_server_ok',Res={fail,_Reason}} ->
+	{fail,_Reason}=Res ->
 	    Res;
-	{'$test_server_ok',_Other} ->
+	_Other ->
 	    group_leader() ! {printout,12,
 			      "ERROR! init_per_testcase did not return "
 			      "a Config list.\n",[]},
-	    {skip,{failed,{Mod,init_per_testcase,bad_return}}};
-	{'EXIT',Reason} ->
-	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
-	    group_leader() ! {printout,12,
-			      "ERROR! init_per_testcase crashed!\n"
-			      "\tLocation: ~s\n\tReason: ~p\n",
-			      [FormattedLoc,Reason]},
-	    {skip,{failed,{Mod,init_per_testcase,Reason}}};
-	Other ->
+	    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
+    catch
+	throw:Other ->
+	    set_loc(erlang:get_stacktrace()),
 	    Line = get_loc(),
 	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
 	    group_leader() ! {printout,12,
 			      "ERROR! init_per_testcase thrown!\n"
 			      "\tLocation: ~s\n\tReason: ~p\n",
 			      [FormattedLoc, Other]},
-	    {skip,{failed,{Mod,init_per_testcase,Other}}}
+	    {skip,{failed,{Mod,init_per_testcase,Other}}};
+	_:Reason0 ->
+	    Stk = erlang:get_stacktrace(),
+	    Reason = {Reason0,Stk},
+	    set_loc(Stk),
+	    Line = get_loc(),
+	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase crashed!\n"
+			      "\tLocation: ~s\n\tReason: ~p\n",
+			      [FormattedLoc,Reason]},
+	    {skip,{failed,{Mod,init_per_testcase,Reason}}}
     end.
 
 end_per_testcase(Mod, Func, Conf) ->
@@ -1376,26 +1380,16 @@ end_per_testcase(Mod, Func, Conf) ->
 do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
     put(test_server_init_or_end_conf,{EndFunc,Func}),
     put(test_server_loc, {Mod,{EndFunc,Func}}),
-    case catch my_apply(Mod, EndFunc, [Func,Conf]) of
-	{'$test_server_ok',SaveCfg={save_config,_}} ->
+    try Mod:EndFunc(Func, Conf) of
+	{save_config,_}=SaveCfg ->
 	    SaveCfg;
-	{'$test_server_ok',{fail,_}=Fail} ->
+	{fail,_}=Fail ->
 	    Fail;
-	{'$test_server_ok',_} ->
-	    ok;
-	{'EXIT',Reason} = Why ->
-	    comment(io_lib:format("<font color=\"red\">"
-				  "WARNING: ~w crashed!"
-				  "</font>\n",[EndFunc])),
-	    group_leader() ! {printout,12,
-			      "WARNING: ~w crashed!\n"
-			      "Reason: ~p\n"
-			      "Line: ~s\n",
-			      [EndFunc, Reason,
-			       test_server_sup:format_loc(
-				 mod_loc(get_loc()))]},
-	    {failed,{Mod,end_per_testcase,Why}};
-	Other ->
+	_ ->
+	    ok
+    catch
+	throw:Other ->
+	    set_loc(erlang:get_stacktrace()),
 	    comment(io_lib:format("<font color=\"red\">"
 				  "WARNING: ~w thrown!"
 				  "</font>\n",[EndFunc])),
@@ -1406,27 +1400,59 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 			      [EndFunc, Other,
 			       test_server_sup:format_loc(
 				 mod_loc(get_loc()))]},
-	    {failed,{Mod,end_per_testcase,Other}}
+	    {failed,{Mod,end_per_testcase,Other}};
+	  Class:Reason ->
+	    Stk = erlang:get_stacktrace(),
+	    set_loc(Stk),
+	    Why = case Class of
+		      exit -> {'EXIT',Reason};
+		      error -> {'EXIT',{Reason,Stk}}
+		  end,
+	    comment(io_lib:format("<font color=\"red\">"
+				  "WARNING: ~w crashed!"
+				  "</font>\n",[EndFunc])),
+	    group_leader() ! {printout,12,
+			      "WARNING: ~w crashed!\n"
+			      "Reason: ~p\n"
+			      "Line: ~s\n",
+			      [EndFunc, Reason,
+			       test_server_sup:format_loc(
+				 mod_loc(get_loc()))]},
+	    {failed,{Mod,end_per_testcase,Why}}
     end.
 
 get_loc() ->
-    case catch test_server_line:get_lines() of
-	[] ->
-	    get(test_server_loc);
-	{'EXIT',_} ->
-	    get(test_server_loc);
-	Loc ->
-	    Loc
-    end.
+    get(test_server_loc).
 
 get_loc(Pid) ->
-    {dictionary,Dict} = process_info(Pid, dictionary),
-    lists:foreach(fun({Key,Val}) -> put(Key,Val) end,Dict),
+    [{current_stacktrace,Stk0},{dictionary,Dict}] =
+	process_info(Pid, [current_stacktrace,dictionary]),
+    lists:foreach(fun({Key,Val}) -> put(Key, Val) end, Dict),
+    Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
+    put(test_server_loc, Stk),
     get_loc().
 
-get_mf([{M,F,_}|_]) -> {M,F};
-get_mf([{M,F}|_])   -> {M,F};
-get_mf(_)           -> {undefined,undefined}.
+%% find the latest known Suite:Testcase
+get_mf(MFs) ->
+    get_mf(MFs, {undefined,undefined}).
+
+get_mf([MF|MFs], Found) when is_tuple(MF) ->
+    ModFunc = {Mod,_} = case MF of
+			    {M,F,_} -> {M,F};
+			    MF -> MF
+			end,
+    case is_suite(Mod) of
+	true -> ModFunc;
+	false -> get_mf(MFs, ModFunc)
+    end;
+get_mf(_, Found) ->
+    Found.
+
+is_suite(Mod) ->
+    case lists:reverse(atom_to_list(Mod)) of
+	"ETIUS" ++ _ -> true;
+	_ -> false
+    end.
 
 mod_loc(Loc) ->
     %% handle diff line num versions
@@ -1499,16 +1525,22 @@ lookup_config(Key,Config) ->
 %% timer:tc/3
 ts_tc(M, F, A) ->
     Before = erlang:now(),
-    Val = (catch my_apply(M, F, A)),
+    Result = try
+		 apply(M, F, A)
+	     catch
+		 Type:Reason ->
+		     Stk = erlang:get_stacktrace(),
+		     set_loc(Stk),
+		     case Type of
+			 throw ->
+			     {failed,{thrown,Reason}};
+			 error ->
+			     {'EXIT',{Reason,Stk}};
+			 exit ->
+			     {'EXIT',Reason}
+		     end
+	     end,
     After = erlang:now(),
-    Result = case Val of
-		 {'$test_server_ok', R} ->
-		     R; % test case ok
-		 {'EXIT',_Reason} = R ->
-		     R; % test case crashed
-		 Other ->
-		     {failed, {thrown,Other}} % test case was thrown
-	  end,
     Elapsed =
 	(element(1,After)*1000000000000
 	 +element(2,After)*1000000+element(3,After)) -
@@ -1516,8 +1548,12 @@ ts_tc(M, F, A) ->
 	 +element(2,Before)*1000000+element(3,Before)),
     {Elapsed, Result}.
 
-my_apply(M, F, A) ->
-    {'$test_server_ok',apply(M, F, A)}.
+set_loc(Stk) ->
+    Loc = [rewrite_loc_item(I) || {_,_,_,_}=I <- Stk],
+    put(test_server_loc, Loc).
+
+rewrite_loc_item({M,F,_,Loc}) ->
+    {M,F,proplists:get_value(line, Loc, 0)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
