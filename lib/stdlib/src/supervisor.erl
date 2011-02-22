@@ -40,7 +40,7 @@
 %%--------------------------------------------------------------------------
 
 -type child_id() :: pid() | 'undefined'.
--type mfargs()   :: {module(), atom(), [term()]}.
+-type mfargs()   :: {module(), atom(), [term()] | undefined}.
 -type modules()  :: [module()] | 'dynamic'.
 -type restart()  :: 'permanent' | 'transient' | 'temporary'.
 -type shutdown() :: 'brutal_kill' | timeout().

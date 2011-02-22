@@ -50,7 +50,8 @@
 	 simple_one_for_one_extra/1]).
 
 %% Misc tests
--export([child_unlink/1, tree/1, count_children_memory/1]).
+-export([child_unlink/1, tree/1, count_children_memory/1,
+	 do_not_save_start_parameters_for_temporary_children/1]).
 
 %-------------------------------------------------------------------------
 
@@ -61,7 +62,7 @@ all(suite) ->
       restart_one_for_one, restart_one_for_all,
       restart_simple_one_for_one, restart_rest_for_one,
       normal_termination, abnormal_termination, child_unlink, tree,
-      count_children_memory]}.
+      count_children_memory, do_not_save_start_parameters_for_temporary_children]}.
 
 
 start(InitResult) ->
@@ -1340,3 +1341,84 @@ count_children_memory(Config) when is_list(Config) ->
     test_server:sleep(100),
     ?line [1,0,0,0] = get_child_counts(sup_test),
     ok.
+%-------------------------------------------------------------------------
+do_not_save_start_parameters_for_temporary_children(doc) ->
+    ["Temporary children shall not be restarted so they should not"
+     "save start parameters, as it potentially can"
+     "take up a huge amount of memory for no purpose."];
+do_not_save_start_parameters_for_temporary_children(suite) ->
+    [];
+do_not_save_start_parameters_for_temporary_children(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    dont_save_start_parameters_for_temporary_children(one_for_all),
+    dont_save_start_parameters_for_temporary_children(one_for_one),
+    dont_save_start_parameters_for_temporary_children(rest_for_one),
+    dont_save_start_parameters_for_temporary_children(simple_one_for_one).
+
+dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
+    Permanent = {child, {supervisor_1, start_child, []},
+		 permanent, 1000, worker, []},
+    Transient = {child, {supervisor_1, start_child, []},
+		 transient, 1000, worker, []},
+    Temporary = {child, {supervisor_1, start_child, []},
+		 temporary, 1000, worker, []},
+    {ok, Sup1} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, [Permanent]}}),
+    {ok, Sup2} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, [Transient]}}),
+    {ok, Sup3} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, [Temporary]}}),
+
+    LargeList = lists:duplicate(10, "Potentially large"),
+
+    start_children(Sup1, [LargeList], 100),
+    start_children(Sup2, [LargeList], 100),
+    start_children(Sup3, [LargeList], 100),
+
+    [{memory,Mem1}] = process_info(Sup1, [memory]),
+    [{memory,Mem2}] = process_info(Sup2, [memory]),
+    [{memory,Mem3}] = process_info(Sup3, [memory]),
+
+    true = (Mem3 < Mem1)  and  (Mem3 < Mem2),
+
+    exit(Sup1, shutdown),
+    exit(Sup2, shutdown),
+    exit(Sup3, shutdown);
+
+dont_save_start_parameters_for_temporary_children(Type) ->
+    {ok, Sup1} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+    {ok, Sup2} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+    {ok, Sup3} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+
+    LargeList = lists:duplicate(10, "Potentially large"),
+
+    Permanent = {child1, {supervisor_1, start_child, [LargeList]},
+		 permanent, 1000, worker, []},
+    Transient = {child2, {supervisor_1, start_child, [LargeList]},
+		 transient, 1000, worker, []},
+    Temporary = {child3, {supervisor_1, start_child, [LargeList]},
+		 temporary, 1000, worker, []},
+
+    start_children(Sup1, Permanent, 100),
+    start_children(Sup2, Transient, 100),
+    start_children(Sup3, Temporary, 100),
+
+    [{memory,Mem1}] = process_info(Sup1, [memory]),
+    [{memory,Mem2}] = process_info(Sup2, [memory]),
+    [{memory,Mem3}] = process_info(Sup3, [memory]),
+
+    true = (Mem3 < Mem1)  and  (Mem3 < Mem2),
+
+    exit(Sup1, shutdown),
+    exit(Sup2, shutdown),
+    exit(Sup3, shutdown).
+
+start_children(_,_, 0) ->
+    ok;
+start_children(Sup, Args, N) ->
+    Spec = child_spec(Args, N),
+    {ok, _, _} = supervisor:start_child(Sup, Spec),
+    start_children(Sup, Args, N-1).
+
+child_spec([_|_] = SimpleOneForOneArgs, _) ->
+    SimpleOneForOneArgs;
+child_spec({Name, MFA, RestartType, Shutdown, Type, Modules}, N) ->
+    NewName = list_to_atom((atom_to_list(Name) ++ integer_to_list(N))),
+    {NewName, MFA, RestartType, Shutdown, Type, Modules}.
