@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -192,7 +192,7 @@
 %%----------------------------------------------------------------------
 -record(mib, 
 	{misc = [], 
-	 mib_format_version = "3.1", 
+	 mib_format_version = "3.2", 
 	 name = "",
 	 module_identity,  %% Not in SMIv1, and only with +module_identity
 	 mes = [], 

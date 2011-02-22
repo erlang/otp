@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2010. All Rights Reserved.
+# Copyright Ericsson AB 2004-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -62,6 +62,8 @@ COMPILER_MIB_FILES = \
 	OTP8574-MIB
 
 MIB_FILES = \
+	AC-TEST-MIB.mib \
+	MC-TEST-MIB.mib \
 	OLD-SNMPEA-MIB.mib \
 	OLD-SNMPEA-MIB-v2.mib \
 	Klas1.mib \

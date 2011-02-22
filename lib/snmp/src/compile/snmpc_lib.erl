@@ -306,7 +306,10 @@ import_mib({{'SNMPv2-TC', ImportsFromMib},Line}) ->
     Macros = ['TEXTUAL-CONVENTION'],
     import_built_in_loop(ImportsFromMib,Nodes,Types,Macros,'SNMPv2-TC',Line);
 import_mib({{'SNMPv2-CONF', ImportsFromMib},Line}) ->
-    Macros = ['OBJECT-GROUP','NOTIFICATION-GROUP','MODULE-COMPLIANCE'],
+    Macros = ['OBJECT-GROUP',
+	      'NOTIFICATION-GROUP',
+	      'MODULE-COMPLIANCE', 
+	      'AGENT-CAPABILITIES'],
     import_built_in_loop(ImportsFromMib,[],[],Macros,'SNMPv2-CONF',Line);
 import_mib({{'RFC1155-SMI', ImportsFromMib},Line}) ->
     Nodes = [makeInternalNode(internet, [1,3,6,1]),

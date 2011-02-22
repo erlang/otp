@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,8 +44,28 @@
 -->
       <list type="bulleted">
         <item>
+          <p>[compiler] Added support for the textual convention 
+	  <c>AGENT-CAPABILITIES</c>, exported by the SNMPv2-CONF mib.</p>
+          <p>The <c>reference</c> and <c>modules</c> part(s) are
+	  stored in the <c>assocList</c> of the mib-entry record 
+	  (<c>me</c>). 
+	  Only handled <em>if</em> the option <c>agent_capabilities</c>
+	  is provided to the compiler. </p>
+	  <p>Also added ("full") support for MODULE-COMPLIANCE,
+	  which is handled in a similar way. 
+	  Only handled <em>if</em> the option <c>module_compliance</c>
+	  is provided to the compiler. </p>
+	  <p>See <seealso marker="snmpc#compile">compile/2</seealso> 
+	  for more info. </p>
+	  <p>For backward compatibillity, the MIBs provided with 
+	  this appliaction are <em>not</em> compiled with these 
+	  options. </p>
+          <p>Own Id: OTP-8966</p>
+        </item>
+
+        <item>
           <p>[snmpc] Added a MIB compiler escript, 
-	  <seealso marker="snmpc">snmpc</seealso>.</p>
+	  <seealso marker="snmpc">snmpc</seealso>. </p>
           <p>Own Id: OTP-9004</p>
         </item>
       </list>
@@ -70,18 +90,28 @@
       <title>Incompatibilities</title>
       <p>-</p>
     </section>
-  </section> <!-- 4.17.1 -->
+  </section> <!-- 4.19 -->
 
 
   <section><title>SNMP 4.18</title>
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p> 
+    </section>
+
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>Prep for R14B release.</p>
+          <p>Cosmetic prep for R14B (plain) release. </p>
         </item>
       </list>
     </section>
-  </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.18 -->
 
   <section>
     <title>SNMP Development Toolkit 4.17.1</title>
