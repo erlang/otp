@@ -72,8 +72,8 @@
 
 
 %%--------------------------------------------------------------------
--spec start() -> ok.
--spec start(permanent | transient | temporary) -> ok.  
+-spec start() -> ok  | {error, reason()}.
+-spec start(permanent | transient | temporary) -> ok | {error, reason()}.
 %%
 %% Description: Utility function that starts the ssl, 
 %% crypto and public_key applications. Default type

@@ -1086,13 +1086,13 @@ init_private_key({rsa, PrivateKey}, _, _,_) ->
 init_private_key({dsa, PrivateKey},_,_,_) ->
     public_key:der_decode('DSAPrivateKey', PrivateKey).
 
--spec(handle_file_error/6 :: (_,_,_,_,_,_) -> no_return()).
+-spec(handle_file_error(_,_,_,_,_,_) -> no_return()).
 handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->
     file_error(Line, Error, Reason, File, Throw, Stack);
 handle_file_error(Line, Error, Reason, File, Throw, Stack) ->
     file_error(Line, Error, Reason, File, Throw, Stack).
 
--spec(file_error/6 :: (_,_,_,_,_,_) -> no_return()).
+-spec(file_error(_,_,_,_,_,_) -> no_return()).
 file_error(Line, Error, Reason, File, Throw, Stack) ->
     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
 			   [Line, Error, Reason, File, Stack]),
@@ -1411,8 +1411,6 @@ key_exchange(#state{role = client,
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates1,
                 tls_handshake_hashes = Hashes1}.
-
--spec(rsa_key_exchange/2 :: (_,_) -> no_return()).
 
 rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})  
   when Algorithm == ?rsaEncryption;
