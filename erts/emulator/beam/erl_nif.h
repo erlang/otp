@@ -31,9 +31,10 @@
 ** 1.0: R13B04
 ** 2.0: R14A
 ** 2.1: R14B02 "vm_variant"
+** 2.2: R14B03 enif_is_exception
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 1
+#define ERL_NIF_MINOR_VERSION 2
 
 #include <stdlib.h>
 
