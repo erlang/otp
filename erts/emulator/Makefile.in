@@ -198,6 +198,7 @@ RM	= @RM@
 MKDIR	= @MKDIR@
 
 USING_MINGW=@MIXED_CYGWIN_MINGW@
+MIXED_MSYS=@MIXED_MSYS@
 
 ifeq ($(TARGET),win32)
 LIB_PREFIX=
@@ -237,9 +238,12 @@ ifeq ($(TARGET), win32)
 GEN_OPT_FLGS = $(OPT_LEVEL)
 UNROLL_FLG = 
 RC=rc.sh
+ifeq ($(MIXED_MSYS), yes)
+MAKE_PRELOAD_EXTRA = -msys
+endif
 ifeq ($(USING_MINGW), yes)
-RES_EXT=@OBJEXT@
-MAKE_PRELOAD_EXTRA=-windres
+RES_EXT = @OBJEXT@
+MAKE_PRELOAD_EXTRA += " -windres"
 else
 RES_EXT=res
 endif

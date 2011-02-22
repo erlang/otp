@@ -21,6 +21,9 @@
 #define _UNICODE 1
 #include <tchar.h>
 #include <stdio.h>
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include <windowsx.h>
 #include "resource.h"
@@ -33,6 +36,23 @@
 #define ALLOC(X) malloc(X)
 #define REALLOC(X,Y) realloc(X,Y)
 #define FREE(X) free(X)
+
+#if SIZEOF_VOID_P == 8
+#define WIN64 1
+#ifndef GCL_HBRBACKGROUND
+#define GCL_HBRBACKGROUND GCLP_HBRBACKGROUND
+#endif
+#define DIALOG_PROC_RET INT_PTR
+#define CF_HOOK_RET INT_PTR
+#define CC_HOOK_RET INT_PTR
+#define OFN_HOOK_RET INT_PTR
+#else
+#define DIALOG_PROC_RET BOOL
+#define CF_HOOK_RET UINT
+#define CC_HOOK_RET UINT
+#define OFN_HOOK_RET UINT
+#endif
+
 
 #ifndef STATE_SYSTEM_INVISIBLE
 /* Mingw problem with oleacc.h and WIN32_LEAN_AND_MEAN */
@@ -150,7 +170,7 @@ static TCHAR *erlang_window_title = TEXT("Erlang");
 static unsigned __stdcall ConThreadInit(LPVOID param);
 static LRESULT CALLBACK ClientWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 static LRESULT CALLBACK FrameWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
-static BOOL CALLBACK AboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam);
+static DIALOG_PROC_RET CALLBACK AboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam);
 static ScreenLine_t *ConNewLine(void);
 static void DeleteTopLine(void);
 static void ensure_line_below(void);
@@ -1608,7 +1628,7 @@ OnEditSelAll(HWND hwnd)
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-UINT APIENTRY CFHookProc(HWND hDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
+CF_HOOK_RET APIENTRY CFHookProc(HWND hDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
 {
     /* Hook procedure for font dialog box */
     HWND hOwner;
@@ -1626,11 +1646,11 @@ UINT APIENTRY CFHookProc(HWND hDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
         OffsetRect(&rc, -rcDlg.right, -rcDlg.bottom); 
         SetWindowPos(hDlg,HWND_TOP,rcOwner.left + (rc.right / 2), 
 		     rcOwner.top + (rc.bottom / 2),0,0,SWP_NOSIZE); 
-        return 1;
+        return (CF_HOOK_RET) 1;
     default:
         break;
     }
-    return 0;			/* Let the default procedure process the message */
+    return (CF_HOOK_RET) 0; /* Let the default procedure process the message */
 }
 
 static BOOL
@@ -1705,7 +1725,7 @@ ConSetFont(HWND hwnd)
     InvalidateRect(hwnd, NULL, TRUE);
 }
 
-UINT APIENTRY
+CC_HOOK_RET APIENTRY
 CCHookProc(HWND hDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
 {
     /* Hook procedure for choose color dialog box */
@@ -1724,11 +1744,11 @@ CCHookProc(HWND hDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
         OffsetRect(&rc, -rcDlg.right, -rcDlg.bottom); 
         SetWindowPos(hDlg,HWND_TOP,rcOwner.left + (rc.right / 2), 
 		     rcOwner.top + (rc.bottom / 2),0,0,SWP_NOSIZE); 
-        return 1;
+        return (CC_HOOK_RET) 1;
     default:
         break;
     }
-    return 0;			/* Let the default procedure process the message */
+    return (CC_HOOK_RET) 0;			/* Let the default procedure process the message */
 }
 
 void ConChooseColor(HWND hwnd)
@@ -1758,7 +1778,8 @@ void ConChooseColor(HWND hwnd)
     }    
 }
 
-UINT APIENTRY OFNHookProc(HWND hwndDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
+OFN_HOOK_RET APIENTRY OFNHookProc(HWND hwndDlg,UINT iMsg,
+				  WPARAM wParam,LPARAM lParam)
 {
     /* Hook procedure for open file dialog box */
     HWND hOwner,hDlg;
@@ -1777,11 +1798,11 @@ UINT APIENTRY OFNHookProc(HWND hwndDlg,UINT iMsg,WPARAM wParam,LPARAM lParam)
         OffsetRect(&rc, -rcDlg.right, -rcDlg.bottom); 
         SetWindowPos(hDlg,HWND_TOP,rcOwner.left + (rc.right / 2), 
 		     rcOwner.top + (rc.bottom / 2),0,0,SWP_NOSIZE); 
-        return 1;
+        return (OFN_HOOK_RET) 1;
     default:
         break;
     }
-    return 0;			/* the let default procedure process the message */
+    return (OFN_HOOK_RET) 0; /* the let default procedure process the message */
 }
 
 static void
@@ -1933,7 +1954,7 @@ write_outbuf(TCHAR *data, int num_chars)
     return num_chars;
 }
 
-BOOL CALLBACK AboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
+DIALOG_PROC_RET CALLBACK AboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
     HWND hOwner;
     RECT rc,rcOwner,rcDlg;
@@ -1953,17 +1974,17 @@ BOOL CALLBACK AboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARAM lParam)
 		     rcOwner.top + (rc.bottom / 2),0,0,SWP_NOSIZE); 
         SetDlgItemText(hDlg, ID_VERSIONSTRING,
 		       TEXT("Erlang emulator version ") TEXT(ERLANG_VERSION)); 
-        return TRUE;
+        return (DIALOG_PROC_RET) TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
         case IDOK:
         case IDCANCEL:
             EndDialog(hDlg,0);
-            return TRUE;
+            return (DIALOG_PROC_RET) TRUE;
         }
         break;
     }
-    return FALSE;
+    return (DIALOG_PROC_RET) FALSE;
 }
 
 static void

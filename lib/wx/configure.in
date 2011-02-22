@@ -67,53 +67,9 @@ AC_PROG_RANLIB
 AC_PROG_CPP
 
 AC_MSG_NOTICE(Building for [$host_os])
-MIXED_CYGWIN=no
 WXERL_CAN_BUILD_DRIVER=true
 
-AC_MSG_CHECKING(for mixed cygwin and native VC++ environment)
-if test "X$CC" = "Xcc.sh" -a "X$host" = "Xwin32" -a "x$GCC" != x"yes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-Owx"		
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_VC=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
-	else
-		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
-	fi
-else
-	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_VC=no
-fi
-AC_SUBST(MIXED_CYGWIN_VC)
-
-AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
-if test "X$CC" = "Xcc.sh" -a "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_MINGW=yes
-		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
-	else
-		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
-	fi
-else
-	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_MINGW=no
-fi
-AC_SUBST(MIXED_CYGWIN_MINGW)
-
-AC_MSG_CHECKING(if we mix cygwin with any native compiler)
-if test "X$MIXED_CYGWIN" = "Xyes" ; then
-	AC_MSG_RESULT([yes])	
-else
-	AC_MSG_RESULT([no])
-fi
-
-AC_SUBST(MIXED_CYGWIN)
+LM_WINDOWS_ENVIRONMENT
 
 
 ## Check that we are in 32 bits mode on darwin 
@@ -348,7 +304,7 @@ dnl
 if test "$cross_compiling" = "yes"; then
     echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" > ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
-elif test X"$MIXED_CYGWIN_VC" != X"yes" ; then
+elif test X"$MIXED_CYGWIN_VC" != X"yes"  -a X"$MIXED_MSYS_VC" != X"yes"; then
     m4_include(wxwin.m4)
 
     AM_OPTIONS_WXCONFIG
@@ -418,7 +374,11 @@ define(wx_warn_text,[
 else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
 		  
-    CWXWIN_CONFIG=`cygpath $wx_config_name 2>/dev/null`
+    if test "x$MIXED_MSYS" = "xyes"; then
+        CWXWIN_CONFIG=`win2msys_path.sh $wx_config_name 2>/dev/null`
+    else
+	CWXWIN_CONFIG=`cygpath $wx_config_name 2>/dev/null`
+    fi
     CWXWIN1=`dirname $CWXWIN_CONFIG 2>/dev/null`
     CWXWIN2=`dirname $CWXWIN1 2>/dev/null`
 
@@ -426,7 +386,12 @@ else
        PROGRAMFILES=c:/Program Files
     fi
 
-    CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
+    
+    if test "x$MIXED_MSYS" = "xyes"; then
+        CWXWIN_PROG=`win2msys_path.sh "$PROGRAMFILES" 2>/dev/null`
+    else
+	CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
+    fi
     CWXWIN3=$CWXWIN_PROG/wxWidgets-2.8
     CWXWIN4=$CWXWIN_PROG/wxMSW-2.8
     CWX_DOCUMENTED="/opt/local/pgm/wxMSW-2.8.* /opt/local/pgm/wxWidgets-2.8.*"

@@ -19,6 +19,9 @@
 /*
  * Purpose: Interrupt handling in windows.
  */
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include "erl_alloc.h"
 #include "erl_thr_progress.h"

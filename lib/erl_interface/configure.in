@@ -224,50 +224,8 @@ elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
     # FIXME return ERROR if no lib
 fi
 
-MIXED_CYGWIN=no
-
-AC_MSG_CHECKING(for mixed cygwin and native VC++ environment)
-if test "X$CC" = "Xcc.sh" -a "X$host" = "Xwin32" -a "x$GCC" != x"yes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_VC=yes
-	else
-		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
-	fi
-else
-	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_VC=no
-fi
-AC_SUBST(MIXED_CYGWIN_VC)
-
-AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
-if test "X$CC" = "Xcc.sh" -a "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
-	if test -x /usr/bin/cygpath; then
-		CFLAGS="-O2"
-		MIXED_CYGWIN=yes
-		AC_MSG_RESULT([yes])
-		MIXED_CYGWIN_MINGW=yes
-	else
-		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
-	fi
-else
-	AC_MSG_RESULT([no])
-	MIXED_CYGWIN_MINGW=no
-fi
-AC_SUBST(MIXED_CYGWIN_MINGW)
-
-AC_MSG_CHECKING(if we mix cygwin with any native compiler)
-if test "X$MIXED_CYGWIN" = "Xyes" ; then
-	AC_MSG_RESULT([yes])	
-else
-	AC_MSG_RESULT([no])
-fi
-
-AC_SUBST(MIXED_CYGWIN)
+LM_WINDOWS_ENVIRONMENT
+	
 	
 dnl
 dnl Threads

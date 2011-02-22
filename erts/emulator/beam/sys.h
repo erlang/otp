@@ -221,7 +221,8 @@ int real_printf(const char *fmt, ...);
 */
 
 #if !((SIZEOF_VOID_P >= 4) && (SIZEOF_VOID_P == SIZEOF_SIZE_T) \
-      && ((SIZEOF_VOID_P == SIZEOF_INT) || (SIZEOF_VOID_P == SIZEOF_LONG)))
+      && ((SIZEOF_VOID_P == SIZEOF_INT) || (SIZEOF_VOID_P == SIZEOF_LONG) || \
+          (SIZEOF_VOID_P == SIZEOF_LONG_LONG)))
 #error Cannot handle this combination of int/long/void*/size_t sizes
 #endif
 
@@ -262,9 +263,18 @@ typedef int          Sint;
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long UWord;
 typedef long          SWord;
+#define SWORD_CONSTANT(Const) Const##L
+#define UWORD_CONSTANT(Const) Const##UL
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int UWord;
 typedef int          SWord;
+#define SWORD_CONSTANT(Const) Const
+#define UWORD_CONSTANT(Const) Const##U
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long UWord;
+typedef long long          SWord;
+#define SWORD_CONSTANT(Const) Const##LL
+#define UWORD_CONSTANT(Const) Const##ULL
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
@@ -275,12 +285,23 @@ typedef int          SWord;
 typedef unsigned long Eterm;
 typedef unsigned long Uint;
 typedef long          Sint;
+#define SWORD_CONSTANT(Const) Const##L
+#define UWORD_CONSTANT(Const) Const##UL
 #define ERTS_SIZEOF_ETERM SIZEOF_LONG
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int Eterm;
 typedef unsigned int Uint;
 typedef int          Sint;
+#define SWORD_CONSTANT(Const) Const
+#define UWORD_CONSTANT(Const) Const##U
 #define ERTS_SIZEOF_ETERM SIZEOF_INT
+#elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+typedef unsigned long long Eterm;
+typedef unsigned long long Uint;
+typedef long long          Sint;
+#define SWORD_CONSTANT(Const) Const##LL
+#define UWORD_CONSTANT(Const) Const##ULL
+#define ERTS_SIZEOF_ETERM SIZEOF_LONG_LONG
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif

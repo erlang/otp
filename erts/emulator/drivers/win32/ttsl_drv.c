@@ -21,6 +21,9 @@
  * smart line for output.
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 #include "sys.h"
 #include <ctype.h>
 #include <stdlib.h>

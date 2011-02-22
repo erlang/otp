@@ -744,7 +744,8 @@ int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
 {
 #if SIZEOF_INT ==  ERTS_SIZEOF_ETERM
     return term_to_Sint(term, (Sint*)ip);
-#elif SIZEOF_LONG ==  ERTS_SIZEOF_ETERM
+#elif (SIZEOF_LONG ==  ERTS_SIZEOF_ETERM) || \
+  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM)
     Sint i;
     if (!term_to_Sint(term, &i) || i < INT_MIN || i > INT_MAX) {
 	return 0;
@@ -760,7 +761,8 @@ int enif_get_uint(ErlNifEnv* env, Eterm term, unsigned* ip)
 {
 #if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return term_to_Uint(term, (Uint*)ip);
-#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
+#elif (SIZEOF_LONG == ERTS_SIZEOF_ETERM) || \
+  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM)
     Uint i;
     if (!term_to_Uint(term, &i) || i > UINT_MAX) {
 	return 0;
@@ -776,6 +778,13 @@ int enif_get_long(ErlNifEnv* env, Eterm term, long* ip)
     return term_to_Sint(term, ip);
 #elif SIZEOF_LONG == 8
     return term_to_Sint64(term, ip);
+#elif SIZEOF_LONG == SIZEOF_INT
+    int tmp,ret;
+    ret = enif_get_int(env,term,&tmp);
+    if (ret) {
+      *ip = (long) tmp;
+    }
+    return ret;
 #else
 #  error Unknown long word size 
 #endif     
@@ -787,6 +796,14 @@ int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
     return term_to_Uint(term, ip);
 #elif SIZEOF_LONG == 8
     return term_to_Uint64(term, ip);
+#elif SIZEOF_LONG == SIZEOF_INT
+    int ret;
+    unsigned int tmp;
+    ret = enif_get_uint(env,term,&tmp);
+    if (ret) {
+      *ip = (long) tmp;
+    }
+    return ret;
 #else
 #  error Unknown long word size 
 #endif     
@@ -847,7 +864,8 @@ ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i)
 {
 #if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return IS_SSMALL(i) ? make_small(i) : small_to_big(i,alloc_heap(env,2));
-#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
+#elif (SIZEOF_LONG == ERTS_SIZEOF_ETERM) || \
+  (SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM)
     return make_small(i);
 #endif
 }
@@ -856,7 +874,8 @@ ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned i)
 {
 #if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return IS_USMALL(0,i) ? make_small(i) : uint_to_big(i,alloc_heap(env,2));
-#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
+#elif (SIZEOF_LONG ==  ERTS_SIZEOF_ETERM) || \
+  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM)
     return make_small(i);
 #endif
 }
@@ -868,6 +887,8 @@ ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long i)
     }
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return small_to_big(i, alloc_heap(env,2));
+#elif SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM
+    return make_small(i);
 #elif SIZEOF_LONG == 8
     ensure_heap(env,3);
     return erts_sint64_to_big(i, &env->hp);
@@ -881,6 +902,8 @@ ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)
     }
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return uint_to_big(i,alloc_heap(env,2));
+#elif SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM
+    return make_small(i);
 #elif SIZEOF_LONG == 8
     ensure_heap(env,3);
     return erts_uint64_to_big(i, &env->hp);    

@@ -87,7 +87,11 @@ typedef long long ErlNifSInt64;
 typedef unsigned int ERL_NIF_TERM;
 #else
 #  define ERL_NIF_VM_VARIANT "beam.vanilla" 
+#  if SIZEOF_LONG == SIZEOF_VOID_P
 typedef unsigned long ERL_NIF_TERM;
+#  elif SIZEOF_LONG_LONG == SIZEOF_VOID_P
+typedef unsigned long long ERL_NIF_TERM;
+#  endif
 #endif
 
 struct enif_environment_t;
