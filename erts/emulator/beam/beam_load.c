@@ -3770,23 +3770,30 @@ freeze_code(LoaderState* stp)
     CHKBLK(ERTS_ALC_T_CODE,code);
     if (compile_size) {
 	byte* compile_info = str_table + strtab_size + attr_size;
-    CHKBLK(ERTS_ALC_T_CODE,code);
+	CHKBLK(ERTS_ALC_T_CODE,code);
 	sys_memcpy(compile_info, stp->chunks[COMPILE_CHUNK].start,
 	       stp->chunks[COMPILE_CHUNK].size);
-    CHKBLK(ERTS_ALC_T_CODE,code);
+
+	CHKBLK(ERTS_ALC_T_CODE,code);
 	code[MI_COMPILE_PTR] = (BeamInstr) compile_info;
-    CHKBLK(ERTS_ALC_T_CODE,code);
+	CHKBLK(ERTS_ALC_T_CODE,code);
 	code[MI_COMPILE_SIZE] = (BeamInstr) stp->chunks[COMPILE_CHUNK].size;
-    CHKBLK(ERTS_ALC_T_CODE,code);
+	CHKBLK(ERTS_ALC_T_CODE,code);
 	decoded_size = erts_decode_ext_size(compile_info, compile_size, 0);
-    CHKBLK(ERTS_ALC_T_CODE,code);
+	CHKBLK(ERTS_ALC_T_CODE,code);
 	if (decoded_size < 0) {
  	    LoadError0(stp, "bad external term representation of compilation information");
  	}
-    CHKBLK(ERTS_ALC_T_CODE,code);
+	CHKBLK(ERTS_ALC_T_CODE,code);
 	code[MI_COMPILE_SIZE_ON_HEAP] = decoded_size;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
+
+    /*
+     * Make sure that we have not overflowed the allocated code space.
+     */
+    ASSERT(str_table + strtab_size + attr_size + compile_size ==
+	   ((byte *) code) + size);
 
     /*
      * Go through all i_new_bs_put_strings instructions, restore the pointer to
