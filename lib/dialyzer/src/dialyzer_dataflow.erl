@@ -657,7 +657,8 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
       true  -> opaque;
       false -> structured
     end,
-  RetWithoutLocal = t_inf(t_inf(ContrRet, BifRet, RetMode), SigRange, RetMode),
+  RetWithoutContr = t_inf(SigRange, BifRet, RetMode),
+  RetWithoutLocal = t_inf(ContrRet, RetWithoutContr, RetMode),
   ?debug("--------------------------------------------------------\n", []),
   ?debug("Fun: ~p\n", [Fun]),
   ?debug("Args: ~s\n", [erl_types:t_to_string(t_product(ArgTypes))]),
@@ -666,6 +667,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 	 [erl_types:t_to_string(t_product(NewArgsContract))]),
   ?debug("NewArgsBif: ~s\n", [erl_types:t_to_string(t_product(NewArgsBif))]),
   ?debug("NewArgTypes: ~s\n", [erl_types:t_to_string(t_product(NewArgTypes))]),
+  ?debug("RetWithoutContr: ~s\n",[erl_types:t_to_string(RetWithoutContr)]),
   ?debug("RetWithoutLocal: ~s\n", [erl_types:t_to_string(RetWithoutLocal)]),
   ?debug("BifRet: ~s\n", [erl_types:t_to_string(BifRange(NewArgTypes))]),
   ?debug("ContrRet: ~s\n", [erl_types:t_to_string(CRange(TmpArgTypes))]),
@@ -700,22 +702,39 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   State2 =
     case FailedConj andalso not (IsFailBif orelse IsFailSig) of
       true ->
-	FailedSig = any_none(NewArgsSig),
-	FailedContract = any_none([CRange(TmpArgsContract)|NewArgsContract]),
-	FailedBif = any_none([BifRange(NewArgsBif)|NewArgsBif]),
-	InfSig = t_inf(t_fun(SigArgs, SigRange),
-		       t_fun(BifArgs, BifRange(BifArgs))),
-	FailReason = apply_fail_reason(FailedSig, FailedBif, FailedContract),
-        Msg = get_apply_fail_msg(Fun, Args, ArgTypes, NewArgTypes, InfSig,
-				 Contr, CArgs, State1, FailReason),
-	WarnType = case Msg of
-		     {call, _} -> ?WARN_FAILING_CALL;
-		     {apply, _} -> ?WARN_FAILING_CALL;
-		     {call_with_opaque, _} -> ?WARN_OPAQUE;
-		     {call_without_opaque, _} -> ?WARN_OPAQUE;
-		     {opaque_type_test, _} -> ?WARN_OPAQUE
-		   end,
-	state__add_warning(State1, WarnType, Tree, Msg);
+	case t_is_none(RetWithoutLocal) andalso
+	  not t_is_none(RetWithoutContr) andalso
+	  not any_none(NewArgTypes) of
+	  true ->
+	    {value, C1} = Contr,
+	    Contract = dialyzer_contracts:contract_to_string(C1),
+	    {M1, F1, A1} = state__lookup_name(Fun, State),
+	    ArgStrings = format_args(Args, ArgTypes, State),
+	    CRet = erl_types:t_to_string(RetWithoutContr),
+	    %% This Msg will be post_processed by dialyzer_succ_typings
+	    Msg =
+	      {contract_range, [Contract, M1, F1, A1, ArgStrings, CRet]},
+	    state__add_warning(State1, ?WARN_CONTRACT_RANGE, Tree, Msg);
+	  false ->
+	    FailedSig = any_none(NewArgsSig),
+	    FailedContract =
+	      any_none([CRange(TmpArgsContract)|NewArgsContract]),
+	    FailedBif = any_none([BifRange(NewArgsBif)|NewArgsBif]),
+	    InfSig = t_inf(t_fun(SigArgs, SigRange),
+			   t_fun(BifArgs, BifRange(BifArgs))),
+	    FailReason =
+	      apply_fail_reason(FailedSig, FailedBif, FailedContract),
+	    Msg = get_apply_fail_msg(Fun, Args, ArgTypes, NewArgTypes, InfSig,
+				     Contr, CArgs, State1, FailReason),
+	    WarnType = case Msg of
+			 {call, _} -> ?WARN_FAILING_CALL;
+			 {apply, _} -> ?WARN_FAILING_CALL;
+			 {call_with_opaque, _} -> ?WARN_OPAQUE;
+			 {call_without_opaque, _} -> ?WARN_OPAQUE;
+			 {opaque_type_test, _} -> ?WARN_OPAQUE
+		       end,
+	    state__add_warning(State1, WarnType, Tree, Msg)
+	end;
       false -> State1
     end,
   State3 =

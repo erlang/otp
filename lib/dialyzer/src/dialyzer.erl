@@ -394,6 +394,10 @@ message_to_string({contract_supertype, [M, F, _A, Contract, Sig]}) ->
   io_lib:format("Type specification ~w:~w~s"
 		" is a supertype of the success typing: ~w:~w~s\n",
 		[M, F, Contract, M, F, Sig]);
+message_to_string({contract_range, [Contract, M, F, ArgStrings, Line, CRet]}) ->
+  io_lib:format("The contract ~w:~w~s cannot be right because the inferred"
+		" return for ~w~s on line ~w is ~s\n",
+		[M, F, Contract, F, ArgStrings, Line, CRet]);
 message_to_string({invalid_contract, [M, F, A, Sig]}) ->
   io_lib:format("Invalid type specification for function ~w:~w/~w."
 		" The success typing is ~s\n", [M, F, A, Sig]);
