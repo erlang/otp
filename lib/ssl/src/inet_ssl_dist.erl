@@ -1,8 +1,8 @@
-%%<copyright>
-%% <year>2000-2008</year>
-%% <holder>Ericsson AB, All Rights Reserved</holder>
-%%</copyright>
-%%<legalnotice>
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
@@ -14,8 +14,9 @@
 %% the License for the specific language governing rights and limitations
 %% under the License.
 %%
-%% The Initial Developer of the Original Code is Ericsson AB.
-%%</legalnotice>
+%% %CopyrightEnd%
+%%
+
 %%
 -module(inet_ssl_dist).
 
@@ -170,8 +171,8 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 					ssl_prim:getll(S)
 				end,
 		      f_address = fun get_remote_id/2,
-		      mf_tick = {?MODULE, tick},
-		      mf_getstat = {?MODULE,getstat}
+		      mf_tick = fun ?MODULE:tick/1,
+		      mf_getstat = fun ?MODULE:getstat/1
 		     },
 		    dist_util:handshake_other_started(HSData);
 		{false,IP} ->
@@ -264,8 +265,8 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 				   protocol = ssl,
 				   family = inet}
 			      end,
-			      mf_tick = {?MODULE, tick},
-			      mf_getstat = {?MODULE,getstat},
+			      mf_tick = fun ?MODULE:tick/1,
+			      mf_getstat = fun ?MODULE:getstat/1,
 			      request_type = Type
 			     },
 			    dist_util:handshake_we_started(HSData);
