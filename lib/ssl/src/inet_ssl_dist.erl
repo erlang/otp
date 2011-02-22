@@ -137,7 +137,7 @@ accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 
 %% Suppress dialyzer warning, we do not really care about old ssl code
 %% as we intend to remove it.
--spec(do_accept/6 :: (_,_,_,_,_,_) -> no_return()).
+-spec(do_accept(_,_,_,_,_,_) -> no_return()).
 do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
     process_flag(priority, max),
     receive
@@ -209,7 +209,7 @@ setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 
 %% Suppress dialyzer warning, we do not really care about old ssl code
 %% as we intend to remove it.
--spec(do_setup/6 :: (_,_,_,_,_,_) -> no_return()).
+-spec(do_setup(_,_,_,_,_,_) -> no_return()).
 do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     process_flag(priority, max),
     ?trace("~p~n",[{inet_ssl_dist,self(),setup,Node}]),
