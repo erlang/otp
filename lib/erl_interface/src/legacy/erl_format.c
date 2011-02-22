@@ -116,7 +116,7 @@ static lvar *lvar_alloc(void)
   lvar *tmp;
   
   if ((tmp = ef.idle) == NULL) {
-    tmp = (lvar *) malloc(sizeof(lvar)); /* FIXME check result */
+    tmp = (lvar *) erl_malloc(sizeof(lvar));
   }
   else {
     tmp = ef.idle;
