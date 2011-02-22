@@ -49,6 +49,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
         return ei_decode_double(buf, index, &term->value.d_val);
     case ERL_ATOM_EXT:
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.atom_name, s, len); 
 	term->value.atom_name[len] = '\0';
 	s += len;
@@ -57,6 +58,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	/* first the nodename */
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.ref.node, s, len);
 	term->value.ref.node[len] = '\0';
 	s += len;
@@ -71,6 +73,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	/* then the nodename */
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.ref.node, s, len);
 	term->value.ref.node[len] = '\0';
 	s += len;
@@ -87,6 +90,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
     case ERL_PORT_EXT:
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	len = get16be(s);
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.port.node, s, len);
 	term->value.port.node[len] = '\0';
 	term->value.port.id = get32be(s) & 0x0fffffff; /* 28 bits */;
@@ -96,6 +100,7 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	if (get8(s) != ERL_ATOM_EXT) return -1;
 	/* name first */
 	len = get16be(s); 
+	if (len > MAXATOMLEN) return -1;
 	memcpy(term->value.pid.node, s, len);
 	term->value.pid.node[len] = '\0';
 	s += len;

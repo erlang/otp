@@ -31,6 +31,8 @@ int ei_decode_atom(const char *buf, int *index, char *p)
 
   len = get16be(s);
 
+  if (len > MAXATOMLEN) return -1;
+
   if (p) {
     memmove(p,s,len); 
     p[len] = (char)0;
