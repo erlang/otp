@@ -77,23 +77,20 @@ read_file_frame() ->
 
 
 read_file_frame_body() ->
-    Entry =
-	case webtool:is_localhost() of 
-	    true -> [input("TYPE=file NAME=browse SIZE=40"),
-		     input("TYPE=hidden NAME=path")];
-	    false -> input("TYPE=text NAME=path SIZE=60")
-	end,
+    %% Using a plain text input field instead of a file input field
+    %% (e.g. <INPUT TYPE=file NAME=pathj SIZE=40">) because most
+    %% browsers can not forward the full path from this dialog even if
+    %% the browser is running on localhost (Ref 'fakepath'-problem)
+    Entry = input("TYPE=text NAME=path SIZE=60"),
     Form = 
 	form(
-	  "NAME=read_file_form METHOD=post ACTION= \"./read_file\"",
+	  "NAME=read_file_form METHOD=post ACTION=\"./read_file\"",
 	  table(
 	    "BORDER=0",
 	    [tr(td("COLSPAN=2","Enter file to analyse")),
 	     tr(
 	       [td(Entry),
-		td("ALIGN=center",
-		   input("TYPE=submit onClick=\"path.value=browse.value;\""
-			 "VALUE=Ok"))])])),
+		td("ALIGN=center",input("TYPE=submit VALUE=Ok"))])])),
     table(
       "WIDTH=100% HEIGHT=60%",
       tr("VALIGN=middle",
@@ -961,8 +958,7 @@ frame(Args) ->
     ["<FRAME ",Args, ">\n"].
 
 start_visible_table() ->
-    start_table("BORDER=\"4\" CELLPADDING=\"4\" WIDTH=\"100%\"").
-%    start_table("BORDER=\"4\" CELLPADDING=\"4\"").
+    start_table("BORDER=\"4\" CELLPADDING=\"4\"").
 start_visible_table(ColTitles) ->
     [start_visible_table(),
      tr([th(ColTitle) || ColTitle <- ColTitles])].

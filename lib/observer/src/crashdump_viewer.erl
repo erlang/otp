@@ -57,7 +57,7 @@
 %%
 
 %% User API
--export([start/0,stop/0]).
+-export([start/0,stop/0,script_start/0,script_start/1]).
 
 %% Webtool API
 -export([configData/0,
@@ -117,7 +117,7 @@
 				% this, it must be explicitly expanded.
 -define(max_display_binary_size,50). % max size of a binary that will be
 				      % directly displayed.
--define(max_sort_process_num,1000). % Max number of processes that allows 
+-define(max_sort_process_num,10000). % Max number of processes that allows
 				    % sorting. If more than this number of 
 				    % processes exist, they will be displayed
 				    % in the order they are found in the log.
@@ -204,6 +204,85 @@ start() ->
 stop() ->
     webtool:stop_tools([],"app=crashdump_viewer"),
     webtool:stop().
+
+%%%-----------------------------------------------------------------
+%%% Start crashdump_viewer via the cdv script located in
+%%% $OBSERVER_PRIV_DIR/bin
+script_start() ->
+    usage().
+script_start([File]) ->
+    DefaultBrowser =
+	case os:type() of
+	    {win32,_} -> iexplore;
+	    _ -> firefox
+	end,
+    script_start([File,DefaultBrowser]);
+script_start([FileAtom,Browser]) ->
+    File = atom_to_list(FileAtom),
+    case filelib:is_regular(File) of
+	true ->
+	    io:format("Starting crashdump_viewer...\n"),
+	    start(),
+	    io:format("Reading crashdump..."),
+	    read_file(File),
+	    redirect([],[]),
+	    io:format("done\n"),
+	    start_browser(Browser);
+	false ->
+	    io:format("cdv error: the given file does not exist\n"),
+	    usage()
+    end.
+
+start_browser(Browser) ->
+    PortStr = integer_to_list(gen_server:call(web_tool,get_port)),
+    Url = "http://localhost:" ++ PortStr ++ ?START_PAGE,
+    {OSType,_} = os:type(),
+    case Browser of
+	none ->
+	    ok;
+	iexplore when OSType == win32->
+	    io:format("Starting internet explorer...\n"),
+	    {ok,R} = win32reg:open(""),
+	    Key="\\local_machine\\SOFTWARE\\Microsoft\\IE Setup\\Setup",
+	    win32reg:change_key(R,Key),
+	    {ok,Val} = win32reg:value(R,"Path"),
+	    IExplore=filename:join(win32reg:expand(Val),"iexplore.exe"),
+	    os:cmd("\"" ++ IExplore ++ "\" " ++ Url);
+	_ when OSType == win32 ->
+	    io:format("Starting ~w...\n",[Browser]),
+	    os:cmd("\"" ++ atom_to_list(Browser) ++ "\" " ++ Url);
+	B when B==firefox; B==mozilla ->
+	    io:format("Sending URL to ~w...",[Browser]),
+	    BStr = atom_to_list(Browser),
+	    SendCmd = BStr ++ " -raise -remote \'openUrl(" ++ Url ++ ")\'",
+	    Port = open_port({spawn,SendCmd},[exit_status]),
+	    receive
+		{Port,{exit_status,0}} ->
+		    io:format("done\n");
+		{Port,{exit_status,_Error}} ->
+		    io:format(" not running, starting ~w...\n",[Browser]),
+		    os:cmd(BStr ++ " " ++ Url)
+	    after 5000 ->
+		    io:format(" failed, starting ~w...\n",[Browser]),
+		    erlang:port_close(Port),
+		    os:cmd(BStr ++ " " ++ Url)
+	    end;
+	_ ->
+	    io:format("Starting ~w...\n",[Browser]),
+	    os:cmd(atom_to_list(Browser) ++ " " ++ Url)
+    end,
+    ok.
+
+usage() ->
+    io:format(
+      "\nusage: cdv file [ browser ]\n"
+      "\tThe \'file\' must be an existing erlang crash dump.\n"
+      "\tDefault browser is \'iexplore\' (Internet Explorer) on Windows\n"
+      "\tor else \'firefox\'.\n",
+      []).
+
+
+
 
 %%%-----------------------------------------------------------------
 %%% Return config data used by webtool
@@ -404,16 +483,7 @@ handle_call(start_page, _From, State) ->
     Reply = crashdump_viewer_html:start_page(),
     {reply,Reply,State};
 handle_call({read_file,Input}, _From, _State) ->
-    {ok,File0} = get_value("path",httpd:parse_query(Input)),
-    File = 
-	case File0 of
-	    [$"|FileAndSome] ->
-		%% Opera adds \"\" around the filename!
-		[$"|Elif] = lists:reverse(FileAndSome),
-		lists:reverse(Elif);
-	    _ ->
-		File0
-	end,
+    {ok,File} = get_value("path",httpd:parse_query(Input)),
     spawn_link(fun() -> read_file(File) end),
     Status = background_status(reading,File),
     Reply = crashdump_viewer_html:redirect(Status),
@@ -877,10 +947,12 @@ get_rest_of_line_1(Fd, <<$\n:8,Bin/binary>>, Acc) ->
     lists:reverse(Acc);
 get_rest_of_line_1(Fd, <<$\r:8,Rest/binary>>, Acc) ->
     get_rest_of_line_1(Fd, Rest, Acc);
-%% get_rest_of_line_1(Fd, <<$<:8,Rest/binary>>, Acc) ->
-%%     get_rest_of_line_1(Fd, Rest, [$;,$t,$l,$&|Acc]);
-%% get_rest_of_line_1(Fd, <<$>:8,Rest/binary>>, Acc) ->
-%%     get_rest_of_line_1(Fd, Rest, [$;,$t,$g,$&|Acc]);
+get_rest_of_line_1(Fd, <<$<:8,Rest/binary>>, Acc) ->
+    get_rest_of_line_1(Fd, Rest, [$;,$t,$l,$&|Acc]);
+get_rest_of_line_1(Fd, <<$>:8,Rest/binary>>, Acc) ->
+    get_rest_of_line_1(Fd, Rest, [$;,$t,$g,$&|Acc]);
+get_rest_of_line_1(Fd, <<$&:8,Rest/binary>>, Acc) ->
+    get_rest_of_line_1(Fd, Rest, [$;,$p,$m,$a,$&|Acc]);
 get_rest_of_line_1(Fd, <<Char:8,Rest/binary>>, Acc) ->
     get_rest_of_line_1(Fd, Rest, [Char|Acc]);
 get_rest_of_line_1(Fd, <<>>, Acc) ->
