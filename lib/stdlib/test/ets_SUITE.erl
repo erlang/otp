@@ -348,8 +348,8 @@ t_match_spec_run_test(List, MS, Result) ->
 
 ms_tracer_collect(Tracee, Ref, Acc) ->
     receive
-	{trace, Tracee, call, Args, [Msg]} ->
-	    %io:format("trace Args=~p  Msg=~p\n", [Args, Msg]),
+	{trace, Tracee, call, _Args, [Msg]} ->
+	    %io:format("trace Args=~p  Msg=~p\n", [_Args, Msg]),
 	    ms_tracer_collect(Tracee, Ref, [Msg | Acc]);
 
 	{'DOWN', Ref, process, Tracee, _} ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,7 +75,7 @@ app_test(suite) ->
     [];
 app_test(doc) ->
     ["Application consistency test."];
-app_test(Config) when list(Config) ->
+app_test(Config) when is_list(Config) ->
     ?t:app_test(stdlib),
     ok.
 

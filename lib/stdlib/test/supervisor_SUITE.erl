@@ -1285,7 +1285,7 @@ count_children_memory(Config) when is_list(Config) ->
     Children = supervisor:which_children(sup_test),
     _Size2 = erlang:memory(processes_used),
     ChildCount = get_child_counts(sup_test),
-    Size3 = erlang:memory(processes_used),
+    _Size3 = erlang:memory(processes_used),
 
     [supervisor:start_child(sup_test, []) || _Ignore2 <- lists:seq(1,1000)],
 
