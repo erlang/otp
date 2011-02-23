@@ -34,11 +34,11 @@
   <module>zip</module>
   <modulesummary>Utility for reading and creating 'zip' archives.</modulesummary>
   <description>
-    <p>The <c>zip</c> module archives and extract files to and from a zip
+    <p>The <c>zip</c> module archives and extracts files to and from a zip
       archive. The zip format is specified by the "ZIP Appnote.txt" file
       available on PKWare's website www.pkware.com.</p>
     <p>The zip module supports zip archive versions up to 6.1. However,
-      password-protection and Zip64 is not supported.</p>
+      password-protection and Zip64 are not supported.</p>
     <p>By convention, the name of a zip file should end in "<c>.zip</c>".
       To abide to the convention, you'll need to add "<c>.zip</c>" yourself
       to the name.</p>
@@ -52,7 +52,7 @@
       <seealso marker="#unzip_2">unzip/2</seealso> function. (They are
       also available as <c>extract</c>.)</p>
     <p>To fold a function over all files in a zip archive, use the
-      <seealso marker="#foldl_3">foldl_3</seealso>.</p>
+      <seealso marker="#foldl_3">foldl_3</seealso> function.</p>
     <p>To return a list of the files in a zip archive, use the
       <seealso marker="#list_dir_1">list_dir/1</seealso> or the
       <seealso marker="#list_dir_2">list_dir/2</seealso> function. (They
@@ -155,13 +155,13 @@ zip_file()    </code>
         <p>Files will be compressed using the DEFLATE compression, as
           described in the Appnote.txt file. However, files will be
           stored without compression if they already are compressed.
-          The <c>zip/2</c> and <c>zip/3</c> checks the file extension
+          The <c>zip/2</c> and <c>zip/3</c> functions check the file extension
           to see whether the file should be stored without compression.
           Files with the following extensions are not compressed:
           <c>.Z</c>, <c>.zip</c>, <c>.zoo</c>, <c>.arc</c>, <c>.lzh</c>,
           <c>.arj</c>.</p>
         <p>It is possible to override the default behavior and
-        explicitly control what types of files that should be
+        explicitly control what types of files should be
         compressed by using the <c>{compress, What}</c> and
         <c>{uncompress, What}</c> options. It is possible to have
         several <c>compress</c> and <c>uncompress</c> options. In
@@ -208,7 +208,7 @@ zip_file()    </code>
           </item>
           <tag><c>{compress, What}</c></tag>
           <item>
-            <p>Controls what types of files that will be
+            <p>Controls what types of files will be
             compressed. It is by default set to <c>all</c>. The
             following values of <c>What</c> are allowed:</p>
 	      <taglist>
@@ -228,7 +228,7 @@ zip_file()    </code>
 	  </item>
           <tag><c>{uncompress, What}</c></tag>
           <item>
-            <p>Controls what types of files that will be uncompressed. It is by
+            <p>Controls what types of files will be uncompressed. It is by
             default set to <c>[".Z",".zip",".zoo",".arc",".lzh",".arj"]</c>.
 	    The following values of <c>What</c> are allowed:</p>
 	      <taglist>
@@ -292,7 +292,7 @@ zip_file()    </code>
             <p>By default, the <c>open/2</c> function will open the
               zip file in <c>raw</c> mode, which is faster but does not allow
               a remote (erlang) file server to be used. Adding <c>cooked</c>
-              to the mode list will override the default and open zip file
+              to the mode list will override the default and open the zip file
               without the <c>raw</c> option. The same goes for the files
               extracted.</p>
           </item>
@@ -301,7 +301,7 @@ zip_file()    </code>
             <p>By default, all existing files with the same name as file in
               the zip archive will be overwritten. With the <c>keep_old_files</c>
               option, the <c>unzip/2</c> function will not overwrite any existing
-              files. Not that even with the <c>memory</c> option given, which
+              files. Note that even with the <c>memory</c> option given, which
               means that no files will be overwritten, files existing will be
               excluded from the result.</p>
           </item>
@@ -418,7 +418,7 @@ zip_file()    </code>
             <p>By default, the <c>open/2</c> function will open the
               zip file in <c>raw</c> mode, which is faster but does not allow
               a remote (erlang) file server to be used. Adding <c>cooked</c>
-              to the mode list will override the default and open zip file
+              to the mode list will override the default and open the zip file
               without the <c>raw</c> option.</p>
           </item>
         </taglist>
