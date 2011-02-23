@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -390,6 +390,7 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
+-spec other_val(_, _) -> no_return().
 other_val(Var, Other) ->
     case Var of
 	{_, where_to_read} -> nowhere;
@@ -399,7 +400,7 @@ other_val(Var, Other) ->
 	    pr_other(Var, Other)
     end.
 
--spec(pr_other/2 :: (_,_) -> no_return()).
+-spec pr_other(_,_) -> no_return().
 
 pr_other(Var, Other) ->
     Why = 
