@@ -78,24 +78,24 @@
       </type>
       <desc>
         <p>The <c>Module</c> must be found in the code path and export
-          <c>Function</c> with an arity of two. An erlScriptAlias must
+          <c>Function</c> with an arity of three. An erlScriptAlias must
           also be set up in the configuration file for the Web server.</p>
-        <p>If the HTTP request is a post request and a body is sent
+        <p>If the HTTP request is a 'post' request and a body is sent
           then content_length will be the length of the posted
-          data. If get is used query_string will be the data after
+          data. If 'get' is used query_string will be the data after
           <em>?</em> in the url.</p>
         <p>ParsedHeader is the HTTP request as a key value tuple
           list. The keys in parsed header will be the in lower case.</p>
         <p>SessionID is a identifier
-          the server use when <c>deliver/2</c> is called, do not
-          assume any-thing about the datatype.</p>
+          the server uses when <c>deliver/2</c> is called; do not
+          assume anything about the datatype.</p>
         <p>Use this callback function to dynamically generate dynamic web
           content. when a part of the page is generated send the
           data back to the client through <c>deliver/2</c>. Note
           that the first chunk of data sent to the client must at
           least contain all HTTP header fields that the response
-          will generate. If the first chunk not contains 
-          <em>End of HTTP header</em> that is <c>"\r\n\r\n"</c> 
+          will generate. If the first chunk does not contain the
+          <em>End of HTTP the header</em>, that is <c>"\r\n\r\n",</c>
           the server will
           assume that no HTTP header fields will be generated.</p>
       </desc>
@@ -106,11 +106,12 @@
       <type>
         <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
-        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name. &lt;v>Input = string()</v>
+		  <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name.
+        <v>Input = string()</v>
         <v>Response = string()</v>
       </type>
       <desc>
-        <p>This callback format consumes quite much memory since the
+        <p>This callback format consumes a lot of memory since the
           whole response must be generated before it is sent to the
           user. This functions is deprecated and only keept for backwards
           compatibility. 

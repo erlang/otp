@@ -55,10 +55,8 @@ dictionary()
       </type>
       <desc>
         <p>This function appends a new <c>Value</c> to the current list
-          of values associated with <c>Key</c>.  An exception is
-          generated if the initial value associated with <c>Key</c> is
-          not a list of values.</p>
-      </desc>
+			  of values associated with <c>Key</c>.
+     </desc>
     </func>
     <func>
       <name>append_list(Key, ValList, Dict1) -> Dict2</name>
