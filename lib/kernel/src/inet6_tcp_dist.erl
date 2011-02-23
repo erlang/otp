@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -162,8 +162,8 @@ do_accept(Kernel, AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
                                         inet:getll(S)
                                 end,
                       f_address = fun get_remote_id/2,
-                      mf_tick = {?MODULE, tick},
-                      mf_getstat = {?MODULE,getstat}
+                      mf_tick = fun ?MODULE:tick/1,
+                      mf_getstat = fun ?MODULE:getstat/1
                      },
                     dist_util:handshake_other_started(HSData);
                 {false,IP} ->
