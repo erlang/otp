@@ -64,7 +64,7 @@
         </item>
 
         <item>
-          <p>[snmpc] Added a MIB compiler escript, 
+          <p>[compiler] Added a MIB compiler (frontend) escript, 
 	  <seealso marker="snmpc">snmpc</seealso>. </p>
           <p>Own Id: OTP-9004</p>
         </item>
