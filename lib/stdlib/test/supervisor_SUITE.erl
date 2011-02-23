@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,9 +52,11 @@
 	 simple_one_for_one_extra/1]).
 
 %% Misc tests
--export([child_unlink/1, tree/1, count_children_memory/1]).
+-export([child_unlink/1, tree/1, count_children_memory/1,
+	 do_not_save_start_parameters_for_temporary_children/1]).
 
 %-------------------------------------------------------------------------
+
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -67,7 +69,7 @@ all() ->
      {group, restart_rest_for_one},
      {group, normal_termination},
      {group, abnormal_termination}, child_unlink, tree,
-     count_children_memory].
+     count_children_memory, do_not_save_start_parameters_for_temporary_children].
 
 groups() -> 
     [{sup_start, [],
@@ -117,7 +119,6 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, _Config) ->
     ok.
 
-
 start(InitResult) ->
     supervisor:start_link({local, sup_test}, ?MODULE, InitResult).
 
@@ -135,14 +136,8 @@ get_child_counts(Supervisor) ->
      proplists:get_value(supervisors, Counts),
      proplists:get_value(workers, Counts)].
 
-
 %-------------------------------------------------------------------------
-%
 % Test cases starts here.
-%
-%-------------------------------------------------------------------------
-
-
 %-------------------------------------------------------------------------
 sup_start_normal(doc) ->
     ["Tests that the supervisor process starts correctly and that it "
@@ -240,8 +235,6 @@ sup_start_fail(Config) when is_list(Config) ->
 	    ?line test_server:fail(no_exit_reason)
     end,
     ok.
-%-------------------------------------------------------------------------
-
 %-------------------------------------------------------------------------
 
 sup_stop_infinity(doc) ->
@@ -594,7 +587,6 @@ child_specs(Config) when is_list(Config) ->
     ?line ok = supervisor:check_childspecs([C3]),
     ?line ok = supervisor:check_childspecs([C4]),
     ok.
-%-------------------------------------------------------------------------
 
 %-------------------------------------------------------------------------
 permanent_normal(doc) ->
@@ -656,7 +648,6 @@ temporary_normal(Config) when is_list(Config) ->
     ?line [1,0,0,1] = get_child_counts(sup_test),
 
     ok.
-%-------------------------------------------------------------------------
 
 %-------------------------------------------------------------------------
 permanent_abnormal(doc) ->
@@ -724,8 +715,6 @@ temporary_abnormal(Config) when is_list(Config) ->
     ?line [1,0,0,1] = get_child_counts(sup_test),
 
     ok.
-%-------------------------------------------------------------------------
-
 %-------------------------------------------------------------------------
 one_for_one(doc) ->
     ["Test the one_for_one base case."];
@@ -804,8 +793,6 @@ one_for_one_escalation(Config) when is_list(Config) ->
 	4000 -> ?line test_server:fail(all_not_terminated)
     end,
     ok.
-%-------------------------------------------------------------------------
-
 %-------------------------------------------------------------------------
 one_for_all(doc) ->
     ["Test the one_for_all base case."];
@@ -892,8 +879,6 @@ one_for_all_escalation(Config) when is_list(Config) ->
 	4000 -> ?line test_server:fail(supervisor_alive)
     end,
     ok.
-
-%-------------------------------------------------------------------------
 
 %-------------------------------------------------------------------------
 simple_one_for_one(doc) ->
@@ -1011,8 +996,6 @@ simple_one_for_one_escalation(Config) when is_list(Config) ->
 	2000 -> ?line test_server:fail(all_not_terminated)
     end,
     ok.
-%-------------------------------------------------------------------------
-
 %-------------------------------------------------------------------------
 rest_for_one(doc) ->
     ["Test the rest_for_one base case."];
@@ -1287,7 +1270,9 @@ tree(Config) when is_list(Config) ->
     ok.
 %-------------------------------------------------------------------------
 count_children_memory(doc) ->
-    ["Test that which_children eats memory, but count_children does not."];
+    ["Test that count_children does not eat memory."];
+count_children_memory(suite) ->
+    [];
 count_children_memory(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
@@ -1324,8 +1309,8 @@ count_children_memory(Config) when is_list(Config) ->
     ?line ChildCount3 = ChildCount2,
 
     %% count_children consumes memory using an accumulator function,
-    %% but the space can be reclaimed incrementally, whereas
-    %% which_children generates a return list.
+    %% but the space can be reclaimed incrementally,
+    %% which_children may generate garbage that will reclaimed later.
     case (Size5 =< Size4) of
 	true -> ok;
 	false ->
@@ -1337,23 +1322,10 @@ count_children_memory(Config) when is_list(Config) ->
 	    ?line test_server:fail({count_children, used_more_memory})
     end,
 
-    case Size4 > Size3 of
-	true -> ok;
-	false ->
-	    ?line test_server:fail({which_children, used_no_memory})
-    end,
-    case Size6 > Size5 of
-	true -> ok;
-	false ->
-	    ?line test_server:fail({which_children, used_no_memory})
-    end,
-
     [exit(Pid, kill) || {undefined, Pid, worker, _Modules} <- Children3],
     test_server:sleep(100),
     ?line [1,0,0,0] = get_child_counts(sup_test),
-
     ok.
-
 count_children_allocator_test(MemoryState) ->
     Allocators = [temp_alloc, eheap_alloc, binary_alloc, ets_alloc,
 		  driver_alloc, sl_alloc, ll_alloc, fix_alloc, std_alloc,
@@ -1364,3 +1336,84 @@ count_children_allocator_test(MemoryState) ->
     AllocStates = [lists:keyfind(e, 1, AllocValue)
 		   || {_Type, AllocValue} <- AllocTypes],
     lists:all(fun(State) -> State == {e, true} end, AllocStates).
+%-------------------------------------------------------------------------
+do_not_save_start_parameters_for_temporary_children(doc) ->
+    ["Temporary children shall not be restarted so they should not"
+     "save start parameters, as it potentially can"
+     "take up a huge amount of memory for no purpose."];
+do_not_save_start_parameters_for_temporary_children(suite) ->
+    [];
+do_not_save_start_parameters_for_temporary_children(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    dont_save_start_parameters_for_temporary_children(one_for_all),
+    dont_save_start_parameters_for_temporary_children(one_for_one),
+    dont_save_start_parameters_for_temporary_children(rest_for_one),
+    dont_save_start_parameters_for_temporary_children(simple_one_for_one).
+
+dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
+    Permanent = {child, {supervisor_1, start_child, []},
+		 permanent, 1000, worker, []},
+    Transient = {child, {supervisor_1, start_child, []},
+		 transient, 1000, worker, []},
+    Temporary = {child, {supervisor_1, start_child, []},
+		 temporary, 1000, worker, []},
+    {ok, Sup1} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, [Permanent]}}),
+    {ok, Sup2} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, [Transient]}}),
+    {ok, Sup3} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, [Temporary]}}),
+
+    LargeList = lists:duplicate(10, "Potentially large"),
+
+    start_children(Sup1, [LargeList], 100),
+    start_children(Sup2, [LargeList], 100),
+    start_children(Sup3, [LargeList], 100),
+
+    [{memory,Mem1}] = process_info(Sup1, [memory]),
+    [{memory,Mem2}] = process_info(Sup2, [memory]),
+    [{memory,Mem3}] = process_info(Sup3, [memory]),
+
+    true = (Mem3 < Mem1)  and  (Mem3 < Mem2),
+
+    exit(Sup1, shutdown),
+    exit(Sup2, shutdown),
+    exit(Sup3, shutdown);
+
+dont_save_start_parameters_for_temporary_children(Type) ->
+    {ok, Sup1} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+    {ok, Sup2} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+    {ok, Sup3} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+
+    LargeList = lists:duplicate(10, "Potentially large"),
+
+    Permanent = {child1, {supervisor_1, start_child, [LargeList]},
+		 permanent, 1000, worker, []},
+    Transient = {child2, {supervisor_1, start_child, [LargeList]},
+		 transient, 1000, worker, []},
+    Temporary = {child3, {supervisor_1, start_child, [LargeList]},
+		 temporary, 1000, worker, []},
+
+    start_children(Sup1, Permanent, 100),
+    start_children(Sup2, Transient, 100),
+    start_children(Sup3, Temporary, 100),
+
+    [{memory,Mem1}] = process_info(Sup1, [memory]),
+    [{memory,Mem2}] = process_info(Sup2, [memory]),
+    [{memory,Mem3}] = process_info(Sup3, [memory]),
+
+    true = (Mem3 < Mem1)  and  (Mem3 < Mem2),
+
+    exit(Sup1, shutdown),
+    exit(Sup2, shutdown),
+    exit(Sup3, shutdown).
+
+start_children(_,_, 0) ->
+    ok;
+start_children(Sup, Args, N) ->
+    Spec = child_spec(Args, N),
+    {ok, _, _} = supervisor:start_child(Sup, Spec),
+    start_children(Sup, Args, N-1).
+
+child_spec([_|_] = SimpleOneForOneArgs, _) ->
+    SimpleOneForOneArgs;
+child_spec({Name, MFA, RestartType, Shutdown, Type, Modules}, N) ->
+    NewName = list_to_atom((atom_to_list(Name) ++ integer_to_list(N))),
+    {NewName, MFA, RestartType, Shutdown, Type, Modules}.
