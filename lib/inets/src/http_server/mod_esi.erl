@@ -452,6 +452,10 @@ handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
     ?hdrt("handle_body - send chunk", [{timeout, Timeout}, {size, Size}]),
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
+	{esi_data, Data} when is_binary(Data) ->
+	    ?hdrt("handle_body - received binary data (esi)", []),
+	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data),
+			IsDisableChunkedSend);
 	{esi_data, Data} ->
 	    ?hdrt("handle_body - received data (esi)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
