@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,22 +33,27 @@
   </header>
 
   <section><title>SNMP 4.18</title>
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p> 
+    </section>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
-	    When the function FilterMod:accept_recv/2 returned false
-	    the SNMP agent stopped collecting messages from UDP.</p>
-          <p>
-	    Own Id: OTP-8761</p>
+          <p>Cosmetic prep for R14B (plain) release. </p>
         </item>
       </list>
     </section>
 
-</section>
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.18 -->
 
-<section>
+
+  <section>
     <title>SNMP Development Toolkit 4.17.1</title>
     <p>Version 4.17.1 supports code replacement in runtime from/to
       version 4.17, 4.16.2, 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
