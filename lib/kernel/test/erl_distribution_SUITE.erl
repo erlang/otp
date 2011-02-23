@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -865,7 +865,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 			% the node mercilessly.
 			% We then want to ensure that the nodedown message arrives
 			% last ... without garbage after it.
-			Pid = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
+			_ = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
 			receive {Me, kill_it} -> ok end, 
 			halt()
 		end),
