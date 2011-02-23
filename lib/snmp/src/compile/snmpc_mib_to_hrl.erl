@@ -24,7 +24,8 @@
 -include("snmpc_lib.hrl").
 
 %% External exports
--export([convert/1, compile/3]).
+-export([convert/1, convert/3, compile/3]).
+
 
 %%-----------------------------------------------------------------
 %% Func: convert/1

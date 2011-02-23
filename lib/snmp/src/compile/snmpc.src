@@ -28,7 +28,7 @@
 -record(state, 
         {
 	 version = "%VSN%", 
-         mib_file,
+         file, % .mib or .bin depending on which are compiled
          outdir = "./",
          db = volatile,
 	 include_dirs = ["./"],
@@ -88,40 +88,72 @@ main(_) ->
 
 compile(State) ->
     io:format("snmpc: ~p~n", [State]),
-    File    = mk_file(State),
-    Options = mk_options(State),
-    case snmpc:compile(File, Options) of
-	{ok, _BinFileName} ->
-	    ok;
-	{error, Reason} ->
-	    io:format("Reason: ~p~n", [Reason]),
-	    ok
+    case mk_file(State) of
+	{mib, File} ->
+	    Options = mk_mib_options(State),
+	    case mib2bin(File, Options) of
+		{ok, _BinFileName} ->
+		    ok;
+		{error, Reason} ->
+		    io:format("ERROR: Failed compiling mib: "
+			      "~n   ~p~n", [Reason]),
+		    halt(1)
+	    end;
+	{bin, File} ->
+	    Options = mk_hrl_options(State),
+	    case bin2hrl(File, Options) of
+		ok ->
+		    ok;
+		{error, Reason} ->
+		    io:format("ERROR: Failed generating hrl from mib: "
+			      "~n   ~p~n", [Reason]),
+		    halt(1)
+	    end
     end.
 
-mk_file(#state{mib_file = MIB}) ->
-    DirName  = filename:dirname(MIB),
-    BaseName = filename:basename(MIB, ".mib"),
-    filename:join(DirName, BaseName).
+mib2bin(MibFileName, Options) ->
+    snmpc:compile(MibFileName, Options).
 
-mk_options(#state{outdir             = OutDir, 
-		  db                 = DB,
-		  include_dirs       = IDs,
-		  include_lib_dirs   = ILDs,
-		  deprecated         = Dep,
-		  group_check        = GC,
-		  description        = Desc,
-		  reference          = Ref,
-		  imports            = Imp,
-		  module_identity    = MI,
-		  module_compliance  = MC, 
-		  agent_capabilities = AC,
-		  module             = Mod,
-		  no_defaults        = ND,
-		  relaxed_row_name_assigne_check = RRNAC,
-		  %% The default verbosity (silence) will be filled in 
-		  %% during argument processing.
-		  verbosity          = V, 
-		  warnings           = W}) ->
+bin2hrl(BinFileName, {OutDir, Verbosity}) ->
+    MibName = filename:basename(BinFileName), 
+    BinFile = BinFileName ++ ".bin",
+    HrlFile = filename:join(OutDir, MibName) ++ ".hrl",
+    put(verbosity, Verbosity),
+    snmpc_mib_to_hrl:convert(BinFile, HrlFile, MibName).
+	    
+
+mk_file(#state{file = MIB}) ->
+    DirName  = filename:dirname(MIB),
+    case filename:extension(MIB) of
+	".mib" ->
+	    BaseName = filename:basename(MIB, ".mib"),
+	    {mib, filename:join(DirName, BaseName)};
+	".bin"  ->
+	    BaseName = filename:basename(MIB, ".bin"),
+	    {bin, filename:join(DirName, BaseName)};
+	BadExt ->
+	    e(lists:flatten(io_lib:format("Unsupported file type: ~s", [BadExt])))
+    end.
+
+mk_mib_options(#state{outdir             = OutDir, 
+		      db                 = DB,
+		      include_dirs       = IDs,
+		      include_lib_dirs   = ILDs,
+		      deprecated         = Dep,
+		      group_check        = GC,
+		      description        = Desc,
+		      reference          = Ref,
+		      imports            = Imp,
+		      module_identity    = MI,
+		      module_compliance  = MC, 
+		      agent_capabilities = AC,
+		      module             = Mod,
+		      no_defaults        = ND,
+		      relaxed_row_name_assigne_check = RRNAC,
+		      %% The default verbosity (silence) will be filled in 
+		      %% during argument processing.
+		      verbosity          = V, 
+		      warnings           = W}) ->
     [{outdir,                        OutDir}, 
      {db,                            DB},
      {i,                             IDs},
@@ -148,12 +180,18 @@ mk_options(#state{outdir             = OutDir,
 maybe_option(true, Opt) -> [Opt];
 maybe_option(_,    _)   -> [].
     
+
+mk_hrl_options(#state{outdir    = OutDir, 
+		      verbosity = Verbosity}) ->
+    {OutDir, Verbosity}.
+
+
 process_args([]) ->
     e("No input file");
 process_args(Args) ->
     process_args(Args, #state{}).
     
-process_args([], #state{verbosity = Verbosity0, mib_file = MIB} = State) ->
+process_args([], #state{verbosity = Verbosity0, file = MIB} = State) ->
     if 
 	(MIB =:= undefined) ->
 	    e("No input file");
@@ -174,7 +212,7 @@ process_args([], #state{verbosity = Verbosity0, mib_file = MIB} = State) ->
 process_args([MIB], State) ->
     case (catch file:read_file_info(MIB)) of
 	{ok, #file_info{type = regular}} ->
-	    process_args([], State#state{mib_file = MIB});
+	    process_args([], State#state{file = MIB});
 	{ok, #file_info{type = BadType}} ->
 	    e(lists:flatten(io_lib:format("~s not a file: ~w", [MIB, BadType])));
 	{error, enoent} ->
@@ -268,7 +306,9 @@ usage(ReasonStr) ->
     usage().
 
 usage() ->
-    io:format("Usage: snmpc [options] MIB.mib"
+    io:format("Usage: snmpc [options] MIB.mib|MIB.bin"
+	      "~nCompile a MIB (.mib -> .bin) or generate an erlang header "
+	      "~nfile from a compiled MIB file (.bin -> .hrl)"
 	      "~nOptions:"
 	      "~n   --help                   - Prints this info."
 	      "~n   --version                - Prints compiler version."
