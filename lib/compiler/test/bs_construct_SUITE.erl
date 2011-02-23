@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -231,7 +231,7 @@ one_test({C_bin, E_bin, Str, Result}) ->
 		    ok;
 		%% For situations where the final bits may not matter, like
 		%% for floats:
-		N when integer(N) ->
+		N when is_integer(N) ->
 		    io:format("Info: compiled and interpreted differ in the"
 			      " last bytes:~n ~p, ~p.~n",
 			      [bitstring_to_list(C_bin), bitstring_to_list(E_bin)]),

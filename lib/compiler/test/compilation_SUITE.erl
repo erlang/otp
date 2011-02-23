@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -163,7 +163,7 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 beam_compiler_7(doc) ->
     "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
 beam_compiler_7(suite) -> [];
-beam_compiler_7(Config) when list(Config) ->
+beam_compiler_7(Config) when is_list(Config) ->
     ?line done = empty(2, false).
 
 empty(N, Toggle) when N > 0 ->
@@ -327,7 +327,7 @@ from(_, []) -> [].
 vsn_1(doc) ->
     "Test generation of 'vsn' attribute";
 vsn_1(suite) -> [];
-vsn_1(Conf) when list(Conf) ->
+vsn_1(Conf) when is_list(Conf) ->
     ?line M = vsn_1,
 
     ?line compile_load(M, ?config(data_dir, Conf), Conf),
@@ -351,7 +351,7 @@ vsn_1(Conf) when list(Conf) ->
 vsn_2(doc) ->
     "Test overriding of generation of 'vsn' attribute";
 vsn_2(suite) -> [];
-vsn_2(Conf) when list(Conf) ->
+vsn_2(Conf) when is_list(Conf) ->
     ?line M = vsn_2,
 
     ?line compile_load(M, ?config(data_dir, Conf), Conf),
@@ -367,7 +367,7 @@ vsn_2(Conf) when list(Conf) ->
 vsn_3(doc) ->
     "Test that different code yields different generated 'vsn'";
 vsn_3(suite) -> [];
-vsn_3(Conf) when list(Conf) ->
+vsn_3(Conf) when is_list(Conf) ->
     ?line M = vsn_3,
 
     ?line compile_load(M, ?config(data_dir, Conf), Conf),

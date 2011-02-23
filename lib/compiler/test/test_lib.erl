@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@ smoke_disasm(Mod) when is_atom(Mod) ->
     smoke_disasm(code:which(Mod));
 smoke_disasm(File) when is_list(File) ->
     Res = beam_disasm:file(File),
-    {beam_file,Mod} = {element(1, Res),element(2, Res)}.
+    {beam_file,_Mod} = {element(1, Res),element(2, Res)}.
 
 %% Retrieve the "interesting" compiler options (options for optimization
 %% and compatibility) for the given module.
@@ -62,16 +62,16 @@ opt_opts(Mod) ->
 		    (_) -> false
 		 end, Opts).
 
-%% Some test suites gets cloned (e.g. to "record_SUITE" to "record_no_opt_SUITE"),
-%% but the data directory is not cloned. This function retrieves the path to
-%% the original data directory.
+%% Some test suites gets cloned (e.g. to "record_SUITE" to
+%% "record_no_opt_SUITE"), but the data directory is not cloned.
+%% This function retrieves the path to the original data directory.
 
 get_data_dir(Config) ->
     Data0 = ?config(data_dir, Config),
-    {ok,Data1,_} = regexp:sub(Data0, "_no_opt_SUITE", "_SUITE"),
-    {ok,Data2,_} = regexp:sub(Data1, "_post_opt_SUITE", "_SUITE"),
-    {ok,Data,_} = regexp:sub(Data2, "_inline_SUITE", "_SUITE"),
-    Data.
+    Opts = [{return,list}],
+    Data1 = re:replace(Data0, "_no_opt_SUITE", "_SUITE", Opts),
+    Data = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
+    re:replace(Data, "_inline_SUITE", "_SUITE", Opts).
 
 %% p_run(fun(Data) -> ok|error, List) -> ok
 %%  Will fail the test case if there were any errors.

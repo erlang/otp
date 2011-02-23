@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -180,7 +180,7 @@ empty_generator(Config) when is_list(Config) ->
 id(I) -> I.
     
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args}|_]}}) -> ok;
-fc(Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
+fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Arity}|_]}})
   when length(Args) =:= Arity ->
     true = test_server:is_native(?MODULE);
 fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})

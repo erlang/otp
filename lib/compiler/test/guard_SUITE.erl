@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -111,8 +111,8 @@ const_cond(Config) when is_list(Config) ->
 const_cond(T, Sz) ->
     case T of
 	_X when false -> never;
-	_X when tuple(T), eq == eq, tuple_size(T) == Sz -> ok;
-	_X when tuple(T), eq == leq, tuple_size(T) =< Sz -> ok;
+	_X when is_tuple(T), eq == eq, tuple_size(T) == Sz -> ok;
+	_X when is_tuple(T), eq == leq, tuple_size(T) =< Sz -> ok;
 	_X -> error
     end.
 
