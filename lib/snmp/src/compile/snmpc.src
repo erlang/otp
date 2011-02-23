@@ -67,8 +67,7 @@ compile(State) ->
     File    = mk_file(State),
     Options = mk_options(State),
     case snmpc:compile(File, Options) of
-	{ok, BinFileName} ->
-	    io:format("BinFileName: ~p~n", [BinFileName]),
+	{ok, _BinFileName} ->
 	    ok;
 	{error, Reason} ->
 	    io:format("Reason: ~p~n", [Reason]),
@@ -76,7 +75,9 @@ compile(State) ->
     end.
 
 mk_file(#state{mib_file = MIB}) ->
-    MIB -- ".mib".
+    DirName = filename:dirname(MIB),
+    BaseName = filename:basename(MIB, ".mib"),
+    filename:join(DirName, BaseName).
 
 mk_options(#state{outdir             = OutDir, 
 		  db                 = DB,
