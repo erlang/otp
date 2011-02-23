@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,7 +29,22 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the erl_docgen application.</p>
-    <section><title>Erl_Docgen 0.2.3</title>
+
+  <section><title>erl_docgen 0.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	  <p>Subsections below level 2 where not handled correct when generating html and pdf.</p>
+          <p>
+	    Own Id: OTP-90730</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>erl_docgen 0.2.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -56,9 +71,9 @@
       </list>
     </section>
 
-</section>
+  </section>
 
-<section><title>Erl_Docgen 0.2.2</title>
+  <section><title>erl_docgen 0.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -71,9 +86,9 @@
       </list>
     </section>
 
-</section>
+  </section>
 
-<section><title>erl_docgen 0.2.1</title>
+  <section><title>erl_docgen 0.2.1</title>
 
 	<section><title>Fixed Bugs and Malfunctions</title>
 	  <list>
