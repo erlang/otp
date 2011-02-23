@@ -3424,7 +3424,6 @@ void process_main(void)
 
     OpCase(case_end_r):
 	case_end_val = r(0);
-	I--;
 
     do_case_end:
 	c_p->fvalue = case_end_val;
