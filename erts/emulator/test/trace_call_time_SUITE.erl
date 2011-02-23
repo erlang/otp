@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -427,7 +427,7 @@ nif(Config) when is_list(Config) ->
     ?line 1 = erlang:trace_pattern({?MODULE, nif_dec,  '_'}, true, [call_time]),
     ?line 1 = erlang:trace_pattern({?MODULE, with_nif, '_'}, true, [call_time]),
     ?line Pid = setup(),
-    ?line {L, T1} = execute(Pid, fun() -> with_nif(M) end),
+    ?line {_, T1} = execute(Pid, fun() -> with_nif(M) end),
 
     % the nif is called M - 1 times, the last time the function with 'with_nif'
     % returns ok and does not call the nif.
@@ -506,7 +506,7 @@ with_nif(N) ->
     with_nif(?MODULE:nif_dec(N)).
 
 
-nif_dec(N) -> 0.
+nif_dec(_) -> 0.
 
 dec(N) ->
     loaded(10000),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 
 -export([runner/2]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
--export([do_boxed_and_small/0, suite/0]).
+-export([do_boxed_and_small/0]).
 
 % This test suite assumes that tracing in general works. What we test is
 % the match spec functionality.
@@ -365,15 +365,15 @@ silent_no_ms(Config) when is_list(Config) ->
 	    fun () -> 
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    ?MODULE:f1(start),
 		    ?MODULE:f2(f, g),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(h, i),
 		    ?MODULE:f1(stop),
 		    ?MODULE:f2(j, k),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(l, m)
 	    end,
 	    fun (Tracee) ->
@@ -413,15 +413,15 @@ silent_no_ms(Config) when is_list(Config) ->
 	    fun () -> 
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    ?MODULE:f1(start),
 		    ?MODULE:f2(f, g),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(h, i),
 		    ?MODULE:f1(stop),
 		    ?MODULE:f2(j, k),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(l, m)
 	    end,
 	    fun (Tracee) ->
@@ -475,18 +475,18 @@ ms_trace2(Config) when is_list(Config) ->
 	    fun () -> 
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    fn([all], [call,return_to,{tracer,Tracer}]),
 		    ?MODULE:f1(f),
 		    f2(g, h),
 		    f1(i),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(j, k),
 		    fn([call,return_to], []),
 		    ?MODULE:f1(l),
 		    ?MODULE:f2(m, n),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(o, p)
 	    end,
 	    fun (Tracee) ->
@@ -571,26 +571,26 @@ ms_trace3(Config) when is_list(Config) ->
 		    register(TraceeName, self()),
 		    ?MODULE:f1(a),
 		    ?MODULE:f2(b, c),
-		    erlang:integer_to_list(id(1)),
+		    _ = erlang:integer_to_list(id(1)),
 		    ?MODULE:f3(d, e),
 		    Controller ! {self(),Tag,start},
 		    receive {Controller,Tag,started} -> ok end,
 		    ?MODULE:f1(f),
 		    f2(g, h),
 		    f1(i),
-		    erlang:integer_to_list(id(2)),
+		    _ = erlang:integer_to_list(id(2)),
 		    ?MODULE:f3(j, k),
 		    Controller ! {self(),Tag,stop_1},
 		    receive {Controller,Tag,stopped_1} -> ok end,
 		    ?MODULE:f1(l),
 		    ?MODULE:f2(m, n),
-		    erlang:integer_to_list(id(3)),
+		    _ = erlang:integer_to_list(id(3)),
 		    ?MODULE:f3(o, p),
 		    Controller ! {self(),Tag,stop_2},
 		    receive {Controller,Tag,stopped_2} -> ok end,
 		    ?MODULE:f1(q),
 		    ?MODULE:f2(r, s),
-		    erlang:integer_to_list(id(4)),
+		    _ = erlang:integer_to_list(id(4)),
 		    ?MODULE:f3(t, u)
 	    end,
 	    

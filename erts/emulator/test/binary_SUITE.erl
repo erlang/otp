@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1320,12 +1320,5 @@ unaligned_sub_bin(Bin0, Offs) ->
     Sz = size(Bin0),
     <<_:Offs,Bin:Sz/binary,_:Roffs>> = id(Bin1),
     Bin.
-
-hostname() ->
-    from($@, atom_to_list(node())).
-
-from(H, [H | T]) -> T;
-from(H, [_ | T]) -> from(H, T);
-from(_, []) -> [].
 
 id(I) -> I.

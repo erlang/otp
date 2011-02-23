@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -3294,13 +3294,13 @@ most_distant_atom(Sols) ->
     maximum(map(sol_most_distant_atom, Sols)).
 
 maximum([H|T]) ->
-    max(T,H).
+    max1(T,H).
 
-max([H|T],M) when is_float(H), is_float(M), H > M ->
-    max(T,H);
-max([_|T],M) ->
-    max(T,M);
-max([],M) -> M.
+max1([H|T],M) when is_float(H), is_float(M), H > M ->
+    max1(T,H);
+max1([_|T],M) ->
+    max1(T,M);
+max1([],M) -> M.
 
 map(_Func,[]) -> [];
 map(Func,[H|T]) -> 
