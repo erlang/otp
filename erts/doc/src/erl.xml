@@ -587,6 +587,13 @@
         <p>Enables auto load tracing, displaying info while loading
           code.</p>
       </item>
+      <tag><c><![CDATA[+L]]></c></tag>
+      <item>
+        <p>Don't load information about source filenames and line numbers.
+	  This will save some memory, but exceptions will not contain
+	  information about the filenames and line numbers.
+          </p>
+      </item>
       <tag><marker id="erts_alloc"><c><![CDATA[+MFlag Value]]></c></marker></tag>
       <item>
         <p>Memory allocator specific flags, see

@@ -1397,6 +1397,15 @@ read_line_table(LoaderState* stp)
     BeamInstr tag;
 
     /*
+     * If the emulator flag ignoring the line information was given,
+     * return immediately.
+     */
+
+    if (erts_no_line_info) {
+	return 1;
+    }
+
+    /*
      * Check version of line table.
      */
 

@@ -1087,6 +1087,7 @@ extern ErtsModifiedTimings erts_modified_timings[];
 #define ERTS_MODIFIED_TIMING_INPUT_REDS \
   (erts_modified_timings[erts_modified_timing_level].input_reds)
 
+extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
 extern int erts_compat_rel;
