@@ -947,12 +947,6 @@ get_rest_of_line_1(Fd, <<$\n:8,Bin/binary>>, Acc) ->
     lists:reverse(Acc);
 get_rest_of_line_1(Fd, <<$\r:8,Rest/binary>>, Acc) ->
     get_rest_of_line_1(Fd, Rest, Acc);
-get_rest_of_line_1(Fd, <<$<:8,Rest/binary>>, Acc) ->
-    get_rest_of_line_1(Fd, Rest, [$;,$t,$l,$&|Acc]);
-get_rest_of_line_1(Fd, <<$>:8,Rest/binary>>, Acc) ->
-    get_rest_of_line_1(Fd, Rest, [$;,$t,$g,$&|Acc]);
-get_rest_of_line_1(Fd, <<$&:8,Rest/binary>>, Acc) ->
-    get_rest_of_line_1(Fd, Rest, [$;,$p,$m,$a,$&|Acc]);
 get_rest_of_line_1(Fd, <<Char:8,Rest/binary>>, Acc) ->
     get_rest_of_line_1(Fd, Rest, [Char|Acc]);
 get_rest_of_line_1(Fd, <<>>, Acc) ->
