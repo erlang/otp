@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,15 +37,17 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	 all/0, 
+	 groups/0, init_per_group/2, end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
 
 	 description/1,
 	 oid_conflicts/1,
 	 imports/1,
 	 module_identity/1,
+	 agent_capabilities/1,
+	 module_compliance/1, 
 
-	
 	 otp_6150/1,
 	 otp_8574/1, 
 	 otp_8595/1
@@ -78,7 +80,7 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     MibDir = join(lists:reverse(["snmp_test_data"|RL])),
     CompDir = join(Dir, "comp_dir/"),
     ?line ok = file:make_dir(CompDir),
-    [{comp_dir, CompDir},{mib_dir, MibDir}|Config].
+    [{comp_dir, CompDir}, {mib_dir, MibDir} | Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     CompDir = ?config(comp_dir, Config),
@@ -91,17 +93,24 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 %%======================================================================
 
 all() -> 
-[description, oid_conflicts, imports, module_identity,
- {group, tickets}].
+    [
+     description, 
+     oid_conflicts, 
+     imports, 
+     module_identity,
+     agent_capabilities,
+     module_compliance,
+     {group, tickets}
+    ].
 
 groups() -> 
     [{tickets, [], [otp_6150, otp_8574, otp_8595]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
@@ -166,6 +175,88 @@ module_identity(suite) ->
     [];
 module_identity(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
+
+
+agent_capabilities(suite) ->
+    [];
+agent_capabilities(Config) when is_list(Config) ->
+    put(tname,agent_capabilities),
+    p("starting with Config: ~p~n", [Config]),
+
+    SnmpPrivDir    = code:priv_dir(snmp),
+    SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
+    OtpMibsPrivDir = code:priv_dir(otp_mibs),
+    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
+    Dir   = ?config(mib_dir, Config),
+    AcMib = join(Dir,"AC-TEST-MIB.mib"),
+    ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
+						 version,
+						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,    Dir}, 
+						 {verbosity, trace}]),
+    ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
+    ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
+						 version,
+						 agent_capabilities,
+						 {i,         [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,    Dir}, 
+						 {verbosity, trace}]),
+    ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
+    MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
+    %% This is a rather pathetic test, but it is somthing...
+    io:format("agent_capabilities -> "
+	      "~n   MEDiff: ~p"
+	      "~n   Mib1:   ~p"
+	      "~n   Mib2:   ~p"
+	      "~n", [MEDiff, Mib1, Mib2]),
+    case length(MEDiff) of
+	2 ->
+	    ok;
+	_BadLen ->
+	    exit({unexpected_mes, MEDiff})
+    end,
+    ok.
+
+
+module_compliance(suite) ->
+    [];
+module_compliance(Config) when is_list(Config) ->
+    put(tname,module_compliance),
+    p("starting with Config: ~p~n", [Config]),
+
+    SnmpPrivDir    = code:priv_dir(snmp),
+    SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
+    OtpMibsPrivDir = code:priv_dir(otp_mibs),
+    OtpMibsMibsDir = join(OtpMibsPrivDir, "mibs"), 
+    Dir   = ?config(mib_dir, Config),
+    AcMib = join(Dir,"MC-TEST-MIB.mib"),
+    ?line {ok, MibFile1} = snmpc:compile(AcMib, [options,
+						 version,
+						 {i,           [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,      Dir}, 
+						 {verbosity,   trace}]),
+    ?line {ok, Mib1} = snmp_misc:read_mib(MibFile1), 
+    ?line {ok, MibFile2} = snmpc:compile(AcMib, [options,
+						 version,
+						 module_compliance,
+						 {i,           [SnmpMibsDir, OtpMibsMibsDir]}, 
+						 {outdir,      Dir}, 
+						 {verbosity,   trace}]),
+    ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
+    MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
+    %% This is a rather pathetic test, but it is somthing...
+    io:format("agent_capabilities -> "
+	      "~n   MEDiff: ~p"
+	      "~n   Mib1:   ~p"
+	      "~n   Mib2:   ~p"
+	      "~n", [MEDiff, Mib1, Mib2]),
+    case length(MEDiff) of
+	1 ->
+	    ok;
+	_BadLen ->
+	    exit({unexpected_mes, MEDiff})
+    end,
+    ok.
 
 
 otp_6150(suite) ->
@@ -256,7 +347,7 @@ LAST-UPDATED \"0005290000Z\"
                         Ericsson Utvecklings AB
 Open System
 Box 1505
-SE-125 25 ÄLVSJÖ\"
+SE-125 25 Ã„LVSJÃ–\"
 
 DESCRIPTION 
 \" Objects for management \"
