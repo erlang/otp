@@ -171,9 +171,9 @@ expand_opt(report, Os) ->
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt(r12, Os) ->
-    [no_recv_opt|Os];
+    [no_recv_opt,no_line_info|Os];
 expand_opt(r13, Os) ->
-    [no_recv_opt|Os];
+    [no_recv_opt,no_line_info|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_float_opt, Os) ->

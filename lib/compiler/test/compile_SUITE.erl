@@ -82,6 +82,7 @@ file_1(Config) when is_list(Config) ->
     ?line {ok,simple} = compile:file(Simple, [native,report]), %Smoke test.
     ?line {ok,simple} = compile:file(Target, [native,from_beam]), %Smoke test.
     ?line {ok,simple} = compile:file(Simple, [debug_info]),
+    ?line {ok,simple} = compile:file(Simple, [no_line_info]), %Coverage
     ?line ok = file:set_cwd(Cwd),
     ?line true = exists(Target),
     ?line passed = run(Target, test, []),
