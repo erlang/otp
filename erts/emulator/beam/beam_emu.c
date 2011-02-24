@@ -3424,7 +3424,6 @@ void process_main(void)
 
     OpCase(case_end_r):
 	case_end_val = r(0);
-	I--;
 
     do_case_end:
 	c_p->fvalue = case_end_val;
@@ -5865,9 +5864,6 @@ build_stacktrace(Process* c_p, Eterm exc) {
     Eterm  args;
     int    depth;
     BeamInstr* current;
-#if HALFWORD_HEAP
-    BeamInstr current_buff[3];
-#endif
     Eterm  Where = NIL;
     Eterm *next_p = &Where;
 
@@ -5897,14 +5893,7 @@ build_stacktrace(Process* c_p, Eterm exc) {
      * (e.g. spawn_link(erlang, abs, [1])).
      */
     if (current == NULL) {
-#if HALFWORD_HEAP
-	current = current_buff;
-	current[0] = (BeamInstr) c_p->initial[0];
-	current[1] = (BeamInstr) c_p->initial[1];
-	current[2] = (BeamInstr) c_p->initial[2];
-#else
 	current = c_p->initial;
-#endif
 	args = am_true; /* Just in case */
     } else {
 	args = get_args_from_exc(exc);
