@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -175,6 +175,21 @@ find_executable(Config) when is_list(Config) ->
 	    ?line find_exe(Current, "my_batch", ".bat", Path),
 	    ok;
 	{unix, _}  -> 
+	    DataDir = ?config(data_dir, Config),
+
+	    %% Smoke test.
+	    case lib:progname() of
+		erl ->
+		    ?line ErlPath = os:find_executable("erl"),
+		    ?line true = is_list(ErlPath),
+		    ?line true = filelib:is_regular(ErlPath);
+		_ ->
+		    %% Don't bother -- the progname could include options.
+		    ok
+	    end,
+
+	    %% Never return a directory name.
+	    ?line false = os:find_executable("unix", [DataDir]),
 	    ok;
 	vxworks -> 
 	    ok
