@@ -228,17 +228,26 @@ if [ $run_valgrind != yes ]; then
 fi
 if [ "x$GDB" = "x" ]; then
     if [ $run_valgrind = yes ]; then
+	valversion=`valgrind --version`
+	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
+        valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
 	emu_xargs=`echo $xargs | sed "s|+|-|g"`
-	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
-	    valgrind_log=
-	else
-	    valgrind_log="--log-file=$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU.log"
-	fi
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
+	    log_file_prefix="--log-file="
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
+	    log_file_prefix="--xml-file="
+	fi
+	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
+	    valgrind_log=
+	else
+	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU.log.$$"
+	    else
+		valgrind_log="$log_file_prefix$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU.log"
+	    fi
 	fi
 	if [ "x$VALGRIND_MISC_FLAGS" = "x" ]; then
 	    valgrind_misc_flags=
