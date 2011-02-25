@@ -78,6 +78,21 @@ extern void erts_thread_disable_fpe(void);
 }
 #endif
 
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
+
+#ifdef __DARWIN__
+extern "C" {
+  int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
+  int erl_drv_steal_main_thread(char *name,
+				ErlDrvTid *dtid,
+				void* (*func)(void*),
+				void* arg,
+				ErlDrvThreadOpts *opts);
+}
+#endif
+
 void *wxe_main_loop(void * );
 
 /* ************************************************************
@@ -99,8 +114,14 @@ int start_native_gui(wxe_data *sd)
   wxe_batch_locker_c = erl_drv_cond_create((char *)"wxe_batch_locker_c");
   init_caller = driver_connected(sd->port); 
 
-  if((res = erl_drv_thread_create((char *)"wxwidgets",
-				  &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL)) == 0) {
+#ifdef __DARWIN__
+  res = erl_drv_steal_main_thread((char *)"wxwidgets",
+				  &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
+#else
+  res = erl_drv_thread_create((char *)"wxwidgets",
+			      &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
+#endif
+  if(res == 0) {
     erl_drv_mutex_lock(wxe_status_m);
     for(;wxe_status == WXE_NOT_INITIATED;) {
       erl_drv_cond_wait(wxe_status_c, wxe_status_m);
@@ -120,7 +141,11 @@ void stop_native_gui(wxe_data *sd)
   if(wxe_status == WXE_INITIATED) {
     meta_command(WXE_SHUTDOWN, sd);
   }
+#ifdef __DARWIN__
+  erl_drv_stolen_main_thread_join(wxe_thread, NULL);
+#else
   erl_drv_thread_join(wxe_thread, NULL);
+#endif
   erl_drv_mutex_destroy(wxe_status_m);
   erl_drv_cond_destroy(wxe_status_c);
   erl_drv_mutex_destroy(wxe_batch_locker_m);
@@ -205,7 +230,9 @@ void *wxe_main_loop(void *vpdl)
     /* We are done try to make a clean exit */
     wxe_status = WXE_EXITED;
     driver_pdl_dec_refc(pdl);
+#ifndef __DARWIN__
     erl_drv_thread_exit(NULL);
+#endif
     return NULL;
   } else {
     erl_drv_mutex_lock(wxe_status_m);
