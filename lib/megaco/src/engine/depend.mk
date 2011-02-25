@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2003-2009. All Rights Reserved.
+# Copyright Ericsson AB 2003-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -16,6 +16,8 @@
 # under the License.
 # 
 # %CopyrightEnd%
+
+$(EBIN)/megaco_config_misc.$(EMULATOR): megaco_config_misc.erl
 
 $(EBIN)/megaco_config.$(EMULATOR): megaco_config.erl \
 	../../include/megaco.hrl \
