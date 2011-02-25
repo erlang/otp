@@ -68,7 +68,6 @@ id(_Opts) ->
 -spec init(Id :: term(), Opts :: proplist()) ->
     State :: #state{}.
 init(_Id, Opts) ->
-%    ct:log("CurrWD: ~p",[file:get_cwd()]),
     Nodenames = proplists:get_value(nodenames, Opts, 0),
     Nodes = proplists:get_value(nodes, Opts, 0),
     TSConfDir = proplists:get_value(ts_conf_dir, Opts),
@@ -93,13 +92,8 @@ pre_init_per_suite(Suite,Config,#state{ ts_conf_dir = undefined} = State) ->
     TSConfDir = filename:join([ParentDir, "..","test_server"]),
     pre_init_per_suite(Suite, Config, State#state{ ts_conf_dir = TSConfDir });
 pre_init_per_suite(_Suite,Config,State) ->
-%    ct:log("pre_init_per_suite(~p,~p,~p)",[_Suite,Config,State]),
     DataDir = proplists:get_value(data_dir, Config),
     try
-%	install(State#state.ts_conf_dir,
-%		State#state.target_system,
-%		State#state.install_opts),
-	
 	{ok,Variables} = 
 	    file:consult(filename:join(State#state.ts_conf_dir,"variables")),
 
@@ -221,7 +215,6 @@ on_tc_skip(_TC, _Reason, State) ->
 -spec terminate(State :: #state{}) ->
 	term().
 terminate(_State) ->
-%    ct:log("Terminate called"),
     ok.
 
 %%% ============================================================================
