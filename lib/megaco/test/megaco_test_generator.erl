@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,10 @@
 -module(megaco_test_generator).
 
 -behaviour(gen_server).
+
+-compile({no_auto_import,[error/2]}).
+
+%% ----
 
 -export([
 	 start_link/3, 
