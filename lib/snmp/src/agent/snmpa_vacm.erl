@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 -export([get_mib_view/5]).
 -export([init/1, init/2, backup/1]).
 -export([delete/1, get_row/1, get_next_row/1, insert/1, insert/2,
-	 dump_table/0]).
+	 cleanup/0, dump_table/0]).
 
 -include("SNMPv2-TC.hrl").
 -include("SNMP-VIEW-BASED-ACM-MIB.hrl").
@@ -254,6 +254,11 @@ insert(Entries, Dump) ->
 
 delete(Key) ->
     ets:delete(snmpa_vacm, Key),
+    dump_table().
+
+
+cleanup() ->
+    ets:delete_all_objects(snmpa_vacm),
     dump_table().
 
 dump_table(true) ->

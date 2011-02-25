@@ -96,6 +96,19 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>Own Id: OTP-8980</p>
         </item>
 
+        <item>
+          <p>[agent] When calling
+          <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso>
+          on a running node, the table <c>vacmAccessTable</c> was not properly
+          cleaned.
+          This meant that if some entries in the vacm.conf file was removed
+          (compared to the <c>current</c> config),
+          while others where modified and/or added, the removed entrie(s)
+          would still exist in the <c>vacmAccessTable</c> table. </p>
+          <p>Own Id: OTP-8981</p>
+          <p>Aux Id: Seq 11750</p>
+        </item>
+
       </list>
     </section>
 

@@ -24,7 +24,8 @@
  [
   {"4.18", 
    [
-    {load_module, snmp_misc, soft_purge, soft_purge, []}, 
+    {load_module, snmp_misc, soft_purge, soft_purge, []},
+    {load_module, snmpa_vacm, soft_purge, soft_purge, []}, 
     {load_module, snmpa, soft_purge, soft_purge, 
      [snmp_community_mib, 
       snmp_framework_mib, 
@@ -43,7 +44,7 @@
     {load_module, snmp_user_based_sm_mib,  soft_purge, soft_purge, 
      [snmpa_mib_lib]},
     {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, 
-     [snmpa_mib_lib]},
+     [snmpa_mib_lib, snmpa_vacm]},
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}
    ]
   }
@@ -55,6 +56,7 @@
   {"4.18", 
    [
     {load_module, snmp_misc, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_vacm, soft_purge, soft_purge, []},
     {load_module, snmpa, soft_purge, soft_purge, 
      [snmp_community_mib, 
       snmp_framework_mib, 
@@ -73,7 +75,7 @@
     {load_module, snmp_user_based_sm_mib,  soft_purge, soft_purge, 
      [snmpa_mib_lib]},
     {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, 
-     [snmpa_mib_lib]},
+     [snmpa_mib_lib, snmpa_vacm]},
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}
    ]
   }

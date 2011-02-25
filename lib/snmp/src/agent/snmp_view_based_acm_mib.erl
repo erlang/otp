@@ -180,11 +180,18 @@ init_tabs(Sec2Group, Access, View) ->
     snmpa_local_db:table_delete(db(vacmSecurityToGroupTable)),
     snmpa_local_db:table_create(db(vacmSecurityToGroupTable)),
     init_sec2group_table(Sec2Group),
+
+    ?vdebug("create vacm access table",[]),
+    snmpa_vacm:cleanup(),
     init_access_table(Access),
+
     ?vdebug("create vacm view-tree-family table",[]),
     snmpa_local_db:table_delete(db(vacmViewTreeFamilyTable)),
     snmpa_local_db:table_create(db(vacmViewTreeFamilyTable)),
-    init_view_table(View).
+    init_view_table(View),
+
+    ?vdebug("table(s) initiated",[]),
+    ok.
     
 init_sec2group_table([Row | T]) ->
 %%      ?vtrace("init security-to-group table: "
