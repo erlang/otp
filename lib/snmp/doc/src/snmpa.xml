@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1251,6 +1251,39 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <p>Restart the set worker process of a multi-threaded agent.</p>
         <p>This is a utility function, that can be useful when
           e.g. debugging instrumentation functions.</p>
+
+        <marker id="print_mib_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>print_mib_info() -> void()</name>
+      <fsummary>Print mib info</fsummary>
+      <desc>
+        <p>Prints the content of all the (snmp) tables and variables 
+	for all mibs handled by the snmp agent. </p>
+
+        <marker id="print_mib_tables"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>print_mib_tables() -> void()</name>
+      <fsummary>Print mib tables</fsummary>
+      <desc>
+        <p>Prints the content of all the (snmp) tables 
+	for all mibs handled by the snmp agent. </p>
+
+        <marker id="print_mib_variables"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>print_mib_variables() -> void()</name>
+      <fsummary>Print mib variables</fsummary>
+      <desc>
+        <p>Prints the content of all the (snmp) variables 
+	for all mibs handled by the snmp agent. </p>
 
         <marker id="verbosity"></marker>
       </desc>

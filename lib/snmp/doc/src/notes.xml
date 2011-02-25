@@ -39,6 +39,9 @@
 
     <section>
       <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
       <list type="bulleted">
         <item>
           <p>[compiler] Added support for textual convention 
@@ -58,12 +61,42 @@
 	  options. </p>
           <p>Own Id: OTP-8966</p>
         </item>
+
+        <item>
+          <p>[agent] Added a "complete" set of (snmp) table and variable
+          print functions, for each mib handled by the SNMP (agent)
+          application. This will be usefull when debugging a running agent.</p>
+          <p>See
+          <seealso marker="snmpa#print_mib_info">print_mib_info/0</seealso>,
+          <seealso marker="snmpa#print_mib_tables">print_mib_tables/0</seealso>
+          and
+          <seealso marker="snmpa#print_mib_variables">print_mib_variables/0</seealso>
+          for more info. </p>
+          <p>Own Id: OTP-8977</p>
+        </item>
+
       </list>
     </section>
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
       <p>-</p> 
+<!--
+      <list type="bulleted">
+        <item>
+          <p>When the function FilterMod:accept_recv/2
+          returned false the SNMP agent stopped collecting
+          messages from UDP.</p>
+          <p>Own Id: OTP-8761</p>
+        </item>
+      </list>
+-->
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
     </section>
 
 
@@ -103,7 +136,8 @@
       <list type="bulleted">
         <item>
           <p>When the function FilterMod:accept_recv/2
-             returned false the SNMP agent stopped collecting messages from UDP.</p>
+	  returned false the SNMP agent stopped collecting 
+	  messages from UDP.</p>
           <p>Own Id: OTP-8761</p>
         </item>
       </list>

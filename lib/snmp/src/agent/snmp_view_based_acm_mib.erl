@@ -133,7 +133,6 @@ check_vacm({vacmSecurityToGroup, SecModel, SecName, GroupName}) ->
     {ok, SecM} = snmp_conf:check_sec_model(SecModel, []),
     snmp_conf:check_string(SecName),
     snmp_conf:check_string(GroupName),
-
     Vacm = {SecM, SecName, GroupName,
 	    ?'StorageType_nonVolatile', ?'RowStatus_active'},
     {ok, {vacmSecurityToGroup, Vacm}};
@@ -188,8 +187,8 @@ init_tabs(Sec2Group, Access, View) ->
     init_view_table(View).
     
 init_sec2group_table([Row | T]) ->
-%     ?vtrace("init security-to-group table: "
-% 	    "~n   Row: ~p",[Row]),    
+%%      ?vtrace("init security-to-group table: "
+%%  	    "~n   Row: ~p",[Row]),    
     Key1 = element(1, Row),
     Key2 = element(2, Row),
     Key = [Key1, length(Key2) | Key2],
@@ -198,12 +197,12 @@ init_sec2group_table([Row | T]) ->
 init_sec2group_table([]) -> true.
 
 init_access_table([{GN, Prefix, Model, Level, Row} | T]) ->
-%     ?vtrace("init access table: "
-% 	    "~n   GN:     ~p"
-% 	    "~n   Prefix: ~p"
-% 	    "~n   Model:  ~p"
-% 	    "~n   Level:  ~p"
-% 	    "~n   Row:    ~p",[GN, Prefix, Model, Level, Row]),    
+%%     ?vtrace("init access table: "
+%%  	    "~n   GN:     ~p"
+%%  	    "~n   Prefix: ~p"
+%%  	    "~n   Model:  ~p"
+%%  	    "~n   Level:  ~p"
+%%  	    "~n   Row:    ~p",[GN, Prefix, Model, Level, Row]),    
     Key = [length(GN) | GN] ++ [length(Prefix) | Prefix] ++ [Model, Level],
     snmpa_vacm:insert([{Key, Row}], false),
     init_access_table(T);
@@ -211,8 +210,8 @@ init_access_table([]) ->
     snmpa_vacm:dump_table().
 
 init_view_table([Row | T]) ->
-%     ?vtrace("init view table: "
-% 	    "~n   Row: ~p",[Row]),    
+%%     ?vtrace("init view table: "
+%%  	    "~n   Row: ~p",[Row]),    
     Key1 = element(1, Row),
     Key2 = element(2, Row),
     Key = [length(Key1) | Key1] ++ [length(Key2) | Key2],
@@ -348,6 +347,49 @@ vacmContextTable(Op, Arg1, Arg2) ->
     snmp_framework_mib:intContextTable(Op, Arg1, Arg2).
 
 
+vacmSecurityToGroupTable(print) ->
+    Table = vacmSecurityToGroupTable, 
+    DB    = db(Table),
+    FOI   = foi(Table),
+    PrintRow = 
+	fun(Prefix, Row) ->
+		lists:flatten(
+		  io_lib:format("~sSecurityModel: ~p (~w)"
+				"~n~sSecurityName:  ~p"
+				"~n~sGroupName:     ~p"
+				"~n~sStorageType:   ~p (~w)"
+				"~n~sStatus:        ~p (~w)", 
+				[Prefix, element(?vacmSecurityModel, Row), 
+				 case element(?vacmSecurityModel, Row) of
+				     ?SEC_ANY -> any;
+				     ?SEC_V1  -> v1;
+				     ?SEC_V2C -> v2c;
+				     ?SEC_USM -> usm;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmSecurityName, Row),
+				 Prefix, element(?vacmGroupName, Row),
+				 Prefix, element(?vacmSecurityToGroupStorageType, Row),
+				 case element(?vacmSecurityToGroupStorageType, Row) of
+				     ?'vacmSecurityToGroupStorageType_readOnly' -> readOnly;
+				     ?'vacmSecurityToGroupStorageType_permanent' -> permanent;
+				     ?'vacmSecurityToGroupStorageType_nonVolatile' -> nonVolatile;
+				     ?'vacmSecurityToGroupStorageType_volatile' -> volatile;
+				     ?'vacmSecurityToGroupStorageType_other' -> other;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmSecurityToGroupStatus, Row), 
+				 case element(?vacmSecurityToGroupStatus, Row) of
+				     ?'vacmSecurityToGroupStatus_destroy' -> destroy;
+				     ?'vacmSecurityToGroupStatus_createAndWait' -> createAndWait;
+				     ?'vacmSecurityToGroupStatus_createAndGo' -> createAndGo;
+				     ?'vacmSecurityToGroupStatus_notReady' -> notReady;
+				     ?'vacmSecurityToGroupStatus_notInService' -> notInService;
+				     ?'vacmSecurityToGroupStatus_active' -> active;
+				     _ -> undefined
+				 end]))
+	end,
+    snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 vacmSecurityToGroupTable(Op) ->
     snmp_generic:table_func(Op, db(vacmSecurityToGroupTable)).
 
@@ -445,6 +487,49 @@ verify_vacmSecurityToGroupTable_col(_, Val) ->
 %%    {RowIndex, {Col4, Col5, ..., Col9}}
 %%
 %%-----------------------------------------------------------------
+vacmAccessTable(print) ->
+    %% Måste jag göra om alla entrien till {RowIdx, Row}?
+    TableInfo = get_table(vacmAccessTable), 
+    PrintRow = 
+	fun(Prefix, Row) ->
+		lists:flatten(
+		  io_lib:format("~sContextMatch:   ~p (~w)"
+				"~n~sReadViewName:   ~p"
+				"~n~sWriteViewName:  ~p"
+				"~n~sNotifyViewName: ~p"
+				"~n~sStorageType:    ~p (~w)"
+				"~n~sStatus:         ~p (~w)", 
+				[Prefix, element(?vacmAccessContextMatch-3, Row), 
+				 case element(?vacmAccessContextMatch-3, Row) of
+				     ?vacmAccessContextMatch_exact  -> exact;
+				     ?vacmAccessContextMatch_prefix -> prefix;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmAccessReadViewName-3, Row), 
+				 Prefix, element(?vacmAccessWriteViewName-3, Row), 
+				 Prefix, element(?vacmAccessNotifyViewName-3, Row), 
+ 				 Prefix, element(?vacmAccessStorageType-3, Row), 
+ 				 case element(?vacmAccessStorageType-3, Row) of
+ 				     ?vacmAccessStorageType_other       -> other ;
+ 				     ?vacmAccessStorageType_volatile    -> volatile;
+ 				     ?vacmAccessStorageType_nonVolatile -> nonVolatile;
+ 				     ?vacmAccessStorageType_permanent   -> permanent;
+ 				     ?vacmAccessStorageType_readOnly    -> readOnly;
+ 				     _ -> undefined
+ 				 end,
+ 				 Prefix, element(?vacmAccessStatus-3, Row), 
+ 				 case element(?vacmAccessStatus-3, Row) of
+ 				     ?vacmAccessStatus_destroy       -> destroy;
+ 				     ?vacmAccessStatus_createAndWait -> createAndWait;
+ 				     ?vacmAccessStatus_createAndGo   -> createAndGo;
+ 				     ?vacmAccessStatus_notReady      -> notReady;
+ 				     ?vacmAccessStatus_notInService  -> notInService;
+ 				     ?vacmAccessStatus_active        -> active;
+ 				     _ -> undefined
+ 				 end
+				]))
+	end,
+    snmpa_mib_lib:print_table(vacmAccessTable, {ok, TableInfo}, PrintRow);
 vacmAccessTable(_Op) ->
     ok.
 vacmAccessTable(get, RowIndex, Cols) ->
@@ -664,6 +749,7 @@ do_get_next(RowIndex, Cols) ->
 	    end
     end.
 
+
 %%-----------------------------------------------------------------
 %% Functions to manipulate vacmAccessRows.
 %%-----------------------------------------------------------------
@@ -696,29 +782,76 @@ split_cols([Col | Cols], PreCols) when Col =< 3 ->
 split_cols(Cols, PreCols) ->
     {PreCols, Cols}.
 
+vacmViewSpinLock(print) ->
+    VarAndValue = [{vacmViewSpinLock, vacmViewSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+
 vacmViewSpinLock(new) ->
-    snmp_generic:variable_func(new, {vacmViewSpinLock, volatile}),
+    snmp_generic:variable_func(new, volatile_db(vacmViewSpinLock)),
     {A1,A2,A3} = erlang:now(),
     random:seed(A1,A2,A3),
     Val = random:uniform(2147483648) - 1,
-    snmp_generic:variable_func(set, Val, {vacmViewSpinLock, volatile});
+    snmp_generic:variable_func(set, Val, volatile_db(vacmViewSpinLock));
 
 vacmViewSpinLock(delete) ->
     ok;
 
 vacmViewSpinLock(get) ->
-    snmp_generic:variable_func(get, {vacmViewSpinLock, volatile}).
+    snmp_generic:variable_func(get, volatile_db(vacmViewSpinLock)).
 
 vacmViewSpinLock(is_set_ok, NewVal) ->
-    case snmp_generic:variable_func(get, {vacmViewSpinLock, volatile}) of
+    case snmp_generic:variable_func(get, volatile_db(vacmViewSpinLock)) of
 	{value, NewVal} -> noError;
 	_ -> inconsistentValue
     end;
 vacmViewSpinLock(set, NewVal) ->
     snmp_generic:variable_func(set, (NewVal + 1) rem 2147483648,
-			       {vacmViewSpinLock, volatile}).
+			       volatile_db(vacmViewSpinLock)).
 
 
+vacmViewTreeFamilyTable(print) ->
+    Table = vacmViewTreeFamilyTable, 
+    DB    = db(Table),
+    FOI   = foi(Table),
+    PrintRow = 
+	fun(Prefix, Row) ->
+		lists:flatten(
+		  io_lib:format("~sViewName:    ~p"
+				"~n~sSubtree:     ~p"
+				"~n~sMask:        ~p"
+				"~n~sType:        ~p (~w)"
+				"~n~sStorageType: ~p (~w)"
+				"~n~sStatus:      ~p (~w)", 
+				[Prefix, element(?vacmViewTreeFamilyViewName, Row),
+				 Prefix, element(?vacmViewTreeFamilySubtree,  Row),
+				 Prefix, element(?vacmViewTreeFamilyMask, Row),
+				 Prefix, element(?vacmViewTreeFamilyType, Row), 
+				 case element(?vacmViewTreeFamilyType, Row) of
+				     ?vacmViewTreeFamilyType_included -> included;
+				     ?vacmViewTreeFamilyType_excluded -> excluded;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmViewTreeFamilyStorageType, Row), 
+				 case element(?vacmViewTreeFamilyStorageType, Row) of
+				     ?vacmViewTreeFamilyStorageType_readOnly -> readOnly;
+				     ?vacmViewTreeFamilyStorageType_permanent -> permanent;
+				     ?vacmViewTreeFamilyStorageType_nonVolatile -> nonVolatile;
+				     ?vacmViewTreeFamilyStorageType_volatile -> volatile;
+				     ?vacmViewTreeFamilyStorageType_other -> other;
+				     _ -> undefined
+				 end,
+				 Prefix, element(?vacmViewTreeFamilyStatus, Row), 
+				 case element(?vacmViewTreeFamilyStatus, Row) of
+				     ?vacmViewTreeFamilyStatus_destroy -> destroy;
+				     ?vacmViewTreeFamilyStatus_createAndWait -> createAndWait;
+				     ?vacmViewTreeFamilyStatus_createAndGo -> createAndGo;
+				     ?vacmViewTreeFamilyStatus_notReady -> notReady;
+				     ?vacmViewTreeFamilyStatus_notInService -> notInService;
+				     ?vacmViewTreeFamilyStatus_active -> active;
+				     _ -> undefined
+				 end]))
+	end,
+    snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 vacmViewTreeFamilyTable(Op) ->
     snmp_generic:table_func(Op, db(vacmViewTreeFamilyTable)).
 vacmViewTreeFamilyTable(get_next, RowIndex, Cols) ->
@@ -795,7 +928,25 @@ table_next(Name, RestOid) ->
     snmp_generic:table_next(db(Name), RestOid).
 
 
-db(X) -> snmpa_agent:db(X).
+get_table(vacmAccessTable) ->
+    do_get_vacmAccessTable([], []).
+
+do_get_vacmAccessTable(Key0, Acc) ->
+    case snmpa_vacm:get_next_row(Key0) of
+	{Key, _Row} = Entry ->
+	    do_get_vacmAccessTable(Key, [Entry | Acc]);
+	false ->
+	    lists:reverse(Acc)
+    end.
+
+
+%%-----------------------------------------------------------------
+%% Wrappers
+%%-----------------------------------------------------------------
+
+db(X)          -> snmpa_agent:db(X).
+volatile_db(X) -> {X, volatile}.
+    
 
 fa(vacmSecurityToGroupTable) -> ?vacmGroupName;
 fa(vacmViewTreeFamilyTable) -> ?vacmViewTreeFamilyMask.
