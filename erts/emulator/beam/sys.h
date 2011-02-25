@@ -331,6 +331,10 @@ typedef unsigned char byte;
     (((size_t) 8) - (((size_t) (X)) & ((size_t) 7)))
 
 #include "erl_lock_check.h"
+
+/* needed by erl_smp.h */
+int erts_send_warning_to_logger_str_nogl(char *);
+
 #include "erl_smp.h"
 
 #ifdef ERTS_WANT_BREAK_HANDLING
@@ -517,7 +521,8 @@ int erts_send_info_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_info_to_logger_str_nogl(char *);
-int erts_send_warning_to_logger_str_nogl(char *);
+/* needed by erl_smp.h (declared above)
+   int erts_send_warning_to_logger_str_nogl(char *); */
 int erts_send_error_to_logger_str_nogl(char *);
 
 typedef struct preload {
