@@ -531,6 +531,10 @@
 /percept/doc/src/percept_profile.xml
 /percept/doc/src/percept_ug.xml
 
+# snmp
+
+snmp/doc/intex.html
+
 # syntax_tools
 
 /syntax_tools/doc/src/chapter.xml

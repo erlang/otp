@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,6 +32,8 @@
 
 %% internal exports
 -export([init_packet/10]).
+
+-compile({no_auto_import, [error/2]}).
 
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").

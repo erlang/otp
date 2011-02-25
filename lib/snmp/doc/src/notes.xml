@@ -80,23 +80,23 @@
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
-      <p>-</p> 
 <!--
+      <p>-</p> 
+-->
       <list type="bulleted">
         <item>
-          <p>When the function FilterMod:accept_recv/2
-          returned false the SNMP agent stopped collecting
-          messages from UDP.</p>
-          <p>Own Id: OTP-8761</p>
-        </item>
-      </list>
+          <p>[agent] For the table vacmAccessTable,
+          when performing the is_set_ok and set operation(s),
+          all values of the vacmAccessSecurityModel column was
+          incorrectly translated to <c>any</c>. </p>
+<!--
+that is when calling:
+snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
 -->
-    </section>
+          <p>Own Id: OTP-8980</p>
+        </item>
 
-
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
+      </list>
     </section>
 
 
@@ -108,16 +108,37 @@
   </section> <!-- 4.19 -->
 
 
-  <section><title>SNMP 4.18</title>
+  <section>
+    <title>SNMP Development Toolkit 4.18</title>
+    <p>Version 4.18 supports code replacement in runtime from/to
+      version 4.17.1 and 4.17.</p>
 
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
         <item>
-          <p>Cosmetic prep for R14B (plain) release. </p>
+          <p>Prepared for R14B release.</p>
         </item>
       </list>
     </section>
 
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] When the function FilterMod:accept_recv/2 returned false
+          the SNMP agent stopped collecting messages from UDP.</p>
+          <p>Own Id: OTP-8761</p>
+        </item>
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
   </section> <!-- 4.18 -->
 
 

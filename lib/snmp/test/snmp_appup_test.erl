@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,13 +23,16 @@
 -module(snmp_appup_test).
 
 -export([
-	 all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1,
-	 end_per_suite/1,
+	 all/0,
+	 groups/0, init_per_group/2, end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2, 
 
 	 appup_file/1
 
 	]).
+
+-compile({no_auto_import, [error/1]}).
 
 -include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
@@ -38,17 +41,20 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [appup_file],
-	Cases.
+    Cases = 
+	[
+	 appup_file
+	],
+    Cases.
 
 groups() -> 
     [].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 
