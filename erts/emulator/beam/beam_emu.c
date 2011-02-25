@@ -321,6 +321,7 @@ extern int count_instructions;
 #  define POST_BIF_GC_SWAPIN_0(_p, _res)				\
      ERTS_SMP_REQ_PROC_MAIN_LOCK((_p));					\
      PROCESS_MAIN_CHK_LOCKS((_p));					\
+     ERTS_VERIFY_UNUSED_TEMP_ALLOC((_p));				\
      if (((_p)->mbuf) || (MSO(_p).overhead >= BIN_VHEAP_SZ(_p)) ) {	\
        _res = erts_gc_after_bif_call((_p), (_res), NULL, 0);		\
        E = (_p)->stop;							\
@@ -328,6 +329,7 @@ extern int count_instructions;
      HTOP = HEAP_TOP((_p))
 
 #  define POST_BIF_GC_SWAPIN(_p, _res, _regs, _arity)			\
+     ERTS_VERIFY_UNUSED_TEMP_ALLOC((_p));				\
      ERTS_SMP_REQ_PROC_MAIN_LOCK((_p));					\
      PROCESS_MAIN_CHK_LOCKS((_p));					\
      if (((_p)->mbuf) || (MSO(_p).overhead >= BIN_VHEAP_SZ(_p)) ) {	\
@@ -367,6 +369,7 @@ extern int count_instructions;
            reg[0] = r(0); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
            FCALLS -= erts_garbage_collect(c_p, needed + (HeapNeed), reg, (M)); \
+           ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
            r(0) = reg[0]; \
            SWAPIN; \
@@ -420,6 +423,7 @@ extern int count_instructions;
        reg[0] = r(0);                                           		\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
        FCALLS -= erts_garbage_collect(c_p, need, reg, (Live));  		\
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);					\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
        r(0) = reg[0];                                           		\
        SWAPIN;                                                  		\
@@ -442,6 +446,7 @@ extern int count_instructions;
        reg[0] = r(0);                                           \
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
        FCALLS -= erts_garbage_collect(c_p, need, reg, (Live));  \
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);			\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
        r(0) = reg[0];                                           \
        SWAPIN;                                                  \
@@ -464,6 +469,7 @@ extern int count_instructions;
        reg[Live] = Extra;						\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
        FCALLS -= erts_garbage_collect(c_p, need, reg, (Live)+1);	\
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);				\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
        if (Live > 0) {							\
 	   r(0) = reg[0];						\
@@ -1214,7 +1220,9 @@ void process_main(void)
  do_schedule1:
     PROCESS_MAIN_CHK_LOCKS(c_p);
     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = schedule(c_p, reds_used);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 #ifdef DEBUG
     pid = c_p->id;
 #endif
@@ -1664,6 +1672,7 @@ void process_main(void)
 		 SWAPOUT;
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 FCALLS -= erts_garbage_collect(c_p, 3, reg+2, 1);
+		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 SWAPIN;
 	     }
@@ -1782,6 +1791,7 @@ void process_main(void)
 				       PROCESS_MAIN_CHK_LOCKS(c_p);
 				   },
 				   {
+				       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 				       PROCESS_MAIN_CHK_LOCKS(c_p);
 				       r(0) = reg[0];
 				       SWAPIN;
@@ -1840,6 +1850,7 @@ void process_main(void)
      CANCEL_TIMER(c_p);
      free_message(msgp);
 
+     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
 
      NextPF(0, next);
@@ -2230,6 +2241,7 @@ void process_main(void)
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	result = (*bf)(c_p, arg);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
@@ -2258,6 +2270,7 @@ void process_main(void)
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	result = (*bf)(c_p, arg);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
@@ -2287,6 +2300,7 @@ void process_main(void)
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
@@ -2322,6 +2336,7 @@ void process_main(void)
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
@@ -2360,6 +2375,7 @@ void process_main(void)
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	result = (*bf)(c_p, reg, live);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
@@ -2394,6 +2410,7 @@ void process_main(void)
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	result = (*bf)(c_p, tmp_arg1, tmp_arg2);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
@@ -2417,6 +2434,7 @@ void process_main(void)
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	result = (*bf)(c_p, tmp_arg1, tmp_arg2);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	if (is_value(result)) {
@@ -3287,6 +3305,7 @@ void process_main(void)
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = I[-1];
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    {
@@ -3300,6 +3319,7 @@ void process_main(void)
 	    }
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
+	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    goto apply_bif_or_nif_epilogue;
 	 
 	OpCase(apply_bif):
@@ -3326,6 +3346,7 @@ void process_main(void)
 	    bif_nif_arity = I[-1];
 	    ASSERT(bif_nif_arity <= 3);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    switch (bif_nif_arity) {
 	    case 3:
 		{
@@ -3334,6 +3355,7 @@ void process_main(void)
 		    nif_bif_result = (*bf)(c_p, r(0), x(1), x(2), I);
 		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 			   is_non_value(nif_bif_result));
+		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		    PROCESS_MAIN_CHK_LOCKS(c_p);
 		}
 		break;
@@ -3344,6 +3366,7 @@ void process_main(void)
 		    nif_bif_result = (*bf)(c_p, r(0), x(1), I);
 		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 			   is_non_value(nif_bif_result));
+		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		    PROCESS_MAIN_CHK_LOCKS(c_p);
 		}
 		break;
@@ -3354,6 +3377,7 @@ void process_main(void)
 		    nif_bif_result = (*bf)(c_p, r(0), I);
 		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 			   is_non_value(nif_bif_result));
+		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		    PROCESS_MAIN_CHK_LOCKS(c_p);
 		}
 		break;
@@ -3364,6 +3388,7 @@ void process_main(void)
 		    nif_bif_result = (*bf)(c_p, I);
 		    ASSERT(!ERTS_PROC_IS_EXITING(c_p) ||
 			   is_non_value(nif_bif_result));
+		    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		    PROCESS_MAIN_CHK_LOCKS(c_p);
 		    break;
 		}
@@ -4590,6 +4615,7 @@ void process_main(void)
 	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	 flags = erts_call_trace(c_p, ep->code, ep->match_prog_set, reg,
 				 0, &c_p->tracer_proc);
+	 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	 PROCESS_MAIN_CHK_LOCKS(c_p);
 	 ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -4601,6 +4627,7 @@ void process_main(void)
 		 /* SWAPOUT, SWAPIN was done and r(0) was saved above */
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 FCALLS -= erts_garbage_collect(c_p, 3, reg, ep->code[2]);
+		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 r(0) = reg[0];
 		 SWAPIN;
@@ -4690,6 +4717,7 @@ void process_main(void)
 		 reg[0] = r(0);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 FCALLS -= erts_garbage_collect(c_p, 2, reg, I[-1]);
+		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 r(0) = reg[0];
 	     }
@@ -4793,6 +4821,7 @@ void process_main(void)
 	     /* SWAPOUT was done and r(0) was saved above */
 	     PROCESS_MAIN_CHK_LOCKS(c_p);
 	     FCALLS -= erts_garbage_collect(c_p, need, reg, I[-1]);
+	     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	     PROCESS_MAIN_CHK_LOCKS(c_p);
 	     r(0) = reg[0];
 	     SWAPIN;
@@ -6239,6 +6268,7 @@ hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	c_p->fvalue = NIL;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_garbage_collect_hibernate(c_p);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -6484,6 +6514,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     if (HEAP_LIMIT(p) - HEAP_TOP(p) <= needed) {
 	PROCESS_MAIN_CHK_LOCKS(p);
 	erts_garbage_collect(p, needed, reg, num_free);
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(p);
 	PROCESS_MAIN_CHK_LOCKS(p);
     }
     hp = p->htop;

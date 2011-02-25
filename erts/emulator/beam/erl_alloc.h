@@ -236,6 +236,11 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
 
+typedef void (*erts_alloc_verify_func_t)(Allctr_t *);
+
+erts_alloc_verify_func_t
+erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
+
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assume a cache line size of 64 bytes */
 #  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
