@@ -94,6 +94,25 @@ i_global_copy
 
 return
 
+#
+# To ensure that a "move Src x(0)" instruction can be combined
+# with the following call instruction, we need to make sure that
+# there is no line/1 instruction between the move and the call.
+#
+
+move S r | line Loc | call_ext Ar Func => \
+     line Loc | move S r | call_ext Ar Func
+move S r | line Loc | call_ext_last Ar Func D => \
+     line Loc | move S r | call_ext_last Ar Func D
+move S r | line Loc | call_ext_only Ar Func => \
+     line Loc | move S r | call_ext_only Ar Func
+
+move S r | line Loc | call Ar Func => \
+     line Loc | move S r | call Ar Func
+
+line I
+
+
 %macro: allocate Allocate -pack
 %macro: allocate_zero AllocateZero -pack
 %macro: allocate_heap AllocateHeap -pack

@@ -243,6 +243,8 @@ bif_type(_, 2)      -> bif2.
 
 make_op({'%',_}, Dict) ->
     {[],Dict};
+make_op({line,_}, Dict) ->
+    encode_op(line, [0], Dict);
 make_op({bif, Bif, {f,_}, [], Dest}, Dict) ->
     %% BIFs without arguments cannot fail.
     encode_op(bif0, [{extfunc, erlang, Bif, 0}, Dest], Dict);

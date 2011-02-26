@@ -1105,6 +1105,12 @@ resolve_inst({recv_set,[Lbl]},_,_,_) ->
     {recv_set,Lbl};
 
 %%
+%% R15A.
+%%
+resolve_inst({line,[Index]},_,_,_) ->
+    {line,resolve_arg(Index)};
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).

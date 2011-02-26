@@ -1142,6 +1142,11 @@ trans_fun([{trim,N,NY}|Instructions], Env) ->
   Moves = trans_trim(N, NY),
   Moves ++ trans_fun(Instructions, Env);
 %%--------------------------------------------------------------------
+%% New line/1 instruction in R15.
+%%--------------------------------------------------------------------
+trans_fun([{line,_}|Instructions], Env) ->
+  trans_fun(Instructions,Env);
+%%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
 trans_fun([X|_], _) ->

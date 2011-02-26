@@ -2104,6 +2104,10 @@ load_code(LoaderState* stp)
 	    stp->catches = ci-3;
 	    break;
 
+	case op_line_I:
+	    ci -= 2;		/* Get rid of the instruction */
+	    break;
+
 	    /*
 	     * End of code found.
 	     */

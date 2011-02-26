@@ -5270,6 +5270,7 @@ void process_main(void)
  OpCase(label_L):
  OpCase(too_old_compiler):
  OpCase(on_load):
+ OpCase(line_I):
     erl_exit(1, "meta op\n");
 
     /*
