@@ -238,7 +238,11 @@ if [ "x$GDB" = "x" ]; then
 	else
 	    export VALGRIND_LOG_XML
 	    valgrind_xml="--xml=yes"
-	    log_file_prefix="--xml-file="
+	    if [ $valmajor -gt 2 -a $valminor -gt 4 ]; then
+		log_file_prefix="--xml-file="
+	    else
+		log_file_prefix="--log-file="
+	    fi
 	fi
 	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
 	    valgrind_log=
