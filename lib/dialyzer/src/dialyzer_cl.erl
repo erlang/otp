@@ -188,6 +188,12 @@ init_opts_for_remove(Opts) ->
 plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
   case check_plt(Opts, RemoveFiles, AddFiles) of
     ok ->
+      case Opts#options.output_plt of
+	none -> ok;
+	OutPlt ->
+	  {ok, Binary} = file:read_file(InitPlt),
+	  file:write_file(OutPlt, Binary)
+      end,
       case Opts#options.report_mode of
 	quiet -> ok;
 	_ -> io:put_chars(" yes\n")
