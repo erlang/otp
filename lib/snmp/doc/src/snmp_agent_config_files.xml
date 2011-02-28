@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -178,11 +178,12 @@
       <c>community.conf</c>.  It must be present if the agent is
       configured for SNMPv1 or SNMPv2c.
       </p>
+    <p>An SNMP <em>community</em> is a relationship between an SNMP
+    agent and a set of SNMP managers that defines authentication, access 
+    control and proxy characteristics. </p>
     <p>The corresponding table is <c>snmpCommunityTable</c> in the
-      SNMP-COMMUNITY-MIB.
-      </p>
-    <p>Each entry is a term:
-      </p>
+      SNMP-COMMUNITY-MIB. </p>
+    <p>Each entry is a term: </p>
     <p><c>{CommunityIndex, CommunityName, SecurityName, ContextName, TransportTag}.</c></p>
     <list type="bulleted">
       <item><c>CommunityIndex</c> is a non-empty string.
