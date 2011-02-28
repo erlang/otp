@@ -22,7 +22,7 @@
 -define(plt_filename,"dialyzer_plt").
 -define(home_plt_filename,".dialyzer_plt").
 -define(plt_lockfile,"plt_lock").
--define(required_modules, [kernel,stdlib,compiler,erts,mnesia]).
+-define(required_modules, [erts, kernel, stdlib]).
 
 -record(suite, {suitename  :: string(),
 		outputfile :: file:io_device(),
