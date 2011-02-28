@@ -28,6 +28,12 @@
 #define ERTS_INCLUDE_SCHEDULER_INTERNALS
 #endif
 
+/* #define ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC */
+
+#if !defined(ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC) && defined(DEBUG)
+#  define ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
+#endif
+
 typedef struct process Process;
 
 #include "sys.h"
@@ -420,6 +426,11 @@ struct ErtsSchedulerData_ {
 #ifdef ERTS_SMP
     /* NOTE: These fields are modified under held mutexes by other threads */
     erts_smp_atomic32_t chk_cpu_bind; /* Only used when common run queue */
+#endif
+
+#ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
+    erts_alloc_verify_func_t verify_unused_temp_alloc;
+    Allctr_t *verify_unused_temp_alloc_data;
 #endif
 };
 
@@ -1143,6 +1154,20 @@ Uint erts_debug_nbalance(void);
 #else
 #  define ERTS_GET_SCHEDULER_DATA_FROM_PROC(PROC) (erts_scheduler_data)
 #  define ERTS_PROC_GET_SCHDATA(PROC) (erts_scheduler_data)
+#endif
+
+#ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
+#  define ERTS_VERIFY_UNUSED_TEMP_ALLOC(P)					\
+do {										\
+    ErtsSchedulerData *esdp__ = ((P)						\
+				 ? ERTS_PROC_GET_SCHDATA((Process *) (P))	\
+				 : erts_get_scheduler_data());			\
+    if (esdp__)									\
+	esdp__->verify_unused_temp_alloc(					\
+	    esdp__->verify_unused_temp_alloc_data);				\
+} while (0)
+#else
+#  define ERTS_VERIFY_UNUSED_TEMP_ALLOC(ESDP)
 #endif
 
 #if defined(ERTS_SMP) || defined(USE_THREADS)

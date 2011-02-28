@@ -1411,6 +1411,33 @@ void erts_alloc_reg_scheduler_id(Uint id)
     erts_tsd_set(thr_ix_key, (void *)(long) ix);
 }
 
+static void
+no_verify(Allctr_t *allctr)
+{
+
+}
+
+erts_alloc_verify_func_t
+erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr)
+{
+    if (erts_allctrs_info[ERTS_ALC_A_TEMPORARY].alloc_util
+	&& erts_allctrs_info[ERTS_ALC_A_TEMPORARY].thr_spec) {
+	ErtsAllocatorThrSpec_t *tspec;
+	tspec = &erts_allctr_thr_spec[ERTS_ALC_A_TEMPORARY];
+	if (!tspec->all_thr_safe) {
+	    int ix = erts_alc_get_thr_ix();
+
+	    if (ix < tspec->size) {
+		*allctr = tspec->allctr[ix];
+		return erts_alcu_verify_unused;
+	    }
+	}
+    }
+
+    *allctr = NULL;
+    return no_verify;
+}
+
 __decl_noreturn void
 erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 {

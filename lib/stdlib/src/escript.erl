@@ -31,7 +31,7 @@
 
 %%-----------------------------------------------------------------------
 
--type mode()   :: 'compile' | 'debug' | 'interpret' | 'run'.
+-type mode()   :: 'native' | 'compile' | 'debug' | 'interpret' | 'run'.
 -type source() :: 'archive' | 'beam' | 'text'.
 
 -record(state, {file         :: file:filename(),
@@ -304,7 +304,11 @@ parse_and_run(File, Args, Options) ->
 		    false ->
 			case lists:member("i", Options) of
 			    true  -> interpret;
-			    false -> Mode
+			    false -> 
+				case lists:member("n", Options) of
+				    true -> native;
+				    false -> Mode
+				end
 			end
 		end
         end,
@@ -315,6 +319,14 @@ parse_and_run(File, Args, Options) ->
                     interpret(FormsOrBin, HasRecs, File, Args);
                 compile ->
                     case compile:forms(FormsOrBin, [report]) of
+                        {ok, Module, BeamBin} ->
+                            {module, Module} = code:load_binary(Module, File, BeamBin),
+                            run(Module, Args);
+                        _Other ->
+                            fatal("There were compilation errors.")
+                    end;
+		native ->
+                    case compile:forms(FormsOrBin, [report,native]) of
                         {ok, Module, BeamBin} ->
                             {module, Module} = code:load_binary(Module, File, BeamBin),
                             run(Module, Args);
@@ -664,7 +676,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                 {attribute,Ln,mode,NewMode} ->
                     S2 = S#state{mode = NewMode},
                     if
-                        NewMode =:= compile; NewMode =:= interpret; NewMode =:= debug ->
+                        NewMode =:= compile; NewMode =:= interpret; NewMode =:= debug; NewMode =:= native ->
                             epp_parse_file(Epp, S2, [Form | Forms]);
                         true ->
                             Args = lists:flatten(io_lib:format("illegal mode attribute: ~p", [NewMode])),
