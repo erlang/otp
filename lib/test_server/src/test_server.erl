@@ -470,7 +470,7 @@ cover_analyse(Analyse,Modules) ->
 	    overview ->
 		fun(_) -> undefined end
 	end,
-    R = lists:map(
+    R = pmap(
 	  fun(M) ->
 		  case cover:analyse(M,module) of
 		      {ok,{M,{Cov,NotCov}}} ->
@@ -486,6 +486,19 @@ cover_analyse(Analyse,Modules) ->
     stick_all_sticky(node(),Sticky),
     R.
 
+pmap(Fun,List) ->
+    Collector = self(),
+    Pids = lists:map(fun(E) ->
+			     spawn(fun() ->
+					   Collector ! {res,self(),Fun(E)} 
+				   end) 
+		     end, List),
+    lists:map(fun(Pid) ->
+		      receive
+			  {res,Pid,Res} ->
+			      Res
+		      end
+	      end, Pids).
 
 unstick_all_sticky(Node) ->
     lists:filter(
