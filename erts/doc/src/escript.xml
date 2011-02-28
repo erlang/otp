@@ -153,7 +153,10 @@ halt(1).</pre>
         <p>Execution of interpreted code is slower than compiled code.
           If much of the execution takes place in interpreted code it
           may be worthwhile to compile it, even though the compilation
-          itself will take a little while.</p>
+          itself will take a little while. It is also possible to supply
+	  <c>native</c> instead of compile, this will compile the script 
+	  using the native flag, again depending on the characteristics 
+	  of the escript this could or could not be worth while.</p>
 
         <p>As mentioned earlier, it is possible to have a script which
           contains precompiled <c>beam</c> code. In a precompiled
@@ -397,6 +400,9 @@ ok
        Warnings and errors (if any) are written to the standard output, but
        the script will not be run. The exit status will be 0 if there were
        no errors, and 127 otherwise.</item>
+
+       <tag>-n</tag>
+      <item>Compile the escript using the +native flag.</item>
     </taglist>
   </section>
 </comref>
