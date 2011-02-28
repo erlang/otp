@@ -23,6 +23,9 @@ XML_APPLICATION_FILES = \
 XML_APP_REF3_FILES = \
         snmp.xml
 
+XML_COMP_REF1_FILES = \
+        snmpc_cmd.xml
+
 XML_COMP_REF3_FILES = \
         snmpc.xml
 
@@ -98,12 +101,13 @@ XML_CHAPTER_FILES = \
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES)         \
-             $(XML_CHAPTER_FILES) \
-             $(XML_PART_FILES)    \
-             $(XML_REF6_FILES)    \
-             $(XML_REF3_FILES)    \
-             $(XML_APPLICATION_FILES)
+XML_FILES = $(BOOK_FILES)        \
+            $(XML_CHAPTER_FILES) \
+            $(XML_PART_FILES)    \
+            $(XML_REF1_FILES)    \
+            $(XML_REF3_FILES)    \
+            $(XML_REF6_FILES)    \
+            $(XML_APPLICATION_FILES)
 
 GIF_FILES = book.gif \
 	getnext1.gif \

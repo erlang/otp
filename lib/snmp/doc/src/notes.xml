@@ -75,6 +75,12 @@
           <p>Own Id: OTP-8977</p>
         </item>
 
+        <item>
+          <p>[compiler] Added a MIB compiler (frontend) escript, 
+	  <seealso marker="snmpc_cmd">snmpc</seealso>. </p>
+          <p>Own Id: OTP-9004</p>
+        </item>
+
       </list>
     </section>
 
@@ -119,7 +125,6 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
     </section>
 
   </section> <!-- 4.19 -->
-
 
   <section>
     <title>SNMP Development Toolkit 4.18</title>

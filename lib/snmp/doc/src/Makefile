@@ -67,12 +67,15 @@ XML_OUTPUT = $(XML_FILES:%.xml=%.latex.xmls_output) \
 
 INFO_FILE = ../../info
 
+#HTML_REF1_FILES = $(XML_REF1_FILES:%.xml=$(HTMLDIR)/%.html)
 HTML_REF3_FILES = $(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html)
 HTML_REF6_FILES = $(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html)
 HTML_CHAP_FILES = $(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
 
-EXTRA_FILES = summary.html.src \
+EXTRA_FILES = \
+        summary.html.src \
         $(DEFAULT_HTML_FILES)  \
+        $(HTML_REF1_FILES)     \
         $(HTML_REF3_FILES)     \
         $(HTML_REF6_FILES)     \
         $(HTML_CHAP_FILES)
@@ -80,6 +83,7 @@ EXTRA_FILES = summary.html.src \
 
 MAN7DIR = $(DOCDIR)/man7
 
+MAN1_FILES = $(MAN1DIR)/snmpc.1
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 MAN7_FILES = $(MIB_FILES:$(MIBSDIR)/%.mib=$(MAN7DIR)/%.7)
@@ -95,6 +99,7 @@ else
 TEX_FILES_BOOK = \
 	$(BOOK_FILES:%.xml=%.tex)
 TEX_FILES_REF_MAN = \
+	$(XML_REF1_FILES:%.xml=%.tex) \
 	$(XML_REF3_FILES:%.xml=%.tex) \
 	$(XML_REF6_FILES:%.xml=%.tex) \
 	$(XML_APPLICATION_FILES:%.xml=%.tex)
@@ -169,7 +174,7 @@ ps: $(TOP_PS_FILE)
 
 html: $(HTML_FILES) $(TOP_HTML_FILES) gifs 
 
-html2: gifs $(TOP_HTML_FILES) $(HTML_FILES) $(HTML_REF3_FILES) $(HTML_REF6_FILES) $(HTML_CHAP_FILES) 
+html2: gifs $(TOP_HTML_FILES) $(HTML_FILES) $(HTML_REF1_FILES) $(HTML_REF3_FILES) $(HTML_REF6_FILES) $(HTML_CHAP_FILES) 
 
 clean: clean_tex clean_html clean_man clean_docs
 
@@ -195,7 +200,9 @@ endif
 $(INDEX_TARGET): $(INDEX_SRC) ../../vsn.mk	# Create top make file 
 	sed -e 's;%VSN%;$(VSN);' $< > $@	# inserting version number
 
-man: man3 man6 man7
+man: man1 man3 man6 man7
+
+man1: $(MAN1_FILES)
 
 man3: $(MAN3_FILES)
 
@@ -213,6 +220,7 @@ clean_pdf:
 
 clean_man:
 	@echo "cleaning man:"
+	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(MAN7DIR)/*
@@ -233,6 +241,11 @@ $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
+
+$(MAN1DIR)/snmpc.1: snmpc_cmd.xml
+	date=`date +"%B %e %Y"`; \
+        xsltproc --output "$@" --stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/docbuilder_dtd  -path $(DOCGEN)/priv/dtd_man_entities $(DOCGEN)/priv/xsl/db_man.xsl $<
+
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 ifdef DOCSUPPORT
@@ -244,6 +257,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(HTMLDIR)/* \
 		$(RELSYSDIR)/doc/html
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
+	$(INSTALL_DIR) $(RELEASE_PATH)/man/man1
+	$(INSTALL_DATA) $(MAN1DIR)/* $(RELEASE_PATH)/man/man1
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man3
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man6
@@ -269,7 +284,9 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTML_FILES) \
 		$(RELSYSDIR)/doc/html
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
+	$(INSTALL_DIR) $(RELEASE_PATH)/man/man1
+	$(INSTALL_DATA) $(MAN1_FILES) $(RELEASE_PATH)/man/man1
+	$(INSTALL_DIR) $(RELEASE_PATH)/man/man
 	$(INSTALL_DATA) $(MAN3_FILES) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man6
 	$(INSTALL_DATA) $(MAN6_FILES) $(RELEASE_PATH)/man/man6
@@ -286,6 +303,10 @@ release_spec:
 
 ifdef DOCSUPPORT
 info: info_xml info_man info_html
+	@echo "MAN1DIR: $(MAN1DIR)"
+	@echo "MAN3DIR: $(MAN3DIR)"
+	@echo "MAN6DIR: $(MAN6DIR)"
+	@echo "MAN7DIR: $(MAN7DIR)"
 else
 info: info_xml info_man info_html info_tex
 	@echo "DVI2PS        = $(DVI2PS)"
@@ -297,6 +318,7 @@ endif
 
 info_man: 
 	@echo "man files:"
+	@echo "MAN1_FILES = $(MAN1_FILES)"
 	@echo "MAN3_FILES = $(MAN3_FILES)"
 	@echo "MAN6_FILES = $(MAN6_FILES)"
 	@echo "MAN7_FILES = $(MAN7_FILES)"
@@ -305,6 +327,7 @@ info_man:
 
 info_xml: 
 	@echo "xml files:"
+#	@echo "XML_REF1_FILES        = $(XML_REF1_FILES)"
 	@echo "XML_REF3_FILES        = $(XML_REF3_FILES)"
 	@echo "XML_REF6_FILES        = $(XML_REF6_FILES)"
 	@echo "XML_PART_FILES        = $(XML_PART_FILES)"
@@ -333,6 +356,7 @@ info_html:
 	@echo ""
 	@echo "DEFAULT_HTML_FILES = $(DEFAULT_HTML_FILES)"
 	@echo ""
+#	@echo "HTML_REF1_FILES = $(HTML_REF1_FILES)"
 	@echo "HTML_REF3_FILES = $(HTML_REF3_FILES)"
 	@echo "HTML_REF6_FILES = $(HTML_REF6_FILES)"
 	@echo "HTML_CHAP_FILES = $(HTML_CHAP_FILES)"
