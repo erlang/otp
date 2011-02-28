@@ -2791,9 +2791,8 @@ chunk_page(SessionId,File,TW,What,HtmlCB,HtmlExtra,ParseFun) ->
 			 lookup_and_parse_index_chunk(Cont,Fd,ParseFun))
     end.
 
-chunk_page_1(Fd,HtmlInfo,SessionId,_ParseFun,done) ->
-    crashdump_viewer_html:chunk(SessionId,done,HtmlInfo),
-    close(Fd);
+chunk_page_1(_Fd,HtmlInfo,SessionId,_ParseFun,done) ->
+    crashdump_viewer_html:chunk(SessionId,done,HtmlInfo);
 chunk_page_1(Fd,HtmlInfo,SessionId,ParseFun,{Chunk,Cont}) ->
     crashdump_viewer_html:chunk(SessionId,Chunk,HtmlInfo),
     chunk_page_1(Fd,HtmlInfo,SessionId,ParseFun,
@@ -2802,6 +2801,7 @@ chunk_page_1(Fd,HtmlInfo,SessionId,ParseFun,{Chunk,Cont}) ->
 lookup_and_parse_index_chunk(Pointer,Fd,ParseFun) ->
     case lookup_index_chunk(Pointer) of
 	'$end_of_table' ->
+	    close(Fd),
 	    done;
 	{Chunk,Cont} ->
 	    R = lists:map(fun({Id,Start}) ->
