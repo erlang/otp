@@ -41,7 +41,8 @@
 		   multiply_timetraps=[],
 		   scale_timetraps=[],
 		   alias=[],
-		   tests=[]}).
+		   tests=[],
+		   merge_tests = true }).
 
 -record(cover, {app=none,
 		level=details,

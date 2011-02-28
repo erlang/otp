@@ -368,15 +368,17 @@
       either one or more suites, one or more test case groups, or one
       or more test cases in a group or suite.</p>
     <p>An arbitrary number of test terms may be declared in sequence.
-      Common Test will compile the terms into one or more tests to be
-      performed in one resulting test run. Note that a term that
+      Common Test will by default compile the terms into one or more tests 
+      to be performed in one resulting test run. Note that a term that
       specifies a set of test cases will "swallow" one that only
       specifies a subset of these cases. E.g. the result of merging
       one term that specifies that all cases in suite S should be
       executed, with another term specifying only test case X and Y in
       S, is a test of all cases in S. However, if a term specifying
       test case X and Y in S is merged with a term specifying case Z
-      in S, the result is a test of X, Y and Z in S.</p>
+      in S, the result is a test of X, Y and Z in S. To disable this
+      behaviour, it is possible in test specification to set the 
+      <c>merge_tests</c> term to <c>false</c>.</p>
     <p>A test term can also specify one or more test suites, groups,
       or test cases to be skipped. Skipped suites, groups and cases
       are not executed and show up in the HTML test log files as
@@ -435,6 +437,8 @@
       {userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
       
       {alias, DirAlias, Dir}.
+
+      {merge_tests, Bool}.
       
       {logdir, LogDir}.                                        
       {logdir, NodeRefs, LogDir}.
