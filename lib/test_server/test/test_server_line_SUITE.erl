@@ -23,20 +23,29 @@
 -module(test_server_line_SUITE).
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,suite/0]).
+-export([init_per_suite/1,end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([parse_transform/1, lines/1]).
 
-all(doc) -> ["Test of parse transform for collection line numbers"];
-all(suite) -> [parse_transform,lines].
+suite() -> 
+    [{ct_hooks,[ts_install_cth]},
+     {doc,["Test of parse transform for collection line numbers"]}].
 
+all() -> [parse_transform,lines].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
 
 init_per_testcase(_Case, Config) ->
     ?line test_server_line:clear(),
     Dog = ?t:timetrap(?t:minutes(2)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ?line test_server_line:clear(),
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
