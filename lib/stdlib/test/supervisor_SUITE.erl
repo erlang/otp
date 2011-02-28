@@ -1310,7 +1310,7 @@ count_children_memory(Config) when is_list(Config) ->
 
     %% count_children consumes memory using an accumulator function,
     %% but the space can be reclaimed incrementally,
-    %% which_children may generate garbage that will reclaimed later.
+    %% which_children may generate garbage that will be reclaimed later.
     case (Size5 =< Size4) of
 	true -> ok;
 	false ->
@@ -1338,8 +1338,8 @@ count_children_allocator_test(MemoryState) ->
     lists:all(fun(State) -> State == {e, true} end, AllocStates).
 %-------------------------------------------------------------------------
 do_not_save_start_parameters_for_temporary_children(doc) ->
-    ["Temporary children shall not be restarted so they should not"
-     "save start parameters, as it potentially can"
+    ["Temporary children shall not be restarted so they should not "
+     "save start parameters, as it potentially can "
      "take up a huge amount of memory for no purpose."];
 do_not_save_start_parameters_for_temporary_children(suite) ->
     [];

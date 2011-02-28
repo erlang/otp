@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -160,14 +160,14 @@ static int debug_log = 0;
 #endif
 
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_got_sigusr1;
+erts_smp_atomic32_t erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 \
-  erts_smp_atomic_set(&erts_got_sigusr1, 1)
+  erts_smp_atomic32_set(&erts_got_sigusr1, 1)
 #define ERTS_UNSET_GOT_SIGUSR1 \
-  erts_smp_atomic_set(&erts_got_sigusr1, 0)
-static erts_smp_atomic_t have_prepared_crash_dump;
+  erts_smp_atomic32_set(&erts_got_sigusr1, 0)
+static erts_smp_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic_xchg(&have_prepared_crash_dump, 1))
+  ((int) erts_smp_atomic32_xchg(&have_prepared_crash_dump, 1))
 #else
 volatile int erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 (erts_got_sigusr1 = 1)
@@ -235,11 +235,11 @@ static int max_files = -1;
  * a few variables used by the break handler 
  */
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_break_requested;
+erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 1)
+  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 0)
+  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -504,9 +504,9 @@ erts_sys_pre_init(void)
 #endif
     }
 #ifdef ERTS_SMP
-    erts_smp_atomic_init(&erts_break_requested, 0);
-    erts_smp_atomic_init(&erts_got_sigusr1, 0);
-    erts_smp_atomic_init(&have_prepared_crash_dump, 0);
+    erts_smp_atomic32_init(&erts_break_requested, 0);
+    erts_smp_atomic32_init(&erts_got_sigusr1, 0);
+    erts_smp_atomic32_init(&have_prepared_crash_dump, 0);
 #else
     erts_break_requested = 0;
     erts_got_sigusr1 = 0;

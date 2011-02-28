@@ -2752,6 +2752,15 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     /* init port tasks */
     erts_port_task_init();
+
+#ifndef ERTS_SMP
+#ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
+    erts_scheduler_data->verify_unused_temp_alloc
+	= erts_alloc_get_verify_unused_temp_alloc(
+	    &erts_scheduler_data->verify_unused_temp_alloc_data);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
+#endif
+#endif
 }
 
 ErtsRunQueue *
@@ -3710,6 +3719,13 @@ sched_thread_func(void *vesdp)
 	ERTS_SCHDLR_SSPND_CHNG_SET(0, ERTS_SCHDLR_SSPND_CHNG_WAITER);
     }
     erts_smp_mtx_unlock(&schdlr_sspnd.mtx);
+
+#ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
+    ((ErtsSchedulerData *) vesdp)->verify_unused_temp_alloc
+	= erts_alloc_get_verify_unused_temp_alloc(
+	    &((ErtsSchedulerData *) vesdp)->verify_unused_temp_alloc_data);
+    ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
+#endif
 
     process_main();
     /* No schedulers should *ever* terminate */

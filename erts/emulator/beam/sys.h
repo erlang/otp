@@ -331,12 +331,16 @@ typedef unsigned char byte;
     (((size_t) 8) - (((size_t) (X)) & ((size_t) 7)))
 
 #include "erl_lock_check.h"
+
+/* needed by erl_smp.h */
+int erts_send_warning_to_logger_str_nogl(char *);
+
 #include "erl_smp.h"
 
 #ifdef ERTS_WANT_BREAK_HANDLING
 #  ifdef ERTS_SMP
-extern erts_smp_atomic_t erts_break_requested;
-#    define ERTS_BREAK_REQUESTED ((int) erts_smp_atomic_read(&erts_break_requested))
+extern erts_smp_atomic32_t erts_break_requested;
+#    define ERTS_BREAK_REQUESTED ((int) erts_smp_atomic32_read(&erts_break_requested))
 #  else
 extern volatile int erts_break_requested;
 #    define ERTS_BREAK_REQUESTED erts_break_requested
@@ -349,8 +353,8 @@ void erts_do_break_handling(void);
 #    define ERTS_GOT_SIGUSR1 0
 #  else
 #    ifdef ERTS_SMP
-extern erts_smp_atomic_t erts_got_sigusr1;
-#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic_read(&erts_got_sigusr1))
+extern erts_smp_atomic32_t erts_got_sigusr1;
+#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic32_read(&erts_got_sigusr1))
 #    else
 extern volatile int erts_got_sigusr1;
 #      define ERTS_GOT_SIGUSR1 erts_got_sigusr1
@@ -517,7 +521,8 @@ int erts_send_info_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_info_to_logger_str_nogl(char *);
-int erts_send_warning_to_logger_str_nogl(char *);
+/* needed by erl_smp.h (declared above)
+   int erts_send_warning_to_logger_str_nogl(char *); */
 int erts_send_error_to_logger_str_nogl(char *);
 
 typedef struct preload {

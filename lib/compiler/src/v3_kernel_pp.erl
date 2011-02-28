@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,9 +20,11 @@
 
 -module(v3_kernel_pp).
 
--include("v3_kernel.hrl").
-
 -export([format/1]).
+
+%%-define(INCLUDE_ANNOTATIONS, 1).
+
+-include("v3_kernel.hrl").
 
 %% These are "internal" structures in sys_kernel which are here for
 %% debugging purposes.
@@ -62,22 +64,21 @@ format(Node, Ctxt) ->
 				    end)
     end.
 
-format_anno(Anno, Ctxt0, ObjFun) ->
-    case annotations_enabled() of
-	true ->
-	    Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
-	    ["( ",
-	     ObjFun(Ctxt0),
-	     nl_indent(Ctxt1),
-	     "-| ",io_lib:write(Anno),
-	     " )"];
-	false ->
-	    ObjFun(Ctxt0)
-    end.
 
-%% By default, don't show annotations since they clutter up the output.
-annotations_enabled() ->
-    false.
+-ifndef(INCLUDE_ANNOTATIONS).
+%% Don't include annotations (for readability).
+format_anno(_Anno, Ctxt, ObjFun) ->
+    ObjFun(Ctxt).
+-else.
+%% Include annotations (for debugging of annotations).
+format_anno(Anno, Ctxt0, ObjFun) ->
+    Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
+    ["( ",
+     ObjFun(Ctxt0),
+     nl_indent(Ctxt1),
+     "-| ",io_lib:write(Anno),
+     " )"].
+-endif.
 
 %% format_1(Kexpr, Context) -> string().
 
