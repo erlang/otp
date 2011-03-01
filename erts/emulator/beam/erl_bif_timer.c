@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -613,7 +613,8 @@ erts_print_bif_timer_info(int to, void *to_arg)
 			      : btm->receiver.proc.ess->id);
 	    erts_print(to, to_arg, "=timer:%T\n", receiver);
 	    erts_print(to, to_arg, "Message: %T\n", btm->message);
-	    erts_print(to, to_arg, "Time left: %d ms\n", erts_time_left(&btm->tm));
+	    erts_print(to, to_arg, "Time left: %u ms\n",
+		       erts_time_left(&btm->tm));
 	}
     }
 

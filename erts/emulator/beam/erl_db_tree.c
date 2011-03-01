@@ -335,7 +335,6 @@ static int doit_select_delete(DbTableTree *tb,
 			      TreeDbTerm *this,
 			      void *ptr,
 			      int forward);
-static void do_dump_tree(int to, void *to_arg, TreeDbTerm *t);
 
 static int partly_bound_can_match_lesser(Eterm partly_bound_1, 
 					 Eterm partly_bound_2);
@@ -1747,7 +1746,6 @@ static void db_print_tree(int to, void *to_arg,
 		   "------------------------------------------------\n");
 #else
     erts_print(to, to_arg, "Ordered set (AVL tree), Elements: %d\n", NITEMS(tb));
-    do_dump_tree(to, to_arg, tb->root);
 #endif
 }
 
@@ -2061,15 +2059,6 @@ static int analyze_pattern(DbTableTree *tb, Eterm pattern,
 	erts_free(ERTS_ALC_T_DB_TMP, buff);
     }
     return DB_ERROR_NONE;
-}
-
-static void do_dump_tree(int to, void *to_arg, TreeDbTerm *t)
-{
-    if (t != NULL) {
-	do_dump_tree(to, to_arg, t->left);
-	erts_print(to, to_arg, "%T\n", make_tuple(t->dbterm.tpl));
-	do_dump_tree(to, to_arg, t->right); 
-    }
 }
 
 static int do_free_tree_cont(DbTableTree *tb, int num_left)
