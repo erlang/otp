@@ -62,10 +62,16 @@
     #  define ERL_VALGRIND_MAKE_MEM_DEFINED(ptr,size) \
     VALGRIND_MAKE_MEM_DEFINED(ptr,size)
 
-    #  define ERL_VALGRIND_ASSERT_MEM_DEFINED(ptr,size) \
-    ((void) ((VALGRIND_CHECK_MEM_IS_DEFINED(ptr,size) == 0) ? 1 : \
-    (fprintf(stderr,"\r\n####### VALGRIND_ASSSERT(%p,%ld) failed at %s:%d\r\n",\
-	(ptr),(long)(size), __FILE__, __LINE__), abort(), 0)))
+    #   define ERL_VALGRIND_ASSERT_MEM_DEFINED(Ptr,Size)			\
+          do {								\
+              int __erl_valgrind_mem_defined = VALGRIND_CHECK_MEM_IS_DEFINED((Ptr),(Size));	\
+              if (__erl_valgrind_mem_defined != 0) {			\
+	          fprintf(stderr,"\r\n####### VALGRIND_ASSSERT(%p,%ld) failed at %s:%d\r\n", \
+		          (Ptr),(long)(Size), __FILE__, __LINE__);	\
+	          abort();						\
+              }								\
+          } while (0)
+
 #else
     #  define ERL_VALGRIND_MAKE_MEM_DEFINED(ptr,size)
     #  define ERL_VALGRIND_ASSERT_MEM_DEFINED(ptr,size)
