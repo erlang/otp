@@ -14,7 +14,7 @@
 -export([options1_tests_SUITE_consistency/1, compiler/1]).
 
 suite() ->
-  [{timetrap, {minutes, 20}}].
+  [{timetrap, {minutes, 30}}].
 
 init_per_suite() ->
   [{timetrap, ?plt_timeout}].
