@@ -160,7 +160,7 @@
     {load_module, megaco_filter, soft_purge, soft_purge, []},
     {load_module, megaco_timer, soft_purge, soft_purge, [megaco_config]},
     {update, megaco_config, soft, soft_purge, soft_purge, []},
-    {delete_module,  megaco_config_misc}
+    {remove, {megaco_config_misc, soft_purge, brutal_purge}}
    ]
   }
  ]
