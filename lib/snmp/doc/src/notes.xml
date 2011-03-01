@@ -77,7 +77,7 @@
 
         <item>
           <p>[compiler] Added a MIB compiler (frontend) escript, 
-	  <seealso marker="snmpc_cmd">snmpc</seealso>. </p>
+          <c>snmpc</c>. </p>
           <p>Own Id: OTP-9004</p>
         </item>
 
