@@ -41,10 +41,16 @@ end_per_suite(Config) when is_list(Config) ->
     ?line ok = application:stop(os_mon),
     Config.
 
+init_per_testcase(unavailable, Config) ->
+    terminate(Config),
+    init_per_testcase(dummy, Config);
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?default_timeout),
     [{watchdog,Dog} | Config].
 
+end_per_testcase(unavailable, Config) ->
+    restart(Config),
+    end_per_testcase(dummy, Config);
 end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
