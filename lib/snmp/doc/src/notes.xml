@@ -33,6 +33,55 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.20</title>
+    <p>Version 4.20 supports code replacement in runtime from/to
+      version 4,19 and 4.18.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[agent] Added support for sending traps to IPv6 targets. </p>
+          <p>Own Id: OTP-9088</p>
+          <p>Aux Id: Seq 11790</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+<!--
+        <item>
+          <p>[agent] When calling
+          <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso>
+          on a running node, the table <c>vacmAccessTable</c> was not properly
+          cleaned.
+          This meant that if some entries in the vacm.conf file was removed
+          (compared to the <c>current</c> config),
+          while others where modified and/or added, the removed entrie(s)
+          would still exist in the <c>vacmAccessTable</c> table. </p>
+          <p>Own Id: OTP-8981</p>
+          <p>Aux Id: Seq 11750</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.20 -->
+
+  <section>
     <title>SNMP Development Toolkit 4.19</title>
     <p>Version 4.19 supports code replacement in runtime from/to
       version 4.18.</p>
