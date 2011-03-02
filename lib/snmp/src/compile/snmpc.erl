@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -112,6 +112,8 @@ compile(FileName) ->
 %%          description
 %%          reference
 %%          imports
+%%          agent_capabilities
+%%          module_compliance
 %%          module_identity
 %%          {module, string()}
 %%          no_defs
@@ -203,6 +205,10 @@ get_options([imports|Opts], Formats, Args) ->
     get_options(Opts, ["~n   imports"|Formats], Args);
 get_options([module_identity|Opts], Formats, Args) ->
     get_options(Opts, ["~n   module_identity"|Formats], Args);
+get_options([module_compliance|Opts], Formats, Args) ->
+    get_options(Opts, ["~n   module_compliance"|Formats], Args);
+get_options([agent_capabilities|Opts], Formats, Args) ->
+    get_options(Opts, ["~n   agent_capabilities"|Formats], Args);
 get_options([relaxed_row_name_assign_check|Opts], Formats, Args) ->
     get_options(Opts, ["~n   relaxed_row_name_assign_check"|Formats], Args);
 get_options([_|Opts], Formats, Args) ->
@@ -288,6 +294,10 @@ check_options([imports| T]) ->
     check_options(T);
 check_options([module_identity| T]) ->
     check_options(T);
+check_options([module_compliance| T]) ->
+    check_options(T);
+check_options([agent_capabilities| T]) ->
+    check_options(T);
 check_options([relaxed_row_name_assign_check| T]) ->
     check_options(T);
 check_options([{module, M} | T]) when is_atom(M) ->
@@ -314,6 +324,12 @@ get_description(Options) ->
 
 get_reference(Options) ->
     get_bool_option(reference, Options).
+
+get_agent_capabilities(Options) ->
+    get_bool_option(agent_capabilities, Options).
+
+get_module_compliance(Options) ->
+    get_bool_option(module_compliance, Options).
 
 get_relaxed_row_name_assign_check(Options) ->
     lists:member(relaxed_row_name_assign_check, Options).
@@ -387,10 +403,12 @@ get_verbosity(Options) ->
 init(From, MibFileName, Options) ->
     {A,B,C} = now(),
     random:seed(A,B,C),
-    put(options,     Options),
-    put(verbosity,   get_verbosity(Options)),
-    put(description, get_description(Options)),
-    put(reference,   get_reference(Options)),
+    put(options,            Options),
+    put(verbosity,          get_verbosity(Options)),
+    put(description,        get_description(Options)),
+    put(reference,          get_reference(Options)),
+    put(agent_capabilities, get_agent_capabilities(Options)),
+    put(module_compliance,  get_module_compliance(Options)),
     File = filename:rootname(MibFileName, ".mib"),
     put(filename, filename:basename(File ++ ".mib")),
     R = case catch c_impl(File) of
@@ -876,12 +894,12 @@ definitions_loop([{#mc_object_type{name        = NameOfEntry,
 
 definitions_loop([{#mc_notification{name   = TrapName,
 				    status = deprecated}, Line}|T],
-		 false) ->
+		 #dldata{deprecated = false} = Data) ->
     ?vinfo2("defloop -> notification ~w is deprecated => ignored",
 	    [TrapName], Line),    
     update_status(TrapName, deprecated),
     ensure_macro_imported('NOTIFICATION-TYPE', Line),
-    definitions_loop(T, false);    
+    definitions_loop(T, Data);    
 
 definitions_loop([{#mc_notification{name   = TrapName,
 				    status = obsolete}, Line}|T],
@@ -921,10 +939,96 @@ definitions_loop([{#mc_notification{name        = TrapName,
     snmpc_lib:add_cdata(#cdata.traps, [Notif]),
     definitions_loop(T, Data);    
 
-definitions_loop([{#mc_module_compliance{name = Name},Line}|T], Data) ->
-    ?vlog2("defloop -> module_compliance:"
-	   "~n   Name: ~p", [Name], Line),
+definitions_loop([{#mc_agent_capabilities{name        = Name,
+					  status      = Status,
+					  description = Desc,
+					  reference   = Ref,
+					  modules     = Mods, 
+					  name_assign = {Parent, SubIdx}},Line}|T], Data) ->
+    ?vlog2("defloop -> agent_capabilities ~p:"
+	   "~n   Status:       ~p"
+	   "~n   Desc:         ~p"
+	   "~n   Ref:          ~p"
+	   "~n   Mods:         ~p"
+	   "~n   Parent:       ~p"
+	   "~n   SubIndex:     ~p", 
+	   [Name, Status, Desc, Ref, Mods, Parent, SubIdx], Line),
+    ensure_macro_imported('AGENT-CAPABILITIES', Line),
+    case get(agent_capabilities) of
+	true ->
+	    update_status(Name, Status),
+	    snmpc_lib:register_oid(Line, Name, Parent, SubIdx),
+	    NewME       = snmpc_lib:makeInternalNode2(false, Name),
+	    Description = make_description(Desc), 
+	    Reference   = 
+		case Ref of
+		    undefined ->
+			[];
+		    _ ->
+			[{reference, Ref}]
+		end,
+	    Modules     = 
+		case Mods of
+		    undefined ->
+			[];
+		    [] ->
+			[];
+		    _ ->
+			[{modules, Mods}]
+		end,
+	    AssocList = Reference ++ Modules,
+	    NewME2 = NewME#me{description = Description,
+			      assocList   = AssocList}, 
+	    snmpc_lib:add_cdata(#cdata.mes, [NewME2]);
+	_ ->
+	    ok
+    end,
+    definitions_loop(T, Data);
+
+definitions_loop([{#mc_module_compliance{name        = Name,
+					 status      = Status,
+					 description = Desc,
+					 reference   = Ref,
+					 modules     = Mods, 
+					 name_assign = {Parent, SubIdx}},Line}|T], Data) ->
+    ?vlog2("defloop -> module_compliance: ~p"
+	   "~n   Status:       ~p"
+	   "~n   Desc:         ~p"
+	   "~n   Ref:          ~p"
+	   "~n   Mods:         ~p"
+	   "~n   Parent:       ~p"
+	   "~n   SubIndex:     ~p", 
+	   [Name, Status, Desc, Ref, Mods, Parent, SubIdx], Line),
     ensure_macro_imported('MODULE-COMPLIANCE', Line),
+    case get(module_compliance) of
+	true ->
+	    update_status(Name, Status),
+	    snmpc_lib:register_oid(Line, Name, Parent, SubIdx),
+	    NewME       = snmpc_lib:makeInternalNode2(false, Name),
+	    Description = make_description(Desc), 
+	    Reference   = 
+		case Ref of
+		    undefined ->
+			[];
+		    _ ->
+			[{reference, Ref}]
+		end,
+	    Modules    = 
+		case Mods of
+		    undefined ->
+			[];
+		    [] ->
+			[];
+		    _ ->
+			[{modules, Mods}]
+		end,
+	    AssocList = Reference ++ Modules,
+	    NewME2 = NewME#me{description = Description,
+			      assocList   = AssocList}, 
+	    snmpc_lib:add_cdata(#cdata.mes, [NewME2]);
+	_ ->
+	    ok
+    end,
     definitions_loop(T, Data);
 
 definitions_loop([{#mc_object_group{name        = Name,
@@ -1328,22 +1432,26 @@ save(Filename, MibName, Options) ->
 
 
 parse(FileName) ->
+%%     ?vtrace("parse -> start tokenizer for ~p", [FileName]),
     case snmpc_tok:start_link(reserved_words(),
 			      [{file, FileName ++ ".mib"},
 			       {forget_stringdata, true}]) of
 	{error,ReasonStr} ->
 	    snmpc_lib:error(lists:flatten(ReasonStr),[]);
 	{ok, TokPid} ->
+%% 	    ?vtrace("parse ->  tokenizer start, now get tokens", []),
 	    Toks = snmpc_tok:get_all_tokens(TokPid),
+%% 	    ?vtrace("parse ->  tokens: ~p", [Toks]),
 	    set_version(Toks),
-	    %% io:format("parse -> lexical analysis: ~n~p~n", [Toks]),
-	    %% t("parse -> lexical analysis: ~n~p", [Toks]),
+	    %% ?vtrace("parse -> lexical analysis: ~n~p", [Toks]),
             CDataArg =
                 case lists:keysearch(module, 1, get(options)) of
                     {value, {module, M}} -> {module, M};
                     _ -> {file, FileName ++ ".funcs"}
                 end,
             put(cdata,snmpc_lib:make_cdata(CDataArg)),
+%% 	    ?vtrace("parse ->  stop tokenizer and then do the actual parse", 
+%% 		    []),
 	    snmpc_tok:stop(TokPid),
 	    Res = if 
 		      is_list(Toks) ->
@@ -1351,7 +1459,7 @@ parse(FileName) ->
 		      true ->
 			  Toks
 		  end,
-	    %% t("parse -> parsed: ~n~p", [Res]),
+%% 	    ?vtrace("parse -> parsed result: ~n~p", [Res]),
 	    case Res of
 		{ok, PData} ->
 		    {ok, PData};
@@ -1443,6 +1551,10 @@ reserved_words() ->
       'NOTIFICATION-GROUP',
       'NOTIFICATIONS',
       'MODULE-COMPLIANCE',
+      'AGENT-CAPABILITIES',
+      'PRODUCT-RELEASE',
+      'SUPPORTS',
+      'INCLUDES',
       'MODULE',
       'MANDATORY-GROUPS',
       'GROUP',

@@ -1,0 +1,68 @@
+%% This is an example sys config file for starting the snmp application
+%% with both an agent and a manager running.
+[{snmp, 
+  [
+   {agent,
+    [
+     {priority, normal}, 
+     {versions, [v1,v2,v3]}, 
+     {db_dir, "%DIR%/agent/db"}, 
+     {mib_storage, ets}, 
+     {agent_mib_storage, volatile},
+     {target_cache, [{verbosity,silence}]}, 
+     {symbolic_store, [{verbosity,silence}]}, 
+     {local_db, [{repair,true},{auto_save,5000},{verbosity,silence}]}, 
+     {error_report_module, snmpa_error_logger}, 
+     {agent_type, master}, 
+     {agent_verbosity, silence}, 
+     {audit_trail_log, [{type, read}, 
+                        {dir, "%DIR%/agent/log"},
+                        {size, {10240,10}}]},
+     {config, [{dir,        "%DIR%/agent/conf"}, 
+               {force_load, true}, 
+               {verbosity,  silence}]}, 
+     {multi_threaded, false}, 
+     {mib_server, [{mibentry_override,  false},
+                   {trapentry_override, false},
+                   {verbosity,          silence}]}, 
+     {note_store, [{timeout,30000},{verbosity,silence}]}, 
+     {net_if, [{module,    snmpa_net_if},
+               {verbosity, silence},
+               {options,   [{bind_to,   true},
+                            {no_reuse,  false},
+                            {req_limit, infinity},
+                            {sndbuf,    32000}, 
+                            {recbuf,    32000}]}]}
+    ]
+   }, 
+   {manager,
+    [
+     {priority, normal}, 
+     {versions, [v1,v2,v3]}, 
+     {config, [{dir, "%DIR%/manager/conf"}, 
+               {verbosity, silence}, 
+               {db_dir, "%DIR%/manager/db"}, 
+               {repair, true}, 
+               {auto_save, 5000}]}, 
+     {inform_request_behaviour, auto}, 
+     {mibs, []}, 
+     {server, [{timeout,   30000},
+               {verbosity, silence}]}, 
+     {note_store, [{timeout,   30000},
+                   {verbosity, silence}]}, 
+     {audit_trail_log, [{type, read}, 
+                        {dir, "%DIR%/manager/log"},
+                        {size, {10240,10}}]},
+     {net_if, [{module,snmpm_net_if},
+               {verbosity, silence},
+               {options, [{bind_to,  true}, 
+                          {no_reuse, false},
+                          {recbuf,   33000},
+                          {sndbuf,   34000}]}]},
+     {def_user_mod,  snmpm_user_default}, 
+     {def_user_data, undefined}
+    ]
+   }
+  ]
+ }
+].

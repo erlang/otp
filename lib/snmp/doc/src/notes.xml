@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,23 +32,135 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>SNMP 4.18</title>
+  <section>
+    <title>SNMP Development Toolkit 4.19</title>
+    <p>Version 4.19 supports code replacement in runtime from/to
+      version 4.18.</p>
 
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
         <item>
-          <p>
-	    When the function FilterMod:accept_recv/2 returned false
-	    the SNMP agent stopped collecting messages from UDP.</p>
-          <p>
-	    Own Id: OTP-8761</p>
+          <p>[compiler] Added support for textual convention 
+	  <c>AGENT-CAPABILITIES</c> and "full" support for textual 
+          convention MODULE-COMPLIANCE, both defined by the SNMPv2-CONF 
+          mib.</p>
+          <p>The <c>reference</c> and <c>modules</c> part(s) are
+	  stored in the <c>assocList</c> of the mib-entry (<c>me</c>) 
+	  record. 
+	  Only handled <em>if</em> the option(s) <c>agent_capabilities</c>
+	  and <c>module_compliance</c> (respectively) are provided to the 
+	  compiler. </p>
+	  <p>See <seealso marker="snmpc#compile">compile/2</seealso> 
+	  for more info. </p>
+	  <p>For backward compatibillity, the MIBs provided with 
+	  this application are <em>not</em> compiled with these 
+	  options. </p>
+          <p>Own Id: OTP-8966</p>
+        </item>
+
+        <item>
+          <p>[agent] Added a "complete" set of (snmp) table and variable
+          print functions, for each mib handled by the SNMP (agent)
+          application. This will be usefull when debugging a running agent.</p>
+          <p>See
+          <seealso marker="snmpa#print_mib_info">print_mib_info/0</seealso>,
+          <seealso marker="snmpa#print_mib_tables">print_mib_tables/0</seealso>
+          and
+          <seealso marker="snmpa#print_mib_variables">print_mib_variables/0</seealso>
+          for more info. </p>
+          <p>Own Id: OTP-8977</p>
+        </item>
+
+        <item>
+          <p>[compiler] Added a MIB compiler (frontend) escript, 
+          <c>snmpc</c>. </p>
+          <p>Own Id: OTP-9004</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+      <list type="bulleted">
+        <item>
+          <p>[agent] For the table vacmAccessTable,
+          when performing the is_set_ok and set operation(s),
+          all values of the vacmAccessSecurityModel column was
+          incorrectly translated to <c>any</c>. </p>
+<!--
+that is when calling:
+snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
+-->
+          <p>Own Id: OTP-8980</p>
+        </item>
+
+        <item>
+          <p>[agent] When calling
+          <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso>
+          on a running node, the table <c>vacmAccessTable</c> was not properly
+          cleaned.
+          This meant that if some entries in the vacm.conf file was removed
+          (compared to the <c>current</c> config),
+          while others where modified and/or added, the removed entrie(s)
+          would still exist in the <c>vacmAccessTable</c> table. </p>
+          <p>Own Id: OTP-8981</p>
+          <p>Aux Id: Seq 11750</p>
+        </item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.19 -->
+
+  <section>
+    <title>SNMP Development Toolkit 4.18</title>
+    <p>Version 4.18 supports code replacement in runtime from/to
+      version 4.17.1 and 4.17.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Prepared for R14B release.</p>
         </item>
       </list>
     </section>
 
-</section>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] When the function FilterMod:accept_recv/2 returned false
+          the SNMP agent stopped collecting messages from UDP.</p>
+          <p>Own Id: OTP-8761</p>
+        </item>
+      </list>
+-->
+    </section>
 
-<section>
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.18 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.17.1</title>
     <p>Version 4.17.1 supports code replacement in runtime from/to
       version 4.17, 4.16.2, 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
@@ -63,7 +175,8 @@
       <list type="bulleted">
         <item>
           <p>When the function FilterMod:accept_recv/2
-             returned false the SNMP agent stopped collecting messages from UDP.</p>
+	  returned false the SNMP agent stopped collecting 
+	  messages from UDP.</p>
           <p>Own Id: OTP-8761</p>
         </item>
       </list>

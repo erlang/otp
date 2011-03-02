@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -103,13 +103,72 @@
        ).
 
 
+-record(mc_agent_capabilities,
+	{name,
+	 product_release,
+	 status,
+	 description,
+	 reference,
+	 modules,
+	 name_assign
+	}
+       ).
+
+-record(mc_ac_module, 
+	{name,
+	 groups,
+	 variation
+	}
+       ).
+
+-record(mc_ac_object_variation,
+	{name,
+	 syntax, 
+	 write_syntax,
+	 access,
+	 creation,
+	 default_value,
+	 description
+	}
+       ).
+
+-record(mc_ac_notification_variation,
+	{name,
+	 access,
+	 description
+	}
+       ).
+
+
 -record(mc_module_compliance,
 	{name,
 	 status,
 	 description,
 	 reference,
-	 module,
+	 modules,
 	 name_assign
+	}
+       ).
+
+-record(mc_mc_compliance_group, 
+	{name,
+	 description
+	}
+       ).
+
+-record(mc_mc_object, 
+	{name,
+	 syntax,
+	 write_syntax,
+	 access, 
+	 description
+	}
+       ).
+
+-record(mc_mc_module, 
+	{name,
+	 mandatory,
+	 compliance
 	}
        ).
 
