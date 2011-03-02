@@ -390,7 +390,6 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
--spec other_val(_, _) -> no_return().
 other_val(Var, Other) ->
     case Var of
 	{_, where_to_read} -> nowhere;
