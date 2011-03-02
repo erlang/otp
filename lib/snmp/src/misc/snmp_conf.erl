@@ -39,8 +39,10 @@
 
 	 check_domain/1, 
 	 check_tdomain/1,  
+	 mk_tdomain/1, 
 	 check_ip/1, 
 	 check_taddress/1, check_taddress/2, 
+	 mk_taddress/3, 
 	 
 	 check_packet_size/1, 
 
@@ -384,6 +386,18 @@ check_tdomain(TDomain) ->
 
 %% ---------
 
+mk_tdomain(snmpUDPDomain) ->
+    ?snmpUDPDomain;
+mk_tdomain(transportDomainUdpIpv4) ->
+    ?transportDomainUdpIpv4;
+mk_tdomain(transportDomainUdpIpv6) ->
+    ?transportDomainUdpIpv6;
+mk_tdomain(BadDomain) ->
+    error({bad_domain, BadDomain}).
+
+
+%% ---------
+
 check_taddress(X) ->
     check_taddress(snmpUDPDomain, X).
 
@@ -496,6 +510,20 @@ check_domain(Domain) ->
     end.
 	    
 
+%% ---------
+
+%% The values of Ip and Port has both been checked at this
+%% point, so we dont need to do that again.
+mk_taddress(snmpUDPDomain, Ip, Port) ->
+    mk_taddress(transportDomainUdpIpv4, Ip, Port);
+mk_taddress(transportDomainUdpIpv4, Ip, Port) ->
+    Ip ++ [Port div 256, Port rem 256];
+mk_taddress(transportDomainUdpIpv6, Ip, Port) ->
+    Ip ++ [Port div 256, Port rem 256];
+mk_taddress(BadDomain, _Ip, _Port) ->
+    error({bad_domain, BadDomain}).
+
+    
 %% ---------
 
 check_ip(X) ->
