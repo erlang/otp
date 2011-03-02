@@ -28,6 +28,8 @@
 	 gregorian_days_to_date/1,
 	 gregorian_seconds_to_datetime/1,
 	 is_leap_year/1,
+	 iso_week_number/0,
+	 iso_week_number/1,
 	 last_day_of_the_month/2,
 	 local_time/0, 
 	 local_time_to_universal_time/1, 
@@ -70,6 +72,7 @@
 -type second()   :: 0..59.
 -type daynum()   :: 1..7.
 -type ldom()     :: 28 | 29 | 30 | 31. % last day of month
+-type weeknum()  :: 1..53.
 
 -type t_now()    :: {non_neg_integer(),non_neg_integer(),non_neg_integer()}.
 
@@ -77,6 +80,7 @@
 -type t_time()         :: {hour(),minute(),second()}.
 -type t_datetime()     :: {t_date(),t_time()}.
 -type t_datetime1970() :: {{year1970(),month(),day()},t_time()}.
+-type t_yearweeknum()  :: {year(),weeknum()}.
 
 %%----------------------------------------------------------------------
 
@@ -170,6 +174,42 @@ is_leap_year1(Year) when Year rem 4 =:= 0, Year rem 100 > 0 ->
 is_leap_year1(Year) when Year rem 400 =:= 0 ->
     true;
 is_leap_year1(_) -> false.
+
+
+%%
+%% Calculates the iso week number for the current date.
+%%
+-spec iso_week_number() -> t_yearweeknum().
+iso_week_number() ->
+    {Date, _} = local_time(),
+    iso_week_number(Date).
+
+
+%%
+%% Calculates the iso week number for the given date.
+%%
+-spec iso_week_number(t_date()) -> t_yearweeknum().
+iso_week_number({Year, Month, Day}) ->
+    D = date_to_gregorian_days({Year, Month, Day}),
+    W01_1_Year = gregorian_days_of_iso_w01_1(Year),
+    W01_1_NextYear = gregorian_days_of_iso_w01_1(Year + 1),
+    if W01_1_Year =< D andalso D < W01_1_NextYear ->
+	    % Current Year Week 01..52(,53)
+	    {Year, (D - W01_1_Year) div 7 + 1};
+	D < W01_1_Year ->
+	    % Previous Year 52 or 53
+	    PWN = case day_of_the_week(Year - 1, 1, 1) of
+		4 -> 53;
+		_ -> case day_of_the_week(Year - 1, 12, 31) of
+			4 -> 53;
+			_ -> 52
+		     end
+		end,
+	    {Year - 1, PWN};
+	W01_1_NextYear =< D ->
+	    % Next Year, Week 01
+	    {Year + 1, 1}
+    end.
 
 
 %% last_day_of_the_month(Year, Month)
@@ -376,6 +416,19 @@ dty(Y, D1, D2) when D1 < D2 ->
     dty(Y-1, D1, dy(Y-1));
 dty(Y, _D1, D2) ->
     {Y, D2}.
+
+%%
+%% The Gregorian days of the iso week 01 day 1 for a given year.
+%%
+-spec gregorian_days_of_iso_w01_1(year()) -> non_neg_integer().
+gregorian_days_of_iso_w01_1(Year) ->
+    D0101 = date_to_gregorian_days(Year, 1, 1),
+    DOW = day_of_the_week(Year, 1, 1),
+    if DOW =< 4 ->
+	D0101 - DOW + 1;
+    true ->
+	D0101 + 7 - DOW + 1
+    end.
 
 %% year_day_to_date(Year, DayOfYear)  = {Month,  DayOfMonth}
 %%
