@@ -2773,17 +2773,10 @@ void init_db(void)
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    meta_main_tab_locks = erts_alloc(ERTS_ALC_T_DB_TABLES,
-				     (sizeof(erts_meta_main_tab_lock_t)
-				      * (ERTS_META_MAIN_TAB_LOCK_TAB_SIZE+1)));
-
-    if ((((UWord) meta_main_tab_locks) & ERTS_CACHE_LINE_MASK) != 0)
-	meta_main_tab_locks = ((erts_meta_main_tab_lock_t *)
-			       ((((UWord) meta_main_tab_locks)
-				 & ~ERTS_CACHE_LINE_MASK)
-				+ ERTS_CACHE_LINE_SIZE));
-
-    ASSERT((((UWord) meta_main_tab_locks) & ERTS_CACHE_LINE_MASK) == 0);
+    meta_main_tab_locks =
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_DB_TABLES,
+					   sizeof(erts_meta_main_tab_lock_t)
+					   * ERTS_META_MAIN_TAB_LOCK_TAB_SIZE);
 
     for (i = 0; i < ERTS_META_MAIN_TAB_LOCK_TAB_SIZE; i++) {
 	erts_smp_rwmtx_init_opt_x(&meta_main_tab_locks[i].rwmtx, &rwmtx_opt,

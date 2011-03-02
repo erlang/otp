@@ -172,8 +172,16 @@ void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size);
 void erts_free(ErtsAlcType_t type, void *ptr);
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
+void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size);
+
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
+
+#ifndef ERTS_CACHE_LINE_SIZE
+/* Assume a cache line size of 64 bytes */
+#  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
+#  define ERTS_CACHE_LINE_MASK (ERTS_CACHE_LINE_SIZE - 1)
+#endif
 
 #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__)
 
@@ -234,6 +242,18 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 	size);
 }
 
+ERTS_ALC_INLINE
+void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size)
+{
+    UWord v = (UWord) erts_alloc(type, size + (ERTS_CACHE_LINE_SIZE-1));
+
+    if (v & ERTS_CACHE_LINE_MASK) {
+	v = (v & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
+    }
+    ASSERT((v & ERTS_CACHE_LINE_MASK) == 0);
+    return (void*)v;
+}
+
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
 
 typedef void (*erts_alloc_verify_func_t)(Allctr_t *);
@@ -241,11 +261,6 @@ typedef void (*erts_alloc_verify_func_t)(Allctr_t *);
 erts_alloc_verify_func_t
 erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 
-#ifndef ERTS_CACHE_LINE_SIZE
-/* Assume a cache line size of 64 bytes */
-#  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
-#  define ERTS_CACHE_LINE_MASK (ERTS_CACHE_LINE_SIZE - 1)
-#endif
 
 #define ERTS_ALC_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)

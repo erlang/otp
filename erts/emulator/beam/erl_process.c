@@ -622,14 +622,10 @@ init_misc_aux_work(void)
 
     init_misc_aux_work_alloc();
 
-    misc_aux_work_queues = erts_alloc(ERTS_ALC_T_MISC_AUX_WORK_Q,
-				      (sizeof(erts_algnd_misc_aux_work_q_t)
-				       *(erts_no_schedulers+1)));
-    if ((((UWord) misc_aux_work_queues) & ERTS_CACHE_LINE_MASK) != 0)
-	misc_aux_work_queues = ((erts_algnd_misc_aux_work_q_t *)
-				   ((((UWord) misc_aux_work_queues)
-				     & ~ERTS_CACHE_LINE_MASK)
-				    + ERTS_CACHE_LINE_SIZE));
+    misc_aux_work_queues = 
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_MISC_AUX_WORK_Q,
+					   erts_no_schedulers *
+					   sizeof(erts_algnd_misc_aux_work_q_t));
 
     for (ix = 0; ix < erts_no_schedulers; ix++) {
 	erts_smp_mtx_init_x(&misc_aux_work_queues[ix].data.mtx,
@@ -2515,16 +2511,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     n = (int) (mrq ? no_schedulers : 1);
 
-    erts_aligned_run_queues = erts_alloc(ERTS_ALC_T_RUNQS,
-					 (sizeof(ErtsAlignedRunQueue)*(n+1)));
-    if ((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) != 0)
-	erts_aligned_run_queues = ((ErtsAlignedRunQueue *)
-				   ((((UWord) erts_aligned_run_queues)
-				     & ~ERTS_CACHE_LINE_MASK)
-				    + ERTS_CACHE_LINE_SIZE));
-
-    ASSERT((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) == 0);
-
+    erts_aligned_run_queues = 
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_RUNQS,
+					   sizeof(ErtsAlignedRunQueue) * n);
 #ifdef ERTS_SMP
     erts_smp_atomic32_init(&no_empty_run_queues, 0);
 #endif
@@ -2619,14 +2608,10 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 #ifdef ERTS_SMP
     /* Create and initialize scheduler sleep info */
 
-    aligned_sched_sleep_info = erts_alloc(ERTS_ALC_T_SCHDLR_SLP_INFO,
-					  (sizeof(ErtsAlignedSchedulerSleepInfo)
-					   *(n+1)));
-    if ((((UWord) aligned_sched_sleep_info) & ERTS_CACHE_LINE_MASK) == 0)
-	aligned_sched_sleep_info = ((ErtsAlignedSchedulerSleepInfo *)
-				    ((((UWord) aligned_sched_sleep_info)
-				      & ~ERTS_CACHE_LINE_MASK)
-				     + ERTS_CACHE_LINE_SIZE));
+    aligned_sched_sleep_info =
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_SCHDLR_SLP_INFO,
+					   n * sizeof(ErtsAlignedSchedulerSleepInfo));
+
     for (ix = 0; ix < n; ix++) {
 	ErtsSchedulerSleepInfo *ssi = ERTS_SCHED_SLEEP_INFO_IX(ix);
 #if 0 /* no need to initialize these... */
@@ -2641,16 +2626,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     /* Create and initialize scheduler specific data */
 
-    erts_aligned_scheduler_data = erts_alloc(ERTS_ALC_T_SCHDLR_DATA,
-					     (sizeof(ErtsAlignedSchedulerData)
-					      *(n+1)));
-    if ((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) != 0)
-	erts_aligned_scheduler_data = ((ErtsAlignedSchedulerData *)
-				       ((((UWord) erts_aligned_scheduler_data)
-					 & ~ERTS_CACHE_LINE_MASK)
-					+ ERTS_CACHE_LINE_SIZE));
-
-    ASSERT((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) == 0);
+    erts_aligned_scheduler_data = 
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_SCHDLR_DATA,
+					   n*sizeof(ErtsAlignedSchedulerData));					   
 
     for (ix = 0; ix < n; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
