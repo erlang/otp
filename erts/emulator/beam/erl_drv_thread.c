@@ -698,6 +698,7 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
 
 #if defined(__DARWIN__) && defined(USE_THREADS) && defined(ERTS_SMP)
 extern int erts_darwin_main_thread_pipe[2];
+extern int erts_darwin_main_thread_result_pipe[2];
 
 
 int
@@ -709,7 +710,7 @@ erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp)
 	x = &dummy;
     else
 	x = respp;
-    read(erts_darwin_main_thread_pipe[0],x,sizeof(void *));
+    read(erts_darwin_main_thread_result_pipe[0],x,sizeof(void *));
     return 0;
 }
 
