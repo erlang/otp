@@ -53,6 +53,11 @@
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
 
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
+
+
 #ifdef USE_THREADS
 #include "erl_threads.h"
 #endif
@@ -2989,11 +2994,25 @@ init_smp_sig_notify(void)
 			NULL,
 			&thr_opts);
 }
+#ifdef __DARWIN__
 
+int erts_darwin_main_thread_pipe[2];
+
+static void initialize_darwin_main_thread_pipe(void) 
+{
+    if (pipe(erts_darwin_main_thread_pipe) < 0) {
+	erl_exit(1,"Fatal error initializing Darwin main thread stealing");
+    }
+}
+
+#endif
 void
 erts_sys_main_thread(void)
 {
     erts_thread_disable_fpe();
+#ifdef __DARWIN__
+    initialize_darwin_main_thread_pipe();
+#endif
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("signal_receiver");
@@ -3002,6 +3021,27 @@ erts_sys_main_thread(void)
     smp_sig_notify(0); /* Notify initialized */
     while (1) {
 	/* Wait for a signal to arrive... */
+#ifdef __DARWIN__
+	/*
+	 * The wx driver needs to be able to steal the main thread for Cocoa to
+	 * work properly.
+	 */
+	fd_set readfds;
+	int res;
+
+	FD_ZERO(&readfds);
+	FD_SET(erts_darwin_main_thread_pipe[0], &readfds);
+	res = select(erts_darwin_main_thread_pipe[0] + 1, &readfds, NULL, NULL, NULL);
+	if (res > 0 && FD_ISSET(erts_darwin_main_thread_pipe[0],&readfds)) {
+	    void* (*func)(void*);
+	    void* arg;
+	    void *resp;
+	    read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
+	    read(erts_darwin_main_thread_pipe[0],&arg, sizeof(void*));
+	    resp = (*func)(arg);
+	    write(erts_darwin_main_thread_pipe[1],&resp,sizeof(void *));
+	}
+#else
 #ifdef DEBUG
 	int res =
 #else
@@ -3010,6 +3050,7 @@ erts_sys_main_thread(void)
 	    select(0, NULL, NULL, NULL, NULL);
 	ASSERT(res < 0);
 	ASSERT(errno == EINTR);
+#endif
     }
 }
 
