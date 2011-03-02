@@ -37,7 +37,10 @@
 
 	 check_timer/1,
 
-	 check_ip/1, check_taddress/1, 
+	 check_domain/1, 
+	 check_tdomain/1,  
+	 check_ip/1, 
+	 check_taddress/1, check_taddress/2, 
 	 
 	 check_packet_size/1, 
 
@@ -52,8 +55,10 @@
 
 
 -define(SNMP_USE_V3, true).
--include("snmp_types.hrl").
--include("SNMP-FRAMEWORK-MIB.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/include/SNMP-FRAMEWORK-MIB.hrl").
+-include_lib("snmp/include/TRANSPORT-ADDRESS-MIB.hrl").
+-include_lib("snmp/include/SNMPv2-TM.hrl").
 
 -define(VMODULE,"CONF").
 -include("snmp_verbosity.hrl").
@@ -338,15 +343,82 @@ check_sec_level(BadSecLevel) ->
 
 %% ---------
 
-check_taddress(X) when is_list(X) andalso (length(X) =:= 6) ->
+check_tdomain(TDomain) ->
+    SupportedTDomains = 
+	[
+	 ?snmpUDPDomain, 
+	 ?transportDomainUdpIpv4,
+	 ?transportDomainUdpIpv6			 
+	],
+    AllTDomains = 
+	[
+	 ?transportDomainUdpIpv4, 
+	 ?transportDomainUdpIpv6, 
+	 ?transportDomainUdpIpv4z, 
+	 ?transportDomainUdpIpv6z, 
+	 ?transportDomainTcpIpv4, 
+	 ?transportDomainTcpIpv6, 
+	 ?transportDomainTcpIpv4z, 
+	 ?transportDomainTcpIpv6z, 
+	 ?transportDomainSctpIpv4, 
+	 ?transportDomainSctpIpv6, 
+	 ?transportDomainSctpIpv4z, 
+	 ?transportDomainSctpIpv6z, 
+	 ?transportDomainLocal, 
+	 ?transportDomainUdpDns, 
+	 ?transportDomainTcpDns,
+	 ?transportDomainSctpDns
+	],
+    case lists:member(TDomain, SupportedTDomains) of
+	true ->
+	    ok;
+	false ->
+	    case lists:member(TDomain, AllTDomains) of
+		true ->
+		    error({unsupported_tdomain, TDomain});
+		false ->
+		    error({unknown_tdomain, TDomain})
+	    end
+    end.
+
+
+%% ---------
+
+check_taddress(X) ->
+    check_taddress(snmpUDPDomain, X).
+
+check_taddress(snmpUDPDomain, X) ->
+    check_taddress(transportDomainUdpIpv4, X);
+
+check_taddress(transportDomainUdpIpv4, X) 
+  when is_list(X) andalso (length(X) =:= 6) ->
     case (catch all_integer(X)) of
 	true  -> 
 	    ok;
 	false -> 
 	    error({invalid_taddress, X})
     end;
-check_taddress(X) ->
-    error({invalid_taddress, X}).
+check_taddress(transportDomainUdpIpv4, X) ->
+    error({invalid_taddress, X});
+check_taddress(?transportDomainUdpIpv4, X) ->
+    check_taddress(transportDomainUdpIpv4, X);
+
+check_taddress(transportDomainUdpIpv6, X) 
+  when is_list(X) andalso (length(X) =:= 10) ->
+    case (catch all_integer(X)) of
+	true  -> 
+	    ok;
+	false -> 
+	    error({invalid_taddress, X})
+    end;
+check_taddress(transportDomainUdpIpv6, X) ->
+    error({invalid_taddress, X});
+check_taddress(?transportDomainUdpIpv6, X) ->
+    check_taddress(transportDomainUdpIpv6, X);
+
+check_taddress(BadDomain, _X) ->
+    error({invalid_tdomain, BadDomain}).
+
 
 
 %% ---------
@@ -385,15 +457,75 @@ do_check_timer(WaitFor, Factor, Incr, Retry) ->
 
 %% ---------
 
-check_ip(X) when is_list(X) andalso (length(X) =:= 4) ->
+check_domain(Domain) ->
+    SupportedDomains = 
+	[
+	 snmpUDPDomain, 
+	 transportDomainUdpIpv4,
+	 transportDomainUdpIpv6
+	],
+    AllDomains = 
+	[
+	 transportDomainUdpIpv4, 
+	 transportDomainUdpIpv6, 
+	 transportDomainUdpIpv4z, 
+	 transportDomainUdpIpv6z, 
+	 transportDomainTcpIpv4, 
+	 transportDomainTcpIpv6, 
+	 transportDomainTcpIpv4z, 
+	 transportDomainTcpIpv6z, 
+	 transportDomainSctpIpv4, 
+	 transportDomainSctpIpv6, 
+	 transportDomainSctpIpv4z, 
+	 transportDomainSctpIpv6z, 
+	 transportDomainLocal, 
+	 transportDomainUdpDns, 
+	 transportDomainTcpDns,
+	 transportDomainSctpDns
+	],
+    case lists:member(Domain, SupportedDomains) of
+	true ->
+	    ok;
+	false ->
+	    case lists:member(Domain, AllDomains) of
+		true ->
+		    error({unsupported_domain, Domain});
+		false ->
+		    error({unknown_domain, Domain})
+	    end
+    end.
+	    
+
+%% ---------
+
+check_ip(X) ->
+    check_ip(snmpUDPDomain, X).
+
+check_ip(snmpUDPDomain, X) ->
+    check_ip(transportDomainUdpIpv4, X);
+check_ip(transportDomainUdpIpv4, X) when is_list(X) andalso (length(X) =:= 4) ->
     case (catch all_integer(X)) of
 	true  -> 
 	    ok;
 	false -> 
 	    error({invalid_ip_address, X})
     end;
-check_ip(X) ->
-    error({invalid_ip_address, X}).
+check_ip(transportDomainUdpIpv4, X) ->
+    error({invalid_ip_address, X});
+
+check_ip(transportDomainUdpIpv6, X) when is_list(X) andalso (length(X) =:= 8) ->
+    case (catch all_integer(X)) of
+	true  -> 
+	    ok;
+	false -> 
+	    error({invalid_ip_address, X})
+    end;
+check_ip(transportDomainUdpIpv6, X) ->
+    error({invalid_ip_address, X});
+
+check_ip(BadDomain, _X) ->
+    error({invalid_domain, BadDomain}).
+
 
 
 %% ---------
