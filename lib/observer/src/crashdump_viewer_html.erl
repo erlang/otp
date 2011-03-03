@@ -726,7 +726,8 @@ atoms(SessionId,TW,Num,FirstChunk) ->
     Heading = "Atoms",
     case FirstChunk of
 	done ->
-	    deliver_first(SessionId,[h1(Heading),
+	    deliver_first(SessionId,[start_html_page(Heading),
+				     h1(Heading),
 				     warn(TW),
 				     "No atoms were found in log",br(),
 				     "Total number of atoms in node was ", Num, 

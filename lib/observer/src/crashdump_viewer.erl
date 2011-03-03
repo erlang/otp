@@ -1242,9 +1242,9 @@ indexify(Fd,Bin,N) ->
 		    {Chunk,N1} =
 			case binary:last(Bin) of
 			    $\n ->
-				{<<$\n,Chunk0/binary>>,N+size(Bin)-1};
+				{<<$\n,Chunk0/binary>>,N+byte_size(Bin)-1};
 			    _ ->
-				{Chunk0,N+size(Bin)}
+				{Chunk0,N+byte_size(Bin)}
 			end,
 		    indexify(Fd,Chunk,N1);
 		eof ->
@@ -2244,9 +2244,13 @@ atoms(SessionId,File,TW,Num) ->
 	[{_Id,Start}] ->
 	    Fd = open(File),
 	    pos_bof(Fd,Start),
-	    {Atoms,Cont} = get_atoms(Fd,1000),
-	    crashdump_viewer_html:atoms(SessionId,TW,Num,Atoms),
-	    atoms_chunks(Fd,SessionId,Cont);
+	    case get_atoms(Fd,?items_chunk_size) of
+		{Atoms,Cont} ->
+		    crashdump_viewer_html:atoms(SessionId,TW,Num,Atoms),
+		    atoms_chunks(Fd,SessionId,Cont);
+		done ->
+		    crashdump_viewer_html:atoms(SessionId,TW,Num,done)
+	    end;
 	_ ->
 	    crashdump_viewer_html:atoms(SessionId,TW,Num,done)
     end.
@@ -2254,20 +2258,25 @@ atoms(SessionId,File,TW,Num) ->
 get_atoms(Fd,Number) ->
     case get_n_lines_of_tag(Fd,Number) of
 	{all,_,Lines} ->
+	    close(Fd),
 	    {Lines,done};
 	{part,_,Lines} ->
 	    {Lines,Number};
 	empty ->
-	    {[],done}
+	    close(Fd),
+	    done
     end.
 
-atoms_chunks(Fd,SessionId,done) ->
-    close(Fd),
+atoms_chunks(_Fd,SessionId,done) ->
     crashdump_viewer_html:atoms_chunk(SessionId,done);
 atoms_chunks(Fd,SessionId,Number) ->
-    {Atoms,Cont} = get_atoms(Fd,Number),
-    crashdump_viewer_html:atoms_chunk(SessionId,Atoms),
-    atoms_chunks(Fd,SessionId,Cont).
+    case get_atoms(Fd,Number) of
+	{Atoms,Cont} ->
+	    crashdump_viewer_html:atoms_chunk(SessionId,Atoms),
+	    atoms_chunks(Fd,SessionId,Cont);
+	done ->
+	    atoms_chunks(Fd,SessionId,done)
+    end.
 
 
 %%-----------------------------------------------------------------
