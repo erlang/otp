@@ -27,9 +27,9 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("test_server.hrl").
 -include("test_server_line.hrl").
+-include("../src/ssh.hrl").
 
 -define(TIMEOUT, 50000).
--define(SSH_DEFAULT_PORT, 22).
 
 connect(Options) ->
     connect(hostname(), inet_port(), Options).
@@ -243,45 +243,31 @@ get_user_dir() ->
     end.
 
 
-%% Create certificates.
-make_dsa_cert(Config) ->
-    
-    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_dsa_cert_files("server", Config),
-    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_dsa_cert_files("client", Config),
-    [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
-				 {cacertfile, ServerCaCertFile},
-				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_dsa_verify_opts, [{ssl_imp, new},{reuseaddr, true}, 
-			       {cacertfile, ClientCaCertFile},
-			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-			       {verify, verify_peer}]},
-     {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
-			{cacertfile, ClientCaCertFile},
-			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
-     | Config].
+make_dsa_cert_files(Config) ->    
+    make_dsa_cert_files("", Config).
 
-
-    
 make_dsa_cert_files(RoleStr, Config) ->    
+    
     CaInfo = {CaCert, _} = make_cert([{key, dsa}]),
     {Cert, CertKey} = make_cert([{key, dsa}, {issuer, CaInfo}]),
-    CaCertFile = filename:join(["/home/nick/trash/ssh/", 
-				RoleStr, "dsa_cacerts.pem"]),
-    CertFile = filename:join(["/home/nick/trash/ssh/", 
-			      RoleStr, "dsa_cert.pem"]),
-    KeyFile = filename:join(["/home/nick/trash/ssh/", 
-				   RoleStr, "dsa_key.pem"]),
-%%     CaCertFile = filename:join([?config(priv_dir, Config), 
-%% 				RoleStr, "dsa_cacerts.pem"]),
-%%     CertFile = filename:join([?config(priv_dir, Config), 
-%% 			      RoleStr, "dsa_cert.pem"]),
-%%     KeyFile = filename:join([?config(priv_dir, Config), 
-%% 				   RoleStr, "dsa_key.pem"]),
+    CaCertFile = filename:join([?config(data_dir, Config), 
+ 				RoleStr, "dsa_cacerts.pem"]),
+    CertFile = filename:join([?config(data_dir, Config), 
+ 			      RoleStr, "dsa_cert.pem"]),
+    KeyFile = filename:join([?config(data_dir, Config), 
+			     RoleStr, "dsa_key.pem"]),
     
     der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
     der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
     der_to_pem(KeyFile, [CertKey]),
     {CaCertFile, CertFile, KeyFile}.
+
+make_dsa_public_key_file(P, Q, G, Y, Config) ->
+    PK = #ssh_key{type = dsa, public = {P,Q,G,Y}},
+    Enc = ssh_file:encode_public_key(PK),
+    B64 = ssh_bits:b64_encode(Enc),
+    FileName = filename:join([?config(data_dir, Config), "ssh_host_dsa_key.pub"]),
+    file:write_file(FileName, <<"ssh-dss ", B64/binary>>).
 
 
 %%--------------------------------------------------------------------
@@ -318,13 +304,13 @@ make_cert(Opts) ->
     {Cert, encode_key(SubjectPrivateKey)}.
 
 %%--------------------------------------------------------------------
-%% Writes pem files in Dir with FileName ++ ".pem" and FileName ++ "_key.pem"
-%% write_pem(::string(), ::string(), {Cert,Key}) -> ok
+%% Writes cert files in Dir with FileName and FileName ++ Suffix
+%% write_cert(::string(), ::string(), {Cert,Key}) -> ok
 %%--------------------------------------------------------------------
-write_pem(Dir, FileName, {Cert, Key = {_,_,not_encrypted}}) when is_binary(Cert) ->
-    ok = der_to_pem(filename:join(Dir, FileName ++ ".pem"),
+write_cert(Dir, FileName, Suffix, {Cert, Key = {_,_,not_encrypted}}) when is_binary(Cert) ->
+    ok = der_to_pem(filename:join(Dir, FileName),
 			       [{'Certificate', Cert, not_encrypted}]),
-    ok = der_to_pem(filename:join(Dir, FileName ++ "_key.pem"), [Key]).
+    ok = der_to_pem(filename:join(Dir, FileName ++ Suffix), [Key]).
 
 %%--------------------------------------------------------------------
 %% Creates a rsa key (OBS: for testing only)
