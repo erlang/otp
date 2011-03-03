@@ -1282,17 +1282,18 @@ b</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:get_stacktrace() -> [{Module, Function, Arity | Args}]</name>
+      <name>erlang:get_stacktrace() -> [{Module, Function, Arity | Args, Location}]</name>
       <fsummary>Get the call stack back-trace of the last exception</fsummary>
       <type>
         <v>Module = Function = atom()</v>
         <v>Arity = arity()</v>
         <v>Args = [term()]</v>
+	<v>Location = [{atom(),term()}]</v>
       </type>
       <desc>
         <p>Get the call stack back-trace (<em>stacktrace</em>) of the last
           exception in the calling process as a list of 
-          <c>{Module,Function,Arity}</c> tuples.
+          <c>{Module,Function,Arity,Location}</c> tuples.
           The <c>Arity</c> field in the first tuple may be the argument
           list of that function call instead of an arity integer,
           depending on the exception.</p>
@@ -1302,6 +1303,25 @@ b</pre>
         <p>The stacktrace is the same data as the <c>catch</c> operator
           returns, for example:</p>
         <p><c>{'EXIT',{badarg,Stacktrace}} = catch abs(x)</c></p>
+	<p><c>Location</c> is a (possibly empty) list of two-tuples that
+	  may indicate the location in the source code of the function.
+	  The first element is an atom that describes the type of
+	  information in the second element. Currently the following
+	  items may occur:</p>
+	<taglist>
+	  <tag><c>file</c></tag>
+	  <item>
+	    <p>The second element of the tuple is a string (list of
+	      characters) representing the filename of the source file
+	      of the function.</p>
+	  </item>
+	  <tag><c>line</c></tag>
+	  <item>
+	    <p>The second element of the tuple is the line number
+	      (an integer greater than zero) in the source file
+	      where the exception occurred or the function was called.</p>
+	  </item>
+	</taglist>
         <p>See also
           <seealso marker="#error/1">erlang:error/1</seealso> and
           <seealso marker="#error/2">erlang:error/2</seealso>.</p>
@@ -4095,11 +4115,14 @@ os_prompt%</pre>
           equivalent to <c>erlang:Class(Reason)</c>.
           <c>Reason</c> is any term and <c>Stacktrace</c> is a list as
           returned from <c>get_stacktrace()</c>, that is a list of
-          3-tuples <c>{Module, Function, Arity | Args}</c> where
-          <c>Module</c> and <c>Function</c> are atoms and the third
-          element is an integer arity or an argument list. The
-          stacktrace may also contain <c>{Fun, Args}</c> tuples where
+          4-tuples <c>{Module, Function, Arity | Args,
+          Location}</c> where <c>Module</c> and <c>Function</c>
+          are atoms and the third element is an integer arity or an
+          argument list. The stacktrace may also contain <c>{Fun,
+          Args, Location}</c> tuples where
           <c>Fun</c> is a local fun and <c>Args</c> is an argument list.</p>
+	<p>The <c>Location</c> element at the end is optional.
+	  Omitting it is equivalent to specifying an empty list.</p>
         <p>The stacktrace is used as the exception stacktrace for the
           calling process; it will be truncated to the current
           maximum stacktrace depth.</p>
