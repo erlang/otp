@@ -636,7 +636,6 @@ process_taddrs([{{_Domain, AddrAndPort}, _SecData}|T], Acc) ->
 process_taddrs([{_Domain, AddrAndPort}|T], Acc) ->
     process_taddrs(T, [AddrAndPort|Acc]).
 
-
 merge_taddrs(To1, To2) ->
     merge_taddrs(To1, To2, []).
 
