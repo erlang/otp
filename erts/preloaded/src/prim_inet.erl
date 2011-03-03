@@ -1518,7 +1518,7 @@ enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 4 ->
     [?INET_AF_INET,?int16(Port)|ip4_to_bytes(IP)];
 enc_value_2(addr, {IP,Port}) when tuple_size(IP) =:= 8 ->
     [?INET_AF_INET6,?int16(Port)|ip6_to_bytes(IP)];
-enc_value_2(ether, [X1,X2,X3,X4,X5,X6]) -> [X1,X2,X3,X4,X5,X6];
+enc_value_2(ether, [_,_,_,_,_,_]=Xs) -> Xs;
 enc_value_2(sockaddr, any) ->
     [?INET_AF_ANY];
 enc_value_2(sockaddr, loopback) ->
@@ -1572,7 +1572,7 @@ dec_value(time, [X3,X2,X1,X0|T]) ->
 	Val -> {Val, T}
     end;
 dec_value(ip, [A,B,C,D|T])             -> {{A,B,C,D}, T};
-dec_value(ether,[X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
+%% dec_value(ether, [X1,X2,X3,X4,X5,X6|T]) -> {[X1,X2,X3,X4,X5,X6],T};
 dec_value(sockaddr, [X|T]) ->
     get_ip(X, T);
 dec_value(linkaddr, [X1,X0|T]) ->
