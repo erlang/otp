@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -34,6 +34,21 @@
   
   <section><title>Inets 5.5.1</title>
 
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>
+	    Miscellaneous inet6 related problems.</p>
+          <p>Own Id: OTP-8927</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -52,6 +67,10 @@
       </list>
     </section>
 
+  </section> <!-- 5.5.2 -->
+
+
+  <section><title>Inets 5.5.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
@@ -73,9 +92,28 @@
       </list>
     </section>
 
-</section>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix format_man_pages so it handles all man sections
+	    and remove warnings/errors in various man pages. </p>
+          <p>
+	    Own Id: OTP-8600</p>
+        </item>
+        <item>
+          <p>
+	    [httpc] Pipelined and queued requests not processed when
+	    connection closed remotelly.</p>
+          <p>
+	    Own Id: OTP-8906</p>
+        </item>
+      </list>
+    </section>
 
-<section><title>Inets 5.5</title>
+  </section> <!-- 5.5.1 -->
+
+
+  <section><title>Inets 5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -120,9 +158,10 @@
       </list>
     </section>
 
-</section>
+  </section> <!-- 5.5 -->
 
-<section><title>Inets 5.4</title>
+
+  <section><title>Inets 5.4</title>
 
     <section><title>Improvements and New Features</title>
 <!--
