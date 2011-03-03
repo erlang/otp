@@ -169,36 +169,41 @@ all() ->
 
 groups() -> 
     [{start_and_stop, [],
-  [simple_start_and_stop, start_without_mandatory_opts1,
-   start_without_mandatory_opts2,
-   start_with_all_valid_opts, start_with_unknown_opts,
-   start_with_incorrect_opts,
-   start_with_invalid_manager_conf_file1,
-   start_with_invalid_users_conf_file1,
-   start_with_invalid_agents_conf_file1,
-   start_with_invalid_usm_conf_file1]},
- {normal_op, [],
-  [{group, system}, {group, agents}, {group, users},
-   {group, usm_users}, {group, counter},
-   {group, stats_counter}]},
- {system, [], [simple_system_op]},
- {users, [],
-  [register_user_using_file, register_user_using_function,
-   register_user_failed_using_function1]},
- {agents, [],
-  [register_agent_using_file,
-   register_agent_using_function,
-   register_agent_failed_using_function1]},
- {usm_users, [],
-  [register_usm_user_using_file,
-   register_usm_user_using_function,
-   register_usm_user_failed_using_function1,
-   update_usm_user_info]},
- {counter, [], [create_and_increment]},
- {stats_counter, [], [stats_create_and_increment]},
- {tickets, [], [otp_7219, {group, otp_8395}]},
- {otp_8395, [],
-  [otp_8395_1, otp_8395_2, otp_8395_3, otp_8395_4]}].
+      [simple_start_and_stop, 
+       start_without_mandatory_opts1,
+       start_without_mandatory_opts2,
+       start_with_all_valid_opts, start_with_unknown_opts,
+       start_with_incorrect_opts,
+       start_with_invalid_manager_conf_file1,
+       start_with_invalid_users_conf_file1,
+       start_with_invalid_agents_conf_file1,
+       start_with_invalid_usm_conf_file1]},
+     {normal_op, [],
+      [{group, system}, 
+       {group, agents}, 
+       {group, users},
+       {group, usm_users}, 
+       {group, counter},
+       {group, stats_counter}]},
+     {system, [], [simple_system_op]},
+     {users, [],
+      [register_user_using_file, 
+       register_user_using_function,
+       register_user_failed_using_function1]},
+     {agents, [],
+      [register_agent_using_file,
+       register_agent_using_function,
+       register_agent_failed_using_function1]},
+     {usm_users, [],
+      [register_usm_user_using_file,
+       register_usm_user_using_function,
+       register_usm_user_failed_using_function1,
+       update_usm_user_info]},
+     {counter, [], [create_and_increment]},
+     {stats_counter, [], [stats_create_and_increment]},
+     {tickets, [], [otp_7219, {group, otp_8395}]},
+     {otp_8395, [],
+      [otp_8395_1, otp_8395_2, otp_8395_3, otp_8395_4]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -816,7 +821,10 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     p("start"),
     process_flag(trap_exit, true),
     ConfDir = ?config(manager_conf_dir, Conf),
-    DbDir = ?config(manager_db_dir, Conf),
+    DbDir   = ?config(manager_db_dir, Conf),
+
+    verify_dir_existing(conf, ConfDir),
+    verify_dir_existing(db,   DbDir),
 
     Opts = [{versions, [v1]}, 
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
@@ -917,7 +925,10 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     p("start"),
     process_flag(trap_exit, true),
     ConfDir = ?config(manager_conf_dir, Conf),
-    DbDir = ?config(manager_db_dir, Conf),
+    DbDir   = ?config(manager_db_dir, Conf),
+
+    verify_dir_existing(conf, ConfDir),
+    verify_dir_existing(db,   DbDir),
 
     Opts = [{versions, [v1]}, 
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
@@ -2022,7 +2033,6 @@ register_usm_user_using_file(Conf) when is_list(Conf) ->
     %% --
     p("done"),
     ok.
-%% ?SKIP(not_yet_implemented).
 
 
 %% 
@@ -2651,9 +2661,21 @@ write_usm_conf2(Dir, Str) ->
 
 
 write_conf_file(Dir, File, Str) ->
-    ?line {ok, Fd} = file:open(filename:join(Dir, File), write),
-    ?line ok = io:format(Fd, "~s", [Str]),
-    file:close(Fd).
+    case file:open(filename:join(Dir, File), write) of
+	{ok, Fd} ->
+	    ?line ok = io:format(Fd, "~s", [Str]),
+	    file:close(Fd);
+	{error, Reason} ->
+	    Info = 
+		[{dir, Dir, case (catch file:read_file_info(Dir)) of
+				{ok, FI} -> 
+				    FI;
+				_ ->
+				    undefined
+			    end},
+		 {file, File}], 
+	    exit({failed_writing_conf_file, Info, Reason})
+    end.
 
 
 maybe_start_crypto() ->
@@ -2674,6 +2696,17 @@ maybe_stop_crypto() ->
 	_ ->
 	    %% There is nothing to stop in this version of crypto..
 	    ok
+    end.
+
+
+%% ------
+
+verify_dir_existing(DirName, Dir) ->
+    case file:read_file_info(Dir) of
+	{ok, _} ->
+	    ok;
+	{error, Reason} ->
+	    exit({non_existing_dir, DirName, Dir, Reason})
     end.
 
 

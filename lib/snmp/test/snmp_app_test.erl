@@ -300,6 +300,25 @@ undef_funcs(Config) when is_list(Config) ->
     xref:stop(XRef),
     analyze_undefined_function_calls(Undefs, Mods, []).
 
+valid_undef(crypto = CalledMod) ->
+    case (catch CalledMod:version()) of
+        Version when is_list(Version) ->
+	    %% The called module was crypto and the version 
+	    %% function returns a valid value. 
+	    %% This means that the function is
+	    %% actually undefined...
+	    true;
+	_ ->
+	    %% The called module was crypto but the version 
+	    %% function does *not* return a valid value.
+	    %% This means the crypto was not actually not
+	    %% build, which is an case snmp handles.
+	    false
+    end;
+valid_undef(_) ->
+    true.
+
+    
 analyze_undefined_function_calls([], _, []) ->
     ok;
 analyze_undefined_function_calls([], _, AppUndefs) ->
@@ -312,14 +331,25 @@ analyze_undefined_function_calls([{{Mod, _F, _A}, _C} = AppUndef|Undefs],
             {Calling,Called} = AppUndef,
             {Mod1,Func1,Ar1} = Calling,
             {Mod2,Func2,Ar2} = Called,
-            io:format("undefined function call: "
-                      "~n   ~w:~w/~w calls ~w:~w/~w~n",
-                      [Mod1,Func1,Ar1,Mod2,Func2,Ar2]),
-            analyze_undefined_function_calls(Undefs, AppModules,
-                                             [AppUndef|AppUndefs]);
+	    %% If the called module is crypto, then we will *not*
+	    %% fail if crypto is not built (since crypto is actually 
+	    %% not built for all platforms)
+	    case valid_undef(Mod2) of
+		true ->
+		    io:format("undefined function call: "
+			      "~n   ~w:~w/~w calls ~w:~w/~w~n",
+			      [Mod1,Func1,Ar1,Mod2,Func2,Ar2]),
+		    analyze_undefined_function_calls(
+		      Undefs, AppModules, [AppUndef|AppUndefs]);
+		false ->
+		    io:format("skipping ~p (calling ~w:~w/~w)~n", 
+			      [Mod, Mod2, Func2, Ar2]),
+		    analyze_undefined_function_calls(Undefs, 
+						     AppModules, AppUndefs)
+	    end;
         false ->
-            io:format("dropping ~p~n", [Mod]),
-            analyze_undefined_function_calls(Undefs, AppModules, AppUndefs)
+	    io:format("dropping ~p~n", [Mod]),
+	    analyze_undefined_function_calls(Undefs, AppModules, AppUndefs)
     end.
 
 %% This function is used simply to avoid cut-and-paste errors later...
