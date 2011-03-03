@@ -48,7 +48,7 @@
 
 	 %% target_addr.conf
 	 target_addr_entry/5, target_addr_entry/6, 
-	 target_addr_entry/8, target_addr_entry/10, 
+	 target_addr_entry/8, target_addr_entry/10, target_addr_entry/11, 
 	 write_target_addr_config/2, write_target_addr_config/3, 
 	 append_target_addr_config/2, 
 	 read_target_addr_config/1, 
@@ -447,7 +447,23 @@ target_addr_entry(Name,
 		  EngineId,
 		  TMask, 
 		  MaxMessageSize) ->
+    target_addr_entry(Name, snmp_target_mib:default_domain(), Ip, Udp, 
+		      Timeout, RetryCount, TagList, ParamsName,  EngineId, 
+		      TMask, MaxMessageSize).
+
+target_addr_entry(Name, 
+		  Domain, 
+		  Ip, 
+		  Udp, 
+		  Timeout, 
+		  RetryCount, 
+		  TagList, 
+		  ParamsName, 
+		  EngineId,
+		  TMask, 
+		  MaxMessageSize) ->
     {Name, 
+     Domain, 
      Ip, 
      Udp, 
      Timeout, 
@@ -465,9 +481,13 @@ write_target_addr_config(Dir, Conf) ->
 "%% The data is inserted into the snmpTargetAddrTable defined\n"
 "%% in SNMP-TARGET-MIB, and in the snmpTargetAddrExtTable defined\n"
 "%% in SNMP-COMMUNITY-MIB.\n"
-"%% Each row is a 10-tuple:\n"
-"%% {Name, Ip, Udp, Timeout, RetryCount, TagList, ParamsName, EngineId,\n"
-"%%        TMask, MaxMessageSize}.\n"
+"%% Each row is a 10 or 11-tuple (Domain is optional):\n"
+"%% {Name, \n"
+"%%  Domain, Ip, Udp, \n"
+"%%  Timeout, RetryCount, TagList, ParamsName, EngineId,\n"
+"%%  TMask, MaxMessageSize}.\n"
+"%% The value of Domain deside the format of the Ip and TMask values. \n"
+"%% If not present, classic Ipv4 is assumed. \n"
 "%% The EngineId value is only used if Inform-Requests are sent to this\n"
 "%% target.  If Informs are not sent, this value is ignored, and can be\n"
 "%% e.g. an empty string.  However, if Informs are sent, it is essential\n"
@@ -524,13 +544,14 @@ write_target_addr_conf(Fd, Conf) ->
     lists:foreach(Fun, Conf).
 
 do_write_target_addr_conf(Fd,
-			  {Name, Ip, Udp,
+			  {Name, 
+			   Domain, Ip, Udp,
 			   Timeout, RetryCount, TagList,
 			   ParamsName, EngineId,
 			   TMask, MaxMessageSize}) ->
     io:format(Fd, 
-	      "{\"~s\", ~w, ~w, ~w, ~w, \"~s\", \"~s\", \"~s\", ~w, ~w}.~n",
-              [Name, Ip, Udp, Timeout, RetryCount, TagList,
+	      "{\"~s\", ~w, ~w, ~w, ~w, ~w, \"~s\", \"~s\", \"~s\", ~w, ~w}.~n",
+              [Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
                ParamsName, EngineId, TMask, MaxMessageSize]);
 do_write_target_addr_conf(_Fd, Crap) ->
     error({bad_target_addr_config, Crap}).
@@ -546,13 +567,13 @@ target_params_entry(Name, Vsn) ->
     target_params_entry(Name, Vsn, SecName, SecLevel).
 
 target_params_entry(Name, Vsn, SecName, SecLevel) ->
-    MPModel = if Vsn == v1 -> v1;
-		 Vsn == v2 -> v2c;
-		 Vsn == v3 -> v3
+    MPModel = if Vsn =:= v1 -> v1;
+		 Vsn =:= v2 -> v2c;
+		 Vsn =:= v3 -> v3
 	      end,
-    SecModel = if Vsn == v1 -> v1;
-		  Vsn == v2 -> v2c;
-		  Vsn == v3 -> usm
+    SecModel = if Vsn =:= v1 -> v1;
+		  Vsn =:= v2 -> v2c;
+		  Vsn =:= v3 -> usm
 	       end,
     target_params_entry(Name, MPModel, SecModel, SecName, SecLevel).
 

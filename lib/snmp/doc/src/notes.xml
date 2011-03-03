@@ -45,6 +45,10 @@
       <list type="bulleted">
         <item>
           <p>[agent] Added support for sending traps to IPv6 targets. </p>
+	  <p>See the 
+	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>, 
+	  the <seealso marker="snmpa_conf#target_addr_entry">target_addr_entry/11</seealso> function or 
+	  <seealso marker="snmp_target_mib#add_addr">add_addr/11</seealso> for more info. </p>
           <p>Own Id: OTP-9088</p>
           <p>Aux Id: Seq 11790</p>
         </item>

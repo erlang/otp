@@ -29,6 +29,7 @@
 -export([add_addr/10,  delete_addr/1,
 	 add_params/5, delete_params/1]).
 -export([check_target_addr/1, check_target_params/1]).
+-export([default_domain/0]).
 
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/snmp_tables.hrl").
@@ -47,6 +48,12 @@
 %% Extra comlumns for the augmented table snmpTargetAddrExtTable
 -define(snmpTargetAddrTMask, 11).
 -define(snmpTargetAddrMMS, 12).
+
+
+%%-----------------------------------------------------------------
+
+default_domain() ->
+    snmpUDPDomain.
 
 
 %%-----------------------------------------------------------------
@@ -140,8 +147,6 @@ read_target_config_files(Dir) ->
 %%  {Name, Ip, Udp, Timeout, RetryCount, TagList, Params, EngineId,
 %%   TMask, MMS}
 %%-----------------------------------------------------------------
-default_domain() ->
-    snmpUDPDomain.
 
 check_target_addr({Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
 		   Params, EngineId, TMask, MMS}) ->
@@ -172,7 +177,7 @@ check_target_addr({Name, Domain, Ip, Udp, Timeout, RetryCount, TagList,
     check_engine_id(EngineId),
     TAddress = snmp_conf:mk_taddress(Domain, Ip, Udp),
     TDomain  = snmp_conf:mk_tdomain(Domain), 
-    check_mask(TDomain, TMask, TAddress),
+    check_tmask(TDomain, TMask, TAddress),
     snmp_conf:check_packet_size(MMS),
     ?vtrace("check target address done",[]),
     Addr = {Name, TDomain, TAddress, Timeout,
@@ -210,12 +215,12 @@ check_engine_id(EngineId) ->
     snmp_conf:check_string(EngineId).
 
 
-check_mask(_TDomain, [], _TAddress) ->
+check_tmask(_TDomain, [], _TAddress) ->
     ok;
-check_mask(TDomain, TMask, TAddress) when length(TMask) =:= length(TAddress) ->
+check_tmask(TDomain, TMask, TAddress) when length(TMask) =:= length(TAddress) ->
     snmp_conf:check_taddress(TDomain, TMask);
-check_mask(_TDomain, TMask, _TAddr) ->
-    throw({error, {invalid_mask, TMask}}).
+check_tmask(_TDomain, TMask, _TAddr) ->
+    throw({error, {invalid_tmask, TMask}}).
 
 
 %%-----------------------------------------------------------------
@@ -637,7 +642,7 @@ snmpTargetAddrTable(get, RowIndex, Cols) ->
 snmpTargetAddrTable(get_next, RowIndex, Cols) ->
     next(snmpTargetAddrTable, RowIndex, Cols);
 snmpTargetAddrTable(set, RowIndex, Cols0) ->
-    %% BMK BMK BMK
+    %% BMK BMK
     case (catch verify_targetAddrTable_cols(Cols0)) of
 	{ok, Cols} ->
 	    snmp_notification_mib:invalidate_cache(),
