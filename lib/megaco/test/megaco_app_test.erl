@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,11 +42,17 @@ init_per_testcase(Case, Config) ->
 end_per_testcase(Case, Config) ->
     megaco_test_lib:end_per_testcase(Case, Config).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [fields, modules, exportall, app_depend,
-     undef_funcs].
+    [
+     fields, 
+     modules, 
+     exportall, 
+     app_depend,
+     undef_funcs
+    ].
 
 groups() -> 
     [].
@@ -112,7 +118,7 @@ fields(doc) ->
     [];
 fields(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
-    Fields = [vsn, description, modules, registered, applications],
+    Fields  = [vsn, description, modules, registered, applications],
     case check_fields(Fields, AppFile, []) of
 	[] ->
 	    ok;
