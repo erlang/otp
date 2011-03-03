@@ -33,13 +33,14 @@
 	 send_inform/6]).
 -export([init_discovery_inform/12, send_discovery_inform/5]).
 
--include("snmp_types.hrl").
--include("snmpa_internal.hrl").
--include("SNMPv2-MIB.hrl").
--include("SNMPv2-TM.hrl").
--include("SNMPv2-TC.hrl").
--include("SNMP-FRAMEWORK-MIB.hrl").
--include("SNMP-TARGET-MIB.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/src/agent/snmpa_internal.hrl").
+-include_lib("snmp/include/SNMPv2-MIB.hrl").
+-include_lib("snmp/include/SNMPv2-TM.hrl").
+-include_lib("snmp/include/SNMPv2-TC.hrl").
+-include_lib("snmp/include/SNMP-FRAMEWORK-MIB.hrl").
+-include_lib("snmp/include/SNMP-TARGET-MIB.hrl").
+-include_lib("snmp/include/TRANSPORT-ADDRESS-MIB.hrl").
 -define(enterpriseSpecific, 6).
 
 
@@ -1001,8 +1002,26 @@ transform_taddr({?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}) -> % v2
     Addr = {A1, A2, A3, A4},
     Port = P1 bsl 8 + P2,
     {Addr, Port};
+transform_taddr({?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}) -> % v2
+    Addr = {A1, A2, A3, A4},
+    Port = P1 bsl 8 + P2,
+    {Addr, Port};
+transform_taddr({?transportDomainUdpIpv6, 
+		 [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}) -> % v2
+    Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
+    Port = P1 bsl 8 + P2,
+    {Addr, Port};
 transform_taddr({{?snmpUDPDomain, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
     Addr = {A1, A2, A3, A4},
+    Port = P1 bsl 8 + P2,
+    {Addr, Port};
+transform_taddr({{?transportDomainUdpIpv4, [A1, A2, A3, A4, P1, P2]}, _MsgData}) -> % v3
+    Addr = {A1, A2, A3, A4},
+    Port = P1 bsl 8 + P2,
+    {Addr, Port};
+transform_taddr({{?transportDomainUdpIpv6, 
+		  [A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]}, _MsgData}) -> % v3
+    Addr = {A1, A2, A3, A4, A5, A6, A7, A8},
     Port = P1 bsl 8 + P2,
     {Addr, Port}.
 
@@ -1059,6 +1078,7 @@ mic([{Addr, Comm} | T], CurComm, AddrList, Res) ->
     mic(T, Comm, [Addr], [{CurComm, AddrList} | Res]);
 mic([], CurComm, AddrList, Res) ->
     [{CurComm, AddrList} | Res].
+
 
 %%-----------------------------------------------------------------
 %% Convert the SecurityLevel into a flag value used by snmpa_mpd
