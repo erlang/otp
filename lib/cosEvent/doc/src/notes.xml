@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,6 +33,22 @@
   </header>
 
   <section>
+    <title>cosEvent 2.1.10</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Eliminated Dialyzer warnings when using exit or throw.</p>
+          <p>
+            Own Id: OTP-9050 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>cosEvent 2.1.9</title>
 
     <section>
@@ -59,16 +75,6 @@
             Removed the usage of the codeinclude tag in the documentation.</p>
           <p>
             Own Id: OTP-8409 Aux Id:</p>
-        </item>
-      </list>
-    </section>
-
-    <section>
-      <title>Fixed Bugs and Malfunctions</title>
-      <list type="bulleted">
-        <item>
-          <p>The documentation EIX file was not generated.</p>
-          <p>Own id: OTP-8355 Aux Id:</p>
         </item>
       </list>
     </section>

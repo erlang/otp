@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1391,7 +1391,7 @@ light_orber2_api(_Config) ->
     LocalHost = net_adm:localhost(),
     {ok, Node, _Host} = 
 	?match({ok,_,_}, orber_test_lib:js_node([], 
-						{lightweigth, ["iiop://"++LocalHost++":"++integer_to_list(orber:iiop_port())]})),
+						{lightweight, ["iiop://"++LocalHost++":"++integer_to_list(orber:iiop_port())]})),
     ?match(ok, orber:info(io)),
     ?match([_], orber_test_lib:remote_apply(Node, orber_env, get_lightweight_nodes,[])),
     
