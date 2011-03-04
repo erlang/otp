@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -6176,7 +6176,6 @@ componentrelation_leadingattr(_,[],_CompList,[],NewCompList) ->
     {false,lists:reverse(NewCompList)};
 componentrelation_leadingattr(_,[],_CompList,LeadingAttr,NewCompList) ->
     {lists:last(LeadingAttr),lists:reverse(NewCompList)}; %send all info in Ts later
-
 componentrelation_leadingattr(S,[C= #'ComponentType'{}|Cs],CompList,Acc,CompAcc) ->
     {LAAcc,NewC} =
 	case catch componentrelation1(S,C#'ComponentType'.typespec,
@@ -6229,7 +6228,10 @@ componentrelation_leadingattr(S,[C= #'ComponentType'{}|Cs],CompList,Acc,CompAcc)
 		{[],C}
 	end,
     componentrelation_leadingattr(S,Cs,CompList,LAAcc++Acc,
-				  [NewC|CompAcc]).
+				  [NewC|CompAcc]);
+componentrelation_leadingattr(S,[NotComponentType|Cs],CompList,LeadingAttr,NewCompList) ->
+    componentrelation_leadingattr(S,Cs,CompList,LeadingAttr,[NotComponentType|NewCompList]).
+
 
 object_set_mod_name(_S,ObjSet) when is_atom(ObjSet) ->
     ObjSet;
