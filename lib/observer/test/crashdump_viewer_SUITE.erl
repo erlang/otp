@@ -669,7 +669,7 @@ rename(From,To) ->
     end.
 
 check_complete(File) ->
-    check_complete1(File,5).
+    check_complete1(File,10).
 
 check_complete1(_File,0) ->
     {error,enoent};
