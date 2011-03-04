@@ -4636,7 +4636,8 @@ t_process_priority_level() ->
   t_sup([t_atom('max'), t_atom('high'), t_atom('normal'), t_atom('low')]).
 
 t_process_status() ->
-  t_sup([t_atom('runnable'), t_atom('running'),
+  t_sup([t_atom('exiting'), t_atom('garbage_collecting'),
+	 t_atom('runnable'), t_atom('running'),
 	 t_atom('suspended'), t_atom('waiting')]).
 
 t_raise_errorclass() ->
