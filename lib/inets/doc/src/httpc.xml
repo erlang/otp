@@ -89,7 +89,11 @@ headers()       = [header()]
 header()        = {field(), value()}
 field()         = string() 
 value()         = string() 
-body()          = string() | binary() 
+body()            = string() | binary() |
+                    {fun(acc()) -> send_fun_result(), acc()} |
+                    {chunkify, fun(acc()) -> send_fun_result(), acc()}
+send_fun_result() = eof | {ok, iolist(), acc()}
+acc()             = term()
 filename()      = string() 
     ]]></code>
 

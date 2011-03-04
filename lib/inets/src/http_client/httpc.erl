@@ -126,7 +126,10 @@ request(Url, Profile) ->
 %%      Header = {Field, Value}
 %%	Field = string()
 %%	Value = string()
-%%	Body = string() | binary() - HTLM-code
+%%	Body = string() | binary() | {fun(SendAcc) -> SendFunResult, SendAcc} |
+%%              {chunkify, fun(SendAcc) -> SendFunResult, SendAcc} - HTLM-code
+%%      SendFunResult = eof | {ok, iolist(), NewSendAcc}
+%%      SendAcc = NewSendAcc = term()
 %%
 %% Description: Sends a HTTP-request. The function can be both
 %% syncronus and asynchronous in the later case the function will
@@ -426,11 +429,20 @@ service_info(Pid) ->
 
 handle_request(Method, Url, 
 	       {Scheme, UserInfo, Host, Port, Path, Query}, 
-	       Headers, ContentType, Body, 
+	       Headers0, ContentType, Body0,
 	       HTTPOptions0, Options0, Profile) ->
 
     Started    = http_util:timestamp(), 
-    NewHeaders = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers],
+    NewHeaders0 = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers0],
+
+    {NewHeaders, Body} = case Body0 of
+        {chunkify, BodyFun, Acc} ->
+            NewHeaders1 = lists:keystore("transfer-encoding", 1,
+                NewHeaders0, {"transfer-encoding", "chunked"}),
+            {NewHeaders1, {chunkify_fun(BodyFun), Acc}};
+        _ ->
+            {NewHeaders0, Body0}
+    end,
 
     try
 	begin
@@ -458,8 +470,8 @@ handle_request(Method, Url,
 			       settings      = HTTPOptions, 
 			       abs_uri       = AbsUri,
 			       userinfo      = UserInfo, 
-			       stream        = Stream,
-			       headers_as_is = headers_as_is(Headers, Options),
+			       stream        = Stream, 
+			       headers_as_is = headers_as_is(Headers0, Options),
 			       socket_opts   = SocketOpts, 
 			       started       = Started},
 	    case httpc_manager:request(Request, profile_name(Profile)) of
@@ -480,6 +492,23 @@ url_encode(URI, true) ->
     http_uri:encode(URI);
 url_encode(URI, false) ->
     URI.
+
+chunkify_fun(BodyFun) ->
+    fun(eof_body_fun) ->
+        eof;
+    (Acc) ->
+        case BodyFun(Acc) of
+            eof ->
+                {ok, <<"0\r\n\r\n">>, eof_body_fun};
+            {ok, Data, NewAcc} ->
+                Bin = iolist_to_binary(Data),
+                Chunk = [hex_size(Bin), "\r\n", Bin, "\r\n"],
+                {ok, iolist_to_binary(Chunk), NewAcc}
+        end
+    end.
+
+hex_size(Bin) ->
+    hd(io_lib:format("~.16B", [size(Bin)])).
 
 handle_answer(RequestId, false, _) ->
     {ok, RequestId};
