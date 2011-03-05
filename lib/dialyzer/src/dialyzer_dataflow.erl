@@ -2087,7 +2087,10 @@ handle_guard_eq(Guard, Map, Env, Eval, State) ->
 	true ->
 	  if
 	    Eval =:= pos -> {Map, t_atom(true)};
-	    Eval =:= neg -> throw({fail, none});
+	    Eval =:= neg ->
+	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
+			  t_from_term(cerl:concrete(Arg2))],
+	      signal_guard_fail(Eval, Guard, ArgTypes, State);
 	    Eval =:= dont_know -> {Map, t_atom(true)}
 	  end;
 	false ->
@@ -2142,7 +2145,10 @@ handle_guard_eqeq(Guard, Map, Env, Eval, State) ->
     {literal, literal} ->
       case cerl:concrete(Arg1) =:= cerl:concrete(Arg2) of
 	true ->
-	  if Eval =:= neg -> throw({fail, none});
+	  if Eval =:= neg ->
+	      ArgTypes = [t_from_term(cerl:concrete(Arg1)),
+			  t_from_term(cerl:concrete(Arg2))],
+	      signal_guard_fail(Eval, Guard, ArgTypes, State);
 	     Eval =:= pos -> {Map, t_atom(true)};
 	     Eval =:= dont_know -> {Map, t_atom(true)}
 	  end;
@@ -2238,11 +2244,11 @@ handle_guard_and(Guard, Map, Env, Eval, State) ->
     pos ->
       {Map1, Type1} = bind_guard(Arg1, Map, Env, Eval, State),
       case t_is_atom(true, Type1) of
-	false -> throw({fail, none});
+	false -> signal_guard_fail(Eval, Guard, [Type1, t_any()], State);
 	true ->
 	  {Map2, Type2} = bind_guard(Arg2, Map1, Env, Eval, State),
 	  case t_is_atom(true, Type2) of
-	    false -> throw({fail, none});
+	    false -> signal_guard_fail(Eval, Guard, [Type1, Type2], State);
 	    true -> {Map2, t_atom(true)}
 	  end
       end;
@@ -2257,7 +2263,7 @@ handle_guard_and(Guard, Map, Env, Eval, State) ->
 	end,
       case t_is_atom(false, Type1) orelse t_is_atom(false, Type2) of
 	true -> {join_maps([Map1, Map2], Map), t_atom(false)};
-	false -> throw({fail, none})
+	false -> signal_guard_fail(Eval, Guard, [Type1, Type2], State)
       end;
     dont_know ->
       {Map1, Type1} = bind_guard(Arg1, Map, Env, dont_know, State),
@@ -2297,16 +2303,16 @@ handle_guard_or(Guard, Map, Env, Eval, State) ->
 	    orelse
 	    (t_is_atom(true, Bool2) andalso t_is_boolean(Bool1))) of
 	true -> {join_maps([Map1, Map2], Map), t_atom(true)};
-	false -> throw({fail, none})
+	false -> signal_guard_fail(Eval, Guard, [Bool1, Bool2], State)
       end;
     neg ->
       {Map1, Type1} = bind_guard(Arg1, Map, Env, neg, State),
       case t_is_atom(false, Type1) of
-	false -> throw({fail, none});
+	false -> signal_guard_fail(Eval, Guard, [Type1, t_any()], State);
 	true ->
 	  {Map2, Type2} = bind_guard(Arg2, Map1, Env, neg, State),
 	  case t_is_atom(false, Type2) of
-	    false -> throw({fail, none});
+	    false -> signal_guard_fail(Eval, Guard, [Type1, Type2], State);
 	    true -> {Map2, t_atom(false)}
 	  end
       end;
@@ -2337,13 +2343,17 @@ handle_guard_not(Guard, Map, Env, Eval, State) ->
       {Map1, Type} = bind_guard(Arg, Map, Env, pos, State),
       case t_is_atom(true, Type) of
 	true -> {Map1, t_atom(false)};
-	false -> throw({fail, none})
+	false ->
+	  {_, Type0} = bind_guard(Arg, Map, Env, Eval, State),
+	  signal_guard_fail(Eval, Guard, [Type0], State)
       end;
     pos ->
       {Map1, Type} = bind_guard(Arg, Map, Env, neg, State),
       case t_is_atom(false, Type) of
 	true -> {Map1, t_atom(true)};
-	false -> throw({fail, none})
+	false ->
+	  {_, Type0} = bind_guard(Arg, Map, Env, Eval, State),
+	  signal_guard_fail(Eval, Guard, [Type0], State)
       end;
     dont_know ->
       {Map1, Type} = bind_guard(Arg, Map, Env, dont_know, State),
@@ -2382,9 +2392,15 @@ signal_guard_fail(Eval, Guard, ArgTypes, State) ->
       true ->
 	[ArgType1, ArgType2] = ArgTypes,
 	[Arg1, Arg2] = Args,
-	{guard_fail, [format_args_1([Arg1], [ArgType1], State),
-		      atom_to_list(F),
-		      format_args_1([Arg2], [ArgType2], State)]};
+	Kind = 
+	  case Eval of
+	    neg -> neg_guard_fail;
+	    pos -> guard_fail;
+	    dont_know -> guard_fail
+	  end,
+	{Kind, [format_args_1([Arg1], [ArgType1], State),
+		atom_to_list(F),
+		format_args_1([Arg2], [ArgType2], State)]};
       false ->
 	mk_guard_msg(Eval, F, Args, ArgTypes, State)
     end,
