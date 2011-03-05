@@ -2,7 +2,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2217,7 +2217,7 @@ bind_eqeq_guard_lit_other(Guard, Arg1, Arg2, Map, Env, State) ->
 	true -> {Map1, t_atom(true)};
 	false ->
 	  {_, Type0} = bind_guard(Arg2, Map, Env, Eval, State),
-	  signal_guard_fail(Eval, Guard, [Type0, t_atom(true)], State)
+	  signal_guard_fail(Eval, Guard, [Type0, t_atom(false)], State)
       end;
     Term ->
       LitType = t_from_term(Term),
@@ -2767,8 +2767,6 @@ state__new(Callgraph, Tree, Plt, Module, Records, BehaviourTranslations) ->
   FunTab = init_fun_tab(Funs, dict:new(), TreeMap, Callgraph, Plt, Opaques),
   Work = init_work([get_label(Tree)]),
   Env = dict:store(top, map__new(), dict:new()),
-  Opaques = erl_types:module_builtin_opaques(Module) ++
-    erl_types:t_opaque_from_records(Records),
   #state{callgraph = Callgraph, envs = Env, fun_tab = FunTab, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
