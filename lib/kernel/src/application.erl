@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -204,12 +204,12 @@ get_env(Key) ->
 get_env(Application, Key) -> 
     application_controller:get_env(Application, Key).
 
--spec get_all_env() -> [] | [{atom(), any()}].
+-spec get_all_env() -> [{atom(), any()}].
 
 get_all_env() -> 
     application_controller:get_pid_all_env(group_leader()).
 
--spec get_all_env(atom()) -> [] | [{atom(), any()}].
+-spec get_all_env(atom()) -> [{atom(), any()}].
 
 get_all_env(Application) -> 
     application_controller:get_all_env(Application).
