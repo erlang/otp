@@ -1410,27 +1410,27 @@ decode(#mod{} = Mod, [{Key, Val} | KeyVals], Status) ->
         end,
     decode(Mod2, KeyVals, Status2);
 decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals], Status) ->
-    RA =
+    {ValidTypesAssigned, RA} =
         case RelApp of
             Name when is_atom(Name) ->
-                #rel_app{name = Name, app_type = undefined, incl_apps = []};
+                {true, #rel_app{name = Name}};
             {Name, Type} when is_atom(Name) ->
-                #rel_app{name = Name, app_type = Type, incl_apps = []};
+                {is_type(Type), #rel_app{name = Name, app_type = Type}};
             {Name, InclApps} when is_atom(Name), is_list(InclApps) ->
-                #rel_app{name = Name,
-			 app_type = undefined,
-			 incl_apps = InclApps};
+		VI = lists:all(fun erlang:is_atom/1, InclApps),
+                {VI, #rel_app{name = Name, incl_apps = InclApps}};
             {Name, Type, InclApps} when is_atom(Name), is_list(InclApps) ->
-                #rel_app{name = Name, app_type = Type, incl_apps = InclApps};
+		VT = is_type(Type),
+		VI = lists:all(fun erlang:is_atom/1, InclApps),
+		{VT andalso VI,
+                 #rel_app{name = Name, app_type = Type, incl_apps = InclApps}};
             _ ->
-                #rel_app{incl_apps = []}
+                {false, #rel_app{incl_apps = []}}
         end,
-    IsType = is_type(RA#rel_app.app_type),
-    NonAtoms = [IA || IA <- RA#rel_app.incl_apps, not is_atom(IA)],
-    if
-        IsType, NonAtoms =:= [] ->
+    case ValidTypesAssigned of
+	true ->
             decode(Rel#rel{rel_apps = RelApps ++ [RA]}, KeyVals, Status);
-        true ->
+        false ->
             Text = lists:flatten(io_lib:format("~p", [RelApp])),
             Status2 =
 		reltool_utils:return_first_error(Status,
