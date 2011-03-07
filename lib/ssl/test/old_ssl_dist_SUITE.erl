@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,9 +62,15 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_suite(Config) ->
-    add_ssl_opts_config(Config).
+    try crypto:start() of
+	ok ->
+	    add_ssl_opts_config(Config)
+    catch _:_ ->
+	    {skip, "Crypto did not start"}
+    end.
 
 end_per_suite(Config) ->
+    application:stop(crypto),
     Config.
 
 init_per_testcase(Case, Config) when list(Config) ->

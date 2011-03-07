@@ -47,7 +47,7 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
-    case application:start(crypto) of
+    try crypto:start() of
 	ok ->
 	    application:start(public_key),
 	    ssl:start(),
@@ -60,8 +60,8 @@ init_per_suite(Config0) ->
 
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    Config = ssl_test_lib:cert_options(Config1),
-	    [{watchdog, Dog} | Config];
-	_ ->
+	    [{watchdog, Dog} | Config]
+    catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
 
