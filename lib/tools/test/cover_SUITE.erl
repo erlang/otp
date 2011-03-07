@@ -49,7 +49,12 @@ all(suite) ->
 	          "Can't run cover test."}
     end.
 
-init_per_testcase(TC, Config) when TC =:= misc; TC =:= compile ->
+init_per_testcase(TC, Config) when TC =:= misc; 
+				   TC =:= compile; 
+				   TC =:= analyze;
+				   TC =:= distribution;
+				   TC =:= otp_5031;
+				   TC =:= stop ->
     case code:which(crypto) of
 	Path when is_list(Path) ->
 	    init_per_testcase(dummy_tc, Config);
