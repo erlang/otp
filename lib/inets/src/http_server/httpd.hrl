@@ -1,8 +1,7 @@
-%% -*- erlang -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,16 +16,12 @@
 %%
 %% %CopyrightEnd%
 %%
-%% You can test this file using this command.
-%%    file:script("jinterface.dynspec", [{'Os',"Unix"}]).
+%% This is a simple wrapper for code that has not been updated to 
+%% handle the move of this file to the include dir.
 
-case case code:priv_dir(jinterface) of
-        {error,bad_name} -> false;
-        P -> filelib:is_dir(P) end of
-    true ->
-        [];
-    false ->
-        NoApp = "No jinterface application",
-        [{skip,{nc_SUITE,NoApp}},
-         {skip,{jinterface_SUITE,NoApp}}]
-end.
+-ifndef(src_httpd_hrl).
+-define(src_httpd_hrl, true).
+
+-include_lib("inets/include/httpd.hrl").
+
+-endif. % -ifdef(src_httpd_hrl).

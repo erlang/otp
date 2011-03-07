@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -133,50 +133,34 @@
 %%      |
 %%      v
 %%    3.15
+%%      |
+%%      v
+%%    3.15.1
 %%
 %%
 {"%VSN%",
  [
-  {"3.14.1.1", 
+  {"3.15", 
    [
-    {load_module, megaco_binary_transformer_prev3a, soft_purge, soft_purge, []},
-    {load_module, megaco_binary_transformer_prev3b, soft_purge, soft_purge, []},
-    {load_module, megaco_binary_transformer_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_flex_scanner, soft_purge, soft_purge, []},
     {load_module, megaco_sdp, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_v1, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_v1, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_v2, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_v2, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_prev3a, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_prev3a, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_prev3b, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_prev3b, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_prev3c, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_prev3c, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_v3, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_v3, soft_purge, soft_purge, []}
+    {load_module, megaco_filter, soft_purge, soft_purge, []},
+    {load_module, megaco_timer, soft_purge, soft_purge, [megaco_config_misc]},
+    {update, megaco_config, soft, soft_purge, soft_purge, 
+     [megaco_timer, megaco_config_misc]},
+    {add_module,  megaco_config_misc}
    ]
   }
  ],
  [
-  {"3.14.1.1", 
+  {"3.15", 
    [
-    {load_module, megaco_binary_transformer_prev3a, soft_purge, soft_purge, []},
-    {load_module, megaco_binary_transformer_prev3b, soft_purge, soft_purge, []},
-    {load_module, megaco_binary_transformer_prev3c, soft_purge, soft_purge, []},
+    {load_module, megaco_flex_scanner, soft_purge, soft_purge, []},
     {load_module, megaco_sdp, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_v1, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_v1, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_v2, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_v2, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_prev3a, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_prev3a, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_prev3b, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_prev3b, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_prev3c, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_prev3c, soft_purge, soft_purge, []},
-    {load_module, megaco_compact_text_encoder_v3, soft_purge, soft_purge, []},
-    {load_module, megaco_pretty_text_encoder_v3, soft_purge, soft_purge, []}
+    {load_module, megaco_filter, soft_purge, soft_purge, []},
+    {load_module, megaco_timer, soft_purge, soft_purge, [megaco_config]},
+    {update, megaco_config, soft, soft_purge, soft_purge, []},
+    {remove, {megaco_config_misc, soft_purge, brutal_purge}}
    ]
   }
  ]

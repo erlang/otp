@@ -1351,9 +1351,10 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 #ifdef ERTS_SMP
 	 if (rp == BIF_P)
 	     rp_locks &= ~ERTS_PROC_LOCK_MAIN;
-	 else
+	 if (rp_locks)
+	     erts_smp_proc_unlock(rp, rp_locks);
+	 if (rp != BIF_P)
 	     erts_smp_proc_dec_refc(rp);
-	 erts_smp_proc_unlock(rp, rp_locks);
 #endif
 	 /*
 	  * We may have exited ourselves and may have to take action.

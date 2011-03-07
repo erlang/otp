@@ -511,6 +511,10 @@ set_target_engine_id(TargetAddrName, EngineId) ->
 %%-----------------------------------------------------------------
 %% Instrumentation Functions
 %%-----------------------------------------------------------------
+snmpTargetSpinLock(print) ->
+    VarAndValue = [{snmpTargetSpinLock, snmpTargetSpinLock(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
 snmpTargetSpinLock(new) ->
     snmp_generic:variable_func(new, {snmpTargetSpinLock, volatile}),
     {A1,A2,A3} = erlang:now(),
@@ -591,12 +595,9 @@ snmpTargetAddrTable(print) ->
 				     ?'snmpTargetAddrRowStatus_active' -> active;
 				     _ -> undefined
 				 end,
-				 Prefix,
-				 element(?snmpTargetAddrEngineId, Row),
-				 Prefix,
-				 element(?snmpTargetAddrTMask, Row),
-				 Prefix,
-				 element(?snmpTargetAddrMMS, Row)]))
+				 Prefix, element(?snmpTargetAddrEngineId, Row),
+				 Prefix, element(?snmpTargetAddrTMask, Row),
+				 Prefix, element(?snmpTargetAddrMMS, Row)]))
 	end,
     snmpa_mib_lib:print_table(Table, DB, FOI, PrintRow);
 %% Op == new | delete

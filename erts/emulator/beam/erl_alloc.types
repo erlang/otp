@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2010. All Rights Reserved.
+# Copyright Ericsson AB 2003-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -193,6 +193,7 @@ type	DB_FIXATION	SHORT_LIVED	ETS		db_fixation
 type	DB_FIX_DEL	SHORT_LIVED	ETS		fixed_del
 type	DB_TABLES	LONG_LIVED	ETS		db_tabs
 type    DB_NTAB_ENT	STANDARD	ETS		db_named_table_entry
+type	DB_HEIR_DATA	STANDARD	ETS		db_heir_data
 type	DB_TMP		TEMPORARY	ETS		db_tmp
 type	DB_MC_STK	TEMPORARY	ETS		db_mc_stack
 type	DB_MS_PSDO_PROC	LONG_LIVED	ETS		db_match_pseudo_proc
@@ -263,6 +264,8 @@ type	XPORTS_LIST	SHORT_LIVED	SYSTEM		extra_port_list
 type	PROC_LCK_WTR	LONG_LIVED	SYSTEM		proc_lock_waiter
 type	PROC_LCK_QS	LONG_LIVED	SYSTEM		proc_lock_queues
 type	RUNQ_BLNS	LONG_LIVED	SYSTEM		run_queue_balancing
+type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
+type	MISC_AUX_WORK	SHORT_LIVED	SYSTEM		misc_aux_work
 +endif
 
 #

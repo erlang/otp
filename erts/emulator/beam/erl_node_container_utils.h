@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -255,19 +255,32 @@ extern int erts_use_r9_pids_ports;
 
 #define internal_ref_no_of_numbers(x)					\
   (internal_ref_data((x))[0])
+#define internal_thing_ref_no_of_numbers(thing)			        \
+  (internal_thing_ref_data(thing)[0])
 #define internal_ref_numbers(x)						\
   (&internal_ref_data((x))[1])
+#define internal_thing_ref_numbers(thing)				\
+  (&internal_thing_ref_data(thing)[1])
 #define external_ref_no_of_numbers(x)					\
   (external_ref_data((x))[0])
+#define external_thing_ref_no_of_numbers(thing)			        \
+  (external_thing_ref_data(thing)[0])
 #define external_ref_numbers(x)						\
   (&external_ref_data((x))[1])
+#define external_thing_ref_numbers(thing)				\
+  (&external_thing_ref_data(thing)[1])
+
 
 #else
 
 #define internal_ref_no_of_numbers(x)	(internal_ref_data_words((x)))
+#define internal_thing_ref_no_of_numbers(t) (internal_thing_ref_data_words(t))
 #define internal_ref_numbers(x)		(internal_ref_data((x)))
+#define internal_thing_ref_numbers(t)   (internal_thing_ref_data(t))
 #define external_ref_no_of_numbers(x)	(external_ref_data_words((x)))
+#define external_thing_ref_no_of_numbers(t) (external_thing_ref_data_words((t)))
 #define external_ref_numbers(x)		(external_ref_data((x)))
+#define external_thing_ref_numbers(t)   (external_thing_ref_data((t)))
 
 #endif
 
@@ -311,6 +324,8 @@ extern int erts_use_r9_pids_ports;
 					 : external_ref_channel_no((x)))
 #define is_ref(x)			(is_internal_ref((x))		\
 					 || is_external_ref((x)))
+#define is_ref_rel(x,Base)		(is_internal_ref_rel((x),Base)	\
+					 || is_external_ref_rel((x),Base))
 #define is_not_ref(x)			(!is_ref(x))
 
 #endif

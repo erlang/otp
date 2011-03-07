@@ -3980,7 +3980,8 @@ os_prompt%</pre>
           <tag><c>{status, Status}</c></tag>
           <item>
             <p><c>Status</c> is the status of the process. <c>Status</c>
-              is <c>waiting</c> (waiting for a message), <c>running</c>,
+              is <c>exiting</c>, <c>garbage_collecting</c>,
+              <c>waiting</c> (for a message), <c>running</c>,
               <c>runnable</c> (ready to run, but another process is
               running), or <c>suspended</c> (suspended on a "busy" port
               or by the <c>erlang:suspend_process/[1,2]</c> BIF).</p>

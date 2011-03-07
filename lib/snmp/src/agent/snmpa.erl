@@ -105,6 +105,8 @@
 	 set_request_limit/1, set_request_limit/2
 	]).
 
+-export([print_mib_info/0, print_mib_tables/0, print_mib_variables/0]).
+
 -include("snmpa_atl.hrl").
 
 -define(EXTRA_INFO, undefined).
@@ -279,6 +281,186 @@ whereis_mib(Mib) ->
     whereis_mib(snmp_master_agent, Mib).
 whereis_mib(Agent, Mib) when is_atom(Mib) ->
     snmpa_agent:whereis_mib(Agent, Mib).
+
+
+%% -
+
+mibs_info() ->
+    [
+     {snmp_standard_mib, 
+      [],
+      [
+       sysDescr, 
+       sysObjectID, 
+       sysContact, 
+       sysName, 
+       sysLocation, 
+       sysServices, 
+       snmpEnableAuthenTraps,
+       sysUpTime,
+       snmpInPkts,
+       snmpOutPkts, 
+       snmpInBadVersions, 
+       snmpInBadCommunityNames, 
+       snmpInBadCommunityUses, 
+       snmpInASNParseErrs, 
+       snmpInTooBigs, 
+       snmpInNoSuchNames, 
+       snmpInBadValues, 
+       snmpInReadOnlys, 
+       snmpInGenErrs, 
+       snmpInTotalReqVars, 
+       snmpInTotalSetVars, 
+       snmpInGetRequests, 
+       snmpInSetRequests, 
+       snmpInGetNexts, 
+       snmpInGetResponses, 
+       snmpInTraps, 
+       snmpOutTooBigs, 
+       snmpOutNoSuchNames, 
+       snmpOutBadValues, 
+       snmpOutGenErrs, 
+       snmpOutGetRequests, 
+       snmpOutSetRequests, 
+       snmpOutGetNexts, 
+       snmpOutGetResponses, 
+       snmpOutTraps
+      ]
+     },
+     {snmp_framework_mib, 
+      [
+      ],
+      [
+       snmpEngineID,
+       snmpEngineBoots,
+       snmpEngineTime,
+       snmpEngineMaxMessageSize
+      ]
+     },
+     {snmp_view_based_acm_mib, 
+      [
+       vacmAccessTable,
+       vacmSecurityToGroupTable,
+       vacmViewTreeFamilyTable
+      ],
+      [
+       vacmViewSpinLock
+      ]
+     },
+     {snmp_target_mib, 
+      [
+       snmpTargetAddrTable,
+       snmpTargetParamsTable
+      ], 
+      [
+       snmpTargetSpinLock
+      ]
+     },
+     {snmp_community_mib, 
+      [
+       snmpCommunityTable
+      ], 
+      []
+     },
+     {snmp_notification_mib, 
+      [
+       snmpNotifyTable
+      ], 
+      []},
+     {snmp_user_based_sm_mib, 
+      [
+       usmUserTable
+      ], 
+      [
+       usmUserSpinLock,
+       usmStatsUnsupportedSecLevels, 
+       usmStatsNotInTimeWindows, 
+       usmStatsUnknownUserNames, 
+       usmStatsUnknownEngineIDs, 
+       usmStatsWrongDigests, 
+       usmStatsDecryptionErrors
+      ]
+     }
+    ].
+
+print_mib_info() ->
+    MibsInfo = mibs_info(),
+    print_mib_info(MibsInfo).
+
+print_mib_info([]) ->
+    io:format("~n", []),
+    ok;
+print_mib_info([{Mod, Tables, Variables} | MibsInfo]) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    print_mib_variables2(Mod, Variables),
+    print_mib_tables2(Mod, Tables),
+    io:format("~n", []),
+    print_mib_info(MibsInfo).
+
+
+print_mib_tables() ->
+    Tables = [{Mod, Tabs} || {Mod, Tabs, _Vars} <- mibs_info()],
+    print_mib_tables(Tables).
+
+print_mib_tables([]) ->
+    ok;
+print_mib_tables([{Mod, Tabs}|MibTabs]) 
+  when is_atom(Mod) andalso is_list(Tabs) ->
+    print_mib_tables(Mod, Tabs),
+    print_mib_tables(MibTabs);
+print_mib_tables([_|MibTabs]) ->
+    print_mib_tables(MibTabs).
+
+print_mib_tables(_Mod, [] = _Tables) ->
+    ok;
+print_mib_tables(Mod, Tables) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    print_mib_tables2(Mod, Tables), 
+    io:format("~n", []).
+
+print_mib_tables2(Mod, Tables) ->
+    [(catch Mod:Table(print)) || Table <- Tables].
+
+
+print_mib_variables() ->
+    Variables = [{Mod, Vars} || {Mod, _Tabs, Vars} <- mibs_info()],
+    print_mib_variables(Variables).
+
+print_mib_variables([]) ->
+    ok;
+print_mib_variables([{Mod, Vars}|MibVars]) 
+  when is_atom(Mod) andalso is_list(Vars) ->
+    print_mib_variables(Mod, Vars),
+    print_mib_variables(MibVars);
+print_mib_variables([_|MibVars]) ->
+    print_mib_variables(MibVars).
+
+print_mib_variables(_Mod, [] = _Vars) ->
+    ok;
+print_mib_variables(Mod, Vars) ->
+    io:format("~n** ~s ** ~n~n", [make_pretty_mib(Mod)]),
+    print_mib_variables2(Mod, Vars), 
+    io:format("~n", []).
+
+print_mib_variables2(Mod, Variables) ->
+    Vars = [{Var, (catch Mod:Var(get))} || Var <- Variables],
+    snmpa_mib_lib:print_variables(Vars).
+
+
+make_pretty_mib(snmp_view_based_acm_mib) ->
+    "SNMP-VIEW-BASED-ACM-MIB";
+make_pretty_mib(snmp_target_mib) ->
+    "SNMP-TARGET-MIB";
+make_pretty_mib(snmp_community_mib) ->
+    "SNMP-COMMUNITY-MIB";
+make_pretty_mib(snmp_notification_mib) ->
+    "SNMP-NOTIFICATION-MIB";
+make_pretty_mib(snmp_user_based_sm_mib) ->
+    "SNMP-USER-BASED-SM-MIB";
+make_pretty_mib(snmp_framework_mib) ->
+    "SNMP-FRAMEWORK-MIB";
+make_pretty_mib(Mod) ->
+    atom_to_list(Mod).
 
 
 %% -

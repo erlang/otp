@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,10 @@
 
 #include "global.h"
 #include <string.h>
+
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
 
 #define ERL_DRV_THR_OPTS_SIZE(LAST_FIELD) \
   (((size_t) &((ErlDrvThreadOpts *) 0)->LAST_FIELD) \
@@ -692,3 +696,57 @@ erl_drv_thread_join(ErlDrvTid tid, void **respp)
 #endif
 }
 
+#if defined(__DARWIN__) && defined(USE_THREADS) && defined(ERTS_SMP)
+extern int erts_darwin_main_thread_pipe[2];
+extern int erts_darwin_main_thread_result_pipe[2];
+
+
+int
+erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp)
+{
+    void *dummy;
+    void **x;
+    if (respp == NULL)
+	x = &dummy;
+    else
+	x = respp;
+    read(erts_darwin_main_thread_result_pipe[0],x,sizeof(void *));
+    return 0;
+}
+
+int
+erl_drv_steal_main_thread(char *name,
+			  ErlDrvTid *tid,
+			  void* (*func)(void*),
+			  void* arg,
+			  ErlDrvThreadOpts *opts)
+{
+    char buff[sizeof(void* (*)(void*)) + sizeof(void *)];
+    int buff_sz = sizeof(void* (*)(void*)) + sizeof(void *);
+    /*struct ErlDrvTid_ *dtid;
+
+    dtid = erts_alloc_fnf(ERTS_ALC_T_DRV_TID,
+			  (sizeof(struct ErlDrvTid_)
+			   + (name ? sys_strlen(name) + 1 : 0)));
+    if (!dtid)
+	return ENOMEM;
+    memset(dtid,0,sizeof(ErlDrvTid_));
+    dtid->tid = (void * ) -1;
+    dtid->drv_thr = 1;
+    dtid->func = func;
+    dtid->arg = arg;
+    dtid->tsd = NULL;
+    dtid->tsd_len = 0;
+    dtid->name = no_name;
+    *tid = (ErlDrvTid) dtid;
+    */
+    *tid = NULL;
+    /* Ignore options and name... */
+    
+    memcpy(buff,&func,sizeof(void* (*)(void*)));
+    memcpy(buff + sizeof(void* (*)(void*)),&arg,sizeof(void *));
+    write(erts_darwin_main_thread_pipe[1],buff,buff_sz);
+    return 0;
+}
+
+#endif

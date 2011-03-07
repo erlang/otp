@@ -18,7 +18,7 @@
 %%
 -module(num_bif_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Tests optimization of the BIFs:
 %% 	abs/1
@@ -30,17 +30,37 @@
 %%	round/1
 %%	trunc/1
 
--export([all/1, t_abs/1, t_float/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_list/1, t_integer_to_list/1,
 	 t_list_to_integer/1,
-	 t_list_to_float/1, t_list_to_float_safe/1, t_list_to_float_risky/1,
+	 t_list_to_float_safe/1, t_list_to_float_risky/1,
 	 t_round/1, t_trunc/1]).
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_lib:recompile(num_bif_SUITE),
     [t_abs, t_float, t_float_to_list, t_integer_to_list,
-     t_list_to_float, t_list_to_integer,
-     t_round, t_trunc].
+     {group, t_list_to_float}, t_list_to_integer, t_round,
+     t_trunc].
+
+groups() -> 
+    [{t_list_to_float, [],
+      [t_list_to_float_safe, t_list_to_float_risky]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 t_abs(Config) when is_list(Config) ->
     %% Floats.
@@ -142,7 +162,6 @@ t_integer_to_list(Config) when is_list(Config) ->
 
 %% Tests list_to_float/1.
 
-t_list_to_float(suite) -> [t_list_to_float_safe, t_list_to_float_risky].
 
 t_list_to_float_safe(Config) when is_list(Config) ->
     ?line 0.0 = list_to_float("0.0"),

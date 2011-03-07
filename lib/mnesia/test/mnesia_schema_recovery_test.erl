@@ -26,8 +26,8 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 -define(receive_messages(Msgs), receive_messages(Msgs, ?FILE, ?LINE)).
 
@@ -41,92 +41,82 @@ fin_per_testcase(Func, Conf) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(doc) ->
-    ["Verify recoverabiliy of schema transactions.",
-     " Verify that a schema transaction",
-     " can be completed when it has been logged correctly and Mnesia",
-     " crashed before the log has been dumped. Then the transaction ",
-     " should be handled during the log dump at startup"
-    ];
-all(suite) ->
-    [interrupted_before_log_dump,
-     interrupted_after_log_dump].
+all() -> 
+    [{group, interrupted_before_log_dump},
+     {group, interrupted_after_log_dump}].
 
-interrupted_before_log_dump(suite) ->
-    [interrupted_before_create_ram,
-     interrupted_before_create_disc,
-     interrupted_before_create_disc_only,
-     interrupted_before_create_nostore,
-     interrupted_before_delete_ram,
-     interrupted_before_delete_disc,
-     interrupted_before_delete_disc_only,
-     interrupted_before_add_ram,
-     interrupted_before_add_disc,
-     interrupted_before_add_disc_only,
-     interrupted_before_add_kill_copier,
-     interrupted_before_move_ram,
-     interrupted_before_move_disc,
-     interrupted_before_move_disc_only,
-     interrupted_before_move_kill_copier,
-     interrupted_before_delcopy_ram,
-     interrupted_before_delcopy_disc,
-     interrupted_before_delcopy_disc_only,
-     interrupted_before_delcopy_kill_copier,
-     interrupted_before_addindex_ram,
-     interrupted_before_addindex_disc,
-     interrupted_before_addindex_disc_only,
-     interrupted_before_delindex_ram,
-     interrupted_before_delindex_disc,
-     interrupted_before_delindex_disc_only,
-     interrupted_before_change_type_ram2disc,
-     interrupted_before_change_type_ram2disc_only,
-     interrupted_before_change_type_disc2ram,
-     interrupted_before_change_type_disc2disc_only,
-     interrupted_before_change_type_disc_only2ram,
-     interrupted_before_change_type_disc_only2disc,
-     interrupted_before_change_type_other_node,
-     interrupted_before_change_schema_type    %% Change schema table copy type!!
-    ].
+groups() -> 
+    [{interrupted_before_log_dump, [],
+      [interrupted_before_create_ram,
+       interrupted_before_create_disc,
+       interrupted_before_create_disc_only,
+       interrupted_before_create_nostore,
+       interrupted_before_delete_ram,
+       interrupted_before_delete_disc,
+       interrupted_before_delete_disc_only,
+       interrupted_before_add_ram, interrupted_before_add_disc,
+       interrupted_before_add_disc_only,
+       interrupted_before_add_kill_copier,
+       interrupted_before_move_ram,
+       interrupted_before_move_disc,
+       interrupted_before_move_disc_only,
+       interrupted_before_move_kill_copier,
+       interrupted_before_delcopy_ram,
+       interrupted_before_delcopy_disc,
+       interrupted_before_delcopy_disc_only,
+       interrupted_before_delcopy_kill_copier,
+       interrupted_before_addindex_ram,
+       interrupted_before_addindex_disc,
+       interrupted_before_addindex_disc_only,
+       interrupted_before_delindex_ram,
+       interrupted_before_delindex_disc,
+       interrupted_before_delindex_disc_only,
+       interrupted_before_change_type_ram2disc,
+       interrupted_before_change_type_ram2disc_only,
+       interrupted_before_change_type_disc2ram,
+       interrupted_before_change_type_disc2disc_only,
+       interrupted_before_change_type_disc_only2ram,
+       interrupted_before_change_type_disc_only2disc,
+       interrupted_before_change_type_other_node,
+       interrupted_before_change_schema_type]},
+     {interrupted_after_log_dump, [],
+      [interrupted_after_create_ram,
+       interrupted_after_create_disc,
+       interrupted_after_create_disc_only,
+       interrupted_after_create_nostore,
+       interrupted_after_delete_ram,
+       interrupted_after_delete_disc,
+       interrupted_after_delete_disc_only,
+       interrupted_after_add_ram, interrupted_after_add_disc,
+       interrupted_after_add_disc_only,
+       interrupted_after_add_kill_copier,
+       interrupted_after_move_ram, interrupted_after_move_disc,
+       interrupted_after_move_disc_only,
+       interrupted_after_move_kill_copier,
+       interrupted_after_delcopy_ram,
+       interrupted_after_delcopy_disc,
+       interrupted_after_delcopy_disc_only,
+       interrupted_after_delcopy_kill_copier,
+       interrupted_after_addindex_ram,
+       interrupted_after_addindex_disc,
+       interrupted_after_addindex_disc_only,
+       interrupted_after_delindex_ram,
+       interrupted_after_delindex_disc,
+       interrupted_after_delindex_disc_only,
+       interrupted_after_change_type_ram2disc,
+       interrupted_after_change_type_ram2disc_only,
+       interrupted_after_change_type_disc2ram,
+       interrupted_after_change_type_disc2disc_only,
+       interrupted_after_change_type_disc_only2ram,
+       interrupted_after_change_type_disc_only2disc,
+       interrupted_after_change_type_other_node,
+       interrupted_after_change_schema_type]}].
 
-interrupted_after_log_dump(suite) ->
-    [interrupted_after_create_ram,
-     interrupted_after_create_disc,
-     interrupted_after_create_disc_only,
-     interrupted_after_create_nostore,
-     interrupted_after_delete_ram,
-     interrupted_after_delete_disc,
-     interrupted_after_delete_disc_only,
-     interrupted_after_add_ram,
-     interrupted_after_add_disc,
-     interrupted_after_add_disc_only,
-     interrupted_after_add_kill_copier,
-     interrupted_after_move_ram,
-     interrupted_after_move_disc,
-     interrupted_after_move_disc_only,
-     interrupted_after_move_kill_copier,
-     interrupted_after_delcopy_ram,
-     interrupted_after_delcopy_disc,
-     interrupted_after_delcopy_disc_only,
-     interrupted_after_delcopy_kill_copier,
-     interrupted_after_addindex_ram,
-     interrupted_after_addindex_disc,
-     interrupted_after_addindex_disc_only,
-     interrupted_after_delindex_ram,
-     interrupted_after_delindex_disc,
-     interrupted_after_delindex_disc_only,
-     interrupted_after_change_type_ram2disc,
-     interrupted_after_change_type_ram2disc_only,
-     interrupted_after_change_type_disc2ram,
-     interrupted_after_change_type_disc2disc_only,
-     interrupted_after_change_type_disc_only2ram,
-     interrupted_after_change_type_disc_only2disc,
-     interrupted_after_change_type_other_node,
-     interrupted_after_change_schema_type     %% Change schema table copy type!!
+init_per_group(_GroupName, Config) ->
+    Config.
 
-%     interrupted_before_change_access_mode,
-%     interrupted_before_transform,
-%     interrupted_before_restore,
-    ].
+end_per_group(_GroupName, Config) ->
+    Config.
 
 interrupted_before_create_ram(suite) -> [];
 interrupted_before_create_ram(Config) when is_list(Config) ->

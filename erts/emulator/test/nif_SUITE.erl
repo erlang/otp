@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,14 +23,18 @@
 -define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
 %%-define(CHECK(Exp,Got), ?line Exp = Got).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1, 
-	 %%init_per_testcase/2, 
-	 fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
-	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
-	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, resource_takeover/1,
-	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, is_checks/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, 
+	 end_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
+	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, 
+	 api_macros/1,
+	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, 
+	 resource_takeover/1,
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
+	 is_checks/1,
 	 get_length/1, make_atom/1, make_string/1]).
 
 -export([many_args_100/100]).
@@ -40,7 +44,7 @@
 %% 	 list_seq/1,type_test/0,tuple_2_list/1,is_identical/2,compare/2,
 %% 	 clone_bin/1,make_sub_bin/3,string_to_bin/2,atom_to_bin/2,macros/1,
 %% 	 tuple_2_list_and_tuple/1,iolist_2_bin/1,get_resource_type/1,alloc_resource/2,
-%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0,
+%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0, suite/0,
 %% 	 make_new_resource/2,make_new_resource_binary/1,send_list_seq/2,send_new_blob/2,
 %% 	 alloc_msgenv/0,clear_msgenv/1,grow_blob/2,send_blob/2,send_blob_thread/3,
 %% 	 join_send_thread/1]).
@@ -48,17 +52,37 @@
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
-all(suite) ->
-    [basic, reload, upgrade, heap_frag, types, many_args, binaries, get_string,
-     get_atom, api_macros, from_array, iolist_as_binary, resource, resource_binary,
-     resource_takeover, threading, send, send2, send3, send_threaded, neg, is_checks,
-     get_length, make_atom, make_string].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-%%init_per_testcase(_Case, Config) ->
-%%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
-%%    [{watchdog, Dog}|Config].
+all() -> 
+    [basic, reload, upgrade, heap_frag, types, many_args,
+     binaries, get_string, get_atom, api_macros, from_array,
+     iolist_as_binary, resource, resource_binary,
+     resource_takeover, threading, send, send2, send3,
+     send_threaded, neg, is_checks, get_length, make_atom,
+     make_string].
 
-fin_per_testcase(_Func, _Config) ->
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+init_per_testcase(_Case, Config) ->
+%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
+    Config.
+
+end_per_testcase(_Func, _Config) ->
     %%Dog = ?config(watchdog, Config),
     %%?t:timetrap_cancel(Dog),
     P1 = code:purge(nif_mod),

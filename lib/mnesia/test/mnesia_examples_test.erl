@@ -26,8 +26,8 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 -define(init(N, Config),
 	mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
@@ -61,16 +61,21 @@ opt_load(Mod) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Run all examples mentioned in the documentation",
-     "Are really all examples covered?"];
-all(suite) ->
-    [
-     bup,
-     company,
-     meter,
-     tpcb
-    ].
+all() -> 
+    [bup, company, meter, {group, tpcb}].
+
+groups() -> 
+    [{tpcb, [],
+      [replica_test, sticky_replica_test, dist_test,
+       conflict_test, frag_test, frag2_test, remote_test,
+       remote_frag2_test]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 bup(doc) -> ["Run the backup examples in bup.erl"];
@@ -85,19 +90,6 @@ company(doc) ->
     ["Run the company examples in company.erl and company_o.erl"].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-tpcb(doc) ->
-    ["Run the sample configurations of the stress tests in mnesia_tpcb.erl"];
-tpcb(suite) ->
-    [
-     replica_test,
-     sticky_replica_test,
-     dist_test,
-     conflict_test,
-     frag_test,
-     frag2_test,
-     remote_test,
-     remote_frag2_test
-    ].
 
 replica_test(suite) -> [];
 replica_test(Config) when is_list(Config) ->

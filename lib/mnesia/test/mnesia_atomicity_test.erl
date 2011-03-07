@@ -27,24 +27,46 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Verify atomicity of transactions",
-     "Verify that transactions are atomic, i.e. either all operations",
-     "in a transaction will be performed or none of them. It must be",
-     "assured that no partitially completed operations leaves any",
-     "effects in the database."];
-all(suite) ->
-    [
-     explicit_abort_in_middle_of_trans,
+all() -> 
+    [explicit_abort_in_middle_of_trans,
      runtime_error_in_middle_of_trans,
-     kill_self_in_middle_of_trans,
-     throw_in_middle_of_trans,
-     mnesia_down_in_middle_of_trans
-    ].
+     kill_self_in_middle_of_trans, throw_in_middle_of_trans,
+     {group, mnesia_down_in_middle_of_trans}].
+
+groups() -> 
+    [{mnesia_down_in_middle_of_trans, [],
+      [mnesia_down_during_infinite_trans,
+       {group, lock_waiter}, {group, restart_check}]},
+     {lock_waiter, [],
+      [lock_waiter_sw_r, lock_waiter_sw_rt, lock_waiter_sw_wt,
+       lock_waiter_wr_r, lock_waiter_srw_r, lock_waiter_sw_sw,
+       lock_waiter_sw_w, lock_waiter_sw_wr, lock_waiter_sw_srw,
+       lock_waiter_wr_wt, lock_waiter_srw_wt,
+       lock_waiter_wr_sw, lock_waiter_srw_sw, lock_waiter_wr_w,
+       lock_waiter_srw_w, lock_waiter_r_sw, lock_waiter_r_w,
+       lock_waiter_r_wt, lock_waiter_rt_sw, lock_waiter_rt_w,
+       lock_waiter_rt_wt, lock_waiter_wr_wr,
+       lock_waiter_srw_srw, lock_waiter_wt_r, lock_waiter_wt_w,
+       lock_waiter_wt_rt, lock_waiter_wt_wt, lock_waiter_wt_wr,
+       lock_waiter_wt_srw, lock_waiter_wt_sw, lock_waiter_w_wr,
+       lock_waiter_w_srw, lock_waiter_w_sw, lock_waiter_w_r,
+       lock_waiter_w_w, lock_waiter_w_rt, lock_waiter_w_wt]},
+     {restart_check, [],
+      [restart_r_one, restart_w_one, restart_rt_one,
+       restart_wt_one, restart_wr_one, restart_sw_one,
+       restart_r_two, restart_w_two, restart_rt_two,
+       restart_wt_two, restart_wr_two, restart_sw_two]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 explicit_abort_in_middle_of_trans(suite) -> [];
@@ -259,12 +281,6 @@ throw_in_middle_of_trans(Config) when is_list(Config) ->
     ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-mnesia_down_in_middle_of_trans(suite) ->
-    [
-     mnesia_down_during_infinite_trans,
-     lock_waiter,
-     restart_check
-    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 mnesia_down_during_infinite_trans(suite) -> [];
@@ -304,56 +320,6 @@ mnesia_down_during_infinite_trans(Config) when is_list(Config) ->
     ?verify_mnesia([Node2], [Node1]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-lock_waiter(doc) ->
-    ["The purpose of this test case is to test the following situation:",
-     "process B locks an object, process A accesses that object as",
-     "well, but A has to wait for the lock to be released. Then",
-     "mnesia of B goes down. Question: will A get the lock ?",
-     "important: the transaction of A is the oldest one !!! (= a little tricky)",
-     "",
-     "several different access operations shall be tested",
-     "rt = read_lock_table, wt = write_lock_table, r = read,",
-     "sw = s_write, w = write, wr = wread"];
-lock_waiter(suite) ->
-    [
-     lock_waiter_sw_r,
-     lock_waiter_sw_rt,
-     lock_waiter_sw_wt,
-     lock_waiter_wr_r,
-     lock_waiter_srw_r,
-     lock_waiter_sw_sw,
-     lock_waiter_sw_w,
-     lock_waiter_sw_wr,
-     lock_waiter_sw_srw,
-     lock_waiter_wr_wt,
-     lock_waiter_srw_wt,
-     lock_waiter_wr_sw,
-     lock_waiter_srw_sw,
-     lock_waiter_wr_w,
-     lock_waiter_srw_w,
-     lock_waiter_r_sw,
-     lock_waiter_r_w,
-     lock_waiter_r_wt,
-     lock_waiter_rt_sw,
-     lock_waiter_rt_w,
-     lock_waiter_rt_wt,
-     lock_waiter_wr_wr,
-     lock_waiter_srw_srw,
-     lock_waiter_wt_r,
-     lock_waiter_wt_w,
-     lock_waiter_wt_rt,
-     lock_waiter_wt_wt,
-     lock_waiter_wt_wr,
-     lock_waiter_wt_srw,
-     lock_waiter_wt_sw,
-     lock_waiter_w_wr,
-     lock_waiter_w_srw,
-     lock_waiter_w_sw,
-     lock_waiter_w_r,
-     lock_waiter_w_w,
-     lock_waiter_w_rt,
-     lock_waiter_w_wt
-    ].
 
 lock_waiter_sw_r(suite) -> [];
 lock_waiter_sw_r(Config) when is_list(Config) ->
@@ -649,29 +615,6 @@ wait(Mseconds) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-restart_check (doc) ->
-    [
-     "test case:'A' performs a transaction on a table which",
-     "is only replicated on node B. During that transaction",
-     "mnesia on node B is killed. The transaction of A should",
-     "be stopped, since there is no further replica",
-     "rt = read_lock_table, wt = write_lock_table, r = read,",
-     "sw = s_write, w = write, wr = wread,"];
-restart_check(suite) ->
-    [
-     restart_r_one,
-     restart_w_one,
-     restart_rt_one,
-     restart_wt_one,
-     restart_wr_one,
-     restart_sw_one,
-     restart_r_two,
-     restart_w_two,
-     restart_rt_two,
-     restart_wt_two,
-     restart_wr_two,
-     restart_sw_two
-    ].
 
 restart_r_one(suite) -> [];
 restart_r_one(Config) when is_list(Config) ->

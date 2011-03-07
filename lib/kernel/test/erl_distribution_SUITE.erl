@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,13 +19,14 @@
 -module(erl_distribution_SUITE).
 
 %-define(line_trace, 1).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([tick/1, tick_change/1, illegal_nodenames/1, hidden_node/1,
 	 table_waste/1, net_setuptime/1,
-	 monitor_nodes/1,
+	
 	 monitor_nodes_nodedown_reason/1,
 	 monitor_nodes_complex_nodedown_reason/1,
 	 monitor_nodes_node_type/1,
@@ -41,7 +42,7 @@
 	 tick_serv_test/2, tick_serv_test1/1,
 	 keep_conn/1, time_ping/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([start_node/2]).
 
@@ -57,16 +58,39 @@
 %% erl -sname master -rsh ctrsh
 %%-----------------------------------------------------------------
 
-all(suite) -> 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [tick, tick_change, illegal_nodenames, hidden_node,
-     table_waste, net_setuptime,
-     monitor_nodes].
+     table_waste, net_setuptime, {group, monitor_nodes}].
+
+groups() -> 
+    [{monitor_nodes, [],
+      [monitor_nodes_nodedown_reason,
+       monitor_nodes_complex_nodedown_reason,
+       monitor_nodes_node_type, monitor_nodes_misc,
+       monitor_nodes_otp_6481, monitor_nodes_errors,
+       monitor_nodes_combinations, monitor_nodes_cleanup,
+       monitor_nodes_many]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(4)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
@@ -530,18 +554,6 @@ check_monitor_nodes_res(Pid, Node) ->
     end.
 
 
-monitor_nodes(doc) ->
-    [];
-monitor_nodes(suite) ->
-    [monitor_nodes_nodedown_reason,
-     monitor_nodes_complex_nodedown_reason,
-     monitor_nodes_node_type,
-     monitor_nodes_misc,
-     monitor_nodes_otp_6481,
-     monitor_nodes_errors,
-     monitor_nodes_combinations,
-     monitor_nodes_cleanup,
-     monitor_nodes_many].
 	    
 %%
 %% Testcase:
@@ -853,7 +865,7 @@ monitor_nodes_otp_6481_test(Config, TestType) when is_list(Config) ->
 			% the node mercilessly.
 			% We then want to ensure that the nodedown message arrives
 			% last ... without garbage after it.
-			Pid = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
+			_ = spawn(fun() -> node_loop_send(Me, NodeMsg, 1) end),
 			receive {Me, kill_it} -> ok end, 
 			halt()
 		end),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,10 +23,10 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("test_server/include/test_server_line.hrl").
 
--include("public_key.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -define(TIMEOUT, 120000). % 2 min
 
@@ -41,9 +41,12 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    crypto:start(),
-    Config.
-
+    case application:start(crypto) of
+	ok ->
+	    Config;
+	_ ->
+	    {skip, "Crypto did not start"}
+    end.
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]
@@ -51,7 +54,7 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-    crypto:stop().
+    application:stop(crypto).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config) -> Config
@@ -96,18 +99,21 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test the public_key rsa functionality"];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [app, 
-     pk_decode_encode, 
-     encrypt_decrypt, 
-     sign_verify,
-     pkix,
-     pkix_path_validation,
-     deprecated
-    ].
+all() -> 
+    [app, pk_decode_encode, encrypt_decrypt, sign_verify,
+     pkix, pkix_path_validation, deprecated].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
@@ -136,6 +142,15 @@ pk_decode_encode(Config) when is_list(Config) ->
     DSAKey = public_key:der_decode('DSAPrivateKey', DerDSAKey),
     
     DSAKey = public_key:pem_entry_decode(Entry0),
+
+    {ok, DSAPubPem} = file:read_file(filename:join(Datadir, "dsa_pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry0] =
+        public_key:pem_decode(DSAPubPem),
+    DSAPubKey = public_key:pem_entry_decode(PubEntry0),
+    true = check_entry_type(DSAPubKey, 'DSAPublicKey'),
+    PubEntry0 = public_key:pem_entry_encode('SubjectPublicKeyInfo', DSAPubKey),
+    DSAPubPemNoEndNewLines = strip_ending_newlines(DSAPubPem),
+    DSAPubPemEndNoNewLines = strip_ending_newlines(public_key:pem_encode([PubEntry0])),
     
     [{'RSAPrivateKey', DerRSAKey, not_encrypted} =  Entry1 ] = 
 	erl_make_certs:pem_to_der(filename:join(Datadir, "client_key.pem")),
@@ -149,6 +164,22 @@ pk_decode_encode(Config) when is_list(Config) ->
     
     true = check_entry_type(public_key:pem_entry_decode(Entry2, "abcd1234"), 
 			    'RSAPrivateKey'),
+
+    {ok, RSAPubPem} = file:read_file(filename:join(Datadir, "rsa_pub.pem")),
+    [{'SubjectPublicKeyInfo', _, _} = PubEntry1] =
+        public_key:pem_decode(RSAPubPem),
+    RSAPubKey = public_key:pem_entry_decode(PubEntry1),
+    true = check_entry_type(RSAPubKey, 'RSAPublicKey'),
+    PubEntry1 = public_key:pem_entry_encode('SubjectPublicKeyInfo', RSAPubKey),
+    RSAPubPemNoEndNewLines = strip_ending_newlines(RSAPubPem),
+    RSAPubPemNoEndNewLines = strip_ending_newlines(public_key:pem_encode([PubEntry1])),
+
+    {ok, RSARawPem} = file:read_file(filename:join(Datadir, "rsa_pub_key.pem")),
+    [{'RSAPublicKey', _, _} = PubEntry2] =
+        public_key:pem_decode(RSARawPem),
+    RSAPubKey = public_key:pem_entry_decode(PubEntry2),
+    RSARawPemNoEndNewLines = strip_ending_newlines(RSARawPem),
+    RSARawPemNoEndNewLines = strip_ending_newlines(public_key:pem_encode([PubEntry2])),
 
     Salt0 = crypto:rand_bytes(8),
     Entry3 = public_key:pem_entry_encode('RSAPrivateKey', RSAKey0, 
@@ -429,9 +460,16 @@ check_entry_type(#'DSAPrivateKey'{}, 'DSAPrivateKey') ->
     true;
 check_entry_type(#'RSAPrivateKey'{}, 'RSAPrivateKey') ->
     true;
+check_entry_type(#'RSAPublicKey'{}, 'RSAPublicKey') ->
+    true;
+check_entry_type({_Int, #'Dss-Parms'{}}, 'DSAPublicKey') when is_integer(_Int) ->
+    true;
 check_entry_type(#'DHParameter'{}, 'DHParameter') ->
     true;
 check_entry_type(#'Certificate'{}, 'Certificate') ->
     true;
 check_entry_type(_,_) ->
     false.
+
+strip_ending_newlines(Bin) ->
+    string:strip(binary_to_list(Bin), right, 10).

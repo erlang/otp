@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -68,7 +68,6 @@ public abstract class AbstractConnection extends Thread {
     protected static final int sendTag = 2;
     protected static final int exitTag = 3;
     protected static final int unlinkTag = 4;
-    protected static final int nodeLinkTag = 5;
     protected static final int regSendTag = 6;
     protected static final int groupLeaderTag = 7;
     protected static final int exit2Tag = 8;
@@ -697,7 +696,6 @@ public abstract class AbstractConnection extends Thread {
 		// absolutely no idea what to do with these, so we ignore
 		// them...
 		case groupLeaderTag: // { GROUPLEADER, FromPid, ToPid}
-		case nodeLinkTag: // { NODELINK }
 		    // (just show trace)
 		    if (traceLevel >= ctrlThreshold) {
 			System.out.println("<- " + headerType(head) + " "
@@ -879,9 +877,6 @@ public abstract class AbstractConnection extends Thread {
 
 	case unlinkTag:
 	    return "UNLINK";
-
-	case nodeLinkTag:
-	    return "NODELINK";
 
 	case regSendTag:
 	    return "REG_SEND";

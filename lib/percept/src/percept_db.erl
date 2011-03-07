@@ -33,7 +33,7 @@
 	]).
 
 -include("percept.hrl").
-
+-define(STOP_TIMEOUT, 1000).
 %%==========================================================================
 %%
 %% 		Type definitions 
@@ -77,16 +77,31 @@
 start() ->
     case erlang:whereis(percept_db) of
     	undefined ->
-	    Pid = spawn( fun() -> init_percept_db() end),
-	    erlang:register(percept_db, Pid),
-	    {started, Pid};
+	    {started, do_start()};
 	PerceptDB ->
-	    erlang:unregister(percept_db),
-	    PerceptDB ! {action, stop},
-	    Pid = spawn( fun() -> init_percept_db() end),
-	    erlang:register(percept_db, Pid),
-	    {restarted, Pid}
+	    {restarted, restart(PerceptDB)}
     end.
+
+%% @spec restart(pid()) -> pid()
+%% @private
+%% @doc restarts the percept database.
+
+-spec restart(pid())-> pid().
+
+restart(PerceptDB)->
+        stop_sync(PerceptDB),
+        do_start().
+
+%% @spec do_start(pid()) -> pid()
+%% @private
+%% @doc starts the percept database.
+
+-spec do_start()-> pid().
+
+do_start()->
+    Pid = spawn( fun() -> init_percept_db() end),
+    erlang:register(percept_db, Pid),
+    Pid.
 
 %% @spec stop() -> not_started | {stopped, Pid}
 %%	Pid = pid()
@@ -101,6 +116,22 @@ stop() ->
 	Pid -> 
 	    Pid ! {action, stop},
 	    {stopped, Pid}
+    end.
+
+%% @spec stop_sync(pid()) -> true
+%% @private
+%% @doc Stops the percept database, with a synchronous call.
+
+-spec stop_sync(pid())-> true.
+
+stop_sync(Pid)->
+    MonitorRef = erlang:monitor(process, Pid),
+    stop(),
+    receive
+        {'DOWN', MonitorRef, _Type, Pid, _Info}->
+            true
+    after ?STOP_TIMEOUT->
+            exit(Pid, kill)
     end.
 
 %% @spec insert(tuple()) -> ok

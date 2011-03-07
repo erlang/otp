@@ -580,6 +580,11 @@ AC_SUBST(WFLAGS)
 AC_SUBST(CFLAG_RUNTIME_LIBRARY_PATH)
 
 AC_CHECK_SIZEOF(void *) # Needed for ARCH and smp checks below
+if test "x$ac_cv_sizeof_void_p" = x8; then
+  AC_SUBST(EXTERNAL_WORD_SIZE, 64)
+else
+  AC_SUBST(EXTERNAL_WORD_SIZE, 32)
+fi
 
 dnl
 dnl Figure out operating system and cpu architecture

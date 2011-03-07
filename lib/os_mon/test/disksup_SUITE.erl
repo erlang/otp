@@ -17,10 +17,10 @@
 %% %CopyrightEnd%
 %%
 -module(disksup_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -41,28 +41,42 @@ end_per_suite(Config) when is_list(Config) ->
     ?line ok = application:stop(os_mon),
     Config.
 
+init_per_testcase(unavailable, Config) ->
+    terminate(Config),
+    init_per_testcase(dummy, Config);
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?default_timeout),
     [{watchdog,Dog} | Config].
 
+end_per_testcase(unavailable, Config) ->
+    restart(Config),
+    end_per_testcase(dummy, Config);
 end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     Bugs = [otp_5910],
-    case ?t:os_type() of
+    case test_server:os_type() of
 	{unix, sunos} ->
-	    [api, config, alarm, port,
-	     {conf, terminate, [unavailable], restart}] ++ Bugs;
-	{unix, _OSname} ->
-	    [api, alarm] ++ Bugs;
-	{win32, _OSname} ->
-	    [api, alarm] ++ Bugs;
-	_OS ->
-	    [unavailable]
+	    [api, config, alarm, port, unavailable] ++ Bugs;
+	{unix, _OSname} -> [api, alarm] ++ Bugs;
+	{win32, _OSname} -> [api, alarm] ++ Bugs;
+	_OS -> [unavailable]
     end.
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 api(suite) ->
     [];

@@ -427,17 +427,11 @@ delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 %% have to reflect that, which we cannot forsee.
 %%
 set_cookie(Node, C) when Node =/= nonode@nohost, is_atom(Node) ->
-    Res = case C of
-	      _ when is_atom(C) ->
-		  auth:set_cookie(Node, C);
-	      {CI,CO} when is_atom(CI), is_atom(CO) ->
-		  auth:set_cookie(Node, {CI, CO});
-	      _ ->
-		  error
-	  end,
-    case Res of
-	error -> exit(badarg);
-	Other -> Other
+    case is_atom(C) of
+	true ->
+	    auth:set_cookie(Node, C);
+	false ->
+	    error(badarg)
     end.
 
 -spec get_cookie() -> atom().

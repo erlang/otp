@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -3367,6 +3367,38 @@ erts_alcu_test(unsigned long op, unsigned long a1, unsigned long a2)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Debug functions                                                           *
 \*                                                                           */
+
+void
+erts_alcu_verify_unused(Allctr_t *allctr)
+{
+    UWord no;
+
+    no = allctr->sbcs.curr_mseg.no;
+    no += allctr->sbcs.curr_sys_alloc.no;
+    no += allctr->mbcs.blocks.curr.no;
+
+    if (no) {
+	UWord sz = allctr->sbcs.blocks.curr.size;
+	sz += allctr->mbcs.blocks.curr.size;
+	erl_exit(ERTS_ABORT_EXIT,
+		 "%salloc() used when expected to be unused!\n"
+		 "Total amount of blocks allocated: %bpu\n"
+		 "Total amount of bytes allocated: %bpu\n",
+		 allctr->name_prefix, no, sz);
+    }
+}
+
+void
+erts_alcu_verify_unused_ts(Allctr_t *allctr)
+{
+#ifdef USE_THREADS
+    erts_mtx_lock(&allctr->mutex);
+#endif
+    erts_alcu_verify_unused(allctr);
+#ifdef USE_THREADS
+    erts_mtx_unlock(&allctr->mutex);
+#endif
+}
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
 

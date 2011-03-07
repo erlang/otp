@@ -18,11 +18,13 @@
 %%
 -module(misc_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 tobias/1,empty_string/1,md5/1,silly_coverage/1,
 	 confused_literals/1,integer_encoding/1,override_bif/1]).
 	 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% For the override_bif testcase.
 %% NB, no other testcases in this testsuite can use these without erlang:prefix!
@@ -45,17 +47,34 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
--spec all(any()) -> misc_SUITE_test_cases().
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [tobias,empty_string,md5,silly_coverage,confused_literals,
-     integer_encoding, override_bif].
+-spec all() -> misc_SUITE_test_cases().
+all() -> 
+    test_lib:recompile(misc_SUITE),
+    [tobias, empty_string, md5, silly_coverage,
+     confused_literals, integer_encoding, override_bif].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %%

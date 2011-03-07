@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(SLEEP, 500).
 -define(TIMEOUT, 60000).
@@ -47,19 +47,23 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
-    crypto:start(),
-    application:start(public_key),
-    ssl:start(),
+    case application:start(crypto) of
+	ok ->
+	    application:start(public_key),
+	    ssl:start(),
 
-    %% make rsa certs using oppenssl
-    Result =
-	(catch make_certs:all(?config(data_dir, Config0),
-			      ?config(priv_dir, Config0))),
-    test_server:format("Make certs  ~p~n", [Result]),
+	    %% make rsa certs using oppenssl
+	    Result =
+		(catch make_certs:all(?config(data_dir, Config0),
+				      ?config(priv_dir, Config0))),
+	    test_server:format("Make certs  ~p~n", [Result]),
 
-    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-    Config = ssl_test_lib:cert_options(Config1),
-    [{watchdog, Dog} | Config].
+	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
+	    Config = ssl_test_lib:cert_options(Config1),
+	    [{watchdog, Dog} | Config];
+	_ ->
+	    {skip, "Crypto did not start"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -69,7 +73,7 @@ init_per_suite(Config0) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ssl:stop(),
-    crypto:stop().
+    application:stop(crypto).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config) -> Config
@@ -141,13 +145,20 @@ end_per_testcase(_TestCase, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) ->
-    ["Test session cach API"];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-     session_cache_process_list, session_cache_process_mnesia
-    ].
+all() -> 
+    [session_cache_process_list,
+     session_cache_process_mnesia].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 session_cache_process_list(doc) ->
     ["Test reuse of sessions (short handshake)"];

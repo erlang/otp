@@ -589,64 +589,35 @@ prodrel -> string : lreverse(prodrel, val('$1')).
 ac_status -> atom : ac_status('$1').
 
 ac_modulepart -> ac_modules : 
-%%                  i("ac_modulepart -> "
-%% 		   "~n   $1: ~p", ['$1']), 
                  lreverse(ac_modulepart, '$1').
 ac_modulepart -> '$empty' : 
-%%                  i("ac_modulepart -> empty", []), 
                  [].
 
 ac_modules -> ac_module : 
-%%               i("ac_modules -> "
-%% 		"~n   $1: ~p", ['$1']), 
               ['$1'].
 ac_modules -> ac_module ac_modules : 
-%%               i("ac_modules -> "
-%% 		"~n   $1: ~p"
-%% 		"~n   $2: ~p", ['$1', '$2']), 
               ['$1' | '$2'].
 
 ac_module -> 'SUPPORTS' ac_modulenamepart 'INCLUDES' '{' objects '}' ac_variationpart : 
-%%               i("ac_module -> "
-%% 		"~n   $2: ~p"
-%% 		"~n   $5: ~p"
-%% 		"~n   $7: ~p", ['$2', '$5', '$7']), 
              make_ac_module('$2', '$5', '$7').
 
 ac_modulenamepart -> mibname : '$1'.
 ac_modulenamepart -> '$empty' : undefined.
     
 ac_variationpart -> '$empty' : 
-%%                     i("ac_variationpart -> empty", []), 
                     [].
 ac_variationpart -> ac_variations : 
-%%                     i("ac_variationpart -> "
-%% 		      "~n   $1: ~p", ['$1']), 
                     lreverse(ac_variationpart, '$1').
 
 ac_variations -> ac_variation : 
-%%                  i("ac_variations -> "
-%% 		   "~n   $1: ~p", ['$1']), 
                  ['$1'].
 ac_variations -> ac_variation ac_variations : 
-%%                  i("ac_variations -> "
-%% 		   "~n   $1: ~p"
-%% 		   "~n   $2: ~p", ['$1', '$2']), 
                  ['$1' | '$2'].
 
 %% ac_variation -> ac_objectvariation.
 %% ac_variation -> ac_notificationvariation.
 
 ac_variation -> 'VARIATION' objectname syntaxpart writesyntaxpart ac_accesspart ac_creationpart defvalpart description : 
-%%                 i("mc_module -> "
-%% 		  "~n   $2: ~p"
-%% 		  "~n   $3: ~p"
-%% 		  "~n   $4: ~p"
-%% 		  "~n   $5: ~p"
-%% 		  "~n   $6: ~p"
-%% 		  "~n   $7: ~p"
-%% 		  "~n   $8: ~p"
-%% 		  "~n", ['$2', '$3', '$4', '$5', '$6', '$7', '$8']),
                  make_ac_variation('$2', '$3', '$4', '$5', '$6', '$7', '$8').
 
 ac_accesspart -> 'ACCESS' ac_access : '$2'.
@@ -655,88 +626,50 @@ ac_accesspart -> '$empty' : undefined.
 ac_access -> atom: ac_access('$1').     
 
 ac_creationpart -> 'CREATION-REQUIRES' '{' objects '}' : 
-%%                    io:format("ac_creationpart -> $3: ~p~n", ['$3']), 
                    lreverse(ac_creationpart, '$3').
 ac_creationpart -> '$empty'                            : 
                    []. 
 
 mc_modulepart -> '$empty'   : 
-%%                  i("mc_modulepart -> empty", []), 
                  [].
 mc_modulepart -> mc_modules : 
-%%                  i("mc_modulepart -> $1: ~p", ['$1']), 
                  lreverse(mc_modulepart, '$1').
 
 mc_modules -> mc_module : 
-%%               i("mc_modules -> "
-%% 		"~n   $1: ~p", ['$1']), 
               ['$1'].
 mc_modules -> mc_module mc_modules : 
-%%               i("mc_modules -> "
-%% 		"~n   $1: ~p"
-%% 		"~n   $2: ~p", ['$1', '$2']), 
               ['$1' | '$2'].
     
 mc_module -> 'MODULE' mc_modulenamepart mc_mandatorypart mc_compliancepart : 
-%% 	     i("mc_module -> "
-%% 	       "~n   $2: ~p"
-%% 	       "~n   $3: ~p"
-%% 	       "~n   $4: ~p"
-%% 	       "~n", ['$2', '$3', '$4']),
              make_mc_module('$2', '$3', '$4').
 
 mc_modulenamepart -> mibname : '$1'.
 mc_modulenamepart -> '$empty' : undefined.
 
 mc_mandatorypart -> 'MANDATORY-GROUPS' '{' objects '}' : 
-%%                     io:format("mc_mandatorypart -> $3: ~p~n", ['$3']), 
                     lreverse(mc_mandatorypart, '$3').
 mc_mandatorypart -> '$empty' : 
-%%                     io:format("mc_mandatorypart -> empty~n", []), 
                     [].
     
 mc_compliancepart -> mc_compliances : 
-%%                      i("mc_compliancepart -> "
-%% 		       "~n   $1: ~p", ['$1']), 
                      lreverse(mc_compliancepart, '$1').
 mc_compliancepart -> '$empty'       : 
-%%                      i("mc_compliancepart -> empty", []), 
                      [].
 
 mc_compliances -> mc_compliance : 
-%%                   i("mc_compliances -> "
-%% 		    "~n   $1: ~p", ['$1']),
                   ['$1'].
 mc_compliances -> mc_compliance mc_compliances : 
-%%                   i("mc_compliances -> "
-%% 		    "~n   $1: ~p"
-%% 		    "~n   $2: ~p", ['$1', '$2']),
                   ['$1' | '$2'].
 
 mc_compliance -> mc_compliancegroup : 
-%%                   i("mc_compliance -> "
-%% 		    "~n   [compliancegroup] $1: ~p", ['$1']), 
                  '$1'.
 mc_compliance -> mc_object          : 
-%% 		 i("mc_compliance -> "
-%% 		   "~n   [object] $1: ~p", ['$1']), 
                  '$1'.
 
 mc_compliancegroup -> 'GROUP' objectname description : 
-%% 		      i("mc_compliancegroup -> "
-%% 			"~n   $2: ~p"
-%% 			"~n   $3: ~p"
-%% 			"~n", ['$2', '$3']),
                       make_mc_compliance_group('$2', '$3').
 
 mc_object -> 'OBJECT' objectname syntaxpart writesyntaxpart mc_accesspart description : 
-%%              i("mc_object -> "
-%% 	       "~n   $2: ~p"
-%% 	       "~n   $3: ~p"
-%% 	       "~n   $4: ~p"
-%% 	       "~n   $5: ~p"
-%% 	       "~n   $6: ~p"
-%% 	       "~n", ['$2', '$3', '$4', '$5', '$6']),
              make_mc_object('$2', '$3', '$4', '$5', '$6').
 
 syntaxpart -> 'SYNTAX' syntax : '$2'.

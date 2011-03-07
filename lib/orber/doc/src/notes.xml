@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,52 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+  <section>
+    <title>Orber 3.6.20</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Eliminated Dialyzer warnings when using exit or throw.</p>
+          <p>
+            Own Id: OTP-9050 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.19</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Partial support for recursive structs and unions.
+            Only available for the erl_corba backend and requires
+            that Light IFR is used. I.e. the IC option {light_ifr, true}
+            and that Orber is configured in such a way that Light IFR
+            is activated. Recursive TypeCode is currently not supported.</p>
+          <p>
+            Own Id: OTP-8868 Aux Id: seq11633</p>
+        </item>
+      </list>
+    </section>
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The SSL option {ssl_imp, old} was not used if ssl_generation was
+             set to 2. Only R14B was affected by this.</p>
+          <p>Own Id: OTP-8994 Aux Id: seq11747</p>
+        </item>
+      </list>
+    </section>
+  </section>
 
   <section>
     <title>Orber 3.6.18</title>

@@ -51,7 +51,7 @@ else
 # --------------
 #
     ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler
-    OTHER_SUB_DIRECTORIES = tools test_server
+    OTHER_SUB_DIRECTORIES = tools test_server common_test runtime_tools
     ifdef BUILD_ALL
       ifeq ($(findstring win32,$(TARGET)),win32) # BUILD_ALL on win32
         OTHER_SUB_DIRECTORIES += 			\

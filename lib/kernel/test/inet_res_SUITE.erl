@@ -18,24 +18,51 @@
 %%
 -module(inet_res_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 -include_lib("kernel/include/inet.hrl").
 -include_lib("kernel/src/inet_dns.hrl").
 
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1]).
--export([gethostbyaddr/1, gethostbyaddr_v6/1,
-	 gethostbyname/1, gethostbyname_v6/1,
-	 getaddr/1, getaddr_v6/1, ipv4_to_ipv6/1, host_and_addr/1]).
+-export([
+	 gethostbyaddr/0, gethostbyaddr/1,
+	 gethostbyaddr_v6/0, gethostbyaddr_v6/1,
+	 gethostbyname/0, gethostbyname/1,
+	 gethostbyname_v6/0, gethostbyname_v6/1,
+	 getaddr/0, getaddr/1,
+	 getaddr_v6/0, getaddr_v6/1,
+	 ipv4_to_ipv6/0, ipv4_to_ipv6/1,
+	 host_and_addr/0, host_and_addr/1
+	]).
 
 -define(RUN_NAMED, "run-named").
 
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
-     gethostbyaddr, gethostbyaddr_v6, gethostbyname, gethostbyname_v6,
-     getaddr, getaddr_v6, ipv4_to_ipv6, host_and_addr].
+     gethostbyaddr, gethostbyaddr_v6, gethostbyname,
+     gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
+     host_and_addr].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 zone_dir(basic) ->
     otptest;
@@ -450,11 +477,19 @@ do_files_monitor(Config) ->
 %% Compatibility tests. Call the inet_SUITE tests, but with
 %% lookup = [file,dns] instead of [native]
 
+gethostbyaddr() -> inet_SUITE:t_gethostbyaddr().
 gethostbyaddr(Config) -> inet_SUITE:t_gethostbyaddr(Config).
+gethostbyaddr_v6() -> inet_SUITE:t_gethostbyaddr_v6().
 gethostbyaddr_v6(Config) -> inet_SUITE:t_gethostbyaddr_v6(Config).
+gethostbyname() -> inet_SUITE:t_gethostbyname().
 gethostbyname(Config) -> inet_SUITE:t_gethostbyname(Config).
+gethostbyname_v6() -> inet_SUITE:t_gethostbyname_v6().
 gethostbyname_v6(Config) -> inet_SUITE:t_gethostbyname_v6(Config).
+getaddr() -> inet_SUITE:t_getaddr().
 getaddr(Config) -> inet_SUITE:t_getaddr(Config).
+getaddr_v6() -> inet_SUITE:t_getaddr_v6().
 getaddr_v6(Config) -> inet_SUITE:t_getaddr_v6(Config).
+ipv4_to_ipv6() -> inet_SUITE:ipv4_to_ipv6().
 ipv4_to_ipv6(Config) -> inet_SUITE:ipv4_to_ipv6(Config).
+host_and_addr() -> inet_SUITE:host_and_addr().
 host_and_addr(Config) -> inet_SUITE:host_and_addr(Config).

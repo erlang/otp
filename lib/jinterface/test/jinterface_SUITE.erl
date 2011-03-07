@@ -18,7 +18,8 @@
 %%
 -module(jinterface_SUITE).
 
--export([all/1, init_per_suite/1, end_per_suite/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([nodename/1, register_and_whereis/1, get_names/1, boolean_atom/1,
@@ -31,13 +32,14 @@
 	 erl_link_java_exit/1, java_link_erl_exit/1,
 	 internal_link_linking_exits/1, internal_link_linked_exits/1,
 	 internal_unlink_linking_exits/1, internal_unlink_linked_exits/1,
-	 normal_exit/1, kill_mbox/1, kill_erl_proc_from_java/1,
-	 kill_mbox_from_erlang/1, erl_exit_with_reason_any_term/1,
+	 normal_exit/1, kill_mbox/1,kill_erl_proc_from_java/1,
+	 kill_mbox_from_erlang/1,
+	 erl_exit_with_reason_any_term/1,
 	 java_exit_with_reason_any_term/1,
 	 status_handler_localStatus/1, status_handler_remoteStatus/1,
 	 status_handler_connAttempt/1]).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 -define(debug,true).
@@ -80,14 +82,21 @@
 %%%-----------------------------------------------------------------
 %%% INIT/END
 %%%-----------------------------------------------------------------
-all(suite) ->
-    lists:append([
-		  fundamental(),
-		  ping(),
-		  send_receive(),
-		  link_unlink(),
-		  status_handler()
-		 ]).
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    lists:append([fundamental(), ping(), send_receive(),
+		  link_unlink(), status_handler()]).
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 fundamental() ->
     [
@@ -154,11 +163,22 @@ status_handler() ->
 
 
 init_per_suite(Config) when is_list(Config) ->
-    jitu:init_all(Config).
+    case case code:priv_dir(jinterface) of
+	     {error,bad_name} -> false;
+	     P -> filelib:is_dir(P) end of
+	true ->
+	    jitu:init_all(Config);
+	false ->
+	    {skip,"No jinterface application"}
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
     jitu:finish_all(Config).
 
+init_per_testcase(Case, _Config) 
+  when Case =:= kill_mbox;
+       Case =:= kill_mbox_from_erlang ->
+    {skip, "Not yet implemented"};
 init_per_testcase(_Case,Config) ->
     Dog = ?t:timetrap({seconds,10}),
     [{watch_dog,Dog}|Config].

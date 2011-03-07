@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,24 +18,25 @@
 %%
 -module(ets_SUITE).
 
--export([all/1]).
--export([new/1,default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
+-export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1,privacy_owner/2]).
--export([insert/1,empty/1,badinsert/1]).
--export([lookup/1,time_lookup/1,badlookup/1,lookup_order/1]).
--export([delete/1,delete_elem/1,delete_tab/1,delete_large_tab/1,
+-export([empty/1,badinsert/1]).
+-export([time_lookup/1,badlookup/1,lookup_order/1]).
+-export([delete_elem/1,delete_tab/1,delete_large_tab/1,
 	 delete_large_named_table/1,
 	 evil_delete/1,baddelete/1,match_delete/1,table_leak/1]).
 -export([match_delete3/1]).
 -export([firstnext/1,firstnext_concurrent/1]).
 -export([slot/1]).
--export([match/1, match1/1, match2/1, match_object/1, match_object2/1]).
--export([misc/1, dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
--export([files/1, tab2file/1, tab2file2/1, tabfile_ext1/1,
+-export([ match1/1, match2/1, match_object/1, match_object2/1]).
+-export([ dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
+-export([ tab2file/1, tab2file2/1, tabfile_ext1/1,
 	tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1]).
--export([heavy/1, heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
--export([lookup_element/1, lookup_element_mult/1]).
--export([fold/1]).
+-export([ heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
+-export([ lookup_element_mult/1]).
+-export([]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
 -export([t_delete_object/1, t_init_table/1, t_whitebox/1, 
 	 t_delete_all_objects/1, t_insert_list/1, t_test_ms/1,
@@ -59,7 +60,7 @@
 -export([otp_7665/1]).
 -export([meta_wb/1]).
 -export([grow_shrink/1, grow_pseudo_deleted/1, shrink_pseudo_deleted/1]).
--export([meta_smp/1,
+-export([
 	 meta_lookup_unnamed_read/1, meta_lookup_unnamed_write/1, 
 	 meta_lookup_named_read/1, meta_lookup_named_write/1,
 	 meta_newdel_unnamed/1, meta_newdel_named/1]).
@@ -72,7 +73,7 @@
 -export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
 
--export([init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
 -export([random_test/0]).
 
@@ -92,12 +93,15 @@
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
 	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
 	 do_heavy_concurrent/1, tab2file2_do/2, exit_large_table_owner_do/2,
-         types_do/1, sleeper/0, rpc_externals/0, memory_do/1
+         types_do/1, sleeper/0, rpc_externals/0, memory_do/1,
+	 ms_tracee_dummy/1, ms_tracee_dummy/2, ms_tracee_dummy/3, ms_tracee_dummy/4
 	]).
 
 -export([t_select_reverse/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
+
+-define(m(A,B), ?line assert_eq(A,B)).
 
 init_per_testcase(Case, Config) ->
     Seed = {S1,S2,S3} = random:seed0(), %now(),
@@ -108,44 +112,80 @@ init_per_testcase(Case, Config) ->
     Dog=test_server:timetrap(test_server:minutes(20)),
     [{watchdog, Dog}, {test_case, Case} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     wait_for_test_procs(true),
     test_server:timetrap_cancel(Dog).
-    
+   
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, new}, {group, insert}, {group, lookup},
+     {group, delete}, firstnext, firstnext_concurrent, slot,
+     {group, match}, t_match_spec_run,
+     {group, lookup_element}, {group, misc}, {group, files},
+     {group, heavy}, ordered, ordered_match,
+     interface_equality, fixtable_next, fixtable_insert,
+     rename, rename_unnamed, evil_rename, update_element,
+     update_counter, evil_update_counter, partly_bound,
+     match_heavy, {group, fold}, member, t_delete_object,
+     t_init_table, t_whitebox, t_delete_all_objects,
+     t_insert_list, t_test_ms, t_select_delete, t_ets_dets,
+     memory, t_select_reverse, t_bucket_disappears,
+     select_fail, t_insert_new, t_repair_continuation,
+     otp_5340, otp_6338, otp_6842_select_1000, otp_7665,
+     otp_8732, meta_wb, grow_shrink, grow_pseudo_deleted,
+     shrink_pseudo_deleted, {group, meta_smp}, smp_insert,
+     smp_fixed_delete, smp_unfix_fix, smp_select_delete,
+     otp_8166, exit_large_table_owner,
+     exit_many_large_table_owner, exit_many_tables_owner,
+     exit_many_many_tables_owner, write_concurrency, heir,
+     give_away, setopts, bad_table, types].
+
+groups() -> 
+    [{new, [],
+      [default, setbag, badnew, verybadnew, named, keypos2,
+       privacy]},
+     {insert, [], [empty, badinsert]},
+     {lookup, [], [time_lookup, badlookup, lookup_order]},
+     {lookup_element, [], [lookup_element_mult]},
+     {delete, [],
+      [delete_elem, delete_tab, delete_large_tab,
+       delete_large_named_table, evil_delete, table_leak,
+       baddelete, match_delete, match_delete3]},
+     {match, [],
+      [match1, match2, match_object, match_object2]},
+     {misc, [],
+      [misc1, safe_fixtable, info, dups, tab2list]},
+     {files, [],
+      [tab2file, tab2file2, tabfile_ext1,
+       tabfile_ext2, tabfile_ext3, tabfile_ext4]},
+     {heavy, [],
+      [heavy_lookup, heavy_lookup_element, heavy_concurrent]},
+     {fold, [],
+      [foldl_ordered, foldr_ordered, foldl, foldr,
+       fold_empty]},
+     {meta_smp, [],
+      [meta_lookup_unnamed_read, meta_lookup_unnamed_write,
+       meta_lookup_named_read, meta_lookup_named_write,
+       meta_newdel_unnamed, meta_newdel_named]}].
+
+init_per_suite(Config) ->
+    Config.
 
 end_per_suite(_Config) ->
     stop_spawn_logger(),
     catch erts_debug:set_internal_state(available_internal_state, false).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+init_per_group(_GroupName, Config) ->
+	Config.
 
-all(suite) ->
-    [
-     new,insert,lookup,delete,firstnext,firstnext_concurrent,slot,match,
-     t_match_spec_run,
-     lookup_element, misc,files, heavy, 
-     ordered, ordered_match, interface_equality,
-     fixtable_next, fixtable_insert, rename, rename_unnamed, evil_rename,
-     update_element, update_counter, evil_update_counter, partly_bound,
-     match_heavy, fold, member,
-     t_delete_object, t_init_table, t_whitebox, 
-     t_delete_all_objects, t_insert_list, t_test_ms,
-     t_select_delete, t_ets_dets, memory, t_select_reverse,
-     t_bucket_disappears,
-     select_fail,t_insert_new, t_repair_continuation, otp_5340, otp_6338,
-     otp_6842_select_1000, otp_7665, otp_8732,
-     meta_wb,
-     grow_shrink, grow_pseudo_deleted, shrink_pseudo_deleted,
-     meta_smp,
-     smp_insert, smp_fixed_delete, smp_unfix_fix, smp_select_delete, otp_8166,
-     exit_large_table_owner,
-     exit_many_large_table_owner,
-     exit_many_tables_owner,
-     exit_many_many_tables_owner,
-     write_concurrency, heir, give_away, setopts,
-     bad_table, types
-    ].
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -176,29 +216,180 @@ t_match_spec_run(suite) ->
 t_match_spec_run(doc) ->
     ["Check ets:match_spec_run/2."];
 t_match_spec_run(Config) when is_list(Config) ->
+    init_externals(),
     ?line EtsMem = etsmem(),
-    ?line [2,3] = ets:match_spec_run([{1},{2},{3}],
-				     ets:match_spec_compile(
-				       [{{'$1'},[{'>','$1',1}],['$1']}])),
+
+    t_match_spec_run_test([{1},{2},{3}],
+			  [{{'$1'},[{'>','$1',1}],['$1']}],
+			  [2,3]),
+
     ?line Huge = [{X} || X <- lists:seq(1,2500)],
     ?line L = lists:seq(2476,2500),
-    ?line L = ets:match_spec_run(Huge,
-				 ets:match_spec_compile(
-				   [{{'$1'},[{'>','$1',2475}],['$1']}])),
+    t_match_spec_run_test(Huge, [{{'$1'},[{'>','$1',2475}],['$1']}], L),
+
     ?line L2 = [{X*16#FFFFFFF} || X <- L],
-    ?line L2 = ets:match_spec_run(Huge,
-				  ets:match_spec_compile(
-				    [{{'$1'},
-				      [{'>','$1',2475}],
-				      [{{{'*','$1',16#FFFFFFF}}}]}])),
-    ?line [500,1000,1500,2000,2500] = 
-	ets:match_spec_run(Huge,
-			   ets:match_spec_compile(
-			     [{{'$1'},
-			       [{'=:=',{'rem','$1',500},0}],
-			       ['$1']}])),
+    t_match_spec_run_test(Huge,
+			  [{{'$1'}, [{'>','$1',2475}], [{{{'*','$1',16#FFFFFFF}}}]}],
+			  L2),
+
+    t_match_spec_run_test(Huge, [{{'$1'}, [{'=:=',{'rem','$1',500},0}], ['$1']}],
+			  [500,1000,1500,2000,2500]),
+
+    %% More matching fun with several match clauses and guards,
+    %% applied to a variety of terms.
+    Fun = fun(Term) ->
+		  CTerm = {const, Term},
+
+		  N_List = [{Term, "0", "v-element"},
+			    {"=hidden_node", "0", Term},
+			    {"0", Term, Term},
+			    {"something", Term, "something else"},
+			    {"guard and res", Term, 872346},
+			    {Term, {'and',Term,'again'}, 3.14},
+			    {Term, {'and',Term,'again'}, "m&g"},
+			    {Term, {'and',Term,'again'}, "m&g&r"},
+			    {[{second,Term}, 'and', "tail"], Term, ['and',"tail"]}],
+
+		  N_MS = [{{'$1','$2','$3'},
+			   [{'=:=','$1',CTerm}, {'=:=','$2',{const,"0"}}],
+			   [{{"Guard only for $1",'$3'}}]},
+
+			  {{'$3','$1','$4'},
+			   [{'=:=','$3',"=hidden_node"}, {'=:=','$1',{const,"0"}}],
+			   [{{"Result only for $4",'$4'}}]},
+
+			  {{'$2','$1','$1'},
+			   [{'=:=','$2',{const,"0"}}],
+			   [{{"Match only for $1",'$2'}}]},
+
+			  {{'$2',Term,['$3'|'_']},
+			   [{is_list,'$2'},{'=:=','$3',$s}],
+			   [{{"Matching term",'$2'}}]},
+
+			  {{'$1','$2',872346},
+			   [{'=:=','$2',CTerm}, {is_list,'$1'}],
+			   [{{"Guard and result",'$2'}}]},
+
+			  {{'$1', {'and','$1','again'}, '$2'},
+			   [{is_float,'$2'}],
+			   [{{"Match and result",'$1'}}]},
+
+			  {{'$1', {'and','$1','again'}, '$2'},
+			   [{'=:=','$1',CTerm}, {'=:=', '$2', "m&g"}],
+			   [{{"Match and guard",'$2'}}]},
+
+			  {{'$1', {'and','$1','again'}, "m&g&r"},
+			   [{'=:=','$1',CTerm}],
+			   [{{"Match, guard and result",'$1'}}]},
+
+			  {{'$1', '$2', '$3'},
+			   [{'=:=','$1',[{{second,'$2'}} | '$3']}],
+			   [{{"Building guard"}}]}
+			 ],
+
+		  N_Result = [{"Guard only for $1", "v-element"},
+			      {"Result only for $4", Term},
+			      {"Match only for $1", "0"},
+			      {"Matching term","something"},
+			      {"Guard and result",Term},
+			      {"Match and result",Term},
+			      {"Match and guard","m&g"},
+			      {"Match, guard and result",Term},
+			      {"Building guard"}],
+
+		  F = fun(N_MS_Perm) ->
+			      t_match_spec_run_test(N_List, N_MS_Perm, N_Result)
+		      end,
+		  repeat_for_permutations(F, N_MS)
+	  end,
+
+    test_terms(Fun, skip_refc_check),
+
     ?line verify_etsmem(EtsMem).
 
+t_match_spec_run_test(List, MS, Result) ->
+
+    %%io:format("ms = ~p\n",[MS]),
+
+    ?m(Result, ets:match_spec_run(List, ets:match_spec_compile(MS))),
+
+    %% Check that ets:select agree
+    Tab = ets:new(xxx, [bag]),
+    ets:insert(Tab, List),
+    SRes = lists:sort(Result),
+    ?m(SRes, lists:sort(ets:select(Tab, MS))),
+    ets:delete(Tab),
+
+    %% Check that tracing agree
+    Self = self(),
+    {Tracee, MonRef} = spawn_monitor(fun() -> ms_tracee(Self, List) end),
+    receive {Tracee, ready} -> ok end,
+
+    MST = lists:map(fun(Clause) -> ms_clause_ets_to_trace(Clause) end, MS),
+
+    %%io:format("MS = ~p\nMST= ~p\n",[MS,MST]),
+
+    erlang:trace_pattern({?MODULE,ms_tracee_dummy,'_'}, MST , [local]),
+    erlang:trace(Tracee, true, [call]),
+    Tracee ! start,
+    TRes = ms_tracer_collect(Tracee, MonRef, []),
+    %erlang:trace(Tracee, false, [call]),
+    %Tracee ! stop,
+    case TRes of
+	SRes -> ok;
+	_ ->
+	    io:format("TRACE MATCH FAILED\n"),
+	    io:format("Input = ~p\nMST = ~p\nExpected = ~p\nGot = ~p\n", [List, MST, SRes, TRes]),
+	    ?t:fail("TRACE MATCH FAILED")
+    end,
+    ok.
+
+
+
+ms_tracer_collect(Tracee, Ref, Acc) ->
+    receive
+	{trace, Tracee, call, _Args, [Msg]} ->
+	    %io:format("trace Args=~p  Msg=~p\n", [_Args, Msg]),
+	    ms_tracer_collect(Tracee, Ref, [Msg | Acc]);
+
+	{'DOWN', Ref, process, Tracee, _} ->
+	    %io:format("monitor DOWN for ~p\n", [Tracee]),
+	    TDRef = erlang:trace_delivered(Tracee),
+	    ms_tracer_collect(Tracee, TDRef, Acc);
+
+	{trace_delivered, Tracee, Ref} ->
+	    %%io:format("trace delivered for ~p\n", [Tracee]),
+	    lists:sort(Acc);
+
+	Other ->
+	    io:format("Unexpected message = ~p\n", [Other]),
+	    ?t:fail("Unexpected tracer msg")
+    end.
+
+
+ms_tracee(Parent, CallArgList) ->
+    %io:format("ms_tracee ~p started with ArgList = ~p\n", [self(), CallArgList]),
+    Parent ! {self(), ready},
+    receive start -> ok end,
+    lists:foreach(fun(Args) ->
+			  erlang:apply(?MODULE, ms_tracee_dummy, tuple_to_list(Args))
+		  end, CallArgList).
+    %%receive stop -> ok end.
+
+
+
+ms_tracee_dummy(_) -> ok.
+ms_tracee_dummy(_,_) -> ok.
+ms_tracee_dummy(_,_,_) -> ok.
+ms_tracee_dummy(_,_,_,_) -> ok.
+
+ms_clause_ets_to_trace({Head, Guard, Body}) ->
+    {tuple_to_list(Head), Guard, [{message, Body}]}.
+
+assert_eq(A,A) -> ok;
+assert_eq(A,B) ->
+    io:format("FAILED MATCH:\n~p\n =/=\n~p\n",[A,B]),
+    ?t:fail("assert_eq failed").
 
 
 t_repair_continuation(suite) -> 
@@ -332,7 +523,6 @@ t_repair_continuation_do(Opts) ->
     ?line true = ets:is_compiled_ms(ets:match_spec_compile(MS)),
     ?line verify_etsmem(EtsMem).
 
-new(suite) -> [default,setbag,badnew,verybadnew,named,keypos2,privacy].
 
 default(doc) ->
     ["Check correct default vaules of a new ets table"];
@@ -1391,8 +1581,7 @@ update_element_opts(Tuple,KeyPos,UpdPos,Opts) ->
     ok.
 
 update_element(T,Tuple,KeyPos,UpdPos) -> 
-    KeyList = [Key || Key <- [17,"seventeen",<<"seventeen">>,{17},list_to_binary(lists:seq(1,100)),
-			      make_ref(), self()]],
+    KeyList = [17,"seventeen",<<"seventeen">>,{17},list_to_binary(lists:seq(1,100)),make_ref(), self()],
     lists:foreach(fun(Key) -> 
 			  TupleWithKey = setelement(KeyPos,Tuple,Key),
 			  update_element_do(T,TupleWithKey,Key,UpdPos)
@@ -1406,6 +1595,8 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
     % This will try all combinations of {fromValue,toValue}
     %
     % IMPORTANT: size(Values) must be a prime number for this to work!!!
+
+    %io:format("update_element_do for key=~p\n",[Key]),
     Big32 = 16#12345678,
     Big64 = 16#123456789abcdef0,
     Values = { 623, -27, 0, Big32, -Big32, Big64, -Big64, Big32*Big32,
@@ -1426,7 +1617,7 @@ update_element_do(Tab,Tuple,Key,UpdPos) ->
 		    (ToIx, [], Pos, _Rand, _MeF) ->
 			 {Pos, element(ToIx+1,Values)}   % single {pos,value} arg
 		 end,
-			 			
+
     UpdateF = fun(ToIx,Rand) -> 
 		      PosValArg = PosValArgF(ToIx,[],UpdPos,Rand,PosValArgF),
 		      %%io:format("update_element(~p)~n",[PosValArg]),
@@ -1553,6 +1744,7 @@ update_counter_for(T) ->
 		 (Obj, Times, Arg3, Myself) ->
 		      ?line {NewObj, Ret} = uc_mimic(Obj,Arg3),
 		      ArgHash = erlang:phash2({T,a,Arg3}),
+		      %%io:format("update_counter(~p, ~p, ~p) expecting ~p\n",[T,a,Arg3,Ret]),
 		      ?line Ret = ets:update_counter(T,a,Arg3),
 		      ?line ArgHash = erlang:phash2({T,a,Arg3}),
 		      %%io:format("NewObj=~p~n ",[NewObj]),
@@ -2720,8 +2912,6 @@ rotate_tuple(Tuple, N) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-insert(doc) ->   ["Test proper and improper inserts into a table."];
-insert(suite) -> [empty,badinsert].
 
 empty(doc) ->
     ["Check lookup in an empty table and lookup of a non-existing key"];
@@ -2761,8 +2951,6 @@ badinsert_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-lookup(doc) -> ["Some tests for lookups (timing, bad lookups, etc.)."];
-lookup(suite) -> [time_lookup,badlookup,lookup_order].
 
 time_lookup(doc) ->   ["Lookup timing."];
 time_lookup(suite) -> [];
@@ -2889,8 +3077,6 @@ fill_tab(Tab,Val) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-lookup_element(doc) -> ["Some tests for lookup_element."];
-lookup_element(suite) -> [lookup_element_mult].
 
 lookup_element_mult(doc) ->   ["Multiple return elements (OTP-2386)"];
 lookup_element_mult(suite) -> [];
@@ -2932,11 +3118,6 @@ lem_crash_3(T) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-delete(doc) ->
-    ["Check delete functionality (proper/improper deletes)"];
-delete(suite) ->
-    [delete_elem,delete_tab,delete_large_tab,delete_large_named_table,evil_delete,
-     table_leak,baddelete,match_delete,match_delete3].
 
 delete_elem(doc) ->
     ["Check delete of an element inserted in a `filled' table."];
@@ -3416,7 +3597,7 @@ firstnext_concurrent(Config) when is_list(Config) ->
     [dynamic_go() || _ <- lists:seq(1, 2)],
     receive
 	after 5000 -> ok
-	end.
+    end.
 
 ets_init(Tab, N) ->
     ets_new(Tab, [named_table,public,ordered_set]),
@@ -3471,7 +3652,6 @@ slot_loop(Tab,SlotNo,EltsSoFar) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-match(suite) -> [match1, match2, match_object, match_object2].
 
 match1(suite) -> [];
 match1(Config) when is_list(Config) ->
@@ -3606,7 +3786,6 @@ match_object2_do(Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-misc(suite) -> [misc1, safe_fixtable, info, dups, tab2list].
 
 tab2list(doc) -> ["Tests tab2list (OTP-3319)"];
 tab2list(suite) -> [];
@@ -3738,9 +3917,6 @@ dups_do(Opts) ->
     ?line verify_etsmem(EtsMem).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-files(suite) -> [tab2file, tab2file2, tabfile_ext1, tabfile_ext2,
-		 tabfile_ext3, tabfile_ext4].
 
 tab2file(doc) -> ["Check the ets:tab2file function on an empty "
 		  "ets table."];
@@ -3991,7 +4167,6 @@ make_sub_binary(List, Num) when is_list(List) ->
     {_,B} = split_binary(Bin, N+1),
     B.
 
-heavy(suite) -> [heavy_lookup, heavy_lookup_element, heavy_concurrent].
 
 %% Lookup stuff like crazy...
 heavy_lookup(doc) -> ["Performs multiple lookups for every key ",
@@ -4054,7 +4229,7 @@ do_lookup_element(Tab, N, M) ->
     end.
 
 
-heavy_concurrent(_Config) ->
+heavy_concurrent(Config) when is_list(Config) ->
     repeat_for_opts(do_heavy_concurrent).
 
 do_heavy_concurrent(Opts) ->
@@ -4092,9 +4267,6 @@ do_heavy_concurrent_proc(Tab, N, Offs) ->
     _ = ets:lookup(Tab, N),
     do_heavy_concurrent_proc(Tab, N-1, Offs).
 
-fold(suite) -> [foldl_ordered, foldr_ordered,
-		foldl, foldr,
-		fold_empty].
 
 fold_empty(doc) ->
     [];
@@ -4856,13 +5028,6 @@ shrink_pseudo_deleted_do(Type) ->
     process_flag(scheduler,0).
 
     
-meta_smp(suite) ->
-    [meta_lookup_unnamed_read,
-     meta_lookup_unnamed_write,
-     meta_lookup_named_read,
-     meta_lookup_named_write,
-     meta_newdel_unnamed,
-     meta_newdel_named].
 
 meta_lookup_unnamed_read(suite) -> [];
 meta_lookup_unnamed_read(Config) when is_list(Config) ->
@@ -5250,7 +5415,7 @@ types_do(Opts) ->
             ets:delete_all_objects(T),
             ?line 0 = ets:info(T,size)
           end,
-    test_terms(Fun),
+    test_terms(Fun, strict),
     ets:delete(T),
     ?line verify_etsmem(EtsMem).
 
@@ -5325,7 +5490,25 @@ my_tab_to_list(_Ts,'$end_of_table', Acc) -> lists:reverse(Acc);
 my_tab_to_list(Ts,Key, Acc) ->
     my_tab_to_list(Ts,ets:next(Ts,Key),[ets:lookup(Ts, Key)| Acc]).
 
+wait_for_all_schedulers_online_to_execute() ->
+    PMs = lists:map(fun (Sched) ->
+			    spawn_opt(fun () -> ok end,
+				      [monitor, {scheduler, Sched}])
+		    end,
+		    lists:seq(1,erlang:system_info(schedulers_online))),
+    lists:foreach(fun ({P, M}) ->
+			  receive
+			      {'DOWN', M, process, P, _} -> ok
+			  end
+		  end,
+		  PMs),
+    ok.
+
 etsmem() ->
+    %% Wait until it is guaranteed that all already scheduled
+    %% deallocations of DbTable structures have completed.
+    wait_for_all_schedulers_online_to_execute(),
+
     AllTabs = lists:map(fun(T) -> {T,ets:info(T,name),ets:info(T,size),
 				   ets:info(T,memory),ets:info(T,type)} 
 			end, ets:all()),
@@ -5476,6 +5659,20 @@ repeat_while(Fun, Arg0) ->
 	{false,Ret} -> Ret
     end.
 
+%% Some (but not all) permutations of List
+repeat_for_permutations(Fun, List) ->
+    repeat_for_permutations(Fun, List, length(List)-1).
+repeat_for_permutations(Fun, List, 0) ->
+    Fun(List);
+repeat_for_permutations(Fun, List, N) ->
+    {A,B} = lists:split(N, List),
+    L1 = B++A,
+    L2 = lists:reverse(L1),
+    L3 = B++lists:reverse(A),
+    L4 = lists:reverse(B)++A,
+    Fun(L1), Fun(L2), Fun(L3), Fun(L4),
+    repeat_for_permutations(Fun, List, N-1).
+
 receive_any() ->
     receive M ->
 	    io:format("Process ~p got msg ~p\n", [self(),M]),
@@ -5533,7 +5730,7 @@ only_if_smp(Schedulers, Func) ->
 
 %% Copy-paste from emulator/test/binary_SUITE.erl
 -define(heap_binary_size, 64).
-test_terms(Test_Func) ->
+test_terms(Test_Func, Mode) ->
     garbage_collect(),
     ?line Pib0 = process_info(self(),binary),
 
@@ -5610,7 +5807,10 @@ test_terms(Test_Func) ->
     Pib = process_info(self(),binary),
     ?line Test_Func(Bin3),
     garbage_collect(),
-    ?line Pib = process_info(self(),binary),
+    case Mode of
+	strict -> ?line Pib = process_info(self(),binary);
+	skip_refc_check -> ok
+    end,
 
     ?line Test_Func(make_unaligned_sub_binary(Bin0)),
     ?line Test_Func(make_unaligned_sub_binary(Bin1)),
@@ -5654,8 +5854,12 @@ test_terms(Test_Func) ->
     ?line Test_Func(lists:duplicate(32, FF)),
 
     garbage_collect(),
-    ?line Pib0 = process_info(self(),binary),
+    case Mode of
+	strict -> ?line Pib0 = process_info(self(),binary);
+	skip_refc_check -> ok
+    end,
     ok.
+
 
 id(I) -> I.
 
@@ -5688,27 +5892,32 @@ make_ext_ref() ->
     Ref.
 
 init_externals() ->
-    SysDistSz = ets:info(sys_dist,size), 
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
-    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
-	            {badrpc, {'EXIT', E}} ->
-                        test_server:fail({rpcresult, E});
-		    R -> R
-	        end,
-    ?line test_server:stop_node(Node),
+    case get(externals) of
+	undefined ->
+	    SysDistSz = ets:info(sys_dist,size),
+	    ?line Pa = filename:dirname(code:which(?MODULE)),
+	    ?line {ok, Node} = test_server:start_node(plopp, slave, [{args, " -pa " ++ Pa}]),
+	    ?line Res = case rpc:call(Node, ?MODULE, rpc_externals, []) of
+			    {badrpc, {'EXIT', E}} ->
+				test_server:fail({rpcresult, E});
+			    R -> R
+			end,
+	    ?line test_server:stop_node(Node),
 
-    %% Wait for table 'sys_dist' to stabilize
-    repeat_while(fun() ->
-		    case ets:info(sys_dist,size) of
-			SysDistSz -> false;
-			Sz ->
-			    io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
-				      [Sz, SysDistSz]),
-			    receive after 1000 -> true end
-		    end
-		end),   
-    put(externals, Res).
+	    %% Wait for table 'sys_dist' to stabilize
+	    repeat_while(fun() ->
+				 case ets:info(sys_dist,size) of
+				     SysDistSz -> false;
+				     Sz ->
+					 io:format("Waiting for sys_dist to revert size from ~p to size ~p\n",
+						   [Sz, SysDistSz]),
+					 receive after 1000 -> true end
+				 end
+			 end),
+	    put(externals, Res);
+
+	{_,_,_} -> ok
+    end.
 
 rpc_externals() ->
     {self(), make_port(), make_ref()}.

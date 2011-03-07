@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,10 @@ acceptor_init(Parent, Port, Address, SockOpts, Opts, AcceptTimeout) ->
    
 do_socket_listen(Callback, Port, Opts) ->
     case Callback:listen(Port, Opts) of
+	{error, nxdomain} ->
+	    Callback:listen(Port, lists:delete(inet6, Opts));
+	{error, enetunreach} ->
+	    Callback:listen(Port, lists:delete(inet6, Opts));
 	{error, eafnosupport} ->
 	    Callback:listen(Port, lists:delete(inet6, Opts));
 	Other ->

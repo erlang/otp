@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,13 +24,12 @@
 
 -module(megaco_sdp_test).
 
--export([all/1,
+-export([all/0,groups/0,init_per_group/2,end_per_group/2,
 	 decode_encode/1,
 
-	 tickets/1, 
 	 otp8123/1, 
 
-	 init_per_testcase/2, fin_per_testcase/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 
 	 t/0, t/1]).
 
@@ -46,8 +45,8 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -55,16 +54,19 @@ fin_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-all(suite) ->
-    [
-     decode_encode,
-     tickets
-    ].
+all() -> 
+    [decode_encode, {group, tickets}].
 
-tickets(suite) ->
-    [
-     otp8123
-    ].
+groups() -> 
+    [{tickets, [], [otp8123]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

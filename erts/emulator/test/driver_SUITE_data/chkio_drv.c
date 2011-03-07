@@ -102,6 +102,7 @@ typedef struct chkio_smp_select {
     int write_fd;
     int next_read;
     int next_write;
+    int first_write;
     enum {Closed, Opened, Selected, Waiting} state;
     int wasSelected;
     unsigned rand_state;
@@ -577,9 +578,16 @@ chkio_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 	inPipe = (pip->next_write - pip->next_read);
 	if (inPipe == 0) {
 	    bytes = read(pip->read_fd, &word, sizeof(word));
-	    printf("Unexpected empty pipe, expected %u -> %u, bytes=%d, word=%d\n",
-		   pip->next_read, pip->next_write-1, bytes, word);
-	    abort();
+	    printf("Unexpected empty pipe, expected %u -> %u, bytes=%d, word=%d, written=%d\n",
+		   pip->next_read, pip->next_write-1, bytes, word,
+		   (pip->next_write - pip->first_write));
+	    /*abort();
+    	      Allow unexpected events as it's been seen to be triggered by epoll
+	      on Linux. Most of the time the unwanted events are filtered by
+	      the erl_check_io layer. But when fd's are reused the events may
+	      slip up to the driver.
+	    */
+	    break; 
 	}
 
 	n = rand_r(&pip->rand_state) % (inPipe*4);
@@ -1252,6 +1260,7 @@ chkio_drv_control(ErlDrvData drv_data,
 		pip->state = Opened;
 		pip->wasSelected = 0;
 		pip->next_write = pip->next_read = rand_r(&pip->rand_state) % 1024;
+		pip->first_write = pip->next_write;
 		if (op & 1) break;
 		op >>= 1;
 	    }/*fall through*/

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 %%--------------------------------------------------------------------------
 
 -type child_id() :: pid() | 'undefined'.
--type mfargs()   :: {module(), atom(), [term()]}.
+-type mfargs()   :: {module(), atom(), [term()] | undefined}.
 -type modules()  :: [module()] | 'dynamic'.
 -type restart()  :: 'permanent' | 'transient' | 'temporary'.
 -type shutdown() :: 'brutal_kill' | timeout().
@@ -69,7 +69,7 @@
 -record(state, {name,
 		strategy               :: strategy(),
 		children = []          :: [child()],
-		dynamics = ?DICT:new() :: ?DICT(),
+		dynamics               :: ?DICT() | list(),
 		intensity              :: non_neg_integer(),
 		period                 :: pos_integer(),
 		restarts = [],
@@ -283,16 +283,15 @@ do_start_child_i(M, F, A) ->
 -spec handle_call(call(), term(), state()) -> {'reply', term(), state()}.
 
 handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
-    #child{mfargs = {M, F, A}} = hd(State#state.children),
+    Child = hd(State#state.children),
+    #child{mfargs = {M, F, A}} = Child,
     Args = A ++ EArgs,
     case do_start_child_i(M, F, Args) of
 	{ok, Pid} ->
-	    NState = State#state{dynamics = 
-				 ?DICT:store(Pid, Args, State#state.dynamics)},
+	    NState = save_dynamic_child(Child#child.restart_type, Pid, Args, State),
 	    {reply, {ok, Pid}, NState};
 	{ok, Pid, Extra} ->
-	    NState = State#state{dynamics = 
-				 ?DICT:store(Pid, Args, State#state.dynamics)},
+	    NState = save_dynamic_child(Child#child.restart_type, Pid, Args, State),
 	    {reply, {ok, Pid, Extra}, NState};
 	What ->
 	    {reply, What, State}
@@ -351,10 +350,20 @@ handle_call({terminate_child, Name}, _From, State) ->
 	    {reply, {error, not_found}, State}
     end;
 
-handle_call(which_children, _From, State) when ?is_simple(State) ->
-    [#child{child_type = CT, modules = Mods}] = State#state.children,
+handle_call(which_children, _From, #state{children = [#child{restart_type = temporary,
+							     child_type = CT,
+							     modules = Mods}]} =
+		State) when ?is_simple(State) ->
+    Reply = lists:map(fun(Pid) -> {undefined, Pid, CT, Mods} end, dynamics_db(temporary,
+									      State#state.dynamics)),
+    {reply, Reply, State};
+
+handle_call(which_children, _From, #state{children = [#child{restart_type = RType,
+							 child_type = CT,
+							 modules = Mods}]} =
+		State) when ?is_simple(State) ->
     Reply = lists:map(fun({Pid, _}) -> {undefined, Pid, CT, Mods} end,
-		      ?DICT:to_list(State#state.dynamics)),
+		      ?DICT:to_list(dynamics_db(RType, State#state.dynamics))),
     {reply, Reply, State};
 
 handle_call(which_children, _From, State) ->
@@ -366,13 +375,31 @@ handle_call(which_children, _From, State) ->
 		  State#state.children),
     {reply, Resp, State};
 
-handle_call(count_children, _From, State) when ?is_simple(State) ->
-    [#child{child_type = CT}] = State#state.children,
+
+handle_call(count_children, _From, #state{children = [#child{restart_type = temporary,
+							     child_type = CT}]} = State)
+  when ?is_simple(State) ->
+    {Active, Count} =
+	lists:foldl(fun(Pid, {Alive, Tot}) ->
+			   if is_pid(Pid) -> {Alive+1, Tot +1};
+			      true -> {Alive, Tot + 1} end
+		   end, {0, 0}, dynamics_db(temporary, State#state.dynamics)),
+    Reply = case CT of
+		supervisor -> [{specs, 1}, {active, Active},
+			       {supervisors, Count}, {workers, 0}];
+		worker -> [{specs, 1}, {active, Active},
+			   {supervisors, 0}, {workers, Count}]
+	    end,
+    {reply, Reply, State};
+
+handle_call(count_children, _From,  #state{children = [#child{restart_type = RType,
+							      child_type = CT}]} = State)
+  when ?is_simple(State) ->
     {Active, Count} =
 	?DICT:fold(fun(Pid, _Val, {Alive, Tot}) ->
 			   if is_pid(Pid) -> {Alive+1, Tot +1};
 			      true -> {Alive, Tot + 1} end
-		   end, {0, 0}, State#state.dynamics),
+		   end, {0, 0}, dynamics_db(RType, State#state.dynamics)),
     Reply = case CT of
 		supervisor -> [{specs, 1}, {active, Active},
 			       {supervisors, Count}, {workers, 0}];
@@ -535,15 +562,11 @@ handle_start_child(Child, State) ->
 	false ->
 	    case do_start_child(State#state.name, Child) of
 		{ok, Pid} ->
-		    Children = State#state.children,
 		    {{ok, Pid},
-		     State#state{children = 
-				 [Child#child{pid = Pid}|Children]}};
+		     save_child(Child#child{pid = Pid}, State)};
 		{ok, Pid, Extra} ->
-		    Children = State#state.children,
 		    {{ok, Pid, Extra},
-		     State#state{children = 
-				 [Child#child{pid = Pid}|Children]}};
+		     save_child(Child#child{pid = Pid}, State)};
 		{error, What} ->
 		    {{error, {What, Child}}, State}
 	    end;
@@ -558,22 +581,21 @@ handle_start_child(Child, State) ->
 %%% Returns: {ok, state()} | {shutdown, state()}
 %%% ---------------------------------------------------
 
-restart_child(Pid, Reason, State) when ?is_simple(State) ->
-    case ?DICT:find(Pid, State#state.dynamics) of
+restart_child(Pid, Reason, #state{children = [Child]} = State) when ?is_simple(State) ->
+    RestartType = Child#child.restart_type,
+    case dynamic_child_args(Pid, dynamics_db(RestartType, State#state.dynamics)) of
 	{ok, Args} ->
-	    [Child] = State#state.children,
-	    RestartType = Child#child.restart_type,
 	    {M, F, _} = Child#child.mfargs,
 	    NChild = Child#child{pid = Pid, mfargs = {M, F, Args}},
 	    do_restart(RestartType, Reason, NChild, State);
 	error ->
-	    {ok, State}
+            {ok, State}
     end;
+
 restart_child(Pid, Reason, State) ->
     Children = State#state.children,
     case lists:keyfind(Pid, #child.pid, Children) of
-	#child{} = Child ->
-	    RestartType = Child#child.restart_type,
+	#child{restart_type = RestartType} = Child ->
 	    do_restart(RestartType, Reason, Child, State);
 	false ->
 	    {ok, State}
@@ -608,7 +630,8 @@ restart(Child, State) ->
 
 restart(simple_one_for_one, Child, State) ->
     #child{mfargs = {M, F, A}} = Child,
-    Dynamics = ?DICT:erase(Child#child.pid, State#state.dynamics),
+    Dynamics = ?DICT:erase(Child#child.pid, dynamics_db(Child#child.restart_type,
+							State#state.dynamics)),
     case do_start_child_i(M, F, A) of
 	{ok, Pid} ->
 	    NState = State#state{dynamics = ?DICT:store(Pid, A, Dynamics)},
@@ -755,8 +778,40 @@ monitor_child(Pid) ->
 %%-----------------------------------------------------------------
 %% Child/State manipulating functions.
 %%-----------------------------------------------------------------
-state_del_child(#child{pid = Pid}, State) when ?is_simple(State) ->
-    NDynamics = ?DICT:erase(Pid, State#state.dynamics),
+
+%% Note we do not want to save the parameter list for temporary processes as
+%% they will not be restarted, and hence we do not need this information.
+%% Especially for dynamic children to simple_one_for_one supervisors
+%% it could become very costly as it is not uncommon to spawn
+%% very many such processes.
+save_child(#child{restart_type = temporary,
+		  mfargs = {M, F, _}} = Child, #state{children = Children} = State) ->
+    State#state{children = [Child#child{mfargs = {M, F, undefined}} |Children]};
+save_child(Child, #state{children = Children} = State) ->
+    State#state{children = [Child |Children]}.
+
+save_dynamic_child(temporary, Pid, _, #state{dynamics = Dynamics} = State) ->
+    State#state{dynamics = [Pid | dynamics_db(temporary, Dynamics)]};
+save_dynamic_child(RestartType, Pid, Args, #state{dynamics = Dynamics} = State) ->
+    State#state{dynamics = ?DICT:store(Pid, Args, dynamics_db(RestartType, Dynamics))}.
+
+dynamics_db(temporary, undefined) ->
+    [];
+dynamics_db(_, undefined) ->
+    ?DICT:new();
+dynamics_db(_,Dynamics) ->
+    Dynamics.
+
+dynamic_child_args(_, Dynamics) when is_list(Dynamics)->
+    {ok, undefined};
+dynamic_child_args(Pid, Dynamics) ->
+    ?DICT:find(Pid, Dynamics).
+
+state_del_child(#child{pid = Pid, restart_type = temporary}, State) when ?is_simple(State) ->
+    NDynamics = lists:delete(Pid, dynamics_db(temporary, State#state.dynamics)),
+    State#state{dynamics = NDynamics};
+state_del_child(#child{pid = Pid, restart_type = RType}, State) when ?is_simple(State) ->
+    NDynamics = ?DICT:erase(Pid, dynamics_db(RType, State#state.dynamics)),
     State#state{dynamics = NDynamics};
 state_del_child(Child, State) ->
     NChildren = del_child(Child#child.name, State#state.children),

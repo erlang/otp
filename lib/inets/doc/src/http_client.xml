@@ -42,10 +42,10 @@
     dynamically in runtime. Each client profile will spawn a new
     process to handle each request unless there is a possibility to use
     a persistent connection with or without pipelining.
-    The client will add a host header and an empty
-    te header if there are no such headers present in the request.</p>
+    The client will add a <c>host</c> header and an empty
+    <c>te</c> header if there are no such headers present in the request.</p>
 
-    <p>The clients supports ipv6 as long as the underlying mechanisms also do
+    <p>The client supports ipv6 as long as the underlying mechanisms also do
       so.</p>
   </section>
 
@@ -87,7 +87,7 @@
       httpc:request("http://www.erlang.org").
     </code>
     <p>An ordinary asynchronous request. The result will be sent
-      to the calling process on the form {http, {ReqestId, Result}}</p>
+      to the calling process in the form <c>{http, {ReqestId, Result}}</c></p>
     <code type="erl">
       5 > {ok, RequestId} =
       httpc:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).

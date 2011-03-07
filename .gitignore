@@ -1,5 +1,10 @@
 # Match at any level.
+
+# emacs
 *~
+# vim
+.*.sw[a-z]
+
 autom4te.cache
 *.beam
 *.asn1db
@@ -162,6 +167,7 @@ make/win32/
 /erts/emulator/test/*_SUITE_make.erl
 /erts/emulator/test/*_SUITE_data/Makefile
 /erts/test/install_SUITE_data/install_bin
+/erts/test/autoimport_SUITE_data/erlang.xml
 
 # asn1
 
@@ -297,6 +303,7 @@ make/win32/
 # snmp
 
 /lib/snmp/bin/snmp-v2tov1
+/lib/snmp/bin/snmpc
 /lib/snmp/examples/ex1/EX1-MIB.bin
 /lib/snmp/mibs/Makefile
 /lib/snmp/mibs/v1/OTP-SNMPEA-MIB.mib.v1

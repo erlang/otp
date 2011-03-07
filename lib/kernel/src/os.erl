@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -82,8 +82,9 @@ verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
 	    end;
 	_ ->
 	    case file:read_file_info(Name1) of
-		{ok, #file_info{mode=Mode}} when Mode band 8#111 =/= 0 ->
-		    %% XXX This test for execution permission is not full-proof
+		{ok, #file_info{type=regular,mode=Mode}}
+		when Mode band 8#111 =/= 0 ->
+		    %% XXX This test for execution permission is not fool-proof
 		    %% on Unix, since we test if any execution bit is set.
 		    {ok, Name1};
 		_ ->
@@ -230,9 +231,13 @@ start_port_srv(Request) ->
 		catch
 		    error:_ -> false
 		end,
-    start_port_srv_loop(Request, StayAlive).
+    start_port_srv_handle(Request),
+    case StayAlive of
+	true -> start_port_srv_loop();
+	false -> exiting
+    end.
 
-start_port_srv_loop({Ref,Client}, StayAlive) ->
+start_port_srv_handle({Ref,Client}) ->
     Reply = try open_port({spawn, ?SHELL},[stream]) of
 		Port when is_port(Port) ->
 		    (catch port_connect(Port, Client)),
@@ -242,20 +247,18 @@ start_port_srv_loop({Ref,Client}, StayAlive) ->
 		error:Reason ->
 		    {Reason,erlang:get_stacktrace()}	    
 	    end,
-    Client ! {Ref,Reply},
-    case StayAlive of
-	true -> start_port_srv_loop(get_open_port_request(), true);
-	false -> exiting
-    end.
+    Client ! {Ref,Reply}.
 
-get_open_port_request() ->
+
+start_port_srv_loop() ->
     receive
 	{Ref, Client} = Request when is_reference(Ref),
 				     is_pid(Client) ->
-	    Request;
+	    start_port_srv_handle(Request);
 	_Junk ->
-	    get_open_port_request()
-    end.
+	    ignore
+    end,
+    start_port_srv_loop().
 
 %%
 %%  unix_get_data(Port) -> Result

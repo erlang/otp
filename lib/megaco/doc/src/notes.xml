@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2010</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,22 +35,90 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Megaco.</p>
 
+
+  <section><title>Megaco 3.15.1</title>
+
+    <p>Version 3.15.1 supports code replacement in runtime from/to
+      version 3.15, 3.14.1.1, 3.14.1 and 3.14.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Updated the 
+            <seealso marker="megaco_performance">performance</seealso> 
+            chapter. </p>
+          <p>Own Id: OTP-8696</p>
+        </item>
+
+     </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Fixing miscellaneous things detected by dialyzer. </p>
+          <p>Own Id: OTP-9075</p>
+	  <!-- <p>Aux Id: Seq 11579</p> -->
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.15.1 -->
+
+
   <section><title>Megaco 3.15</title>
 
     <section><title>Improvements and New Features</title>
-      <list>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
         <item>
-          <p>
-	    Fixing auto-import issues.</p>
-          <p>
-	    Own Id: OTP-8842</p>
+          <p>Fixing auto-import issues.</p>
+          <p>Own Id: OTP-8842</p>
         </item>
       </list>
     </section>
 
-</section>
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
 
-<section>
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Eliminated a possible race condition while creating 
+            pending counters. </p>
+          <p>Own Id: OTP-8634</p>
+	  <p>Aux Id: Seq 11579</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.15 -->
+
+
+  <section>
     <title>Megaco 3.14.1.1</title>
 
     <p>Version 3.14.1.1 supports code replacement in runtime from/to

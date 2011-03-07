@@ -45,22 +45,28 @@ init_per_testcase(Case, Config0) ->
 end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func, Config).
 
-fin_per_testcase(Case, Config) ->
-    wx_test_lib:end_per_testcase(Case, Config).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all() ->
-    all(suite).
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-     fields,
-     modules,
-     exportall,
-     app_depend,
-     undef_funcs
-    ].
+all() -> 
+    [fields, modules, exportall, app_depend, undef_funcs].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

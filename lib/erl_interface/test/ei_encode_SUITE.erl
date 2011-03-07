@@ -20,12 +20,13 @@
 %%
 -module(ei_encode_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("ei_encode_SUITE_data/ei_encode_test_cases.hrl").
 
 -export(
    [
-    all/1,
+    all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+    init_per_group/2,end_per_group/2,
     test_ei_encode_long/1,
     test_ei_encode_ulong/1,
     test_ei_encode_longlong/1,
@@ -35,16 +36,29 @@
     test_ei_encode_fails/1
    ]).
 
-all(suite) ->
-    [
-     test_ei_encode_long,
-     test_ei_encode_ulong,
-     test_ei_encode_longlong,
-     test_ei_encode_ulonglong,
-     test_ei_encode_char,
-     test_ei_encode_misc,
-     test_ei_encode_fails
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [test_ei_encode_long, test_ei_encode_ulong,
+     test_ei_encode_longlong, test_ei_encode_ulonglong,
+     test_ei_encode_char, test_ei_encode_misc,
+     test_ei_encode_fails].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% ---------------------------------------------------------------------------
 

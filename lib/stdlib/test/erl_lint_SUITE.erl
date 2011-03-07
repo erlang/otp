@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,34 +27,37 @@
 -define(privdir, "erl_lint_SUITE_priv").
 -define(t, test_server).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(datadir, ?config(data_dir, Conf)).
 -define(privdir, ?config(priv_dir, Conf)).
 -endif.
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
--export([unused_vars_warn/1, 
-             unused_vars_warn_basic/1, 
-             unused_vars_warn_lc/1, 
-             unused_vars_warn_rec/1,
-             unused_vars_warn_fun/1, 
-             unused_vars_OTP_4858/1,
-         export_vars_warn/1,
-	 shadow_vars/1,
-	 unused_import/1,
-	 unused_function/1,
-         unsafe_vars/1,unsafe_vars2/1,
-	 unsafe_vars_try/1,
-         guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
-         otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
-         otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
-	 bif_clash/1,
-	 behaviour_basic/1, behaviour_multiple/1,
-	 otp_7550/1,
-         otp_8051/1,
-	 format_warn/1,
-	 on_load/1, on_load_successful/1, on_load_failing/1
+-export([ 
+	  unused_vars_warn_basic/1, 
+	  unused_vars_warn_lc/1, 
+	  unused_vars_warn_rec/1,
+	  unused_vars_warn_fun/1, 
+	  unused_vars_OTP_4858/1,
+	  export_vars_warn/1,
+	  shadow_vars/1,
+	  unused_import/1,
+	  unused_function/1,
+	  unsafe_vars/1,unsafe_vars2/1,
+	  unsafe_vars_try/1,
+	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
+	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
+	  otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
+	  bif_clash/1,
+	  behaviour_basic/1, behaviour_multiple/1,
+	  otp_7550/1,
+	  otp_8051/1,
+	  format_warn/1,
+	  on_load_successful/1, on_load_failing/1, 
+	  too_many_arguments/1
         ]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -64,24 +67,44 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, _Config) ->
     Dog = ?config(watchdog, _Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    [unused_vars_warn, export_vars_warn, 
-     shadow_vars, unused_import, unused_function,
-     unsafe_vars, unsafe_vars2, unsafe_vars_try,
-     guard, otp_4886, otp_4988, otp_5091, otp_5276, otp_5338, 
-     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644, otp_5878, otp_5917, otp_6585,
-     otp_6885, export_all, bif_clash,
-     behaviour_basic, behaviour_multiple, otp_7550, otp_8051, format_warn,
-     on_load].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-unused_vars_warn(suite) ->
-    [unused_vars_warn_basic, unused_vars_warn_lc, unused_vars_warn_rec, 
-     unused_vars_warn_fun, unused_vars_OTP_4858].
+all() -> 
+    [{group, unused_vars_warn}, export_vars_warn,
+     shadow_vars, unused_import, unused_function,
+     unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
+     otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
+     otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
+     otp_5878, otp_5917, otp_6585, otp_6885, export_all,
+     bif_clash, behaviour_basic, behaviour_multiple,
+     otp_7550, otp_8051, format_warn, {group, on_load},
+     too_many_arguments].
+
+groups() -> 
+    [{unused_vars_warn, [],
+      [unused_vars_warn_basic, unused_vars_warn_lc,
+       unused_vars_warn_rec, unused_vars_warn_fun,
+       unused_vars_OTP_4858]},
+     {on_load, [], [on_load_successful, on_load_failing]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 unused_vars_warn_basic(doc) ->
     "Warnings for unused variables in some simple cases.";
@@ -2831,8 +2854,6 @@ format_level(Level, Count, Config) ->
 
 %% Test the -on_load(Name/0) directive.
 
-on_load(suite) ->
-    [on_load_successful, on_load_failing].
 
 on_load_successful(Config) when is_list(Config) ->
     Ts = [{on_load_1,
@@ -2912,6 +2933,21 @@ on_load_failing(Config) when is_list(Config) ->
 	 ],
     ?line [] = run(Config, Ts),
     ok.
+
+too_many_arguments(doc) ->
+    "Test that too many arguments is not accepted.";
+too_many_arguments(suite) -> [];
+too_many_arguments(Config) when is_list(Config) ->
+    Ts = [{too_many_1,
+	   <<"f(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ok.">>,
+	   [],
+	   {errors,
+	    [{1,erl_lint,{too_many_arguments,256}}],[]}}
+	 ],
+	  
+    ?line [] = run(Config, Ts),
+    ok.
+
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->

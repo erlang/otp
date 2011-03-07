@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,10 +30,12 @@
 
 %-define(line_trace, 1).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-compile(export_all).
--export([all/1, init_per_testcase/2, fin_per_testcase/2, end_per_suite/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, end_per_suite/1]).
 
 -export([equal/1,
 	 few_low/1,
@@ -44,7 +46,7 @@
 	 equal_with_high/1,
 	 equal_with_high_max/1,
 	 bound_process/1,
-	 scheduler_bind/1,
+	
 	 scheduler_bind_types/1,
 	 cpu_topology/1,
 	 update_cpu_info/1,
@@ -57,20 +59,34 @@
 
 -define(MIN_SCHEDULER_TEST_TIMEOUT, ?t:minutes(1)).
 
-all(doc) -> [];
-all(suite) ->
-    [equal,
-     few_low,
-     many_low,
-     equal_with_part_time_high,
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [equal, few_low, many_low, equal_with_part_time_high,
      equal_with_part_time_max,
-     equal_and_high_with_part_time_max,
-     equal_with_high,
-     equal_with_high_max,
-     bound_process,
-     scheduler_bind,
-     scheduler_suspend,
+     equal_and_high_with_part_time_max, equal_with_high,
+     equal_with_high_max, bound_process,
+     {group, scheduler_bind}, scheduler_suspend,
      reader_groups].
+
+groups() -> 
+    [{scheduler_bind, [],
+      [scheduler_bind_types, cpu_topology, update_cpu_info,
+       sct_cmd, sbt_cmd]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
+    Config.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
@@ -79,14 +95,10 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     OkRes = ok,
     [{watchdog, Dog}, {testcase, Case}, {ok_res, OkRes} |Config].
 
-fin_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
-
-end_per_suite(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    Config.
 
 -define(ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED, (2000*2000)).
 -define(DEFAULT_TEST_REDS_PER_SCHED, 200000000).
@@ -247,12 +259,6 @@ bound_loop(NS, N, M, Sched) ->
     Sched = erlang:system_info(scheduler_id),
     bound_loop(NS, N-1, M, Sched).
 
-scheduler_bind(suite) ->
-    [scheduler_bind_types,
-     cpu_topology,
-     update_cpu_info,
-     sct_cmd,
-     sbt_cmd].
 
 -define(TOPOLOGY_A_CMD,
 	"+sct"
@@ -856,9 +862,9 @@ get_affinity_mask(Port, Status, Affinity) when Status == unknown;
 	{Port,{exit_status,S}} ->
 	    get_affinity_mask(Port, S, Affinity)
     end;
-get_affinity_mask(Port, Status, bad) ->
+get_affinity_mask(_Port, _Status, bad) ->
     unknown;
-get_affinity_mask(Port, Status, Affinity) ->
+get_affinity_mask(_Port, _Status, Affinity) ->
     Affinity.
 
 get_affinity_mask() ->
@@ -1382,67 +1388,6 @@ reader_groups_map(CPUT, Groups) ->
 %%
 %% Utils
 %%
-
-tilera_cpu_topology() ->
-    [{processor,[{node,[{core,{logical,0}},
-			{core,{logical,1}},
-			{core,{logical,2}},
-			{core,{logical,8}},
-			{core,{logical,9}},
-			{core,{logical,10}},
-			{core,{logical,11}},
-			{core,{logical,16}},
-			{core,{logical,17}},
-			{core,{logical,18}},
-			{core,{logical,19}},
-			{core,{logical,24}},
-			{core,{logical,25}},
-			{core,{logical,27}},
-			{core,{logical,29}}]},
-		 {node,[{core,{logical,3}},
-			{core,{logical,4}},
-			{core,{logical,5}},
-			{core,{logical,6}},
-			{core,{logical,7}},
-			{core,{logical,12}},
-			{core,{logical,13}},
-			{core,{logical,14}},
-			{core,{logical,15}},
-			{core,{logical,20}},
-			{core,{logical,21}},
-			{core,{logical,22}},
-			{core,{logical,23}},
-			{core,{logical,28}},
-			{core,{logical,30}}]},
-		 {node,[{core,{logical,31}},
-			{core,{logical,36}},
-			{core,{logical,37}},
-			{core,{logical,38}},
-			{core,{logical,44}},
-			{core,{logical,45}},
-			{core,{logical,46}},
-			{core,{logical,47}},
-			{core,{logical,51}},
-			{core,{logical,52}},
-			{core,{logical,53}},
-			{core,{logical,54}},
-			{core,{logical,55}},
-			{core,{logical,60}},
-			{core,{logical,61}}]},
-		 {node,[{core,{logical,26}},
-			{core,{logical,32}},
-			{core,{logical,33}},
-			{core,{logical,34}},
-			{core,{logical,35}},
-			{core,{logical,39}},
-			{core,{logical,40}},
-			{core,{logical,41}},
-			{core,{logical,42}},
-			{core,{logical,43}},
-			{core,{logical,48}},
-			{core,{logical,49}},
-			{core,{logical,50}},
-			{core,{logical,58}}]}]}].
 
 l(Id) ->
     {logical, Id}.

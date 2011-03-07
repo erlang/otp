@@ -61,6 +61,7 @@
     itself.</p>
   </section>
   <section>
+    <marker id="usage"></marker>
     <title>Usage</title>
     <p>Event handlers may be installed by means of an <c>event_handler</c>
     start flag (<c>ct_run</c>) or option (<c>ct:run_test/1</c>), where the
@@ -120,6 +121,7 @@
     node the event has originated from (only relevant for CT Master event handlers).
     <c>data</c> is specific for the particular event.</p>
 
+    <marker id="events"></marker>
     <p><em>General events:</em></p>
 
     <list>
@@ -172,6 +174,7 @@
 	are also given.
 	</p></item>
 
+      <marker id="tc_done"/>
       <item><c>#event{name = tc_done, data = {Suite,FuncOrGroup,Result}}</c>
         <p><c>Suite = atom()</c>, name of the suite.</p>
         <p><c>FuncOrGroup = Func | {Conf,GroupName,GroupProperties}</c></p>
@@ -181,12 +184,14 @@
 	      (unknown if init- or end function times out).</p>
         <p><c>GroupProperties = list()</c>, list of execution properties for the group.</p>
         <p><c>Result = ok | {skipped,SkipReason} | {failed,FailReason}</c>, the result.</p>
+	<marker id="skipreason"/>
         <p><c>SkipReason = {require_failed,RequireInfo} | 
 	                   {require_failed_in_suite0,RequireInfo} | 
 	                   {failed,{Suite,init_per_testcase,FailInfo}} | 
                            UserTerm</c>, 
 	      the reason why the case has been skipped.</p>
-	<p><c>FailReason = {error,FailInfo} | 
+	<marker id="failreason"/>
+        <p><c>FailReason = {error,FailInfo} | 
 	                   {error,{RunTimeError,StackTrace}} | 
                            {timetrap_timeout,integer()} | 
 			   {failed,{Suite,end_per_testcase,FailInfo}}</c>, reason for failure.</p>	
@@ -209,6 +214,7 @@
 	<c>end_per_testcase</c> for the case failed.
 	</p></item>
 
+	<marker id="tc_auto_skip"></marker>
       <item><c>#event{name = tc_auto_skip, data = {Suite,Func,Reason}}</c>
         <p><c>Suite = atom()</c>, the name of the suite.</p>
         <p><c>Func = atom()</c>, the name of the test case or configuration function.</p>
@@ -234,7 +240,8 @@
 	skipped because of <c>init_per_testcase</c> failing, since that information is carried with
 	the <c>tc_done</c> event.
 	</p></item>
-
+	
+	<marker id="tc_user_skip"></marker>
       <item><c>#event{name = tc_user_skip, data = {Suite,TestCase,Comment}}</c>
         <p><c>Suite = atom()</c>, name of the suite.</p>
         <p><c>TestCase = atom()</c>, name of the test case.</p>

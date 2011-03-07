@@ -35,6 +35,8 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
 
       len = get16be(s);
 
+      if (len > MAXATOMLEN) return -1;
+
       if (p) {
 	  memmove(p->node, s, len);
 	  p->node[len] = (char)0;
@@ -62,6 +64,7 @@ int ei_decode_ref(const char *buf, int *index, erlang_ref *p)
       /* then the nodename */
       if (get8(s) != ERL_ATOM_EXT) return -1;
       len = get16be(s);
+      if (len > MAXATOMLEN) return -1;
 
       if (p) {
 	  memmove(p->node, s, len);

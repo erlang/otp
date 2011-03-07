@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 %%-----------------------------------------------------------------
 -module(tc_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 
 -define(default_timeout, ?t:minutes(3)).
@@ -128,12 +128,12 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 %%-----------------------------------------------------------------
 %% Internal exports
 %%-----------------------------------------------------------------
--export([]).
 -compile(export_all).
 
 %%-----------------------------------------------------------------
@@ -141,18 +141,31 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["Description", "more description"];
-all(suite) -> 
-    [null, void, 
-     short, ushort, 
-     long, ulong, 
-     longlong, ulonglong, 
-     boolean, char, wchar, octet,
-     float, double, longdouble, 
-     any, typecode, principal, object_reference,
-     struct, union, enum, string, wstring, sequence, array, 
-     alias, exception, fixed, value, value_box, native, 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [null, void, short, ushort, long, ulong, longlong,
+     ulonglong, boolean, char, wchar, octet, float, double,
+     longdouble, any, typecode, principal, object_reference,
+     struct, union, enum, string, wstring, sequence, array,
+     alias, exception, fixed, value, value_box, native,
      abstract_interface, indirection, get_tc].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -163,7 +176,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

@@ -48,7 +48,6 @@
 void dbg_bt(Process* p, Eterm* sp);
 void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 
-static void print_big(int to, void *to_arg, Eterm* addr);
 static int print_op(int to, void *to_arg, int op, int size, BeamInstr* addr);
 Eterm
 erts_debug_same_2(Process* p, Eterm term1, Eterm term2)
@@ -156,6 +155,25 @@ void debug_dump_code(BeamInstr *I, int num)
     erts_destroy_tmp_dsbuf(dsbufp);
 }
 #endif
+
+BIF_RETTYPE
+erts_debug_instructions_0(BIF_ALIST_0)
+{
+    int i = 0;
+    Uint needed = num_instructions * 2;
+    Eterm* hp;
+    Eterm res = NIL;
+
+    for (i = 0; i < num_instructions; i++) {
+	needed += 2*strlen(opc[i].name);
+    }
+    hp = HAlloc(BIF_P, needed);
+    for (i = num_instructions-1; i >= 0; i--) {
+	Eterm s = erts_bld_string_n(&hp, 0, opc[i].name, strlen(opc[i].name));
+	res = erts_bld_cons(&hp, 0, s, res);
+    }
+    return res;
+}
 
 Eterm
 erts_debug_disassemble_1(Process* p, Eterm addr)
@@ -312,6 +330,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     BeamInstr packed = 0;		/* Accumulator for packed operations. */
     BeamInstr args[8];		/* Arguments for this instruction. */
     BeamInstr* ap;			/* Pointer to arguments. */
+    BeamInstr* unpacked;		/* Unpacked arguments */
 
     start_prog = opc[op].pack;
 
@@ -360,6 +379,12 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		*ap++ = packed & BEAM_LOOSE_MASK;
 		packed >>= BEAM_LOOSE_SHIFT;
 		break;
+#ifdef ARCH_64
+	    case 'w':		/* Shift 32 steps */
+		*ap++ = packed & BEAM_WIDE_MASK;
+		packed >>= BEAM_WIDE_SHIFT;
+		break;
+#endif
 	    case 'p':
 		*sp++ = *--ap;
 		break;
@@ -386,7 +411,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
 	case 'x':		/* x(N) */
 	    if (reg_index(ap[0]) == 0) {
-		erts_print(to, to_arg, "X[0]");
+		erts_print(to, to_arg, "x[0]");
 	    } else {
 		erts_print(to, to_arg, "x(%d)", reg_index(ap[0]));
 	    }
@@ -506,6 +531,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'P':	/* Byte offset into tuple (see beam_load.c) */
+	case 'Q':	/* Like 'P', but packable */
 	    erts_print(to, to_arg, "%d", (*ap / sizeof(Eterm)) - 1);
 	    ap++;
 	    break;
@@ -526,9 +552,12 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
      * Print more information about certain instructions.
      */
 
+    unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_sfI:
+    case op_i_select_val_rfI:
+    case op_i_select_val_xfI:
+    case op_i_select_val_yfI:
 	{
 	    int n = ap[-1];
 
@@ -540,7 +569,24 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_sfII:
+    case op_i_select_tuple_arity_rfI:
+    case op_i_select_tuple_arity_xfI:
+    case op_i_select_tuple_arity_yfI:
+	{
+	    int n = ap[-1];
+
+	    while (n > 0) {
+		Uint arity = arityval(ap[0]);
+		erts_print(to, to_arg, " {%d} f(" HEXF ")", arity, ap[1]);
+		ap += 2;
+		size += 2;
+		n--;
+	    }
+	}
+	break;
+    case op_i_jump_on_val_rfII:
+    case op_i_jump_on_val_xfII:
+    case op_i_jump_on_val_yfII:
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
@@ -550,39 +596,46 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_big_sf:
-	while (ap[0]) {
-	    Eterm *bigp = (Eterm *) ap;
-	    int arity = thing_arityval(*bigp);
-	    print_big(to, to_arg, bigp);
-	    size += TermWords(arity+1);
-	    ap += TermWords(arity+1);
-	    erts_print(to, to_arg, " f(" HEXF ") ", ap[0]);
-	    ap++;
-	    size++;
+    case op_i_jump_on_val_zero_rfI:
+    case op_i_jump_on_val_zero_xfI:
+    case op_i_jump_on_val_zero_yfI:
+	{
+	    int n;
+	    for (n = ap[-1]; n > 0; n--) {
+		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
+		ap++;
+		size++;
+	    }
 	}
-	ap++;
-	size++;
+	break;
+    case op_i_put_tuple_rI:
+    case op_i_put_tuple_xI:
+    case op_i_put_tuple_yI:
+	{
+	    int n = unpacked[-1];
+
+	    while (n > 0) {
+		if (!is_header(ap[0])) {
+		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		} else {
+		    switch ((ap[0] >> 2) & 0x03) {
+		    case R_REG_DEF:
+			erts_print(to, to_arg, " x(0)");
+			break;
+		    case X_REG_DEF:
+			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
+			break;
+		    case Y_REG_DEF:
+			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
+			break;
+		    }
+		}
+		ap++, size++, n--;
+	    }
+	}
 	break;
     }
     erts_print(to, to_arg, "\n");
 
     return size;
-}
-
-static void
-print_big(int to, void *to_arg, Eterm* addr)
-{
-    int i;
-    int k;
-
-    i = BIG_SIZE(addr);
-    if (BIG_SIGN(addr))
-	erts_print(to, to_arg, "-#integer(%d) = {", i);
-    else
-	erts_print(to, to_arg, "#integer(%d) = {", i);
-    erts_print(to, to_arg, "0x%x", BIG_DIGIT(addr, 0));
-    for (k = 1; k < i; k++)
-	erts_print(to, to_arg, ",0x%x", BIG_DIGIT(addr, k));
-    erts_print(to, to_arg, "}");
 }

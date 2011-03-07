@@ -1,4 +1,3 @@
 %% -*- erlang -*-
-{exclude,all}.
-{include,[gen_udp,inet6_udp,inet_res,inet_dns]}.
+{incl_mods,[gen_udp,inet6_udp,inet_res,inet_dns]}.
 

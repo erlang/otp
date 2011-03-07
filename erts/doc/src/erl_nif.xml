@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2010</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -464,7 +464,7 @@ typedef enum {
   </section>
 
   <funcs>
-    <func><name><ret>void*</ret><nametext>enif_alloc(ErlNifEnv* env, size_t size)</nametext></name>
+    <func><name><ret>void*</ret><nametext>enif_alloc(size_t size)</nametext></name>
       <fsummary>Allocate dynamic memory.</fsummary>
       <desc><p>Allocate memory of <c>size</c> bytes. Return NULL if allocation failed.</p></desc>
     </func>
@@ -539,7 +539,7 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">erl_drv_equal_tids</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_free(ErlNifEnv* env, void* ptr)</nametext></name>
+    <func><name><ret>void</ret><nametext>enif_free(void* ptr)</nametext></name>
       <fsummary>Free dynamic memory</fsummary>
       <desc><p>Free memory allocated by <c>enif_alloc</c>.</p></desc>
     </func>
@@ -857,11 +857,6 @@ typedef enum {
       <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
       </desc>
     </func>
-    <func><name><ret>ErlNifPid*</ret><nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
-      <fsummary>Get the pid of the calling process.</fsummary>
-      <desc><p>Initialize the pid variable <c>*pid</c> to represent the
-      calling process. Return <c>pid</c>.</p></desc>
-    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc><p>Create a list containing the characters of the
@@ -980,11 +975,12 @@ typedef enum {
       <c>reload</c> or <c>upgrade</c>.</p>
       <p>Was previously named <c>enif_get_data</c>.</p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
+    <func><name><ret>int</ret><nametext>enif_realloc_binary(ErlNifBinary* bin, size_t size)</nametext></name>
       <fsummary>Change the size of a binary.</fsummary>
       <desc><p>Change the size of a binary <c>bin</c>. The source binary
       may be read-only, in which case it will be left untouched and
-      a mutable copy is allocated and assigned to <c>*bin</c>.</p></desc>
+      a mutable copy is allocated and assigned to <c>*bin</c>. Return true on success,
+      false if memory allocation failed.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary.</fsummary>
@@ -1041,7 +1037,12 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrwlock">erl_drv_rwlock_tryrwlock</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>unsigned</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
+    <func><name><ret>ErlNifPid*</ret><nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
+      <fsummary>Get the pid of the calling process.</fsummary>
+      <desc><p>Initialize the pid variable <c>*pid</c> to represent the
+      calling process. Return <c>pid</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_send(ErlNifEnv* env, ErlNifPid* to_pid, ErlNifEnv* msg_env, ERL_NIF_TERM msg)</nametext></name>
       <fsummary>Send a message to a process.</fsummary>
       <desc><p>Send a message to a process.</p>
       <taglist>

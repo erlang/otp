@@ -148,9 +148,10 @@ expand_element(Element) ->
 expand_element(Element, Pos, Parents) ->
     expand_element(Element, Pos, Parents, false).
 
-expand_element(E = #xmlElement{}, Pos, Parents, Norm) ->
-    Content = expand_content(E#xmlElement.content, 1, Parents, Norm),
-    Attrs = expand_attributes(E#xmlElement.attributes, 1, []),
+expand_element(E = #xmlElement{name = N}, Pos, Parents, Norm) ->
+    NewParents = [{N,Pos}|Parents],
+    Content = expand_content(E#xmlElement.content, 1, NewParents, Norm),
+    Attrs = expand_attributes(E#xmlElement.attributes, 1, NewParents),
     E#xmlElement{pos = Pos,
 		 parents = Parents,
 		 attributes = Attrs,

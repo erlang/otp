@@ -57,7 +57,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) runtime_tools.spec $(ERL_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) runtime_tools.spec runtime_tools.cover $(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(EMAKEFILE) runtime_tools.cover $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)

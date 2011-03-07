@@ -23,7 +23,7 @@
 
 -include("public_key.hrl").
 
--export([decode_cert/1, transform/2]).
+-export([decode_cert/1, transform/2, supportedPublicKeyAlgorithms/1]).
 
 %%====================================================================
 %% Internal application API
@@ -80,15 +80,23 @@ transform(Other,_) ->
     Other.
 
 %%--------------------------------------------------------------------
-%%% Internal functions
+-spec supportedPublicKeyAlgorithms(Oid::tuple()) -> asn1_type().
+%%
+%% Description: Returns the public key type for an algorithm
+%% identifier tuple as found in SubjectPublicKeyInfo.
+%%
 %%--------------------------------------------------------------------
-
-%%% SubjectPublicKey
 supportedPublicKeyAlgorithms(?'rsaEncryption') -> 'RSAPublicKey';
 supportedPublicKeyAlgorithms(?'id-dsa') -> 'DSAPublicKey';
 supportedPublicKeyAlgorithms(?'dhpublicnumber') -> 'DHPublicKey';
 supportedPublicKeyAlgorithms(?'id-keyExchangeAlgorithm') -> 'KEA-PublicKey';
 supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint'.
+
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
+%%% SubjectPublicKey
 
 decode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
 						  #'PublicKeyAlgorithm'{algorithm=Algo},

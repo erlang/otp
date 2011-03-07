@@ -99,7 +99,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) debugger.spec $(RELSYSDIR)
+	$(INSTALL_DATA) debugger.spec debugger.cover $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

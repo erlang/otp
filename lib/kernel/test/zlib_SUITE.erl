@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 
 -module(zlib_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -compile(export_all).
 
@@ -48,7 +48,7 @@
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
@@ -69,33 +69,40 @@ error(Format, Args, File, Line) ->
 %%     end,
 %%     log("<>ERROR<>~n" ++ Format, Args, File, Line).
 
-all(suite) -> 
-    [api, examples, func, smp, otp_7359].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-api(doc) -> "Basic the api tests";
-api(suite) ->
-    [api_open_close,
-     api_deflateInit,
-     api_deflateSetDictionary,
-     api_deflateReset,
-     api_deflateParams,
-     api_deflate,
-     api_deflateEnd,
-     api_inflateInit,
-     api_inflateSetDictionary,
-     api_inflateSync,
-     api_inflateReset,
-     api_inflate,
-     api_inflateEnd,
-     api_setBufsz,
-     api_getBufsz,
-     api_crc32,
-     api_adler32,
-     api_getQSize,
-     api_un_compress,
-     api_un_zip,
-%     api_g_un_zip_file,
-     api_g_un_zip].
+all() -> 
+    [{group, api}, {group, examples}, {group, func}, smp,
+     otp_7359].
+
+groups() -> 
+    [{api, [],
+      [api_open_close, api_deflateInit,
+       api_deflateSetDictionary, api_deflateReset,
+       api_deflateParams, api_deflate, api_deflateEnd,
+       api_inflateInit, api_inflateSetDictionary,
+       api_inflateSync, api_inflateReset, api_inflate,
+       api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
+       api_adler32, api_getQSize, api_un_compress, api_un_zip,
+       api_g_un_zip]},
+     {examples, [], [intro]},
+     {func, [],
+      [zip_usage, gz_usage, gz_usage2, compress_usage,
+       dictionary_usage, large_deflate, crc, adler]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 
 api_open_close(doc) -> "Test open/0 and close/1";
 api_open_close(suite) -> [];
@@ -517,11 +524,6 @@ bad_len_data() ->
     %% zlib:zip(<<42>>), one byte changed.
     <<31,139,8,0,0,0,0,0,0,3,211,2,0,91,38,185,9,2,0,0,0>>.
 
-examples(doc) ->  "Test the doc examples";
-examples(suite) -> 
-    [
-     intro
-    ].
 
 intro(suite) -> [];
 intro(doc) -> "";
@@ -551,15 +553,6 @@ intro(Config) when is_list(Config) ->
     Orig = list_to_binary(lists:duplicate(5, D)),
     ?m(Orig, zlib:uncompress(Res)).
 
-func(doc) ->  "Test the functionality";
-func(suite) -> 
-    [zip_usage, gz_usage, gz_usage2, compress_usage,
-     dictionary_usage, 
-     large_deflate, 
-     %%     inflateSync,
-     crc,
-     adler
-    ].
 
 large_deflate(doc) -> "Test deflate large file, which had a bug reported on erlang-bugs";
 large_deflate(suite) -> [];

@@ -358,10 +358,6 @@ static int clock_resolution;
 ** instead of something like select.
 */
 
-#if defined(ERTS_TIMER_THREAD)
-static ERTS_INLINE void init_erts_deliver_time(const SysTimeval *inittv) { }
-static ERTS_INLINE void do_erts_deliver_time(const SysTimeval *current) { }
-#else
 static SysTimeval last_delivered; 
 
 static void init_erts_deliver_time(const SysTimeval *inittv)
@@ -389,11 +385,10 @@ static void do_erts_deliver_time(const SysTimeval *current)
        this by simply pretend as if the time stood still. :) */
 
     if (elapsed > 0) {
-	do_time_add(elapsed);
+	erts_do_time_add(elapsed);
 	last_delivered = cur_time;
     }
 }
-#endif
 
 int 
 erts_init_time_sup(void)
@@ -786,7 +781,6 @@ get_sys_now(Uint* megasec, Uint* sec, Uint* microsec)
    to a struct timeval representing current time (to save
    a gettimeofday() where possible) or NULL */
 
-#if !defined(ERTS_TIMER_THREAD)
 void erts_deliver_time(void) {
     SysTimeval now;
     
@@ -797,7 +791,6 @@ void erts_deliver_time(void) {
     
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
 }
-#endif
 
 /* get *real* time (not ticks) remaining until next timeout - if there
    isn't one, give a "long" time, that is guaranteed
@@ -806,14 +799,12 @@ void erts_deliver_time(void) {
 void erts_time_remaining(SysTimeval *rem_time)
 {
     int ticks;
-#if !defined(ERTS_TIMER_THREAD)
     SysTimeval cur_time;
-#endif
     long elapsed;
 
-    /* next_time() returns no of ticks to next timeout or -1 if none */
+    /* erts_next_time() returns no of ticks to next timeout or -1 if none */
 
-    if ((ticks = next_time()) == -1) {
+    if ((ticks = erts_next_time()) == -1) {
 	/* timer queue empty */
 	/* this will cause at most 100000000 ticks */
 	rem_time->tv_sec = 100000;
@@ -822,9 +813,6 @@ void erts_time_remaining(SysTimeval *rem_time)
 	/* next timeout after ticks ticks */
 	ticks *= CLOCK_RESOLUTION;
 	
-#if defined(ERTS_TIMER_THREAD)
-	elapsed = 0;
-#else
 	erts_smp_mtx_lock(&erts_timeofday_mtx);
 	
 	get_tolerant_timeofday(&cur_time);
@@ -839,7 +827,6 @@ void erts_time_remaining(SysTimeval *rem_time)
 	    rem_time->tv_sec = rem_time->tv_usec = 0;
 	    return;
 	}
-#endif
 	rem_time->tv_sec = (ticks - elapsed) / 1000;
 	rem_time->tv_usec = 1000 * ((ticks - elapsed) % 1000);
     }

@@ -20,18 +20,34 @@
 %%
 -module(bug_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
-
--export([ticket_tests/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([otp2163/1, otp4845/1]).
 
-all(suite) -> [ticket_tests].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-ticket_tests(doc) -> ["Tests tickets regarding bugs"];
-ticket_tests(suite) -> [otp2163, otp4845].
+all() -> 
+    [{group, ticket_tests}].
+
+groups() -> 
+    [{ticket_tests, [], [otp2163, otp4845]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
+
 
 otp2163(doc) -> ["BIF exit reason"];
 otp2163(suite) -> [];

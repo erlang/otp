@@ -24,10 +24,13 @@
 -mode(compile).
 
 -include_lib("kernel/include/file.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
+
 
 -record(state, 
         {
 	 version = "%VSN%", 
+         mfv, 
          file, % .mib or .bin depending on which are compiled
          outdir = "./",
          db = volatile,
@@ -87,7 +90,7 @@ main(_) ->
     usage().
 
 compile(State) ->
-    io:format("snmpc: ~p~n", [State]),
+    %% io:format("snmpc: ~p~n", [State]),
     case mk_file(State) of
 	{mib, File} ->
 	    Options = mk_mib_options(State),
@@ -189,7 +192,9 @@ mk_hrl_options(#state{outdir    = OutDir,
 process_args([]) ->
     e("No input file");
 process_args(Args) ->
-    process_args(Args, #state{}).
+    #mib{mib_format_version = MFV} = #mib{},
+    State = #state{}, 
+    process_args(Args, State#state{mfv = MFV}).
     
 process_args([], #state{verbosity = Verbosity0, file = MIB} = State) ->
     if 
@@ -209,21 +214,10 @@ process_args([], #state{verbosity = Verbosity0, file = MIB} = State) ->
 			     include_dirs     = IPath,
 			     include_lib_dirs = IlPath}}
     end;
-process_args([MIB], State) ->
-    case (catch file:read_file_info(MIB)) of
-	{ok, #file_info{type = regular}} ->
-	    process_args([], State#state{file = MIB});
-	{ok, #file_info{type = BadType}} ->
-	    e(lists:flatten(io_lib:format("~s not a file: ~w", [MIB, BadType])));
-	{error, enoent} ->
-	    e(lists:flatten(io_lib:format("No such file: ~s", [MIB])));
-	_ ->
-	    e(lists:flatten(io_lib:format("Bad file: ~s", [MIB])))
-    end; 
 process_args(["--help"|_Args], _State) ->
     ok;
-process_args(["--version"|_Args], State) ->
-    {ok, lists:flatten(io_lib:format("snmpc ~s", [State#state.version]))};
+process_args(["--version"|_Args], #state{version = Version, mfv = MFV} = _State) ->
+    {ok, lists:flatten(io_lib:format("snmpc ~s (~s)", [Version, MFV]))};
 process_args(["--verbosity", Verbosity0|Args], #state{verbosity = V} = State) 
   when (V =:= undefined) ->
     Verbosity = list_to_atom(Verbosity0),
@@ -298,6 +292,23 @@ process_args(["--nd"|Args], State) ->
     process_args(Args, State#state{no_defaults = true});
 process_args(["--rrnac"|Args], State) ->
     process_args(Args, State#state{relaxed_row_name_assigne_check = true});
+process_args([MIB], State) ->
+    Ext = filename:extension(MIB),
+    if 
+	((Ext =:= ".mib") orelse (Ext =:= ".bin")) ->
+	    case (catch file:read_file_info(MIB)) of
+		{ok, #file_info{type = regular}} ->
+		    process_args([], State#state{file = MIB});
+		{ok, #file_info{type = BadType}} ->
+		    e(lists:flatten(io_lib:format("~s not a file: ~w", [MIB, BadType])));
+		{error, enoent} ->
+		    e(lists:flatten(io_lib:format("No such file: ~s", [MIB])));
+		_ ->
+		    e(lists:flatten(io_lib:format("Bad file: ~s", [MIB])))
+	    end; 
+	true ->
+	    e(lists:flatten(io_lib:format("Unknown option: ~s", [MIB])))
+    end;
 process_args([Arg|Args], _State) when Args =/= [] ->
     e(lists:flatten(io_lib:format("Unknown option: ~s", [Arg]))).
 
@@ -345,8 +356,8 @@ usage() ->
 	      "~n   --ac                     - The AGENT-CAPABILITIES field will be included."
 	      "~n   --mod <module>           - The module which implements all the instrumentation"
 	      "~n                              functions. "
-	      "~n                              The name of the of all instrumentation functions"
-	      "~n                              must be the same as the corresponding managed object"
+	      "~n                              The name of all instrumentation functions must"
+	      "~n                              be the same as the corresponding managed object"
 	      "~n                              it implements."
 	      "~n   --nd                     - The default instrumentation functions will *not* be used"
 	      "~n                              if a managed object have no instrumentation function. "
@@ -355,11 +366,11 @@ usage() ->
 	      "~n   --rrnac                  - This option, if present, specifies that the row name "
 	      "~n                              assign check shall not be done strictly according to"
 	      "~n                              the SMI (which allows only the value 1). "
-	      "~n                              With this option, all values gŕeater than zero is allowed"
+	      "~n                              With this option, all values greater than zero is allowed"
 	      "~n                              (>= 1). This means that the error will be converted to "
 	      "~n                              a warning. "
 	      "~n                              By default it is not included, but if this option is "
-	      "~n                              is present it will be. "
+	      "~n                              present it will be. "
 	      "~n   "
 	      "~n", []),
     halt(1).

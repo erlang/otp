@@ -73,8 +73,9 @@
 
 -type der_encoded()          :: binary().
 -type decrypt_der()          :: binary().
--type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' 
-			       | 'DSAPrivateKey' | 'DHParameter'.
+-type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
+			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
+                               | 'SubjectPublicKeyInfo'.
 -type pem_entry()            :: {pki_asn1_type(), der_encoded() | decrypt_der(),
 				 not_encrypted | {Cipher :: string(), Salt :: binary()}}.
 -type asn1_type()            :: atom(). %% see "OTP-PUB-KEY.hrl

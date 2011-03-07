@@ -20,9 +20,11 @@
 
 -module(record_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1, nested_access/1]).
 
@@ -30,15 +32,34 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [errors,record_test_2,record_test_3,record_access_in_guards,
-     guard_opt,eval_once,foobar,missing_test_heap,nested_access].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_lib:recompile(record_SUITE),
+    [errors, record_test_2, record_test_3,
+     record_access_in_guards, guard_opt, eval_once, foobar,
+     missing_test_heap, nested_access].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 -record(foo, {a,b,c,d}).
 -record(bar, {a,b,c,d}).

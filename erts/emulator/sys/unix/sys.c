@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -52,6 +52,11 @@
 #define ERTS_WANT_GOT_SIGUSR1
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
+
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
+
 
 #ifdef USE_THREADS
 #include "erl_threads.h"
@@ -160,14 +165,14 @@ static int debug_log = 0;
 #endif
 
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_got_sigusr1;
+erts_smp_atomic32_t erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 \
-  erts_smp_atomic_set(&erts_got_sigusr1, 1)
+  erts_smp_atomic32_set(&erts_got_sigusr1, 1)
 #define ERTS_UNSET_GOT_SIGUSR1 \
-  erts_smp_atomic_set(&erts_got_sigusr1, 0)
-static erts_smp_atomic_t have_prepared_crash_dump;
+  erts_smp_atomic32_set(&erts_got_sigusr1, 0)
+static erts_smp_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic_xchg(&have_prepared_crash_dump, 1))
+  ((int) erts_smp_atomic32_xchg(&have_prepared_crash_dump, 1))
 #else
 volatile int erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 (erts_got_sigusr1 = 1)
@@ -235,11 +240,11 @@ static int max_files = -1;
  * a few variables used by the break handler 
  */
 #ifdef ERTS_SMP
-erts_smp_atomic_t erts_break_requested;
+erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 1)
+  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic_set(&erts_break_requested, (erts_aint_t) 0)
+  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -504,9 +509,9 @@ erts_sys_pre_init(void)
 #endif
     }
 #ifdef ERTS_SMP
-    erts_smp_atomic_init(&erts_break_requested, 0);
-    erts_smp_atomic_init(&erts_got_sigusr1, 0);
-    erts_smp_atomic_init(&have_prepared_crash_dump, 0);
+    erts_smp_atomic32_init(&erts_break_requested, 0);
+    erts_smp_atomic32_init(&erts_got_sigusr1, 0);
+    erts_smp_atomic32_init(&have_prepared_crash_dump, 0);
 #else
     erts_break_requested = 0;
     erts_got_sigusr1 = 0;
@@ -2989,11 +2994,27 @@ init_smp_sig_notify(void)
 			NULL,
 			&thr_opts);
 }
+#ifdef __DARWIN__
 
+int erts_darwin_main_thread_pipe[2];
+int erts_darwin_main_thread_result_pipe[2];
+
+static void initialize_darwin_main_thread_pipes(void) 
+{
+    if (pipe(erts_darwin_main_thread_pipe) < 0 || 
+	pipe(erts_darwin_main_thread_result_pipe) < 0) {
+	erl_exit(1,"Fatal error initializing Darwin main thread stealing");
+    }
+}
+
+#endif
 void
 erts_sys_main_thread(void)
 {
     erts_thread_disable_fpe();
+#ifdef __DARWIN__
+    initialize_darwin_main_thread_pipes();
+#endif
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_set_thread_name("signal_receiver");
@@ -3002,6 +3023,27 @@ erts_sys_main_thread(void)
     smp_sig_notify(0); /* Notify initialized */
     while (1) {
 	/* Wait for a signal to arrive... */
+#ifdef __DARWIN__
+	/*
+	 * The wx driver needs to be able to steal the main thread for Cocoa to
+	 * work properly.
+	 */
+	fd_set readfds;
+	int res;
+
+	FD_ZERO(&readfds);
+	FD_SET(erts_darwin_main_thread_pipe[0], &readfds);
+	res = select(erts_darwin_main_thread_pipe[0] + 1, &readfds, NULL, NULL, NULL);
+	if (res > 0 && FD_ISSET(erts_darwin_main_thread_pipe[0],&readfds)) {
+	    void* (*func)(void*);
+	    void* arg;
+	    void *resp;
+	    read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
+	    read(erts_darwin_main_thread_pipe[0],&arg, sizeof(void*));
+	    resp = (*func)(arg);
+	    write(erts_darwin_main_thread_result_pipe[1],&resp,sizeof(void *));
+	}
+#else
 #ifdef DEBUG
 	int res =
 #else
@@ -3010,6 +3052,7 @@ erts_sys_main_thread(void)
 	    select(0, NULL, NULL, NULL, NULL);
 	ASSERT(res < 0);
 	ASSERT(errno == EINTR);
+#endif
     }
 }
 
@@ -3109,226 +3152,3 @@ erl_sys_args(int* argc, char** argv)
     }
     *argc = j;
 }
-
-#ifdef ERTS_TIMER_THREAD
-
-/*
- * Interruptible-wait facility: low-level synchronisation state
- * and methods that are implementation dependent.
- *
- * Constraint: Every implementation must define 'struct erts_iwait'
- * with a field 'erts_smp_atomic_t state;'.
- */
-
-/* values for struct erts_iwait's state field */
-#define IWAIT_WAITING	0
-#define IWAIT_AWAKE	1
-#define IWAIT_INTERRUPT	2
-
-#if 0	/* XXX: needs feature test in erts/configure.in */
-
-/*
- * This is an implementation of the interruptible wait facility on
- * top of Linux-specific futexes.
- */
-#include <asm/unistd.h>
-#define FUTEX_WAIT		0
-#define FUTEX_WAKE		1
-static int sys_futex(void *futex, int op, int val, const struct timespec *timeout)
-{
-    return syscall(__NR_futex, futex, op, val, timeout);
-}
-
-struct erts_iwait {
-    erts_smp_atomic_t state; /* &state.counter is our futex */
-};
-
-static void iwait_lowlevel_init(struct erts_iwait *iwait) { /* empty */ }
-
-static void iwait_lowlevel_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    struct timespec timeout;
-    int res;
-
-    timeout.tv_sec = delay->tv_sec;
-    timeout.tv_nsec = delay->tv_usec * 1000;
-    res = sys_futex((void*)&iwait->state.counter, FUTEX_WAIT, IWAIT_WAITING, &timeout);
-    if (res < 0 && errno != ETIMEDOUT && errno != EWOULDBLOCK && errno != EINTR)
-	perror("FUTEX_WAIT");
-}
-
-static void iwait_lowlevel_interrupt(struct erts_iwait *iwait)
-{
-    int res = sys_futex((void*)&iwait->state.counter, FUTEX_WAKE, 1, NULL);
-    if (res < 0)
-	perror("FUTEX_WAKE");
-}
-
-#else	/* using poll() or select() */
-
-/*
- * This is an implementation of the interruptible wait facility on
- * top of pipe(), poll() or select(), read(), and write().
- */
-struct erts_iwait {
-    erts_smp_atomic_t state;
-    int read_fd;	/* wait polls and reads this fd */
-    int write_fd;	/* interrupt writes this fd */
-};
-
-static void iwait_lowlevel_init(struct erts_iwait *iwait)
-{
-    int fds[2];
-
-    if (pipe(fds) < 0) {
-	perror("pipe()");
-	exit(1);
-    }
-    iwait->read_fd = fds[0];
-    iwait->write_fd = fds[1];
-}
-
-#if defined(ERTS_USE_POLL)
-
-#include <sys/poll.h>
-#define PERROR_POLL "poll()"
-
-static int iwait_lowlevel_poll(int read_fd, struct timeval *delay)
-{
-    struct pollfd pollfd;
-    int timeout;
-
-    pollfd.fd = read_fd;
-    pollfd.events = POLLIN;
-    pollfd.revents = 0;
-    timeout = delay->tv_sec * 1000 + delay->tv_usec / 1000;
-    return poll(&pollfd, 1, timeout);
-}
-
-#else	/* !ERTS_USE_POLL */
-
-#include <sys/select.h>
-#define PERROR_POLL "select()"
-
-static int iwait_lowlevel_poll(int read_fd, struct timeval *delay)
-{
-    fd_set readfds;
-
-    FD_ZERO(&readfds);
-    FD_SET(read_fd, &readfds);
-    return select(read_fd + 1, &readfds, NULL, NULL, delay);
-}
-
-#endif	/* !ERTS_USE_POLL */
-
-static void iwait_lowlevel_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    int res;
-    char buf[64];
-
-    res = iwait_lowlevel_poll(iwait->read_fd, delay);
-    if (res > 0)
-	(void)read(iwait->read_fd, buf, sizeof buf);
-    else if (res < 0 && errno != EINTR)
-	perror(PERROR_POLL);
-}
-
-static void iwait_lowlevel_interrupt(struct erts_iwait *iwait)
-{
-    int res = write(iwait->write_fd, "!", 1);
-    if (res < 0)
-	perror("write()");
-}
-
-#endif	/* using poll() or select() */
-
-#if 0	/* not using poll() or select() */
-/*
- * This is an implementation of the interruptible wait facility on
- * top of pthread_cond_timedwait(). This has two problems:
- * 1. pthread_cond_timedwait() requires an absolute time point,
- *    so the relative delay must be converted to absolute time.
- *    Worse, this breaks if the machine's time is adjusted while
- *    we're preparing to wait.
- * 2. Each cond operation requires additional mutex lock/unlock operations.
- *
- * Problem 2 is probably not too bad on Linux (they'll just become
- * relatively cheap futex operations), but problem 1 is the real killer.
- * Only use this implementation if no better alternatives are available!
- */
-struct erts_iwait {
-    erts_smp_atomic_t state;
-    pthread_cond_t cond;
-    pthread_mutex_t mutex;
-};
-
-static void iwait_lowlevel_init(struct erts_iwait *iwait)
-{
-    iwait->cond = (pthread_cond_t) PTHREAD_COND_INITIALIZER;
-    iwait->mutex = (pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER;
-}
-
-static void iwait_lowlevel_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    struct timeval tmp;
-    struct timespec timeout;
-
-    /* Due to pthread_cond_timedwait()'s use of absolute
-       time, this must be the real gettimeofday(), _not_
-       the "smoothed" one beam/erl_time_sup.c implements. */
-    gettimeofday(&tmp, NULL);
-
-    tmp.tv_sec += delay->tv_sec;
-    tmp.tv_usec += delay->tv_usec;
-    if (tmp.tv_usec >= 1000*1000) {
-	tmp.tv_usec -= 1000*1000;
-	tmp.tv_sec += 1;
-    }
-    timeout.tv_sec = tmp.tv_sec;
-    timeout.tv_nsec = tmp.tv_usec * 1000;
-    pthread_mutex_lock(&iwait->mutex);
-    pthread_cond_timedwait(&iwait->cond, &iwait->mutex, &timeout);
-    pthread_mutex_unlock(&iwait->mutex);
-}
-
-static void iwait_lowlevel_interrupt(struct erts_iwait *iwait)
-{
-    pthread_mutex_lock(&iwait->mutex);
-    pthread_cond_signal(&iwait->cond);
-    pthread_mutex_unlock(&iwait->mutex);
-}
-
-#endif /* not using POLL */
-
-/*
- * Interruptible-wait facility. This is just a wrapper around the
- * low-level synchronisation code, where we maintain our logical
- * state in order to suppress some state transitions.
- */
-
-struct erts_iwait *erts_iwait_init(void)
-{
-    struct erts_iwait *iwait = malloc(sizeof *iwait);
-    if (!iwait) {
-	perror("malloc");
-	exit(1);
-    }
-    iwait_lowlevel_init(iwait);
-    erts_smp_atomic_init(&iwait->state, IWAIT_AWAKE);
-    return iwait;
-}
-
-void erts_iwait_wait(struct erts_iwait *iwait, struct timeval *delay)
-{
-    if (erts_smp_atomic_xchg(&iwait->state, IWAIT_WAITING) != IWAIT_INTERRUPT)
-	iwait_lowlevel_wait(iwait, delay);
-    erts_smp_atomic_set(&iwait->state, IWAIT_AWAKE);
-}
-
-void erts_iwait_interrupt(struct erts_iwait *iwait)
-{
-    if (erts_smp_atomic_xchg(&iwait->state, IWAIT_INTERRUPT) == IWAIT_WAITING)
-	iwait_lowlevel_interrupt(iwait);
-}
-
-#endif /* ERTS_TIMER_THREAD */

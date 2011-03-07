@@ -82,9 +82,7 @@ MODULES = \
 	mod_security \
 	mod_security_server
 
-INCLUDE = ../../include
-
-HRL_FILES = $(INCLUDE)/httpd.hrl httpd_internal.hrl mod_auth.hrl
+HRL_FILES = httpd.hrl httpd_internal.hrl mod_auth.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -100,7 +98,6 @@ include ../inets_app/inets.mk
 ERL_COMPILE_FLAGS += \
 	$(INETS_FLAGS) \
 	$(INETS_ERL_COMPILE_FLAGS) \
-	-I$(INCLUDE) \
 	-I../inets_app \
 	-I../http_lib  \
 

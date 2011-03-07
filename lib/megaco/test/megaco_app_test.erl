@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,28 +39,36 @@ init_per_testcase(undef_funcs = Case, Config) ->
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-all(suite) ->
-    Cases = 
-	[
-	 fields,
-	 modules,
-	 exportall,
-	 app_depend,
-         undef_funcs
-	],
-    {req, [], {conf, app_init, Cases, app_fin}}.
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-app_init(suite) -> [];
-app_init(doc) -> [];
-app_init(Config) when is_list(Config) ->
+all() -> 
+    [
+     fields, 
+     modules, 
+     exportall, 
+     app_depend,
+     undef_funcs
+    ].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+init_per_suite(suite) -> [];
+init_per_suite(doc) -> [];
+init_per_suite(Config) when is_list(Config) ->
     case is_app(megaco) of
 	{ok, AppFile} ->
 	    io:format("AppFile: ~n~p~n", [AppFile]),
@@ -96,9 +104,9 @@ is_app(App) ->
     end.
 
 
-app_fin(suite) -> [];
-app_fin(doc) -> [];
-app_fin(Config) when is_list(Config) ->
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
@@ -110,7 +118,7 @@ fields(doc) ->
     [];
 fields(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
-    Fields = [vsn, description, modules, registered, applications],
+    Fields  = [vsn, description, modules, registered, applications],
     case check_fields(Fields, AppFile, []) of
 	[] ->
 	    ok;

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
 -include_lib("cosProperty/src/cosProperty.hrl").
 -include_lib("cosProperty/include/CosPropertyService.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
  
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).
@@ -86,8 +86,9 @@
 %% External exports
 %%-----------------------------------------------------------------
 %% Fixed exports
--export([all/1, cases/0, init_all/1, finish_all/1, 
-	 init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, 
+	 init_per_suite/1, end_per_suite/1, 
+	 init_per_testcase/2, end_per_testcase/2]).
 %% Test cases
 -export([create_setdef_api/1, create_set_api/1, define_with_mode_api/1,
 	 define_api/1, names_iterator_api/1, properties_iterator_api/1,
@@ -98,16 +99,24 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosProperty interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
- 
-cases() ->
-    [create_setdef_api, create_set_api, define_with_mode_api, define_api,
-     names_iterator_api, properties_iterator_api, app_test].
- 
- 
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+cases() -> 
+    [create_setdef_api, create_set_api,
+     define_with_mode_api, define_api, names_iterator_api,
+     properties_iterator_api, app_test].
  
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -120,14 +129,14 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
  
  
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
  
-init_all(Config) ->
+init_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     orber:jump_start(),
@@ -141,7 +150,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
  
-finish_all(Config) ->
+end_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     application:stop(cosProperty),

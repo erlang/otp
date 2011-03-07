@@ -74,6 +74,7 @@ posix()
 
 socket()
   as returned by accept/1,2 and connect/3,4</code>
+    <marker id="connect"></marker>
   </section>
   <funcs>
     <func>

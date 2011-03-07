@@ -39,6 +39,8 @@
 -type device() :: atom() | pid().
 -type prompt() :: atom() | string().
 
+-type error_description() :: term(). % Whatever the io-server sends.
+-type request_error() :: {'error',error_description()}.
 %% XXX: Some uses of line() in this file may need to read erl_scan:location()
 -type line()   :: pos_integer().
 
@@ -53,26 +55,12 @@
 to_tuple(T) when is_tuple(T) -> T;
 to_tuple(T) -> {T}.
 
-%% Problem: the variables Other, Name and Args may collide with surrounding
-%% ones.
-%% Give extra args to macro, being the variables to use.
--define(O_REQUEST(Io, Request),
-    case request(Io, Request) of
-	{error, Reason} ->
-	    [Name | Args] = tuple_to_list(to_tuple(Request)),
-	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
-	Other ->
-	    Other
-    end).
-
 o_request(Io, Request, Func) ->
     case request(Io, Request) of
 	{error, Reason} ->
 	    [_Name | Args] = tuple_to_list(to_tuple(Request)),
-	    {'EXIT',{undef,[_Current|Mfas]}} = (catch erlang:error(undef)),
-	    MFA = {io, Func, [Io | Args]},
-	    exit({conv_reason(Func, Reason),[MFA|Mfas]});
-%	    erlang:error(conv_reason(Name, Reason), [Name, Io | Args]);
+	    {'EXIT',{get_stacktrace,[_Current|Mfas]}} = (catch erlang:error(get_stacktrace)),
+	    erlang:raise(error, conv_reason(Func, Reason), [{io, Func, [Io | Args]}|Mfas]);
 	Other ->
 	    Other
     end.
@@ -299,32 +287,32 @@ format(Io, Format, Args) ->
 
 %% Scanning Erlang code.
 
--spec scan_erl_exprs(prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_exprs(prompt()) -> erl_scan:tokens_result() | request_error().
  
 scan_erl_exprs(Prompt) ->
     scan_erl_exprs(default_input(), Prompt, 1).
 
--spec scan_erl_exprs(device(), prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_exprs(device(), prompt()) -> erl_scan:tokens_result() | request_error().
 
 scan_erl_exprs(Io, Prompt) ->
     scan_erl_exprs(Io, Prompt, 1).
 
--spec scan_erl_exprs(device(), prompt(), line()) -> erl_scan:tokens_result().
+-spec scan_erl_exprs(device(), prompt(), line()) -> erl_scan:tokens_result() | request_error().
 
 scan_erl_exprs(Io, Prompt, Pos0) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}).
 
--spec scan_erl_form(prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_form(prompt()) -> erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Prompt) ->
     scan_erl_form(default_input(), Prompt, 1).
 
--spec scan_erl_form(device(), prompt()) -> erl_scan:tokens_result().
+-spec scan_erl_form(device(), prompt()) -> erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Io, Prompt) ->
     scan_erl_form(Io, Prompt, 1).
 
--spec scan_erl_form(device(), prompt(), line()) -> erl_scan:tokens_result().
+-spec scan_erl_form(device(), prompt(), line()) -> erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Io, Prompt, Pos0) ->
     request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}).
@@ -335,7 +323,8 @@ scan_erl_form(Io, Prompt, Pos0) ->
 
 -type parse_ret() :: {'ok', erl_parse_expr_list(), line()}
                    | {'eof', line()}
-                   | {'error', erl_scan:error_info(), line()}.
+                   | {'error', erl_scan:error_info(), line()}
+                   | request_error().
 
 -spec parse_erl_exprs(prompt()) -> parse_ret().
 
@@ -364,7 +353,8 @@ parse_erl_exprs(Io, Prompt, Pos0) ->
 
 -type parse_form_ret() :: {'ok', erl_parse_absform(), line()}
                         | {'eof', line()}
-                        | {'error', erl_scan:error_info(), line()}.
+                        | {'error', erl_scan:error_info(), line()}
+                        | request_error().
 
 -spec parse_erl_form(prompt()) -> parse_form_ret().
 

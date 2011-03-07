@@ -57,7 +57,8 @@ TS_MODULES= \
 	ts_erl_config \
 	ts_autoconf_win32 \
         ts_autoconf_vxworks \
-	ts_install
+	ts_install \
+	ts_install_cth
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 TS_TARGET_MODULES= $(TS_MODULES:%=$(EBIN)/%)
@@ -71,7 +72,7 @@ C_FILES =
 AUTOCONF_FILES = configure.in conf_vars.in
 COVER_FILES = cross.cover
 PROGRAMS = configure config.sub config.guess install-sh 
-CONFIG = ts.config ts.unix.config ts.win32.config ts.vxworks.config
+CONFIG = ts.config ts.unix.config ts.win32.config
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) \
 	       $(APP_TARGET) $(APPUP_TARGET)
@@ -136,7 +137,7 @@ release_tests_spec: opt
 	$(INSTALL_DIR) $(RELEASE_PATH)/test_server
 	$(INSTALL_DATA) $(ERL_FILES) $(TS_ERL_FILES) \
 		$(HRL_FILES) $(INTERNAL_HRL_FILES) $(TS_HRL_FILES) \
-		$(TARGET_FILES) $(TS_TARGET_FILES) \
+		$(TS_TARGET_FILES) \
 		$(AUTOCONF_FILES) $(C_FILES) $(COVER_FILES) $(CONFIG) \
 		$(RELEASE_PATH)/test_server
 	$(INSTALL_SCRIPT) $(PROGRAMS) $(RELEASE_PATH)/test_server

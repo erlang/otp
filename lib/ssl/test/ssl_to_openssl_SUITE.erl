@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(TIMEOUT, 120000).
 -define(LONG_TIMEOUT, 600000).
@@ -50,16 +50,20 @@ init_per_suite(Config0) ->
 	false ->
 	    {skip, "Openssl not found"};
 	_ ->
-	    crypto:start(),
-	    application:start(public_key),
-	    ssl:start(),
-	    Result = 
-		(catch make_certs:all(?config(data_dir, Config0), 
-				      ?config(priv_dir, Config0))),
-	    test_server:format("Make certs  ~p~n", [Result]),
-	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-	    Config = ssl_test_lib:cert_options(Config1),
-	    [{watchdog, Dog} | Config]
+	    case application:start(crypto) of
+		ok ->
+		    application:start(public_key),
+		    ssl:start(),
+		    Result =
+			(catch make_certs:all(?config(data_dir, Config0),
+					      ?config(priv_dir, Config0))),
+		    test_server:format("Make certs  ~p~n", [Result]),
+		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
+		    Config = ssl_test_lib:cert_options(Config1),
+		    [{watchdog, Dog} | Config];
+		_  ->
+		    {skip, "Crypto did not start"}
+	    end
     end.
 
 %%--------------------------------------------------------------------
@@ -70,7 +74,7 @@ init_per_suite(Config0) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ssl:stop(),
-    crypto:stop().
+    application:stop(crypto).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config) -> Config
@@ -139,11 +143,10 @@ end_per_testcase(_, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Test erlangs ssl against openssl"];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [erlang_client_openssl_server, 
+all() -> 
+    [erlang_client_openssl_server,
      erlang_server_openssl_client,
      tls1_erlang_client_openssl_server_dsa_cert,
      tls1_erlang_server_openssl_client_dsa_cert,
@@ -154,22 +157,29 @@ all(suite) ->
      erlang_client_openssl_server_no_wrap_sequence_number,
      erlang_server_openssl_client_no_wrap_sequence_number,
      erlang_client_openssl_server_no_server_ca_cert,
-     ssl3_erlang_client_openssl_server, 
+     ssl3_erlang_client_openssl_server,
      ssl3_erlang_server_openssl_client,
      ssl3_erlang_client_openssl_server_client_cert,
      ssl3_erlang_server_openssl_client_client_cert,
      ssl3_erlang_server_erlang_client_client_cert,
-     tls1_erlang_client_openssl_server, 
+     tls1_erlang_client_openssl_server,
      tls1_erlang_server_openssl_client,
      tls1_erlang_client_openssl_server_client_cert,
      tls1_erlang_server_openssl_client_client_cert,
      tls1_erlang_server_erlang_client_client_cert,
-     ciphers_rsa_signed_certs,
-     ciphers_dsa_signed_certs,
-     erlang_client_bad_openssl_server,
-     expired_session,
-     ssl2_erlang_server_openssl_client
-    ].
+     ciphers_rsa_signed_certs, ciphers_dsa_signed_certs,
+     erlang_client_bad_openssl_server, expired_session,
+     ssl2_erlang_server_openssl_client].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
@@ -1164,10 +1174,6 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
     close_port(OpenSslPort),
     %% Clean close down!
     ssl_test_lib:close(Client),
-    receive 
-	{'EXIT', Client, normal} ->
-	    ok
-    end,
     
     Return = case Result of
 		 ok ->

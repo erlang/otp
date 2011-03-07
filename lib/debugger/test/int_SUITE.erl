@@ -19,15 +19,16 @@
 
 %%
 -module(int_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% Test server specific exports
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([interpret/1, guards/1, list_suite/1, interpretable/1]).
--export([append/1, append_1/1, append_2/1, member/1, reverse/1]).
+-export([interpret/1, guards/1, interpretable/1]).
+-export([ append_1/1, append_2/1, member/1, reverse/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(1)).
@@ -59,8 +60,27 @@ end_per_testcase(_Case, Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ?line ok.
 
-all(suite)->
-    [interpret, guards, list_suite, interpretable].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [interpret, guards, {group, list_suite}, interpretable].
+
+groups() -> 
+    [{list_suite, [], [{group, append}, reverse, member]},
+     {append, [], [append_1, append_2]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 interpret(suite) ->
     [];
@@ -97,13 +117,7 @@ guards(Config) when is_list(Config) ->
     ok = guards:guards().
 
 
-list_suite(suite) ->
-    [append, reverse, member].
 
-append(doc) ->
-    ["Tests lists1:append/1 & lists1:append/2"];
-append(suite) ->
-    [append_1, append_2].
 
 append_1(suite) ->
     [];

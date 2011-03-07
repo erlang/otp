@@ -27,11 +27,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	test_server_SUITE \
 	test_server_line_SUITE \
-	test_server_skip_SUITE \
-	test_server_conf01_SUITE \
-	test_server_conf02_SUITE \
-	test_server_parallel01_SUITE \
-	test_server_shuffle01_SUITE
+	test_server_test_lib
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -52,6 +48,7 @@ RELSYSDIR = $(RELEASE_PATH)/test_server_test
 
 ERL_MAKE_FLAGS += -pa $(ERL_TOP)/lib/test_server/ebin
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/test
 
 EBIN = .
 
@@ -88,7 +85,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
-	$(INSTALL_DATA) test_server.spec $(RELSYSDIR)
+	$(INSTALL_DATA) test_server.spec test_server.cover $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

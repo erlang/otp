@@ -670,7 +670,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 #ifdef ERTS_SMP
 	erts_cancel_smp_ptimer(port->ptimer);
 #else
-	erl_cancel_timer(&(port->tm));
+	erts_cancel_timer(&(port->tm));
 #endif
 	stopq(port);
 	kill_port(port);
@@ -1839,7 +1839,7 @@ terminate_port(Port *prt)
 #ifdef ERTS_SMP
     erts_cancel_smp_ptimer(prt->ptimer);
 #else
-    erl_cancel_timer(&prt->tm);
+    erts_cancel_timer(&prt->tm);
 #endif
 
     drv = prt->drv_ptr;
@@ -4068,7 +4068,7 @@ drv_cancel_timer(Port *prt)
 #ifdef ERTS_SMP
     erts_cancel_smp_ptimer(prt->ptimer);
 #else
-    erl_cancel_timer(&prt->tm);
+    erts_cancel_timer(&prt->tm);
 #endif
     if (erts_port_task_is_scheduled(&prt->timeout_task))
 	erts_port_task_abort(prt->id, &prt->timeout_task);
@@ -4092,7 +4092,7 @@ int driver_set_timer(ErlDrvPort ix, UWord t)
 			   (ErlTimeoutProc) schedule_port_timeout,
 			   t);
 #else
-    erl_set_timer(&prt->tm,
+    erts_set_timer(&prt->tm,
 		  (ErlTimeoutProc) schedule_port_timeout,
 		  NULL,
 		  prt,
@@ -4123,9 +4123,9 @@ driver_read_timer(ErlDrvPort ix, unsigned long* t)
 	return -1;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 #ifdef ERTS_SMP
-    *t = prt->ptimer ? time_left(&prt->ptimer->timer.tm) : 0;
+    *t = prt->ptimer ? erts_time_left(&prt->ptimer->timer.tm) : 0;
 #else
-    *t = time_left(&prt->tm);
+    *t = erts_time_left(&prt->tm);
 #endif
     return 0;
 }

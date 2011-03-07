@@ -1,6 +1,0 @@
-%% -*- erlang -*-
-%% You can test this file using this command.
-%%    file:script("eunit.dynspec", [{'Os',"Unix"}]).
-
-[].
-

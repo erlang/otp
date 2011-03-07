@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -72,10 +72,10 @@
       {verify_fun, {fun(), term()}} |
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
-      {cert, der_bin()}| {certfile, path()} |
-      {key, der_bin()} | {keyfile, path()} | {password, string()} |
-      {cacerts, [der_bin()]} | {cacertfile, path()} |
-      |{dh, der_bin()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {cert, der_encoded()}| {certfile, path()} |
+      {key, der_encoded()} | {keyfile, path()} | {password, string()} |
+      {cacerts, [der_encoded()]} | {cacertfile, path()} |
+      |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
       {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()} 
     </c></p>
 
@@ -95,7 +95,7 @@
     
     <p><c>path() = string() - representing a file path.</c></p>
 
-    <p><c>der_bin() = binary() -Asn1 DER encoded entity as an erlang binary.</c></p>
+    <p><c>der_encoded() = binary() -Asn1 DER encoded entity as an erlang binary.</c></p>
     
     <p><c>host() = hostname() | ipaddress()</c></p>
         
@@ -136,14 +136,14 @@
     
     <taglist>
 
-      <tag>{cert, der_bin()}</tag>
+      <tag>{cert, der_encoded()}</tag>
       <item> The DER encoded users certificate. If this option
       is supplied it will override the certfile option.</item>
       
       <tag>{certfile, path()}</tag>
       <item>Path to a file containing the user's certificate.</item>
       
-      <tag>{key, der_bin()}</tag>
+      <tag>{key, der_encoded()}</tag>
       <item> The DER encoded users private key. If this option
       is supplied it will override the keyfile option.</item>
       
@@ -158,7 +158,7 @@
 	Only used if the private keyfile is password protected.
       </item>
 
-      <tag>{cacerts, [der_bin()]}</tag>
+      <tag>{cacerts, [der_encoded()]}</tag>
       <item> The DER encoded trusted certificates. If this option
       is supplied it will override the cacertfile option.</item>
 
@@ -301,7 +301,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 
     <taglist>
 
-      <tag>{dh, der_bin()}</tag>
+      <tag>{dh, der_encoded()}</tag>
       <item>The DER encoded Diffie Hellman parameters. If this option
       is supplied it will override the dhfile option.
       </item>

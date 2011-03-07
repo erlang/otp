@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -128,19 +128,19 @@ init([]) ->
     process_flag(trap_exit, true),
     DriverWithArgs = DriverName ++ " " ++ code:priv_dir(wx) ++ [0],
     
-    case catch open_port({spawn, DriverWithArgs},[binary]) of
-	{'EXIT', Err} -> 
-	    erlang:error({open_port,Err});
-	Port ->
-	    wx_debug_info = ets:new(wx_debug_info, [named_table]),
-	    wx_non_consts = ets:new(wx_non_consts, [named_table]),
-	    true = ets:insert(wx_debug_info, wxdebug_table()),
-	    spawn_link(fun() -> debug_ping(Port) end),
-	    receive 
-		{wx_consts, List} ->
-		    true = ets:insert(wx_non_consts, List)
-	    end,
-	    {ok, #state{cb_port=Port, driver=DriverName, users=gb_sets:empty()}}
+    try
+	Port = open_port({spawn, DriverWithArgs},[binary]),
+	wx_debug_info = ets:new(wx_debug_info, [named_table]),
+	wx_non_consts = ets:new(wx_non_consts, [named_table]),
+	true = ets:insert(wx_debug_info, wxdebug_table()),
+	spawn_link(fun() -> debug_ping(Port) end),
+	receive
+	    {wx_consts, List} ->
+		true = ets:insert(wx_non_consts, List)
+	end,
+	{ok, #state{cb_port=Port, driver=DriverName, users=gb_sets:empty()}}
+    catch _:Err ->
+	    error({Err, "Could not initiate graphics"})
     end.
 
 %%--------------------------------------------------------------------

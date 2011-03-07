@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,7 @@
 
 -include("idl_output/notify_test.hrl").
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %%--------------- DEFINES ------------------------------------
 -define(default_timeout, ?t:minutes(20)).
@@ -259,25 +259,37 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, reorder_api/1, lookup_api/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
+	 cases/0, init_per_suite/1, end_per_suite/1, reorder_api/1, 
+	 lookup_api/1,
 	 discard_api/1, max_events_api/1, gc_api/1, auto_gc_api/1,
 	 start_stop_time_api/1, mapping_filter_api/1, persisten_event_api/1,
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 
 %%-----------------------------------------------------------------
 %% Func: all/1
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosNotification interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
- 
-cases() ->
-    [persisten_event_api, start_stop_time_api, mapping_filter_api, 
-     max_events_api, discard_api, reorder_api, lookup_api, gc_api,
-     auto_gc_api].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+cases() -> 
+    [persisten_event_api, start_stop_time_api,
+     mapping_filter_api, max_events_api, discard_api,
+     reorder_api, lookup_api, gc_api, auto_gc_api].
 
 
 	
@@ -290,12 +302,12 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     orber:jump_start(),
@@ -308,7 +320,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
  
-finish_all(Config) ->
+end_per_suite(Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     cosTime:stop(),

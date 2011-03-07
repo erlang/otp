@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,13 +19,15 @@
 
 -module(bs_utf_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 utf8_roundtrip/1,utf16_roundtrip/1,utf32_roundtrip/1,
 	 utf8_illegal_sequences/1,utf16_illegal_sequences/1,
 	 utf32_illegal_sequences/1,
 	 bad_construction/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(FAIL(Expr), ?line fail_check(catch Expr, ??Expr, [])).
 
@@ -33,14 +35,32 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(6)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-all(suite) ->
-    [utf8_roundtrip,utf16_roundtrip,utf32_roundtrip,
-     utf8_illegal_sequences,utf16_illegal_sequences,
-     utf32_illegal_sequences,bad_construction].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [utf8_roundtrip, utf16_roundtrip, utf32_roundtrip,
+     utf8_illegal_sequences, utf16_illegal_sequences,
+     utf32_illegal_sequences, bad_construction].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 utf8_roundtrip(Config) when is_list(Config) ->
     ?line utf8_roundtrip(0, 16#D7FF),

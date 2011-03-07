@@ -34,6 +34,7 @@ RELSYSDIR = $(RELEASE_PATH)/orber_test
 # Target Specs
 # ----------------------------------------------------
 TEST_SPEC_FILE = orber.spec
+COVER_FILE = orber.cover
 
 
 IDL_FILES = \
@@ -120,7 +121,11 @@ GEN_MOD_TEST_SERVER = \
 	orber_test_server_uni \
 	orber_test_server_uni_d \
 	orber_test_timeout_server \
-	orber_parent_inherrit
+	orber_parent_inherrit \
+	orber_test_server_rec_struct \
+	orber_test_server_rec_struct_seq \
+	orber_test_server_rec_union \
+	orber_test_server_rec_union_seq
 
 GEN_HRL_TEST_SERVER = \
 	oe_orber_test_server.hrl \
@@ -218,7 +223,7 @@ release_docs_spec:
 
 release_tests_spec: tests
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(IDL_FILES)  $(TEST_SPEC_FILE) \
+	$(INSTALL_DATA) $(IDL_FILES)  $(TEST_SPEC_FILE) $(COVER_FILE) \
 		$(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(SUITE_TARGET_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)

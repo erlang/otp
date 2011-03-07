@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -85,7 +85,7 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
     if (is_ref_thing_header(*b2)) {
 	return 1;
     }
-    return cmp(ref1,ref2);
+    return CMP(ref1,ref2);
 }
 	    
 #define CP_LINK_VAL(To, Hp, From)				\
@@ -380,7 +380,7 @@ int erts_add_link(ErtsLink **root, Uint type, Eterm pid)
 	    state = 1;
 	    *this = create_link(type,pid);
 	    break;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -415,7 +415,7 @@ erts_add_or_lookup_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid)
 	    state = 1;
 	    res = *this = create_suspend_monitor(pid);
 	    break;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -453,7 +453,7 @@ ErtsLink *erts_add_or_lookup_link(ErtsLink **root, Uint type, Eterm pid)
 	    *this = create_link(type,pid);
 	    ret = *this;
 	    break;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    /* go left */
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
@@ -663,7 +663,7 @@ ErtsLink *erts_remove_link(ErtsLink **root, Eterm pid)
     for (;;) {
 	if (!*this) { /* Failure */
 	    return NULL;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
 	    this = &((*this)->left);
@@ -715,7 +715,7 @@ erts_delete_suspend_monitor(ErtsSuspendMonitor **root, Eterm pid)
     for (;;) {
 	if (!*this) { /* Nothing found */
 	    return;
-	} else if ((c = cmp(pid,(*this)->pid)) < 0) { 
+	} else if ((c = CMP(pid,(*this)->pid)) < 0) {
 	    dstack[dpos++] = DIR_LEFT;
 	    tstack[tpos++] = this;
 	    this = &((*this)->left);
@@ -771,7 +771,7 @@ ErtsLink *erts_lookup_link(ErtsLink *root, Eterm pid)
     Sint c;
 
     for (;;) {
-	if (root == NULL || (c = cmp(pid,root->pid)) == 0) {
+	if (root == NULL || (c = CMP(pid,root->pid)) == 0) {
 	    return root;
 	} else if (c < 0) { 
 	    root = root->left;
@@ -787,7 +787,7 @@ erts_lookup_suspend_monitor(ErtsSuspendMonitor *root, Eterm pid)
     Sint c;
 
     for (;;) {
-	if (root == NULL || (c = cmp(pid,root->pid)) == 0) {
+	if (root == NULL || (c = CMP(pid,root->pid)) == 0) {
 	    return root;
 	} else if (c < 0) { 
 	    root = root->left;

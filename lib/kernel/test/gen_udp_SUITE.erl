@@ -21,7 +21,7 @@
 % because udp is not deterministic.
 %
 -module(gen_udp_SUITE).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 -define(default_timeout, ?t:minutes(1)).
@@ -29,23 +29,42 @@
 % XXX - we should pick a port that we _know_ is closed. That's pretty hard.
 -define(CLOSED_PORT, 6666).
 
--export([all/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 -export([send_to_closed/1, 
 	 buffer_size/1, binary_passive_recv/1, bad_address/1,
 	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1]).
 
-all(suite) ->
-    [send_to_closed, 
-     buffer_size, binary_passive_recv, bad_address, read_packets,
-     open_fd, connect, implicit_inet6].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [send_to_closed, buffer_size, binary_passive_recv,
+     bad_address, read_packets, open_fd, connect,
+     implicit_inet6].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

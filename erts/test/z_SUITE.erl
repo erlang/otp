@@ -35,25 +35,44 @@
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
 
--export([all/1, init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([search_for_core_files/1, core_files/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
     
 
 init_per_testcase(Case, Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     [{testcase, Case}, {watchdog, Dog} |Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-all(doc) -> [];
-all(suite) ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
     [core_files].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 core_files(doc) ->

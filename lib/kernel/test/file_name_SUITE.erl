@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 %%
@@ -70,7 +70,10 @@
 %% list_dir
 %% read_link
 
--export([all/1,init_per_testcase/2, fin_per_testcase/2]).
+-export([all/0,groups/0,suite/0,
+	 init_per_suite/1,end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2, end_per_testcase/2]).
 -export([normal/1,icky/1,very_icky/1,normalize/1]).
 
 
@@ -78,13 +81,29 @@ init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [normal,icky,very_icky,normalize].
+all() -> 
+    [normal, icky, very_icky, normalize].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 normalize(suite) ->
     [];
@@ -507,8 +526,16 @@ check_very_icky(Mod) ->
 			       end,
 	?line {NumOK,NumNOK} = filelib:fold_files(".",".*",true,fun(_F,{N,M}) when is_list(_F) ->  io:format("~ts~n",[_F]),{N+1,M}; (_F,{N,M}) ->  io:format("~p~n",[_F]),{N,M+1} end,{0,0}),
 	?line ok = filelib:fold_files(".",[1076,1089,1072,124,46,42],true,fun(_F,_) -> ok end,false),
-	?line SF3 = unicode:characters_to_binary("åäösubfil3",file:native_name_encoding()),
-	?line Sorted = lists:sort([SF3,<<"åäösubfil2">>]),
+	?line SF3 = unicode:characters_to_binary("åäösubfil3",
+                                                 file:native_name_encoding()),
+	?line SF2 = case treat_icky(<<"åäösubfil2">>) of
+	                LF2 when is_list(LF2) ->
+			    unicode:characters_to_binary(LF2,
+			                      file:native_name_encoding());
+			BF2 ->
+			    BF2
+	            end,		      
+	?line Sorted = lists:sort([SF3,SF2]),
 	?line Sorted = lists:sort(filelib:wildcard("*",<<"åäösubdir2">>)),
 	ok
     catch

@@ -85,7 +85,7 @@ EXTERN_FUNCTION(void, erl_exit, (int n, char*, _DOTS_));
 EXTERN_FUNCTION(void, erl_error, (char*, va_list));
 EXTERN_FUNCTION(int, driver_interrupt, (int, int));
 EXTERN_FUNCTION(void, increment_time, (int));
-EXTERN_FUNCTION(int, next_time, (_VOID_));
+EXTERN_FUNCTION(int, erts_next_time, (_VOID_));
 EXTERN_FUNCTION(void, set_reclaim_free_function, (FreeFunction));
 EXTERN_FUNCTION(int, erl_mem_info_get, (MEM_PART_STATS *));
 EXTERN_FUNCTION(void, erl_crash_dump, (char* file, int line, char* fmt, ...));

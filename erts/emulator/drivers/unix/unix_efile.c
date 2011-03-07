@@ -620,7 +620,7 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
 	if (IS_DOT_OR_DOTDOT(dirp->d_name))
 	    continue;
 	buffer[0] = '\0';
-	strncat(buffer, dirp->d_name, size-1);
+	strncat(buffer, dirp->d_name, (*size)-1);
 	*size = strlen(dirp->d_name);
 	return 1;
     }

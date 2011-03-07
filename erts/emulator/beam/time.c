@@ -99,76 +99,18 @@ static erts_smp_mtx_t tiw_lock;
 static ErlTimer** tiw;		/* the timing wheel, allocated in init_time() */
 static Uint tiw_pos;		/* current position in wheel */
 static Uint tiw_nto;		/* number of timeouts in wheel */
+static Uint tiw_min;
+static ErlTimer *tiw_min_ptr;
 
 /* END tiw_lock protected variables */
 
 /* Actual interval time chosen by sys_init_time() */
 static int itime; /* Constant after init */
 
-#if defined(ERTS_TIMER_THREAD)
-static SysTimeval time_start;	/* start of current time interval */
-static erts_aint_t ticks_end;		/* time_start+ticks_end == time_wakeup */
-static erts_aint_t ticks_latest;	/* delta from time_start at latest time update*/
-
-static ERTS_INLINE erts_aint_t time_gettimeofday(SysTimeval *now)
-{
-    erts_aint_t elapsed;
-
-    erts_get_timeval(now);
-    now->tv_usec = 1000 * (now->tv_usec / 1000); /* ms resolution */
-    elapsed = (1000 * (now->tv_sec - time_start.tv_sec) +
-	       (now->tv_usec - time_start.tv_usec) / 1000);
-    // elapsed /= CLOCK_RESOLUTION;
-    return elapsed;
-}
-
-static erts_aint_t do_time_update(void)
-{
-    SysTimeval now;
-    erts_aint_t elapsed;
-
-    elapsed = time_gettimeofday(&now);
-    ticks_latest = elapsed;
-    return elapsed;
-}
-
-static ERTS_INLINE erts_aint_t do_time_read(void)
-{
-    return ticks_latest;
-}
-
-static erts_aint_t do_time_reset(void)
-{
-    SysTimeval now;
-    erts_aint_t elapsed;
-
-    elapsed = time_gettimeofday(&now);
-    time_start = now;
-    ticks_end = LONG_MAX;
-    ticks_latest = 0;
-    return elapsed;
-}
-
-static ERTS_INLINE void do_time_init(void)
-{
-    (void)do_time_reset();
-}
-
-#else
 erts_smp_atomic_t do_time;	/* set at clock interrupt */
-static ERTS_INLINE erts_aint_t do_time_read(void)
-{
-    return erts_smp_atomic_read(&do_time);
-}
-static ERTS_INLINE erts_aint_t do_time_update(void)
-{
-    return do_time_read();
-}
-static ERTS_INLINE void do_time_init(void)
-{
-    erts_smp_atomic_init(&do_time, (erts_aint_t) 0);
-}
-#endif
+static ERTS_INLINE erts_aint_t do_time_read(void) { return erts_smp_atomic_read(&do_time); }
+static ERTS_INLINE erts_aint_t do_time_update(void) { return do_time_read(); }
+static ERTS_INLINE void do_time_init(void) { erts_smp_atomic_init(&do_time, 0L); }
 
 /* get the time (in units of itime) to the next timeout,
    or -1 if there are no timeouts                     */
@@ -182,6 +124,12 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
   
     if (tiw_nto == 0)
 	return -1;	/* no timeouts in wheel */
+
+    if (tiw_min_ptr) {
+	min = tiw_min;
+	dt  = do_time_read();
+	return ((min >= dt) ? (min - dt) : 0);
+    }
   
     /* start going through wheel to find next timeout */
     tm = nto = 0;
@@ -194,11 +142,17 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
 	    if (p->count == 0) {
 		/* found next timeout */
 		dt = do_time_read();
+		/* p->count is zero */
+		tiw_min_ptr = p;
+		tiw_min     = tm;
 		return ((tm >= dt) ? (tm - dt) : 0);
 	    } else {
 		/* keep shortest time in 'min' */
-		if (tm + p->count*TIW_SIZE < min)
+		if (tm + p->count*TIW_SIZE < min) {
 		    min = tm + p->count*TIW_SIZE;
+		    tiw_min_ptr = p;
+		    tiw_min     = min;
+		}
 	    }
 	    p = p->next;
 	}
@@ -211,9 +165,33 @@ static erts_aint_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
     return ((min >= dt) ? (min - dt) : 0);
 }
 
-#if !defined(ERTS_TIMER_THREAD)
+static void remove_timer(ErlTimer *p) {
+    /* first */
+    if (!p->prev) {
+	tiw[p->slot] = p->next;
+	if(p->next)
+	    p->next->prev = NULL;
+    } else {
+	p->prev->next = p->next;
+    }
+
+    /* last */
+    if (!p->next) {
+	if (p->prev)
+	    p->prev->next = NULL;
+    } else {
+	p->next->prev = p->prev;
+    }
+
+    p->next = NULL;
+    p->prev = NULL;
+    /* Make sure cancel callback isn't called */
+    p->active = 0;
+    tiw_nto--;
+}
+
 /* Private export to erl_time_sup.c */
-erts_aint_t next_time(void)
+erts_aint_t erts_next_time(void)
 {
     erts_aint_t ret;
 
@@ -223,7 +201,6 @@ erts_aint_t next_time(void)
     erts_smp_mtx_unlock(&tiw_lock);
     return ret;
 }
-#endif
 
 static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is write-locked */
 {
@@ -251,12 +228,16 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
 	if (tiw_pos == keep_pos) count--;
 	prev = &tiw[tiw_pos];
 	while ((p = *prev) != NULL) {
+	    ASSERT( p != p->next);
 	    if (p->count < count) {     /* we have a timeout */
-		*prev = p->next;	/* Remove from list */
-		tiw_nto--;
-		p->next = NULL;
-		p->active = 0;		/* Make sure cancel callback
-					   isn't called */
+		/* remove min time */
+		if (tiw_min_ptr == p) {
+		    tiw_min_ptr = NULL;
+		    tiw_min = 0;
+		}
+
+		/* Remove from list */
+		remove_timer(p);
 		*timeout_tail = p;	/* Insert in timeout queue */
 		timeout_tail = &p->next;
 	    }
@@ -270,6 +251,8 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
 	dtime--;
     }
     tiw_pos = keep_pos;
+    if (tiw_min_ptr)
+	tiw_min -= dt;
     
     erts_smp_mtx_unlock(&tiw_lock);
     
@@ -284,24 +267,17 @@ static ERTS_INLINE void bump_timer_internal(erts_aint_t dt) /* PRE: tiw_lock is 
 	 * callback is called.
 	 */
 	p->next = NULL;
+	p->prev = NULL;
 	p->slot = 0;
 	(*p->timeout)(p->arg);
     }
 }
 
-#if defined(ERTS_TIMER_THREAD)
-static void timer_thread_bump_timer(void)
-{
-    erts_smp_mtx_lock(&tiw_lock);
-    bump_timer_internal(do_time_reset());
-}
-#else
-void bump_timer(erts_aint_t dt) /* dt is value from do_time */
+void erts_bump_timer(erts_aint_t dt) /* dt is value from do_time */
 {
     erts_smp_mtx_lock(&tiw_lock);
     bump_timer_internal(dt);
 }
-#endif
 
 Uint
 erts_timer_wheel_memory_size(void)
@@ -309,82 +285,10 @@ erts_timer_wheel_memory_size(void)
     return (Uint) TIW_SIZE * sizeof(ErlTimer*);
 }
 
-#if defined(ERTS_TIMER_THREAD)
-static struct erts_iwait *timer_thread_iwait;
-
-static int timer_thread_setup_delay(SysTimeval *rem_time)
-{
-    erts_aint_t elapsed;
-    erts_aint_t ticks;
-
-    erts_smp_mtx_lock(&tiw_lock);
-    elapsed = do_time_update();
-    ticks = next_time_internal();
-    if (ticks == -1)	/* timer queue empty */
-	ticks = 100*1000*1000;
-    if (elapsed > ticks)
-	elapsed = ticks;
-    ticks -= elapsed;
-    //ticks *= CLOCK_RESOLUTION;
-    rem_time->tv_sec = ticks / 1000;
-    rem_time->tv_usec = 1000 * (ticks % 1000);
-    ticks_end = ticks;
-    erts_smp_mtx_unlock(&tiw_lock);
-    return ticks;
-}
-
-static void *timer_thread_start(void *ignore)
-{
-    SysTimeval delay;
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_set_thread_name("timer");
-#endif
-    erts_register_blockable_thread();
-
-    for(;;) {
-	if (timer_thread_setup_delay(&delay)) {
-	    erts_smp_activity_begin(ERTS_ACTIVITY_WAIT, NULL, NULL, NULL);
-	    ASSERT_NO_LOCKED_LOCKS;
-	    erts_iwait_wait(timer_thread_iwait, &delay);
-	    ASSERT_NO_LOCKED_LOCKS;
-	    erts_smp_activity_end(ERTS_ACTIVITY_WAIT, NULL, NULL, NULL);
-	}
-	else
-	    erts_smp_chk_system_block(NULL, NULL, NULL);
-	timer_thread_bump_timer();
-	ASSERT_NO_LOCKED_LOCKS;
-    }
-    /*NOTREACHED*/
-    return NULL;
-}
-
-static ERTS_INLINE void timer_thread_post_insert(Uint ticks)
-{
-    if ((Sint)ticks < ticks_end)
-	erts_iwait_interrupt(timer_thread_iwait);
-}
-
-static void timer_thread_init(void)
-{
-    erts_thr_opts_t opts = ERTS_THR_OPTS_DEFAULT_INITER;
-    erts_tid_t tid;
-
-    opts->detached = 1;
-
-    timer_thread_iwait = erts_iwait_init();
-    erts_thr_create(&tid, timer_thread_start, NULL, &opts);
-}
-
-#else
-static ERTS_INLINE void timer_thread_post_insert(Uint ticks) { }
-static ERTS_INLINE void timer_thread_init(void) { }
-#endif
-
 /* this routine links the time cells into a free list at the start
    and sets the time queue as empty */
 void
-init_time(void)
+erts_init_time(void)
 {
     int i;
 
@@ -400,9 +304,12 @@ init_time(void)
 	tiw[i] = NULL;
     do_time_init();
     tiw_pos = tiw_nto = 0;
-
-    timer_thread_init();
+    tiw_min_ptr = NULL;
+    tiw_min = 0;
 }
+
+
+
 
 /*
 ** Insert a process into the time queue, with a timeout 't'
@@ -433,16 +340,31 @@ insert_timer(ErlTimer* p, Uint t)
   
     /* insert at head of list at slot */
     p->next = tiw[tm];
+    p->prev = NULL;
+    if (p->next != NULL)
+	p->next->prev = p;
     tiw[tm] = p;
-    tiw_nto++;
 
-    timer_thread_post_insert(ticks);
+
+    /* insert min time */
+    if ((tiw_nto == 0) || ((tiw_min_ptr != NULL) && (ticks < tiw_min))) {
+	tiw_min = ticks;
+	tiw_min_ptr = p;
+    }
+    if ((tiw_min_ptr == p) && (ticks > tiw_min)) {
+	/* some other timer might be 'min' now */
+	tiw_min = 0;
+	tiw_min_ptr = NULL;
+    }
+
+    tiw_nto++;
 }
 
 void
-erl_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
+erts_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
 	      void* arg, Uint t)
 {
+
     erts_deliver_time();
     erts_smp_mtx_lock(&tiw_lock);
     if (p->active) { /* XXX assert ? */
@@ -455,42 +377,34 @@ erl_set_timer(ErlTimer* p, ErlTimeoutProc timeout, ErlCancelProc cancel,
     p->active = 1;
     insert_timer(p, t);
     erts_smp_mtx_unlock(&tiw_lock);
-#if defined(ERTS_SMP) && !defined(ERTS_TIMER_THREAD)
+#if defined(ERTS_SMP)
     if (t <= (Uint) LONG_MAX)
 	erts_sys_schedule_interrupt_timed(1, (long) t);
 #endif
 }
 
 void
-erl_cancel_timer(ErlTimer* p)
+erts_cancel_timer(ErlTimer* p)
 {
-    ErlTimer *tp;
-    ErlTimer **prev;
-
     erts_smp_mtx_lock(&tiw_lock);
     if (!p->active) { /* allow repeated cancel (drivers) */
 	erts_smp_mtx_unlock(&tiw_lock);
 	return;
     }
-    /* find p in linked list at slot p->slot and remove it */
-    prev = &tiw[p->slot];
-    while ((tp = *prev) != NULL) {
-	if (tp == p) {
-	    *prev = p->next;	/* Remove from list */
-	    tiw_nto--;
-	    p->next = NULL;
-	    p->slot = p->count = 0;
-	    p->active = 0;
-	    if (p->cancel != NULL) {
-		erts_smp_mtx_unlock(&tiw_lock);
-		(*p->cancel)(p->arg);
-	    } else {
-		erts_smp_mtx_unlock(&tiw_lock);
-	    }
-	    return;
-	} else {
-	    prev = &tp->next;
-	}
+
+    /* is it the 'min' timer, remove min */
+    if (p == tiw_min_ptr) {
+	tiw_min_ptr = NULL;
+	tiw_min     = 0;
+    }
+
+    remove_timer(p);
+    p->slot = p->count = 0;
+
+    if (p->cancel != NULL) {
+	erts_smp_mtx_unlock(&tiw_lock);
+	(*p->cancel)(p->arg);
+	return;
     }
     erts_smp_mtx_unlock(&tiw_lock);
 }
@@ -502,7 +416,7 @@ erl_cancel_timer(ErlTimer* p)
   immediately if it hadn't been cancelled).
 */
 Uint
-time_left(ErlTimer *p)
+erts_time_left(ErlTimer *p)
 {
     Uint left;
     erts_aint_t dt;
@@ -530,8 +444,7 @@ time_left(ErlTimer *p)
 }
 
 #ifdef DEBUG
-
-void p_slpq()
+void erts_p_slpq()
 {
     int i;
     ErlTimer* p;
@@ -560,5 +473,4 @@ void p_slpq()
 
     erts_smp_mtx_unlock(&tiw_lock);
 }
-
 #endif /* DEBUG */

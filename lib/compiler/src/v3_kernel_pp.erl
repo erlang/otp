@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,9 +20,11 @@
 
 -module(v3_kernel_pp).
 
--include("v3_kernel.hrl").
-
 -export([format/1]).
+
+%%-define(INCLUDE_ANNOTATIONS, 1).
+
+-include("v3_kernel.hrl").
 
 %% These are "internal" structures in sys_kernel which are here for
 %% debugging purposes.
@@ -50,28 +52,33 @@ format(Node) -> format(Node, #ctxt{}).
 
 format(Node, Ctxt) ->
     case canno(Node) of
-%% 	[] ->
-%% 	    format_1(Node, Ctxt);
-%% 	[L,{file,_}] when is_integer(L) ->
-%% 	    format_1(Node, Ctxt);
-%% 	#k{a=Anno}=K when Anno =/= [] ->
-%% 	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
-%% 	List ->
-%% 	    format_anno(List, Ctxt, fun (Ctxt1) ->
-%% 					    format_1(Node, Ctxt1)
-%% 				    end);
-	_ ->
-	    format_1(Node, Ctxt)
+	[] ->
+	    format_1(Node, Ctxt);
+	[L,{file,_}] when is_integer(L) ->
+	    format_1(Node, Ctxt);
+	#k{a=Anno}=K when Anno =/= [] ->
+	    format(setelement(2, Node, K#k{a=[]}), Ctxt);
+	List ->
+	    format_anno(List, Ctxt, fun (Ctxt1) ->
+					    format_1(Node, Ctxt1)
+				    end)
     end.
 
-%% format_anno(Anno, Ctxt0, ObjFun) ->
-%%     Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
-%%     ["( ",
-%%      ObjFun(Ctxt0),
-%%      nl_indent(Ctxt1),
-%%      "-| ",io_lib:write(Anno),
-%%      " )"].
-    
+
+-ifndef(INCLUDE_ANNOTATIONS).
+%% Don't include annotations (for readability).
+format_anno(_Anno, Ctxt, ObjFun) ->
+    ObjFun(Ctxt).
+-else.
+%% Include annotations (for debugging of annotations).
+format_anno(Anno, Ctxt0, ObjFun) ->
+    Ctxt1 = ctxt_bump_indent(Ctxt0, 1),
+    ["( ",
+     ObjFun(Ctxt0),
+     nl_indent(Ctxt1),
+     "-| ",io_lib:write(Anno),
+     " )"].
+-endif.
 
 %% format_1(Kexpr, Context) -> string().
 
@@ -107,6 +114,8 @@ format_1(#k_bin_int{size=Sz,unit=U,flags=Fs,val=Val,next=Next}, Ctxt) ->
     [format_bin_seg_1(S, Ctxt),
      format_bin_seg(Next, ctxt_bump_indent(Ctxt, 2))];
 format_1(#k_bin_end{}, _Ctxt) -> "#<>#";
+format_1(#k_literal{val=Term}, _Ctxt) ->
+    io_lib:format("~p", [Term]);
 format_1(#k_local{name=N,arity=A}, Ctxt) ->
     "local " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_remote{mod=M,name=N,arity=A}, _Ctxt) ->

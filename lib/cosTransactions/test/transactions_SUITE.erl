@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 -include_lib("cosTransactions/include/CosTransactions.hrl").
 -include("etrap_test_lib.hrl").
  
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(default_timeout, ?t:minutes(20)).
 
@@ -36,20 +36,31 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, resource_api/1, etrap_api/1,
-	init_per_testcase/2, fin_per_testcase/2, app_test/1]).
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0,
+	 init_per_suite/1, end_per_suite/1, resource_api/1, etrap_api/1,
+	 init_per_testcase/2, end_per_testcase/2, app_test/1]).
  
 %%-----------------------------------------------------------------
 %% Func: all/1
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for the cosTransactions interfaces", ""];
-all(suite) -> {req,
-               [mnesia, orber],
-               {conf, init_all, cases(), finish_all}}.
- 
-cases() ->
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+cases() -> 
     [etrap_api, resource_api, app_test].
 
 
@@ -67,7 +78,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     'oe_etrap_test':'oe_unregister'(), 
     'oe_CosTransactions':'oe_unregister'(), 
     Path = code:which(?MODULE),
@@ -76,7 +87,7 @@ fin_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     mnesia:delete_schema([node()]),
     mnesia:create_schema([node()]),
     orber:install([node()]),
@@ -89,7 +100,7 @@ init_all(Config) ->
             exit("Config not a list")
     end.
  
-finish_all(Config) ->
+end_per_suite(Config) ->
     application:stop(orber),
     application:stop(mnesia),
     mnesia:delete_schema([node()]),

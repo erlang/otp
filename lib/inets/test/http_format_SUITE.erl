@@ -21,28 +21,49 @@
 -module(http_format_SUITE).
 -author('ingela@erix.ericsson.se').
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 -include("http_internal.hrl").
 
 %% Test server specific exports
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
--export([chunk/1, chunk_decode/1, chunk_encode/1,
-	 chunk_extensions_otp_6005/1, chunk_decode_otp_6264/1,
-	 chunk_decode_empty_chunk_otp_6511/1,
-	 chunk_decode_trailer/1,
-	 http_response/1, http_request/1, validate_request_line/1, script/1,
-	 esi_parse_headers/1, cgi_parse_headers/1,
-	 is_absolut_uri/1, convert_netscapecookie_date/1]).
+-export([ chunk_decode/1, chunk_encode/1,
+	  chunk_extensions_otp_6005/1, chunk_decode_otp_6264/1,
+	  chunk_decode_empty_chunk_otp_6511/1,
+	  chunk_decode_trailer/1,
+	  http_response/1, http_request/1, validate_request_line/1,
+	  esi_parse_headers/1, cgi_parse_headers/1,
+	  is_absolut_uri/1, convert_netscapecookie_date/1]).
 
-all(doc) ->
-    ["Test library functions to the http client and server."];
-all(suite) ->
-    [chunk,
-     http_response, http_request, validate_request_line,
-     script, is_absolut_uri, convert_netscapecookie_date].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, chunk}, http_response, http_request,
+     validate_request_line, {group, script}, is_absolut_uri,
+     convert_netscapecookie_date].
+
+groups() -> 
+    [{script, [], [esi_parse_headers, cgi_parse_headers]},
+     {chunk, [],
+      [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
+       chunk_decode_otp_6264,
+       chunk_decode_empty_chunk_otp_6511,
+       chunk_decode_trailer]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_, Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
@@ -57,17 +78,7 @@ end_per_testcase(_, Config) ->
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
-script(doc) ->
-    ["Test header parsing in esi/cgi functionality."];
-script(suite) ->
-    [esi_parse_headers, cgi_parse_headers].
 
-chunk(doc) ->
-    ["Test chunk encoding"];
-chunk(suite) ->
-    [chunk_decode, chunk_encode, chunk_extensions_otp_6005,
-     chunk_decode_otp_6264, chunk_decode_empty_chunk_otp_6511,
-     chunk_decode_trailer].
 
 %%-------------------------------------------------------------------------
 chunk_decode(doc) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,39 +72,42 @@
 
 %% User interface.
 %%
-%% objfile_extension()		-> ".beam"
-%% set_path(Dir*)		-> true
-%% get_path()			-> Dir*
-%% add_path(Dir)		-> true | {error, What}
-%% add_patha(Dir)		-> true | {error, What}
-%% add_pathz(Dir)		-> true | {error, What}
-%% add_paths(DirList)           -> true | {error, What}
-%% add_pathsa(DirList)          -> true | {error, What}
-%% add_pathsz(DirList)          -> true | {error, What}
-%% del_path(Dir)		-> true | {error, What}
-%% replace_path(Name,Dir)       -> true | {error, What}
-%% load_file(File)		-> {error,What} | {module, Mod}
-%% load_abs(File)		-> {error,What} | {module, Mod}
-%% load_abs(File,Mod)		-> {error,What} | {module, Mod}
-%% load_binary(Mod,File,Bin)    -> {error,What} | {module,Mod}
-%% ensure_loaded(Module)	-> {error,What} | {module, Mod}
-%% delete(Module)
-%% purge(Module)  kills all procs running old code
-%% soft_purge(Module)           -> true | false
-%% is_loaded(Module)		-> {file, File} | false
-%% all_loaded()			-> {Module, File}*
-%% get_object_code(Mod)         -> error | {Mod, Bin, Filename}
-%% stop()			-> true
-%% root_dir()                   
-%% compiler_dir()
-%% lib_dir()
-%% priv_dir(Name)
-%% stick_dir(Dir)               -> ok | error
-%% unstick_dir(Dir)             -> ok | error
-%% is_sticky(Module)            -> true | false
-%% which(Module)                -> Filename
-%% set_primary_archive((FileName, Bin, FileInfo)  -> ok | {error, Reason}
-%% clash() ->                   -> print out
+%% objfile_extension()		 -> ".beam"
+%% get_path()			 -> [Dir]
+%% set_path([Dir])		 -> true | {error, bad_directory | bad_path}
+%% add_path(Dir)		 -> true | {error, bad_directory}
+%% add_patha(Dir)		 -> true | {error, bad_directory}
+%% add_pathz(Dir)		 -> true | {error, bad_directory}
+%% add_paths([Dir])              -> ok
+%% add_pathsa([Dir])             -> ok
+%% add_pathsz([Dir])             -> ok
+%% del_path(Dir)		 -> boolean() | {error, bad_name}
+%% replace_path(Name, Dir)       -> true | replace_path_error()
+%% load_file(Module)		 -> {module, Module} | {error, What :: atom()}
+%% load_abs(File)		 -> {module, Module} | {error, What :: atom()}
+%% load_abs(File, Module)	 -> {module, Module} | {error, What :: atom()}
+%% load_binary(Module, File, Bin)-> {module, Module} | {error, What :: atom()}
+%% ensure_loaded(Module)         -> {module, Module} | {error, What :: atom()}
+%% delete(Module)                -> boolean()
+%% purge(Module)                 -> boolean()  kills all procs running old code
+%% soft_purge(Module)            -> boolean()
+%% is_loaded(Module)	         -> {file, loaded_filename()} | false
+%% all_loaded()		         -> [{Module, loaded_filename()}]
+%% get_object_code(Module)       -> {Module, Bin, Filename} | error
+%% stop()                        -> no_return()
+%% root_dir()                    -> Dir
+%% compiler_dir()                -> Dir
+%% lib_dir()                     -> Dir
+%% lib_dir(Application)          -> Dir | {error, bad_name}
+%% priv_dir(Application)         -> Dir | {error, bad_name}
+%% stick_dir(Dir)                -> ok | error
+%% unstick_dir(Dir)              -> ok | error
+%% stick_mod(Module)             -> true
+%% unstick_mod(Module)           -> true
+%% is_sticky(Module)             -> boolean()
+%% which(Module)                 -> Filename | loaded_ret_atoms() | non_existing
+%% set_primary_archive((FileName, Bin, FileInfo) -> ok | {error, Reason}
+%% clash()                       -> ok         prints out number of clashes
 
 %%----------------------------------------------------------------------------
 %% Some types for basic exported functions of this module
@@ -120,7 +123,7 @@
 %% User interface
 %%----------------------------------------------------------------------------
 
--spec objfile_extension() -> file:filename().
+-spec objfile_extension() -> nonempty_string().
 objfile_extension() ->
     init:objfile_extension().
 
@@ -138,21 +141,21 @@ load_abs(File) when is_list(File); is_atom(File) -> call({load_abs,File,[]}).
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_abs(Filename :: loaded_filename(), Module :: atom()) -> load_ret().
-load_abs(File,M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
+load_abs(File, M) when (is_list(File) orelse is_atom(File)), is_atom(M) ->
     call({load_abs,File,M}).
 
 %% XXX Filename is also an atom(), e.g. 'cover_compiled'
 -spec load_binary(Module :: atom(), Filename :: loaded_filename(), Binary :: binary()) -> load_ret().
-load_binary(Mod,File,Bin)
+load_binary(Mod, File, Bin)
   when is_atom(Mod), (is_list(File) orelse is_atom(File)), is_binary(Bin) ->
     call({load_binary,Mod,File,Bin}).
 
 -spec load_native_partial(Module :: atom(), Binary :: binary()) -> load_ret().
-load_native_partial(Mod,Bin) when is_atom(Mod), is_binary(Bin) ->
+load_native_partial(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
     call({load_native_partial,Mod,Bin}).
 
 -spec load_native_sticky(Module :: atom(), Binary :: binary(), WholeModule :: 'false' | binary()) -> load_ret().
-load_native_sticky(Mod,Bin,WholeModule)
+load_native_sticky(Mod, Bin, WholeModule)
   when is_atom(Mod), is_binary(Bin),
        (is_binary(WholeModule) orelse WholeModule =:= false) ->
     call({load_native_sticky,Mod,Bin,WholeModule}).
@@ -160,7 +163,7 @@ load_native_sticky(Mod,Bin,WholeModule)
 -spec delete(Module :: atom()) -> boolean().
 delete(Mod) when is_atom(Mod) -> call({delete,Mod}).
 
--spec purge/1 :: (Module :: atom()) -> boolean().
+-spec purge(Module :: atom()) -> boolean().
 purge(Mod) when is_atom(Mod) -> call({purge,Mod}).
 
 -spec soft_purge(Module :: atom()) -> boolean().
@@ -195,7 +198,7 @@ lib_dir(App, SubDir) when is_atom(App), is_atom(SubDir) -> call({dir,{lib_dir,Ap
 compiler_dir() -> call({dir,compiler_dir}).
 
 %% XXX is_list() is for backwards compatibility -- take out in future version
--spec priv_dir(Appl :: atom()) -> file:filename() | {'error', 'bad_name'}.
+-spec priv_dir(App :: atom()) -> file:filename() | {'error', 'bad_name'}.
 priv_dir(App) when is_atom(App) ; is_list(App) -> call({dir,{priv_dir,App}}).
 
 -spec stick_dir(Directory :: file:filename()) -> 'ok' | 'error'.
@@ -220,13 +223,14 @@ set_path(PathList) when is_list(PathList) -> call({set_path,PathList}).
 -spec get_path() -> [file:filename()].
 get_path() -> call(get_path).
 
--spec add_path(Directory :: file:filename()) -> 'true' | {'error', 'bad_directory'}.
+-type add_path_ret() :: 'true' | {'error', 'bad_directory'}.
+-spec add_path(Directory :: file:filename()) -> add_path_ret().
 add_path(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
 
--spec add_pathz(Directory :: file:filename()) -> 'true' | {'error', 'bad_directory'}.
+-spec add_pathz(Directory :: file:filename()) -> add_path_ret().
 add_pathz(Dir) when is_list(Dir) -> call({add_path,last,Dir}).
 
--spec add_patha(Directory :: file:filename()) -> 'true' | {'error', 'bad_directory'}.
+-spec add_patha(Directory :: file:filename()) -> add_path_ret().
 add_patha(Dir) when is_list(Dir) -> call({add_path,first,Dir}).
 
 -spec add_paths(Directories :: [file:filename()]) -> 'ok'.
@@ -243,8 +247,8 @@ del_path(Name) when is_list(Name) ; is_atom(Name) -> call({del_path,Name}).
 
 -type replace_path_error() :: {'error', 'bad_directory' | 'bad_name' | {'badarg',_}}.
 -spec replace_path(Name:: atom(), Dir :: file:filename()) -> 'true' | replace_path_error().
-replace_path(Name, Dir) when (is_atom(Name) or is_list(Name)) and
-			     (is_atom(Dir) or is_list(Dir)) ->
+replace_path(Name, Dir) when (is_atom(Name) orelse is_list(Name)),
+			     (is_atom(Dir) orelse is_list(Dir)) ->
     call({replace_path,Name,Dir}).
 
 -spec rehash() -> 'ok'.
@@ -275,21 +279,14 @@ start_link(Flags) ->
 
 do_start(Flags) ->
     %% The following module_info/1 calls are here to ensure
-    %% that the modules are loaded prior to their use elsewhere in 
+    %% that these modules are loaded prior to their use elsewhere in
     %% the code_server.
     %% Otherwise a deadlock may occur when the code_server is starting.
-    code_server:module_info(module),
-    packages:module_info(module),
+    code_server = code_server:module_info(module),
+    packages = packages:module_info(module),
     catch hipe_unified_loader:load_hipe_modules(),
-    gb_sets:module_info(module),
-    gb_trees:module_info(module),
-
-    ets:module_info(module),
-    os:module_info(module),
-    binary:module_info(module),
-    unicode:module_info(module),
-    filename:module_info(module),
-    lists:module_info(module),
+    Modules2 = [gb_sets, gb_trees, ets, os, binary, unicode, filename, lists],
+    lists:foreach(fun (M) -> M = M:module_info(module) end, Modules2),
 
     Mode = get_mode(Flags),
     case init:get_argument(root) of 
@@ -297,7 +294,7 @@ do_start(Flags) ->
 	    Root = filename:join([Root0]), % Normalize.  Use filename
 	    case code_server:start_link([Root,Mode]) of
 		{ok,_Pid} = Ok2 ->
-		    if 
+		    if
 			Mode =:= interactive ->
 			    case lists:member(stick, Flags) of
 				true -> do_stick_dirs();
@@ -306,14 +303,14 @@ do_start(Flags) ->
 			true ->
 			    ok
 		    end,
-		    % Quietly load the native code for all modules loaded so far.
+		    %% Quietly load native code for all modules loaded so far
 		    catch load_native_code_for_all_loaded(),
 		    Ok2;
 		Other ->
 		    Other
 	    end;
 	Other ->
-	    error_logger:error_msg("Can not start code server ~w ~n",[Other]),
+	    error_logger:error_msg("Can not start code server ~w ~n", [Other]),
 	    {error, crash}
     end.
 
@@ -330,7 +327,7 @@ do_s(Lib) ->
 	    %% The return value is intentionally ignored. Missing
 	    %% directories is not a fatal error. (In embedded systems,
 	    %% there is usually no compiler directory.)
-	    stick_dir(filename:append(Dir, "ebin")),
+	    _ = stick_dir(filename:append(Dir, "ebin")),
 	    ok
     end.
 
@@ -428,7 +425,7 @@ where_is_file(Path, File) when is_list(Path), is_list(File) ->
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
-			  FileInfo :: #file_info{})
+			  FileInfo :: file:file_info())
 			 -> 'ok' | {'error', atom()}.
 
 set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
@@ -485,13 +482,13 @@ filter(Ext, _, {ok,Files}) ->
     filter2(Ext, length(Ext), Files).
 
 filter2(_Ext, _Extlen, []) -> [];
-filter2(Ext, Extlen,[File|Tail]) ->
-    case has_ext(Ext,Extlen, File) of 
+filter2(Ext, Extlen, [File|Tail]) ->
+    case has_ext(Ext, Extlen, File) of
 	true -> [File | filter2(Ext, Extlen, Tail)];
 	false -> filter2(Ext, Extlen, Tail)
     end.
 
-has_ext(Ext, Extlen,File) ->
+has_ext(Ext, Extlen, File) ->
     L = length(File),
     case catch lists:nthtail(L - Extlen, File) of
 	Ext -> true;

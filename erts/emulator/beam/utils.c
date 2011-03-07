@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -59,13 +59,6 @@
 
 /* profile_scheduler mini message queue */
 
-#ifdef ERTS_TIMER_THREAD
-/* A timer thread is not welcomed with this lock violation work around.
- * - Björn-Egil
- */
-#error Timer thread may not be enabled due to lock violation.
-#endif
-
 typedef struct {
     Uint scheduler_id;
     Uint no_schedulers;
@@ -98,7 +91,7 @@ dispatch_profile_msg_q(profile_sched_msg_q *psmq)
 
 
 Eterm*
-erts_heap_alloc(Process* p, Uint need)
+erts_heap_alloc(Process* p, Uint need, Uint xtra)
 {
     ErlHeapFragment* bp;
     Eterm* htop;
@@ -124,7 +117,7 @@ erts_heap_alloc(Process* p, Uint need)
     p->space_verified_from = NULL;
 #endif /* FORCE_HEAP_FRAGS */
 
-    n = need;
+    n = need + xtra;
     bp = MBUF(p);
     if (bp != NULL && need <= (bp->alloc_size - bp->used_size)) {
 	Eterm* ret = bp->mem + bp->used_size;
@@ -160,7 +153,7 @@ erts_heap_alloc(Process* p, Uint need)
     bp->next = MBUF(p);
     MBUF(p) = bp;
     bp->alloc_size = n;
-    bp->used_size = n;
+    bp->used_size = need;
     MBUF_SIZE(p) += n;
     bp->off_heap.first = NULL;
     bp->off_heap.overhead = 0;
@@ -1901,34 +1894,36 @@ erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *dsbufp)
     erts_free(ERTS_ALC_T_TMP_DSBUF, (void *) dsbufp);
 }
 
-
 /* eq and cmp are written as separate functions a eq is a little faster */
 
 /*
  * Test for equality of two terms.
  * Returns 0 if not equal, or a non-zero value otherwise.
  */
-
+#if HALFWORD_HEAP
+int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
+#else
 int eq(Eterm a, Eterm b)
+#endif
 {
     DECLARE_WSTACK(stack);
     Sint sz;
     Eterm* aa;
-    Eterm* bb;	
+    Eterm* bb;
 
 tailrecur:
-    if (a == b) goto pop_next; 
+    if (is_same(a, a_base, b, b_base)) goto pop_next;
 tailrecur_ne:
 
     switch (primary_tag(a)) {
     case TAG_PRIMARY_LIST:
 	if (is_list(b)) {
-	    Eterm* aval = list_val(a);
-	    Eterm* bval = list_val(b);
+	    Eterm* aval = list_val_rel(a, a_base);
+	    Eterm* bval = list_val_rel(b, b_base);
 	    while (1) {
 		Eterm atmp = CAR(aval);
 		Eterm btmp = CAR(bval);
-		if (atmp != btmp) {
+		if (!is_same(atmp,a_base,btmp,b_base)) {
 		    WSTACK_PUSH2(stack,(UWord) CDR(bval),(UWord) CDR(aval));
 		    a = atmp;
 		    b = btmp;
@@ -1936,7 +1931,7 @@ tailrecur_ne:
 		}
 		atmp = CDR(aval);
 		btmp = CDR(bval);
-		if (atmp == btmp) {
+		if (is_same(atmp,a_base,btmp,b_base)) {
 		    goto pop_next;
 		}
 		if (is_not_list(atmp) || is_not_list(btmp)) {
@@ -1944,22 +1939,22 @@ tailrecur_ne:
 		    b = btmp;
 		    goto tailrecur_ne;
 		}
-		aval = list_val(atmp);
-		bval = list_val(btmp);
+		aval = list_val_rel(atmp, a_base);
+		bval = list_val_rel(btmp, b_base);
 	    }
 	}
 	break; /* not equal */
 
     case TAG_PRIMARY_BOXED:
 	{	
-	    Eterm hdr = *boxed_val(a);
+	    Eterm hdr = *boxed_val_rel(a,a_base);
 	    switch (hdr & _TAG_HEADER_MASK) {
 	    case ARITYVAL_SUBTAG:
 		{
-		    aa = tuple_val(a);
-		    if (!is_boxed(b) || *boxed_val(b) != *aa)
+		    aa = tuple_val_rel(a, a_base);
+		    if (!is_boxed(b) || *boxed_val_rel(b,b_base) != *aa)
 			goto not_equal;
-		    bb = tuple_val(b);
+		    bb = tuple_val_rel(b,b_base);
 		    if ((sz = arityval(*aa)) == 0) goto pop_next;
 		    ++aa;
 		    ++bb;
@@ -1978,16 +1973,16 @@ tailrecur_ne:
 		    Uint a_bitoffs;
 		    Uint b_bitoffs;
 		    
-		    if (is_not_binary(b)) {
+		    if (!is_binary_rel(b,b_base)) {
 			goto not_equal;
 		    }
-		    a_size = binary_size(a);
-		    b_size = binary_size(b); 
+		    a_size = binary_size_rel(a,a_base);
+		    b_size = binary_size_rel(b,b_base);
 		    if (a_size != b_size) {
 			goto not_equal;
 		    }
-		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
-		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
+		    ERTS_GET_BINARY_BYTES_REL(a, a_ptr, a_bitoffs, a_bitsize, a_base);
+		    ERTS_GET_BINARY_BYTES_REL(b, b_ptr, b_bitoffs, b_bitsize, b_base);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
 			if (sys_memcmp(a_ptr, b_ptr, a_size) == 0) goto pop_next;
 		    } else if (a_bitsize == b_bitsize) {
@@ -1998,9 +1993,9 @@ tailrecur_ne:
 		}
 	    case EXPORT_SUBTAG:
 		{
-		    if (is_export(b)) {
-			Export* a_exp = *((Export **) (export_val(a) + 1));
-			Export* b_exp = *((Export **) (export_val(b) + 1));
+		    if (is_export_rel(b,b_base)) {
+			Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
+			Export* b_exp = *((Export **) (export_val_rel(b,b_base) + 1));
 			if (a_exp == b_exp) goto pop_next;
 		    }
 		    break; /* not equal */
@@ -2010,10 +2005,10 @@ tailrecur_ne:
 		    ErlFunThing* f1;
 		    ErlFunThing* f2;
   
-		    if (is_not_fun(b))
+		    if (!is_fun_rel(b,b_base))
 			goto not_equal;
-		    f1 = (ErlFunThing *) fun_val(a);
-		    f2 = (ErlFunThing *) fun_val(b);
+		    f1 = (ErlFunThing *) fun_val_rel(a,a_base);
+		    f2 = (ErlFunThing *) fun_val_rel(b,b_base);
 		    if (f1->fe->module != f2->fe->module ||
 			f1->fe->old_index != f2->fe->old_index ||
 			f1->fe->old_uniq != f2->fe->old_uniq ||
@@ -2031,15 +2026,15 @@ tailrecur_ne:
 		ExternalThing *ap;
 		ExternalThing *bp;
 
-		if(is_not_external(b))
+		if(!is_external_rel(b,b_base))
 		    goto not_equal;
 
-		ap = external_thing_ptr(a);
-		bp = external_thing_ptr(b);
+		ap = external_thing_ptr_rel(a,a_base);
+		bp = external_thing_ptr_rel(b,b_base);
 
 		if(ap->header == bp->header && ap->node == bp->node) {
-		    ASSERT(1 == external_data_words(a));
-		    ASSERT(1 == external_data_words(b));
+		    ASSERT(1 == external_data_words_rel(a,a_base));
+		    ASSERT(1 == external_data_words_rel(b,b_base));
 		    
 		    if (ap->data.ui[0] == bp->data.ui[0]) goto pop_next;
 		}
@@ -2057,27 +2052,36 @@ tailrecur_ne:
 		Uint alen;
 		Uint blen;
 		Uint i;
+		ExternalThing* athing;
+		ExternalThing* bthing;
 
-		if(is_not_external_ref(b))
+		if(!is_external_ref_rel(b,b_base))
 		    goto not_equal;
 
-		if(external_node(a) != external_node(b))
+		athing = external_thing_ptr_rel(a,a_base);
+		bthing = external_thing_ptr_rel(b,b_base);
+
+		if(athing->node != bthing->node)
 		    goto not_equal;
 
-		anum = external_ref_numbers(a);
-		bnum = external_ref_numbers(b);
-		alen = external_ref_no_of_numbers(a);
-		blen = external_ref_no_of_numbers(b);
+		anum = external_thing_ref_numbers(athing);
+		bnum = external_thing_ref_numbers(bthing);
+		alen = external_thing_ref_no_of_numbers(athing);
+		blen = external_thing_ref_no_of_numbers(bthing);
 
 		goto ref_common;
 	    case REF_SUBTAG:
-  
-		    if (is_not_internal_ref(b))
+		    if (!is_internal_ref_rel(b,b_base))
 			goto not_equal;
-		    alen = internal_ref_no_of_numbers(a);
-		    blen = internal_ref_no_of_numbers(b);
-		    anum = internal_ref_numbers(a);
-		    bnum = internal_ref_numbers(b);
+
+		    {
+			RefThing* athing = ref_thing_ptr_rel(a,a_base);
+			RefThing* bthing = ref_thing_ptr_rel(b,b_base);
+			alen = internal_thing_ref_no_of_numbers(athing);
+			blen = internal_thing_ref_no_of_numbers(bthing);
+			anum = internal_thing_ref_numbers(athing);
+			bnum = internal_thing_ref_numbers(bthing);
+		    }
 
 	    ref_common:
 		    ASSERT(alen > 0 && blen > 0);
@@ -2122,10 +2126,10 @@ tailrecur_ne:
 		{
 		    int i;
   
-		    if (is_not_big(b))
+		    if (!is_big_rel(b,b_base))
 			goto not_equal;
-		    aa = big_val(a); /* get pointer to thing */
-		    bb = big_val(b);
+		    aa = big_val_rel(a,a_base);
+		    bb = big_val_rel(b,b_base);
 		    if (*aa != *bb)
 			goto not_equal;
 		    i = BIG_ARITY(aa);
@@ -2140,9 +2144,9 @@ tailrecur_ne:
 		    FloatDef af;
 		    FloatDef bf;
   
-		    if (is_float(b)) {
-			GET_DOUBLE(a, af);
-			GET_DOUBLE(b, bf);
+		    if (is_float_rel(b,b_base)) {
+			GET_DOUBLE_REL(a, af, a_base);
+			GET_DOUBLE_REL(b, bf, b_base);
 			if (af.fd == bf.fd) goto pop_next;
 		    }
 		    break; /* not equal */
@@ -2161,7 +2165,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'sz' */
 	Eterm* bp = bb;
 	Sint i = sz;
 	for (;;) {
-	    if (*ap != *bp) break;
+	    if (!is_same(*ap,a_base,*bp,b_base)) break;
 	    if (--i == 0) goto pop_next;
 	    ++ap;
 	    ++bp;
@@ -2250,7 +2254,11 @@ static int cmp_atoms(Eterm a, Eterm b)
 		    bb->name+3, bb->len-3);
 }
 
+#if HALFWORD_HEAP
+Sint cmp_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base)
+#else
 Sint cmp(Eterm a, Eterm b)
+#endif
 {
     DECLARE_WSTACK(stack);
     Eterm* aa;
@@ -2284,7 +2292,7 @@ Sint cmp(Eterm a, Eterm b)
 
 
 tailrecur:
-    if (a == b) {		/* Equal values or pointers. */
+    if (is_same(a,a_base,b,b_base)) {	/* Equal values or pointers. */
 	goto pop_next;
     }
 tailrecur_ne:
@@ -2310,9 +2318,9 @@ tailrecur_ne:
 	    if (is_internal_port(b)) {
 		bnode = erts_this_node;
 		bdata = internal_port_data(b);
-	    } else if (is_external_port(b)) {
-		bnode = external_port_node(b);
-		bdata = external_port_data(b);
+	    } else if (is_external_port_rel(b,b_base)) {
+		bnode = external_port_node_rel(b,b_base);
+		bdata = external_port_data_rel(b,b_base);
 	    } else {
 		a_tag = PORT_DEF;
 		goto mixed_types;
@@ -2328,9 +2336,9 @@ tailrecur_ne:
 	    if (is_internal_pid(b)) {
 		bnode = erts_this_node;
 		bdata = internal_pid_data(b);
-	    } else if (is_external_pid(b)) {
-		bnode = external_pid_node(b);
-		bdata = external_pid_data(b);
+	    } else if (is_external_pid_rel(b,b_base)) {
+		bnode = external_pid_node_rel(b,b_base);
+		bdata = external_pid_data_rel(b,b_base);
 	    } else {
 		a_tag = PID_DEF;
 		goto mixed_types;
@@ -2363,12 +2371,12 @@ tailrecur_ne:
 	    a_tag = LIST_DEF;
 	    goto mixed_types;
 	}
-	aa = list_val(a);
-	bb = list_val(b);
+	aa = list_val_rel(a,a_base);
+	bb = list_val_rel(b,b_base);
 	while (1) {
 	    Eterm atmp = CAR(aa);
 	    Eterm btmp = CAR(bb);
-	    if (atmp != btmp) {
+	    if (!is_same(atmp,a_base,btmp,b_base)) {
 		WSTACK_PUSH2(stack,(UWord) CDR(bb),(UWord) CDR(aa));
 		a = atmp;
 		b = btmp;
@@ -2376,7 +2384,7 @@ tailrecur_ne:
 	    }
 	    atmp = CDR(aa);
 	    btmp = CDR(bb);
-	    if (atmp == btmp) {
+	    if (is_same(atmp,a_base,btmp,b_base)) {
 		goto pop_next;
 	    }
 	    if (is_not_list(atmp) || is_not_list(btmp)) {
@@ -2384,20 +2392,20 @@ tailrecur_ne:
 		b = btmp;
 		goto tailrecur_ne;
 	    }
-	    aa = list_val(atmp);
-	    bb = list_val(btmp);
+	    aa = list_val_rel(atmp,a_base);
+	    bb = list_val_rel(btmp,b_base);
 	}
     case TAG_PRIMARY_BOXED:
 	{
-	    Eterm ahdr = *boxed_val(a);
+	    Eterm ahdr = *boxed_val_rel(a,a_base);
 	    switch ((ahdr & _TAG_HEADER_MASK) >> _TAG_PRIMARY_SIZE) {
 	    case (_TAG_HEADER_ARITYVAL >> _TAG_PRIMARY_SIZE):
-		if (is_not_tuple(b)) {
+		if (!is_tuple_rel(b,b_base)) {
 		    a_tag = TUPLE_DEF;
 		    goto mixed_types;
 		}
-		aa = tuple_val(a);
-		bb = tuple_val(b);
+		aa = tuple_val_rel(a,a_base);
+		bb = tuple_val_rel(b,b_base);
 		/* compare the arities */
 		i = arityval(ahdr);	/* get the arity*/
 		if (i != arityval(*bb)) {
@@ -2411,31 +2419,31 @@ tailrecur_ne:
 		goto term_array;
 
 	    case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
-		if (is_not_float(b)) {
+		if (!is_float_rel(b,b_base)) {
 		    a_tag = FLOAT_DEF;
 		    goto mixed_types;
 		} else {
 		    FloatDef af;
 		    FloatDef bf; 
 
-		    GET_DOUBLE(a, af);
-		    GET_DOUBLE(b, bf);
+		    GET_DOUBLE_REL(a, af, a_base);
+		    GET_DOUBLE_REL(b, bf, b_base);
 		    ON_CMP_GOTO(float_comp(af.fd, bf.fd));
 		}
 	    case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	    case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
-		if (is_not_big(b)) {
+		if (!is_big_rel(b,b_base)) {
 		    a_tag = BIG_DEF;
 		    goto mixed_types;
 		}
-		ON_CMP_GOTO(big_comp(a, b));
+		ON_CMP_GOTO(big_comp(rterm2wterm(a,a_base), rterm2wterm(b,b_base)));
 	    case (_TAG_HEADER_EXPORT >> _TAG_PRIMARY_SIZE):
-		if (is_not_export(b)) {
+		if (!is_export_rel(b,b_base)) {
 		    a_tag = EXPORT_DEF;
 		    goto mixed_types;
 		} else {
-		    Export* a_exp = *((Export **) (export_val(a) + 1));
-		    Export* b_exp = *((Export **) (export_val(b) + 1));
+		    Export* a_exp = *((Export **) (export_val_rel(a,a_base) + 1));
+		    Export* b_exp = *((Export **) (export_val_rel(b,b_base) + 1));
 
 		    if ((j = cmp_atoms(a_exp->code[0], b_exp->code[0])) != 0) {
 			RETURN_NEQ(j);
@@ -2447,12 +2455,12 @@ tailrecur_ne:
 		}
 		break;
 	    case (_TAG_HEADER_FUN >> _TAG_PRIMARY_SIZE):
-		if (is_not_fun(b)) {
+		if (!is_fun_rel(b,b_base)) {
 		    a_tag = FUN_DEF;
 		    goto mixed_types;
 		} else {
-		    ErlFunThing* f1 = (ErlFunThing *) fun_val(a);
-		    ErlFunThing* f2 = (ErlFunThing *) fun_val(b);
+		    ErlFunThing* f1 = (ErlFunThing *) fun_val_rel(a,a_base);
+		    ErlFunThing* f2 = (ErlFunThing *) fun_val_rel(b,b_base);
 		    Sint diff;
 
 		    diff = cmpbytes(atom_tab(atom_val(f1->fe->module))->name,
@@ -2484,51 +2492,57 @@ tailrecur_ne:
 		if (is_internal_pid(b)) {
 		    bnode = erts_this_node;
 		    bdata = internal_pid_data(b);
-		} else if (is_external_pid(b)) {
-		    bnode = external_pid_node(b);
-		    bdata = external_pid_data(b);
+		} else if (is_external_pid_rel(b,b_base)) {
+		    bnode = external_pid_node_rel(b,b_base);
+		    bdata = external_pid_data_rel(b,b_base);
 		} else {
 		    a_tag = EXTERNAL_PID_DEF;
 		    goto mixed_types;
 		}
-		anode = external_pid_node(a);
-		adata = external_pid_data(a);
+		anode = external_pid_node_rel(a,a_base);
+		adata = external_pid_data_rel(a,a_base);
 		goto pid_common;
 	    case (_TAG_HEADER_EXTERNAL_PORT >> _TAG_PRIMARY_SIZE):
 		if (is_internal_port(b)) {
 		    bnode = erts_this_node;
 		    bdata = internal_port_data(b);
-		} else if (is_external_port(b)) {
-		    bnode = external_port_node(b);
-		    bdata = external_port_data(b);
+		} else if (is_external_port_rel(b,b_base)) {
+		    bnode = external_port_node_rel(b,b_base);
+		    bdata = external_port_data_rel(b,b_base);
 		} else {
 		    a_tag = EXTERNAL_PORT_DEF;
 		    goto mixed_types;
 		}
-		anode = external_port_node(a);
-		adata = external_port_data(a);
+		anode = external_port_node_rel(a,a_base);
+		adata = external_port_data_rel(a,a_base);
 		goto port_common;
 	    case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
 		/*
 		 * Note! When comparing refs we need to compare ref numbers
 		 * (32-bit words), *not* ref data words.
 		 */
+
 		
-		if (is_internal_ref(b)) {
+		if (is_internal_ref_rel(b,b_base)) {
+		    RefThing* bthing = ref_thing_ptr_rel(b,b_base);
 		    bnode = erts_this_node;
-		    bnum = internal_ref_numbers(b);
-		    blen = internal_ref_no_of_numbers(b);
-		} else if(is_external_ref(b)) {
-		    bnode = external_ref_node(b);
-		    bnum = external_ref_numbers(b);
-		    blen = external_ref_no_of_numbers(b);
+		    bnum = internal_thing_ref_numbers(bthing);
+		    blen = internal_thing_ref_no_of_numbers(bthing);
+		} else if(is_external_ref_rel(b,b_base)) {
+		    ExternalThing* bthing = external_thing_ptr_rel(b,b_base);
+		    bnode = bthing->node;
+		    bnum = external_thing_ref_numbers(bthing);
+		    blen = external_thing_ref_no_of_numbers(bthing);
 		} else {
 		    a_tag = REF_DEF;
 		    goto mixed_types;
 		}
-		anode = erts_this_node;
-		anum = internal_ref_numbers(a);
-		alen = internal_ref_no_of_numbers(a);
+		{
+		    RefThing* athing = ref_thing_ptr_rel(a,a_base);
+		    anode = erts_this_node;
+		    anum = internal_thing_ref_numbers(athing);
+		    alen = internal_thing_ref_no_of_numbers(athing);
+		}
 		
 	    ref_common:
 		CMP_NODES(anode, bnode);
@@ -2557,31 +2571,36 @@ tailrecur_ne:
 			RETURN_NEQ((Sint32) (anum[i] - bnum[i]));
 		goto pop_next;
 	    case (_TAG_HEADER_EXTERNAL_REF >> _TAG_PRIMARY_SIZE):
-		if (is_internal_ref(b)) {
+		if (is_internal_ref_rel(b,b_base)) {
+		    RefThing* bthing = ref_thing_ptr_rel(b,b_base);
 		    bnode = erts_this_node;
-		    bnum = internal_ref_numbers(b);
-		    blen = internal_ref_no_of_numbers(b);
-		} else if (is_external_ref(b)) {
-		    bnode = external_ref_node(b);
-		    bnum = external_ref_numbers(b);
-		    blen = external_ref_no_of_numbers(b);
+		    bnum = internal_thing_ref_numbers(bthing);
+		    blen = internal_thing_ref_no_of_numbers(bthing);
+		} else if (is_external_ref_rel(b,b_base)) {
+		    ExternalThing* bthing = external_thing_ptr_rel(b,b_base);
+		    bnode = bthing->node;
+		    bnum = external_thing_ref_numbers(bthing);
+		    blen = external_thing_ref_no_of_numbers(bthing);
 		} else {
 		    a_tag = EXTERNAL_REF_DEF;
 		    goto mixed_types;
 		}
-		anode = external_ref_node(a);
-		anum = external_ref_numbers(a);
-		alen = external_ref_no_of_numbers(a);
+		{
+		    ExternalThing* athing = external_thing_ptr_rel(a,a_base);
+		    anode = athing->node;
+		    anum = external_thing_ref_numbers(athing);
+		    alen = external_thing_ref_no_of_numbers(athing);
+		}
 		goto ref_common;
 	    default:
 		/* Must be a binary */
-		ASSERT(is_binary(a));
-		if (is_not_binary(b)) {
+		ASSERT(is_binary_rel(a,a_base));
+		if (!is_binary_rel(b,b_base)) {
 		    a_tag = BINARY_DEF;
 		    goto mixed_types;
 		} else {
-		    Uint a_size = binary_size(a);
-		    Uint b_size = binary_size(b);
+		    Uint a_size = binary_size_rel(a,a_base);
+		    Uint b_size = binary_size_rel(b,b_base);
 		    Uint a_bitsize;
 		    Uint b_bitsize;
 		    Uint a_bitoffs;
@@ -2590,8 +2609,8 @@ tailrecur_ne:
 		    int cmp;
 		    byte* a_ptr;
 		    byte* b_ptr;
-		    ERTS_GET_BINARY_BYTES(a, a_ptr, a_bitoffs, a_bitsize);
-		    ERTS_GET_BINARY_BYTES(b, b_ptr, b_bitoffs, b_bitsize);
+		    ERTS_GET_BINARY_BYTES_REL(a, a_ptr, a_bitoffs, a_bitsize, a_base);
+		    ERTS_GET_BINARY_BYTES_REL(b, b_ptr, b_bitoffs, b_bitsize, b_base);
 		    if ((a_bitsize | b_bitsize | a_bitoffs | b_bitoffs) == 0) {
 			min_size = (a_size < b_size) ? a_size : b_size;
 			if ((cmp = sys_memcmp(a_ptr, b_ptr, min_size)) != 0) {
@@ -2618,7 +2637,6 @@ tailrecur_ne:
      */
 
  mixed_types:
-    b_tag = tag_val_def(b);
 
     {
 	FloatDef f1, f2;
@@ -2628,39 +2646,47 @@ tailrecur_ne:
 #else
 	Eterm *big_buf = erts_get_scheduler_data()->cmp_tmp_heap;
 #endif
+#if HALFWORD_HEAP
+	Wterm aw = is_immed(a) ? a : rterm2wterm(a,a_base);
+	Wterm bw = is_immed(b) ? b : rterm2wterm(b,b_base);
+#else
+	Eterm aw = a;
+	Eterm bw = b;
+#endif
+	b_tag = tag_val_def(bw);
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
 	case SMALL_BIG:
 	    big = small_to_big(signed_val(a), big_buf);
-	    j = big_comp(big, b);
+	    j = big_comp(big, bw);
 	    break;
 	case SMALL_FLOAT:
 	    f1.fd = signed_val(a);
-	    GET_DOUBLE(b, f2);
+	    GET_DOUBLE(bw, f2);
 	    j = float_comp(f1.fd, f2.fd);
 	    break;
 	case BIG_SMALL:
 	    big = small_to_big(signed_val(b), big_buf);
-	    j = big_comp(a, big);
+	    j = big_comp(aw, big);
 	    break;
 	case BIG_FLOAT:
-	    if (big_to_double(a, &f1.fd) < 0) {
+	    if (big_to_double(aw, &f1.fd) < 0) {
 		j = big_sign(a) ? -1 : 1;
 	    } else {
-		GET_DOUBLE(b, f2);
+		GET_DOUBLE(bw, f2);
 		j = float_comp(f1.fd, f2.fd);
 	    }
 	    break;
 	case FLOAT_SMALL:
-	    GET_DOUBLE(a, f1);
+	    GET_DOUBLE(aw, f1);
 	    f2.fd = signed_val(b);
 	    j = float_comp(f1.fd, f2.fd);
 	    break;
 	case FLOAT_BIG:
-	    if (big_to_double(b, &f2.fd) < 0) {
+	    if (big_to_double(bw, &f2.fd) < 0) {
 		j = big_sign(b) ? 1 : -1;
 	    } else {
-		GET_DOUBLE(a, f1);
+		GET_DOUBLE(aw, f1);
 		j = float_comp(f1.fd, f2.fd);
 	    }
 	    break;
@@ -3183,7 +3209,7 @@ erts_create_smp_ptimer(ErtsSmpPTimer **timer_ref,
 
     *timer_ref = res;
 
-    erl_set_timer(&res->timer.tm,
+    erts_set_timer(&res->timer.tm,
 		  (ErlTimeoutProc) ptimer_timeout,
 		  (ErlCancelProc) ptimer_cancelled,
 		  (void*) res,
@@ -3197,7 +3223,7 @@ erts_cancel_smp_ptimer(ErtsSmpPTimer *ptimer)
 	ASSERT(*ptimer->timer.timer_ref == ptimer);
 	*ptimer->timer.timer_ref = NULL;
 	ptimer->timer.flags |= ERTS_PTMR_FLG_CANCELLED;
-	erl_cancel_timer(&ptimer->timer.tm);
+	erts_cancel_timer(&ptimer->timer.tm);
     }
 }
 

@@ -1,6 +1,26 @@
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(binary_module_SUITE).
 
--export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
 
@@ -16,8 +36,8 @@
 
 -else.
 
--include("test_server.hrl").
--export([init_per_testcase/2, fin_per_testcase/2]).
+-include_lib("test_server/include/test_server.hrl").
+-export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 % Some of these testcases are really heavy...
 -define(default_timeout, ?t:minutes(20)).
@@ -38,15 +58,35 @@ init_per_testcase(_Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ?line Dog = ?config(watchdog, Config),
     ?line test_server:timetrap_cancel(Dog),
     ok.
 -endif.
 
-all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
-	       random_ref_comp,parts,bin_to_list, list_to_bin, copy,
-	       referenced,guard,encode_decode,badargs,longest_common_trap].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [interesting, random_ref_fla_comp, random_ref_sr_comp,
+     random_ref_comp, parts, bin_to_list, list_to_bin, copy,
+     referenced, guard, encode_decode, badargs,
+     longest_common_trap].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,20 +69,24 @@ init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
-    megaco_test_lib:fin_per_testcase(Case, Config).
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(suite) ->
-    Cases = 
-	[
-	 req_and_rep,
-	 req_and_pending,
-	 req_and_cancel
-	],
-    Cases.
+all() -> 
+    [req_and_rep, req_and_pending, req_and_cancel].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,11 +19,33 @@
 
 {"%VSN%",	
  [
-  {"2.0.2", [{load_module, ssh_file, soft_purge, soft_purge, []}]},
+  {"2.0.3", [{load_module, ssh_file, soft_purge, soft_purge, []},
+             {load_module, ssh, soft_purge, soft_purge, []},
+             {load_module, ssh_rsa, soft_purge, soft_purge, []},
+             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
+             {load_module, ssh_transport, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
+  {"2.0.2", [{load_module, ssh_file, soft_purge, soft_purge, []},
+             {load_module, ssh, soft_purge, soft_purge, []},
+             {load_module, ssh_rsa, soft_purge, soft_purge, []},
+             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
+             {load_module, ssh_transport, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
   {"2.0.1", [{restart_application, ssh}]}
  ],
  [
-  {"2.0.2", [{load_module, ssh_file, soft_purge, soft_purge, []}]},
+  {"2.0.3", [{load_module, ssh_file, soft_purge, soft_purge, []},
+             {load_module, ssh, soft_purge, soft_purge, []},
+             {load_module, ssh_rsa, soft_purge, soft_purge, []},
+             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
+             {load_module, ssh_transport, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
+  {"2.0.2", [{load_module, ssh_file, soft_purge, soft_purge, []},
+             {load_module, ssh, soft_purge, soft_purge, []},
+             {load_module, ssh_rsa, soft_purge, soft_purge, []},
+             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
+             {load_module, ssh_transport, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
   {"2.0.1", [{restart_application, ssh}]}
  ]
 }.

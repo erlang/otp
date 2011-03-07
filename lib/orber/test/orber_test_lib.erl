@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -95,16 +95,21 @@
 %%            
 %%------------------------------------------------------------
 ssl_version() ->
-    case catch erlang:system_info(otp_release) of
-	Version when is_list(Version) ->
-	    if
-		"R12B" < Version ->
-		    3;
-		true ->
-		    2
-	    end;
-	_ ->
-	    2	    
+    try 
+	ssl:module_info(),
+	case catch erlang:system_info(otp_release) of
+	    Version when is_list(Version) ->
+		if
+		    "R12B" < Version ->
+			3;
+		    true ->
+			2
+		end;
+	    _ ->
+		2
+	end
+    catch error:undef ->
+	    no_ssl
     end.
 
 %%------------------------------------------------------------
@@ -126,13 +131,22 @@ version_ok() ->
 		_ ->
 		    case gen_tcp:listen(0, [{reuseaddr, true}, inet6]) of
 			{ok, LSock} ->
-			    gen_tcp:close(LSock),
-			    true;
+			    {ok, Port} = inet:port(LSock),
+			    case gen_tcp:connect(Hostname, Port, [inet6]) of
+				{error, _} ->
+				    gen_tcp:close(LSock),
+				    {skipped, "Inet cannot handle IPv6"};
+				{ok, Socket} ->
+				    gen_tcp:close(Socket),
+				    gen_tcp:close(LSock),
+				    true
+			    end;
 			{error, _} ->
 			    {skipped, "Inet cannot handle IPv6"}
 		    end
 	    end
     end.
+
 %%------------------------------------------------------------
 %% function : get_host
 %% Arguments: Family - inet | inet6
@@ -287,9 +301,11 @@ start_ssl(true, Node) ->
 start_ssl(_, _) ->
     ok.
 
-start_orber({lightweigth, Options}, Node) ->
+start_orber({lightweight, Options}, Node) ->
+    ok = rpc:call(Node, mnesia, start, []),
     ok = rpc:call(Node, orber, start_lightweight, [Options]);
 start_orber(lightweight, Node) ->
+    ok = rpc:call(Node, mnesia, start, []),
     ok = rpc:call(Node, orber, start_lightweight, []);
 start_orber(_, Node) ->
     ok = rpc:call(Node, orber, jump_start, []).
@@ -1280,6 +1296,22 @@ test_coding(Obj, Local) ->
     ?match({'EXCEPTION',{'MARSHAL',_,_,_}}, 
           orber_test_server:
 		 testing_iiop_server_marshal(Obj, "string")),
+    
+    RecS = #orber_test_server_rec_struct{chain = [#orber_test_server_rec_struct{chain = []}]},
+    ?match(RecS, orber_test_server:testing_iiop_rec_struct(Obj, RecS)),
+    
+    RecU = #orber_test_server_rec_union{label = 'RecursiveType', 
+					value = [#orber_test_server_rec_union{label = 'RecursiveType',
+									      value = []}]},
+    ?match(RecU, orber_test_server:testing_iiop_rec_union(Obj, RecU)),
+
+%%     RecA1 = #any{typecode = unsupported, value = RecS},
+%%     RecA2 = #any{typecode = unsupported, value = RecU},
+%%     ?match(RecA1, 
+%% 	   orber_test_server:testing_iiop_rec_any(Obj, RecA1)),    
+%%     ?match(RecA2, 
+%% 	   orber_test_server:testing_iiop_rec_any(Obj, RecA2)),    
+
     ok.
 
 %%--------------- Testing Post- & Pre-cond -------------------

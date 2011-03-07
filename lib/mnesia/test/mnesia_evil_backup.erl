@@ -35,31 +35,30 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-all(doc) ->
-    ["Checking all the functionality regarding ",
-     "to the backup and different ",
-     "kinds of restore and fallback interface"];
-
-all(suite) ->
-    [
-     backup, 
-     bad_backup,
-     global_backup_checkpoint, 
-     restore_tables, 
-     traverse_backup,
+all() -> 
+    [backup, bad_backup, global_backup_checkpoint,
+     {group, restore_tables}, traverse_backup,
      selective_backup_checkpoint,
-     incremental_backup_checkpoint,
-%%     local_backup_checkpoint,
-     install_fallback, 
-     uninstall_fallback,
-     local_fallback,
-     sops_with_checkpoint
-    ].
+     incremental_backup_checkpoint, install_fallback,
+     uninstall_fallback, local_fallback,
+     sops_with_checkpoint].
+
+groups() -> 
+    [{restore_tables, [],
+      [restore_errors, restore_clear, restore_keep,
+       restore_recreate, restore_clear_ram]}].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 backup(doc) -> ["Checking the interface to the function backup",
                 "We don't check that the backups can be used here",
@@ -132,17 +131,6 @@ global_backup_checkpoint(Config) when is_list(Config) ->
     ?match(ok, file:delete(File2)),
     ?verify_mnesia(Nodes, []).
 
-restore_tables(doc) -> 
-    ["Tests the interface of restore"];
-
-restore_tables(suite) -> 
-    [
-     restore_errors,
-     restore_clear,
-     restore_keep,
-     restore_recreate,
-     restore_clear_ram
-    ].
 
 restore_errors(suite) -> [];
 restore_errors(Config) when is_list(Config) ->

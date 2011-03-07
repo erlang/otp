@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -endif.
  
 -ifdef(debug).
@@ -65,7 +65,9 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/1, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, return/1, on_and_off/1, stack_grow/1, 
 	 info/1, tracer/1, combo/1, nosilent/1]).
 	 
@@ -73,19 +75,36 @@ init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(5)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     shutdown(),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
-all(doc) ->
-    ["Test meta tracing of local function calls and return trace."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
-	true -> [not_run];
-	false -> [basic, return, on_and_off, stack_grow, 
-		  info, tracer, combo, nosilent]
-    end.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+case test_server:is_native(trace_meta_SUITE) of
+  true -> [not_run];
+  false ->
+      [basic, return, on_and_off, stack_grow, info, tracer,
+       combo, nosilent]
+end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 not_run(Config) when is_list(Config) -> 
     {skipped,"Native code"}.
@@ -593,11 +612,6 @@ loop(D1,D2,D3,0) ->
     0;
 loop(D1,D2,D3,N) ->
     max(N,loop(D1,D2,D3,N-1)).
-
-max(A,B) when A > B ->
-    A;
-max(_A,B) ->
-    B.
 
 id(X) ->
     X.

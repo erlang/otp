@@ -20,37 +20,51 @@
 %%
 -module(trycatch_SUITE).
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,init_all/1,finish_all/1,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 init_per_suite/1,end_per_suite/1,
 	 basic/1,lean_throw/1,try_of/1,try_after/1,%after_bind/1,
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [{conf,init_all,cases(),finish_all}].
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-cases() ->
-    [basic,lean_throw,try_of,try_after,%after_bind,
-     catch_oops,after_oops,eclectic,rethrow,
-     nested_of,nested_catch,nested_after].
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+cases() -> 
+    [basic, lean_throw, try_of, try_after, catch_oops,
+     after_oops, eclectic, rethrow, nested_of, nested_catch,
+     nested_after].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) when is_list(Config) ->
+init_per_suite(Config) when is_list(Config) ->
     ?line test_lib:interpret(?MODULE),
     ?line true = lists:member(?MODULE, int:interpreted()),
-    ok.
+    Config.
 
-finish_all(Config) when is_list(Config) ->
+end_per_suite(Config) when is_list(Config) ->
     ok.
 
 basic(Conf) when is_list(Conf) ->

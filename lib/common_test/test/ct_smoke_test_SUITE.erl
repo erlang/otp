@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -112,13 +112,21 @@ end_per_testcase(TestCase, Config) ->
 %% Description: Returns a description of the test suite (doc) and a
 %%              list of all test cases in the suite (suite).
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Run smoke tests of Common Test."];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [dir1, dir2, dir1_2,
-     suite11, suite21, suite11_21,
+all() -> 
+    [dir1, dir2, dir1_2, suite11, suite21, suite11_21,
      tc111, tc211, tc111_112].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%--------------------------------------------------------------------

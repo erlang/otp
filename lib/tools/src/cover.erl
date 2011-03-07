@@ -35,23 +35,37 @@
 %% remote_process_loop/1.
 %%
 %% TABLES
-%% Each nodes has an ets table named 'cover_internal_data_table'
-%% (?COVER_TABLE).  This table contains the coverage data and is
-%% continously updated when cover compiled code is executed.
+%% Each nodes has two tables: cover_internal_data_table (?COVER_TABLE) and.
+%% cover_internal_clause_table (?COVER_CLAUSE_TABLE). 
+%% ?COVER_TABLE contains the bump data i.e. the data about which lines
+%% have been executed how many times.
+%% ?COVER_CLAUSE_TABLE contains information about which clauses in which modules
+%% cover is currently collecting statistics.
 %% 
-%% The main node owns a table named
-%% 'cover_collected_remote_data_table' (?COLLECTION_TABLE). This table
-%% contains data which is collected from remote nodes (either when a
-%% remote node is stopped with cover:stop/1 or when analysing. When
-%% analysing, data is even moved from the ?COVER_TABLE on the main
-%% node to the ?COLLECTION_TABLE.
+%% The main node owns tables named
+%% 'cover_collected_remote_data_table' (?COLLECTION_TABLE) and
+%% 'cover_collected_remote_clause_table' (?COLLECTION_CLAUSE_TABLE). 
+%% These tables contain data which is collected from remote nodes (either when a
+%% remote node is stopped with cover:stop/1 or when analysing). When
+%% analysing, data is even moved from the COVER tables on the main
+%% node to the COLLECTION tables.
 %%
 %% The main node also has a table named 'cover_binary_code_table'
 %% (?BINARY_TABLE). This table contains the binary code for each cover
 %% compiled module. This is necessary so that the code can be loaded
 %% on remote nodes that are started after the compilation.
 %%
-
+%% PARELLALISM
+%% To take advantage of SMP when doing the cover analysis both the data 
+%% collection and analysis has been parallelized. One process is spawned for
+%% each node when collecting data, and on the remote node when collecting data
+%% one process is spawned per module. 
+%% 
+%% When analyzing data it is possible to issue multiple analyse(_to_file)/X 
+%% calls at once. They are however all calls (for backwardscompatability 
+%% reasons) so the user of cover will have to spawn several processes to to the
+%% calls ( or use async_analyse_to_file ). 
+%%
 
 %% External exports
 -export([start/0, start/1,
@@ -61,6 +75,9 @@
 	 analyse/1, analyse/2, analyse/3, analyze/1, analyze/2, analyze/3,
 	 analyse_to_file/1, analyse_to_file/2, analyse_to_file/3,
 	 analyze_to_file/1, analyze_to_file/2, analyze_to_file/3,
+	 async_analyse_to_file/1,async_analyse_to_file/2,
+	 async_analyse_to_file/3, async_analyze_to_file/1,
+	 async_analyze_to_file/2, async_analyze_to_file/3,
 	 export/1, export/2, import/1,
 	 modules/0, imported/0, imported_modules/0, which_nodes/0, is_compiled/1,
 	 reset/1, reset/0,
@@ -100,8 +117,10 @@
 	      }).
 
 -define(COVER_TABLE, 'cover_internal_data_table').
+-define(COVER_CLAUSE_TABLE, 'cover_internal_clause_table').
 -define(BINARY_TABLE, 'cover_binary_code_table').
 -define(COLLECTION_TABLE, 'cover_collected_remote_data_table').
+-define(COLLECTION_CLAUSE_TABLE, 'cover_collected_remote_clause_table').
 -define(TAG, cover_compiled).
 -define(SERVER, cover_server).
 
@@ -113,6 +132,8 @@
                 Expr;
             true -> ?BLOCK(Expr)
         end).
+
+-define(SPAWN_DBG(Tag,Value),put(Tag,Value)).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -127,7 +148,10 @@ start() ->
     case whereis(?SERVER) of
 	undefined ->
 	    Starter = self(),
-	    Pid = spawn(fun() -> init_main(Starter) end),
+	    Pid = spawn(fun() -> 
+				?SPAWN_DBG(start,[]),
+				init_main(Starter) 
+			end),
 	    Ref = erlang:monitor(process,Pid),
 	    Return = 
 		receive 
@@ -382,6 +406,30 @@ analyze_to_file(Module, OptOrOut) -> analyse_to_file(Module, OptOrOut).
 analyze_to_file(Module, OutFile, Options) -> 
     analyse_to_file(Module, OutFile, Options).
 
+async_analyse_to_file(Module) ->
+    do_spawn(?MODULE, analyse_to_file, [Module]).
+async_analyse_to_file(Module, OutFileOrOpts) ->
+    do_spawn(?MODULE, analyse_to_file, [Module, OutFileOrOpts]).
+async_analyse_to_file(Module, OutFile, Options) ->
+    do_spawn(?MODULE, analyse_to_file, [Module, OutFile, Options]).
+
+do_spawn(M,F,A) ->
+    spawn_link(fun() ->
+		  case apply(M,F,A) of
+		      {ok, _} ->
+			  ok;
+		      {error, Reason} ->
+			  exit(Reason)
+		  end
+	  end).
+
+async_analyze_to_file(Module) ->
+    async_analyse_to_file(Module).
+async_analyze_to_file(Module, OutFileOrOpts) ->
+    async_analyse_to_file(Module, OutFileOrOpts).
+async_analyze_to_file(Module, OutFile, Options) ->
+    async_analyse_to_file(Module, OutFile, Options).
+
 outfilename(Module,Opts) ->
     case lists:member(html,Opts) of
 	true ->
@@ -500,6 +548,8 @@ remote_call(Node,Request) ->
 	    Return
     end.
     
+remote_reply(Proc,Reply) when is_pid(Proc) ->
+    Proc ! {?SERVER,Reply};
 remote_reply(MainNode,Reply) ->
     {?SERVER,MainNode} ! {?SERVER,Reply}.
 
@@ -509,9 +559,15 @@ remote_reply(MainNode,Reply) ->
 
 init_main(Starter) ->
     register(?SERVER,self()),
-    ets:new(?COVER_TABLE, [set, public, named_table]),
+    %% Having write concurrancy here gives a 40% performance boost
+    %% when collect/1 is called. 
+    ets:new(?COVER_TABLE, [set, public, named_table
+			   ,{write_concurrency, true}
+			  ]),
+    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
     ets:new(?BINARY_TABLE, [set, named_table]),
     ets:new(?COLLECTION_TABLE, [set, public, named_table]),
+    ets:new(?COLLECTION_CLAUSE_TABLE, [set, public, named_table]),
     process_flag(trap_exit,true),
     Starter ! {?SERVER,started},
     main_process_loop(#main_state{}).
@@ -593,40 +649,10 @@ main_process_loop(State) ->
 	    end;
 
 	{From, {export,OutFile,Module}} ->
-	    case file:open(OutFile,[write,binary,raw]) of
-		{ok,Fd} ->
-		    Reply = 
-			case Module of
-			    '_' ->
-				export_info(State#main_state.imported),
-				collect(State#main_state.nodes),
-				do_export_table(State#main_state.compiled,
-						State#main_state.imported,
-						Fd);
-			    _ ->
-				export_info(Module,State#main_state.imported),
-				case is_loaded(Module, State) of
-				    {loaded, File} ->
-					[{Module,Clauses}] = 
-					    ets:lookup(?COVER_TABLE,Module),
-					collect(Module, Clauses,
-						State#main_state.nodes),
-					do_export_table([{Module,File}],[],Fd);
-				    {imported, File, ImportFiles} ->
-					%% don't know if I should allow this - 
-					%% export a module which is only imported
-					Imported = [{Module,File,ImportFiles}],
-					do_export_table([],Imported,Fd);
-				    _NotLoaded ->
-					{error,{not_cover_compiled,Module}}
-				end
-			end,
-		    file:close(Fd),
-		    reply(From, Reply);
-		{error,Reason} ->
-		    reply(From, {error, {cant_open_file,OutFile,Reason}})
-	    
-	    end,
+	    spawn(fun() ->
+			  ?SPAWN_DBG(export,{OutFile, Module}),
+			  do_export(Module, OutFile, From, State)
+		  end),
 	    main_process_loop(State);
 	
 	{From, {import,File}} ->
@@ -692,107 +718,73 @@ main_process_loop(State) ->
             unregister(?SERVER),
 	    reply(From, ok);
 
-	{From, {Request, Module}} ->
-	    case is_loaded(Module, State) of
-		{loaded, File} ->
-		    {Reply,State1} = 
-			case Request of
-			    {analyse, Analysis, Level} ->
-				analyse_info(Module,State#main_state.imported),
-				[{Module,Clauses}] = 
-				    ets:lookup(?COVER_TABLE,Module),
-				collect(Module,Clauses,State#main_state.nodes),
-				R = do_analyse(Module, Analysis, Level, Clauses),
-				{R,State};
-			    
-			    {analyse_to_file, OutFile, Opts} ->
-				R = case find_source(File) of
-					{beam,_BeamFile} ->
-					    {error,no_source_code_found};
-					ErlFile ->
-					    Imported = State#main_state.imported,
-					    analyse_info(Module,Imported),
-					    [{Module,Clauses}] = 
-						ets:lookup(?COVER_TABLE,Module),
-					    collect(Module, Clauses,
-						    State#main_state.nodes),
-					    HTML = lists:member(html,Opts),
-					    do_analyse_to_file(Module,OutFile,
-							       ErlFile,HTML)
-				    end,
-				{R,State};
-			    
-			    is_compiled ->
-				{{file, File},State};
-			    
-			    reset ->
-				R = do_reset_main_node(Module,
-						       State#main_state.nodes),
-				Imported = 
-				    remove_imported(Module,
-						    State#main_state.imported),
-				{R,State#main_state{imported=Imported}}
+	{From, {{analyse, Analysis, Level}, Module}} ->
+	    S = try 
+		    Loaded = is_loaded(Module, State),
+		    spawn(fun() ->
+				  ?SPAWN_DBG(analyse,{Module,Analysis, Level}),
+				  do_parallel_analysis(
+				    Module, Analysis, Level, 
+				    Loaded, From, State)
+			  end),
+		    State
+		catch throw:Reason ->
+			reply(From,{error, {not_cover_compiled,Module}}),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);
+
+	{From, {{analyse_to_file, OutFile, Opts},Module}} ->
+	    S = try 
+		    Loaded = is_loaded(Module, State),
+		    spawn(fun() ->
+				  ?SPAWN_DBG(analyse_to_file,
+					     {Module,OutFile, Opts}),
+				  do_parallel_analysis_to_file(
+				    Module, OutFile, Opts, 
+				    Loaded, From, State)
+			  end),
+		    State
+		catch throw:Reason ->
+			reply(From,{error, {not_cover_compiled,Module}}),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);
+
+	{From, {is_compiled, Module}} ->
+	    S = try is_loaded(Module, State) of
+		    {loaded, File} ->
+			reply(From,{file, File}),
+			State;
+		    {imported,_File,_ImportFiles} ->
+			reply(From,false),
+			State
+		catch throw:Reason ->
+			reply(From,false),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);
+
+	{From, {reset, Module}} ->
+	    S = try 
+		    Loaded = is_loaded(Module,State),
+		    R = case Loaded of
+			    {loaded, _File} ->
+				do_reset_main_node(
+				  Module, State#main_state.nodes);
+			    {imported, _File, _} ->
+				do_reset_collection_table(Module)
 			end,
-		    reply(From, Reply),
-		    main_process_loop(State1);
-		
-		{imported,File,_ImportFiles} ->
-		    {Reply,State1} = 
-			case Request of
-			    {analyse, Analysis, Level} ->
-				analyse_info(Module,State#main_state.imported),
-				[{Module,Clauses}] = 
-				    ets:lookup(?COLLECTION_TABLE,Module),
-				R = do_analyse(Module, Analysis, Level, Clauses),
-				{R,State};
-			    
-			    {analyse_to_file, OutFile, Opts} ->
-				R = case find_source(File) of
-					{beam,_BeamFile} ->
-					    {error,no_source_code_found};
-					ErlFile ->
-					    Imported = State#main_state.imported,
-					    analyse_info(Module,Imported),
-					    HTML = lists:member(html,Opts),
-					    do_analyse_to_file(Module,OutFile,
-							   ErlFile,HTML)
-				    end,
-				{R,State};
-			    
-			    is_compiled ->
-				{false,State};
-			    
-			    reset ->
-				R = do_reset_collection_table(Module),
-				Imported = 
-				    remove_imported(Module,
-						    State#main_state.imported),
-				{R,State#main_state{imported=Imported}}
-			end,
-		    reply(From, Reply),
-		    main_process_loop(State1);		    
-		
-		NotLoaded ->
-		    Reply = 
-			case Request of
-			    is_compiled ->
-				false;
-			    _ ->
-				{error, {not_cover_compiled,Module}}
-			end,
-		    Compiled = 
-			case NotLoaded of
-			    unloaded ->
-				do_clear(Module),
-				remote_unload(State#main_state.nodes,[Module]),
-				update_compiled([Module],
-						State#main_state.compiled);
-			    false ->
-				State#main_state.compiled
-			end,
-		    reply(From, Reply),
-		    main_process_loop(State#main_state{compiled=Compiled})
-	    end;
+		    Imported = 
+			remove_imported(Module,
+					State#main_state.imported),
+		    reply(From, R),
+		    State#main_state{imported=Imported}
+		catch throw:Reason ->
+			reply(From,{error, {not_cover_compiled,Module}}),
+			not_loaded(Module, Reason, State)
+		end,
+	    main_process_loop(S);		    
 	
 	{'EXIT',Pid,_Reason} ->
 	    %% Exit is trapped on the main node only, so this will only happen 
@@ -807,17 +799,17 @@ main_process_loop(State) ->
 	    main_process_loop(State)
     end.
 
-
-
-
-
 %%%----------------------------------------------------------------------
 %%% cover_server on remote node
 %%%----------------------------------------------------------------------
 
 init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
-    ets:new(?COVER_TABLE, [set, public, named_table]),
+    ets:new(?COVER_TABLE, [set, public, named_table
+			   %% write_concurrency here makes otp_8270 break :(
+			   %,{write_concurrency, true}
+			  ]),
+    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
     Starter ! {self(),started},
     remote_process_loop(#remote_state{main_node=MainNode}).
 
@@ -843,29 +835,14 @@ remote_process_loop(State) ->
 	    remote_process_loop(State);
 
 	{remote,collect,Module,CollectorPid} ->
-	    MS = 
-		case Module of
-		    '_' -> ets:fun2ms(fun({M,C}) when is_atom(M) -> C end);
-		    _ -> ets:fun2ms(fun({M,C}) when M=:=Module -> C end)
-		end,
-	    AllClauses = lists:flatten(ets:select(?COVER_TABLE,MS)),
-	    
-	    %% Sending clause by clause in order to avoid large lists
-	    lists:foreach(
-	      fun({M,F,A,C,_L}) ->
-		      Pattern = 
-			  {#bump{module=M, function=F, arity=A, clause=C}, '_'},
-		      Bumps = ets:match_object(?COVER_TABLE, Pattern),
-		      %% Reset
-		      lists:foreach(fun({Bump,_N}) ->
-					    ets:insert(?COVER_TABLE, {Bump,0})
-				    end,
-				    Bumps),
-		      CollectorPid ! {chunk,Bumps}
-	      end,
-	      AllClauses),
-	    CollectorPid ! done,
-	    remote_reply(State#remote_state.main_node, ok),
+	    self() ! {remote,collect,Module,CollectorPid, ?SERVER};
+
+	{remote,collect,Module,CollectorPid,From} ->
+	   spawn(fun() ->
+			 ?SPAWN_DBG(remote_collect, 
+				    {Module, CollectorPid, From}),
+			 do_collect(Module, CollectorPid, From)
+		 end),
 	    remote_process_loop(State);
 
 	{remote,stop} ->
@@ -894,6 +871,33 @@ remote_process_loop(State) ->
 	    
     end.
 
+do_collect(Module, CollectorPid, From) ->
+    AllMods = 
+	case Module of
+	    '_' -> ets:tab2list(?COVER_CLAUSE_TABLE);
+	    _ -> ets:lookup(?COVER_CLAUSE_TABLE, Module)
+	end,
+
+    %% Sending clause by clause in order to avoid large lists
+    pmap(
+      fun({_Mod,Clauses}) ->
+	      lists:map(fun(Clause) ->
+				send_collected_data(Clause, CollectorPid)
+			end,Clauses)
+      end,AllMods),
+    CollectorPid ! done,
+    remote_reply(From, ok).
+
+send_collected_data({M,F,A,C,_L}, CollectorPid) ->
+    Pattern = 
+	{#bump{module=M, function=F, arity=A, clause=C}, '_'},
+    Bumps = ets:match_object(?COVER_TABLE, Pattern),
+    %% Reset
+    lists:foreach(fun({Bump,_N}) ->
+			  ets:insert(?COVER_TABLE, {Bump,0})
+		  end,
+		  Bumps),
+    CollectorPid ! {chunk,Bumps}.
 
 reload_originals([{Module,_File}|Compiled]) ->
     do_reload_original(Module),
@@ -932,6 +936,9 @@ load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
 load_compiled([],Acc) ->
     Acc.
 
+insert_initial_data([Item|Items]) when is_atom(element(1,Item)) ->
+    ets:insert(?COVER_CLAUSE_TABLE, Item),
+    insert_initial_data(Items);
 insert_initial_data([Item|Items]) ->
     ets:insert(?COVER_TABLE, Item),
     insert_initial_data(Items);
@@ -957,7 +964,10 @@ remote_start(MainNode) ->
     case whereis(?SERVER) of
 	undefined ->
 	    Starter = self(),
-	    Pid = spawn(fun() -> init_remote(Starter,MainNode) end),
+	    Pid = spawn(fun() -> 
+				?SPAWN_DBG(remote_start,{MainNode}),
+				init_remote(Starter,MainNode) 
+			end),
 	    Ref = erlang:monitor(process,Pid),
 	    Return = 
 		receive 
@@ -972,14 +982,25 @@ remote_start(MainNode) ->
 	    {error,{already_started,Pid}}
     end.
 
-%% Load a set of cover compiled modules on remote nodes
-remote_load_compiled(Nodes,Compiled0) ->
-    Compiled = lists:map(fun get_data_for_remote_loading/1,Compiled0),
+%% Load a set of cover compiled modules on remote nodes,
+%% We do it ?MAX_MODS modules at a time so that we don't
+%% run out of memory on the cover_server node. 
+-define(MAX_MODS, 10).
+remote_load_compiled(Nodes,Compiled) ->
+    remote_load_compiled(Nodes, Compiled, [], 0).
+remote_load_compiled(_Nodes, [], [], _ModNum) ->
+    ok;
+remote_load_compiled(Nodes, Compiled, Acc, ModNum) 
+  when Compiled == []; ModNum == ?MAX_MODS ->
     lists:foreach(
       fun(Node) -> 
-	      remote_call(Node,{remote,load_compiled,Compiled})
+	      remote_call(Node,{remote,load_compiled,Acc})
       end,
-      Nodes).
+      Nodes),
+    remote_load_compiled(Nodes, Compiled, [], 0);
+remote_load_compiled(Nodes, [MF | Rest], Acc, ModNum) ->
+    remote_load_compiled(
+      Nodes, Rest, [get_data_for_remote_loading(MF) | Acc], ModNum + 1).
 
 %% Read all data needed for loading a cover compiled module on a remote node
 %% Binary is the beam code for the module and InitialTable is the initial
@@ -987,15 +1008,15 @@ remote_load_compiled(Nodes,Compiled0) ->
 get_data_for_remote_loading({Module,File}) ->
     [{Module,Binary}] = ets:lookup(?BINARY_TABLE,Module),
     %%! The InitialTable list will be long if the module is big - what to do??
-    InitialTable = ets:select(?COVER_TABLE,ms(Module)),
-    {Module,File,Binary,InitialTable}.
+    InitialBumps = ets:select(?COVER_TABLE,ms(Module)),
+    InitialClauses = ets:lookup(?COVER_CLAUSE_TABLE,Module),
+
+    {Module,File,Binary,InitialBumps ++ InitialClauses}.
 
 %% Create a match spec which returns the clause info {Module,InitInfo} and 
 %% all #bump keys for the given module with 0 number of calls.
 ms(Module) ->
-    ets:fun2ms(fun({Module,InitInfo})  -> 
-		       {Module,InitInfo};
-		  ({Key,_}) when is_record(Key,bump),Key#bump.module=:=Module -> 
+    ets:fun2ms(fun({Key,_}) when Key#bump.module=:=Module -> 
 		       {Key,0}
 	       end).
 
@@ -1017,27 +1038,30 @@ remote_reset(Module,Nodes) ->
 
 %% Collect data from remote nodes - used for analyse or stop(Node)
 remote_collect(Module,Nodes,Stop) ->
-    CollectorPid = spawn(fun() -> collector_proc(length(Nodes)) end),
-    lists:foreach(
-      fun(Node) -> 
-	      remote_call(Node,{remote,collect,Module,CollectorPid}),
-	      if Stop -> remote_call(Node,{remote,stop});
-		 true -> ok
-	      end
-      end,
-      Nodes).
+    pmap(fun(Node) -> 
+		 ?SPAWN_DBG(remote_collect, 
+			    {Module, Nodes, Stop}),
+		 do_collection(Node, Module, Stop)
+	 end,
+	 Nodes).
+
+do_collection(Node, Module, Stop) ->
+    CollectorPid = spawn(fun collector_proc/0),
+    remote_call(Node,{remote,collect,Module,CollectorPid, self()}),
+    if Stop -> remote_call(Node,{remote,stop});
+       true -> ok
+    end.
 
 %% Process which receives chunks of data from remote nodes - either when
 %% analysing or when stopping cover on the remote nodes.
-collector_proc(0) ->
-    ok;
-collector_proc(N) ->
+collector_proc() ->
+    ?SPAWN_DBG(collector_proc, []),
     receive 
 	{chunk,Chunk} ->
 	    insert_in_collection_table(Chunk),
-	    collector_proc(N);
+	    collector_proc();
 	done ->
-	    collector_proc(N-1)
+	    ok
     end.
 
 insert_in_collection_table([{Key,Val}|Chunk]) ->
@@ -1052,7 +1076,13 @@ insert_in_collection_table(Key,Val) ->
 	    ets:update_counter(?COLLECTION_TABLE,
 			       Key,Val);
 	false ->
-	    ets:insert(?COLLECTION_TABLE,{Key,Val})
+	    %% Make sure that there are no race conditions from ets:member
+	    case ets:insert_new(?COLLECTION_TABLE,{Key,Val}) of
+		false ->
+		    insert_in_collection_table(Key,Val);
+		_ ->
+		    ok
+	    end
     end.
 
 
@@ -1073,14 +1103,15 @@ analyse_info(Module,Imported) ->
 
 export_info(_Module,[]) ->
     ok;
-export_info(Module,Imported) ->
-    imported_info("Export",Module,Imported).
+export_info(_Module,_Imported) ->
+    %% Do not print that the export includes imported modules
+    ok.
 
 export_info([]) ->
     ok;
-export_info(Imported) ->
-    AllImportFiles = get_all_importfiles(Imported,[]),
-    io:format("Export includes data from imported files\n~p\n",[AllImportFiles]).
+export_info(_Imported) ->
+    %% Do not print that the export includes imported modules
+    ok.
 
 get_all_importfiles([{_M,_F,ImportFiles}|Imported],Acc) ->
     NewAcc = do_get_all_importfiles(ImportFiles,Acc),
@@ -1153,14 +1184,14 @@ is_loaded(Module, State) ->
 	{ok, File} ->
 	    case code:which(Module) of
 		?TAG -> {loaded, File};
-		_ -> unloaded
+		_ -> throw(unloaded)
 	    end;
 	false ->
 	    case get_file(Module,State#main_state.imported) of
 		{ok,File,ImportFiles} ->
 		    {imported, File, ImportFiles};
 		false ->
-		    false
+		    throw(not_loaded)
 	    end
     end.
 
@@ -1259,7 +1290,7 @@ do_compile_beam(Module,Beam) ->
 		    
 		    %% Store info about all function clauses in database
 		    InitInfo = reverse(Vars#vars.init_info),
-		    ets:insert(?COVER_TABLE, {Module, InitInfo}),
+		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
 		    
 		    %% Store binary code so it can be loaded on remote nodes
 		    ets:insert(?BINARY_TABLE, {Module, Binary}),
@@ -1793,9 +1824,8 @@ common_elems(L1, L2) ->
 %% Collect data for all modules
 collect(Nodes) ->
     %% local node
-    MS = ets:fun2ms(fun({M,C}) when is_atom(M) -> {M,C} end),
-    AllClauses = ets:select(?COVER_TABLE,MS),
-    move_modules(AllClauses),
+    AllClauses = ets:tab2list(?COVER_CLAUSE_TABLE),
+    pmap(fun move_modules/1,AllClauses),
     
     %% remote nodes
     remote_collect('_',Nodes,false).
@@ -1803,7 +1833,7 @@ collect(Nodes) ->
 %% Collect data for one module
 collect(Module,Clauses,Nodes) ->
     %% local node
-    move_modules([{Module,Clauses}]),
+    move_modules({Module,Clauses}),
     
     %% remote nodes
     remote_collect(Module,Nodes,false).
@@ -1811,12 +1841,9 @@ collect(Module,Clauses,Nodes) ->
 
 %% When analysing, the data from the local ?COVER_TABLE is moved to the
 %% ?COLLECTION_TABLE. Resetting data in ?COVER_TABLE
-move_modules([{Module,Clauses}|AllClauses]) ->
-    ets:insert(?COLLECTION_TABLE,{Module,Clauses}),
-    move_clauses(Clauses),
-    move_modules(AllClauses);
-move_modules([]) ->
-    ok.
+move_modules({Module,Clauses}) ->
+    ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses}),
+    move_clauses(Clauses).
     
 move_clauses([{M,F,A,C,_L}|Clauses]) ->
     Pattern = {#bump{module=M, function=F, arity=A, clause=C}, '_'},
@@ -1854,6 +1881,22 @@ find_source(File0) ->
 		    end
 	    end
     end.
+
+do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
+    analyse_info(Module,State#main_state.imported),
+    C = case Loaded of
+	    {loaded, _File} ->
+		[{Module,Clauses}] = 
+		    ets:lookup(?COVER_CLAUSE_TABLE,Module),
+		collect(Module,Clauses,State#main_state.nodes),
+		Clauses;
+	    _ ->
+		[{Module,Clauses}] = 
+		    ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
+		Clauses
+	end,
+    R = do_analyse(Module, Analysis, Level, C),
+    reply(From, R).
 
 %% do_analyse(Module, Analysis, Level, Clauses)-> {ok,Answer} | {error,Error}
 %%   Clauses = [{Module,Function,Arity,Clause,Lines}]
@@ -1930,6 +1973,28 @@ merge_functions([{_MFA,R}|Functions], MFun, Result) ->
     merge_functions(Functions, MFun, MFun(Result, R));
 merge_functions([], _MFun, Result) ->
     Result.
+
+do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
+    File = case Loaded of
+	       {loaded, File0} ->
+		   [{Module,Clauses}] = 
+		       ets:lookup(?COVER_CLAUSE_TABLE,Module),
+		   collect(Module, Clauses,
+			   State#main_state.nodes),
+		   File0;
+	       {imported, File0, _} ->
+		   File0
+	   end,
+    case find_source(File) of
+	{beam,_BeamFile} ->
+	    reply(From, {error,no_source_code_found});
+	ErlFile ->
+	    analyse_info(Module,State#main_state.imported),
+	    HTML = lists:member(html,Opts),
+	    R = do_analyse_to_file(Module,OutFile,
+				   ErlFile,HTML),
+	    reply(From, R)
+    end.
 
 %% do_analyse_to_file(Module,OutFile,ErlFile) -> {ok,OutFile} | {error,Error}
 %%   Module = atom()
@@ -2027,6 +2092,42 @@ fill2() ->       ".|  ".
 fill3() ->        "|  ".
 
 %%%--Export--------------------------------------------------------------
+do_export(Module, OutFile, From, State) ->
+    case file:open(OutFile,[write,binary,raw]) of
+	{ok,Fd} ->
+	    Reply = 
+		case Module of
+		    '_' ->
+			export_info(State#main_state.imported),
+			collect(State#main_state.nodes),
+			do_export_table(State#main_state.compiled,
+					State#main_state.imported,
+					Fd);
+		    _ ->
+			export_info(Module,State#main_state.imported),
+			try is_loaded(Module, State) of
+			    {loaded, File} ->
+				[{Module,Clauses}] = 
+				    ets:lookup(?COVER_CLAUSE_TABLE,Module),
+				collect(Module, Clauses,
+					State#main_state.nodes),
+				do_export_table([{Module,File}],[],Fd);
+			    {imported, File, ImportFiles} ->
+				%% don't know if I should allow this - 
+				%% export a module which is only imported
+				Imported = [{Module,File,ImportFiles}],
+				do_export_table([],Imported,Fd)
+			catch throw:_ ->
+				{error,{not_cover_compiled,Module}}
+			end
+		end,
+	    file:close(Fd),
+	    reply(From, Reply);
+	{error,Reason} ->
+	    reply(From, {error, {cant_open_file,OutFile,Reason}})
+
+    end.
+
 do_export_table(Compiled, Imported, Fd) ->
     ModList = merge(Imported,Compiled),
     write_module_data(ModList,Fd).
@@ -2043,7 +2144,7 @@ merge([],ModuleList) ->
 
 write_module_data([{Module,File}|ModList],Fd) ->
     write({file,Module,File},Fd),
-    [Clauses] = ets:lookup(?COLLECTION_TABLE,Module),
+    [Clauses] = ets:lookup(?COLLECTION_CLAUSE_TABLE,Module),
     write(Clauses,Fd),
     ModuleData = ets:match_object(?COLLECTION_TABLE,{#bump{module=Module},'_'}),
     do_write_module_data(ModuleData,Fd),
@@ -2093,7 +2194,7 @@ do_import_to_table(Fd,ImportFile,Imported,DontImport) ->
 	{Module,Clauses} ->
 	    case lists:member(Module,DontImport) of
 		false ->
-		    ets:insert(?COLLECTION_TABLE,{Module,Clauses});
+		    ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses});
 		true ->
 			    ok
 	    end,
@@ -2127,14 +2228,14 @@ do_reset_main_node(Module,Nodes) ->
     remote_reset(Module,Nodes).
 
 do_reset_collection_table(Module) ->
-    ets:delete(?COLLECTION_TABLE,Module),
+    ets:delete(?COLLECTION_CLAUSE_TABLE,Module),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
 %% do_reset(Module) -> ok
 %% The reset is done on a per-clause basis to avoid building
 %% long lists in the case of very large modules
 do_reset(Module) ->
-    [{Module,Clauses}] = ets:lookup(?COVER_TABLE, Module),
+    [{Module,Clauses}] = ets:lookup(?COVER_CLAUSE_TABLE, Module),
     do_reset2(Clauses).
 
 do_reset2([{M,F,A,C,_L}|Clauses]) ->
@@ -2149,9 +2250,18 @@ do_reset2([]) ->
     ok.    
 
 do_clear(Module) ->
-    ets:match_delete(?COVER_TABLE, {Module,'_'}),
+    ets:match_delete(?COVER_CLAUSE_TABLE, {Module,'_'}),
     ets:match_delete(?COVER_TABLE, {#bump{module=Module},'_'}),
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
+
+not_loaded(Module, unloaded, State) ->
+    do_clear(Module),
+    remote_unload(State#main_state.nodes,[Module]),
+    Compiled = update_compiled([Module],
+			       State#main_state.compiled),
+    State#main_state{ compiled = Compiled };
+not_loaded(_Module,_Else, State) ->
+    State.
 
 
 
@@ -2180,3 +2290,30 @@ escape_lt_and_gt1([],Acc) ->
     lists:reverse(Acc);
 escape_lt_and_gt1([H|T],Acc) ->
     escape_lt_and_gt1(T,[H|Acc]).
+
+pmap(Fun, List) ->
+    pmap(Fun, List, 20).
+pmap(Fun, List, Limit) ->
+    pmap(Fun, List, [], Limit, 0, []).
+pmap(Fun, [E | Rest], Pids, Limit, Cnt, Acc) when Cnt < Limit ->
+    Collector = self(),
+    Pid = spawn_link(fun() ->
+			     ?SPAWN_DBG(pmap,E),
+			     Collector ! {res,self(),Fun(E)} 
+		     end),
+    erlang:monitor(process, Pid),
+    pmap(Fun, Rest, Pids ++ [Pid], Limit, Cnt + 1, Acc);
+pmap(Fun, List, [Pid | Pids], Limit, Cnt, Acc) ->
+    receive
+	{'DOWN', _Ref, process, _, _} ->
+	    pmap(Fun, List, [Pid | Pids], Limit, Cnt - 1, Acc);
+	{res, Pid, Res} ->
+	    pmap(Fun, List, Pids, Limit, Cnt, [Res | Acc])
+    end;
+pmap(_Fun, [], [], _Limit, 0, Acc) ->
+    lists:reverse(Acc);
+pmap(Fun, [], [], Limit, Cnt, Acc) ->
+    receive
+	{'DOWN', _Ref, process, _, _} ->
+	    pmap(Fun, [], [], Limit, Cnt - 1, Acc)
+    end.

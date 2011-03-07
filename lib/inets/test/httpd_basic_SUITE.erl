@@ -19,23 +19,26 @@
 %%
 -module(httpd_basic_SUITE).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
 -define(URL_START, "http://localhost:").
 
-all(doc) ->
-    ["Basic test of httpd."];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-     uri_too_long_414,
-     header_too_long_413,
-     escaped_url_in_error_body
-    ].
+all() -> 
+    [uri_too_long_414, header_too_long_413, escaped_url_in_error_body].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config

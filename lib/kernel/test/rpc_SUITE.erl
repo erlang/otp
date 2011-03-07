@@ -18,7 +18,8 @@
 %%
 -module(rpc_SUITE).
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([call/1, block_call/1, multicall/1, multicall_timeout/1, 
 	 multicall_dies/1, multicall_node_dies/1,
 	 called_dies/1, called_node_dies/1, 
@@ -26,13 +27,31 @@
 
 -export([suicide/2, suicide/3, f/0, f2/0]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [call, block_call, multicall, multicall_timeout, 
-     multicall_dies, multicall_node_dies,
-     called_dies, called_node_dies, 
-     called_throws, call_benchmark, async_call].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [call, block_call, multicall, multicall_timeout,
+     multicall_dies, multicall_node_dies, called_dies,
+     called_node_dies, called_throws, call_benchmark,
+     async_call].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 call(doc) -> "Test different rpc calls";

@@ -20,16 +20,38 @@
 -module(autoimport_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
--export([all/1,init_per_testcase/2,fin_per_testcase/2,autoimports/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
+	 autoimports/1]).
 -define(TEST_TIMEOUT, ?t:seconds(180)).
 
-all(suite) -> [autoimports].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [autoimports].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(?TEST_TIMEOUT),
     [{watchdog, Dog} | Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
     catch test_server:timetrap_cancel(Dog),
     ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,12 +27,12 @@
 %%% - queueing
 
 -module(driver_SUITE).
--export([all/1,
+-export([all/0, suite/0,groups/0,init_per_suite/1, 
+	 end_per_suite/1, init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,
-	 fin_per_testcase/2,
-	 end_per_suite/1,
+	 end_per_testcase/2,
 	 outputv_echo/1,
-	 timer/1,
+	
 	 timer_measure/1,
 	 timer_cancel/1,
 	 timer_change/1,
@@ -51,7 +51,7 @@
 	 'driver_system_info_ver1.1'/1,
 	 driver_system_info_current_ver/1,
 	 driver_monitor/1,
-	 ioq_exit/1,
+	
 	 ioq_exit_ready_input/1,
 	 ioq_exit_ready_output/1,
 	 ioq_exit_timeout/1,
@@ -78,7 +78,7 @@
 
 -export([bin_prefix/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 % First byte in communication with the timer driver
@@ -120,49 +120,51 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ?line 0 = erts_debug:get_internal_state(check_io_debug),
     [{watchdog, Dog},{testcase, Case}|Config].
 
-fin_per_testcase(Case, Config) ->
+end_per_testcase(Case, Config) ->
     Dog = ?config(watchdog, Config),
-    erlang:display({fin_per_testcase, Case}),
+    erlang:display({end_per_testcase, Case}),
     ?line 0 = erts_debug:get_internal_state(check_io_debug),
     ?t:timetrap_cancel(Dog).
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [fun_to_port, outputv_echo, queue_echo, {group, timer},
+     driver_unloaded, io_ready_exit, use_fallback_pollset,
+     bad_fd_in_pollset, driver_event, fd_change,
+     steal_control, otp_6602, 'driver_system_info_ver1.0',
+     'driver_system_info_ver1.1',
+     driver_system_info_current_ver, driver_monitor,
+     {group, ioq_exit}, zero_extended_marker_garb_drv,
+     invalid_extended_marker_drv, larger_major_vsn_drv,
+     larger_minor_vsn_drv, smaller_major_vsn_drv,
+     smaller_minor_vsn_drv, peek_non_existing_queue,
+     otp_6879, caller, many_events, missing_callbacks,
+     smp_select, driver_select_use,
+     thread_mseg_alloc_cache_clean].
+
+groups() -> 
+    [{timer, [],
+      [timer_measure, timer_cancel, timer_delay,
+       timer_change]},
+     {ioq_exit, [],
+      [ioq_exit_ready_input, ioq_exit_ready_output,
+       ioq_exit_timeout, ioq_exit_ready_async, ioq_exit_event,
+       ioq_exit_ready_input_async, ioq_exit_ready_output_async,
+       ioq_exit_timeout_async, ioq_exit_event_async]}].
+
+init_per_suite(Config) ->
+    Config.
 
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
-all(suite) ->
-    [
-     fun_to_port,
-     outputv_echo,
-     queue_echo,
-     timer,
-     driver_unloaded,
-     io_ready_exit,
-     use_fallback_pollset,
-     bad_fd_in_pollset,
-     driver_event,
-     fd_change,
-     steal_control,
-     otp_6602,
-     'driver_system_info_ver1.0',
-     'driver_system_info_ver1.1',
-     driver_system_info_current_ver,
-     driver_monitor,
-     ioq_exit,
-     zero_extended_marker_garb_drv,
-     invalid_extended_marker_drv,
-     larger_major_vsn_drv,
-     larger_minor_vsn_drv,
-     smaller_major_vsn_drv,
-     smaller_minor_vsn_drv,
-     peek_non_existing_queue,
-     otp_6879,
-     caller,
-     many_events,
-     missing_callbacks,
-     smp_select,
-     driver_select_use,
-     thread_mseg_alloc_cache_clean
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 fun_to_port(doc) -> "Test sending a fun to port with an outputv-capable driver.";
 fun_to_port(Config) when is_list(Config) ->
@@ -308,7 +310,6 @@ compare(Got, Expected) ->
 %% 		Driver timer test suites
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-timer(suite) -> [timer_measure,timer_cancel,timer_delay,timer_change].
 
 timer_measure(doc) -> ["Check that timers time out in good time."];
 timer_measure(Config) when is_list(Config) ->
@@ -1299,17 +1300,6 @@ driver_monitor(Config) when is_list(Config) ->
     ?line stop_driver(Port, Name),
     ?line ok.
 
-ioq_exit(doc) -> [];
-ioq_exit(suite) ->
-    [ioq_exit_ready_input,
-     ioq_exit_ready_output,
-     ioq_exit_timeout,
-     ioq_exit_ready_async,
-     ioq_exit_event,
-     ioq_exit_ready_input_async,
-     ioq_exit_ready_output_async,
-     ioq_exit_timeout_async,
-     ioq_exit_event_async].
 
 -define(IOQ_EXIT_READY_INPUT, 1).
 -define(IOQ_EXIT_READY_OUTPUT, 2).
@@ -1682,7 +1672,7 @@ smp_select0(Config) ->
     ProcFun = fun()-> io:format("Worker ~p starting\n",[self()]),	
 		      ?line Port = open_port({spawn, DrvName}, []),
 		      smp_select_loop(Port, 100000),
-		      sleep(500), % wait for driver to handle pending events
+		      sleep(1000), % wait for driver to handle pending events
 		      ?line true = erlang:port_close(Port),
 		      Master ! {ok,self()},
 		      io:format("Worker ~p finished\n",[self()])
@@ -1790,8 +1780,8 @@ mseg_alloc_ccc() ->
     mseg_alloc_ccc(erlang:system_info({allocator,mseg_alloc})).
 
 mseg_alloc_ccc(MsegAllocInfo) ->
-    ?line {value,{calls, CL}}
-	= lists:keysearch(calls, 1, MsegAllocInfo),
+    ?line {value,{memkind, MKL}} = lists:keysearch(memkind,1,MsegAllocInfo),
+    ?line {value,{calls, CL}} = lists:keysearch(calls, 1, MKL),
     ?line {value,{mseg_check_cache, GigaCCC, CCC}}
 	= lists:keysearch(mseg_check_cache, 1, CL),
     ?line GigaCCC*1000000000 + CCC.
@@ -1800,11 +1790,27 @@ mseg_alloc_cached_segments() ->
     mseg_alloc_cached_segments(erlang:system_info({allocator,mseg_alloc})).
 
 mseg_alloc_cached_segments(MsegAllocInfo) ->
+    MemName = case is_halfword_vm() of
+	true -> "high memory";
+	false -> "all memory"
+    end,
+    ?line [{memkind,DrvMem}]
+	= lists:filter(fun(E) -> case E of
+				    {memkind, [{name, MemName} | _]} -> true;
+				    _ -> false
+		       end end, MsegAllocInfo),
     ?line {value,{status, SL}}
-	= lists:keysearch(status, 1, MsegAllocInfo),
+	= lists:keysearch(status, 1, DrvMem),
     ?line {value,{cached_segments, CS}}
 	= lists:keysearch(cached_segments, 1, SL),
     ?line CS.
+
+is_halfword_vm() ->
+    case {erlang:system_info({wordsize, internal}),
+	  erlang:system_info({wordsize, external})} of
+	{4, 8} -> true;
+	{WS, WS} -> false
+    end.
 
 driver_alloc_sbct() ->
     {_, _, _, As} = erlang:system_info(allocator),

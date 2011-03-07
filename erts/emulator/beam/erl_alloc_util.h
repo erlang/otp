@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -332,6 +332,9 @@ struct Allctr_t_ {
 
 int	erts_alcu_start(Allctr_t *, AllctrInit_t *);
 void	erts_alcu_stop(Allctr_t *);
+
+void	erts_alcu_verify_unused(Allctr_t *);
+void	erts_alcu_verify_unused_ts(Allctr_t *allctr);
 
 unsigned long	erts_alcu_test(unsigned long, unsigned long, unsigned long);
 

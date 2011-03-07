@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 
 -module(multi_ORB_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -50,8 +50,9 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1, basic_PI_api/1, multi_orber_api/1,
-	 init_per_testcase/2, fin_per_testcase/2, multi_pseudo_orber_api/1, 
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0, 
+	 init_per_suite/1, end_per_suite/1, basic_PI_api/1, multi_orber_api/1,
+	 init_per_testcase/2, end_per_testcase/2, multi_pseudo_orber_api/1, 
 	 light_orber_api/1, light_orber2_api/1, 
 	 ssl_1_multi_orber_api/1, ssl_2_multi_orber_api/1, ssl_reconfigure_api/1,
 	 iiop_timeout_api/1, iiop_timeout_added_api/1, setup_connection_timeout_api/1,
@@ -86,75 +87,93 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for multi orber interfaces", 
-	     "This suite test intra-ORB communication. There are three scenarios:",
-	     "* No security at all (multi_orber_api)",
-	     "* Two secure orbs using ssl (ssl_multi_orb_api)",
-	     "* One secure and one orb with no security. (ssl_multi_orb_api)"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% NOTE - the fragment test cases must be first since we explicitly set a request
 %% id. Otherwise, the request-id counter would be increased and we cannot know
 %% what it is.
-cases() ->
-    [fragments_server_api, 
-     fragments_max_server_api,
-     fragments_max_server_added_api,
-     fragments_client_api,
-     flags_added_api,
-     bad_fragment_id_client_api,
-     bad_giop_header_api,
-     bad_id_cancel_request_api,
-     implicit_context_api, 
-     pseudo_implicit_context_api,
+cases() -> 
+    [fragments_server_api, fragments_max_server_api,
+     fragments_max_server_added_api, fragments_client_api,
+     flags_added_api, bad_fragment_id_client_api,
+     bad_giop_header_api, bad_id_cancel_request_api,
+     implicit_context_api, pseudo_implicit_context_api,
      pseudo_two_implicit_context_api,
      implicit_context_roundtrip_api,
-     oneway_implicit_context_api, 
+     oneway_implicit_context_api,
      oneway_pseudo_implicit_context_api,
      oneway_pseudo_two_implicit_context_api,
-     proxy_interface_api,
-     proxy_interface_ipv6_api,
-     local_interface_api,
-     local_interface_ctx_override_api,
-     local_interface_acl_override_api,
-     close_connections_api,
+     proxy_interface_api, proxy_interface_ipv6_api,
+     local_interface_api, local_interface_ctx_override_api,
+     local_interface_acl_override_api, close_connections_api,
      close_connections_local_interface_api,
      close_connections_local_interface_ctx_override_api,
      close_connections_alt_iiop_addr_api,
      close_connections_multiple_profiles_api,
-     multiple_accept_api,
-     max_requests_api,
-     max_requests_added_api,
-     max_connections_api,
-     max_packet_size_exceeded_api,
-     max_packet_size_ok_api,
-     light_ifr_api,
-     multi_pseudo_orber_api, 
-     multi_orber_api, 
-     light_orber_api, 
-     light_orber2_api, 
-     basic_PI_api, 
-     iiop_timeout_api, 
-     iiop_timeout_added_api, 
-     setup_connection_timeout_api, 
-     setup_multi_connection_timeout_api, 
-     setup_multi_connection_timeout_attempts_api, 
-     setup_multi_connection_timeout_random_api, 
+     multiple_accept_api, max_requests_api,
+     max_requests_added_api, max_connections_api,
+     max_packet_size_exceeded_api, max_packet_size_ok_api,
+     light_ifr_api, multi_pseudo_orber_api, multi_orber_api,
+     light_orber_api, light_orber2_api, basic_PI_api,
+     iiop_timeout_api, iiop_timeout_added_api,
+     setup_connection_timeout_api,
+     setup_multi_connection_timeout_api,
+     setup_multi_connection_timeout_attempts_api,
+     setup_multi_connection_timeout_random_api,
      ssl_1_multi_orber_api,
      ssl_1_multi_orber_generation_3_api,
      ssl_2_multi_orber_api,
      ssl_2_multi_orber_generation_3_api,
-     ssl_reconfigure_generation_3_api,
-     ssl_reconfigure_api
-    ].
+     ssl_reconfigure_generation_3_api, ssl_reconfigure_api].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-
+init_per_testcase(TC,Config) 
+  when TC =:= ssl_1_multi_orber_api;
+       TC =:= ssl_2_multi_orber_api;
+       TC =:= ssl_reconfigure_api ->
+    init_ssl(Config);
+init_per_testcase(TC,Config) 
+  when TC =:= ssl_1_multi_orber_generation_3_api; 
+       TC =:= ssl_2_multi_orber_generation_3_api;
+       TC =:= ssl_reconfigure_generation_3_api ->
+    init_ssl_3(Config);
 init_per_testcase(_Case, Config) ->
+    init_all(Config).
+
+init_ssl(Config) ->
+    case orber_test_lib:ssl_version() of
+	no_ssl ->
+	    {skip,"SSL is not installed!"};
+	_ ->
+	    init_all(Config)
+    end.
+
+init_ssl_3(Config) ->
+    case orber_test_lib:ssl_version() of
+	3 ->
+	    init_all(Config);
+	2 ->
+	    {skip,"Could not find the correct SSL version!"};
+	no_ssl ->
+	    {skip,"SSL is not installed!"}
+    end.
+
+init_all(Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     Dog=test_server:timetrap(?default_timeout),
@@ -163,7 +182,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     oe_orber_test_server:oe_unregister(),
     orber:jump_stop(),
     Path = code:which(?MODULE),
@@ -172,7 +191,7 @@ fin_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
+init_per_suite(Config) ->
     if
 	is_list(Config) ->
 	    Config;
@@ -180,7 +199,7 @@ init_all(Config) ->
 	    exit("Config not a list")
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 %%-----------------------------------------------------------------
@@ -1372,7 +1391,7 @@ light_orber2_api(_Config) ->
     LocalHost = net_adm:localhost(),
     {ok, Node, _Host} = 
 	?match({ok,_,_}, orber_test_lib:js_node([], 
-						{lightweigth, ["iiop://"++LocalHost++":"++integer_to_list(orber:iiop_port())]})),
+						{lightweight, ["iiop://"++LocalHost++":"++integer_to_list(orber:iiop_port())]})),
     ?match(ok, orber:info(io)),
     ?match([_], orber_test_lib:remote_apply(Node, orber_env, get_lightweight_nodes,[])),
     
@@ -1580,17 +1599,11 @@ ssl_1_multi_orber_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
 			     "secure orbs which must raise a NO_PERMISSION exception."];
 ssl_1_multi_orber_api(suite) -> [];
 ssl_1_multi_orber_api(_Config) ->
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
-						       1, [{iiop_ssl_port, 0}]),
-	    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
-						       1, [{iiop_ssl_port, 0}]),
-	    ssl_suite(ServerOptions, ClientOptions),
-	    ok
-    end.
+    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
+					       1, [{iiop_ssl_port, 0}]),
+    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
+					       1, [{iiop_ssl_port, 0}]),
+    ssl_suite(ServerOptions, ClientOptions).
     
 ssl_1_multi_orber_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)", 
 			       "This case set up two secure orbs and test if they can",
@@ -1598,24 +1611,14 @@ ssl_1_multi_orber_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL dep
 			     "secure orbs which must raise a NO_PERMISSION exception."];
 ssl_1_multi_orber_generation_3_api(suite) -> [];
 ssl_1_multi_orber_generation_3_api(_Config) ->
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    case orber_test_lib:ssl_version() of
-		3 ->
-		    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
-							       1, [{ssl_generation, 3},
-								   {iiop_ssl_port, 0}]),
-		    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
-							       1, [{ssl_generation, 3},
-								   {iiop_ssl_port, 0}]),
-		    ssl_suite(ServerOptions, ClientOptions),
-		    ok;
-		_ ->
-		    {skipped, "Required SSL generation not available"}
-	    end
-    end.
+   
+    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
+					       1, [{ssl_generation, 3},
+						   {iiop_ssl_port, 0}]),
+    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
+					       1, [{ssl_generation, 3},
+						   {iiop_ssl_port, 0}]),
+    ssl_suite(ServerOptions, ClientOptions).
     
 
 %%-----------------------------------------------------------------
@@ -1628,17 +1631,12 @@ ssl_2_multi_orber_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
 			     "secure orbs which must raise a NO_PERMISSION exception."];
 ssl_2_multi_orber_api(suite) -> [];
 ssl_2_multi_orber_api(_Config) -> 
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
-						       2, [{iiop_ssl_port, 0}]),
-	    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
-						       2, [{iiop_ssl_port, 0}]),
-	    ssl_suite(ServerOptions, ClientOptions),
-	    ok
-    end.
+    
+    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
+					       2, [{iiop_ssl_port, 0}]),
+    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
+					       2, [{iiop_ssl_port, 0}]),
+    ssl_suite(ServerOptions, ClientOptions).
 
 ssl_2_multi_orber_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)", 
 			     "This case set up two secure orbs and test if they can",
@@ -1646,24 +1644,14 @@ ssl_2_multi_orber_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL dep
 			     "secure orbs which must raise a NO_PERMISSION exception."];
 ssl_2_multi_orber_generation_3_api(suite) -> [];
 ssl_2_multi_orber_generation_3_api(_Config) -> 
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    case orber_test_lib:ssl_version() of
-		3 ->
-		    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
-							       2, [{ssl_generation, 3},
-								   {iiop_ssl_port, 0}]),
-		    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
-							       2, [{ssl_generation, 3},
-								   {iiop_ssl_port, 0}]),
-		    ssl_suite(ServerOptions, ClientOptions),
-		    ok;
-		_ ->
-		    {skipped, "Required SSL generation not available"}
-	    end
-    end.
+    
+    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
+					       2, [{ssl_generation, 3},
+						   {iiop_ssl_port, 0}]),
+    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
+					       2, [{ssl_generation, 3},
+						   {iiop_ssl_port, 0}]),
+    ssl_suite(ServerOptions, ClientOptions).
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, ssl security depth 2
 %%-----------------------------------------------------------------
@@ -1682,69 +1670,57 @@ ssl_reconfigure_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth
 			     "secure orbs which must raise a NO_PERMISSION exception."];
 ssl_reconfigure_generation_3_api(suite) -> [];
 ssl_reconfigure_generation_3_api(_Config) -> 
-    case orber_test_lib:ssl_version() of
-	3 ->    
-		    ssl_reconfigure([{ssl_generation, 3}]);
-	
-	_ ->
-	    {skipped, "Required SSL generation not available"}
-    end.
+    ssl_reconfigure([{ssl_generation, 3}]).
 
 ssl_reconfigure(ExtraSSLOptions) ->
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    IP = orber_test_lib:get_host(),
-	    Loopback = orber_test_lib:get_loopback_interface(),
-	    {ok, ServerNode, _ServerHost} = 
-		?match({ok,_,_}, 
-		       orber_test_lib:js_node([{iiop_port, 0}, 
-					       {flags, ?ORB_ENV_LOCAL_INTERFACE}, 
-					       {ip_address, IP}|ExtraSSLOptions])),
-	    orber_test_lib:remote_apply(ServerNode, ssl, start, []),
-	    orber_test_lib:remote_apply(ServerNode, crypto, start, []),
-	    orber_test_lib:remote_apply(ServerNode, ssl, seed, ["testing"]),
-	    ?match(ok, orber_test_lib:remote_apply(ServerNode, orber_test_lib, 
-						   install_test_data, 
-						   [ssl])),
-	    ?match({ok, _}, 
-		   orber_test_lib:remote_apply(ServerNode, orber, 
-					       add_listen_interface, 
-					       [Loopback, normal, [{iiop_port, 5648},
-								   {iiop_ssl_port, 5649},
-								   {interceptors, {native, [orber_iiop_tracer_silent]}}|ExtraSSLOptions]])),
-	    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
-						       2, [{flags, ?ORB_ENV_LOCAL_INTERFACE}, 
-							   {iiop_port, 5648},
+
+    IP = orber_test_lib:get_host(),
+    Loopback = orber_test_lib:get_loopback_interface(),
+    {ok, ServerNode, _ServerHost} = 
+	?match({ok,_,_}, 
+	       orber_test_lib:js_node([{iiop_port, 0}, 
+				       {flags, ?ORB_ENV_LOCAL_INTERFACE}, 
+				       {ip_address, IP}|ExtraSSLOptions])),
+    orber_test_lib:remote_apply(ServerNode, ssl, start, []),
+    orber_test_lib:remote_apply(ServerNode, crypto, start, []),
+    orber_test_lib:remote_apply(ServerNode, ssl, seed, ["testing"]),
+    ?match(ok, orber_test_lib:remote_apply(ServerNode, orber_test_lib, 
+					   install_test_data, 
+					   [ssl])),
+    ?match({ok, _}, 
+	   orber_test_lib:remote_apply(ServerNode, orber, 
+				       add_listen_interface, 
+				       [Loopback, normal, [{iiop_port, 5648},
 							   {iiop_ssl_port, 5649},
-							   {interceptors, {native, [orber_iiop_tracer_silent]}}|ExtraSSLOptions]),
-	    ?match({ok, _}, 
-		   orber_test_lib:remote_apply(ServerNode, orber, 
-					       add_listen_interface, 
-					       [Loopback, ssl, ServerOptions])),
-	    
-	    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
-						       2, [{iiop_ssl_port, 0}|ExtraSSLOptions]),
-	    {ok, ClientNode, _ClientHost} = 
-		?match({ok,_,_}, orber_test_lib:js_node(ClientOptions)),
-	    
-	    ?match(ok, orber_test_lib:remote_apply(ClientNode, orber_test_lib, 
-						   install_test_data, 
-						   [ssl])),
-	    orber_test_lib:remote_apply(ClientNode, ssl, start, []),
-	    orber_test_lib:remote_apply(ServerNode, crypto, start, []),
-	    orber_test_lib:remote_apply(ClientNode, ssl, seed, ["testing"]),
-	    Obj = ?match(#'IOP_IOR'{}, 
-			 orber_test_lib:remote_apply(ClientNode, corba,
-						     string_to_object, ["corbaname:iiop:1.1@"++Loopback++":5648/NameService#mamba",
-									[{context, [#'IOP_ServiceContext'{context_id=?ORBER_GENERIC_CTX_ID, 
-													  context_data = {configuration, ClientOptions}}]}]])),
-	    ?match(ok, orber_test_lib:remote_apply(ClientNode, orber_test_server, 
-						   print, [Obj])),
-	    
-	    ok
-    end.
+							   {interceptors, {native, [orber_iiop_tracer_silent]}}|ExtraSSLOptions]])),
+    ServerOptions = orber_test_lib:get_options(iiop_ssl, server, 
+					       2, [{flags, ?ORB_ENV_LOCAL_INTERFACE}, 
+						   {iiop_port, 5648},
+						   {iiop_ssl_port, 5649},
+						   {interceptors, {native, [orber_iiop_tracer_silent]}}|ExtraSSLOptions]),
+    ?match({ok, _}, 
+	   orber_test_lib:remote_apply(ServerNode, orber, 
+				       add_listen_interface, 
+				       [Loopback, ssl, ServerOptions])),
+
+    ClientOptions = orber_test_lib:get_options(iiop_ssl, client, 
+					       2, [{iiop_ssl_port, 0}|ExtraSSLOptions]),
+    {ok, ClientNode, _ClientHost} = 
+	?match({ok,_,_}, orber_test_lib:js_node(ClientOptions)),
+
+    ?match(ok, orber_test_lib:remote_apply(ClientNode, orber_test_lib, 
+					   install_test_data, 
+					   [ssl])),
+    orber_test_lib:remote_apply(ClientNode, ssl, start, []),
+    orber_test_lib:remote_apply(ServerNode, crypto, start, []),
+    orber_test_lib:remote_apply(ClientNode, ssl, seed, ["testing"]),
+    Obj = ?match(#'IOP_IOR'{}, 
+		 orber_test_lib:remote_apply(ClientNode, corba,
+					     string_to_object, ["corbaname:iiop:1.1@"++Loopback++":5648/NameService#mamba",
+								[{context, [#'IOP_ServiceContext'{context_id=?ORBER_GENERIC_CTX_ID, 
+												  context_data = {configuration, ClientOptions}}]}]])),
+    ?match(ok, orber_test_lib:remote_apply(ClientNode, orber_test_server, 
+					   print, [Obj])).
 
 
 

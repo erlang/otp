@@ -894,12 +894,12 @@ definitions_loop([{#mc_object_type{name        = NameOfEntry,
 
 definitions_loop([{#mc_notification{name   = TrapName,
 				    status = deprecated}, Line}|T],
-		 false) ->
+		 #dldata{deprecated = false} = Data) ->
     ?vinfo2("defloop -> notification ~w is deprecated => ignored",
 	    [TrapName], Line),    
     update_status(TrapName, deprecated),
     ensure_macro_imported('NOTIFICATION-TYPE', Line),
-    definitions_loop(T, false);    
+    definitions_loop(T, Data);    
 
 definitions_loop([{#mc_notification{name   = TrapName,
 				    status = obsolete}, Line}|T],
@@ -1030,12 +1030,6 @@ definitions_loop([{#mc_module_compliance{name        = Name,
 	    ok
     end,
     definitions_loop(T, Data);
-
-%% definitions_loop([{#mc_module_compliance{name = Name},Line}|T], Data) ->
-%%     ?vlog2("defloop -> module_compliance:"
-%% 	   "~n   Name: ~p", [Name], Line),
-%%     ensure_macro_imported('MODULE-COMPLIANCE', Line),
-%%     definitions_loop(T, Data);
 
 definitions_loop([{#mc_object_group{name        = Name,
 				    objects     = GroupObjects,

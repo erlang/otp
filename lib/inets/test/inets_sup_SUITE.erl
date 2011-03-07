@@ -20,22 +20,27 @@
 
 -module(inets_sup_SUITE).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("test_server_line.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
-all(doc) ->
-    ["Test that the inets supervisorstructur is the expected one."];
-all(suite) ->
-    [
-     default_tree, 
-     ftpc_worker, 
-     tftpd_worker,
-     httpd_subtree, 
-     httpc_subtree
-    ].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [default_tree, ftpc_worker, tftpd_worker, httpd_subtree,
+     httpc_subtree].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config

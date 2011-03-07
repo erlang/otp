@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -155,7 +155,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"alcu_allocator",			"index"			},
     {	"alcu_delayed_free",			"index"			},
     {	"mseg",					NULL			},
-#ifdef HALFWORD_HEAP
+#if HALFWORD_HEAP
     {	"pmmap",				NULL			},
 #endif
 #ifdef ERTS_SMP
@@ -177,6 +177,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"async_id",				NULL			},
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
+    {	"misc_aux_work_queue",			"index"			},
+    {	"misc_aux_work_pre_alloc_lock",		"address"		},
     {	"sched_stat",				NULL			},
     {	"run_queue_sleep_list",			"address"		},
 #endif

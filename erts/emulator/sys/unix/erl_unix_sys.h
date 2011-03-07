@@ -329,11 +329,4 @@ extern int exit_async(void);
 
 #define ERTS_EXIT_AFTER_DUMP _exit
 
-#ifdef ERTS_TIMER_THREAD
-struct erts_iwait; /* opaque for clients */
-extern struct erts_iwait *erts_iwait_init(void);
-extern void erts_iwait_wait(struct erts_iwait *iwait, struct timeval *delay);
-extern void erts_iwait_interrupt(struct erts_iwait *iwait);
-#endif /* ERTS_TIMER_THREAD */
-
 #endif /* #ifndef _ERL_UNIX_SYS_H */

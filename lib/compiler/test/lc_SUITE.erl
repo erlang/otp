@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,21 +19,41 @@
 -module(lc_SUITE).
 
 -author('bjorn@erix.ericsson.se').
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
 	 empty_generator/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    test_lib:recompile(?MODULE),
-    [basic,deeply_nested,no_generator,empty_generator].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    test_lib:recompile(lc_SUITE),
+    [basic, deeply_nested, no_generator, empty_generator].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
     [{watchdog,Dog}|Config].
 
-fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
+end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
@@ -160,7 +180,7 @@ empty_generator(Config) when is_list(Config) ->
 id(I) -> I.
     
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args}|_]}}) -> ok;
-fc(Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
+fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Arity}|_]}})
   when length(Args) =:= Arity ->
     true = test_server:is_native(?MODULE);
 fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})

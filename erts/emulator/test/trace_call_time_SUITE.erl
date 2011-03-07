@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,12 +57,15 @@
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %% When run in test server.
--export([all/1, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, not_run/1]).
 -export([basic/1, on_and_off/1, info/1,
-	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, bif/1, nif/1]).
+	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, 
+	 bif/1, nif/1]).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(400)),
@@ -71,7 +74,7 @@ init_per_testcase(_Case, Config) ->
     timer:now_diff(now(),now()),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     erlang:trace(all, false, [all]),
@@ -79,14 +82,31 @@ fin_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(doc) ->
-    ["Test call count tracing of local function calls."];
-all(suite) ->
-    case test_server:is_native(?MODULE) of
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    case test_server:is_native(trace_call_time_SUITE) of
 	true -> [not_run];
-	false -> [basic, on_and_off, info,
-		  pause_and_restart, scheduling, combo, bif, nif, called_function]
+	false ->
+	    [basic, on_and_off, info, pause_and_restart, scheduling,
+	     combo, bif, nif, called_function]
     end.
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 not_run(Config) when is_list(Config) ->
     {skipped,"Native code"}.
@@ -407,7 +427,7 @@ nif(Config) when is_list(Config) ->
     ?line 1 = erlang:trace_pattern({?MODULE, nif_dec,  '_'}, true, [call_time]),
     ?line 1 = erlang:trace_pattern({?MODULE, with_nif, '_'}, true, [call_time]),
     ?line Pid = setup(),
-    ?line {L, T1} = execute(Pid, fun() -> with_nif(M) end),
+    ?line {_, T1} = execute(Pid, fun() -> with_nif(M) end),
 
     % the nif is called M - 1 times, the last time the function with 'with_nif'
     % returns ok and does not call the nif.
@@ -486,7 +506,7 @@ with_nif(N) ->
     with_nif(?MODULE:nif_dec(N)).
 
 
-nif_dec(N) -> 0.
+nif_dec(_) -> 0.
 
 dec(N) ->
     loaded(10000),

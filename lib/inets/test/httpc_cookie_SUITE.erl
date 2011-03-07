@@ -19,11 +19,11 @@
 %%
 -module(httpc_cookie_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("stdlib/include/ms_transform.hrl").
 
 %% Test server specific exports
--export([all/1, init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases must be exported.
 -export([session_cookies_only/1, netscape_cookies/1, 
@@ -116,22 +116,29 @@ end_per_testcase(Case, Config) ->
 %%   Name of a test case.
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
-all(doc) -> 
-    ["Describe the main purpose of this suite"];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [
-     session_cookies_only, 
-     netscape_cookies, 
-     cookie_cancel,
-     cookie_expires, 
-     persistent_cookie, 
-     domain_cookie, 
-     secure_cookie,
-     update_cookie, 
-     update_cookie_session, 
-     cookie_attributes
-    ].
+all() -> 
+    [session_cookies_only, netscape_cookies, cookie_cancel,
+     cookie_expires, persistent_cookie, domain_cookie,
+     secure_cookie, update_cookie, update_cookie_session,
+     cookie_attributes].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------

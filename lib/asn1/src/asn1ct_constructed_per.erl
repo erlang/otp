@@ -326,16 +326,14 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 textual_order([#'ComponentType'{textual_order=undefined}|_],TermList) ->
     TermList;
 textual_order(CompList,TermList) when is_list(CompList) ->
-     OrderList = [Ix||#'ComponentType'{textual_order=Ix} <- CompList],
+    OrderList = [Ix||#'ComponentType'{textual_order=Ix} <- CompList],
     [Term||{_,Term}<-
 	       lists:sort(lists:zip(OrderList,
 				    lists:sublist(TermList,length(OrderList))))];
 	       %% sublist is just because Termlist can sometimes be longer than
 	       %% OrderList, which it really shouldn't
 textual_order({Root,Ext},TermList) ->
-    textual_order(Root ++ Ext,TermList);
-textual_order({Root1,Ext,Root2},TermList) ->
-    textual_order(Root1 ++ Ext ++ Root2, TermList).
+    textual_order(Root ++ Ext,TermList).
 
 to_textual_order({Root,Ext}) ->
     {to_textual_order(Root),Ext};

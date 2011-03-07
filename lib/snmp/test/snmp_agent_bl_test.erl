@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,7 +89,7 @@ init_per_testcase(_Case, Config) when list(Config) ->
     Dog = ?t:timetrap(?t:minutes(6)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) when list(Config) ->
+end_per_testcase(_Case, Config) when list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     Config.

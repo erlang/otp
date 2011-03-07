@@ -17,21 +17,22 @@
 %% %CopyrightEnd%
 %%
 -module(shell_SUITE).
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 
 -export([forget/1, records/1, known_bugs/1, otp_5226/1, otp_5327/1,
-                 otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
-         bits/1, bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
-                 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
-                 bs_construct_SUITE/1,
-         refman/1, refman_bit_syntax/1, 
-         progex/1, progex_bit_syntax/1, progex_records/1, 
-                   progex_lc/1, progex_funs/1,
-         tickets/1, otp_5990/1, otp_6166/1, otp_6554/1, otp_6785/1,
-                    otp_7184/1, otp_7232/1, otp_8393/1]).
+	 otp_5435/1, otp_5195/1, otp_5915/1, otp_5916/1,
+	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
+	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
+	 bs_construct_SUITE/1,
+	 refman_bit_syntax/1, 
+	 progex_bit_syntax/1, progex_records/1, 
+	 progex_lc/1, progex_funs/1,
+	 otp_5990/1, otp_6166/1, otp_6554/1, otp_6785/1,
+	 otp_7184/1, otp_7232/1, otp_8393/1]).
 
--export([restricted/1, start_restricted_from_shell/1, 
-	 start_restricted_on_command_line/1,restricted_local/1]).
+-export([ start_restricted_from_shell/1, 
+	  start_restricted_on_command_line/1,restricted_local/1]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -50,8 +51,8 @@
 config(priv_dir,_) ->
     ".".
 -else.
--include("test_server.hrl").
--export([init_per_testcase/2, fin_per_testcase/2]).
+-include_lib("test_server/include/test_server.hrl").
+-export([init_per_testcase/2, end_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(2)).
 init_per_testcase(_Case, Config) ->
@@ -60,7 +61,7 @@ init_per_testcase(_Case, Config) ->
     ?line code:add_patha(?config(priv_dir,Config)),
     [{orig_path,OrigPath}, {watchdog, Dog} | Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     ?line Dog = ?config(watchdog, Config),
     ?line test_server:timetrap_cancel(Dog),
     ?line OrigPath = ?config(orig_path,Config),
@@ -71,18 +72,44 @@ fin_per_testcase(_Case, Config) ->
     ok.
 -endif.
 
-all(doc) ->
-    ["Test cases for the 'shell' module."];
-all(suite) ->
-    [forget, records, known_bugs, otp_5226, otp_5327, otp_5435, otp_5195,
-     otp_5915, otp_5916, bits, refman, progex, tickets, restricted].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [forget, records, known_bugs, otp_5226, otp_5327,
+     otp_5435, otp_5195, otp_5915, otp_5916, {group, bits},
+     {group, refman}, {group, progex}, {group, tickets},
+     {group, restricted}].
+
+groups() -> 
+    [{restricted, [],
+      [start_restricted_from_shell,
+       start_restricted_on_command_line, restricted_local]},
+     {bits, [],
+      [bs_match_misc_SUITE, bs_match_tail_SUITE,
+       bs_match_bin_SUITE, bs_construct_SUITE]},
+     {refman, [], [refman_bit_syntax]},
+     {progex, [],
+      [progex_bit_syntax, progex_records, progex_lc,
+       progex_funs]},
+     {tickets, [],
+      [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184,
+       otp_7232, otp_8393]}].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 -record(state, {bin, reply, leader}).
 
-restricted(doc) ->
-    ["Test restricted_shell"];
-restricted(suite) ->
-    [start_restricted_from_shell,start_restricted_on_command_line,restricted_local].
 
 start_restricted_from_shell(doc) ->
     ["Test that a restricted shell can be started from the normal shell"];
@@ -797,9 +824,6 @@ otp_5916(Config) when is_list(Config) ->
     [ok] = scan(C),
     ok.
 
-bits(suite) ->
-    [bs_match_misc_SUITE, % bs_match_int_SUITE/,
-     bs_match_tail_SUITE, bs_match_bin_SUITE, bs_construct_SUITE].
 
 bs_match_misc_SUITE(doc) ->
     ["OTP-5327. Adopted from parts of emulator/test/bs_match_misc_SUITE.erl."];
@@ -1520,8 +1544,6 @@ evaluate(Str, Vars) ->
 	    Result
     end.
 
-refman(suite) ->
-    [refman_bit_syntax].
 
 refman_bit_syntax(doc) ->
     ["Bit syntax examples from the Reference Manual. OTP-5237."];
@@ -1564,8 +1586,6 @@ refman_bit_syntax(Config) when is_list(Config) ->
     ?line <<2,4,6>> =  << << (X*2) >> || <<X>> <= << 1,2,3 >> >>,
     ok.
 
-progex(suite) ->
-    [progex_bit_syntax, progex_records, progex_lc, progex_funs].
 
 -define(IP_VERSION, 4).
 -define(IP_MIN_HDR_LEN, 5).
@@ -2256,8 +2276,6 @@ progex_funs(Config) when is_list(Config) ->
     ?line [ok] = scan(Test2_shell),
     ok.
 
-tickets(suite) ->
-    [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184, otp_7232, otp_8393].
 
 otp_5990(doc) ->
     "OTP-5990. {erlang,is_record}.";

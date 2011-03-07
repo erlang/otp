@@ -31,7 +31,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/src/manager/snmpm_usm.hrl").
 
@@ -42,10 +42,10 @@
 %% -compile(export_all).
 
 -export([
-	 all/1, 
-         init_per_testcase/2, fin_per_testcase/2,
+	all/0,groups/0,init_per_group/2,end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
 
-	 start_and_stop/1,
+	
 
 	 simple_start_and_stop/1,
 	 start_without_mandatory_opts1/1,
@@ -58,36 +58,36 @@
 	 start_with_invalid_agents_conf_file1/1,
 	 start_with_invalid_usm_conf_file1/1,
 
-	 normal_op/1,
+	
 
-	 system/1,
+	
 	 simple_system_op/1,
 
-	 users/1,
+	
 	 register_user_using_file/1,
 	 register_user_using_function/1,
 	 register_user_failed_using_function1/1,
 
-	 agents/1,
+	
 	 register_agent_using_file/1,
 	 register_agent_using_function/1,
 	 register_agent_failed_using_function1/1,
 
-	 usm_users/1,
+	
 	 register_usm_user_using_file/1,
 	 register_usm_user_using_function/1,
 	 register_usm_user_failed_using_function1/1,
 	 update_usm_user_info/1, 
 
-	 counter/1,
+	
 	 create_and_increment/1,
 
-	 stats_counter/1,
+	
 	 stats_create_and_increment/1,
 
-	 tickets/1,
+	
 	 otp_7219/1, 
-	 otp_8395/1, 
+	 
 	 otp_8395_1/1, 
 	 otp_8395_2/1, 
 	 otp_8395_3/1, 
@@ -150,8 +150,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
      {manager_log_dir,  MgrLogDir} | Config].
 
 
-fin_per_testcase(Case, Config) when is_list(Config) ->
-    p("fin_per_testcase -> Case: ~p", [Case]),
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> Case: ~p", [Case]),
     %% The cleanup is removed due to some really discusting NFS behaviour...
     %% CaseTopDir = ?config(manager_dir, Config),
     %% ?line ok = ?DEL_DIR(CaseTopDir),
@@ -163,33 +163,60 @@ fin_per_testcase(Case, Config) when is_list(Config) ->
 %%======================================================================
 % all(doc) ->
 %     "The top snmp manager config test case";
-all(suite) ->
-    [
-     start_and_stop,
-     normal_op,
-     tickets
-    ].
+all() -> 
+[{group, start_and_stop}, {group, normal_op},
+ {group, tickets}].
+
+groups() -> 
+    [{start_and_stop, [],
+      [simple_start_and_stop, 
+       start_without_mandatory_opts1,
+       start_without_mandatory_opts2,
+       start_with_all_valid_opts, start_with_unknown_opts,
+       start_with_incorrect_opts,
+       start_with_invalid_manager_conf_file1,
+       start_with_invalid_users_conf_file1,
+       start_with_invalid_agents_conf_file1,
+       start_with_invalid_usm_conf_file1]},
+     {normal_op, [],
+      [{group, system}, 
+       {group, agents}, 
+       {group, users},
+       {group, usm_users}, 
+       {group, counter},
+       {group, stats_counter}]},
+     {system, [], [simple_system_op]},
+     {users, [],
+      [register_user_using_file, 
+       register_user_using_function,
+       register_user_failed_using_function1]},
+     {agents, [],
+      [register_agent_using_file,
+       register_agent_using_function,
+       register_agent_failed_using_function1]},
+     {usm_users, [],
+      [register_usm_user_using_file,
+       register_usm_user_using_function,
+       register_usm_user_failed_using_function1,
+       update_usm_user_info]},
+     {counter, [], [create_and_increment]},
+     {stats_counter, [], [stats_create_and_increment]},
+     {tickets, [], [otp_7219, {group, otp_8395}]},
+     {otp_8395, [],
+      [otp_8395_1, otp_8395_2, otp_8395_3, otp_8395_4]}].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
 
 
 %%======================================================================
 %% Test functions
 %%======================================================================
 
-start_and_stop(doc) ->
-    "A collection of start and stop tests";
-start_and_stop(suite) ->
-    [
-     simple_start_and_stop,
-     start_without_mandatory_opts1,
-     start_without_mandatory_opts2,
-     start_with_all_valid_opts,
-     start_with_unknown_opts,
-     start_with_incorrect_opts,
-     start_with_invalid_manager_conf_file1,
-     start_with_invalid_users_conf_file1,
-     start_with_invalid_agents_conf_file1,
-     start_with_invalid_usm_conf_file1
-    ].
 
 
 %% 
@@ -794,7 +821,10 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     p("start"),
     process_flag(trap_exit, true),
     ConfDir = ?config(manager_conf_dir, Conf),
-    DbDir = ?config(manager_db_dir, Conf),
+    DbDir   = ?config(manager_db_dir, Conf),
+
+    verify_dir_existing(conf, ConfDir),
+    verify_dir_existing(db,   DbDir),
 
     Opts = [{versions, [v1]}, 
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
@@ -895,7 +925,10 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     p("start"),
     process_flag(trap_exit, true),
     ConfDir = ?config(manager_conf_dir, Conf),
-    DbDir = ?config(manager_db_dir, Conf),
+    DbDir   = ?config(manager_db_dir, Conf),
+
+    verify_dir_existing(conf, ConfDir),
+    verify_dir_existing(db,   DbDir),
 
     Opts = [{versions, [v1]}, 
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
@@ -1641,29 +1674,12 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
-normal_op(doc) ->
-    "A collection of tests for normal operation";
-normal_op(suite) ->
-    [
-     system,
-     agents,
-     users,
-     usm_users,
-     counter,
-     stats_counter
-    ].
 
 
 %% 
 %% ---
 %% 
 
-system(doc) ->
-    "Various system related operations with the snmp manager config";
-system(suite) ->
-    [
-     simple_system_op
-    ].
 
 simple_system_op(suite) -> [];
 simple_system_op(doc) -> 
@@ -1702,14 +1718,6 @@ simple_system_op(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
-users(doc) ->
-    "Various users related operations with the snmp manager config";
-users(suite) ->
-    [
-     register_user_using_file,
-     register_user_using_function,
-     register_user_failed_using_function1
-    ].
 
 
 %% 
@@ -1764,14 +1772,6 @@ register_user_failed_using_function1(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
-agents(doc) ->
-    "Various agents related operations with the snmp manager config";
-agents(suite) ->
-    [
-     register_agent_using_file,
-     register_agent_using_function,
-     register_agent_failed_using_function1
-    ].
 
 
 %% 
@@ -1950,15 +1950,6 @@ register_agent_failed_using_function1(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
-usm_users(doc) ->
-    "Various USM users related operations with the snmp manager config";
-usm_users(suite) ->
-    [
-     register_usm_user_using_file,
-     register_usm_user_using_function,
-     register_usm_user_failed_using_function1,
-     update_usm_user_info
-    ].
 
 
 %% 
@@ -2042,7 +2033,6 @@ register_usm_user_using_file(Conf) when is_list(Conf) ->
     %% --
     p("done"),
     ok.
-%% ?SKIP(not_yet_implemented).
 
 
 %% 
@@ -2208,12 +2198,6 @@ update_usm_user_info(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
-counter(doc) ->
-    "Various counter related operations with the snmp manager config";
-counter(suite) ->
-    [
-     create_and_increment
-    ].
 
 
 %% 
@@ -2258,13 +2242,6 @@ create_and_increment(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
-stats_counter(doc) ->
-    "Various statistic counter related operations with the "
- 	"snmp manager config";
-stats_counter(suite) ->
-    [
-     stats_create_and_increment
-    ].
 
 
 %% 
@@ -2323,11 +2300,6 @@ loop(N, _, F) when (N > 0) andalso is_function(F) ->
 %% Ticket test-cases
 %%======================================================================
 
-tickets(suite) ->
-    [
-     otp_7219, 
-     otp_8395
-    ].
 
 
 otp_7219(suite) ->
@@ -2379,13 +2351,6 @@ otp_7219(Config) when is_list(Config) ->
 
 
 
-otp_8395(suite) ->
-    [
-     otp_8395_1, 
-     otp_8395_2, 
-     otp_8395_3, 
-     otp_8395_4 
-    ].
 
 otp_8395_1(suite) -> [];
 otp_8395_1(doc) ->
@@ -2696,9 +2661,21 @@ write_usm_conf2(Dir, Str) ->
 
 
 write_conf_file(Dir, File, Str) ->
-    ?line {ok, Fd} = file:open(filename:join(Dir, File), write),
-    ?line ok = io:format(Fd, "~s", [Str]),
-    file:close(Fd).
+    case file:open(filename:join(Dir, File), write) of
+	{ok, Fd} ->
+	    ?line ok = io:format(Fd, "~s", [Str]),
+	    file:close(Fd);
+	{error, Reason} ->
+	    Info = 
+		[{dir, Dir, case (catch file:read_file_info(Dir)) of
+				{ok, FI} -> 
+				    FI;
+				_ ->
+				    undefined
+			    end},
+		 {file, File}], 
+	    exit({failed_writing_conf_file, Info, Reason})
+    end.
 
 
 maybe_start_crypto() ->
@@ -2719,6 +2696,17 @@ maybe_stop_crypto() ->
 	_ ->
 	    %% There is nothing to stop in this version of crypto..
 	    ok
+    end.
+
+
+%% ------
+
+verify_dir_existing(DirName, Dir) ->
+    case file:read_file_info(Dir) of
+	{ok, _} ->
+	    ok;
+	{error, Reason} ->
+	    exit({non_existing_dir, DirName, Dir, Reason})
     end.
 
 

@@ -1,0 +1,11 @@
+%% This file defines the target parameters.
+%% The data is inserted into the snmpTargetParamsTable defined
+%% in SNMP-TARGET-MIB.
+%% Each row is a 5-tuple:
+%% {Name, MPModel, SecurityModel, SecurityName, SecurityLevel}.
+%% For example
+%% {"target_v3", v3, usm, "", noAuthNoPriv}.
+%%
+
+
+{"target_v2", v2c, v2c, "initial", noAuthNoPriv}.

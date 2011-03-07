@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -4945,39 +4945,45 @@ static int inet_ctl_getifaddrs(inet_descriptor* desc_p,
 	*buf_p++ = '\0';
 	*buf_p++ = INET_IFOPT_FLAGS;
 	put_int32(IFGET_FLAGS(ifa_p->ifa_flags), buf_p); buf_p += 4;
-	if (ifa_p->ifa_addr->sa_family == AF_INET
+	if (ifa_p->ifa_addr) {
+	    if (ifa_p->ifa_addr->sa_family == AF_INET
 #if defined(AF_INET6)
-	    || ifa_p->ifa_addr->sa_family == AF_INET6
+		|| ifa_p->ifa_addr->sa_family == AF_INET6
 #endif
-	    ) {
-	    SOCKADDR_TO_BUF(INET_IFOPT_ADDR, ifa_p->ifa_addr);
-	    BUF_ENSURE(1);
-	    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, ifa_p->ifa_netmask);
-	    if (ifa_p->ifa_flags & IFF_POINTOPOINT) {
-		BUF_ENSURE(1);
-		SOCKADDR_TO_BUF(INET_IFOPT_DSTADDR, ifa_p->ifa_dstaddr);
-	    } else if (ifa_p->ifa_flags & IFF_BROADCAST) {
-		BUF_ENSURE(1);
-		SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR, ifa_p->ifa_broadaddr);
+		) {
+		SOCKADDR_TO_BUF(INET_IFOPT_ADDR, ifa_p->ifa_addr);
+		if (ifa_p->ifa_netmask) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_NETMASK, ifa_p->ifa_netmask);
+		}
+		if (ifa_p->ifa_dstaddr &&
+		    (ifa_p->ifa_flags & IFF_POINTOPOINT)) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_DSTADDR, ifa_p->ifa_dstaddr);
+		} else if (ifa_p->ifa_broadaddr &&
+			   (ifa_p->ifa_flags & IFF_BROADCAST)) {
+		    BUF_ENSURE(1);
+		    SOCKADDR_TO_BUF(INET_IFOPT_BROADADDR, ifa_p->ifa_broadaddr);
+		}
 	    }
-	}
 #if defined(AF_LINK) || defined(AF_PACKET)
-	else if (
+	    else if (
 #if defined(AF_LINK)
-		 ifa_p->ifa_addr->sa_family == AF_LINK
+		     ifa_p->ifa_addr->sa_family == AF_LINK
 #else
-		 0
+		     0
 #endif
 #if defined(AF_PACKET)
-		 || ifa_p->ifa_addr->sa_family == AF_PACKET
+		     || ifa_p->ifa_addr->sa_family == AF_PACKET
 #endif
-		 ) {
-	    char *bp = buf_p;
-	    BUF_ENSURE(1);
-	    SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
-	    if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+		     ) {
+		char *bp = buf_p;
+		BUF_ENSURE(1);
+		SOCKADDR_TO_BUF(INET_IFOPT_HWADDR, ifa_p->ifa_addr);
+		if (buf_p - bp < 4) buf_p = bp; /* Empty hwaddr */
+	    }
+#endif
 	}
-#endif
 	BUF_ENSURE(1);
 	*buf_p++ = '\0';
     }
@@ -5044,9 +5050,17 @@ static STATUS wrap_sockopt(STATUS (*function)() /* Yep, no parameter
 }
 #endif
 
+/* Per H @ Tail-f: The original code here had problems that possibly
+   only occur if you abuse it for non-INET sockets, but anyway:
+   a) If the getsockopt for SO_PRIORITY or IP_TOS failed, the actual
+      requested setsockopt was never even attempted.
+   b) If {get,set}sockopt for one of IP_TOS and SO_PRIORITY failed,
+      but ditto for the other worked and that was actually the requested
+      option, failure was still reported to erlang.                  */
+
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
 static int setopt_prio_tos_trick
-	   (int fd, int proto, int type, char* arg_ptr, int arg_sz)
+	(int fd, int proto, int type, char* arg_ptr, int arg_sz, int propagate)
 {
     /* The relations between SO_PRIORITY, TOS and other options
        is not what you (or at least I) would expect...:
@@ -5059,6 +5073,8 @@ static int setopt_prio_tos_trick
     int          tmp_ival_prio;
     int          tmp_ival_tos;
     int          res;
+    int          res_prio;
+    int          res_tos;
 #ifdef HAVE_SOCKLEN_T
 	    socklen_t
 #else
@@ -5067,28 +5083,35 @@ static int setopt_prio_tos_trick
 		tmp_arg_sz_prio = sizeof(tmp_ival_prio),
 		tmp_arg_sz_tos  = sizeof(tmp_ival_tos);
 
-    res = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
+    res_prio = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
 		      (char *) &tmp_ival_prio, &tmp_arg_sz_prio);
-    if (res == 0) {
-	res = sock_getopt(fd, SOL_IP, IP_TOS, 
+    res_tos = sock_getopt(fd, SOL_IP, IP_TOS, 
 		      (char *) &tmp_ival_tos, &tmp_arg_sz_tos);
-	if (res == 0) {
 	    res = sock_setopt(fd, proto, type, arg_ptr, arg_sz);
 	    if (res == 0) {
 		if (type != SO_PRIORITY) {
-		    if (type != IP_TOS) {
-			res = sock_setopt(fd, 
+	    if (type != IP_TOS && res_tos == 0) {
+		res_tos = sock_setopt(fd, 
 					  SOL_IP, 
 					  IP_TOS,
 					  (char *) &tmp_ival_tos, 
 					  tmp_arg_sz_tos);
+		if (propagate)
+		    res = res_tos;
 		    }
-		    if (res == 0) {
-			res =  sock_setopt(fd, 
+	    if (res == 0 && res_prio == 0) {
+		res_prio = sock_setopt(fd, 
 					   SOL_SOCKET, 
 					   SO_PRIORITY,
 					   (char *) &tmp_ival_prio, 
 					   tmp_arg_sz_prio);
+		if (propagate) {		
+		    /* Some kernels set a SO_PRIORITY by default that you are not permitted to reset,
+		       silently ignore this error condition */
+		    if (res_prio != 0 && sock_errno() == EPERM) {
+			res = 0;
+		    } else {
+			res = res_prio;
 		    }
 		}
 	    }
@@ -5434,7 +5457,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    return -1;
 	}
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz);
+	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, propagate);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif
@@ -5964,7 +5987,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    return -1;
 	}
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
-	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz);
+	res = setopt_prio_tos_trick (desc->s, proto, type, arg_ptr, arg_sz, 1);
 #else
 	res = sock_setopt	    (desc->s, proto, type, arg_ptr, arg_sz);
 #endif

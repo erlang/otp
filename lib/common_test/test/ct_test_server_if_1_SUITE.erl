@@ -29,7 +29,7 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -56,13 +56,20 @@ init_per_testcase(TestCase, Config) ->
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all(doc) -> 
-    [""];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) -> 
-    [
-     ts_if_1
-    ].
+all() -> 
+    [ts_if_1].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
+
      
 
 %%--------------------------------------------------------------------

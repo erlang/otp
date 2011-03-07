@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -235,6 +235,11 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 }
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
+
+typedef void (*erts_alloc_verify_func_t)(Allctr_t *);
+
+erts_alloc_verify_func_t
+erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assume a cache line size of 64 bytes */

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 
 -module(csiv2_SUITE).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -272,8 +272,9 @@
 %%-----------------------------------------------------------------
 %% External exports
 %%-----------------------------------------------------------------
--export([all/1, cases/0, init_all/1, finish_all/1,
-	 init_per_testcase/2, fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, cases/0,
+	 init_per_suite/1, end_per_suite/1,
+	 init_per_testcase/2, end_per_testcase/2,
 %	 code_CertificateChain_api/1,
 %	 code_AttributeCertChain_api/1,
 %	 code_VerifyingCertChain_api/1,
@@ -316,46 +317,26 @@
 %% Args: 
 %% Returns: 
 %%-----------------------------------------------------------------
-all(doc) -> ["API tests for multi orber interfaces using CSIv2"];
-all(suite) -> {req,
-               [mnesia],
-               {conf, init_all, cases(), finish_all}}.
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    cases().
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% NOTE - the fragment test cases must bu first since we explicitly set a request
 %% id. Otherwise, the request-id counter would be increased and we cannot know
 %% what it is.
-cases() ->
-    [
-%     code_CertificateChain_api,
-%     code_AttributeCertChain_api,
-%     code_VerifyingCertChain_api,
-%     code_AttributeCertificate_api,
-%     code_Certificate_api,
-%     code_TBSCertificate_api,
-%     code_CertificateSerialNumber_api,
-%     code_Version_api,
-%     code_AlgorithmIdentifier_api,
-%     code_Name_api,
-%     code_RDNSequence_api,
-%     code_RelativeDistinguishedName_api,
-%     code_AttributeTypeAndValue_api,
-%     code_Attribute_api,
-%     code_Validity_api,
-%     code_SubjectPublicKeyInfo_api,
-%     code_UniqueIdentifier_api,
-%     code_Extensions_api,
-%     code_Extension_api,
-%     code_AttributeCertificateInfo_api,
-%     code_AttCertVersion_api,
-%     code_Holder_api,
-%     code_AttCertIssuer_api,
-%     code_AttCertValidityPeriod_api,
-%     code_V2Form_api,
-%     code_IssuerSerial_api,
-%     code_ObjectDigestInfo_api,
-%     code_OpenSSL509_api,
-     ssl_server_peercert_api,
-     ssl_client_peercert_api].
+cases() -> 
+    [ssl_server_peercert_api, ssl_client_peercert_api].
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
@@ -370,7 +351,7 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, Dog}|Config].
 
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     oe_orber_test_server:oe_unregister(),
     orber:jump_stop(),
     Path = code:which(?MODULE),
@@ -379,15 +360,15 @@ fin_per_testcase(_Case, Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-init_all(Config) ->
-    if
-	is_list(Config) ->
-	    Config;
-	true ->
-	    exit("Config not a list")
+init_per_suite(Config) ->
+    case orber_test_lib:ssl_version() of
+	no_ssl ->
+	    {skip,"SSL is not installed!"};
+	_ ->
+	    Config
     end.
 
-finish_all(Config) ->
+end_per_suite(Config) ->
     Config.
 
 %%-----------------------------------------------------------------
@@ -694,8 +675,8 @@ ssl_server_peercert_api(_Config) ->
  	    {ok, Socket} = 
 		?match({ok, _}, fake_client_ORB(ssl, ServerHost, ServerPort, SSLOptions)),
 	    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
 %	    ?match({ok, #'Certificate'{}}, 
 %		   'OrberCSIv2':decode('Certificate', PeerCert)),
 	    destroy_fake_ORB(ssl, Socket),
@@ -734,8 +715,8 @@ ssl_client_peercert_api(_Config) ->
 	    ?match(ok, ssl:ssl_accept(Socket)),
 	    
 	    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
 %	    ?match({ok, #'Certificate'{}}, 
 %		   'OrberCSIv2':decode('Certificate', PeerCert)),
 	    ssl:close(Socket),

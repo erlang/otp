@@ -40,6 +40,28 @@
 	 sys_object_id/1, sys_object_id/2, sys_or_table/3,
 	 variable_func/1, variable_func/2,
 	 inc/1, inc/2]).
+-export([sysDescr/1, sysContact/1, sysName/1, sysLocation/1, 
+	 sysServices/1, sysUpTime/1, snmpEnableAuthenTraps/1, 
+	 sysObjectID/1, 
+	 snmpInPkts/1, snmpOutPkts/1, 
+	 snmpInBadVersions/1, 
+	 snmpInBadCommunityNames/1, snmpInBadCommunityUses/1, 
+	 snmpInASNParseErrs/1, 
+	 snmpInTooBigs/1, 
+	 snmpInNoSuchNames/1, snmpInBadValues/1,
+	 snmpInReadOnlys/1, snmpInGenErrs/1, 
+	 snmpInTotalReqVars/1, snmpInTotalSetVars/1, 
+	 snmpInGetRequests/1, snmpInSetRequests/1, 
+	 snmpInGetNexts/1, 
+	 snmpInGetResponses/1, snmpInTraps/1,
+	 snmpOutTooBigs/1,
+	 snmpOutNoSuchNames/1,
+	 snmpOutBadValues/1, 
+	 snmpOutGenErrs/1,
+	 snmpOutGetRequests/1, snmpOutSetRequests/1, 
+	 snmpOutGetNexts/1,
+	 snmpOutGetResponses/1,
+	 snmpOutTraps/1]).
 -export([dummy/1, snmp_set_serial_no/1, snmp_set_serial_no/2]).
 -export([add_agent_caps/2, del_agent_caps/1, get_agent_caps/0]).
 -export([check_standard/1]).
@@ -202,18 +224,257 @@ variable_func(get, Name) ->
 inc(Name) -> inc(Name, 1).
 inc(Name, N) -> ets:update_counter(snmp_agent_table, Name, N).
 
+
+sysDescr(print) ->
+    VarAndValue = [{sysDescr,  sysDescr(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
+sysDescr(get) ->
+    VarDB = db(sysDescr), 
+    snmp_generic:variable_get(VarDB).
+    
+
+sysContact(print) ->
+    VarAndValue = [{sysContact,  sysContact(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+
+sysContact(get) ->
+    VarDB = db(sysContact), 
+    snmp_generic:variable_get(VarDB).
+
+
+sysName(print) ->
+    VarAndValue = [{sysName,  sysName(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+
+sysName(get) ->
+    VarDB = db(sysName), 
+    snmp_generic:variable_get(VarDB).
+
+
+sysLocation(print) ->
+    VarAndValue = [{sysLocation,  sysLocation(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+
+sysLocation(get) ->
+    VarDB = db(sysLocation), 
+    snmp_generic:variable_get(VarDB).
+
+
+sysServices(print) ->
+    VarAndValue = [{sysServices,  sysServices(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+
+sysServices(get) ->
+    VarDB = db(sysServices), 
+    snmp_generic:variable_get(VarDB).
+
+
+snmpInPkts(print) ->
+    gen_counter(print, snmpInPkts);
+snmpInPkts(get) ->
+    gen_counter(get, snmpInPkts).
+
+
+snmpOutPkts(print) ->
+    gen_counter(print, snmpOutPkts);
+snmpOutPkts(get) ->
+    gen_counter(get, snmpOutPkts).
+
+
+snmpInASNParseErrs(print) ->
+    gen_counter(print, snmpInASNParseErrs);
+snmpInASNParseErrs(get) ->
+    gen_counter(get, snmpInASNParseErrs).
+    
+
+snmpInBadCommunityNames(print) ->
+    gen_counter(print, snmpInBadCommunityNames);
+snmpInBadCommunityNames(get) ->
+    gen_counter(get, snmpInBadCommunityNames).
+    
+
+snmpInBadCommunityUses(print) ->
+    gen_counter(print, snmpInBadCommunityUses);
+
+snmpInBadCommunityUses(get) ->
+    gen_counter(get, snmpInBadCommunityUses).
+    
+
+snmpInBadVersions(print) ->
+    gen_counter(print, snmpInBadVersions);
+snmpInBadVersions(get) ->
+    gen_counter(get, snmpInBadVersions).
+    
+
+snmpInTooBigs(print) ->
+    gen_counter(print, snmpInTooBigs);
+snmpInTooBigs(get) ->
+    gen_counter(get, snmpInTooBigs).
+    
+
+snmpInNoSuchNames(print) ->
+    gen_counter(print, snmpInNoSuchNames);
+snmpInNoSuchNames(get) ->
+    gen_counter(get, snmpInNoSuchNames).
+    
+
+snmpInBadValues(print) ->
+    gen_counter(print, snmpInBadValues);
+snmpInBadValues(get) ->
+    gen_counter(get, snmpInBadValues).
+    
+
+snmpInReadOnlys(print) ->
+    gen_counter(print, snmpInReadOnlys);
+snmpInReadOnlys(get) ->
+    gen_counter(get, snmpInReadOnlys).
+    
+
+snmpInGenErrs(print) ->
+    gen_counter(print, snmpInGenErrs);
+snmpInGenErrs(get) ->
+    gen_counter(get, snmpInGenErrs).
+    
+
+snmpInTotalReqVars(print) ->
+    gen_counter(print, snmpInTotalReqVars);
+snmpInTotalReqVars(get) ->
+    gen_counter(get, snmpInTotalReqVars).
+    
+
+snmpInTotalSetVars(print) ->
+    gen_counter(print, snmpInTotalSetVars);
+snmpInTotalSetVars(get) ->
+    gen_counter(get, snmpInTotalSetVars).
+    
+
+snmpInGetRequests(print) ->
+    gen_counter(print, snmpInGetRequests);
+snmpInGetRequests(get) ->
+    gen_counter(get, snmpInGetRequests).
+    
+
+snmpInSetRequests(print) ->
+    gen_counter(print, snmpInSetRequests);
+snmpInSetRequests(get) ->
+    gen_counter(get, snmpInSetRequests).
+    
+
+snmpInGetNexts(print) ->
+    gen_counter(print, snmpInGetNexts);
+snmpInGetNexts(get) ->
+    gen_counter(get, snmpInGetNexts).
+    
+
+snmpInGetResponses(print) ->
+    gen_counter(print, snmpInGetResponses);
+snmpInGetResponses(get) ->
+    gen_counter(get, snmpInGetResponses).
+    
+
+snmpInTraps(print) ->
+    gen_counter(print, snmpInTraps);
+snmpInTraps(get) ->
+    gen_counter(get, snmpInTraps).
+    
+
+snmpOutTooBigs(print) ->
+    gen_counter(print, snmpOutTooBigs);
+snmpOutTooBigs(get) ->
+    gen_counter(get, snmpOutTooBigs).
+    
+
+snmpOutNoSuchNames(print) ->
+    gen_counter(print, snmpOutNoSuchNames);
+snmpOutNoSuchNames(get) ->
+    gen_counter(get, snmpOutNoSuchNames).
+    
+
+snmpOutBadValues(print) ->
+    gen_counter(print, snmpOutBadValues);
+snmpOutBadValues(get) ->
+    gen_counter(get, snmpOutBadValues).
+    
+
+snmpOutGenErrs(print) ->
+    gen_counter(print, snmpOutGenErrs);
+snmpOutGenErrs(get) ->
+    gen_counter(get, snmpOutGenErrs).
+    
+
+snmpOutGetRequests(print) ->
+    gen_counter(print, snmpOutGetRequests);
+snmpOutGetRequests(get) ->
+    gen_counter(get, snmpOutGetRequests).
+    
+
+snmpOutSetRequests(print) ->
+    gen_counter(print, snmpOutSetRequests);
+snmpOutSetRequests(get) ->
+    gen_counter(get, snmpOutSetRequests).
+    
+
+snmpOutGetNexts(print) ->
+    gen_counter(print, snmpOutGetNexts);
+snmpOutGetNexts(get) ->
+    gen_counter(get, snmpOutGetNexts).
+    
+
+snmpOutGetResponses(print) ->
+    gen_counter(print, snmpOutGetResponses);
+snmpOutGetResponses(get) ->
+    gen_counter(get, snmpOutGetResponses).
+    
+
+snmpOutTraps(print) ->
+    gen_counter(print, snmpOutTraps);
+snmpOutTraps(get) ->
+    gen_counter(get, snmpOutTraps).
+    
+
+gen_counter(print, Counter) ->
+    Val         = gen_counter(get, Counter), 
+    VarAndValue = [{Counter, Val}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
+gen_counter(get, Counter) ->
+    variable_func(get, Counter).
+
+
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysUpTime.
 %%-----------------------------------------------------------------
+sysUpTime(print) ->
+    sys_up_time(print);
+sysUpTime(get) ->
+    sys_up_time(get).
+
 sys_up_time() ->
     snmpa:sys_up_time().
+
+sys_up_time(print) ->
+    VarAndValue = [{sysUpTime,  sys_up_time(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
 
 sys_up_time(get) ->
     {value, snmpa:sys_up_time()}.
 
+
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for snmpEnableAuthenTraps
 %%-----------------------------------------------------------------
+
+snmpEnableAuthenTraps(print) ->
+    snmp_enable_authen_traps(print);
+snmpEnableAuthenTraps(get) ->
+    snmp_enable_authen_traps(get).
+
+
+snmp_enable_authen_traps(print) ->
+    VarAndValue = [{snmpEnableAuthenTraps,  snmp_enable_authen_traps(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+    
 snmp_enable_authen_traps(new) ->
     snmp_generic:variable_func(new, db(snmpEnableAuthenTraps));
 
@@ -226,9 +487,19 @@ snmp_enable_authen_traps(get) ->
 snmp_enable_authen_traps(set, NewVal) ->
     snmp_generic:variable_func(set, NewVal, db(snmpEnableAuthenTraps)).
 
+
 %%-----------------------------------------------------------------
-%% This is the instrumentation function for sysObjectId
+%% This is the instrumentation function for sysObjectID
 %%-----------------------------------------------------------------
+sysObjectID(print) ->
+    sys_object_id(print);
+sysObjectID(get) ->
+    sys_object_id(get).
+
+sys_object_id(print) ->
+    VarAndValue = [{sysObjectID,  sys_object_id(get)}],
+    snmpa_mib_lib:print_variables(VarAndValue);
+
 sys_object_id(new) ->
     snmp_generic:variable_func(new, db(sysObjectID));
 
@@ -241,6 +512,7 @@ sys_object_id(get) ->
 sys_object_id(set, NewVal) ->
     snmp_generic:variable_func(set, NewVal, db(sysObjectID)).
 
+
 %%-----------------------------------------------------------------
 %% This is a dummy instrumentation function for objects like
 %% snmpTrapOID, that is accessible-for-notify, with different
@@ -248,6 +520,7 @@ sys_object_id(set, NewVal) ->
 %% new/delete.
 %%-----------------------------------------------------------------
 dummy(_Op) -> ok.
+
 
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for snmpSetSerialNo.

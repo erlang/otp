@@ -42,6 +42,7 @@
 %%==========================================================================
 
 %% @type egd_image()
+%% @type font()
 %% @type point() = {integer(), integer()}
 %% @type color()  
 %% @type render_option() = {render_engine, opaque} | {render_engine, alpha}

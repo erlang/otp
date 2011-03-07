@@ -48,6 +48,7 @@ $(HTMLDIR)/ref_man.html: \
 	snmp_app.xml \
 	snmp.xml \
 	snmpc.xml \
+	snmpc_cmd.xml \
 	snmpa.xml \
 	snmpa_conf.xml \
 	snmpa_discovery_handler.xml \

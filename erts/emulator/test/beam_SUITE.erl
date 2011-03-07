@@ -19,16 +19,37 @@
 
 -module(beam_SUITE).
 
--export([all/1, packed_registers/1, apply_last/1, apply_last_bif/1,
-	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2, 
+	 packed_registers/1, apply_last/1, apply_last_bif/1,
+	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1,
+	 select_val/1]).
 
 -export([applied/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
-all(suite) ->
-    [packed_registers, apply_last, apply_last_bif, buildo_mucho,
-     heap_sizes, big_lists].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [packed_registers, apply_last, apply_last_bif,
+     buildo_mucho, heap_sizes, big_lists, select_val].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 
 %% Verify that apply(M, F, A) is really tail recursive.
@@ -302,3 +323,19 @@ do_fconv(nil, Float) when is_float(Float) ->
     Float + [];
 do_fconv(tuple_literal, Float) when is_float(Float) ->
     Float + {a,b}.
+
+select_val(Config) when is_list(Config) ->
+    ?line zero = do_select_val(0),
+    ?line big = do_select_val(1 bsl 64),
+    ?line integer = do_select_val(42),
+    ok.
+
+do_select_val(X) ->
+    case X of
+	0 ->
+	    zero;
+	1 bsl 64 ->
+	    big;
+	Int when is_integer(Int) ->
+	    integer
+    end.

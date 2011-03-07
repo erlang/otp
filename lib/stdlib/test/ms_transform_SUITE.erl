@@ -19,9 +19,10 @@
 -module(ms_transform_SUITE).
 -author('pan@erix.ericsson.se').
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2]).
 -export([basic_ets/1]).
 -export([basic_dbg/1]).
 -export([from_shell/1]).
@@ -38,21 +39,40 @@
 -export([float_1_function/1]).
 -export([action_function/1]).
 -export([warnings/1]).
--export([init_per_testcase/2, fin_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 
 init_per_testcase(_Func, Config) ->
     Dog=test_server:timetrap(test_server:seconds(360)),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
-all(suite) -> [from_shell,basic_ets,basic_dbg,records,record_index,multipass,
-	       bitsyntax, record_defaults, andalso_orelse,
-               float_1_function, action_function, 
-	       warnings,
-	       top_match, old_guards, autoimported, semicolon].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [from_shell, basic_ets, basic_dbg, records,
+     record_index, multipass, bitsyntax, record_defaults,
+     andalso_orelse, float_1_function, action_function,
+     warnings, top_match, old_guards, autoimported,
+     semicolon].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 %% This may be subject to change
 -define(WARN_NUMBER_SHADOW,50).

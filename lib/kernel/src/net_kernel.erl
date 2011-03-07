@@ -322,24 +322,19 @@ init({Name, LongOrShortNames, TickT}) ->
 	    process_flag(priority, max),
 	    Ticktime = to_integer(TickT),
 	    Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
-	    case auth:get_cookie(Node) of
-		Cookie when is_atom(Cookie) ->
-		    {ok, #state{name = Name,
-				node = Node,
-				type = LongOrShortNames,
-				tick = #tick{ticker = Ticker, time = Ticktime},
-				connecttime = connecttime(),
-				connections =
-				    ets:new(sys_dist,[named_table,
-						      protected,
-						      {keypos, 2}]),
-				listen = Listeners,
-				allowed = [],
-				verbose = 0
-			       }};
-		_ELSE ->
-		    {stop, {error,{bad_cookie, Node}}}
-	    end;
+	    {ok, #state{name = Name,
+			node = Node,
+			type = LongOrShortNames,
+			tick = #tick{ticker = Ticker, time = Ticktime},
+			connecttime = connecttime(),
+			connections =
+			ets:new(sys_dist,[named_table,
+					  protected,
+					  {keypos, 2}]),
+			listen = Listeners,
+			allowed = [],
+			verbose = 0
+		       }};
 	Error ->
 	    {stop, Error}
     end.

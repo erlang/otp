@@ -28,7 +28,7 @@
 -module(ct_master_SUITE).
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
@@ -81,15 +81,19 @@ end_per_testcase(TestCase, Config) ->
     
     ct_test_support:end_per_testcase(TestCase, Config).
 
-all() ->
-    all(suite).
-all(doc) ->
-    [""];
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all(suite) ->
-    [
-	ct_master_test
-    ].
+all() -> 
+    [ct_master_test].
+
+groups() -> 
+    [].
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 
 %%--------------------------------------------------------------------
 %% TEST CASES

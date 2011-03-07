@@ -22,19 +22,40 @@
 
 %% Test break points.
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
--export([all/1,init_per_testcase/2,fin_per_testcase/2,
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2,
 	 app_test/1,erts_debug/1,encrypted_debug_info/1,
 	 no_abstract_code/1]).
 
-all(suite) ->
-    [app_test,erts_debug,no_abstract_code,encrypted_debug_info].
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [app_test, erts_debug, no_abstract_code,
+     encrypted_debug_info].
+
+groups() -> 
+    [].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(_Case, Config) ->
     Dog=test_server:timetrap(?t:minutes(0.5)),
     [{watchdog, Dog}|Config].
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.

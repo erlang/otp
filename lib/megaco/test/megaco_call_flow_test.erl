@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,37 +50,25 @@ t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 init_per_testcase(Case, Config) ->
     megaco_test_lib:init_per_testcase(Case, Config).
 
-fin_per_testcase(Case, Config) ->
-    megaco_test_lib:fin_per_testcase(Case, Config).
+end_per_testcase(Case, Config) ->
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
-all(suite) ->
-    [
-     text,
-     binary
-    ].
+all() -> 
+    [{group, text}, {group, binary}].
 
-text(suite) ->
-    [
-     pretty,
-     compact
-    ].
+groups() -> 
+    [{text, [], [pretty, compact]},
+     {flex, [], [pretty_flex, compact_flex]},
+     {binary, [], [bin, ber, ber_bin, per]}].
 
-flex(suite) ->
-    [
-     pretty_flex,
-     compact_flex
-    ].
+init_per_group(_GroupName, Config) ->
+    Config.
 
-binary(suite) ->
-    [
-     bin,
-     ber,
-     ber_bin,
-     per
-    ].
+end_per_group(_GroupName, Config) ->
+    Config.
 
 pretty(suite) ->
     [];
