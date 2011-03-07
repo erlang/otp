@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2002-2009. All Rights Reserved.
+# Copyright Ericsson AB 2002-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -59,8 +59,10 @@ BINDIR= $(PRIVDIR)/bin
 EXECUTABLES= \
 	$(BINDIR)/etop \
 	$(BINDIR)/getop \
+	$(BINDIR)/cdv \
 	$(BINDIR)/etop.bat \
-	$(BINDIR)/getop.bat
+	$(BINDIR)/getop.bat \
+	$(BINDIR)/cdv.bat
 CDVDIR= $(PRIVDIR)/crashdump_viewer
 GIF_FILES= \
 	$(CDVDIR)/collapsd.gif \

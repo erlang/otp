@@ -112,7 +112,7 @@ pre_init_per_suite(_Suite,Config,State) ->
     catch Error:Reason ->
 	    Stack = erlang:get_stacktrace(),
 	    ct:pal("~p failed! ~p:{~p,~p}",[?MODULE,Error,Reason,Stack]),
-	    {fail,{?MODULE,{Error,Reason, Stack}}}
+	    {{fail,{?MODULE,{Error,Reason, Stack}}},State}
     end.
 
 %% @doc Called after init_per_suite.

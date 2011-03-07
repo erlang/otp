@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,10 +46,10 @@
 
 	 %% Verification functions
          verify_val/2,
-	 verify_strict_uint/1,
-	 verify_strict_int/1, verify_strict_int/2, 
-	 verify_uint/1,
-	 verify_int/1, verify_int/2,
+%% 	 verify_strict_uint/1,
+%% 	 verify_strict_int/1, verify_strict_int/2, 
+%% 	 verify_uint/1,
+%% 	 verify_int/1, verify_int/2,
          
 
 	 %% Reply limit counter
@@ -1501,28 +1501,37 @@ verify_val(Item, Val) ->
         mid                    -> true;
         local_mid              -> true;
         remote_mid             -> true;
-        min_trans_id           -> verify_strict_uint(Val, 4294967295); % uint32
-        max_trans_id           -> verify_uint(Val, 4294967295);        % uint32
+        min_trans_id           -> 
+	    megaco_config_misc:verify_strict_uint(Val, 4294967295); % uint32
+        max_trans_id           -> 
+	    megaco_config_misc:verify_uint(Val, 4294967295);        % uint32
         request_timer          -> verify_timer(Val);
         long_request_timer     -> verify_timer(Val);
 
-        auto_ack               -> verify_bool(Val);
+        auto_ack               -> 
+	    megaco_config_misc:verify_bool(Val);
 
-	trans_ack              -> verify_bool(Val);
-        trans_ack_maxcount     -> verify_uint(Val);
+	trans_ack              -> 
+	    megaco_config_misc:verify_bool(Val);
+        trans_ack_maxcount     -> 
+	    megaco_config_misc:verify_uint(Val);
 
-	trans_req              -> verify_bool(Val);
-        trans_req_maxcount     -> verify_uint(Val);
-        trans_req_maxsize      -> verify_uint(Val);
+	trans_req              -> 
+	    megaco_config_misc:verify_bool(Val);
+        trans_req_maxcount     -> 
+	    megaco_config_misc:verify_uint(Val);
+        trans_req_maxsize      -> 
+	    megaco_config_misc:verify_uint(Val);
 
-        trans_timer            -> verify_timer(Val) and (Val >= 0);
-	trans_sender when Val == undefined -> true;
+        trans_timer            -> 
+	    verify_timer(Val) and (Val >= 0);
+	trans_sender when Val =:= undefined -> true;
 
         pending_timer                      -> verify_timer(Val);
-        sent_pending_limit                 -> verify_uint(Val) andalso 
-								 (Val > 0);
-        recv_pending_limit                 -> verify_uint(Val) andalso 
-								 (Val > 0);
+        sent_pending_limit                 -> 
+	    megaco_config_misc:verify_uint(Val) andalso (Val > 0);
+        recv_pending_limit                 -> 
+	    megaco_config_misc:verify_uint(Val) andalso (Val > 0);
         reply_timer                        -> verify_timer(Val);
         control_pid      when is_pid(Val)  -> true;
         monitor_ref                        -> true; % Internal usage only
@@ -1530,110 +1539,43 @@ verify_val(Item, Val) ->
         send_handle                        -> true;
         encoding_mod     when is_atom(Val) -> true;
         encoding_config  when is_list(Val) -> true;
-        protocol_version                   -> verify_strict_uint(Val);
+        protocol_version                   -> 
+	    megaco_config_misc:verify_strict_uint(Val);
         auth_data                          -> true;
         user_mod         when is_atom(Val) -> true;
         user_args        when is_list(Val) -> true;
         reply_data                         -> true;
-        threaded                           -> verify_bool(Val);
-        strict_version                     -> verify_bool(Val);
-	long_request_resend                -> verify_bool(Val);
-	call_proxy_gc_timeout              -> verify_strict_uint(Val);
-	cancel                             -> verify_bool(Val);
+        threaded                           -> 
+	    megaco_config_misc:verify_bool(Val);
+        strict_version                     -> 
+	    megaco_config_misc:verify_bool(Val);
+	long_request_resend                -> 
+	    megaco_config_misc:verify_bool(Val);
+	call_proxy_gc_timeout              -> 
+	    megaco_config_misc:verify_strict_uint(Val);
+	cancel                             -> 
+	    megaco_config_misc:verify_bool(Val);
 	resend_indication                  -> verify_resend_indication(Val);
 
-	segment_reply_ind               -> verify_bool(Val);
-	segment_recv_acc                -> verify_bool(Val);
+	segment_reply_ind               -> 
+	    megaco_config_misc:verify_bool(Val);
+	segment_recv_acc                -> 
+	    megaco_config_misc:verify_bool(Val);
 	segment_recv_timer              -> verify_timer(Val);
 	segment_send                    -> verify_segmentation_window(Val);
 	segment_send_timer              -> verify_timer(Val);
-	max_pdu_size                    -> verify_int(Val) andalso (Val > 0);
+	max_pdu_size                    -> 
+	    megaco_config_misc:verify_int(Val) andalso (Val > 0);
 	request_keep_alive_timeout      -> 
-	    (verify_uint(Val) orelse (Val =:= plain));
+	    (megaco_config_misc:verify_uint(Val) orelse (Val =:= plain));
 
         _                               -> false
     end.
 
 
 
-verify_bool(true)  -> true;
-verify_bool(false) -> true;
-verify_bool(_)     -> false.
-
 verify_resend_indication(flag) -> true;
-verify_resend_indication(Val)  -> verify_bool(Val).
-
--spec verify_strict_int(Int :: integer()) -> boolean().
-verify_strict_int(Int) when is_integer(Int) -> true;
-verify_strict_int(_)                        -> false.
-
--spec verify_strict_int(Int :: integer(), 
-			Max :: integer() | 'infinity') -> boolean().
-verify_strict_int(Int, infinity) ->
-    verify_strict_int(Int);
-verify_strict_int(Int, Max) ->
-    verify_strict_int(Int) andalso verify_strict_int(Max) andalso (Int =< Max).
-
--spec verify_strict_uint(Int :: non_neg_integer()) -> boolean().
-verify_strict_uint(Int) when is_integer(Int) andalso (Int >= 0) -> true;
-verify_strict_uint(_)                                           -> false.
-
--spec verify_strict_uint(Int :: non_neg_integer(), 
-			 Max :: non_neg_integer() | 'infinity') -> boolean().
-verify_strict_uint(Int, infinity) ->
-    verify_strict_uint(Int);
-verify_strict_uint(Int, Max) ->
-    verify_strict_int(Int, 0, Max).
-
--spec verify_uint(Val :: non_neg_integer() | 'infinity') -> boolean().
-verify_uint(infinity) -> true;
-verify_uint(Val)      -> verify_strict_uint(Val).
-
--spec verify_int(Val :: integer() | 'infinity') -> boolean().
-verify_int(infinity) -> true;
-verify_int(Val)      -> verify_strict_int(Val).
-
--spec verify_int(Int :: integer() | 'infinity', 
-		 Max :: integer() | 'infinity') -> boolean().
-verify_int(Int, infinity) ->
-    verify_int(Int);
-verify_int(infinity, _Max) ->
-    true;
-verify_int(Int, Max) ->
-    verify_strict_int(Int) andalso verify_strict_int(Max) andalso (Int =< Max).
-
--spec verify_uint(Int :: non_neg_integer() | 'infinity', 
-		  Max :: non_neg_integer() | 'infinity') -> boolean().
-verify_uint(Int, infinity) ->
-    verify_uint(Int);
-verify_uint(infinity, _Max) ->
-    true;
-verify_uint(Int, Max) ->
-    verify_strict_int(Int, 0, Max).
-
--spec verify_strict_int(Int :: integer(), 
-			Min :: integer(), 
-			Max :: integer()) -> boolean().
-verify_strict_int(Val, Min, Max) 
-  when (is_integer(Val) andalso 
-	is_integer(Min) andalso 
-	is_integer(Max) andalso 
-	(Val >= Min)    andalso 
-	(Val =< Max)) ->
-    true;
-verify_strict_int(_Val, _Min, _Max) ->
-    false.
-    
--spec verify_int(Val :: integer() | 'infinity', 
-		 Min :: integer(), 
-		 Max :: integer() | 'infinity') -> boolean(). 
-verify_int(infinity, Min, infinity) ->
-    verify_strict_int(Min);
-verify_int(Val, Min, infinity) ->
-    verify_strict_int(Val) andalso 
-	verify_strict_int(Min) andalso (Val >= Min);
-verify_int(Int, Min, Max) ->
-    verify_strict_int(Int, Min, Max).
+verify_resend_indication(Val)  -> megaco_config_misc:verify_bool(Val).
 
 verify_timer(Timer) ->
     megaco_timer:verify(Timer).
@@ -1641,7 +1583,7 @@ verify_timer(Timer) ->
 verify_segmentation_window(none) ->
     true;
 verify_segmentation_window(K) ->
-    verify_int(K, 1, infinity).
+    megaco_config_misc:verify_int(K, 1, infinity).
 
 handle_stop_user(UserMid) ->
     case catch user_info(UserMid, mid) of

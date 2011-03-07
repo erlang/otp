@@ -303,6 +303,7 @@ make/win32/
 # snmp
 
 /lib/snmp/bin/snmp-v2tov1
+/lib/snmp/bin/snmpc
 /lib/snmp/examples/ex1/EX1-MIB.bin
 /lib/snmp/mibs/Makefile
 /lib/snmp/mibs/v1/OTP-SNMPEA-MIB.mib.v1

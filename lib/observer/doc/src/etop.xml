@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2002</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -26,27 +26,33 @@
     <title>etop</title>
     <prepared>Siri hansen</prepared>
     <responsible></responsible>
-    <docno>1</docno>
+    <docno></docno>
     <approved></approved>
     <checked></checked>
-    <date>2002-03-27</date>
-    <rev>PA1</rev>
-    <file>etop.sgml</file>
+    <date></date>
+    <rev></rev>
+    <file></file>
   </header>
   <module>etop</module>
   <modulesummary>Erlang Top is a tool for presenting information about erlang processes similar to the information presented by "top" in UNIX.</modulesummary>
   <description>
+
     <p><c>etop</c> should be started with the provided scripts
       <c>etop</c> and <c>getop</c> for text based and graphical
-      presentation respectively. Under Windows the batch files
-      <c>etop.bat</c> and <c>getop.bat</c> can be used.
-      </p>
-    <p>All interaction with <c>etop</c> when running the graphical
-      presentation should happen via the menus. For the text based
-      presentation the functions described below can be used.
-      </p>
-    <p>The following configuration parameters exist for <c>etop</c>.
-      </p>
+      presentation respectively. This will start a hidden erlang node
+      which connects to the node to be measured. The measured node is
+      given with the <c>-node</c> option. If the measured node has a
+      different cookie than the default cookie for the user who
+      invokes the script, the cookie must be explicitly given witht
+      the <c>-setcookie</c> option.</p>
+
+    <p>Under Windows the batch files <c>etop.bat</c> and
+      <c>getop.bat</c> can be used.</p>
+
+    <p>The following configuration parameters exist for the
+    <c>etop</c> tool. When executing the <c>etop</c> or <c>getop</c>
+    scripts, these parameters can be given as command line options,
+    e.g. <c>getop -node testnode@myhost -setcookie MyCookie</c>.</p>
     <taglist>
       <tag>node</tag>
       <item>The measured node.
@@ -96,6 +102,15 @@ Default: <c>runtime</c> (<c>reductions</c> if
 Value: <c>on | off</c>      <br></br>
 Default: <c>on</c></item>
     </taglist>
+
+    <p>All interaction with <c>etop</c> when running the graphical
+      presentation should happen via the menus. For the text based
+      presentation the functions described below can be used.
+      </p>
+
+    <p>See the <seealso marker="etop_ug">user's guide</seealso> for
+    more information about the <c>etop</c> tool.</p>
+
   </description>
   <funcs>
     <func>

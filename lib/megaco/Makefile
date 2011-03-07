@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1999-2009. All Rights Reserved.
+# Copyright Ericsson AB 1999-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -97,11 +97,18 @@ endif
 CONFIGURE_OPTS = $(FLEX_SCANNER_LINENO_ENABLER) $(FLEX_SCANNER_REENTRANT_ENABLER)
 
 
+MEGACO_DIA_PLT     = ./priv/megaco.plt
+MEGACO_DIA_PLT_LOG = $(basename $(MEGACO_DIA_PLT)).dialyzer_plt_log
+MEGACO_DIA_LOG     = $(basename $(MEGACO_DIA_PLT)).dialyzer_log
+
 
 # ----------------------------------------------------
 # Default Subdir Targets
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
+
+.PHONY: reconf conf dconf econf configure setup info version \
+	app_install dialyzer
 
 reconf:
 	(cd $(ERL_TOP) && \
@@ -132,6 +139,10 @@ info:
 	@echo "APP_TAR_FILE:    $(APP_TAR_FILE)"
 	@echo "OTP_INSTALL_DIR: $(OTP_INSTALL_DIR)"
 	@echo "APP_INSTALL_DIR: $(APP_INSTALL_DIR)"
+	@echo ""
+	@echo "MEGACO_PLT     = $(MEGACO_PLT)"
+	@echo "MEGACO_DIA_LOG = $(MEGACO_DIA_LOG)"
+	@echo ""
 
 version:
 	@echo "$(VSN)"
@@ -190,9 +201,18 @@ tar: $(APP_TAR_FILE)
 $(APP_TAR_FILE): $(APP_DIR)
 	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
 
-dialyzer: 
-	(cd ./ebin; \
-         dialyzer --build_plt \
-                  --output_plt ../priv/megaco.plt \
-                  -r ../../megaco/ebin \
-                  --verbose)
+dialyzer_plt: $(MEGACO_DIA_PLT)
+
+$(MEGACO_DIA_PLT): 
+	@echo "Building megaco plt file"
+	@dialyzer --build_plt \
+                  --output_plt $@ \
+                  -r ../megaco/ebin \
+                  -o $(MEGACO_DIA_PLT_LOG) \
+                  --verbose
+
+dialyzer: $(MEGACO_DIA_PLT)
+	(dialyzer --plt $< \
+                  -o $(MEGACO_DIA_LOG) \
+                  ../megaco/ebin \
+                  && (shell cat $(MEGACO_DIA_LOG)))

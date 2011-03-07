@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -877,9 +877,7 @@ decode_bandwidth_bwt("CT") ->
 decode_bandwidth_bwt("AS") ->
     as;
 decode_bandwidth_bwt(BwType) when is_list(BwType) ->
-    BwType;
-decode_bandwidth_bwt(BadBwType) ->
-    error({invalid_bandwidth_bwtype, BadBwType}).
+    BwType.
 
 encode_bandwidth_bwt(ct) ->
     "CT";

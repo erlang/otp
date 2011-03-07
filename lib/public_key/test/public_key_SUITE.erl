@@ -41,10 +41,10 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case application:start(crypto) of
+    try crypto:start() of
 	ok ->
-	    Config;
-	_ ->
+	    Config
+    catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
 %%--------------------------------------------------------------------
