@@ -27,7 +27,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("test_server.hrl").
 -include("test_server_line.hrl").
--include("../src/ssh.hrl").
+-include_lib("ssh/src/ssh.hrl").
 
 -define(TIMEOUT, 50000).
 

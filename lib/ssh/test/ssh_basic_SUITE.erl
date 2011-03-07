@@ -102,7 +102,7 @@ end_per_testcase(_TestCase, _Config) ->
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
 all() -> 
-    [exec, exec_compressed, shell, daemon_allready_started,
+    [exec, exec_compressed, shell, daemon_already_started,
      server_password_option, server_userpassword_option,
      known_hosts].
 
