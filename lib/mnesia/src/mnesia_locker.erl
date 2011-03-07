@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1104,6 +1104,7 @@ do_stop() ->
 system_continue(_Parent, _Debug, State) ->
     loop(State).
 
+-spec system_terminate(_, _, _, _) -> no_return().
 system_terminate(_Reason, _Parent, _Debug, _State) ->
     do_stop().
 

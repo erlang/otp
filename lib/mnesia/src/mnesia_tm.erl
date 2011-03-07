@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1604,6 +1604,7 @@ tell_participants([Pid | Pids], Msg) ->
 tell_participants([], _Msg) ->
     ok.
 
+-spec commit_participant(_, _, _, _, _) -> no_return().
 %% Trap exit because we can get a shutdown from application manager
 commit_participant(Coord, Tid, Bin, DiscNs, RamNs) when is_binary(Bin) ->
     process_flag(trap_exit, true),
@@ -2279,6 +2280,7 @@ fixtable(Tab, Lock, Me) ->
 system_continue(_Parent, _Debug, State) ->
     doit_loop(State).
 
+-spec system_terminate(_, _, _, _) -> no_return().
 system_terminate(_Reason, _Parent, _Debug, State) ->
     do_stop(State).
 
