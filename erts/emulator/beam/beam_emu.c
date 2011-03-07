@@ -6398,6 +6398,7 @@ call_fun(Process* p,		/* Current process. */
 		reg[0] = module;
 		reg[1] = fun;
 		reg[2] = args;
+		reg[3] = NIL;
 		return ep->address;
 	    }
 	}

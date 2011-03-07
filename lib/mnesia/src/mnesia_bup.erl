@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,6 +65,8 @@
                         default_op = keep_tables                       
                        }).
 
+-type fallback_args() :: #fallback_args{}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Backup iterator
 
@@ -108,6 +110,7 @@ iter(R, Header, Schema, Fun, Acc, BupItems) ->
     Acc2 = Fun(BupItems, Header, Schema, Acc),
     iter(R, Header, Schema, Fun, Acc2, []).
 
+-spec safe_apply(#restore{}, atom(), list()) -> tuple().
 safe_apply(R, write, [_, Items]) when Items =:= [] ->
     R;
 safe_apply(R, What, Args) ->
@@ -570,6 +573,7 @@ fallback_bup() -> mnesia_lib:dir(fallback_name()).
 fallback_tmp_name() -> "FALLBACK.TMP".
 %% fallback_full_tmp_name() -> mnesia_lib:dir(fallback_tmp_name()).
 
+-spec fallback_receiver(pid(), fallback_args()) -> no_return().
 fallback_receiver(Master, FA) ->
     process_flag(trap_exit, true),
     
@@ -981,6 +985,7 @@ do_uninstall_fallback(FA) ->
             {error, Reason}
     end.
 
+-spec uninstall_fallback_master(pid(), fallback_args()) -> no_return().
 uninstall_fallback_master(ClientPid, FA) ->
     process_flag(trap_exit, true),
 

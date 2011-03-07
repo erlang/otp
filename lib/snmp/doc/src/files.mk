@@ -65,6 +65,9 @@ XML_MANAGER_REF3_FILES = \
 	snmpm_network_interface_filter.xml \
 	snmpm_user.xml
 
+XML_REF1_FILES = \
+        $(XML_COMP_REF1_FILES)
+
 XML_REF3_FILES = \
         $(XML_APP_REF3_FILES) \
         $(XML_COMP_REF3_FILES) \

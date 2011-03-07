@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -169,6 +169,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     output_format ->
       assert_output_format(Value),
       build_options(Rest, Options#options{output_format = Value});
+    filename_opt ->
+      assert_filename_opt(Value),
+      build_options(Rest, Options#options{filename_opt = Value});
     output_plt ->
       assert_filename(Value),
       build_options(Rest, Options#options{output_plt = Value});
@@ -217,6 +220,13 @@ assert_output_format(formatted) ->
   ok;
 assert_output_format(Term) ->
   bad_option("Illegal value for output_format", Term).
+
+assert_filename_opt(basename) ->
+  ok;
+assert_filename_opt(fullpath) ->
+  ok;
+assert_filename_opt(Term) ->
+  bad_option("Illegal value for filename_opt", Term).
 
 assert_plt_op(#options{analysis_type = OldVal}, 
 	      #options{analysis_type = NewVal}) ->

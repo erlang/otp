@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,7 +68,7 @@ init_per_suite(doc) ->
 init_per_suite(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?default_timeout),
     application:start(inets), % will be using the http client later
-    http:set_options([{ipv6,disabled}]),
+    httpc:set_options([{ipfamily,inet6fb4}]),
     DataDir = ?config(data_dir,Config),
     Rels = [R || R <- [r12b,r13b], ?t:is_release_available(R)] ++ [current],
     io:format("Creating crash dumps for the following releases: ~p", [Rels]),
@@ -112,7 +112,7 @@ start(Config) when is_list(Config) ->
     undefined = whereis(crashdump_viewer_server),
     undefined = whereis(web_tool),
     Url = cdv_url(Port,"start_page"),
-    {error,_} = http:request(get,{Url,[]},[],[]),
+    {error,_} = httpc:request(Url),
 %    exit(whereis(httpc_manager),kill),
     ?t:timetrap_cancel(AngryDog),
     ok.
@@ -246,7 +246,7 @@ cdv_url(Port,Link) ->
     "http://localhost:" ++ Port ++ "/cdv_erl/crashdump_viewer/" ++ Link.
 
 request_sync(Method,HTTPReqCont) ->
-    case http:request(Method,
+    case httpc:request(Method,
 		      HTTPReqCont,
 		      [{timeout,30000}],
 		      [{full_result, false}]) of
@@ -254,13 +254,13 @@ request_sync(Method,HTTPReqCont) ->
 	    Html;
 	{ok,{Code,Html}} ->
 	    io:format("~s\n", [Html]),
-	    io:format("Received ~w from http:request(...) with\nMethod=~w\n"
+	    io:format("Received ~w from httpc:request(...) with\nMethod=~w\n"
 		      "HTTPReqCont=~p\n",
 		      [Code,Method,HTTPReqCont]),
 	    ?t:fail();
 	Other ->
 	    io:format(
-	      "Received ~w from http:request(...) with\nMethod=~w\n"
+	      "Received ~w from httpc:request(...) with\nMethod=~w\n"
 	      "HTTPReqCont=~p\n",
 	      [Other,Method,HTTPReqCont]),
 	    ?t:fail()
@@ -414,16 +414,17 @@ special(Port,File) ->
 		_ ->
 		    ok
 	    end;
-	".250atoms" ->
-	    Html1 = contents(Port,"atoms"),
-	    NextLink1 = next_link(Html1),
-	    "Atoms" = title(Html1),
-	    Html2 = contents(Port,NextLink1),
-	    NextLink2 = next_link(Html2),
-	    "Atoms" = title(Html2),
-	    Html3 = contents(Port,NextLink2),
-	    "" = next_link(Html3),
-	    "Atoms" = title(Html3);
+	%%! No longer needed - all atoms are shown on one page!!
+	%% ".250atoms" ->
+	%%     Html1 = contents(Port,"atoms"),
+	%%     NextLink1 = next_link(Html1),
+	%%     "Atoms" = title(Html1),
+	%%     Html2 = contents(Port,NextLink1),
+	%%     NextLink2 = next_link(Html2),
+	%%     "Atoms" = title(Html2),
+	%%     Html3 = contents(Port,NextLink2),
+	%%     "" = next_link(Html3),
+	%%     "Atoms" = title(Html3);
 	_ ->
 	    ok
     end,
@@ -496,27 +497,27 @@ expand_binary_link(Html) ->
     end.
 
 
-next_link(Html) ->
-    case Html of
-	"<A HREF=\"./next?pos=" ++ Rest ->
-	    "next?pos=" ++ string:sub_word(Rest,1,$");
-	[_H|T] ->
-	    next_link(T);
-	[] ->
-	    []
-    end.
+%% next_link(Html) ->
+%%     case Html of
+%% 	"<A HREF=\"./next?pos=" ++ Rest ->
+%% 	    "next?pos=" ++ string:sub_word(Rest,1,$");
+%% 	[_H|T] ->
+%% 	    next_link(T);
+%% 	[] ->
+%% 	    []
+%%     end.
 
 
 
 toggle_menu(Port) ->
-    Html = contents(Port,"toggle?index=10"),
+    Html = contents(Port,"toggle?index=4"),
     check_toggle(Html).
 
 check_toggle(Html) ->
     case Html of
-	"<A HREF=\"./toggle?index=10\"><IMG SRC=\"/crashdump_viewer/collapsd.gif\"" ++ _ ->
+	"<A HREF=\"./toggle?index=4\"><IMG SRC=\"/crashdump_viewer/collapsd.gif\"" ++ _ ->
 	    collapsed;
-	"<A HREF=\"./toggle?index=10\"><IMG SRC=\"/crashdump_viewer/exploded.gif\"" ++ _ ->
+	"<A HREF=\"./toggle?index=4\"><IMG SRC=\"/crashdump_viewer/exploded.gif\"" ++ _ ->
 	    exploded;
 	[_H|T] ->
 	    check_toggle(T)
@@ -543,10 +544,10 @@ expand_link(Html) ->
 
 
 port_details(Port) ->
-    Port1 = contents(Port,"ports?port=Port<0.1>"),
+    Port1 = contents(Port,"port?port=Port<0.1>"),
     "#Port<0.1>" = title(Port1),
     
-    Port0 = contents(Port,"ports?port=Port<0.0>"),
+    Port0 = contents(Port,"port?port=Port<0.0>"),
     "Could not find port: #Port<0.0>" = title(Port0).
 
 is_truncated(File) ->
@@ -668,7 +669,7 @@ rename(From,To) ->
     end.
 
 check_complete(File) ->
-    check_complete1(File,5).
+    check_complete1(File,10).
 
 check_complete1(_File,0) ->
     {error,enoent};

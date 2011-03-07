@@ -53,7 +53,7 @@ EBIN = .
 
 make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
-		$(MODULES) >> $(EMAKEFILE)
+		$(MODULES) > $(EMAKEFILE)
 
 tests debug opt: make_emakefile
 	cd $(ERL_TOP)/lib/test_server/src && \

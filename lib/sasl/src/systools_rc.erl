@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,7 +34,7 @@
 %% {add_module, Mod, [Mod]}
 %% {remove_module, Mod, PrePurge, PostPurge, [Mod]}
 %% {restart_application, Appl}
-%% {add_application, Appl}
+%% {add_application, Appl, Type}
 %% {remove_application, Appl}
 %%
 %% Low-level
@@ -109,6 +109,8 @@ expand_script([I|Script]) ->
 	     {delete_module, Mod} ->
 		 [{remove, {Mod, brutal_purge, brutal_purge}},
 		  {purge, [Mod]}];
+	     {add_application, Application} ->
+		 {add_application, Application, permanent};
 	     _ ->
 		 I
 	 end,
@@ -317,14 +319,18 @@ translate_independent_instrs(Before, After, Appls, PreAppls) ->
 translate_application_instrs(Script, Appls, PreAppls) ->
     %% io:format("Appls ~n~p~n",[Appls]),
     L = lists:map(
-	  fun({add_application, Appl}) ->
+	  fun({add_application, Appl, Type}) ->
 		  case lists:keysearch(Appl, #application.name, Appls) of
 		      {value, Application} ->
 			  Mods =
 			      remove_vsn(Application#application.modules),
+			  ApplyL = case Type of
+			      none -> [];
+			      load -> [{apply, {application, load, [Appl]}}];
+			      _ -> [{apply, {application, start, [Appl, Type]}}]
+			  end,
 			  [{add_module, M, []} || M <- Mods] ++
-			      [{apply, {application, start,
-					[Appl, permanent]}}];
+			      ApplyL;
 		      false ->
 			  throw({error, {no_such_application, Appl}})
 		  end;
@@ -750,8 +756,9 @@ check_op({remove_module, Mod, PrePurge, PostPurge, Mods}) ->
     lists:foreach(fun(M) -> check_mod(M) end, Mods);
 check_op({remove_application, Appl}) ->
     check_appl(Appl);
-check_op({add_application, Appl}) ->
-    check_appl(Appl);
+check_op({add_application, Appl, Type}) ->
+    check_appl(Appl),
+    check_start_type(Type);
 check_op({restart_application, Appl}) ->
     check_appl(Appl);
 check_op(restart) -> ok;
@@ -838,6 +845,13 @@ check_node(Node) -> throw({error, {bad_node, Node}}).
 
 check_appl(Appl) when is_atom(Appl) -> ok;
 check_appl(Appl) -> throw({error, {bad_application, Appl}}).
+
+check_start_type(none) -> ok;
+check_start_type(load) -> ok;
+check_start_type(temporary) -> ok;
+check_start_type(transient) -> ok;
+check_start_type(permanent) -> ok;
+check_start_type(T) -> throw({error, {bad_start_type, T}}).
 
 check_func(Func) when is_atom(Func) -> ok;
 check_func(Func) -> throw({error, {bad_func, Func}}).

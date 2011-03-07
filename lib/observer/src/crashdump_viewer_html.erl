@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,25 +32,23 @@
 	 general_info/1,
 	 pretty_info_page/2,
 	 info_page/2,
-	 procs_summary/4,
 	 proc_details/4,
 	 expanded_memory/2,
 	 expanded_binary/1,
-	 next/2,
-	 ports/3,
-	 timers/3,
-	 ets_tables/4,
+	 port/3,
+	 internal_ets_tables/2,
 	 nods/2,
-	 loaded_mods/2,
 	 loaded_mod_details/2,
-	 funs/2,
-	 atoms/3,
+	 atoms/4,
+	 atoms_chunk/2,
 	 memory/2,
 	 allocated_areas/2,
 	 allocator_info/2,
 	 hash_tables/2,
 	 index_tables/2,
-	 error/2]).
+	 error/2,
+	 chunk_page/5,
+	 chunk/3]).
 
 -include("crashdump_viewer.hrl").
 
@@ -79,23 +77,20 @@ read_file_frame() ->
 
 
 read_file_frame_body() ->
-    Entry =
-	case webtool:is_localhost() of 
-	    true -> [input("TYPE=file NAME=browse SIZE=40"),
-		     input("TYPE=hidden NAME=path")];
-	    false -> input("TYPE=text NAME=path SIZE=60")
-	end,
+    %% Using a plain text input field instead of a file input field
+    %% (e.g. <INPUT TYPE=file NAME=pathj SIZE=40">) because most
+    %% browsers can not forward the full path from this dialog even if
+    %% the browser is running on localhost (Ref 'fakepath'-problem)
+    Entry = input("TYPE=text NAME=path SIZE=60"),
     Form = 
 	form(
-	  "NAME=read_file_form METHOD=post ACTION= \"./read_file\"",
+	  "NAME=read_file_form METHOD=post ACTION=\"./read_file\"",
 	  table(
 	    "BORDER=0",
 	    [tr(td("COLSPAN=2","Enter file to analyse")),
 	     tr(
 	       [td(Entry),
-		td("ALIGN=center",
-		   input("TYPE=submit onClick=\"path.value=browse.value;\""
-			 "VALUE=Ok"))])])),
+		td("ALIGN=center",input("TYPE=submit VALUE=Ok"))])])),
     table(
       "WIDTH=100% HEIGHT=60%",
       tr("VALIGN=middle",
@@ -235,6 +230,8 @@ general_info_body(Heading,GenInfo) ->
 	    td(GenInfo#general_info.num_procs)]),
 	tr([th("ALIGN=left BGCOLOR=\"#8899AA\"","ETS tables"),
 	    td(GenInfo#general_info.num_ets)]),
+	tr([th("ALIGN=left BGCOLOR=\"#8899AA\"","Timers"),
+	    td(GenInfo#general_info.num_timers)]),
 	tr([th("ALIGN=left BGCOLOR=\"#8899AA\"","Funs"),
 	    td(GenInfo#general_info.num_fun)])]),
      case GenInfo#general_info.instr_info of
@@ -294,60 +291,6 @@ pretty_info_body(Heading,Info) ->
     [h1(Heading),
      pre(pretty_format(Info))].
     
-%%%-----------------------------------------------------------------
-%%% Make table with summary of process information
-procs_summary(Sorted,ProcsSummary,TW,SharedHeap) ->
-    Heading = "Process Information",
-    header(Heading,
-	   body(
-	     procs_summary_body(Heading,ProcsSummary,TW,Sorted,SharedHeap))).
-    
-procs_summary_body(Heading,[],TW,_Sorted,_SharedHeap) ->
-    [h1(Heading),
-     warn(TW),
-     "No processes were found\n"];
-procs_summary_body(Heading,ProcsSummary,TW,Sorted,SharedHeap) ->
-    MemHeading = 
-	if SharedHeap -> 
-		"Stack";
-	   true ->
-		"Stack+heap"
-	end,
-
-    [heading(Heading,"processes"),
-     warn(TW),
-     table(
-       "BORDER=4 CELLPADDING=4",
-       [tr(
-	  [summary_table_head("pid","Pid",Sorted),
-	   summary_table_head("name_func","Name/Spawned as",Sorted),
-	   summary_table_head("state","State",Sorted), 
-	   summary_table_head("reds","Reductions",Sorted), 
-	   summary_table_head("mem",MemHeading,Sorted),
-	   summary_table_head("msg_q_len","MsgQ Length",Sorted)]) |
-	lists:map(fun(Proc) -> procs_summary_table(Proc) end,ProcsSummary)])].
-
-summary_table_head(Sorted,Text,Sorted) ->
-    %% Mark the sorted column (bigger and italic)
-    th(font("SIZE=\"+1\"",em(href("./sort_procs?sort="++Sorted,Text))));
-summary_table_head(SortOn,Text,_Sorted) ->
-    th(href("./sort_procs?sort="++SortOn,Text)).
-
-procs_summary_table(Proc) ->
-    #proc{pid=Pid,name=Name,state=State,
-	  reds=Reds,stack_heap=Mem0,msg_q_len=MsgQLen}=Proc,
-    Mem = case Mem0 of
-	      -1 -> "unknown";
-	      _ -> integer_to_list(Mem0)
-	  end,
-    tr(
-      [td(href(["./proc_details?pid=",Pid],Pid)),
-       td(Name),
-       td(State),
-       td("ALIGN=right",integer_to_list(Reds)),
-       td("ALIGN=right",Mem),
-       td("ALIGN=right",integer_to_list(MsgQLen))]).
-
 %%%-----------------------------------------------------------------
 %%% Print details for one process
 proc_details(Pid,Proc,TW,SharedHeap) ->
@@ -594,80 +537,30 @@ expanded_binary_body(Heading,Bin) ->
      href("javascript:history.go(-1)","BACK")].
     
 %%%-----------------------------------------------------------------
-%%% Print table of ports
-ports(Heading,Ports,TW) ->
-    header(Heading,body(ports_body(Heading,Ports,TW))).
+%%% Print info for one port
+port(Heading,Port,TW) ->
+    header(Heading,body(port_body(Heading,Port,TW))).
     
-ports_body(Heading,[],TW) ->
-    [h1(Heading),
-     warn(TW),
-     "No ports were found\n"];
-ports_body(Heading,Ports,TW) ->
+port_body(Heading,Port,TW) ->
     [heading(Heading,"ports"),
      warn(TW),
      table(
        "BORDER=4 CELLPADDING=4",
-       [tr(
-	  [th("Id"),
-	   th("Slot"),
-	   th("Connected"),
-	   th("Links"),
-	   th("Controls")]) |
-	lists:map(fun(Port) -> ports_table(Port) end, Ports)])].
+       [tr([th(Head) || Head <- port_table_head()]), ports_table(Port)])].
 
-ports_table(Port) ->
-    #port{id=Id,slot=Slot,connected=Connected,links=Links,
-	  controls=Controls}=Port,
-    tr(
-      [td(Id),
-       td("ALIGHT=right",Slot),
-       td(href_proc_port(Connected)),
-       td(href_proc_port(Links)),
-       td(Controls)]).
-    
 %%%-----------------------------------------------------------------
-%%% Print table of ETS tables
-ets_tables(Heading,EtsTables,InternalEts,TW) ->
-    header(Heading,body(ets_tables_body(Heading,EtsTables,InternalEts,TW))).
+%%% Print table of internal ETS tables
+internal_ets_tables(InternalEts,TW) ->
+    Heading = "Internal ETS tables",
+    header(Heading,body(internal_ets_tables_body(Heading,InternalEts,TW))).
     
-ets_tables_body(Heading,[],InternalEts,TW) ->
+internal_ets_tables_body(Heading,[],TW) ->
     [h1(Heading),
      warn(TW),
-     "No ETS tables were found\n" |
-     internal_ets_tables_table(InternalEts)];
-ets_tables_body(Heading,EtsTables,InternalEts,TW) ->
-    [heading(Heading,"ets_tables"),
+     "No internal ETS tables were found\n"];
+internal_ets_tables_body(Heading,InternalEts,TW) ->
+    [heading(Heading,"internal_ets_tables"),
      warn(TW),
-     table(
-       "BORDER=4 CELLPADDING=4",
-       [tr(
-	  [th("Owner"),
-	   th("Slot"),
-	   th("Id"),
-	   th("Name"),
-	   th("Type"),
-	   th("Buckets"),
-	   th("Objects"),
-	   th("Memory (bytes)")]) |
-	lists:map(fun(EtsTable) -> ets_tables_table(EtsTable) end,
-		  EtsTables)]) |
-    internal_ets_tables_table(InternalEts)].
-
-ets_tables_table(EtsTable) ->
-    #ets_table{pid=Pid,slot=Slot,id=Id,name=Name,type=Type,
-	       buckets=Buckets,size=Size,memory=Memory} = EtsTable,
-    tr(
-      [td(href_proc_port(Pid)),
-       td(Slot),
-       td(Id),
-       td(Name),
-       td(Type),
-       td("ALIGN=right",Buckets),
-       td("ALIGN=right",Size),
-       td("ALIGN=right",Memory)]).
-
-internal_ets_tables_table(InternalEtsTables) ->
-    [h2("Internal ETS tables"),
      table(
        "BORDER=4 CELLPADDING=4",
        [tr(
@@ -681,7 +574,7 @@ internal_ets_tables_table(InternalEtsTables) ->
 	lists:map(fun(InternalEtsTable) -> 
 			  internal_ets_tables_table1(InternalEtsTable)
 		  end,
-		  InternalEtsTables)])].
+		  InternalEts)])].
 
 internal_ets_tables_table1({Descr,InternalEtsTable}) ->
     #ets_table{id=Id,name=Name,type=Type,buckets=Buckets,
@@ -694,33 +587,6 @@ internal_ets_tables_table1({Descr,InternalEtsTable}) ->
        td("ALIGN=right",Buckets),
        td("ALIGN=right",Size),
        td("ALIGN=right",Memory)]).
-
-%%%-----------------------------------------------------------------
-%%% Print table of timers
-timers(Heading,Timers,TW) ->
-    header(Heading,body(timers_body(Heading,Timers,TW))).
-    
-timers_body(Heading,[],TW) ->
-    [h1(Heading),
-     warn(TW),
-     "No timers were found\n"];
-timers_body(Heading,Timers,TW) ->
-    [heading(Heading,"timers"),
-     warn(TW),
-     table(
-       "BORDER=4 CELLPADDING=4",
-       [tr(
-	  [th("Owner"),
-	   th("Message"),
-	   th("Time left")]) |
-	lists:map(fun(Timer) -> timers_table(Timer) end, Timers)])].
-
-timers_table(Timer) ->
-    #timer{pid=Pid,msg=Msg,time=Time}=Timer,
-    tr(
-      [td(href_proc_port(Pid)),
-       td(Msg),
-       td("ALIGN=right",Time)]).
 
 %%%-----------------------------------------------------------------
 %%% Print table of nodes in distribution
@@ -826,33 +692,6 @@ format_extra_info(Error) ->
 	 ?space -> "";
 	 _ -> font("COLOR=\"#FF0000\"",["ERROR: ",Error,"\n"])
      end.
-%%%-----------------------------------------------------------------
-%%% Print loaded modules information
-loaded_mods({CC,OC,LM},TW) ->
-    Heading = "Loaded Modules Information",
-    header(Heading,body(loaded_mods_body(Heading,CC,OC,LM,TW))).
-    
-loaded_mods_body(Heading,"unknown","unknown",[],TW) ->
-    [h1(Heading),
-     warn(TW),
-     "No loaded modules information was found\n"];
-loaded_mods_body(Heading,CC,OC,LM,TW) ->
-    [heading(Heading,"loaded_modules"),
-     warn(TW),
-     p([b("Current code: "),CC," bytes",br(),
-	b("Old code: "),OC," bytes"]),
-     table(
-       "BORDER=4 CELLPADDING=4",
-       [tr([th("Module"),
-	    th("Current size (bytes)"),
-	    th("Old size (bytes)")]) |
-	lists:map(fun(Mod) -> loaded_mods_table(Mod) end,LM)])].
-
-loaded_mods_table(#loaded_mod{mod=Mod,current_size=CS,old_size=OS}) ->
-    tr([td(href(["loaded_mod_details?mod=",Mod],Mod)),
-	td("ALIGN=right",CS),
-	td("ALIGN=right",OS)]).
-    
 
 %%%-----------------------------------------------------------------
 %%% Print detailed information about one module
@@ -882,107 +721,33 @@ loaded_mod_details_body(ModInfo,TW) ->
     
 
 %%%-----------------------------------------------------------------
-%%% Print table of funs
-funs(Funs,TW) ->
-    Heading = "Fun Information",
-    header(Heading,body(funs_body(Heading,Funs,TW))).
-    
-funs_body(Heading,[],TW) ->
-    [h1(Heading),
-     warn(TW),
-     "No Fun information was found\n"];
-funs_body(Heading,Funs,TW) ->
-    [heading(Heading,"funs"),
-     warn(TW),
-     table(
-       "BORDER=4 CELLPADDING=4",
-       [tr(
-	  [th("Module"),
-	   th("Uniq"),
-	   th("Index"),
-	   th("Address"),
-	   th("Native_address"),
-	   th("Refc")]) |
-	lists:map(fun(Fun) -> funs_table(Fun) end, Funs)])].
-
-funs_table(Fu) ->
-    #fu{module=Module,uniq=Uniq,index=Index,address=Address,
-	native_address=NativeAddress,refc=Refc}=Fu,
-    tr(
-      [td(Module),
-       td("ALIGN=right",Uniq),
-       td("ALIGN=right",Index),
-       td(Address),
-       td(NativeAddress),
-       td("ALIGN=right",Refc)]).
-    
-%%%-----------------------------------------------------------------
 %%% Print atoms
-atoms(Atoms,Num,TW) ->
+atoms(SessionId,TW,Num,FirstChunk) ->
     Heading = "Atoms",
-    header(Heading,body(atoms_body(Heading,Atoms,Num,TW))).
-
-atoms_body(Heading,[],Num,TW) ->
-    [h1(Heading),
-     warn(TW),
-     "No atoms were found in log",br(),
-     "Total number of atoms in node was ", Num, br()];    
-atoms_body(Heading,Atoms,Num,TW) ->
-    [heading(Heading,"atoms"),
-     warn(TW),
-     "Total number of atoms in node was ", Num, 
-     br(),
-     "The last created atom is shown first",
-     br(),br() |
-     n_first(Atoms)].
-
-n_first({n_lines,Start,N,What,Lines,Pos}) ->
-    NextHref = next_href(N,What,Pos,Start),
-    [What," number ",integer_to_list(Start),"-",integer_to_list(Start+N-1),
-     br(),
-     NextHref, 
-     pre(Lines),
-     NextHref];
-n_first({n_lines,_Start,_N,_What,Lines}) ->
-    [pre(Lines)].
-
-%%%-----------------------------------------------------------------
-%%% Print next N lines of "something"
-next(NLines,TW) ->
-    header(element(4,NLines),body(next_body(NLines,TW))).
-
-next_body({n_lines,Start,N,What,Lines,Pos},TW) ->
-    PrefHref = prev_href(),
-    NextHref = next_href(N,What,Pos,Start),
-    [warn(TW),
-     What," number ",integer_to_list(Start),"-",integer_to_list(Start+N-1),
-     br(),
-     PrefHref,
-     ?space,
-     NextHref, 
-     pre(Lines),
-     PrefHref,
-     ?space,
-     NextHref];
-next_body({n_lines,Start,N,What,Lines},TW) ->
-    PrefHref = prev_href(),
-    [warn(TW),
-     What," number ",integer_to_list(Start),"-",integer_to_list(Start+N-1),
-     br(),
-     PrefHref,
-     pre(Lines),
-     PrefHref].
-    
-
-prev_href() ->
-    href("javascript:history.back()",["Previous"]).
-
-next_href(N,What,Pos,Start) ->
-    href(["./next?pos=",integer_to_list(Pos),
-	  "&num=",integer_to_list(N),
-	  "&start=",integer_to_list(Start+N),
-	  "&what=",What],
-	 "Next").
+    case FirstChunk of
+	done ->
+	    deliver_first(SessionId,[start_html_page(Heading),
+				     h1(Heading),
+				     warn(TW),
+				     "No atoms were found in log",br(),
+				     "Total number of atoms in node was ", Num, 
+				     br()]);
+	_ ->
+	    deliver_first(SessionId,[start_html_page(Heading),
+				     heading(Heading,"atoms"),
+				     warn(TW),
+				     "Total number of atoms in node was ", Num, 
+				     br(),
+				     "The last created atom is shown first",
+				     br(),
+				     start_pre()]),
+	    atoms_chunk(SessionId,FirstChunk)
+    end.
+	    
+atoms_chunk(SessionId,done) ->
+    deliver(SessionId,[stop_pre(),stop_html_page()]);
+atoms_chunk(SessionId,Atoms) ->
+    deliver(SessionId,Atoms).
 
 %%%-----------------------------------------------------------------
 %%% Print memory information
@@ -1120,52 +885,92 @@ index_tables_body(Heading,IndexTables,TW) ->
 	   th("Size"),
 	   th("Limit"),
 	   th("Used"),
-	   th("Rate")]) |
+	   th("Rate"),
+	   th("Entries")]) |
 	lists:map(fun(IndexTable) -> index_tables_table(IndexTable) end,
 		  IndexTables)])].
 
 index_tables_table(IndexTable) ->
-    #index_table{name=Name,size=Size,limit=Limit,used=Used,rate=Rate} = 
-	IndexTable,
+    #index_table{name=Name,size=Size,limit=Limit,used=Used,
+		 rate=Rate,entries=Entries} = IndexTable,
     tr(
       [td(Name),
        td("ALIGN=right",Size),
        td("ALIGN=right",Limit),
        td("ALIGN=right",Used),
-       td("ALIGN=right",Rate)]).
+       td("ALIGN=right",Rate),
+       td("ALIGN=right",Entries)]).
 
 %%%-----------------------------------------------------------------
 %%% Internal library
+start_html_page(Title) ->
+    [only_http_header(),
+     start_html(),
+     only_html_header(Title),
+     start_html_body()].
+
+stop_html_page() ->
+    [stop_html_body(),
+     stop_html()].
+
+only_http_header() ->
+    ["Pragma:no-cache\r\n",
+     "Content-type: text/html\r\n\r\n"].
+
+only_html_header(Title) -> 
+    only_html_header(Title,"").
+only_html_header(Title,JavaScript) ->    
+    ["<HEAD>\n",
+     "<TITLE>", Title,  "</TITLE>\n",
+     JavaScript,
+     "</HEAD>\n"].
+
+start_html() ->
+    "<HTML>\n".
+stop_html() ->
+    "</HTML>".
+start_html_body() ->
+    "<BODY BGCOLOR=\"#FFFFFF\">\n".
+stop_html_body() ->
+    "</BODY>\n".
+
 header(Body) ->
     header("","",Body).
 header(Title,Body) ->
     header(Title,"",Body).
 header(Title,JavaScript,Body) ->
-    ["Pragma:no-cache\r\n",
-     "Content-type: text/html\r\n\r\n",
+    [only_http_header(),
      html_header(Title,JavaScript,Body)].
 
 html_header(Title,JavaScript,Body) ->    
-    ["<HTML>\n",
-     "<HEAD>\n",
-     "<TITLE>", Title,  "</TITLE>\n",
-     JavaScript,
-     "</HEAD>\n",
+    [start_html(),
+     only_html_header(Title,JavaScript),
      Body,
-     "</HTML>"].
+     stop_html()].
 
 body(Text) ->
-    ["<BODY BGCOLOR=\"#FFFFFF\">\n",
+    [start_html_body(),
      Text,
-     "<\BODY>\n"].
+     stop_html_body()].
 
 frameset(Args,Frames) ->
     ["<FRAMESET ",Args,">\n", Frames, "\n</FRAMESET>\n"].
 frame(Args) ->
     ["<FRAME ",Args, ">\n"].
 
+start_visible_table() ->
+    start_table("BORDER=\"4\" CELLPADDING=\"4\"").
+start_visible_table(ColTitles) ->
+    [start_visible_table(),
+     tr([th(ColTitle) || ColTitle <- ColTitles])].
+
+start_table(Args) ->
+    ["<TABLE ", Args, ">\n"].
+stop_table() ->
+    "</TABLE>\n".
+
 table(Args,Text) ->
-    ["<TABLE ", Args, ">\n", Text, "\n</TABLE>\n"].
+    [start_table(Args), Text, stop_table()].
 tr(Text) ->
     ["<TR>\n", Text, "\n</TR>\n"].
 tr(Args,Text) ->
@@ -1183,8 +988,12 @@ b(Text) ->
     ["<B>",Text,"</B>"].
 em(Text) ->    
     ["<EM>",Text,"</EM>\n"].
+start_pre() ->
+    "<PRE>".
+stop_pre() ->
+    "</PRE>".
 pre(Text) ->
-    ["<PRE>",Text,"</PRE>"].
+    [start_pre(),Text,stop_pre()].
 href(Link,Text) ->
     ["<A HREF=\"",Link,"\">",Text,"</A>"].
 href(Args,Link,Text) ->
@@ -1199,8 +1008,6 @@ input(Args) ->
     ["<INPUT ", Args, ">\n"].
 h1(Text) ->
     ["<H1>",Text,"</H1>\n"].
-h2(Text) ->
-    ["<H2>",Text,"</H2>\n"].
 font(Args,Text) ->
     ["<FONT ",Args,">\n",Text,"\n</FONT>\n"].
 p(Text) ->    
@@ -1223,7 +1030,7 @@ href_proc_port([$#,$F,$u,$n,$<|T],Acc) ->
 href_proc_port([$#,$P,$o,$r,$t,$<|T],Acc) ->
     {[$#|Port]=HashPort,Rest} = to_gt(T,[$;,$t,$l,$&,$t,$r,$o,$P,$#]),
     href_proc_port(Rest,[href("TARGET=\"main\"",
-			      ["./ports?port=",Port],HashPort)|Acc]);
+			      ["./port?port=",Port],HashPort)|Acc]);
 href_proc_port([$<,$<|T],Acc) ->
     %% No links to binaries
     href_proc_port(T,[$;,$t,$l,$&,$;,$t,$l,$&|Acc]);
@@ -1243,7 +1050,7 @@ href_proc_port([$",$#,$C,$D,$V,$P,$o,$r,$t,$<|T],Acc) ->
     %% Port written by crashdump_viewer:parse_term(...)
     {[$#|Port]=HashPort,[$"|Rest]} = to_gt(T,[$;,$t,$l,$&,$t,$r,$o,$P,$#]),
     href_proc_port(Rest,[href("TARGET=\"main\"",
-			      ["./ports?port=",Port],HashPort)|Acc]);
+			      ["./port?port=",Port],HashPort)|Acc]);
 href_proc_port([$",$#,$C,$D,$V,$P,$i,$d,$<|T],Acc) ->
     %% Pid written by crashdump_viewer:parse_term(...)
     {Pid,[$"|Rest]} = to_gt(T,[$;,$t,$l,$&]),
@@ -1422,7 +1229,7 @@ replace_insrt("'trsni$'"++Rest,[H|T],Acc) -> % the list is reversed here!
 	    "&lt;" ++ _Pid -> 
 		href("TARGET=\"main\"",["./proc_details?pid=",H],H);
 	    "#Port&lt;" ++ Port -> 
-		href("TARGET=\"main\"",["./ports?port=","Port&lt;"++Port],H);
+		href("TARGET=\"main\"",["./port?port=","Port&lt;"++Port],H);
 	    "#" ++ _other -> 
 		H
 	end,
@@ -1431,3 +1238,173 @@ replace_insrt([H|T],Insrt,Acc) ->
     replace_insrt(T,Insrt,[H|Acc]);
 replace_insrt([],[],Acc) ->
     Acc.
+
+%%%-----------------------------------------------------------------
+%%% Create a page with one table by delivering chunk by chunk to
+%%% inets. crashdump_viewer first calls chunk_page/5 once, then
+%%% chunk/3 multiple times until all data is delivered.
+chunk_page(processes,SessionId,TW,{Sorted,SharedHeap},FirstChunk) ->
+    Columns = procs_summary_table_head(Sorted,SharedHeap),
+    chunk_page(SessionId, "Process Information", TW, FirstChunk,
+	       "processes", Columns, fun procs_summary_table/1);
+chunk_page(ports,SessionId,TW,_,FirstChunk) ->
+    chunk_page(SessionId, "Port Information", TW, FirstChunk,
+	       "ports", port_table_head(), fun ports_table/1);
+chunk_page(ets_tables,SessionId,TW,Heading,FirstChunk) ->
+    Columns = ["Owner",
+	       "Slot",
+	       "Id",
+	       "Name",
+	       "Type",
+	       "Buckets",
+	       "Objects",
+	       "Memory (bytes)"],
+    chunk_page(SessionId, Heading, TW, FirstChunk,
+	       "ets_tables", Columns, fun ets_tables_table/1);
+chunk_page(timers,SessionId,TW,Heading,FirstChunk) ->
+    chunk_page(SessionId, Heading, TW, FirstChunk, "timers",
+	       ["Owner","Message","Time left"], fun timers_table/1);
+chunk_page(loaded_mods,SessionId,TW,{CC,OC},FirstChunk) ->
+    TotalsInfo = p([b("Current code: "),CC," bytes",br(),
+		    b("Old code: "),OC," bytes"]),
+    Columns = ["Module","Current size (bytes)","Old size (bytes)"],
+    chunk_page(SessionId, "Loaded Modules Information", TW, FirstChunk,
+	       "loaded_modules", TotalsInfo,Columns, fun loaded_mods_table/1);
+chunk_page(funs,SessionId, TW, _, FirstChunk) ->
+    Columns = ["Module",
+	       "Uniq",
+	       "Index",
+	       "Address",
+	       "Native_address",
+	       "Refc"],
+    chunk_page(SessionId, "Fun Information", TW, FirstChunk,
+	       "funs", Columns, fun funs_table/1).
+
+chunk_page(SessionId,Heading,TW,FirstChunk,Type,TableColumns,TableFun) ->
+    chunk_page(SessionId,Heading,TW,FirstChunk,Type,[],TableColumns,TableFun).
+chunk_page(SessionId,Heading,TW,done,Type,_TotalsInfo,_TableColumns,_TableFun) ->
+    no_info_found(SessionId,Heading,TW,Type);
+chunk_page(SessionId,Heading,TW,FirstChunk,Type,TotalsInfo,TableColumns,TableFun) ->
+    deliver_first(SessionId,[start_html_page(Heading),
+			     heading(Heading,Type),
+			     warn(TW),
+			     TotalsInfo,
+			     start_visible_table(TableColumns)]),
+    chunk(SessionId,FirstChunk,TableFun),
+    TableFun.
+
+no_info_found(SessionId, Heading, TW, Type) ->
+    Info = ["No ", Type, " were found\n"],
+    deliver_first(SessionId,[start_html_page(Heading),
+			     h1(Heading),
+			     warn(TW),
+			     Info,
+			     stop_html_page()]).
+
+chunk(SessionId, done, _TableFun) ->
+    deliver(SessionId,[stop_table(),stop_html_page()]);
+chunk(SessionId, Items, TableFun) ->
+    deliver(SessionId, [lists:map(TableFun, Items),
+			stop_table(), %! Will produce an empty table at the end
+			start_visible_table()]). % of the page :(
+
+%%%-----------------------------------------------------------------
+%%% Deliver part of a page to inets
+%%% The first part, which includes the HTTP header, must always be
+%%% delivered as a string (i.e. no binaries). The rest of the page is
+%%% better delivered as binaries in order to avoid data copying.
+deliver_first(SessionId,String) ->
+    mod_esi:deliver(SessionId,String).
+deliver(SessionId,IoList) ->
+    mod_esi:deliver(SessionId,[list_to_binary(IoList)]).
+
+
+%%%-----------------------------------------------------------------
+%%% Page specific stuff for chunk pages
+procs_summary_table_head(Sorted,SharedHeap) ->
+    MemHeading =
+	if SharedHeap ->
+		"Stack";
+	   true ->
+		"Stack+heap"
+	end,
+    [procs_summary_table_head("pid","Pid",Sorted),
+     procs_summary_table_head("name_func","Name/Spawned as",Sorted),
+     procs_summary_table_head("state","State",Sorted),
+     procs_summary_table_head("reds","Reductions",Sorted),
+     procs_summary_table_head("mem",MemHeading,Sorted),
+     procs_summary_table_head("msg_q_len","MsgQ Length",Sorted)].
+
+procs_summary_table_head(_,Text,no_sort) ->
+    Text;
+procs_summary_table_head(Sorted,Text,Sorted) ->
+    %% Mark the sorted column (bigger and italic)
+    font("SIZE=\"+1\"",em(href("./sort_procs?sort="++Sorted,Text)));
+procs_summary_table_head(SortOn,Text,_Sorted) ->
+    href("./sort_procs?sort="++SortOn,Text).
+
+procs_summary_table(Proc) ->
+    #proc{pid=Pid,name=Name,state=State,
+	  reds=Reds,stack_heap=Mem0,msg_q_len=MsgQLen}=Proc,
+    Mem = case Mem0 of
+	      -1 -> "unknown";
+	      _ -> integer_to_list(Mem0)
+	  end,
+    tr(
+      [td(href(["./proc_details?pid=",Pid],Pid)),
+       td(Name),
+       td(State),
+       td("ALIGN=right",integer_to_list(Reds)),
+       td("ALIGN=right",Mem),
+       td("ALIGN=right",integer_to_list(MsgQLen))]).
+
+port_table_head() ->
+    ["Id","Slot","Connected","Links","Name","Monitors","Controls"].
+
+ports_table(Port) ->
+    #port{id=Id,slot=Slot,connected=Connected,links=Links,name=Name,
+	  monitors=Monitors,controls=Controls}=Port,
+    tr(
+      [td(Id),
+       td("ALIGN=right",Slot),
+       td(href_proc_port(Connected)),
+       td(href_proc_port(Links)),
+       td(Name),
+       td(href_proc_port(Monitors)),
+       td(Controls)]).
+
+ets_tables_table(EtsTable) ->
+    #ets_table{pid=Pid,slot=Slot,id=Id,name=Name,type=Type,
+	       buckets=Buckets,size=Size,memory=Memory} = EtsTable,
+    tr(
+      [td(href_proc_port(Pid)),
+       td(Slot),
+       td(Id),
+       td(Name),
+       td(Type),
+       td("ALIGN=right",Buckets),
+       td("ALIGN=right",Size),
+       td("ALIGN=right",Memory)]).
+
+timers_table(Timer) ->
+    #timer{pid=Pid,msg=Msg,time=Time}=Timer,
+    tr(
+      [td(href_proc_port(Pid)),
+       td(Msg),
+       td("ALIGN=right",Time)]).
+
+loaded_mods_table(#loaded_mod{mod=Mod,current_size=CS,old_size=OS}) ->
+    tr([td(href(["loaded_mod_details?mod=",Mod],Mod)),
+	td("ALIGN=right",CS),
+	td("ALIGN=right",OS)]).
+
+funs_table(Fu) ->
+    #fu{module=Module,uniq=Uniq,index=Index,address=Address,
+	native_address=NativeAddress,refc=Refc}=Fu,
+    tr(
+      [td(Module),
+       td("ALIGN=right",Uniq),
+       td("ALIGN=right",Index),
+       td(Address),
+       td(NativeAddress),
+       td("ALIGN=right",Refc)]).
