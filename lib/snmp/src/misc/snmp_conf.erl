@@ -40,6 +40,7 @@
 	 check_domain/1, 
 	 check_tdomain/1,  
 	 mk_tdomain/1, 
+	 which_domain/1, 
 	 check_ip/1, 
 	 check_taddress/1, check_taddress/2, 
 	 mk_taddress/3, 
@@ -516,12 +517,38 @@ check_domain(Domain) ->
 %% point, so we dont need to do that again.
 mk_taddress(snmpUDPDomain, Ip, Port) ->
     mk_taddress(transportDomainUdpIpv4, Ip, Port);
-mk_taddress(transportDomainUdpIpv4, Ip, Port) ->
+mk_taddress(transportDomainUdpIpv4, Ip, Port) when is_list(Ip) ->
     Ip ++ [Port div 256, Port rem 256];
-mk_taddress(transportDomainUdpIpv6, Ip, Port) ->
+mk_taddress(transportDomainUdpIpv4 = Domain, Ip, Port) when is_tuple(Ip) ->
+    mk_taddress(Domain, tuple_to_list(Ip), Port);
+mk_taddress(transportDomainUdpIpv6, Ip, Port) when is_list(Ip) ->
     Ip ++ [Port div 256, Port rem 256];
+mk_taddress(transportDomainUdpIpv6 = Domain, Ip, Port) when is_tuple(Ip) ->
+    mk_taddress(Domain, tuple_to_list(Ip), Port);
+
+%% These are just for convenience
+mk_taddress(?snmpUDPDomain, Ip, Port) ->
+    mk_taddress(snmpUDPDomain, Ip, Port);
+mk_taddress(?transportDomainUdpIpv4, Ip, Port) ->
+    mk_taddress(transportDomainUdpIpv4, Ip, Port);
+mk_taddress(?transportDomainUdpIpv6, Ip, Port) ->
+    mk_taddress(transportDomainUdpIpv6, Ip, Port);
+
+%% Bad domain
 mk_taddress(BadDomain, _Ip, _Port) ->
     error({bad_domain, BadDomain}).
+
+    
+%% ---------
+
+which_domain(Ip) when is_list(Ip) andalso (length(Ip) =:= 4) ->
+    transportDomainUdpIpv4;
+which_domain(Ip) when is_tuple(Ip) andalso (size(Ip) =:= 4) ->
+    transportDomainUdpIpv4;
+which_domain(Ip) when is_list(Ip) andalso (length(Ip) =:= 8) ->
+    transportDomainUdpIpv6;
+which_domain(Ip) when is_tuple(Ip) andalso (size(Ip) =:= 8) ->
+    transportDomainUdpIpv6.
 
     
 %% ---------

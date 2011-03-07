@@ -1072,7 +1072,7 @@ mk_addr_communities(Recvs) ->
     [{Addr, Comm} | T] = lists:keysort(2, Recvs),
     mic(T, Comm, [Addr], []).
 
-mic([{Addr, Comm} | T], CurComm, AddrList, Res) when Comm == CurComm ->
+mic([{Addr, Comm} | T], CurComm, AddrList, Res) when Comm =:= CurComm ->
     mic(T, CurComm, [Addr | AddrList], Res);
 mic([{Addr, Comm} | T], CurComm, AddrList, Res) ->
     mic(T, Comm, [Addr], [{CurComm, AddrList} | Res]);

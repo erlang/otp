@@ -1470,7 +1470,10 @@ handle_backup_res([{Who, Crap}|Results], Acc) ->
 %% because we (for some reason) support the function
 %% snmpa:current_community().
 %%-----------------------------------------------------------------
-cheat({community, _SecModel, Community, _IpUdp}, Address, ContextName) ->
+cheat({community, SecModel, Community, _TAddress}, Address, ContextName) ->
+    {Community, Address, ContextName};
+cheat({community, _SecModel, Community, _TDomain, _TAddress}, 
+      Address, ContextName) ->
     {Community, Address, ContextName};
 cheat(_, Address, ContextName) ->
     {"", Address, ContextName}.
