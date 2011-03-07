@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -302,7 +302,7 @@ ms() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Activity mgt
 
--spec(abort/1 :: (_) -> no_return()).
+-spec abort(_) -> no_return().
 
 abort(Reason) -> 
     exit({aborted, Reason}).
@@ -1835,6 +1835,7 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 %% Info
 
 %% Info about one table
+-spec table_info(atom(), any()) -> any().
 table_info(Tab, Item) ->
     case get(mnesia_activity_state) of
 	undefined ->
@@ -1868,7 +1869,7 @@ any_table_info(Tab, Item) when is_atom(Tab) ->
 	type -> 
 	    case ?catch_val({Tab, setorbag}) of
 		{'EXIT', _} ->
-		    bad_info_reply(Tab, Item);
+		    abort({no_exists, Tab, Item});
 		Val ->
 		    Val
 	    end;
@@ -1886,7 +1887,7 @@ any_table_info(Tab, Item) when is_atom(Tab) ->
 	_ ->
 	    case ?catch_val({Tab, Item}) of
 		{'EXIT', _} ->
-		    bad_info_reply(Tab, Item);
+		    abort({no_exists, Tab, Item});
 		Val ->
 		    Val
 	    end

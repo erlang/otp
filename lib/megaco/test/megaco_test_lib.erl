@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,28 +146,28 @@ tickets(Mod, Func, Config) ->
 		  end,
 	    lists:map(Map, Cases);
 
-        {req, _, {conf, Init, Cases, Finish}} ->
-	    case (catch Mod:Init(Config)) of
-		Conf when is_list(Conf) ->
-		    io:format("Expand: ~p:~p ...~n", [Mod, Func]),
-		    Map = fun({M,_}) when is_atom(M) -> 
-				  tickets(M, tickets, Config);
-			     (F)     when is_atom(F) -> 
-				  tickets(Mod, F, Config);
-			     (Case) -> Case
-			  end,
-		    Res = lists:map(Map, Cases),
-		    (catch Mod:Finish(Conf)),
-		    Res;
+%%         {req, _, {conf, Init, Cases, Finish}} ->
+%% 	    case (catch Mod:Init(Config)) of
+%% 		Conf when is_list(Conf) ->
+%% 		    io:format("Expand: ~p:~p ...~n", [Mod, Func]),
+%% 		    Map = fun({M,_}) when is_atom(M) -> 
+%% 				  tickets(M, tickets, Config);
+%% 			     (F)     when is_atom(F) -> 
+%% 				  tickets(Mod, F, Config);
+%% 			     (Case) -> Case
+%% 			  end,
+%% 		    Res = lists:map(Map, Cases),
+%% 		    (catch Mod:Finish(Conf)),
+%% 		    Res;
 		    
-		{'EXIT', {skipped, Reason}} ->
-		    io:format(" => skipping: ~p~n", [Reason]),
-		    [{skipped, {Mod, Func}, Reason}];
+%% 		{'EXIT', {skipped, Reason}} ->
+%% 		    io:format(" => skipping: ~p~n", [Reason]),
+%% 		    [{skipped, {Mod, Func}, Reason}];
 		    
-		Error ->
-		    io:format(" => init failed: ~p~n", [Error]),
-		    [{failed, {Mod, Func}, Error}]
-	    end;
+%% 		Error ->
+%% 		    io:format(" => init failed: ~p~n", [Error]),
+%% 		    [{failed, {Mod, Func}, Error}]
+%% 	    end;
 		    
         {'EXIT', {undef, _}} ->
 	    io:format("Undefined:   ~p~n", [{Mod, Func}]),
@@ -252,6 +252,8 @@ alloc_instance_mem_info(Key, InstanceInfo) ->
     end.
 		      
     
+t([Case]) when is_atom(Case) ->
+    t(Case);
 t(Case) ->
     process_flag(trap_exit, true),
     MEM = fun() -> case (catch erlang:memory()) of
@@ -266,11 +268,65 @@ t(Case) ->
     Res  = lists:flatten(t(Case, default_config())),
     Alloc2 = alloc_info(),
     Mem2 = MEM(),
-    %% io:format("Res: ~p~n", [Res]),
     display_result(Res, Alloc1, Mem1, Alloc2, Mem2),
     Res.
 
-t({Mod, Fun}, Config) when is_atom(Mod) andalso is_atom(Fun) ->
+
+groups(Mod) when is_atom(Mod) ->
+    try Mod:groups() of
+	Groups when is_list(Groups) ->
+	    Groups;
+	BadGroups ->
+	    exit({bad_groups, Mod, BadGroups})
+    catch 
+	_:_ ->
+	    []
+    end.
+
+init_suite(Mod, Config) ->
+    Mod:init_per_suite(Config).
+
+end_suite(Mod, Config) ->
+    Mod:end_per_suite(Config).
+
+init_group(Mod, Group, Config) ->
+    Mod:init_per_group(Group, Config).
+
+end_group(Mod, Group, Config) ->
+    Mod:init_per_group(Group, Config).
+
+%% This is for sub-SUITEs
+t({_Mod, {NewMod, all}, _Groups}, _Config) when is_atom(NewMod) ->
+    t(NewMod);
+t({Mod, {group, Name} = Group, Groups}, Config) 
+  when is_atom(Mod) andalso is_atom(Name) andalso is_list(Groups) ->
+    case lists:keysearch(Name, 1, Groups) of
+	{value, {Name, _Props, GroupsAndCases}} ->
+	    try init_group(Mod, Name, Config) of
+		Config2 when is_list(Config2) ->
+		    Res = [t({Mod, Case, Groups}, Config2) || 
+			      Case <- GroupsAndCases],
+		    (catch end_group(Mod, Name, Config2)), 
+		    Res;
+		Error ->
+		    io:format(" => group (~w) init failed: ~p~n", 
+			      [Name, Error]),
+		    [{failed, {Mod, Group}, Error}]
+	    catch
+		exit:{skipped, SkipReason} ->
+		    io:format(" => skipping group: ~p~n", [SkipReason]),
+		    [{skipped, {Mod, Group}, SkipReason, 0}];
+		exit:{undef, _} ->
+		    [t({Mod, Case, Groups}, Config) || 
+			      Case <- GroupsAndCases];
+		T:E ->
+		    [{failed, {Mod, Group}, {T,E}, 0}]
+	    end;
+	false ->
+	    exit({unknown_group, Mod, Name, Groups})
+    end;
+t({Mod, Fun, _}, Config) 
+  when is_atom(Mod) andalso is_atom(Fun) ->
     case catch apply(Mod, Fun, [suite]) of
 	[] ->
 	    io:format("Eval:   ~p:", [{Mod, Fun}]),
@@ -286,26 +342,6 @@ t({Mod, Fun}, Config) when is_atom(Mod) andalso is_atom(Fun) ->
 		  end,
 	    t(lists:map(Map, Cases), Config);
 
-        {req, _, {conf, Init, Cases, Finish}} ->
-	    case (catch apply(Mod, Init, [Config])) of
-		Conf when is_list(Conf) ->
-		    io:format("Expand: ~p ...~n", [{Mod, Fun}]),
-		    Map = fun(Case) when is_atom(Case) -> {Mod, Case};
-			     (Case) -> Case
-			  end,
-		    Res = t(lists:map(Map, Cases), Conf),
-		    (catch apply(Mod, Finish, [Conf])),
-		    Res;
-		    
-		{'EXIT', {skipped, Reason}} ->
-		    io:format(" => skipping: ~p~n", [Reason]),
-		    [{skipped, {Mod, Fun}, Reason, 0}];
-		    
-		Error ->
-		    io:format(" => failed: ~p~n", [Error]),
-		    [{failed, {Mod, Fun}, Error, 0}]
-	    end;
-		    
         {'EXIT', {undef, _}} ->
 	    io:format("Undefined:   ~p~n", [{Mod, Fun}]),
 	    [{nyi, {Mod, Fun}, ok, 0}];
@@ -315,10 +351,38 @@ t({Mod, Fun}, Config) when is_atom(Mod) andalso is_atom(Fun) ->
 	    [{failed, {Mod, Fun}, Error, 0}]
     end;
 t(Mod, Config) when is_atom(Mod) ->
-    Res = t({Mod, all}, Config),
-    Res;
-t(Cases, Config) when is_list(Cases) ->
-    [t(Case, Config) || Case <- Cases];
+    %% This is assumed to be a test suite, so we start by calling 
+    %% the top test suite function(s) (all/0 and groups/0).
+    case (catch Mod:all()) of
+	Cases when is_list(Cases) -> 
+	    %% The list may contain atoms (actual test cases) and
+	    %% group-tuples (a tuple naming a group of test cases).
+	    %% A group is defined by the (optional) groups/0 function.
+	    Groups = groups(Mod),
+	    try init_suite(Mod, Config) of
+		Config2 when is_list(Config2) ->
+		    Res = [t({Mod, Case, Groups}, Config2) || Case <- Cases],
+		    (catch end_suite(Mod, Config2)),
+		    Res;
+		Error ->
+		    io:format(" => suite init failed: ~p~n", [Error]),
+		    [{failed, {Mod, init_per_suite}, Error}]
+	    catch 
+		exit:{skipped, SkipReason} ->
+		    io:format(" => skipping suite: ~p~n", [SkipReason]),
+		    [{skipped, {Mod, init_per_suite}, SkipReason, 0}];
+		exit:{undef, _} ->
+		    [t({Mod, Case, Groups}, Config) || Case <- Cases];
+		T:E ->
+		    [{failed, {Mod, init_per_suite}, {T,E}, 0}]
+	    end;
+        {'EXIT', {undef, _}} ->
+	    io:format("Undefined:   ~p~n", [{Mod, all}]),
+	    [{nyi, {Mod, all}, ok, 0}];
+		    
+	Crap ->
+	    Crap
+    end;
 t(Bad, _Config) ->
     [{badarg, Bad, ok, 0}].
 
@@ -495,28 +559,56 @@ do_display_memory([{Key, Mem1}|MemInfo1], MemInfo2) ->
 display_result([]) ->    
     io:format("OK~n", []);
 display_result(Res) when is_list(Res) ->
-    Ok      = [{MF, Time} || {ok,  MF, _, Time}  <- Res],
-    Nyi     = [MF || {nyi, MF, _, _Time} <- Res],
-    Skipped = [{MF, Reason} || {skipped, MF, Reason, _Time} <- Res],
-    Failed  = [{MF, Reason} || {failed,  MF, Reason, _Time} <- Res],
-    Crashed = [{MF, Reason} || {crashed, MF, Reason, _Time} <- Res],
-    display_summery(Ok, Nyi, Skipped, Failed, Crashed),
+    Ok           = [{MF, Time} || {ok,  MF, _, Time}  <- Res],
+    Nyi          = [MF || {nyi, MF, _, _Time} <- Res],
+    SkippedGrps  = [{{M,G}, Reason} || 
+		       {skipped, {M, {group, G}}, Reason, _Time} <- Res],
+    SkippedCases = [{MF, Reason} || 
+		       {skipped, {_M, F} = MF, Reason, _Time} <- Res, 
+		       is_atom(F)],
+    FailedGrps   = [{{M,G}, Reason} || 
+		       {failed,  {M, {group, G}}, Reason, _Time} <- Res],
+    FailedCases  = [{MF, Reason} || 
+		       {failed,  {_M, F} = MF, Reason, _Time} <- Res, 
+		       is_atom(F)],
+    Crashed      = [{MF, Reason} || {crashed, MF, Reason, _Time} <- Res],
+    display_summery(Ok, Nyi, 
+		    SkippedGrps, SkippedCases, 
+		    FailedGrps,  FailedCases, 
+		    Crashed),
     display_ok(Ok),
-    display_skipped(Skipped),
-    display_failed(Failed),
+    display_skipped("groups",     SkippedGrps),
+    display_skipped("test cases", SkippedCases),
+    display_failed("groups",      FailedGrps),
+    display_failed("test cases",  FailedCases),
     display_crashed(Crashed).
 
-display_summery(Ok, Nyi, Skipped, Failed, Crashed) ->
+display_summery(Ok, Nyi, 
+		SkippedGrps, SkippedCases, 
+		FailedGrps, FailedCases, 
+		Crashed) ->
     io:format("~nTest case summery:~n", []),
-    display_summery(Ok,      "successfull"),
-    display_summery(Nyi,     "not yet implemented"),
-    display_summery(Skipped, "skipped"),
-    display_summery(Failed,  "failed"),
-    display_summery(Crashed, "crashed"),
+    display_summery(Ok,           "test case",  "successfull"),
+    display_summery(Nyi,          "test case",  "not yet implemented"),
+    display_summery(SkippedGrps,  "group",      "skipped"),
+    display_summery(SkippedCases, "test case",  "skipped"),
+    display_summery(FailedGrps,   "group",      "failed"),
+    display_summery(FailedCases,  "test case",  "failed"),
+    display_summery(Crashed,      "test case",  "crashed"),
     io:format("~n", []).
    
-display_summery(Res, Info) ->
-    io:format("  ~w test cases ~s~n", [length(Res), Info]).
+
+display_summery(Res, Kind, Info) ->
+    Len = length(Res),
+    if 
+	Len =:= 1 ->
+	    display_summery(Len, Kind ++ " " ++ Info);
+	true ->
+	    display_summery(Len, Kind ++ "s " ++ Info)
+    end.
+    
+display_summery(Len, Info) ->
+    io:format("  ~w ~s~n", [Len, Info]).
     
 display_ok([]) ->
     ok;
@@ -528,20 +620,20 @@ display_ok(Ok) ->
     lists:foreach(F, Ok),
     io:format("~n", []).
 
-display_skipped([]) ->
+display_skipped(_, []) ->
     ok;
-display_skipped(Skipped) ->
-    io:format("Skipped test cases:~n", []),
-    F = fun({MF, Reason}) -> io:format("  ~p => ~p~n", [MF, Reason]) end,
+display_skipped(Pre, Skipped) ->
+    io:format("Skipped ~s:~n", [Pre]),
+    F = fun({X, Reason}) -> io:format("  ~p => ~p~n", [X, Reason]) end,
     lists:foreach(F, Skipped),
     io:format("~n", []).
 
 
-display_failed([]) ->
+display_failed(_, []) ->
     ok;
-display_failed(Failed) ->
-    io:format("Failed test cases:~n", []),
-    F = fun({MF, Reason}) -> io:format("  ~p => ~p~n", [MF, Reason]) end,
+display_failed(Pre, Failed) ->
+    io:format("Failed ~s:~n", [Pre]),
+    F = fun({X, Reason}) -> io:format("  ~p => ~p~n", [X, Reason]) end,
     lists:foreach(F, Failed),
     io:format("~n", []).
 
@@ -837,5 +929,5 @@ start_nodes([Node | Nodes], File, Line) ->
 start_nodes([], _File, _Line) ->
     ok.
 
-p(F,A) ->
-    io:format("~p" ++ F ++ "~n", [self()|A]).
+p(F, A) ->
+    io:format("~p~w:" ++ F ++ "~n", [self(), ?MODULE |A]).

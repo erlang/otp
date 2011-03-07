@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -675,8 +675,8 @@ ssl_server_peercert_api(_Config) ->
  	    {ok, Socket} = 
 		?match({ok, _}, fake_client_ORB(ssl, ServerHost, ServerPort, SSLOptions)),
 	    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
 %	    ?match({ok, #'Certificate'{}}, 
 %		   'OrberCSIv2':decode('Certificate', PeerCert)),
 	    destroy_fake_ORB(ssl, Socket),
@@ -715,8 +715,8 @@ ssl_client_peercert_api(_Config) ->
 	    ?match(ok, ssl:ssl_accept(Socket)),
 	    
 	    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
-	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
+%% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
 %	    ?match({ok, #'Certificate'{}}, 
 %		   'OrberCSIv2':decode('Certificate', PeerCert)),
 	    ssl:close(Socket),

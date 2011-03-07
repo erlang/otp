@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,6 +46,9 @@ start(GS, Mod) ->
 	    spawn_link(fun () -> init(GS, Env, Mod, Title) end)
     end.
 
+-spec stop() -> no_return().
+stop() ->
+    exit(normal).
 
 %%====================================================================
 %% Main loop and message handling
@@ -113,13 +116,13 @@ loop(State) ->
     end.
 
 %%--Commands from the GUI---------------------------------------------
-
+		      
 gui_cmd(ignore, State) ->
     State;
 gui_cmd({win, Win}, State) ->
     State#state{win=Win};
 gui_cmd(stopped, _State) ->
-    exit(normal);
+    stop();
 gui_cmd({coords, Coords}, State) ->
     State#state{coords=Coords};
 
@@ -132,7 +135,7 @@ gui_cmd({shortcut, Key}, State) ->
 %% File menu
 gui_cmd('Close', State) ->
     dbg_wx_trace_win:stop(State#state.win),
-    gui_cmd(stopped, State);
+    stop();
 
 %% Edit menu
 gui_cmd('Go To Line', State) ->

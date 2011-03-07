@@ -231,7 +231,8 @@
       <tag><c><![CDATA[-detached]]></c></tag>
       <item>
         <p>Starts the Erlang runtime system detached from the system
-          console. Useful for running daemons and backgrounds processes.</p>
+          console. Useful for running daemons and backgrounds processes. Implies
+          <c><![CDATA[-noinput]]></c>.</p>
       </item>
       <tag><c><![CDATA[-emu_args]]></c></tag>
       <item>

@@ -231,9 +231,13 @@ start_port_srv(Request) ->
 		catch
 		    error:_ -> false
 		end,
-    start_port_srv_loop(Request, StayAlive).
+    start_port_srv_handle(Request),
+    case StayAlive of
+	true -> start_port_srv_loop();
+	false -> exiting
+    end.
 
-start_port_srv_loop({Ref,Client}, StayAlive) ->
+start_port_srv_handle({Ref,Client}) ->
     Reply = try open_port({spawn, ?SHELL},[stream]) of
 		Port when is_port(Port) ->
 		    (catch port_connect(Port, Client)),
@@ -243,20 +247,18 @@ start_port_srv_loop({Ref,Client}, StayAlive) ->
 		error:Reason ->
 		    {Reason,erlang:get_stacktrace()}	    
 	    end,
-    Client ! {Ref,Reply},
-    case StayAlive of
-	true -> start_port_srv_loop(get_open_port_request(), true);
-	false -> exiting
-    end.
+    Client ! {Ref,Reply}.
 
-get_open_port_request() ->
+
+start_port_srv_loop() ->
     receive
 	{Ref, Client} = Request when is_reference(Ref),
 				     is_pid(Client) ->
-	    Request;
+	    start_port_srv_handle(Request);
 	_Junk ->
-	    get_open_port_request()
-    end.
+	    ignore
+    end,
+    start_port_srv_loop().
 
 %%
 %%  unix_get_data(Port) -> Result

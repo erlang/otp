@@ -174,11 +174,19 @@
       <c>remove</c> and <c>purge</c>.</p>
     <pre>
 {add_application, Application}
+{add_application, Application, Type}
   Application = atom()
+  Type = permanent | transient | temporary | load | none
     </pre>
     <p>Adding an application means that the modules defined by
       the <c>modules</c> key in the <c>.app</c> file are loaded using
-      <c>add_module</c>, then the application is started.</p>
+      <c>add_module</c>.</p>
+    <p><c>Type</c> defaults to <c>permanent</c> and specifies the start type
+      of the application. If <c>Type = permanent | transient | temporary</c>,
+      the application will be loaded and started in the corresponding way,
+      see <c>application(3)</c>. If <c>Type = load</c>, the application will
+      only be loaded. If <c>Type = none</c>, the application will be neither
+      loaded nor started, although the code for its modules will be loaded.</p>
     <pre>
 {remove_application, Application}
   Application = atom()

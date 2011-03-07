@@ -180,34 +180,38 @@ t_fdopen(Config) when is_list(Config) ->
 %%% implicit inet6 option to api functions
 
 t_implicit_inet6(Config) when is_list(Config) ->
-    ?line Hostname = ok(inet:gethostname()),
+    ?line Host = ok(inet:gethostname()),
+    ?line
+	case inet:getaddr(Host, inet6) of
+	    {ok,Addr} ->
+		?line t_implicit_inet6(Host, Addr);
+	    {error,Reason} ->
+		{skip,
+		 "Can not look up IPv6 address: "
+		 ++atom_to_list(Reason)}
+	end.
+
+t_implicit_inet6(Host, Addr) ->
     ?line
 	case gen_tcp:listen(0, [inet6]) of
 	    {ok,S1} ->
-		?line
-		    case inet:getaddr(Hostname, inet6) of
-			{ok,Host} ->
-			    ?line Loopback = {0,0,0,0,0,0,0,1},
-			    ?line io:format("~s ~p~n", ["Loopback",Loopback]),
-			    ?line implicit_inet6(S1, Loopback),
-			    ?line ok = gen_tcp:close(S1),
-			    %%
-			    ?line Localhost =
-				ok(inet:getaddr("localhost", inet6)),
-			    ?line io:format("~s ~p~n", ["localhost",Localhost]),
-			    ?line S2 = ok(gen_tcp:listen(0, [{ip,Localhost}])),
-			    ?line implicit_inet6(S2, Localhost),
-			    ?line ok = gen_tcp:close(S2),
-			    %%
-			    ?line io:format("~s ~p~n", [Hostname,Host]),
-			    ?line S3 = ok(gen_tcp:listen(0, [{ifaddr,Host}])),
-			    ?line implicit_inet6(S3, Host),
-			    ?line ok = gen_tcp:close(S1);
-			{error,eafnosupport} ->
-			    ?line ok = gen_tcp:close(S1),
-			    {skip,"Can not look up IPv6 address"}
-		    end;
-	    _ ->
+		?line Loopback = {0,0,0,0,0,0,0,1},
+		?line io:format("~s ~p~n", ["::1",Loopback]),
+		?line implicit_inet6(S1, Loopback),
+		?line ok = gen_tcp:close(S1),
+		%%
+		?line Localhost = "localhost",
+		?line Localaddr = ok(inet:getaddr(Localhost, inet6)),
+		?line io:format("~s ~p~n", [Localhost,Localaddr]),
+		?line S2 = ok(gen_tcp:listen(0, [{ip,Localaddr}])),
+		?line implicit_inet6(S2, Localaddr),
+		?line ok = gen_tcp:close(S2),
+		%%
+		?line io:format("~s ~p~n", [Host,Addr]),
+		?line S3 = ok(gen_tcp:listen(0, [{ifaddr,Addr}])),
+		?line implicit_inet6(S3, Addr),
+		?line ok = gen_tcp:close(S3);
+	    {error,_} ->
 		{skip,"IPv6 not supported"}
 	end.
 

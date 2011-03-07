@@ -585,10 +585,10 @@ end_per_testcase(_Func, Config) ->
     Config.
 
 init_per_suite(Config) ->
-    case application:start(crypto) of
+    try crypto:start() of
 	ok ->
-	    Config;
-	_  ->
+	    Config
+    catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
 

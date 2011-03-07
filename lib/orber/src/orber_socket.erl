@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,7 @@
 %%-----------------------------------------------------------------
 -export([start/0, connect/4, listen/3, listen/4, accept/2, accept/3, write/3,
 	 controlling_process/3, close/2, peername/2, sockname/2, 
-	 peerdata/2, peercert/2, peercert/3, sockdata/2, setopts/3, 
+	 peerdata/2, peercert/2, sockdata/2, setopts/3, 
 	 clear/2, shutdown/3, post_accept/2, post_accept/3]).
 
 %%-----------------------------------------------------------------
@@ -364,14 +364,6 @@ peercert(Type, _Socket) ->
     orber:dbg("[~p] orber_socket:peercert(~p);~n"
 	      "Only available for SSL sockets.", 
 	      [?LINE, Type], ?DEBUG_LEVEL),
-    {error, ebadsocket}.
-
-peercert(ssl, Socket, Opts) ->
-    ssl:peercert(Socket, Opts);
-peercert(Type, _Socket, Opts) ->
-    orber:dbg("[~p] orber_socket:peercert(~p, ~p);~n"
-	      "Only available for SSL sockets.", 
-	      [?LINE, Type, Opts], ?DEBUG_LEVEL),
     {error, ebadsocket}.
 
 %%-----------------------------------------------------------------

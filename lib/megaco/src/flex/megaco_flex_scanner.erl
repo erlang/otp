@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,21 +30,11 @@
 -define(SCHED_ID(),            erlang:system_info(scheduler_id)).
 -define(SMP_SUPPORT_DEFAULT(), erlang:system_info(smp_support)).
 
-is_enabled() ->
-    case ?ENABLE_MEGACO_FLEX_SCANNER of
-	true ->
-	    true;
-	_ ->
-	    false
-    end.
+is_enabled() -> 
+    (true =:= ?ENABLE_MEGACO_FLEX_SCANNER).
     
 is_reentrant_enabled() ->
-    case ?MEGACO_REENTRANT_FLEX_SCANNER of
-	true ->
-	    true;
-	_ ->
-	    false
-    end.
+    (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
 
 is_scanner_port(Port, Port) when is_port(Port) ->
     true;

@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2001-2009. All Rights Reserved.
+# Copyright Ericsson AB 2001-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@ BEHAVIOUR_MODULES = \
 
 MODULES = \
 	$(BEHAVIOUR_MODULES) \
+	megaco_config_misc \
 	megaco_config \
 	megaco_digit_map \
 	megaco_erl_dist_encoder \

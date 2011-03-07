@@ -2997,10 +2997,12 @@ init_smp_sig_notify(void)
 #ifdef __DARWIN__
 
 int erts_darwin_main_thread_pipe[2];
+int erts_darwin_main_thread_result_pipe[2];
 
-static void initialize_darwin_main_thread_pipe(void) 
+static void initialize_darwin_main_thread_pipes(void) 
 {
-    if (pipe(erts_darwin_main_thread_pipe) < 0) {
+    if (pipe(erts_darwin_main_thread_pipe) < 0 || 
+	pipe(erts_darwin_main_thread_result_pipe) < 0) {
 	erl_exit(1,"Fatal error initializing Darwin main thread stealing");
     }
 }
@@ -3011,7 +3013,7 @@ erts_sys_main_thread(void)
 {
     erts_thread_disable_fpe();
 #ifdef __DARWIN__
-    initialize_darwin_main_thread_pipe();
+    initialize_darwin_main_thread_pipes();
 #endif
     /* Become signal receiver thread... */
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -3039,7 +3041,7 @@ erts_sys_main_thread(void)
 	    read(erts_darwin_main_thread_pipe[0],&func,sizeof(void* (*)(void*)));
 	    read(erts_darwin_main_thread_pipe[0],&arg, sizeof(void*));
 	    resp = (*func)(arg);
-	    write(erts_darwin_main_thread_pipe[1],&resp,sizeof(void *));
+	    write(erts_darwin_main_thread_result_pipe[1],&resp,sizeof(void *));
 	}
 #else
 #ifdef DEBUG
