@@ -40,7 +40,7 @@
     {load_module, http_chunk, soft_purge, soft_purge, []}
    ]
   }, 
-  {"5.4",
+  {"5.5",
    [
     {restart_application, inets}
    ]
