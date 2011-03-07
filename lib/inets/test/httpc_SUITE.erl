@@ -59,40 +59,85 @@
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
 
-<<<<<<< variant A
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [proxy_options, proxy_head, proxy_get, proxy_trace,
-     proxy_post, proxy_put, proxy_delete, proxy_auth,
-     proxy_headers, proxy_emulate_lower_versions,
-     http_options, http_head, http_get, http_post,
-     http_dummy_pipe, http_inets_pipe, http_trace,
-     http_async, http_save_to_file, http_save_to_file_async,
-     http_headers, http_headers_dummy, http_bad_response,
-     ssl_head, ossl_head, essl_head, ssl_get, ossl_get,
-     essl_get, ssl_trace, ossl_trace, essl_trace,
-     http_redirect, http_redirect_loop,
-     http_internal_server_error, http_userinfo, http_cookie,
-     http_server_does_not_exist, http_invalid_http,
-     http_emulate_lower_versions, http_relaxed,
-     page_does_not_exist, proxy_page_does_not_exist,
-     proxy_https_not_supported, http_stream,
-     http_stream_once, proxy_stream, parse_url, options,
-     ipv6, headers_as_is, {group, tickets}].
+    [
+     proxy_options, 
+     proxy_head, 
+     proxy_get, 
+     proxy_trace,
+     proxy_post, 
+     proxy_put, 
+     proxy_delete, 
+     proxy_auth,
+     proxy_headers, 
+     proxy_emulate_lower_versions,
+     http_options, 
+     http_head, 
+     http_get, 
+     http_post,
+     http_post_streaming, 
+     http_dummy_pipe, 
+     http_inets_pipe, 
+     http_trace,
+     http_async, 
+     http_save_to_file, 
+     http_save_to_file_async,
+     http_headers, 
+     http_headers_dummy, 
+     http_bad_response,
+     ssl_head, 
+     ossl_head, 
+     essl_head, 
+     ssl_get, 
+     ossl_get,
+     essl_get, 
+     ssl_trace, 
+     ossl_trace, 
+     essl_trace,
+     http_redirect, 
+     http_redirect_loop,
+     http_internal_server_error, 
+     http_userinfo, http_cookie,
+     http_server_does_not_exist, 
+     http_invalid_http,
+     http_emulate_lower_versions, 
+     http_relaxed,
+     page_does_not_exist, 
+     proxy_page_does_not_exist,
+     proxy_https_not_supported, 
+     http_stream,
+     http_stream_once, 
+     proxy_stream, 
+     parse_url, 
+     options,
+     ipv6, 
+     headers_as_is, 
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{tickets, [],
-      [hexed_query_otp_6191, empty_body_otp_6243,
-       empty_response_header_otp_6830,
-       transfer_encoding_otp_6807, proxy_not_modified_otp_6821,
-       no_content_204_otp_6982, missing_CR_otp_7304,
-       {group, otp_7883}, {group, otp_8154}, {group, otp_8106},
-       otp_8056, otp_8352, otp_8371, otp_8739]},
-     {otp_7883, [], [otp_7883_1, otp_7883_2]},
+    [{tickets, [], [hexed_query_otp_6191, 
+		    empty_body_otp_6243,
+		    empty_response_header_otp_6830,
+		    transfer_encoding_otp_6807, 
+		    proxy_not_modified_otp_6821,
+		    no_content_204_otp_6982, 
+		    missing_CR_otp_7304,
+		    {group, otp_7883}, 
+		    {group, otp_8154}, 
+		    {group, otp_8106},
+		    otp_8056, 
+		    otp_8352, 
+		    otp_8371, 
+		    otp_8739]},
+     {otp_7883, [], [otp_7883_1, 
+		     otp_7883_2]},
      {otp_8154, [], [otp_8154_1]},
-     {otp_8106, [],
-      [otp_8106_pid, otp_8106_fun, otp_8106_mfa]}].
+     {otp_8106, [], [otp_8106_pid, 
+		     otp_8106_fun, 
+		     otp_8106_mfa]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -101,126 +146,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
->>>>>>> variant B
-all(doc) ->
-    ["Test the http client in the intes application."];
-all(suite) ->
-    [
-     proxy_options, 
-     proxy_head, 
-     proxy_get, 
-     proxy_trace, 
-     proxy_post,
-     proxy_put, 
-     proxy_delete,
-     proxy_auth,
-     proxy_headers,
-     proxy_emulate_lower_versions,
-     http_options, 
-     http_head, 
-     http_get, 
-     http_post,
-     http_post_streaming,
-     http_dummy_pipe,
-     http_inets_pipe,
-     http_trace,
-     http_async,
-     http_save_to_file,
-     http_save_to_file_async,
-     http_headers,
-     http_headers_dummy,
-     http_bad_response,
-     ssl_head, 
-     ossl_head, 
-     essl_head, 
-     ssl_get, 
-     ossl_get, 
-     essl_get, 
-     ssl_trace, 
-     ossl_trace, 
-     essl_trace, 
-     http_redirect, 
-     http_redirect_loop,
-     http_internal_server_error,
-     http_userinfo,
-     http_cookie,
-     http_server_does_not_exist,
-     http_invalid_http,
-     http_emulate_lower_versions,
-     http_relaxed, 
-     page_does_not_exist, 
-     proxy_page_does_not_exist, 
-     proxy_https_not_supported,
-     http_stream,
-     http_stream_once,
-     proxy_stream,
-     parse_url,
-     options,
-     ipv6,
-     headers_as_is,
-     tickets
-    ].
- 
-####### Ancestor
-all(doc) ->
-    ["Test the http client in the intes application."];
-all(suite) ->
-    [
-     proxy_options, 
-     proxy_head, 
-     proxy_get, 
-     proxy_trace, 
-     proxy_post,
-     proxy_put, 
-     proxy_delete,
-     proxy_auth,
-     proxy_headers,
-     proxy_emulate_lower_versions,
-     http_options, 
-     http_head, 
-     http_get, 
-     http_post,
-     http_dummy_pipe,
-     http_inets_pipe,
-     http_trace,
-     http_async,
-     http_save_to_file,
-     http_save_to_file_async,
-     http_headers,
-     http_headers_dummy,
-     http_bad_response,
-     ssl_head, 
-     ossl_head, 
-     essl_head, 
-     ssl_get, 
-     ossl_get, 
-     essl_get, 
-     ssl_trace, 
-     ossl_trace, 
-     essl_trace, 
-     http_redirect, 
-     http_redirect_loop,
-     http_internal_server_error,
-     http_userinfo,
-     http_cookie,
-     http_server_does_not_exist,
-     http_invalid_http,
-     http_emulate_lower_versions,
-     http_relaxed, 
-     page_does_not_exist, 
-     proxy_page_does_not_exist, 
-     proxy_https_not_supported,
-     http_stream,
-     http_stream_once,
-     proxy_stream,
-     parse_url,
-     options,
-     ipv6,
-     headers_as_is,
-     tickets
-    ].
- 
-======= end
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
 %% Config - [tuple()]
@@ -259,6 +184,7 @@ init_per_suite(Config) ->
      {local_port,     ?IP_PORT}, 
      {local_ssl_port, ?SSL_PORT} | Config].
 
+
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]
@@ -271,6 +197,7 @@ end_per_suite(Config) ->
     application:stop(inets),
     application:stop(ssl),
     ok.
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(Case, Config) -> Config
@@ -517,9 +444,9 @@ http_post(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 http_post_streaming(doc) ->
-    ["Test streaming http post request against local server. We"
-    " only care about the client side of the the post. The server"
-    " script will not actually use the post data."];
+    ["Test streaming http post request against local server. "
+     "We only care about the client side of the the post. "
+     "The server script will not actually use the post data."];
 http_post_streaming(suite) ->
     [];
 http_post_streaming(Config) when is_list(Config) ->
@@ -536,23 +463,31 @@ http_post_streaming(Config) when is_list(Config) ->
             end,
             %% Cgi-script expects the body length to be 100
             BodyFun = fun(0) ->
-                    eof;
-                (LenLeft) ->
-                    {ok, lists:duplicate(10, "1"), LenLeft - 10}
-            end,
-
+			      io:format("~w:http_post_streaming_fun -> "
+					"zero~n", [?MODULE]),
+			      eof;
+			 (LenLeft) ->
+			      io:format("~w:http_post_streaming_fun -> "
+					"LenLeft: ~p~n", [?MODULE, LenLeft]),
+			      {ok, lists:duplicate(10, "1"), LenLeft - 10}
+		      end,
+	    
             {ok, {{_,200,_}, [_ | _], [_ | _]}} =
-            httpc:request(post, {URL,
-                [{"expect", "100-continue"}, {"content-length", "100"}],
-                "text/plain", {BodyFun, 100}}, [], []),
-
+		httpc:request(post, {URL,
+				     [{"expect", "100-continue"}, 
+				      {"content-length", "100"}],
+				     "text/plain", {BodyFun, 100}}, [], []),
+	    
             {ok, {{_,504,_}, [_ | _], []}} =
-            httpc:request(post, {URL,
-                [{"expect", "100-continue"}, {"content-length", "10"}],
-                "text/plain", {BodyFun, 10}}, [], []);
+		httpc:request(post, {URL,
+				     [{"expect", "100-continue"}, 
+				      {"content-length", "10"}],
+				     "text/plain", {BodyFun, 10}}, [], []);
+	
       _ ->
           {skip, "Failed to start local http-server"}
     end.
+
 
 %%-------------------------------------------------------------------------
 http_emulate_lower_versions(doc) ->
@@ -2733,7 +2668,7 @@ otp_8739_dummy_server_init(Parent) ->
     Parent ! {port, Port},
     otp_8739_dummy_server_main(Parent, ListenSocket).
 
-otp_8739_dummy_server_main(Parent, ListenSocket) ->
+otp_8739_dummy_server_main(_Parent, ListenSocket) ->
     case gen_tcp:accept(ListenSocket) of
 	{ok, Sock} ->
 	    %% Ignore the request, and simply wait for the socket to close

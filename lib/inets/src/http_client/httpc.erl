@@ -432,32 +432,41 @@ handle_request(Method, Url,
 	       Headers0, ContentType, Body0,
 	       HTTPOptions0, Options0, Profile) ->
 
-    Started    = http_util:timestamp(), 
+    Started     = http_util:timestamp(), 
     NewHeaders0 = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers0],
-
-    {NewHeaders, Body} = case Body0 of
-        {chunkify, BodyFun, Acc} ->
-            NewHeaders1 = lists:keystore("transfer-encoding", 1,
-                NewHeaders0, {"transfer-encoding", "chunked"}),
-            {NewHeaders1, {chunkify_fun(BodyFun), Acc}};
-        _ ->
-            {NewHeaders0, Body0}
-    end,
 
     try
 	begin
+	    ?hcrt("begin processing", [{started,     Started}, 
+				       {new_headers, NewHeaders0}]),
+
+	    {NewHeaders, Body} = 
+		case Body0 of
+		    {chunkify, ProcessBody, Acc} 
+		      when is_function(ProcessBody, 1) ->
+			NewHeaders1 = ensure_chunked_encoding(NewHeaders0), 
+			Body1       = {mk_chunkify_fun(ProcessBody), Acc}, 
+			{NewHeaders1, Body1};
+		    {ProcessBody, _} 
+		      when is_function(ProcessBody, 1) ->
+			{NewHeaders0, Body0};
+		    _ when is_list(Body0) orelse is_binary(Body0) ->
+			{NewHeaders0, Body0};
+		    _ ->
+			throw({error, {bad_body, Body0}})
+		end,
+
 	    HTTPOptions   = http_options(HTTPOptions0),
 	    Options       = request_options(Options0), 
 	    Sync          = proplists:get_value(sync,   Options),
 	    Stream        = proplists:get_value(stream, Options),
 	    Host2         = header_host(Scheme, Host, Port), 
 	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
-	    Receiver   = proplists:get_value(receiver, Options),
-	    SocketOpts = proplists:get_value(socket_opts, Options),
-	    UrlEncodeBool =  HTTPOptions#http_options.url_encode,
-	    MaybeEscPath = url_encode(Path, UrlEncodeBool),
-	    MaybeEscQuery = url_encode(Query, UrlEncodeBool),
-	    AbsUri  = url_encode(Url, UrlEncodeBool),
+	    Receiver      = proplists:get_value(receiver, Options),
+	    SocketOpts    = proplists:get_value(socket_opts, Options),
+	    MaybeEscPath  = maybe_encode_uri(HTTPOptions, Path),
+	    MaybeEscQuery = maybe_encode_uri(HTTPOptions, Query),
+	    AbsUri        = maybe_encode_uri(HTTPOptions, Url),
 
 	    Request = #request{from          = Receiver,
 			       scheme        = Scheme, 
@@ -474,51 +483,67 @@ handle_request(Method, Url,
 			       headers_as_is = headers_as_is(Headers0, Options),
 			       socket_opts   = SocketOpts, 
 			       started       = Started},
+
 	    case httpc_manager:request(Request, profile_name(Profile)) of
 		{ok, RequestId} ->
 		    handle_answer(RequestId, Sync, Options);
 		{error, Reason} ->
+		    ?hcrd("request failed", [{reason, Reason}]),
 		    {error, Reason}
 	    end
 	end
     catch
 	error:{noproc, _} ->
+	    ?hcrl("noproc", [{profile, Profile}]),
 	    {error, {not_started, Profile}};
 	throw:Error ->
+	    ?hcrl("throw", [{error, Error}]),
 	    Error
     end.
 
-url_encode(URI, true) ->
+ensure_chunked_encoding(Hdrs) ->
+    Key = "transfer-encoding",
+    lists:keystore(Key, 1, Hdrs, {Key, "chunked"}).
+
+maybe_encode_uri(#http_options{url_encode = true}, URI) ->
     http_uri:encode(URI);
-url_encode(URI, false) ->
+maybe_encode_uri(_, URI) ->
     URI.
 
-chunkify_fun(BodyFun) ->
-    fun(eof_body_fun) ->
-        eof;
-    (Acc) ->
-        case BodyFun(Acc) of
-            eof ->
-                {ok, <<"0\r\n\r\n">>, eof_body_fun};
-            {ok, Data, NewAcc} ->
-                Bin = iolist_to_binary(Data),
-                Chunk = [hex_size(Bin), "\r\n", Bin, "\r\n"],
-                {ok, iolist_to_binary(Chunk), NewAcc}
-        end
+mk_chunkify_fun(ProcessBody) ->
+    fun(eof_body) ->
+	    eof;
+       (Acc) ->
+	    case ProcessBody(Acc) of
+		eof ->
+		    {ok, <<"0\r\n\r\n">>, eof_body};
+		{ok, Data, NewAcc} ->
+		    {ok, mk_chunk_bin(Data), NewAcc}
+	    end
     end.
+
+mk_chunk_bin(Data) ->
+    Bin = iolist_to_binary(Data),
+    iolist_to_binary([hex_size(Bin), "\r\n", Bin, "\r\n"]).
 
 hex_size(Bin) ->
     hd(io_lib:format("~.16B", [size(Bin)])).
+
 
 handle_answer(RequestId, false, _) ->
     {ok, RequestId};
 handle_answer(RequestId, true, Options) ->
     receive
 	{http, {RequestId, saved_to_file}} ->
+	    ?hcrt("received saved-to-file", [{request_id, RequestId}]),
 	    {ok, saved_to_file};
 	{http, {RequestId, {_,_,_} = Result}} ->
+	    ?hcrt("received answer", [{request_id, RequestId}, 
+				      {result,     Result}]),
 	    return_answer(Options, Result);
 	{http, {RequestId, {error, Reason}}} ->
+	    ?hcrt("received error", [{request_id, RequestId}, 
+				     {reason,     Reason}]),
 	    {error, Reason}
     end.
 

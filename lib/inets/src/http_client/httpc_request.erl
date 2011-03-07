@@ -79,41 +79,43 @@ send(SendAddr, Socket, SocketType,
 	   {settings,      HttpOptions}, 
 	   {userinfo,      UserInfo}]),
 
-    TmpHeaders = handle_user_info(UserInfo, Headers),
+    TmpHdrs = handle_user_info(UserInfo, Headers),
 
-    {TmpHeaders2, Body} = 
-	post_data(Method, TmpHeaders, Content, HeadersAsIs),
+    {TmpHdrs2, Body} = post_data(Method, TmpHdrs, Content, HeadersAsIs),
     
-    {NewHeaders, Uri} = case Address of
-			    SendAddr ->
-				{TmpHeaders2, Path ++ Query};
-			    _Proxy ->
-				TmpHeaders3 =
-				    handle_proxy(HttpOptions, TmpHeaders2),
-				{TmpHeaders3, AbsUri}
-			end,
-
-    FinalHeaders = case NewHeaders of
-		       HeaderList when is_list(HeaderList) ->
-			   http_headers(HeaderList, []);
-		       _  ->
-			   http_request:http_headers(NewHeaders)
-		   end,
+    {NewHeaders, Uri} = 
+	case Address of
+	    SendAddr ->
+		{TmpHdrs2, Path ++ Query};
+	    _Proxy ->
+		TmpHdrs3 = handle_proxy(HttpOptions, TmpHdrs2), 
+		{TmpHdrs3, AbsUri}
+	end,
+    
+    FinalHeaders = 
+	case NewHeaders of
+	    HeaderList when is_list(HeaderList) ->
+		http_headers(HeaderList, []);
+	    _  ->
+		http_request:http_headers(NewHeaders)
+	end,
     Version = HttpOptions#http_options.version,
 
     do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body).
 
 
-do_send_body(SocketType, Socket, Method, Uri, Version, Headers, {DataFun, Acc})
-    when is_function(DataFun, 1) ->
+do_send_body(SocketType, Socket, Method, Uri, Version, Headers, 
+	     {ProcessBody, Acc}) when is_function(ProcessBody, 1) ->
+    ?hcrt("send", [{acc, Acc}]),
     case do_send_body(SocketType, Socket, Method, Uri, Version, Headers, []) of
         ok ->
-            data_fun_loop(SocketType, Socket, DataFun, Acc);
+            do_send_body(SocketType, Socket, ProcessBody, Acc);
         Error ->
             Error
     end;
 
 do_send_body(SocketType, Socket, Method, Uri, Version, Headers, Body) ->
+    ?hcrt("create message", [{body, Body}]),
     Message = [method(Method), " ", Uri, " ",
 	       version(Version), ?CRLF,
 	       headers(Headers, Version), ?CRLF, Body],
@@ -121,16 +123,16 @@ do_send_body(SocketType, Socket, Method, Uri, Version, Headers, Body) ->
     http_transport:send(SocketType, Socket, lists:append(Message)).
 
 
-data_fun_loop(SocketType, Socket, DataFun, Acc) ->
-    case DataFun(Acc) of
+do_send_body(SocketType, Socket, ProcessBody, Acc) ->
+    case ProcessBody(Acc) of
         eof ->
             ok;
         {ok, Data, NewAcc} ->
             DataBin = iolist_to_binary(Data),
-            ?hcrd("send", [{message, DataBin}]),
+            ?hcrd("send", [{data, DataBin}]),
             case http_transport:send(SocketType, Socket, DataBin) of
                 ok ->
-                    data_fun_loop(SocketType, Socket, DataFun, NewAcc);
+                    do_send_body(SocketType, Socket, ProcessBody, NewAcc);
                 Error ->
                     Error
             end
