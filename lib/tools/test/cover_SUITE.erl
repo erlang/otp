@@ -350,6 +350,7 @@ distribution(Config) when is_list(Config) ->
 
     %% Check that stop() unloads on all nodes
     ?line ok = cover:stop(),
+    ?line timer:sleep(100), %% Give nodes time to unload on slow machines.
     ?line LocalBeam = code:which(f),
     ?line N2Beam = rpc:call(N2,code,which,[f]),
     ?line true = is_unloaded(LocalBeam),
