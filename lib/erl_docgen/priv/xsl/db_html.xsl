@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2010. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2011. All Rights Reserved.
      #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
@@ -556,8 +556,8 @@
     </xsl:apply-templates>
   </xsl:template>
 
-  <!-- Chapter/Subsection -->
-  <xsl:template match="chapter/section/section">
+  <!-- Subsections lvl 3 and ... -->
+  <xsl:template match="section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
     <h4>
@@ -568,8 +568,6 @@
       <xsl:with-param name="chapnum" select="$chapnum"/>
     </xsl:apply-templates>
   </xsl:template>
-
-
 
   <!-- *ref/Section -->
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section">

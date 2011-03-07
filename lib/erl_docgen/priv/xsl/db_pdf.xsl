@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2010. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2011. All Rights Reserved.
      #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
@@ -827,7 +827,7 @@
 
   </xsl:template>
 
-  <!--  Chapter/Subsection -->
+  <!--  Chapter/Subsection  -->
   <xsl:template match="chapter/section/section">
     <xsl:param name="partnum"/>
     <xsl:param name="chapnum"/>
@@ -843,6 +843,22 @@
     </xsl:apply-templates>
   </xsl:template>
 
+
+  <!--  Subsection below level 2 -->
+  <xsl:template match="section/section/section">
+    <xsl:param name="partnum"/>
+    <xsl:param name="chapnum"/>
+    <xsl:param name="sectnum"/>
+    <fo:block xsl:use-attribute-sets="h5" id="{generate-id(title)}">
+      <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
+      <xsl:value-of select="title"/>
+    </fo:block>
+    <xsl:apply-templates>
+      <xsl:with-param name="partnum" select="$partnum"/>
+      <xsl:with-param name="chapnum" select="$chapnum"/>
+      <xsl:with-param name="sectnum" select="$sectnum"/>
+    </xsl:apply-templates>
+  </xsl:template>
 
 
   <!-- *ref/Section -->
