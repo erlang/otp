@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2010</year>
+      <year>2002</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,50 +32,78 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.5.1</title>
-
-    <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
-	    <p> Fix format_man_pages so it handles all man sections
-	    and remove warnings/errors in various man pages. </p>
-          <p>
-	    Own Id: OTP-8600</p>
-        </item>
-        <item>
-          <p>
-	    [httpc] Pipelined and queued requests not processed when
-	    connection closed remotelly.</p>
-          <p>
-	    Own Id: OTP-8906</p>
-        </item>
-      </list>
-    </section>
-
+  <section><title>Inets 5.5.2</title>
 
     <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
       <list>
         <item>
           <p>
 	    Miscellaneous inet6 related problems.</p>
-          <p>
-	    Own Id: OTP-8927</p>
+          <p>Own Id: OTP-8927</p>
         </item>
+      </list>
+-->
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
         <item>
-          <p>
-	    Updated http-server to make sure URLs in error-messages
-	    are URL-encoded. Added support in http-client to use
-	    URL-encoding. Also added the missing include directory
-	    for the inets application.</p>
-          <p>
-	    Own Id: OTP-8940 Aux Id: seq11735 </p>
+          <p>[httpd] httpd_response:send_chunk handles empty list and 
+          empty binary - i.e. no chunk is sent, but it does 
+	  not handle a list with an empty binary [&lt;&lt;&gt;&gt;]. 
+	  This will be sent as an empty chunk - which in turn 
+	  will be encoded by http_chunk to the same as a final 
+	  chunk, which will make the http client believe that 
+	  the end of the page is reached.</p>
+	  <p>Own Id: OTP-8906</p>
         </item>
       </list>
     </section>
 
-</section>
+  </section> <!-- 5.5.2 -->
 
-<section><title>Inets 5.5</title>
+
+  <section><title>Inets 5.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>Miscellaneous inet6 related problems.</p>
+          <p>Own Id: OTP-8927</p>
+        </item>
+        <item>
+          <p>Updated http-server to make sure URLs in error-messages
+	  are URL-encoded. Added support in http-client to use
+	  URL-encoding. Also added the missing include directory
+	  for the inets application.</p>
+          <p>Own Id: OTP-8940 Aux Id: seq11735 </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	  <p>Fix format_man_pages so it handles all man sections
+	  and remove warnings/errors in various man pages. </p>
+	  <p>Own Id: OTP-8600</p>
+        </item>
+        <item>
+          <p>[httpc] Pipelined and queued requests not processed when
+	  connection closed remotelly.</p>
+          <p>Own Id: OTP-8906</p>
+        </item>
+      </list>
+    </section>
+
+  </section> <!-- 5.5.1 -->
+
+
+  <section><title>Inets 5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -120,9 +148,10 @@
       </list>
     </section>
 
-</section>
+  </section> <!-- 5.5 -->
 
-<section><title>Inets 5.4</title>
+
+  <section><title>Inets 5.4</title>
 
     <section><title>Improvements and New Features</title>
 <!--
