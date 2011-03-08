@@ -51,7 +51,7 @@ all(suite) ->
 
 init_per_testcase(TC, Config) when TC =:= misc; 
 				   TC =:= compile; 
-				   TC =:= analyze;
+				   TC =:= analyse;
 				   TC =:= distribution;
 				   TC =:= otp_5031;
 				   TC =:= stop ->
