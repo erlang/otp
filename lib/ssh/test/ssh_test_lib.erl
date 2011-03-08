@@ -27,9 +27,17 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("test_server.hrl").
 -include("test_server_line.hrl").
--include_lib("ssh/src/ssh.hrl").
 
 -define(TIMEOUT, 50000).
+
+
+-record(ssh_key,
+	{
+	  type,
+	  public,
+	  private,
+	  comment = ""
+	 }).
 
 connect(Options) ->
     connect(hostname(), inet_port(), Options).
