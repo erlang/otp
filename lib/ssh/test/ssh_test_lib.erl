@@ -44,9 +44,13 @@ connect(Options) ->
 
 connect(Port, Options) when is_integer(Port) ->
     connect(hostname(), Port, Options);
+connect(any, Options) ->
+    connect(hostname(), inet_port(), Options);
 connect(Host, Options) ->
     connect(Host, inet_port(), Options).
 
+connect(any, Port, Options) ->
+    connect(hostname(), Port, Options);
 connect(Host, Port, Options) ->
     case ssh:connect(Host, Port, Options) of
 	{ok, ConnectionRef} ->
@@ -65,6 +69,8 @@ daemon(Host, Options) ->
 
 daemon(Host, Port, Options) ->
     case ssh:daemon(Host, Port, Options) of
+	{ok, Pid} when Host == any ->
+	    {Pid, hostname(), Port};
 	{ok, Pid} ->
 	    {Pid, Host, Port};
 	Error ->

@@ -279,11 +279,11 @@ daemon_already_started(suite) ->
 
 daemon_already_started(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {failfun, fun ssh_test_lib:failfun/2}]),
-    {error, eaddrinuse} = ssh_test_lib:daemon(Host, Port, [{system_dir, SystemDir},
-							   {failfun,
-							    fun ssh_test_lib:failfun/2}]),
+    {Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					      {failfun, fun ssh_test_lib:failfun/2}]),
+    {error, eaddrinuse} = ssh_test_lib:daemon(Port, [{system_dir, SystemDir},
+						     {failfun,
+						      fun ssh_test_lib:failfun/2}]),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
