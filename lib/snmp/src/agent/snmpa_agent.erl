@@ -754,8 +754,8 @@ handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds}, S) ->
 	  "~n   Varbinds:      ~p", 
 	  [Trap, NotifyName, ContextName, Recv, Varbinds]),
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    case catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				Recv, Varbinds, LocalEngineID) of
+    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
+				 Recv, Varbinds, LocalEngineID)) of
 	{ok, NewS} ->
 	    {noreply, NewS};
 	{'EXIT', R} ->
@@ -775,8 +775,8 @@ handle_info({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds,
 	  "~n   Varbinds:      ~p" 
 	  "~n   LocalEngineID: ~p", 
 	  [Trap, NotifyName, ContextName, Recv, Varbinds, LocalEngineID]),
-    case catch handle_send_trap(S, Trap, NotifyName, ContextName,
-				Recv, Varbinds, LocalEngineID) of
+    case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
+				 Recv, Varbinds, LocalEngineID)) of
 	{ok, NewS} ->
 	    {noreply, NewS};
 	{'EXIT', R} ->
@@ -923,9 +923,9 @@ handle_call({send_trap, Trap, NotifyName, ContextName, Recv, Varbinds},
 		?DEFAULT_LOCAL_ENGINE_ID;
 	    _ -> 
 		%% subagent - 
-		%% we don't need this, eventually the trap sent request 
-		%% will reach the master-agent and then it will look up 
-		%% the proper engine id.
+		%% we don't need this now, eventually the trap send 
+		%% request will reach the master-agent and then it 
+		%% will look up the proper engine id.
 		ignore
 	end,
     case (catch handle_send_trap(S, Trap, NotifyName, ContextName,
@@ -1720,7 +1720,7 @@ handle_acm_error(Vsn, Reason, Pdu, ACMData, Address, Extra) ->
 handle_send_trap(S, TrapName, NotifyName, ContextName, Recv, Varbinds, 
 		 LocalEngineID) ->
     ?vtrace("handle_send_trap -> entry with"
-	"~n   S#state.type:  ~p"
+	"~n   Agent type:    ~p"
 	"~n   TrapName:      ~p"
 	"~n   NotifyName:    ~p"
 	"~n   ContextName:   ~p"
