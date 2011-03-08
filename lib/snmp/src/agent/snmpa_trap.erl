@@ -441,11 +441,13 @@ split_variables([]) -> {[], []}.
 %% NOTE: This function is executed in the master agent's context
 %%-----------------------------------------------------------------
 find_dests("") ->
+    ?vtrace("find destinations", []),
     snmp_notification_mib:get_targets();
 find_dests(NotifyName) ->
+    ?vtrace("find destinations for ~p", [NotifyName]),
     case snmp_notification_mib:get_targets(NotifyName) of
 	[] ->
-	    ?vlog("No dests found for snmpNotifyName: ~p",[NotifyName]),
+	    ?vlog("No dests found for NotifyName: ~p", [NotifyName]),
 	    [];
 	Dests ->
 	    Dests
