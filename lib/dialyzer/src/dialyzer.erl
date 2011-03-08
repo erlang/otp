@@ -368,6 +368,9 @@ message_to_string({record_constr, [Name, Field, Type]}) ->
 message_to_string({record_matching, [String, Name]}) ->
   io_lib:format("The ~s violates the"
 		" declared type for #~w{}\n", [String, Name]);
+message_to_string({record_match, [Pat, Type]}) ->
+  io_lib:format("Matching of ~s tagged with a record name violates the declared"
+		" type of ~s\n", [Pat, Type]);
 message_to_string({pattern_match, [Pat, Type]}) ->
   io_lib:format("The ~s can never match the type ~s\n", [Pat, Type]);
 message_to_string({pattern_match_cov, [Pat, Type]}) ->

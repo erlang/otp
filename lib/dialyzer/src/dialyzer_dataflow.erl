@@ -1369,7 +1369,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 	bind_pat_vars(Pats, ArgTypes, [], Map1, State1)
     end,
   case BindRes of
-    {error, BindOrOpaque, NewPats, Type, OpaqueTerm} ->
+    {error, ErrorType, NewPats, Type, OpaqueTerm} ->
       ?debug("Failed binding pattern: ~s\nto ~s\n",
 	     [cerl_prettypr:format(C), format_type(ArgType0, State1)]),
       case state__warning_mode(State1) of
@@ -1377,8 +1377,9 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
           {State1, Map, t_none(), ArgType0};
 	true ->
 	  PatString =
-	    case BindOrOpaque of
+	    case ErrorType of
 	      bind   -> format_patterns(Pats);
+	      record -> format_patterns(Pats);
 	      opaque -> format_patterns(NewPats)
 	    end,
 	  {Msg, Force} =
@@ -1418,13 +1419,15 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 		    false ->
 		      true
 		  end,
-		PatTypes = case BindOrOpaque of
+		PatTypes = case ErrorType of
 			     bind -> [PatString, format_type(ArgType0, State1)];
+			     record -> [PatString, format_type(Type, State1)];
 			     opaque -> [PatString, format_type(Type, State1),
 					format_type(OpaqueTerm, State1)]
-			      end,
-		FailedMsg = case BindOrOpaque of
+			   end,
+		FailedMsg = case ErrorType of
 			      bind  -> {pattern_match, PatTypes};
+			      record -> {record_match, PatTypes};
 			      opaque -> {opaque_match, PatTypes}
 			    end,
 		{FailedMsg, Force0}
@@ -1432,6 +1435,7 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 	  WarnType = case Msg of
 		       {opaque_match, _} -> ?WARN_OPAQUE;
 		       {pattern_match, _} -> ?WARN_MATCHING;
+		       {record_match, _} -> ?WARN_MATCHING;
 		       {pattern_match_cov, _} -> ?WARN_MATCHING
 		     end,
           {state__add_warning(State1, WarnType, C, Msg, Force),
@@ -1525,14 +1529,18 @@ bind_pat_vars(Pats, Types, Acc, Map, State) ->
   try
     bind_pat_vars(Pats, Types, Acc, Map, State, false)
   catch
-    throw:Error -> Error % Error = {error, bind | opaque, ErrorPats, ErrorType}
+    throw:Error -> 
+      %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
+      Error 
   end.
 
 bind_pat_vars_reverse(Pats, Types, Acc, Map, State) ->
   try
     bind_pat_vars(Pats, Types, Acc, Map, State, true)
   catch
-    throw:Error -> Error % Error = {error, bind | opaque, ErrorPats, ErrorType}
+    throw:Error -> 
+      %% Error = {error, bind | opaque | record, ErrorPats, ErrorType}
+      Error
   end.
 
 bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
@@ -1587,18 +1595,21 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 	end;
       tuple ->
 	Es = cerl:tuple_es(Pat),
-	Prototype =
+	{TypedRecord, Prototype} =
 	  case Es of
-	    [] -> t_tuple([]);
+	    [] -> {false, t_tuple([])};
 	    [Tag|Left] ->
 	      case cerl:is_c_atom(Tag) of
 		true ->
 		  TagAtom = cerl:atom_val(Tag),
 		  case state__lookup_record(TagAtom, length(Left), State) of
-		    error -> t_tuple(length(Es));
-		    {ok, Record} -> Record
+		    error -> {false, t_tuple(length(Es))};
+		    {ok, Record} ->
+		      [_Head|AnyTail] = [t_any() || _ <- Es],
+		      UntypedRecord = t_tuple([t_atom(TagAtom)|AnyTail]),
+		      {not erl_types:t_is_equal(Record, UntypedRecord), Record}
 		  end;
-		false -> t_tuple(length(Es))
+		false -> {false, t_tuple(length(Es))}
 	      end
 	  end,
 	Tuple = t_inf(Prototype, Type),
@@ -1623,7 +1634,11 @@ bind_pat_vars([Pat|PatLeft], [Type|TypeLeft], Acc, Map, State, Rev) ->
 		bind_error([Pat], Tuple, Opaque, opaque);
 	      false ->
 		case [M || {M, _} <- Results, M =/= error] of
-		  [] -> bind_error([Pat], Tuple, t_none(), bind);
+		  [] ->
+		    case TypedRecord of
+		      true -> bind_error([Pat], Tuple, Prototype, record);
+		      false -> bind_error([Pat], Tuple, t_none(), bind)
+		    end;
 		  Maps ->
 		    Map1 = join_maps(Maps, Map),
 		    TupleType = t_sup([t_tuple(EsTypes)
