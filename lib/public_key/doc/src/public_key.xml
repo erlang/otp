@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2008</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -258,7 +258,7 @@
   </func>   
   
   <func>
-    <name> pkix_decode_cert(Cert, otp|plain) ->  #'Certificate'{} | #'OTPCertificate'{}</name>
+    <name>pkix_decode_cert(Cert, otp|plain) ->  #'Certificate'{} | #'OTPCertificate'{}</name>
     <fsummary> Decodes an asn1 der encoded pkix x509 certificate.</fsummary>
     <type>
       <v>Cert = der_encoded()</v> 
