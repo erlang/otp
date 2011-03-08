@@ -29,6 +29,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_alert.hrl").
+-include("ssl_int.hrl").
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
@@ -48,7 +49,7 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
-    case application:start(crypto) of
+    try crypto:start() of
 	ok ->
 	    application:start(public_key),
 	    ssl:start(),
@@ -61,8 +62,8 @@ init_per_suite(Config0) ->
 
 	    Config1 = ssl_test_lib:make_dsa_cert(Config0),
 	    Config = ssl_test_lib:cert_options(Config1),
-	    [{watchdog, Dog} | Config];
-	_ ->
+	    [{watchdog, Dog} | Config]
+    catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
 %%--------------------------------------------------------------------
@@ -250,7 +251,9 @@ all() ->
      unknown_server_ca_accept_backwardscompatibilty,
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
-     no_reuses_session_server_restart_new_cert_file, reuseaddr].
+     no_reuses_session_server_restart_new_cert_file, reuseaddr,
+     hibernate
+    ].
 
 groups() -> 
     [].
@@ -3317,6 +3320,45 @@ reuseaddr(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server1, ok, Client1, ok),
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+
+hibernate(doc) -> 
+    ["Check that an SSL connection that is started with option "
+     "{hibernate_after, 1000} indeed hibernates after 1000ms of "
+     "inactivity"];
+
+hibernate(suite) ->
+    [];
+
+hibernate(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {Client, #sslsocket{pid=Pid}} = ssl_test_lib:start_client([return_socket,
+                    {node, ClientNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, [{hibernate_after, 1000}|ClientOpts]}]),
+
+    { current_function, { _M, _F, _A } } =
+        process_info(Pid, current_function),
+
+    timer:sleep(1100),
+
+    { current_function, { erlang, hibernate, 3} } =
+        process_info(Pid, current_function),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +42,7 @@
 %% NewTimer    = megaco_timer() 
 %% TimeoutTime = infinity | integer()
 %% 
-init(SingleWaitFor) when SingleWaitFor == infinity ->
+init(SingleWaitFor) when SingleWaitFor =:= infinity ->
     {SingleWaitFor, timeout};
 init(SingleWaitFor) when is_integer(SingleWaitFor) and (SingleWaitFor >= 0) ->
     {SingleWaitFor, timeout};
@@ -76,17 +76,17 @@ verify(#megaco_incr_timer{wait_for    = WaitFor,
 			  factor      = Factor,
 			  incr        = Incr,
 			  max_retries = MaxRetries}) ->
-    (megaco_config:verify_strict_uint(WaitFor) and
-     megaco_config:verify_strict_uint(Factor)  and
-     megaco_config:verify_strict_int(Incr)     and
+    (megaco_config_misc:verify_strict_uint(WaitFor) and
+     megaco_config_misc:verify_strict_uint(Factor)  and
+     megaco_config_misc:verify_strict_int(Incr)     and
      verify_max_retries(MaxRetries));
 verify(Timer) ->
-    megaco_config:verify_uint(Timer).
+    megaco_config_misc:verify_uint(Timer).
 
 verify_max_retries(infinity_restartable) ->
     true;
 verify_max_retries(Val) ->
-    megaco_config:verify_uint(Val).
+    megaco_config_misc:verify_uint(Val).
 
 
 %%-----------------------------------------------------------------

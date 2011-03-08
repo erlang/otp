@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -133,6 +133,9 @@ cl(["-o"++Output|T]) ->
 cl(["--raw"|T]) ->
   put(dialyzer_output_format, raw),
   cl(T);
+cl(["--fullpath"|T]) ->
+  put(dialyzer_filename_opt, fullpath),
+  cl(T);
 cl(["-pa", Path|T]) ->
   case code:add_patha(Path) of
     true -> cl(T);
@@ -243,6 +246,7 @@ init() ->
   put(dialyzer_options_defines,   DefaultOpts#options.defines),
   put(dialyzer_options_files,     DefaultOpts#options.files),
   put(dialyzer_output_format,     formatted),
+  put(dialyzer_filename_opt,      basename),
   put(dialyzer_options_check_plt, DefaultOpts#options.check_plt),
   ok.
 
@@ -281,6 +285,7 @@ cl_options() ->
    {files_rec, get(dialyzer_options_files_rec)},
    {output_file, get(dialyzer_output)},
    {output_format, get(dialyzer_output_format)},
+   {filename_opt, get(dialyzer_filename_opt)},
    {analysis_type, get(dialyzer_options_analysis_type)},
    {get_warnings, get(dialyzer_options_get_warnings)},
    {callgraph_file, get(dialyzer_callgraph_file)}
@@ -335,7 +340,7 @@ help_message() ->
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native]
+                [--no_native] [--fullpath]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -437,6 +442,8 @@ Options:
       Bypass the native code compilation of some key files that Dialyzer
       heuristically performs when dialyzing many files; this avoids the
       compilation time but it may result in (much) longer analysis time.
+  --fullpath
+      Display the full path names of files for which warnings are emitted.
   --gui
       Use the gs-based GUI.
   --wx

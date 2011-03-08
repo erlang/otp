@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,6 @@
 
 %%--------------- INCLUDES -----------------------------------
 -include_lib("orber/include/corba.hrl").
--include_lib("orber/include/ifr_types.hrl").
 %% Application files
 -include("CosNotification.hrl").
 -include("CosNotifyChannelAdmin.hrl").
@@ -945,14 +944,19 @@ check_limits(LQS, NPR) ->
 %%            supported.
 %%------------------------------------------------------------
 validate_event_qos(Wanted, Curr) ->
-    v_e_q_helper(Wanted, Curr, []),
-    [].
+    case v_e_q_helper(Wanted, Curr, []) of
+	ok ->
+	    [];
+	{error, Unsupp} ->
+	    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupp})
+    end.
+
 v_e_q_helper([], _Curr, []) ->
-    %% Parsed all and foynd no conflicts.
+    %% Parsed all and found no conflicts.
     ok;
 v_e_q_helper([], _Curr, Unsupp) ->
     %% Not possible to use these requested QoS.
-    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupp});
+    {error, Unsupp};
 
 %%--- EventReliability ---%%
 v_e_q_helper([#'CosNotification_Property'{name=?not_EventReliability, 
@@ -1071,30 +1075,38 @@ v_e_q_helper(What, _, _) ->
 %%            LQS     - local representation of QoS.
 %% Returns  : {NewOMGStyleQoS, NewLocalQoS} | #'CosNotification_UnsupportedQoS'{}
 %%------------------------------------------------------------
-set_properties([], Curr, channelAdm, _, [], NewQoS,_,_,LAS) ->
+set_properties(Wanted, Current, Type, Supported, Unsupp, NewQoS, Parent, Childs, LQS) ->
+    case do_set_properties(Wanted, Current, Type, Supported, Unsupp, NewQoS, Parent, Childs, LQS) of
+	{error, Exc} ->
+	     corba:raise(Exc);
+	Result ->
+	    Result
+    end.
+
+do_set_properties([], Curr, channelAdm, _, [], NewQoS,_,_,LAS) ->
     merge_properties(NewQoS, Curr, LAS);
-set_properties([], Curr, _, _, [], NewQoS,_,_,LQS) ->
+do_set_properties([], Curr, _, _, [], NewQoS,_,_,LQS) ->
     %% set_local_qos and merge_properties are help functions found at the end of QoS
     %% functions.
     NewLQS = set_local_qos(NewQoS, LQS),
     merge_properties(NewQoS, Curr, NewLQS);
-set_properties([], _, channelAdm, _, Unsupp, _,_,_,_) ->
-    corba:raise(#'CosNotification_UnsupportedAdmin'{admin_err = Unsupp});
-set_properties([], _, _, _, Unsupp, _,_,_,_) ->
-    corba:raise(#'CosNotification_UnsupportedQoS'{qos_err = Unsupp});
+do_set_properties([], _, channelAdm, _, Unsupp, _,_,_,_) ->
+    {error, #'CosNotification_UnsupportedAdmin'{admin_err = Unsupp}};
+do_set_properties([], _, _, _, Unsupp, _,_,_,_) ->
+    {error, #'CosNotification_UnsupportedQoS'{qos_err = Unsupp}};
 
-set_properties([Req|Tail], Curr, Type, Supported, Unsupp, NewQoS, Parent, Childs,LQS) ->
+do_set_properties([Req|Tail], Curr, Type, Supported, Unsupp, NewQoS, Parent, Childs,LQS) ->
     %% set_values and is_supported are help functions found at the end of QoS
     %% functions.
     case set_values(is_supported(Supported, Req), Req, Type, Curr, Parent, Childs,LQS) of
 	{unsupported, U} ->
-	    set_properties(Tail, Curr, Type, Supported, [U|Unsupp], NewQoS, Parent, Childs,LQS);
+	    do_set_properties(Tail, Curr, Type, Supported, [U|Unsupp], NewQoS, Parent, Childs,LQS);
 	{ok, S, NewLQS} ->
-	    set_properties(Tail, Curr, Type, Supported, Unsupp, [S|NewQoS], Parent, Childs,NewLQS);
+	    do_set_properties(Tail, Curr, Type, Supported, Unsupp, [S|NewQoS], Parent, Childs,NewLQS);
 	{ok, S} ->
-	    set_properties(Tail, Curr, Type, Supported, Unsupp, [S|NewQoS], Parent, Childs,LQS);
+	    do_set_properties(Tail, Curr, Type, Supported, Unsupp, [S|NewQoS], Parent, Childs,LQS);
 	ok ->
-	    set_properties(Tail, Curr, Type, Supported, Unsupp, NewQoS, Parent, Childs,LQS)
+	    do_set_properties(Tail, Curr, Type, Supported, Unsupp, NewQoS, Parent, Childs,LQS)
     end.
     
 

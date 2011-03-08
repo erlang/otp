@@ -71,7 +71,7 @@
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native]
+                [--no_native] [--fullpath]
     ]]></code>
     <p>Options:</p>
     <taglist>
@@ -198,10 +198,12 @@
          heuristically performs when dialyzing many files; this avoids the
          compilation time but it may result in (much) longer analysis
          time.</item>
+       <tag><c><![CDATA[--fullpath]]></c></tag>
+       <item>Display the full path names of files for which warnings are emitted.</item>
        <tag><c><![CDATA[--gui]]></c></tag>
        <item>Use the gs-based GUI.</item>
        <tag><c><![CDATA[--wx]]></c></tag>
-       <item>Use the wx-based GUI..</item>
+       <item>Use the wx-based GUI.</item>
     </taglist>
     <note>
       <p>* denotes that multiple occurrences of these options are possible.</p>

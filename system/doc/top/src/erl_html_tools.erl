@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -134,10 +134,10 @@ subst_file(Group, OutFile, Template, Info) ->
 		    file:write(Stream, Text),
 		    file:close(Stream);
 		Error ->
-		    error("Can't write to file ~s: ~w", [OutFile,Error])
+		    local_error("Can't write to file ~s: ~w", [OutFile,Error])
 	    end;
 	Error ->
-	    error("Can't write to file ~s: ~w", [OutFile,Error])
+	    local_error("Can't write to file ~s: ~w", [OutFile,Error])
     end.
 
 
@@ -156,7 +156,7 @@ find_templates([SearchPath | SearchPaths], AllSearchPaths) ->
 	    Result
     end;
 find_templates([], AllSearchPaths) ->
-    error("No templates found in ~p",[AllSearchPaths]).
+    local_error("No templates found in ~p",[AllSearchPaths]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -269,7 +269,7 @@ find_application_infos([{App, Vsn, AppPath, IndexURL} | Paths]) ->
 				 string:substr(G0,N+1)}
 			end;
 		    false ->
-			error("No group given",[])
+			local_error("No group given",[])
 		end,
 	    Text =
 		case lists:keysearch("short", 1, Db) of
@@ -427,7 +427,7 @@ subst_applinks_1([{G, Heading}|Gs], Info0, Group) ->
     end;
 subst_applinks_1([], [], _) -> [];
 subst_applinks_1([], Info, _) ->
-    error("Info left: ~p\n", [Info]),
+    local_error("Info left: ~p\n", [Info]),
     [].
 
 html_applinks([{Name,[{_,_,URL,_}|_]}|AppNames]) ->
@@ -669,7 +669,7 @@ sub_repl([], _Fun, Acc, S, Pos) -> {string:substr(S, Pos+1), Acc}.
 % Error and warnings
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-error(Format, Args) ->
+local_error(Format, Args) ->
     io:format("ERROR: " ++ Format ++ "\n", Args),
     exit(1).
 

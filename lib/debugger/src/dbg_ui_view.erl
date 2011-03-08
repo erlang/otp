@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,6 +42,9 @@ start(GS, Mod) ->
 	false -> spawn(fun () -> init(GS, Mod, Title) end)
     end.
 
+-spec stop() -> no_return().
+stop() ->
+    exit(stop).
 
 %%====================================================================
 %% Main loop and message handling
@@ -90,7 +93,7 @@ loop(State) ->
 	    dbg_ui_winman:update_windows_menu(Data),
 	    loop(State);
 	{dbg_ui_winman, destroy} ->
-	    exit(stop);
+	    stop();
 
 	%% Help window termination -- ignore
 	{'EXIT', _Pid, _Reason} ->
@@ -104,7 +107,7 @@ gui_cmd(ignore, State) ->
 gui_cmd({win, Win}, State) ->
     State#state{win=Win};
 gui_cmd(stopped, _State) ->
-    exit(stop);
+    stop();
 gui_cmd({coords, Coords}, State) ->
     State#state{coords=Coords};
 
@@ -115,8 +118,8 @@ gui_cmd({shortcut, Key}, State) ->
     end;
 
 %% File menu
-gui_cmd('Close', State) ->
-    gui_cmd(stopped, State);
+gui_cmd('Close', _State) ->
+    stop();
 
 %% Edit menu
 gui_cmd('Go To Line...', State) ->

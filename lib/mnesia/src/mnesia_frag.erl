@@ -1,7 +1,7 @@
 %%%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -448,13 +448,15 @@ do_remote_select(_ReplyTo, _Ref, [], _MatchSpec) ->
 
 local_collect(Ref, Pid, Type, LocalMatch, OldSelectFun) ->
     receive
-	{local_select, Ref, LocalRes} ->
-	    remote_collect(Ref, Type, LocalRes, LocalMatch, OldSelectFun);
+	{local_select, Ref, ok} ->
+	    remote_collect_ok(Ref, Type, LocalMatch, OldSelectFun);
+	{local_select, Ref, {error, Reason}} ->
+	    remote_collect_error(Ref, Type, Reason, OldSelectFun);
 	{'EXIT', Pid, Reason} ->
-	    remote_collect(Ref, Type, {error, Reason}, [], OldSelectFun)
+	    remote_collect_error(Ref, Type, Reason, OldSelectFun)
     end.
     
-remote_collect(Ref, Type, LocalRes = ok, Acc, OldSelectFun) ->
+remote_collect_ok(Ref, Type, Acc, OldSelectFun) ->
     receive
 	{remote_select, Ref, Node, RemoteRes} ->
 	    case RemoteRes of
@@ -463,19 +465,21 @@ remote_collect(Ref, Type, LocalRes = ok, Acc, OldSelectFun) ->
 				  ordered_set -> lists:merge(RemoteMatch, Acc);
 				  _ -> RemoteMatch ++ Acc
 			      end,
-		    remote_collect(Ref, Type, LocalRes, Matches, OldSelectFun);
+		    remote_collect_ok(Ref, Type, Matches, OldSelectFun);
 		_ ->
-		    remote_collect(Ref, Type, {error, {node_not_running, Node}}, [], OldSelectFun)
+		    Reason = {node_not_running, Node},
+		    remote_collect_error(Ref, Type, Reason, OldSelectFun)
 	    end
     after 0 ->
 	    Acc
-    end;
-remote_collect(Ref, Type, LocalRes = {error, Reason}, _Acc, OldSelectFun) ->
+    end.
+
+remote_collect_error(Ref, Type, Reason, OldSelectFun) ->
     receive
 	{remote_select, Ref, _Node, _RemoteRes} ->
-	    remote_collect(Ref, Type, LocalRes, [], OldSelectFun)
+	    remote_collect_error(Ref, Type, Reason, OldSelectFun)
     after 0 ->
-	    mnesia:abort(Reason)
+	    mnesia:abort({error, Reason})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

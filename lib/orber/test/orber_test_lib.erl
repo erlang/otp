@@ -301,9 +301,11 @@ start_ssl(true, Node) ->
 start_ssl(_, _) ->
     ok.
 
-start_orber({lightweigth, Options}, Node) ->
+start_orber({lightweight, Options}, Node) ->
+    ok = rpc:call(Node, mnesia, start, []),
     ok = rpc:call(Node, orber, start_lightweight, [Options]);
 start_orber(lightweight, Node) ->
+    ok = rpc:call(Node, mnesia, start, []),
     ok = rpc:call(Node, orber, start_lightweight, []);
 start_orber(_, Node) ->
     ok = rpc:call(Node, orber, jump_start, []).

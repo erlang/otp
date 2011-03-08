@@ -37,13 +37,13 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case application:start(crypto) of
+    try crypto:start() of
 	ok ->
 	    application:start(public_key),
 	    ssl:start(),
 	    make_certs:all(?config(data_dir, Config), ?config(priv_dir, Config)),
-	    ssl_test_lib:cert_options(Config);
-	_  ->
+	    ssl_test_lib:cert_options(Config)
+    catch _:_  ->
 	    {skip, "Crypto did not start"}
     end.
 %%--------------------------------------------------------------------

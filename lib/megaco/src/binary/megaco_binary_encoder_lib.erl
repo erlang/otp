@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -134,6 +134,12 @@ encode_transaction(EC, {Tag, _} = Trans, AsnMod, TransMod, Type)
 encode_transaction(_EC, T, _AsnMod, _TransMod, _Type) ->
     {error, {no_megaco_transaction, T}}.
 
+-spec do_encode_transaction(EC :: list(), 
+			    Trans :: tuple(), 
+			    AnsMod :: atom(),
+			    TransMod :: atom(),
+			    Type :: atom()) ->
+    {'ok', binary()} | {'error', any()}.
 do_encode_transaction([native], _Trans, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};
@@ -160,6 +166,12 @@ do_encode_transaction(EC, _Trans, _AsnMod, _TransMod, _Type) ->
 %% Convert a list of ActionRequest record's into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
+-spec encode_action_requests(EC :: list(), 
+			     ARs :: list(), 
+			     AnsMod :: atom(),
+			     TransMod :: atom(),
+			     Type :: atom()) ->
+    {'ok', binary()} | {'error', any()}.
 encode_action_requests([native], _ARs, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};
@@ -183,13 +195,20 @@ encode_action_requests(EC, _ARs, _AsnMod, _TransMod, _Type) ->
 %% Convert a ActionRequest record into a binary
 %% Return {ok, DeepIoList} | {error, Reason}
 %%----------------------------------------------------------------------
-encode_action_request([native], _ARs, _AsnMod, _TransMod, binary) ->
+
+-spec encode_action_request(EC :: list(), 
+			    AR :: tuple(), 
+			    AnsMod :: atom(),
+			    TransMod :: atom(),
+			    Type :: atom()) ->
+    {'ok', binary()} | {'error', any()}.
+encode_action_request([native], _AR, _AsnMod, _TransMod, binary) ->
     %% asn1rt:encode(AsnMod, element(1, T), T);
     {error, not_implemented};
-encode_action_request(_EC, _ARs0, _AsnMod, _TransMod, binary) ->
+encode_action_request(_EC, _AR, _AsnMod, _TransMod, binary) ->
     {error, not_implemented};
-encode_action_request(EC, ARs, AsnMod, TransMod, io_list) ->
-    case encode_action_request(EC, ARs, AsnMod, TransMod, binary) of
+encode_action_request(EC, AR, AsnMod, TransMod, io_list) ->
+    case encode_action_request(EC, AR, AsnMod, TransMod, binary) of
 	{ok, Bin} when is_binary(Bin) ->
 	    {ok, Bin};
 	{ok, DeepIoList} ->
@@ -198,7 +217,7 @@ encode_action_request(EC, ARs, AsnMod, TransMod, io_list) ->
 	{error, Reason} ->
 	    {error, Reason} 
     end;
-encode_action_request(EC, _ARs, _AsnMod, _TransMod, _Type) ->
+encode_action_request(EC, _AR, _AsnMod, _TransMod, _Type) ->
     {error, {bad_encoding_config, EC}}.
 
 

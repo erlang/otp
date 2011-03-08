@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -67,6 +67,7 @@
 	megaco_compact_text_encoder_prev3c,
 	megaco_compact_text_encoder_v3,
 	megaco_config,
+	megaco_config_misc,
 	megaco_digit_map,
 	megaco_encoder,
 	megaco_edist_compress,

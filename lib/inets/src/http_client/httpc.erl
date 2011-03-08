@@ -252,7 +252,7 @@ set_option(Key, Value, Profile) ->
 %% Description: Store the cookies from <SetCookieHeaders> 
 %%              in the cookie database
 %% for the profile <Profile>. This function shall be used when the option
-%% cookie is set to verify. 
+%% cookies is set to verify.
 %%-------------------------------------------------------------------------
 store_cookies(SetCookieHeaders, Url) ->
     store_cookies(SetCookieHeaders, Url, default_profile()).
