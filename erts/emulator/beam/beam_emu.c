@@ -5687,6 +5687,25 @@ expand_error_value(Process* c_p, Uint freason, Eterm Value) {
  * that c_p->ftrace will point to a cons cell which holds the given args
  * and the saved data (encoded as a bignum).
  *
+ * There is an issue with line number information. Line number
+ * information is associated with the address *before* an operation
+ * that may fail or be stored stored on the stack. But continuation
+ * pointers point after its call instruction, not before. To avoid
+ * finding the wrong line number, we'll need to adjust them so that
+ * they point at the beginning of the call instruction or inside the
+ * call instruction. Since its impractical to point at the beginning,
+ * we'll do the simplest thing and decrement the continuation pointers
+ * by one.
+ *
+ * Here is an example of what can go wrong. Without the adjustment
+ * of continuation pointers, the call at line 42 below would seem to
+ * be at line 43:
+ *
+ * line 42
+ * call ...
+ * line 43
+ * gc_bif ...
+ *
  * (It would be much better to put the arglist - when it exists - in the
  * error value instead of in the actual trace; e.g. '{badarg, Args}'
  * instead of using 'badarg' with Args in the trace. The arglist may
@@ -5753,7 +5772,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	}
 	/* Save second stack entry if CP is valid and different from pc */
 	if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-	    s->trace[s->depth++] = c_p->cp;
+	    s->trace[s->depth++] = c_p->cp - 1;
 	    depth--;
 	}
 	s->pc = NULL;
@@ -5773,13 +5792,13 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	    /* Save first stack entry */
 	    ASSERT(c_p->cp);
 	    if (depth > 0) {
-		s->trace[s->depth++] = c_p->cp;
+		s->trace[s->depth++] = c_p->cp - 1;
 		depth--;
 	    }
 	    s->pc = NULL; /* Ignore pc */
 	} else {
 	    if (depth > 0 && c_p->cp != 0 && c_p->cp != pc) {
-		s->trace[s->depth++] = c_p->cp;
+		s->trace[s->depth++] = c_p->cp - 1;
 		depth--;
 	    }
 	    s->pc = pc;
@@ -5835,7 +5854,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 		    if (cp != prev) {
 			/* Record non-duplicates only */
 			prev = cp;
-			s->trace[s->depth++] = cp;
+			s->trace[s->depth++] = cp - 1;
 			depth--;
 		    }
 		    ptr++;
