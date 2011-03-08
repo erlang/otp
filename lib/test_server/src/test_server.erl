@@ -1307,55 +1307,56 @@ init_per_testcase(Mod, Func, Args) ->
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
-    %% init_per_testcase defined, returns new configuration
-    case erlang:function_exported(Mod,init_per_testcase,2) of
+    case erlang:function_exported(Mod, init_per_testcase, 2) of
 	true ->
-	    case catch my_apply(Mod, init_per_testcase, [Func|Args]) of
-		{'$test_server_ok',{Skip,Reason}} when Skip==skip;
-						       Skip==skipped ->
-		    {skip,Reason};
-		{'$test_server_ok',Res={skip_and_save,_,_}} ->
-		    Res;
-		{'$test_server_ok',NewConf} when is_list(NewConf) ->
-		    case lists:filter(fun(T) when is_tuple(T) -> false;
-					 (_) -> true end, NewConf) of
-			[] ->
-			    {ok,NewConf};
-			Bad ->
-			    group_leader() ! {printout,12,
-					      "ERROR! init_per_testcase has returned "
-					      "bad elements in Config: ~p\n",[Bad]},
-			    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
-		    end;
-		{'$test_server_ok',Res={fail,_Reason}} ->
-		    Res;
-		{'$test_server_ok',_Other} ->
-		    group_leader() ! {printout,12,
-				      "ERROR! init_per_testcase did not return "
-				      "a Config list.\n",[]},
-		    {skip,{failed,{Mod,init_per_testcase,bad_return}}};
-		{'EXIT',Reason} ->
-		    Line = get_loc(),
-		    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
-		    group_leader() ! {printout,12,
-				      "ERROR! init_per_testcase crashed!\n"
-				      "\tLocation: ~s\n\tReason: ~p\n",
-				      [FormattedLoc,Reason]},
-		    {skip,{failed,{Mod,init_per_testcase,Reason}}};
-		Other ->
-		    Line = get_loc(),
-		    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
-		    group_leader() ! {printout,12,
-				      "ERROR! init_per_testcase thrown!\n"
-				      "\tLocation: ~s\n\tReason: ~p\n",
-				      [FormattedLoc, Other]},
-		    {skip,{failed,{Mod,init_per_testcase,Other}}}
-	    end;
+	    do_init_per_testcase(Mod, [Func|Args]);
 	false ->
-%% Optional init_per_testcase not defined
-%% keep quiet.
+	    %% Optional init_per_testcase is not defined -- keep quiet.
 	    [Config] = Args,
 	    {ok, Config}
+    end.
+
+do_init_per_testcase(Mod, Args) ->
+    case catch my_apply(Mod, init_per_testcase, Args) of
+	{'$test_server_ok',{Skip,Reason}} when Skip =:= skip;
+					       Skip =:= skipped ->
+	    {skip,Reason};
+	{'$test_server_ok',Res={skip_and_save,_,_}} ->
+	    Res;
+	{'$test_server_ok',NewConf} when is_list(NewConf) ->
+	    case lists:filter(fun(T) when is_tuple(T) -> false;
+				 (_) -> true end, NewConf) of
+		[] ->
+		    {ok,NewConf};
+		Bad ->
+		    group_leader() ! {printout,12,
+				      "ERROR! init_per_testcase has returned "
+				      "bad elements in Config: ~p\n",[Bad]},
+		    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
+	    end;
+	{'$test_server_ok',Res={fail,_Reason}} ->
+	    Res;
+	{'$test_server_ok',_Other} ->
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase did not return "
+			      "a Config list.\n",[]},
+	    {skip,{failed,{Mod,init_per_testcase,bad_return}}};
+	{'EXIT',Reason} ->
+	    Line = get_loc(),
+	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase crashed!\n"
+			      "\tLocation: ~s\n\tReason: ~p\n",
+			      [FormattedLoc,Reason]},
+	    {skip,{failed,{Mod,init_per_testcase,Reason}}};
+	Other ->
+	    Line = get_loc(),
+	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    group_leader() ! {printout,12,
+			      "ERROR! init_per_testcase thrown!\n"
+			      "\tLocation: ~s\n\tReason: ~p\n",
+			      [FormattedLoc, Other]},
+	    {skip,{failed,{Mod,init_per_testcase,Other}}}
     end.
 
 end_per_testcase(Mod, Func, Conf) ->
