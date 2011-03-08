@@ -48,10 +48,8 @@
       The Erlang programming language has built-in features for
       handling of run-time errors.</p>
     <p>A run-time error can also be emulated by calling
-      <c>erlang:error(Reason)</c>, <c>erlang:error(Reason, Args)</c>
-      (those appeared in Erlang 5.4/OTP-R10),
-      <c>erlang:fault(Reason)</c> or <c>erlang:fault(Reason, Args)</c>
-      (old equivalents).</p>
+      <c>erlang:error(Reason)</c> or <c>erlang:error(Reason, Args)</c>
+      (those appeared in Erlang 5.4/OTP-R10).</p>
     <p>A run-time error is another name for an exception
       of class <c>error</c>.
       </p>
@@ -91,7 +89,7 @@
       </row>
       <row>
         <cell align="left" valign="middle"><c>error</c></cell>
-        <cell align="left" valign="middle">Run-time error for example <c>1+a</c>, or the process called <c>erlang:error/1,2</c> (appeared in Erlang 5.4/OTP-R10B) or <c>erlang:fault/1,2</c> (old equivalent)</cell>
+        <cell align="left" valign="middle">Run-time error for example <c>1+a</c>, or the process called <c>erlang:error/1,2</c> (appeared in Erlang 5.4/OTP-R10B)</cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>exit</c></cell>
