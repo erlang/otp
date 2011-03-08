@@ -43,6 +43,7 @@ MODULES= \
 	exception_SUITE \
 	fun_SUITE \
 	lc_SUITE \
+	line_number_SUITE \
 	record_SUITE \
 	trycatch_SUITE \
 	test_lib \
