@@ -1721,10 +1721,12 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
     Hdr = header() ++ Comment,
     F = fun(v1 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v2 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048},
 		 {lists:flatten(io_lib:format("~s.2",[mk_ip(ManagerIp, Vsn)])),
@@ -1732,6 +1734,7 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
 		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v3 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048},
 		 {lists:flatten(io_lib:format("~s.3",[mk_ip(ManagerIp, Vsn)])),

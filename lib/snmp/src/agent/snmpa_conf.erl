@@ -541,8 +541,22 @@ write_target_addr_conf(Fd, Hdr, Conf) ->
 
 write_target_addr_conf(Fd, Conf) -> 
     Fun = fun(Entry) -> do_write_target_addr_conf(Fd, Entry) end,
-    lists:foreach(Fun, Conf).
+    lists:foreach(Fun, Conf),
+    ok.
 
+do_write_target_addr_conf(Fd,
+			  {Name, 
+			   Ip, Udp,
+			   Timeout, RetryCount, TagList,
+			   ParamsName, EngineId,
+			   TMask, MaxMessageSize}) ->
+    Domain = snmp_target_mib:default_domain(), 
+    do_write_target_addr_conf(Fd,
+			      {Name, 
+			       Domain, Ip, Udp,
+			       Timeout, RetryCount, TagList,
+			       ParamsName, EngineId,
+			       TMask, MaxMessageSize});
 do_write_target_addr_conf(Fd,
 			  {Name, 
 			   Domain, Ip, Udp,
