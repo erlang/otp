@@ -105,16 +105,11 @@ groups() ->
      {mib_storage_ets, [], mib_storage_ets_cases()},
      {mib_storage_dets, [], mib_storage_dets_cases()},
      {mib_storage_mnesia, [], mib_storage_mnesia_cases()},
-     {mib_storage_size_check_ets, [],
-      mse_size_check_cases()},
-     {mib_storage_size_check_dets, [],
-      msd_size_check_cases()},
-     {mib_storage_size_check_mnesia, [],
-      msm_size_check_cases()},
-     {mib_storage_varm_dets, [],
-      varm_mib_storage_dets_cases()},
-     {mib_storage_varm_mnesia, [],
-      varm_mib_storage_mnesia_cases()},
+     {mib_storage_size_check_ets, [], mse_size_check_cases()},
+     {mib_storage_size_check_dets,   [], msd_size_check_cases()},
+     {mib_storage_size_check_mnesia, [], msm_size_check_cases()},
+     {mib_storage_varm_dets,   [], varm_mib_storage_dets_cases()},
+     {mib_storage_varm_mnesia, [], varm_mib_storage_mnesia_cases()},
      {misc, [], misc_cases()}, {test_v1, [], v1_cases()},
      {test_v2, [], v2_cases()},
      {test_v1_v2, [], v1_v2_cases()},
@@ -378,17 +373,29 @@ end_per_testcase2(_Case, Config) ->
 
 
 cases() -> 
-case ?OSTYPE() of
-  vxworks ->
-      [{group, misc}, {group, test_v1}, {group, test_v2},
-       {group, test_v1_v2}, {group, test_multi_threaded},
-       {group, mib_storage}, {group, tickets1}];
-  _Else ->
-      [{group, misc}, {group, test_v1}, {group, test_v2},
-       {group, test_v1_v2}, {group, test_v3},
-       {group, test_multi_threaded}, {group, mib_storage},
-       {group, tickets1}]
-end.
+    case ?OSTYPE() of
+	vxworks ->
+	    [
+	     {group, misc}, 
+	     {group, test_v1}, 
+	     {group, test_v2},
+	     {group, test_v1_v2}, 
+	     {group, test_multi_threaded},
+	     {group, mib_storage}, 
+	     {group, tickets1}
+	    ];
+	_Else ->
+	    [
+	     {group, misc}, 
+	     {group, test_v1}, 
+	     {group, test_v2},
+	     {group, test_v1_v2}, 
+	     {group, test_v3},
+	     {group, test_multi_threaded}, 
+	     {group, mib_storage},
+	     {group, tickets1}
+	    ]
+    end.
 
 
 %%%-----------------------------------------------------------------
@@ -1071,11 +1078,29 @@ app_dir(App) ->
 
 %v1_cases() -> [loop_mib];
 v1_cases() -> 
-[simple, db_notify_client, v1_processing, big, big2,
- loop_mib, api, subagent, mnesia, {group, multiple_reqs},
- sa_register, v1_trap, sa_error, next_across_sa, undo,
- {group, reported_bugs}, {group, standard_mibs},
- sparse_table, cnt_64, opaque, change_target_addr_config].  
+    [
+     simple, 
+     db_notify_client, 
+     v1_processing, 
+     big, 
+     big2,
+     loop_mib, 
+     api, 
+     subagent, 
+     mnesia, 
+     {group, multiple_reqs},
+     sa_register, 
+     v1_trap, 
+     sa_error, 
+     next_across_sa, 
+     undo,
+     {group, reported_bugs}, 
+     {group, standard_mibs},
+     sparse_table, 
+     cnt_64, 
+     opaque, 
+     change_target_addr_config
+    ].  
 
 init_v1(Config) when is_list(Config) ->
     ?line SaNode = ?config(snmp_sa, Config),
@@ -1094,12 +1119,31 @@ finish_v1(Config) when is_list(Config) ->
 
 
 v2_cases() -> 
-[simple_2, v2_processing, big_2, big2_2, loop_mib_2,
- api_2, subagent_2, mnesia_2, {group, multiple_reqs_2},
- sa_register_2, v2_trap, {group, v2_inform}, sa_error_2,
- next_across_sa_2, undo_2, {group, reported_bugs_2},
- {group, standard_mibs_2}, v2_types, implied,
- sparse_table_2, cnt_64_2, opaque_2, v2_caps].
+    [
+     simple_2, 
+     v2_processing, 
+     big_2, 
+     big2_2, 
+     loop_mib_2,
+     api_2, 
+     subagent_2, 
+     mnesia_2, 
+     {group, multiple_reqs_2},
+     sa_register_2, 
+     v2_trap, 
+     {group, v2_inform}, 
+     sa_error_2,
+     next_across_sa_2, 
+     undo_2, 
+     {group, reported_bugs_2},
+     {group, standard_mibs_2}, 
+     v2_types, 
+     implied,
+     sparse_table_2, 
+     cnt_64_2, 
+     opaque_2, 
+     v2_caps
+    ].
 
 init_v2(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
@@ -1118,7 +1162,7 @@ finish_v2(Config) when is_list(Config) ->
 
 
 v1_v2_cases() -> 
-[simple_bi].
+    [simple_bi].
 
 init_v1_v2(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
@@ -1137,13 +1181,32 @@ finish_v1_v2(Config) when is_list(Config) ->
 
 
 v3_cases() -> 
-[simple_3, v3_processing, big_3, big2_3, api_3,
- subagent_3, mnesia_3, loop_mib_3, multiple_reqs_3,
- sa_register_3, v3_trap, v3_inform, sa_error_3,
- next_across_sa_3, undo_3, {group, reported_bugs_3},
- {group, standard_mibs_3}, {group, v3_security},
- v2_types_3, implied_3, sparse_table_3, cnt_64_3,
- opaque_3, v2_caps_3].
+    [
+     simple_3, 
+     v3_processing, 
+     big_3, 
+     big2_3, 
+     api_3,
+     subagent_3, 
+     mnesia_3, 
+     loop_mib_3, 
+     multiple_reqs_3,
+     sa_register_3, 
+     v3_trap, 
+     v3_inform, 
+     sa_error_3,
+     next_across_sa_3, 
+     undo_3, 
+     {group, reported_bugs_3},
+     {group, standard_mibs_3}, 
+     {group, v3_security},
+     v2_types_3, 
+     implied_3, 
+     sparse_table_3, 
+     cnt_64_3,
+     opaque_3, 
+     v2_caps_3
+    ].
 
 init_v3(Config) when is_list(Config) ->
     %% Make sure crypto works, otherwise start_agent will fail
