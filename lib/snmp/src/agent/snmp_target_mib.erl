@@ -719,7 +719,7 @@ verify_targetAddrTable_col(?snmpTargetAddrTAddress, TAddress, ValidCols) ->
 	false ->
 	    %% The user did not provide us with a TDomain, which 
 	    %% must mean that he/she intends to use the old domain. 
-	    TDomain = snmp_misc:mk_tdomain(default_domain()),
+	    TDomain = snmp_conf:mk_tdomain(default_domain()),
 	    case (catch snmp_conf:check_taddress(TDomain, TAddress)) of
 		ok ->
 		    TAddress;

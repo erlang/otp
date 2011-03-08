@@ -117,7 +117,7 @@ error2status(_) -> genErr.
 %% authentication_failure: no error response is sent, a trap is generated
 %%-----------------------------------------------------------------
 init_ca(Pdu, {community, SecModel, Community, TAddress}) ->
-    TDomain = snmp_conf:mk_tdomain(snmp_transport_mib:default_domain()),
+    TDomain = snmp_conf:mk_tdomain(snmp_target_mib:default_domain()),
     init_ca(Pdu, {community, SecModel, Community, TDomain, TAddress});
 init_ca(Pdu, {community, SecModel, Community, TDomain, TAddress}) ->
     %% This is a v1 or v2c request.   Use SNMP-COMMUNITY-MIB to
