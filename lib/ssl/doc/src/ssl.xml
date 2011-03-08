@@ -269,6 +269,13 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 <p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
       </item>
 
+      <tag>{hibernate_after, integer()|undefined}</tag>
+      <item>When an integer-value is specified, the <code>ssl_connection</code>
+            will go into hibernation after the specified number of milliseconds
+            of inactivity, thus reducing its memory footprint. When
+            <code>undefined</code> is specified (this is the default), the process
+            will never go into hibernation.
+      </item>
     </taglist>
 
   </section>
