@@ -2327,6 +2327,7 @@ ber_modules() ->
 test_modules() ->
     _Modules = [
 	       "BitStr",
+	       "CAP",
 	       "CommonDataTypes",
 	       "Constraints",
 	       "ContextSwitchingTypes",
