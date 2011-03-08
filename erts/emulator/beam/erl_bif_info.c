@@ -120,6 +120,10 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #endif
 
 static Eterm
+current_function(Process* p, Process* rp, Eterm** hpp, int full_info);
+static Eterm current_stacktrace(Process* p, Process* rp, Eterm** hpp);
+
+static Eterm
 bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 {
     struct erl_off_heap_header* ohh;
@@ -554,6 +558,8 @@ static Eterm pi_args[] = {
     am_suspending,
     am_min_heap_size,
     am_min_bin_vheap_size,
+    am_current_location,
+    am_current_stacktrace,
 #ifdef HYBRID
     am_message_binary
 #endif
@@ -602,8 +608,10 @@ pi_arg2ix(Eterm arg)
     case am_suspending:				return 26;
     case am_min_heap_size:			return 27;
     case am_min_bin_vheap_size:			return 28;
+    case am_current_location:			return 29;
+    case am_current_stacktrace:			return 30;
 #ifdef HYBRID
-    case am_message_binary:			return 29;
+    case am_message_binary:			return 31;
 #endif
     default:					return -1;
     }
@@ -1006,35 +1014,15 @@ process_info_aux(Process *BIF_P,
 	break;
 
     case am_current_function:
-	if (rp->current == NULL) {
-	    rp->current = find_function_from_pc(rp->i);
-	}
-	if (rp->current == NULL) {
-	    hp = HAlloc(BIF_P, 3);
-	    res = am_undefined;
-	} else {
-	    BeamInstr* current;
+	res = current_function(BIF_P, rp, &hp, 0);
+	break;
 
-	    if (rp->current[0] == am_erlang &&
-		rp->current[1] == am_process_info &&
-		(rp->current[2] == 1 || rp->current[2] == 2) &&
-		(current = find_function_from_pc(rp->cp)) != NULL) {
+    case am_current_location:
+	res = current_function(BIF_P, rp, &hp, 1);
+	break;
 
-		/*
-		 * The current function is erlang:process_info/2,
-		 * which is not the answer that the application want.
-		 * We will use the function pointed into by rp->cp
-		 * instead.
-		 */
-
-		rp->current = current;
-	    }
-
-	    hp = HAlloc(BIF_P, 3+4);
-	    res = TUPLE3(hp, rp->current[0],
-			 rp->current[1], make_small(rp->current[2]));
-	    hp += 4;
-	}
+    case am_current_stacktrace:
+	res = current_stacktrace(BIF_P, rp, &hp);
 	break;
 
     case am_initial_call:
@@ -1607,6 +1595,113 @@ process_info_aux(Process *BIF_P,
     return TUPLE2(hp, item, res);
 }
 #undef MI_INC
+
+static Eterm
+current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
+{
+    Eterm* hp;
+    Eterm res;
+    FunctionInfo fi;
+
+    if (rp->current == NULL) {
+	erts_lookup_function_info(&fi, rp->i, full_info);
+	rp->current = fi.current;
+    } else if (full_info) {
+	erts_lookup_function_info(&fi, rp->i, full_info);
+	if (fi.current == NULL) {
+	    /* Use the current function without location info */
+	    erts_set_current_function(&fi, rp->current);
+	}
+    }
+
+    if (BIF_P->id == rp->id) {
+	FunctionInfo fi2;
+
+	/*
+	 * The current function is erlang:process_info/{1,2},
+	 * which is not the answer that the application want.
+	 * We will use the function pointed into by rp->cp
+	 * instead if it can be looked up.
+	 */
+	erts_lookup_function_info(&fi2, rp->cp, full_info);
+	if (fi2.current) {
+	    fi = fi2;
+	    rp->current = fi2.current;
+	}
+    }
+
+    /*
+     * Return the result.
+     */
+    if (rp->current == NULL) {
+	hp = HAlloc(BIF_P, 3);
+	res = am_undefined;
+    } else if (full_info) {
+	hp = HAlloc(BIF_P, 3+fi.needed);
+	hp = erts_build_mfa_item(&fi, hp, am_true, &res);
+    } else {
+	hp = HAlloc(BIF_P, 3+4);
+	res = TUPLE3(hp, rp->current[0],
+		     rp->current[1], make_small(rp->current[2]));
+	hp += 4;
+    }
+    *hpp = hp;
+    return res;
+}
+
+static Eterm
+current_stacktrace(Process* p, Process* rp, Eterm** hpp)
+{
+    Uint sz;
+    struct StackTrace* s;
+    int depth;
+    FunctionInfo* stk;
+    FunctionInfo* stkp;
+    Uint heap_size;
+    int i;
+    Eterm* hp = *hpp;
+    Eterm mfa;
+    Eterm res = NIL;
+
+    depth = 8;
+    sz = offsetof(struct StackTrace, trace) + sizeof(BeamInstr *)*depth;
+    s = (struct StackTrace *) erts_alloc(ERTS_ALC_T_TMP, sz);
+    s->depth = 0;
+    if (rp->i) {
+	s->trace[s->depth++] = rp->i;
+	depth--;
+    }
+    if (depth > 0 && rp->cp != 0) {
+	s->trace[s->depth++] = rp->cp - 1;
+	depth--;
+    }
+    erts_save_stacktrace(rp, s, depth);
+
+    depth = s->depth;
+    stk = stkp = (FunctionInfo *) erts_alloc(ERTS_ALC_T_TMP,
+					     depth*sizeof(FunctionInfo));
+    heap_size = 3;
+    for (i = 0; i < depth; i++) {
+	erts_lookup_function_info(stkp, s->trace[i], 1);
+	if (stkp->current) {
+	    heap_size += stkp->needed + 2;
+	    stkp++;
+	}
+    }
+
+    hp = HAlloc(p, heap_size);
+    while (stkp > stk) {
+	stkp--;
+	hp = erts_build_mfa_item(stkp, hp, am_true, &mfa);
+	res = CONS(hp, mfa, res);
+	hp += 2;
+    }
+
+    erts_free(ERTS_ALC_T_TMP, stk);
+    erts_free(ERTS_ALC_T_TMP, s);
+    *hpp = hp;
+    return res;
+}
 
 #if defined(VALGRIND)
 static int check_if_xml(void)

@@ -3809,10 +3809,25 @@ os_prompt%</pre>
 	    catches in this process. This <c>InfoTuple</c> may be
 	    changed or removed without prior notice.</p>
           </item>
-          <tag><c>{current_function, {Module, Function, Args}}</c></tag>
+          <tag><c>{current_function, {Module, Function, Arity}}</c></tag>
           <item>
-            <p><c>Module</c>, <c>Function</c>, <c>Args</c> is
+            <p><c>Module</c>, <c>Function</c>, <c>Arity</c> is
               the current function call of the process.</p>
+          </item>
+          <tag><c>{current_location, {Module, Function, Arity, Location}}</c></tag>
+          <item>
+            <p><c>Module</c>, <c>Function</c>, <c>Arity</c> is
+              the current function call of the process.
+	      <c>Location</c> is a list of two-tuples that describes the
+	      location in the source code.
+	    </p>
+          </item>
+          <tag><c>{current_stacktrace, Stack}</c></tag>
+          <item>
+            <p>Return the current call stack back-trace (<em>stacktrace</em>)
+              of the process. The stack has the same format as returned by
+	      <seealso marker="#get_stacktrace/1">erlang:get_stacktrace/0</seealso>.
+	    </p>
           </item>
           <tag><c>{dictionary, Dictionary}</c></tag>
           <item>

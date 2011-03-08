@@ -35,7 +35,7 @@
 	 self_exit/1, normal_suicide_exit/1, abnormal_suicide_exit/1,
 	 t_exit_2_catch/1, trap_exit_badarg/1, trap_exit_badarg_in_bif/1,
 	 exit_and_timeout/1, exit_twice/1,
-	 t_process_info/1, process_info_other_msg/1,
+	 t_process_info/1, process_info_other/1, process_info_other_msg/1,
 	 process_info_other_dist_msg/1,
 	 process_info_2_list/1, process_info_lock_reschedule/1,
 	 process_info_lock_reschedule2/1,
@@ -64,7 +64,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [spawn_with_binaries, t_exit_1, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
-     t_process_info, process_info_other_msg,
+     t_process_info, process_info_other, process_info_other_msg,
      process_info_other_dist_msg, process_info_2_list,
      process_info_lock_reschedule,
      process_info_lock_reschedule2,
@@ -412,7 +412,7 @@ etwice_high(Low) ->
     exit(Low, first),
     exit(Low, second).
 
-%% Tests the process_info/1 BIF.
+%% Tests the process_info/2 BIF.
 t_process_info(Config) when is_list(Config) ->
     ?line [] = process_info(self(), registered_name),
     ?line register(my_name, self()),
@@ -420,12 +420,99 @@ t_process_info(Config) when is_list(Config) ->
     ?line {status, running} = process_info(self(), status),
     ?line {min_heap_size, 233} = process_info(self(), min_heap_size),
     ?line {min_bin_vheap_size, 46368} = process_info(self(), min_bin_vheap_size),
-    ?line {current_function, {?MODULE, t_process_info, 1}} =
+    ?line {current_function,{?MODULE,t_process_info,1}} =
 	process_info(self(), current_function),
+    ?line {current_function,{?MODULE,t_process_info,1}} =
+	apply(erlang, process_info, [self(),current_function]),
+
+    %% current_location and current_stacktrace
+    {Line1,Res1} = {?LINE,process_info(self(), current_location)},
+    verify_loc(Line1, Res1),
+    {Line2,Res2} = {?LINE,apply(erlang, process_info,
+				[self(),current_location])},
+    verify_loc(Line2, Res2),
+    pi_stacktrace([{?MODULE,t_process_info,1,?LINE}]),
+
     ?line Gleader = group_leader(),
     ?line {group_leader, Gleader} = process_info(self(), group_leader),
     ?line {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
+
+pi_stacktrace(Expected0) ->
+    {Line,Res} = {?LINE,erlang:process_info(self(), current_stacktrace)},
+    {current_stacktrace,Stack} = Res,
+    Expected = [{?MODULE,pi_stacktrace,1,Line}|Expected0],
+    pi_stacktrace_1(Stack, Expected).
+
+pi_stacktrace_1([{M,F,A,Loc}|Stk], [{M,F,A,Line}|Exp]) ->
+    case Loc of
+	[] ->
+	    %% No location info for some reason (+L, native code).
+	    io:format("Missing location information for ~w:~w/~w",
+		      [M,F,A]),
+	    ok;
+	[_|_] ->
+	    Line = proplists:get_value(line, Loc),
+	    File = proplists:get_value(file, Loc),
+	    File = ?MODULE_STRING ++ ".erl"
+    end,
+    pi_stacktrace_1(Stk, Exp);
+pi_stacktrace_1([_|_], []) -> ok.
+
+verify_loc(Line, {current_location,{?MODULE,t_process_info=F,1=A,Loc}}) ->
+    case Loc of
+	[] ->
+	    %% No location info for some reason (+L, native code).
+	    io:format("Missing location information for ~w:~w/~w",
+		      [?MODULE,F,A]),
+	    ok;
+	[_|_] ->
+	    Line = proplists:get_value(line, Loc),
+	    File = proplists:get_value(file, Loc),
+	    File = ?MODULE_STRING ++ ".erl"
+    end.
+
+process_info_other(Config) when is_list(Config) ->
+    Self = self(),
+    Pid = spawn_link(fun() -> process_info_looper(Self) end),
+    receive after 1 -> ok end,
+    pio_current_location(10000, Pid, 0, 0),
+    pio_current_stacktrace().
+
+pio_current_location(0, _, Pi, Looper) ->
+    io:format("~w call(s) to erlang:process_info/2", [Pi]),
+    io:format("~w call(s) to ~w:process_info_looper/1", [Looper,?MODULE]);
+pio_current_location(N, Pid, Pi, Looper) ->
+    erlang:yield(),
+    {current_location,Where} = process_info(Pid, current_location),
+    case Where of
+	{erlang,process_info,2,[]} ->
+	    pio_current_location(N-1, Pid, Pi+1, Looper);
+	{?MODULE,process_info_looper,1,Loc} when is_list(Loc) ->
+	    pio_current_location(N-1, Pid, Pi, Looper+1)
+    end.
+
+pio_current_stacktrace() ->
+    L = [begin
+	     {current_stacktrace,Stk} = process_info(P, current_stacktrace),
+	     {P,Stk}
+	 end || P <- processes()],
+    [erlang:garbage_collect(P) || {P,_} <- L],
+    erlang:garbage_collect(),
+    [verify_stacktrace(Stk) || {_,Stk} <- L],
+    ok.
+
+verify_stacktrace([{M,F,A,Loc}|T])
+  when is_atom(M),
+       is_atom(F),
+       is_integer(A),
+       is_list(Loc) ->
+    verify_stacktrace(T);
+verify_stacktrace([]) -> ok.
+
+process_info_looper(Parent) ->
+    process_info(Parent, current_location),
+    process_info_looper(Parent).
 
 %% Tests the process_info/1 BIF on another process with messages.
 process_info_other_msg(Config) when is_list(Config) ->
