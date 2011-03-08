@@ -41,7 +41,7 @@
 	 check_tdomain/1,  
 	 mk_tdomain/1, 
 	 which_domain/1, 
-	 check_ip/1, 
+	 check_ip/1, check_ip/2, 
 	 check_taddress/1, check_taddress/2, 
 	 mk_taddress/3, 
 	 
