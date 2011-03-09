@@ -668,8 +668,11 @@ fetch(Localhost,Dir,Node,MetaFile) ->
 	    Files = get_filenames(Node,MetaFile),
 	    lists:foreach(
 	      fun(File0) ->
-		      File = filename:join(Dir,filename:basename(File0)),
-		      file:rename(File0,File)
+		      %%Other nodes may still have different CWD
+		      {ok, Cwd} = rpc:call(Node, file, get_cwd, []),
+		      File1 = filename:join(Cwd, File0),
+		      File = filename:join(Dir,filename:basename(File1)),
+		      file:rename(File1,File)
 	      end,
 	      Files);
 	false ->
