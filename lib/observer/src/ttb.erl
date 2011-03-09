@@ -365,24 +365,24 @@ proc({global,Name}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace pattern
 tp(A,B) ->
-    store(tp,[A,B]),
-    dbg:tp(A,B).
+    store(tp,[A,ms(B)]),
+    dbg:tp(A,ms(B)).
 tp(A,B,C) ->
-    store(tp,[A,B,C]),
-    dbg:tp(A,B,C).
+    store(tp,[A,B,ms(C)]),
+    dbg:tp(A,B,ms(C)).
 tp(A,B,C,D) ->
-    store(tp,[A,B,C,D]),
-    dbg:tp(A,B,C,D).
+    store(tp,[A,B,C,ms(D)]),
+    dbg:tp(A,B,C,ms(D)).
 
 tpl(A,B) ->
-    store(tpl,[A,B]),
-    dbg:tpl(A,B).
+    store(tpl,[A,ms(B)]),
+    dbg:tpl(A,ms(B)).
 tpl(A,B,C) ->
-    store(tpl,[A,B,C]),
-    dbg:tpl(A,B,C).
+    store(tpl,[A,B,ms(C)]),
+    dbg:tpl(A,B,ms(C)).
 tpl(A,B,C,D) ->
-    store(tpl,[A,B,C,D]),
-    dbg:tpl(A,B,C,D).
+    store(tpl,[A,B,C,ms(D)]),
+    dbg:tpl(A,B,C,ms(D)).
 
 ctp() ->
     store(ctp,[]),
@@ -423,6 +423,43 @@ ctpg(A,B,C) ->
     store(ctpg,[A,B,C]),
     dbg:ctpg(A,B,C).
 
+ms(return) ->
+    [{'_',[],[{return_trace}]}];
+ms(caller) ->
+    [{'_',[],[{message,{caller}}]}];
+ms({codestr, FunStr}) ->
+    {ok, MS} = string2ms(FunStr),
+    MS;
+ms(Other) ->
+    Other.
+
+-spec string2ms(string()) -> {ok, list()} | {error, fun_format}.
+string2ms(FunStr) ->
+    case erl_scan:string(fix_dot(FunStr)) of
+	{ok, Tokens, _} ->
+	    case erl_parse:parse_exprs(Tokens) of
+		{ok, [Expression]} ->
+		    case Expression of
+			{_, _, {clauses, Clauses}} ->
+			    {ok, ms_transform:transform_from_shell(dbg, Clauses, [])};
+			_ ->
+			    {error, fun_format}
+		    end;
+		_ ->
+		    {error, fun_format}
+	    end;
+	_ ->{error, fun_format}
+    end.
+
+-spec fix_dot(string()) -> string().
+fix_dot(FunStr) ->
+    [H | Rest]  = lists:reverse(FunStr),
+    case H of
+	$. ->
+	    FunStr;
+	H ->
+	    lists:reverse([$., H | Rest])
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Support for sequential trace
@@ -471,13 +508,13 @@ stop(Opts) ->
 stop_opts(Opts) ->
     case {lists:member(format,Opts), lists:member(return, Opts)} of
 	{true, _} ->
-	    format;
+	    format; % format implies fetch
 	{_, true} ->
-	    fetch;
+	    fetch; % if we specify return, the data should be fetched
 	_ ->
-	    case lists:member(nofetch,Opts) of
-		true -> nofetch;
-		false -> fetch
+	    case lists:member(fetch,Opts) of
+		true -> fetch;
+		false -> nofetch
 	    end
     end.
 
