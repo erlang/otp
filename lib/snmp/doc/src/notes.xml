@@ -33,6 +33,59 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.20</title>
+    <p>Version 4.20 supports code replacement in runtime from/to
+      version 4.19 and 4.18.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[agent] To be able to handle multiple engine-id(s) when
+	  sending trap(s), the function 
+          <seealso marker="snmp_community_mib:add_community">add_community/6</seealso>
+          has been added. </p>
+          <p>Own Id: OTP-9119 Aux Id: Seq 11792</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] When calling
+          <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso>
+          on a running node, the table <c>vacmAccessTable</c> was not properly
+          cleaned.
+          This meant that if some entries in the vacm.conf file was removed
+          (compared to the <c>current</c> config),
+          while others where modified and/or added, the removed entrie(s)
+          would still exist in the <c>vacmAccessTable</c> table. </p>
+          <p>Own Id: OTP-8981</p>
+          <p>Aux Id: Seq 11750</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.20 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.19</title>
     <p>Version 4.19 supports code replacement in runtime from/to
       version 4.18.</p>
@@ -125,6 +178,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
     </section>
 
   </section> <!-- 4.19 -->
+
 
   <section>
     <title>SNMP Development Toolkit 4.18</title>
