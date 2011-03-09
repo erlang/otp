@@ -308,6 +308,11 @@ terminate(normal, _StateName, _StateData) ->
 handle_info({'EXIT', Pid, Reason}, StateName, StateData) ->
     ..code to handle exits here..
     {next_state, StateName1, StateData1}.</code>
+    <p>The code_change method also has to be implemented.</p>
+    <code type="none">
+code_change(OldVsn, StateName, StateData, Extra) ->
+    ..code to convert state (and more) during code change
+    {ok, NextStateName, NewStateData}</code>
   </section>
 </chapter>
 

@@ -1,0 +1,2 @@
+
+mnesia_diff_atoms_race2.erl:37: The call mnesia:dirty_write(Record::#employee{salary::number()} | #employer{}) might have an unintended effect due to a possible race condition caused by its combination with the mnesia:dirty_read(Tab::'employee',Eno::any()) call in mnesia_diff_atoms_race2.erl on line 26

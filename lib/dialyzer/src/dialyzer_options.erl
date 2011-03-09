@@ -120,12 +120,18 @@ build_options([{OptName, undefined}|Rest], Options) when is_atom(OptName) ->
   build_options(Rest, Options);
 build_options([{OptionName, Value} = Term|Rest], Options) ->
   case OptionName of
+    apps ->
+      OldValues = Options#options.files_rec,
+      AppDirs = get_app_dirs(Value),
+      assert_filenames(Term, AppDirs),
+      build_options(Rest, Options#options{files_rec = AppDirs ++ OldValues});
     files ->
       assert_filenames(Term, Value),
       build_options(Rest, Options#options{files = Value});
     files_rec ->
+      OldValues = Options#options.files_rec,
       assert_filenames(Term, Value),
-      build_options(Rest, Options#options{files_rec = Value});
+      build_options(Rest, Options#options{files_rec = Value ++ OldValues});
     analysis_type ->
       NewOptions =
 	case Value of
@@ -190,6 +196,11 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
   end;
 build_options([], Options) ->
   Options.
+
+get_app_dirs(Apps) when is_list(Apps) ->
+  dialyzer_cl_parse:get_lib_dir([atom_to_list(A) || A <- Apps]);
+get_app_dirs(Apps) ->
+  bad_option("Use a list of otp applications", Apps).
 
 assert_filenames(Term, [FileName|Left]) when length(FileName) >= 0 ->
   case filelib:is_file(FileName) orelse filelib:is_dir(FileName) of

@@ -498,8 +498,8 @@ more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc, Status) ->
 	true ->
 	    more_apps_in_rels(RelApps, Apps, Acc, Status);
 	false ->
-	    case lists:keysearch(AppName, #app.name, Apps) of
-		{value, #app{info = #app_info{applications = InfoApps}}} ->
+	    case lists:keyfind(AppName, #app.name, Apps) of
+		#app{info = #app_info{applications = InfoApps}} ->
 		    Extra = [{RelName, N} || N <- InfoApps],
 		    {Acc2, Status2} =
 			more_apps_in_rels(Extra, Apps, [RA | Acc], Status),
@@ -743,9 +743,9 @@ mod_propagate_is_used_by(_C, []) ->
 read_apps(C, Sys, [#app{mods = Mods, is_included = IsIncl} = A | Apps], Acc) ->
     {Mods2, IsIncl2} = read_apps(C, Sys, A, Mods, [], IsIncl),
     Status =
-        case lists:keysearch(missing, #mod.status, Mods2) of
-            {value, _} -> missing;
-            false      -> ok
+        case lists:keymember(missing, #mod.status, Mods2) of
+            true  -> missing;
+            false -> ok
         end,
     UsesMods = [M#mod.uses_mods || M <- Mods2, M#mod.is_included =:= true],
     UsesMods2 = lists:usort(lists:flatten(UsesMods)),
@@ -820,22 +820,14 @@ filter_app(A) ->
         A#app.use_selected_vsn =:= undefined ->
             false;
         true ->
-            {Dir, Dirs} =
+            {Dir, Dirs, OptVsn} =
                 case A#app.use_selected_vsn of
                     undefined ->
-			{shrinked, []};
+			{shrinked, [], undefined};
                     false ->
-			{shrinked, []};
+			{shrinked, [], undefined};
                     true ->
-			{A#app.active_dir, [A#app.active_dir]};
-		    _ when A#app.is_escript ->
-			{A#app.active_dir, [A#app.active_dir]}
-                end,
-            OptVsn =
-                case A#app.use_selected_vsn of
-                    undefined -> undefined;
-                    false -> undefined;
-                    true -> A#app.vsn
+			{A#app.active_dir, [A#app.active_dir], A#app.vsn}
                 end,
             {true, A#app{active_dir = Dir,
                          sorted_dirs = Dirs,
@@ -1087,8 +1079,8 @@ missing_mod(ModName, AppName) ->
 add_mod_config(Mods, ModConfigs) ->
     AddConfig =
         fun(Config, Acc) ->
-                case lists:keysearch(Config#mod.name, #mod.name, Mods) of
-                    {value, M} ->
+                case lists:keyfind(Config#mod.name, #mod.name, Mods) of
+                    #mod{} = M ->
                         M2 = M#mod{incl_cond = Config#mod.incl_cond},
                         lists:keystore(Config#mod.name, #mod.name, Acc, M2);
                     false ->
@@ -1179,10 +1171,10 @@ read_config(OldSys, {sys, KeyVals}, Status) ->
 	    end,
 	    NewSys2 = NewSys#sys{apps = lists:sort(Apps),
 				 rels = lists:sort(Rels)},
-	    case lists:keysearch(NewSys2#sys.boot_rel,
+	    case lists:keymember(NewSys2#sys.boot_rel,
 				 #rel.name,
 				 NewSys2#sys.rels) of
-		{value, _} ->
+		true ->
 		    {NewSys2, Status2};
 		false ->
 		    Text2 = lists:concat(["Release " ++ NewSys2#sys.boot_rel,
@@ -1418,27 +1410,27 @@ decode(#mod{} = Mod, [{Key, Val} | KeyVals], Status) ->
         end,
     decode(Mod2, KeyVals, Status2);
 decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals], Status) ->
-    RA =
+    {ValidTypesAssigned, RA} =
         case RelApp of
             Name when is_atom(Name) ->
-                #rel_app{name = Name, app_type = undefined, incl_apps = []};
+                {true, #rel_app{name = Name}};
             {Name, Type} when is_atom(Name) ->
-                #rel_app{name = Name, app_type = Type, incl_apps = []};
+                {is_type(Type), #rel_app{name = Name, app_type = Type}};
             {Name, InclApps} when is_atom(Name), is_list(InclApps) ->
-                #rel_app{name = Name,
-			 app_type = undefined,
-			 incl_apps = InclApps};
+		VI = lists:all(fun erlang:is_atom/1, InclApps),
+                {VI, #rel_app{name = Name, incl_apps = InclApps}};
             {Name, Type, InclApps} when is_atom(Name), is_list(InclApps) ->
-                #rel_app{name = Name, app_type = Type, incl_apps = InclApps};
+		VT = is_type(Type),
+		VI = lists:all(fun erlang:is_atom/1, InclApps),
+		{VT andalso VI,
+                 #rel_app{name = Name, app_type = Type, incl_apps = InclApps}};
             _ ->
-                #rel_app{incl_apps = []}
+                {false, #rel_app{incl_apps = []}}
         end,
-    IsType = is_type(RA#rel_app.app_type),
-    NonAtoms = [IA || IA <- RA#rel_app.incl_apps, not is_atom(IA)],
-    if
-        IsType, NonAtoms =:= [] ->
+    case ValidTypesAssigned of
+	true ->
             decode(Rel#rel{rel_apps = RelApps ++ [RA]}, KeyVals, Status);
-        true ->
+        false ->
             Text = lists:flatten(io_lib:format("~p", [RelApp])),
             Status2 =
 		reltool_utils:return_first_error(Status,
@@ -1542,10 +1534,9 @@ check_rel(RelName, RelApps, Status) ->
 
 patch_erts_version(RootDir, Apps, Status) ->
     AppName = erts,
-    case lists:keysearch(AppName, #app.name, Apps) of
-        {value, Erts} ->
+    case lists:keyfind(AppName, #app.name, Apps) of
+        #app{vsn = Vsn} = Erts ->
             LocalRoot = code:root_dir(),
-            Vsn = Erts#app.vsn,
             if
                 LocalRoot =:= RootDir, Vsn =:= "" ->
                     Vsn2 = erlang:system_info(version),
@@ -1773,20 +1764,20 @@ files_to_apps(_Escript, [], Acc, _Apps, _OldApps, Status) ->
     {lists:keysort(#app.name, Acc), Status}.
 
 merge_escript_app(AppName, Dir, Info, Mods, Apps, OldApps, Status) ->
-    case lists:keysearch(AppName, #app.name, OldApps) of
-        {value, App} ->
-            ok;
-        false ->
-	    App = default_app(AppName, Dir)
-    end,
-    App2 = App#app{is_escript = true,
-		   label = filename:basename(Dir, ".escript"),
-		   info = Info,
-		   mods = Mods,
-		   active_dir = Dir,
-		   sorted_dirs = [Dir]},
-    case lists:keysearch(AppName, #app.name, Apps) of
-        {value, _} ->
+    App1 = case lists:keyfind(AppName, #app.name, OldApps) of
+	       #app{} = App ->
+		   App;
+	       false ->
+		   default_app(AppName, Dir)
+	   end,
+    App2 = App1#app{is_escript = true,
+		    label = filename:basename(Dir, ".escript"),
+		    info = Info,
+		    mods = Mods,
+		    active_dir = Dir,
+		    sorted_dirs = [Dir]},
+    case lists:keymember(AppName, #app.name, Apps) of
+        true ->
             Error = lists:concat([AppName, ": Application name clash. ",
                                   "Escript ", Dir," contains application ",
 				  AppName, "."]),
@@ -1804,12 +1795,15 @@ merge_app_dirs([{Name, Dir} | Rest], Apps, OldApps) ->
     %% Initate app
     Apps2 = sort_app_dirs(Apps),
     Apps4 =
-        case lists:keysearch(Name, #app.name, Apps) of
+        case lists:keyfind(Name, #app.name, Apps) of
             false ->
-                case lists:keysearch(Name, #app.name, OldApps) of
-                    {value, OldApp} when OldApp#app.active_dir =:= Dir ->
+                case lists:keyfind(Name, #app.name, OldApps) of
+                    false ->
+                        App = default_app(Name, Dir),
+                        [App | Apps2];
+                    #app{active_dir = Dir} = OldApp ->
                         [OldApp | Apps2];
-                    {value, OldApp} ->
+                    OldApp ->
                         App =
                             case filter_app(OldApp) of
                                 {true, NewApp} ->
@@ -1818,12 +1812,9 @@ merge_app_dirs([{Name, Dir} | Rest], Apps, OldApps) ->
                                 false ->
                                     default_app(Name, Dir)
                             end,
-                        [App | Apps2];
-                    false ->
-                        App = default_app(Name, Dir),
                         [App | Apps2]
                 end;
-            {value, OldApp} ->
+            OldApp ->
                 Apps3 = lists:keydelete(Name, #app.name, Apps2),
                 App = OldApp#app{sorted_dirs = [Dir | OldApp#app.sorted_dirs]},
                 [App | Apps3]

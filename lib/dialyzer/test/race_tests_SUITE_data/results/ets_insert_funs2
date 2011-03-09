@@ -1,0 +1,2 @@
+
+ets_insert_funs2.erl:9: The call ets:insert(T::'foo',[{'counter',number()},...]) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('foo','counter') call in ets_insert_funs2.erl on line 14
