@@ -569,6 +569,8 @@ ensure_fetch_dir(Dir) ->
 stop_return(R,Opts) ->
     case {lists:member(return,Opts),R} of
         {true,_} ->
+            %%Printout moved out of the ttb loop to avoid occasional deadlock
+            io:format("Stored logs in ~s~n",[element(2, R)]),
             R;
         {false,{stopped,_}} ->
             stopped;
@@ -684,7 +686,6 @@ loop(NodeInfo, SessionInfo) ->
 	    ets:delete(?history_table),
 	    wait_for_fetch(AllNodes),
             Absname = filename:absname(Dir),
-	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
 		format -> format(Dir);
 		fetch -> ok
