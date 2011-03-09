@@ -21,6 +21,7 @@
 
 %% API
 -export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1,start_trace/4]).
+-export([get_et_handler/0]).
 -export([tp/2, tp/3, tp/4, ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, 
 	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3]).
 -export([seq_trigger_ms/0,seq_trigger_ms/1]).
@@ -34,12 +35,10 @@
 
 -include_lib("kernel/include/file.hrl").
 -define(meta_time,5000).
--define(fetch_time, 10000).
 -define(history_table,ttb_history_table).
 -define(seq_trace_flags,[send,'receive',print,timestamp]).
 -define(upload_dir,"ttb_upload").
 -define(last_config, "ttb_last_config").
--define(partial_dir, "ttb_partial_result").
 -ifdef(debug).
 -define(get_status,;get_status -> erlang:display(dict:to_list(NodeInfo),loop(NodeInfo, TraceInfo)).
 -else.
@@ -52,18 +51,19 @@ start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
     {ok, _} = tracer(Nodes, Options),
     {ok, _} = p(Procs, Flags),
     [{ok, _} = apply(?MODULE, tpl, tuple_to_list(Args)) || Args <- Patterns].
-        
+    
+    
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Open a trace port on all given nodes and create the meta data file
 tracer() -> tracer(node()).
-tracer(shell) -> tracer(node(), shell);
 tracer(Nodes) -> tracer(Nodes,[]).
 tracer(Nodes,Opt) ->
     {PI,Client,Traci} = opt(Opt),
     %%We use initial Traci as SessionInfo for loop/2
-    Pid = start(Traci),
+    start(Traci),
     store(tracer,[Nodes,Opt]),
-    do_tracer(Nodes,PI,Client,[{ttb_control, Pid}|Traci]).
+    do_tracer(Nodes,PI,Client,Traci).
 
 do_tracer(Nodes0,PI,Client,Traci) ->
     Nodes = nods(Nodes0),
@@ -71,7 +71,6 @@ do_tracer(Nodes0,PI,Client,Traci) ->
     do_tracer(Clients,PI,Traci).
 
 do_tracer(Clients,PI,Traci) ->
-    ShellOutput = proplists:get_value(shell, Traci, false),
     {ClientSucc,Succ} = 
 	lists:foldl(
 	  fun({N,{local,File},TF},{CS,S}) -> 
@@ -82,7 +81,7 @@ do_tracer(Clients,PI,Traci) ->
 			  {ok,T} = dbg:get_tracer(N),
 			  rpc:call(N,seq_trace,set_system_tracer,[T]),
 			  dbg:trace_client(ip,{Host,Port},
-					   {fun ip_to_file/2,{{file,File}, ShellOutput}}),
+					   {fun ip_to_file/2,{file,File}}),
 			  {[{N,{local,File,Port},TF}|CS], [N|S]};
 		      Other ->
 			  display_warning(N,{cannot_open_ip_trace_port,
@@ -126,29 +125,8 @@ opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, StopOpts}}|Traci]});
 opt([{timer, MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, []}}|Traci]});
-opt([shell|O],{PI,Client,Traci}) ->
-    opt(O,{PI,Client,[{shell, true}|Traci]});
-opt([resume|O],{PI,Client,Traci}) ->
-    opt(O,{PI,Client,[{resume, {true, ?fetch_time}}|Traci]});
-opt([{resume,MSec}|O],{PI,Client,Traci}) ->
-    opt(O,{PI,Client,[{resume, {true, MSec}}|Traci]});
-opt([{flush,MSec}|O],{PI,Client,Traci}) ->
-    opt(O,{PI,Client,[{flush, MSec}|Traci]});
 opt([],Opt) ->
-    ensure_opt(Opt).
-
-ensure_opt({PI,Client,Traci}) ->
-    case {proplists:get_value(flush, Traci), Client} of
-        {undefined, _}  -> ok;
-        {_, {local, _}} -> exit(flush_unsupported_with_ip_trace_port);
-        {_,_}           -> ok
-    end,
-    case {proplists:get_value(shell, Traci), Client} of
-        {undefined, _}        -> {PI, Client, Traci};
-        {true, ?MODULE}       -> {PI, {local, ?MODULE}, Traci};
-        {true, {local, File}} -> {PI, {local, File}, Traci};
-        {true, _}             -> exit(local_client_required_on_shell_tracing)
-    end.
+    Opt.
 
 nods(all) ->
     Nodes1 = remove_active([node()|nodes()]),
@@ -245,29 +223,17 @@ run_history([H|T]) ->
 	ok -> run_history(T);
 	{error,not_found} -> {error,{not_found,H}}
     end;
-
-run_history(all) ->
-    CurrentHist = ets:tab2list(?history_table),
-    ets:delete_all_objects(?history_table),
-    [run_printed(MFA,true) || {_, MFA} <- CurrentHist];
-run_history(all_silent) ->
-    CurrentHist = ets:tab2list(?history_table),
-    ets:delete_all_objects(?history_table),
-    [run_printed(MFA,false) || {_, MFA} <- CurrentHist];
 run_history([]) ->
     ok;
 run_history(N) ->
     case catch ets:lookup(?history_table,N) of
 	[{N,{M,F,A}}] -> 
-            run_printed({M,F,A},true);
+	    print_func(M,F,A),
+	    R = apply(M,F,A),
+	    print_result(R);
 	_ -> 
 	    {error, not_found}
     end.
-
-run_printed({M,F,A},Verbose) ->
-    Verbose andalso print_func(M,F,A),
-    R = apply(M,F,A),
-    Verbose andalso print_result(R).
 	
 write_config(ConfigFile,all) ->
     write_config(ConfigFile,['_']);
@@ -392,7 +358,7 @@ no_store_p(Procs0,Flags0) ->
 transform_flags([clear]) ->
     [clear];
 transform_flags(Flags) ->
-    dbg:transform_flags(Flags).
+    dbg:transform_flags([timestamp | Flags]).
 
 
 procs(Procs) when is_list(Procs) ->
@@ -561,18 +527,23 @@ stop(Opts) ->
     stop([Opts]).
 
 stop_opts(Opts) ->
-    FetchDir = proplists:get_value(fetch_dir, Opts),
+    FetchDir = proplists:get_value(fetch_dir, Opts),                 
     ensure_fetch_dir(FetchDir),
-    case {lists:member(format,Opts), lists:member(return, Opts)} of
-	{true, _} -> 
-	    {format, FetchDir}; % format implies fetch
-	{_, true} ->
+    FormatData = case proplists:get_value(format, Opts) of
+                     undefined -> false;
+                     true ->      {format, []};
+                     FOpts ->     {format, FOpts}
+                 end,
+    case {FormatData, lists:member(return, Opts)} of
+	{false, true} -> 
 	    {fetch, FetchDir}; % if we specify return, the data should be fetched
-	_ -> 
+        {false, false} ->
 	    case lists:member(fetch,Opts) of
 		true -> {fetch, FetchDir};
 		false -> nofetch
-	    end
+	    end;
+        {FormatData, _} ->
+            {FormatData, FetchDir}
     end.
 
 ensure_fetch_dir(undefined) -> ok;
@@ -603,19 +574,16 @@ start(SessionInfo) ->
 	undefined ->
 	    Parent = self(),
 	    Pid = spawn(fun() -> init(Parent, SessionInfo) end),
-	    receive {started,Pid} -> ok end,
-            Pid;
+	    receive {started,Pid} -> ok end;
 	Pid when is_pid(Pid) ->
-	    Pid
+	    ok
     end.
 
 init(Parent, SessionInfo) ->
     register(?MODULE,self()),
     ets:new(?history_table,[ordered_set,named_table,public]),
     Parent ! {started,self()},
-    NewSessionInfo = [{partials, 0}, {dead_nodes, []} | SessionInfo],
-    try_send_flush_tick(NewSessionInfo),
-    loop(dict:new(), NewSessionInfo).
+    loop(dict:new(), SessionInfo).
 
 loop(NodeInfo, SessionInfo) ->
     receive 
@@ -645,13 +613,7 @@ loop(NodeInfo, SessionInfo) ->
 		      NodeInfo),
 	    loop(NodeInfo, SessionInfo);
 	{nodedown,Node} ->
-            NewState = make_node_dead(Node, NodeInfo, SessionInfo),
-	    loop(dict:erase(Node,NodeInfo), NewState);
-        {noderesumed,Node,Reporter} ->
-            {MetaFile, CurrentSuffix, NewState} = make_node_alive(Node, SessionInfo),
-            fetch_partial_result(Node, MetaFile, CurrentSuffix),
-            spawn(fun() -> resume_trace(Reporter) end),
-            loop(NodeInfo, NewState);
+	    loop(dict:erase(Node,NodeInfo), SessionInfo);
 	{timeout, StopOpts} ->
 	    spawn(?MODULE, stop, [StopOpts]),
 	    loop(NodeInfo, SessionInfo);
@@ -661,10 +623,6 @@ loop(NodeInfo, SessionInfo) ->
 		{MSec, StopOpts}  -> erlang:send_after(MSec, self(), {timeout, StopOpts})
 	    end,
 	    loop(NodeInfo, SessionInfo);
-        flush_timeout ->
-            [ dbg:flush_trace_port(Node) || Node <- dict:fetch_keys(NodeInfo) ],
-            try_send_flush_tick(SessionInfo),
-            loop(NodeInfo, SessionInfo);
 	{stop,nofetch,Sender} ->
 	    write_config(?last_config, all),
 	    dict:fold(
@@ -681,7 +639,7 @@ loop(NodeInfo, SessionInfo) ->
 	    Localhost = host(node()),
 	    Dir = get_fetch_dir(UserDir),
  	    file:make_dir(Dir),
-                              %% The nodes are traversed twice here because
+	    %% The nodes are traversed twice here because
 	    %% the meta tracing in observer_backend must be
 	    %% stopped before dbg is stopped, and dbg must
 	    %% be stopped before the trace logs are moved orelse
@@ -698,49 +656,24 @@ loop(NodeInfo, SessionInfo) ->
 	    AllNodes = 
 		lists:map(
 		  fun({Node,MetaFile}) ->
-			  spawn(fun() -> fetch_report(Localhost,Dir,Node,MetaFile) end),
+			  spawn(fun() -> fetch(Localhost,Dir,Node,MetaFile) end),
 			  Node
 		  end,
 		  AllNodesAndMeta),
 	    ets:delete(?history_table),
 	    wait_for_fetch(AllNodes),
-            copy_partials(Dir, proplists:get_value(partials, SessionInfo)),
             Absname = filename:absname(Dir),
 	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
-		format -> format(Dir);
-		fetch -> ok
+		fetch -> ok;
+		{format, Opts} -> format(Dir, Opts)
 	    end,
 	    Sender ! {?MODULE,{stopped,Absname}}
          ?get_status
     end.
 
-make_node_dead(Node, NodeInfo, SessionInfo) ->
-    {MetaFile,_} = dict:fetch(Node, NodeInfo),
-    NewDeadNodes = [{Node, MetaFile} | proplists:get_value(dead_nodes, SessionInfo)],            
-    [{dead_nodes, NewDeadNodes} | lists:keydelete(dead_nodes, 1, SessionInfo)].
-
-make_node_alive(Node, SessionInfo) ->
-            DeadNodes = proplists:get_value(dead_nodes, SessionInfo),
-            Partials = proplists:get_value(partials, SessionInfo),
-            {value, {_, MetaFile}, Dn2} = lists:keytake(Node, 1, DeadNodes),
-            SessionInfo2 = lists:keyreplace(dead_nodes, 1, SessionInfo, {dead_nodes, Dn2}),
-            {MetaFile, Partials + 1, lists:keyreplace(partials, 1, SessionInfo2, {partials, Partials + 1})}.    
-
-try_send_flush_tick(State) ->
-    case proplists:get_value(flush, State) of
-        undefined ->
-            ok;
-        MSec ->
-            erlang:send_after(MSec, self(), flush_timeout)
-    end.
-
 get_fetch_dir(undefined) -> ?upload_dir ++ ts();
 get_fetch_dir(Dir) -> Dir.
-
-resume_trace(Reporter) ->
-    ?MODULE:run_history(all_silent),
-    Reporter ! trace_resumed.
 
 get_nodes() ->
     ?MODULE ! {get_nodes,self()},
@@ -751,46 +684,17 @@ ts() ->
     io_lib:format("-~4.4.0w~2.2.0w~2.2.0w-~2.2.0w~2.2.0w~2.2.0w",
 		  [Y,M,D,H,Min,S]).
 
-copy_partials(_, 0) ->
-    ok;
-copy_partials(Dir, Num) ->
-    PartialDir = ?partial_dir ++ integer_to_list(Num),
-    file:rename(PartialDir, filename:join(Dir,PartialDir)),
-    copy_partials(Dir, Num - 1).
-
-fetch_partial_result(Node,MetaFile,Current) ->
-    DirName = ?partial_dir ++ integer_to_list(Current),
-    case file:list_dir(DirName) of
-        {error, enoent} ->
-            ok;
-        {ok, Files} ->
-            [ file:delete(filename:join(DirName, File)) || File <- Files ],
-            file:del_dir(DirName)
-    end,
-    file:make_dir(DirName),
-    fetch(host(node()), DirName, Node, MetaFile).
-
-fetch_report(Localhost, Dir, Node, MetaFile) ->
-    fetch(Localhost,Dir,Node,MetaFile),
-    ?MODULE ! {fetch_complete,Node}.
-
 fetch(Localhost,Dir,Node,MetaFile) ->
     case (host(Node) == Localhost) orelse is_local(MetaFile) of
         true -> % same host, just move the files
 	    Files = get_filenames(Node,MetaFile),
 	    lists:foreach(
 	      fun(File0) ->
-                      case MetaFile of
-                          {local, _, _} ->
-                              File = filename:join(Dir,filename:basename(File0)),
-                              file:rename(File0, File);
-                          _ ->
-                              %%Other nodes may still have different CWD
-                              {ok, Cwd} = rpc:call(Node, file, get_cwd, []),
-                              File1 = filename:join(Cwd, File0),
-                              File = filename:join(Dir,filename:basename(File1)),
-                              file:rename(File1,File)
-                      end
+		      %%Other nodes may still have different CWD
+		      {ok, Cwd} = rpc:call(Node, file, get_cwd, []),
+		      File1 = filename:join(Cwd, File0),
+		      File = filename:join(Dir,filename:basename(File1)),
+		      file:rename(File1,File)
 	      end,
 	      Files);
 	false ->
@@ -802,7 +706,8 @@ fetch(Localhost,Dir,Node,MetaFile) ->
 	    receive_files(Dir,Sock,undefined),
 	    ok = gen_tcp:close(LSock),
 	    ok = gen_tcp:close(Sock)
-    end.
+    end,
+    ?MODULE ! {fetch_complete,Node}.
 
 is_local({local, _, _}) ->
     true;
@@ -831,6 +736,7 @@ receive_files(Dir,Sock,Fd) ->
 host(Node) ->
     [_name,Host] = string:tokens(atom_to_list(Node),"@"),
     Host.
+
 
 wait_for_fetch([]) ->
     ok;
@@ -869,31 +775,42 @@ write_info(Nodes,PI,Traci) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Format binary trace logs
+get_et_handler() ->
+    {fun ttb_et:handler/4, initial}.
+
 format(Files) ->
     format(Files,[]).
 format(Files,Opt) ->
-    {Out,Handler} = format_opt(Opt),
+    {Out,Handler,DisableSort} = format_opt(Opt),
     ets:new(?MODULE,[named_table]),
-    format(Files,Out,Handler).
-format(File,Out,Handler) when is_list(File), is_integer(hd(File)) ->
+    format(Files,Out,Handler, DisableSort).
+format(File,Out,Handler,DisableSort) when is_list(File), is_integer(hd(File)) ->
     Files = 
 	case filelib:is_dir(File) of
 	    true ->  % will merge all files in the directory
-                List = filelib:wildcard(filename:join(File, ?partial_dir++"*")),
-                lists:append(collect_files([File | List]));
+		MetaFiles = filelib:wildcard(filename:join(File,"*.ti")),
+		lists:map(fun(M) ->
+				  Sub = string:left(M,length(M)-3),
+				  case filelib:is_file(Sub) of
+				      true -> Sub;
+				      false -> Sub++".*.wrp"
+				  end
+			  end,
+			  MetaFiles);
 	    false -> % format one file
 		[File]
 	end,
-    format(Files,Out,Handler);
-format(Files,Out,Handler) when is_list(Files), is_list(hd(Files)) ->
+    RealHandler = get_handler(Handler, Files),
+    format(Files,Out,RealHandler,DisableSort);
+format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     StopDbg = case whereis(dbg) of
 		  undefined -> true;
 		  _ -> false
 	      end,
-    Details = lists:foldl(fun(File,Acc) -> [prepare(File,Handler)|Acc] end,
+    Details = lists:foldl(fun(File,Acc) -> [prepare(File)|Acc] end,
 			  [],Files),
     Fd = get_fd(Out),
-    R = do_format(Fd,Details),
+    R = do_format(Fd,Details,DisableSort,Handler),
     file:close(Fd),
     ets:delete(?MODULE),
     case StopDbg of
@@ -902,20 +819,17 @@ format(Files,Out,Handler) when is_list(Files), is_list(hd(Files)) ->
     end,
     R.
 
-collect_files(Dirs) ->
-    lists:map(fun(Dir) ->
-                      MetaFiles = filelib:wildcard(filename:join(Dir,"*.ti")),
-                      lists:map(fun(M) ->
-                                        Sub = string:left(M,length(M)-3),
-                                        case filelib:is_file(Sub) of
-                                            true -> Sub;
-                                            false -> Sub++".*.wrp"
-                                        end
-                                end,
-                                MetaFiles)
-              end, Dirs).
+get_handler(undefined, Files) ->
+    %%We retrieve traci from the first available file
+    {Traci, _} = read_traci(hd(Files)),
+    case dict:find(handler, Traci) of
+        error             -> {fun defaulthandler/4, initial};
+        {ok, [Handler]}   -> Handler
+    end;
+get_handler(Handler, _) ->
+    Handler.
 
-prepare(File,Handler) ->
+prepare(File) ->
     {Traci,Proci} = read_traci(File),
     Node = get_node(Traci),
     lists:foreach(fun({Pid,PI}) ->
@@ -927,8 +841,7 @@ prepare(File,Handler) ->
 			  ets:insert(?MODULE,{Pid,PI,Node})
 		  end,Proci),
     FileOrWrap = get_file(File,Traci),
-    Handler1 = get_handler(Handler,Traci),
-    {FileOrWrap,Traci,Handler1}.
+    {FileOrWrap,Traci}.
 
 format_opt(Opt) when is_list(Opt) ->
     Out = case lists:keysearch(out,1,Opt) of
@@ -936,12 +849,14 @@ format_opt(Opt) when is_list(Opt) ->
 	      _ -> standard_io
 	  end,
     Handler = case lists:keysearch(handler,1,Opt) of
-	      {value,{handler,H}} -> H;
-	      _ -> undefined
+                  {value,{handler,H}} -> H;                
+                  _ -> undefined
 	  end,
-    {Out,Handler};
+    DisableSort = proplists:get_value(disable_sort, Opt, false),
+    {Out,Handler,DisableSort};
 format_opt(Opt) ->
     format_opt([Opt]).
+
 
 read_traci(File) ->
     MetaFile = get_metafile(File),
@@ -1017,71 +932,57 @@ check_exists(File) ->
 	_ -> 
 	    exit({error,no_file})
     end.
-	
-get_handler(Handler,Traci) ->
-    case Handler of
-	undefined -> 
-	    case dict:find(handler,Traci) of
-		{ok,[H]} -> H;
-		error -> undefined
-	    end;
-	_ ->
-	    Handler
-    end.
 
-do_format(Fd,Details) ->
-    Clients = lists:foldl(fun({FileOrWrap,Traci,Handler},Acc) ->
-				  [start_client(FileOrWrap,Traci,Handler)
-				   |Acc]
+do_format(Fd,Details,DisableSort,Handler) ->
+    Clients = lists:foldl(fun({FileOrWrap,Traci},Acc) ->
+                                  [start_client(FileOrWrap,Traci)|Acc]
 			  end,[],Details),
-    init_collector(Fd,Clients).
+    init_collector(Fd,Clients,DisableSort,Handler).
 
+start_client(FileOrWrap,Traci) ->
+    dbg:trace_client(file, FileOrWrap, 
+		     {fun handler/2, dict:to_list(Traci)}).
 
-start_client(FileOrWrap,Traci,et) ->
-    dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, 
-		      {dict:to_list(Traci),{{ttb_et,handler},initial}}});
-start_client(FileOrWrap,Traci,undefined) ->
-    dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, 
-		      {dict:to_list(Traci),{fun defaulthandler/4,initial}}});
-start_client(FileOrWrap,Traci,Handler) ->
-    dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, {dict:to_list(Traci),Handler}}).
-
-handler(Trace,State) ->
-    %% State here is only used for the initial state. The accumulated
-    %% State is maintained by collector!!!
+handler(Trace,Traci) ->
+    %%We return our own Traci so that it not necesarry to look it up
+    %%This may take time if something huge has been written to it
     receive 
-	{get,Collector} -> Collector ! {self(),{Trace,State}};
+	{get,Collector} -> Collector ! {self(),{Trace,Traci}};
 	done -> ok
     end,
-    State.
+    Traci.
 
-handler1(Trace,{Fd,{Traci,{Fun,State}}}) when is_function(Fun) ->
-    {Traci,{Fun,Fun(Fd,Trace,Traci,State)}};
-handler1(Trace,{Fd,{Traci,{{M,F},State}}}) when is_atom(M), is_atom(F) ->
-    {Traci,{{M,F},M:F(Fd,Trace,Traci,State)}}.
+%%Used to handle common state (the same for all clients)
+handler2(Trace,{Fd,Traci,{Fun,State}}) when is_function(Fun) ->
+    {Fun, Fun(Fd, Trace, Traci, State)};
+handler2(Trace,{Fd,Traci,{{M,F},State}}) when is_atom(M), is_atom(F) ->
+    {{M,F}, M:F(Fd, Trace, Traci, State)}.
 
 defaulthandler(Fd,Trace,_Traci,initial) ->
     dbg:dhandler(Trace,Fd);
 defaulthandler(_Fd,Trace,_Traci,State) ->
     dbg:dhandler(Trace,State).
 
-init_collector(Fd,Clients) ->
+init_collector(Fd,Clients,DisableSort,Handler) ->
     Collected = get_first(Clients),
-    collector(Fd,sort(Collected)).
+    case DisableSort of
+        true -> collector(Fd,Collected, DisableSort, Handler);
+        false -> collector(Fd,sort(Collected), DisableSort, Handler)
+    end.
 
-collector(Fd,[{_,{Client,{Trace,State}}} |Rest]) ->
+collector(Fd,[{_,{Client,{Trace,Traci}}} |Rest], DisableSort, CommonState) ->
     Trace1 = update_procinfo(Trace),
-    State1 = handler1(Trace1,{Fd,State}),
-    case get_next(Client,State1) of
+    CommonState2 = handler2(Trace1, {Fd, Traci, CommonState}),
+    case get_next(Client) of
 	end_of_trace -> 
-	    handler1(end_of_trace,{Fd,State1}),
-	    collector(Fd,Rest);
-	Next -> collector(Fd,sort([Next|Rest]))
+	    collector(Fd,Rest,DisableSort, CommonState2);
+	Next -> case DisableSort of
+                    false -> collector(Fd,sort([Next|Rest]), DisableSort, CommonState2);
+                    true -> collector(Fd,[Next|Rest], DisableSort, CommonState2)
+                end
     end;
-collector(_Fd,[]) ->
+collector(Fd,[], _, CommonState) ->
+    handler2(end_of_trace, {Fd, end_of_trace, CommonState}),
     ok.
 
 update_procinfo({drop,_N}=Trace) ->
@@ -1129,22 +1030,23 @@ get_first([Client|Clients]) ->
     receive 
 	{Client,{end_of_trace,_}} -> 
 	    get_first(Clients);
-	{Client,{Trace,_State}}=Next -> 
+	{Client,{Trace,_}}=Next -> 
 	    [{timestamp(Trace),Next}|get_first(Clients)]
     end;
 get_first([]) -> [].
 
-get_next(Client,State) when is_pid(Client) ->
+get_next(Client) when is_pid(Client) ->
     Client ! {get,self()},
     receive 
 	{Client,{end_of_trace,_}} -> 
 	    end_of_trace;
-	{Client,{Trace,_OldState}} -> 
-	    {timestamp(Trace),{Client,{Trace,State}}} % inserting new state!!
+	{Client,{Trace, Traci}} -> 
+	    {timestamp(Trace),{Client,{Trace,Traci}}}
     end.
 
 sort(List) ->
     lists:keysort(1,List).
+
 
 timestamp(Trace) when element(1,Trace) =:= trace_ts;
 		      element(1,Trace) =:= seq_trace, tuple_size(Trace) =:= 4 ->
@@ -1183,29 +1085,19 @@ display_warning(Item,Warning) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace client which reads an IP port and puts data directly to a file.
 %%% This is used when tracing remote nodes with no file system.
-ip_to_file(Trace,{{file,File}, ShellOutput}) ->
+ip_to_file(Trace,{file,File}) ->
     Fun = dbg:trace_port(file,File), %File can be a filename or a wrap spec
     Port = Fun(),
-    case Trace of 
-        {metadata, _, _} -> ok;
-        Trace            -> show_trace(Trace, ShellOutput)
-    end,
-    ip_to_file(Trace,{Port,ShellOutput});
-ip_to_file({metadata,MetaFile,MetaData},State) ->
+    ip_to_file(Trace,Port);
+ip_to_file({metadata,MetaFile,MetaData},Port) ->
     {ok,MetaFd} = file:open(MetaFile,[write,raw,append]),
     file:write(MetaFd,MetaData),
     file:close(MetaFd),
-    State;
-ip_to_file(Trace,{Port, ShellOutput}) ->
-    show_trace(Trace, ShellOutput),
+    Port;
+ip_to_file(Trace,Port) ->
     B = term_to_binary(Trace),
     erlang:port_command(Port,B),
-    {Port, ShellOutput}.
-
-show_trace(Trace, true) ->
-    dbg:dhandler(Trace, standard_io);
-show_trace(_,_) ->
-    ok.
+    Port.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% For debugging
@@ -1218,3 +1110,5 @@ dump_ti(<<>>,Acc) ->
 dump_ti(B,Acc) ->
     {Term,Rest} = get_term(B),
     dump_ti(Rest,[Term|Acc]).
+
+
