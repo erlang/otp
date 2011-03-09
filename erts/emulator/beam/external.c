@@ -1264,7 +1264,7 @@ external_size_1(Process* p, Eterm Term)
 Eterm
 erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags)
 {
-    int size;
+    Uint size;
     Eterm bin;
     size_t real_size;
     byte* endp;
