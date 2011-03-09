@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2010. All Rights Reserved.
+# Copyright Ericsson AB 1999-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -60,6 +60,7 @@ ERL_FILES = $(MODULES:%=%.erl)
 HRL_FILES = ssl_test_MACHINE.hrl 
 
 HRL_FILES_SRC = \
+	ssl_int.hrl \
 	ssl_alert.hrl \
 	ssl_handshake.hrl
 

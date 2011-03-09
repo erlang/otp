@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 %% properly.
 %%
 %% Authors:
-%% Lennart Öhman, lennart.ohman@st.se
+%% Lennart Ã–hman, lennart.ohman@st.se
 %% -----------------------------------------------------------------------------
 
 -module(inviso_tool_SUITE).
@@ -103,21 +103,21 @@ end_per_testcase(_Case,Config) ->
     ?l test_server:stop_node(get_remotenode_config(inviso2,Config)),
     ?l test_server:timetrap_cancel(get_timetraphandle_config(Config)),
     ?l case whereis(inviso_tool) of          % In case inviso_tool did not stop.
-	   Pid when pid(Pid) ->
+	   Pid when is_pid(Pid) ->
 	       ?l io:format("Had to kill inviso_tool!~n",[]),
 	       ?l exit(Pid,kill);
 	   _ ->
 	       true
        end,
     ?l case whereis(inviso_rt) of            % In case we ran a runtime here.
-	   Pid2 when pid(Pid2) ->
+	   Pid2 when is_pid(Pid2) ->
 	       ?l io:format("Had to kill inviso_rt!~n",[]),
 	       ?l exit(Pid2,kill);
 	   _ ->
 	       true
        end,
     ?l case whereis(inviso_c) of             % In case we ran the controll component here.
-	   Pid3 when pid(Pid3) ->
+	   Pid3 when is_pid(Pid3) ->
 	       ?l io:format("Had to kill inviso_c!~n",[]),
 	       ?l exit(Pid3,kill);
 	   _ ->
@@ -196,7 +196,7 @@ end_per_testcase(_Case,Config) ->
 %% TEST CASE: Basic, distributed, start of inviso_tool with simple tracing.
 dist_basic_1(doc) -> ["Simple test"];
 dist_basic_1(suite) -> [];
-dist_basic_1(Config) when list(Config) ->
+dist_basic_1(Config) when is_list(Config) ->
     RemoteNodes=get_remotenodes_config(Config),
     [RegExpNode|_]=RemoteNodes,
     CNode=node(),
@@ -325,7 +325,7 @@ dist_basic_1(Config) when list(Config) ->
 	inviso_tool:get_autostart_data(Nodes,{dependency,infinity}),
     ?l true=check_noderesults(Nodes,
 			      fun({_N,{ok,{[{dependency,infinity}],{tdg,{_M,_F,TDlist}}}}})
-				 when list(TDlist)->
+				 when is_list(TDlist)->
 				      true;
 				 (_) ->
 				      false
@@ -554,7 +554,7 @@ dist_rtc(Config) when is_list(Config) ->
 %% This test case tests mainly that reconnect and reinitiations of a node works.
 dist_reconnect(doc) -> [""];
 dist_reconnect(suite) -> [];
-dist_reconnect(Config) when list(Config) ->
+dist_reconnect(Config) when is_list(Config) ->
     RemoteNodes=get_remotenodes_config(Config),
     [RegExpNode|OtherNodes]=RemoteNodes,
     CNode=node(),
@@ -595,7 +595,7 @@ dist_reconnect(Config) when list(Config) ->
     %% than RexExpNode.
     ?l {ok,NodeResults1}=inviso_tool:inviso(tp,["application.*",module_info,0,[]]),
     ?l true=check_noderesults(OtherNodes,
-			      fun({_N,{ok,Ints}}) when list(Ints) ->
+			      fun({_N,{ok,Ints}}) when is_list(Ints) ->
 				      NrOfModules=lists:sum(Ints),
 				      true;
 				 (_) ->
@@ -611,8 +611,8 @@ dist_reconnect(Config) when list(Config) ->
     %% Now it is time to restart the crashed node and reconnect it and then
     %% finally reinitiate it.
     ?l RegExpNodeString=atom_to_list(RegExpNode),
-    ?l {match,Pos,1}=regexp:first_match(RegExpNodeString,"@"),
-    ?l RegExpNodeName=list_to_atom(lists:sublist(RegExpNodeString,Pos-1)),
+    ?l [NodeNameString,_HostNameString] = string:tokens(RegExpNodeString,[$@]),
+    ?l RegExpNodeName=list_to_atom(NodeNameString),
     ?l test_server:start_node(RegExpNodeName,peer,[]),
     ?l ok=poll(net_adm,ping,[RegExpNode],pong,20),
     ?l SuiteDir=filename:dirname(code:which(?MODULE)),
@@ -626,7 +626,7 @@ dist_reconnect(Config) when list(Config) ->
     ?l ok=poll(rpc,
 	       call,
 	       [RegExpNode,erlang,whereis,[inviso_tool_test_proc]],
-	       fun(P) when pid(P) -> true;
+	       fun(P) when is_pid(P) -> true;
 		  (undefined) -> false
 	       end,
 	       10),
@@ -685,7 +685,7 @@ dist_reconnect(Config) when list(Config) ->
 %% mark it as tracing-running.
 dist_adopt(doc) -> [""];
 dist_adopt(suite) -> [];
-dist_adopt(Config) when list(Config) ->
+dist_adopt(Config) when is_list(Config) ->
     RemoteNodes=get_remotenodes_config(Config),
     [RegExpNode|_]=RemoteNodes,
     CNode=node(),
@@ -755,7 +755,7 @@ dist_adopt(Config) when list(Config) ->
 %% This test tests that saving and restoring a history works.
 dist_history(doc) -> [""];
 dist_history(suite) -> [];
-dist_history(Config) when list(Config) ->		     
+dist_history(Config) when is_list(Config) ->		     
     RemoteNodes=get_remotenodes_config(Config),
     [RegExpNode|_]=RemoteNodes,
     CNode=RegExpNode,                       % We use a remote control component.
@@ -904,7 +904,7 @@ dist_history(Config) when list(Config) ->
 %% are no nodes that can be initiated or reinitiated.
 dist_start_session_special(doc) -> [""];
 dist_start_session_special(suite) -> [];
-dist_start_session_special(Config) when list(Config) ->
+dist_start_session_special(Config) when is_list(Config) ->
     RemoteNodes=get_remotenodes_config(Config),
     [RegExpNode|_]=RemoteNodes,
     CNode=RegExpNode,                       % We use a remote control component.
@@ -1019,7 +1019,7 @@ stop_inviso_tool_session(CNode,SessionNr,Nodes) ->
 
 %% Help function checking that there is a Result for each node in Nodes.
 %% Returns 'true' if successful.
-check_noderesults(Nodes,Fun,[{Node,Result}|Rest]) when function(Fun) ->
+check_noderesults(Nodes,Fun,[{Node,Result}|Rest]) when is_function(Fun) ->
     case Fun({Node,Result}) of
 	true ->
 	    case lists:member(Node,Nodes) of
@@ -1052,7 +1052,7 @@ poll(_,_,_,_,0) ->
     error;
 poll(M,F,Args,Result,Times) ->
     try apply(M,F,Args) of
-	What when function(Result) ->
+	What when is_function(Result) ->
 	    case Result(What) of
 		true ->
 		    ok;

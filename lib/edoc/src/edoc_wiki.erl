@@ -82,7 +82,8 @@ parse_xml(Data, Line) ->
 
 parse_xml_1(Text, Line) ->
     Text1 = "<doc>" ++ Text ++ "</doc>",
-    case catch {ok, xmerl_scan:string(Text1, [{line, Line}])} of
+    Options = [{line, Line}, {encoding, "iso-8859-1"}],
+    case catch {ok, xmerl_scan:string(Text1, Options)} of
 	{ok, {E, _}} ->
 	    E#xmlElement.content;
 	{'EXIT', {fatal, {Reason, L, _C}}} ->

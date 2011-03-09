@@ -16,7 +16,6 @@
 %%
 %% $Id$
 %%
-%% @private
 %% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @see edoc
@@ -49,14 +48,17 @@
 %% ---------------------------------------------------------------------
 %% List and string utilities
 
+%% @private
 timestr({H,M,Sec}) ->
     lists:flatten(io_lib:fwrite("~2.2.0w:~2.2.0w:~2.2.0w",[H,M,Sec])).
 
+%% @private
 datestr({Y,M,D}) ->
     Ms = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
 	  "Oct", "Nov", "Dec"],
     lists:flatten(io_lib:fwrite("~s ~w ~w",[lists:nth(M, Ms),D,Y])).
 
+%% @private
 count(X, Xs) ->
     count(X, Xs, 0).
 
@@ -67,6 +69,7 @@ count(X, [_ | Xs], N) ->
 count(_X, [], N) ->
     N.
 
+%% @private
 lines(Cs) ->
     lines(Cs, [], []).
 
@@ -77,6 +80,7 @@ lines([C | Cs], As, Ls) ->
 lines([], As, Ls) ->
     lists:reverse([lists:reverse(As) | Ls]).
 
+%% @private
 split_at(Cs, K) ->
     split_at(Cs, K, []).
 
@@ -87,6 +91,7 @@ split_at([C | Cs], K, As) ->
 split_at([], _K, As) ->
     {lists:reverse(As), []}.
 
+%% @private
 split_at_stop(Cs) ->
     split_at_stop(Cs, []).
 
@@ -103,6 +108,7 @@ split_at_stop([C | Cs], As) ->
 split_at_stop([], As) ->
     {lists:reverse(As), []}.
 
+%% @private
 split_at_space(Cs) ->
     split_at_space(Cs, []).
 
@@ -117,17 +123,20 @@ split_at_space([C | Cs], As) ->
 split_at_space([], As) ->
     {lists:reverse(As), []}.
 
+%% @private
 is_space([$\s | Cs]) -> is_space(Cs);
 is_space([$\t | Cs]) -> is_space(Cs);
 is_space([$\n | Cs]) -> is_space(Cs);
 is_space([_C | _Cs]) -> false;
 is_space([]) -> true.
 
+%% @private
 strip_space([$\s | Cs]) -> strip_space(Cs);
 strip_space([$\t | Cs]) -> strip_space(Cs);
 strip_space([$\n | Cs]) -> strip_space(Cs);
 strip_space(Cs) -> Cs.
 
+%% @private
 segment(Es, N) ->
     segment(Es, [], [], 0, N).
 
@@ -140,6 +149,7 @@ segment([], [], Cs, _N, _M) ->
 segment([], As, Cs, _N, _M) ->
     lists:reverse([lists:reverse(As) | Cs]).
 
+%% @private
 transpose([]) -> [];
 transpose([[] | Xss]) -> transpose(Xss);
 transpose([[X | Xs] | Xss]) ->
@@ -151,6 +161,7 @@ transpose([[X | Xs] | Xss]) ->
 %% end of the summary sentence only if it is also the last segment in
 %% the list, or is followed by a 'p' or 'br' ("whitespace") element.
 
+%% @private
 get_first_sentence([#xmlElement{name = p, content = Es} | _]) ->
     %% Descend into initial paragraph.
     get_first_sentence_1(Es);
@@ -230,6 +241,7 @@ end_of_sentence_1(_, false, _) ->
 %% Names must begin with a lowercase letter and contain only
 %% alphanumerics and underscores.
 
+%% @private
 is_name([C | Cs]) when C >= $a, C =< $z ->
     is_name_1(Cs);
 is_name([C | Cs]) when C >= $\337, C =< $\377, C =/= $\367 ->
@@ -252,6 +264,7 @@ is_name_1(_) -> false.
 to_atom(A) when is_atom(A) -> A;
 to_atom(S) when is_list(S) -> list_to_atom(S).
     
+%% @private
 unique([X | Xs]) -> [X | unique(Xs, X)];
 unique([]) -> [].
 
@@ -267,6 +280,7 @@ unique([], _) -> [].
 %% content of <a href="overview-summary.html#ftag-equiv">`@equiv'</a>
 %% tags, and strings denoting file names, e.g. in @headerfile. Also used
 %% by {@link edoc_run}.
+%% @private
 
 parse_expr(S, L) ->
     case erl_scan:string(S ++ ".", L) of
@@ -287,10 +301,11 @@ parse_expr(S, L) ->
 %% @doc EDoc "contact information" parsing. This is the type of the
 %% content in e.g.
 %% <a href="overview-summary.html#mtag-author">`@author'</a> tags.
+%% @private
 
-%% @type info() = #info{name  = string(),
-%%                      email = string(),
-%%                      uri   = string()}
+%% % @type info() = #info{name  = string(),
+%% %                      email = string(),
+%% %                      uri   = string()}
 
 -record(info, {name = ""  :: string(),
 	       email = "" :: string(),
@@ -367,6 +382,7 @@ strip_and_reverse(As) ->
 %%
 %% TODO: general utf-8 encoding for all of Unicode (0-16#10ffff)
 
+%% @private
 escape_uri([C | Cs]) when C >= $a, C =< $z ->
     [C | escape_uri(Cs)];
 escape_uri([C | Cs]) when C >= $A, C =< $Z ->
@@ -409,6 +425,7 @@ hex_octet(N) ->
 %% Please note that URI are *not* file names. Don't use the stdlib
 %% 'filename' module for operations on (any parts of) URI.
 
+%% @private
 join_uri(Base, "") ->
     Base;
 join_uri("", Path) ->
@@ -418,6 +435,7 @@ join_uri(Base, Path) ->
 
 %% Check for relative URI; "network paths" ("//...") not included!
 
+%% @private
 is_relative_uri([$: | _]) ->
     false;
 is_relative_uri([$/, $/ | _]) ->
@@ -433,6 +451,7 @@ is_relative_uri([_ | Cs]) ->
 is_relative_uri([]) ->
     true.
 
+%% @private
 uri_get("file:///" ++ Path) ->
     uri_get_file(Path);
 uri_get("file://localhost/" ++ Path) ->
@@ -532,6 +551,7 @@ uri_get_ftp(URI) ->
     Msg = io_lib:format("cannot access ftp scheme yet: '~s'.", [URI]),
     {error, Msg}.
 
+%% @private
 to_label([$\s | Cs]) ->
     to_label(Cs);
 to_label([$\t | Cs]) ->
@@ -564,6 +584,7 @@ to_label_2(Cs) ->
 %% ---------------------------------------------------------------------
 %% Files
 
+%% @private
 filename([C | T]) when is_integer(C), C > 0 ->
     [C | filename(T)];
 filename([H|T]) ->
@@ -576,6 +597,7 @@ filename(N) ->
     report("bad filename: `~P'.", [N, 25]),
     exit(error).
 
+%% @private
 copy_file(From, To) ->
     case file:copy(From, To) of
 	{ok, _} -> ok;
@@ -600,6 +622,7 @@ list_dir(Dir, Error) ->
 	    F("could not read directory '~s': ~s.", [filename(Dir), R1])
     end.
 
+%% @private
 simplify_path(P) ->
     case filename:basename(P) of
 	"." ->
@@ -636,6 +659,7 @@ simplify_path(P) ->
 %% 	    exit(error)
 %%     end.
 
+%% @private
 try_subdir(Dir, Subdir) ->
     D = filename:join(Dir, Subdir),
     case filelib:is_dir(D) of
@@ -648,6 +672,7 @@ try_subdir(Dir, Subdir) ->
 %%
 %% @doc Write the given `Text' to the file named by `Name' in directory
 %% `Dir'. If the target directory does not exist, it will be created.
+%% @private
 
 write_file(Text, Dir, Name) ->
     write_file(Text, Dir, Name, '').
@@ -657,6 +682,7 @@ write_file(Text, Dir, Name) ->
 %%        Name::edoc:filename(), Package::atom()|string()) -> ok
 %% @doc Like {@link write_file/3}, but adds path components to the target
 %% directory corresponding to the specified package.
+%% @private
 
 write_file(Text, Dir, Name, Package) ->
     Dir1 = filename:join([Dir | packages:split(Package)]),
@@ -672,6 +698,7 @@ write_file(Text, Dir, Name, Package) ->
 	    exit(error)
     end.
 
+%% @private
 write_info_file(App, Packages, Modules, Dir) ->
     Ts = [{packages, Packages},
 	  {modules, Modules}],
@@ -703,6 +730,7 @@ info_file_data(Ts) ->
 
 %% Local file access - don't complain if file does not exist.
 
+%% @private
 read_info_file(Dir) ->
     File = filename:join(Dir, ?INFO_FILE),
     case filelib:is_file(File) of
@@ -769,11 +797,13 @@ parse_terms_1([], _As, _Vs) ->
 %% ---------------------------------------------------------------------
 %% Source files and packages
 
+%% @private
 find_sources(Path, Opts) ->
     find_sources(Path, "", Opts).
 
 %% @doc See {@link edoc:run/3} for a description of the options
 %% `subpackages', `source_suffix' and `exclude_packages'.
+%% @private
 
 %% NEW-OPTIONS: subpackages, source_suffix, exclude_packages
 %% DEFER-OPTIONS: edoc:run/3
@@ -827,6 +857,7 @@ is_package_dir(Name, Dir) ->
     is_name(filename:rootname(filename:basename(Name)))
 	andalso filelib:is_dir(filename:join(Dir, Name)).
 
+%% @private
 find_file([P | Ps], Pkg, Name) ->
     Dir = filename:join(P, filename:join(packages:split(Pkg))),
     File = filename:join(Dir, Name),
@@ -839,6 +870,7 @@ find_file([P | Ps], Pkg, Name) ->
 find_file([], _Pkg, _Name) ->
     "".
 
+%% @private
 find_doc_dirs() ->
     find_doc_dirs(code:get_path()).
 
@@ -904,6 +936,7 @@ add_new(K, V, D) ->
 
 %% @spec (Options::proplist()) -> edoc_env()
 %% @equiv get_doc_env([], [], [], Opts)
+%% @private
 
 get_doc_env(Opts) ->
     get_doc_env([], [], [], Opts).
@@ -952,6 +985,7 @@ get_doc_env(App, Packages, Modules, Opts) ->
 %% NEW-OPTIONS: doclet
 %% DEFER-OPTIONS: edoc:run/3
 
+%% @private
 run_doclet(Fun, Opts) ->
     run_plugin(doclet, ?DEFAULT_DOCLET, Fun, Opts).
 
@@ -961,6 +995,7 @@ run_doclet(Fun, Opts) ->
 %% NEW-OPTIONS: layout
 %% DEFER-OPTIONS: edoc:layout/2
 
+%% @private
 run_layout(Fun, Opts) ->
     run_plugin(layout, ?DEFAULT_LAYOUT, Fun, Opts).
 

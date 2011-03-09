@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@ end_per_testcase(Func, Conf) ->
     mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,1}]}]}].
+suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 
 %% Verify that Mnesia really is a distributed real-time DBMS.

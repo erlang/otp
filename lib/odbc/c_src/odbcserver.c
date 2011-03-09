@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -472,7 +472,7 @@ static db_result_msg db_connect(byte *args, db_state *state)
 			      &stringlength2ptr, SQL_DRIVER_NOPROMPT);
   
     if (!sql_success(result)) {
-	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state));
 	strcat((char *)diagnos.error_msg,
 	       " Connection to database failed.");
 	msg = encode_error_message(diagnos.error_msg);
