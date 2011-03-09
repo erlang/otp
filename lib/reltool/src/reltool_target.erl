@@ -90,11 +90,11 @@ do_gen_config(#sys{root_dir          	= RootDir,
 		   debug_info        	= DebugInfo},
 	      InclDefs) ->
     ErtsItems =
-        case lists:keysearch(erts, #app.name, Apps) of
-            {value, Erts} ->
-                [{erts, do_gen_config(Erts, InclDefs)}];
-            false ->
-                []
+        case lists:keyfind(erts, #app.name, Apps) of
+	    false ->
+		[];
+            Erts ->
+                [{erts, do_gen_config(Erts, InclDefs)}]
         end,
     AppsItems =
         [do_gen_config(A, InclDefs)
@@ -521,7 +521,6 @@ sort_apps([#app{name = Name, info = Info} = App | Apps],
 		 Visited,
 		 [],
 		 []),
-
     Missing1 = NotFnd1 ++ NotFnd2 ++ Missing,
     case Uses ++ Incs of
         [] ->
@@ -533,7 +532,7 @@ sort_apps([#app{name = Name, info = Info} = App | Apps],
             %% The apps in L must be started before the app.
             %% Check if we have already taken care of some app in L,
             %% in that case we have a circular dependency.
-            NewCircular = [N1 || N1 <- L, N2 <- Visited, N1 =:= N2],
+            NewCircular = [N || #app{name = N} <- L, N2 <- Visited, N =:= N2],
             Circular1 = case NewCircular of
                             [] -> Circular;
                             _ -> [Name | NewCircular] ++ Circular
@@ -558,9 +557,9 @@ sort_apps([], Missing, Circular, _) ->
                               [make_set(Circular), make_set(Missing)]).
 
 find_all(CheckingApp, [Name | Names], Apps, Visited, Found, NotFound) ->
-    case lists:keysearch(Name, #app.name, Apps) of
-        {value, #app{info = Info} = App} ->
-            %% It is OK to have a dependecy like
+    case lists:keyfind(Name, #app.name, Apps) of
+        #app{info = Info} = App ->
+            %% It is OK to have a dependency like
             %% X includes Y, Y uses X.
             case lists:member(CheckingApp, Info#app_info.incl_apps) of
                 true ->
@@ -1232,7 +1231,7 @@ do_eval_spec({strip_beam, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     reltool_utils:write_file(TargetFile, BeamBin2).
 
 cleanup_spec(List, TargetDir) when is_list(List) ->
-    lists:foreach(fun(F)-> cleanup_spec(F, TargetDir) end, List);
+    lists:foreach(fun(F) -> cleanup_spec(F, TargetDir) end, List);
 %% cleanup_spec({source_dir, _SourceDir, Spec}, TargetDir) ->
 %%     cleanup_spec(Spec, TargetDir);
 cleanup_spec({create_dir, Dir, Files}, TargetDir) ->
@@ -1444,8 +1443,8 @@ subst([], _Vars, Result) ->
 
 subst_var([$%| Rest], Vars, Result, VarAcc) ->
     Key = lists:reverse(VarAcc),
-    case lists:keysearch(Key, 1, Vars) of
-        {value, {Key, Value}} ->
+    case lists:keyfind(Key, 1, Vars) of
+        {Key, Value} ->
             subst(Rest, Vars, lists:reverse(Value, Result));
         false ->
             subst(Rest, Vars, [$% | VarAcc ++ [$% | Result]])
