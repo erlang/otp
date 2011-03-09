@@ -60,9 +60,9 @@ tracer(Nodes) -> tracer(Nodes,[]).
 tracer(Nodes,Opt) ->
     {PI,Client,Traci} = opt(Opt),
     %%We use initial Traci as SessionInfo for loop/2
-    start(Traci),
+    Pid = start(Traci),
     store(tracer,[Nodes,Opt]),
-    do_tracer(Nodes,PI,Client,Traci).
+    do_tracer(Nodes,PI,Client,[{ttb_control, Pid}|Traci]).
 
 do_tracer(Nodes0,PI,Client,Traci) ->
     Nodes = nods(Nodes0),
@@ -124,6 +124,8 @@ opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, StopOpts}}|Traci]});
 opt([{timer, MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, []}}|Traci]});
+opt([{overload_check, {MSec,M,F}}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{overload_check,{MSec,M,F}}|Traci]});
 opt([],Opt) ->
     Opt.
 
@@ -330,6 +332,7 @@ arg_list([A1|A],Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Set trace flags on processes
 p(Procs0,Flags0) ->
+    ensure_no_overloaded_nodes(),
     store(p,[Procs0,Flags0]),
     no_store_p(Procs0,Flags0).
 no_store_p(Procs0,Flags0) ->
@@ -383,22 +386,28 @@ proc({global,Name}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace pattern
 tp(A,B) ->
+    ensure_no_overloaded_nodes(),
     store(tp,[A,ms(B)]),
     dbg:tp(A,ms(B)).
 tp(A,B,C) ->
+    ensure_no_overloaded_nodes(),
     store(tp,[A,B,ms(C)]),
     dbg:tp(A,B,ms(C)).
 tp(A,B,C,D) ->
+    ensure_no_overloaded_nodes(),
     store(tp,[A,B,C,ms(D)]),
     dbg:tp(A,B,C,ms(D)).
 
 tpl(A,B) ->
+    ensure_no_overloaded_nodes(),
     store(tpl,[A,ms(B)]),
     dbg:tpl(A,ms(B)).
 tpl(A,B,C) ->
+    ensure_no_overloaded_nodes(),
     store(tpl,[A,B,ms(C)]),
     dbg:tpl(A,B,ms(C)).
 tpl(A,B,C,D) ->
+    ensure_no_overloaded_nodes(),
     store(tpl,[A,B,C,ms(D)]),
     dbg:tpl(A,B,C,ms(D)).
 
@@ -450,6 +459,14 @@ ms({codestr, FunStr}) ->
     MS;
 ms(Other) ->
     Other.
+
+ensure_no_overloaded_nodes() ->
+    ttb ! {get_overloaded, self()},
+    Overloaded = receive O -> O after 300 -> [] end,
+    case Overloaded of
+        [] -> ok;
+        Overloaded -> exit({error, overload_protection_active, Overloaded})
+    end.
 
 -spec string2ms(string()) -> {ok, list()} | {error, fun_format}.
 string2ms(FunStr) ->
@@ -568,9 +585,10 @@ start(SessionInfo) ->
 	undefined ->
 	    Parent = self(),
 	    Pid = spawn(fun() -> init(Parent, SessionInfo) end),
-	    receive {started,Pid} -> ok end;
+	    receive {started,Pid} -> ok end,
+            Pid;
 	Pid when is_pid(Pid) ->
-	    ok
+	    Pid
     end.
 
 
@@ -612,6 +630,14 @@ loop(NodeInfo, SessionInfo) ->
 	{timeout, StopOpts} ->
 	    spawn(?MODULE, stop, [StopOpts]),
 	    loop(NodeInfo, SessionInfo);
+        {node_overloaded, Node} ->
+            io:format("Overload check activated on node: ~p.~n", [Node]),
+            {Overloaded, SI} = {proplists:get_value(overloaded, SessionInfo, []),
+                                lists:keydelete(overloaded, 1, SessionInfo)},
+	    loop(NodeInfo, [{overloaded, [Node|Overloaded]} | SI]);
+        {get_overloaded, Pid} ->
+            Pid ! proplists:get_value(overloaded, SessionInfo, []),
+            loop(NodeInfo, SessionInfo);
 	trace_started ->
 	    case proplists:get_value(timer, SessionInfo) of
 		undefined -> ok;
