@@ -20,7 +20,7 @@
 -author('siri@erix.ericsson.se').
 
 %% API
--export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1]).
+-export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1,start_trace/4]).
 -export([tp/2, tp/3, tp/4, ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, 
 	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3]).
 -export([seq_trigger_ms/0,seq_trigger_ms/1]).
@@ -42,6 +42,15 @@
 -else.
 -define(get_status,).
 -endif.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Shortcut
+start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
+    {ok, _} = tracer(Nodes, Options),
+    {ok, _} = p(Procs, Flags),
+    [{ok, _} = apply(?MODULE, tpl, tuple_to_list(Args)) || Args <- Patterns].
+    
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Open a trace port on all given nodes and create the meta data file
