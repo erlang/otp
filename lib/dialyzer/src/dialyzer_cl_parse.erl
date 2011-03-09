@@ -22,7 +22,7 @@
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
--export([start/0]).
+-export([start/0, get_lib_dir/1]).
 -export([collect_args/1]).	% used also by typer_options.erl
 
 -include("dialyzer.hrl").
@@ -55,7 +55,7 @@ cl(["--add_to_plt"|T]) ->
   put(dialyzer_options_analysis_type, plt_add),
   cl(T);
 cl(["--apps"|T]) ->
-  T1 = get_lib_dir(T, []),
+  T1 = get_lib_dir(T),
   {Args, T2} = collect_args(T1),
   append_var(dialyzer_options_files_rec, Args),
   cl(T2);
@@ -303,6 +303,9 @@ common_options() ->
    {check_plt, get(dialyzer_options_check_plt)}].
 
 %%-----------------------------------------------------------------------
+
+get_lib_dir(Apps) ->
+  get_lib_dir(Apps, []).
 
 get_lib_dir([H|T], Acc) ->
   NewElem =
