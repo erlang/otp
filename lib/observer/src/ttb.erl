@@ -132,10 +132,17 @@ opt([resume|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{resume, {true, ?fetch_time}}|Traci]});
 opt([{resume,MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{resume, {true, MSec}}|Traci]});
+opt([{flush,MSec}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{flush, MSec}|Traci]});
 opt([],Opt) ->
     ensure_opt(Opt).
 
 ensure_opt({PI,Client,Traci}) ->
+    case {proplists:get_value(flush, Traci), Client} of
+        {undefined, _}  -> ok;
+        {_, {local, _}} -> exit(flush_unsupported_with_ip_trace_port);
+        {_,_}           -> ok
+    end,
     case {proplists:get_value(shell, Traci), Client} of
         {undefined, _}        -> {PI, Client, Traci};
         {true, ?MODULE}       -> {PI, {local, ?MODULE}, Traci};
@@ -607,6 +614,7 @@ init(Parent, SessionInfo) ->
     ets:new(?history_table,[ordered_set,named_table,public]),
     Parent ! {started,self()},
     NewSessionInfo = [{partials, 0}, {dead_nodes, []} | SessionInfo],
+    try_send_flush_tick(NewSessionInfo),
     loop(dict:new(), NewSessionInfo).
 
 loop(NodeInfo, SessionInfo) ->
@@ -653,6 +661,10 @@ loop(NodeInfo, SessionInfo) ->
 		{MSec, StopOpts}  -> erlang:send_after(MSec, self(), {timeout, StopOpts})
 	    end,
 	    loop(NodeInfo, SessionInfo);
+        flush_timeout ->
+            [ dbg:flush_trace_port(Node) || Node <- dict:fetch_keys(NodeInfo) ],
+            try_send_flush_tick(SessionInfo),
+            loop(NodeInfo, SessionInfo);
 	{stop,nofetch,Sender} ->
 	    write_config(?last_config, all),
 	    dict:fold(
@@ -669,7 +681,7 @@ loop(NodeInfo, SessionInfo) ->
 	    Localhost = host(node()),
 	    Dir = get_fetch_dir(UserDir),
  	    file:make_dir(Dir),
-	    %% The nodes are traversed twice here because
+                              %% The nodes are traversed twice here because
 	    %% the meta tracing in observer_backend must be
 	    %% stopped before dbg is stopped, and dbg must
 	    %% be stopped before the trace logs are moved orelse
@@ -714,6 +726,14 @@ make_node_alive(Node, SessionInfo) ->
             {value, {_, MetaFile}, Dn2} = lists:keytake(Node, 1, DeadNodes),
             SessionInfo2 = lists:keyreplace(dead_nodes, 1, SessionInfo, {dead_nodes, Dn2}),
             {MetaFile, Partials + 1, lists:keyreplace(partials, 1, SessionInfo2, {partials, Partials + 1})}.    
+
+try_send_flush_tick(State) ->
+    case proplists:get_value(flush, State) of
+        undefined ->
+            ok;
+        MSec ->
+            erlang:send_after(MSec, self(), flush_timeout)
+    end.
 
 get_fetch_dir(undefined) -> ?upload_dir ++ ts();
 get_fetch_dir(Dir) -> Dir.
