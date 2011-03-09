@@ -466,14 +466,17 @@ To activate the workaround, place the following in your `~/.emacs' file:
 
 (defvar erlang-indent-level 4
   "*Indentation of Erlang calls/clauses within blocks.")
+(put 'erlang-indent-level 'safe-local-variable 'integerp)
 
 (defvar erlang-indent-guard 2
   "*Indentation of Erlang guards.")
+(put 'erlang-indent-guard 'safe-local-variable 'integerp)
 
 (defvar erlang-argument-indent 2
   "*Indentation of the first argument in a function call.
 When nil, indent to the column after the `(' of the
 function.")
+(put 'erlang-argument-indent 'safe-local-variable '(lambda (val) (or (null val) (integerp val))))
 
 (defvar erlang-tab-always-indent t
   "*Non-nil means TAB in Erlang mode should always re-indent the current line,
