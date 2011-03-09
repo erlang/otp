@@ -45,15 +45,9 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES =  \
-	typer \
-	typer_annotator \
-	typer_info \
-	typer_map \
-	typer_options \
-	typer_preprocess
+MODULES = typer
 
-HRL_FILES= typer.hrl
+HRL_FILES=
 ERL_FILES= $(MODULES:%=%.erl)
 INSTALL_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 TARGET_FILES= $(INSTALL_FILES)
@@ -87,8 +81,8 @@ clean:
 # Special Build Targets
 # ----------------------------------------------------
 
-$(EBIN)/typer_options.$(EMULATOR): typer_options.erl ../vsn.mk Makefile
-	erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer_options.erl
+$(EBIN)/typer.$(EMULATOR): typer.erl ../vsn.mk Makefile
+	erlc -W  $(ERL_COMPILE_FLAGS) -DVSN="\"v$(VSN)\"" -o$(EBIN) typer.erl
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
@@ -97,14 +91,9 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
 # ---------------------------------------------------------------------
-# dependencies -- I wish they were somehow automatically generated
+# dependencies
 # ---------------------------------------------------------------------
 
-$(EBIN)/typer.beam: typer.hrl
-$(EBIN)/typer_annotator.beam: typer.hrl
-$(EBIN)/typer_info.beam: typer.hrl
-$(EBIN)/typer_options.beam: typer.hrl
-$(EBIN)/typer_preprocess.beam: typer.hrl
 
 # ----------------------------------------------------
 # Release Target
