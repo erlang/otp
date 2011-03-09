@@ -471,13 +471,13 @@ stop(Opts) ->
 stop_opts(Opts) ->
     case {lists:member(format,Opts), lists:member(return, Opts)} of
 	{true, _} ->
-	    format; % format implies fetch
+	    format;
 	{_, true} ->
-	    fetch; % if we specify return, the data should be fetched
+	    fetch;
 	_ ->
-	    case lists:member(fetch,Opts) of
-		true -> fetch;
-		false -> nofetch
+	    case lists:member(nofetch,Opts) of
+		true -> nofetch;
+		false -> fetch
 	    end
     end.
 
