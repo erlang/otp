@@ -38,7 +38,7 @@
 -define(fetch_time, 10000).
 -define(history_table,ttb_history_table).
 -define(seq_trace_flags,[send,'receive',print,timestamp]).
--define(upload_dir,"ttb_upload").
+-define(upload_dir(Logname),"ttb_upload_"++Logname).
 -define(last_config, "ttb_last_config").
 -define(partial_dir, "ttb_partial_result").
 -ifdef(debug).
@@ -126,7 +126,7 @@ opt(Opt) ->
 opt([{process_info,PI}|O],{_,Client,Traci}) ->
     opt(O,{PI,Client,Traci});
 opt([{file,Client}|O],{PI,_,Traci}) ->
-    opt(O,{PI,Client,Traci});
+    opt(O,{PI,Client,[{logfile,get_logname(Client)}|Traci]});
 opt([{handler,Handler}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{handler,Handler}|Traci]});
 opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
@@ -161,6 +161,9 @@ ensure_opt({PI,Client,Traci}) ->
         {true, {local, File}} -> {PI, {local, File}, Traci};
         {true, _}             -> exit(local_client_required_on_shell_tracing)
     end.
+
+get_logname({local, F}) -> filename:basename(F);
+get_logname(F) -> filename:basename(F).
 
 nods(all) ->
     Nodes1 = remove_active([node()|nodes()]),
@@ -731,7 +734,7 @@ do_stop(nofetch, Sender, NodeInfo, _) ->
 do_stop({FetchOrFormat, UserDir}, Sender, NodeInfo, SessionInfo) ->
     write_config(?last_config, all),
     Localhost = host(node()),
-    Dir = get_fetch_dir(UserDir),
+    Dir = get_fetch_dir(UserDir, proplists:get_value(logfile, SessionInfo)),
     file:make_dir(Dir),
     %% The nodes are traversed twice here because
     %% the meta tracing in observer_backend must be
@@ -784,8 +787,9 @@ try_send_flush_tick(State) ->
             erlang:send_after(MSec, self(), flush_timeout)
     end.
 
-get_fetch_dir(undefined) -> ?upload_dir ++ ts();
-get_fetch_dir(Dir) -> Dir.
+get_fetch_dir(undefined,undefined) -> ?upload_dir(?MODULE_STRING) ++ ts();
+get_fetch_dir(undefined,Logname) -> ?upload_dir(Logname) ++ ts();
+get_fetch_dir(Dir,_) -> Dir.
 
 resume_trace(Reporter) ->
     ?MODULE:run_history(all_silent),
