@@ -209,7 +209,7 @@ first(ActivityId, Opaque, Tab) ->
 	    end
     end.
 
-search_first(ActivityId, Opaque, Tab, N, FH) when N =< FH#frag_state.n_fragments ->
+search_first(ActivityId, Opaque, Tab, N, FH) when N < FH#frag_state.n_fragments ->
     NextN = N + 1,
     NextFrag = n_to_frag_name(Tab, NextN),
     case mnesia:first(ActivityId, Opaque, NextFrag) of
