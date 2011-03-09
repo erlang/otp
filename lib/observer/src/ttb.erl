@@ -459,13 +459,14 @@ stop() ->
     stop([]).
 stop(Opts) ->
     Fetch = stop_opts(Opts),
-    case whereis(?MODULE) of
-	undefined -> ok;
-	Pid when is_pid(Pid) -> 
-	    ?MODULE ! {stop,Fetch,self()},
-	    receive {?MODULE,stopped} -> ok end
-    end,
-    stopped.
+    Result = 
+        case whereis(?MODULE) of
+            undefined -> ok;
+            Pid when is_pid(Pid) -> 
+                ?MODULE ! {stop,Fetch,self()},
+                receive {?MODULE,R} -> R end
+        end,
+    stop_return(Result,Opts).
 
 stop_opts(Opts) ->
     case lists:member(format,Opts) of
@@ -476,6 +477,17 @@ stop_opts(Opts) ->
 		true -> fetch;
 		false -> nofetch
 	    end
+    end.
+
+stop_return(R,Opts) ->
+    case {lists:member(return,Opts),R} of
+        {true,_} ->
+            R;
+        {false,{stopped,_}} ->
+            stopped;
+        {false,_} ->
+            %% Anything other than 'stopped' would not be bw compatible...
+            stopped
     end.
 
 
@@ -564,12 +576,13 @@ loop(NodeInfo) ->
 		  AllNodesAndMeta),
 	    ets:delete(?history_table),
 	    wait_for_fetch(AllNodes),
-	    io:format("Stored logs in ~s~n",[filename:absname(Dir)]),
+            Absname = filename:absname(Dir),
+	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
 		format -> format(Dir);
 		fetch -> ok
 	    end,
-	    Sender ! {?MODULE,stopped}
+	    Sender ! {?MODULE,{stopped,Absname}}
          ?get_status
     end.
 
@@ -583,18 +596,17 @@ ts() ->
 		  [Y,M,D,H,Min,S]).
 
 
-
 fetch(Localhost,Dir,Node,MetaFile) ->
-    case host(Node) of
-	Localhost -> % same host, just move the files
-	    Files = rpc:call(Node,observer_backend,ttb_get_filenames,[MetaFile]),
+    case (host(Node) == Localhost) orelse is_local(MetaFile) of
+        true -> % same host, just move the files
+	    Files = get_filenames(Node,MetaFile),
 	    lists:foreach(
 	      fun(File0) ->
 		      File = filename:join(Dir,filename:basename(File0)),
 		      file:rename(File0,File)
 	      end,
 	      Files);
-	_Otherhost ->
+	false ->
 	    {ok, LSock} = gen_tcp:listen(0, [binary,{packet,2},{active,false}]),
 	    {ok,Port} = inet:port(LSock),
 	    rpc:cast(Node,observer_backend,ttb_fetch,
@@ -605,6 +617,16 @@ fetch(Localhost,Dir,Node,MetaFile) ->
 	    ok = gen_tcp:close(Sock)
     end,
     ?MODULE ! {fetch_complete,Node}.
+
+is_local({local, _, _}) ->
+    true;
+is_local(_) ->
+    false.
+
+get_filenames(_N, {local,F,_}) ->
+    observer_backend:ttb_get_filenames(F);
+get_filenames(N, F) ->
+    rpc:call(N, observer_backend,ttb_get_filenames,[F]).
 
 receive_files(Dir,Sock,Fd) ->
     case gen_tcp:recv(Sock, 0) of
