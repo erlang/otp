@@ -59,9 +59,9 @@ tracer(Nodes) -> tracer(Nodes,[]).
 tracer(Nodes,Opt) ->
     {PI,Client,Traci} = opt(Opt),
     %%We use initial Traci as SessionInfo for loop/2
-    start(Traci),
+    Pid = start(Traci),
     store(tracer,[Nodes,Opt]),
-    do_tracer(Nodes,PI,Client,Traci).
+    do_tracer(Nodes,PI,Client,[{ttb_control, Pid}|Traci]).
 
 do_tracer(Nodes0,PI,Client,Traci) ->
     Nodes = nods(Nodes0),
@@ -578,9 +578,10 @@ start(SessionInfo) ->
 	undefined ->
 	    Parent = self(),
 	    Pid = spawn(fun() -> init(Parent, SessionInfo) end),
-	    receive {started,Pid} -> ok end;
+	    receive {started,Pid} -> ok end,
+            Pid;
 	Pid when is_pid(Pid) ->
-	    ok
+	    Pid
     end.
 
 
