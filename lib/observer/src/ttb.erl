@@ -802,7 +802,7 @@ format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     Details = lists:foldl(fun(File,Acc) -> [prepare(File,Handler)|Acc] end,
 			  [],Files),
     Fd = get_fd(Out),
-    R = do_format(Fd,Details,DisableSort),
+    R = do_format(Fd,Details,DisableSort,Handler),
     file:close(Fd),
     ets:delete(?MODULE),
     case StopDbg of
@@ -832,8 +832,8 @@ format_opt(Opt) when is_list(Opt) ->
 	      _ -> standard_io
 	  end,
     Handler = case lists:keysearch(handler,1,Opt) of
-	      {value,{handler,H}} -> H;
-	      _ -> undefined
+                  {value,{handler,H}} -> H;                
+                  _ -> {fun defaulthandler/4, initial}
 	  end,
     DisableSort = proplists:get_value(disable_sort, Opt, false),
     {Out,Handler,DisableSort};
@@ -922,32 +922,26 @@ get_handler(Handler,Traci) ->
 	undefined -> 
 	    case dict:find(handler,Traci) of
 		{ok,[H]} -> H;
-		error -> undefined
+		error -> {fun defaulthandler/4, initial}
 	    end;
 	_ ->
 	    Handler
     end.
-
-do_format(Fd,Details,DisableSort) ->
-    Clients = lists:foldl(fun({FileOrWrap,Traci,Handler},Acc) ->
-				  [start_client(FileOrWrap,Traci,Handler)
-				   |Acc]
+    
+do_format(Fd,Details,DisableSort,Handler) ->
+    EmptyHandler = {fun(_,_,_,_) -> ok end, ok},
+    EtHandler = {{ttb_et, handler}, initial},
+    Clients = lists:foldl(fun({FileOrWrap,Traci,et},Acc) ->
+				  [start_client(FileOrWrap,Traci,EtHandler)|Acc];
+                             ({FileOrWrap,Traci,_},Acc) ->
+				  [start_client(FileOrWrap,Traci,EmptyHandler)|Acc]
 			  end,[],Details),
-    init_collector(Fd,Clients,DisableSort).
+    init_collector(Fd,Clients,DisableSort,Handler).
 
 
-start_client(FileOrWrap,Traci,et) ->
-    dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, 
-		      {dict:to_list(Traci),{{ttb_et,handler},initial}}});
-start_client(FileOrWrap,Traci,undefined) ->
-    dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, 
-		      {dict:to_list(Traci),{fun defaulthandler/4,initial}}});
 start_client(FileOrWrap,Traci,Handler) ->
     dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, {dict:to_list(Traci),Handler}}).
-
+		     {fun handler/2, {dict:to_list(Traci), Handler}}).
 handler(Trace,State) ->
     %% State here is only used for the initial state. The accumulated
     %% State is maintained by collector!!!
@@ -962,31 +956,39 @@ handler1(Trace,{Fd,{Traci,{Fun,State}}}) when is_function(Fun) ->
 handler1(Trace,{Fd,{Traci,{{M,F},State}}}) when is_atom(M), is_atom(F) ->
     {Traci,{{M,F},M:F(Fd,Trace,Traci,State)}}.
 
+%%Used to handle common state (the same for all clients)
+handler2(Trace,{Fd,Traci,{Fun,State}}) when is_function(Fun) ->
+    {Fun, Fun(Fd, Trace, Traci, State)};
+handler2(Trace,{Fd,Traci,{{M,F},State}}) when is_atom(M), is_atom(F) ->
+    {{M,F}, M:F(Fd, Trace, Traci, State)}.
+
 defaulthandler(Fd,Trace,_Traci,initial) ->
     dbg:dhandler(Trace,Fd);
 defaulthandler(_Fd,Trace,_Traci,State) ->
     dbg:dhandler(Trace,State).
 
-init_collector(Fd,Clients,DisableSort) ->
+init_collector(Fd,Clients,DisableSort,Handler) ->
     Collected = get_first(Clients),
     case DisableSort of
-        true -> collector(Fd,Collected, DisableSort);
-        false -> collector(Fd,sort(Collected), DisableSort)
+        true -> collector(Fd,Collected, DisableSort, Handler);
+        false -> collector(Fd,sort(Collected), DisableSort, Handler)
     end.
 
-collector(Fd,[{_,{Client,{Trace,State}}} |Rest], DisableSort) ->
+collector(Fd,[{_,{Client,{Trace,State}}} |Rest], DisableSort, CommonState) ->
     Trace1 = update_procinfo(Trace),
     State1 = handler1(Trace1,{Fd,State}),
+    CommonState2 = handler2(Trace1, {Fd, element(1, State1), CommonState}),
     case get_next(Client,State1) of
 	end_of_trace -> 
 	    handler1(end_of_trace,{Fd,State1}),
-	    collector(Fd,Rest,DisableSort);
+	    collector(Fd,Rest,DisableSort, CommonState2);
 	Next -> case DisableSort of
-                    false -> collector(Fd,sort([Next|Rest]), DisableSort);
-                    true -> collector(Fd,[Next|Rest], DisableSort)
+                    false -> collector(Fd,sort([Next|Rest]), DisableSort, CommonState2);
+                    true -> collector(Fd,[Next|Rest], DisableSort, CommonState2)
                 end
     end;
-collector(_Fd,[], _) ->
+collector(Fd,[], _, CommonState) ->
+    handler2(end_of_trace, {Fd, end_of_trace, CommonState}),
     ok.
 
 update_procinfo({drop,_N}=Trace) ->
