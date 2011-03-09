@@ -264,6 +264,11 @@ terminate(normal, State) ->
 handle_info({'EXIT', Pid, Reason}, State) ->
     ..code to handle exits here..
     {noreply, State1}.</code>
+    <p>The code_change method also has to be implemented.</p>
+    <code type="none">
+code_change(OldVsn, State, Extra) ->
+    ..code to convert state (and more) during code change
+    {ok, NewState}.</code>
   </section>
 </chapter>
 
