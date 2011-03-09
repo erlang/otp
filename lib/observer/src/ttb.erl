@@ -21,7 +21,6 @@
 
 %% API
 -export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1,start_trace/4]).
--export([get_et_handler/0]).
 -export([tp/2, tp/3, tp/4, ctp/0, ctp/1, ctp/2, ctp/3, tpl/2, tpl/3, tpl/4, 
 	 ctpl/0, ctpl/1, ctpl/2, ctpl/3, ctpg/0, ctpg/1, ctpg/2, ctpg/3]).
 -export([seq_trigger_ms/0,seq_trigger_ms/1]).
@@ -119,6 +118,8 @@ opt([{process_info,PI}|O],{_,Client,Traci}) ->
     opt(O,{PI,Client,Traci});
 opt([{file,Client}|O],{PI,_,Traci}) ->
     opt(O,{PI,Client,Traci});
+opt([{handler,Handler}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{handler,Handler}|Traci]});
 opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, StopOpts}}|Traci]});
 opt([{timer, MSec}|O],{PI,Client,Traci}) ->
@@ -356,7 +357,7 @@ no_store_p(Procs0,Flags0) ->
 transform_flags([clear]) ->
     [clear];
 transform_flags(Flags) ->
-    dbg:transform_flags([timestamp | Flags]).
+    dbg:transform_flags(Flags).
 
 
 procs(Procs) when is_list(Procs) ->
@@ -525,23 +526,18 @@ stop(Opts) ->
     stop([Opts]).
 
 stop_opts(Opts) ->
-    FetchDir = proplists:get_value(fetch_dir, Opts),                 
+    FetchDir = proplists:get_value(fetch_dir, Opts),
     ensure_fetch_dir(FetchDir),
-    FormatData = case proplists:get_value(format, Opts) of
-                     undefined -> false;
-                     true ->      {format, []};
-                     FOpts ->     {format, FOpts}
-                 end,
-    case {FormatData, lists:member(return, Opts)} of
-	{false, true} -> 
+    case {lists:member(format,Opts), lists:member(return, Opts)} of
+	{true, _} -> 
+	    {format, FetchDir}; % format implies fetch
+	{_, true} ->
 	    {fetch, FetchDir}; % if we specify return, the data should be fetched
-        {false, false} ->
+	_ -> 
 	    case lists:member(fetch,Opts) of
 		true -> {fetch, FetchDir};
 		false -> nofetch
-	    end;
-        {FormatData, _} ->
-            {FormatData, FetchDir}
+	    end
     end.
 
 ensure_fetch_dir(undefined) -> ok;
@@ -576,6 +572,7 @@ start(SessionInfo) ->
 	Pid when is_pid(Pid) ->
 	    ok
     end.
+
 
 init(Parent, SessionInfo) ->
     register(?MODULE,self()),
@@ -663,8 +660,8 @@ loop(NodeInfo, SessionInfo) ->
             Absname = filename:absname(Dir),
 	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
-		fetch -> ok;
-		{format, Opts} -> format(Dir, Opts)
+		format -> format(Dir);
+		fetch -> ok
 	    end,
 	    Sender ! {?MODULE,{stopped,Absname}}
          ?get_status
@@ -682,17 +679,24 @@ ts() ->
     io_lib:format("-~4.4.0w~2.2.0w~2.2.0w-~2.2.0w~2.2.0w~2.2.0w",
 		  [Y,M,D,H,Min,S]).
 
+
 fetch(Localhost,Dir,Node,MetaFile) ->
     case (host(Node) == Localhost) orelse is_local(MetaFile) of
         true -> % same host, just move the files
 	    Files = get_filenames(Node,MetaFile),
 	    lists:foreach(
 	      fun(File0) ->
-		      %%Other nodes may still have different CWD
-		      {ok, Cwd} = rpc:call(Node, file, get_cwd, []),
-		      File1 = filename:join(Cwd, File0),
-		      File = filename:join(Dir,filename:basename(File1)),
-		      file:rename(File1,File)
+                      case MetaFile of
+                          {local, _, _} ->
+                              File = filename:join(Dir,filename:basename(File0)),
+                              file:rename(File0, File);
+                          _ ->
+                              %%Other nodes may still have different CWD
+                              {ok, Cwd} = rpc:call(Node, file, get_cwd, []),
+                              File1 = filename:join(Cwd, File0),
+                              File = filename:join(Dir,filename:basename(File1)),
+                              file:rename(File1,File)
+                      end
 	      end,
 	      Files);
 	false ->
@@ -773,16 +777,13 @@ write_info(Nodes,PI,Traci) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Format binary trace logs
-get_et_handler() ->
-    {fun ttb_et:handler/4, initial}.
-
 format(Files) ->
     format(Files,[]).
 format(Files,Opt) ->
-    {Out,Handler,DisableSort} = format_opt(Opt),
+    {Out,Handler} = format_opt(Opt),
     ets:new(?MODULE,[named_table]),
-    format(Files,Out,Handler, DisableSort).
-format(File,Out,Handler,DisableSort) when is_list(File), is_integer(hd(File)) ->
+    format(Files,Out,Handler).
+format(File,Out,Handler) when is_list(File), is_integer(hd(File)) ->
     Files = 
 	case filelib:is_dir(File) of
 	    true ->  % will merge all files in the directory
@@ -798,16 +799,16 @@ format(File,Out,Handler,DisableSort) when is_list(File), is_integer(hd(File)) ->
 	    false -> % format one file
 		[File]
 	end,
-    format(Files,Out,Handler,DisableSort);
-format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
+    format(Files,Out,Handler);
+format(Files,Out,Handler) when is_list(Files), is_list(hd(Files)) ->
     StopDbg = case whereis(dbg) of
 		  undefined -> true;
 		  _ -> false
 	      end,
-    Details = lists:foldl(fun(File,Acc) -> [prepare(File)|Acc] end,
+    Details = lists:foldl(fun(File,Acc) -> [prepare(File,Handler)|Acc] end,
 			  [],Files),
     Fd = get_fd(Out),
-    R = do_format(Fd,Details,DisableSort,Handler),
+    R = do_format(Fd,Details),
     file:close(Fd),
     ets:delete(?MODULE),
     case StopDbg of
@@ -816,7 +817,7 @@ format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     end,
     R.
 
-prepare(File) ->
+prepare(File,Handler) ->
     {Traci,Proci} = read_traci(File),
     Node = get_node(Traci),
     lists:foreach(fun({Pid,PI}) ->
@@ -828,7 +829,8 @@ prepare(File) ->
 			  ets:insert(?MODULE,{Pid,PI,Node})
 		  end,Proci),
     FileOrWrap = get_file(File,Traci),
-    {FileOrWrap,Traci}.
+    Handler1 = get_handler(Handler,Traci),
+    {FileOrWrap,Traci,Handler1}.
 
 format_opt(Opt) when is_list(Opt) ->
     Out = case lists:keysearch(out,1,Opt) of
@@ -836,11 +838,10 @@ format_opt(Opt) when is_list(Opt) ->
 	      _ -> standard_io
 	  end,
     Handler = case lists:keysearch(handler,1,Opt) of
-                  {value,{handler,H}} -> H;                
-                  _ -> {fun defaulthandler/4, initial}
+	      {value,{handler,H}} -> H;
+	      _ -> undefined
 	  end,
-    DisableSort = proplists:get_value(disable_sort, Opt, false),
-    {Out,Handler,DisableSort};
+    {Out,Handler};
 format_opt(Opt) ->
     format_opt([Opt]).
 
@@ -919,57 +920,72 @@ check_exists(File) ->
 	_ -> 
 	    exit({error,no_file})
     end.
+	
 
-do_format(Fd,Details,DisableSort,Handler) ->
-    Clients = lists:foldl(fun({FileOrWrap,Traci},Acc) ->
-                                  [start_client(FileOrWrap,Traci)|Acc]
+get_handler(Handler,Traci) ->
+    case Handler of
+	undefined -> 
+	    case dict:find(handler,Traci) of
+		{ok,[H]} -> H;
+		error -> undefined
+	    end;
+	_ ->
+	    Handler
+    end.
+
+do_format(Fd,Details) ->
+    Clients = lists:foldl(fun({FileOrWrap,Traci,Handler},Acc) ->
+				  [start_client(FileOrWrap,Traci,Handler)
+				   |Acc]
 			  end,[],Details),
-    init_collector(Fd,Clients,DisableSort,Handler).
+    init_collector(Fd,Clients).
 
-start_client(FileOrWrap,Traci) ->
+
+start_client(FileOrWrap,Traci,et) ->
     dbg:trace_client(file, FileOrWrap, 
-		     {fun handler/2, dict:to_list(Traci)}).
+		     {fun handler/2, 
+		      {dict:to_list(Traci),{{ttb_et,handler},initial}}});
+start_client(FileOrWrap,Traci,undefined) ->
+    dbg:trace_client(file, FileOrWrap, 
+		     {fun handler/2, 
+		      {dict:to_list(Traci),{fun defaulthandler/4,initial}}});
+start_client(FileOrWrap,Traci,Handler) ->
+    dbg:trace_client(file, FileOrWrap, 
+		     {fun handler/2, {dict:to_list(Traci),Handler}}).
 
-handler(Trace,Traci) ->
-    %%We return our own Traci so that it not necesarry to look it up
-    %%This may take time if something huge has been written to it
+handler(Trace,State) ->
+    %% State here is only used for the initial state. The accumulated
+    %% State is maintained by collector!!!
     receive 
-	{get,Collector} -> Collector ! {self(),{Trace,Traci}};
+	{get,Collector} -> Collector ! {self(),{Trace,State}};
 	done -> ok
     end,
-    Traci.
+    State.
 
-%%Used to handle common state (the same for all clients)
-handler2(Trace,{Fd,Traci,{Fun,State}}) when is_function(Fun) ->
-    {Fun, Fun(Fd, Trace, Traci, State)};
-handler2(Trace,{Fd,Traci,{{M,F},State}}) when is_atom(M), is_atom(F) ->
-    {{M,F}, M:F(Fd, Trace, Traci, State)}.
+handler1(Trace,{Fd,{Traci,{Fun,State}}}) when is_function(Fun) ->
+    {Traci,{Fun,Fun(Fd,Trace,Traci,State)}};
+handler1(Trace,{Fd,{Traci,{{M,F},State}}}) when is_atom(M), is_atom(F) ->
+    {Traci,{{M,F},M:F(Fd,Trace,Traci,State)}}.
 
 defaulthandler(Fd,Trace,_Traci,initial) ->
     dbg:dhandler(Trace,Fd);
 defaulthandler(_Fd,Trace,_Traci,State) ->
     dbg:dhandler(Trace,State).
 
-init_collector(Fd,Clients,DisableSort,Handler) ->
+init_collector(Fd,Clients) ->
     Collected = get_first(Clients),
-    case DisableSort of
-        true -> collector(Fd,Collected, DisableSort, Handler);
-        false -> collector(Fd,sort(Collected), DisableSort, Handler)
-    end.
+    collector(Fd,sort(Collected)).
 
-collector(Fd,[{_,{Client,{Trace,Traci}}} |Rest], DisableSort, CommonState) ->
+collector(Fd,[{_,{Client,{Trace,State}}} |Rest]) ->
     Trace1 = update_procinfo(Trace),
-    CommonState2 = handler2(Trace1, {Fd, Traci, CommonState}),
-    case get_next(Client) of
+    State1 = handler1(Trace1,{Fd,State}),
+    case get_next(Client,State1) of
 	end_of_trace -> 
-	    collector(Fd,Rest,DisableSort, CommonState2);
-	Next -> case DisableSort of
-                    false -> collector(Fd,sort([Next|Rest]), DisableSort, CommonState2);
-                    true -> collector(Fd,[Next|Rest], DisableSort, CommonState2)
-                end
+	    handler1(end_of_trace,{Fd,State1}),
+	    collector(Fd,Rest);
+	Next -> collector(Fd,sort([Next|Rest]))
     end;
-collector(Fd,[], _, CommonState) ->
-    handler2(end_of_trace, {Fd, end_of_trace, CommonState}),
+collector(_Fd,[]) ->
     ok.
 
 update_procinfo({drop,_N}=Trace) ->
@@ -1017,18 +1033,18 @@ get_first([Client|Clients]) ->
     receive 
 	{Client,{end_of_trace,_}} -> 
 	    get_first(Clients);
-	{Client,{Trace,_}}=Next -> 
+	{Client,{Trace,_State}}=Next -> 
 	    [{timestamp(Trace),Next}|get_first(Clients)]
     end;
 get_first([]) -> [].
 
-get_next(Client) when is_pid(Client) ->
+get_next(Client,State) when is_pid(Client) ->
     Client ! {get,self()},
     receive 
 	{Client,{end_of_trace,_}} -> 
 	    end_of_trace;
-	{Client,{Trace, Traci}} -> 
-	    {timestamp(Trace),{Client,{Trace,Traci}}}
+	{Client,{Trace,_OldState}} -> 
+	    {timestamp(Trace),{Client,{Trace,State}}} % inserting new state!!
     end.
 
 sort(List) ->
