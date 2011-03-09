@@ -98,8 +98,10 @@ do_tracer(Clients,PI,Traci) ->
 	    {ok,Succ}
     end.
 
+opt(Opt) when is_list(Opt) ->
+    opt(Opt,{true,?MODULE,[]});
 opt(Opt) ->
-    opt(Opt,{true,?MODULE,[]}).
+    opt([Opt]).
 
 opt([{process_info,PI}|O],{_,Client,Traci}) ->
     opt(O,{PI,Client,Traci});
@@ -494,7 +496,7 @@ no_store_write_trace_info(Key,What) ->
 %%% Stop tracing on all nodes
 stop() ->
     stop([]).
-stop(Opts) ->
+stop(Opts) when is_list(Opts) ->
     Fetch = stop_opts(Opts),
     Result =
         case whereis(?MODULE) of
@@ -503,7 +505,9 @@ stop(Opts) ->
                 ?MODULE ! {stop,Fetch,self()},
                 receive {?MODULE,R} -> R end
         end,
-    stop_return(Result,Opts).
+    stop_return(Result,Opts);
+stop(Opts) ->
+    stop([Opts]).
 
 stop_opts(Opts) ->
     case {lists:member(format,Opts), lists:member(return, Opts)} of
@@ -778,7 +782,7 @@ prepare(File,Handler) ->
     Handler1 = get_handler(Handler,Traci),
     {FileOrWrap,Traci,Handler1}.
 
-format_opt(Opt) ->
+format_opt(Opt) when is_list(Opt) ->
     Out = case lists:keysearch(out,1,Opt) of
 	      {value,{out,O}} -> O;
 	      _ -> standard_io
@@ -787,7 +791,9 @@ format_opt(Opt) ->
 	      {value,{handler,H}} -> H;
 	      _ -> undefined
 	  end,
-    {Out,Handler}.
+    {Out,Handler};
+format_opt(Opt) ->
+    format_opt([Opt]).
 
 
 read_traci(File) ->
