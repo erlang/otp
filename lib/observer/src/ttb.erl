@@ -34,10 +34,12 @@
 
 -include_lib("kernel/include/file.hrl").
 -define(meta_time,5000).
+-define(fetch_time, 10000).
 -define(history_table,ttb_history_table).
 -define(seq_trace_flags,[send,'receive',print,timestamp]).
 -define(upload_dir,"ttb_upload").
 -define(last_config, "ttb_last_config").
+-define(partial_dir, "ttb_partial_result").
 -ifdef(debug).
 -define(get_status,;get_status -> erlang:display(dict:to_list(NodeInfo),loop(NodeInfo, TraceInfo)).
 -else.
@@ -126,6 +128,10 @@ opt([{timer, MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, []}}|Traci]});
 opt([shell|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{shell, true}|Traci]});
+opt([resume|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{resume, {true, ?fetch_time}}|Traci]});
+opt([{resume,MSec}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{resume, {true, MSec}}|Traci]});
 opt([],Opt) ->
     ensure_opt(Opt).
 
@@ -232,17 +238,29 @@ run_history([H|T]) ->
 	ok -> run_history(T);
 	{error,not_found} -> {error,{not_found,H}}
     end;
+
+run_history(all) ->
+    CurrentHist = ets:tab2list(?history_table),
+    ets:delete_all_objects(?history_table),
+    [run_printed(MFA,true) || {_, MFA} <- CurrentHist];
+run_history(all_silent) ->
+    CurrentHist = ets:tab2list(?history_table),
+    ets:delete_all_objects(?history_table),
+    [run_printed(MFA,false) || {_, MFA} <- CurrentHist];
 run_history([]) ->
     ok;
 run_history(N) ->
     case catch ets:lookup(?history_table,N) of
 	[{N,{M,F,A}}] -> 
-	    print_func(M,F,A),
-	    R = apply(M,F,A),
-	    print_result(R);
+            run_printed({M,F,A},true);
 	_ -> 
 	    {error, not_found}
     end.
+
+run_printed({M,F,A},Verbose) ->
+    Verbose andalso print_func(M,F,A),
+    R = apply(M,F,A),
+    Verbose andalso print_result(R).
 	
 write_config(ConfigFile,all) ->
     write_config(ConfigFile,['_']);
@@ -583,12 +601,12 @@ start(SessionInfo) ->
 	    ok
     end.
 
-
 init(Parent, SessionInfo) ->
     register(?MODULE,self()),
     ets:new(?history_table,[ordered_set,named_table,public]),
     Parent ! {started,self()},
-    loop(dict:new(), SessionInfo).
+    NewSessionInfo = [{partials, 0}, {dead_nodes, []} | SessionInfo],
+    loop(dict:new(), NewSessionInfo).
 
 loop(NodeInfo, SessionInfo) ->
     receive 
@@ -618,7 +636,13 @@ loop(NodeInfo, SessionInfo) ->
 		      NodeInfo),
 	    loop(NodeInfo, SessionInfo);
 	{nodedown,Node} ->
-	    loop(dict:erase(Node,NodeInfo), SessionInfo);
+            NewState = make_node_dead(Node, NodeInfo, SessionInfo),
+	    loop(dict:erase(Node,NodeInfo), NewState);
+        {noderesumed,Node,Reporter} ->
+            {MetaFile, CurrentSuffix, NewState} = make_node_alive(Node, SessionInfo),
+            fetch_partial_result(Node, MetaFile, CurrentSuffix),
+            spawn(fun() -> resume_trace(Reporter) end),
+            loop(NodeInfo, NewState);
 	{timeout, StopOpts} ->
 	    spawn(?MODULE, stop, [StopOpts]),
 	    loop(NodeInfo, SessionInfo);
@@ -661,12 +685,13 @@ loop(NodeInfo, SessionInfo) ->
 	    AllNodes = 
 		lists:map(
 		  fun({Node,MetaFile}) ->
-			  spawn(fun() -> fetch(Localhost,Dir,Node,MetaFile) end),
+			  spawn(fun() -> fetch_report(Localhost,Dir,Node,MetaFile) end),
 			  Node
 		  end,
 		  AllNodesAndMeta),
 	    ets:delete(?history_table),
 	    wait_for_fetch(AllNodes),
+            copy_partials(Dir, proplists:get_value(partials, SessionInfo)),
             Absname = filename:absname(Dir),
 	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
@@ -677,8 +702,24 @@ loop(NodeInfo, SessionInfo) ->
          ?get_status
     end.
 
+make_node_dead(Node, NodeInfo, SessionInfo) ->
+    {MetaFile,_} = dict:fetch(Node, NodeInfo),
+    NewDeadNodes = [{Node, MetaFile} | proplists:get_value(dead_nodes, SessionInfo)],
+    [{dead_nodes, NewDeadNodes} | lists:keydelete(dead_nodes, 1, SessionInfo)].
+
+make_node_alive(Node, SessionInfo) ->
+            DeadNodes = proplists:get_value(dead_nodes, SessionInfo),
+            Partials = proplists:get_value(partials, SessionInfo),
+            {value, {_, MetaFile}, Dn2} = lists:keytake(Node, 1, DeadNodes),
+            SessionInfo2 = lists:keyreplace(dead_nodes, 1, SessionInfo, {dead_nodes, Dn2}),
+            {MetaFile, Partials + 1, lists:keyreplace(partials, 1, SessionInfo2, {partials, Partials + 1})}.
+
 get_fetch_dir(undefined) -> ?upload_dir ++ ts();
 get_fetch_dir(Dir) -> Dir.
+
+resume_trace(Reporter) ->
+    ?MODULE:run_history(all_silent),
+    Reporter ! trace_resumed.
 
 get_nodes() ->
     ?MODULE ! {get_nodes,self()},
@@ -689,6 +730,28 @@ ts() ->
     io_lib:format("-~4.4.0w~2.2.0w~2.2.0w-~2.2.0w~2.2.0w~2.2.0w",
 		  [Y,M,D,H,Min,S]).
 
+copy_partials(_, 0) ->
+    ok;
+copy_partials(Dir, Num) ->
+    PartialDir = ?partial_dir ++ integer_to_list(Num),
+    file:rename(PartialDir, filename:join(Dir,PartialDir)),
+    copy_partials(Dir, Num - 1).
+
+fetch_partial_result(Node,MetaFile,Current) ->
+    DirName = ?partial_dir ++ integer_to_list(Current),
+    case file:list_dir(DirName) of
+        {error, enoent} ->
+            ok;
+        {ok, Files} ->
+            [ file:delete(filename:join(DirName, File)) || File <- Files ],
+            file:del_dir(DirName)
+    end,
+    file:make_dir(DirName),
+    fetch(host(node()), DirName, Node, MetaFile).
+
+fetch_report(Localhost, Dir, Node, MetaFile) ->
+    fetch(Localhost,Dir,Node,MetaFile),
+    ?MODULE ! {fetch_complete,Node}.
 
 fetch(Localhost,Dir,Node,MetaFile) ->
     case (host(Node) == Localhost) orelse is_local(MetaFile) of
@@ -718,8 +781,7 @@ fetch(Localhost,Dir,Node,MetaFile) ->
 	    receive_files(Dir,Sock,undefined),
 	    ok = gen_tcp:close(LSock),
 	    ok = gen_tcp:close(Sock)
-    end,
-    ?MODULE ! {fetch_complete,Node}.
+    end.
 
 is_local({local, _, _}) ->
     true;
@@ -748,7 +810,6 @@ receive_files(Dir,Sock,Fd) ->
 host(Node) ->
     [_name,Host] = string:tokens(atom_to_list(Node),"@"),
     Host.
-
 
 wait_for_fetch([]) ->
     ok;
@@ -797,15 +858,8 @@ format(File,Out,Handler) when is_list(File), is_integer(hd(File)) ->
     Files = 
 	case filelib:is_dir(File) of
 	    true ->  % will merge all files in the directory
-		MetaFiles = filelib:wildcard(filename:join(File,"*.ti")),
-		lists:map(fun(M) ->
-				  Sub = string:left(M,length(M)-3),
-				  case filelib:is_file(Sub) of
-				      true -> Sub;
-				      false -> Sub++".*.wrp"
-				  end
-			  end,
-			  MetaFiles);
+                List = filelib:wildcard(filename:join(File, ?partial_dir++"*")),
+                lists:append(collect_files([File | List]));
 	    false -> % format one file
 		[File]
 	end,
@@ -826,6 +880,19 @@ format(Files,Out,Handler) when is_list(Files), is_list(hd(Files)) ->
 	false -> ok
     end,
     R.
+
+collect_files(Dirs) ->
+    lists:map(fun(Dir) ->
+                      MetaFiles = filelib:wildcard(filename:join(Dir,"*.ti")),
+                      lists:map(fun(M) ->
+                                        Sub = string:left(M,length(M)-3),
+                                        case filelib:is_file(Sub) of
+                                            true -> Sub;
+                                            false -> Sub++".*.wrp"
+                                        end
+                                end,
+                                MetaFiles)
+              end, Dirs).
 
 prepare(File,Handler) ->
     {Traci,Proci} = read_traci(File),
@@ -854,7 +921,6 @@ format_opt(Opt) when is_list(Opt) ->
     {Out,Handler};
 format_opt(Opt) ->
     format_opt([Opt]).
-
 
 read_traci(File) ->
     MetaFile = get_metafile(File),
@@ -930,7 +996,6 @@ check_exists(File) ->
 	_ ->
 	    exit({error,no_file})
     end.
-
 
 get_handler(Handler,Traci) ->
     case Handler of
@@ -1060,7 +1125,6 @@ get_next(Client,State) when is_pid(Client) ->
 sort(List) ->
     lists:keysort(1,List).
 
-
 timestamp(Trace) when element(1,Trace) =:= trace_ts;
 		      element(1,Trace) =:= seq_trace, tuple_size(Trace) =:= 4 ->
     element(tuple_size(Trace),Trace);
@@ -1133,5 +1197,3 @@ dump_ti(<<>>,Acc) ->
 dump_ti(B,Acc) ->
     {Term,Rest} = get_term(B),
     dump_ti(Rest,[Term|Acc]).
-
-
