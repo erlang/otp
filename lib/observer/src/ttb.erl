@@ -37,8 +37,9 @@
 -define(history_table,ttb_history_table).
 -define(seq_trace_flags,[send,'receive',print,timestamp]).
 -define(upload_dir,"ttb_upload").
+-define(last_config, "ttb_last_config").
 -ifdef(debug).
--define(get_status,;get_status -> erlang:display(dict:to_list(NodeInfo)),loop(NodeInfo)).
+-define(get_status,;get_status -> erlang:display(dict:to_list(NodeInfo),loop(NodeInfo, TraceInfo)).
 -else.
 -define(get_status,).
 -endif.
@@ -57,9 +58,10 @@ start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
 tracer() -> tracer(node()).
 tracer(Nodes) -> tracer(Nodes,[]).
 tracer(Nodes,Opt) ->
-    start(),
-    store(tracer,[Nodes,Opt]),
     {PI,Client,Traci} = opt(Opt),
+    %%We use initial Traci as SessionInfo for loop/2
+    start(Traci),
+    store(tracer,[Nodes,Opt]),
     do_tracer(Nodes,PI,Client,Traci).
 
 do_tracer(Nodes0,PI,Client,Traci) ->
@@ -118,6 +120,10 @@ opt([{file,Client}|O],{PI,_,Traci}) ->
     opt(O,{PI,Client,Traci});
 opt([{handler,Handler}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{handler,Handler}|Traci]});
+opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{timer,{MSec, StopOpts}}|Traci]});
+opt([{timer, MSec}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{timer,{MSec, []}}|Traci]});
 opt([],Opt) ->
     Opt.
 
@@ -338,11 +344,12 @@ no_store_p(Procs0,Flags0) ->
 					     {error,Reason} -> 
 						 display_warning(P,Reason),
 						 {PMatched,Ps}
-					 end
+						     end
 			     end,{[],[]},Procs) of
 		{[],[]} -> {error, no_match};
 		{SuccMatched,Succ} ->
 		    no_store_write_trace_info(flags,{Succ,Flags}),
+		    ?MODULE ! trace_started,
 		    {ok,SuccMatched}
 	    end
     end.
@@ -556,24 +563,24 @@ stop_return(R,Opts) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Process implementation
-start() ->
+start(SessionInfo) ->
     case whereis(?MODULE) of
 	undefined ->
 	    Parent = self(),
-	    Pid = spawn(fun() -> init(Parent) end),
+	    Pid = spawn(fun() -> init(Parent, SessionInfo) end),
 	    receive {started,Pid} -> ok end;
 	Pid when is_pid(Pid) ->
 	    ok
     end.
 
 
-init(Parent) ->
+init(Parent, SessionInfo) ->
     register(?MODULE,self()),
     ets:new(?history_table,[ordered_set,named_table,public]),
     Parent ! {started,self()},
-    loop(dict:new()).
+    loop(dict:new(), SessionInfo).
 
-loop(NodeInfo) ->
+loop(NodeInfo, SessionInfo) ->
     receive 
 	{init_node,Node,MetaFile,PI,Traci} ->
 	    erlang:monitor_node(Node,true),
@@ -588,10 +595,10 @@ loop(NodeInfo) ->
 			%% We will get a nodedown message
 			undefined
 		end,
-	    loop(dict:store(Node,{MetaFile,MetaPid},NodeInfo));
+	    loop(dict:store(Node,{MetaFile,MetaPid},NodeInfo), SessionInfo);
 	{get_nodes,Sender} ->
 	    Sender ! {?MODULE,dict:fetch_keys(NodeInfo)},
-	    loop(NodeInfo);
+	    loop(NodeInfo, SessionInfo);
 	{write_trace_info,Key,What} ->
 	    dict:fold(fun(Node,{_MetaFile,MetaPid},_) -> 
 			      rpc:call(Node,observer_backend,
@@ -599,10 +606,20 @@ loop(NodeInfo) ->
 		      end,
 		      ok,
 		      NodeInfo),
-	    loop(NodeInfo);
+	    loop(NodeInfo, SessionInfo);
 	{nodedown,Node} ->
-	    loop(dict:erase(Node,NodeInfo));
+	    loop(dict:erase(Node,NodeInfo), SessionInfo);
+	{timeout, StopOpts} ->
+	    spawn(?MODULE, stop, [StopOpts]),
+	    loop(NodeInfo, SessionInfo);
+	trace_started ->
+	    case proplists:get_value(timer, SessionInfo) of
+		undefined -> ok;
+		{MSec, StopOpts}  -> erlang:send_after(MSec, self(), {timeout, StopOpts})
+	    end,
+	    loop(NodeInfo, SessionInfo);
 	{stop,nofetch,Sender} ->
+	    write_config(?last_config, all),
 	    dict:fold(
 	      fun(Node,{_,MetaPid},_) -> 
 		      rpc:call(Node,observer_backend,ttb_stop,[MetaPid])
@@ -613,6 +630,7 @@ loop(NodeInfo) ->
 	    ets:delete(?history_table),
 	    Sender ! {?MODULE,stopped};
 	{stop,{FetchOrFormat, UserDir} ,Sender} ->	    
+	    write_config(?last_config, all),
 	    Localhost = host(node()),
 	    Dir = get_fetch_dir(UserDir),
  	    file:make_dir(Dir),
