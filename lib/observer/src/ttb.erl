@@ -118,8 +118,6 @@ opt([{process_info,PI}|O],{_,Client,Traci}) ->
     opt(O,{PI,Client,Traci});
 opt([{file,Client}|O],{PI,_,Traci}) ->
     opt(O,{PI,Client,Traci});
-opt([{handler,Handler}|O],{PI,Client,Traci}) ->
-    opt(O,{PI,Client,[{handler,Handler}|Traci]});
 opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, StopOpts}}|Traci]});
 opt([{timer, MSec}|O],{PI,Client,Traci}) ->
@@ -528,16 +526,21 @@ stop(Opts) ->
 stop_opts(Opts) ->
     FetchDir = proplists:get_value(fetch_dir, Opts),
     ensure_fetch_dir(FetchDir),
-    case {lists:member(format,Opts), lists:member(return, Opts)} of
-	{true, _} ->
-	    {format, FetchDir}; % format implies fetch
-	{_, true} ->
+    FormatData = case proplists:get_value(format, Opts) of
+                     undefined -> false;
+                     true ->      {format, []};
+                     FOpts ->     {format, FOpts}
+                 end,
+    case {FormatData, lists:member(return, Opts)} of
+	{false, true} ->
 	    {fetch, FetchDir}; % if we specify return, the data should be fetched
-	_ ->
+        {false, false} ->
 	    case lists:member(fetch,Opts) of
 		true -> {fetch, FetchDir};
 		false -> nofetch
-	    end
+	    end;
+        {FormatData, _} ->
+            {FormatData, FetchDir}
     end.
 
 ensure_fetch_dir(undefined) -> ok;
@@ -660,8 +663,8 @@ loop(NodeInfo, SessionInfo) ->
             Absname = filename:absname(Dir),
 	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
-		format -> format(Dir);
-		fetch -> ok
+		fetch -> ok;
+		{format, Opts} -> format(Dir, Opts)
 	    end,
 	    Sender ! {?MODULE,{stopped,Absname}}
          ?get_status
@@ -823,8 +826,7 @@ prepare(File,Handler) ->
 			  ets:insert(?MODULE,{Pid,PI,Node})
 		  end,Proci),
     FileOrWrap = get_file(File,Traci),
-    Handler1 = get_handler(Handler,Traci),
-    {FileOrWrap,Traci,Handler1}.
+    {FileOrWrap,Traci,Handler}.
 
 format_opt(Opt) when is_list(Opt) ->
     Out = case lists:keysearch(out,1,Opt) of
@@ -912,20 +914,8 @@ check_client(Client,File) when is_tuple(Client),element(2,Client)==wrap ->
 check_exists(File) ->
     case file:read_file_info(File) of
 	{ok,#file_info{type=regular}} -> File;
-	_ -> 
-	    exit({error,no_file})
-    end.
-	
-
-get_handler(Handler,Traci) ->
-    case Handler of
-	undefined -> 
-	    case dict:find(handler,Traci) of
-		{ok,[H]} -> H;
-		error -> {fun defaulthandler/4, initial}
-	    end;
 	_ ->
-	    Handler
+	    exit({error,no_file})
     end.
 
 do_format(Fd,Details,DisableSort,Handler) ->
