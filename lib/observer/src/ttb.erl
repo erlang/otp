@@ -469,10 +469,12 @@ stop(Opts) ->
     stop_return(Result,Opts).
 
 stop_opts(Opts) ->
-    case lists:member(format,Opts) of
-	true -> 
+    case {lists:member(format,Opts), lists:member(return, Opts)} of
+	{true, _} -> 
 	    format; % format implies fetch
-	false -> 
+	{_, true} ->
+	    fetch; % if we specify return, the data should be fetched
+	_ -> 
 	    case lists:member(fetch,Opts) of
 		true -> fetch;
 		false -> nofetch
@@ -881,7 +883,7 @@ init_collector(Fd,Clients) ->
     Collected = get_first(Clients),
     collector(Fd,sort(Collected)).
 
-collector(Fd,[{_,{Client,{Trace,State}}}|Rest]) ->
+collector(Fd,[{_,{Client,{Trace,State}}} |Rest]) ->
     Trace1 = update_procinfo(Trace),
     State1 = handler1(Trace1,{Fd,State}),
     case get_next(Client,State1) of
@@ -917,7 +919,7 @@ update_procinfo(Trace) ->
     ProcInfo = get_procinfo(Pid),
     setelement(2,Trace,ProcInfo).
 
-get_procinfo(Pid) when is_pid(Pid) ->
+get_procinfo(Pid) when is_pid(Pid); is_port(Pid) ->
     case ets:lookup(?MODULE,Pid) of
 	[PI] -> PI;
 	[] -> Pid
