@@ -24,6 +24,16 @@
  [
   {"4.19", 
    [
+    {load_module, snmp_conf, soft_purge, soft_purge, []}, 
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_acm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_conf, soft_purge, soft_purge, []}, 
+    {load_module, snmp_notification_mib, soft_purge, soft_purge, []}, 
+    {load_module, snmp_target_mib, soft_purge, soft_purge, []},
+    {update, snmpa_net_if, soft, soft_purge, soft_purge, [snmpa_mpd]},
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_acm, snmpa_trap]}
    ]
   }, 
   {"4.18", 
