@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2009</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -40,7 +40,7 @@
 
   <section>
     <title>DATA TYPES</title>
-    <marker id="charlist_definition"></marker>
+    <marker id="type-charlist"></marker>
     <code type="none">
 unicode_binary() = binary() with characters encoded in UTF-8 coding standard
 unicode_char() = integer() representing valid unicode codepoint
