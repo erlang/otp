@@ -510,16 +510,27 @@ stop(Opts) ->
     stop([Opts]).
 
 stop_opts(Opts) ->
+    FetchDir = proplists:get_value(fetch_dir, Opts),
+    ensure_fetch_dir(FetchDir),
     case {lists:member(format,Opts), lists:member(return, Opts)} of
 	{true, _} -> 
-	    format; % format implies fetch
+	    {format, FetchDir}; % format implies fetch
 	{_, true} ->
-	    fetch; % if we specify return, the data should be fetched
+	    {fetch, FetchDir}; % if we specify return, the data should be fetched
 	_ -> 
 	    case lists:member(fetch,Opts) of
-		true -> fetch;
+		true -> {fetch, FetchDir};
 		false -> nofetch
 	    end
+    end.
+
+ensure_fetch_dir(undefined) -> ok;
+ensure_fetch_dir(Dir) ->
+    case filelib:is_file(Dir) of
+	true ->
+	    throw({error, exists, Dir});
+	false ->
+	   ok
     end.
 
 stop_return(R,Opts) ->
@@ -592,9 +603,9 @@ loop(NodeInfo) ->
 	    dbg:stop_clear(),
 	    ets:delete(?history_table),
 	    Sender ! {?MODULE,stopped};
-	{stop,FetchOrFormat,Sender} ->
+	{stop,{FetchOrFormat, UserDir} ,Sender} ->	    
 	    Localhost = host(node()),
-	    Dir = ?upload_dir++ts(),
+	    Dir = get_fetch_dir(UserDir),
  	    file:make_dir(Dir),
 	    %% The nodes are traversed twice here because
 	    %% the meta tracing in observer_backend must be
@@ -628,6 +639,9 @@ loop(NodeInfo) ->
 	    Sender ! {?MODULE,{stopped,Absname}}
          ?get_status
     end.
+
+get_fetch_dir(undefined) -> ?upload_dir ++ ts();
+get_fetch_dir(Dir) -> Dir.
 
 get_nodes() ->
     ?MODULE ! {get_nodes,self()},
