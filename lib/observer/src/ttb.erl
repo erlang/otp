@@ -357,7 +357,7 @@ no_store_p(Procs0,Flags0) ->
 transform_flags([clear]) ->
     [clear];
 transform_flags(Flags) ->
-    dbg:transform_flags(Flags).
+    dbg:transform_flags([timestamp | Flags]).
 
 
 procs(Procs) when is_list(Procs) ->
@@ -774,10 +774,10 @@ write_info(Nodes,PI,Traci) ->
 format(Files) ->
     format(Files,[]).
 format(Files,Opt) ->
-    {Out,Handler} = format_opt(Opt),
+    {Out,Handler,DisableSort} = format_opt(Opt),
     ets:new(?MODULE,[named_table]),
-    format(Files,Out,Handler).
-format(File,Out,Handler) when is_list(File), is_integer(hd(File)) ->
+    format(Files,Out,Handler, DisableSort).
+format(File,Out,Handler,DisableSort) when is_list(File), is_integer(hd(File)) ->
     Files = 
 	case filelib:is_dir(File) of
 	    true ->  % will merge all files in the directory
@@ -793,8 +793,8 @@ format(File,Out,Handler) when is_list(File), is_integer(hd(File)) ->
 	    false -> % format one file
 		[File]
 	end,
-    format(Files,Out,Handler);
-format(Files,Out,Handler) when is_list(Files), is_list(hd(Files)) ->
+    format(Files,Out,Handler,DisableSort);
+format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     StopDbg = case whereis(dbg) of
 		  undefined -> true;
 		  _ -> false
@@ -802,7 +802,7 @@ format(Files,Out,Handler) when is_list(Files), is_list(hd(Files)) ->
     Details = lists:foldl(fun(File,Acc) -> [prepare(File,Handler)|Acc] end,
 			  [],Files),
     Fd = get_fd(Out),
-    R = do_format(Fd,Details),
+    R = do_format(Fd,Details,DisableSort),
     file:close(Fd),
     ets:delete(?MODULE),
     case StopDbg of
@@ -835,7 +835,8 @@ format_opt(Opt) when is_list(Opt) ->
 	      {value,{handler,H}} -> H;
 	      _ -> undefined
 	  end,
-    {Out,Handler};
+    DisableSort = proplists:get_value(disable_sort, Opt, false),
+    {Out,Handler,DisableSort};
 format_opt(Opt) ->
     format_opt([Opt]).
 
@@ -927,12 +928,12 @@ get_handler(Handler,Traci) ->
 	    Handler
     end.
 
-do_format(Fd,Details) ->
+do_format(Fd,Details,DisableSort) ->
     Clients = lists:foldl(fun({FileOrWrap,Traci,Handler},Acc) ->
 				  [start_client(FileOrWrap,Traci,Handler)
 				   |Acc]
 			  end,[],Details),
-    init_collector(Fd,Clients).
+    init_collector(Fd,Clients,DisableSort).
 
 
 start_client(FileOrWrap,Traci,et) ->
@@ -966,20 +967,26 @@ defaulthandler(Fd,Trace,_Traci,initial) ->
 defaulthandler(_Fd,Trace,_Traci,State) ->
     dbg:dhandler(Trace,State).
 
-init_collector(Fd,Clients) ->
+init_collector(Fd,Clients,DisableSort) ->
     Collected = get_first(Clients),
-    collector(Fd,sort(Collected)).
+    case DisableSort of
+        true -> collector(Fd,Collected, DisableSort);
+        false -> collector(Fd,sort(Collected), DisableSort)
+    end.
 
-collector(Fd,[{_,{Client,{Trace,State}}} |Rest]) ->
+collector(Fd,[{_,{Client,{Trace,State}}} |Rest], DisableSort) ->
     Trace1 = update_procinfo(Trace),
     State1 = handler1(Trace1,{Fd,State}),
     case get_next(Client,State1) of
 	end_of_trace -> 
 	    handler1(end_of_trace,{Fd,State1}),
-	    collector(Fd,Rest);
-	Next -> collector(Fd,sort([Next|Rest]))
+	    collector(Fd,Rest,DisableSort);
+	Next -> case DisableSort of
+                    false -> collector(Fd,sort([Next|Rest]), DisableSort);
+                    true -> collector(Fd,[Next|Rest], DisableSort)
+                end
     end;
-collector(_Fd,[]) ->
+collector(_Fd,[], _) ->
     ok.
 
 update_procinfo({drop,_N}=Trace) ->
