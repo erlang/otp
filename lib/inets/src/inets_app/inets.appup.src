@@ -18,8 +18,14 @@
 
 {"%VSN%",
  [
+  {"5.5.2", 
+   [
+    {load_module, ftp, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.5.1", 
    [
+    {load_module, ftp, soft_purge, soft_purge, []}, 
     {load_module, http_chunk, soft_purge, soft_purge, []}
    ]
   }, 
@@ -35,8 +41,14 @@
   } 
  ],
  [	
+  {"5.5.2", 
+   [
+    {load_module, ftp, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.5.1", 
    [
+    {load_module, ftp, soft_purge, soft_purge, []}, 
     {load_module, http_chunk, soft_purge, soft_purge, []}
    ]
   }, 
