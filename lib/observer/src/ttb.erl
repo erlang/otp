@@ -50,19 +50,18 @@ start_trace(Nodes, Patterns, {Procs, Flags}, Options) ->
     {ok, _} = tracer(Nodes, Options),
     {ok, _} = p(Procs, Flags),
     [{ok, _} = apply(?MODULE, tpl, tuple_to_list(Args)) || Args <- Patterns].
-    
-    
-
+        
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Open a trace port on all given nodes and create the meta data file
 tracer() -> tracer(node()).
+tracer(shell) -> tracer(node(), shell);
 tracer(Nodes) -> tracer(Nodes,[]).
 tracer(Nodes,Opt) ->
     {PI,Client,Traci} = opt(Opt),
     %%We use initial Traci as SessionInfo for loop/2
-    Pid = start(Traci),
+    start(Traci),
     store(tracer,[Nodes,Opt]),
-    do_tracer(Nodes,PI,Client,[{ttb_control, Pid}|Traci]).
+    do_tracer(Nodes,PI,Client,Traci).
 
 do_tracer(Nodes0,PI,Client,Traci) ->
     Nodes = nods(Nodes0),
@@ -70,6 +69,7 @@ do_tracer(Nodes0,PI,Client,Traci) ->
     do_tracer(Clients,PI,Traci).
 
 do_tracer(Clients,PI,Traci) ->
+    ShellOutput = proplists:get_value(shell, Traci, false),
     {ClientSucc,Succ} = 
 	lists:foldl(
 	  fun({N,{local,File},TF},{CS,S}) -> 
@@ -80,7 +80,7 @@ do_tracer(Clients,PI,Traci) ->
 			  {ok,T} = dbg:get_tracer(N),
 			  rpc:call(N,seq_trace,set_system_tracer,[T]),
 			  dbg:trace_client(ip,{Host,Port},
-					   {fun ip_to_file/2,{file,File}}),
+					   {fun ip_to_file/2,{{file,File}, ShellOutput}}),
 			  {[{N,{local,File,Port},TF}|CS], [N|S]};
 		      Other ->
 			  display_warning(N,{cannot_open_ip_trace_port,
@@ -124,10 +124,18 @@ opt([{timer, {MSec, StopOpts}}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, StopOpts}}|Traci]});
 opt([{timer, MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{timer,{MSec, []}}|Traci]});
-opt([{overload_check, {MSec,M,F}}|O],{PI,Client,Traci}) ->
-    opt(O,{PI,Client,[{overload_check,{MSec,M,F}}|Traci]});
+opt([shell|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{shell, true}|Traci]});
 opt([],Opt) ->
-    Opt.
+    ensure_opt(Opt).
+
+ensure_opt({PI,Client,Traci}) ->
+    case {proplists:get_value(shell, Traci), Client} of
+        {undefined, _}        -> {PI, Client, Traci};
+        {true, ?MODULE}       -> {PI, {local, ?MODULE}, Traci};
+        {true, {local, File}} -> {PI, {local, File}, Traci};
+        {true, _}             -> exit(local_client_required_on_shell_tracing)
+    end.
 
 nods(all) ->
     Nodes1 = remove_active([node()|nodes()]),
@@ -332,7 +340,6 @@ arg_list([A1|A],Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Set trace flags on processes
 p(Procs0,Flags0) ->
-    ensure_no_overloaded_nodes(),
     store(p,[Procs0,Flags0]),
     no_store_p(Procs0,Flags0).
 no_store_p(Procs0,Flags0) ->
@@ -386,28 +393,22 @@ proc({global,Name}) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace pattern
 tp(A,B) ->
-    ensure_no_overloaded_nodes(),
     store(tp,[A,ms(B)]),
     dbg:tp(A,ms(B)).
 tp(A,B,C) ->
-    ensure_no_overloaded_nodes(),
     store(tp,[A,B,ms(C)]),
     dbg:tp(A,B,ms(C)).
 tp(A,B,C,D) ->
-    ensure_no_overloaded_nodes(),
     store(tp,[A,B,C,ms(D)]),
     dbg:tp(A,B,C,ms(D)).
 
 tpl(A,B) ->
-    ensure_no_overloaded_nodes(),
     store(tpl,[A,ms(B)]),
     dbg:tpl(A,ms(B)).
 tpl(A,B,C) ->
-    ensure_no_overloaded_nodes(),
     store(tpl,[A,B,ms(C)]),
     dbg:tpl(A,B,ms(C)).
 tpl(A,B,C,D) ->
-    ensure_no_overloaded_nodes(),
     store(tpl,[A,B,C,ms(D)]),
     dbg:tpl(A,B,C,ms(D)).
 
@@ -460,14 +461,6 @@ ms({codestr, FunStr}) ->
 ms(Other) ->
     Other.
 
-ensure_no_overloaded_nodes() ->
-    ttb ! {get_overloaded, self()},
-    Overloaded = receive O -> O after 300 -> [] end,
-    case Overloaded of
-        [] -> ok;
-        Overloaded -> exit({error, overload_protection_active, Overloaded})
-    end.
-    
 -spec string2ms(string()) -> {ok, list()} | {error, fun_format}.
 string2ms(FunStr) ->
     case erl_scan:string(fix_dot(FunStr)) of
@@ -569,8 +562,6 @@ ensure_fetch_dir(Dir) ->
 stop_return(R,Opts) ->
     case {lists:member(return,Opts),R} of
         {true,_} ->
-            %%Printout moved out of the ttb loop to avoid occasional deadlock
-            io:format("Stored logs in ~s~n",[element(2, R)]),
             R;
         {false,{stopped,_}} ->
             stopped;
@@ -587,10 +578,9 @@ start(SessionInfo) ->
 	undefined ->
 	    Parent = self(),
 	    Pid = spawn(fun() -> init(Parent, SessionInfo) end),
-	    receive {started,Pid} -> ok end,
-            Pid;
+	    receive {started,Pid} -> ok end;
 	Pid when is_pid(Pid) ->
-	    Pid
+	    ok
     end.
 
 
@@ -632,14 +622,6 @@ loop(NodeInfo, SessionInfo) ->
 	{timeout, StopOpts} ->
 	    spawn(?MODULE, stop, [StopOpts]),
 	    loop(NodeInfo, SessionInfo);
-        {node_overloaded, Node} ->
-            io:format("Overload check activated on node: ~p.~n", [Node]),
-            {Overloaded, SI} = {proplists:get_value(overloaded, SessionInfo, []), 
-                                lists:keydelete(overloaded, 1, SessionInfo)},          
-	    loop(NodeInfo, [{overloaded, [Node|Overloaded]} | SI]);
-        {get_overloaded, Pid} ->
-            Pid ! proplists:get_value(overloaded, SessionInfo, []),
-            loop(NodeInfo, SessionInfo);
 	trace_started ->
 	    case proplists:get_value(timer, SessionInfo) of
 		undefined -> ok;
@@ -686,6 +668,7 @@ loop(NodeInfo, SessionInfo) ->
 	    ets:delete(?history_table),
 	    wait_for_fetch(AllNodes),
             Absname = filename:absname(Dir),
+	    io:format("Stored logs in ~s~n",[Absname]),
 	    case FetchOrFormat of
 		format -> format(Dir);
 		fetch -> ok
@@ -1115,19 +1098,29 @@ display_warning(Item,Warning) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace client which reads an IP port and puts data directly to a file.
 %%% This is used when tracing remote nodes with no file system.
-ip_to_file(Trace,{file,File}) ->
+ip_to_file(Trace,{{file,File}, ShellOutput}) ->
     Fun = dbg:trace_port(file,File), %File can be a filename or a wrap spec
     Port = Fun(),
-    ip_to_file(Trace,Port);
-ip_to_file({metadata,MetaFile,MetaData},Port) ->
+    case Trace of 
+        {metadata, _, _} -> ok;
+        Trace            -> show_trace(Trace, ShellOutput)
+    end,
+    ip_to_file(Trace,{Port,ShellOutput});
+ip_to_file({metadata,MetaFile,MetaData},State) ->
     {ok,MetaFd} = file:open(MetaFile,[write,raw,append]),
     file:write(MetaFd,MetaData),
     file:close(MetaFd),
-    Port;
-ip_to_file(Trace,Port) ->
+    State;
+ip_to_file(Trace,{Port, ShellOutput}) ->
+    show_trace(Trace, ShellOutput),
     B = term_to_binary(Trace),
     erlang:port_command(Port,B),
-    Port.
+    {Port, ShellOutput}.
+
+show_trace(Trace, true) ->
+    dbg:dhandler(Trace, standard_io);
+show_trace(_,_) ->
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% For debugging
