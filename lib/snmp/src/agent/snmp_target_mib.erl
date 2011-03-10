@@ -26,7 +26,7 @@
 	 snmpTargetParamsTable/1, snmpTargetParamsTable/3,
 	 get_target_addrs/0, get_target_engine_id/1, set_target_engine_id/2,
 	 is_valid_tag/3, get/3, table_next/2]).
--export([add_addr/10,  delete_addr/1,
+-export([add_addr/10, add_addr/11, delete_addr/1,
 	 add_params/5, delete_params/1]).
 -export([check_target_addr/1, check_target_params/1]).
 -export([default_domain/0]).
