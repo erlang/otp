@@ -41,7 +41,7 @@
       <fsummary>Sends Data back to client.</fsummary>
       <type>
         <v>SessionID = term()</v>
-        <v>Data = string() | io_list()</v>
+        <v>Data = string() | io_list() | binary()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -54,7 +54,9 @@
 	<note><p>Note
           that if any HTTP-header fields should be added by the
           script they must be in the first call to deliver/2  and the
-          data in the call must be a string. Do not
+			 data in the call must be a string. Calls after the headers
+			 are complete may contain binary data to reduce copying
+			 overhead.  Do not
           assume anything about the data type of SessionID, the
           SessionID must be the value given as input to the esi
           call back function that you implemented.</p></note>
