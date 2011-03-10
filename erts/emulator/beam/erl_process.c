@@ -815,15 +815,31 @@ erts_active_schedulers(void)
     return as;
 }
 
+#ifdef ERTS_SMP
+
+static ERTS_INLINE void
+clear_sys_scheduling(void)
+{
+    erts_smp_atomic32_set_relb(&doing_sys_schedule, 0);
+}
+
+static ERTS_INLINE int
+try_set_sys_scheduling(void)
+{
+    return 0 == erts_smp_atomic32_cmpxchg_acqb(&doing_sys_schedule, 1, 0);
+}
+
+#endif
+
 static ERTS_INLINE int
 prepare_for_sys_schedule(void)
 {
 #ifdef ERTS_SMP
     while (!erts_port_task_have_outstanding_io_tasks()
-	   && !erts_smp_atomic32_xchg(&doing_sys_schedule, 1)) {
+	   && try_set_sys_scheduling()) {
 	if (!erts_port_task_have_outstanding_io_tasks())
 	    return 1;
-	erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	clear_sys_scheduling();
     }
     return 0;
 #else
@@ -1153,7 +1169,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * call erl_sys_schedule() until it is handled.
 	     */
 	    if (erts_port_task_have_outstanding_io_tasks()) {
-		erts_smp_atomic32_set(&doing_sys_schedule, 0);
+		clear_sys_scheduling();
 		/*
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
@@ -1172,7 +1188,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	 * sleep in erl_sys_schedule().
 	 */
 	if (erts_port_task_have_outstanding_io_tasks()) {
-	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	    clear_sys_scheduling();
 
 	    /*
 	     * Got to check that we still got I/O tasks; otherwise
@@ -1226,7 +1242,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	sys_woken:
 	    erts_smp_runq_lock(rq);
 	sys_locked_woken:
-	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	    clear_sys_scheduling();
 	    if (flgs & ~ERTS_SSI_FLG_SUSPENDED)
 		erts_smp_atomic32_band(&ssi->flags, ERTS_SSI_FLG_SUSPENDED);
 	    sched_active_sys(esdp->no, rq);
@@ -1289,6 +1305,7 @@ wake_scheduler(ErtsRunQueue *rq, int incq, int one)
 	res = sl->list != NULL;
 	erts_smp_spin_unlock(&sl->lock);
 
+	ERTS_THR_MEMORY_BARRIER;
 	flgs = ssi_flags_set_wake(ssi);
 	erts_sched_finish_poke(ssi, flgs);
 
@@ -1298,6 +1315,8 @@ wake_scheduler(ErtsRunQueue *rq, int incq, int one)
     else {
 	sl->list = NULL;
 	erts_smp_spin_unlock(&sl->lock);
+
+	ERTS_THR_MEMORY_BARRIER;
 	do {
 	    ErtsSchedulerSleepInfo *wake_ssi = ssi;
 	    ssi = ssi->next;
@@ -5371,7 +5390,7 @@ Process *schedule(Process *p, int calls)
 	    if (dt) erts_bump_timer(dt);
 #ifdef ERTS_SMP
 	    erts_smp_runq_lock(rq);
-	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	    clear_sys_scheduling();
 	    goto continue_check_activities_to_run;
 #else
 	    if (!runnable)

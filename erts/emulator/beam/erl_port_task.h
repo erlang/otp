@@ -102,6 +102,7 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE int
 erts_port_task_have_outstanding_io_tasks(void)
 {
+    ERTS_THR_MEMORY_BARRIER;
     return erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != 0;
 }
 

@@ -452,12 +452,15 @@ poll_wait_timeout(ErtsPollSet ps, SysTimeval *tvp)
 static ERTS_INLINE void
 wake_poller(ErtsPollSet ps, int io_ready)
 {
-    erts_aint32_t wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+    erts_aint32_t wakeup_state;
     if (io_ready) {
 	/* We may set the event multiple times. This is, however, harmless. */
-	erts_atomic32_set(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
+	wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+	erts_atomic32_set_relb(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
     }
     else {
+	ERTS_THR_MEMORY_BARRIER;
+	wakeup_state = erts_atomic32_read(&ps->wakeup_state);
 	while (wakeup_state != ERTS_POLL_WOKEN_IO_READY
 	       && wakeup_state != ERTS_POLL_WOKEN_INTR) {
 	    erts_aint32_t act = erts_atomic32_cmpxchg(&ps->wakeup_state,
@@ -518,6 +521,7 @@ reset_interrupt(ErtsPollSet ps)
 	    break;
 	wakeup_state = act;
     }
+    ERTS_THR_MEMORY_BARRIER;
 }
 
 static ERTS_INLINE void
