@@ -156,9 +156,33 @@ handle_end(test, Data, St) ->
     St#state{testsuites=store_suite(NewTestSuite, TestSuites)}.
 
 %% Cancel group does not give information on the individual cancelled test case
-%% We ignore this event
-handle_cancel(group, _Data, St) ->
-    St;
+%% We ignore this event...
+handle_cancel(group, Data, St) ->
+    %% ...except when it tells us that a fixture setup or cleanup failed.
+    case proplists:get_value(reason, Data) of
+        {abort, {SomethingFailed, Exception}}
+          when SomethingFailed =:= setup_failed;
+               SomethingFailed =:= cleanup_failed ->
+            [GroupId|_] = proplists:get_value(id, Data),
+            TestSuites = St#state.testsuites,
+            TestSuite = lookup_suite_by_group_id(GroupId, TestSuites),
+
+            %% We don't have any proper name.  Let's give all the
+            %% clues that we have.
+            Name = case SomethingFailed of
+                       setup_failed -> "fixture setup ";
+                       cleanup_failed -> "fixture cleanup "
+                   end
+                ++ io_lib:format("~p", [proplists:get_value(id, Data)]),
+            Desc = format_desc(proplists:get_value(desc, Data)),
+            TestCase = #testcase{
+              name = Name, description = Desc,
+              time = 0, output = <<>>},
+            NewTestSuite = add_testcase_to_testsuite({error, Exception}, TestCase, TestSuite),
+            St#state{testsuites=store_suite(NewTestSuite, TestSuites)};
+        _ ->
+            St
+    end;
 handle_cancel(test, Data, St) ->
     %% Retrieve existing test suite:
     [GroupId|_] = proplists:get_value(id, Data),
