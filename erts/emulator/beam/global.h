@@ -37,6 +37,7 @@
 #include "erl_process.h"
 #include "erl_sys_driver.h"
 #include "erl_debug.h"
+#include "error.h"
 
 typedef struct port Port;
 #include "erl_port_task.h"
@@ -1064,6 +1065,7 @@ void init_emulator(void);
 void process_main(void);
 Eterm build_stacktrace(Process* c_p, Eterm exc);
 Eterm expand_error_value(Process* c_p, Uint freason, Eterm Value);
+void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
 
 /* erl_init.c */
 

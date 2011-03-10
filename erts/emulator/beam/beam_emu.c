@@ -5813,24 +5813,31 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
     }
 
     /* Save the actual stack trace */
+    erts_save_stacktrace(c_p, s, depth);
+}
+
+void
+erts_save_stacktrace(Process* p, struct StackTrace* s, int depth)
+{
     if (depth > 0) {
 	Eterm *ptr;
 	BeamInstr *prev = s->depth ? s->trace[s->depth-1] : NULL;
 	BeamInstr i_return_trace = beam_return_trace[0];
 	BeamInstr i_return_to_trace = beam_return_to_trace[0];
+
 	/*
 	 * Traverse the stack backwards and add all unique continuation
 	 * pointers to the buffer, up to the maximum stack trace size.
 	 * 
 	 * Skip trace stack frames.
 	 */
-	ptr = c_p->stop;
-	if (ptr < STACK_START(c_p) 
-	    && (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
-				   *cp_val(*ptr) != i_return_to_trace))
-	    && c_p->cp) {
-	    /* Can not follow cp here - code may be unloaded */
-	    BeamInstr *cpp = c_p->cp;
+	ptr = p->stop;
+	if (ptr < STACK_START(p) &&
+	    (is_not_CP(*ptr)|| (*cp_val(*ptr) != i_return_trace &&
+				*cp_val(*ptr) != i_return_to_trace)) &&
+	    p->cp) {
+	    /* Cannot follow cp here - code may be unloaded */
+	    BeamInstr *cpp = p->cp;
 	    if (cpp == beam_exception_trace || cpp == beam_return_trace) {
 		/* Skip return_trace parameters */
 		ptr += 2;
@@ -5839,7 +5846,7 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 		ptr += 1;
 	    }
 	}
-	while (ptr < STACK_START(c_p) && depth > 0) {
+	while (ptr < STACK_START(p) && depth > 0) {
 	    if (is_CP(*ptr)) {
 		if (*cp_val(*ptr) == i_return_trace) {
 		    /* Skip stack frame variables */
