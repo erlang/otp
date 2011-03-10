@@ -32,6 +32,47 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.6</title>
+
+    <section><title>Improvements and New Features</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpd] Prevent XSS in error pages.
+	  Prevent user controlled input from being interpreted 
+	  as HTML in error pages by encoding the reserved HTML 
+	  characters. </p>
+	  <p>Michael Santos</p>
+          <p>Own Id: OTP-9124</p>
+        </item>
+      </list>
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <p>-</p>
+<!--
+      <list>
+        <item>
+          <p>[httpd] httpd_response:send_chunk handles empty list and 
+          empty binary - i.e. no chunk is sent, but it does 
+	  not handle a list with an empty binary [&lt;&lt;&gt;&gt;]. 
+	  This will be sent as an empty chunk - which in turn 
+	  will be encoded by http_chunk to the same as a final 
+	  chunk, which will make the http client believe that 
+	  the end of the page is reached.</p>
+	  <p>Own Id: OTP-8906</p>
+        </item>
+      </list>
+-->
+    </section>
+
+  </section> <!-- 5.6 -->
+
+
   <section><title>Inets 5.5.2</title>
 
     <section><title>Improvements and New Features</title>
