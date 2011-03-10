@@ -44,6 +44,7 @@
           <p>[httpd] 
 	  <seealso marker="mod_esi#deliver">mod_esi:deliver/2</seealso> 
 	  made to accept binary data. </p>
+          <p>Bernard Duggan</p>
           <p>Own Id: OTP-9123</p>
         </item>
       </list>
