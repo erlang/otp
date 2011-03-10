@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -54,6 +54,7 @@ void hipe_mode_switch_init(void);
 void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure);
 Process *hipe_mode_switch(Process*, unsigned, Eterm*);
 void hipe_inc_nstack(Process *p);
+void hipe_empty_nstack(Process *p);
 void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free);
 Eterm hipe_build_stacktrace(Process *p, struct StackTrace *s);
 
