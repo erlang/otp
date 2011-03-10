@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -607,11 +607,13 @@ void hipe_inc_nstack(Process *p)
 
 void hipe_empty_nstack(Process *p)
 {
-   erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
-   p->hipe.nstgraylim = NULL;
-   p->hipe.nsp = NULL;
-   p->hipe.nstack = NULL;
-   p->hipe.nstend = NULL;
+    if (p->hipe.nstack) {
+	erts_free(ERTS_ALC_T_HIPE, p->hipe.nstack);
+    }
+    p->hipe.nstgraylim = NULL;
+    p->hipe.nsp = NULL;
+    p->hipe.nstack = NULL;
+    p->hipe.nstend = NULL;
 }
 
 static void hipe_check_nstack(Process *p, unsigned nwords)
