@@ -151,12 +151,13 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     URL = ?URL_START ++ integer_to_list(Port) ++ Path,
     EscapedPath = http_uri:encode(Path),
     {ok, {404, Body}} = httpc:request(get, {URL, []},
-				      [{url_encode, true}],
-				      [{version, "HTTP/1.0"}, {full_result, false}]),
+				      [{url_encode, true}, {version, "HTTP/1.0"}],
+				      [{full_result, false}]),
     EscapedPath = find_URL_path(string:tokens(Body, " ")),
-    {ok, {404, Body1}} = httpc:request(get, {URL, []}, [],
-				       [{version, "HTTP/1.0"}, {full_result, false}]),
-    EscapedPath = find_URL_path(string:tokens(Body1, " ")),
+    {ok, {404, Body1}} = httpc:request(get, {URL, []},
+				      [{version, "HTTP/1.0"}], [{full_result, false}]),
+    HTMLEncodedPath = http_util:html_encode(Path),
+    HTMLEncodedPath = find_URL_path(string:tokens(Body1, " ")),
     inets:stop(httpd, Pid).
 
 find_URL_path([]) ->
