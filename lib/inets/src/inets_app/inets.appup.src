@@ -46,6 +46,7 @@
     {load_module, http_util, soft_purge, soft_purge, []},
     {load_module, httpd_util, soft_purge, soft_purge, [http_util]}
    ]
+  }, 
   {"5.5.1", 
    [
     {load_module, http_chunk, soft_purge, soft_purge, []}
