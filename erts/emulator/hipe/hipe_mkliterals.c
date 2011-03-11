@@ -1,9 +1,8 @@
 /*
  * %CopyrightBegin%
-
- *
+ * 
  * Copyright Ericsson AB 2001-2011. All Rights Reserved.
- *
+ * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
@@ -211,6 +210,11 @@ static const unsigned int CRCTABLE[256] = {
     0xB3667A2E, 0xC4614AB8, 0x5D681B02, 0x2A6F2B94,
     0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D,
 };
+
+/* For hipe cross compiler. Hard code all values.
+   No calls by hipe compiler to query the running emulator.
+*/
+static int is_xcomp = 0;
 
 /*
  *  The algorithm for calculating the 32 bit CRC checksum is based upon
@@ -579,7 +583,15 @@ static void c_case_param(FILE *fp, const struct rts_param *param)
 
 static void e_define_param(FILE *fp, const struct rts_param *param)
 {
-    fprintf(fp, "-define(%s, hipe_bifs:get_rts_param(%u)).\n", param->name, param->nr);
+    if (is_xcomp) {
+	if (param->is_defined)
+	    fprintf(fp, "-define(%s, %d).\n", param->name, param->value);
+	else
+	    fprintf(fp, "-define(%s, []).\n", param->name);	
+    }
+    else {
+	fprintf(fp, "-define(%s, hipe_bifs:get_rts_param(%u)).\n", param->name, param->nr);
+    }    
 }
 
 static void print_params(FILE *fp, void (*print_param)(FILE*,const struct rts_param*))
@@ -616,19 +628,40 @@ static int do_e(FILE *fp, const char* this_exe)
     fprintf(fp, "\n");
     print_params(fp, e_define_param);
     fprintf(fp, "\n");
-    fprintf(fp, "-define(HIPE_SYSTEM_CRC, hipe_bifs:system_crc(%u)).\n", literals_crc);
+    if (is_xcomp) {
+	fprintf(fp, "-define(HIPE_SYSTEM_CRC, %u).\n", system_crc);
+    }
+    else {
+	fprintf(fp, "-define(HIPE_SYSTEM_CRC, hipe_bifs:system_crc(%u)).\n",
+		literals_crc);
+    }
     return 0;
 }
 
 int main(int argc, const char **argv)
 {
+    int i;
+    int (*do_func_ptr)(FILE *, const char*) = NULL;
+
     compute_crc();
-    if (argc == 2) {
-	if (strcmp(argv[1], "-c") == 0)
-	    return do_c(stdout, argv[0]);
-	if (strcmp(argv[1], "-e") == 0)
-	    return do_e(stdout, argv[0]);
+    for (i = 1; i < argc; i++) {
+	if      (strcmp(argv[i], "-c") == 0)
+	    do_func_ptr = &do_c;
+	else if (strcmp(argv[i], "-e") == 0)
+	    do_func_ptr = &do_e;
+	else if (strcmp(argv[i], "-x") == 0)
+	    is_xcomp = 1;
+	else
+	    goto error;
     }
-    fprintf(stderr, "usage: %s [-c | -e] > output-file\n", argv[0]);
+    if (do_func_ptr) {
+	return do_func_ptr(stdout, argv[0]);
+    }
+error:
+    fprintf(stderr, "usage: %s [-x] [-c | -e] > output-file\n"
+	    "\t-c\tC header file\n"
+	    "\t-e\tErlang header file\n"
+	    "\t-x\tCross compile. No dependencies to compiling emulator\n",	    
+	    argv[0]);
     return 1;
 }
