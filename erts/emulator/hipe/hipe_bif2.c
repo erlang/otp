@@ -33,7 +33,6 @@
 #include "big.h"
 #include "hipe_debug.h"
 #include "hipe_mode_switch.h"
-#include "hipe_bif0.h" /* hipe_constants_{start,next} */
 #include "hipe_arch.h"
 #include "hipe_stack.h"
 
@@ -121,18 +120,6 @@ BIF_RETTYPE hipe_bifs_show_term_1(BIF_ALIST_1)
     } while (0);
     erts_printf("%T", obj);
     printf("\r\n");
-    BIF_RET(am_true);
-}
-
-BIF_RETTYPE hipe_bifs_show_literals_0(BIF_ALIST_0)
-{
-    Eterm *p;
-
-    p = hipe_constants_start;
-    for (; p < hipe_constants_next; ++p)
-	printf("0x%0*lx: 0x%0*lx\r\n",
-	       2*(int)sizeof(long), (unsigned long)p,
-	       2*(int)sizeof(long), *p);
     BIF_RET(am_true);
 }
 

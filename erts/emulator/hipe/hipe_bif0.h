@@ -26,10 +26,6 @@
 
 extern Uint *hipe_bifs_find_pc_from_mfa(Eterm mfa);
 
-/* shared with ggc.c -- NOT an official API */
-extern Eterm *hipe_constants_start;
-extern Eterm *hipe_constants_next;
-
 extern void hipe_mfa_info_table_init(void);
 extern void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a);
 extern Eterm hipe_find_na_or_make_stub(Process*, Eterm, Eterm, Eterm);
