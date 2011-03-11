@@ -56,7 +56,7 @@ erts_init_binary(void)
  */
 
 Eterm
-new_binary(Process *p, byte *buf, int len)
+new_binary(Process *p, byte *buf, Uint len)
 {
     ProcBin* pb;
     Binary* bptr;

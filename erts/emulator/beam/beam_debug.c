@@ -267,7 +267,7 @@ erts_debug_disassemble_1(Process* p, Eterm addr)
 		   "unknown " HEXF "\n", instr);
 	code_ptr++;
     }
-    bin = new_binary(p, (byte *) dsbufp->str, (int) dsbufp->str_len);
+    bin = new_binary(p, (byte *) dsbufp->str, dsbufp->str_len);
     erts_destroy_tmp_dsbuf(dsbufp);
     hsz = 4+4;
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
