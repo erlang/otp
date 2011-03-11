@@ -3660,6 +3660,12 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 		urp="uninstall/openssl_is1/inno setup: app path"
 		rp="$wrp$urp"
 		if regtool -q get "$rp" > /dev/null; then
+		   true
+		else
+		   urp="uninstall/openssl (32-bit)_is1/inno setup: app path"
+		   rp="$wrp$urp"
+		fi	
+		if regtool -q get "$rp" > /dev/null; then
 			ssl_install_dir=`regtool -q get "$rp"`
 			# Try hard to get rid of spaces...
 			if cygpath -d "$ssl_install_dir" > /dev/null 2>&1; then
