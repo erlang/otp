@@ -464,9 +464,9 @@ ok</pre>
             <p>Prints the argument with the <c>string</c> syntax. The
               argument is, if no Unicode translation modifier is present, an 
 	      <seealso marker="erts:erlang#iolist_definition">I/O list</seealso>, a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is chardata(), meaning that binaries are in UTF-8. The characters
-              are printed without quotes. In this format, the printed
-              argument is truncated to the given precision and field
-              width.</p>
+              are printed without quotes. The string is first truncated
+	      by the given precision and then padded and justified
+	      to the given field width. The default precision is the field width.</p>
             <p>This format can be used for printing any object and
               truncating the output so it fits a specified field:</p>
             <pre>
@@ -475,6 +475,8 @@ ok</pre>
 ok
 4> <input>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</input>
 |{hey,hey,h|
+5> <input>io:fwrite("|~-10.8s|~n", [io_lib:write({hey, hey, hey})]).</input>
+|{hey,hey  |
 ok</pre>
           <p>A list with integers larger than 255 is considered an error if the Unicode translation modifier is not given:</p>
 <pre>
