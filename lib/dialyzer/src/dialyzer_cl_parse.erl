@@ -20,10 +20,8 @@
 
 -module(dialyzer_cl_parse).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([start/0, get_lib_dir/1]).
--export([collect_args/1]).	% used also by typer_options.erl
+-export([collect_args/1]).	% used also by typer
 
 -include("dialyzer.hrl").
 
@@ -32,8 +30,10 @@
 -type dial_cl_parse_ret() :: {'check_init', #options{}}
                            | {'plt_info', #options{}}
                            | {'cl', #options{}}
-                           | {{'gui', 'gs' | 'wx'}, #options{}} 
+                           | {{'gui', 'gs' | 'wx'}, #options{}}
                            | {'error', string()}.
+
+-type deep_string() :: string() | [deep_string()].
 
 %%-----------------------------------------------------------------------
 
@@ -82,7 +82,7 @@ cl(["--get_warnings"|T]) ->
   put(dialyzer_options_get_warnings, true),
   cl(T);
 cl(["-D"|_]) ->
-  error("No defines specified after -D");
+  cl_error("No defines specified after -D");
 cl(["-D"++Define|T]) ->
   Def = re:split(Define, "=", [{return, list}]),
   append_defines(Def),
@@ -92,7 +92,7 @@ cl(["-h"|_]) ->
 cl(["--help"|_]) ->
   help_message();
 cl(["-I"]) ->
-  error("no include directory specified after -I");
+  cl_error("no include directory specified after -I");
 cl(["-I", Dir|T]) ->
   append_include(Dir),
   cl(T);
@@ -113,14 +113,14 @@ cl(["--com"++_|T]) ->
   NewTail = command_line(T),
   cl(NewTail);
 cl(["--output"]) ->
-  error("No outfile specified");
+  cl_error("No outfile specified");
 cl(["-o"]) ->
-  error("No outfile specified");
+  cl_error("No outfile specified");
 cl(["--output",Output|T]) ->
   put(dialyzer_output, Output),
   cl(T);
 cl(["--output_plt"]) ->
-  error("No outfile specified for --output_plt");
+  cl_error("No outfile specified for --output_plt");
 cl(["--output_plt",Output|T]) ->
   put(dialyzer_output_plt, Output),
   cl(T);
@@ -139,7 +139,7 @@ cl(["--fullpath"|T]) ->
 cl(["-pa", Path|T]) ->
   case code:add_patha(Path) of
     true -> cl(T);
-    {error, _} -> error("Bad directory for -pa: "++Path)
+    {error, _} -> cl_error("Bad directory for -pa: " ++ Path)
   end;
 cl(["--plt"]) ->
   error("No plt specified for --plt");
@@ -174,14 +174,14 @@ cl(["--verbose"|T]) ->
   put(dialyzer_options_report_mode, verbose),
   cl(T);
 cl(["-W"|_]) ->
-  error("-W given without warning");
+  cl_error("-W given without warning");
 cl(["-Whelp"|_]) ->
   help_warnings();
 cl(["-W"++Warn|T]) ->
   append_var(dialyzer_warnings, [list_to_atom(Warn)]),
   cl(T);
 cl(["--dump_callgraph"]) ->
-  error("No outfile specified for --dump_callgraph");
+  cl_error("No outfile specified for --dump_callgraph");
 cl(["--dump_callgraph", File|T]) ->
   put(dialyzer_callgraph_file, File),
   cl(T);
@@ -197,7 +197,7 @@ cl([H|_] = L) ->
       NewTail = command_line(L),
       cl(NewTail);
     false ->
-      error("Unknown option: " ++ H)
+      cl_error("Unknown option: " ++ H)
   end;
 cl([]) ->
   {RetTag, Opts} =
@@ -216,7 +216,7 @@ cl([]) ->
 	end
     end,
   case dialyzer_options:build(Opts) of
-    {error, Msg} -> error(Msg);
+    {error, Msg} -> cl_error(Msg);
     OptsRecord -> {RetTag, OptsRecord}
   end.
 
@@ -232,7 +232,9 @@ command_line(T0) ->
   end,
   T.
 
-error(Str) ->
+-spec cl_error(deep_string()) -> no_return().
+
+cl_error(Str) ->
   Msg = lists:flatten(Str),
   throw({dialyzer_cl_parse_error, Msg}).
 
@@ -330,10 +332,14 @@ get_plts([], Acc) -> {lists:reverse(Acc), []}.
 
 %%-----------------------------------------------------------------------
 
+-spec help_warnings() -> no_return().
+
 help_warnings() ->
   S = warning_options_msg(),
   io:put_chars(S),
   erlang:halt(?RET_NOTHING_SUSPICIOUS).
+
+-spec help_message() -> no_return().
 
 help_message() ->
   S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
@@ -494,13 +500,13 @@ warning_options_msg() ->
      Include warnings about behaviour callbacks which drift from the published
      recommended interfaces.
   -Wunderspecs ***
-     Warn about underspecified functions 
+     Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)
   -Woverspecs ***
-     Warn about overspecified functions 
+     Warn about overspecified functions
      (those whose -spec is strictly less allowing than the success typing).
   -Wspecdiffs ***
      Warn when the -spec is different than the success typing.
