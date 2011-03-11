@@ -306,6 +306,8 @@ common_options() ->
 
 %%-----------------------------------------------------------------------
 
+-spec get_lib_dir([string()]) -> [string()].
+
 get_lib_dir(Apps) ->
   get_lib_dir(Apps, []).
 
