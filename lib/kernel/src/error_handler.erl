@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,8 +80,12 @@ int() -> int.
 %%
 %% Crash providing a beautiful stack backtrace.
 %%
+-spec crash(atom(), [term()]) -> no_return().
+
 crash(Fun, Args) ->
     crash({Fun,Args}).
+
+-spec crash(atom(), atom(), arity()) -> no_return().
 
 crash(M, F, A) ->
     crash({M,F,A}).

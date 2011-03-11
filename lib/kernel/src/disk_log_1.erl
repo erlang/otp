@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -581,11 +581,13 @@ done_scan(In, Out, OutName, FName, RecoveredTerms, BadChars) ->
             file:delete(OutName),
             throw(Error)
     end.
-   
+
+-spec repair_err(file:io_device(), #cache{}, file:filename(),
+		 file:filename(), {'error', file:posix()}) -> no_return().
 repair_err(In, Out, OutName, ErrFileName, Error) ->
     file:close(In),
     catch fclose(Out, OutName),
-    % OutName is often the culprit, try to remove it anyway...
+    %% OutName is often the culprit, try to remove it anyway...
     file:delete(OutName), 
     file_error(ErrFileName, Error).
 

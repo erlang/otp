@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -113,8 +113,9 @@
 		syncers = []       :: [pid()],
 		node_name = node() :: node(),
 		the_locker, the_registrar, trace,
-                global_lock_down = false
+                global_lock_down = false :: boolean()
                }).
+-type state() :: #state{}.
 
 %%% There are also ETS tables used for bookkeeping of locks and names
 %%% (the first position is the key):
@@ -399,6 +400,9 @@ info() ->
 %%%-----------------------------------------------------------------
 %%% Call-back functions from gen_server
 %%%-----------------------------------------------------------------
+
+-spec init([]) -> {'ok', state()}.
+
 init([]) ->
     process_flag(trap_exit, true),
     _ = ets:new(global_locks, [set, named_table, protected]),
@@ -542,6 +546,11 @@ init([]) ->
 %%          sent by each node to all new nodes (Node becomes known to them)
 %%-----------------------------------------------------------------
 
+-spec handle_call(term(), {pid(), term()}, state()) ->
+        {'noreply', state()} |
+	{'reply', term(), state()} |
+	{'stop', 'normal', 'stopped', state()}.
+
 handle_call({whereis, Name}, From, S) ->
     do_whereis(Name, From),
     {noreply, S};
@@ -621,6 +630,9 @@ handle_call(Request, From, S) ->
 %% init_connect
 %%
 %%========================================================================
+
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast({init_connect, Vsn, Node, InitMsg}, S) ->
     %% Sent from global_name_server at Node.
     ?trace({'####', init_connect, {vsn, Vsn}, {node,Node},{initmsg,InitMsg}}),
@@ -781,6 +793,11 @@ handle_cast(Request, S) ->
                              "received an unexpected message:\n"
                              "handle_cast(~p, _)\n", [Request]),
     {noreply, S}.
+
+%%========================================================================
+
+-spec handle_info(term(), state()) ->
+        {'noreply', state()} | {'stop', term(), state()}.
 
 handle_info({'EXIT', Locker, _Reason}=Exit, #state{the_locker=Locker}=S) ->
     {stop, {locker_died,Exit}, S#state{the_locker=undefined}};
@@ -1122,12 +1139,17 @@ do_whereis(Name, From) ->
 	    send_again({whereis, Name, From})
     end.
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, _S) ->
     true = ets:delete(global_names),
     true = ets:delete(global_names_ext),
     true = ets:delete(global_locks),
     true = ets:delete(global_pid_names),
-    true = ets:delete(global_pid_ids).
+    true = ets:delete(global_pid_ids),
+    ok.
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, S, _Extra) ->
     {ok, S}.
@@ -1955,7 +1977,7 @@ delete_lock(Ref, S0) ->
     Locks = pid_locks(Ref),
     F = fun({ResourceId, LockRequesterId, PidRefs}, S) -> 
                 {Pid, _RPid, Ref} = lists:keyfind(Ref, 3, PidRefs),
-                remove_lock(ResourceId, LockRequesterId, Pid, PidRefs, true,S)
+                remove_lock(ResourceId, LockRequesterId, Pid, PidRefs, true, S)
         end,
     lists:foldl(F, S0, Locks).
 
