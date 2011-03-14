@@ -32,6 +32,43 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.6</title>
+
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>
+	    Miscellaneous inet6 related problems.</p>
+          <p>Own Id: OTP-8927</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>[httpd] Wrong 
+	  <seealso marker="httpd#sec_prop">security property</seealso> 
+	  names used in documentation. </p>
+	  <p><c>security_data_file</c> used <c>instead of data_file</c>.
+	  <c>security_max_retries</c> instead of <c>max_retries</c>.
+	  <c>security_block_time</c> instead of <c>block_time</c>.
+	  <c>security_fail_expire_time</c> instead of <c>fail_expire_time</c>.
+	  <c>security_auth_timeout</c> instead of <c>auth_timeout</c>.</p>
+	  <p>Garrett Smith</p>
+	  <p>Own Id: OTP-9131</p>
+        </item>
+      </list>
+    </section>
+
+  </section> <!-- 5.6 -->
+
+
   <section><title>Inets 5.5.2</title>
 
     <section><title>Improvements and New Features</title>
