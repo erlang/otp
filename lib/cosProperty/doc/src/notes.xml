@@ -35,7 +35,7 @@
     <title>cosProperty 1.1.13</title>
 
     <section>
-      <title>Fixed Bugs and Malfunctions</title>
+      <title>Improvements and New Features</title>
       <list type="bulleted">
         <item>
           <p>Eliminated Dialyzer warnings when using exit or throw.</p>
