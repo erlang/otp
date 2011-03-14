@@ -32,6 +32,44 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added an option to test specs which allow the execution
+	    of tests as is, instead of doing merging of tests on the
+	    same "level". See the merge_tests directive the test
+	    specification documentation.</p>
+          <p>
+	    Own Id: OTP-9026 Aux Id: seq11768 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Alpha release of Common Test Hooks (CTH). CTHs allow the
+	    users of common test to abtract out common behaviours
+	    from test suites in a much more elegant and flexible way
+	    than was possible before. Note that the addition of this
+	    feature may introduce minor changes in the undocumented
+	    behaviour of the interface inbetween common_test and
+	    test_server.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
