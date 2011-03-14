@@ -571,6 +571,17 @@ otp_5269(Config) when is_list(Config) ->
                                  B:A>> <- [<<16:8,19:16>>],
                                <<X:8>> <- [<<B:8>>]].",
                 [19]),
+    ?line check(fun() ->
+		(fun (<<A:1/binary, B:8/integer, _C:B/binary>>) ->
+			    case A of
+				B -> wrong;
+				_ -> ok
+			    end
+		 end)(<<1,2,3,4>>) end,
+		"(fun(<<A:1/binary, B:8/integer, _C:B/binary>>) ->"
+			    " case A of B -> wrong; _ -> ok end"
+		" end)(<<1, 2, 3, 4>>).",
+		ok),
     ok.
 
 otp_6539(doc) ->

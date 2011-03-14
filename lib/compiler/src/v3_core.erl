@@ -1820,7 +1820,21 @@ upattern_list([], _, St) -> {[],[],[],[],St}.
 %% upat_bin([Pat], [KnownVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
 upat_bin(Es0, Ks, St0) ->
-    upat_bin(Es0, Ks, [], St0).
+    {Es1,Pg,Pv,Pu0,St1} = upat_bin(Es0, Ks, [], St0),
+
+    %% In a clause such as <<Sz:8,V:Sz>> in a function head, Sz will both
+    %% be new and used; a situation that is not handled properly by
+    %% uclause/4.  (Basically, since Sz occurs in two sets that are
+    %% subtracted from each other, Sz will not be added to the list of
+    %% known variables and will seem to be new the next time it is
+    %% used in a match.)
+    %%   Since the variable Sz really is new (it does not use a
+    %% value bound prior to the binary matching), Sz should only be
+    %% included in the set of new variables. Thus we should take it
+    %% out of the set of used variables.
+
+    Pu1 = subtract(Pu0, intersection(Pv, Pu0)),
+    {Es1,Pg,Pv,Pu1,St1}.
 
 %% upat_bin([Pat], [KnownVar], [LocalVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
