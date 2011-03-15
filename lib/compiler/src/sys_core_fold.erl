@@ -1969,13 +1969,22 @@ case_tuple_pat([#c_tuple{es=Ps}], Arity) when length(Ps) =:= Arity ->
 case_tuple_pat([#c_literal{val=T}], Arity) when tuple_size(T) =:= Arity ->
     Ps = [#c_literal{val=E} || E <- tuple_to_list(T)],
     {ok,Ps,[]};
-case_tuple_pat([#c_var{anno=Anno}=V], Arity) ->
-    Vars = make_vars(Anno, 1, Arity),
+case_tuple_pat([#c_var{anno=Anno0}=V], Arity) ->
+    Vars = make_vars(Anno0, 1, Arity),
+
+    %% If the entire case statement is evaluated in an effect
+    %% context (e.g. "case {A,B} of ... end, ok"), there will
+    %% be a warning that a term is constructed but never used.
+    %% To avoid that warning, we must annotate the tuple as
+    %% compiler generated.
+
+    Anno = [compiler_generated|Anno0],
     {ok,Vars,[{V,#c_tuple{anno=Anno,es=Vars}}]};
 case_tuple_pat([#c_alias{var=V,pat=P}], Arity) ->
     case case_tuple_pat([P], Arity) of
 	{ok,Ps,Avs} ->
-	    Anno = core_lib:get_anno(P),
+	    Anno0 = core_lib:get_anno(P),
+	    Anno = [compiler_generated|Anno0],
 	    {ok,Ps,[{V,#c_tuple{anno=Anno,es=unalias_pat_list(Ps)}}|Avs]};
 	error ->
 	    error
