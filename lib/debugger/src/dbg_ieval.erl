@@ -988,11 +988,6 @@ expr({dbg,Line,error,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     {[Term],Bs} = eval_list(As0, Bs0, Ieval),
     trace(bif, {Le,Line,erlang,error,[Term]}),
     exception(error, Term, Bs, Ieval);
-expr({dbg,Line,fault,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {[Term],Bs} = eval_list(As0, Bs0, Ieval),
-    trace(bif, {Le,Line,erlang,fault,[Term]}),
-    exception(fault, Term, Bs, Ieval);
 expr({dbg,Line,exit,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {[Term],Bs} = eval_list(As0, Bs0, Ieval),

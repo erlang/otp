@@ -404,8 +404,6 @@ expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,throw}},[_]=As}) ->
     {dbg,Line,throw,expr_list(As)};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}) ->
     {dbg,Line,error,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,fault}},[_]=As}) ->
-    {dbg,Line,fault,expr_list(As)};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}) ->
     {dbg,Line,exit,expr_list(As)};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}) ->
