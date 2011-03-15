@@ -20,8 +20,7 @@
 
 -export([eval/3,exit_info/5]).
 -export([eval_expr/3]).
--export([check_exit_msg/3,exception/4,in_use_p/2]).
--export([stack_level/0, bindings/1, stack_frame/2, backtrace/1]).
+-export([check_exit_msg/3,exception/4]).
 
 -include("dbg_ieval.hrl").
 
@@ -71,13 +70,12 @@ exit_info(Int, AttPid, OrigPid, Reason, ExitInfo) ->
     
     case ExitInfo of
 	{{Mod,Line},Bs,S} ->
-	    Stack = binary_to_term(S),
-	    put(stack, Stack),
-	    Le = stack_level(Stack),
+	    dbg_istk:from_external(S),
+	    Le = dbg_istk:stack_level(),
 	    dbg_icmd:tell_attached({exit_at, {Mod, Line}, Reason, Le}),
 	    exit_loop(OrigPid, Reason, Bs,#ieval{module=Mod,line=Line});
 	{} ->
-	    put(stack, []),
+	    dbg_istk:init(),
 	    dbg_icmd:tell_attached({exit_at, null, Reason, 1}),
 	    exit_loop(OrigPid, Reason, erl_eval:new_bindings(),#ieval{})
     end.
@@ -142,8 +140,8 @@ check_exit_msg({'DOWN',_,_,_,Reason}, Bs,
 	    undefined when Le =:= 1 -> % died outside interpreted code
 		{};
 	    undefined when Le > 1 ->
-		StackBin = term_to_binary(get(stack)),
-		{{Mod, Li}, Bs, StackBin};
+		StackExternal = dbg_istk:to_external(),
+		{{Mod, Li}, Bs, StackExternal};
 
 	    %% Debugged has terminated due to an exception
 	    ExitInfo0 ->
@@ -170,29 +168,14 @@ check_exit_msg(_Msg, _Bs, _Ieval) ->
 %% and then raise the exception.
 %%--------------------------------------------------------------------
 exception(Class, Reason, Bs, Ieval) ->
-    exception(Class, Reason, fix_stacktrace(1), Bs, Ieval).
+    exception(Class, Reason, dbg_istk:exception_stacktrace(complete, Ieval),
+	      Bs, Ieval).
 
 exception(Class, Reason, Stacktrace, Bs, #ieval{module=M, line=Line}) ->
-    ExitInfo = {{M,Line}, Bs, term_to_binary(get(stack))},
+    ExitInfo = {{M,Line}, Bs, dbg_istk:to_external()},
     put(exit_info, ExitInfo),
     put(stacktrace, Stacktrace),
     erlang:Class(Reason).
-
-%%--------------------------------------------------------------------
-%% in_use_p(Mod, Cm) -> boolean()
-%%   Mod = Cm = atom()
-%% Returns true if Mod is found on the stack, otherwise false.
-%%--------------------------------------------------------------------
-in_use_p(Mod, Mod) -> true;
-in_use_p(Mod, _Cm) ->
-    case get(trace_stack) of
-	false -> true;
-	_ -> %  all | no_tail
-	    lists:any(fun({_,{M,_,_,_}}) when M =:= Mod -> true;
-			 (_) -> false
-		      end,
-		      get(stack))
-    end.
 
 %%====================================================================
 %% Internal functions
@@ -225,7 +208,7 @@ meta(Int, Debugged, M, F, As) ->
     put(cache, []),
     put(next_break, Status), % break | running (other values later)
     put(self, Debugged),     % pid() interpreted process
-    put(stack, []),
+    dbg_istk:init(),
     put(stacktrace, []),
     put(trace_stack, dbg_iserver:call(Int, get_stack_trace)),
     put(trace, false),       % bool() Trace on/off
@@ -243,7 +226,7 @@ meta(Int, Debugged, M, F, As) ->
 
 debugged_cmd(Cmd, Bs, Ieval) ->
     Debugged = get(self),
-    Stacktrace = fix_stacktrace(2),
+    Stacktrace = dbg_istk:exception_stacktrace(no_current, Ieval),
     Debugged ! {sys, self(), {command,Cmd,Stacktrace}},
     meta_loop(Debugged, Bs, Ieval).
 
@@ -275,7 +258,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 	    %% Reset process dictionary
 	    %% This is really only necessary if the process left
 	    %% interpreted code at a call level > 1
-	    put(stack, []),
+	    dbg_istk:init(),
 	    put(stacktrace, []),
 	    put(exit_info, undefined),
 	    
@@ -312,177 +295,6 @@ exit_loop(OrigPid, Reason, Bs, Ieval) ->
 	    dbg_icmd:handle_msg(Msg, exit_at, Bs, Ieval),
 	    exit_loop(OrigPid, Reason, Bs, Ieval)
     end.
-
-%%--Stack emulation---------------------------------------------------
-
-%% We keep track of a call stack that is used for
-%%  1) saving stack frames that can be inspected from an Attached
-%%     Process GUI (using dbg_icmd:get(Meta, stack_frame, {Dir, SP})
-%%  2) generate an approximation of regular stacktrace -- sent to
-%%     Debugged when it should raise an exception or evaluate a
-%%     function (since it might possible raise an exception)
-%%
-%% Stack = [Entry]
-%%   Entry = {Le, {MFA, Where, Bs}}
-%%     Le = int()         % current call level
-%%     MFA = {M,F,Args}   % called function (or fun)
-%%         | {Fun,Args}   %
-%%     Where = {M,Li}     % from where (module+line) function is called
-%%     Bs = bindings()    % current variable bindings
-%%
-%% How to push depends on the "Stack Trace" option (value saved in
-%% process dictionary item 'trace_stack').
-%%   all - everything is pushed
-%%   no_tail - tail recursive push
-%%   false - nothing is pushed
-%% Whenever a function returns, the corresponding call frame is popped.
-
-push(MFA, Bs, #ieval{level=Le,module=Cm,line=Li,last_call=Lc}) ->
-    Entry = {Le, {MFA, {Cm,Li}, Bs}},
-    case get(trace_stack) of
-	false -> ignore;
-	no_tail when Lc ->
-	    case get(stack) of
-		[] -> put(stack, [Entry]);
-		[_Entry|Entries] -> put(stack, [Entry|Entries])
-	    end;
-	_ -> % all | no_tail when Lc =:= false
-	    put(stack, [Entry|get(stack)])
-    end.
-
-pop() ->
-    case get(trace_stack) of
-	false -> ignore;
-	_ -> % all ¦ no_tail
-	    case get(stack) of
-		[_Entry|Entries] ->
-		    put(stack, Entries);
-		[] ->
-		    ignore
-	    end
-    end.
-
-pop(Le) ->
-    case get(trace_stack) of
-	false -> ignore;
-	_ -> % all | no_tail
-	    put(stack, pop(Le, get(stack)))
-    end.
-
-pop(Level, [{Le, _}|Stack]) when Level=<Le ->
-    pop(Level, Stack);
-pop(_Level, Stack) ->
-    Stack.
-
-
-%% stack_level() -> Le
-%% stack_level(Stack) -> Le
-%% Top call level
-stack_level() ->
-    stack_level(get(stack)).
-
-stack_level([]) -> 1;
-stack_level([{Le,_}|_]) -> Le.
-
-%% fix_stacktrace(Start) -> Stacktrace
-%%   Start = 1|2
-%%   Stacktrace = [{M,F,Args|Arity} | {Fun,Args}]
-%% Convert internal stack format to imitation of regular stacktrace.
-%% Max three elements, no repeated (recursive) calls to the same
-%% function and convert argument lists to arity for all but topmost
-%% entry (and funs).
-%% 'Start' indicates where at get(stack) to start. This somewhat ugly
-%% solution is because fix_stacktrace has two uses: 1) to imitate
-%% the stacktrace in the case of an exception in the interpreted code,
-%% in which case the current call (top of the stack = first of the list)
-%% should be included, and 2) to send a current stacktrace to Debugged
-%% when evaluation passes into non-interpreted code, in which case
-%% the current call should NOT be included (as it is Debugged which
-%% will make the actual function call).
-fix_stacktrace(Start) ->
-    case fix_stacktrace2(sublist(get(stack), Start, 3)) of
-	[] ->
-	    [];
-	[H|T] ->
-	    [H|args2arity(T)]
-    end.
-
-sublist([], _Start, _Length) ->
-    []; % workaround, lists:sublist([],2,3) fails
-sublist(L, Start, Length) ->
-    lists:sublist(L, Start, Length).
-
-fix_stacktrace2([{_,{{M,F,As1},_,_}}, {_,{{M,F,As2},_,_}}|_])
-  when length(As1) =:= length(As2) ->
-    [{M,F,As1}];
-fix_stacktrace2([{_,{{Fun,As1},_,_}}, {_,{{Fun,As2},_,_}}|_])
-  when length(As1) =:= length(As2) ->
-    [{Fun,As1}];
-fix_stacktrace2([{_,{MFA,_,_}}|Entries]) ->
-    [MFA|fix_stacktrace2(Entries)];
-fix_stacktrace2([]) ->
-    [].
-
-args2arity([{M,F,As}|Entries]) when is_list(As) ->
-    [{M,F,length(As)}|args2arity(Entries)];
-args2arity([Entry|Entries]) ->
-    [Entry|args2arity(Entries)];
-args2arity([]) ->
-    [].
-
-%% bindings(SP) -> Bs
-%%   SP = Le  % stack pointer
-%% Return the bindings for the specified call level
-bindings(SP) ->
-    bindings(SP, get(stack)).
-
-bindings(SP, [{SP,{_MFA,_Wh,Bs}}|_]) ->
-    Bs;
-bindings(SP, [_Entry|Entries]) ->
-    bindings(SP, Entries);
-bindings(_SP, []) ->
-    erl_eval:new_bindings().
-
-%% stack_frame(Dir, SP) -> {Le, Where, Bs} | top | bottom
-%%   Dir = up | down
-%%   Where = {Cm, Li}
-%%     Cm = Module | undefined  % module
-%%     Li = int()  | -1         % line number
-%%     Bs = bindings()
-%% Return stack frame info one step up/down from given stack pointer
-%%  up = to lower call levels
-%%  down = to higher call levels
-stack_frame(up, SP) ->
-    stack_frame(SP, up, get(stack));
-stack_frame(down, SP) ->
-    stack_frame(SP, down, lists:reverse(get(stack))).
-
-stack_frame(SP, up, [{Le, {_MFA,Where,Bs}}|_]) when Le<SP ->
-    {Le, Where, Bs};
-stack_frame(SP, down, [{Le, {_MFA,Where,Bs}}|_]) when Le>SP ->
-    {Le, Where, Bs};
-stack_frame(SP, Dir, [{SP, _}|Stack]) ->
-    case Stack of
-	[{Le, {_MFA,Where,Bs}}|_] ->
-	    {Le, Where, Bs};
-	[] when Dir =:= up ->
-	    top;
-	[] when Dir =:= down ->
-	    bottom
-    end;
-stack_frame(SP, Dir, [_Entry|Stack]) ->
-    stack_frame(SP, Dir, Stack).
-
-%% backtrace(HowMany) -> Backtrace
-%%   HowMany = all | int()
-%%   Backtrace = {Le, MFA}
-%% Return all/the last N called functions, in reversed call order
-backtrace(HowMany) ->
-    Stack = case HowMany of
-		all -> get(stack);
-		N -> lists:sublist(get(stack), N)
-	    end,
-    [{Le, MFA} || {Le,{MFA,_Wh,_Bs}} <- Stack].
 
 %%--Trace function----------------------------------------------------
 
@@ -591,12 +403,12 @@ eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
     #ieval{level=Le, line=Li, last_call=Lc} = Ieval,
     case lambda(Fun, As0) of
 	{Cs,Module,Name,As,Bs} ->
-	    push({Module,Name,As}, Bs0, Ieval),
+	    dbg_istk:push({Module,Name,As}, Bs0, Ieval),
 	    trace(call_fun, {Le,Li,Name,As}),
 	    {value, Val, _Bs} =
 		fnk_clauses(Cs, Module, Name, As, Bs,
 			    Ieval#ieval{level=Le+1}),
-	    pop(),
+	    dbg_istk:pop(),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -604,12 +416,12 @@ eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
 	    trace(call_fun, {Le,Li,Fun,As0}),
 	    {value, {dbg_apply,erlang,apply,[Fun,As0]}, Bs0};
 	not_interpreted ->
-	    push({Fun,As0}, Bs0, Ieval),
+	    dbg_istk:push({Fun,As0}, Bs0, Ieval),
 	    trace(call_fun, {Le,Li,Fun,As0}),
 	    {value, Val, _Bs} =
 		debugged_cmd({apply,erlang,apply,[Fun,As0]},Bs0,
 			     Ieval#ieval{level=Le+1}),
-	    pop(),
+	    dbg_istk:pop(),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -628,7 +440,7 @@ eval_function(ct_line, line, As, Bs, extern, #ieval{level=Le}=Ieval) ->
 eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
     #ieval{level=Le, line=Li, last_call=Lc} = Ieval,
 
-    push({Mod,Name,As0}, Bs0, Ieval),
+    dbg_istk:push({Mod,Name,As0}, Bs0, Ieval),
     trace(call, {Called, {Le,Li,Mod,Name,As0}}),
 
     case get_function(Mod, Name, As0, Called) of
@@ -636,7 +448,7 @@ eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
 	    {value, Val, _Bs} =
 		fnk_clauses(Cs, Mod, Name, As0, erl_eval:new_bindings(),
 			    Ieval#ieval{level=Le+1}),
-	    pop(),
+	    dbg_istk:pop(),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -646,7 +458,7 @@ eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
 	    {value, Val, _Bs} =
 		debugged_cmd({apply,Mod,Name,As0}, Bs0,
 			     Ieval#ieval{level=Le+1}),
-	    pop(),
+	    dbg_istk:pop(),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -826,7 +638,7 @@ expr({'catch',Line,Expr}, Bs0, Ieval) ->
 	Class:Reason ->
 	    %% Exception caught, reset exit info
 	    put(exit_info, undefined),
-	    pop(Ieval#ieval.level),
+	    dbg_istk:pop(Ieval#ieval.level),
 	    Value = catch_value(Class, Reason),
 	    trace(return, {Ieval#ieval.level,Value}),
 	    {value, Value, Bs0}
@@ -999,10 +811,10 @@ expr({safe_bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {As,Bs} = eval_list(As0, Bs0, Ieval),
     trace(bif, {Le,Line,M,F,As}),
-    push({M,F,As}, Bs0, Ieval),
+    dbg_istk:push({M,F,As}, Bs0, Ieval),
     {_,Value,_} = Res = safe_bif(M, F, As, Bs, Ieval),
     trace(return, {Le,Value}),
-    pop(),
+    dbg_istk:pop(),
     Res;
 
 %% Call to a BIF that must be evaluated in the correct process
@@ -1010,11 +822,11 @@ expr({bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {As,Bs} = eval_list(As0, Bs0, Ieval),
     trace(bif, {Le,Line,M,F,As}),
-    push({M,F,As}, Bs0, Ieval),
+    dbg_istk:push({M,F,As}, Bs0, Ieval),
     {_,Value,_} =
 	Res = debugged_cmd({apply,M,F,As}, Bs, Ieval#ieval{level=Le+1}),
     trace(return, {Le,Value}),
-    pop(),
+    dbg_istk:pop(),
     Res;
 
 %% Call to an operation
@@ -1415,7 +1227,7 @@ catch_clauses(Exception, [{clause,_,[P],G,B}|CatchCs], Bs0, Ieval) ->
 		true ->
 		    %% Exception caught, reset exit info
 		    put(exit_info, undefined),
-		    pop(Ieval#ieval.level),
+		    dbg_istk:pop(Ieval#ieval.level),
 		    seq(B, Bs, Ieval);
 		false ->
 		    catch_clauses(Exception, CatchCs, Bs0, Ieval)
