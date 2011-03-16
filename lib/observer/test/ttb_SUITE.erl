@@ -92,15 +92,15 @@ file(Config) when is_list(Config) ->
     ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(filename:join(Privdir,atom_to_list(Node)++"-file")),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(OtherNode)++"-file")),
 
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace,
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
@@ -123,15 +123,15 @@ file_no_pi(Config) when is_list(Config) ->
     ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(filename:join(Privdir,atom_to_list(Node)++"-file")),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(OtherNode)++"-file")),
 
-    ?line [{trace,LocalProc,call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,LocalProc,call,{?MODULE,foo,[]}, {_,_,_}},
 	   end_of_trace,
-	   {trace,RemoteProc,call,{?MODULE,foo,[]}},
+	   {trace_ts,RemoteProc,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ?line true = is_pid(LocalProc),
     ?line true = is_pid(RemoteProc),
@@ -170,7 +170,7 @@ file_fetch(Config) when is_list(Config) ->
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
     ?line ?t:capture_start(),
-    ?line ttb:stop([fetch]),
+    ?line ttb:stop([return]),
     ?line ?t:capture_stop(),
     ?line [StoreString] = ?t:capture_get(),
     ?line UploadDir =
@@ -194,9 +194,9 @@ file_fetch(Config) when is_list(Config) ->
     ?line ok = ttb:format(filename:join(UploadDir,
 					atom_to_list(OtherNode)++"-file_fetch")),
 
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace,
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     ?line ok = file:set_cwd(Cwd),
@@ -224,19 +224,19 @@ wrap(Config) when is_list(Config) ->
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(Node)++"-wrap.*.wrp")),
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   {trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   {trace,{S,_,Node},call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(OtherNode)++"-wrap.*.wrp")),
-    ?line [{trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     %% Check that merge does not crash even if the timestamp flag is not on.
@@ -244,14 +244,13 @@ wrap(Config) when is_list(Config) ->
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-wrap.*.wrp"),
 		  filename:join(Privdir,
-				atom_to_list(OtherNode)++"-wrap.*.wrp")]),
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   {trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   {trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   end_of_trace,
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
-	   {trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},
+				atom_to_list(OtherNode)++"-wrap.*.wrp")],[{disable_sort,true}]),
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
@@ -277,7 +276,7 @@ wrap_merge(Config) when is_list(Config) ->
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,
@@ -289,7 +288,6 @@ wrap_merge(Config) when is_list(Config) ->
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
 	   {trace_ts,_,call,{?MODULE,foo,[]},_},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
-	   end_of_trace,
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},_},
 	   end_of_trace] = flush(),
     ok.
@@ -330,7 +328,6 @@ wrap_merge_fetch_format(Config) when is_list(Config) ->
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},_},
 	   {trace_ts,{S,_,Node},call,{?MODULE,foo,[]},_},
-	   end_of_trace,
 	   {trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},_},
 	   end_of_trace] = flush(),
 
@@ -360,16 +357,15 @@ write_config1(Config) when is_list(Config) ->
     ?line ok = ttb:run_config(File),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config1"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config1")]),
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   end_of_trace,
-	   {trace,Other,call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,Other,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     case metatest(Other,OtherNode,Privdir,"-write_config1.ti") of
@@ -410,16 +406,15 @@ write_config2(Config) when is_list(Config) ->
     ?line ok = ttb:run_config(File),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config2"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config2")]),
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   end_of_trace,
-	   {trace,Other,call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,Other,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     case metatest(Other,OtherNode,Privdir,"-write_config2.ti") of
@@ -455,18 +450,18 @@ write_config3(Config) when is_list(Config) ->
     ?line {ok,[{all,[{matched,_,_},{matched,_,_}]}]} = ttb:p(all,call),
     ?line {ok,[{matched,_,1},{matched,_,1}]} = ttb:tp(?MODULE,foo,[]),
     ?line ok = ttb:write_config(File,[1,2]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line [_,_] = ttb:list_config(File),
     ?line ok = ttb:run_config(File),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config3"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config3")]),
-    ?line [] = flush(), %foo is not traced
+    ?line [end_of_trace] = flush(), %foo is not traced
 
     ?line ok = ttb:write_config(File,[{ttb,tp,[?MODULE,foo,[]]}],
 			      [append]),
@@ -474,16 +469,15 @@ write_config3(Config) when is_list(Config) ->
     ?line ok = ttb:run_config(File),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,
 				atom_to_list(Node)++"-write_config3"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_config3")]),
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
-	   end_of_trace,
-	   {trace,Other,call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
+	   {trace_ts,Other,call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
 
     case metatest(Other,OtherNode,Privdir,"-write_config3.ti") of
@@ -531,12 +525,12 @@ history(Config) when is_list(Config) ->
     ?line ?MODULE:foo(),
     ?line ok = ttb:run_history([3,4]),
     ?line ?MODULE:foo(),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-history"),
 		  filename:join(Privdir,atom_to_list(OtherNode)++"-history")]),
-    ?line [{trace,{S,_,Node},call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
     
@@ -561,17 +555,16 @@ write_trace_info(Config) when is_list(Config) ->
     ?line ok = ttb:write_trace_info(mytraceinfo,fun() -> node() end),
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(OtherNode),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-write_trace_info"),
 		  filename:join(Privdir,
 				atom_to_list(OtherNode)++"-write_trace_info")],
 		 [{handler,{fun otherhandler/4,S}}]),
-    ?line [{{trace,{S,_,Node},call,{?MODULE,foo,[]}},[Node]},
-	   {end_of_trace,[Node]},
-	   {{trace,{_,_,OtherNode},call,{?MODULE,foo,[]}},[OtherNode]},
-	   {end_of_trace,[OtherNode]}] = flush(),
+    ?line [{{trace_ts,{S,_,Node},call,{?MODULE,foo,[]},{_,_,_}},[Node]},
+	   {{trace_ts,{_,_,OtherNode},call,{?MODULE,foo,[]},{_,_,_}},[OtherNode]},
+	   end_of_trace] = flush(),
 
     ok.
 
@@ -593,10 +586,10 @@ seq_trace(Config) when is_list(Config) ->
 
     ?line Start = spawn(fun() -> seq() end),
     ?line timer:sleep(300),
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ok = ttb:format(
 		 [filename:join(Privdir,atom_to_list(Node)++"-seq_trace")]),
-    ?line [{trace,StartProc,call,{?MODULE,seq,[]}},
+    ?line [{trace_ts,StartProc,call,{?MODULE,seq,[]},{_,_,_}},
 	   {seq_trace,0,{send,{0,1},StartProc,P1Proc,{Start,P2}}},
 	   {seq_trace,0,{send,{1,2},P1Proc,P2Proc,{P1,Start}}},
 	   {seq_trace,0,{send,{2,3},P2Proc,StartProc,{P2,P1}}},
@@ -660,12 +653,12 @@ diskless(Config) when is_list(Config) ->
 
     ?line rpc:call(RemoteNode,?MODULE,foo,[]),
     ?line timer:sleep(500), % needed for the IP port to flush
-    ?line ttb:stop(),
+    ?line ttb:stop([nofetch]),
     ?line ?t:stop_node(RemoteNode),
     ?line ok = ttb:format(filename:join(Privdir,
 					atom_to_list(RemoteNode)++"-diskless")),
 
-    ?line [{trace,{_,_,RemoteNode},call,{?MODULE,foo,[]}},
+    ?line [{trace_ts,{_,_,RemoteNode},call,{?MODULE,foo,[]},{_,_,_}},
 	   end_of_trace] = flush(),
     ok.
 
@@ -715,7 +708,7 @@ otp_4967_2(Config) when is_list(Config) ->
     io:format("11: ~p",[now()]),
     ?line true = lists:member(heihopp,Msgs), % the heihopp message itself
     io:format("13: ~p",[now()]),
-    ?line {value,{trace,_,send,heihopp,{_,otp_4967,Node}}} = 
+    ?line {value,{trace_ts,_,send,heihopp,{_,otp_4967,Node},{_,_,_}}} =
 	lists:keysearch(heihopp,4,Msgs), % trace trace of the heihopp message
     io:format("14: ~p",[now()]),
     ?line end_of_trace = lists:last(Msgs), % end of the trace
@@ -728,6 +721,9 @@ myhandler(_Fd,Trace,_,Relay) ->
     Relay ! Trace,
     Relay.
 
+otherhandler(_Fd,Trace,end_of_trace,Relay) ->
+    Relay ! end_of_trace,
+    Relay;
 otherhandler(_Fd,Trace,TI,Relay) ->
     {value,{mytraceinfo,I}} = lists:keysearch(mytraceinfo,1,TI),
     Relay ! {Trace,I},
