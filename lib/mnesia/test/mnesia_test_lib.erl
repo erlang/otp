@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -413,32 +413,28 @@ test_driver([T|TestCases], Config) ->
     [L1|L2];
 test_driver({Module, TestCases}, Config) when is_list(TestCases)->
     test_driver(default_module(Module, TestCases), Config);
-test_driver({_, {Module, TestCase}}, Config) ->
-    test_driver({Module, TestCase}, Config);
+test_driver({Module, all}, Config) ->
+    get_suite(Module, all, Config);
+test_driver({Module, G={group, _}}, Config) ->
+    get_suite(Module, G, Config);
+test_driver({_, {group, Module, Group}}, Config) ->
+    get_suite(Module, {group, Group}, Config);
+
 test_driver({Module, TestCase}, Config) ->
     Sec = timer:seconds(1) * 1000,
-    case get_suite(Module, TestCase) of
-	[] when Config == suite ->
+    case Config of
+	suite ->
 	    {Module, TestCase, 'IMPL'};
-	[] ->
+	_ ->
 	    log("Eval test case: ~w~n", [{Module, TestCase}]),
-	    {T, Res} =
-		timer:tc(?MODULE, eval_test_case, [Module, TestCase, Config]),
-	    log("Tested ~w in ~w sec~n", [TestCase, T div Sec]),
-	    {T div Sec, Res};
-	Suite when is_list(Suite), Config == suite ->
-	    Res = test_driver(default_module(Module, Suite), Config),
-	    {{Module, TestCase}, Res};
-	Suite when is_list(Suite) ->
-	    log("Expand test case ~w~n", [{Module, TestCase}]),
-	    Def = default_module(Module, Suite),
-	    {T, Res} = timer:tc(?MODULE, test_driver, [Def, Config]),
-	    {T div Sec, {{Module, TestCase}, Res}};
-	'NYI' when Config == suite ->
-	    {Module, TestCase, 'NYI'};
-	'NYI' ->
-      	    log("<WARNING> Test case ~w NYI~n", [{Module, TestCase}]),
-	    {0, {skip, {Module, TestCase}, "NYI"}}
+	    try timer:tc(?MODULE, eval_test_case, [Module, TestCase, Config]) of
+		{T, Res} -> 
+		    log("Tested ~w in ~w sec~n", [TestCase, T div Sec]),
+		    {T div Sec, Res}
+	    catch error:function_clause -> 
+		    log("<WARNING> Test case ~w NYI~n", [{Module, TestCase}]),
+		    {0, {skip, {Module, TestCase}, "NYI"}}
+	    end
     end;
 test_driver(TestCase, Config) ->
     DefaultModule = mnesia_SUITE,
@@ -449,18 +445,50 @@ test_driver(TestCase, Config) ->
 default_module(DefaultModule, TestCases) when is_list(TestCases) ->
     Fun = fun(T) ->
 		  case T of
+		      {group, _} -> {true, {DefaultModule, T}};
 		      {_, _} -> true;
 		      T -> {true, {DefaultModule, T}}
 		  end
 	  end,
     lists:zf(Fun, TestCases).
 
+get_suite(Module, TestCase, Config) ->
+    case get_suite(Module, TestCase) of
+	Suite when is_list(Suite), Config == suite ->
+	    Res = test_driver(default_module(Module, Suite), Config),
+	    {{Module, TestCase}, Res};
+	Suite when is_list(Suite) ->
+	    log("Expand test case ~w~n", [{Module, TestCase}]),
+	    Def = default_module(Module, Suite),
+	    {T, Res} = timer:tc(?MODULE, test_driver, [Def, Config]),
+	    Sec = timer:seconds(1) * 1000,
+	    {T div Sec, {{Module, TestCase}, Res}};
+	'NYI' when Config == suite ->
+	    {Module, TestCase, 'NYI'};
+	'NYI' ->
+      	    log("<WARNING> Test case ~w NYI~n", [{Module, TestCase}]),
+	    {0, {skip, {Module, TestCase}, "NYI"}}
+    end.
+
 %% Returns a list (possibly empty) or the atom 'NYI'
-get_suite(Mod, Fun) ->
-    case catch (apply(Mod, Fun, [suite])) of
+get_suite(Mod, {group, Suite}) ->
+    try 
+	Groups = Mod:groups(),
+	{_, _, TCList} = lists:keyfind(Suite, 1, Groups),
+	TCList
+    catch
+	_:Reason ->
+	    io:format("Not implemented ~p ~p (~p ~p)~n", 
+		      [Mod,Suite,Reason, erlang:get_stacktrace()]),
+	    'NYI'
+    end;
+get_suite(Mod, all) ->
+    case catch (apply(Mod, all, [])) of
 	{'EXIT', _} -> 'NYI';
 	List when is_list(List) -> List
-    end.
+    end;
+get_suite(_Mod, _Fun) -> 
+    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -503,9 +531,13 @@ wait_for_evaluator(Pid, Mod, Fun, Config) ->
 
 test_case_evaluator(Mod, Fun, [Config]) ->
     NewConfig = Mod:init_per_testcase(Fun, Config),
-    R = apply(Mod, Fun, [NewConfig]),
-    Mod:end_per_testcase(Fun, NewConfig),
-    exit({test_case_ok, R}).
+    try 
+	R = apply(Mod, Fun, [NewConfig]),
+	Mod:end_per_testcase(Fun, NewConfig),
+	exit({test_case_ok, R})
+    catch error:function_clause ->
+	    exit({skipped, 'NYI'})
+    end.
 
 activity_evaluator(Coordinator) ->
     activity_evaluator_loop(Coordinator),
