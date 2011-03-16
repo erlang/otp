@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1685,7 +1685,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
     if (size > (Uint) INT_MAX)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
-		 "(%bpu bytes) passed.\n",
+		 "(%beu bytes) passed.\n",
 		 size);
 
     prt->caller = NIL;
@@ -1712,7 +1712,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
     if (size > (Uint) INT_MAX)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
-		 "(%bpu bytes) passed.\n",
+		 "(%beu bytes) passed.\n",
 		 size);
 
     iov[0].iov_base = NULL;

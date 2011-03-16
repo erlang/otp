@@ -1092,10 +1092,10 @@ info_options(char *prefix,
     if (print_to_p) {
 	int to = *print_to_p;
 	void *arg = print_to_arg;
-	erts_print(to, arg, "%samcbf: %bpu\n", prefix, abs_max_cache_bad_fit);
-	erts_print(to, arg, "%srmcbf: %bpu\n", prefix, rel_max_cache_bad_fit);
-	erts_print(to, arg, "%smcs: %bpu\n", prefix, max_cache_size);
-	erts_print(to, arg, "%scci: %bpu\n", prefix, cache_check_interval);
+	erts_print(to, arg, "%samcbf: %beu\n", prefix, abs_max_cache_bad_fit);
+	erts_print(to, arg, "%srmcbf: %beu\n", prefix, rel_max_cache_bad_fit);
+	erts_print(to, arg, "%smcs: %beu\n", prefix, max_cache_size);
+	erts_print(to, arg, "%scci: %beu\n", prefix, cache_check_interval);
     }
 
     if (hpp || szp) {
@@ -1131,9 +1131,9 @@ info_calls(int *print_to_p, void *print_to_arg, Uint **hpp, Uint *szp)
 
 #define PRINT_CC(TO, TOA, CC)						\
     if (calls.CC.giga_no == 0)						\
-	erts_print(TO, TOA, "mseg_%s calls: %bpu\n", #CC, calls.CC.no);	\
+	erts_print(TO, TOA, "mseg_%s calls: %b32u\n", #CC, calls.CC.no);	\
     else								\
-	erts_print(TO, TOA, "mseg_%s calls: %bpu%09bpu\n", #CC,		\
+	erts_print(TO, TOA, "mseg_%s calls: %b32u%09b32u\n", #CC,		\
 		   calls.CC.giga_no, calls.CC.no)
 
 	int to = *print_to_p;
@@ -1215,13 +1215,13 @@ info_status(MemKind* mk, int *print_to_p, void *print_to_arg,
 	int to = *print_to_p;
 	void *arg = print_to_arg;
 
-	erts_print(to, arg, "cached_segments: %bpu\n", mk->cache_size);
-	erts_print(to, arg, "cache_hits: %bpu\n", mk->cache_hits);
-	erts_print(to, arg, "segments: %bpu %bpu %bpu\n",
+	erts_print(to, arg, "cached_segments: %beu\n", mk->cache_size);
+	erts_print(to, arg, "cache_hits: %beu\n", mk->cache_hits);
+	erts_print(to, arg, "segments: %beu %beu %beu\n",
 		   mk->segments.current.no, mk->segments.max.no, mk->segments.max_ever.no);
-	erts_print(to, arg, "segments_size: %bpu %bpu %bpu\n",
+	erts_print(to, arg, "segments_size: %beu %beu %beu\n",
 		   mk->segments.current.sz, mk->segments.max.sz, mk->segments.max_ever.sz);
-	erts_print(to, arg, "segments_watermark: %bpu\n",
+	erts_print(to, arg, "segments_watermark: %beu\n",
 		   mk->segments.current.watermark);
     }
 
@@ -1507,7 +1507,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
     while ((page_size >> page_shift) != 1) {
 	if ((page_size & (1 << (page_shift - 1))) != 0)
 	    erl_exit(ERTS_ABORT_EXIT,
-		     "erts_mseg: Unexpected page_size %bpu\n", page_size);
+		     "erts_mseg: Unexpected page_size %beu\n", page_size);
 	page_shift++;
     }
 

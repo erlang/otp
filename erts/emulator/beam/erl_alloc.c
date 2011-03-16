@@ -1913,7 +1913,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	/* Print result... */
 	erts_print(to, arg, "=memory\n");
 	for (i = 0; i < length; i++)
-	    erts_print(to, arg, "%T: %bpu\n", atoms[i], *uintps[i]);
+	    erts_print(to, arg, "%T: %beu\n", atoms[i], *uintps[i]);
     }
 
     if (proc) {
@@ -2107,11 +2107,11 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 	for (i = 0; i < length; i++) {
 	    switch (values[i].arity) {
 	    case 2:
-		erts_print(to, arg, "%s: %bpu\n",
+		erts_print(to, arg, "%s: %beu\n",
 			   values[i].name, values[i].ui[0]);
 		break;
 	    case 3:
-		erts_print(to, arg, "%s: %bpu %bpu\n",
+		erts_print(to, arg, "%s: %beu %beu\n",
 			   values[i].name, values[i].ui[0], values[i].ui[1]);
 		break;
 	    default:
