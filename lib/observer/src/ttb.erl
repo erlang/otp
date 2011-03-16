@@ -18,6 +18,7 @@
 %%
 -module(ttb).
 -author('siri@erix.ericsson.se').
+-author('bartlomiej.puzon@erlang-solutions.com').
 
 %% API
 -export([tracer/0,tracer/1,tracer/2,p/2,stop/0,stop/1,start_trace/4]).
@@ -162,7 +163,9 @@ ensure_opt({PI,Client,Traci}) ->
         {true, _}             -> exit(local_client_required_on_shell_tracing)
     end.
 
-get_logname({local, F}) -> filename:basename(F);
+get_logname({local, F}) -> get_logname(F);
+get_logname({wrap, F}) -> filename:basename(F);
+get_logname({wrap, F, _, _}) -> filename:basename(F);
 get_logname(F) -> filename:basename(F).
 
 nods(all) ->
@@ -290,6 +293,8 @@ write_config(ConfigFile,Config) ->
     write_config(ConfigFile,Config,[]).
 write_config(ConfigFile,all,Opt) ->
     write_config(ConfigFile,['_'],Opt);
+write_config(ConfigFile,Config,Opt) when not(is_list(Opt)) ->
+    write_config(ConfigFile,Config,[Opt]);
 write_config(ConfigFile,Nums,Opt) when is_list(Nums), is_integer(hd(Nums)); 
 				       Nums=:=['_'] ->
     F = fun(N) -> ets:select(?history_table,
@@ -509,8 +514,13 @@ ms(Other) ->
     Other.
 
 ensure_no_overloaded_nodes() ->
-    ttb ! {get_overloaded, self()},
-    Overloaded = receive O -> O after 300 -> [] end,
+    Overloaded = case whereis(?MODULE) of
+                     undefined ->
+                         [];
+                     _ ->
+                         ?MODULE ! {get_overloaded, self()},
+                         receive O -> O end
+                 end,
     case Overloaded of
         [] -> ok;
         Overloaded -> exit({error, overload_protection_active, Overloaded})
@@ -946,8 +956,7 @@ format(File,Out,Handler,DisableSort) when is_list(File), is_integer(hd(File)) ->
 	    false -> % format one file
 		[File]
 	end,
-    RealHandler = get_handler(Handler, Files),
-    format(Files,Out,RealHandler,DisableSort);
+    format(Files,Out,Handler,DisableSort);
 format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     StopDbg = case whereis(dbg) of
 		  undefined -> true;
@@ -956,7 +965,8 @@ format(Files,Out,Handler,DisableSort) when is_list(Files), is_list(hd(Files)) ->
     Details = lists:foldl(fun(File,Acc) -> [prepare(File)|Acc] end,
 			  [],Files),
     Fd = get_fd(Out),
-    R = do_format(Fd,Details,DisableSort,Handler),
+    RealHandler = get_handler(Handler, Files),
+    R = do_format(Fd,Details,DisableSort,RealHandler),
     file:close(Fd),
     ets:delete(?MODULE),
     case StopDbg of
@@ -1271,8 +1281,14 @@ ip_to_file(Trace,{Port, ShellOutput}) ->
 
 show_trace(Trace, true) ->
     dbg:dhandler(Trace, standard_io);
-show_trace(_,_) ->
-    ok.
+show_trace(_Trace, false) ->
+    ok;
+show_trace(Trace, Pid) when is_pid(Pid) ->
+    %%This is only to enable erlide to build trace views in real time.
+    %%Sending trace data to handlers in real time has however
+    %%to be considered an interesting feature and should be
+    %%implemented in a generic way in the future
+    Pid ! {trace, Trace}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% For debugging
