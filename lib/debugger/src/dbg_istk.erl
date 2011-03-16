@@ -27,6 +27,14 @@
 
 -define(STACK, ?MODULE).
 
+-record(e,
+	{level,					%Level
+	 mfa,					%{Mod,Func,Args|Arity}|{Fun,Args}
+	 cm,					%Module called from
+	 line,					%Line called from
+	 bindings
+	 }).
+
 init() ->
     init([]).
 
@@ -46,14 +54,6 @@ init(Stack) ->
 %%     Debugged when it should raise an exception or evaluate a
 %%     function (since it might possible raise an exception)
 %%
-%% Stack = [Entry]
-%%   Entry = {Le, {MFA, Where, Bs}}
-%%     Le = int()         % current call level
-%%     MFA = {M,F,Args}   % called function (or fun)
-%%         | {Fun,Args}   %
-%%     Where = {M,Li}     % from where (module+line) function is called
-%%     Bs = bindings()    % current variable bindings
-%%
 %% How to push depends on the "Stack Trace" option (value saved in
 %% process dictionary item 'trace_stack').
 %%   all - everything is pushed
@@ -62,7 +62,7 @@ init(Stack) ->
 %% Whenever a function returns, the corresponding call frame is popped.
 
 push(MFA, Bs, #ieval{level=Le,module=Cm,line=Li,last_call=Lc}) ->
-    Entry = {Le, {MFA, {Cm,Li}, Bs}},
+    Entry = #e{level=Le,mfa=MFA,cm=Cm,line=Li,bindings=Bs},
     case get(trace_stack) of
 	false -> ignore;
 	no_tail when Lc ->
@@ -93,7 +93,7 @@ pop(Le) ->
 	    put(?STACK, pop(Le, get(?STACK)))
     end.
 
-pop(Level, [{Le, _}|Stack]) when Level=<Le ->
+pop(Level, [#e{level=Le}|Stack]) when Level =< Le ->
     pop(Level, Stack);
 pop(_Level, Stack) ->
     Stack.
@@ -105,7 +105,7 @@ stack_level() ->
     stack_level(get(?STACK)).
 
 stack_level([]) -> 1;
-stack_level([{Le,_}|_]) -> Le.
+stack_level([#e{level=Le}|_]) -> Le.
 
 %% exception_stacktrace(HowMuch, #ieval{}) -> Stacktrace
 %%   HowMuch = complete | no_current
@@ -135,13 +135,13 @@ sublist([], _Start, _Length) ->
 sublist(L, Start, Length) ->
     lists:sublist(L, Start, Length).
 
-fix_stacktrace2([{_,{{M,F,As1},_,_}}, {_,{{M,F,As2},_,_}}|_])
+fix_stacktrace2([#e{mfa={M,F,As1}}, #e{mfa={M,F,As2}}|_])
   when length(As1) =:= length(As2) ->
     [{M,F,As1}];
-fix_stacktrace2([{_,{{Fun,As1},_,_}}, {_,{{Fun,As2},_,_}}|_])
+fix_stacktrace2([#e{mfa={Fun,As1}}, #e{mfa={Fun,As2}}|_])
   when length(As1) =:= length(As2) ->
     [{Fun,As1}];
-fix_stacktrace2([{_,{MFA,_,_}}|Entries]) ->
+fix_stacktrace2([#e{mfa=MFA}|Entries]) ->
     [MFA|fix_stacktrace2(Entries)];
 fix_stacktrace2([]) ->
     [].
@@ -159,7 +159,7 @@ args2arity([]) ->
 bindings(SP) ->
     bindings(SP, get(?STACK)).
 
-bindings(SP, [{SP,{_MFA,_Wh,Bs}}|_]) ->
+bindings(SP, [#e{level=SP,bindings=Bs}|_]) ->
     Bs;
 bindings(SP, [_Entry|Entries]) ->
     bindings(SP, Entries);
@@ -180,14 +180,14 @@ stack_frame(up, SP) ->
 stack_frame(down, SP) ->
     stack_frame(SP, down, lists:reverse(get(?STACK))).
 
-stack_frame(SP, up, [{Le, {_MFA,Where,Bs}}|_]) when Le<SP ->
-    {Le, Where, Bs};
-stack_frame(SP, down, [{Le, {_MFA,Where,Bs}}|_]) when Le>SP ->
-    {Le, Where, Bs};
-stack_frame(SP, Dir, [{SP, _}|Stack]) ->
+stack_frame(SP, up, [#e{level=Le,cm=Cm,line=Li,bindings=Bs}|_]) when Le < SP ->
+    {Le,{Cm,Li},Bs};
+stack_frame(SP, down, [#e{level=Le,cm=Cm,line=Li,bindings=Bs}|_]) when Le > SP ->
+    {Le,{Cm,Li},Bs};
+stack_frame(SP, Dir, [#e{level=SP}|Stack]) ->
     case Stack of
-	[{Le, {_MFA,Where,Bs}}|_] ->
-	    {Le, Where, Bs};
+	[#e{level=Le,cm=Cm,line=Li,bindings=Bs}|_] ->
+	    {Le,{Cm,Li},Bs};
 	[] when Dir =:= up ->
 	    top;
 	[] when Dir =:= down ->
@@ -205,7 +205,7 @@ backtrace(HowMany) ->
 		all -> get(?STACK);
 		N -> lists:sublist(get(?STACK), N)
 	    end,
-    [{Le, MFA} || {Le,{MFA,_Wh,_Bs}} <- Stack].
+    [{Le,MFA} || #e{level=Le,mfa=MFA} <- Stack].
 
 %%--------------------------------------------------------------------
 %% in_use_p(Mod, Cm) -> boolean()
@@ -217,8 +217,7 @@ in_use_p(Mod, _Cm) ->
     case get(trace_stack) of
 	false -> true;
 	_ -> %  all | no_tail
-	    lists:any(fun({_,{M,_,_,_}}) when M =:= Mod -> true;
+	    lists:any(fun(#e{mfa={M,_,_}}) when M =:= Mod -> true;
 			 (_) -> false
-		      end,
-		      get(?STACK))
+		      end, get(?STACK))
     end.
