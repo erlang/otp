@@ -31,6 +31,45 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>-export_type()</c> directive is no longer included
+	    among the attributes.</p>
+          <p>
+	    Own Id: OTP-8998</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The maximum number of allowed arguments for an Erlang
+	    function has been lowered from 256 to 255, so that the
+	    number of arguments can now fit in a byte.</p>
+          <p>
+	    Own Id: OTP-9049</p>
+        </item>
+        <item>
+          <p>
+	    Dependency generation for Makefiles has been added to the
+	    compiler and erlc. See the manual pages for
+	    <c>compile</c> and <c>erlc</c>. (Thanks to Jean-Sebastien
+	    Pedron.)</p>
+          <p>
+	    Own Id: OTP-9065</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

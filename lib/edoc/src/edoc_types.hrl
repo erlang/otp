@@ -1,6 +1,6 @@
 %% =====================================================================
 %% Header file for EDoc Type Representations
-%% 
+%%
 %% Copyright (C) 2001-2005 Richard Carlsson
 %%
 %% This library is free software; you can redistribute it and/or modify
@@ -29,13 +29,15 @@
 
 -record(t_spec, {name, type, defs=[]}).		% function specification
 
-%% @type type() = t_atom() | t_fun() | t_integer() | t_list() | t_nil()
-%%              | t_tuple() | t_type() | t_union() | t_var()
+%% @type type() = t_atom() | t_binary() | t_float() | t_fun() | t_integer()
+%%              | t_integer_range() | t_list() | t_nil()| t_nonempty_list()
+%%              | t_record() | t_tuple() | t_type() | t_union() | t_var()
+%%              | t_paren()
 
 %% @type t_typedef() = #t_typedef{name = t_name(),
 %%                                args = [type()],
-%%                                type = type(),
-%%                                defs = [t_def()]}
+%%                                type = type() | undefined,
+%%                                defs = [t_def()]}.
 
 -record(t_typedef, {name, args, type,
 		    defs=[]}).			% type declaration/definition
@@ -45,7 +47,7 @@
 
 -record(t_throws, {type, defs=[]}).		% exception declaration
 
-%% @type t_def() = #t_def{name = t_name(),
+%% @type t_def() = #t_def{name = t_type() | t_var(),
 %%                        type = type()}
 
 -record(t_def, {name, type}).			% local definition 'name = type'
@@ -75,7 +77,9 @@
 %%                          name = t_name(),
 %%                          args = [type()]}
 
--record(t_type, {a=[], name, args = []}).	% abstract type 'name(...)'
+-record(t_type, {a=[],                     % abstract type 'name(...)'
+                 name,
+                 args = []}).
 
 %% @type t_union() = #t_union{a = list(),
 %%                            types = [type()]}
@@ -102,6 +106,11 @@
 
 -record(t_nil, {a=[]}).			% empty-list constant '[]'
 
+%% @type t_nonempty_list() = #t_nonempty_list{a = list(),
+%%                                            type = type()}
+
+-record(t_nonempty_list, {a=[], type}).	% list type '[type, ...]'
+
 %% @type t_atom() = #t_atom{a = list(),
 %%                          val = atom()}
 
@@ -112,19 +121,37 @@
 
 -record(t_integer, {a=[], val}).	% integer constant
 
+%% @type t_integer_range() = #t_integer_range{a = list(),
+%%                                            from = integer(),
+%%                                            to = integer()}
+
+-record(t_integer_range, {a=[], from, to}).
+
+%% @type t_binary() = #t_binary{a = list(),
+%%                              base_size = integer(),
+%%                              unit_size = integer()}
+
+-record(t_binary, {a=[], base_size = 0, unit_size = 0}).
+
 %% @type t_float() = #t_float{a = list(),
 %%                            val = float()}
 
 -record(t_float, {a=[], val}).		% floating-point constant
 
 %% @type t_record() = #t_list{a = list(),
-%%                            name = type(),
+%%                            name = t_atom(),
 %%                            fields = [field()]}
 
--record(t_record, {a=[], name, fields = []}).	% record type '#r{f1,...,fN}'
+-record(t_record, {a=[],                 % record "type" '#r{f1,...,fN}'
+                   name,
+                   fields = []}).
 
 %% @type t_field() = #t_field{a = list(),
 %%                            name = type(),
 %%                            type = type()}
 
 -record(t_field, {a=[], name, type}).	% named field 'n1=t1'
+
+%% @type t_paren() = #t_paren{a = list(), type = type()}
+
+-record(t_paren, {a=[], type}).		% parentheses

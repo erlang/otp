@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,10 +25,6 @@
 #define HIPE_BIF0_H
 
 extern Uint *hipe_bifs_find_pc_from_mfa(Eterm mfa);
-
-/* shared with ggc.c -- NOT an official API */
-extern Eterm *hipe_constants_start;
-extern Eterm *hipe_constants_next;
 
 extern void hipe_mfa_info_table_init(void);
 extern void *hipe_get_remote_na(Eterm m, Eterm f, unsigned int a);

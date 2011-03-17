@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,7 @@ erts_init_binary(void)
  */
 
 Eterm
-new_binary(Process *p, byte *buf, int len)
+new_binary(Process *p, byte *buf, Uint len)
 {
     ProcBin* pb;
     Binary* bptr;

@@ -34,6 +34,25 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allows the public_key module to decode and encode RSA and
+	    DSA keys encoded using the SubjectPublicKeyInfo format.
+	    When pem_entry_encode is called on an RSA or DSA public
+	    key type, the key is wrapped in the SubjectPublicKeyInfo
+	    format.</p>
+          <p>
+	    Own Id: OTP-9061</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.10</title>
 
     <section><title>Improvements and New Features</title>
