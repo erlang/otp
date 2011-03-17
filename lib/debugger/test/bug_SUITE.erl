@@ -51,7 +51,7 @@ end_per_group(_GroupName, Config) ->
 
 otp2163(doc) -> ["BIF exit reason"];
 otp2163(suite) -> [];
-otp2163(Config) when list(Config) ->
+otp2163(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
 
     %% First compile and get the expected results:
@@ -74,7 +74,7 @@ otp2163(Config) when list(Config) ->
 
 otp4845(doc) -> ["BIF not loading and not bug compatible, OTP-4845 OTP-4859"];
 otp4845(suite) -> [];
-otp4845(Config) when list(Config) ->
+otp4845(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
 
     %% First compile and get the expected results:
