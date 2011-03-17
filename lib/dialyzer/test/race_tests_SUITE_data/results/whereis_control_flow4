@@ -1,0 +1,3 @@
+
+whereis_control_flow4.erl:18: The call erlang:register('maria',Pid1::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis('maria') call in whereis_control_flow4.erl on line 8
+whereis_control_flow4.erl:19: The call erlang:register('kostis',Pid2::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis('kostis') call in whereis_control_flow4.erl on line 13

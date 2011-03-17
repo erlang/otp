@@ -165,6 +165,7 @@ make/win32/
 /lib/*/test/*_SUITE_make.erl
 /lib/*/test/*_SUITE_data/Makefile
 /erts/emulator/test/*_SUITE_make.erl
+/erts/emulator/test/*_native_SUITE.erl
 /erts/emulator/test/*_SUITE_data/Makefile
 /erts/test/install_SUITE_data/install_bin
 /erts/test/autoimport_SUITE_data/erlang.xml

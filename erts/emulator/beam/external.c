@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1264,7 +1264,7 @@ external_size_1(Process* p, Eterm Term)
 Eterm
 erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags)
 {
-    int size;
+    Uint size;
     Eterm bin;
     size_t real_size;
     byte* endp;

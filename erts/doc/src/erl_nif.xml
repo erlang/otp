@@ -193,9 +193,9 @@ ok
       A handle ("safe pointer") to this memory block can then be returned to Erlang by the use of
       <seealso marker="#enif_make_resource">enif_make_resource</seealso>.
       The term returned by <c>enif_make_resource</c>
-      is totally opaque in nature. It can be stored and passed between processses
-      on the same node, but the only real end usage is to pass it back as argument to a NIF.
-      The NIF can then do <seealso marker="#enif_get_resource">enif_get_resource</seealso>
+      is totally opaque in nature. It can be stored and passed between processes
+      on the same node, but the only real end usage is to pass it back as an argument to a NIF.
+      The NIF can then call <seealso marker="#enif_get_resource">enif_get_resource</seealso>
       and get back a pointer to the memory block that is guaranteed to still be
       valid. A resource object will not be deallocated until the last handle term
       has been garbage collected by the VM and the resource has been
@@ -212,17 +212,7 @@ ok
       the garbage collector or <c>enif_release_resource</c>). Resource types
       are uniquely identified by a supplied name string and the name of the
       implementing module.</p>
-      <p>Resource types support upgrade in runtime by allowing a loaded NIF
-      library to takeover an already existing resource type and thereby
-      "inherit" all existing objects of that type. The destructor of the new
-      library will thereafter be called for the inherited objects and the
-      library with the old destructor function can be safely unloaded. Existing
-      resource objects, of a module that is upgraded, must either be deleted
-      or taken over by the new NIF library. The unloading of a library will be
-      postponed as long as there exist resource objects with a destructor
-      function in the library.
-      </p>
-      <p>Here is a template example of how to create and return a resource object.</p>
+      <marker id="enif_resource_example"/><p>Here is a template example of how to create and return a resource object.</p>
       <p/>
       <code type="none">
     ERL_NIF_TERM term;
@@ -240,8 +230,13 @@ ok
         /* resource now only owned by "Erlang" */
     }
     return term;
-}
-</code>
+    </code>
+      <p>Note that once <c>enif_make_resource</c> creates the term to
+      return to Erlang, the code can choose to either keep its own
+      native pointer to the allocated struct and release it later, or
+      release it immediately and rely solely on the garbage collector
+      to eventually deallocate the resource object when it collects
+      the term.</p> 
       <p>Another usage of resource objects is to create binary terms with
       user defined memory management.
       <seealso marker="#enif_make_resource_binary">enif_make_resource_binary</seealso>
@@ -251,6 +246,16 @@ ok
       this can be a binary term consisting of data from a <c>mmap</c>'ed file.
       The destructor can then do <c>munmap</c> to release the memory
       region.</p>
+      <p>Resource types support upgrade in runtime by allowing a loaded NIF
+      library to takeover an already existing resource type and thereby
+      "inherit" all existing objects of that type. The destructor of the new
+      library will thereafter be called for the inherited objects and the
+      library with the old destructor function can be safely unloaded. Existing
+      resource objects, of a module that is upgraded, must either be deleted
+      or taken over by the new NIF library. The unloading of a library will be
+      postponed as long as there exist resource objects with a destructor
+      function in the library.
+      </p>
       </item>
       <tag>Threads and concurrency</tag>
       <item><p>A NIF is thread-safe without any explicit synchronization as
@@ -368,7 +373,7 @@ ok
         environments between NIF calls. </p>
         <p>A <em>process independent environment</em> is created by calling
         <seealso marker="#enif_alloc_env">enif_alloc_env</seealso>. It can be
-        used to store terms beteen NIF calls and to send terms with
+        used to store terms between NIF calls and to send terms with
         <seealso marker="#enif_send">enif_send</seealso>. A process
         independent environment with all its terms is valid until you explicitly
         invalidates it with <seealso marker="#enif_free_env">enif_free_env</seealso>
@@ -832,8 +837,14 @@ typedef enum {
       <fsummary>Create an opaque handle to a resource object</fsummary>
       <desc><p>Create an opaque handle to a memory managed resource object
       obtained by <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
-      No ownership transfer is done, the resource object still needs to be released by
-      <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
+      No ownership transfer is done, as the resource object still needs to be released by
+      <seealso marker="#enif_release_resource">enif_release_resource</seealso>,
+      but note that the call to <c>enif_release_resource</c> can occur
+      immediately after obtaining the term from <c>enif_make_resource</c>,
+      in which case the resource object will be deallocated when the
+      term is garbage collected. See the
+      <seealso marker="#enif_resource_example">example of creating and
+      returning a resource object</seealso> for more details.</p> 
       <p>Note that the only defined behaviour of using a resource term in
       an Erlang program is to store it and send it between processes on the
       same node. Other operations such as matching or <c>term_to_binary</c>

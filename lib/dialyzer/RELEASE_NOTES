@@ -3,6 +3,18 @@
 		(in reversed chronological order)
 ==============================================================================
 
+Version 2.4.2 (in Erlang/OTP R14B02)
+------------------------------------
+ - Added --fullpath option to display files with warnings with their full
+   file names (thanks to Magnus Henoch for the original patch).
+ - Better handling of 'and'/'or'/'not' guards that generate warnings
+   (thanks to Stavros Aronis).
+ - Better blame assignment for cases when a function's spec is erroneous
+   (thanks to Stavros Aronis).
+ - More descriptive warnings when a tuple/record pattern contains subterms
+   that violate the declared types of record fields (thanks to Matthias Lang
+   for the test case and for Stavros Aronis for the actual fix).
+
 Version 2.4.0 (in Erlang/OTP R14B01)
 ------------------------------------
  - Added ability to supply multiple PLTs for the analysis (option --plts).

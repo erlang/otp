@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,11 +66,13 @@ terminate(Hooks) ->
 init_tc(ct_framework, _Func, Args) ->
     Args;
 init_tc(Mod, init_per_suite, Config) ->
-    Info = case catch proplists:get_value(ct_hooks, Mod:suite()) of
+    Info = try proplists:get_value(ct_hooks, Mod:suite(),[]) of
 	       List when is_list(List) -> 
 		   [{ct_hooks,List}];
-	       _Else ->
-		   []
+	       CTHook when is_atom(CTHook) ->
+		   [{ct_hooks,[CTHook]}]
+	   catch error:undef ->
+		   [{ct_hooks,[]}]
 	   end,
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->

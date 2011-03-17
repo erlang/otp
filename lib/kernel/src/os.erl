@@ -137,7 +137,7 @@ reverse_element([$"|T]) ->	%"
 reverse_element(List) ->
     lists:reverse(List).
 
--spec extensions() -> [string()].
+-spec extensions() -> [string(),...].
 %% Extensions in lower case
 extensions() ->
     case type() of
