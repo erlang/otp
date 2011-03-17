@@ -378,6 +378,8 @@ expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}) ->
     {dbg,Line,error,expr_list(As)};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}) ->
     {dbg,Line,exit,expr_list(As)};
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,raise}},[_,_,_]=As}) ->
+    {dbg,Line,raise,expr_list(As)};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}) ->
     As = expr_list(As0),
     {apply,Line,As};

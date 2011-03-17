@@ -797,6 +797,25 @@ expr({dbg,Line,get_stacktrace,[]}, Bs, #ieval{level=Le}) ->
     Stacktrace = get_stacktrace(),
     trace(return, {Le,Stacktrace}),
     {value,Stacktrace,Bs};
+expr({dbg,Line,raise,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
+    %% Since erlang:get_stacktrace/0 is emulated, we will
+    %% need to emulate erlang:raise/3 too so that we can
+    %% capture the stacktrace.
+    Ieval = Ieval0#ieval{line=Line},
+    {[Class,Reason,Stk0]=As,Bs} = eval_list(As0, Bs0, Ieval),
+    trace(bif, {Le,Line,erlang,raise,As}),
+    try
+	%% Evaluate raise/3 for error checking and
+	%% truncating of the stacktrace to the correct depth.
+	Error = erlang:raise(Class, Reason, Stk0),
+	trace(return, {Le,Error}),
+	{value,Error,Bs}
+    catch
+	_:_ ->
+	    Stk = erlang:get_stacktrace(),	%Possibly truncated.
+	    StkFun = fun(_) -> Stk end,
+	    do_exception(Class, Reason, StkFun, Bs, Ieval)
+    end;
 expr({dbg,Line,throw,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {[Term],Bs} = eval_list(As0, Bs0, Ieval),
