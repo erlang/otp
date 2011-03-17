@@ -431,8 +431,8 @@ expr({lc,Line,E0,Gs0}) ->			%R8.
 		       ({b_generate,L,P0,Qs}) -> %R12.
 			   {b_generate,L,expr(P0),expr(Qs)};
 		       (Expr) ->
-			   case is_guard_test(Expr) of
-			       true -> {guard,[[guard_test(Expr)]]};
+			   case is_guard(Expr) of
+			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr)
 			   end
 		   end, Gs0),
@@ -443,8 +443,8 @@ expr({bc,Line,E0,Gs0}) ->			%R12.
 		       ({b_generate,L,P0,Qs}) -> %R12.
 			   {b_generate,L,expr(P0),expr(Qs)};
 		       (Expr) ->
-			   case is_guard_test(Expr) of
-			       true -> {guard,[[guard_test(Expr)]]};
+			   case is_guard(Expr) of
+			       true -> {guard,guard([[Expr]])};
 			       false -> expr(Expr)
 			   end
 		   end, Gs0),
@@ -486,16 +486,18 @@ expr({bin_element,Line,Expr,Size,Type}) ->
 expr(Other) ->
     exit({?MODULE,{unknown_expr,Other}}).
 
-%% is_guard_test(Expression) -> true | false.
-%%  Test if a general expression is a guard test.  Cannot use erl_lint
-%%  here as sys_pre_expand has transformed source.
+%% is_guard(Expression) -> true | false.
+%%  Test if a general expression is a guard test or guard BIF.
+%%  Cannot use erl_lint here as sys_pre_expand has transformed source.
 
-is_guard_test({op,_,Op,L,R}) ->
+is_guard({op,_,Op,L,R}) ->
     erl_internal:comp_op(Op, 2) andalso is_gexpr_list([L,R]);
-is_guard_test({call,_,{remote,_,{atom,_,erlang},{atom,_,Test}},As}) ->
-    erl_internal:type_test(Test, length(As)) andalso is_gexpr_list(As);
-is_guard_test({atom,_,true}) -> true;
-is_guard_test(_) -> false.
+is_guard({call,_,{remote,_,{atom,_,erlang},{atom,_,Test}},As}) ->
+    Arity = length(As),
+    (erl_internal:guard_bif(Test, Arity) orelse
+     erl_internal:old_type_test(Test, Arity)) andalso is_gexpr_list(As);
+is_guard({atom,_,true}) -> true;
+is_guard(_) -> false.
 
 is_gexpr({var,_,_}) -> true;
 is_gexpr({atom,_,_}) -> true;
