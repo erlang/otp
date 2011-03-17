@@ -225,8 +225,6 @@ guard([G0|Gs]) ->
     [G1|guard(Gs)];
 guard([]) -> [].
 
-and_guard([{atom,_,true}|Gs]) ->
-    and_guard(Gs);
 and_guard([G0|Gs]) ->
     G1 = guard_test(G0),
     [G1|and_guard(Gs)];
@@ -251,12 +249,18 @@ guard_test({op,Line,Op,L0,R0}) ->
     L1 = gexpr(L0),
     R1 = gexpr(R0),				%They see the same variables
     {safe_bif,Line,erlang,Op,[L1,R1]};
-guard_test({integer,_,_}=I) -> I;
-guard_test({char,_,_}=C) -> C;
-guard_test({float,_,_}=F) -> F;
-guard_test({atom,_,_}=A) -> A;
-guard_test({nil,_}=N) -> N;
-guard_test({var,_,_}=V) ->V.    % Boolean var
+guard_test({var,_,_}=V) ->V;    % Boolean var
+guard_test({atom,Line,true}) -> {value,Line,true};
+%% All other constants at this level means false.
+guard_test({atom,Line,_}) -> {value,Line,false};
+guard_test({integer,Line,_}) -> {value,Line,false};
+guard_test({char,Line,_}) -> {value,Line,false};
+guard_test({float,Line,_}) -> {value,Line,false};
+guard_test({string,Line,_}) -> {value,Line,false};
+guard_test({nil,Line}) -> {value,Line,false};
+guard_test({cons,Line,_,_}) -> {value,Line,false};
+guard_test({tuple,Line,_}) -> {value,Line,false};
+guard_test({bin,Line,_}) ->  {value,Line,false}.
 
 gexpr({var,Line,V}) -> {var,Line,V};
 gexpr({integer,Line,I}) -> {value,Line,I};
