@@ -125,6 +125,9 @@ static int mmap_fd;
 #error "Not supported"
 #endif /* #if HAVE_MMAP */
 
+#if defined(ERTS_MSEG_FAKE_SEGMENTS) && HALFWORD_HEAP
+#  warning "ERTS_MSEG_FAKE_SEGMENTS will only be used for high memory segments" 
+#endif 
 
 #if defined(ERTS_MSEG_FAKE_SEGMENTS)
 #undef CAN_PARTLY_DESTROY
@@ -334,9 +337,6 @@ mseg_create(MemKind* mk, Uint size)
 
     ASSERT(size % page_size == 0);
 
-#if defined(ERTS_MSEG_FAKE_SEGMENTS)
-    seg = erts_sys_alloc(ERTS_ALC_N_INVALID, NULL, size);
-#elif HAVE_MMAP
 #if HALFWORD_HEAP
     if (mk == &low_mem) {
 	seg = pmmap(size);
@@ -348,14 +348,19 @@ mseg_create(MemKind* mk, Uint size)
     else
 #endif
     {
-	seg = (void *) mmap((void *) 0, (size_t) size,
-			    MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
-	if (seg == (void *) MAP_FAILED)
-	    seg = NULL;
-    }
+#if defined(ERTS_MSEG_FAKE_SEGMENTS)
+	seg = erts_sys_alloc(ERTS_ALC_N_INVALID, NULL, size);
+#elif HAVE_MMAP
+	{
+	    seg = (void *) mmap((void *) 0, (size_t) size,
+				MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
+	    if (seg == (void *) MAP_FAILED)
+		seg = NULL;
+	}
 #else
-#error "Missing mseg_create() implementation"
+# error "Missing mseg_create() implementation"
 #endif
+    }
 
     INC_CC(create);
 
@@ -365,9 +370,6 @@ mseg_create(MemKind* mk, Uint size)
 static ERTS_INLINE void
 mseg_destroy(MemKind* mk, void *seg, Uint size)
 {
-#if defined(ERTS_MSEG_FAKE_SEGMENTS)
-    erts_sys_free(ERTS_ALC_N_INVALID, NULL, seg);
-#elif HAVE_MMAP
     int res;
 
 #if HALFWORD_HEAP
@@ -377,14 +379,18 @@ mseg_destroy(MemKind* mk, void *seg, Uint size)
     else
 #endif
     {
+#ifdef ERTS_MSEG_FAKE_SEGMENTS
+	erts_sys_free(ERTS_ALC_N_INVALID, NULL, seg);
+	res = 0;
+#elif HAVE_MMAP
 	res = munmap((void *) seg, size);
+#else
+# error "Missing mseg_destroy() implementation"
+#endif
     }
 
     ASSERT(size % page_size == 0);
     ASSERT(res == 0);
-#else
-#error "Missing mseg_destroy() implementation"
-#endif
 
     INC_CC(destroy);
 
@@ -400,9 +406,6 @@ mseg_recreate(MemKind* mk, void *old_seg, Uint old_size, Uint new_size)
     ASSERT(old_size % page_size == 0);
     ASSERT(new_size % page_size == 0);
 
-#if defined(ERTS_MSEG_FAKE_SEGMENTS)
-    new_seg = erts_sys_realloc(ERTS_ALC_N_INVALID, NULL, old_seg, new_size);
-#elif HAVE_MREMAP
 #if HALFWORD_HEAP
     if (mk == &low_mem) {
 	new_seg = (void *) pmremap((void *) old_seg,
@@ -412,6 +415,10 @@ mseg_recreate(MemKind* mk, void *old_seg, Uint old_size, Uint new_size)
     else
 #endif
     {
+#if defined(ERTS_MSEG_FAKE_SEGMENTS)
+	new_seg = erts_sys_realloc(ERTS_ALC_N_INVALID, NULL, old_seg, new_size);
+#elif HAVE_MREMAP
+
     #if defined(__NetBSD__)
 	new_seg = (void *) mremap((void *) old_seg,
 				  (size_t) old_size,
@@ -426,10 +433,10 @@ mseg_recreate(MemKind* mk, void *old_seg, Uint old_size, Uint new_size)
     #endif
 	if (new_seg == (void *) MAP_FAILED)
 	    new_seg = NULL;
-    }
 #else
 #error "Missing mseg_recreate() implementation"
 #endif
+    }
 
     INC_CC(recreate);
 
@@ -726,6 +733,7 @@ mseg_alloc(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
 
     if (seg)
 	ERTS_MSEG_ALLOC_STAT(mk,size);
+
     return seg;
 }
 
@@ -1685,11 +1693,14 @@ static void *do_map(void *ptr, size_t sz)
 	return NULL;
     }
 
-
+#if HAVE_MMAP
     res = mmap(ptr, sz,
 	       PROT_READ | PROT_WRITE, MAP_PRIVATE |
 	       MAP_ANONYMOUS | MAP_FIXED,
 	       -1 , 0);
+#else
+#  error "Missing mmap support"
+#endif
 
     if (res == MAP_FAILED) {
 #ifdef HARDDEBUG
@@ -1789,10 +1800,19 @@ static int initialize_pmmap(void)
 		MAP_NORESERVE | EXTRA_MAP_FLAGS,
 		-1 , 0);
 #ifdef HARDDEBUG
-    printf("rsz = %ld, pages = %ld, rptr = %p\r\n",
-	   (unsigned long) rsz, (unsigned long) (rsz / pagsz),
-	   (void *) rptr);
+    printf("p=%p, rsz = %ld, pages = %ld, got range = %p -> %p\r\n",
+	   p, (unsigned long) rsz, (unsigned long) (rsz / pagsz),
+	   (void *) rptr, (void*)(rptr + rsz));
 #endif
+    if ((UWord)(rptr + rsz) > RANGE_MAX) {
+	size_t rsz_trunc = RANGE_MAX - (UWord)rptr;
+#ifdef HARDDEBUG
+	printf("Reducing mmap'ed memory from %lu to %lu Mb, reduced range = %p -> %p\r\n",
+		rsz/(1024*1024), rsz_trunc/(1024*1024), rptr, rptr+rsz_trunc);
+#endif
+	munmap((void*)RANGE_MAX, rsz - rsz_trunc);
+	rsz = rsz_trunc;
+    }
     if (!do_map(rptr,pagsz)) {
 	erl_exit(1,"Could not actually mmap first page for halfword emulator...\n");
     }

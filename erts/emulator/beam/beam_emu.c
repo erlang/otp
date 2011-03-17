@@ -1023,8 +1023,6 @@ static BeamInstr* call_error_handler(Process* p, BeamInstr* ip,
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity) NOINLINE;
 static BeamInstr* apply(Process* p, Eterm module, Eterm function,
 			Eterm args, Eterm* reg) NOINLINE;
-static int hibernate(Process* c_p, Eterm module, Eterm function,
-		     Eterm args, Eterm* reg) NOINLINE;
 static BeamInstr* call_fun(Process* p, int arity,
 			   Eterm* reg, Eterm args) NOINLINE;
 static BeamInstr* apply_fun(Process* p, Eterm fun,
@@ -3421,6 +3419,9 @@ void process_main(void)
 		r(0) = c_p->def_arg_reg[0];
 		x(1) = c_p->def_arg_reg[1];
 		x(2) = c_p->def_arg_reg[2];
+		if (c_p->status == P_WAITING) {
+		    goto do_schedule;
+		}
 		Dispatch();
 	    }
 	    reg[0] = r(0);
@@ -5222,7 +5223,7 @@ void process_main(void)
 
  OpCase(i_hibernate): {
      SWAPOUT;
-     if (hibernate(c_p, r(0), x(1), x(2), reg)) {
+     if (erts_hibernate(c_p, r(0), x(1), x(2), reg)) {
 	 goto do_schedule;
      } else {
 	 I = handle_error(c_p, I, reg, hibernate_3);
@@ -6199,8 +6200,8 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
     return ep->address;
 }
 
-static int
-hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg)
+int
+erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 {
     int arity;
     Eterm tmp;

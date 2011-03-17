@@ -14,7 +14,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
+%% $Id: $
 %%
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 2001-2006 Richard Carlsson
@@ -49,7 +49,6 @@
 -define(FUNCTIONS_TITLE, "Function Details").
 -define(FUNCTIONS_LABEL, "functions").
 
-
 %% @doc The layout function.
 %%
 %% Options to the standard layout:
@@ -59,13 +58,20 @@
 %%  <dd>Specifies the number of column pairs used for the function
 %%      index tables. The default value is 1.
 %%  </dd>
+%%  <dt>{@type {pretty_printer, atom()@}}
+%%  </dt>
+%%  <dd>Specifies how types and specifications are pretty printed.
+%%      If the value `erl_pp' is specified the Erlang pretty printer
+%%      (the module `erl_pp') will be used. The default is to do
+%%      no pretty printing which implies that lines can be very long.
+%%  </dd>
 %%  <dt>{@type {stylesheet, string()@}}
 %%  </dt>
 %%  <dd>Specifies the URI used for referencing the stylesheet. The
 %%      default value is `"stylesheet.css"'. If an empty string is
 %%      specified, no stylesheet reference will be generated.
 %%  </dd>
-%%  <dt>{@type {sort_functions, bool()@}}
+%%  <dt>{@type {sort_functions, boolean()@}}
 %%  </dt>
 %%  <dd>If `true', the detailed function descriptions are listed by
 %%      name, otherwise they are listed in the order of occurrence in
@@ -96,14 +102,20 @@ module(Element, Options) ->
 %% %                     stylesheet = string(),
 %% %                     index_columns = integer()}
 
--record(opts, {root, stylesheet, index_columns, sort_functions}).
+-record(opts, {root,
+               stylesheet,
+               index_columns,
+               sort_functions,
+               pretty_printer}).
 
 init_opts(Element, Options) ->
     R = #opts{root = get_attrval(root, Element),
 	      index_columns = proplists:get_value(index_columns,
 						  Options, 1),
 	      sort_functions = proplists:get_value(sort_functions,
-						   Options, true)
+						   Options, true),
+              pretty_printer = proplists:get_value(pretty_printer,
+                                                   Options, '')
 	     },
     case proplists:get_value(stylesheet, Options) of
 	undefined ->
@@ -112,7 +124,7 @@ init_opts(Element, Options) ->
 	"" ->
 	    R;  % don't use any stylesheet
 	S when is_list(S) ->
-	    R#opts{stylesheet = S}; 
+	    R#opts{stylesheet = S};
 	_ ->
 	    report("bad value for option `stylesheet'.", []),
 	    exit(error)
@@ -192,10 +204,10 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
 				  ["Description"]}]}
 			   | FullDesc]
 	       end
-	    ++ types(lists:sort(Types))
+	    ++ types(lists:sort(Types), Opts)
 	    ++ function_index(SortedFs, Opts#opts.index_columns)
-	    ++ if Opts#opts.sort_functions -> functions(SortedFs);
-		  true -> functions(Functions)
+	    ++ if Opts#opts.sort_functions -> functions(SortedFs, Opts);
+		  true -> functions(Functions, Opts)
 	       end
 	    ++ [hr, ?NL]
 	    ++ navigation("bottom")
@@ -218,7 +230,7 @@ timestamp() ->
 				   edoc_lib:timestr(time())])
 		   ]}]},
      ?NL].
- 
+
 stylesheet(Opts) ->
     case Opts#opts.stylesheet of
 	undefined ->
@@ -335,8 +347,8 @@ label_href(Content, F) ->
 %% <!ELEMENT equiv (expr, see?)>
 %% <!ELEMENT expr (#PCDATA)>
 
-functions(Fs) ->
-    Es = lists:flatmap(fun ({Name, E}) -> function(Name, E) end, Fs),
+functions(Fs, Opts) ->
+    Es = lists:flatmap(fun ({Name, E}) -> function(Name, E, Opts) end, Fs),
     if Es == [] -> [];
        true ->
 	    [?NL,
@@ -344,7 +356,7 @@ functions(Fs) ->
 	     ?NL | Es]
     end.
 
-function(Name, E=#xmlElement{content = Es}) ->
+function(Name, E=#xmlElement{content = Es}, Opts) ->
     ([?NL,
       {h3, [{class, "function"}],
        label_anchor(function_header(Name, E, " *"), E)},
@@ -352,7 +364,7 @@ function(Name, E=#xmlElement{content = Es}) ->
      ++ [{'div',  [{class, "spec"}],
 	  [?NL,
 	   {p,
-	    case typespec(get_content(typespec, Es)) of
+	    case typespec(get_content(typespec, Es), Opts) of
 		[] ->
 		    signature(get_content(args, Es),
 			      get_attrval(name, E));
@@ -367,7 +379,7 @@ function(Name, E=#xmlElement{content = Es}) ->
 		 [] -> [];
 		 Rs -> [{p, Rs}, ?NL]
 	     end}]
-     ++ throws(Es)
+     ++ throws(Es, Opts)
      ++ equiv_p(Es)
      ++ deprecated(Es, "function")
      ++ fulldesc(Es)
@@ -402,7 +414,7 @@ label_anchor(Content, E) ->
 
 %% This is currently only done for functions without type spec.
 
-signature(Es, Name) -> 
+signature(Es, Name) ->
     [{tt, [Name, "("] ++ seq(fun arg/1, Es) ++ [") -> any()"]}].
 
 arg(#xmlElement{content = Es}) ->
@@ -432,66 +444,168 @@ returns(Es) ->
 
 %% <!ELEMENT throws (type, localdef*)>
 
-throws(Es) ->
+throws(Es, Opts) ->
     case get_content(throws, Es) of
 	[] -> [];
 	Es1 ->
+            %% Doesn't use format_type; keep it short!
 	    [{p, (["throws ", {tt, t_utype(get_elem(type, Es1))}]
-		  ++ local_defs(get_elem(localdef, Es1)))},
+		  ++ local_defs(get_elem(localdef, Es1), Opts))},
 	     ?NL]
     end.
 
 %% <!ELEMENT typespec (erlangName, type, localdef*)>
 
-typespec([]) -> [];
-typespec(Es) ->
-    [{tt, ([t_name(get_elem(erlangName, Es))]
-	   ++ t_utype(get_elem(type, Es)))}]
-	++ local_defs(get_elem(localdef, Es)).
+typespec([], _Opts) -> [];
+typespec(Es, Opts) ->
+    Name = t_name(get_elem(erlangName, Es)),
+    Defs = get_elem(localdef, Es),
+    [Type] = get_elem(type, Es),
+    format_spec(Name, Type, Defs, Opts) ++ local_defs(Defs, Opts).
 
 %% <!ELEMENT typedecl (typedef, description?)>
 %% <!ELEMENT typedef (erlangName, argtypes, type?, localdef*)>
 
-types([]) -> [];
-types(Ts) ->
-    Es = lists:flatmap(fun ({Name, E}) -> typedecl(Name, E) end, Ts),
+types([], _Opts) -> [];
+types(Ts, Opts) ->
+    Es = lists:flatmap(fun ({Name, E}) -> typedecl(Name, E, Opts) end, Ts),
     [?NL,
      {h2, [{a, [{name, ?DATA_TYPES_LABEL}],
 	    [?DATA_TYPES_TITLE]}]},
      ?NL | Es].
 
-typedecl(Name, E=#xmlElement{content = Es}) ->
+typedecl(Name, E=#xmlElement{content = Es}, Opts) ->
     ([?NL, {h3, [{class, "typedecl"}], label_anchor([Name, "()"], E)}, ?NL]
-     ++ [{p, typedef(get_content(typedef, Es))}, ?NL]
+     ++ [{p, typedef(get_content(typedef, Es), Opts)}, ?NL]
      ++ fulldesc(Es)).
 
 type_name(#xmlElement{content = Es}) ->
     t_name(get_elem(erlangName, get_content(typedef, Es))).
 
-typedef(Es) ->
+typedef(Es, Opts) ->
     Name = ([t_name(get_elem(erlangName, Es)), "("]
-  	    ++ seq(fun t_utype_elem/1, get_content(argtypes, Es), [")"])),
+            ++ seq(fun t_utype_elem/1, get_content(argtypes, Es), [")"])),
     (case get_elem(type, Es) of
  	 [] -> [{b, ["abstract datatype"]}, ": ", {tt, Name}];
- 	 Type ->
-	     [{tt, Name ++ [" = "] ++ t_utype(Type)}]
+         Type -> format_type(Name, Name, Type, [], Opts)
      end
-     ++ local_defs(get_elem(localdef, Es))).
+     ++ local_defs(get_elem(localdef, Es), Opts)).
 
-local_defs([]) -> [];
-local_defs(Es) ->
+local_defs(Es, Opts) ->
+    local_defs(Es, [], Opts).
+
+local_defs([], _, _Opts) -> [];
+local_defs(Es0, Last, Opts) ->
+    [E | Es] = lists:reverse(Es0),
     [?NL,
      {ul, [{class, "definitions"}],
-      lists:append([[{li, [{tt, localdef(E)}]}, ?NL] || E <- Es])}].
+      lists:reverse(lists:append([localdef(E1, [], Opts) || E1 <- Es]),
+                    localdef(E, Last, Opts))}].
 
-localdef(E = #xmlElement{content = Es}) ->
-    (case get_elem(typevar, Es) of
-	 [] -> 
-	     label_anchor(t_abstype(get_content(abstype, Es)), E);
-	 [V] ->
-	     t_var(V)
-     end
-     ++ [" = "] ++ t_utype(get_elem(type, Es))).
+localdef(E = #xmlElement{content = Es}, Last, Opts) ->
+    Name = case get_elem(typevar, Es) of
+               [] ->
+                   label_anchor(N0 = t_abstype(get_content(abstype, Es)), E);
+               [V] ->
+                   N0 = t_var(V)
+           end,
+    [{li, format_type(Name, N0, get_elem(type, Es), Last, Opts)}].
+
+%% Use the default formatting of EDoc, which creates references, and
+%% then insert newlines and indentation according to erl_pp (the
+%% (fast) Erlang pretty printer).
+format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
+    try
+        L = t_clause(Name, Type),
+        O = pp_clause(Name, Type),
+        {R, ".\n"} = etypef(L, O),
+        [{pre, R}]
+    catch _:_ ->
+        %% Example: "@spec ... -> record(a)"
+        format_spec(Name, Type, Defs, Opts#opts{pretty_printer=''})
+    end;
+format_spec(Sep, Type, Defs, _Opts) ->
+    %% Very limited formatting.
+    Br = if Defs =:= [] -> br; true -> [] end,
+    [{tt, t_clause(Sep, Type)}, Br].
+
+t_clause(Name, Type) ->
+    #xmlElement{content = [#xmlElement{name = 'fun', content = C}]} = Type,
+    [Name] ++ t_fun(C).
+
+pp_clause(Pre, Type) ->
+    Types = ot_utype([Type]),
+    Atom = lists:duplicate(iolist_size(Pre), $a),
+    L1 = erl_pp:attribute({attribute,0,spec,{{list_to_atom(Atom),0},[Types]}}),
+    "-spec " ++ L2 = lists:flatten(L1),
+    L3 = Pre ++ lists:nthtail(length(Atom), L2),
+    re:replace(L3, "\n      ", "\n", [{return,list},global]).
+
+format_type(Prefix, Name, Type, Last, #opts{pretty_printer = erl_pp}=Opts) ->
+    try
+        L = t_utype(Type),
+        O = pp_type(Name, Type),
+        {R, ".\n"} = etypef(L, O),
+        [{pre, Prefix ++ [" = "] ++ R ++ Last}]
+    catch _:_ ->
+        %% Example: "t() = record(a)."
+        format_type(Prefix, Name, Type, Last, Opts#opts{pretty_printer =''})
+    end;
+format_type(Prefix, _Name, Type, Last, _Opts) ->
+    [{tt, Prefix ++ [" = "] ++ t_utype(Type) ++ Last}].
+
+pp_type(Prefix, Type) ->
+    Atom = list_to_atom(lists:duplicate(iolist_size(Prefix), $a)),
+    L1 = erl_pp:attribute({attribute,0,type,{Atom,ot_utype(Type),[]}}),
+    {L2,N} = case lists:dropwhile(fun(C) -> C =/= $: end, lists:flatten(L1)) of
+                 ":: " ++ L3 -> {L3,9}; % compensation for extra "()" and ":"
+                 "::\n" ++ L3 -> {"\n"++L3,6}
+             end,
+    Ss = lists:duplicate(N, $\s),
+    re:replace(L2, "\n"++Ss, "\n", [{return,list},global]).
+
+etypef(L, O0) ->
+    {R, O} = etypef(L, [], O0, []),
+    {lists:reverse(R), O}.
+
+etypef([C | L], St, [C | O], R) ->
+    etypef(L, St, O, [[C] | R]);
+etypef(" "++L, St, O, R) ->
+    etypef(L, St, O, R);
+etypef("", [Cs | St], O, R) ->
+    etypef(Cs, St, O, R);
+etypef("", [], O, R) ->
+    {R, O};
+etypef(L, St, " "++O, R) ->
+    etypef(L, St, O, [" " | R]);
+etypef(L, St, "\n"++O, R) ->
+    Ss = lists:takewhile(fun(C) -> C =:= $\s end, O),
+    etypef(L, St, lists:nthtail(length(Ss), O), ["\n"++Ss | R]);
+etypef([{a, HRef, S0} | L], St, O0, R) ->
+    {S, O} = etypef(S0, app_fix(O0)),
+    etypef(L, St, O, [{a, HRef, S} | R]);
+etypef("="++L, St, "::"++O, R) ->
+    %% EDoc uses "=" for record field types; Erlang types use "::".
+    %% Maybe there should be an option for this, possibly affecting
+    %% other similar discrepancies.
+    etypef(L, St, O, ["=" | R]);
+etypef([Cs | L], St, O, R) ->
+    etypef(Cs, [L | St], O, R).
+
+app_fix(L) ->
+    try
+        {"//" ++ R1,L2} = app_fix(L, 1),
+        [App, Mod] = string:tokens(R1, "/"),
+        "//" ++ atom(App) ++ "/" ++ atom(Mod) ++ L2
+    catch _:_ -> L
+    end.
+
+app_fix(L, I) -> % a bit slow
+    {L1, L2} = lists:split(I, L),
+    case erl_scan:tokens([], L1 ++ ". ", 1) of
+        {done, {ok,[{atom,_,Atom}|_],_}, _} -> {atom_to_list(Atom), L2};
+        _ -> app_fix(L, I+1)
+    end.
 
 fulldesc(Es) ->
     case get_content(fullDescription, get_content(description, Es)) of
@@ -702,21 +816,28 @@ t_type([E=#xmlElement{name = atom}]) ->
     t_atom(E);
 t_type([E=#xmlElement{name = integer}]) ->
     t_integer(E);
+t_type([E=#xmlElement{name = range}]) ->
+    t_range(E);
+t_type([E=#xmlElement{name = binary}]) ->
+    t_binary(E);
 t_type([E=#xmlElement{name = float}]) ->
     t_float(E);
 t_type([#xmlElement{name = nil}]) ->
     t_nil();
+t_type([#xmlElement{name = paren, content = Es}]) ->
+    t_paren(Es);
 t_type([#xmlElement{name = list, content = Es}]) ->
     t_list(Es);
+t_type([#xmlElement{name = nonempty_list, content = Es}]) ->
+    t_nonempty_list(Es);
 t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
-    t_fun(Es);
-t_type([#xmlElement{name = record, content = Es}]) ->
-    t_record(Es);
+    ["fun("] ++ t_fun(Es) ++ [")"];
+t_type([E = #xmlElement{name = record, content = Es}]) ->
+    t_record(E, Es);
 t_type([E = #xmlElement{name = abstype, content = Es}]) ->
-    T = t_abstype(Es),
-    see(E, T);
+    t_abstype(E, Es);
 t_type([#xmlElement{name = union, content = Es}]) ->
     t_union(Es).
 
@@ -729,14 +850,26 @@ t_atom(E) ->
 t_integer(E) ->
     [get_attrval(value, E)].
 
+t_range(E) ->
+    [get_attrval(value, E)].
+
+t_binary(E) ->
+    [get_attrval(value, E)].
+
 t_float(E) ->
     [get_attrval(value, E)].
 
 t_nil() ->
     ["[]"].
 
+t_paren(Es) ->
+    ["("] ++ t_utype(get_elem(type, Es)) ++ [")"].
+
 t_list(Es) ->
     ["["] ++ t_utype(get_elem(type, Es)) ++ ["]"].
+
+t_nonempty_list(Es) ->
+    ["["] ++ t_utype(get_elem(type, Es)) ++ [", ...]"].
 
 t_tuple(Es) ->
     ["{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
@@ -745,12 +878,26 @@ t_fun(Es) ->
     ["("] ++ seq(fun t_utype_elem/1, get_content(argtypes, Es),
 		 [") -> "] ++ t_utype(get_elem(type, Es))).
 
-t_record(Es) ->
-    ["#"] ++ t_type(get_elem(atom, Es)) ++ ["{"]
-	++ seq(fun t_field/1, get_elem(field, Es), ["}"]).
+t_record(E, Es) ->
+    Name = ["#"] ++ t_type(get_elem(atom, Es)),
+    case get_elem(field, Es) of
+        [] ->
+            see(E, [Name, "{}"]);
+        Fs ->
+            see(E, Name) ++ ["{"] ++ seq(fun t_field/1, Fs, ["}"])
+    end.
 
 t_field(#xmlElement{content = Es}) ->
     t_type(get_elem(atom, Es)) ++ [" = "] ++ t_utype(get_elem(type, Es)).
+
+t_abstype(E, Es) ->
+    Name = t_name(get_elem(erlangName, Es)),
+    case get_elem(type, Es) of
+        [] ->
+            see(E, [Name, "()"]);
+        Ts ->
+            see(E, [Name]) ++ ["("] ++ seq(fun t_utype_elem/1, Ts, [")"])
+    end.
 
 t_abstype(Es) ->
     ([t_name(get_elem(erlangName, Es)), "("]
@@ -827,7 +974,8 @@ type(E) ->
     type(E, []).
 
 type(E, Ds) ->
-    xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds),
+    Opts = [],
+    xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
 
 package(E=#xmlElement{name = package, content = Es}, Options) ->
@@ -873,3 +1021,142 @@ overview(E=#xmlElement{name = overview, content = Es}, Options) ->
 	    ++ timestamp()),
     XML = xhtml(Title, stylesheet(Opts), Body),
     xmerl:export_simple(XML, ?HTML_EXPORT, []).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% NYTT
+
+ot_utype([E]) ->
+    ot_utype_elem(E).
+
+ot_utype_elem(E=#xmlElement{content = Es}) ->
+    case get_attrval(name, E) of
+	"" -> ot_type(Es);
+	N ->
+            Name = {var,0,list_to_atom(N)},
+	    T = ot_type(Es),
+	    case T of
+		Name -> T;
+                T -> {ann_type,0,[Name, T]}
+	    end
+    end.
+
+ot_type([E=#xmlElement{name = typevar}]) ->
+    ot_var(E);
+ot_type([E=#xmlElement{name = atom}]) ->
+    ot_atom(E);
+ot_type([E=#xmlElement{name = integer}]) ->
+    ot_integer(E);
+ot_type([E=#xmlElement{name = range}]) ->
+    ot_range(E);
+ot_type([E=#xmlElement{name = binary}]) ->
+    ot_binary(E);
+ot_type([E=#xmlElement{name = float}]) ->
+    ot_float(E);
+ot_type([#xmlElement{name = nil}]) ->
+    ot_nil();
+ot_type([#xmlElement{name = paren, content = Es}]) ->
+    ot_paren(Es);
+ot_type([#xmlElement{name = list, content = Es}]) ->
+    ot_list(Es);
+ot_type([#xmlElement{name = nonempty_list, content = Es}]) ->
+    ot_nonempty_list(Es);
+ot_type([#xmlElement{name = tuple, content = Es}]) ->
+    ot_tuple(Es);
+ot_type([#xmlElement{name = 'fun', content = Es}]) ->
+    ot_fun(Es);
+ot_type([#xmlElement{name = record, content = Es}]) ->
+    ot_record(Es);
+ot_type([#xmlElement{name = abstype, content = Es}]) ->
+     ot_abstype(Es);
+ot_type([#xmlElement{name = union, content = Es}]) ->
+    ot_union(Es).
+
+ot_var(E) ->
+    {var,0,list_to_atom(get_attrval(name, E))}.
+
+ot_atom(E) ->
+    {ok, [Atom], _} = erl_scan:string(get_attrval(value, E), 0),
+    Atom.
+
+ot_integer(E) ->
+    {integer,0,list_to_integer(get_attrval(value, E))}.
+
+ot_range(E) ->
+    [I1, I2] = string:tokens(get_attrval(value, E), "."),
+    {type,0,range,[{integer,0,list_to_integer(I1)},
+                   {integer,0,list_to_integer(I2)}]}.
+
+ot_binary(E) ->
+    {Base, Unit} =
+        case string:tokens(get_attrval(value, E), ",:*><") of
+            [] ->
+                {0, 0};
+            ["_",B] ->
+                {list_to_integer(B), 0};
+            ["_","_",U] ->
+                {0, list_to_integer(U)};
+            ["_",B,_,"_",U] ->
+                {list_to_integer(B), list_to_integer(U)}
+        end,
+    {type,0,binary,[{integer,0,Base},{integer,0,Unit}]}.
+
+ot_float(E) ->
+    {float,0,list_to_float(get_attrval(value, E))}.
+
+ot_nil() ->
+    {nil,0}.
+
+ot_paren(Es) ->
+    {paren_type,0,[ot_utype(get_elem(type, Es))]}.
+
+ot_list(Es) ->
+    {type,0,list,[ot_utype(get_elem(type, Es))]}.
+
+ot_nonempty_list(Es) ->
+    {type,0,nonempty_list,[ot_utype(get_elem(type, Es))]}.
+
+ot_tuple(Es) ->
+    {type,0,tuple,[ot_utype_elem(E) || E <- Es]}.
+
+ot_fun(Es) ->
+    Range = ot_utype(get_elem(type, Es)),
+    Args = [ot_utype_elem(A) || A <- get_content(argtypes, Es)],
+    {type,0,'fun',[{type,0,product,Args},Range]}.
+
+ot_record(Es) ->
+    {type,0,record,[ot_type(get_elem(atom, Es)) |
+                    [ot_field(F) || F <- get_elem(field, Es)]]}.
+
+ot_field(#xmlElement{content = Es}) ->
+    {type,0,field_type,
+     [ot_type(get_elem(atom, Es)), ot_utype(get_elem(type, Es))]}.
+
+ot_abstype(Es) ->
+    ot_name(get_elem(erlangName, Es),
+            [ot_utype_elem(Elem) || Elem <- get_elem(type, Es)]).
+
+ot_union(Es) ->
+    {type,0,union,[ot_utype_elem(E) || E <- Es]}.
+
+ot_name(Es, T) ->
+    case ot_name(Es) of
+        [Mod, ":", Atom] ->
+            {remote_type,0,[{atom,0,list_to_atom(Mod)},
+                            {atom,0,list_to_atom(Atom)},T]};
+        "tuple" when T =:= [] ->
+            {type,0,tuple,any};
+        Atom ->
+            {type,0,list_to_atom(Atom),T}
+    end.
+
+ot_name([E]) ->
+    Atom = get_attrval(name, E),
+    case get_attrval(module, E) of
+	"" -> Atom;
+	M ->
+	    case get_attrval(app, E) of
+		"" ->
+                    [M, ":", Atom];
+                A ->
+                    ["//"++A++"/" ++ M, ":", Atom] % EDoc only!
+	    end
+    end.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -243,8 +243,8 @@
           customise the value of <c>Misc</c> by exporting
           a <c>format_status/2</c> function that contributes
           module-specific information;
-          see <seealso marker="gen_server#format_status/2">gen_server:format_status/2</seealso>
-          and <seealso marker="gen_fsm#format_status/2">gen_fsm:format_status/2</seealso>
+          see <seealso marker="gen_server#Module:format_status/2">gen_server:format_status/2</seealso>
+          and <seealso marker="gen_fsm#Module:format_status/2">gen_fsm:format_status/2</seealso>
           for more details.</p>
       </desc>
     </func>

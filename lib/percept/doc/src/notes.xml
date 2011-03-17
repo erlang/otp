@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,21 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Percept application.</p>
+
+<section><title>Percept 0.8.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixes a race condition found in percept_db start/1
+	    function. (Thanks to Ahmed Omar) </p>
+          <p>
+	    Own Id: OTP-9012</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Percept 0.8.4</title>
 

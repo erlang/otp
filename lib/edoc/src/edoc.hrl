@@ -37,6 +37,7 @@
 -define(SOURCE_DIR, "src").
 -define(EBIN_DIR, "ebin").
 -define(EDOC_DIR, "doc").
+-define(REPORT_MISSING_TYPE, false).
 
 -include("edoc_doclet.hrl").
 
@@ -83,10 +84,11 @@
 
 %% Module Entries (one per function, plus module header and footer)
 
-%% @type entry() = #entry{name = atom(),
-%%                        args = [string()],
+%% @type entry() = #entry{{atom(), integer()}  % function
+%%                          | name = atom(),   % other
+%%                        args = [atom()],
 %%                        line = integer(),
-%%                        export = bool(),
+%%                        export = boolean(),
 %%                        data = term()}
 
 -record(entry, {name, args = [], line = 0, export, data}).
@@ -95,6 +97,7 @@
 
 %% @type tag() = #tag{name = atom(),
 %%                    line = integer(),
+%%                    origin = comment | code,
 %%                    data = term()}
 
--record(tag, {name, line = 0, data}).
+-record(tag, {name, line = 0, origin = comment, data}).

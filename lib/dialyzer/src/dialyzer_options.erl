@@ -47,6 +47,7 @@ build(Opts) ->
 		  ?WARN_FAILING_CALL,
 		  ?WARN_BIN_CONSTRUCTION,
 		  ?WARN_CALLGRAPH,
+		  ?WARN_CONTRACT_RANGE,
 		  ?WARN_CONTRACT_TYPES,
 		  ?WARN_CONTRACT_SYNTAX],
   DefaultWarns1 = ordsets:from_list(DefaultWarns),

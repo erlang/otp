@@ -30,6 +30,65 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.14.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>os:find_executable/{1,2}</c> will no longer return the
+	    path of a directory that happens to be in the PATH.</p>
+          <p>
+	    Own Id: OTP-8983 Aux Id: seq11749 </p>
+        </item>
+        <item>
+          <p>
+	    Fix -spec for file:write_file/3</p>
+          <p>
+	    Change type for second parameter from binary() to
+	    iodata(), since the function explicitly takes steps to
+	    accept lists as well as binaries. (thanks to Magnus
+	    Henoch).</p>
+          <p>
+	    Own Id: OTP-9067</p>
+        </item>
+        <item>
+          <p>
+	    Sanitize the specs of the code module</p>
+          <p>
+	    After the addition of unicode_binary() to the
+	    file:filename() type, dialyzer started complaining about
+	    erroneous or incomplete specs in some functions of the
+	    'code' module. The culprit was hard-coded information in
+	    erl_bif_types for functions of this module, which were
+	    not updated. Since these functions have proper specs
+	    these days and code duplication (pun intended) is never a
+	    good idea, their type information was removed from
+	    erl_bif_types.</p>
+          <p>
+	    While doing this, some erroneous comments were fixed in
+	    the code module and also made sure that the code now runs
+	    without dialyzer warnings even when the
+	    -Wunmatched_returns option is used.</p>
+          <p>
+	    Some cleanups were applied to erl_bif_types too.</p>
+          <p>
+	    Own Id: OTP-9100</p>
+        </item>
+        <item>
+          <p>
+	    - Add spec for function that does not return - Strenghen
+	    spec - Introduce types to avoid duplication in specs -
+	    Add specs for functions that do not return - Add specs
+	    for behaviour callbacks - Simplify two specs</p>
+          <p>
+	    Own Id: OTP-9127</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.14.2</title>
 
     <section><title>Improvements and New Features</title>

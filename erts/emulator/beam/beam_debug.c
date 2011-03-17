@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -267,7 +267,7 @@ erts_debug_disassemble_1(Process* p, Eterm addr)
 		   "unknown " HEXF "\n", instr);
 	code_ptr++;
     }
-    bin = new_binary(p, (byte *) dsbufp->str, (int) dsbufp->str_len);
+    bin = new_binary(p, (byte *) dsbufp->str, dsbufp->str_len);
     erts_destroy_tmp_dsbuf(dsbufp);
     hsz = 4+4;
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
