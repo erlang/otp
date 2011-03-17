@@ -113,7 +113,7 @@ do_error_entry(ConfigDB, RemoteHost, undefined, Date, Reason) ->
 do_error_entry(ConfigDB, RemoteHost, URI, Date, Reason) ->
     case httpd_util:lookup(ConfigDB, error_log_format, pretty) of
 	pretty ->
-	   io_lib:format("[~s] access to ~s failed for ~s reason: ~n~p~n",
+	   io_lib:format("[~s] access to ~s failed for ~s, reason: ~n~p~n",
 			 [Date, URI, RemoteHost, Reason]);
 	compact ->
 	   io_lib:format( "[~s] access to ~s failed for ~s, reason: ~w~n", 
