@@ -30,6 +30,49 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some malformed distribution messages could cause VM to
+	    crash, this is now corrected.</p>
+          <p>
+	    Own Id: OTP-8993</p>
+        </item>
+        <item>
+          <p>
+	    Strengthen string copy check (Thanks to Michael Santos).</p>
+          <p>
+	    Own Id: OTP-9071</p>
+        </item>
+        <item>
+          <p>
+	    Strengthen atom length check when decoding atoms (Thanks
+	    to Michael Santos).</p>
+          <p>
+	    Own Id: OTP-9072</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fix global registration. C node needed
+	    DFLAG_DIST_MONITOR_FLAT set when connecting. Fix list
+	    compare in erl_compare_ext to return correct result.
+	    (Thanks to Vitaliy Batichko and Evgeny Khirin)</p>
+          <p>
+	    Own Id: OTP-9015</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

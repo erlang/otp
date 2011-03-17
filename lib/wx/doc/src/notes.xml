@@ -31,6 +31,31 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.98.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Wx crashed if graphics could not be initiated, for
+	    instance if DISPLAY was not available.</p> <p>Wx could
+	    crash during startup, thanks Boris Muhmer for extra
+	    ordinary testing.</p>
+          <p>
+	    Own Id: OTP-9080</p>
+        </item>
+        <item>
+          <p>
+	    Wx on MacOS X generated complains on stderr about certain
+	    cocoa functions not beeing called from the "Main thread".
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9081</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.98.8</title>
 
     <section><title>Improvements and New Features</title>

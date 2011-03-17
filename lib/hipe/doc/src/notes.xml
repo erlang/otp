@@ -30,6 +30,100 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.7.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erroneous fail info of a hipe_bs_primop</p>
+          <p>
+	    Own Id: OTP-9036</p>
+        </item>
+        <item>
+          <p>
+	    The change fixes a bug in the translation of 'bs_add'
+	    BEAM instruction to HiPE's Icode representation. When
+	    these instructions appeared in a guard context the
+	    previous translation was obviously buggy.</p>
+          <p>
+	    Own Id: OTP-9044</p>
+        </item>
+        <item>
+          <p>
+	    Sanitize the specs of the code module</p>
+          <p>
+	    After the addition of unicode_binary() to the
+	    file:filename() type, dialyzer started complaining about
+	    erroneous or incomplete specs in some functions of the
+	    'code' module. The culprit was hard-coded information in
+	    erl_bif_types for functions of this module, which were
+	    not updated. Since these functions have proper specs
+	    these days and code duplication (pun intended) is never a
+	    good idea, their type information was removed from
+	    erl_bif_types.</p>
+          <p>
+	    While doing this, some erroneous comments were fixed in
+	    the code module and also made sure that the code now runs
+	    without dialyzer warnings even when the
+	    -Wunmatched_returns option is used.</p>
+          <p>
+	    Some cleanups were applied to erl_bif_types too.</p>
+          <p>
+	    Own Id: OTP-9100</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in the simplification of inexact comparisons</p>
+          <p>
+	    On 31/1/2011 Paul Guyot reported a bug in the native code
+	    compilation of inexact equality/inequality tests between
+	    floats and integers. The relevant test was:</p>
+          <p>
+	    f(X) -&gt; Y = X / 2, Y == 0.</p>
+          <p>
+	    and hipe erroneously evaluated the calls f(0) and f(0.0)
+	    to 'false'.</p>
+          <p>
+	    The culprit was in the simplification code of the Icode
+	    range analysis which used an erroneous test (lists:any/1
+	    instead of lists:all/1).</p>
+          <p>
+	    Own Id: OTP-9101</p>
+        </item>
+        <item>
+          <p>
+	    Document exiting and garbage_collecting process statuses</p>
+          <p>
+	    Own Id: OTP-9102</p>
+        </item>
+        <item>
+          <p>
+	    Remove hipe constants pool</p>
+          <p>
+	    Hipe constants used to be allocated within a single,
+	    fixed-size pool for interaction with the garbage
+	    collector. However, the garbage collector no longer
+	    depends on constants being allocated within a single
+	    pool, and the fixed size of the pool both meant
+	    unnecessary allocations on most deployments and crashes
+	    on deployments requiring more constants.</p>
+          <p>
+	    The code was simplified to directly invoke erts_alloc.
+	    Debugging and undocumented function
+	    hipe_bifs:show_literals/0 was removed (it returned true
+	    and output text to the console), and debugging and
+	    undocumented function hipe_bifs:constants_size/0 was
+	    rewritten with a global to count the size of allocated
+	    constants.</p>
+          <p>
+	    Own Id: OTP-9128</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.7.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

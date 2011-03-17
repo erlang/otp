@@ -32,26 +32,10 @@
   </header>
 
   <section>
-    <title>cosProperty 1.1.12</title>
+    <title>cosProperty 1.1.13</title>
 
     <section>
       <title>Improvements and New Features</title>
-      <list type="bulleted">
-        <item>
-          <p>
-            Test suites published.</p>
-          <p>
-            Own Id: OTP-8543 Aux Id:</p>
-        </item>
-      </list>
-    </section>
-  </section>
-
-  <section>
-    <title>cosProperty 1.1.11</title>
-
-    <section>
-      <title>Fixed Bugs and Malfunctions</title>
       <list type="bulleted">
         <item>
           <p>Eliminated Dialyzer warnings when using exit or throw.</p>

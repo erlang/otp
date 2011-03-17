@@ -31,7 +31,22 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.9</title>
+  <section><title>ODBC 2.10.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Better error messages for connection issues.</p>
+          <p>
+	    Own Id: OTP-9111</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.9</title>
 
     <section><title>Improvements and New Features</title>
       <list>
