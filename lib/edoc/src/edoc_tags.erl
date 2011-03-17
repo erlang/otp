@@ -31,7 +31,8 @@
 -module(edoc_tags).
 
 -export([tags/0, tags/1, tag_names/0, tag_parsers/0, scan_lines/2,
-	 filter_tags/3, check_tags/4, parse_tags/4]).
+	 filter_tags/2, filter_tags/3, check_tags/4, parse_tags/4,
+         check_types/3]).
 
 -import(edoc_report, [report/4, warning/4, error/3]).
 
@@ -201,6 +202,9 @@ append_lines([]) -> [].
 
 %% Filtering out unknown tags.
 
+filter_tags(Ts, Tags) ->
+    filter_tags(Ts, Tags, no).
+
 filter_tags(Ts, Tags, Where) ->
     filter_tags(Ts, Tags, Where, []).
 
@@ -211,7 +215,8 @@ filter_tags([#tag{name = N, line = L} = T | Ts], Tags, Where, Ts1) ->
 	true ->
 	    filter_tags(Ts, Tags, Where, [T | Ts1]);
 	false ->
-	    warning(L, Where, "tag @~s not recognized.", [N]),
+	    [warning(L, Where, "tag @~s not recognized.", [N]) ||
+                Where =/= no],
 	    filter_tags(Ts, Tags, Where, Ts1)
     end;
 filter_tags([], _, _, Ts) ->
@@ -320,12 +325,24 @@ parse_contact(Data, Line, _Env, _Where) ->
 	    Info
     end.
 
-parse_typedef(Data, Line, _Env, _Where) ->
+parse_typedef(Data, Line, _Env, Where) ->
     Def = edoc_parser:parse_typedef(Data, Line),
-    {#t_typedef{name = #t_name{name = T}}, _} = Def,
-    case edoc_types:is_predefined(T) of
+    {#t_typedef{name = #t_name{name = T}, args = As}, _} = Def,
+    NAs = length(As),
+    case edoc_types:is_predefined(T, NAs) of
 	true ->
-	    throw_error(Line, {"redefining built-in type '~w'.", [T]});
+            case 
+                edoc_types:is_new_predefined(T, NAs) 
+                orelse edoc_types:is_predefined_otp_type(T, NAs)
+            of
+                false ->
+                    throw_error(Line, {"redefining built-in type '~w'.",
+                                       [T]});
+                true ->
+                    warning(Line, Where, "redefining built-in type '~w'.",
+                            [T]),
+                    Def
+            end;
 	false ->
 	    Def
     end.
@@ -384,3 +401,107 @@ throw_error(L, file_not_string) ->
     throw_error(L, "expected file name as a string");
 throw_error(L, D) ->
     throw({error, L, D}).
+
+%% Checks local types.
+
+-record(parms, {tab, warn, file, line}).
+
+check_types(Entries0, Opts, File) ->
+    Entries = edoc_data:hidden_filter(Entries0, Opts),
+    Tags = edoc_data:get_all_tags(Entries),
+    DT = ets:new(types, [bag]),
+    _ = [add_type(DT, Name, As, File, Line) ||
+            #tag{line = Line,
+                 data = {#t_typedef{name = Name, args = As},_}} <- Tags],
+    Warn = proplists:get_value(report_missing_type, Opts,
+                               ?REPORT_MISSING_TYPE) =:= true,
+    P = #parms{tab = DT, warn = Warn, file = File, line = 0},
+    try check_types(Tags, P)
+    after true = ets:delete(DT)
+    end.
+
+add_type(DT, Name, Args, File, Line) ->
+    NArgs = length(Args),
+    TypeName = {Name, NArgs},
+    case lists:member(TypeName, ets:lookup(DT, Name)) of
+        true ->
+            #t_name{name = N} = Name,
+            type_warning(Line, File, "duplicated type", N, NArgs);
+        false ->
+            ets:insert(DT, {Name, NArgs})
+    end.
+
+check_types([], _P)->
+    ok;
+check_types([Tag | Tags], P) ->
+    check_type(Tag, P, Tags).
+
+check_type(#tag{line = L, data = Data}, P0, Ts) ->
+    P = P0#parms{line = L},
+    case Data of
+        {#t_typedef{type = Type, defs = Defs},_} ->
+            check_type(Type, P, Defs++Ts);
+        #t_spec{type = Type, defs = Defs} ->
+            check_type(Type, P, Defs++Ts);
+        _->
+            check_types(Ts, P0)
+    end;
+check_type(#t_def{type = Type}, P, Ts) ->
+    check_type(Type, P, Ts);
+check_type(#t_type{name = Name, args = Args}, P, Ts) ->
+    check_used_type(Name, Args, P),
+    check_types(Args++Ts, P);
+check_type(#t_var{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_fun{args = Args, range = Range}, P, Ts) ->
+    check_type(Range, P, Args++Ts);
+check_type(#t_tuple{types = Types}, P, Ts) ->
+    check_types(Types ++Ts, P);
+check_type(#t_list{type = Type}, P, Ts) ->
+    check_type(Type, P, Ts);
+check_type(#t_nil{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_paren{type = Type}, P, Ts) ->
+    check_type(Type, P, Ts);
+check_type(#t_nonempty_list{type = Type}, P, Ts) ->
+    check_type(Type, P, Ts);
+check_type(#t_atom{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_integer{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_integer_range{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_binary{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_float{}, P, Ts) ->
+    check_types(Ts, P);
+check_type(#t_union{types = Types}, P, Ts) ->
+    check_types(Types++Ts, P);
+check_type(#t_record{fields = Fields}, P, Ts) ->
+    check_types(Fields++Ts, P);
+check_type(#t_field{type = Type}, P, Ts) ->
+    check_type(Type, P, Ts);
+check_type(undefined, P, Ts) ->
+    check_types(Ts, P).
+
+check_used_type(#t_name{name = N, module = Mod}=Name, Args, P) ->
+    NArgs = length(Args),
+    TypeName = {Name, NArgs},
+    DT = P#parms.tab,
+    case
+        Mod =/= []
+        orelse lists:member(TypeName, ets:lookup(DT, Name))
+        orelse edoc_types:is_predefined(N, NArgs)
+        orelse edoc_types:is_predefined_otp_type(N, NArgs)
+    of
+        true ->
+            ok;
+        false ->
+            #parms{warn = W, line = L, file = File} = P,
+            %% true = ets:insert(DT, TypeName),
+            [type_warning(L, File, "missing type", N, NArgs) || W]
+    end.
+
+type_warning(Line, File, S, N, NArgs) ->
+    AS = ["/"++integer_to_list(NArgs) || NArgs > 0],
+    warning(Line, File, S++" ~w~s", [N, AS]).

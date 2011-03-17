@@ -60,7 +60,7 @@
                         {keyfile, path()} | {password, string()} | {cacerts, [der_encoded()]} |
                         {cacertfile, path()} | {dh, der_encoded()} | {dhfile, path()} |
                         {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
-                        {reuse_session, fun()}.
+                        {reuse_session, fun()} | {hibernate_after, integer()|undefined}.
 
 -type verify_type()  :: verify_none | verify_peer.
 -type path()         :: string().
@@ -711,7 +711,8 @@ handle_options(Opts0, _Role) ->
       reuse_sessions = handle_option(reuse_sessions, Opts, true),
       secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
       renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
-      debug      = handle_option(debug, Opts, [])
+      debug      = handle_option(debug, Opts, []),
+      hibernate_after = handle_option(hibernate_after, Opts, undefined)
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
@@ -720,7 +721,7 @@ handle_options(Opts0, _Role) ->
 		  depth, cert, certfile, key, keyfile,
 		  password, cacerts, cacertfile, dh, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cb_info, renegotiate_at, secure_renegotiate],
+		  cb_info, renegotiate_at, secure_renegotiate, hibernate_after],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -826,6 +827,10 @@ validate_option(renegotiate_at, Value) when is_integer(Value) ->
     erlang:min(Value, ?DEFAULT_RENEGOTIATE_AT);
 
 validate_option(debug, Value) when is_list(Value); Value == true ->
+    Value;
+validate_option(hibernate_after, undefined) ->
+    undefined;
+validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
     Value;
 validate_option(Opt, Value) ->
     throw({error, {eoptions, {Opt, Value}}}).

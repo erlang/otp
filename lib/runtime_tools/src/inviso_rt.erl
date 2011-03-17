@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1422,7 +1422,17 @@ do_set_trace_patterns(Args,Flags) ->
 
 do_set_trace_patterns_2([{M,F,Arity,MS}|Rest],Flags,Replies) -> % Option-less.
     do_set_trace_patterns_2([{M,F,Arity,MS,[]}|Rest],Flags,Replies);
-do_set_trace_patterns_2([{M,F,Arity,MS,Opts}|Rest],Flags,Replies) when is_atom(M) ->
+do_set_trace_patterns_2(Mlist = [{M,F,Arity,MS,Opts}|Rest],Flags,Replies) when is_atom(M) ->
+    case length(Mlist) rem 10 of
+	0 ->
+	    timer:sleep(100);
+	_ ->
+	    ok
+    end,
+    %% sleep 100 ms for every 10:th element in the list to let other 
+    %% processes run since this is a potentially
+    %% heavy operation that might result in an unresponsive Erlang VM for
+    %% several seconds otherwise
     case load_module_on_option(M,Opts) of
 	true ->                             % Already present, loaded or no option!
 	    case catch erlang:trace_pattern({M,F,Arity},MS,Flags) of
@@ -1438,30 +1448,11 @@ do_set_trace_patterns_2([{M,F,Arity,MS,Opts}|Rest],Flags,Replies) when is_atom(M
 	    do_set_trace_patterns_2(Rest,Flags,[0|Replies])
     end;
 do_set_trace_patterns_2([{M,F,Arity,MS,Opts}|Rest],Flags,Replies) when is_list(M) ->
-    case check_pattern_parameters(void,F,Arity,MS) of % We don't want to repeat bad params.
-	ok ->
-	    case inviso_rt_lib:expand_regexp(M,Opts) of % Get a list of real modulnames.
-		Mods when is_list(Mods) ->
-		    MoreReplies=
-			do_set_trace_patterns_2(lists:map(fun(Mod)->
-								  {Mod,F,Arity,MS,Opts}
-							  end,
-							  Mods),
-						Flags,
-						Replies),
-		    do_set_trace_patterns_2(Rest,Flags,MoreReplies);
-		{error,Reason} ->
-		    do_set_trace_patterns_2(Rest,Flags,[{error,Reason}|Replies])
-	    end;
-	error ->                            % Bad pattern parameters.
-	    do_set_trace_patterns_2(Rest,
-				    Flags,
-				    [{error,{bad_trace_args,{M,F,Arity,MS}}}|Replies])
-    end;
+    do_set_trace_patterns_2([{{void,M},F,Arity,MS,Opts}|Rest],Flags,Replies);
 do_set_trace_patterns_2([{{Dir,M},F,Arity,MS,Opts}|Rest],Flags,Replies)
   when is_list(Dir),is_list(M) ->
-    case check_pattern_parameters(void,F,Arity,MS) of % We don't want to repeat bad params.
-	ok ->
+    case check_pattern_parameters('_',F,Arity,MS) of % We don't want to repeat bad params.
+	true ->
 	    case inviso_rt_lib:expand_regexp(Dir,M,Opts) of % Get a list of real modulnames.
 		Mods when is_list(Mods) ->
 		    MoreReplies=
@@ -1475,7 +1466,7 @@ do_set_trace_patterns_2([{{Dir,M},F,Arity,MS,Opts}|Rest],Flags,Replies)
 		{error,Reason} ->
 		    do_set_trace_patterns_2(Rest,Flags,[{error,Reason}|Replies])
 	    end;
-	error ->                            % Bad pattern parameters.
+	false ->                            % Bad pattern parameters.
 	    do_set_trace_patterns_2(Rest,
 				    Flags,
 				    [{error,{bad_trace_args,{M,F,Arity,MS}}}|Replies])
@@ -2174,21 +2165,20 @@ check_flags_2([Faulty|_],_Flags) -> {error,{bad_flag,Faulty}}.
 %% the function is to avoid to get multiple error return values in the return
 %% list for a pattern used together with a regexp expanded module name.
 check_pattern_parameters(Mod,Func,Arity,MS) ->
-    if
-	(Mod=='_') and (Func=='_') and (Arity=='_') and
-	(is_list(MS) or (MS==true) or (MS==false)) ->
-	    ok;
-	(is_atom(Mod) and (Mod/='_')) and (Func=='_') and (Arity=='_') and
-	(is_list(MS) or (MS==true) or (MS==false)) ->
-	    ok;
-	(is_atom(Mod) and (Mod/='_')) and 
-	(is_atom(Func) and (Func/='_')) and 
-	((Arity=='_') or is_integer(Arity)) and
-	(is_list(MS) or (MS==true) or (MS==false)) ->
-	    ok;
-	true ->
-	    error
-    end.
+    MSresult = check_MS(MS),
+    MFAresult = check_MFA(Mod,Func,Arity),
+    MFAresult and MSresult.
+
+check_MS(MS) when is_list(MS) -> true;
+check_MS(true) -> true;
+check_MS(false) -> true.
+    
+check_MFA('_','_','_') -> true;
+check_MFA(Mod,'_','_') when is_atom(Mod) -> true;
+check_MFA(Mod,'_',A) when is_atom(Mod), is_integer(A) -> false;
+check_MFA(Mod,F,'_') when is_atom(Mod), is_atom(F) -> true;
+check_MFA(Mod,F,A) when is_atom(Mod), is_atom(F), is_integer(A) -> true.
+
 %% -----------------------------------------------------------------------------
 
 %% Help function finding out if Mod is loaded, and if not, if it can successfully

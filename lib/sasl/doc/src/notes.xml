@@ -30,6 +30,39 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.1.9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Honor start type in .rel files when building relup files</p>
+          <p>
+	    Previously, relup file always included an
+	    application:start(Application, permanent) apply
+	    instruction for every application that appear in the
+	    UpTo/DowFrom release file, whatever their start type in
+	    the release file.</p>
+          <p>
+	    The new implementation fixes this bug by honoring the
+	    start type according to the rel(5) format. If the start
+	    type is none, no apply line is included in the relup. If
+	    the start type is load, the relup includes instruction to
+	    only load the application. Otherwise, the relup includes
+	    an instruction to start the application to the according
+	    type.</p>
+          <p>
+	    The fix is implemented by adding a new parameter to the
+	    add_application high level appup instruction. This new
+	    parameter is documented in appup(5).</p>
+          <p>
+	    Own Id: OTP-9097</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.1.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

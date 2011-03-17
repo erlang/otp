@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -102,6 +102,7 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE int
 erts_port_task_have_outstanding_io_tasks(void)
 {
+    ERTS_THR_MEMORY_BARRIER;
     return erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != 0;
 }
 

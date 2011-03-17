@@ -19,7 +19,7 @@
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @see edoc
 %% @see edoc_parse_ref
-%% @end 
+%% @end
 %% =====================================================================
 
 %% @doc Representation and handling of EDoc object references. See

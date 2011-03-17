@@ -31,7 +31,7 @@
     <rev></rev>
     <file>snmpc_cmd.xml</file>
   </header>
-  <com>snmpc</com>
+  <com>snmpc(command)</com>
   <comsummary>SNMP MIB compiler frontend</comsummary>
   <description>
     <p>The <c><![CDATA[snmpc]]></c> program provides a way to run

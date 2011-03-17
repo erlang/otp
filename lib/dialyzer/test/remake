@@ -1,0 +1,9 @@
+#!/bin/bash
+
+erlc +warn_exported_vars +warn_unused_import +warn_untyped_record +warn_missing_spec dialyzer_common.erl file_utils.erl
+if [ -n "$1" ]; then
+    erl -noshell -run dialyzer_common create_suite "$1" -s erlang halt
+else
+    erl -noshell -run dialyzer_common create_all_suites -s erlang halt
+fi
+rm dialyzer_common.beam file_utils.beam

@@ -2162,7 +2162,8 @@ restart:
 	case matchProcessDump: {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
 	    print_process_info(ERTS_PRINT_DSBUF, (void *) dsbufp, c_p);
-	    *esp++ = new_binary(build_proc, (byte *)dsbufp->str, (int)dsbufp->str_len);
+	    *esp++ = new_binary(build_proc, (byte *)dsbufp->str,
+				dsbufp->str_len);
 	    erts_destroy_tmp_dsbuf(dsbufp);
 	    break;
 	}

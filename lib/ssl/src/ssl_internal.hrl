@@ -98,7 +98,11 @@
 	  reuse_sessions, % boolean()
 	  renegotiate_at,
 	  secure_renegotiate,
-	  debug           %
+	  debug,
+	  hibernate_after % undefined if not hibernating,
+                          % or number of ms of inactivity
+			  % after which ssl_connection will
+                          % go into hibernation
 	  }).
 
 -record(socket_options,

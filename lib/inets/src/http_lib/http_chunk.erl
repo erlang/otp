@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,7 +17,8 @@
 %% %CopyrightEnd%
 %%
 %% Description: Implements chunked transfer encoding see RFC2616 section
-%% 3.6.1
+%%              3.6.1
+
 -module(http_chunk).
 
 -include("http_internal.hrl").
@@ -27,6 +28,7 @@
 %% Callback API - used for example if the chunkedbody is received a
 %% little at a time on a socket. 
 -export([decode_size/1, ignore_extensions/1, decode_data/1, decode_trailer/1]).
+
 
 %%%=========================================================================
 %%%  API
@@ -81,12 +83,16 @@ encode(Chunk) when is_binary(Chunk)->
     HEXSize = list_to_binary(http_util:integer_to_hexlist(size(Chunk))),
     <<HEXSize/binary, ?CR, ?LF, Chunk/binary, ?CR, ?LF>>;
 
+encode([<<>>]) ->
+    [];
+
 encode(Chunk) when is_list(Chunk)->
     HEXSize = http_util:integer_to_hexlist(erlang:iolist_size(Chunk)),
     [HEXSize,  ?CR, ?LF, Chunk, ?CR, ?LF].
 
 encode_last() ->
     <<$0, ?CR, ?LF, ?CR, ?LF >>.
+
 
 %%-------------------------------------------------------------------------
 %% handle_headers(HeaderRecord, ChunkedHeaders) -> NewHeaderRecord

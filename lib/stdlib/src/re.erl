@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,16 +37,16 @@ split(Subject,RE,Options) ->
 	{error,_Err} ->
 	    throw(badre);
 	{PreCompiled, NumSub, RunOpt} ->
-	    % OK, lets run
+	    %% OK, lets run
 	    case re:run(FlatSubject,PreCompiled,RunOpt ++ [global]) of
 		nomatch ->
 		    case Group of
 			true ->
 			    convert_any_split_result([[FlatSubject]], 
-						     Convert, Unicode,true);
+						     Convert, Unicode, true);
 			false ->
 			    convert_any_split_result([FlatSubject], 
-						     Convert, Unicode,false)
+						     Convert, Unicode, false)
 		    end;
 		{match, Matches} ->
 		    Res = do_split(FlatSubject, 0, Matches, NumSub, 
@@ -69,7 +69,7 @@ split(Subject,RE,Options) ->
 	    erlang:error(badarg,[Subject,RE,Options])
     end.
 
-backstrip_empty(List,false) ->
+backstrip_empty(List, false) ->
     do_backstrip_empty(List);
 backstrip_empty(List, true) ->
     do_backstrip_empty_g(List).
@@ -196,12 +196,11 @@ compile_split(Pat,Options0) when not is_tuple(Pat) ->
     end;
 compile_split(_,_) ->
     throw(badre).
-	    
     
-
 
 replace(Subject,RE,Replacement) ->
     replace(Subject,RE,Replacement,[]).
+
 replace(Subject,RE,Replacement,Options) ->
     try
     {NewOpt,Convert,Unicode} =
@@ -235,7 +234,7 @@ replace(Subject,RE,Replacement,Options) ->
 	error:badarg ->
 	    erlang:error(badarg,[Subject,RE,Replacement,Options])
     end.
-    
+
 
 do_replace(FlatSubject,Subject,RE,Replacement,Options) ->
     case re:run(FlatSubject,RE,Options) of
@@ -310,7 +309,7 @@ apply_mlist(Subject,Replacement,Mlist) ->
 precomp_repl(<<>>) ->
     [];
 precomp_repl(<<$\\,X,Rest/binary>>) when X < $1 ; X > $9 ->
-    % Escaped character
+    %% Escaped character
     case precomp_repl(Rest) of
 	[BHead | T0] when is_binary(BHead) ->
 	    [<<X,BHead/binary>> | T0];
@@ -520,7 +519,7 @@ process_uparams([H|T],Type) ->
     {[H|NL],NType};
 process_uparams([],Type) ->
     {[],Type}.
-							   
+
 
 ucompile(RE,Options) ->
     try
@@ -544,6 +543,7 @@ urun(Subject,RE,Options) ->
 				    [Subject,RE,Options])),
 	    erlang:raise(error,AnyError,[{Mod,run,L}|Rest])
     end.
+
 urun2(Subject0,RE0,Options0) ->
     {Options,RetType} = case (catch process_uparams(Options0,index)) of
 			    {A,B} ->
@@ -569,7 +569,6 @@ urun2(Subject0,RE0,Options0) ->
 	_ ->
 	    Ret
     end.
-    
 	
 
 %% Might be called either with two-tuple (if regexp was already compiled)

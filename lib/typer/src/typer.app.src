@@ -3,12 +3,7 @@
 {application, typer,
  [{description, "TYPe annotator for ERlang programs, version %VSN%"},
   {vsn, "%VSN%"},
-  {modules, [typer,
-	     typer_annotator,
-	     typer_info,
-	     typer_map,
-	     typer_options,
-	     typer_preprocess]},
+  {modules, [typer]},
   {registered, []},
   {applications, [compiler, dialyzer, hipe, kernel, stdlib]},
   {env, []}]}.

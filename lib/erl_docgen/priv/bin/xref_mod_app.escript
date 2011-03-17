@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -85,8 +85,6 @@ appmods(D) ->
               P -> string:sub_string(AppV, 1, P-1)
           end,
     {App, [filename:basename(EF, ".erl") || EF <- ErlFiles]}.
-
--include_lib("xmerl/include/xmerl.hrl").
 
 -define(IND(N), lists:duplicate(N, $\s)).
 -define(NL, "\n").

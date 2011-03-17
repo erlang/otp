@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -128,12 +128,14 @@ remove_close_msg(ReconnectTimes) ->
 	   remove_close_msg(ReconnectTimes -1)
     end.
 	    
-
 start_client(Args) ->
-    Result = spawn_link(?MODULE, run_client, [Args]),
+    Result = spawn_link(?MODULE, run_client, [lists:delete(return_socket, Args)]),
     receive 
-	connected ->
-	    Result
+	{ connected, Socket } ->
+        case lists:member(return_socket, Args) of
+            true -> { Result, Socket };
+            false -> Result
+        end
     end.
 
 run_client(Opts) ->
@@ -145,7 +147,7 @@ run_client(Opts) ->
     test_server:format("ssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
     case rpc:call(Node, ssl, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
-	    Pid ! connected,
+	    Pid ! { connected, Socket },
 	    test_server:format("Client: connected~n", []), 
 	    %% In specail cases we want to know the client port, it will
 	    %% be indicated by sending {port, 0} in options list!

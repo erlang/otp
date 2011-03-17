@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1545,7 +1545,7 @@ process_info_aux(Process *BIF_P,
     case am_backtrace: {
 	erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(0);
 	erts_stack_dump(ERTS_PRINT_DSBUF, (void *) dsbufp, rp);
-	res = new_binary(BIF_P, (byte *) dsbufp->str, (int) dsbufp->str_len);
+	res = new_binary(BIF_P, (byte *) dsbufp->str, dsbufp->str_len);
 	erts_destroy_tmp_dsbuf(dsbufp);
 	hp = HAlloc(BIF_P, 3);
 	break;
@@ -2074,7 +2074,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	ASSERT(dsbufp && dsbufp->str);
-	res = new_binary(BIF_P, (byte *) dsbufp->str, (int) dsbufp->str_len);
+	res = new_binary(BIF_P, (byte *) dsbufp->str, dsbufp->str_len);
 	erts_destroy_info_dsbuf(dsbufp);
 	BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("dist_ctrl", BIF_ARG_1)) {

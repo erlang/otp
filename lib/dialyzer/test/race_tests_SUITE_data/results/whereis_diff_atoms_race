@@ -1,0 +1,2 @@
+
+whereis_diff_atoms_race.erl:34: The call erlang:register(Atom::'kostis' | 'maria',Pid::pid()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::'maria') call in whereis_diff_atoms_race.erl on line 14

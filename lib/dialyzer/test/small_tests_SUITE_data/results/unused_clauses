@@ -1,0 +1,3 @@
+
+unused_clauses.erl:16: Guard test is_integer(X::{42}) can never succeed
+unused_clauses.erl:18: The variable X can never match since previous clauses completely covered the type 'atom' | {42}

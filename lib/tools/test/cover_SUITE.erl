@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,7 +70,12 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-init_per_testcase(TC, Config) when TC =:= misc; TC =:= compile ->
+init_per_testcase(TC, Config) when TC =:= misc; 
+				   TC =:= compile; 
+				   TC =:= analyse;
+				   TC =:= distribution;
+				   TC =:= otp_5031;
+				   TC =:= stop ->
     case code:which(crypto) of
 	Path when is_list(Path) ->
 	    init_per_testcase(dummy_tc, Config);
@@ -366,6 +371,7 @@ distribution(Config) when is_list(Config) ->
 
     %% Check that stop() unloads on all nodes
     ?line ok = cover:stop(),
+    ?line timer:sleep(100), %% Give nodes time to unload on slow machines.
     ?line LocalBeam = code:which(f),
     ?line N2Beam = rpc:call(N2,code,which,[f]),
     ?line true = is_unloaded(LocalBeam),
