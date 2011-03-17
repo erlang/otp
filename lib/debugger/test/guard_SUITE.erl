@@ -35,7 +35,8 @@
 	 t_is_boolean/1,is_function_2/1,
 	 tricky/1,rel_ops/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
-	 check_qlc_hrl/1]).
+	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
+	 bad_constants/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -65,7 +66,8 @@ cases() ->
      xor_guard, more_xor_guards, build_in_guard,
      old_guard_tests, gbif, t_is_boolean, is_function_2,
      tricky, rel_ops, basic_andalso_orelse, traverse_dcd,
-     check_qlc_hrl].
+     check_qlc_hrl, andalso_semi, t_tuple_size, binary_part,
+     bad_constants].
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
@@ -1477,7 +1479,207 @@ cqlc(M, F, As, St) ->
             St
     end.
 
+%% OTP-7679: Thanks to Hunter Morris.
+andalso_semi(Config) when is_list(Config) ->
+    ?line ok = andalso_semi_foo(0),
+    ?line ok = andalso_semi_foo(1),
+    ?line fc(catch andalso_semi_foo(2)),
 
+    ?line ok = andalso_semi_bar([a,b,c]),
+    ?line ok = andalso_semi_bar(1),
+    ?line fc(catch andalso_semi_bar([a,b])),
+    ok.
+
+andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
+   ok.
+
+andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
+   ok.
+
+
+t_tuple_size(Config) when is_list(Config) ->
+    ?line 10 = do_tuple_size({1,2,3,4}),
+    ?line fc(catch do_tuple_size({1,2,3})),
+    ?line fc(catch do_tuple_size(42)),
+
+    ?line error = ludicrous_tuple_size({a,b,c}),
+    ?line error = ludicrous_tuple_size([a,b,c]),
+
+    ok.
+
+do_tuple_size(T) when tuple_size(T) =:= 4 ->
+    {A,B,C,D} = T,
+    A+B+C+D.
+
+ludicrous_tuple_size(T)
+  when tuple_size(T) =:= 16#7777777777777777777777777777777777 -> ok;
+ludicrous_tuple_size(T)
+  when tuple_size(T) =:= 16#10000000000000000 -> ok;
+ludicrous_tuple_size(T)
+  when tuple_size(T) =:= (1 bsl 64) - 1 -> ok;
+ludicrous_tuple_size(T)
+  when tuple_size(T) =:= 16#FFFFFFFFFFFFFFFF -> ok;
+ludicrous_tuple_size(_) -> error.
+
+%%
+%% The binary_part/2,3 guard BIFs
+%%
+-define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
+mask_error({'EXIT',{Err,_}}) ->
+    Err;
+mask_error(Else) ->
+    Else.
+
+binary_part(doc) ->
+    ["Tests the binary_part/2,3 guard (GC) bif's"];
+binary_part(Config) when is_list(Config) ->
+    %% This is more or less a copy of what the guard_SUITE in emulator
+    %% does to cover the guard bif's
+    ?line 1 = bptest(<<1,2,3>>),
+    ?line 2 = bptest(<<2,1,3>>),
+    ?line error = bptest(<<1>>),
+    ?line error = bptest(<<>>),
+    ?line error = bptest(apa),
+    ?line 3 = bptest(<<2,3,3>>),
+    % With one variable (pos)
+    ?line 1 = bptest(<<1,2,3>>,1),
+    ?line 2 = bptest(<<2,1,3>>,1),
+    ?line error = bptest(<<1>>,1),
+    ?line error = bptest(<<>>,1),
+    ?line error = bptest(apa,1),
+    ?line 3 = bptest(<<2,3,3>>,1),
+    % With one variable (length)
+    ?line 1 = bptesty(<<1,2,3>>,1),
+    ?line 2 = bptesty(<<2,1,3>>,1),
+    ?line error = bptesty(<<1>>,1),
+    ?line error = bptesty(<<>>,1),
+    ?line error = bptesty(apa,1),
+    ?line 3 = bptesty(<<2,3,3>>,2),
+    % With one variable (whole tuple)
+    ?line 1 = bptestx(<<1,2,3>>,{1,1}),
+    ?line 2 = bptestx(<<2,1,3>>,{1,1}),
+    ?line error = bptestx(<<1>>,{1,1}),
+    ?line error = bptestx(<<>>,{1,1}),
+    ?line error = bptestx(apa,{1,1}),
+    ?line 3 = bptestx(<<2,3,3>>,{1,2}),
+    % With two variables
+    ?line 1 = bptest(<<1,2,3>>,1,1),
+    ?line 2 = bptest(<<2,1,3>>,1,1),
+    ?line error = bptest(<<1>>,1,1),
+    ?line error = bptest(<<>>,1,1),
+    ?line error = bptest(apa,1,1),
+    ?line 3 = bptest(<<2,3,3>>,1,2),
+    % Direct (autoimported) call, these will be evaluated by the compiler...
+    ?line <<2>> = binary_part(<<1,2,3>>,1,1),
+    ?line <<1>> = binary_part(<<2,1,3>>,1,1),
+    % Compiler warnings due to constant evaluation expected (3)
+    ?line badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
+    ?line badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
+    ?line badarg = ?MASK_ERROR(binary_part(apa,1,1)),
+    ?line <<3,3>> = binary_part(<<2,3,3>>,1,2),
+    % Direct call through apply
+    ?line <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
+    ?line <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
+    % Compiler warnings due to constant evaluation expected (3)
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
+    ?line <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
+    % Constant propagation
+    ?line  Bin = <<1,2,3>>,
+    ?line  ok = if
+		    binary_part(Bin,1,1) =:= <<2>> ->
+			ok;
+		    %% Compiler warning, clause cannot match (expected)
+		    true ->
+			error
+		end,
+    ?line  ok = if
+		    binary_part(Bin,{1,1}) =:= <<2>> ->
+			ok;
+		    %% Compiler warning, clause cannot match (expected)
+		    true ->
+			error
+		end,
+    ok.
+
+
+bptest(B) when length(B) =:= 1337 ->
+    1;
+bptest(B) when binary_part(B,{1,1}) =:= <<2>> ->
+    1;
+bptest(B) when erlang:binary_part(B,1,1) =:= <<1>> ->
+    2;
+bptest(B)  when erlang:binary_part(B,{1,2}) =:= <<3,3>> ->
+    3;
+bptest(_) ->
+    error.
+
+bptest(B,A) when length(B) =:= A ->
+    1;
+bptest(B,A) when binary_part(B,{A,1}) =:= <<2>> ->
+    1;
+bptest(B,A) when erlang:binary_part(B,A,1) =:= <<1>> ->
+    2;
+bptest(B,A)  when erlang:binary_part(B,{A,2}) =:= <<3,3>> ->
+    3;
+bptest(_,_) ->
+    error.
+
+bptestx(B,A) when length(B) =:= A ->
+    1;
+bptestx(B,A) when binary_part(B,A) =:= <<2>> ->
+    1;
+bptestx(B,A) when erlang:binary_part(B,A) =:= <<1>> ->
+    2;
+bptestx(B,A)  when erlang:binary_part(B,A) =:= <<3,3>> ->
+    3;
+bptestx(_,_) ->
+    error.
+
+bptesty(B,A) when length(B) =:= A ->
+    1;
+bptesty(B,A) when binary_part(B,{1,A}) =:= <<2>> ->
+    1;
+bptesty(B,A) when erlang:binary_part(B,1,A) =:= <<1>> ->
+    2;
+bptesty(B,A)  when erlang:binary_part(B,{1,A}) =:= <<3,3>> ->
+    3;
+bptesty(_,_) ->
+    error.
+
+bptest(B,A,_C) when length(B) =:= A ->
+    1;
+bptest(B,A,C) when binary_part(B,{A,C}) =:= <<2>> ->
+    1;
+bptest(B,A,C) when erlang:binary_part(B,A,C) =:= <<1>> ->
+    2;
+bptest(B,A,C)  when erlang:binary_part(B,{A,C}) =:= <<3,3>> ->
+    3;
+bptest(_,_,_) ->
+    error.
+
+-define(FAILING(C),
+	if
+	    C -> ?t:fail(should_fail);
+	    true -> ok
+	end,
+	if
+	    true, C -> ?t:fail(should_fail);
+	    true -> ok
+	end).
+
+bad_constants(Config) when is_list(Config) ->
+    ?line ?FAILING(false),
+    ?line ?FAILING([]),
+    ?line ?FAILING([a]),
+    ?line ?FAILING([Config]),
+    ?line ?FAILING({a,b}),
+    ?line ?FAILING({a,Config}),
+    ?line ?FAILING(<<1>>),
+    ?line ?FAILING(42),
+    ?line ?FAILING(3.14),
+    ok.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.
@@ -1490,3 +1692,5 @@ check(F, Result) ->
 	    io:format("     Got: ~p\n", [Other]),
 	    test_server:fail()
     end.
+
+fc({'EXIT',{function_clause,_}}) -> ok.

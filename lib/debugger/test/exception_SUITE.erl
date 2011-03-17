@@ -23,7 +23,8 @@
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 init_per_suite/1,end_per_suite/1,
-	 badmatch/1,pending_errors/1,nil_arith/1]).
+	 badmatch/1,pending_errors/1,nil_arith/1,
+         stacktrace/1,nested_stacktrace/1,raise/1,gunilla/1,per/1]).
 
 -export([bad_guy/2]).
 
@@ -45,7 +46,8 @@ end_per_group(_GroupName, Config) ->
 
 
 cases() -> 
-    [badmatch, pending_errors, nil_arith].
+    [badmatch, pending_errors, nil_arith, stacktrace,
+     nested_stacktrace, raise, gunilla, per].
 
 -define(try_match(E),
 	catch ?MODULE:bar(),
@@ -69,9 +71,9 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     ok.
 
-badmatch(doc) -> "Test that deliberately bad matches are reported correctly.";
-badmatch(suite) -> [];
-badmatch(Config) when list(Config) ->
+%% Test that deliberately bad matches are reported correctly.
+
+badmatch(Config) when is_list(Config) ->
     ?line ?try_match(a),
     ?line ?try_match(42),
     ?line ?try_match({a, b, c}),
@@ -79,11 +81,9 @@ badmatch(Config) when list(Config) ->
     ?line ?try_match(1.0),
     ok.
 
-pending_errors(doc) ->
-    ["Test various exceptions, in the presence of a previous error suppressed ",
-     "in a guard."];
-pending_errors(suite) -> [];
-pending_errors(Config) when list(Config) ->
+%% Test various exceptions, in the presence of a previous error suppressed
+%% in a guard.
+pending_errors(Config) when is_list(Config) ->
     ?line pending(e_badmatch, {badmatch, b}),
     ?line pending(x, function_clause),
     ?line pending(e_case, {case_clause, xxx}),
@@ -100,7 +100,7 @@ bad_guy(pe_badarith, Other) when Other+1 == 0 -> % badarith (suppressed)
 bad_guy(pe_badarg, Other) when length(Other) > 0 -> % badarg (suppressed)
     ok;
 bad_guy(_, e_case) ->
-    case xxx of
+    case id(xxx) of
 	ok -> ok
     end;					% case_clause
 bad_guy(_, e_if) ->
@@ -121,7 +121,7 @@ bad_guy(_, e_badarg) ->
 bad_guy(_, e_badarg_spawn) ->
     spawn({}, {}, {});				% badarg
 bad_guy(_, e_badmatch) ->
-    a = b.					% badmatch
+    a = id(b).					% badmatch
 
 pending(Arg, Expected) ->
     pending(pe_badarith, Arg, Expected),
@@ -155,28 +155,21 @@ pending_exit_message(Args, Expected) ->
     end,
     process_flag(trap_exit, false).
 
-pending({badarg,[{erlang,Bif,BifArgs},{?MODULE,Func,Arity}|_]}, Func, Args, _Code)
-  when atom(Bif), list(BifArgs), length(Args) == Arity -> %Threaded code.
-    ok;
-pending({badarg,[{erlang,Bif,BifArgs},{?MODULE,Func,Args}|_]}, Func, Args, _Code)
-  when atom(Bif), list(BifArgs) -> %From interpreted code.
+pending({badarg, [{erlang,Bif,BifArgs},{?MODULE,Func,Arity}|_]}, Func, Args, _Code)
+  when is_atom(Bif), is_list(BifArgs), length(Args) == Arity ->
     ok;
 pending({undef,[{non_existing_module,foo,[]}|_]}, _, _, _) ->
     ok;
 pending({function_clause,[{?MODULE,Func,Args}|_]}, Func, Args, _Code) ->
     ok;
-pending({Code,[{?MODULE,Func,Arity}|_]}, Func, Args, Code) when length(Args) == Arity -> %Threaded code
+pending({Code,[{?MODULE,Func,Arity}|_]}, Func, Args, Code) when length(Args) == Arity ->
     ok;
-pending({Code,[{?MODULE,Func,Args}|_]}, Func, Args, Code) -> %From interpreted code.
-    ok;
-pending(Reason, Func, Args, Code) ->
-    test_server:fail({bad_exit_reason,Reason,{Func,Args,Code}}).
+pending(Reason, _Function, _Args, _Code) ->
+    test_server:fail({bad_exit_reason,Reason}).
 
-nil_arith(doc) ->
-    "Test that doing arithmetics on [] gives a badarith EXIT and not a crash.";
-nil_arith(suite) ->
-    [];
-nil_arith(Config) when list(Config) ->
+%% Test that doing arithmetics on [] gives a badarith EXIT and not a crash.
+
+nil_arith(Config) when is_list(Config) ->
     ?line ba_plus_minus_times([], []),
 
     ?line ba_plus_minus_times([], 0),
@@ -268,3 +261,203 @@ ba_shift(A, B) ->
 ba_bnot(A) ->
     io:format("bnot ~p", [A]),
     {'EXIT', {badarith, _}} = (catch bnot A).
+
+stacktrace(Conf) when is_list(Conf) ->
+    Tag = make_ref(),
+    ?line {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
+    ?line {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
+    V = [make_ref()|self()],
+    ?line {value2,{caught1,badarg,[{erlang,abs,[V]}|_]=St1}} =
+	stacktrace_1({'abs',V}, error, {value,V}),
+    ?line St1 = erase(stacktrace1),
+    ?line St1 = erase(stacktrace2),
+    ?line St1 = erlang:get_stacktrace(),
+    ?line {caught2,{error,badarith},[{?MODULE,my_add,2}|_]=St2} =
+	stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
+    ?line [{?MODULE,my_div,2}|_] = erase(stacktrace1),
+    ?line St2 = erase(stacktrace2),
+    ?line St2 = erlang:get_stacktrace(),
+    ?line {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3}|_]=St3} =
+	stacktrace_1({value,V}, error, {value,V}),
+    ?line St3 = erase(stacktrace1),
+    ?line St3 = erase(stacktrace2),
+    ?line St3 = erlang:get_stacktrace(),
+    ?line {caught2,{throw,V},[{?MODULE,foo,1}|_]=St4} =
+	stacktrace_1({value,V}, error, {throw,V}),
+    ?line [{?MODULE,stacktrace_1,3}|_] = erase(stacktrace1),
+    ?line St4 = erase(stacktrace2),
+    ?line St4 = erlang:get_stacktrace(),
+    ok.
+
+stacktrace_1(X, C1, Y) ->
+    erase(stacktrace1),
+    erase(stacktrace2),
+    try try foo(X) of
+            C1 -> value1
+        catch
+            C1:D1 -> {caught1,D1,erlang:get_stacktrace()}
+        after
+            put(stacktrace1, erlang:get_stacktrace()),
+	    foo(Y)
+        end of
+        V2 -> {value2,V2}
+    catch
+        C2:D2 -> {caught2,{C2,D2},erlang:get_stacktrace()}
+    after
+        put(stacktrace2, erlang:get_stacktrace())
+    end.
+
+
+
+nested_stacktrace(Conf) when is_list(Conf) ->
+    V = [{make_ref()}|[self()]],
+    ?line value1 =
+	nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
+			    {void,void,void}),
+    ?line {caught1,
+	   [{?MODULE,my_add,2}|_],
+	   value2,
+	   [{?MODULE,my_add,2}|_]} =
+	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+			    {{value,{V,x2}},void,{V,x2}}),
+    ?line {caught1,
+	   [{?MODULE,my_add,2}|_],
+	   {caught2,[{erlang,abs,[V]}|_]},
+	   [{erlang,abs,[V]}|_]} =
+	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+			    {{'abs',V},error,badarg}),
+    ok.
+
+nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
+    try foo(X1) of
+        V1 -> value1
+    catch
+        C1:V1 ->
+	    S1 = erlang:get_stacktrace(),
+            T2 =
+                try foo(X2) of
+	            V2 -> value2
+                catch
+                    C2:V2 -> {caught2,erlang:get_stacktrace()}
+                end,
+            {caught1,S1,T2,erlang:get_stacktrace()}
+    end.
+
+
+
+raise(Conf) when is_list(Conf) ->
+    ?line erase(raise),
+    ?line A =
+	try
+	    ?line try foo({'div',{1,0}})
+		  catch
+		      error:badarith ->
+			  put(raise, A0 = erlang:get_stacktrace()),
+			  ?line erlang:raise(error, badarith, A0)
+		  end
+	catch
+	    error:badarith ->
+		?line A1 = erlang:get_stacktrace(),
+		?line A1 = get(raise)
+	end,
+    ?line A = erlang:get_stacktrace(),
+    ?line A = get(raise),
+    ?line [{?MODULE,my_div,2}|_] = A,
+    %%
+    N = 8, % Must be even
+    ?line N = erlang:system_flag(backtrace_depth, N),
+    ?line try even(N)
+	  catch error:function_clause -> ok
+	  end,
+    ?line B = odd_even(N, []),
+    ?line B = erlang:get_stacktrace(),
+    %%
+    ?line C0 = odd_even(N+1, []),
+    ?line C = lists:sublist(C0, N),
+    ?line try odd(N+1)
+	  catch error:function_clause -> ok
+	  end,
+    ?line C = erlang:get_stacktrace(),
+    ?line try erlang:raise(error, function_clause, C0)
+          catch error:function_clause -> ok
+          end,
+    ?line C = erlang:get_stacktrace(),
+    ok.
+
+odd_even(N, R) when is_integer(N), N > 1 ->
+    odd_even(N-1,
+	     [if (N rem 2) == 0 ->
+		      {?MODULE,even,1};
+		 true ->
+		      {?MODULE,odd,1}
+	      end|R]);
+odd_even(1, R) ->
+    [{?MODULE,odd,[1]}|R].
+
+even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
+    odd(N-1)++[N].
+
+odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
+    even(N-1)++[N].
+
+
+foo({value,Value}) -> Value;
+foo({'div',{A,B}}) ->
+    my_div(A, B);
+foo({'add',{A,B}}) ->
+    my_add(A, B);
+foo({'abs',X}) ->
+    my_abs(X);
+foo({error,Error}) ->
+    erlang:error(Error);
+foo({throw,Throw}) ->
+    erlang:throw(Throw);
+foo({exit,Exit}) ->
+    erlang:exit(Exit);
+foo({raise,{Class,Reason,Stacktrace}}) ->
+    erlang:raise(Class, Reason, Stacktrace).
+%%foo(function_clause) -> % must not be defined!
+
+my_div(A, B) ->
+    A div B.
+
+my_add(A, B) ->
+    A + B.
+
+my_abs(X) -> abs(X).
+
+gunilla(Config) when is_list(Config) ->
+    ?line {throw,kalle} = gunilla_1(),
+    ?line [] = erlang:get_stacktrace(),
+    ok.
+
+gunilla_1() ->
+    try try arne()
+	after
+	    pelle
+	end
+    catch
+	C:R ->
+	    {C,R}
+    end.
+
+arne() ->
+    %% Empty stack trace used to cause change the error class to 'error'.
+    erlang:raise(throw, kalle, []).
+
+per(Config) when is_list(Config) ->
+    try
+	t1(0,pad,0),
+	t2(0,pad,0)
+    catch
+	error:badarith ->
+	    ok
+    end.
+
+t1(_,X,_) ->
+   (1 bsl X) + 1.
+
+t2(_,X,_) ->
+   (X bsl 1) + 1.
+
+id(I) -> I.
