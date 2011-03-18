@@ -48,6 +48,11 @@
 	  <p>Filipe David Manana</p>
 	  <p>Own Id: OTP-9094</p>
         </item>
+
+        <item>
+          <p>[ftp] Added (type) spec for all exported functions.</p>
+          <p>Own Id: OTP-9114 Aux Id: seq11799</p>
+        </item>
       </list>
     </section>
 

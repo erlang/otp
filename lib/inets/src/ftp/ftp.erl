@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -92,6 +92,12 @@
 	 }).
 
 
+-type shortage_reason()  :: 'etnospc' | 'epnospc'.
+-type restriction_reason() :: 'epath' | 'efnamena' | 'elogin' | 'enotbinary'.
+-type common_reason() ::  'econn' | 'eclosed' | term().
+-type file_write_error_reason() :: term(). % See file:write for more info
+
+
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
 %%%=========================================================================
@@ -105,6 +111,9 @@
 %%
 %% Description:  Start an ftp client and connect to a host.
 %%--------------------------------------------------------------------------
+
+-spec open(Host :: string() | inet:ip_address()) ->
+    {'ok', Pid :: pid()} | {'error', Reason :: 'ehost' | term()}.
 
 %% <BACKWARD-COMPATIBILLITY>
 open({option_list, Options}) when is_list(Options) ->
@@ -125,6 +134,9 @@ open({option_list, Options}) when is_list(Options) ->
 
 open(Host) ->
     open(Host, []).
+
+-spec open(Host :: string() | inet:ip_address(), Opts :: list()) ->
+    {'ok', Pid :: pid()} | {'error', Reason :: 'ehost' | term()}.
 
 %% <BACKWARD-COMPATIBILLITY>
 open(Host, Port) when is_integer(Port) ->
@@ -161,11 +173,23 @@ open(Host, Opts) when is_list(Opts) ->
 %%
 %% Description:  Login with or without a supplied account name.
 %%--------------------------------------------------------------------------
+-spec user(Pid  :: pid(), 
+	   User :: string(), 
+	   Pass :: string()) ->
+    'ok' | {'error', Reason :: 'euser' | common_reason()}.
+
 user(Pid, User, Pass) ->
     call(Pid, {user, User, Pass}, atom).
 
+-spec user(Pid  :: pid(), 
+	   User :: string(), 
+	   Pass :: string(), 
+	   Acc  :: string()) ->
+    'ok' | {'error', Reason :: 'euser' | common_reason()}.
+
 user(Pid, User, Pass, Acc) ->
     call(Pid, {user, User, Pass, Acc}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% account(Pid, Acc)  -> ok | {error, eacct}
@@ -174,8 +198,13 @@ user(Pid, User, Pass, Acc) ->
 %%
 %% Description:  Set a user Account.
 %%--------------------------------------------------------------------------
+
+-spec account(Pid :: pid(), Acc :: string()) ->
+    'ok' | {'error', Reason :: 'eacct' | common_reason()}.
+
 account(Pid, Acc) ->
     call(Pid, {account, Acc}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% pwd(Pid) -> {ok, Dir} | {error, elogin} | {error, econn} 
@@ -184,18 +213,29 @@ account(Pid, Acc) ->
 %%
 %% Description:  Get the current working directory at remote server.
 %%--------------------------------------------------------------------------
+
+-spec pwd(Pid :: pid()) ->
+    {'ok', Dir :: string()} | 
+	{'error', Reason :: restriction_reason() | common_reason()}.
+
 pwd(Pid) ->
     call(Pid, pwd, ctrl).
 
+
 %%--------------------------------------------------------------------------
-%% lpwd(Pid) ->  {ok, Dir} | {error, elogin} 
+%% lpwd(Pid) ->  {ok, Dir} 
 %%	Pid = pid()
 %%      Dir = string()
 %%
 %% Description:  Get the current working directory at local server.
 %%--------------------------------------------------------------------------
+
+-spec lpwd(Pid :: pid()) ->
+    {'ok', Dir :: string()}.
+
 lpwd(Pid) ->
     call(Pid, lpwd, string).
+
 
 %%--------------------------------------------------------------------------
 %% cd(Pid, Dir) ->  ok | {error, epath} | {error, elogin} | {error, econn}
@@ -204,8 +244,13 @@ lpwd(Pid) ->
 %%
 %% Description:  Change current working directory at remote server.
 %%--------------------------------------------------------------------------
+
+-spec cd(Pid :: pid(), Dir :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
 cd(Pid, Dir) ->
     call(Pid, {cd, Dir}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% lcd(Pid, Dir) ->  ok | {error, epath}
@@ -214,8 +259,13 @@ cd(Pid, Dir) ->
 %%
 %% Description:  Change current working directory for the local client.
 %%--------------------------------------------------------------------------
+
+-spec lcd(Pid :: pid(), Dir :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason()}.
+
 lcd(Pid, Dir) ->
     call(Pid, {lcd, Dir}, string).
+
 
 %%--------------------------------------------------------------------------
 %% ls(Pid) -> Result
@@ -229,10 +279,21 @@ lcd(Pid, Dir) ->
 %%
 %% Description: Returns a list of files in long format.
 %%--------------------------------------------------------------------------
+
+-spec ls(Pid :: pid()) ->
+    {'ok', Listing :: string()} | 
+	{'error', Reason :: restriction_reason() | common_reason()}.
+
 ls(Pid) ->
   ls(Pid, "").
+
+-spec ls(Pid :: pid(), Dir :: string()) ->
+    {'ok', Listing :: string()} | 
+	{'error', Reason ::  restriction_reason() | common_reason()}.
+
 ls(Pid, Dir) ->
     call(Pid, {dir, long, Dir}, string).
+
 
 %%--------------------------------------------------------------------------
 %% nlist(Pid) -> Result
@@ -246,21 +307,37 @@ ls(Pid, Dir) ->
 %%
 %% Description:  Returns a list of files in short format
 %%--------------------------------------------------------------------------
+
+-spec nlist(Pid :: pid()) ->
+    {'ok', Listing :: string()} | 
+	{'error', Reason :: restriction_reason() | common_reason()}.
+
 nlist(Pid) ->
   nlist(Pid, "").
+
+-spec nlist(Pid :: pid(), Pathname :: string()) ->
+    {'ok', Listing :: string()} | 
+	{'error', Reason :: restriction_reason() | common_reason()}.
+
 nlist(Pid, Dir) ->
     call(Pid, {dir, short, Dir}, string).
 
+
 %%--------------------------------------------------------------------------
-%% rename(Pid, CurrFile, NewFile) ->  ok | {error, epath} | {error, elogin} 
-%%                                    | {error, econn}
+%% rename(Pid, Old, New) ->  ok | {error, epath} | {error, elogin} 
+%%                              | {error, econn}
 %%	Pid = pid()
 %%	CurrFile = NewFile = string()
 %%
 %% Description:  Rename a file at remote server.
 %%--------------------------------------------------------------------------
-rename(Pid, CurrFile, NewFile) ->
-    call(Pid, {rename, CurrFile, NewFile}, string).
+
+-spec rename(Pid :: pid(), Old :: string(), New :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
+rename(Pid, Old, New) ->
+    call(Pid, {rename, Old, New}, string).
+
 
 %%--------------------------------------------------------------------------
 %% delete(Pid, File) ->  ok | {error, epath} | {error, elogin} | 
@@ -270,8 +347,13 @@ rename(Pid, CurrFile, NewFile) ->
 %%
 %% Description:  Remove file at remote server.
 %%--------------------------------------------------------------------------
+
+-spec delete(Pid :: pid(), File :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
 delete(Pid, File) ->
     call(Pid, {delete, File}, string).
+
 
 %%--------------------------------------------------------------------------
 %% mkdir(Pid, Dir) -> ok | {error, epath} | {error, elogin} | {error, econn}
@@ -280,8 +362,13 @@ delete(Pid, File) ->
 %%
 %% Description:  Make directory at remote server.
 %%--------------------------------------------------------------------------
+
+-spec mkdir(Pid :: pid(), Dir :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
 mkdir(Pid, Dir) ->
     call(Pid, {mkdir, Dir}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% rmdir(Pid, Dir) -> ok | {error, epath} | {error, elogin} | {error, econn}
@@ -290,8 +377,13 @@ mkdir(Pid, Dir) ->
 %%
 %% Description:  Remove directory at remote server.
 %%--------------------------------------------------------------------------
+
+-spec rmdir(Pid :: pid(), Dir :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
 rmdir(Pid, Dir) ->
     call(Pid, {rmdir, Dir}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% type(Pid, Type) -> ok | {error, etype} | {error, elogin} | {error, econn}
@@ -300,22 +392,40 @@ rmdir(Pid, Dir) ->
 %%
 %% Description:  Set transfer type.
 %%--------------------------------------------------------------------------
+
+-spec type(Pid :: pid(), Type :: ascii | binary) ->
+    'ok' | 
+	{'error', Reason :: 'etype' | restriction_reason() | common_reason()}.
+
 type(Pid, Type) ->
     call(Pid, {type, Type}, atom).
 
+
 %%--------------------------------------------------------------------------
-%% recv(Pid, RemoteFileName <LocalFileName>) -> ok | {error, epath} |
+%% recv(Pid, RemoteFileName [, LocalFileName]) -> ok | {error, epath} |
 %%                                          {error, elogin} | {error, econn}
 %%	Pid = pid()
 %%	RemoteFileName = LocalFileName = string()
 %%
 %% Description:  Transfer file from remote server.
 %%--------------------------------------------------------------------------
+
+-spec recv(Pid :: pid(), RemoteFileName :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | 
+                               common_reason() | 
+                               file_write_error_reason()}.
+
 recv(Pid, RemotFileName) ->
   recv(Pid, RemotFileName, RemotFileName).
 
+-spec recv(Pid            :: pid(), 
+	   RemoteFileName :: string(), 
+	   LocalFileName  :: string()) ->
+    'ok' | {'error', Reason :: term()}.
+
 recv(Pid, RemotFileName, LocalFileName) ->
     call(Pid, {recv, RemotFileName, LocalFileName}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% recv_bin(Pid, RemoteFile) -> {ok, Bin} | {error, epath} | {error, elogin} 
@@ -326,8 +436,15 @@ recv(Pid, RemotFileName, LocalFileName) ->
 %%
 %% Description:  Transfer file from remote server into binary.
 %%--------------------------------------------------------------------------
+
+-spec recv_bin(Pid        :: pid(), 
+	       RemoteFile :: string()) ->
+    {'ok', Bin :: binary()} | 
+	{'error', Reason :: restriction_reason() | common_reason()}.
+
 recv_bin(Pid, RemoteFile) ->
     call(Pid, {recv_bin, RemoteFile}, bin).
+
 
 %%--------------------------------------------------------------------------
 %% recv_chunk_start(Pid, RemoteFile) -> ok | {error, elogin} | {error, epath} 
@@ -337,8 +454,14 @@ recv_bin(Pid, RemoteFile) ->
 %%
 %% Description:  Start receive of chunks of remote file.
 %%--------------------------------------------------------------------------
+
+-spec recv_chunk_start(Pid        :: pid(), 
+		       RemoteFile :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
 recv_chunk_start(Pid, RemoteFile) ->
     call(Pid, {recv_chunk_start, RemoteFile}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% recv_chunk(Pid, RemoteFile) ->  ok | {ok, Bin} | {error, Reason}
@@ -347,23 +470,46 @@ recv_chunk_start(Pid, RemoteFile) ->
 %%
 %% Description:  Transfer file from remote server into binary in chunks
 %%--------------------------------------------------------------------------
+
+-spec recv_chunk(Pid :: pid()) ->
+    'ok' | 
+	{'ok', Bin :: binary()} | 
+	{'error', Reason :: restriction_reason() | common_reason()}.
+
 recv_chunk(Pid) ->
     call(Pid, recv_chunk, atom).
 
+
 %%--------------------------------------------------------------------------
-%% send(Pid, LocalFileName <RemotFileName>) -> ok | {error, epath} 
-%%                                                | {error, elogin} 
-%%                             | {error, econn}
+%% send(Pid, LocalFileName [, RemotFileName]) -> ok | {error, epath} 
+%%                                                  | {error, elogin} 
+%%                                                  | {error, econn}
 %%	Pid = pid()
 %%	LocalFileName = RemotFileName = string()
 %%
 %% Description:  Transfer file to remote server.
 %%--------------------------------------------------------------------------
+
+-spec send(Pid :: pid(), LocalFileName :: string()) ->
+    'ok' | 
+	{'error', Reason :: restriction_reason() | 
+                            common_reason() | 
+                            shortage_reason()}.
+
 send(Pid, LocalFileName) ->
   send(Pid, LocalFileName, LocalFileName).
 
+-spec send(Pid            :: pid(), 
+	   LocalFileName  :: string(), 
+	   RemoteFileName :: string()) ->
+    'ok' | 
+	{'error', Reason :: restriction_reason() | 
+                            common_reason() | 
+                            shortage_reason()}.
+
 send(Pid, LocalFileName, RemotFileName) ->
     call(Pid, {send, LocalFileName, RemotFileName}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% send_bin(Pid, Bin, RemoteFile) -> ok | {error, epath} | {error, elogin} 
@@ -374,10 +520,18 @@ send(Pid, LocalFileName, RemotFileName) ->
 %%
 %% Description:  Transfer a binary to a remote file.
 %%--------------------------------------------------------------------------
+
+-spec send_bin(Pid :: pid(), Bin :: binary(), RemoteFile :: string()) ->
+    'ok' | 
+	{'error', Reason :: restriction_reason() | 
+                            common_reason() | 
+                            shortage_reason()}.
+
 send_bin(Pid, Bin, RemoteFile) when is_binary(Bin) ->
     call(Pid, {send_bin, Bin, RemoteFile}, atom);
 send_bin(_Pid, _Bin, _RemoteFile) ->
   {error, enotbinary}.
+
 
 %%--------------------------------------------------------------------------
 %% send_chunk_start(Pid, RemoteFile) -> ok | {error, elogin} | {error, epath} 
@@ -387,8 +541,13 @@ send_bin(_Pid, _Bin, _RemoteFile) ->
 %%
 %% Description:  Start transfer of chunks to remote file.
 %%--------------------------------------------------------------------------
+
+-spec send_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
+    'ok' | {'error', Reason :: restriction_reason() | common_reason()}.
+
 send_chunk_start(Pid, RemoteFile) ->
     call(Pid, {send_chunk_start, RemoteFile}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% append_chunk_start(Pid, RemoteFile) -> ok | {error, elogin} | 
@@ -398,8 +557,13 @@ send_chunk_start(Pid, RemoteFile) ->
 %%
 %% Description:  Start append chunks of data to remote file.
 %%--------------------------------------------------------------------------
+
+-spec append_chunk_start(Pid :: pid(), RemoteFile :: string()) ->
+    'ok' | {'error', Reason :: term()}.
+
 append_chunk_start(Pid, RemoteFile) ->
     call(Pid, {append_chunk_start, RemoteFile}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% send_chunk(Pid, Bin) -> ok | {error, elogin} | {error, enotbinary} 
@@ -409,10 +573,18 @@ append_chunk_start(Pid, RemoteFile) ->
 %%
 %% Purpose:  Send chunk to remote file.
 %%--------------------------------------------------------------------------
+
+-spec send_chunk(Pid :: pid(), Bin :: binary()) ->
+    'ok' | 
+	{'error', Reason :: 'echunk' | 
+                            restriction_reason() | 
+                            common_reason()}.
+
 send_chunk(Pid, Bin) when is_binary(Bin) ->
     call(Pid, {transfer_chunk, Bin}, atom);
 send_chunk(_Pid, _Bin) ->
   {error, enotbinary}.
+
 
 %%--------------------------------------------------------------------------
 %% append_chunk(Pid, Bin) -> ok | {error, elogin} | {error, enotbinary} 
@@ -422,10 +594,18 @@ send_chunk(_Pid, _Bin) ->
 %%
 %% Description:  Append chunk to remote file.
 %%--------------------------------------------------------------------------
+
+-spec append_chunk(Pid :: pid(), Bin :: binary()) ->
+    'ok' | 
+	{'error', Reason :: 'echunk' | 
+                            restriction_reason() | 
+                            common_reason()}.
+
 append_chunk(Pid, Bin) when is_binary(Bin) ->
     call(Pid, {transfer_chunk, Bin}, atom);
 append_chunk(_Pid, _Bin) ->
   {error, enotbinary}.
+
 
 %%--------------------------------------------------------------------------
 %% send_chunk_end(Pid) -> ok | {error, elogin} | {error, echunk} 
@@ -434,8 +614,16 @@ append_chunk(_Pid, _Bin) ->
 %%
 %% Description:  End sending of chunks to remote file.
 %%--------------------------------------------------------------------------
+
+-spec send_chunk_end(Pid :: pid()) ->
+    'ok' | 
+	{'error', Reason :: restriction_reason() | 
+                            common_reason() | 
+                            shortage_reason()}.
+
 send_chunk_end(Pid) ->
     call(Pid, chunk_end, atom).
+
 
 %%--------------------------------------------------------------------------
 %% append_chunk_end(Pid) ->  ok | {error, elogin} | {error, echunk} 
@@ -444,22 +632,46 @@ send_chunk_end(Pid) ->
 %%
 %% Description:  End appending of chunks to remote file.
 %%--------------------------------------------------------------------------
+
+-spec append_chunk_end(Pid :: pid()) ->
+    'ok' | 
+	{'error', Reason :: restriction_reason() | 
+                            common_reason() | 
+                            shortage_reason()}.
+
 append_chunk_end(Pid) ->
     call(Pid, chunk_end, atom).
 
+
 %%--------------------------------------------------------------------------
-%% append(Pid, LocalFileName, RemotFileName) -> ok | {error, epath} 
-%%                                          | {error, elogin} | {error, econn}
+%% append(Pid, LocalFileName [, RemotFileName]) -> ok | {error, epath} 
+%%                                                    | {error, elogin} 
+%%                                                    | {error, econn}
 %%	Pid = pid()
 %%	LocalFileName = RemotFileName = string()
 %%
 %% Description:  Append the local file to the remote file
 %%--------------------------------------------------------------------------
+
+-spec append(Pid :: pid(), LocalFileName :: string()) ->
+    'ok' | 
+	{'error', Reason :: 'epath'    | 
+                            'elogin'   | 
+                            'etnospc'  | 
+                            'epnospc'  | 
+                            'efnamena' | common_reason()}.
+
 append(Pid, LocalFileName) ->
     append(Pid, LocalFileName, LocalFileName).
 
+-spec append(Pid            :: pid(), 
+	     LocalFileName  :: string(), 
+	     RemoteFileName :: string()) ->
+    'ok' | {'error', Reason :: term()}.
+
 append(Pid, LocalFileName, RemotFileName) ->
     call(Pid, {append, LocalFileName, RemotFileName}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% append_bin(Pid, Bin, RemoteFile) -> ok | {error, epath} | {error, elogin} 
@@ -470,20 +682,34 @@ append(Pid, LocalFileName, RemotFileName) ->
 %%
 %% Purpose:  Append a binary to a remote file.
 %%--------------------------------------------------------------------------
+
+-spec append_bin(Pid        :: pid(), 
+		 Bin        :: binary(), 
+		 RemoteFile :: string()) ->
+    'ok' | 
+	{'error', Reason :: restriction_reason() | 
+                            common_reason() | 
+                            shortage_reason()}.
+
 append_bin(Pid, Bin, RemoteFile) when is_binary(Bin) ->
     call(Pid, {append_bin, Bin, RemoteFile}, atom);
 append_bin(_Pid, _Bin, _RemoteFile) ->
     {error, enotbinary}.
 
+
 %%--------------------------------------------------------------------------
-%% quote(Pid, Cmd) -> ok
+%% quote(Pid, Cmd) -> list()
 %%	Pid = pid()
 %%	Cmd = string()
 %%
 %% Description: Send arbitrary ftp command.
 %%--------------------------------------------------------------------------
+
+-spec quote(Pid :: pid(), Cmd :: string()) -> list().
+
 quote(Pid, Cmd) when is_list(Cmd) ->
     call(Pid, {quote, Cmd}, atom).
+
 
 %%--------------------------------------------------------------------------
 %% close(Pid) -> ok
@@ -491,6 +717,9 @@ quote(Pid, Cmd) when is_list(Cmd) ->
 %%
 %% Description:  End the ftp session.
 %%--------------------------------------------------------------------------
+
+-spec close(Pid :: pid()) -> 'ok'.
+
 close(Pid) ->
     cast(Pid, close),
     ok.
@@ -502,8 +731,12 @@ close(Pid) ->
 %%
 %% Description:  Return diagnostics.
 %%--------------------------------------------------------------------------
+
+-spec formaterror(Tag :: term()) -> string().
+
 formaterror(Tag) ->
   ftp_response:error_string(Tag).
+
 
 info(Pid) ->
     call(Pid, info, list).
