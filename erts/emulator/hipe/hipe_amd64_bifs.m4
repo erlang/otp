@@ -20,7 +20,9 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_amd64_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
+
 
 `#if THE_NON_VALUE == 0
 #define TEST_GOT_EXN	testq	%rax, %rax
@@ -35,6 +37,12 @@ define(TEST_GOT_MBUF,`movq P_MBUF(P), %rdx	# `TEST_GOT_MBUF'
 define(HANDLE_GOT_MBUF,`
 3:	call nbif_$1_gc_after_bif	# `HANDLE_GOT_MBUF'
 	jmp 2b')
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	movq $CSYM(F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
+#else
+#  define CALL_BIF(F)	call	CSYM(F)
+#endif'
 
 /*
  * standard_bif_interface_1(nbif_name, cbif_name)
@@ -62,7 +70,7 @@ ASYM($1):
 	pushq	%rsi
 	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
 	sub	$(8), %rsp	/* stack frame 16-byte alignment */
-	call	CSYM($2)
+	CALL_BIF($2)
 	add	$(1*8 + 8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
@@ -94,7 +102,7 @@ ASYM($1):
 	pushq	%rdx
 	pushq 	%rsi
 	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
-	call	CSYM($2)
+	CALL_BIF($2)
 	add	$(2*8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
@@ -129,7 +137,7 @@ ASYM($1):
 	pushq	%rsi
 	movq	%rsp, %rsi	/* Eterm* BIF__ARGS */
 	sub	$(8), %rsp	/* stack frame 16-byte alignment */  
-	call	CSYM($2)
+	CALL_BIF($2)
 	add	$(3*8 + 8), %rsp
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
@@ -156,7 +164,7 @@ ASYM($1):
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 

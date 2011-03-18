@@ -35,6 +35,17 @@
 #include "hipe_stack.h"
 #include "hipe_bif0.h"	/* hipe_mfa_info_table_init() */
 
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
+#else
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#endif
+
+
 /*
  * Internal debug support.
  * #define HIPE_DEBUG to the desired debug level:
@@ -458,7 +469,9 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 #if !(NR_ARG_REGS > 5)
 	      int reds_in = p->def_arg_reg[5];
 #endif
+	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
 	      p = schedule(p, reds_in - p->fcalls);
+	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
 #ifdef ERTS_SMP
 	      p->hipe_smp.have_receive_locks = 0;
 	      reg = p->scheduler_data->x_reg_array;

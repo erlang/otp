@@ -20,7 +20,14 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_ppc_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	STORE_IA(CSYM(F), P_BIF_CALLEE(P), r29); bl CSYM(hipe_debug_bif_wrapper) 
+#else
+#  define CALL_BIF(F)	bl	CSYM(F)
+#endif'
 
 	.text
 	.p2align 2
@@ -57,7 +64,7 @@ ASYM($1):
 	SAVE_CONTEXT_BIF
 	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
 	addi	r4, r3, P_ARG0
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -88,7 +95,7 @@ ASYM($1):
 	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
 	STORE	r5, P_ARG1(r3)
 	addi	r4, r3, P_ARG0
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -121,7 +128,7 @@ ASYM($1):
 	STORE	r5, P_ARG1(r3)
 	STORE	r6, P_ARG2(r3)
 	addi	r4, r3, P_ARG0
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -148,7 +155,7 @@ ASYM($1):
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
 	/* ignore empty BIF__ARGS */
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -184,7 +191,7 @@ ASYM($1):
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
 	/* ignore empty BIF__ARGS */
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. */
@@ -209,7 +216,7 @@ ASYM($1):
 	SAVE_CONTEXT_GC
 	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
 	addi	r4, r3, P_ARG0
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */
@@ -240,7 +247,7 @@ ASYM($1):
 	STORE	r4, P_ARG0(r3)		# Store BIF__ARGS in def_arg_reg[]
 	STORE	r5, P_ARG1(r3)
 	addi	r4, r3, P_ARG0
-	bl	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* Restore registers. Check for exception. */

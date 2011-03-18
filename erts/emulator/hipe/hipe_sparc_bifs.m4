@@ -20,10 +20,17 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_sparc_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
 
 	.section ".text"
 	.align	4
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	set F, %o7; st %o7, [%o0+P_BIF_CALLEE]; call hipe_debug_bif_wrapper 
+#else
+#  define CALL_BIF(F)	call	F
+#endif'
 
 /*
  * Test for exception. This macro executes its delay slot.
@@ -65,7 +72,7 @@ $1:
 	SAVE_CONTEXT_BIF
 	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
 	add	%o0, P_ARG0, %o1
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 
@@ -94,7 +101,7 @@ $1:
 	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
 	st 	%o2, [%o0+P_ARG1]
 	add	%o0, P_ARG0, %o1
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 
@@ -125,7 +132,7 @@ $1:
 	st 	%o2, [%o0+P_ARG1]
 	st 	%o3, [%o0+P_ARG2]
 	add	%o0, P_ARG0, %o1
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 
@@ -150,7 +157,7 @@ $1:
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
 	/* ignore empty BIF__ARGS */
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 
@@ -184,7 +191,7 @@ $1:
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
 	/* ignore empty BIF__ARGS */
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 
@@ -210,7 +217,7 @@ $1:
 	SAVE_CONTEXT_GC
 	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
 	add	%o0, P_ARG0, %o1
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 
@@ -239,7 +246,7 @@ $1:
 	st 	%o1, [%o0+P_ARG0]	! Store BIF__ARGS in def_arg_reg
 	st 	%o2, [%o0+P_ARG1]
 	add	%o0, P_ARG0, %o1
-	call	$2
+	CALL_BIF($2)
 	nop
 	TEST_GOT_MBUF
 

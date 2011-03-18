@@ -20,12 +20,19 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_x86_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
 
 `#if THE_NON_VALUE == 0
 #define TEST_GOT_EXN	testl	%eax,%eax
 #else
 #define TEST_GOT_EXN	cmpl	$THE_NON_VALUE,%eax
+#endif'
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	movl $CSYM(F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
+#else
+#  define CALL_BIF(F)	call	CSYM(F)
 #endif'
 
 define(TEST_GOT_MBUF,`movl P_MBUF(P), %edx	# `TEST_GOT_MBUF'
@@ -64,7 +71,7 @@ ASYM($1):
 	NBIF_ARG(2,1,0)
 	lea 8(%esp), %eax
 	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
-	call	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */
@@ -99,7 +106,7 @@ ASYM($1):
 	NBIF_ARG(3,2,1)
 	lea 8(%esp), %eax
 	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
-	call	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */
@@ -135,7 +142,7 @@ ASYM($1):
 	NBIF_ARG(4,3,2)
 	lea 8(%esp), %eax
 	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
-	call	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */
@@ -164,7 +171,7 @@ ASYM($1):
 	/* make the call on the C stack */
 	NBIF_ARG_REG(0,P)
 	/* skip BIF__ARGS */	
-	call	CSYM($2)
+	CALL_BIF($2)
 	TEST_GOT_MBUF
 
 	/* switch to native stack */

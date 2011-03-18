@@ -166,3 +166,26 @@ BIF_RETTYPE hipe_bifs_show_message_area_0(BIF_ALIST_0)
     BIF_RET(am_false);
 #endif
 }
+
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+
+BIF_RETTYPE hipe_debug_bif_wrapper(BIF_ALIST_1);
+
+#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+        if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
+
+BIF_RETTYPE hipe_debug_bif_wrapper(BIF_ALIST_1)
+{
+    typedef BIF_RETTYPE Bif(BIF_ALIST_1);
+    Bif* fp = (Bif*) (BIF_P->hipe.bif_callee);
+    BIF_RETTYPE res;
+    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(BIF_P);
+    res = (*fp)(BIF_P, BIF__ARGS);
+    ERTS_SMP_REQ_PROC_MAIN_LOCK(BIF_P);
+    return res;
+}
+
+#endif /* ERTS_ENABLE_LOCK_CHECK && ERTS_SMP */
+

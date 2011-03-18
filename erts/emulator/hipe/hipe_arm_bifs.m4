@@ -20,10 +20,17 @@ changecom(`/*', `*/')dnl
 
 
 include(`hipe/hipe_arm_asm.m4')
+#`include' "config.h"
 #`include' "hipe_literals.h"
 
 	.text
 	.p2align 2
+
+`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#  define CALL_BIF(F)	mov r14, #F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
+#else
+#  define CALL_BIF(F)	bl	F
+#endif'
 
 define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */
 	cmp r1, #0
@@ -52,7 +59,7 @@ $1:
 	SAVE_CONTEXT_BIF
 	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
 	add	r1, r0, #P_ARG0
-	bl	$2
+	CALL_BIF($2)
 	TEST_GOT_MBUF(1)
 
 	/* Restore registers. Check for exception. */
@@ -80,7 +87,7 @@ $1:
 	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
 	str	r2, [r0, #P_ARG1]
 	add	r1, r0, #P_ARG0
-	bl	$2
+	CALL_BIF($2)
 	TEST_GOT_MBUF(2)
 
 	/* Restore registers. Check for exception. */
@@ -110,7 +117,7 @@ $1:
 	str	r2, [r0, #P_ARG1]
 	str	r3, [r0, #P_ARG2]
 	add	r1, r0, #P_ARG0
-	bl	$2
+	CALL_BIF($2)
 	TEST_GOT_MBUF(3)
 
 	/* Restore registers. Check for exception. */
@@ -134,7 +141,7 @@ $1:
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_BIF
 	/* ignore empty BIF__ARGS */
-	bl	$2
+	CALL_BIF($2)
 	TEST_GOT_MBUF(0)
 
 	/* Restore registers. Check for exception. */

@@ -289,6 +289,9 @@ static const struct literal {
     { "P_NRA", offsetof(struct process, hipe.nra) },
 #endif
     { "P_NARITY", offsetof(struct process, hipe.narity) },
+# if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+    { "P_BIF_CALLEE", offsetof(struct process, hipe.bif_callee) },
+# endif
 #endif /* HIPE */
 
     /* process flags bits */

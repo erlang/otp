@@ -31,12 +31,23 @@ define(LOAD,ld)dnl
 define(STORE,std)dnl
 define(CMPI,cmpdi)dnl
 define(WSIZE,8)dnl
+`#define STORE_IA(ADDR, DST, TMP)  \
+	addis TMP, 0, ADDR@highest 	SEMI\
+	ori TMP, TMP, ADDR@higher  	SEMI\
+	rldicr TMP, TMP, 32, 31 	SEMI\
+	oris TMP, TMP, ADDR@h 		SEMI\
+	ori TMP, TMP, ADDR@l		SEMI\
+	std TMP, DST'
 ',`
 /* 32-bit PowerPC */
 define(LOAD,lwz)dnl
 define(STORE,stw)dnl
 define(CMPI,cmpwi)dnl
 define(WSIZE,4)dnl
+`#define STORE_IA(ADDR, DST, TMP)   \
+	lis TMP, ADDR@ha 	SEMI\
+	addi TMP, TMP, ADDR@l	SEMI\
+	stw TMP, DST'
 ')dnl
 `#define LOAD	'LOAD
 `#define STORE	'STORE
