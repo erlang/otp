@@ -52,6 +52,7 @@
         <item>
           <p>[ftp] Added (type) spec for all exported functions.</p>
           <p>Own Id: OTP-9114 Aux Id: seq11799</p>
+        </item>
 
         <item>
           <p>[httpd] 
@@ -60,7 +61,16 @@
           <p>Bernard Duggan</p>
           <p>Own Id: OTP-9123</p>
         </item>
+
+        <item>
+          <p>[httpd] Prevent XSS in error pages.
+	  Prevent user controlled input from being interpreted 
+	  as HTML in error pages by encoding the reserved HTML 
+	  characters. </p>
+	  <p>Michael Santos</p>
+          <p>Own Id: OTP-9124</p>
         </item>
+
       </list>
     </section>
 
