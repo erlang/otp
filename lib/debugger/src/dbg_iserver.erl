@@ -97,13 +97,10 @@ ensure_started() ->
 %%
 %% Key                        Value
 %% ---                        -----
-%% attributes                 Attr
-%% exports                    Exp
 %% defs                       []
 %% mod_bin                    Binary
 %% mod_raw                    Raw Binary
 %% mod_file                   File
-%% module                     Mod
 %% {Mod,Name,Arity,Exported}  Cs
 %% {'fun',Mod,Index,Uniq}     {Name,Arity,Cs}
 %% Line                       {Pos,PosNL}

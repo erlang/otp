@@ -1056,17 +1056,6 @@ expr({apply,Line,As0}, Bs0, Ieval0) ->
     {[M,F,As],Bs} = eval_list(As0, Bs0, Ieval),
     eval_function(M, F, As, Bs, extern, Ieval);
     
-%% Mod:module_info/0,1
-expr({module_info_0,_,Mod}, Bs, _Ieval) ->
-    {value,[{compile,module_info(Mod,compile)},
-	    {attributes,module_info(Mod,attributes)},
-	    {imports,module_info(Mod,imports)},
-	    {exports,module_info(Mod,exports)}],Bs};
-expr({module_info_1,Line,Mod,[As0]}, Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {value,What,Bs} = expr(As0, Bs0, Ieval),
-    {value,module_info(Mod, What),Bs};
-
 %% Receive statement
 expr({'receive',Line,Cs}, Bs0, #ieval{level=Le}=Ieval) ->
     trace(receivex, {Le,false}),
@@ -1205,17 +1194,6 @@ eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
     end;
 eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
-
-module_info(Mod, module) -> Mod;
-module_info(_Mod, compile) -> [];
-module_info(Mod, attributes) ->
-    {ok, Attr} = dbg_iserver:call(get(int), {lookup, Mod, attributes}),
-    Attr;
-module_info(_Mod, imports) -> [];
-module_info(Mod, exports) ->
-    {ok, Exp} = dbg_iserver:call(get(int), {lookup, Mod, exports}),
-    Exp;
-module_info(_Mod, functions) -> [].
 
 safe_bif(M, F, As, Bs, Ieval) ->
     try apply(M, F, As) of

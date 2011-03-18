@@ -70,14 +70,13 @@ store_module(Mod, File, Binary, Db) ->
 		    Forms0
 	    end,
     dbg_idb:insert(Db, mod_file, File),
-    dbg_idb:insert(Db, exports, Exp),
     dbg_idb:insert(Db, defs, []),
 
     put(vcount, 0),
     put(fun_count, 0),
     put(funs, []),
     put(mod_md5, MD5),
-    Attr = store_forms(Forms, Mod, Db, Exp, []),
+    store_forms(Forms, Mod, Db, Exp),
     erase(mod_md5),
     erase(current_function),
     %% store_funs(Db, Mod),
@@ -85,11 +84,10 @@ store_module(Mod, File, Binary, Db) ->
     erase(funs),
     erase(fun_count),
     
-    dbg_idb:insert(Db, attributes, Attr),
     NewBinary = store_mod_line_no(Mod, Db, binary_to_list(Src)),
     dbg_idb:insert(Db, mod_bin, NewBinary),
-    dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>), %% Add eos
-    dbg_idb:insert(Db, module, Mod).
+    dbg_idb:insert(Db, mod_raw, <<Src/binary,0:8>>). %% Add eos
+
 %% Adjust line numbers using the file/2 attribute. 
 %% Also take the absolute value of line numbers.
 %% This simple fix will make the marker point at the correct line
@@ -111,27 +109,19 @@ abstr(Term) -> Term.
 %     store_funs_1(Fs, Db, Mod);
 % store_funs_1([], _, _) -> ok.
 
-store_forms([{function,_,module_info,0,_}|Fs], Mod, Db, Exp, Attr) ->
-    Cs = [{clause,0,[],[], [{module_info_0,0,Mod}]}],
-    dbg_idb:insert(Db, {Mod,module_info,0,true}, Cs),
-    store_forms(Fs, Mod, Db, Exp, Attr);
-store_forms([{function,_,module_info,1,_}|Fs], Mod, Db, Exp, Attr) ->
-    Cs = [{clause,0,[{var,0,'What'}],[], [{module_info_1,0,Mod,[{var,0,'What'}]}]}],
-    dbg_idb:insert(Db, {Mod,module_info,1,true}, Cs),
-    store_forms(Fs, Mod, Db, Exp, Attr);
-store_forms([{function,_,Name,Arity,Cs0}|Fs], Mod, Db, Exp, Attr) ->
+store_forms([{function,_,Name,Arity,Cs0}|Fs], Mod, Db, Exp) ->
     FA = {Name,Arity},
     put(current_function, FA),
     Cs = clauses(Cs0),
     Exported = lists:member(FA, Exp),
     dbg_idb:insert(Db, {Mod,Name,Arity,Exported}, Cs),
-    store_forms(Fs, Mod, Db, Exp, Attr);
-store_forms([{attribute,_,Name,Val}|Fs], Mod, Db, Exp, Attr) ->
-    store_forms(Fs, Mod, Db, Exp, [{Name,Val}|Attr]);
-store_forms([F|_], _Mod, _Db, _Exp, _Attr) ->
+    store_forms(Fs, Mod, Db, Exp);
+store_forms([{attribute,_,_Name,_Val}|Fs], Mod, Db, Exp) ->
+    store_forms(Fs, Mod, Db, Exp);
+store_forms([F|_], _Mod, _Db, _Exp) ->
     exit({unknown_form,F});
-store_forms([], _, _, _, Attr) ->
-    lists:reverse(Attr).
+store_forms([], _, _, _) ->
+    ok.
 
 store_mod_line_no(Mod, Db, Contents) ->
     store_mod_line_no(Mod, Db, Contents, 1, 0, []).
