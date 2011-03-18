@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,16 +32,19 @@
   <modulesummary>Erlang Server Interface </modulesummary>
   <description>
     <p>This module defines the API - Erlang Server Interface (ESI).
-      Which is a more efficient way of writing erlang scripts
-      for your Inets web server than writing them as common CGI scripts.</p>
+    Which is a more efficient way of writing erlang scripts
+    for your Inets web server than writing them as common CGI scripts.</p>
+
+    <marker id="deliver"></marker>
   </description>
+
   <funcs>
     <func>
       <name>deliver(SessionID, Data) -> ok | {error, Reason}</name>
       <fsummary>Sends Data back to client.</fsummary>
       <type>
         <v>SessionID = term()</v>
-        <v>Data = string() | io_list()</v>
+        <v>Data = string() | io_list() | binary()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
@@ -51,13 +54,15 @@
 	parts of the content to the user.</p>
 	<p>Sends data from a Erl Scheme script back to the client.</p>
 	
-	<note><p>Note
-          that if any HTTP-header fields should be added by the
-          script they must be in the first call to deliver/2  and the
-          data in the call must be a string. Do not
-          assume anything about the data type of SessionID, the
-          SessionID must be the value given as input to the esi
-          call back function that you implemented.</p></note>
+	<note>
+	  <p>Note that if any HTTP-header fields should be added by the
+	  script they must be in the first call to deliver/2  and the
+	  data in the call must be a string. Calls after the headers
+	  are complete may contain binary data to reduce copying
+	  overhead.  Do not assume anything about the data type of 
+	  SessionID, the SessionID must be the value given as input to 
+	  the esi call back function that you implemented.</p>
+	</note>
       </desc>
     </func>
   </funcs>

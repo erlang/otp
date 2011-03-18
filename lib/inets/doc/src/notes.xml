@@ -52,6 +52,14 @@
         <item>
           <p>[ftp] Added (type) spec for all exported functions.</p>
           <p>Own Id: OTP-9114 Aux Id: seq11799</p>
+
+        <item>
+          <p>[httpd] 
+	  <seealso marker="mod_esi#deliver">mod_esi:deliver/2</seealso> 
+	  made to accept binary data. </p>
+          <p>Bernard Duggan</p>
+          <p>Own Id: OTP-9123</p>
+        </item>
         </item>
       </list>
     </section>
