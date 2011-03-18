@@ -494,10 +494,10 @@ handle_request(Method, Url,
 	end
     catch
 	error:{noproc, _} ->
-	    ?hcrl("noproc", [{profile, Profile}]),
+	    ?hcrv("noproc", [{profile, Profile}]),
 	    {error, {not_started, Profile}};
 	throw:Error ->
-	    ?hcrl("throw", [{error, Error}]),
+	    ?hcrv("throw", [{error, Error}]),
 	    Error
     end.
 
