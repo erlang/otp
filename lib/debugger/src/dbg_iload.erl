@@ -415,7 +415,7 @@ expr({call,Line,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}) ->
 	false ->
 	    {call_remote,Line,Mod,Func,As};
 	true ->
-	    case bif_type(Mod, Func) of
+	    case bif_type(Mod, Func, length(As0)) of
 		safe -> {safe_bif,Line,Mod,Func,As};
 		spawn -> {spawn_bif,Line,Mod,Func,As};
 		unsafe ->{bif,Line,Mod,Func,As}
@@ -583,24 +583,22 @@ new_vars(N, L, Vs) when N > 0 ->
     new_vars(N-1, L, [V|Vs]);
 new_vars(0, _, Vs) -> Vs.
 
-bif_type(erlang, Name) -> bif_type(Name);
-bif_type(_, _) -> unsafe.
+bif_type(erlang, Name, Arity) ->
+    case erl_internal:guard_bif(Name, Arity) of
+	true ->
+	    %% Guard BIFs are safe (except for self/0, but it is
+	    %% handled with a special instruction anyway).
+	    safe;
+	false ->
+	    bif_type(Name)
+    end;
+bif_type(_, _, _) -> unsafe.
 
 bif_type(register)           -> safe;
 bif_type(unregister)         -> safe;
 bif_type(whereis)            -> safe;
 bif_type(registered)         -> safe;
-bif_type(abs)                -> safe;
-bif_type(float)              -> safe;
-bif_type(trunc)              -> safe;
-bif_type(round)              -> safe;
 bif_type(math)               -> safe;
-bif_type(node)               -> safe;
-bif_type(length)             -> safe;
-bif_type(hd)                 -> safe;
-bif_type(tl)                 -> safe;
-bif_type(size)               -> safe;
-bif_type(element)            -> safe;
 bif_type(setelement)         -> safe;
 bif_type(atom_to_list)       -> safe;
 bif_type(list_to_atom)       -> safe;
