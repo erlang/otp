@@ -417,7 +417,6 @@ expr({call,Line,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}) ->
 	true ->
 	    case bif_type(Mod, Func, length(As0)) of
 		safe -> {safe_bif,Line,Mod,Func,As};
-		spawn -> {spawn_bif,Line,Mod,Func,As};
 		unsafe ->{bif,Line,Mod,Func,As}
 	    end
     end;
@@ -632,7 +631,4 @@ bif_type(hash)               -> safe;
 bif_type(pre_loaded)         -> safe;
 bif_type(set_cookie)         -> safe;
 bif_type(get_cookie)         -> safe;
-bif_type(spawn)              -> spawn;
-bif_type(spawn_link)         -> spawn;
-bif_type(spawn_opt)          -> spawn;
 bif_type(_)                  -> unsafe.

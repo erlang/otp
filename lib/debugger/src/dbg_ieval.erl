@@ -1017,17 +1017,6 @@ expr({bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     pop(),
     Res;
 
-%% Call to a BIF that spawns a new process
-expr({spawn_bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {As,Bs} = eval_list(As0, Bs0, Ieval),
-    trace(bif, {Le,Line,M,F,As}),
-    push({M,F,As}, Bs0, Ieval),
-    Res = debugged_cmd({apply,M,F,As}, Bs,Ieval#ieval{level=Le+1}),
-    trace(return, {Le,Res}),
-    pop(),
-    Res;
-
 %% Call to an operation
 expr({op,Line,Op,As0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
