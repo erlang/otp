@@ -18,9 +18,20 @@
 
 {"%VSN%",
  [
+  {"5.5.2", 
+   [
+    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
+    {load_module, httpc_request, soft_purge, soft_purge, []},
+    {update, httpc_handler, soft, soft_purge, soft_purge, [httpc_request]}
+   ]
+  }, 
   {"5.5.1", 
    [
-    {load_module, http_chunk, soft_purge, soft_purge, []}
+    {load_module, http_chunk, soft_purge, soft_purge, []},
+    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
+    {load_module, httpc_request, soft_purge, soft_purge, []},
+    {update, httpc_handler, soft, soft_purge, soft_purge, 
+     [httpc_request,http_chunk]}
    ]
   }, 
   {"5.5",
@@ -34,10 +45,21 @@
    ]
   } 
  ],
- [	
+ [
+  {"5.5.2",
+   [
+    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
+    {load_module, httpc_request, soft_purge, soft_purge, []},
+    {update, httpc_handler, soft, soft_purge, soft_purge, [httpc_request]}
+   ]
+  },
   {"5.5.1", 
    [
-    {load_module, http_chunk, soft_purge, soft_purge, []}
+    {load_module, http_chunk, soft_purge, soft_purge, []},
+    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
+    {load_module, httpc_request, soft_purge, soft_purge, []},
+    {update, httpc_handler, soft, soft_purge, soft_purge, 
+     [httpc_request,http_chunk]}
    ]
   }, 
   {"5.5",

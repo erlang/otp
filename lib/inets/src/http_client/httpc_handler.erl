@@ -1724,9 +1724,27 @@ handle_verbose(_) ->
 %%     ok.
 
 
+send_raw(#session{socket = Socket, socket_type = SocketType}, 
+	 {ProcessBody, Acc}) when is_function(ProcessBody, 1) ->
+    ?hcrt("send raw", [{acc, Acc}]),
+    send_raw(SocketType, Socket, ProcessBody, Acc);
 send_raw(#session{socket = Socket, socket_type = SocketType}, Body) ->
     http_transport:send(SocketType, Socket, Body).
 
+send_raw(SocketType, Socket, ProcessBody, Acc) ->
+    case ProcessBody(Acc) of
+        eof ->
+            ok;
+        {ok, Data, NewAcc} ->
+            DataBin = iolist_to_binary(Data),
+            ?hcrd("send", [{data, DataBin}]),
+            case http_transport:send(SocketType, Socket, DataBin) of
+                ok ->
+                    send_raw(SocketType, Socket, ProcessBody, NewAcc);
+                Error ->
+                    Error
+            end
+    end.
 
 
 call(Msg, Pid) ->
