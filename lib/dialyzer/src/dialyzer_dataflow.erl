@@ -2952,7 +2952,7 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 		%% Check if the function has a contract that allows this.
 		Warn =
 		  case Contract of
-		    none -> true;
+		    none -> not parent_allows_this(FunLbl, State);
 		    {value, C} ->
 		      GenRet = dialyzer_contracts:get_contract_return(C),
 		      not t_is_unit(GenRet)
@@ -3439,6 +3439,33 @@ map_pats(Pats) ->
 	    end
 	end,
   cerl_trees:map(Fun, Pats).
+
+parent_allows_this(FunLbl, #state{callgraph = Callgraph, plt = Plt} =State) ->
+  case state__is_escaping(FunLbl, State) of
+    false -> false; % if it isn't escaping it can't be a return value
+    true ->
+      case state__lookup_name(FunLbl, State) of
+	{_M, _F, _A} -> false; % if it has a name it is not a fun
+	_ ->
+	  case dialyzer_callgraph:in_neighbours(FunLbl, Callgraph) of
+	    [Parent] ->
+	      case state__lookup_name(Parent, State) of
+		{_M, _F, _A} = PMFA ->
+		  case dialyzer_plt:lookup_contract(Plt, PMFA) of
+		    none -> false;
+		    {value, C} ->
+		      GenRet = dialyzer_contracts:get_contract_return(C),
+		      case erl_types:t_is_fun(GenRet) of
+			false -> false; % element of structure? far-fetched...
+			true -> t_is_unit(t_fun_range(GenRet))
+		      end
+		  end;
+		_ -> false % parent should have a name to have a contract
+	      end;
+	    _ -> false % called in other funs? far-fetched...
+	  end
+      end
+  end.
 
 classify_returns(Tree) ->
   case find_terminals(cerl:fun_body(Tree)) of
