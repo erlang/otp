@@ -6,7 +6,7 @@
 
 -spec f() -> char().
 
-%%List pattern matching issue
+%% List pattern matching issue
 f() -> [H|_T] = gen(), H.
 
 -spec gen() -> id().

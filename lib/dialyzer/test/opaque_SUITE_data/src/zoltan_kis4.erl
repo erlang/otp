@@ -2,13 +2,12 @@
 
 -export([f/0, gen/0]).
 
+-export_type([id/0]).
+
 -opaque id() :: string().
 
--spec f() -> boolean().
-
-%%Equality test issue
-f() -> "Dummy" == gen().
+-spec f() -> id().
+f() -> "Dummy" = gen().  %% Matching issue
 
 -spec gen() -> id().
-
 gen() -> "Dummy".

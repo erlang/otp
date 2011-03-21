@@ -6,7 +6,7 @@
 
 -spec f() -> integer().
 
-%BIF and Unification(t_unify) issue
+%% BIF and Unification(t_unify) issue
 f() -> erlang:length(gen()).
 
 -spec gen() -> id().
