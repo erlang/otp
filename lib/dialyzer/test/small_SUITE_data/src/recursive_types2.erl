@@ -2,9 +2,9 @@
 
 -export([test/0]).
 
--type tree() :: 'nil' | {non_neg_integer(), child(), child()}.
+-type tree() :: 'nil' | {non_neg_integer(), subtree(), subtree()}.
 
--type child() :: tree().
+-type subtree() :: tree().
 
 -spec test() -> {42, tree(), tree()}.
 
