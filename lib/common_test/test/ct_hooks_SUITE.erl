@@ -79,7 +79,8 @@ all(suite) ->
        scope_per_suite_cth, scope_per_group_cth, scope_suite_cth,
        scope_per_suite_state_cth, scope_per_group_state_cth, 
        scope_suite_state_cth,
-       fail_pre_suite_cth, fail_post_suite_cth, skip_pre_suite_cth,
+       fail_pre_suite_cth, double_fail_pre_suite_cth,
+       fail_post_suite_cth, skip_pre_suite_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, options_cth, same_id_cth, 
        fail_n_skip_with_minimal_cth
@@ -166,6 +167,11 @@ scope_per_group_state_cth(Config) when is_list(Config) ->
 fail_pre_suite_cth(Config) when is_list(Config) ->
     do_test(fail_pre_suite_cth, "ct_cth_empty_SUITE.erl",
 	    [fail_pre_suite_cth],Config).
+
+double_fail_pre_suite_cth(Config) when is_list(Config) ->
+    do_test(double_fail_pre_suite_cth, "{ct_scope_suite_crash_in_cth_SUITE.erl,"
+	    "ct_scope_suite_cth_SUITE.erl}",
+	    [],Config).
 
 fail_post_suite_cth(Config) when is_list(Config) ->
     do_test(fail_post_suite_cth, "ct_cth_empty_SUITE.erl",
@@ -643,6 +649,23 @@ test_events(fail_pre_suite_cth) ->
      
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth, {'_',terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(double_fail_pre_suite_cth) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{'_',init_per_suite}},
+     {?eh,cth,{'_',init,['_',[]]}},
+     {?eh,cth,{'_',pre_init_per_suite,['_','$proplist',[]]}},
+     {?eh,cth,{'_',post_init_per_suite,['_','$proplist',
+					{fail,"Test failure"},[]]}},
+     {?eh,cth, {empty_cth,terminate,[[]]}},
+
+     {?eh,tc_start,{'_',init_per_suite}},
+     {?eh,cth,{'_',init,['_',[]]}},
+     {?eh,cth, {empty_cth,terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
