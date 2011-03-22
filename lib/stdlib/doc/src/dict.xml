@@ -55,7 +55,7 @@ dictionary()
       </type>
       <desc>
         <p>This function appends a new <c>Value</c> to the current list
-			  of values associated with <c>Key</c>.
+			  of values associated with <c>Key</c>.</p>
      </desc>
     </func>
     <func>

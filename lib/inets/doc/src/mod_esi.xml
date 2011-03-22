@@ -106,7 +106,7 @@
       <type>
         <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
-		  <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name.
+		  <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name.</v>
         <v>Input = string()</v>
         <v>Response = string()</v>
       </type>
