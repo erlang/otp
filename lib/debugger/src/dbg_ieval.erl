@@ -1023,7 +1023,7 @@ eval_generate(Term, _P, Bs, _CompFun, Ieval) ->
     exception(error, {bad_generator,Term}, Bs, Ieval).
 
 eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
-    Mfun = fun(L, R, Bs) -> match1(L, R, Bs, Bs0) end,
+    Mfun = match_fun(Bs0),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, #ieval{}) end,
     case eval_bits:bin_gen(P, Bin, erl_eval:new_bindings(), Bs0, Mfun, Efun) of
 	{match,Rest,Bs1} ->
@@ -1392,11 +1392,9 @@ match1({cons,_,H,T}, [H1|T1], Bs0, BBs) ->
 match1({tuple,_,Elts}, Tuple, Bs, BBs) 
   when length(Elts) =:= tuple_size(Tuple) ->
     match_tuple(Elts, Tuple, 1, Bs, BBs);
-match1({bin,_,Fs}, B, Bs0, BBs0) when is_bitstring(B) ->
-    Bs1 = lists:sort(Bs0),  %Kludge.
-    BBs = lists:sort(BBs0),
-    try eval_bits:match_bits(Fs, B, Bs1, BBs,
-			     fun(L, R, Bs) -> match1(L, R, Bs, BBs) end,
+match1({bin,_,Fs}, B, Bs0, BBs) when is_bitstring(B) ->
+    try eval_bits:match_bits(Fs, B, Bs0, BBs,
+			     match_fun(BBs),
 			     fun(E, Bs) -> expr(E, Bs, #ieval{}) end,
 			     false)
     catch
@@ -1404,6 +1402,12 @@ match1({bin,_,Fs}, B, Bs0, BBs0) when is_bitstring(B) ->
     end;
 match1(_,_,_,_) ->
     throw(nomatch).
+
+match_fun(BBs) ->
+    fun(match, {L,R,Bs}) -> match1(L, R, Bs, BBs);
+       (binding, {Name,Bs}) -> binding(Name, Bs);
+       (add_binding, {Name,Val,Bs}) -> add_binding(Name, Val, Bs)
+    end.
 
 match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
     {match,Bs} = match1(E, element(I, Tuple), Bs0, BBs),

@@ -621,7 +621,7 @@ eval_generate(Term, _P, _Bs0, _Lf, _Ef, _CompFun, _Acc) ->
     erlang:raise(error, {bad_generator,Term}, stacktrace()).
 
 eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, Lf, Ef, CompFun, Acc) ->
-    Mfun = fun(L, R, Bs) -> match1(L, R, Bs, Bs0) end,
+    Mfun = match_fun(Bs0),
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, Lf, Ef, none) end,
     case eval_bits:bin_gen(P, Bin, new_bindings(), Bs0, Mfun, Efun) of
 	{match, Rest, Bs1} ->
@@ -1024,7 +1024,7 @@ match1({tuple,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs) ->
     eval_bits:match_bits(Fs, B, Bs0, BBs,
-			 fun(L, R, Bs) -> match1(L, R, Bs, BBs) end,
+			 match_fun(BBs),
 			 fun(E, Bs) -> expr(E, Bs, none, none, none) end);
 match1({bin,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
@@ -1052,6 +1052,12 @@ match1({op,Line,Op,L,R}, Term, Bs, BBs) ->
     end;
 match1(_, _, _Bs, _BBs) ->
     throw(invalid).
+
+match_fun(BBs) ->
+    fun(match, {L,R,Bs}) -> match1(L, R, Bs, BBs);
+       (binding, {Name,Bs}) -> binding(Name, Bs);
+       (add_binding, {Name,Val,Bs}) -> add_binding(Name, Val, Bs)
+    end.
 
 match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
     {match,Bs} = match1(E, element(I, Tuple), Bs0, BBs),

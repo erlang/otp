@@ -31,8 +31,9 @@
 %% @type evalfun(). A closure which evaluates an expression given an
 %% environment
 %%
-%% @type matchfun(). A closure which performs a match given a value, a
-%% pattern and an environment
+%% @type matchfun(). A closure which depending on its first argument
+%% can perform a match (given a value, a pattern and an environment),
+%% lookup a variable in the bindings, or add a new binding
 %%
 %% @type field() represents a field in a "bin"
 
@@ -144,7 +145,8 @@ eval_exp_field(Val, Size, Unit, binary, _, _) ->
 bin_gen({bin,_,Fs}, Bin, Bs0, BBs0, Mfun, Efun) ->
     bin_gen(Fs, Bin, Bs0, BBs0, Mfun, Efun, true).
 
-bin_gen([F|Fs], Bin, Bs0, BBs0, Mfun, Efun, Flag) ->
+bin_gen([F|Fs], Bin, Bs0, BBs0, Mfun, Efun, Flag)
+  when is_function(Mfun, 2), is_function(Efun, 2) ->
     case bin_gen_field(F, Bin, Bs0, BBs0, Mfun, Efun) of
         {match,Bs,BBs,Rest} ->
             bin_gen(Fs, Rest, Bs, BBs, Mfun, Efun, Flag);
@@ -175,14 +177,14 @@ bin_gen_field({bin_element,Line,VE,Size0,Options0},
     {Size1, [Type,{unit,Unit},Sign,Endian]} = 
         make_bit_type(Line, Size0, Options0),
     V = erl_eval:partial_eval(VE),
-    match_check_size(Size1, BBs0),
+    match_check_size(Mfun, Size1, BBs0),
     {value, Size, _BBs} = Efun(Size1, BBs0),
     case catch get_value(Bin, Type, Size, Unit, Sign, Endian) of
         {Val,<<_/bitstring>>=Rest} ->
             NewV = coerce_to_float(V, Type),
-            case catch Mfun(NewV, Val, Bs0) of
+            case catch Mfun(match, {NewV,Val,Bs0}) of
                 {match,Bs} ->
-                    BBs = add_bin_binding(NewV, Bs, BBs0),
+                    BBs = add_bin_binding(Mfun, NewV, Bs, BBs0),
                     {match,Bs,BBs,Rest};
                 _ ->
                     {nomatch,Rest}
@@ -205,7 +207,8 @@ bin_gen_field({bin_element,Line,VE,Size0,Options0},
 match_bits(Fs, Bin, Bs0, BBs, Mfun, Efun, _) ->
     match_bits(Fs, Bin, Bs0, BBs, Mfun, Efun).
 
-match_bits(Fs, Bin, Bs0, BBs, Mfun, Efun) ->
+match_bits(Fs, Bin, Bs0, BBs, Mfun, Efun)
+  when is_function(Mfun, 2), is_function(Efun, 2) ->
     case catch match_bits_1(Fs, Bin, Bs0, BBs, Mfun, Efun) of
         {match,Bs} -> {match,Bs};
         invalid -> throw(invalid);
@@ -230,12 +233,12 @@ match_field_1({bin_element,Line,VE,Size0,Options0},
         make_bit_type(Line, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Size2, BBs0),
+    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     {Val,Rest} = get_value(Bin, Type, Size, Unit, Sign, Endian),
     NewV = coerce_to_float(V, Type),
-    {match,Bs} = Mfun(NewV, Val, Bs0),
-    BBs = add_bin_binding(NewV, Bs, BBs0),
+    {match,Bs} = Mfun(match, {NewV,Val,Bs0}),
+    BBs = add_bin_binding(Mfun, NewV, Bs, BBs0),
     {Bs,BBs,Rest}.
 
 %% Almost identical to the one in sys_pre_expand.
@@ -249,12 +252,12 @@ coerce_to_float({integer,L,I}=E, float) ->
 coerce_to_float(E, _Type) -> 
     E.
 
-add_bin_binding({var,_,'_'}, _Bs, BBs) ->
+add_bin_binding(_, {var,_,'_'}, _Bs, BBs) ->
     BBs;
-add_bin_binding({var,_,Name}, Bs, BBs) ->
-    {value,Value} = erl_eval:binding(Name, Bs),
-    erl_eval:add_binding(Name, Value, BBs);
-add_bin_binding(_, _Bs, BBs) ->
+add_bin_binding(Mfun, {var,_,Name}, Bs, BBs) ->
+    {value,Value} = Mfun(binding, {Name,Bs}),
+    Mfun(add_binding, {Name,Value,BBs});
+add_bin_binding(_, _, _Bs, BBs) ->
     BBs.
 
 get_value(Bin, integer, Size, Unit, Sign, Endian) ->
@@ -327,20 +330,20 @@ make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
         {error,Reason} -> error(Reason)
     end.
 
-match_check_size({var,_,V}, Bs) -> 
-    case erl_eval:binding(V, Bs) of
+match_check_size(Mfun, {var,_,V}, Bs) ->
+    case Mfun(binding, {V,Bs}) of
         {value,_} -> ok;
 	unbound -> throw(invalid) % or, rather, error({unbound,V})
     end;
-match_check_size({atom,_,all}, _Bs) ->
+match_check_size(_, {atom,_,all}, _Bs) ->
     ok;
-match_check_size({atom,_,undefined}, _Bs) ->
+match_check_size(_, {atom,_,undefined}, _Bs) ->
     ok;
-match_check_size({integer,_,_}, _Bs) ->
+match_check_size(_, {integer,_,_}, _Bs) ->
     ok;
-match_check_size({value,_,_}, _Bs) ->
+match_check_size(_, {value,_,_}, _Bs) ->
     ok;	%From the debugger.
-match_check_size(_, _Bs) -> 
+match_check_size(_, _, _Bs) ->
     throw(invalid).
 
 %% error(Reason) -> exception thrown

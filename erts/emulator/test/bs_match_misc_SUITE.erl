@@ -23,7 +23,7 @@
 	 bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
 	 kenneth/1,encode_binary/1,native/1,happi/1,
 	 size_var/1,wiger/1,x0_context/1,huge_float_field/1,
-	 writable_binary_matched/1,otp_7198/1]).
+	 writable_binary_matched/1,otp_7198/1,unordered_bindings/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -33,7 +33,7 @@ all() ->
     [bound_var, bound_tail, t_float, little_float, sean,
      kenneth, encode_binary, native, happi, size_var, wiger,
      x0_context, huge_float_field, writable_binary_matched,
-     otp_7198].
+     otp_7198, unordered_bindings].
 
 groups() -> 
     [].
@@ -552,6 +552,16 @@ otp_7198_scan(<<C, Rest/binary>>, TokAcc) when
                 _ ->
                         otp_7198_scan(Rest, [{'KEYWORD', C} | TokAcc])
         end.
+
+unordered_bindings(Config) when is_list(Config) ->
+    {<<1,2,3,4>>,<<42,42>>,<<3,3,3>>} =
+	unordered_bindings(4, 2, 3, <<1,2,3,4, 42,42, 3,3,3, 3>>),
+    ok.
+
+unordered_bindings(CompressedLength, HashSize, PadLength, T) ->
+    <<Content:CompressedLength/binary,Mac:HashSize/binary,
+     Padding:PadLength/binary,PadLength>> = T,
+    {Content,Mac,Padding}.
 
 
 id(I) -> I.

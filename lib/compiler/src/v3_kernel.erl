@@ -1167,9 +1167,7 @@ select_bin_int_1(_, _, _, _) -> throw(not_possible).
 
 select_assert_match_possible(Sz, Val, Fs) ->
     EmptyBindings = erl_eval:new_bindings(),
-    MatchFun = fun({integer,_,_}, NewV, Bs) when NewV =:= Val ->
-		       {match,Bs}
-	       end,
+    MatchFun = match_fun(Val),
     EvalFun = fun({integer,_,S}, B) -> {value,S,B} end,
     Expr = [{bin_element,0,{integer,0,Val},{integer,0,Sz},[{unit,1}|Fs]}],
     {value,Bin,EmptyBindings} = eval_bits:expr_grp(Expr, EmptyBindings, EvalFun),
@@ -1182,6 +1180,11 @@ select_assert_match_possible(Sz, Val, Fs) ->
     catch
 	throw:nomatch ->
 	    throw(not_possible)
+    end.
+
+match_fun(Val) ->
+    fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
+	    {match,Bs}
     end.
 
 select_utf8(Val0) ->
