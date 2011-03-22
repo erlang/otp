@@ -422,7 +422,7 @@ eval_nonrestricted({From, _Mod, Cmd, _SP}, Bs,
 
 eval_nonrestricted_1({match,_,{var,_,Var},Expr}, Bs, Ieval) ->
     {value,Res,Bs2} = 
-	dbg_ieval:eval_expr(Expr, Bs, Ieval#ieval{last_call=false}),
+	dbg_ieval:eval_expr(Expr, Bs, Ieval#ieval{top=false}),
     Bs3 = case lists:keyfind(Var, 1, Bs) of
 	      {Var,_Value} ->
 		  lists:keyreplace(Var, 1, Bs2, {Var,Res});
@@ -437,7 +437,7 @@ eval_nonrestricted_1({var,_,Var}, Bs, _Ieval) ->
     {Res,Bs};
 eval_nonrestricted_1(Expr, Bs, Ieval) ->
     {value,Res,Bs2} = 
-	dbg_ieval:eval_expr(Expr, Bs, Ieval#ieval{last_call=false}),
+	dbg_ieval:eval_expr(Expr, Bs, Ieval#ieval{top=false}),
     {Res,Bs2}.
 
 mark_running(LineNo, Le) ->

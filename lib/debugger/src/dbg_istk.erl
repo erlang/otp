@@ -61,7 +61,7 @@ init(Stack) ->
 %%   false - nothing is pushed
 %% Whenever a function returns, the corresponding call frame is popped.
 
-push(MFA, Bs, #ieval{level=Le,module=Cm,line=Li,last_call=Lc}) ->
+push(MFA, Bs, #ieval{level=Le,module=Cm,line=Li,top=Lc}) ->
     Entry = #e{level=Le,mfa=MFA,cm=Cm,line=Li,bindings=Bs},
     case get(trace_stack) of
 	false -> ignore;

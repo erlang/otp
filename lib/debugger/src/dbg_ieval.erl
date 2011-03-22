@@ -385,7 +385,7 @@ catch_value(throw, Reason) ->
 eval_mfa(Debugged, M, F, As, Ieval) ->
     Int = get(int),
     Bs = erl_eval:new_bindings(),
-    try eval_function(M,F,As,Bs,extern,Ieval#ieval{last_call=true}) of
+    try eval_function(M,F,As,Bs,extern,Ieval#ieval{top=true}) of
 	{value, Val, _Bs} ->
 	    {ready, Val}
     catch
@@ -400,7 +400,7 @@ eval_mfa(Debugged, M, F, As, Ieval) ->
 eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
 						       Mod =:= ?MODULE,
 						       Fun =:= eval_fun ->
-    #ieval{level=Le, line=Li, last_call=Lc} = Ieval,
+    #ieval{level=Le, line=Li, top=Top} = Ieval,
     case lambda(Fun, As0) of
 	{Cs,Module,Name,As,Bs} ->
 	    dbg_istk:push({Module,Name,As}, Bs0, Ieval),
@@ -412,7 +412,7 @@ eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
-	not_interpreted when Lc -> % We are leaving interpreted code
+	not_interpreted when Top -> % We are leaving interpreted code
 	    trace(call_fun, {Le,Li,Fun,As0}),
 	    {value, {dbg_apply,erlang,apply,[Fun,As0]}, Bs0};
 	not_interpreted ->
@@ -438,7 +438,7 @@ eval_function(ct_line, line, As, Bs, extern, #ieval{level=Le}=Ieval) ->
     {value, ignore, Bs};
 
 eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
-    #ieval{level=Le, line=Li, last_call=Lc} = Ieval,
+    #ieval{level=Le, line=Li, top=Top} = Ieval,
 
     dbg_istk:push({Mod,Name,As0}, Bs0, Ieval),
     trace(call, {Called, {Le,Li,Mod,Name,As0}}),
@@ -452,7 +452,7 @@ eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
-	not_interpreted when Lc -> % We are leaving interpreted code
+	not_interpreted when Top -> % We are leaving interpreted code
 	    {value, {dbg_apply,Mod,Name,As0}, Bs0};
 	not_interpreted ->
 	    {value, Val, _Bs} =
@@ -594,7 +594,7 @@ seq([E|Es], Bs0, Ieval) ->
 	{skip,Bs} ->
 	    seq(Es, Bs, Ieval);
 	Bs1 ->
-	    {value,_,Bs} = expr(E, Bs1, Ieval#ieval{last_call=false}),
+	    {value,_,Bs} = expr(E, Bs1, Ieval#ieval{top=false}),
 	    seq(Es, Bs, Ieval)
     end;
 seq([], Bs, _) ->
@@ -617,7 +617,7 @@ expr({value,Val}, Bs, _Ieval) -> % Special case straight values
 %% List
 expr({cons,Line,H0,T0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    Ieval1 = Ieval#ieval{last_call=false},
+    Ieval1 = Ieval#ieval{top=false},
     {value,H,Bs1} = expr(H0,Bs0,Ieval1),
     {value,T,Bs2} = expr(T0,Bs0,Ieval1),
     {value,[H|T],merge_bindings(Bs2, Bs1, Ieval)};
@@ -633,7 +633,7 @@ expr({block,Line,Es},Bs,Ieval) ->
 
 %% Catch statement
 expr({'catch',Line,Expr}, Bs0, Ieval) ->
-    try expr(Expr, Bs0, Ieval#ieval{line=Line, last_call=false})
+    try expr(Expr, Bs0, Ieval#ieval{line=Line, top=false})
     catch
 	Class:Reason ->
 	    %% Exception caught, reset exit info
@@ -647,7 +647,7 @@ expr({'catch',Line,Expr}, Bs0, Ieval) ->
 %% Try-catch statement
 expr({'try',Line,Es,CaseCs,CatchCs,[]}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    try seq(Es, Bs0, Ieval#ieval{last_call=false}) of
+    try seq(Es, Bs0, Ieval#ieval{top=false}) of
 	{value,Val,Bs} = Value ->
 	    case CaseCs of
 		[] -> Value;
@@ -660,7 +660,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,[]}, Bs0, Ieval0) ->
     end;
 expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    try seq(Es, Bs0, Ieval#ieval{last_call=false}) of
+    try seq(Es, Bs0, Ieval#ieval{top=false}) of
 	{value,Val,Bs} = Value ->
 	    case CaseCs of
 		[] -> Value;
@@ -671,13 +671,13 @@ expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
 	Class:Reason when CatchCs =/= [] ->
 	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
     after
-            seq(As, Bs0, Ieval#ieval{last_call=false})
+            seq(As, Bs0, Ieval#ieval{top=false})
     end;
 
 %% Case statement
 expr({'case',Line,E,Cs}, Bs0, Ieval) ->
     {value,Val,Bs} =
-	expr(E, Bs0, Ieval#ieval{line=Line, last_call=false}),
+	expr(E, Bs0, Ieval#ieval{line=Line, top=false}),
     case_clauses(Val, Cs, Bs, case_clause, Ieval#ieval{line=Line});
 
 %% If statement
@@ -686,20 +686,20 @@ expr({'if',Line,Cs}, Bs, Ieval) ->
 
 %% Andalso/orelse
 expr({'andalso',Line,E1,E2}, Bs, Ieval) ->
-    case expr(E1, Bs, Ieval#ieval{line=Line, last_call=false}) of
+    case expr(E1, Bs, Ieval#ieval{line=Line, top=false}) of
 	{value,false,_}=Res ->
 	    Res;
 	{value,true,_} -> 
-	    expr(E2, Bs, Ieval#ieval{line=Line, last_call=false});
+	    expr(E2, Bs, Ieval#ieval{line=Line, top=false});
 	{value,Val,Bs} ->
 	    exception(error, {badarg,Val}, Bs, Ieval)
     end;
 expr({'orelse',Line,E1,E2}, Bs, Ieval) ->
-    case expr(E1, Bs, Ieval#ieval{line=Line, last_call=false}) of
+    case expr(E1, Bs, Ieval#ieval{line=Line, top=false}) of
 	{value,true,_}=Res ->
 	    Res;
 	{value,false,_} ->
-	    expr(E2, Bs, Ieval#ieval{line=Line, last_call=false});
+	    expr(E2, Bs, Ieval#ieval{line=Line, top=false});
 	{value,Val,_} ->
 	    exception(error, {badarg,Val}, Bs, Ieval)
     end;
@@ -707,7 +707,7 @@ expr({'orelse',Line,E1,E2}, Bs, Ieval) ->
 %% Matching expression
 expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    {value,Rhs,Bs1} = expr(Rhs0, Bs0, Ieval#ieval{last_call=false}),
+    {value,Rhs,Bs1} = expr(Rhs0, Bs0, Ieval#ieval{top=false}),
     case match(Lhs, Rhs, Bs1) of
 	{match,Bs} ->
 	    {value,Rhs,Bs};
@@ -876,7 +876,7 @@ expr({'receive',Line,Cs}, Bs0, #ieval{level=Le}=Ieval) ->
 %% Receive..after statement
 expr({'receive',Line,Cs,To,ToExprs}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    {value,ToVal,ToBs} = expr(To, Bs0, Ieval#ieval{last_call=false}),
+    {value,ToVal,ToBs} = expr(To, Bs0, Ieval#ieval{top=false}),
     trace(receivex, {Le,true}),
     check_timeoutvalue(ToVal, ToBs, To, Ieval),
     {Stamp,_} = statistics(wall_clock),
@@ -886,7 +886,7 @@ expr({'receive',Line,Cs,To,ToExprs}, Bs0, #ieval{level=Le}=Ieval0) ->
 %% Send (!)
 expr({send,Line,To0,Msg0}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    Ieval1 = Ieval#ieval{last_call=false},
+    Ieval1 = Ieval#ieval{top=false},
     {value,To,Bs1} = expr(To0, Bs0, Ieval1),
     {value,Msg,Bs2} = expr(Msg0, Bs0, Ieval1),
     Bs = merge_bindings(Bs2, Bs1, Ieval),
@@ -923,12 +923,12 @@ eval_lc(E, Qs, Bs, Ieval) ->
 
 eval_lc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
+    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
     CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
     eval_generate(L1, P, Bs1, CompFun, Ieval);
 eval_lc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
+    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{top=false}),
     CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
     eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
 eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
@@ -937,13 +937,13 @@ eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
 	false -> []
     end;
 eval_lc1(E, [Q|Qs], Bs0, Ieval) ->
-    case expr(Q, Bs0, Ieval#ieval{last_call=false}) of
+    case expr(Q, Bs0, Ieval#ieval{top=false}) of
 	{value,true,Bs} -> eval_lc1(E, Qs, Bs, Ieval);
 	{value,false,_Bs} -> [];
 	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
     end;
 eval_lc1(E, [], Bs, Ieval) ->
-    {value,V,_} = expr(E, Bs, Ieval#ieval{last_call=false}),
+    {value,V,_} = expr(E, Bs, Ieval#ieval{top=false}),
     [V].
 
 %% eval_bc(Expr,[Qualifier],Bindings,IevalState) ->
@@ -956,12 +956,12 @@ eval_bc(E, Qs, Bs, Ieval) ->
 
 eval_bc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
+    {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{top=false}),
     CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
     eval_generate(L1, P, Bs1, CompFun, Ieval);
 eval_bc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
+    {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{top=false}),
     CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
     eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
 eval_bc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
@@ -970,13 +970,13 @@ eval_bc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
 	false -> []
     end;
 eval_bc1(E, [Q|Qs], Bs0, Ieval) ->
-    case expr(Q, Bs0, Ieval#ieval{last_call=false}) of
+    case expr(Q, Bs0, Ieval#ieval{top=false}) of
 	{value,true,Bs} -> eval_bc1(E, Qs, Bs, Ieval);
 	{value,false,_Bs} -> [];
 	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
     end;
 eval_bc1(E, [], Bs, Ieval) ->
-    {value,V,_} = expr(E, Bs, Ieval#ieval{last_call=false}),
+    {value,V,_} = expr(E, Bs, Ieval#ieval{top=false}),
     [V].
 
 eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
@@ -1185,7 +1185,7 @@ eval_list(Es, Bs, Ieval) ->
     eval_list(Es, [], Bs, Bs, Ieval).
 
 eval_list([E|Es], Vs, BsOrig, Bs0, Ieval) ->
-    {value,V,Bs1} = expr(E, BsOrig, Ieval#ieval{last_call=false}),
+    {value,V,Bs1} = expr(E, BsOrig, Ieval#ieval{top=false}),
     eval_list(Es, [V|Vs], BsOrig, merge_bindings(Bs1,Bs0,Ieval), Ieval);
 eval_list([], Vs, _, Bs, _Ieval) ->
     {lists:reverse(Vs,[]),Bs}.
