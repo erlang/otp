@@ -53,7 +53,7 @@ start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
 stop() -> 
-    call(stop),
+    supervisor:terminate_child(sasl_sup, rb_server),
     supervisor:delete_child(sasl_sup, rb_server).
 
 rescan() -> rescan([]).
@@ -205,8 +205,6 @@ handle_call({rescan, Options}, _From, State) ->
     NewState = State#state{data = Data, max = Max, type = Type,
 			   device = Device, abort = Abort, log = Log1},
     {reply, ok, NewState};
-handle_call(stop, _From, State) ->
-    {stop, normal, stopped, State};
 handle_call(_, _From, #state{data = undefined}) ->
     {reply, {error, no_data}, #state{}};
 handle_call({list, Type}, _From, State) ->
@@ -312,11 +310,14 @@ scan_files(RptDir, Max, Type) ->
 	{ok, Fd} ->
 	    case catch file:read(Fd, 1) of
 		{ok, [LastWritten]} -> 
+		    file:close(Fd),
 		    Files = make_file_list(RptDir, LastWritten),
 		    scan_files(RptDir, Files, Max, Type);		
-		_ -> exit("cannot read the index file")
+		_X ->
+		    file:close(Fd),
+		    exit("cannot read the index file")
 	    end;
-	_ -> exit("cannot read the index file")
+	_X -> exit("cannot read the index file")
     end.
 
 make_file_list(Dir, FirstFileNo) ->
