@@ -75,19 +75,25 @@
     </section>
 
     <section><title>Fixed Bugs and Malfunctions</title>
-    <p>-</p>
-
 <!--
+    <p>-</p>
+-->
+
       <list>
         <item>
-          <p>[httpc] Pipelined and queued requests not processed when
-	  connection closed remotelly.</p>
-          <p>Own Id: OTP-8906</p>
+          <p>[httpd] Wrong 
+	  <seealso marker="httpd#sec_prop">security property</seealso> 
+	  names used in documentation. </p>
+	  <p><c>security_data_file</c> used instead of <c>data_file</c>. </p>
+	  <p><c>security_max_retries</c> used instead of <c>max_retries</c>. </p>
+	  <p><c>security_block_time</c> used instead of <c>block_time</c>. </p>
+	  <p><c>security_fail_expire_time</c> used instead of <c>fail_expire_time</c>. </p>
+	  <p><c>security_auth_timeout</c> used instead of <c>auth_timeout</c>. </p>
+	  <p>Garrett Smith</p>
+	  <p>Own Id: OTP-9131</p>
         </item>
       </list>
--->
     </section>
-
 
   </section> <!-- 5.6 -->
 
