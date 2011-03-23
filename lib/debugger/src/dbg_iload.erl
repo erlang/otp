@@ -234,12 +234,7 @@ and_guard([]) -> [].
 
 guard_test({call,Line,{remote,_,{atom,_,erlang},{atom,_,F}},As0}) ->
     As = gexpr_list(As0),
-    case map_guard_bif(F, length(As0)) of
-	{ok,Name} ->
-	    {safe_bif,Line,erlang,Name,As};
-	error ->
-	    {safe_bif,Line,erlang,F,As}
-    end;
+    {safe_bif,Line,erlang,F,As};
 guard_test({op,Line,Op,L0}) ->
     true = erl_internal:arith_op(Op, 1) orelse %Assertion.
 	erl_internal:bool_op(Op, 1),
@@ -262,19 +257,6 @@ guard_test({float,_,_}=F) -> F;
 guard_test({atom,_,_}=A) -> A;
 guard_test({nil,_}=N) -> N;
 guard_test({var,_,_}=V) ->V.    % Boolean var
-
-map_guard_bif(integer, 1) -> {ok,is_integer};
-map_guard_bif(float, 1) -> {ok,is_float};
-map_guard_bif(number, 1) -> {ok,is_number};
-map_guard_bif(atom, 1) -> {ok,is_atom};
-map_guard_bif(list, 1) -> {ok,is_list};
-map_guard_bif(tuple, 1) -> {ok,is_tuple};
-map_guard_bif(pid, 1) -> {ok,is_pid};
-map_guard_bif(reference, 1) -> {ok,is_reference};
-map_guard_bif(port, 1) -> {ok,is_port};
-map_guard_bif(binary, 1) -> {ok,is_binary};
-map_guard_bif(function, 1) -> {ok,is_function};
-map_guard_bif(_, _) -> error.
 
 gexpr({var,Line,V}) -> {var,Line,V};
 gexpr({integer,Line,I}) -> {value,Line,I};
