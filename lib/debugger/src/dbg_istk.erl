@@ -120,26 +120,27 @@ delayed_stacktrace() ->
     Stack0 = get(?STACK),
     fun(NumEntries) ->
 	    Stack = stacktrace(NumEntries, Stack0, []),
-	    [ArityOnly || {ArityOnly,_} <- Stack]
+	    [finalize(ArityOnly) || {ArityOnly,_} <- Stack]
     end.
 
 delayed_stacktrace(include_args, Ieval) ->
-    #ieval{module=Mod,function=Name,arguments=As} = Ieval,
-    Stack0 = [#e{mfa={Mod,Name,As}}|get(?STACK)],
+    #ieval{module=Mod,function=Name,arguments=As,line=Li} = Ieval,
+    Stack0 = [#e{mfa={Mod,Name,As},line=Li}|get(?STACK)],
     fun(NumEntries) ->
 	    case stacktrace(NumEntries, Stack0, []) of
 		[] ->
 		    [];
 		[{_,WithArgs}|Stack] ->
-		    [WithArgs | [ArityOnly || {ArityOnly,_} <- Stack]]
+		    [finalize(WithArgs) |
+		     [finalize(ArityOnly) || {ArityOnly,_} <- Stack]]
 	    end
     end;
 delayed_stacktrace(no_args, Ieval) ->
-    #ieval{module=Mod,function=Name,arguments=As} = Ieval,
-    Stack0 = [#e{mfa={Mod,Name,As}}|get(?STACK)],
+    #ieval{module=Mod,function=Name,arguments=As,line=Li} = Ieval,
+    Stack0 = [#e{mfa={Mod,Name,As},line=Li}|get(?STACK)],
     fun(NumEntries) ->
 	    Stack = stacktrace(NumEntries, Stack0, []),
-	    [ArityOnly || {ArityOnly,_} <- Stack]
+	    [finalize(ArityOnly) || {ArityOnly,_} <- Stack]
     end.
 
 stacktrace(N, [#e{lc=true}|T], Acc) ->
@@ -156,10 +157,19 @@ stacktrace(N, [E|T], [{P,_}|_]=Acc) when N > 0 ->
 stacktrace(_, _, Acc) ->
     lists:reverse(Acc).
 
-normalize(#e{mfa={_,Fun,As}}) when is_function(Fun) ->
-    {{Fun,length(As),[]},{Fun,As,[]}};
-normalize(#e{mfa={M,F,As}}) ->
-    {{M,F,length(As),[]},{M,F,As,[]}}.
+normalize(#e{mfa={M,Fun,As},line=Li}) when is_function(Fun) ->
+    Loc = {M,Li},
+    {{Fun,length(As),Loc},{Fun,As,Loc}};
+normalize(#e{mfa={M,F,As},line=Li}) ->
+    Loc = {M,Li},
+    {{M,F,length(As),Loc},{M,F,As,Loc}}.
+
+finalize({M,F,A,Loc}) -> {M,F,A,line(Loc)};
+finalize({Fun,A,Loc}) -> {Fun,A,line(Loc)}.
+
+line({Mod,Line}) when Line > 0 ->
+    [{file,atom_to_list(Mod)++".erl"},{line,Line}];
+line(_) -> [].
 
 %% bindings(SP) -> Bs
 %%   SP = Le  % stack pointer

@@ -462,8 +462,9 @@ do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
     trace(call, {Called, {Le,Li,Mod,Name,As0}}),
     Ieval = Ieval0#ieval{module=Mod,function=Name,arguments=As0},
     case get_function(Mod, Name, As0, Called) of
-	Cs when is_list(Cs) ->
-	    fnk_clauses(Cs, As0, erl_eval:new_bindings(), Ieval);
+	[{clause,FcLine,_,_,_}|_]=Cs ->
+	    fnk_clauses(Cs, As0, erl_eval:new_bindings(),
+			Ieval#ieval{line=FcLine});
 
 	not_interpreted when Top -> % We are leaving interpreted code
 	    {value, {dbg_apply,Mod,Name,As0}, Bs0};
@@ -836,7 +837,7 @@ expr({safe_bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     {As,Bs} = eval_list(As0, Bs0, Ieval1),
     trace(bif, {Le,Line,M,F,As}),
     Ieval2 = dbg_istk:push(Bs0, Ieval1, false),
-    Ieval = Ieval2#ieval{module=M,function=F,arguments=As},
+    Ieval = Ieval2#ieval{module=M,function=F,arguments=As,line=-1},
     {_,Value,_} = Res = safe_bif(M, F, As, Bs, Ieval),
     trace(return, {Le,Value}),
     dbg_istk:pop(),
@@ -848,7 +849,7 @@ expr({bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     {As,Bs} = eval_list(As0, Bs0, Ieval1),
     trace(bif, {Le,Line,M,F,As}),
     Ieval2 = dbg_istk:push(Bs0, Ieval1, false),
-    Ieval = Ieval2#ieval{module=M,function=F,arguments=As},
+    Ieval = Ieval2#ieval{module=M,function=F,arguments=As,line=-1},
     {_,Value,_} = Res = debugged_cmd({apply,M,F,As}, Bs, Ieval),
     trace(return, {Le,Value}),
     dbg_istk:pop(),

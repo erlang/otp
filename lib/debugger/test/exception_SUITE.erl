@@ -32,6 +32,19 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
+%% Filler.
+%%
+%%
+%%
+%%
+%% This is line 40.
+even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
+    odd(N-1)++[N].
+
+odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
+    even(N-1)++[N].
+
+
 all() -> 
     cases().
 
@@ -389,19 +402,15 @@ raise(Conf) when is_list(Conf) ->
 odd_even(N, R) when is_integer(N), N > 1 ->
     odd_even(N-1,
 	     [if (N rem 2) == 0 ->
-		      {?MODULE,even,1,[]};
+		      {?MODULE,even,1,[{file,?MODULE_STRING++".erl"},
+				       {line,42}]};
 		 true ->
-		      {?MODULE,odd,1,[]}
+		      {?MODULE,odd,1,[{file,?MODULE_STRING++".erl"},
+				      {line,45}]}
 	      end|R]);
 odd_even(1, R) ->
-    [{?MODULE,odd,[1],[]}|R].
-
-even(N) when is_integer(N), N > 1, (N rem 2) == 0 ->
-    odd(N-1)++[N].
-
-odd(N) when is_integer(N), N > 1, (N rem 2) == 1 ->
-    even(N-1)++[N].
-
+    [{?MODULE,odd,[1],[{file,?MODULE_STRING++".erl"},
+		       {line,44}]}|R].
 
 foo({value,Value}) -> Value;
 foo({'div',{A,B}}) ->
