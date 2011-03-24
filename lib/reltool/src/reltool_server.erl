@@ -1318,7 +1318,7 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
 				   Val =:= none;
 				   Val =:= undefined ->
                 {Sys#sys{embedded_app_type = Val}, Status};
-            app_file when Val =:= keep; Val =:= strip, Val =:= all ->
+            app_file when Val =:= keep; Val =:= strip; Val =:= all ->
                 {Sys#sys{app_file = Val}, Status};
             debug_info when Val =:= keep; Val =:= strip ->
                 {Sys#sys{debug_info = Val}, Status};
