@@ -41,6 +41,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/public_key-$(VSN)
 MODULES = \
 	public_key \
 	pubkey_pem \
+	pubkey_ssh \
 	pubkey_cert \
         pubkey_cert_records 
 
