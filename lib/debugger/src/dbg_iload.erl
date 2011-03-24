@@ -62,8 +62,10 @@ load_mod1(Mod, File, Binary, Db) ->
 store_module(Mod, File, Binary, Db) ->
     {interpreter_module, Exp, Abst, Src, MD5} = binary_to_term(Binary),
     Forms = case abstr(Abst) of
-		{abstract_v1,Forms0} -> Forms0;
-		{abstract_v2,Forms0} -> Forms0;
+		{abstract_v1,_} ->
+		    exit({Mod,too_old_beam_file});
+		{abstract_v2,_} ->
+		    exit({Mod,too_old_beam_file});
 		{raw_abstract_v1,Code0} ->
                     Code = interpret_file_attribute(Code0),
 		    {_,_,Forms0,_} = sys_pre_expand:module(Code, []),
@@ -362,18 +364,11 @@ expr({'fun',Line,{clauses,Cs0},{_,_,Name}}, _Lc) when is_atom(Name) ->
     %% New R10B-2 format (abstract_v2).
     Cs = fun_clauses(Cs0),
     {make_fun,Line,Name,Cs};
-expr({'fun',Line,{clauses,Cs0},{_,_,_,_,Name}}, _Lc) when is_atom(Name) ->
-    %% New R8 format (abstract_v2).
-    Cs = fun_clauses(Cs0),
-    {make_fun,Line,Name,Cs};
 expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
     %% New R8 format (abstract_v2).
     As = new_vars(A, Line),
     Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
-expr({'fun',_,{clauses,_},{_OldUniq,_Hvss,_Free}}, _Lc) ->
-    %% Old format (abstract_v1).
-    exit({?MODULE,old_funs});
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _Lc) ->
     {dbg,Line,self,[]};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}, _Lc) ->
@@ -424,9 +419,6 @@ expr({'try',Line,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     CatchCs = icr_clauses(CatchCs0, Lc),
     As = expr_list(As0),
     {'try',Line,Es,CaseCs,CatchCs,As};
-expr({'query', Line, E0}, _Lc) ->
-    E = expr(E0, false),
-    {'query', Line, E};
 expr({lc,Line,E0,Gs0}, _Lc) ->			%R8.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
 			   {generate,L,expr(P0, false),expr(Qs, false)};
