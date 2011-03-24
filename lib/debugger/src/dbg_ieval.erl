@@ -925,10 +925,15 @@ expr({send,Line,To0,Msg0}, Bs0, Ieval0) ->
 %% Binary
 expr({bin,Line,Fs}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
-    eval_bits:expr_grp(Fs, Bs0,
-		       fun (E, B) -> expr(E, B, Ieval) end,
-		       [],
-		       false);
+    try
+	eval_bits:expr_grp(Fs, Bs0,
+			   fun (E, B) -> expr(E, B, Ieval) end,
+			   [],
+			   false)
+    catch
+	Class:Reason ->
+	    exception(Class, Reason, Bs0, Ieval)
+    end;
 
 %% List comprehension
 expr({lc,_Line,E,Qs}, Bs, Ieval) ->
