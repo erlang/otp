@@ -616,10 +616,9 @@ expr({value,Val}, Bs, _Ieval) -> % Special case straight values
 
 %% List
 expr({cons,Line,H0,T0}, Bs0, Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    Ieval1 = Ieval#ieval{top=false},
-    {value,H,Bs1} = expr(H0,Bs0,Ieval1),
-    {value,T,Bs2} = expr(T0,Bs0,Ieval1),
+    Ieval = Ieval0#ieval{line=Line,top=false},
+    {value,H,Bs1} = expr(H0, Bs0, Ieval),
+    {value,T,Bs2} = expr(T0, Bs0, Ieval),
     {value,[H|T],merge_bindings(Bs2, Bs1, Ieval)};
 
 %% Tuple
@@ -1182,12 +1181,12 @@ flush_traces(Debugged) ->
 %% eval_list(ExpressionList, Bindings, Ieval)
 %%  Evaluate a list of expressions "in parallel" at the same level.
 eval_list(Es, Bs, Ieval) ->
-    eval_list(Es, [], Bs, Bs, Ieval).
+    eval_list_1(Es, [], Bs, Bs, Ieval#ieval{top=false}).
 
-eval_list([E|Es], Vs, BsOrig, Bs0, Ieval) ->
-    {value,V,Bs1} = expr(E, BsOrig, Ieval#ieval{top=false}),
-    eval_list(Es, [V|Vs], BsOrig, merge_bindings(Bs1,Bs0,Ieval), Ieval);
-eval_list([], Vs, _, Bs, _Ieval) ->
+eval_list_1([E|Es], Vs, BsOrig, Bs0, Ieval) ->
+    {value,V,Bs1} = expr(E, BsOrig, Ieval),
+    eval_list_1(Es, [V|Vs], BsOrig, merge_bindings(Bs1, Bs0, Ieval), Ieval);
+eval_list_1([], Vs, _, Bs, _Ieval) ->
     {lists:reverse(Vs,[]),Bs}.
 
 %% if_clauses(Clauses, Bindings, Ieval)
