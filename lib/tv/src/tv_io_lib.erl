@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,10 +52,11 @@ write(_Term, 0) -> "...";
 write(Term, _D) when is_integer(Term) -> integer_to_list(Term);
 write(Term, _D) when is_float(Term) -> tv_io_lib_format:fwrite_g(Term);
 write(Atom, _D) when is_atom(Atom) -> write_atom(Atom);
-write(Term, _D) when is_port(Term) -> "#Port";
+write(Term, _D) when is_port(Term) -> lists:flatten(io_lib:write(Term));
 write(Term, _D) when is_pid(Term) -> pid_to_list(Term);
-write(Term, _D) when is_reference(Term) -> "#Ref";
-write(Term, _D) when is_binary(Term) -> "#Bin";
+write(Term, _D) when is_reference(Term) -> io_lib:write(Term);
+write(Term, _D) when is_binary(Term), byte_size(Term) > 100 -> "#Bin";
+write(Term, _D) when is_binary(Term) -> "<<\"" ++ binary_to_list(Term)  ++ "\">>";
 write(Term, _D) when is_bitstring(Term) -> "#Bitstr";
 write([], _D) -> "[]";
 write({}, _D) -> "{}";
