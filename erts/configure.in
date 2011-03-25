@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2010. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2011. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -3659,6 +3659,12 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 		wrp="/machine/software/microsoft/windows/currentversion/"
 		urp="uninstall/openssl_is1/inno setup: app path"
 		rp="$wrp$urp"
+		if regtool -q get "$rp" > /dev/null; then
+		   true
+		else
+		   urp="uninstall/openssl (32-bit)_is1/inno setup: app path"
+		   rp="$wrp$urp"
+		fi	
 		if regtool -q get "$rp" > /dev/null; then
 			ssl_install_dir=`regtool -q get "$rp"`
 			# Try hard to get rid of spaces...
