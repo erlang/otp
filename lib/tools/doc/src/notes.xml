@@ -30,6 +30,55 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Declare indentation options as "safe" in erlang-mode for
+	    Emacs</p>
+          <p>
+	    Emacs has a facility for setting options on a per-file
+	    basis based on comments in the source file. By default,
+	    all options are considered "unsafe", and the user is
+	    queried before the variable is set. This patch declares
+	    the variables erlang-indent-level, erlang-indent-guard
+	    and erlang-argument-indent to be safe, if the value
+	    specified in the source file is valid.</p>
+          <p>
+	    Such declarations usually look like this:</p>
+          <p>
+	    %% -*- erlang-indent-level: 2 -*-</p>
+          <p>
+	    and appear on the first line of the file. (thanks to
+	    Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9122</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Cover has been improved to take less memory and allow
+	    parallel analysis of cover data. Data collection from
+	    nodes is now done in parallel and it is now possible to
+	    issue multiple analyse and analyse_to_file requests at
+	    the same time. A new function call async_analyse_to_file
+	    has also been introduced, see the documentation for more
+	    details.</p>
+          <p>
+	    Own Id: OTP-9043 Aux Id: seq11771 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

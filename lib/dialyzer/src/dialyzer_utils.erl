@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -214,14 +214,13 @@ get_record_and_type_info([], _Module, Records, RecDict) ->
       ?debug(_NewRecDict),
       Ok;
     {error, Name, Error} ->
-      {error, lists:flatten(io_lib:format("  Error while parsing #~w{}: ~s\n",
-					  [Name, Error]))}
+      {error, flat_format("  Error while parsing #~w{}: ~s\n", [Name, Error])}
   end.
 
 add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
   case erl_types:type_is_defined(TypeOrOpaque, Name, RecDict) of
     true ->
-      throw({error, io_lib:format("Type already defined: ~w\n", [Name])});
+      throw({error, flat_format("Type ~s already defined\n", [Name])});
     false ->
       ArgTypes = [erl_types:t_from_form(X) || X <- ArgForms],
       case lists:all(fun erl_types:t_is_var/1, ArgTypes) of
@@ -229,8 +228,8 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
 	  ArgNames = [erl_types:t_var_name(X) || X <- ArgTypes],
 	  dict:store({TypeOrOpaque, Name}, {Module, TypeForm, ArgNames}, RecDict);
 	false ->
-	  throw({error, io_lib:format("Type declaration for ~w does not "
-				      "have variables as parameters", [Name])})
+	  throw({error, flat_format("Type declaration for ~w does not "
+				    "have variables as parameters", [Name])})
       end
   end.
 
@@ -338,14 +337,14 @@ get_spec_info([{attribute, Ln, spec, {Id, TypeSpec}}|Left],
       get_spec_info(Left, NewSpecDict, RecordsDict, ModName, File);
     {ok, {{OtherFile, L},_C}} ->
       {Mod, Fun, Arity} = MFA,
-      Msg = io_lib:format("  Contract for function ~w:~w/~w "
-			  "already defined in ~s:~w\n",
-			  [Mod, Fun, Arity, OtherFile, L]),
+      Msg = flat_format("  Contract for function ~w:~w/~w "
+			"already defined in ~s:~w\n",
+			[Mod, Fun, Arity, OtherFile, L]),
       throw({error, Msg})
   catch
     throw:{error, Error} ->
-      {error, lists:flatten(io_lib:format("  Error while parsing contract "
-					  "in line ~w: ~s\n", [Ln, Error]))}
+      {error, flat_format("  Error while parsing contract in line ~w: ~s\n",
+			  [Ln, Error])}
   end;
 get_spec_info([{attribute, _, file, {IncludeFile, _}}|Left],
 	      SpecDict, RecordsDict, ModName, _File) ->
@@ -418,6 +417,9 @@ format_sig(Type, RecDict) ->
   "fun(" ++ Sig = lists:flatten(erl_types:t_to_string(Type, RecDict)),
   ")" ++ RevSig = lists:reverse(Sig),
   lists:reverse(RevSig).
+
+flat_format(Fmt, Lst) ->
+  lists:flatten(io_lib:format(Fmt, Lst)).
 
 %%-------------------------------------------------------------------
 %% Author      : Per Gustafsson <pergu@it.uu.se>

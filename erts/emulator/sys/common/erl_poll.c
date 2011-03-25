@@ -347,6 +347,7 @@ reset_wakeup_state(ErtsPollSet ps)
 {
 #ifdef ERTS_SMP
     erts_atomic32_set(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
+    ERTS_THR_MEMORY_BARRIER;
 #elif ERTS_POLL_ASYNC_INTERRUPT_SUPPORT
     ps->wakeup_state = 0;
 #endif

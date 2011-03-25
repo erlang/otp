@@ -13,11 +13,11 @@
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).
 
--file("/usr/local/otp/releases/sles10_64_R14B_patched/lib/parsetools-2.0.4/include/yeccpre.hrl", 0).
+-file("/usr/local/otp/releases/sles10_32_R14B01_patched/lib/parsetools-2.0.5/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -183,7 +183,7 @@ yecctoken2string({char,_,C}) -> io_lib:write_char(C);
 yecctoken2string({var,_,V}) -> io_lib:format("~s", [V]);
 yecctoken2string({string,_,S}) -> io_lib:write_unicode_string(S);
 yecctoken2string({reserved_symbol, _, A}) -> io_lib:write(A);
-yecctoken2string({_Cat, _, Val}) -> io_lib:write(Val);
+yecctoken2string({_Cat, _, Val}) -> io_lib:format("~p",[Val]);
 yecctoken2string({dot, _}) -> "'.'";
 yecctoken2string({'$end', _}) ->
     [];
@@ -196,7 +196,7 @@ yecctoken2string(Other) ->
 
 
 
--file("/ldisk/pan/git/otp/bootstrap/lib/compiler/egen/core_parse.erl", 199).
+-file("/ldisk/egil/git/otp/bootstrap/lib/compiler/egen/core_parse.erl", 199).
 
 yeccpars2(0=S, Cat, Ss, Stack, T, Ts, Tzr) ->
  yeccpars2_0(S, Cat, Ss, Stack, T, Ts, Tzr);

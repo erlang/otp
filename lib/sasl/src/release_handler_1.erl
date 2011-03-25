@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 
 %% External exports
 -export([eval_script/3, eval_script/4, check_script/2]).
--export([get_vsn/1]). %% exported because used in a test case
+-export([get_current_vsn/1]). %% exported because used in a test case
 
 -record(eval_state, {bins = [], stopped = [], suspended = [], apps = [],
 		     libdirs, unpurged = [], vsns = [], newlibs = [],
@@ -223,7 +223,7 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 				    FName = filename:join(Ebin, File),
 				    case erl_prim_loader:get_file(FName) of
 					{ok, Bin, FName2} ->
-					    NVsns = add_new_vsn(Mod, FName2, Vsns),
+					    NVsns = add_new_vsn(Mod, Bin, Vsns),
 					    {[{Mod, Bin, FName2} | Bins],NVsns};
 					error ->
 					    throw({error, {no_such_file,FName}})
@@ -609,17 +609,17 @@ sync_nodes(Id, Nodes) ->
 add_old_vsn(Mod, Vsns) ->
     case lists:keysearch(Mod, 1, Vsns) of
 	{value, {Mod, undefined, NewVsn}} ->
-	    OldVsn = get_vsn(code:which(Mod)),
+	    OldVsn = get_current_vsn(Mod),
 	    lists:keyreplace(Mod, 1, Vsns, {Mod, OldVsn, NewVsn});
 	{value, {Mod, _OldVsn, _NewVsn}} ->
 	    Vsns;
 	false ->
-	    OldVsn = get_vsn(code:which(Mod)),
+	    OldVsn = get_current_vsn(Mod),
 	    [{Mod, OldVsn, undefined} | Vsns]
     end.
 
-add_new_vsn(Mod, File, Vsns) ->
-    NewVsn = get_vsn(File),
+add_new_vsn(Mod, Bin, Vsns) ->
+    NewVsn = get_vsn(Bin),
     case lists:keysearch(Mod, 1, Vsns) of
 	{value, {Mod, OldVsn, undefined}} ->
 	    lists:keyreplace(Mod, 1, Vsns, {Mod, OldVsn, NewVsn});
@@ -627,17 +627,35 @@ add_new_vsn(Mod, File, Vsns) ->
 	    [{Mod, undefined, NewVsn} | Vsns]
     end.
 
-
+%%-----------------------------------------------------------------
+%% Func: get_current_vsn/1
+%% Args: Mod = atom()
+%% Purpose: This function returns the equivalent of 
+%%   beam_lib:version(code:which(Mod)), but it will also handle the
+%%   case when using erl_prim_loader loader different from 'efile'.
+%%   The reason for not using the Binary from the 'bins' or the
+%%   version directly from the 'vsns' state field is that these are
+%%   updated already by load_object_code, and this function is called
+%%   from load and remove.
+%% Returns: Vsn = term()
+%%-----------------------------------------------------------------
+get_current_vsn(Mod) ->
+    File = code:which(Mod),
+    case erl_prim_loader:get_file(File) of
+	{ok, Bin, _File2} ->
+	    get_vsn(Bin);
+	error ->
+	    throw({error, {no_such_file, File}})
+    end.
 
 %%-----------------------------------------------------------------
 %% Func: get_vsn/1
-%% Args: File = string()
+%% Args: Bin = binary()
 %% Purpose: Finds the version attribute of a module.
-%% Returns: Vsn
-%%          Vsn = term()
+%% Returns: Vsn = term()
 %%-----------------------------------------------------------------
-get_vsn(File) ->
-    {ok, {_Mod, Vsn}} = beam_lib:version(File),
+get_vsn(Bin) ->
+    {ok, {_Mod, Vsn}} = beam_lib:version(Bin),
     case misc_supp:is_string(Vsn) of
 	true ->
 	    Vsn;

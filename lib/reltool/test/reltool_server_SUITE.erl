@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,7 +52,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [start_server, set_config, create_release,
      create_script, create_target, create_embedded,
-     create_standalone, create_old_target].
+     create_standalone, create_old_target,
+     otp_9135].
 
 groups() -> 
     [].
@@ -107,6 +108,37 @@ set_config(_Config) ->
     ?m({ok, StrippedDefault}, reltool:get_config(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OTP-9135, test that app_file option can be set to all | keep | strip
+
+otp_9135(TestInfo) when is_atom(TestInfo) -> 
+    reltool_test_lib:tc_info(TestInfo);
+otp_9135(_Config) ->
+    Libs = lists:sort(erl_libs()),
+    StrippedDefaultSys = 
+        case Libs of
+            [] -> [];
+            _  -> {lib_dirs, Libs}
+        end,
+    
+    Config1 = {sys,[{app_file, keep}]}, % this is the default
+    {ok, Pid1} = ?msym({ok, _}, reltool:start_server([{config, Config1}])),
+    ?m({ok, {sys,StrippedDefaultSys}}, reltool:get_config(Pid1)),
+    ?m(ok, reltool:stop(Pid1)),
+       
+    Config2 = {sys,[{app_file, strip}]},
+    {ok, Pid2} = ?msym({ok, _}, reltool:start_server([{config, Config2}])),
+    ExpectedConfig2 = StrippedDefaultSys++[{app_file,strip}],
+    ?m({ok, {sys,ExpectedConfig2}}, reltool:get_config(Pid2)),
+    ?m(ok, reltool:stop(Pid2)),
+
+    Config3 = {sys,[{app_file, all}]},
+    {ok, Pid3} = ?msym({ok, _}, reltool:start_server([{config, Config3}])),
+    ExpectedConfig3 = StrippedDefaultSys++[{app_file,all}],
+    ?m({ok, {sys,ExpectedConfig3}}, reltool:get_config(Pid3)),
+    ?m(ok, reltool:stop(Pid3)),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
+	 many_restarts/1,
 	 get_plain_arguments/1,
 	 reboot/1, stop/1, get_status/1, script_id/1]).
 -export([boot1/1, boot2/1]).
@@ -43,6 +44,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [get_arguments, get_argument, boot_var,
+     many_restarts,
      get_plain_arguments, restart, get_status, script_id,
      {group, boot}].
 
@@ -312,6 +314,73 @@ is_real_system(KernelVsn, StdlibVsn) ->
     filelib:is_dir(filename:join(LibDir, "kernel"++KernelVsn)) andalso
 	filelib:is_dir(filename:join(LibDir, "stdlib"++StdlibVsn)).
     
+%% ------------------------------------------------
+%% Slave executes erlang:halt() on master nodedown.
+%% Therefore the slave process must be killed
+%% before restart.
+%% ------------------------------------------------
+many_restarts(doc) -> [];
+many_restarts(suite) ->
+    case ?t:os_type() of
+	{Fam, _} when Fam == unix; Fam == win32 ->
+	    {req, [distribution, {local_slave_nodes, 1}, {time, 5}]};
+	_ ->
+	    {skip, "Only run on unix and win32"}
+    end;
+
+many_restarts(Config) when is_list(Config) ->
+    ?line Dog = ?t:timetrap(?t:seconds(480)),
+    ?line {ok, Node} = loose_node:start(init_test, "", ?DEFAULT_TIMEOUT_SEC),
+    ?line loop_restart(30,Node,rpc:call(Node,erlang,whereis,[error_logger])),
+    ?line loose_node:stop(Node),
+    ?line ?t:timetrap_cancel(Dog),
+    ok.
+
+loop_restart(0,_,_) ->
+    ok;
+loop_restart(N,Node,EHPid) ->
+    ?line erlang:monitor_node(Node, true),
+    ?line ok = rpc:call(Node, init, restart, []),
+    ?line receive
+	      {nodedown, Node} ->
+		  ok
+	  after 10000 ->
+		  loose_node:stop(Node),
+		  ?t:fail(not_stopping)
+	  end,
+    ?line ok = wait_for(30, Node, EHPid),
+    ?line loop_restart(N-1,Node,rpc:call(Node,erlang,whereis,[error_logger])).
+
+wait_for(0,Node,_) ->
+    loose_node:stop(Node),    
+    error;
+wait_for(N,Node,EHPid) ->
+    ?line case rpc:call(Node, erlang, whereis, [error_logger]) of
+	Pid when is_pid(Pid), Pid =/= EHPid ->
+		  %% ?line erlang:display(ok),
+		  ?line ok;
+	_X ->
+		  %% ?line erlang:display(_X),
+		  %% ?line Procs = rpc:call(Node, erlang, processes, []),
+		  %% ?line erlang:display(Procs),
+		  %% case is_list(Procs) of
+		  %%     true ->
+		  %% 	  ?line [(catch erlang:display(
+		  %% 			  rpc:call(Node, 
+		  %% 				   erlang, 
+		  %% 				   process_info, 
+		  %% 				   [Y,registered_name]))) 
+		  %% 		 || Y <- Procs];
+		  %%     _ ->
+		  %% 	  ok
+		  %% end,
+		  receive
+		      after 100 ->
+			      ok
+		      end,
+		  ?line wait_for(N-1,Node,EHPid)
+	  end.
+
 %% ------------------------------------------------
 %% Slave executes erlang:halt() on master nodedown.
 %% Therefore the slave process must be killed

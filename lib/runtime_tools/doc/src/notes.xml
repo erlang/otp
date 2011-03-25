@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When a big number of trace patterns are set by inviso the
+	    Erlang VM could get unresponsive for several seconds.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9048 Aux Id: seq11480 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

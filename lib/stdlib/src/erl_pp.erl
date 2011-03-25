@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -558,16 +558,10 @@ record_field({typed_record_field,{record_field,_,F,Val},Type}, Hook) ->
     Fl = lexpr(F, L, Hook),
     Vl = typed(lexpr(Val, R, Hook), Type),
     {list,[{cstep,[Fl,' ='],Vl}]};
-record_field({typed_record_field,Field,Type0}, Hook) ->
-    Type = remove_undefined(Type0),
+record_field({typed_record_field,Field,Type}, Hook) ->
     typed(record_field(Field, Hook), Type);
 record_field({record_field,_,F}, Hook) ->
     lexpr(F, 0, Hook).
-
-remove_undefined({type,L,union,[{atom,_,undefined}|T]}) ->
-    {type,L,union,T};
-remove_undefined(T) -> % cannot happen
-    T.
 
 list({cons,_,H,T}, Es, Hook) ->
     list(T, [H|Es], Hook);

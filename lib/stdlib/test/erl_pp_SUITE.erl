@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@
 	  neg_indent/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
-	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1]).
+	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -79,7 +79,7 @@ groups() ->
      {attributes, [], [misc_attrs, import_export]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
-       otp_8473, otp_8522, otp_8567, otp_8664]}].
+       otp_8473, otp_8522, otp_8567, otp_8664, otp_9147]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1045,6 +1045,26 @@ otp_8664(Config) when is_list(Config) ->
     ?line {error,[{_,[{3,erl_lint,{type_syntax,integer}}]}],_} =
         compile:file(FileName, [return]),
 
+    ok.
+
+otp_9147(doc) ->
+    "OTP_9147. Create well-formed types when adding 'undefined'.";
+otp_9147(suite) -> [];
+otp_9147(Config) when is_list(Config) ->
+    FileName = filename('otp_9147.erl', Config),
+    C1 = <<"-module(otp_9147).\n"
+           "-export_type([undef/0]).\n"
+           "-record(undef, {f1 :: F1 :: a | b}).\n"
+           "-type undef() :: #undef{}.\n">>,
+    ?line ok = file:write_file(FileName, C1),
+    ?line {ok, _, []} = 
+       compile:file(FileName, [return,'P',{outdir,?privdir}]),
+    PFileName = filename('otp_9147.P', Config),
+    ?line {ok, Bin} = file:read_file(PFileName),
+    %% The parentheses around "F1 :: a | b" are new (bugfix).
+    ?line true = 
+        lists:member("-record(undef,{f1 :: undefined | (F1 :: a | b)}).",
+                     string:tokens(binary_to_list(Bin), "\n")),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

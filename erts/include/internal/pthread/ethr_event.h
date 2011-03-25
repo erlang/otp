@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -62,7 +62,7 @@ static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
     ethr_sint32_t val;
-    ETHR_WRITE_MEMORY_BARRIER;
+    ETHR_MEMORY_BARRIER;
     val = ethr_atomic32_xchg(&e->futex, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
 	int res = ETHR_FUTEX__(&e->futex, ETHR_FUTEX_WAKE__, 1);
@@ -99,7 +99,7 @@ static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
     ethr_sint32_t val;
-    ETHR_WRITE_MEMORY_BARRIER;
+    ETHR_MEMORY_BARRIER;
     val = ethr_atomic32_xchg(&e->state, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
 	int res = pthread_mutex_lock(&e->mtx);

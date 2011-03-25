@@ -622,14 +622,10 @@ init_misc_aux_work(void)
 
     init_misc_aux_work_alloc();
 
-    misc_aux_work_queues = erts_alloc(ERTS_ALC_T_MISC_AUX_WORK_Q,
-				      (sizeof(erts_algnd_misc_aux_work_q_t)
-				       *(erts_no_schedulers+1)));
-    if ((((UWord) misc_aux_work_queues) & ERTS_CACHE_LINE_MASK) != 0)
-	misc_aux_work_queues = ((erts_algnd_misc_aux_work_q_t *)
-				   ((((UWord) misc_aux_work_queues)
-				     & ~ERTS_CACHE_LINE_MASK)
-				    + ERTS_CACHE_LINE_SIZE));
+    misc_aux_work_queues = 
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_MISC_AUX_WORK_Q,
+					   erts_no_schedulers *
+					   sizeof(erts_algnd_misc_aux_work_q_t));
 
     for (ix = 0; ix < erts_no_schedulers; ix++) {
 	erts_smp_mtx_init_x(&misc_aux_work_queues[ix].data.mtx,
@@ -815,15 +811,31 @@ erts_active_schedulers(void)
     return as;
 }
 
+#ifdef ERTS_SMP
+
+static ERTS_INLINE void
+clear_sys_scheduling(void)
+{
+    erts_smp_atomic32_set_relb(&doing_sys_schedule, 0);
+}
+
+static ERTS_INLINE int
+try_set_sys_scheduling(void)
+{
+    return 0 == erts_smp_atomic32_cmpxchg_acqb(&doing_sys_schedule, 1, 0);
+}
+
+#endif
+
 static ERTS_INLINE int
 prepare_for_sys_schedule(void)
 {
 #ifdef ERTS_SMP
     while (!erts_port_task_have_outstanding_io_tasks()
-	   && !erts_smp_atomic32_xchg(&doing_sys_schedule, 1)) {
+	   && try_set_sys_scheduling()) {
 	if (!erts_port_task_have_outstanding_io_tasks())
 	    return 1;
-	erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	clear_sys_scheduling();
     }
     return 0;
 #else
@@ -1153,7 +1165,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	     * call erl_sys_schedule() until it is handled.
 	     */
 	    if (erts_port_task_have_outstanding_io_tasks()) {
-		erts_smp_atomic32_set(&doing_sys_schedule, 0);
+		clear_sys_scheduling();
 		/*
 		 * Got to check that we still got I/O tasks; otherwise
 		 * we have to continue checking for I/O...
@@ -1172,7 +1184,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	 * sleep in erl_sys_schedule().
 	 */
 	if (erts_port_task_have_outstanding_io_tasks()) {
-	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	    clear_sys_scheduling();
 
 	    /*
 	     * Got to check that we still got I/O tasks; otherwise
@@ -1226,7 +1238,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	sys_woken:
 	    erts_smp_runq_lock(rq);
 	sys_locked_woken:
-	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	    clear_sys_scheduling();
 	    if (flgs & ~ERTS_SSI_FLG_SUSPENDED)
 		erts_smp_atomic32_band(&ssi->flags, ERTS_SSI_FLG_SUSPENDED);
 	    sched_active_sys(esdp->no, rq);
@@ -1289,6 +1301,7 @@ wake_scheduler(ErtsRunQueue *rq, int incq, int one)
 	res = sl->list != NULL;
 	erts_smp_spin_unlock(&sl->lock);
 
+	ERTS_THR_MEMORY_BARRIER;
 	flgs = ssi_flags_set_wake(ssi);
 	erts_sched_finish_poke(ssi, flgs);
 
@@ -1298,6 +1311,8 @@ wake_scheduler(ErtsRunQueue *rq, int incq, int one)
     else {
 	sl->list = NULL;
 	erts_smp_spin_unlock(&sl->lock);
+
+	ERTS_THR_MEMORY_BARRIER;
 	do {
 	    ErtsSchedulerSleepInfo *wake_ssi = ssi;
 	    ssi = ssi->next;
@@ -2515,16 +2530,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     n = (int) (mrq ? no_schedulers : 1);
 
-    erts_aligned_run_queues = erts_alloc(ERTS_ALC_T_RUNQS,
-					 (sizeof(ErtsAlignedRunQueue)*(n+1)));
-    if ((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) != 0)
-	erts_aligned_run_queues = ((ErtsAlignedRunQueue *)
-				   ((((UWord) erts_aligned_run_queues)
-				     & ~ERTS_CACHE_LINE_MASK)
-				    + ERTS_CACHE_LINE_SIZE));
-
-    ASSERT((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) == 0);
-
+    erts_aligned_run_queues = 
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_RUNQS,
+					   sizeof(ErtsAlignedRunQueue) * n);
 #ifdef ERTS_SMP
     erts_smp_atomic32_init(&no_empty_run_queues, 0);
 #endif
@@ -2619,14 +2627,10 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 #ifdef ERTS_SMP
     /* Create and initialize scheduler sleep info */
 
-    aligned_sched_sleep_info = erts_alloc(ERTS_ALC_T_SCHDLR_SLP_INFO,
-					  (sizeof(ErtsAlignedSchedulerSleepInfo)
-					   *(n+1)));
-    if ((((UWord) aligned_sched_sleep_info) & ERTS_CACHE_LINE_MASK) == 0)
-	aligned_sched_sleep_info = ((ErtsAlignedSchedulerSleepInfo *)
-				    ((((UWord) aligned_sched_sleep_info)
-				      & ~ERTS_CACHE_LINE_MASK)
-				     + ERTS_CACHE_LINE_SIZE));
+    aligned_sched_sleep_info =
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_SCHDLR_SLP_INFO,
+					   n * sizeof(ErtsAlignedSchedulerSleepInfo));
+
     for (ix = 0; ix < n; ix++) {
 	ErtsSchedulerSleepInfo *ssi = ERTS_SCHED_SLEEP_INFO_IX(ix);
 #if 0 /* no need to initialize these... */
@@ -2641,16 +2645,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     /* Create and initialize scheduler specific data */
 
-    erts_aligned_scheduler_data = erts_alloc(ERTS_ALC_T_SCHDLR_DATA,
-					     (sizeof(ErtsAlignedSchedulerData)
-					      *(n+1)));
-    if ((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) != 0)
-	erts_aligned_scheduler_data = ((ErtsAlignedSchedulerData *)
-				       ((((UWord) erts_aligned_scheduler_data)
-					 & ~ERTS_CACHE_LINE_MASK)
-					+ ERTS_CACHE_LINE_SIZE));
-
-    ASSERT((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) == 0);
+    erts_aligned_scheduler_data = 
+	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_SCHDLR_DATA,
+					   n*sizeof(ErtsAlignedSchedulerData));					   
 
     for (ix = 0; ix < n; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
@@ -5371,7 +5368,7 @@ Process *schedule(Process *p, int calls)
 	    if (dt) erts_bump_timer(dt);
 #ifdef ERTS_SMP
 	    erts_smp_runq_lock(rq);
-	    erts_smp_atomic32_set(&doing_sys_schedule, 0);
+	    clear_sys_scheduling();
 	    goto continue_check_activities_to_run;
 #else
 	    if (!runnable)
@@ -7703,7 +7700,7 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 	     * only cause problems.
 	     */
 	    for (i = 0; i < p->arity; i++)
-		erts_print(to, to_arg, "   %T\n", p->arg_reg[i]);
+		erts_print(to, to_arg, "   %.*T\n", INT_MAX, p->arg_reg[i]);
 	}
     }
 }

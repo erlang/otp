@@ -1,0 +1,7 @@
+---- BEGIN SSH2 PUBLIC KEY ----
+Comment: "1024-bit RSA, converted from OpenSSH by me@example.com"
+x-command: /home/me/bin/lock-in-guest.sh
+AAAAB3NzaC1yc2EAAAABIwAAAIEA1on8gxCGJJWSRT4uOrR13mUaUk0hRf4RzxSZ1zRb
+YYFw8pfGesIFoEuVth4HKyF8k1y4mRUnYHP1XNMNMJl1JcEArC2asV8sHf6zSPVffozZ
+5TT4SfsUu/iKy9lUcCfXzwre4WWZSXXcPff+EHtWshahu3WzBdnGxm5Xoi89zcE=
+---- END SSH2 PUBLIC KEY ----

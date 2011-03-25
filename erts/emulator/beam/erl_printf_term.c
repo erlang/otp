@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -216,233 +216,289 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 }
 
 
+#define PRT_BAR ((Eterm) 0)
+#define PRT_COMMA ((Eterm) 1)
+#define PRT_CLOSE_LIST ((Eterm) 2)
+#define PRT_CLOSE_TUPLE ((Eterm) 3)
+#define PRT_TERM ((Eterm) 4)
+#define PRT_ONE_CONS ((Eterm) 5)
+#define PRT_PATCH_FUN_SIZE ((Eterm) 6)
+#define PRT_LAST_ARRAY_ELEMENT ((Eterm) 7) /* Note! Must be last... */
 
 static int
 print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 {
+    DECLARE_WSTACK(s);
     int res;
     int i;
+    Eterm val;
     Uint32 *ref_num;
     Eterm* nobj;
+#if HALFWORD_HEAP
+    UWord wobj;
+#endif
 
     res = 0;
 
-    if ((*dcount)-- <= 0)
-	return res;
+    goto L_jump_start;
 
-#ifdef HYBRID___NOT_ACTIVE
-    /* Color coded output based on memory location */
-    if(ptr_val(obj) >= global_heap && ptr_val(obj) < global_hend)
-        PRINT_STRING(res, fn, arg, "\033[32m");
-#ifdef INCREMENTAL
-    else if(ptr_val(obj) >= inc_fromspc && ptr_val(obj) < inc_fromend)
-        PRINT_STRING(res, fn, arg, "\033[33m");
-#endif
-    else if(IS_CONST(obj))
-        PRINT_STRING(res, fn, arg, "\033[34m");
-    else
-        PRINT_STRING(res, fn, arg, "\033[31m");
-#endif
-
-    if (is_CP(obj)) {
-	PRINT_STRING(res, fn, arg, "<cp/header:");
-	PRINT_POINTER(res, fn, arg, cp_val(obj));
-	PRINT_CHAR(res, fn, arg, '>');
-	return res;
-    }
-
-    switch (tag_val_def(obj)) {
-    case NIL_DEF:
-	PRINT_STRING(res, fn, arg, "[]");
-	break;
-    case ATOM_DEF: {
-	int tres = print_atom_name(fn, arg, obj, dcount);
-	if (tres < 0)
-	    return tres;
-	res += tres;
-	if (*dcount <= 0)
-	    return res;
-	break;
-    }
-    case SMALL_DEF:
-	PRINT_SLONG(res, fn, arg, 'd', 0, 1, (signed long) signed_val(obj));
-	break;
-    case BIG_DEF: {
-	int print_res;
-	char def_buf[64];
-	char *buf, *big_str;
-	Uint sz = (Uint) big_decimal_estimate(obj);
-	sz++;
-	if (sz <= 64)
-	    buf = &def_buf[0];
-	else
-	    buf = erts_alloc(ERTS_ALC_T_TMP, sz);
-	big_str = erts_big_to_string(obj, buf, sz);
-	print_res = erts_printf_string(fn, arg, big_str);
-	if (buf != &def_buf[0])
-	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	if (print_res < 0)
-	    return print_res;
-	res += print_res;
-	break;
-    }
-    case REF_DEF:
-    case EXTERNAL_REF_DEF:
-	PRINT_STRING(res, fn, arg, "#Ref<");
-	PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-		    (unsigned long) ref_channel_no(obj));
-	ref_num = ref_numbers(obj);
-	for (i = ref_no_of_numbers(obj)-1; i >= 0; i--) {
-	    PRINT_CHAR(res, fn, arg, '.');
-	    PRINT_ULONG(res, fn, arg, 'u', 0, 1, (unsigned long) ref_num[i]);
-	}
-	PRINT_CHAR(res, fn, arg, '>');
-	break;
-    case PID_DEF:
-    case EXTERNAL_PID_DEF:
-	PRINT_CHAR(res, fn, arg, '<');
-	PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-		    (unsigned long) pid_channel_no(obj));
-	PRINT_CHAR(res, fn, arg, '.');
-	PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-		    (unsigned long) pid_number(obj));
-	PRINT_CHAR(res, fn, arg, '.');
-	PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-		    (unsigned long) pid_serial(obj));
-	PRINT_CHAR(res, fn, arg, '>');
-	break;
-    case PORT_DEF:
-    case EXTERNAL_PORT_DEF:
-	PRINT_STRING(res, fn, arg, "#Port<");
-	PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-		    (unsigned long) port_channel_no(obj));
-	PRINT_CHAR(res, fn, arg, '.');
-	PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-		    (unsigned long) port_number(obj));
-	PRINT_CHAR(res, fn, arg, '>');
-	break;
-    case LIST_DEF:
-	if (is_printable_string(obj)) {
-	    int c;
-	    PRINT_CHAR(res, fn, arg, '"');
-	    nobj = list_val(obj);
-	    while (1) {
-		if ((*dcount)-- <= 0)
-		    return res;
-		c = signed_val(*nobj++);
-		if (c == '\n')
-		    PRINT_STRING(res, fn, arg, "\\n");
-		else {
-		    if (c == '"')
-			PRINT_CHAR(res, fn, arg, '\\');
-		    PRINT_CHAR(res, fn, arg, (char) c);
-		}
-		if (is_not_list(*nobj))
-		    break;
-		nobj = list_val(*nobj);
-	    }
-	    PRINT_CHAR(res, fn, arg, '"');
-	} else {
-	    PRINT_CHAR(res, fn, arg, '[');
-	    nobj = list_val(obj);
-	    while (1) {
-		int tres = print_term(fn, arg, *nobj++, dcount);
-		if (tres < 0)
-		    return tres;
-		res += tres;
-		if (*dcount <= 0)
-		    return res;
-		if (is_not_list(*nobj))
-		    break;
-		PRINT_CHAR(res, fn, arg, ',');
-		nobj = list_val(*nobj);
-	    }
-	    if (is_not_nil(*nobj)) {
-		int tres;
-		PRINT_CHAR(res, fn, arg, '|');
-		tres = print_term(fn, arg, *nobj, dcount);
-		if (tres < 0)
-		    return tres;
-		res += tres;
-		if (*dcount <= 0)
-		    return res;
-	    }
+ L_outer_loop:
+    while (!WSTACK_ISEMPTY(s)) {
+	switch (val = WSTACK_POP(s)) {
+	case PRT_COMMA:
+	    PRINT_CHAR(res, fn, arg, ',');
+	    goto L_outer_loop;
+	case PRT_BAR:
+	    PRINT_CHAR(res, fn, arg, '|');
+	    goto L_outer_loop;
+	case PRT_CLOSE_LIST:
 	    PRINT_CHAR(res, fn, arg, ']');
+	    goto L_outer_loop;
+	case PRT_CLOSE_TUPLE:
+	    PRINT_CHAR(res, fn, arg, '}');
+	    goto L_outer_loop;
+	default:
+#if HALFWORD_HEAP
+	    obj = (Eterm) (wobj = WSTACK_POP(s));
+#else
+	    obj = WSTACK_POP(s);
+#endif
+	    switch (val) {
+	    case PRT_TERM:
+		break;
+	    case PRT_ONE_CONS:
+	    L_print_one_cons:
+		{
+		    Eterm* cons = list_val(obj);
+		    Eterm tl;
+		    
+		    obj = CAR(cons);
+		    tl = CDR(cons);
+		    if (is_not_nil(tl)) {
+			if (is_list(tl)) {
+			    WSTACK_PUSH(s, tl);
+			    WSTACK_PUSH(s, PRT_ONE_CONS);
+			    WSTACK_PUSH(s, PRT_COMMA);
+			} else {
+			    WSTACK_PUSH(s, tl);
+			    WSTACK_PUSH(s, PRT_TERM);
+			    WSTACK_PUSH(s, PRT_BAR);
+			}
+		    }
+		}
+		break;
+	    case PRT_LAST_ARRAY_ELEMENT:
+		{
+#if HALFWORD_HEAP
+		    Eterm* ptr = (Eterm *) wobj;
+#else
+		    Eterm* ptr = (Eterm *) obj;
+#endif
+		    obj = *ptr;
+		}
+		break;
+	    default:		/* PRT_LAST_ARRAY_ELEMENT+1 and upwards */
+		{
+#if HALFWORD_HEAP
+		    Eterm* ptr = (Eterm *) wobj;
+#else
+		    Eterm* ptr = (Eterm *) obj;
+#endif
+		    obj = *ptr++;
+		    WSTACK_PUSH(s, (UWord) ptr);
+		    WSTACK_PUSH(s, val-1);
+		    WSTACK_PUSH(s, PRT_COMMA);
+		}
+		break;
+	    }
+	    break;
 	}
-	break;
-    case TUPLE_DEF:
-	nobj = tuple_val(obj);	/* pointer to arity */
-	i = arityval(*nobj);	/* arity */
-	PRINT_CHAR(res, fn, arg, '{');
-	while (i--) {
-	    int tres = print_term(fn, arg, *++nobj, dcount);
-	    if (tres < 0)
-		return tres;
+
+    L_jump_start:
+
+	if ((*dcount)-- <= 0)
+	    goto L_done;
+
+	if (is_CP(obj)) {
+	    PRINT_STRING(res, fn, arg, "<cp/header:");
+	    PRINT_POINTER(res, fn, arg, cp_val(obj));
+	    PRINT_CHAR(res, fn, arg, '>');
+	    goto L_done;
+	}
+
+	switch (tag_val_def(obj)) {
+	case NIL_DEF:
+	    PRINT_STRING(res, fn, arg, "[]");
+	    break;
+	case ATOM_DEF: {
+	    int tres = print_atom_name(fn, arg, obj, dcount);
+	    if (tres < 0) {
+		res = tres;
+		goto L_done;
+	    }
 	    res += tres;
 	    if (*dcount <= 0)
-		return res;
-	    if (i >= 1)
-		PRINT_CHAR(res, fn, arg, ',');
+		goto L_done;
+	    break;
 	}
-	PRINT_CHAR(res, fn, arg, '}');
-	break;
-    case FLOAT_DEF: {
+	case SMALL_DEF:
+	    PRINT_SLONG(res, fn, arg, 'd', 0, 1, (signed long) signed_val(obj));
+	    break;
+	case BIG_DEF: {
+	    int print_res;
+	    char def_buf[64];
+	    char *buf, *big_str;
+	    Uint sz = (Uint) big_decimal_estimate(obj);
+	    sz++;
+	    if (sz <= 64)
+		buf = &def_buf[0];
+	    else
+		buf = erts_alloc(ERTS_ALC_T_TMP, sz);
+	    big_str = erts_big_to_string(obj, buf, sz);
+	    print_res = erts_printf_string(fn, arg, big_str);
+	    if (buf != &def_buf[0])
+		erts_free(ERTS_ALC_T_TMP, (void *) buf);
+	    if (print_res < 0) {
+		res = print_res;
+		goto L_done;
+	    }
+	    res += print_res;
+	    break;
+	}
+	case REF_DEF:
+	case EXTERNAL_REF_DEF:
+	    PRINT_STRING(res, fn, arg, "#Ref<");
+	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
+			(unsigned long) ref_channel_no(obj));
+	    ref_num = ref_numbers(obj);
+	    for (i = ref_no_of_numbers(obj)-1; i >= 0; i--) {
+		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_ULONG(res, fn, arg, 'u', 0, 1, (unsigned long) ref_num[i]);
+	    }
+	    PRINT_CHAR(res, fn, arg, '>');
+	    break;
+	case PID_DEF:
+	case EXTERNAL_PID_DEF:
+	    PRINT_CHAR(res, fn, arg, '<');
+	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
+			(unsigned long) pid_channel_no(obj));
+	    PRINT_CHAR(res, fn, arg, '.');
+	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
+			(unsigned long) pid_number(obj));
+	    PRINT_CHAR(res, fn, arg, '.');
+	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
+			(unsigned long) pid_serial(obj));
+	    PRINT_CHAR(res, fn, arg, '>');
+	    break;
+	case PORT_DEF:
+	case EXTERNAL_PORT_DEF:
+	    PRINT_STRING(res, fn, arg, "#Port<");
+	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
+			(unsigned long) port_channel_no(obj));
+	    PRINT_CHAR(res, fn, arg, '.');
+	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
+			(unsigned long) port_number(obj));
+	    PRINT_CHAR(res, fn, arg, '>');
+	    break;
+	case LIST_DEF:
+	    if (is_printable_string(obj)) {
+		int c;
+		PRINT_CHAR(res, fn, arg, '"');
+		nobj = list_val(obj);
+		while (1) {
+		    if ((*dcount)-- <= 0)
+			goto L_done;
+		    c = signed_val(*nobj++);
+		    if (c == '\n')
+			PRINT_STRING(res, fn, arg, "\\n");
+		    else {
+			if (c == '"')
+			    PRINT_CHAR(res, fn, arg, '\\');
+			PRINT_CHAR(res, fn, arg, (char) c);
+		    }
+		    if (is_not_list(*nobj))
+			break;
+		    nobj = list_val(*nobj);
+		}
+		PRINT_CHAR(res, fn, arg, '"');
+	    } else {
+		PRINT_CHAR(res, fn, arg, '[');
+		WSTACK_PUSH(s,PRT_CLOSE_LIST);
+		goto L_print_one_cons;
+	    }
+	    break;
+	case TUPLE_DEF:
+	    nobj = tuple_val(obj);	/* pointer to arity */
+	    i = arityval(*nobj);	/* arity */
+	    PRINT_CHAR(res, fn, arg, '{');
+	    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
+	    ++nobj;
+	    if (i > 0) {
+		WSTACK_PUSH(s, (UWord) nobj);
+		WSTACK_PUSH(s, PRT_LAST_ARRAY_ELEMENT+i-1);
+	    }
+	    break;
+	case FLOAT_DEF: {
 	    FloatDef ff;
 	    GET_DOUBLE(obj, ff);
 	    PRINT_DOUBLE(res, fn, arg, 'e', 6, 0, ff.fd);
 	}
-	break;
-    case BINARY_DEF:
-	{
-	    ProcBin* pb = (ProcBin *) binary_val(obj);
-	    if (pb->size == 1)
-		PRINT_STRING(res, fn, arg, "<<1 byte>>");
-	    else {
-		PRINT_STRING(res, fn, arg, "<<");
-		PRINT_ULONG(res, fn, arg, 'u', 0, 1, (unsigned long) pb->size);
-		PRINT_STRING(res, fn, arg, " bytes>>");
+	    break;
+	case BINARY_DEF:
+	    {
+		ProcBin* pb = (ProcBin *) binary_val(obj);
+		if (pb->size == 1)
+		    PRINT_STRING(res, fn, arg, "<<1 byte>>");
+		else {
+		    PRINT_STRING(res, fn, arg, "<<");
+		    PRINT_ULONG(res, fn, arg, 'u', 0, 1, (unsigned long) pb->size);
+		    PRINT_STRING(res, fn, arg, " bytes>>");
+		}
 	    }
-	}
-	break;
-    case EXPORT_DEF:
-	{
-	    Export* ep = *((Export **) (export_val(obj) + 1));
-	    Atom* module = atom_tab(atom_val(ep->code[0]));
-	    Atom* name = atom_tab(atom_val(ep->code[1]));
+	    break;
+	case EXPORT_DEF:
+	    {
+		Export* ep = *((Export **) (export_val(obj) + 1));
+		Atom* module = atom_tab(atom_val(ep->code[0]));
+		Atom* name = atom_tab(atom_val(ep->code[1]));
 
-	    PRINT_STRING(res, fn, arg, "#Fun<");
-	    PRINT_BUF(res, fn, arg, module->name, module->len);
-	    PRINT_CHAR(res, fn, arg, '.');
-	    PRINT_BUF(res, fn, arg, name->name, name->len);
-	    PRINT_CHAR(res, fn, arg, '.');
-	    PRINT_SLONG(res, fn, arg, 'd', 0, 1,
-			(signed long) ep->code[2]);
-	    PRINT_CHAR(res, fn, arg, '>');
-	}
-	break;
-    case FUN_DEF:
-	{
-	    ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
-	    Atom *ap = atom_tab(atom_val(funp->fe->module));
+		PRINT_STRING(res, fn, arg, "#Fun<");
+		PRINT_BUF(res, fn, arg, module->name, module->len);
+		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_BUF(res, fn, arg, name->name, name->len);
+		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_SLONG(res, fn, arg, 'd', 0, 1,
+			    (signed long) ep->code[2]);
+		PRINT_CHAR(res, fn, arg, '>');
+	    }
+	    break;
+	case FUN_DEF:
+	    {
+		ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
+		Atom *ap = atom_tab(atom_val(funp->fe->module));
 
-	    PRINT_STRING(res, fn, arg, "#Fun<");
-	    PRINT_BUF(res, fn, arg, ap->name, ap->len);
-	    PRINT_CHAR(res, fn, arg, '.');
-	    PRINT_SLONG(res, fn, arg, 'd', 0, 1,
-			(signed long) funp->fe->old_index);
-	    PRINT_CHAR(res, fn, arg, '.');
-	    PRINT_SLONG(res, fn, arg, 'd', 0, 1,
-			(signed long) funp->fe->old_uniq);
+		PRINT_STRING(res, fn, arg, "#Fun<");
+		PRINT_BUF(res, fn, arg, ap->name, ap->len);
+		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_SLONG(res, fn, arg, 'd', 0, 1,
+			    (signed long) funp->fe->old_index);
+		PRINT_CHAR(res, fn, arg, '.');
+		PRINT_SLONG(res, fn, arg, 'd', 0, 1,
+			    (signed long) funp->fe->old_uniq);
+		PRINT_CHAR(res, fn, arg, '>');
+	    }
+	    break;
+	default:
+	    PRINT_STRING(res, fn, arg, "<unknown:");
+	    PRINT_POINTER(res, fn, arg, (UWord) obj);
 	    PRINT_CHAR(res, fn, arg, '>');
+	    break;
 	}
-	break;
-    default:
-	PRINT_STRING(res, fn, arg, "<unknown:");
-	PRINT_POINTER(res, fn, arg, (UWord) obj);
-	PRINT_CHAR(res, fn, arg, '>');
-	break;
     }
 
+ L_done:
+    
+    DESTROY_WSTACK(s);
     return res;
 }
 

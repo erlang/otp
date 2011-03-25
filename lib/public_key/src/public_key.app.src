@@ -1,9 +1,9 @@
 {application, public_key,
   [{description, "Public key infrastructure"},
    {vsn, "%VSN%"},
-   {modules, [
-	          public_key,
-		  pubkey_pem, 
+   {modules, [	  public_key,
+		  pubkey_pem,
+		  pubkey_ssh,
 		  pubkey_cert,
 		  pubkey_cert_records,
 		  'OTP-PUB-KEY'

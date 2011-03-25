@@ -31,6 +31,92 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add a --fullpath option to Dialyzer</p>
+          <p>
+	    This change adds a --fullpath option to Dialyzer, which
+	    makes the warning messages contain the full path of the
+	    corresponding file.</p>
+          <p>
+	    Original patch submitted by Magnus Henoch (legoscia) on
+	    15/9/2010 and cooked to death in the 'pu' branch all this
+	    time.</p>
+          <p>
+	    The patch was essentially correct and most of it has been
+	    used as is, but there have been some changes to make the
+	    code slightly prettier, avoid some code duplication, and
+	    add documentation to dialyzer's doc files and to its help
+	    message.</p>
+          <p>
+	    Own Id: OTP-9098</p>
+        </item>
+        <item>
+          <p>
+	    Fix warnings about guards containing not</p>
+          <p>
+	    The wording of warnings about unsatisfiable guards that
+	    used 'not' was incorrect (the 'not' was not mentioned and
+	    it appeared as "Guard test is_atom(atom()) can never
+	    succeed") (thanks to Stavros Aronis).</p>
+          <p>
+	    Own Id: OTP-9099</p>
+        </item>
+        <item>
+          <p>
+	    Version 2.4.2 (in Erlang/OTP R14B02)
+	    ------------------------------------ - Added --fullpath
+	    option to display files with warnings with their full
+	    file names (thanks to Magnus Henoch for the original
+	    patch). - Better handling of 'and'/'or'/'not' guards that
+	    generate warnings (thanks to Stavros Aronis). - Better
+	    blame assignment for cases when a function's spec is
+	    erroneous (thanks to Stavros Aronis). - More descriptive
+	    warnings when a tuple/record pattern contains subterms
+	    that violate the declared types of record fields (thanks
+	    to Matthias Lang for the test case and for Stavros Aronis
+	    for the actual fix).</p>
+          <p>
+	    Own Id: OTP-9126</p>
+        </item>
+        <item>
+          <p>
+	    Add spec to dialyzer_cl_parse:get_lib_dir/1</p>
+          <p>
+	    Own Id: OTP-9129</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Test suites for Dialyzer</p>
+          <p>
+	    This is a transcription of most of the
+	    cvs.srv.it.uu.se:/hipe repository dialyzer_tests into
+	    test suites that use the test server framework.</p>
+          <p>
+	    See README for information on how to use the included
+	    scripts for modifications and updates.</p>
+          <p>
+	    When testing Dialyzer it's important that several OTP
+	    modules are included in the plt. The suites takes care of
+	    that too.</p>
+          <p>
+	    Own Id: OTP-9116</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

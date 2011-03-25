@@ -1592,7 +1592,9 @@ ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 ERTS_GLB_INLINE void
 erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 {
-    erts_aint32_t flags = erts_smp_atomic32_read(&ssi->flags);
+    erts_aint32_t flags;
+    ERTS_THR_MEMORY_BARRIER;
+    flags = erts_smp_atomic32_read(&ssi->flags);
     ASSERT(!(flags & ERTS_SSI_FLG_SLEEPING)
 	   || (flags & ERTS_SSI_FLG_WAITING));
     if (flags & ERTS_SSI_FLG_SLEEPING) {

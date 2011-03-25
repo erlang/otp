@@ -31,6 +31,46 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 0.9.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The time needed for loading a crashump into the crashdump
+	    viewer would earlier grow exponentially with the size of
+	    the crashdump file. Reading a file of 20M would take a
+	    couple of minutes, and for a dump of 250M it would take
+	    between 1 and 2 hours. This has been solved.</p>
+          <p>
+	    Earlier, all processes, timers, funs or ets-tables would
+	    be loaded into the memory of the crashdump viewer node
+	    before sending it on to the web server. This has been
+	    changed and the pages are now sent to the web server in
+	    chunks.</p>
+          <p>
+	    A security function in newer web browsers prevents a full
+	    file path to be sent from an HTML file input field, i.e.
+	    the field needed to implement the "Browse" button when
+	    loading a file into the crashdump viewer. To overcome
+	    this, the file input field is no longer used. Instead a
+	    normal text input field is used, and the user needs to
+	    manually insert the complete file path. For convenience,
+	    a shell script and a batch file are added to the observer
+	    application. These can be used to start the
+	    crashdump_viewer and a browser and load a file - with the
+	    file name given from the command line. The shell script
+	    and batch file are called cdv and cdv.bat respectively,
+	    and can be found in the priv dir of the observer
+	    application.</p>
+          <p>
+	    Own Id: OTP-9051 Aux Id: seq11789 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 0.9.8.4</title>
 
     <section><title>Improvements and New Features</title>
