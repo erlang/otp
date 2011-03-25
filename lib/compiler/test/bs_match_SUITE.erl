@@ -142,7 +142,14 @@ otp_5269(Config) when is_list(Config) ->
                          [X || <<X:X>> <- [<<1:32>>,<<2:32>>,<<3:8>>]] end,
     %% "binsize variable"          ^
                 [1,2]),
-
+    ?line check(fun() ->
+		(fun (<<A:1/binary, B:8/integer, _C:B/binary>>) ->
+			    case A of
+				B -> wrong;
+				_ -> ok
+			    end
+		 end)(<<1,2,3,4>>) end,
+		ok),
     ok.
 
 null_fields(Config) when is_list(Config) ->
