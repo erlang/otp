@@ -402,9 +402,13 @@ mk_tdomain(BadDomain) ->
 check_taddress(X) ->
     check_taddress(snmpUDPDomain, X).
 
+check_taddress(?snmpUDPDomain, X) ->
+    check_taddress(transportDomainUdpIpv4, X);
 check_taddress(snmpUDPDomain, X) ->
     check_taddress(transportDomainUdpIpv4, X);
 
+check_taddress(?transportDomainUdpIpv4, X) ->
+    check_taddress(transportDomainUdpIpv4, X);
 check_taddress(transportDomainUdpIpv4, X) 
   when is_list(X) andalso (length(X) =:= 6) ->
     case (catch all_integer(X)) of
@@ -415,9 +419,9 @@ check_taddress(transportDomainUdpIpv4, X)
     end;
 check_taddress(transportDomainUdpIpv4, X) ->
     error({invalid_taddress, X});
-check_taddress(?transportDomainUdpIpv4, X) ->
-    check_taddress(transportDomainUdpIpv4, X);
 
+check_taddress(?transportDomainUdpIpv6, X) ->
+    check_taddress(transportDomainUdpIpv6, X);
 check_taddress(transportDomainUdpIpv6, X) 
   when is_list(X) andalso (length(X) =:= 10) ->
     case (catch all_integer(X)) of
@@ -428,8 +432,6 @@ check_taddress(transportDomainUdpIpv6, X)
     end;
 check_taddress(transportDomainUdpIpv6, X) ->
     error({invalid_taddress, X});
-check_taddress(?transportDomainUdpIpv6, X) ->
-    check_taddress(transportDomainUdpIpv6, X);
 
 check_taddress(BadDomain, _X) ->
     error({invalid_tdomain, BadDomain}).
