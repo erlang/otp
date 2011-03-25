@@ -7700,7 +7700,7 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 	     * only cause problems.
 	     */
 	    for (i = 0; i < p->arity; i++)
-		erts_print(to, to_arg, "   %T\n", p->arg_reg[i]);
+		erts_print(to, to_arg, "   %.*T\n", INT_MAX, p->arg_reg[i]);
 	}
     }
 }
