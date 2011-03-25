@@ -56,16 +56,16 @@
       instance is connected to an Erlang port. Every port has a port
       owner process. Communication with the port is normally done
       through the port owner process.</p>
-    <p>Most of the functions takes the <c>port</c> handle as an
+    <p>Most of the functions take the <c>port</c> handle as an
       argument. This identifies the driver instance. Note that this
       port handle must be stored by the driver, it is not given when
       the driver is called from the emulator (see
       <seealso marker="driver_entry#emulator">driver_entry</seealso>).</p>
-    <p>Some of the functions takes a parameter of type
+    <p>Some of the functions take a parameter of type
       <c>ErlDrvBinary</c>, a driver binary. It should be both
-      allocated and freed by the caller. Using a binary directly avoid
+      allocated and freed by the caller. Using a binary directly avoids
       one extra copying of data.</p>
-    <p>Many of the output functions has a "header buffer", with
+    <p>Many of the output functions have a "header buffer", with
       <c>hbuf</c> and <c>hlen</c> parameters. This buffer is sent as a
       list before the binary (or list, depending on port mode) that is
       sent. This is convenient when matching on messages received from
@@ -92,7 +92,7 @@
       with SMP support without being rewritten if driver
       level locking is used.</p>
     <note>
-      <p>It is assumed that drivers does not access other drivers. If
+      <p>It is assumed that drivers do not access other drivers. If
         drivers should access each other they have to provide their own
         mechanism for thread safe synchronization. Such "inter driver
         communication" is strongly discouraged.</p>
@@ -113,12 +113,12 @@
         call-backs may be made from different threads.</p>
     </note>
     <p>Most functions in this API are <em>not</em> thread-safe, i.e.,
-      they may <em>not</em> be called from an arbitrary thread. Function
+      they may <em>not</em> be called from an arbitrary thread. Functions
       that are not documented as thread-safe may only be called from
       driver call-backs or function calls descending from a driver
       call-back call. Note that driver call-backs may be called from
       different threads. This, however, is not a problem for any
-      functions in this API, since the emulator have control over
+      function in this API, since the emulator has control over
       these threads.</p>
     <note>
       <p>Functions not explicitly documented as thread-safe are
@@ -155,10 +155,10 @@
           more information.</p>
       </item>
       <tag>Output functions</tag>
-      <item>With the output functions, the driver sends data back
+      <item>With the output functions, the driver sends data back to
        the emulator. They will be received as messages by the port owner
        process, see <c>open_port/2</c>. The vector function and the
-       function taking a driver binary is faster, because that avoid
+       function taking a driver binary are faster, because they avoid
        copying the data buffer. There is also a fast way of sending
        terms from the driver, without going through the binary term
        format.</item>
@@ -193,14 +193,14 @@
 	 use functionality from the POSIX thread API or the Windows
 	 native thread API.
       </p>
-      <p>The Erlang driver thread API only return error codes when it is
+      <p>The Erlang driver thread API only returns error codes when it is
          reasonable to recover from an error condition. If it isn't reasonable
 	 to recover from an error condition, the whole runtime system is
 	 terminated. For example, if a create mutex operation fails, an error
 	 code is returned, but if a lock operation on a mutex fails, the
 	 whole runtime system is terminated.
       </p>
-      <p>Note that there exist no "condition variable wait with timeout" in
+      <p>Note that there exists no "condition variable wait with timeout" in
          the Erlang driver thread API. This is due to issues with
 	 <c>pthread_cond_timedwait()</c>. When the system clock suddenly
 	 is changed, it isn't always guaranteed that you will wake up from
@@ -241,7 +241,7 @@
 	 to give you better error reports.
       </p>
       </item>
-      <tag>Adding / remove drivers</tag>
+      <tag>Adding / removing drivers</tag>
       <item>A driver can add and later remove drivers.</item>
       <tag>Monitoring processes</tag>
       <item>A driver can monitor a process that does not own a port.</item>
@@ -262,7 +262,7 @@
           could, under rare circumstances, mean that drivers have to
           be slightly modified. If so, this will of course be documented.
           <c>ERL_DRV_EXTENDED_MINOR_VERSION</c> will be incremented when
-          new features are added. The runtime system use the minor version
+          new features are added. The runtime system uses the minor version
           of the driver to determine what features to use.
           The runtime system will refuse to load a driver if the major
           versions differ, or if the major versions are equal and the
@@ -273,7 +273,7 @@
           It can, however, not make sure that it isn't incompatible. Therefore,
           when loading a driver that doesn't use the extended driver
           interface, there is a risk that it will be loaded also when
-          the driver is incompatible. When the driver use the extended driver
+          the driver is incompatible. When the driver uses the extended driver
           interface, the emulator can verify that it isn't of an incompatible
           driver version. You are therefore advised to use the extended driver
           interface.</p>
@@ -309,7 +309,7 @@ typedef struct ErlDrvSysInfo {
         <seealso marker="#driver_system_info">driver_system_info()</seealso>
         will write the system information when passed a reference to
         a <c>ErlDrvSysInfo</c> structure. A description of the
-        fields in the structure follow:
+        fields in the structure follows:
       </p>
       <taglist>
         <tag><c>driver_major_version</c></tag>
@@ -338,14 +338,6 @@ typedef struct ErlDrvSysInfo {
         <item>A string containing the OTP release number
            (the same as returned by
           <seealso marker="erts:erlang#system_info_otp_release">erlang:system_info(otp_release)</seealso>).
-        </item>
-        <tag><c>thread_support</c></tag>
-        <item>A value <c>!= 0</c> if the runtime system has thread support;
-           otherwise, <c>0</c>.
-        </item>
-        <tag><c>smp_support</c></tag>
-        <item>A value <c>!= 0</c> if the runtime system has SMP support;
-           otherwise, <c>0</c>.
         </item>
         <tag><c>thread_support</c></tag>
         <item>A value <c>!= 0</c> if the runtime system has thread support;
@@ -401,8 +393,8 @@ typedef struct ErlDrvBinary {
             <seealso marker="#driver_binary_dec_refc">driver_binary_dec_refc()</seealso>.</p>
         </note>
         <p>Some driver calls, such as <c>driver_enq_binary</c>,
-          increments the driver reference count, and others, such as
-          <c>driver_deq</c> decrements it.</p>
+          increment the driver reference count, and others, such as
+          <c>driver_deq</c> decrement it.</p>
         <p>Using a driver binary instead of a normal buffer, is often
           faster, since the emulator doesn't need to copy the data,
           only the pointer is used.</p>
@@ -415,7 +407,7 @@ typedef struct ErlDrvBinary {
           <c>driver_outputv</c> calls, and in the queue. Also the
           driver call-back <seealso marker="driver_entry#outputv">outputv</seealso> uses driver
           binaries.</p>
-        <p>If the driver of some reason or another, wants to keep a
+        <p>If the driver for some reason or another, wants to keep a
           driver binary around, in a static variable for instance, the
           reference count should be incremented,
           and the binary can later be freed in the <seealso marker="driver_entry#stop">stop</seealso> call-back, with
@@ -423,7 +415,7 @@ typedef struct ErlDrvBinary {
         <p>Note that since a driver binary is shared by the driver and
           the emulator, a binary received from the emulator or sent to
           the emulator, must not be changed by the driver.</p>
-        <p>From erts version 5.5 (OTP release R11B), orig_bytes is 
+        <p>Since erts version 5.5 (OTP release R11B), orig_bytes is
           guaranteed to be properly aligned for storage of an array of
           doubles (usually 8-byte aligned).</p>
       </item>
@@ -447,7 +439,7 @@ typedef struct ErlIOVec {
   int vsize;
   int size;
   SysIOVec* iov;
-  >ErlDrvBinary** binv;
+  ErlDrvBinary** binv;
 } ErlIOVec;
 </code>
         <p>The I/O vector used by the emulator and drivers, is a list
@@ -495,17 +487,17 @@ typedef struct ErlIOVec {
           Currently, the only port specific data that the emulator
           associates with the port data lock is the driver queue.</p>
         <p>Normally a driver instance does not have a port data lock. If
-          the driver instance want to use a port data lock, it has to
+          the driver instance wants to use a port data lock, it has to
           create the port data lock by calling
           <seealso marker="#driver_pdl_create">driver_pdl_create()</seealso>.
           <em>NOTE</em>: Once the port data lock has been created, every
-          access to data associated with the port data lock have to be done
+          access to data associated with the port data lock has to be done
           while having the port data lock locked. The port data lock is
           locked, and unlocked, respectively, by use of
           <seealso marker="#driver_pdl_lock">driver_pdl_lock()</seealso>, and
           <seealso marker="#driver_pdl_unlock">driver_pdl_unlock()</seealso>.</p>
         <p>A port data lock is reference counted, and when the reference
-          count reach zero, it will be destroyed. The emulator will at
+          count reaches zero, it will be destroyed. The emulator will at
           least increment the reference count once when the lock is
           created and decrement it once when the port associated with
           the lock terminates. The emulator will also increment the
@@ -545,7 +537,7 @@ typedef struct ErlIOVec {
 	</p>
         <taglist>
           <tag>suggested_stack_size</tag>
-          <item>A suggestion, in kilo-words, on how large stack to use. A value less
+          <item>A suggestion, in kilo-words, on how large a stack to use. A value less
 	        than zero means default size.
 	  </item>
         </taglist>
@@ -648,7 +640,7 @@ typedef struct ErlIOVec {
           opened.</p>
         <p>The data is queued in the port owner process' message
           queue. Note that this does not yield to the emulator. (Since
-          the driver and the emulator runs in the same thread.)</p>
+          the driver and the emulator run in the same thread.)</p>
         <p>The parameter <c>buf</c> points to the data to send, and
           <c>len</c> is the number of bytes.</p>
         <p>The return value for all output functions is 0. (Unless the
@@ -749,7 +741,7 @@ typedef struct ErlIOVec {
           function <seealso marker="driver_entry#emulator">timeout</seealso> is called.</p>
         <p>Note that there is only one timer on each driver instance;
           setting a new timer will replace an older one.</p>
-        <p>Return value i 0 (-1 only when the <c>timeout</c> driver
+        <p>Return value is 0 (-1 only when the <c>timeout</c> driver
           function is <c>NULL</c>).</p>
       </desc>
     </func>
@@ -799,20 +791,20 @@ typedef struct ErlIOVec {
           event object must be a socket or pipe (or other object that
           <c>select</c>/<c>poll</c> can use).
           On windows, the Win32 API function <c>WaitForMultipleObjects</c>
-          is used. This places other restriction on the event object.
+          is used. This places other restrictions on the event object.
           Refer to the Win32 SDK documentation.</p>
         <p>The <c>on</c> parameter should be <c>1</c> for setting events
           and <c>0</c> for clearing them.</p>
-        <p>The <c>mode</c> argument is bitwise-or combination of
+        <p>The <c>mode</c> argument is a bitwise-or combination of
           <c>ERL_DRV_READ</c>, <c>ERL_DRV_WRITE</c> and <c>ERL_DRV_USE</c>.
-          The first two specifies whether to wait for read events and/or write
+          The first two specify whether to wait for read events and/or write
           events. A fired read event will call
           <seealso marker="driver_entry#ready_input">ready_input</seealso>
           while a fired write event will call
           <seealso marker="driver_entry#ready_output">ready_output</seealso>.
           </p>
     <note>
-      <p>Some OS (Windows) does not differ between read and write events.
+      <p>Some OS (Windows) do not differentiate between read and write events.
          The call-back for a fired event then only depends on the value of <c>mode</c>.</p>
     </note>
         <p><c>ERL_DRV_USE</c> specifies if we are using the event object or if we want to close it.
@@ -834,9 +826,9 @@ typedef struct ErlIOVec {
          as before. But it is recommended to update them to use <c>ERL_DRV_USE</c> and
          <c>stop_select</c> to make sure that event objects are closed in a safe way.</p>
     </note>           
-        <p>The return value is 0 (Failure, -1, only if the
+        <p>The return value is 0 (failure, -1, only if the
           <c>ready_input</c>/<c>ready_output</c> is
-          <c>NULL</c>.</p>
+          <c>NULL</c>).</p>
       </desc>
     </func>
     <func>
@@ -1076,7 +1068,7 @@ typedef struct ErlIOVec {
           array of <c>SysIOVec</c>s. It also returns the number of
           elements in <c>vlen</c>. This is the only way to get data
           out of the queue.</p>
-        <p>Nothing is remove from the queue by this function, that must be done
+        <p>Nothing is removed from the queue by this function, that must be done
           with <c>driver_deq</c>.</p>
         <p>The returned array is suitable to use with the Unix system
           call <c>writev</c>.</p>
@@ -1209,7 +1201,7 @@ typedef struct ErlIOVec {
       <fsummary>Stop monitoring a process from a driver</fsummary>
       <desc>
         <marker id="driver_demonitor_process"></marker>
-        <p>This function cancels an monitor created earlier. </p>
+        <p>This function cancels a monitor created earlier. </p>
         <p>The function returns 0 if a monitor was removed and &gt; 0
           if the monitor did no longer exist.</p>
       </desc>
@@ -1326,7 +1318,7 @@ typedef struct ErlIOVec {
         <p>This function signals to erlang that the driver has
           encountered an EOF and should be closed, unless the port was
           opened with the <c>eof</c> option, in that case eof is sent
-          to the port. Otherwise, the port is close and an
+          to the port. Otherwise, the port is closed and an
           <c>'EXIT'</c> message is sent to the port owner process.</p>
         <p>The return value is 0.</p>
       </desc>
@@ -1349,8 +1341,8 @@ typedef struct ErlIOVec {
           (<c>driver_failure</c>).</p>
         <p>The driver should fail only when in severe error situations,
           when the driver cannot possibly keep open, for instance
-          buffer allocation gets out of memory. Normal errors is more
-          appropriate to handle with sending error codes with
+          buffer allocation gets out of memory. For normal errors
+          it is more appropriate to send error codes with
           <c>driver_output</c>.</p>
         <p>The return value is 0.</p>
       </desc>
@@ -1371,7 +1363,7 @@ typedef struct ErlIOVec {
         <p>This function returns the process id of the process that
 	  made the current call to the driver. The process id can be
 	  used with <c>driver_send_term</c> to send back data to the
-	  caller. <c>driver_caller()</c> only return valid data
+	  caller. <c>driver_caller()</c> only returns valid data
 	  when currently executing in one of the following driver
 	  callbacks:</p>
 	  <taglist>
@@ -1409,7 +1401,7 @@ typedef struct ErlIOVec {
           tuple, the elements are given first, and then the tuple
           term, with a count. Likewise for lists.</p>
         <p>A tuple must be specified with the number of elements. (The
-          elements precedes the <c>ERL_DRV_TUPLE</c> term.)</p>
+          elements precede the <c>ERL_DRV_TUPLE</c> term.)</p>
         <p>A list must be specified with the number of elements,
           including the tail, which is the last term preceding
           <c>ERL_DRV_LIST</c>.</p>
@@ -1518,7 +1510,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
     };
     driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
         ]]></code>
-	<p>If you want to pass a binary and doesn't already have the content
+	<p>If you want to pass a binary and don't already have the content
 	of the binary in an <c>ErlDrvBinary</c>, you can benefit from using
 	<c>ERL_DRV_BUF2BINARY</c> instead of creating an <c>ErlDrvBinary</c>
 	via <c>driver_alloc_binary()</c> and then pass the binary via
@@ -1565,7 +1557,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
           <em>other</em> processes than the port owner process. The
           <c>receiver</c> parameter specifies the process to receive
           the data.</p>
-        <p>The parameters <c>term</c> and <c>n</c> does the same thing
+        <p>The parameters <c>term</c> and <c>n</c> do the same thing
           as in <seealso marker="#driver_output_term">driver_output_term</seealso>.</p>
         <p>This function is only thread-safe when the emulator with SMP
           support is used.</p>
@@ -1660,7 +1652,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
       <desc>
         <marker id="driver_lock_driver"></marker>
         <p>This function locks the driver used by the port <c>port</c>
-          in memory for the rest of the emulator process
+          in memory for the rest of the emulator process'
           lifetime. After this call, the driver behaves as one of Erlang's 
           statically linked in drivers.</p>
       </desc>
@@ -1904,7 +1896,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 		 corresponding to one of the involved thread identifiers
 		 has terminated since the thread identifier was saved,
 		 the result of <c>erl_drv_equal_tids()</c> might not give
-		 expected result.
+		 the expected result.
 	</p></note>
         <p>This function is thread-safe.</p>
       </desc>

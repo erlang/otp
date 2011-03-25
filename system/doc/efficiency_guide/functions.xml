@@ -127,7 +127,7 @@ map_pairs2(_Map, [_|_]=Xs, [] ) ->
 map_pairs2(Map, [X|Xs], [Y|Ys]) ->
     [Map(X, Y)|map_pairs2(Map, Xs, Ys)].]]></code>
 
-    <p>the compiler is free rearrange the clauses. It will generate code
+    <p>the compiler is free to rearrange the clauses. It will generate code
     similar to this</p>
 
     <p><em>DO NOT (already done by the compiler)</em></p>
