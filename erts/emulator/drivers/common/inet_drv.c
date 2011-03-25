@@ -8550,7 +8550,9 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	len = 0;
 
 	if (!desc->inet.active) {
-	    driver_cancel_timer(desc->inet.port);
+	    if (!desc->busy_on_send) {
+		driver_cancel_timer(desc->inet.port);
+	    }
 	    sock_select(INETP(desc),(FD_READ|FD_CLOSE),0);
 	    if (desc->i_buf != NULL)
 		tcp_restart_input(desc);
