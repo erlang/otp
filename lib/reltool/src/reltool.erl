@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,26 +38,26 @@ start() ->
 
 %% Start main window process
 -spec start(options()) -> {ok, window_pid()} | {error, reason()}.
-start(Options)when is_list(Options)  ->
+start(Options) when is_list(Options) ->
     case start_link(Options) of
-	{ok, WinPid} ->
+	{ok, WinPid} = OK ->
 	    unlink(WinPid),
-	    {ok, WinPid};
-	Other->
-	    Other
+	    OK;
+	{error, _Reason} = Error ->
+	    Error
     end.
 
 %% Start main window process with wx debugging enabled
--spec debug() ->  {ok, window_pid()} | {error, reason()}.
+-spec debug() -> {ok, window_pid()} | {error, reason()}.
 debug() ->
     start([{wx_debug, 2}]).
 
 %% Start main window process with options
--spec start_link(options()) -> {ok, window_pid() | {error, reason()}}.
+-spec start_link(options()) -> {ok, window_pid()} | {error, reason()}.
 start_link(Options) when is_list(Options) ->
     case reltool_sys_win:start_link(Options) of
-        {ok, WinPid} ->
-            {ok, WinPid};
+        {ok, _WinPid} = OK ->
+            OK;
         {error, Reason} ->
             {error, lists:flatten(io_lib:format("~p", [Reason]))}
     end.
@@ -76,8 +76,8 @@ start_server(Options) ->
 -spec get_server(window_pid()) -> {ok, server_pid()} | {error, reason()}.
 get_server(WinPid) ->
     case reltool_sys_win:get_server(WinPid) of
-        {ok, ServerPid} ->
-            {ok, ServerPid};
+        {ok, _ServerPid} = OK ->
+            OK;
         {error, Reason} ->
             {error, lists:flatten(io_lib:format("~p", [Reason]))}
     end.
@@ -96,9 +96,9 @@ stop(Pid) when is_pid(Pid) ->
     end.
 
 %% Internal library function
--spec eval_server(server(), boolean(), fun((server_pid()) -> term())) ->
- {ok, server_pid()} | {error, reason()}.
-eval_server(Pid, DisplayWarnings, Fun)
+-spec eval_server(server(), boolean(), fun((server_pid()) -> Ret)) ->
+	 Ret | {error, reason()} when Ret :: term().
+eval_server(Pid, _DisplayWarnings, Fun)
   when is_pid(Pid) ->
     Fun(Pid);
 eval_server(Options, DisplayWarnings, Fun)
@@ -107,8 +107,8 @@ eval_server(Options, DisplayWarnings, Fun)
     Res = case start_server(Options) of
 	      {ok, Pid} ->
 		  apply_fun(Pid, DisplayWarnings, Fun);
-	      {error, Reason} ->
-		  {error, Reason}
+	      {error, _Reason} = Error ->
+		  Error
 	  end,
     process_flag(trap_exit, TrapExit),
     Res.
@@ -122,21 +122,18 @@ apply_fun(Pid, true, Fun) ->
 	{ok, Warnings} ->
 	    [io:format("~p: ~s\n", [?APPLICATION, W]) || W <- Warnings],
 	    apply_fun(Pid, false, Fun);
-	{error, Reason} ->
+	{error, _Reason} = Error ->
 	    stop(Pid),
-	    {error, Reason}
+	    Error
     end.
 
 %% Get status about the configuration
 -type warning() :: string().
--spec get_status(server()) ->
-			{ok, [warning()]} | {error, reason()}.
+-spec get_status(server()) -> {ok, [warning()]} | {error, reason()}.
 get_status(PidOrOptions)
   when is_pid(PidOrOptions); is_list(PidOrOptions) ->
     eval_server(PidOrOptions, false,
-		fun(Pid) ->
-			reltool_server:get_status(Pid)
-		end).
+		fun(Pid) -> reltool_server:get_status(Pid) end).
 
 %% Get reltool configuration
 -spec get_config(server()) -> {ok, config()} | {error, reason()}.

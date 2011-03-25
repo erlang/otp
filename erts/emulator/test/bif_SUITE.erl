@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
+	 display/1, display_huge/0,
 	 types/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
@@ -33,6 +34,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [types, t_list_to_existing_atom, os_env, otp_7526,
+     display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      min_max].
 
@@ -59,6 +61,31 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+
+display(suite) ->
+    [];
+display(doc) ->
+    ["Uses erlang:display to test that erts_printf does not do deep recursion"];
+display(Config) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, Node} = test_server:start_node(display_huge_term,peer,
+					[{args, "-pa "++Pa}]),
+    true = rpc:call(Node,?MODULE,display_huge,[]),
+    test_server:stop_node(Node),
+    ok.
+
+display_huge() ->
+    erlang:display(deeep(100000)).
+
+deeep(0,Acc) ->
+    Acc;
+deeep(N,Acc) ->
+    deeep(N-1,[Acc|[]]).
+
+deeep(N) ->
+    deeep(N,[hello]).
+
 
 types(Config) when is_list(Config) ->
     c:l(erl_bif_types),

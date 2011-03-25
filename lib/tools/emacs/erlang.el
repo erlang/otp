@@ -1,7 +1,7 @@
 ;; erlang.el --- Major modes for editing and running Erlang
 ;; %CopyrightBegin%
 ;;
-;; Copyright Ericsson AB 1996-2010. All Rights Reserved.
+;; Copyright Ericsson AB 1996-2011. All Rights Reserved.
 ;;
 ;; The contents of this file are subject to the Erlang Public License,
 ;; Version 1.1, (the "License"); you may not use this file except in
@@ -466,14 +466,17 @@ To activate the workaround, place the following in your `~/.emacs' file:
 
 (defvar erlang-indent-level 4
   "*Indentation of Erlang calls/clauses within blocks.")
+(put 'erlang-indent-level 'safe-local-variable 'integerp)
 
 (defvar erlang-indent-guard 2
   "*Indentation of Erlang guards.")
+(put 'erlang-indent-guard 'safe-local-variable 'integerp)
 
 (defvar erlang-argument-indent 2
   "*Indentation of the first argument in a function call.
 When nil, indent to the column after the `(' of the
 function.")
+(put 'erlang-argument-indent 'safe-local-variable '(lambda (val) (or (null val) (integerp val))))
 
 (defvar erlang-tab-always-indent t
   "*Non-nil means TAB in Erlang mode should always re-indent the current line,

@@ -1,7 +1,7 @@
-Erlang/OTP                                               June 11, 2010
+Erlang/OTP                                               March 11, 2011
 
 
-LAST MINUTE INFORMATION -- Release of Erlang 5.8/OTP R14A
+LAST MINUTE INFORMATION -- Release of Erlang 5.8.3/OTP R14B02
 
 
 1.      GENERAL
@@ -35,7 +35,7 @@ LAST MINUTE INFORMATION -- Release of Erlang 5.8/OTP R14A
 	R11B-1). BEAM files from R10B or earlier are not supported.
 
 	To get the best performance, you should recompile your
-	application code with the R13B04 compiler.
+	application code with the R14B02 compiler.
 
 
 2.      NOTES ABOUT THE SOLARIS VERSION
@@ -61,7 +61,7 @@ LAST MINUTE INFORMATION -- Release of Erlang 5.8/OTP R14A
 4.1     The following linux distributions/version combinations are supported 
 	and tested:
 	
-	Suse 9.4 x86, Suse 10.1 x86
+	Suse 9.4 x86, Suse 10.1 x86, Suse 10.1 x86_64
 
 5.      APPLICATIONS NOTES
         ------------------

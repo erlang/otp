@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -142,7 +142,14 @@ otp_5269(Config) when is_list(Config) ->
                          [X || <<X:X>> <- [<<1:32>>,<<2:32>>,<<3:8>>]] end,
     %% "binsize variable"          ^
                 [1,2]),
-
+    ?line check(fun() ->
+		(fun (<<A:1/binary, B:8/integer, _C:B/binary>>) ->
+			    case A of
+				B -> wrong;
+				_ -> ok
+			    end
+		 end)(<<1,2,3,4>>) end,
+		ok),
     ok.
 
 null_fields(Config) when is_list(Config) ->

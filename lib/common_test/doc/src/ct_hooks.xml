@@ -5,7 +5,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2010</year>
+      <year>2010</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -409,7 +409,7 @@
 	  end_per_suite</seealso> if it exists. It behaves the same way as 
 	<seealso marker="ct_hooks#Module:pre_init_per_suite-3">
 	pre_init_per_suite</seealso>, but for the
-	<seealso marker="common_test#Module:end_per_suite-2">
+	<seealso marker="common_test#Module:end_per_suite-1">
 	end_per_suite</seealso> function instead.</p>
       </desc>
     </func>
@@ -438,7 +438,7 @@
 	  end_per_suite</seealso> if it exists. It behaves the same way as 
 	<seealso marker="ct_hooks#Module:post_init_per_suite-4">
 	post_init_per_suite</seealso>, but for the
-	<seealso marker="common_test#Module:end_per_suite-2">
+	<seealso marker="common_test#Module:end_per_suite-1">
 	end_per_suite</seealso> function instead.</p>
       </desc>
     </func>

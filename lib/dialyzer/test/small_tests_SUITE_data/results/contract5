@@ -1,0 +1,2 @@
+
+contract5.erl:13: Invalid type specification for function contract5:t/0. The success typing is () -> #bar{baz::'not_a_boolean'}

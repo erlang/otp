@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2010</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,7 +44,7 @@
   <section>
     <title>DATA TYPES</title>
     <code type="none">
-filename() =  = string() | atom() | DeepList | RawFilename
+filename() = string() | atom() | DeepList | RawFilename
   DeepList = [char() | atom() | DeepList]
   RawFilename = binary()
   If VM is in unicode filename mode, string() and char() are allowed to be > 255.

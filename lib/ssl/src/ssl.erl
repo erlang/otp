@@ -52,13 +52,12 @@
 -type option()       :: socketoption() | ssloption() | transportoption().
 -type socketoption() :: [{property(), term()}]. %% See gen_tcp and inet
 -type property()     :: atom().
-
 -type ssloption()    :: {verify, verify_type()} |
 			{verify_fun, {fun(), InitialUserState::term()}} |
                         {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
-                        {cert, der_encoded()} | {certfile, path()} | {key, der_encoded()} |
-                        {keyfile, path()} | {password, string()} | {cacerts, [der_encoded()]} |
-                        {cacertfile, path()} | {dh, der_encoded()} | {dhfile, path()} |
+                        {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
+                        {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
+                        {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
                         {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
                         {reuse_session, fun()} | {hibernate_after, integer()|undefined}.
 

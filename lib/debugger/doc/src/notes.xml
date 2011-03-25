@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix issues reported by dialyzer.</p>
+          <p>
+	    Own Id: OTP-9107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.5</title>
 
     <section><title>Improvements and New Features</title>

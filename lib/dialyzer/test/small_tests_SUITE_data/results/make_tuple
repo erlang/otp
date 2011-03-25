@@ -1,0 +1,3 @@
+
+make_tuple.erl:4: Function test/0 has no local return
+make_tuple.erl:5: The pattern {_, _} can never match the type {_,_,_}

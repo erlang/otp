@@ -1,0 +1,2 @@
+{dialyzer_options, []}.
+{time_limit, 3}.

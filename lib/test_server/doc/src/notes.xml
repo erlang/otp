@@ -32,6 +32,43 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Updated the ts*.config files to contain information
+	    relevant to testing Erlang/OTP in an open source
+	    environment.</p>
+          <p>
+	    Own Id: OTP-9017</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Alpha release of Common Test Hooks (CTH). CTHs allow the
+	    users of common test to abtract out common behaviours
+	    from test suites in a much more elegant and flexible way
+	    than was possible before. Note that the addition of this
+	    feature may introduce minor changes in the undocumented
+	    behaviour of the interface inbetween common_test and
+	    test_server.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.4.2</title>
 
     <section><title>Improvements and New Features</title>

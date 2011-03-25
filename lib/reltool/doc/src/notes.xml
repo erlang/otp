@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2009</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -37,7 +37,29 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.5.4</title>
+  <section><title>Reltool 0.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The reltool module contained two seriously erroneous
+	    specs which caused bogus warnings when dialyzing reltool
+	    and some correct code of users. These were fixed (specs
+	    for start_link/1 and eval_server/3)</p>
+          <p>
+	    - Code cleanups and simplifications - Fix a bug in the
+	    calculation of circular dependencies - Eliminate two
+	    dialyzer warnings - Put files alphabetically</p>
+          <p>
+	    Own Id: OTP-9120</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

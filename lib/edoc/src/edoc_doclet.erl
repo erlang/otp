@@ -76,7 +76,7 @@
 %%  <dd>Specifies the suffix used for output files. The default value is
 %%      `".html"'.
 %%  </dd>
-%%  <dt>{@type {hidden, bool()@}}
+%%  <dt>{@type {hidden, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', documentation of hidden modules and
 %%      functions will also be included. The default value is `false'.
@@ -86,7 +86,7 @@
 %%  <dd>Specifies the name of the overview-file. By default, this doclet
 %%      looks for a file `"overview.edoc"' in the target directory.
 %%  </dd>
-%%  <dt>{@type {private, bool()@}}
+%%  <dt>{@type {private, boolean()@}}
 %%  </dt>
 %%  <dd>If the value is `true', documentation of private modules and
 %%      functions will also be included. The default value is `false'.

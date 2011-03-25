@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -81,7 +81,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
   </section>
   <funcs>
     <func>
-      <name>columns([IoDevice]) -> {ok,int()} | {error, enotsup}</name>
+      <name>columns() -> {ok,int()} | {error, enotsup}</name>
+      <name>columns(IoDevice) -> {ok,int()} | {error, enotsup}</name>
       <fsummary>Get the number of columns of a device</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -94,7 +95,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>put_chars([IoDevice,] IoData) -> ok</name>
+      <name>put_chars(IoData) -> ok</name>
+      <name>put_chars(IoDevice, IoData) -> ok</name>
       <fsummary>Write a list of characters</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -106,7 +108,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>nl([IoDevice]) -> ok</name>
+      <name>nl() -> ok</name>
+      <name>nl(IoDevice) -> ok</name>
       <fsummary>Write a newline</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -116,7 +119,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>get_chars([IoDevice,] Prompt, Count) -> Data | eof</name>
+      <name>get_chars(Prompt, Count) -> Data | eof</name>
+      <name>get_chars(IoDevice, Prompt, Count) -> Data | eof</name>
       <fsummary>Read a specified number of characters</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -150,7 +154,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>get_line([IoDevice,] Prompt) -> Data | eof | {error,Reason}</name>
+      <name>get_line(Prompt) -> Data | eof | {error,Reason}</name>
+      <name>get_line(IoDevice, Prompt) -> Data | eof | {error,Reason}</name>
       <fsummary>Read a line</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -183,7 +188,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>getopts([IoDevice]) -> Opts</name>
+      <name>getopts() -> Opts</name>
+      <name>getopts(IoDevice) -> Opts</name>
       <fsummary>Get the supported options and values from an I/O-server</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -210,7 +216,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>setopts([IoDevice,] Opts) -> ok | {error, Reason}</name>
+      <name>setopts(Opts) -> ok | {error, Reason}</name>
+      <name>setopts(IoDevice, Opts) -> ok | {error, Reason}</name>
       <fsummary>Set options</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -281,7 +288,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>write([IoDevice,] Term) -> ok</name>
+      <name>write(Term) -> ok</name>
+      <name>write(IoDevice, Term) -> ok</name>
       <fsummary>Write a term</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -293,7 +301,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
       </desc>
     </func>
     <func>
-      <name>read([IoDevice,] Prompt) -> Result</name>
+      <name>read(Prompt) -> Result</name>
+      <name>read(IoDevice, Prompt) -> Result</name>
       <fsummary>Read a term</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -356,9 +365,11 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
     </func>
     <func>
       <name>fwrite(Format) -></name>
-      <name>fwrite([IoDevice,] Format, Data) -> ok</name>
+      <name>fwrite(Format, Data) -> ok</name>
+      <name>fwrite(IoDevice, Format, Data) -> ok</name>
       <name>format(Format) -></name>
-      <name>format([IoDevice,] Format, Data) -> ok</name>
+      <name>format(Format, Data) -> ok</name>
+      <name>format(IoDevice, Format, Data) -> ok</name>
       <fsummary>Write formatted output</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -464,9 +475,9 @@ ok</pre>
             <p>Prints the argument with the <c>string</c> syntax. The
               argument is, if no Unicode translation modifier is present, an 
 	      <seealso marker="erts:erlang#iolist_definition">I/O list</seealso>, a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is chardata(), meaning that binaries are in UTF-8. The characters
-              are printed without quotes. In this format, the printed
-              argument is truncated to the given precision and field
-              width.</p>
+              are printed without quotes. The string is first truncated
+	      by the given precision and then padded and justified
+	      to the given field width. The default precision is the field width.</p>
             <p>This format can be used for printing any object and
               truncating the output so it fits a specified field:</p>
             <pre>
@@ -475,6 +486,8 @@ ok</pre>
 ok
 4> <input>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</input>
 |{hey,hey,h|
+5> <input>io:fwrite("|~-10.8s|~n", [io_lib:write({hey, hey, hey})]).</input>
+|{hey,hey  |
 ok</pre>
           <p>A list with integers larger than 255 is considered an error if the Unicode translation modifier is not given:</p>
 <pre>
@@ -660,7 +673,8 @@ ok
       </desc>
     </func>
     <func>
-      <name>fread([IoDevice,] Prompt, Format) -> Result</name>
+      <name>fread(Prompt, Format) -> Result</name>
+      <name>fread(IoDevice, Prompt, Format) -> Result</name>
       <fsummary>Read formatted input</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -820,7 +834,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
       </desc>
     </func>
     <func>
-      <name>rows([IoDevice]) -> {ok,int()} | {error, enotsup}</name>
+      <name>rows() -> {ok,int()} | {error, enotsup}</name>
+      <name>rows(IoDevice) -> {ok,int()} | {error, enotsup}</name>
       <fsummary>Get the number of rows of a device</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -834,7 +849,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
     </func>
     <func>
       <name>scan_erl_exprs(Prompt) -></name>
-      <name>scan_erl_exprs([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name>scan_erl_exprs(Prompt, StartLine) -> Result</name>
+      <name>scan_erl_exprs(IoDevice, Prompt, StartLine) -> Result</name>
       <fsummary>Read and tokenize Erlang expressions</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -877,7 +893,8 @@ enter><input>1.0er.</input>
     </func>
     <func>
       <name>scan_erl_form(Prompt) -></name>
-      <name>scan_erl_form([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name>scan_erl_form(Prompt, StartLine) -> Result</name>
+      <name>scan_erl_form(IoDevice, Prompt, StartLine) -> Result</name>
       <fsummary>Read and tokenize an Erlang form</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -900,7 +917,8 @@ enter><input>1.0er.</input>
     </func>
     <func>
       <name>parse_erl_exprs(Prompt) -></name>
-      <name>parse_erl_exprs([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name>parse_erl_exprs(Prompt, StartLine) -> Result</name>
+      <name>parse_erl_exprs(IoDevice, Prompt, StartLine) -> Result</name>
       <fsummary>Read, tokenize and parse Erlang expressions</fsummary>
       <type>
         <v>IoDevice = io_device()</v>
@@ -943,7 +961,8 @@ enter><input>abc("hey".</input>
     </func>
     <func>
       <name>parse_erl_form(Prompt) -></name>
-      <name>parse_erl_form([IoDevice,] Prompt, StartLine) -> Result</name>
+      <name>parse_erl_form(Prompt, StartLine) -> Result</name>
+      <name>parse_erl_form(IoDevice, Prompt, StartLine) -> Result</name>
       <fsummary>Read, tokenize and parse an Erlang form</fsummary>
       <type>
         <v>IoDevice = io_device()</v>

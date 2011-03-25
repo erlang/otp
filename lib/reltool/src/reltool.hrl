@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,8 @@
 -define(MISSING_APP_NAME, '*MISSING*').
 -define(MISSING_APP_TEXT, "*MISSING*").
 
--type file()             :: string().
--type dir()              :: string().
+-type file()             :: file:filename().
+-type dir()              :: file:filename().
 %% app      - Include all modules in app file
 %% ebin     - Include all modules on ebin directory
 %% derived  - Include only those modules that others are dependent on
@@ -48,7 +48,7 @@
 -type mod_name()         :: atom().
 -type app_name()         :: atom().
 -type app_vsn()          :: string(). % e.g. "4.7"
--type app_label()        :: string().% e.g. "mnesia" or "mnesia-4.7"
+-type app_label()        :: string(). % e.g. "mnesia" or "mnesia-4.7"
 -type app_type()         :: permanent | transient | temporary | load | none.
 -type incl_app()         :: app_name().
 -type emu_name()         :: string().
@@ -93,10 +93,10 @@
                           | {escript, escript_file(), [escript()]}
                           | {app, app_name(), [app()]}.
 -type config()           :: {sys, [sys()]}.
--type option()           :: {wx_debug, term()} |
-			    {trap_exit, boolean()} |
-			    config() |
-			    {config, config() | file()}.
+-type option()           :: {wx_debug, term()}
+			  | {trap_exit, boolean()}
+			  | config()
+			  | {config, config() | file()}.
 -type options()          :: [option()].
 -type server_pid()       :: pid().
 -type window_pid()       :: pid().
@@ -110,32 +110,30 @@
 -type top_dir()          :: file().
 -type top_file()         :: file().
 -type target_spec()      :: [target_spec()]
-                         | {create_dir, base_dir(), [target_spec()]}
-                         | {create_dir, base_dir(), top_dir(), [target_spec()]}
-                         | {archive, base_file(), [archive_opt()], [target_spec()]}
-                         | {copy_file, base_file()}
-                         | {copy_file, base_file(), top_file()}
-                         | {write_file, base_file(), iolist()}
-                         | {strip_beam_file, base_file()}.
--type target_dir()      :: dir().
--type incl_defaults()   :: boolean().
--type incl_derived()    :: boolean().
--type ets_tab()         :: term().
--type status()          :: missing | ok.
+                          | {create_dir, base_dir(), [target_spec()]}
+                          | {create_dir, base_dir(), top_dir(), [target_spec()]}
+                          | {archive, base_file(), [archive_opt()], [target_spec()]}
+                          | {copy_file, base_file()}
+                          | {copy_file, base_file(), top_file()}
+                          | {write_file, base_file(), iolist()}
+                          | {strip_beam_file, base_file()}.
+-type target_dir()       :: dir().
+-type incl_defaults()    :: boolean().
+-type incl_derived()     :: boolean().
+-type status()           :: missing | ok.
 
 -record(common,
         {
           sys_debug 	  :: term(),
           wx_debug  	  :: term(),
           trap_exit 	  :: boolean(),
-          app_tab   	  :: ets_tab(),
-          mod_tab   	  :: ets_tab(),
-          mod_used_by_tab :: ets_tab()
-         }).
-
+          app_tab   	  :: ets:tab(),
+          mod_tab   	  :: ets:tab(),
+          mod_used_by_tab :: ets:tab()
+	}).
 
 -record(mod,
-        {%% Static
+        { %% Static
           name        :: mod_name(),
           app_name    :: app_name(),
           incl_cond   :: incl_cond() | undefined,
@@ -144,13 +142,12 @@
           is_ebin_mod :: boolean(),
           uses_mods   :: [mod_name()],
           exists      :: boolean(),
-
           %% Dynamic
           status          :: status(),
           used_by_mods    :: [mod_name()],
           is_pre_included :: boolean() | undefined,
           is_included     :: boolean() | undefined
-         }).
+	}).
 
 -record(app_info,
         {
@@ -166,10 +163,12 @@
           env          = []        :: [{atom(), term()}],
           mod          = undefined :: {mod_name(), [term()]} | undefined,
           start_phases = undefined :: [{atom(), term()}] | undefined
-         }).
+	}).
+
+-record(regexp, {source, compiled}).
 
 -record(app,
-        {%% Static info
+        { %% Static info
           name             :: app_name(),
           is_escript       :: boolean(),
           use_selected_vsn :: boolean() | undefined,
@@ -188,10 +187,10 @@
           debug_info            :: debug_info() | undefined,
           app_file              :: app_file() | undefined,
           app_type              :: app_type() | undefined,
-          incl_app_filters      :: incl_app_filters(),
-          excl_app_filters      :: excl_app_filters(),
-          incl_archive_filters  :: incl_archive_filters(),
-          excl_archive_filters  :: excl_archive_filters(),
+          incl_app_filters      :: [#regexp{}],
+          excl_app_filters      :: [#regexp{}],
+          incl_archive_filters  :: [#regexp{}],
+          excl_archive_filters  :: [#regexp{}],
           archive_opts          :: [archive_opt()],
 
           %% Dynamic
@@ -203,13 +202,13 @@
           is_pre_included :: boolean(),
           is_included     :: boolean(),
           rels            :: [rel_name()]
-         }).
+	}).
 
 -record(rel_app,
         {
-          name      :: app_name(),
-          app_type  :: app_type(),
-          incl_apps :: [incl_app()]
+          name           :: app_name(),
+          app_type       :: app_type() | undefined,
+          incl_apps = [] :: [incl_app()]
         }).
 
 -record(rel,
@@ -217,11 +216,10 @@
           name     :: rel_name(),
           vsn      :: rel_vsn(),
           rel_apps :: [#rel_app{}]
-         }).
+	}).
 
 -record(sys,
-        {
-          %% Sources
+        { %% Sources
           root_dir  :: dir(),
           lib_dirs  :: [dir()],
           escripts  :: [file()],
@@ -234,21 +232,19 @@
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),
-          incl_sys_filters     :: incl_sys_filters(),
-          excl_sys_filters     :: excl_sys_filters(),
-          incl_app_filters     :: incl_app_filters(),
-          excl_app_filters     :: excl_app_filters(),
-          incl_archive_filters :: incl_archive_filters(),
-          excl_archive_filters :: excl_archive_filters(),
+          incl_sys_filters     :: [#regexp{}],
+          excl_sys_filters     :: [#regexp{}],
+          incl_app_filters     :: [#regexp{}],
+          excl_app_filters     :: [#regexp{}],
+          incl_archive_filters :: [#regexp{}],
+          excl_archive_filters :: [#regexp{}],
           archive_opts         :: [archive_opt()],
           relocatable          :: boolean(),
           rel_app_type         :: app_type(),
           embedded_app_type    :: app_type() | undefined,
           app_file             :: app_file(),
           debug_info           :: debug_info()
-         }).
-
--record(regexp, {source, compiled}).
+	}).
 
 -define(ERR_IMAGE,    0).
 -define(WARN_IMAGE,   1).
@@ -275,7 +271,7 @@
 
 -define(DEFAULT_INCL_ARCHIVE_FILTERS, [".*"]).
 -define(DEFAULT_EXCL_ARCHIVE_FILTERS, ["^include\$", "^priv\$"]).
--define(DEFAULT_ARCHIVE_OPTS,      []).
+-define(DEFAULT_ARCHIVE_OPTS,         []).
 
 -define(DEFAULT_INCL_SYS_FILTERS,    [".*"]).
 -define(DEFAULT_EXCL_SYS_FILTERS,    []).
@@ -305,5 +301,5 @@
 	 "^erts.*/bin/(start|escript|to_erl|run_erl)(|\\.exe)\$",
 	 "^erts.*/bin/.*(debug|pdb)"]).
 -define(STANDALONE_INCL_APP_FILTERS,  ["^ebin",
-				     "^priv"]).
+				       "^priv"]).
 -define(STANDALONE_EXCL_APP_FILTERS,  ["^ebin/.*\\.appup\$"]).

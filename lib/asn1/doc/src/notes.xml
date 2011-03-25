@@ -31,6 +31,44 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.6.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    asn1ct: Make formatting of errors and warnings consistent</p>
+          <p>
+	    Consistently format warning and error reports. Warning
+	    and error options from erlc now also work in asnc1ct.
+	    (thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9062</p>
+        </item>
+        <item>
+          <p>
+	    Shut off some dialyzer warnings</p>
+          <p>
+	    Own Id: OTP-9063</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Crash in asn1ct_check, componentrelation_leadingattr
+	    fixed. (Thanks to Stephane Pamelard for finding the bug)</p>
+          <p>
+	    Own Id: OTP-9092</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

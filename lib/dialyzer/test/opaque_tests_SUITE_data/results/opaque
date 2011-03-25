@@ -1,0 +1,2 @@
+
+opaque_bug4.erl:20: The attempt to match a term of type opaque_adt:abc() against the pattern 'a' breaks the opaqueness of the term
