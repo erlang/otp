@@ -817,8 +817,12 @@ state_del_child(Child, State) ->
     NChildren = del_child(Child#child.name, State#state.children),
     State#state{children = NChildren}.
 
+del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name, Ch#child.restart_type =:= temporary ->
+    [Chs];
 del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name ->
     [Ch#child{pid = undefined} | Chs];
+del_child(Pid, [Ch|Chs]) when Ch#child.pid =:= Pid, Ch#child.restart_type =:= temporary ->
+    [Chs];
 del_child(Pid, [Ch|Chs]) when Ch#child.pid =:= Pid ->
     [Ch#child{pid = undefined} | Chs];
 del_child(Name, [Ch|Chs]) ->
