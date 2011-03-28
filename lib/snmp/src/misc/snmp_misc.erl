@@ -347,10 +347,15 @@ bits_to_int([Kibble|Ks],Kibbles,Res) ->
 
 			     
 %%----------------------------------------------------------------------
-%% Returns: {ok, {int(),int(),int(),int()}} | {error, Reason}
+%% Returns: {ok, {int(),int(),int(),int()}} | 
+%%          {ok, {int(),int(),int(),int()},int(),int(),int(),int()} | 
+%%          {error, Reason}
 %%----------------------------------------------------------------------
 ip(Host) ->
-    inet:getaddr(Host, inet).
+    ip(Host, inet).
+
+ip(Host, Family) ->
+    inet:getaddr(Host, Family).
 
 ensure_trailing_dir_delimiter([]) -> "/";
 ensure_trailing_dir_delimiter(DirSuggestion) ->
