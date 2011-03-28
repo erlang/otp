@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -415,7 +415,7 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
 	    end;
 	timeout ->
 	    ?hdrv("deliver_webpage_chunk - timeout", []),
-	    send_headers(ModData, {504, "Timeout"},[{"connection", "close"}]),
+	    send_headers(ModData, 504, [{"connection", "close"}]),
 	    httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket),
 	    process_flag(trap_exit,false),
 	    {proceed,[{response, {already_sent, 200, 0}} | ModData#mod.data]}
