@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -146,6 +146,11 @@
       <c>random_seed</c> to remember the current seed.</p>
     <p>If a process calls <c>uniform/0</c> or <c>uniform/1</c> without
       setting a seed first, <c>seed/0</c> is called automatically.</p>
+    <p>The implementation changed in R15. Upgrading to R15 will break
+      applications that expect a specific output for a given seed. The output
+      is still deterministic number series, but different compared to releases
+      older than R15. The seed <c>{0,0,0}</c> will for example no longer
+      produce a flawed series of only zeros.</p>
   </section>
 </erlref>
 
