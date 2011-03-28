@@ -71,6 +71,12 @@
           <p>Own Id: OTP-9124</p>
         </item>
 
+        <item>
+          <p>[httpd] Improved error messages. </p>
+	  <p>Ricardo Catalinas Jiménez</p>
+          <p>Own Id: OTP-9157</p>
+        </item>
+
       </list>
     </section>
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -240,13 +240,13 @@ handle_info({ssl_error, _, _} = Reason, State) ->
 
 %% Timeouts
 handle_info(timeout, #state{mod = ModData, mfa = {_, parse, _}} = State) ->
-    error_log("No request received on keep-alive connection" 
+    error_log("No request received on keep-alive connection "
 	      "before server side timeout", ModData),
     %% No response should be sent!
     {stop, normal, State#state{response_sent = true}}; 
 handle_info(timeout, #state{mod = ModData} = State) ->
     httpd_response:send_status(ModData, 408, "Request timeout"),
-    error_log("The client did not send the whole request before the"
+    error_log("The client did not send the whole request before the "
 	      "server side timeout", ModData),
     {stop, normal, State#state{response_sent = true}};
 
