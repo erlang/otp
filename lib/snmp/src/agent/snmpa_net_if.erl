@@ -504,7 +504,6 @@ handle_discovery_response(_Ip, _Port, #pdu{request_id = ReqId} = Pdu,
 	    S
     end.
 	   
-    
 handle_recv(#state{usock      = Sock, 
 		   mpd_state  = MpdState, 
 		   note_store = NS,
@@ -513,7 +512,9 @@ handle_recv(#state{usock      = Sock,
     LogF = fun(Type, Data) ->
 		   log(Log, Type, Data, Ip, Port)
 	   end,
-    case (catch snmpa_mpd:process_packet(Packet, snmpUDPDomain, {Ip, Port}, 
+    Domain = snmp_conf:which_domain(Ip), % What the ****...
+    case (catch snmpa_mpd:process_packet(Packet, 
+					 Domain, {Ip, Port}, 
 					 MpdState, NS, LogF)) of
 	{ok, _Vsn, Pdu, _PduMS, {discovery, ManagerEngineId}} ->
 	    handle_discovery_response(Ip, Port, Pdu, ManagerEngineId, S);
@@ -635,7 +636,6 @@ process_taddrs([{{_Domain, AddrAndPort}, _SecData}|T], Acc) ->
 %% v1 & v2
 process_taddrs([{_Domain, AddrAndPort}|T], Acc) ->
     process_taddrs(T, [AddrAndPort|Acc]).
-
 
 merge_taddrs(To1, To2) ->
     merge_taddrs(To1, To2, []).
@@ -776,15 +776,49 @@ handle_send_pdu1(#state{log    = Log,
 			usock  = Sock,
 			filter = FilterMod}, Type, Addresses) ->
     SendFun = 
-	fun({snmpUDPDomain, {Ip, Port}, Packet}) when is_binary(Packet) ->
-		?vdebug("sending packet:"
+	fun({snmpUDPDomain, {Ip, Port}, Packet}) 
+	      when is_binary(Packet) ->
+		?vdebug("[snmpUDPDomain] sending packet:"
 			"~n   size: ~p"
 			"~n   to:   ~p:~p",
 			[sz(Packet), Ip, Port]),
 		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
 
-	   ({snmpUDPDomain, {Ip, Port}, {Packet, _LogData}}) when is_binary(Packet) ->
-		?vdebug("sending encrypted packet:"
+	   ({snmpUDPDomain, {Ip, Port}, {Packet, _LogData}}) 
+	      when is_binary(Packet) ->
+		?vdebug("[snmpUDPDomain] sending encrypted packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv4, {Ip, Port}, Packet}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv4] sending packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv4, {Ip, Port}, {Packet, _LogData}}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv4] sending encrypted packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv6, {Ip, Port}, Packet}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv6] sending packet:"
+			"~n   size: ~p"
+			"~n   to:   ~p:~p",
+			[sz(Packet), Ip, Port]),
+		maybe_udp_send(FilterMod, Log, Type, Sock, Ip, Port, Packet);
+
+	   ({transportDomainUdpIpv6, {Ip, Port}, {Packet, _LogData}}) 
+	      when is_binary(Packet) ->
+		?vdebug("[transportDomainUdpIpv6] sending encrypted packet:"
 			"~n   size: ~p"
 			"~n   to:   ~p:~p",
 			[sz(Packet), Ip, Port]),

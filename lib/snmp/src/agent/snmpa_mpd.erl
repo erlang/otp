@@ -115,8 +115,8 @@ reset() ->
 %% Func: process_packet(Packet, TDomain, TAddress, State, Log) ->
 %%       {ok, SnmpVsn, Pdu, PduMS, ACMData} | {discarded, Reason}
 %% Types: Packet = binary()
-%%        TDomain = snmpUDPDomain | atom()
-%%        TAddress = {Ip, Udp}
+%%        TDomain = snmpUDPDomain | transportDomain()
+%%        TAddress = {Ip, Udp} (*but* depends on TDomain)
 %%        State = #state
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
@@ -182,24 +182,30 @@ discarded_pdu(Variable) -> inc(Variable).
 %%-----------------------------------------------------------------
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
-v1_v2c_proc(Vsn, NoteStore, Community, snmpUDPDomain, 
+v1_v2c_proc(Vsn, NoteStore, Community, Domain, 
 	    {Ip, Udp}, LocalEngineID, 
 	    Data, HS, Log, Packet) ->
-    TAddress = tuple_to_list(Ip) ++ [Udp div 256, Udp rem 256],
-    AgentMS = get_engine_max_message_size(LocalEngineID),
-    MgrMS = snmp_community_mib:get_target_addr_ext_mms(?snmpUDPDomain,
-						       TAddress),
-    PduMS = case MgrMS of
-		{ok, MMS} when MMS < AgentMS -> MMS - HS;
-		_ -> AgentMS - HS
-	    end,
+    TDomain  = snmp_conf:mk_tdomain(Domain), 
+    TAddress = snmp_conf:mk_taddress(Domain, Ip, Udp),
+    AgentMS  = get_engine_max_message_size(LocalEngineID),
+    MgrMS    = snmp_community_mib:get_target_addr_ext_mms(TDomain, TAddress),
+    PduMS    = case MgrMS of
+		   {ok, MMS} when MMS < AgentMS -> MMS - HS;
+		   _ -> AgentMS - HS
+	       end,
     case (catch snmp_pdus:dec_pdu(Data)) of
 	Pdu when is_record(Pdu, pdu) ->
 	    Log(Pdu#pdu.type, Packet),
 	    inc_snmp_in_vars(Pdu),
 	    #pdu{request_id = ReqId} = Pdu,
-	    OkRes = {ok, Vsn, Pdu, PduMS,
-		     {community, sec_model(Vsn), Community, TAddress}},
+	    
+	    %% <TDomain>
+	    %% We have added TDomain, what are the consequences?
+	    ACMData = 
+		{community, sec_model(Vsn), Community, TDomain, TAddress}, 
+	    OkRes = {ok, Vsn, Pdu, PduMS, ACMData},
+	    %% </TDomain>
+
 	    %% Make sure that we don't process duplicate SET request
 	    %% twice.  We don't know what could happen in that case.
 	    %% The mgr does, so he has to generate a new SET request.
@@ -216,8 +222,6 @@ v1_v2c_proc(Vsn, NoteStore, Community, snmpUDPDomain,
 			    snmp_note_store:set_note(NoteStore, 
 						     100, Key, true),
 			    %% Uses ACMData that snmpa_acm knows of.
-			    %% snmpUDPDomain is implicit, since that's the only
-			    %% one we handle.
 			    OkRes;
 			true ->
 			    {discarded, duplicate_pdu}
@@ -275,12 +279,12 @@ v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log) ->
 	    "~n   msgSecurityParameters = ~w",
 	    [MsgID, MMS, MsgFlags, MsgSecurityModel, SecParams]),
     %% 7.2.4
-    SecModule = get_security_module(MsgSecurityModel),
+    SecModule    = get_security_module(MsgSecurityModel),
     %% 7.2.5
-    SecLevel = check_sec_level(MsgFlags),
+    SecLevel     = check_sec_level(MsgFlags),
     IsReportable = snmp_misc:is_reportable(MsgFlags),
     %% 7.2.6
-    ?vtrace("v3_proc -> [7.2.6]"
+    ?vtrace("v3_proc -> [7.2.4-7.2.6]"
 	    "~n   SecModule    = ~p"
 	    "~n   SecLevel     = ~p"
 	    "~n   IsReportable = ~p",
@@ -531,7 +535,7 @@ check_sec_module_result(Res, V3Hdr, Data, LocalEngineID, IsReportable, Log) ->
 	    ?vdebug("security module result [7.2.6-b]:"
 		    "~n   Reason: ~p", [Reason]),
 	    throw({discarded, {securityError, Reason}});
-	{error, Reason, ErrorInfo} when IsReportable == true -> % case 7.2.6 a
+	{error, Reason, ErrorInfo} when IsReportable =:= true -> % case 7.2.6 a
 	    ?vdebug("security module result when reportable [7.2.6-a]:"
 		    "~n   Reason:    ~p"
 		    "~n   ErrorInfo: ~p", [Reason, ErrorInfo]),
@@ -574,7 +578,7 @@ generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log) ->
     generate_response_msg(Vsn, RePdu, Type, ACMData, LocalEngineID, Log, 1).
 
 generate_response_msg(Vsn, RePdu, Type, 
-		      {community, _SecModel, Community, _IpUdp},
+		      {community, _SecModel, Community, _TDomain, _TAddress},
 		      LocalEngineID, 
 		      Log, _) ->
 	case catch snmp_pdus:enc_pdu(RePdu) of

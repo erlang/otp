@@ -1311,10 +1311,12 @@ rewrite_target_addr_conf(Dir, NewPort) ->
 	 "~n   NewPort: ~p", [NewPort]),
     TAFile = filename:join(Dir, "target_addr.conf"),
     case file:read_file_info(TAFile) of
-	{ok, _} -> ok;
-	{error, R} -> ?ERR("failure reading file info of "
-			   "target address config file: ~p",[R]),
-		      ok  
+	{ok, _} -> 
+	    ok;
+	{error, R} -> 
+	    ?ERR("failure reading file info of "
+		 "target address config file: ~p",[R]),
+	    ok  
     end,
 
     ?line [TrapAddr|Addrs] = 
@@ -1335,8 +1337,9 @@ rewrite_target_addr_conf(Dir, NewPort) ->
 rewrite_target_addr_conf_check(O) -> 
     {ok,O}.
 
-rewrite_target_addr_conf2(NewPort,{Name,Ip,_Port,Timeout,Retry,
-				   "std_trap",EngineId}) -> 
+rewrite_target_addr_conf2(NewPort,
+			  {Name, Ip, _Port, Timeout, Retry,
+			   "std_trap", EngineId}) -> 
     ?LOG("rewrite_target_addr_conf2 -> entry with std_trap",[]),
     {Name,Ip,NewPort,Timeout,Retry,"std_trap",EngineId};
 rewrite_target_addr_conf2(_NewPort,O) -> 
