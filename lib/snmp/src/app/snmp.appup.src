@@ -25,6 +25,7 @@
   {"4.19", 
    [
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
+    {load_module, snmp_misc, soft_purge, soft_purge, []},
     {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmpa_mpd, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, 
@@ -94,6 +95,7 @@
   {"4.19", 
    [
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
+    {load_module, snmp_misc, soft_purge, soft_purge, []},
     {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmpa_mpd, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, 
