@@ -28,6 +28,7 @@
 -include("test_server_line.hrl").
 
 -include_lib("kernel/include/file.hrl").
+-include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -228,8 +229,8 @@ init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
     [{local_ssl_server, Server} | Config2].
 
 init_per_testcase(Case, Timeout, Config) ->
-    io:format(user, "~n~n*** INIT ~w:[~w][~w] ***~n~n", 
-	      [?MODULE, Timeout, Case]),
+    io:format(user, "~n~n*** INIT ~w:~w[~w] ***~n~n", 
+	      [?MODULE, Case, Timeout]),
     PrivDir     = ?config(priv_dir, Config),
     tsp("init_per_testcase -> stop inets"),
     application:stop(inets),
@@ -1348,6 +1349,10 @@ proxy_options(doc) ->
 proxy_options(suite) ->
     [];
 proxy_options(Config) when is_list(Config) ->
+    %% As of 2011-03-24, erlang.org (which is used as server) 
+    %% does no longer run Apache, but instead runs inets, which 
+    %% do not implement "options".
+    ?SKIP(server_does_not_implement_options),
     case ?config(skip, Config) of 
         undefined ->
 	    case httpc:request(options, {?PROXY_URL, []}, [], []) of
@@ -1372,6 +1377,9 @@ proxy_head(doc) ->
 proxy_head(suite) ->
     [];
 proxy_head(Config) when is_list(Config) ->
+    %% As of 2011-03-24, erlang.org (which is used as server) 
+    %% does no longer run Apache, but instead runs inets.
+    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined ->
 	    case httpc:request(head, {?PROXY_URL, []}, [], []) of
@@ -1467,6 +1475,9 @@ proxy_post(doc) ->
 proxy_post(suite) ->
     [];
 proxy_post(Config) when is_list(Config) ->
+    %% As of 2011-03-24, erlang.org (which is used as server) 
+    %% does no longer run Apache, but instead runs inets.
+    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined ->
 	    case httpc:request(post, {?PROXY_URL, [], 
@@ -1489,6 +1500,9 @@ proxy_put(doc) ->
 proxy_put(suite) ->
     [];
 proxy_put(Config) when is_list(Config) ->
+    %% As of 2011-03-24, erlang.org (which is used as server) 
+    %% does no longer run Apache, but instead runs inets.
+    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined -> 
 	    case httpc:request(put, {"http://www.erlang.org/foobar.html", [], 
@@ -1513,6 +1527,9 @@ proxy_delete(doc) ->
 proxy_delete(suite) ->
     [];
 proxy_delete(Config) when is_list(Config) ->
+    %% As of 2011-03-24, erlang.org (which is used as server) 
+    %% does no longer run Apache, but instead runs inets.
+    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined -> 
 	    URL = ?PROXY_URL ++ "/foobar.html",
