@@ -90,7 +90,7 @@ id(Address, Port) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init([HttpdServices]) ->
-    ?hdrd("starting", []),
+    ?hdrd("starting", [{httpd_service, HttpdServices}]),
     RestartStrategy = one_for_one,
     MaxR = 10,
     MaxT = 3600,
