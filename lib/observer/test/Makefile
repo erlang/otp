@@ -22,7 +22,10 @@ MODULES =  \
 	observer_SUITE \
 	crashdump_viewer_SUITE \
 	etop_SUITE \
+	ttb_helper \
 	ttb_SUITE \
+	client \
+	server \
 	crashdump_helper
 
 ERL_FILES= $(MODULES:%=%.erl)
