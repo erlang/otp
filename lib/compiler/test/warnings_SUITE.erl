@@ -453,6 +453,16 @@ effect(Config) when is_list(Config) ->
              	  true -> ok
                 end,
                 ok.
+
+             m8(A, B) ->
+                case {A,B} of
+                  V -> V
+                end,
+                ok.
+
+             m9(Bs) ->
+                [{B,ok} = {B,foo:bar(B)} || B <- Bs],
+                ok.
              ">>,
 	   [],
 	   {warnings,[{5,sys_core_fold,{no_effect,{erlang,is_integer,1}}},
