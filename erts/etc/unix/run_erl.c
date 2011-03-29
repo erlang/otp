@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -221,6 +221,8 @@ int main(int argc, char **argv)
   char *p, *ptyslave=NULL;
   int i = 1;
   int off_argv;
+  int calculated_pipename = 0;
+  int highest_pipe_num = 0;
 
   program_name = argv[0];
 
@@ -298,10 +300,10 @@ int main(int argc, char **argv)
   if(*pipename && pipename[strlen(pipename)-1] == '/') {
     /* The user wishes us to find a unique pipe name in the specified */
     /* directory */
-    int highest_pipe_num = 0;
     DIR *dirp;
     struct dirent *direntp;
 
+    calculated_pipename = 1;
     dirp = opendir(pipename);
     if(!dirp) {
       ERRNO_ERR1(LOG_ERR,"Can't access pipe directory '%s'.", pipename);
@@ -322,28 +324,37 @@ int main(int argc, char **argv)
 	      PIPE_STUBNAME, highest_pipe_num+1);
   } /* if */
 
-  /* write FIFO - is read FIFO for `to_erl' program */
-  strn_cpy(fifo1, sizeof(fifo1), pipename);
-  strn_cat(fifo1, sizeof(fifo1), ".r");
-  if (create_fifo(fifo1, PERM) < 0) {
-    ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for writing.", fifo1);
-    exit(1);
-  }
-
-  /* read FIFO - is write FIFO for `to_erl' program */
-  strn_cpy(fifo2, sizeof(fifo2), pipename);
-  strn_cat(fifo2, sizeof(fifo2), ".w");
-
-  /* Check that nobody is running run_erl already */
-  if ((fd = open (fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
-    /* Open as client succeeded -- run_erl is already running! */
-    fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
-    close(fd);
-    exit(1);
-  }
-  if (create_fifo(fifo2, PERM) < 0) { 
-    ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.", fifo2);
-    exit(1);
+  for(;;) {
+      /* write FIFO - is read FIFO for `to_erl' program */
+      strn_cpy(fifo1, sizeof(fifo1), pipename);
+      strn_cat(fifo1, sizeof(fifo1), ".r");
+      if (create_fifo(fifo1, PERM) < 0) {
+	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for writing.", fifo1);
+	  exit(1);
+      }
+      
+      /* read FIFO - is write FIFO for `to_erl' program */
+      strn_cpy(fifo2, sizeof(fifo2), pipename);
+      strn_cat(fifo2, sizeof(fifo2), ".w");
+      
+      /* Check that nobody is running run_erl already */
+      if ((fd = open (fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
+	  /* Open as client succeeded -- run_erl is already running! */
+	  close(fd);
+	  if (calculated_pipename) {
+	      ++highest_pipe_num;
+	      strn_catf(pipename, sizeof(pipename), "%s.%d",
+			PIPE_STUBNAME, highest_pipe_num+1);
+	      continue;
+	  } 
+	  fprintf(stderr, "Erlang already running on pipe %s.\n", pipename);
+	  exit(1);
+      }
+      if (create_fifo(fifo2, PERM) < 0) { 
+	  ERRNO_ERR1(LOG_ERR,"Cannot create FIFO %s for reading.", fifo2);
+	  exit(1);
+      }
+      break;
   }
 
   /*
