@@ -1,9 +1,8 @@
 /*
  * %CopyrightBegin%
-
- *
+ * 
  * Copyright Ericsson AB 2001-2011. All Rights Reserved.
- *
+ * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
@@ -37,14 +36,25 @@
 #include "hipe_arch.h"
 #include "hipe_stack.h"
 
-BIF_RETTYPE hipe_bifs_show_estack_1(BIF_ALIST_1)
+static void proc_unlock(Process* c_p, Process* rp)
 {
+    ErtsProcLocks locks = ERTS_PROC_LOCKS_ALL;
+    if (rp == c_p) {
+	locks &= ~ERTS_PROC_LOCK_MAIN;
+    }
+    if (rp && locks) {
+	erts_smp_proc_unlock(rp, locks);
+    }
+}
+
+BIF_RETTYPE hipe_bifs_show_estack_1(BIF_ALIST_1)
+{    
     Process *rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
 				BIF_ARG_1, ERTS_PROC_LOCKS_ALL);
     if (!rp)
 	BIF_ERROR(BIF_P, BADARG);
     hipe_print_estack(rp);
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCKS_ALL);
+    proc_unlock(BIF_P, rp);
     BIF_RET(am_true);
 }
 
@@ -55,7 +65,7 @@ BIF_RETTYPE hipe_bifs_show_heap_1(BIF_ALIST_1)
     if (!rp)
 	BIF_ERROR(BIF_P, BADARG);
     hipe_print_heap(rp);
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCKS_ALL);
+    proc_unlock(BIF_P, rp);
     BIF_RET(am_true);
 }
 
@@ -66,7 +76,7 @@ BIF_RETTYPE hipe_bifs_show_nstack_1(BIF_ALIST_1)
     if (!rp)
 	BIF_ERROR(BIF_P, BADARG);
     hipe_print_nstack(rp);
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCKS_ALL);
+    proc_unlock(BIF_P, rp);
     BIF_RET(am_true);
 }
 
@@ -82,7 +92,7 @@ BIF_RETTYPE hipe_bifs_show_pcb_1(BIF_ALIST_1)
     if (!rp)
 	BIF_ERROR(BIF_P, BADARG);
     hipe_print_pcb(rp);
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCKS_ALL);
+    proc_unlock(BIF_P, rp);
     BIF_RET(am_true);
 }
 
