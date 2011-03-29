@@ -18,18 +18,18 @@
          contract5/1, disj_norm_form/1, eqeq/1, ets_select/1, 
          exhaust_case/1, failing_guard1/1, flatten/1, fun_app/1, 
          fun_ref_match/1, fun_ref_record/1, gencall/1, gs_make/1, 
-         inf_loop2/1, letrec1/1, list_match/1, lzip/1, make_tuple/1, 
-         minus_minus/1, mod_info/1, my_filter/1, my_sofs/1, no_match/1, 
-         no_unused_fun/1, no_unused_fun2/1, non_existing/1, 
-         not_guard_crash/1, or_bug/1, orelsebug/1, orelsebug2/1, 
-         overloaded1/1, port_info_test/1, process_info_test/1, pubsub/1, 
-         receive1/1, record_construct/1, record_pat/1, 
-         record_send_test/1, record_test/1, recursive_types1/1, 
-         recursive_types2/1, recursive_types3/1, recursive_types4/1, 
-         recursive_types5/1, recursive_types6/1, recursive_types7/1, 
-         refine_bug1/1, toth/1, trec/1, try1/1, tuple1/1, 
-         unsafe_beamcode_bug/1, unused_cases/1, unused_clauses/1, 
-         zero_tuple/1]).
+         inf_loop2/1, invalid_specs/1, letrec1/1, list_match/1, lzip/1,
+         make_tuple/1, minus_minus/1, mod_info/1, my_filter/1,
+         my_sofs/1, no_match/1, no_unused_fun/1, no_unused_fun2/1,
+         non_existing/1, not_guard_crash/1, or_bug/1, orelsebug/1,
+         orelsebug2/1, overloaded1/1, port_info_test/1,
+         process_info_test/1, pubsub/1, receive1/1, record_construct/1,
+         record_pat/1, record_send_test/1, record_test/1,
+         recursive_types1/1, recursive_types2/1, recursive_types3/1,
+         recursive_types4/1, recursive_types5/1, recursive_types6/1,
+         recursive_types7/1, refine_bug1/1, toth/1, trec/1, try1/1,
+         tuple1/1, unsafe_beamcode_bug/1, unused_cases/1,
+         unused_clauses/1, zero_tuple/1]).
 
 suite() ->
   [{timetrap, {minutes, 1}}].
@@ -51,10 +51,10 @@ all() ->
    atom_guard,atom_widen,bs_fail_constr,bs_utf8,cerl_hipeify,comm_layer,
    compare1,confusing_warning,contract2,contract3,contract5,disj_norm_form,
    eqeq,ets_select,exhaust_case,failing_guard1,flatten,fun_app,fun_ref_match,
-   fun_ref_record,gencall,gs_make,inf_loop2,letrec1,list_match,lzip,
-   make_tuple,minus_minus,mod_info,my_filter,my_sofs,no_match,no_unused_fun,
-   no_unused_fun2,non_existing,not_guard_crash,or_bug,orelsebug,orelsebug2,
-   overloaded1,port_info_test,process_info_test,pubsub,receive1,
+   fun_ref_record,gencall,gs_make,inf_loop2,invalid_specs,letrec1,list_match,
+   lzip,make_tuple,minus_minus,mod_info,my_filter,my_sofs,no_match,
+   no_unused_fun,no_unused_fun2,non_existing,not_guard_crash,or_bug,orelsebug,
+   orelsebug2,overloaded1,port_info_test,process_info_test,pubsub,receive1,
    record_construct,record_pat,record_send_test,record_test,recursive_types1,
    recursive_types2,recursive_types3,recursive_types4,recursive_types5,
    recursive_types6,recursive_types7,refine_bug1,toth,trec,try1,tuple1,
@@ -231,6 +231,12 @@ gs_make(Config) ->
 
 inf_loop2(Config) ->
   case dialyze(Config, inf_loop2) of
+    'same' -> 'same';
+    Error  -> ct:fail(Error)
+  end.
+
+invalid_specs(Config) ->
+  case dialyze(Config, invalid_specs) of
     'same' -> 'same';
     Error  -> ct:fail(Error)
   end.
