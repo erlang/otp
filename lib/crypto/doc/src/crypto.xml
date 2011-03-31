@@ -415,22 +415,22 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
 
     <func>
-      <name>blowfish_ecb_encrypt(Key, IVec, Text) -> Cipher</name>
+      <name>blowfish_ecb_encrypt(Key, Text) -> Cipher</name>
       <fsummary>Encrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+        <v>Cipher = binary()</v>
       </type>
       <desc>
         <p>Encrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
       </desc>
     </func>
     <func>
-      <name>blowfish_ecb_decrypt(Key, IVec, Text) -> Cipher</name>
+      <name>blowfish_ecb_decrypt(Key, Text) -> Cipher</name>
       <fsummary>Decrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
-        <v>IVec = Cipher = binary()</v>
+        <v>Cipher = binary()</v>
       </type>
       <desc>
         <p>Decrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
