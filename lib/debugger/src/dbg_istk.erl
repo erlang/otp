@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_istk).
--export([init/0,to_external/0,from_external/1,
+-export([init/0,delayed_to_external/0,from_external/1,
 	 push/2,pop/0,pop/1,stack_level/0,
 	 delayed_stacktrace/0,delayed_stacktrace/2,
 	 bindings/1,stack_frame/2,backtrace/2,
@@ -37,8 +37,9 @@
 init() ->
     init([]).
 
-to_external() ->
-    {stack,term_to_binary(get(?STACK))}.
+delayed_to_external() ->
+    Stack = get(?STACK),
+    fun() -> {stack,term_to_binary(Stack)} end.
 
 from_external({stack,Stk}) ->
     put(?STACK, binary_to_term(Stk)).

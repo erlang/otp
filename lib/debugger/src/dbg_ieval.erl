@@ -140,12 +140,12 @@ check_exit_msg({'DOWN',_,_,_,Reason}, Bs,
 	    undefined when Le =:= 1 -> % died outside interpreted code
 		{};
 	    undefined when Le > 1 ->
-		StackExternal = dbg_istk:to_external(),
+		StackExternal = (dbg_istk:delayed_to_external())(),
 		{{Mod, Li}, Bs, StackExternal};
 
 	    %% Debugged has terminated due to an exception
-	    ExitInfo0 ->
-		ExitInfo0
+	    ExitInfo0 when is_function(ExitInfo0, 0) ->
+		ExitInfo0()
 	end,
     dbg_iserver:cast(get(int), {set_exit_info,self(),ExitInfo}),
 
@@ -180,7 +180,10 @@ exception(Class, Reason, Bs, Ieval, true) ->
 		 Bs, Ieval).
 
 do_exception(Class, Reason, Stacktrace, Bs, #ieval{module=M, line=Line}) ->
-    ExitInfo = {{M,Line}, Bs, dbg_istk:to_external()},
+    StackFun = dbg_istk:delayed_to_external(),
+    ExitInfo = fun() ->
+		       {{M,Line},Bs,StackFun()}
+	       end,
     put(exit_info, ExitInfo),
     put(stacktrace, Stacktrace),
     erlang:Class(Reason).
