@@ -33,6 +33,52 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.20</title>
+    <p>Version 4.20 supports code replacement in runtime from/to
+      version 4.19 and 4.18.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old API functions (for get and set
+	  requests) are now officially deprecated.
+	  They will be removed as of R16B. </p>
+          <p>Own Id: OTP-9174</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] For the table vacmAccessTable,
+          when performing the is_set_ok and set operation(s),
+          all values of the vacmAccessSecurityModel column was
+          incorrectly translated to <c>any</c>. </p>
+          <p>Own Id: OTP-8980</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.20 -->
+
+  <section>
     <title>SNMP Development Toolkit 4.19</title>
     <p>Version 4.19 supports code replacement in runtime from/to
       version 4.18.</p>

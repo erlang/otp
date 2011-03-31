@@ -92,6 +92,43 @@
 -export([format_reason/1, format_reason/2]).
 
 %% Backward compatibillity exports
+-deprecated({agent_info,        3}).
+-deprecated({update_agent_info, 5}).
+-deprecated({g,                 3}).
+-deprecated({g,                 4}).
+-deprecated({g,                 5}).
+-deprecated({g,                 6}).
+-deprecated({g,                 7}).
+-deprecated({ag,                3}).
+-deprecated({ag,                4}).
+-deprecated({ag,                5}).
+-deprecated({ag,                6}).
+-deprecated({ag,                7}).
+-deprecated({gn,                3}).
+-deprecated({gn,                4}).
+-deprecated({gn,                5}).
+-deprecated({gn,                6}).
+-deprecated({gn,                7}).
+-deprecated({agn,               3}).
+-deprecated({agn,               4}).
+-deprecated({agn,               5}).
+-deprecated({agn,               6}).
+-deprecated({agn,               7}).
+-deprecated({gb,                5}).
+-deprecated({gb,                6}).
+-deprecated({gb,                7}).
+-deprecated({gb,                8}).
+-deprecated({gb,                9}).
+-deprecated({s,                 3}).
+-deprecated({s,                 4}).
+-deprecated({s,                 5}).
+-deprecated({s,                 6}).
+-deprecated({s,                 7}).
+-deprecated({as,                3}).
+-deprecated({as,                4}).
+-deprecated({as,                5}).
+-deprecated({as,                6}).
+-deprecated({as,                7}).
 -export([
 	 agent_info/3, update_agent_info/5, 
 	 g/3, g/4, g/5, g/6, g/7, 
@@ -393,24 +430,12 @@ agent_info(Addr, Port, Item) ->
     end.
 
 update_agent_info(UserId, TargetName, Item, Val) ->
-%%     p("update_agent_info -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Item:       ~p"
-%%       "~n   Val:        ~p", [UserId, TargetName, Item, Val]),
     snmpm_config:update_agent_info(UserId, TargetName, Item, Val).
 
 %% Backward compatibillity functions
 update_agent_info(UserId, Addr, Port, Item, Val) ->
-%%     p("update_agent_info -> entry with"
-%%       "~n   UserId: ~p"
-%%       "~n   Addr:   ~p"
-%%       "~n   Port:   ~p"
-%%       "~n   Item:   ~p"
-%%       "~n   Val:    ~p", [UserId, Addr, Port, Item, Val]),
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("update_agent_info -> TargetName: ~p", [TargetName]),
 	    update_agent_info(UserId, TargetName, Item, Val);
 	Error ->
 	    Error
@@ -473,93 +498,39 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 %% 
 
 sync_get(UserId, TargetName, Oids) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Oids:       ~p", [UserId, TargetName, Oids]),
     sync_get(UserId, TargetName, ?DEFAULT_CONTEXT, Oids).
 
 sync_get(UserId, TargetName, Context, Oids) when is_list(Oids) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Context:    ~p"
-%%       "~n   Oids:       ~p", [UserId, TargetName, Context, Oids]),
     snmpm_server:sync_get(UserId, TargetName, Context, Oids);
 
 sync_get(UserId, TargetName, Oids, Timeout) when is_integer(Timeout) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Oids:       ~p"
-%%       "~n   Timeout:    ~p", [UserId, TargetName, Oids, Timeout]),
     sync_get(UserId, TargetName, ?DEFAULT_CONTEXT, Oids, Timeout).
 
 sync_get(UserId, TargetName, Context, Oids, Timeout) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Context:    ~p"
-%%       "~n   Oids:       ~p"
-%%       "~n   Timeout:    ~p", [UserId, TargetName, Context, Oids, Timeout]),
     snmpm_server:sync_get(UserId, TargetName, Context, Oids, Timeout).
 
 sync_get(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Context:    ~p"
-%%       "~n   Oids:       ~p"
-%%       "~n   Timeout:    ~p"
-%%       "~n   ExtraInfo:  ~p", 
-%%       [UserId, TargetName, Context, Oids, Timeout, ExtraInfo]),
     snmpm_server:sync_get(UserId, TargetName, Context, Oids, Timeout, 
 			  ExtraInfo).
 
 
 g(UserId, Addr, Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, Oids]),
     g(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids).
 
 g(UserId, Addr, CtxName, Oids) when is_list(CtxName) andalso is_list(Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   CtxName: ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, CtxName, Oids]),
     g(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids);
 
 g(UserId, Addr, Port, Oids) when is_integer(Port) andalso is_list(Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Port:    ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, Port, Oids]),
     g(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
 
 g(UserId, Addr, Oids, Timeout) 
   when is_list(Oids) andalso is_integer(Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Oids:    ~p"
-%%       "~n   Timeout: ~p", [UserId, Addr, Oids, Timeout]),
     g(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids, Timeout).
 
 g(UserId, Addr, Port, CtxName, Oids) 
   when is_integer(Port) andalso is_list(CtxName) andalso is_list(Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Port:    ~p"
-%%       "~n   Context: ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, Port, CtxName, Oids]),
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("g -> TargetName: ~p", [TargetName]),
 	    sync_get(UserId, TargetName, CtxName, Oids);
 	Error ->
 	    Error
@@ -567,55 +538,23 @@ g(UserId, Addr, Port, CtxName, Oids)
     
 g(UserId, Addr, Port, Oids, Timeout) 
   when is_integer(Port) andalso is_list(Oids) andalso is_integer(Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p", 
-%%       [UserId, Addr, Oids, Timeout]),
     g(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids, Timeout);
 
 g(UserId, Addr, CtxName, Oids, Timeout) 
   when is_list(CtxName) andalso is_list(Oids) andalso is_integer(Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   CtxName:   ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p", 
-%%       [UserId, Addr, CtxName, Oids, Timeout]),
     g(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids, Timeout).
 
 g(UserId, Addr, Port, CtxName, Oids, Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   Port:      ~p"
-%%       "~n   CtxName:   ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p", 
-%%       [UserId, Addr, Port, CtxName, Oids, Timeout]),
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("g -> TargetName: ~p", [TargetName]),
 	    sync_get(UserId, TargetName, CtxName, Oids, Timeout);
 	Error ->
 	    Error
     end.
 
 g(UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   Port:      ~p"
-%%       "~n   CtxName:   ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p"
-%%       "~n   ExtraInfo: ~p", 
-%%       [UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo]),
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("g -> TargetName: ~p", [TargetName]),
 	    sync_get(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo);
 	Error ->
 	    Error

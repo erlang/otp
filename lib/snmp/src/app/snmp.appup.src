@@ -22,8 +22,14 @@
 %% ----- U p g r a d e -------------------------------------------------------
 
  [
+  {"4.19", 
+   [
+    {load_module, snmpm, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"4.18", 
    [
+    {load_module, snmpm, soft_purge, soft_purge, []}, 
     {load_module, snmp_misc, soft_purge, soft_purge, []},
     {load_module, snmpa_vacm, soft_purge, soft_purge, []}, 
     {load_module, snmpa, soft_purge, soft_purge, 
@@ -53,8 +59,14 @@
 %% ------D o w n g r a d e ---------------------------------------------------
 
  [
+  {"4.19", 
+   [
+    {load_module, snmpm, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"4.18", 
    [
+    {load_module, snmpm, soft_purge, soft_purge, []}, 
     {load_module, snmp_misc, soft_purge, soft_purge, []}, 
     {load_module, snmpa_vacm, soft_purge, soft_purge, []},
     {load_module, snmpa, soft_purge, soft_purge, 
