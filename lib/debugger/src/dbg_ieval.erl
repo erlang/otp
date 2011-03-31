@@ -382,10 +382,11 @@ catch_value(throw, Reason) ->
 %% Top level function of meta evaluator. 
 %% Return message to be replied to the target process.
 %%--------------------------------------------------------------------
-eval_mfa(Debugged, M, F, As, Ieval) ->
+eval_mfa(Debugged, M, F, As, #ieval{level=Le}=Ieval0) ->
     Int = get(int),
     Bs = erl_eval:new_bindings(),
-    try eval_function(M,F,As,Bs,extern,Ieval#ieval{top=true}) of
+    Ieval = Ieval0#ieval{level=Le+1,top=true},
+    try do_eval_function(M, F, As, Bs, extern, Ieval) of
 	{value, Val, _Bs} ->
 	    {ready, Val}
     catch
@@ -397,18 +398,21 @@ eval_mfa(Debugged, M, F, As, Ieval) ->
 	    {exception, {Class, Reason, get(stacktrace)}}
     end.
 
-eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
-						       Mod =:= ?MODULE,
-						       Fun =:= eval_fun ->
+eval_function(Mod, Name, As, Bs, Called, Ieval0) ->
+    Ieval = dbg_istk:push(Bs, Ieval0),
+    Res = do_eval_function(Mod, Name, As, Bs, Called, Ieval),
+    dbg_istk:pop(),
+    Res.
+
+do_eval_function(Mod, Fun, As0, Bs0, _, Ieval) when is_function(Fun);
+						    Mod =:= ?MODULE,
+						    Fun =:= eval_fun ->
     #ieval{level=Le, line=Li, top=Top} = Ieval,
     case lambda(Fun, As0) of
 	{Cs,Module,Name,As,Bs} ->
-	    dbg_istk:push({Module,Name,As}, Bs0, Ieval),
 	    trace(call_fun, {Le,Li,Name,As}),
 	    {value, Val, _Bs} =
-		fnk_clauses(Cs, Module, Name, As, Bs,
-			    Ieval#ieval{level=Le+1}),
-	    dbg_istk:pop(),
+		fnk_clauses(Cs, Module, Name, As, Bs, Ieval),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -416,12 +420,9 @@ eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
 	    trace(call_fun, {Le,Li,Fun,As0}),
 	    {value, {dbg_apply,erlang,apply,[Fun,As0]}, Bs0};
 	not_interpreted ->
-	    dbg_istk:push({Fun,As0}, Bs0, Ieval),
 	    trace(call_fun, {Le,Li,Fun,As0}),
 	    {value, Val, _Bs} =
-		debugged_cmd({apply,erlang,apply,[Fun,As0]},Bs0,
-			     Ieval#ieval{level=Le+1}),
-	    dbg_istk:pop(),
+		debugged_cmd({apply,erlang,apply,[Fun,As0]}, Bs0, Ieval),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -433,22 +434,19 @@ eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
     end;
 
 %% Common Test adaptation
-eval_function(ct_line, line, As, Bs, extern, #ieval{level=Le}=Ieval) ->
+do_eval_function(ct_line, line, As, Bs, extern, #ieval{level=Le}=Ieval) ->
     debugged_cmd({apply,ct_line,line,As}, Bs, Ieval#ieval{level=Le+1}),
     {value, ignore, Bs};
 
-eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
-    #ieval{level=Le, line=Li, top=Top} = Ieval,
-
-    dbg_istk:push({Mod,Name,As0}, Bs0, Ieval),
+do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
+    #ieval{level=Le,line=Li,top=Top} = Ieval0,
     trace(call, {Called, {Le,Li,Mod,Name,As0}}),
-
+    Ieval = Ieval0#ieval{module=Mod,function=Name,arguments=As0},
     case get_function(Mod, Name, As0, Called) of
 	Cs when is_list(Cs) ->
 	    {value, Val, _Bs} =
 		fnk_clauses(Cs, Mod, Name, As0, erl_eval:new_bindings(),
-			    Ieval#ieval{level=Le+1}),
-	    dbg_istk:pop(),
+			    Ieval),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -456,9 +454,7 @@ eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
 	    {value, {dbg_apply,Mod,Name,As0}, Bs0};
 	not_interpreted ->
 	    {value, Val, _Bs} =
-		debugged_cmd({apply,Mod,Name,As0}, Bs0,
-			     Ieval#ieval{level=Le+1}),
-	    dbg_istk:pop(),
+		debugged_cmd({apply,Mod,Name,As0}, Bs0, Ieval),
 	    trace(return, {Le,Val}),
 	    {value, Val, Bs0};
 
@@ -807,10 +803,11 @@ expr({dbg,Line,exit,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
 
 %% Call to "safe" BIF, ie a BIF that can be executed in Meta process
 expr({safe_bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {As,Bs} = eval_list(As0, Bs0, Ieval),
+    Ieval1 = Ieval0#ieval{line=Line},
+    {As,Bs} = eval_list(As0, Bs0, Ieval1),
     trace(bif, {Le,Line,M,F,As}),
-    dbg_istk:push({M,F,As}, Bs0, Ieval),
+    Ieval2 = dbg_istk:push(Bs0, Ieval1),
+    Ieval = Ieval2#ieval{module=M,function=F,arguments=As},
     {_,Value,_} = Res = safe_bif(M, F, As, Bs, Ieval),
     trace(return, {Le,Value}),
     dbg_istk:pop(),
@@ -818,12 +815,12 @@ expr({safe_bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
 
 %% Call to a BIF that must be evaluated in the correct process
 expr({bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    Ieval = Ieval0#ieval{line=Line},
-    {As,Bs} = eval_list(As0, Bs0, Ieval),
+    Ieval1 = Ieval0#ieval{line=Line},
+    {As,Bs} = eval_list(As0, Bs0, Ieval1),
     trace(bif, {Le,Line,M,F,As}),
-    dbg_istk:push({M,F,As}, Bs0, Ieval),
-    {_,Value,_} =
-	Res = debugged_cmd({apply,M,F,As}, Bs, Ieval#ieval{level=Le+1}),
+    Ieval2 = dbg_istk:push(Bs0, Ieval1),
+    Ieval = Ieval2#ieval{module=M,function=F,arguments=As},
+    {_,Value,_} = Res = debugged_cmd({apply,M,F,As}, Bs, Ieval),
     trace(return, {Le,Value}),
     dbg_istk:pop(),
     Res;

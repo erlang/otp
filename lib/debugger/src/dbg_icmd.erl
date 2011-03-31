@@ -345,8 +345,8 @@ handle_user_msg({get,stack_frame,From,{Dir,SP}}, _Status, _Bs,_Ieval) ->
     reply(From, stack_frame, dbg_istk:stack_frame(Dir, SP));
 handle_user_msg({get,messages,From,_}, _Status, _Bs, _Ieval) ->
     reply(From, messages, messages());
-handle_user_msg({get,backtrace,From,N}, _Status, _Bs, _Ieval) ->
-    reply(From, backtrace, dbg_istk:backtrace(N)).
+handle_user_msg({get,backtrace,From,N}, _Status, _Bs, Ieval) ->
+    reply(From, backtrace, dbg_istk:backtrace(N, Ieval)).
 
 set_stack_trace(true) ->
     set_stack_trace(all);

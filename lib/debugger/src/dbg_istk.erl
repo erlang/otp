@@ -18,9 +18,9 @@
 %%
 -module(dbg_istk).
 -export([init/0,to_external/0,from_external/1,
-	 push/3,pop/0,pop/1,stack_level/0,
+	 push/2,pop/0,pop/1,stack_level/0,
 	 exception_stacktrace/2,
-	 bindings/1,stack_frame/2,backtrace/1,
+	 bindings/1,stack_frame/2,backtrace/2,
 	 in_use_p/2]).
 
 -include("dbg_ieval.hrl").
@@ -30,7 +30,6 @@
 -record(e,
 	{level,					%Level
 	 mfa,					%{Mod,Func,Args|Arity}|{Fun,Args}
-	 cm,					%Module called from
 	 line,					%Line called from
 	 bindings
 	 }).
@@ -61,17 +60,17 @@ init(Stack) ->
 %%   false - nothing is pushed
 %% Whenever a function returns, the corresponding call frame is popped.
 
-push(MFA, Bs, #ieval{level=Le,module=Cm,line=Li,top=Lc}) ->
-    Entry = #e{level=Le,mfa=MFA,cm=Cm,line=Li,bindings=Bs},
+push(Bs, #ieval{level=Le,module=Mod,function=Name,arguments=As,
+		line=Li,top=Lc}=Ieval) ->
+    Entry = #e{level=Le,mfa={Mod,Name,As},line=Li,bindings=Bs},
     case get(trace_stack) of
-	false -> ignore;
+	false ->
+	    Ieval#ieval{level=Le+1};
 	no_tail when Lc ->
-	    case get(?STACK) of
-		[] -> put(?STACK, [Entry]);
-		[_Entry|Entries] -> put(?STACK, [Entry|Entries])
-	    end;
+	    Ieval;
 	_ -> % all | no_tail when Lc =:= false
-	    put(?STACK, [Entry|get(?STACK)])
+	    put(?STACK, [Entry|get(?STACK)]),
+	    Ieval#ieval{level=Le+1}
     end.
 
 pop() ->
@@ -117,13 +116,15 @@ stack_level([#e{level=Le}|_]) -> Le.
 %% function and convert argument lists to arity for all but the topmost
 %% entry (and funs).
 
-exception_stacktrace(complete, #ieval{}) ->
-    fix_stacktrace(1);
+exception_stacktrace(complete, #ieval{}=Ieval) ->
+    #ieval{module=Mod,function=Name,arguments=As} = Ieval,
+    Stk = [#e{mfa={Mod,Name,As}}|get(?STACK)],
+    fix_stacktrace(Stk);
 exception_stacktrace(no_current, #ieval{}) ->
-    fix_stacktrace(2).
+    fix_stacktrace(get(?STACK)).
 
-fix_stacktrace(Start) ->
-    case fix_stacktrace2(sublist(get(?STACK), Start, 3)) of
+fix_stacktrace(Stk) ->
+    case fix_stacktrace2(sublist(Stk, 1, 3)) of
 	[] ->
 	    [];
 	[H|T] ->
@@ -180,13 +181,15 @@ stack_frame(up, SP) ->
 stack_frame(down, SP) ->
     stack_frame(SP, down, lists:reverse(get(?STACK))).
 
-stack_frame(SP, up, [#e{level=Le,cm=Cm,line=Li,bindings=Bs}|_]) when Le < SP ->
+stack_frame(SP, up, [#e{level=Le,mfa={Cm,_,_},line=Li,bindings=Bs}|_])
+  when Le < SP ->
     {Le,{Cm,Li},Bs};
-stack_frame(SP, down, [#e{level=Le,cm=Cm,line=Li,bindings=Bs}|_]) when Le > SP ->
+stack_frame(SP, down, [#e{level=Le,mfa={Cm,_,_},line=Li,bindings=Bs}|_])
+  when Le > SP ->
     {Le,{Cm,Li},Bs};
 stack_frame(SP, Dir, [#e{level=SP}|Stack]) ->
     case Stack of
-	[#e{level=Le,cm=Cm,line=Li,bindings=Bs}|_] ->
+	[#e{level=Le,mfa={Cm,_,_},line=Li,bindings=Bs}|_] ->
 	    {Le,{Cm,Li},Bs};
 	[] when Dir =:= up ->
 	    top;
@@ -200,10 +203,12 @@ stack_frame(SP, Dir, [_Entry|Stack]) ->
 %%   HowMany = all | int()
 %%   Backtrace = {Le, MFA}
 %% Return all/the last N called functions, in reversed call order
-backtrace(HowMany) ->
+backtrace(HowMany, Ieval) ->
+    #ieval{level=Level,module=Mod,function=Name,arguments=As} = Ieval,
+    Stack0 = [#e{level=Level,mfa={Mod,Name,As}}|get(?STACK)],
     Stack = case HowMany of
-		all -> get(?STACK);
-		N -> lists:sublist(get(?STACK), N)
+		all -> Stack0;
+		N -> lists:sublist(Stack0, N)
 	    end,
     [{Le,MFA} || #e{level=Le,mfa=MFA} <- Stack].
 
