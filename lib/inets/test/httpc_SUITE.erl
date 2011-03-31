@@ -254,9 +254,10 @@ init_per_testcase(Case, Timeout, Config) ->
 	    [$e, $s, $s, $l | _] ->
 		init_per_testcase_ssl(essl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
 
-	    "proxy" ++ Rest ->
+	    "proxy_" ++ Rest ->
+		io:format("init_per_testcase -> Rest: ~p~n", [Rest]),
 		case Rest of			       
-		    "_https_not_supported" ->	
+		    "https_not_supported" ->	
 			tsp("init_per_testcase -> [proxy case] start inets"),
 			inets:start(),
 			tsp("init_per_testcase -> [proxy case] start ssl"),
@@ -270,13 +271,39 @@ init_per_testcase(Case, Timeout, Config) ->
 				 | TmpConfig]
 			end;
 		    _ ->
+			%% We use erlang.org for the proxy tests 
+			%% and after the switch to erlang-web, many
+			%% of the test cases no longer work (erlang.org
+			%% previously run on Apache). 
+			%% Until we have had time to update inets
+			%% (and updated erlang.org to use that inets) 
+			%% and the test cases, we simply skip the 
+			%% problematic test cases. 
+			%% This is not ideal, but I am busy....
 			case is_proxy_available(?PROXY, ?PROXY_PORT) of
 			    true ->
-				inets:start(),
-				[{watchdog, Dog} | TmpConfig];
+				BadCases = 
+				    [
+				     "delete", 
+				     "get", 
+				     "head", 
+				     "not_modified_otp_6821", 
+				     "options", 
+				     "page_does_not_exist", 
+				     "post", 
+				     "put", 
+				     "stream"
+				    ],
+				case lists:member(Rest, BadCases) of
+				    true ->
+					[{skip, "TC and server not compatible"}|
+					 TmpConfig];
+				    false ->
+					inets:start(),
+					[{watchdog, Dog} | TmpConfig]
+				end;
 			    false ->
-				[{skip, "Failed to contact proxy"} | 
-				 TmpConfig]
+				[{skip, "proxy not responding"} | TmpConfig]
 			end
 		end;
 	    _ -> 
@@ -1352,7 +1379,6 @@ proxy_options(Config) when is_list(Config) ->
     %% As of 2011-03-24, erlang.org (which is used as server) 
     %% does no longer run Apache, but instead runs inets, which 
     %% do not implement "options".
-    ?SKIP(server_does_not_implement_options),
     case ?config(skip, Config) of 
         undefined ->
 	    case httpc:request(options, {?PROXY_URL, []}, [], []) of
@@ -1379,7 +1405,6 @@ proxy_head(suite) ->
 proxy_head(Config) when is_list(Config) ->
     %% As of 2011-03-24, erlang.org (which is used as server) 
     %% does no longer run Apache, but instead runs inets.
-    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined ->
 	    case httpc:request(head, {?PROXY_URL, []}, [], []) of
@@ -1477,7 +1502,6 @@ proxy_post(suite) ->
 proxy_post(Config) when is_list(Config) ->
     %% As of 2011-03-24, erlang.org (which is used as server) 
     %% does no longer run Apache, but instead runs inets.
-    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined ->
 	    case httpc:request(post, {?PROXY_URL, [], 
@@ -1502,7 +1526,6 @@ proxy_put(suite) ->
 proxy_put(Config) when is_list(Config) ->
     %% As of 2011-03-24, erlang.org (which is used as server) 
     %% does no longer run Apache, but instead runs inets.
-    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined -> 
 	    case httpc:request(put, {"http://www.erlang.org/foobar.html", [], 
@@ -1529,7 +1552,6 @@ proxy_delete(suite) ->
 proxy_delete(Config) when is_list(Config) ->
     %% As of 2011-03-24, erlang.org (which is used as server) 
     %% does no longer run Apache, but instead runs inets.
-    ?SKIP(tc_and_server_not_compatible),
     case ?config(skip, Config) of 
 	undefined -> 
 	    URL = ?PROXY_URL ++ "/foobar.html",
