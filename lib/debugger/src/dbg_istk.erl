@@ -18,7 +18,7 @@
 %%
 -module(dbg_istk).
 -export([init/0,delayed_to_external/0,from_external/1,
-	 push/2,pop/0,pop/1,stack_level/0,
+	 push/3,pop/0,pop/1,stack_level/0,
 	 delayed_stacktrace/0,delayed_stacktrace/2,
 	 bindings/1,stack_frame/2,backtrace/2,
 	 in_use_p/2]).
@@ -61,8 +61,8 @@ init(Stack) ->
 %%   false - nothing is pushed
 %% Whenever a function returns, the corresponding call frame is popped.
 
-push(Bs, #ieval{level=Le,module=Mod,function=Name,arguments=As,
-		line=Li,top=Lc}=Ieval) ->
+push(Bs, #ieval{level=Le,module=Mod,function=Name,
+		arguments=As,line=Li}=Ieval, Lc) ->
     Entry = #e{level=Le,mfa={Mod,Name,As},line=Li,bindings=Bs},
     case get(trace_stack) of
 	false ->

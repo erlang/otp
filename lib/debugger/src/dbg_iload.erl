@@ -154,14 +154,14 @@ get_nl([],Pos,Head) -> {lists:reverse(Head),[],Pos}.
 %%% to interpret.
 
 clauses([C0|Cs]) ->
-    C1 = clause(C0),
+    C1 = clause(C0, true),
     [C1|clauses(Cs)];
 clauses([]) -> [].
 
-clause({clause,Line,H0,G0,B0}) ->
+clause({clause,Line,H0,G0,B0}, Lc) ->
     H1 = head(H0),
     G1 = guard(G0),
-    B1 = exprs(B0),
+    B1 = exprs(B0, Lc),
     {clause,Line,H1,G1,B1}.
 
 head(Ps) -> patterns(Ps).
@@ -209,7 +209,7 @@ pattern({bin,Line,Grp}) ->
     {bin,Line,Grp1};
 pattern({bin_element,Line,Expr,Size,Type}) ->
     Expr1 = pattern(Expr),
-    Size1 = expr(Size),
+    Size1 = expr(Size, false),
     {bin_element,Line,Expr1,Size1,Type}.
 
 %%  These patterns are processed "in parallel" for purposes of variable
@@ -317,173 +317,175 @@ gexpr_list([]) -> [].
 %%  These expressions are processed "sequentially" for purposes of variable
 %%  definition etc.
 
-exprs([E0|Es]) ->
-    E1 = expr(E0),
-    [E1|exprs(Es)];
-exprs([]) -> [].
+exprs([E], Lc) ->
+    [expr(E, Lc)];
+exprs([E0|Es], Lc) ->
+    E1 = expr(E0, false),
+    [E1|exprs(Es, Lc)];
+exprs([], _Lc) -> [].
 
-expr({var,Line,V}) -> {var,Line,V};
-expr({integer,Line,I}) -> {value,Line,I};
-expr({char,Line,I}) -> {value,Line,I};
-expr({float,Line,F}) -> {value,Line,F};
-expr({atom,Line,A}) -> {value,Line,A};
-expr({string,Line,S}) -> {value,Line,S};
-expr({nil,Line}) -> {value,Line,[]};
-expr({cons,Line,H0,T0}) ->
-    case {expr(H0),expr(T0)} of
+expr({var,Line,V}, _Lc) -> {var,Line,V};
+expr({integer,Line,I}, _Lc) -> {value,Line,I};
+expr({char,Line,I}, _Lc) -> {value,Line,I};
+expr({float,Line,F}, _Lc) -> {value,Line,F};
+expr({atom,Line,A}, _Lc) -> {value,Line,A};
+expr({string,Line,S}, _Lc) -> {value,Line,S};
+expr({nil,Line}, _Lc) -> {value,Line,[]};
+expr({cons,Line,H0,T0}, _Lc) ->
+    case {expr(H0, false),expr(T0, false)} of
 	{{value,Line,H1},{value,Line,T1}} -> {value,Line,[H1|T1]};
 	{H1,T1} -> {cons,Line,H1,T1}
     end;
-expr({tuple,Line,Es0}) ->
+expr({tuple,Line,Es0}, _Lc) ->
     Es1 = expr_list(Es0),
     {tuple,Line,Es1};
-expr({block,Line,Es0}) ->
+expr({block,Line,Es0}, Lc) ->
     %% Unfold block into a sequence.
-    Es1 = exprs(Es0),
+    Es1 = exprs(Es0, Lc),
     {block,Line,Es1};
-expr({'if',Line,Cs0}) ->
-    Cs1 = icr_clauses(Cs0),
+expr({'if',Line,Cs0}, Lc) ->
+    Cs1 = icr_clauses(Cs0, Lc),
     {'if',Line,Cs1};
-expr({'case',Line,E0,Cs0}) ->
-    E1 = expr(E0),
-    Cs1 = icr_clauses(Cs0),
+expr({'case',Line,E0,Cs0}, Lc) ->
+    E1 = expr(E0, false),
+    Cs1 = icr_clauses(Cs0, Lc),
     {'case',Line,E1,Cs1};
-expr({'receive',Line,Cs0}) ->
-    Cs1 = icr_clauses(Cs0),
+expr({'receive',Line,Cs0}, Lc) ->
+    Cs1 = icr_clauses(Cs0, Lc),
     {'receive',Line,Cs1};
-expr({'receive',Line,Cs0,To0,ToEs0}) ->
-    To1 = expr(To0),
-    ToEs1 = exprs(ToEs0),
-    Cs1 = icr_clauses(Cs0),
+expr({'receive',Line,Cs0,To0,ToEs0}, Lc) ->
+    To1 = expr(To0, false),
+    ToEs1 = exprs(ToEs0, Lc),
+    Cs1 = icr_clauses(Cs0, Lc),
     {'receive',Line,Cs1,To1,ToEs1};
-expr({'fun',Line,{clauses,Cs0},{_,_,Name}}) when is_atom(Name) ->
+expr({'fun',Line,{clauses,Cs0},{_,_,Name}}, _Lc) when is_atom(Name) ->
     %% New R10B-2 format (abstract_v2).
     Cs = fun_clauses(Cs0),
     {make_fun,Line,Name,Cs};
-expr({'fun',Line,{clauses,Cs0},{_,_,_,_,Name}}) when is_atom(Name) ->
+expr({'fun',Line,{clauses,Cs0},{_,_,_,_,Name}}, _Lc) when is_atom(Name) ->
     %% New R8 format (abstract_v2).
     Cs = fun_clauses(Cs0),
     {make_fun,Line,Name,Cs};
-expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}) ->
+expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
     %% New R8 format (abstract_v2).
     As = new_vars(A, Line),
-    Cs = [{clause,Line,As,[],[{local_call,Line,F,As}]}],
+    Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
-expr({'fun',_,{clauses,_},{_OldUniq,_Hvss,_Free}}) ->
+expr({'fun',_,{clauses,_},{_OldUniq,_Hvss,_Free}}, _Lc) ->
     %% Old format (abstract_v1).
     exit({?MODULE,old_funs});
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,self}},[]}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _Lc) ->
     {dbg,Line,self,[]};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}, _Lc) ->
     {dbg,Line,get_stacktrace,[]};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,throw}},[_]=As}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,throw}},[_]=As}, _Lc) ->
     {dbg,Line,throw,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}, _Lc) ->
     {dbg,Line,error,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}, _Lc) ->
     {dbg,Line,exit,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,raise}},[_,_,_]=As}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,raise}},[_,_,_]=As}, _Lc) ->
     {dbg,Line,raise,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}) ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}, Lc) ->
     As = expr_list(As0),
-    {apply,Line,As};
-expr({call,Line,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}) ->
+    {apply,Line,As,Lc};
+expr({call,Line,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}, Lc) ->
     As = expr_list(As0),
     case erlang:is_builtin(Mod, Func, length(As)) of
 	false ->
-	    {call_remote,Line,Mod,Func,As};
+	    {call_remote,Line,Mod,Func,As,Lc};
 	true ->
 	    case bif_type(Mod, Func, length(As0)) of
 		safe -> {safe_bif,Line,Mod,Func,As};
 		unsafe ->{bif,Line,Mod,Func,As}
 	    end
     end;
-expr({call,Line,{remote,_,Mod0,Func0},As0}) ->
+expr({call,Line,{remote,_,Mod0,Func0},As0}, Lc) ->
     %% New R8 format (abstract_v2).
-    Mod = expr(Mod0),
-    Func = expr(Func0),
+    Mod = expr(Mod0, false),
+    Func = expr(Func0, false),
     As = consify(expr_list(As0)),
-    {apply,Line,[Mod,Func,As]};
-expr({call,Line,{atom,_,Func},As0}) ->
+    {apply,Line,[Mod,Func,As],Lc};
+expr({call,Line,{atom,_,Func},As0}, Lc) ->
     As = expr_list(As0),
-    {local_call,Line,Func,As};
-expr({call,Line,Fun0,As0}) ->
-    Fun = expr(Fun0),
+    {local_call,Line,Func,As,Lc};
+expr({call,Line,Fun0,As0}, Lc) ->
+    Fun = expr(Fun0, false),
     As = expr_list(As0),
-    {apply_fun,Line,Fun,As};
-expr({'catch',Line,E0}) ->
+    {apply_fun,Line,Fun,As,Lc};
+expr({'catch',Line,E0}, _Lc) ->
     %% No new variables added.
-    E1 = expr(E0),
+    E1 = expr(E0, false),
     {'catch',Line,E1};
-expr({'try',Line,Es0,CaseCs0,CatchCs0,As0}) ->
+expr({'try',Line,Es0,CaseCs0,CatchCs0,As0}, Lc) ->
     %% No new variables added.
     Es = expr_list(Es0),
-    CaseCs = icr_clauses(CaseCs0),
-    CatchCs = icr_clauses(CatchCs0),
+    CaseCs = icr_clauses(CaseCs0, Lc),
+    CatchCs = icr_clauses(CatchCs0, Lc),
     As = expr_list(As0),
     {'try',Line,Es,CaseCs,CatchCs,As};
-expr({'query', Line, E0}) ->
-    E = expr(E0),
+expr({'query', Line, E0}, _Lc) ->
+    E = expr(E0, false),
     {'query', Line, E};
-expr({lc,Line,E0,Gs0}) ->			%R8.
+expr({lc,Line,E0,Gs0}, _Lc) ->			%R8.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0),expr(Qs)};
+			   {generate,L,expr(P0, false),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0),expr(Qs)};
+			   {b_generate,L,expr(P0, false),expr(Qs, false)};
 		       (Expr) ->
 			   case is_guard(Expr) of
 			       true -> {guard,guard([[Expr]])};
-			       false -> expr(Expr)
+			       false -> expr(Expr, false)
 			   end
 		   end, Gs0),
-    {lc,Line,expr(E0),Gs};
-expr({bc,Line,E0,Gs0}) ->			%R12.
+    {lc,Line,expr(E0, false),Gs};
+expr({bc,Line,E0,Gs0}, _Lc) ->			%R12.
     Gs = lists:map(fun ({generate,L,P0,Qs}) ->
-			   {generate,L,expr(P0),expr(Qs)};
+			   {generate,L,expr(P0, false),expr(Qs, false)};
 		       ({b_generate,L,P0,Qs}) -> %R12.
-			   {b_generate,L,expr(P0),expr(Qs)};
+			   {b_generate,L,expr(P0, false),expr(Qs, false)};
 		       (Expr) ->
 			   case is_guard(Expr) of
 			       true -> {guard,guard([[Expr]])};
-			       false -> expr(Expr)
+			       false -> expr(Expr, false)
 			   end
 		   end, Gs0),
-    {bc,Line,expr(E0),Gs};
-expr({match,Line,P0,E0}) ->
-    E1 = expr(E0),
+    {bc,Line,expr(E0, false),Gs};
+expr({match,Line,P0,E0}, _Lc) ->
+    E1 = expr(E0, false),
     P1 = pattern(P0),
     {match,Line,P1,E1};
-expr({op,Line,Op,A0}) ->
-    A1 = expr(A0),
+expr({op,Line,Op,A0}, _Lc) ->
+    A1 = expr(A0, false),
     {op,Line,Op,[A1]};
-expr({op,Line,'++',L0,R0}) ->
-    L1 = expr(L0),
-    R1 = expr(R0),				%They see the same variables
+expr({op,Line,'++',L0,R0}, _Lc) ->
+    L1 = expr(L0, false),
+    R1 = expr(R0, false),		  %They see the same variables
     {op,Line,append,[L1,R1]};
-expr({op,Line,'--',L0,R0}) ->
-    L1 = expr(L0),
-    R1 = expr(R0),				%They see the same variables
+expr({op,Line,'--',L0,R0}, _Lc) ->
+    L1 = expr(L0, false),
+    R1 = expr(R0, false),		  %They see the same variables
     {op,Line,subtract,[L1,R1]};
-expr({op,Line,'!',L0,R0}) ->
-    L1 = expr(L0),
-    R1 = expr(R0),				%They see the same variables
+expr({op,Line,'!',L0,R0}, _Lc) ->
+    L1 = expr(L0, false),
+    R1 = expr(R0, false),		  %They see the same variables
     {send,Line,L1,R1};
-expr({op,Line,Op,L0,R0}) when Op =:= 'andalso'; Op =:= 'orelse' ->
-    L1 = expr(L0),
-    R1 = expr(R0),				%They see the same variables
+expr({op,Line,Op,L0,R0}, _Lc) when Op =:= 'andalso'; Op =:= 'orelse' ->
+    L1 = expr(L0, false),
+    R1 = expr(R0, false),		  %They see the same variables
     {Op,Line,L1,R1};
-expr({op,Line,Op,L0,R0}) ->
-    L1 = expr(L0),
-    R1 = expr(R0),				%They see the same variables
+expr({op,Line,Op,L0,R0}, _Lc) ->
+    L1 = expr(L0, false),
+    R1 = expr(R0, false),		  %They see the same variables
     {op,Line,Op,[L1,R1]};
-expr({bin,Line,Grp}) ->
+expr({bin,Line,Grp}, _Lc) ->
     Grp1 = expr_list(Grp),
     {bin,Line,Grp1};
-expr({bin_element,Line,Expr,Size,Type}) ->
-    Expr1 = expr(Expr),
-    Size1 = expr(Size),
+expr({bin_element,Line,Expr,Size,Type}, _Lc) ->
+    Expr1 = expr(Expr, false),
+    Size1 = expr(Size, false),
     {bin_element,Line,Expr1,Size1,Type};
-expr(Other) ->
+expr(Other, _Lc) ->
     exit({?MODULE,{unknown_expr,Other}}).
 
 %% is_guard(Expression) -> true | false.
@@ -532,17 +534,17 @@ consify([]) -> {value,0,[]}.
 %%  definition etc.
 
 expr_list([E0|Es]) ->
-    E1 = expr(E0),
+    E1 = expr(E0, false),
     [E1|expr_list(Es)];
 expr_list([]) -> [].
 
-icr_clauses([C0|Cs]) ->
-    C1 = clause(C0),
-    [C1|icr_clauses(Cs)];
-icr_clauses([]) -> [].
+icr_clauses([C0|Cs], Lc) ->
+    C1 = clause(C0, Lc),
+    [C1|icr_clauses(Cs, Lc)];
+icr_clauses([], _) -> [].
 
 fun_clauses([{clause,L,H,G,B}|Cs]) ->
-    [{clause,L,head(H),guard(G),exprs(B)}|fun_clauses(Cs)];
+    [{clause,L,head(H),guard(G),exprs(B, true)}|fun_clauses(Cs)];
 fun_clauses([]) -> [].
 
 %% new_var_name() -> VarName.

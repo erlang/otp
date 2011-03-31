@@ -413,8 +413,8 @@ eval_mfa(Debugged, M, F, As, #ieval{level=Le}=Ieval0) ->
 	    {exception, {Class, Reason, get_stacktrace()}}
     end.
 
-eval_function(Mod, Name, As, Bs, Called, Ieval0) ->
-    Ieval = dbg_istk:push(Bs, Ieval0),
+eval_function(Mod, Name, As, Bs, Called, Ieval0, Lc) ->
+    Ieval = dbg_istk:push(Bs, Ieval0, Lc),
     Res = do_eval_function(Mod, Name, As, Bs, Called, Ieval),
     dbg_istk:pop(),
     Res.
@@ -773,21 +773,21 @@ expr({make_fun,Line,Name,Cs}, Bs, #ieval{module=Module}=Ieval) ->
     {value,Fun,Bs};
 
 %% Common test adaptation
-expr({call_remote,0,ct_line,line,As0}, Bs0, Ieval0) ->
+expr({call_remote,0,ct_line,line,As0,Lc}, Bs0, Ieval0) ->
     {As,_Bs} = eval_list(As0, Bs0, Ieval0),
-    eval_function(ct_line, line, As, Bs0, extern, Ieval0);
+    eval_function(ct_line, line, As, Bs0, extern, Ieval0, Lc);
 
 %% Local function call
-expr({local_call,Line,F,As0}, Bs0, #ieval{module=M} = Ieval0) ->
+expr({local_call,Line,F,As0,Lc}, Bs0, #ieval{module=M} = Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {As,Bs} = eval_list(As0, Bs0, Ieval),
-    eval_function(M, F, As, Bs, local, Ieval);
+    eval_function(M, F, As, Bs, local, Ieval, Lc);
 
 %% Remote function call
-expr({call_remote,Line,M,F,As0}, Bs0, Ieval0) ->
+expr({call_remote,Line,M,F,As0,Lc}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {As,Bs} = eval_list(As0, Bs0, Ieval),
-    eval_function(M, F, As, Bs, extern, Ieval);
+    eval_function(M, F, As, Bs, extern, Ieval, Lc);
 
 %% Emulated semantics of some BIFs
 expr({dbg,Line,self,[]}, Bs, #ieval{level=Le}) ->
@@ -840,7 +840,7 @@ expr({safe_bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval1 = Ieval0#ieval{line=Line},
     {As,Bs} = eval_list(As0, Bs0, Ieval1),
     trace(bif, {Le,Line,M,F,As}),
-    Ieval2 = dbg_istk:push(Bs0, Ieval1),
+    Ieval2 = dbg_istk:push(Bs0, Ieval1, false),
     Ieval = Ieval2#ieval{module=M,function=F,arguments=As},
     {_,Value,_} = Res = safe_bif(M, F, As, Bs, Ieval),
     trace(return, {Le,Value}),
@@ -852,7 +852,7 @@ expr({bif,Line,M,F,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval1 = Ieval0#ieval{line=Line},
     {As,Bs} = eval_list(As0, Bs0, Ieval1),
     trace(bif, {Le,Line,M,F,As}),
-    Ieval2 = dbg_istk:push(Bs0, Ieval1),
+    Ieval2 = dbg_istk:push(Bs0, Ieval1, false),
     Ieval = Ieval2#ieval{module=M,function=F,arguments=As},
     {_,Value,_} = Res = debugged_cmd({apply,M,F,As}, Bs, Ieval),
     trace(return, {Le,Value}),
@@ -872,7 +872,7 @@ expr({op,Line,Op,As0}, Bs0, Ieval0) ->
     end;
 
 %% apply/2 (fun)
-expr({apply_fun,Line,Fun0,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
+expr({apply_fun,Line,Fun0,As0,Lc}, Bs0, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     FunValue = case expr(Fun0, Bs0, Ieval) of
 		   {value,{dbg_apply,Mx,Fx,Asx},Bsx} ->
@@ -884,19 +884,19 @@ expr({apply_fun,Line,Fun0,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
     case FunValue of
 	{value,Fun,Bs1} when is_function(Fun) ->
 	    {As,Bs} = eval_list(As0, Bs1, Ieval),
-	    eval_function(undefined, Fun, As, Bs, extern, Ieval);
+	    eval_function(undefined, Fun, As, Bs, extern, Ieval, Lc);
 	{value,{M,F},Bs1} when is_atom(M), is_atom(F) ->
 	    {As,Bs} = eval_list(As0, Bs1, Ieval),
-	    eval_function(M, F, As, Bs, extern, Ieval);
+	    eval_function(M, F, As, Bs, extern, Ieval, Lc);
 	{value,BadFun,Bs1} ->
 	    exception(error, {badfun,BadFun}, Bs1, Ieval)
     end;
 
 %% apply/3
-expr({apply,Line,As0}, Bs0, Ieval0) ->
+expr({apply,Line,As0,Lc}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {[M,F,As],Bs} = eval_list(As0, Bs0, Ieval),
-    eval_function(M, F, As, Bs, extern, Ieval);
+    eval_function(M, F, As, Bs, extern, Ieval, Lc);
     
 %% Receive statement
 expr({'receive',Line,Cs}, Bs0, #ieval{level=Le}=Ieval) ->
