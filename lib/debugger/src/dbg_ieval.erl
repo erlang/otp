@@ -403,6 +403,7 @@ eval_mfa(Debugged, M, F, As, #ieval{level=Le}=Ieval0) ->
     Ieval = Ieval0#ieval{level=Le+1,top=true},
     try do_eval_function(M, F, As, Bs, extern, Ieval) of
 	{value, Val, _Bs} ->
+	    trace(return, {Le,Val}),
 	    {ready, Val}
     catch
 	exit:{Debugged, Reason} ->
@@ -414,38 +415,41 @@ eval_mfa(Debugged, M, F, As, #ieval{level=Le}=Ieval0) ->
     end.
 
 eval_function(Mod, Name, As, Bs, Called, Ieval0, Lc) ->
-    Ieval = dbg_istk:push(Bs, Ieval0, Lc),
-    Res = do_eval_function(Mod, Name, As, Bs, Called, Ieval),
-    dbg_istk:pop(),
-    Res.
+    Tail = Lc andalso get(trace_stack) =:= no_tail,
+    case Tail of
+	false ->
+	    Ieval = dbg_istk:push(Bs, Ieval0, Lc),
+	    {value,Val,_} = do_eval_function(Mod, Name, As, Bs, Called, Ieval),
+	    dbg_istk:pop(),
+	    trace(return, {Ieval#ieval.level,Val}),
+	    {value,Val,Bs};
+	true ->
+	    do_eval_function(Mod, Name, As, Bs, Called, Ieval0)
+    end.
 
-do_eval_function(Mod, Fun, As0, Bs0, _, Ieval) when is_function(Fun);
+do_eval_function(Mod, Fun, As0, Bs0, _, Ieval0) when is_function(Fun);
 						    Mod =:= ?MODULE,
 						    Fun =:= eval_fun ->
-    #ieval{level=Le, line=Li, top=Top} = Ieval,
+    #ieval{level=Le,line=Li,top=Top} = Ieval0,
     case lambda(Fun, As0) of
-	{Cs,Module,Name,As,Bs} ->
+	{[{clause,Fc,_,_,_}|_]=Cs,Module,Name,As,Bs} ->
+	    Ieval = Ieval0#ieval{module=Module,function=Name,
+				 arguments=As0,line=Fc},
 	    trace(call_fun, {Le,Li,Name,As}),
-	    {value, Val, _Bs} =
-		fnk_clauses(Cs, Module, Name, As, Bs, Ieval),
-	    trace(return, {Le,Val}),
-	    {value, Val, Bs0};
+	    fnk_clauses(Cs, As, Bs, Ieval);
 
 	not_interpreted when Top -> % We are leaving interpreted code
 	    trace(call_fun, {Le,Li,Fun,As0}),
 	    {value, {dbg_apply,erlang,apply,[Fun,As0]}, Bs0};
 	not_interpreted ->
 	    trace(call_fun, {Le,Li,Fun,As0}),
-	    {value, Val, _Bs} =
-		debugged_cmd({apply,erlang,apply,[Fun,As0]}, Bs0, Ieval),
-	    trace(return, {Le,Val}),
-	    {value, Val, Bs0};
+	    debugged_cmd({apply,erlang,apply,[Fun,As0]}, Bs0, Ieval0);
 
 	{error,Reason} ->
 	    %% It's ok not to push anything in this case, the error
 	    %% reason contains information about the culprit
 	    %% ({badarity,{{Mod,Name},As}})
-	    exception(error, Reason, Bs0, Ieval)
+	    exception(error, Reason, Bs0, Ieval0)
     end;
 
 %% Common Test adaptation
@@ -459,19 +463,12 @@ do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
     Ieval = Ieval0#ieval{module=Mod,function=Name,arguments=As0},
     case get_function(Mod, Name, As0, Called) of
 	Cs when is_list(Cs) ->
-	    {value, Val, _Bs} =
-		fnk_clauses(Cs, Mod, Name, As0, erl_eval:new_bindings(),
-			    Ieval),
-	    trace(return, {Le,Val}),
-	    {value, Val, Bs0};
+	    fnk_clauses(Cs, As0, erl_eval:new_bindings(), Ieval);
 
 	not_interpreted when Top -> % We are leaving interpreted code
 	    {value, {dbg_apply,Mod,Name,As0}, Bs0};
 	not_interpreted ->
-	    {value, Val, _Bs} =
-		debugged_cmd({apply,Mod,Name,As0}, Bs0, Ieval),
-	    trace(return, {Le,Val}),
-	    {value, Val, Bs0};
+	    debugged_cmd({apply,Mod,Name,As0}, Bs0, Ieval);
 
 	undef ->
 	    exception(error, undef, Bs0, Ieval, true)
@@ -575,22 +572,20 @@ cached(Key) ->
 
 %% Try to find a matching function clause
 %% #ieval.level is set, the other fields must be set in this function
-fnk_clauses([{clause,Line,Pars,Gs,Body}|Cs], M, F, As, Bs0, Ieval) ->
+fnk_clauses([{clause,Line,Pars,Gs,Body}|Cs], As, Bs0, Ieval) ->
     case head_match(Pars, As, [], Bs0) of
 	{match,Bs1} ->
 	    Bs = add_bindings(Bs1, Bs0),
 	    case guard(Gs, Bs) of
 		true ->
-		    seq(Body, Bs,
-			Ieval#ieval{line=Line,
-				    module=M,function=F,arguments=As});
+		    seq(Body, Bs, Ieval#ieval{line=Line});
 		false ->
-		    fnk_clauses(Cs, M, F, As, Bs0, Ieval)
+		    fnk_clauses(Cs, As, Bs0, Ieval)
 	    end;
 	nomatch ->
-	    fnk_clauses(Cs, M, F, As, Bs0, Ieval)
+	    fnk_clauses(Cs, As, Bs0, Ieval)
     end;
-fnk_clauses([], _M, _F, _As, Bs, Ieval) ->
+fnk_clauses([], _As, Bs, Ieval) ->
     exception(error, function_clause, Bs, Ieval, true).
 
 seq([E], Bs0, Ieval) ->

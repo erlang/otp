@@ -31,7 +31,8 @@
 	{level,					%Level
 	 mfa,					%{Mod,Func,Args|Arity}|{Fun,Args}
 	 line,					%Line called from
-	 bindings
+	 bindings,
+	 lc					%Last call (true|false)
 	 }).
 
 init() ->
@@ -63,7 +64,7 @@ init(Stack) ->
 
 push(Bs, #ieval{level=Le,module=Mod,function=Name,
 		arguments=As,line=Li}=Ieval, Lc) ->
-    Entry = #e{level=Le,mfa={Mod,Name,As},line=Li,bindings=Bs},
+    Entry = #e{level=Le,mfa={Mod,Name,As},line=Li,bindings=Bs,lc=Lc},
     case get(trace_stack) of
 	false ->
 	    Ieval#ieval{level=Le+1};
@@ -141,6 +142,8 @@ delayed_stacktrace(no_args, Ieval) ->
 	    [ArityOnly || {ArityOnly,_} <- Stack]
     end.
 
+stacktrace(N, [#e{lc=true}|T], Acc) ->
+    stacktrace(N, T, Acc);
 stacktrace(N, [E|T], []) ->
     stacktrace(N-1, T, [normalize(E)]);
 stacktrace(N, [E|T], [{P,_}|_]=Acc) when N > 0 ->

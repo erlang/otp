@@ -28,7 +28,7 @@
 	 bifs_outside_erlang/1, spawning/1, applying/1,
 	 catch_and_throw/1, external_call/1, test_module_info/1,
 	 apply_interpreted_fun/1, apply_uninterpreted_fun/1,
-	 interpreted_exit/1, otp_8310/1]).
+	 interpreted_exit/1, otp_8310/1, stacktrace/1]).
 
 %% Helpers.
 -export([applier/3]).
@@ -44,7 +44,7 @@ all() ->
     [bifs_outside_erlang, spawning, applying,
      catch_and_throw, external_call, test_module_info,
      apply_interpreted_fun, apply_uninterpreted_fun,
-     interpreted_exit, otp_8310].
+     interpreted_exit, otp_8310, stacktrace].
 
 groups() -> 
     [].
@@ -276,6 +276,37 @@ applier(M, F, A) ->
     Res = apply(M, F, A),
     io:format("~p:~p(~p) => ~p\n", [M,F,A,Res]),
     Res.
+
+stacktrace(Config) when is_list(Config) ->
+    ?line {done,Stk} = do_eval(Config, stacktrace),
+    ?line 13 = length(Stk),
+    ?line OldStackTraceFlag = int:stack_trace(),
+    ?line int:stack_trace(no_tail),
+    try
+	?line Res = spawn_eval(fun() -> stacktrace:stacktrace() end),
+	?line io:format("\nInterpreted (no_tail):\n~p", [Res]),
+	?line {done,Stk} = Res
+	after
+	    ?line int:stack_trace(OldStackTraceFlag)
+	end,
+    ok.
+
+
+do_eval(Config, Mod) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line ok = file:set_cwd(DataDir),
+
+    ?line {ok,Mod} = compile:file(Mod, [report,debug_info]),
+    ?line {module,Mod} = code:load_file(Mod),
+    ?line CompiledRes = Mod:Mod(),
+    ?line ok = io:format("Compiled:\n~p", [CompiledRes]),
+    io:nl(),
+
+    ?line {module,Mod} = int:i(Mod),
+    ?line IntRes = Mod:Mod(),
+    ?line ok = io:format("Interpreted:\n~p", [IntRes]),
+
+    ?line CompiledRes = IntRes.
 
 %%
 %% Evaluate in another process, to prevent the test_case process to become
