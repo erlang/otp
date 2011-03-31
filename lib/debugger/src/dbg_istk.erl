@@ -19,7 +19,7 @@
 -module(dbg_istk).
 -export([init/0,to_external/0,from_external/1,
 	 push/2,pop/0,pop/1,stack_level/0,
-	 exception_stacktrace/2,
+	 delayed_stacktrace/0,delayed_stacktrace/1,
 	 bindings/1,stack_frame/2,backtrace/2,
 	 in_use_p/2]).
 
@@ -106,25 +106,33 @@ stack_level() ->
 stack_level([]) -> 1;
 stack_level([#e{level=Le}|_]) -> Le.
 
-%% exception_stacktrace(HowMuch, #ieval{}) -> Stacktrace
-%%   HowMuch = complete | no_current
-%%   Stacktrace = [{M,F,Args|Arity} | {Fun,Args}]
-%% Convert internal stack format to an imitation of the
-%% regular stacktrace.
+%% delayed_stacktrace() -> CreateStacktraceFun
+%% delayed_stacktrace(#ieval{}) -> CreateStacktraceFun
+%%   CreateStacktraceFun = fun(NumberOfEntries)
+%%
+%% Return a fun that can convert the internal stack format to
+%% an imitation of the regular stacktrace.
 %%
 %% Max three elements, no repeated (recursive) calls to the same
 %% function and convert argument lists to arity for all but the topmost
 %% entry (and funs).
 
-exception_stacktrace(complete, #ieval{}=Ieval) ->
-    #ieval{module=Mod,function=Name,arguments=As} = Ieval,
-    Stk = [#e{mfa={Mod,Name,As}}|get(?STACK)],
-    fix_stacktrace(Stk);
-exception_stacktrace(no_current, #ieval{}) ->
-    fix_stacktrace(get(?STACK)).
+delayed_stacktrace() ->
+    Stack = get(?STACK),
+    do_delayed_stacktrace(Stack).
 
-fix_stacktrace(Stk) ->
-    case fix_stacktrace2(sublist(Stk, 1, 3)) of
+delayed_stacktrace(Ieval) ->
+    #ieval{module=Mod,function=Name,arguments=As} = Ieval,
+    Stack = [#e{mfa={Mod,Name,As}}|get(?STACK)],
+    do_delayed_stacktrace(Stack).
+
+do_delayed_stacktrace(Stack) ->
+    fun(_NumEntries) ->
+	    fix_stacktrace(Stack)
+    end.
+
+fix_stacktrace(Stack) ->
+    case fix_stacktrace2(sublist(Stack, 1, 3)) of
 	[] ->
 	    [];
 	[H|T] ->

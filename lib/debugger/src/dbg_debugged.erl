@@ -76,8 +76,8 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 	    msg_loop(Meta, Mref, SaveStacktrace);
 
 	%% Meta needs something evaluated within context of real process
-	{sys, Meta, {command, Command, Stacktrace}} ->
-	    Reply = handle_command(Command, Stacktrace),
+	{sys, Meta, {command,Command}} ->
+	    Reply = handle_command(Command),
 	    Meta ! {sys, self(), Reply},
 	    msg_loop(Meta, Mref, SaveStacktrace);
 
@@ -93,11 +93,12 @@ msg_loop(Meta, Mref, SaveStacktrace) ->
 	    end
     end.
 
-handle_command(Command, Stacktrace) ->
-    try reply(Command)
+handle_command(Command) ->
+    try
+	reply(Command)
     catch Class:Reason ->
-	    Stacktrace2 = stacktrace_f(erlang:get_stacktrace()),
-	    {exception, {Class,Reason,Stacktrace2++Stacktrace}}
+	    Stacktrace = stacktrace_f(erlang:get_stacktrace()),
+	    {exception,{Class,Reason,Stacktrace}}
     end.
 
 reply({apply,M,F,As}) ->

@@ -168,7 +168,7 @@ check_exit_msg(_Msg, _Bs, _Ieval) ->
 %% and then raise the exception.
 %%--------------------------------------------------------------------
 exception(Class, Reason, Bs, Ieval) ->
-    exception(Class, Reason, dbg_istk:exception_stacktrace(complete, Ieval),
+    exception(Class, Reason, dbg_istk:delayed_stacktrace(Ieval),
 	      Bs, Ieval).
 
 exception(Class, Reason, Stacktrace, Bs, #ieval{module=M, line=Line}) ->
@@ -226,8 +226,7 @@ meta(Int, Debugged, M, F, As) ->
 
 debugged_cmd(Cmd, Bs, Ieval) ->
     Debugged = get(self),
-    Stacktrace = dbg_istk:exception_stacktrace(no_current, Ieval),
-    Debugged ! {sys, self(), {command,Cmd,Stacktrace}},
+    Debugged ! {sys, self(), {command,Cmd}},
     meta_loop(Debugged, Bs, Ieval).
 
 meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
@@ -240,12 +239,17 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 	    {value, Val, Bs};
 	{sys, Debugged, {value,Val,Bs2}} ->
 	    {value, Val, Bs2};
-	{sys, Debugged, {exception,{Class,Reason,Stacktrace}}} ->
+	{sys, Debugged, {exception,{Class,Reason,Stk}}} ->
 	    case get(exit_info) of
 
-		%% Error occured outside interpreted code
+		%% Error occurred outside of interpreted code.
 		undefined ->
-		    exception(Class,Reason,Stacktrace,Bs,Ieval);
+		    MakeStk0 = dbg_istk:delayed_stacktrace(),
+		    MakeStk = fun(Depth0) ->
+				      Depth = max(0, Depth0 - length(Stk)),
+				      Stk ++ MakeStk0(Depth)
+			      end,
+		    exception(Class, Reason, MakeStk, Bs, Ieval);
 
 		%% Error must have occured within a re-entry to
 		%% interpreted code, simply raise the exception
@@ -370,7 +374,7 @@ format_args1([]) ->
 
 %% Mimic catch behaviour
 catch_value(error, Reason) ->
-    {'EXIT',{Reason,get(stacktrace)}};
+    {'EXIT',{Reason,get_stacktrace()}};
 catch_value(exit, Reason) ->
     {'EXIT',Reason};
 catch_value(throw, Reason) ->
@@ -395,7 +399,7 @@ eval_mfa(Debugged, M, F, As, #ieval{level=Le}=Ieval0) ->
 	exit:{Int, Reason} ->
 	    exit(Reason);
 	Class:Reason ->
-	    {exception, {Class, Reason, get(stacktrace)}}
+	    {exception, {Class, Reason, get_stacktrace()}}
     end.
 
 eval_function(Mod, Name, As, Bs, Called, Ieval0) ->
@@ -782,7 +786,7 @@ expr({dbg,Line,self,[]}, Bs, #ieval{level=Le}) ->
     {value,Self,Bs};
 expr({dbg,Line,get_stacktrace,[]}, Bs, #ieval{level=Le}) ->
     trace(bif, {Le,Line,erlang,get_stacktrace,[]}),
-    Stacktrace = get(stacktrace),
+    Stacktrace = get_stacktrace(),
     trace(return, {Le,Stacktrace}),
     {value,Stacktrace,Bs};
 expr({dbg,Line,throw,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
@@ -1501,3 +1505,19 @@ add_binding(N,Val,[B1|Bs]) ->
     [B1|add_binding(N,Val,Bs)];
 add_binding(N,Val,[]) ->
     [{N,Val}].
+
+%% get_stacktrace() -> Stacktrace
+%%  Return the latest stacktrace for the process.
+get_stacktrace() ->
+    case get(stacktrace) of
+	MakeStk when is_function(MakeStk, 1) ->
+	    %% The stacktrace has not been constructed before.
+	    %% Construct it and remember the result.
+	    Depth = erlang:system_flag(backtrace_depth, 8),
+	    erlang:system_flag(backtrace_depth, Depth),
+	    Stk = MakeStk(Depth),
+	    put(stacktrace, Stk),
+	    Stk;
+	Stk when is_list(Stk) ->
+	    Stk
+    end.
