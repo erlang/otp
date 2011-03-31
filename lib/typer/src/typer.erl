@@ -628,6 +628,8 @@ cl(["-T"|Opts]) ->
 cl(["-r"|Opts]) ->
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
   {{files_r, Files}, RestOpts};
+cl(["-pa",Dir|Opts]) -> {{pa,Dir}, Opts};
+cl(["-pz",Dir|Opts]) -> {{pz,Dir}, Opts};
 cl(["-"++H|_]) -> fatal_error("unknown option -"++H);
 cl(Opts) -> 
   {Files, RestOpts} = dialyzer_cl_parse:collect_args(Opts),
@@ -672,7 +674,13 @@ analyze_result({plt, Plt}, Args, Analysis) ->
 analyze_result(show_succ, Args, Analysis) ->
   {Args, Analysis#analysis{show_succ = true}};
 analyze_result(no_spec, Args, Analysis) ->
-  {Args, Analysis#analysis{no_spec = true}}.
+  {Args, Analysis#analysis{no_spec = true}};
+analyze_result({pa, Dir}, Args, Analysis) ->
+  code:add_patha(Dir),
+  {Args, Analysis};
+analyze_result({pz, Dir}, Args, Analysis) ->
+  code:add_pathz(Dir),
+  {Args, Analysis}.
 
 %%--------------------------------------------------------------------
 %% File processing.
@@ -1009,7 +1017,8 @@ version_message() ->
 help_message() ->
   S = <<" Usage: typer [--help] [--version] [--plt PLT] [--edoc]
               [--show | --show-exported | --annotate | --annotate-inc-files]
-              [-Ddefine]* [-I include_dir]* [-T application]* [-r] file*
+              [-Ddefine]* [-I include_dir]* [-pa dir]* [-pz dir]*
+              [-T application]* [-r] file*
 
  Options:
    -r dir*
@@ -1039,6 +1048,10 @@ help_message() ->
    -I include_dir
        pass the include_dir to TypEr
        (The syntax of includes is the same as that used by \"erlc\".)
+   -pa dir
+   -pz dir
+       Set code path options to TypEr
+       (This is useful for files that use parse tranforms.)
    --version (or -v)
        prints the Typer version and exits
    --help (or -h)
