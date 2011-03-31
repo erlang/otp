@@ -168,10 +168,18 @@ check_exit_msg(_Msg, _Bs, _Ieval) ->
 %% and then raise the exception.
 %%--------------------------------------------------------------------
 exception(Class, Reason, Bs, Ieval) ->
-    exception(Class, Reason, dbg_istk:delayed_stacktrace(Ieval),
-	      Bs, Ieval).
+    exception(Class, Reason, Bs, Ieval, false).
 
-exception(Class, Reason, Stacktrace, Bs, #ieval{module=M, line=Line}) ->
+exception(Class, Reason, Bs, Ieval, false) ->
+    do_exception(Class, Reason,
+		 dbg_istk:delayed_stacktrace(no_args, Ieval),
+		 Bs, Ieval);
+exception(Class, Reason, Bs, Ieval, true) ->
+    do_exception(Class, Reason,
+		 dbg_istk:delayed_stacktrace(include_args, Ieval),
+		 Bs, Ieval).
+
+do_exception(Class, Reason, Stacktrace, Bs, #ieval{module=M, line=Line}) ->
     ExitInfo = {{M,Line}, Bs, dbg_istk:to_external()},
     put(exit_info, ExitInfo),
     put(stacktrace, Stacktrace),
@@ -249,7 +257,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 				      Depth = max(0, Depth0 - length(Stk)),
 				      Stk ++ MakeStk0(Depth)
 			      end,
-		    exception(Class, Reason, MakeStk, Bs, Ieval);
+		    do_exception(Class, Reason, MakeStk, Bs, Ieval);
 
 		%% Error must have occured within a re-entry to
 		%% interpreted code, simply raise the exception
@@ -463,7 +471,7 @@ do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
 	    {value, Val, Bs0};
 
 	undef ->
-	    exception(error, undef, Bs0, Ieval)
+	    exception(error, undef, Bs0, Ieval, true)
     end.
 
 lambda(eval_fun, [Cs,As,Bs,{Mod,Name}=F]) ->
@@ -580,7 +588,7 @@ fnk_clauses([{clause,Line,Pars,Gs,Body}|Cs], M, F, As, Bs0, Ieval) ->
 	    fnk_clauses(Cs, M, F, As, Bs0, Ieval)
     end;
 fnk_clauses([], _M, _F, _As, Bs, Ieval) ->
-    exception(error, function_clause, Bs, Ieval).
+    exception(error, function_clause, Bs, Ieval, true).
 
 seq([E], Bs0, Ieval) ->
     case dbg_icmd:cmd(E, Bs0, Ieval) of
@@ -1013,7 +1021,7 @@ safe_bif(M, F, As, Bs, Ieval) ->
 	    {value,Value,Bs}
     catch
 	Class:Reason ->
-	    exception(Class, Reason, Bs, Ieval)
+	    exception(Class, Reason, Bs, Ieval, true)
     end.
 
 eval_send(To, Msg, Bs, Ieval) ->

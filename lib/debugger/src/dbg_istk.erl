@@ -19,7 +19,7 @@
 -module(dbg_istk).
 -export([init/0,to_external/0,from_external/1,
 	 push/2,pop/0,pop/1,stack_level/0,
-	 delayed_stacktrace/0,delayed_stacktrace/1,
+	 delayed_stacktrace/0,delayed_stacktrace/2,
 	 bindings/1,stack_frame/2,backtrace/2,
 	 in_use_p/2]).
 
@@ -107,60 +107,55 @@ stack_level([]) -> 1;
 stack_level([#e{level=Le}|_]) -> Le.
 
 %% delayed_stacktrace() -> CreateStacktraceFun
-%% delayed_stacktrace(#ieval{}) -> CreateStacktraceFun
+%% delayed_stacktrace(ArgFlag, #ieval{}) -> CreateStacktraceFun
+%%   ArgFlag = no_args | include_args
 %%   CreateStacktraceFun = fun(NumberOfEntries)
 %%
 %% Return a fun that can convert the internal stack format to
 %% an imitation of the regular stacktrace.
-%%
-%% Max three elements, no repeated (recursive) calls to the same
-%% function and convert argument lists to arity for all but the topmost
-%% entry (and funs).
 
 delayed_stacktrace() ->
-    Stack = get(?STACK),
-    do_delayed_stacktrace(Stack).
+    Stack0 = get(?STACK),
+    fun(NumEntries) ->
+	    Stack = stacktrace(NumEntries, Stack0, []),
+	    [ArityOnly || {ArityOnly,_} <- Stack]
+    end.
 
-delayed_stacktrace(Ieval) ->
+delayed_stacktrace(include_args, Ieval) ->
     #ieval{module=Mod,function=Name,arguments=As} = Ieval,
-    Stack = [#e{mfa={Mod,Name,As}}|get(?STACK)],
-    do_delayed_stacktrace(Stack).
-
-do_delayed_stacktrace(Stack) ->
-    fun(_NumEntries) ->
-	    fix_stacktrace(Stack)
+    Stack0 = [#e{mfa={Mod,Name,As}}|get(?STACK)],
+    fun(NumEntries) ->
+	    case stacktrace(NumEntries, Stack0, []) of
+		[] ->
+		    [];
+		[{_,WithArgs}|Stack] ->
+		    [WithArgs | [ArityOnly || {ArityOnly,_} <- Stack]]
+	    end
+    end;
+delayed_stacktrace(no_args, Ieval) ->
+    #ieval{module=Mod,function=Name,arguments=As} = Ieval,
+    Stack0 = [#e{mfa={Mod,Name,As}}|get(?STACK)],
+    fun(NumEntries) ->
+	    Stack = stacktrace(NumEntries, Stack0, []),
+	    [ArityOnly || {ArityOnly,_} <- Stack]
     end.
 
-fix_stacktrace(Stack) ->
-    case fix_stacktrace2(sublist(Stack, 1, 3)) of
-	[] ->
-	    [];
-	[H|T] ->
-	    [H|args2arity(T)]
-    end.
+stacktrace(N, [E|T], []) ->
+    stacktrace(N-1, T, [normalize(E)]);
+stacktrace(N, [E|T], [{P,_}|_]=Acc) when N > 0 ->
+    case normalize(E) of
+	{P,_} ->
+	    stacktrace(N, T, Acc);
+	New ->
+	    stacktrace(N-1, T, [New|Acc])
+    end;
+stacktrace(_, _, Acc) ->
+    lists:reverse(Acc).
 
-sublist([], _Start, _Length) ->
-    []; % workaround, lists:sublist([],2,3) fails
-sublist(L, Start, Length) ->
-    lists:sublist(L, Start, Length).
-
-fix_stacktrace2([#e{mfa={M,F,As1}}, #e{mfa={M,F,As2}}|_])
-  when length(As1) =:= length(As2) ->
-    [{M,F,As1}];
-fix_stacktrace2([#e{mfa={Fun,As1}}, #e{mfa={Fun,As2}}|_])
-  when length(As1) =:= length(As2) ->
-    [{Fun,As1}];
-fix_stacktrace2([#e{mfa=MFA}|Entries]) ->
-    [MFA|fix_stacktrace2(Entries)];
-fix_stacktrace2([]) ->
-    [].
-
-args2arity([{M,F,As}|Entries]) when is_list(As) ->
-    [{M,F,length(As)}|args2arity(Entries)];
-args2arity([Entry|Entries]) ->
-    [Entry|args2arity(Entries)];
-args2arity([]) ->
-    [].
+normalize(#e{mfa={_,Fun,As}}) when is_function(Fun) ->
+    {{Fun,length(As)},{Fun,As}};
+normalize(#e{mfa={M,F,As}}) ->
+    {{M,F,length(As)},{M,F,As}}.
 
 %% bindings(SP) -> Bs
 %%   SP = Le  % stack pointer
