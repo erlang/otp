@@ -55,6 +55,7 @@
 init_per_suite(Config) ->
     case {catch ssh:stop(),catch crypto:start()} of
 	{ok,ok} ->
+	    ssh_test_lib:make_dsa_public_key_file(42, 43, 44, 45, Config),
 	    Config;
 	{ok,_} ->
 	    {skip,"Could not start ssh!"};

@@ -44,6 +44,7 @@ init_per_suite(Config) ->
 	    Dir = ?config(priv_dir, Config),
 	    ssh_test_lib:save_known_hosts(Dir),
 	    {ok, _} =  ssh_test_lib:get_id_keys(Dir),
+	    ssh_test_lib:make_dsa_public_key_file(42, 43, 44, 45, Config),
 	    Config;
 	_Else ->
 	    {skip, "Crypto could not be started!"}

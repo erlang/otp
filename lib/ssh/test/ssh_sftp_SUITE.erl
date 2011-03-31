@@ -52,6 +52,7 @@ init_per_suite(Config) ->
 	    ssh_test_lib:save_known_hosts(Dir),
 	    %% More like copy_id_keys!!!
 	    {ok, _} = ssh_test_lib:get_id_keys(Dir),
+	    ssh_test_lib:make_dsa_public_key_file(42, 43, 44, 45, Config),
 	    Config;
 	{ok,_} ->
 	    {skip,"Could not start ssh!"};

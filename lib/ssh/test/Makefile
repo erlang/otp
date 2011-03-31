@@ -45,7 +45,7 @@ HRL_FILES_NEEDED_IN_TEST= \
 
 ERL_FILES= $(MODULES:%=%.erl)
 
-KEY_FILES=  ssh_host_dsa_key ssh_host_dsa_key.pub
+KEY_FILES= ssh_host_dsa_key #ssh_host_dsa_key.pub
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 

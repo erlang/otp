@@ -283,6 +283,10 @@ make_dsa_public_key_file(P, Q, G, Y, Config) ->
     FileName = filename:join([?config(data_dir, Config), "ssh_host_dsa_key.pub"]),
     file:write_file(FileName, <<"ssh-dss ", B64/binary>>).
 
+make_dsa_private_key_file(LSize, NSize, Config) ->
+    {Key, EncodedKey} = gen_dsa(LSize, NSize),
+    FileName = filename:join([?config(data_dir, Config), "ssh_host_dsa_key"]),
+    file:write_file(FileName, EncodedKey).
 
 %%--------------------------------------------------------------------
 %% Create and return a der encoded certificate
