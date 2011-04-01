@@ -40,7 +40,7 @@
 	 get_option/2,
 	 get_option/3,
 	 get_sec_level/1,
-	 ip/1,
+	 ip/1, ip/2, 
 	 is_auth/1,
 	 is_BitString/1,
 	 is_oid/1,
