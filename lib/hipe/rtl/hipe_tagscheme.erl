@@ -1045,7 +1045,7 @@ convert_matchstate(Ms) ->
    build_sub_binary(Ms, ByteSize, ByteOffset, BitSize, BitOffset, 
 		    hipe_rtl:mk_imm(0), Orig), 
    size_from_header(SizeInWords, Header),
-   hipe_rtl:mk_alu(Hole, SizeInWords, sub, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE-1)),
+   hipe_rtl:mk_alu(Hole, SizeInWords, sub, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE)),
    mk_var_header(BigIntHeader, Hole, ?TAG_HEADER_POS_BIG),
    hipe_rtl:mk_store(Ms, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE*WordSize-?TAG_PRIMARY_BOXED),
 		     BigIntHeader)].
