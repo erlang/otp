@@ -53,8 +53,7 @@ start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
 stop() -> 
-    supervisor:terminate_child(sasl_sup, rb_server),
-    supervisor:delete_child(sasl_sup, rb_server).
+    supervisor:terminate_child(sasl_sup, rb_server).
 
 rescan() -> rescan([]).
 rescan(Options) ->
