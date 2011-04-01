@@ -51,6 +51,13 @@
 	  <seealso marker="snmp_target_mib#add_addr">add_addr/11</seealso> for more info. </p>
           <p>Own Id: OTP-9088</p>
           <p>Aux Id: Seq 11790</p>
+	</item>
+
+        <item>
+          <p>[manager] The old API functions (for get and set
+	  requests) are now officially deprecated.
+	  They will be removed as of R16B. </p>
+          <p>Own Id: OTP-9174</p>
         </item>
 
       </list>
@@ -60,17 +67,13 @@
       <title>Fixed Bugs and Malfunctions</title>
       <p>-</p> 
 <!--
+      <list type="bulleted">
         <item>
-          <p>[agent] When calling
-          <seealso marker="snmp_view_based_acm_mib#reconfigure">snmp_view_based_acm_mib:reconfigure/1</seealso>
-          on a running node, the table <c>vacmAccessTable</c> was not properly
-          cleaned.
-          This meant that if some entries in the vacm.conf file was removed
-          (compared to the <c>current</c> config),
-          while others where modified and/or added, the removed entrie(s)
-          would still exist in the <c>vacmAccessTable</c> table. </p>
-          <p>Own Id: OTP-8981</p>
-          <p>Aux Id: Seq 11750</p>
+          <p>[agent] For the table vacmAccessTable,
+          when performing the is_set_ok and set operation(s),
+          all values of the vacmAccessSecurityModel column was
+          incorrectly translated to <c>any</c>. </p>
+          <p>Own Id: OTP-8980</p>
         </item>
 
       </list>
@@ -84,6 +87,7 @@
     </section>
 
   </section> <!-- 4.20 -->
+
 
   <section>
     <title>SNMP Development Toolkit 4.19</title>

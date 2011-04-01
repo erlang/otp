@@ -754,5 +754,5 @@ release_tests_spec: tests
 #                        $(HRL_FILES) $(ERL_FILES) \
 #                        $(RELSYSDIR)
 #
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 

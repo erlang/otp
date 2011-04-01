@@ -1066,7 +1066,7 @@ is_function f y
 is_function f r
 is_function Fail=f c => jump Fail
 
-func_info M=a F=a A=u | label L => gen_func_info(M, F, A, L)
+func_info M F A => i_func_info u M F A
 
 # ================================================================
 # New bit syntax matching (R11B).
