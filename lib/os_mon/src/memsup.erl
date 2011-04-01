@@ -176,6 +176,7 @@ init([]) ->
     PortMode = case OS of
 		   {unix, darwin} -> false;
 		   {unix, freebsd} -> false;
+		   {unix, dragonfly} -> false;
 		   % Linux supports this.
 		   {unix, linux} -> true;
 		   {unix, openbsd} -> true;
@@ -610,6 +611,7 @@ code_change(Vsn, PrevState, "1.8") ->
 	    PortMode = case OS of
 			   {unix, darwin} -> false;
 			   {unix, freebsd} -> false;
+			   {unix, dragonfly} -> false;
 			   {unix, linux} -> false;
 			   {unix, openbsd} -> true;
 			   {unix, sunos} -> true;
@@ -687,6 +689,7 @@ get_os_wordsize({unix, linux})   -> get_os_wordsize_with_uname();
 get_os_wordsize({unix, darwin})  -> get_os_wordsize_with_uname();
 get_os_wordsize({unix, netbsd})  -> get_os_wordsize_with_uname();
 get_os_wordsize({unix, freebsd}) -> get_os_wordsize_with_uname();
+get_os_wordsize({unix, dragonfly}) -> get_os_wordsize_with_uname();
 get_os_wordsize({unix, openbsd}) -> get_os_wordsize_with_uname();
 get_os_wordsize(_)               -> unsupported_os.
 
@@ -736,7 +739,7 @@ get_memory_usage({unix,darwin}) ->
 
 %% FreeBSD: Look in /usr/include/sys/vmmeter.h for the format of struct
 %% vmmeter
-get_memory_usage({unix,freebsd}) ->
+get_memory_usage({unix,OSname}) when OSname == freebsd; OSname == dragonfly ->
     PageSize  = freebsd_sysctl("vm.stats.vm.v_page_size"),
     PageCount = freebsd_sysctl("vm.stats.vm.v_page_count"),
     FreeCount = freebsd_sysctl("vm.stats.vm.v_free_count"),
@@ -777,6 +780,9 @@ get_ext_memory_usage(OS, {Alloc, Total}) ->
 	     %% corr. unless setrlimit() set
 	     {system_total_memory, Total}];
 	{unix, freebsd} ->
+	    [{total_memory, Total}, {free_memory, Total-Alloc},
+	     {system_total_memory, Total}];
+	{unix, dragonfly} ->
 	    [{total_memory, Total}, {free_memory, Total-Alloc},
 	     {system_total_memory, Total}];
 	{unix, darwin} ->
