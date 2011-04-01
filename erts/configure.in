@@ -2399,6 +2399,12 @@ if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
 	enable_hipe=no
    	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
+  elif test "$enable_halfword_emulator" = "yes"; then
+       if test X${enable_hipe} = Xyes; then
+              AC_MSG_ERROR([HiPE can not be combined with halfword emulator (yet)])
+       else		    
+   	      AC_MSG_NOTICE([HiPE auto-disabled on halfword emulator])
+       fi	
   else
   	case "$ARCH-$OPSYS" in
 	    x86-linux|amd64-linux|x86-darwin*|amd64-darwin*|ppc-linux|ppc-darwin|arm-linux|amd64-freebsd|x86-freebsd|x86-sol2|amd64-sol2|ultrasparc-linux)
