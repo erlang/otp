@@ -11,7 +11,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
--define(suite_suffix, "_tests_SUITE").
+-define(suite_suffix, "_SUITE").
 -define(data_folder, "_data").
 -define(suite_data, ?suite_suffix ++ ?data_folder).
 -define(erlang_extension, ".erl").
