@@ -3,7 +3,7 @@
 
 -module(plt_tests_SUITE).
 
--include("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("dialyzer_test_constants.hrl").
 
 -export([suite/0, all/0, build_plt/1]).
