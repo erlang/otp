@@ -24,12 +24,12 @@
 %% External exports
 -export([construct_trap/2, 
 	 try_initialise_vars/2, 
-	 send_trap/6, send_trap/7]).
+	 send_trap/6, send_trap/7, send_trap/8]).
 -export([send_discovery/5]).
 
 %% Internal exports
--export([init_v2_inform/9, 
-	 init_v3_inform/9, init_v3_inform/10, 
+-export([init_v2_inform/9, init_v2_inform/10, 
+	 init_v3_inform/9, init_v3_inform/10, init_v3_inform/11, 
 	 send_inform/6]).
 -export([init_discovery_inform/12, send_discovery_inform/5]).
 
@@ -46,6 +46,7 @@
 
 -define(VMODULE,"TRAP").
 -include("snmp_verbosity.hrl").
+-include("snmpa_internal.hrl").
 
 
 %%-----------------------------------------------------------------
@@ -336,20 +337,27 @@ make_varbind_list(Varbinds) ->
 %%          SnmpTargetAddrTable (using the Tag).
 %%-----------------------------------------------------------------
 send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, NetIf) ->
+    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
     send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
-	      LocalEngineID, NetIf).
+	      LocalEngineID, ExtraInfo, NetIf).
 
-send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID, NetIf) ->
+send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, ExtraInfo, NetIf) ->
+    LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
+    send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+	      LocalEngineID, ExtraInfo, NetIf).
+
+send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID, 
+	  ExtraInfo, NetIf) ->
     (catch do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
-			LocalEngineID, NetIf)).
+			LocalEngineID, ExtraInfo, NetIf)).
 
 do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
-	     LocalEngineID, NetIf) ->
+	     LocalEngineID, ExtraInfo, NetIf) ->
     VarbindList = make_varbind_list(Vbs),
     Dests       = find_dests(NotifyName),
     send_trap_pdus(Dests, ContextName, {TrapRec, VarbindList}, [], [], [],
-		   Recv, LocalEngineID, NetIf).
+		   Recv, LocalEngineID, ExtraInfo, NetIf).
 
 send_discovery(TargetName, Record, ContextName, Vbs, NetIf) ->
     case find_dest(TargetName) of
@@ -635,7 +643,7 @@ send_trap_pdus([{DestAddr, TargetName, {MpModel, SecModel, SecName, SecLevel},
 		 Type} | T],
 	       ContextName, 
 	       {TrapRec, Vbs}, V1Res, V2Res, V3Res, Recv, 
-	       LocalEngineID, NetIf) ->
+	       LocalEngineID, ExtraInfo, NetIf) ->
     ?vdebug("send trap pdus: "
 	    "~n   Destination address: ~p"
 	    "~n   Target name:         ~p"
@@ -661,13 +669,13 @@ send_trap_pdus([{DestAddr, TargetName, {MpModel, SecModel, SecName, SecLevel},
 			    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 					   [{DestAddr, Community} | V1Res],
 					   V2Res, V3Res, Recv, 
-					   LocalEngineID, NetIf);
+					   LocalEngineID, ExtraInfo, NetIf);
 			undefined ->
 			    ?vdebug("No community found for v1 dest: ~p", 
 				    [element(2, DestAddr)]),
 			    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 					   V1Res, V2Res, V3Res, Recv, 
-					   LocalEngineID, NetIf)
+					   LocalEngineID, ExtraInfo, NetIf)
 		    end;
 		true when MpModel =:= ?MP_V2C ->
 		    ?vtrace("send_trap_pdus -> v2c mp model",[]),
@@ -682,13 +690,14 @@ send_trap_pdus([{DestAddr, TargetName, {MpModel, SecModel, SecName, SecLevel},
 			    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 					   V1Res,
 					   [{DestAddr, Community, Type}|V2Res],
-					   V3Res, Recv, LocalEngineID, NetIf);
+					   V3Res, Recv, 
+					   LocalEngineID, ExtraInfo, NetIf);
 			undefined ->
 			    ?vdebug("No community found for v2c dest: ~p", 
 				    [element(2, DestAddr)]),
 			    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 					   V1Res, V2Res, V3Res, Recv, 
-					   LocalEngineID, NetIf)
+					   LocalEngineID, ExtraInfo, NetIf)
 		    end;
 		true when MpModel =:= ?MP_V3 ->
 		    ?vtrace("send_trap_pdus -> v3 mp model",[]),
@@ -697,20 +706,20 @@ send_trap_pdus([{DestAddr, TargetName, {MpModel, SecModel, SecName, SecLevel},
 		    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 				   V1Res, V2Res,
 				   [{DestAddr, MsgData, Type} | V3Res],
-				   Recv, LocalEngineID, NetIf);
+				   Recv, LocalEngineID, ExtraInfo, NetIf);
 		true ->
 		    ?vlog("bad MpModel ~p for dest ~p",
 			  [MpModel, element(2, DestAddr)]),
 		    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 				   V1Res, V2Res, V3Res, Recv, 
-				   LocalEngineID, NetIf);
+				   LocalEngineID, ExtraInfo, NetIf);
 		_ ->
 		    ?vlog("no access for dest: "
 			  "~n   ~p in target ~p",
 			  [element(2, DestAddr), TargetName]),
 		    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
 				   V1Res, V2Res, V3Res, Recv, 
-				   LocalEngineID, NetIf)
+				   LocalEngineID, ExtraInfo, NetIf)
 	    end;
 	{discarded, Reason} ->
 	    ?vlog("mib view error ~p for"
@@ -718,24 +727,27 @@ send_trap_pdus([{DestAddr, TargetName, {MpModel, SecModel, SecName, SecLevel},
 		  "~n   SecName: ~w", 
 		  [Reason, element(2, DestAddr), SecName]),
 	    send_trap_pdus(T, ContextName, {TrapRec, Vbs},
-			   V1Res, V2Res, V3Res, Recv, LocalEngineID, NetIf)
+			   V1Res, V2Res, V3Res, Recv, 
+			   LocalEngineID, ExtraInfo, NetIf)
     end;
-send_trap_pdus([], ContextName, {TrapRec, Vbs}, V1Res, V2Res, V3Res,
-	       Recv, LocalEngineID, NetIf) ->
+send_trap_pdus([], ContextName, {TrapRec, Vbs}, 
+	       V1Res, V2Res, V3Res, Recv, 
+	       LocalEngineID, ExtraInfo, 
+	       NetIf) ->
     SysUpTime = snmp_standard_mib:sys_up_time(),
     ?vdebug("send trap pdus with sysUpTime ~p", [SysUpTime]),
     InformRecvs   = get_inform_recvs(V2Res ++ V3Res),
     InformTargets = [Addr || {Addr, _, _, _} <- InformRecvs],
     deliver_recv(Recv, snmp_targets, InformTargets),
-    send_v1_trap(TrapRec, V1Res, Vbs, NetIf, SysUpTime),
-    send_v2_trap(TrapRec, V2Res, Vbs, Recv, NetIf, SysUpTime),
-    send_v3_trap(TrapRec, V3Res, Vbs, Recv, LocalEngineID, NetIf, 
+    send_v1_trap(TrapRec, V1Res, Vbs, ExtraInfo, NetIf, SysUpTime),
+    send_v2_trap(TrapRec, V2Res, Vbs, Recv, ExtraInfo, NetIf, SysUpTime),
+    send_v3_trap(TrapRec, V3Res, Vbs, Recv, LocalEngineID, ExtraInfo, NetIf, 
 		 SysUpTime, ContextName).
 
-send_v1_trap(_TrapRec, [], _Vbs, _NetIf, _SysUpTime) ->
+send_v1_trap(_TrapRec, [], _Vbs, _ExtraInfo, _NetIf, _SysUpTime) ->
     ok;
 send_v1_trap(#trap{enterpriseoid = Enter, specificcode = Spec},
-	     V1Res, Vbs, NetIf, SysUpTime) ->
+	     V1Res, Vbs, ExtraInfo, NetIf, SysUpTime) ->
     ?vdebug("prepare to send v1 trap "
 	    "~n   '~p'"
 	    "~n   with"
@@ -747,9 +759,10 @@ send_v1_trap(#trap{enterpriseoid = Enter, specificcode = Spec},
     lists:foreach(fun({Community, Addrs}) ->
 			  ?vtrace("send v1 trap pdu to ~p",[Addrs]),
 			  NetIf ! {send_pdu, 'version-1', TrapPdu,
-				   {community, Community}, Addrs}
+				   {community, Community}, Addrs, ExtraInfo}
 		  end, AddrCommunities);
-send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, NetIf, SysUpTime) ->
+send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, ExtraInfo, NetIf, 
+	     SysUpTime) ->
     %% Use alg. in rfc2089 to map a v2 trap to a v1 trap
     % delete Counter64 objects from vbs
     ?vdebug("prepare to send v1 trap '~p'",[Oid]),
@@ -771,31 +784,31 @@ send_v1_trap(#notification{oid = Oid}, V1Res, Vbs, NetIf, SysUpTime) ->
     lists:foreach(fun({Community, Addrs}) ->
 			  ?vtrace("send v1 trap to ~p",[Addrs]),
 			  NetIf ! {send_pdu, 'version-1', TrapPdu,
-				   {community, Community}, Addrs}
+				   {community, Community}, Addrs, ExtraInfo}
 		  end, AddrCommunities).
     
-send_v2_trap(_TrapRec, [], _Vbs, _Recv, _NetIf, _SysUpTime) ->
+send_v2_trap(_TrapRec, [], _Vbs, _Recv, _ExtraInfo, _NetIf, _SysUpTime) ->
     ok;
-send_v2_trap(TrapRec, V2Res, Vbs, Recv, NetIf, SysUpTime) ->
+send_v2_trap(TrapRec, V2Res, Vbs, Recv, ExtraInfo, NetIf, SysUpTime) ->
     ?vdebug("prepare to send v2 trap",[]),
     {_Oid, IVbs} = mk_v2_trap(TrapRec, Vbs, SysUpTime),
-    TrapRecvs = get_trap_recvs(V2Res),
-    InformRecvs = get_inform_recvs(V2Res),
-    do_send_v2_trap(TrapRecvs, IVbs, NetIf),
-    do_send_v2_inform(InformRecvs, IVbs, Recv, NetIf).
+    TrapRecvs    = get_trap_recvs(V2Res),
+    InformRecvs  = get_inform_recvs(V2Res),
+    do_send_v2_trap(TrapRecvs, IVbs, ExtraInfo, NetIf),
+    do_send_v2_inform(InformRecvs, IVbs, Recv, ExtraInfo, NetIf).
     
-send_v3_trap(_TrapRec, [], _Vbs, _Recv, _LocalEngineID, 
+send_v3_trap(_TrapRec, [], _Vbs, _Recv, _LocalEngineID, _ExtraInfo, 
 	     _NetIf, _SysUpTime, _ContextName) ->
     ok;
-send_v3_trap(TrapRec, V3Res, Vbs, Recv, LocalEngineID, 
+send_v3_trap(TrapRec, V3Res, Vbs, Recv, LocalEngineID, ExtraInfo, 
 	     NetIf, SysUpTime, ContextName) ->
     ?vdebug("prepare to send v3 trap",[]),
     {_Oid, IVbs} = mk_v2_trap(TrapRec, Vbs, SysUpTime), % v2 refers to SMIv2;
     TrapRecvs = get_trap_recvs(V3Res),                  % same SMI for v3
     InformRecvs = get_inform_recvs(V3Res),
-    do_send_v3_trap(TrapRecvs, ContextName, IVbs, NetIf),
+    do_send_v3_trap(TrapRecvs, ContextName, IVbs, ExtraInfo, NetIf),
     do_send_v3_inform(InformRecvs, ContextName, IVbs, Recv, 
-		      LocalEngineID, NetIf).
+		      LocalEngineID, ExtraInfo, NetIf).
     
 
 mk_v2_trap(#notification{oid = Oid}, Vbs, SysUpTime) ->
@@ -833,60 +846,70 @@ get_inform_recvs(InformRecvs) ->
     [{Addr, MsgData, Timeout, Retry} || 
 	{Addr, MsgData, {inform, Timeout, Retry}} <- InformRecvs].
 
-do_send_v2_trap([], _Vbs, _NetIf) ->
+do_send_v2_trap([], _Vbs, _ExtraInfo, _NetIf) ->
     ok;
-do_send_v2_trap(Recvs, Vbs, NetIf) ->
+do_send_v2_trap(Recvs, Vbs, ExtraInfo, NetIf) ->
     TrapPdu = make_v2_notif_pdu(Vbs, 'snmpv2-trap'),
     AddrCommunities = mk_addr_communities(Recvs),
     lists:foreach(fun({Community, Addrs}) ->
 			  ?vtrace("~n   send v2 trap to ~p",[Addrs]),
 			  NetIf ! {send_pdu, 'version-2', TrapPdu,
-				   {community, Community}, Addrs}
+				   {community, Community}, Addrs, ExtraInfo}
 		  end, AddrCommunities),
     ok.
 
-do_send_v2_inform([], _Vbs, _Recv, _NetIf) ->
+do_send_v2_inform([], _Vbs, _Recv, _ExtraInfo, _NetIf) ->
     ok;
-do_send_v2_inform(Recvs, Vbs, Recv, NetIf) ->
+do_send_v2_inform(Recvs, Vbs, Recv, ExtraInfo, NetIf) ->
     lists:foreach(
       fun({Addr, Community, Timeout, Retry}) ->
 	      ?vtrace("~n   start inform sender to send v2 inform to ~p",
 		      [Addr]),
 	      proc_lib:spawn_link(?MODULE, init_v2_inform,
 				  [Addr, Timeout, Retry, Vbs,
-				   Recv, NetIf, Community,
+				   Recv, ExtraInfo, NetIf, Community,
 				   get(verbosity), get(sname)])
       end, 
       Recvs).
 
-do_send_v3_trap([], _ContextName, _Vbs, _NetIf) ->
+do_send_v3_trap([], _ContextName, _Vbs, _ExtraInfo, _NetIf) ->
     ok;
-do_send_v3_trap(Recvs, ContextName, Vbs, NetIf) ->
+do_send_v3_trap(Recvs, ContextName, Vbs, ExtraInfo, NetIf) ->
     TrapPdu = make_v2_notif_pdu(Vbs, 'snmpv2-trap'), % Yes, v2
     ContextEngineId = snmp_framework_mib:get_engine_id(),
     lists:foreach(fun(Recv) ->
 			  ?vtrace("~n   send v3 notif to ~p",[Recv]),
 			  NetIf ! {send_pdu, 'version-3', TrapPdu,
-				   {v3, ContextEngineId, ContextName}, [Recv]}
+				   {v3, ContextEngineId, ContextName}, 
+				   [Recv], ExtraInfo}
 		  end, Recvs),
     ok.
 
-do_send_v3_inform([], _ContextName, _Vbs, _Recv, _LocalEngineID, _NetIf) ->
+do_send_v3_inform([], _ContextName, _Vbs, _Recv, 
+		  _LocalEngineID, _ExtraInfo, _NetIf) ->
     ok;
-do_send_v3_inform(Recvs, ContextName, Vbs, Recv, LocalEngineID, NetIf) ->
+do_send_v3_inform(Recvs, ContextName, Vbs, Recv, 
+		  LocalEngineID, ExtraInfo, NetIf) ->
     lists:foreach(
       fun({Addr, MsgData, Timeout, Retry}) ->
 	      ?vtrace("~n   start inform sender to send v3 inform to ~p",
 		      [Addr]),
 	      proc_lib:spawn_link(?MODULE, init_v3_inform,
 				  [{Addr, MsgData}, Timeout, Retry, Vbs,
-				   Recv, LocalEngineID, NetIf, ContextName,
+				   Recv, LocalEngineID, ExtraInfo, 
+				   NetIf, ContextName,
 				   get(verbosity), get(sname)])
       end, 
       Recvs).
 
 %% New process
-init_v2_inform(Addr, Timeout, Retry, Vbs, Recv, NetIf, Community,V,S) ->
+init_v2_inform(Addr, Timeout, Retry, Vbs, Recv, NetIf, Community, V, S) ->
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    init_v2_inform(Addr, Timeout, Retry, Vbs, Recv, ExtraInfo, NetIf, 
+		   Community, V, S). 
+
+init_v2_inform(Addr, Timeout, Retry, Vbs, Recv, ExtraInfo, NetIf, 
+	       Community, V, S) ->
     %% Make a new Inform for each recipient; they need unique
     %% request-ids!
     put(verbosity,V),
@@ -895,17 +918,26 @@ init_v2_inform(Addr, Timeout, Retry, Vbs, Recv, NetIf, Community,V,S) ->
 	    [Timeout,Retry]),
     InformPdu = make_v2_notif_pdu(Vbs, 'inform-request'),
     Msg = {send_pdu_req, 'version-2', InformPdu, {community, Community},
-	   [Addr], self()},
+	   [Addr], self(), ExtraInfo},
     ?MODULE:send_inform(Addr, Timeout*10, Retry, Msg, Recv, NetIf).
     
 
 %% New process
 init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, NetIf, ContextName, V, S) ->
+    ExtraInfo     = ?DEFAULT_NOTIF_EXTRA_INFO, 
     LocalEngineID = ?DEFAULT_LOCAL_ENGINE_ID, 
-    init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, LocalEngineID, 
+    init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, 
+		   LocalEngineID, ExtraInfo, 
 		   NetIf, ContextName, V, S).
 
-init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, LocalEngineID, 
+init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, LocalEngineID, NetIf, 
+	       ContextName, V, S) ->
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, 
+		   LocalEngineID, ExtraInfo, 
+		   NetIf, ContextName, V, S).
+
+init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, LocalEngineID, ExtraInfo, 
 	       NetIf, ContextName, V, S) ->
     %% Make a new Inform for each recipient; they need unique
     %% request-ids!
@@ -916,7 +948,7 @@ init_v3_inform(Addr, Timeout, Retry, Vbs, Recv, LocalEngineID,
     InformPdu = make_v2_notif_pdu(Vbs, 'inform-request'), % Yes, v2
     ContextEngineId = LocalEngineID, 
     Msg = {send_pdu_req, 'version-3', InformPdu,
-	   {v3, ContextEngineId, ContextName}, [Addr], self()},
+	   {v3, ContextEngineId, ContextName}, [Addr], self(), ExtraInfo},
     ?MODULE:send_inform(Addr, Timeout*10, Retry, Msg, Recv, NetIf).
 
 send_inform(Addr, _Timeout, -1, _Msg,  Recv, _NetIf) ->

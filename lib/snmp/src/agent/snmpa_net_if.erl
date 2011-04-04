@@ -314,8 +314,26 @@ loop(S) ->
 	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, undefined),
 	    loop(NewS);
 
+	%% We dont use the extra-info at this time, ...
+	{send_pdu, Vsn, Pdu, MsgData, To, _ExtraInfo} ->
+	    ?vdebug("send pdu: "
+		    "~n   Pdu: ~p"
+		    "~n   To:  ~p", [Pdu, To]),
+	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, undefined),
+	    loop(NewS);
+
 	%% Informs
 	{send_pdu_req, Vsn, Pdu, MsgData, To, From} ->
+	    ?vdebug("send pdu request: "
+		    "~n   Pdu:     ~p"
+		    "~n   To:      ~p"
+		    "~n   From:    ~p", 
+		    [Pdu, To, toname(From)]),
+	    NewS = maybe_handle_send_pdu(S, Vsn, Pdu, MsgData, To, From),
+	    loop(NewS);
+
+	%% We dont use the extra-info at this time, ...
+	{send_pdu_req, Vsn, Pdu, MsgData, To, From, _ExtraInfo} ->
 	    ?vdebug("send pdu request: "
 		    "~n   Pdu:     ~p"
 		    "~n   To:      ~p"
