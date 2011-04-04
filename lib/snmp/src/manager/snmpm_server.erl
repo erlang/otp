@@ -606,6 +606,19 @@ handle_call({unregister_user, UserId}, _From, State) ->
 
 %% We will reply to this request later, when the reply comes in from the
 %% agent, or when the timeout hits (unless we get an error now).
+handle_call({sync_get, Pid, UserId, TargetName, Oids, SendOpts}, 
+	    From, State) ->
+    ?vlog("received sync_get [~p] request", [TargetName]),
+    case (catch handle_sync_get(Pid, 
+				UserId, TargetName, Oids, SendOpts, 
+				From, State)) of
+	ok ->
+	    {noreply, State};
+	Error ->
+	    {reply, Error, State}
+    end;
+
+%% <BACKWARD-COMPAT>
 handle_call({sync_get, Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo}, 
 	    From, State) ->
     ?vlog("received sync_get [~p] request", [CtxName]),
@@ -617,6 +630,7 @@ handle_call({sync_get, Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInf
 	Error ->
 	    {reply, Error, State}
     end;
+%% </BACKWARD-COMPAT>
 
 
 handle_call({sync_get_next, Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo}, From, State) ->
@@ -936,36 +950,46 @@ terminate(Reason, #state{gct = GCT}) ->
 
 handle_sync_get(Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo, 
 		From, State) ->    
+    SendOpts = 
+	[
+	 {context, CtxName},
+	 {timeout, Timeout},
+	 {extra,   Extra}
+	],
+    handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State).
+
+handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) -> 
     ?vtrace("handle_sync_get -> entry with"
 	    "~n   Pid:        ~p"
 	    "~n   UserId:     ~p"
 	    "~n   TargetName: ~p"
-	    "~n   CtxName:    ~p"
 	    "~n   Oids:       ~p"
-	    "~n   Timeout:    ~p"
+	    "~n   SendOpts:   ~p"
 	    "~n   From:       ~p", 
-	    [Pid, UserId, TargetName, CtxName, Oids, Timeout, From]),
-    case agent_data(TargetName, CtxName) of
+	    [Pid, UserId, TargetName, Oids, SendOpts, From]),
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get -> send a ~p message", [Vsn]),
+	    Extra  = get_opt(extra, ?EXTRA_INO, SendOpts), 
 	    ReqId  = send_get_request(Oids, Vsn, MsgData, Addr, Port, 
 				      ExtraInfo, State),
 	    ?vdebug("handle_sync_get -> ReqId: ~p", [ReqId]),
-	    Msg    = {sync_timeout, ReqId, From},
-	    Ref    = erlang:send_after(Timeout, self(), Msg),
-	    MonRef = erlang:monitor(process, Pid),
+	    Msg     = {sync_timeout, ReqId, From},
+	    Timeout = get_opt(timeout, ?DEFAULT_SYNC_GET_TIMEOUT, SendOpts), 
+	    Ref     = erlang:send_after(Timeout, self(), Msg),
+	    MonRef  = erlang:monitor(process, Pid),
 	    ?vtrace("handle_sync_get -> MonRef: ~p", [MonRef]),
-	    Req    = #request{id       = ReqId,
-			      user_id  = UserId, 
-			      reg_type = RegType, 
-			      target   = TargetName, 
-			      addr     = Addr,
-			      port     = Port,
-			      type     = get, 
-			      data     = MsgData, 
-			      ref      = Ref, 
-			      mon      = MonRef, 
-			      from     = From},
+	    Req     = #request{id       = ReqId,
+			       user_id  = UserId, 
+			       reg_type = RegType, 
+			       target   = TargetName, 
+			       addr     = Addr,
+			       port     = Port,
+			       type     = get, 
+			       data     = MsgData, 
+			       ref      = Ref, 
+			       mon      = MonRef, 
+			       from     = From},
 	    ets:insert(snmpm_request_table, Req),
 	    ok;
 	Error ->
@@ -987,7 +1011,7 @@ handle_sync_get_next(Pid, UserId, TargetName, CtxName, Oids, Timeout,
 	    "~n   Timeout:    ~p"
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, CtxName, Oids, Timeout, From]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_next -> send a ~p message", [Vsn]),
 	    ReqId  = send_get_next_request(Oids, Vsn, MsgData, 
@@ -1034,7 +1058,7 @@ handle_sync_get_bulk(Pid, UserId, TargetName, CtxName,
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, CtxName, NonRep, MaxRep, Oids, 
 	     Timeout, From]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_bulk -> send a ~p message", [Vsn]),
 	    ReqId  = send_get_bulk_request(Oids, Vsn, MsgData, Addr, Port, 
@@ -1077,7 +1101,7 @@ handle_sync_set(Pid, UserId, TargetName, CtxName, VarsAndVals, Timeout,
 	    "~n   Timeout:     ~p"
 	    "~n   From:        ~p", 
 	    [Pid, UserId, TargetName, CtxName, VarsAndVals, Timeout, From]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_set -> send a ~p message", [Vsn]),
 	    ReqId  = send_set_request(VarsAndVals, Vsn, MsgData, 
@@ -1119,7 +1143,7 @@ handle_async_get(Pid, UserId, TargetName, CtxName, Oids, Expire, ExtraInfo,
 	    "~n   Oids:       ~p"
 	    "~n   Expire:     ~p",
 	    [Pid, UserId, TargetName, CtxName, Oids, Expire]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get -> send a ~p message", [Vsn]),
 	    ReqId  = send_get_request(Oids, Vsn, MsgData, Addr, Port, 
@@ -1157,7 +1181,7 @@ handle_async_get_next(Pid, UserId, TargetName, CtxName, Oids, Expire,
 	    "~n   Oids:       ~p"
 	    "~n   Expire:     ~p",
 	    [Pid, UserId, TargetName, CtxName, Oids, Expire]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_next -> send a ~p message", [Vsn]),
 	    ReqId  = send_get_next_request(Oids, Vsn, MsgData, 
@@ -1235,7 +1259,7 @@ handle_async_set(Pid, UserId, TargetName, CtxName, VarsAndVals, Expire,
 	    "~n   VarsAndVals: ~p"
 	    "~n   Expire:      ~p",
 	    [Pid, UserId, TargetName, CtxName, VarsAndVals, Expire]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_set -> send a ~p message", [Vsn]),
 	    ReqId  = send_set_request(VarsAndVals, Vsn, MsgData, 
@@ -2833,10 +2857,7 @@ request_id() ->
 
 %%----------------------------------------------------------------------
 
-agent_data(TargetName, CtxName) ->
-    agent_data(TargetName, CtxName, []).
-
-agent_data(TargetName, CtxName, Config) ->
+agent_data(TargetName, SendOpts) ->
     case snmpm_config:agent_info(TargetName, all) of
 	{ok, Info} ->
 	    Version = agent_data_item(version, Info), 
@@ -2850,13 +2871,13 @@ agent_data(TargetName, CtxName, Config) ->
 			EngineId    = agent_data_item(engine_id, Info),
 			
 			SecModel    = agent_data_item(sec_model,   
-						      Config, 
+						      SendOpts, 
 						      DefSecModel),
 			SecName     = agent_data_item(sec_name,    
-						      Config, 
+						      SendOpts, 
 						      DefSecName),
 			SecLevel    = agent_data_item(sec_level,   
-						      Config, 
+						      SendOpts, 
 						      DefSecLevel),
 			
 			{SecModel, SecName, mk_sec_level_flag(SecLevel), 
@@ -2866,10 +2887,10 @@ agent_data(TargetName, CtxName, Config) ->
 			DefSecModel = agent_data_item(sec_model, Info),
 			
 			Comm        = agent_data_item(community, 
-						      Config, 
+						      SendOPts, 
 						      DefComm),
 			SecModel    = agent_data_item(sec_model, 
-						      Config, 
+						      SendOPts, 
 						      DefSecModel),
 			
 			{Comm, SecModel}
