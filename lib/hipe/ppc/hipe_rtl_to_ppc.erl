@@ -1,20 +1,20 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
 %%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%%% 
+%%%
+%%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%%
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
 %%% compliance with the License. You should have received a copy of the
 %%% Erlang Public License along with this software. If not, it can be
 %%% retrieved online at http://www.erlang.org/.
-%%% 
+%%%
 %%% Software distributed under the License is distributed on an "AS IS"
 %%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %%% the License for the specific language governing rights and limitations
 %%% under the License.
-%%% 
+%%%
 %%% %CopyrightEnd%
 %%%
 %%% The PowerPC instruction set is quite irregular.
@@ -110,20 +110,27 @@ conv_fconv(I, Map, Data) ->
 
 mk_fconv(Dst, Src) ->
   CSP = hipe_ppc:mk_temp(1, 'untagged'),
-  R0 = hipe_ppc:mk_temp(0, 'untagged'),
-  RTmp1 = hipe_ppc:mk_new_temp('untagged'),
-  RTmp2 = hipe_ppc:mk_new_temp('untagged'),
-  RTmp3 = hipe_ppc:mk_new_temp('untagged'),
-  FTmp1 = hipe_ppc:mk_new_temp('double'),
-  FTmp2 = hipe_ppc:mk_new_temp('double'),
-  [hipe_ppc:mk_pseudo_li(RTmp1, {fconv_constant,c_const}),
-   hipe_ppc:mk_lfd(FTmp1, 0, RTmp1),
-   hipe_ppc:mk_alu('xoris', RTmp2, Src, hipe_ppc:mk_uimm16(16#8000)),
-   hipe_ppc:mk_store('stw', RTmp2, 28, CSP),
-   hipe_ppc:mk_alu('addis', RTmp3, R0, hipe_ppc:mk_simm16(16#4330)),
-   hipe_ppc:mk_store('stw', RTmp3, 24, CSP),
-   hipe_ppc:mk_lfd(FTmp2, 24, CSP),
-   hipe_ppc:mk_fp_binary('fsub', Dst, FTmp2, FTmp1)].
+  case get(hipe_target_arch) of
+    powerpc ->
+      R0 = hipe_ppc:mk_temp(0, 'untagged'),
+      RTmp1 = hipe_ppc:mk_new_temp('untagged'),
+      RTmp2 = hipe_ppc:mk_new_temp('untagged'),
+      RTmp3 = hipe_ppc:mk_new_temp('untagged'),
+      FTmp1 = hipe_ppc:mk_new_temp('double'),
+      FTmp2 = hipe_ppc:mk_new_temp('double'),
+      [hipe_ppc:mk_pseudo_li(RTmp1, {fconv_constant,c_const}),
+       hipe_ppc:mk_lfd(FTmp1, 0, RTmp1),
+       hipe_ppc:mk_alu('xoris', RTmp2, Src, hipe_ppc:mk_uimm16(16#8000)),
+       hipe_ppc:mk_store('stw', RTmp2, 28, CSP),
+       hipe_ppc:mk_alu('addis', RTmp3, R0, hipe_ppc:mk_simm16(16#4330)),
+       hipe_ppc:mk_store('stw', RTmp3, 24, CSP),
+       hipe_ppc:mk_lfd(FTmp2, 24, CSP),
+       hipe_ppc:mk_fp_binary('fsub', Dst, FTmp2, FTmp1)];
+    ppc64 ->
+      [hipe_ppc:mk_store('std', Src, 24, CSP),
+       hipe_ppc:mk_lfd(Dst, 24, CSP),
+       hipe_ppc:mk_fp_unary('fcfid', Dst, Dst)]
+  end.
 
 conv_fmove(I, Map, Data) ->
   %% Dst := Src, where both Dst and Src are FP regs
@@ -280,10 +287,14 @@ mk_alu_ri(Dst, Src1, RtlAluOp, Src2) ->
     'mul' ->	% 'mulli' has a 16-bit simm operand
       mk_alu_ri_simm16(Dst, Src1, RtlAluOp, 'mulli', Src2);
     'and' ->	% 'andi.' has a 16-bit uimm operand
-      case rlwinm_mask(Src2) of
-	{MB,ME} ->
-	  [hipe_ppc:mk_unary({'rlwinm',0,MB,ME}, Dst, Src1)];
-	_ ->
+      if Src2 band (bnot 16#ffffffff) =:= 0 ->
+	  case rlwinm_mask(Src2) of
+	    {MB,ME} ->
+	      [hipe_ppc:mk_unary({'rlwinm',0,MB,ME}, Dst, Src1)];
+	    _ ->
+	      mk_alu_ri_bitop(Dst, Src1, RtlAluOp, 'andi.', Src2)
+	  end;
+	 true ->
 	  mk_alu_ri_bitop(Dst, Src1, RtlAluOp, 'andi.', Src2)
       end;
     'or' ->	% 'ori' has a 16-bit uimm operand
@@ -360,17 +371,33 @@ mk_alu_ri_bitop(Dst, Src1, RtlAluOp, AluOp, Src2) ->
   end.
 
 mk_alu_ri_shift(Dst, Src1, RtlAluOp, Src2) ->
-  if Src2 < 32, Src2 >= 0 ->
-      AluOp =
-	case RtlAluOp of
-	  'sll' -> 'slwi'; % alias for rlwinm
-	  'srl' -> 'srwi'; % alias for rlwinm
-	  'sra' -> 'srawi'
-	end,
-      [hipe_ppc:mk_alu(AluOp, Dst, Src1,
-		       hipe_ppc:mk_uimm16(Src2))];
-     true ->
-      mk_alu_ri_rr(Dst, Src1, RtlAluOp, Src2)
+  case get(hipe_target_arch) of
+    ppc64 ->
+      if Src2 < 64, Src2 >= 0 ->
+	  AluOp =
+	    case RtlAluOp of
+	      'sll' -> 'sldi'; % alias for rldimi %%% buggy
+	      'srl' -> 'srdi'; % alias for rldimi %%% buggy
+	      'sra' -> 'sradi' %%% buggy
+	    end,
+	  [hipe_ppc:mk_alu(AluOp, Dst, Src1,
+			   hipe_ppc:mk_uimm16(Src2))];
+	 true ->
+	  mk_alu_ri_rr(Dst, Src1, RtlAluOp, Src2)
+      end;
+    powerpc ->
+      if Src2 < 32, Src2 >= 0 ->
+	  AluOp =
+	    case RtlAluOp of
+	      'sll' -> 'slwi'; % alias for rlwinm
+	      'srl' -> 'srwi'; % alias for rlwinm
+	      'sra' -> 'srawi'
+	    end,
+	  [hipe_ppc:mk_alu(AluOp, Dst, Src1,
+			   hipe_ppc:mk_uimm16(Src2))];
+	 true ->
+	  mk_alu_ri_rr(Dst, Src1, RtlAluOp, Src2)
+      end
   end.
 
 mk_alu_ri_rr(Dst, Src1, RtlAluOp, Src2) ->
@@ -384,15 +411,21 @@ mk_alu_rr(Dst, Src1, RtlAluOp, Src2) ->
       [hipe_ppc:mk_alu('subf', Dst, Src2, Src1)];
     _ ->
       AluOp =
-	case RtlAluOp of
-	  'add' -> 'add';
-	  'mul' -> 'mullw';
-	  'or'  -> 'or';
-	  'and' -> 'and';
-	  'xor' -> 'xor';
-	  'sll' -> 'slw';
-	  'srl' -> 'srw';
-	  'sra' -> 'sraw'
+	case {get(hipe_target_arch), RtlAluOp} of
+	  {_, 'add'} -> 'add';
+	  {_, 'or'}  -> 'or';
+	  {_, 'and'} -> 'and';
+	  {_, 'xor'} -> 'xor';
+
+	  {powerpc, 'mul'} -> 'mullw';
+	  {powerpc, 'sll'} -> 'slw';
+	  {powerpc, 'srl'} -> 'srw';
+	  {powerpc, 'sra'} -> 'sraw';
+
+	  {ppc64, 'mul'} -> 'mulld';
+	  {ppc64, 'sll'} -> 'sld';
+	  {ppc64, 'srl'} -> 'srd';
+	  {ppc64, 'sra'} -> 'srad'
 	end,
       [hipe_ppc:mk_alu(AluOp, Dst, Src1, Src2)]
   end.
@@ -431,16 +464,22 @@ conv_alub(I, Map, Data) ->
   {I1 ++ I2, Map2, Data}.
 
 conv_alub_op(RtlAluOp) ->
-  case RtlAluOp of
-    'add' -> 'add';
-    'sub' -> 'subf';	% XXX: must swap operands
-    'mul' -> 'mullw';
-    'or'  -> 'or';
-    'and' -> 'and';
-    'xor' -> 'xor';
-    'sll' -> 'slw';
-    'srl' -> 'srw';
-    'sra' -> 'sraw'
+  case {get(hipe_target_arch), RtlAluOp} of
+    {_, 'add'} -> 'add';
+    {_, 'sub'} -> 'subf';	% XXX: must swap operands
+    {_, 'or'}  -> 'or';
+    {_, 'and'} -> 'and';
+    {_, 'xor'} -> 'xor';
+
+    {powerpc, 'mul'} -> 'mullw';
+    {powerpc, 'sll'} -> 'slw';
+    {powerpc, 'srl'} -> 'srw';
+    {powerpc, 'sra'} -> 'sraw';
+
+    {ppc64, 'mul'} -> 'mulld';
+    {ppc64, 'sll'} -> 'sld';
+    {ppc64, 'srl'} -> 'srd';
+    {ppc64, 'sra'} -> 'srad'
   end.
 
 aluop_commutes(AluOp) ->
@@ -454,7 +493,11 @@ aluop_commutes(AluOp) ->
     'xor'   -> true;
     'slw'   -> false;
     'srw'   -> false;
-    'sraw'  -> false
+    'sraw'  -> false;
+    'mulld' -> true;	% ppc64
+    'sld'   -> false;	% ppc64
+    'srd'   -> false;	% ppc64
+    'srad'  -> false	% ppc64
   end.
 
 conv_alub_cond(Cond) ->	% only signed
@@ -528,17 +571,24 @@ mk_alub_ri_Rc(Dst, Src1, AluOp, Src2) ->
       mk_alub_ri_Rc_addi(Dst, Src1, Src2, 'addic.', 'add.');
     'addc' ->	% 'addic' has a 16-bit simm operand
       mk_alub_ri_Rc_addi(Dst, Src1, Src2, 'addic', 'addc');
-    'mullw' ->	% there is no 'mulli.'
+    'mullw' ->  % there is no 'mulli.'
       mk_alub_ri_Rc_rr(Dst, Src1, 'mullw.', Src2);
+    'mulld' ->	% there is no 'mulli.'
+      mk_alub_ri_Rc_rr(Dst, Src1, 'mulld.', Src2);
     'or' ->	% there is no 'ori.'
       mk_alub_ri_Rc_rr(Dst, Src1, 'or.', Src2);
     'xor' ->	% there is no 'xori.'
       mk_alub_ri_Rc_rr(Dst, Src1, 'xor.', Src2);
     'and' ->	% 'andi.' has a 16-bit uimm operand
-      case rlwinm_mask(Src2) of
-	{MB,ME} ->
-	  [hipe_ppc:mk_unary({'rlwinm.',0,MB,ME}, Dst, Src1)];
-	_ ->
+      if
+	Src2 band (bnot 16#ffffffff) =:= 0 ->
+	  case rlwinm_mask(Src2) of
+	    {MB,ME} ->
+	      [hipe_ppc:mk_unary({'rlwinm.',0,MB,ME}, Dst, Src1)];
+	    _ ->
+	      mk_alub_ri_Rc_andi(Dst, Src1, Src2)
+	  end;
+	true ->
 	  mk_alub_ri_Rc_andi(Dst, Src1, Src2)
       end;
     _ ->	% shift ops have 5-bit uimm operands
@@ -562,13 +612,16 @@ mk_alub_ri_Rc_andi(Dst, Src1, Src2) ->
   end.
 
 mk_alub_ri_Rc_shift(Dst, Src1, AluOp, Src2) ->
-  if Src2 < 32, Src2 >= 0 ->
-      AluOpIDot =
-	case AluOp of
-	  'slw'  -> 'slwi.'; % alias for rlwinm.
-	  'srw'  -> 'srwi.'; % alias for rlwinm.
-	  'sraw' -> 'srawi.'
-	end,
+  {AluOpIDot, MaxIShift} =
+    case AluOp of
+      'slw'  -> {'slwi.', 32}; % alias for rlwinm.
+      'srw'  -> {'srwi.', 32}; % alias for rlwinm.
+      'sraw' -> {'srawi.', 32};
+      'sld'  -> {'sldi.', 64};
+      'srd'  -> {'srdi.', 64};
+      'srad' -> {'sradi.', 64}
+    end,
+  if Src2 < MaxIShift, Src2 >= 0 ->
       [hipe_ppc:mk_alu(AluOpIDot, Dst, Src1,
 		       hipe_ppc:mk_uimm16(Src2))];
      true ->
@@ -576,7 +629,10 @@ mk_alub_ri_Rc_shift(Dst, Src1, AluOp, Src2) ->
 	case AluOp of
 	  'slw'  -> 'slw.';
 	  'srw'  -> 'srw.';
-	  'sraw' -> 'sraw.'
+	  'sraw' -> 'sraw.';
+	  'sld'  -> 'sld.';
+	  'srd'  -> 'srd.';
+	  'srad' -> 'srad.'
 	end,
       mk_alub_ri_Rc_rr(Dst, Src1, AluOpDot, Src2)
   end.
@@ -598,8 +654,9 @@ mk_alub_rr_OE(Dst, Src1, AluOp, Src2) ->
     case AluOp of
       'subf'  -> 'subfo.';
       'add'   -> 'addo.';
-      'mullw' -> 'mullwo.'
-      %% fail for addc, or, and, xor, slw, srw, sraw
+      'mullw' -> 'mullwo.';
+      'mulld' -> 'mulldo.'
+		 %% fail for addc, or, and, xor, slw, srw, sraw
     end,
   [hipe_ppc:mk_alu(AluOpODot, Dst, Src1, Src2)].
 
@@ -610,12 +667,16 @@ mk_alub_rr_Rc(Dst, Src1, AluOp, Src2) ->
       'add'   -> 'add.';
       'addc'  -> 'addc';	% only interested in CA, no Rc needed
       'mullw' -> 'mullw.';
+      'mulld' -> 'mulld.';
       'or'    -> 'or.';
       'and'   -> 'and.';
       'xor'   -> 'xor.';
       'slw'   -> 'slw.';
+      'sld'   -> 'sld.';
       'srw'   -> 'srw.';
-      'sraw'  -> 'sraw.'
+      'srd'   -> 'srd.';
+      'sraw'  -> 'sraw.';
+      'srad'  -> 'srad.'
     end,
   [hipe_ppc:mk_alu(AluOpDot, Dst, Src1, Src2)].
 
@@ -682,17 +743,17 @@ mk_branch_ri(Src1, BCond, Sign, Src2, TrueLab, FalseLab, Pred) ->
     case Sign of
       'signed' ->
 	if is_integer(Src2), -32768 =< Src2, Src2 < 32768 ->
-	    {[], hipe_ppc:mk_simm16(Src2), 'cmpi'};
+	    {[], hipe_ppc:mk_simm16(Src2), hipe_ppc:cmpiop_word()};
 	   true ->
 	    Tmp = new_untagged_temp(),
-	    {mk_li(Tmp, Src2), Tmp, 'cmp'}
+	    {mk_li(Tmp, Src2), Tmp, hipe_ppc:cmpop_word()}
 	end;
       'unsigned' ->
 	if is_integer(Src2), 0 =< Src2, Src2 < 65536 ->
-	    {[], hipe_ppc:mk_uimm16(Src2), 'cmpli'};
+	    {[], hipe_ppc:mk_uimm16(Src2), hipe_ppc:cmpliop_word()};
 	   true ->
 	    Tmp = new_untagged_temp(),
-	    {mk_li(Tmp, Src2), Tmp, 'cmpl'}
+	    {mk_li(Tmp, Src2), Tmp, hipe_ppc:cmplop_word()}
 	end
     end,
   FixSrc2 ++
@@ -701,8 +762,8 @@ mk_branch_ri(Src1, BCond, Sign, Src2, TrueLab, FalseLab, Pred) ->
 mk_branch_rr(Src1, BCond, Sign, Src2, TrueLab, FalseLab, Pred) ->
   CmpOp =
     case Sign of
-      'signed' -> 'cmp';
-      'unsigned' -> 'cmpl'
+      'signed' -> hipe_ppc:cmpop_word();
+      'unsigned' -> hipe_ppc:cmplop_word()
     end,
   mk_cmp_bc(CmpOp, Src1, Src2, BCond, TrueLab, FalseLab, Pred).
 
@@ -841,7 +902,7 @@ mk_store_args([Arg|Args], PrevOffset, Tail) ->
 	Tmp = new_tagged_temp(),
 	{Tmp, mk_li(Tmp, Arg)}
     end,
-  Store = hipe_ppc:mk_store('stw', Src, Offset, mk_sp()),
+  Store = hipe_ppc:mk_store(hipe_ppc:stop_word(), Src, Offset, mk_sp()),
   mk_store_args(Args, Offset, FixSrc ++ [Store | Tail]);
 mk_store_args([], _, Tail) ->
   Tail.
@@ -883,25 +944,19 @@ conv_load(I, Map, Data) ->
   {I2, Map2, Data}.
 
 mk_load(Dst, Base1, Base2, LoadSize, LoadSign) ->
-  Rest =
-    case LoadSize of
-      byte ->
-	case LoadSign of
-	  signed -> [hipe_ppc:mk_unary('extsb', Dst, Dst)];
-	  _ -> []
+  {LdOp, Rest} =
+    case {LoadSize, LoadSign} of
+      {byte, signed} -> {'lbz', [hipe_ppc:mk_unary('extsb', Dst, Dst)]};
+      {byte, unsigned} -> {'lbz', []};
+      {int16, signed} -> {'lha', []};
+      {int16, unsigned} -> {'lhz', []};
+      {int32, signed} ->
+	case get(hipe_target_arch) of
+	  powerpc -> {'lwz', []};
+	  ppc64 -> {'lwa', []}
 	end;
-      _ -> []
-    end,
-  LdOp =
-    case LoadSize of
-      byte -> 'lbz';
-      int32 -> 'lwz';
-      word -> 'lwz';
-      int16 ->
-	case LoadSign of
-	  signed -> 'lha';
-	  unsigned -> 'lhz'
-	end
+      {int32, unsigned} -> {'lwz', []};
+      {word, _} -> {hipe_ppc:ldop_word(), []}
     end,
   case hipe_ppc:is_temp(Base1) of
     true ->
@@ -980,7 +1035,7 @@ mk_store(Src, Base1, Base2, StoreSize) ->
       byte -> 'stb';
       int16 -> 'sth';
       int32 -> 'stw';
-      word -> 'stw'
+      word -> hipe_ppc:stop_word()
     end,
   case hipe_ppc:is_temp(Src) of
     true ->
@@ -1022,10 +1077,16 @@ conv_switch(I, Map, Data) ->
   JTabR = new_untagged_temp(),
   OffsetR = new_untagged_temp(),
   DestR = new_untagged_temp(),
+  ShiftInstruction =
+    case get(hipe_target_arch) of
+      powerpc -> 'slwi';
+      ppc64 -> 'sldi'
+    end,
   I2 =
     [hipe_ppc:mk_pseudo_li(JTabR, {JTabLab,constant}),
-     hipe_ppc:mk_alu('slwi', OffsetR, IndexR, hipe_ppc:mk_uimm16(2)),
-     hipe_ppc:mk_loadx('lwzx', DestR, JTabR, OffsetR),
+     hipe_ppc:mk_alu(ShiftInstruction, OffsetR, IndexR,
+		     hipe_ppc:mk_uimm16(log2_word_size())),
+     hipe_ppc:mk_loadx(hipe_ppc:ldop_wordx(), DestR, JTabR, OffsetR),
      hipe_ppc:mk_mtspr('ctr', DestR),
      hipe_ppc:mk_bctr(Labels)],
   {I2, Map1, NewData}.
@@ -1247,3 +1308,6 @@ vmap_bind(Map, Key, Val) ->
 
 word_size() ->
   hipe_rtl_arch:word_size().
+
+log2_word_size() ->
+  hipe_rtl_arch:log2_word_size().
