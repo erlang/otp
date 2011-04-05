@@ -44,6 +44,21 @@
 -->
       <list type="bulleted">
         <item>
+          <p>[agent] Pass extra info through the agent to the net-if
+	  process when sending notifications. </p>
+	  <p>See 
+	  <seealso marker="snmpa#send_notification2">
+	  snmpa:send_notification2/3</seealso> for more info. 
+	  See also the incomming net-if messages when sending a 
+	  <seealso marker="snmp_agent_netif#im_send_pdu">trap</seealso> 
+	  and 
+	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
+	  notification</seealso>. </p>
+          <p>Own Id: OTP-9183</p>
+          <p>Aux Id: Seq 11817</p>
+        </item>
+
+        <item>
           <p>[agent] Added support for sending traps to IPv6 targets. </p>
 	  <p>See the 
 	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>, 
