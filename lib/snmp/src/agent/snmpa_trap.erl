@@ -639,8 +639,8 @@ send_discovery_inform(Parent, Timeout, Retry, Msg, NetIf) ->
 %% should be used for the target, and determine the message
 %% specific parameters to be used.
 %%-----------------------------------------------------------------
-send_trap_pdus([{DestAddr, TargetName, {MpModel, SecModel, SecName, SecLevel},
-		 Type} | T],
+send_trap_pdus([{DestAddr, TargetName, 
+		 {MpModel, SecModel, SecName, SecLevel}, Type} | T],
 	       ContextName, 
 	       {TrapRec, Vbs}, V1Res, V2Res, V3Res, Recv, 
 	       LocalEngineID, ExtraInfo, NetIf) ->
