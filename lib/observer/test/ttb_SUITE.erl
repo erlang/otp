@@ -65,7 +65,11 @@ all() ->
      trace_to_remote_files_on_localhost_with_different_pwd,
      trace_to_local_files_on_localhost_with_different_pwd,
      trace_to_remote_files_on_localhost_with_different_pwd_abs,
-     one_command_trace_setup, dbg_style_fetch, shell_tracing_init].
+     one_command_trace_setup, dbg_style_fetch, shell_tracing_init,
+     only_one_state_for_format_handler, only_one_state_with_default_format_handler,
+     only_one_state_with_initial_format_handler, run_trace_with_shortcut1,
+     run_trace_with_shortcut2, run_trace_with_shortcut3, run_trace_with_shortcut4,
+     cant_specify_local_and_flush, trace_sorted_by_default,disable_sorting].
 
 groups() -> 
     [].
@@ -745,6 +749,19 @@ marking_call_handler() ->
     {fun(_, _, _, initial) -> file:write_file("HANDLER_OK", []);
 	(_,_,_,_) -> ok end, initial}.
 
+counter_call_handler() ->
+    {fun(_, A={trace_ts, _, call, _, _} ,_,State) -> State + 1;
+	(A, end_of_trace, _, State) -> io:format(A,"~p.~n", [State]) end, 0}.
+
+ret_caller_call_handler() ->
+    {fun(A, {trace_ts, _, call, _, _, _} ,_,_) -> io:format(A, "ok.~n", []);
+	(A, {trace_ts, _, return_from, _, _, _}, _, _) -> io:format(A, "ok.~n", []);
+	(_, _, _, _) -> ok end, []}.
+
+node_call_handler() ->
+    {fun(A, {trace_ts, {_,_,Node}, call, _, _} ,_,_) -> io:format(A, "~p.~n", [Node]);
+	(_, end_of_trace, _, _) -> ok end, []}.
+
 otherhandler(_Fd,_,end_of_trace,Relay) ->
     Relay ! end_of_trace,
     Relay;
@@ -830,6 +847,14 @@ begin_trace(ServerNode, ClientNode, Dest) ->
     ?line ttb:tp(server, received, []),
     ?line ttb:tp(client, put, []),
     ?line ttb:tp(client, get, []).
+
+begin_trace_local(ServerNode, ClientNode, Dest) ->
+    ?line {ok, _} =
+	ttb:tracer([ServerNode,ClientNode],[{file, Dest}]),
+    ?line ttb:p(all, call),
+    ?line ttb:tpl(server, received, []),
+    ?line ttb:tpl(client, put, []),
+    ?line ttb:tpl(client, get, []).
 
 check_size(N, Dest, Output, ServerNode, ClientNode) ->
     ?line begin_trace(ServerNode, ClientNode, Dest),
@@ -1081,9 +1106,152 @@ shell_tracing_init(Config) when is_list(Config) ->
     ?line ttb:stop(),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
-    try  ttb:tracer([ttb_helper:get_node(client), ttb_helper:get_node(server)],
-		    [{file, ?FNAME}, shell])
-    catch
-	exit:local_client_required_on_shell_tracing ->
-	    ok
-    end.
+    ?line local_client_required_on_shell_tracing = try  ttb:tracer([ttb_helper:get_node(client), ttb_helper:get_node(server)],
+								   [{file, ?FNAME}, shell])
+						   catch
+						       exit:local_client_required_on_shell_tracing ->
+							   local_client_required_on_shell_tracing
+						   end.
+
+only_one_state_for_format_handler(suite) ->
+    [];
+only_one_state_for_format_handler(doc) ->
+    ["Only one state for format handler"];
+only_one_state_for_format_handler(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_local(ServerNode, ClientNode, ?FNAME),
+    ?line ttb_helper:msgs(2),
+    ?line {_, D} = ttb:stop([return]),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, counter_call_handler()}]),
+    ?line {ok, Ret} = file:consult(?OUTPUT),
+    ?line [5] = Ret.
+
+only_one_state_with_default_format_handler(suite) ->
+    [];
+only_one_state_with_default_format_handler(doc) ->
+    ["Only one state with default format handler"];
+only_one_state_with_default_format_handler(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_local(ServerNode, ClientNode, ?FNAME),
+    ?line ttb_helper:msgs(2),
+    ?line {_, D} = ttb:stop([return]),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ttb:format(D, [{out, ?OUTPUT}]),
+    ?line true = filelib:is_file(?OUTPUT).
+
+only_one_state_with_initial_format_handler(suite) ->
+    [];
+only_one_state_with_initial_format_handler(doc) ->
+    ["Only one state with initial format handler"];
+only_one_state_with_initial_format_handler(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line {ok, _} =
+	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}, {handler, counter_call_handler()}]),
+    ?line ttb:p(all, call),
+    ?line ttb:tpl(server, received, []),
+    ?line ttb:tpl(client, put, []),
+    ?line ttb:tpl(client, get, []),
+    ?line ttb_helper:msgs(2),
+    ?line {_, D} = ttb:stop([return]),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ttb:format(D, [{out, ?OUTPUT}]),
+    ?line {ok, Ret} = file:consult(?OUTPUT),
+    ?line [5] = Ret.
+
+run_trace_with_shortcut(Shortcut, Ret, F) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line {ok, _} =
+	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
+    ?line ttb:p(all, call),
+    ?line ttb:F(client, put, Shortcut),
+    ?line ttb_helper:msgs(2),
+    ?line {_, D} = ttb:stop([return]),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler()}]),
+    ?line {ok, Ret} =file:consult(?OUTPUT),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode).
+
+fun_for(return) ->
+    {codestr, "fun(_) -> return_trace() end"};
+fun_for(msg_false) ->
+    {codestr, "fun(_) -> message(false) end"}.
+
+run_trace_with_shortcut1(suite) ->
+    [];
+run_trace_with_shortcut1(doc) ->
+    ["Run trace with shortcut 1"];
+run_trace_with_shortcut1(Config) when is_list(Config) ->
+    ?line run_trace_with_shortcut(caller, [ok,ok], tp),
+    ?line run_trace_with_shortcut(caller, [ok,ok], tpl).
+
+run_trace_with_shortcut2(suite) ->
+    [];
+run_trace_with_shortcut2(doc) ->
+    ["Run trace with shortcut 2"];
+run_trace_with_shortcut2(Config) when is_list(Config) ->
+    ?line run_trace_with_shortcut(return, [ok,ok], tp),
+    ?line run_trace_with_shortcut(return, [ok,ok], tpl).
+
+run_trace_with_shortcut3(suite) ->
+    [];
+run_trace_with_shortcut3(doc) ->
+    ["Run trace with shortcut 3"];
+run_trace_with_shortcut3(Config) when is_list(Config) ->
+    ?line run_trace_with_shortcut(fun_for(return), [ok,ok], tp),
+    ?line run_trace_with_shortcut(fun_for(return), [ok,ok], tpl).
+
+run_trace_with_shortcut4(suite) ->
+    [];
+run_trace_with_shortcut4(doc) ->
+    ["Run trace with shortcut 4"];
+run_trace_with_shortcut4(Config) when is_list(Config) ->
+    ?line run_trace_with_shortcut(fun_for(msg_false), [], tp),
+    ?line run_trace_with_shortcut(fun_for(msg_false), [], tpl).
+
+cant_specify_local_and_flush(suite) ->
+    [];
+cant_specify_local_and_flush(doc) ->
+    ["Can't specify local and flush"];
+cant_specify_local_and_flush(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line flush_unsupported_with_ip_trace_port = try ttb:tracer([ServerNode, ClientNode], [{flush, 1000}, {file, {local, ?FNAME}}])
+						 catch
+						     exit:flush_unsupported_with_ip_trace_port ->
+							 flush_unsupported_with_ip_trace_port
+						 end,
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode).
+
+trace_sorted_by_default(suite) ->
+    [];
+trace_sorted_by_default(doc) ->
+    ["Trace sorted by default"];
+trace_sorted_by_default(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_local(ServerNode, ClientNode, ?FILE),
+    ?line ttb_helper:msgs(2),
+    ?line {_, D} = ttb:stop([return]),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, false}]),
+    {ok, Ret} = file:consult(?OUTPUT),
+    ?line [ClientNode,ServerNode,ClientNode,ServerNode,ServerNode] = Ret.
+
+disable_sorting(suite) ->
+    [];
+disable_sorting(doc) ->
+    ["Disable sorting"];
+disable_sorting(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_local(ServerNode, ClientNode, ?FILE),
+    ?line ttb_helper:msgs(2),
+    ?line {_, D} = ttb:stop([return]),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, true}]),
+    {ok, Ret} = file:consult(?OUTPUT),
+    ?line [ClientNode,ClientNode,ServerNode,ServerNode,ServerNode] = Ret.
