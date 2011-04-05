@@ -561,7 +561,6 @@ test_events(repeat_cs_until_any_fail) ->
 	  {error,
 	   {{badmatch,2},
 	    [{repeat_1_SUITE,tc_fail_1,1},
-	     {repeat_1_SUITE,tc_fail_1,1},
 	     {test_server,my_apply,3},
 	     {test_server,ts_tc,3},
 	     {test_server,run_test_case_eval1,6},
