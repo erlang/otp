@@ -50,7 +50,7 @@ try_start_node(Node) ->
 	pong ->
 	    io:format("Node ~p already running~n", [N]);
 	_ ->
-	    io:format("Starting node ~p... ~p ", [Node, os:cmd(?NODE_CMD(Node))]),	    
+	    io:format("Starting node ~p... ~p ", [Node, os:cmd(?NODE_CMD(Node))]),
 	    recv()
     end.
 
