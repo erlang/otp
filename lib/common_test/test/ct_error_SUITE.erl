@@ -102,8 +102,9 @@ cfg_error(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(cfg_error, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(cfg_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -120,8 +121,9 @@ lib_error(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(lib_error, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(lib_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -138,8 +140,9 @@ no_compile(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(no_compile, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(no_compile),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -156,7 +159,8 @@ timetrap_end_conf(Config) when is_list(Config) ->
 
     ct_test_support:log_events(timetrap_end_conf,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(timetrap_end_conf),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -176,7 +180,8 @@ timetrap_normal(Config) when is_list(Config) ->
 
     ct_test_support:log_events(timetrap_normal,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(timetrap_normal),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -198,7 +203,8 @@ timetrap_extended(Config) when is_list(Config) ->
 
     ct_test_support:log_events(timetrap_extended,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(timetrap_extended),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).

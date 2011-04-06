@@ -225,8 +225,9 @@ do_test(Tag, SuiteWildCard, CTHs, Config, Res, EC) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(Tag, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(Tag, EC),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).

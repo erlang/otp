@@ -612,6 +612,12 @@ setup_and_execute(TCName, TestSpec, Config) ->
 	    false -> [{spec,SpecFile},{label,TCName}]
 	end,
     {Opts,ERPid} = setup(TestTerms, Config),
+
+    FullSpecFile = ct_test_support:join_abs_dirs(?config(net_dir, Opts),
+						 SpecFile),
+    io:format("~nTest spec created here~n~n<a href=\"file://~s\">~s</a>~n",
+	      [FullSpecFile,FullSpecFile]),
+
     ok = ct_test_support:run(Opts, Config),
     TestSpec1 = [{logdir,proplists:get_value(logdir,Opts)},
 		 {label,proplists:get_value(label,TestTerms)} | TestSpec],
@@ -620,7 +626,8 @@ setup_and_execute(TCName, TestSpec, Config) ->
 
     ct_test_support:log_events(TCName,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(TCName),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -631,8 +638,6 @@ create_spec_file(SpecDir, TCName, TestSpec) ->
     {ok,Dev} = file:open(FileName, [write]),
     [io:format(Dev, "~p.~n", [Term]) || Term <- TestSpec],
     file:close(Dev),
-    io:format("~nTest spec created here~n~n<a href=\"file://~s\">~s</a>~n",
-	      [FileName,FileName]),
     FileName.
 
 setup(Test, Config) when is_tuple(Test) ->

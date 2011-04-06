@@ -175,8 +175,9 @@ dir1(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(dir1, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(dir1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -204,8 +205,9 @@ dir2(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(dir2, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(dir2),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -234,8 +236,9 @@ dir1_2(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(dir1_2, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(dir1_2),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -264,8 +267,8 @@ suite11(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(suite11, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
     TestEvents = events_to_check(suite11),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -293,8 +296,8 @@ suite21(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(suite21, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
     TestEvents = events_to_check(suite21),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -324,8 +327,8 @@ suite11_21(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(suite11_21, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
     TestEvents = events_to_check(suite11_21),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -355,8 +358,8 @@ tc111(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(tc111, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
     TestEvents = events_to_check(tc111),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -385,8 +388,8 @@ tc211(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(tc211, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
     TestEvents = events_to_check(tc211),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -416,8 +419,8 @@ tc111_112(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(tc111_112, 
-			       ct_test_support:reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, ?eh),
+			       ?config(priv_dir, Config), Opts),
 
     TestEvents = events_to_check(tc111_112),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).

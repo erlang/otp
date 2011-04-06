@@ -89,8 +89,9 @@ groups_suite_1(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suite_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(groups_suite_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -109,8 +110,9 @@ groups_suite_2(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suite_2, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(groups_suite_2),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
@@ -130,8 +132,9 @@ groups_suites_1(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suites_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(groups_suites_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
@@ -150,8 +153,9 @@ groups_dir_1(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_dir_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(groups_dir_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  
@@ -170,8 +174,9 @@ groups_dirs_1(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_dirs_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(groups_dirs_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).  

@@ -22,6 +22,7 @@
 -export([install/2, platform_id/1]).
 
 -include("ts.hrl").
+-include_lib("kernel/include/file.hrl").
 
 install(install_local, Options) ->
     install(os:type(), Options);
@@ -150,11 +151,17 @@ add_vars(Vars0, Opts0) ->
 	end,
     {PlatformId, PlatformLabel, PlatformFilename, Version} =
 	platform([{longnames, LongNames}|Vars0]),
+    NetDir = lists:concat(["/net", hostname()]),
+    Mounted = case file:read_file_info(NetDir) of
+		  {ok, #file_info{type = directory}} -> NetDir;
+		  _ -> ""
+	      end,
     {Opts, [{longnames, LongNames},
 	    {platform_id, PlatformId},
 	    {platform_filename, PlatformFilename},
 	    {rsh_name, get_rsh_name()},
 	    {platform_label, PlatformLabel},
+	    {ts_net_dir, Mounted},
 	    {erl_flags, []},
 	    {erl_release, Version},
 	    {ts_testcase_callback, get_testcase_callback()} | Vars0]}.

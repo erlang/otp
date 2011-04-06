@@ -32,7 +32,8 @@
 	 run/2, run/4, get_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
-	 verify_events/3, reformat/2, log_events/3]).
+	 verify_events/3, reformat/2, log_events/4,
+	 join_abs_dirs/2]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -63,7 +64,6 @@ init_per_suite(Config, Level) ->
 
 start_slave(Config,Level) ->
     [_,Host] = string:tokens(atom_to_list(node()), "@"),
-    
     test_server:format(0, "Trying to start ~s~n", ["ct@"++Host]),
     case slave:start(Host, ct, []) of
 	{error,Reason} ->
@@ -72,18 +72,19 @@ start_slave(Config,Level) ->
 	    test_server:format(0, "Node ~p started~n", [CTNode]),
 	    IsCover = test_server:is_cover(),
 	    if IsCover ->
-		cover:start(CTNode);
-	    true->
-		ok
+		    cover:start(CTNode);
+	       true->
+		    ok
 	    end,
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
+
+	    DataDir = proplists:get_value(data_dir, Config),
+	    PrivDir = proplists:get_value(priv_dir, Config),
 
 	    %% PrivDir as well as directory of Test Server suites
 	    %% have to be in code path on Common Test node.
 	    [_ | Parts] = lists:reverse(filename:split(DataDir)),
 	    TSDir = filename:join(lists:reverse(Parts)),
-	    AddPathDirs = case ?config(path_dirs, Config) of
+	    AddPathDirs = case proplists:get_value(path_dirs, Config) of
 			      undefined -> [];
 			      Ds -> Ds
 			  end,
@@ -110,8 +111,8 @@ start_slave(Config,Level) ->
 %%% end_per_suite/1
 
 end_per_suite(Config) ->
-    CTNode = ?config(ct_node, Config),
-    PrivDir = ?config(priv_dir, Config),
+    CTNode = proplists:get_value(ct_node, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
     cover:stop(CTNode),
     slave:stop(CTNode),
@@ -121,7 +122,9 @@ end_per_suite(Config) ->
 %%% init_per_testcase/2
 
 init_per_testcase(_TestCase, Config) ->
-    {_,{_,LogDir}} = lists:keysearch(logdir, 1, get_opts(Config)),
+    Opts = get_opts(Config),
+    NetDir = proplists:get_value(net_dir, Opts),
+    LogDir = join_abs_dirs(NetDir, proplists:get_value(logdir, Opts)),
     case lists:keysearch(master, 1, Config) of
 	false->
 	    test_server:format("See Common Test logs here:\n\n"
@@ -139,7 +142,7 @@ init_per_testcase(_TestCase, Config) ->
 %%% end_per_testcase/2
 
 end_per_testcase(_TestCase, Config) ->
-    CTNode = ?config(ct_node, Config),
+    CTNode = proplists:get_value(ct_node, Config),
     case wait_for_ct_stop(CTNode) of
 	%% Common test was not stopped to we restart node.
 	false ->
@@ -169,7 +172,7 @@ write_testspec(TestSpec, TSFile) ->
 %%% 
 
 get_opts(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     TempDir = case os:getenv("TMP") of
 		  false -> 
 		      case os:getenv("TEMP") of
@@ -195,15 +198,29 @@ get_opts(Config) ->
 	    _ ->
 		TempDir
 	end,
-    InitOpts = ?config(ct_opts, Config),
-    [{logdir,LogDir} | InitOpts].
+
+    %% Copy test variables to app environment on new node
+    CtTestVars =
+	case init:get_argument(ct_test_vars) of
+	    {ok,[Vars]} ->
+		[begin {ok,Ts,_} = erl_scan:string(Str++"."),
+		       {ok,Expr} = erl_parse:parse_term(Ts),
+		       Expr
+		 end || Str <- Vars];
+	    _ ->
+		[]
+	end,
+    %% test_server:format("Test variables added to Config: ~p\n\n",
+    %%                    [CtTestVars]),
+    InitOpts = proplists:get_value(ct_opts, Config),
+    [{logdir,LogDir} | InitOpts ++ CtTestVars].
 
 
 %%%-----------------------------------------------------------------
 %%% 
 run(Opts, Config) ->
-    CTNode = ?config(ct_node, Config),
-    Level = ?config(trace_level, Config),
+    CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
     %% use ct interface
     test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
@@ -224,8 +241,8 @@ run(Opts, Config) ->
     end.
 
 run(M, F, A, Config) ->
-    CTNode = ?config(ct_node, Config),
-    Level = ?config(trace_level, Config),
+    CTNode = proplists:get_value(ct_node, Config),
+    Level = proplists:get_value(trace_level, Config),
     test_server:format(Level, "~nCalling ~w:~w(~p) on ~p~n",
 		       [M, F, A, CTNode]),
     rpc:call(CTNode, M, F, A).
@@ -261,11 +278,11 @@ handle_event(EH, Event) ->
     ok.
     
 start_event_receiver(Config) ->
-    CTNode = ?config(ct_node, Config),
+    CTNode = proplists:get_value(ct_node, Config),
     spawn_link(CTNode, fun() -> er() end).
 
 get_events(_, Config) ->
-    CTNode = ?config(ct_node, Config),
+    CTNode = proplists:get_value(ct_node, Config),
     {event_receiver,CTNode} ! {self(),get_events},
     Events = receive {event_receiver,Evs} -> Evs end,
     {event_receiver,CTNode} ! stop,
@@ -288,7 +305,7 @@ er_loop(Evs) ->
     end.
 
 verify_events(TEvs, Evs, Config) ->
-    Node = ?config(ct_node, Config),    
+    Node = proplists:get_value(ct_node, Config),
     case catch verify_events1(TEvs, Evs, Node, Config) of
 	{'EXIT',Reason} ->
 	    Reason;
@@ -931,14 +948,17 @@ match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
 match_data([],[]) ->
     match.
 
-log_events(TC, Events, PrivDir) ->
-    LogFile = filename:join(PrivDir, atom_to_list(TC)++".events"),
+
+log_events(TC, Events, EvLogDir, Opts) ->
+    LogFile = filename:join(EvLogDir, atom_to_list(TC)++".events"),
     {ok,Dev} = file:open(LogFile, [write]),
     io:format(Dev, "[~n", []),
     log_events1(Events, Dev, " "),
     file:close(Dev),
+    FullLogFile = join_abs_dirs(proplists:get_value(net_dir, Opts),
+				LogFile),
     io:format("Events written to logfile: <a href=\"file://~s\">~s</a>~n",
-	      [LogFile,LogFile]),
+	      [FullLogFile,FullLogFile]),
     io:format(user, "Events written to logfile: ~p~n", [LogFile]).
 
 log_events1(Evs, Dev, "") ->
@@ -1024,13 +1044,25 @@ reformat([], _EH) ->
 %%%-----------------------------------------------------------------
 %%% MISC HELP FUNCTIONS
 
+join_abs_dirs(undefined, Dir2) ->
+    Dir2;
+join_abs_dirs(Dir1, Dir2) ->
+    case filename:pathtype(Dir2) of
+	relative ->
+	    filename:join(Dir1, Dir2);
+	_ ->
+	    [_Abs|Parts] = filename:split(Dir2),
+	    filename:join(Dir1, filename:join(Parts))
+    end.
+
 create_tmp_logdir(Tmp) ->
     LogDir = filename:join(Tmp,"ct"),
     file:make_dir(LogDir),
     LogDir.
 
 delete_old_logs({win32,_}, Config) ->
-    case {?config(priv_dir, Config),?config(logdir, get_opts(Config))} of
+    case {proplists:get_value(priv_dir, Config),
+	  proplists:get_value(logdir, get_opts(Config))} of
 	{LogDir,LogDir} ->
 	    ignore;
 	{_,LogDir} ->				% using tmp for logs
@@ -1042,7 +1074,8 @@ delete_old_logs(_, Config) ->
 	false ->
 	    ignore;
 	_ ->
-	    catch delete_dirs(?config(logdir, get_opts(Config)))
+	    catch delete_dirs(proplists:get_value(logdir,
+						  get_opts(Config)))
     end.
 
 delete_dirs(LogDir) ->

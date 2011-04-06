@@ -99,8 +99,9 @@ auto_skip(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(auto_skip, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(auto_skip),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -122,8 +123,9 @@ user_skip(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(user_skip, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(user_skip),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).

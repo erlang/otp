@@ -88,8 +88,9 @@ missing_conf(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(missing_conf_SUITE, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(missing_conf),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -108,7 +109,8 @@ repeat_1(Config) when is_list(Config) ->
 
     ct_test_support:log_events(repeat_1,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(repeat_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
