@@ -77,6 +77,20 @@
           <p>Own Id: OTP-9157</p>
         </item>
 
+        <item>
+          <p>[httpd] Extended support for file descriptors. 
+	  In order to be able to bind to a privileged port 
+	  without running the erlang VM as root, the support 
+	  for using file descriptors has been improved. 
+	  It is now possible to add to the config (option fd) when 
+	  calling the 
+	  <seealso marker="inets#start2">inets:start(httpd, ...)</seealso> 
+	  function. </p>
+	  <p>Attila Rajmund Nohl</p>
+          <p>Own Id: OTP-9202</p>
+          <p>Aux Id: seq11819</p>
+        </item>
+
       </list>
     </section>
 
@@ -162,7 +176,8 @@
 	  are URL-encoded. Added support in http-client to use
 	  URL-encoding. Also added the missing include directory
 	  for the inets application.</p>
-          <p>Own Id: OTP-8940 Aux Id: seq11735 </p>
+          <p>Own Id: OTP-8940</p>
+          <p>Aux Id: seq11735</p>
         </item>
       </list>
     </section>
