@@ -1723,8 +1723,14 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	} else if (is_list(*tp)) {
 #if defined(PURIFY)
 #define ERTS_ERROR_CHECKER_PRINTF purify_printf
+#define ERTS_ERROR_CHECKER_PRINTF_XML purify_printf
 #elif defined(VALGRIND)
 #define ERTS_ERROR_CHECKER_PRINTF VALGRIND_PRINTF
+#  ifndef HAVE_VALGRIND_PRINTF_XML
+#    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF
+#  else
+#    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF_XML
+#  endif
 #endif
 	    int buf_size = 8*1024; /* Try with 8KB first */
 	    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
@@ -1741,8 +1747,8 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 	    }
 	    buf[buf_size - 1 - r] = '\0';
 	    if (check_if_xml()) {
-		ERTS_ERROR_CHECKER_PRINTF("<erlang_info_log>"
-					  "%s</erlang_info_log>\n", buf);
+		ERTS_ERROR_CHECKER_PRINTF_XML("<erlang_info_log>"
+					      "%s</erlang_info_log>\n", buf);
 	    } else {
 		ERTS_ERROR_CHECKER_PRINTF("%s\n", buf);
 	    }

@@ -3413,6 +3413,7 @@ void process_main(void)
 		r(0) = nif_bif_result;
 		CHECK_TERM(r(0));
 		SET_I(c_p->cp);
+		c_p->cp = 0;
 		Goto(*I);
 	    } else if (c_p->freason == TRAP) {
 		SET_I(*((BeamInstr **) (UWord) ((c_p)->def_arg_reg + 3)));

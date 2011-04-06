@@ -1197,7 +1197,7 @@ static char *hex(char digest[16], char buff[33])
     char *p = buff;
     int i;
     
-    for (i = 0; i < sizeof(digest); ++i) {
+    for (i = 0; i < 16; ++i) {
 	*p++ = tab[(int)((*d) >> 4)];
 	*p++ = tab[(int)((*d++) & 0xF)];
     }

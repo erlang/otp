@@ -282,7 +282,7 @@ typedef struct erl_drv_entry {
 				   the port */
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
 				/* called when we have input from one of 
-				   the driver's handles) */
+				   the driver's handles */
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
 				/* called when output is possible to one of 
 				   the driver's handles */

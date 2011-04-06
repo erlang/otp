@@ -114,7 +114,7 @@ my_binary_to_list(<<>>) -> [].]]></code>
     data. For each field that is matched out of a binary, the position in the
     match context will be incremented.</p>
 
-    <p>In R11B, a match context was only using during a binary matching
+    <p>In R11B, a match context was only used during a binary matching
     operation.</p>
 
     <p>In R12B, the compiler tries to avoid generating code that
@@ -205,7 +205,7 @@ Bin4 = <<Bin1/binary,17>>,       %% 5 !!!
       ProcBin for the binary. The reason is that the binary object can be
       moved (reallocated) during an append operation, and when that happens
       the pointer in the ProcBin must be updated. If there would be more than
-      on ProcBin pointing to the binary object, it would not be possible to
+      one ProcBin pointing to the binary object, it would not be possible to
       find and update all of them.</p>
 
       <p>Therefore, certain operations on a binary will mark it so that
@@ -291,7 +291,7 @@ my_binary_to_list(<<>>) -> [].]]></code>
   that initializes the matching operation will basically do nothing
   when it sees that it was passed a match context instead of a binary.</p>
 
-  <p>When the end of the binary is reached and second clause matches,
+  <p>When the end of the binary is reached and the second clause matches,
   the match context will simply be discarded (removed in the next
   garbage collection, since there is no longer any reference to it).</p>
 

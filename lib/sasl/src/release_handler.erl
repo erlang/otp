@@ -791,7 +791,7 @@ check_rel(Root, RelFile, Masters) ->
 check_rel(Root, RelFile, LibDirs, Masters) ->
     case consult(RelFile, Masters) of
 	{ok, [RelData]} ->
-	    check_rel_data(RelData, Root, LibDirs);
+	    check_rel_data(RelData, Root, LibDirs, Masters);
 	{ok, _} ->
 	    throw({error, {bad_rel_file, RelFile}});
 	{error, Reason} when is_tuple(Reason) ->
@@ -800,7 +800,8 @@ check_rel(Root, RelFile, LibDirs, Masters) ->
 	    throw({error, {FileError, RelFile}})
     end.
 
-check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs) ->
+check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs,
+		Masters) ->
     Libs2 =
 	lists:map(fun(LibSpec) ->
 			  Lib = element(1, LibSpec),
@@ -810,7 +811,7 @@ check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs) ->
 			      case lists:keysearch(Lib, 1, LibDirs) of
 				  {value, {_Lib, _Vsn, Dir}} ->
 				      Path = filename:join(Dir,LibName),
-				      check_path(Path),
+				      check_path(Path, Masters),
 				      Path;
 				  _ ->
 				      filename:join([Root, "lib", LibName])
@@ -820,19 +821,34 @@ check_rel_data({release, {Name, Vsn}, {erts, EVsn}, Libs}, Root, LibDirs) ->
 		  Libs),
     #release{name = Name, vsn = Vsn, erts_vsn = EVsn,
 	     libs = Libs2, status = unpacking};
-check_rel_data(RelData, _Root, _LibDirs) ->
+check_rel_data(RelData, _Root, _LibDirs, _Masters) ->
     throw({error, {bad_rel_data, RelData}}).
 
 check_path(Path) ->
-    case file:read_file_info(Path) of
-	{ok, Info} when Info#file_info.type==directory ->
-	    ok;
-	{ok, _Info} ->
-	    throw({error, {not_a_directory, Path}});
-	{error, _Reason} ->
-	    throw({error, {no_such_directory, Path}})
-    end.
-    
+	check_path_response(Path, file:read_file_info(Path)).
+check_path(Path, false)   -> check_path(Path);
+check_path(Path, Masters) -> check_path_master(Masters, Path).
+
+%%-----------------------------------------------------------------
+%% check_path at any master node.
+%% If the path does not exist or is not a directory
+%% at one node it should not exist at any other node either.
+%%-----------------------------------------------------------------
+check_path_master([Master|Ms], Path) ->
+	case rpc:call(Master, file, read_file_info, [Path]) of
+	{badrpc, _} -> consult_master(Ms, Path);
+	Res         -> check_path_response(Path, Res)
+	end;
+check_path_master([], _Path) ->
+	{error, no_master}.
+
+check_path_response(_Path, {ok, Info}) when Info#file_info.type==directory ->
+	ok;
+check_path_response(Path, {ok, _Info}) ->
+	throw({error, {not_a_directory, Path}});
+check_path_response(Path, {error, _Reason}) ->
+	throw({error, {no_such_directory, Path}}).
+
 do_check_install_release(RelDir, Vsn, Releases, Masters) ->
     case lists:keysearch(Vsn, #release.vsn, Releases) of
 	{value, #release{status = current}} ->

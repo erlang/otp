@@ -432,7 +432,7 @@ fe80::204:acff:fe17:bf38
       </desc>
     </func>
     <func>
-      <name>port(Socket) -> {ok, Port}</name>
+      <name>port(Socket) -> {ok, Port} | {error, any()}</name>
       <fsummary>Return the local port number for a socket</fsummary>
       <type>
         <v>Socket = socket()</v>

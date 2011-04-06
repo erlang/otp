@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -185,13 +185,19 @@ read_index_file(Dir) ->
 %%-----------------------------------------------------------------
 %% Write the index file.  This file contains one binary with
 %% the last used filename (an integer).
+%% Write a temporary file and rename it in order to make the update
+%% atomic.
 %%-----------------------------------------------------------------
 
 write_index_file(Dir, Index) ->
-    case file:open(Dir ++ "/index", [raw, write]) of
+    File = Dir ++ "/index",
+    TmpFile = File ++ ".tmp",
+    case file:open(TmpFile, [raw, write]) of
 	{ok, Fd} ->
-	    file:write(Fd, [Index]),
-	    ok = file:close(Fd);
+	    ok = file:write(Fd, [Index]),
+	    ok = file:close(Fd),
+	    ok = file:rename(TmpFile,File),
+	    ok;
 	_ -> exit(open_index_file)
     end.
 

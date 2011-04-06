@@ -1820,7 +1820,21 @@ upattern_list([], _, St) -> {[],[],[],[],St}.
 %% upat_bin([Pat], [KnownVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
 upat_bin(Es0, Ks, St0) ->
-  upat_bin(Es0, Ks, [], St0).
+    {Es1,Pg,Pv,Pu0,St1} = upat_bin(Es0, Ks, [], St0),
+
+    %% In a clause such as <<Sz:8,V:Sz>> in a function head, Sz will both
+    %% be new and used; a situation that is not handled properly by
+    %% uclause/4.  (Basically, since Sz occurs in two sets that are
+    %% subtracted from each other, Sz will not be added to the list of
+    %% known variables and will seem to be new the next time it is
+    %% used in a match.)
+    %%   Since the variable Sz really is new (it does not use a
+    %% value bound prior to the binary matching), Sz should only be
+    %% included in the set of new variables. Thus we should take it
+    %% out of the set of used variables.
+
+    Pu1 = subtract(Pu0, intersection(Pv, Pu0)),
+    {Es1,Pg,Pv,Pu1,St1}.
 
 %% upat_bin([Pat], [KnownVar], [LocalVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
@@ -1832,35 +1846,36 @@ upat_bin([], _, _, St) -> {[],[],[],[],St}.
 
 
 %% upat_element(Segment, [KnownVar], [LocalVar], State) ->
-%%                        {Segment,[GuardTest],[NewVar],[UsedVar],[LocalVar],State}
-upat_element(#c_bitstr{val=H0,size=Sz}=Seg, Ks, Bs, St0) ->
-  {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
-  Bs1 = case H0 of
-	  #c_var{name=Hname} ->
-	    case H1 of
+%%        {Segment,[GuardTest],[NewVar],[UsedVar],[LocalVar],State}
+upat_element(#c_bitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
+    {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
+    Bs1 = case H0 of
 	      #c_var{name=Hname} ->
-		Bs;
-	      #c_var{name=Other} ->
-		[{Hname, Other}|Bs]
-	    end;
-	  _ ->
-	    Bs
-	end,
-  {Sz1, Us} = case Sz of
-		  #c_var{name=Vname} -> 
-		    rename_bitstr_size(Vname, Bs);
-		  _Other -> {Sz, []}
-		end,
-  {Seg#c_bitstr{val=H1, size=Sz1},Hg,Hv,Us,Bs1,St1}.
+		  case H1 of
+		      #c_var{name=Hname} ->
+			  Bs0;
+		      #c_var{name=Other} ->
+			  [{Hname,Other}|Bs0]
+		  end;
+	      _ ->
+		  Bs0
+	  end,
+    {Sz1,Us} = case Sz0 of
+		   #c_var{name=Vname} -> 
+		       rename_bitstr_size(Vname, Bs0);
+		   _Other ->
+		       {Sz0,[]}
+	       end,
+    {Seg#c_bitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St1}.
 
-rename_bitstr_size(V, [{V, N}|_]) ->
-   New = #c_var{name=N},
-  {New, [N]};
+rename_bitstr_size(V, [{V,N}|_]) ->
+    New = #c_var{name=N},
+    {New,[N]};
 rename_bitstr_size(V, [_|Rest]) ->
-  rename_bitstr_size(V, Rest);
+    rename_bitstr_size(V, Rest);
 rename_bitstr_size(V, []) ->
-  Old = #c_var{name=V},
-  {Old, [V]}.
+    Old = #c_var{name=V},
+    {Old,[V]}.
  
 used_in_any(Les) ->
     foldl(fun (Le, Ns) -> union((get_anno(Le))#a.us, Ns) end,

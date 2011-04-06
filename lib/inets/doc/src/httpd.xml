@@ -525,12 +525,13 @@ bytes
 	scheme scripts. A matching URL is mapped into a specific module
 	and function. For example:
 	
-	<code>{erl_script_alias, {"/cgi-bin/example" [httpd_example]}
+	<code>{erl_script_alias, {"/cgi-bin/example", [httpd_example]}
 	</code>
 	
 	and a request to
 	http://your.server.org/cgi-bin/example/httpd_example:yahoo
-	would refer to httpd_example:yahoo/2 and
+	would refer to httpd_example:yahoo/3 or, if that did not exist,
+	httpd_example:yahoo/2 and
 	http://your.server.org/cgi-bin/example/other:yahoo would
 	not be allowed to execute.
       </item>

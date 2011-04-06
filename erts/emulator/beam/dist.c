@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -864,11 +864,15 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 #include <valgrind/valgrind.h>
 #include <valgrind/memcheck.h>
 
+#ifndef HAVE_VALGRIND_PRINTF_XML
+#define VALGRIND_PRINTF_XML VALGRIND_PRINTF
+#endif
+
 #  define PURIFY_MSG(msg)                                                \
     do {								 \
 	char buf__[1]; size_t bufsz__ = sizeof(buf__);			 \
 	if (erts_sys_getenv("VALGRIND_LOG_XML", buf__, &bufsz__) >= 0) { \
-	    VALGRIND_PRINTF("<erlang_error_log>"			 \
+	    VALGRIND_PRINTF_XML("<erlang_error_log>"			 \
 			    "%s, line %d: %s</erlang_error_log>\n",	 \
 			    __FILE__, __LINE__, msg);			 \
 	} else {							 \

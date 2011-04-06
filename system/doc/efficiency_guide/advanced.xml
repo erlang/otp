@@ -34,7 +34,7 @@
     <p>A good start when programming efficiently is to have knowledge about
       how much memory different data types and operations require. It is
       implementation-dependent how much memory the Erlang data types and
-      other items consume, but here are some figures for
+      other items consume, but here are some figures for the
       erts-5.2 system (OTP release R9B). (There have been no significant
       changes in R13.)</p>
 
