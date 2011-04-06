@@ -410,7 +410,7 @@ struct t_data
 static void *ef_safe_alloc(Uint s)
 {
     void *p = EF_ALLOC(s);
-    if (!p) erl_exit(1, "efile drv: Can't allocate %d bytes of memory\n", s);
+    if (!p) erl_exit(1, "efile drv: Can't allocate %lu bytes of memory\n", (unsigned long)s);
     return p;
 }
 
