@@ -28,7 +28,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(andor_SUITE),
+    test_lib:recompile(?MODULE),
     [t_case, t_and_or, t_andalso, t_orelse, inside, overlap,
      combined, in_case, before_and_inside_if].
 

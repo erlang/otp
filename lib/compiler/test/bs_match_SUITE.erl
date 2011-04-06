@@ -43,7 +43,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(bs_match_SUITE),
+    test_lib:recompile(?MODULE),
     [fun_shadow, int_float, otp_5269, null_fields, wiger,
      bin_tail, save_restore, shadowed_size_var,
      partitioned_bs_match, function_clause, unit,

@@ -40,7 +40,7 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(core_SUITE),
+    test_lib:recompile(?MODULE),
     [dehydrated_itracer, nested_tries].
 
 groups() -> 

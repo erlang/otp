@@ -29,7 +29,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(match_SUITE),
+    test_lib:recompile(?MODULE),
     [pmatch, mixed, aliases, match_in_call, untuplify,
      shortcut_boolean, letify_guard, selectify, underscore].
 

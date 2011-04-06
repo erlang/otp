@@ -37,7 +37,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(guard_SUITE),
+    test_lib:recompile(?MODULE),
     [misc, const_cond, basic_not, complex_not, nested_nots,
      semicolon, complex_semicolon, comma, or_guard,
      more_or_guards, complex_or_guards, and_guard, xor_guard,

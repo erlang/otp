@@ -35,7 +35,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(bs_construct_SUITE),
+    test_lib:recompile(?MODULE),
     [two, test1, fail, float_bin, in_guard, in_catch,
      nasty_literals, side_effect, opt, otp_7556, float_arith,
      otp_8054].

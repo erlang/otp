@@ -39,7 +39,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(receive_SUITE),
+    test_lib:recompile(?MODULE),
     [recv, coverage, otp_7980, ref_opt, export].
 
 groups() -> 
