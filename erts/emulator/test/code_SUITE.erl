@@ -483,7 +483,7 @@ do_false_dependency(Init, Code) ->
     %% Spawn process. Make sure it has the appropriate init function
     %% and returned. CP should not contain garbage after the return.
     Parent = self(),
-    ?line Pid = spawn_link(fun() -> false_dependency_loop(Parent, Init) end),
+    ?line Pid = spawn_link(fun() -> false_dependency_loop(Parent, Init, true) end),
     ?line receive initialized -> ok end,
 
     %% Reload the module. Make sure the process is still alive.
@@ -501,11 +501,18 @@ do_false_dependency(Init, Code) ->
     ?line true = erlang:purge_module(cpbugx),
     ok.
     
-false_dependency_loop(Parent, Init) ->
+false_dependency_loop(Parent, Init, SendInitAck) ->
     Init(),
-    Parent ! initialized,
+    case SendInitAck of
+	true -> Parent ! initialized;
+	false -> void
+		 %% Just send one init-ack. I guess the point of this test
+		 %% wasn't to fill parents msg-queue (?). Seen to cause
+		 %% out-of-mem (on halfword-vm for some reason) by
+		 %% 91 million msg in queue. /sverker
+    end,
     receive
-	_ -> false_dependency_loop(Parent, Init)
+	_ -> false_dependency_loop(Parent, Init, false)
     end.
 
 coverage(Config) when is_list(Config) ->
