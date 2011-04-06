@@ -293,7 +293,6 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
     D = case gb_trees:lookup(Key, D0) of
 	    none -> gb_trees:insert(Key, Lit, D0); %New.
-	    {value,Lit} -> D0;			%Already correct.
 	    {value,inconsistent} -> D0;		%Inconsistent.
 	    {value,_} -> gb_trees:update(Key, inconsistent, D0)
 	end,
