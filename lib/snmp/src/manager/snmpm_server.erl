@@ -89,13 +89,41 @@
 
 -define(SERVER, ?MODULE).
 
--define(SYNC_GET_TIMEOUT,     5000).
--define(SYNC_SET_TIMEOUT,     5000).
--define(DEFAULT_ASYNC_EXPIRE, 5000).
--define(EXTRA_INFO,           undefined).
+-define(DEFAULT_SYNC_TIMEOUT,           5000).
+-define(DEFAULT_SYNC_GET_TIMEOUT,       ?DEFAULT_SYNC_TIMEOUT).
+-define(DEFAULT_SYNC_GET_NEXT_TIMEOUT,  ?DEFAULT_SYNC_TIMEOUT).
+-define(DEFAULT_SYNC_GET_BULK_TIMEOUT,  ?DEFAULT_SYNC_TIMEOUT).
+-define(DEFAULT_SYNC_SET_TIMEOUT,       ?DEFAULT_SYNC_TIMEOUT).
 
--define(SNMP_AGENT_PORT,      161).
+-define(DEFAULT_ASYNC_EXPIRE,           5000).
+-define(DEFAULT_ASYNC_GET_TIMEOUT,      ?DEFAULT_ASYNC_EXPIRE).
+-define(DEFAULT_ASYNC_GET_NEXT_TIMEOUT, ?DEFAULT_ASYNC_EXPIRE).
+-define(DEFAULT_ASYNC_GET_BULK_TIMEOUT, ?DEFAULT_ASYNC_EXPIRE).
+-define(DEFAULT_ASYNC_SET_TIMEOUT,      ?DEFAULT_ASYNC_EXPIRE).
 
+-define(EXTRA_INFO,                     undefined).
+
+-define(SNMP_AGENT_PORT,                161).
+
+-define(GET_SYNC_GET_TIMEOUT(SendOpts), 
+	get_opt(timeout, ?DEFAULT_SYNC_GET_TIMEOUT, SendOpts)).
+-define(GET_SYNC_GET_NEXT_TIMEOUT(SendOpts), 
+	get_opt(timeout, ?DEFAULT_SYNC_GET_NEXT_TIMEOUT, SendOpts)).
+-define(GET_SYNC_GET_BULK_TIMEOUT(SendOpts), 
+	get_opt(timeout, ?DEFAULT_SYNC_GET_BULK_TIMEOUT, SendOpts)).
+-define(SYNC_SET_TIMEOUT(SendOpts), 
+	get_opt(timeout, ?DEFAULT_SYNC_SET_TIMEOUT, SendOpts)).
+
+-define(GET_ASYNC_GET_EXPIRE(SendOpts), 
+	get_opt(expire, ?DEFAULT_ASYNC_GET_EXPIRE, SendOpts)).
+-define(GET_ASYNC_GET_NEXT_EXPIRE(SendOpts), 
+	get_opt(expire, ?DEFAULT_ASYNC_GET_NEXT_EXPIRE, SendOpts)).
+-define(GET_ASYNC_GET_BULK_EXPIRE(SendOpts), 
+	get_opt(expire, ?DEFAULT_ASYNC_GET_BULK_EXPIRE, SendOpts)).
+-define(GET_ASYNC_SET_EXPIRE(SendOpts), 
+	get_opt(expire, ?DEFAULT_ASYNC_SET_EXPIRE, SendOpts)).
+
+-define(GET_EXTRA(SendOpts), get_opt(extra, ?DEFAULT_EXTRA, SendOpts)).
 
 -ifdef(snmp_debug).
 -define(GS_START_LINK(Args),
@@ -954,7 +982,7 @@ handle_sync_get(Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo,
 	[
 	 {context, CtxName},
 	 {timeout, Timeout},
-	 {extra,   Extra}
+	 {extra,   ExtraInfo}
 	],
     handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State).
 
@@ -970,12 +998,12 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
     case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get -> send a ~p message", [Vsn]),
-	    Extra  = get_opt(extra, ?EXTRA_INO, SendOpts), 
-	    ReqId  = send_get_request(Oids, Vsn, MsgData, Addr, Port, 
-				      ExtraInfo, State),
+	    Extra   = ?GET_EXTRA(SendOpts), 
+	    ReqId   = send_get_request(Oids, Vsn, MsgData, 
+				       Addr, Port, Extra, State),
 	    ?vdebug("handle_sync_get -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
-	    Timeout = get_opt(timeout, ?DEFAULT_SYNC_GET_TIMEOUT, SendOpts), 
+	    Timeout = ?SYNC_GET_TIMEOUT(SendOpts), 
 	    Ref     = erlang:send_after(Timeout, self(), Msg),
 	    MonRef  = erlang:monitor(process, Pid),
 	    ?vtrace("handle_sync_get -> MonRef: ~p", [MonRef]),
@@ -999,39 +1027,49 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
 	    Error
     end.
     
-
 handle_sync_get_next(Pid, UserId, TargetName, CtxName, Oids, Timeout, 
 		     ExtraInfo, From, State) ->
+    SendOpts = 
+	[
+	 {context, CtxName},
+	 {timeout, Timeout},
+	 {extra,   ExtraInfo}
+	],
+    handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts, From, State).
+
+handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts, 
+		     From, State) ->
     ?vtrace("handle_sync_get_next -> entry with"
 	    "~n   Pid:        ~p"
 	    "~n   UserId:     ~p"
 	    "~n   TargetName: ~p"
-	    "~n   CtxName:    ~p"
 	    "~n   Oids:       ~p"
-	    "~n   Timeout:    ~p"
+	    "~n   SendOpts:   ~p"
 	    "~n   From:       ~p", 
-	    [Pid, UserId, TargetName, CtxName, Oids, Timeout, From]),
+	    [Pid, UserId, TargetName, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_next -> send a ~p message", [Vsn]),
-	    ReqId  = send_get_next_request(Oids, Vsn, MsgData, 
-					   Addr, Port, ExtraInfo, State),
+	    Extra   = ?GET_EXTRA(SendOpts), 
+	    ReqId   = send_get_next_request(Oids, Vsn, MsgData, 
+					    Addr, Port, Extra, State),
 	    ?vdebug("handle_sync_get_next -> ReqId: ~p", [ReqId]),
-	    Msg    = {sync_timeout, ReqId, From},
-	    Ref    = erlang:send_after(Timeout, self(), Msg),
-	    MonRef = erlang:monitor(process, Pid),
+	    Msg     = {sync_timeout, ReqId, From},
+	    Timeout = ?SYNC_GET_NEXT_TIMEOUT(SendOpts), 
+	    Ref     = erlang:send_after(Timeout, self(), Msg),
+	    MonRef  = erlang:monitor(process, Pid),
 	    ?vtrace("handle_sync_get_next -> MonRef: ~p", [MonRef]),
-	    Req    = #request{id       = ReqId,
-			      user_id  = UserId, 
-			      reg_type = RegType, 
-			      target   = TargetName, 
-			      addr     = Addr,
-			      port     = Port,
-			      type     = get_next, 
-			      data     = MsgData, 
-			      ref      = Ref, 
-			      mon      = MonRef, 
-			      from     = From},
+	    Req     = #request{id       = ReqId,
+			       user_id  = UserId, 
+			       reg_type = RegType, 
+			       target   = TargetName, 
+			       addr     = Addr,
+			       port     = Port,
+			       type     = get_next, 
+			       data     = MsgData, 
+			       ref      = Ref, 
+			       mon      = MonRef, 
+			       from     = From},
 	    ets:insert(snmpm_request_table, Req),
 	    ok;
 
@@ -1046,39 +1084,50 @@ handle_sync_get_next(Pid, UserId, TargetName, CtxName, Oids, Timeout,
 handle_sync_get_bulk(Pid, UserId, TargetName, CtxName, 
 		     NonRep, MaxRep, Oids, Timeout, 
 		     ExtraInfo, From, State) ->
+    SendOpts = 
+	[
+	 {context, CtxName},
+	 {timeout, Timeout},
+	 {extra,   ExtraInfo}
+	],
+    handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, 
+			 SendOpts, From, State).
+
+handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, 
+		     From, State) ->
     ?vtrace("handle_sync_get_bulk -> entry with"
 	    "~n   Pid:        ~p"
 	    "~n   UserId:     ~p"
 	    "~n   TargetName: ~p"
-	    "~n   CtxName:    ~p"
 	    "~n   NonRep:     ~p"
 	    "~n   MaxRep:     ~p"
 	    "~n   Oids:       ~p"
-	    "~n   Timeout:    ~p"
+	    "~n   SendOpts:   ~p"
 	    "~n   From:       ~p", 
-	    [Pid, UserId, TargetName, CtxName, NonRep, MaxRep, Oids, 
-	     Timeout, From]),
+	    [Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_bulk -> send a ~p message", [Vsn]),
-	    ReqId  = send_get_bulk_request(Oids, Vsn, MsgData, Addr, Port, 
-					   NonRep, MaxRep, ExtraInfo, State),
+	    Extra   = ?GET_EXTRA(SendOpts), 
+	    ReqId   = send_get_bulk_request(Oids, Vsn, MsgData, Addr, Port, 
+					    NonRep, MaxRep, Extra, State),
 	    ?vdebug("handle_sync_get_bulk -> ReqId: ~p", [ReqId]),
-	    Msg    = {sync_timeout, ReqId, From},
-	    Ref    = erlang:send_after(Timeout, self(), Msg),
-	    MonRef = erlang:monitor(process, Pid),
+	    Msg     = {sync_timeout, ReqId, From},
+	    Timeout = ?SYNC_GET_BULK_TIMEOUT(SendOpts), 
+	    Ref     = erlang:send_after(Timeout, self(), Msg),
+	    MonRef  = erlang:monitor(process, Pid),
 	    ?vtrace("handle_sync_get_bulk -> MonRef: ~p", [MonRef]),
-	    Req    = #request{id       = ReqId,
-			      user_id  = UserId, 
-			      reg_type = RegType, 
-			      target   = TargetName, 
-			      addr     = Addr,
-			      port     = Port,
-			      type     = get_bulk, 
-			      data     = MsgData, 
-			      ref      = Ref, 
-			      mon      = MonRef, 
-			      from     = From},
+	    Req     = #request{id       = ReqId,
+			       user_id  = UserId, 
+			       reg_type = RegType, 
+			       target   = TargetName, 
+			       addr     = Addr,
+			       port     = Port,
+			       type     = get_bulk, 
+			       data     = MsgData, 
+			       ref      = Ref, 
+			       mon      = MonRef, 
+			       from     = From},
 	    ets:insert(snmpm_request_table, Req),
 	    ok;
 
@@ -1092,36 +1141,47 @@ handle_sync_get_bulk(Pid, UserId, TargetName, CtxName,
 
 handle_sync_set(Pid, UserId, TargetName, CtxName, VarsAndVals, Timeout, 
 		ExtraInfo, From, State) ->
+    SendOpts = 
+	[
+	 {context, CtxName},
+	 {timeout, Timeout},
+	 {extra,   ExtraInfo}
+	],
+    handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, 
+		    From, State).
+
+handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
     ?vtrace("handle_sync_set -> entry with"
 	    "~n   Pid:         ~p"
 	    "~n   UserId:      ~p"
 	    "~n   TargetName:  ~p"
-	    "~n   CtxName:     ~p"
 	    "~n   VarsAndVals: ~p"
-	    "~n   Timeout:     ~p"
+	    "~n   SendOpts:    ~p"
 	    "~n   From:        ~p", 
-	    [Pid, UserId, TargetName, CtxName, VarsAndVals, Timeout, From]),
+	    [Pid, UserId, TargetName, VarsAndVals, From]),
     case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_set -> send a ~p message", [Vsn]),
-	    ReqId  = send_set_request(VarsAndVals, Vsn, MsgData, 
-				      Addr, Port, ExtraInfo, State),
+	    Extra   = ?GET_EXTRA(SendOpts), 
+	    ReqId   = send_set_request(VarsAndVals, Vsn, MsgData, 
+				       Addr, Port, Extra, State),
 	    ?vdebug("handle_sync_set -> ReqId: ~p", [ReqId]),
-	    Msg    = {sync_timeout, ReqId, From},
-	    Ref    = erlang:send_after(Timeout, self(), Msg),
-            MonRef = erlang:monitor(process, Pid),
+	    Msg     = {sync_timeout, ReqId, From},
+	    Timeout = ?SYNC_SET_TIMEOUT(SendOpts), 
+	    Ref     = erlang:send_after(Timeout, self(), Msg),
+            MonRef  = erlang:monitor(process, Pid),
 	    ?vtrace("handle_sync_set -> MonRef: ~p", [MonRef]),
-	    Req    = #request{id       = ReqId,
-			      user_id  = UserId, 
-			      reg_type = RegType, 
-			      target   = TargetName, 
-			      addr     = Addr,
-			      port     = Port,
-			      type     = set, 
-			      data     = MsgData, 
-			      ref      = Ref, 
-			      mon      = MonRef, 
-			      from     = From},
+	    Req     = #request{id       = ReqId,
+			       user_id  = UserId, 
+			       reg_type = RegType, 
+			       target   = TargetName, 
+			       addr     = Addr,
+			       port     = Port,
+			       type     = set, 
+			       data     = MsgData, 
+			       ref      = Ref, 
+			       mon      = MonRef, 
+			       from     = From},
 	    ets:insert(snmpm_request_table, Req),
 	    ok;
 
