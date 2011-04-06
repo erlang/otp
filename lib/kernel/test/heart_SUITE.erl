@@ -22,7 +22,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, start/1, restart/1, 
-	 reboot/1, set_cmd/1, clear_cmd/1,
+	 reboot/1, set_cmd/1, clear_cmd/1, get_cmd/1,
 	 dont_drop/1, kill_pid/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -58,7 +58,7 @@ end_per_testcase(_Func, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start, restart, reboot, set_cmd, clear_cmd, kill_pid].
+    [start, restart, reboot, set_cmd, clear_cmd, get_cmd, kill_pid].
 
 groups() -> 
     [].
@@ -244,6 +244,15 @@ clear_cmd(Config) when is_list(Config) ->
 	      _ -> 
 		  test_server:fail(node_rebooted)
 	  end,
+    ok.
+
+get_cmd(suite) -> [];
+get_cmd(Config) when is_list(Config) ->
+    ?line {ok, Node} = start_check(slave, heart_test),
+    Cmd = "test",
+    ?line ok = rpc:call(Node, heart, set_cmd, [Cmd]),
+    ?line {ok, Cmd} = rpc:call(Node, heart, get_cmd, []),
+    stop_node(Node),
     ok.
 
 dont_drop(suite) -> 
