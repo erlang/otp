@@ -885,7 +885,6 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>Notification = atom()</v>
         <v>SendOpts = [send_option()]</v>
         <v>send_option() = {receiver, receiver()} | {name, notify_name()} | {context, context_name()} | {varbinds, varbinds()} | {local_engine_id, string()} | {extra, extra_info()}</v>
-        <v>override_option() = atom()</v>
         <v>receiver() = no_receiver | {tag(), tag_receiver()} | notification_delivery_info()</v>
         <v>tag() = term(()</v>
         <v>tag_receiver() = pid() | registered_name() | {Mod, Func, Args}</v>
