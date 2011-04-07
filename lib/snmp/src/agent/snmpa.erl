@@ -60,6 +60,7 @@
 
 	 register_subagent/3, unregister_subagent/2, 
 
+	 send_notification2/3, 
 	 send_notification/3, send_notification/4, send_notification/5,
 	 send_notification/6, send_notification/7, 
 	 send_trap/3, send_trap/4,
