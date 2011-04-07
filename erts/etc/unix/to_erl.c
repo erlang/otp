@@ -125,7 +125,7 @@ static void usage(char *pname)
 int main(int argc, char **argv)
 {
     char  FIFO1[FILENAME_MAX], FIFO2[FILENAME_MAX];
-    int i, len, wfd, rfd, result = 0;
+    int i, len, wfd, rfd;
     fd_set readfds;
     char buf[BUFSIZ];
     char pipename[FILENAME_MAX];
@@ -367,7 +367,6 @@ int main(int argc, char **argv)
 	    }
 	    else {
 		fprintf(stderr, "Error in select.\n");
-		result = -1;
 		break;
 	    }
 	}
@@ -398,7 +397,6 @@ int main(int argc, char **argv)
 		close(wfd);
 		if (len < 0) {
 		    fprintf(stderr, "Error in reading from stdin.\n");
-		    result = -1;
 		} else {
 		    fprintf(stderr, "[EOF]\n\r");
 		}
@@ -420,7 +418,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Error in writing to FIFO.\n");
 		close(rfd);
 		close(wfd);
-		result = -1;
 		break;
 	    }
 	    STATUS("\" OK\r\n");
@@ -447,7 +444,6 @@ int main(int argc, char **argv)
 		close(wfd);
 		if (len < 0) {
 		    fprintf(stderr, "Error in reading from FIFO.\n");
-		    result = -1;
 		} else
 		    fprintf(stderr, "[End]\n\r");
 		break;
@@ -456,7 +452,6 @@ int main(int argc, char **argv)
 		    if ((len=version_handshake(buf,len,wfd)) < 0) {
 			close(rfd);
 			close(wfd);
-			result = -1;
 			break;
 		    }
 		    if (protocol_ver >= 1) {
@@ -475,7 +470,6 @@ int main(int argc, char **argv)
 		    fprintf(stderr, "Error in writing to terminal.\n");
 		    close(rfd);
 		    close(wfd);
-		    result = -1;
 		    break;
 		}
 		STATUS("\" OK\r\n");

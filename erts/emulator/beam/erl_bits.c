@@ -177,7 +177,6 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
     byte* LSB;
     byte* MSB;
     Uint* hp;
-    Uint* hp_end;
     Uint words_needed;
     Uint actual;
     Uint v32;
@@ -405,7 +404,6 @@ erts_bs_get_integer_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuff
     default:
 	words_needed = 1+WSIZE(bytes);
 	hp = HeapOnlyAlloc(p, words_needed);
-	hp_end = hp + words_needed;
 	res = bytes_to_big(LSB, bytes, sgn, hp); 
 	if (is_small(res)) {
 	    p->htop = hp;
@@ -425,7 +423,6 @@ Eterm
 erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffer* mb)
 {
     ErlSubBin* sb;
-    size_t num_bytes;		/* Number of bytes in binary. */
 
     if (mb->size - mb->offset < num_bits) {	/* Asked for too many bits.  */
 	return THE_NON_VALUE;
@@ -435,7 +432,6 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, unsigned flags, ErlBinMatchBuffe
      * From now on, we can't fail.
      */
 
-    num_bytes = NBYTES(num_bits);
     sb = (ErlSubBin *) HeapOnlyAlloc(p, ERL_SUB_BIN_SIZE);
     
     sb->thing_word = HEADER_SUB_BIN;
@@ -1557,7 +1553,6 @@ Uint32
 erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
 {
     Uint bytes;
-    Uint bits;
     Uint offs;
     byte bigbuf[4];
     byte* LSB;
@@ -1567,7 +1562,6 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     ASSERT(mb->size - mb->offset >= 32);
 
     bytes = 4;
-    bits = 8;
     offs = 0;
 
     LSB = bigbuf;

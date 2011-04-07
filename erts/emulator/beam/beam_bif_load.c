@@ -472,9 +472,6 @@ check_process_code(Process* rp, Module* modp)
     for (oh = MSO(rp).first; oh; oh = oh->next) {
 	if (thing_subtag(oh->thing_word) == FUN_SUBTAG) {
 	    ErlFunThing* funp = (ErlFunThing*) oh;
-	    BeamInstr* fun_code;
-
-	    fun_code = funp->fe->address;
 
 	    if (INSIDE((BeamInstr *) funp->fe->address)) {
 		if (done_gc) {
