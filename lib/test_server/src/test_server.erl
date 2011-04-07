@@ -1193,8 +1193,10 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 
 do_end_tc_call(M,F,Res,Return) ->
     Ref = make_ref(),
-    case ?pl2a(M) of
-	ct_framework ->
+    case os:getenv("TEST_SERVER_FRAMEWORK") of
+	FW when FW == "ct_framework";
+		FW == "undefined";
+		FW == false ->
 	    case test_server_sup:framework_call(
 		   end_tc, [?pl2a(M),F,Res, Return], ok) of
 		{fail,FWReason} ->
