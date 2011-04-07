@@ -2055,6 +2055,10 @@ try_read_file_list(Fd) ->
     ?line Title = "Real Programmers Don't Use PASCAL</TITLE>\n",
     ?line Title = io:get_line(Fd, ''),
 
+    %% Seek past the end of the file.
+
+    ?line {ok, _} = ?FILE_MODULE:position(Fd, 25000),
+
     %% Done.
 
     ?line ?FILE_MODULE:close(Fd),
