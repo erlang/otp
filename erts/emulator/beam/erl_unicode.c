@@ -902,7 +902,6 @@ static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,int pos,
 static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
 {
     Eterm *real_bin;
-    Sint need;
     byte* bytes;
     Eterm rest_term;
     int left, sleft;
@@ -918,7 +917,6 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
     ASSERT(is_binary(BIF_ARG_1));
     real_bin = binary_val(BIF_ARG_1);
     ASSERT(*real_bin == HEADER_PROC_BIN);
-    need = ((ProcBin *) real_bin)->val->orig_size;
     pos = (int) binary_size(BIF_ARG_1);
     bytes = binary_bytes(BIF_ARG_1);
     sleft = left = allowed_iterations(BIF_P);

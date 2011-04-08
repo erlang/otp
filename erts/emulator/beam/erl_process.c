@@ -1267,7 +1267,6 @@ ssi_flags_set_wake(ErtsSchedulerSleepInfo *ssi)
 static void
 wake_scheduler(ErtsRunQueue *rq, int incq, int one)
 {
-    int res;
     ErtsSchedulerSleepInfo *ssi;
     ErtsSchedulerSleepList *sl;
 
@@ -1298,7 +1297,6 @@ wake_scheduler(ErtsRunQueue *rq, int incq, int one)
 	if (ssi->next)
 	    ssi->next->prev = ssi->prev;
 
-	res = sl->list != NULL;
 	erts_smp_spin_unlock(&sl->lock);
 
 	ERTS_THR_MEMORY_BARRIER;

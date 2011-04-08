@@ -19,8 +19,8 @@
 
 %% Description  : Implements a search engine based on XPath
 
-%% @doc The xmerl_xpath module handles the entire XPath 1.0 spec
-%% XPath expressions typically occurs in XML attributes and are used to addres
+%% @doc The xmerl_xpath module handles the entire XPath 1.0 spec.
+%% XPath expressions typically occur in XML attributes and are used to address
 %% parts of an XML document.
 %     The grammar is defined in <code>xmerl_xpath_parse.yrl</code>.
 %     The core functions are defined in <code>xmerl_xpath_pred.erl</code>.

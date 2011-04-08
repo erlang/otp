@@ -1297,7 +1297,7 @@ static int read_request(AddrByte **buff, size_t *buff_size)
     }
 
     if (siz > *buff_size) {
-	if (buff_size == 0) {
+	if (*buff_size == 0) {
 	    *buff = ALLOC((*buff_size = siz));
 	} else {
 	    *buff = REALLOC(*buff, (*buff_size = siz));

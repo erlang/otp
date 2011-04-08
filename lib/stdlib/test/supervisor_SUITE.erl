@@ -21,6 +21,7 @@
 -module(supervisor_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").
+-define(TIMEOUT, 1000).
 
 %% Testserver specific export
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -32,33 +33,34 @@
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
-	 sup_start_ignore_child/1, sup_start_error_return/1, 
-	 sup_start_fail/1, sup_stop_infinity/1, 
-	 sup_stop_timeout/1, sup_stop_brutal_kill/1, child_adm/1,
-	 child_adm_simple/1, child_specs/1, extra_return/1]).
+	  sup_start_ignore_child/1, sup_start_error_return/1,
+	  sup_start_fail/1, sup_stop_infinity/1,
+	  sup_stop_timeout/1, sup_stop_brutal_kill/1, child_adm/1,
+	  child_adm_simple/1, child_specs/1, extra_return/1]).
 
 %% Tests concept permanent, transient and temporary 
 -export([ permanent_normal/1, transient_normal/1,
-	 temporary_normal/1,
-	 permanent_abnormal/1, transient_abnormal/1,
-	 temporary_abnormal/1]).
+	  temporary_normal/1,
+	  permanent_abnormal/1, transient_abnormal/1,
+	  temporary_abnormal/1]).
 
 %% Restart strategy tests 
 -export([ one_for_one/1,
-	 one_for_one_escalation/1, one_for_all/1,
-	 one_for_all_escalation/1,
-	 simple_one_for_one/1, simple_one_for_one_escalation/1,
-	 rest_for_one/1, rest_for_one_escalation/1,
-	 simple_one_for_one_extra/1]).
+	  one_for_one_escalation/1, one_for_all/1,
+	  one_for_all_escalation/1,
+	  simple_one_for_one/1, simple_one_for_one_escalation/1,
+	  rest_for_one/1, rest_for_one_escalation/1,
+	  simple_one_for_one_extra/1]).
 
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children_memory/1,
-	 do_not_save_start_parameters_for_temporary_children/1]).
+	 do_not_save_start_parameters_for_temporary_children/1,
+	 do_not_save_child_specs_for_temporary_children/1]).
 
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, sup_start}, {group, sup_stop}, child_adm,
@@ -69,7 +71,8 @@ all() ->
      {group, restart_rest_for_one},
      {group, normal_termination},
      {group, abnormal_termination}, child_unlink, tree,
-     count_children_memory, do_not_save_start_parameters_for_temporary_children].
+     count_children_memory, do_not_save_start_parameters_for_temporary_children,
+     do_not_save_child_specs_for_temporary_children].
 
 groups() -> 
     [{sup_start, [],
@@ -94,8 +97,10 @@ groups() ->
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation]}].
 
-init_per_suite(Config) ->
-    Config.
+init_per_suite(Config0) ->
+    Config = lists:keydelete(watchdog, 1, Config0),
+    Dog = test_server:timetrap(?TIMEOUT),
+    [{watchdog, Dog} | Config].
 
 end_per_suite(_Config) ->
     ok.
@@ -114,12 +119,13 @@ init_per_testcase(count_children_memory, Config) ->
 	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
     end;
 init_per_testcase(_Case, Config) ->
+    erlang:display(_Case),
     Config.
 
 end_per_testcase(_Case, _Config) ->
     ok.
 
-start(InitResult) ->
+start_link(InitResult) ->
     supervisor:start_link({local, sup_test}, ?MODULE, InitResult).
 
 %% Simulate different supervisors callback.  
@@ -136,145 +142,87 @@ get_child_counts(Supervisor) ->
      proplists:get_value(supervisors, Counts),
      proplists:get_value(workers, Counts)].
 
-%-------------------------------------------------------------------------
-% Test cases starts here.
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+%% Test cases starts here.
+%%-------------------------------------------------------------------------
 sup_start_normal(doc) ->
     ["Tests that the supervisor process starts correctly and that it "
-    "can be terminated gracefully."];
+     "can be terminated gracefully."];
 sup_start_normal(suite) -> [];
 sup_start_normal(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
-    ?line exit(Pid, shutdown),
-    receive
-	{'EXIT', Pid, shutdown} ->
-	    ok;
-	{'EXIT', Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	2000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    terminate(Pid, shutdown).
+
+%%-------------------------------------------------------------------------
 sup_start_ignore_init(doc) ->
     ["Tests what happens if init-callback returns ignore"];
 sup_start_ignore_init(suite) -> [];
 sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line ignore = start(ignore),
+    ignore = start_link(ignore),
+    check_exit_reason(normal).
 
-    receive
-	{'EXIT', _Pid, normal} ->
-	    ok;
-	{'EXIT', _Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	2000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
-
-
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 sup_start_ignore_child(doc) ->
     ["Tests what happens if init-callback returns ignore"];
 sup_start_ignore_child(suite) -> [];
 sup_start_ignore_child(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {ok, _Pid}  = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, _Pid}  = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, [ignore]}, 
 	      permanent, 1000, worker, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent,
 	      1000, worker, []},
-    
-    ?line {ok, undefined} = supervisor:start_child(sup_test, Child1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),
 
-    ?line [{child2, CPid2, worker, []},{child1, undefined, worker, []}] 
+    {ok, undefined} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+
+    [{child2, CPid2, worker, []},{child1, undefined, worker, []}]
 	= supervisor:which_children(sup_test),
-    ?line [2,1,0,2] = get_child_counts(sup_test),
+    [2,1,0,2] = get_child_counts(sup_test).
 
-    ok.
-
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 sup_start_error_return(doc) ->
     ["Tests what happens if init-callback returns a invalid value"];
 sup_start_error_return(suite) -> [];
 sup_start_error_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {error, Term} = start(invalid),
+    {error, Term} = start_link(invalid),
+    check_exit_reason(Term).
 
-    receive
-	{'EXIT', _Pid, Term} ->
-	    ok;
-	{'EXIT', _Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	2000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
-
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 sup_start_fail(doc) ->
     ["Tests what happens if init-callback fails"];
 sup_start_fail(suite) -> [];
 sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {error, Term} = start(fail),
+    {error, Term} = start_link(fail),
+    check_exit_reason(Term).
 
-    receive
-	{'EXIT', _Pid, Term} ->
-	    ok;
-	{'EXIT', _Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	2000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 
 sup_stop_infinity(doc) ->
     ["See sup_stop/1 when Shutdown = infinity, this walue is only allowed "
-    "for children of type supervisor"];
+     "for children of type supervisor"];
 sup_stop_infinity(suite) -> [];
 
 sup_stop_infinity(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, 
 	      permanent, infinity, supervisor, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent,
-	       infinity, worker, []},
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+	      infinity, worker, []},
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
     link(CPid1),
-    ?line {error, {invalid_shutdown,infinity}} = 
-	supervisor:start_child(sup_test, Child2),    
+    {error, {invalid_shutdown,infinity}} =
+	supervisor:start_child(sup_test, Child2),
 
-    ?line exit(Pid, shutdown),
+    terminate(Pid, shutdown),
+    check_exit_reason(CPid1, shutdown).
 
-    receive
-	{'EXIT', Pid, shutdown} ->
-	    ok;
-	{'EXIT', Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	5000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
-    receive
-	{'EXIT', CPid1, shutdown} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    after
-	2000 -> ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
-
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 
 sup_stop_timeout(doc) ->
     ["See sup_stop/1 when Shutdown = 1000"];
@@ -282,93 +230,47 @@ sup_stop_timeout(suite) -> [];
 
 sup_stop_timeout(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, 
 	      permanent, 1000, worker, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent,
 	      1000, worker, []},
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
     link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid2),
-   
+
     CPid2 ! {sleep, 200000},
 
-    ?line exit(Pid, shutdown),
+    terminate(Pid, shutdown),
 
-    receive
-	{'EXIT', Pid, shutdown} ->
-	    ok;
-	{'EXIT', Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	5000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, killed).
 
-    receive
-	{'EXIT', CPid1, shutdown} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason,Reason})
-    after
-	2000 -> ?line test_server:fail(no_exit_reason)
-    end,
-   
-    receive
-	{'EXIT', CPid2, killed} -> ok;
-	{'EXIT', CPid2, Reason2} ->
-	    ?line test_server:fail({bad_exit_reason, Reason2})
-    after
-	2000 -> ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
 
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 sup_stop_brutal_kill(doc) ->
     ["See sup_stop/1 when Shutdown = brutal_kill"];
 sup_stop_brutal_kill(suite) -> [];
 
 sup_stop_brutal_kill(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, 
 	      permanent, 1000, worker, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent,
 	      brutal_kill, worker, []},
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
     link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid2),
 
-    ?line exit(Pid, shutdown),
+    terminate(Pid, shutdown),
 
-    receive
-	{'EXIT', Pid, shutdown} ->
-	    ok;
-	{'EXIT', Pid, Else} ->
-	    ?line test_server:fail({bad_exit_reason, Else})
-    after
-	5000 ->
-	    ?line test_server:fail(no_exit_reason)
-    end,
+    check_exit_reason(CPid1, shutdown),
+    check_exit_reason(CPid2, killed).
 
-    receive
-	{'EXIT', CPid1, shutdown} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    after
-	2000 -> ?line test_server:fail(no_exit_reason)
-    end,
-    receive
-	{'EXIT', CPid2, killed} -> ok;
-	{'EXIT', CPid2, Reason2} ->
-	    ?line test_server:fail({bad_exit_reason, Reason2})
-    after
-	2000 -> ?line test_server:fail(no_exit_reason)
-    end,
-    ok.
-
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 extra_return(doc) -> 
     ["The start function provided to start a child may " 
      "return {ok, Pid} or {ok, Pid, Info}, if it returns "
@@ -382,46 +284,40 @@ extra_return(Config) when is_list(Config) ->
     Child = {child1, {supervisor_1, start_child, [extra_return]}, 
 	     permanent, 1000,
 	     worker, []},
-    ?line {ok, _Pid} = start({ok, {{one_for_one, 2, 3600}, [Child]}}),
-    ?line [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
+    {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
     link(CPid),
-    ?line {error, not_found} = supervisor:terminate_child(sup_test, hej),
-    ?line {error, not_found} = supervisor:delete_child(sup_test, hej),
-    ?line {error, not_found} = supervisor:restart_child(sup_test, hej),
-    ?line {error, running} = supervisor:delete_child(sup_test, child1),
-    ?line {error, running} = supervisor:restart_child(sup_test, child1),
-    ?line [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    {error, not_found} = supervisor:terminate_child(sup_test, hej),
+    {error, not_found} = supervisor:delete_child(sup_test, hej),
+    {error, not_found} = supervisor:restart_child(sup_test, hej),
+    {error, running} = supervisor:delete_child(sup_test, child1),
+    {error, running} = supervisor:restart_child(sup_test, child1),
+    [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
 
-    ?line ok = supervisor:terminate_child(sup_test, child1),
-    receive
-	{'EXIT', CPid, shutdown} -> ok;
-	{'EXIT', CPid, Reason} ->
-	    ?line test_server:fail({bad_reason, Reason})
-    after 1000 ->
-	    ?line test_server:fail(no_child_termination)
-    end,
-    ?line [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
-    ?line [1,0,0,1] = get_child_counts(sup_test),
+    ok = supervisor:terminate_child(sup_test, child1),
+    check_exit_reason(CPid, shutdown),
+    [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test),
 
-    ?line {ok, CPid2,extra_return} = 
+    {ok, CPid2,extra_return} =
 	supervisor:restart_child(sup_test, child1),
-    ?line [{child1, CPid2, worker, []}] = supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    [{child1, CPid2, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
 
-    ?line ok = supervisor:terminate_child(sup_test, child1),
-    ?line ok = supervisor:terminate_child(sup_test, child1),
-    ?line ok = supervisor:delete_child(sup_test, child1),
-    ?line {error, not_found} = supervisor:restart_child(sup_test, child1),
-    ?line [] = supervisor:which_children(sup_test),
-    ?line [0,0,0,0] = get_child_counts(sup_test),
+    ok = supervisor:terminate_child(sup_test, child1),
+    ok = supervisor:terminate_child(sup_test, child1),
+    ok = supervisor:delete_child(sup_test, child1),
+    {error, not_found} = supervisor:restart_child(sup_test, child1),
+    [] = supervisor:which_children(sup_test),
+    [0,0,0,0] = get_child_counts(sup_test),
 
-    ?line {ok, CPid3, extra_return} = supervisor:start_child(sup_test, Child),
-    ?line [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    {ok, CPid3, extra_return} = supervisor:start_child(sup_test, Child),
+    [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
 
     ok.
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 child_adm(doc)->
     ["Test API functions start_child/2, terminate_child/2, delete_child/2 "
      "restart_child/2, which_children/1, count_children/1. Only correct "
@@ -432,116 +328,110 @@ child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    ?line {ok, _Pid} = start({ok, {{one_for_one, 2, 3600}, [Child]}}),
-    ?line [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, [Child]}}),
+    [{child1, CPid, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
     link(CPid),
 
     %% Start of an already runnig process 
-    ?line {error,{already_started, CPid}} =
+    {error,{already_started, CPid}} =
 	supervisor:start_child(sup_test, Child),
-    
+
     %% Termination
-    ?line {error, not_found} = supervisor:terminate_child(sup_test, hej),
-    ?line  {'EXIT',{noproc,{gen_server,call, _}}} = 
+    {error, not_found} = supervisor:terminate_child(sup_test, hej),
+    {'EXIT',{noproc,{gen_server,call, _}}} =
 	(catch supervisor:terminate_child(foo, child1)),
-    ?line ok = supervisor:terminate_child(sup_test, child1),
-    receive
-	{'EXIT', CPid, shutdown} -> ok;
-	{'EXIT', CPid, Reason} ->
-	    ?line test_server:fail({bad_reason, Reason})
-    after 1000 ->
-	    ?line test_server:fail(no_child_termination)
-    end,
-    ?line [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
-    ?line [1,0,0,1] = get_child_counts(sup_test),
+    ok = supervisor:terminate_child(sup_test, child1),
+    check_exit_reason(CPid, shutdown),
+    [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test),
     %% Like deleting something that does not exist, it will succeed!
-    ?line ok = supervisor:terminate_child(sup_test, child1),
+    ok = supervisor:terminate_child(sup_test, child1),
 
     %% Start of already existing but not running process 
-    ?line {error,already_present} =
+    {error,already_present} =
 	supervisor:start_child(sup_test, Child),
 
     %% Restart
-    ?line {ok, CPid2} = supervisor:restart_child(sup_test, child1),
-    ?line [{child1, CPid2, worker, []}] = supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
-    ?line {error, running} = supervisor:restart_child(sup_test, child1),
-    ?line {error, not_found} = supervisor:restart_child(sup_test, child2),
-    
-    %% Deletion
-    ?line {error, running} = supervisor:delete_child(sup_test, child1),
-    ?line {error, not_found} = supervisor:delete_child(sup_test, hej),
-    ?line  {'EXIT',{noproc,{gen_server,call, _}}} = 
-	(catch supervisor:delete_child(foo, child1)),
-    ?line ok = supervisor:terminate_child(sup_test, child1),
-    ?line ok = supervisor:delete_child(sup_test, child1),
-    ?line {error, not_found} = supervisor:restart_child(sup_test, child1),
-    ?line [] = supervisor:which_children(sup_test),
-    ?line [0,0,0,0] = get_child_counts(sup_test),
-    
-    %% Start
-    ?line {'EXIT',{noproc,{gen_server,call, _}}} =
-	(catch supervisor:start_child(foo, Child)),
-    ?line {ok, CPid3} = supervisor:start_child(sup_test, Child),
-    ?line [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    {ok, CPid2} = supervisor:restart_child(sup_test, child1),
+    [{child1, CPid2, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+    {error, running} = supervisor:restart_child(sup_test, child1),
+    {error, not_found} = supervisor:restart_child(sup_test, child2),
 
-    ?line {'EXIT',{noproc,{gen_server,call,[foo,which_children,infinity]}}}
+    %% Deletion
+    {error, running} = supervisor:delete_child(sup_test, child1),
+    {error, not_found} = supervisor:delete_child(sup_test, hej),
+    {'EXIT',{noproc,{gen_server,call, _}}} =
+	(catch supervisor:delete_child(foo, child1)),
+    ok = supervisor:terminate_child(sup_test, child1),
+    ok = supervisor:delete_child(sup_test, child1),
+    {error, not_found} = supervisor:restart_child(sup_test, child1),
+    [] = supervisor:which_children(sup_test),
+    [0,0,0,0] = get_child_counts(sup_test),
+
+    %% Start
+    {'EXIT',{noproc,{gen_server,call, _}}} =
+	(catch supervisor:start_child(foo, Child)),
+    {ok, CPid3} = supervisor:start_child(sup_test, Child),
+    [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+
+    {'EXIT',{noproc,{gen_server,call,[foo,which_children,infinity]}}}
 	= (catch supervisor:which_children(foo)),
-    ?line {'EXIT',{noproc,{gen_server,call,[foo,count_children,infinity]}}}
+    {'EXIT',{noproc,{gen_server,call,[foo,count_children,infinity]}}}
 	= (catch supervisor:count_children(foo)),
     ok.
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 child_adm_simple(doc) ->
     ["The API functions terminate_child/2, delete_child/2 "
      "restart_child/2 are not valid for a simple_one_for_one supervisor "
-    "check that the correct error message is returned."];
+     "check that the correct error message is returned."];
 child_adm_simple(suite) -> [];
 child_adm_simple(Config) when is_list(Config) ->
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    ?line {ok, _Pid} = start({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, _Pid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
     %% In simple_one_for_one all children are added dynamically 
-    ?line [] = supervisor:which_children(sup_test), 
-    ?line [1,0,0,0] = get_child_counts(sup_test),
-    
+    [] = supervisor:which_children(sup_test),
+    [1,0,0,0] = get_child_counts(sup_test),
+
     %% Start
-    ?line {'EXIT',{noproc,{gen_server,call, _}}} =
+    {'EXIT',{noproc,{gen_server,call, _}}} =
 	(catch supervisor:start_child(foo, [])),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, []),
-    ?line [{undefined, CPid1, worker, []}] = 
+    {ok, CPid1} = supervisor:start_child(sup_test, []),
+    [{undefined, CPid1, worker, []}] =
 	supervisor:which_children(sup_test),
-    ?line [1,1,0,1] = get_child_counts(sup_test),
-    
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, []),
-    ?line Children = supervisor:which_children(sup_test),
-    ?line 2 = length(Children),
-    ?line true = lists:member({undefined, CPid2, worker, []}, Children),
-    ?line true = lists:member({undefined, CPid1, worker, []}, Children),
-    ?line [1,2,0,2] = get_child_counts(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+
+    {ok, CPid2} = supervisor:start_child(sup_test, []),
+    Children = supervisor:which_children(sup_test),
+    2 = length(Children),
+    true = lists:member({undefined, CPid2, worker, []}, Children),
+    true = lists:member({undefined, CPid1, worker, []}, Children),
+    [1,2,0,2] = get_child_counts(sup_test),
 
     %% Termination
-    ?line {error, simple_one_for_one} =
+    {error, simple_one_for_one} =
 	supervisor:terminate_child(sup_test, child1),
 
     %% Restart
-    ?line {error, simple_one_for_one} = 
+    {error, simple_one_for_one} =
 	supervisor:restart_child(sup_test, child1),
-    
+
     %% Deletion
-    ?line {error, simple_one_for_one} = 
+    {error, simple_one_for_one} =
 	supervisor:delete_child(sup_test, child1),
     ok.
-    
-%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
 child_specs(doc) ->
     ["Tests child specs, invalid formats should be rejected."];
 child_specs(suite) -> [];
 child_specs(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ?line {ok, _Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
-    ?line {error, _} = supervisor:start_child(sup_test, hej),
+    {ok, _Pid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    {error, _} = supervisor:start_child(sup_test, hej),
 
     %% Bad child specs 
     B1 = {child, mfa, permanent, 1000, worker, []},
@@ -551,7 +441,7 @@ child_specs(Config) when is_list(Config) ->
     B5 = {child, {m,f,[a]}, permanent, infinity, worker, []},
     B6 = {child, {m,f,[a]}, permanent, 1000, worker, dy},
     B7 = {child, {m,f,[a]}, permanent, 1000, worker, [1,2,3]},
-				       
+
     %% Correct child specs!
     %% <Modules> (last parameter in a child spec) can be [] as we do 
     %% not test code upgrade here.  
@@ -560,327 +450,261 @@ child_specs(Config) when is_list(Config) ->
     C3 = {child, {m,f,[a]}, temporary, 1000, worker, dynamic},
     C4 = {child, {m,f,[a]}, transient, 1000, worker, [m]},
 
-    ?line {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B1),
-    ?line {error, {invalid_restart_type, prmanent}} =  
+    {error, {invalid_mfa,mfa}} = supervisor:start_child(sup_test, B1),
+    {error, {invalid_restart_type, prmanent}} =
 	supervisor:start_child(sup_test, B2),
-    ?line {error,  {invalid_shutdown,-10}} 
-	= supervisor:start_child(sup_test, B3), 
-    ?line {error, {invalid_child_type,wrker}} 
+    {error,  {invalid_shutdown,-10}}
+	= supervisor:start_child(sup_test, B3),
+    {error, {invalid_child_type,wrker}}
 	= supervisor:start_child(sup_test, B4),
-    ?line {error, _} = supervisor:start_child(sup_test, B5),
-    ?line {error, {invalid_modules,dy}} 
+    {error, _} = supervisor:start_child(sup_test, B5),
+    {error, {invalid_modules,dy}}
 	= supervisor:start_child(sup_test, B6),
-    
-    ?line {error, {invalid_mfa,mfa}} = supervisor:check_childspecs([B1]),
-    ?line {error, {invalid_restart_type,prmanent}} = 
+
+    {error, {invalid_mfa,mfa}} = supervisor:check_childspecs([B1]),
+    {error, {invalid_restart_type,prmanent}} =
 	supervisor:check_childspecs([B2]),
-    ?line {error, {invalid_shutdown,-10}} = supervisor:check_childspecs([B3]),
-    ?line {error, {invalid_child_type,wrker}} 
+    {error, {invalid_shutdown,-10}} = supervisor:check_childspecs([B3]),
+    {error, {invalid_child_type,wrker}}
 	= supervisor:check_childspecs([B4]),
-    ?line {error, _} = supervisor:check_childspecs([B5]),
-    ?line {error, {invalid_modules,dy}} = supervisor:check_childspecs([B6]),
-    ?line {error, {invalid_module, 1}} = 
+    {error, _} = supervisor:check_childspecs([B5]),
+    {error, {invalid_modules,dy}} = supervisor:check_childspecs([B6]),
+    {error, {invalid_module, 1}} =
 	supervisor:check_childspecs([B7]),
 
-    ?line ok = supervisor:check_childspecs([C1]),
-    ?line ok = supervisor:check_childspecs([C2]),
-    ?line ok = supervisor:check_childspecs([C3]),
-    ?line ok = supervisor:check_childspecs([C4]),
+    ok = supervisor:check_childspecs([C1]),
+    ok = supervisor:check_childspecs([C2]),
+    ok = supervisor:check_childspecs([C3]),
+    ok = supervisor:check_childspecs([C4]),
     ok.
 
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 permanent_normal(doc) ->
     ["A permanent child should always be restarted"];
 permanent_normal(suite) -> [];
 permanent_normal(Config) when is_list(Config) ->
-    ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	      worker, []},
-    
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    
-    CPid1 ! stop,
-    test_server:sleep(100),
-    ?line [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    terminate(SupPid, CPid1, child1, normal),
+
+    [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
     case is_pid(Pid) of
 	true ->
 	    ok;
 	false ->
-	    ?line test_server:fail({permanent_child_not_restarted, Child1})
+	    test_server:fail({permanent_child_not_restarted, Child1})
     end,
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test).
 
-    ok.
-%------------------------------------------------------------------------- 
+%%-------------------------------------------------------------------------
 transient_normal(doc) ->
     ["A transient child should not be restarted if it exits with " 
      "reason normal"];
 transient_normal(suite) -> [];
 transient_normal(Config) when is_list(Config) ->
-    ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
 	      worker, []},
-    
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-   
-    CPid1 ! stop,
-    test_server:sleep(100),
-    
-    ?line [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
-    ?line [1,0,0,1] = get_child_counts(sup_test),
 
-    ok.
-%-------------------------------------------------------------------------    
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    terminate(SupPid, CPid1, child1, normal),
+
+    [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
 temporary_normal(doc) ->
     ["A temporary process should never be restarted"];
 temporary_normal(suite) -> [];
 temporary_normal(Config) when is_list(Config) ->
-     ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
 	      worker, []},
-    
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    
-    CPid1 ! stop,
-    test_server:sleep(100),
-    
-    ?line [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
-    ?line [1,0,0,1] = get_child_counts(sup_test),
 
-    ok.
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
 
-%-------------------------------------------------------------------------
+    terminate(SupPid, CPid1, child1, normal),
+
+    [] = supervisor:which_children(sup_test),
+    [0,0,0,0] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
 permanent_abnormal(doc) ->
     ["A permanent child should always be restarted"];
 permanent_abnormal(suite) -> [];
 permanent_abnormal(Config) when is_list(Config) ->
-    ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	      worker, []},
-    
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    
-    CPid1 ! die,
-    test_server:sleep(100),
-    ?line [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    terminate(SupPid, CPid1, child1, abnormal),
+
+    [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
     case is_pid(Pid) of
 	true ->
 	    ok;
 	false ->
-	    ?line test_server:fail({permanent_child_not_restarted, Child1})
+	    test_server:fail({permanent_child_not_restarted, Child1})
     end,
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test).
 
-    ok.
-%------------------------------------------------------------------------- 
+%%-------------------------------------------------------------------------
 transient_abnormal(doc) ->
     ["A transient child should be restarted if it exits with " 
      "reason abnormal"];
 transient_abnormal(suite) -> [];
 transient_abnormal(Config) when is_list(Config) ->
-    ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
 	      worker, []},
-    
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-   
-    CPid1 ! die,
-    test_server:sleep(100),
-    
-    ?line [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    terminate(SupPid, CPid1, child1, abnormal),
+
+    [{child1, Pid ,worker,[]}] = supervisor:which_children(sup_test),
     case is_pid(Pid) of
 	true ->
 	    ok;
 	false ->
-	    ?line test_server:fail({transient_child_not_restarted, Child1})
+	    test_server:fail({transient_child_not_restarted, Child1})
     end,
-    ?line [1,1,0,1] = get_child_counts(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test).
 
-    ok.
-%-------------------------------------------------------------------------    
+%%-------------------------------------------------------------------------
 temporary_abnormal(doc) ->
     ["A temporary process should never be restarted"];
 temporary_abnormal(suite) -> [];
 temporary_abnormal(Config) when is_list(Config) ->
-     ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
 	      worker, []},
-    
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    
-    CPid1 ! die,
-    test_server:sleep(100),
-    
-    ?line [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
-    ?line [1,0,0,1] = get_child_counts(sup_test),
 
-    ok.
-%-------------------------------------------------------------------------
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    terminate(SupPid, CPid1, child1, abnormal),
+
+    [] = supervisor:which_children(sup_test),
+    [0,0,0,0] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
 one_for_one(doc) ->
     ["Test the one_for_one base case."];
 one_for_one(suite) -> [];
 one_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
-	     worker, []},
+	      worker, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent, 1000,
-	     worker, []},
-    ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
-    link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    test_server:sleep(100),
+	      worker, []},
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+
+    terminate(SupPid, CPid1, child1, abnormal),
     Children = supervisor:which_children(sup_test),
     if length(Children) == 2 ->
 	    case lists:keysearch(CPid2, 2, Children) of
 		{value, _} -> ok;
-		_ -> ?line test_server:fail(bad_child)
+		_ ->  test_server:fail(bad_child)
 	    end;
-       true -> ?line test_server:fail({bad_child_list, Children})
+       true ->  test_server:fail({bad_child_list, Children})
     end,
-    ?line [2,2,0,2] = get_child_counts(sup_test),
-    
+    [2,2,0,2] = get_child_counts(sup_test),
+
     %% Test restart frequency property
-    CPid2 ! die,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    end,
-    test_server:sleep(100),
-    [{_, Pid4, _, _}|_] = supervisor:which_children(sup_test),
-    Pid4 ! die,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after 3000 -> ?line test_server:fail(restart_failed)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+    terminate(SupPid, CPid2, child2, abnormal),
+
+    [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
+    terminate(SupPid, Pid4, Id4, abnormal),
+    check_exit([SupPid]).
+
+%%-------------------------------------------------------------------------
 one_for_one_escalation(doc) ->
     ["Test restart escalation on a one_for_one supervisor."];
 one_for_one_escalation(suite) -> [];
 one_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+
     Child1 = {child1, {supervisor_1, start_child, [error]},
 	      permanent, 1000,
-	     worker, []},
+	      worker, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent, 1000,
-	     worker, []},
-    ?line {ok, Pid} = start({ok, {{one_for_one, 4, 3600}, []}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
+	      worker, []},
+
+    {ok, SupPid} = start_link({ok, {{one_for_one, 4, 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after
-	2000 -> ?line test_server:fail(supervisor_alive)
-    end,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    after
-	4000 -> ?line test_server:fail(all_not_terminated)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+
+    terminate(SupPid, CPid1, child1, abnormal),
+    check_exit([SupPid, CPid2]).
+
+
+%%-------------------------------------------------------------------------
 one_for_all(doc) ->
     ["Test the one_for_all base case."];
 one_for_all(suite) -> [];
 one_for_all(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
     Child2 = {child2, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    ?line {ok, Pid} = start({ok, {{one_for_all, 2, 3600}, []}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
+    {ok, SupPid} = start_link({ok, {{one_for_all, 2, 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    end,
-    test_server:sleep(100),
+
+    terminate(SupPid, CPid1, child1, abnormal),
+    check_exit([CPid2]),
+
     Children = supervisor:which_children(sup_test),
     if length(Children) == 2 -> ok;
-       true -> ?line test_server:fail({bad_child_list, Children})
+       true ->
+	    test_server:fail({bad_child_list, Children})
     end,
+
     %% Test that no old children is still alive
-    SCh = lists:map(fun({_,P,_,_}) -> P end, Children),
-    case lists:member(CPid1, SCh) of
-	true -> ?line test_server:fail(bad_child);
-	false -> ok
-    end,
-    case lists:member(CPid2, SCh) of
-	true -> ?line test_server:fail(bad_child);
-	false -> ok
-    end,
-    ?line [2,2,0,2] = get_child_counts(sup_test),
+    not_in_child_list([CPid1, CPid2], lists:map(fun({_,P,_,_}) -> P end, Children)),
+
+    [2,2,0,2] = get_child_counts(sup_test),
 
     %%% Test restart frequency property
-    [{_, Pid3, _, _}|_] = supervisor:which_children(sup_test),
-    Pid3 ! die,
-    test_server:sleep(100),
-    [{_, Pid4, _, _}|_] = supervisor:which_children(sup_test),
-    Pid4 ! die,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after 3000 -> ?line test_server:fail(restart_failed)
-    end,
-    exit(Pid, shutdown).
+    [{Id3, Pid3, _, _}|_] = supervisor:which_children(sup_test),
+    terminate(SupPid, Pid3, Id3, abnormal),
+    [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
+    terminate(SupPid, Pid4, Id4, abnormal),
+    check_exit([SupPid]).
 
-%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
 one_for_all_escalation(doc) -> 
     ["Test restart escalation on a one_for_all supervisor."];
 one_for_all_escalation(suite) -> [];
 one_for_all_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
     Child2 = {child2, {supervisor_1, start_child, [error]},
 	      permanent, 1000,
 	     worker, []},
-    ?line {ok, Pid} = start({ok, {{one_for_all, 4, 3600}, []}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
+    {ok, SupPid} = start_link({ok, {{one_for_all, 4, 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    after
-	2000 -> ?line test_server:fail(all_not_terminated)
-    end,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after
-	4000 -> ?line test_server:fail(supervisor_alive)
-    end,
-    ok.
 
-%-------------------------------------------------------------------------
+    terminate(SupPid, CPid1, child1, abnormal),
+    check_exit([CPid2, SupPid]).
+
+
+%%-------------------------------------------------------------------------
 simple_one_for_one(doc) ->
     ["Test the simple_one_for_one base case."];
 simple_one_for_one(suite) -> [];
@@ -888,42 +712,31 @@ simple_one_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    ?line {ok, Pid} = start({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, []),
-    link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, []),    
-    link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    test_server:sleep(100),
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, []),
+    {ok, CPid2} = supervisor:start_child(sup_test, []),
+
+    terminate(SupPid, CPid1, child1, abnormal),
+
     Children = supervisor:which_children(sup_test),
     if length(Children) == 2 ->
 	    case lists:keysearch(CPid2, 2, Children) of
 		{value, _} -> ok;
-		_ -> ?line test_server:fail(bad_child)
+		_ ->  test_server:fail(bad_child)
 	    end;
-       true -> ?line test_server:fail({bad_child_list, Children})
+       true ->  test_server:fail({bad_child_list, Children})
     end,
-    ?line [1,2,0,2] = get_child_counts(sup_test),
+    [1,2,0,2] = get_child_counts(sup_test),
 
     %% Test restart frequency property
-    CPid2 ! die,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    end,
-    test_server:sleep(100),
-    [{_, Pid4, _, _}|_] = supervisor:which_children(sup_test),
-    Pid4 ! die,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after 3000 -> ?line test_server:fail(restart_failed)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+    terminate(SupPid, CPid2, child2, abnormal),
+
+    [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
+
+    terminate(SupPid, Pid4, Id4, abnormal),
+    check_exit([SupPid]).
+
+%%-------------------------------------------------------------------------
 simple_one_for_one_extra(doc) -> 
     ["Tests automatic restart of children " 
      "who's start function return extra info."];
@@ -932,41 +745,26 @@ simple_one_for_one_extra(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, [extra_info]}, 
 	     permanent, 1000, worker, []},
-    ?line {ok, Pid} = start({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
-    ?line {ok, CPid1, extra_info} = supervisor:start_child(sup_test, []),
-    link(CPid1),
-    ?line {ok, CPid2, extra_info} = supervisor:start_child(sup_test, []),    
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, CPid1, extra_info} = supervisor:start_child(sup_test, []),
+    {ok, CPid2, extra_info} = supervisor:start_child(sup_test, []),
     link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    test_server:sleep(100),
+    terminate(SupPid, CPid1, child1, abnormal),
     Children = supervisor:which_children(sup_test),
     if length(Children) == 2 ->
 	    case lists:keysearch(CPid2, 2, Children) of
 		{value, _} -> ok;
-		_ -> ?line test_server:fail(bad_child)
+		_ ->  test_server:fail(bad_child)
 	    end;
-       true -> ?line test_server:fail({bad_child_list, Children})
+       true ->  test_server:fail({bad_child_list, Children})
     end,
-    ?line [1,2,0,2] = get_child_counts(sup_test),
+    [1,2,0,2] = get_child_counts(sup_test),
+    terminate(SupPid, CPid2, child2, abnormal),
+    [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
+    terminate(SupPid, Pid4, Id4, abnormal),
+    check_exit([SupPid]).
 
-    CPid2 ! die,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    end,
-    test_server:sleep(100),
-    [{_, Pid4, _, _}|_] = supervisor:which_children(sup_test),
-    Pid4 ! die,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after 3000 -> ?line test_server:fail(restart_failed)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
 simple_one_for_one_escalation(doc) ->
     ["Test restart escalation on a simple_one_for_one supervisor."];
 simple_one_for_one_escalation(suite) -> [];
@@ -974,29 +772,16 @@ simple_one_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    ?line {ok, Pid} = start({ok, {{simple_one_for_one, 4, 3600}, [Child]}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, [error]),
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 4, 3600}, [Child]}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, [error]),
     link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, []),    
+    {ok, CPid2} = supervisor:start_child(sup_test, []),
     link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after
-	2000 -> ?line test_server:fail(supervisor_alive)
-    end,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    after
-	2000 -> ?line test_server:fail(all_not_terminated)
-    end,
-    ok.
-%-------------------------------------------------------------------------
+
+    terminate(SupPid, CPid1, child, abnormal),
+    check_exit([SupPid, CPid2]).
+
+%%-------------------------------------------------------------------------
 rest_for_one(doc) ->
     ["Test the rest_for_one base case."];
 rest_for_one(suite) -> [];
@@ -1008,70 +793,45 @@ rest_for_one(Config) when is_list(Config) ->
 	     worker, []},
     Child3 = {child3, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
-    ?line {ok, Pid} = start({ok, {{rest_for_one, 2, 3600}, []}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, SupPid} = start_link({ok, {{rest_for_one, 2, 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
     link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
-    link(CPid2),
-    ?line {ok, CPid3} = supervisor:start_child(sup_test, Child3),    
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+    {ok, CPid3} = supervisor:start_child(sup_test, Child3),
     link(CPid3),
-    ?line [3,3,0,3] = get_child_counts(sup_test),
+    [3,3,0,3] = get_child_counts(sup_test),
 
-    CPid2 ! die,
-    receive
-	{'EXIT', CPid2, died} -> ok;
-	{'EXIT', CPid2, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    after 2000 ->
-	    ?line test_server:fail(no_exit)
-    end,
+    terminate(SupPid, CPid2, child2, abnormal),
+
     %% Check that Cpid3 did die
-    receive
-	{'EXIT', CPid3, _} -> ok
-    after 2000 ->
-	    ?line test_server:fail(no_exit)
-    end,
-    %% Check that Cpid1 didn't die
-    receive
-	{'EXIT', CPid1, _} ->
-	    ?line test_server:fail(bad_exit)
-    after
-	100 -> ok
-    end,
+    check_exit([CPid3]),
+
     Children = supervisor:which_children(sup_test),
-    if length(Children) == 3 -> ok;
-       true -> ?line test_server:fail({bad_child_list, Children})
+    is_in_child_list([CPid1], Children),
+
+    if length(Children) == 3 ->
+	    ok;
+       true ->
+	    test_server:fail({bad_child_list, Children})
     end,
-    ?line [3,3,0,3] = get_child_counts(sup_test),
+    [3,3,0,3] = get_child_counts(sup_test),
 
     %% Test that no old children is still alive
-    SCh = lists:map(fun({_,P,_,_}) -> P end, Children),
-    case lists:member(CPid1, SCh) of
-	true -> ok;
-	false -> ?line test_server:fail(bad_child)
-    end,
-    case lists:member(CPid2, SCh) of
-	true -> ?line test_server:fail(bad_child);
-	false -> ok
-    end,
-    case lists:member(CPid3, SCh) of
-	true -> ?line test_server:fail(bad_child);
-	false -> ok
-    end,
-   
+    Pids = lists:map(fun({_,P,_,_}) -> P end, Children),
+    not_in_child_list([CPid2, CPid3], Pids),
+    in_child_list([CPid1], Pids),
+
     %% Test restart frequency property
     [{child3, Pid3, _, _}|_] = supervisor:which_children(sup_test),
-    Pid3 ! die,
-    test_server:sleep(100),
-    [_,{child2, Pid4, _, _}|_] = supervisor:which_children(sup_test),
-    Pid4 ! die,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after 3000 -> ?line test_server:fail(restart_failed)
-    end,
-    exit(Pid, shutdown).
 
-%-------------------------------------------------------------------------
+    terminate(SupPid, Pid3, child3, abnormal),
+
+    [_,{child2, Pid4, _, _}|_] = supervisor:which_children(sup_test),
+
+    terminate(SupPid, Pid4, child2, abnormal),
+    check_exit([SupPid]).
+
+%%-------------------------------------------------------------------------
 rest_for_one_escalation(doc) ->
     ["Test restart escalation on a rest_for_one supervisor."];
 rest_for_one_escalation(suite) -> [];
@@ -1082,42 +842,29 @@ rest_for_one_escalation(Config) when is_list(Config) ->
     Child2 = {child2, {supervisor_1, start_child, [error]},
 	      permanent, 1000,
 	     worker, []},
-    ?line {ok, Pid} = start({ok, {{rest_for_one, 4, 3600}, []}}),
-    ?line {ok, CPid1} = supervisor:start_child(sup_test, Child1),
-    link(CPid1),
-    ?line {ok, CPid2} = supervisor:start_child(sup_test, Child2),    
+    {ok, SupPid} = start_link({ok, {{rest_for_one, 4, 3600}, []}}),
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
     link(CPid2),
-    CPid1 ! die,
-    receive
-	{'EXIT', CPid1, died} -> ok;
-	{'EXIT', CPid1, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    end,
-    receive
-	{'EXIT', CPid2, _} -> ok
-    after
-	2000 -> ?line test_server:fail(not_terminated)
-    end,
-    receive
-	{'EXIT', Pid, _} -> ok
-    after
-	4000 -> ?line test_server:fail(supervisor_alive)
-    end,
-    ok.
 
-%-------------------------------------------------------------------------
-child_unlink(doc)-> ["Test that the supervisor does not hang forever if "
-    "the child unliks and then is terminated by the supervisor."];
-child_unlink(suite) -> [];
+    terminate(SupPid, CPid1, child1, abnormal),
+    check_exit([CPid2, SupPid]).
+
+%%-------------------------------------------------------------------------
+child_unlink(doc)->
+    ["Test that the supervisor does not hang forever if "
+     "the child unliks and then is terminated by the supervisor."];
+child_unlink(suite) ->
+    [];
 child_unlink(Config) when is_list(Config) ->
-    
-    ?line {ok, SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
-    
+
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+
     Child = {naughty_child, {naughty_child, 
 			     start_link, [SupPid]}, permanent, 
 	     1000, worker, [supervisor_SUITE]},
-    
-    ?line {ok, _ChildPid} = supervisor:start_child(sup_test, Child),
+
+    {ok, _ChildPid} = supervisor:start_child(sup_test, Child),
 
     Pid = spawn(supervisor, terminate_child, [SupPid, naughty_child]),
 
@@ -1130,17 +877,16 @@ child_unlink(Config) when is_list(Config) ->
 	    ok;
 	_ ->
 	    exit(Pid, kill),
-	    ?line test_server:fail(supervisor_hangs)
+	    test_server:fail(supervisor_hangs)
     end.
-%-------------------------------------------------------------------------
-
+%%-------------------------------------------------------------------------
 tree(doc) ->
     ["Test a basic supervison tree."];
 tree(suite) ->
     [];
 tree(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    
+
     Child1 = {child1, {supervisor_1, start_child, []},
 	      permanent, 1000,
 	      worker, []},
@@ -1166,109 +912,54 @@ tree(Config) when is_list(Config) ->
 		 supervisor, []},
 
     %% Top supervisor
-    ?line {ok, Pid} = start({ok, {{one_for_all, 4, 3600}, []}}),
-    
+    {ok, SupPid} = start_link({ok, {{one_for_all, 4, 3600}, []}}),
+
     %% Child supervisors  
-    ?line {ok, Sup1} = supervisor:start_child(Pid, ChildSup1),
-    ?line {ok, Sup2} = supervisor:start_child(Pid, ChildSup2),
-    ?line [2,2,2,0] = get_child_counts(Pid),
-    
+    {ok, Sup1} = supervisor:start_child(SupPid, ChildSup1),
+    {ok, Sup2} = supervisor:start_child(SupPid, ChildSup2),
+    [2,2,2,0] = get_child_counts(SupPid),
+
     %% Workers
-     ?line [{_, CPid2, _, _},{_, CPid1, _, _}] = 
+    [{_, CPid2, _, _},{_, CPid1, _, _}] =
 	supervisor:which_children(Sup1),
-    ?line [2,2,0,2] = get_child_counts(Sup1),
-    ?line [0,0,0,0] = get_child_counts(Sup2),
-   
+    [2,2,0,2] = get_child_counts(Sup1),
+    [0,0,0,0] = get_child_counts(Sup2),
+
     %% Dynamic children
-    ?line {ok, CPid3} = supervisor:start_child(Sup2, Child3),
-    ?line {ok, CPid4} = supervisor:start_child(Sup2, Child4),
-    ?line [2,2,0,2] = get_child_counts(Sup1),
-    ?line [2,2,0,2] = get_child_counts(Sup2),
-    
-    link(Sup1),
-    link(Sup2),
-    link(CPid1),
-    link(CPid2),
-    link(CPid3),
-    link(CPid4),
- 
+    {ok, CPid3} = supervisor:start_child(Sup2, Child3),
+    {ok, CPid4} = supervisor:start_child(Sup2, Child4),
+    [2,2,0,2] = get_child_counts(Sup1),
+    [2,2,0,2] = get_child_counts(Sup2),
+
     %% Test that the only the process that dies is restarted
-    CPid4 ! die,
- 
-    receive
-	{'EXIT', CPid4, _} -> ?line ok
-    after 10000 ->
-	    ?line test_server:fail(child_was_not_killed)
-    end,
-    
-    test_server:sleep(100),
-    
-    ?line [{_, CPid2, _, _},{_, CPid1, _, _}] = 
+    terminate(Sup2, CPid4, child4, abnormal),
+
+    [{_, CPid2, _, _},{_, CPid1, _, _}] =
 	supervisor:which_children(Sup1),
-    ?line [2,2,0,2] = get_child_counts(Sup1),
-    
-    ?line [{_, NewCPid4, _, _},{_, CPid3, _, _}] = 
+    [2,2,0,2] = get_child_counts(Sup1),
+
+    [{_, NewCPid4, _, _},{_, CPid3, _, _}] =
 	supervisor:which_children(Sup2),
-    ?line [2,2,0,2] = get_child_counts(Sup2),
-    
-    link(NewCPid4),
+    [2,2,0,2] = get_child_counts(Sup2),
+
+    false = NewCPid4 == CPid4,
 
     %% Test that supervisor tree is restarted, but not dynamic children.
-    CPid3 ! die,
+    terminate(Sup2, CPid3, child3, abnormal),
 
-    receive
-	{'EXIT', CPid3, died} -> ?line ok;
-	{'EXIT', CPid3, Reason} ->
-	    ?line test_server:fail({bad_exit_reason, Reason})
-    after 1000 ->
-	    ?line test_server:fail(child_was_not_killed)
-    end,
+    timer:sleep(1000),
 
-    test_server:sleep(1000),
+    [{supchild2, NewSup2, _, _},{supchild1, NewSup1, _, _}] =
+	supervisor:which_children(SupPid),
+    [2,2,2,0] = get_child_counts(SupPid),
 
-    receive
- 	{'EXIT', NewCPid4, _} ->  ?line ok
-    after 1000 ->
- 	    ?line test_server:fail(child_was_not_killed)
-    end,
-    
-    receive
-	{'EXIT', Sup2, _} -> ?line  ok
-    after 1000 ->
-	    ?line test_server:fail(child_was_not_killed)
-    end,
-    
-    receive
-	{'EXIT', CPid1, _} ->  ?line ok
-    after 1000 ->
-	    ?line test_server:fail(child_was_not_killed)
-    end,
-    
-    receive
-	{'EXIT', CPid2, _} -> ?line  ok
-    after 1000 ->
-	  ?line test_server:fail(child_was_not_killed)
-    end,
-    
-    receive
-	{'EXIT', Sup1, _} -> ?line  ok
-    after 1000 ->
-	    ?line test_server:fail(child_was_not_killed)
-    end,
-        
-    ?line [{supchild2, NewSup2, _, _},{supchild1, NewSup1, _, _}] =
-	supervisor:which_children(Pid),
-    ?line [2,2,2,0] = get_child_counts(Pid),
-    
-    ?line [{child2, _, _, _},{child1, _, _, _}]  =
+    [{child2, _, _, _},{child1, _, _, _}]  =
 	supervisor:which_children(NewSup1),
-    ?line [2,2,0,2] = get_child_counts(NewSup1),
+    [2,2,0,2] = get_child_counts(NewSup1),
 
-    ?line [] = supervisor:which_children(NewSup2),
-    ?line [0,0,0,0] = get_child_counts(NewSup2),
-    
-    ok.
-%-------------------------------------------------------------------------
+    [] = supervisor:which_children(NewSup2),
+    [0,0,0,0] = get_child_counts(NewSup2).
+%%-------------------------------------------------------------------------
 count_children_memory(doc) ->
     ["Test that count_children does not eat memory."];
 count_children_memory(suite) ->
@@ -1277,7 +968,7 @@ count_children_memory(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
 	     worker, []},
-    ?line {ok, _Pid} = start({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+    {ok, SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
     [supervisor:start_child(sup_test, []) || _Ignore <- lists:seq(1,1000)],
 
     garbage_collect(),
@@ -1301,12 +992,12 @@ count_children_memory(Config) when is_list(Config) ->
     ChildCount3 = get_child_counts(sup_test),
     Size7 = erlang:memory(processes_used),
 
-    ?line 1000 = length(Children),
-    ?line [1,1000,0,1000] = ChildCount,
-    ?line 2000 = length(Children2),
-    ?line [1,2000,0,2000] = ChildCount2,
-    ?line Children3 = Children2,
-    ?line ChildCount3 = ChildCount2,
+    1000 = length(Children),
+    [1,1000,0,1000] = ChildCount,
+    2000 = length(Children2),
+    [1,2000,0,2000] = ChildCount2,
+    Children3 = Children2,
+    ChildCount3 = ChildCount2,
 
     %% count_children consumes memory using an accumulator function,
     %% but the space can be reclaimed incrementally,
@@ -1314,18 +1005,17 @@ count_children_memory(Config) when is_list(Config) ->
     case (Size5 =< Size4) of
 	true -> ok;
 	false ->
-	    ?line test_server:fail({count_children, used_more_memory})
+	    test_server:fail({count_children, used_more_memory})
     end,
     case Size7 =< Size6 of
 	true -> ok;
 	false ->
-	    ?line test_server:fail({count_children, used_more_memory})
+	    test_server:fail({count_children, used_more_memory})
     end,
 
-    [exit(Pid, kill) || {undefined, Pid, worker, _Modules} <- Children3],
-    test_server:sleep(100),
-    ?line [1,0,0,0] = get_child_counts(sup_test),
-    ok.
+    [terminate(SupPid, Pid, child, kill) || {undefined, Pid, worker, _Modules} <- Children3],
+    [1,0,0,0] = get_child_counts(sup_test).
+
 count_children_allocator_test(MemoryState) ->
     Allocators = [temp_alloc, eheap_alloc, binary_alloc, ets_alloc,
 		  driver_alloc, sl_alloc, ll_alloc, fix_alloc, std_alloc,
@@ -1336,7 +1026,8 @@ count_children_allocator_test(MemoryState) ->
     AllocStates = [lists:keyfind(e, 1, AllocValue)
 		   || {_Type, AllocValue} <- AllocTypes],
     lists:all(fun(State) -> State == {e, true} end, AllocStates).
-%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
 do_not_save_start_parameters_for_temporary_children(doc) ->
     ["Temporary children shall not be restarted so they should not "
      "save start parameters, as it potentially can "
@@ -1350,6 +1041,44 @@ do_not_save_start_parameters_for_temporary_children(Config) when is_list(Config)
     dont_save_start_parameters_for_temporary_children(rest_for_one),
     dont_save_start_parameters_for_temporary_children(simple_one_for_one).
 
+start_children(_,_, 0) ->
+    ok;
+start_children(Sup, Args, N) ->
+    Spec = child_spec(Args, N),
+    {ok, _, _} = supervisor:start_child(Sup, Spec),
+    start_children(Sup, Args, N-1).
+
+child_spec([_|_] = SimpleOneForOneArgs, _) ->
+    SimpleOneForOneArgs;
+child_spec({Name, MFA, RestartType, Shutdown, Type, Modules}, N) ->
+    NewName = list_to_atom((atom_to_list(Name) ++ integer_to_list(N))),
+    {NewName, MFA, RestartType, Shutdown, Type, Modules}.
+
+%%-------------------------------------------------------------------------
+do_not_save_child_specs_for_temporary_children(doc) ->
+    ["Temporary children shall not be restarted so supervisors should "
+     "not save their spec when they terminate"];
+do_not_save_child_specs_for_temporary_children(suite) ->
+    [];
+do_not_save_child_specs_for_temporary_children(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    dont_save_child_specs_for_temporary_children(one_for_all, kill),
+    dont_save_child_specs_for_temporary_children(one_for_one, kill),
+    dont_save_child_specs_for_temporary_children(rest_for_one, kill),
+
+    dont_save_child_specs_for_temporary_children(one_for_all, normal),
+    dont_save_child_specs_for_temporary_children(one_for_one, normal),
+    dont_save_child_specs_for_temporary_children(rest_for_one, normal),
+
+    dont_save_child_specs_for_temporary_children(one_for_all, abnormal),
+    dont_save_child_specs_for_temporary_children(one_for_one, abnormal),
+    dont_save_child_specs_for_temporary_children(rest_for_one, abnormal),
+
+    dont_save_child_specs_for_temporary_children(one_for_all, supervisor),
+    dont_save_child_specs_for_temporary_children(one_for_one, supervisor),
+    dont_save_child_specs_for_temporary_children(rest_for_one, supervisor).
+
+%%-------------------------------------------------------------------------
 dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
     Permanent = {child, {supervisor_1, start_child, []},
 		 permanent, 1000, worker, []},
@@ -1373,9 +1102,9 @@ dont_save_start_parameters_for_temporary_children(simple_one_for_one = Type) ->
 
     true = (Mem3 < Mem1)  and  (Mem3 < Mem2),
 
-    exit(Sup1, shutdown),
-    exit(Sup2, shutdown),
-    exit(Sup3, shutdown);
+    terminate(Sup1, shutdown),
+    terminate(Sup2, shutdown),
+    terminate(Sup3, shutdown);
 
 dont_save_start_parameters_for_temporary_children(Type) ->
     {ok, Sup1} = supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
@@ -1401,19 +1130,139 @@ dont_save_start_parameters_for_temporary_children(Type) ->
 
     true = (Mem3 < Mem1)  and  (Mem3 < Mem2),
 
-    exit(Sup1, shutdown),
-    exit(Sup2, shutdown),
-    exit(Sup3, shutdown).
+    terminate(Sup1, shutdown),
+    terminate(Sup2, shutdown),
+    terminate(Sup3, shutdown).
 
-start_children(_,_, 0) ->
+dont_save_child_specs_for_temporary_children(Type, TerminateHow)->
+    {ok, Sup} =
+	supervisor:start_link(?MODULE, {ok, {{Type, 2, 3600}, []}}),
+
+    Permanent = {child1, {supervisor_1, start_child, []},
+		 permanent, 1000, worker, []},
+    Transient = {child2, {supervisor_1, start_child, []},
+		 transient, 1000, worker, []},
+    Temporary = {child3, {supervisor_1, start_child, []},
+		 temporary, 1000, worker, []},
+
+    permanent_child_spec_saved(Permanent, Sup, TerminateHow),
+
+    transient_child_spec_saved(Transient, Sup, TerminateHow),
+
+    temporary_child_spec_not_saved(Temporary, Sup, TerminateHow),
+
+    terminate(Sup, shutdown).
+
+permanent_child_spec_saved(ChildSpec, Sup, supervisor = TerminateHow) ->
+    already_present(Sup, ChildSpec, TerminateHow);
+
+permanent_child_spec_saved(ChildSpec, Sup, TerminateHow) ->
+    restarted(Sup, ChildSpec, TerminateHow).
+
+transient_child_spec_saved(ChildSpec, Sup, supervisor = TerminateHow) ->
+    already_present(Sup, ChildSpec, TerminateHow);
+
+transient_child_spec_saved(ChildSpec, Sup, normal = TerminateHow) ->
+    already_present(Sup, ChildSpec, TerminateHow);
+
+transient_child_spec_saved(ChildSpec, Sup, TerminateHow) ->
+    restarted(Sup, ChildSpec, TerminateHow).
+
+temporary_child_spec_not_saved({Id, _,_,_,_,_} = ChildSpec, Sup, TerminateHow) ->
+    {ok, Pid} = supervisor:start_child(Sup, ChildSpec),
+    terminate(Sup, Pid, Id, TerminateHow),
+    {ok, _} = supervisor:start_child(Sup, ChildSpec).
+
+already_present(Sup, {Id,_,_,_,_,_} = ChildSpec, TerminateHow) ->
+    {ok, Pid} = supervisor:start_child(Sup, ChildSpec),
+    terminate(Sup, Pid, Id, TerminateHow),
+    {error, already_present} = supervisor:start_child(Sup, ChildSpec),
+    {ok, _} = supervisor:restart_child(Sup, Id).
+
+restarted(Sup, {Id,_,_,_,_,_} = ChildSpec, TerminateHow) ->
+    {ok, Pid} = supervisor:start_child(Sup, ChildSpec),
+    terminate(Sup, Pid, Id, TerminateHow),
+    %% Permanent processes will be restarted by the supervisor
+    %% when not terminated by api
+    {error, {already_started, _}} = supervisor:start_child(Sup, ChildSpec).
+
+
+terminate(Pid, Reason) when Reason =/= supervisor ->
+    terminate(dummy, Pid, dummy, Reason).
+
+terminate(Sup, _, ChildId, supervisor) ->
+    ok = supervisor:terminate_child(Sup, ChildId);
+terminate(_, ChildPid, _, kill) ->
+    Ref = erlang:monitor(process, ChildPid),
+    exit(ChildPid, kill),
+    receive
+	{'DOWN', Ref, process, ChildPid, killed} ->
+	    ok
+    end;
+terminate(_, ChildPid, _, shutdown) ->
+    Ref = erlang:monitor(process, ChildPid),
+    exit(ChildPid, shutdown),
+    receive
+	{'DOWN', Ref, process, ChildPid, shutdown} ->
+	    ok
+    end;
+terminate(_, ChildPid, _, normal) ->
+    Ref = erlang:monitor(process, ChildPid),
+    ChildPid ! stop,
+    receive
+	{'DOWN', Ref, process, ChildPid, normal} ->
+	    ok
+    end;
+terminate(_, ChildPid, _,abnormal) ->
+    Ref = erlang:monitor(process, ChildPid),
+    ChildPid ! die,
+    receive
+	{'DOWN', Ref, process, ChildPid, died} ->
+	    ok
+    end.
+
+in_child_list([], _) ->
+    true;
+in_child_list([Pid | Rest], Pids) ->
+    case is_in_child_list(Pid, Pids) of
+	true ->
+	    in_child_list(Rest, Pids);
+	false ->
+	    test_server:fail(child_should_be_alive)
+    end.
+not_in_child_list([], _) ->
+    true;
+not_in_child_list([Pid | Rest], Pids) ->
+    case is_in_child_list(Pid, Pids) of
+	true ->
+	    test_server:fail(child_should_not_be_alive);
+	false ->
+	    not_in_child_list(Rest, Pids)
+    end.
+
+is_in_child_list(Pid, ChildPids) ->
+    lists:member(Pid, ChildPids).
+
+check_exit([]) ->
     ok;
-start_children(Sup, Args, N) ->
-    Spec = child_spec(Args, N),
-    {ok, _, _} = supervisor:start_child(Sup, Spec),
-    start_children(Sup, Args, N-1).
+check_exit([Pid | Pids]) ->
+    receive
+	{'EXIT', Pid, _} ->
+	    check_exit(Pids)
+    end.
 
-child_spec([_|_] = SimpleOneForOneArgs, _) ->
-    SimpleOneForOneArgs;
-child_spec({Name, MFA, RestartType, Shutdown, Type, Modules}, N) ->
-    NewName = list_to_atom((atom_to_list(Name) ++ integer_to_list(N))),
-    {NewName, MFA, RestartType, Shutdown, Type, Modules}.
+check_exit_reason(Reason) ->
+    receive
+	{'EXIT', _, Reason} ->
+	    ok;
+	{'EXIT', _, Else} ->
+	    test_server:fail({bad_exit_reason, Else})
+    end.
+
+check_exit_reason(Pid, Reason) ->
+    receive
+	{'EXIT', Pid, Reason} ->
+	    ok;
+	{'EXIT', Pid, Else} ->
+	    test_server:fail({bad_exit_reason, Else})
+    end.

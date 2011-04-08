@@ -2,7 +2,7 @@
  %CopyrightBegin%
  %CopyrightEnd%
 
-$Id$
+
 
 HiPE ABI
 ========
