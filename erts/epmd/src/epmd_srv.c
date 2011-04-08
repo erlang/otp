@@ -24,6 +24,10 @@
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
 
+#ifndef INADDR_NONE
+#  define INADDR_NONE 0xffffffff
+#endif
+
 /*
  *  
  *  This server is a local name server for Erlang nodes. Erlang nodes can
@@ -79,91 +83,157 @@ static void print_names(EpmdVars*);
 
 void run(EpmdVars *g)
 {
-  int listensock;
+  struct EPMD_SOCKADDR_IN iserv_addr[MAX_LISTEN_SOCKETS];
+  int listensock[MAX_LISTEN_SOCKETS];
+  int num_sockets;
   int i;
   int opt;
-  struct EPMD_SOCKADDR_IN iserv_addr;
+  unsigned short sport = g->port;
 
   node_init(g);
   g->conn = conn_init(g);
 
   dbg_printf(g,2,"try to initiate listening port %d", g->port);
-  
-  if ((listensock = socket(FAMILY,SOCK_STREAM,0)) < 0) {
-    dbg_perror(g,"error opening stream socket");
-    epmd_cleanup_exit(g,1);
-  }
-  g->listenfd = listensock;
 
-  /*
-   * Initialize number of active file descriptors.
-   * Stdin, stdout, and stderr are still open.
-   * One for the listen socket.
-   */
-  g->active_conn = 3+1;
-  
-  /*
-   * Note that we must not enable the SO_REUSEADDR on Windows,
-   * because addresses will be reused even if they are still in use.
-   */
-  
+  if (g->addresses != NULL)
+    {
+      char *tmp;
+      char *token;
+      int loopback_ok = 0;
+
+      if ((tmp = (char *)malloc(strlen(g->addresses) + 1)) == NULL)
+	{
+	  dbg_perror(g,"cannot allocate memory");
+	  epmd_cleanup_exit(g,1);
+	}
+      strcpy(tmp,g->addresses);
+
+      for(token = strtok(tmp,", "), num_sockets = 0;
+	  token != NULL;
+	  token = strtok(NULL,", "), num_sockets++)
+	{
+	  struct EPMD_IN_ADDR addr;
+#ifdef HAVE_INET_PTON
+	  int ret;
+
+	  if ((ret = inet_pton(FAMILY,token,&addr)) == -1)
+	    {
+	      dbg_perror(g,"cannot convert IP address to network format");
+	      epmd_cleanup_exit(g,1);
+	    }
+	  else if (ret == 0)
+#elif !defined(EPMD6)
+	  if ((addr.EPMD_S_ADDR = inet_addr(token)) == INADDR_NONE)
+#endif
+	    {
+	      dbg_tty_printf(g,0,"cannot parse IP address \"%s\"",token);
+	      epmd_cleanup_exit(g,1);
+	    }
+
+	  if (IS_ADDR_LOOPBACK(addr))
+	    loopback_ok = 1;
+
+	  if (num_sockets - loopback_ok == MAX_LISTEN_SOCKETS - 1)
+	    {
+	      dbg_tty_printf(g,0,"cannot listen on more than %d IP addresses",
+			     MAX_LISTEN_SOCKETS);
+	      epmd_cleanup_exit(g,1);
+	    }
+
+	  SET_ADDR(iserv_addr[num_sockets],addr.EPMD_S_ADDR,sport);
+	}
+
+      free(tmp);
+
+      if (!loopback_ok)
+	{
+	  SET_ADDR(iserv_addr[num_sockets],EPMD_ADDR_LOOPBACK,sport);
+	  num_sockets++;
+	}
+    }
+  else
+    {
+      SET_ADDR(iserv_addr[0],EPMD_ADDR_ANY,sport);
+      num_sockets = 1;
+    }
+
 #if !defined(__WIN32__)
   /* We ignore the SIGPIPE signal that is raised when we call write
      twice on a socket closed by the other end. */
   signal(SIGPIPE, SIG_IGN);
-
-  opt = 1;			/* Set this option */
-  if (setsockopt(listensock,SOL_SOCKET,SO_REUSEADDR,(char* ) &opt,
-		 sizeof(opt)) <0) {
-    dbg_perror(g,"can't set sockopt");
-    epmd_cleanup_exit(g,1);
-  }
 #endif
-  
-  /* In rare cases select returns because there is someone
-     to accept but the request is withdrawn before the
-     accept function is called. We set the listen socket
-     to be non blocking to prevent us from being hanging
-     in accept() waiting for the next request. */
-#if (defined(__WIN32__) || defined(NO_FCNTL))
-  opt = 1;
-  if (ioctl(listensock, FIONBIO, &opt) != 0) /* Gives warning in VxWorks */
-#else
-  opt = fcntl(listensock, F_GETFL, 0);
-  if (fcntl(listensock, F_SETFL, opt | O_NONBLOCK) == -1)
-#endif /* __WIN32__ || VXWORKS */
-    dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
-	       listensock);
 
-  { /* store port number in unsigned short */
-    unsigned short sport = g->port;
-    SET_ADDR_ANY(iserv_addr, FAMILY, sport);
-  }
-  
-  if(bind(listensock,(struct sockaddr*) &iserv_addr, sizeof(iserv_addr)) < 0 )
-    {
-      if (errno == EADDRINUSE)
-	{
-	  dbg_tty_printf(g,1,"there is already a epmd running at port %d",
-			 g->port);
-	  epmd_cleanup_exit(g,0);
-	}
-      else
-	{
-	  dbg_perror(g,"failed to bind socket");
-	  epmd_cleanup_exit(g,1);
-	}
-    }
-
-  dbg_printf(g,2,"starting");
-
-  if(listen(listensock, SOMAXCONN) < 0) {
-      dbg_perror(g,"failed to listen on socket");
-      epmd_cleanup_exit(g,1);
-  }
+  /*
+   * Initialize number of active file descriptors.
+   * Stdin, stdout, and stderr are still open.
+   */
+  g->active_conn = 3 + num_sockets;
+  g->max_conn -= num_sockets;
 
   FD_ZERO(&g->orig_read_mask);
-  FD_SET(listensock,&g->orig_read_mask);
+
+  for (i = 0; i < num_sockets; i++)
+    {
+      if ((listensock[i] = socket(FAMILY,SOCK_STREAM,0)) < 0)
+	{
+	  dbg_perror(g,"error opening stream socket");
+	  epmd_cleanup_exit(g,1);
+	}
+      g->listenfd[i] = listensock[i];
+  
+      /*
+       * Note that we must not enable the SO_REUSEADDR on Windows,
+       * because addresses will be reused even if they are still in use.
+       */
+  
+#if !defined(__WIN32__)
+      opt = 1;
+      if (setsockopt(listensock[i],SOL_SOCKET,SO_REUSEADDR,(char* ) &opt,
+		     sizeof(opt)) <0)
+	{
+	  dbg_perror(g,"can't set sockopt");
+	  epmd_cleanup_exit(g,1);
+	}
+#endif
+  
+      /* In rare cases select returns because there is someone
+	 to accept but the request is withdrawn before the
+	 accept function is called. We set the listen socket
+	 to be non blocking to prevent us from being hanging
+	 in accept() waiting for the next request. */
+#if (defined(__WIN32__) || defined(NO_FCNTL))
+      opt = 1;
+      /* Gives warning in VxWorks */
+      if (ioctl(listensock[i], FIONBIO, &opt) != 0)
+#else
+      opt = fcntl(listensock[i], F_GETFL, 0);
+      if (fcntl(listensock[i], F_SETFL, opt | O_NONBLOCK) == -1)
+#endif /* __WIN32__ || VXWORKS */
+	dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
+		   listensock[i]);
+
+      if (bind(listensock[i], (struct sockaddr*) &iserv_addr[i],
+	  sizeof(iserv_addr[i])) < 0)
+	{
+	  if (errno == EADDRINUSE)
+	    {
+	      dbg_tty_printf(g,1,"there is already a epmd running at port %d",
+			     g->port);
+	      epmd_cleanup_exit(g,0);
+	    }
+	  else
+	    {
+	      dbg_perror(g,"failed to bind socket");
+	      epmd_cleanup_exit(g,1);
+	    }
+	}
+
+      if(listen(listensock[i], SOMAXCONN) < 0) {
+          dbg_perror(g,"failed to listen on socket");
+          epmd_cleanup_exit(g,1);
+      }
+      FD_SET(listensock[i],&g->orig_read_mask);
+    }
 
   dbg_tty_printf(g,2,"entering the main select() loop");
 
@@ -200,17 +270,18 @@ void run(EpmdVars *g)
 	  sleep(g->delay_accept);
 	}
 
-	if (FD_ISSET(listensock,&read_mask)) {
-	  if (do_accept(g, listensock) && g->active_conn < g->max_conn) {
-	    /*
-	     * The accept() succeeded, and we have at least one file
-	     * descriptor still free, which means that another accept()
-	     * could succeed. Go do do another select(), in case there
-	     * are more incoming connections waiting to be accepted.
-	     */
-	    goto select_again;
+	for (i = 0; i < num_sockets; i++)
+	  if (FD_ISSET(listensock[i],&read_mask)) {
+	    if (do_accept(g, listensock[i]) && g->active_conn < g->max_conn) {
+	      /*
+	       * The accept() succeeded, and we have at least one file
+	       * descriptor still free, which means that another accept()
+	       * could succeed. Go do do another select(), in case there
+	       * are more incoming connections waiting to be accepted.
+	       */
+	      goto select_again;
+	    }
 	  }
-	}
 	  
 	/* Check all open streams marked by select for data or a
 	   close.  We also close all open sockets except ALIVE

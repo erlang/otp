@@ -137,7 +137,7 @@ static int conn_to_epmd(EpmdVars *g)
 
     { /* store port number in unsigned short */
       unsigned short sport = g->port;
-      SET_ADDR_LOOPBACK(address, FAMILY, sport);
+      SET_ADDR(address, EPMD_ADDR_LOOPBACK, sport);
     }
 
     if (connect(connect_sock, (struct sockaddr*)&address, sizeof address) < 0) 
