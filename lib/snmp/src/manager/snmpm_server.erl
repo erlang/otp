@@ -687,7 +687,8 @@ handle_call({unregister_user, UserId}, _From, State) ->
 %% agent, or when the timeout hits (unless we get an error now).
 handle_call({sync_get, Pid, UserId, TargetName, Oids, SendOpts}, 
 	    From, State) ->
-    ?vlog("received sync_get [~p] request", [TargetName]),
+    ?vlog("[~p,~p] received sync_get request for"
+	  "~n   ~p", [UserId, TargetName, Opts]),
     case (catch handle_sync_get(Pid, 
 				UserId, TargetName, Oids, SendOpts, 
 				From, State)) of
@@ -698,9 +699,11 @@ handle_call({sync_get, Pid, UserId, TargetName, Oids, SendOpts},
     end;
 
 %% <BACKWARD-COMPAT>
+%% The only case where this would be called is during code upgrade
 handle_call({sync_get, Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo}, 
 	    From, State) ->
-    ?vlog("received sync_get [~p] request", [CtxName]),
+    ?vlog("[~p,~p] received sync_get request for"
+	  "~n   ~p", [UserId, TargetName, Opts]),
     case (catch handle_sync_get(Pid, 
 				UserId, TargetName, CtxName, Oids, 
 				Timeout, ExtraInfo, From, State)) of
@@ -712,8 +715,26 @@ handle_call({sync_get, Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInf
 %% </BACKWARD-COMPAT>
 
 
-handle_call({sync_get_next, Pid, UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo}, From, State) ->
-    ?vlog("received sync_get_next [~p] request", [CtxName]),
+handle_call({sync_get_next, Pid, UserId, TargetName, Oids, SendOpts}, 
+	    From, State) ->
+    ?vlog("[~p,~p] received sync_get_next request for: "
+	  "~n   ~p", [UserId, TargetName, Opts]),
+    case (catch handle_sync_get_next(Pid, 
+				     UserId, TargetName, Oids, SendOpts, 
+				     From, State)) of
+	ok ->
+	    {noreply, State};
+	Error ->
+	    {reply, Error, State}
+    end;
+
+
+%% <BACKWARD-COMPAT>
+%% The only case where this would be called is during code upgrade
+handle_call({sync_get_next, Pid, UserId, TargetName, CtxName, Oids, 
+	     Timeout, ExtraInfo}, From, State) ->
+    ?vlog("[~p,~p] received sync_get_next request for"
+	  "~n   ~p", [UserId, TargetName, Opts]),
     case (catch handle_sync_get_next(Pid, 
 				     UserId, TargetName, CtxName, Oids, 
 				     Timeout, ExtraInfo, From, State)) of
@@ -722,9 +743,25 @@ handle_call({sync_get_next, Pid, UserId, TargetName, CtxName, Oids, Timeout, Ext
 	Error ->
 	    {reply, Error, State}
     end;
+%% </BACKWARD-COMPAT>
 
 
 %% Check agent version? This op not in v1
+handle_call({sync_get_bulk, Pid, UserId, TargetName, 
+	     NonRep, MaxRep, Oids, SendOpts}, 
+	    From, State) ->
+    ?vlog("received sync_get_bulk [~p] request", [CtxName]),
+    case (catch handle_sync_get_bulk(Pid, 
+				     UserId, TargetName, NonRep, MaxRep, Oids, 
+				     SendOpts, From, State)) of
+	ok ->
+	    {noreply, State};
+	Error ->
+	    {reply, Error, State}
+    end;
+
+%% <BACKWARD-COMPAT>
+%% The only case where this would be called is during code upgrade
 handle_call({sync_get_bulk, Pid, UserId, TargetName, 
 	     NonRep, MaxRep, CtxName, Oids, Timeout, ExtraInfo}, 
 	    From, State) ->
@@ -738,6 +775,7 @@ handle_call({sync_get_bulk, Pid, UserId, TargetName,
 	Error ->
 	    {reply, Error, State}
     end;
+%% </BACKWARD-COMPAT>
 
 
 handle_call({sync_set, Pid, UserId, TargetName, 
