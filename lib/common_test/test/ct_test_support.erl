@@ -226,6 +226,16 @@ run(Opts, Config) ->
 		       [Opts, CTNode]),
     Result1 = rpc:call(CTNode, ct, run_test, [Opts]),
 
+    case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
+	undefined ->
+	    ok;
+	_ ->
+	    test_server:format(Level,
+			       "ct_util_server not stopped on ~p yet, waiting 5 s...~n",
+			       [CTNode]),
+	    timer:sleep(5000),
+	    undefined = rpc:call(CTNode, erlang, whereis, [ct_util_server])
+    end,
     %% use run_test interface (simulated)
     test_server:format(Level, "Saving start opts on ~p: ~p~n", [CTNode,Opts]),
     rpc:call(CTNode, application, set_env, [common_test, run_test_start_opts, Opts]),

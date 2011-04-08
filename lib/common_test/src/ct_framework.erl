@@ -493,9 +493,9 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 		case ct_hooks:end_tc(
 			    Mod, FuncSpec, Args, Result, Return) of
 		    '$ct_no_change' ->
-			{FinalResult = ok,Result};
-		    FinalResult ->
-			{FinalResult,FinalResult}
+			{ok,Result};
+		    FinalResult1 ->
+			{FinalResult1,FinalResult1}
 		end,
 	    % send sync notification so that event handlers may print
 	    % in the log file before it gets closed

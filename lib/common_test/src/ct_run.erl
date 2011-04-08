@@ -1111,6 +1111,8 @@ run(TestDirs) ->
     install([]),
     reformat_result(catch do_run(tests(TestDirs), [])).
 
+reformat_result({'EXIT',{user_error,Reason}}) ->
+    {error,Reason};
 reformat_result({user_error,Reason}) ->
     {error,Reason};
 reformat_result(Result) ->

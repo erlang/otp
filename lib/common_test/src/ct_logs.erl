@@ -97,11 +97,11 @@ logdir_node_prefix() ->
     logdir_prefix()++"."++atom_to_list(node()).
 
 %%%-----------------------------------------------------------------
-%%% @spec close(How) -> ok
+%%% @spec close(Info) -> ok
 %%%
 %%% @doc Create index pages with test results and close the CT Log
 %%% (tool-internal use only).
-close(How) ->
+close(Info) ->
     make_last_run_index(),
 
     ct_event:notify(#event{name=stop_logging,node=node(),data=[]}),
@@ -118,7 +118,7 @@ close(How) ->
 	    ok
     end,
 
-    if How == clean ->
+    if Info == clean ->
 	    case cleanup() of
 		ok ->
 		    ok;
