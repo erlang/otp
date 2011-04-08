@@ -3889,21 +3889,9 @@ handle_pend_sync_suspend(Process *suspendee,
     }
 }
 
-/*
- * Like erts_pid2proc() but:
- *
- * * At least ERTS_PROC_LOCK_MAIN have to be held on c_p.
- * * At least ERTS_PROC_LOCK_MAIN have to be taken on pid.
- * * It also waits for proc to be in a state != running and garbing.
- * * If ERTS_PROC_LOCK_BUSY is returned, the calling process has to
- *   yield (ERTS_BIF_YIELD[0-3]()). c_p might in this case have been
- *   suspended.
- */
-
-
-Process *
-erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
-			  Eterm pid, ErtsProcLocks pid_locks)
+static Process *
+pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
+		     Eterm pid, ErtsProcLocks pid_locks, int suspend)
 {
     Process *rp;
     int unlock_c_p_status;
@@ -3930,7 +3918,7 @@ erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	c_p->suspendee = NIL;
 	ASSERT(c_p->flags & F_P2PNR_RESCHED);
 	c_p->flags &= ~F_P2PNR_RESCHED;
-	if (rp)
+	if (!suspend && rp)
 	    resume_process(rp);
     }
     else {
@@ -3994,6 +3982,8 @@ erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	    }
 
 	    /* rp is not running and we got the locks we want... */
+	    if (suspend)
+		suspend_process(rp_rq, rp);
 	}
 	erts_smp_runqs_unlock(cp_rq, rp_rq);
     }
@@ -4004,6 +3994,35 @@ erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
     if (unlock_c_p_status)
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
     return rp;
+}
+
+
+/*
+ * Like erts_pid2proc() but:
+ *
+ * * At least ERTS_PROC_LOCK_MAIN have to be held on c_p.
+ * * At least ERTS_PROC_LOCK_MAIN have to be taken on pid.
+ * * It also waits for proc to be in a state != running and garbing.
+ * * If ERTS_PROC_LOCK_BUSY is returned, the calling process has to
+ *   yield (ERTS_BIF_YIELD[0-3]()). c_p might in this case have been
+ *   suspended.
+ */
+Process *
+erts_pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
+			  Eterm pid, ErtsProcLocks pid_locks)
+{
+    return pid2proc_not_running(c_p, c_p_locks, pid, pid_locks, 0);
+}
+
+/*
+ * Like erts_pid2proc_not_running(), but hands over the process
+ * in a suspended state unless (c_p is looked up).
+ */
+Process *
+erts_pid2proc_suspend(Process *c_p, ErtsProcLocks c_p_locks,
+		      Eterm pid, ErtsProcLocks pid_locks)
+{
+    return pid2proc_not_running(c_p, c_p_locks, pid, pid_locks, 1);
 }
 
 /*
@@ -4117,6 +4136,21 @@ handle_pend_bif_async_suspend(Process *suspendee,
 	}
 	erts_smp_proc_unlock(suspender, ERTS_PROC_LOCK_LINK);
     }
+}
+
+#else
+
+/*
+ * Non-smp version of erts_pid2proc_suspend().
+ */
+Process *
+erts_pid2proc_suspend(Process *c_p, ErtsProcLocks c_p_locks,
+		      Eterm pid, ErtsProcLocks pid_locks)
+{
+    Process *rp = erts_pid2proc(c_p, c_p_locks, pid, pid_locks);
+    if (rp)
+	erts_suspend(rp, pid_locks, NULL);
+    return rp;
 }
 
 #endif /* ERTS_SMP */

@@ -3217,20 +3217,32 @@ BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
+    if (BIF_P->id == BIF_ARG_1)
+	rp = BIF_P;
+    else {
+#ifdef ERTS_SMP
+	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
 				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-    if (!rp)
-	BIF_RET(am_false);
-    if (rp == ERTS_PROC_LOCK_BUSY)
-	ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
+	if (rp == ERTS_PROC_LOCK_BUSY)
+	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
+#else
+	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
+#endif
+	if (!rp)
+	    BIF_RET(am_false);
+    }
 
     /* The GC cost is taken for the process executing this BIF. */
 
     FLAGS(rp) |= F_NEED_FULLSWEEP;
     reds = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 
-    if (BIF_P != rp)
+#ifdef ERTS_SMP
+    if (BIF_P != rp) {
+	erts_resume(rp, ERTS_PROC_LOCK_MAIN);
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+    }
+#endif
 
     BIF_RET2(am_true, reds);
 }

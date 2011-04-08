@@ -50,7 +50,8 @@
 	 processes_last_call_trap/1, processes_gc_trap/1,
 	 processes_term_proc_list/1,
 	 otp_7738_waiting/1, otp_7738_suspended/1,
-	 otp_7738_resume/1]).
+	 otp_7738_resume/1,
+	 garb_other_running/1]).
 -export([prio_server/2, prio_client/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -72,7 +73,7 @@ all() ->
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
      spawn_opt_heap_size, otp_6237, {group, processes_bif},
-     {group, otp_7738}].
+     {group, otp_7738}, garb_other_running].
 
 groups() -> 
     [{t_exit_2, [],
@@ -2114,6 +2115,41 @@ otp_7738_test(Type) ->
 		  ?line ?t:format("~p~n", [I]),
 		  ?line ?t:fail(no_progress)
 	  end,
+    ?line ok.
+
+gor(Reds, Stop) ->
+    receive
+	{From, reds} ->
+	    From ! {reds, Reds, self()},
+	    gor(Reds+1, Stop);
+	{From, Stop} ->
+	    From ! {stopped, Stop, Reds, self()}
+    after 0 ->
+	    gor(Reds+1, Stop)
+    end.
+
+garb_other_running(Config) when is_list(Config) ->
+    ?line Stop = make_ref(),
+    ?line {Pid, Mon} = spawn_monitor(fun () -> gor(0, Stop) end),
+    ?line Reds = lists:foldl(fun (_, OldReds) ->
+				     ?line erlang:garbage_collect(Pid),
+				     ?line receive after 1 -> ok end,
+				     ?line Pid ! {self(), reds},
+				     ?line receive
+					       {reds, NewReds, Pid} ->
+						   ?line true = (NewReds > OldReds),
+						   ?line NewReds
+					   end
+			     end,
+			     0,
+			     lists:seq(1, 10000)),
+    ?line receive after 1 -> ok end,
+    ?line Pid ! {self(), Stop},
+    ?line receive
+	      {stopped, Stop, StopReds, Pid} ->
+		  ?line true = (StopReds > Reds)
+	  end,
+    ?line receive {'DOWN', Mon, process, Pid, normal} -> ok end,
     ?line ok.
 
 %% Internal functions
