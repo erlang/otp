@@ -317,7 +317,7 @@ merge_plts_or_report_conflicts(PltFiles, Plts) ->
       Msg = io_lib:format("Could not merge PLTs since they are not disjoint\n"
                           "The following files are included in more than one "
                           "PLTs:\n~p\n", [ConfFiles]),
-      error(Msg)
+      plt_error(Msg)
   end.
 
 find_duplicates(List) ->

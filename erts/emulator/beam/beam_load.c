@@ -1411,7 +1411,6 @@ static int
 load_code(LoaderState* stp)
 {
     int i;
-    int tmp;
     int ci;
     int last_func_start = 0;
     char* sign;
@@ -1931,7 +1930,6 @@ load_code(LoaderState* stp)
 	    case 'P':		/* Byte offset into tuple or stack */
 	    case 'Q':		/* Like 'P', but packable */
 		VerifyTag(stp, tag, TAG_u);
-		tmp = tmp_op->a[arg].val;
 		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));
 		break;
 	    case 'l':		/* Floating point register. */

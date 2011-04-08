@@ -1,23 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
+ *
  * Copyright Ericsson AB 2004-2011. All Rights Reserved.
- * 
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
- */
+
+
 #include "hipe_ppc_asm.h"
 #include "hipe_literals.h"
 #define ASM
@@ -198,6 +198,7 @@
  * int hipe_ppc_call_to_native(Process *p);
  * Emulated code recursively calls native code.
  */
+	OPD(hipe_ppc_call_to_native)
 	GLOBAL(CSYM(hipe_ppc_call_to_native))
 CSYM(hipe_ppc_call_to_native):
 	/* save C context */
@@ -229,6 +230,7 @@ ASYM(nbif_return):
  * int hipe_ppc_return_to_native(Process *p);
  * Emulated code returns to its native code caller.
  */
+	OPD(hipe_ppc_return_to_native)
 	GLOBAL(CSYM(hipe_ppc_return_to_native))
 CSYM(hipe_ppc_return_to_native):
 	/* save C context */
@@ -252,6 +254,7 @@ CSYM(hipe_ppc_return_to_native):
  * int hipe_ppc_tailcall_to_native(Process *p);
  * Emulated code tailcalls native code.
  */
+	OPD(hipe_ppc_tailcall_to_native)
 	GLOBAL(CSYM(hipe_ppc_tailcall_to_native))
 CSYM(hipe_ppc_tailcall_to_native):
 	/* save C context */
@@ -274,6 +277,7 @@ CSYM(hipe_ppc_tailcall_to_native):
  * int hipe_ppc_throw_to_native(Process *p);
  * Emulated code throws an exception to its native code caller.
  */
+	OPD(hipe_ppc_throw_to_native)
 	GLOBAL(CSYM(hipe_ppc_throw_to_native))
 CSYM(hipe_ppc_throw_to_native):
 	/* save C context */
@@ -455,6 +459,10 @@ ASYM(nbif_fail):
 	li	r3, HIPE_MODE_SWITCH_RES_THROW
 	b	.flush_exit	/* no need to save RA */
 
+	OPD(nbif_0_gc_after_bif)
+	OPD(nbif_1_gc_after_bif)
+	OPD(nbif_2_gc_after_bif)
+	OPD(nbif_3_gc_after_bif)
 	GLOBAL(CSYM(nbif_0_gc_after_bif))
 	GLOBAL(CSYM(nbif_1_gc_after_bif))
 	GLOBAL(CSYM(nbif_2_gc_after_bif))
@@ -493,18 +501,22 @@ CSYM(nbif_3_gc_after_bif):
  * The heap pointer was just read from P.
  * TEMP_LR contains a copy of LR
  */
+	OPD(nbif_0_simple_exception)
 	GLOBAL(CSYM(nbif_0_simple_exception))
 CSYM(nbif_0_simple_exception):
 	li	r4, 0
 	b	.nbif_simple_exception
+	OPD(nbif_1_simple_exception)
 	GLOBAL(CSYM(nbif_1_simple_exception))
 CSYM(nbif_1_simple_exception):
 	li	r4, 1
 	b	.nbif_simple_exception
+	OPD(nbif_2_simple_exception)
 	GLOBAL(CSYM(nbif_2_simple_exception))
 CSYM(nbif_2_simple_exception):
 	li	r4, 2
 	b	.nbif_simple_exception
+	OPD(nbif_3_simple_exception)
 	GLOBAL(CSYM(nbif_3_simple_exception))
 CSYM(nbif_3_simple_exception):
 	li	r4, 3

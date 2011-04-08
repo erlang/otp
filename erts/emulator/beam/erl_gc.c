@@ -455,7 +455,6 @@ erts_garbage_collect_hibernate(Process* p)
     Eterm* heap;
     Eterm* htop;
     Rootset rootset;
-    int n;
     char* src;
     Uint src_size;
     Uint actual_size;
@@ -486,7 +485,7 @@ erts_garbage_collect_hibernate(Process* p)
 				    sizeof(Eterm)*heap_size);
     htop = heap;
 
-    n = setup_rootset(p, p->arg_reg, p->arity, &rootset);
+    (void) setup_rootset(p, p->arg_reg, p->arity, &rootset);
 #if HIPE
     hipe_empty_nstack(p);
 #endif

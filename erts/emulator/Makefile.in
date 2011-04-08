@@ -515,11 +515,12 @@ $(TTF_DIR)/beam_opcodes.h $(TTF_DIR)/beam_opcodes.c: $(OPCODE_TABLES) utils/beam
 ATOMS=	beam/atom.names
 BIFS =	beam/bif.tab
 ifdef HIPE_ENABLED
+HIPE_ARCH64_TAB=hipe/hipe_bif64.tab
 HIPE_x86_TAB=hipe/hipe_x86.tab
-HIPE_amd64_TAB=hipe/hipe_amd64.tab
+HIPE_amd64_TAB=hipe/hipe_amd64.tab $(HIPE_ARCH64_TAB)
 HIPE_ultrasparc_TAB=hipe/hipe_sparc.tab
 HIPE_ppc_TAB=hipe/hipe_ppc.tab
-HIPE_ppc64_TAB=hipe/hipe_ppc64.tab
+HIPE_ppc64_TAB=hipe/hipe_ppc64.tab $(HIPE_ARCH64_TAB)
 HIPE_arm_TAB=hipe/hipe_arm.tab
 HIPE_ARCH_TAB=$(HIPE_$(ARCH)_TAB)
 BIFS += hipe/hipe_bif0.tab hipe/hipe_bif1.tab hipe/hipe_bif2.tab $(HIPE_ARCH_TAB)
@@ -801,12 +802,14 @@ OS_OBJS +=	$(OBJDIR)/erl_mseg.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
 		$(OBJDIR)/erl_sys_common_misc.o
 
+HIPE_ARCH64_OBJS=$(OBJDIR)/hipe_bif64.o
+
 HIPE_x86_OS_OBJS=$(HIPE_x86_$(OPSYS)_OBJS)
 HIPE_x86_OBJS=$(OBJDIR)/hipe_x86.o $(OBJDIR)/hipe_x86_glue.o $(OBJDIR)/hipe_x86_bifs.o $(OBJDIR)/hipe_x86_signal.o $(OBJDIR)/hipe_x86_stack.o $(HIPE_x86_OS_OBJS)
-HIPE_amd64_OBJS=$(OBJDIR)/hipe_amd64.o $(OBJDIR)/hipe_amd64_glue.o $(OBJDIR)/hipe_amd64_bifs.o $(OBJDIR)/hipe_x86_signal.o $(OBJDIR)/hipe_x86_stack.o
+HIPE_amd64_OBJS=$(OBJDIR)/hipe_amd64.o $(OBJDIR)/hipe_amd64_glue.o $(OBJDIR)/hipe_amd64_bifs.o $(OBJDIR)/hipe_x86_signal.o $(OBJDIR)/hipe_x86_stack.o $(HIPE_ARCH64_OBJS)
 HIPE_ultrasparc_OBJS=$(OBJDIR)/hipe_sparc.o $(OBJDIR)/hipe_sparc_glue.o $(OBJDIR)/hipe_sparc_bifs.o $(OBJDIR)/hipe_risc_stack.o
 HIPE_ppc_OBJS=$(OBJDIR)/hipe_ppc.o $(OBJDIR)/hipe_ppc_glue.o $(OBJDIR)/hipe_ppc_bifs.o $(OBJDIR)/hipe_risc_stack.o
-HIPE_ppc64_OBJS=$(HIPE_ppc_OBJS)
+HIPE_ppc64_OBJS=$(HIPE_ppc_OBJS) $(HIPE_ARCH64_OBJS)
 HIPE_arm_OBJS=$(OBJDIR)/hipe_arm.o $(OBJDIR)/hipe_arm_glue.o $(OBJDIR)/hipe_arm_bifs.o $(OBJDIR)/hipe_risc_stack.o
 HIPE_noarch_OBJS=
 HIPE_ARCH_OBJS=$(HIPE_$(ARCH)_OBJS)
