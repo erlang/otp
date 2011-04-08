@@ -4222,6 +4222,31 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
     return sp - sbuf;
 }
 
+#ifdef HAVE_LIBDLPI_H
+#include <libdlpi.h>
+static int hwaddr_libdlpi_lookup(const char *ifnm,
+                                 uchar_t *addr, size_t *alen)
+{
+    dlpi_handle_t handle;
+    dlpi_info_t linkinfo;
+    int ret = -1;
+
+    if (dlpi_open(ifnm, &handle, 0) != DLPI_SUCCESS) {
+        return -1;
+    }
+
+    if (dlpi_get_physaddr(handle, DL_CURR_PHYS_ADDR,
+                          addr, alen) == DLPI_SUCCESS &&
+        dlpi_info(handle, &linkinfo, 0) == DLPI_SUCCESS)
+    {
+        ret = 0;
+    }
+
+    dlpi_close(handle);
+    return ret;
+}
+#endif
+
 /* FIXME: temporary hack */
 #ifndef IFHWADDRLEN
 #define IFHWADDRLEN 6
@@ -4257,7 +4282,26 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	    break;
 
 	case INET_IFOPT_HWADDR: {
-#ifdef SIOCGIFHWADDR
+#ifdef HAVE_LIBDLPI_H
+            {
+                /*
+                ** OpenSolaris have SIGCGIFHWADDR, but no ifr_hwaddr member..
+                ** The proper way to get the mac address would be to
+                ** use libdlpi...
+                */
+                uchar_t addr[DLPI_PHYSADDR_MAX];
+                size_t alen = sizeof(addr);
+
+                if (hwaddr_libdlpi_lookup(ifreq.ifr_name, addr, &alen) == 0) {
+                    buf_check(sptr, s_end, 1+2+alen);
+                    *sptr++ = INET_IFOPT_HWADDR;
+                    put_int16(alen, sptr);
+                    sptr += 2;
+                    sys_memcpy(sptr, addr, alen);
+                    sptr += alen;
+                }
+            }
+#elif defined(SIOCGIFHWADDR)
 	    if (ioctl(desc->s, SIOCGIFHWADDR, (char *)&ifreq) < 0)
 		break;
 	    buf_check(sptr, s_end, 1+2+IFHWADDRLEN);

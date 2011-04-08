@@ -1479,7 +1479,7 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
                  sys/types.h sys/stropts.h sys/sysctl.h \
                  sys/ioctl.h sys/time.h sys/uio.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
-                 net/errno.h malloc.h arpa/nameser.h \
+                 net/errno.h malloc.h arpa/nameser.h libdlpi.h \
 		 pty.h util.h utmp.h langinfo.h poll.h sdkddkver.h)
 
 AC_CHECK_HEADER(sys/resource.h,
@@ -4303,6 +4303,10 @@ AH_BOTTOM([
 #endif
 ])
 
+dnl ----------------------------------------------------------------------
+dnl Check the availability for libdlpi
+dnl ----------------------------------------------------------------------
+AC_CHECK_LIB(dlpi, dlpi_open)
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.
