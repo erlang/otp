@@ -25,6 +25,8 @@
   {"4.19", 
    [
     {load_module, snmpm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_usm, soft_purge, soft_purge, []}, 
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_misc, soft_purge, soft_purge, []},
@@ -49,6 +51,8 @@
   {"4.18", 
    [
     {load_module, snmpm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_usm, soft_purge, soft_purge, []}, 
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}, 
     {load_module, snmp_misc, soft_purge, soft_purge, []},
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_config, soft_purge, soft_purge, [snmp_conf]}, 
@@ -96,6 +100,8 @@
   {"4.19", 
    [
     {load_module, snmpm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_usm, soft_purge, soft_purge, []}, 
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_misc, soft_purge, soft_purge, []},
@@ -120,6 +126,8 @@
   {"4.18", 
    [
     {load_module, snmpm, soft_purge, soft_purge, []}, 
+    {load_module, snmpa_usm, soft_purge, soft_purge, []}, 
+    {load_module, snmpm_usm, soft_purge, soft_purge, []}, 
     {load_module, snmp_misc, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmpa_conf, soft_purge, soft_purge, [snmp_conf]}, 

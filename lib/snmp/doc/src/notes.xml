@@ -44,6 +44,12 @@
 -->
       <list type="bulleted">
         <item>
+          <p>Added type specs for functions that do not return. </p>
+          <p>Kostis Sagonas</p>
+          <p>Own Id: OTP-9174</p>
+        </item>
+
+        <item>
           <p>[agent] Added support for sending traps to IPv6 targets. </p>
 	  <p>See the 
 	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>, 
