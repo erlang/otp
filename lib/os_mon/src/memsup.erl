@@ -179,6 +179,7 @@ init([]) ->
 		   % Linux supports this.
 		   {unix, linux} -> true;
 		   {unix, openbsd} -> true;
+		   {unix, netbsd} -> true;
 		   {unix, irix64} -> true;
 		   {unix, irix} -> true;
 		   {unix, sunos} -> true;
@@ -612,6 +613,7 @@ code_change(Vsn, PrevState, "1.8") ->
 			   {unix, freebsd} -> false;
 			   {unix, linux} -> false;
 			   {unix, openbsd} -> true;
+			   {unix, netbsd} -> true;
 			   {unix, sunos} -> true;
 			   {win32, _OSname} -> false;
 			   vxworks -> true
