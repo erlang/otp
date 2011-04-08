@@ -7609,10 +7609,28 @@ timeout_proc(Process* p)
     p->flags |= F_TIMO;
     p->flags &= ~F_INSLPQUEUE;
 
-    if (p->status == P_WAITING)
-	erts_add_to_runq(p); 
-    if (p->status == P_SUSPENDED)
+    switch (p->status) {
+    case P_GARBING:
+	switch (p->gcstatus) {
+	case P_SUSPENDED:
+	    goto suspended;
+	case P_WAITING:
+	    goto waiting;
+	default:
+	    break;
+	}
+	break;
+    case P_WAITING:
+    waiting:
+	erts_add_to_runq(p);
+	break;
+    case P_SUSPENDED:
+    suspended:
 	p->rstatus = P_RUNABLE;   /* MUST set resume status to runnable */
+	break;
+    default:
+	break;
+    }
 }
 
 
