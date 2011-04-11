@@ -1812,6 +1812,9 @@ start_log_file() ->
     ok = file:make_dir(PrivDir),
     put(test_server_priv_dir,PrivDir++"/"),
     print_timestamp(13,"Suite started at "),
+
+    LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir)}],
+    test_server_sup:framework_call(report, [loginfo,LogInfo]),
     ok.
 
 make_html_link(LinkName, Target, Explanation) ->

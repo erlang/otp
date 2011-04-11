@@ -37,7 +37,7 @@
 	 read_suite_data/1, 
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
 	 delete_testdata/0, delete_testdata/1, set_testdata/1, get_testdata/1,
-	 update_testdata/2]).
+	 set_testdata_async/1, update_testdata/2]).
 
 -export([override_silence_all_connections/0, override_silence_connections/1, 
 	 get_overridden_silenced_connections/0, 
@@ -230,6 +230,9 @@ update_testdata(Key, Fun) ->
 
 set_testdata(TestData) ->
     call({set_testdata, TestData}).
+
+set_testdata_async(TestData) ->
+    cast({set_testdata, TestData}).
 
 get_testdata(Key) ->
     call({get_testdata, Key}).

@@ -1187,6 +1187,13 @@ ct_end_per_group(GroupName, _) ->
 %%% @spec report(What,Data) -> ok
 report(What,Data) ->
     case What of
+	loginfo ->
+	    %% logfiles and direcories have been created for a test and the
+	    %% top level test index page needs to be refreshed
+	    TestName = filename:basename(proplists:get_value(topdir, Data), ".logs"),
+	    RunDir = proplists:get_value(rundir, Data),
+	    ct_logs:make_all_suites_index({TestName,RunDir}),
+	    ok;
 	tests_start ->
 	    case ct_util:get_testdata(cover) of
 		undefined -> 
