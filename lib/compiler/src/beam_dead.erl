@@ -592,16 +592,11 @@ count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->
     %% The save point we are looking for - we are done.
     Bits;
-count_bits_matched([{bs_save2,_,_}|Is], SavePoint, Bits) ->
-    %% Another save point - keep counting.
-    count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([_|_], _, Bits) -> Bits.
 
 shortcut_bs_pos_used(To, Reg, D) ->
     shortcut_bs_pos_used_1(beam_utils:code_at(To, D), Reg, D).
 
-shortcut_bs_pos_used_1([{bs_restore2,Reg,_}|_], Reg, _) ->
-    false;
 shortcut_bs_pos_used_1([{bs_context_to_binary,Reg}|_], Reg, _) ->
     false;
 shortcut_bs_pos_used_1(Is, Reg, D) ->
