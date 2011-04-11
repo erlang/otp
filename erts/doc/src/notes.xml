@@ -30,6 +30,39 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ets table type ordered_set could order large integer keys
+	    wrongly on pure 64bit platforms. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9181</p>
+        </item>
+        <item>
+          <p>
+	    The status of a process was unnecessarily set to waiting
+	    before a process was enqueued in a run queue. This bug
+	    was harmless up until OTP-R14B01. In OTP-R14B02
+	    <c>erlang:hibernate/3</c> was fixed (OTP-9125). After the
+	    introduction of OTP-9125, the previously harmless process
+	    status bug sometimes caused erroneous badarg exceptions
+	    from <c>process_info()</c>.</p>
+          <p>
+	    OTP-9125 also introduced a thread unsafe access to the
+	    status field of a process which now also have been fixed.</p>
+          <p>
+	    *** INCOMPATIBILITY with noxs ***</p>
+          <p>
+	    Own Id: OTP-9197</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
