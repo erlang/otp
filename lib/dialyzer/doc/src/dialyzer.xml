@@ -241,7 +241,7 @@
       <item>Include warnings about behaviour callbacks which drift from the
        published recommended interfaces.</item>
       <tag><c><![CDATA[-Wunderspecs]]></c>***</tag>
-      <item>Warn about underspecified functions 
+      <item>Warn about underspecified functions
       (the -spec is strictly more allowing than the success typing).</item>
     </taglist>
     <p>The following options are also available but their use is not
@@ -249,7 +249,7 @@
       debugging)</p>
     <taglist>
       <tag><c><![CDATA[-Woverspecs]]></c>***</tag>
-      <item>Warn about overspecified functions 
+      <item>Warn about overspecified functions
       (the -spec is strictly less allowing than the success typing).</item>
       <tag><c><![CDATA[-Wspecdiffs]]></c>***</tag>
       <item>Warn when the -spec is different than the success typing.</item>
