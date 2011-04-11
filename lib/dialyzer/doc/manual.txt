@@ -325,18 +325,25 @@ Option   :: {files,          [Filename :: string()]}
 	  | {analysis_type,  'succ_typings' | 'plt_add' |
                              'plt_build' | 'plt_check' | 'plt_remove'}
 	  | {warnings,       [WarnOpts]}
+	  | {get_warnings,   bool()}
 
 WarnOpts :: no_return
 	  | no_unused
 	  | no_improper_lists
 	  | no_fun_app
 	  | no_match
+	  | no_opaque
 	  | no_fail_call
-	  | unmatched_returns
 	  | error_handling
+	  | race_conditions
+	  | behaviours
+	  | unmatched_returns
+	  | overspecs
+	  | underspecs
+	  | specdiffs
 
 dialyzer:format_warning({tag(), id(), msg()}) -> string()
- 
+
 Returns a string representation of the warnings as returned by dialyzer:run/1.
 
 dialyzer:plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}
