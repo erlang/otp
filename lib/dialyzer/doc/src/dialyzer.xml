@@ -279,14 +279,14 @@
         <p>Dialyzer GUI version.</p>
         <code type="none"><![CDATA[
 OptList  : [Option]
-Option   : {files,          [Filename : string()]}
-         | {files_rec,      [DirName : string()]}
+Option   : {files,          [Filename :: string()]}
+         | {files_rec,      [DirName :: string()]}
          | {defines,        [{Macro: atom(), Value : term()}]}
          | {from,           src_code | byte_code} %% Defaults to byte_code
-         | {init_plt,       FileName : string()}  %% If changed from default
+         | {init_plt,       FileName :: string()}  %% If changed from default
          | {plts,           [FileName :: string()]} %% If changed from default
-         | {include_dirs,   [DirName : string()]} 
-         | {output_file,    FileName : string()}
+         | {include_dirs,   [DirName :: string()]}
+         | {output_file,    FileName :: string()}
          | {output_plt,     FileName :: string()}
          | {analysis_type,  'succ_typings' | 'plt_add' | 'plt_build' | 'plt_check' | 'plt_remove'}
          | {warnings,       [WarnOpts]}
