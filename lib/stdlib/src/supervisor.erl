@@ -138,7 +138,7 @@ delete_child(Supervisor, Name) ->
 %%-----------------------------------------------------------------
 
 -type term_err() :: 'not_found' | 'simple_one_for_one'.
--spec terminate_child(sup_ref(), term()) -> 'ok' | {'error', term_err()}.
+-spec terminate_child(sup_ref(), pid() | term()) -> 'ok' | {'error', term_err()}.
 terminate_child(Supervisor, Name) ->
     call(Supervisor, {terminate_child, Name}).
 
@@ -297,8 +297,26 @@ handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
 	    {reply, What, State}
     end;
 
-%%% The requests terminate_child, delete_child and restart_child are 
-%%% invalid for simple_one_for_one supervisors.
+%% terminate_child for simple_one_for_one can only be done with pid
+handle_call({terminate_child, Name}, _From, State) when not is_pid(Name),
+							?is_simple(State) ->
+    {reply, {error, simple_one_for_one}, State};
+
+handle_call({terminate_child, Name}, _From, State) ->
+    case get_child(Name, State, ?is_simple(State)) of
+	{value, Child} ->
+	    case do_terminate(Child, State#state.name) of
+		#child{restart_type=RT} when RT=:=temporary; ?is_simple(State) ->
+		    {reply, ok, state_del_child(Child, State)};
+		NChild ->
+		    {reply, ok, replace_child(NChild, State)}
+		end;
+	false ->
+	    {reply, {error, not_found}, State}
+    end;
+
+%%% The requests delete_child and restart_child are invalid for
+%%% simple_one_for_one supervisors.
 handle_call({_Req, _Data}, _From, State) when ?is_simple(State) ->
     {reply, {error, simple_one_for_one}, State};
 
@@ -337,19 +355,6 @@ handle_call({delete_child, Name}, _From, State) ->
 	    {reply, ok, NState};
 	{value, _} ->
 	    {reply, {error, running}, State};
-	_ ->
-	    {reply, {error, not_found}, State}
-    end;
-
-handle_call({terminate_child, Name}, _From, State) ->
-    case get_child(Name, State) of
-	{value, Child} ->
-	    case do_terminate(Child, State#state.name) of
-		#child{restart_type = temporary} = NChild ->
-		    {reply, ok, state_del_child(NChild, State)};
-		NChild ->
-		    {reply, ok, replace_child(NChild, State)}
-		end;
 	_ ->
 	    {reply, {error, not_found}, State}
     end;
@@ -849,7 +854,28 @@ split_child(_, [], After) ->
     {lists:reverse(After), []}.
 
 get_child(Name, State) ->
+    get_child(Name, State, false).
+get_child(Pid, State, AllowPid) when AllowPid, is_pid(Pid) ->
+    get_dynamic_child(Pid, State);
+get_child(Name, State, _) ->
     lists:keysearch(Name, #child.name, State#state.children).
+
+get_dynamic_child(Pid, #state{children=[Child], dynamics=Dynamics}) ->
+    case is_dynamic_pid(Pid, dynamics_db(Child#child.restart_type, Dynamics)) of
+	true ->
+	    {value, Child#child{pid=Pid}};
+	false ->
+	    case erlang:is_process_alive(Pid) of
+		true -> false;
+		false -> {value, Child}
+	    end
+    end.
+
+is_dynamic_pid(Pid, Dynamics) when is_list(Dynamics) ->
+    lists:member(Pid, Dynamics);
+is_dynamic_pid(Pid, Dynamics) ->
+    dict:is_key(Pid, Dynamics).
+
 replace_child(Child, State) ->
     Chs = do_replace_child(Child, State#state.children),
     State#state{children = Chs}.

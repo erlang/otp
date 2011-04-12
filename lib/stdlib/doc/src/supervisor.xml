@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -83,11 +83,17 @@
           supervisor, where all child processes are dynamically added
           instances of the same process type, i.e. running the same
           code.</p>
-        <p>The functions <c>terminate_child/2</c>, <c>delete_child/2</c>
+        <p>The functions <c>delete_child/2</c>
           and <c>restart_child/2</c> are invalid for
           <c>simple_one_for_one</c> supervisors and will return
           <c>{error,simple_one_for_one}</c> if the specified supervisor
           uses this restart strategy.</p>
+        <p>The function <c>terminate_child/2</c> can be used for
+          children under <c>simple_one_for_one</c> supervisors by
+          giving the child's <c>pid()</c> as the second argument. If
+          instead the child specification identifier is used,
+          <c>terminate_child/2</c> will return
+          <c>{error,simple_one_for_one}</c>.</p>
       </item>
     </list>
     <p>To prevent a supervisor from getting into an infinite loop of
@@ -311,24 +317,33 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
       <type>
         <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
-        <v>Id = term()</v>
+        <v>Id = pid() | term()</v>
         <v>Result = ok | {error,Error}</v>
         <v>&nbsp;Error = not_found | simple_one_for_one</v>
       </type>
       <desc>
-        <p>Tells the supervisor <c>SupRef</c> to terminate the child
-          process corresponding to the child specification identified
-          by <c>Id</c>. The process, if there is one, is terminated but
-          the child specification is kept by the supervisor. This means
-          that the child process may be later be restarted by
-          the supervisor. The child process can also be restarted
-          explicitly by calling <c>restart_child/2</c>. Use
-          <c>delete_child/2</c> to remove the child specification.</p>
+        <p>Tells the supervisor <c>SupRef</c> to terminate the given
+          child.</p>
+        <p>If the supervisor is not <c>simple_one_for_one</c>,
+          <c>Id</c> must be the child specification identifier. The
+          process, if there is one, is terminated but the child
+          specification is kept by the supervisor. The child process
+          may later be restarted by the supervisor. The child process
+          can also be restarted explicitly by calling
+          <c>restart_child/2</c>. Use <c>delete_child/2</c> to remove
+          the child specification.</p>
+        <p>If the supervisor is <c>simple_one_for_one</c>, <c>Id</c>
+          must be the child process' <c>pid()</c>. I the specified
+          process is alive, but is not a child of the given
+          supervisor, the function will return
+          <c>{error,not_found}</c>. If the child specification
+          identifier is given instead instead of a <c>pid()</c>, the
+          function will return <c>{error,simple_one_for_one}</c>.</p>
+        <p>If successful, the function returns <c>ok</c>. If there is
+          no child specification with the specified <c>Id</c>, the
+          function returns <c>{error,not_found}</c>.</p>
         <p>See <c>start_child/2</c> for a description of
           <c>SupRef</c>.</p>
-        <p>If successful, the function returns <c>ok</c>. If there is
-          no child specification with the specified <c>Id</c>,
-          the function returns <c>{error,not_found}</c>.</p>
       </desc>
     </func>
     <func>
