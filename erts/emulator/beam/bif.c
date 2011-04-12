@@ -368,7 +368,6 @@ static int demonitor(Process *c_p, Eterm ref)
    ErtsMonitor *mon = NULL;  /* The monitor entry to delete */
    Process  *rp;    /* Local target process */
    Eterm     to = NIL;    /* Monitor link traget */
-   Eterm     ref_p; /* Pid of this end */
    DistEntry *dep = NULL;  /* Target's distribution entry */
    int deref_de = 0;
    int res;
@@ -381,7 +380,6 @@ static int demonitor(Process *c_p, Eterm ref)
        res = ERTS_DEMONITOR_BADARG;
        goto done; /* Cannot be this monitor's ref */
    }
-   ref_p = c_p->id;
 
    mon = erts_lookup_monitor(c_p->monitors, ref);
    if (!mon) {

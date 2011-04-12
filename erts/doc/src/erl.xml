@@ -1004,6 +1004,15 @@
 	  add to the code path.
   	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
       </item>
+      <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
+      <item>
+        <p>This environment variable may be set to a comma-separated
+          list of IP addresses, in which case the
+          <seealso marker="epmd">epmd</seealso> daemon
+          will listen only on the specified address(es) and on the
+          loopback address (which is implicitely added to the list if it
+          has not been specified).</p>
+      </item>
       <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
       <item>
         <p>This environment variable can contain the port number to use when

@@ -25,13 +25,14 @@
 -export([start/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
 	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
-	 call_format_status/1, error_format_status/1]).
+	 call_format_status/1, call_format_status_anon/1,
+         error_format_status/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [start, {group, test_all}, hibernate,
-     call_format_status, error_format_status].
+     call_format_status, call_format_status_anon, error_format_status].
 
 groups() -> 
     [{test_all, [],
@@ -887,6 +888,22 @@ call_format_status(Config) when is_list(Config) ->
     ?line HandlerInfo2 = proplists:get_value(items, Data2),
     ?line {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo2,
     ok.
+
+call_format_status_anon(suite) ->
+    [];
+call_format_status_anon(doc) ->
+    ["Test that sys:get_status/1,2 calls format_status/2 for anonymous gen_event processes"];
+call_format_status_anon(Config) when is_list(Config) ->
+    ?line {ok, Pid} = gen_event:start(),
+    %% The 'Name' of the gen_event process will be a pid() here, so
+    %% the next line will crash if format_status can't string-ify pids.
+    ?line Status1 = sys:get_status(Pid),
+    ?line ok = gen_event:stop(Pid),
+    Header = "Status for event handler " ++  pid_to_list(Pid),
+    ?line {status, Pid, _, [_, _, Pid, [], Data1]} = Status1,
+    ?line Header = proplists:get_value(header, Data1),
+    ok.
+
 
 error_format_status(suite) ->
     [];
