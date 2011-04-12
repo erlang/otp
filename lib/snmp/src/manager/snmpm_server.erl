@@ -237,8 +237,8 @@ unregister_user(UserId) ->
 %% The reason why we have a sync_get2 is to simplify backward 
 %% compatibillity. 
 
-sync_get2(UserId, TargetName, Oids) ->
-    sync_get2(UserId, TargetName, Oids, []).
+%% sync_get2(UserId, TargetName, Oids) ->
+%%     sync_get2(UserId, TargetName, Oids, []).
 sync_get2(UserId, TargetName, Oids, Opts) ->
     call({sync_get, self(), UserId, TargetName, Oids, Opts}).
 
@@ -264,8 +264,8 @@ sync_get(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo)
 
 %% -- [async] get --
 
-async_get2(UserId, TargetName, Oids) ->
-    async_get2(UserId, TargetName, Oids, []).
+%% async_get2(UserId, TargetName, Oids) ->
+%%     async_get2(UserId, TargetName, Oids, []).
 async_get2(UserId, TargetName, Oids, SendOpts) ->
     call({async_get, self(), UserId, TargetName, Oids, SendOpts}).
 
@@ -291,8 +291,8 @@ async_get(UserId, TargetName, CtxName, Oids, Expire, ExtraInfo)
 
 %% -- [sync] get-next --
 
-sync_get_next2(UserId, TargetName, Oids) ->
-    sync_get_next2(UserId, TargetName, Oids, []).
+%% sync_get_next2(UserId, TargetName, Oids) ->
+%%     sync_get_next2(UserId, TargetName, Oids, []).
 sync_get_next2(UserId, TargetName, Oids, SendOpts) ->
     call({sync_get_next, self(), UserId, TargetName, Oids, SendOpts}).
 
@@ -319,8 +319,8 @@ sync_get_next(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo)
 
 %% -- [async] get-next --
 
-async_get_next2(UserId, TargetName, Oids) ->
-    async_get_next2(UserId, TargetName, Oids, []).
+%% async_get_next2(UserId, TargetName, Oids) ->
+%%     async_get_next2(UserId, TargetName, Oids, []).
 async_get_next2(UserId, TargetName, Oids, SendOpts) ->
     call({async_get_next, self(), UserId, TargetName, Oids, SendOpts}).
 
@@ -345,8 +345,8 @@ async_get_next(UserId, TargetName, CtxName, Oids, Expire, ExtraInfo)
 
 %% -- [sync] get-bulk --
 
-sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
+%% sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+%%     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({sync_get_bulk, self(), UserId, TargetName, 
 	  NonRep, MaxRep, Oids, SendOpts}).
@@ -375,8 +375,8 @@ sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids, Timeout,
 
 %% -- [async] get-bulk --
 
-async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
+%% async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
+%%     async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({async_get_bulk, self(), UserId, TargetName, NonRep, MaxRep, 
 	  Oids, SendOpts}).
@@ -408,8 +408,8 @@ async_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids, Expire,
 %% -- [sync] set --
 
 %% VarsAndValues is: {PlainOid, o|s|i, Value} (unknown mibs) | {Oid, Value} 
-sync_set2(UserId, TargetName, VarsAndVals) ->
-    sync_set2(UserId, TargetName, VarsAndVals, []).
+%% sync_set2(UserId, TargetName, VarsAndVals) ->
+%%     sync_set2(UserId, TargetName, VarsAndVals, []).
 sync_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
     call({sync_set, self(), UserId, TargetName, VarsAndVals, SendOpts}).
 
@@ -434,8 +434,8 @@ sync_set(UserId, TargetName, CtxName, VarsAndVals, Timeout, ExtraInfo)
 
 %% -- [async] set --
 
-async_set2(UserId, TargetName, VarsAndVals) ->
-    async_set2(UserId, TargetName, VarsAndVals, []).
+%% async_set2(UserId, TargetName, VarsAndVals) ->
+%%     async_set2(UserId, TargetName, VarsAndVals, []).
 async_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
     call({async_set, self(), UserId, TargetName, VarsAndVals, SendOpts}).
 
@@ -1430,8 +1430,8 @@ handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 	    "~n   UserId:     ~p"
 	    "~n   TargetName: ~p"
 	    "~n   Oids:       ~p"
-	    "~n   Expire:     ~p",
-	    [Pid, UserId, TargetName, Oids, Expire]),
+	    "~n   SendOpts:   ~p",
+	    [Pid, UserId, TargetName, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_next -> send a ~p message", [Vsn]),
@@ -1487,7 +1487,7 @@ handle_async_get_bulk(Pid,
 	    "~n   Oids:       ~p"
 	    "~n   SendOpts:   ~p", 
 	    [Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
-    case agent_data(TargetName, CtxName) of
+    case agent_data(TargetName, SendOpts) of
 	{ok, RegType, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_bulk -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
@@ -3146,6 +3146,9 @@ agent_data(TargetName, SendOpts) ->
 			DefSecLevel = agent_data_item(sec_level, Info),
 			
 			EngineId    = agent_data_item(engine_id, Info),
+			CtxName     = agent_data_item(context, 
+						      SendOpts, 
+						      ?DEFAULT_CONTEXT),
 			
 			SecModel    = agent_data_item(sec_model,   
 						      SendOpts, 
@@ -3164,10 +3167,10 @@ agent_data(TargetName, SendOpts) ->
 			DefSecModel = agent_data_item(sec_model, Info),
 			
 			Comm        = agent_data_item(community, 
-						      SendOPts, 
+						      SendOpts, 
 						      DefComm),
 			SecModel    = agent_data_item(sec_model, 
-						      SendOPts, 
+						      SendOpts, 
 						      DefSecModel),
 			
 			{Comm, SecModel}
@@ -3332,6 +3335,12 @@ default_agent_config() ->
 	_ ->
 	    []
     end.
+
+
+%%----------------------------------------------------------------------
+
+get_opt(Key, Default, Opts) ->
+    proplists:get_value(Key, Opts, Default).
 
 
 %%----------------------------------------------------------------------

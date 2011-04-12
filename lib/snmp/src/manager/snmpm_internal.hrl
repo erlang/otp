@@ -20,6 +20,8 @@
 -ifndef(snmpm_internal).
 -define(snmpm_internal, true).
 
+-define(DEFAULT_CONTEXT, "").
+
 -include_lib("snmp/src/app/snmp_internal.hrl").
 
 -define(snmpm_info(F, A),    ?snmp_info("manager",    F, A)).

@@ -145,12 +145,13 @@
 -export([start_link/3, snmpm_start_verify/2, snmpm_start_verify/3]).
 
 
--include("snmp_debug.hrl").
+-include_lib("snmp/src/misc/snmp_debug.hrl").
+-include_lib("snmp/include/snmp_types.hrl").
 -include("snmpm_atl.hrl").
--include("snmp_types.hrl").
+-include("snmpm_internal.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
--define(DEFAULT_CONTEXT,    "").
+%% -define(DEFAULT_CONTEXT,    "").
 
 
 %% This function is called when the snmp application
