@@ -162,14 +162,11 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 
 %% We must split the basic block when we encounter instructions with labels,
 %% such as catches and BIFs. All labels must be visible outside the blocks.
-%% Also remove empty blocks.
 
 split_blocks({function,Name,Arity,CLabel,Is0}) ->
     Is = split_blocks(Is0, []),
     {function,Name,Arity,CLabel,Is}.
 
-split_blocks([{block,[]}|Is], Acc) ->
-    split_blocks(Is, Acc);
 split_blocks([{block,Bl}|Is], Acc0) ->
     Acc = split_block(Bl, [], Acc0),
     split_blocks(Is, Acc);
