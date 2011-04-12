@@ -23,7 +23,7 @@
 -export([
 	 start/1, 
 	 connect/3, connect/4, 
-	 listen/2, listen/3, 
+	 listen/2, listen/3, listen/4, 
 	 accept/2, accept/3, 
 	 close/2,
 	 send/3, 
@@ -136,10 +136,11 @@ connect({essl, SslConfig}, {Host, Port}, _, Timeout) ->
 
 
 %%-------------------------------------------------------------------------
-%% listen(SocketType, Port) -> {ok, Socket} | {error, Reason}
+%% listen(SocketType, Addr, Port, Fd) -> {ok, Socket} | {error, Reason}
 %%      SocketType = ip_comm | {ssl, SSLConfig}  
 %%      Port = integer() 
-%%      Socket = socket()                            
+%%      Socket = socket()
+%%      Fd = undefined | fd()
 %%
 %% Description: Sets up socket to listen on the port Port on the local
 %% host using either gen_tcp or ssl. In the gen_tcp case the port
@@ -151,13 +152,8 @@ connect({essl, SslConfig}, {Host, Port}, _, Timeout) ->
 listen(SocketType, Port) ->
     listen(SocketType, undefined, Port).
 
-listen(ip_comm, Addr, Port) ->
-    case (catch listen_ip_comm(Addr, Port)) of
-	{'EXIT', Reason} ->
-	    {error, {exit, Reason}};
-	Else ->
-	    Else
-    end;
+listen(ip_comm = SocketType, Addr, Port) ->
+    listen(SocketType, Addr, Port, undefined);
 
 %% Wrapper for backaward compatibillity
 listen({ssl, SSLConfig}, Addr, Port) ->
@@ -186,9 +182,17 @@ listen({essl, SSLConfig} = Ssl, Addr, Port) ->
     Opt2 = [{ssl_imp, new}, {reuseaddr, true} | Opt], 
     ssl:listen(Port, Opt2).
 
+listen(ip_comm, Addr, Port, Fd) ->
+    case (catch listen_ip_comm(Addr, Port, Fd)) of
+	{'EXIT', Reason} ->
+	    {error, {exit, Reason}};
+	Else ->
+	    Else
+    end.
 
-listen_ip_comm(Addr, Port) ->
-    {NewPort, Opts, IpFamily} = get_socket_info(Addr, Port),
+
+listen_ip_comm(Addr, Port, Fd) ->
+    {NewPort, Opts, IpFamily} = get_socket_info(Addr, Port, Fd),
     case IpFamily of
 	inet6fb4 -> 
 	    Opts2 = [inet6 | Opts], 
@@ -223,29 +227,36 @@ listen_ip_comm(Addr, Port) ->
 ipfamily_default(Addr, Port) ->
     httpd_conf:lookup(Addr, Port, ipfamily, inet6fb4).
 
-get_socket_info(Addr, Port) ->
-    Key  = list_to_atom("httpd_" ++ integer_to_list(Port)),
-    BaseOpts =  [{backlog, 128}, {reuseaddr, true}], 
+get_socket_info(Addr, Port, Fd0) ->
+    BaseOpts        = [{backlog, 128}, {reuseaddr, true}], 
     IpFamilyDefault = ipfamily_default(Addr, Port), 
-    case init:get_argument(Key) of
-	{ok, [[Value]]} ->
-	    {Fd, IpFamily} = 
-		case string:tokens(Value, [$|]) of
-		    [FdStr, IpFamilyStr] ->
-			Fd0       = fd_of(FdStr),
-			IpFamily0 = ip_family_of(IpFamilyStr),
-			{Fd0, IpFamily0};
-		    [FdStr] ->
-			{fd_of(FdStr), IpFamilyDefault};
-		    _ ->
-			throw({error, {bad_descriptor, Value}})
-		end,
+    %% The presence of a file descriptor takes precedence
+    case get_fd(Port, Fd0, IpFamilyDefault) of
+	{Fd, IpFamily} -> 
 	    {0, sock_opt(ip_comm, Addr, [{fd, Fd} | BaseOpts]), IpFamily};
-	error ->
+	undefined ->
 	    {Port, sock_opt(ip_comm, Addr, BaseOpts), IpFamilyDefault}
     end.
 	    
+get_fd(Port, undefined = _Fd, IpFamilyDefault) ->
+    FdKey = list_to_atom("httpd_" ++ integer_to_list(Port)),
+    case init:get_argument(FdKey) of
+	{ok, [[Value]]} ->
+	    case string:tokens(Value, [$|]) of
+		[FdStr, IpFamilyStr] ->
+		    {fd_of(FdStr), ip_family_of(IpFamilyStr)};
+		[FdStr] ->
+		    {fd_of(FdStr), IpFamilyDefault};
+		_ ->
+		    throw({error, {bad_descriptor, Value}})
+	    end;
+	error ->
+	    undefined
+    end;
+get_fd(_Port, Fd, IpFamilyDefault) ->
+    {Fd, IpFamilyDefault}.
 
+    
 fd_of(FdStr) ->
     case (catch list_to_integer(FdStr)) of
 	Fd when is_integer(Fd) ->
