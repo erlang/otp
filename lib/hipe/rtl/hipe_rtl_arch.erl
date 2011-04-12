@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -86,6 +86,8 @@ first_virtual_reg() ->
       hipe_sparc_registers:first_virtual();
     powerpc ->
       hipe_ppc_registers:first_virtual();
+    ppc64 ->
+      hipe_ppc_registers:first_virtual();
     arm ->
       hipe_arm_registers:first_virtual();
     x86 ->
@@ -99,6 +101,8 @@ heap_pointer() ->	% {GetHPInsn, HPReg, PutHPInsn}
     ultrasparc ->
       heap_pointer_from_reg(hipe_sparc_registers:heap_pointer());
     powerpc ->
+      heap_pointer_from_reg(hipe_ppc_registers:heap_pointer());
+    ppc64 ->
       heap_pointer_from_reg(hipe_ppc_registers:heap_pointer());
     arm ->
       heap_pointer_from_reg(hipe_arm_registers:heap_pointer());
@@ -143,6 +147,8 @@ heap_limit() ->	% {GetHLIMITInsn, HLIMITReg}
       heap_limit_from_pcb();
     powerpc ->
       heap_limit_from_pcb();
+    ppc64 ->
+      heap_limit_from_pcb();
     arm ->
       heap_limit_from_pcb();
     x86 ->
@@ -164,6 +170,8 @@ fcalls() ->	% {GetFCallsInsn, FCallsReg, PutFCallsInsn}
     ultrasparc ->
       fcalls_from_pcb();
     powerpc ->
+      fcalls_from_pcb();
+    ppc64 ->
       fcalls_from_pcb();
     arm ->
       fcalls_from_pcb();
@@ -187,6 +195,8 @@ reg_name(Reg) ->
     ultrasparc ->
       hipe_sparc_registers:reg_name_gpr(Reg);
     powerpc ->
+      hipe_ppc_registers:reg_name_gpr(Reg);
+    ppc64 ->
       hipe_ppc_registers:reg_name_gpr(Reg);
     arm ->
       hipe_arm_registers:reg_name_gpr(Reg);
@@ -214,6 +224,8 @@ is_precolored_regnum(RegNum) ->
     ultrasparc ->
       hipe_sparc_registers:is_precoloured_gpr(RegNum);
     powerpc ->
+      hipe_ppc_registers:is_precoloured_gpr(RegNum);
+    ppc64 ->
       hipe_ppc_registers:is_precoloured_gpr(RegNum);
     arm ->
       hipe_arm_registers:is_precoloured_gpr(RegNum);
@@ -243,6 +255,9 @@ live_at_return() ->
     powerpc ->
       ordsets:from_list([hipe_rtl:mk_reg(R)
 			 || {R,_} <- hipe_ppc_registers:live_at_return()]);
+    ppc64 ->
+      ordsets:from_list([hipe_rtl:mk_reg(R)
+			 || {R,_} <- hipe_ppc_registers:live_at_return()]);
     arm ->
       ordsets:from_list([hipe_rtl:mk_reg(R)
 			 || {R,_} <- hipe_arm_registers:live_at_return()]);
@@ -262,6 +277,7 @@ word_size() ->
   case get(hipe_target_arch) of
     ultrasparc -> 4;
     powerpc    -> 4;
+    ppc64      -> 8;
     arm	       -> 4;
     x86        -> 4;
     amd64      -> 8
@@ -284,6 +300,7 @@ log2_word_size() ->
   case get(hipe_target_arch) of
     ultrasparc -> 2;
     powerpc    -> 2;
+    ppc64      -> 3;
     arm	       -> 2;
     x86        -> 2;
     amd64      -> 3
@@ -297,6 +314,7 @@ endianess() ->
   case get(hipe_target_arch) of
     ultrasparc -> big;
     powerpc    -> big;
+    ppc64      -> big;
     x86        -> little;
     amd64      -> little;
     arm        -> ?ARM_ENDIANESS
@@ -313,6 +331,8 @@ load_big_2(Dst, Base, Offset, Signedness) ->
   case get(hipe_target_arch) of
     powerpc ->
       load_2_directly(Dst, Base, Offset, Signedness);
+    ppc64 ->
+      load_2_directly(Dst, Base, Offset, Signedness);
     %% Note: x86 could use a "load;xchgb" or "load;rol $8,<16-bit reg>"
     %% sequence here. This has been implemented, but unfortunately didn't
     %% make consistent improvements to our benchmarks.
@@ -327,6 +347,13 @@ load_little_2(Dst, Base, Offset, Signedness) ->
     x86 ->
       load_2_directly(Dst, Base, Offset, Signedness);
     powerpc ->
+      [hipe_rtl:mk_call([Dst], 'lhbrx', [Base,Offset], [], [], not_remote),
+       hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(2)) |
+       case Signedness of
+	 unsigned -> [];
+	 signed -> [hipe_rtl:mk_call([Dst], 'extsh', [Dst], [], [], not_remote)]
+       end];
+    ppc64 ->
       [hipe_rtl:mk_call([Dst], 'lhbrx', [Base,Offset], [], [], not_remote),
        hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(2)) |
        case Signedness of
@@ -365,6 +392,8 @@ load_big_4(Dst, Base, Offset, Signedness) ->
   case get(hipe_target_arch) of
     powerpc ->
       load_4_directly(Dst, Base, Offset, Signedness);
+    ppc64 ->
+      load_4_directly(Dst, Base, Offset, Signedness);
     %% Note: x86 could use a "load;bswap" sequence here.
     %% This has been implemented, but unfortunately didn't
     %% make any noticeable improvements in our benchmarks.
@@ -386,6 +415,13 @@ load_little_4(Dst, Base, Offset, Signedness) ->
     powerpc ->
       [hipe_rtl:mk_call([Dst], 'lwbrx', [Base,Offset], [], [], not_remote),
        hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(4))];
+    ppc64 ->
+      [hipe_rtl:mk_call([Dst], 'lwbrx', [Base,Offset], [], [], not_remote),
+       hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(4)) |
+       case Signedness of
+	 unsigned -> [];
+	 signed -> [hipe_rtl:mk_call([Dst], 'extsw', [Dst], [], [], not_remote)]
+       end];
     arm ->
       %% When loading 4 bytes into a 32-bit register, the
       %% signedness of the high-order byte doesn't matter.
@@ -396,7 +432,7 @@ load_little_4(Dst, Base, Offset, Signedness) ->
   end.
 
 load_4_directly(Dst, Base, Offset, Signedness) ->
-  [hipe_rtl:mk_load(Dst, Base, Offset, word, Signedness),
+  [hipe_rtl:mk_load(Dst, Base, Offset, int32, Signedness),
    hipe_rtl:mk_alu(Offset, Offset, add, hipe_rtl:mk_imm(4))].
 
 load_big_4_in_pieces(Dst, Base, Offset, Signedness) ->
@@ -439,6 +475,8 @@ store_4(Base, Offset, Src) ->
     x86 ->
       store_4_directly(Base, Offset, Src);
     powerpc ->
+      store_4_directly(Base, Offset, Src);
+    ppc64 ->
       store_4_directly(Base, Offset, Src);
     arm ->
       store_big_4_in_pieces(Base, Offset, Src);
@@ -525,6 +563,7 @@ fwait() ->
     amd64 -> [hipe_rtl:mk_call([], 'fwait', [], [], [], not_remote)];
     arm -> [];
     powerpc -> [];
+    ppc64 -> [];
     ultrasparc -> []
   end.
 
@@ -548,6 +587,8 @@ handle_fp_exception() ->
     arm ->
       [];
     powerpc ->
+      [];
+    ppc64 ->
       [];
     ultrasparc ->
       []
@@ -577,6 +618,8 @@ proc_pointer() ->	% must not be exported
       hipe_rtl:mk_reg_gcsafe(hipe_sparc_registers:proc_pointer());
     powerpc ->
       hipe_rtl:mk_reg_gcsafe(hipe_ppc_registers:proc_pointer());
+    ppc64 ->
+      hipe_rtl:mk_reg_gcsafe(hipe_ppc_registers:proc_pointer());
     arm ->
       hipe_rtl:mk_reg_gcsafe(hipe_arm_registers:proc_pointer());
     x86 ->
@@ -600,6 +643,8 @@ nr_of_return_regs() ->
       1;
     %% hipe_sparc_registers:nr_rets();
     powerpc ->
+      1;
+    ppc64 ->
       1;
     %% hipe_ppc_registers:nr_rets();
     arm ->

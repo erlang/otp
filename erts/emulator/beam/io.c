@@ -1226,7 +1226,6 @@ void init_io(void)
 {
     int i;
     ErlDrvEntry** dp;
-    ErlDrvEntry* drv;
     char maxports[21]; /* enough for any 64-bit integer */
     size_t maxportssize = sizeof(maxports);
     Uint ports_bits = ERTS_PORTS_BITS;
@@ -1309,10 +1308,8 @@ void init_io(void)
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
     init_driver(&spawn_driver, &spawn_driver_entry, NULL);
-    for (dp = driver_tab; *dp != NULL; dp++) {
-	drv = *dp;
+    for (dp = driver_tab; *dp != NULL; dp++)
 	erts_add_driver_entry(*dp, NULL, 1);
-    }
 
     erts_smp_tsd_set(driver_list_lock_status_key, NULL);
     erts_smp_mtx_unlock(&erts_driver_list_lock);

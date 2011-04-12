@@ -344,8 +344,12 @@ handle_call({delete_child, Name}, _From, State) ->
 handle_call({terminate_child, Name}, _From, State) ->
     case get_child(Name, State) of
 	{value, Child} ->
-	    NChild = do_terminate(Child, State#state.name),
-	    {reply, ok, replace_child(NChild, State)};
+	    case do_terminate(Child, State#state.name) of
+		#child{restart_type = temporary} = NChild ->
+		    {reply, ok, state_del_child(NChild, State)};
+		NChild ->
+		    {reply, ok, replace_child(NChild, State)}
+		end;
 	_ ->
 	    {reply, {error, not_found}, State}
     end;
@@ -817,8 +821,12 @@ state_del_child(Child, State) ->
     NChildren = del_child(Child#child.name, State#state.children),
     State#state{children = NChildren}.
 
+del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name, Ch#child.restart_type =:= temporary ->
+    Chs;
 del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name ->
     [Ch#child{pid = undefined} | Chs];
+del_child(Pid, [Ch|Chs]) when Ch#child.pid =:= Pid, Ch#child.restart_type =:= temporary ->
+    Chs;
 del_child(Pid, [Ch|Chs]) when Ch#child.pid =:= Pid ->
     [Ch#child{pid = undefined} | Chs];
 del_child(Name, [Ch|Chs]) ->
