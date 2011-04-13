@@ -54,8 +54,29 @@
 	</item>
 
         <item>
+          <p>[manager] The API for snmp requests has been changed to
+	  allow the caller to override some configuration. </p>
+	  <p>See 
+	  <seealso marker="snmpm#sync_get">sync_get/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get">async_get/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_next">sync_get_next/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get_next">async_get_next/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_bulk">sync_get_bulk/5,6</seealso>, 
+	  <seealso marker="snmpm#async_get_bulk">async_get_bulk/5,6</seealso>, 
+	  <seealso marker="snmpm#sync_set">sync_set/3,4</seealso> and 
+	  <seealso marker="snmpm#async_set">async_set/3,4</seealso>
+	  for more info. </p>
+          <p>Own Id: OTP-9162</p>
+        </item>
+
+        <item>
           <p>[manager] The old API functions (for get and set
-	  requests) are now officially deprecated.
+	  requests: 
+	  snmpm:g/3,4,5,6,7, snmpm:ag/3,4,5,6,7, 
+	  snmpm:gn/3,4,5,6,7, snmpm:agn/3,4,5,6,7,
+	  snmpm:s/3,4,5,6,7, snmpm:s/3,4,5,6,7,
+	  snmpm:gb/5,6,7,8,9 and snmpm:agb/5,6,7,8,9)
+	  are now officially deprecated.
 	  They will be removed as of R16B. </p>
           <p>Own Id: OTP-9174</p>
         </item>
