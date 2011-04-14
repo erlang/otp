@@ -348,6 +348,14 @@ async_get_next(UserId, TargetName, CtxName, Oids, Expire, ExtraInfo)
 %% sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
 %%     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
 sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+    %% p("sync_get_bulk2 -> entry with"
+    %%   "~n   UserId:     ~p"
+    %%   "~n   TargetName: ~p"
+    %%   "~n   NonRep:     ~p"
+    %%   "~n   MaxRep:     ~p"
+    %%   "~n   Oids:       ~p"
+    %%   "~n   SendOpts:   ~p", 
+    %%   [UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
     call({sync_get_bulk, self(), UserId, TargetName, 
 	  NonRep, MaxRep, Oids, SendOpts}).
 

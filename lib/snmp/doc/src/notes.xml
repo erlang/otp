@@ -54,17 +54,17 @@
 	</item>
 
         <item>
-          <p>[manager] The API for snmp requests has been changed to
+          <p>[manager] The API for snmp requests has been augmented to
 	  allow the caller to override some configuration. </p>
-	  <p>See 
-	  <seealso marker="snmpm#sync_get">sync_get/3,4</seealso>, 
-	  <seealso marker="snmpm#async_get">async_get/3,4</seealso>, 
-	  <seealso marker="snmpm#sync_get_next">sync_get_next/3,4</seealso>, 
-	  <seealso marker="snmpm#async_get_next">async_get_next/3,4</seealso>, 
-	  <seealso marker="snmpm#sync_get_bulk">sync_get_bulk/5,6</seealso>, 
-	  <seealso marker="snmpm#async_get_bulk">async_get_bulk/5,6</seealso>, 
-	  <seealso marker="snmpm#sync_set">sync_set/3,4</seealso> and 
-	  <seealso marker="snmpm#async_set">async_set/3,4</seealso>
+	  <p>This has been done by introducing a new set of API functions, see 
+	  <seealso marker="snmpm#sync_get2">sync_get2/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get2">async_get2/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_next2">sync_get_next2/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get_next2">async_get_next2/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_bulk2">sync_get_bulk2/5,6</seealso>, 
+	  <seealso marker="snmpm#async_get_bulk2">async_get_bulk2/5,6</seealso>, 
+	  <seealso marker="snmpm#sync_set2">sync_set2/3,4</seealso> and 
+	  <seealso marker="snmpm#async_set2">async_set2/3,4</seealso>
 	  for more info. </p>
           <p>Own Id: OTP-9162</p>
         </item>
@@ -304,7 +304,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
-            with a bad name for the starndard trap entry (was "stadard trap", 
+            with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
           <p>Kenji Rikitake</p>
           <p>Own Id: OTP-8433</p>
@@ -508,7 +508,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
-            with a bad name for the starndard trap entry (was "stadard trap", 
+            with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
           <p>Kenji Rikitake</p>
           <p>Own Id: OTP-8433</p>

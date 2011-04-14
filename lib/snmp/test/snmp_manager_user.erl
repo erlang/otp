@@ -847,7 +847,11 @@ call(Req, To) when is_integer(To) ->
 	    {error, timeout}
     end.
 
-reply(Pid, Reply, Ref) ->    
+reply(Pid, Reply, Ref) -> 
+    d("reply -> entry with"
+      "~n   Pid:   ~p"
+      "~n   Reply: ~p"
+      "~n   Ref:   ~p", [Pid, Reply, Ref]),
     Pid ! {Reply, Ref}.
 
 cast(Msg) ->

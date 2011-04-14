@@ -43,7 +43,7 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+	 all/0, groups/0, init_per_group/2, end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
 
 	
@@ -360,63 +360,106 @@ end_per_testcase2(Case, Config) ->
 %%======================================================================
 
 all() -> 
-[{group, start_and_stop_tests}, {group, misc_tests},
- {group, user_tests}, {group, agent_tests},
- {group, request_tests}, {group, event_tests}, discovery,
- {group, tickets}].
+    [
+     {group, start_and_stop_tests}, 
+     {group, misc_tests},
+     {group, user_tests}, 
+     {group, agent_tests},
+     {group, request_tests}, 
+     {group, event_tests}, 
+     discovery,
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{start_and_stop_tests, [],
-  [simple_start_and_stop1, simple_start_and_stop2,
-   simple_start_and_monitor_crash1,
-   simple_start_and_monitor_crash2, notify_started01,
-   notify_started02]},
- {misc_tests, [], [info]},
- {user_tests, [], [register_user1]},
- {agent_tests, [], [register_agent1, register_agent2]},
- {request_tests, [],
-  [{group, get_tests}, {group, get_next_tests},
-   {group, set_tests}, {group, bulk_tests},
-   {group, misc_request_tests}]},
- {get_tests, [],
-  [simple_sync_get1, simple_sync_get2, simple_async_get1,
-   simple_async_get2]},
- {get_next_tests, [],
-  [simple_sync_get_next1, simple_sync_get_next2,
-   simple_async_get_next1, simple_async_get_next2]},
- {set_tests, [],
-  [simple_sync_set1, simple_sync_set2, simple_async_set1,
-   simple_async_set2]},
- {bulk_tests, [],
-  [simple_sync_get_bulk1, simple_sync_get_bulk2,
-   simple_async_get_bulk1, simple_async_get_bulk2]},
- {misc_request_tests, [], [misc_async1, misc_async2]},
- {event_tests, [],
-  [trap1, trap2, inform1, inform2, inform3, inform4,
-   inform_swarm, report]},
- {tickets, [], [{group, otp8015}, {group, otp8395}]},
- {otp8015, [], [otp8015_1]}, {otp8395, [], [otp8395_1]}].
+    [
+     {start_and_stop_tests, [],
+      [
+       simple_start_and_stop1, 
+       simple_start_and_stop2,
+       simple_start_and_monitor_crash1,
+       simple_start_and_monitor_crash2, 
+       notify_started01,
+       notify_started02
+      ]
+     },
+     {misc_tests, [], [info]},
+     {user_tests, [], [register_user1]},
+     {agent_tests, [], [register_agent1, register_agent2]},
+     {request_tests, [],
+      [
+       {group, get_tests}, 
+       {group, get_next_tests},
+       {group, set_tests}, 
+       {group, bulk_tests},
+       {group, misc_request_tests}
+      ]
+     },
+     {get_tests, [],
+      [
+       simple_sync_get1, 
+       simple_sync_get2, 
+       simple_async_get1,
+       simple_async_get2
+      ]
+     },
+     {get_next_tests, [],
+      [
+       simple_sync_get_next1, 
+       simple_sync_get_next2,
+       simple_async_get_next1, 
+       simple_async_get_next2
+      ]
+     },
+     {set_tests, [],
+      [
+       simple_sync_set1, 
+       simple_sync_set2, 
+       simple_async_set1,
+       simple_async_set2
+      ]
+     },
+     {bulk_tests, [],
+       [
+        simple_sync_get_bulk1, 
+        simple_sync_get_bulk2,
+        simple_async_get_bulk1, 
+        simple_async_get_bulk2
+       ]
+      },
+      {misc_request_tests, [], 
+       [
+	misc_async1, 
+	misc_async2
+       ]
+      },
+      {event_tests, [],
+       [
+	trap1, 
+        trap2, 
+        inform1, 
+        inform2, 
+        inform3, 
+        inform4,
+        inform_swarm, 
+        report
+       ]
+      },
+     {tickets, [], 
+      [
+       {group, otp8015}, 
+       {group, otp8395}
+      ]
+     },
+     {otp8015, [], [otp8015_1]}, 
+     {otp8395, [], [otp8395_1]}
+    ].
 
 init_per_group(_GroupName, Config) ->
 	Config.
 
 end_per_group(_GroupName, Config) ->
 	Config.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 %%======================================================================
@@ -1435,40 +1478,41 @@ simple_async_get1(Config) when is_list(Config) ->
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
     Exec = fun(Data) ->
-		    async_g_exec1(MgrNode, Addr, Port, Data)
+		   async_g_exec1(MgrNode, Addr, Port, Data)
 	   end,
 
-    Requests = [
-		{ 1,  
-		  [?sysObjectID_instance], 
-		  Exec, 
-		  fun(X) -> sag_verify(X, [?sysObjectID_instance]) end}, 
-		{ 2,  
-		  [?sysDescr_instance, ?sysUpTime_instance],
-		  Exec, 
-		  fun(X) -> 
-			  sag_verify(X, [?sysObjectID_instance, 
-					 ?sysUpTime_instance]) 
-		  end}, 
-		{ 3,  
-		  [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-		  Exec, 
-		  fun(X) -> 
-			  sag_verify(X, [?sysObjectID_instance, 
-					 ?sysDescr_instance, 
-					 ?sysUpTime_instance]) 
-		  end}, 
-		{ 4,  
-		  [?sysObjectID_instance, 
-		   ?sysDescr_instance, 
-		   ?sysUpTime_instance],
-		  Exec, 
-		  fun(X) -> 
-			  sag_verify(X, [?sysObjectID_instance, 
-					 ?sysDescr_instance, 
-					 ?sysUpTime_instance]) 
-		  end}
-		],
+    Requests = 
+	[
+	 { 1,  
+	   [?sysObjectID_instance], 
+	   Exec, 
+	   fun(X) -> sag_verify(X, [?sysObjectID_instance]) end }, 
+	 { 2,  
+	   [?sysDescr_instance, ?sysUpTime_instance],
+	   Exec, 
+	   fun(X) -> 
+		   sag_verify(X, [?sysObjectID_instance, 
+				  ?sysUpTime_instance]) 
+	   end }, 
+	 { 3,  
+	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
+	   Exec, 
+	   fun(X) -> 
+		   sag_verify(X, [?sysObjectID_instance, 
+				  ?sysDescr_instance, 
+				  ?sysUpTime_instance]) 
+	   end }, 
+	 { 4,  
+	   [?sysObjectID_instance, 
+	    ?sysDescr_instance, 
+	    ?sysUpTime_instance],
+	   Exec, 
+	   fun(X) -> 
+		   sag_verify(X, [?sysObjectID_instance, 
+				  ?sysDescr_instance, 
+				  ?sysUpTime_instance]) 
+	   end }
+	],
     
     p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),

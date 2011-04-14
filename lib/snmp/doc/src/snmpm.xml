@@ -486,13 +486,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Get a list of all registered usm users with engine-id 
           <c>EngineID</c>.</p>
 
-        <marker id="sync_get"></marker>
+        <marker id="sync_get2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -538,13 +538,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-        <marker id="async_get"></marker>
+        <marker id="async_get2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>async_get(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -578,13 +578,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-        <marker id="sync_get_next"></marker>
+        <marker id="sync_get_next2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>sync_get_next(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -630,13 +630,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-        <marker id="async_get_next"></marker>
+        <marker id="async_get_next2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>async_get_next(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -667,13 +667,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-        <marker id="sync_set"></marker>
+        <marker id="sync_set2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>sync_set(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -722,13 +722,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-        <marker id="async_set"></marker>
+        <marker id="async_set2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>async_set(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -764,13 +764,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-        <marker id="sync_get_bulk"></marker>
+        <marker id="sync_get_bulk2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
@@ -818,13 +818,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-        <marker id="async_get_bulk"></marker>
+        <marker id="async_get_bulk2"></marker>
       </desc>
     </func>
 
     <func>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
