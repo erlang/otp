@@ -575,7 +575,7 @@ static int db_prev_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     return DB_ERROR_NONE;
 }
 
-static ERTS_INLINE int cmp_key(DbTableTree* tb, Eterm key, Eterm* key_base,
+static ERTS_INLINE Sint cmp_key(DbTableTree* tb, Eterm key, Eterm* key_base,
 			       TreeDbTerm* obj)
 {
     return cmp_rel(key, key_base,

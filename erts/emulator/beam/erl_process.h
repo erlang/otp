@@ -895,6 +895,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_HAVE_BLCKD_MSCHED  (1 <<  8) /* Process has blocked multi-scheduling */
 #define F_P2PNR_RESCHED      (1 <<  9) /* Process has been rescheduled via erts_pid2proc_not_running() */
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
+#define F_HIBERNATE_SCHED    (1 << 11) /* Schedule out after hibernate op */
 
 /* process trace_flags */
 #define F_SENSITIVE          (1 << 0)
