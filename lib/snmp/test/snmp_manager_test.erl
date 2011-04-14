@@ -76,6 +76,7 @@
   	 simple_sync_get_next3/1, 
   	 simple_async_get_next1/1, 
   	 simple_async_get_next2/1, 
+  	 simple_async_get_next3/1, 
 	 
 	 simple_sync_set1/1, 
 	 simple_sync_set2/1, 
@@ -241,7 +242,8 @@ init_per_testcase3(Case, Config) ->
 	[
 	 simple_sync_get3,
 	 simple_async_get3, 
-	 simple_sync_get_next3
+	 simple_sync_get_next3, 
+	 simple_async_get_next3
 	],
     Cases = 
 	[
@@ -329,7 +331,8 @@ end_per_testcase2(Case, Config) ->
 	[
 	 simple_sync_get3, 
 	 simple_async_get3, 
-	 simple_sync_get_next3 
+	 simple_sync_get_next3, 
+	 simple_async_get_next3
 	],
     Cases = 
 	[
@@ -430,7 +433,8 @@ groups() ->
        simple_sync_get_next2,
        simple_sync_get_next3,
        simple_async_get_next1, 
-       simple_async_get_next2
+       simple_async_get_next2, 
+       simple_async_get_next3
       ]
      },
      {set_tests, [],
@@ -1642,7 +1646,7 @@ simple_async_get2(Config) when is_list(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
     Get        = fun(Oids) -> async_g_exec2(MgrNode, TargetName, Oids) end,
-    PostVerify = fun() -> ok end, 
+    PostVerify = fun(Res) -> Res end, 
     do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify).
 
 do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify) ->
@@ -1658,28 +1662,29 @@ do_simple_async_sync_get2(MgrInfo, AgentInfo, Get, PostVerify)
   when is_function(MgrInfo, 0) andalso 
        is_function(AgentInfo, 0) andalso 
        is_function(Get, 1) andalso 
-       is_function(PostVerify, 0) ->
+       is_function(PostVerify, 1) ->
     Requests = 
 	[
 	 { 1,  
 	   [?sysObjectID_instance], 
 	   Get, 
-	   fun(X) -> sag_verify(X, [?sysObjectID_instance]), PostVerify() end}, 
+	   fun(X) -> 
+		   PostVerify(sag_verify(X, [?sysObjectID_instance])) end}, 
 	 { 2,  
 	   [?sysDescr_instance, ?sysUpTime_instance],
 	   Get, 
 	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysUpTime_instance]) 
+		   PostVerify(sag_verify(X, [?sysObjectID_instance, 
+					     ?sysUpTime_instance]))
 	   end}, 
 	 { 3,  
 	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
 	   Get, 
 	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysDescr_instance, 
-				  ?sysUpTime_instance]),
-		   PostVerify()
+		   PostVerify(sag_verify(X, [?sysObjectID_instance, 
+					     ?sysDescr_instance, 
+					     ?sysUpTime_instance]))
+		       
 	   end}, 
 	 { 4,  
 	   [?sysObjectID_instance, 
@@ -1687,10 +1692,9 @@ do_simple_async_sync_get2(MgrInfo, AgentInfo, Get, PostVerify)
 	    ?sysUpTime_instance],
 	   Get, 
 	   fun(X) -> 
-		   sag_verify(X, [?sysObjectID_instance, 
-				  ?sysDescr_instance, 
-				  ?sysUpTime_instance]), 
-		   PostVerify()
+		   PostVerify(sag_verify(X, [?sysObjectID_instance, 
+					     ?sysDescr_instance, 
+					     ?sysUpTime_instance]))
 	   end}
 	],
     
@@ -1729,7 +1733,9 @@ simple_async_get3(Config) when is_list(Config) ->
 	 {extra, Extra}
 	], 
     Get = fun(Oids) -> async_g_exec3(MgrNode, TargetName, Oids, SendOpts) end,
-    PostVerify = fun() -> receive Msg -> ok end end,
+    PostVerify = fun(ok)    -> receive Msg -> ok end;
+		    (Error) -> Error 
+		 end,
     do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify).
 
 async_g_exec3(Node, TargetName, Oids, SendOpts) ->
@@ -2136,11 +2142,14 @@ simple_async_get_next2(Config) when is_list(Config) ->
     Test2Mib = test2_mib(Config), 
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    GetNext = fun(Oids) ->
+		      async_gn_exec2(MgrNode, TargetName, Oids)
+	      end,
+    PostVerify = fun(Res) -> Res end,
+    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify).
 
-    Exec = fun(X) ->
-		   async_gn_exec2(MgrNode, TargetName, X)
-	   end,
-
+do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify) 
+  when is_function(GetNext, 1) andalso is_function(PostVerify, 1) ->
     ?line {ok, [TCnt2|_]}    = mgr_user_name_to_oid(MgrNode, tCnt2),
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
     ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
@@ -2151,51 +2160,60 @@ simple_async_get_next2(Config) when is_list(Config) ->
 	[
 	 {1, 
 	  [[1,3,7,1]], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply1(X, [{[1,3,7,1], endOfMibView}])
+		  PostVerify(
+		    verify_ssgn_reply1(X, [{[1,3,7,1], endOfMibView}])) 
+		  
 	  end}, 
 	 {2, 
 	  [[sysDescr], [1,3,7,1]], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView])
+		  PostVerify(
+		    verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView]))
 	  end}, 
 	 {3, 
 	  [[TCnt2, 1]], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}])
+		  PostVerify(
+		    verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}]))
 	  end}, 
 	 {4, 
 	  [[TCnt2, 2]], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}])
+		  PostVerify(
+		    verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}]))
 	  end}, 
 	 {5, 
 	  [TGenErr1], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
+		  PostVerify(
+		    verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}))
 	  end}, 
 	 {6, 
 	  [TGenErr2], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
+		  PostVerify(
+		    verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}))
 	  end}, 
 	 {7, 
 	  [[sysDescr], TGenErr3], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]}) 
+		  PostVerify(
+		    verify_ssgn_reply2(X, {genErr, 2, [TGenErr3]}))
 	  end}, 
 	 {8, 
 	  [TTooBig], 
-	  Exec, 
+	  GetNext, 
 	  fun(X) ->
-		  verify_ssgn_reply2(X, {tooBig, 0, []}) 
+		  PostVerify(
+		    verify_ssgn_reply2(X, {tooBig, 0, []}))
 	  end}
 	],
 
@@ -2212,6 +2230,48 @@ simple_async_get_next2(Config) when is_list(Config) ->
 
 async_gn_exec2(Node, TargetName, Oids) ->
     mgr_user_async_get_next(Node, TargetName, Oids).
+
+
+%%======================================================================
+
+simple_async_get_next3(doc) -> 
+    ["Simple (async) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_async_get_next3(suite) -> [];
+simple_async_get_next3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, ssgn2),
+    p("starting with Config: ~p~n", [Config]),
+
+    MgrNode    = ?config(manager_node, Config),
+    AgentNode  = ?config(agent_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+
+    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    Test2Mib = test2_mib(Config), 
+    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+
+    Self  = self(), 
+    Msg   = simple_async_get_next3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+
+    GetNext = fun(Oids) ->
+		      async_gn_exec3(MgrNode, TargetName, Oids, SendOpts)
+	      end,
+    PostVerify = fun(ok)    -> receive Msg -> ok end;
+		    (Error) -> Error 
+		 end,
+
+    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify).
+
+async_gn_exec3(Node, TargetName, Oids, SendOpts) ->
+    mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts).
 
 
 %%======================================================================
@@ -5213,6 +5273,9 @@ mgr_user_async_get_next(Node, Addr_or_TargetName, Oids) ->
     rcall(Node, snmp_manager_user, async_get_next, [Addr_or_TargetName, Oids]).
 mgr_user_async_get_next(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, async_get_next, [Addr, Port, Oids]).
+
+mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts) ->
+    rcall(Node, snmp_manager_user, async_get_next2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_sync_set(Node, VAV) ->
 %%     mgr_user_sync_set(Node, ?LOCALHOST(), ?AGENT_PORT, VAV).
