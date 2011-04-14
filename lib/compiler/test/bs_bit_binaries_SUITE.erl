@@ -33,7 +33,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(bs_bit_binaries_SUITE),
+    test_lib:recompile(?MODULE),
     [misc, horrid_match, test_bitstr, test_bit_size,
      asymmetric_tests, big_asymmetric_tests,
      binary_to_and_from_list, big_binary_to_and_from_list,

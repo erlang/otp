@@ -27,7 +27,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(fun_SUITE),
+    test_lib:recompile(?MODULE),
     [test1, overwritten_fun, otp_7202, bif_fun].
 
 groups() -> 
