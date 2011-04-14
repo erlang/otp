@@ -212,7 +212,11 @@ get_opts(Config) ->
 	end,
     %% test_server:format("Test variables added to Config: ~p\n\n",
     %%                    [CtTestVars]),
-    InitOpts = proplists:get_value(ct_opts, Config),
+    InitOpts =
+	case proplists:get_value(ct_opts, Config) of
+	    undefined -> [];
+	    CtOpts -> CtOpts
+	end,
     [{logdir,LogDir} | InitOpts ++ CtTestVars].
 
 
