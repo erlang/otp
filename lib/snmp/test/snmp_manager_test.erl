@@ -80,6 +80,7 @@
 	 
 	 simple_sync_set1/1, 
 	 simple_sync_set2/1, 
+	 simple_sync_set3/1, 
 	 simple_async_set1/1, 
 	 simple_async_set2/1, 
 	 
@@ -243,7 +244,8 @@ init_per_testcase3(Case, Config) ->
 	 simple_sync_get3,
 	 simple_async_get3, 
 	 simple_sync_get_next3, 
-	 simple_async_get_next3
+	 simple_async_get_next3, 
+	 simple_sync_set3
 	],
     Cases = 
 	[
@@ -332,7 +334,8 @@ end_per_testcase2(Case, Config) ->
 	 simple_sync_get3, 
 	 simple_async_get3, 
 	 simple_sync_get_next3, 
-	 simple_async_get_next3
+	 simple_async_get_next3, 
+	 simple_sync_set3
 	],
     Cases = 
 	[
@@ -441,6 +444,7 @@ groups() ->
       [
        simple_sync_set1, 
        simple_sync_set2, 
+       simple_sync_set3, 
        simple_async_set1,
        simple_async_set2
       ]
@@ -2353,7 +2357,17 @@ simple_sync_set2(Config) when is_list(Config) ->
     put(tname, sss2),
     p("starting with Config: ~p~n", [Config]),
 
-    Node = ?config(manager_node, Config),
+    Set = fun(Node, TargetName, VAVs) -> 
+		  mgr_user_sync_set(Node, TargetName, VAVs) 
+	  end,
+    PostVerify = fun() -> ok end,
+
+    do_simple_sync_set2(Config, Set, PostVerify).
+
+do_simple_sync_set2(Config, Set, PostVerify) 
+  when is_function(Set, 3) andalso is_function(PostVerify, 0) ->
+
+    Node       = ?config(manager_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
     p("issue set-request without loading the mib"),
@@ -2363,7 +2377,7 @@ simple_sync_set2(Config) when is_list(Config) ->
 	     {?sysName_instance,     s, Val11},
 	     {?sysLocation_instance, s, Val12}
 	    ],
-    ?line ok = do_simple_set2(Node, TargetName, VAVs1),
+    ?line ok = do_simple_set2(Node, TargetName, VAVs1, Set, PostVerify),
 
     p("issue set-request after first loading the mibs"),
     ?line ok = mgr_user_load_mib(Node, std_mib()),
@@ -2373,12 +2387,12 @@ simple_sync_set2(Config) when is_list(Config) ->
 	     {[sysName, 0],     Val21},
 	     {[sysLocation, 0], Val22}
 	    ],
-    ?line ok = do_simple_set2(Node, TargetName, VAVs2),
+    ?line ok = do_simple_set2(Node, TargetName, VAVs2, Set, PostVerify),
     ok.
 
-do_simple_set2(Node, TargetName, VAVs) ->
+do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
     [SysName, SysLoc] = value_of_vavs(VAVs),
-    ?line {ok, Reply, Rem} = mgr_user_sync_set(Node, TargetName, VAVs),
+    ?line {ok, Reply, Rem} = Set(Node, TargetName, VAVs),
 
     ?DBG("~n   Reply: ~p"
 	 "~n   Rem:   ~w", [Reply, Rem]),
@@ -2391,7 +2405,7 @@ do_simple_set2(Node, TargetName, VAVs) ->
 					  value = SysName},
 				 #varbind{oid   = ?sysLocation_instance,
 					  value = SysLoc}]} ->
-		       ok;
+		       PostVerify();
 		   {noError, 0, Vbs} ->
 		       {error, {unexpected_vbs, Vbs}};
 		   Else ->
@@ -2399,6 +2413,33 @@ do_simple_set2(Node, TargetName, VAVs) ->
 		       {error, {unexpected_response, Else}}
 	       end,
     ok.
+
+
+%%======================================================================
+
+simple_sync_set3(doc) -> 
+    ["Simple (sync) set-request - Version 3 API (TargetName with send-opts)"];
+simple_sync_set3(suite) -> [];
+simple_sync_set3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, sss3),
+    p("starting with Config: ~p~n", [Config]),
+
+    Self  = self(), 
+    Msg   = simple_sync_set3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+    
+    Set = fun(Node, TargetName, VAVs) -> 
+		  mgr_user_sync_set2(Node, TargetName, VAVs, SendOpts) 
+	  end,
+    PostVerify = fun() -> receive Msg -> ok end end,
+
+    do_simple_sync_set2(Config, Set, PostVerify).
 
 
 %%======================================================================
@@ -5283,6 +5324,9 @@ mgr_user_sync_set(Node, Addr_or_TargetName, VAV) ->
     rcall(Node, snmp_manager_user, sync_set, [Addr_or_TargetName, VAV]).
 mgr_user_sync_set(Node, Addr, Port, VAV) ->
     rcall(Node, snmp_manager_user, sync_set, [Addr, Port, VAV]).
+
+mgr_user_sync_set2(Node, TargetName, VAV, SendOpts) ->
+    rcall(Node, snmp_manager_user, sync_set2, [TargetName, VAV, SendOpts]).
 
 %% mgr_user_async_set(Node, VAV) ->
 %%     mgr_user_async_set(Node, ?LOCALHOST(), ?AGENT_PORT, VAV).

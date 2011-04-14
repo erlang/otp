@@ -54,7 +54,7 @@
 	 async_get/1,      async_get/2,      async_get/3,      async_get2/3,
 	 sync_get_next/1,  sync_get_next/2,  sync_get_next/3,  sync_get_next2/3,
 	 async_get_next/1, async_get_next/2, async_get_next/3, async_get_next2/3,
-	 sync_set/1,       sync_set/2,       sync_set/3, 
+	 sync_set/1,       sync_set/2,       sync_set/3,       sync_set2/3, 
 	 async_set/1,      async_set/2,      async_set/3, 
 	 sync_get_bulk/3,  sync_get_bulk/4,  sync_get_bulk/5,
 	 async_get_bulk/3, async_get_bulk/4, async_get_bulk/5,
@@ -227,6 +227,9 @@ sync_set(Addr_or_TargetName, VAV) ->
 
 sync_set(Addr, Port, VAV) ->
     call({sync_set, Addr, Port, VAV}).
+
+sync_set2(TargetName, VAV, SendOpts) ->
+    call({sync_set2, TargetName, VAV, SendOpts}).
 
 %% --
 
@@ -464,7 +467,7 @@ loop(#state{parent = Parent, id = Id} = S) ->
 
 	{{async_get2, TargetName, Oids, SendOpts}, From, Ref} 
 	  when is_list(TargetName) ->
-	    d("loop -> received async_get request with"
+	    d("loop -> received async_get2 request with"
 	      "~n   TargetName: ~p"
 	      "~n   Oids:       ~p"
 	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
@@ -507,7 +510,7 @@ loop(#state{parent = Parent, id = Id} = S) ->
 
 	{{sync_get_next2, TargetName, Oids, SendOpts}, From, Ref} 
 	  when is_list(TargetName) ->
-	    d("loop -> received sync_get_next request with"
+	    d("loop -> received sync_get_next2 request with"
 	      "~n   TargetName: ~p"
 	      "~n   Oids:       ~p"
 	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
@@ -550,7 +553,7 @@ loop(#state{parent = Parent, id = Id} = S) ->
 
 	{{async_get_next2, TargetName, Oids, SendOpts}, From, Ref} 
 	  when is_list(TargetName) ->
-	    d("loop -> received async_get_next request with"
+	    d("loop -> received async_get_next2 request with"
 	      "~n   TargetName: ~p"
 	      "~n   Oids:       ~p"
 	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
@@ -590,6 +593,16 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	%% 
 	%% -- (sync) set-request --
 	%% 
+
+	{{sync_set2, TargetName, VAV, SendOpts}, From, Ref} 
+	  when is_list(TargetName) ->
+	    d("loop -> received sync_set2 request with"
+	      "~n   TargetName: ~p"
+	      "~n   VAV:        ~p"
+	      "~n   SendOpts:   ~p", [TargetName, VAV, SendOpts]),
+	    Res = snmpm:sync_set2(Id, TargetName, VAV, SendOpts), 
+	    reply(From, Res, Ref),
+	    loop(S);
 
 	{{sync_set, VAV}, From, Ref} ->
 	    d("loop -> received sync_set request"),
