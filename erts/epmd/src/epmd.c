@@ -497,8 +497,8 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 		    (int) strlen(timestr)-1, timestr);
       len = strlen(buf);
       erts_vsnprintf(buf + len, DEBUG_BUFFER_SIZE - len, format, args);
-      if (perr == 1)
-	perror(buf);
+      if (perr != 0)
+	fprintf(stderr,"%s: %s\r\n",buf,strerror(perr));
       else
 	fprintf(stderr,"%s\r\n",buf);
     }
@@ -509,7 +509,7 @@ void dbg_perror(EpmdVars *g,const char *format,...)
 {
   va_list args;
   va_start(args, format);
-  dbg_gen_printf(1,1,0,g,format,args);
+  dbg_gen_printf(1,errno,0,g,format,args);
   va_end(args);
 }
 
