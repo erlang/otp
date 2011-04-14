@@ -50,7 +50,7 @@
 	 update_agent_info/3, update_agent_info/4, 
 	 which_all_agents/0, which_own_agents/0, 
 	 load_mib/1, unload_mib/1, 
-	 sync_get/1,       sync_get/2,       sync_get/3,
+	 sync_get/1,       sync_get/2,       sync_get/3,       sync_get2/3, 
 	 async_get/1,      async_get/2,      async_get/3,
 	 sync_get_next/1,  sync_get_next/2,  sync_get_next/3,
 	 async_get_next/1, async_get_next/2, async_get_next/3,
@@ -170,6 +170,10 @@ sync_get(Addr_or_TargetName, Oids) ->
 
 sync_get(Addr, Port, Oids) ->
     call({sync_get, Addr, Port, Oids}).
+
+sync_get2(TargetName, Oids, SendOpts) ->
+    call({sync_get2, TargetName, Oids, SendOpts}).
+
 
 %% --
 
@@ -399,6 +403,16 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	%% 
 	%% -- (sync) get-request --
 	%% 
+
+	{{sync_get2, TargetName, Oids, SendOpts}, From, Ref} 
+	  when is_list(TargetName) ->
+	    d("loop -> received sync_get2 request with"
+	      "~n   TargetName: ~p"
+	      "~n   Oids:       ~p"
+	      "~n   SendOpts:   ~p", [TargetName, Oids, SendOpts]),
+	    Res = snmpm:sync_get2(Id, TargetName, Oids, SendOpts), 
+	    reply(From, Res, Ref),
+	    loop(S);
 
 	%% No agent specified, so send it to all of them
 	{{sync_get, Oids}, From, Ref} ->
