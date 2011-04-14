@@ -69,6 +69,7 @@
 	 simple_sync_get3/1, 
 	 simple_async_get1/1, 
 	 simple_async_get2/1, 
+	 simple_async_get3/1, 
 	
   	 simple_sync_get_next1/1, 
   	 simple_sync_get_next2/1, 
@@ -237,7 +238,8 @@ init_per_testcase3(Case, Config) ->
 	],
     ApiCases03 = 
 	[
-	 simple_sync_get3
+	 simple_sync_get3,
+	 simple_async_get3
 	],
     Cases = 
 	[
@@ -323,7 +325,8 @@ end_per_testcase2(Case, Config) ->
 	],
     ApiCases03 = 
 	[
-	 simple_sync_get3
+	 simple_sync_get3, 
+	 simple_async_get3 
 	],
     Cases = 
 	[
@@ -414,7 +417,8 @@ groups() ->
        simple_sync_get2, 
        simple_sync_get3, 
        simple_async_get1,
-       simple_async_get2
+       simple_async_get2,
+       simple_async_get3
       ]
      },
      {get_next_tests, [],
@@ -1384,15 +1388,15 @@ simple_sync_get1(Config) when is_list(Config) ->
 
     p("issue get-request without loading the mib"),
     Oids1 = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
-    ?line ok = do_simple_get(Node, Addr, Port, Oids1),
+    ?line ok = do_simple_sync_get(Node, Addr, Port, Oids1),
 
     p("issue get-request after first loading the mibs"),
     ?line ok = mgr_user_load_mib(Node, std_mib()),
     Oids2 = [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-    ?line ok = do_simple_get(Node, Addr, Port, Oids2),
+    ?line ok = do_simple_sync_get(Node, Addr, Port, Oids2),
     ok.
 
-do_simple_get(Node, Addr, Port, Oids) ->
+do_simple_sync_get(Node, Addr, Port, Oids) ->
     ?line {ok, Reply, Rem} = mgr_user_sync_get(Node, Addr, Port, Oids),
 
     ?DBG("~n   Reply: ~p"
@@ -1431,16 +1435,16 @@ simple_sync_get2(suite) -> [];
 simple_sync_get2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssg2),
-    do_simple_get2(Config).
+    do_simple_sync_get2(Config).
 
-do_simple_get2(Config) ->
+do_simple_sync_get2(Config) ->
     Get = fun(Node, TargetName, Oids) -> 
 		  mgr_user_sync_get(Node, TargetName, Oids) 
 	  end, 
     PostVerify = fun() -> ok end,
-    do_simple_get2(Config, Get, PostVerify).
+    do_simple_sync_get2(Config, Get, PostVerify).
 
-do_simple_get2(Config, Get, PostVerify) ->
+do_simple_sync_get2(Config, Get, PostVerify) ->
     p("starting with Config: ~p~n", [Config]),
 
     Node       = ?config(manager_node, Config),
@@ -1448,15 +1452,15 @@ do_simple_get2(Config, Get, PostVerify) ->
 
     p("issue get-request without loading the mib"),
     Oids1 = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
-    ?line ok = do_simple_get2(Node, TargetName, Oids1, Get, PostVerify),
+    ?line ok = do_simple_sync_get2(Node, TargetName, Oids1, Get, PostVerify),
 
     p("issue get-request after first loading the mibs"),
     ?line ok = mgr_user_load_mib(Node, std_mib()),
     Oids2 = [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-    ?line ok = do_simple_get2(Node, TargetName, Oids2, Get, PostVerify),
+    ?line ok = do_simple_sync_get2(Node, TargetName, Oids2, Get, PostVerify),
     ok.
 
-do_simple_get2(Node, TargetName, Oids, Get, PostVerify) 
+do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify) 
   when is_function(Get, 3) andalso is_function(PostVerify, 0) ->
     ?line {ok, Reply, Rem} = Get(Node, TargetName, Oids),
 
@@ -1496,9 +1500,9 @@ simple_sync_get3(suite) -> [];
 simple_sync_get3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssg3),
-    do_simple_get3(Config).
+    do_simple_sync_get3(Config).
 
-do_simple_get3(Config) ->
+do_simple_sync_get3(Config) ->
     Self  = self(), 
     Msg   = simple_sync_get3, 
     Fun   = fun() -> Self ! Msg end,
@@ -1517,7 +1521,7 @@ do_simple_get3(Config) ->
 			ok
 		end
 	end,
-    do_simple_get2(Config, Get, PostVerify).
+    do_simple_sync_get2(Config, Get, PostVerify).
 
 
 %%======================================================================
@@ -1630,64 +1634,102 @@ simple_async_get2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, sag2),
     p("starting with Config: ~p~n", [Config]),
-
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
+    Get        = fun(Oids) -> async_g_exec2(MgrNode, TargetName, Oids) end,
+    PostVerify = fun() -> ok end, 
+    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify).
 
+do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify) ->
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
     Test2Mib = test2_mib(Config), 
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
+    do_simple_async_sync_get2(fun() -> mgr_info(MgrNode) end,
+			      fun() -> agent_info(AgentNode) end,
+			      Get, PostVerify).
 
-    Exec = fun(Data) ->
-		    async_g_exec2(MgrNode, TargetName, Data)
-	   end,
-
-    Requests = [
-		{ 1,  
-		  [?sysObjectID_instance], 
-		  Exec, 
-		  fun(X) -> sag_verify(X, [?sysObjectID_instance]) end}, 
-		{ 2,  
-		  [?sysDescr_instance, ?sysUpTime_instance],
-		  Exec, 
-		  fun(X) -> 
-			  sag_verify(X, [?sysObjectID_instance, 
-					 ?sysUpTime_instance]) 
-		  end}, 
-		{ 3,  
-		  [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
-		  Exec, 
-		  fun(X) -> 
-			  sag_verify(X, [?sysObjectID_instance, 
-					 ?sysDescr_instance, 
-					 ?sysUpTime_instance]) 
-		  end}, 
-		{ 4,  
-		  [?sysObjectID_instance, 
-		   ?sysDescr_instance, 
-		   ?sysUpTime_instance],
-		  Exec, 
-		  fun(X) -> 
-			  sag_verify(X, [?sysObjectID_instance, 
-					 ?sysDescr_instance, 
-					 ?sysUpTime_instance]) 
-		  end}
-		],
+do_simple_async_sync_get2(MgrInfo, AgentInfo, Get, PostVerify) 
+  when is_function(MgrInfo, 0) andalso 
+       is_function(AgentInfo, 0) andalso 
+       is_function(Get, 1) andalso 
+       is_function(PostVerify, 0) ->
+    Requests = 
+	[
+	 { 1,  
+	   [?sysObjectID_instance], 
+	   Get, 
+	   fun(X) -> sag_verify(X, [?sysObjectID_instance]), PostVerify() end}, 
+	 { 2,  
+	   [?sysDescr_instance, ?sysUpTime_instance],
+	   Get, 
+	   fun(X) -> 
+		   sag_verify(X, [?sysObjectID_instance, 
+				  ?sysUpTime_instance]) 
+	   end}, 
+	 { 3,  
+	   [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
+	   Get, 
+	   fun(X) -> 
+		   sag_verify(X, [?sysObjectID_instance, 
+				  ?sysDescr_instance, 
+				  ?sysUpTime_instance]),
+		   PostVerify()
+	   end}, 
+	 { 4,  
+	   [?sysObjectID_instance, 
+	    ?sysDescr_instance, 
+	    ?sysUpTime_instance],
+	   Get, 
+	   fun(X) -> 
+		   sag_verify(X, [?sysObjectID_instance, 
+				  ?sysDescr_instance, 
+				  ?sysUpTime_instance]), 
+		   PostVerify()
+	   end}
+	],
     
-    p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
+    p("manager info when starting test: ~n~p", [MgrInfo()]),
+    p("agent info when starting test: ~n~p",   [AgentInfo()]),
 
     ?line ok = async_exec(Requests, []),
 
-    p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
+    p("manager info when ending test: ~n~p", [MgrInfo()]),
+    p("agent info when ending test: ~n~p",   [AgentInfo()]),
 
     ok.
 
 async_g_exec2(Node, TargetName, Oids) ->
     mgr_user_async_get(Node, TargetName, Oids).
+
+
+%%======================================================================
+
+simple_async_get3(doc) -> 
+    ["Simple (async) get-request - Version 3 API (TargetName and send-opts)"];
+simple_async_get3(suite) -> [];
+simple_async_get3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, sag3),
+    p("starting with Config: ~p~n", [Config]),
+    MgrNode    = ?config(manager_node, Config),
+    AgentNode  = ?config(agent_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+    Self  = self(), 
+    Msg   = simple_async_get3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+    Get = fun(Oids) -> async_g_exec3(MgrNode, TargetName, Oids, SendOpts) end,
+    PostVerify = fun() -> receive Msg -> ok end end,
+    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify).
+
+async_g_exec3(Node, TargetName, Oids, SendOpts) ->
+    mgr_user_async_get2(Node, TargetName, Oids, SendOpts).
 
 
 %%======================================================================
@@ -4548,7 +4590,7 @@ otp8395_1(suite) -> [];
 otp8395_1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, otp8395_1),
-    do_simple_get2(Config).
+    do_simple_sync_get2(Config).
 
 
 %%======================================================================
@@ -5103,6 +5145,9 @@ mgr_user_async_get(Node, Addr_or_TargetName, Oids) ->
     rcall(Node, snmp_manager_user, async_get, [Addr_or_TargetName, Oids]).
 mgr_user_async_get(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, async_get, [Addr, Port, Oids]).
+
+mgr_user_async_get2(Node, TargetName, Oids, SendOpts) ->
+    rcall(Node, snmp_manager_user, async_get2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_sync_get_next(Node, Oids) ->
 %%     mgr_user_sync_get_next(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
