@@ -525,9 +525,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
 	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a option (when using the built in net-if) would
-	be tracing.</p>
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
@@ -569,16 +571,18 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Synchronous <c>get-request</c>. </p>
         <p><c>Remaining</c> is the remaining time of the given or 
-          default timeout time.</p>
+	default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
         <p>For <c>SnmpInfo</c>, see the user callback function 
           <seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
@@ -610,12 +614,14 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>The send option <c>timeout</c> specifies for how long the request is 
 	valid (after which the manager is free to delete it).</p>
 
-        <p>The send option <c>extra</c> specifies an opaque data structure 
+	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a configuration (when using the built in net-if) would
-	be tracing.</p>
-	
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
 	are <c>override options</c>. That is,
@@ -646,15 +652,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-request</c>.</p>
         <p>The reply, if it arrives, will be delivered to the user 
-          through a call to the snmpm_user callback function 
-          <c>handle_pdu</c>.</p>
-        <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	through a call to the snmpm_user callback function 
+	<c>handle_pdu</c>.</p>
+	<p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
         <marker id="sync_get_next2"></marker>
       </desc>
@@ -695,9 +703,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
 	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a configuration (when using the built in net-if) would
-	be tracing.</p>
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
@@ -735,15 +745,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Synchronous <c>get-next-request</c>. </p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
-
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+	
         <marker id="async_get_next2"></marker>
       </desc>
     </func>
@@ -769,12 +781,14 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>The send option <c>timeout</c> specifies for how long the request is 
 	valid (after which the manager is free to delete it).</p>
 
-        <p>The send option <c>extra</c> specifies an opaque data structure 
+	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a configuration (when using the built in net-if) would
-	be tracing.</p>
-	
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
 	are <c>override options</c>. That is,
@@ -808,6 +822,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	to the snmpm_user callback function <c>handle_pdu</c>.</p>
         <p>The <c>Expire</c> time indicates for how long the request is 
 	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
         <marker id="sync_set2"></marker>
       </desc>
@@ -851,9 +872,11 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
 	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a configuration (when using the built in net-if) would
-	be tracing. </p>
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
@@ -891,16 +914,18 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Synchronous <c>set-request</c>. </p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
-          manager makes an educated guess based on the loaded mibs. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
         <marker id="async_set2"></marker>
       </desc>
@@ -934,10 +959,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
 	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a configuration (when using the built in net-if) would
-	be tracing.</p>
-	
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
 	are <c>override options</c>. That is,
@@ -967,17 +994,19 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>set-request</c>. </p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
         <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
-        <p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
-          manager makes an educated guess based on the loaded mibs. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
-
+	valid (after which the manager is free to delete it).</p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+	
         <marker id="sync_get_bulk2"></marker>
       </desc>
     </func>
@@ -1019,10 +1048,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
 	<p>The send option <c>extra</c> specifies an opaque data structure 
 	passed on to the net-if process. The net-if process included in this
-	application makes no use of this info, so the only use for it
-	in such a configuration (when using the built in net-if) would
-	be tracing.</p>
-	
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
 	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
 	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
 	are <c>override options</c>. That is,
@@ -1059,15 +1090,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Synchronous <c>get-bulk-request</c> (See RFC1905).</p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
-        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
         <marker id="async_get_bulk2"></marker>
       </desc>
@@ -1136,9 +1169,16 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
         <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
         <marker id="cancel_async_request"></marker>
       </desc>

@@ -164,7 +164,6 @@
 -include("snmpm_internal.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
-%% -define(DEFAULT_CONTEXT,    "").
 
 
 %% This function is called when the snmp application

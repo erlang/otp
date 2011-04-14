@@ -101,8 +101,6 @@
 -define(DEFAULT_ASYNC_GET_BULK_TIMEOUT, ?DEFAULT_ASYNC_TIMEOUT).
 -define(DEFAULT_ASYNC_SET_TIMEOUT,      ?DEFAULT_ASYNC_TIMEOUT).
 
--define(DEFAULT_EXTRA_INFO,             undefined).
-
 -define(SNMP_AGENT_PORT,                161).
 
 -define(SYNC_GET_TIMEOUT(SendOpts), 
