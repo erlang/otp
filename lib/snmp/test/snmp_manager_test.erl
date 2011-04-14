@@ -73,6 +73,7 @@
 	
   	 simple_sync_get_next1/1, 
   	 simple_sync_get_next2/1, 
+  	 simple_sync_get_next3/1, 
   	 simple_async_get_next1/1, 
   	 simple_async_get_next2/1, 
 	 
@@ -239,7 +240,8 @@ init_per_testcase3(Case, Config) ->
     ApiCases03 = 
 	[
 	 simple_sync_get3,
-	 simple_async_get3
+	 simple_async_get3, 
+	 simple_sync_get_next3
 	],
     Cases = 
 	[
@@ -326,7 +328,8 @@ end_per_testcase2(Case, Config) ->
     ApiCases03 = 
 	[
 	 simple_sync_get3, 
-	 simple_async_get3 
+	 simple_async_get3, 
+	 simple_sync_get_next3 
 	],
     Cases = 
 	[
@@ -425,6 +428,7 @@ groups() ->
       [
        simple_sync_get_next1, 
        simple_sync_get_next2,
+       simple_sync_get_next3,
        simple_async_get_next1, 
        simple_async_get_next2
       ]
@@ -1876,18 +1880,28 @@ simple_sync_get_next2(doc) ->
 simple_sync_get_next2(suite) -> [];
 simple_sync_get_next2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    put(tname, ssgn),
+    put(tname, ssgn2),
     p("starting with Config: ~p~n", [Config]),
 
-    MgrNode   = ?config(manager_node, Config),
-    AgentNode = ?config(agent_node, Config),
+    GetNext = fun(Node, TargetName, Oids) -> 
+		      mgr_user_sync_get_next(Node, TargetName, Oids) 
+	      end,
+    PostVerify = fun(Res) -> Res end,
+    do_simple_sync_get_next2(Config, GetNext, PostVerify).
+
+do_simple_sync_get_next2(Config, GetNext, PostVerify) 
+  when is_function(GetNext, 3) andalso is_function(PostVerify, 1) ->
+
+    MgrNode    = ?config(manager_node, Config),
+    AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
     %% -- 1 --
     Oids01 = [[1,3,7,1]],
     VF01   = fun(X) -> verify_ssgn_reply1(X, [{[1,3,7,1],endOfMibView}]) end,
     ?line ok = do_simple_get_next(1, 
-				  MgrNode, TargetName, Oids01, VF01),
+				  MgrNode, TargetName, Oids01, VF01, 
+				  GetNext, PostVerify),
     
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
 
@@ -1897,7 +1911,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		     verify_ssgn_reply1(X, [?sysDescr_instance, endOfMibView]) 
 	     end,
     ?line ok = do_simple_get_next(2, 
-				  MgrNode, TargetName, Oids02, VF02),
+				  MgrNode, TargetName, Oids02, VF02, 
+				  GetNext, PostVerify),
     
     Test2Mib = test2_mib(Config), 
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
@@ -1910,7 +1925,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), 100}]) 
 	     end,
     ?line ok = do_simple_get_next(3, 
-				  MgrNode, TargetName, Oids03, VF03),
+				  MgrNode, TargetName, Oids03, VF03, 
+				  GetNext, PostVerify),
     
     %% -- 4 --
     Oids04 = [[TCnt2, 2]], 
@@ -1918,7 +1934,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		     verify_ssgn_reply1(X, [{fl([TCnt2,2]), endOfMibView}]) 
 	     end,
     ?line ok = do_simple_get_next(4, 
-				  MgrNode, TargetName, Oids04, VF04),
+				  MgrNode, TargetName, Oids04, VF04, 
+				  GetNext, PostVerify),
     
     %% -- 5 --
     ?line {ok, [TGenErr1|_]} = mgr_user_name_to_oid(MgrNode, tGenErr1),
@@ -1927,7 +1944,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr1]}) 
 	     end,
     ?line ok = do_simple_get_next(5, 
-				  MgrNode, TargetName, Oids05, VF05),
+				  MgrNode, TargetName, Oids05, VF05, 
+				  GetNext, PostVerify),
     
     %% -- 6 --
     ?line {ok, [TGenErr2|_]} = mgr_user_name_to_oid(MgrNode, tGenErr2),
@@ -1936,7 +1954,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		     verify_ssgn_reply2(X, {genErr, 1, [TGenErr2]}) 
 	     end,
     ?line ok = do_simple_get_next(6, 
-				  MgrNode, TargetName, Oids06, VF06),
+				  MgrNode, TargetName, Oids06, VF06, 
+				  GetNext, PostVerify),
     
     %% -- 7 --
     ?line {ok, [TGenErr3|_]} = mgr_user_name_to_oid(MgrNode, tGenErr3),
@@ -1946,7 +1965,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 					   [?sysDescr, TGenErr3]}) 
 	     end,
     ?line ok = do_simple_get_next(7, 
-				  MgrNode, TargetName, Oids07, VF07),
+				  MgrNode, TargetName, Oids07, VF07, 
+				  GetNext, PostVerify),
     
     %% -- 8 --
     ?line {ok, [TTooBig|_]} = mgr_user_name_to_oid(MgrNode, tTooBig),
@@ -1955,22 +1975,50 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		     verify_ssgn_reply2(X, {tooBig, 0, []}) 
 	     end,
     ?line ok = do_simple_get_next(8, 
-				  MgrNode, TargetName, Oids08, VF08),
+				  MgrNode, TargetName, Oids08, VF08, 
+				  GetNext, PostVerify),
     ok.
 
 
-do_simple_get_next(N, Node, TargetName, Oids, Verify) ->
+do_simple_get_next(N, Node, TargetName, Oids, Verify, GetNext, PostVerify) ->
     p("issue get-next command ~w", [N]),
-    case mgr_user_sync_get_next(Node, TargetName, Oids) of
+    case GetNext(Node, TargetName, Oids) of
 	{ok, Reply, Rem} ->
 	    ?DBG("get-next ok:"
 		 "~n   Reply: ~p"
 		 "~n   Rem:   ~w", [Reply, Rem]),
-	    Verify(Reply);
+	    PostVerify(Verify(Reply));
 
 	Error ->
 	    {error, {unexpected_reply, Error}}
     end.
+
+
+%%======================================================================
+
+simple_sync_get_next3(doc) -> 
+    ["Simple (sync) get_next-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_sync_get_next3(suite) -> [];
+simple_sync_get_next3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, ssgn3),
+    p("starting with Config: ~p~n", [Config]),
+    Self  = self(), 
+    Msg   = simple_sync_get_next3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+    GetNext = fun(Node, TargetName, Oids) -> 
+		      mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) 
+	      end,
+    PostVerify = fun(ok)    -> receive Msg -> ok end;
+		    (Error) -> Error 
+		 end,
+    do_simple_sync_get_next2(Config, GetNext, PostVerify).
 
 
 %%======================================================================
@@ -5155,6 +5203,9 @@ mgr_user_sync_get_next(Node, Addr_or_TargetName, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_next, [Addr_or_TargetName, Oids]).
 mgr_user_sync_get_next(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_next, [Addr, Port, Oids]).
+
+mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) ->
+    rcall(Node, snmp_manager_user, sync_get_next2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_async_get_next(Node, Oids) ->
 %%     mgr_user_async_get_next(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
