@@ -69,6 +69,7 @@
 #define FILE_RESP_EOF        8
 #define FILE_RESP_FNAME      9
 #define FILE_RESP_ALL_DATA  10
+#define FILE_RESP_LFNAME    11
 
 /* Options */
 
@@ -184,6 +185,7 @@ static ErlDrvSysInfo sys_info;
 #  define    RESBUFSIZE  BUFSIZ
 #endif
 
+#define READDIR_CHUNKS (5)
 
 
 
@@ -317,15 +319,16 @@ struct t_preadv {
     Sint64   offsets[1];
 };
 
-#define READDIR_BUFSIZE (8*1024)
-#if READDIR_BUFSIZE < (FILENAME_CHARSIZE*2*(MAXPATHLEN+1))
+#define READDIR_BUFSIZE (8*1024)*READDIR_CHUNKS
+#if READDIR_BUFSIZE < (1 + (2 + MAXPATHLEN)*FILENAME_CHARSIZE*READDIR_CHUNKS)
 #  undef READDIR_BUFSIZE
-#  define READDIR_BUFSIZE (FILENAME_CHARSIZE*2*(MAXPATHLEN+1))
+#  define READDIR_BUFSIZE (1 + (2 + MAXPATHLEN)*FILENAME_CHARSIZE*READDIR_CHUNKS)
 #endif
 
 struct t_readdir_buf {
-    struct t_readdir_buf *next;
-    char buf[READDIR_BUFSIZE];
+     struct t_readdir_buf *next;
+     size_t n;
+     char buf[READDIR_BUFSIZE];
 };
 
 struct t_data
@@ -1598,54 +1601,43 @@ static void invoke_lseek(void *data)
 static void invoke_readdir(void *data)
 {
     struct t_data *d = (struct t_data *) data;
-    int s;
     char *p = NULL;
-    int buf_sz = 0;
-    size_t tmp_bs;
+    size_t file_bs;
+    size_t n = 0, total = 0;
+    struct t_readdir_buf *b = NULL;
+    int res = 0;
 
     d->again = 0;
     d->errInfo.posix_errno = 0;
 
-    while (1) {
-	char *str;
-	if (buf_sz < (4 /* sz */ + 1 /* cmd */ + 
-		      FILENAME_CHARSIZE*(MAXPATHLEN + 1))) {
-	    struct t_readdir_buf *b;
-	    if (p) {
-		put_int32(0, p); /* EOB */
-	    }
-	    b = EF_SAFE_ALLOC(sizeof(struct t_readdir_buf));
-	    b->next = NULL;
-	    if (d->c.read_dir.last_buf)
-		d->c.read_dir.last_buf->next = b;
-	    else
-		d->c.read_dir.first_buf = b;
-	    d->c.read_dir.last_buf = b;
-	    p = &b->buf[0];
-	    buf_sz = READDIR_BUFSIZE - 4/* EOB */;
+    do {
+	total   = READDIR_BUFSIZE;
+	n       = 1;
+	b       = EF_SAFE_ALLOC(sizeof(struct t_readdir_buf));
+	b->next = NULL;
+	
+	if (d->c.read_dir.last_buf) {
+	    d->c.read_dir.last_buf->next = b;
+	} else {
+	    d->c.read_dir.first_buf = b;
+	}
+	d->c.read_dir.last_buf = b;
+
+	p       = &b->buf[0];
+	p[0]    = FILE_RESP_LFNAME;
+	file_bs = READDIR_BUFSIZE - n;
+
+	while ( (res = efile_readdir(&d->errInfo, d->b, &d->dir_handle, p + n + 2, &file_bs)) 
+		&& ((total - n - 2) >= MAXPATHLEN*FILENAME_CHARSIZE)) {
+	    put_int16((Uint16)file_bs, p + n);
+	    n += 2 + file_bs;
+	    file_bs = READDIR_BUFSIZE - n;
 	}
 
-	p[4] = FILE_RESP_FNAME;
-	buf_sz -= 4 + 1;
-	str = p + 4 + 1;
-	ASSERT(buf_sz >= MAXPATHLEN + 1);
-	tmp_bs = buf_sz;
-	s = efile_readdir(&d->errInfo, d->b, &d->dir_handle, str, &tmp_bs);
+	b->n = n;
+    } while(res);
 
-	if (s) {
-	    put_int32(tmp_bs + 1 /* 1 byte for opcode */, p);
-	    p += 4 + tmp_bs + 1;
-	    ASSERT(p == (str + tmp_bs));
-	    buf_sz -= tmp_bs;
-	}
-	else {
-	    put_int32(1, p);
-	    p += 4 + 1;
-	    put_int32(0, p); /* EOB */
-	    d->result_ok = (d->errInfo.posix_errno == 0);
-	    break;
-	}
-    }
+    d->result_ok = (d->errInfo.posix_errno == 0);
 }
 
 static void invoke_open(void *data)
@@ -2053,30 +2045,24 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	free_data(data);
 	break;
       case FILE_READDIR:
-	if (!d->result_ok)
+	if (!d->result_ok) {
 	    reply_error(desc, &d->errInfo);
-	else {
+	} else {
 	    struct t_readdir_buf *b1 = d->c.read_dir.first_buf;
+	    char   op = FILE_RESP_LFNAME;
+
 	    TRACE_C('R');
 	    ASSERT(b1);
+
 	    while (b1) {
 		struct t_readdir_buf *b2 = b1;
 		char *p = &b1->buf[0];
-		int sz = get_int32(p);
-		while (sz) { /* 0 == EOB */
-		    p += 4;
-		    if (sz - 1 > 0) {
-			driver_output2(desc->port, p, 1, p+1, sz-1);
-		    } else {
-			driver_output2(desc->port, p, 1, NULL, 0);
-		    }
-		    p += sz;
-		    sz = get_int32(p);
-		}
+		driver_output2(desc->port, p, 1, p + 1, b1->n - 1);
 		b1 = b1->next;
 		EF_FREE(b2);
 	    }
-	    
+	    driver_output2(desc->port, &op, 1, NULL, 0);
+    
 	    d->c.read_dir.first_buf = NULL;
 	    d->c.read_dir.last_buf = NULL;
 	}
@@ -2246,19 +2232,42 @@ file_output(ErlDrvData e, char* buf, int count)
 #endif
 	{
 	    size_t resbufsize;
-	    char resbuf[RESBUFSIZE+1];
+	    size_t n = 0, total = 0;
+	    int res = 0;
+	    char resbuf[READDIR_BUFSIZE];
+
 	    EFILE_DIR_HANDLE dir_handle; /* Handle to open directory. */
 
+	    total               = READDIR_BUFSIZE;
 	    errInfo.posix_errno = 0;
-	    dir_handle = NULL;
-	    resbuf[0] = FILE_RESP_FNAME;
-	    resbufsize = RESBUFSIZE;
+	    dir_handle          = NULL;
+	    resbuf[0]           = FILE_RESP_LFNAME;
 
-	    while (efile_readdir(&errInfo, name, &dir_handle,
-				 resbuf+1, &resbufsize)) {
-		driver_output2(desc->port, resbuf, 1, resbuf+1, resbufsize);
-		resbufsize = RESBUFSIZE;
-	    }
+	    /* Fill the buffer with multiple directory listings before sending it to the
+	     * receiving process. READDIR_CHUNKS is minimum number of files sent to the
+	     * receiver.
+	     * Format for each driver_output2:
+	     * ------------------------------------
+	     * | Type   | Len     | Filename  | ...
+	     * | 1 byte | 2 bytes | Len bytes | ...
+	     * ------------------------------------
+	     */
+
+	    do {
+		n = 1;
+		resbufsize = READDIR_BUFSIZE - n;
+		while ( (res = efile_readdir(&errInfo, name, &dir_handle, resbuf + n + 2, &resbufsize)) 
+			&& ((total - n - 2) >= MAXPATHLEN*FILENAME_CHARSIZE)) {
+		    put_int16((Uint16)resbufsize, resbuf + n);
+		    n += 2 + resbufsize;
+		    resbufsize = READDIR_BUFSIZE - n;
+		}
+
+		if (n > 1) {
+		    driver_output2(desc->port, resbuf, 1, resbuf+1, n - 1);
+		}
+	    } while(res);
+
 	    if (errInfo.posix_errno != 0) {
 		reply_error(desc, &errInfo);
 		return;

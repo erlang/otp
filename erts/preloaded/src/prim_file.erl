@@ -111,6 +111,7 @@
 -define(FILE_RESP_EOF,         8).
 -define(FILE_RESP_FNAME,       9).
 -define(FILE_RESP_ALL_DATA,   10).
+-define(FILE_RESP_LFNAME,     11).
 
 %% Open modes for the driver's open function.
 -define(EFILE_MODE_READ,       1).
@@ -914,6 +915,8 @@ drv_get_response(Port, R) when is_list(R) ->
 	    {ok, R};
 	{ok, Name} ->
 	    drv_get_response(Port, [Name|R]);
+	{append, Names} ->
+	    drv_get_response(Port, append(Names, R));
 	Error ->
 	    Error
     end;
@@ -938,6 +941,8 @@ drv_get_response(Port) ->
 %%%-----------------------------------------------------------------
 %%% Utility functions.
 
+append([I | Is], R) when is_list(R) -> append(Is, [I | R]);
+append([], R) -> R.
 
 
 %% Converts a list of mode atoms into an mode word for the driver.
@@ -1067,7 +1072,7 @@ translate_response(?FILE_RESP_N2DATA,
     {ok, {Size, Offset, D}};
 translate_response(?FILE_RESP_N2DATA = X, L0) when is_list(L0) ->
     {Offset, L1}    = get_uint64(L0),
-    {ReadSize, L2} = get_uint64(L1),
+    {ReadSize, L2}  = get_uint64(L1),
     {Size, L3}      = get_uint64(L2),
     case {ReadSize, L3} of
 	{0, []} ->
@@ -1087,6 +1092,12 @@ translate_response(?FILE_RESP_FNAME, Data) when is_binary(Data) ->
     {ok, prim_file:internal_native2name(Data)};
 translate_response(?FILE_RESP_FNAME, Data) ->
     {ok, Data};
+translate_response(?FILE_RESP_LFNAME, []) ->
+    ok;
+translate_response(?FILE_RESP_LFNAME, Data) when is_binary(Data) ->
+    {append, transform_lfname(Data)};
+translate_response(?FILE_RESP_LFNAME, Data) ->
+    {append, transform_lfname(Data)};
 translate_response(?FILE_RESP_ALL_DATA, Data) ->
     {ok, Data};
 translate_response(X, Data) ->
@@ -1199,6 +1210,14 @@ transform_ldata(0, List, [Size | Sizes], R) ->
     {Front, Rear} = lists_split(List, Size),
     transform_ldata(0, Rear, Sizes, [Front | R]).
 
+transform_lfname(<<>>) -> [];
+transform_lfname(<<L:16, Name:L/binary, Names/binary>>) -> 
+    [ prim_file:internal_native2name(Name) | transform_lfname(Names)];
+transform_lfname([]) -> [];
+transform_lfname([L1,L2|Names]) ->
+    L = (L1 bsl 8) bor L2,
+    {Name, Rest} = lists_split(Names, L),
+    [Name | transform_lfname(Rest)].
 
 
 lists_split(List, 0) when is_list(List) ->
