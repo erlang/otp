@@ -386,7 +386,8 @@ then no prototype is inserted.
 The test is performed by the function `erlang-test-criteria-list'.")
 
 (defvar erlang-electric-arrow-criteria
-  '(erlang-next-lines-empty-p
+  '(erlang-stop-when-in-type-spec
+    erlang-next-lines-empty-p
     erlang-at-end-of-function-p)
   "*List of functions controlling the arrow aspect of `erlang-electric-gt'.
 The functions in this list are called, in order, whenever a `>'
@@ -4043,6 +4044,16 @@ This function is designed to be a member of a criteria list."
 		     (concat "^" erlang-atom-regexp ".*->")))))
 	'stop
       nil)))
+
+
+(defun erlang-stop-when-in-type-spec ()
+  "Return `stop' when in a type spec line.
+
+This function is designed to be a member of a criteria list."
+  (save-excursion
+    (beginning-of-line)
+    (when (save-match-data (looking-at "-\\(spec\\|type\\)"))
+      'stop)))
 
 
 (defun erlang-next-lines-empty-p ()
