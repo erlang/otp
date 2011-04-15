@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -330,7 +330,6 @@ non_authoritative(SecName,
 	    end
     end.
 
-      
 is_auth(?usmNoAuthProtocol, _, _, _, SecName, _, _, _, _) -> % 3.2.5
     error(usmStatsUnsupportedSecLevels,
 	  ?usmStatsUnsupportedSecLevels_instance, SecName); % OTP-5464
@@ -613,8 +612,7 @@ authenticate_outgoing(Message, UsmSecParams,
 	end,
     ?vtrace("authenticate_outgoing -> encode message only",[]),
     snmp_pdus:enc_message_only(Message2).
-    
-	    
+
 
 %%-----------------------------------------------------------------
 %% Auth and priv algorithms
@@ -753,14 +751,19 @@ set_engine_latest_time(SnmpEngineID, EngineTime) ->
 %%-----------------------------------------------------------------
 %% Utility functions
 %%-----------------------------------------------------------------
+-spec error(term()) -> no_return().
 error(Reason) ->
     throw({error, Reason}).
 
+-spec error(term(), term()) -> no_return().
 error(Reason, ErrorInfo) ->
     throw({error, Reason, ErrorInfo}).
 
+-spec error(term(), term(), term()) -> no_return().
 error(Variable, Oid, SecName) ->
     error(Variable, Oid, SecName, []).
+
+-spec error(term(), term(), term(), [term()]) -> no_return().
 error(Variable, Oid, SecName, Opts) ->
     Val = inc(Variable),
     ErrorInfo = {#varbind{oid = Oid,
@@ -772,7 +775,6 @@ error(Variable, Oid, SecName, Opts) ->
 
 inc(Name) -> ets:update_counter(snmp_agent_table, Name, 1).
 
-
 get_counter(Name) ->
     case (catch ets:lookup(snmp_agent_table, Name)) of
 	[{_, Val}] ->
@@ -780,8 +782,3 @@ get_counter(Name) ->
 	_ ->
 	    0
     end.
-
-
-
-
-

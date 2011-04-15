@@ -476,14 +476,19 @@ set_engine_latest_time(SnmpEngineID, EngineTime) ->
 %%-----------------------------------------------------------------
 %% Utility functions
 %%-----------------------------------------------------------------
+-spec error(term()) -> no_return().
 error(Reason) ->
     throw({error, Reason}).
 
+-spec error(term(), term()) -> no_return().
 error(Reason, ErrorInfo) ->
     throw({error, Reason, ErrorInfo}).
 
+-spec error(term(), term(), term()) -> no_return().
 error(Variable, Oid, SecName) ->
     error(Variable, Oid, SecName, []).
+
+-spec error(term(), term(), term(), [term()]) -> no_return().
 error(Variable, Oid, SecName, Opts) ->
     Val = inc(Variable),
     ErrorInfo = {#varbind{oid          = Oid,
