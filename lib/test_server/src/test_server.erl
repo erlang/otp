@@ -1193,11 +1193,10 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 
 do_end_tc_call(M,F,Res,Return) ->
     Ref = make_ref(),
-    case test_server_sup:framework_call(
-	   end_tc, [?pl2a(M),F,Res], Ref) of
-	{fail,FWReason} ->
-	    {failed,FWReason};
-	Ref ->
+    case os:getenv("TEST_SERVER_FRAMEWORK") of
+	FW when FW == "ct_framework";
+		FW == "undefined";
+		FW == false ->
 	    case test_server_sup:framework_call(
 		   end_tc, [?pl2a(M),F,Res, Return], ok) of
 		{fail,FWReason} ->
@@ -1212,8 +1211,14 @@ do_end_tc_call(M,F,Res,Return) ->
 		NewReturn ->
 		    NewReturn
 	    end;
-	_ ->
-	    Return
+	Other ->
+	    case test_server_sup:framework_call(
+		   end_tc, [Other,F,Res], Ref) of
+		{fail,FWReason} ->
+		    {failed,FWReason};
+		_Else ->
+		    Return
+	    end
     end.
 
 %% the return value is a list and we have to check if it contains
