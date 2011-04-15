@@ -694,28 +694,38 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
 	     [IP,Port,Timeout]),
-    udp_connect(S, IP, Port),
-    udp_send(S, IP, Port, Buffer),
-    Decode =
-	fun ({RecIP,RecPort,Answer}) when RecIP =:= IP, RecPort =:= Port ->
-		case decode_answer(Answer, Id, Verbose) of
-		    {error,badid} ->
-			false;
-		    Reply ->
-			Reply
-		end;
-	    ({_,_,_}) ->
-		false
-	end,
-    case udp_recv(S, IP, Port, Timeout, Decode) of
-	{ok,_}=Result ->
-	    Result;
-	{error,timeout} when Timeout =:= 0 ->
-	    ?verbose(Verbose, "UDP bailout timeout\n", []),
-	    timeout;
-	Error ->
-	    ?verbose(Verbose, "UDP server error: ~p\n", [Error]),
-	    Error
+    case
+	case udp_connect(S, IP, Port) of
+	    ok ->
+		udp_send(S, IP, Port, Buffer);
+	    E1 ->
+		E1 end of
+	ok ->
+	    Decode =
+		fun ({RecIP,RecPort,Answer})
+		      when RecIP =:= IP, RecPort =:= Port ->
+			case decode_answer(Answer, Id, Verbose) of
+			    {error,badid} ->
+				false;
+			    Reply ->
+				Reply
+			end;
+		    ({_,_,_}) ->
+			false
+		end,
+	    case udp_recv(S, IP, Port, Timeout, Decode) of
+		{ok,_}=Result ->
+		    Result;
+		{error,timeout} when Timeout =:= 0 ->
+		    ?verbose(Verbose, "UDP bailout timeout\n", []),
+		    timeout;
+		E2 ->
+		    ?verbose(Verbose, "UDP server error: ~p\n", [E2]),
+		    E2
+	    end;
+	E3 ->
+	    ?verbose(Verbose, "UDP send failed: ~p\n", [E3]),
+	    {error,econnrefused}
     end.
 
 query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
