@@ -28,7 +28,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(apply_SUITE),
+    test_lib:recompile(?MODULE),
     [mfa, fun_apply].
 
 groups() -> 

@@ -30,7 +30,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(core_fold_SUITE),
+    test_lib:recompile(?MODULE),
     [t_element, setelement, t_length, append, t_apply, bifs,
      eq, nested_call_in_case, coverage].
 

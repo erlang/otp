@@ -31,7 +31,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(trycatch_SUITE),
+    test_lib:recompile(?MODULE),
     [basic, lean_throw, try_of, try_after, catch_oops,
      after_oops, eclectic, rethrow, nested_of, nested_catch,
      nested_after, nested_horrid, last_call_optimization,

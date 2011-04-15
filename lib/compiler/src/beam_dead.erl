@@ -162,14 +162,11 @@ function({function,Name,Arity,CLabel,Is0}, Lc0) ->
 
 %% We must split the basic block when we encounter instructions with labels,
 %% such as catches and BIFs. All labels must be visible outside the blocks.
-%% Also remove empty blocks.
 
 split_blocks({function,Name,Arity,CLabel,Is0}) ->
     Is = split_blocks(Is0, []),
     {function,Name,Arity,CLabel,Is}.
 
-split_blocks([{block,[]}|Is], Acc) ->
-    split_blocks(Is, Acc);
 split_blocks([{block,Bl}|Is], Acc0) ->
     Acc = split_block(Bl, [], Acc0),
     split_blocks(Is, Acc);
@@ -246,30 +243,24 @@ forward([{select_val,Reg,_,{list,List}}=I|Is], D0, Lc, Acc) ->
     D = update_value_dict(List, Reg, D0),
     forward(Is, D, Lc, [I|Acc]);
 forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc, Acc) ->
+    %% Assumption: The target labels in a select_val/3 instruction
+    %% cannot be reached in any other way than through the select_val/3
+    %% instruction (i.e. there can be no fallthrough to such label and
+    %% it cannot be referenced by, for example, a jump/1 instruction).
     Block = case gb_trees:lookup({Lbl,Dst}, D) of
-		{value,Lit} ->
-		    %% The move instruction seems to be redundant, but also make
-		    %% sure that the instruction preceeding the label
-		    %% cannot fall through to the move instruction.
-		    case is_unreachable_after(Acc) of
-			false -> Blk;	  %Must keep move instruction.
-			true ->  {block,BlkIs}	%Safe to remove move instruction.
-		    end;
-		_ -> Blk		       %Keep move instruction.
+		{value,Lit} -> {block,BlkIs}; %Safe to remove move instruction.
+		_ -> Blk		      %Must keep move instruction.
 	    end,
     forward([Block|Is], D, Lc, [LblI|Acc]);
 forward([{label,Lbl}=LblI|[{move,Lit,Dst}|Is1]=Is0], D, Lc, Acc) ->
+    %% Assumption: The target labels in a select_val/3 instruction
+    %% cannot be reached in any other way than through the select_val/3
+    %% instruction (i.e. there can be no fallthrough to such label and
+    %% it cannot be referenced by, for example, a jump/1 instruction).
     Is = case gb_trees:lookup({Lbl,Dst}, D) of
-	     {value,Lit} ->
-		 %% The move instruction seems to be redundant, but also make
-		 %% sure that the instruction preceeding the label
-		 %% cannot fall through to the move instruction.
-		 case is_unreachable_after(Acc) of
-		     false -> Is0;	  %Must keep move instruction.
-		     true -> Is1     %Safe to remove move instruction.
-		  end;
-	     _ -> Is0		       %Keep move instruction.
-	  end,
+	     {value,Lit} -> Is1;     %Safe to remove move instruction.
+	     _ -> Is0		     %Keep move instruction.
+	 end,
     forward(Is, D, Lc, [LblI|Acc]);
 forward([{test,is_eq_exact,_,[Dst,Src]}=I,
 	 {block,[{set,[Dst],[Src],move}|Bl]}|Is], D, Lc, Acc) ->
@@ -299,15 +290,11 @@ update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     Key = {Lbl,Reg},
     D = case gb_trees:lookup(Key, D0) of
 	    none -> gb_trees:insert(Key, Lit, D0); %New.
-	    {value,Lit} -> D0;			%Already correct.
 	    {value,inconsistent} -> D0;		%Inconsistent.
 	    {value,_} -> gb_trees:update(Key, inconsistent, D0)
 	end,
     update_value_dict(T, Reg, D);
 update_value_dict([], _, D) -> D.
-
-is_unreachable_after([I|_]) ->
-    beam_jump:is_unreachable_after(I).
 
 %%%
 %%% Scan instructions in reverse execution order and remove dead code.
@@ -602,16 +589,11 @@ count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->
     %% The save point we are looking for - we are done.
     Bits;
-count_bits_matched([{bs_save2,_,_}|Is], SavePoint, Bits) ->
-    %% Another save point - keep counting.
-    count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([_|_], _, Bits) -> Bits.
 
 shortcut_bs_pos_used(To, Reg, D) ->
     shortcut_bs_pos_used_1(beam_utils:code_at(To, D), Reg, D).
 
-shortcut_bs_pos_used_1([{bs_restore2,Reg,_}|_], Reg, _) ->
-    false;
 shortcut_bs_pos_used_1([{bs_context_to_binary,Reg}|_], Reg, _) ->
     false;
 shortcut_bs_pos_used_1(Is, Reg, D) ->

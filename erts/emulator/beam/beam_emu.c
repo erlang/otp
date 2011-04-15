@@ -3420,7 +3420,8 @@ void process_main(void)
 		r(0) = c_p->def_arg_reg[0];
 		x(1) = c_p->def_arg_reg[1];
 		x(2) = c_p->def_arg_reg[2];
-		if (c_p->status == P_WAITING) {
+		if (c_p->flags & F_HIBERNATE_SCHED) {
+		    c_p->flags &= ~F_HIBERNATE_SCHED;
 		    goto do_schedule;
 		}
 		Dispatch();
@@ -5225,6 +5226,7 @@ void process_main(void)
  OpCase(i_hibernate): {
      SWAPOUT;
      if (erts_hibernate(c_p, r(0), x(1), x(2), reg)) {
+	 c_p->flags &= ~F_HIBERNATE_SCHED;
 	 goto do_schedule;
      } else {
 	 I = handle_error(c_p, I, reg, hibernate_3);
@@ -6277,15 +6279,17 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	c_p->status = P_WAITING;
 #ifdef ERTS_SMP
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
 	if (c_p->msg.len > 0)
 	    erts_add_to_runq(c_p);
+	else
 #endif
+	    c_p->status = P_WAITING;
     }
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     c_p->current = bif_export[BIF_hibernate_3]->code;
+    c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
 }
 

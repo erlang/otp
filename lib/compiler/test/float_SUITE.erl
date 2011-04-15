@@ -26,7 +26,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(float_SUITE),
+    test_lib:recompile(?MODULE),
     [pending, bif_calls, math_functions,
      mixed_float_and_int].
 

@@ -30,7 +30,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(lc_SUITE),
+    test_lib:recompile(?MODULE),
     [basic, deeply_nested, no_generator, empty_generator].
 
 groups() -> 

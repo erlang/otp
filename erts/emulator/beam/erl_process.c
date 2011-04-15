@@ -2855,7 +2855,6 @@ resume_process(Process *p)
 	return;
     switch(p->rstatus) {
     case P_RUNABLE:
-	*statusp = P_WAITING;  /* make erts_add_to_runq work */
 	erts_add_to_runq(p);
 	break;
     case P_WAITING:
@@ -4651,7 +4650,7 @@ internal_add_to_runq(ErtsRunQueue *runq, Process *p)
     if (p->status_flags & ERTS_PROC_SFLG_INRUNQ)
 	return NULL;
     else if (p->runq_flags & ERTS_PROC_RUNQ_FLG_RUNNING) {
-	ASSERT(p->status != P_SUSPENDED);
+	ASSERT(p->rcount == 0);
 	ERTS_DBG_CHK_PROCS_RUNQ_NOPROC(runq, p);
 	p->status_flags |= ERTS_PROC_SFLG_PENDADD2SCHEDQ;
 	return NULL;
@@ -4662,9 +4661,8 @@ internal_add_to_runq(ErtsRunQueue *runq, Process *p)
     ERTS_DBG_CHK_PROCS_RUNQ_NOPROC(runq, p);
 #ifndef ERTS_SMP
     /* Never schedule a suspended process (ok in smp case) */
-    ASSERT(p->status != P_SUSPENDED);
+    ASSERT(p->rcount == 0);
     add_runq = runq;
-
 #else
     ASSERT(!p->bound_runq || p->bound_runq == p->run_queue);
     if (p->bound_runq) {
@@ -5164,7 +5162,7 @@ Process *schedule(Process *p, int calls)
 	    handle_pending_suspend(p,
 				   ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 	    ASSERT(!(p->status_flags & ERTS_PROC_SFLG_PENDADD2SCHEDQ)
-		   || p->status != P_SUSPENDED);
+		   || p->rcount == 0);
 	}
 #endif
 	erts_smp_runq_lock(rq);
@@ -7609,10 +7607,28 @@ timeout_proc(Process* p)
     p->flags |= F_TIMO;
     p->flags &= ~F_INSLPQUEUE;
 
-    if (p->status == P_WAITING)
-	erts_add_to_runq(p); 
-    if (p->status == P_SUSPENDED)
+    switch (p->status) {
+    case P_GARBING:
+	switch (p->gcstatus) {
+	case P_SUSPENDED:
+	    goto suspended;
+	case P_WAITING:
+	    goto waiting;
+	default:
+	    break;
+	}
+	break;
+    case P_WAITING:
+    waiting:
+	erts_add_to_runq(p);
+	break;
+    case P_SUSPENDED:
+    suspended:
 	p->rstatus = P_RUNABLE;   /* MUST set resume status to runnable */
+	break;
+    default:
+	break;
+    }
 }
 
 

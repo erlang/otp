@@ -651,10 +651,8 @@ add_warning(Term, Anno, Ws) ->
 warning_translate_label(Term, D) when is_tuple(Term) ->
     case element(1, Term) of
 	{label,F} ->
-	    case gb_trees:lookup(F, D) of
-		none -> Term;
-		{value,FA} -> setelement(1, Term, FA)
-	    end;
+	    FA = gb_trees:get(F, D),
+	    setelement(1, Term, FA);
 	_ -> Term
     end;
 warning_translate_label(Term, _) -> Term.

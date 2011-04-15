@@ -614,15 +614,8 @@ get_msg(Msg) -> Msg.
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time]] =
 	StatusData,
-    StatusHdr = "Status for state machine",
-    Header = if
-		 is_pid(Name) ->
-		     lists:concat([StatusHdr, " ", pid_to_list(Name)]);
-		 is_atom(Name); is_list(Name) ->
-		     lists:concat([StatusHdr, " ", Name]);
-		 true ->
-		     {StatusHdr, Name}
-	     end,
+    Header = gen:format_status_header("Status for state machine",
+                                      Name),
     Log = sys:get_debug(log, Debug, []),
     DefaultStatus = [{data, [{"StateData", StateData}]}],
     Specfic =

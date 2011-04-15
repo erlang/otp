@@ -32,7 +32,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(bs_bincomp_SUITE),
+    test_lib:recompile(?MODULE),
     [byte_aligned, bit_aligned, extended_byte_aligned,
      extended_bit_aligned, mixed, filters, trim_coverage,
      nomatch, sizes, tail].

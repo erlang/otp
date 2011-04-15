@@ -1793,7 +1793,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite writev memmove strerror strerror_r strncasecmp \
-		gethrtime localtime_r gmtime_r mmap mremap memcpy mallopt \
+		gethrtime localtime_r gmtime_r inet_pton mmap mremap memcpy mallopt \
 		sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo poll])
 

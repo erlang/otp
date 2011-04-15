@@ -1,0 +1,3 @@
+
+invalid_spec1.erl:5: Invalid type specification for function invalid_spec1:get_plan_dirty/1. The success typing is ([string()]) -> {maybe_improper_list(),[atom()]}
+invalid_spec2.erl:5: Function foo/0 has no local return
