@@ -46,6 +46,7 @@
 	 aes_ctr/1,
 	 mod_exp_test/1,
 	 rand_uniform_test/1,
+	 strong_rand_uniform_test/1,
 	 rsa_verify_test/1,
 	 dsa_verify_test/1,
 	 rsa_sign_test/1,
@@ -68,7 +69,8 @@ all() ->
      md5_mac_io, sha, sha_update, 
      %% sha256, sha256_update, sha512,sha512_update,
      des_cbc, aes_cfb, aes_cbc,
-     aes_cbc_iter, aes_ctr, des_cbc_iter, des_ecb, rand_uniform_test,
+     aes_cbc_iter, aes_ctr, des_cbc_iter, des_ecb,
+     rand_uniform_test, strong_rand_uniform_test,
      rsa_verify_test, dsa_verify_test, rsa_sign_test,
      dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
      rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
@@ -707,6 +709,33 @@ rand_uniform_aux_test(N) ->
     ?line t(R1 >= L),
     ?line t(R1 < H),
     ?line rand_uniform_aux_test(N-1).
+
+%%
+%%
+strong_rand_uniform_test(doc) ->
+    "strong_rand_uniform and strong_random_bytes testing";
+strong_rand_uniform_test(suite) ->
+    [];
+strong_rand_uniform_test(Config) when is_list(Config) ->
+    strong_rand_uniform_aux_test(180),
+    ?line 10 = byte_size(crypto:strong_rand_bytes(10)).
+
+strong_rand_uniform_aux_test(0) ->
+    ?line t(crypto:strong_rand_uniform(0,0,0) =:= <<0,0,0,0>>),
+    ok;
+strong_rand_uniform_aux_test(1) ->
+    ?line t(crypto:erlint(crypto:strong_rand_uniform(1,0,1)) =:= 1),
+    ?line rand_uniform_aux_test(0);
+strong_rand_uniform_aux_test(N) ->
+    ?line t(sru_length(crypto:strong_rand_uniform(N,-1,0)) =< N),
+    ?line t(sru_length(crypto:strong_rand_uniform(N,0,0)) =:= N),
+    ?line t(crypto:erlint(crypto:strong_rand_uniform(N,0,1)) band 1 =:= 1),
+    ?line t(crypto:erlint(crypto:strong_rand_uniform(N,1,0)) bsr (N - 2) =:= 2#11),
+    ?line rand_uniform_aux_test(N-1).
+
+sru_length(Mpint) ->
+    I = crypto:erlint(Mpint),
+    length(erlang:integer_to_list(I, 2)).
 
 %%
 %%

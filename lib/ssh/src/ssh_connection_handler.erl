@@ -106,8 +106,6 @@ peer_address(ConnectionHandler) ->
 %% initialize. 
 %%--------------------------------------------------------------------
 init([Role, Manager, Socket, SshOpts]) ->
-    {A,B,C} = erlang:now(),
-    random:seed(A, B, C),
     {NumVsn, StrVsn} = ssh_transport:versions(Role, SshOpts),
     ssh_bits:install_messages(ssh_transport:transport_messages(NumVsn)),
     {Protocol, Callback, CloseTag} = 
