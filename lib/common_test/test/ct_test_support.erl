@@ -380,10 +380,15 @@ locate(TEvs, Node, Evs, Config) when is_list(TEvs) ->
 			     data={M,{init_per_group,GroupName,Props}}}},
 		 {TEH,#event{name=tc_done, 
 			     node=Node, 
-			     data={M,{init_per_group,GroupName,Props},R}}} | Evs1] ->
-		    test_server:format("Found ~p!", [InitStart]),
-		    test_server:format("Found ~p!", [InitDone]),
-		    verify_events1(TEvs1, Evs1, Node, Config);
+			     data={M,{init_per_group,GroupName,Props},Res}}} | Evs1] ->
+		    case result_match(R, Res) of
+			false ->
+			    nomatch;
+			true ->
+			    test_server:format("Found ~p!", [InitStart]),
+			    test_server:format("Found ~p!", [InitDone]),
+			    verify_events1(TEvs1, Evs1, Node, Config)
+		    end;
 		_ ->
 		    nomatch
 	    end;
@@ -415,9 +420,11 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 							   EvProps},EvR}}})
 				   when TEH == EH, EvNode == Node, EvM == M,
 					EvGroupName == GroupName,
-					EvProps == Props,
-					EvR == R ->
-					false;
+					EvProps == Props ->
+					case result_match(R, EvR) of
+					    true -> false;
+					    false -> true
+					end;
 				   ({EH,#event{name=stop_logging,
 						node=EvNode,data=_}})
 				   when EH == TEH, EvNode == Node ->
@@ -497,7 +504,7 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 						  node=EvNode,
 						  data={Mod,Func,Result}}} <- Done, 
 				     EH == TEH, EvNode == Node, Mod == M, 
-				     Func == F, Result == R] of
+				     Func == F, result_match(R, Result)] of
 			      [TcDone|_] ->
 				  test_server:format("Found ~p!", [TEv]),
 				  {lists:delete(TcDone, Done),RemEvs,RemSize};
@@ -540,8 +547,13 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 					       data={Mod,{end_per_group,
 							  EvGName,EvProps},Res}}}) when 
 					  EH == TEH, EvNode == Node, Mod == M,
-					  EvGName == GroupName, EvProps == Props, Res == R ->
-					false;
+					  EvGName == GroupName, EvProps == Props ->
+					case result_match(R, Res) of
+					    true ->
+						false;
+					    false ->
+						true
+					end;
 				   ({EH,#event{name=stop_logging,
 					       node=EvNode,data=_}}) when
 					  EH == TEH, EvNode == Node ->
@@ -634,23 +646,29 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 				 data={M,{init_per_group,GroupName,EvProps}}}},
 		     {TEH,#event{name=tc_done, 
 				 node=Node, 
-				 data={M,{init_per_group,GroupName,EvProps},R}}} | Es] ->
-			case proplists:get_value(shuffle, Props) of
-			    '_' ->
-				case proplists:get_value(shuffle, EvProps) of
-				    false ->
-					exit({no_shuffle_prop_found,{M,init_per_group,
-								     GroupName,EvProps}});
+				 data={M,{init_per_group,GroupName,EvProps},Res}}} | Es] ->
+			case result_match(R, Res) of
+			    true ->
+				case proplists:get_value(shuffle, Props) of
+				    '_' ->
+					case proplists:get_value(shuffle, EvProps) of
+					    false ->
+						exit({no_shuffle_prop_found,
+						      {M,init_per_group,
+						       GroupName,EvProps}});
+					    _ ->
+						PropsCmp = proplists:delete(shuffle, EvProps),
+						PropsCmp = proplists:delete(shuffle, Props)
+					end;
 				    _ ->
-					PropsCmp = proplists:delete(shuffle, EvProps),
-					PropsCmp = proplists:delete(shuffle, Props)
-				end;
-			    _ ->
-				Props = EvProps
-			end,
-			test_server:format("Found ~p!", [InitStart]),
-			test_server:format("Found ~p!", [InitDone]),
-			{TEs,Es};
+					Props = EvProps
+				end,
+				test_server:format("Found ~p!", [InitStart]),
+				test_server:format("Found ~p!", [InitDone]),
+				{TEs,Es};
+			    false ->
+				nomatch
+			end;
 		    _ ->
 			nomatch
 		end;
@@ -701,7 +719,7 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 						  node=EvNode,
 						  data={Mod,Func,Result}}} <- Done, 
 				     EH == TEH, EvNode == Node, Mod == M, 
-				     Func == F, Result == R] of
+				     Func == F, result_match(R, Result)] of
 			      [TcDone|_] ->
 				  test_server:format("Found ~p!", [TEv]),
 				  {lists:delete(TcDone, Done),RemEvs,RemSize};
@@ -757,8 +775,13 @@ locate({shuffle,TEvs}, Node, Evs, Config) ->
 					       data={Mod,{end_per_group,
 							  EvGName,_},Res}}}) when 
 					  EH == TEH, EvNode == Node, Mod == M,
-					  EvGName == GroupName, Res == R ->
-					false;
+					  EvGName == GroupName ->
+					case result_match(R, Res) of
+					    true ->
+						false;
+					    false ->
+						true
+					end;
 				   ({EH,#event{name=stop_logging,
 					       node=EvNode,data=_}}) when
 					  EH == TEH, EvNode == Node ->
@@ -895,25 +918,34 @@ locate({TEH,Name,{'DEF','STOP_TIME'}}, Node, [Ev|Evs], Config) ->
 	    nomatch
     end;
 
-%% to match variable data as a result of a failed test case
-locate({TEH,tc_done,{Mod,Func,{failed,{error,{Slogan,'_'}}}}}, Node, [Ev|Evs], Config) ->
+%% to match variable data as a result of an aborted test case
+locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
+					  {abort_current_testcase,Func},'_'}}},
+       Node, [Ev|Evs], Config) ->
     case Ev of
-	{TEH,#event{name=tc_done, node=Node, 
-		    data={Mod,Func,{failed,{error,{Slogan,_}}}}}} ->
+	{TEH,#event{name=tc_done, node=Node,
+		    data={undefined,undefined,
+			  {testcase_aborted,{abort_current_testcase,Func},_}}}} ->
 	    {Config,Evs};
 	_ ->
 	    nomatch
     end;
 
-%% to match variable data as a result of an aborted test case
-locate({TEH,tc_done,{undefined,undefined,{testcase_aborted,
-					  {abort_current_testcase,Func},'_'}}}, 
-       Node, [Ev|Evs], Config) ->
+%% to match variable data as a result of a failed test case
+locate({TEH,tc_done,{Mod,Func,R={SkipOrFail,{_ErrInd,ErrInfo}}}},
+       Node, [Ev|Evs], Config) when ((SkipOrFail == skipped) or
+				     (SkipOrFail == failed)) and
+				    ((size(ErrInfo) == 2) or
+				     (size(ErrInfo) == 3)) ->
     case Ev of
 	{TEH,#event{name=tc_done, node=Node, 
-		    data={undefined,undefined,
-			  {testcase_aborted,{abort_current_testcase,Func},_}}}} -> 
-	    {Config,Evs};
+		    data={Mod,Func,Result}}} ->
+	    case result_match(R, Result) of
+		true ->
+		    {Config,Evs};
+		false ->
+		    nomatch
+	    end;
 	_ ->
 	    nomatch
     end;
@@ -962,6 +994,16 @@ match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
 match_data([],[]) ->
     match.
 
+result_match({SkipOrFail,{ErrorInd,{Why,'_'}}},
+	    {SkipOrFail,{ErrorInd,{Why,_Stack}}}) ->
+    true;
+result_match({SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,'_'}}}},
+	    {SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,_Stack}}}}) ->
+    true;
+result_match(Result, Result) ->
+    true;
+result_match(_, _) ->
+    false.
 
 log_events(TC, Events, EvLogDir, Opts) ->
     LogFile = filename:join(EvLogDir, atom_to_list(TC)++".events"),
