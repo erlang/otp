@@ -59,7 +59,7 @@ groups() ->
      {miscXMLexamples, [],
       [small, complexType1, model_group_all,
        substitutionGroup, attributeGroup, test_key1, sis1,
-       sis2, gpx, state2file_file2state, union]},
+       sis2, state2file_file2state, union]},
      {ticket_tests, [],
       [ticket_6910, ticket_7165, ticket_7190, ticket_7288,
        ticket_7736, ticket_8599]},
@@ -1066,33 +1066,6 @@ sis2(Config) ->
     ?line {#xmlElement{},_} = 
 	xmerl_xsd:process_validate(filename:join([?config(data_dir,Config),sis,
 						  "mim.xsd"]),HW_E,[]).
-
-gpx(suite) -> [];
-gpx(Config) ->
-%     case application:start(inets) of
-% 	ok ->
-% 	    http:set_options([{proxy, {{"www-proxy.ericsson.se", 8080},
-% 				       ["localhost"]}}]),
-% 	    URI = "http://www.topografix.com/GPX/Private/TopoGrafix/0/2/topografix.xsd",
-% 	    case http:request(get, {URI, []}, [], []) of
-% 		{ok,{{_Version, 200, _ReasonPhrase}, _Headers, _Body}} ->
-% 		    XML = filename:join([?config(data_dir,Config),gpx,
-% 					 "clementine_loop.gpx"]),
-% 		    ?line {E=#xmlElement{},_} = xmerl_scan:file(XML),
-% 		    code:add_patha(filename:join([?config(data_dir,Config),
-% 						  "../proprietary"])),
-% 		    Schema = filename:join([?config(data_dir,Config),gpx,
-% 					    "gpx.xsd"]),
-% 		    ?line {E,_} = 
-% 			xmerl_xsd:process_validate(Schema,E,
-% 					   [{fetch_fun,fun mylib:fetch/2}]);
-% 		_ ->
-% 		    {skip,no_connection}
-% 	    end;
-% 	_ ->
-% 	    {skip,no_connection}
-%     end.
-    {skip,["GPS eXchange Format is skipped for now"]}.
 
 state2file_file2state(suite) -> [];
 state2file_file2state(Config) ->

@@ -181,7 +181,7 @@ check_instruction(down, {add_module, Module}, _, Modules)
 	{error, {unknown_module, Module, Modules}} ->
 	    ok;
 	ok ->
-	    error({existing_readded_module, Module})
+	    local_error({existing_readded_module, Module})
     end;
 
 %% Removing a module on upgrade: 
@@ -198,7 +198,7 @@ check_instruction(up, {remove, {Module, Pre, Post}}, _, Modules)
 	    check_purge(Pre),
 	    check_purge(Post);
 	ok ->
-	    error({existing_removed_module, Module})
+	    local_error({existing_removed_module, Module})
     end;
 
 %% Removing a module on downgrade: the module exist
@@ -215,7 +215,7 @@ check_instruction(down, {remove, {Module, Pre, Post}}, AllInstr, Modules)
 	    check_purge(Post),
 	    check_no_remove_depends(Module, AllInstr);
 	{error, {unknown_module, Module, Modules}} ->
-	    error({nonexisting_removed_module, Module})
+	    local_error({nonexisting_removed_module, Module})
     end;
 
 check_instruction(_, {load_module, Module, Pre, Post, Depend}, 
@@ -251,7 +251,7 @@ check_instruction(_, {update, Module, Change, Pre, Post, Depend},
 check_instruction(_, Instr, _AllInstr, _Modules) ->
     d("check_instruction -> entry when unknown instruction with"
       "~n   Instr: ~p", [Instr]),
-    error({error, {unknown_instruction, Instr}}).
+    local_error({error, {unknown_instruction, Instr}}).
 
 
 %% If Module X depends on Module Y, then module Y must have an update
@@ -279,14 +279,14 @@ instruction_module({update, Module, _, _, _, _}) ->
 instruction_module(Instr) ->
     d("instruction_module -> entry when unknown instruction with"
       "~n   Instr: ~p", [Instr]),
-    error({error, {unknown_instruction, Instr}}).
+    local_error({error, {unknown_instruction, Instr}}).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 check_version(V) when is_list(V) ->
     ok;
 check_version(V) ->
-    error({bad_version, V}).
+    local_error({bad_version, V}).
 
 
 check_module(M, Modules) when is_atom(M) ->
@@ -294,10 +294,10 @@ check_module(M, Modules) when is_atom(M) ->
         true ->
             ok;
         false ->
-            error({unknown_module, M, Modules})
+            local_error({unknown_module, M, Modules})
     end;
 check_module(M, _) ->
-    error({bad_module, M}).
+    local_error({bad_module, M}).
 
 
 check_module_depend(M, [], _) when is_atom(M) ->
@@ -313,12 +313,12 @@ check_module_depend(M, Deps, Modules) when is_atom(M), is_list(Deps) ->
         [] ->
             ok;
         Unknown ->
-            error({unknown_depend_modules, Unknown})
+            local_error({unknown_depend_modules, Unknown})
     end;
 check_module_depend(_M, D, _Modules) ->
     d("check_module_depend -> entry when bad depend with"
       "~n   D: ~p", [D]),    
-    error({bad_depend, D}).
+    local_error({bad_depend, D}).
 
 
 check_no_remove_depends(_Module, []) ->
@@ -330,14 +330,14 @@ check_no_remove_depends(Module, [Instr|Instrs]) ->
 check_no_remove_depend(Module, {load_module, Mod, _Pre, _Post, Depend}) ->
     case lists:member(Module, Depend) of
 	true ->
-	    error({removed_module_in_depend, load_module, Mod, Module});
+	    local_error({removed_module_in_depend, load_module, Mod, Module});
 	false ->
 	    ok
     end;
 check_no_remove_depend(Module, {update, Mod, _Change, _Pre, _Post, Depend}) ->
     case lists:member(Module, Depend) of
 	true ->
-	    error({removed_module_in_depend, update, Mod, Module});
+	    local_error({removed_module_in_depend, update, Mod, Module});
 	false ->
 	    ok
     end;
@@ -350,7 +350,7 @@ check_change(soft) ->
 check_change({advanced, _Something}) ->
     ok;
 check_change(Change) ->
-    error({bad_change, Change}).
+    local_error({bad_change, Change}).
 
 
 check_purge(soft_purge) ->
@@ -358,13 +358,13 @@ check_purge(soft_purge) ->
 check_purge(brutal_purge) ->
     ok;
 check_purge(Purge) ->
-    error({bad_purge, Purge}).
+    local_error({bad_purge, Purge}).
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-error(Reason) ->
+local_error(Reason) ->
     throw({error, Reason}).
 
 fail(Reason) ->

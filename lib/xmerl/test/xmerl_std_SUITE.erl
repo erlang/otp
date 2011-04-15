@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -16,9 +16,7 @@
 %% 
 %% %CopyrightEnd%
 %%
-%%
-%%% Purpose : Test suite for the ASN.1 application
-
+%%----------------------------------------------------------------------
 -module(xmerl_std_SUITE).
 
 -compile(export_all).
@@ -761,11 +759,11 @@ init_per_suite(doc) ->
 init_per_suite(Config) ->
     Dog=test_server:timetrap({minutes,10}),
     ?line file:set_cwd(?config(data_dir,Config)),
-    ?line ok=erl_tar:extract("ibm.tar.gz",[compressed]),
-    ?line ok=erl_tar:extract("japanese.tar.gz",[compressed]),
-    ?line ok=erl_tar:extract("oasis.tar.gz",[compressed]),
-    ?line ok=erl_tar:extract("sun.tar.gz",[compressed]),
-    ?line ok=erl_tar:extract("xmltest.tar.gz",[compressed]),
+    ?line ok=erl_tar:extract("ibm.tgz",[compressed]),
+    ?line ok=erl_tar:extract("japanese.tgz",[compressed]),
+    ?line ok=erl_tar:extract("oasis.tgz",[compressed]),
+    ?line ok=erl_tar:extract("sun.tgz",[compressed]),
+    ?line ok=erl_tar:extract("xmltest.tgz",[compressed]),
     ?line ok = change_mode(["ibm","japanese","oasis",
 			    "sun","xmltest"]),
     [{watchdog, Dog}|Config].
