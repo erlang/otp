@@ -145,9 +145,12 @@ endif
 # ----------------------------------------------------
 EBIN = .
 
-ERL_COMPILE_FLAGS += -I../src \
+ERL_COMPILE_FLAGS += -I../../snmp/src/app \
+                     -I../../snmp/src/misc \
+                     -I../../snmp/src/agent \
+                     -I../../snmp/src/manager \
                      -I$(ERL_TOP)/lib/test_server/include \
-                     -I../include \
+                     -I../../snmp/include \
                      -Dsnmp_test_data=snmp_test_data \
                      -Dversion=\"$(VSN)$(PRE_VSN)\" \
                      +'{parse_transform,sys_pre_attributes}' \

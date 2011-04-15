@@ -44,12 +44,6 @@
 -->
       <list type="bulleted">
         <item>
-          <p>Added type specs for functions that do not return. </p>
-          <p>Kostis Sagonas</p>
-          <p>Own Id: OTP-9174</p>
-        </item>
-
-        <item>
           <p>[agent] Added support for sending traps to IPv6 targets. </p>
 	  <p>See the 
 	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>, 
@@ -60,10 +54,37 @@
 	</item>
 
         <item>
+          <p>[manager] The API for snmp requests has been augmented to
+	  allow the caller to override some configuration. </p>
+	  <p>This has been done by introducing a new set of API functions, see 
+	  <seealso marker="snmpm#sync_get2">sync_get2/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get2">async_get2/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_next2">sync_get_next2/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get_next2">async_get_next2/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_bulk2">sync_get_bulk2/5,6</seealso>, 
+	  <seealso marker="snmpm#async_get_bulk2">async_get_bulk2/5,6</seealso>, 
+	  <seealso marker="snmpm#sync_set2">sync_set2/3,4</seealso> and 
+	  <seealso marker="snmpm#async_set2">async_set2/3,4</seealso>
+	  for more info. </p>
+          <p>Own Id: OTP-9162</p>
+        </item>
+
+        <item>
           <p>[manager] The old API functions (for get and set
-	  requests) are now officially deprecated.
+	  requests: 
+	  snmpm:g/3,4,5,6,7, snmpm:ag/3,4,5,6,7, 
+	  snmpm:gn/3,4,5,6,7, snmpm:agn/3,4,5,6,7,
+	  snmpm:s/3,4,5,6,7, snmpm:s/3,4,5,6,7,
+	  snmpm:gb/5,6,7,8,9 and snmpm:agb/5,6,7,8,9)
+	  are now officially deprecated.
 	  They will be removed as of R16B. </p>
           <p>Own Id: OTP-9174</p>
+        </item>
+
+        <item>
+          <p>Added type specs for functions that do not return. </p>
+          <p>Kostis Sagonas</p>
+          <p>Own Id: OTP-9208</p>
         </item>
 
       </list>
@@ -289,7 +310,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
-            with a bad name for the starndard trap entry (was "stadard trap", 
+            with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
           <p>Kenji Rikitake</p>
           <p>Own Id: OTP-8433</p>
@@ -493,7 +514,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
-            with a bad name for the starndard trap entry (was "stadard trap", 
+            with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
           <p>Kenji Rikitake</p>
           <p>Own Id: OTP-8433</p>

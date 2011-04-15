@@ -99,7 +99,7 @@ stop(Pid) ->
     call(Pid, stop).
 
 send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port) ->
-    send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, undefined).
+    send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ?DEFAULT_EXTRA_INFO).
 
 send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo) 
   when is_record(Pdu, pdu) ->
@@ -380,13 +380,14 @@ handle_call(Req, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_cast({send_pdu, Pdu, Vsn, MsgData, Addr, Port, _ExtraInfo}, State) ->
+handle_cast({send_pdu, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo}, State) ->
     ?vlog("received send_pdu message with"
 	  "~n   Pdu:     ~p"
 	  "~n   Vsn:     ~p"
 	  "~n   MsgData: ~p"
 	  "~n   Addr:    ~p"
 	  "~n   Port:    ~p", [Pdu, Vsn, MsgData, Addr, Port]),
+    maybe_process_extra_info(ExtraInfo), 
     maybe_handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, State), 
     {noreply, State};
 
@@ -996,6 +997,19 @@ pdu_type_of(#pdu{type = Type}) ->
 pdu_type_of(TrapPdu) when is_record(TrapPdu, trappdu) ->
     trap.
 
+
+%% -------------------------------------------------------------------
+
+%% At this point this function is used during testing
+maybe_process_extra_info(?DEFAULT_EXTRA_INFO) ->
+    ok;
+maybe_process_extra_info({?SNMPM_EXTRA_INFO_TAG, Fun}) 
+  when is_function(Fun, 0) ->
+    (catch Fun()),
+    ok;
+maybe_process_extra_info(_ExtraInfo) ->
+    ok.
+    
 
 %% -------------------------------------------------------------------
 
