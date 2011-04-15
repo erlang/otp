@@ -83,6 +83,7 @@
 	 simple_sync_set3/1, 
 	 simple_async_set1/1, 
 	 simple_async_set2/1, 
+	 simple_async_set3/1, 
 	 
   	 simple_sync_get_bulk1/1, 
   	 simple_sync_get_bulk2/1, 
@@ -245,7 +246,8 @@ init_per_testcase3(Case, Config) ->
 	 simple_async_get3, 
 	 simple_sync_get_next3, 
 	 simple_async_get_next3, 
-	 simple_sync_set3
+	 simple_sync_set3, 
+	 simple_async_set3
 	],
     Cases = 
 	[
@@ -335,7 +337,8 @@ end_per_testcase2(Case, Config) ->
 	 simple_async_get3, 
 	 simple_sync_get_next3, 
 	 simple_async_get_next3, 
-	 simple_sync_set3
+	 simple_sync_set3, 
+	 simple_async_set3
 	],
     Cases = 
 	[
@@ -446,7 +449,8 @@ groups() ->
        simple_sync_set2, 
        simple_sync_set3, 
        simple_async_set1,
-       simple_async_set2
+       simple_async_set2, 
+       simple_async_set3
       ]
      },
      {bulk_tests, [],
@@ -2553,31 +2557,40 @@ simple_async_set2(Config) when is_list(Config) ->
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    Exec = fun(X) ->
-		   async_s_exec2(MgrNode, TargetName, X)
-	   end,
+    Set = 
+	fun(Oids) ->
+		async_s_exec2(MgrNode, TargetName, Oids)
+	end,
+    PostVerify = fun(Res) -> Res end,
 
+    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify).
+
+do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify) ->
     Requests = 
 	[
 	 {1,
 	  [{?sysName_instance, s, "Arne Anka"}],
-	  Exec,
+	  Set,
 	  fun(X) ->
-		  sas_verify(X, [?sysName_instance])
+		  PostVerify(sas_verify(X, [?sysName_instance]))
 	  end},
 	 {2,
 	  [{?sysLocation_instance, s, "Stockholm"}, 
 	   {?sysName_instance,     s, "Arne Anka"}],
-	  Exec,
+	  Set,
 	  fun(X) ->
-		  sas_verify(X, [?sysLocation_instance, ?sysName_instance])
+		  PostVerify(sas_verify(X, 
+					[?sysLocation_instance, 
+					 ?sysName_instance]))
 	  end},
 	 {3,
 	  [{[sysName, 0],     "Gothenburg"}, 
 	   {[sysLocation, 0], "Sune Anka"}],
-	  Exec,
+	  Set,
 	  fun(X) ->
-		  sas_verify(X, [?sysName_instance, ?sysLocation_instance])
+		  PostVerify(sas_verify(X, 
+					[?sysName_instance, 
+					 ?sysLocation_instance]))
 	  end}
 	],
 
@@ -2594,6 +2607,48 @@ simple_async_set2(Config) when is_list(Config) ->
 
 async_s_exec2(Node, TargetName, VAVs) ->
     mgr_user_async_set(Node, TargetName, VAVs).
+
+
+%%======================================================================
+
+simple_async_set3(doc) -> 
+    ["Simple (async) set-request - Version 3 API (TargetName with send-opts)"];
+simple_async_set3(suite) -> [];
+simple_async_set3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, sas3),
+    p("starting with Config: ~p~n", [Config]),
+
+    MgrNode    = ?config(manager_node, Config),
+    AgentNode  = ?config(agent_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+
+    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    Test2Mib = test2_mib(Config), 
+    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+
+    Self  = self(), 
+    Msg   = simple_async_set3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+
+    Set = 
+	fun(Oids) ->
+		async_s_exec3(MgrNode, TargetName, Oids, SendOpts)
+	end,
+    PostVerify = fun(ok)  -> receive Msg -> ok end; 
+		    (Res) -> Res 
+		 end,
+
+    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify).
+
+async_s_exec3(Node, TargetName, VAVs, SendOpts) ->
+    mgr_user_async_set2(Node, TargetName, VAVs, SendOpts).
 
 
 %%======================================================================
@@ -5334,6 +5389,9 @@ mgr_user_async_set(Node, Addr_or_TargetName, VAV) ->
     rcall(Node, snmp_manager_user, async_set, [Addr_or_TargetName, VAV]).
 mgr_user_async_set(Node, Addr, Port, VAV) ->
     rcall(Node, snmp_manager_user, async_set, [Addr, Port, VAV]).
+
+mgr_user_async_set2(Node, TargetName, VAV, SendOpts) ->
+    rcall(Node, snmp_manager_user, async_set2, [TargetName, VAV, SendOpts]).
 
 %% mgr_user_sync_get_bulk(Node, NonRep, MaxRep, Oids) ->
 %%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 

@@ -55,7 +55,7 @@
 	 sync_get_next/1,  sync_get_next/2,  sync_get_next/3,  sync_get_next2/3,
 	 async_get_next/1, async_get_next/2, async_get_next/3, async_get_next2/3,
 	 sync_set/1,       sync_set/2,       sync_set/3,       sync_set2/3, 
-	 async_set/1,      async_set/2,      async_set/3, 
+	 async_set/1,      async_set/2,      async_set/3,      async_set2/3, 
 	 sync_get_bulk/3,  sync_get_bulk/4,  sync_get_bulk/5,
 	 async_get_bulk/3, async_get_bulk/4, async_get_bulk/5,
 	 name_to_oid/1, oid_to_name/1, 
@@ -241,6 +241,9 @@ async_set(Addr_or_TargetName, VAV) ->
 
 async_set(Addr, Port, VAV) ->
     call({async_set, Addr, Port, VAV}).
+
+async_set2(TargetName, VAV, SendOpts) ->
+    call({async_set2, TargetName, VAV, SendOpts}).
 
 %% --
 
@@ -633,6 +636,16 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	%% 
 	%% -- (async) set-request --
 	%% 
+
+	{{async_set2, TargetName, VAV, SendOpts}, From, Ref} 
+	  when is_list(TargetName) ->
+	    d("loop -> received async_set2 request with"
+	      "~n   TargetName: ~p"
+	      "~n   VAV:        ~p"
+	      "~n   SendOpts:   ~p", [TargetName, VAV, SendOpts]),
+	    Res = snmpm:async_set2(Id, TargetName, VAV, SendOpts), 
+	    reply(From, Res, Ref),
+	    loop(S);
 
 	{{async_set, VAV}, From, Ref} ->
 	    d("loop -> received async_set request"),
