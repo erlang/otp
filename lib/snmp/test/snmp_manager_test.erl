@@ -87,6 +87,7 @@
 	 
   	 simple_sync_get_bulk1/1, 
   	 simple_sync_get_bulk2/1, 
+  	 simple_sync_get_bulk3/1, 
   	 simple_async_get_bulk1/1, 
   	 simple_async_get_bulk2/1, 
 	 
@@ -247,7 +248,8 @@ init_per_testcase3(Case, Config) ->
 	 simple_sync_get_next3, 
 	 simple_async_get_next3, 
 	 simple_sync_set3, 
-	 simple_async_set3
+	 simple_async_set3, 
+	 simple_sync_get_bulk3 
 	],
     Cases = 
 	[
@@ -338,7 +340,8 @@ end_per_testcase2(Case, Config) ->
 	 simple_sync_get_next3, 
 	 simple_async_get_next3, 
 	 simple_sync_set3, 
-	 simple_async_set3
+	 simple_async_set3, 
+	 simple_sync_get_bulk3 
 	],
     Cases = 
 	[
@@ -457,6 +460,7 @@ groups() ->
        [
         simple_sync_get_bulk1, 
         simple_sync_get_bulk2,
+        simple_sync_get_bulk3,
         simple_async_get_bulk1, 
         simple_async_get_bulk2
        ]
@@ -2836,20 +2840,33 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
+    GetBulk = 
+	fun(NonRep, MaxRep, Oids) ->
+		mgr_user_sync_get_bulk(MgrNode, TargetName, 
+				       NonRep, MaxRep, Oids)    
+	end,
+    PostVerify = fun(Res) -> Res end,
+
+    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify).
+
+do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% -- 1 --
     ?line ok = do_simple_get_bulk2(1,
-				   MgrNode, TargetName,  1,  1, [], 
-				   fun verify_ssgb_reply1/1), 
+				   1,  1, [], 
+				   fun verify_ssgb_reply1/1, 
+				   GetBulk, PostVerify), 
     
     %% -- 2 --
     ?line ok = do_simple_get_bulk2(2, 
-				   MgrNode, TargetName, -1,  1, [], 
-				   fun verify_ssgb_reply1/1), 
+				   -1,  1, [], 
+				   fun verify_ssgb_reply1/1, 
+				   GetBulk, PostVerify), 
 
     %% -- 3 --
     ?line ok = do_simple_get_bulk2(3, 
-				   MgrNode, TargetName, -1, -1, [], 
-				   fun verify_ssgb_reply1/1), 
+				   -1, -1, [], 
+				   fun verify_ssgb_reply1/1, 
+				   GetBulk, PostVerify), 
 
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
     %% -- 4 --
@@ -2857,13 +2874,13 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
 	   end,
     ?line ok = do_simple_get_bulk2(4,
-				   MgrNode, TargetName, 
-				   2, 0, [[sysDescr],[1,3,7,1]], VF04),
+				   2, 0, [[sysDescr],[1,3,7,1]], VF04, 
+				   GetBulk, PostVerify),
 
     %% -- 5 --
     ?line ok = do_simple_get_bulk2(5,
-				   MgrNode, TargetName,  
-				   1, 2, [[sysDescr],[1,3,7,1]], VF04),
+				   1, 2, [[sysDescr],[1,3,7,1]], VF04, 
+				   GetBulk, PostVerify),
 
     %% -- 6 --
     VF06 = fun(X) -> 
@@ -2872,8 +2889,8 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 				       ?sysObjectID_instance, endOfMibView]) 
 	   end,
     ?line ok = do_simple_get_bulk2(6,
-				   MgrNode, TargetName,  
-				   0, 2, [[sysDescr],[1,3,7,1]], VF06), 
+				   0, 2, [[sysDescr],[1,3,7,1]], VF06, 
+				   GetBulk, PostVerify), 
 
     %% -- 7 --
     VF07 = fun(X) -> 
@@ -2883,10 +2900,10 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 				       ?sysObjectID_instance, endOfMibView]) 
 	   end,
     ?line ok = do_simple_get_bulk2(7,
-				   MgrNode, TargetName, 
 				   2, 2, 
 				   [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]],
-				   VF07), 
+				   VF07, 
+				   GetBulk, PostVerify), 
 
     Test2Mib = test2_mib(Config), 
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
@@ -2899,17 +2916,17 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 				       ?sysDescr_instance]) 
 	   end,
     ?line ok = do_simple_get_bulk2(8,
-				   MgrNode, TargetName, 
 				   1, 2, 
 				   [[sysDescr],[sysDescr],[tTooBig]],
-				   VF08), 
+				   VF08, 
+				   GetBulk, PostVerify), 
 
     %% -- 9 --
     ?line ok = do_simple_get_bulk2(9,
-				   MgrNode, TargetName, 
 				   1, 12, 
 				   [[tDescr2], [sysDescr]], 
-				   fun verify_ssgb_reply1/1),
+				   fun verify_ssgb_reply1/1, 
+				   GetBulk, PostVerify),
 
     %% -- 10 --
     VF10 = fun(X) -> 
@@ -2920,13 +2937,13 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 				       {?sysDescr,    'NULL'}]) 
 	   end,
     ?line ok = do_simple_get_bulk2(10,
-				   MgrNode, TargetName,  
 				   2, 2, 
 				   [[sysDescr], 
 				    [sysObjectID], 
 				    [tGenErr1], 
 				    [sysDescr]],
-				   VF10), 
+				   VF10, 
+				   GetBulk, PostVerify), 
 
     %% -- 11 --
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
@@ -2937,24 +2954,65 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 				       {fl([TCnt2,2]), endOfMibView}]) 
 	   end,
     ?line ok = do_simple_get_bulk2(11,
-				   MgrNode, TargetName,  
 				   0, 2, 
-				   [[TCnt2, 1]], VF11),
+				   [[TCnt2, 1]], VF11, 
+				   GetBulk, PostVerify),
     
     ok.
 
-do_simple_get_bulk2(N, Node, TargetName, NonRep, MaxRep, Oids, Verify) ->
+do_simple_get_bulk2(N, 
+		    NonRep, MaxRep, Oids, 
+		    Verify, GetBulk, PostVerify) 
+  when is_function(Verify, 1) andalso 
+       is_function(GetBulk, 3) andalso 
+       is_function(PostVerify) ->
     p("issue get-bulk command ~w", [N]),
-    case mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) of
+    case GetBulk(NonRep, MaxRep, Oids) of
 	{ok, Reply, Rem} ->
 	    ?DBG("get-bulk ok:"
 		 "~n   Reply: ~p"
 		 "~n   Rem:   ~w", [Reply, Rem]),
-	    Verify(Reply);
+	    PostVerify(Verify(Reply));
 
 	Error ->
 	    {error, {unexpected_reply, Error}}
     end.
+
+
+%%======================================================================
+
+simple_sync_get_bulk3(doc) -> 
+    ["Simple (sync) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_sync_get_bulk3(suite) -> [];
+simple_sync_get_bulk3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, ssgb3),
+    p("starting with Config: ~p~n", [Config]),
+
+    MgrNode    = ?config(manager_node, Config),
+    AgentNode  = ?config(agent_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+
+    Self  = self(), 
+    Msg   = simple_async_set3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+
+    GetBulk = 
+	fun(NonRep, MaxRep, Oids) ->
+		mgr_user_sync_get_bulk2(MgrNode, TargetName, 
+					NonRep, MaxRep, Oids, SendOpts)    
+	end,
+    PostVerify = fun(ok) -> receive Msg -> ok end;
+		    (Res) -> Res 
+		 end,
+
+    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify).
 
 
 %%======================================================================
@@ -5398,10 +5456,14 @@ mgr_user_async_set2(Node, TargetName, VAV, SendOpts) ->
 %% 			   NonRep, MaxRep, Oids).
 mgr_user_sync_get_bulk(Node, Addr_or_TargetName, NonRep, MaxRep, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_bulk, 
-	     [Addr_or_TargetName, NonRep, MaxRep, Oids]).
+	  [Addr_or_TargetName, NonRep, MaxRep, Oids]).
 mgr_user_sync_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_bulk, 
 	     [Addr, Port, NonRep, MaxRep, Oids]).
+
+mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+    rcall(Node, snmp_manager_user, sync_get_bulk2, 
+	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
 
 %% mgr_user_async_get_bulk(Node, NonRep, MaxRep, Oids) ->
 %%     mgr_user_async_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
