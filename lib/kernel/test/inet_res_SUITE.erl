@@ -27,7 +27,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
--export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1]).
+-export([basic/1, resolve/1, edns0/1, txt_record/1, files_monitor/1,
+	 last_ms_answer/1]).
 -export([
 	 gethostbyaddr/0, gethostbyaddr/1,
 	 gethostbyaddr_v6/0, gethostbyaddr_v6/1,
@@ -45,6 +46,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, resolve, edns0, txt_record, files_monitor,
+     last_ms_answer,
      gethostbyaddr, gethostbyaddr_v6, gethostbyname,
      gethostbyname_v6, getaddr, getaddr_v6, ipv4_to_ipv6,
      host_and_addr].
@@ -64,16 +66,15 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-zone_dir(basic) ->
-    otptest;
-zone_dir(resolve) ->
-    otptest;
-zone_dir(edns0) ->
-    otptest;
-zone_dir(files_monitor) ->
-    otptest;
-zone_dir(_) ->
-    undefined.
+zone_dir(TC) ->
+    case TC of
+	basic -> otptest;
+	resolve -> otptest;
+	edns0 -> otptest;
+	files_monitor -> otptest;
+	last_ms_answer -> otptest;
+	_ -> undefined
+    end.
 
 init_per_testcase(Func, Config) ->
     PrivDir = ?config(priv_dir, Config),
@@ -184,6 +185,88 @@ ns_printlog(Fname) ->
 	    ok
     end.
 
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Behaviour modifying nameserver proxy
+
+proxy_start(TC, {NS,P}) ->
+    Tag = make_ref(),
+    Parent = self(),
+    Pid =
+	spawn_link(
+	  fun () ->
+		  try proxy_start(TC, NS, P, Parent, Tag)
+		  catch C:X ->
+			  io:format(
+			    "~w: ~w:~p ~p~n",
+			    [self(),C,X,erlang:get_stacktrace()])
+		  end
+	  end),
+    receive {started,Tag,Port} ->
+	    ProxyNS = {{127,0,0,1},Port},
+	    {proxy,Pid,Tag,ProxyNS}
+    end.
+
+proxy_start(TC, NS, P, Parent, Tag) ->
+    {ok,Outbound} = gen_udp:open(0, [binary]),
+    ok = gen_udp:connect(Outbound, NS, P),
+    {ok,Inbound} = gen_udp:open(0, [binary]),
+    {ok,Port} = inet:port(Inbound),
+    Parent ! {started,Tag,Port},
+    proxy(TC, Outbound, NS, P, Inbound).
+
+
+%% To provoke the last_ms_answer bug (OTP-9221) the proxy
+%% * Relays the query to the right nameserver
+%% * Intercepts the reply but holds it until the timer that
+%%   was started when receiving the query fires.
+%% * Repeats the reply with incorrect query ID a number of
+%%   times with a short interval.
+%% * Sends the correct reply, to give a correct test result
+%%   after bug correction.
+%%
+%% The repetition of an incorrect answer with tight interval will keep
+%% inet_res in an inner loop in the code that decrements the remaining
+%% time until it hits 0 which triggers a crash, if the outer timeout
+%% parameter to inet_res:resolve is so short that it runs out during
+%% these repetitions.
+proxy(last_ms_answer, Outbound, NS, P, Inbound) ->
+    receive
+	{udp,Inbound,SrcIP,SrcPort,Data} ->
+	    Time =
+		inet_db:res_option(timeout) div inet_db:res_option(retry),
+	    Tag = erlang:make_ref(),
+	    erlang:send_after(Time - 10, self(), {time,Tag}),
+	    ok = gen_udp:send(Outbound, NS, P, Data),
+	    receive
+		{udp,Outbound,NS,P,Reply} ->
+		    {ok,Msg} = inet_dns:decode(Reply),
+		    Hdr = inet_dns:msg(Msg, header),
+		    Id = inet_dns:header(Hdr, id),
+		    BadHdr =
+			inet_dns:make_header(Hdr, id, (Id+1) band 16#ffff),
+		    BadMsg = inet_dns:make_msg(Msg, header, BadHdr),
+		    BadReply = inet_dns:encode(BadMsg),
+		    receive
+			{time,Tag} ->
+			    proxy__last_ms_answer(
+			      Inbound, SrcIP, SrcPort, BadReply, Reply, 30)
+		    end
+	    end
+    end.
+
+proxy__last_ms_answer(Socket, IP, Port, _, Reply, 0) ->
+    ok = gen_udp:send(Socket, IP, Port, Reply);
+proxy__last_ms_answer(Socket, IP, Port, BadReply, Reply, N) ->
+    ok = gen_udp:send(Socket, IP, Port, BadReply),
+    receive after 1 -> ok end,
+    proxy__last_ms_answer(Socket, IP, Port, BadReply, Reply, N-1).
+
+proxy_wait({proxy,Pid,_,_}) ->
+    Mref = erlang:monitor(process, Pid),
+    receive {'DOWN',Mref,_,_,_} -> ok end.
+
+proxy_ns({proxy,_,_,ProxyNS}) -> ProxyNS.
+
 %%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -204,7 +287,7 @@ basic(Config) when is_list(Config) ->
     {ok,Msg1} = inet_dns:decode(Bin1),
     %%
     %% resolve
-    {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]}]),
+    {ok,Msg2} = inet_res:resolve(Name, in, a, [{nameservers,[NS]},verbose]),
     io:format("~p~n", [Msg2]),
     [RR2] = inet_dns:msg(Msg2, anlist),
     IP = inet_dns:rr(RR2, data),
@@ -471,6 +554,26 @@ do_files_monitor(Config) ->
 		 h_length = 4,
 		 h_addr_list = [{127,0,0,28}]}} =
 	inet:gethostbyname("resolve.otptest"),
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+last_ms_answer(doc) ->
+    ["Answer just when timeout is triggered (OTP-9221)"];
+last_ms_answer(Config) when is_list(Config) ->
+    NS = ns(Config),
+    Name = "ns.otptest",
+    %%IP = {127,0,0,254},
+    Time = inet_db:res_option(timeout) div inet_db:res_option(retry),
+    PSpec = proxy_start(last_ms_answer, NS),
+    ProxyNS = proxy_ns(PSpec),
+    %%
+    %% resolve; whith short timeout to trigger Timeout =:= 0 in inet_res
+    {error,timeout} =
+	inet_res:resolve(
+	  Name, in, a, [{nameservers,[ProxyNS]},verbose], Time + 10),
+    %%
+    proxy_wait(PSpec),
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
