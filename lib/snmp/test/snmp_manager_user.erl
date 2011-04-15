@@ -57,7 +57,7 @@
 	 sync_set/1,       sync_set/2,       sync_set/3,       sync_set2/3, 
 	 async_set/1,      async_set/2,      async_set/3,      async_set2/3, 
 	 sync_get_bulk/3,  sync_get_bulk/4,  sync_get_bulk/5,  sync_get_bulk2/5,
-	 async_get_bulk/3, async_get_bulk/4, async_get_bulk/5,
+	 async_get_bulk/3, async_get_bulk/4, async_get_bulk/5, async_get_bulk2/5,
 	 name_to_oid/1, oid_to_name/1, 
 	 purify_oid/1	 
         ]).
@@ -269,6 +269,9 @@ async_get_bulk(Addr_or_TargetName, NonRep, MaxRep, Oids) ->
 
 async_get_bulk(Addr, Port, NonRep, MaxRep, Oids) ->
     call({async_get_bulk, Addr, Port, NonRep, MaxRep, Oids}).
+
+async_get_bulk2(TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+    call({async_get_bulk2, TargetName, NonRep, MaxRep, Oids, SendOpts}).
 
 %% -- 
 
@@ -740,6 +743,20 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	%% 
 	%% -- (async) get-bulk-request --
 	%% 
+
+	{{async_get_bulk2, TargetName, NonRep, MaxRep, Oids, SendOpts}, 
+	 From, Ref} when is_list(TargetName) ->
+	    d("loop -> received async_get_bulk2 request with"
+	      "~n   TargetName: ~p"
+	      "~n   NonRep:     ~w"
+	      "~n   MaxRep:     ~w"
+	      "~n   Oids:       ~p"
+	      "~n   SendOpts:   ~p", 
+	      [TargetName, NonRep, MaxRep, Oids, SendOpts]),
+	    Res = snmpm:async_get_bulk2(Id, TargetName, 
+					NonRep, MaxRep, Oids, SendOpts), 
+	    reply(From, Res, Ref),
+	    loop(S);
 
 	%% No agent specified, so send it to all of them
 	{{async_get_bulk, NonRep, MaxRep, Oids}, From, Ref} ->

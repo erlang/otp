@@ -90,6 +90,7 @@
   	 simple_sync_get_bulk3/1, 
   	 simple_async_get_bulk1/1, 
   	 simple_async_get_bulk2/1, 
+  	 simple_async_get_bulk3/1, 
 	 
   	 misc_async1/1, 
   	 misc_async2/1, 
@@ -249,7 +250,8 @@ init_per_testcase3(Case, Config) ->
 	 simple_async_get_next3, 
 	 simple_sync_set3, 
 	 simple_async_set3, 
-	 simple_sync_get_bulk3 
+	 simple_sync_get_bulk3, 
+	 simple_async_get_bulk3
 	],
     Cases = 
 	[
@@ -341,7 +343,8 @@ end_per_testcase2(Case, Config) ->
 	 simple_async_get_next3, 
 	 simple_sync_set3, 
 	 simple_async_set3, 
-	 simple_sync_get_bulk3 
+	 simple_sync_get_bulk3, 
+	 simple_async_get_bulk3 
 	],
     Cases = 
 	[
@@ -462,7 +465,8 @@ groups() ->
         simple_sync_get_bulk2,
         simple_sync_get_bulk3,
         simple_async_get_bulk1, 
-        simple_async_get_bulk2
+        simple_async_get_bulk2, 
+	simple_async_get_bulk3
        ]
       },
       {misc_request_tests, [], 
@@ -3177,111 +3181,122 @@ simple_async_get_bulk2(Config) when is_list(Config) ->
     ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
     ?line ok = agent_load_mib(AgentNode, Test2Mib),
 
-    Exec = fun(Data) ->
-		    async_gb_exec2(MgrNode, TargetName, Data)
-	   end,
+    GetBulk = 
+	fun(Data) ->
+		async_gb_exec2(MgrNode, TargetName, Data)
+	end,
+    PostVerify = fun(Res) -> Res end,
 
+    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify).
+
+do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% We re-use the verification functions from the ssgb test-case
     VF04 = fun(X) -> 
-		   verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]) 
+		   PostVerify(
+		     verify_ssgb_reply2(X, [?sysDescr_instance, endOfMibView]))
 	   end,
     VF06 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+		   PostVerify(
+		     verify_ssgb_reply2(X, 
+					[?sysDescr_instance,    endOfMibView,
+					 ?sysObjectID_instance, endOfMibView]))
 	   end,
     VF07 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [?sysDescr_instance,    endOfMibView,
-				       ?sysDescr_instance,    endOfMibView,
-				       ?sysObjectID_instance, endOfMibView]) 
+		   PostVerify(
+		     verify_ssgb_reply2(X, 
+					[?sysDescr_instance,    endOfMibView,
+					 ?sysDescr_instance,    endOfMibView,
+					 ?sysObjectID_instance, endOfMibView]))
 	   end,
     VF08 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [?sysDescr_instance, 
-				       ?sysDescr_instance]) 
+		   PostVerify(
+		     verify_ssgb_reply2(X, 
+					[?sysDescr_instance, 
+					 ?sysDescr_instance])) 
 	   end,
     VF10 = fun(X) -> 
-		   verify_ssgb_reply3(X, 
-				      [{?sysDescr,    'NULL'}, 
-				       {?sysObjectID, 'NULL'},
-				       {?tGenErr1,    'NULL'},
-				       {?sysDescr,    'NULL'}]) 
+		   PostVerify(
+		     verify_ssgb_reply3(X, 
+					[{?sysDescr,    'NULL'}, 
+					 {?sysObjectID, 'NULL'},
+					 {?tGenErr1,    'NULL'},
+					 {?sysDescr,    'NULL'}])) 
 	   end,
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
     VF11 = fun(X) -> 
-		   verify_ssgb_reply2(X, 
-				      [{fl([TCnt2,2]), 100}, 
-				       {fl([TCnt2,2]), endOfMibView}]) 
+		   PostVerify(
+		     verify_ssgb_reply2(X, 
+					[{fl([TCnt2,2]), 100}, 
+					 {fl([TCnt2,2]), endOfMibView}]))
 	   end,
     Requests = [
 		{ 1,  
 		  {1,  1, []}, 
-		  Exec, 
-		  fun verify_ssgb_reply1/1},
+		  GetBulk, 
+		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
 		{ 2, 
 		  {-1,  1, []}, 
-		  Exec, 
-		  fun verify_ssgb_reply1/1},
+		  GetBulk, 
+		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
 		{ 3, 
 		  {-1, -1, []}, 
-		  Exec, 
-		  fun verify_ssgb_reply1/1},
+		  GetBulk, 
+		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
 		{ 4,  
 		  {2,  0, [[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		  GetBulk, 
 		  VF04},
 		{ 5,  
 		  {1,  2, [[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		  GetBulk, 
 		  VF04},
 		{ 6,  
 		  {0,  2, [[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		  GetBulk, 
 		  VF06},
 		{ 7,  
 		  {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]}, 
-		  Exec, 
+		  GetBulk, 
 		  VF07},
 		{ 8,  
 		  {1,  2, [[sysDescr],[sysDescr],[tTooBig]]}, 
-		  Exec, 
+		  GetBulk, 
 		  VF08},
 		{ 9,  
 		  {1, 12, [[tDescr2], [sysDescr]]}, 
-		  Exec, 
-		  fun verify_ssgb_reply1/1},
+		  GetBulk, 
+		  fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
 		{10,  
 		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]}, 
-		 Exec, 
+		 GetBulk, 
 		 VF10},
 		{11,  
 		 {0,  2, [[TCnt2, 1]]}, 
-		 Exec,
+		 GetBulk,
 		 VF11}, 
 		{12,  
 		 {2,  0, [[sysDescr],[1,3,7,1]]}, 
-		 Exec,
+		 GetBulk,
 		 VF04},
 		{13,  
 		 {1, 12, [[tDescr2], [sysDescr]]},
-		 Exec, 
-		 fun verify_ssgb_reply1/1},
+		 GetBulk, 
+		 fun(X) -> PostVerify(verify_ssgb_reply1(X)) end},
 		{14,  
 		 {2,  2, [[sysDescr],[sysObjectID],[tGenErr1],[sysDescr]]},
-		 Exec, 
+		 GetBulk, 
 		 VF10},
 		{15,  
 		 {0,  2, [[TCnt2, 1]]},
-		 Exec, 
+		 GetBulk, 
 		 VF11},
 		{16,  
 		 {2,  2, [[sysDescr],[1,3,7,1],[sysDescr],[1,3,7,1]]},
-		 Exec, 
+		 GetBulk, 
 		 VF07},
 		{17,  
 		 {2,  2, [[sysDescr],[sysObjectID], [tGenErr1],[sysDescr]]},
-		 Exec, 
+		 GetBulk, 
 		 VF10}
 	       ],
 
@@ -3298,6 +3313,49 @@ simple_async_get_bulk2(Config) when is_list(Config) ->
 
 async_gb_exec2(Node, TargetName, {NR, MR, Oids}) ->
     mgr_user_async_get_bulk(Node, TargetName, NR, MR, Oids).
+
+
+%%======================================================================
+
+simple_async_get_bulk3(doc) -> 
+    ["Simple (async) get_bulk-request - "
+     "Version 3 API (TargetName with send-opts)"];
+simple_async_get_bulk3(suite) -> [];
+simple_async_get_bulk3(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, sagb3),
+    p("starting with Config: ~p~n", [Config]),
+
+    MgrNode    = ?config(manager_node, Config),
+    AgentNode  = ?config(agent_node, Config),
+    TargetName = ?config(manager_agent_target_name, Config),
+
+    ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
+    Test2Mib = test2_mib(Config), 
+    ?line ok = mgr_user_load_mib(MgrNode, Test2Mib),
+    ?line ok = agent_load_mib(AgentNode, Test2Mib),
+
+    Self  = self(), 
+    Msg   = simple_async_get_bulk3, 
+    Fun   = fun() -> Self ! Msg end,
+    Extra = {?SNMPM_EXTRA_INFO_TAG, Fun}, 
+    SendOpts = 
+	[
+	 {extra, Extra}
+	], 
+
+    GetBulk = 
+	fun(Data) ->
+		async_gb_exec3(MgrNode, TargetName, Data, SendOpts)
+	end,
+    PostVerify = fun(ok)  -> receive Msg -> ok end;
+		    (Res) -> Res 
+		 end,
+
+    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify).
+
+async_gb_exec3(Node, TargetName, {NR, MR, Oids}, SendOpts) ->
+    mgr_user_async_get_bulk2(Node, TargetName, NR, MR, Oids, SendOpts).
 
 
 %%======================================================================
@@ -5470,10 +5528,14 @@ mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
 %% 			   NonRep, MaxRep, Oids).
 mgr_user_async_get_bulk(Node, Addr_or_TargetName, NonRep, MaxRep, Oids) ->
     rcall(Node, snmp_manager_user, async_get_bulk, 
-	     [Addr_or_TargetName, NonRep, MaxRep, Oids]).
+	  [Addr_or_TargetName, NonRep, MaxRep, Oids]).
 mgr_user_async_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) ->
     rcall(Node, snmp_manager_user, async_get_bulk, 
 	     [Addr, Port, NonRep, MaxRep, Oids]).
+
+mgr_user_async_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+    rcall(Node, snmp_manager_user, async_get_bulk2, 
+	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
 
 mgr_user_purify_oid(Node, Oid) ->
     rcall(Node, snmp_manager_user, purify_oid, [Oid]).
