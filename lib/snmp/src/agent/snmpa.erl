@@ -601,17 +601,6 @@ set_request_limit(Agent, NewLimit) ->
 send_notification2(Agent, Notification, SendOpts) ->
     snmpa_agent:send_notification(Agent, Notification, SendOpts).
 
-send_notification(Agent, Notification) ->
-    SendOpts = 
-	[
-	 {receiver, no_receiver},
-	 {varbinds, []}, 
-	 {name,     ""},
-	 {context,  ""}, 
-	 {extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
-	], 
-    send_notification2(Agent, Notification, SendOpts).
-
 send_notification(Agent, Notification, Recv) ->
     SendOpts = 
 	[
