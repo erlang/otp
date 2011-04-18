@@ -31,27 +31,30 @@ suite() ->
 
 groups() ->
     [
-      {test_group_1a, [shuffle], [testcase_1a,testcase_1b,testcase_1c]},
+     {test_group_1a, [shuffle], [testcase_1a,testcase_1b,testcase_1c]},
 
-      {test_group_1b, [parallel], [testcase_1a,testcase_1b]},
+     {test_group_1b, [parallel], [testcase_1a,testcase_1b]},
 
-      {test_group_2, [parallel], [testcase_2a,
+     {test_group_2, [parallel], [testcase_2a,
 
-				  {test_group_3, [{repeat,1}],
-				   [testcase_3a, testcase_3b]},
+				 {test_group_3, [{repeat,1}],
+				  [testcase_3a, testcase_3b]},
 
-				  testcase_2b]},
+				 testcase_2b]},
 
-      {test_group_4, [{test_group_5, [parallel], [testcase_5a,
+     {test_group_4, [{test_group_5, [parallel], [testcase_5a,
 
-						  {group, test_group_6},
+						 {group, test_group_6},
 
-						  testcase_5b]}]},
+						 testcase_5b]}]},
 
-      {test_group_6, [parallel], [{group, test_group_7}]},
+     {test_group_6, [parallel], [{group, test_group_7}]},
 
-      {test_group_7, [sequence], [testcase_7a,testcase_7b]}
-     ].
+     {test_group_7, [sequence], [testcase_7a,testcase_7b]},
+
+     {test_group_8, [], [{group,test_group_9}]},
+     {test_group_9, [], []}
+    ].
 
 all() ->
     [{group, test_group_1a},
@@ -60,7 +63,9 @@ all() ->
      testcase_2,
      {group, test_group_2},
      testcase_3,
-     {group, test_group_4}].
+     {group, test_group_4},
+     {group, test_group_8},
+     {group, test_group_9}].
 
 %% this func only for internal test purposes
 grs_and_tcs() ->
@@ -68,7 +73,8 @@ grs_and_tcs() ->
       test_group_1a, test_group_1b,
       test_group_2, test_group_3,
       test_group_4, test_group_5,
-      test_group_6, test_group_7
+      test_group_6, test_group_7,
+      test_group_8, test_group_9
      ],
      [
       testcase_1a, testcase_1b, testcase_1c,
