@@ -781,40 +781,6 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 
 #endif /* !USE_THREADS */
 
-#ifndef ERTS_NO_DEPRECATED_ATOMICS
-
-/* Deprecated functions to replace */
-
-#define erts_atomic_init erts_atomic_init_nob
-#define erts_atomic_set erts_atomic_set_nob
-#define erts_atomic_read erts_atomic_read_nob
-#define erts_atomic_inctest erts_atomic_inc_read_mb
-#define erts_atomic_dectest erts_atomic_dec_read_mb
-#define erts_atomic_inc erts_atomic_inc_mb
-#define erts_atomic_dec erts_atomic_dec_mb
-#define erts_atomic_addtest erts_atomic_add_read_mb
-#define erts_atomic_add erts_atomic_add_mb
-#define erts_atomic_xchg erts_atomic_xchg_mb
-#define erts_atomic_cmpxchg erts_atomic_cmpxchg_mb
-#define erts_atomic_bor erts_atomic_read_bor_mb
-#define erts_atomic_band erts_atomic_read_band_mb
-
-#define erts_atomic32_init erts_atomic32_init_nob
-#define erts_atomic32_set erts_atomic32_set_nob
-#define erts_atomic32_read erts_atomic32_read_nob
-#define erts_atomic32_inctest erts_atomic32_inc_read_mb
-#define erts_atomic32_dectest erts_atomic32_dec_read_mb
-#define erts_atomic32_inc erts_atomic32_inc_mb
-#define erts_atomic32_dec erts_atomic32_dec_mb
-#define erts_atomic32_addtest erts_atomic32_add_read_mb
-#define erts_atomic32_add erts_atomic32_add_mb
-#define erts_atomic32_xchg erts_atomic32_xchg_mb
-#define erts_atomic32_cmpxchg erts_atomic32_cmpxchg_mb
-#define erts_atomic32_bor erts_atomic32_read_bor_mb
-#define erts_atomic32_band erts_atomic32_read_band_mb
-
-#endif
-
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void

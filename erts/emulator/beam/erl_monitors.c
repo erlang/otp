@@ -125,7 +125,7 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
      } else {
 	 n = (ErtsMonitor *) erts_alloc(ERTS_ALC_T_MONITOR_LH,
 					mon_size*sizeof(Uint));
-	 erts_smp_atomic_add(&tot_link_lh_size, mon_size*sizeof(Uint));
+	 erts_smp_atomic_add_nob(&tot_link_lh_size, mon_size*sizeof(Uint));
      } 
      hp = n->heap;
 
@@ -156,7 +156,7 @@ static ErtsLink *create_link(Uint type, Eterm pid)
      } else {
 	 n = (ErtsLink *) erts_alloc(ERTS_ALC_T_NLINK_LH,
 				     lnk_size*sizeof(Uint));
-	 erts_smp_atomic_add(&tot_link_lh_size, lnk_size*sizeof(Uint));
+	 erts_smp_atomic_add_nob(&tot_link_lh_size, lnk_size*sizeof(Uint));
      } 
      hp = n->heap;
 
@@ -191,13 +191,13 @@ static ErtsSuspendMonitor *create_suspend_monitor(Eterm pid)
 void
 erts_init_monitors(void)
 {
-    erts_smp_atomic_init(&tot_link_lh_size, 0);
+    erts_smp_atomic_init_nob(&tot_link_lh_size, 0);
 }
 
 Uint
 erts_tot_link_lh_size(void)
 {
-    return (Uint) erts_smp_atomic_read(&tot_link_lh_size);
+    return (Uint) erts_smp_atomic_read_nob(&tot_link_lh_size);
 }
 
 void erts_destroy_monitor(ErtsMonitor *mon)
@@ -222,7 +222,7 @@ void erts_destroy_monitor(ErtsMonitor *mon)
 	erts_free(ERTS_ALC_T_MONITOR_SH, (void *) mon);
     } else {
 	erts_free(ERTS_ALC_T_MONITOR_LH, (void *) mon);
-	erts_smp_atomic_add(&tot_link_lh_size, -1*mon_size*sizeof(Uint));
+	erts_smp_atomic_add_nob(&tot_link_lh_size, -1*mon_size*sizeof(Uint));
     }
 }
     
@@ -244,7 +244,7 @@ void erts_destroy_link(ErtsLink *lnk)
 	erts_free(ERTS_ALC_T_NLINK_SH, (void *) lnk);
     } else {
 	erts_free(ERTS_ALC_T_NLINK_LH, (void *) lnk);
-	erts_smp_atomic_add(&tot_link_lh_size, -1*lnk_size*sizeof(Uint));
+	erts_smp_atomic_add_nob(&tot_link_lh_size, -1*lnk_size*sizeof(Uint));
     }
 }
 

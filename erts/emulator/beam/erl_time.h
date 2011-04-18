@@ -85,8 +85,8 @@ ERTS_GLB_INLINE void erts_do_time_add(long);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE erts_aint_t erts_do_time_read_and_reset(void) { return erts_smp_atomic_xchg(&do_time, 0L); }
-ERTS_GLB_INLINE void erts_do_time_add(long elapsed) { erts_smp_atomic_add(&do_time, elapsed); }
+ERTS_GLB_INLINE erts_aint_t erts_do_time_read_and_reset(void) { return erts_smp_atomic_xchg_acqb(&do_time, 0L); }
+ERTS_GLB_INLINE void erts_do_time_add(long elapsed) { erts_smp_atomic_add_relb(&do_time, elapsed); }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

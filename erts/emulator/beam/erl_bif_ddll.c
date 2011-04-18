@@ -369,7 +369,7 @@ BIF_RETTYPE erl_ddll_try_load_3(Process *p, Eterm path_term,
 	    if (!(prt->status & FREE_PORT_FLAGS) &&
 		prt->drv_ptr->handle == dh) {
 #if DDLL_SMP
-		erts_smp_atomic_inc(&prt->refc);
+		erts_smp_atomic_inc_nob(&prt->refc);
 		/* Extremely rare spinlock */
 		while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
 		       erts_smp_port_state_unlock(prt);
@@ -597,7 +597,7 @@ done:
 	    if (!(prt->status &  FREE_PORT_FLAGS) 
 		&& prt->drv_ptr->handle == dh) {
 #if DDLL_SMP
-		erts_smp_atomic_inc(&prt->refc);
+		erts_smp_atomic_inc_nob(&prt->refc);
 		/* Extremely rare spinlock */
 		while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
 		       erts_smp_port_state_unlock(prt);
@@ -1054,7 +1054,7 @@ void erts_ddll_proc_dead(Process *p, ErtsProcLocks plocks)
 			if (!(prt->status & FREE_PORT_FLAGS) &&
 			    prt->drv_ptr->handle == dh) {
 #if DDLL_SMP
-			    erts_smp_atomic_inc(&prt->refc);
+			    erts_smp_atomic_inc_nob(&prt->refc);
 			    while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
 				erts_smp_port_state_unlock(prt);
 				erts_smp_port_state_lock(prt);
@@ -1602,7 +1602,7 @@ static int do_load_driver_entry(DE_Handle *dh, char *path, char *name)
 	erts_sys_ddll_close(dh->handle);
 	return ERL_DE_LOAD_ERROR_BAD_NAME;
     }
-    erts_smp_atomic_init(&(dh->refc), (erts_aint_t) 0);
+    erts_smp_atomic_init_nob(&(dh->refc), (erts_aint_t) 0);
     dh->port_count = 0;
     dh->full_path = erts_alloc(ERTS_ALC_T_DDLL_HANDLE, sys_strlen(path) + 1);
     sys_strcpy(dh->full_path, path);

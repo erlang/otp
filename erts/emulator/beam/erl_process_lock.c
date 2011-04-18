@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -316,7 +316,7 @@ try_aquire(erts_proc_lock_t *lck, erts_tse_t *wtr)
 		break;
 	    }
 	    wflg = lock << ERTS_PROC_LOCK_WAITER_SHIFT;
-	    old_lflgs = ERTS_PROC_LOCK_FLGS_BOR_(lck, wflg | lock);
+	    old_lflgs = ERTS_PROC_LOCK_FLGS_BOR_ACQB_(lck, wflg | lock);
 	    if (old_lflgs & lock) {
 		/* Didn't get the lock */
 		goto enqueue;
@@ -413,7 +413,7 @@ transfer_locks(Process *p,
 	do {
 	    erts_tse_t *tmp = wake;
 	    wake = wake->next;
-	    erts_atomic32_set(&tmp->uaflgs, 0);
+	    erts_atomic32_set_nob(&tmp->uaflgs, 0);
 	    erts_tse_set(tmp);
 	} while (wake);
 
@@ -509,14 +509,14 @@ wait_for_locks(Process *p,
 
 	ASSERT((wtr->uflgs & ~ERTS_PROC_LOCKS_ALL) == 0);
 
-	erts_atomic32_set(&wtr->uaflgs, 1);
+	erts_atomic32_set_nob(&wtr->uaflgs, 1);
 	erts_pix_unlock(pix_lock);
 
 	while (1) {
 	    int res;
 	    erts_tse_reset(wtr);
 
-	    if (erts_atomic32_read(&wtr->uaflgs) == 0)
+	    if (erts_atomic32_read_nob(&wtr->uaflgs) == 0)
 		break;
 
 	    /*
@@ -955,7 +955,8 @@ erts_proc_lock_init(Process *p)
 {
     /* We always start with all locks locked */
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
-    erts_smp_atomic32_init(&p->lock.flags, (erts_aint32_t) ERTS_PROC_LOCKS_ALL);
+    erts_smp_atomic32_init_nob(&p->lock.flags,
+			       (erts_aint32_t) ERTS_PROC_LOCKS_ALL);
 #else
     p->lock.flags = ERTS_PROC_LOCKS_ALL;
 #endif
@@ -974,7 +975,7 @@ erts_proc_lock_init(Process *p)
     {
 	int i;
 	for (i = 0; i <= ERTS_PROC_LOCK_MAX_BIT; i++)
-	    erts_smp_atomic32_init(&p->lock.locked[i], (erts_aint32_t) 1);
+	    erts_smp_atomic32_init_nob(&p->lock.locked[i], (erts_aint32_t) 1);
     }
 #endif
 }

@@ -340,7 +340,8 @@ int erts_send_warning_to_logger_str_nogl(char *);
 #ifdef ERTS_WANT_BREAK_HANDLING
 #  ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_break_requested;
-#    define ERTS_BREAK_REQUESTED ((int) erts_smp_atomic32_read(&erts_break_requested))
+#    define ERTS_BREAK_REQUESTED \
+  ((int) erts_smp_atomic32_read_nob(&erts_break_requested))
 #  else
 extern volatile int erts_break_requested;
 #    define ERTS_BREAK_REQUESTED erts_break_requested
@@ -354,7 +355,7 @@ void erts_do_break_handling(void);
 #  else
 #    ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_got_sigusr1;
-#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic32_read(&erts_got_sigusr1))
+#      define ERTS_GOT_SIGUSR1 ((int) erts_smp_atomic32_read_mb(&erts_got_sigusr1))
 #    else
 extern volatile int erts_got_sigusr1;
 #      define ERTS_GOT_SIGUSR1 erts_got_sigusr1
@@ -363,11 +364,15 @@ extern volatile int erts_got_sigusr1;
 #endif
 
 #ifdef ERTS_SMP
-extern erts_smp_atomic_t erts_writing_erl_crash_dump;
+extern erts_smp_atomic32_t erts_writing_erl_crash_dump;
+extern erts_tsd_key_t erts_is_crash_dumping_key;
+#define ERTS_SOMEONE_IS_CRASH_DUMPING \
+  ((int) erts_smp_atomic32_read_mb(&erts_writing_erl_crash_dump))
 #define ERTS_IS_CRASH_DUMPING \
-  ((int) erts_smp_atomic_read(&erts_writing_erl_crash_dump))
+  ((int) (SWord) erts_tsd_get(erts_is_crash_dumping_key))
 #else
 extern volatile int erts_writing_erl_crash_dump;
+#define ERTS_SOMEONE_IS_CRASH_DUMPING erts_writing_erl_crash_dump
 #define ERTS_IS_CRASH_DUMPING erts_writing_erl_crash_dump
 #endif
 
@@ -877,7 +882,7 @@ ERTS_GLB_INLINE int
 erts_smp_pending_system_block(void)
 {
 #ifdef ERTS_SMP
-    return (int) erts_smp_atomic32_read(&erts_system_block_state.do_block);
+    return (int) erts_smp_atomic32_read_nob(&erts_system_block_state.do_block);
 #else
     return 0;
 #endif
@@ -913,7 +918,7 @@ erts_smp_set_activity(erts_activity_t old_activity,
     case ERTS_ACTIVITY_UNDEFINED:
 	break;
     case ERTS_ACTIVITY_WAIT:
-	erts_smp_atomic32_dec(&erts_system_block_state.in_activity.wait);
+	erts_smp_atomic32_dec_acqb(&erts_system_block_state.in_activity.wait);
 	if (locked) {
 	    /* You are not allowed to leave activity waiting
 	     * without supplying the possibility to block
@@ -924,10 +929,10 @@ erts_smp_set_activity(erts_activity_t old_activity,
 	}
 	break;
     case ERTS_ACTIVITY_GC:
-	erts_smp_atomic32_dec(&erts_system_block_state.in_activity.gc);
+	erts_smp_atomic32_dec_acqb(&erts_system_block_state.in_activity.gc);
 	break;
     case ERTS_ACTIVITY_IO:
-	erts_smp_atomic32_dec(&erts_system_block_state.in_activity.io);
+	erts_smp_atomic32_dec_acqb(&erts_system_block_state.in_activity.io);
 	break;
     default:
 	erts_set_activity_error(ERTS_ACT_ERR_LEAVE_UNKNOWN_ACTIVITY,
@@ -943,13 +948,13 @@ erts_smp_set_activity(erts_activity_t old_activity,
     case ERTS_ACTIVITY_UNDEFINED:
 	break;
     case ERTS_ACTIVITY_WAIT:
-	erts_smp_atomic32_inc(&erts_system_block_state.in_activity.wait);
+	erts_smp_atomic32_inc_mb(&erts_system_block_state.in_activity.wait);
 	break;
     case ERTS_ACTIVITY_GC:
-	erts_smp_atomic32_inc(&erts_system_block_state.in_activity.gc);
+	erts_smp_atomic32_inc_mb(&erts_system_block_state.in_activity.gc);
 	break;
     case ERTS_ACTIVITY_IO:
-	erts_smp_atomic32_inc(&erts_system_block_state.in_activity.io);
+	erts_smp_atomic32_inc_mb(&erts_system_block_state.in_activity.io);
 	break;
     default:
 	erts_set_activity_error(ERTS_ACT_ERR_ENTER_UNKNOWN_ACTIVITY,
@@ -1001,27 +1006,27 @@ ERTS_GLB_INLINE erts_aint_t erts_refc_read(erts_refc_t *refcp,
 ERTS_GLB_INLINE void
 erts_refc_init(erts_refc_t *refcp, erts_aint_t val)
 {
-    erts_smp_atomic_init((erts_smp_atomic_t *) refcp, val);
+    erts_smp_atomic_init_nob((erts_smp_atomic_t *) refcp, val);
 }
 
 ERTS_GLB_INLINE void
 erts_refc_inc(erts_refc_t *refcp, erts_aint_t min_val)
 {
 #ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_inctest((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
     if (val < min_val)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_inc(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #else
-    erts_smp_atomic_inc((erts_smp_atomic_t *) refcp);
+    erts_smp_atomic_inc_nob((erts_smp_atomic_t *) refcp);
 #endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
 erts_refc_inctest(erts_refc_t *refcp, erts_aint_t min_val)
 {
-    erts_aint_t val = erts_smp_atomic_inctest((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
 	erl_exit(ERTS_ABORT_EXIT,
@@ -1035,20 +1040,20 @@ ERTS_GLB_INLINE void
 erts_refc_dec(erts_refc_t *refcp, erts_aint_t min_val)
 {
 #ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_dectest((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
     if (val < min_val)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_dec(): Bad refc found (refc=%ld < %ld)!\n",
 		 val, min_val);
 #else
-    erts_smp_atomic_dec((erts_smp_atomic_t *) refcp);
+    erts_smp_atomic_dec_nob((erts_smp_atomic_t *) refcp);
 #endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
 erts_refc_dectest(erts_refc_t *refcp, erts_aint_t min_val)
 {
-    erts_aint_t val = erts_smp_atomic_dectest((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
 	erl_exit(ERTS_ABORT_EXIT,
@@ -1062,20 +1067,20 @@ ERTS_GLB_INLINE void
 erts_refc_add(erts_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
 {
 #ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_addtest((erts_smp_atomic_t *) refcp, diff);
+    erts_aint_t val = erts_smp_atomic_add_read_nob((erts_smp_atomic_t *) refcp, diff);
     if (val < min_val)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "erts_refc_add(%ld): Bad refc found (refc=%ld < %ld)!\n",
 		 diff, val, min_val);
 #else
-    erts_smp_atomic_add((erts_smp_atomic_t *) refcp, diff);
+    erts_smp_atomic_add_nob((erts_smp_atomic_t *) refcp, diff);
 #endif
 }
 
 ERTS_GLB_INLINE erts_aint_t
 erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 {
-    erts_aint_t val = erts_smp_atomic_read((erts_smp_atomic_t *) refcp);
+    erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
 #ifdef ERTS_REFC_DEBUG
     if (val < min_val)
 	erl_exit(ERTS_ABORT_EXIT,

@@ -135,7 +135,7 @@ bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 	    if (szp)
 		*szp += 4+2;
 	    if (hpp) {
-		Uint refc = (Uint) erts_smp_atomic_read(&pb->val->refc);
+		Uint refc = (Uint) erts_smp_atomic_read_nob(&pb->val->refc);
 		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
 		res = CONS(*hpp + 4, tuple, res);
 		*hpp += 4+2;
@@ -2026,7 +2026,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = TUPLE2(hp, am_sequential_tracer, val);
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_garbage_collection){
-	Uint val = (Uint) erts_smp_atomic32_read(&erts_max_gen_gcs);
+	Uint val = (Uint) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
 	Eterm tup;
 	hp = HAlloc(BIF_P, 3+2 + 3+2 + 3+2);
 
@@ -2041,7 +2041,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_fullsweep_after){
-	Uint val = (Uint) erts_smp_atomic32_read(&erts_max_gen_gcs);
+	Uint val = (Uint) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_fullsweep_after, make_small(val));
 	BIF_RET(res);
@@ -2909,7 +2909,7 @@ fun_info_2(Process* p, Eterm fun, Eterm what)
 	    }
 	    break;
 	case am_refc:
-	    val = erts_make_integer(erts_smp_atomic_read(&funp->fe->refc), p);
+	    val = erts_make_integer(erts_smp_atomic_read_nob(&funp->fe->refc), p);
 	    hp = HAlloc(p, 3);
 	    break;
 	case am_arity:
@@ -3129,8 +3129,8 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	Eterm r1, r2;
 	Eterm in, out;
 	Uint hsz = 9;
-	Uint bytes_in = (Uint) erts_smp_atomic_read(&erts_bytes_in);
-	Uint bytes_out = (Uint) erts_smp_atomic_read(&erts_bytes_out);
+	Uint bytes_in = (Uint) erts_smp_atomic_read_nob(&erts_bytes_in);
+	Uint bytes_out = (Uint) erts_smp_atomic_read_nob(&erts_bytes_out);
 
 	(void) erts_bld_uint(NULL, &hsz, bytes_in);
 	(void) erts_bld_uint(NULL, &hsz, bytes_out);
@@ -3203,7 +3203,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
      * NOTE: Only supposed to be used for testing, and debugging.
      */
 
-    if (!erts_smp_atomic_read(&available_internal_state)) {
+    if (!erts_smp_atomic_read_nob(&available_internal_state)) {
 	BIF_ERROR(BIF_P, EXC_UNDEF);
     }
 
@@ -3501,7 +3501,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
     if (ERTS_IS_ATOM_STR("available_internal_state", BIF_ARG_1)
 	&& (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false)) {
 	erts_aint_t on = (erts_aint_t) (BIF_ARG_2 == am_true);
-	erts_aint_t prev_on = erts_smp_atomic_xchg(&available_internal_state, on);
+	erts_aint_t prev_on = erts_smp_atomic_xchg_nob(&available_internal_state, on);
 	if (on) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp, "Process %T ", BIF_P->id);
@@ -3517,7 +3517,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	BIF_RET(prev_on ? am_true : am_false);
     }
 
-    if (!erts_smp_atomic_read(&available_internal_state)) {
+    if (!erts_smp_atomic_read_nob(&available_internal_state)) {
 	BIF_ERROR(BIF_P, EXC_UNDEF);
     }
 
@@ -3698,14 +3698,14 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	}
 	else if (ERTS_IS_ATOM_STR("hipe_test_reschedule_suspend", BIF_ARG_1)) {
 	    /* Used by hipe test suites */
-	    erts_aint_t flag = erts_smp_atomic_read(&hipe_test_reschedule_flag);
+	    erts_aint_t flag = erts_smp_atomic_read_nob(&hipe_test_reschedule_flag);
 	    if (!flag && BIF_ARG_2 != am_false) {
-		erts_smp_atomic_set(&hipe_test_reschedule_flag, 1);
+		erts_smp_atomic_set_nob(&hipe_test_reschedule_flag, 1);
 		erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 		ERTS_BIF_YIELD2(bif_export[BIF_erts_debug_set_internal_state_2],
 				BIF_P, BIF_ARG_1, BIF_ARG_2);
 	    }
-	    erts_smp_atomic_set(&hipe_test_reschedule_flag, !flag);
+	    erts_smp_atomic_set_nob(&hipe_test_reschedule_flag, !flag);
 	    BIF_RET(NIL);
 	}
 	else if (ERTS_IS_ATOM_STR("hipe_test_reschedule_resume", BIF_ARG_1)) {
@@ -4015,8 +4015,8 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 void
 erts_bif_info_init(void)
 {
-    erts_smp_atomic_init(&available_internal_state, 0);
-    erts_smp_atomic_init(&hipe_test_reschedule_flag, 0);
+    erts_smp_atomic_init_nob(&available_internal_state, 0);
+    erts_smp_atomic_init_nob(&hipe_test_reschedule_flag, 0);
 
     process_info_init();
 }

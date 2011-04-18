@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -408,7 +408,7 @@ erts_is_count_break(BeamInstr *pc, Sint *count_ret) {
     
     if (bdc) {
 	if (count_ret) {
-	    *count_ret = (Sint) erts_smp_atomic_read(&bdc->acount);
+	    *count_ret = (Sint) erts_smp_atomic_read_nob(&bdc->acount);
 	}
 	return !0;
     }
@@ -958,17 +958,17 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 		
 	    if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 		if (count_op == erts_break_stop) {
-		    count = erts_smp_atomic_read(&bdc->acount);
+		    count = erts_smp_atomic_read_nob(&bdc->acount);
 		    if (count >= 0) {
 			while(1) {
-			    res = erts_smp_atomic_cmpxchg(&bdc->acount, -count - 1, count);
+			    res = erts_smp_atomic_cmpxchg_nob(&bdc->acount, -count - 1, count);
 			    if ((res == count) || count < 0) break;
 			    count = res;
 			}
 		    }
 		} else {
 		    /* Reset call counter */
-		    erts_smp_atomic_set(&bdc->acount, 0);
+		    erts_smp_atomic_set_nob(&bdc->acount, 0);
 		}
 
 	    } else if (break_op == (BeamInstr) BeamOp(op_i_time_breakpoint)) {
@@ -1097,7 +1097,7 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 	}
     } else if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 	BpDataCount *bdc = (BpDataCount *) bd;
-	erts_smp_atomic_init(&bdc->acount, 0);
+	erts_smp_atomic_init_nob(&bdc->acount, 0);
     }
 
     if (bif == BREAK_IS_ERL) {

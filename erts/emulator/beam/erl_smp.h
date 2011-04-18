@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -628,41 +628,6 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_cmpxchg_wb erts_no_atomic32_cmpxchg
 
 #endif /* !ERTS_SMP */
-
-#ifndef ERTS_NO_DEPRECATED_ATOMICS
-
-/* Deprecated functions to replace */
-
-#define erts_smp_atomic_init erts_smp_atomic_init_nob
-#define erts_smp_atomic_set erts_smp_atomic_set_nob
-#define erts_smp_atomic_read erts_smp_atomic_read_nob
-#define erts_smp_atomic_inctest erts_smp_atomic_inc_read_mb
-#define erts_smp_atomic_dectest erts_smp_atomic_dec_read_mb
-#define erts_smp_atomic_inc erts_smp_atomic_inc_mb
-#define erts_smp_atomic_dec erts_smp_atomic_dec_mb
-#define erts_smp_atomic_addtest erts_smp_atomic_add_read_mb
-#define erts_smp_atomic_add erts_smp_atomic_add_mb
-#define erts_smp_atomic_xchg erts_smp_atomic_xchg_mb
-#define erts_smp_atomic_cmpxchg erts_smp_atomic_cmpxchg_mb
-#define erts_smp_atomic_bor erts_smp_atomic_read_bor_mb
-#define erts_smp_atomic_band erts_smp_atomic_read_band_mb
-
-#define erts_smp_atomic32_init erts_smp_atomic32_init_nob
-#define erts_smp_atomic32_set erts_smp_atomic32_set_nob
-#define erts_smp_atomic32_read erts_smp_atomic32_read_nob
-#define erts_smp_atomic32_inctest erts_smp_atomic32_inc_read_mb
-#define erts_smp_atomic32_dectest erts_smp_atomic32_dec_read_mb
-#define erts_smp_atomic32_inc erts_smp_atomic32_inc_mb
-#define erts_smp_atomic32_dec erts_smp_atomic32_dec_mb
-#define erts_smp_atomic32_addtest erts_smp_atomic32_add_read_mb
-#define erts_smp_atomic32_add erts_smp_atomic32_add_mb
-#define erts_smp_atomic32_xchg erts_smp_atomic32_xchg_mb
-#define erts_smp_atomic32_cmpxchg erts_smp_atomic32_cmpxchg_mb
-#define erts_smp_atomic32_bor erts_smp_atomic32_read_bor_mb
-#define erts_smp_atomic32_band erts_smp_atomic32_read_band_mb
-
-#endif
-
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

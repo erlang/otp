@@ -270,9 +270,11 @@ typedef struct {
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 
 #define ERTS_PROC_LOCK_FLGS_BAND_(L, MSK) \
-  ((ErtsProcLocks) erts_smp_atomic32_band(&(L)->flags, (erts_aint32_t) (MSK)))
-#define ERTS_PROC_LOCK_FLGS_BOR_(L, MSK) \
-  ((ErtsProcLocks) erts_smp_atomic32_bor(&(L)->flags, (erts_aint32_t) (MSK)))
+  ((ErtsProcLocks) erts_smp_atomic32_read_band_nob(&(L)->flags, \
+						   (erts_aint32_t) (MSK)))
+#define ERTS_PROC_LOCK_FLGS_BOR_ACQB_(L, MSK) \
+  ((ErtsProcLocks) erts_smp_atomic32_read_bor_acqb(&(L)->flags, \
+						   (erts_aint32_t) (MSK)))
 #define ERTS_PROC_LOCK_FLGS_CMPXCHG_ACQB_(L, NEW, EXPECTED) \
   ((ErtsProcLocks) erts_smp_atomic32_cmpxchg_acqb(&(L)->flags, \
 						  (erts_aint32_t) (NEW), \
@@ -282,7 +284,7 @@ typedef struct {
 						  (erts_aint32_t) (NEW), \
 						  (erts_aint32_t) (EXPECTED)))
 #define ERTS_PROC_LOCK_FLGS_READ_(L) \
-  ((ErtsProcLocks) erts_smp_atomic32_read(&(L)->flags))
+  ((ErtsProcLocks) erts_smp_atomic32_read_nob(&(L)->flags))
 
 #else /* no opt atomic ops */
 
@@ -325,7 +327,7 @@ erts_proc_lock_flags_cmpxchg(erts_proc_lock_t *lck, ErtsProcLocks new,
 #endif
 
 #define ERTS_PROC_LOCK_FLGS_BAND_(L, MSK) erts_proc_lock_flags_band((L), (MSK))
-#define ERTS_PROC_LOCK_FLGS_BOR_(L, MSK) erts_proc_lock_flags_bor((L), (MSK))
+#define ERTS_PROC_LOCK_FLGS_BOR_ACQB_(L, MSK) erts_proc_lock_flags_bor((L), (MSK))
 #define ERTS_PROC_LOCK_FLGS_CMPXCHG_ACQB_(L, NEW, EXPECTED) \
   erts_proc_lock_flags_cmpxchg((L), (NEW), (EXPECTED))
 #define ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(L, NEW, EXPECTED) \
@@ -623,11 +625,11 @@ erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
 	if (locks & lock) {
 	    erts_aint32_t lock_count;
 	    if (locked) {
-		lock_count = erts_smp_atomic32_inctest(&p->lock.locked[i]);
+		lock_count = erts_smp_atomic32_inc_read_nob(&p->lock.locked[i]);
 		ERTS_LC_ASSERT(lock_count == 1);
 	    }
 	    else {
-		lock_count = erts_smp_atomic32_dectest(&p->lock.locked[i]);
+		lock_count = erts_smp_atomic32_dec_read_nob(&p->lock.locked[i]);
 		ERTS_LC_ASSERT(lock_count == 0);
 	    }
 	}

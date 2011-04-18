@@ -244,8 +244,8 @@ get_free_port(void)
     }
     port->status = ERTS_PORT_SFLG_INITIALIZING;
 #ifdef ERTS_SMP
-    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read(&port->refc) == 0);
-    erts_smp_atomic_set(&port->refc, 2); /* Port alive + lock */
+    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 0);
+    erts_smp_atomic_set_nob(&port->refc, 2); /* Port alive + lock */
 #endif	
     erts_smp_port_state_unlock(port);
     return num & port_num_mask;
@@ -327,7 +327,7 @@ port_cleanup(Port *prt)
 #ifdef ERTS_SMP
 
     ASSERT(prt->status & ERTS_PORT_SFLG_FREE_SCHEDULED);
-    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read(&prt->refc) == 0);
+    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&prt->refc) == 0);
 
     port_specific = (prt->status & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK);
 
@@ -425,11 +425,11 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
     erts_smp_runq_lock(runq);
     erts_smp_port_state_lock(prt);    
     prt->status = ERTS_PORT_SFLG_CONNECTED | xstatus;
-    prt->snapshot = erts_smp_atomic32_read(&erts_ports_snapshot);    
+    prt->snapshot = erts_smp_atomic32_read_nob(&erts_ports_snapshot);    
     old_name = prt->name;
     prt->name = new_name;
 #ifdef ERTS_SMP
-    erts_smp_atomic_set(&prt->run_queue, (erts_aint_t) runq);
+    erts_smp_atomic_set_nob(&prt->run_queue, (erts_aint_t) runq);
 #endif
     ASSERT(!prt->drv_ptr);
     prt->drv_ptr = driver;
@@ -590,8 +590,8 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	erts_smp_port_state_lock(port);
 	port->status = ERTS_PORT_SFLG_FREE;
 #ifdef ERTS_SMP
-	ERTS_SMP_LC_ASSERT(erts_smp_atomic_read(&port->refc) == 2);
-	erts_smp_atomic_set(&port->refc, 0); 
+	ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 2);
+	erts_smp_atomic_set_nob(&port->refc, 0); 
 #endif	
 	erts_smp_port_state_unlock(port);
 	return -3;
@@ -1206,7 +1206,7 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	}
     }
     p->bytes_out += size;
-    erts_smp_atomic_add(&erts_bytes_out, size);
+    erts_smp_atomic_add_nob(&erts_bytes_out, size);
 
 #ifdef ERTS_SMP
     if (p->xports)
@@ -1277,13 +1277,13 @@ void init_io(void)
     erts_port = (Port *) erts_alloc(ERTS_ALC_T_PORT_TABLE,
 				    erts_max_ports * sizeof(Port));
 
-    erts_smp_atomic_init(&erts_bytes_out, 0);
-    erts_smp_atomic_init(&erts_bytes_in, 0);
+    erts_smp_atomic_init_nob(&erts_bytes_out, 0);
+    erts_smp_atomic_init_nob(&erts_bytes_in, 0);
 
     for (i = 0; i < erts_max_ports; i++) {
 	erts_port_task_init_sched(&erts_port[i].sched);
 #ifdef ERTS_SMP
-	erts_smp_atomic_init(&erts_port[i].refc, 0);
+	erts_smp_atomic_init_nob(&erts_port[i].refc, 0);
 	erts_port[i].lock = NULL;
 	erts_port[i].xports = NULL;
 	erts_smp_spinlock_init_x(&erts_port[i].state_lck, "port_state", make_small(i));
@@ -1300,7 +1300,7 @@ void init_io(void)
 	erts_port[i].port_data_lock = NULL;
     }
 
-    erts_smp_atomic32_init(&erts_ports_snapshot, (erts_aint32_t) 0);
+    erts_smp_atomic32_init_nob(&erts_ports_snapshot, (erts_aint32_t) 0);
     last_port_num = 0;
     erts_smp_spinlock_init(&get_free_port_lck, "get_free_port");
 
@@ -3253,7 +3253,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, int hlen,
 	return 0;
 
     prt->bytes_in += (hlen + len);
-    erts_smp_atomic_add(&erts_bytes_in, (erts_aint_t) (hlen + len));
+    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) (hlen + len));
     if (prt->status & ERTS_PORT_SFLG_DISTRIBUTION) {
 	return erts_net_message(prt,
 				prt->dist_entry,
@@ -3288,7 +3288,7 @@ int driver_output2(ErlDrvPort ix, char* hbuf, int hlen, char* buf, int len)
 	return 0;
     
     prt->bytes_in += (hlen + len);
-    erts_smp_atomic_add(&erts_bytes_in, (erts_aint_t) (hlen + len));
+    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) (hlen + len));
     if (prt->status & ERTS_PORT_SFLG_DISTRIBUTION) {
 	if (len == 0)
 	    return erts_net_message(prt,
@@ -3365,7 +3365,7 @@ int driver_outputv(ErlDrvPort ix, char* hbuf, int hlen, ErlIOVec* vec, int skip)
 
     /* XXX handle distribution !!! */
     prt->bytes_in += (hlen + size);
-    erts_smp_atomic_add(&erts_bytes_in, (erts_aint_t) (hlen + size));
+    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) (hlen + size));
     deliver_vec_message(prt, prt->connected, hbuf, hlen, binv, iov, n, size);
     return 0;
 }
@@ -3539,13 +3539,13 @@ pdl_init(void)
 static ERTS_INLINE void
 pdl_init_refc(ErlDrvPDL pdl)
 {
-    erts_atomic_init(&pdl->refc, 1);
+    erts_atomic_init_nob(&pdl->refc, 1);
 }
 
 static ERTS_INLINE ErlDrvSInt
 pdl_read_refc(ErlDrvPDL pdl)
 {
-    erts_aint_t refc = erts_atomic_read(&pdl->refc);
+    erts_aint_t refc = erts_atomic_read_nob(&pdl->refc);
     ERTS_LC_ASSERT(refc >= 0);
     return (ErlDrvSInt) refc;
 }
@@ -3553,14 +3553,14 @@ pdl_read_refc(ErlDrvPDL pdl)
 static ERTS_INLINE void
 pdl_inc_refc(ErlDrvPDL pdl)
 {
-    erts_atomic_inc(&pdl->refc);
+    erts_atomic_inc_nob(&pdl->refc);
     ERTS_LC_ASSERT(driver_pdl_get_refc(pdl) > 1);
 }
 
 static ERTS_INLINE ErlDrvSInt
 pdl_inctest_refc(ErlDrvPDL pdl)
 {
-    erts_aint_t refc = erts_atomic_inctest(&pdl->refc);
+    erts_aint_t refc = erts_atomic_inc_read_nob(&pdl->refc);
     ERTS_LC_ASSERT(refc > 1);
     return (ErlDrvSInt) refc;
 }
@@ -3569,7 +3569,7 @@ pdl_inctest_refc(ErlDrvPDL pdl)
 static ERTS_INLINE void
 pdl_dec_refc(ErlDrvPDL pdl)
 {
-    erts_atomic_dec(&pdl->refc);
+    erts_atomic_dec_nob(&pdl->refc);
     ERTS_LC_ASSERT(driver_pdl_get_refc(pdl) > 0);
 }
 #endif
@@ -3577,7 +3577,7 @@ pdl_dec_refc(ErlDrvPDL pdl)
 static ERTS_INLINE ErlDrvSInt
 pdl_dectest_refc(ErlDrvPDL pdl)
 {
-    erts_aint_t refc = erts_atomic_dectest(&pdl->refc);
+    erts_aint_t refc = erts_atomic_dec_read_nob(&pdl->refc);
     ERTS_LC_ASSERT(refc >= 0);
     return (ErlDrvSInt) refc;
 }
