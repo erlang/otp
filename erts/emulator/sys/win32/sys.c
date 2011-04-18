@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -75,7 +75,7 @@ static int create_pipe(LPHANDLE, LPHANDLE, BOOL, BOOL);
 static int application_type(const char* originalName, char fullPath[MAX_PATH],
 			   BOOL search_in_path, BOOL handle_quotes,
 			   int *error_return);
-static int application_type_w(const char* originalName, WCHAR fullPath[MAX_PATH],
+static int application_type_w(const WCHAR *originalName, WCHAR fullPath[MAX_PATH],
 			      BOOL search_in_path, BOOL handle_quotes,
 			      int *error_return);
 
@@ -260,7 +260,7 @@ erts_sys_prepare_crash_dump(void)
 }
 
 static void
-init_console()
+init_console(void)
 {
     char* mode = erts_read_env("ERL_CONSOLE_MODE");
 
@@ -280,7 +280,7 @@ init_console()
     erts_free_read_env(mode);
 }
 
-int sys_max_files() 
+int sys_max_files(void) 
 {
     return max_files;
 }
@@ -296,10 +296,7 @@ int sys_max_files()
  */
 
 static int
-get_and_remove_option(argc, argv, option)
-    int* argc;			/* Number of arguments. */
-    char* argv[];		/* The argument vector. */
-    const char* option;		/* Option to search for and remove. */
+get_and_remove_option(int* argc, char* argv[], const char *option)
 {
     int i;
 
@@ -349,9 +346,7 @@ static char *get_and_remove_option2(int *argc, char **argv,
 char os_type[] = "win32";
 
 void
-os_flavor(namebuf, size)
-char* namebuf;			/* Where to return the name. */
-unsigned size;			/* Size of name buffer. */
+os_flavor(char *namebuf, unsigned size)
 {
     switch (int_os_version.dwPlatformId) {
     case VER_PLATFORM_WIN32_WINDOWS:
@@ -624,12 +619,7 @@ struct erl_drv_entry async_driver_entry = {
  */
 
 static DriverData*
-new_driver_data(port_num, packet_bytes, wait_objs_required, use_threads)
-    int port_num;		/* The port number. */
-    int packet_bytes;		/* Number of bytes in header. */
-    int wait_objs_required;	/* The number objects this port is going
-				/* wait for (typically 1 or 2). */
-    int use_threads;		/* TRUE if threads are intended to be used. */
+new_driver_data(int port_num, int packet_bytes, int wait_objs_required, int use_threads)
 {
     DriverData* dp;
     
@@ -867,12 +857,7 @@ threaded_handle_closer(LPVOID param)
  */
 
 static ErlDrvData
-set_driver_data(dp, ifd, ofd, read_write, report_exit)
-    DriverData* dp;
-    HANDLE ifd;
-    HANDLE ofd;
-    int read_write;
-    int report_exit;
+set_driver_data(DriverData* dp, HANDLE ifd, HANDLE ofd, int read_write, int report_exit)
 {
     int index = dp - driver_data;
     int result;
@@ -886,6 +871,31 @@ set_driver_data(dp, ifd, ofd, read_write, report_exit)
 			       ERL_DRV_READ|ERL_DRV_USE, 1);
 	ASSERT(result != -1);
 	async_read_file(&dp->in, dp->inbuf, dp->inBufSize);
+    }
+
+    if (read_write & DO_WRITE) {
+	result = driver_select(dp->port_num, (ErlDrvEvent)dp->out.ov.hEvent,
+			       ERL_DRV_WRITE|ERL_DRV_USE, 1);
+	ASSERT(result != -1);
+    }
+    return (ErlDrvData)index;
+}
+
+static ErlDrvData
+reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write, ErlDrvPort port_num)
+{
+    int index = dp - driver_data;
+    int result;
+
+    dp->port_num = port_num;
+    dp->in.fd = ifd;
+    dp->out.fd = ofd;
+    dp->report_exit = 0;
+
+    if (read_write & DO_READ) {
+	result = driver_select(dp->port_num, (ErlDrvEvent)dp->in.ov.hEvent,
+			       ERL_DRV_READ|ERL_DRV_USE, 1);
+	ASSERT(result != -1);
     }
 
     if (read_write & DO_WRITE) {
@@ -969,10 +979,7 @@ release_async_io(AsyncIo* aio, ErlDrvPort port_num)
  */
 
 static void
-async_read_file(aio, buf, numToRead)
-    AsyncIo* aio;		/* Pointer to driver data. */
-    LPVOID buf;			/* Pointer to buffer to receive data. */
-    DWORD numToRead;		/* Number of bytes to read. */
+async_read_file(AsyncIo* aio, LPVOID buf, DWORD numToRead)
 {
     aio->pendingError = NO_ERROR;
 #ifdef HARD_POLL_DEBUG
@@ -1023,10 +1030,9 @@ async_read_file(aio, buf, numToRead)
  * ----------------------------------------------------------------------
  */
 static int
-async_write_file(aio, buf, numToWrite)
-    AsyncIo* aio;		/* Pointer to async control block. */
-    LPVOID buf;			/* Pointer to buffer with data to write. */
-    DWORD numToWrite;		/* Number of bytes to write. */
+async_write_file(AsyncIo* aio,		/* Pointer to async control block. */
+		 LPVOID buf,		/* Pointer to buffer with data to write. */
+		 DWORD numToWrite)	/* Number of bytes to write. */
 {
     aio->pendingError = NO_ERROR;
     if (aio->thread != (HANDLE) -1) {
@@ -1070,12 +1076,12 @@ async_write_file(aio, buf, numToWrite)
  * ----------------------------------------------------------------------
  */
 static int
-get_overlapped_result(aio, pBytesRead, wait)
-    AsyncIo* aio;		/* Pointer to async control block. */
-    LPDWORD pBytesRead;		/* Where to place the number of bytes
-				 * transferred.
-				 */
-    BOOL wait;			/* If true, wait until result is ready. */
+get_overlapped_result(AsyncIo* aio,		/* Pointer to async control block. */
+		      LPDWORD pBytesRead,	/* Where to place the number of bytes
+						 * transferred.
+						 */
+		      BOOL wait			/* If true, wait until result is ready. */
+		      )
 {
     DWORD error = NO_ERROR;	/* Error status from last function. */
 
@@ -1145,7 +1151,7 @@ fd_init(void)
     return 0;
 }
 static int
-spawn_init()
+spawn_init(void)
 {
     int i;
 #if defined(ERTS_SMP) && defined(USE_CANCELIOEX)
@@ -1532,7 +1538,7 @@ create_child_process
 	siStartInfo.hStdOutput = hStdout;
 	siStartInfo.hStdError = hStderr;
 
-	applType = application_type_w(origcmd, (char *) execPath, FALSE, FALSE, 
+	applType = application_type_w((WCHAR *) origcmd, execPath, FALSE, FALSE, 
 				      errno_return);
 	if (applType == APPL_NONE) {
 	    return FALSE;
@@ -1555,7 +1561,7 @@ create_child_process
 	if (run_cmd) {
 	    WCHAR cmdPath[MAX_PATH];
 	    int cmdType;
-	    cmdType = application_type_w((char *) L"cmd.exe", (char *) cmdPath, TRUE, FALSE, errno_return);
+	    cmdType = application_type_w(L"cmd.exe", cmdPath, TRUE, FALSE, errno_return);
 	    if (cmdType == APPL_NONE || cmdType == APPL_DOS) {
 		return FALSE;
 	    }
@@ -1921,7 +1927,7 @@ static int application_type
     return applType;
 }
 
-static int application_type_w (const char *originalName, /* Name of the application to find. */ 
+static int application_type_w (const WCHAR *originalName, /* Name of the application to find. */ 
 			       WCHAR wfullpath[MAX_PATH],/* Filled with complete path to 
 							  * application. */
 			       BOOL search_in_path,      /* If we should search the system wide path */
@@ -1937,25 +1943,24 @@ static int application_type_w (const char *originalName, /* Name of the applicat
     static WCHAR extensions[][5] = {L"", L".com", L".exe", L".bat"};
     int is_quoted;
     int len;
-    WCHAR *wname = (WCHAR *) originalName;
     WCHAR xfullpath[MAX_PATH];
 
-    len = wcslen(wname);
-    is_quoted = handle_quotes && len > 0 && wname[0] == L'"' && 
-	wname[len-1] == L'"';
+    len = wcslen(originalName);
+    is_quoted = handle_quotes && len > 0 && originalName[0] == L'"' && 
+	originalName[len-1] == L'"';
 
     applType = APPL_NONE;
     *error_return = ENOENT;
     for (i = 0; i < (int) (sizeof(extensions) / sizeof(extensions[0])); i++) {
 	if(is_quoted) {
-	   lstrcpynW(xfullpath, wname+1, MAX_PATH - 7); /* Cannot start using StringCchCopy yet, we support
+	   lstrcpynW(xfullpath, originalName+1, MAX_PATH - 7); /* Cannot start using StringCchCopy yet, we support
 							   older platforms */
 	   len = wcslen(xfullpath);
 	   if(len > 0) {
 	       xfullpath[len-1] = L'\0';
 	   }
 	} else {
-	    lstrcpynW(xfullpath, wname, MAX_PATH - 5);
+	    lstrcpynW(xfullpath, originalName, MAX_PATH - 5);
 	}
 	wcscat(xfullpath, extensions[i]);
 	/* It seems that the Unicode version does not allow in and out parameter to overlap. */
@@ -2080,9 +2085,10 @@ threaded_reader(LPVOID param)
 	buf = OV_BUFFER_PTR(aio);
 	numToRead = OV_NUM_TO_READ(aio);
 	aio->pendingError = 0;
-	if (!ReadFile(aio->fd, buf, numToRead, &aio->bytesTransferred, NULL))
-	    aio->pendingError = GetLastError();
-	else if (aio->flags & DF_XLAT_CR) {
+	if (!ReadFile(aio->fd, buf, numToRead, &aio->bytesTransferred, NULL)) {
+	    int error = GetLastError();
+	    aio->pendingError = error;
+	} else if (aio->flags & DF_XLAT_CR) {
 	    char *s;
 	    int n;
 	    
@@ -2209,56 +2215,79 @@ translate_fd(int fd)
     return handle;
 }
 
+/* Driver level locking, start function is serialized */
+static DriverData *save_01_port = NULL;
+static DriverData *save_22_port = NULL;
+
 static ErlDrvData
 fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 {
     DriverData* dp;
     int is_std_error = (opts->ofd == 2);
-    
-    opts->ifd = (int) translate_fd(opts->ifd);
-    opts->ofd = (int) translate_fd(opts->ofd);
-    if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, TRUE)) == NULL)
-	return ERL_DRV_ERROR_GENERAL;
-    
-    if (!create_file_thread(&dp->in, DO_READ)) {
-	dp->port_num = PORT_FREE;
-	return ERL_DRV_ERROR_GENERAL;
-    }
+    int in = opts->ifd, out = opts->ofd;
 
-    if (!create_file_thread(&dp->out, DO_WRITE)) {
-	dp->port_num = PORT_FREE;
-	return ERL_DRV_ERROR_GENERAL;
+    opts->ifd = (Uint) translate_fd(in);
+    opts->ofd = (Uint) translate_fd(out);
+    if ( in == 0 && out == 1 && save_01_port != NULL) {
+	dp = save_01_port;
+	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
+    } else if (in == 2 && out == 2 && save_22_port != NULL) {
+	dp = save_22_port;
+	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
+    } else {
+	if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, TRUE)) == NULL)
+	    return ERL_DRV_ERROR_GENERAL;
+	
+	if (!create_file_thread(&dp->in, DO_READ)) {
+	    dp->port_num = PORT_FREE;
+	    return ERL_DRV_ERROR_GENERAL;
+	}
+	
+	if (!create_file_thread(&dp->out, DO_WRITE)) {
+	    dp->port_num = PORT_FREE;
+	    return ERL_DRV_ERROR_GENERAL;
+	}
+	
+	fd_driver_input = &(dp->in);
+	dp->in.flags = DF_XLAT_CR;
+	if (is_std_error) {
+	    dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
+						 is an invalid handle */
+	}
+	
+	if ( in == 0 && out == 1) {
+	    save_01_port = dp;
+	} else if (in == 2 && out == 2) {
+	    save_22_port = dp;
+	}
+	return set_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, 0);
     }
-    
-    fd_driver_input = &(dp->in);
-    dp->in.flags = DF_XLAT_CR;
-    if (is_std_error) {
-	dp->out.flags |= DF_DROP_IF_INVH; /* Just drop messages if stderror
-					     is an invalid handle */
-    }
-    return set_driver_data(dp, opts->ifd, opts->ofd, opts->read_write, 0);
 }
 
 static void fd_stop(ErlDrvData d)
 {
   int fd = (int)d;
+  DriverData* dp = driver_data+fd;
   /*
-   * I don't know a clean way to terminate the threads
-   * (TerminateThread() doesn't release the stack),
-   * so will we'll let the threads live.  Normally, the fd
-   * driver is only used to support the -oldshell option,
-   * so this shouldn't be a problem in practice.
-   *
-   * Since we will not attempt to terminate the threads,
-   * better not close the input or output files either.
+   * There's no way we can terminate an fd port in a consistent way.
+   * Instead we let it live until it's opened again (which it is,
+   * as the only FD-drivers are for 0,1 and 2 adn the only time they
+   * get closed is by init:reboot).
+   * So - just deselect them and let everything be as is. 
+   * They get woken up in fd_start again, where the DriverData is
+   * remembered. /PaN
    */
+  if (dp->in.ov.hEvent != NULL) {
+      (void) driver_select(dp->port_num,
+			   (ErlDrvEvent)dp->in.ov.hEvent,
+			   ERL_DRV_READ, 0);
+  }
+  if (dp->out.ov.hEvent != NULL) {
+      (void) driver_select(dp->port_num,
+			   (ErlDrvEvent)dp->out.ov.hEvent,
+			   ERL_DRV_WRITE, 0);
+  }    
 
-  driver_data[fd].in.thread = (HANDLE) -1;
-  driver_data[fd].out.thread = (HANDLE) -1;
-  driver_data[fd].in.fd = INVALID_HANDLE_VALUE;
-  driver_data[fd].out.fd = INVALID_HANDLE_VALUE;
-
-  /*return */ common_stop(fd);
 }
 
 static ErlDrvData
@@ -2350,7 +2379,6 @@ threaded_exiter(LPVOID param)
      * because it is an auto reset event.  Therefore, always set the
      * exit flag and signal the event.
      */
-
     i = 0;
     if (dp->out.thread != (HANDLE) -1) {
 	dp->out.flags = DF_EXIT_THREAD;
@@ -2718,6 +2746,7 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 	    driver_failure_eof(dp->port_num);
 	} else {			/* Report real errors. */
 	    int error = GetLastError();
+
 	    (void) driver_select(dp->port_num, ready_event, ERL_DRV_READ, 0);
 	    _dosmaperr(error);
 	    driver_failure_posix(dp->port_num, errno);

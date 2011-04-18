@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,7 +41,8 @@
 	 pkix_is_issuer/2,
 	 pkix_issuer_id/2,
 	 pkix_normalize_name/1,
-	 pkix_path_validation/3
+	 pkix_path_validation/3,
+	 ssh_decode/2, ssh_encode/2
 	]).
 
 %% Deprecated
@@ -51,10 +52,6 @@
 -deprecated({decode_private_key, 1, next_major_release}).
 -deprecated({decode_private_key, 2, next_major_release}).
 
--type rsa_public_key()       ::  #'RSAPublicKey'{}.
--type rsa_private_key()      ::  #'RSAPrivateKey'{}.
--type dsa_private_key()      ::  #'DSAPrivateKey'{}.
--type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
 -type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
@@ -67,7 +64,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
 %%--------------------------------------------------------------------
 -spec pem_decode(binary()) -> [pem_entry()].
 %%
@@ -152,7 +148,7 @@ pem_entry_encode(Asn1Type, Entity,
     {Asn1Type, DecryptDer, CipherInfo}.
 
 %%--------------------------------------------------------------------
--spec der_decode(asn1_type(), der_encoded()) -> term().
+-spec der_decode(asn1_type(), Der::binary()) -> term().
 %%
 %% Description: Decodes a public key asn1 der encoded entity.
 %%--------------------------------------------------------------------
@@ -166,7 +162,7 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
     end.
 
 %%--------------------------------------------------------------------
--spec der_encode(asn1_type(), term()) -> der_encoded().
+-spec der_encode(asn1_type(), term()) -> Der::binary().
 %%
 %% Description: Encodes a public key entity with asn1 DER encoding.
 %%--------------------------------------------------------------------
@@ -180,7 +176,7 @@ der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     end.
 
 %%--------------------------------------------------------------------
--spec pkix_decode_cert(der_encoded(), plain | otp) -> 
+-spec pkix_decode_cert(Cert::binary(), plain | otp) ->
 			      #'Certificate'{} | #'OTPCertificate'{}.
 %%
 %% Description: Decodes an asn1 der encoded pkix certificate. The otp
@@ -201,7 +197,7 @@ pkix_decode_cert(DerCert, otp) when is_binary(DerCert) ->
     end.
 
 %%--------------------------------------------------------------------
--spec pkix_encode(asn1_type(), term(), otp | plain) -> der_encoded().
+-spec pkix_encode(asn1_type(), term(), otp | plain) -> Der::binary().
 %%
 %% Description: Der encodes a certificate or part of a certificate.
 %% This function must be used for encoding certificates or parts of certificates
@@ -361,7 +357,7 @@ verify(PlainText, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
 		       crypto:mpint(G), crypto:mpint(Key)]).
 %%--------------------------------------------------------------------
 -spec pkix_sign(#'OTPTBSCertificate'{},
-		rsa_private_key() | dsa_private_key()) -> der_encoded().
+		rsa_private_key() | dsa_private_key()) -> Der::binary().
 %%
 %% Description: Sign a pkix x.509 certificate. Returns the corresponding
 %% der encoded 'Certificate'{}
@@ -370,7 +366,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
 				   #'SignatureAlgorithm'{algorithm = Alg} 
 			       = SigAlg} = TBSCert, Key) ->
 
-    Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),    
+    Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),
     DigestType = pubkey_cert:digest_type(Alg),
     Signature = sign(Msg, DigestType, Key),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
@@ -380,7 +376,7 @@ pkix_sign(#'OTPTBSCertificate'{signature =
     pkix_encode('OTPCertificate', Cert, otp).
 
 %%--------------------------------------------------------------------
--spec pkix_verify(der_encoded(), rsa_public_key()| 
+-spec pkix_verify(Cert::binary(), rsa_public_key()|
 		  dsa_public_key()) -> boolean().
 %%
 %% Description: Verify pkix x.509 certificate signature.
@@ -396,9 +392,9 @@ pkix_verify(DerCert,  #'RSAPublicKey'{} = RSAKey)
     verify(PlainText, DigestType, Signature, RSAKey).
 
 %%--------------------------------------------------------------------
--spec pkix_is_issuer(Cert :: der_encoded()| #'OTPCertificate'{},
-		     IssuerCert :: der_encoded()| 
-				   #'OTPCertificate'{}) -> boolean().
+-spec pkix_is_issuer(Cert::binary()| #'OTPCertificate'{},
+		     IssuerCert::binary()|
+				 #'OTPCertificate'{}) -> boolean().
 %%
 %% Description: Checks if <IssuerCert> issued <Cert>.
 %%--------------------------------------------------------------------
@@ -414,7 +410,7 @@ pkix_is_issuer(#'OTPCertificate'{tbsCertificate = TBSCert},
 			  Candidate#'OTPTBSCertificate'.subject).
 
 %%--------------------------------------------------------------------
--spec pkix_is_self_signed(der_encoded()| #'OTPCertificate'{}) -> boolean().
+-spec pkix_is_self_signed(Cert::binary()| #'OTPCertificate'{}) -> boolean().
 %%
 %% Description: Checks if a Certificate is self signed. 
 %%--------------------------------------------------------------------
@@ -425,7 +421,7 @@ pkix_is_self_signed(Cert) when is_binary(Cert) ->
     pkix_is_self_signed(OtpCert).
   
 %%--------------------------------------------------------------------
--spec pkix_is_fixed_dh_cert(der_encoded()| #'OTPCertificate'{}) -> boolean().
+-spec pkix_is_fixed_dh_cert(Cert::binary()| #'OTPCertificate'{}) -> boolean().
 %%
 %% Description: Checks if a Certificate is a fixed Diffie-Hellman Cert.
 %%--------------------------------------------------------------------
@@ -436,14 +432,14 @@ pkix_is_fixed_dh_cert(Cert) when is_binary(Cert) ->
     pkix_is_fixed_dh_cert(OtpCert).
 
 %%--------------------------------------------------------------------
--spec pkix_issuer_id(der_encoded()| #'OTPCertificate'{}, 
-		     IssuedBy :: self | other) -> 
-			    {ok, {SerialNr :: integer(), 
-				  Issuer :: {rdnSequence, 
-					     [#'AttributeTypeAndValue'{}]}}} 
+-spec pkix_issuer_id(Cert::binary()| #'OTPCertificate'{},
+		     IssuedBy :: self | other) ->
+			    {ok, {SerialNr :: integer(),
+				  Issuer :: {rdnSequence,
+					     [#'AttributeTypeAndValue'{}]}}}
 				| {error, Reason :: term()}.
 %
-%% Description: Returns the issuer id.  
+%% Description: Returns the issuer id.
 %%--------------------------------------------------------------------
 pkix_issuer_id(#'OTPCertificate'{} = OtpCert, self) ->
     pubkey_cert:issuer_id(OtpCert, self);
@@ -456,8 +452,8 @@ pkix_issuer_id(Cert, Signed) when is_binary(Cert) ->
     pkix_issuer_id(OtpCert, Signed).
 
 %%--------------------------------------------------------------------
--spec pkix_normalize_name({rdnSequence, 
-				   [#'AttributeTypeAndValue'{}]}) -> 
+-spec pkix_normalize_name({rdnSequence,
+				   [#'AttributeTypeAndValue'{}]}) ->
 					 {rdnSequence, 
 					  [#'AttributeTypeAndValue'{}]}.
 %%
@@ -468,8 +464,8 @@ pkix_normalize_name(Issuer) ->
     pubkey_cert:normalize_general_name(Issuer).
 
 %%-------------------------------------------------------------------- 
--spec pkix_path_validation(der_encoded()| #'OTPCertificate'{} | atom(),
-			   CertChain :: [der_encoded()] , 
+-spec pkix_path_validation(Cert::binary()| #'OTPCertificate'{} | atom(),
+			   CertChain :: [binary()] ,
 			   Options :: list()) ->  
 				  {ok, {PublicKeyInfo :: term(), 
 					PolicyTree :: term()}} |
@@ -496,13 +492,44 @@ pkix_path_validation(TrustedCert, CertChain, Options) when
   is_binary(TrustedCert) -> OtpCert = pkix_decode_cert(TrustedCert,
   otp), pkix_path_validation(OtpCert, CertChain, Options);
 
-pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options) 
+pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
   when is_list(CertChain), is_list(Options) ->
     MaxPathDefault = length(CertChain),
     ValidationState = pubkey_cert:init_validation_state(TrustedCert, 
 							MaxPathDefault, 
 							Options),
     path_validation(CertChain, ValidationState).
+
+%%--------------------------------------------------------------------
+-spec ssh_decode(binary(), public_key | ssh_file()) -> [{public_key(), Attributes::list()}].
+%%
+%% Description: Decodes a ssh file-binary. In the case of know_hosts
+%% or auth_keys the binary may include one or more lines of the
+%% file. Returns a list of public keys and their attributes, possible
+%% attribute values depends on the file type represented by the
+%% binary.
+%%--------------------------------------------------------------------
+ssh_decode(SshBin, Type) when is_binary(SshBin),
+			      Type == public_key;
+			      Type == rfc4716_public_key;
+			      Type == openssh_public_key;
+			      Type == auth_keys;
+			      Type == known_hosts ->
+    pubkey_ssh:decode(SshBin, Type).
+
+%%--------------------------------------------------------------------
+-spec ssh_encode([{public_key(), Attributes::list()}], ssh_file()) ->
+			binary().
+%% Description: Encodes a list of ssh file entries (public keys and
+%% attributes) to a binary. Possible attributes depends on the file
+%% type.
+%%--------------------------------------------------------------------
+ssh_encode(Entries, Type) when is_list(Entries),
+			       Type == rfc4716_public_key;
+			       Type == openssh_public_key;
+			       Type == auth_keys;
+			       Type == known_hosts ->
+    pubkey_ssh:encode(Entries, Type).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -517,7 +544,6 @@ decrypt_public(CipherText, N,E, Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
     crypto:rsa_public_decrypt(CipherText,[crypto:mpint(E), crypto:mpint(N)], 
 			      Padding).
-
 
 path_validation([], #path_validation_state{working_public_key_algorithm
 					   = Algorithm,

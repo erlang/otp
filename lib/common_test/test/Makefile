@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -96,7 +96,7 @@ release_tests_spec:
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
 	$(INSTALL_DATA) common_test.spec $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

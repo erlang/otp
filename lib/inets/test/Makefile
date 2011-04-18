@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -308,11 +308,11 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELTESTSYSDIR)
 	$(INSTALL_DATA) $(RELTEST_FILES) $(RELTESTSYSDIR)
-	chmod -f -R u+w $(RELTESTSYSDIR)
+	chmod -R u+w $(RELTESTSYSDIR)
 	tar chf - $(DATADIRS) | (cd $(RELTESTSYSDIR); tar xf -)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)
 	$(INSTALL_DIR) $(RELTESTSYSBINDIR)
-	chmod -f -R +x $(RELTESTSYSBINDIR)
+	chmod -R +x $(RELTESTSYSBINDIR)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)/win32/lib	
 
 release_docs_spec:

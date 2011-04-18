@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -353,7 +353,7 @@ ssl_options() = {verify,     code()}   |
             <p>Note that the validity of the options are <em>not</em>
               checked in any way. </p>
             <p>Note that this may change the socket behaviour 
-              (see <seealso marker="kernel:inet#setopts">inet:setopts/2</seealso>) 
+              (see <seealso marker="kernel:inet#setopts/2">inet:setopts/2</seealso>) 
               for an already existing one, and therefore an already connected
               request handler. </p>
             <p>By default the socket options set by the

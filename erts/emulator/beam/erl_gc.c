@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,7 @@
 #include "erl_gc.h"
 #if HIPE
 #include "hipe_stack.h"
+#include "hipe_mode_switch.h"
 #endif
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
@@ -454,7 +455,6 @@ erts_garbage_collect_hibernate(Process* p)
     Eterm* heap;
     Eterm* htop;
     Rootset rootset;
-    int n;
     char* src;
     Uint src_size;
     Uint actual_size;
@@ -485,7 +485,10 @@ erts_garbage_collect_hibernate(Process* p)
 				    sizeof(Eterm)*heap_size);
     htop = heap;
 
-    n = setup_rootset(p, p->arg_reg, p->arity, &rootset);
+    (void) setup_rootset(p, p->arg_reg, p->arity, &rootset);
+#if HIPE
+    hipe_empty_nstack(p);
+#endif
 
     src = (char *) p->heap;
     src_size = (char *) p->htop - src;

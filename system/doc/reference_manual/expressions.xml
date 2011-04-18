@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2010</year>
+      <year>2003</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -269,7 +269,7 @@ fun lists:append/2([1,2], [3,4])
     set of auto-imported BIFs does not silently change the behavior
     of old code.</p>
 
-    <p>However, to avoid that old (pre R14) code changed it's
+    <p>However, to avoid that old (pre R14) code changed its
     behavior when compiled with OTP version R14A or later, the
     following restriction applies: If you override the name of a BIF
     that was auto-imported in OTP versions prior to R14A (ERTS version

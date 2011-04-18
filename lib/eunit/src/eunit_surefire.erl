@@ -323,7 +323,7 @@ write_testcase(
 format_testcase_result(ok) -> [<<>>];
 format_testcase_result({failed, {error, {Type, _}, _} = Exception}) when is_atom(Type) ->
     [?INDENT, ?INDENT, <<"<failure type=\"">>, escape_attr(atom_to_list(Type)), <<"\">">>, ?NEWLINE,
-    <<"::">>, escape_text(eunit_lib:format_exception(Exception)),
+    <<"::">>, escape_text(eunit_lib:format_exception(Exception, 100)),
     ?INDENT, ?INDENT, <<"</failure>">>, ?NEWLINE];
 format_testcase_result({failed, Term}) ->
     [?INDENT, ?INDENT, <<"<failure type=\"unknown\">">>, ?NEWLINE,
@@ -331,7 +331,7 @@ format_testcase_result({failed, Term}) ->
     ?INDENT, ?INDENT, <<"</failure>">>, ?NEWLINE];
 format_testcase_result({aborted, {Class, _Term, _Trace} = Exception}) when is_atom(Class) ->
     [?INDENT, ?INDENT, <<"<error type=\"">>, escape_attr(atom_to_list(Class)), <<"\">">>, ?NEWLINE,
-    <<"::">>, escape_text(eunit_lib:format_exception(Exception)),
+    <<"::">>, escape_text(eunit_lib:format_exception(Exception, 100)),
     ?INDENT, ?INDENT, <<"</error>">>, ?NEWLINE];
 format_testcase_result({aborted, Term}) ->
     [?INDENT, ?INDENT, <<"<error type=\"unknown\">">>, ?NEWLINE,

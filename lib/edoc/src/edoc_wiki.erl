@@ -296,6 +296,8 @@ push_uri(Us, Ss, As) ->
 strip_empty_lines(Cs) ->
     strip_empty_lines(Cs, 0).
 
+strip_empty_lines([], N) ->
+    {[], N};					% reached the end of input
 strip_empty_lines(Cs, N) ->
     {Cs1, Cs2} = edoc_lib:split_at(Cs, $\n),
     case edoc_lib:is_space(Cs1) of

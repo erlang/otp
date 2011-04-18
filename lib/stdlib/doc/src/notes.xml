@@ -30,6 +30,97 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.17.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Two bugs in io:format for ~F.~Ps has been corrected. When
+	    length(S) >= abs(F) > P, the precision P was incorrectly
+	    ignored. When F == P > lenght(S) the result was
+	    incorrectly left adjusted. Bug found by Ali Yakout who
+	    also provided a fix.</p>
+          <p>
+	    Own Id: OTP-8989 Aux Id: seq11741 </p>
+        </item>
+        <item>
+	    <p>Fix exception generation in the io module
+          <p>
+	    Some functions did not generate correct badarg exception
+	    on a badarg exception.</p></p>
+          <p>
+	    Own Id: OTP-9045</p>
+        </item>
+        <item>
+          <p>
+	    Fixes to the dict and orddict module documentation</p>
+          <p>
+	    Fixed grammar and one inconsistency (Key - Value instead
+	    of key/value, since everywhere else the former is used).
+	    (thanks to Filipe David Manana)</p>
+          <p>
+	    Own Id: OTP-9083</p>
+        </item>
+        <item>
+          <p>
+	    Add ISO week number calculation functions to the calendar
+	    module in stdlib</p>
+          <p>
+	    This new feature adds the missing week number function to
+	    the calendar module of the stdlib application. The
+	    implementation conforms to the ISO 8601 standard. The new
+	    feature has been implemented tested and documented
+	    (thanks to Imre Horvath).</p>
+          <p>
+	    Own Id: OTP-9087</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implement the 'MAY' clauses from RFC4648 regarding the
+	    pad character to make mime_decode() and
+	    mime_decode_to_string() functions more tolerant of badly
+	    padded base64. The RFC is quoted below for easy
+	    reference.</p>
+          <p>
+	    "RFC4648 Section 3.3 with reference to MIME decoding:
+	    Furthermore, such specifications MAY ignore the pad
+	    character, "=", treating it as non-alphabet data, if it
+	    is present before the end of the encoded data. If more
+	    than the allowed number of pad characters is found at the
+	    end of the string (e.g., a base 64 string terminated with
+	    "==="), the excess pad characters MAY also be ignored."</p>
+          <p>
+	    Own Id: OTP-9020</p>
+        </item>
+        <item>
+          <p>
+	    Supervisors will no longer save start parameters for
+	    temporary processes as they will not be restarted. In the
+	    case of simple_one_for_one workers such as ssl-connection
+	    processes this will substantial reduce the memory
+	    footprint of the supervisor.</p>
+          <p>
+	    Own Id: OTP-9064</p>
+        </item>
+        <item>
+          <p>
+	    When running escript it is now possible to add the -n
+	    flag and the escript will be compiled using +native.</p>
+          <p>
+	    Own Id: OTP-9076</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.17.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1004,6 +1004,15 @@
 	  add to the code path.
   	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
       </item>
+      <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
+      <item>
+        <p>This environment variable may be set to a comma-separated
+          list of IP addresses, in which case the
+          <seealso marker="epmd">epmd</seealso> daemon
+          will listen only on the specified address(es) and on the
+          loopback address (which is implicitely added to the list if it
+          has not been specified).</p>
+      </item>
       <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
       <item>
         <p>This environment variable can contain the port number to use when
@@ -1016,6 +1025,49 @@
   </section>
 
   <section>
+    <marker id="configuration"></marker>
+    <title>Configuration</title>
+    <p>The standard Erlang/OTP system can be re-configured to change the default
+       behavior on start-up.</p>
+    <taglist>
+       <tag>The .erlang Start-up File</tag>
+       <item>
+         <p>When Erlang/OTP is started, the system searches for a file named .erlang
+            in the directory where Erlang/OTP is started. If not found, the user's home
+            directory is searched for an .erlang file.</p>
+         <p>If an .erlang file is found, it is assumed to contain valid Erlang expressions.
+            These expressions are evaluated as if they were input to the shell.</p>
+         <p>A typical .erlang file contains a set of search paths, for example:</p>
+    <code type="none"><![CDATA[
+        io:format("executing user profile in HOME/.erlang\n",[]).
+        code:add_path("/home/calvin/test/ebin").
+        code:add_path("/home/hobbes/bigappl-1.2/ebin").
+        io:format(".erlang rc finished\n",[]).
+    ]]></code>
+       </item>
+       <tag>user_default and shell_default</tag>
+       <item>
+         <p>Functions in the shell which are not prefixed by a module name are assumed
+           to be functional objects (Funs), built-in functions (BIFs), or belong to the
+           module user_default or shell_default.</p>
+         <p>To include private shell commands, define them in a module user_default and
+           add the following argument as the first line in the .erlang file.</p>
+    <code type="none"><![CDATA[
+         code:load_abs("..../user_default").
+    ]]></code>
+       </item>
+       <tag>erl</tag>
+       <item>
+         <p>If the contents of .erlang are changed and a private version of
+           user_default is defined, it is possible to customize the Erlang/OTP environment.
+           More powerful changes can be made by supplying command line arguments in the
+           start-up script erl. Refer to erl(1) and <seealso marker="init">init(3)</seealso>
+           for further information.</p>
+       </item>
+    </taglist>
+  </section>
+
+   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="init">init(3)</seealso>,
       <seealso marker="erl_prim_loader">erl_prim_loader(3)</seealso>,

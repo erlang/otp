@@ -38,7 +38,71 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.4.16</title>
+  <section><title>Mnesia 4.4.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Call chmod without the "-f" flag</p>
+          <p>
+	    "-f" is a non-standard chmod option which at least SGI
+	    IRIX and HP UX do not support. As the only effect of the
+	    "-f" flag is to suppress warning messages, it can be
+	    safely omitted. (Thanks to Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9170</p>
+        </item>
+        <item>
+          <p>
+	    Mnesia sometimes failed to update meta-information in
+	    large systems, which could cause table content to be
+	    inconsistent between nodes.</p>
+          <p>
+	    Own Id: OTP-9186 Aux Id: seq11728 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Calling mnesia:first/1 on empty fragmented table works.
+	    Thanks Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-9108</p>
+        </item>
+        <item>
+          <p>
+	    If Mnesia detects that the network is not fully connected
+	    during start, Mnesia will not start until all nodes are
+	    reachable.</p>
+          <p>
+	    Own Id: OTP-9115 Aux Id: seq-11728 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix issues reported by dialyzer.</p>
+          <p>
+	    Own Id: OTP-9107</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.4.16</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(core_SUITE),
+    test_lib:recompile(?MODULE),
     [dehydrated_itracer, nested_tries].
 
 groups() -> 

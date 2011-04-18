@@ -1,22 +1,23 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+
+ *
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * hipe_bif2.c
  *
  * Miscellaneous add-ons.
@@ -33,7 +34,6 @@
 #include "big.h"
 #include "hipe_debug.h"
 #include "hipe_mode_switch.h"
-#include "hipe_bif0.h" /* hipe_constants_{start,next} */
 #include "hipe_arch.h"
 #include "hipe_stack.h"
 
@@ -121,18 +121,6 @@ BIF_RETTYPE hipe_bifs_show_term_1(BIF_ALIST_1)
     } while (0);
     erts_printf("%T", obj);
     printf("\r\n");
-    BIF_RET(am_true);
-}
-
-BIF_RETTYPE hipe_bifs_show_literals_0(BIF_ALIST_0)
-{
-    Eterm *p;
-
-    p = hipe_constants_start;
-    for (; p < hipe_constants_next; ++p)
-	printf("0x%0*lx: 0x%0*lx\r\n",
-	       2*(int)sizeof(long), (unsigned long)p,
-	       2*(int)sizeof(long), *p);
     BIF_RET(am_true);
 }
 

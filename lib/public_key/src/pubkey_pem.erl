@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,8 +69,9 @@ encode(PemEntries) ->
     encode_pem_entries(PemEntries).
 
 %%--------------------------------------------------------------------
--spec decipher({pki_asn1_type(), decrypt_der(),{Cipher :: string(), Salt :: binary()}}, string()) ->  
-		      der_encoded().
+-spec decipher({pki_asn1_type(), DerEncrypted::binary(),{Cipher :: string(),
+							 Salt :: binary()}},
+	       string()) -> Der::binary().
 %%
 %% Description: Deciphers a decrypted pem entry.
 %%--------------------------------------------------------------------
@@ -78,7 +79,8 @@ decipher({_, DecryptDer, {Cipher,Salt}}, Password) ->
     decode_key(DecryptDer, Password, Cipher, Salt).	
 
 %%--------------------------------------------------------------------
--spec cipher(der_encoded(),{Cipher :: string(), Salt :: binary()} , string()) -> binary().
+-spec cipher(Der::binary(),{Cipher :: string(), Salt :: binary()} ,
+	     string()) -> binary().
 %%
 %% Description: Ciphers a PEM entry
 %%--------------------------------------------------------------------
@@ -91,11 +93,11 @@ cipher(Der, {Cipher,Salt}, Password)->
 encode_pem_entries(Entries) ->
     [encode_pem_entry(Entry) || Entry <- Entries].
 
-encode_pem_entry({Asn1Type, Der, not_encrypted}) ->
-    StartStr = pem_start(Asn1Type),
+encode_pem_entry({Type, Der, not_encrypted}) ->
+    StartStr = pem_start(Type),
     [StartStr, "\n", b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"];
-encode_pem_entry({Asn1Type, Der, {Cipher, Salt}}) ->
-    StartStr = pem_start(Asn1Type),
+encode_pem_entry({Type, Der, {Cipher, Salt}}) ->
+    StartStr = pem_start(Type),
     [StartStr,"\n", pem_decrypt(),"\n", pem_decrypt_info(Cipher, Salt),"\n",
      b64encode_and_split(Der), "\n", pem_end(StartStr) ,"\n\n"].
 
@@ -115,17 +117,17 @@ decode_pem_entries([Start| Lines], Entries) ->
     end.
 
 decode_pem_entry(Start, [<<"Proc-Type: 4,ENCRYPTED", _/binary>>, Line | Lines]) ->
-    Asn1Type = asn1_type(Start),
+    Type = asn1_type(Start),
     Cs = erlang:iolist_to_binary(Lines),
     Decoded = base64:mime_decode(Cs),
     [_, DekInfo0] = string:tokens(binary_to_list(Line), ": "),
     [Cipher, Salt] = string:tokens(DekInfo0, ","), 
-    {Asn1Type, Decoded, {Cipher, unhex(Salt)}};
+    {Type, Decoded, {Cipher, unhex(Salt)}};
 decode_pem_entry(Start, Lines) ->
-    Asn1Type = asn1_type(Start),
+    Type = asn1_type(Start),
     Cs = erlang:iolist_to_binary(Lines),
-    Der = base64:mime_decode(Cs),
-    {Asn1Type, Der, not_encrypted}.
+    Decoded = base64:mime_decode(Cs),
+    {Type, Decoded, not_encrypted}.
     
 split_bin(Bin) ->
     split_bin(0, Bin).
@@ -153,17 +155,7 @@ split_lines(Bin) ->
     [Bin].
 
 %% Ignore white space at end of line
-join_entry([<<"-----END CERTIFICATE-----", _/binary>>| Lines], Entry) ->
-    {lists:reverse(Entry), Lines};
-join_entry([<<"-----END RSA PRIVATE KEY-----", _/binary>>| Lines], Entry) ->
-    {lists:reverse(Entry), Lines};
-join_entry([<<"-----END PUBLIC KEY-----", _/binary>>| Lines], Entry) ->
-    {lists:reverse(Entry), Lines};
-join_entry([<<"-----END RSA PUBLIC KEY-----", _/binary>>| Lines], Entry) ->
-    {lists:reverse(Entry), Lines};
-join_entry([<<"-----END DSA PRIVATE KEY-----", _/binary>>| Lines], Entry) ->
-    {lists:reverse(Entry), Lines};
-join_entry([<<"-----END DH PARAMETERS-----", _/binary>>| Lines], Entry) ->
+join_entry([<<"-----END ", _/binary>>| Lines], Entry) ->
     {lists:reverse(Entry), Lines};
 join_entry([Line | Lines], Entry) ->
     join_entry(Lines, [Line | Entry]).

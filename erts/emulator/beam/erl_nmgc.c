@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,6 @@
 #include "erl_nmgc.h"
 #include "erl_debug.h"
 #if HIPE
-#include "hipe_bif0.h" /* for hipe_constants_{start,next} */
 #include "hipe_stack.h"
 #endif
 

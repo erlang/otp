@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1045,7 +1045,7 @@ convert_matchstate(Ms) ->
    build_sub_binary(Ms, ByteSize, ByteOffset, BitSize, BitOffset, 
 		    hipe_rtl:mk_imm(0), Orig), 
    size_from_header(SizeInWords, Header),
-   hipe_rtl:mk_alu(Hole, SizeInWords, sub, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE-1)),
+   hipe_rtl:mk_alu(Hole, SizeInWords, sub, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE)),
    mk_var_header(BigIntHeader, Hole, ?TAG_HEADER_POS_BIG),
    hipe_rtl:mk_store(Ms, hipe_rtl:mk_imm(?SUB_BIN_WORDSIZE*WordSize-?TAG_PRIMARY_BOXED),
 		     BigIntHeader)].

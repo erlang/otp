@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
-	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1, nested_access/1]).
+	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
+	 nested_access/1,coverage/1]).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(2)),
@@ -40,10 +41,10 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(record_SUITE),
+    test_lib:recompile(?MODULE),
     [errors, record_test_2, record_test_3,
      record_access_in_guards, guard_opt, eval_once, foobar,
-     missing_test_heap, nested_access].
+     missing_test_heap, nested_access, coverage].
 
 groups() -> 
     [].
@@ -566,6 +567,20 @@ nested_access(Config) when is_list(Config) ->
     N2b = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = <<"nested0a">>},
     ?line <<"nested0a">> = N2a#nrec0.name,
     ?line N2a = N2b,
+    ok.
+
+-record(rr, {a,b,c}).
+
+coverage(Config) when is_list(Config) ->
+    %% There should only remain one record test in the code below.
+    R0 = id(#rr{a=1,b=2,c=3}),
+    B = R0#rr.b,				%Test the record here.
+    R = R0#rr{c=42},				%No need to test here.
+    if 
+	B > R#rr.a ->				%No need to test here.
+	    ok
+    end,
+    #rr{a=1,b=2,c=42} = id(R),			%Test for correctness.
     ok.
 
 id(I) -> I.

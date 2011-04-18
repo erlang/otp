@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,7 +33,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(bs_bit_binaries_SUITE),
+    test_lib:recompile(?MODULE),
     [misc, horrid_match, test_bitstr, test_bit_size,
      asymmetric_tests, big_asymmetric_tests,
      binary_to_and_from_list, big_binary_to_and_from_list,

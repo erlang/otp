@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -131,8 +131,9 @@ get_warnings_from_modules([M|Ms], State, DocPlt,
   %% Check if there are contracts for functions that do not exist
   Warnings1 = 
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
-  {Warnings2, FunTypes, RaceCode, PublicTables, NamedTables} =
+  {RawWarnings2, FunTypes, RaceCode, PublicTables, NamedTables} =
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Records, NoWarnUnused),
+  {NewAcc, Warnings2} = postprocess_dataflow_warns(RawWarnings2, State, Acc),
   Attrs = cerl:module_attrs(ModCode),
   Warnings3 = if BehavioursChk ->
 		  dialyzer_behaviours:check_callbacks(M, Attrs,
@@ -145,10 +146,36 @@ get_warnings_from_modules([M|Ms], State, DocPlt,
                                        NamedTables),
   State1 = st__renew_state_calls(NewCallgraph, State),
   get_warnings_from_modules(Ms, State1, NewDocPlt, BehavioursChk,
-			    [Warnings1, Warnings2, Warnings3|Acc]);
+			    [Warnings1, Warnings2, Warnings3|NewAcc]);
 get_warnings_from_modules([], #st{plt = Plt}, DocPlt, _, Acc) ->
   {lists:flatten(Acc), Plt, DocPlt}.
 
+postprocess_dataflow_warns(RawWarnings, State, WarnAcc) ->
+  postprocess_dataflow_warns(RawWarnings, State, WarnAcc, []).
+
+postprocess_dataflow_warns([], _State, WAcc, Acc) ->
+  {WAcc, lists:reverse(Acc)};
+postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
+			   #st{codeserver = Codeserver} = State, WAcc, Acc) ->
+  {contract_range, [Contract, M, F, A, ArgStrings, CRet]} = Msg,
+  {ok, {{ContrF, _ContrL} = FileLine, _C}} =
+    dialyzer_codeserver:lookup_mfa_contract({M,F,A}, Codeserver),
+  case CallF =:= ContrF of
+    true ->
+      NewMsg = {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
+      W = {?WARN_CONTRACT_RANGE, FileLine, NewMsg},
+      Filter =
+	fun({?WARN_CONTRACT_TYPES, FL, _}) when FL =:= FileLine -> false;
+	   (_) -> true
+	end,
+      FilterWAcc = lists:filter(Filter, WAcc),
+      postprocess_dataflow_warns(Rest, State, FilterWAcc, [W|Acc]);
+    false ->
+      postprocess_dataflow_warns(Rest, State, WAcc, Acc)
+  end;
+postprocess_dataflow_warns([W|Rest], State, Wacc, Acc) ->
+  postprocess_dataflow_warns(Rest, State, Wacc, [W|Acc]).
+  
 refine_succ_typings(ModulePostorder, State) ->
   ?debug("Module postorder: ~p\n", [ModulePostorder]),
   refine_succ_typings(ModulePostorder, State, []).

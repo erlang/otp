@@ -280,9 +280,9 @@ lists:filter(fun(X) -> X#person.name == "Bryan" end, TabList),
       <p>A simple solution would be to use the <c>name</c> field as
         the key instead of the <c>idno</c> field, but that would cause
         problems if the names were not unique. A more general solution
-        would be create a second table with name as key and idno as
-        data, i.e. to index (invert) the table with regards to the
-        <c>name</c> field. The second table would of course have to be
+        would be to create a second table with <c>name</c> as key and
+        <c>idno</c> as data, i.e. to index (invert) the table with regards
+        to the <c>name</c> field. The second table would of course have to be
         kept consistent with the master table. Mnesia could do this
         for you, but a home brew index table could be very efficient
         compared to the overhead involved in using Mnesia.</p>

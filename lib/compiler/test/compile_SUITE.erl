@@ -40,7 +40,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 -spec all() -> all_return_type().
 
 all() -> 
-    test_lib:recompile(compile_SUITE),
+    test_lib:recompile(?MODULE),
     [app_test, file_1, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, package_forms, encrypted_abstr,

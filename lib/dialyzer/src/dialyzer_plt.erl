@@ -2,7 +2,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,8 +28,6 @@
 %%%-------------------------------------------------------------------
 -module(dialyzer_plt).
 
-%% Avoid warning for local function error/1 clashing with autoimported BIF.
--compile({no_auto_import,[error/1]}).
 -export([check_plt/3,
 	 compute_md5_from_files/1,
 	 contains_mfa/2,
@@ -56,8 +54,7 @@
 	 plt_and_info_from_file/1,
 	 get_specs/1,
 	 get_specs/4,
-	 to_file/4
-	]).
+	 to_file/4]).
 
 %% Debug utilities
 -export([pp_non_returning/0, pp_mod/1]).
@@ -67,6 +64,8 @@
 %%----------------------------------------------------------------------
 
 -type mod_deps() :: dict().
+
+-type deep_string() :: string() | [deep_string()].
 
 %% The following are used for searching the PLT when using the GUI
 %% (e.g. in show or search PLT contents). The user might be searching
@@ -203,8 +202,8 @@ get_default_plt() ->
     false ->
       case os:getenv("HOME") of
 	false ->
-	  error("The HOME environment variable needs to be set " ++
-		"so that Dialyzer knows where to find the default PLT");
+	  plt_error("The HOME environment variable needs to be set " ++
+		    "so that Dialyzer knows where to find the default PLT");
 	HomeDir -> filename:join(HomeDir, ".dialyzer_plt")
       end;
     UserSpecPlt -> UserSpecPlt
@@ -226,7 +225,7 @@ from_file(FileName, ReturnInfo) ->
       case check_version(Rec) of
 	error ->
 	  Msg = io_lib:format("Old PLT file ~s\n", [FileName]),
-	  error(Msg);
+	  plt_error(Msg);
 	ok ->
 	  Plt = #plt{info = Rec#file_plt.info,
 		     types = Rec#file_plt.types,
@@ -241,8 +240,9 @@ from_file(FileName, ReturnInfo) ->
 	  end
       end;
     {error, Reason} ->
-      error(io_lib:format("Could not read PLT file ~s: ~p\n",
-			  [FileName, Reason]))
+      Msg = io_lib:format("Could not read PLT file ~s: ~p\n",
+			  [FileName, Reason]),
+      plt_error(Msg)
   end.
 
 -type err_rsn() :: 'not_valid' | 'no_such_file' | 'read_error'.
@@ -317,7 +317,7 @@ merge_plts_or_report_conflicts(PltFiles, Plts) ->
       Msg = io_lib:format("Could not merge PLTs since they are not disjoint\n"
                           "The following files are included in more than one "
                           "PLTs:\n~p\n", [ConfFiles]),
-      error(Msg)
+      plt_error(Msg)
   end.
 
 find_duplicates(List) ->
@@ -518,7 +518,9 @@ expand_args([ArgType|Left]) ->
    end ++
    ","|expand_args(Left)].
 
-error(Msg) ->
+-spec plt_error(deep_string()) -> no_return().
+
+plt_error(Msg) ->
   throw({dialyzer_error, lists:flatten(Msg)}).
 
 %%---------------------------------------------------------------------------

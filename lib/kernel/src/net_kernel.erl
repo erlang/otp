@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1249,7 +1249,7 @@ protocol_childspecs([H|T]) ->
 epmd_module() ->
     case init:get_argument(epmd_module) of
 	{ok,[[Module]]} ->
-	    Module;
+	    list_to_atom(Module);
 	_ ->
 	    erl_epmd
     end.

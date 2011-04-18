@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@
 	 trav/1,
 	 port_io/1,
 	 large_dataset_work/1,
-	 large_local_dataset_work/1,mk_big_procs/1,big_proc/0,
+	 large_local_dataset_work/1,mk_big_procs/1,big_proc/0, very_big/1,
 	 alloc/1,
 	 bif_dispatch/1,
 	 binary_h/1,echo/1,

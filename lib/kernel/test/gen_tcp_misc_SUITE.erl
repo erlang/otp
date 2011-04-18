@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
 	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
-	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, 
+	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, send_timeout_active/1, 
 	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1]).
 
 %% Internal exports.
@@ -71,7 +71,7 @@ all() ->
      accept_timeouts_in_order3, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
      killing_multi_acceptors2, several_accepts_in_one_go,
-     active_once_closed, send_timeout, otp_7731,
+     active_once_closed, send_timeout, send_timeout_active, otp_7731,
      zombie_sockets, otp_7816, otp_8102].
 
 groups() -> 
@@ -1957,6 +1957,60 @@ send_timeout(Config) when is_list(Config) ->
     ParaFun(false),
     ParaFun(true),
     ok.
+mad_sender(S) ->
+    {_, _, USec} = now(),
+    case gen_tcp:send(S, integer_to_list(USec)) of
+        ok ->
+            mad_sender(S);
+        Err ->
+            Err
+    end.
+
+
+flush() ->
+    receive
+	_X ->
+	    %erlang:display(_X),
+	    flush()
+    after 0 ->
+	    ok
+    end.
+
+send_timeout_active(suite) ->
+    [];
+send_timeout_active(doc) ->
+    ["Test the send_timeout socket option for active sockets"];
+send_timeout_active(Config) when is_list(Config) ->
+    Dog = test_server:timetrap(test_server:seconds(20)),
+    %% Basic
+    BasicFun = 
+	fun(AutoClose) ->
+		?line {Loop,A,RNode,C} = setup_active_timeout_sink(1, AutoClose),
+		inet:setopts(A, [{active, once}]),
+		?line Mad = spawn_link(RNode,fun() -> mad_sender(C) end),
+		?line {error,timeout} = 
+		    Loop(fun() ->
+				 receive
+				     {tcp, Sock, _Data} ->
+					 inet:setopts(A, [{active, once}]),
+					 Res = gen_tcp:send(A,lists:duplicate(1000, $a)),
+					 %erlang:display(Res),
+					 Res;
+				     Err ->
+					 io:format("sock closed: ~p~n", [Err]),
+					 Err
+				 end
+			 end),
+		unlink(Mad),
+		exit(Mad,kill),
+		?line test_server:stop_node(RNode)
+	end,
+    BasicFun(false),
+    flush(),
+    BasicFun(true),
+    flush(),
+    test_server:timetrap_cancel(Dog),
+    ok.
 
 after_send_timeout(AutoClose) ->
     case AutoClose of
@@ -2039,35 +2093,35 @@ setup_closed_ao() ->
     {Loop,A}.
     
 setup_timeout_sink(Timeout, AutoClose) ->
-    Dir = filename:dirname(code:which(?MODULE)),
-    {ok,R} = test_server:start_node(test_default_options_slave,slave,
+    ?line Dir = filename:dirname(code:which(?MODULE)),
+    ?line {ok,R} = test_server:start_node(test_default_options_slave,slave,
 				       [{args,"-pa " ++ Dir}]),    
-    Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
-    {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
+    ?line Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    ?line {ok, L} = gen_tcp:listen(0, [{active,false},{packet,2},
 				 {send_timeout,Timeout},
 				 {send_timeout_close,AutoClose}]),
-    Fun = fun(F) -> 
+    ?line Fun = fun(F) -> 
 		  receive 
 		      {From,X} when is_function(X) -> 
 			  From ! {self(),X()}, F(F); 
 		      die -> ok 
 		  end 
 	  end, 
-    Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
-    {ok, Port} = inet:port(L),
-    Remote = fun(Fu) -> 
+    ?line Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    ?line {ok, Port} = inet:port(L),
+    ?line Remote = fun(Fu) -> 
 		     Pid ! {self(), Fu}, 
 		     receive {Pid,X} -> X 
 		     end 
 	     end,
-    {ok, C} = Remote(fun() -> 
+    ?line {ok, C} = Remote(fun() -> 
 			     gen_tcp:connect(Host,Port,
 					     [{active,false},{packet,2}]) 
 		     end),
-    {ok,A} = gen_tcp:accept(L),
-    gen_tcp:send(A,"Hello"),
-    {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
-    Loop2 = fun(_,_,0) -> 
+    ?line {ok,A} = gen_tcp:accept(L),
+    ?line gen_tcp:send(A,"Hello"),
+    ?line {ok, "Hello"} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    ?line Loop2 = fun(_,_,0) -> 
 		    {failure, timeout}; 
 	       (L2,F2,N) -> 
 		    Ret = F2(),
@@ -2078,9 +2132,53 @@ setup_timeout_sink(Timeout, AutoClose) ->
 			Other -> Other
 		    end 
 	    end,
-    Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
+    ?line Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
     {Loop,A,R}.
-    
+
+setup_active_timeout_sink(Timeout, AutoClose) ->
+    ?line Dir = filename:dirname(code:which(?MODULE)),
+    ?line {ok,R} = test_server:start_node(test_default_options_slave,slave,
+				       [{args,"-pa " ++ Dir}]),    
+    ?line Host = list_to_atom(lists:nth(2,string:tokens(atom_to_list(node()),"@"))),
+    ?line {ok, L} = gen_tcp:listen(0, [binary,{active,false},{packet,0},{nodelay, true},{keepalive, true},
+				 {send_timeout,Timeout},
+				 {send_timeout_close,AutoClose}]),
+    ?line Fun = fun(F) -> 
+		  receive 
+		      {From,X} when is_function(X) -> 
+			  From ! {self(),X()}, F(F); 
+		      die -> ok 
+		  end 
+	  end, 
+    ?line Pid =  rpc:call(R,erlang,spawn,[fun() -> Fun(Fun) end]),
+    ?line {ok, Port} = inet:port(L),
+    ?line Remote = fun(Fu) -> 
+		     Pid ! {self(), Fu}, 
+		     receive {Pid,X} -> X 
+		     end 
+	     end,
+    ?line {ok, C} = Remote(fun() -> 
+			     gen_tcp:connect(Host,Port,
+					     [{active,false}]) 
+		     end),
+    ?line {ok,A} = gen_tcp:accept(L),
+    ?line gen_tcp:send(A,"Hello"),
+    ?line {ok, "H"++_} = Remote(fun() -> gen_tcp:recv(C,0) end),
+    ?line Loop2 = fun(_,_,0) -> 
+		    {failure, timeout}; 
+	       (L2,F2,N) -> 
+		    Ret = F2(),
+		    io:format("~p~n",[Ret]),
+		    case Ret of
+			ok -> receive after 1 -> ok end, 
+			      L2(L2,F2,N-1);
+			Other -> Other
+		    end 
+	    end,
+    ?line Loop = fun(F3) ->  Loop2(Loop2,F3,1000) end,
+    {Loop,A,R,C}.
+
+     
 millistamp() ->
     {Mega, Secs, Micros} = erlang:now(),
     (Micros div 1000) + Secs * 1000 + Mega * 1000000000.

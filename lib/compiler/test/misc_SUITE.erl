@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 -spec all() -> misc_SUITE_test_cases().
 all() -> 
-    test_lib:recompile(misc_SUITE),
+    test_lib:recompile(?MODULE),
     [tobias, empty_string, md5, silly_coverage,
      confused_literals, integer_encoding, override_bif].
 

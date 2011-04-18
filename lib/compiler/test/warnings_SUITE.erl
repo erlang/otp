@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(warnings_SUITE),
+    test_lib:recompile(?MODULE),
     [pattern, pattern2, pattern3, pattern4, guard,
      bad_arith, bool_cases, bad_apply, files, effect,
      bin_opt_info, bin_construction].
@@ -452,6 +452,16 @@ effect(Config) when is_list(Config) ->
              	  Sz =:= 0 -> X = {a,Sz,[1,2,3],abs(Sz)};
              	  true -> ok
                 end,
+                ok.
+
+             m8(A, B) ->
+                case {A,B} of
+                  V -> V
+                end,
+                ok.
+
+             m9(Bs) ->
+                [{B,ok} = {B,foo:bar(B)} || B <- Bs],
                 ok.
              ">>,
 	   [],

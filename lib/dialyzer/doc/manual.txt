@@ -37,7 +37,7 @@ The parameters are:
 	The analysis starts from .beam bytecode files.
 	The files must be compiled with +debug_info.
     - Source code:
-	The analysis starts from .erl files. 
+	The analysis starts from .erl files.
 
 Controlling the discrepancies reported by the Dialyzer
 ======================================================
@@ -131,7 +131,7 @@ Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
                 [--no_native] [--fullpath]
 
-Options: 
+Options:
    files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
        Use Dialyzer from the command line to detect defects in the
        specified files or directories containing .erl or .beam files,
@@ -169,7 +169,7 @@ Options:
    --output_plt file
        Store the plt at the specified file after building it.
    --plt plt
-       Use the specified plt as the initial plt (if the plt was built 
+       Use the specified plt as the initial plt (if the plt was built
        during setup the files will be checked for consistency).
    --plts plt*
       Merge the specified plts to create the initial plt -- requires
@@ -204,8 +204,8 @@ Options:
    --add_to_plt
        The plt is extended to also include the files specified with -c and -r.
        Use --plt to specify which plt to start from, and --output_plt to
-       specify where to put the plt. Note that the analysis might include 
-       files from the plt if they depend on the new files. 
+       specify where to put the plt. Note that the analysis might include
+       files from the plt if they depend on the new files.
        This option only works with beam files.
    --remove_from_plt
        The information from the files specified with -c and -r is removed
@@ -269,13 +269,13 @@ Warning options:
      Include warnings about behaviour callbacks which drift from the published
      recommended interfaces.
   -Wunderspecs ***
-     Warn about underspecified functions 
+     Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)
   -Woverspecs ***
-     Warn about overspecified functions 
+     Warn about overspecified functions
      (those whose -spec is strictly less allowing than the success typing).
   -Wspecdiffs ***
      Warn when the -spec is different than the success typing.
@@ -306,8 +306,8 @@ dialyzer:run(OptList) -> Warnings
 Warnings :: [{tag(), id(), msg()}]
 tag()    ::  'warn_return_no_exit' | 'warn_return_only_exit' | 'warn_not_called'
            | 'warn_non_proper_list' | 'warn_fun_app' | 'warn_matching'
-           | 'warn_failing_call' | 'warn_contract_types' 
-           | 'warn_contract_syntax' | 'warn_contract_not_equal' 
+           | 'warn_failing_call' | 'warn_contract_types'
+           | 'warn_contract_syntax' | 'warn_contract_not_equal'
            | 'warn_contract_subtype' | 'warn_contract_supertype'
 id()     :: {File :: string(), Line :: integer()}
 msg()    :: Undefined
@@ -319,24 +319,31 @@ Option   :: {files,          [Filename :: string()]}
 	  | {from,           src_code | byte_code} %% Defaults to byte_code
 	  | {init_plt,       FileName :: string()} %% If changed from default
           | {plts,           [FileName :: string()]} %% If changed from default
-	  | {include_dirs,   [DirName :: string()]} 
+	  | {include_dirs,   [DirName :: string()]}
 	  | {output_file,    FileName :: string()}
 	  | {output_plt,     FileName :: string()}
 	  | {analysis_type,  'succ_typings' | 'plt_add' |
                              'plt_build' | 'plt_check' | 'plt_remove'}
 	  | {warnings,       [WarnOpts]}
+	  | {get_warnings,   bool()}
 
 WarnOpts :: no_return
 	  | no_unused
 	  | no_improper_lists
 	  | no_fun_app
 	  | no_match
+	  | no_opaque
 	  | no_fail_call
-	  | unmatched_returns
 	  | error_handling
+	  | race_conditions
+	  | behaviours
+	  | unmatched_returns
+	  | overspecs
+	  | underspecs
+	  | specdiffs
 
 dialyzer:format_warning({tag(), id(), msg()}) -> string()
- 
+
 Returns a string representation of the warnings as returned by dialyzer:run/1.
 
 dialyzer:plt_info(string()) -> {'ok', [{atom(), any()}]} | {'error', atom()}
@@ -392,7 +399,7 @@ files that depend on these files. Note that this consistency check
 will be performed automatically the next time you run Dialyzer with
 this plt. The --check_plt option is merely for doing so without doing
 any other analysis.
-    
+
 -----------------------------------------------
 --
 -- Feedback & bug reports

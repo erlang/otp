@@ -67,19 +67,6 @@
       </desc>
     </func>
     <func>
-      <name>get_args() -> [Arg]</name>
-      <fsummary>Get all non-flag command line arguments</fsummary>
-      <type>
-        <v>Arg = atom()</v>
-      </type>
-      <desc>
-        <p>Returns any plain command line arguments as a list of atoms
-          (possibly empty). It is recommended that
-          <c>get_plain_arguments/1</c> is used instead, because of
-          the limited length of atoms.</p>
-      </desc>
-    </func>
-    <func>
       <name>get_argument(Flag) -> {ok, Arg} | error</name>
       <fsummary>Get the values associated with a command line user flag</fsummary>
       <type>

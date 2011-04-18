@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -275,7 +275,16 @@ stacktrace(Conf) when is_list(Conf) ->
     ?line [{?MODULE,stacktrace_1,3}|_] = erase(stacktrace1),
     ?line St4 = erase(stacktrace2),
     ?line St4 = erlang:get_stacktrace(),
-    ok.
+
+    try
+	?line stacktrace_2()
+    catch
+	error:{badmatch,_} ->
+	    [{?MODULE,stacktrace_2,0},
+	     {?MODULE,stacktrace,1}|_] =
+		erlang:get_stacktrace(),
+	    ok
+    end.
 
 stacktrace_1(X, C1, Y) ->
     erase(stacktrace1),
@@ -295,6 +304,9 @@ stacktrace_1(X, C1, Y) ->
         put(stacktrace2, erlang:get_stacktrace())
     end.
 
+stacktrace_2() ->
+    ok = erlang:process_info(self(), current_function),
+    ok.
 
 
 nested_stacktrace(Conf) when is_list(Conf) ->

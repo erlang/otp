@@ -56,44 +56,43 @@
 
     <p><em>Data Types </em></p> 
     
-    <p><c>boolean() = true | false</c></p> 
+    <p><code>boolean() = true | false</code></p>
 
-    <p><c>string = [bytes()]</c></p>
+    <p><code>string = [bytes()]</code></p>
    
-    <p><c>der_encoded() = binary() </c></p>
+    <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey'
+    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'</code></p>
+    
+    <p><code>pem_entry () = {pki_asn1_type(), binary() %% DER or encrypted DER
+          not_encrypted | {"DES-CBC" | "DES-EDE3-CBC",  crypto:rand_bytes(8)}}.</code></p>
+    
+    <p><code>rsa_public_key()  = #'RSAPublicKey'{}</code></p>
 
-    <p><c>decrypt_der() = binary() </c></p>
-    
-    <p><c>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey'
-    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'</c></p>
+    <p><code>rsa_private_key() = #'RSAPrivateKey'{} </code></p>
 
-     <p><c>pem_entry () = {pki_asn1_type(), der_encoded() | decrypt_der(), not_encrypted |
-     {"DES-CBC" | "DES-EDE3-CBC",  crypto:rand_bytes(8)}}.</c></p>
-     
-    <p><c>rsa_public_key()  = #'RSAPublicKey'{}</c></p> 
-    
-    <p><c>rsa_private_key() = #'RSAPrivateKey'{} </c></p>
+    <p><code>dsa_public_key() = {integer(),  #'Dss-Parms'{}} </code></p>
 
-    <p><c>dsa_public_key() = {integer(),  #'Dss-Parms'{}} </c></p> 
+    <p><code>rsa_private_key() = #'RSAPrivateKey'{} </code></p>
+    
+    <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
+    
+    <p><code> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </code></p>
 
-    <p><c>rsa_private_key() = #'RSAPrivateKey'{} </c></p> 
+    <p><code> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
+    | 'rsa_no_padding'</code></p>
     
-    <p><c>dsa_private_key() = #'DSAPrivateKey'{}</c></p>
-    
-    <p><c> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </c></p>
+    <p><code> rsa_digest_type()  = 'md5' | 'sha' </code></p>
 
-    <p><c> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
-    | 'rsa_no_padding'</c></p>
-    
-    <p><c> rsa_digest_type()  = 'md5' | 'sha' </c></p>
-    
-    <p><c> dss_digest_type()  = 'none' | 'sha' </c></p>
-    
-<!--     <p><c>policy_tree() = [Root, Children]</c></p> -->
-    
-<!--     <p><c>Root = #policy_tree_node{}</c></p>    -->
+    <p><code> dss_digest_type()  = 'none' | 'sha' </code></p>
 
-<!--     <p><c>Children = [] | policy_tree()</c></p> -->
+    <p><code> ssh_file()  = openssh_public_key | rfc4716_public_key |
+    known_hosts | auth_keys </code></p>
+    
+<!--     <p><code>policy_tree() = [Root, Children]</code></p> -->
+    
+<!--     <p><code>Root = #policy_tree_node{}</code></p>    -->
+
+<!--     <p><code>Children = [] | policy_tree()</code></p> -->
 	
 <!--     <p> The policy_tree_node record has the following fields:</p> -->
     
@@ -401,6 +400,55 @@
     <p> Creates a digital signature.</p> 
   </desc> 
   </func>   
+
+  <func>
+    <name>ssh_decode(SshBin,  Type) -> [{public_key(), Attributes::list()}]</name>
+    <fsummary>Decodes a ssh file-binary. </fsummary>
+    <type>
+      <v>SshBin = binary()</v>
+      <d>Example {ok, SshBin} = file:read_file("known_hosts").</d>
+      <v> Type = public_key | ssh_file()</v>
+      <d>If <c>Type</c> is <c>public_key</c> the binary may be either
+      a rfc4716 public key or a openssh public key.</d>
+    </type>
+  <desc>
+    <p> Decodes a ssh file-binary. In the case of know_hosts or
+    auth_keys the binary may include one or more lines of the
+    file. Returns a list of public keys and their attributes, possible
+    attribute values depends on the file type represented by the
+    binary.
+    </p>
+
+    <taglist>
+      <tag>rfc4716 attributes - see RFC 4716</tag>
+      <item>{headers, [{string(), utf8_string()}]}</item>
+      <tag>auth_key attributes - see man sshd </tag>
+      <item>{comment, string()}</item>
+      <item>{options, [string()]}</item>
+      <item>{bits, integer()} - In ssh version 1 files</item>
+      <tag>known_host attributes - see man sshd</tag>
+      <item>{hostnames, [string()]}</item>
+      <item>{comment, string()}</item>
+      <item>{bits, integer()} - In ssh version 1 files</item>
+    </taglist>
+
+  </desc>
+  </func>
+
+  <func>
+    <name>ssh_encode([{Key, Attributes}], Type) -> binary()</name>
+    <fsummary> Encodes a list of ssh file entries to a binary.</fsummary>
+    <type>
+      <v>Key = public_key()</v>
+      <v>Attributes = list()</v>
+      <v>Type = ssh_file()</v>
+    </type>
+  <desc>
+    <p>Encodes a list of ssh file entries (public keys and attributes) to a binary. Possible
+    attributes depends on the file type, see <seealso
+    marker="ssh_decode"> ssh_decode/2 </seealso></p>
+  </desc>
+  </func>
 
   <func>
     <name>verify(Msg, DigestType, Signature, Key) -> boolean()</name>

@@ -105,7 +105,7 @@ loop() ->
       <seealso marker="erts:erlang#spawn_opt/4">spawn_opt/4</seealso>.</p>
 
       <p>The gain is twofold: Firstly, although the garbage collector will
-      grow the heap, it will it grow it step by step, which will be more
+      grow the heap, it will grow it step by step, which will be more
       costly than directly establishing a larger heap when the process
       is spawned. Secondly, the garbage collector may also shrink the
       heap if it is much larger than the amount of data stored on it;
@@ -172,7 +172,7 @@ days_in_month(M) ->
       <p>Shared sub-terms are <em>not</em> preserved when a term is sent
       to another process, passed as the initial process arguments in
       the <c>spawn</c> call, or stored in an ETS table.
-      That is an optimization. Most applications do not send message
+      That is an optimization. Most applications do not send messages
       with shared sub-terms.</p>
 
       <p>Here is an example of how a shared sub-term can be created:</p>
@@ -237,8 +237,8 @@ true
   <section>
     <title>The SMP emulator</title>
 
-    <p>The SMP emulator (introduced in R11B) will take advantage of
-    multi-core or multi-CPU computer by running several Erlang schedulers
+    <p>The SMP emulator (introduced in R11B) will take advantage of a
+    multi-core or multi-CPU computer by running several Erlang scheduler
     threads (typically, the same as the number of cores). Each scheduler
     thread schedules Erlang processes in the same way as the Erlang scheduler
     in the non-SMP emulator.</p>

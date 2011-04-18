@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(beam_validator_SUITE),
+    test_lib:recompile(?MODULE),
     [beam_files, compiler_bug, stupid_but_valid, xrange,
      yrange, stack, call_last, merge_undefined, uninit,
      unsafe_catch, dead_code, mult_labels,

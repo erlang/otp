@@ -454,7 +454,7 @@
       </desc>
     </func>
     <func>
-      <name>pmap({Module, Function}, ExtraArgs, List2) -> List1</name>
+      <name>pmap({Module, Function}, ExtraArgs, List1) -> List2</name>
       <fsummary>Parallell evaluation of mapping a function over a list </fsummary>
       <type>
         <v>Module = Function = atom()</v>

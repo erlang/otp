@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,6 +39,7 @@
 	 process_info_other_dist_msg/1,
 	 process_info_2_list/1, process_info_lock_reschedule/1,
 	 process_info_lock_reschedule2/1,
+	 process_info_lock_reschedule3/1,
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
@@ -65,7 +66,8 @@ all() ->
      t_process_info, process_info_other_msg,
      process_info_other_dist_msg, process_info_2_list,
      process_info_lock_reschedule,
-     process_info_lock_reschedule2, process_status_exiting,
+     process_info_lock_reschedule2,
+     process_info_lock_reschedule3, process_status_exiting,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      bad_register, garbage_collect, process_info_messages,
      process_flag_badarg, process_flag_heap_size,
@@ -701,6 +703,52 @@ process_info_lock_reschedule2(Config) when is_list(Config) ->
     ?line unlink(P5), exit(P5, bang),
     ?line unlink(P6), exit(P6, bang),
     ?line ok.
+
+many_args(0,_B,_C,_D,_E,_F,_G,_H,_I,_J) ->
+    ok;
+many_args(A,B,C,D,E,F,G,H,I,J) ->
+    many_args(A-1,B,C,D,E,F,G,H,I,J).
+
+do_pi_msg_len(PT, AT) ->
+    lists:map(fun (_) -> ok end, [a,b,c,d]),
+    {message_queue_len, _} = process_info(element(2,PT), element(2,AT)).
+    
+process_info_lock_reschedule3(doc) ->
+    [];
+process_info_lock_reschedule3(suite) ->
+    [];
+process_info_lock_reschedule3(Config) when is_list(Config) ->
+    %% We need a process that is running and an item that requires
+    %% process_info to take the main process lock.
+    ?line Target1 = spawn_link(fun tok_loop/0),
+    ?line Name1 = process_info_lock_reschedule_running,
+    ?line register(Name1, Target1),
+    ?line Target2 = spawn_link(fun () -> receive after infinity -> ok end end),
+    ?line Name2 = process_info_lock_reschedule_waiting,
+    ?line register(Name2, Target2),
+    ?line PI = fun(N) ->
+		       case N rem 10 of
+			   0 -> erlang:yield();
+			   _ -> ok
+		       end,
+		       ?line do_pi_msg_len({proc, Target1},
+					   {arg, message_queue_len})
+	       end,
+    ?line many_args(100000,1,2,3,4,5,6,7,8,9),
+    ?line lists:foreach(PI, lists:seq(1,1000000)),
+    %% Make sure Target1 still is willing to "tok loop"
+    ?line case process_info(Target1, status) of
+	      {status, OkStatus} when OkStatus == runnable;
+				      OkStatus == running;
+				      OkStatus == garbage_collecting ->
+		  ?line unlink(Target1),
+		  ?line unlink(Target2),
+		  ?line exit(Target1, bang),
+		  ?line exit(Target2, bang),
+		  ?line OkStatus;
+	      {status, BadStatus} ->
+		  ?line ?t:fail(BadStatus)
+	  end.
 
 process_status_exiting(Config) when is_list(Config) ->
     %% Make sure that erts_debug:get_internal_state({process_status,P})

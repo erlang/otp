@@ -144,7 +144,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(APP_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) kernel.spec  $(EMAKEFILE)\
 		$(COVERFILE) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

@@ -31,6 +31,61 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Add encoding when parsing Wiki text. EDoc used to
+	    fail on strings such as "дец". (Thanks to Richard
+	    Carlsson.) </p>
+          <p>
+	    Own Id: OTP-9109</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> It is now possible to use Erlang specifications and
+	    types in EDoc documentation. Erlang specifications and
+	    types will be used unless there is also a function
+	    specification (<c>@spec</c>) or a type alias
+	    (<c>@type</c>) with the same name. In the current
+	    implementation the placement of <c>-spec</c> matters: it
+	    should be placed where the <c>@spec</c> would otherwise
+	    have been placed. </p>
+	    <p>Not all Erlang types are included in the
+	    documentation, but only those exported by some
+	    <c>export_type</c> declaration or used by some documented
+	    Erlang specification (<c>-spec</c>). </p>
+	    <p> There is currently no support for overloaded Erlang
+	    specifications. </p>
+	    <p> The syntax definitions of EDoc have been augmented to
+	    cope with most of the Erlang types. (But we recommend
+	    that Erlang types should be used instead.) </p>
+	    <p> <c>edoc:read_source()</c> takes one new option,
+	    <c>report_missing_types</c>. <c>edoc_layout:module()</c>
+	    takes one new option, <c>pretty_printer</c>. </p>
+          <p>
+	    Own Id: OTP-8525</p>
+        </item>
+        <item>
+	    <p> The <c>edoc_lib</c> module is meant to be private,
+	    but since it is referred to from other man pages it has
+	    been included in the OTP documentation. The modifications
+	    introduced in this ticket make all functions private
+	    except those referred to from other pages. </p>
+          <p>
+	    Own Id: OTP-9110</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.6.8</title>
 
     <section><title>Improvements and New Features</title>

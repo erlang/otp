@@ -2,7 +2,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2010. All Rights Reserved.
+# Copyright Ericsson AB 2007-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -114,13 +114,18 @@ RCPATH=`lookup_prog_in_path rc`
 fail=false
 if [ '!' -z "$RCPATH" ]; then 
     BPATH=$RCPATH
-    for x in rc bin v6.0A ; do 
-	NBPATH=`remove_path_element $x "$BPATH"`
-	if [ "$NBPATH" = "$BPATH" ]; then
-	    fail=true
-	    break;
+    allow_fail=false
+    for x in rc bin @ANY v6.0A v7.0A v7.1; do
+	if [ $x = @ANY ]; then
+	    allow_fail=true
+	else
+	    NBPATH=`remove_path_element $x "$BPATH"`
+	    if [ $allow_fail = false -a "$NBPATH" = "$BPATH" ]; then
+		fail=true
+		break;
+	    fi
+	    BPATH="$NBPATH"
 	fi
-	BPATH="$NBPATH"
     done
     if [ $fail = false ]; then
 	BPATH_LIST="$BPATH_LIST $BPATH"
@@ -129,23 +134,32 @@ fi
 
 # Frantic search through two roots with different 
 # version directories. We want to be very specific about the
-# directory structures as we woildnt want to find the wrong 
+# directory structures as we wouldnt want to find the wrong 
 # redistributables...
 
-#echo $BPATH
+#echo $BPATH_LIST
 for BP in $BPATH_LIST; do
-    for verdir in "sdk v2.0" "sdk v3.5" "v6.0A"; do
+    #echo "BP=$BP"
+    for verdir in "sdk v2.0" "sdk v3.5" "v6.0A" "v7.0A" "v7.1"; do
 	BPATH=$BP
 	fail=false
-	for x in $verdir bootstrapper packages vcredist_x86 vcredist_x86.exe; do
+	allow_fail=false
+	for x in $verdir @ANY bootstrapper packages vcredist_x86 Redist VC @ALL vcredist_x86.exe; do
 	    #echo "x=$x"
 	    #echo "BPATH=$BPATH"
-	    NBPATH=`add_path_element $x "$BPATH"`
-	    if [ "$NBPATH" = "$BPATH" ]; then
-		fail=true
-		break;
+	    #echo "allow_fail=$allow_fail"
+	    if [ $x = @ANY ]; then
+		allow_fail=true
+	    elif [ $x = @ALL ]; then
+		allow_fail=false
+	    else
+		NBPATH=`add_path_element $x "$BPATH"`
+		if [ $allow_fail = false -a "$NBPATH" = "$BPATH" ]; then
+		    fail=true
+		    break;
+		fi
+		BPATH="$NBPATH"
 	    fi
-	    BPATH="$NBPATH"
 	done
 	if [ $fail = false ]; then
 	    break;

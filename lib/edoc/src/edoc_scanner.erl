@@ -3,24 +3,24 @@
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved via the world wide web at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and
 %% limitations under the License.
-%% 
+%%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings
 %% AB. Portions created by Ericsson are Copyright 1999, Ericsson
 %% Utvecklings AB. All Rights Reserved.''
 %%
-%% $Id$
+%% $Id: $
 %%
 %% @private
 %% @copyright Richard Carlsson 2001-2003. Portions created by Ericsson
 %% are Copyright 1999, Ericsson Utvecklings AB. All Rights Reserved.
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @see edoc
-%% @end 
+%% @end
 
 %% @doc Tokeniser for EDoc. Based on the Erlang standard library module
 %% {@link //stdlib/erl_scan}.
@@ -139,13 +139,21 @@ scan1([$"|Cs0], Toks, Pos) ->				% String
 	    scan_error({illegal, string}, Pos)
     end;
 %% Punctuation characters and operators, first recognise multiples.
+scan1([$<,$<|Cs], Toks, Pos) ->
+    scan1(Cs, [{'<<',Pos}|Toks], Pos);
+scan1([$>,$>|Cs], Toks, Pos) ->
+    scan1(Cs, [{'>>',Pos}|Toks], Pos);
 scan1([$-,$>|Cs], Toks, Pos) ->
     scan1(Cs, [{'->',Pos}|Toks], Pos);
 scan1([$:,$:|Cs], Toks, Pos) ->
     scan1(Cs, [{'::',Pos}|Toks], Pos);
 scan1([$/,$/|Cs], Toks, Pos) ->
     scan1(Cs, [{'//',Pos}|Toks], Pos);
-scan1([C|Cs], Toks, Pos) ->    % Punctuation character
+scan1([$.,$.,$.|Cs], Toks, Pos) ->
+    scan1(Cs, [{'...',Pos}|Toks], Pos);
+scan1([$.,$.|Cs], Toks, Pos) ->
+    scan1(Cs, [{'..',Pos}|Toks], Pos);
+scan1([C|Cs], Toks, Pos) -> % Punctuation character
     P = list_to_atom([C]),
     scan1(Cs, [{P,Pos}|Toks], Pos);
 scan1([], Toks0, _Pos) ->
@@ -158,7 +166,7 @@ scan_variable(C, Cs, Toks, Pos) ->
     W = [C|reverse(Wcs)],
     case W of
 	"_" ->
-	    scan_error({illegal,token}, Pos);
+            scan1(Cs1, [{an_var,Pos,'_'}|Toks], Pos);
 	_ ->
 	    case catch list_to_atom(W) of
 		A when is_atom(A) ->
@@ -318,7 +326,7 @@ scan_integer(Cs, Stack, Pos) ->
 
 scan_after_int([$.,C|Cs0], Ncs0, Toks, SPos, CPos) when C >= $0, C =< $9 ->
     {Ncs,Cs,CPos1} = scan_integer(Cs0, [C,$.|Ncs0], CPos),
-    scan_after_fraction(Cs, Ncs, Toks, SPos, CPos1);	
+    scan_after_fraction(Cs, Ncs, Toks, SPos, CPos1);
 scan_after_int(Cs, Ncs, Toks, SPos, CPos) ->
     N = list_to_integer(reverse(Ncs)),
     scan1(Cs, [{integer,SPos,N}|Toks], CPos).

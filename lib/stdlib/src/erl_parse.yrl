@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -757,7 +757,8 @@ record_fields([{typed,Expr,TypeInfo}|Fields]) ->
 	    {atom, La, _} ->
                 case has_undefined(TypeInfo) of
                     false ->
-                        lift_unions(abstract(undefined, La), TypeInfo);
+                        TypeInfo2 = maybe_add_paren(TypeInfo),
+                        lift_unions(abstract(undefined, La), TypeInfo2);
                     true ->
                         TypeInfo
                 end
@@ -777,6 +778,11 @@ has_undefined({type,_,union,Ts}) ->
     lists:any(fun has_undefined/1, Ts);
 has_undefined(_) ->
     false.
+
+maybe_add_paren({ann_type,L,T}) ->
+    {paren_type,L,[{ann_type,L,T}]};
+maybe_add_paren(T) ->
+    T.
 
 term(Expr) ->
     try normalise(Expr)

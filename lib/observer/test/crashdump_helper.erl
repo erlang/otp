@@ -19,7 +19,7 @@
 
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2]).
--compile(r11).
+-compile(r12).
 -include("test_server.hrl").
 
 n1_proc(N2,Creator) ->

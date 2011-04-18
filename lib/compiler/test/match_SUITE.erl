@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,16 +22,16 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,match_in_call/1,
 	 untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1]).
+	 selectify/1,underscore/1,coverage/1]).
 	 
 -include_lib("test_server/include/test_server.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(match_SUITE),
+    test_lib:recompile(?MODULE),
     [pmatch, mixed, aliases, match_in_call, untuplify,
-     shortcut_boolean, letify_guard, selectify, underscore].
+     shortcut_boolean, letify_guard, selectify, underscore, coverage].
 
 groups() -> 
     [].
@@ -397,5 +397,19 @@ underscore(Config) when is_list(Config) ->
     end,
     _ = is_list(Config),
     ok.
+
+coverage(Config) when is_list(Config) ->
+    %% Cover beam_dead.
+    ok = coverage_1(x, a),
+    ok = coverage_1(x, b).
+
+coverage_1(B, Tag) ->
+    case Tag of
+	a -> coverage_2(1, a, B);
+	b -> coverage_2(2, b, B)
+    end.
+
+coverage_2(1, a, x) -> ok;
+coverage_2(2, b, x) -> ok.
 
 id(I) -> I.

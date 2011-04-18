@@ -895,6 +895,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_HAVE_BLCKD_MSCHED  (1 <<  8) /* Process has blocked multi-scheduling */
 #define F_P2PNR_RESCHED      (1 <<  9) /* Process has been rescheduled via erts_pid2proc_not_running() */
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
+#define F_HIBERNATE_SCHED    (1 << 11) /* Schedule out after hibernate op */
 
 /* process trace_flags */
 #define F_SENSITIVE          (1 << 0)
@@ -1592,7 +1593,9 @@ ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 ERTS_GLB_INLINE void
 erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 {
-    erts_aint32_t flags = erts_smp_atomic32_read(&ssi->flags);
+    erts_aint32_t flags;
+    ERTS_THR_MEMORY_BARRIER;
+    flags = erts_smp_atomic32_read(&ssi->flags);
     ASSERT(!(flags & ERTS_SSI_FLG_SLEEPING)
 	   || (flags & ERTS_SSI_FLG_WAITING));
     if (flags & ERTS_SSI_FLG_SLEEPING) {

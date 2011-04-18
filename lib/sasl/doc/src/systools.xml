@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2007</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -130,7 +130,7 @@
       <fsummary>Generate a boot script <c>.script/.boot</c>.</fsummary>
       <type>
         <v>Name = string()</v>
-        <v>Opt = no_module_tests | {path,[Dir]} | local | {variables,[Var]} | exref | {exref,[App]}] | silent | {outdir,Dir}</v>
+        <v>Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref | {exref,[App]}] | silent | {outdir,Dir}</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;Var = {VarName,Prefix}</v>
         <v>&nbsp;&nbsp;VarName = Prefix = string()</v>
@@ -174,15 +174,13 @@
               the applications.</p>
           </item>
           <item>
-            <p>There should no duplicated modules, that is, modules with
+            <p>There should be no duplicated modules, that is, modules with
               the same name but belonging to different applications.</p>
           </item>
           <item>
-            <p>A warning is issued if the source code for a module is
-              missing or newer than the object code.              <br></br>
-
-              If the <c>no_module_tests</c> option is specified, this
-              check is omitted.</p>
+            <p>If the <c>src_tests</c> option is specified, a
+              warning is issued if the source code for a module is
+              missing or newer than the object code.</p>
           </item>
         </list>
         <p>The applications are sorted according to the dependencies
@@ -242,7 +240,7 @@
       <fsummary>Create a release package.</fsummary>
       <type>
         <v>Name = string()</v>
-        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | no_module_tests | exref | {exref,[App]} | silent | {outdir,Dir}</v>
+        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir}</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;IncDir = src | include | atom()</v>
         <v>&nbsp;Var = {VarName,PreFix}</v>
@@ -330,7 +328,7 @@ myapp-1/ebin/myapp.app
           system <c>{erts,Dir}</c> is copied to <c>erts-ErtsVsn/bin</c>.</p>
         <p>All checks performed with the <c>make_script</c> function
           are performed before the release package is created. The
-          <c>no_module_tests</c> and <c>exref</c> options are also
+          <c>src_tests</c> and <c>exref</c> options are also
           valid here.</p>
         <p>The return value and the handling of errors and warnings
           are the same as described for <c>make_script</c> above.</p>

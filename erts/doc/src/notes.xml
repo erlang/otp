@@ -30,6 +30,279 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ets table type ordered_set could order large integer keys
+	    wrongly on pure 64bit platforms. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9181</p>
+        </item>
+        <item>
+          <p>
+	    The status of a process was unnecessarily set to waiting
+	    before a process was enqueued in a run queue. This bug
+	    was harmless up until OTP-R14B01. In OTP-R14B02
+	    <c>erlang:hibernate/3</c> was fixed (OTP-9125). After the
+	    introduction of OTP-9125, the previously harmless process
+	    status bug sometimes caused erroneous badarg exceptions
+	    from <c>process_info()</c>.</p>
+          <p>
+	    OTP-9125 also introduced a thread unsafe access to the
+	    status field of a process which now also have been fixed.</p>
+          <p>
+	    *** INCOMPATIBILITY with noxs ***</p>
+          <p>
+	    Own Id: OTP-9197</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erts 5.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The scroll wheel now scrolls the werl window on Windows.</p>
+          <p>
+	    Own Id: OTP-8985</p>
+        </item>
+        <item>
+          <p>
+	    Some malformed distribution messages could cause VM to
+	    crash, this is now corrected.</p>
+          <p>
+	    Own Id: OTP-8993</p>
+        </item>
+        <item>
+          <p>
+	    The OS function getifaddrs() can return NULL in some
+	    address fields for e.g PPP and tunnel devices which
+	    caused the emulator to segfault. This bug has now been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-8996</p>
+        </item>
+        <item>
+          <p>
+	    The expression &lt;&lt;A:0&gt;&gt; would always produce
+	    an empty binary, even if <c>A</c> was not an integer.
+	    Corrected to cause a <c>badarg</c> exception if the type
+	    of <c>A</c> is invalid. (Thanks to Zvi.)</p>
+          <p>
+	    Own Id: OTP-8997</p>
+        </item>
+        <item>
+          <p>
+	    A bug that potentially could cause an emulator crash when
+	    deleting an ETS-table has been fixed. A resource leak
+	    when hitting the maximum amount of ETS-tables allowed has
+	    also been fixed.</p>
+          <p>
+	    Own Id: OTP-8999</p>
+        </item>
+        <item>
+          <p>
+	    A bug in the <c>exit/2</c> BIF could potentially cause an
+	    emulator crash.</p>
+          <p>
+	    Own Id: OTP-9005</p>
+        </item>
+        <item>
+          <p>
+	    Due to a bug in glibc the runtime system could abort
+	    while trying to destroy a mutex. The runtime system will
+	    now issue a warning instead of aborting.</p>
+          <p>
+	    Own Id: OTP-9009</p>
+        </item>
+        <item>
+          <p>
+	    A bug in epmd could create strange behaviour when
+	    listen() calls failed. This is now corrected thanks to
+	    Steve Vinoski.</p>
+          <p>
+	    Own Id: OTP-9024</p>
+        </item>
+        <item>
+	    <p>When setting file_info the win32_driver will now
+	    correctly set access and modified time. Previously these
+	    entities were swapped.</p>
+          <p>
+	    Own Id: OTP-9046</p>
+        </item>
+        <item>
+          <p>
+	    Setting scheduler bind type to <c>unbound</c> failed if
+	    binding of schedulers wasn't supported, or if CPU
+	    topology wasn't present. This even though the
+	    documentation stated that it is possible to set the bind
+	    type to <c>unbound</c>.</p>
+          <p>
+	    Own Id: OTP-9056 Aux Id: Seq11779 </p>
+        </item>
+        <item>
+	    <p>Two problems were fixed in crash dump: The time left
+	    for timers are now shown as unsigned integers and the
+	    contents of ordered_set ETS tables is no longer
+	    included.</p>
+          <p>
+	    Own Id: OTP-9057</p>
+        </item>
+        <item>
+          <p>
+	    The VM could fail to set IP_TOS and SO_PRIORITY in
+	    certain situations, either because sockets were supplied
+	    as open file descriptors, or because SO_PRIORITY by
+	    default was set higher than the user can explicitly set
+	    it to. Those situations are now handled.</p>
+          <p>
+	    Own Id: OTP-9069</p>
+        </item>
+        <item>
+          <p>
+	    Wx on MacOS X generated complains on stderr about certain
+	    cocoa functions not beeing called from the "Main thread".
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-9081</p>
+        </item>
+        <item>
+          <p>
+	    Fix a couple typos in driver_entry(3) (thanks to Tuncer
+	    Ayaz).</p>
+          <p>
+	    Own Id: OTP-9085</p>
+        </item>
+        <item>
+          <p>
+	    Mention that "-detached" implies "-noinput"</p>
+          <p>
+	    Clarify that specifying "-noinput" is unnecessary if the
+	    "-detached" flag is given. (thanks to Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9086</p>
+        </item>
+        <item>
+          <p>
+	    A potential problem (found by code inspection) when
+	    calling a fun whose code was not loaded has been fixed.</p>
+          <p>
+	    Own Id: OTP-9095</p>
+        </item>
+        <item>
+          <p>
+	    The emulator could get into a state where it didn't check
+	    for I/O.</p>
+          <p>
+	    Own Id: OTP-9105 Aux Id: Seq11798 </p>
+        </item>
+        <item>
+          <p>
+	    Attempting to create binaries exceeding 2Gb (using for
+	    example <c>term_to_binary/1</c>) would crash the emulator
+	    with an attempt to allocate huge amounts of memory.
+	    (Thanks to Jon Meredith.)</p>
+          <p>
+	    Own Id: OTP-9117</p>
+        </item>
+        <item>
+          <p>
+	    Fix erlang:hibernate/3 on HiPE enabled emulator (Thanks
+	    to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9125</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>From this release, the previously experimental
+	    halfword emulator is now official. It can be enabled by
+	    giving the <c>--enable-halfword-emulator</c> option to
+	    the <c>configure</c> script.</p>
+	    <p>The halfword emulator is a 64-bit application, but
+	    uses halfwords (32-bit words) for all data in Erlang
+	    processes, therefore using less memory and being faster
+	    than the standard 64-bit emulator. The total size of all
+	    BEAM code and all process data for all processes is
+	    limited to 4Gb, but ETS tables and off-heap binaries are
+	    only limited by the amount of available memory.</p>
+          <p>
+	    Own Id: OTP-8941</p>
+        </item>
+        <item>
+          <p>
+	    32-bit atomic memory operations have been introduced
+	    internally in the run time system, and are now used where
+	    appropriate. There were previously only atomic memory
+	    operations of word size available. The 32-bit atomic
+	    memory operations slightly reduce memory consumption, and
+	    slightly improve performance on 64-bit runtime systems.</p>
+          <p>
+	    Own Id: OTP-8974</p>
+        </item>
+        <item>
+          <p>
+	    Performance enhancements for looking up timer-entries and
+	    removing timers from the wheel.</p>
+          <p>
+	    Own Id: OTP-8990</p>
+        </item>
+        <item>
+          <p>
+	    Write accesses to ETS tables have been optimized by
+	    reducing the amount of atomic memory operations needed
+	    during a write access.</p>
+          <p>
+	    Own Id: OTP-9000</p>
+        </item>
+        <item>
+          <p>
+	    Strange C coding in the VM made the -D_FORTIFY_SOURCE
+	    option to gcc-4.5 react badly. The code is now cleaned up
+	    so that it's accepted by gcc-4.5.</p>
+          <p>
+	    Own Id: OTP-9025</p>
+        </item>
+        <item>
+          <p>
+	    The memory footprint for loaded code has been somewhat
+	    reduced (especially in the 64-bit BEAM machine).</p>
+          <p>
+	    Own Id: OTP-9030</p>
+        </item>
+        <item>
+          <p>
+	    The maximum number of allowed arguments for an Erlang
+	    function has been lowered from 256 to 255, so that the
+	    number of arguments can now fit in a byte.</p>
+          <p>
+	    Own Id: OTP-9049</p>
+        </item>
+        <item>
+          <p>
+	    Dependency generation for Makefiles has been added to the
+	    compiler and erlc. See the manual pages for
+	    <c>compile</c> and <c>erlc</c>. (Thanks to Jean-Sebastien
+	    Pedron.)</p>
+          <p>
+	    Own Id: OTP-9065</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

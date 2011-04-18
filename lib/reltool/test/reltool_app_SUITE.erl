@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,15 +45,16 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     reltool_test_lib:end_per_suite(Config).
 
+init_per_testcase(undef_funcs=Case, Config) ->
+    case test_server:is_debug() of
+	true ->
+	    {skip,"Debug-compiled emulator -- far too slow"};
+	false ->
+	    Config2 = [{tc_timeout, timer:minutes(10)} | Config],
+	    reltool_test_lib:init_per_testcase(Case, Config2)
+	end;
 init_per_testcase(Case, Config) ->
-    Config2 =
-	case Case of
-	    undef_funcs ->
-		[{tc_timeout, timer:minutes(10)} | Config];
-	    _ ->
-		Config
-	end,
-    reltool_test_lib:init_per_testcase(Case, Config2).
+    reltool_test_lib:init_per_testcase(Case, Config).
 
 end_per_testcase(Func,Config) ->
     reltool_test_lib:end_per_testcase(Func,Config).

@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2010. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2011. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -1793,7 +1793,7 @@ AC_CHECK_FUNCS([getipnodebyname getipnodebyaddr gethostbyname2])
 
 AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
 		pread pwrite writev memmove strerror strerror_r strncasecmp \
-		gethrtime localtime_r gmtime_r mmap mremap memcpy mallopt \
+		gethrtime localtime_r gmtime_r inet_pton mmap mremap memcpy mallopt \
 		sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo poll])
 
@@ -2399,9 +2399,15 @@ if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
 	enable_hipe=no
    	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
+  elif test "$enable_halfword_emulator" = "yes"; then
+       if test X${enable_hipe} = Xyes; then
+              AC_MSG_ERROR([HiPE can not be combined with halfword emulator (yet)])
+       else		    
+   	      AC_MSG_NOTICE([HiPE auto-disabled on halfword emulator])
+       fi	
   else
   	case "$ARCH-$OPSYS" in
-	    x86-linux|amd64-linux|x86-darwin*|amd64-darwin*|ppc-linux|ppc-darwin|arm-linux|amd64-freebsd|x86-freebsd|x86-sol2|amd64-sol2|ultrasparc-linux)
+	    x86-linux|amd64-linux|x86-darwin*|amd64-darwin*|ppc-linux|ppc64-linux|ppc-darwin|arm-linux|amd64-freebsd|x86-freebsd|x86-sol2|amd64-sol2|ultrasparc-linux)
       		enable_hipe=yes
       		;;	
   	esac
@@ -3659,6 +3665,12 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 		wrp="/machine/software/microsoft/windows/currentversion/"
 		urp="uninstall/openssl_is1/inno setup: app path"
 		rp="$wrp$urp"
+		if regtool -q get "$rp" > /dev/null; then
+		   true
+		else
+		   urp="uninstall/openssl (32-bit)_is1/inno setup: app path"
+		   rp="$wrp$urp"
+		fi	
 		if regtool -q get "$rp" > /dev/null; then
 			ssl_install_dir=`regtool -q get "$rp"`
 			# Try hard to get rid of spaces...

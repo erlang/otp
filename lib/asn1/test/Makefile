@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -194,7 +194,7 @@ release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_v2_SUITE_data
 	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	cd asn1_SUITE_data; tar cfh $(RELSYSDIR)/asn1_SUITE_data.tar *
 	cd $(RELSYSDIR)/asn1_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
 	cd $(RELSYSDIR)/asn1_bin_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar

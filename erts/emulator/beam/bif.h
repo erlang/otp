@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -196,6 +196,12 @@ do {							\
 
 #define BIF_TRAP_CODE_PTR_0(p, Code_) do {		\
       (p)->arity = 0;					\
+      *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) (Code_);	\
+      (p)->freason = TRAP;				\
+      return THE_NON_VALUE;				\
+ } while(0)
+
+#define BIF_TRAP_CODE_PTR_(p, Code_) do {		\
       *((UWord *) (UWord) ((p)->def_arg_reg + 3)) = (UWord) (Code_);	\
       (p)->freason = TRAP;				\
       return THE_NON_VALUE;				\

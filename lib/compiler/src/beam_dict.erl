@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,6 @@
 	 strings = <<>>		    :: binary(),	%String pool
 	 lambdas = [],				%[{...}]
 	 literals = dict:new()	    :: dict(),	%Format: {Literal,Number}
-	 next_atom = 1		    :: pos_integer(),
 	 next_import = 0	    :: non_neg_integer(),
 	 string_offset = 0	    :: non_neg_integer(),
 	 next_literal = 0	    :: non_neg_integer(),
@@ -66,13 +65,14 @@ highest_opcode(#asm{highest_opcode=Op}) -> Op.
 %%    atom(Atom, Dict) -> {Index,Dict'}
 -spec atom(atom(), bdict()) -> {pos_integer(), bdict()}.
 
-atom(Atom, #asm{atoms=Atoms0,next_atom=NextIndex}=Dict) when is_atom(Atom) ->
+atom(Atom, #asm{atoms=Atoms0}=Dict) when is_atom(Atom) ->
     case gb_trees:lookup(Atom, Atoms0) of
 	{value,Index} ->
 	    {Index,Dict};
 	none ->
+	    NextIndex = gb_trees:size(Atoms0) + 1,
 	    Atoms = gb_trees:insert(Atom, NextIndex, Atoms0),
-	    {NextIndex,Dict#asm{atoms=Atoms,next_atom=NextIndex+1}}
+	    {NextIndex,Dict#asm{atoms=Atoms}}
     end.
 
 %% Remembers an exported function.
@@ -139,7 +139,7 @@ lambda(Lbl, Index, OldUniq, NumFree, #asm{lambdas=Lambdas0}=Dict) ->
     Lambdas = [{Lbl,{OldIndex,Lbl,Index,NumFree,OldUniq}}|Lambdas0],
     {OldIndex,Dict#asm{lambdas=Lambdas}}.
 
-%% Returns the index for a literal (adding it to the atom table if necessary).
+%% Returns the index for a literal (adding it to the literal table if necessary).
 %%    literal(Literal, Dict) -> {Index,Dict'}
 -spec literal(term(), bdict()) -> {non_neg_integer(), bdict()}.
 
@@ -156,14 +156,15 @@ literal(Lit, #asm{literals=Tab0,next_literal=NextIndex}=Dict) ->
 %%    atom_table(Dict) -> {LastIndex,[Length,AtomString...]}
 -spec atom_table(bdict()) -> {non_neg_integer(), [[non_neg_integer(),...]]}.
 
-atom_table(#asm{atoms=Atoms,next_atom=NumAtoms}) ->
+atom_table(#asm{atoms=Atoms}) ->
+    NumAtoms = gb_trees:size(Atoms),
     Sorted = lists:keysort(2, gb_trees:to_list(Atoms)),
     Fun = fun({A,_}) ->
 		  L = atom_to_list(A),
 		  [length(L)|L]
 	  end,
     AtomTab = lists:map(Fun, Sorted),
-    {NumAtoms-1,AtomTab}.
+    {NumAtoms,AtomTab}.
 
 %% Returns the table of local functions.
 %%    local_table(Dict) -> {NumLocals, [{Function, Arity, Label}...]}
