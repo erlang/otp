@@ -541,25 +541,32 @@ udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
 
 udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
   when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode);
+    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout);
 udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
   when ?ip(A,B,C,D), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode).
+    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout).
 
-do_udp_recv(I, IP, Port, Timeout, Decode) ->
-    Start =
-	case Timeout of
-	    0 -> undefined;
-	    _ -> erlang:now()
-	end,
-    do_udp_recv(I, IP, Port, Timeout, Decode, Start, Timeout).
-
+do_udp_recv(_I, _IP, _Port, 0, _Decode, _Start, _T) ->
+    timeout;
 do_udp_recv(I, IP, Port, Timeout, Decode, Start, T) ->
     case gen_udp:recv(I, 0, T) of
 	{ok,Reply} ->
 	    case Decode(Reply) of
-		false when Start =:= undefined ->
-		    do_udp_recv(I, IP, Port, Timeout, Decode, Start, T);
+		false when T =:= 0 ->
+		    %% This is a compromize between the hard way i.e
+		    %% in the clause below if NewT becomes 0 bailout
+		    %% immediately and risk that the right reply lies
+		    %% ahead after some bad id replies, and the
+		    %% forgiving way i.e go on with Timeout 0 until
+		    %% the right reply comes or no reply (timeout)
+		    %% which opens for a DOS attack by a malicious
+		    %% DNS server flooding with bad id replies causing
+		    %% an infinite loop here.
+		    %%
+		    %% Timeout is used as a sanity limit counter
+		    %% just to put an end to the loop.
+		    NewTimeout = erlang:max(0, Timeout - 50),
+		    do_udp_recv(I, IP, Port, NewTimeout, Decode, Start, T);
 		false ->
 		    Now = erlang:now(),
 		    NewT = erlang:max(0, Timeout - now_ms(Now, Start)),
@@ -691,6 +698,8 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 	    end
     end.
 
+query_udp(_S, _Id, _Buffer, _IP, _Port, 0, Verbose) ->
+    timeout;
 query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
 	     [IP,Port,Timeout]),
@@ -716,9 +725,6 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    case udp_recv(S, IP, Port, Timeout, Decode) of
 		{ok,_}=Result ->
 		    Result;
-		{error,timeout} when Timeout =:= 0 ->
-		    ?verbose(Verbose, "UDP bailout timeout\n", []),
-		    timeout;
 		E2 ->
 		    ?verbose(Verbose, "UDP server error: ~p\n", [E2]),
 		    E2
@@ -728,6 +734,8 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    {error,econnrefused}
     end.
 
+query_tcp(0, _Id, _Buffer, _IP, _Port, Verbose) ->
+    timeout;
 query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",
 	     [IP, Port, Timeout]),
@@ -750,19 +758,10 @@ query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
 		    end;
 		Error ->
 		    gen_tcp:close(S),
-		    case Error of
-			{error, timeout} when Timeout =:= 0 ->
-			    ?verbose(Verbose, "TCP bailout recv timeout\n", []),
-			    timeout;
-			_ ->
-			    ?verbose(Verbose, "TCP server recv error: ~p\n",
-				    [Error]),
-			    Error
-		    end
+		    ?verbose(Verbose, "TCP server recv error: ~p\n",
+			     [Error]),
+		    Error
 	    end;
-	{error, timeout} when Timeout =:= 0 ->
-	    ?verbose(Verbose, "TCP bailout connect timeout\n", []),
-	    timeout;
 	Error ->
 	    ?verbose(Verbose, "TCP server error: ~p\n", [Error]),
 	    Error
