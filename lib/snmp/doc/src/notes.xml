@@ -57,8 +57,8 @@
         <item>
           <p>[agent] To be able to handle multiple engine-id(s) when
 	  sending trap(s), the function 
-          <seealso marker="snmp_community_mib:add_community">add_community/6</seealso>
-          has been added. </p>
+          <seealso marker="snmp_community_mib#add_community">
+	  add_community/6</seealso> has been added. </p>
           <p>Own Id: OTP-9119 Aux Id: Seq 11792</p>
         </item>
 
