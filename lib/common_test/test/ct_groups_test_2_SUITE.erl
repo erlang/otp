@@ -124,7 +124,7 @@ empty_group(Config) when is_list(Config) ->
     Suite = filename:join(DataDir, "groups_2/groups_22_SUITE"),
 
     {Opts,ERPid} = setup([{suite,Suite},
-			  {group,[test_group_8,test_group_9]}],
+			  {group,[test_group_8,test_group_9,test_group_10]}],
 			 Config),
     ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
@@ -282,4 +282,24 @@ test_events(repeat_1) ->
     ];
 
 test_events(empty_group) ->
-    [].
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{groups_22_SUITE,init_per_suite}},
+     {?eh,tc_done,{groups_22_SUITE,init_per_suite,ok}},
+     [{?eh,tc_start,
+       {groups_22_SUITE,{init_per_group,test_group_8,[]}}},
+      {?eh,tc_done,
+       {groups_22_SUITE,{init_per_group,test_group_8,[]},ok}},
+      {?eh,tc_start,{groups_22_SUITE,testcase_8}},
+      {?eh,tc_done,{groups_22_SUITE,testcase_8,ok}},
+      {?eh,test_stats,{1,0,{0,0}}},
+      {?eh,tc_start,
+       {groups_22_SUITE,{end_per_group,test_group_8,[]}}},
+      {?eh,tc_done,
+       {groups_22_SUITE,{end_per_group,test_group_8,[]},ok}}],
+     {?eh,tc_start,{groups_22_SUITE,end_per_suite}},
+     {?eh,tc_done,{groups_22_SUITE,end_per_suite,init}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].

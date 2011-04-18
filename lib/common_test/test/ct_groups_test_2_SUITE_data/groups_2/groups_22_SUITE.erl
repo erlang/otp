@@ -52,8 +52,11 @@ groups() ->
 
      {test_group_7, [sequence], [testcase_7a,testcase_7b]},
 
-     {test_group_8, [], [{group,test_group_9}]},
-     {test_group_9, [], []}
+     {test_group_8, [], [{group, test_group_9}, testcase_8]},
+
+     {test_group_9, [], []},
+
+     {test_group_10, [], [{group, test_group_9}]}
     ].
 
 all() ->
@@ -65,7 +68,8 @@ all() ->
      testcase_3,
      {group, test_group_4},
      {group, test_group_8},
-     {group, test_group_9}].
+     {group, test_group_9},
+     {group, test_group_10}].
 
 %% this func only for internal test purposes
 grs_and_tcs() ->
@@ -74,7 +78,8 @@ grs_and_tcs() ->
       test_group_2, test_group_3,
       test_group_4, test_group_5,
       test_group_6, test_group_7,
-      test_group_8, test_group_9
+      test_group_8, test_group_9,
+      test_group_10
      ],
      [
       testcase_1a, testcase_1b, testcase_1c,
@@ -84,7 +89,8 @@ grs_and_tcs() ->
       testcase_3a, testcase_3b,
       testcase_3,
       testcase_5a, testcase_5b,
-      testcase_7a, testcase_7b
+      testcase_7a, testcase_7b,
+      testcase_8
      ]}.
 
 %%--------------------------------------------------------------------
@@ -113,7 +119,10 @@ init_per_group(Group, Config) ->
 	    {test_group_4,[{name,test_group_4}]} -> ok;
 	    {test_group_5,[{name,test_group_5},parallel]} -> "parallel";
 	    {test_group_6,[{name,test_group_6},parallel]} -> "parallel";
-	    {test_group_7,[{name,test_group_7},sequence]} -> "sequence"
+	    {test_group_7,[{name,test_group_7},sequence]} -> "sequence";
+	    {test_group_8,[{name,test_group_8}]} -> ok;
+	    {test_group_9,[{name,test_group_9}]} -> ok;
+	    {test_group_10,[{name,test_group_10}]} -> ok
 	end,
     {Grs,_} = grs_and_tcs(),
     case lists:member(Group, Grs) of
@@ -317,4 +326,8 @@ testcase_7b(Config) ->
     test_group_7 = ?config(test_group_7,Config),
     undefined = ?config(testcase_7a,Config),
     testcase_7b = ?config(testcase_7b,Config),
+    ok.
+testcase_8() ->
+    [].
+testcase_8(_Config) ->
     ok.
