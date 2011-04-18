@@ -2126,7 +2126,7 @@ send_discovery(S, From,
 	       TargetName, Record, ContextName, InitVars, 
 	       DiscoHandler, ExtraInfo) ->
     case snmpa_trap:send_discovery(TargetName, Record, ContextName,
-				   InitVars, get(net_if)) of
+				   InitVars, get(net_if), ExtraInfo) of
 	{ok, Sender, SecLevel} ->
 	    Disco = #disco{from      = From, 
 			   rec       = Record,
@@ -2203,9 +2203,12 @@ handle_discovery_response(#state{disco = #disco{target = TargetName,
 		    #disco{rec  = Record,
 			   ctx  = ContextName,
 			   ivbs = InitVars} = Disco, 
-		    case snmpa_trap:send_discovery(TargetName, Record, 
+		    case snmpa_trap:send_discovery(TargetName, 
+						   Record, 
 						   ContextName,
-						   InitVars, get(net_if)) of
+						   InitVars, 
+						   get(net_if), 
+						   ExtraInfo) of
 			{ok, Sender, _SecLevel} ->
 			    ?vdebug("handle_discovery_response(1) -> "
 				    "stage 2 trap sent", []),

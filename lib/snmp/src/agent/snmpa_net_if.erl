@@ -343,12 +343,25 @@ loop(S) ->
 	    loop(NewS);
 
 	%% Discovery Inform
+	%% <BACKWARD-COMPAT>
 	{send_discovery, Pdu, MsgData, To, From} ->
 	    ?vdebug("received send discovery request: "
 		    "~n   Pdu:  ~p"
 		    "~n   To:   ~p"
 		    "~n   From: ~p", 
 		    [Pdu, To, toname(From)]),
+	    NewS = handle_send_discovery(S, Pdu, MsgData, To, From),
+	    loop(NewS);
+	%% </BACKWARD-COMPAT>
+
+	%% Discovery Inform
+	{send_discovery, Pdu, MsgData, To, From, ExtraInfo} ->
+	    ?vdebug("received send discovery request: "
+		    "~n   Pdu:       ~p"
+		    "~n   To:        ~p"
+		    "~n   From:      ~p"
+		    "~n   ExtraInfo: ~p", 
+		    [Pdu, To, toname(From), ExtraInfo]),
 	    NewS = handle_send_discovery(S, Pdu, MsgData, To, From),
 	    loop(NewS);
 

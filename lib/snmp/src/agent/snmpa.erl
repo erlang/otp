@@ -673,7 +673,7 @@ send_notification(Agent, Notification, Recv,
 	 {name,            NotifyName},
 	 {context,         ContextName}, 
 	 {extra,           ?DEFAULT_NOTIF_EXTRA_INFO}, 
-	 {local_enging_id, LocalEngineID}
+	 {local_engine_id, LocalEngineID}
 	], 
     send_notification2(Agent, Notification, SendOpts).
 

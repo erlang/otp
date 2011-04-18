@@ -25,13 +25,18 @@
 -export([construct_trap/2, 
 	 try_initialise_vars/2, 
 	 send_trap/6, send_trap/7, send_trap/8]).
--export([send_discovery/5]).
+-export([send_discovery/6]).
 
 %% Internal exports
 -export([init_v2_inform/9, init_v2_inform/10, 
 	 init_v3_inform/9, init_v3_inform/10, init_v3_inform/11, 
 	 send_inform/6]).
--export([init_discovery_inform/12, send_discovery_inform/5]).
+-export([init_discovery_inform/13, send_discovery_inform/5]).
+
+%% <BACKWARD-COMPAT>
+-export([send_discovery/5, 
+	 init_discovery_inform/12]).
+%% </BACKWARD-COMPAT>
 
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/src/agent/snmpa_internal.hrl").
@@ -360,9 +365,13 @@ do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs,
 		   Recv, LocalEngineID, ExtraInfo, NetIf).
 
 send_discovery(TargetName, Record, ContextName, Vbs, NetIf) ->
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo).
+send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo) ->
     case find_dest(TargetName) of
 	{ok, Dest} ->
-	    send_discovery_pdu(Dest, Record, ContextName, Vbs, NetIf);
+	    send_discovery_pdu(Dest, Record, ContextName, Vbs, NetIf, 
+			       ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -540,7 +549,8 @@ find_dest(TargetName) ->
 
 send_discovery_pdu({Dest, TargetName, {SecModel, SecName, SecLevel}, 
 		    Timeout, Retry}, 
-		   Record, ContextName, Vbs, NetIf) ->
+		   Record, ContextName, Vbs, NetIf, 
+		   ExtraInfo) ->
     ?vdebug("send_discovery_pdu -> entry with "
 	    "~n   Destination address: ~p"
 	    "~n   Target name:         ~p"
@@ -550,9 +560,10 @@ send_discovery_pdu({Dest, TargetName, {SecModel, SecName, SecLevel},
 	    "~n   Timeout:             ~p"
 	    "~n   Retry:               ~p"
 	    "~n   Record:              ~p"
-	    "~n   ContextName:         ~p",
+	    "~n   ContextName:         ~p"
+	    "~n   ExtraInfo:           ~p",
 	    [Dest, TargetName, SecModel, SecName, SecLevel, 
-	     Timeout, Retry, Record, ContextName]),
+	     Timeout, Retry, Record, ContextName, ExtraInfo]),
     case get_mib_view(SecModel, SecName, SecLevel, ContextName) of
 	{ok, MibView} ->
 	    case check_all_varbinds(Record, Vbs, MibView) of
@@ -562,7 +573,7 @@ send_discovery_pdu({Dest, TargetName, {SecModel, SecName, SecLevel},
 				       SecModel, SecName, SecLevel, 
 				       TargetName, ContextName, 
 				       Timeout, Retry, 
-				       SysUpTime, NetIf);
+				       SysUpTime, NetIf, ExtraInfo);
 		false ->
 		    {error, {mibview_validation_failed, Vbs, MibView}}
 	    end;
@@ -572,7 +583,7 @@ send_discovery_pdu({Dest, TargetName, {SecModel, SecName, SecLevel},
 
 send_discovery_pdu(Record, Dest, Vbs, 
 		   SecModel, SecName, SecLevel, TargetName, 
-		   ContextName, Timeout, Retry, SysUpTime, NetIf) ->
+		   ContextName, Timeout, Retry, SysUpTime, NetIf, ExtraInfo) ->
     {_Oid, IVbs} = mk_v2_trap(Record, Vbs, SysUpTime), % v2 refers to SMIv2;
     Sender = proc_lib:spawn_link(?MODULE, init_discovery_inform,
 				 [self(), 
@@ -581,6 +592,7 @@ send_discovery_pdu(Record, Dest, Vbs,
 				  ContextName, 
 				  Timeout, Retry, 
 				  IVbs, NetIf, 
+				  ExtraInfo, 
 				  get(verbosity)]),
     {ok, Sender, SecLevel}.
 
@@ -588,6 +600,17 @@ init_discovery_inform(Parent,
 		      Dest, 
 		      SecModel, SecName, SecLevel, TargetName, 
 		      ContextName, Timeout, Retry, Vbs, NetIf, Verbosity) ->
+    ExtraInfo = ?DEFAULT_NOTIF_EXTRA_INFO, 
+    init_discovery_inform(Parent, 
+			  Dest, 
+			  SecModel, SecName, SecLevel, TargetName, 
+			  ContextName, Timeout, Retry, Vbs, NetIf, 
+			  Verbosity, ExtraInfo).
+init_discovery_inform(Parent, 
+		      Dest, 
+		      SecModel, SecName, SecLevel, TargetName, 
+		      ContextName, Timeout, Retry, Vbs, NetIf, 
+		      Verbosity, ExtraInfo) ->
     put(verbosity, Verbosity),
     put(sname, madis),
     Pdu = make_discovery_pdu(Vbs), 
@@ -595,7 +618,7 @@ init_discovery_inform(Parent,
     SecLevelFlag = mk_flag(SecLevel), 
     SecData      = {SecModel, SecName, SecLevelFlag, TargetName}, 
     MsgData      = {SecData, ContextEngineId, ContextName}, 
-    Msg          = {send_discovery, Pdu, MsgData, Dest, self()},
+    Msg          = {send_discovery, Pdu, MsgData, Dest, self(), ExtraInfo},
     ?MODULE:send_discovery_inform(Parent, Timeout*10, Retry, Msg, NetIf).
 
 %% note_timeout(Timeout, Retry) 
