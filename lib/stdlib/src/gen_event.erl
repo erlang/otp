@@ -724,7 +724,8 @@ get_modules(MSL) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
-    Header = lists:concat(["Status for event handler ", ServerName]),
+    Header = gen:format_status_header("Status for event handler",
+                                      ServerName),
     FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
 		  true ->
 		      Args = [PDict, State],

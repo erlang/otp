@@ -27,7 +27,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(error_SUITE),
+    test_lib:recompile(?MODULE),
     [head_mismatch_line, warnings_as_errors, bif_clashes].
 
 groups() -> 

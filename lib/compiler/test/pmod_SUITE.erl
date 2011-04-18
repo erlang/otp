@@ -28,7 +28,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(pmod_SUITE),
+    test_lib:recompile(?MODULE),
     [basic, otp_8447].
 
 groups() -> 

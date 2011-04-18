@@ -31,7 +31,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(inline_SUITE),
+    test_lib:recompile(?MODULE),
     [attribute, bsdecode, bsdes, barnes2, decode1, smith,
      itracer, pseudoknot, lists, really_inlined, otp_7223,
      coverage].

@@ -163,7 +163,7 @@ recomment_forms_2(C, [N | Ns] = Nodes, Insert) ->
     Trailing = 
 	case Ns of
 	    [] -> true;
-	    [Next | _] -> L < node_min(Next) - 2
+	    [Next | _] -> L + Delta < node_min(Next) - 2
 	end,
     if L > Max + 1 ; L =:= Max + 1, not Trailing ->
 	    [N | recomment_forms_2(C, Ns, Insert)];

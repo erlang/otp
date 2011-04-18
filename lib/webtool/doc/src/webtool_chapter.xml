@@ -151,7 +151,7 @@
 http://Servername:Port/ErlScriptAlias/Mod/Func<?QueryString>      ]]></code>
       <p>An <c>alias</c> parameter in the configuration function can be
         an ErlScriptAlias as used in the above URL. The definition of
-        an ErlScripAlias shall be like this:</p>
+        an ErlScriptAlias shall be like this:</p>
       <p><c>{alias,{erl_alias,Path,[Modules]}}</c>, e.g.</p>
       <p><c>{alias,{erl_alias,"/testtool",[helloworld]}}</c></p>
       <p>The following URL will then cause a call to the function
@@ -184,7 +184,7 @@ http://Servername:Port/ErlScriptAlias/Mod/Func<?QueryString>      ]]></code>
         directory <c>/usr/local/otp/lib/myapp-1.0/priv</c>:</p>
       <p><c>{alias,{"/mytool_home","/usr/local/otp/lib/myapp-1.0/priv"}}</c></p>
       <p>See the INETS documentation, especially the module
-        <c>mod_esi</c>, for a more in depht coverage of Erl Scheme.</p>
+        <c>mod_esi</c>, for a more in depth coverage of the Erl Scheme.</p>
     </section>
 
     <section>

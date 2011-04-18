@@ -35,7 +35,7 @@
   <section>
     <title>SNMP Development Toolkit 4.20</title>
     <p>Version 4.20 supports code replacement in runtime from/to
-      version 4,19 and 4.18.</p>
+      version 4.19 and 4.18.</p>
 
     <section>
       <title>Improvements and new features</title>
@@ -52,6 +52,15 @@
           <p>Own Id: OTP-9088</p>
           <p>Aux Id: Seq 11790</p>
 	</item>
+
+
+        <item>
+          <p>[agent] To be able to handle multiple engine-id(s) when
+	  sending trap(s), the function 
+          <seealso marker="snmp_community_mib:add_community">add_community/6</seealso>
+          has been added. </p>
+          <p>Own Id: OTP-9119 Aux Id: Seq 11792</p>
+        </item>
 
         <item>
           <p>[manager] The old API functions (for get and set
@@ -74,7 +83,6 @@
           <p>Own Id: OTP-9183</p>
           <p>Aux Id: Seq 11817</p>
         </item>
-
       </list>
     </section>
 
@@ -197,6 +205,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
     </section>
 
   </section> <!-- 4.19 -->
+
 
   <section>
     <title>SNMP Development Toolkit 4.18</title>

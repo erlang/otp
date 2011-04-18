@@ -904,7 +904,6 @@ int erts_net_message(Port *prt,
     ErtsDistExternal ede;
     byte *t;
     Sint ctl_len;
-    int orig_ctl_len;
     Eterm arg;
     Eterm from, to;
     Eterm watcher, watched;
@@ -985,7 +984,6 @@ int erts_net_message(Port *prt,
 	PURIFY_MSG("data error");
 	goto data_error;
     }
-    orig_ctl_len = ctl_len;
 
     if (ctl_len > DIST_CTL_DEFAULT_SIZE) {
 	ctl = erts_alloc(ERTS_ALC_T_DCTRL_BUF, ctl_len * sizeof(Eterm));

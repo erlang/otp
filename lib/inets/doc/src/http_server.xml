@@ -63,9 +63,9 @@
       technologies such as SOAP.</p>
     
     <p>Allmost all server functionality has been implemented using an
-      especially crafted server API, it is described in the Erlang Web
-      Server API. This API can be used to advantage by all who wants
-      to enhance the server core functionality, for example custom
+      especially crafted server API which is described in the Erlang Web
+      Server API. This API can be used to advantage by all who wish
+      to enhance the core server functionality, for example with custom
       logging and authentication.</p>
 
     <marker id="config"></marker>
@@ -472,7 +472,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
         <tag><em>bytes</em></tag>
         <item>The content-length of the document transferred. </item>
       </taglist>
-      <p>Internal server errors are recorde in the error log file. The
+      <p>Internal server errors are recorded in the error log file. The
         format of this file is a more ad hoc format than the logs using
       Common Logfile Format, but conforms to the following syntax:
         </p>

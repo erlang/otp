@@ -813,7 +813,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     cpuinfo->topology = malloc(sizeof(erts_cpu_topology_t)
 			       * cpuinfo->configured);
-    if (!cpuinfo)
+    if (!cpuinfo->topology)
 	goto error;
 
     for (ix = 0; ix < cpuinfo->configured; ix++) {
@@ -1023,7 +1023,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     cpuinfo->topology = malloc(sizeof(erts_cpu_topology_t)
 			       * cpuinfo->configured);
-    if (!cpuinfo)
+    if (!cpuinfo->topology)
 	goto error;
 
     for (ix = 0; ix < cpuinfo->configured; ix++) {

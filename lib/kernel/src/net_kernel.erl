@@ -1249,7 +1249,7 @@ protocol_childspecs([H|T]) ->
 epmd_module() ->
     case init:get_argument(epmd_module) of
 	{ok,[[Module]]} ->
-	    Module;
+	    list_to_atom(Module);
 	_ ->
 	    erl_epmd
     end.

@@ -35,7 +35,7 @@
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
 	 cover_beam_bool/1]).
 
--export([coverage_id/1]).
+-export([coverage_id/1,coverage_external_ignore/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -43,7 +43,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(bs_match_SUITE),
+    test_lib:recompile(?MODULE),
     [fun_shadow, int_float, otp_5269, null_fields, wiger,
      bin_tail, save_restore, shadowed_size_var,
      partitioned_bs_match, function_clause, unit,
@@ -585,13 +585,17 @@ coverage(Config) when is_list(Config) ->
 					 A+B
 				 end, 0, [a,b,c])),
 
+    ?line {<<42.0:64/float>>,float} = coverage_build(<<>>, <<42>>, float),
     ?line {<<>>,not_a_tuple} = coverage_build(<<>>, <<>>, not_a_tuple),
     ?line {<<16#76,"abc",16#A9,"abc">>,{x,42,43}} =
 	coverage_build(<<>>, <<16#7,16#A>>, {x,y,z}),
 
+    ?line [<<2>>,<<1>>] = coverage_bc(<<1,2>>, []),
+
     ?line {x,<<"abc">>,z} = coverage_setelement(<<2,"abc">>, {x,y,z}),
 
     ?line [42] = coverage_apply(<<42>>, [coverage_id]),
+    ?line 42 = coverage_external(<<42>>),
 
     ?line do_coverage_bin_to_term_list([]),
     ?line do_coverage_bin_to_term_list([lists:seq(0, 10),{a,b,c},<<23:42>>]),
@@ -608,6 +612,10 @@ coverage_fold(Fun, Acc, <<H,T/binary>>) ->
     coverage_fold(Fun, Fun(IdFun(H), IdFun(Acc)), T);
 coverage_fold(Fun, Acc, <<>>) when is_function(Fun, 2) -> Acc.
 
+coverage_build(Acc0, <<H,T/binary>>, float) ->
+    Float = id(<<H:64/float>>),
+    Acc = <<Acc0/binary,Float/binary>>,
+    coverage_build(Acc, T, float);
 coverage_build(Acc0, <<H,T/binary>>, Tuple0) ->
     Str = id(<<H:(id(4)),(H-1):4,"abc">>),
     Acc = id(<<Acc0/bitstring,Str/bitstring>>),
@@ -618,12 +626,24 @@ coverage_build(Acc0, <<H,T/binary>>, Tuple0) ->
     end;
 coverage_build(Acc, <<>>, Tuple) -> {Acc,Tuple}.
 
+coverage_bc(<<H,T/binary>>, Acc) ->
+    B = << <<C:8>> || C <- [H] >>,
+    coverage_bc(T, [B|Acc]);
+coverage_bc(<<>>, Acc) -> Acc.
+
 coverage_setelement(<<H,T1/binary>>, Tuple) when element(1, Tuple) =:= x ->
     setelement(H, Tuple, T1).
 
 coverage_apply(<<H,T/binary>>, [F|Fs]) ->
     [?MODULE:F(H)|coverage_apply(T, Fs)];
 coverage_apply(<<>>, []) -> [].
+
+coverage_external(<<H,T/binary>>) ->
+    ?MODULE:coverage_external_ignore(T, T),
+    H.
+
+coverage_external_ignore(_, _) ->
+    ok.
 
 coverage_id(I) -> id(I).
 

@@ -54,7 +54,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(warnings_SUITE),
+    test_lib:recompile(?MODULE),
     [pattern, pattern2, pattern3, pattern4, guard,
      bad_arith, bool_cases, bad_apply, files, effect,
      bin_opt_info, bin_construction].

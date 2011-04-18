@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -169,7 +169,7 @@ print_filters() ->
 
 print_dates() ->
     io:format("      - {StartDate, EndDate}~n"),
-    io:format("        StartDate = EndDate = {{Y-M-D},{H,M,S}} ~n"),
+    io:format("        StartDate = EndDate = {{Y,M,D},{H,M,S}} ~n"),
     io:format("        prints the reports with date between StartDate and EndDate~n"),
     io:format("      - {StartDate, from}~n"),
     io:format("        prints the reports with date greater than StartDate~n"),

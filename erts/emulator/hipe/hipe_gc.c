@@ -16,7 +16,7 @@
  *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * GC support procedures
  */
 #ifdef HAVE_CONFIG_H

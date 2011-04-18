@@ -155,19 +155,24 @@ postprocess_dataflow_warns(RawWarnings, State, WarnAcc) ->
 
 postprocess_dataflow_warns([], _State, WAcc, Acc) ->
   {WAcc, lists:reverse(Acc)};
-postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {File, CallL}, Msg}|Rest],
+postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
 			   #st{codeserver = Codeserver} = State, WAcc, Acc) ->
   {contract_range, [Contract, M, F, A, ArgStrings, CRet]} = Msg,
-  {ok, {{File, _ContrL} = FileLine, _C}} =
+  {ok, {{ContrF, _ContrL} = FileLine, _C}} =
     dialyzer_codeserver:lookup_mfa_contract({M,F,A}, Codeserver),
-  NewMsg =
-    {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
-  W = {?WARN_CONTRACT_RANGE, FileLine, NewMsg},
-  Filter =
-    fun({?WARN_CONTRACT_TYPES, FL, _}) when FL =:= FileLine -> false;
-       (_) -> true
-    end,
-  postprocess_dataflow_warns(Rest, State, lists:filter(Filter, WAcc), [W|Acc]);
+  case CallF =:= ContrF of
+    true ->
+      NewMsg = {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
+      W = {?WARN_CONTRACT_RANGE, FileLine, NewMsg},
+      Filter =
+	fun({?WARN_CONTRACT_TYPES, FL, _}) when FL =:= FileLine -> false;
+	   (_) -> true
+	end,
+      FilterWAcc = lists:filter(Filter, WAcc),
+      postprocess_dataflow_warns(Rest, State, FilterWAcc, [W|Acc]);
+    false ->
+      postprocess_dataflow_warns(Rest, State, WAcc, Acc)
+  end;
 postprocess_dataflow_warns([W|Rest], State, Wacc, Acc) ->
   postprocess_dataflow_warns(Rest, State, Wacc, [W|Acc]).
   

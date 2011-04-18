@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -39,7 +39,7 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 	  || {MFA, Defun} <- CompiledCode],
   %%
   {ConstAlign,ConstSize,ConstMap,RefsFromConsts} =
-    hipe_pack_constants:pack_constants(Code, 4),
+    hipe_pack_constants:pack_constants(Code, hipe_rtl_arch:word_size()),
   %%
   {CodeSize,CodeBinary,AccRefs,LabelMap,ExportMap} =
     encode(translate(Code, ConstMap), Options),
@@ -159,6 +159,13 @@ do_alu(I) ->
       'srwi.' -> {'rlwinm.', do_srwi_opnds(NewDst, NewSrc1, NewSrc2)};
       'srawi' -> {'srawi', {NewDst,NewSrc1,do_srawi_src2(NewSrc2)}};
       'srawi.' -> {'srawi.', {NewDst,NewSrc1,do_srawi_src2(NewSrc2)}};
+      %ppc64 extension
+      'sldi' -> {'rldicr', do_sldi_opnds(NewDst, NewSrc1, NewSrc2)};
+      'sldi.' -> {'rldicr.', do_sldi_opnds(NewDst, NewSrc1, NewSrc2)};
+      'srdi' -> {'rldicl', do_srdi_opnds(NewDst, NewSrc1, NewSrc2)};
+      'srdi.' -> {'rldicl.', do_srdi_opnds(NewDst, NewSrc1, NewSrc2)};
+      'sradi' -> {'sradi', {NewDst,NewSrc1,do_sradi_src2(NewSrc2)}};
+      'sradi.' -> {'sradi.', {NewDst,NewSrc1,do_sradi_src2(NewSrc2)}};
       _ -> {AluOp, {NewDst,NewSrc1,NewSrc2}}
     end,
   [{NewI, NewOpnds, I}].
@@ -170,6 +177,15 @@ do_srwi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 32 ->
   {Dst, Src1, {sh,32-N}, {mb,N}, {me,31}}.
 
 do_srawi_src2({uimm,N}) when  is_integer(N), 0 =< N, N < 32 -> {sh,N}.
+
+%% ppc64 extension
+do_sldi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 64 ->
+  {Dst, Src1, {sh6,N}, {me6,63-N}}.
+
+do_srdi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 64 ->
+  {Dst, Src1, {sh6,64-N}, {mb6,N}}.
+
+do_sradi_src2({uimm,N}) when is_integer(N), 0 =< N, N < 64 -> {sh6,N}.
 
 do_b_fun(I) ->
   #b_fun{'fun'=Fun,linkage=Linkage} = I,
@@ -205,7 +221,18 @@ do_cmp(I) ->
   #cmp{cmpop=CmpOp,src1=Src1,src2=Src2} = I,
   NewSrc1 = do_reg(Src1),
   NewSrc2 = do_reg_or_imm(Src2),
-  [{CmpOp, {{crf,0},0,NewSrc1,NewSrc2}, I}].
+  {RealOp,L} =
+    case CmpOp of
+      'cmpd' -> {'cmp',1};
+      'cmpdi' -> {'cmpi',1};
+      'cmpld' -> {'cmpl',1};
+      'cmpldi' -> {'cmpli',1};
+      'cmp' -> {CmpOp,0};
+      'cmpi' -> {CmpOp,0};
+      'cmpl' -> {CmpOp,0};
+      'cmpli' -> {CmpOp,0}
+    end,
+  [{RealOp, {{crf,0},L,NewSrc1,NewSrc2}, I}].
 
 do_label(I) ->
   #label{label=Label} = I,
@@ -214,7 +241,12 @@ do_label(I) ->
 do_load(I) ->
   #load{ldop=LdOp,dst=Dst,disp=Disp,base=Base} = I,
   NewDst = do_reg(Dst),
-  NewDisp = do_disp(Disp),
+  NewDisp =
+    case LdOp of
+      'ld' -> do_disp_ds(Disp);
+      'ldu' -> do_disp_ds(Disp);
+      _ -> do_disp(Disp)
+    end,
   NewBase = do_reg(Base),
   [{LdOp, {NewDst,NewDisp,NewBase}, I}].
 
@@ -265,14 +297,30 @@ do_pseudo_li(I, MFA, ConstMap) ->
     end,
   NewDst = do_reg(Dst),
   Simm0 = {simm,0},
-  [{'.reloc', RelocData, #comment{term=reloc}},
-   {addi, {NewDst,{r,0},Simm0}, I},
-   {addis, {NewDst,NewDst,Simm0}, I}].
+  Uimm0 = {uimm,0},
+  case get(hipe_target_arch) of
+    powerpc ->
+      [{'.reloc', RelocData, #comment{term=reloc}},
+       {addi, {NewDst,{r,0},Simm0}, I},
+       {addis, {NewDst,NewDst,Simm0}, I}];
+    ppc64 ->
+      [{'.reloc', RelocData, #comment{term=reloc}},
+       {addis, {NewDst,{r,0},Simm0}, I},   % @highest
+       {ori, {NewDst,NewDst,Uimm0}, I},    % @higher
+       {rldicr, {NewDst,NewDst,{sh6,32},{me6,31}}, I},
+       {oris, {NewDst,NewDst,Uimm0}, I},   % @h
+       {ori, {NewDst,NewDst,Uimm0}, I}]    % @l
+  end.
 
 do_store(I) ->
   #store{stop=StOp,src=Src,disp=Disp,base=Base} = I,
   NewSrc = do_reg(Src),
-  NewDisp = do_disp(Disp),
+  NewDisp =
+    case StOp of
+      'std' -> do_disp_ds(Disp);
+      'stdu' -> do_disp_ds(Disp);
+      _ -> do_disp(Disp)
+    end,
   NewBase = do_reg(Base),
   [{StOp, {NewSrc,NewDisp,NewBase}, I}].
 
@@ -343,6 +391,10 @@ do_reg_or_imm(Src) ->
 
 do_disp(Disp) when is_integer(Disp), -32768 =< Disp, Disp =< 32767 ->
   {d, Disp band 16#ffff}.
+
+do_disp_ds(Disp) when is_integer(Disp),
+		      -32768 =< Disp, Disp =< 32767, Disp band 3 =:= 0 ->
+  {ds, (Disp band 16#ffff) bsr 2}.
 
 do_spr(SPR) ->
   SPR_NR =
