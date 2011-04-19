@@ -167,12 +167,16 @@
       returning <c>{fail,Reason}</c>, nor will it be able to save data with
       <c>{save_config,Data}</c>.</p>
 
-    <p>If <c>init_per_testcase</c> crashes, the test case itself is skipped 
+    <p>If <c>init_per_testcase</c> crashes, the test case itself gets skipped 
     automatically (so called <em>auto skipped</em>). If <c>init_per_testcase</c>
-    returns a <c>skip</c> tuple, also then will the test case be skipped (so
-    called <em>user skipped</em>). In either event, the <c>end_per_testcase</c> is 
-    never called.
+    returns a tuple <c>{skip,Reason}</c>, also then the test case gets skipped
+    (so called <em>user skipped</em>). It is also possible, by returning a tuple
+    <c>{fail,Reason}</c> from <c>init_per_testcase</c>, to mark the test case
+    as failed without actually executing it.
     </p>
+    <note><p>If <c>init_per_testcase</c> crashes, or returns <c>{skip,Reason}</c>
+    or <c>{fail,Reason}</c>, the <c>end_per_testcase</c> function is not called.
+    </p></note>
 
     <p>If it is determined during execution of <c>end_per_testcase</c> that
     the status of a successful test case should be changed to failed, 

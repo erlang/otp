@@ -296,7 +296,7 @@
     </func>
 
       <func>
-	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {skip,Reason}</name>
+	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {fail,Reason} | {skip,Reason}</name>
 	<fsummary>Test case initialization.</fsummary>
 	<type>
 	  <v> TestCase = atom()</v>
@@ -311,10 +311,12 @@
 	  
 	  <p>This function is called before each test case. The
 	  <c>TestCase</c> argument is the name of the test case, and
-	  <c>Config</c> is the configuration which can be modified
-	  here. Whatever is returned from this function is given as
-	  <c>Config</c> to the test case. If <c>{skip,Reason}</c> is returned, 
-	  the test case will be skipped and <c>Reason</c> printed
+	  <c>Config</c> (list of key-value tuples) is the configuration
+	  data that can be modified here. The <c>NewConfig</c> list returned
+	  from this function is given as <c>Config</c> to the test case.
+	  If <c>{fail,Reason}</c> is returned, the test case is
+	  marked as failed without being executed. If <c>{skip,Reason}</c> is
+	  returned, the test case will be skipped and <c>Reason</c> printed
 	  in the overview log for the suite.</p>
     </desc>
     </func>
