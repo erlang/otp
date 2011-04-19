@@ -1734,7 +1734,10 @@ prepare_op(_Tid, {op, announce_im_running, Node, SchemaDef, Running, RemoteRunni
 	Node == node() -> %% Announce has already run on local node 
 	    ignore;       %% from do_merge_schema
 	true ->
-	    NewNodes = mnesia_lib:uniq(Running++RemoteRunning) -- val({current,db_nodes}),
+	    %% If a node has restarted it may still linger in db_nodes,
+	    %% but have been removed from recover_nodes
+	    Current  = mnesia_lib:intersect(val({current,db_nodes}), [node()|val(recover_nodes)]),
+	    NewNodes = mnesia_lib:uniq(Running++RemoteRunning) -- Current,
 	    mnesia_lib:set(prepare_op, {announce_im_running,NewNodes}),
 	    announce_im_running(NewNodes, SchemaCs)
     end,
