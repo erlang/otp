@@ -154,7 +154,7 @@
           <c>ossl</c> specifically uses the OpenSSL based (old) SSL. 
           <c>essl</c> specifically uses the Erlang based (new) SSL. 
           When using <c>ssl</c> it <em>currently</em> defaults to 
-          <c>ossl</c>. </p>
+          <c>essl</c>. </p>
 	<p>Defaults to <c>ip_comm</c>. </p> 
       </item>
 
