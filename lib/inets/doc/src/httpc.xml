@@ -105,17 +105,8 @@ filename()       = string()
   
   <section>
     <title>SSL DATA TYPES </title>
-    <p>Some type definitions relevant when using https,
-      for details <seealso marker="ssl:ssl">ssl(3)</seealso>: </p>
-    <code type="none"><![CDATA[
-ssl_options() = {verify,     code()}   | 
-                {depth,      depth()}  | 
-                {certfile,   path()}   | 
-                {keyfile,    path()}   | 
-                {password,   string()} | 
-                {cacertfile, path()}   | 
-                {ciphers,    string()} 
-    ]]></code>
+    <p>See <seealso marker="ssl:ssl">ssl(3)</seealso> for information
+    about ssl options (<c>ssloptions()</c>). </p>
   </section>
 
   <section>
@@ -175,9 +166,9 @@ ssl_options() = {verify,     code()}   |
         <v>http_options() = [http_option()]</v>
         <v>http_option() = {timeout,         timeout()} | 
                            {connect_timeout, timeout()} | 
-                           {ssl,             ssl_options()} | 
-                           {ossl,            ssl_options()} | 
-                           {essl,            ssl_options()} | 
+                           {ssl,             ssloptions()} | 
+                           {ossl,            ssloptions()} | 
+                           {essl,            ssloptions()} | 
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
@@ -236,7 +227,7 @@ ssl_options() = {verify,     code()}   |
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the default ssl config option, currently defaults to 
-              <c>ossl</c>, see below. </p>
+              <c>essl</c>, see below. </p>
             <p>Defaults to <c>[]</c>. </p>
 	  </item>
 

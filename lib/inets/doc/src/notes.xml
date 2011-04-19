@@ -91,6 +91,19 @@
           <p>Aux Id: seq11819</p>
         </item>
 
+        <item>
+          <p>The default ssl kind has now been changed to <c>essl</c>. </p>
+	  <p><c>ossl</c> will work for as long as the ssl application 
+	  supports it. </p>
+	  <p>See the httpd 
+	  <seealso marker="httpd#comm_prop">socket_type</seealso> 
+	  communication property or the httpc 
+	  <seealso marker="httpc#request2">request/4,5</seealso> function
+	  for more info. </p>
+	  <p>Own Id: OTP-9230</p>
+	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+        </item>
+
       </list>
     </section>
 
