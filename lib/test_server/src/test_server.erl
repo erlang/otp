@@ -36,7 +36,7 @@
 -export([capture_start/0,capture_stop/0,capture_get/0]).
 -export([messages_get/0]).
 -export([hours/1,minutes/1,seconds/1,sleep/1,adjusted_sleep/1,timecall/3]).
--export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1]).
+-export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1,timetrap_cancel/0]).
 -export([m_out_of_n/3,do_times/4,do_times/2]).
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
@@ -1703,7 +1703,7 @@ fail() ->
 break(Comment) ->
     case erase(test_server_timetraps) of
 	undefined -> ok;
-	List -> lists:foreach(fun(Ref) -> timetrap_cancel(Ref) end,List)
+	List -> lists:foreach(fun({Ref,_}) -> timetrap_cancel(Ref) end, List)
     end,
     io:format(user,
 	      "\n\n\n--- SEMIAUTOMATIC TESTING ---"
@@ -1784,14 +1784,16 @@ timetrap(Timeout0) ->
 	{undefined,false} -> timetrap1(Timeout, false);
 	{undefined,_} -> timetrap1(Timeout, true);
 	{infinity,_} -> infinity;
+	{_Int,_Scale} when Timeout == infinity -> infinity;
 	{Int,Scale} -> timetrap1(Timeout*Int, Scale)
     end.
 
 timetrap1(Timeout, Scale) ->
-    Ref = spawn_link(test_server_sup,timetrap,[Timeout,Scale,self()]),
+    TCPid = self(),
+    Ref = spawn_link(test_server_sup,timetrap,[Timeout,Scale,TCPid]),
     case get(test_server_timetraps) of
-	undefined -> put(test_server_timetraps,[Ref]);
-	List -> put(test_server_timetraps,[Ref|List])
+	undefined -> put(test_server_timetraps,[{Ref,TCPid}]);
+	List -> put(test_server_timetraps,[{Ref,TCPid}|List])
     end,
     Ref.
 
@@ -1804,14 +1806,16 @@ ensure_timetrap(Config) ->
 		undefined -> ok;
 		Garbage ->
 		    erase(test_server_default_timetrap),
-		    format("=== WARNING: garbage in test_server_default_timetrap: ~p~n",
+		    format("=== WARNING: garbage in "
+			   "test_server_default_timetrap: ~p~n",
 			   [Garbage])
 	    end,
 	    DTmo = case lists:keysearch(default_timeout,1,Config) of
 		       {value,{default_timeout,Tmo}} -> Tmo;
 		       _ -> ?DEFAULT_TIMETRAP_SECS
 		   end,
-	    format("=== test_server setting default timetrap of ~p seconds~n",
+	    format("=== test_server setting default "
+		   "timetrap of ~p seconds~n",
 		   [DTmo]),
 	    put(test_server_default_timetrap, timetrap(seconds(DTmo)))
     end.
@@ -1823,11 +1827,13 @@ cancel_default_timetrap() ->
 	TimeTrap when is_pid(TimeTrap) ->
 	    timetrap_cancel(TimeTrap),
 	    erase(test_server_default_timetrap),
-	    format("=== test_server canceled default timetrap since another timetrap was set~n"),
+	    format("=== test_server canceled default timetrap "
+		   "since another timetrap was set~n"),
 	    ok;
 	Garbage ->
 	    erase(test_server_default_timetrap),
-	    format("=== WARNING: garbage in test_server_default_timetrap: ~p~n",
+	    format("=== WARNING: garbage in "
+		   "test_server_default_timetrap: ~p~n",
 		   [Garbage]),
 	    error
     end.
@@ -1841,6 +1847,7 @@ time_ms({Other,_N}) ->
 	   "Should be seconds, minutes, or hours.~n", [Other]),
     exit({invalid_time_spec,Other});
 time_ms(Ms) when is_integer(Ms) -> Ms;
+time_ms(infinity) -> infinity;
 time_ms(Other) -> exit({invalid_time_spec,Other}).
 
 
@@ -1854,10 +1861,28 @@ timetrap_cancel(infinity) ->
 timetrap_cancel(Handle) ->
     case get(test_server_timetraps) of
 	undefined -> ok;
-	[Handle] -> erase(test_server_timetraps);
-	List -> put(test_server_timetraps,lists:delete(Handle,List))
+	[{Handle,_}] -> erase(test_server_timetraps);
+	Timers -> put(test_server_timetraps,
+		      lists:keydelete(Handle, 1, Timers))
     end,
     test_server_sup:timetrap_cancel(Handle).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% timetrap_cancel() -> ok
+%%
+%% Cancels timetrap for current test case.
+timetrap_cancel() ->
+    case get(test_server_timetraps) of
+	undefined ->
+	    ok;
+	Timers ->
+	    case lists:keysearch(self(), 2, Timers) of
+		{value,{Handle,_}} ->
+		    timetrap_cancel(Handle);
+		_ ->
+		    ok
+	    end
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% hours(N) -> Milliseconds

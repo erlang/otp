@@ -83,12 +83,12 @@ timetrap(Timeout0, Scale, Pid) ->
 %% Handle = term()
 %%
 %% Cancels a time trap.
-
 timetrap_cancel(Handle) ->
     unlink(Handle),
     MonRef = erlang:monitor(process, Handle),
     exit(Handle, kill),
     receive {'DOWN',MonRef,_,_,_} -> ok after 2000 -> ok end.
+
 
 capture_get(Msgs) ->
     receive

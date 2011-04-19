@@ -210,6 +210,23 @@ timetrap_extended(Config) when is_list(Config) ->
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
+%%%
+timetrap_parallel(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suite = Join(DataDir, "timetrap_3_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_parallel,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(timetrap_parallel),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 
@@ -735,7 +752,7 @@ test_events(timetrap_normal) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{1,1,3}},
+     {?eh,start_info,{1,1,4}},
      {?eh,tc_start,{timetrap_2_SUITE,init_per_suite}},
      {?eh,tc_done,{timetrap_2_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{timetrap_2_SUITE,tc0}},
@@ -750,6 +767,9 @@ test_events(timetrap_normal) ->
      {?eh,tc_done,
       {timetrap_2_SUITE,tc2,{failed,{timetrap_timeout,500}}}},
      {?eh,test_stats,{0,3,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc3}},
+     {?eh,tc_done,{timetrap_2_SUITE,tc3,ok}},
+     {?eh,test_stats,{1,3,{0,0}}},
      {?eh,tc_start,{timetrap_2_SUITE,end_per_suite}},
      {?eh,tc_done,{timetrap_2_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
@@ -760,7 +780,7 @@ test_events(timetrap_extended) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{1,1,3}},
+     {?eh,start_info,{1,1,4}},
      {?eh,tc_start,{timetrap_2_SUITE,init_per_suite}},
      {?eh,tc_done,{timetrap_2_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{timetrap_2_SUITE,tc0}},
@@ -775,8 +795,52 @@ test_events(timetrap_extended) ->
      {?eh,tc_done,
       {timetrap_2_SUITE,tc2,{failed,{timetrap_timeout,1000}}}},
      {?eh,test_stats,{0,3,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc3}},
+     {?eh,tc_done,{timetrap_2_SUITE,tc3,ok}},
+     {?eh,test_stats,{1,3,{0,0}}},
      {?eh,tc_start,{timetrap_2_SUITE,end_per_suite}},
      {?eh,tc_done,{timetrap_2_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
-    ].
+    ];
+
+test_events(timetrap_parallel) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,7}},
+     {?eh,tc_done,{timetrap_3_SUITE,init_per_suite,ok}},
+     {parallel,
+      [{?eh,tc_start,
+	{timetrap_3_SUITE,{init_per_group,g1,[parallel]}}},
+       {?eh,tc_done,
+	{timetrap_3_SUITE,{init_per_group,g1,[parallel]},ok}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc0}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc1}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc2}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc3}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc4}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc6}},
+       {?eh,tc_start,{timetrap_3_SUITE,tc7}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc1,{failed,{timetrap_timeout,500}}}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc2,{failed,{timetrap_timeout,1000}}}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc6,{failed,{timetrap_timeout,1000}}}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc7,{failed,{timetrap_timeout,1500}}}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc0,{failed,{timetrap_timeout,2000}}}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc4,{failed,{timetrap_timeout,2000}}}},
+       {?eh,tc_done,
+        {timetrap_3_SUITE,tc3,{failed,{timetrap_timeout,3000}}}},
+       {?eh,test_stats,{0,7,{0,0}}},
+       {?eh,tc_start,
+	{timetrap_3_SUITE,{end_per_group,g1,[parallel]}}},
+       {?eh,tc_done,
+	{timetrap_3_SUITE,{end_per_group,g1,[parallel]},ok}}]},
+     {?eh,tc_done,{timetrap_3_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}].

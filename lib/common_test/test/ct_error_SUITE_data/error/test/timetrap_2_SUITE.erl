@@ -77,8 +77,8 @@ init_per_testcase(tc1, Config) ->
     ct:timetrap({seconds,1}),
     Config;
 
-init_per_testcase(tc3, Config) ->
-    ct:timetrap({seconds,1}),
+init_per_testcase(tc2, Config) ->
+    ct:timetrap(250),
     Config;
 
 init_per_testcase(_TestCase, Config) ->
@@ -90,7 +90,7 @@ init_per_testcase(_TestCase, Config) ->
 %% TestCase = atom()
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
-end_per_testcase(_, Config) ->
+end_per_testcase(_, _Config) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -116,7 +116,7 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [tc0,tc1,tc2].
+    [tc0,tc1,tc2,tc3].
 
 tc0(_) ->
     N = list_to_integer(ct:get_config(multiply)),
@@ -131,8 +131,24 @@ tc1(_) ->
     ok.
 
 tc2(_) ->
+    ct:timetrap(500),
     N = list_to_integer(ct:get_config(multiply)),
     ct:comment(io_lib:format("TO after ~w sec", [0.5*N])),
-    ct:timetrap(500),
     ct:sleep(2000),
     ok.
+
+tc3() ->
+    [{timetrap,{seconds,2}}].
+
+tc3(_) ->
+    T0 = now(),
+    ct:timetrap(infinity),
+    N = list_to_integer(ct:get_config(multiply)),
+    ct:comment(io_lib:format("Sleeping for ~w sec...", [4*N])),
+    ct:sleep(4000),
+    Diff = timer:now_diff(now(), T0),
+    if ((Diff < (N*4000000)) or (Diff > (N*4500000))) ->
+	    exit(not_expected);
+       true ->
+	    ok
+    end.
