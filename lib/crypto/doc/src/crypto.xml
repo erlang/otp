@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -625,6 +625,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         result in a binary. Uses a cryptographically secure prng seeded and
         periodically mixed with operating system provided entropy. By default
         this is the <c>RAND_bytes</c> method from OpenSSL.</p>
+	<p>May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".</p>
       </desc>
     </func>
     <func>
@@ -642,7 +644,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
-      <name>strong_rand_uniform(N, Top, Bottom) -> Mpint</name>
+      <name>strong_rand_mpint(N, Top, Bottom) -> Mpint</name>
       <fsummary>Generate an N bit random number</fsummary>
       <type>
         <v>N = non_neg_integer()</v>
@@ -662,6 +664,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         N bits long.</p>
         <p>If <c>Bottom</c> is 1, then the generated number is
         constrained to be odd.</p>
+	<p>May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".</p>
       </desc>
     </func>
     <func>

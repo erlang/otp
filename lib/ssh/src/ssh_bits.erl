@@ -413,7 +413,7 @@ irandom(Bits) ->
 %%
 irandom(Bits, Top, Bottom) when is_integer(Top),
                                 0 =< Top, Top =< 2 ->
-    crypto:erlint(crypto:strong_rand_uniform(Bits, Top - 1, Bottom)).
+    crypto:erlint(crypto:strong_rand_mpint(Bits, Top - 1, Bottom)).
 
 %%
 %% random/1
