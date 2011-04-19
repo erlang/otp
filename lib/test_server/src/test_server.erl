@@ -1077,7 +1077,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 
     {{Time,Value},Loc,Opts} =
 	case test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
-					    {ok, Args0}) of
+					    {ok,Args0}) of
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
@@ -1085,18 +1085,17 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 					   {skip,{failed,Error}}),
 		{{0,NewResult},{Mod,Func},[]};
 	    {fail,Reason} ->
-		[Conf] = Args0,
-		Conf1 = [{tc_status,{failed,Reason}} | Conf],
+		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
 		fw_error_notify(Mod, Func, Conf, Reason),
-		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf1]},
-					   {fail, Reason}),
+		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
+					   {fail,Reason}),
 		{{0,NewResult},{Mod,Func},[]};
 	    Skip = {skip,_Reason} ->
 		NewResult = do_end_tc_call(Mod,Func,{Skip,Args0},Skip),
 		{{0,NewResult},{Mod,Func},[]};
 	    {auto_skip,Reason} ->
 		NewResult = do_end_tc_call(Mod, Func, {{skip,Reason},Args0},
-					   {skip, {fw_auto_skip,Reason}}),
+					   {skip,{fw_auto_skip,Reason}}),
 		{{0,NewResult},{Mod,Func},[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
@@ -1116,9 +1115,15 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
-		    NewRes = do_end_tc_call(Mod, Func, {{skip, Reason}, [Conf]},
+		    NewRes = do_end_tc_call(Mod, Func, {{skip,Reason},[Conf]},
 					    {skip, Reason}),
 		    {{0,NewRes},Line,[]};
+		FailTC = {fail,Reason} ->       % user fails the testcase
+		    EndConf = [{tc_status,{failed,Reason}} | hd(Args)],
+		    fw_error_notify(Mod, Func, EndConf, Reason),
+		    NewRes = do_end_tc_call(Mod, Func, {{error,Reason},[EndConf]},
+					    FailTC),
+		    {{0,NewRes},{Mod,Func},[]};
 		{ok,NewConf} ->
 		    put(test_server_init_or_end_conf,undefined),
 		    %% call user callback function if defined
@@ -1153,8 +1158,9 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
-				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config, 1, EndConf1)]};
-			    {fail,ReasonToFail} ->                       % user has failed the testcase
+				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config,1,
+									     EndConf1)]};
+			    {fail,ReasonToFail} ->                % user has failed the testcase
 				fw_error_notify(Mod, Func, EndConf1, ReasonToFail),
 				{{error,ReasonToFail},{failed,ReasonToFail},EndConf1};
 			    {failed,{_,end_per_testcase,_}} = Failure -> % unexpected termination
@@ -1301,7 +1307,7 @@ init_per_testcase(Mod, Func, Args) ->
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
-%% init_per_testcase defined, returns new configuration
+    %% init_per_testcase defined, returns new configuration
     case erlang:function_exported(Mod,init_per_testcase,2) of
 	true ->
 	    case catch my_apply(Mod, init_per_testcase, [Func|Args]) of
@@ -1321,6 +1327,8 @@ init_per_testcase(Mod, Func, Args) ->
 					      "bad elements in Config: ~p\n",[Bad]},
 			    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 		    end;
+		{'$test_server_ok',Res={fail,_Reason}} ->
+		    Res;
 		{'$test_server_ok',_Other} ->
 		    group_leader() ! {printout,12,
 				      "ERROR! init_per_testcase did not return "
