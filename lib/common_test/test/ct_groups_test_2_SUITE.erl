@@ -131,7 +131,8 @@ empty_group(Config) when is_list(Config) ->
 
     ct_test_support:log_events(empty_group,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(empty_group),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
