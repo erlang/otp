@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -180,7 +180,8 @@ handle_msg(_, State) ->
 %% Function: terminate(Reason, State) -> void()
 %% Description: Called when the channel process is trminated
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{cm = ConnectionManager} = _State) ->
+    (catch ssh_userreg:delete(ConnectionManager)),
     ok.
 
 %%--------------------------------------------------------------------
