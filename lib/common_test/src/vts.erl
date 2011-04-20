@@ -281,9 +281,7 @@ run_test1(State=#state{tests=Tests,current_log_dir=LogDir}) ->
 		      end,
 		      unlink(Self)
 	      end,
-
     Pid = spawn_link(RunTest),
-
     Total =
 	receive 
 	    {{test_info,start_info,{_,_,Cases}},From} ->
@@ -480,7 +478,7 @@ create_testdir_entries([],_N) ->
     [].
 
 testdir_entry(Dir,Suite,Case,N) ->
-    NStr = integer_to_list(N),
+    NStr = vts_integer_to_list(N),
     tr([td(delete_button(NStr)),
 	td(Dir),
 	td(suite_select(Dir,Suite,NStr)),
@@ -691,11 +689,11 @@ result_summary_frame1(State) ->
 result_summary_body(State) ->
     N = State#state.ok + State#state.fail + State#state.skip,
     [h2("Result Summary"),
-     p([b(integer_to_list(N))," cases executed (of ",
-	b(integer_to_list(State#state.total)),")"]),
-     p([green([b(integer_to_list(State#state.ok))," successful"]),br(),
-	red([b(integer_to_list(State#state.fail))," failed"]),br(),
-	orange([b(integer_to_list(State#state.skip))," skipped"])]),
+     p([b(vts_integer_to_list(N))," cases executed (of ",
+	b(vts_integer_to_list(State#state.total)),")"]),
+     p([green([b(vts_integer_to_list(State#state.ok))," successful"]),br(),
+	red([b(vts_integer_to_list(State#state.fail))," failed"]),br(),
+	orange([b(vts_integer_to_list(State#state.skip))," skipped"])]),
     executed_test_list(State)].
 
 executed_test_list(#state{testruns=[]}) ->
@@ -735,6 +733,14 @@ report1(tc_done,{_Suite,init_per_suite,_},State) ->
     State;
 report1(tc_done,{_Suite,end_per_suite,_},State) ->
     State;
+report1(tc_done,{_Suite,init_per_group,_},State) ->
+    State;
+report1(tc_done,{_Suite,end_per_group,_},State) ->
+    State;
+report1(tc_done,{_Suite,ct_init_per_group,_},State) ->
+    State;
+report1(tc_done,{_Suite,ct_end_per_group,_},State) ->
+    State;
 report1(tc_done,{_Suite,_Case,ok},State) ->
     State#state{ok=State#state.ok+1};
 report1(tc_done,{_Suite,_Case,{failed,_Reason}},State) ->
@@ -742,7 +748,9 @@ report1(tc_done,{_Suite,_Case,{failed,_Reason}},State) ->
 report1(tc_done,{_Suite,_Case,{skipped,_Reason}},State) ->
     State#state{skip=State#state.skip+1};
 report1(tc_user_skip,{_Suite,_Case,_Reason},State) ->
-    State#state{skip=State#state.skip+1}.
+    State#state{skip=State#state.skip+1};
+report1(loginfo,_,State) ->
+    State.
 
 get_test_log(TestName,LogDir) ->
     [Log] = 
@@ -882,3 +890,7 @@ get_input_data(Input,Key)->
 parse(Input) ->
     httpd:parse_query(Input).
 
+vts_integer_to_list(X) when is_atom(X) ->
+    atom_to_list(X);
+vts_integer_to_list(X) when is_integer(X) ->
+    integer_to_list(X).

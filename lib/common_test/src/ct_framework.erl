@@ -1157,12 +1157,14 @@ error_in_suite(Config) ->
 %% if the group config functions are missing in the suite,
 %% use these instead
 ct_init_per_group(GroupName, Config) ->
-    ct_logs:log("WARNING", "init_per_group/2 for ~w missing in suite, using default.", 
+    ct_logs:log("WARNING", "init_per_group/2 for ~w missing "
+		"in suite, using default.",
 		[GroupName]),
     Config.
 
 ct_end_per_group(GroupName, _) ->
-    ct_logs:log("WARNING", "end_per_group/2 for ~w missing in suite, using default.", 
+    ct_logs:log("WARNING", "end_per_group/2 for ~w missing "
+		"in suite, using default.",
 		[GroupName]),
     ok.
 
