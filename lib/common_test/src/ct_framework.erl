@@ -24,7 +24,7 @@
 
 -module(ct_framework).
 
--export([init_tc/3, end_tc/4, get_suite/2, report/2, warn/1]).
+-export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, report/2, warn/1]).
 -export([error_notification/4]).
 
 -export([overview_html_header/1]).
@@ -434,6 +434,9 @@ try_set_default(Name,Key,Info,Where) ->
 %%%
 %%% @doc Test server framework callback, called by the test_server
 %%% when a test case is finished.
+end_tc(Mod, Fun, Args) ->
+    %% Have to keep end_tc/3 for backwards compatabilty issues
+    end_tc(Mod, Fun, Args, '$end_tc_dummy').
 end_tc(?MODULE,error_in_suite,_, _) ->		% bad start!
     ok;
 end_tc(Mod,Func,{TCPid,Result,[Args]}, Return) when is_pid(TCPid) ->
