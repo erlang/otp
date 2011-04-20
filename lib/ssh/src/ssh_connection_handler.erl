@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -106,8 +106,6 @@ peer_address(ConnectionHandler) ->
 %% initialize. 
 %%--------------------------------------------------------------------
 init([Role, Manager, Socket, SshOpts]) ->
-    {A,B,C} = erlang:now(),
-    random:seed(A, B, C),
     {NumVsn, StrVsn} = ssh_transport:versions(Role, SshOpts),
     ssh_bits:install_messages(ssh_transport:transport_messages(NumVsn)),
     {Protocol, Callback, CloseTag} = 

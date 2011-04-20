@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,6 +46,7 @@
 -export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
 -export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
+-export([strong_rand_bytes/1, strong_rand_mpint/3]).
 -export([mod_exp/3, mpint/1, erlint/1]).
 %% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
@@ -68,6 +69,8 @@
 		    des_ede3_cbc_encrypt, des_ede3_cbc_decrypt,
 		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
 		    rand_bytes,
+		    strong_rand_bytes,
+		    strong_rand_mpint,
 		    rand_uniform,
 		    mod_exp,
 		    dss_verify,dss_sign,
@@ -361,11 +364,31 @@ aes_cfb_128_crypt(_Key, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 %% RAND - pseudo random numbers using RN_ functions in crypto lib
 %%
 -spec rand_bytes(non_neg_integer()) -> binary().
+-spec strong_rand_bytes(non_neg_integer()) -> binary().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
+-spec strong_rand_mpint(Bits::non_neg_integer(),
+			Top::-1..1,
+			Bottom::0..1) -> binary().
 
 rand_bytes(_Bytes) -> ?nif_stub.
+
+strong_rand_bytes(Bytes) ->
+    case strong_rand_bytes_nif(Bytes) of
+        false -> erlang:error(low_entropy);
+        Bin -> Bin
+    end.
+strong_rand_bytes_nif(_Bytes) -> ?nif_stub.
+
 rand_bytes(_Bytes, _Topmask, _Bottommask) -> ?nif_stub.
+
+strong_rand_mpint(Bits, Top, Bottom) -> 
+    case strong_rand_mpint_nif(Bits,Top,Bottom) of
+        false -> erlang:error(low_entropy);
+        Bin -> Bin
+    end.
+strong_rand_mpint_nif(_Bits, _Top, _Bottom) -> ?nif_stub.
+
 
 rand_uniform(From,To) when is_binary(From), is_binary(To) ->
     case rand_uniform_nif(From,To) of
