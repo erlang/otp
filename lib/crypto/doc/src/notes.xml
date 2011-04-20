@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2010</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,21 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
+
+<section><title>Crypto 2.0.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Strengthened random number generation. (Thanks to Geoff Cant)</p>
+          <p>
+	    Own Id: OTP-9225</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Crypto 2.0.2.1</title>
 
