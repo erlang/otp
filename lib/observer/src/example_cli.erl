@@ -47,13 +47,13 @@
 
 
 %%--------------------------------------------------------------------
-%% @doc Starts a terminal like configuration client for the ttbe 
+%% @doc Starts a terminal like configuration client for the ttb 
 %% wrapper. 
 %% @end
 %%--------------------------------------------------------------------
 -spec start() -> ok.   
 start() ->
-    io:format("ttbe Demo GUI~n"
+    io:format("ttb Demo GUI~n"
               "===========================================================~n"
               "~n"),              
     

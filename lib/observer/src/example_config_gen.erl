@@ -183,7 +183,7 @@ create_fun(StringFun) ->
 %% Nodes = ["node@no-name-host"]
 %% Flags = ["scope, [flags]"]
 %% Merge = [{'fun', "WorkerFun"}, {comment, "Comment"}]
-%% Options = "list()" (see ttbe for possible options list)
+%% Options = "list()" (see ttb for possible options list)
 %% </pre>
 %% <p>Call validate like this:</p>
 %% <pre> validate(Patterns, Nodes, Flags, Merge, Options) </pre>

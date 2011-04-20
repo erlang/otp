@@ -692,7 +692,7 @@ f3() ->
 (tiger@durin)4>ttb:tpl(bar, []).
 (tiger@durin)5>%%Invoke our test function and see output with et viewer
 (tiger@durin)5>Pid ! go.
-(tiger@durin)6>ttb:stop({format, {handler, ttbe:get_et_handler()}}).
+(tiger@durin)6>ttb:stop({format, {handler, ttb:get_et_handler()}}).
 </code>
 
       <p>This shoud render a result similar to the 

@@ -4,7 +4,7 @@
 %%% @author  Bartłomiej Puzoń <bartlomiej.puzon@erlang-solutions.com>
 %% @doc <p>This module together with {@module example_config_gen} is an example
 %% of a configuration back-end layer for higher-level tools which want to make 
-%% use of ttbe. The {@module example_server} acts as a middle man between any 
+%% use of ttb. The {@module example_server} acts as a middle man between any 
 %% user-interface and the wrapper, and offers a possibility to store and load
 %% configurations to and from files. </p>
 %% <p>For a full example of how these two modules can be used, please refer to 
@@ -202,7 +202,7 @@ handle_call({run_trace, Case, Comment}, _From, State) ->
                                            matchspec = MS} <- Case#trace_case.patterns ],
     FlagRecord = Case#trace_case.trace_flag,
     Flags = {FlagRecord#flags.scope, FlagRecord#flags.flags},
-    {Reply, S2} = case ttbe:start_trace(Case#trace_case.nodes,
+    {Reply, S2} = case ttb:start_trace(Case#trace_case.nodes,
                                         Patterns,
                                         Flags,
                                         Case#trace_case.trace_opts) of
@@ -219,7 +219,7 @@ handle_call(stop_trace, _From, #state{running = undefined} = State) ->
 
 handle_call(stop_trace, _From, State) ->
     {Id, Comment} = State#state.running,
-    case ttbe:stop(return) of
+    case ttb:stop(return) of
         {stopped, Dir} ->
             Case = lists:keyfind(Id, 2, State#state.trace_cases),
             AllTraces = Case#trace_case.all_traces,
@@ -231,7 +231,7 @@ handle_call(stop_trace, _From, State) ->
     end;
 
 handle_call({merge_trace, Dir, Merge, Out}, _From, State) ->
-    ttbe:format(Dir, [{out, Out}, {handler, Merge}]),
+    ttb:format(Dir, [{out, Out}, {handler, Merge}]),
     Reply = ok,
     {reply, Reply, State};    
 

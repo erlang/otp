@@ -276,7 +276,7 @@ ttb_resume_trace() ->
         {ok, Data} ->
             Pid = proplists:get_value(ttb_control, Data),
             {_, Timeout} = proplists:get_value(resume, Data),
-            case rpc:call(node(Pid), erlang, whereis, [ttbe]) of
+            case rpc:call(node(Pid), erlang, whereis, [ttb]) of
                 Pid ->
                     Pid ! {noderesumed, node(), self()},
                     wait_for_fetch_ready(Timeout);
