@@ -592,8 +592,8 @@ send_discovery_pdu(Record, Dest, Vbs,
 				  ContextName, 
 				  Timeout, Retry, 
 				  IVbs, NetIf, 
-				  ExtraInfo, 
-				  get(verbosity)]),
+				  get(verbosity), 
+				  ExtraInfo]),
     {ok, Sender, SecLevel}.
 
 init_discovery_inform(Parent, 
