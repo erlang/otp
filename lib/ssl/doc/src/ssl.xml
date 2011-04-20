@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2011</year>
+      <year>11999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -266,7 +266,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 
 <p>Possible path validation errors: </p>
 
-<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
+<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca},{bad_cert, selfsigned_peer}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
       </item>
 
       <tag>{hibernate_after, integer()|undefined}</tag>
