@@ -32,6 +32,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removes backwards incompatability introduced between
+	    test_server and common_test in R14B02.</p>
+          <p>
+	    Own Id: OTP-9200 Aux Id: seq11818 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
