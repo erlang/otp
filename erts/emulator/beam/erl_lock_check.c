@@ -240,7 +240,7 @@ typedef struct erts_lc_locked_lock_t_ erts_lc_locked_lock_t;
 struct erts_lc_locked_lock_t_ {
     erts_lc_locked_lock_t *next;
     erts_lc_locked_lock_t *prev;
-    Eterm extra;
+    UWord extra;
     Sint16 id;
     Uint16 flags;
 };
@@ -441,12 +441,12 @@ new_locked_lock(erts_lc_lock_t *lck, Uint16 op_flags)
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Eterm extra, Uint16 flags, char *suffix)
+print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
 {
     char *lname = (0 <= id && id < ERTS_LOCK_ORDER_SIZE
 		   ? erts_lock_order[id].name
 		   : "unknown");
-    if (is_boxed(extra))
+    if (is_not_immed(extra))
 	erts_fprintf(stderr,
 		     "%s'%s:%p%s'%s%s",
 		     prefix,
@@ -1260,7 +1260,8 @@ erts_lc_init_lock(erts_lc_lock_t *lck, char *name, Uint16 flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
 
-    lck->extra = make_boxed(&lck->extra);
+    lck->extra = &lck->extra;
+    ASSERT(is_not_immed(lck->extra));
     lck->flags = flags;
     lck->inited = ERTS_LC_INITITALIZED;
 }
@@ -1270,6 +1271,7 @@ erts_lc_init_lock_x(erts_lc_lock_t *lck, char *name, Uint16 flags, Eterm extra)
 {
     lck->id = erts_lc_get_lock_order_id(name);
     lck->extra = extra;
+    ASSERT(is_immed(lck->extra));
     lck->flags = flags;
     lck->inited = ERTS_LC_INITITALIZED;
 }

@@ -1639,6 +1639,9 @@ static struct {
     Eterm e;
     Eterm t;
     Eterm ramv;
+#if HALFWORD_HEAP
+    Eterm low;
+#endif
     Eterm sbct;
 #if HAVE_ERTS_MSEG
     Eterm asbcst;
@@ -1724,6 +1727,9 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(e);
 	AM_INIT(t);
 	AM_INIT(ramv);
+#if HALFWORD_HEAP
+	AM_INIT(low);
+#endif
 	AM_INIT(sbct);
 #if HAVE_ERTS_MSEG
 	AM_INIT(asbcst);
@@ -2168,6 +2174,9 @@ info_options(Allctr_t *allctr,
 		   "option e: true\n"
 		   "option t: %s\n"
 		   "option ramv: %s\n"
+#if HALFWORD_HEAP
+		   "option low: %s\n"
+#endif
 		   "option sbct: %beu\n"
 #if HAVE_ERTS_MSEG
 		   "option asbcst: %bpu\n"
@@ -2185,6 +2194,9 @@ info_options(Allctr_t *allctr,
 		   "option mbcgs: %beu\n",
 		   topt,
 		   allctr->ramv ? "true" : "false",
+#if HALFWORD_HEAP
+		   allctr->mseg_opt.low_mem ? "true" : "false",
+#endif
 		   allctr->sbc_threshold,
 #if HAVE_ERTS_MSEG
 		   allctr->mseg_opt.abs_shrink_th,
@@ -2243,6 +2255,9 @@ info_options(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res,
 		 am.sbct,
 		 bld_uint(hpp, szp, allctr->sbc_threshold));
+#if HALFWORD_HEAP
+	add_2tup(hpp, szp, &res, am.low, allctr->mseg_opt.low_mem ? am_true : am_false);
+#endif
 	add_2tup(hpp, szp, &res, am.ramv, allctr->ramv ? am_true : am_false);
 	add_2tup(hpp, szp, &res, am.t, (allctr->t
 					? bld_uint(hpp, szp, (Uint) allctr->t)
@@ -3105,13 +3120,12 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	goto error;
 
 #if HAVE_ERTS_MSEG
-    {
-	ErtsMsegOpt_t mseg_opt = ERTS_MSEG_DEFAULT_OPT_INITIALIZER;
-    
-	sys_memcpy((void *) &allctr->mseg_opt,
-		   (void *) &mseg_opt,
-		   sizeof(ErtsMsegOpt_t));
-    }
+    sys_memcpy((void *) &allctr->mseg_opt,
+	       (void *) &erts_mseg_default_opt,
+	       sizeof(ErtsMsegOpt_t));
+# if HALFWORD_HEAP
+    allctr->mseg_opt.low_mem = init->low_mem;
+# endif
 #endif
 
     allctr->name_prefix			= init->name_prefix;

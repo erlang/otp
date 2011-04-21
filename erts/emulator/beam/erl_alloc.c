@@ -90,6 +90,10 @@ typedef union {
 static ErtsAllocatorState_t sl_alloc_state;
 static ErtsAllocatorState_t std_alloc_state;
 static ErtsAllocatorState_t ll_alloc_state;
+#if HALFWORD_HEAP
+static ErtsAllocatorState_t std_alloc_low_state;
+static ErtsAllocatorState_t ll_alloc_low_state;
+#endif
 static ErtsAllocatorState_t temp_alloc_state;
 static ErtsAllocatorState_t eheap_alloc_state;
 static ErtsAllocatorState_t binary_alloc_state;
@@ -166,6 +170,10 @@ typedef struct {
     struct au_init binary_alloc;
     struct au_init ets_alloc;
     struct au_init driver_alloc;
+#if HALFWORD_HEAP
+    struct au_init std_alloc_low;
+    struct au_init ll_alloc_low;
+#endif
 } erts_alc_hndl_args_init_t;
 
 #define ERTS_AU_INIT__ {0, 0, GOODFIT, DEFAULT_ALLCTR_INIT, {1,1,1,1}}
@@ -193,6 +201,10 @@ set_default_sl_alloc_opts(struct au_init *ip)
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_SHORT_LIVED;
     ip->init.util.rsbcst	= 80;
+#if HALFWORD_HEAP
+    ip->init.util.low_mem       = 1;
+#endif
+
 }
 
 static void
@@ -256,6 +268,9 @@ set_default_temp_alloc_opts(struct au_init *ip)
     ip->init.util.ts 		= ERTS_ALC_MTA_TEMPORARY;
     ip->init.util.rsbcst	= 90;
     ip->init.util.rmbcmt	= 100;
+#if HALFWORD_HEAP
+    ip->init.util.low_mem       = 1;
+#endif
 }
 
 static void
@@ -275,6 +290,9 @@ set_default_eheap_alloc_opts(struct au_init *ip)
 #endif
     ip->init.util.ts 		= ERTS_ALC_MTA_EHEAP;
     ip->init.util.rsbcst	= 50;
+#if HALFWORD_HEAP
+    ip->init.util.low_mem       = 1;
+#endif
 }
 
 static void
@@ -379,7 +397,7 @@ adjust_tpref(struct au_init *ip, int no_sched)
 static void handle_args(int *, char **, erts_alc_hndl_args_init_t *);
 
 static void
-set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init);
+set_au_allocator(ErtsAlcType_t alctr_n, const struct au_init *init);
 
 static void
 start_au_allocator(ErtsAlcType_t alctr_n,
@@ -531,6 +549,16 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_allctrs[ERTS_ALC_A_SYSTEM].free		= erts_sys_free;
     erts_allctrs_info[ERTS_ALC_A_SYSTEM].enabled	= 1;
 
+#if HALFWORD_HEAP
+    init.std_alloc_low = init.std_alloc;
+    init.std_alloc_low.init.util.alloc_no = ERTS_ALC_A_STANDARD_LOW;
+    init.std_alloc_low.init.util.low_mem  = 1;
+    set_au_allocator(ERTS_ALC_A_STANDARD_LOW, &init.std_alloc_low);
+    init.ll_alloc_low = init.ll_alloc;
+    init.ll_alloc_low.init.util.alloc_no = ERTS_ALC_A_LONG_LIVED_LOW;
+    init.ll_alloc_low.init.util.low_mem = 1;
+    set_au_allocator(ERTS_ALC_A_LONG_LIVED_LOW, &init.ll_alloc_low);
+#endif
     set_au_allocator(ERTS_ALC_A_TEMPORARY, &init.temp_alloc);
     set_au_allocator(ERTS_ALC_A_SHORT_LIVED, &init.sl_alloc);
     set_au_allocator(ERTS_ALC_A_STANDARD, &init.std_alloc);
@@ -576,7 +604,14 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     start_au_allocator(ERTS_ALC_A_LONG_LIVED,
 		       &init.ll_alloc,
 		       &ll_alloc_state);
-
+#if HALFWORD_HEAP
+    start_au_allocator(ERTS_ALC_A_LONG_LIVED_LOW,
+		       &init.ll_alloc_low,
+		       &ll_alloc_low_state);
+    start_au_allocator(ERTS_ALC_A_STANDARD_LOW,
+		       &init.std_alloc_low,
+		       &std_alloc_low_state);
+#endif
     start_au_allocator(ERTS_ALC_A_EHEAP,
 		       &init.eheap_alloc,
 		       &eheap_alloc_state);
@@ -612,11 +647,9 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_set_fix_size(ERTS_ALC_T_PROC,		sizeof(Process));
     erts_set_fix_size(ERTS_ALC_T_DB_TABLE,	sizeof(DbTable));
     erts_set_fix_size(ERTS_ALC_T_ATOM,		sizeof(Atom));
-    erts_set_fix_size(ERTS_ALC_T_EXPORT,	sizeof(Export));
+
     erts_set_fix_size(ERTS_ALC_T_MODULE,	sizeof(Module));
     erts_set_fix_size(ERTS_ALC_T_REG_PROC,	sizeof(RegProc));
-    erts_set_fix_size(ERTS_ALC_T_MONITOR_SH,	ERTS_MONITOR_SH_SIZE*sizeof(Uint));
-    erts_set_fix_size(ERTS_ALC_T_NLINK_SH,	ERTS_LINK_SH_SIZE*sizeof(Uint));
     erts_set_fix_size(ERTS_ALC_T_FUN_ENTRY,	sizeof(ErlFunEntry));
 #ifdef ERTS_ALC_T_DRV_EV_D_STATE
     erts_set_fix_size(ERTS_ALC_T_DRV_EV_D_STATE,
@@ -626,13 +659,18 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_set_fix_size(ERTS_ALC_T_DRV_SEL_D_STATE,
 		      sizeof(ErtsDrvSelectDataState));
 #endif
+#if !HALFWORD_HEAP
+    erts_set_fix_size(ERTS_ALC_T_EXPORT,	sizeof(Export));
+    erts_set_fix_size(ERTS_ALC_T_MONITOR_SH,	ERTS_MONITOR_SH_SIZE*sizeof(Uint));
+    erts_set_fix_size(ERTS_ALC_T_NLINK_SH,	ERTS_LINK_SH_SIZE*sizeof(Uint));
+#endif
 #endif
 #endif
 
 }
 
 static void
-set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init)
+set_au_allocator(ErtsAlcType_t alctr_n, const struct au_init *init)
 {
     ErtsAllocatorFunctions_t *af = &erts_allctrs[alctr_n];
     ErtsAllocatorInfo_t *ai = &erts_allctrs_info[alctr_n];
@@ -1836,6 +1874,9 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
 	size.processes = size.processes_used = tmp;
 
+#if HALFWORD_HEAP
+	/* BUG: We ignore link and monitor memory */
+#else
 	erts_fix_info(ERTS_ALC_T_NLINK_SH, &efi);
 	size.processes += efi.total;
 	size.processes_used += efi.used;
@@ -1843,6 +1884,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	erts_fix_info(ERTS_ALC_T_MONITOR_SH, &efi);
 	size.processes += efi.total;
 	size.processes_used += efi.used;
+#endif
 
 	erts_fix_info(ERTS_ALC_T_PROC, &efi);
 	size.processes += efi.total;
@@ -1879,8 +1921,12 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	erts_fix_info(ERTS_ALC_T_MODULE, &efi);
 	size.code += efi.used;
 	size.code += export_table_sz();
+#if HALFWORD_HEAP
+	size.code += export_list_size() * sizeof(Export);
+#else
 	erts_fix_info(ERTS_ALC_T_EXPORT, &efi);
 	size.code += efi.used;
+#endif
 	size.code += erts_fun_table_sz();
 	erts_fix_info(ERTS_ALC_T_FUN_ENTRY, &efi);
 	size.code += efi.used;

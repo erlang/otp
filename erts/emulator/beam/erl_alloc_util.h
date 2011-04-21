@@ -38,6 +38,7 @@ typedef struct {
     int tspec;
     int tpref;
     int ramv;
+    int low_mem;   /* HALFWORD only */
     UWord sbct;
     UWord asbcst;
     UWord rsbcst;
@@ -70,6 +71,7 @@ typedef struct {
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
+    0,			/* (bool)   low_mem: HALFWORD only               */\
     512*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
@@ -97,6 +99,7 @@ typedef struct {
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
     0,			/* (bool)   ramv:   realloc always moves         */\
+    0,			/* (bool)   low_mem: HALFWORD only               */\
     64*1024,		/* (bytes)  sbct:   sbc threshold                */\
     2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
     20,			/* (%)      rsbcst: rel sbc shrink threshold     */\

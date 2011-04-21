@@ -134,7 +134,16 @@ static int mmap_fd;
 #define CAN_PARTLY_DESTROY 0
 #endif
 
-static const ErtsMsegOpt_t default_opt = ERTS_MSEG_DEFAULT_OPT_INITIALIZER;
+const ErtsMsegOpt_t erts_mseg_default_opt = {
+    1,			/* Use cache		     */
+    1,			/* Preserv data		     */
+    0,			/* Absolute shrink threshold */
+    0			/* Relative shrink threshold */
+#if HALFWORD_HEAP
+    ,0                  /* need low memory */
+#endif
+};
+
 
 typedef struct cache_desc_t_ {
     void *seg;
@@ -605,18 +614,10 @@ mseg_clear_cache(MemKind* mk)
     INC_CC(clear_cache);
 }
 
-static ERTS_INLINE MemKind* type2mk(ErtsAlcType_t atype)
+static ERTS_INLINE MemKind* memkind(const ErtsMsegOpt_t *opt)
 {
 #if HALFWORD_HEAP
-    switch (atype) {
-    case ERTS_ALC_A_ETS:
-    case ERTS_ALC_A_BINARY:
-    case ERTS_ALC_A_FIXED_SIZE:
-    case ERTS_ALC_A_DRIVER:
-	return &hi_mem;
-    default:
-	return &low_mem;
-    }
+    return opt->low_mem ? &low_mem : &hi_mem;
 #else
     return &the_mem;
 #endif
@@ -628,7 +629,7 @@ mseg_alloc(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
     Uint max, min, diff_size, size;
     cache_desc_t *cd, *cand_cd;
     void *seg;
-    MemKind* mk = type2mk(atype);
+    MemKind* mk = memkind(opt);
 
     INC_CC(alloc);
 
@@ -742,7 +743,7 @@ static void
 mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size,
 	     const ErtsMsegOpt_t *opt)
 {
-    MemKind* mk = type2mk(atype);
+    MemKind* mk = memkind(opt);
     cache_desc_t *cd;
 
     ERTS_MSEG_DEALLOC_STAT(mk,size);
@@ -800,7 +801,7 @@ static void *
 mseg_realloc(ErtsAlcType_t atype, void *seg, Uint old_size, Uint *new_size_p,
 	     const ErtsMsegOpt_t *opt)
 {
-    MemKind* mk = type2mk(atype);
+    MemKind* mk = memkind(opt);
     void *new_seg;
     Uint new_size;
 
@@ -1372,7 +1373,7 @@ erts_mseg_alloc_opt(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
 void *
 erts_mseg_alloc(ErtsAlcType_t atype, Uint *size_p)
 {
-    return erts_mseg_alloc_opt(atype, size_p, &default_opt);
+    return erts_mseg_alloc_opt(atype, size_p, &erts_mseg_default_opt);
 }
 
 void
@@ -1387,7 +1388,7 @@ erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg, Uint size,
 void
 erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size)
 {
-    erts_mseg_dealloc_opt(atype, seg, size, &default_opt);
+    erts_mseg_dealloc_opt(atype, seg, size, &erts_mseg_default_opt);
 }
 
 void *
@@ -1405,7 +1406,7 @@ void *
 erts_mseg_realloc(ErtsAlcType_t atype, void *seg, Uint old_size,
 		  Uint *new_size_p)
 {
-    return erts_mseg_realloc_opt(atype, seg, old_size, new_size_p, &default_opt);
+    return erts_mseg_realloc_opt(atype, seg, old_size, new_size_p, &erts_mseg_default_opt);
 }
 
 void

@@ -769,6 +769,7 @@ if test "$enable_halfword_emulator" = "yes"; then
 	if test "$ARCH" = "amd64"; then
 		AC_DEFINE(HALFWORD_HEAP_EMULATOR, [1],
 			  [Define if building a halfword-heap 64bit emulator])
+		ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS halfword"
 		AC_MSG_RESULT([yes])
 	else
 		AC_MSG_ERROR(no; halfword emulator not supported on this architecture)
