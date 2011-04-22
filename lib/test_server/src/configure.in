@@ -136,7 +136,7 @@ case $system in
 	fi
 	SHLIB_EXTRACT_ALL=""
 	;;
-    NetBSD-*|FreeBSD-*|OpenBSD-*)
+    NetBSD-*|FreeBSD-*|OpenBSD-*|DragonFly*)
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"
