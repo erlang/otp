@@ -88,5 +88,5 @@ keysearch_delete(Key,N,List) ->
 
 get_data_dir(Config) ->
     Data0 = ?config(data_dir, Config),
-    {ok,Data,_} = regexp:sub(Data0, "xmerl_sax_std_SUITE", "xmerl_sax_std_SUITE"),
+    {ok,Data,_} = regexp:sub(Data0, "xmerl_sax_std_SUITE", "xmerl_std_SUITE"),
     Data.
