@@ -517,18 +517,65 @@ external_size_1(Term, Size0, Limit) when Size0 < Limit ->
 external_size_1(_, _, _) -> ok.
 
 t_iolist_size(Config) when is_list(Config) ->
-    %% Build a term whose external size only fits in a big num (on 32-bit CPU).
-    Bin = iolist_to_binary(lists:seq(0, 254)),
-    ?line ok = t_iolist_size_1(Bin, 0, 16#7FFFFFFF),
-    ?line ok = t_iolist_size_1(make_unaligned_sub_binary(Bin), 0, 16#7FFFFFFF).
+    ?line Seed = now(),
+    ?line io:format("Seed: ~p", [Seed]),
+    ?line random:seed(Seed),
+    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    ?line Powers = [1 bsl N || N <- lists:seq(2, 37)],
+    ?line Sizes0 = [[N - random:uniform(N div 2),
+		     lists:seq(N-2, N+2),
+		     N+N div 2,
+		     N + random:uniform(N div 2)] ||
+		       N <- Powers],
+    %% Test sizes around 1^32 more thoroughly.
+    FourGigs = 1 bsl 32,
+    ?line Sizes1 = [FourGigs+N || N <- lists:seq(-8, 40)] ++ Sizes0,
+    ?line Sizes2 = lists:flatten(Sizes1),
+    ?line Sizes = lists:usort(Sizes2),
+    io:format("~p sizes:", [length(Sizes)]),
+    io:format("~p\n", [Sizes]),
+    ?line [Sz = iolist_size(build_iolist(Sz, Base)) || Sz <- Sizes],
+    ok.
 
-t_iolist_size_1(IOList, Size0, Limit) when Size0 < Limit ->
-    case iolist_size(IOList) of
-	Size when is_integer(Size), Size0 < Size ->
-	    io:format("~p", [Size]),
-	    t_iolist_size_1([IOList|IOList], Size, Limit)
+build_iolist(N, Base) when N < 16 ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	_ ->
+	    lists:seq(1, N)
     end;
-t_iolist_size_1(_, _, _) -> ok.
+build_iolist(N, Base) when N =< byte_size(Base) ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	2 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    [Bin];
+	3 ->
+	    case N rem 2 of
+		0 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L];
+		1 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L,45]
+	    end
+    end;
+build_iolist(N0, Base) ->
+    Small = random:uniform(15),
+    Seq = lists:seq(1, Small),
+    N = N0 - Small,
+    case N rem 2 of
+	0 ->
+	    L = build_iolist(N div 2, Base),
+	    [L,L|Seq];
+	1 ->
+	    L = build_iolist(N div 2, Base),
+	    [47,L,L|Seq]
+    end.
+
 
 bad_binary_to_term_2(doc) -> "OTP-4053.";
 bad_binary_to_term_2(suite) -> [];

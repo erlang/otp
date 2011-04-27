@@ -2168,20 +2168,146 @@ BIF_RETTYPE tl_1(BIF_ALIST_1)
 /**********************************************************************/
 /* return the size of an I/O list */
 
-BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
+static Eterm
+accumulate(Eterm acc, Uint size)
 {
-    Sint size = io_list_len(BIF_ARG_1);
-
-    if (size == -1) {
-	BIF_ERROR(BIF_P, BADARG);
-    } else if (IS_USMALL(0, (Uint) size)) {
-	BIF_RET(make_small(size));
+    if (is_non_value(acc)) {
+	/*
+	 * There is no pre-existing accumulator. Allocate a
+	 * bignum buffer with one extra word to be used if
+	 * the bignum grows in the future.
+	 */
+	Eterm* hp = (Eterm *) erts_alloc(ERTS_ALC_T_TEMP_TERM,
+					 (BIG_UINT_HEAP_SIZE+1) *
+					 sizeof(Eterm));
+	return uint_to_big(size, hp);
     } else {
-	Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-	BIF_RET(uint_to_big(size, hp));
+	Eterm* big;
+	int need_heap;
+
+	/*
+	 * Add 'size' to 'acc' in place. There is always one
+	 * extra word allocated in case the bignum grows by one word.
+	 */
+	big = big_val(acc);
+	need_heap = BIG_NEED_SIZE(BIG_SIZE(big));
+	acc = big_plus_small(acc, size, big);
+	if (BIG_NEED_SIZE(big_size(acc)) > need_heap) {
+	    /*
+	     * The extra word has been consumed. Grow the
+	     * allocation by one word.
+	     */
+	    big = (Eterm *) erts_realloc(ERTS_ALC_T_TEMP_TERM,
+					 big_val(acc),
+					 (need_heap+1) * sizeof(Eterm));
+	    acc = make_big(big);
+	}
+	return acc;
     }
 }
 
+static Eterm
+consolidate(Process* p, Eterm acc, Uint size)
+{
+    Eterm* hp;
+
+    if (is_non_value(acc)) {
+	return erts_make_integer(size, p);
+    } else {
+	Eterm* big;
+	Uint sz;
+	Eterm res;
+	
+	acc = accumulate(acc, size);
+	big = big_val(acc);
+	sz = BIG_NEED_SIZE(BIG_SIZE(big));
+	hp = HAlloc(p, sz);
+	res = make_big(hp);
+	while (sz--) {
+	    *hp++ = *big++;
+	}
+	erts_free(ERTS_ALC_T_TEMP_TERM, (void *) big_val(acc));
+	return res;
+    }
+}
+
+BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
+{
+    Eterm obj, hd;
+    Eterm* objp;
+    Uint size = 0;
+    Uint cur_size;
+    Uint new_size;
+    Eterm acc = THE_NON_VALUE;
+    DECLARE_ESTACK(s);
+
+    obj = BIF_ARG_1;
+    goto L_again;
+
+    while (!ESTACK_ISEMPTY(s)) {
+	obj = ESTACK_POP(s);
+    L_again:
+	if (is_list(obj)) {
+	L_iter_list:
+	    objp = list_val(obj);
+	    hd = CAR(objp);
+	    obj = CDR(objp);
+	    /* Head */
+	    if (is_byte(hd)) {
+		size++;
+		if (size == 0) {
+		    acc = accumulate(acc, (Uint) -1);
+		    size = 1;
+		}
+	    } else if (is_binary(hd) && binary_bitsize(hd) == 0) {
+		cur_size = binary_size(hd);
+		if ((new_size = size + cur_size) >= size) {
+		    size = new_size;
+		} else {
+		    acc = accumulate(acc, size);
+		    size = cur_size;
+		}
+	    } else if (is_list(hd)) {
+		ESTACK_PUSH(s, obj);
+		obj = hd;
+		goto L_iter_list;
+	    } else if (is_not_nil(hd)) {
+		goto L_type_error;
+	    }
+	    /* Tail */
+	    if (is_list(obj)) {
+		goto L_iter_list;
+	    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
+		cur_size = binary_size(obj);
+		if ((new_size = size + cur_size) >= size) {
+		    size = new_size;
+		} else {
+		    acc = accumulate(acc, size);
+		    size = cur_size;
+		}
+	    } else if (is_not_nil(obj)) {
+		goto L_type_error;
+	    }
+	} else if (is_binary(obj) && binary_bitsize(obj) == 0) {
+	    cur_size = binary_size(obj);
+	    if ((new_size = size + cur_size) >= size) {
+		size = new_size;
+	    } else {
+		acc = accumulate(acc, size);
+		size = cur_size;
+	    }
+	} else if (is_not_nil(obj)) {
+	    goto L_type_error;
+	}
+    }
+
+    DESTROY_ESTACK(s);
+    BIF_RET(consolidate(BIF_P, acc, size));
+
+ L_type_error:
+    DESTROY_ESTACK(s);
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 /**********************************************************************/
 
