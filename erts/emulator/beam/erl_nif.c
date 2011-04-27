@@ -430,6 +430,11 @@ int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_list(term) || is_nil(term);
 }
 
+int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return term == THE_NON_VALUE;
+}
+
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
     erts_free_aligned_binary_bytes_extra((byte*)obj,ERTS_ALC_T_TMP);

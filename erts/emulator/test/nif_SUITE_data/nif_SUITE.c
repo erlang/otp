@@ -802,6 +802,23 @@ static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 }
 
 /*
+ * no arguments
+ *
+ * This function is separate from check_is because it calls enif_make_badarg
+ * and so it must return the badarg exception as its return value. Thus, the
+ * badarg exception indicates success. Failure is indicated by returning an
+ * error atom.
+ */
+static ERL_NIF_TERM check_is_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM error_atom = enif_make_atom(env, "error");
+    ERL_NIF_TERM badarg = enif_make_badarg(env);
+    if (enif_is_exception(env, error_atom)) return error_atom;
+    if (!enif_is_exception(env, badarg)) return error_atom;
+    return badarg;
+}
+
+/*
  * argv[0] atom with length of 6
  * argv[1] list with length of 6
  * argv[2] empty list
@@ -1383,6 +1400,7 @@ static ErlNifFunc nif_funcs[] =
     {"last_resource_dtor_call", 0, last_resource_dtor_call},
     {"make_new_resource", 2, make_new_resource},
     {"check_is", 10, check_is},
+    {"check_is_exception", 0, check_is_exception},
     {"length_test", 5, length_test},
     {"make_atoms", 0, make_atoms},
     {"make_strings", 0, make_strings},

@@ -688,6 +688,10 @@ typedef enum {
       <fsummary>Determine if a term is an empty list</fsummary>
       <desc><p>Return true if <c>term</c> is an empty list.</p></desc>
     </func>
+    <marker id="enif_is_exception"/><func><name><ret>int</ret><nametext>enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is an exception</fsummary>
+      <desc><p>Return true if <c>term</c> is an exception.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a fun</fsummary>
       <desc><p>Return true if <c>term</c> is a fun.</p></desc>
@@ -738,7 +742,14 @@ typedef enum {
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception.</fsummary>
-      <desc><p>Make a badarg exception to be returned from a NIF.</p></desc>
+      <desc><p>Make a badarg exception to be returned from a NIF, and set
+      an associated exception reason in <c>env</c>. If
+      <c>enif_make_badarg</c> is called, the term it returns <em>must</em>
+      be returned from the function that called it. No other return value
+      is allowed. Also, the term returned from <c>enif_make_badarg</c> may
+      be passed only to
+      <seealso marker="#enif_is_exception">enif_is_exception</seealso> and
+      not to any other NIF API function.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
       <fsummary>Make a binary term.</fsummary>
