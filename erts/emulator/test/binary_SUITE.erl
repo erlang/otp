@@ -1183,34 +1183,7 @@ deep(Config) when is_list(Config) ->
 
 deep_roundtrip(T) ->
     B = term_to_binary(T),
-    true = deep_eq(T, binary_to_term(B)).
-
-%%
-%% FIXME: =:= runs out of stack.
-%%
-deep_eq([H1|T1], [H2|T2]) ->
-    deep_eq(H1, H2) andalso deep_eq(T1, T2);
-deep_eq(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
-    deep_eq_tup(T1, T2, tuple_size(T1));
-deep_eq(T1, T2) when is_function(T1), is_function(T2) ->
-    {uniq,U1} = erlang:fun_info(T1, uniq),
-    {index,I1} = erlang:fun_info(T1, index),
-    {arity,A1} = erlang:fun_info(T1, arity),
-    {env,E1} = erlang:fun_info(T1, env),
-    {uniq,U2} = erlang:fun_info(T2, uniq),
-    {index,I2} = erlang:fun_info(T2, index),
-    {arity,A2} = erlang:fun_info(T2, arity),
-    {env,E2} = erlang:fun_info(T2, env),
-    U1 =:= U2 andalso I1 =:= I2 andalso A1 =:= A2 andalso
-	deep_eq(E1, E2);
-deep_eq(T1, T2) ->
-    T1 =:= T2.
-
-deep_eq_tup(_T1, _T2, 0) ->
-    true;
-deep_eq_tup(T1, T2, N) ->
-    deep_eq(element(N, T1), element(N, T2)) andalso
-	deep_eq_tup(T1, T2, N-1).
+    T = binary_to_term(B).
 
 obsolete_funs(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
