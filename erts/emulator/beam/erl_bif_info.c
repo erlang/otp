@@ -71,9 +71,9 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #endif
 #endif
 #ifdef ERTS_SMP
-				     " [smp:%bpu:%bpu]"
+				     " [smp:%beu:%beu]"
 #endif
-				     " [rq:%bpu]"
+				     " [rq:%beu]"
 #ifdef USE_THREADS
 				     " [async-threads:%d]"
 #endif

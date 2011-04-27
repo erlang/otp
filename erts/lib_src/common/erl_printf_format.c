@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
  *  length: hh | h | l | ll | L | j | t | b<sz>
  *  conversion: d,i | o,u,x,X | e,E | f,F | g,G | a,A | c | s | T |
  *              p | n | %
- *  sz: 8 | 16 | 32 | 64 | p
+ *  sz: 8 | 16 | 32 | 64 | p | e
  */
 
 /* Without this, variable argument lists break on VxWorks */
@@ -74,6 +74,18 @@
 #define signed_long_long	signed long long
 #define unsigned_long_long	unsigned long long
 #endif
+#endif
+
+#ifndef ERTS_SIZEOF_ETERM
+#  ifdef HALFWORD_HEAP_EMULATOR
+#    if SIZEOF_VOID_P == 8
+#      define ERTS_SIZEOF_ETERM 4
+#    else
+#      error "HALFWORD_HEAP_EMULATOR only allowed on 64-bit architecture"
+#    endif
+#  else
+#    define ERTS_SIZEOF_ETERM SIZEOF_VOID_P
+#  endif
 #endif
 
 #if defined(__GNUC__)
@@ -518,6 +530,17 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		    fmt |= FMTL_ll;
 #else
 #error No integer datatype with the same size as 'void *' found
+#endif
+		}
+		else if (*ptr == 'e') {
+		    ptr++;
+#if SIZEOF_INT == ERTS_SIZEOF_ETERM
+#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
+		    fmt |= FMTL_l;
+#elif SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM
+		    fmt |= FMTL_ll;
+#else
+#error No integer datatype with the same size as Eterm found
 #endif
 		}
 		else {

@@ -1687,7 +1687,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
     if (size > (Uint) INT_MAX)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
-		 "(%bpu bytes) passed.\n",
+		 "(%beu bytes) passed.\n",
 		 size);
 
     prt->caller = NIL;
@@ -1714,7 +1714,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
     if (size > (Uint) INT_MAX)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "Absurdly large distribution output data buffer "
-		 "(%bpu bytes) passed.\n",
+		 "(%beu bytes) passed.\n",
 		 size);
 
     iov[0].iov_base = NULL;

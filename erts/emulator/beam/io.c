@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -2417,7 +2417,7 @@ void erts_raw_port_command(Port* p, byte* buf, Uint len)
 
     if (len > (Uint) INT_MAX)
 	erl_exit(ERTS_ABORT_EXIT,
-		 "Absurdly large data buffer (%bpu bytes) passed to"
+		 "Absurdly large data buffer (%beu bytes) passed to"
 		 "output callback of %s driver.\n",
 		 len,
 		 p->drv_ptr->name ? p->drv_ptr->name : "unknown");
@@ -3667,7 +3667,7 @@ driver_pdl_inc_refc(ErlDrvPDL pdl)
 {
     ErlDrvSInt refc = pdl_inctest_refc(pdl);
 #ifdef HARDDEBUG
-    erts_fprintf(stderr, "driver_pdl_inc_refc(%p) -> %bpd\r\n",
+    erts_fprintf(stderr, "driver_pdl_inc_refc(%p) -> %bed\r\n",
 		 pdl, refc);
 #endif
     return refc;

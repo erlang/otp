@@ -3737,7 +3737,7 @@ static void print_table(int to, void *to_arg, int show,  DbTable* tb)
 
     erts_print(to, to_arg, "Objects: %d\n", (int)erts_smp_atomic_read(&tb->common.nitems));
     erts_print(to, to_arg, "Words: %bpu\n",
-	       (Uint) ((erts_smp_atomic_read(&tb->common.memory_size)
+	       (UWord) ((erts_smp_atomic_read(&tb->common.memory_size)
 			+ sizeof(Uint)
 			- 1)
 		       / sizeof(Uint)));

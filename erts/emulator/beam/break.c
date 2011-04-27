@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -266,7 +266,7 @@ print_process_info(int to, void *to_arg, Process *p)
        }
        erts_print(to, to_arg, "Number of heap fragments: %d\n", frags);
     }
-    erts_print(to, to_arg, "Heap fragment data: %bpu\n", MBUF_SIZE(p));
+    erts_print(to, to_arg, "Heap fragment data: %beu\n", MBUF_SIZE(p));
 
     scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
     if (scb) {
@@ -313,12 +313,11 @@ print_process_info(int to, void *to_arg, Process *p)
     }
     
     /* print the number of reductions etc */
-    erts_print(to, to_arg, "Reductions: %bpu\n", p->reds);
+    erts_print(to, to_arg, "Reductions: %beu\n", p->reds);
 
-    erts_print(to, to_arg, "Stack+heap: %bpu\n", p->heap_sz);
+    erts_print(to, to_arg, "Stack+heap: %beu\n", p->heap_sz);
     erts_print(to, to_arg, "OldHeap: %bpu\n",
-               (OLD_HEAP(p) == NULL) ? 0 :
-               (unsigned)(OLD_HEND(p) - OLD_HEAP(p)) );
+               (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HEAP(p)) );
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );

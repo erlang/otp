@@ -3665,7 +3665,7 @@ sched_thread_func(void *vesdp)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     {
 	char buf[31];
-	erts_snprintf(&buf[0], 31, "scheduler %bpu", no);
+	erts_snprintf(&buf[0], 31, "scheduler %beu", no);
 	erts_lc_set_thread_name(&buf[0]);
     }
 #endif
@@ -3723,7 +3723,7 @@ sched_thread_func(void *vesdp)
 
     process_main();
     /* No schedulers should *ever* terminate */
-    erl_exit(ERTS_ABORT_EXIT, "Scheduler thread number %bpu terminated\n",
+    erl_exit(ERTS_ABORT_EXIT, "Scheduler thread number %beu terminated\n",
 	     ((ErtsSchedulerData *) vesdp)->no);
     return NULL;
 }
@@ -3772,8 +3772,8 @@ erts_start_schedulers(void)
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	ASSERT(actual != wanted_no_schedulers);
 	erts_dsprintf(dsbufp,
-		      "Failed to create %bpu scheduler-threads (%s:%d); "
-		      "only %bpu scheduler-thread%s created.\n",
+		      "Failed to create %beu scheduler-threads (%s:%d); "
+		      "only %beu scheduler-thread%s created.\n",
 		      wanted_no_schedulers, erl_errno_id(res), res,
 		      actual, actual == 1 ? " was" : "s were");
 	erts_send_error_to_logger_nogl(dsbufp);

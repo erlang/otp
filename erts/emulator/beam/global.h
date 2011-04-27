@@ -1828,7 +1828,7 @@ erts_alloc_message_heap(Uint size,
 #endif
 
     if (size > (Uint) INT_MAX)
-	erl_exit(ERTS_ABORT_EXIT, "HUGE size (%bpu)\n", size);
+	erl_exit(ERTS_ABORT_EXIT, "HUGE size (%beu)\n", size);
 
     if (
 #if defined(ERTS_SMP)
