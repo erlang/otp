@@ -180,8 +180,7 @@ handle_msg(_, State) ->
 %% Function: terminate(Reason, State) -> void()
 %% Description: Called when the channel process is trminated
 %%--------------------------------------------------------------------
-terminate(_Reason, #state{cm = ConnectionManager} = _State) ->
-    (catch ssh_userreg:delete(ConnectionManager)),
+terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
