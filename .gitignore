@@ -179,6 +179,7 @@ make/win32/
 
 # common_test
 
+/lib/common_test/doc/src/ct_slave.xml
 /lib/common_test/priv/install.sh
 
 # compiler
