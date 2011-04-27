@@ -280,7 +280,8 @@ bad_list_to_binary(Config) when is_list(Config) ->
 test_bad_bin(List) ->
     {'EXIT',{badarg,_}} = (catch list_to_binary(List)),
     {'EXIT',{badarg,_}} = (catch iolist_to_binary(List)),
-    {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)).
+    {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)),
+    {'EXIT',{badarg,_}} = (catch iolist_size(List)).
 
 bad_binary_to_list(doc) -> "Tries binary_to_list/1,3 with bad arguments.";
 bad_binary_to_list(Config) when is_list(Config) ->
