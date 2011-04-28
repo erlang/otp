@@ -132,7 +132,8 @@ execute(TestCase, SuiteName, Group, Config) ->
 
     ct_test_support:log_events(TestCase,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(TestCase),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).

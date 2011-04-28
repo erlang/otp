@@ -212,6 +212,12 @@ make_command(Vars, Spec, State) ->
 	false -> 
 	    ok
     end,
+
+    %% If Common Test specific variables are needed, add them here
+    %% on form: "{key1,value1}" "{key2,value2}" ...
+    NetDir = ts_lib:var(ts_net_dir, Vars),
+    TestVars = [ "\"{net_dir,\\\"",NetDir,"\\\"}\"" ],
+
     %% NOTE: Do not use ' in these commands as it wont work on windows
     Cmd = [Erl, Naming, "test_server"
 	   " -rsh ", ts_lib:var(rsh_name, Vars),
@@ -224,6 +230,7 @@ make_command(Vars, Spec, State) ->
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
 	   " -pz ",Cwd,
+	   " -ct_test_vars ",TestVars,
 	   " -eval \"file:set_cwd(\\\"",TestDir,"\\\")\" "
 	   " -eval \"ct:run_test(", 
 	   backslashify(lists:flatten(State#state.test_server_args)),")\""
@@ -369,7 +376,6 @@ make_common_test_args(Args0, Options, _Vars) ->
 		 end,
     ConfigFiles = [{config,[filename:join(ConfigPath,File)
 			    || File <- get_config_files()]}],
-
     io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++
 				  ConfigFiles++Options]).
 

@@ -612,6 +612,12 @@ setup_and_execute(TCName, TestSpec, Config) ->
 	    false -> [{spec,SpecFile},{label,TCName}]
 	end,
     {Opts,ERPid} = setup(TestTerms, Config),
+
+    FullSpecFile = ct_test_support:join_abs_dirs(?config(net_dir, Opts),
+						 SpecFile),
+    io:format("~nTest spec created here~n~n<a href=\"file://~s\">~s</a>~n",
+	      [FullSpecFile,FullSpecFile]),
+
     ok = ct_test_support:run(Opts, Config),
     TestSpec1 = [{logdir,proplists:get_value(logdir,Opts)},
 		 {label,proplists:get_value(label,TestTerms)} | TestSpec],
@@ -620,7 +626,8 @@ setup_and_execute(TCName, TestSpec, Config) ->
 
     ct_test_support:log_events(TCName,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(TCName),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -631,8 +638,6 @@ create_spec_file(SpecDir, TCName, TestSpec) ->
     {ok,Dev} = file:open(FileName, [write]),
     [io:format(Dev, "~p.~n", [Term]) || Term <- TestSpec],
     file:close(Dev),
-    io:format("~nTest spec created here~n~n<a href=\"file://~s\">~s</a>~n",
-	      [FileName,FileName]),
     FileName.
 
 setup(Test, Config) when is_tuple(Test) ->
@@ -791,7 +796,9 @@ test_events(skip_group) ->
      {?eh,tc_done,{groups_11_SUITE,{end_per_group,test_group_1a,[]},'_'}},
      
      {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_1b},"SKIPPED!"}},
-     {?eh,test_stats,{2,0,{1,0}}},
+     {?eh,tc_user_skip, {groups_11_SUITE,{group,test_group_2},"SKIPPED!"}},
+     %%! But not test_group_7 since it's a sub-group!
+     {?eh,test_stats,{2,0,{2,0}}},
      {negative,{?eh,tc_user_skip,'_'},{?eh,stop_logging,'_'}}
     ];
 
@@ -1188,10 +1195,9 @@ test_events(sub_skipped_by_top) ->
      {?eh,tc_start,{groups_12_SUITE,init_per_suite}},
 
      {?eh,tc_user_skip,{groups_12_SUITE,{group,test_group_4},"SKIPPED!"}},
+     {?eh,tc_user_skip,{groups_12_SUITE,{group,test_group_4},"SKIPPED!"}},
 
-     {negative,
-      {?eh,tc_user_skip,{groups_12_SUITE,{group,test_group_4},"SKIPPED!"}},
-      {?eh,tc_done,{groups_12_SUITE,end_per_suite,'_'}}},
+     {?eh,tc_done,{groups_12_SUITE,end_per_suite,'_'}},
 
      {negative,{?eh,tc_start,'_'},{?eh,stop_logging,'_'}}
     ];

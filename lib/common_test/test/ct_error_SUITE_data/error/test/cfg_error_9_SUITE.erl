@@ -83,6 +83,8 @@ init_per_testcase(tc3, Config) ->
     Config;
 init_per_testcase(tc4, _) ->
     ok;
+init_per_testcase(tc7, _) ->
+    {fail,tc7_should_be_failed};
 init_per_testcase(_, Config) ->
     Config.
 
@@ -136,7 +138,7 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() -> 
-    [tc1,tc2,tc3,tc4,tc5,tc6,
+    [tc1,tc2,tc3,tc4,tc5,tc6,tc7,
      tc11,tc12,tc13,tc14].
 
 tc1(_) ->
@@ -170,6 +172,11 @@ tc6() ->
 tc6(_) ->
     ct:comment("This one should succeed but then get failed by end_tc!"),
     fini.
+
+tc7(_) ->
+    ct:comment("This one should get failed by iptc!"),
+    fini.
+
 
 tc11(_) ->
     fini.

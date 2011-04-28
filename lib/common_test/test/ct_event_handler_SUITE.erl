@@ -102,8 +102,9 @@ start_stop(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),    
 
     ct_test_support:log_events(start_stop, 
-			       ct_test_support:reformat(Events, eh_A), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, eh_A),
+			       ?config(priv_dir, Config),
+			       Opts),
     
     TestEvents =
 	[{eh_A,start_logging,{'DEF','RUNDIR'}},
@@ -148,8 +149,9 @@ results(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
     
     ct_test_support:log_events(results, 
-			       ct_test_support:reformat(Events, eh_A), 
-			       ?config(priv_dir, Config)),
+			       ct_test_support:reformat(Events, eh_A),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents =
 	[{eh_A,start_logging,{'DEF','RUNDIR'}},

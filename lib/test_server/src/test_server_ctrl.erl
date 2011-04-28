@@ -1812,6 +1812,9 @@ start_log_file() ->
     ok = file:make_dir(PrivDir),
     put(test_server_priv_dir,PrivDir++"/"),
     print_timestamp(13,"Suite started at "),
+
+    LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir)}],
+    test_server_sup:framework_call(report, [loginfo,LogInfo]),
     ok.
 
 make_html_link(LinkName, Target, Explanation) ->
@@ -1925,7 +1928,6 @@ html_convert_modules(TestSpec, _Config) ->
     copy_html_files(get(test_server_dir), get(test_server_log_dir_base)).
 
 %% Retrieve a list of modules out of the test spec.
-
 html_isolate_modules(List) -> html_isolate_modules(List, sets:new()).
 
 html_isolate_modules([], Set) -> sets:to_list(Set);
@@ -1939,37 +1941,56 @@ html_isolate_modules([{Mod,_Case,_Args}|Cases], Set) ->
     html_isolate_modules(Cases, sets:add_element(Mod, Set)).
 
 %% Given a list of modules, convert each module's source code to HTML.
-
 html_convert_modules([Mod|Mods]) ->
     case code:which(Mod) of
 	Path when is_list(Path) ->
 	    SrcFile = filename:rootname(Path) ++ ".erl",
-	    DestDir = get(test_server_dir),
-	    Name = atom_to_list(Mod),
-	    DestFile = filename:join(DestDir, downcase(Name) ++ ?src_listing_ext),
-	    html_possibly_convert(SrcFile, DestFile),
-	    html_convert_modules(Mods);
-	_Other -> ok
+	    FoundSrcFile =
+		case file:read_file_info(SrcFile) of
+		    {ok,SInfo} ->
+			{SrcFile,SInfo};
+		    {error,_} ->
+			ModInfo = Mod:module_info(compile),
+			case proplists:get_value(source, ModInfo) of
+			    undefined ->
+				undefined;
+			    OtherSrcFile ->
+				case file:read_file_info(OtherSrcFile) of
+				    {ok,SInfo} ->
+					{OtherSrcFile,SInfo};
+				    {error,_} ->
+					undefined
+				end
+			end
+		end,
+	    case FoundSrcFile of
+		undefined ->
+		    html_convert_modules(Mods);
+		{SrcFile1,SrcFileInfo} ->
+		    DestDir = get(test_server_dir),
+		    Name = atom_to_list(Mod),
+		    DestFile = filename:join(DestDir,
+					     downcase(Name)++?src_listing_ext),
+		    html_possibly_convert(SrcFile1, SrcFileInfo, DestFile),
+		    html_convert_modules(Mods)
+	    end;
+	_Other ->
+	    html_convert_modules(Mods)
     end;
 html_convert_modules([]) -> ok.
 
 %% Convert source code to HTML if possible and needed.
-
-html_possibly_convert(Src, Dest) ->
-    case file:read_file_info(Src) of
-	{ok,SInfo} ->
-	    case file:read_file_info(Dest) of
-		{error,_Reason} ->		% no dest file
-		    erl2html2:convert(Src, Dest);
-		{ok,DInfo} when DInfo#file_info.mtime < SInfo#file_info.mtime ->
-		    erl2html2:convert(Src, Dest);
-		{ok,_DInfo} -> ok		% dest file up to date
-	    end;
-	{error,_Reason} -> ok			% no source code found
+html_possibly_convert(Src, SrcInfo, Dest) ->
+    case file:read_file_info(Dest) of
+	{error,_Reason} ->			% no dest file
+	    erl2html2:convert(Src, Dest);
+	{ok,DestInfo} when DestInfo#file_info.mtime < SrcInfo#file_info.mtime ->
+	    erl2html2:convert(Src, Dest);
+	{ok,_DestInfo} ->
+	    ok					% dest file up to date
     end.
 
 %% Copy all HTML files in InDir to OutDir.
-
 copy_html_files(InDir, OutDir) ->
     Files = filelib:wildcard(filename:join(InDir, "*" ++ ?src_listing_ext)),
     lists:foreach(fun (Src) -> copy_html_file(Src, OutDir) end, Files).

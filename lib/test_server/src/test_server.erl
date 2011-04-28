@@ -36,7 +36,7 @@
 -export([capture_start/0,capture_stop/0,capture_get/0]).
 -export([messages_get/0]).
 -export([hours/1,minutes/1,seconds/1,sleep/1,adjusted_sleep/1,timecall/3]).
--export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1]).
+-export([timetrap_scale_factor/0,timetrap/1,timetrap_cancel/1,timetrap_cancel/0]).
 -export([m_out_of_n/3,do_times/4,do_times/2]).
 -export([call_crash/3,call_crash/4,call_crash/5]).
 -export([temp_name/1]).
@@ -1077,7 +1077,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 
     {{Time,Value},Loc,Opts} =
 	case test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
-					    {ok, Args0}) of
+					    {ok,Args0}) of
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
@@ -1085,18 +1085,17 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 					   {skip,{failed,Error}}),
 		{{0,NewResult},{Mod,Func},[]};
 	    {fail,Reason} ->
-		[Conf] = Args0,
-		Conf1 = [{tc_status,{failed,Reason}} | Conf],
+		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
 		fw_error_notify(Mod, Func, Conf, Reason),
-		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf1]},
-					   {fail, Reason}),
+		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
+					   {fail,Reason}),
 		{{0,NewResult},{Mod,Func},[]};
 	    Skip = {skip,_Reason} ->
 		NewResult = do_end_tc_call(Mod,Func,{Skip,Args0},Skip),
 		{{0,NewResult},{Mod,Func},[]};
 	    {auto_skip,Reason} ->
 		NewResult = do_end_tc_call(Mod, Func, {{skip,Reason},Args0},
-					   {skip, {fw_auto_skip,Reason}}),
+					   {skip,{fw_auto_skip,Reason}}),
 		{{0,NewResult},{Mod,Func},[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
@@ -1116,9 +1115,15 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
-		    NewRes = do_end_tc_call(Mod, Func, {{skip, Reason}, [Conf]},
+		    NewRes = do_end_tc_call(Mod, Func, {{skip,Reason},[Conf]},
 					    {skip, Reason}),
 		    {{0,NewRes},Line,[]};
+		FailTC = {fail,Reason} ->       % user fails the testcase
+		    EndConf = [{tc_status,{failed,Reason}} | hd(Args)],
+		    fw_error_notify(Mod, Func, EndConf, Reason),
+		    NewRes = do_end_tc_call(Mod, Func, {{error,Reason},[EndConf]},
+					    FailTC),
+		    {{0,NewRes},{Mod,Func},[]};
 		{ok,NewConf} ->
 		    put(test_server_init_or_end_conf,undefined),
 		    %% call user callback function if defined
@@ -1153,8 +1158,9 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
-				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config, 1, EndConf1)]};
-			    {fail,ReasonToFail} ->                       % user has failed the testcase
+				{FWReturn,TSReturn,[SaveCfg1|lists:keydelete(save_config,1,
+									     EndConf1)]};
+			    {fail,ReasonToFail} ->                % user has failed the testcase
 				fw_error_notify(Mod, Func, EndConf1, ReasonToFail),
 				{{error,ReasonToFail},{failed,ReasonToFail},EndConf1};
 			    {failed,{_,end_per_testcase,_}} = Failure -> % unexpected termination
@@ -1301,7 +1307,7 @@ init_per_testcase(Mod, Func, Args) ->
 	false -> code:load_file(Mod);
 	_ -> ok
     end,
-%% init_per_testcase defined, returns new configuration
+    %% init_per_testcase defined, returns new configuration
     case erlang:function_exported(Mod,init_per_testcase,2) of
 	true ->
 	    case catch my_apply(Mod, init_per_testcase, [Func|Args]) of
@@ -1321,6 +1327,8 @@ init_per_testcase(Mod, Func, Args) ->
 					      "bad elements in Config: ~p\n",[Bad]},
 			    {skip,{failed,{Mod,init_per_testcase,bad_return}}}
 		    end;
+		{'$test_server_ok',Res={fail,_Reason}} ->
+		    Res;
 		{'$test_server_ok',_Other} ->
 		    group_leader() ! {printout,12,
 				      "ERROR! init_per_testcase did not return "
@@ -1695,7 +1703,7 @@ fail() ->
 break(Comment) ->
     case erase(test_server_timetraps) of
 	undefined -> ok;
-	List -> lists:foreach(fun(Ref) -> timetrap_cancel(Ref) end,List)
+	List -> lists:foreach(fun({Ref,_}) -> timetrap_cancel(Ref) end, List)
     end,
     io:format(user,
 	      "\n\n\n--- SEMIAUTOMATIC TESTING ---"
@@ -1776,14 +1784,16 @@ timetrap(Timeout0) ->
 	{undefined,false} -> timetrap1(Timeout, false);
 	{undefined,_} -> timetrap1(Timeout, true);
 	{infinity,_} -> infinity;
+	{_Int,_Scale} when Timeout == infinity -> infinity;
 	{Int,Scale} -> timetrap1(Timeout*Int, Scale)
     end.
 
 timetrap1(Timeout, Scale) ->
-    Ref = spawn_link(test_server_sup,timetrap,[Timeout,Scale,self()]),
+    TCPid = self(),
+    Ref = spawn_link(test_server_sup,timetrap,[Timeout,Scale,TCPid]),
     case get(test_server_timetraps) of
-	undefined -> put(test_server_timetraps,[Ref]);
-	List -> put(test_server_timetraps,[Ref|List])
+	undefined -> put(test_server_timetraps,[{Ref,TCPid}]);
+	List -> put(test_server_timetraps,[{Ref,TCPid}|List])
     end,
     Ref.
 
@@ -1796,14 +1806,16 @@ ensure_timetrap(Config) ->
 		undefined -> ok;
 		Garbage ->
 		    erase(test_server_default_timetrap),
-		    format("=== WARNING: garbage in test_server_default_timetrap: ~p~n",
+		    format("=== WARNING: garbage in "
+			   "test_server_default_timetrap: ~p~n",
 			   [Garbage])
 	    end,
 	    DTmo = case lists:keysearch(default_timeout,1,Config) of
 		       {value,{default_timeout,Tmo}} -> Tmo;
 		       _ -> ?DEFAULT_TIMETRAP_SECS
 		   end,
-	    format("=== test_server setting default timetrap of ~p seconds~n",
+	    format("=== test_server setting default "
+		   "timetrap of ~p seconds~n",
 		   [DTmo]),
 	    put(test_server_default_timetrap, timetrap(seconds(DTmo)))
     end.
@@ -1815,11 +1827,13 @@ cancel_default_timetrap() ->
 	TimeTrap when is_pid(TimeTrap) ->
 	    timetrap_cancel(TimeTrap),
 	    erase(test_server_default_timetrap),
-	    format("=== test_server canceled default timetrap since another timetrap was set~n"),
+	    format("=== test_server canceled default timetrap "
+		   "since another timetrap was set~n"),
 	    ok;
 	Garbage ->
 	    erase(test_server_default_timetrap),
-	    format("=== WARNING: garbage in test_server_default_timetrap: ~p~n",
+	    format("=== WARNING: garbage in "
+		   "test_server_default_timetrap: ~p~n",
 		   [Garbage]),
 	    error
     end.
@@ -1833,6 +1847,7 @@ time_ms({Other,_N}) ->
 	   "Should be seconds, minutes, or hours.~n", [Other]),
     exit({invalid_time_spec,Other});
 time_ms(Ms) when is_integer(Ms) -> Ms;
+time_ms(infinity) -> infinity;
 time_ms(Other) -> exit({invalid_time_spec,Other}).
 
 
@@ -1846,10 +1861,28 @@ timetrap_cancel(infinity) ->
 timetrap_cancel(Handle) ->
     case get(test_server_timetraps) of
 	undefined -> ok;
-	[Handle] -> erase(test_server_timetraps);
-	List -> put(test_server_timetraps,lists:delete(Handle,List))
+	[{Handle,_}] -> erase(test_server_timetraps);
+	Timers -> put(test_server_timetraps,
+		      lists:keydelete(Handle, 1, Timers))
     end,
     test_server_sup:timetrap_cancel(Handle).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% timetrap_cancel() -> ok
+%%
+%% Cancels timetrap for current test case.
+timetrap_cancel() ->
+    case get(test_server_timetraps) of
+	undefined ->
+	    ok;
+	Timers ->
+	    case lists:keysearch(self(), 2, Timers) of
+		{value,{Handle,_}} ->
+		    timetrap_cancel(Handle);
+		_ ->
+		    ok
+	    end
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% hours(N) -> Milliseconds

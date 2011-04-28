@@ -97,11 +97,11 @@ logdir_node_prefix() ->
     logdir_prefix()++"."++atom_to_list(node()).
 
 %%%-----------------------------------------------------------------
-%%% @spec close(How) -> ok
+%%% @spec close(Info) -> ok
 %%%
 %%% @doc Create index pages with test results and close the CT Log
 %%% (tool-internal use only).
-close(How) ->
+close(Info) ->
     make_last_run_index(),
 
     ct_event:notify(#event{name=stop_logging,node=node(),data=[]}),
@@ -118,7 +118,7 @@ close(How) ->
 	    ok
     end,
 
-    if How == clean ->
+    if Info == clean ->
 	    case cleanup() of
 		ok ->
 		    ok;
@@ -427,8 +427,8 @@ logger(Parent,Mode) ->
     file:make_dir(Dir),
     ct_event:notify(#event{name=start_logging,node=node(),
 			   data=?abs(Dir)}),
-    make_all_suites_index(start),
     make_all_runs_index(start),
+    make_all_suites_index(start),
     case Mode of
 	interactive -> interactive_link();
 	_ -> ok
@@ -796,24 +796,29 @@ make_one_index_entry(SuiteName, LogDir, Label, All, Missing) ->
 	{Succ,Fail,UserSkip,AutoSkip} ->
 	    NotBuilt = not_built(SuiteName, LogDir, All, Missing),
 	    NewResult = make_one_index_entry1(SuiteName, LogDir, Label, Succ, Fail,
-					      UserSkip, AutoSkip, NotBuilt, All),
+					      UserSkip, AutoSkip, NotBuilt, All,
+					      normal),
 	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt};
 	error ->
 	    error
     end.
 
 make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
-		      NotBuilt, All) ->
+		      NotBuilt, All, Mode) ->
     LogFile = filename:join(Link, ?suitelog_name ++ ".html"),
-    CrashDumpName = SuiteName ++ "_erl_crash.dump",
-    CrashDumpLink = 
-	case filelib:is_file(CrashDumpName) of
-	    true -> 
-		["&nbsp;<A HREF=\"", CrashDumpName, 
-		 "\">(CrashDump)</A>"];
-	    false ->
-		""
-	end,
+    CrashDumpLink = case Mode of
+			cached ->
+			    "";
+			normal ->
+			    CrashDumpName = SuiteName ++ "_erl_crash.dump",
+			    case filelib:is_file(CrashDumpName) of
+				true ->
+				    ["&nbsp;<A HREF=\"", CrashDumpName,
+				     "\">(CrashDump)</A>"];
+				false ->
+				    ""
+			    end
+		    end,
     {Lbl,Timestamp,Node,AllInfo} =
 	case All of
 	    {true,OldRuns} -> 
@@ -975,9 +980,13 @@ index_header(Label, StartTime) ->
       "<th>Missing<br>Suites</th>\n"
       "\n"]].
 
+
 all_suites_index_header() ->
     {ok,Cwd} = file:get_cwd(),
-    LogDir = filename:basename(Cwd),
+    all_suites_index_header(Cwd).
+
+all_suites_index_header(IndexDir) ->
+    LogDir = filename:basename(IndexDir),
     AllRuns = "All test runs in \"" ++ LogDir ++ "\"",
     [header("Test Results") | 
      ["<CENTER>\n",
@@ -1414,15 +1423,72 @@ timestamp(Dir) ->
     [S,Min,H,D,M,Y] = [list_to_integer(N) || N <- lists:sublist(TsR,6)],
     format_time({{Y,M,D},{H,Min,S}}).
 
-make_all_suites_index(When) ->
+%% ----------------------------- NOTE --------------------------------------
+%% The top level index file is generated based on the file contents under
+%% logdir. This takes place initially when the test run starts (When = start)
+%% and an update takes place at the end of the test run, or when the user
+%% requests an explicit refresh (When = refresh).
+%% The index file needs to be updated also at the start of each individual
+%% test (in order for the user to be able to track test progress by refreshing
+%% the browser). Since it would be too expensive to generate a new file from
+%% scratch every time (by reading the data from disk), a copy of the dir tree
+%% is cached as a result of the first index file creation. This copy is then
+%% used for all top level index page updates that occur during the test run.
+%% This means that any changes to the dir tree under logdir during the test
+%% run will not show until after the final refresh.
+%% -------------------------------------------------------------------------
+
+%% Creates the top level index file. When == start | refresh.
+%% A copy of the dir tree under logdir is cached as a result.
+make_all_suites_index(When) when is_atom(When) ->
     AbsIndexName = ?abs(?index_name),
     notify_and_lock_file(AbsIndexName),
     LogDirs = filelib:wildcard(logdir_prefix()++".*/*"++?logdir_ext),
-    Sorted = sort_logdirs(LogDirs,[]),
-    Result = make_all_suites_index1(When,Sorted),
+    Sorted = sort_logdirs(LogDirs, []),
+    Result = make_all_suites_index1(When, AbsIndexName, Sorted),
     notify_and_unlock_file(AbsIndexName),
-    Result.    
-    
+    Result;
+
+%% This updates the top level index file using cached data from
+%% the initial index file creation.
+make_all_suites_index(NewTestData = {_TestName,DirName}) ->
+    %% AllLogDirs = [{TestName,Label,Missing,{LastLogDir,Summary},OldDirs}|...]
+    {AbsIndexName,LogDirData} = ct_util:get_testdata(test_index),
+
+    CtRunDirPos = length(filename:split(AbsIndexName)),
+    CtRunDir = filename:join(lists:sublist(filename:split(DirName),
+					   CtRunDirPos)),
+
+    Label = case read_totals_file(filename:join(CtRunDir, ?totals_name)) of
+		{_,"-",_,_} -> "...";
+		{_,Lbl,_,_} -> Lbl;
+		_           -> "..."
+	    end,
+    notify_and_lock_file(AbsIndexName),
+    Result =
+	case catch make_all_suites_ix_cached(AbsIndexName,
+					     NewTestData,
+					     Label,
+					     LogDirData) of
+	    {'EXIT',Reason} ->
+		io:put_chars("CRASHED while updating " ++ AbsIndexName ++ "!\n"),
+		io:format("~p~n", [Reason]),
+		{error,Reason};
+	    {error,Reason} ->
+		io:put_chars("FAILED while updating " ++ AbsIndexName ++ "\n"),
+		io:format("~p~n", [Reason]),
+		{error,Reason};
+	    ok ->
+		ok;
+	    Err ->
+		io:format("Unknown internal error while updating ~s. "
+			  "Please report.\n(Err: ~p, ID: 1)",
+			  [AbsIndexName,Err]),
+		{error, Err}
+	end,
+    notify_and_unlock_file(AbsIndexName),
+    Result.
+
 sort_logdirs([Dir|Dirs],Groups) ->
     TestName = filename:rootname(filename:basename(Dir)),
     case filelib:wildcard(filename:join(Dir,"run.*")) of
@@ -1448,13 +1514,12 @@ sort_each_group([{Test,IxDirs}|Groups]) ->
 sort_each_group([]) ->
     [].
 
-make_all_suites_index1(When,AllSuitesLogDirs) ->
+make_all_suites_index1(When, AbsIndexName, AllLogDirs) ->
     IndexName = ?index_name,
-    AbsIndexName = ?abs(IndexName),
     if When == start -> ok;
        true -> io:put_chars("Updating " ++ AbsIndexName ++ "... ")
     end,
-    case catch make_all_suites_index2(IndexName,AllSuitesLogDirs) of
+    case catch make_all_suites_index2(IndexName, AllLogDirs) of
 	{'EXIT', Reason} ->
 	    io:put_chars("CRASHED while updating " ++ AbsIndexName ++ "!\n"),
 	    io:format("~p~n", [Reason]),
@@ -1463,11 +1528,16 @@ make_all_suites_index1(When,AllSuitesLogDirs) ->
 	    io:put_chars("FAILED while updating " ++ AbsIndexName ++ "\n"),
 	    io:format("~p~n", [Reason]),
 	    {error, Reason};
-	ok ->
-	    if When == start -> ok;
-	       true -> io:put_chars("done\n")
-	    end,	    
-	    ok;
+	{ok,CacheData} ->
+	    case When of
+		start ->
+		    ct_util:set_testdata_async({test_index,{AbsIndexName,
+							    CacheData}}),
+		    ok;
+		_ ->
+		    io:put_chars("done\n"),
+		    ok
+	    end;
 	Err ->
 	    io:format("Unknown internal error while updating ~s. "
 		      "Please report.\n(Err: ~p, ID: 1)",
@@ -1475,56 +1545,124 @@ make_all_suites_index1(When,AllSuitesLogDirs) ->
 	    {error, Err}
     end.
 
-make_all_suites_index2(IndexName,AllSuitesLogDirs) ->
-    {ok,Index0,_Totals} = make_all_suites_index3(AllSuitesLogDirs,
-						 all_suites_index_header(),
-						 0, 0, 0, 0, 0, []),
+make_all_suites_index2(IndexName, AllTestLogDirs) ->
+    {ok,Index0,_Totals,CacheData} =
+	make_all_suites_index3(AllTestLogDirs,
+			       all_suites_index_header(),
+			       0, 0, 0, 0, 0, [], []),
     Index = [Index0|index_footer()],
     case force_write_file(IndexName, Index) of
 	ok ->
-	    ok;
+	    {ok,CacheData};
 	{error, Reason} ->
 	    {error,{index_write_error, Reason}}
     end.
 
-make_all_suites_index3([{SuiteName,[LastLogDir|OldDirs]}|Rest],
+make_all_suites_index3([{TestName,[LastLogDir|OldDirs]}|Rest],
 		       Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt,
-		       Labels) ->
+		       Labels, CacheData) ->
     [EntryDir|_] = filename:split(LastLogDir),
     Missing = 
-	case file:read_file(filename:join(EntryDir,?missing_suites_info)) of
+	case file:read_file(filename:join(EntryDir, ?missing_suites_info)) of
 	    {ok,Bin} -> binary_to_term(Bin);
 	    _ -> []
 	end,
     {Label,Labels1} =
 	case proplists:get_value(EntryDir, Labels) of
 	    undefined ->
-		case read_totals_file(filename:join(EntryDir,?totals_name)) of
+		case read_totals_file(filename:join(EntryDir, ?totals_name)) of
 		    {_,Lbl,_,_} -> {Lbl,[{EntryDir,Lbl}|Labels]};
 		    _           -> {"-",[{EntryDir,"-"}|Labels]}
 		end;
 	    Lbl ->
 		{Lbl,Labels}
 	end,
-    case make_one_index_entry(SuiteName, LastLogDir, Label, {true,OldDirs}, Missing) of
+    case make_one_index_entry(TestName, LastLogDir, Label, {true,OldDirs}, Missing) of
 	{Result1,Succ,Fail,USkip,ASkip,NotBuilt} ->
 	    %% for backwards compatibility
 	    AutoSkip1 = case catch AutoSkip+ASkip of
 			    {'EXIT',_} -> undefined;
 			    Res -> Res
 			end,
+	    IxEntry = {TestName,Label,Missing,
+		       {LastLogDir,{Succ,Fail,USkip,ASkip}},OldDirs},
 	    make_all_suites_index3(Rest, [Result|Result1], TotSucc+Succ, 
 				   TotFail+Fail, UserSkip+USkip, AutoSkip1,
-				   TotNotBuilt+NotBuilt,Labels1);
+				   TotNotBuilt+NotBuilt, Labels1,
+				   [IxEntry|CacheData]);
 	error ->
+	    IxEntry = {TestName,Label,Missing,{LastLogDir,error},OldDirs},
 	    make_all_suites_index3(Rest, Result, TotSucc, TotFail, 
-				   UserSkip, AutoSkip, TotNotBuilt,Labels1)
+				   UserSkip, AutoSkip, TotNotBuilt, Labels1,
+				   [IxEntry|CacheData])
     end;
 make_all_suites_index3([], Result, TotSucc, TotFail, UserSkip, AutoSkip, 
-		       TotNotBuilt,_) ->
+		       TotNotBuilt, _, CacheData) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt,true)], 
-     {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}}.
+     {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}, lists:reverse(CacheData)}.
 
+
+make_all_suites_ix_cached(AbsIndexName, NewTestData, Label, AllTestLogDirs) ->
+    AllTestLogDirs1 = insert_new_test_data(NewTestData, Label, AllTestLogDirs),
+    IndexDir = filename:dirname(AbsIndexName),
+    Index0 = make_all_suites_ix_cached1(AllTestLogDirs1,
+					all_suites_index_header(IndexDir),
+					0, 0, 0, 0, 0),
+    Index = [Index0|index_footer()],
+    case force_write_file(AbsIndexName, Index) of
+	ok ->
+	    ok;
+	{error, Reason} ->
+	    {error,{index_write_error, Reason}}
+    end.
+
+insert_new_test_data({NewTestName,NewTestDir}, NewLabel, AllTestLogDirs) ->
+    AllTestLogDirs1 =
+	case lists:keysearch(NewTestName, 1, AllTestLogDirs) of
+	    {value,{_,_,_,{LastLogDir,_},OldDirs}} ->
+		[{NewTestName,NewLabel,[],{NewTestDir,{0,0,0,0}},
+		  [LastLogDir|OldDirs]} |
+		 lists:keydelete(NewTestName, 1, AllTestLogDirs)];
+	    false ->
+		[{NewTestName,NewLabel,[],{NewTestDir,{0,0,0,0}},[]} |
+		 AllTestLogDirs]
+	end,
+    lists:keysort(1, AllTestLogDirs1).
+
+make_all_suites_ix_cached1([{TestName,Label,Missing,LastLogDirData,OldDirs}|Rest],
+			   Result, TotSucc, TotFail, UserSkip, AutoSkip,
+			   TotNotBuilt) ->
+
+    case make_one_ix_entry_cached(TestName, LastLogDirData,
+				  Label, {true,OldDirs}, Missing) of
+	{Result1,Succ,Fail,USkip,ASkip,NotBuilt} ->
+	    %% for backwards compatibility
+	    AutoSkip1 = case catch AutoSkip+ASkip of
+			    {'EXIT',_} -> undefined;
+			    Res -> Res
+			end,
+	    make_all_suites_ix_cached1(Rest, [Result|Result1], TotSucc+Succ,
+				       TotFail+Fail, UserSkip+USkip, AutoSkip1,
+				       TotNotBuilt+NotBuilt);
+	error ->
+	    make_all_suites_ix_cached1(Rest, Result, TotSucc, TotFail,
+				       UserSkip, AutoSkip, TotNotBuilt)
+    end;
+make_all_suites_ix_cached1([], Result, TotSucc, TotFail, UserSkip, AutoSkip,
+			   TotNotBuilt) ->
+    [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, true)].
+
+make_one_ix_entry_cached(TestName, {LogDir,Summary}, Label, All, Missing) ->
+    case Summary of
+	{Succ,Fail,UserSkip,AutoSkip} ->
+	    NotBuilt = not_built(TestName, LogDir, All, Missing),
+	    NewResult = make_one_index_entry1(TestName, LogDir, Label,
+					      Succ, Fail, UserSkip, AutoSkip,
+					      NotBuilt, All, cached),
+	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt};
+	error ->
+	    error
+    end.
 
 %%-----------------------------------------------------------------
 %% Remove log files.

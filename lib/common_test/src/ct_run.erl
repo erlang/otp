@@ -262,15 +262,15 @@ run_or_refresh(StartOpts = #opts{logdir = LogDir}, Args) ->
 	    %% give the shell time to print version etc
 	    timer:sleep(500),
 	    io:nl(),
-	    case catch ct_logs:make_all_suites_index(refresh) of
-		{'EXIT',ASReason} ->
+	    case catch ct_logs:make_all_runs_index(refresh) of
+		{'EXIT',ARReason} ->
 		    file:set_cwd(Cwd),
-		    {error,{all_suites_index,ASReason}};
+		    {error,{all_runs_index,ARReason}};
 		_ ->
-		    case catch ct_logs:make_all_runs_index(refresh) of
-			{'EXIT',ARReason} ->
+		    case catch ct_logs:make_all_suites_index(refresh) of
+			{'EXIT',ASReason} ->
 			    file:set_cwd(Cwd),
-			    {error,{all_runs_index,ARReason}};
+			    {error,{all_suites_index,ASReason}};
 			_ ->
 			    file:set_cwd(Cwd),
 			    io:format("Logs in ~s refreshed!~n~n", [LogDir1]),
@@ -1111,6 +1111,8 @@ run(TestDirs) ->
     install([]),
     reformat_result(catch do_run(tests(TestDirs), [])).
 
+reformat_result({'EXIT',{user_error,Reason}}) ->
+    {error,Reason};
 reformat_result({user_error,Reason}) ->
     {error,Reason};
 reformat_result(Result) ->

@@ -37,7 +37,7 @@
 	 read_suite_data/1, 
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
 	 delete_testdata/0, delete_testdata/1, set_testdata/1, get_testdata/1,
-	 update_testdata/2]).
+	 set_testdata_async/1, update_testdata/2]).
 
 -export([override_silence_all_connections/0, override_silence_connections/1, 
 	 get_overridden_silenced_connections/0, 
@@ -96,7 +96,8 @@ start(Mode,LogDir) ->
 	    Pid = spawn_link(fun() -> do_start(S,Mode,LogDir) end),
 	    receive 
 		{Pid,started} -> Pid;
-		{Pid,Error} -> exit(Error)
+		{Pid,Error} -> exit(Error);
+		{_Ref,{Pid,Error}} -> exit(Error)
 	    end;
 	Pid ->
 	    case get_mode() of
@@ -162,21 +163,19 @@ do_start(Parent,Mode,LogDir) ->
     end,
     {StartTime,TestLogDir} = ct_logs:init(Mode),
 
-    %% Initiate ct_hooks
-    case catch ct_hooks:init(Opts) of
-	ok ->
-	    ok;
-	{_,CTHReason} ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
-	    Parent ! {self(), CTHReason},
-	    self() ! {{stop,normal},{self(),make_ref()}}
-    end,
-
     ct_event:notify(#event{name=test_start,
 			   node=node(),
 			   data={StartTime,
 				 lists:flatten(TestLogDir)}}),
-    Parent ! {self(),started},
+    %% Initialize ct_hooks
+    case catch ct_hooks:init(Opts) of
+	ok ->
+	    Parent ! {self(),started};
+	{_,CTHReason} ->
+	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    self() ! {{stop,{self(),{user_error,CTHReason}}},
+		      {Parent,make_ref()}}
+    end,
     loop(Mode,[],StartDir).
 
 create_table(TableName,KeyPos) ->
@@ -231,6 +230,9 @@ update_testdata(Key, Fun) ->
 
 set_testdata(TestData) ->
     call({set_testdata, TestData}).
+
+set_testdata_async(TestData) ->
+    cast({set_testdata, TestData}).
 
 get_testdata(Key) ->
     call({get_testdata, Key}).
@@ -317,7 +319,7 @@ loop(Mode,TestData,StartDir) ->
 	{reset_cwd,From} ->
 	    return(From,file:set_cwd(StartDir)),
 	    loop(From,TestData,StartDir);
-	{{stop,How},From} ->
+	{{stop,Info},From} ->
 	    Time = calendar:local_time(),
 	    ct_event:sync_notify(#event{name=test_done,
 					node=node(),
@@ -330,11 +332,11 @@ loop(Mode,TestData,StartDir) ->
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
-	    ct_logs:close(How),
+	    ct_logs:close(Info),
 	    ct_event:stop(),
 	    ct_config:stop(),
 	    file:set_cwd(StartDir),
-	    return(From,ok);
+	    return(From, Info);
 	{Ref, _Msg} when is_reference(Ref) ->
 	    %% This clause is used when doing cast operations.
 	    loop(Mode,TestData,StartDir);
@@ -537,16 +539,16 @@ reset_silent_connections() ->
     
 
 %%%-----------------------------------------------------------------
-%%% @spec stop(How) -> ok
+%%% @spec stop(Info) -> ok
 %%%
 %%% @doc Stop the ct_util_server and close all existing connections
 %%% (tool-internal use only).
 %%%
 %%% @see ct
-stop(How) ->
+stop(Info) ->
     case whereis(ct_util_server) of
 	undefined -> ok;
-	_ -> call({stop,How})
+	_ -> call({stop,Info})
     end.
 
 %%%-----------------------------------------------------------------
