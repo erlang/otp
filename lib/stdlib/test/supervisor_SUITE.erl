@@ -20,7 +20,7 @@
 
 -module(supervisor_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(TIMEOUT, 1000).
 
 %% Testserver specific export
@@ -349,8 +349,7 @@ child_adm(Config) when is_list(Config) ->
     ok = supervisor:terminate_child(sup_test, child1),
 
     %% Start of already existing but not running process 
-    {error,already_present} =
-	supervisor:start_child(sup_test, Child),
+    {error,already_present} = supervisor:start_child(sup_test, Child),
 
     %% Restart
     {ok, CPid2} = supervisor:restart_child(sup_test, child1),
@@ -374,6 +373,11 @@ child_adm(Config) when is_list(Config) ->
     {'EXIT',{noproc,{gen_server,call, _}}} =
 	(catch supervisor:start_child(foo, Child)),
     {ok, CPid3} = supervisor:start_child(sup_test, Child),
+    [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+
+    %% Terminate with Pid not allowed when not simple_one_for_one
+    {error,not_found} = supervisor:terminate_child(sup_test, CPid3),
     [{child1, CPid3, worker, []}] = supervisor:which_children(sup_test),
     [1,1,0,1] = get_child_counts(sup_test),
 
@@ -412,16 +416,26 @@ child_adm_simple(Config) when is_list(Config) ->
     [1,2,0,2] = get_child_counts(sup_test),
 
     %% Termination
-    {error, simple_one_for_one} =
-	supervisor:terminate_child(sup_test, child1),
+    {error, simple_one_for_one} = supervisor:terminate_child(sup_test, child1),
+    [1,2,0,2] = get_child_counts(sup_test),
+    ok = supervisor:terminate_child(sup_test,CPid1),
+    [_] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+    false = erlang:is_process_alive(CPid1),
+    %% Terminate non-existing proccess is ok
+    ok = supervisor:terminate_child(sup_test,CPid1),
+    [_] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test),
+    %% Terminate pid which is not a child of this supervisor is not ok
+    NoChildPid = spawn_link(fun() -> receive after infinity -> ok end end),
+    {error, not_found} = supervisor:terminate_child(sup_test, NoChildPid),
+    true = erlang:is_process_alive(NoChildPid),
 
     %% Restart
-    {error, simple_one_for_one} =
-	supervisor:restart_child(sup_test, child1),
+    {error, simple_one_for_one} = supervisor:restart_child(sup_test, child1),
 
     %% Deletion
-    {error, simple_one_for_one} =
-	supervisor:delete_child(sup_test, child1),
+    {error, simple_one_for_one} = supervisor:delete_child(sup_test, child1),
     ok.
 
 %%-------------------------------------------------------------------------
