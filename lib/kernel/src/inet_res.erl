@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -539,27 +539,41 @@ udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
   when ?ip(A,B,C,D), ?port(Port) ->
     gen_udp:send(I, IP, Port, Buffer).
 
-udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout)
+udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
   when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    do_udp_recv(fun(T) -> gen_udp:recv(I, 0, T) end, IP, Port, Timeout);
-udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout)
+    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout);
+udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
   when ?ip(A,B,C,D), ?port(Port) ->
-    do_udp_recv(fun(T) -> gen_udp:recv(I, 0, T) end, IP, Port, Timeout).
+    do_udp_recv(I, IP, Port, Timeout, Decode, erlang:now(), Timeout).
 
-do_udp_recv(Recv, IP, Port, Timeout) ->
-    do_udp_recv(Recv, IP, Port, Timeout, 
-		if Timeout =/= 0 -> erlang:now(); true -> undefined end).
-
-do_udp_recv(Recv, IP, Port, Timeout, Then) ->
-    case Recv(Timeout) of
-	{ok,{IP,Port,Answer}} ->
-	    {ok,Answer,erlang:max(0, Timeout - now_ms(erlang:now(), Then))};
-	{ok,_} when Timeout =:= 0 ->
-	    {error,timeout};
-	{ok,_} ->
-	    Now = erlang:now(),
-	    T = erlang:max(0, Timeout - now_ms(Now, Then)),
-	    do_udp_recv(Recv, IP, Port, T, Now);
+do_udp_recv(_I, _IP, _Port, 0, _Decode, _Start, _T) ->
+    timeout;
+do_udp_recv(I, IP, Port, Timeout, Decode, Start, T) ->
+    case gen_udp:recv(I, 0, T) of
+	{ok,Reply} ->
+	    case Decode(Reply) of
+		false when T =:= 0 ->
+		    %% This is a compromize between the hard way i.e
+		    %% in the clause below if NewT becomes 0 bailout
+		    %% immediately and risk that the right reply lies
+		    %% ahead after some bad id replies, and the
+		    %% forgiving way i.e go on with Timeout 0 until
+		    %% the right reply comes or no reply (timeout)
+		    %% which opens for a DOS attack by a malicious
+		    %% DNS server flooding with bad id replies causing
+		    %% an infinite loop here.
+		    %%
+		    %% Timeout is used as a sanity limit counter
+		    %% just to put an end to the loop.
+		    NewTimeout = erlang:max(0, Timeout - 50),
+		    do_udp_recv(I, IP, Port, NewTimeout, Decode, Start, T);
+		false ->
+		    Now = erlang:now(),
+		    NewT = erlang:max(0, Timeout - now_ms(Now, Start)),
+		    do_udp_recv(I, IP, Port, Timeout, Decode, Start, NewT);
+		Result ->
+		    Result
+	    end;
 	Error -> Error
     end.
 
@@ -580,6 +594,17 @@ udp_close(#sock{inet=I,inet6=I6}) ->
 %%     end
 %%  end
 %%
+%% But that man page also says dig always use num_servers = 1.
+%%
+%% Our man page says: timeout/retry, then double for next retry, i.e
+%%  for i = 0 to retry - 1
+%%     foreach nameserver
+%%        send query
+%%        wait((time * (2**i)) / retry)
+%%     end
+%%  end
+%%
+%% And that is what the code seems to do, now fixed, hopefully...
 
 do_query(_Q, [], _Timer) ->
     {error,nxdomain};
@@ -589,19 +614,16 @@ do_query(#q{options=#options{retry=Retry}}=Q, NSs, Timer) ->
 query_retries(_Q, _NSs, _Timer, Retry, Retry, S) ->
     udp_close(S),
     {error,timeout};
+query_retries(_Q, [], _Timer, _Retry, _I, S) ->
+    udp_close(S),
+    {error,timeout};
 query_retries(Q, NSs, Timer, Retry, I, S0) ->
-    Num = length(NSs),
-    if Num =:= 0 ->
-	    udp_close(S0),
-	    {error,timeout};
-       true ->
-	    case query_nss(Q, NSs, Timer, Retry, I, S0, []) of
-		{S,{noanswer,ErrNSs}} -> %% remove unreachable nameservers
-		    query_retries(Q, NSs--ErrNSs, Timer, Retry, I+1, S);
-		{S,Result} ->
-		    udp_close(S),
-		    Result
-	    end
+    case query_nss(Q, NSs, Timer, Retry, I, S0, []) of
+	{S,{noanswer,ErrNSs}} -> %% remove unreachable nameservers
+	    query_retries(Q, NSs--ErrNSs, Timer, Retry, I+1, S);
+	{S,Result} ->
+	    udp_close(S),
+	    Result
     end.
 
 query_nss(_Q, [], _Timer, _Retry, _I, S, ErrNSs) ->
@@ -611,13 +633,13 @@ query_nss(#q{edns=undefined}=Q, NSs, Timer, Retry, I, S, ErrNSs) ->
 query_nss(Q, NSs, Timer, Retry, I, S, ErrNSs) ->
     query_nss_edns(Q, NSs, Timer, Retry, I, S, ErrNSs).
 
-query_nss_edns(#q{options=#options{udp_payload_size=PSz}=Options,
-		  edns={Id,Buffer}}=Q,
-	       [{IP,Port}=NS|NSs]=NSs0, Timer, Retry, I, S0, ErrNSs) ->
-    {S,Res}=Reply = query_ns(S0, Id, Buffer, IP, Port, Timer,
-		       Retry, I, Options, PSz),
+query_nss_edns(
+  #q{options=#options{udp_payload_size=PSz}=Options,edns={Id,Buffer}}=Q,
+  [{IP,Port}=NS|NSs]=NSs0, Timer, Retry, I, S0, ErrNSs) ->
+    {S,Res}=Reply =
+	query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I, Options, PSz),
     case Res of
-	timeout -> {S,{error,timeout}};
+	timeout -> {S,{error,timeout}}; % Bailout timeout
 	{ok,_} -> Reply;
 	{error,{nxdomain,_}} -> Reply;
 	{error,{E,_}} when E =:= qfmterror; E =:= notimp; E =:= servfail;
@@ -629,17 +651,19 @@ query_nss_edns(#q{options=#options{udp_payload_size=PSz}=Options,
 	    query_nss(Q, NSs, Timer, Retry, I, S, ErrNSs)
     end.
 
-query_nss_dns(#q{dns=Qdns}=Q0, [{IP,Port}=NS|NSs],
-	      Timer, Retry, I, S0, ErrNSs) ->
+query_nss_dns(
+  #q{dns=Qdns}=Q0,
+  [{IP,Port}=NS|NSs], Timer, Retry, I, S0, ErrNSs) ->
     #q{options=Options,dns={Id,Buffer}}=Q =
 	if
 	    is_function(Qdns, 0) -> Q0#q{dns=Qdns()};
 	    true -> Q0
 	end,
-    {S,Res}=Reply = query_ns(S0, Id, Buffer, IP, Port, Timer,
-			Retry, I, Options, ?PACKETSZ),
+    {S,Res}=Reply =
+	query_ns(
+	  S0, Id, Buffer, IP, Port, Timer, Retry, I, Options, ?PACKETSZ),
     case Res of
-	timeout -> {S,{error,timeout}};
+	timeout -> {S,{error,timeout}}; % Bailout timeout
 	{ok,_} -> Reply;
 	{error,{E,_}} when E =:= nxdomain; E =:= qfmterror -> Reply;
 	{error,E} when E =:= fmt; E =:= enetunreach; E =:= econnrefused ->
@@ -653,48 +677,66 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 	 PSz) ->
     case UseVC orelse iolist_size(Buffer) > PSz of
 	true ->
-	    {S0,query_tcp(Tm, Id, Buffer, IP, Port, Timer, Verbose)};
+	    TcpTimeout = inet:timeout(Tm*5, Timer),
+	    {S0,query_tcp(TcpTimeout, Id, Buffer, IP, Port, Verbose)};
 	false ->
 	    case udp_open(S0, IP) of
 		{ok,S} ->
-		    {S,case query_udp(S, Id, Buffer, IP, Port, Timer,
-					  Retry, I, Tm, Verbose) of
-			   {ok,#dns_rec{header=H}} when H#dns_header.tc ->
-			       query_tcp(Tm, Id, Buffer,
-					 IP, Port, Timer, Verbose);
-			   Reply -> Reply
-		       end};
+		    Timeout =
+			inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
+		    {S,
+		     case query_udp(
+			    S, Id, Buffer, IP, Port, Timeout, Verbose) of
+			 {ok,#dns_rec{header=H}} when H#dns_header.tc ->
+			     TcpTimeout = inet:timeout(Tm*5, Timer),
+			     query_tcp(
+			       TcpTimeout, Id, Buffer, IP, Port, Verbose);
+			 Reply -> Reply
+		     end};
 		Error ->
 		    {S0,Error}
 	    end
     end.
 
-query_udp(S, Id, Buffer, IP, Port, Timer, Retry, I, Tm, Verbose) ->
-    Timeout = inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
+query_udp(_S, _Id, _Buffer, _IP, _Port, 0, Verbose) ->
+    timeout;
+query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
-	     [IP, Port, Timeout]),
-    udp_connect(S, IP, Port),
-    udp_send(S, IP, Port, Buffer),
-    query_udp_recv(S, IP, Port, Id, Timeout, Verbose).
-
-query_udp_recv(S, IP, Port, Id, Timeout, Verbose) ->
-    case udp_recv(S, IP, Port, Timeout) of
-	{ok,Answer,T} ->
-	    case decode_answer(Answer, Id, Verbose) of
-		{error, badid} ->
-		    query_udp_recv(S, IP, Port, Id, T, Verbose);
-		Reply -> Reply
+	     [IP,Port,Timeout]),
+    case
+	case udp_connect(S, IP, Port) of
+	    ok ->
+		udp_send(S, IP, Port, Buffer);
+	    E1 ->
+		E1 end of
+	ok ->
+	    Decode =
+		fun ({RecIP,RecPort,Answer})
+		      when RecIP =:= IP, RecPort =:= Port ->
+			case decode_answer(Answer, Id, Verbose) of
+			    {error,badid} ->
+				false;
+			    Reply ->
+				Reply
+			end;
+		    ({_,_,_}) ->
+			false
+		end,
+	    case udp_recv(S, IP, Port, Timeout, Decode) of
+		{ok,_}=Result ->
+		    Result;
+		E2 ->
+		    ?verbose(Verbose, "UDP server error: ~p\n", [E2]),
+		    E2
 	    end;
-	{error, timeout} when Timeout =:= 0 ->
-	    ?verbose(Verbose, "UDP server timeout\n", []),
-	    timeout;
-	Error -> 
-	    ?verbose(Verbose, "UDP server error: ~p\n", [Error]),
-	    Error
+	E3 ->
+	    ?verbose(Verbose, "UDP send failed: ~p\n", [E3]),
+	    {error,econnrefused}
     end.
 
-query_tcp(Tm, Id, Buffer, IP, Port, Timer, Verbose) ->
-    Timeout = inet:timeout(Tm*5, Timer),
+query_tcp(0, _Id, _Buffer, _IP, _Port, Verbose) ->
+    timeout;
+query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",
 	     [IP, Port, Timeout]),
     Family = case IP of
@@ -716,19 +758,10 @@ query_tcp(Tm, Id, Buffer, IP, Port, Timer, Verbose) ->
 		    end;
 		Error ->
 		    gen_tcp:close(S),
-		    case Error of
-			{error, timeout} when Timeout =:= 0 ->
-			    ?verbose(Verbose, "TCP server recv timeout\n", []),
-			    timeout;
-			_ ->
-			    ?verbose(Verbose, "TCP server recv error: ~p\n",
-				    [Error]),
-			    Error
-		    end
+		    ?verbose(Verbose, "TCP server recv error: ~p\n",
+			     [Error]),
+		    Error
 	    end;
-	{error, timeout} when Timeout =:= 0 ->
-	    ?verbose(Verbose, "TCP server connect timeout\n", []),
-	    timeout;
 	Error ->
 	    ?verbose(Verbose, "TCP server error: ~p\n", [Error]),
 	    Error
