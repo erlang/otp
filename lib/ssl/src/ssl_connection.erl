@@ -107,12 +107,14 @@
 %%====================================================================	     
 
 %%--------------------------------------------------------------------
--spec send(pid(), iolist()) -> ok | {error, reason()}.
+-spec send(pid(), iodata()) -> ok | {error, reason()}.
 %%
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
 send(Pid, Data) -> 
     sync_send_all_state_event(Pid, {application_data, 
+				    %% iolist_to_binary should really
+				    %% be called iodata_to_binary()
 				    erlang:iolist_to_binary(Data)}, infinity).
 
 %%--------------------------------------------------------------------
