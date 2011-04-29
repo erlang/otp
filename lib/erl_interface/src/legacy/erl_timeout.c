@@ -43,6 +43,7 @@
 # endif
 #endif
 
+#include "erl_interface.h"
 #include "erl_timeout.h"
 
 typedef struct jmp_s {
