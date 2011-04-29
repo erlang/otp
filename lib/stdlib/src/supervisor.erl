@@ -65,11 +65,13 @@
 -type child() :: #child{}.
 
 -define(DICT, dict).
+-define(SETS, sets).
+-define(SET, set).
 
 -record(state, {name,
 		strategy               :: strategy(),
 		children = []          :: [child()],
-		dynamics               :: ?DICT() | list(),
+		dynamics               :: ?DICT() | ?SET(),
 		intensity              :: non_neg_integer(),
 		period                 :: pos_integer(),
 		restarts = [],
@@ -363,8 +365,8 @@ handle_call(which_children, _From, #state{children = [#child{restart_type = temp
 							     child_type = CT,
 							     modules = Mods}]} =
 		State) when ?is_simple(State) ->
-    Reply = lists:map(fun(Pid) -> {undefined, Pid, CT, Mods} end, dynamics_db(temporary,
-									      State#state.dynamics)),
+    Reply = lists:map(fun(Pid) -> {undefined, Pid, CT, Mods} end,
+                      ?SETS:to_list(dynamics_db(temporary, State#state.dynamics))),
     {reply, Reply, State};
 
 handle_call(which_children, _From, #state{children = [#child{restart_type = RType,
@@ -389,7 +391,7 @@ handle_call(count_children, _From, #state{children = [#child{restart_type = temp
 							     child_type = CT}]} = State)
   when ?is_simple(State) ->
     {Active, Count} =
-	lists:foldl(fun(Pid, {Alive, Tot}) ->
+	?SETS:fold(fun(Pid, {Alive, Tot}) ->
 			   if is_pid(Pid) -> {Alive+1, Tot +1};
 			      true -> {Alive, Tot + 1} end
 		   end, {0, 0}, dynamics_db(temporary, State#state.dynamics)),
@@ -800,24 +802,27 @@ save_child(Child, #state{children = Children} = State) ->
     State#state{children = [Child |Children]}.
 
 save_dynamic_child(temporary, Pid, _, #state{dynamics = Dynamics} = State) ->
-    State#state{dynamics = [Pid | dynamics_db(temporary, Dynamics)]};
+    State#state{dynamics = ?SETS:add_element(Pid, dynamics_db(temporary, Dynamics))};
 save_dynamic_child(RestartType, Pid, Args, #state{dynamics = Dynamics} = State) ->
     State#state{dynamics = ?DICT:store(Pid, Args, dynamics_db(RestartType, Dynamics))}.
 
 dynamics_db(temporary, undefined) ->
-    [];
+    ?SETS:new();
 dynamics_db(_, undefined) ->
     ?DICT:new();
 dynamics_db(_,Dynamics) ->
     Dynamics.
 
-dynamic_child_args(_, Dynamics) when is_list(Dynamics)->
-    {ok, undefined};
 dynamic_child_args(Pid, Dynamics) ->
-    ?DICT:find(Pid, Dynamics).
+    case ?SETS:is_set(Dynamics) of
+        true ->
+            {ok, undefined};
+        false ->
+            ?DICT:find(Pid, Dynamics)
+    end.
 
 state_del_child(#child{pid = Pid, restart_type = temporary}, State) when ?is_simple(State) ->
-    NDynamics = lists:delete(Pid, dynamics_db(temporary, State#state.dynamics)),
+    NDynamics = ?SETS:del_element(Pid, dynamics_db(temporary, State#state.dynamics)),
     State#state{dynamics = NDynamics};
 state_del_child(#child{pid = Pid, restart_type = RType}, State) when ?is_simple(State) ->
     NDynamics = ?DICT:erase(Pid, dynamics_db(RType, State#state.dynamics)),
@@ -871,10 +876,13 @@ get_dynamic_child(Pid, #state{children=[Child], dynamics=Dynamics}) ->
 	    end
     end.
 
-is_dynamic_pid(Pid, Dynamics) when is_list(Dynamics) ->
-    lists:member(Pid, Dynamics);
 is_dynamic_pid(Pid, Dynamics) ->
-    dict:is_key(Pid, Dynamics).
+    case ?SETS:is_set(Dynamics) of
+	true ->
+	    ?SETS:is_element(Pid, Dynamics);
+	false ->
+	    ?DICT:is_key(Pid, Dynamics)
+    end.
 
 replace_child(Child, State) ->
     Chs = do_replace_child(Child, State#state.children),

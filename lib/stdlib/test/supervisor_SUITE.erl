@@ -28,8 +28,8 @@
 	 init_per_group/2,end_per_group/2, init_per_testcase/2,
 	 end_per_testcase/2]).
 
-%% Indirect spawn export
--export([init/1]).
+%% Internal export
+-export([init/1, terminate_all_children/1]).
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
@@ -55,7 +55,8 @@
 %% Misc tests
 -export([child_unlink/1, tree/1, count_children_memory/1,
 	 do_not_save_start_parameters_for_temporary_children/1,
-	 do_not_save_child_specs_for_temporary_children/1]).
+	 do_not_save_child_specs_for_temporary_children/1,
+	 simple_one_for_one_scale_many_temporary_children/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -72,7 +73,8 @@ all() ->
      {group, normal_termination},
      {group, abnormal_termination}, child_unlink, tree,
      count_children_memory, do_not_save_start_parameters_for_temporary_children,
-     do_not_save_child_specs_for_temporary_children].
+     do_not_save_child_specs_for_temporary_children,
+     simple_one_for_one_scale_many_temporary_children].
 
 groups() -> 
     [{sup_start, [],
@@ -1201,6 +1203,47 @@ restarted(Sup, {Id,_,_,_,_,_} = ChildSpec, TerminateHow) ->
     {error, {already_started, _}} = supervisor:start_child(Sup, ChildSpec).
 
 
+%%-------------------------------------------------------------------------
+%% OTP-9242: Pids for dynamic temporary children were saved as a list,
+%% which caused bad scaling when adding/deleting many processes.
+simple_one_for_one_scale_many_temporary_children(_Config) ->
+    process_flag(trap_exit, true),
+    Child = {child, {supervisor_1, start_child, []}, temporary, 1000,
+	     worker, []},
+    {ok, _SupPid} = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
+
+    C1 = [begin 
+		 {ok,P} = supervisor:start_child(sup_test,[]), 
+		 P
+	     end || _<- lists:seq(1,1000)],
+    {T1,done} = timer:tc(?MODULE,terminate_all_children,[C1]),
+    
+    C2 = [begin 
+		 {ok,P} = supervisor:start_child(sup_test,[]), 
+		 P
+	     end || _<- lists:seq(1,10000)],
+    {T2,done} = timer:tc(?MODULE,terminate_all_children,[C2]),
+    
+    Scaling = T2 div T1,
+    if Scaling > 20 ->
+	    %% The scaling shoul be linear (i.e.10, really), but we
+	    %% give some extra here to avoid failing the test
+	    %% unecessarily.
+	    ?t:fail({bad_scaling,Scaling});
+       true ->
+	    ok
+    end.
+    
+
+terminate_all_children([C|Cs]) ->
+    ok = supervisor:terminate_child(sup_test,C),
+    terminate_all_children(Cs);
+terminate_all_children([]) ->
+    done.
+
+
+
+%%-------------------------------------------------------------------------
 terminate(Pid, Reason) when Reason =/= supervisor ->
     terminate(dummy, Pid, dummy, Reason).
 
