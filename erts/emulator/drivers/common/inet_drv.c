@@ -1763,7 +1763,6 @@ send_async_error(ErlDrvPort port, ErlDrvTermData Port, int Ref,
 			LOAD_INT_CNT + 2*LOAD_TUPLE_CNT];
     int i = 0;
     
-    i = 0;
     i = LOAD_ATOM(spec, i, am_inet_async);
     i = LOAD_PORT(spec, i, Port);
     i = LOAD_INT(spec, i, Ref);
