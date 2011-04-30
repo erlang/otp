@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,6 +59,7 @@
 	 t_bitstr_concat/2,
 	 t_bitstr_match/2,
 	 t_bitstr_unit/1,
+	 t_bitstrlist/0,
 	 t_boolean/0,
 	 t_byte/0,
 	 t_char/0,
@@ -1457,6 +1458,11 @@ t_is_tuple(_) -> false.
 %% Non-primitive types, including some handy syntactic sugar types
 %%
 
+-spec t_bitstrlist() -> erl_type().
+
+t_bitstrlist() ->
+  t_iolist(1, t_bitstr()).
+
 -spec t_charlist() -> erl_type().
 
 t_charlist() ->
@@ -1546,15 +1552,16 @@ t_iodata() ->
 -spec t_iolist() -> erl_type().
 
 t_iolist() ->
-  t_iolist(1).
+  t_iolist(1, t_binary()).
 
--spec t_iolist(non_neg_integer()) -> erl_type().
+%% Added a second argument which currently is t_binary() | t_bitstr()
+-spec t_iolist(non_neg_integer(), erl_type()) -> erl_type().
 
-t_iolist(N) when N > 0 ->
-  t_maybe_improper_list(t_sup([t_iolist(N-1), t_binary(), t_byte()]),
-		        t_sup(t_binary(), t_nil()));
-t_iolist(0) ->
-  t_maybe_improper_list(t_any(), t_sup(t_binary(), t_nil())).
+t_iolist(N, T) when N > 0 ->
+  t_maybe_improper_list(t_sup([t_iolist(N-1, T), T, t_byte()]),
+		        t_sup(T, t_nil()));
+t_iolist(0, T) ->
+  t_maybe_improper_list(t_any(), t_sup(T, t_nil())).
 
 -spec t_parameterized_module() -> erl_type().
 

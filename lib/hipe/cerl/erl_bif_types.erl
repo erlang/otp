@@ -45,6 +45,7 @@
 		    t_atom_vals/1,
 		    t_binary/0,
 		    t_bitstr/0,
+		    t_bitstrlist/0,
 		    t_boolean/0,
 		    t_byte/0,
 		    t_char/0,
@@ -3552,7 +3553,7 @@ arg_types(erlang, list_to_binary, 1) ->
 arg_types(erlang, list_to_bitstr, 1) ->	% XXX: TAKE OUT
   arg_types(erlang, list_to_bitstring, 1);
 arg_types(erlang, list_to_bitstring, 1) ->
-  [t_iolist()];
+  [t_bitstrlist()];
 arg_types(erlang, list_to_existing_atom, 1) ->
   [t_string()];
 arg_types(erlang, list_to_float, 1) ->
