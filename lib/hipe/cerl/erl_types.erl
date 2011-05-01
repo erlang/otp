@@ -3227,16 +3227,16 @@ t_to_string(?atom(Set), _RecDict) ->
     _ ->
       set_to_string(Set)
   end;
-t_to_string(?bitstr(8, 0), _RecDict) ->
-  "binary()";
 t_to_string(?bitstr(0, 0), _RecDict) ->
   "<<>>";
+t_to_string(?bitstr(8, 0), _RecDict) ->
+  "binary()";
 t_to_string(?bitstr(0, B), _RecDict) ->
-  io_lib:format("<<_:~w>>", [B]);
+  lists:flatten(io_lib:format("<<_:~w>>", [B]));
 t_to_string(?bitstr(U, 0), _RecDict) ->
-  io_lib:format("<<_:_*~w>>", [U]);
+  lists:flatten(io_lib:format("<<_:_*~w>>", [U]));
 t_to_string(?bitstr(U, B), _RecDict) ->
-  io_lib:format("<<_:~w,_:_*~w>>", [B, U]);
+  lists:flatten(io_lib:format("<<_:~w,_:_*~w>>", [B, U]));
 t_to_string(?function(?any, ?any), _RecDict) ->
   "fun()";
 t_to_string(?function(?any, Range), RecDict) ->
@@ -3245,9 +3245,10 @@ t_to_string(?function(?product(ArgList), Range), RecDict) ->
   "fun((" ++ comma_sequence(ArgList, RecDict) ++ ") -> "
     ++ t_to_string(Range, RecDict) ++ ")";
 t_to_string(?identifier(Set), _RecDict) ->
-  if Set =:= ?any -> "identifier()";
-     true -> string:join([io_lib:format("~w()", [T])
-			  || T <- set_to_list(Set)], " | ")
+  case Set of
+    ?any -> "identifier()";
+    _ ->
+      string:join([io_lib:format("~w()", [T]) || T <- set_to_list(Set)], " | ")
   end;
 t_to_string(?opaque(Set), _RecDict) ->
   string:join([case is_opaque_builtin(Mod, Name) of
@@ -3489,10 +3490,8 @@ t_from_form({type, _L, binary, []}, _TypeNames, _InOpaque, _RecDict,
 t_from_form({type, _L, binary, [Base, Unit]} = Type,
 	    _TypeNames, _InOpaque, _RecDict, _VarDict) ->
   case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
-    {{integer, _, BaseVal},
-     {integer, _, UnitVal}}
-      when BaseVal >= 0, UnitVal >= 0 ->
-      {t_bitstr(UnitVal, BaseVal), []};
+    {{integer, _, B}, {integer, _, U}} when B >= 0, U >= 0 ->
+      {t_bitstr(U, B), []};
     _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
   end;
 t_from_form({type, _L, bitstring, []}, _TypeNames, _InOpaque, _RecDict,
@@ -3838,12 +3837,12 @@ t_form_to_string({integer, _L, Int}) -> integer_to_list(Int);
 t_form_to_string({op, _L, _Op, _Arg} = Op) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, _} = Int -> t_form_to_string(Int);
-    _ -> io_lib:format("Bad formed type ~w",[Op])
+    _ -> io_lib:format("Badly formed type ~w", [Op])
   end;
 t_form_to_string({op, _L, _Op, _Arg1, _Arg2} = Op) ->
   case erl_eval:partial_eval(Op) of
     {integer, _, _} = Int -> t_form_to_string(Int);
-    _ -> io_lib:format("Bad formed type ~w",[Op])
+    _ -> io_lib:format("Badly formed type ~w", [Op])
   end;
 t_form_to_string({ann_type, _L, [Var, Type]}) ->
   t_form_to_string(Var) ++ "::" ++ t_form_to_string(Type);
@@ -3853,6 +3852,20 @@ t_form_to_string({remote_type, _L, [{atom, _, Mod}, {atom, _, Name}, Args]}) ->
   ArgString = "(" ++ string:join(t_form_to_string_list(Args), ",") ++ ")",
   io_lib:format("~w:~w", [Mod, Name]) ++ ArgString;
 t_form_to_string({type, _L, arity, []}) -> "arity()";
+t_form_to_string({type, _L, binary, []}) -> "binary()";
+t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
+  case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
+    {{integer, _, B}, {integer, _, U}} ->
+      %% the following mirrors the clauses of t_to_string/2
+      case {U, B} of
+	{0, 0} -> "<<>>";
+	{8, 0} -> "binary()";
+	{0, B} -> lists:flatten(io_lib:format("<<_:~w>>", [B]));
+	{U, 0} -> lists:flatten(io_lib:format("<<_:_*~w>>", [U]));
+	{U, B} -> lists:flatten(io_lib:format("<<_:~w,_:_*~w>>", [B, U]))
+      end;
+    _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
+  end;
 t_form_to_string({type, _L, 'fun', []}) -> "fun()";
 t_form_to_string({type, _L, 'fun', [{type, _, any, []}, Range]}) -> 
   "fun(...) -> " ++ t_form_to_string(Range);
@@ -3895,18 +3908,6 @@ t_form_to_string({type, _L, Name, []} = T) ->
   try t_to_string(t_from_form(T))
   catch throw:{error, _} -> atom_to_list(Name) ++ "()"
   end;
-t_form_to_string({type, _L, binary, [X,Y]} = Type) ->
-  case {erl_eval:partial_eval(X), erl_eval:partial_eval(Y)} of
-    {{integer, _, XVal}, {integer, _, YVal}} ->
-      case YVal of
-	0 ->
-	  case XVal of
-	    0 -> "<<>>";
-	    _ -> io_lib:format("<<_:~w>>", [XVal])
-	  end
-      end;
-    _ -> io_lib:format("Bad formed type ~w",[Type])
-  end;
 t_form_to_string({type, _L, Name, List}) -> 
   io_lib:format("~w(~s)",
 		[Name, string:join(t_form_to_string_list(List), ",")]).
@@ -3917,8 +3918,8 @@ t_form_to_string_list(List) ->
 t_form_to_string_list([H|T], Acc) ->
   t_form_to_string_list(T, [t_form_to_string(H)|Acc]);
 t_form_to_string_list([], Acc) ->
-  lists:reverse(Acc).  
-  
+  lists:reverse(Acc).
+
 %%=============================================================================
 %% 
 %% Utilities
