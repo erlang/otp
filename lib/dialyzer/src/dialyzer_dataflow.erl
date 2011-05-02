@@ -528,7 +528,7 @@ handle_apply(Tree, Map, State) ->
       {CallSitesKnown, FunList} =
 	case state__lookup_call_site(Tree, State2) of
 	  error -> {false, []};
-	  {ok, [external]} -> {false, {}};
+	  {ok, [external]} -> {false, []};
 	  {ok, List} -> {true, List}
 	end,
       case CallSitesKnown of
