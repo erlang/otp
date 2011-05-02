@@ -399,6 +399,9 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 typedef struct binary {
     ERTS_INTERNAL_BINARY_FIELDS
     long orig_size;
+#if SIZEOF_LONG < SIZEOF_VOID_P
+    long _pad;
+#endif
     char orig_bytes[1]; /* to be continued */
 } Binary;
 

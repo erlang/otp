@@ -257,7 +257,8 @@ for x in $SOURCES; do
 	    if test `grep -v $x $MSG_FILE | grep -c '#line'` != "0"; then
 		o=`echo $x | sed 's,.*/,,' | sed 's,\.cp*$,.o,'`
 		echo -n $o':'
-		cat $MSG_FILE | grep '#line' | grep -v $x | awk -F\" '{printf("%s\n",$2)}' | sort -u | grep -v " " | xargs -n 1 win2msys_path.sh | awk '{printf("\\\n %s ",$0)}' 
+#		cat $MSG_FILE | grep '#line' | grep -v $x | awk -F\" '{printf("%s\n",$2)}' | sort -u | grep -v " " | xargs -n 1 win2msys_path.sh | awk '{printf("\\\n %s ",$0)}' 
+		cat $MSG_FILE | grep '#line' | grep -v $x | awk -F\" '{printf("%s\n",$2)}' | sort -u | grep -v " " | sed 's,^\([A-Za-z]\):[\\/]*,/\1/,;s,\\\\*,/,g'| awk '{printf("\\\n %s ",$0)}' 
 		echo
 		echo 
 		after_sed=`date '+%s'`
