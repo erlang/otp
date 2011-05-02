@@ -19,44 +19,12 @@
 
 {"%VSN%",	
  [
-  {"2.0.4", [{load_module, ssh_bits, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
-  {"2.0.3", [{load_module, ssh_bits, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-             {load_module, ssh_file, soft_purge, soft_purge, []},
-             {load_module, ssh, soft_purge, soft_purge, []},
-             {load_module, ssh_rsa, soft_purge, soft_purge, []},
-             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
-             {load_module, ssh_transport, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
-  {"2.0.2", [{load_module, ssh_bits, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-             {load_module, ssh_file, soft_purge, soft_purge, []},
-             {load_module, ssh, soft_purge, soft_purge, []},
-             {load_module, ssh_rsa, soft_purge, soft_purge, []},
-             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
-             {load_module, ssh_transport, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]}
+  {"2.0.5", [{load_module, ssh_userreg, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_handler, soft_purge, soft_purge, [ssh_userreg]}]}
  ],
  [
-  {"2.0.4", [{load_module, ssh_bits, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
-  {"2.0.3", [{load_module, ssh_bits, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-             {load_module, ssh_file, soft_purge, soft_purge, []},
-             {load_module, ssh, soft_purge, soft_purge, []},
-             {load_module, ssh_rsa, soft_purge, soft_purge, []},
-             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
-             {load_module, ssh_transport, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]},
-  {"2.0.2", [{load_module, ssh_bits, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_handler, soft_purge, soft_purge, []},
-             {load_module, ssh_file, soft_purge, soft_purge, []},
-             {load_module, ssh, soft_purge, soft_purge, []},
-             {load_module, ssh_rsa, soft_purge, soft_purge, []},
-             {load_module, ssh_acceptor, soft_purge, soft_purge, []},
-             {load_module, ssh_transport, soft_purge, soft_purge, []},
-             {load_module, ssh_connection_manager, soft_purge, soft_purge, []}]}
+  {"2.0.5", [{load_module, ssh_userreg, soft_purge, soft_purge, []},
+             {load_module, ssh_connection_handler, soft_purge, soft_purge, [ssh_userreg]}]}
  ]
 }.
 

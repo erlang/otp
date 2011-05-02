@@ -29,6 +29,20 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.0.6</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A memory leak has been fixed. I.e. per terminated connection the size of
+            a pid and the length of a user name string was not cleared.</p>
+          <p>
+            Own Id: OTP-9232</p>
+        </item>
+      </list>
+    </section>
+</section>
+
 <section><title>Ssh 2.0.5</title>
     <section><title>Improvements and New Features</title>
       <list>
