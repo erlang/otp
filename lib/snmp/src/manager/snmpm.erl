@@ -132,6 +132,11 @@
 -deprecated({gb,                7}).
 -deprecated({gb,                8}).
 -deprecated({gb,                9}).
+-deprecated({agb,               5}).
+-deprecated({agb,               6}).
+-deprecated({agb,               7}).
+-deprecated({agb,               8}).
+-deprecated({agb,               9}).
 -deprecated({s,                 3}).
 -deprecated({s,                 4}).
 -deprecated({s,                 5}).
