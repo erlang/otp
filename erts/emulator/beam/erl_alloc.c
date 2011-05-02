@@ -397,7 +397,7 @@ adjust_tpref(struct au_init *ip, int no_sched)
 static void handle_args(int *, char **, erts_alc_hndl_args_init_t *);
 
 static void
-set_au_allocator(ErtsAlcType_t alctr_n, const struct au_init *init);
+set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init);
 
 static void
 start_au_allocator(ErtsAlcType_t alctr_n,
@@ -553,12 +553,15 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     init.std_alloc_low = init.std_alloc;
     init.std_alloc_low.init.util.alloc_no = ERTS_ALC_A_STANDARD_LOW;
     init.std_alloc_low.init.util.low_mem  = 1;
-    set_au_allocator(ERTS_ALC_A_STANDARD_LOW, &init.std_alloc_low);
+
     init.ll_alloc_low = init.ll_alloc;
     init.ll_alloc_low.init.util.alloc_no = ERTS_ALC_A_LONG_LIVED_LOW;
     init.ll_alloc_low.init.util.low_mem = 1;
+
+    set_au_allocator(ERTS_ALC_A_STANDARD_LOW, &init.std_alloc_low);
     set_au_allocator(ERTS_ALC_A_LONG_LIVED_LOW, &init.ll_alloc_low);
-#endif
+#endif /* HALFWORD */
+
     set_au_allocator(ERTS_ALC_A_TEMPORARY, &init.temp_alloc);
     set_au_allocator(ERTS_ALC_A_SHORT_LIVED, &init.sl_alloc);
     set_au_allocator(ERTS_ALC_A_STANDARD, &init.std_alloc);
@@ -670,11 +673,20 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 }
 
 static void
-set_au_allocator(ErtsAlcType_t alctr_n, const struct au_init *init)
+set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init)
 {
     ErtsAllocatorFunctions_t *af = &erts_allctrs[alctr_n];
     ErtsAllocatorInfo_t *ai = &erts_allctrs_info[alctr_n];
     ErtsAllocatorThrSpec_t *tspec = &erts_allctr_thr_spec[alctr_n];
+
+#if HALFWORD_HEAP
+    /* If halfword heap, silently ignore any disabling of internal
+     * allocators for low memory
+     */
+    if (init->init.util.low_mem) {
+	init->enable = 1;
+    }
+#endif
 
     if (!init->enable) {
 	af->alloc = erts_sys_alloc;
@@ -1386,14 +1398,6 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	    argv[j++] = argv[i];
     }
     *argc = j;
-#if HALFWORD_HEAP
-    /* If halfword heap, silently ignore any disabling of internal 
-       allocators */
-    for (i = 0; i < aui_sz; ++i)
-	aui[i]->enable = 1;
-#endif
-
-    
 }
 
 static char *type_no_str(ErtsAlcType_t n)
