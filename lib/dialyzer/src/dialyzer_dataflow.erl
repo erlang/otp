@@ -554,7 +554,13 @@ handle_apply(Tree, Map, State) ->
 		  {State3, enter_type(Op, OpType1, Map2), t_none()};
 		false ->
 		  Map3 = enter_type_lists(Args, NewArgs, Map2),
-		  {State2, enter_type(Op, OpType1, Map3), t_fun_range(OpType1)}
+		  Range0 = t_fun_range(OpType1),
+		  Range =
+		    case t_is_unit(Range0) of
+		      true  -> t_none();
+		      false -> Range0
+		    end,
+		  {State2, enter_type(Op, OpType1, Map3), Range}
 	      end
 	  end;
 	true ->
