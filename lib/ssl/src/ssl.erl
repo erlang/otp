@@ -264,7 +264,7 @@ close(Socket = #sslsocket{}) ->
     ssl_broker:close(Socket).
 
 %%--------------------------------------------------------------------
--spec send(#sslsocket{}, iolist()) -> ok | {error, reason()}.
+-spec send(#sslsocket{}, iodata()) -> ok | {error, reason()}.
 %% 
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------

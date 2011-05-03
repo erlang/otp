@@ -583,7 +583,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <fsummary>Write data to a socket.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
-        <v>Data = iolist() | binary()</v>
+        <v>Data = iodata()</v>
       </type>
       <desc>
         <p>Writes <c>Data</c> to <c>Socket</c>. </p>
