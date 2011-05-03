@@ -1461,7 +1461,9 @@ unicode(Config) when is_list(Config) ->
   
     case ?RDBMS of
 	sqlserver ->
-	    w_char_support_win(Ref, Table, Latin1Data);
+           w_char_support_win(Ref, Table, Latin1Data, sql_wvarchar),
+           {updated, _} = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
+           w_char_support_win(Ref, Table, Latin1Data, sql_wlongvarchar);
 	postgres ->
 	    direct_utf8(Ref, Table, Latin1Data);
 	mysql ->
@@ -1470,7 +1472,7 @@ unicode(Config) when is_list(Config) ->
 	    {skip, "not currently supported"}
     end.
 
-w_char_support_win(Ref, Table, Latin1Data) ->
+w_char_support_win(Ref, Table, Latin1Data, CharType) ->
     UnicodeIn = lists:map(fun(S) ->
                                   unicode:characters_to_binary(S,latin1,{utf16,little})
                           end,
@@ -1479,7 +1481,7 @@ w_char_support_win(Ref, Table, Latin1Data) ->
     test_server:format("UnicodeIn (utf 16): ~p ~n",[UnicodeIn]),
     
     {updated, _} = odbc:param_query(Ref, "INSERT INTO " ++ Table ++ "(FIELD) values(?)",
-				    [{{sql_wvarchar,50},UnicodeIn}]),
+				    [{{CharType,50},UnicodeIn}]),
     
     {selected,_,UnicodeOut} = odbc:sql_query(Ref,"SELECT * FROM " ++ Table),
 
