@@ -164,10 +164,16 @@ latin1_charlist() = [latin1_char() | latin1_binary() | latin1_charlist()]
            <item>Integers out of range - If <c>InEncoding</c> is
 	   <c>latin1</c>, an error occurs whenever an integer greater
 	   than 255 is found in the lists. If <c>InEncoding</c> is
-	   of a Unicode type, error occurs whenever an integer greater than
-	   <c>16#10FFFF</c> (the maximum unicode character) or in the
-	   range <c>16#D800</c> to <c>16#DFFF</c> (invalid unicode
-	   range) is found.</item>
+	   of a Unicode type, an error occurs whenever an integer
+	   <list type="bulleted">
+	     <item>greater than <c>16#10FFFF</c>
+	     (the maximum unicode character),</item>
+	     <item>in the range <c>16#D800</c> to <c>16#DFFF</c>
+	     (invalid unicode range)</item>
+	     <item>or equal to 16#FFFE or 16#FFFF (non characters)</item>
+	   </list>
+	   is found.
+	   </item>
 
 	   <item>UTF encoding incorrect - If <c>InEncoding</c> is
 	   one of the UTF types, the bytes in any binaries have to be valid
