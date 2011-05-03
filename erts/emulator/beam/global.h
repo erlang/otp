@@ -1890,6 +1890,8 @@ erts_alloc_message_heap(Uint size,
 #  if defined(DEBUG)
 #    define DeclareTmpHeap(VariableName,Size,Process) \
        Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,Process)
+#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
+      Type *VariableName = (Type *) erts_debug_allocate_tmp_heap(sizeof(Type)/sizeof(Eterm),Process)
 #    define DeclareTmpHeapNoproc(VariableName,Size) \
        Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,NULL)
 #    define UseTmpHeap(Size,Proc) \
@@ -1911,6 +1913,8 @@ erts_alloc_message_heap(Uint size,
 #  else
 #    define DeclareTmpHeap(VariableName,Size,Process) \
        Eterm *VariableName = (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
+#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
+      Type *VariableName = (Type *) (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
 #    define DeclareTmpHeapNoproc(VariableName,Size) \
        Eterm *VariableName = (erts_get_scheduler_data()->tmp_heap)+(erts_get_scheduler_data()->num_tmp_heap_used)
 #    define UseTmpHeap(Size,Proc) \
@@ -1936,6 +1940,8 @@ erts_alloc_message_heap(Uint size,
 #else
 #  define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
+#  define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+     Type VariableName[1]
 #  define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]
 #  define UseTmpHeap(Size,Proc) /* Nothing */
