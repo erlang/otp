@@ -2705,7 +2705,7 @@ term_array: /* arrays in 'aa' and 'bb', length in 'i' */
     while (--i) {
 	a = *aa++;
 	b = *bb++;
-	if (a != b) {
+	if (!is_same(a,a_base, b,b_base)) {
 	    if (is_atom(a) && is_atom(b)) {
 		if ((j = cmp_atoms(a, b)) != 0) {
 		    goto not_equal;
