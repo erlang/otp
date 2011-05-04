@@ -570,9 +570,12 @@ terminate(Reason, #state{connection_state =
 			 end, Requests)),
     Address =  proplists:get_value(address, Opts),
     Port = proplists:get_value(port, Opts),
-    SystemSup = ssh_system_sup:system_supervisor(Address, Port),
-    ssh_system_sup:stop_subsystem(SystemSup, SubSysSup),
-    ok.
+    case ssh_system_sup:system_supervisor(Address, Port) of
+        undefined -> ok;
+        SystemSup ->
+            ssh_system_sup:stop_subsystem(SystemSup, SubSysSup),
+            ok
+    end.
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
