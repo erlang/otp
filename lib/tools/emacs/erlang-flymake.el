@@ -83,6 +83,7 @@ check on newline and when there are no changes)."
           (append inc-dir-opts
                   code-dir-opts
                   erlang-flymake-extra-opts)))
+;    (print compile-opts)
     (list erlang-flymake-command (append compile-opts (list temp-file)))))
 
 (defun erlang-flymake-temp-dir ()
@@ -96,7 +97,10 @@ check on newline and when there are no changes)."
 
 (add-to-list 'flymake-allowed-file-name-masks
              '("\\.erl\\'" erlang-flymake-init))
-(add-hook 'erlang-mode-hook 'flymake-mode)
+
+(defun erlang-flymake-hook ()
+  (flymake-mode 1)) ;; non-negative number, t doesn't work
+(add-hook 'erlang-mode-hook 'erlang-flymake-hook)
 
 (provide 'erlang-flymake)
 ;; erlang-flymake ends here
