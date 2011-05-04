@@ -50,8 +50,7 @@
 		 cb                 %% Callback info
 		}).
 -type option()       :: socketoption() | ssloption() | transportoption().
--type socketoption() :: [{property(), term()}]. %% See gen_tcp and inet
--type property()     :: atom().
+-type socketoption() :: term(). %% See gen_tcp and inet, import spec later when there is one to import
 -type ssloption()    :: {verify, verify_type()} |
 			{verify_fun, {fun(), InitialUserState::term()}} |
                         {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
