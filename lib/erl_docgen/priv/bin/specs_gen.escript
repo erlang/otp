@@ -2,7 +2,7 @@
 %% -*- erlang -*-
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,7 +29,7 @@
 %%%  "-I<dir>" Directory to be searched when including a file.
 %%%  "-module Module"
 %%%            Module name to use when there is no File argument.
-%%%            A temporary file will be created.
+%%%            A empty specifications file will be created.
 %%%            Exactly one of -module Module and File must be given.
 %%%
 %%% The name of the generated file is "specs_<module>.xml". Its exact
@@ -67,32 +67,71 @@ usage() ->
     halt(1).
 
 call_edoc(FileSpec, InclFs, Dir) ->
-    Incl = [{includes, InclFs}],
-    Pre = [{preprocess, true}],
-    Choice = [{dialyzer_specs, all}],
-    DirOpt = [{dir, Dir}],
-    Pretty = [{pretty_print, erl_pp}],
-    Layout = [{layout, otp_specs},
-              {file_suffix, ".specs"},
-              {stylesheet, ""}],
-    Warn = [{report_missing_type, false},
-            {report_type_mismatch, false}],
-    OptionList = (DirOpt ++ Choice ++ Pre ++ Warn ++ Pretty ++ Layout ++ Incl),
-    {File, TmpFile} = case FileSpec of
-                          {file, File0} ->
-                              {File0, false};
-                          {module, Module} ->
-                              {create_tmp_file(Dir, Module), true}
-                      end,
-    try edoc:files([File], OptionList) of
-        ok ->
-            clean_up(Dir, File, TmpFile),
-            rename(Dir, File)
+    ReadOpts = [{includes, InclFs}, {preprocess, true}],
+    ExtractOpts = [{report_missing_type, false}],
+    LayoutOpts = [{pretty_printer, erl_pp}, {layout, otp_specs}],
+    File = case FileSpec of
+               {file, File0} -> File0;
+               {module, Module0} -> Module0
+           end,
+    try
+        Fs = case FileSpec of
+                 {file, _} ->
+                     Fs0 = read_file(File, ReadOpts),
+                     clauses(Fs0);
+                 {module, Module} ->
+                     [{attribute,0,module,list_to_atom(Module)}]
+             end,
+        Doc = extract(File, Fs, ExtractOpts),
+        Text = edoc:layout(Doc, LayoutOpts),
+        ok = write_text(Text, File, Dir),
+        rename(Dir, File)
     catch
         _:_ ->
             io:format("EDoc could not process file '~s'\n", [File]),
-            clean_up(Dir, File, TmpFile),
+            clean_up(Dir),
             halt(3)
+    end.
+
+read_file(File, Opts) ->
+    edoc:read_source(File, Opts).
+
+extract(File, Forms, Opts) ->
+    Env = edoc_lib:get_doc_env([], [], [], _Opts=[]),
+    {_Module, Doc} = edoc_extract:source(Forms, File, Env, Opts),
+    Doc.
+
+clauses(Fs) ->
+    clauses(Fs, no).
+
+clauses([], no) ->
+    [];
+clauses([F | Fs], Spec) ->
+    case F of
+        {attribute,_,spec,_} ->
+            clauses(Fs, F);
+        {function,_,_N,_A,_Cls} when Spec =/= no->
+            {attribute,_,spec,{Name,FunTypes}} = Spec,
+            %% [throw({no,Name,{_N,_A}}) || Name =/= {_N,_A}],
+            %% EDoc doesn't care if a function appears more than once;
+            %% this is how overloaded specs are handled:
+            (lists:append([[setelement(4, Spec, {Name,[T]}),F] ||
+                              T <- FunTypes])
+             ++ clauses(Fs, no));
+        _ ->
+            [F | clauses(Fs, Spec)]
+    end.
+
+write_text(Text, File, Dir) ->
+    Base = filename:basename(File, ".erl"),
+    OutFile = filename:join(Dir, Base) ++ ".specs",
+    case file:write_file(OutFile, Text) of
+        ok ->
+            ok;
+        {error, R} ->
+            R1 = file:format_error(R),
+            io:format("could not write file '~s': ~s\n", [File, R1]),
+            halt(2)
     end.
 
 rename(Dir, F) ->
@@ -108,22 +147,10 @@ rename(Dir, F) ->
             halt(2)
     end.
 
-clean_up(Dir, File, TmpFile) ->
-    [file:delete(File) || TmpFile],
+clean_up(Dir) ->
     _ = [file:delete(filename:join(Dir, F)) ||
             F <- ["packages-frame.html",
                   "overview-summary.html",
                   "modules-frame.html",
                   "index.html", "erlang.png", "edoc-info"]],
     ok.
-
-create_tmp_file(Dir, Module) ->
-    TmpFile = filename:join(Dir, Module++".erl"),
-    case file:write_file(TmpFile, "-module(" ++ Module ++ ").\n") of
-        ok ->
-            TmpFile;
-        {error, R} ->
-            R1 = file:format_error(R),
-            io:format("could not write file '~s': ~s\n", [TmpFile, R1]),
-            halt(2)
-    end.

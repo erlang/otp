@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -380,6 +380,8 @@ t_type([E=#xmlElement{name = float}]) ->
     t_float(E);
 t_type([#xmlElement{name = nil}]) ->
     t_nil();
+t_type([#xmlElement{name = paren, content = Es}]) ->
+    t_paren(Es);
 t_type([#xmlElement{name = list, content = Es}]) ->
     t_list(Es);
 t_type([#xmlElement{name = nonempty_list, content = Es}]) ->
@@ -415,6 +417,9 @@ t_float(E) ->
 
 t_nil() ->
     ["[]"].
+
+t_paren(Es) ->
+    ["("] ++ t_utype(get_elem(type, Es)) ++ [")"].
 
 t_list(Es) ->
     ["["] ++ t_utype(get_elem(type, Es)) ++ ["]"].
@@ -532,6 +537,8 @@ ot_type([E=#xmlElement{name = float}]) ->
     ot_float(E);
 ot_type([#xmlElement{name = nil}]) ->
     ot_nil();
+ot_type([#xmlElement{name = paren, content = Es}]) ->
+    ot_paren(Es);
 ot_type([#xmlElement{name = list, content = Es}]) ->
     ot_list(Es);
 ot_type([#xmlElement{name = nonempty_list, content = Es}]) ->
@@ -581,6 +588,9 @@ ot_float(E) ->
 
 ot_nil() ->
     {nil,0}.
+
+ot_paren(Es) ->
+    {paren_type,0,[ot_utype(get_elem(type, Es))]}.
 
 ot_list(Es) ->
     {type,0,list,[ot_utype(get_elem(type, Es))]}.
@@ -697,5 +707,7 @@ annos_type([#xmlElement{name = union, content = Es}]) ->
     lists:flatmap(fun annos_elem/1, Es);
 annos_type([E=#xmlElement{name = typevar}]) ->
     annos_elem(E);
+annos_type([#xmlElement{name = paren, content = Es}]) ->
+    annos(get_elem(type, Es));
 annos_type(_) ->
     [].

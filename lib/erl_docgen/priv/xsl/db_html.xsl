@@ -22,12 +22,15 @@
 
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:exsl="http://exslt.org/common"
+  extension-element-prefixes="exsl"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions">
 
   <xsl:include href="db_html_params.xsl"/>
 
   <!-- Start of Dialyzer type/spec tags.
-       See also the template matching "name" and the template "menu.funcs"
+       See also the templates matching "name" and "seealso" as well as
+       the template "menu.funcs"
   -->
 
   <xsl:param name="specs_file" select="''"/>
@@ -38,49 +41,58 @@
   <xsl:key name="mod2app" match="module" use="@name"/>
 
   <xsl:template name="err">
+    <xsl:param name="f"/>
     <xsl:param name="m"/>
     <xsl:param name="n"/>
     <xsl:param name="a"/>
     <xsl:param name="s"/>
     <xsl:message terminate="yes">
-  Error <xsl:if test="$m != ''"><xsl:value-of select ="$m"/>:</xsl:if>
-	 <xsl:value-of
-		   select="$n"/>/<xsl:value-of
-		   select="$a"/>: <xsl:value-of select="$s"/>
+  Error <xsl:if test="$f != ''">in <xsl:value-of select ="$f"/>:</xsl:if>
+        <xsl:if test="$m != ''"><xsl:value-of select ="$m"/>:</xsl:if>
+        <xsl:value-of select="$n"/>
+        <xsl:if test="$a != ''">/<xsl:value-of
+             select ="$a"/></xsl:if>: <xsl:value-of select="$s"/>
     </xsl:message>
   </xsl:template>
 
-  <xsl:template name="spec_name">
+  <xsl:template name="find_spec">
     <xsl:variable name="curModule" select="ancestor::erlref/module"/>
     <xsl:variable name="mod" select="@mod"/>
     <xsl:variable name="name" select="@name"/>
     <xsl:variable name="arity" select="@arity"/>
-    <xsl:variable name="clause" select="@clause"/>
+    <xsl:variable name="clause_i" select="@clause_i"/>
     <xsl:variable name="spec0" select=
         "$i/specs/module[@name=$curModule]/spec
              [name=$name and arity=$arity
               and (string-length($mod) = 0 or module = $mod)]"/>
-    <xsl:variable name="spec" select="$spec0[string-length($clause) = 0
-                                             or position() = $clause]"/>
-    <xsl:if test="count($spec) = 0">
+    <xsl:variable name="spec" select="$spec0[string-length($clause_i) = 0
+                                             or position() = $clause_i]"/>
+
+    <xsl:if test="count($spec) != 1">
+      <xsl:variable name="why">
+        <xsl:choose>
+          <xsl:when test="count($spec) > 1">ambiguous spec</xsl:when>
+          <xsl:when test="count($spec) = 0">unknown spec</xsl:when>
+        </xsl:choose>
+      </xsl:variable>
       <xsl:call-template name="err">
+        <xsl:with-param name="f" select="$curModule"/>
 	<xsl:with-param name="m" select="$mod"/>
 	<xsl:with-param name="n" select="$name"/>
 	<xsl:with-param name="a" select="$arity"/>
-	<xsl:with-param name="s">unknown spec</xsl:with-param>
+        <xsl:with-param name="s" select="$why"/>
       </xsl:call-template>
     </xsl:if>
+    <xsl:copy-of select="$spec"/>
+  </xsl:template>
 
-    <xsl:variable name="arity_clause">
-      <xsl:choose>
-	<xsl:when test="string-length(@clause) > 0">
-	  <xsl:value-of select="@arity"/>/<xsl:value-of select="@clause"/>
-	</xsl:when>
-	<xsl:otherwise>
-	  <xsl:value-of select="@arity"/>
-	</xsl:otherwise>
-      </xsl:choose>
+  <xsl:template name="spec_name">
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="spec0">
+      <xsl:call-template name="find_spec"/>
     </xsl:variable>
+    <xsl:variable name="spec" select="exsl:node-set($spec0)/spec"/>
 
     <xsl:choose>
       <xsl:when test="ancestor::cref">
@@ -89,72 +101,189 @@
 	</xsl:message>
       </xsl:when>
       <xsl:when test="ancestor::erlref">
-	<a name="{$name}-{$arity_clause}"></a>
-        <xsl:choose>
-          <xsl:when test="string(@with_guards) = 'no'">
-            <xsl:apply-templates select="$spec/contract/clause/head"/>
-          </xsl:when>
-          <xsl:otherwise>
-            <xsl:call-template name="contract">
-              <xsl:with-param name="contract" select="$spec/contract"/>
-            </xsl:call-template>
-          </xsl:otherwise>
+	<xsl:choose>
+	  <xsl:when test="preceding-sibling::name[position() = 1
+			  and @name = $name and @arity = $arity]">
+	    <!-- Avoid duplicated anchors.-->
+	  </xsl:when>
+	  <xsl:otherwise>
+	    <a name="{$name}-{$arity}"></a>
+	  </xsl:otherwise>
         </xsl:choose>
+
+        <xsl:variable name="global_types" select="ancestor::erlref/datatypes"/>
+	<xsl:variable name="local_types"
+		      select="../type[string-length(@name) > 0]"/>
+	<xsl:apply-templates select="$spec/contract/clause/head">
+	  <xsl:with-param name="local_types" select="$local_types"/>
+	  <xsl:with-param name="global_types" select="$global_types"/>
+	</xsl:apply-templates>
       </xsl:when>
     </xsl:choose>
   </xsl:template>
 
-  <xsl:template name="contract">
-    <xsl:param name="contract"/>
-    <xsl:call-template name="clause">
-      <xsl:with-param name="clause" select="$contract/clause"/>
-    </xsl:call-template>
-  </xsl:template>
-
-  <xsl:template name="clause">
-    <xsl:param name="clause"/>
-    <xsl:variable name="type_desc" select="../type_desc"/>
-    <xsl:for-each select="$clause">
-      <xsl:apply-templates select="head"/>
-      <xsl:if test="count(guard) > 0">
-	<xsl:call-template name="guard">
-	  <xsl:with-param name="guard" select="guard"/>
-	  <xsl:with-param name="type_desc" select="$type_desc"/>
-	</xsl:call-template>
-      </xsl:if>
-    </xsl:for-each>
-  </xsl:template>
-
   <xsl:template match="head">
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
     <span class="bold_code">
-      <xsl:apply-templates/>
+      <xsl:apply-templates mode="local_type">
+        <xsl:with-param name="local_types" select="$local_types"/>
+        <xsl:with-param name="global_types" select="$global_types"/>
+      </xsl:apply-templates>
     </span>
     <br/>
   </xsl:template>
 
-  <xsl:template name="guard">
-    <xsl:param name="guard"/>
+  <!-- The *last* <name name="..." arity=".."/> -->
+  <xsl:template match="name" mode="types">
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="spec0">
+      <xsl:call-template name="find_spec"/>
+    </xsl:variable>
+    <xsl:variable name="spec" select="exsl:node-set($spec0)/spec"/>
+    <xsl:variable name="clause" select="$spec/contract/clause"/>
+
+    <xsl:variable name="global_types" select="ancestor::erlref/datatypes"/>
+    <xsl:variable name="type_desc" select="../type_desc"/>
+    <!-- $type is data types to be presented as guards ("local types") -->
+    <xsl:variable name="type"
+                  select="../type[string-length(@name) > 0
+                                  or string-length(@variable) > 0]"/>
+    <xsl:variable name="type_variables"
+                  select ="$type[string-length(@variable) > 0]"/>
+    <xsl:variable name="local_types"
+                  select ="$type[string-length(@name) > 0]"/>
+    <xsl:variable name="output_subtypes" select="count($type_variables) = 0"/>
+
+    <!-- It is assumed there is no support for overloaded specs
+         (there is no spec with more than one clause) -->
+    <xsl:if test="count($clause/guard) > 0 or count($type) > 0">
+      <div class="REFBODY"><p>Types:</p>
+
+        <xsl:choose>
+          <xsl:when test="$output_subtypes">
+            <xsl:call-template name="subtype">
+              <xsl:with-param name="subtype" select="$clause/guard/subtype"/>
+              <xsl:with-param name="type_desc" select="$type_desc"/>
+              <xsl:with-param name="local_types" select="$local_types"/>
+              <xsl:with-param name="global_types" select="$global_types"/>
+            </xsl:call-template>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:call-template name="type_variables">
+              <xsl:with-param name="type_variables" select="$type_variables"/>
+              <xsl:with-param name="type_desc" select="$type_desc"/>
+              <xsl:with-param name="local_types" select="$local_types"/>
+              <xsl:with-param name="global_types" select="$global_types"/>
+	      <xsl:with-param name="fname" select="$name"/>
+	      <xsl:with-param name="arity" select="$arity"/>
+            </xsl:call-template>
+
+          </xsl:otherwise>
+        </xsl:choose>
+
+        <xsl:call-template name="local_type">
+          <xsl:with-param name="type_desc" select="$type_desc"/>
+          <xsl:with-param name="local_types" select="$local_types"/>
+          <xsl:with-param name="global_types" select="$global_types"/>
+        </xsl:call-template>
+      </div>
+
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Handle <type variable="..." name_i="..."/> -->
+  <xsl:template name="type_variables">
+    <xsl:param name="type_variables"/>
     <xsl:param name="type_desc"/>
-    <div class="REFBODY"><p>Types:</p>
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
+    <xsl:param name="fname"/>
+    <xsl:param name="arity"/>
+
+    <xsl:variable name="names" select="../name[string-length(@arity) > 0]"/>
+    <xsl:for-each select="$type_variables">
+      <xsl:variable name="name_i">
+	<xsl:choose>
+          <xsl:when test="string-length(@name_i) > 0">
+	    <xsl:value-of select="@name_i"/>
+	  </xsl:when>
+	  <xsl:otherwise>
+	    <xsl:value-of select="count($names)"/>
+	  </xsl:otherwise>
+	</xsl:choose>
+      </xsl:variable>
+      <xsl:variable name="spec0">
+        <xsl:for-each select="$names[position() = $name_i]">
+          <xsl:call-template name="find_spec"/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:variable name="spec" select="exsl:node-set($spec0)/spec"/>
+      <xsl:variable name="clause" select="$spec/contract/clause"/>
+      <xsl:variable name="variable" select="@variable"/>
+      <xsl:variable name="subtype"
+                    select="$clause/guard/subtype[typename = $variable]"/>
+
+      <xsl:if test="count($subtype) = 0">
+	<xsl:call-template name="err">
+          <xsl:with-param name="f" select="ancestor::erlref/module"/>
+          <xsl:with-param name="n" select="$fname"/>
+          <xsl:with-param name="a" select="$arity"/>
+	  <xsl:with-param name="s">unknown type variable <xsl:value-of select="$variable"/>
+          </xsl:with-param>
+	</xsl:call-template>
+      </xsl:if>
+
       <xsl:call-template name="subtype">
-	<xsl:with-param name="subtype" select="$guard/subtype"/>
-	<xsl:with-param name="type_desc" select="$type_desc"/>
+        <xsl:with-param name="subtype" select="$subtype"/>
+        <xsl:with-param name="type_desc" select="$type_desc"/>
+        <xsl:with-param name="local_types" select="$local_types"/>
+        <xsl:with-param name="global_types" select="$global_types"/>
       </xsl:call-template>
-    </div>
+    </xsl:for-each>
   </xsl:template>
 
   <xsl:template name="subtype">
     <xsl:param name="subtype"/>
     <xsl:param name="type_desc"/>
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
+
     <xsl:for-each select="$subtype">
       <xsl:variable name="tname" select="typename"/>
-      <xsl:variable name="tdesc" select="$type_desc[@name = $tname]"/>
       <div class="REFTYPES">
 	<span class="bold_code">
-	  <xsl:apply-templates select="string"/>
+	  <xsl:apply-templates select="string" mode="local_type">
+	    <xsl:with-param name="local_types" select="$local_types"/>
+	    <xsl:with-param name="global_types" select="$global_types"/>
+	  </xsl:apply-templates>
 	</span>
       </div>
-      <xsl:apply-templates select="$type_desc[@name = $tname]"/>
+      <xsl:apply-templates select="$type_desc[@variable = $tname]"/>
+    </xsl:for-each>
+  </xsl:template>
+
+  <xsl:template name="local_type">
+    <xsl:param name="type_desc"/>
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
+
+    <xsl:for-each select="$local_types">
+      <div class="REFTYPES">
+	<xsl:call-template name="type_name">
+	  <xsl:with-param name="mode" select="'local_type'"/>
+	  <xsl:with-param name="local_types" select="$local_types"/>
+	  <xsl:with-param name="global_types" select="$global_types"/>
+	</xsl:call-template>
+      </div>
+      <xsl:variable name="tname" select="@name"/>
+      <xsl:variable name="tnvars" select="@n_vars"/>
+      <xsl:apply-templates select=
+	 "$type_desc[@name = $tname
+		     and (@n_vars = $tnvars
+			  or string-length(@n_vars) = 0 and
+			     string-length($tnvars) = 0)]"/>
     </xsl:for-each>
   </xsl:template>
 
@@ -193,12 +322,82 @@
     <xsl:apply-templates select="desc"/>
   </xsl:template>
 
+  <!-- The "mode" attribute of apply has been used to separate the case
+       when datatypes are copied into specifications' subtypes.
+       A local type has no anchor. There are no links to local types
+       from local types or guards/head of the same specification.
+  -->
+
+  <xsl:template name="type_name">
+    <xsl:param name="mode"/> <!-- '' if <datatype> -->
+    <xsl:param name="local_types" select="/.."/>
+    <xsl:param name="global_types" select="/.."/>
+    <xsl:variable name="curModule" select="ancestor::erlref/module"/>
+    <xsl:variable name="mod" select="@mod"/>
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="n_vars" select="@n_vars"/>
+
+    <xsl:choose>
+      <xsl:when test="string-length($name) > 0">
+	<xsl:variable name="type" select=
+	    "$i/specs/module[@name=$curModule]/type
+		 [name=$name
+		  and (string-length($n_vars) = 0 or n_vars = $n_vars)
+		  and (string-length($mod) = 0 or module = $mod)]"/>
+
+	<xsl:if test="count($type) != 1">
+	  <xsl:variable name="why">
+	    <xsl:choose>
+	      <xsl:when test="count($type) > 1">ambiguous type</xsl:when>
+	      <xsl:when test="count($type) = 0">unknown type</xsl:when>
+	    </xsl:choose>
+	  </xsl:variable>
+	  <xsl:call-template name="err">
+	    <xsl:with-param name="f" select="$curModule"/>
+	    <xsl:with-param name="m" select="$mod"/>
+	    <xsl:with-param name="n" select="$name"/>
+	    <xsl:with-param name="a" select="$n_vars"/>
+	    <xsl:with-param name="s" select="$why"/>
+	  </xsl:call-template>
+	</xsl:if>
+	<xsl:choose>
+	  <xsl:when test="$mode = ''">
+	    <xsl:apply-templates select="$type/typedecl"/>
+	  </xsl:when>
+	  <xsl:when test="$mode = 'local_type'">
+	    <xsl:apply-templates select="$type/typedecl" mode="local_type">
+	      <xsl:with-param name="local_types" select="$local_types"/>
+	      <xsl:with-param name="global_types" select="$global_types"/>
+	    </xsl:apply-templates>
+	  </xsl:when>
+	</xsl:choose>
+      </xsl:when>
+      <xsl:otherwise> <!-- <datatype> with <name> -->
+	<span class="bold_code">
+          <xsl:apply-templates/>
+	</span>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
   <xsl:template match="typehead">
     <span class="bold_code">
       <xsl:apply-templates/>
     </span><br/>
   </xsl:template>
 
+  <xsl:template match="typehead" mode="local_type">
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
+    <span class="bold_code">
+    <xsl:apply-templates mode="local_type">
+      <xsl:with-param name="local_types" select="$local_types"/>
+      <xsl:with-param name="global_types" select="$global_types"/>
+    </xsl:apply-templates>
+    </span><br/>
+  </xsl:template>
+
+  <!-- Not used right now -->
   <!-- local_defs -->
   <xsl:template match="local_defs">
     <div class="REFBODY">
@@ -207,6 +406,7 @@
     </div>
   </xsl:template>
 
+  <!-- Not used right now -->
   <xsl:template match="local_def">
     <div class="REFTYPES">
       <span class="bold_code">
@@ -215,103 +415,49 @@
     </div>
   </xsl:template>
 
-  <xsl:template name="type_name">
-    <xsl:variable name="curModule" select="ancestor::erlref/module"/>
-    <xsl:variable name="mod" select="@mod"/>
-    <xsl:variable name="name" select="@name"/>
-    <xsl:variable name="n_vars">
-      <xsl:choose>
-	<xsl:when test="string-length(@n_vars) > 0">
-	  <xsl:value-of select="@n_vars"/>
-	</xsl:when>
-	<xsl:otherwise>
-          <xsl:value-of select="0"/>
-	</xsl:otherwise>
-      </xsl:choose>
-    </xsl:variable>
-
-    <xsl:choose>
-      <xsl:when test="string-length($name) > 0">
-	<xsl:variable name="type" select=
-	    "$i/specs/module[@name=$curModule]/type
-		 [name=$name and n_vars=$n_vars
-		  and (string-length($mod) = 0 or module = $mod)]"/>
-
-	<xsl:if test="count($type) != 1">
-	  <xsl:call-template name="err">
-	    <xsl:with-param name="m" select="$mod"/>
-	    <xsl:with-param name="n" select="$name"/>
-	    <xsl:with-param name="a" select="$n_vars"/>
-	    <xsl:with-param name="s">unknown type</xsl:with-param>
-	  </xsl:call-template>
-	</xsl:if>
-	<xsl:apply-templates select="$type/typedecl"/>
-      </xsl:when>
-      <xsl:otherwise>
-	<span class="bold_code">
-	  <xsl:value-of select="."/>
-	</span>
-      </xsl:otherwise>
-    </xsl:choose>
-  </xsl:template>
-
   <!-- Used both in <datatype> and in <func>! -->
   <xsl:template match="anno">
     <xsl:variable name="curModule" select="ancestor::erlref/module"/>
     <xsl:variable name="anno" select="normalize-space(text())"/>
     <xsl:variable name="namespec"
-                  select="ancestor::desc/preceding-sibling::name"/>
+                  select="ancestor::type_desc/preceding-sibling::name
+                          | ancestor::desc/preceding-sibling::name"/>
     <xsl:if test="count($namespec) = 0 and string-length($specs_file) > 0">
       <xsl:call-template name="err">
-	<xsl:with-param name="s">cannot find 'name' (<xsl:value-of select="$anno"/>)
+        <xsl:with-param name="f" select="$curModule"/>
+	<xsl:with-param name="s">cannot find tag 'name' (anno <xsl:value-of select="$anno"/>)
 	</xsl:with-param>
       </xsl:call-template>
     </xsl:if>
 
-    <xsl:variable name="mod" select="$namespec/@mod"/>
-    <xsl:variable name="name" select="$namespec/@name"/>
-    <xsl:variable name="arity" select="$namespec/@arity"/>
-    <xsl:variable name="clause" select="$namespec/@clause"/>
-    <xsl:variable name="tmp_n_vars" select="$namespec/@n_vars"/>
-    <xsl:variable name="n_vars">
-      <xsl:choose>
-	<xsl:when test="string-length($tmp_n_vars) > 0">
-	  <xsl:value-of select="$tmp_n_vars"/>
-	</xsl:when>
-	<xsl:otherwise>
-          <xsl:value-of select="0"/>
-	</xsl:otherwise>
-      </xsl:choose>
+    <!-- Search "local types" as well -->
+    <xsl:variable name="local_types"
+                select="ancestor::desc/preceding-sibling::type
+	                       [string-length(@name) > 0]"/>
+    <xsl:variable name="has_anno_in_local_type">
+      <xsl:for-each select="$local_types">
+	<xsl:call-template name="anno_name">
+	  <xsl:with-param name="curModule" select="$curModule"/>
+	  <xsl:with-param name="anno" select="$anno"/>
+	</xsl:call-template>
+      </xsl:for-each>
     </xsl:variable>
-    <xsl:variable name="spec0" select=
-        "$i/specs/module[@name=$curModule]/spec
-             [name=$name and arity=$arity
-              and (string-length($mod) = 0 or module = $mod)]"/>
-    <xsl:variable name="spec_annos" select=
-         "$spec0[string-length($clause) = 0
-                 or position() = $clause]/anno[.=$anno]"/>
-    <xsl:variable name="type_annos" select=
-        "$i/specs/module[@name=$curModule]/type
-             [name=$name and n_vars=$n_vars
-              and (string-length($mod) = 0 or module = $mod)]/anno[.=$anno]"/>
 
-    <xsl:if test="count($spec_annos) = 0
-                  and count($type_annos) = 0
-	          and string-length($specs_file) > 0">
-      <xsl:variable name="n">
-        <xsl:choose>
-          <xsl:when test="string-length($arity) = 0">
-            <xsl:value-of select="$n_vars"/>
-          </xsl:when>
-          <xsl:otherwise>
-            <xsl:value-of select="$arity"/>
-          </xsl:otherwise>
-        </xsl:choose>
-      </xsl:variable>
+    <xsl:variable name="has_anno">
+      <xsl:for-each select="$namespec">
+	<xsl:call-template name="anno_name">
+	  <xsl:with-param name="curModule" select="$curModule"/>
+	  <xsl:with-param name="anno" select="$anno"/>
+	</xsl:call-template>
+      </xsl:for-each>
+    </xsl:variable>
+
+    <xsl:if test="$has_anno = '' and $has_anno_in_local_type = ''">
       <xsl:call-template name="err">
-	<xsl:with-param name="m" select="$mod"/>
-	<xsl:with-param name="n" select="$name"/>
-	<xsl:with-param name="a" select="$n"/>
+        <xsl:with-param name="f" select="$curModule"/>
+	<xsl:with-param name="m" select="$namespec/@mod"/>
+	<xsl:with-param name="n" select="$namespec/@name"/>
+	<xsl:with-param name="a" select="'-'"/>
 	<xsl:with-param name="s">unknown annotation <xsl:value-of select="$anno"/>
 	</xsl:with-param>
       </xsl:call-template>
@@ -319,9 +465,81 @@
     <xsl:value-of select="$anno"/>
   </xsl:template>
 
+  <xsl:template name="anno_name">
+    <xsl:param name="curModule"/>
+    <xsl:param name="anno"/>
+    <xsl:variable name="mod" select="@mod"/>
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="n_vars" select="@n_vars"/>
+    <xsl:variable name="clause_i" select="@clause_i"/>
+
+    <xsl:variable name="spec0" select=
+        "$i/specs/module[@name=$curModule]/spec
+             [name=$name and arity=$arity
+              and (string-length($mod) = 0 or module = $mod)]"/>
+    <xsl:variable name="spec_annos" select=
+         "$spec0[string-length($clause_i) = 0
+                 or position() = $clause_i]/anno[.=$anno]"/>
+    <xsl:variable name="type_annos" select=
+        "$i/specs/module[@name=$curModule]/type
+             [name=$name
+              and (string-length($n_vars) = 0 or n_vars=$n_vars)
+              and (string-length($mod) = 0 or module = $mod)]/anno[.=$anno]"/>
+    <xsl:if test="count($spec_annos) != 0
+                  or count($type_annos) != 0
+                  or string-length($specs_file) = 0">
+      <xsl:value-of select="true()"/>
+    </xsl:if>
+  </xsl:template>
+
   <!-- Used for indentation of formatted types and specs -->
   <xsl:template match="nbsp">
     <xsl:text>&#160;</xsl:text>
+  </xsl:template>
+
+  <xsl:template match="nbsp" mode="local_type">
+    <xsl:apply-templates select="."/>
+  </xsl:template>
+
+  <xsl:template match="br" mode="local_type">
+    <xsl:apply-templates select="."/>
+  </xsl:template>
+
+  <xsl:template match="marker" mode="local_type">
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
+    <!-- Craete no anchor -->
+    <!-- It would be possible to create a link to the global type
+         (if there is one), but that would mean even more code...
+    -->
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <!-- Does not look at @n_vars -->
+  <xsl:template match="seealso" mode="local_type">
+    <xsl:param name="local_types"/>
+    <xsl:param name="global_types"/>
+
+    <xsl:variable name="filepart"><xsl:value-of select="substring-before(@marker, '#')"/></xsl:variable>
+    <xsl:variable name="linkpart"><xsl:value-of select="translate(substring-after(@marker, '#'), '/', '-')"/></xsl:variable>
+
+    <xsl:choose>
+      <xsl:when test="string-length($filepart) > 0">
+        <xsl:call-template name="seealso"/>
+      </xsl:when>
+      <xsl:when test="count($local_types[concat('type-', @name) = $linkpart]) = 0">
+        <xsl:call-template name="seealso"/>
+      </xsl:when>
+      <xsl:when test="count($global_types/datatype/name[concat('type-', @name) = $linkpart]) > 0">
+        <!-- The type is both local and global; link to the global type -->
+        <xsl:call-template name="seealso"/>
+      </xsl:when>
+      <xsl:otherwise>
+	<!-- No link to local type -->
+        <xsl:apply-templates/>
+      </xsl:otherwise>
+    </xsl:choose>
   </xsl:template>
 
   <!-- End of Dialyzer type/spec tags -->
@@ -1178,14 +1396,7 @@
             <xsl:choose>
               <xsl:when test="string-length(@arity) > 0">
                 <!-- Dialyzer spec -->
-                <xsl:choose>
-                  <xsl:when test="string-length(@clause) > 0">
-                    <xsl:value-of select="@arity"/>/<xsl:value-of select="@clause"/>
-                  </xsl:when>
-                  <xsl:otherwise>
-                    <xsl:value-of select="@arity"/>
-                  </xsl:otherwise>
-                </xsl:choose>
+                <xsl:value-of select="@arity"/>
               </xsl:when>
               <xsl:otherwise>
 		<xsl:call-template name="calc-arity">
@@ -1221,11 +1432,19 @@
             </xsl:choose>
           </xsl:variable>
 
-          <li title="{$fname}-{$arity}">
-            <a href="{$basename}.html#{$fname}-{$arity}">
-              <xsl:value-of select="$fname"/>/<xsl:value-of select="$arity"/>
-            </a>
-          </li>
+	  <xsl:choose>
+	    <xsl:when test="preceding-sibling::name[position() = 1
+                            and @name = $fname and @arity = $arity]">
+              <!-- Skip. Only works for Dialyzer specs. -->
+	    </xsl:when>
+	    <xsl:otherwise>
+	      <li title="{$fname}-{$arity}">
+		<a href="{$basename}.html#{$fname}-{$arity}">
+		  <xsl:value-of select="$fname"/>/<xsl:value-of select="$arity"/>
+		</a>
+	      </li>
+	    </xsl:otherwise>
+	  </xsl:choose>
         </xsl:when>
       </xsl:choose>
 
@@ -1470,14 +1689,16 @@
   <xsl:template match="func">
     <xsl:param name="partnum"/>
 
-    <p><xsl:apply-templates select="name"/></p>
+    <p><xsl:apply-templates select="name"/>
+       <xsl:apply-templates
+           select="name[string-length(@arity) > 0 and position()=last()]"
+           mode="types"/></p>
 
     <xsl:apply-templates select="fsummary|type|desc">
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
 
   </xsl:template>
-
 
   <xsl:template match="name">
     <xsl:choose>
@@ -1487,6 +1708,11 @@
       </xsl:when>
       <xsl:when test="ancestor::datatype">
         <xsl:call-template name="type_name"/>
+      </xsl:when>
+      <xsl:when test="string-length(text()) = 0 and ancestor::erlref">
+	<xsl:message terminate="yes">
+          Error <xsl:value-of select="@name"/>: arity is mandatory when referring to specifications!
+	</xsl:message>
       </xsl:when>
       <xsl:otherwise>
         <xsl:call-template name="name"/>
@@ -1556,12 +1782,17 @@
   <xsl:template match="type">
     <xsl:param name="partnum"/>
 
-    <div class="REFBODY"><p>Types:</p>
+    <!-- The case where @name != 0 is taken care of in "type_name" -->
+    <xsl:if test="string-length(@name) = 0 and string-length(@variable) = 0">
 
-      <xsl:apply-templates>
-        <xsl:with-param name="partnum" select="$partnum"/>
-      </xsl:apply-templates>
-    </div>
+      <div class="REFBODY"><p>Types:</p>
+
+	<xsl:apply-templates>
+	  <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </div>
+
+    </xsl:if>
 
   </xsl:template>
 
@@ -1612,7 +1843,10 @@
   </xsl:template>
 
   <xsl:template match="seealso">
+     <xsl:call-template name="seealso"/>
+  </xsl:template>
 
+  <xsl:template name="seealso">
     <xsl:variable name="filepart"><xsl:value-of select="substring-before(@marker, '#')"/></xsl:variable>
     <xsl:variable name="linkpart"><xsl:value-of select="translate(substring-after(@marker, '#'), '/', '-')"/></xsl:variable>
 
@@ -1633,16 +1867,16 @@
 		<xsl:variable name="app"
                               select="$m2a/mod2app/module[@name=$filepart]"/>
                 -->
-                <xsl:variable name="reftext" select="text()"/>
+                <xsl:variable name="this" select="."/>
                 <xsl:for-each select="$m2a">
                   <xsl:variable name="app" select="key('mod2app', $filepart)"/>
 		  <xsl:choose>
 		    <xsl:when test="string-length($app) > 0">
-		      <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$filepart}.html');"><xsl:value-of select="$reftext"/></a></span>
+		      <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$filepart}.html#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
 		    </xsl:when>
 		    <xsl:otherwise>
 		      <!-- Unknown application; no link -->
-		      <xsl:value-of select="$reftext"/>
+		      <xsl:value-of select="$this"/>
 		    </xsl:otherwise>
 		  </xsl:choose>
                 </xsl:for-each>
