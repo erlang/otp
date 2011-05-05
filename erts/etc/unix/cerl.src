@@ -135,25 +135,10 @@ while [ $# -gt 0 ]; do
 	    cargs="$cargs -lcnt"
 	    TYPE=.lcnt
 	    ;;
-	"-frag")
-	    shift
-	    cargs="$cargs -frag"
-	    EMU_TYPE=.frag
-	    ;;
-	"-smp_frag")
-	    shift
-	    cargs="$cargs -smp_frag"
-	    EMU_TYPE=.smp_frag
-	    ;;
 	"-gprof")
 	    shift
 	    cargs="$cargs -gprof"
 	    TYPE=.gprof
-	    ;;
-	"-hybrid")
-	    shift
-	    cargs="$cargs -hybrid"
-	    EMU_TYPE=.hybrid
 	    ;;
 	"-debug")
 	    shift
@@ -180,11 +165,6 @@ while [ $# -gt 0 ]; do
 #	    shift
 #	    GDB=xxgdb
 #	    ;;
-	"-shared")
-	    shift
-	    cargs="$cargs -shared"
-	    TYPE=.shared
-	    ;;
 	"-purify")
 	    shift
 	    cargs="$cargs -purify"
