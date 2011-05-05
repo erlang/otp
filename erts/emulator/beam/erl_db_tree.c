@@ -2694,7 +2694,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	while (1) {
 	    if ((j = do_cmp_partly_bound(*aa++, *bb++, b_base, done)) != 0 || *done)
 		return j;
-	    if (*aa==*bb)
+	    if (is_same(*aa, NULL, *bb, b_base))
 		return 0;
 	    if (is_not_list(*aa) || is_not_list(*bb))
 		return do_cmp_partly_bound(*aa, *bb, b_base, done);
