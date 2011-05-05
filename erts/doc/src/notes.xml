@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.3.2</title>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    Fix halfword emulator bug in <c>ets:select_delete</c> for
+	    <c>ordered_set</c> that caused emulator to crash.</p>
+          <p>
+	    Own Id: OTP-9258 Aux Id: seq11836 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
