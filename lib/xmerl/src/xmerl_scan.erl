@@ -3918,7 +3918,7 @@ schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) ->
     case lists:dropwhile(Pred,Atts) of
 	[#xmlAttribute{value=Paths}|_] ->
 	    
-	    case string:tokens(Paths," ") of
+	    case string:tokens(Paths," \n\t\r") of
 		L when length(L) > 0 ->
 		    case length(L) rem 2 of
 			0 ->

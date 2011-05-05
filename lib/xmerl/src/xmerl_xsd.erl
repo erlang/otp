@@ -2921,7 +2921,7 @@ schemaLocations(El=#xmlElement{attributes=Atts},S) ->
 	[] ->
 	    S;
 	[#xmlAttribute{value=Paths}|_] ->
-	    case string:tokens(Paths," ") of
+	    case string:tokens(Paths," \n\t\r") of
 		L when length(L) > 0 ->
 		    case length(L) rem 2 of
 			0 ->
