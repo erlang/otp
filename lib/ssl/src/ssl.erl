@@ -402,9 +402,9 @@ cipher_suites(openssl) ->
     [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)].
 
 %%--------------------------------------------------------------------
--spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]}| {error, reason()}.
+-spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]} | {error, reason()}.
 %% 
-%% Description:
+%% Description: Gets options
 %%--------------------------------------------------------------------
 getopts(#sslsocket{fd = new_ssl, pid = Pid}, OptTags) when is_pid(Pid) ->
     ssl_connection:get_opts(Pid, OptTags);
@@ -415,9 +415,9 @@ getopts(#sslsocket{} = Socket, Options) ->
     ssl_broker:getopts(Socket, Options).
 
 %%--------------------------------------------------------------------
--spec setopts(#sslsocket{},  [{atom(), term()}]) -> ok | {error, reason()}.
+-spec setopts(#sslsocket{},  [proplist:property()]) -> ok | {error, reason()}.
 %% 
-%% Description:
+%% Description: Sets options
 %%--------------------------------------------------------------------
 setopts(#sslsocket{fd = new_ssl, pid = Pid}, Opts0) when is_pid(Pid) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
