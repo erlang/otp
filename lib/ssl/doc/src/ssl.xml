@@ -53,13 +53,11 @@
     <p>The following data types are used in the functions below:
     </p>
 
-    <p><c>boolean() = true | false</c></p> 
-    
-    <p><c>property() = atom()</c></p>
-    
+    <p><c>boolean() = true | false</c></p>
+
     <p><c>option() = socketoption() | ssloption() | transportoption()</c></p>
 
-     <p><c>socketoption() = [{property(), term()}] - defaults to
+     <p><c>socketoption() = proplists:property() - The default socket options are
       [{mode,list},{packet, 0},{header, 0},{active, true}].
     </c></p>
 
@@ -488,7 +486,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <fsummary>Get the value of the specified options.</fsummary>
       <type>
 	<v>Socket = sslsocket()</v>
-	<v>OptionNames = [property()]</v>
+	<v>OptionNames = [atom()]</v>
       </type>
       <desc>
 	<p>Get the value of the specified socket options, if no
