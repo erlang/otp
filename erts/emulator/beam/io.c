@@ -82,6 +82,9 @@ static void driver_monitor_unlock_pdl(Port *p);
 #define DRV_MONITOR_UNLOCK_PDL(Port) /* nothing */
 #endif
 
+#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
+#define SMALL_WRITE_VEC  16
+
 static ERTS_INLINE ErlIOQueue*
 drvport2ioq(ErlDrvPort drvport)
 {
@@ -960,7 +963,7 @@ do {									\
 	b_size += _size;						\
 	in_clist = 0;							\
 	v_size++;							\
-        if (_size >= bin_limit) {					\
+        if (_size >= ERL_SMALL_IO_BIN_LIMIT) {				\
             p_in_clist = 0;						\
             p_v_size++;							\
         } else {							\
@@ -997,7 +1000,6 @@ do {									\
 
 static int 
 io_list_vec_len(Eterm obj, int* vsize, int* csize, 
-		int bin_limit, /* small binaries limit */
 		int * pvsize, int * pcsize)
 {
     DECLARE_ESTACK(s);
@@ -1062,24 +1064,16 @@ io_list_vec_len(Eterm obj, int* vsize, int* csize,
     }
 
     DESTROY_ESTACK(s);
-    if (vsize != NULL)
-	*vsize = v_size;
-    if (csize != NULL)
-	*csize = c_size;
-    if (pvsize != NULL)
-	*pvsize = p_v_size;
-    if (pcsize != NULL)
-	*pcsize = p_c_size;
+    *vsize = v_size;
+    *csize = c_size;
+    *pvsize = p_v_size;
+    *pcsize = p_c_size;
     return c_size + b_size;
 
  L_type_error:
     DESTROY_ESTACK(s);
     return -1;
 }
-
-#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
-#define SMALL_WRITE_VEC  16
-
 
 /* write data to a port */
 int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
@@ -1107,7 +1101,6 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	ErlIOVec ev;
 
 	if ((size = io_list_vec_len(list, &vsize, &csize, 
-				    ERL_SMALL_IO_BIN_LIMIT,
 				    &pvsize, &pcsize)) < 0) {
 	    goto bad_value;
 	}
