@@ -29,6 +29,20 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.0.7</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            An unexpected message would crash the ssh_connection_handler and close
+            the connection. Now an error message is generated instead.</p>
+          <p>
+            Own Id: OTP-9273</p>
+        </item>
+      </list>
+    </section>
+</section>
+
 <section><title>Ssh 2.0.6</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
