@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -39,43 +39,33 @@
   </description>
   <funcs>
     <func>
-      <name>bt(Pid) -> void()</name>
+      <name name="bt" arity="1"/>
       <fsummary>Stack backtrace for a process</fsummary>
-      <type>
-        <v>Pid = pid()</v>
-      </type>
       <desc>
         <p>Stack backtrace for a process. Equivalent to
-          <c>erlang:process_display(Pid, backtrace)</c>.</p>
+          <c>erlang:process_display(<anno>Pid</anno>, backtrace)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>c(File) -> {ok, Module} | error</name>
-      <name>c(File, Options) -> {ok, Module} | error</name>
+      <name name="c" arity="1"/>
+      <name name="c" arity="2"/>
       <fsummary>Compile and load code in a file</fsummary>
-      <type>
-        <v>File = name() -- see filename(3)</v>
-        <v>Options = [Opt] -- see compile:file/2</v>
-      </type>
       <desc>
         <p><c>c/1,2</c> compiles and then purges and loads the code for
-          a file. <c>Options</c> defaults to []. Compilation is
+          a file. <c><anno>Options</anno></c> defaults to []. Compilation is
           equivalent to:</p>
         <code type="none">
-compile:file(File, Options ++ [report_errors, report_warnings])</code>
+compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_warnings])</code>
         <p>Note that purging the code means that any processes
           lingering in old code for the module are killed without
           warning. See <c>code/3</c> for more information.</p>
       </desc>
     </func>
     <func>
-      <name>cd(Dir) -> void()</name>
+      <name name="cd" arity="1"/>
       <fsummary>Change working directory</fsummary>
-      <type>
-        <v>Dir = name() -- see filename(3)</v>
-      </type>
       <desc>
-        <p>Changes working directory to <c>Dir</c>, which may be a
+        <p>Changes working directory to <c><anno>Dir</anno></c>, which may be a
           relative name, and then prints the name of the new working
           directory.</p>
         <pre>
@@ -84,14 +74,14 @@ compile:file(File, Options ++ [report_errors, report_warnings])</code>
       </desc>
     </func>
     <func>
-      <name>flush() -> void()</name>
+      <name name="flush" arity="0"/>
       <fsummary>Flush any messages sent to the shell</fsummary>
       <desc>
         <p>Flushes any messages sent to the shell.</p>
       </desc>
     </func>
     <func>
-      <name>help() -> void()</name>
+      <name name="help" arity="0"/>
       <fsummary>Help information</fsummary>
       <desc>
         <p>Displays help information: all valid shell internal commands,
@@ -99,8 +89,8 @@ compile:file(File, Options ++ [report_errors, report_warnings])</code>
       </desc>
     </func>
     <func>
-      <name>i() -> void()</name>
-      <name>ni() -> void()</name>
+      <name name="i" arity="0"/>
+      <name name="ni" arity="0"/>
       <fsummary>Information about the system</fsummary>
       <desc>
         <p><c>i/0</c> displays information about the system, listing
@@ -109,26 +99,20 @@ compile:file(File, Options ++ [report_errors, report_warnings])</code>
       </desc>
     </func>
     <func>
-      <name>i(X, Y, Z) -> void()</name>
+      <name name="i" arity="3"/>
       <fsummary>Information about pid &lt;X.Y.Z&gt;</fsummary>
-      <type>
-        <v>X = Y = Z = int()</v>
-      </type>
       <desc>
         <p>Displays information about a process, Equivalent to
-          <c>process_info(pid(X, Y, Z))</c>, but location transparent.</p>
+          <c>process_info(pid(<anno>X</anno>, <anno>Y</anno>, <anno>Z</anno>))</c>, but location transparent.</p>
       </desc>
     </func>
     <func>
-      <name>l(Module) -> void()</name>
+      <name name="l" arity="1"/>
       <fsummary>Load or reload module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
         <p>Purges and loads, or reloads, a module by calling
-          <c>code:purge(Module)</c> followed by
-          <c>code:load_file(Module)</c>.</p>
+          <c>code:purge(<anno>Module</anno>)</c> followed by
+          <c>code:load_file(<anno>Module</anno>)</c>.</p>
         <p>Note that purging the code means that any processes
           lingering in old code for the module are killed without
           warning. See <c>code/3</c> for more information.</p>
@@ -136,35 +120,33 @@ compile:file(File, Options ++ [report_errors, report_warnings])</code>
     </func>
     <func>
       <name>lc(Files) -> ok</name>
-      <fsummary>Compile a list of files</fsummary>
       <type>
         <v>Files = [File]</v>
-        <v>&nbsp;File = name() -- see filename(3)</v>
+        <v>File = <seealso marker="file#type-filename">file:filename()
+          </seealso></v>
       </type>
+      <fsummary>Compile a list of files</fsummary>
       <desc>
         <p>Compiles a list of files by calling <c>compile:file(File, [report_errors, report_warnings])</c> for each <c>File</c>
           in <c>Files</c>.</p>
       </desc>
     </func>
     <func>
-      <name>ls() -> void()</name>
+      <name name="ls" arity="0"/>
       <fsummary>List files in the current directory</fsummary>
       <desc>
         <p>Lists files in the current directory.</p>
       </desc>
     </func>
     <func>
-      <name>ls(Dir) -> void()</name>
+      <name name="ls" arity="1"/>
       <fsummary>List files in a directory</fsummary>
-      <type>
-        <v>Dir = name() -- see filename(3)</v>
-      </type>
       <desc>
-        <p>Lists files in directory <c>Dir</c>.</p>
+        <p>Lists files in directory <c><anno>Dir</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>m() -> void()</name>
+      <name name="m" arity="0"/>
       <fsummary>Which modules are loaded</fsummary>
       <desc>
         <p>Displays information about the loaded modules, including
@@ -172,84 +154,67 @@ compile:file(File, Options ++ [report_errors, report_warnings])</code>
       </desc>
     </func>
     <func>
-      <name>m(Module) -> void()</name>
+      <name name="m" arity="1"/>
       <fsummary>Information about a module</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
-        <p>Displays information about <c>Module</c>.</p>
+        <p>Displays information about <c><anno>Module</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>memory() -> [{Type, Size}]</name>
+      <name name="memory" arity="0"/>
       <fsummary>Memory allocation information</fsummary>
-      <type>
-        <v>Type, Size -- see erlang:memory/0</v>
-      </type>
       <desc>
         <p>Memory allocation information. Equivalent to
-          <c>erlang:memory/0</c>.</p>
+          <seealso marker="erts:erlang#memory/0"><c>erlang:memory/0</c>
+          </seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>memory(Type) -> Size</name>
-      <name>memory([Type]) -> [{Type, Size}]</name>
+      <name name="memory" arity="1" clause_i="1"/>
+      <name name="memory" arity="1" clause_i="2"/>
       <fsummary>Memory allocation information</fsummary>
-      <type>
-        <v>Type, Size -- see erlang:memory/0</v>
-      </type>
       <desc>
         <p>Memory allocation information. Equivalent to
-          <c>erlang:memory/1</c>.</p>
+          <seealso marker="erts:erlang#memory/1"><c>erlang:memory/1</c>
+          </seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>nc(File) -> {ok, Module} | error</name>
-      <name>nc(File, Options) -> {ok, Module} | error</name>
+      <name name="nc" arity="1"/>
+      <name name="nc" arity="2"/>
       <fsummary>Compile and load code in a file on all nodes</fsummary>
-      <type>
-        <v>File = name() -- see filename(3)</v>
-        <v>Options = [Opt] -- see compile:file/2</v>
-      </type>
       <desc>
         <p>Compiles and then loads the code for a file on all nodes.
-          <c>Options</c> defaults to []. Compilation is equivalent to:</p>
+          <c><anno>Options</anno></c> defaults to []. Compilation is equivalent to:</p>
         <code type="none">
-compile:file(File, Opts ++ [report_errors, report_warnings])</code>
+compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_warnings])</code>
       </desc>
     </func>
     <func>
-      <name>nl(Module) -> void()</name>
+      <name name="nl" arity="1"/>
       <fsummary>Load module on all nodes</fsummary>
-      <type>
-        <v>Module = atom()</v>
-      </type>
       <desc>
-        <p>Loads <c>Module</c> on all nodes.</p>
+        <p>Loads <c><anno>Module</anno></c> on all nodes.</p>
       </desc>
     </func>
     <func>
-      <name>pid(X, Y, Z) -> pid()</name>
+      <name name="pid" arity="3"/>
       <fsummary>Convert X,Y,Z to a pid</fsummary>
-      <type>
-        <v>X = Y = Z = int()</v>
-      </type>
       <desc>
-        <p>Converts <c>X</c>, <c>Y</c>, <c>Z</c> to the pid
+        <p>Converts <c><anno>X</anno></c>, <c><anno>Y</anno></c>, <c><anno>Z</anno></c> to the pid
           <c><![CDATA[<X.Y.Z>]]></c>. This function should only be used when
           debugging.</p>
       </desc>
     </func>
     <func>
-      <name>pwd() -> void()</name>
+      <name name="pwd" arity="0"/>
       <fsummary>Print working directory</fsummary>
       <desc>
         <p>Prints the name of the working directory.</p>
       </desc>
     </func>
     <func>
-      <name>q() -> void()</name>
+      <name name="q" arity="0"/>
       <fsummary>Quit - shorthand for <c>init:stop()</c></fsummary>
       <desc>
         <p>This function is shorthand for <c>init:stop()</c>, that is,
@@ -257,8 +222,8 @@ compile:file(File, Opts ++ [report_errors, report_warnings])</code>
       </desc>
     </func>
     <func>
-      <name>regs() -> void()</name>
-      <name>nregs() -> void()</name>
+      <name name="regs" arity="0"/>
+      <name name="nregs" arity="0"/>
       <fsummary>Information about registered processes</fsummary>
       <desc>
         <p><c>regs/0</c> displays information about all registered

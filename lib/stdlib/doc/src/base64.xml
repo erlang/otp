@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2009</year>
+      <year>2007</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,32 +33,33 @@
   <description>
     <p>Implements base 64 encode and decode, see RFC2045. </p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="ascii_string"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>encode(Data) -> Base64 </name>
-      <name>encode_to_string(Data) -> Base64String</name>
+      <name name="encode" arity="1"/>
+      <name name="encode_to_string" arity="1"/>
       <fsummary>Encodes data into base64. </fsummary>
-      <type>
-        <v>Data = string() | binary()</v>
-        <v>Base64 = binary()</v>
-        <v>Base64String = string()</v>
-      </type>
+      <type variable="Data"/>
+      <type variable="Base64" name_i="1"/>
+      <type variable="Base64String"/>
       <desc>
         <p>Encodes a plain ASCII string into base64. The result will
           be 33% larger than the data.</p>
       </desc>
     </func>
     <func>
-      <name>decode(Base64) -> Data</name>
-      <name>decode_to_string(Base64) -> DataString</name>
-      <name>mime_decode(Base64) -> Data</name>
-      <name>mime_decode_to_string(Base64) -> DataString</name>
+      <name name="decode" arity="1"/>
+      <name name="decode_to_string" arity="1"/>
+      <name name="mime_decode" arity="1"/>
+      <name name="mime_decode_to_string" arity="1"/>
       <fsummary>Decodes a base64 encoded string to data. </fsummary>
-      <type>
-        <v>Base64 = string() | binary()</v>
-        <v>Data = binary()</v>
-        <v>DataString = string()</v>
-      </type>
+      <type variable="Base64" name_i="1"/>
+      <type variable="Data" name_i="1"/>
+      <type variable="DataString" name_i="2"/>
       <desc>
         <p>Decodes a base64 encoded string to plain ASCII. See RFC4648.
           <c>mime_decode/1</c> and <c>mime_decode_to_string/1</c>

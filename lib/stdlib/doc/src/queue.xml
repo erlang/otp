@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -88,122 +88,94 @@
     <title>Original API</title>
   </section>
 
+  <datatypes>
+    <datatype>
+      <name><marker id="type-queue">queue()</marker></name>
+      <desc><p>As returned by <c>new/0</c>.</p></desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>new() -> Q</name>
+      <name name="new" arity="0"/>
       <fsummary>Create an empty queue</fsummary>
-      <type>
-        <v>Q = queue()</v>
-      </type>
       <desc>
         <p>Returns an empty queue.</p>
       </desc>
     </func>
     <func>
-      <name>is_queue(Term) -> true | false</name>
+      <name name="is_queue" arity="1"/>
       <fsummary>Test if a term is a queue</fsummary>
-      <type>
-        <v>Term = term()</v>
-      </type>
       <desc>
-        <p>Tests if <c>Q</c> is a queue and returns <c>true</c> if so and
+        <p>Tests if <c><anno>Term</anno></c> is a queue and returns <c>true</c> if so and
           <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_empty(Q) -> true | false</name>
+      <name name="is_empty" arity="1"/>
       <fsummary>Test if a queue is empty</fsummary>
-      <type>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Tests if <c>Q</c> is empty and returns <c>true</c> if so and
+        <p>Tests if <c><anno>Q</anno></c> is empty and returns <c>true</c> if so and
           <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>len(Q) -> N</name>
+      <name name="len" arity="1"/>
       <fsummary>Get the length of a queue</fsummary>
-      <type>
-        <v>Q = queue()</v>
-        <v>N = integer()</v>
-      </type>
       <desc>
-        <p>Calculates and returns the length of queue <c>Q</c>.</p>
+        <p>Calculates and returns the length of queue <c><anno>Q</anno></c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>in(Item, Q1) -> Q2</name>
+      <name name="in" arity="2"/>
       <fsummary>Insert an item at the rear of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Inserts <c>Item</c> at the rear of queue <c>Q1</c>.
-          Returns the resulting queue <c>Q2</c>.</p>
+        <p>Inserts <c><anno>Item</anno></c> at the rear of queue <c><anno>Q1</anno></c>.
+          Returns the resulting queue <c><anno>Q2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>in_r(Item, Q1) -> Q2</name>
+      <name name="in_r" arity="2"/>
       <fsummary>Insert an item at the front of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Inserts <c>Item</c> at the front of queue <c>Q1</c>.
-          Returns the resulting queue <c>Q2</c>.</p>
+        <p>Inserts <c><anno>Item</anno></c> at the front of queue <c><anno>Q1</anno></c>.
+          Returns the resulting queue <c><anno>Q2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>out(Q1) -> Result</name>
+      <name name="out" arity="1"/>
       <fsummary>Remove the front item from a queue</fsummary>
-      <type>
-        <v>Result = {{value, Item}, Q2} | {empty, Q1}</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Removes the item at the front of queue <c>Q1</c>. Returns the
-          tuple <c>{{value, Item}, Q2}</c>, where <c>Item</c> is the
-          item removed and <c>Q2</c> is the resulting queue. If <c>Q1</c> is
-          empty, the tuple <c>{empty, Q1}</c> is returned.</p>
+        <p>Removes the item at the front of queue <c><anno>Q1</anno></c>. Returns the
+          tuple <c>{{value, <anno>Item</anno>}, <anno>Q2</anno>}</c>, where <c><anno>Item</anno></c> is the
+          item removed and <c><anno>Q2</anno></c> is the resulting queue. If <c><anno>Q1</anno></c> is
+          empty, the tuple <c>{empty, <anno>Q1</anno>}</c> is returned.</p>
       </desc>
     </func>
     <func>
-      <name>out_r(Q1) -> Result</name>
+      <name name="out_r" arity="1"/>
       <fsummary>Remove the rear item from a queue</fsummary>
-      <type>
-        <v>Result = {{value, Item}, Q2} | {empty, Q1}</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Removes the item at the rear of the queue <c>Q1</c>. Returns the
-          tuple <c>{{value, Item}, Q2}</c>, where <c>Item</c> is the 
-          item removed and <c>Q2</c> is the new queue. If <c>Q1</c> is
-          empty, the tuple <c>{empty, Q1}</c> is returned.  </p>
+        <p>Removes the item at the rear of the queue <c><anno>Q1</anno></c>. Returns the
+          tuple <c>{{value, <anno>Item</anno>}, <anno>Q2</anno>}</c>, where <c><anno>Item</anno></c> is the
+          item removed and <c><anno>Q2</anno></c> is the new queue. If <c><anno>Q1</anno></c> is
+          empty, the tuple <c>{empty, <anno>Q1</anno>}</c> is returned.  </p>
       </desc>
     </func>
 
     <func>
-      <name>from_list(L) -> queue()</name>
+      <name name="from_list" arity="1"/>
       <fsummary>Convert a list to a queue</fsummary>
-      <type>
-        <v>L = list()</v>
-      </type>
       <desc>
-        <p>Returns a queue containing the items in <c>L</c> in the
+        <p>Returns a queue containing the items in <c><anno>L</anno></c> in the
           same order; the head item of the list will become the front
           item of the queue.</p>
       </desc>
     </func>
     <func>
-      <name>to_list(Q) -> list()</name>
+      <name name="to_list" arity="1"/>
       <fsummary>Convert a queue to a list</fsummary>
-      <type>
-        <v>Q = queue()</v>
-      </type>
       <desc>
         <p>Returns a list of the items in the queue in the same order;
           the front item of the queue will become the head of the list.</p>
@@ -211,57 +183,43 @@
     </func>
 
     <func>
-      <name>reverse(Q1) -> Q2</name>
+      <name name="reverse" arity="1"/>
       <fsummary>Reverse a queue</fsummary>
-      <type>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q2</c> that contains the items of
-          <c>Q1</c> in the reverse order.</p>
+        <p>Returns a queue <c><anno>Q2</anno></c> that contains the items of
+          <c><anno>Q1</anno></c> in the reverse order.</p>
       </desc>
     </func>
     <func>
-      <name>split(N, Q1) -> {Q2,Q3}</name>
+      <name name="split" arity="2"/>
       <fsummary>Split a queue in two</fsummary>
-      <type>
-        <v>N = integer()</v>
-        <v>Q1 = Q2 = Q3 = queue()</v>
-      </type>
       <desc>
-        <p>Splits <c>Q1</c> in two. The <c>N</c> front items
-          are put in <c>Q2</c> and the rest in <c>Q3</c></p>
+        <p>Splits <c><anno>Q1</anno></c> in two. The <c><anno>N</anno></c> front items
+          are put in <c><anno>Q2</anno></c> and the rest in <c><anno>Q3</anno></c></p>
       </desc>
     </func>
     <func>
-      <name>join(Q1, Q2) -> Q3</name>
+      <name name="join" arity="2"/>
       <fsummary>Join two queues</fsummary>
-      <type>
-        <v>Q1 = Q2 = Q3 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q3</c> that is the result of joining
-          <c>Q1</c> and <c>Q2</c> with <c>Q1</c> in front of
-          <c>Q2</c>.</p>
+        <p>Returns a queue <c><anno>Q3</anno></c> that is the result of joining
+          <c><anno>Q1</anno></c> and <c><anno>Q2</anno></c> with <c><anno>Q1</anno></c> in front of
+          <c><anno>Q2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>filter(Fun, Q1) -> Q2</name>
+      <name name="filter" arity="2"/>
       <fsummary>Filter a queue</fsummary>
-      <type>
-        <v>Fun = fun(Item) -> bool() | list()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q2</c> that is the result of calling
-          <c>Fun(Item)</c> on all items in <c>Q1</c>,
+        <p>Returns a queue <c><anno>Q2</anno></c> that is the result of calling
+          <c><anno>Fun</anno>(<anno>Item</anno>)</c> on all items in <c><anno>Q1</anno></c>,
           in order from front to rear.</p>
-        <p>If <c>Fun(Item)</c> returns <c>true</c>, <c>Item</c>
+        <p>If <c><anno>Fun</anno>(<anno>Item</anno>)</c> returns <c>true</c>, <c>Item</c>
           is copied to the result queue. If it returns <c>false</c>,
-          <c>Item</c> is not copied. If it returns a list
+          <c><anno>Item</anno></c> is not copied. If it returns a list
           the list elements are inserted instead of <c>Item</c> in the
           result queue.</p>
-        <p>So, <c>Fun(Item)</c> returning <c>[Item]</c> is thereby
+        <p>So, <c><anno>Fun</anno>(<anno>Item</anno>)</c> returning <c>[<anno>Item</anno>]</c> is thereby
           semantically equivalent to returning <c>true</c>, just
           as returning <c>[]</c> is semantically equivalent to
           returning <c>false</c>. But returning a list builds
@@ -269,15 +227,11 @@
       </desc>
     </func>
     <func>
-      <name>member(Item, Q) -> bool()</name>
+      <name name="member" arity="2"/>
       <fsummary>Test if an item is in a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Item</c> matches some element
-          in <c>Q</c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Item</anno></c> matches some element
+          in <c><anno>Q</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
   </funcs>
@@ -290,77 +244,53 @@
 
   <funcs>
     <func>
-      <name>get(Q) -> Item</name>
+      <name name="get" arity="1"/>
       <fsummary>Return the front item of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns <c>Item</c> at the front of queue <c>Q</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+        <p>Returns <c><anno>Item</anno></c> at the front of queue <c><anno>Q</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>get_r(Q) -> Item</name>
+      <name name="get_r" arity="1"/>
       <fsummary>Return the rear item of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns <c>Item</c> at the rear of queue <c>Q</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+        <p>Returns <c><anno>Item</anno></c> at the rear of queue <c><anno>Q</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>drop(Q1) -> Q2</name>
+      <name name="drop" arity="1"/>
       <fsummary>Remove the front item from a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q2</c> that is the result of removing
-          the front item from <c>Q1</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
+          the front item from <c><anno>Q1</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>drop_r(Q1) -> Q2</name>
+      <name name="drop_r" arity="1"/>
       <fsummary>Remove the rear item from a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q2</c> that is the result of removing
-          the rear item from <c>Q1</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
+          the rear item from <c><anno>Q1</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>peek(Q) -> {value,Item} | empty</name>
+      <name name="peek" arity="1"/>
       <fsummary>Return the front item of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns the tuple <c>{value, Item}</c> where <c>Item</c> is the
-          front item of <c>Q</c>, or <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>Returns the tuple <c>{value, <anno>Item</anno>}</c> where <c><anno>Item</anno></c> is the
+          front item of <c><anno>Q</anno></c>, or <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>peek_r(Q) -> {value,Item} | empty</name>
+      <name name="peek_r" arity="1"/>
       <fsummary>Return the rear item of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns the tuple <c>{value, Item}</c> where <c>Item</c> is the
-          rear item of <c>Q</c>, or <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>Returns the tuple <c>{value, <anno>Item</anno>}</c> where <c><anno>Item</anno></c> is the
+          rear item of <c><anno>Q</anno></c>, or <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
       </desc>
     </func>
   </funcs>
@@ -372,80 +302,56 @@
 
   <funcs>
     <func>
-      <name>cons(Item, Q1) -> Q2</name>
+      <name name="cons" arity="2"/>
       <fsummary>Insert an item at the head of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Inserts <c>Item</c> at the head of queue <c>Q1</c>. Returns
-          the new queue <c>Q2</c>.</p>
+        <p>Inserts <c><anno>Item</anno></c> at the head of queue <c><anno>Q1</anno></c>. Returns
+          the new queue <c><anno>Q2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>head(Q) -> Item</name>
+      <name name="head" arity="1"/>
       <fsummary>Return the item at the head of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns <c>Item</c> from the head of queue <c>Q</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+        <p>Returns <c><anno>Item</anno></c> from the head of queue <c><anno>Q</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>tail(Q1) -> Q2</name>
+      <name name="tail" arity="1"/>
       <fsummary>Remove the head item from a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q2</c> that is the result of removing
-          the head item from <c>Q1</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
+          the head item from <c><anno>Q1</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>snoc(Q1, Item) -> Q2</name>
+      <name name="snoc" arity="2"/>
       <fsummary>Insert an item at the tail of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Inserts <c>Item</c> as the tail item of queue <c>Q1</c>. Returns
-          the new queue <c>Q2</c>.</p>
+        <p>Inserts <c><anno>Item</anno></c> as the tail item of queue <c><anno>Q1</anno></c>. Returns
+          the new queue <c><anno>Q2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>daeh(Q) -> Item</name>
-      <name>last(Q) -> Item</name>
+      <name name="daeh" arity="1"/>
+      <name name="last" arity="1"/>
       <fsummary>Return the tail item of a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q = queue()</v>
-      </type>
       <desc>
-        <p>Returns the tail item of queue <c>Q</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+        <p>Returns the tail item of queue <c><anno>Q</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q</anno></c> is empty.</p>
       </desc>
     </func>
     <func>
-      <name>liat(Q1) -> Q2</name>
-      <name>init(Q1) -> Q2</name>
-      <name>lait(Q1) -> Q2</name>
+      <name name="liat" arity="1"/>
+      <name name="init" arity="1"/>
+      <name name="lait" arity="1"/>
       <fsummary>Remove the tail item from a queue</fsummary>
-      <type>
-        <v>Item = term()</v>
-        <v>Q1 = Q2 = queue()</v>
-      </type>
       <desc>
-        <p>Returns a queue <c>Q2</c> that is the result of removing
-          the tail item from <c>Q1</c>.</p>
-        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>Returns a queue <c><anno>Q2</anno></c> that is the result of removing
+          the tail item from <c><anno>Q1</anno></c>.</p>
+        <p>Fails with reason <c>empty</c> if <c><anno>Q1</anno></c> is empty.</p>
         <p>The name <c>lait/1</c> is a misspelling - do not use it anymore.</p>
       </desc>
     </func>
