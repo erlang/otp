@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,10 +33,56 @@
 -export([error_string/1]).
 -export([controlling_process/2]).
 
+-opaque assoc_id() :: term().
+-type hostname() :: inet:hostname().
+-type ip_address() :: inet:ip_address().
+-type port_number() :: 0..65535.
+-type posix() :: inet:posix().
+-type sctp_option() ::
+        {mode, list | binary} | list | binary
+      | {active, true | false | once}
+      | {buffer, non_neg_integer()}
+      | {tos, integer()}
+      | {priority, integer()}
+      | {dontroute, boolean()}
+      | {reuseaddr, boolean()}
+      | {linger, {boolean(), non_neg_integer()}}
+      | {sndbuf, non_neg_integer()}
+      | {recbuf, non_neg_integer()}
+      | {sctp_rtoinfo, #sctp_rtoinfo{}}
+      | {sctp_associnfo, #sctp_assocparams{}}
+      | {sctp_initmsg, #sctp_initmsg{}}
+      | {sctp_autoclose, timeout()}
+      | {sctp_nodelay, boolean()}
+      | {sctp_disable_fragments, boolean()}
+      | {sctp_i_want_mapped_v4_addr, boolean()}
+      | {sctp_maxseg, non_neg_integer()}
+      | {sctp_primary_addr, #sctp_prim{}}
+      | {sctp_set_peer_primary_addr, #sctp_setpeerprim{}}
+      | {sctp_adaptation_layer, #sctp_setadaptation{}}
+      | {sctp_peer_addr_params, #sctp_paddrparams{}}
+      | {sctp_default_send_param, #sctp_sndrcvinfo{}}
+      | {sctp_events, #sctp_event_subscribe{}}
+      | {sctp_delayed_ack_time, #sctp_assoc_value{}}
+      | {sctp_status, #sctp_status{}}
+      | {sctp_get_peer_addr_info, #sctp_paddrinfo{}}.
+-opaque sctp_socket() :: port().
 
+-spec open() -> {ok, Socket} | {error, posix()} when
+      Socket :: sctp_socket().
 
 open() ->
     open([]).
+
+-spec open(Port) -> {ok, Socket} | {error, posix()} when
+              Port :: port_number(),
+              Socket :: sctp_socket();
+          (Opts) -> {ok, Socket} | {error, posix()} when
+              Opts :: [Opt],
+              Opt :: {ip,IP} | {ifaddr,IP} | {port,Port} | sctp_option(),
+              IP :: ip_address() | any | loopback,
+              Port :: port_number(),
+              Socket :: sctp_socket().
 
 open(Opts) when is_list(Opts) ->
     Mod = mod(Opts, undefined),
@@ -52,10 +98,20 @@ open(Port) when is_integer(Port) ->
 open(X) ->
     erlang:error(badarg, [X]).
 
+-spec open(Port, Opts) -> {ok, Socket} | {error, posix()} when
+      Opts :: [Opt],
+      Opt :: {ip,IP} | {ifaddr,IP} | {port,Port} | sctp_option(),
+      IP :: ip_address() | any | loopback,
+      Port :: port_number(),
+      Socket :: sctp_socket().
+
 open(Port, Opts) when is_integer(Port), is_list(Opts) ->
     open([{port,Port}|Opts]);
 open(Port, Opts) ->
     erlang:error(badarg, [Port,Opts]).
+
+-spec close(Socket) -> ok | {error, posix()} when
+      Socket :: sctp_socket().
 
 close(S) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -68,6 +124,11 @@ close(S) ->
 
 
 
+-spec listen(Socket, IsServer) -> ok | {error, Reason} when
+      Socket :: sctp_socket(),
+      IsServer :: boolean(),
+      Reason :: term().
+
 listen(S, Flag) when is_port(S), is_boolean(Flag) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
@@ -77,8 +138,24 @@ listen(S, Flag) when is_port(S), is_boolean(Flag) ->
 listen(S, Flag) ->
     erlang:error(badarg, [S,Flag]).
 
+-spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, posix()} when
+      Socket :: sctp_socket(),
+      Addr :: ip_address() | hostname(),
+      Port :: port_number(),
+      Opts :: [Opt :: sctp_option()],
+      Assoc :: #sctp_assoc_change{}.
+
 connect(S, Addr, Port, Opts) ->
     connect(S, Addr, Port, Opts, infinity).
+
+-spec connect(Socket, Addr, Port, Opts, Timeout) ->
+                     {ok, Assoc} | {error, posix()} when
+      Socket :: sctp_socket(),
+      Addr :: ip_address() | hostname(),
+      Port :: port_number(),
+      Opts :: [Opt :: sctp_option()],
+      Timeout :: timeout(),
+      Assoc :: #sctp_assoc_change{}.
 
 connect(S, Addr, Port, Opts, Timeout) ->
     case do_connect(S, Addr, Port, Opts, Timeout, true) of
@@ -88,8 +165,23 @@ connect(S, Addr, Port, Opts, Timeout) ->
 	    Result
     end.
 
+-spec connect_init(Socket, Addr, Port, Opts) ->
+                          ok | {error, posix()} when
+      Socket :: sctp_socket(),
+      Addr :: ip_address() | hostname(),
+      Port :: port_number(),
+      Opts :: [sctp_option()].
+
 connect_init(S, Addr, Port, Opts) ->
     connect_init(S, Addr, Port, Opts, infinity).
+
+-spec connect_init(Socket, Addr, Port, Opts, Timeout) ->
+                          ok | {error, posix()} when
+      Socket :: sctp_socket(),
+      Addr :: ip_address() | hostname(),
+      Port :: port_number(),
+      Opts :: [sctp_option()],
+      Timeout :: timeout().
 
 connect_init(S, Addr, Port, Opts, Timeout) ->
     case do_connect(S, Addr, Port, Opts, Timeout, false) of
@@ -130,11 +222,19 @@ do_connect(_S, _Addr, _Port, _Opts, _Timeout, _ConnWait) ->
     badarg.
 
 
+-spec eof(Socket, Assoc) -> ok | {error, Reason} when
+      Socket :: sctp_socket(),
+      Assoc :: #sctp_assoc_change{},
+      Reason :: term().
 
 eof(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
     eof_or_abort(S, AssocId, eof);
 eof(S, Assoc) ->
     erlang:error(badarg, [S,Assoc]).
+
+-spec abort(Socket, Assoc) -> ok | {error, posix()} when
+      Socket :: sctp_socket(),
+      Assoc :: #sctp_assoc_change{}.
 
 abort(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
     eof_or_abort(S, AssocId, abort);
@@ -151,6 +251,11 @@ eof_or_abort(S, AssocId, Action) ->
     end.
 
 
+-spec send(Socket, SndRcvInfo, Data) -> ok | {error, Reason} when
+      Socket :: sctp_socket(),
+      SndRcvInfo :: #sctp_sndrcvinfo{},
+      Data :: binary | iolist(),
+      Reason :: term().
 
 %% Full-featured send. Rarely needed.
 send(S, #sctp_sndrcvinfo{}=SRI, Data) when is_port(S) ->
@@ -161,6 +266,13 @@ send(S, #sctp_sndrcvinfo{}=SRI, Data) when is_port(S) ->
     end;
 send(S, SRI, Data) ->
     erlang:error(badarg, [S,SRI,Data]).
+
+-spec send(Socket, Assoc, Stream, Data) -> ok | {error, Reason} when
+      Socket :: sctp_socket(),
+      Assoc :: #sctp_assoc_change{} | assoc_id(),
+      Stream :: integer(),
+      Data :: binary | iolist(),
+      Reason :: term().
 
 send(S, #sctp_assoc_change{assoc_id=AssocId}, Stream, Data)
   when is_port(S), is_integer(Stream) ->
@@ -179,8 +291,35 @@ send(S, AssocId, Stream, Data)
 send(S, AssocChange, Stream, Data) ->
     erlang:error(badarg, [S,AssocChange,Stream,Data]).
 
+-spec recv(Socket) -> {ok, {FromIP, FromPort, AncData, Data}}
+                          | {error, Reason} when
+      Socket :: sctp_socket(),
+      FromIP   :: ip_address(),
+      FromPort :: port_number(),
+      AncData  :: [#sctp_sndrcvinfo{}],
+      Data     :: binary() | string() | #sctp_sndrcvinfo{}
+                | #sctp_assoc_change{} | #sctp_paddr_change{}
+                | #sctp_adaptation_event{},
+      Reason   :: posix() | #sctp_send_failed{} | #sctp_paddr_change{}
+                | #sctp_pdapi_event{} | #sctp_remote_error{}
+                | #sctp_shutdown_event{}.
+
 recv(S) ->
     recv(S, infinity).
+
+-spec recv(Socket, Timeout) -> {ok, {FromIP, FromPort, AncData, Data}}
+                                   | {error, Reason} when
+      Socket :: sctp_socket(),
+      Timeout :: timeout(),
+      FromIP   :: ip_address(),
+      FromPort :: port_number(),
+      AncData  :: [#sctp_sndrcvinfo{}],
+      Data     :: binary() | string() | #sctp_sndrcvinfo{}
+                | #sctp_assoc_change{} | #sctp_paddr_change{}
+                | #sctp_adaptation_event{},
+      Reason   :: posix() | #sctp_send_failed{} | #sctp_paddr_change{}
+                | #sctp_pdapi_event{} | #sctp_remote_error{}
+                | #sctp_shutdown_event{}.
 
 recv(S, Timeout) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -192,6 +331,8 @@ recv(S, Timeout) ->
     erlang:error(badarg, [S,Timeout]).
 
 
+-spec error_string(ErrorNumber) -> ok | string() | unknown_error when
+      ErrorNumber :: integer().
 
 error_string(0) ->
     ok;
@@ -224,6 +365,9 @@ error_string(X) ->
     erlang:error(badarg, [X]).
 
 
+-spec controlling_process(Socket, Pid) -> ok when
+      Socket :: sctp_socket(),
+      Pid :: pid().
 
 controlling_process(S, Pid) when is_port(S), is_pid(Pid) ->
     inet:udp_controlling_process(S, Pid);

@@ -24,7 +24,10 @@
 
 -include("file.hrl").
 
--spec type() -> 'vxworks' | {'unix',atom()} | {'win32',atom()} | {'ose',atom()}.
+-spec type() -> vxworks | {Osfamily, Osname} when
+      Osfamily :: unix | win32,
+      Osname :: atom().
+
 type() ->
     case erlang:system_info(os_type) of
 	{vxworks, _} ->
@@ -32,18 +35,27 @@ type() ->
 	Else -> Else
     end.
 
--spec version() -> string() | {non_neg_integer(),non_neg_integer(),non_neg_integer()}.
+-spec version() -> VersionString | {Major, Minor, Release} when
+      VersionString :: string(),
+      Major :: non_neg_integer(),
+      Minor :: non_neg_integer(),
+      Release :: non_neg_integer().
 version() ->
     erlang:system_info(os_version).
 
--spec find_executable(string()) -> string() | 'false'.
+-spec find_executable(Name) -> Filename | 'false' when
+      Name :: string(),
+      Filename :: string().
 find_executable(Name) ->
     case os:getenv("PATH") of
 	false -> find_executable(Name, []);
 	Path  -> find_executable(Name, Path)
     end.
 
--spec find_executable(string(), string()) -> string() | 'false'.
+-spec find_executable(Name, Path) -> Filename | 'false' when
+      Name :: string(),
+      Path :: string(),
+      Filename :: string().
 find_executable(Name, Path) ->
     Extensions = extensions(),
     case filename:pathtype(Name) of
@@ -147,7 +159,8 @@ extensions() ->
     end.
 
 %% Executes the given command in the default shell for the operating system.
--spec cmd(atom() | string() | [string()]) -> string().
+-spec cmd(Command) -> string() when
+      Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
     validate(Cmd),
     case type() of

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -59,7 +59,11 @@
 
 -type ip4_address() :: {0..255,0..255,0..255,0..255}.
 
--spec start(Slaves :: [atom()]) -> {'ok', pid()} | {'error', any()}.
+-spec start(Slaves) -> {'ok', Pid} | {'error', What} when
+      Slaves :: [Host],
+      Host :: atom(),
+      Pid :: pid(),
+      What :: any().
 
 start(Slaves) ->
     case check_arg(Slaves) of
@@ -69,7 +73,11 @@ start(Slaves) ->
 	    {error, {badarg, Slaves}}
     end.
 
--spec start_link(Slaves :: [atom()]) -> {'ok', pid()} | {'error', any()}.
+-spec start_link(Slaves) -> {'ok', Pid} | {'error', What} when
+      Slaves :: [Host],
+      Host :: atom(),
+      Pid :: pid(),
+      What :: any().
 
 start_link(Slaves) ->
     case check_arg(Slaves) of
@@ -95,7 +103,10 @@ check_arg([], Result) ->
 check_arg(_, _Result) ->
     error.
 
--spec add_slave(Slave :: atom()) -> 'ok' | {'error', any()}.
+-spec add_slave(Slave) -> 'ok' | {'error', What} when
+      Slave :: Host,
+      Host :: atom(),
+      What :: any().
 
 add_slave(Slave) ->
     case inet:getaddr(Slave, inet) of
@@ -105,7 +116,10 @@ add_slave(Slave) ->
 	    {error, {badarg, Slave}}
     end.
 
--spec delete_slave(Slave :: atom()) -> 'ok' | {'error', any()}.
+-spec delete_slave(Slave) -> 'ok' | {'error', What} when
+      Slave :: Host,
+      Host :: atom(),
+      What :: any().
 
 delete_slave(Slave) ->
     case inet:getaddr(Slave, inet) of
@@ -131,7 +145,9 @@ add_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
 delete_subnet(Mask, Addr) when is_tuple(Mask), is_tuple(Addr) ->
     gen_server:call(boot_server, {delete, {Mask, Addr}}).
 
--spec which_slaves() -> [atom()].
+-spec which_slaves() -> Slaves when
+      Slaves :: [Host],
+      Host :: atom().
 
 which_slaves() ->
     gen_server:call(boot_server, which).
