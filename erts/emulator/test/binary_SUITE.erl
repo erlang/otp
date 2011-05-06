@@ -275,6 +275,25 @@ bad_list_to_binary(Config) when is_list(Config) ->
     ?line test_bad_bin(fun(X, Y) -> X*Y end),
     ?line test_bad_bin([1,fun(X) -> X + 1 end,2|fun() -> 0 end]),
     ?line test_bad_bin([fun(X) -> X + 1 end]),
+
+    %% Test iolists that do not fit in the address space.
+    %% Unfortunately, it would be too slow to test in a 64-bit emulator.
+    case erlang:system_info(wordsize) of
+	4 -> huge_iolists();
+	_ -> ok
+    end.
+
+huge_iolists() ->
+    FourGigs = 1 bsl 32,
+    ?line Sizes = [FourGigs+N || N <- lists:seq(0, 64)] ++
+	[1 bsl N || N <- lists:seq(33, 37)],
+    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    [begin
+	 L = build_iolist(Sz, Base),
+	 ?line {'EXIT',{system_limit,_}} = (catch list_to_binary([L])),
+	 ?line {'EXIT',{system_limit,_}} = (catch binary:list_to_bin([L])),
+	 ?line {'EXIT',{system_limit,_}} = (catch iolist_to_binary(L))
+	 end || Sz <- Sizes],
     ok.
 
 test_bad_bin(List) ->

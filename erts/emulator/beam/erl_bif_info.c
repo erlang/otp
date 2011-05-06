@@ -1732,14 +1732,14 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 #    define ERTS_ERROR_CHECKER_PRINTF_XML VALGRIND_PRINTF_XML
 #  endif
 #endif
-	    int buf_size = 8*1024; /* Try with 8KB first */
+	    Uint buf_size = 8*1024; /* Try with 8KB first */
 	    char *buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
 	    int r = io_list_to_buf(*tp, (char*) buf, buf_size - 1);
 	    if (r < 0) {
 		erts_free(ERTS_ALC_T_TMP, (void *) buf);
-		buf_size = io_list_len(*tp);
-		if (buf_size < 0)
+		if (erts_iolist_size(*tp, &buf_size)) {
 		    goto badarg;
+		}
 		buf_size++;
 		buf = erts_alloc(ERTS_ALC_T_TMP, buf_size);
 		r = io_list_to_buf(*tp, (char*) buf, buf_size - 1);

@@ -355,21 +355,24 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 {
     Eterm bin;
-    int i;
+    Uint size;
     int offset;
     byte* bytes;
+
     if (is_nil(arg)) {
 	BIF_RET(new_binary(p,(byte*)"",0));
     }
     if (is_not_list(arg)) {
 	goto error;
     }
-    if ((i = io_list_len(arg)) < 0) {
-	goto error;
+    switch (erts_iolist_size(arg, &size)) {
+    case ERTS_IOLIST_OVERFLOW: BIF_ERROR(p, SYSTEM_LIMIT);
+    case ERTS_IOLIST_TYPE: goto error;
+    default: ;
     }
-    bin = new_binary(p, (byte *)NULL, i);
+    bin = new_binary(p, (byte *)NULL, size);
     bytes = binary_bytes(bin);
-    offset = io_list_to_buf(arg, (char*) bytes, i);
+    offset = io_list_to_buf(arg, (char*) bytes, size);
     ASSERT(offset == 0);
     BIF_RET(bin);
     

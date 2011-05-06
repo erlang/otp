@@ -179,7 +179,13 @@ outputv_errors(Config) when is_list(Config) ->
 			      ?line outputv_errors_1([L|T])
 		      end),
     outputv_errors_1(42),
-    ok.
+
+    %% Test iolists that do not fit in the address space.
+    %% Unfortunately, it would be too slow to test in a 64-bit emulator.
+    case erlang:system_info(wordsize) of
+	4 -> outputv_huge_iolists();
+	_ -> ok
+    end.
 
 outputv_bad_types(Test) ->
     Types = [-1,256,atom,42.0,{a,b,c},make_ref(),fun() -> 42 end,
@@ -187,10 +193,60 @@ outputv_bad_types(Test) ->
     _ = [Test(Type) || Type <- Types],
     ok.
 
+outputv_huge_iolists() ->
+    FourGigs = 1 bsl 32,
+    ?line Sizes = [FourGigs+N || N <- lists:seq(0, 64)] ++
+	[1 bsl N || N <- lists:seq(33, 37)],
+    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    [begin
+	 ?line L = build_iolist(Sz, Base),
+	 ?line outputv_errors_1(L)
+     end || Sz <- Sizes],
+    ok.
+
 outputv_errors_1(Term) ->
     Port = open_port({spawn_driver,outputv_drv}, []),
     {'EXIT',{badarg,_}} = (catch port_command(Port, Term)),
     port_close(Port).
+
+build_iolist(N, Base) when N < 16 ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	_ ->
+	    lists:seq(1, N)
+    end;
+build_iolist(N, Base) when N =< byte_size(Base) ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	2 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    [Bin];
+	3 ->
+	    case N rem 2 of
+		0 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L];
+		1 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L,45]
+	    end
+    end;
+build_iolist(N0, Base) ->
+    Small = random:uniform(15),
+    Seq = lists:seq(1, Small),
+    N = N0 - Small,
+    case N rem 2 of
+	0 ->
+	    L = build_iolist(N div 2, Base),
+	    [L,L|Seq];
+	1 ->
+	    L = build_iolist(N div 2, Base),
+	    [47,L,L|Seq]
+    end.
 
 outputv_echo(doc) -> ["Test echoing data with a driver that supports outputv."];
 outputv_echo(Config) when is_list(Config) ->

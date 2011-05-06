@@ -1653,10 +1653,14 @@ struct Sint_buf {
 };	
 char* Sint_to_buf(Sint, struct Sint_buf*);
 
+#define ERTS_IOLIST_OK 0
+#define ERTS_IOLIST_OVERFLOW 1
+#define ERTS_IOLIST_TYPE 2
+
 Eterm buf_to_intlist(Eterm**, char*, int, Eterm); /* most callers pass plain char*'s */
 int io_list_to_buf(Eterm, char*, int);
 int io_list_to_buf2(Eterm, char*, int);
-int io_list_len(Eterm);
+int erts_iolist_size(Eterm, Uint *);
 int is_string(Eterm);
 void erl_at_exit(void (*) (void*), void*);
 Eterm collect_memory(Process *);
