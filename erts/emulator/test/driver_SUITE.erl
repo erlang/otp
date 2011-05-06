@@ -38,7 +38,7 @@
 	 timer_change/1,
 	 timer_delay/1,
 	 queue_echo/1,
-	 fun_to_port/1,
+	 outputv_errors/1,
 	 driver_unloaded/1,
 	 io_ready_exit/1,
 	 use_fallback_pollset/1,
@@ -129,7 +129,7 @@ end_per_testcase(Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [fun_to_port, outputv_echo, queue_echo, {group, timer},
+    [outputv_errors, outputv_echo, queue_echo, {group, timer},
      driver_unloaded, io_ready_exit, use_fallback_pollset,
      bad_fd_in_pollset, driver_event, fd_change,
      steal_control, otp_6602, 'driver_system_info_ver1.0',
@@ -165,36 +165,32 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-fun_to_port(doc) -> "Test sending a fun to port with an outputv-capable driver.";
-fun_to_port(Config) when is_list(Config) ->
+outputv_errors(doc) -> "Test sending bad types to port with an outputv-capable driver.";
+outputv_errors(Config) when is_list(Config) ->
     ?line Path = ?config(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, outputv_drv),
 
-    ?line fun_to_port_1(fun() -> 33 end),
-    ?line fun_to_port_1([fun() -> 42 end]),
-    ?line fun_to_port_1([1|fun() -> 42 end]),
-    L = build_io_list(65536),
-    ?line fun_to_port_1([L,fun() -> 42 end]),
-    ?line fun_to_port_1([L|fun() -> 42 end]),
+    outputv_bad_types(fun(T) ->
+			      ?line outputv_errors_1(T),
+			      ?line outputv_errors_1([1|T]),
+			      ?line L = [1,2,3],
+			      ?line outputv_errors_1([L,T]),
+			      ?line outputv_errors_1([L|T])
+		      end),
+    outputv_errors_1(42),
     ok.
 
-fun_to_port_1(Term) ->
-    Port = open_port({spawn,outputv_drv}, []),
+outputv_bad_types(Test) ->
+    Types = [-1,256,atom,42.0,{a,b,c},make_ref(),fun() -> 42 end,
+	     [1|2],<<1:1>>,<<1:9>>,<<1:15>>],
+    _ = [Test(Type) || Type <- Types],
+    ok.
+
+outputv_errors_1(Term) ->
+    Port = open_port({spawn_driver,outputv_drv}, []),
     {'EXIT',{badarg,_}} = (catch port_command(Port, Term)),
     port_close(Port).
-
-build_io_list(0) -> [];
-build_io_list(1) -> [7];
-build_io_list(N) ->
-    L = build_io_list(N div 2),
-    case N rem 2 of
-	0 -> [L|L];
-	1 -> [7,L|L]
-    end.
-
-
 
 outputv_echo(doc) -> ["Test echoing data with a driver that supports outputv."];
 outputv_echo(Config) when is_list(Config) ->

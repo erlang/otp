@@ -957,7 +957,7 @@ do {									\
     int _bitoffs;							\
     int _bitsize;							\
     ERTS_GET_REAL_BIN(obj, _real, _offset, _bitoffs, _bitsize);		\
-    ASSERT(_bitsize == 0);						\
+    if (_bitsize != 0) goto L_type_error;				\
     if (thing_subtag(*binary_val(_real)) == REFC_BINARY_SUBTAG &&	\
 	_bitoffs == 0) {						\
 	b_size += _size;						\
