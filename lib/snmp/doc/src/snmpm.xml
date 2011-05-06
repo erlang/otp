@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -488,15 +488,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get(UserId, TargetName, CC, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name>sync_get(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get(UserId, TargetName, CC, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get(UserId, TargetName, CC, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>ContextName = string()</v>
+        <v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+	<v>context_name() = string()</v>
+	<v>community() = string()</v>
         <v>Oids = [oid()]</v>
         <v>Timeout = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -512,19 +514,23 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       </type>
       <desc>
         <p>Synchronous <c>get-request</c>. </p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
         <p><c>Remaining</c> is the remaining time of the given or 
-          default timeout time.</p>
+	default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
-        <p>For <c>SnmpInfo</c>, see the user callback function 
-          <seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
         <marker id="async_get"></marker>
       </desc>
@@ -532,15 +538,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>async_get(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get(UserId, TargetName, CC, Oids) -> {ok, ReqId} | {error, Reason}</name>
       <name>async_get(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get(UserId, TargetName, CC, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get(UserId, TargetName, CC, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>ContextName = string()</v>
+	<v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+	<v>context_name() = string()</v>
+	<v>community() = string()</v>
         <v>Oids = [oid()]</v>
         <v>Expire = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -550,31 +558,37 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-request</c>.</p>
         <p>The reply, if it arrives, will be delivered to the user 
-          through a call to the snmpm_user callback function 
-          <c>handle_pdu</c>.</p>
-        <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
-
+	through a call to the snmpm_user callback function 
+	<c>handle_pdu</c>.</p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
+	<p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
+	
         <marker id="sync_get_next"></marker>
       </desc>
     </func>
 
     <func>
       <name>sync_get_next(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_next(UserId, TargetName, CC, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name>sync_get_next(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_next(UserId, TargetName, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_next(UserId, TargetName, CC, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_next(UserId, TargetName, CC, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>ContextName = string()</v>
+	<v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+	<v>context_name() = string()</v>
+	<v>community() = string()</v>
         <v>Oids = [oid()]</v>
         <v>Timeout = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -585,16 +599,20 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       </type>
       <desc>
         <p>Synchronous <c>get-next-request</c>. </p>
-        <p><c>Remaining</c> time of the given or default timeout time.</p>
-        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
+	<p><c>Remaining</c> time of the given or default timeout time.</p>
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
 
         <marker id="async_get_next"></marker>
       </desc>
@@ -602,15 +620,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>async_get_next(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_next(UserId, TargetName, CC, Oids) -> {ok, ReqId} | {error, Reason}</name>
       <name>async_get_next(UserId, TargetName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_next(UserId, TargetName, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_next(UserId, TargetName, CC, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_next(UserId, TargetName, CC, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-next-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>ContextName = string()</v>
+	<v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+	<v>context_name() = string()</v>
+	<v>community() = string()</v>
         <v>Oids = [oid()]</v>
         <v>Expire = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -620,9 +640,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-next-request</c>. </p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
-        <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
+	<p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
 
         <marker id="sync_set"></marker>
       </desc>
@@ -630,15 +654,17 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>sync_set(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_set(UserId, TargetName, CC, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name>sync_set(UserId, TargetName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_set(UserId, TargetName, ContextName, VarsAndVals, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_set(UserId, TargetName, CC, VarsAndVals, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_set(UserId, TargetName, CC, VarsAndVals, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>ContextName = string()</v>
+	<v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+	<v>context_name() = string()</v>
+	<v>community() = string()</v>
         <v>VarsAndVals = vars_and_vals()</v>
         <v>Timeout = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -649,18 +675,22 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       </type>
       <desc>
         <p>Synchronous <c>set-request</c>. </p>
-        <p><c>Remaining</c> time of the given or default timeout time.</p>
-        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
-          manager makes an educated guess based on the loaded mibs. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
+	<p><c>Remaining</c> time of the given or default timeout time.</p>
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
 
         <marker id="async_set"></marker>
       </desc>
@@ -668,16 +698,19 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>async_set(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_set(UserId, TargetName, CC, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
       <name>async_set(UserId, TargetName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, ContextName, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_set(UserId, TargetName, ContextName, VarsAndVals, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_set(UserId, TargetName, CC, VarsAndVals, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_set(UserId, TargetName, CC, VarsAndVals, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>set-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
         <v>VarsAndVals = vars_and_vals()</v>
-        <v>Expire = integer()</v>
+	<v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+	<v>context_name() = string()</v>
+	<v>community() = string()</v>
+	<v>Expire = integer()</v>
         <v>ExtraInfo = term()</v>
         <v>ReqId = term()</v>
         <v>Reason = term()</v>
@@ -685,16 +718,20 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>set-request</c>. </p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
-        <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
-        <p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
-          manager makes an educated guess based on the loaded mibs. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	<p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
+	<p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
 
         <marker id="sync_get_bulk"></marker>
       </desc>
@@ -702,17 +739,19 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 
     <func>
       <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, CC, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
-      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, CC, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_bulk(UserId, TragetName, NonRep, MaxRep, CC, Oids, Timeout, ExtraInfo) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
         <v>NonRep = integer()</v>
         <v>MaxRep = integer()</v>
-        <v>ContextName = string()</v>
+	<v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+        <v>context_name() = string()</v>
+        <v>community() = string()</v>
         <v>Oids = [oid()]</v>
         <v>Timeout = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -722,34 +761,40 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       </type>
       <desc>
         <p>Synchronous <c>get-bulk-request</c> (See RFC1905).</p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
-        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
-
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
+	
         <marker id="async_get_bulk"></marker>
       </desc>
     </func>
 
     <func>
       <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids) -> {ok, ReqId} | {error, Reason}</name>
       <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
-      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids, Expire) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids, Expire, ExtraInfo) -> {ok, ReqId} | {error, Reason}</name>
       <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
         <v>NonRep = integer()</v>
         <v>MaxRep = integer()</v>
-        <v>ContextName = string()</v>
+        <v>CC = context_name() | {community, community()} | {context_name(), community()}</v>
+        <v>context_name() = string()</v>
+        <v>community() = string()</v>
         <v>Oids = [oid()]</v>
         <v>Expire = integer()</v>
         <v>ExtraInfo = term()</v>
@@ -759,9 +804,13 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+        <p>When the <c>CC</c> argument is the tuple 
+	<c>{_, Community}</c>, the <c>Community</c> part will 
+	override the previously configured community for this agent
+	(represented by <c>TargetName</c>). </p>
         <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
+	valid (after which the manager is free to delete it).</p>
 
         <marker id="cancel_async_request"></marker>
       </desc>
