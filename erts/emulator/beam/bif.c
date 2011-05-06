@@ -3360,7 +3360,7 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to string: %d (s)\n",
+	erl_exit(1, "Failed to convert term to string: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(BIF_P, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
@@ -3478,7 +3478,7 @@ term2list_dsprintf(Process *p, Eterm term)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%T", term);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to list: %d (s)\n",
+	erl_exit(1, "Failed to convert term to list: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(p, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);

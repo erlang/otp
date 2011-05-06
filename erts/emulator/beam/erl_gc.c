@@ -215,7 +215,7 @@ erts_next_heap_size(Uint size, Uint offset)
 		low = mid + 1;
 	    }
 	}
-	erl_exit(1, "no next heap size found: %d, offset %d\n", size, offset);
+	erl_exit(1, "no next heap size found: %lu, offset %lu\n", (unsigned long)size, (unsigned long)offset);
     }
     return 0;
 }
