@@ -991,9 +991,7 @@ static int open_pty_master(char **ptyslave)
 static int open_pty_slave(char *name)
 {
   int sfd;
-#ifdef DEBUG
   struct termios tty_rmode;
-#endif
 
   if ((sfd = open(name, O_RDWR, 0)) < 0) {
     return -1;
@@ -1018,6 +1016,25 @@ static int open_pty_slave(char *name)
     return -1;
   }
 #endif
+
+  if (getenv("RUN_ERL_DISABLE_FLOWCNTRL")) {
+    if (tcgetattr(sfd, &tty_rmode) < 0) {
+      fprintf(stderr, "Cannot get terminal's current mode\n");
+      exit(-1);
+    }
+
+    tty_rmode.c_iflag &= ~IXOFF;
+    if (tcsetattr(sfd, TCSANOW, &tty_rmode) < 0) {
+      fprintf(stderr, "Cannot disable terminal's flow control on input\n");
+      exit(-1);
+    }
+
+    tty_rmode.c_iflag &= ~IXON;
+    if (tcsetattr(sfd, TCSANOW, &tty_rmode) < 0) {
+      fprintf(stderr, "Cannot disable terminal's flow control on output\n");
+      exit(-1);
+    }
+  }
 
 #ifdef DEBUG
   if (tcgetattr(sfd, &tty_rmode) < 0) {
