@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 	 send_after/3, send_after/2,
 	 exit_after/3, exit_after/2, kill_after/2, kill_after/1,
 	 apply_interval/4, send_interval/3, send_interval/2,
-	 cancel/1, sleep/1, tc/2, tc/3, now_diff/2,
+	 cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
 	 seconds/1, minutes/1, hours/1, hms/3]).
 
 -export([start_link/0, start/0, 
@@ -46,103 +46,189 @@
 %%
 -opaque tref()    :: {integer(), reference()}.
 -type time()      :: non_neg_integer().
--type timestamp() :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 
 %%
 %% Interface functions
 %%
--spec apply_after(time(), atom(), atom(), [term()]) -> {'ok', tref()} | {'error', term()}.
+-spec apply_after(Time, Module, Function, Arguments) ->
+                         {'ok', TRef} | {'error', Reason} when
+      Time :: time(),
+      Module :: module(),
+      Function :: atom(),
+      Arguments :: [term()],
+      TRef :: tref(),
+      Reason :: term().
+
 apply_after(Time, M, F, A) ->
     req(apply_after, {Time, {M, F, A}}).
 
--spec send_after(time(), pid() | atom(), term()) -> {'ok', tref()} | {'error', term()}.
+-spec send_after(Time, Pid, Message) -> {'ok', TRef} | {'error', Reason} when
+      Time :: time(),
+      Pid :: pid() | (RegName :: atom()),
+      Message :: term(),
+      TRef :: tref(),
+      Reason :: term().
 send_after(Time, Pid, Message) ->
     req(apply_after, {Time, {?MODULE, send, [Pid, Message]}}).
 
--spec send_after(time(), term()) -> {'ok', tref()} | {'error', term()}.
+-spec send_after(Time, Message) -> {'ok', TRef} | {'error', Reason} when
+      Time :: time(),
+      Message :: term(),
+      TRef :: tref(),
+      Reason :: term().
 send_after(Time, Message) ->
     send_after(Time, self(), Message).
 
--spec exit_after(time(), pid() | atom(), term()) -> {'ok', tref()} | {'error', term()}.
+-spec exit_after(Time, Pid, Reason1) -> {'ok', TRef} | {'error', Reason2} when
+      Time :: time(),
+      Pid :: pid() | (RegName :: atom()),
+      TRef :: tref(),
+      Reason1 :: term(),
+      Reason2 :: term().
 exit_after(Time, Pid, Reason) ->
     req(apply_after, {Time, {erlang, exit, [Pid, Reason]}}).
 
--spec exit_after(time(), term()) -> {'ok', tref()} | {'error', term()}.
+-spec exit_after(Time, Reason1) -> {'ok', TRef} | {'error', Reason2} when
+      Time :: time(),
+      TRef :: tref(),
+      Reason1 :: term(),
+      Reason2 :: term().
 exit_after(Time, Reason) ->
     exit_after(Time, self(), Reason).
 
--spec kill_after(time(), pid() | atom()) -> {'ok', tref()} | {'error', term()}.
+-spec kill_after(Time, Pid) -> {'ok', TRef} | {'error', Reason2} when
+      Time :: time(),
+      Pid :: pid() | (RegName :: atom()),
+      TRef :: tref(),
+      Reason2 :: term().
 kill_after(Time, Pid) ->
     exit_after(Time, Pid, kill).
 
--spec kill_after(time()) -> {'ok', tref()} | {'error', term()}.
+-spec kill_after(Time) -> {'ok', TRef} | {'error', Reason2} when
+      Time :: time(),
+      TRef :: tref(),
+      Reason2 :: term().
 kill_after(Time) ->
     exit_after(Time, self(), kill).
 
--spec apply_interval(time(), atom(), atom(), [term()]) -> {'ok', tref()} | {'error', term()}.
+-spec apply_interval(Time, Module, Function, Arguments) ->
+                            {'ok', TRef} | {'error', Reason} when
+      Time :: time(),
+      Module :: module(),
+      Function :: atom(),
+      Arguments :: [term()],
+      TRef :: tref(),
+      Reason :: term().
 apply_interval(Time, M, F, A) ->
     req(apply_interval, {Time, self(), {M, F, A}}).
 
--spec send_interval(time(), pid() | atom(), term()) -> {'ok', tref()} | {'error', term()}.
+-spec send_interval(Time, Pid, Message) ->
+                           {'ok', TRef} | {'error', Reason} when
+      Time :: time(),
+      Pid :: pid() | (RegName :: atom()),
+      Message :: term(),
+      TRef :: tref(),
+      Reason :: term().
 send_interval(Time, Pid, Message) ->
     req(apply_interval, {Time, Pid, {?MODULE, send, [Pid, Message]}}).
 
--spec send_interval(time(), term()) -> {'ok', tref()} | {'error', term()}.
+-spec send_interval(Time, Message) -> {'ok', TRef} | {'error', Reason} when
+      Time :: time(),
+      Message :: term(),
+      TRef :: tref(),
+      Reason :: term().
 send_interval(Time, Message) ->
     send_interval(Time, self(), Message).
 
--spec cancel(tref()) -> {'ok', 'cancel'} | {'error', term()}.
+-spec cancel(TRef) -> {'ok', 'cancel'} | {'error', Reason} when
+      TRef :: tref(),
+      Reason :: term().
 cancel(BRef) ->
     req(cancel, BRef).
 
--spec sleep(timeout()) -> 'ok'.
+-spec sleep(Time) -> 'ok' when
+      Time :: timeout().
 sleep(T) ->
     receive
     after T -> ok
     end.
 
+%%
+%% Measure the execution time (in microseconds) for Fun().
+%%
+-spec tc(Fun) -> {Time, Value} when
+      Fun :: function(),
+      Time :: integer(),
+      Value :: term().
+tc(F) ->
+    Before = os:timestamp(),
+    Val = F(),
+    After = os:timestamp(),
+    {now_diff(After, Before), Val}.
 
 %%
 %% Measure the execution time (in microseconds) for Fun(Args).
 %%
--spec tc(function(), [_]) -> {time(), term()}.
+-spec tc(Fun, Arguments) -> {Time, Value} when
+      Fun :: function(),
+      Arguments :: [term()],
+      Time :: integer(),
+      Value :: term().
 tc(F, A) ->
-    Before = erlang:now(),
-    Val = (catch apply(F, A)),
-    After = erlang:now(),
+    Before = os:timestamp(),
+    Val = apply(F, A),
+    After = os:timestamp(),
     {now_diff(After, Before), Val}.
 
 %%
 %% Measure the execution time (in microseconds) for an MFA.
 %%
--spec tc(atom(), atom(), [term()]) -> {time(), term()}.
+-spec tc(Module, Function, Arguments) -> {Time, Value} when
+      Module :: module(),
+      Function :: atom(),
+      Arguments :: [term()],
+      Time :: integer(),
+      Value :: term().
 tc(M, F, A) ->
-    Before = erlang:now(),
-    Val = (catch apply(M, F, A)),
-    After = erlang:now(),
+    Before = os:timestamp(),
+    Val = apply(M, F, A),
+    After = os:timestamp(),
     {now_diff(After, Before), Val}.
 
 %%
 %% Calculate the time difference (in microseconds) of two
 %% erlang:now() timestamps, T2-T1.
 %%
--spec now_diff(timestamp(), timestamp()) -> integer().
+-spec now_diff(T1, T2) -> Tdiff when
+      T1 :: calendar:t_now(),
+      T2 :: calendar:t_now(),
+      Tdiff :: integer().
 now_diff({A2, B2, C2}, {A1, B1, C1}) ->
     ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.
 
 %%
 %% Convert seconds, minutes etc. to milliseconds.    
 %%
--spec seconds(non_neg_integer()) -> non_neg_integer().
+-spec seconds(Seconds) -> MilliSeconds when
+      Seconds :: non_neg_integer(),
+      MilliSeconds :: non_neg_integer().
 seconds(Seconds) ->
     1000*Seconds.
--spec minutes(non_neg_integer()) -> non_neg_integer().
+-spec minutes(Minutes) -> MilliSeconds when
+      Minutes :: non_neg_integer(),
+      MilliSeconds :: non_neg_integer().
 minutes(Minutes) ->
     1000*60*Minutes.
--spec hours(non_neg_integer()) -> non_neg_integer().
+-spec hours(Hours) -> MilliSeconds when
+      Hours :: non_neg_integer(),
+      MilliSeconds :: non_neg_integer().
 hours(Hours) ->
     1000*60*60*Hours.
--spec hms(non_neg_integer(), non_neg_integer(), non_neg_integer()) -> non_neg_integer().
+-spec hms(Hours, Minutes, Seconds) -> MilliSeconds when
+      Hours :: non_neg_integer(),
+      Minutes :: non_neg_integer(),
+      Seconds :: non_neg_integer(),
+      MilliSeconds :: non_neg_integer().
 hms(H, M, S) ->
     hours(H) + minutes(M) + seconds(S).
 

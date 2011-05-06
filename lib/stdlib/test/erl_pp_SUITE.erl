@@ -1161,7 +1161,7 @@ parse_forms2(String, Cont0, Line, Forms) ->
         {done, {ok, Tokens, EndLine}, Chars} ->
             {ok, Form} = erl_parse:parse_form(Tokens),
             parse_forms2(Chars, [], EndLine, [Form | Forms]);
-        {more, Cont} when element(3, Cont) =:= [] ->
+        {more, Cont} when element(4, Cont) =:= [] ->
             %% extra spaces after forms...
             parse_forms2([], Cont, Line, Forms);
         {more, Cont} ->

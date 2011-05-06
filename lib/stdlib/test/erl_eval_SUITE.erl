@@ -1199,7 +1199,7 @@ local_func(F, As0, Bs0) when is_atom(F) ->
 
 lfh_value_extra() ->
     %% Not documented.
-    {value, fun(F, As) -> local_func_value(F, As) end, []}.
+    {value, fun(F, As, a1, a2) -> local_func_value(F, As) end, [a1, a2]}.
 
 lfh_value() ->
     {value, fun(F, As) -> local_func_value(F, As) end}.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,7 +49,10 @@ seed() ->
 %% seed({A1, A2, A3}) 
 %%  Seed random number generation 
 
--spec seed({integer(), integer(), integer()}) -> 'undefined' | ran().
+-spec seed({A1, A2, A3}) -> 'undefined' | ran() when
+      A1 :: integer(),
+      A2 :: integer(),
+      A3 :: integer().
 
 seed({A1, A2, A3}) ->
     seed(A1, A2, A3).
@@ -57,7 +60,10 @@ seed({A1, A2, A3}) ->
 %% seed(A1, A2, A3) 
 %%  Seed random number generation 
 
--spec seed(integer(), integer(), integer()) -> 'undefined' | ran().
+-spec seed(A1, A2, A3) -> 'undefined' | ran() when
+      A1 :: integer(),
+      A2 :: integer(),
+      A3 :: integer().
 
 seed(A1, A2, A3) ->
     put(random_seed, 
@@ -93,7 +99,8 @@ uniform() ->
 %%  Given an integer N >= 1, uniform(N) returns a random integer
 %%  between 1 and N.
 
--spec uniform(pos_integer()) -> pos_integer().
+-spec uniform(N) -> pos_integer() when
+      N :: pos_integer().
 
 uniform(N) when is_integer(N), N >= 1 ->
     trunc(uniform() * N) + 1.
@@ -104,7 +111,9 @@ uniform(N) when is_integer(N), N >= 1 ->
 %% uniform_s(State) -> {F, NewState}
 %%  Returns a random float between 0 and 1.
 
--spec uniform_s(ran()) -> {float(), ran()}.
+-spec uniform_s(State0) -> {float(), State1} when
+      State0 :: ran(),
+      State1 :: ran().
 
 uniform_s({A1, A2, A3}) ->
     B1 = (A1*171) rem 30269,
@@ -117,7 +126,10 @@ uniform_s({A1, A2, A3}) ->
 %%  Given an integer N >= 1, uniform(N) returns a random integer
 %%  between 1 and N.
 
--spec uniform_s(pos_integer(), ran()) -> {integer(), ran()}.
+-spec uniform_s(N, State0) -> {integer(), State1} when
+      N :: pos_integer(),
+      State0 :: ran(),
+      State1 :: ran().
 
 uniform_s(N, State0) when is_integer(N), N >= 1 ->
     {F, State1} = uniform_s(State0),
