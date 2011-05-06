@@ -864,9 +864,9 @@ drv_command(Port, Command) ->
 drv_command(Port, Command, R) when is_binary(Command) ->
     drv_command(Port, Command, true, R);
 drv_command(Port, Command, R) ->
-    try erlang:iolist_to_binary(Command) of
-	Bin ->
-	    drv_command(Port, Bin, true, R)
+    try erlang:iolist_size(Command) of
+	_ ->
+	    drv_command(Port, Command, true, R)
     catch
 	error:Reason ->
 	    {error, Reason}
