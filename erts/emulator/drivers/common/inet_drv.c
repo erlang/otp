@@ -490,7 +490,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_REQ_RECV           42
 #define TCP_REQ_UNRECV         43
 #define TCP_REQ_SHUTDOWN       44
-#define TCP_REQ_MULTI_OP       45
 /* UDP and SCTP requests */
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
 #define SCTP_REQ_LISTEN	       61 /* Different from TCP; not for UDP */
@@ -1763,7 +1762,6 @@ send_async_error(ErlDrvPort port, ErlDrvTermData Port, int Ref,
 			LOAD_INT_CNT + 2*LOAD_TUPLE_CNT];
     int i = 0;
     
-    i = 0;
     i = LOAD_ATOM(spec, i, am_inet_async);
     i = LOAD_PORT(spec, i, Port);
     i = LOAD_INT(spec, i, Ref);
