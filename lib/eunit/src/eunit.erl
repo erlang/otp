@@ -157,6 +157,7 @@ test_run(Reference, Listeners) ->
     receive
 	{done, Reference} ->
 	    cast(Listeners, {stop, Reference, self()}),
+            wait_until_listeners_have_terminated(Listeners),
 	    receive
 		{result, Reference, Result} ->
 		    Result
@@ -167,6 +168,15 @@ cast([P | Ps], Msg) ->
     P ! Msg,
     cast(Ps, Msg);
 cast([], _Msg) ->
+    ok.
+
+wait_until_listeners_have_terminated([P | Ps]) ->
+    MRef = erlang:monitor(process, P),
+    receive
+        {'DOWN', MRef, process, P, _} ->
+            wait_until_listeners_have_terminated(Ps)
+    end;
+wait_until_listeners_have_terminated([]) ->
     ok.
 
 %% TODO: functions that run tests on a given node, not a given server

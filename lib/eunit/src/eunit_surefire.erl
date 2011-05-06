@@ -100,16 +100,10 @@ terminate({ok, _Data}, St) ->
     XmlDir = St#state.xmldir,
     write_report(TestSuite, XmlDir),
     ok;
-terminate({error, Reason}, _St) ->
-    io:fwrite("Internal error: ~P.\n", [Reason, 25]),
-    sync_end(error).
-
-sync_end(Result) ->
-    receive
-	{stop, Reference, ReplyTo} ->
-	    ReplyTo ! {result, Reference, Result},
-	    ok
-    end.
+terminate({error, _Reason}, _St) ->
+    %% Don't report any errors here, since eunit_tty takes care of that.
+    %% Just terminate.
+    ok.
 
 handle_begin(group, Data, St) ->
     NewId = proplists:get_value(id, Data),
