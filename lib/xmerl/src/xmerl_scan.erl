@@ -102,6 +102,7 @@
 %%    declaration. </dd>
 %% </dl>
 
+
 -module(xmerl_scan).
 -vsn('0.20').
 -date('03-09-16').
