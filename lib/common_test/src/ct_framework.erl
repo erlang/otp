@@ -636,7 +636,7 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	[{?MODULE,error_in_suite}] ->
 	    io:format(user, "Error in suite detected: ~s", [ErrStr]);
 
-	unknown ->
+	R when R == unknown;  R == undefined ->
 	    io:format(user, "Error detected: ~s", [ErrStr]);
 
 	%% if a function specified by all/0 does not exist, we
