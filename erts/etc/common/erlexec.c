@@ -1975,6 +1975,11 @@ initial_argv_massage(int *argc, char ***argv)
      */
 
     vix = 0;
+
+    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
+    if (av)
+	avv[vix++].argv = av;
+
     av = build_args_from_env("ERL_AFLAGS");
     if (av)
 	avv[vix++].argv = av;
@@ -1986,10 +1991,6 @@ initial_argv_massage(int *argc, char ***argv)
     }
 
     av = build_args_from_env("ERL_FLAGS");
-    if (av)
-	avv[vix++].argv = av;
-
-    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
     if (av)
 	avv[vix++].argv = av;
 
