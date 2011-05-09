@@ -7,13 +7,13 @@
 
 -module(dialyzer_common).
 
--export([check_plt/1, check/4, create_suite/1,
-	 create_all_suites/0, new_tests/2]).
+-export([check_plt/1, check/4, create_all_suites/0, new_tests/2]).
 
 -include_lib("kernel/include/file.hrl").
 
--define(suite_suffix, "_tests_SUITE").
+-define(suite_suffix, "_SUITE").
 -define(data_folder, "_data").
+-define(suite_data, ?suite_suffix ++ ?data_folder).
 -define(erlang_extension, ".erl").
 -define(output_file_mode, write).
 -define(dialyzer_option_file, "dialyzer_options").
@@ -209,7 +209,7 @@ get_suites(Dir) ->
 	{error, _} -> [];
 	{ok, Filenames} ->
 	    FullFilenames = [filename:join(Dir, F) || F <-Filenames ],
-	    Dirs = [suffix(filename:basename(F), "_tests_SUITE_data") ||
+	    Dirs = [suffix(filename:basename(F), ?suite_data) ||
 		       F <- FullFilenames,
 		       file_utils:file_type(F) =:= {ok, 'directory'}],
 	    [S || {yes, S} <- Dirs]
@@ -232,7 +232,7 @@ create_suite(SuiteName) ->
     generate_suite(SuiteName, OutputFile, OptionsFileN, InputDirN).
 
 generate_suite_dir_from_name(Cwd, SuiteName) ->
-    filename:join(Cwd, SuiteName ++ ?suite_suffix ++ ?data_folder).
+    filename:join(Cwd, SuiteName ++ ?suite_data).
 
 generate_suite_file(Cwd, SuiteName) ->
     OutputFilename =
@@ -305,7 +305,7 @@ write_header(#suite{suitename = SuiteName, outputfile = OutputFile,
 	      "%% All Dialyzer options should be defined in dialyzer_options\n"
 	      "%% file.\n\n"
 	      "-module(~s).\n\n"
-	      "-include(\"ct.hrl\").\n"
+	      "-include_lib(\"common_test/include/ct.hrl\").\n"
 	      "-include(\"dialyzer_test_constants.hrl\").\n\n"
 	      "-export([suite/0, init_per_suite/0, init_per_suite/1,\n"
 	      "         end_per_suite/1, all/0]).\n"

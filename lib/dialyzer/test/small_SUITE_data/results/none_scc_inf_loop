@@ -1,0 +1,5 @@
+
+none_scc_inf_loop.erl:10: Function foo/0 has no local return
+none_scc_inf_loop.erl:13: Function foo/1 has no local return
+none_scc_inf_loop.erl:13: The pattern 0 can never match the type 1 | 3
+none_scc_inf_loop.erl:18: Function bar/1 has no local return
