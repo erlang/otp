@@ -1570,10 +1570,10 @@ erts_realloc_n_enomem(ErtsAlcType_t n, void *ptr, Uint size)
     erts_alc_fatal_error(ERTS_ALC_E_NOMEM, ERTS_ALC_O_REALLOC, n, size);
 }
 
-static ERTS_INLINE Uint
+static ERTS_INLINE UWord
 alcu_size(ErtsAlcType_t ai)
 {
-    Uint res = 0;
+    UWord res = 0;
 
     ASSERT(erts_allctrs_info[ai].enabled);
     ASSERT(erts_allctrs_info[ai].alloc_util);
@@ -1623,20 +1623,20 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	int maximum;
     } want = {0};
     struct {
-	Uint total;
-	Uint processes;
-	Uint processes_used;
-	Uint system;
-	Uint atom;
-	Uint atom_used;
-	Uint binary;
-	Uint code;
-	Uint ets;
-	Uint maximum;
+	UWord total;
+	UWord processes;
+	UWord processes_used;
+	UWord system;
+	UWord atom;
+	UWord atom_used;
+	UWord binary;
+	UWord code;
+	UWord ets;
+	UWord maximum;
     } size = {0};
-    Eterm atoms[sizeof(size)/sizeof(Uint)];
-    Uint *uintps[sizeof(size)/sizeof(Uint)];
-    Eterm euints[sizeof(size)/sizeof(Uint)];
+    Eterm atoms[sizeof(size)/sizeof(UWord)];
+    UWord *uintps[sizeof(size)/sizeof(UWord)];
+    Eterm euints[sizeof(size)/sizeof(UWord)];
     int want_tot_or_sys;
     int length;
     Eterm res = THE_NON_VALUE;
@@ -1811,7 +1811,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
     ASSERT(length <= sizeof(atoms)/sizeof(Eterm));
     ASSERT(length <= sizeof(euints)/sizeof(Eterm));
-    ASSERT(length <= sizeof(uintps)/sizeof(Uint));
+    ASSERT(length <= sizeof(uintps)/sizeof(UWord));
 
 
     if (proc) {
@@ -1830,8 +1830,8 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
 	for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++) {
 	    if (erts_allctrs_info[ai].alloc_util) {
-		Uint *save;
-		Uint asz;
+		UWord *save;
+		UWord asz;
 		switch (ai) {
 		case ERTS_ALC_A_TEMPORARY:
 		     /*
@@ -1863,7 +1863,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
 
     if (want_tot_or_sys || want.processes || want.processes_used) {
-	Uint tmp;
+	UWord tmp;
 
 	if (ERTS_MEM_NEED_ALL_ALCU)
 	    tmp = size.processes;
@@ -1963,7 +1963,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	/* Print result... */
 	erts_print(to, arg, "=memory\n");
 	for (i = 0; i < length; i++)
-	    erts_print(to, arg, "%T: %beu\n", atoms[i], *uintps[i]);
+	    erts_print(to, arg, "%T: %bpu\n", atoms[i], *uintps[i]);
     }
 
     if (proc) {
@@ -1976,9 +1976,9 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	if (only_one_value) {
 	    ASSERT(length == 1);
 	    hsz = 0;
-	    erts_bld_uint(NULL, &hsz, *uintps[0]);
+	    erts_bld_uword(NULL, &hsz, *uintps[0]);
 	    hp = hsz ? HAlloc((Process *) proc, hsz) : NULL;
-	    res = erts_bld_uint(&hp, NULL, *uintps[0]);
+	    res = erts_bld_uword(&hp, NULL, *uintps[0]);
 	}
 	else {
 	    Uint **hpp = NULL;
@@ -1988,7 +1988,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    while (1) {
 		int i;
 		for (i = 0; i < length; i++)
-		    euints[i] = erts_bld_uint(hpp, hszp, *uintps[i]);
+		    euints[i] = erts_bld_uword(hpp, hszp, *uintps[i]);
 		res = erts_bld_2tup_list(hpp, hszp, length, atoms, euints);
 		if (hpp)
 		    break;
