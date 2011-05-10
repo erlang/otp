@@ -3282,7 +3282,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     erts_smp_atomic_set(&erts_dead_ports_ptr,
 			(erts_aint_t) (port_buf + erts_max_ports));
 
-    next_ss = erts_smp_atomic_inctest(&erts_ports_snapshot);
+    next_ss = erts_smp_atomic32_inctest(&erts_ports_snapshot);
 
     for (i = erts_max_ports-1; i >= 0; i--) {
 	Port* prt = &erts_port[i];
