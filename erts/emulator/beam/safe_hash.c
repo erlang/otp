@@ -99,7 +99,7 @@ static void rehash(SafeHash* h, int grow_limit)
 	erts_free(h->type, (void *) old_tab);
     }
     /*else already done */
-    erts_smp_atomic_set(&h->is_rehashing, 0);
+    erts_smp_atomic_set_relb(&h->is_rehashing, 0);
 }
 
 
