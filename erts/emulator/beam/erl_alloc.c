@@ -550,6 +550,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_allctrs_info[ERTS_ALC_A_SYSTEM].enabled	= 1;
 
 #if HALFWORD_HEAP
+    /* Init low memory variants by cloning */
     init.std_alloc_low = init.std_alloc;
     init.std_alloc_low.init.util.alloc_no = ERTS_ALC_A_STANDARD_LOW;
     init.std_alloc_low.init.util.low_mem  = 1;
@@ -1605,6 +1606,49 @@ alcu_size(ErtsAlcType_t ai)
     return res;
 }
 
+#if HALFWORD_HEAP
+static ERTS_INLINE int
+alcu_is_low(ErtsAlcType_t ai)
+{
+    int is_low = 0;
+    ASSERT(erts_allctrs_info[ai].enabled);
+    ASSERT(erts_allctrs_info[ai].alloc_util);
+
+    if (!erts_allctrs_info[ai].thr_spec) {
+	Allctr_t *allctr = erts_allctrs_info[ai].extra;
+	is_low = allctr->mseg_opt.low_mem;
+    }
+    else {
+	ErtsAllocatorThrSpec_t *tspec = &erts_allctr_thr_spec[ai];
+	int i;
+# ifdef DEBUG
+	int found_one = 0;
+# endif
+
+	ASSERT(tspec->all_thr_safe);
+	ASSERT(tspec->enabled);
+
+	for (i = tspec->size - 1; i >= 0; i--) {
+	    Allctr_t *allctr = tspec->allctr[i];
+	    if (allctr) {
+# ifdef DEBUG
+		if (!found_one) {
+		    is_low = allctr->mseg_opt.low_mem;
+		    found_one = 1;
+		}
+		else ASSERT(is_low == allctr->mseg_opt.low_mem);
+# else
+		is_low = allctr->mseg_opt.low_mem;
+		break;
+# endif
+	    }
+	}
+	ASSERT(found_one);
+    }
+    return is_low;
+}
+#endif /* HALFWORD */
+
 Eterm
 erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 {
@@ -1621,6 +1665,9 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	int code;
 	int ets;
 	int maximum;
+#if HALFWORD_HEAP
+	int low;
+#endif
     } want = {0};
     struct {
 	UWord total;
@@ -1633,6 +1680,9 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	UWord code;
 	UWord ets;
 	UWord maximum;
+#if HALFWORD_HEAP
+	UWord low;
+#endif
     } size = {0};
     Eterm atoms[sizeof(size)/sizeof(UWord)];
     UWord *uintps[sizeof(size)/sizeof(UWord)];
@@ -1688,7 +1738,11 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    atoms[length] = am_maximum;
 	    uintps[length++] = &size.maximum;
 	}
-
+#if HALFWORD_HEAP
+	want.low = 1;
+	atoms[length] = am_low;
+	uintps[length++] = &size.low;
+#endif
     }
     else {
 	DeclareTmpHeapNoproc(tmp_heap,2);
@@ -1782,6 +1836,15 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		    return am_badarg;
 		}
 		break;
+#if HALFWORD_HEAP
+	    case am_low:
+		if (!want.low) {
+		    want.low = 1;
+		    atoms[length] = am_low;
+		    uintps[length++] = &size.low;
+		}
+		break;
+#endif
 	    default:
 		UnUseTmpHeapNoproc(2);
 		return am_badarg;
@@ -1856,6 +1919,11 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		if (save)
 		    *save = asz;
 		size.total += asz;
+#if HALFWORD_HEAP
+		if (alcu_is_low(ai)) {
+		    size.low += asz;
+		}
+#endif
 	    }
 	}
     }
