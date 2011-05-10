@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!--
+    @(#)conformance.xml	1.1 98/12/20
+    Original version copyright 1998 by Sun Microsystems, Inc.
+    All Rights Reserved.
+    Modifications copyright 1999 by OASIS.
+    Modifications copyright 2001 by OASIS.
+-->
+
+<?xml-stylesheet href="xmlconformance.xsl" type="text/xsl"?>
+
+<!DOCTYPE TESTSUITE SYSTEM "testcases.dtd" [
+
+    <!-- Sun-written testcases -->
+    <!ENTITY sun-valid		SYSTEM "sun/sun-valid.xml">
+    <!ENTITY sun-invalid	SYSTEM "sun/sun-invalid.xml">
+    <!ENTITY sun-not-wf		SYSTEM "sun/sun-not-wf.xml">
+    <!ENTITY sun-error		SYSTEM "sun/sun-error.xml">
+
+    <!-- James Clark "XMLTEST" -->
+    <!ENTITY jclark-xmltest	SYSTEM "xmltest/xmltest.xml">
+
+    <!-- Fuji Xerox "Japanese Documents" -->
+    <!ENTITY xerox-japanese	SYSTEM "japanese/japanese.xml">
+
+    <!-- NIST/OASIS test suite -->
+    <!ENTITY nist-oasis		SYSTEM "oasis/oasis.xml">
+	
+    <!-- IBM tests -->
+    <!ENTITY ibm-invalid	SYSTEM "ibm/ibm_oasis_invalid.xml">
+    <!ENTITY ibm-not-wf		SYSTEM "ibm/ibm_oasis_not-wf.xml">
+    <!ENTITY ibm-valid		SYSTEM "ibm/ibm_oasis_valid.xml">
+]>
+
+<TESTSUITE PROFILE="XML 1.0 (2nd edition) W3C Conformance Test Suite, 6 October 2000">
+
+    &jclark-xmltest;
+    &xerox-japanese;
+
+<TESTCASES PROFILE="Sun Microsystems XML Tests" xml:base="sun/">
+    &sun-valid;
+    &sun-invalid;
+    &sun-not-wf;
+    &sun-error;
+</TESTCASES>
+
+    &nist-oasis;
+<TESTCASES PROFILE="IBM XML Tests" xml:base="ibm/">
+    &ibm-invalid;
+    &ibm-not-wf;
+    &ibm-valid;
+</TESTCASES>
+</TESTSUITE>

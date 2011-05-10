@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	elementFormDefault="qualified" attributeFormDefault="unqualified">
+	
+	<xs:element name="status">
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="status-type"/>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:simpleType name="status-type">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="Valid" />
+			<xs:enumeration value="Invalid" />
+			<xs:enumeration value="" />
+		</xs:restriction>
+	</xs:simpleType>
+</xs:schema>

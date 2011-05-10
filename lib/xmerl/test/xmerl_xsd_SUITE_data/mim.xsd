@@ -1,0 +1,511 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <!--
+    
+    Copyright (c) Ericsson AB 2006 All rights reserved.
+    
+    The information in this document is the property of Ericsson.
+    
+    Except as specifically authorized in writing by Ericsson, the 
+    receiver of this document shall keep the information contained 
+    herein confidential and shall protect the same in whole or in 
+    part from disclosure and dissemination to third parties.
+    
+    Disclosure and disseminations to the receivers employees shall 
+    only be made on a strict need to know basis.
+  -->
+  <!-- Common -->
+  <xs:element name="description" type="xs:string"/>
+  <xs:element name="applicationTag">
+    <xs:complexType>
+      <xs:group minOccurs="0" maxOccurs="unbounded" ref="anyElement"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:attributeGroup name="anyAttribute">
+    <xs:anyAttribute processContents="skip"/>
+  </xs:attributeGroup>
+  <xs:group name="anyElement">
+    <xs:sequence>
+      <xs:any processContents="skip"/>
+    </xs:sequence>
+  </xs:group>
+  <!-- Mim definition -->
+  <xs:element name="mim">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="namedStruct"/>
+          <xs:element ref="enum"/>
+          <xs:group ref="dataTypeDef"/>
+          <xs:element ref="exception"/>
+        </xs:choice>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="class"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="relationship"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <!-- MO class definition -->
+  <xs:element name="class">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:choice>
+          <xs:sequence>
+            <xs:element ref="singleton"/>
+            <xs:element minOccurs="0" ref="systemCreated"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+              <xs:group ref="namedStruct"/>
+              <xs:element ref="enum"/>
+              <xs:group ref="dataTypeDef"/>
+            </xs:choice>
+            <xs:element minOccurs="0" maxOccurs="unbounded" ref="attribute"/>
+          </xs:sequence>
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="systemCreated"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+              <xs:group ref="namedStruct"/>
+              <xs:element ref="enum"/>
+              <xs:group ref="dataTypeDef"/>
+            </xs:choice>
+            <xs:element maxOccurs="unbounded" ref="attribute"/>
+          </xs:sequence>
+        </xs:choice>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="action"/>
+        <xs:element minOccurs="0" ref="notificationTypes"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[A-Z][A-Za-z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="singleton">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="systemCreated">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="notificationTypes" type="xs:string"/>
+  <!-- Relations -->
+  <xs:element name="relationship">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:element ref="containment"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="containment">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="parent"/>
+        <xs:element ref="child"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="parent" type="hasClass"/>
+  <xs:element name="child">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="hasClass">
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="cardinality"/>
+          </xs:sequence>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="cardinality">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element ref="min"/>
+        <xs:element ref="max"/>
+        <xs:sequence>
+          <xs:element ref="min"/>
+          <xs:element ref="max"/>
+        </xs:sequence>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="hasClass">
+    <xs:sequence>
+      <xs:element ref="hasClass"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="hasClass">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <!-- Data types -->
+  <xs:group name="type">
+    <xs:choice>
+      <xs:element ref="boolean"/>
+      <xs:element ref="float"/>
+      <xs:element ref="integer"/>
+      <xs:element ref="string"/>
+      <xs:group ref="struct"/>
+      <xs:element ref="enumRef"/>
+      <xs:element ref="structRef"/>
+      <xs:element ref="moRef"/>
+    </xs:choice>
+  </xs:group>
+  <!-- For attributes, parameters and exceptions -->
+  <xs:group name="dataType">
+    <xs:sequence>
+      <xs:element name="dataType">
+        <xs:complexType>
+          <xs:choice>
+            <xs:group ref="type"/>
+            <xs:element ref="sequence"/>
+          </xs:choice>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="dataTypeDef">
+    <xs:sequence>
+      <xs:element name="dataType">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="description"/>
+            <xs:element minOccurs="0" ref="applicationTag"/>
+            <xs:choice>
+              <xs:group ref="type"/>
+              <xs:element ref="sequence"/>
+            </xs:choice>
+          </xs:sequence>
+          <xs:attribute name="name" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="dataTypeRef">
+    <xs:sequence>
+      <xs:element name="dataType">
+        <xs:complexType>
+          <xs:attribute name="name.ref" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <!-- For actions -->
+  <xs:element name="returnType">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element ref="void"/>
+        <xs:group ref="type"/>
+        <xs:element ref="sequence"/>
+        <xs:group ref="dataTypeRef"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <!-- Return data types -->
+  <xs:element name="void">
+    <xs:complexType/>
+  </xs:element>
+  <!-- Primitive data types -->
+  <xs:element name="boolean">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="float">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="range"/>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="integer">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="range"/>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="string">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="lengthRange"/>
+        <xs:element minOccurs="0" ref="validValues"/>
+        <xs:element minOccurs="0" ref="pattern"/>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="pattern" type="xs:string"/>
+  <xs:element name="validValues" type="xs:string"/>
+  <xs:element name="lengthRange">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="min"/>
+        <xs:sequence minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="min"/>
+          <xs:element ref="max"/>
+        </xs:sequence>
+        <xs:element minOccurs="0" ref="max"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="range">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="min"/>
+        <xs:sequence minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="min"/>
+          <xs:element ref="max"/>
+        </xs:sequence>
+        <xs:element minOccurs="0" ref="max"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="max" type="xs:string"/>
+  <xs:element name="min" type="xs:string"/>
+  <xs:element name="defaultValue" type="xs:string"/>
+  <!-- Enum data type -->
+  <xs:element name="enum">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:element maxOccurs="unbounded" ref="enumMember"/>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="enumMember">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:element minOccurs="0" ref="value"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="enumRef">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="defaultValue"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="value" type="xs:string"/>
+  <!-- Struct data type -->
+  <xs:group name="namedStruct">
+    <xs:sequence>
+      <xs:element name="struct">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element minOccurs="0" ref="description"/>
+            <xs:element minOccurs="0" ref="applicationTag"/>
+            <xs:element maxOccurs="unbounded" ref="structMember"/>
+          </xs:sequence>
+          <xs:attribute name="name" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="struct">
+    <xs:sequence>
+      <xs:element name="struct">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element maxOccurs="unbounded" ref="structMember"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="structMember">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:choice>
+          <xs:group ref="type"/>
+          <xs:element ref="sequence"/>
+          <xs:group ref="dataTypeRef"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="structRef">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <!-- Sequence data type -->
+  <xs:element name="sequence">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice>
+          <xs:group ref="type"/>
+          <xs:group ref="dataTypeRef"/>
+        </xs:choice>
+        <xs:element minOccurs="0" ref="minLength"/>
+        <xs:element minOccurs="0" ref="maxLength"/>
+        <xs:element minOccurs="0" ref="nonUnique"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="minLength" type="xs:string"/>
+  <xs:element name="maxLength" type="xs:string"/>
+  <xs:element name="nonUnique">
+    <xs:complexType/>
+  </xs:element>
+  <!-- MoRef data type -->
+  <xs:element name="moRef">
+    <xs:complexType>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="(/[A-Z][A-Za-z0-9]*)*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <!-- Attribute -->
+  <xs:element name="attribute">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag">
+          <xs:annotation>
+            <xs:documentation>Currently not used in IS.</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:choice>
+          <xs:group ref="dataType"/>
+          <xs:group ref="dataTypeRef"/>
+        </xs:choice>
+        <xs:element minOccurs="0" ref="initialValue"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="noNotification"/>
+          <xs:element ref="restricted"/>
+          <xs:element ref="readOnly"/>
+          <xs:choice>
+            <xs:element ref="key"/>
+            <xs:choice>
+              <xs:element ref="local"/>
+              <xs:element ref="mandatory"/>
+              <xs:element ref="nonPersistent"/>
+              <xs:element ref="static"/>
+              <xs:element ref="undefined"/>
+            </xs:choice>
+          </xs:choice>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[a-z][a-zA-Z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="initialValue" type="xs:string"/>
+  <xs:element name="key">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="local">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="mandatory">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="noNotification">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="nonPersistent">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="readOnly">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="restricted">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="static">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="undefined">
+    <xs:complexType/>
+  </xs:element>
+  <!-- Action -->
+  <xs:element name="action">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:element ref="returnType"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="parameter"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="raisesException"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:pattern value="[a-z][a-zA-Z0-9]*"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="parameter">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:choice>
+          <xs:group ref="dataType"/>
+          <xs:group ref="dataTypeRef"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="exception">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="exceptionParameter"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="exceptionParameter">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="description"/>
+        <xs:element minOccurs="0" ref="applicationTag"/>
+        <xs:choice>
+          <xs:group ref="dataType"/>
+          <xs:group ref="dataTypeRef"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="raisesException">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

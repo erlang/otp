@@ -278,6 +278,7 @@ detect_charset_1(Xml, State) ->
 convert_encoding(Enc) -> %% Just for 7,8 bit + utf8
     case string:to_lower(Enc) of
 	"utf-8" -> utf8;
+	"us-ascii" -> utf8;
 	"iso-8859-1" -> latin1; % Handle all iso-8859 as latin1
 	"iso-8859-2" -> latin1;
 	"iso-8859-3" -> latin1;

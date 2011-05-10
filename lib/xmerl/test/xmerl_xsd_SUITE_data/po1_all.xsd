@@ -1,0 +1,65 @@
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:po="http://www.example.com/PO1"
+        targetNamespace="http://www.example.com/PO1"
+        elementFormDefault="unqualified"
+        attributeFormDefault="unqualified">
+
+  <element name="purchaseOrder" type="po:PurchaseOrderType"/>
+
+  <element name="comment" type="string"/>
+
+
+  <complexType name="PurchaseOrderType">
+    <all>
+      <element name="shipTo" type="po:USAddress"/>
+      <element name="billTo" type="po:USAddress"/>
+      <element ref="po:comment" minOccurs="0"/>
+      <element name="items"  type="po:Items"/>
+    </all>
+    <attribute name="orderDate" type="date"/>
+  </complexType>
+
+  <complexType name="USAddress">
+    <sequence>
+      <element name="name"   type="string"/>
+      <element name="street" type="string"/>
+      <element name="city"   type="string"/>
+      <element name="state"  type="string"/>
+      <element name="zip"    type="decimal"/>
+    </sequence>
+    <attribute name="country" type="NMTOKEN"
+                   fixed="US"/>
+  </complexType>
+
+  <complexType name="Items">
+    <sequence>
+      <element name="item" minOccurs="0" maxOccurs="unbounded">
+        <complexType>
+          <sequence>
+            <element name="productName" type="string"/>
+            <element name="quantity">
+              <simpleType>
+                <restriction base="positiveInteger">
+                  <maxExclusive value="100"/>
+                </restriction>
+              </simpleType>
+            </element>
+            <element name="USPrice"  type="decimal"/>
+            <element ref="po:comment"   minOccurs="0"/>
+            <element name="shipDate" type="date" minOccurs="0"/>
+          </sequence>
+          <attribute name="partNum" type="po:SKU" use="required"/>
+        </complexType>
+      </element>
+    </sequence>
+  </complexType>
+
+  <!-- Stock Keeping Unit, a code for identifying products -->
+  <simpleType name="SKU">
+    <restriction base="string">
+      <pattern value="\d{3}-[A-Z]{2}"/>
+    </restriction>
+  </simpleType>
+
+</schema>
+

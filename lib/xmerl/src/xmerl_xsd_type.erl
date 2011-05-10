@@ -612,7 +612,7 @@ check_NMTOKEN2([H|T]) ->
     check_NMTOKEN2(T).
 
 check_NMTOKENS(Value) ->
-    TokList = string:tokens(Value," "),
+    TokList = string:tokens(Value," \n\t\r"),
     lists:foreach(fun check_NMTOKEN/1,TokList),
     {ok,Value}.
 
@@ -645,7 +645,7 @@ check_ENTITIES(Value) ->
     check_list_type(Value,fun check_ENTITY/1).
 
 check_list_type(Value,BaseTypeFun) ->
-    Tokens = string:tokens(Value," "),
+    Tokens = string:tokens(Value," \n\t\r"),
     lists:foreach(BaseTypeFun,Tokens),
     {ok,Value}.
 

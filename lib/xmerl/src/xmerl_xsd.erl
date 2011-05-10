@@ -2420,8 +2420,8 @@ validate_xml(XMLEl=#xmlElement{},SEl=#schema_element{},S) ->
 %% 2 often
 check_element_type(XML=[XMLTxt=#xmlText{}|Rest],CM=[CMEl|CMRest],Env,
 		   Block,S,Checked) ->
-    %% XMLTxt är det första av content i element,
-    %% CMEl är den tillåtna typen enligt schemat
+    %% XMLTxt is the first part of the elements content,
+    %% CMEl is the allowed type according to the schema
     case is_whitespace(XMLTxt) of
 	true -> %% Ignore XMLEl
 	    check_element_type(Rest,CM,Env,Block,S,[XMLTxt|Checked]);
@@ -2453,7 +2453,7 @@ check_element_type(XML=[#xmlElement{}|_],[{choice,{CM,Occ}}|_CMRest],
 check_element_type(XML=[#xmlElement{}|_],[{all,{CM,Occ}}|_CMRest],
 		   Env,_Block,S,Checked) ->
     ?debug("calling choice/6~n",[]),
-    check_all(XML,CM,Occ,Env,S,Checked,XML);
+    check_all(XML,CM,Occ,Env,set_num_el(S,0),Checked,XML); %%LTH
 %% 3 often. CMEL may be ((simpleType | complexType)?, (unique | key | keyref)*))
 check_element_type(XML=[XMLEl=#xmlElement{}|_],[CMEl|CMRest],Env,
 		   Block,S,Checked) ->
@@ -2921,7 +2921,7 @@ schemaLocations(El=#xmlElement{attributes=Atts},S) ->
 	[] ->
 	    S;
 	[#xmlAttribute{value=Paths}|_] ->
-	    case string:tokens(Paths," ") of
+	    case string:tokens(Paths," \n\t\r") of
 		L when length(L) > 0 ->
 		    case length(L) rem 2 of
 			0 ->
@@ -3393,8 +3393,12 @@ qualified_node_set(Paths,[QN|QNs],El,S,Acc) ->
 		  end
 	  end,
     {KeySequence,S2} = mapfoldl(Fun,S,Paths),
-    qualified_node_set(Paths,QNs,El,S2,[flatten(KeySequence)|Acc]).
-
+    case flatten(KeySequence) of
+	[] ->
+	    qualified_node_set(Paths,QNs,El,S2,Acc);
+	KS ->
+	    qualified_node_set(Paths,QNs,El,S2,[KS|Acc])
+    end.
 
 apply_field(F,El,S) ->
     %% xmerl_xpath:string returns a list
