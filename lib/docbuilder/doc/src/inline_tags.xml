@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -246,7 +246,10 @@
       bibliography file. Example:</p>
     <pre>
 [...,
- {"erlbook","Concurrent Programming in ERLANG","J. Armstrong, R. Virding, C. Wikstr&ouml;m, M. Williams, Concurrent Programming in ERLANG, Prentice Hall, 1996, ISBN 0-13-508301-X","jocke"},
+ {"erlbook",
+  "Concurrent Programming in ERLANG","J. Armstrong, R. Virding, C. Wikstr&ouml;m, "
+  "M. Williams, Concurrent Programming in ERLANG, Prentice Hall, 1996, ISBN 0-13-508301-X",
+  "jocke"},
  ...].
     </pre>
   </section>

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -125,7 +125,7 @@
         <cell align="left" valign="middle">not sign</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">&shy;</cell>
+        <cell align="left" valign="middle"></cell> <!-- a space is used instead of &shy; due to bug in fop 1.0 -->
         <cell align="left" valign="middle">&amp;shy;</cell>
         <cell align="left" valign="middle">soft hyphen</cell>
       </row>
