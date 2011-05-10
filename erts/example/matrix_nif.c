@@ -31,7 +31,19 @@ typedef struct
     unsigned nrows;
     unsigned ncols;
     double* data;
-}Matrix;
+} Matrix;
+
+/*
+ * Use a union for pointer type conversion to avoid compiler warnings
+ * about strict-aliasing violations with gcc-4.1. gcc >= 4.2 does not
+ * emit the warning.
+ * TODO: Reconsider use of union once gcc-4.1 is obsolete?
+ */
+typedef union
+{
+    void* vp;
+    Matrix* p;
+} mx_t;
 
 #define POS(MX, ROW, COL) ((MX)->data[(ROW)* (MX)->ncols + (COL)])
 
@@ -105,14 +117,14 @@ badarg:
 static ERL_NIF_TERM pos(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     /* pos(Matrix, Row, Column) -> float() */
-    Matrix* mx;
+    mx_t mx;
     unsigned i, j;
-    if (!enif_get_resource(env, argv[0], resource_type, (void**)&mx) ||
-	!enif_get_uint(env, argv[1], &i) || (--i >= mx->nrows) ||
-	!enif_get_uint(env, argv[2], &j) || (--j >= mx->ncols)) {
+    if (!enif_get_resource(env, argv[0], resource_type, &mx.vp) ||
+	!enif_get_uint(env, argv[1], &i) || (--i >= mx.p->nrows) ||
+	!enif_get_uint(env, argv[2], &j) || (--j >= mx.p->ncols)) {
 	return enif_make_badarg(env);
     }
-    return enif_make_double(env, POS(mx, i,j));
+    return enif_make_double(env, POS(mx.p, i,j));
 }
 
 static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -120,37 +132,38 @@ static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /* add(Matrix_A, Matrix_B) -> Matrix_Sum */
     unsigned i, j;
     ERL_NIF_TERM ret;
-    Matrix* mxA = NULL;
-    Matrix* mxB = NULL;
-    Matrix* mxS = NULL;
+    mx_t mxA, mxB, mxS;
+    mxA.p = NULL;
+    mxB.p = NULL;
+    mxS.p = NULL;
 
-    if (!enif_get_resource(env, argv[0], resource_type, (void**)&mxA) ||
-	!enif_get_resource(env, argv[1], resource_type, (void**)&mxB) ||
-	mxA->nrows != mxB->nrows ||
-	mxB->ncols != mxB->ncols) {
+    if (!enif_get_resource(env, argv[0], resource_type, &mxA.vp) ||
+	!enif_get_resource(env, argv[1], resource_type, &mxB.vp) ||
+	mxA.p->nrows != mxB.p->nrows ||
+	mxB.p->ncols != mxB.p->ncols) {
 
     	return enif_make_badarg(env);
     }
-    mxS = alloc_matrix(env, mxA->nrows, mxA->ncols);
-    for (i = 0; i < mxA->nrows; i++) {
-	for (j = 0; j < mxA->ncols; j++) {
-	    POS(mxS, i, j) = POS(mxA, i, j) + POS(mxB, i, j);
+    mxS.p = alloc_matrix(env, mxA.p->nrows, mxA.p->ncols);
+    for (i = 0; i < mxA.p->nrows; i++) {
+	for (j = 0; j < mxA.p->ncols; j++) {
+	    POS(mxS.p, i, j) = POS(mxA.p, i, j) + POS(mxB.p, i, j);
 	}
     }
-    ret = enif_make_resource(env, mxS);
-    enif_release_resource(mxS);
+    ret = enif_make_resource(env, mxS.p);
+    enif_release_resource(mxS.p);
     return ret;
 }
 
 static ERL_NIF_TERM size_of(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     /* size(Matrix) -> {Nrows, Ncols} */
-    Matrix* mx;
-    if (!enif_get_resource(env, argv[0], resource_type, (void**)&mx)) {
+    mx_t mx;
+    if (!enif_get_resource(env, argv[0], resource_type, &mx.vp)) {
 	return enif_make_badarg(env);
     }
-    return enif_make_tuple2(env, enif_make_uint(env, mx->nrows),
-			    enif_make_uint(env, mx->ncols));
+    return enif_make_tuple2(env, enif_make_uint(env, mx.p->nrows),
+			    enif_make_uint(env, mx.p->ncols));
 }
 
 static ERL_NIF_TERM to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -158,16 +171,17 @@ static ERL_NIF_TERM to_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     /* to_term(Matrix) -> [[first row], [second row], ...,[last row]] */
     unsigned i, j;
     ERL_NIF_TERM res;
-    Matrix* mx = NULL;
+    mx_t mx;
+    mx.p = NULL;
 
-    if (!enif_get_resource(env, argv[0], resource_type, (void**)&mx)) {	
+    if (!enif_get_resource(env, argv[0], resource_type, &mx.vp)) {
     	return enif_make_badarg(env);
     }
     res = enif_make_list(env, 0);
-    for (i = mx->nrows; i-- > 0; ) {
+    for (i = mx.p->nrows; i-- > 0; ) {
 	ERL_NIF_TERM row = enif_make_list(env, 0);
-	for (j = mx->ncols; j-- > 0; ) {
-	    row = enif_make_list_cell(env, enif_make_double(env, POS(mx,i,j)),
+	for (j = mx.p->ncols; j-- > 0; ) {
+	    row = enif_make_list_cell(env, enif_make_double(env, POS(mx.p,i,j)),
 				      row);
 	}
 	res = enif_make_list_cell(env, row, res);
