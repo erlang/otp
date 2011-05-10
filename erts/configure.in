@@ -3523,6 +3523,8 @@ dnl use "PATH/include" and "PATH/lib".
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_ROOT)
 AC_SUBST(SSL_LIBDIR)
+AC_SUBST(SSL_CRYPTO_LIBNAME)
+AC_SUBST(SSL_SSL_LIBNAME)
 AC_SUBST(SSL_CC_RUNTIME_LIBRARY_PATH)
 AC_SUBST(SSL_LD_RUNTIME_LIBRARY_PATH)
 AC_SUBST(SSL_DED_LD_RUNTIME_LIBRARY_PATH)
@@ -3686,19 +3688,41 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     CRYPTO_APP=crypto
     SSH_APP=ssh
 
-    AC_MSG_CHECKING(for OpenSSL >= 0.9.7 in standard locations) 
+    SSL_CRYPTO_LIBNAME=crypto
+    SSL_SSL_LIBNAME=ssl
+
+    AC_MSG_CHECKING(for OpenSSL >= 0.9.7 in standard locations)
     for rdir in $extra_dir /cygdrive/c/OpenSSL $std_ssl_locations; do
 	dir="$erl_xcomp_sysroot$rdir"
 	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
 		is_real_ssl=yes
 		SSL_ROOT="$dir"
 		if test "x$MIXED_CYGWIN" = "xyes" ; then
-			if test -f "$dir/lib/VC/ssleay32.lib" || \
-			   test -f "$dir/lib/VC/openssl.lib"; then 
+			if test -f "$dir/lib/VC/libeay32.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
 				SSL_LIBDIR="$dir/lib/VC"
-			elif test -f "$dir/lib/ssleay32.lib" || \
-			     test -f "$dir/lib/openssl.lib"; then
+				SSL_CRYPTO_LIBNAME=libeay32
+				SSL_SSL_LIBNAME=ssleay32
+			elif test -f "$dir/lib/VC/openssl.lib"; then 
+				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
+				SSL_LIBDIR="$dir/lib/VC"
+			elif test -f $dir/lib/VC/libeay32MD.lib; then
+		            SSL_CRYPTO_LIBNAME=libeay32MD
+		            SSL_SSL_LIBNAME=ssleay32MD
+			    if test "x$enable_dynamic_ssl" = "xno" && \
+	                       test -f  $dir/lib/VC/static/libeay32MD.lib; then
+				  SSL_RUNTIME_LIBDIR="$rdir/lib/VC/static"
+				  SSL_LIBDIR="$dir/lib/VC/static"
+		            else
+			          SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
+				  SSL_LIBDIR="$dir/lib/VC"
+                            fi 
+			elif test -f "$dir/lib/libeay32.lib"; then
+				SSL_RUNTIME_LIBDIR="$rdir/lib"
+				SSL_LIBDIR="$dir/lib"
+				SSL_CRYPTO_LIBNAME=libeay32
+				SSL_CRYPTO_LIBNAME=ssleay32
+			elif test -f "$dir/lib/openssl.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib"
 				SSL_LIBDIR="$dir/lib"
 			else
