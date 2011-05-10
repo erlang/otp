@@ -553,6 +553,11 @@ huge_float_check({'EXIT',{badarg,_}}) -> ok.
 
 huge_binary(Config) when is_list(Config) ->
     ?line 16777216 = size(<<0:(id(1 bsl 26)),(-1):(id(1 bsl 26))>>),
+    ?line garbage_collect(),
+    ?line id(<<0:((1 bsl 32)-1)>>),
+    ?line garbage_collect(),
+    ?line id(<<0:(id((1 bsl 32)-1))>>),
+    ?line garbage_collect(),
     ok.
 
 system_limit(Config) when is_list(Config) ->
