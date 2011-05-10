@@ -65,25 +65,35 @@ ethr_native_atomic32_read(ethr_native_atomic32_t *var)
 static ETHR_INLINE void
 ethr_native_atomic32_add(ethr_native_atomic32_t *var, ethr_sint32_t incr)
 {
+    ETHR_MEMORY_BARRIER;
     atomic_add(&var->counter, incr);
+    ETHR_MEMORY_BARRIER;
 }      
        
 static ETHR_INLINE void
 ethr_native_atomic32_inc(ethr_native_atomic32_t *var)
 {
+    ETHR_MEMORY_BARRIER;
     atomic_increment(&var->counter);
+    ETHR_MEMORY_BARRIER;
 }
 
 static ETHR_INLINE void
 ethr_native_atomic32_dec(ethr_native_atomic32_t *var)
 {
+    ETHR_MEMORY_BARRIER;
     atomic_decrement(&var->counter);
+    ETHR_MEMORY_BARRIER;
 }
 
 static ETHR_INLINE ethr_sint32_t
 ethr_native_atomic32_add_return(ethr_native_atomic32_t *var, ethr_sint32_t incr)
 {
-    return atomic_exchange_and_add(&var->counter, incr) + incr;
+    ethr_sint32_t res;
+    ETHR_MEMORY_BARRIER;
+    res = atomic_exchange_and_add(&var->counter, incr) + incr;
+    ETHR_MEMORY_BARRIER;
+    return res;
 }
 
 static ETHR_INLINE ethr_sint32_t
@@ -101,18 +111,27 @@ ethr_native_atomic32_dec_return(ethr_native_atomic32_t *var)
 static ETHR_INLINE ethr_sint32_t
 ethr_native_atomic32_and_retold(ethr_native_atomic32_t *var, ethr_sint32_t mask)
 {
-    return atomic_and_val(&var->counter, mask);
+    ethr_sint32_t res;
+    ETHR_MEMORY_BARRIER;
+    res = atomic_and_val(&var->counter, mask);
+    ETHR_MEMORY_BARRIER;
+    return res;
 }
 
 static ETHR_INLINE ethr_sint32_t
 ethr_native_atomic32_or_retold(ethr_native_atomic32_t *var, ethr_sint32_t mask)
 {
-    return atomic_or_val(&var->counter, mask);
+    ethr_sint32_t res;
+    ETHR_MEMORY_BARRIER;
+    res = atomic_or_val(&var->counter, mask);
+    ETHR_MEMORY_BARRIER;
+    return res;
 }
 
 static ETHR_INLINE ethr_sint32_t
 ethr_native_atomic32_xchg(ethr_native_atomic32_t *var, ethr_sint32_t val)
 {   
+    ETHR_MEMORY_BARRIER;
     return atomic_exchange_acq(&var->counter, val);
 } 
 
@@ -121,6 +140,7 @@ ethr_native_atomic32_cmpxchg(ethr_native_atomic32_t *var,
 			     ethr_sint32_t new,
 			     ethr_sint32_t expected)
 {
+    ETHR_MEMORY_BARRIER;
     return atomic_compare_and_exchange_val_acq(&var->counter, new, expected);
 }
 
@@ -139,9 +159,7 @@ ethr_native_atomic32_read_acqb(ethr_native_atomic32_t *var)
 static ETHR_INLINE ethr_sint32_t
 ethr_native_atomic32_inc_return_acqb(ethr_native_atomic32_t *var)
 {
-    ethr_sint32_t res = ethr_native_atomic32_inc_return(var);
-    ETHR_MEMORY_BARRIER;
-    return res;
+    return ethr_native_atomic32_inc_return(var);
 }
 
 static ETHR_INLINE void
@@ -154,14 +172,12 @@ ethr_native_atomic32_set_relb(ethr_native_atomic32_t *var, ethr_sint32_t val)
 static ETHR_INLINE void
 ethr_native_atomic32_dec_relb(ethr_native_atomic32_t *var)
 {
-    ETHR_MEMORY_BARRIER;
     ethr_native_atomic32_dec(var);
 }
 
 static ETHR_INLINE ethr_sint32_t
 ethr_native_atomic32_dec_return_relb(ethr_native_atomic32_t *var)
 {
-    ETHR_MEMORY_BARRIER;
     return ethr_native_atomic32_dec_return(var);
 }
 
@@ -178,7 +194,6 @@ ethr_native_atomic32_cmpxchg_relb(ethr_native_atomic32_t *var,
 				  ethr_sint32_t new,
 				  ethr_sint32_t exp)
 {
-    ETHR_MEMORY_BARRIER;
     return ethr_native_atomic32_cmpxchg(var, new, exp);
 }
 

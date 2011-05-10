@@ -95,7 +95,7 @@ ETHR_NATMC_FUNC__(add_return)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 {
     ETHR_AINT_T__ old, tmp;
 
-    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
+    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n" : : : "memory");
     do {
 	old = var->counter;
 	tmp = old+incr;
@@ -105,7 +105,7 @@ ETHR_NATMC_FUNC__(add_return)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 	    : "r"(old), "r"(&var->counter), "0"(tmp)
 	    : "memory");
     } while (__builtin_expect(old != tmp, 0));
-    __asm__ __volatile__("membar #StoreLoad|#StoreStore");
+    __asm__ __volatile__("membar #StoreLoad|#StoreStore" : : : "memory");
     return old+incr;
 }
 
@@ -144,7 +144,7 @@ ETHR_NATMC_FUNC__(and_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 {
     ETHR_AINT_T__ old, tmp;
 
-    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
+    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n" : : : "memory");
     do {
 	old = var->counter;
 	tmp = old & mask;
@@ -154,7 +154,7 @@ ETHR_NATMC_FUNC__(and_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 	    : "r"(old), "r"(&var->counter), "0"(tmp)
 	    : "memory");
     } while (__builtin_expect(old != tmp, 0));
-    __asm__ __volatile__("membar #StoreLoad|#StoreStore");
+    __asm__ __volatile__("membar #StoreLoad|#StoreStore" : : : "memory");
     return old;
 }
 
@@ -163,7 +163,7 @@ ETHR_NATMC_FUNC__(or_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 {
     ETHR_AINT_T__ old, tmp;
 
-    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
+    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n" : : : "memory");
     do {
 	old = var->counter;
 	tmp = old | mask;
@@ -173,7 +173,7 @@ ETHR_NATMC_FUNC__(or_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
 	    : "r"(old), "r"(&var->counter), "0"(tmp)
 	    : "memory");
     } while (__builtin_expect(old != tmp, 0));
-    __asm__ __volatile__("membar #StoreLoad|#StoreStore");
+    __asm__ __volatile__("membar #StoreLoad|#StoreStore" : : : "memory");
     return old;
 }
 
@@ -182,7 +182,7 @@ ETHR_NATMC_FUNC__(xchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ val)
 {
     ETHR_AINT_T__ old, new;
 
-    __asm__ __volatile__("membar #LoadLoad|#StoreLoad");
+    __asm__ __volatile__("membar #LoadLoad|#StoreLoad" : : : "memory");
     do {
 	old = var->counter;
 	new = val;
@@ -192,20 +192,20 @@ ETHR_NATMC_FUNC__(xchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ val)
 	    : "r"(old), "r"(&var->counter), "0"(new)
 	    : "memory");
     } while (__builtin_expect(old != new, 0));
-    __asm__ __volatile__("membar #StoreLoad|#StoreStore");
+    __asm__ __volatile__("membar #StoreLoad|#StoreStore" : : : "memory");
     return old;
 }
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ old)
 {
-    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n");
+    __asm__ __volatile__("membar #LoadLoad|#StoreLoad\n" : : : "memory");
     __asm__ __volatile__(
       ETHR_CAS__ " [%2], %1, %0"
       : "=&r"(new)
       : "r"(old), "r"(&var->counter), "0"(new)
       : "memory");
-    __asm__ __volatile__("membar #StoreLoad|#StoreStore");
+    __asm__ __volatile__("membar #StoreLoad|#StoreStore" : : : "memory");
     return new;
 }
 
@@ -213,13 +213,11 @@ ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ 
  * Atomic ops with at least specified barriers.
  */
 
-/* TODO: relax acquire barriers */
-
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(read_acqb)(ETHR_ATMC_T__ *var)
 {
     ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(read)(var);
-    __asm__ __volatile__("membar #LoadLoad|#LoadStore|#StoreLoad|#StoreStore" : : : "memory");
+    __asm__ __volatile__("membar #LoadLoad|#LoadStore" : : : "memory");
     return res;
 }
 
@@ -234,21 +232,18 @@ static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(inc_return_acqb)(ETHR_ATMC_T__ *var)
 {
     ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(inc_return)(var);
-    __asm__ __volatile__("membar #LoadLoad|#LoadStore" : : : "memory");
     return res;
 }
 
 static ETHR_INLINE void
 ETHR_NATMC_FUNC__(dec_relb)(ETHR_ATMC_T__ *var)
 {
-    __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
     ETHR_NATMC_FUNC__(dec)(var);
 }
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(dec_return_relb)(ETHR_ATMC_T__ *var)
 {
-    __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
     return ETHR_NATMC_FUNC__(dec_return)(var);
 }
 
@@ -256,14 +251,12 @@ static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ old)
 {
     ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(cmpxchg)(var, new, old);
-    __asm__ __volatile__("membar #LoadLoad|#LoadStore" : : : "memory");
     return res;
 }
 
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(cmpxchg_relb)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new, ETHR_AINT_T__ old)
 {
-    __asm__ __volatile__("membar #LoadStore|#StoreStore" : : : "memory");
     return ETHR_NATMC_FUNC__(cmpxchg)(var, new, old);
 }
 
