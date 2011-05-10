@@ -32,11 +32,11 @@
 #include "erl_bits.h"
 
 #ifdef DEBUG
-static int list_to_bitstr_buf(Eterm obj, char* buf, int len);
+static int list_to_bitstr_buf(Eterm obj, char* buf, Uint len);
 #else
 static int list_to_bitstr_buf(Eterm obj, char* buf);
 #endif
-static Sint bitstr_list_len(Eterm obj);
+static int bitstr_list_len(Eterm obj, Uint* num_bytes);
 
 void
 erts_init_binary(void)
@@ -399,7 +399,8 @@ BIF_RETTYPE iolist_to_binary_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 {
     Eterm bin;
-    int i,offset;
+    Uint sz;
+    int offset;
     byte* bytes;
     ErlSubBin* sb1; 
     Eterm* hp;
@@ -408,15 +409,19 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	BIF_RET(new_binary(BIF_P,(byte*)"",0));
     }
     if (is_not_list(BIF_ARG_1)) {
-	goto error;
+    error:
+	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((i = bitstr_list_len(BIF_ARG_1)) < 0) {
+    switch (bitstr_list_len(BIF_ARG_1, &sz)) {
+    case ERTS_IOLIST_TYPE:
 	goto error;
+    case ERTS_IOLIST_OVERFLOW:
+	BIF_ERROR(BIF_P, SYSTEM_LIMIT);
     }
-    bin = new_binary(BIF_P, (byte *)NULL, i);
+    bin = new_binary(BIF_P, (byte *)NULL, sz);
     bytes = binary_bytes(bin);
 #ifdef DEBUG
-    offset = list_to_bitstr_buf(BIF_ARG_1, (char*) bytes, i);
+    offset = list_to_bitstr_buf(BIF_ARG_1, (char*) bytes, sz);
 #else
     offset = list_to_bitstr_buf(BIF_ARG_1, (char*) bytes);
 #endif
@@ -425,20 +430,16 @@ BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
 	hp = HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
 	sb1 = (ErlSubBin *) hp;
 	sb1->thing_word = HEADER_SUB_BIN;
-	sb1->size = i-1;
+	sb1->size = sz-1;
 	sb1->offs = 0;
 	sb1->orig = bin;
 	sb1->bitoffs = 0;
 	sb1->bitsize = offset;
 	sb1->is_writable = 0;
-	hp += ERL_SUB_BIN_SIZE;
 	bin = make_binary(sb1);
     }
     
     BIF_RET(bin);
-    
-    error:
-	BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE split_binary_2(BIF_ALIST_2)
@@ -502,7 +503,7 @@ BIF_RETTYPE split_binary_2(BIF_ALIST_2)
  */
 static int
 #ifdef DEBUG
-list_to_bitstr_buf(Eterm obj, char* buf, int len)
+list_to_bitstr_buf(Eterm obj, char* buf, Uint len)
 #else
 list_to_bitstr_buf(Eterm obj, char* buf)
 #endif
@@ -605,14 +606,34 @@ list_to_bitstr_buf(Eterm obj, char* buf)
     return offset;
 }
 
-static Sint
-bitstr_list_len(Eterm obj)
+static int
+bitstr_list_len(Eterm obj, Uint* num_bytes)
 {
     Eterm* objp;
     Uint len = 0;
     Uint offs = 0;
     DECLARE_ESTACK(s);
     goto L_again;
+
+#define SAFE_ADD(Var, Val)			\
+    do {					\
+        Uint valvar = (Val);			\
+	Var += valvar;				\
+	if (Var < valvar) {			\
+	    goto L_overflow_error;		\
+	}					\
+    } while (0)
+
+#define SAFE_ADD_BITSIZE(Var, Bin)					\
+    do {								\
+	if (*binary_val(Bin) == HEADER_SUB_BIN) {			\
+            Uint valvar = ((ErlSubBin *) binary_val(Bin))->bitsize;	\
+	    Var += valvar;						\
+	    if (Var < valvar) {						\
+	         goto L_overflow_error;					\
+	    }								\
+        }								\
+    } while (0)
 
     while (!ESTACK_ISEMPTY(s)) {
 	obj = ESTACK_POP(s);
@@ -624,9 +645,12 @@ bitstr_list_len(Eterm obj)
 	    obj = CAR(objp);
 	    if (is_byte(obj)) {
 		len++;
+		if (len == 0) {
+		    goto L_overflow_error;
+		}
 	    } else if (is_binary(obj)) {
-		len += binary_size(obj);
-		offs += binary_bitsize(obj);
+		SAFE_ADD(len, binary_size(obj));
+		SAFE_ADD_BITSIZE(offs, obj);
 	    } else if (is_list(obj)) {
 		ESTACK_PUSH(s, CDR(objp));
 		goto L_iter_list; /* on head */
@@ -638,24 +662,44 @@ bitstr_list_len(Eterm obj)
 	    if (is_list(obj))
 		goto L_iter_list; /* on tail */
 	    else if (is_binary(obj)) {
-		len += binary_size(obj);
-		offs += binary_bitsize(obj);
+		SAFE_ADD(len, binary_size(obj));
+		SAFE_ADD_BITSIZE(offs, obj);
 	    } else if (is_not_nil(obj)) {
 		goto L_type_error;
 	    }
 	} else if (is_binary(obj)) {
-	    len += binary_size(obj);
-	    offs += binary_bitsize(obj);
+	    SAFE_ADD(len, binary_size(obj));
+	    SAFE_ADD_BITSIZE(offs, obj);
 	} else if (is_not_nil(obj)) {
 	    goto L_type_error;
 	}
     }
+#undef SAFE_ADD
+#undef SAFE_ADD_BITSIZE
 
     DESTROY_ESTACK(s);
-    return (Sint) (len + (offs/8) + ((offs % 8) != 0));
+
+    /*
+     * Make sure that the number of bits in the bitstring will fit
+     * in an Uint to ensure that the binary can be matched using
+     * the binary syntax.
+     */
+    if (len << 3 < len) {
+	goto L_overflow_error;
+    }
+    len += (offs >> 3) + ((offs & 7) != 0);
+    if (len << 3 < len) {
+	goto L_overflow_error;
+    }
+    *num_bytes = len;
+    return ERTS_IOLIST_OK;
 
  L_type_error:
     DESTROY_ESTACK(s);
-    return (Sint) -1;
+    return ERTS_IOLIST_TYPE;
+
+ L_overflow_error:
+    DESTROY_ESTACK(s);
+    return ERTS_IOLIST_OVERFLOW;
 }
 

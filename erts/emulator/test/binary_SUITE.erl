@@ -23,12 +23,12 @@
 %% Tests binaries and the BIFs:
 %%	list_to_binary/1
 %%      iolist_to_binary/1
-%%      bitstr_to_list/1
+%%      list_to_bitstring/1
 %%	binary_to_list/1
 %%	binary_to_list/3
 %%	binary_to_term/1
 %%  	binary_to_term/2
-%%      bitstr_to_list/1
+%%      bitstring_to_list/1
 %%	term_to_binary/1
 %%      erlang:external_size/1
 %%	size(Binary)
@@ -291,6 +291,7 @@ huge_iolists() ->
     [begin
 	 L = build_iolist(Sz, Base),
 	 ?line {'EXIT',{system_limit,_}} = (catch list_to_binary([L])),
+	 ?line {'EXIT',{system_limit,_}} = (catch list_to_bitstring([L])),
 	 ?line {'EXIT',{system_limit,_}} = (catch binary:list_to_bin([L])),
 	 ?line {'EXIT',{system_limit,_}} = (catch iolist_to_binary(L))
 	 end || Sz <- Sizes],
