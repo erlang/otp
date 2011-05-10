@@ -56,7 +56,6 @@ static erts_smp_tsd_key_t driver_list_last_error_key;  /* Save last DDLL error o
 							  per thread basis (for BC interfaces) */
 
 Port*      erts_port; /* The port table */
-erts_smp_atomic_t erts_ports_alive;
 erts_smp_atomic_t erts_bytes_out;	/* No bytes sent out of the system */
 erts_smp_atomic_t erts_bytes_in;	/* No bytes gotten into the system */
 
@@ -421,7 +420,6 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
     new_name = (char*) erts_alloc(ERTS_ALC_T_PORT_NAME, sys_strlen(name)+1);
     sys_strcpy(new_name, name);
     erts_smp_runq_lock(runq);
-    erts_smp_atomic_inc(&erts_ports_alive);
     erts_smp_port_state_lock(prt);    
     prt->status = ERTS_PORT_SFLG_CONNECTED | xstatus;
     prt->snapshot = (Uint32) erts_smp_atomic_read(&erts_ports_snapshot);    
@@ -1274,7 +1272,6 @@ void init_io(void)
 
     erts_smp_atomic_init(&erts_bytes_out, 0);
     erts_smp_atomic_init(&erts_bytes_in, 0);
-    erts_smp_atomic_init(&erts_ports_alive, 0);
 
     for (i = 0; i < erts_max_ports; i++) {
 	erts_port_task_init_sched(&erts_port[i].sched);

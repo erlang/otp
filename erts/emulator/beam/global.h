@@ -527,7 +527,6 @@ union erl_off_heap_ptr {
 
 /* arrays that get malloced at startup */
 extern Port* erts_port;
-extern erts_smp_atomic_t erts_ports_alive;
 
 extern Uint erts_max_ports;
 extern Uint erts_port_tab_index_mask;
