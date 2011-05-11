@@ -25,6 +25,7 @@
 -compile(export_all).
 
 -include("reltool_test_lib.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(NODE_NAME, '__RELTOOL__TEMPORARY_TEST__NODE__').
 -define(WORK_DIR, "reltool_work_dir").
@@ -53,7 +54,7 @@ all() ->
     [start_server, set_config, create_release,
      create_script, create_target, create_embedded,
      create_standalone, create_old_target,
-     otp_9135].
+     otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod].
 
 groups() -> 
     [].
@@ -361,6 +362,114 @@ create_old_target(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OTP-9229 - handle duplicated module names, i.e. same module name
+%% exists in two applications.
+
+%% Include on app, exclude the other
+otp_9229_exclude_app(Config) ->
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"otp_9229"),
+
+    %% Configure the server
+    ExclApp =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, [LibDir]},
+	  {incl_cond,exclude},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,exclude}]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_dupl_mod_excl_app"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclApp}])]),
+    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclApp}]),
+    ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+
+    AbsTargetDir = filename:absname(TargetDir),
+    XArchive = "x-1.0.ez",
+    AbsXArchive = filename:join([AbsTargetDir,lib,XArchive]),
+    XEbin = ["ebin","x-1.0",XArchive],
+    YArchive = "y-1.0.ez",
+    AbsYArchive = filename:join([AbsTargetDir,lib,YArchive]),
+
+    ?m(true, filelib:is_file(AbsXArchive)),
+    ?m(XEbin, mod_path(Node,x)),
+    ?m(XEbin, mod_path(Node,mylib)),
+    ?m(false, filelib:is_file(AbsYArchive)),
+    ?m(non_existing, mod_path(Node,y)),
+
+    ?msym(ok, stop_node(Node)),
+
+    ok.
+
+%% Include both apps, but exclude common module from one app
+otp_9229_exclude_mod(Config) ->
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"otp_9229"),
+
+    %% Configure the server
+    ExclMod =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, [LibDir]},
+	  {incl_cond,exclude},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,include},{mod, mylib,[{incl_cond,exclude}]}]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_dupl_mod_excl_mod"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclMod}])]),
+    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclMod}]),
+    ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+
+    AbsTargetDir = filename:absname(TargetDir),
+    XArchive = "x-1.0.ez",
+    AbsXArchive = filename:join([AbsTargetDir,lib,XArchive]),
+    XEbin = ["ebin","x-1.0",XArchive],
+    YArchive = "y-1.0.ez",
+    AbsYArchive = filename:join([AbsTargetDir,lib,YArchive]),
+    YEbin = ["ebin","y-1.0",YArchive],
+
+    ?m(true, filelib:is_file(AbsXArchive)),
+    ?m(XEbin, mod_path(Node,x)),
+    ?m(XEbin, mod_path(Node,mylib)),
+    ?m(true, filelib:is_file(AbsYArchive)),
+    ?m(YEbin, mod_path(Node,y)),
+
+    %% Remove path to XEbin and check that mylib is not located in YEbin
+    Mylib = rpc:call(Node,code,which,[mylib]),
+    rpc:call(Node,code,del_path,[filename:dirname(Mylib)]),
+    ?m(non_existing, mod_path(Node,mylib)),
+
+    ?msym(ok, stop_node(Node)),
+
+    ok.
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
 
 erl_libs() ->
@@ -405,6 +514,20 @@ os_cmd(Cmd) when is_list(Cmd) ->
                 Status = string:substr(Return,Position + 1, length(Return) - Position - 1),
                 {list_to_integer(Status), Result}
             end
+    end.
+
+%% Returns the location (directory) of the given module. Split,
+%% reverted and relative to the lib dir.
+mod_path(Node,Mod) ->
+    case rpc:call(Node,code,which,[Mod]) of
+	Path when is_list(Path) ->
+	    lists:takewhile(
+	      fun("lib") -> false;
+		 (_) -> true
+	      end,
+	      lists:reverse(filename:split(filename:dirname(Path))));
+	Other ->
+	    Other
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

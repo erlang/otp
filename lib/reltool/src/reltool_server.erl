@@ -465,16 +465,16 @@ analyse(#state{common = C,
                 [MissingApp2 | Apps2]
         end,
     app_propagate_is_used_by(C, Apps3),
-    Apps4 = read_apps(C, Sys, Apps3, []),
+    {Apps4,Status4} = app_recap_dependencies(C, Sys, Apps3, [], Status3),
     %% io:format("Missing app: ~p\n",
     %%           [lists:keysearch(?MISSING_APP_NAME, #app.name, Apps4)]),
     Sys2 = Sys#sys{apps = Apps4},
 
-    case verify_config(RelApps2, Sys2, Status3) of
-	{ok, _Warnings} = Status4 ->
-	    {S#state{sys = Sys2}, Status4};
-	{error, _} = Status4 ->
-            {S, Status4}
+    case verify_config(RelApps2, Sys2, Status4) of
+	{ok, _Warnings} = Status5 ->
+	    {S#state{sys = Sys2}, Status5};
+	{error, _} = Status5 ->
+            {S, Status5}
     end.
 
 apps_in_rels(Rels, Apps, Status) ->
@@ -548,21 +548,24 @@ app_init_is_included(C,
             {derived, [_ | _]} -> % App is included in at least one rel
 		{true, undefined, true, Status}
         end,
-    A2 = A#app{is_pre_included = IsPreIncl,
+    {Mods2,Status3} = lists:mapfoldl(fun(Mod,Acc) ->
+					     mod_init_is_included(C,
+								  Mod,
+								  ModCond,
+								  AppCond,
+								  Default,
+								  Acc)
+				     end,
+				     Status2,
+				     Mods),
+    A2 = A#app{mods = Mods2,
+	       is_pre_included = IsPreIncl,
 	       is_included = IsIncl,
 	       rels = Rels},
     ets:insert(C#common.app_tab, A2),
-    lists:foreach(fun(Mod) ->
-			  mod_init_is_included(C,
-					       Mod,
-					       ModCond,
-					       AppCond,
-					       Default)
-		  end,
-		  Mods),
-    {A2, Status2}.
+    {A2, Status3}.
 
-mod_init_is_included(C, M, ModCond, AppCond, Default) ->
+mod_init_is_included(C, M, ModCond, AppCond, Default, Status) ->
     %% print(M#mod.name, hipe, "incl_cond -> ~p\n", [AppCond]),
     IsIncl =
         case AppCond of
@@ -595,9 +598,52 @@ mod_init_is_included(C, M, ModCond, AppCond, Default) ->
                         Default
                 end
         end,
+
     M2 = M#mod{is_pre_included = IsIncl, is_included = IsIncl},
+
+    Status2 =
+	case ets:lookup(C#common.mod_tab,M#mod.name) of
+	    [Existing] ->
+		case {Existing#mod.is_included,IsIncl} of
+		    {false,_} ->
+			Warning =
+			    lists:concat(
+			      ["Module ",M#mod.name,
+			       " exists in applications ", Existing#mod.app_name,
+			      " and ", M#mod.app_name,
+			       ". Using module from application ",
+			       M#mod.app_name, "."]),
+			ets:insert(C#common.mod_tab, M2),
+			reltool_utils:add_warning(Status,Warning);
+		    {_,false} ->
+			Warning =
+			    lists:concat(
+			      ["Module ",M#mod.name,
+			       " exists in applications ", Existing#mod.app_name,
+			      " and ", M#mod.app_name,
+			       ". Using module from application ",
+			       Existing#mod.app_name, "."]),
+
+			%% Don't insert in mod_tab - using Existing
+			reltool_utils:add_warning(Status,Warning);
+		    {_,_} ->
+			Error =
+			    lists:concat(
+			      ["Module ",M#mod.name,
+			       " potentially included by ",
+			       "two different applications: ",
+			       Existing#mod.app_name, " and ",
+			       M#mod.app_name, "."]),
+			%% Don't insert in mod_tab - using Existing
+			reltool_utils:return_first_error(Status,Error)
+		end;
+	    [] ->
+		ets:insert(C#common.mod_tab, M2),
+		Status
+	end,
+
     %% print(M#mod.name, hipe, "~p -> ~p\n", [M2, IsIncl]),
-    ets:insert(C#common.mod_tab, M2).
+    {M2,Status2}.
 
 false_to_undefined(Bool) ->
     case Bool of
@@ -612,21 +658,27 @@ app_propagate_is_included(_C, _Sys, [], Acc) ->
     Acc.
 
 mod_propagate_is_included(C, Sys, A, [#mod{name = ModName} | Mods], Acc) ->
-    [M2] = ets:lookup(C#common.mod_tab, ModName),
-    %% print(ModName, file, "Maybe Prop ~p -> ~p\n",
-    %%       [M2, M2#mod.is_included]),
-    %% print(ModName, filename, "Maybe Prop ~p -> ~p\n",
-    %%       [M2, M2#mod.is_included]),
     Acc2 =
-        case M2#mod.is_included of
-            true ->
-                %% Propagate include mark
-                mod_mark_is_included(C, Sys, ModName, M2#mod.uses_mods, Acc);
-            false ->
-                Acc;
-            undefined ->
-                Acc
-        end,
+	case ets:lookup(C#common.mod_tab, ModName) of
+	    [M2] when M2#mod.app_name=:=A#app.name ->
+		%% print(ModName, file, "Maybe Prop ~p -> ~p\n",
+		%%       [M2, M2#mod.is_included]),
+		%% print(ModName, filename, "Maybe Prop ~p -> ~p\n",
+		%%       [M2, M2#mod.is_included]),
+		case M2#mod.is_included of
+		    true ->
+			%% Propagate include mark
+			mod_mark_is_included(C,Sys,ModName,M2#mod.uses_mods,Acc);
+		    false ->
+			Acc;
+		    undefined ->
+			Acc
+		end;
+	    [_] ->
+		%% This module is currently used from a different application
+		%% Ignore
+		Acc
+	end,
     mod_propagate_is_included(C, Sys, A, Mods, Acc2);
 mod_propagate_is_included(_C, _Sys, _A, [], Acc) ->
     Acc.
@@ -740,9 +792,10 @@ mod_propagate_is_used_by(C, [#mod{name = ModName} | Mods]) ->
 mod_propagate_is_used_by(_C, []) ->
     ok.
 
-read_apps(C, Sys, [#app{mods = Mods, is_included = IsIncl} = A | Apps], Acc) ->
-    {Mods2, IsIncl2} = read_apps(C, Sys, A, Mods, [], IsIncl),
-    Status =
+app_recap_dependencies(C, Sys, [#app{mods = Mods, is_included = IsIncl} = A | Apps], Acc, Status) ->
+    {Mods2, IsIncl2, Status2} =
+	mod_recap_dependencies(C, Sys, A, Mods, [], IsIncl, Status),
+    AppStatus =
         case lists:keymember(missing, #mod.status, Mods2) of
             true  -> missing;
             false -> ok
@@ -759,34 +812,52 @@ read_apps(C, Sys, [#app{mods = Mods, is_included = IsIncl} = A | Apps], Acc) ->
     UsedByApps2 = lists:usort(UsedByApps),
 
     A2 = A#app{mods = Mods2,
-               status = Status,
+               status = AppStatus,
                uses_mods = UsesMods2,
                used_by_mods = UsedByMods2,
                uses_apps = UsesApps2,
                used_by_apps = UsedByApps2,
                is_included = IsIncl2},
-    read_apps(C, Sys, Apps, [A2 | Acc]);
-read_apps(_C, _Sys, [], Acc) ->
-    lists:reverse(Acc).
+    ets:insert(C#common.app_tab,A2),
+    app_recap_dependencies(C, Sys, Apps, [A2 | Acc], Status2);
+app_recap_dependencies(_C, _Sys, [], Acc, Status) ->
+    {lists:reverse(Acc), Status}.
 
-read_apps(C, Sys, A, [#mod{name = ModName} | Mods], Acc, IsIncl) ->
-    [M2] = ets:lookup(C#common.mod_tab, ModName),
-    Status = do_get_status(M2),
-    %% print(M2#mod.name, hipe, "status -> ~p\n", [Status]),
-    {IsIncl2, M3} =
-        case M2#mod.is_included of
-            true ->
-                UsedByMods =
-		    [N || {_, N} <- ets:lookup(C#common.mod_used_by_tab,
-					       ModName)],
-                {true, M2#mod{status = Status, used_by_mods = UsedByMods}};
-            _    ->
-                {IsIncl, M2#mod{status = Status, used_by_mods = []}}
-        end,
-    ets:insert(C#common.mod_tab, M3),
-    read_apps(C, Sys, A, Mods, [M3 | Acc], IsIncl2);
-read_apps(_C, _Sys, _A, [], Acc, IsIncl) ->
-    {lists:reverse(Acc), IsIncl}.
+mod_recap_dependencies(C, Sys, A, [#mod{name = ModName}=M1 | Mods], Acc, IsIncl, Status) ->
+    case ets:lookup(C#common.mod_tab, ModName) of
+	[M2] when M2#mod.app_name=:=A#app.name ->
+	    ModStatus = do_get_status(M2),
+	    %% print(M2#mod.name, hipe, "status -> ~p\n", [ModStatus]),
+	    {IsIncl2, M3} =
+		case M2#mod.is_included of
+		    true ->
+			UsedByMods =
+			    [N || {_, N} <- ets:lookup(C#common.mod_used_by_tab,
+						       ModName)],
+			{true, M2#mod{status = ModStatus, used_by_mods = UsedByMods}};
+		    _    ->
+			{IsIncl, M2#mod{status = ModStatus, used_by_mods = []}}
+		end,
+	    ets:insert(C#common.mod_tab, M3),
+	    mod_recap_dependencies(C, Sys, A, Mods, [M3 | Acc], IsIncl2, Status);
+	[_] when A#app.is_included==false; M1#mod.incl_cond==exclude ->
+	    %% App is explicitely excluded so it is ok that the module
+	    %% record does not exist for this module in this
+	    %% application.
+	    mod_recap_dependencies(C, Sys, A, Mods, [M1 | Acc], IsIncl, Status);
+	[M2] ->
+	    %% A module is potensially included by multiple
+	    %% applications. This is not allowed!
+	    Error =
+		lists:concat(
+		  ["Module ",ModName,
+		   " potentially included by two different applications: ",
+		   A#app.name, " and ", M2#mod.app_name, "."]),
+	    Status2 = reltool_utils:return_first_error(Status,Error),
+	    mod_recap_dependencies(C, Sys, A, Mods, [M1 | Acc], IsIncl, Status2)
+    end;
+mod_recap_dependencies(_C, _Sys, _A, [], Acc, IsIncl, Status) ->
+    {lists:reverse(Acc), IsIncl, Status}.
 
 do_get_status(M) ->
     if
