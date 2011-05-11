@@ -268,14 +268,6 @@ dec_value([4 | Bytes]) ->
 dec_value([64 | Bytes]) -> 
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'IpAddress', Value}, Rest};
-%% dec_value([65 | Bytes]) ->
-%%     {Value, Rest} = dec_integer_notag(Bytes),
-%%     if 
-%% 	(Value >= 0) andalso (Value =< 4294967295) ->
-%% 	    {{'Counter32', Value}, Rest};
-%% 	true ->
-%% 	    exit({error, {bad_counter32, Value}})
-%%     end;
 dec_value([65 | Bytes]) ->
     %% Counter32 is an unsigned 32 but is actually encoded as 
     %% a signed integer 32 (INTEGER).
@@ -284,12 +276,13 @@ dec_value([65 | Bytes]) ->
 	if
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
 		%% We accept value above 16#7fffffff
+		%% in order to be backward bug-compatible
 		Value;
 	    (Value < 0) ->
 		16#ffffffff + Value + 1;
 	    true ->
 		exit({error, {bad_counter32, Value}})	end,
-    {{'Counter64', Value2}, Rest};
+    {{'Counter32', Value2}, Rest};
 dec_value([66 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
     if 
