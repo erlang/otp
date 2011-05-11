@@ -281,7 +281,8 @@ dec_value([65 | Bytes]) ->
 	    (Value < 0) ->
 		16#ffffffff + Value + 1;
 	    true ->
-		exit({error, {bad_counter32, Value}})	end,
+		exit({error, {bad_counter32, Value}})	
+	end,
     {{'Counter32', Value2}, Rest};
 dec_value([66 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
