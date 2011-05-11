@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -99,7 +99,7 @@
 
 -type object()   :: tuple().
 -type pattern()  :: atom() | tuple().
--type tab_name() :: atom() | reference().
+-type tab_name() :: term().
 
 %%% This is the implementation of the mnesia file storage. Each (non
 %%% ram-copy) table is maintained in a corresponding .DAT file. The
