@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -173,8 +173,8 @@ mi_encdec(N,Val) ->
 m_encdec(0,_) ->
     ok;
 m_encdec(N,Val) ->
-    {ok,B}='Mod1':encode('L',Val),
-    {ok,_R}='Mod1':decode('L',B),
+    {ok,B}='Mod':encode('L',Val),
+    {ok,_R}='Mod':decode('L',B),
     m_encdec(N-1,Val).
 
 
