@@ -20,38 +20,12 @@
  [
   {"5.5.2", 
    [
-    {load_module, ftp, soft_purge, soft_purge, []},
-    {load_module, http_util, soft_purge, soft_purge, []},
-    {load_module, http_transport, soft_purge, soft_purge, []},
-    {load_module, httpd_util, soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_conf, soft_purge, soft_purge, []},
-    {load_module, httpd_file, soft_purge, soft_purge, []},
-    {load_module, httpd_log, soft_purge, soft_purge, []},
-    {load_module, mod_esi, soft_purge, soft_purge, []},
-    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
-    {load_module, httpc_request, soft_purge, soft_purge, []},
-    {update, httpd_sup, soft, soft_purge, soft_purge, [http_transport]},
-    {update, httpd_request_handler, soft, soft_purge, soft_purge, []},
-    {update, httpc_handler, soft, soft_purge, soft_purge, [httpc_request]}
+   {restart_application, inets}
    ]
   }, 
   {"5.5.1", 
    [
-    {load_module, ftp, soft_purge, soft_purge, []}, 
-    {load_module, http_chunk, soft_purge, soft_purge, []},
-    {load_module, http_util, soft_purge, soft_purge, []},
-    {load_module, http_transport, soft_purge, soft_purge, []},
-    {load_module, httpd_util, soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_conf, soft_purge, soft_purge, []},
-    {load_module, httpd_file, soft_purge, soft_purge, []},
-    {load_module, httpd_log, soft_purge, soft_purge, []},
-    {load_module, mod_esi, soft_purge, soft_purge, []},
-    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
-    {load_module, httpc_request, soft_purge, soft_purge, []},
-    {update, httpd_sup, soft, soft_purge, soft_purge, [http_transport]},
-    {update, httpd_request_handler, soft, soft_purge, soft_purge, []},
-    {update, httpc_handler, soft, soft_purge, soft_purge, 
-     [httpc_request, http_chunk]}
+     {restart_application, inets}
    ]
   }, 
   {"5.5",
@@ -68,38 +42,12 @@
  [
   {"5.5.2",
    [
-    {load_module, ftp, soft_purge, soft_purge, []}, 
-    {load_module, http_util, soft_purge, soft_purge, []},
-    {load_module, http_transport, soft_purge, soft_purge, []},
-    {load_module, httpd_util, soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_conf, soft_purge, soft_purge, []},
-    {load_module, httpd_file, soft_purge, soft_purge, []},
-    {load_module, httpd_log, soft_purge, soft_purge, []},
-    {load_module, mod_esi, soft_purge, soft_purge, []},
-    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
-    {load_module, httpc_request, soft_purge, soft_purge, []},
-    {update, httpd_sup, soft, soft_purge, soft_purge, [http_transport]},
-    {update, httpd_request_handler, soft, soft_purge, soft_purge, []},
-    {update, httpc_handler, soft, soft_purge, soft_purge, [httpc_request]}
+   {restart_application, inets}
    ]
   },
   {"5.5.1", 
    [
-    {load_module, ftp, soft_purge, soft_purge, []}, 
-    {load_module, http_chunk, soft_purge, soft_purge, []},
-    {load_module, http_util, soft_purge, soft_purge, []},
-    {load_module, http_transport, soft_purge, soft_purge, []},
-    {load_module, httpd_util, soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_conf, soft_purge, soft_purge, []},
-    {load_module, httpd_file, soft_purge, soft_purge, []},
-    {load_module, httpd_log, soft_purge, soft_purge, []},
-    {load_module, mod_esi, soft_purge, soft_purge, []},
-    {load_module, httpc, soft_purge, soft_purge, [httpc_handler]},
-    {load_module, httpc_request, soft_purge, soft_purge, []},
-    {update, httpd_sup, soft, soft_purge, soft_purge, [http_transport]},
-    {update, httpd_request_handler, soft, soft_purge, soft_purge, []},
-    {update, httpc_handler, soft, soft_purge, soft_purge, 
-     [httpc_request, http_chunk]}
+   {restart_application, inets}
    ]
   }, 
   {"5.5",
