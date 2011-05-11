@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -120,7 +120,7 @@ do_send_body(SocketType, Socket, Method, Uri, Version, Headers, Body) ->
 	       version(Version), ?CRLF,
 	       headers(Headers, Version), ?CRLF, Body],
     ?hcrd("send", [{message, Message}]),
-    http_transport:send(SocketType, Socket, lists:append(Message)).
+    http_transport:send(SocketType, Socket, Message).
 
 
 do_send_body(SocketType, Socket, ProcessBody, Acc) ->
@@ -128,9 +128,7 @@ do_send_body(SocketType, Socket, ProcessBody, Acc) ->
         eof ->
             ok;
         {ok, Data, NewAcc} ->
-            DataBin = iolist_to_binary(Data),
-            ?hcrd("send", [{data, DataBin}]),
-            case http_transport:send(SocketType, Socket, DataBin) of
+            case http_transport:send(SocketType, Socket, Data) of
                 ok ->
                     do_send_body(SocketType, Socket, ProcessBody, NewAcc);
                 Error ->

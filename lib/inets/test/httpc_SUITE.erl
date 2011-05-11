@@ -115,7 +115,8 @@ all() ->
      options,
      ipv6, 
      headers_as_is, 
-     {group, tickets}
+     {group, tickets},
+     initial_server_connect
     ].
 
 groups() -> 
@@ -139,6 +140,7 @@ groups() ->
      {otp_8106, [], [otp_8106_pid, 
 		     otp_8106_fun, 
 		     otp_8106_mfa]}].
+
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -199,7 +201,6 @@ end_per_suite(Config) ->
     application:stop(ssl),
     ok.
 
-
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(Case, Config) -> Config
 %% Case - atom()
@@ -214,6 +215,15 @@ end_per_suite(Config) ->
 %%--------------------------------------------------------------------
 init_per_testcase(otp_8154_1 = Case, Config) ->
     init_per_testcase(Case, 5, Config);
+
+init_per_testcase(initial_server_connect, Config) ->
+    inets:start(),
+    application:start(crypto),
+    application:start(public_key),
+    application:start(ssl),
+    application:start(inets),
+    Config;
+
 init_per_testcase(Case, Config) ->
     init_per_testcase(Case, 2, Config).
 
@@ -601,34 +611,35 @@ http_inets_pipe(Config) when is_list(Config) ->
 	    {skip, "Failed to start local http-server"}
     end.
 
+
 test_pipeline(URL) ->
-    p("test_pipeline -> entry with"
-      "~n   URL: ~p", [URL]),
+     p("test_pipeline -> entry with"
+       "~n   URL: ~p", [URL]),
 
-    httpc:set_options([{pipeline_timeout, 50000}]),
-    
-    p("test_pipeline -> issue (async) request 1"), 
-    {ok, RequestId1} = 
+     httpc:set_options([{pipeline_timeout, 50000}]),
+
+     p("test_pipeline -> issue (async) request 1"),
+     {ok, RequestId1} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    test_server:format("RequestId1: ~p~n", [RequestId1]),
-    p("test_pipeline -> RequestId1: ~p", [RequestId1]),
+     test_server:format("RequestId1: ~p~n", [RequestId1]),
+     p("test_pipeline -> RequestId1: ~p", [RequestId1]),
 
-    %% Make sure pipeline is initiated
-    p("test_pipeline -> sleep some", []),
-    test_server:sleep(4000),
+     %% Make sure pipeline is initiated
+     p("test_pipeline -> sleep some", []),
+     test_server:sleep(4000),
 
-    p("test_pipeline -> issue (async) request 2"),
-    {ok, RequestId2} = 
+     p("test_pipeline -> issue (async) request 2"),
+     {ok, RequestId2} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId2: ~p", [RequestId2]),
-    p("test_pipeline -> RequestId2: ~p", [RequestId2]),
+     tsp("RequestId2: ~p", [RequestId2]),
+     p("test_pipeline -> RequestId2: ~p", [RequestId2]),
 
-    p("test_pipeline -> issue (sync) request 3"),
-    {ok, {{_,200,_}, [_ | _], [_ | _]}} = 
+     p("test_pipeline -> issue (sync) request 3"),
+     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, []}, [], []),
 
     p("test_pipeline -> expect reply for (async) request 1 or 2"),
-    receive 
+    receive
 	{http, {RequestId1, {{_, 200, _}, _, _}}} ->
 	    p("test_pipeline -> received reply for (async) request 1 - now wait for 2"),
 	    receive
@@ -646,46 +657,46 @@ test_pipeline(URL) ->
 		    ok;
 		{http, Msg2} ->
 		    test_server:fail(Msg2)
-		    end; 
+	    end;
 	{http, Msg3} ->
 	    test_server:fail(Msg3)
-	after 60000 ->
-		receive Any1 ->
-			tsp("received crap after timeout: ~n   ~p", [Any1]),
-			test_server:fail({error, {timeout, Any1}})
-		end
-    end,
-    
-    p("test_pipeline -> sleep some"),
-    test_server:sleep(4000),
-
-    p("test_pipeline -> issue (async) request 4"),
-    {ok, RequestId3} = 
-	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId3: ~p", [RequestId3]),
-    p("test_pipeline -> RequestId3: ~p", [RequestId3]),
-
-    p("test_pipeline -> issue (async) request 5"),
-    {ok, RequestId4} = 
-	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId4: ~p~n", [RequestId4]),
-    p("test_pipeline -> RequestId4: ~p", [RequestId4]),
-
-    p("test_pipeline -> cancel (async) request 4"),
-    ok = httpc:cancel_request(RequestId3),
-
-    p("test_pipeline -> expect *no* reply for cancelled (async) request 4 (for 3 secs)"),
-    receive 
-	{http, {RequestId3, _}} ->
-	    test_server:fail(http_cancel_request_failed)
-    after 3000 ->
-	    ok
+    after 60000 ->
+	    receive Any1 ->
+		    tsp("received crap after timeout: ~n   ~p", [Any1]),
+		    test_server:fail({error, {timeout, Any1}})
+	    end
     end,
 
-    p("test_pipeline -> expect reply for (async) request 4"),
-    Body = 
-	receive 
-	   {http, {RequestId4, {{_, 200, _}, _, BinBody4}}} = Res ->
+     p("test_pipeline -> sleep some"),
+     test_server:sleep(4000),
+
+     p("test_pipeline -> issue (async) request 4"),
+     {ok, RequestId3} =
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
+     tsp("RequestId3: ~p", [RequestId3]),
+     p("test_pipeline -> RequestId3: ~p", [RequestId3]),
+
+     p("test_pipeline -> issue (async) request 5"),
+     {ok, RequestId4} =
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
+     tsp("RequestId4: ~p~n", [RequestId4]),
+     p("test_pipeline -> RequestId4: ~p", [RequestId4]),
+
+     p("test_pipeline -> cancel (async) request 4"),
+     ok = httpc:cancel_request(RequestId3),
+
+     p("test_pipeline -> expect *no* reply for cancelled (async) request 4 (for 3 secs)"),
+     receive
+	 {http, {RequestId3, _}} ->
+	     test_server:fail(http_cancel_request_failed)
+     after 3000 ->
+	     ok
+     end,
+
+     p("test_pipeline -> expect reply for (async) request 4"),
+     Body =
+	receive
+	    {http, {RequestId4, {{_, 200, _}, _, BinBody4}}} = Res ->
 		p("test_pipeline -> received reply for (async) request 5"),
 		tsp("Receive : ~p", [Res]),
 		BinBody4;
@@ -700,9 +711,9 @@ test_pipeline(URL) ->
 
     p("test_pipeline -> check reply for (async) request 5"),
     inets_test_lib:check_body(binary_to_list(Body)),
-   
+
     p("test_pipeline -> ensure no unexpected incomming"),
-    receive 
+    receive
 	{http, Any} ->
 	    test_server:fail({unexpected_message, Any})
     after 500 ->
@@ -711,8 +722,6 @@ test_pipeline(URL) ->
 
     p("test_pipeline -> done"),
     ok.
-
-
 
 %%-------------------------------------------------------------------------
 http_trace(doc) ->
@@ -1675,25 +1684,11 @@ proxy_https_not_supported(suite) ->
 proxy_https_not_supported(Config) when is_list(Config) ->
     Result = httpc:request(get, {"https://login.yahoo.com", []}, [], []),
     case Result of
-	{error, Reason} ->
-	    %% ok so far
-	    case Reason of
-		{failed_connecting, Why} ->
-		    %% ok, now check why
-		    case Why of
-			https_through_proxy_is_not_currently_supported ->
-			    ok;
-			_ ->
-			    tsf({unexpected_why, Why})
-		    end;
-		_ ->
-		    tsf({unexpected_reason, Reason})
-	    end;
+	{error, https_through_proxy_is_not_currently_supported} ->
+	    ok;
 	_ ->
-	    tsf({unexpected_result, Result})
-    end,
-    ok.
-
+	    tsf({unexpected_reason, Result})
+    end.
 
 %%-------------------------------------------------------------------------
 
@@ -2446,7 +2441,7 @@ otp_8106_fun(Config) when is_list(Config) ->
 	    ok;
 	_ ->
 	    {skip, "Failed to start local http-server"}
-    end.  
+    end.
 
 
 otp_8106_mfa(doc) ->
@@ -2672,7 +2667,7 @@ otp_8739(Config) when is_list(Config) ->
     Request     = {URL, []}, 
     HttpOptions = [{connect_timeout, 500}, {timeout, 1}], 
     Options     = [{sync, true}], 
-    case http:request(Method, Request, HttpOptions, Options) of
+    case httpc:request(Method, Request, HttpOptions, Options) of
 	{error, timeout} ->
 	    %% And now we check the size of the handler db
 	    Info = httpc:info(),
@@ -2729,7 +2724,31 @@ otp_8739_dummy_server_main(_Parent, ListenSocket) ->
 	    exit(Error)
     end.
 
-		       
+%%-------------------------------------------------------------------------
+
+initial_server_connect(doc) ->
+    ["If this test cases times out the init of httpc_handler process is"
+     "blocking the manager/client process (implementation dependent which) but nither"
+     "should be blocked."];
+initial_server_connect(suite) ->
+    [];
+initial_server_connect(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = httpc:set_options([{ipfamily, inet}]),
+
+    CertFile   = filename:join(DataDir, "ssl_server_cert.pem"),
+    SSLOptions = [{certfile, CertFile}, {keyfile, CertFile}],
+
+    {DummyServerPid, Port} = dummy_ssl_server_hang(self(), ipv4, SSLOptions),
+
+    URL = ?SSL_URL_START ++ integer_to_list(Port) ++ "/index.html",
+
+    httpc:request(get, {URL, []}, [{ssl,{essl,[]}}], [{sync, false}]),
+
+    [{session_cookies,[]}] = httpc:which_cookies(),
+
+    DummyServerPid ! stop,
+    ok = httpc:set_options([{ipfamily, inet6fb4}]).
     
 %%--------------------------------------------------------------------
 %% Internal functions
@@ -3242,10 +3261,8 @@ pick_header(Headers, Name) ->
 	    Val
     end.
 
-
 not_implemented_yet() ->
     exit(not_implemented_yet).
-
 
 p(F) ->
     p(F, []).
@@ -3260,3 +3277,37 @@ tsp(F, A) ->
 
 tsf(Reason) ->
     test_server:fail(Reason).
+
+
+dummy_ssl_server_hang(Caller, IpV, SslOpt) ->
+    Pid = spawn(httpc_SUITE, dummy_ssl_server_hang_init, [Caller, IpV, SslOpt]),
+    receive
+	{port, Port} ->
+	    {Pid, Port}
+    end.
+
+dummy_ssl_server_hang_init(Caller, IpV, SslOpt) ->
+    {ok, ListenSocket} =
+	case IpV of
+	    ipv4 ->
+		ssl:listen(0, [binary, inet, {packet, 0},
+			       {reuseaddr,true},
+			       {active, false}] ++ SslOpt);
+	    ipv6 ->
+		ssl:listen(0, [binary, inet6, {packet, 0},
+			       {reuseaddr,true},
+			       {active, false}] ++ SslOpt)
+	end,
+    {ok, {_,Port}} = ssl:sockname(ListenSocket),
+    tsp("dummy_ssl_server_hang_init -> Port: ~p", [Port]),
+    Caller ! {port, Port},
+    {ok, AcceptSocket} = ssl:transport_accept(ListenSocket),
+    dummy_ssl_server_hang_loop(AcceptSocket).
+
+dummy_ssl_server_hang_loop(_) ->
+    %% Do not do ssl:ssl_accept as we
+    %% want to time out the underlying gen_tcp:connect
+    receive
+	stop ->
+	    ok
+    end.
