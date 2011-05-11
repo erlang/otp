@@ -269,24 +269,35 @@ dec_value([64 | Bytes]) ->
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'IpAddress', Value}, Rest};
 dec_value([65 | Bytes]) ->
+    %% Counter32 is an unsigned 32 but is actually encoded as 
+    %% a signed integer 32 (INTEGER).
     {Value, Rest} = dec_integer_notag(Bytes),
-    if Value >= 0, Value =< 4294967295 ->
-	    {{'Counter32', Value}, Rest};
-       true ->
-	    exit({error, {bad_counter32, Value}})
-    end;
+    Value2 = 
+	if
+	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
+		%% We accept value above 16#7fffffff
+		%% in order to be backward bug-compatible
+		Value;
+	    (Value < 0) ->
+		16#ffffffff + Value + 1;
+	    true ->
+		exit({error, {bad_counter32, Value}})	
+	end,
+    {{'Counter32', Value2}, Rest};
 dec_value([66 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
-    if Value >= 0, Value =< 4294967295 ->
+    if 
+	(Value >= 0) andalso (Value =< 4294967295) ->
 	    {{'Unsigned32', Value}, Rest};
-       true ->
+	true ->
 	    exit({error, {bad_unsigned32, Value}})
     end;
 dec_value([67 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
-    if Value >= 0, Value =< 4294967295 ->
+    if 
+	(Value >= 0) andalso (Value =< 4294967295) ->
 	    {{'TimeTicks', Value}, Rest};
-       true ->
+	true ->
 	    exit({error, {bad_timeticks, Value}})
     end;
 dec_value([68 | Bytes]) ->
@@ -642,6 +653,21 @@ enc_value(_Type, endOfMibView) ->
     [130,0];
 enc_value('NULL', _Val) ->
     [5,0];
+enc_value('Counter32', Val) ->
+    Val2 = 
+	if
+	    Val > 16#ffffffff ->
+		exit({error, {bad_counter32, Val}});
+	    Val >= 16#80000000 ->
+		(Val band 16#7fffffff) - 16#80000000;
+	    Val >= 0 ->
+		Val;
+	    true ->
+		exit({error, {bad_counter32, Val}}) 
+	end,
+    Bytes2 = enc_integer_notag(Val2),
+    Len2 = elength(length(Bytes2)),
+    lists:append([65 | Len2],Bytes2);
 enc_value('Counter64', Val) ->
     Val2 = 
 	if

@@ -38,6 +38,8 @@
 	
 	 otp7575/1,
 	 otp8563/1, 
+	 otp9022/1, 
+
          init_per_testcase/2, end_per_testcase/2
 	]).
 
@@ -75,7 +77,7 @@ all() ->
 [{group, tickets}].
 
 groups() -> 
-    [{tickets, [], [otp7575, otp8563]}].
+    [{tickets, [], [otp7575, otp8563, otp9022]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -169,7 +171,56 @@ otp8563(Config) when is_list(Config) ->
 	Unexpected7 ->
 	    exit({unexpected_encode_result, Unexpected7, Val7})
     end,
-    
+
+    ok.
+
+
+otp9022(suite) -> [];
+otp9022(doc) -> ["OTP-9022"];
+otp9022(Config) when is_list(Config) ->
+    Val1 = 16#7fffffff,
+    io:format("try encode and decode ~w~n", [Val1]),
+    Enc1 = snmp_pdus:enc_value('Counter32', Val1), 
+    {{'Counter32', Val1}, []} = snmp_pdus:dec_value(Enc1), 
+
+    Val2 = Val1 + 1,
+    io:format("try encode and decode ~w~n", [Val2]),
+    Enc2 = snmp_pdus:enc_value('Counter32', Val2), 
+    {{'Counter32', Val2}, []} = snmp_pdus:dec_value(Enc2), 
+
+    Val3 = Val2 + 1,
+    io:format("try encode and decode ~w~n", [Val3]),
+    Enc3 = snmp_pdus:enc_value('Counter32', Val3), 
+    {{'Counter32', Val3}, []} = snmp_pdus:dec_value(Enc3), 
+
+    Val4 = 16#fffffffe,
+    io:format("try encode and decode ~w~n", [Val4]),
+    Enc4 = snmp_pdus:enc_value('Counter32', Val4), 
+    {{'Counter32', Val4}, []} = snmp_pdus:dec_value(Enc4), 
+
+    Val5 = Val4 + 1,
+    io:format("try encode and decode ~w~n", [Val5]),
+    Enc5 = snmp_pdus:enc_value('Counter32', Val5), 
+    {{'Counter32', Val5}, []} = snmp_pdus:dec_value(Enc5), 
+
+    Val6 = 16#ffffffff + 1, 
+    io:format("try and fail to encode ~w~n", [Val6]),
+    case (catch snmp_pdus:enc_value('Counter32', Val6)) of
+	{'EXIT', {error, {bad_counter32, Val6}}} ->
+	    ok;
+	Unexpected6 ->
+	    exit({unexpected_encode_result, Unexpected6, Val6})
+    end,
+
+    Val7 = -1, 
+    io:format("try and fail to encode ~w~n", [Val7]),
+    case (catch snmp_pdus:enc_value('Counter32', Val7)) of
+	{'EXIT', {error, {bad_counter32, Val7}}} ->
+	    ok;
+	Unexpected7 ->
+	    exit({unexpected_encode_result, Unexpected7, Val7})
+    end,
+
     ok.
 
 
