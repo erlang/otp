@@ -1535,6 +1535,10 @@ erts_get_atom_cache_map(Process *c_p)
 }
 #endif
 
+Process *erts_pid2proc_suspend(Process *,
+			       ErtsProcLocks,
+			       Eterm,
+			       ErtsProcLocks);
 #ifdef ERTS_SMP
 
 Process *erts_pid2proc_not_running(Process *,
