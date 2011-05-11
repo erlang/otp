@@ -104,6 +104,18 @@
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
         </item>
 
+        <item>
+          <p>[httpc] httpc manager crashes. 
+	  When a request results in a retry, the request id will be "reused" 
+	  in the previous implementation a race condition could occur causing 
+	  the manager to crash. </p>
+	  <p>This is now avoided by using proc_lib:init_ack and 
+	  gen_server:enter_loop to allow mor advanced initialization of 
+	  httpc_handlers without blocking the httpc_manger and eliminating 
+	  extra processes that can cause race conditions. </p>
+          <p>Own Id: OTP-9246</p>
+        </item>
+
       </list>
     </section>
 
