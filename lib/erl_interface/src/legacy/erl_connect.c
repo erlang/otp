@@ -293,8 +293,13 @@ static int erl_do_receive_msg(int fd, ei_x_buff* x, ErlMessage* emsg)
 	emsg->msg = NULL;
     if (msg.from.node[0] != '\0')
 	emsg->from = erl_mk_pid(msg.from.node, msg.from.num, msg.from.serial, msg.from.creation);
+    else
+	emsg->from = NULL;
     if (msg.to.node[0] != '\0')
 	emsg->to = erl_mk_pid(msg.to.node, msg.to.num, msg.to.serial, msg.to.creation);
+    else
+	emsg->to = NULL;
+    memcpy(emsg->to_name, msg.toname, MAXATOMLEN+1);
     return r;
 }
 
