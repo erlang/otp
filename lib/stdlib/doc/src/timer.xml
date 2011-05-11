@@ -203,6 +203,7 @@
     <func>
       <name>tc(Module, Function, Arguments) -> {Time, Value}</name>
       <name>tc(Fun, Arguments) -> {Time, Value}</name>
+      <name>tc(Fun) -> {Time, Value}</name>
       <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
       Function, Arguments)</c> or <c>apply(Fun, Arguments)</c></fsummary>
       <type>
@@ -218,7 +219,7 @@
           <tag><c>tc/3</c></tag>
           <item>
             <p>Evaluates <c>apply(Module, Function, Arguments)</c> and measures
-              the elapsed real time as reported by <c>now/0</c>.
+              the elapsed real time as reported by <c>os:timestamp/0</c>.
               Returns <c>{Time, Value}</c>, where
               <c>Time</c> is the elapsed real time in <em>microseconds</em>,
               and <c>Value</c> is what is returned from the apply.</p>
@@ -228,6 +229,11 @@
             <p>Evaluates <c>apply(Fun, Arguments)</c>. Otherwise works
             like <c>tc/3</c>.</p>
           </item>
+          <tag><c>tc/1</c></tag>
+          <item>
+            <p>Evaluates <c>Fun()</c>. Otherwise works like <c>tc/2</c>.</p>
+          </item>
+
         </taglist>
       </desc>
     </func>

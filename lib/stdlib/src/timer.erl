@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 	 send_after/3, send_after/2,
 	 exit_after/3, exit_after/2, kill_after/2, kill_after/1,
 	 apply_interval/4, send_interval/3, send_interval/2,
-	 cancel/1, sleep/1, tc/2, tc/3, now_diff/2,
+	 cancel/1, sleep/1, tc/1, tc/2, tc/3, now_diff/2,
 	 seconds/1, minutes/1, hours/1, hms/3]).
 
 -export([start_link/0, start/0, 
@@ -101,15 +101,24 @@ sleep(T) ->
     after T -> ok
     end.
 
+%%
+%% Measure the execution time (in microseconds) for Fun().
+%%
+-spec tc(function()) -> {time(), term()}.
+tc(F) ->
+    Before = os:timestamp(),
+    Val = F(),
+    After = os:timestamp(),
+    {now_diff(After, Before), Val}.
 
 %%
 %% Measure the execution time (in microseconds) for Fun(Args).
 %%
 -spec tc(function(), [_]) -> {time(), term()}.
 tc(F, A) ->
-    Before = erlang:now(),
-    Val = (catch apply(F, A)),
-    After = erlang:now(),
+    Before = os:timestamp(),
+    Val = apply(F, A),
+    After = os:timestamp(),
     {now_diff(After, Before), Val}.
 
 %%
@@ -117,9 +126,9 @@ tc(F, A) ->
 %%
 -spec tc(atom(), atom(), [term()]) -> {time(), term()}.
 tc(M, F, A) ->
-    Before = erlang:now(),
-    Val = (catch apply(M, F, A)),
-    After = erlang:now(),
+    Before = os:timestamp(),
+    Val = apply(M, F, A),
+    After = os:timestamp(),
     {now_diff(After, Before), Val}.
 
 %%
