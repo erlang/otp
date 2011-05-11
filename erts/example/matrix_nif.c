@@ -44,8 +44,9 @@ static ErlNifResourceType* resource_type = NULL;
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
-    ErlNifResourceType* rt = enif_open_resource_type(env, "matrix_nif_example",
-						     matrix_dtor, 
+    ErlNifResourceType* rt = enif_open_resource_type(env, NULL,
+						     "matrix_nif_example",
+						     matrix_dtor,
 						     ERL_NIF_RT_CREATE, NULL);
     if (rt == NULL) {
 	return -1;
@@ -90,12 +91,12 @@ static ERL_NIF_TERM create(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
     ret = enif_make_resource(env, mx);
-    enif_release_resource(env, mx);
+    enif_release_resource(mx);
     return ret;
 
 badarg:
     if (mx != NULL) {
-	enif_release_resource(env,mx);
+	enif_release_resource(mx);
     }
     return enif_make_badarg(env);
 }
@@ -137,7 +138,7 @@ static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	}
     }
     ret = enif_make_resource(env, mxS);
-    enif_release_resource(env, mxS);
+    enif_release_resource(mxS);
     return ret;
 }
 
@@ -183,17 +184,17 @@ static int get_number(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)
 
 static Matrix* alloc_matrix(ErlNifEnv* env, unsigned nrows, unsigned ncols)
 {
-    Matrix* mx = enif_alloc_resource(env, resource_type, sizeof(Matrix));
+    Matrix* mx = enif_alloc_resource(resource_type, sizeof(Matrix));
     mx->nrows = nrows;
     mx->ncols = ncols;
-    mx->data = enif_alloc(env, nrows*ncols*sizeof(double));
+    mx->data = enif_alloc(nrows*ncols*sizeof(double));
     return mx;
 }
 
 static void matrix_dtor(ErlNifEnv* env, void* obj)
 {
     Matrix* mx = (Matrix*) obj;
-    enif_free(env, mx->data);
+    enif_free(mx->data);
     mx->data = NULL;
 }
 
