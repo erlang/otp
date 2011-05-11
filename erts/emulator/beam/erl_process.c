@@ -4686,7 +4686,7 @@ internal_add_to_runq(ErtsRunQueue *runq, Process *p)
     if (p->status_flags & ERTS_PROC_SFLG_INRUNQ)
 	return NULL;
     else if (p->runq_flags & ERTS_PROC_RUNQ_FLG_RUNNING) {
-	ASSERT(p->rcount == 0);
+	ASSERT(ERTS_PROC_IS_EXITING(p) || p->rcount == 0);
 	ERTS_DBG_CHK_PROCS_RUNQ_NOPROC(runq, p);
 	p->status_flags |= ERTS_PROC_SFLG_PENDADD2SCHEDQ;
 	return NULL;
@@ -4697,7 +4697,7 @@ internal_add_to_runq(ErtsRunQueue *runq, Process *p)
     ERTS_DBG_CHK_PROCS_RUNQ_NOPROC(runq, p);
 #ifndef ERTS_SMP
     /* Never schedule a suspended process (ok in smp case) */
-    ASSERT(p->rcount == 0);
+    ASSERT(ERTS_PROC_IS_EXITING(p) || p->rcount == 0);
     add_runq = runq;
 #else
     ASSERT(!p->bound_runq || p->bound_runq == p->run_queue);
