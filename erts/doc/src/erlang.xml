@@ -2356,6 +2356,14 @@ os_prompt%</pre>
               <seealso marker="tools:instrument">instrument(3)</seealso>
               and/or <seealso marker="erts:erl">erl(1)</seealso>.</p>
           </item>
+          <tag><c>low</c></tag>
+          <item>
+            <p>Only on 64-bit halfword emulator.</p>
+            <p>The total amount of memory allocated in low memory areas
+	      that are restricted to less than 4 Gb even though
+	      the system may have more physical memory.</p>
+	    <p>May be removed in future releases of halfword emulator.</p>
+          </item>
         </taglist>
         <note>
           <p>The <c>system</c> value is not complete. Some allocated
