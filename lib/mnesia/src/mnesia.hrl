@@ -70,6 +70,7 @@
 		  attributes = [key, val],         % [Atom]
 		  user_properties = [],            % [Record]
 		  frag_properties = [],            % [{Key, Val]
+		  storage_properties = [],         % [{Key, Val]
                   cookie = ?unique_cookie,         % Term
                   version = {{2, 0}, []}}).        % {{Integer, Integer}, [Node]}
 

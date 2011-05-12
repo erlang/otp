@@ -813,6 +813,21 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
               </p>
           </item>
           <item>
+            <p><c>{storage_properties, [{Backend, Properties}]</c>.
+	    Forwards additional properties to the backend storage.
+	    <c>Backend</c> can currently be <c>ets</c> or <c>dets</c> and
+	    <c>Properties</c> is a list of options sent to the backend storage
+	    during table creation. <c>Properties</c> may not contain properties
+	    already used by mnesia such as <c>type</c> or <c>named_table</c>.
+	    </p>
+	    <p>For example:</p>
+	    <code type="none">
+mnesia:create_table(table, [{ram_copies, [node()]}, {disc_only_copies, nodes()},
+			    {storage_properties,
+			     [{ets, [compressed]}, {dets, [{auto_save, 5000}]} ]}])
+	    </code>
+          </item>
+          <item>
             <p><c>{type, Type}</c>, where <c>Type</c> must be
               either of the atoms <c>set</c>, <c>ordered_set</c> or
               <c>bag</c>. The default value is <c>set</c>. In a

@@ -604,15 +604,19 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
 		    mnesia_checkpoint:tm_del_copy(Tab, node())
 	    end
     end,
+    StorageProps = Cs#cstruct.storage_properties,
+    
     %% And create new ones..
     if
 	(InitBy == startup) or (Storage == unknown) ->
 	    ignore;
 	Storage == ram_copies ->
-	    Args = [{keypos, 2}, public, named_table, Type],
+	    EtsProps = proplists:get_value(ets, StorageProps, []),
+	    Args = [{keypos, 2}, public, named_table, Type | EtsProps],
 	    mnesia_monitor:mktab(Tab, Args);
 	Storage == disc_copies ->
-	    Args = [{keypos, 2}, public, named_table, Type],
+	    EtsProps = proplists:get_value(ets, StorageProps, []),
+	    Args = [{keypos, 2}, public, named_table, Type | EtsProps],
 	    mnesia_monitor:mktab(Tab, Args),
 	    File = mnesia_lib:tab2dcd(Tab),	    
 	    FArg = [{file, File}, {name, {mnesia,create}}, 
@@ -622,10 +626,12 @@ insert_op(Tid, _, {op, restore_recreate, TabDef}, InPlace, InitBy) ->
 	Storage == disc_only_copies ->
 	    File = mnesia_lib:tab2dat(Tab),
 	    file:delete(File),
+	    DetsProps = proplists:get_value(dets, StorageProps, []),
 	    Args = [{file, mnesia_lib:tab2dat(Tab)},
 		    {type, mnesia_lib:disk_type(Tab, Type)},
 		    {keypos, 2},
-		    {repair, mnesia_monitor:get_env(auto_repair)}],
+		    {repair, mnesia_monitor:get_env(auto_repair)} 
+		    | DetsProps ],
 	    mnesia_monitor:open_dets(Tab, Args)
     end,
     insert_op(Tid, ignore, {op, create_table, TabDef}, InPlace, InitBy);
@@ -635,6 +641,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
     insert_cstruct(Tid, Cs, false, InPlace, InitBy),
     Tab = Cs#cstruct.name,
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
+    StorageProps = Cs#cstruct.storage_properties,
     case InitBy of
 	startup ->
 	    case Storage of
@@ -656,10 +663,13 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 			    mnesia_log:unsafe_close_log(temp)
 		    end;
 		_ ->
+		    DetsProps = proplists:get_value(dets, StorageProps, []),
+
 		    Args = [{file, mnesia_lib:tab2dat(Tab)},
 			    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)},
 			    {keypos, 2},
-			    {repair, mnesia_monitor:get_env(auto_repair)}],
+			    {repair, mnesia_monitor:get_env(auto_repair)} 
+			    | DetsProps ],
 		    case mnesia_monitor:open_dets(Tab, Args) of
 			{ok, _} ->
 			    mnesia_monitor:unsafe_close_dets(Tab);
@@ -671,7 +681,7 @@ insert_op(Tid, _, {op, create_table, TabDef}, InPlace, InitBy) ->
 	    Copies = mnesia_lib:copy_holders(Cs),
 	    Active = mnesia_lib:intersect(Copies, val({current, db_nodes})),
 	    [mnesia_controller:add_active_replica(Tab, N, Cs) || N <- Active],
-
+	    
 	    case Storage of
 		unknown ->
 		    mnesia_lib:unset({Tab, create_table}),
@@ -944,11 +954,14 @@ open_files(Tab, Storage, UpdateInPlace, InitBy)
 			    Bool = open_disc_copies(Tab, InitBy),
 			    Bool;
 			_ ->
+			    Props = val({Tab, storage_properties}),
+			    DetsProps = proplists:get_value(dets, Props, []),
 			    Fname = prepare_open(Tab, UpdateInPlace),
 			    Args = [{file, Fname},
 				    {keypos, 2},
 				    {repair, mnesia_monitor:get_env(auto_repair)},
-				    {type, mnesia_lib:disk_type(Tab, Type)}],
+				    {type, mnesia_lib:disk_type(Tab, Type)} 
+				    | DetsProps],
 			    {ok, _} = mnesia_monitor:open_dets(Tab, Args),
 			    put({?MODULE, Tab}, {opened_dumper, dat}),
 			    true

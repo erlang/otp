@@ -279,11 +279,8 @@ rec_tabs([], _, _, Init) ->
     unlink(Init),
     ok.
 
-%% New function that does exactly what get_cstructs() used to do.
-%% When this function is called, we know that the calling node knows
-%% how to convert cstructs on the receiving end (should they differ).
 get_remote_cstructs() ->
-    call(get_cstructs).
+    get_cstructs().  %% Sigh not forward compatible always check version
 
 %% Old function kept for backwards compatibility; converts cstructs before sending.
 get_cstructs() ->

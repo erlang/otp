@@ -61,9 +61,11 @@ do_get_disc_copy2(Tab, _Reason, Storage, _Type) when Storage == unknown ->
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     %% NOW we create the actual table
     Repair = mnesia_monitor:get_env(auto_repair),
-    Args = [{keypos, 2}, public, named_table, Type],
+    StorageProps = val({Tab, storage_properties}),
+    EtsOpts = proplists:get_value(ets, StorageProps, []),
+    Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case Reason of
-	{dumper, _} -> %% Resources allready allocated
+	{dumper, _} -> %% Resources already allocated
 	    ignore;
 	_ ->
 	    mnesia_monitor:mktab(Tab, Args),
@@ -82,7 +84,9 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
     {loaded, ok};
 
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == ram_copies ->
-    Args = [{keypos, 2}, public, named_table, Type],
+    StorageProps = val({Tab, storage_properties}),
+    EtsOpts = proplists:get_value(ets, StorageProps, []),
+    Args = [{keypos, 2}, public, named_table, Type | EtsOpts],
     case Reason of
 	{dumper, _} -> %% Resources allready allocated
 	    ignore;
@@ -115,10 +119,14 @@ do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == ram_copies ->
     {loaded, ok};
 
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_only_copies ->
+    StorageProps = val({Tab, storage_properties}),
+    DetsOpts = proplists:get_value(dets, StorageProps, []),
+
     Args = [{file, mnesia_lib:tab2dat(Tab)},
 	    {type, mnesia_lib:disk_type(Tab, Type)},
 	    {keypos, 2},
-	    {repair, mnesia_monitor:get_env(auto_repair)}],
+	    {repair, mnesia_monitor:get_env(auto_repair)} 
+	    | DetsOpts],
     case Reason of
 	{dumper, _} ->
 	    mnesia_index:init_index(Tab, Storage),
@@ -349,17 +357,21 @@ do_init_table(Tab,Storage,Cs,SenderPid,
     end.
 
 create_table(Tab, TabSize, Storage, Cs) ->
+    StorageProps = val({Tab, storage_properties}),
     if
 	Storage == disc_only_copies ->
 	    mnesia_lib:lock_table(Tab),
 	    Tmp = mnesia_lib:tab2tmp(Tab),
 	    Size = lists:max([TabSize, 256]),
+	    DetsOpts = lists:keydelete(estimated_no_objects, 1,
+				       proplists:get_value(dets, StorageProps, [])),
 	    Args = [{file, Tmp},
 		    {keypos, 2},
 %%		    {ram_file, true},
 		    {estimated_no_objects, Size},
 		    {repair, mnesia_monitor:get_env(auto_repair)},
-		    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}],
+		    {type, mnesia_lib:disk_type(Tab, Cs#cstruct.type)}
+		    | DetsOpts],
 	    file:delete(Tmp),
 	    case mnesia_lib:dets_sync_open(Tab, Args) of
 		{ok, _} ->
@@ -370,7 +382,8 @@ create_table(Tab, TabSize, Storage, Cs) ->
 		    Else
 	    end;
 	(Storage == ram_copies) or (Storage == disc_copies) ->
-	    Args = [{keypos, 2}, public, named_table, Cs#cstruct.type],
+	    EtsOpts = proplists:get_value(ets, StorageProps, []),
+	    Args = [{keypos, 2}, public, named_table, Cs#cstruct.type | EtsOpts],
 	    case mnesia_monitor:unsafe_mktab(Tab, Args) of
 		Tab ->
 		    {Storage, Tab};
@@ -516,10 +529,13 @@ handle_last({disc_only_copies, Tab}, Type, nobin) ->
     Dat = mnesia_lib:tab2dat(Tab),
     case file:rename(Tmp, Dat) of
 	ok ->
+	    StorageProps = val({Tab, storage_properties}),
+	    DetsOpts = proplists:get_value(dets, StorageProps, []),
+
 	    Args = [{file, mnesia_lib:tab2dat(Tab)},
 		    {type, mnesia_lib:disk_type(Tab, Type)},
 		    {keypos, 2},
-		    {repair, mnesia_monitor:get_env(auto_repair)}],
+		    {repair, mnesia_monitor:get_env(auto_repair)} | DetsOpts],
 	    mnesia_monitor:open_dets(Tab, Args),
 	    ok;
 	{error, Reason} ->
