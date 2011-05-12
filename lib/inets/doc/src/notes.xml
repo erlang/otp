@@ -104,18 +104,6 @@
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
         </item>
 
-        <item>
-          <p>[httpc] httpc manager crashes. 
-	  When a request results in a retry, the request id will be "reused" 
-	  in the previous implementation a race condition could occur causing 
-	  the manager to crash. </p>
-	  <p>This is now avoided by using proc_lib:init_ack and 
-	  gen_server:enter_loop to allow mor advanced initialization of 
-	  httpc_handlers without blocking the httpc_manger and eliminating 
-	  extra processes that can cause race conditions. </p>
-          <p>Own Id: OTP-9246</p>
-        </item>
-
       </list>
     </section>
 
@@ -147,6 +135,31 @@
 	  <p>Bernard Duggan</p>
 	  <p>Own Id: OTP-9158</p>
         </item>
+
+        <item>
+          <p>[httpc] httpc manager crashes. 
+	  When a request results in a retry, the request id will be "reused" 
+	  in the previous implementation a race condition could occur causing 
+	  the manager to crash. </p>
+	  <p>This is now avoided by using proc_lib:init_ack and 
+	  gen_server:enter_loop to allow mor advanced initialization of 
+	  httpc_handlers without blocking the httpc_manger and eliminating 
+	  extra processes that can cause race conditions. </p>
+          <p>Own Id: OTP-9246</p>
+        </item>
+
+        <item>
+          <p>[httpc] Issuing a request (<c>httpc:request</c>) to an 
+	  host with the ssl option 
+	  <c>{ip, {127,0,0,1}}</c> results in an handler crash. 
+	  The reason was that the connect call resulted in an exit with 
+	  reason <c>badarg</c> 
+	  (this was the same for both <c>ssl</c> and <c>gen_tcp</c>). </p>
+	  <p>Exits was not catched. This has now been improved. </p>
+          <p>Own Id: OTP-9289</p>
+          <p>Aux Id: seq11845</p>
+        </item>
+
       </list>
     </section>
 
