@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,6 +70,7 @@ init_testcases(Type,Config) ->
 	    end,
     All = fun() -> [Write(Id) || Id <- lists:seq(1,10)], ok end,
     ?match({atomic, ok}, mnesia:sync_transaction(All)),
+    ?match({atomic, [{b, {b,100-1}, 1}]}, mnesia:transaction(fun() -> mnesia:read({b, {b, 99}}) end)),
     Nodes.
 
 %% Test cases       
