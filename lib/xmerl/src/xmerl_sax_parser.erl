@@ -263,11 +263,11 @@ detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml2/binary>> = Xml, State
 			    {Xml, State#xmerl_sax_parser_state{encoding=Enc}}
 		    end;
 		_ ->
-		    {Xml, State#xmerl_sax_parser_state{encoding=utf8}}
+		    {Xml, State}
 	    end
     end;
 detect_charset_1(Xml, State) ->
-    {Xml, State#xmerl_sax_parser_state{encoding=utf8}}.
+    {Xml, State}.
 
 %%----------------------------------------------------------------------
 %% Function: convert_encoding(Enc)
