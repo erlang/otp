@@ -332,20 +332,22 @@ typedef struct {
     Eterm* func_tab[1];		/* Pointers to each function. */
 } LoadedCode;
 
-#define GetTagAndValue(Stp, Tag, Val) \
-   do { \
-      BeamInstr __w; \
-      GetByte(Stp, __w); \
-      Tag = __w & 0x07; \
-      if ((__w & 0x08) == 0) { \
-	 Val = __w >> 4; \
-      } else if ((__w & 0x10) == 0) { \
-	 Val = ((__w >> 5) << 8); \
-	 GetByte(Stp, __w); \
-	 Val |= __w; \
-      } else { \
-	if (!get_int_val(Stp, __w, &(Val))) goto load_error; \
-      } \
+#define GetTagAndValue(Stp, Tag, Val)					\
+   do {									\
+      BeamInstr __w;							\
+      GetByte(Stp, __w);						\
+      Tag = __w & 0x07;							\
+      if ((__w & 0x08) == 0) {						\
+	 Val = __w >> 4;						\
+      } else if ((__w & 0x10) == 0) {					\
+	 Val = ((__w >> 5) << 8);					\
+	 GetByte(Stp, __w);						\
+	 Val |= __w;							\
+      } else {								\
+	 int __res = get_tag_and_value(Stp, __w, (Tag), &(Val));	\
+         if (__res < 0) goto load_error;				\
+         Tag = (unsigned) __res;					\
+      }									\
    } while (0)
 
 
@@ -489,8 +491,8 @@ static void load_printf(int line, LoaderState* context, char *fmt, ...);
 static int transform_engine(LoaderState* st);
 static void id_to_string(Uint id, char* s);
 static void new_genop(LoaderState* stp);
-static int get_int_val(LoaderState* stp, Uint len_code, BeamInstr* result);
-static int get_erlang_integer(LoaderState* stp, Uint len_code, BeamInstr* result);
+static int get_tag_and_value(LoaderState* stp, Uint len_code,
+			     unsigned tag, BeamInstr* result);
 static int new_label(LoaderState* stp);
 static void new_literal_patch(LoaderState* stp, int pos);
 static void new_string_patch(LoaderState* stp, int pos);
@@ -1470,46 +1472,15 @@ load_code(LoaderState* stp)
 	last_op->arity = 0;
 	ASSERT(arity <= MAX_OPARGS);
 
-#define GetValue(Stp, First, Val) \
-   do { \
-      if (((First) & 0x08) == 0) { \
-	 Val = (First) >> 4; \
-      } else if (((First) & 0x10) == 0) { \
-         BeamInstr __w; \
-	 GetByte(Stp, __w); \
-	 Val = (((First) >> 5) << 8) | __w; \
-      } else { \
-	if (!get_int_val(Stp, (First), &(Val))) goto load_error; \
-      } \
-   } while (0)
-
 	for (arg = 0; arg < arity; arg++) {
-	    BeamInstr first;
-
-	    GetByte(stp, first);
-	    last_op->a[arg].type = first & 0x07;
+	    GetTagAndValue(stp, last_op->a[arg].type, last_op->a[arg].val);
 	    switch (last_op->a[arg].type) {
 	    case TAG_i:
-		if ((first & 0x08) == 0) {
-		    last_op->a[arg].val = first >> 4;
-		} else if ((first & 0x10) == 0) {
-		    BeamInstr w;
-		    GetByte(stp, w);
-		    ASSERT(first < 0x800);
-		    last_op->a[arg].val = ((first >> 5) << 8) | w;
-		} else {
-		    int i = get_erlang_integer(stp, first, &(last_op->a[arg].val));
-		    if (i < 0) {
-			goto load_error;
-		    }
-		    last_op->a[arg].type = i;
-		}
-		break;
 	    case TAG_u:
-		GetValue(stp, first, last_op->a[arg].val);
+	    case TAG_q:
+	    case TAG_o:
 		break;
 	    case TAG_x:
-		GetValue(stp, first, last_op->a[arg].val);
 		if (last_op->a[arg].val == 0) {
 		    last_op->a[arg].type = TAG_r;
 		} else if (last_op->a[arg].val >= MAX_REG) {
@@ -1518,7 +1489,6 @@ load_code(LoaderState* stp)
 		}
 		break;
 	    case TAG_y:
-		GetValue(stp, first, last_op->a[arg].val);
 		if (last_op->a[arg].val >= MAX_REG) {
 		    LoadError1(stp, "invalid y register number: %u",
 			       last_op->a[arg].val);
@@ -1526,7 +1496,6 @@ load_code(LoaderState* stp)
 		last_op->a[arg].val += CP_SIZE;
 		break;
 	    case TAG_a:
-		GetValue(stp, first, last_op->a[arg].val);
 		if (last_op->a[arg].val == 0) {
 		    last_op->a[arg].type = TAG_n;
 		} else if (last_op->a[arg].val >= stp->num_atoms) {
@@ -1536,7 +1505,6 @@ load_code(LoaderState* stp)
 		}
 		break;
 	    case TAG_f:
-		GetValue(stp, first, last_op->a[arg].val);
 		if (last_op->a[arg].val == 0) {
 		    last_op->a[arg].type = TAG_p;
 		} else if (last_op->a[arg].val >= stp->num_labels) {
@@ -1544,7 +1512,6 @@ load_code(LoaderState* stp)
 		}
 		break;
 	    case TAG_h:
-		GetValue(stp, first, last_op->a[arg].val);
 		if (last_op->a[arg].val > 65535) {
 		    LoadError1(stp, "invalid range for character data type: %u",
 			       last_op->a[arg].val);
@@ -1552,11 +1519,9 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_z:
 		{
-		    BeamInstr ext_tag;
 		    unsigned tag;
 
-		    GetValue(stp, first, ext_tag);
-		    switch (ext_tag) {
+		    switch (last_op->a[arg].val) {
 		    case 0:	/* Floating point number */
 			{
 			    Eterm* hp;
@@ -1648,7 +1613,8 @@ load_code(LoaderState* stp)
 			    break;
 			}
 		    default:
-			LoadError1(stp, "invalid extended tag %d", ext_tag);
+			LoadError1(stp, "invalid extended tag %d",
+				   last_op->a[arg].val);
 			break;
 		    }
 		}
@@ -1659,7 +1625,6 @@ load_code(LoaderState* stp)
 	    }
 	    last_op->arity++;
 	}
-#undef GetValue
 
 	ASSERT(arity == last_op->arity);
 
@@ -4317,41 +4282,9 @@ load_printf(int line, LoaderState* context, char *fmt,...)
     erts_send_error_to_logger(context->group_leader, dsbufp);
 }
 
-
 static int
-get_int_val(LoaderState* stp, Uint len_code, BeamInstr* result)
-{
-    Uint count;
-    Uint val;
-
-    len_code >>= 5;
-    ASSERT(len_code < 8);
-    if (len_code == 7) {
-	LoadError0(stp, "can't load integers bigger than 8 bytes yet\n");
-    }
-    count = len_code + 2;
-    if (count == 5) {
-	Uint msb;
-	GetByte(stp, msb);
-	if (msb == 0) {
-	    count--;
-	}
-	GetInt(stp, 4, *result);
-    } else if (count <= 4) {
-	GetInt(stp, count, val);
-	*result = ((val << 8*(sizeof(val)-count)) >> 8*(sizeof(val)-count));
-    } else {
-	LoadError1(stp, "too big integer; %d bytes\n", count);
-    }
-    return 1;
-
- load_error:
-    return 0;
-}
-
-
-static int
-get_erlang_integer(LoaderState* stp, Uint len_code, BeamInstr* result)
+get_tag_and_value(LoaderState* stp, Uint len_code,
+		  unsigned tag, BeamInstr* result)
 {
     Uint count;
     Sint val;
@@ -4371,17 +4304,62 @@ get_erlang_integer(LoaderState* stp, Uint len_code, BeamInstr* result)
     if (len_code < 7) {
 	count = len_code + 2;
     } else {
-	Uint tag;
+	unsigned sztag;
 	UWord len_word;
 
 	ASSERT(len_code == 7);
-	GetTagAndValue(stp, tag, len_word);
-	VerifyTag(stp, TAG_u, tag);
+	GetTagAndValue(stp, sztag, len_word);
+	VerifyTag(stp, sztag, TAG_u);
 	count = len_word + 9;
     }
 
     /*
-     * Handle values up to the size of an int, meaning either a small or bignum.
+     * The value for tags except TAG_i must be an unsigned integer
+     * fitting in an Uint. If it does not fit, we'll indicate overflow
+     * by changing the tag to TAG_o.
+     */
+
+    if (tag != TAG_i) {
+	if (count == sizeof(Uint)+1) {
+	    Uint msb;
+
+	    /*
+	     * The encoded value has one more byte than an Uint.
+	     * It will still fit in an Uint if the most significant
+	     * byte is 0.
+	     */
+	    GetByte(stp, msb);
+	    GetInt(stp, sizeof(Uint), *result);
+	    if (msb != 0) {
+		/* Overflow: Negative or too big. */
+		return TAG_o;
+	    }
+	} else if (count == sizeof(Uint)) {
+	    /*
+	     * The value must be positive (or the encoded value would
+	     * have been one byte longer).
+	     */
+	    GetInt(stp, count, *result);
+	} else if (count < sizeof(Uint)) {
+	    GetInt(stp, count, *result);
+
+	    /*
+	     * If the sign bit is set, the value is negative
+	     * (not allowed).
+	     */
+	    if (*result & ((Uint)1 << (count*8-1))) {
+		return TAG_o;
+	    }
+	} else {
+	    GetInt(stp, count, *result);
+	    return TAG_o;
+	}
+	return tag;
+    }
+
+    /*
+     * TAG_i: First handle values up to the size of an Uint (i.e. either
+     * a small or a bignum).
      */
 
     if (count <= sizeof(val)) {

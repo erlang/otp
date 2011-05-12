@@ -110,7 +110,7 @@ my @pred_table;
 # Operand types for generic instructions.
 
 my $compiler_types = "uiaxyfhz";
-my $loader_types = "nprvlq";
+my $loader_types = "nprvlqo";
 my $genop_types = $compiler_types . $loader_types;
 
 #
