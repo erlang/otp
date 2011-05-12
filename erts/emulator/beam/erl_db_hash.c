@@ -2085,7 +2085,14 @@ static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
 	    while(list != 0) {
 		if (list->hvalue == INVALID_HASH)
 		    erts_print(to, to_arg, "*");
-		erts_print(to, to_arg, "%T", make_tuple(list->dbterm.tpl));
+		if (tb->common.compress) {
+		    Eterm key = GETKEY(tb, list->dbterm.tpl);
+		    erts_print(to, to_arg, "key=%R", key, list->dbterm.tpl);
+		}
+		else {
+		    Eterm obj = make_tuple_rel(list->dbterm.tpl,list->dbterm.tpl);
+		    erts_print(to, to_arg, "%R", obj, list->dbterm.tpl);
+		}
 		if (list->next != 0)
 		    erts_print(to, to_arg, ",");
 		list = list->next;
