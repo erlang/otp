@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -203,6 +203,9 @@
 	       zip_comment_length}).
 
 
+-type zip_file() :: #zip_file{}.
+-type zip_comment() :: #zip_comment{}.
+
 %% Open a zip archive with options
 %%
 
@@ -323,7 +326,32 @@ openzip_close(_) ->
 %% Accepted options:
 %% verbose, cooked, file_list, keep_old_files, file_filter, memory
 
+-spec(unzip(Archive) -> RetValue when
+      Archive :: file:name() | binary(),
+      RetValue :: {ok, FileList}
+                | {ok, FileBinList}
+                | {error, Reason :: term()}
+                | {error, {Name :: file:name(), Reason :: term()}},
+      FileList :: [file:name()],
+      FileBinList :: [{file:name(),binary()}]).
+
 unzip(F) -> unzip(F, []).
+
+-spec(unzip(Archive, Options) -> RetValue when
+      Archive :: file:name() | binary(),
+      Options :: [Option],
+      Option  :: {file_list, FileList}
+               | keep_old_files | verbose | memory |
+                 {file_filter, FileFilter} | {cwd, CWD},
+      FileList :: [file:name()],
+      FileBinList :: [{file:name(),binary()}],
+      FileFilter :: fun((ZipFile) -> boolean()),
+      CWD :: string(),
+      ZipFile :: zip_file(),
+      RetValue :: {ok, FileList}
+                | {ok, FileBinList}
+                | {error, Reason :: term()}
+                | {error, {Name :: file:name(), Reason :: term()}}).
 
 unzip(F, Options) ->
     case ?CATCH do_unzip(F, Options) of
@@ -345,6 +373,18 @@ do_unzip(F, Options) ->
     {ok, Files}.
 
 %% Iterate over all files in a zip archive
+-spec(foldl(Fun, Acc0, Archive) -> {ok, Acc1} | {error, Reason} when
+      Fun :: fun((FileInArchive, GetInfo, GetBin, AccIn) -> AccOut),
+      FileInArchive :: file:name(),
+      GetInfo :: fun(() -> file:file_info()),
+      GetBin :: fun(() -> binary()),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Archive :: file:name() | {file:name(), binary()},
+      Reason :: term()).
+
 foldl(Fun, Acc0, Archive) when is_function(Fun, 4) ->
     ZipFun =
 	fun({Name, GetInfo, GetBin}, A) ->
@@ -368,7 +408,32 @@ foldl(_,_, _) ->
 %% Accepted options:
 %% verbose, cooked, memory, comment
 
+-spec(zip(Name, FileList) -> RetValue when
+      Name     :: file:name(),
+      FileList :: [FileSpec],
+      FileSpec :: file:name() | {file:name(), binary()}
+                | {file:name(), binary(), file:file_info()},
+      RetValue :: {ok, FileName :: file:name()}
+                | {ok, {FileName :: file:name(), binary()}}
+                | {error, Reason :: term()}).
+
 zip(F, Files) -> zip(F, Files, []).
+
+-spec(zip(Name, FileList, Options) -> RetValue when
+      Name     :: file:name(),
+      FileList :: [FileSpec],
+      FileSpec :: file:name() | {file:name(), binary()}
+                | {file:name(), binary(), file:file_info()},
+      Options  :: [Option],
+      Option   :: memory | cooked | verbose | {comment, Comment}
+                | {cwd, CWD} | {compress, What} | {uncompress, What},
+      What     :: all | [Extension] | {add, [Extension]} | {del, [Extension]},
+      Extension :: string(),
+      Comment  :: string(),
+      CWD      :: string(),
+      RetValue :: {ok, FileName :: file:name()}
+                | {ok, {FileName :: file:name(), binary()}}
+                | {error, Reason :: term()}).
 
 zip(F, Files, Options) ->
     case ?CATCH do_zip(F, Files, Options) of
@@ -392,7 +457,19 @@ do_zip(F, Files, Options) ->
 %% Accepted options:
 %% cooked, file_filter, file_output (latter 2 undocumented)
 
+-spec(list_dir(Archive) -> RetValue when
+      Archive :: file:name() | binary(),
+      RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
+      CommentAndFiles :: [zip_comment() | zip_file()]).
+
 list_dir(F) -> list_dir(F, []).
+
+-spec(list_dir(Archive, Options) -> RetValue when
+      Archive :: file:name() | binary(),
+      RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
+      CommentAndFiles :: [zip_comment() | zip_file()],
+      Options :: [Option],
+      Option :: cooked).
 
 list_dir(F, Options) ->
     case ?CATCH do_list_dir(F, Options) of
@@ -410,6 +487,10 @@ do_list_dir(F, Options) ->
     {ok, Info}.
 
 %% Print zip directory in short form
+
+-spec(t(Archive) -> ok when
+      Archive :: file:name() | binary | ZipHandle,
+      ZipHandle :: pid()).
 
 t(F) when is_pid(F) -> zip_t(F);
 t(F) when is_record(F, openzip) -> openzip_t(F);
@@ -430,6 +511,10 @@ do_t(F, RawPrint) ->
     ok.
 
 %% Print zip directory in long form (like ls -l)
+
+-spec(tt(Archive) -> ok when
+      Archive :: file:name() | binary | ZipHandle,
+      ZipHandle :: pid()).
 
 tt(F) when is_pid(F) -> zip_tt(F);
 tt(F) when is_record(F, openzip) -> openzip_tt(F);
@@ -605,11 +690,78 @@ get_list_dir_options(F, Options) ->
     get_list_dir_opt(Options, Opts).
 
 %% aliases for erl_tar compatibility
+-spec(table(Archive) -> RetValue when
+      Archive :: file:name() | binary(),
+      RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
+      CommentAndFiles :: [zip_comment() | zip_file()]).
+
 table(F) -> list_dir(F).
+
+-spec(table(Archive, Options) -> RetValue when
+      Archive :: file:name() | binary(),
+      RetValue :: {ok, CommentAndFiles} | {error, Reason :: term()},
+      CommentAndFiles :: [zip_comment() | zip_file()],
+
+      Options :: [Option],
+      Option :: cooked).
+
 table(F, O) -> list_dir(F, O).
+
+-spec(create(Name, FileList) -> RetValue when
+      Name     :: file:name(),
+      FileList :: [FileSpec],
+      FileSpec :: file:name() | {file:name(), binary()}
+                | {file:name(), binary(), file:file_info()},
+      RetValue :: {ok, FileName :: file:name()}
+                | {ok, {FileName :: file:name(), binary()}}
+                | {error, Reason :: term()}).
+
 create(F, Fs) -> zip(F, Fs).
+
+-spec(create(Name, FileList, Options) -> RetValue when
+      Name     :: file:name(),
+      FileList :: [FileSpec],
+      FileSpec :: file:name() | {file:name(), binary()}
+                | {file:name(), binary(), file:file_info()},
+      Options  :: [Option],
+      Option   :: memory | cooked | verbose | {comment, Comment}
+                | {cwd, CWD} | {compress, What} | {uncompress, What},
+      What     :: all | [Extension] | {add, [Extension]} | {del, [Extension]},
+      Extension :: string(),
+      Comment  :: string(),
+      CWD      :: string(),
+      RetValue :: {ok, FileName :: file:name()}
+                | {ok, {FileName :: file:name(), binary()}}
+                | {error, Reason :: term()}).
 create(F, Fs, O) -> zip(F, Fs, O).
+
+-spec(extract(Archive) -> RetValue when
+      Archive :: file:name() | binary(),
+      RetValue :: {ok, FileList}
+                | {ok, FileBinList}
+                | {error, Reason :: term()}
+                | {error, {Name :: file:name(), Reason :: term()}},
+      FileList :: [file:name()],
+      FileBinList :: [{file:name(),binary()}]).
+
 extract(F) -> unzip(F).
+
+-spec(extract(Archive, Options) -> RetValue when
+      Archive :: file:name() | binary(),
+      Options :: [Option],
+      Option  :: {file_list, FileList}
+               | keep_old_files | verbose | memory |
+                 {file_filter, FileFilter} | {cwd, CWD},
+      FileList :: [file:name()],
+      FileBinList :: [{file:name(),binary()}],
+      FileFilter :: fun((ZipFile) -> boolean()),
+      CWD :: string(),
+      ZipFile :: zip_file(),
+      RetValue :: {ok, FileList}
+                | {ok, FileBinList}
+                | {error, Reason :: term()}
+                | {error, {Name :: file:name(), Reason :: term()}}).
+
 extract(F, O) -> unzip(F, O).
 
 
@@ -990,20 +1142,51 @@ server_loop(OpenZip) ->
 	    {error, bad_msg}
     end.
 
+-spec(zip_open(Archive) -> {ok, ZipHandle} | {error, Reason} when
+      Archive :: file:name() | binary(),
+      ZipHandle :: pid(),
+      Reason :: term()).
+
 zip_open(Archive) -> zip_open(Archive, []).
+
+-spec(zip_open(Archive, Options) -> {ok, ZipHandle} | {error, Reason} when
+      Archive :: file:name() | binary(),
+      ZipHandle :: pid(),
+      Options :: [Option],
+      Option :: cooked | memory | {cwd, CWD :: string()},
+      Reason :: term()).
 
 zip_open(Archive, Options) ->
     Pid = spawn(fun() -> server_loop(not_open) end),
     request(self(), Pid, {open, Archive, Options}).
 
+-spec(zip_get(ZipHandle) -> {ok, [Result]} | {error, Reason} when
+      ZipHandle :: pid(),
+      Result :: file:name() | {file:name(), binary()},
+      Reason :: term()).
+
 zip_get(Pid) when is_pid(Pid) ->
     request(self(), Pid, get).
+
+-spec(zip_close(ZipHandle) -> ok | {error, einval} when
+      ZipHandle :: pid()).
 
 zip_close(Pid) when is_pid(Pid) ->
     request(self(), Pid, close).
 
+-spec(zip_get(FileName, ZipHandle) -> {ok, [Result]} | {error, Reason} when
+      FileName :: file:name(),
+      ZipHandle :: pid(),
+      Result :: file:name() | {file:name(), binary()},
+      Reason :: term()).
+
 zip_get(FileName, Pid) when is_pid(Pid) ->
     request(self(), Pid, {get, FileName}).
+
+-spec(zip_list_dir(ZipHandle) -> Result | {error, Reason} when
+      Result :: [zip_comment() | zip_file()],
+      ZipHandle :: pid(),
+      Reason :: term()).
 
 zip_list_dir(Pid) when is_pid(Pid) ->
     request(self(), Pid, list_dir).

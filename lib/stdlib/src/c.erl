@@ -71,11 +71,16 @@ help() ->
 %% c(FileName)
 %%  Compile a file/module.
 
--spec c(file:name()) -> {'ok', module()} | 'error'.
+-spec c(File) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Module :: module().
 
 c(File) -> c(File, []).
 
--spec c(file:name(), [compile:option()]) -> {'ok', module()} | 'error'.
+-spec c(File, Options) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Options :: [compile:option()],
+      Module :: module().
 
 c(File, Opts0) when is_list(Opts0) ->
     Opts = [report_errors,report_warnings|Opts0],
@@ -140,7 +145,8 @@ check_load(_, Mod) -> {ok, Mod}.
 %% with constant c2 defined, c1=v1 (v1 must be a term!), include dir
 %% IDir, outdir ODir.
 
--spec lc([erl_compile:cmd_line_arg()]) -> 'ok' | 'error'.
+-spec lc(Files) -> 'ok' | 'error' when
+      Files :: [File :: erl_compile:cmd_line_arg()].
 
 lc(Args) ->
     case catch split(Args, [], []) of
@@ -205,12 +211,17 @@ make_term(Str) ->
 	    throw(error)
     end.
 
--spec nc(file:name()) -> {'ok', module()} | 'error'.
+-spec nc(File) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Module :: module().
 
 nc(File) -> nc(File, []).
 
--spec nc(file:name(), [compile:option()] | compile:option()) ->
-        {'ok', module} | 'error'.
+-spec nc(File, Options) -> {'ok', Module} | 'error' when
+      File :: file:name(),
+      Options :: [Option] | Option,
+      Option:: compile:option(),
+      Module :: module().
 
 nc(File, Opts0) when is_list(Opts0) ->
     Opts = Opts0 ++ [report_errors, report_warnings],
@@ -234,14 +245,17 @@ nc(File, Opt) when is_atom(Opt) ->
 
 %% l(Mod)
 %%  Reload module Mod from file of same name
--spec l(module()) -> code:load_ret().
+-spec l(Module) -> code:load_ret() when
+      Module :: module().
 
 l(Mod) ->
     code:purge(Mod),
     code:load_file(Mod).
 
 %% Network version of l/1
-%%-spec nl(module()) ->
+-spec nl(Module) -> abcast | error when
+      Module :: module().
+
 nl(Mod) ->
     case code:get_object_code(Mod) of
 	{_Module, Bin, Fname} ->
@@ -396,15 +410,20 @@ fetch(Key, Info) ->
 	false -> 0
     end.
 
--spec pid(non_neg_integer(), non_neg_integer(), non_neg_integer()) -> pid().
+-spec pid(X, Y, Z) -> pid() when
+      X :: non_neg_integer(),
+      Y :: non_neg_integer(),
+      Z :: non_neg_integer().
 
 pid(X, Y, Z) ->
     list_to_pid("<" ++ integer_to_list(X) ++ "." ++
 		integer_to_list(Y) ++ "." ++
 		integer_to_list(Z) ++ ">").
 
--spec i(non_neg_integer(), non_neg_integer(), non_neg_integer()) ->
-        [{atom(), term()}].
+-spec i(X, Y, Z) -> [{atom(), term()}] when
+      X :: non_neg_integer(),
+      Y :: non_neg_integer(),
+      Z :: non_neg_integer().
 
 i(X, Y, Z) -> pinfo(pid(X, Y, Z)).
 
@@ -413,7 +432,8 @@ i(X, Y, Z) -> pinfo(pid(X, Y, Z)).
 q() ->
     init:stop().
 
--spec bt(pid()) -> 'ok' | 'undefined'.
+-spec bt(Pid) -> 'ok' | 'undefined' when
+      Pid :: pid().
 
 bt(Pid) ->
     case catch erlang:process_display(Pid, backtrace) of
@@ -476,7 +496,8 @@ bi(I) ->
 %%
 %% Short and nice form of module info
 %%
--spec m(module()) -> 'ok'.
+-spec m(Module) -> 'ok' when
+      Module :: module().
 
 m(M) ->
     L = M:module_info(),
@@ -664,7 +685,8 @@ pwd() ->
 	    ok = io:format("Cannot determine current directory\n")
     end.
 
--spec cd(file:name()) -> 'ok'.
+-spec cd(Dir) -> 'ok' when
+      Dir :: file:name().
 
 cd(Dir) ->
     file:set_cwd(Dir),
@@ -679,7 +701,8 @@ cd(Dir) ->
 ls() ->
     ls(".").
 
--spec ls(file:name()) -> 'ok'.
+-spec ls(Dir) -> 'ok' when
+      Dir :: file:name().
 
 ls(Dir) ->
     case file:list_dir(Dir) of
@@ -729,12 +752,19 @@ w(X) ->
 %% memory/[0,1]
 %%
 
--spec memory() -> [{atom(), non_neg_integer()}].
+-spec memory() -> [{Type, Size}] when
+      Type :: atom(),
+      Size :: non_neg_integer().
 
 memory() -> erlang:memory().
 
--spec memory(atom()) -> non_neg_integer()
-          ; ([atom()]) -> [{atom(), non_neg_integer()}].
+-spec memory(Type) -> Size when
+               Type :: atom(),
+               Size :: non_neg_integer()
+          ; (Types) -> [{Type, Size}] when
+               Types :: [Type],
+               Type :: atom(),
+               Size :: non_neg_integer().
 
 memory(TypeSpec) -> erlang:memory(TypeSpec).
 

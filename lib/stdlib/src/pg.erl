@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,9 @@
 %% Create a brand new empty process group with the master residing 
 %% at the local node
 
--spec create(term()) -> 'ok' | {'error', term()}.
+-spec create(PgName) -> 'ok' | {'error', Reason} when
+      PgName :: term(),
+      Reason :: 'already_created' | term().
 
 create(PgName) -> 
     catch begin check(PgName),
@@ -46,7 +48,10 @@ create(PgName) ->
 %% Create a brand new empty process group with the master 
 %% residing at Node
 
--spec create(term(), node()) -> 'ok' | {'error', term()}.
+-spec create(PgName, Node) -> 'ok' | {'error', Reason} when
+      PgName :: term(),
+      Node :: node(),
+      Reason :: 'already_created' | term().
 
 create(PgName, Node) ->
     catch begin check(PgName),
@@ -66,7 +71,10 @@ standby(_PgName, _Node) ->
 %% Tell process group PgName that Pid is a new member of the group
 %% synchronously return a list of all old members in the group
 
--spec join(atom(), pid()) -> [pid()].
+-spec join(PgName, Pid) -> Members when
+      PgName :: term(),
+      Pid :: pid(),
+      Members :: [pid()].
 
 join(PgName, Pid) when is_atom(PgName) -> 
     global:send(PgName, {join,self(),Pid}),
@@ -77,7 +85,9 @@ join(PgName, Pid) when is_atom(PgName) ->
 
 %% Multi cast Mess to all members in the group
 
--spec send(atom() | pid(), term()) -> 'ok'.
+-spec send(PgName, Msg) -> 'ok' when
+      PgName :: term(),
+      Msg :: term().
 
 send(PgName, Mess) when is_atom(PgName) ->
     global:send(PgName, {send, self(), Mess}),
@@ -89,7 +99,9 @@ send(Pg, Mess) when is_pid(Pg) ->
 %% multi cast a message to all members in the group but ourselves
 %% If we are a member
 
--spec esend(atom() | pid(), term()) -> 'ok'.
+-spec esend(PgName, Msg) -> 'ok' when
+      PgName :: term(),
+      Msg :: term().
 
 esend(PgName, Mess) when is_atom(PgName) ->
     global:send(PgName, {esend,self(),Mess}),
@@ -100,7 +112,9 @@ esend(Pg, Mess) when is_pid(Pg) ->
 
 %% Return the members of the group
 
--spec members(atom() | pid()) -> [pid()].
+-spec members(PgName) -> Members when
+      PgName :: term(),
+      Members :: [pid()].
 
 members(PgName) when is_atom(PgName) ->
     global:send(PgName, {self() ,members}),

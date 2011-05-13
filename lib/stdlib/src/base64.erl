@@ -38,7 +38,9 @@
 %% Description: Encodes a plain ASCII string (or binary) into base64.
 %%-------------------------------------------------------------------------
 
--spec encode_to_string(string() | binary()) -> ascii_string().
+-spec encode_to_string(Data) -> Base64String when
+      Data :: string() | binary(),
+      Base64String :: ascii_string().
 
 encode_to_string(Bin) when is_binary(Bin) ->
     encode_to_string(binary_to_list(Bin));
@@ -53,7 +55,9 @@ encode_to_string(List) when is_list(List) ->
 %% Description: Encodes a plain ASCII string (or binary) into base64.
 %%-------------------------------------------------------------------------
 
--spec encode(string() | binary()) -> binary().
+-spec encode(Data) -> Base64 when
+      Data :: string() | binary(),
+      Base64 :: binary().
 
 encode(Bin) when is_binary(Bin) ->
     encode_binary(Bin);
@@ -102,14 +106,18 @@ encode_binary(Bin) ->
 %% whereas decode crashes if an illegal character is found
 %%-------------------------------------------------------------------------
 
--spec decode(string() | binary()) -> binary().
+-spec decode(Base64) -> Data when
+      Base64 :: string() | binary(),
+      Data :: binary().
 
 decode(Bin) when is_binary(Bin) ->
     decode_binary(<<>>, Bin);
 decode(List) when is_list(List) ->
     list_to_binary(decode_l(List)).
 
--spec mime_decode(string() | binary()) -> binary().
+-spec mime_decode(Base64) -> Data when
+      Base64 :: string() | binary(),
+      Data :: binary().
 
 mime_decode(Bin) when is_binary(Bin) ->
     mime_decode_binary(<<>>, Bin);
@@ -139,14 +147,18 @@ mime_decode_l(List) ->
 %% whereas decode crashes if an illegal character is found
 %%-------------------------------------------------------------------------
 
--spec decode_to_string(string() | binary()) -> string().
+-spec decode_to_string(Base64) -> DataString when
+      Base64 :: string() | binary(),
+      DataString :: string().
 
 decode_to_string(Bin) when is_binary(Bin) ->
     decode_to_string(binary_to_list(Bin));
 decode_to_string(List) when is_list(List) ->
     decode_l(List).
 
--spec mime_decode_to_string(string() | binary()) -> string().
+-spec mime_decode_to_string(Base64) -> DataString when
+      Base64 :: string() | binary(),
+      DataString :: string().
 
 mime_decode_to_string(Bin) when is_binary(Bin) ->
     mime_decode_to_string(binary_to_list(Bin));

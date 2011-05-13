@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +42,7 @@
 
 -export([i/0, i/1, i/2, i/3]).
 
--export_type([tab/0, tid/0]).
+-export_type([tab/0, tid/0, match_spec/0]).
 
 %%-----------------------------------------------------------------------------
 
@@ -51,22 +51,9 @@
 %% a similar definition is also in erl_types
 -opaque tid()      :: integer().
 
--type ext_info()   :: 'md5sum' | 'object_count'.
--type protection() :: 'private' | 'protected' | 'public'.
--type type()       :: 'bag' | 'duplicate_bag' | 'ordered_set' | 'set'.
-
--type table_info() :: {'name', atom()}
-		    | {'type', type()}
-		    | {'protection', protection()}
-		    | {'named_table', boolean()}
-		    | {'keypos', non_neg_integer()}
-		    | {'size', non_neg_integer()}
-		    | {'extended_info', [ext_info()]}
-		    | {'version', {non_neg_integer(), non_neg_integer()}}.
-
 %% these ones are also defined in erl_bif_types
 -type match_pattern() :: atom() | tuple().
--type match_specs()   :: [{match_pattern(), [_], [_]}].
+-type match_spec()    :: [{match_pattern(), [_], [_]}].
 
 %%-----------------------------------------------------------------------------
 
@@ -86,6 +73,7 @@
 %% insert/2
 %% is_compiled_ms/1
 %% last/1
+%% member/2
 %% next/2
 %% prev/2
 %% rename/2
@@ -101,11 +89,14 @@
 %% select/1
 %% select/2
 %% select/3
+%% select_count/2
 %% select_reverse/1
 %% select_reverse/2
 %% select_reverse/3
 %% select_delete/2
+%% setopts/2
 %% update_counter/3
+%% update_element/3
 %%
 
 -opaque comp_match_spec() :: any().  %% this one is REALLY opaque
@@ -119,7 +110,9 @@ match_spec_run(List, CompiledMS) ->
                       | {tab(),integer(),integer(),binary(),list(),integer()}
                       | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
 
--spec repair_continuation(continuation(), match_specs()) -> continuation().
+-spec repair_continuation(Continuation, MatchSpec) -> Continuation when
+      Continuation :: continuation(),
+      MatchSpec :: match_spec().
 
 %% $end_of_table is an allowed continuation in ets...
 repair_continuation('$end_of_table', _) ->
@@ -153,7 +146,9 @@ repair_continuation(Untouched = {Table,N1,N2,Bin,L,N3}, MS)
 	    {Table,N1,N2,ets:match_spec_compile(MS),L,N3}
     end.
 
--spec fun2ms(function()) -> match_specs().
+-spec fun2ms(LiteralFun) -> MatchSpec when
+      LiteralFun :: function(),
+      MatchSpec :: match_spec().
 
 fun2ms(ShellFun) when is_function(ShellFun) ->
     %% Check that this is really a shell fun...
@@ -177,7 +172,13 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                            shell]}})
     end.
 
--spec foldl(fun((_, term()) -> term()), term(), tab()) -> term().
+-spec foldl(Function, Acc0, Tab) -> Acc1 when
+      Function :: fun((Element :: term(), AccIn) -> AccOut),
+      Tab :: tab(),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
 
 foldl(F, Accu, T) ->
     ets:safe_fixtable(T, true),
@@ -198,7 +199,13 @@ do_foldl(F, Accu0, Key, T) ->
 		     ets:next(T, Key), T)
     end.
 
--spec foldr(fun((_, term()) -> term()), term(), tab()) -> term().
+-spec foldr(Function, Acc0, Tab) -> Acc1 when
+      Function :: fun((Element :: term(), AccIn) -> AccOut),
+      Tab :: tab(),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
 
 foldr(F, Accu, T) ->
     ets:safe_fixtable(T, true),
@@ -219,7 +226,9 @@ do_foldr(F, Accu0, Key, T) ->
 		     ets:prev(T, Key), T)
     end.
 
--spec from_dets(tab(), dets:tab_name()) -> 'true'.
+-spec from_dets(Tab, DetsTab) -> 'true' when
+      Tab :: tab(),
+      DetsTab :: dets:tab_name().
 
 from_dets(EtsTable, DetsTable) ->
     case (catch dets:to_ets(DetsTable, EtsTable)) of
@@ -235,7 +244,9 @@ from_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--spec to_dets(tab(), dets:tab_name()) -> dets:tab_name().
+-spec to_dets(Tab, DetsTab) -> DetsTab when
+      Tab :: tab(),
+      DetsTab :: dets:tab_name().
 
 to_dets(EtsTable, DetsTable) ->
     case (catch dets:from_ets(DetsTable, EtsTable)) of
@@ -251,8 +262,11 @@ to_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--spec test_ms(tuple(), match_specs()) ->
-	{'ok', term()} | {'error', [{'warning'|'error', string()}]}.
+-spec test_ms(Tuple, MatchSpec) -> {'ok', Result} | {'error', Errors} when
+      Tuple :: tuple(),
+      MatchSpec :: match_spec(),
+      Result :: term(),
+      Errors :: [{'warning'|'error', string()}].
 
 test_ms(Term, MS) ->
     case erlang:match_spec_test(Term, MS, table) of
@@ -262,7 +276,11 @@ test_ms(Term, MS) ->
 	    Error
     end.
 
--spec init_table(tab(), fun(('read' | 'close') -> term())) -> 'true'.
+-spec init_table(Tab, InitFun) -> 'true' when
+      Tab :: tab(),
+      InitFun :: fun((Arg) -> Res),
+      Arg :: 'read' | 'close',
+      Res :: 'end_of_input' | {Objects :: [term()], InitFun} | term().
 
 init_table(Table, Fun) ->
     ets:delete_all_objects(Table),
@@ -287,7 +305,9 @@ init_table_sub(Table, [H|T]) ->
     ets:insert(Table, H),
     init_table_sub(Table, T).
 
--spec match_delete(tab(), match_pattern()) -> 'true'.
+-spec match_delete(Tab, Pattern) -> 'true' when
+      Tab :: tab(),
+      Pattern :: match_pattern().
 
 match_delete(Table, Pattern) ->
     ets:select_delete(Table, [{Pattern,[],[true]}]),
@@ -295,7 +315,9 @@ match_delete(Table, Pattern) ->
 
 %% Produce a list of tuples from a table
 
--spec tab2list(tab()) -> [tuple()].
+-spec tab2list(Tab) -> [Object] when
+      Tab :: tab(),
+      Object :: tuple().
 
 tab2list(T) ->
     ets:match_object(T, '_').
@@ -334,15 +356,21 @@ do_filter(Tab, Key, F, A, Ack) ->
 	  md5sum       = false :: boolean()     
 	 }).
 
--type fname()      :: string() | atom().
--type t2f_option() :: {'extended_info', [ext_info()]}.
-
--spec tab2file(tab(), fname()) -> 'ok' | {'error', term()}.
+-spec tab2file(Tab, Filename) -> 'ok' | {'error', Reason} when
+      Tab :: tab(),
+      Filename :: file:name(),
+      Reason :: term().
 
 tab2file(Tab, File) ->
     tab2file(Tab, File, []).
 
--spec tab2file(tab(), fname(), [t2f_option()]) -> 'ok' | {'error', term()}.
+-spec tab2file(Tab, Filename, Options) -> 'ok' | {'error', Reason} when
+      Tab :: tab(),
+      Filename :: file:name(),
+      Options :: [Option],
+      Option :: {'extended_info', [ExtInfo]},
+      ExtInfo :: 'md5sum' | 'object_count',
+      Reason :: term().
 
 tab2file(Tab, File, Options) ->
     try
@@ -501,14 +529,20 @@ parse_ft_info_options(_,Malformed) ->
 %% Opt := {verify,boolean()}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--type f2t_option() :: {'verify', boolean()}.
-
--spec file2tab(fname()) -> {'ok', tab()} | {'error', term()}.
+-spec file2tab(Filename) -> {'ok', Tab} | {'error', Reason} when
+      Filename :: file:name(),
+      Tab :: tab(),
+      Reason :: term().
 
 file2tab(File) ->
     file2tab(File, []).
 
--spec file2tab(fname(), [f2t_option()]) -> {'ok', tab()} | {'error', term()}.
+-spec file2tab(Filename, Options) -> {'ok', Tab} | {'error', Reason} when
+      Filename :: file:name(),
+      Tab :: tab(),
+      Options :: [Option],
+      Option :: {'verify', boolean()},
+      Reason :: term().
 
 file2tab(File, Opts) ->
     try
@@ -895,7 +929,22 @@ named_table(false) -> [].
 %% information
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec tabfile_info(fname()) -> {'ok', [table_info()]} | {'error', term()}.
+-spec tabfile_info(Filename) -> {'ok', TableInfo} | {'error', Reason} when
+      Filename :: file:name(),
+      TableInfo :: [InfoItem],
+      InfoItem :: {'name', atom()}
+                | {'type', Type}
+                | {'protection', Protection}
+                | {'named_table', boolean()}
+                | {'keypos', non_neg_integer()}
+                | {'size', non_neg_integer()}
+                | {'extended_info', [ExtInfo]}
+                | {'version', {Major :: non_neg_integer(),
+                               Minor :: non_neg_integer()}},
+      ExtInfo :: 'md5sum' | 'object_count',
+      Type :: 'bag' | 'duplicate_bag' | 'ordered_set' | 'set',
+      Protection :: 'private' | 'protected' | 'public',
+      Reason :: term().
 
 tabfile_info(File) when is_list(File) ; is_atom(File) ->
     try
@@ -932,20 +981,22 @@ tabfile_info(File) when is_list(File) ; is_atom(File) ->
 	    {error,ExReason}
     end.
 
--type qlc__query_handle() :: term().  %% XXX: belongs in 'qlc'
-
--type num_objects()  :: 'default' | pos_integer().
--type trav_method()  :: 'first_next' | 'last_prev'
-                      | 'select' | {'select', match_specs()}.
--type table_option() :: {'n_objects', num_objects()}
-                      | {'traverse', trav_method()}.
-
--spec table(tab()) -> qlc__query_handle().
+-spec table(Tab) -> QueryHandle when
+      Tab :: tab(),
+      QueryHandle :: qlc:query_handle().
 
 table(Tab) ->
     table(Tab, []).
 
--spec table(tab(), table_option() | [table_option()]) -> qlc__query_handle().
+-spec table(Tab, Options) -> QueryHandle when
+      Tab :: tab(),
+      QueryHandle :: qlc:query_handle(),
+      Options :: [Option] | Option,
+      Option :: {'n_objects', NObjects}
+              | {'traverse', TraverseMethod},
+      NObjects :: 'default' | pos_integer(),
+      TraverseMethod :: 'first_next' | 'last_prev'
+                      | 'select' | {'select', MatchSpec :: match_spec()}.
 
 table(Tab, Opts) ->
     case options(Opts, [traverse, n_objects]) of
@@ -1135,7 +1186,8 @@ to_string(X) ->
     lists:flatten(io_lib:format("~p", [X])).
 
 %% view a specific table
--spec i(tab()) -> 'ok'.
+-spec i(Tab) -> 'ok' when
+      Tab :: tab().
 
 i(Tab) ->
     i(Tab, 40).

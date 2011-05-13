@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -99,7 +99,8 @@
 
 %%----------------------------------------------------------------------------
 
--spec format_error(Error :: term()) -> string().
+-spec format_error(ErrorDescriptor) -> string() when
+      ErrorDescriptor :: error_description().
 format_error({string,Quote,Head}) ->
     lists:flatten(["unterminated " ++ string_thing(Quote) ++
                    " starting with " ++
@@ -112,20 +113,33 @@ format_error({base,Base}) ->
 format_error(Other) ->
     lists:flatten(io_lib:write(Other)).
 
--type string_return() :: {'ok', tokens(), location()}
-                       | {'error', error_info(), location()}.
-
--spec string(String :: string()) -> string_return().
+-spec string(String) -> Return when
+      String :: string(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      EndLocation :: location(),
+      ErrorLocation :: location().
 string(String) ->
     string(String, 1, []).
 
--spec string(String :: string(), StartLocation :: location()) ->
-                   string_return().
+-spec string(String, StartLocation) -> Return when
+      String :: string(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      StartLocation :: location(),
+      EndLocation :: location(),
+      ErrorLocation :: location().
 string(String, StartLocation) ->
     string(String, StartLocation, []).
 
--spec string(String :: string(), StartLocation :: location(),
-             Options :: options()) -> string_return().
+-spec string(String, StartLocation, Options) -> Return when
+      String :: string(),
+      Options :: options(),
+      Return :: {'ok', Tokens :: tokens(), EndLocation}
+              | {'error', ErrorInfo :: error_info(), ErrorLocation},
+      StartLocation :: location(),
+      EndLocation :: location(),
+      ErrorLocation :: location().
 string(String, Line, Options) when ?STRING(String), ?ALINE(Line) ->
     string1(String, options(Options), Line, no_col, []);
 string(String, {Line,Column}, Options) when ?STRING(String),
@@ -136,29 +150,37 @@ string(String, {Line,Column}, Options) when ?STRING(String),
 -type char_spec() :: string() | 'eof'.
 -type cont_fun() :: fun((char_spec(), #erl_scan{}, line(), column(),
                          tokens(), any()) -> any()).
--opaque return_cont() :: {string(), column(), tokens(), line(),
-                          #erl_scan{}, cont_fun(), any()}.
--type cont() :: return_cont() | [].
--type tokens_result() :: {'ok', tokens(), location()}
-                       | {'eof', location()}
-                       | {'error', error_info(), location()}.
--type tokens_return() :: {'done', tokens_result(), char_spec()}
-                       | {'more', return_cont()}.
+-opaque return_cont() :: {erl_scan_continuation,
+                          string(), column(), tokens(), line(),
+                          #erl_scan{}, any(), cont_fun()}.
+-type tokens_result() :: {'ok', Tokens :: tokens(), EndLocation :: location()}
+                       | {'eof', EndLocation :: location()}
+                       | {'error', ErrorInfo :: error_info(),
+                          EndLocation :: location()}.
 
--spec tokens(Cont :: cont(), CharSpec :: char_spec(),
-             StartLocation :: location()) -> tokens_return().
+-spec tokens(Continuation, CharSpec, StartLocation) -> Return when
+      Continuation :: return_cont() | [],
+      CharSpec :: char_spec(),
+      StartLocation :: location(),
+      Return :: {'done',Result :: tokens_result(),LeftOverChars :: char_spec()}
+              | {'more', Continuation1 :: return_cont()}.
 tokens(Cont, CharSpec, StartLocation) ->
     tokens(Cont, CharSpec, StartLocation, []).
 
--spec tokens(Cont :: cont(), CharSpec :: char_spec(),
-             StartLocation :: location(), Options :: options()) ->
-          tokens_return().
+-spec tokens(Continuation, CharSpec, StartLocation, Options) -> Return when
+      Continuation :: return_cont() | [],
+      CharSpec :: char_spec(),
+      StartLocation :: location(),
+      Options :: options(),
+      Return :: {'done',Result :: tokens_result(),LeftOverChars :: char_spec()}
+              | {'more', Continuation1 :: return_cont()}.
 tokens([], CharSpec, Line, Options) when ?ALINE(Line) ->
     tokens1(CharSpec, options(Options), Line, no_col, [], fun scan/6, []);
 tokens([], CharSpec, {Line,Column}, Options) when ?ALINE(Line),
                                                   ?COLUMN(Column) ->
     tokens1(CharSpec, options(Options), Line, Column, [], fun scan/6, []);
-tokens({Cs,Col,Toks,Line,St,Any,Fun}, CharSpec, _Loc, _Opts) ->
+tokens({erl_scan_continuation,Cs,Col,Toks,Line,St,Any,Fun},
+       CharSpec, _Loc, _Opts) ->
     tokens1(Cs++CharSpec, St, Line, Col, Toks, Fun, Any).
 
 -type attribute_item() :: 'column' | 'length' | 'line'
@@ -172,13 +194,22 @@ tokens({Cs,Col,Toks,Line,St,Any,Fun}, CharSpec, _Loc, _Opts) ->
 -type token_info() :: {'category', category()} | {'symbol', symbol()}
                     | attribute_info().
 
--spec token_info(token()) -> [token_info()].
+-spec token_info(Token) -> TokenInfo when
+      Token :: token(),
+      TokenInfo :: [TokenInfoTuple :: token_info()].
 token_info(Token) ->
     Items = [category,column,length,line,symbol,text], % undefined order
     token_info(Token, Items).
 
--spec token_info(token(), token_item()) -> token_info() | 'undefined';
-                (token(), [token_item()]) -> [token_info()].
+-spec token_info(Token, TokenItem) -> TokenInfo | 'undefined' when
+      Token :: token(),
+      TokenItem :: token_item(),
+      TokenInfo :: TokenInfoTuple :: token_info();
+                (Token, TokenItems) -> [TokenInfo] when
+      Token :: token(),
+      TokenItems :: [TokenItem],
+      TokenItem :: token_item(),
+      TokenInfo :: [TokenInfoTuple :: token_info()].
 token_info(_Token, []) ->
     [];
 token_info(Token, [Item|Items]) when is_atom(Item) ->
@@ -201,14 +232,23 @@ token_info({_Category,Attrs}, Item) ->
 token_info({_Category,Attrs,_Symbol}, Item) ->
     attributes_info(Attrs, Item).
 
--spec attributes_info(attributes()) -> [attribute_info()].
+-spec attributes_info(Attributes) -> AttributesInfo when
+      Attributes :: attributes(),
+      AttributesInfo :: [AttributeInfoTuple :: attribute_info()].
 attributes_info(Attributes) ->
     Items = [column,length,line,text], % undefined order
     attributes_info(Attributes, Items).
 
--spec attributes_info(attributes(), attribute_item()) ->
-                        attribute_info() | 'undefined';
-                     (attributes(), [attribute_item()]) -> [attribute_info()].
+-spec attributes_info(Attributes, AttributeItem) ->
+                        AttributeInfo | 'undefined' when
+      Attributes :: attributes(),
+      AttributeItem :: attribute_item(),
+      AttributeInfo :: AttributeInfoTuple :: attribute_info();
+                     (Attributes, AttributeItems) -> [AttributeInfo] when
+      Attributes :: attributes(),
+      AttributeItems :: [AttributeItem],
+      AttributeItem :: attribute_item(),
+      AttributeInfo :: [AttributeInfoTuple :: attribute_info()].
 attributes_info(_Attrs, []) ->
     [];
 attributes_info(Attrs, [A|As]) when is_atom(A) ->
@@ -265,9 +305,10 @@ attributes_info(Attrs, text=Item) ->
 attributes_info(T1, T2) ->
     erlang:error(badarg, [T1,T2]).
 
--type setlineattr_fun() :: fun((info_line()) -> info_line()).
-
--spec set_attribute('line', attributes(), setlineattr_fun()) -> attributes().
+-spec set_attribute(AttributeItem, Attributes, SetAttributeFun) -> Attributes when
+      AttributeItem :: 'line',
+      Attributes :: attributes(),
+      SetAttributeFun :: fun((info_line()) -> info_line()).
 set_attribute(Tag, Attributes, Fun) when ?SETATTRFUN(Fun) ->
     set_attr(Tag, Attributes, Fun).
 
@@ -374,7 +415,7 @@ set_attr(T1, T2, T3) ->
 tokens1(Cs, St, Line, Col, Toks, Fun, Any) when ?STRING(Cs); Cs =:= eof ->
     case Fun(Cs, St, Line, Col, Toks, Any) of
         {more,{Cs0,Ncol,Ntoks,Nline,Nany,Nfun}} ->
-            {more,{Cs0,Ncol,Ntoks,Nline,St,Nany,Nfun}};
+            {more,{erl_scan_continuation,Cs0,Ncol,Ntoks,Nline,St,Nany,Nfun}};
         {ok,Toks0,eof,Nline,Ncol} ->
             Res = case Toks0 of
                       [] ->
@@ -1285,7 +1326,7 @@ tabs(8)  ->  "\t\t\t\t\t\t\t\t";
 tabs(9)  ->  "\t\t\t\t\t\t\t\t\t";
 tabs(10) ->  "\t\t\t\t\t\t\t\t\t\t".
 
--spec reserved_word(atom()) -> boolean().
+-spec reserved_word(Atom :: atom()) -> boolean().
 reserved_word('after') -> true;
 reserved_word('begin') -> true;
 reserved_word('case') -> true;

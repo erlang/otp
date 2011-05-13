@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,8 +49,24 @@ behaviour_info(_Other) ->
 %%%-----------------------------------------------------------------
 -record(state, {mod, pid, child_state, name}).
 
+-spec start_link(Module, Args) -> Result when
+      Module :: module(),
+      Args :: term(),
+      Result :: {ok, Pid} | ignore | {error, Error},
+      Error :: {already_started, Pid} | term(),
+      Pid :: pid().
+
 start_link(Mod, StartArgs) ->
     gen_server:start_link(supervisor_bridge, [Mod, StartArgs, self], []).
+
+-spec start_link(SupBridgeName, Module, Args) -> Result when
+      SupBridgeName :: {local, Name} | {global, Name},
+      Name :: atom(),
+      Module :: module(),
+      Args :: term(),
+      Result :: {ok, Pid} | ignore | {error, Error},
+      Error :: {already_started, Pid} | term(),
+      Pid :: pid().
 
 start_link(Name, Mod, StartArgs) ->
     gen_server:start_link(Name, supervisor_bridge, [Mod, StartArgs, Name], []).
