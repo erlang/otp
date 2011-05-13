@@ -1122,9 +1122,7 @@ t_commit(Type) ->
     end.
 
 majority_attr(#prep{majority = M}) ->
-    M;
-majority_attr(_) ->
-    [].
+    M.
 
 
 %% This function arranges for all objects we shall write in S to be
