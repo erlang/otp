@@ -186,7 +186,7 @@
 -opaque object_cont() :: #dets_cont{}.
 -type pattern()   :: atom() | tuple().
 -opaque select_cont() :: #dets_cont{}.
--type tab_name()  :: atom() | reference().
+-type tab_name() :: term().
 -type type()      :: 'bag' | 'duplicate_bag' | 'set'.
 -type version()   :: 8 | 9 | 'default'.
 
