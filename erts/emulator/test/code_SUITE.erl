@@ -498,7 +498,9 @@ do_false_dependency(Init, Code) ->
     ?line unlink(Pid), exit(Pid, kill),
     ?line true = erlang:purge_module(cpbugx),
     ?line true = erlang:delete_module(cpbugx),
+    ?line code:is_module_native(cpbugx),  % test is_module_native on deleted code
     ?line true = erlang:purge_module(cpbugx),
+    ?line code:is_module_native(cpbugx),  % test is_module_native on purged code
     ok.
     
 false_dependency_loop(Parent, Init, SendInitAck) ->
