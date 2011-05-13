@@ -7637,7 +7637,8 @@ continue_exit_process(Process *p
 static void
 timeout_proc(Process* p)
 {
-    p->i = *((BeamInstr **) (UWord) p->def_arg_reg);
+    BeamInstr** pi = (BeamInstr **) p->def_arg_reg;
+    p->i = *pi;
     p->flags |= F_TIMO;
     p->flags &= ~F_INSLPQUEUE;
 
