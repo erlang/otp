@@ -28,8 +28,11 @@
 -export([undefined_function/3, undefined_lambda/3, stub_function/3,
 	 breakpoint/3]).
 
--spec undefined_function(Module :: atom(), Function :: atom(), Args :: [_]) ->
-	any().
+-spec undefined_function(Module, Function, Args) ->
+	any() when
+      Module :: atom(),
+      Function :: atom(),
+      Args :: list().
 
 undefined_function(Module, Func, Args) ->
     case ensure_loaded(Module) of
@@ -51,8 +54,10 @@ undefined_function(Module, Func, Args) ->
 	    crash(Module, Func, Args)
     end.
 
--spec undefined_lambda(Module :: atom(), Function :: fun(), Args :: [_]) ->
-	any().
+-spec undefined_lambda(Module, Fun, Args) -> term() when
+      Module :: atom(),
+      Fun :: fun(),
+      Args :: list().
 
 undefined_lambda(Module, Fun, Args) ->
     case ensure_loaded(Module) of

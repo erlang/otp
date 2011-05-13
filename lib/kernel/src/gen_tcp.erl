@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,11 +28,34 @@
 
 -include("inet_int.hrl").
 
+-type hostname() :: inet:hostname().
+-type ip_address() :: inet:ip_address().
+-type port_number() :: 0..65535.
+-type posix() :: inet:posix().
+-type socket() :: port().
+
 %%
 %% Connect a socket
 %%
+
+-spec connect(Address, Port, Options) -> {ok, Socket} | {error, Reason} when
+      Address :: ip_address() | hostname(),
+      Port :: port_number(),
+      Options :: [Opt :: term()],
+      Socket :: socket(),
+      Reason :: posix().
+
 connect(Address, Port, Opts) -> 
     connect(Address,Port,Opts,infinity).
+
+-spec connect(Address, Port, Options, Timeout) ->
+                     {ok, Socket} | {error, Reason} when
+      Address :: ip_address() | hostname(),
+      Port :: port_number(),
+      Options :: [Opt :: term()],
+      Timeout :: timeout(),
+      Socket :: socket(),
+      Reason :: posix().
 
 connect(Address, Port, Opts, Time) ->
     Timer = inet:start_timer(Time),
@@ -72,6 +95,13 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
 %%
 %% Listen on a tcp port
 %%
+
+-spec listen(Port, Options) -> {ok, ListenSocket} | {error, Reason} when
+      Port :: port_number(),
+      Options :: [Opt :: term()],
+      ListenSocket :: socket(),
+      Reason :: posix().
+
 listen(Port, Opts) ->
     Mod = mod(Opts, undefined),
     case Mod:getserv(Port) of
@@ -85,6 +115,12 @@ listen(Port, Opts) ->
 %%
 %% Generic tcp accept
 %%
+
+-spec accept(ListenSocket) -> {ok, Socket} | {error, Reason} when
+      ListenSocket :: socket(),
+      Socket :: socket(),
+      Reason :: closed | timeout | posix().
+
 accept(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -92,6 +128,12 @@ accept(S) ->
 	Error ->
 	    Error
     end.
+
+-spec accept(ListenSocket, Timeout) -> {ok, Socket} | {error, Reason} when
+      ListenSocket :: socket(),
+      Timeout :: timeout(),
+      Socket :: socket(),
+      Reason :: closed | timeout | posix().
 
 accept(S, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -104,6 +146,12 @@ accept(S, Time) when is_port(S) ->
 %%
 %% Generic tcp shutdown
 %%
+
+-spec shutdown(Socket, How) -> ok | {error, Reason} when
+      Socket :: socket(),
+      How :: read | write | read_write,
+      Reason :: posix().
+
 shutdown(S, How) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -115,12 +163,22 @@ shutdown(S, How) when is_port(S) ->
 %%
 %% Close
 %%
+
+-spec close(Socket) -> ok when
+      Socket :: socket().
+
 close(S) ->
     inet:tcp_close(S).
 
 %%
 %% Send
 %%
+
+-spec send(Socket, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Packet :: string() | binary(),
+      Reason :: posix().
+
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -132,6 +190,14 @@ send(S, Packet) when is_port(S) ->
 %%
 %% Receive data from a socket (passive mode)
 %%
+
+-spec recv(Socket, Length) -> {ok, Packet} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Packet :: string() | binary() | HttpPacket,
+      Reason :: closed | posix(),
+      HttpPacket :: term().
+
 recv(S, Length) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -139,6 +205,14 @@ recv(S, Length) when is_port(S) ->
 	Error ->
 	    Error
     end.
+
+-spec recv(Socket, Length, Timeout) -> {ok, Packet} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Timeout :: timeout(),
+      Packet :: string() | binary() | HttpPacket,
+      Reason :: closed | posix(),
+      HttpPacket :: term().
 
 recv(S, Length, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -159,6 +233,12 @@ unrecv(S, Data) when is_port(S) ->
 %%
 %% Set controlling process
 %%
+
+-spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Pid :: pid(),
+      Reason :: closed | not_owner | posix().
+
 controlling_process(S, NewOwner) ->
     case inet_db:lookup_socket(S) of
 	{ok, _Mod} -> % Just check that this is an open socket

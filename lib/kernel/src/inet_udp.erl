@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,8 +39,10 @@ getserv(Name) when is_atom(Name)    -> inet:getservbyname(Name,udp).
 getaddr(Address) -> inet:getaddr(Address, inet).
 getaddr(Address,Timer) -> inet:getaddr_tm(Address, inet, Timer).
 
+-spec open(_) -> {ok, inet:socket()} | {error, atom()}.
 open(Port) -> open(Port, []).
 
+-spec open(_, _) -> {ok, inet:socket()} | {error, atom()}.
 open(Port, Opts) ->
     case inet:udp_options(
 	   [{port,Port}, {recbuf, ?RECBUF} | Opts], 
@@ -68,6 +70,8 @@ recv(S,Len) ->
 
 recv(S,Len,Time) ->
     prim_inet:recvfrom(S, Len, Time).
+
+-spec close(inet:socket()) -> ok.
 
 close(S) ->
     inet:udp_close(S).

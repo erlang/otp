@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,6 +69,7 @@ start(Flag, Arg) ->
 %%%====================================================================================
 %%%====================================================================================
 
+-spec init_send(_) -> no_return().
 init_send({any, NodesList, Name, Msg, From}) ->
     case whereis_any_loop(NodesList, Name) of
 	undefined ->
@@ -115,6 +116,7 @@ init_send({node, Node, Name, Msg, From}) ->
 %%%====================================================================================
 %%%====================================================================================
 
+-spec init_whereis(_) -> no_return().
 init_whereis({any, NodesList, Name, From}) ->
     R = whereis_any_loop(NodesList, Name),
     gen_server:cast(global_group, {find_name_res, R, self(), From}),
@@ -146,6 +148,7 @@ init_whereis({node, Node, Name, From}) ->
 %%%====================================================================================
 %%%====================================================================================
 %%%====================================================================================
+-spec init_names(_) -> no_return().
 init_names({group, Nodes, From}) ->
     case names_group_loop(Nodes) of
 	group_down ->

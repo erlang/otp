@@ -44,14 +44,18 @@ start() ->
 stop() ->
     ok.
 
--spec load_driver(Path :: path(), Driver :: driver()) ->
-	'ok' | {'error', any()}.
+-spec load_driver(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc :: term().
 
 load_driver(Path, Driver) ->
     do_load_driver(Path, Driver, [{driver_options,[kill_ports]}]).
 
--spec load(Path :: path(), Driver :: driver()) ->
-	'ok' | {'error', any()}.
+-spec load(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc ::term().
 
 load(Path, Driver) ->
     do_load_driver(Path, Driver, []).
@@ -100,30 +104,41 @@ do_unload_driver(Driver,Flags) ->
 	    end
     end.
 
--spec unload_driver(Driver :: driver()) -> 'ok' | {'error', any()}.
+-spec unload_driver(Name) -> 'ok' | {'error', ErrorDesc} when
+      Name :: driver(),
+      ErrorDesc :: term().
 
 unload_driver(Driver) ->
     do_unload_driver(Driver,[{monitor,pending_driver},kill_ports]).
 
--spec unload(Driver :: driver()) -> 'ok' | {'error', any()}.
+-spec unload(Name) -> 'ok' | {'error', ErrorDesc} when
+      Name :: driver(),
+      ErrorDesc :: term().
 
 unload(Driver) ->
     do_unload_driver(Driver,[]).
 
--spec reload(Path :: path(), Driver :: driver()) ->
-	'ok' | {'error', any()}.
+-spec reload(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc :: pending_process | OpaqueError,
+      OpaqueError :: term().
 
 reload(Path,Driver) ->
     do_load_driver(Path, Driver, [{reload,pending_driver}]).
 
--spec reload_driver(Path :: path(), Driver :: driver()) ->
-	'ok' | {'error', any()}.
+-spec reload_driver(Path, Name) -> 'ok' | {'error', ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      ErrorDesc :: pending_process | OpaqueError,
+      OpaqueError :: term().
 
 reload_driver(Path,Driver) ->
     do_load_driver(Path, Driver, [{reload,pending_driver},
 				  {driver_options,[kill_ports]}]).			    
 
--spec format_error(Code :: atom()) -> string().
+-spec format_error(ErrorDesc) -> string() when
+      ErrorDesc :: term().
 
 format_error(Code) ->
     case Code of
@@ -135,7 +150,10 @@ format_error(Code) ->
 	    erl_ddll:format_error_int(Code)
     end.
 
--spec info(Driver :: driver()) -> [{atom(), any()}, ...].
+-spec info(Name) -> InfoList when
+      Name :: driver(),
+      InfoList :: [InfoItem, ...],
+      InfoItem :: {Tag :: atom(), Value :: term()}.
  
 info(Driver) ->
     [{processes, erl_ddll:info(Driver,processes)},
@@ -146,7 +164,12 @@ info(Driver) ->
      {awaiting_load,  erl_ddll:info(Driver,awaiting_load)},
      {awaiting_unload, erl_ddll:info(Driver,awaiting_unload)}].
 
--spec info() -> [{string(), [{atom(), any()}]}].
+-spec info() -> AllInfoList when
+      AllInfoList :: [DriverInfo],
+      DriverInfo :: {DriverName, InfoList},
+      DriverName :: string(),
+      InfoList :: [InfoItem],
+      InfoItem :: {Tag :: atom(), Value :: term()}.
 
 info() ->
     {ok,DriverList} = erl_ddll:loaded_drivers(),
