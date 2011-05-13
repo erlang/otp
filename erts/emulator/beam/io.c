@@ -56,7 +56,6 @@ static erts_smp_tsd_key_t driver_list_last_error_key;  /* Save last DDLL error o
 							  per thread basis (for BC interfaces) */
 
 Port*      erts_port; /* The port table */
-erts_smp_atomic_t erts_ports_alive;
 erts_smp_atomic_t erts_bytes_out;	/* No bytes sent out of the system */
 erts_smp_atomic_t erts_bytes_in;	/* No bytes gotten into the system */
 
@@ -193,7 +192,7 @@ typedef struct line_buf_context {
 static erts_smp_spinlock_t get_free_port_lck;
 static Uint last_port_num;
 static Uint port_num_mask;
-erts_smp_atomic_t erts_ports_snapshot; /* Identifies the _next_ snapshot (not the ongoing) */
+erts_smp_atomic32_t erts_ports_snapshot; /* Identifies the _next_ snapshot (not the ongoing) */
 
 
 static ERTS_INLINE void
@@ -424,10 +423,9 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
     new_name = (char*) erts_alloc(ERTS_ALC_T_PORT_NAME, sys_strlen(name)+1);
     sys_strcpy(new_name, name);
     erts_smp_runq_lock(runq);
-    erts_smp_atomic_inc(&erts_ports_alive);
     erts_smp_port_state_lock(prt);    
     prt->status = ERTS_PORT_SFLG_CONNECTED | xstatus;
-    prt->snapshot = (Uint32) erts_smp_atomic_read(&erts_ports_snapshot);    
+    prt->snapshot = erts_smp_atomic32_read(&erts_ports_snapshot);    
     old_name = prt->name;
     prt->name = new_name;
 #ifdef ERTS_SMP
@@ -1281,7 +1279,6 @@ void init_io(void)
 
     erts_smp_atomic_init(&erts_bytes_out, 0);
     erts_smp_atomic_init(&erts_bytes_in, 0);
-    erts_smp_atomic_init(&erts_ports_alive, 0);
 
     for (i = 0; i < erts_max_ports; i++) {
 	erts_port_task_init_sched(&erts_port[i].sched);
@@ -1303,7 +1300,7 @@ void init_io(void)
 	erts_port[i].port_data_lock = NULL;
     }
 
-    erts_smp_atomic_init(&erts_ports_snapshot, (erts_aint_t) 0);
+    erts_smp_atomic32_init(&erts_ports_snapshot, (erts_aint32_t) 0);
     last_port_num = 0;
     erts_smp_spinlock_init(&get_free_port_lck, "get_free_port");
 

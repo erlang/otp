@@ -1137,6 +1137,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 
  restart:
 
+#ifdef ERTS_BREAK_REQUESTED
+    if (ERTS_BREAK_REQUESTED)
+	erts_do_break_handling();
+#endif
+
     /* Figure out timeout value */
     if (do_wait) {
 	erts_time_remaining(&wait_time);

@@ -76,6 +76,7 @@ atom allocator_sizes
 atom alloc_util_allocators
 atom allow_passive_connect
 atom already_loaded
+atom amd64
 atom anchored
 atom and
 atom andalso

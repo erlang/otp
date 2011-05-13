@@ -5325,7 +5325,7 @@ void process_main(void)
 	 ep->code[3] = (BeamInstr) OpCode(apply_bif);
 	 ep->code[4] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
-	 ((BeamInstr*)ep->code + 3)[-5] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+	 ep->fake_op_func_info_for_hipe[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
      }
 
      return;

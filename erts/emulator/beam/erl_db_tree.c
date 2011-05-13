@@ -111,7 +111,7 @@ static void release_stack(DbTableTree* tb, DbTreeStack* stack)
 {
     if (stack == &tb->static_stack) {
 	ASSERT(erts_smp_atomic_read(&tb->is_stack_busy) == 1);
-	erts_smp_atomic_set(&tb->is_stack_busy, 0);
+	erts_smp_atomic_set_relb(&tb->is_stack_busy, 0);
     }
     else {
 	erts_db_free(ERTS_ALC_T_DB_STK, (DbTable *) tb,

@@ -658,8 +658,6 @@ erts_port_task_free_port(Port *pp)
 	   when scheduled out... */
 	ErtsPortTask *ptp = port_task_alloc();
 	erts_smp_port_state_lock(pp);
-	ASSERT(erts_smp_atomic_read(&erts_ports_alive) > 0);
-	erts_smp_atomic_dec(&erts_ports_alive);
 	pp->status &= ~ERTS_PORT_SFLG_CLOSING;
 	pp->status |= ERTS_PORT_SFLG_FREE_SCHEDULED;
 	erts_may_save_closed_port(pp);
@@ -681,7 +679,6 @@ erts_port_task_free_port(Port *pp)
 	    port_is_dequeued = 1;
 	}
 	erts_smp_port_state_lock(pp);
-	erts_smp_atomic_dec(&erts_ports_alive);
 	pp->status &= ~ERTS_PORT_SFLG_CLOSING;
 	pp->status |= ERTS_PORT_SFLG_FREE_SCHEDULED;
 	erts_may_save_closed_port(pp);

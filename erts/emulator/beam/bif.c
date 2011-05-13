@@ -3408,6 +3408,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     Eterm* dead_ports;
     int alive, dead;
     Uint32 next_ss;
+    int i;
 
     /* To get a consistent snapshot... 
      * We add alive ports from start of the buffer
@@ -3419,21 +3420,18 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     erts_smp_atomic_set(&erts_dead_ports_ptr,
 			(erts_aint_t) (port_buf + erts_max_ports));
 
-    next_ss = erts_smp_atomic_inctest(&erts_ports_snapshot);
+    next_ss = erts_smp_atomic32_inctest(&erts_ports_snapshot);
 
-    if (erts_smp_atomic_read(&erts_ports_alive) > 0) {
-	erts_aint_t i;
-	for (i = erts_max_ports-1; i >= 0; i--) {
-	    Port* prt = &erts_port[i];
-	    erts_smp_port_state_lock(prt);
-	    if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
-		&& prt->snapshot != next_ss) {
-		ASSERT(prt->snapshot == next_ss - 1);
-		*pp++ = prt->id;		
-		prt->snapshot = next_ss; /* Consumed by this snapshot */
-	    }
-	    erts_smp_port_state_unlock(prt);
+    for (i = erts_max_ports-1; i >= 0; i--) {
+	Port* prt = &erts_port[i];
+	erts_smp_port_state_lock(prt);
+	if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
+	    && prt->snapshot != next_ss) {
+	    ASSERT(prt->snapshot == next_ss - 1);
+	    *pp++ = prt->id;		
+	    prt->snapshot = next_ss; /* Consumed by this snapshot */
 	}
+	erts_smp_port_state_unlock(prt);
     }
 
     dead_ports = (Eterm*)erts_smp_atomic_xchg(&erts_dead_ports_ptr,
