@@ -789,7 +789,7 @@ filter_report([{Key, RegExp, re}|T], Msg) ->
 filter_report([{Key, RegExp, re, no}|T], Msg) ->
     case proplists:get_value(Key, Msg) of
 	undefined ->
-	    false;
+	    true;
 	Value ->
 	    Subject = lists:flatten(io_lib:format("~p",[Value])),
 	    case run_re(Subject, RegExp) of
