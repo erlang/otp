@@ -266,6 +266,195 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 */
 #endif
 
+
+#if defined(__GNUC__)
+
+#  define ERL_NIF_INLINE __inline__
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple1(ErlNifEnv* env,
+						    ERL_NIF_TERM e1)
+{
+    return enif_make_tuple(env, 1, e1);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple2(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2)
+{
+    return enif_make_tuple(env, 2, e1, e2);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple3(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3)
+{
+    return enif_make_tuple(env, 3, e1, e2, e3);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple4(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3,
+						    ERL_NIF_TERM e4)
+{
+    return enif_make_tuple(env, 4, e1, e2, e3, e4);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple5(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3,
+						    ERL_NIF_TERM e4,
+						    ERL_NIF_TERM e5)
+{
+    return enif_make_tuple(env, 5, e1, e2, e3, e4, e5);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple6(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3,
+						    ERL_NIF_TERM e4,
+						    ERL_NIF_TERM e5,
+						    ERL_NIF_TERM e6)
+{
+    return enif_make_tuple(env, 6, e1, e2, e3, e4, e5, e6);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple7(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3,
+						    ERL_NIF_TERM e4,
+						    ERL_NIF_TERM e5,
+						    ERL_NIF_TERM e6,
+						    ERL_NIF_TERM e7)
+{
+    return enif_make_tuple(env, 7, e1, e2, e3, e4, e5, e6, e7);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple8(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3,
+						    ERL_NIF_TERM e4,
+						    ERL_NIF_TERM e5,
+						    ERL_NIF_TERM e6,
+						    ERL_NIF_TERM e7,
+						    ERL_NIF_TERM e8)
+{
+    return enif_make_tuple(env, 8, e1, e2, e3, e4, e5, e6, e7, e8);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_tuple9(ErlNifEnv* env,
+						    ERL_NIF_TERM e1,
+						    ERL_NIF_TERM e2,
+						    ERL_NIF_TERM e3,
+						    ERL_NIF_TERM e4,
+						    ERL_NIF_TERM e5,
+						    ERL_NIF_TERM e6,
+						    ERL_NIF_TERM e7,
+						    ERL_NIF_TERM e8,
+						    ERL_NIF_TERM e9)
+{
+    return enif_make_tuple(env, 9, e1, e2, e3, e4, e5, e6, e7, e8, e9);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list1(ErlNifEnv* env,
+						   ERL_NIF_TERM e1)
+{
+    return enif_make_list(env, 1, e1);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list2(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2)
+{
+    return enif_make_list(env, 2, e1, e2);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list3(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3)
+{
+    return enif_make_list(env, 3, e1, e2, e3);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list4(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3,
+						   ERL_NIF_TERM e4)
+{
+    return enif_make_list(env, 4, e1, e2, e3, e4);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list5(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3,
+						   ERL_NIF_TERM e4,
+						   ERL_NIF_TERM e5)
+{
+    return enif_make_list(env, 5, e1, e2, e3, e4, e5);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list6(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3,
+						   ERL_NIF_TERM e4,
+						   ERL_NIF_TERM e5,
+						   ERL_NIF_TERM e6)
+{
+    return enif_make_list(env, 6, e1, e2, e3, e4, e5, e6);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list7(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3,
+						   ERL_NIF_TERM e4,
+						   ERL_NIF_TERM e5,
+						   ERL_NIF_TERM e6,
+						   ERL_NIF_TERM e7)
+{
+    return enif_make_list(env, 7, e1, e2, e3, e4, e5, e6, e7);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list8(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3,
+						   ERL_NIF_TERM e4,
+						   ERL_NIF_TERM e5,
+						   ERL_NIF_TERM e6,
+						   ERL_NIF_TERM e7,
+						   ERL_NIF_TERM e8)
+{
+    return enif_make_list(env, 8, e1, e2, e3, e4, e5, e6, e7, e8);
+}
+
+static ERL_NIF_INLINE ERL_NIF_TERM enif_make_list9(ErlNifEnv* env,
+						   ERL_NIF_TERM e1,
+						   ERL_NIF_TERM e2,
+						   ERL_NIF_TERM e3,
+						   ERL_NIF_TERM e4,
+						   ERL_NIF_TERM e5,
+						   ERL_NIF_TERM e6,
+						   ERL_NIF_TERM e7,
+						   ERL_NIF_TERM e8,
+						   ERL_NIF_TERM e9)
+{
+    return enif_make_list(env, 9, e1, e2, e3, e4, e5, e6, e7, e8, e9);
+}
+
+#  undef ERL_NIF_INLINE
+
+#else
+
 #ifndef enif_make_list1
 #  define enif_make_list1(ENV,E1) enif_make_list(ENV,1,E1)
 #  define enif_make_list2(ENV,E1,E2) enif_make_list(ENV,2,E1,E2)
@@ -285,6 +474,11 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_number,(ErlNifEnv*, ERL_NIF_TERM term));
 #  define enif_make_tuple7(ENV,E1,E2,E3,E4,E5,E6,E7) enif_make_tuple(ENV,7,E1,E2,E3,E4,E5,E6,E7)
 #  define enif_make_tuple8(ENV,E1,E2,E3,E4,E5,E6,E7,E8) enif_make_tuple(ENV,8,E1,E2,E3,E4,E5,E6,E7,E8)
 #  define enif_make_tuple9(ENV,E1,E2,E3,E4,E5,E6,E7,E8,E9) enif_make_tuple(ENV,9,E1,E2,E3,E4,E5,E6,E7,E8,E9)
+#endif
+
+#endif /* defined(__GNUC__) */
+
+#ifndef enif_make_pid
 
 #  define enif_make_pid(ENV, PID) ((const ERL_NIF_TERM)((PID)->pid))
 
