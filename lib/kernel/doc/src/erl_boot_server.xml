@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -49,29 +49,17 @@
   </description>
   <funcs>
     <func>
-      <name>start(Slaves) -> {ok, Pid} | {error, What}</name>
+      <name name="start" arity="1"/>
       <fsummary>Start the boot server</fsummary>
-      <type>
-        <v>Slaves = [Host]</v>
-        <v>Host = atom()</v>
-        <v>Pid = pid()</v>
-        <v>What = term()</v>
-      </type>
       <desc>
-        <p>Starts the boot server. <c>Slaves</c> is a list of IP
+        <p>Starts the boot server. <c><anno>Slaves</anno></c> is a list of IP
           addresses for hosts which are allowed to use this server as a
           boot server.</p>
       </desc>
     </func>
     <func>
-      <name>start_link(Slaves) -> {ok, Pid} | {error, What}</name>
+      <name name="start_link" arity="1"/>
       <fsummary>Start the boot server and links the caller</fsummary>
-      <type>
-        <v>Slaves = [Host]</v>
-        <v>Host = atom()</v>
-        <v>Pid = pid()</v>
-        <v>What = term()()</v>
-      </type>
       <desc>
         <p>Starts the boot server and links to the caller. This function
           is used to start the server if it is included in a supervision
@@ -79,37 +67,23 @@
       </desc>
     </func>
     <func>
-      <name>add_slave(Slave) -> ok | {error, What}</name>
+      <name name="add_slave" arity="1"/>
       <fsummary>Add a slave to the list of allowed slaves</fsummary>
-      <type>
-        <v>Slave = Host</v>
-        <v>Host = atom()</v>
-        <v>What = term()</v>
-      </type>
       <desc>
-        <p>Adds a <c>Slave</c> node to the list of allowed slave hosts.</p>
+        <p>Adds a <c><anno>Slave</anno></c> node to the list of allowed slave hosts.</p>
       </desc>
     </func>
     <func>
-      <name>delete_slave(Slave) -> ok | {error, What}</name>
+      <name name="delete_slave" arity="1"/>
       <fsummary>Delete a slave from the list of allowed slaves</fsummary>
-      <type>
-        <v>Slave = Host</v>
-        <v>Host = atom()</v>
-        <v>What = void()</v>
-      </type>
       <desc>
-        <p>Deletes a <c>Slave</c> node from the list of allowed slave
+        <p>Deletes a <c><anno>Slave</anno></c> node from the list of allowed slave
           hosts.</p>
       </desc>
     </func>
     <func>
-      <name>which_slaves() -> Slaves</name>
+      <name name="which_slaves" arity="0"/>
       <fsummary>Return the current list of allowed slave hosts</fsummary>
-      <type>
-        <v>Slaves = [Host]</v>
-        <v>Host = atom()</v>
-      </type>
       <desc>
         <p>Returns the current list of allowed slave hosts.</p>
       </desc>

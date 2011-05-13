@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -106,45 +106,37 @@
 
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="id"/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>del_lock(Id)</name>
-      <name>del_lock(Id, Nodes) -> void()</name>
+      <name name="del_lock" arity="1"/>
+      <name name="del_lock" arity="2"/>
       <fsummary>Delete a lock</fsummary>
-      <type>
-        <v>Id = {ResourceId, LockRequesterId}</v>
-        <v>&nbsp;ResourceId = term()</v>
-        <v>&nbsp;LockRequesterId = term()</v>
-        <v>Nodes = [node()]</v>
-      </type>
       <desc>
-        <p>Deletes the lock <c>Id</c> synchronously.</p>
+        <p>Deletes the lock <c><anno>Id</anno></c> synchronously.</p>
       </desc>
     </func>
 
     <func>
-      <name>notify_all_name(Name, Pid1, Pid2) -> none</name>
+      <name name="notify_all_name" arity="3"/>
       <fsummary>Name resolving function that notifies both pids</fsummary>
-      <type>
-        <v>Name = term()</v>
-        <v>Pid1 = Pid2 = pid()</v>
-      </type>
       <desc>
         <p>This function can be used as a name resolving function for
           <c>register_name/3</c> and <c>re_register_name/3</c>. It
           unregisters both pids, and sends the message
-          <c>{global_name_conflict, Name, OtherPid}</c> to both
+          <c>{global_name_conflict, <anno>Name</anno>, OtherPid}</c> to both
           processes.</p>
       </desc>
     </func>
 
     <func>
-      <name>random_exit_name(Name, Pid1, Pid2) -> Pid1 | Pid2</name>
+      <name name="random_exit_name" arity="3"/>
       <fsummary>Name resolving function that kills one pid</fsummary>
-      <type>
-        <v>Name = term()</v>
-        <v>Pid1 = Pid2 = pid()</v>
-      </type>
       <desc>
         <p>This function can be used as a name resolving function for
           <c>register_name/3</c> and <c>re_register_name/3</c>. It
@@ -154,33 +146,27 @@
     </func>
 
     <func>
-      <name>random_notify_name(Name, Pid1, Pid2) -> Pid1 | Pid2</name>
+      <name name="random_notify_name" arity="3"/>
       <fsummary>Name resolving function that notifies one pid</fsummary>
-      <type>
-        <v>Name = term()</v>
-        <v>Pid1 = Pid2 = pid()</v>
-      </type>
       <desc>
         <p>This function can be used as a name resolving function for
           <c>register_name/3</c> and <c>re_register_name/3</c>. It
           randomly chooses one of the pids for registration, and sends
-          the message <c>{global_name_conflict, Name}</c> to the other
+          the message <c>{global_name_conflict, <anno>Name</anno>}</c> to the other
           pid.</p>
       </desc>
     </func>
 
     <func>
-      <name>register_name(Name, Pid)</name>
-      <name>register_name(Name, Pid, Resolve) -> yes | no</name>
+      <name name="register_name" arity="2"/>
+      <name name="register_name" arity="3"/>
       <fsummary>Globally register a name for a pid</fsummary>
-      <type>
-        <v>Name = term()</v>
-        <v>Pid = pid()</v>
-        <v>Resolve = fun() or {Module, Function} where</v>
-        <v>&nbsp;&nbsp;Resolve(Name, Pid, Pid2) -> Pid | Pid2 | none</v>
-      </type>
+      <type name="method"/>
+      <type_desc name="method">{<c>Module</c>, <c>Function</c>}
+        is also allowed
+      </type_desc>
       <desc>
-        <p>Globally associates the name <c>Name</c> with a pid, that is,
+        <p>Globally associates the name <c><anno>Name</anno></c> with a pid, that is,
           Globally notifies all nodes of a new global name in a network
           of Erlang nodes.</p>
 
@@ -188,7 +174,7 @@
           of the globally registered names that already exist.
           The network is also informed of any global names in newly
           connected nodes. If any name clashes are discovered,
-          the <c>Resolve</c> function is called. Its purpose is to
+          the <c><anno>Resolve</anno></c> function is called. Its purpose is to
           decide which pid is correct. If the function crashes, or
           returns anything other than one of the pids, the name is
           unregistered. This function is called once for each name
@@ -196,7 +182,7 @@
 
         <p>There are three pre-defined resolve functions:
           <c>random_exit_name/3</c>, <c>random_notify_name/3</c>, and
-          <c>notify_all_name/3</c>. If no <c>Resolve</c> function is
+          <c>notify_all_name/3</c>. If no <c><anno>Resolve</anno></c> function is
           defined, <c>random_exit_name</c> is used. This means that one
           of the two registered processes will be selected as correct
           while the other is killed.</p>
@@ -225,78 +211,63 @@
     </func>
 
     <func>
-      <name>registered_names() -> [Name]</name>
+      <name name="registered_names" arity="0"/>
       <fsummary>All globally registered names</fsummary>
-      <type>
-        <v>Name = term()</v>
-      </type>
       <desc>
         <p>Returns a lists of all globally registered names.</p>
       </desc>
     </func>
 
     <func>
-      <name>re_register_name(Name, Pid)</name>
-      <name>re_register_name(Name, Pid, Resolve) -> void()</name>
+      <name name="re_register_name" arity="2"/>
+      <name name="re_register_name" arity="3"/>
       <fsummary>Atomically re-register a name</fsummary>
-      <type>
-        <v>Name = term()</v>
-        <v>Pid = pid()</v>
-        <v>Resolve = fun() or {Module, Function} where</v>
-        <v>&nbsp;&nbsp;Resolve(Name, Pid, Pid2) -> Pid | Pid2 | none</v>
-      </type>
+      <type name="method"/>
+      <type_desc name="method">{<c>Module</c>, <c>Function</c>}
+        is also allowed
+      </type_desc>
       <desc>
-        <p>Atomically changes the registered name <c>Name</c> on all
-          nodes to refer to <c>Pid</c>.</p>
+        <p>Atomically changes the registered name <c><anno>Name</anno></c> on all
+          nodes to refer to <c><anno>Pid</anno></c>.</p>
 
-        <p>The <c>Resolve</c> function has the same behavior as in
+        <p>The <c><anno>Resolve</anno></c> function has the same behavior as in
           <c>register_name/2,3</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>send(Name, Msg) -> Pid</name>
+      <name name="send" arity="2"/>
       <fsummary>Send a message to a globally registered pid</fsummary>
-      <type>
-        <v>Name = term()</v>
-        <v>Msg = term()</v>
-        <v>Pid = pid()</v>
-      </type>
       <desc>
-        <p>Sends the message <c>Msg</c> to the pid globally registered
-          as <c>Name</c>.</p>
+        <p>Sends the message <c><anno>Msg</anno></c> to the pid globally registered
+          as <c><anno>Name</anno></c>.</p>
 
-        <p>Failure: If <c>Name</c> is not a globally registered
+        <p>Failure: If <c><anno>Name</anno></c> is not a globally registered
           name, the calling function will exit with reason
-          <c>{badarg, {Name, Msg}}</c>.</p>
+          <c>{badarg, {<anno>Name</anno>, <anno>Msg</anno>}}</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>set_lock(Id)</name>
-      <name>set_lock(Id, Nodes)</name>
-      <name>set_lock(Id, Nodes, Retries) -> boolean()</name>
+      <name name="set_lock" arity="1"/>
+      <name name="set_lock" arity="2"/>
+      <name name="set_lock" arity="3"/>
       <fsummary>Set a lock on the specified nodes</fsummary>
-      <type>
-        <v>Id = {ResourceId, LockRequesterId}</v>
-        <v>&nbsp;ResourceId = term()</v>
-        <v>&nbsp;LockRequesterId = term()</v>
-        <v>Nodes = [node()]</v>
-        <v>Retries = int() >= 0 | infinity</v>
-      </type>
+      <type name="id"/>
+      <type name="retries"/>
       <desc>
         <p>Sets a lock on the specified nodes (or on all nodes if none
-          are specified) on <c>ResourceId</c> for
-          <c>LockRequesterId</c>. If a lock already exists on
-          <c>ResourceId</c> for another requester than
-          <c>LockRequesterId</c>, and <c>Retries</c> is not equal to 0,
+          are specified) on <c><anno>ResourceId</anno></c> for
+          <c><anno>LockRequesterId</anno></c>. If a lock already exists on
+          <c><anno>ResourceId</anno></c> for another requester than
+          <c><anno>LockRequesterId</anno></c>, and <c><anno>Retries</anno></c> is not equal to 0,
           the process sleeps for a while and will try to execute
-          the action later. When <c>Retries</c> attempts have been made,
+          the action later. When <c><anno>Retries</anno></c> attempts have been made,
           <c>false</c> is returned, otherwise <c>true</c>. If
-          <c>Retries</c> is <c>infinity</c>, <c>true</c> is eventually
+          <c><anno>Retries</anno></c> is <c>infinity</c>, <c>true</c> is eventually
           returned (unless the lock is never released).</p>
 
-        <p>If no value for <c>Retries</c> is given, <c>infinity</c> is
+        <p>If no value for <c><anno>Retries</anno></c> is given, <c>infinity</c> is
           used.</p>
 
         <p>This function is completely synchronous.</p>
@@ -315,7 +286,7 @@
           application to detect and rectify a deadlock.</p>
 
         <note>
-          <p>Some values of <c>ResourceId</c> should be avoided or
+          <p>Some values of <c><anno>ResourceId</anno></c> should be avoided or
             Erlang/OTP will not work properly. A list of resources to
             avoid: <c>global</c>, <c>dist_ac</c>,
             <c>mnesia_table_lock</c>, <c>mnesia_adjust_log_writes</c>,
@@ -326,7 +297,7 @@
     </func>
 
     <func>
-      <name>sync() -> void()</name>
+      <name name="sync" arity="0"/>
       <fsummary>Synchronize the global name server</fsummary>
       <desc>
         <p>Synchronizes the global name server with all nodes known to
@@ -335,56 +306,45 @@
           the global name server will receive global information from
           all nodes. This function can be called when new nodes are
           added to the network.</p>
+        <p>The only possible error reason <c>Reason</c> is
+          <c>{"global_groups definition error", Error}</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>trans(Id, Fun)</name>
-      <name>trans(Id, Fun, Nodes)</name>
-      <name>trans(Id, Fun, Nodes, Retries) -> Res | aborted</name>
+      <name name="trans" arity="2"/>
+      <name name="trans" arity="3"/>
+      <name name="trans" arity="4"/>
       <fsummary>Micro transaction facility</fsummary>
-      <type>
-        <v>Id = {ResourceId, LockRequesterId}</v>
-        <v>&nbsp;ResourceId = term()</v>
-        <v>&nbsp;LockRequesterId = term()</v>
-        <v>Fun = fun() | {M, F}</v>
-        <v>Nodes = [node()]</v>
-        <v>Retries = int() >= 0 | infinity</v>
-        <v>Res = term()</v>
-      </type>
+      <type name="retries"/>
+      <type name="trans_fun"/>
       <desc>
-        <p>Sets a lock on <c>Id</c> (using <c>set_lock/3</c>). If this
-          succeeds, <c>Fun()</c> is evaluated and the result <c>Res</c>
+        <p>Sets a lock on <c><anno>Id</anno></c> (using <c>set_lock/3</c>). If this
+          succeeds, <c><anno>Fun</anno>()</c> is evaluated and the result <c><anno>Res</anno></c>
           is returned.  Returns <c>aborted</c> if the lock attempt
-          failed. If <c>Retries</c> is set to <c>infinity</c>,
+          failed. If <c><anno>Retries</anno></c> is set to <c>infinity</c>,
           the transaction will not abort.</p>
 
         <p><c>infinity</c> is the default setting and will be used if 
-          no value is given for <c>Retries</c>.</p>
+          no value is given for <c><anno>Retries</anno></c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>unregister_name(Name) -> void()</name>
+      <name name="unregister_name" arity="1"/>
       <fsummary>Remove a globally registered name for a pid</fsummary>
-      <type>
-        <v>Name = term()</v>
-      </type>
       <desc>
-        <p>Removes the globally registered name <c>Name</c> from
+        <p>Removes the globally registered name <c><anno>Name</anno></c> from
           the network of Erlang nodes.</p>
       </desc>
     </func>
 
     <func>
-      <name>whereis_name(Name) -> pid() | undefined</name>
+      <name name="whereis_name" arity="1"/>
       <fsummary>Get the pid with a given globally registered name</fsummary>
-      <type>
-        <v>Name = term()</v>
-      </type>
       <desc>
         <p>Returns the pid with the globally registered name
-          <c>Name</c>. Returns <c>undefined</c> if the name is not
+          <c><anno>Name</anno></c>. Returns <c>undefined</c> if the name is not
           globally registered.</p>
       </desc>
     </func>

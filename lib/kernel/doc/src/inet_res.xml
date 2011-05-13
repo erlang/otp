@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2009</year><year>2009</year>
+      <year>2009</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -76,64 +76,38 @@
       query is tried for the <c>alt_nameservers</c>.</p>
   </section>
 
-
-
-
-  <section>
-    <title>DATA TYPES</title>
-      <p>As defined in the module
-        <seealso marker="kernel:inet">inet</seealso>:</p>
-    <code type="none">
-hostent() = #hostent{}
-posix() = some atom()s
-ip_address() = tuple of integers of arity 4 or 8</code>
-
+  <datatypes>
     <p>Resolver types:</p>
-    <code type="none">These correspond to resolver options:
+    <datatype>
+      <name name="res_option"/>
+    </datatype>
+    <datatype>
+      <name name="nameserver"/>
+    </datatype>
+    <datatype>
+      <name name="res_error"/>
+    </datatype>
 
-res_option() =
-    [ {alt_nameservers, [ nameserver() ]}
-    | {edns, 0 | false}               % Use EDNS
-    | {inet6, bool()}                 % Return IPv6 addresses
-    | {nameservers, [ nameserver() ]} % List of nameservers
-    | {recurse, bool()}               % Request server recursion
-    | {retry, integer()}              % UDP retries
-    | {timeout, integer()}            % UDP query timeout
-    | {udp_payload_size, integer()}   % EDNS payload size
-    | {usevc, bool()} ]               % Use TCP (Virtual Circuit)
-
-nameserver() = {ip_address(),Port}
-    Port = integer(1..65535)
-
-res_error() =
-    formerr |
-    qfmterror |
-    servfail |
-    nxdomain |
-    notimp |
-    refused |
-    badvers |
-    timeout
-</code>
-
-    <p>DNS types:</p>
-    <marker id="dns_types"/>
-    <code type="none">dns_name() = string() with no adjacent dots
-
-rr_type() = a | aaaa | cname | gid | hinfo | ns | mb | md | mg | mf
-          | minfo | mx | naptr | null | ptr | soa | spf | srv | txt
-          | uid | uinfo | unspec | wks
-
-query_type() = axfr | mailb | maila | any | rr_type()
-
-dns_class() = in | chaos | hs | any
-
+    <p><marker id="dns_types"/>DNS types:</p>
+    <datatype>
+      <name name="dns_name"/>
+      <desc><p>A string with no adjacent dots.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="rr_type"/>
+    </datatype>
+    <datatype>
+      <name name="dns_class"/>
+    </datatype>
+    <datatype>
+      <name name="dns_msg"/>
+      <desc>
+        <p>This is the start of a hiearchy of opaque data structures
+          that can be examined with access functions in inet_dns that
+          return lists of {Field,Value} tuples. The arity 2 functions
+          just return the value for a given field.
+<pre>
 dns_msg() = DnsMsg
-    This is the start of a hiearchy of opaque data structures
-    that can be examined with access functions in inet_dns
-    that return lists of {Field,Value} tuples. The arity 2
-    functions just return the value for a given field.
-
     inet_dns:msg(DnsMsg) ->
         [ {header, dns_header()}
         | {qdlist, dns_query()}
@@ -143,18 +117,20 @@ dns_msg() = DnsMsg
     inet_dns:msg(DnsMsg, header) -> dns_header() % for example
     inet_dns:msg(DnsMsg, Field) -> Value
 
-dhs_header() = DnsHeader
+dns_header() = DnsHeader
     inet_dns:header(DnsHeader) ->
         [ {id, integer()}
-        | {qr, bool()}
+        | {qr, boolean()}
         | {opcode, 'query' | iquery | status | integer()}
-        | {aa, bool()}
-        | {tc, bool()}
-        | {rd, bool()}
-        | {ra, bool()}
-        | {pr, bool()}
+        | {aa, boolean()}
+        | {tc, boolean()}
+        | {rd, boolean()}
+        | {ra, boolean()}
+        | {pr, boolean()}
         | {rcode, integer(0..16)} ]
     inet_dns:header(DnsHeader, Field) -> Value
+
+query_type() = axfr | mailb | maila | any | rr_type()
 
 dns_query() = DnsQuery
     inet_dns:dns_query(DnsQuery) ->
@@ -179,32 +155,6 @@ dns_rr() = DnsRr
                      | {data, dns_data()} ]
     inet_dns:rr(DnsRr, Field) -> Value
 
-dns_data() =             % for dns_type()
-    [ dns_name()         % ns, md, mf, cname, mb, mg, mr, ptr
-    | ip_address(v4)     % a
-    | ip_address(v6)     % aaaa
-    | {MName,RName,Serial,Refresh,Retry,Expiry,Minimum} % soa
-    | {ip_address(v4),Proto,BitMap} % wks
-    | {CpuString,OsString} % hinfo
-    | {RM,EM}            % minfo
-    | {Prio,dns_name()}  % mx
-    | {Prio,Weight,Port,dns_name()} % srv
-    | {Order,Preference,Flags,Services,Regexp,dns_name()} % naptr
-    | [ string() ]         % txt, spf
-    | binary() ]           % null, integer()
-MName, RName = dns_name()
-Serial, Refresh, Retry, Expiry, Minimum = integer(),
-Proto = integer()
-BitMap = binary()
-CpuString, OsString = string()
-RM = EM = dns_name()
-Prio, Weight, Port = integer()
-Order, Preference = integer()
-Flags, Services = string(),
-Regexp = string(utf8)
-
-
-
 There is an info function for the types above:
 
 inet_dns:record_type(dns_msg()) -> msg;
@@ -214,26 +164,25 @@ inet_dns:record_type(dns_rr()) -> rr;
 inet_dns:record_type(_) -> undefined.
 
 So; inet_dns:(inet_dns:record_type(X))(X) will convert
-any of these data structures into a {Field,Value} list.</code>
-  </section>
-
+any of these data structures into a {Field,Value} list.</pre></p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="dns_data"/>
+      <desc><p><c><anno>Regexp</anno></c> is a string with characters encoded in the
+         UTF-8 coding standard.</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
 
   <funcs>
 
     <func>
-      <name>getbyname(Name, Type) -> {ok,hostent()} | {error,Reason}</name>
-      <name>getbyname(Name, Type, Timeout) ->
-        {ok,hostent()} | {error,Reason}
-      </name>
+      <name name="getbyname" arity="2"/>
+      <name name="getbyname" arity="3"/>
       <fsummary>Resolve a DNS record of the given type for the given host
       </fsummary>
-      <type>
-        <v>Name = dns_name()</v>
-        <v>Type = rr_type()</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
       <desc>
         <p>Resolve a DNS record of the given type for the given host,
           of class <c>in</c>. On success returns a <c>hostent()</c> record with
@@ -252,17 +201,10 @@ any of these data structures into a {Field,Value} list.</code>
     </func>
 
     <func>
-      <name>gethostbyaddr(Address) -> {ok,hostent()} | {error,Reason}</name>
-      <name>gethostbyaddr(Address, Timeout) ->
-        {ok,hostent()} | {error,Reason}
-      </name>
+      <name name="gethostbyaddr" arity="1"/>
+      <name name="gethostbyaddr" arity="2"/>
       <fsummary>Return a hostent record for the host with the given address
       </fsummary>
-      <type>
-        <v>Address = ip_address()</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
       <desc>
         <p>Backend functions used by
           <seealso marker="kernel:inet#gethostbyaddr/1">
@@ -273,20 +215,11 @@ any of these data structures into a {Field,Value} list.</code>
     </func>
 
     <func>
-      <name>gethostbyname(Name) -> {ok,hostent()} | Reason}</name>
-      <name>gethostbyname(Name, Family) ->
-        {ok,hostent()} | {error,Reason}}
-      </name>
-      <name>gethostbyname(Name, Family, Timeout) ->
-        {ok,hostent()} | {error,Reason}
-      </name>
+      <name name="gethostbyname" arity="1"/>
+      <name name="gethostbyname" arity="2"/>
+      <name name="gethostbyname" arity="3"/>
       <fsummary>Return a hostent record for the host with the given name
       </fsummary>
-      <type>
-        <v>Name = dns_name()</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
       <desc>
         <p>Backend functions used by
           <seealso marker="kernel:inet#gethostbyname/1">
@@ -305,26 +238,16 @@ any of these data structures into a {Field,Value} list.</code>
     </func>
 
     <func>
-      <name>lookup(Name, Class, Type) -> [ dns_data() ]
-      </name>
-      <name>lookup(Name, Class, Type, Opts) -> [ dns_data() ]
-      </name>
-      <name>lookup(Name, Class, Type, Opts, Timeout) -> [ dns_data() ]
-      </name>
+      <name name="lookup" arity="3"/>
+      <name name="lookup" arity="4"/>
+      <name name="lookup" arity="5"/>
       <fsummary>Resolve the DNS data for the record of the given type and class
         for the given name
       </fsummary>
-      <type>
-        <v>Name = dns_name() | ip_address()</v>
-        <v>Type = rr_type()</v>
-        <v>Opts = res_option() | verbose</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
       <desc>
         <p>Resolve the DNS data for the record of the given type and class
           for the given name. On success filters out the answer records
-          with the correct <c>Class</c> and <c>Type</c> and returns
+          with the correct <c><anno>Class</anno></c> and <c><anno>Type</anno></c> and returns
           a list of their data fields. So a lookup for type <c>any</c>
           will give an empty answer since the answer records have
           specific types that are not <c>any</c>. An empty answer
@@ -332,44 +255,33 @@ any of these data structures into a {Field,Value} list.</code>
         </p><p>
           Calls <seealso marker="#resolve/3">resolve/2..4</seealso>
           with the same arguments and filters the result, so
-          <c>Opts</c> is explained there.
+          <c><anno>Opts</anno></c> is explained there.
         </p>
       </desc>      
     </func>
 
     <func>
-      <name>resolve(Name, Class, Type) -> {ok,dns_msg()} | Error
-      </name>
-      <name>resolve(Name, Class, Type, Opts) -> {ok,dns_msg()} | Error
-      </name>
-      <name>resolve(Name, Class, Type, Opts, Timeout) -> {ok,dns_msg()} | Error
-      </name>
+      <name name="resolve" arity="3"/>
+      <name name="resolve" arity="4"/>
+      <name name="resolve" arity="5"/>
       <fsummary>Resolve a DNS record of the given type and class
         for the given name
       </fsummary>
-      <type>
-        <v>Name = dns_name() | ip_address()</v>
-        <v>Type = rr_type()</v>
-        <v>Opts = res_option() | verbose | atom()</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Error = {error,Reason} | {error,{Reason,dns_msg()}}</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
       <desc>
         <p>Resolve a DNS record of the given type and class for the given name.
           The returned <c>dns_msg()</c> can be examined using
           access functions in <c>inet_db</c> as described 
           in <seealso marker="#dns_types">DNS types</seealso>.
         </p><p>
-          If <c>Name</c> is an <c>ip_address()</c>, the domain name
+          If <c><anno>Name</anno></c> is an <c>ip_address()</c>, the domain name
           to query for is generated as the standard reverse
           ".IN-ADDR.ARPA." name for an IPv4 address, or the
           ".IP6.ARPA." name for an IPv6 address.
           In this case you most probably want to use
-          <c>Class = in</c> and <c>Type = ptr</c> but it
+          <c><anno>Class</anno> = in</c> and <c><anno>Type</anno> = ptr</c> but it
           is not done automatically.
         </p><p>
-          <c>Opts</c> override the corresponding resolver options.
+          <c><anno>Opts</anno></c> override the corresponding resolver options.
           If the option <c>nameservers</c> is given, it is
           also assumed that it is the complete list of nameserves,
           so the resolver option <c>alt_nameserves</c> is ignored.
@@ -382,14 +294,14 @@ any of these data structures into a {Field,Value} list.</code>
           of queries, replies retransmissions, etc, similar
           to from utilities like <c>dig</c>, <c>nslookup</c> et.al.
         </p><p>
-          If <c>Opt</c> is an arbitrary atom it is interpreted
-          as <c>{Opt,true}</c> unless the atom string starts with
-          <c>"no"</c> making the interpretation <c>{Opt,false}</c>.
+          If <c><anno>Opt</anno></c> is an arbitrary atom it is interpreted
+          as <c>{<anno>Opt</anno>,true}</c> unless the atom string starts with
+          <c>"no"</c> making the interpretation <c>{<anno>Opt</anno>,false}</c>.
           For example: <c>usevc</c> is an alias for <c>{usevc,true}</c>,
           and <c>nousevc</c> an alias for <c>{usevc,false}</c>.
         </p><p>
           The <c>inet6</c> option currently has no effect on this function.
-          You probably want to use <c>Type = a | aaaa</c> instead.
+          You probably want to use <c><anno>Type</anno> = a | aaaa</c> instead.
         </p>
       </desc>      
     </func>
@@ -430,24 +342,18 @@ any of these data structures into a {Field,Value} list.</code>
   <funcs>
 
     <func>
-      <name>nslookup(Name, Class, Type) -> {ok,dns_msg()} | {error,Reason}
-      </name>
-      <name>nslookup(Name, Class, Type, Timeout) ->
-        {ok,dns_msg()} | {error,Reason}
-      </name>
-      <name>nslookup(Name, Class, Type, Nameservers) ->
-        {ok,dns_msg()} | {error,Reason}
-      </name>
+      <name name="nslookup" arity="3"/>
+      <name name="nslookup" arity="4" clause_i="1"/>
+      <name name="nslookup" arity="4" clause_i="2"/>
       <fsummary>Resolve a DNS record of the given type and class
         for the given name
       </fsummary>
-      <type>
-        <v>Name = dns_name() | ip_address()</v>
-        <v>Type = rr_type()</v>
-        <v>Nameservers = [ nameserver() ]</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
+      <type variable="Name"/>
+      <type variable="Class"/>
+      <type variable="Type"/>
+      <type variable="Timeout" name_i="2"/>
+      <type variable="Nameservers"/>
+      <type variable="Reason"/>
       <desc>
         <p>Resolve a DNS record of the given type and class for the given name.
         </p>
@@ -455,22 +361,11 @@ any of these data structures into a {Field,Value} list.</code>
     </func>
 
     <func>
-      <name>nnslookup(Name, Class, Type, Nameservers) ->
-        {ok,dns_msg()} | {error,posix()}
-      </name>
-      <name>nnslookup(Name, Class, Type, Nameservers, Timeout) ->
-        {ok,dns_msg()} | {error,posix()}
-      </name>
+      <name name="nnslookup" arity="4"/>
+      <name name="nnslookup" arity="5"/>
       <fsummary>Resolve a DNS record of the given type and class
         for the given name
       </fsummary>
-      <type>
-        <v>Name = dns_name() | ip_address()</v>
-        <v>Type = rr_type()</v>
-        <v>Nameservers = [ nameserver() ]</v>
-        <v>Timeout = integer() >= 0 | infinity</v>
-        <v>Reason = posix() | res_error()</v>
-      </type>
       <desc>
         <p>Resolve a DNS record of the given type and class for the given name.
         </p>
