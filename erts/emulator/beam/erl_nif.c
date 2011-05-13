@@ -472,7 +472,7 @@ static void tmp_alloc_dtor(struct enif_tmp_obj_t* obj)
 int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 {
     struct enif_tmp_obj_t* tobj;
-    int sz;
+    Uint sz;
     if (is_binary(term)) {
 	return enif_inspect_binary(env,term,bin);
     }
@@ -483,7 +483,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 	bin->ref_bin = NULL;
 	return 1;
     }
-    if ((sz = io_list_len(term)) < 0) {
+    if (erts_iolist_size(term, &sz)) {
 	return 0;
     }
     

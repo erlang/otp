@@ -82,6 +82,9 @@ static void driver_monitor_unlock_pdl(Port *p);
 #define DRV_MONITOR_UNLOCK_PDL(Port) /* nothing */
 #endif
 
+#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
+#define SMALL_WRITE_VEC  16
+
 static ERTS_INLINE ErlIOQueue*
 drvport2ioq(ErlDrvPort drvport)
 {
@@ -954,13 +957,14 @@ do {									\
     int _bitoffs;							\
     int _bitsize;							\
     ERTS_GET_REAL_BIN(obj, _real, _offset, _bitoffs, _bitsize);		\
-    ASSERT(_bitsize == 0);						\
+    if (_bitsize != 0) goto L_type_error;				\
     if (thing_subtag(*binary_val(_real)) == REFC_BINARY_SUBTAG &&	\
 	_bitoffs == 0) {						\
 	b_size += _size;						\
+        if (b_size < _size) goto L_overflow_error;			\
 	in_clist = 0;							\
 	v_size++;							\
-        if (_size >= bin_limit) {					\
+        if (_size >= ERL_SMALL_IO_BIN_LIMIT) {				\
             p_in_clist = 0;						\
             p_v_size++;							\
         } else {							\
@@ -972,6 +976,7 @@ do {									\
         }								\
     } else {								\
 	c_size += _size;						\
+        if (c_size < _size) goto L_overflow_error;			\
 	if (!in_clist) {						\
 	    in_clist = 1;						\
 	    v_size++;							\
@@ -986,29 +991,30 @@ do {									\
 
 
 /* 
-** Size of a io list in bytes
-** return -1 if error
-** returns:            - Total size of io list
-**           vsize     - SysIOVec size needed for a writev
-**           csize     - Number of bytes not in binary (in the common binary)
-**           pvsize    - SysIOVec size needed if packing small binaries
-**           pcsize    - Number of bytes in the common binary if packing
-*/
+ * Returns 0 if successful and a non-zero value otherwise.
+ *
+ * Return values through pointers:
+ *    *vsize      - SysIOVec size needed for a writev
+ *    *csize      - Number of bytes not in binary (in the common binary)
+ *    *pvsize     - SysIOVec size needed if packing small binaries
+ *    *pcsize     - Number of bytes in the common binary if packing
+ *    *total_size - Total size of iolist in bytes
+ */
 
 static int 
-io_list_vec_len(Eterm obj, int* vsize, int* csize, 
-		int bin_limit, /* small binaries limit */
-		int * pvsize, int * pcsize)
+io_list_vec_len(Eterm obj, Uint* vsize, Uint* csize,
+		Uint* pvsize, Uint* pcsize, Uint* total_size)
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
-    int v_size = 0;
-    int c_size = 0;
-    int b_size = 0;
-    int in_clist = 0;
-    int p_v_size = 0;
-    int p_c_size = 0;
-    int p_in_clist = 0;
+    Uint v_size = 0;
+    Uint c_size = 0;
+    Uint b_size = 0;
+    Uint in_clist = 0;
+    Uint p_v_size = 0;
+    Uint p_c_size = 0;
+    Uint p_in_clist = 0;
+    Uint total;
 
     goto L_jump_start;  /* avoid a push */
 
@@ -1022,6 +1028,9 @@ io_list_vec_len(Eterm obj, int* vsize, int* csize,
 
 	    if (is_byte(obj)) {
 		c_size++;
+		if (c_size == 0) {
+		    goto L_overflow_error;
+		}
 		if (!in_clist) {
 		    in_clist = 1;
 		    v_size++;
@@ -1061,32 +1070,31 @@ io_list_vec_len(Eterm obj, int* vsize, int* csize,
 	}
     }
 
+    total = c_size + b_size;
+    if (total < c_size) {
+	goto L_overflow_error;
+    }
+    *total_size = total;
+
     DESTROY_ESTACK(s);
-    if (vsize != NULL)
-	*vsize = v_size;
-    if (csize != NULL)
-	*csize = c_size;
-    if (pvsize != NULL)
-	*pvsize = p_v_size;
-    if (pcsize != NULL)
-	*pcsize = p_c_size;
-    return c_size + b_size;
+    *vsize = v_size;
+    *csize = c_size;
+    *pvsize = p_v_size;
+    *pcsize = p_c_size;
+    return 0;
 
  L_type_error:
+ L_overflow_error:
     DESTROY_ESTACK(s);
-    return -1;
+    return 1;
 }
-
-#define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
-#define SMALL_WRITE_VEC  16
-
 
 /* write data to a port */
 int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 {
     char *buf;
     erts_driver_t *drv = p->drv_ptr;
-    int size;
+    Uint size;
     int fpe_was_unmasked;
     
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
@@ -1094,10 +1102,10 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 
     p->caller = caller_id;
     if (drv->outputv != NULL) {
-	int vsize;
-	int csize;
-	int pvsize;
-	int pcsize;
+	Uint vsize;
+	Uint csize;
+	Uint pvsize;
+	Uint pcsize;
 	int blimit;
 	SysIOVec iv[SMALL_WRITE_VEC];
 	ErlDrvBinary* bv[SMALL_WRITE_VEC];
@@ -1106,9 +1114,8 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	ErlDrvBinary* cbin;
 	ErlIOVec ev;
 
-	if ((size = io_list_vec_len(list, &vsize, &csize, 
-				    ERL_SMALL_IO_BIN_LIMIT,
-				    &pvsize, &pcsize)) < 0) {
+	if (io_list_vec_len(list, &vsize, &csize,
+			    &pvsize, &pcsize, &size)) {
 	    goto bad_value;
 	}
 	/* To pack or not to pack (small binaries) ...? */
@@ -1183,7 +1190,7 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	else {
 	    ASSERT(r == -1); /* Overflow */
 	    erts_free(ERTS_ALC_T_TMP, buf);
-	    if ((size = io_list_len(list)) < 0) {
+	    if (erts_iolist_size(list, &size)) {
 		goto bad_value;
 	    }
 
@@ -2147,7 +2154,7 @@ erts_port_control(Process* p, Port* prt, Uint command, Eterm iolist)
     byte* to_port = NULL;	/* Buffer to write to port. */
 				/* Initialization is for shutting up
 				   warning about use before set. */
-    int to_len = 0;		/* Length of buffer. */
+    Uint to_len = 0;		/* Length of buffer. */
     int must_free = 0;		/* True if the buffer should be freed. */
     char port_result[ERL_ONHEAP_BIN_LIMIT];  /* Default buffer for result from port. */
     char* port_resp;		/* Pointer to result buffer. */
@@ -2192,7 +2199,7 @@ erts_port_control(Process* p, Port* prt, Uint command, Eterm iolist)
 	} else {
 	    ASSERT(r == -1);	/* Overflow */
 	    erts_free(ERTS_ALC_T_TMP, (void *) to_port);
-	    if ((to_len = io_list_len(iolist)) < 0) { /* Type error */
+	    if (erts_iolist_size(iolist, &to_len)) { /* Type error */
 		return THE_NON_VALUE;
 	    }
 	    must_free = 1;

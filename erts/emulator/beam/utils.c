@@ -3021,12 +3021,24 @@ int io_list_to_buf(Eterm obj, char* buf, int len)
     return -1;
 }
 
-int io_list_len(Eterm obj)
+/*
+ * Return 0 if successful, and non-zero if unsuccessful.
+ */
+int erts_iolist_size(Eterm obj, Uint* sizep)
 {
     Eterm* objp;
-    Sint len = 0;
+    Uint size = 0;
     DECLARE_ESTACK(s);
     goto L_again;
+
+#define SAFE_ADD(Var, Val)			\
+    do {					\
+        Uint valvar = (Val);			\
+	Var += valvar;				\
+	if (Var < valvar) {			\
+	    goto L_overflow_error;		\
+	}					\
+    } while (0)
 
     while (!ESTACK_ISEMPTY(s)) {
 	obj = ESTACK_POP(s);
@@ -3037,9 +3049,12 @@ int io_list_len(Eterm obj)
 	    /* Head */
 	    obj = CAR(objp);
 	    if (is_byte(obj)) {
-		len++;
+		size++;
+		if (size == 0) {
+		    goto L_overflow_error;
+		}
 	    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
-		len += binary_size(obj);
+		SAFE_ADD(size, binary_size(obj));
 	    } else if (is_list(obj)) {
 		ESTACK_PUSH(s, CDR(objp));
 		goto L_iter_list; /* on head */
@@ -3051,23 +3066,29 @@ int io_list_len(Eterm obj)
 	    if (is_list(obj))
 		goto L_iter_list; /* on tail */
 	    else if (is_binary(obj) && binary_bitsize(obj) == 0) {
-		len += binary_size(obj);
+		SAFE_ADD(size, binary_size(obj));
 	    } else if (is_not_nil(obj)) {
 		goto L_type_error;
 	    }
 	} else if (is_binary(obj) && binary_bitsize(obj) == 0) { /* Tail was binary */
-	    len += binary_size(obj);
+	    SAFE_ADD(size, binary_size(obj));
 	} else if (is_not_nil(obj)) {
 	    goto L_type_error;
 	}
     }
+#undef SAFE_ADD
 
     DESTROY_ESTACK(s);
-    return len;
+    *sizep = size;
+    return ERTS_IOLIST_OK;
+
+ L_overflow_error:
+    DESTROY_ESTACK(s);
+    return ERTS_IOLIST_OVERFLOW;
 
  L_type_error:
     DESTROY_ESTACK(s);
-    return -1;
+    return ERTS_IOLIST_TYPE;
 }
 
 /* return 0 if item is not a non-empty flat list of bytes */
