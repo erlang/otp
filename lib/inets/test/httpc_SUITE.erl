@@ -217,12 +217,17 @@ init_per_testcase(otp_8154_1 = Case, Config) ->
     init_per_testcase(Case, 5, Config);
 
 init_per_testcase(initial_server_connect, Config) ->
-    inets:start(),
-    application:start(crypto),
-    application:start(public_key),
-    application:start(ssl),
-    application:start(inets),
-    Config;
+    %% Try to check if crypto actually exist or not, 
+    %% this test case does not work unless it does
+    case (catch crypto:start()) of
+	ok ->
+	    application:start(public_key),
+	    application:start(ssl),
+	    inets:start(),
+	    Config;
+	_ ->
+	    {skip,"Could not start crypto"}
+    end;
 
 init_per_testcase(Case, Config) ->
     init_per_testcase(Case, 2, Config).
