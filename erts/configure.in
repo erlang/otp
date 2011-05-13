@@ -3882,8 +3882,32 @@ dnl		so it is - be adoptable
        AC_MSG_ERROR(Invalid path to option --with-ssl=PATH)
     fi
     SSL_ROOT="$with_ssl"
+    SSL_CRYPTO_LIBNAME=crypto
+    SSL_SSL_LIBNAME=ssl
     if test "x$MIXED_CYGWIN" = "xyes" && test -d "$with_ssl/lib/VC"; then
-	SSL_LIBDIR="$with_ssl/lib/VC"
+	if test -f "$with_ssl/lib/VC/libeay32.lib"; then
+	    SSL_LIBDIR="$with_ssl/lib/VC"
+	    SSL_CRYPTO_LIBNAME=libeay32
+	    SSL_SSL_LIBNAME=ssleay32
+	elif test -f "$with_ssl/lib/VC/openssl.lib"; then 
+	    SSL_LIBDIR="$with_ssl/lib/VC"
+	elif test -f $with_ssl/lib/VC/libeay32MD.lib; then
+	    SSL_CRYPTO_LIBNAME=libeay32MD
+            SSL_SSL_LIBNAME=ssleay32MD
+	    if test "x$enable_dynamic_ssl" = "xno" && \
+	       test -f  $with_ssl/lib/VC/static/libeay32MD.lib; then
+		SSL_LIBDIR="$with_ssl/lib/VC/static"
+	    else
+		SSL_LIBDIR="$with_ssl/lib/VC"
+            fi 
+	elif test -f "$with_ssl/lib/libeay32.lib"; then
+	    SSL_LIBDIR="$with_ssl/lib"
+	    SSL_CRYPTO_LIBNAME=libeay32
+	    SSL_CRYPTO_LIBNAME=ssleay32
+	else
+	    # This probably wont work, but that's what the user said, so...
+	    SSL_LIBDIR="$with_ssl/lib"
+	fi
     elif test "x$ac_cv_sizeof_void_p" = "x8"; then
 	if test -f "$with_ssl/lib64/libcrypto.a"; then
 		SSL_LIBDIR="$with_ssl/lib64"
