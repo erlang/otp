@@ -44,15 +44,6 @@
 -->
       <list type="bulleted">
         <item>
-          <p>Fixed endode/decode of values of type <c>Counter32</c>. </p>
-	  <p>This type (<c>Counter32</c>) is an unsigned integer 32, 
-	  but is actually encoded as an signed integer 32. 
-	  The encode/decode functions however, treated it as if it was 
-	  encodeded as an unsigned integer 32. </p>
-	  <p>Own Id: OTP-9022</p>
-	</item>
-
-        <item>
           <p>[agent] Added support for sending traps to IPv6 targets. </p>
 	  <p>See the 
 	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>, 
@@ -125,19 +116,21 @@
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
-      <p>-</p> 
 <!--
+      <p>-</p> 
+-->
+
       <list type="bulleted">
         <item>
-          <p>[agent] For the table vacmAccessTable,
-          when performing the is_set_ok and set operation(s),
-          all values of the vacmAccessSecurityModel column was
-          incorrectly translated to <c>any</c>. </p>
-          <p>Own Id: OTP-8980</p>
-        </item>
+          <p>Fixed endode/decode of values of type <c>Counter32</c>. </p>
+	  <p>This type (<c>Counter32</c>) is an unsigned integer 32, 
+	  but is actually encoded as an signed integer 32. 
+	  The encode/decode functions however, treated it as if it was 
+	  encodeded as an unsigned integer 32. </p>
+	  <p>Own Id: OTP-9022</p>
+	</item>
 
       </list>
--->
     </section>
 
 
