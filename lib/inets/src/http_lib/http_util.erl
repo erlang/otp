@@ -25,7 +25,8 @@
 	 hexlist_to_integer/1, integer_to_hexlist/1, 
 	 convert_month/1, 
 	 is_hostname/1,
-	 timestamp/0, timeout/2
+	 timestamp/0, timeout/2,
+	 html_encode/1
 	]).
 
 
@@ -187,6 +188,13 @@ timeout(Timeout, Started) ->
     end.
     
 
+html_encode(Chars) ->
+    Reserved = sets:from_list([$&, $<, $>, $\", $', $/]),
+    lists:append(lists:map(fun(Char) ->
+	               char_to_html_entity(Char, Reserved)
+	           end, Chars)).
+
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
@@ -235,3 +243,11 @@ convert_to_ascii([Num | Reversed], Number)
 convert_to_ascii([Num | Reversed], Number) 
   when (Num > 9) andalso (Num < 16) ->
     convert_to_ascii(Reversed, [Num + 55 | Number]).
+
+char_to_html_entity(Char, Reserved) ->
+    case sets:is_element(Char, Reserved) of
+	true ->
+	    "&#" ++ integer_to_list(Char) ++ ";";
+	false ->
+	    [Char]
+    end.

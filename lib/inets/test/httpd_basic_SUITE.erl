@@ -29,7 +29,11 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [uri_too_long_414, header_too_long_413, escaped_url_in_error_body].
+    [
+     uri_too_long_414, 
+     header_too_long_413, 
+     escaped_url_in_error_body
+    ].
 
 groups() -> 
     [].
@@ -39,6 +43,7 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -50,6 +55,8 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    tsp("init_per_suite -> entry with"
+	"~n   Config: ~p", [Config]),
     ok = inets:start(),
     PrivDir = ?config(priv_dir, Config),
     HttpdConf = [{port, 0}, {ipfamily, inet}, 
@@ -64,6 +71,8 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
+    tsp("end_per_suite -> entry with"
+	"~n   Config: ~p", [_Config]),
     inets:stop(),
     ok.
 
@@ -79,8 +88,11 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
-init_per_testcase(_Case, Config) ->
+init_per_testcase(Case, Config) ->
+    tsp("init_per_testcase(~w) -> entry with"
+	"~n   Config: ~p", [Case, Config]),
     Config.
+
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
@@ -90,8 +102,11 @@ init_per_testcase(_Case, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(_, Config) ->
+end_per_testcase(Case, Config) ->
+    tsp("end_per_testcase(~w) -> entry with"
+	"~n   Config: ~p", [Case, Config]),
     Config.
+
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -142,22 +157,30 @@ escaped_url_in_error_body(doc) ->
 escaped_url_in_error_body(suite) ->
     [];
 escaped_url_in_error_body(Config) when is_list(Config) ->
-    HttpdConf =   ?config(httpd_conf, Config),
+    tsp("escaped_url_in_error_body -> entry with"
+	"~n   Config: ~p", [Config]),
+    HttpdConf = ?config(httpd_conf, Config),
     {ok, Pid} = inets:start(httpd, [{port, 0} | HttpdConf]),
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
-    Address = proplists:get_value(bind_address, Info),
-    Path = "/<b>this_is_bold<b>",
+    _Address = proplists:get_value(bind_address, Info),
+    Path = "/<b>this_is_bold</b>",
     URL = ?URL_START ++ integer_to_list(Port) ++ Path,
     EscapedPath = http_uri:encode(Path),
-    {ok, {404, Body}} = httpc:request(get, {URL, []},
-				      [{url_encode, true}],
-				      [{version, "HTTP/1.0"}, {full_result, false}]),
-    EscapedPath = find_URL_path(string:tokens(Body, " ")),
-    {ok, {404, Body1}} = httpc:request(get, {URL, []}, [],
-				       [{version, "HTTP/1.0"}, {full_result, false}]),
+    {ok, {404, Body1}} = httpc:request(get, {URL, []},
+				       [{url_encode, true}, 
+					{version,    "HTTP/1.0"}],
+				      [{full_result, false}]),
     EscapedPath = find_URL_path(string:tokens(Body1, " ")),
-    inets:stop(httpd, Pid).
+    {ok, {404, Body2}} = httpc:request(get, {URL, []},
+				       [{url_encode,  false}, 
+					{version,     "HTTP/1.0"}], 
+				       [{full_result, false}]),
+    HTMLEncodedPath = http_util:html_encode(Path),
+    HTMLEncodedPath = find_URL_path(string:tokens(Body2, " ")),
+    inets:stop(httpd, Pid),
+    tsp("escaped_url_in_error_body -> done"),
+    ok.
 
 find_URL_path([]) ->
     "";
@@ -165,3 +188,10 @@ find_URL_path(["URL", URL | _]) ->
     URL;
 find_URL_path([_ | Rest]) ->
     find_URL_path(Rest).
+
+
+tsp(F) ->
+    tsp(F, []).
+tsp(F, A) ->
+    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+

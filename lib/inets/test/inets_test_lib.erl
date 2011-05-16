@@ -32,7 +32,7 @@
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
 -export([oscmd/1]).
--export([non_pc_tc_maybe_skip/4, os_based_skip/1]).
+-export([non_pc_tc_maybe_skip/4, os_based_skip/1, skip/3, fail/3]).
 -export([flush/0]).
 -export([start_node/1, stop_node/1]).
 
@@ -395,6 +395,13 @@ sleep(MSecs) ->
 skip(Reason, File, Line) ->
     exit({skipped, {Reason, File, Line}}).
 
+fail(Reason, File, Line) ->
+    String = lists:flatten(io_lib:format("Failure ~p(~p): ~p~n",
+                                         [File, Line, Reason])),
+    tsf(String).
+
+
+
 flush() ->
     receive
         Msg ->
@@ -407,7 +414,7 @@ flush() ->
 tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
-    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    test_server:format("~p ~p ~p:" ++ F ++ "~n", [node(), self(), ?MODULE | A]).
 
 tsf(Reason) ->
     test_server:fail(Reason).

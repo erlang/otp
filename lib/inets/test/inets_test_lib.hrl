@@ -72,7 +72,7 @@
 
 %% - Test case macros - 
 
--define(SKIP(Reason),   inets_test_lib:skip(Reason)).
+-define(SKIP(Reason),   inets_test_lib:skip(Reason, ?MODULE, ?LINE)).
 -define(FAIL(Reason),   inets_test_lib:fail(Reason, ?MODULE, ?LINE)).
 
 

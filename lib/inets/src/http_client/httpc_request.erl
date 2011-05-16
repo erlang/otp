@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -79,36 +79,62 @@ send(SendAddr, Socket, SocketType,
 	   {settings,      HttpOptions}, 
 	   {userinfo,      UserInfo}]),
 
-    TmpHeaders = handle_user_info(UserInfo, Headers),
+    TmpHdrs = handle_user_info(UserInfo, Headers),
 
-    {TmpHeaders2, Body} = 
-	post_data(Method, TmpHeaders, Content, HeadersAsIs),
+    {TmpHdrs2, Body} = post_data(Method, TmpHdrs, Content, HeadersAsIs),
     
-    {NewHeaders, Uri} = case Address of
-			    SendAddr ->
-				{TmpHeaders2, Path ++ Query};
-			    _Proxy ->
-				TmpHeaders3 =
-				    handle_proxy(HttpOptions, TmpHeaders2),
-				{TmpHeaders3, AbsUri}
-			end,
-
-    FinalHeaders = case NewHeaders of
-		       HeaderList when is_list(HeaderList) ->
-			   http_headers(HeaderList, []);
-		       _  ->
-			   http_request:http_headers(NewHeaders)
-		   end,
+    {NewHeaders, Uri} = 
+	case Address of
+	    SendAddr ->
+		{TmpHdrs2, Path ++ Query};
+	    _Proxy ->
+		TmpHdrs3 = handle_proxy(HttpOptions, TmpHdrs2), 
+		{TmpHdrs3, AbsUri}
+	end,
+    
+    FinalHeaders = 
+	case NewHeaders of
+	    HeaderList when is_list(HeaderList) ->
+		http_headers(HeaderList, []);
+	    _  ->
+		http_request:http_headers(NewHeaders)
+	end,
     Version = HttpOptions#http_options.version,
 
-    Message = [method(Method), " ", Uri, " ", 
-	       version(Version), ?CRLF, 
-	       headers(FinalHeaders, Version), ?CRLF, Body],
+    do_send_body(SocketType, Socket, Method, Uri, Version, FinalHeaders, Body).
 
+
+do_send_body(SocketType, Socket, Method, Uri, Version, Headers, 
+	     {ProcessBody, Acc}) when is_function(ProcessBody, 1) ->
+    ?hcrt("send", [{acc, Acc}]),
+    case do_send_body(SocketType, Socket, Method, Uri, Version, Headers, []) of
+        ok ->
+            do_send_body(SocketType, Socket, ProcessBody, Acc);
+        Error ->
+            Error
+    end;
+
+do_send_body(SocketType, Socket, Method, Uri, Version, Headers, Body) ->
+    ?hcrt("create message", [{body, Body}]),
+    Message = [method(Method), " ", Uri, " ",
+	       version(Version), ?CRLF,
+	       headers(Headers, Version), ?CRLF, Body],
     ?hcrd("send", [{message, Message}]),
-    
-    http_transport:send(SocketType, Socket, lists:append(Message)).
+    http_transport:send(SocketType, Socket, Message).
 
+
+do_send_body(SocketType, Socket, ProcessBody, Acc) ->
+    case ProcessBody(Acc) of
+        eof ->
+            ok;
+        {ok, Data, NewAcc} ->
+            case http_transport:send(SocketType, Socket, Data) of
+                ok ->
+                    do_send_body(SocketType, Socket, ProcessBody, NewAcc);
+                Error ->
+                    Error
+            end
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -161,7 +187,6 @@ is_client_closing(Headers) ->
 %%%========================================================================
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs) 
   when (Method =:= post) orelse (Method =:= put) ->
-    ContentLength = body_length(Body),	      
     NewBody = case Headers#http_request_h.expect of
 		  "100-continue" ->
 		      "";
@@ -170,14 +195,22 @@ post_data(Method, Headers, {ContentType, Body}, HeadersAsIs)
 	      end,
     
     NewHeaders = case HeadersAsIs of
-		     [] ->
-			 Headers#http_request_h{'content-type' = 
-						ContentType, 
-						'content-length' = 
-						ContentLength};
-		     _ ->
-			 HeadersAsIs
-		 end,
+        [] ->
+            Headers#http_request_h{
+                'content-type' = ContentType,
+                'content-length' = case body_length(Body) of
+                    undefined ->
+                        % on upload streaming the caller must give a
+                        % value to the Content-Length header
+                        % (or use chunked Transfer-Encoding)
+                        Headers#http_request_h.'content-length';
+                    Len when is_list(Len) ->
+                        Len
+                    end
+            };
+        _ ->
+            HeadersAsIs
+    end,
     
     {NewHeaders, NewBody};
 
@@ -190,7 +223,10 @@ body_length(Body) when is_binary(Body) ->
    integer_to_list(size(Body));
 
 body_length(Body) when is_list(Body) ->
-  integer_to_list(length(Body)).
+  integer_to_list(length(Body));
+
+body_length({DataFun, _Acc}) when is_function(DataFun, 1) ->
+  undefined.
 
 method(Method) ->
     http_util:to_upper(atom_to_list(Method)).

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -154,7 +154,7 @@
           <c>ossl</c> specifically uses the OpenSSL based (old) SSL. 
           <c>essl</c> specifically uses the Erlang based (new) SSL. 
           When using <c>ssl</c> it <em>currently</em> defaults to 
-          <c>ossl</c>. </p>
+          <c>essl</c>. </p>
 	<p>Defaults to <c>ip_comm</c>. </p> 
       </item>
 
@@ -794,14 +794,14 @@ bytes
     <marker id="sdir_prop"></marker>
     <p> Here follows the valid properties for security directories</p>
     <taglist>
-      <tag>{security_data_file, path()}</tag>
+      <tag>{data_file, path()}</tag>
       
       <item>
 	Name of the security data file.  The filename can either
 	absolute or relative to the server_root. This file is used to
 	store persistent data for the mod_security module. </item>
 	  
-      <tag>{security_max_retries, integer()}</tag>
+      <tag>{max_retries, integer()}</tag>
 	  
       <item> Specifies the maximum number of tries to authenticate a
 	user has before the user is blocked out. If a user
@@ -811,13 +811,13 @@ bytes
 	server will return 401 (Unauthorized), for security
 	reasons. Defaults to 3 may also be set to infinity.</item>
 	
-      <tag>{security_block_time, integer()}</tag>
+      <tag>{block_time, integer()}</tag>
       
       <item> Specifies the number of minutes a user is blocked. After
 	this amount of time, he automatically regains access.
 	Defaults to 60</item>
       
-      <tag>{security_fail_expire_time, integer()}</tag>
+      <tag>{fail_expire_time, integer()}</tag>
       
       <item>
 	Specifies the number of minutes a failed user authentication
@@ -825,7 +825,7 @@ bytes
 	time, his previous failed authentications are
 	forgotten. Defaults to 30</item>
       
-      <tag>{security_auth_timeout, integer()}</tag>
+      <tag>{auth_timeout, integer()}</tag>
 
       <item>
 	Specifies the number of seconds a successful user
