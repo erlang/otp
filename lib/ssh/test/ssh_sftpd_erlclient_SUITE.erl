@@ -54,7 +54,7 @@ init_per_suite(Config) ->
 	    {ok, FileInfo} = file:read_file_info(FileName),
 	    ok = file:write_file_info(FileName,
 				      FileInfo#file_info{mode = 8#400}),
-	    ssh_test_lib:make_dsa_public_key_file(42, 43, 44, 45, Config),
+	    ssh_test_lib:make_dsa_files(Config),
 	    Config;
 	_Else ->
 	    {skip,"Could not start ssh!"}

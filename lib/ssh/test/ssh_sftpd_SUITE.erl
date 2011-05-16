@@ -55,7 +55,7 @@
 init_per_suite(Config) ->
     case {catch ssh:stop(),catch crypto:start()} of
 	{ok,ok} ->
-	    ssh_test_lib:make_dsa_public_key_file(42, 43, 44, 45, Config),
+	    ssh_test_lib:make_dsa_files(Config),
 	    Config;
 	{ok,_} ->
 	    {skip,"Could not start ssh!"};
@@ -94,11 +94,16 @@ init_per_testcase(TestCase, Config) ->
     SysDir = ?config(data_dir, Config),
     {ok, Sftpd} =
 	ssh_sftpd:listen(?SFPD_PORT, [{system_dir, SysDir},
-				      {user_passwords,[{?USER, ?PASSWD}]}]),
+				      {user_passwords,[{?USER, ?PASSWD}]},
+				      {pwdfun, fun(_,_) -> true end}]),
     
     Cm = ssh_test_lib:connect(?SFPD_PORT,
-			      [{silently_accept_hosts, true},
-			       {user, ?USER}, {password, ?PASSWD}]),
+			      [{system_dir, SysDir},
+			       {user_dir, SysDir},
+			       {user, ?USER}, {password, ?PASSWD},
+			       {user_interaction, false},
+			       {silently_accept_hosts, true},
+			       {pwdfun, fun(_,_) -> true end}]),
     {ok, Channel} =
 	ssh_connection:session_channel(Cm, ?XFER_WINDOW_SIZE,
 				       ?XFER_PACKET_SIZE, ?TIMEOUT),

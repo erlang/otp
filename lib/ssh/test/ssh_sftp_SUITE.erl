@@ -49,10 +49,8 @@ init_per_suite(Config) ->
     case {catch crypto:start(),catch ssh:start()} of
 	{ok,ok} ->
 	    Dir = ?config(priv_dir, Config),
-	    ssh_test_lib:save_known_hosts(Dir),
-	    %% More like copy_id_keys!!!
 	    {ok, _} = ssh_test_lib:get_id_keys(Dir),
-	    ssh_test_lib:make_dsa_public_key_file(42, 43, 44, 45, Config),
+	    ssh_test_lib:make_dsa_files(Config),
 	    Config;
 	{ok,_} ->
 	    {skip,"Could not start ssh!"};
@@ -72,7 +70,6 @@ end_per_suite(Config) ->
     crypto:stop(),
     Dir = ?config(priv_dir, Config),
     ssh_test_lib:remove_id_keys(Dir),
-    ssh_test_lib:restore_known_hosts(Dir),
     Config.
 
 %%--------------------------------------------------------------------

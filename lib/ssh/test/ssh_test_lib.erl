@@ -232,22 +232,6 @@ known_hosts(BR) ->
     end.
 
 
-save_known_hosts(PrivDir) ->
-    Src = ssh_file:file_name(user, "known_hosts", []),
-    Dst = filename:join(PrivDir, "kh_save"),
-    Ok = file:copy(Src, Dst),
-    io:format("save ~p -> ~p : ~p", [Src, Dst, Ok]).
-
-restore_known_hosts(_PrivDir) ->
-    %% Race condition.
-    ok.
-%%     Src = filename:join(PrivDir, "kh_save"),
-%%     Dst = ssh_file:file_name(user, "known_hosts", []),
-%%     D1 = file:delete(Dst),
-%%     C = file:copy(Src, Dst),
-%%     D2 = file:delete(Src),
-%%     io:format("restore ~p -> ~p : ~p ~p ~p\n", [Src, Dst, D1, C, D2]).
-
 get_user_dir() ->
     case os:type() of
 	{win32, _} ->
@@ -276,17 +260,48 @@ make_dsa_cert_files(RoleStr, Config) ->
     der_to_pem(KeyFile, [CertKey]),
     {CaCertFile, CertFile, KeyFile}.
 
-make_dsa_public_key_file(P, Q, G, Y, Config) ->
-    PK = #ssh_key{type = dsa, public = {P,Q,G,Y}},
-    Enc = ssh_file:encode_public_key(PK),
-    B64 = ssh_bits:b64_encode(Enc),
-    FileName = filename:join([?config(data_dir, Config), "ssh_host_dsa_key.pub"]),
-    file:write_file(FileName, <<"ssh-dss ", B64/binary>>).
+make_dsa_files(Config) ->
+    make_dsa_files(Config, rfc4716_public_key).
+make_dsa_files(Config, Type) ->
+    {DSA, EncodedKey} = ssh_test_lib:gen_dsa(128, 20),
+    PKey = DSA#'DSAPrivateKey'.y,
+    P = DSA#'DSAPrivateKey'.p,
+    Q = DSA#'DSAPrivateKey'.q,
+    G = DSA#'DSAPrivateKey'.g,
+    Dss = #'Dss-Parms'{p=P, q=Q, g=G},
+    {ok, Hostname} = inet:gethostname(),
+    {ok, {A, B, C, D}} = inet:getaddr(Hostname, inet),
+    IP = lists:concat([A, ".", B, ".", C, ".", D]),
+    Attributes = [], % Could be [{comment,"user@" ++ Hostname}],
+    HostNames = [{hostnames,[IP, IP]}],
+    PublicKey = [{{PKey, Dss}, Attributes}],
+    KnownHosts = [{{PKey, Dss}, HostNames}],
 
-make_dsa_private_key_file(LSize, NSize, Config) ->
-    {Key, EncodedKey} = gen_dsa(LSize, NSize),
-    FileName = filename:join([?config(data_dir, Config), "ssh_host_dsa_key"]),
-    file:write_file(FileName, EncodedKey).
+    KnownHostsEnc = public_key:ssh_encode(KnownHosts, known_hosts),
+    KnownHosts = public_key:ssh_decode(KnownHostsEnc, known_hosts),
+
+    PublicKeyEnc = public_key:ssh_encode(PublicKey, Type),
+%    PublicKey = public_key:ssh_decode(PublicKeyEnc, Type),
+
+    SystemTmpDir = ?config(data_dir, Config),
+    filelib:ensure_dir(SystemTmpDir),
+    file:make_dir(SystemTmpDir),
+    
+    DSAFile = filename:join(SystemTmpDir, "ssh_host_dsa_key.pub"),
+    file:delete(DSAFile),
+    
+    DSAPrivateFile  = filename:join(SystemTmpDir, "ssh_host_dsa_key"),
+    file:delete(DSAPrivateFile),
+
+    KHFile = filename:join(SystemTmpDir, "known_hosts"),
+    file:delete(KHFile),
+    
+    PemBin = public_key:pem_encode([EncodedKey]),
+
+    file:write_file(DSAFile, PublicKeyEnc),
+    file:write_file(KHFile, KnownHostsEnc),
+    file:write_file(DSAPrivateFile, PemBin),
+    ok.
 
 %%--------------------------------------------------------------------
 %% Create and return a der encoded certificate

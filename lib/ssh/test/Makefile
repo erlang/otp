@@ -45,8 +45,6 @@ HRL_FILES_NEEDED_IN_TEST= \
 
 ERL_FILES= $(MODULES:%=%.erl)
 
-KEY_FILES= ssh_host_dsa_key #ssh_host_dsa_key.pub
-
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 DATA_DIRS = $(MODULES:%=%_data)
@@ -117,14 +115,6 @@ release_tests_spec: opt
 	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) ssh.spec ssh.cover $(RELSYSDIR)
 	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) $(RELSYSDIR)
-	@for dir in $(DATA_DIRS); do \
-          if test ! -d $$dir ; then \
-            echo "=== Skipping datadir $$dir" ; \
-          else                   \
-            echo "Installling $(KEY_FILES) in $$dir"; \
-            $(INSTALL_DATA) $(KEY_FILES) $$dir; \
-          fi ;                        \
-	done
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
