@@ -40,7 +40,7 @@
 	 get_option/2,
 	 get_option/3,
 	 get_sec_level/1,
-	 ip/1,
+	 ip/1, ip/2, 
 	 is_auth/1,
 	 is_BitString/1,
 	 is_oid/1,
@@ -347,10 +347,15 @@ bits_to_int([Kibble|Ks],Kibbles,Res) ->
 
 			     
 %%----------------------------------------------------------------------
-%% Returns: {ok, {int(),int(),int(),int()}} | {error, Reason}
+%% Returns: {ok, {int(),int(),int(),int()}} | 
+%%          {ok, {int(),int(),int(),int()},int(),int(),int(),int()} | 
+%%          {error, Reason}
 %%----------------------------------------------------------------------
 ip(Host) ->
-    inet:getaddr(Host, inet).
+    ip(Host, inet).
+
+ip(Host, Family) ->
+    inet:getaddr(Host, Family).
 
 ensure_trailing_dir_delimiter([]) -> "/";
 ensure_trailing_dir_delimiter(DirSuggestion) ->

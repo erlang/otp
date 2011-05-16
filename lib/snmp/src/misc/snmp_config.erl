@@ -491,6 +491,9 @@ config_agent_snmp(Dir, Vsns) ->
     Host       = host(),
     AgentIP    = ask("5. IP address for the agent (only used as id ~n"
 		     "   when sending traps)", Host, fun verify_address/1),
+    %% We intentionally skip TDomain...
+    %% If the user wish to use IPv6, the user must create an dummy entry here
+    %% and then manually edit these entries later.
     ManagerIP  = ask("6. IP address for the manager (only this manager ~n"
 		     "   will have access to the agent, traps are sent ~n"
 		     "   to this one)", Host, fun verify_address/1),
@@ -1062,9 +1065,19 @@ verify_sec_type(ST)         -> {error, "invalid security type: " ++ ST}.
 
     
 verify_address(A) ->
-    case (catch snmp_misc:ip(A)) of
+    verify_address(A, snmpUDPDomain).
+
+verify_address(A, snmpUDPDomain = _Domain) ->
+    do_verify_address(A, inet);
+verify_address(A, transportDomainUdpIpv4 = _Domain) ->
+    do_verify_address(A, inet);
+verify_address(A, transportDomainUdpIpv6 = _Domain) ->
+    do_verify_address(A, inet6).
+
+do_verify_address(A, Family) ->
+    case (catch snmp_misc:ip(A, Family)) of
 	{ok, IP} ->
-	     {ok, tuple_to_list(IP)};
+	    {ok, tuple_to_list(IP)};
 	{error, _} ->
 	    {error, "invalid address: " ++ A};
 	_E ->
@@ -1721,10 +1734,12 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
     Hdr = header() ++ Comment,
     F = fun(v1 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v2 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048},
 		 {lists:flatten(io_lib:format("~s.2",[mk_ip(ManagerIp, Vsn)])),
@@ -1732,6 +1747,7 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
 		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
 	   (v3 = Vsn, Acc) ->
 		[{mk_ip(ManagerIp, Vsn), 
+		  snmp_target_mib:default_domain(), 
 		  ManagerIp, UDP, Timeout, RetryCount, 
 		  "std_trap", mk_param(Vsn), "", [], 2048},
 		 {lists:flatten(io_lib:format("~s.3",[mk_ip(ManagerIp, Vsn)])),
