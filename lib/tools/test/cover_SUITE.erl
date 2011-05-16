@@ -395,6 +395,7 @@ export_import(suite) -> [];
 export_import(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line ok = file:set_cwd(DataDir),
+    ?line PortCount = length(erlang:ports()),
 
     %% Export one module
     ?line {ok,f} = cover:compile(f),
@@ -483,6 +484,9 @@ export_import(Config) when is_list(Config) ->
     ?line [] = ?t:capture_get(), % no warnings
     ?line ?t:capture_stop(),
     ?line check_f_calls(1,0),
+
+    %% Check no raw files are left open
+    ?line PortCount = length(erlang:ports()),
 
     %% Cleanup
     ?line ok = cover:stop(),

@@ -662,6 +662,7 @@ main_process_loop(State) ->
 		    Imported = do_import_to_table(Fd,File,
 						  State#main_state.imported),
 		    reply(From, ok),
+		    file:close(Fd),
 		    main_process_loop(State#main_state{imported=Imported});
 		{error,Reason} ->
 		    reply(From, {error, {cant_open_file,File,Reason}}),
