@@ -92,7 +92,7 @@
 
 -export([format_reason/1, format_reason/2]).
 
-%% Backward compatibillity exports (API version "2")
+%% Backward compatibility exports (API version "2")
 -export([
 	 sync_get/3, sync_get/4, sync_get/5, sync_get/6, 
 	 async_get/3, async_get/4, async_get/5, async_get/6, 
@@ -104,7 +104,7 @@
 	 async_get_bulk/5, async_get_bulk/6, async_get_bulk/7, async_get_bulk/8 
 	]).
 
-%% Backward compatibillity exports (API version "1")
+%% Backward compatibility exports (API version "1")
 -deprecated({agent_info,        3}).
 -deprecated({update_agent_info, 5}).
 -deprecated({g,                 3}).
@@ -387,23 +387,23 @@ register_agent(UserId, TargetName, Config)
 	is_list(Config)) ->
     do_register_agent(UserId, TargetName, [{reg_type, target_name} | Config]);
 
-%% Backward compatibillity 
+%% Backward compatibility 
 %% Note that the agent engine id is a mandatory config option,
 %% so this function *will* fail!
 register_agent(UserId, Addr, Port) when is_integer(Port) ->
     register_agent(UserId, Addr, Port, []);
 
-%% Backward compatibillity 
+%% Backward compatibility 
 register_agent(UserId, Addr, Config) when is_list(Config) ->
     register_agent(UserId, Addr, ?DEFAULT_AGENT_PORT, Config).
 
-%% Backward compatibillity 
+%% Backward compatibility 
 %% Note that the agent engine id is a mandatory config option,
 %% so this function *will* fail!
 register_agent(UserId, Addr) ->
     register_agent(UserId, Addr, ?DEFAULT_AGENT_PORT, []).
 
-%% Backward compatibillity 
+%% Backward compatibility 
 register_agent(UserId, Addr, Port, Config0) ->
     case lists:keymember(target_name, 1, Config0) of
 	false ->
@@ -423,7 +423,7 @@ register_agent(UserId, Addr, Port, Config0) ->
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
 
-%% Backward compatibillity functions
+%% Backward compatibility functions
 unregister_agent(UserId, Addr) ->
     unregister_agent(UserId, Addr, ?DEFAULT_AGENT_PORT).
 
@@ -438,7 +438,7 @@ unregister_agent(UserId, Addr, Port) ->
 agent_info(TargetName, Item) ->
     snmpm_config:agent_info(TargetName, Item).
 
-%% Backward compatibillity
+%% Backward compatibility
 agent_info(Addr, Port, Item) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
@@ -450,7 +450,7 @@ agent_info(Addr, Port, Item) ->
 update_agent_info(UserId, TargetName, Item, Val) ->
     snmpm_config:update_agent_info(UserId, TargetName, Item, Val).
 
-%% Backward compatibillity functions
+%% Backward compatibility functions
 update_agent_info(UserId, Addr, Port, Item, Val) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
@@ -1365,7 +1365,7 @@ cancel_async_request(UserId, ReqId) ->
 
 
 %%%-----------------------------------------------------------------
-%%% Audit Trail Log functions (for backward compatibillity)
+%%% Audit Trail Log functions (for backward compatibility)
 %%%-----------------------------------------------------------------
 log_to_txt(LogDir, Mibs) ->
     OutFile = "snmpm_log.txt",       
