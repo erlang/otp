@@ -739,6 +739,7 @@ type(erlang, element, 2, Xs) ->
 type(erlang, erase, 0, _) -> t_any();
 type(erlang, erase, 1, _) -> t_any();
 type(erlang, external_size, 1, _) -> t_integer();
+type(erlang, external_size, 2, _) -> t_integer();
 type(erlang, finish_after_on_load, 2, Xs) ->
   %% Internal BIF used by on_load.
   strict(arg_types(erlang, finish_after_on_load, 2), Xs,
@@ -3446,6 +3447,8 @@ arg_types(erlang, exit, 2) ->
   [t_sup(t_pid(), t_port()), t_any()];
 arg_types(erlang, external_size, 1) ->
   [t_any()]; % takes any term as input
+arg_types(erlang, external_size, 2) ->
+  [t_any(), t_list()]; % takes any term as input and a list of options
 arg_types(erlang, finish_after_on_load, 2) ->
   [t_atom(), t_boolean()];
 arg_types(erlang, float, 1) ->
