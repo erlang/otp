@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,6 +57,7 @@
 -define('24H_in_sec', 8640).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
 -define(CERTIFICATE_CACHE_CLEANUP, 30000).
+-define(CLEAN_SESSION_DB, 60000).
 
 %%====================================================================
 %% API
@@ -70,7 +71,8 @@ start_link(Opts) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Opts], []).
 
 %%--------------------------------------------------------------------
--spec connection_init(string()| {der, list()}, client | server) -> {ok, reference(), cache_ref()}.
+-spec connection_init(string()| {der, list()}, client | server) ->
+			     {ok, reference(), cache_ref()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
@@ -101,7 +103,9 @@ lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(Ref, SerialNumber, Issuer).
 %%--------------------------------------------------------------------
 -spec issuer_candidate(cert_key() | no_candidate) -> 
-			      {cert_key(), {der_cert(), #'OTPCertificate'{}}} | no_more_candidates.      
+			      {cert_key(),
+			       {der_cert(),
+				#'OTPCertificate'{}}} | no_more_candidates.
 %%
 %% Description: Return next issuer candidate.
 %%--------------------------------------------------------------------
@@ -117,7 +121,8 @@ client_session_id(Host, Port, SslOpts, OwnCert) ->
     call({client_session_id, Host, Port, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
--spec server_session_id(host(), port_num(), #ssl_options{}, der_cert()) -> session_id().
+-spec server_session_id(host(), port_num(), #ssl_options{},
+			der_cert()) -> session_id().
 %%
 %% Description: Select a session id for the server.
 %%--------------------------------------------------------------------
@@ -139,7 +144,9 @@ register_session(Port, Session) ->
 -spec invalidate_session(port_num(), #session{}) -> ok.
 -spec invalidate_session(host(), port_num(), #session{}) -> ok.
 %%
-%% Description: Make the session unavilable for reuse.
+%% Description: Make the session unavailable for reuse. After
+%% a the session has been marked "is_resumable = false" for some while
+%% it will be safe to remove the data from the session database.
 %%--------------------------------------------------------------------
 invalidate_session(Host, Port, Session) ->
     cast({invalidate_session, Host, Port, Session}).
@@ -259,23 +266,26 @@ handle_cast({register_session, Port, Session},
     {noreply, State};
 
 handle_cast({invalidate_session, Host, Port, 
-	     #session{session_id = ID}}, 
+	     #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    CacheCb:delete(Cache, {{Host, Port}, ID}),
+    CacheCb:update(Cache, {{Host, Port}, ID}, Session#session{is_resumable = false}),
+    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, {{Host, Port}, ID}),
     {noreply, State};
 
-handle_cast({invalidate_session, Port, #session{session_id = ID}}, 
+handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    CacheCb:delete(Cache, {Port, ID}),
+    CacheCb:update(Cache, {Port, ID}, Session#session{is_resumable = false}),
+    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, {Port, ID}),
     {noreply, State};
 
 handle_cast({recache_pem, File, LastWrite, Pid, From},
 	    #state{certificate_db = [_, FileToRefDb, _]} = State0) ->
     case ssl_certificate_db:lookup(File, FileToRefDb) of
 	undefined ->
-	    {reply, Msg, State} = handle_call({{cache_pem, File, LastWrite}, Pid}, From, State0),
+	    {reply, Msg, State} =
+		handle_call({{cache_pem, File, LastWrite}, Pid}, From, State0),
 	    gen_server:reply(From, Msg),
 	    {noreply, State};
 	_ -> %% Send message to self letting cleanup messages be handled
