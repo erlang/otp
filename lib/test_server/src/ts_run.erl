@@ -365,6 +365,14 @@ make_common_test_args(Args0, Options, _Vars) ->
 		      [{logdir,"../test_server"}]
 	     end,
 
+    TimeTrap = case test_server:timetrap_scale_factor() of
+		   1 ->
+		       [];
+		   Scale ->
+		       [{multiply_timetraps, Scale},
+			{scale_timetraps, true}]
+	       end,
+
     ConfigPath = case {os:getenv("TEST_CONFIG_PATH"),
 		       lists:keysearch(config, 1, Options)} of
 		     {false,{value, {config, Path}}} ->
@@ -377,7 +385,7 @@ make_common_test_args(Args0, Options, _Vars) ->
     ConfigFiles = [{config,[filename:join(ConfigPath,File)
 			    || File <- get_config_files()]}],
     io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++
-				  ConfigFiles++Options]).
+				  ConfigFiles++Options++TimeTrap]).
 
 to_list(X) when is_atom(X) ->
     atom_to_list(X);
