@@ -170,7 +170,9 @@ ok      ]]></code>
 -module(mydebug).
 -export([start/0,trc/1,stop/0,format/1]).
 -export([print/4]).
-
+%% Include ms_transform.hrl so that I can use dbg:fun2ms/2 to
+%% generate match specifications.
+-include_lib("stdlib/include/ms_transform.hrl").
 %%% -------------Tool API-------------
 %%% ----------------------------------
 %%% Star the "mydebug" tool

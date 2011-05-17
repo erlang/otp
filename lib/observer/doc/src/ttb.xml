@@ -158,7 +158,7 @@ ttb:p(all, call)</code>
           network communication are always present. The timer starts after
           <c>ttb:p/2</c> is issued, so you can set up your trace patterns before.
         </p>
-        <p>The <c>overload_protection</c> option allows to enable overload
+        <p>The <c>overload</c> option allows to enable overload
           checking on the nodes under trace. <c>Module:Function(check)</c>
           is performed each <c>MSec</c> milliseconds. If the check returns
           <c>true</c>, the tracing is disabled on a given node.<br/>
