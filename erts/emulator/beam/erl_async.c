@@ -251,6 +251,7 @@ static int async_del(long id)
 		erts_free(ERTS_ALC_T_ASYNC, a);
 		return 1;
 	    }
+	    a = a->next;
 	}
 	erts_mtx_unlock(&async_q[i].mtx);
     }

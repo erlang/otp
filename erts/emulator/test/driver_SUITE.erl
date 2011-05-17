@@ -74,7 +74,8 @@
 	 missing_callbacks/1,
 	 smp_select/1,
 	 driver_select_use/1,
-	 thread_mseg_alloc_cache_clean/1]).
+	 thread_mseg_alloc_cache_clean/1,
+	 otp_9302/1]).
 
 -export([bin_prefix/2]).
 
@@ -141,7 +142,8 @@ all() ->
      smaller_minor_vsn_drv, peek_non_existing_queue,
      otp_6879, caller, many_events, missing_callbacks,
      smp_select, driver_select_use,
-     thread_mseg_alloc_cache_clean].
+     thread_mseg_alloc_cache_clean,
+     otp_9302].
 
 groups() -> 
     [{timer, [],
@@ -1890,13 +1892,39 @@ thread_mseg_alloc_cache_clean_test(Port, N, CCI, Size) ->
     ?line ?t:format("CCC = ~p~n", [CCC]),
     ?line true = CCC > OCCC,
     ?line thread_mseg_alloc_cache_clean_test(Port, N-1, CCI, Size).
-    
-    
+
+otp_9302(Config) when is_list(Config) ->
+    ?line Path = ?config(data_dir, Config),
+    ?line erl_ddll:start(),
+    ?line ok = load_driver(Path, otp_9302_drv),
+    ?line Port = open_port({spawn, otp_9302_drv}, []),
+    ?line true = is_port(Port),
+    ?line port_command(Port, ""),
+    ?line {msg, block} = get_port_msg(Port, infinity),
+    ?line {msg, job} = get_port_msg(Port, infinity),
+    ?line case erlang:system_info(thread_pool_size) of
+	      0 ->
+		  {msg, cancel} = get_port_msg(Port, infinity);
+	      _ ->
+		  ok
+	  end,
+    ?line {msg, job} = get_port_msg(Port, infinity),
+    ?line {msg, end_of_jobs} = get_port_msg(Port, infinity),
+    ?line no_msg = get_port_msg(Port, 2000),
+    ?line port_close(Port),
+    ?line ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+
+get_port_msg(Port, Timeout) ->
+    receive
+	{Port, What} ->
+	    {msg, What}
+    after Timeout ->
+	    no_msg
+    end.
 
 wait_until(Fun) ->
     case Fun() of
