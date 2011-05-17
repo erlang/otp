@@ -872,7 +872,7 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 	    end
     end.
 
-query_udp(_S, _Id, _Buffer, _IP, _Port, 0, Verbose) ->
+query_udp(_S, _Id, _Buffer, _IP, _Port, 0, _Verbose) ->
     timeout;
 query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
     ?verbose(Verbose, "Try UDP server : ~p:~p (timeout=~w)\n",
@@ -908,7 +908,7 @@ query_udp(S, Id, Buffer, IP, Port, Timeout, Verbose) ->
 	    {error,econnrefused}
     end.
 
-query_tcp(0, _Id, _Buffer, _IP, _Port, Verbose) ->
+query_tcp(0, _Id, _Buffer, _IP, _Port, _Verbose) ->
     timeout;
 query_tcp(Timeout, Id, Buffer, IP, Port, Verbose) ->
     ?verbose(Verbose, "Try TCP server : ~p:~p (timeout=~w)\n",
