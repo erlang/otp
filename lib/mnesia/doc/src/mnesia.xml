@@ -161,6 +161,14 @@ If a new item is inserted with the same key as
           </p>
       </item>
       <item>
+	<p><c>majority</c> This attribute can be either <c>true</c> or
+	<c>false</c> (default is <c>false</c>). When <c>true</c>, a majority
+	of the table replicas must be available for an update to succeed.
+	Majority checking can be enabled on tables with mission-critical data,
+	where it is vital to avoid inconsistencies due to network splits.
+	</p>
+      </item>
+      <item>
         <p><c>snmp</c> Each (set based) Mnesia table can be
           automatically turned into an SNMP ordered table as well.
           This property specifies the types of the SNMP keys.
@@ -650,6 +658,17 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
       </desc>
     </func>
     <func>
+      <name>change_table_majority(Tab, Majority) -> {aborted, R} | {atomic, ok}</name>
+      <fsummary>Change the majority check setting for the table.</fsummary>
+      <desc>
+        <p><c>Majority</c> must be a boolean; the default is <c>false</c>.
+	When <c>true</c>, a majority of the table's replicas must be available
+	for an update to succeed. When used on fragmented tables, <c>Tab</c>
+	must be the name base table. Directly changing the majority setting on
+	individual fragments is not allowed.</p>
+      </desc>
+    </func>
+    <func>
       <name>clear_table(Tab) -> {aborted, R} | {atomic, ok}</name>
       <fsummary>Deletes all entries in a table.</fsummary>
       <desc>
@@ -753,6 +772,14 @@ mnesia:change_table_copy_type(person, node(), disc_copies)
               priority will be loaded first at startup.
               </p>
           </item>
+	  <item>
+	    <p><c>{majority, Flag}</c>, where <c>Flag</c> must be a boolean.
+	    If <c>true</c>, any (non-dirty) update to the table will abort unless
+	    a majority of the table's replicas are available for the commit.
+	    When used on a fragmented table, all fragments will be given
+	    the same majority setting.
+	    </p>
+	  </item>
           <item>
             <p><c>{ram_copies, Nodelist}</c>, where
               <c>Nodelist</c> is a list of the nodes where this table
@@ -1737,7 +1764,10 @@ mnesia:create_table(person,
           <c>write</c> and <c>sticky_write</c> are supported.
           </p>
         <p>If the user wants to update the record it is more efficient to 
-          use  <c>write/sticky_write</c> as the LockKind.
+          use  <c>write/sticky_write</c> as the LockKind. If majority checking
+	  is active on the table, it will be checked as soon as a write lock is
+	  attempted. This can be used to quickly abort if the majority condition
+	  isn't met.
           </p>
       </desc>
     </func>

@@ -72,6 +72,7 @@
 	 add_active_replica/4,
 	 update/1,
 	 change_table_access_mode/1,
+	 change_table_majority/1,
 	 del_active_replica/2,
 	 wait_for_tables/2,
 	 get_network_copy/2,
@@ -690,7 +691,8 @@ handle_call({update_where_to_write, [add, Tab, AddNode], _From}, _Dummy, State) 
 	case lists:member(AddNode, Current) and 
 	    (State#state.schema_is_merged == true) of
 	    true ->
-		mnesia_lib:add_lsort({Tab, where_to_write}, AddNode);
+		mnesia_lib:add_lsort({Tab, where_to_write}, AddNode),
+		update_where_to_wlock(Tab);
 	    false ->
 		ignore
 	end,
@@ -1690,6 +1692,8 @@ add_active_replica(Tab, Node, Storage, AccessMode) ->
 	    set(Var, mark_blocked_tab(Blocked, Del)),
 	    mnesia_lib:del({Tab, where_to_write}, Node)
     end,
+
+    update_where_to_wlock(Tab),
     add({Tab, active_replicas}, Node).
 
 del_active_replica(Tab, Node) ->
@@ -1699,7 +1703,8 @@ del_active_replica(Tab, Node) ->
     New = lists:sort(Del),
     set(Var, mark_blocked_tab(Blocked, New)),      % where_to_commit
     mnesia_lib:del({Tab, active_replicas}, Node),
-    mnesia_lib:del({Tab, where_to_write}, Node).
+    mnesia_lib:del({Tab, where_to_write}, Node),
+    update_where_to_wlock(Tab).
 
 change_table_access_mode(Cs) ->
     W = fun() -> 
@@ -1708,7 +1713,22 @@ change_table_access_mode(Cs) ->
 			      val({Tab, active_replicas}))
 	end,
     update(W).
-	    
+
+change_table_majority(Cs) ->
+    W = fun() ->
+		Tab = Cs#cstruct.name,
+		set({Tab, majority}, Cs#cstruct.majority),
+		update_where_to_wlock(Tab)
+	end,
+    update(W).
+
+update_where_to_wlock(Tab) ->
+    WNodes = val({Tab, where_to_write}),
+    Majority = case catch val({Tab, majority}) of
+		   true -> true;
+		   _    -> false
+	       end,
+    set({Tab, where_to_wlock}, {WNodes, Majority}).
 
 %% node To now has tab loaded, but this must be undone
 %% This code is rpc:call'ed from the tab_copier process
