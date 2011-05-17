@@ -1,0 +1,4 @@
+{"2.0",
+ [{"1.0", [{load_module, app1_server}]}],
+ [{"1.0", [{load_module, app1_server}]}]
+}.
