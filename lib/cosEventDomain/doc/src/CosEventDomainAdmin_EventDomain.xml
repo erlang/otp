@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,8 +21,7 @@
     
     </legalnotice>
 
-    <title>CosEventDomainAdmin_&shy;EventDomain</title>
-    <shorttitle>..._EventDomain</shorttitle>
+    <title>CosEventDomainAdmin_EventDomain</title>
     <prepared></prepared>
     <docno></docno>
     <approved>Niclas Eklund</approved>
