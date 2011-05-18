@@ -119,7 +119,8 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
       <list type="bulleted">
         <item><c>Pid</c> is the Process that waits for the response
          for the request.  The Pid was specified in the
-        <c>send_pdu_req</c> message <seealso marker="#message">(see below)</seealso>.
+        <c>send_pdu_req</c> message 
+	<seealso marker="#im_send_pdu_req">(see below)</seealso>.
         </item>
         <item><c>Vsn</c> is either <c>'version-1'</c>, <c>'version-2'</c>, or
         <c>'version-3'</c>.
