@@ -43,7 +43,7 @@
     
     <note><p>All records used in this manual 
     <!--     except #policy_tree_node{}  -->
-    are generated from asn1 specifications
+    are generated from ASN.1 specifications
     and are documented in the User's Guide. See <seealso 
     marker="public_key_records">Public key records</seealso> and <seealso 
     marker="cert_records">X.509 Certificate records</seealso>. 
@@ -150,12 +150,12 @@
     <fsummary> Decodes a public key asn1 der encoded entity.</fsummary>
     <type>
       <v>Asn1Type = atom() -</v>
-      <d> Asn1 type present in the public_key applications
+      <d> ASN.1 type present in the public_key applications
       asn1 specifications.</d>
       <v>Der = der_encoded()</v>
     </type> 
     <desc> 
-      <p> Decodes a public key asn1 der encoded entity.</p> 
+      <p> Decodes a public key ASN.1 der encoded entity.</p>
     </desc> 
   </func>
     
@@ -165,25 +165,25 @@
     <type>
       <v>Asn1Type = atom()</v>
       <d> Asn1 type present in the public_key applications
-	 asn1 specifications.</d>
+	 ASN.1 specifications.</d>
       <v>Entity = term() - The erlang representation of <c> Asn1Type</c></v>
   </type> 
   <desc> 
-    <p> Encodes a public key entity with asn1 DER encoding.</p> 
+    <p> Encodes a public key entity with ASN.1 DER encoding.</p>
   </desc> 
   </func>
 
   <func>
     <name>pem_decode(PemBin) -> [pem_entry()]</name>
     <fsummary>Decode PEM binary data and return
-    entries as asn1 der encoded entities. </fsummary>
+    entries as ASN.1 der encoded entities. </fsummary>
     <type>
       <v>PemBin = binary()</v>
       <d>Example {ok, PemBin} = file:read_file("cert.pem").</d>
     </type> 
   <desc> 
     <p>Decode PEM binary data and return
-    entries as asn1 der encoded entities.</p> 
+    entries as ASN.1 der encoded entities.</p>
   </desc> 
   </func> 
     
@@ -258,13 +258,13 @@
   
   <func>
     <name>pkix_decode_cert(Cert, otp|plain) ->  #'Certificate'{} | #'OTPCertificate'{}</name>
-    <fsummary> Decodes an asn1 der encoded pkix x509 certificate.</fsummary>
+    <fsummary> Decodes an ASN.1 der encoded pkix x509 certificate.</fsummary>
     <type>
       <v>Cert = der_encoded()</v> 
   </type> 
   <desc> 
-    <p>Decodes an asn1 der encoded pkix certificate.  The otp option
-    will use the customized asn1 specification OTP-PKIX.asn1 for
+    <p>Decodes an ASN.1 der encoded pkix certificate.  The otp option
+    will use the customized ASN.1 specification OTP-PKIX.asn1 for
     decoding and also recursively decode most of the standard
     parts.</p>
   </desc> 
@@ -276,7 +276,7 @@
     certificate.</fsummary>
     <type>
       <v>Asn1Type = atom()</v>
-      <d>The asn1 type can be 'Certificate', 'OTPCertificate' or a subtype of either .</d>
+      <d>The ASN.1 type can be 'Certificate', 'OTPCertificate' or a subtype of either .</d>
   </type> 
   <desc> 
     <p>Der encodes a pkix x509 certificate or part of such a
@@ -394,7 +394,7 @@
        signed or in the case that digest type is <c>none</c>
        it is the hashed value of "plain text" i.e. the digest.</d>
        <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
-       <v>Key = rsa_public_key() | dsa_public_key()</v> 
+       <v>Key = rsa_private_key() | dsa_private_key()</v>
   </type> 
   <desc> 
     <p> Creates a digital signature.</p> 
