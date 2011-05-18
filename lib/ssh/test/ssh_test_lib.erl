@@ -30,15 +30,6 @@
 
 -define(TIMEOUT, 50000).
 
-
--record(ssh_key,
-	{
-	  type,
-	  public,
-	  private,
-	  comment = ""
-	 }).
-
 connect(Options) ->
     connect(hostname(), inet_port(), Options).
 

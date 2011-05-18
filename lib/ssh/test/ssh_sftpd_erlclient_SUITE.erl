@@ -94,7 +94,9 @@ init_per_testcase(TestCase, Config) ->
 		    ssh_sftpd:subsystem_spec([{file_handler,
 					       ssh_sftpd_file_alt}]),
 		[{user_passwords,[{?USER, ?PASSWD}]},
+		 {pwdfun, fun(_,_) -> true end},
 		 {system_dir, DataDir},
+		 {user_dir, DataDir},
 		 {subsystems, [Spec]}];
 	    "root_dir" ->
 		Privdir = ?config(priv_dir, Config),
@@ -102,17 +104,23 @@ init_per_testcase(TestCase, Config) ->
 		file:make_dir(Root),
 		Spec = ssh_sftpd:subsystem_spec([{root,Root}]),
 		[{user_passwords,[{?USER, ?PASSWD}]},
+		 {pwdfun, fun(_,_) -> true end},
 		 {system_dir, DataDir},
+		 {user_dir, DataDir},
 		 {subsystems, [Spec]}];
 	    "list_dir_limited" ->
 		Spec =
 		    ssh_sftpd:subsystem_spec([{max_files,1}]),
 		[{user_passwords,[{?USER, ?PASSWD}]},
+		 {pwdfun, fun(_,_) -> true end},
 		 {system_dir, DataDir},
+		 {user_dir, DataDir},
 		 {subsystems, [Spec]}];
 
 	    _ ->
 		[{user_passwords,[{?USER, ?PASSWD}]},
+		 {pwdfun, fun(_,_) -> true end},
+		 {user_dir, DataDir},
 		 {system_dir, DataDir}]
 	end,
 
@@ -121,7 +129,11 @@ init_per_testcase(TestCase, Config) ->
     {ok, ChannelPid, Connection} =
 	ssh_sftp:start_channel(Host, ?SSHD_PORT,
 			       [{silently_accept_hosts, true},
-				{user, ?USER}, {password, ?PASSWD}, {timeout, 30000}]),
+				{user, ?USER}, {password, ?PASSWD}, 
+				{pwdfun, fun(_,_) -> true end},
+				{system_dir, DataDir},
+				{user_dir, DataDir},
+				{timeout, 30000}]),
     TmpConfig = lists:keydelete(sftp, 1, Config),
     NewConfig = lists:keydelete(sftpd, 1, TmpConfig),
     [{sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
@@ -216,6 +228,9 @@ quit_OTP_6349(Config) when is_list(Config) ->
     timer:sleep(5000),
     {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, ?SSHD_PORT,
 						 [{silently_accept_hosts, true},
+						  {pwdfun, fun(_,_) -> true end},
+						  {system_dir, DataDir},
+						  {user_dir, DataDir},
 						  {user, ?USER}, {password, ?PASSWD}]),
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(NewSftp, FileName),
