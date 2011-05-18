@@ -1,0 +1,955 @@
+
+
+
+
+
+
+Network Working Group                                   J. Korhonen, Ed.
+Request for Comments: 5447                        Nokia Siemens Networks
+Category: Standards Track                                   J. Bournelle
+                                                             Orange Labs
+                                                           H. Tschofenig
+                                                  Nokia Siemens Networks
+                                                              C. Perkins
+                                                                WiChorus
+                                                            K. Chowdhury
+                                                        Starent Networks
+                                                           February 2009
+
+
+                         Diameter Mobile IPv6:
+    Support for Network Access Server to Diameter Server Interaction
+
+Status of This Memo
+
+   This document specifies an Internet standards track protocol for the
+   Internet community, and requests discussion and suggestions for
+   improvements.  Please refer to the current edition of the "Internet
+   Official Protocol Standards" (STD 1) for the standardization state
+   and status of this protocol.  Distribution of this memo is unlimited.
+
+Copyright Notice
+
+   Copyright (c) 2009 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (http://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.
+
+Abstract
+
+   A Mobile IPv6 node requires a home agent address, a home address, and
+   a security association with its home agent before it can start
+   utilizing Mobile IPv6.  RFC 3775 requires that some or all of these
+   parameters be statically configured.  Mobile IPv6 bootstrapping work
+   aims to make this information dynamically available to the mobile
+   node.  An important aspect of the Mobile IPv6 bootstrapping solution
+   is to support interworking with existing Authentication,
+   Authorization, and Accounting (AAA) infrastructures.  This document
+   describes MIPv6 bootstrapping using the Diameter Network Access
+   Server to home AAA server interface.
+
+
+
+
+Korhonen, et al.            Standards Track                     [Page 1]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  Terminology and Abbreviations  . . . . . . . . . . . . . . . .  3
+   3.  Overview . . . . . . . . . . . . . . . . . . . . . . . . . . .  5
+   4.  Commands, Attribute-Value Pairs, and Advertising
+       Application Support  . . . . . . . . . . . . . . . . . . . . .  6
+     4.1.  Advertising Application Support  . . . . . . . . . . . . .  6
+     4.2.  Attribute-Value Pair Definitions . . . . . . . . . . . . .  6
+       4.2.1.  MIP6-Agent-Info AVP  . . . . . . . . . . . . . . . . .  6
+       4.2.2.  MIP-Home-Agent-Address AVP . . . . . . . . . . . . . .  7
+       4.2.3.  MIP-Home-Agent-Host AVP  . . . . . . . . . . . . . . .  7
+       4.2.4.  MIP6-Home-Link-Prefix AVP  . . . . . . . . . . . . . .  8
+       4.2.5.  MIP6-Feature-Vector AVP  . . . . . . . . . . . . . . .  8
+   5.  Examples . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+     5.1.  Home Agent Assignment by the NAS . . . . . . . . . . . . . 10
+     5.2.  Home Agent Assignment by the Diameter Server . . . . . . . 11
+     5.3.  Home Agent Assignment by the NAS or Diameter Server  . . . 11
+   6.  Attribute-Value Pair Occurrence Tables . . . . . . . . . . . . 12
+   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 13
+     7.1.  Registration of New AVPs . . . . . . . . . . . . . . . . . 13
+     7.2.  New Registry: Mobility Capability  . . . . . . . . . . . . 13
+   8.  Security Considerations  . . . . . . . . . . . . . . . . . . . 14
+   9.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 14
+   10. References . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+     10.1. Normative References . . . . . . . . . . . . . . . . . . . 15
+     10.2. Informative References . . . . . . . . . . . . . . . . . . 15
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Korhonen, et al.            Standards Track                     [Page 2]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+1.  Introduction
+
+   The Mobile IPv6 (MIPv6) specification [RFC3775] requires a mobile
+   node (MN) to perform registration with a home agent (HA) with
+   information about its current point of attachment (care-of address).
+   The HA creates and maintains the binding between the MN's home
+   address and the MN's care-of address.
+
+   In order to register with an HA, the MN needs to know some
+   information, such as the home link prefix, the HA address, the home
+   address(es), the home link prefix length, and security-association-
+   related information.
+
+   The aforementioned information may be statically configured.
+   However, static provisioning becomes an administrative burden for an
+   operator.  Moreover, it does not address load balancing, failover,
+   opportunistic home link assignment, or assignment of local HAs in
+   close proximity to the MN.  Also, the ability to react to sudden
+   environmental or topological changes is minimal.  Static provisioning
+   may not be desirable, in light of these limitations.
+
+   Dynamic assignment of MIPv6 home registration information is a
+   desirable feature for ease of deployment and network maintenance.
+   For this purpose, the AAA infrastructure, which is used for access
+   authentication, can be leveraged to assign some or all of the
+   necessary parameters.  The Diameter server in the Access Service
+   Provider's (ASP's) or Mobility Service Provider's (MSP's) network may
+   return these parameters to the AAA client.  Regarding the
+   bootstrapping procedures, the AAA client might either be the Network
+   Access Server, in case of the integrated scenario, or the HA, in case
+   of the split scenario [RFC5026].  The terms "integrated" and "split"
+   are described in the following terminology section and were
+   introduced in [RFC4640] and [AAA].
+
+2.  Terminology and Abbreviations
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in RFC 2119 [RFC2119].
+
+   General mobility terminology can be found in [RFC3753].  The
+   following additional terms are either borrowed from [RFC4640] or
+   [RFC5026] or are introduced in this document:
+
+   Access Service Authorizer (ASA):
+
+      A network operator that authenticates an MN and establishes the
+      MN's authorization to receive Internet service.
+
+
+
+Korhonen, et al.            Standards Track                     [Page 3]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   Access Service Provider (ASP):
+
+      A network operator that provides direct IP packet-forwarding to
+      and from the MN.
+
+   Mobility Service Authorizer (MSA):
+
+      A service provider that authorizes MIPv6 service.
+
+   Mobility Service Provider (MSP):
+
+      A service provider that provides MIPv6 service.  In order to
+      obtain such service, the MN must be authenticated and authorized
+      to do so.
+
+   Split Scenario:
+
+      A scenario where the mobility service and the network access
+      service are authorized by different entities.
+
+   Integrated Scenario:
+
+      A scenario where the mobility service and the network access
+      service are authorized by the same entity.
+
+   Network Access Server (NAS):
+
+      A device that provides an access service for a user to a network.
+
+   Home AAA (HAAA):
+
+      An Authentication, Authorization, and Accounting server located in
+      the user's home network, i.e., in the home realm.
+
+   Local AAA (LAAA):
+
+      An Authentication, Authorization, and Accounting proxy located in
+      the local (ASP) network.
+
+   Visited AAA (VAAA):
+
+      An Authentication, Authorization, and Accounting proxy located in
+      a visited network, i.e., in the visited realm.  In a roaming case,
+      the local Diameter proxy has the VAAA role (see Figure 1).
+
+
+
+
+
+
+
+Korhonen, et al.            Standards Track                     [Page 4]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+3.  Overview
+
+   This document addresses the Authentication, Authorization, and
+   Accounting (AAA) functionality required for the MIPv6 bootstrapping
+   solutions outlined in [RFC4640], and focuses on the Diameter-based
+   AAA functionality for the NAS-to-HAAA (home AAA) server
+   communication.
+
+   In the integrated scenario, MIPv6 bootstrapping is provided as part
+   of the network access authentication procedure.  Figure 1 shows the
+   participating entities.
+
+                      +---------------------------+  +-----------------+
+                      |Access Service Provider    |  |ASA/MSA/(MSP)    |
+                      |(Mobility Service Provider)|  |                 |
+                      |                           |  |                 |
+                      | +--------+                |  |    +--------+   |
+                      | |Local   |      Diameter  |  |    |Home    |   |
+                      | |Diameter|<---------------------->|Diameter|   |
+                      | |Proxy   |         (*)    |  |    |Server  |   |
+                      | +--------+                |  |    +--------+   |
+                      |     ^ ^                   |  |        ^        |
+                      |     | |                   |  |        |(+)     |
+                      |     | |                   |  |        |        |
+                      |   Diameter                |  |        v        |
+                      |     | |(+)      +-------+ |  |    +-------+    |
+                      |     | |         |Home   | |  |    |Home   |    |
+                      |     | +-------->|Agent  | |  |    |Agent  |    |
+                      |  (*)|           |in ASP | |  |    |in MSP |    |
+                      |     v           +-------+ |  |    +-------+    |
+   +-------+ IEEE     | +-----------+   +-------+ |  +-----------------+
+   |Mobile | 802.1X   | |NAS/Relay  |   |DHCPv6 | |
+   |Node   |------------|Diameter   |---|Server | |
+   |       | PANA,    | |Client     |(+)|       | |
+   +-------+ IKEv2,   | +-----------+   +-------+ |
+             DHCP,... +---------------------------+
+             (+)
+
+   Legend:
+     (*): Functionality in scope of this specification.
+     (+): Extensions described in other documents.
+
+      Figure 1: Mobile IPv6 Bootstrapping in the Integrated Scenario
+
+   In a typical MIPv6 access scenario, an MN is attached to an ASP's
+   network.  During the network attachment procedure, the MN interacts
+   with the NAS/Diameter client.  Subsequently, the NAS/Diameter client
+   interacts with the Diameter server over the NAS-to-HAAA interface.
+
+
+
+Korhonen, et al.            Standards Track                     [Page 5]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   When the Diameter server performs the authentication and
+   authorization for network access, it also determines whether the user
+   is authorized for the MIPv6 service.  Based on the MIPv6 service
+   authorization and the user's policy profile, the Diameter server may
+   return several MIPv6 bootstrapping-related parameters to the NAS.
+   The NAS-to-HAAA interface described in this document is not tied to
+   the Dynamic Host Configuration Protocol for IPv6 (DHCPv6) as the only
+   mechanism to convey MIPv6-related configuration parameters from the
+   NAS/Diameter client to the mobile node.
+
+   While this specification addresses the bootstrapping of MIPv6 HA
+   information and possibly the assignment of the home link prefix, it
+   does not address how the Security Association (SA) between the MN and
+   the HA for MIPv6 purposes is created.  The creation or the use of the
+   SA between the MN and the HA takes places after the procedures
+   described in this specification, and therefore are out of scope.
+
+4.  Commands, Attribute-Value Pairs, and Advertising Application Support
+
+4.1.  Advertising Application Support
+
+   This document does not define a new application.  On the other hand,
+   it defines a number of attribute-value pairs (AVPs) used in the
+   interface between NAS to HAAA for the integrated scenario of MIPv6
+   bootstrapping.  These AVPs can be used with any present and future
+   Diameter applications, where permitted by the command ABNF.  The
+   examples using existing applications and their commands in the
+   following sections are for informational purposes only.  The examples
+   in this document reuse the Extensible Authentication Protocol (EAP)
+   [RFC4072] application and its respective commands.
+
+4.2.  Attribute-Value Pair Definitions
+
+4.2.1.  MIP6-Agent-Info AVP
+
+   The MIP6-Agent-Info AVP (AVP code 486) is of type Grouped and
+   contains necessary information to assign an HA to the MN.  When the
+   MIP6-Agent-Info AVP is present in a message, it MUST contain either
+   the MIP-Home-Agent-Address AVP, the MIP-Home-Agent-Host AVP, or both
+   AVPs.  The grouped AVP has the following modified ABNF (as defined in
+   [RFC3588]):
+
+       MIP6-Agent-Info ::= < AVP-Header: 486 >
+                         *2[ MIP-Home-Agent-Address ]
+                           [ MIP-Home-Agent-Host ]
+                           [ MIP6-Home-Link-Prefix ]
+                         * [ AVP ]
+
+
+
+
+Korhonen, et al.            Standards Track                     [Page 6]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   If both the MIP-Home-Agent-Address and MIP-Home-Agent-Host APVs are
+   present in the MIP6-Agent-Info, the MIP-Home-Agent-Address SHOULD
+   have a precedence over the MIP-Home-Agent-Host.  The reason for this
+   recommendation is that the MIP-Home-Agent-Address points to a
+   specific home agent, whereas the MIP-Home-Agent-Host may point to a
+   group of HAs located within the same realm.  A Diameter client or
+   agent may use the MIP-Home-Agent-Host AVP, for instance, to find out
+   in which realm the HA is located.
+
+   The ABNF allows returning up to two MIPv6 HA addresses.  This is a
+   useful feature for deployments where the HA has both IPv6 and IPv4
+   addresses, and particularly addresses Dual Stack Mobile IPv6
+   (DSMIPv6) deployment scenarios [DSMIPv6].
+
+   The MIP6-Agent-Info AVP MAY also be attached by the NAS or by the
+   intermediating Diameter proxies in a request message when sent to the
+   Diameter server as a hint of a locally assigned HA.  This AVP MAY
+   also be attached by the intermediating Diameter proxies in a reply
+   message from the Diameter server, if locally assigned HAs are
+   authorized by the Diameter server.  There MAY be multiple instances
+   of the MIP6-Agent-Info AVP in Diameter messages, for example, in
+   cases where the NAS receives HA information from an MN's home network
+   and locally allocated HA information from the visited network.  See
+   Section 4.2.5 for further discussion on possible scenarios.
+
+4.2.2.  MIP-Home-Agent-Address AVP
+
+   The MIP-Home-Agent-Address AVP (AVP Code 334 [RFC4004]) is of type
+   Address and contains the IPv6 or IPv4 address of the MIPv6 HA.  The
+   Diameter server MAY decide to assign an HA to the MN that is in close
+   proximity to the point of attachment (e.g., determined by the NAS-
+   Identifier AVP).  There may be other reasons for dynamically
+   assigning HAs to the MN, for example, to share the traffic load.
+
+4.2.3.  MIP-Home-Agent-Host AVP
+
+   The MIP-Home-Agent-Host AVP (AVP Code 348 [RFC4004]) is of type
+   Grouped and contains the identity of the assigned MIPv6 HA.  Both the
+   Destination-Realm and the Destination-Host AVPs of the HA are
+   included in the grouped AVP.  The usage of the MIP-Home-Agent-Host
+   AVP is equivalent to the MIP-Home-Agent-Address AVP but offers an
+   additional level of indirection by using the DNS infrastructure.  The
+   Destination-Host AVP is used to identify an HA, and the Destination-
+   Realm AVP is used to identify the realm where the HA is located.
+
+   Depending on the actual deployment and DNS configuration, the
+   Destination-Host AVP MAY represent one or more home agents.  It is
+   RECOMMENDED that the Destination-Host AVP identifies exactly one HA.
+
+
+
+Korhonen, et al.            Standards Track                     [Page 7]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   It is RECOMMENDED that the MIP-Home-Agent-Host AVP is always included
+   in the MIP6-Agent-Info AVP.  In this way, the HA can be associated
+   with the corresponding realm of the Diameter entity that added the
+   MIP6-Agent-Info AVP using the Destination-Realm AVP, which is
+   included in the MIP-Home-Agent-Host AVP.
+
+4.2.4.  MIP6-Home-Link-Prefix AVP
+
+   The MIP6-Home-Link-Prefix AVP (AVP Code 125) is of type OctetString
+   and contains the Mobile IPv6 home network prefix information in a
+   network byte order.  The home network prefix MUST be encoded as the
+   8-bit prefix length information (one octet) followed by the 128-bit
+   field (16 octets) for the available home network prefix.  The
+   trailing bits of the IPv6 prefix after the prefix length bits MUST be
+   set to zero (e.g., if the prefix length is 60, then the remaining 68
+   bits MUST be set to zero).
+
+   The HAAA MAY act as a central entity managing prefixes for MNs.  In
+   this case, the HAAA returns to the NAS the prefix allocated to the
+   MN.  The NAS/ASP then delivers the home link prefix to the MN using,
+   e.g., mechanisms described in [INTEGRATED].  The NAS/ASP MAY propose
+   to the HAAA a specific prefix to allocate to the MN by including the
+   MIP6-Home-Link-Prefix AVP in the request message.  However, the HAAA
+   MAY override the prefix allocation hint proposed by the NAS/ASP and
+   return a different prefix in the response message.
+
+4.2.5.  MIP6-Feature-Vector AVP
+
+   The MIP6-Feature-Vector AVP (AVP Code 124) is of type Unsigned64 and
+   contains a 64-bit flags field of supported capabilities of the NAS/
+   ASP.  Sending and receiving the MIP6-Feature-Vector AVP with value 0
+   MUST be supported, although that does not provide much guidance about
+   specific needs of bootstrapping.
+
+   The NAS MAY include this AVP to indicate capabilities of the NAS/ASP
+   to the Diameter server.  For example, the NAS may indicate that a
+   local HA can be provided.  Similarly, the Diameter server MAY include
+   this AVP to inform the NAS/ASP about which of the NAS/ASP indicated
+   capabilities are supported or authorized by the ASA/MSA(/MSP).
+
+   The following capabilities are defined in this document:
+
+
+
+
+
+
+
+
+
+
+Korhonen, et al.            Standards Track                     [Page 8]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   MIP6_INTEGRATED (0x0000000000000001)
+
+      When this flag is set by the NAS, it means that the Mobile IPv6
+      integrated scenario bootstrapping functionality is supported by
+      the NAS.  When this flag is set by the Diameter server, then the
+      Mobile IPv6 integrated scenario bootstrapping is supported by the
+      Diameter server.
+
+   LOCAL_HOME_AGENT_ASSIGNMENT (0x0000000000000002)
+
+      When this flag is set in the request message, a local home agent
+      outside the home realm is requested and may be assigned to the MN.
+      When this flag is set by the Diameter server in the answer
+      message, then the assignment of local HAs is authorized by the
+      Diameter server.
+
+      A local HA may be assigned by the NAS, LAAA, or VAAA depending on
+      the network architecture and the deployment.
+
+   The following examples show how the LOCAL_HOME_AGENT_ASSIGNMENT
+   (referred to as LOCAL-bit in the examples) capability and the MIP-
+   Agent-Info AVP (referred to as HA-Info in the examples) are used to
+   assign HAs -- either a local HA (L-HA) or a home network HA (H-HA).
+   Below are examples of request message combinations as seen by the
+   HAAA:
+
+    LOCAL-bit  HA-Info  Meaning
+
+      0          -      ASP or [LV]AAA is not able to assign an L-HA.
+      0         L-HA    Same as above.  HA-Info must be ignored.
+      1          -      ASP or [LV]AAA can/wishes to assign an L-HA.
+      1         L-HA    Same as above but the ASP or [LV]AAA also
+                        provides a hint of the assigned L-HA.
+
+   The same as above but for answer message combinations as seen by the
+   NAS:
+
+  LOCAL-bit  HA-Info  Meaning
+
+    0          -      No HA assignment allowed for HAAA or [LV]AAA.
+    0         H-HA    L-HA is not allowed.  HAAA assigns an H-HA.
+    1          -      L-HA is allowed.  No HAAA- or [LV]AAA-assigned HA.
+    1         L-HA    L-HA is allowed.  [LV]AAA also assigns an L-HA.
+    1         H-HA    L-HA is allowed.  HAAA also assigns an HA.
+    1         H-HA    L-HA is allowed.  HAAA assigns an H-HA and
+            + L-HA    [LV]AAA also assigns an L-HA.
+
+   An NAS should expect to receive multiple MIP6-Agent-Info AVPs.
+
+
+
+Korhonen, et al.            Standards Track                     [Page 9]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+5.  Examples
+
+5.1.  Home Agent Assignment by the NAS
+
+   In this scenario, we consider the case where the NAS wishes to
+   allocate a local HA to the MN.  The NAS will also inform the Diameter
+   server about the HA address it has assigned to the visiting MN (e.g.,
+   2001:db8:1:c020::1).  The Diameter-EAP-Request message, therefore,
+   has the MIP6-Feature-Vector with the LOCAL_HOME_AGENT_ASSIGNMENT and
+   the MIP6_INTEGRATED set.  The MIP6-Agent-Info AVP contains the MIP-
+   Home-Agent-Address AVP with the address of the proposed HA.
+
+                                                                Diameter
+   NAS/VAAA                                                       Server
+    |                                                                 |
+    |  Diameter-EAP-Request                                           |
+    |  MIP6-Feature-Vector=(LOCAL_HOME_AGENT_ASSIGNMENT               |
+    |                       | MIP6_INTEGRATED)                        |
+    |  MIP6-Agent-Info{                                               |
+    |       MIP-Home-Agent-Address(2001:db8:1:c020::1)}               |
+    |  }                                                              |
+    |  Auth-Request-Type=AUTHORIZE_AUTHENTICATE                       |
+    |  EAP-Payload(EAP Start)                                         |
+    |---------------------------------------------------------------->|
+    |                                                                 |
+    |                                                                 |
+    :              ...more EAP Request/Response pairs...              :
+    |                                                                 |
+    |                                                                 |
+    |                                            Diameter-EAP-Answer  |
+    |               MIP6-Feature-Vector=(LOCAL_HOME_AGENT_ASSIGNMENT  |
+    |                                    | MIP6_INTEGRATED)           |
+    |                                   Result-Code=DIAMETER_SUCCESS  |
+    |                                       EAP-Payload(EAP Success)  |
+    |                                         EAP-Master-Session-Key  |
+    |                                           (authorization AVPs)  |
+    |                                                           ...   |
+    |<----------------------------------------------------------------|
+    |                                                                 |
+
+                Figure 2: Home Agent Assignment by the NAS
+
+   Depending on the Diameter server's configuration and the user's
+   subscription profile, the Diameter server either accepts or rejects
+   the local HA allocated by the NAS.  In our example, the Diameter
+   server accepts the proposal, and the MIP6-Feature-Vector AVP with
+   LOCAL_HOME_AGENT_ASSIGNMENT flag (together with the MIP6_INTEGRATED
+   flag) is set and returned to the NAS.
+
+
+
+Korhonen, et al.            Standards Track                    [Page 10]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+5.2.  Home Agent Assignment by the Diameter Server
+
+   In this scenario, we consider the case where the NAS supports the
+   Diameter MIPv6 integrated scenario as defined in this document, but
+   does not offer local HA assignment.  Hence, the MIP6-Feature-Vector
+   AVP only has the MIP6_INTEGRATED flag set.  The Diameter server
+   allocates an HA to the mobile node and conveys the address in the
+   MIP-Home-Agent-Address AVP that is encapsulated in the MIP6-Agent-
+   Info AVP.  Additionally, the MIP6-Feature-Vector AVP has the
+   MIP6_INTEGRATED flag set.
+
+                                                                Diameter
+   NAS                                                            Server
+    |                                                                 |
+    |  Diameter-EAP-Request                                           |
+    |  MIP6-Feature-Vector=(MIP6_INTEGRATED)                          |
+    |  Auth-Request-Type=AUTHORIZE_AUTHENTICATE                       |
+    |  EAP-Payload(EAP Start)                                         |
+    |---------------------------------------------------------------->|
+    |                                                                 |
+    |                                                                 |
+    :              ...more EAP Request/Response pairs...              :
+    |                                                                 |
+    |                                                                 |
+    |                                            Diameter-EAP-Answer  |
+    |                                               MIP6-Agent-Info{  |
+    |            MIP-Home-Agent-Address(2001:db8:6000:302::1)         |
+    |                                                              }  |
+    |                          MIP6-Feature-Vector=(MIP6_INTEGRATED)  |
+    |                                   Result-Code=DIAMETER_SUCCESS  |
+    |                                       EAP-Payload(EAP Success)  |
+    |                                         EAP-Master-Session-Key  |
+    |                                           (authorization AVPs)  |
+    |                                                           ...   |
+    |<----------------------------------------------------------------|
+    |                                                                 |
+
+          Figure 3: Home Agent Assignment by the Diameter Server
+
+5.3.  Home Agent Assignment by the NAS or Diameter Server
+
+   This section shows another message flow for the MIPv6 integrated
+   scenario bootstrapping where the NAS informs the Diameter server that
+   it is able to locally assign an HA to the MN.  The Diameter server is
+   able to provide an HA to the MN but also authorizes the assignment of
+   the local HA.  The Diameter server then replies to the NAS with
+   HA-related bootstrapping information.
+
+
+
+
+Korhonen, et al.            Standards Track                    [Page 11]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   Whether the NAS/ASP then offers a locally assigned HA or the
+   Diameter-server-assigned HA to the MN is, in this example, based on
+   the local ASP policy.
+
+                                                                Diameter
+   NAS/VAAA                                                       Server
+    |                                                                 |
+    |  Diameter-EAP-Request                                           |
+    |  MIP6-Feature-Vector=(LOCAL_HOME_AGENT_ASSIGNMENT               |
+    |                       | MIP6_INTEGRATED)                        |
+    |  MIP6-Agent-Info{                                               |
+    |       MIP-Home-Agent-Address(2001:db8:1:c020::1)}               |
+    |  }                                                              |
+    |  Auth-Request-Type=AUTHORIZE_AUTHENTICATE                       |
+    |  EAP-Payload(EAP Start)                                         |
+    |---------------------------------------------------------------->|
+    |                                                                 |
+    |                                                                 |
+    :              ...more EAP Request/Response pairs...              :
+    |                                                                 |
+    |                                                                 |
+    |                                            Diameter-EAP-Answer  |
+    |                                               MIP6-Agent-Info{  |
+    |                  MIP-Home-Agent-Address(2001:db8:6000:302::1)}  |
+    |               MIP6-Feature-Vector=(LOCAL_HOME_AGENT_ASSIGNMENT  |
+    |                                    | MIP6_INTEGRATED)           |
+    |                                   Result-Code=DIAMETER_SUCCESS  |
+    |                                       EAP-Payload(EAP Success)  |
+    |                                         EAP-Master-Session-Key  |
+    |                                           (authorization AVPs)  |
+    |                                                           ...   |
+    |<----------------------------------------------------------------|
+    |                                                                 |
+
+       Figure 4: Home Agent Assignment by the NAS or Diameter Server
+
+   If the Diameter server does not allow the MN to use a locally
+   assigned HA, the Diameter server returns to the MN the MIP6-Feature-
+   Vector AVP with the LOCAL_HOME_AGENT_ASSIGNMENT bit unset and the HA
+   address it allocated.
+
+6.  Attribute-Value Pair Occurrence Tables
+
+   Figure 5 lists the MIPv6 bootstrapping NAS-to-HAAA interface AVPs
+   along with a specification determining how many of each new AVP may
+   be included in a Diameter command.  They may be present in any
+   Diameter application request and answer commands, where permitted by
+   the command ABNF.
+
+
+
+Korhonen, et al.            Standards Track                    [Page 12]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+                                     +-----------+
+                                     |  Command  |
+                                     |-----+-----+
+      Attribute Name                 | Req | Ans |
+      -------------------------------|-----+-----|
+      MIP6-Agent-Info                | 0+  | 0+  |
+      MIP6-Feature-Vector            | 0-1 | 0-1 |
+                                     +-----+-----+
+
+          Figure 5: Generic Request and Answer Commands AVP Table
+
+7.  IANA Considerations
+
+7.1.  Registration of New AVPs
+
+   This specification defines the following AVPs that have been
+   allocated from a normal Diameter AVP Code space (values >= 256):
+
+     MIP6-Agent-Info                is set to 486
+
+   The following new AVPs are to be allocated from RADIUS Attribute Type
+   space [RFC2865] so that they are RADIUS backward-compatible (AVP Code
+   values between 0-255):
+
+     MIP6-Feature-Vector            is set to 124
+     MIP6-Home-Link-Prefix          is set to 125
+
+7.2.  New Registry: Mobility Capability
+
+   IANA has created a new registry for the Mobility Capability as
+   described in Section 4.2.5.
+
+   Token                             | Value               | Description
+   ----------------------------------+---------------------+------------
+   MIP6_INTEGRATED                   | 0x0000000000000001  | [RFC5447]
+   LOCAL_HOME_AGENT_ASSIGNMENT       | 0x0000000000000002  | [RFC5447]
+   Available for Assignment via IANA | 2^x                 |
+
+   Allocation rule: Only numeric values that are 2^x (power of two,
+   where x >= 2) are allowed, based on the allocation policy described
+   below.
+
+   Following the example policies described in [RFC5226], new values for
+   the Mobility Capability Registry will be assigned based on the
+   "Specification Required" policy.  No mechanism to mark entries as
+   "deprecated" is envisioned.
+
+
+
+
+
+Korhonen, et al.            Standards Track                    [Page 13]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+8.  Security Considerations
+
+   The security considerations for the Diameter interaction required to
+   accomplish the integrated scenario are described in [INTEGRATED].
+   Additionally, the security considerations for the Diameter base
+   protocol [RFC3588], the Diameter NASREQ application [RFC4005], and
+   the Diameter EAP application (with respect to network access
+   authentication and the transport of keying material) [RFC4072] are
+   applicable to this document.  Developers should insure that special
+   attention is paid to configuring the security associations protecting
+   the messages that enable the global positioning and allocation of
+   home agents, for instance, as outlined in Section 5.
+
+   Furthermore, the Diameter messages may be transported between the NAS
+   and the Diameter server via one or more AAA brokers or Diameter
+   agents (such as proxies).  In this case, the AAA communication from
+   the NAS to the Diameter server relies on the security properties of
+   the intermediate AAA brokers and Diameter agents.
+
+9.  Acknowledgments
+
+   This document is heavily based on the ongoing work for RADIUS MIPv6
+   interaction.  Hence, credits go to respective authors for their work
+   with "RADIUS Mobile IPv6 Support" (November 2008).  Furthermore, the
+   authors of this document would like to thank the authors of "Diameter
+   Mobile IPv6 Application" (November 2004) -- Franck Le, Basavaraj
+   Patil, Charles E. Perkins, and Stefano Faccin -- for their work in
+   the context of MIPv6 Diameter interworking.  Their work influenced
+   this document.  Jouni Korhonen would like to thank the Academy of
+   Finland and TEKES MERCoNe Project for providing funding to work on
+   this document while he was with TeliaSonera.  Julien Bournelle would
+   like to thank GET/INT since he began to work on this document while
+   he was in their employ.  Authors would also like to acknowledge
+   Raymond Hsu for his valuable feedback on local HA assignment and
+   Wolfgang Fritsche for his thorough review.  Additionally, we would
+   like to Domagoj Premec for his review comments.
+
+   Finally, we would like to thank Alper Yegin, Robert Marks, and David
+   Frascone for their comments at the second WG Last Call.
+
+
+
+
+
+
+
+
+
+
+
+
+Korhonen, et al.            Standards Track                    [Page 14]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+10.  References
+
+10.1.  Normative References
+
+   [RFC2119]     Bradner, S., "Key words for use in RFCs to Indicate
+                 Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2865]     Rigney, C., Willens, S., Rubens, A., and W. Simpson,
+                 "Remote Authentication Dial In User Service (RADIUS)",
+                 RFC 2865, June 2000.
+
+   [RFC3588]     Calhoun, P., Loughney, J., Guttman, E., Zorn, G., and
+                 J. Arkko, "Diameter Base Protocol", RFC 3588,
+                 September 2003.
+
+   [RFC3775]     Johnson, D., Perkins, C., and J. Arkko, "Mobility
+                 Support in IPv6", RFC 3775, June 2004.
+
+   [RFC4004]     Calhoun, P., Johansson, T., Perkins, C., Hiller, T.,
+                 and P. McCann, "Diameter Mobile IPv4 Application",
+                 RFC 4004, August 2005.
+
+   [RFC4005]     Calhoun, P., Zorn, G., Spence, D., and D. Mitton,
+                 "Diameter Network Access Server Application", RFC 4005,
+                 August 2005.
+
+   [RFC4072]     Eronen, P., Hiller, T., and G. Zorn, "Diameter
+                 Extensible Authentication Protocol (EAP) Application",
+                 RFC 4072, August 2005.
+
+10.2.  Informative References
+
+   [AAA]         Giaretta, G., Guardini, I., Demaria, E., Bournelle, J.,
+                 and R. Lopez, "AAA Goals for Mobile IPv6", Work
+                 in Progress, May 2008.
+
+   [DSMIPv6]     Solimand, H., "Mobile IPv6 Support for Dual Stack Hosts
+                 and Routers (DSMIPv6)", Work in Progress,
+                 December 2008.
+
+   [INTEGRATED]  Chowdhury, K. and A. Yegin, "MIP6-bootstrapping for the
+                 Integrated Scenario", Work in Progress, April 2008.
+
+   [RFC3753]     Manner, J. and M. Kojo, "Mobility Related Terminology",
+                 RFC 3753, June 2004.
+
+
+
+
+
+
+Korhonen, et al.            Standards Track                    [Page 15]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+   [RFC4640]     Patel, A. and G. Giaretta, "Problem Statement for
+                 bootstrapping Mobile IPv6 (MIPv6)", RFC 4640,
+                 September 2006.
+
+   [RFC5026]     Giaretta, G., Kempf, J., and V. Devarapalli, "Mobile
+                 IPv6 Bootstrapping in Split Scenario", RFC 5026,
+                 October 2007.
+
+   [RFC5226]     Narten, T. and H. Alvestrand, "Guidelines for Writing
+                 an IANA Considerations Section in RFCs", BCP 26,
+                 RFC 5226, May 2008.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Korhonen, et al.            Standards Track                    [Page 16]
+
+RFC 5447         Diameter MIPv6 NAS-to-HAAA Interaction    February 2009
+
+
+Authors' Addresses
+
+   Jouni Korhonen (editor)
+   Nokia Siemens Networks
+   Linnoitustie 6
+   Espoo  FIN-02600
+   Finland
+
+   EMail: jouni.nospam@gmail.com
+
+
+   Julien Bournelle
+   Orange Labs
+   38-4O rue du general Leclerc
+   Issy-Les-Moulineaux  92794
+   France
+
+   EMail: julien.bournelle@orange-ftgroup.com
+
+
+   Hannes Tschofenig
+   Nokia Siemens Networks
+   Linnoitustie 6
+   Espoo  02600
+   Finland
+
+   EMail: Hannes.Tschofenig@nsn.com
+   URI:   http://www.tschofenig.priv.at
+
+
+   Charles E. Perkins
+   WiChorus Inc.
+   3590 North First St., Suite 300
+   San Jose, CA  95134
+   US
+
+   EMail: charliep@wichorus.com
+
+
+   Kuntal Chowdhury
+   Starent Networks
+   30 International Place
+   Tewksbury, MA  01876
+   US
+
+   EMail: kchowdhury@starentnetworks.com
+
+
+
+
+
+Korhonen, et al.            Standards Track                    [Page 17]
+

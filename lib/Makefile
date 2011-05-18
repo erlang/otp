@@ -28,8 +28,9 @@ ifeq ($(findstring vxworks,$(TARGET)),vxworks)
      snmp otp_mibs appmon erl_interface os_mon tools runtime_tools
   ifdef BUILD_ALL
     OTHER_SUB_DIRECTORIES += mnesia jinterface ic asn1 debugger \
-	inets mnesia_session orber pman tv observer cosTransactions cosEvent \
-      cosTime cosNotification cosProperty cosFileTransfer cosEventDomain
+	inets mnesia_session diameter orber pman tv observer \
+	cosTransactions cosEvent cosTime cosNotification cosProperty 
+	cosFileTransfer cosEventDomain
   endif
 else
   ifeq ($(findstring ose,$(TARGET)),ose)
@@ -57,7 +58,8 @@ else
         OTHER_SUB_DIRECTORIES += 			\
           snmp otp_mibs appmon erl_interface asn1 jinterface gs wx inets ic \
           mnesia crypto orber os_mon parsetools syntax_tools pman \
-          public_key ssl toolbar tv observer debugger reltool odbc runtime_tools \
+          public_key ssl toolbar tv observer debugger reltool odbc \
+          runtime_tools diameter \
           cosTransactions cosEvent cosTime cosNotification cosProperty \
           cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
@@ -68,7 +70,8 @@ else
           snmp otp_mibs appmon erl_interface asn1 jinterface wx debugger reltool gs inets \
           ic mnesia crypto orber os_mon parsetools syntax_tools \
           pman public_key ssl toolbar tv observer odbc \
-          runtime_tools cosTransactions cosEvent cosTime cosNotification \
+          runtime_tools diameter \
+          cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
 # dialyzer
