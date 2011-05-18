@@ -94,7 +94,7 @@
       <type>
         <v>Regexp = iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
 	<v>Options = [ Option ]</v>
-	<v>Option = unicode | anchored | caseless | dollar_endonly | dotall | extended | firstline | multiline | no_auto_capture | dupnames | ungreedy | {newline, NLSpec}| bsr_anycrlf | bsr_unicode</v>
+	<v>Option = <seealso marker="#type-compile_option">compile_option()</seealso></v>
 	<v>NLSpec = <seealso marker="#type-nl_spec">nl_spec()</seealso></v>
 	<v>MP = <seealso marker="#type-mp">mp()</seealso></v>
 	<v>ErrSpec = {ErrString, Position}</v>
@@ -170,7 +170,7 @@ This option makes it possible to include comments inside complicated patterns. N
       <fsummary>Match a subject against regular expression and capture subpatterns</fsummary>
       <type>
 	<v>Subject = iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
-        <v>RE = <seealso marker="#type-mp">mp()</seealso> | iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
+        <v>RE = <seealso marker="#type-mp">mp()</seealso> | iodata()</v>
 	<v>Captured = [ CaptureData ]</v>
 	<v>CaptureData = {integer(),integer()}</v>
       </type>
