@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,13 +26,11 @@
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
 
-fin_per_testcase(Func, Conf) ->
-    mnesia_test_lib:fin_per_testcase(Func, Conf).
+end_per_testcase(Func, Conf) ->
+    mnesia_test_lib:end_per_testcase(Func, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-all(doc) ->
-    ["Verify that majority checking works"];
-all(suite) ->
+all() ->
     [
      write
      , wread
@@ -45,7 +43,7 @@ all(suite) ->
 
 write(suite) -> [];
 write(Config) when is_list(Config) ->
-    [N1, N2, N3] = Nodes = ?acquire_nodes(3, Config),
+    [N1, N2, N3] = ?acquire_nodes(3, Config),
     Tab = t,
     Schema = [{name, Tab}, {ram_copies, [N1,N2,N3]}, {majority,true}],
     ?match({atomic, ok}, mnesia:create_table(Schema)),
@@ -62,7 +60,7 @@ write(Config) when is_list(Config) ->
 
 wread(suite) -> [];
 wread(Config) when is_list(Config) ->
-    [N1, N2] = Nodes = ?acquire_nodes(2, Config),
+    [N1, N2] = ?acquire_nodes(2, Config),
     Tab = t,
     Schema = [{name, Tab}, {ram_copies, [N1,N2]}, {majority,true}],
     ?match({atomic, ok}, mnesia:create_table(Schema)),
@@ -76,7 +74,7 @@ wread(Config) when is_list(Config) ->
 
 delete(suite) -> [];
 delete(Config) when is_list(Config) ->
-    [N1, N2] = Nodes = ?acquire_nodes(2, Config),
+    [N1, N2] = ?acquire_nodes(2, Config),
     Tab = t,
     Schema = [{name, Tab}, {ram_copies, [N1,N2]}, {majority,true}],
     ?match({atomic, ok}, mnesia:create_table(Schema)),
@@ -100,7 +98,7 @@ delete(Config) when is_list(Config) ->
 
 clear_table(suite) -> [];
 clear_table(Config) when is_list(Config) ->
-    [N1, N2] = Nodes = ?acquire_nodes(2, Config),
+    [N1, N2] = ?acquire_nodes(2, Config),
     Tab = t,
     Schema = [{name, Tab}, {ram_copies, [N1,N2]}, {majority,true}],
     ?match({atomic, ok}, mnesia:create_table(Schema)),
@@ -122,7 +120,7 @@ clear_table(Config) when is_list(Config) ->
 
 frag(suite) -> [];
 frag(Config) when is_list(Config) ->
-    [N1] = Nodes = ?acquire_nodes(1, Config),
+    [N1] = ?acquire_nodes(1, Config),
     Tab = t,
     Schema = [
 	      {name, Tab}, {ram_copies, [N1]},
@@ -135,7 +133,7 @@ frag(Config) when is_list(Config) ->
 
 change_majority(suite) -> [];
 change_majority(Config) when is_list(Config) ->
-    [N1,N2] = Nodes = ?acquire_nodes(2, Config),
+    [N1,N2] = ?acquire_nodes(2, Config),
     Tab = t,
     Schema = [
 	      {name, Tab}, {ram_copies, [N1,N2]},
@@ -158,7 +156,7 @@ change_majority(Config) when is_list(Config) ->
 
 frag_change_majority(suite) -> [];
 frag_change_majority(Config) when is_list(Config) ->
-    [N1,N2] = Nodes = ?acquire_nodes(2, Config),
+    [N1,N2] = ?acquire_nodes(2, Config),
     Tab = t,
     Schema = [
 	      {name, Tab}, {ram_copies, [N1,N2]},
