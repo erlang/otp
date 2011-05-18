@@ -394,6 +394,7 @@ int main(int argc, char **argv)
     int print_args_exit = 0;
     int print_qouted_cmd_exit = 0;
     erts_cpu_info_t *cpuinfo = NULL;
+    char* emu_name;
 
 #ifdef __WIN32__
     this_module_handle = module;
@@ -566,6 +567,7 @@ int main(int argc, char **argv)
 	    usage("+MYm");
     }
     emu = add_extra_suffixes(emu, emu_type);
+    emu_name = strsave(emu);
     erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
     emu = strsave(tmpStr);
 
@@ -682,6 +684,9 @@ int main(int argc, char **argv)
 			verbose = 1;
 		    } else if (strcmp(argv[i], "-emu_args_exit") == 0) {
 			print_args_exit = 1;
+		    } else if (strcmp(argv[i], "-emu_name_exit") == 0) {
+			printf("%s\n", emu_name);
+			exit(0);
 		    } else if (strcmp(argv[i], "-emu_qouted_cmd_exit") == 0) {
 			print_qouted_cmd_exit = 1;
 		    } else if (strcmp(argv[i], "-env") == 0) { /* -env VARNAME VARVALUE */
@@ -1970,6 +1975,11 @@ initial_argv_massage(int *argc, char ***argv)
      */
 
     vix = 0;
+
+    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
+    if (av)
+	avv[vix++].argv = av;
+
     av = build_args_from_env("ERL_AFLAGS");
     if (av)
 	avv[vix++].argv = av;
@@ -1981,10 +1991,6 @@ initial_argv_massage(int *argc, char ***argv)
     }
 
     av = build_args_from_env("ERL_FLAGS");
-    if (av)
-	avv[vix++].argv = av;
-
-    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
     if (av)
 	avv[vix++].argv = av;
 

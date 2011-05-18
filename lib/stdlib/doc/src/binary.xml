@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2010</year>
+      <year>2011</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -53,37 +53,35 @@
       module.
       </p>
     </note>
-
-
   </description>
-  <section>
-      <title>DATA TYPES</title>
-      <code type="none">
-    cp()
-     - Opaque data-type representing a compiled search-pattern. Guaranteed to be a tuple()
-       to allow programs to distinguish it from non precompiled search patterns.
-      </code>
-      <code type="none">
-    part() = {Start,Length}
-    Start = int()
-    Length = int()
-      - A representaion of a part (or range) in a binary. Start is a
+  <datatypes>
+    <datatype>
+      <name name="cp"/>
+      <desc><p>Opaque data-type representing a compiled
+        search-pattern. Guaranteed to be a tuple() to allow programs to
+        distinguish it from non precompiled search patterns.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="part"/>
+      <desc><p>A representaion of a part (or range) in a binary. Start is a
         zero-based offset into a binary() and Length is the length of
         that part. As input to functions in this module, a reverse
         part specification is allowed, constructed with a negative
         Length, so that the part of the binary begins at Start +
         Length and is -Length long. This is useful for referencing the
         last N bytes of a binary as {size(Binary), -N}. The functions
-        in this module always return part()'s with positive Length.
-      </code>
-  </section>
+        in this module always return part()'s with positive Length.</p>
+      </desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>at(Subject, Pos) -> int()</name>
+      <name>at(Subject, Pos) -> byte()</name>
       <fsummary>Returns the byte at a specific position in a binary</fsummary>
       <type>
         <v>Subject = binary()</v>
-        <v>Pos = int() >= 0</v>
+        <v>Pos = integer() >= 0</v>
       </type>
       <desc>
 
@@ -95,7 +93,7 @@
       </desc>
     </func>
     <func>
-      <name>bin_to_list(Subject) -> list()</name>
+      <name>bin_to_list(Subject) -> [byte()]</name>
       <fsummary>Convert a binary to a list of integers</fsummary>
       <type>
         <v>Subject = binary()</v>
@@ -105,7 +103,7 @@
       </desc>
     </func>
     <func>
-      <name>bin_to_list(Subject, PosLen) -> list()</name>
+      <name>bin_to_list(Subject, PosLen) -> [byte()]</name>
       <fsummary>Convert a binary to a list of integers</fsummary>
       <type>
         <v>Subject = binary()</v>
@@ -113,7 +111,7 @@
       </type>
       <desc>
 
-      <p>Converts <c>Subject</c> to a list of <c>int()</c>s, each representing
+      <p>Converts <c>Subject</c> to a list of <c>byte()</c>s, each representing
       the value of one byte. The <c>part()</c> denotes which part of the
       <c>binary()</c> to convert. Example:</p>
 
@@ -126,12 +124,12 @@
       </desc>
     </func>
     <func>
-      <name>bin_to_list(Subject, Pos, Len) -> list()</name>
+      <name>bin_to_list(Subject, Pos, Len) -> [byte()]</name>
       <fsummary>Convert a binary to a list of integers</fsummary>
       <type>
         <v>Subject = binary()</v>
-        <v>Pos = int()</v>
-        <v>Len = int()</v>
+        <v>Pos = integer() >= 0</v>
+        <v>Len = integer() >= 0</v>
       </type>
       <desc>
       <p>The same as<c> bin_to_list(Subject,{Pos,Len})</c>.</p>
@@ -185,7 +183,7 @@
       <fsummary>Duplicates a binary N times and creates a new</fsummary>
       <type>
         <v>Subject = binary()</v>
-        <v>N = int() >= 0</v>
+        <v>N = integer() >= 0</v>
       </type>
       <desc>
       <p>Creates a binary with the content of <c>Subject</c> duplicated <c>N</c> times.</p>
@@ -211,7 +209,7 @@
       <fsummary>Decode a whole binary into an integer of arbitrary size</fsummary>
       <type>
         <v>Subject = binary()</v>
-        <v>Unsigned = int() >= 0</v>
+        <v>Unsigned = integer() >= 0</v>
       </type>
       <desc>
       <p>The same as <c>decode_unsigned(Subject,big)</c>.</p>
@@ -223,12 +221,12 @@
       <type>
         <v>Subject = binary()</v>
         <v>Endianess = big | little</v>
-        <v>Unsigned = int() >= 0</v>
+        <v>Unsigned = integer() >= 0</v>
       </type>
       <desc>
 
       <p>Converts the binary digit representation, in big or little
-      endian, of a positive integer in <c>Subject</c> to an Erlang <c>int()</c>.</p>
+      endian, of a positive integer in <c>Subject</c> to an Erlang <c>integer()</c>.</p>
 
       <p>Example:</p>
 
@@ -242,7 +240,7 @@
       <name>encode_unsigned(Unsigned) -> binary()</name>
       <fsummary>Encodes an unsigned integer into the minimal binary</fsummary>
       <type>
-        <v>Unsigned = int() >= 0</v>
+        <v>Unsigned = integer() >= 0</v>
       </type>
       <desc>
       <p>The same as <c>encode_unsigned(Unsigned,big)</c>.</p>
@@ -252,7 +250,7 @@
       <name>encode_unsigned(Unsigned,Endianess) -> binary()</name>
       <fsummary>Encodes an unsigned integer into the minimal binary</fsummary>
       <type>
-        <v>Unsigned = int() >= 0</v>
+        <v>Unsigned = integer() >= 0</v>
         <v>Endianess = big | little</v>
       </type>
       <desc>
@@ -270,7 +268,7 @@
       </desc>
     </func>
     <func>
-      <name>first(Subject) -> int()</name>
+      <name>first(Subject) -> byte()</name>
       <fsummary>Returns the first byte of a binary</fsummary>
       <type>
         <v>Subject = binary()</v>
@@ -283,7 +281,7 @@
       </desc>
     </func>
     <func>
-      <name>last(Subject) -> int()</name>
+      <name>last(Subject) -> byte()</name>
       <fsummary>Returns the last byte of a binary</fsummary>
       <type>
         <v>Subject = binary()</v>
@@ -306,7 +304,7 @@
       </desc>
     </func>
     <func>
-      <name>longest_common_prefix(Binaries) -> int()</name>
+      <name>longest_common_prefix(Binaries) -> integer() >= 0</name>
       <fsummary>Returns length of longest common prefix for a set of binaries</fsummary>
       <type>
         <v>Binaries = [ binary() ]</v>
@@ -327,7 +325,7 @@
       </desc>
     </func>
     <func>
-      <name>longest_common_suffix(Binaries) -> int()</name>
+      <name>longest_common_suffix(Binaries) -> integer() >= 0</name>
       <fsummary>Returns length of longest common suffix for a set of binaries</fsummary>
       <type>
         <v>Binaries = [ binary() ]</v>
@@ -450,7 +448,7 @@
 [{1,4}]
 </code>
 
-       <p>The result shows that &lt;&lt;bcde"&gt;&gt; is selected instead of the
+       <p>The result shows that &lt;&lt;"bcde"&gt;&gt; is selected instead of the
        shorter match &lt;&lt;"bc"&gt;&gt; (which would have given raise to one
        more match,&lt;&lt;"de"&gt;&gt;). This corresponds to the behavior of posix
        regular expressions (and programs like awk), but is not
@@ -506,15 +504,15 @@
       <fsummary>Extracts a part of a binary</fsummary>
       <type>
         <v>Subject = binary()</v>
-        <v>Pos = int()</v>
-        <v>Len = int()</v>
+        <v>Pos = integer() >= 0</v>
+        <v>Len = integer() >= 0</v>
       </type>
       <desc>
       <p>The same as <c>part(Subject, {Pos, Len})</c>.</p>
       </desc>
     </func>
     <func>
-      <name>referenced_byte_size(binary()) -> int()</name>
+      <name>referenced_byte_size(binary()) -> integer() >= 0</name>
       <fsummary>Determines the size of the actual binary pointed out by a sub-binary</fsummary>
       <desc>
 
@@ -581,42 +579,28 @@ store(Binary, GBSet) ->
       </desc>
     </func>
     <func>
-      <name>replace(Subject,Pattern,Replacement) -> Result</name>
+      <name name="replace" arity="3"/>
       <fsummary>Replaces bytes in a binary according to a pattern</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pattern = binary() | [ binary() ] | cp()</v>
-        <v>Replacement = binary()</v>
-        <v>Result = binary()</v>
-      </type>
       <desc>
-      <p>The same as <c>replace(Subject,Pattern,Replacement,[])</c>.</p>
+      <p>The same as <c>replace(<anno>Subject</anno>,<anno>Pattern</anno>,<anno>Replacement</anno>,[])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>replace(Subject,Pattern,Replacement,Options) -> Result</name>
+      <name name="replace" arity="4"/>
       <fsummary>Replaces bytes in a binary according to a pattern</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pattern = binary() | [ binary() ] | cp()</v>
-        <v>Replacement = binary()</v>
-        <v>Result = binary()</v>
-        <v>Options = [ Option ]</v>
-        <v>Option = global | {scope, part()} | {insert_replaced, InsPos}</v>
-        <v>InsPos = OnePos | [ OnePos ]</v>
-        <v>OnePos = int() =&lt; byte_size(Replacement)</v>
-      </type>
+      <type_desc variable="OnePos">An integer() =&lt; byte_size(<anno>Replacement</anno>)
+      </type_desc>
       <desc>
 
       <p>Constructs a new binary by replacing the parts in
-      <c>Subject</c> matching <c>Pattern</c> with the content of
-      <c>Replacement</c>.</p>
+      <c><anno>Subject</anno></c> matching <c><anno>Pattern</anno></c> with the content of
+      <c><anno>Replacement</anno></c>.</p>
 
-      <p>If the matching sub-part of <c>Subject</c> giving raise to the
+      <p>If the matching sub-part of <c><anno>Subject</anno></c> giving raise to the
       replacement is to be inserted in the result, the option
-      <c>{insert_replaced, InsPos}</c> will insert the matching part into
-      <c>Replacement</c> at the given position (or positions) before actually
-      inserting <c>Replacement</c> into the <c>Subject</c>. Example:</p>
+      <c>{insert_replaced, <anno>InsPos</anno>}</c> will insert the matching part into
+      <c><anno>Replacement</anno></c> at the given position (or positions) before actually
+      inserting <c><anno>Replacement</anno></c> into the <c><anno>Subject</anno></c>. Example:</p>
 
 <code>
 1> binary:replace(&lt;&lt;"abcde"&gt;&gt;,&lt;&lt;"b"&gt;&gt;,&lt;&lt;"[]"&gt;&gt;,[{insert_replaced,1}]).
@@ -632,42 +616,30 @@ store(Binary, GBSet) ->
 &lt;&lt;"a[b-b]c[d-d]e"&gt;&gt;
 </code>
 
-        <p>If any position given in <c>InsPos</c> is greater than the size of the replacement binary, a <c>badarg</c> exception is raised.</p>
+        <p>If any position given in <c><anno>InsPos</anno></c> is greater than the size of the replacement binary, a <c>badarg</c> exception is raised.</p>
 
 	<p>The options <c>global</c> and <c>{scope, part()}</c> work as for <seealso marker="#split-3">split/3</seealso>. The return type is always a <c>binary()</c>.</p>
 
-	<p>For a description of <c>Pattern</c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso>.</p>
+	<p>For a description of <c><anno>Pattern</anno></c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>split(Subject,Pattern) -> Parts</name>
+      <name name="split" arity="2"/>
       <fsummary>Splits a binary according to a pattern</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pattern = binary() | [ binary() ] | cp()</v>
-        <v>Parts = [ binary() ]</v>
-      </type>
       <desc>
-      <p>The same as <c>split(Subject, Pattern, [])</c>.</p>
+      <p>The same as <c>split(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>split(Subject,Pattern,Options) -> Parts</name>
+      <name name="split" arity="3"/>
       <fsummary>Splits a binary according to a pattern</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pattern = binary() | [ binary() ] | cp()</v>
-        <v>Parts = [ binary() ]</v>
-        <v>Options = [ Option ]</v>
-        <v>Option = {scope, part()} | trim | global</v>
-      </type>
       <desc>
 
-      <p>Splits Binary into a list of binaries based on Pattern. If
+      <p>Splits <c><anno>Subject</anno></c> into a list of binaries based on <c><anno>Pattern</anno></c>. If
       the option global is not given, only the first occurrence of
-      Pattern in Subject will give rise to a split.</p>
+      <c><anno>Pattern</anno></c> in <c><anno>Subject</anno></c> will give rise to a split.</p>
 
-      <p>The parts of Pattern actually found in Subject are not included in the result.</p>
+      <p>The parts of <c><anno>Pattern</anno></c> actually found in <c><anno>Subject</anno></c> are not included in the result.</p>
 
       <p>Example:</p>
 
@@ -696,7 +668,7 @@ store(Binary, GBSet) ->
 
       <tag>global</tag>
 
-      <item><p>Repeats the split until the <c>Subject</c> is
+      <item><p>Repeats the split until the <c><anno>Subject</anno></c> is
       exhausted. Conceptually the global option makes split work on
       the positions returned by <seealso marker="#matches-3">matches/3</seealso>,
       while it normally
@@ -716,12 +688,12 @@ store(Binary, GBSet) ->
 </code>
 
       <p>The return type is always a list of binaries that are all
-      referencing <c>Subject</c>. This means that the data in <c>Subject</c> is not
-      actually copied to new binaries and that <c>Subject</c> cannot be
+      referencing <c><anno>Subject</anno></c>. This means that the data in <c><anno>Subject</anno></c> is not
+      actually copied to new binaries and that <c><anno>Subject</anno></c> cannot be
       garbage collected until the results of the split are no longer
       referenced.</p>
 
-      <p>For a description of <c>Pattern</c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso>.</p>
+      <p>For a description of <c><anno>Pattern</anno></c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso>.</p>
 
       </desc>
     </func>

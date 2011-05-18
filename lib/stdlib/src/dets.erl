@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -97,10 +97,6 @@
 
 -include("dets.hrl").
 
--type object()   :: tuple().
--type pattern()  :: atom() | tuple().
--type tab_name() :: atom() | reference().
-
 %%% This is the implementation of the mnesia file storage. Each (non
 %%% ram-copy) table is maintained in a corresponding .DAT file. The
 %%% dat file is organized as a segmented linear hashlist. The head of
@@ -179,6 +175,21 @@
 %%-define(PROFILE(C), C).
 -define(PROFILE(C), void).
 
+-type access()    :: 'read' | 'read_write'.
+-type auto_save() :: 'infinity' | non_neg_integer().
+-opaque bindings_cont() :: #dets_cont{}.
+-opaque cont()    :: #dets_cont{}.
+-type keypos()    :: pos_integer().
+-type match_spec()  :: ets:match_spec().
+-type object()    :: tuple().
+-type no_slots()  :: non_neg_integer() | 'default'.
+-opaque object_cont() :: #dets_cont{}.
+-type pattern()   :: atom() | tuple().
+-opaque select_cont() :: #dets_cont{}.
+-type tab_name() :: term().
+-type type()      :: 'bag' | 'duplicate_bag' | 'set'.
+-type version()   :: 8 | 9 | 'default'.
+
 %%% Some further debug code was added in R12B-1 (stdlib-1.15.1):
 %%% - there is a new open_file() option 'debug';
 %%% - there is a new OS environment variable 'DETS_DEBUG';
@@ -203,9 +214,13 @@ add_user(Pid, Tab, Args) ->
 all() ->
     dets_server:all().
 
--type cont() :: #dets_cont{}.
--spec bchunk(tab_name(), 'start' | cont()) ->
-    {cont(), binary() | tuple()} | '$end_of_table' | {'error', term()}.
+-spec bchunk(Name, Continuation) ->
+    {Continuation2, Data} | '$end_of_table' | {'error', Reason} when
+      Name :: tab_name(),
+      Continuation :: 'start' | cont(),
+      Continuation2 :: cont(),
+      Data :: binary() | tuple(),
+      Reason :: term().
 
 bchunk(Tab, start) ->
     badarg(treq(Tab, {bchunk_init, Tab}), [Tab, start]);
@@ -214,7 +229,9 @@ bchunk(Tab, #dets_cont{what = bchunk, tab = Tab} = State) ->
 bchunk(Tab, Term) ->
     erlang:error(badarg, [Tab, Term]).
 
--spec close(tab_name()) -> 'ok' | {'error', term()}.
+-spec close(Name) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Reason :: term().
 
 close(Tab) ->  
     case dets_server:close(Tab) of
@@ -224,12 +241,17 @@ close(Tab) ->
             Reply
     end.
 
--spec delete(tab_name(), term()) -> 'ok' | {'error', term()}.
+-spec delete(Name, Key) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Key :: term(),
+      Reason :: term().
 
 delete(Tab, Key) ->
     badarg(treq(Tab, {delete_key, [Key]}), [Tab, Key]).
 
--spec delete_all_objects(tab_name()) -> 'ok' | {'error', term()}.
+-spec delete_all_objects(Name) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Reason :: term().
 
 delete_all_objects(Tab) ->
     case treq(Tab, delete_all_objects) of
@@ -241,7 +263,10 @@ delete_all_objects(Tab) ->
 	    Reply
     end.
 
--spec delete_object(tab_name(), object()) -> 'ok' | {'error', term()}.
+-spec delete_object(Name, Object) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Object :: object(),
+      Reason :: term().
 
 delete_object(Tab, O) ->
     badarg(treq(Tab, {delete_object, [O]}), [Tab, O]).
@@ -264,23 +289,42 @@ fsck(Fname, Version) ->
       end
     end.
 
--spec first(tab_name()) -> term() | '$end_of_table'.
+-spec first(Name) -> Key | '$end_of_table' when
+      Name :: tab_name(),
+      Key :: term().
 
 first(Tab) ->
     badarg_exit(treq(Tab, first), [Tab]).
 
--spec foldr(fun((object(), Acc) -> Acc), Acc, tab_name()) -> Acc | {'error', term()}.
+-spec foldr(Function, Acc0, Name) -> Acc | {'error', Reason} when
+      Name :: tab_name(),
+      Function :: fun((Object :: object(), AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Reason :: term().
 
 foldr(Fun, Acc, Tab) ->
     foldl(Fun, Acc, Tab).
 
--spec foldl(fun((object(), Acc) -> Acc), Acc, tab_name()) -> Acc | {'error', term()}.
+-spec foldl(Function, Acc0, Name) -> Acc | {'error', Reason} when
+      Name :: tab_name(),
+      Function :: fun((Object :: object(), AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc :: term(),
+      AccIn :: term(),
+      AccOut :: term(),
+      Reason :: term().
 
 foldl(Fun, Acc, Tab) ->
     Ref = make_ref(),
     do_traverse(Fun, Acc, Tab, Ref).
 
--spec from_ets(tab_name(), ets:tab()) -> 'ok' | {'error', term()}.
+-spec from_ets(Name, EtsTab) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      EtsTab :: ets:tab(),
+      Reason :: term().
 
 from_ets(DTab, ETab) ->
     ets:safe_fixtable(ETab, true),
@@ -304,6 +348,15 @@ from_ets_fun(LC, ETab) ->
             {L, from_ets_fun(ets:select(C), ETab)}
     end.
 
+-spec info(Name) -> InfoList | 'undefined' when
+      Name :: tab_name(),
+      InfoList :: [InfoTuple],
+      InfoTuple :: {'file_size', non_neg_integer()}
+                 | {'filename', file:name()}
+                 | {'keypos', keypos()}
+                 | {'size', non_neg_integer()}
+                 | {'type', type()}.
+
 info(Tab) ->
     case catch dets_server:get_pid(Tab) of
 	{'EXIT', _Reason} ->
@@ -311,6 +364,14 @@ info(Tab) ->
 	Pid ->
 	    undefined(req(Pid, info))
     end.
+
+-spec info(Name, Item) -> Value | 'undefined' when
+      Name :: tab_name(),
+      Item :: 'access' | 'auto_save' | 'bchunk_format'
+            | 'hash' | 'file_size' | 'filename' | 'keypos' | 'memory'
+            | 'no_keys' | 'no_objects' | 'no_slots' | 'owner' | 'ram_file'
+            | 'safe_fixed' | 'size' | 'type' | 'version',
+      Value :: term().
 
 info(Tab, owner) ->
     case catch dets_server:get_pid(Tab) of
@@ -334,8 +395,25 @@ info(Tab, Tag) ->
 	    undefined(req(Pid, {info, Tag}))
     end.
 
+-spec init_table(Name, InitFun) -> ok | {'error', Reason} when
+      Name :: tab_name(),
+      InitFun :: fun((Arg) -> Res),
+      Arg :: read | close,
+      Res :: end_of_input | {[object()], InitFun} | {Data, InitFun} | term(),
+      Reason :: term(),
+      Data :: binary() | tuple().
+
 init_table(Tab, InitFun) ->
     init_table(Tab, InitFun, []).
+
+-spec init_table(Name, InitFun, Options) -> ok | {'error', Reason} when
+      Name :: tab_name(),
+      InitFun :: fun((Arg) -> Res),
+      Arg :: read | close,
+      Res :: end_of_input | {[object()], InitFun} | {Data, InitFun} | term(),
+      Options :: [{min_no_slots,no_slots()} | {format,term | bchunk}],
+      Reason :: term(),
+      Data :: binary() | tuple().
 
 init_table(Tab, InitFun, Options) when is_function(InitFun) ->
     case options(Options, [format, min_no_slots]) of
@@ -350,10 +428,19 @@ init_table(Tab, InitFun, Options) when is_function(InitFun) ->
 init_table(Tab, InitFun, Options) ->
     erlang:error(badarg, [Tab, InitFun, Options]).
 
+-spec insert(Name, Objects) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Objects :: object() | [object()],
+      Reason :: term().
+
 insert(Tab, Objs) when is_list(Objs) ->
     badarg(treq(Tab, {insert, Objs}), [Tab, Objs]);
 insert(Tab, Obj) ->
     badarg(treq(Tab, {insert, [Obj]}), [Tab, Obj]).
+
+-spec insert_new(Name, Objects) -> boolean() when
+      Name :: tab_name(),
+      Objects :: object() | [object()].
 
 insert_new(Tab, Objs) when is_list(Objs) ->
     badarg(treq(Tab, {insert_new, Objs}), [Tab, Objs]);
@@ -366,8 +453,16 @@ internal_close(Pid) ->
 internal_open(Pid, Ref, Args) ->
     req(Pid, {internal_open, Ref, Args}).
 
+-spec is_compatible_bchunk_format(Name, BchunkFormat) -> boolean() when
+      Name :: tab_name(),
+      BchunkFormat :: binary().
+
 is_compatible_bchunk_format(Tab, Term) ->
     badarg(treq(Tab, {is_compatible_bchunk_format, Term}), [Tab, Term]).
+
+-spec is_dets_file(Filename) -> boolean() | {'error', Reason} when
+      Filename :: file:name(),
+      Reason :: term().
 
 is_dets_file(FileName) ->
     case catch read_file_header(FileName, read, false) of
@@ -382,6 +477,12 @@ is_dets_file(FileName) ->
 	    Other
     end.
 
+-spec lookup(Name, Key) -> Objects | {'error', Reason} when
+      Name :: tab_name(),
+      Key :: term(),
+      Objects :: [object()],
+      Reason :: term().
+
 lookup(Tab, Key) ->
     badarg(treq(Tab, {lookup_keys, [Key]}), [Tab, Key]).
 
@@ -394,19 +495,43 @@ lookup_keys(Tab, Keys) ->
 	    erlang:error(badarg, [Tab, Keys])
     end.
 
+-spec match(Name, Pattern) -> [Match] | {'error', Reason} when
+      Name :: tab_name(),
+      Pattern :: pattern(),
+      Match :: [term()],
+      Reason :: term().
+
 match(Tab, Pat) ->
     badarg(safe_match(Tab, Pat, bindings), [Tab, Pat]).
+
+-spec match(Name, Pattern, N) ->
+          {[Match], Continuation} | '$end_of_table' | {'error', Reason} when
+      Name :: tab_name(),
+      Pattern :: pattern(),
+      N :: 'default' | non_neg_integer(),
+      Continuation :: bindings_cont(),
+      Match :: [term()],
+      Reason :: term().
 
 match(Tab, Pat, N) ->
     badarg(init_chunk_match(Tab, Pat, bindings, N), [Tab, Pat, N]).
     
+-spec match(Continuation) ->
+          {[Match], Continuation2} | '$end_of_table' | {'error', Reason} when
+      Continuation :: bindings_cont(),
+      Continuation2 :: bindings_cont(),
+      Match :: [term()],
+      Reason :: term().
+
 match(State) when State#dets_cont.what =:= bindings ->
     badarg(chunk_match(State), [State]);
 match(Term) ->
     erlang:error(badarg, [Term]).
 
--spec match_delete(tab_name(), pattern()) ->
-	non_neg_integer() | 'ok' | {'error', term()}.
+-spec match_delete(Name, Pattern) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Pattern :: pattern(),
+      Reason :: term().
 
 match_delete(Tab, Pat) ->
     badarg(match_delete(Tab, Pat, delete), [Tab, Pat]).
@@ -434,22 +559,59 @@ do_match_delete(Tab, _Proc, Error, _What, _N) ->
     safe_fixtable(Tab, false),
     Error.
 
+-spec match_object(Name, Pattern) -> Objects | {'error', Reason} when
+      Name :: tab_name(),
+      Pattern :: pattern(),
+      Objects :: [object()],
+      Reason :: term().
+
 match_object(Tab, Pat) ->
     badarg(safe_match(Tab, Pat, object), [Tab, Pat]).
+
+-spec match_object(Name, Pattern, N) ->
+           {Objects, Continuation} | '$end_of_table' | {'error', Reason} when
+      Name :: tab_name(),
+      Pattern :: pattern(),
+      N :: 'default' | non_neg_integer(),
+      Continuation :: object_cont(),
+      Objects :: [object()],
+      Reason :: term().
 
 match_object(Tab, Pat, N) ->
     badarg(init_chunk_match(Tab, Pat, object, N), [Tab, Pat, N]).
     
+-spec match_object(Continuation) ->
+           {Objects, Continuation2} | '$end_of_table' | {'error', Reason} when
+      Continuation :: object_cont(),
+      Continuation2 :: object_cont(),
+      Objects :: [object()],
+      Reason :: term().
+
 match_object(State) when State#dets_cont.what =:= object ->
     badarg(chunk_match(State), [State]);
 match_object(Term) ->
     erlang:error(badarg, [Term]).
 
+-spec member(Name, Key) -> boolean() | {'error', Reason} when
+      Name :: tab_name(),
+      Key :: term(),
+      Reason :: term().
+
 member(Tab, Key) ->
     badarg(treq(Tab, {member, Key}), [Tab, Key]).    
 
+-spec next(Name, Key1) -> Key2 | '$end_of_table' when
+      Name :: tab_name(),
+      Key1 :: term(),
+      Key2 :: term().
+
 next(Tab, Key) ->
     badarg_exit(treq(Tab, {next, Key}), [Tab, Key]).
+
+-spec open_file(Filename) -> {'ok', Reference} | {'error', Reason} when
+      Filename :: file:name(),
+      Reference :: reference(),
+      Reason :: term().
 
 %% Assuming that a file already exists, open it with the
 %% parameters as already specified in the file itself.
@@ -461,6 +623,22 @@ open_file(File) ->
         Reply -> 
             einval(Reply, [File])
     end.
+
+-spec open_file(Name, Args) -> {'ok', Name} | {'error', Reason} when
+      Name :: tab_name(),
+      Args :: [OpenArg],
+      OpenArg  :: {'access', access()}
+                | {'auto_save', auto_save()}
+                | {'estimated_no_objects', non_neg_integer()}
+                | {'file', file:name()}
+                | {'max_no_slots', no_slots()}
+                | {'min_no_slots', no_slots()}
+                | {'keypos', keypos()}
+                | {'ram_file', boolean()}
+                | {'repair', boolean() | 'force'}
+                | {'type', type()}
+                | {'version', version()},
+      Reason :: term().
 
 open_file(Tab, Args) when is_list(Args) ->
     case catch defaults(Tab, Args) of
@@ -477,11 +655,20 @@ open_file(Tab, Args) when is_list(Args) ->
 open_file(Tab, Arg) ->
     open_file(Tab, [Arg]).
 
+-spec pid2name(Pid) -> {'ok', Name} | 'undefined' when
+      Pid :: pid(),
+      Name :: tab_name().
+
 pid2name(Pid) ->
     dets_server:pid2name(Pid).
 
 remove_user(Pid, From) ->
     req(Pid, {close, From}).
+
+-spec repair_continuation(Continuation, MatchSpec) -> Continuation2 when
+      Continuation :: select_cont(),
+      Continuation2 :: select_cont(),
+      MatchSpec :: match_spec().
 
 repair_continuation(#dets_cont{match_program = B}=Cont, MS) 
     when is_binary(B) ->
@@ -496,24 +683,62 @@ repair_continuation(#dets_cont{}=Cont, _MS) ->
 repair_continuation(T, MS) ->
     erlang:error(badarg, [T, MS]).
 
+-spec safe_fixtable(Name, Fix) -> 'ok' when
+      Name :: tab_name(),
+      Fix :: boolean().
+
 safe_fixtable(Tab, Bool) when Bool; not Bool ->
     badarg(treq(Tab, {safe_fixtable, Bool}), [Tab, Bool]);
 safe_fixtable(Tab, Term) ->
     erlang:error(badarg, [Tab, Term]).
 
+-spec select(Name, MatchSpec) -> Selection | {'error', Reason} when
+      Name :: tab_name(),
+      MatchSpec :: match_spec(),
+      Selection :: [term()],
+      Reason :: term().
+
 select(Tab, Pat) ->
     badarg(safe_match(Tab, Pat, select), [Tab, Pat]).
+
+-spec select(Name, MatchSpec, N) ->
+          {Selection, Continuation} | '$end_of_table' | {'error', Reason} when
+      Name :: tab_name(),
+      MatchSpec :: match_spec(),
+      N :: 'default' | non_neg_integer(),
+      Continuation :: select_cont(),
+      Selection :: [term()],
+      Reason :: term().
 
 select(Tab, Pat, N) ->
     badarg(init_chunk_match(Tab, Pat, select, N), [Tab, Pat, N]).
     
+-spec select(Continuation) ->
+          {Selection, Continuation2} | '$end_of_table' | {'error', Reason} when
+      Continuation :: select_cont(),
+      Continuation2 :: select_cont(),
+      Selection :: [term()],
+      Reason :: term().
+
 select(State) when State#dets_cont.what =:= select ->
     badarg(chunk_match(State), [State]);
 select(Term) ->
     erlang:error(badarg, [Term]).
 
+-spec select_delete(Name, MatchSpec) -> N | {'error', Reason} when
+      Name :: tab_name(),
+      MatchSpec :: match_spec(),
+      N :: non_neg_integer(),
+      Reason :: term().
+
 select_delete(Tab, Pat) ->
     badarg(match_delete(Tab, Pat, select), [Tab, Pat]).
+
+-spec slot(Name, I) -> '$end_of_table' | Objects | {'error', Reason} when
+      Name :: tab_name(),
+      I :: non_neg_integer(),
+      Objects :: [object()],
+      Reason :: term().
 
 slot(Tab, Slot) when is_integer(Slot), Slot >= 0 ->
     badarg(treq(Tab, {slot, Slot}), [Tab, Slot]);
@@ -529,11 +754,28 @@ stop() ->
 istart_link(Server) ->
     {ok, proc_lib:spawn_link(dets, init, [self(), Server])}.
 
+-spec sync(Name) -> 'ok' | {'error', Reason} when
+      Name :: tab_name(),
+      Reason :: term().
+
 sync(Tab) ->
     badarg(treq(Tab, sync), [Tab]).
 
+-spec table(Name) -> QueryHandle when
+      Name :: tab_name(),
+      QueryHandle :: qlc:query_handle().
+
 table(Tab) ->
     table(Tab, []).
+
+-spec table(Name, Options) -> QueryHandle when
+      Name :: tab_name(),
+      Options :: Option | [Option],
+      Option :: {'n_objects', Limit}
+              | {'traverse', TraverseMethod},
+      Limit :: 'default' | pos_integer(),
+      TraverseMethod :: 'first_next' | 'select' | {'select', match_spec()},
+      QueryHandle :: qlc:query_handle().
 
 table(Tab, Opts) ->
     case options(Opts, [traverse, n_objects]) of
@@ -612,6 +854,11 @@ table_info(_Tab, _) ->
 
 %% End of table/2.
 
+-spec to_ets(Name, EtsTab) -> EtsTab | {'error', Reason} when
+      Name :: tab_name(),
+      EtsTab :: ets:tab(),
+      Reason :: term().
+
 to_ets(DTab, ETab) ->
     case ets:info(ETab, protection) of
 	undefined ->
@@ -620,6 +867,16 @@ to_ets(DTab, ETab) ->
 	    Fun = fun(X, T) -> true = ets:insert(T, X), T end,
 	    foldl(Fun, ETab, DTab)
     end.
+
+-spec traverse(Name, Fun) -> Return | {'error', Reason} when
+      Name :: tab_name(),
+      Fun :: fun((Object) -> FunReturn),
+      FunReturn :: 'continue' | {'continue', Val} | {'done', Value},
+      Val :: term(),
+      Value :: term(),
+      Object :: object(),
+      Return :: [term()],
+      Reason :: term().
 
 traverse(Tab, Fun) ->
     Ref = make_ref(),
@@ -637,6 +894,14 @@ traverse(Tab, Fun) ->
 		end
 	end,
     do_traverse(TFun, [], Tab, Ref).
+
+-spec update_counter(Name, Key, Increment) -> Result when
+      Name :: tab_name(),
+      Key :: term(),
+      Increment :: {Pos, Incr} | Incr,
+      Pos :: integer(),
+      Incr :: integer(),
+      Result :: integer().
 
 update_counter(Tab, Key, C) ->
     badarg(treq(Tab, {update_counter, Key, C}), [Tab, Key, C]).

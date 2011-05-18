@@ -66,6 +66,11 @@
 %%
 %% Called by compiler or ets/dbg:fun2ms when errors/warnings occur
 %%
+
+-spec(format_error(Error) -> Chars when
+      Error :: {error, module(), term()},
+      Chars :: io_lib:chars()).
+
 format_error({?WARN_SHADOW_VAR,Name}) ->
     lists:flatten(
       io_lib:format("variable ~p shadowed in ms_transform fun head",
@@ -186,6 +191,12 @@ format_error(Else) ->
 %%
 %% Called when translating in shell
 %%
+
+-spec transform_from_shell(Dialect, Clauses, BoundEnvironment) -> term() when
+      Dialect :: ets | dbg,
+      Clauses :: [erl_parse:abstract_clause()],
+      BoundEnvironment :: erl_eval:binding_struct().
+
 transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
     SaveFilename = setup_filename(),
     case catch ms_clause_list(1,Clauses,Dialect,gb_sets:new()) of
@@ -211,6 +222,11 @@ transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
 %%
 %% Called when translating during compiling
 %%
+
+-spec parse_transform(Forms, Options) -> Forms when
+      Forms :: [erl_parse:abstract_form()],
+      Options :: term().
+
 parse_transform(Forms, _Options) ->
     SaveFilename = setup_filename(),
     %io:format("Forms: ~p~n",[Forms]),

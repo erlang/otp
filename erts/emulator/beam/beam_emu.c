@@ -1911,13 +1911,15 @@ void process_main(void)
 	      * Note that for the halfword emulator, the two first elements
 	      * of the array are used.
 	      */
-	     *((BeamInstr **) (UWord) c_p->def_arg_reg) = I+3;
+	     BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
+	     *pi = I+3;
 	     set_timer(c_p, unsigned_val(timeout_value));
 	 } else if (timeout_value == am_infinity) {
 	     c_p->flags |= F_TIMO;
 #if !defined(ARCH_64) || HALFWORD_HEAP
 	 } else if (term_to_Uint(timeout_value, &time_val)) {
-	     *((BeamInstr **) (UWord) c_p->def_arg_reg) = I+3;
+	     BeamInstr** pi = (BeamInstr**) c_p->def_arg_reg;
+	     *pi = I+3;
 	     set_timer(c_p, time_val);
 #endif
 	 } else {		/* Wrong time */
@@ -1974,7 +1976,8 @@ void process_main(void)
       * we must test the F_INSLPQUEUE flag as well as the F_TIMO flag.
       */
      if ((c_p->flags & (F_INSLPQUEUE | F_TIMO)) == 0) {
-	 *((BeamInstr **) (UWord) c_p->def_arg_reg) = I+3;
+	 BeamInstr** p = (BeamInstr **) c_p->def_arg_reg;
+	 *p = I+3;
 	 set_timer(c_p, Arg(1));
      }
      goto wait2;
@@ -5322,7 +5325,7 @@ void process_main(void)
 	 ep->code[3] = (BeamInstr) OpCode(apply_bif);
 	 ep->code[4] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
-	 ((BeamInstr*)ep->code + 3)[-5] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+	 ep->fake_op_func_info_for_hipe[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
      }
 
      return;

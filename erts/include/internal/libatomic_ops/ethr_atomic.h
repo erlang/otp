@@ -146,13 +146,13 @@ ETHR_NATMC_FUNC__(read)(ETHR_ATMC_T__ *var)
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(add_return)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 {
-#ifdef AO_HAVE_fetch_and_add
-    return ((ETHR_AINT_T__) AO_fetch_and_add(&var->counter, (AO_t) incr)) + incr;
+#ifdef AO_HAVE_fetch_and_add_full
+    return ((ETHR_AINT_T__) AO_fetch_and_add_full(&var->counter, (AO_t) incr)) + incr;
 #else
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	AO_t new = exp + (AO_t) incr;
-	if (AO_compare_and_swap(&var->counter, exp, new))
+	if (AO_compare_and_swap_full(&var->counter, exp, new))
 	    return (ETHR_AINT_T__) new;
     }
 #endif
@@ -167,8 +167,8 @@ ETHR_NATMC_FUNC__(add)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ incr)
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(inc_return)(ETHR_ATMC_T__ *var)
 {
-#ifdef AO_HAVE_fetch_and_add1
-    return ((ETHR_AINT_T__) AO_fetch_and_add1(&var->counter)) + 1;
+#ifdef AO_HAVE_fetch_and_add1_full
+    return ((ETHR_AINT_T__) AO_fetch_and_add1_full(&var->counter)) + 1;
 #else
     return ETHR_NATMC_FUNC__(add_return)(var, 1);
 #endif
@@ -183,8 +183,8 @@ ETHR_NATMC_FUNC__(inc)(ETHR_ATMC_T__ *var)
 static ETHR_INLINE ETHR_AINT_T__
 ETHR_NATMC_FUNC__(dec_return)(ETHR_ATMC_T__ *var)
 {
-#ifdef AO_HAVE_fetch_and_sub1
-    return ((ETHR_AINT_T__) AO_fetch_and_sub1(&var->counter)) - 1;
+#ifdef AO_HAVE_fetch_and_sub1_full
+    return ((ETHR_AINT_T__) AO_fetch_and_sub1_full(&var->counter)) - 1;
 #else
     return ETHR_NATMC_FUNC__(add_return)(var, -1);
 #endif
@@ -202,7 +202,7 @@ ETHR_NATMC_FUNC__(and_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	AO_t new = exp & ((AO_t) mask);
-	if (AO_compare_and_swap(&var->counter, exp, new))
+	if (AO_compare_and_swap_full(&var->counter, exp, new))
 	    return (ETHR_AINT_T__) exp;
     }
 }
@@ -213,7 +213,7 @@ ETHR_NATMC_FUNC__(or_retold)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ mask)
     while (1) {
 	AO_t exp = AO_load(&var->counter);
 	AO_t new = exp | ((AO_t) mask);
-	if (AO_compare_and_swap(&var->counter, exp, new))
+	if (AO_compare_and_swap_full(&var->counter, exp, new))
 	    return (ETHR_AINT_T__) exp;
     }
 }
@@ -225,7 +225,7 @@ ETHR_NATMC_FUNC__(cmpxchg)(ETHR_ATMC_T__ *var,
 {
     ETHR_AINT_T__ act;
     do {
-	if (AO_compare_and_swap(&var->counter, (AO_t) exp, (AO_t) new))
+	if (AO_compare_and_swap_full(&var->counter, (AO_t) exp, (AO_t) new))
 	    return exp;
 	act = (ETHR_AINT_T__) AO_load(&var->counter);
     } while (act == exp);
@@ -237,7 +237,7 @@ ETHR_NATMC_FUNC__(xchg)(ETHR_ATMC_T__ *var, ETHR_AINT_T__ new)
 {
     while (1) {
 	AO_t exp = AO_load(&var->counter);
-	if (AO_compare_and_swap(&var->counter, exp, (AO_t) new))
+	if (AO_compare_and_swap_full(&var->counter, exp, (AO_t) new))
 	    return (ETHR_AINT_T__) exp;
     }
 }
@@ -265,7 +265,6 @@ ETHR_NATMC_FUNC__(inc_return_acqb)(ETHR_ATMC_T__ *var)
     return ((ETHR_AINT_T__) AO_fetch_and_add1_acquire(&var->counter)) + 1;
 #else
     ETHR_AINT_T__ res = ETHR_NATMC_FUNC__(add_return)(var, 1);
-    ETHR_MEMORY_BARRIER;
     return res;
 #endif
 }
@@ -287,7 +286,6 @@ ETHR_NATMC_FUNC__(dec_return_relb)(ETHR_ATMC_T__ *var)
 #ifdef AO_HAVE_fetch_and_sub1_release
     return ((ETHR_AINT_T__) AO_fetch_and_sub1_release(&var->counter)) - 1;
 #else
-    ETHR_MEMORY_BARRIER;
     return ETHR_NATMC_FUNC__(dec_return)(var);
 #endif
 }
@@ -314,7 +312,6 @@ ETHR_NATMC_FUNC__(cmpxchg_acqb)(ETHR_ATMC_T__ *var,
     return act;
 #else
     ETHR_AINT_T__ act = ETHR_NATMC_FUNC__(cmpxchg)(var, new, exp);
-    ETHR_MEMORY_BARRIER;
     return act;
 #endif
 }
@@ -333,7 +330,6 @@ ETHR_NATMC_FUNC__(cmpxchg_relb)(ETHR_ATMC_T__ *var,
     } while (act == exp);
     return act;
 #else
-    ETHR_MEMORY_BARRIER;
     return ETHR_NATMC_FUNC__(cmpxchg)(var, new, exp);
 #endif
 }

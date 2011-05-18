@@ -766,7 +766,7 @@ write_batch_buf(ErtsPollSet ps, ErtsPollBatchBuf *bbp)
 		short filter;
 		int fd = (int) ebuf[i].ident;
 
-		switch ((int) ebuf[i].udata) {
+		switch ((int) (long) ebuf[i].udata) {
 
 		    /*
 		     * Since we use a lazy update approach EV_DELETE will
@@ -805,7 +805,7 @@ write_batch_buf(ErtsPollSet ps, ErtsPollBatchBuf *bbp)
 			if (fd == (int) ebuf[j].ident) {
 			    ebuf[j].udata = (void *) ERTS_POLL_KQ_OP_HANDLED;
 			    if (!(ebuf[j].flags & EV_ERROR)) {
-				switch ((int) ebuf[j].udata) {
+				switch ((int) (long) ebuf[j].udata) {
 				case ERTS_POLL_KQ_OP_ADD2_W:
 				    filter = EVFILT_WRITE;
 				    goto rm_add_fb;
@@ -823,7 +823,8 @@ write_batch_buf(ErtsPollSet ps, ErtsPollBatchBuf *bbp)
 			}
 		    }
 		    /* The other add succeded... */
-		    filter = (((int) ebuf[i].udata == ERTS_POLL_KQ_OP_ADD2_W)
+		    filter = ((((int) (long) ebuf[i].udata)
+			       == ERTS_POLL_KQ_OP_ADD2_W)
 			      ? EVFILT_READ
 			      : EVFILT_WRITE);
 		rm_add_fb:

@@ -60,6 +60,7 @@
 
 	 register_subagent/3, unregister_subagent/2, 
 
+	 send_notification2/3, 
 	 send_notification/3, send_notification/4, send_notification/5,
 	 send_notification/6, send_notification/7, 
 	 send_trap/3, send_trap/4,
@@ -108,8 +109,9 @@
 -export([print_mib_info/0, print_mib_tables/0, print_mib_variables/0]).
 
 -include("snmpa_atl.hrl").
+-include("snmpa_internal.hrl").
 
--define(EXTRA_INFO, undefined).
+-define(DISCO_EXTRA_INFO, undefined).
 
 
 %%-----------------------------------------------------------------
@@ -596,22 +598,56 @@ set_request_limit(Agent, NewLimit) ->
 
 %% -
 
+send_notification2(Agent, Notification, SendOpts) ->
+    snmpa_agent:send_notification(Agent, Notification, SendOpts).
+
 send_notification(Agent, Notification, Recv) ->
-    send_notification(Agent, Notification, Recv, "", "", []).
+    SendOpts = 
+	[
+	 {receiver, Recv},
+	 {varbinds, []}, 
+	 {name,     ""},
+	 {context,  ""}, 
+	 {extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
+	], 
+    send_notification2(Agent, Notification, SendOpts).
 
 send_notification(Agent, Notification, Recv, Varbinds) ->
-    send_notification(Agent, Notification, Recv, "", "", Varbinds).
+    SendOpts = 
+	[
+	 {receiver, Recv},
+	 {varbinds, Varbinds}, 
+	 {name,     ""},
+	 {context,  ""}, 
+	 {extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
+	], 
+    send_notification2(Agent, Notification, SendOpts).
 
 send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
-    send_notification(Agent, Notification, Recv, NotifyName, "", Varbinds).
+    SendOpts = 
+	[
+	 {receiver, Recv},
+	 {varbinds, Varbinds}, 
+	 {name,     NotifyName},
+	 {context,  ""}, 
+	 {extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
+	], 
+    send_notification2(Agent, Notification, SendOpts).
 
 send_notification(Agent, Notification, Recv, NotifyName, 
 		  ContextName, Varbinds) 
   when (is_list(NotifyName)  andalso 
 	is_list(ContextName) andalso 
 	is_list(Varbinds)) ->
-    snmpa_agent:send_trap(Agent, Notification, NotifyName, 
-			  ContextName, Recv, Varbinds).
+    SendOpts = 
+	[
+	 {receiver, Recv},
+	 {varbinds, Varbinds}, 
+	 {name,     NotifyName},
+	 {context,  ContextName}, 
+	 {extra,    ?DEFAULT_NOTIF_EXTRA_INFO}
+	], 
+    send_notification2(Agent, Notification, SendOpts).
 
 send_notification(Agent, Notification, Recv, 
 		  NotifyName, ContextName, Varbinds, LocalEngineID) 
@@ -619,8 +655,16 @@ send_notification(Agent, Notification, Recv,
 	is_list(ContextName) andalso 
 	is_list(Varbinds) andalso 
 	is_list(LocalEngineID)) ->
-    snmpa_agent:send_trap(Agent, Notification, NotifyName, 
-			  ContextName, Recv, Varbinds, LocalEngineID).
+    SendOpts = 
+	[
+	 {receiver,        Recv},
+	 {varbinds,        Varbinds}, 
+	 {name,            NotifyName},
+	 {context,         ContextName}, 
+	 {extra,           ?DEFAULT_NOTIF_EXTRA_INFO}, 
+	 {local_engine_id, LocalEngineID}
+	], 
+    send_notification2(Agent, Notification, SendOpts).
 
 %% Kept for backwards compatibility
 send_trap(Agent, Trap, Community) ->
@@ -655,7 +699,7 @@ discovery(TargetName, Notification, Varbinds, DiscoHandler)
     discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler).
 
 discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler) ->
-    ExtraInfo = ?EXTRA_INFO,
+    ExtraInfo = ?DISCO_EXTRA_INFO,
     discovery(TargetName, Notification, ContextName, Varbinds, DiscoHandler, 
 	      ExtraInfo).
 

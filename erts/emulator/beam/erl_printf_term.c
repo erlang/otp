@@ -114,13 +114,13 @@ do {									\
 /* return 0 if list is not a non-empty flat list of printable characters */
 
 static int
-is_printable_string(Eterm list)
+is_printable_string(Eterm list, Eterm* base)
 {
     int len = 0;
     int c;
 
     while(is_list(list)) {
-	Eterm* consp = list_val(list);
+	Eterm* consp = list_val_rel(list, base);
 	Eterm hd = CAR(consp);
 
 	if (!is_byte(hd))
@@ -226,17 +226,20 @@ static int print_atom_name(fmtfn_t fn, void* arg, Eterm atom, long *dcount)
 #define PRT_LAST_ARRAY_ELEMENT ((Eterm) 7) /* Note! Must be last... */
 
 static int
-print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
+print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
+	   Eterm* obj_base) /* ignored if !HALFWORD_HEAP */
 {
     DECLARE_WSTACK(s);
     int res;
     int i;
     Eterm val;
     Uint32 *ref_num;
+    union {
+	UWord word;
+	Eterm* ptr;
+    }popped;
     Eterm* nobj;
-#if HALFWORD_HEAP
-    UWord wobj;
-#endif
+    Wterm wobj;
 
     res = 0;
 
@@ -258,18 +261,17 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    PRINT_CHAR(res, fn, arg, '}');
 	    goto L_outer_loop;
 	default:
-#if HALFWORD_HEAP
-	    obj = (Eterm) (wobj = WSTACK_POP(s));
-#else
-	    obj = WSTACK_POP(s);
-#endif
+	    popped.word = WSTACK_POP(s);
+
 	    switch (val) {
 	    case PRT_TERM:
+		obj = (Eterm) popped.word;
 		break;
 	    case PRT_ONE_CONS:
+		obj = (Eterm) popped.word;
 	    L_print_one_cons:
 		{
-		    Eterm* cons = list_val(obj);
+		    Eterm* cons = list_val_rel(obj, obj_base);
 		    Eterm tl;
 		    
 		    obj = CAR(cons);
@@ -288,27 +290,13 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 		}
 		break;
 	    case PRT_LAST_ARRAY_ELEMENT:
-		{
-#if HALFWORD_HEAP
-		    Eterm* ptr = (Eterm *) wobj;
-#else
-		    Eterm* ptr = (Eterm *) obj;
-#endif
-		    obj = *ptr;
-		}
+		obj = *popped.ptr;
 		break;
 	    default:		/* PRT_LAST_ARRAY_ELEMENT+1 and upwards */
-		{
-#if HALFWORD_HEAP
-		    Eterm* ptr = (Eterm *) wobj;
-#else
-		    Eterm* ptr = (Eterm *) obj;
-#endif
-		    obj = *ptr++;
-		    WSTACK_PUSH(s, (UWord) ptr);
-		    WSTACK_PUSH(s, val-1);
-		    WSTACK_PUSH(s, PRT_COMMA);
-		}
+		obj = *popped.ptr;
+	        WSTACK_PUSH(s, (UWord) (popped.ptr + 1));
+		WSTACK_PUSH(s, val-1);
+		WSTACK_PUSH(s, PRT_COMMA);
 		break;
 	    }
 	    break;
@@ -325,8 +313,12 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    PRINT_CHAR(res, fn, arg, '>');
 	    goto L_done;
 	}
-
-	switch (tag_val_def(obj)) {
+#if HALFWORD_HEAP
+	wobj = is_immed(obj) ? (Wterm)obj : rterm2wterm(obj, obj_base);
+#else
+	wobj = (Wterm)obj;
+#endif
+	switch (tag_val_def(wobj)) {
 	case NIL_DEF:
 	    PRINT_STRING(res, fn, arg, "[]");
 	    break;
@@ -348,13 +340,13 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    int print_res;
 	    char def_buf[64];
 	    char *buf, *big_str;
-	    Uint sz = (Uint) big_decimal_estimate(obj);
+	    Uint sz = (Uint) big_decimal_estimate(wobj);
 	    sz++;
 	    if (sz <= 64)
 		buf = &def_buf[0];
 	    else
 		buf = erts_alloc(ERTS_ALC_T_TMP, sz);
-	    big_str = erts_big_to_string(obj, buf, sz);
+	    big_str = erts_big_to_string(wobj, buf, sz);
 	    print_res = erts_printf_string(fn, arg, big_str);
 	    if (buf != &def_buf[0])
 		erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -369,9 +361,9 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	case EXTERNAL_REF_DEF:
 	    PRINT_STRING(res, fn, arg, "#Ref<");
 	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-			(unsigned long) ref_channel_no(obj));
-	    ref_num = ref_numbers(obj);
-	    for (i = ref_no_of_numbers(obj)-1; i >= 0; i--) {
+			(unsigned long) ref_channel_no(wobj));
+	    ref_num = ref_numbers(wobj);
+	    for (i = ref_no_of_numbers(wobj)-1; i >= 0; i--) {
 		PRINT_CHAR(res, fn, arg, '.');
 		PRINT_ULONG(res, fn, arg, 'u', 0, 1, (unsigned long) ref_num[i]);
 	    }
@@ -381,30 +373,30 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	case EXTERNAL_PID_DEF:
 	    PRINT_CHAR(res, fn, arg, '<');
 	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-			(unsigned long) pid_channel_no(obj));
+			(unsigned long) pid_channel_no(wobj));
 	    PRINT_CHAR(res, fn, arg, '.');
 	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-			(unsigned long) pid_number(obj));
+			(unsigned long) pid_number(wobj));
 	    PRINT_CHAR(res, fn, arg, '.');
 	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-			(unsigned long) pid_serial(obj));
+			(unsigned long) pid_serial(wobj));
 	    PRINT_CHAR(res, fn, arg, '>');
 	    break;
 	case PORT_DEF:
 	case EXTERNAL_PORT_DEF:
 	    PRINT_STRING(res, fn, arg, "#Port<");
 	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-			(unsigned long) port_channel_no(obj));
+			(unsigned long) port_channel_no(wobj));
 	    PRINT_CHAR(res, fn, arg, '.');
 	    PRINT_ULONG(res, fn, arg, 'u', 0, 1,
-			(unsigned long) port_number(obj));
+			(unsigned long) port_number(wobj));
 	    PRINT_CHAR(res, fn, arg, '>');
 	    break;
 	case LIST_DEF:
-	    if (is_printable_string(obj)) {
+	    if (is_printable_string(obj, obj_base)) {
 		int c;
 		PRINT_CHAR(res, fn, arg, '"');
-		nobj = list_val(obj);
+		nobj = list_val_rel(obj, obj_base);
 		while (1) {
 		    if ((*dcount)-- <= 0)
 			goto L_done;
@@ -418,7 +410,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 		    }
 		    if (is_not_list(*nobj))
 			break;
-		    nobj = list_val(*nobj);
+		    nobj = list_val_rel(*nobj, obj_base);
 		}
 		PRINT_CHAR(res, fn, arg, '"');
 	    } else {
@@ -428,7 +420,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    }
 	    break;
 	case TUPLE_DEF:
-	    nobj = tuple_val(obj);	/* pointer to arity */
+	    nobj = tuple_val(wobj);	/* pointer to arity */
 	    i = arityval(*nobj);	/* arity */
 	    PRINT_CHAR(res, fn, arg, '{');
 	    WSTACK_PUSH(s,PRT_CLOSE_TUPLE);
@@ -440,13 +432,13 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    break;
 	case FLOAT_DEF: {
 	    FloatDef ff;
-	    GET_DOUBLE(obj, ff);
+	    GET_DOUBLE(wobj, ff);
 	    PRINT_DOUBLE(res, fn, arg, 'e', 6, 0, ff.fd);
 	}
 	    break;
 	case BINARY_DEF:
 	    {
-		ProcBin* pb = (ProcBin *) binary_val(obj);
+		ProcBin* pb = (ProcBin *) binary_val(wobj);
 		if (pb->size == 1)
 		    PRINT_STRING(res, fn, arg, "<<1 byte>>");
 		else {
@@ -458,7 +450,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    break;
 	case EXPORT_DEF:
 	    {
-		Export* ep = *((Export **) (export_val(obj) + 1));
+		Export* ep = *((Export **) (export_val(wobj) + 1));
 		Atom* module = atom_tab(atom_val(ep->code[0]));
 		Atom* name = atom_tab(atom_val(ep->code[1]));
 
@@ -474,7 +466,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    break;
 	case FUN_DEF:
 	    {
-		ErlFunThing *funp = (ErlFunThing *) fun_val(obj);
+		ErlFunThing *funp = (ErlFunThing *) fun_val(wobj);
 		Atom *ap = atom_tab(atom_val(funp->fe->module));
 
 		PRINT_STRING(res, fn, arg, "#Fun<");
@@ -490,7 +482,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	    break;
 	default:
 	    PRINT_STRING(res, fn, arg, "<unknown:");
-	    PRINT_POINTER(res, fn, arg, (UWord) obj);
+	    PRINT_POINTER(res, fn, arg, wobj);
 	    PRINT_CHAR(res, fn, arg, '>');
 	    break;
 	}
@@ -503,9 +495,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 }
 
 int
-erts_printf_term(fmtfn_t fn, void* arg, unsigned long term, long precision)
+erts_printf_term(fmtfn_t fn, void* arg, unsigned long term, long precision,
+		 unsigned long* term_base)
 {
-    int res = print_term(fn, arg, (Uint) term, &precision);
+    int res = print_term(fn, arg, (Eterm)term, &precision, (Eterm*)term_base);
     if (res < 0)
 	return res;
     if (precision <= 0)

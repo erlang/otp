@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -45,202 +45,141 @@
       different if and only if they do not compare equal (<c>==</c>).</p>
   </description>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-ordered_set()
-  as returned by new/0</code>
-  </section>
+  <datatypes>
+    <datatype>
+      <name name="ordset" n_vars="1"/>
+      <desc><p>As returned by new/0.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>new() -> Ordset</name>
+      <name name="new" arity="0"/>
       <fsummary>Return an empty set</fsummary>
-      <type>
-        <v>Ordset = ordered_set()</v>
-      </type>
       <desc>
         <p>Returns a new empty ordered set.</p>
       </desc>
     </func>
     <func>
-      <name>is_set(Ordset) -> bool()</name>
+      <name name="is_set" arity="1"/>
       <fsummary>Test for an <c>Ordset</c></fsummary>
-      <type>
-        <v>Ordset = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Ordset</c> is an ordered set of
+        <p>Returns <c>true</c> if <c><anno>Ordset</anno></c> is an ordered set of
           elements, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>size(Ordset) -> int()</name>
+      <name name="size" arity="1"/>
       <fsummary>Return the number of elements in a set</fsummary>
-      <type>
-        <v>Ordset = term()</v>
-      </type>
       <desc>
-        <p>Returns the number of elements in <c>Ordset</c>.</p>
+        <p>Returns the number of elements in <c><anno>Ordset</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>to_list(Ordset) -> List</name>
+      <name name="to_list" arity="1"/>
       <fsummary>Convert an <c>Ordset</c>into a list</fsummary>
-      <type>
-        <v>Ordset = ordered_set()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns the elements of <c>Ordset</c> as a list.</p>
+        <p>Returns the elements of <c><anno>Ordset</anno></c> as a list.</p>
       </desc>
     </func>
     <func>
-      <name>from_list(List) -> Ordset</name>
+      <name name="from_list" arity="1"/>
       <fsummary>Convert a list into an <c>Ordset</c></fsummary>
-      <type>
-        <v>List = [term()]</v>
-        <v>Ordset = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns an ordered set of the elements in <c>List</c>.</p>
+        <p>Returns an ordered set of the elements in <c><anno>List</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>is_element(Element, Ordset) -> bool()</name>
+      <name name="is_element" arity="2"/>
       <fsummary>Test for membership of an <c>Ordset</c></fsummary>
-      <type>
-        <v>Element = term()</v>
-        <v>Ordset = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Element</c> is an element of
-          <c>Ordset</c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Element</anno></c> is an element of
+          <c><anno>Ordset</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>add_element(Element, Ordset1) -> Ordset2</name>
+      <name name="add_element" arity="2"/>
       <fsummary>Add an element to an <c>Ordset</c></fsummary>
-      <type>
-        <v>Element = term()</v>
-        <v>Ordset1 = Ordset2 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns a new ordered set formed from <c>Ordset1</c> with
-          <c>Element</c> inserted.</p>
+        <p>Returns a new ordered set formed from <c><anno>Ordset1</anno></c> with
+          <c><anno>Element</anno></c> inserted.</p>
       </desc>
     </func>
     <func>
-      <name>del_element(Element, Ordset1) -> Ordset2</name>
+      <name name="del_element" arity="2"/>
       <fsummary>Remove an element from an <c>Ordset</c></fsummary>
-      <type>
-        <v>Element = term()</v>
-        <v>Ordset1 = Ordset2 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns <c>Ordset1</c>, but with <c>Element</c> removed.</p>
+        <p>Returns <c><anno>Ordset1</anno></c>, but with <c><anno>Element</anno></c> removed.</p>
       </desc>
     </func>
     <func>
-      <name>union(Ordset1, Ordset2) -> Ordset3</name>
+      <name name="union" arity="2"/>
       <fsummary>Return the union of two <c>Ordsets</c></fsummary>
-      <type>
-        <v>Ordset1 = Ordset2 = Ordset3 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns the merged (union) set of <c>Ordset1</c> and
-          <c>Ordset2</c>.</p>
+        <p>Returns the merged (union) set of <c><anno>Ordset1</anno></c> and
+          <c><anno>Ordset2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>union(OrdsetList) -> Ordset</name>
+      <name name="union" arity="1"/>
       <fsummary>Return the union of a list of <c>Ordsets</c></fsummary>
-      <type>
-        <v>OrdsetList = [ordered_set()]</v>
-        <v>Ordset = ordered_set()</v>
-      </type>
       <desc>
         <p>Returns the merged (union) set of the list of sets.</p>
       </desc>
     </func>
     <func>
-      <name>intersection(Ordset1, Ordset2) -> Ordset3</name>
+      <name name="intersection" arity="2"/>
       <fsummary>Return the intersection of two <c>Ordsets</c></fsummary>
-      <type>
-        <v>Ordset1 = Ordset2 = Ordset3 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns the intersection of <c>Ordset1</c> and
-          <c>Ordset2</c>.</p>
+        <p>Returns the intersection of <c><anno>Ordset1</anno></c> and
+          <c><anno>Ordset2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>intersection(OrdsetList) -> Ordset</name>
+      <name name="intersection" arity="1"/>
       <fsummary>Return the intersection of a list of <c>Ordsets</c></fsummary>
-      <type>
-        <v>OrdsetList = [ordered_set()]</v>
-        <v>Ordset = ordered_set()</v>
-      </type>
       <desc>
         <p>Returns the intersection of the non-empty list of sets.</p>
       </desc>
     </func>
     <func>
-      <name>is_disjoint(Ordset1, Ordset2) -> bool()</name>
+      <name name="is_disjoint" arity="2"/>
       <fsummary>Check whether two <c>Ordsets</c> are disjoint</fsummary>
-      <type>
-        <v>Ordset1 = Ordset2 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Ordset1</c> and
-          <c>Ordset2</c> are disjoint (have no elements in common),
+        <p>Returns <c>true</c> if <c><anno>Ordset1</anno></c> and
+          <c><anno>Ordset2</anno></c> are disjoint (have no elements in common),
 	  and <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>subtract(Ordset1, Ordset2) -> Ordset3</name>
+      <name name="subtract" arity="2"/>
       <fsummary>Return the difference of two <c>Ordsets</c></fsummary>
-      <type>
-        <v>Ordset1 = Ordset2 = Ordset3 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns only the elements of <c>Ordset1</c> which are not
-          also elements of <c>Ordset2</c>.</p>
+        <p>Returns only the elements of <c><anno>Ordset1</anno></c> which are not
+          also elements of <c><anno>Ordset2</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>is_subset(Ordset1, Ordset2) -> bool()</name>
+      <name name="is_subset" arity="2"/>
       <fsummary>Test for subset</fsummary>
-      <type>
-        <v>Ordset1 = Ordset2 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> when every element of <c>Ordset</c>1 is
-          also a member of <c>Ordset2</c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> when every element of <c><anno>Ordset1</anno></c> is
+          also a member of <c><anno>Ordset2</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>fold(Function, Acc0, Ordset) -> Acc1</name>
+      <name name="fold" arity="3"/>
       <fsummary>Fold over set elements</fsummary>
-      <type>
-        <v>Function = fun (E, AccIn) -> AccOut</v>
-        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
-        <v>Ordset = ordered_set()</v>
-      </type>
       <desc>
-        <p>Fold <c>Function</c> over every element in <c>Ordset</c>
+        <p>Fold <c><anno>Function</anno></c> over every element in <c><anno>Ordset</anno></c>
           returning the final value of the accumulator.</p>
       </desc>
     </func>
     <func>
-      <name>filter(Pred, Ordset1) -> Set2</name>
+      <name name="filter" arity="2"/>
       <fsummary>Filter set elements</fsummary>
-      <type>
-        <v>Pred = fun (E) -> bool()</v>
-        <v>Set1 = Set2 = ordered_set()</v>
-      </type>
       <desc>
-        <p>Filter elements in <c>Set1</c> with boolean function
-          <c>Fun</c>.</p>
+        <p>Filter elements in <c><anno>Ordset1</anno></c> with boolean function
+          <c><anno>Pred</anno></c>.</p>
       </desc>
     </func>
   </funcs>

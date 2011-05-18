@@ -42,6 +42,7 @@ MODULES= \
 	mnesia_dirty_access_test \
 	mnesia_atomicity_test \
 	mnesia_consistency_test \
+	mnesia_majority_test \
 	mnesia_isolation_test \
 	mnesia_durability_test \
 	mnesia_recovery_test \

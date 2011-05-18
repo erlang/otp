@@ -68,7 +68,7 @@
 	  to be an error if the module name in the source code is
 	  not the same as the basename of the output file.</p>
 
-        <p>Here follows first all elements of <c>Options</c> that in
+        <p><marker id="type-option"/>Here follows first all elements of <c>Options</c> that in
 	  some way control the behavior of the compiler.</p>
         <taglist>
           <tag><c>basic_validation</c></tag>

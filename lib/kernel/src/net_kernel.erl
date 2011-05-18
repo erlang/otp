@@ -145,8 +145,15 @@
 %% Interface functions
 
 kernel_apply(M,F,A) ->         request({apply,M,F,A}).
+
+-spec allow(Nodes) -> ok | error when
+      Nodes :: [node()].
 allow(Nodes) ->                request({allow, Nodes}).
+
 longnames() ->                 request(longnames).
+
+-spec stop() -> ok | {error, Reason} when
+      Reason :: not_allowed | not_found.
 stop() ->                      erl_distribution:stop().
 
 node_info(Node) ->             get_node_info(Node).
@@ -158,10 +165,28 @@ i(Node) ->                     print_info(Node).
 verbose(Level) when is_integer(Level) ->
     request({verbose, Level}).
 
+-spec set_net_ticktime(NetTicktime, TransitionPeriod) -> Res when
+      NetTicktime :: pos_integer(),
+      TransitionPeriod :: non_neg_integer(),
+      Res :: unchanged
+           | change_initiated
+           | {ongoing_change_to, NewNetTicktime},
+      NewNetTicktime :: pos_integer().
 set_net_ticktime(T, TP) when is_integer(T), T > 0, is_integer(TP), TP >= 0 ->
     ticktime_res(request({new_ticktime, T*250, TP*1000})).
+
+-spec set_net_ticktime(NetTicktime) -> Res when
+      NetTicktime :: pos_integer(),
+      Res :: unchanged
+           | change_initiated
+           | {ongoing_change_to, NewNetTicktime},
+      NewNetTicktime :: pos_integer().
 set_net_ticktime(T) when is_integer(T) ->
     set_net_ticktime(T, ?DEFAULT_TRANSITION_PERIOD).
+
+-spec get_net_ticktime() -> Res when
+      Res :: NetTicktime | {ongoing_change_to, NetTicktime} | ignored,
+      NetTicktime :: pos_integer().
 get_net_ticktime() ->
     ticktime_res(request(ticktime)).
 
@@ -171,6 +196,9 @@ get_net_ticktime() ->
 %% flags (we may want to move it elsewhere later). In order to easily
 %% be backward compatible, errors are created here when process_flag()
 %% fails.
+-spec monitor_nodes(Flag) -> ok | Error when
+      Flag :: boolean(),
+      Error :: error | {error, term()}.
 monitor_nodes(Flag) ->
     case catch process_flag(monitor_nodes, Flag) of
 	true -> ok;
@@ -178,6 +206,13 @@ monitor_nodes(Flag) ->
 	_ -> mk_monitor_nodes_error(Flag, [])
     end.
 
+-spec monitor_nodes(Flag, Options) -> ok | Error when
+      Flag :: boolean(),
+      Options :: [Option],
+      Option :: {node_type, NodeType}
+              | nodedown_reason,
+      NodeType :: visible | hidden | all,
+      Error :: error | {error, term()}.
 monitor_nodes(Flag, Opts) ->
     case catch process_flag({monitor_nodes, Opts}, Flag) of
 	true -> ok;
@@ -209,6 +244,8 @@ publish_on_node(Node) when is_atom(Node) ->
 update_publish_nodes(Ns) ->
     request({update_publish_nodes, Ns}).
 
+-spec connect_node(Node) -> boolean() | ignored when
+      Node :: node().
 %% explicit connects
 connect_node(Node) when is_atom(Node) ->
     request({connect, normal, Node}).

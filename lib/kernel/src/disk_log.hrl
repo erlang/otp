@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,18 +53,34 @@
 %% Types -- alphabetically
 %%------------------------------------------------------------------------
 
+-type dlog_byte()        :: [dlog_byte()] | byte().
 -type dlog_format()      :: 'external' | 'internal'.
 -type dlog_format_type() :: 'halt_ext' | 'halt_int' | 'wrap_ext' | 'wrap_int'.
 -type dlog_head()        :: 'none' | {'ok', binary()} | mfa().
+-type dlog_head_opt()    :: none | term() | binary() | [dlog_byte()].
+-type log()              :: term().  % XXX: refine
 -type dlog_mode()        :: 'read_only' | 'read_write'.
 -type dlog_name()        :: atom() | string().
 -type dlog_optattr()     :: 'name' | 'file' | 'linkto' | 'repair' | 'type'
                           | 'format' | 'size' | 'distributed' | 'notify'
                           | 'head' | 'head_func' | 'mode'.
--type dlog_options()     :: [{dlog_optattr(), any()}].
+-type dlog_option()      :: {name, Log :: log()}
+                          | {file, FileName :: file:filename()}
+                          | {linkto, LinkTo :: none | pid()}
+                          | {repair, Repair :: true | false | truncate}
+                          | {type, Type :: dlog_type}
+                          | {format, Format :: dlog_format()}
+                          | {size, Size :: dlog_size()}
+                          | {distributed, Nodes :: [node()]}
+                          | {notify, boolean()}
+                          | {head, Head :: dlog_head_opt()}
+                          | {head_func, mfa()}
+                          | {mode, Mode :: dlog_mode()}.
+-type dlog_options()     :: [dlog_option()].
 -type dlog_repair()      :: 'truncate' | boolean().
 -type dlog_size()        :: 'infinity' | pos_integer()
-                          | {pos_integer(), pos_integer()}.
+                          | {MaxNoBytes :: pos_integer(),
+                             MaxNoFiles :: pos_integer()}.
 -type dlog_status()      :: 'ok' | {'blocked', 'false' | [_]}. %QueueLogRecords
 -type dlog_type()        :: 'halt' | 'wrap'.
 
@@ -75,7 +91,7 @@
 %% record of args for open
 -record(arg, {name = 0,
 	      version = undefined,
-	      file = none         :: 'none' | string(),
+	      file = none         :: 'none' | file:filename(),
 	      repair = true       :: dlog_repair(),
 	      size = infinity     :: dlog_size(),
 	      type = halt         :: dlog_type(),

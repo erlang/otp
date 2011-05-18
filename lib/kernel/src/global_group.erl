@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,9 +62,10 @@
 -type sync_state()   :: 'no_conf' | 'synced'.
 
 -type group_name()  :: atom().
--type group_tuple() :: {group_name(), [node()]}
-                     | {group_name(), publish_type(), [node()]}.
-
+-type group_tuple() :: {GroupName :: group_name(), [node()]}
+                     | {GroupName :: group_name(),
+                        PublishType :: publish_type(),
+                        [node()]}.
 
 %%%====================================================================================
 %%% The state of the global_group process
@@ -97,11 +98,14 @@
 %%% External exported
 %%%====================================================================================
 
--spec global_groups() -> {group_name(), [group_name()]} | 'undefined'.
+-spec global_groups() -> {GroupName, GroupNames} | undefined when
+      GroupName :: group_name(),
+      GroupNames :: [GroupName].
 global_groups() ->
     request(global_groups).
 
--spec monitor_nodes(boolean()) -> 'ok'.
+-spec monitor_nodes(Flag) -> 'ok' when
+      Flag :: boolean().
 monitor_nodes(Flag) -> 
     case Flag of
 	true -> request({monitor_nodes, Flag});
@@ -109,30 +113,41 @@ monitor_nodes(Flag) ->
 	_ -> {error, not_boolean}
     end.
 
--spec own_nodes() -> [node()].
+-spec own_nodes() -> Nodes when
+      Nodes :: [Node :: node()].
 own_nodes() ->
     request(own_nodes).
 
 -type name()  :: atom().
 -type where() :: {'node', node()} | {'group', group_name()}.
 
--spec registered_names(where()) -> [name()].
+-spec registered_names(Where) -> Names when
+      Where :: where(),
+      Names :: [Name :: name()].
 registered_names(Arg) ->
     request({registered_names, Arg}).
 
--spec send(name(), term()) -> pid() | {'badarg', {name(), term()}}.
+-spec send(Name, Msg) -> pid() | {'badarg', {Name, Msg}} when
+      Name :: name(),
+      Msg :: term().
 send(Name, Msg) ->
     request({send, Name, Msg}).
 
--spec send(where(), name(), term()) -> pid() | {'badarg', {name(), term()}}.
+-spec send(Where, Name, Msg) -> pid() | {'badarg', {Name, Msg}} when
+      Where :: where(),
+      Name :: name(),
+      Msg :: term().
 send(Group, Name, Msg) ->
     request({send, Group, Name, Msg}).
 
--spec whereis_name(name()) -> pid() | 'undefined'.
+-spec whereis_name(Name) -> pid() | 'undefined' when
+      Name :: name().
 whereis_name(Name) ->
     request({whereis_name, Name}).
 
--spec whereis_name(where(), name()) -> pid() | 'undefined'.
+-spec whereis_name(Where, Name) -> pid() | 'undefined' when
+      Where :: where(),
+      Name :: name().
 whereis_name(Group, Name) ->
     request({whereis_name, Group, Name}).
 
@@ -155,14 +170,14 @@ ng_add_check(Node, OthersNG) ->
 ng_add_check(Node, PubType, OthersNG) ->
     request({ng_add_check, Node, PubType, OthersNG}).
 
--type info_item() :: {'state', sync_state()}
-                   | {'own_group_name', group_name()}
-                   | {'own_group_nodes', [node()]}
-                   | {'synched_nodes', [node()]}
-                   | {'sync_error', [node()]}
-                   | {'no_contact', [node()]}
-                   | {'other_groups', [group_tuple()]}
-                   | {'monitoring', [pid()]}.
+-type info_item() :: {'state', State :: sync_state()}
+                   | {'own_group_name', GroupName :: group_name()}
+                   | {'own_group_nodes', Nodes :: [node()]}
+                   | {'synched_nodes', Nodes :: [node()]}
+                   | {'sync_error', Nodes :: [node()]}
+                   | {'no_contact', Nodes :: [node()]}
+                   | {'other_groups', Groups :: [group_tuple()]}
+                   | {'monitoring', Pids :: [pid()]}.
 
 -spec info() -> [info_item()].
 info() ->
@@ -1012,6 +1027,7 @@ grp_tuple({Name, normal, Nodes}) ->
 %%% The special process which checks that all nodes in the own global group
 %%% agrees on the configuration.
 %%%====================================================================================
+-spec sync_init(_, _, _, _) -> no_return().
 sync_init(Type, Cname, PubType, Nodes) ->
     {Up, Down} = sync_check_node(lists:delete(node(), Nodes), [], []),
     sync_check_init(Type, Up, Cname, Nodes, Down, PubType).
@@ -1032,9 +1048,11 @@ sync_check_node([Node|Nodes], Up, Down) ->
 %%% Check that all nodes are in agreement of the global
 %%% group configuration.
 %%%-------------------------------------------------------------
+-spec sync_check_init(_, _, _, _, _, _) -> no_return().
 sync_check_init(Type, Up, Cname, Nodes, Down, PubType) ->
     sync_check_init(Type, Up, Cname, Nodes, 3, [], Down, PubType).
 
+-spec sync_check_init(_, _, _, _, _, _, _, _) -> no_return().
 sync_check_init(_Type, NoContact, _Cname, _Nodes, 0, ErrorNodes, Down, _PubType) ->
     case ErrorNodes of
 	[] -> 

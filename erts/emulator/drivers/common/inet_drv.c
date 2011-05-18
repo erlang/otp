@@ -1948,7 +1948,7 @@ static int http_response_inetdrv(void *arg, int major, int minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[27];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_response,Version,Status,Phrase}}} */
@@ -2041,7 +2041,7 @@ http_request_inetdrv(void* arg, const http_atom_t* meth, const char* meth_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[43];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async, S, Ref, {ok,{http_request,Meth,Uri,Version}}} */
@@ -2092,7 +2092,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name, const char* name_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[26];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_header,Bit,Name,IValue,Value}} */
@@ -2221,7 +2221,7 @@ int ssl_tls_inetdrv(void* arg, unsigned type, unsigned major, unsigned minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[28];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     ErlDrvBinary* bin;
     int ret;
 
@@ -7980,11 +7980,11 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	timeout = get_int32(buf);
 
 	if (desc->inet.state == TCP_STATE_ACCEPTING) {
-	    unsigned long time_left;
-	    int oid;
-	    ErlDrvTermData ocaller;
-	    int oreq;
-	    unsigned otimeout;
+	    unsigned long time_left = 0;
+	    int oid = 0;
+	    ErlDrvTermData ocaller = ERL_DRV_NIL;
+	    int oreq = 0;
+	    unsigned otimeout = 0;
 	    ErlDrvTermData caller = driver_caller(desc->inet.port);
 	    MultiTimerData *mtd = NULL,*omtd = NULL;
 	    ErlDrvMonitor monitor, omonitor;

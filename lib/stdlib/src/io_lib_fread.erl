@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,27 +22,7 @@
 
 -export([fread/2,fread/3]).
 
--export_type([continuation/0, fread_2_ret/0, fread_3_ret/0]).
-
 -import(lists, [reverse/1,reverse/2]).
-
-%%-----------------------------------------------------------------------
-%% Local types
-%%-----------------------------------------------------------------------
-
--type done_arg2() :: {'ok', io_lib:chars()} | 'eof' | {'error', term()}.
-
-%%-----------------------------------------------------------------------
-%% Types also used in other files
-%%-----------------------------------------------------------------------
-
--type continuation() :: [] | {_, _, _, _}.  % XXX: refine
-
--type fread_2_ret()  :: {'ok', io_lib:chars(), string()}
-	              | {'more', string(), non_neg_integer(), io_lib:chars()}
-                      | {'error', term()}.
--type fread_3_ret()  :: {'more', continuation()}
-                      | {'done', done_arg2(), string()}.
 
 %%-----------------------------------------------------------------------
 
@@ -51,7 +31,15 @@
 %%  repeatedly collects lines and calls fread/2 to format the input until
 %%  all the format string has been used. And it counts the characters.
 
--spec fread(io_lib_fread:continuation(), string(), string()) -> fread_3_ret().
+-spec fread(Continuation, String, Format) -> Return when
+      Continuation :: io_lib:continuation() |  [],
+      String :: string(),
+      Format :: string(),
+      Return :: {'more', Continuation1 :: io_lib:continuation()}
+              | {'done', Result, LeftOverChars :: string()},
+      Result :: {'ok', InputList :: io_lib:chars()}
+              | 'eof'
+              | {'error', What :: term()}.
 
 fread([], Chars, Format) ->
     %%io:format("FREAD: ~w `~s'~n", [Format,Chars]),
@@ -106,7 +94,14 @@ fread_line(Format0, Line, N0, Results0, More, Newline) ->
 %%   WHITE      Skip white space
 %%   X          Literal X
 
--spec fread(string(), string()) -> fread_2_ret().
+-spec fread(Format, String) -> Result when
+      Format :: string(),
+      String :: string(),
+      Result :: {'ok', InputList :: io_lib:chars(), LeftOverChars :: string()}
+              | {'more', RestFormat :: string(),
+                 Nchars :: non_neg_integer(),
+                 InputStack :: io_lib:chars()}
+              | {'error', What :: term()}.
 
 fread(Format, Line) ->
     fread(Format, Line, 0, []).

@@ -18,9 +18,14 @@
 
 {"%VSN%",
  [
+  {"5.5.2", 
+   [
+    {restart_application, inets}
+   ]
+  }, 
   {"5.5.1", 
    [
-    {load_module, http_chunk, soft_purge, soft_purge, []}
+    {restart_application, inets}
    ]
   }, 
   {"5.5",
@@ -34,10 +39,15 @@
    ]
   } 
  ],
- [	
+ [
+  {"5.5.2",
+   [
+    {restart_application, inets}
+   ]
+  },
   {"5.5.1", 
    [
-    {load_module, http_chunk, soft_purge, soft_purge, []}
+    {restart_application, inets}
    ]
   }, 
   {"5.5",

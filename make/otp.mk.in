@@ -4,7 +4,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -240,9 +240,10 @@ FOP = @FOP@
 DOCGEN=$(ERL_TOP)/lib/erl_docgen
 
 SPECS_ESRC = ../../src
+SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
 $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl
-	escript $(DOCGEN)/priv/bin/specs_gen.escript $(SPECS_FLAGS) -o$(dir $@) $<
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
 
 $(MAN1DIR)/%.1: %.xml

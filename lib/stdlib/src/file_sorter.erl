@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,12 +50,68 @@
 %%% Exported functions
 %%%
 
+-export_type([reason/0]).
+
+-type(file_name() :: file:name()).
+-type(file_names() :: [file:name()]).
+-type(i_command() :: read | close).
+-type(i_reply() :: end_of_input | {end_of_input, value()}
+                 | {[object()], infun()} | input_reply()).
+-type(infun() :: fun((i_command()) -> i_reply())).
+-type(input() :: file_names() | infun()).
+-type(input_reply() :: term()).
+-type(o_command() :: {value, value()} | [object()] | close).
+-type(o_reply() :: outfun() | output_reply()).
+-type(object() :: term() | binary()).
+-type(outfun() :: fun((o_command()) -> o_reply())).
+-type(output() :: file_name() | outfun()).
+-type(output_reply() :: term()).
+-type(value() :: term()).
+
+-type(options() :: [option()] | option()).
+-type(option() :: {compressed, boolean()}
+                | {header, header_length()}
+                | {format, format()}
+                | {no_files, no_files()}
+                | {order, order()}
+                | {size, size()}
+                | {tmpdir, tmp_directory()}
+                | {unique, boolean()}).
+-type(format() :: binary_term | term | binary | format_fun()).
+-type(format_fun() :: fun((binary()) -> term())).
+-type(header_length() :: pos_integer()).
+-type(key_pos() :: pos_integer() | [pos_integer()]).
+-type(no_files() :: pos_integer()). % > 1
+-type(order() :: ascending | descending | order_fun()).
+-type(order_fun() :: fun((term(), term()) -> boolean())).
+-type(size() :: non_neg_integer()).
+-type(tmp_directory() :: [] | file:name()).
+
+-type(reason() :: bad_object
+                | {bad_object, file_name()}
+                | {bad_term, file_name()}
+                | {file_error, file_name(),
+                   file:posix() | badarg | system_limit}
+                | {premature_eof, file_name()}).
+
+-spec(sort(FileName) -> Reply when
+      FileName :: file_name(),
+      Reply :: ok | {error, reason()} | input_reply() | output_reply()).
 sort(FileName) ->
     sort([FileName], FileName).
 
+-spec(sort(Input, Output) -> Reply when
+      Input :: input(),
+      Output :: output(),
+      Reply :: ok | {error, reason()} | input_reply() | output_reply()).
 sort(Input, Output) ->
     sort(Input, Output, []).
 
+-spec(sort(Input, Output, Options) -> Reply when
+      Input :: input(),
+      Output :: output(),
+      Options :: options(),
+      Reply :: ok | {error, reason()} | input_reply() | output_reply()).
 sort(Input0, Output0, Options) ->
     case {is_input(Input0), maybe_output(Output0), options(Options)}  of
         {{true,Input}, {true,Output}, #opts{}=Opts} -> 
@@ -64,12 +120,27 @@ sort(Input0, Output0, Options) ->
             badarg(culprit(tuple_to_list(T)), [Input0, Output0, Options])
     end.
 
+-spec(keysort(KeyPos, FileName) -> Reply when
+      KeyPos :: key_pos(),
+      FileName :: file_name(),
+      Reply :: ok | {error, reason()} | input_reply() | output_reply()).
 keysort(KeyPos, FileName) ->
     keysort(KeyPos, [FileName], FileName).
 
+-spec(keysort(KeyPos, Input, Output) -> Reply when
+      KeyPos :: key_pos(),
+      Input :: input(),
+      Output :: output(),
+      Reply :: ok | {error, reason()} | input_reply() | output_reply()).
 keysort(KeyPos, Input, Output) ->
     keysort(KeyPos, Input, Output, []).
 
+-spec(keysort(KeyPos, Input, Output, Options) -> Reply when
+      KeyPos :: key_pos(),
+      Input :: input(),
+      Output :: output(),
+      Options :: options(),
+      Reply :: ok | {error, reason()} | input_reply() | output_reply()).
 keysort(KeyPos, Input0, Output0, Options) ->
     R = case {is_keypos(KeyPos), is_input(Input0), 
               maybe_output(Output0), options(Options)} of
@@ -89,9 +160,18 @@ keysort(KeyPos, Input0, Output0, Options) ->
             badarg(culprit(O), [KeyPos, Input0, Output0, Options])
     end.
 
+-spec(merge(FileNames, Output) -> Reply when
+      FileNames :: file_names(),
+      Output :: output(),
+      Reply :: ok | {error, reason()} | output_reply()).
 merge(Files, Output) ->
     merge(Files, Output, []).
 
+-spec(merge(FileNames, Output, Options) -> Reply when
+      FileNames :: file_names(),
+      Output :: output(),
+      Options :: options(),
+      Reply :: ok | {error, reason()} | output_reply()).
 merge(Files0, Output0, Options) ->
     case {is_files(Files0), maybe_output(Output0), options(Options)} of
         %% size not used
@@ -101,9 +181,20 @@ merge(Files0, Output0, Options) ->
             badarg(culprit(tuple_to_list(T)), [Files0, Output0, Options])
     end.
 
+-spec(keymerge(KeyPos, FileNames, Output) -> Reply when
+      KeyPos :: key_pos(),
+      FileNames :: file_names(),
+      Output :: output(),
+      Reply :: ok | {error, reason()} | output_reply()).
 keymerge(KeyPos, Files, Output) ->
     keymerge(KeyPos, Files, Output, []).
 
+-spec(keymerge(KeyPos, FileNames, Output, Options) -> Reply when
+      KeyPos :: key_pos(),
+      FileNames :: file_names(),
+      Output :: output(),
+      Options :: options(),
+      Reply :: ok | {error, reason()} | output_reply()).
 keymerge(KeyPos, Files0, Output0, Options) ->
     R = case {is_keypos(KeyPos), is_files(Files0), 
               maybe_output(Output0), options(Options)} of
@@ -123,9 +214,21 @@ keymerge(KeyPos, Files0, Output0, Options) ->
             badarg(culprit(O), [KeyPos, Files0, Output0, Options])
     end.
 
+-spec(check(FileName) -> Reply when
+      FileName :: file_name(),
+      Reply :: {ok, [Result]} | {error, reason()},
+      Result :: {FileName, TermPosition, term()},
+      TermPosition :: pos_integer()).
 check(FileName) ->
     check([FileName], []).
 
+-spec(check(FileNames, Options) -> Reply when
+      FileNames :: file_names(),
+      Options :: options(),
+      Reply :: {ok, [Result]} | {error, reason()},
+      Result :: {FileName, TermPosition, term()},
+      FileName :: file_name(),
+      TermPosition :: pos_integer()).
 check(Files0, Options) ->
     case {is_files(Files0), options(Options)} of
         {{true,Files}, #opts{}=Opts} ->
@@ -134,9 +237,23 @@ check(Files0, Options) ->
             badarg(culprit(tuple_to_list(T)), [Files0, Options])
     end.
 
+-spec(keycheck(KeyPos, FileName) -> Reply when
+      KeyPos :: key_pos(),
+      FileName :: file_name(),
+      Reply :: {ok, [Result]} | {error, reason()},
+      Result :: {FileName, TermPosition, term()},
+      TermPosition :: pos_integer()).
 keycheck(KeyPos, FileName) ->
     keycheck(KeyPos, [FileName], []).
 
+-spec(keycheck(KeyPos, FileNames, Options) -> Reply when
+      KeyPos :: key_pos(),
+      FileNames :: file_names(),
+      Options :: options(),
+      Reply :: {ok, [Result]} | {error, reason()},
+      Result :: {FileName, TermPosition, term()},
+      FileName :: file_name(),
+      TermPosition :: pos_integer()).
 keycheck(KeyPos, Files0, Options) ->
     R = case {is_keypos(KeyPos), is_files(Files0), options(Options)} of
             {_, _, #opts{format = binary}} -> 

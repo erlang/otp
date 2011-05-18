@@ -28,6 +28,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 SSL_LIBDIR = @SSL_LIBDIR@
 SSL_INCLUDE = @SSL_INCLUDE@
+SSL_CRYPTO_LIBNAME = @SSL_CRYPTO_LIBNAME@
+SSL_SSL_LIBNAME = @SSL_SSL_LIBNAME@
 
 # ----------------------------------------------------
 # Application version
@@ -134,7 +136,7 @@ ifeq ($(findstring @,$(SSL_CC_RUNTIME_LIBRARY_PATH)),@)
 SSL_CC_RUNTIME_LIBRARY_PATH = $(CC_R_OPT)
 endif
 
-SSL_LINK_LIB=-L$(SSL_LIBDIR) -lssl -lcrypto
+SSL_LINK_LIB=-L$(SSL_LIBDIR) -l$(SSL_SSL_LIBNAME) -l$(SSL_CRYPTO_LIBNAME)
 else 
 # not dynamic crypto lib (default from R11B-5)
 NEED_KERBEROS=@SSL_LINK_WITH_KERBEROS@
@@ -142,7 +144,7 @@ NEED_ZLIB=@SSL_LINK_WITH_ZLIB@
 SSL_MAKEFILE =
 CC_R_OPT =
 SSL_CC_RUNTIME_LIBRARY_PATH=
-SSL_LINK_LIB = $(SSL_LIBDIR)/libssl.a $(SSL_LIBDIR)/libcrypto.a 
+SSL_LINK_LIB = $(SSL_LIBDIR)/lib$(SSL_SSL_LIBNAME).a $(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a 
 ifeq ($(NEED_KERBEROS),yes)
 SSL_LINK_LIB += @STATIC_KERBEROS_LIBS@
 endif
@@ -175,7 +177,7 @@ $(BINDIR)/ssl_esock: $(OBJS)
 
 # Win32/Cygwin
 $(BINDIR)/ssl_esock.exe: $(OBJS)
-	$(LD) $(SSL_CC_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -o $@ $^ -lwsock32 -llibeay32 -lssleay32
+	$(LD) $(SSL_CC_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -o $@ $^ -lwsock32 -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
 
 # Unix only, and only when linking statically
 $(SSL_MAKEFILE):

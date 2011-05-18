@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,7 +23,7 @@
 
 %% API
 -export([start_link/0]).
--export([start_child/2]).
+-export([start_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -34,10 +34,8 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_child(Options, Profile) ->
-    Args = [Options, Profile], 
+start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
-
 
 %%%=========================================================================
 %%%  Supervisor callback

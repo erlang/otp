@@ -611,8 +611,10 @@ do_new_connect(Address, Port,
     catch
 	exit:{function_clause, _} ->
 	    {error, {eoptions, {cb_info, CbInfo}}};
+	exit:badarg ->
+	    {error, {eoptions, {inet_options, UserOpts}}};
 	exit:{badarg, _} ->
-	    {error,{eoptions, {inet_options, UserOpts}}}
+	    {error, {eoptions, {inet_options, UserOpts}}}
     end.
 
 old_connect(Address, Port, Options, Timeout) ->

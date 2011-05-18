@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,7 @@
 %%------------------------------------------------------------------------
 
 -type macros() :: [{atom(), term()}].
+-type epp_handle() :: pid().
 
 %% Epp state record.
 -record(epp, {file,				%Current file
@@ -61,14 +62,23 @@
 %% parse_file(FileName, IncludePath, PreDefMacros)
 %% macro_defs(Epp)
 
--spec open(file:name(), [file:name()]) ->
-	{'ok', pid()} | {'error', term()}.
+-spec open(FileName, IncludePath) ->
+	{'ok', Epp} | {'error', ErrorDescriptor} when
+      FileName :: file:name(),
+      IncludePath :: [DirectoryName :: file:name()],
+      Epp :: epp_handle(),
+      ErrorDescriptor :: term().
 
 open(Name, Path) ->
     open(Name, Path, []).
 
--spec open(file:name(), [file:name()], macros()) ->
-	{'ok', pid()} | {'error', term()}.
+-spec open(FileName, IncludePath, PredefMacros) ->
+	{'ok', Epp} | {'error', ErrorDescriptor} when
+      FileName :: file:name(),
+      IncludePath :: [DirectoryName :: file:name()],
+      PredefMacros :: macros(),
+      Epp :: epp_handle(),
+      ErrorDescriptor :: term().
 
 open(Name, Path, Pdm) ->
     Self = self(),
@@ -80,7 +90,8 @@ open(Name, File, StartLocation, Path, Pdm) ->
     Epp = spawn(fun() -> server(Self, Name, File, StartLocation,Path,Pdm) end),
     epp_request(Epp).
 
--spec close(pid()) -> 'ok'.
+-spec close(Epp) -> 'ok' when
+      Epp :: epp_handle().
 
 close(Epp) ->
     %% Make sure that close is synchronous as a courtesy to test
@@ -92,6 +103,13 @@ close(Epp) ->
 
 scan_erl_form(Epp) ->
     epp_request(Epp, scan_erl_form).
+
+-spec parse_erl_form(Epp) ->
+        {'ok', AbsForm} | {'eof', Line} | {error, ErrorInfo} when
+      Epp :: epp_handle(),
+      AbsForm :: erl_parse:abstract_form(),
+      Line :: erl_scan:line(),
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 parse_erl_form(Epp) ->
     case epp_request(Epp, scan_erl_form) of
@@ -106,6 +124,9 @@ macro_defs(Epp) ->
 
 %% format_error(ErrorDescriptor) -> String
 %%  Return a string describing the error.
+
+-spec format_error(ErrorDescriptor) -> io_lib:chars() when
+      ErrorDescriptor :: term().
 
 format_error(cannot_parse) ->
     io_lib:format("cannot parse file, giving up", []);
@@ -145,6 +166,16 @@ format_error(E) -> file:format_error(E).
 
 %% parse_file(FileName, IncludePath, [PreDefMacro]) ->
 %%	{ok,[Form]} | {error,OpenError}
+
+-spec parse_file(FileName, IncludePath, PredefMacros) ->
+                {'ok', [Form]} | {error, OpenError} when
+      FileName :: file:name(),
+      IncludePath :: [DirectoryName :: file:name()],
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      PredefMacros :: macros(),
+      Line :: erl_scan:line(),
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      OpenError :: file:posix() | badarg | system_limit.
 
 parse_file(Ifile, Path, Predefs) ->
     case open(Ifile, Path, Predefs) of

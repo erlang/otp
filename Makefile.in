@@ -502,6 +502,7 @@ ifeq ($(TARGET),win32)
 bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.ini \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/beam.dll
 	make_bootstrap_ini.sh $(BOOTSTRAP_ROOT)/bootstrap \
@@ -510,8 +511,10 @@ bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe
 	@cp $(ERL_TOP)/bin/$(TARGET)/erl.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe
+	@cp $(ERL_TOP)/bin/$(TARGET)/escript.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe
 else
-bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
 
 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOTSTRAP_ROOT)/bootstrap/target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl 
@@ -526,6 +529,11 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc: $(ERL_TOP)/bin/$(TARGET)/erlc $(BOOTSTRAP_
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
 	@cp $(ERL_TOP)/bin/$(TARGET)/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+
+$(BOOTSTRAP_ROOT)/bootstrap/bin/escript: $(ERL_TOP)/bin/$(TARGET)/escript $(BOOTSTRAP_ROOT)/bootstrap/target
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
+	@cp $(ERL_TOP)/bin/$(TARGET)/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
+	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
 endif
 
 bootstrap_setup_target:

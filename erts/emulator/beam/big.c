@@ -1588,7 +1588,7 @@ big_to_double(Wterm x, double* resp)
 /*
  ** Estimate the number of decimal digits (include sign)
  */
-int big_decimal_estimate(Eterm x)
+int big_decimal_estimate(Wterm x)
 {
     Eterm* xp = big_val(x);
     int lg = I_lg(BIG_V(xp), BIG_SIZE(xp));
@@ -1602,7 +1602,7 @@ int big_decimal_estimate(Eterm x)
 ** Convert a bignum into a string of decimal numbers
 */
 
-static void write_big(Eterm x, void (*write_func)(void *, char), void *arg)
+static void write_big(Wterm x, void (*write_func)(void *, char), void *arg)
 {
     Eterm* xp = big_val(x);
     ErtsDigit* dx = BIG_V(xp);
@@ -1681,7 +1681,7 @@ write_string(void *arg, char c)
     *(--(*((char **) arg))) = c;
 }
 
-char *erts_big_to_string(Eterm x, char *buf, Uint buf_sz)
+char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz)
 {
     char *big_str = buf + buf_sz - 1;
     *big_str = '\0';

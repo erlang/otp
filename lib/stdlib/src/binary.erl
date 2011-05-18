@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,11 +38,28 @@
 %% Implemented in this module:
 -export([split/2,split/3,replace/3,replace/4]).
 
+-opaque cp() :: tuple().
+-type part() :: {Start :: non_neg_integer(), Length :: integer()}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% split
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec split(Subject, Pattern) -> Parts when
+      Subject :: binary(),
+      Pattern :: binary() | [binary()] | cp(),
+      Parts :: [binary()].
+
 split(H,N) ->
     split(H,N,[]).
+
+-spec split(Subject, Pattern, Options) -> Parts when
+      Subject :: binary(),
+      Pattern :: binary() | [binary()] | cp(),
+      Options :: [Option],
+      Option :: {scope, part()} | trim | global,
+      Parts :: [binary()].
+
 split(Haystack,Needles,Options) ->
     try
 	{Part,Global,Trim} = get_opts_split(Options,{no,false,false}),
@@ -89,8 +106,26 @@ do_split(H,[{A,B}|T],N,Trim) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% replace
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec replace(Subject, Pattern, Replacement) -> Result when
+      Subject :: binary(),
+      Pattern :: binary() | [ binary() ] | cp(),
+      Replacement :: binary(),
+      Result :: binary().
+
 replace(H,N,R) ->
     replace(H,N,R,[]).
+
+-spec replace(Subject, Pattern, Replacement, Options) -> Result when
+      Subject :: binary(),
+      Pattern :: binary() | [ binary() ] | cp(),
+      Replacement :: binary(),
+      Options :: [Option],
+      Option :: global | {scope, part()} | {insert_replaced, InsPos},
+      InsPos :: OnePos | [ OnePos ],
+      OnePos :: non_neg_integer(),
+      Result :: binary().
+
 replace(Haystack,Needles,Replacement,Options) ->
     try
 	true = is_binary(Replacement), % Make badarg instead of function clause

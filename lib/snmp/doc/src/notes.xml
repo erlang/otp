@@ -33,6 +33,116 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.20</title>
+    <p>Version 4.20 supports code replacement in runtime from/to
+      version 4.19 and 4.18.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[agent] Added support for sending traps to IPv6 targets. </p>
+	  <p>See the 
+	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>, 
+	  the <seealso marker="snmpa_conf#target_addr_entry">target_addr_entry/11</seealso> function or 
+	  <seealso marker="snmp_target_mib#add_addr">add_addr/11</seealso> for more info. </p>
+          <p>Own Id: OTP-9088</p>
+          <p>Aux Id: Seq 11790</p>
+	</item>
+
+
+        <item>
+          <p>[agent] To be able to handle multiple engine-id(s) when
+	  sending trap(s), the function 
+          <seealso marker="snmp_community_mib#add_community">
+	  add_community/6</seealso> has been added. </p>
+          <p>Own Id: OTP-9119</p>
+          <p>Aux Id: Seq 11792</p>
+        </item>
+
+        <item>
+          <p>[manager] The API for snmp requests has been augmented to
+	  allow the caller to override some configuration. </p>
+	  <p>This has been done by introducing a new set of API functions, see 
+	  <seealso marker="snmpm#sync_get2">sync_get2/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get2">async_get2/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_next2">sync_get_next2/3,4</seealso>, 
+	  <seealso marker="snmpm#async_get_next2">async_get_next2/3,4</seealso>, 
+	  <seealso marker="snmpm#sync_get_bulk2">sync_get_bulk2/5,6</seealso>, 
+	  <seealso marker="snmpm#async_get_bulk2">async_get_bulk2/5,6</seealso>, 
+	  <seealso marker="snmpm#sync_set2">sync_set2/3,4</seealso> and 
+	  <seealso marker="snmpm#async_set2">async_set2/3,4</seealso>
+	  for more info. </p>
+          <p>Own Id: OTP-9162</p>
+        </item>
+
+        <item>
+          <p>[manager] The old API functions (for get and set
+	  requests: 
+	  snmpm:g/3,4,5,6,7, snmpm:ag/3,4,5,6,7, 
+	  snmpm:gn/3,4,5,6,7, snmpm:agn/3,4,5,6,7,
+	  snmpm:s/3,4,5,6,7, snmpm:s/3,4,5,6,7,
+	  snmpm:gb/5,6,7,8,9 and snmpm:agb/5,6,7,8,9)
+	  are now officially deprecated.
+	  They will be removed as of R16B. </p>
+          <p>Own Id: OTP-9174</p>
+        </item>
+
+        <item>
+          <p>[agent] Pass extra info through the agent to the net-if
+	  process when sending notifications. </p>
+	  <p>See 
+	  <seealso marker="snmpa#send_notification2">
+	  snmpa:send_notification2/3</seealso> for more info. 
+	  See also the incomming net-if messages when sending a 
+	  <seealso marker="snmp_agent_netif#im_send_pdu">trap</seealso> 
+	  (send_pdu message) and 
+	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
+	  notification</seealso> (send_pdu_req message). </p>
+          <p>Own Id: OTP-9183</p>
+          <p>Aux Id: Seq 11817</p>
+        </item>
+
+        <item>
+          <p>Added type specs for functions that do not return. </p>
+          <p>Kostis Sagonas</p>
+          <p>Own Id: OTP-9208</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Fixed endode/decode of values of type <c>Counter32</c>. </p>
+	  <p>This type (<c>Counter32</c>) is an unsigned integer 32, 
+	  but is actually encoded as an signed integer 32. 
+	  The encode/decode functions however, treated it as if it was 
+	  encodeded as an unsigned integer 32. </p>
+	  <p>Own Id: OTP-9022</p>
+	</item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.20 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.19</title>
     <p>Version 4.19 supports code replacement in runtime from/to
       version 4.18.</p>
@@ -125,6 +235,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
     </section>
 
   </section> <!-- 4.19 -->
+
 
   <section>
     <title>SNMP Development Toolkit 4.18</title>
@@ -226,7 +337,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
-            with a bad name for the starndard trap entry (was "stadard trap", 
+            with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
           <p>Kenji Rikitake</p>
           <p>Own Id: OTP-8433</p>
@@ -430,7 +541,7 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
-            with a bad name for the starndard trap entry (was "stadard trap", 
+            with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
           <p>Kenji Rikitake</p>
           <p>Own Id: OTP-8433</p>

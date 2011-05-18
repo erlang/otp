@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,16 +25,43 @@
 
 -include("inet_int.hrl").
 
+-type hostname() :: inet:hostname().
+-type ip_address() :: inet:ip_address().
+-type port_number() :: 0..65535.
+-type posix() :: inet:posix().
+-type socket() :: port().
+
+-spec open(Port) -> {ok, Socket} | {error, Reason} when
+      Port :: port_number(),
+      Socket :: socket(),
+      Reason :: posix().
+
 open(Port) -> 
     open(Port, []).
+
+-spec open(Port, Opts) -> {ok, Socket} | {error, Reason} when
+      Port :: port_number(),
+      Opts :: [Opt :: term()],
+      Socket :: socket(),
+      Reason :: posix().
 
 open(Port, Opts) ->
     Mod = mod(Opts, undefined),
     {ok,UP} = Mod:getserv(Port),
     Mod:open(UP, Opts).
 
+-spec close(Socket) -> ok when
+      Socket :: socket().
+
 close(S) ->
     inet:udp_close(S).
+
+-spec send(Socket, Address, Port, Packet) -> ok | {error, Reason} when
+      Socket :: socket(),
+      Address :: ip_address() | hostname(),
+      Port :: port_number(),
+      Packet :: string() | binary(),
+      Reason :: not_owner | posix().
 
 send(S, Address, Port, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -61,6 +88,15 @@ send(S, Packet) when is_port(S) ->
 	    Error
     end.
 
+-spec recv(Socket, Length) ->
+                  {ok, {Address, Port, Packet}} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Address :: ip_address(),
+      Port :: port_number(),
+      Packet :: string() | binary(),
+      Reason :: not_owner | posix().
+
 recv(S,Len) when is_port(S), is_integer(Len) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -68,6 +104,16 @@ recv(S,Len) when is_port(S), is_integer(Len) ->
 	Error ->
 	    Error
     end.
+
+-spec recv(Socket, Length, Timeout) ->
+                  {ok, {Address, Port, Packet}} | {error, Reason} when
+      Socket :: socket(),
+      Length :: non_neg_integer(),
+      Timeout :: timeout(),
+      Address :: ip_address(),
+      Port :: port_number(),
+      Packet :: string() | binary(),
+      Reason :: not_owner | posix().
 
 recv(S,Len,Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
@@ -89,6 +135,10 @@ connect(S, Address, Port) when is_port(S) ->
 	Error ->
 	    Error
     end.
+
+-spec controlling_process(Socket, Pid) -> ok when
+      Socket :: socket(),
+      Pid :: pid().
 
 controlling_process(S, NewOwner) ->
     inet:udp_controlling_process(S, NewOwner).

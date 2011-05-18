@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -263,14 +263,28 @@ proxy_user_flush() ->
 
 %% THE rpc client interface
 
--spec call(node(), atom(), atom(), [term()]) -> term().
+-spec call(Node, Module, Function, Args) -> Res | {badrpc, Reason} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Res :: term(),
+      Reason :: term().
 
 call(N,M,F,A) when node() =:= N ->  %% Optimize local call
     local_call(M, F, A);
 call(N,M,F,A) ->
     do_call(N, {call,M,F,A,group_leader()}, infinity).
 
--spec call(node(), atom(), atom(), [term()], timeout()) -> term().
+-spec call(Node, Module, Function, Args, Timeout) ->
+                  Res | {badrpc, Reason} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Res :: term(),
+      Reason :: term(),
+      Timeout :: timeout().
 
 call(N,M,F,A,_Timeout) when node() =:= N ->  %% Optimize local call
     local_call(M,F,A);
@@ -279,14 +293,28 @@ call(N,M,F,A,infinity) ->
 call(N,M,F,A,Timeout) when is_integer(Timeout), Timeout >= 0 ->
     do_call(N, {call,M,F,A,group_leader()}, Timeout).
 
--spec block_call(node(), atom(), atom(), [term()]) -> term().
+-spec block_call(Node, Module, Function, Args) -> Res | {badrpc, Reason} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Res :: term(),
+      Reason :: term().
 
 block_call(N,M,F,A) when node() =:= N -> %% Optimize local call
     local_call(M,F,A);
 block_call(N,M,F,A) ->
     do_call(N, {block_call,M,F,A,group_leader()}, infinity).
 
--spec block_call(node(), atom(), atom(), [term()], timeout()) -> term().
+-spec block_call(Node, Module, Function, Args, Timeout) ->
+                  Res | {badrpc, Reason} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Res :: term(),
+      Reason :: term(),
+      Timeout :: timeout().
 
 block_call(N,M,F,A,_Timeout) when node() =:= N ->  %% Optimize local call
     local_call(M, F, A);
@@ -339,7 +367,13 @@ rpc_check(X) -> X.
 %% The entire call is packed into an atomic transaction which 
 %% either succeeds or fails, i.e. never hangs (unless the server itself hangs).
 
--spec server_call(node(), atom(), term(), term()) -> term() | {'error', 'nodedown'}.
+-spec server_call(Node, Name, ReplyWrapper, Msg) -> Reply | {error, Reason} when
+      Node :: node(),
+      Name :: atom(),
+      ReplyWrapper :: term(),
+      Msg :: term(),
+      Reply :: term(),
+      Reason :: nodedown.
 
 server_call(Node, Name, ReplyWrapper, Msg) 
   when is_atom(Node), is_atom(Name) ->
@@ -362,7 +396,11 @@ server_call(Node, Name, ReplyWrapper, Msg)
 	    end
     end.
 
--spec cast(node(), atom(), atom(), [term()]) -> 'true'.
+-spec cast(Node, Module, Function, Args) -> true when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 cast(Node, Mod, Fun, Args) when Node =:= node() ->
     catch spawn(Mod, Fun, Args),
@@ -373,12 +411,17 @@ cast(Node, Mod, Fun, Args) ->
 
 
 %% Asynchronous broadcast, returns nothing, it's just send'n prey
--spec abcast(atom(), term()) -> 'abcast'.
+-spec abcast(Name, Msg) -> abcast when
+      Name :: atom(),
+      Msg :: term().
 
 abcast(Name, Mess) ->
     abcast([node() | nodes()], Name, Mess).
 
--spec abcast([node()], atom(), term()) -> 'abcast'.
+-spec abcast(Nodes, Name, Msg) -> abcast when
+      Nodes :: [node()],
+      Name :: atom(),
+      Msg :: term().
 
 abcast([Node|Tail], Name, Mess) ->
     Dest = {Name,Node},
@@ -396,23 +439,39 @@ abcast([], _,_) -> abcast.
 %% message when we return from the call, we can't know that they have
 %% processed the message though.
 
--spec sbcast(atom(), term()) -> {[node()], [node()]}.
+-spec sbcast(Name, Msg) -> {GoodNodes, BadNodes} when
+      Name :: atom(),
+      Msg :: term(),
+      GoodNodes :: [node()],
+      BadNodes :: [node()].
 
 sbcast(Name, Mess) ->
     sbcast([node() | nodes()], Name, Mess).
 
--spec sbcast([node()], atom(), term()) -> {[node()], [node()]}.
+-spec sbcast(Nodes, Name, Msg) -> {GoodNodes, BadNodes} when
+      Name :: atom(),
+      Msg :: term(),
+      Nodes :: [node()],
+      GoodNodes :: [node()],
+      BadNodes :: [node()].
 
 sbcast(Nodes, Name, Mess) ->
     Monitors = send_nodes(Nodes, ?NAME, {sbcast, Name, Mess}, []),
     rec_nodes(?NAME, Monitors).
 
--spec eval_everywhere(atom(), atom(), [term()]) -> 'abcast'.
+-spec eval_everywhere(Module, Function, Args) -> abcast when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 eval_everywhere(Mod, Fun, Args) ->
     eval_everywhere([node() | nodes()] , Mod, Fun, Args).
 
--spec eval_everywhere([node()], atom(), atom(), [term()]) -> 'abcast'.
+-spec eval_everywhere(Nodes, Module, Function, Args) -> abcast when
+      Nodes :: [node()],
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 
 eval_everywhere(Nodes, Mod, Fun, Args) ->
     gen_server:abcast(Nodes, ?NAME, {cast,Mod,Fun,Args,group_leader()}).
@@ -453,20 +512,45 @@ unmonitor(Ref) when is_reference(Ref) ->
 
 
 %% Call apply(M,F,A) on all nodes in parallel
--spec multicall(atom(), atom(), [term()]) -> {[_], [node()]}.
+-spec multicall(Module, Function, Args) -> {ResL, BadNodes} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      ResL :: [term()],
+      BadNodes :: [node()].
 
 multicall(M, F, A) -> 
     multicall(M, F, A, infinity).
 
--spec multicall([node()], atom(), atom(), [term()])  -> {[_], [node()]}
-	     ; (atom(), atom(), [term()], timeout()) -> {[_], [node()]}.
+-spec multicall(Nodes, Module, Function, Args) -> {ResL, BadNodes} when
+                  Nodes :: [node()],
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  ResL :: [term()],
+                  BadNodes :: [node()];
+               (Module, Function, Args, Timeout) -> {ResL, BadNodes} when
+                  Module :: module(),
+                  Function :: atom(),
+                  Args :: [term()],
+                  Timeout :: timeout(),
+                  ResL :: [term()],
+                  BadNodes :: [node()].
 
 multicall(Nodes, M, F, A) when is_list(Nodes) ->
     multicall(Nodes, M, F, A, infinity);
 multicall(M, F, A, Timeout) ->
     multicall([node() | nodes()], M, F, A, Timeout).
 
--spec multicall([node()], atom(), atom(), [term()], timeout()) -> {[_], [node()]}.
+-spec multicall(Nodes, Module, Function, Args, Timeout) ->
+                       {ResL, BadNodes} when
+      Nodes :: [node()],
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Timeout :: timeout(),
+      ResL :: [term()],
+      BadNodes :: [node()].
 
 multicall(Nodes, M, F, A, infinity)
   when is_list(Nodes), is_atom(M), is_atom(F), is_list(A) ->
@@ -495,12 +579,21 @@ do_multicall(Nodes, M, F, A, Timeout) ->
 %%
 %% There is no apparent order among the replies.
 
--spec multi_server_call(atom(), term()) -> {[_], [node()]}.
+-spec multi_server_call(Name, Msg) -> {Replies, BadNodes} when
+      Name :: atom(),
+      Msg :: term(),
+      Replies :: [Reply :: term()],
+      BadNodes :: [node()].
 
 multi_server_call(Name, Msg) ->
     multi_server_call([node() | nodes()], Name, Msg).
 
--spec multi_server_call([node()], atom(), term()) -> {[_], [node()]}.
+-spec multi_server_call(Nodes, Name, Msg) -> {Replies, BadNodes} when
+      Nodes :: [node()],
+      Name :: atom(),
+      Msg :: term(),
+      Replies :: [Reply :: term()],
+      BadNodes :: [node()].
 
 multi_server_call(Nodes, Name, Msg) 
   when is_list(Nodes), is_atom(Name) ->
@@ -509,8 +602,21 @@ multi_server_call(Nodes, Name, Msg)
 
 %% Deprecated functions. Were only needed when communicating with R6 nodes.
 
+-spec safe_multi_server_call(Name, Msg) -> {Replies, BadNodes} when
+      Name :: atom(),
+      Msg :: term(),
+      Replies :: [Reply :: term()],
+      BadNodes :: [node()].
+
 safe_multi_server_call(Name, Msg) ->
     multi_server_call(Name, Msg).
+
+-spec safe_multi_server_call(Nodes, Name, Msg) -> {Replies, BadNodes} when
+      Nodes :: [node()],
+      Name :: atom(),
+      Msg :: term(),
+      Replies :: [Reply :: term()],
+      BadNodes :: [node()].
 
 safe_multi_server_call(Nodes, Name, Msg) ->
     multi_server_call(Nodes, Name, Msg).
@@ -539,7 +645,14 @@ rec_nodes(Name, [{N,R} | Tail], Badnodes, Replies) ->
 %% rpc's towards the same node. I.e. it returns immediately and 
 %% it returns a Key that can be used in a subsequent yield(Key).
 
--spec async_call(node(), atom(), atom(), [term()]) -> pid().
+-opaque key() :: pid().
+
+-spec async_call(Node, Module, Function, Args) -> Key when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Key :: key().
 
 async_call(Node, Mod, Fun, Args) ->
     ReplyTo = self(),
@@ -549,20 +662,27 @@ async_call(Node, Mod, Fun, Args) ->
 	      ReplyTo ! {self(), {promise_reply, R}}  %% self() is key
       end).
 
--spec yield(pid()) -> term().
+-spec yield(Key) -> {value, Val} | timeout when
+      Key :: key(),
+      Val :: (Res :: term()) | {badrpc, Reason :: term()}.
 
 yield(Key) when is_pid(Key) ->
     {value,R} = do_yield(Key, infinity),
     R.
 
--spec nb_yield(pid(), timeout()) -> {'value', _} | 'timeout'.
+-spec nb_yield(Key, Timeout) -> {value, Val} | timeout when
+      Key :: key(),
+      Timeout :: timeout(),
+      Val :: (Res :: term()) | {badrpc, Reason :: term()}.
 
 nb_yield(Key, infinity=Inf) when is_pid(Key) ->
     do_yield(Key, Inf);
 nb_yield(Key, Timeout) when is_pid(Key), is_integer(Timeout), Timeout >= 0 ->
     do_yield(Key, Timeout).
 
--spec nb_yield(pid()) -> {'value', _} | 'timeout'.
+-spec nb_yield(Key) -> {value, Val} | timeout when
+      Key :: key(),
+      Val :: (Res :: term()) | {badrpc, Reason :: term()}.
 
 nb_yield(Key) when is_pid(Key) ->
     do_yield(Key, 0).
@@ -582,7 +702,12 @@ do_yield(Key, Timeout) ->
 %% ArgL === [{M,F,Args},........]
 %% Returns a lists of the evaluations in the same order as 
 %% given to ArgL
--spec parallel_eval([{atom(), atom(), [_]}]) -> [_].
+-spec parallel_eval(FuncCalls) -> ResL when
+      FuncCalls :: [{Module, Function, Args}],
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      ResL :: [term()].
 
 parallel_eval(ArgL) ->
     Nodes = [node() | nodes()],
@@ -599,7 +724,13 @@ map_nodes([{M,F,A}|Tail],[Node|MoreNodes], Original) ->
 %% Parallel version of lists:map/3 with exactly the same 
 %% arguments and return value as lists:map/3,
 %% except that it calls exit/1 if a network error occurs.
--spec pmap({atom(),atom()}, [term()], [term()]) -> [term()].
+-spec pmap(FuncSpec, ExtraArgs, List1) -> List2 when
+      FuncSpec :: {Module,Function},
+      Module :: module(),
+      Function :: atom(),
+      ExtraArgs :: [term()],
+      List1 :: [Elem :: term()],
+      List2 :: [term()].
 
 pmap({M,F}, As, List) ->
     check(parallel_eval(build_args(M,F,As, List, [])), []).
@@ -616,15 +747,20 @@ check([], Ack) -> Ack.
 
 
 %% location transparent version of process_info
--spec pinfo(pid()) -> [{atom(), _}] | 'undefined'.
+-spec pinfo(Pid) -> [{Item, Info}] | undefined when
+      Pid :: pid(),
+      Item :: atom(),
+      Info :: term().
 
 pinfo(Pid) when node(Pid) =:= node() ->
     process_info(Pid);
 pinfo(Pid) ->
     call(node(Pid), erlang, process_info, [Pid]).
 
--spec pinfo(pid(), Item) -> {Item, _} | 'undefined' | []
-				when is_subtype(Item, atom()).
+-spec pinfo(Pid, Item) -> {Item, Info} | undefined | [] when
+      Pid :: pid(),
+      Item :: atom(),
+      Info :: term().
 
 pinfo(Pid, Item) when node(Pid) =:= node() ->
     process_info(Pid, Item);

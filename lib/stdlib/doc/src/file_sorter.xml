@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2010</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -89,7 +89,7 @@
        considerably. The <c>keysort</c>, <c>keymerge</c> and
        <c>keycheck</c> functions do not accept ordering functions.
       </item>
-      <item><c>{unique, bool()}</c>. When sorting or merging files,
+      <item><c>{unique, boolean()}</c>. When sorting or merging files,
        only the first of a sequence of terms that compare equal (<c>==</c>)
        is output if this option is set to <c>true</c>. The default
        value is <c>false</c> which implies that all terms that
@@ -112,7 +112,7 @@
        overwritten. Temporary files are deleted unless some
        uncaught EXIT signal occurs.
       </item>
-      <item><c>{compressed, bool()}</c>. Temporary files and the
+      <item><c>{compressed, boolean()}</c>. Temporary files and the
        output file may be compressed. The default value
       <c>false</c> implies that written files are not
        compressed. Regardless of the value of the <c>compressed</c>
@@ -126,39 +126,6 @@
       </item>
       <item><c>{no_files, NoFiles}</c>. By default 16 files are
        merged at a time. This option should rarely be needed.
-      </item>
-    </list>
-    <p>To summarize, here is the syntax of the options:</p>
-    <list type="bulleted">
-      <item>
-        <p><c>Options = [Option] | Option</c></p>
-      </item>
-      <item>
-        <p><c>Option = {header, HeaderLength} | {format, Format} | {order, Order} | {unique, bool()} | {tmpdir, TempDirectory} | {compressed, bool()} | {size, Size} | {no_files, NoFiles}</c></p>
-      </item>
-      <item>
-        <p><c>HeaderLength = int() > 0</c></p>
-      </item>
-      <item>
-        <p><c>Format = binary_term | term | binary | FormatFun</c></p>
-      </item>
-      <item>
-        <p><c>FormatFun = fun(Binary) -> Term</c></p>
-      </item>
-      <item>
-        <p><c>Order = ascending | descending | OrderFun</c></p>
-      </item>
-      <item>
-        <p><c>OrderFun = fun(Term, Term) -> bool()</c></p>
-      </item>
-      <item>
-        <p><c>TempDirectory = "" | file_name()</c></p>
-      </item>
-      <item>
-        <p><c>Size = int() >= 0</c></p>
-      </item>
-      <item>
-        <p><c>NoFiles = int() > 1</c></p>
       </item>
     </list>
     <p>As an alternative to sorting files, a function of one argument
@@ -234,8 +201,8 @@ output(L) ->
       occurs are:</p>
     <list type="bulleted">
       <item>
-        <p><c>bad_object</c>, <c>{bad_object, FileName}</c>. 
-          Applying the format function failed for some binary, 
+        <p><c>bad_object</c>, <c>{bad_object, FileName}</c>.
+          Applying the format function failed for some binary,
           or the key(s) could not be extracted from some term.</p>
       </item>
       <item>
@@ -243,148 +210,181 @@ output(L) ->
           to read some term.</p>
       </item>
       <item>
-        <p><c>{file_error, FileName, Reason2}</c>. See
-          <c>file(3)</c> for an explanation of <c>Reason2</c>.</p>
+        <p><c>{file_error, FileName, file:posix()}</c>. See
+          <c>file(3)</c> for an explanation of <c>file:posix()</c>.</p>
       </item>
       <item>
-        <p><c>{premature_eof, FileName}</c>. End-of-file was 
+        <p><c>{premature_eof, FileName}</c>. End-of-file was
           encountered inside some binary term.</p>
       </item>
     </list>
-    <p><em>Types</em></p>
-    <pre>
-Binary = binary()
-FileName = file_name()
-FileNames = [FileName]
-ICommand = read | close
-IReply = end_of_input | {end_of_input, Value} | {[Object], Infun} | InputReply
-Infun = fun(ICommand) -> IReply
-Input = FileNames | Infun
-InputReply = Term
-KeyPos = int() > 0 | [int() > 0]
-OCommand = {value, Value} | [Object] | close
-OReply = Outfun | OutputReply
-Object = Term | Binary
-Outfun = fun(OCommand) -> OReply
-Output = FileName | Outfun
-OutputReply = Term
-Term = term()
-Value = Term</pre>
   </description>
+
+  <datatypes>
+    <datatype>
+      <name name="file_name"/><br/>
+    </datatype>
+    <datatype>
+      <name name="file_names"/><br/>
+    </datatype>
+    <datatype>
+      <name name="i_command"/><br/>
+    </datatype>
+    <datatype>
+      <name name="i_reply"/><br/>
+    </datatype>
+    <datatype>
+      <name name="infun"/><br/>
+    </datatype>
+    <datatype>
+      <name name="input"/><br/>
+    </datatype>
+    <datatype>
+      <name name="input_reply"/><br/>
+    </datatype>
+    <datatype>
+      <name name="o_command"/><br/>
+    </datatype>
+    <datatype>
+      <name name="o_reply"/><br/>
+    </datatype>
+    <datatype>
+      <name name="object"/><br/>
+    </datatype>
+    <datatype>
+      <name name="outfun"/><br/>
+    </datatype>
+    <datatype>
+      <name name="output"/><br/>
+    </datatype>
+    <datatype>
+      <name name="output_reply"/><br/>
+    </datatype>
+    <datatype>
+      <name name="value"/><br/>
+    </datatype>
+    <datatype>
+      <name name="options"/><br/>
+    </datatype>
+    <datatype>
+      <name name="option"/><br/>
+    </datatype>
+    <datatype>
+      <name name="format"/><br/>
+    </datatype>
+    <datatype>
+      <name name="format_fun"/><br/>
+    </datatype>
+    <datatype>
+      <name name="header_length"/><br/>
+    </datatype>
+    <datatype>
+      <name name="key_pos"/><br/>
+    </datatype>
+    <datatype>
+      <name name="no_files"/><br/>
+    </datatype>
+    <datatype>
+      <name name="order"/><br/>
+    </datatype>
+    <datatype>
+      <name name="order_fun"/><br/>
+    </datatype>
+    <datatype>
+      <name name="size"/><br/>
+    </datatype>
+    <datatype>
+      <name name="tmp_directory"/><br/>
+    </datatype>
+    <datatype>
+      <name name="reason"/><br/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
-      <name>sort(FileName) -> Reply</name>
-      <name>sort(Input, Output) -> Reply</name>
-      <name>sort(Input, Output, Options) -> Reply</name>
+      <name name="sort" arity="1"/>
       <fsummary>Sort terms on files.</fsummary>
-      <type>
-        <v>Reply = ok | {error, Reason} | InputReply | OutputReply</v>
-      </type>
       <desc>
-        <p>Sorts terms on files. 
-          </p>
-        <p><c>sort(FileName)</c> is equivalent to
-          <c>sort([FileName], FileName)</c>.
-          </p>
-        <p><c>sort(Input, Output)</c> is equivalent to
-          <c>sort(Input, Output, [])</c>.
-          </p>
-        <p></p>
+        <p>Sorts terms on files. <c>sort(FileName)</c> is equivalent
+          to <c>sort([FileName], FileName)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>keysort(KeyPos, FileName) -> Reply</name>
-      <name>keysort(KeyPos, Input, Output) -> Reply</name>
-      <name>keysort(KeyPos, Input, Output, Options) -> Reply</name>
+      <name name="sort" arity="2"/>
+      <name name="sort" arity="3"/>
+      <fsummary>Sort terms on files.</fsummary>
+      <desc>
+        <p>Sorts terms on files. <c>sort(Input, Output)</c> is
+          equivalent to <c>sort(Input, Output, [])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="keysort" arity="2"/>
       <fsummary>Sort terms on files by key.</fsummary>
-      <type>
-        <v>Reply = ok | {error, Reason} | InputReply | OutputReply</v>
-      </type>
+      <desc>
+        <p>Sorts tuples on files. <c>keysort(N, FileName)</c> is
+          equivalent to <c>keysort(N, [FileName], FileName)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="keysort" arity="3"/>
+      <name name="keysort" arity="4"/>
+      <fsummary>Sort terms on files by key.</fsummary>
       <desc>
         <p>Sorts tuples on files. The sort is performed on the
-          element(s) mentioned in <c>KeyPos</c>. If two tuples
-          compare equal (<c>==</c>) on one element, next element according to
-          <c>KeyPos</c> is compared. The sort is stable.
-          </p>
-        <p><c>keysort(N, FileName)</c> is equivalent to
-          <c>keysort(N, [FileName], FileName)</c>.
-          </p>
+          element(s) mentioned in <c><anno>KeyPos</anno></c>. If two
+          tuples compare equal (<c>==</c>) on one element, next
+          element according to <c><anno>KeyPos</anno></c>
+          is compared. The sort is stable.</p>
         <p><c>keysort(N, Input, Output)</c> is equivalent to
-          <c>keysort(N, Input, Output, [])</c>.
-          </p>
-        <p></p>
+          <c>keysort(N, Input, Output, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>merge(FileNames, Output) -> Reply</name>
-      <name>merge(FileNames, Output, Options) -> Reply</name>
+      <name name="merge" arity="2"/>
+      <name name="merge" arity="3"/>
       <fsummary>Merge terms on files.</fsummary>
-      <type>
-        <v>Reply = ok | {error, Reason} | OutputReply</v>
-      </type>
       <desc>
         <p>Merges terms on files. Each input file is assumed to be
-          sorted.
-          </p>
+          sorted.</p>
         <p><c>merge(FileNames, Output)</c> is equivalent to
-          <c>merge(FileNames, Output, [])</c>.
-          </p>
+          <c>merge(FileNames, Output, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>keymerge(KeyPos, FileNames, Output) -> Reply</name>
-      <name>keymerge(KeyPos, FileNames, Output, Options) -> Reply</name>
+      <name name="keymerge" arity="3"/>
+      <name name="keymerge" arity="4"/>
       <fsummary>Merge terms on files by key.</fsummary>
-      <type>
-        <v>Reply = ok | {error, Reason} | OutputReply</v>
-      </type>
       <desc>
         <p>Merges tuples on files. Each input file is assumed to be
-          sorted on key(s).
-          </p>
+          sorted on key(s).</p>
         <p><c>keymerge(KeyPos, FileNames, Output)</c> is equivalent
-          to <c>keymerge(KeyPos, FileNames, Output, [])</c>.
-          </p>
-        <p></p>
+          to <c>keymerge(KeyPos, FileNames, Output, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>check(FileName) -> Reply</name>
-      <name>check(FileNames, Options) -> Reply</name>
+      <name name="check" arity="1"/>
+      <name name="check" arity="2"/>
       <fsummary>Check whether terms on files are sorted.</fsummary>
-      <type>
-        <v>Reply = {ok, [Result]} | {error, Reason}</v>
-        <v>Result = {FileName, TermPosition, Term}</v>
-        <v>TermPosition = int() > 1</v>
-      </type>
       <desc>
         <p>Checks files for sortedness. If a file is not sorted, the
           first out-of-order element is returned. The first term on a
-          file has position 1.
-          </p>
+          file has position 1.</p>
         <p><c>check(FileName)</c> is equivalent to
-          <c>check([FileName], [])</c>.
-          </p>
+          <c>check([FileName], [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>keycheck(KeyPos, FileName) -> CheckReply</name>
-      <name>keycheck(KeyPos, FileNames, Options) -> Reply</name>
+      <name name="keycheck" arity="2"/>
+      <name name="keycheck" arity="3"/>
       <fsummary>Check whether terms on files are sorted by key.</fsummary>
-      <type>
-        <v>Reply = {ok, [Result]} | {error, Reason}</v>
-        <v>Result = {FileName, TermPosition, Term}</v>
-        <v>TermPosition = int() > 1</v>
-      </type>
       <desc>
         <p>Checks files for sortedness. If a file is not sorted, the
           first out-of-order element is returned. The first term on a
-          file has position 1.
-          </p>
+          file has position 1.</p>
         <p><c>keycheck(KeyPos, FileName)</c> is equivalent
-          to <c>keycheck(KeyPos, [FileName], [])</c>.
-          </p>
-        <p></p>
+          to <c>keycheck(KeyPos, [FileName], [])</c>.</p>
       </desc>
     </func>
   </funcs>

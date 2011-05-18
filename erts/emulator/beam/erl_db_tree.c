@@ -111,7 +111,7 @@ static void release_stack(DbTableTree* tb, DbTreeStack* stack)
 {
     if (stack == &tb->static_stack) {
 	ASSERT(erts_smp_atomic_read(&tb->is_stack_busy) == 1);
-	erts_smp_atomic_set(&tb->is_stack_busy, 0);
+	erts_smp_atomic_set_relb(&tb->is_stack_busy, 0);
     }
     else {
 	erts_db_free(ERTS_ALC_T_DB_STK, (DbTable *) tb,
@@ -179,7 +179,7 @@ static ERTS_INLINE TreeDbTerm* replace_dbterm(DbTableTree *tb, TreeDbTerm* old,
 static TreeDbTerm *traverse_until(TreeDbTerm *t, int *current, int to);
 static void check_slot_pos(DbTableTree *tb);
 static void check_saved_stack(DbTableTree *tb);
-static int check_table_tree(TreeDbTerm *t);
+static int check_table_tree(DbTableTree* tb, TreeDbTerm *t);
 
 #define TREE_DEBUG
 #endif
@@ -194,8 +194,8 @@ static int check_table_tree(TreeDbTerm *t);
 ** Debugging dump
 */
 
-static void do_dump_tree2(int to, void *to_arg, int show, TreeDbTerm *t,
-			  int offset);
+static void do_dump_tree2(DbTableTree*, int to, void *to_arg, int show,
+			  TreeDbTerm *t, int offset);
 
 #else
 
@@ -1730,6 +1730,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
 ** Other interface routines (not directly coupled to one bif)
 */
 
+
 /* Display tree contents (for dump) */
 static void db_print_tree(int to, void *to_arg, 
 			  int show,
@@ -1740,7 +1741,7 @@ static void db_print_tree(int to, void *to_arg,
     if (show)
 	erts_print(to, to_arg, "\nTree data dump:\n"
 		   "------------------------------------------------\n");
-    do_dump_tree2(to, to_arg, show, tb->root, 0);
+    do_dump_tree2(&tbl->tree, to, to_arg, show, tb->root, 0);
     if (show)
 	erts_print(to, to_arg, "\n"
 		   "------------------------------------------------\n");
@@ -2694,7 +2695,7 @@ static Sint do_cmp_partly_bound(Eterm a, Eterm b, Eterm* b_base, int *done)
 	while (1) {
 	    if ((j = do_cmp_partly_bound(*aa++, *bb++, b_base, done)) != 0 || *done)
 		return j;
-	    if (*aa==*bb)
+	    if (is_same(*aa, NULL, *bb, b_base))
 		return 0;
 	    if (is_not_list(*aa) || is_not_list(*bb))
 		return do_cmp_partly_bound(*aa, *bb, b_base, done);
@@ -2742,7 +2743,7 @@ static Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key, Eterm* bk_
 	erts_fprintf(stderr," > ");
     else
 	erts_fprintf(stderr," == ");
-    erts_fprintf(stderr,"%T\n",bound_key);  // HALFWORD BUG: printing rterm
+    erts_fprintf(stderr,"%R\n", bound_key, bk_base);
 #endif
     return ret;
 }
@@ -3084,19 +3085,28 @@ static int doit_select_delete(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 }
 
 #ifdef TREE_DEBUG
-static void do_dump_tree2(int to, void *to_arg, int show, TreeDbTerm *t,
-			  int offset)
+static void do_dump_tree2(DbTableTree* tb, int to, void *to_arg, int show,
+			  TreeDbTerm *t, int offset)
 {
     if (t == NULL)
-	return 0;
-    do_dump_tree2(to, to_arg, show, t->right, offset + 4);
+	return;
+    do_dump_tree2(tb, to, to_arg, show, t->right, offset + 4);
     if (show) {
-	erts_print(to, to_arg, "%*s%T (addr = %p, bal = %d)\n"
-		   offset, "", make_tuple(t->dbterm.tpl),
+	const char* prefix;
+	Eterm term;
+	if (tb->common.compress) {
+	    prefix = "key=";
+	    term = GETKEY(tb, t->dbterm.tpl);
+	}
+	else {
+	    prefix = "";
+	    term = make_tuple_rel(t->dbterm.tpl,t->dbterm.tpl);
+	}
+	erts_print(to, to_arg, "%*s%s%R (addr = %p, bal = %d)\n",
+		   offset, "", prefix, term, t->dbterm.tpl,
 		   t, t->balance);
     }
-    do_dump_tree2(to, to_arg, show, t->left, offset + 4); 
-    return sum;
+    do_dump_tree2(tb, to, to_arg, show, t->left, offset + 4); 
 }
 
 #endif
@@ -3106,7 +3116,7 @@ static void do_dump_tree2(int to, void *to_arg, int show, TreeDbTerm *t,
 void db_check_table_tree(DbTable *tbl)
 {
     DbTableTree *tb = &tbl->tree;
-    check_table_tree(tb->root);
+    check_table_tree(tb, tb->root);
     check_saved_stack(tb);
     check_slot_pos(tb);
 }
@@ -3137,7 +3147,7 @@ static void check_slot_pos(DbTableTree *tb)
 		   "element position %d is really 0x%08X, when stack says "
 		   "it's 0x%08X\n", tb->stack.slot, t, 
 		   tb->stack.array[tb->stack.pos - 1]);
-	do_dump_tree2(ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
+	do_dump_tree2(tb, ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
     }
 }
 	
@@ -3152,14 +3162,14 @@ static void check_saved_stack(DbTableTree *tb)
      if (t != stack->array[0]) {
 	 erts_fprintf(stderr,"tb->stack[0] is 0x%08X, should be 0x%08X\n",
 		      stack->array[0], t);
-	 do_dump_tree2(ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
+	 do_dump_tree2(tb, ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
 	 return;
      }
      while (n < stack->pos) {
 	 if (t == NULL) {
 	     erts_fprintf(stderr, "NULL pointer in tree when stack not empty,"
 			" stack depth is %d\n", n);
-	     do_dump_tree2(ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
+	     do_dump_tree2(tb, ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
 	     return;
 	 }
 	 n++;
@@ -3173,28 +3183,26 @@ static void check_saved_stack(DbTableTree *tb)
 			    "represent child pointer in tree!"
 			    "(left == 0x%08X, right == 0x%08X\n", 
 			    n, tb->stack[n], t->left, t->right);
-		 do_dump_tree2(ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
+		 do_dump_tree2(tb, ERTS_PRINT_STDERR, NULL, 1, tb->root, 0);
 		 return;
 	     }
 	 }
      }
 }
 
-static int check_table_tree(TreeDbTerm *t)
+static int check_table_tree(DbTableTree* tb, TreeDbTerm *t)
 {
     int lh, rh;
     if (t == NULL)
 	return 0;
-    lh = check_table_tree(t->left);
-    rh = check_table_tree(t->right);
+    lh = check_table_tree(tb, t->left);
+    rh = check_table_tree(tb, t->right);
     if ((rh - lh) != t->balance) {
 	erts_fprintf(stderr, "Invalid tree balance for this node:\n");
-	erts_fprintf(stderr,"balance = %d, left = 0x%08X, right = 0x%08X\n"
-		     "data = %T",
-		     t->balance, t->left, t->right,
-		     make_tuple(t->dbterm.tpl));
+	erts_fprintf(stderr,"balance = %d, left = 0x%08X, right = 0x%08X\n",
+		     t->balance, t->left, t->right);
 	erts_fprintf(stderr,"\nDump:\n---------------------------------\n");
-	do_dump_tree2(ERTS_PRINT_STDERR, NULL, 1, t, 0);
+	do_dump_tree2(tb, ERTS_PRINT_STDERR, NULL, 1, t, 0);
 	erts_fprintf(stderr,"\n---------------------------------\n");
     }
     return ((rh > lh) ? rh : lh) + 1;

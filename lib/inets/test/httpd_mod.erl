@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,6 @@
 %%
 
 -module(httpd_mod).
--author('ingela@erix.ericsson.se').
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
@@ -815,6 +814,8 @@ esi(Type, Port, Host, Node) ->
 					[{statuscode, 302},
 					{version, "HTTP/1.0"}]),
     ok.
+
+
 %%--------------------------------------------------------------------
 get(Type, Port, Host, Node) ->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,

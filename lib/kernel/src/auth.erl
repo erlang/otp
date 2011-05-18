@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,7 +57,8 @@ start_link() ->
 
 %%--Deprecated interface------------------------------------------------
 
--spec is_auth(Node :: node()) -> 'yes' | 'no'.
+-spec is_auth(Node) -> 'yes' | 'no' when
+      Node :: Node :: node().
 
 is_auth(Node) ->
     case net_adm:ping(Node) of
@@ -65,12 +66,15 @@ is_auth(Node) ->
 	pang -> no
     end.
 
--spec cookie() -> cookie().
+-spec cookie() -> Cookie when
+      Cookie :: cookie().
 
 cookie() ->
     get_cookie().
 
--spec cookie(Cookies :: [cookie(),...] | cookie()) -> 'true'.
+-spec cookie(TheCookie) -> 'true' when
+      TheCookie :: Cookie | [Cookie],
+      Cookie :: cookie().
 
 cookie([Cookie]) ->
     set_cookie(Cookie);
@@ -82,7 +86,9 @@ cookie(Cookie) ->
 node_cookie([Node, Cookie]) ->
     node_cookie(Node, Cookie).
 
--spec node_cookie(Node :: node(), Cookie :: cookie()) -> 'yes' | 'no'.
+-spec node_cookie(Node, Cookie) -> 'yes' | 'no' when
+      Node :: node(),
+      Cookie :: cookie().
 
 node_cookie(Node, Cookie) ->
     set_cookie(Node, Cookie),

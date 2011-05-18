@@ -23,6 +23,7 @@
 -include_lib("snmp/src/app/snmp_internal.hrl").
 
 -define(DEFAULT_LOCAL_ENGINE_ID, snmp_framework_mib:get_engine_id()).
+-define(DEFAULT_NOTIF_EXTRA_INFO, {snmpa_default_notification_extra_info}).
 
 -define(snmpa_info(F, A),    ?snmp_info("agent",    F, A)).
 -define(snmpa_warning(F, A), ?snmp_warning("agent", F, A)).

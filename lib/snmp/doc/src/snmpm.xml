@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -63,6 +63,10 @@ value_type() = o ('OBJECT IDENTIFIER') |
                c64 ('Counter64') | 
                tt ('TimeTicks')
 value() = term()
+community() = string()
+sec_model() = any | v1 | v2c | usm
+sec_name() = string()
+sec_level() = noAuthNoPriv | authNoPriv | authPriv
 ]]></code>
 
     <marker id="monitor"></marker>
@@ -482,11 +486,65 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Get a list of all registered usm users with engine-id 
           <c>EngineID</c>.</p>
 
-        <marker id="sync_get"></marker>
+        <marker id="sync_get2"></marker>
       </desc>
     </func>
 
     <func>
+      <name>sync_get2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-request</c>. </p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_get"></marker>
+      </desc>
+    </func>
+
+   <func>
       <name>sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name>sync_get(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name>sync_get(UserId, TargetName, Oids, Timeout) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -513,18 +571,62 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Synchronous <c>get-request</c>. </p>
         <p><c>Remaining</c> is the remaining time of the given or 
-          default timeout time.</p>
+	default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
         <p>For <c>SnmpInfo</c>, see the user callback function 
           <seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+        <marker id="async_get2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-request</c>.</p>
+
+        <p>The reply, if it arrives, will be delivered to the user 
+	through a call to the snmpm_user callback function 
+	<c>handle_pdu</c>.</p>
+
+        <p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
 
         <marker id="async_get"></marker>
       </desc>
@@ -550,17 +652,73 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-request</c>.</p>
         <p>The reply, if it arrives, will be delivered to the user 
-          through a call to the snmpm_user callback function 
-          <c>handle_pdu</c>.</p>
-        <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	through a call to the snmpm_user callback function 
+	<c>handle_pdu</c>.</p>
+	<p>The <c>Expire</c> time indicates for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
-        <marker id="sync_get_next"></marker>
+        <marker id="sync_get_next2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-next-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-next-request</c>. </p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_get_next"></marker>
       </desc>
     </func>
 
@@ -587,16 +745,57 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Synchronous <c>get-next-request</c>. </p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+	
+        <marker id="async_get_next2"></marker>
+      </desc>
+    </func>
 
-        <marker id="async_get_next"></marker>
+    <func>
+      <name>async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_next2(UserId, TargetName, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-next-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>Oids = [oid()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-next-request</c>. </p>
+
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+
+	<p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<marker id="async_get_next"></marker>
       </desc>
     </func>
 
@@ -620,11 +819,75 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-next-request</c>. </p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
         <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
-        <marker id="sync_set"></marker>
+        <marker id="sync_set2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>set-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>VarsAndVals = vars_and_vals()</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>set-request</c>. </p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_set"></marker>
       </desc>
     </func>
 
@@ -651,18 +914,64 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Synchronous <c>set-request</c>. </p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
         <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
-          manager makes an educated guess based on the loaded mibs. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
-        <marker id="async_set"></marker>
+        <marker id="async_set2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_set2(UserId, TargetName, VarsAndVals, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>set-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>VarsAndVals = vars_and_vals()</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>set-request</c>. </p>
+
+	<p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+
+	<p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<marker id="async_set"></marker>
       </desc>
     </func>
 
@@ -685,18 +994,76 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>set-request</c>. </p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
         <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
-        <p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
-          manager makes an educated guess based on the loaded mibs. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	valid (after which the manager is free to delete it).</p>
+	<p>When <em>var_and_val()</em> is <em>{oid(), value()}</em>, the
+	manager makes an educated guess based on the loaded mibs. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+	
+        <marker id="sync_get_bulk2"></marker>
+      </desc>
+    </func>
 
-        <marker id="sync_get_bulk"></marker>
+    <func>
+      <name>sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <name>sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
+      <fsummary>Synchronous <c>get-bulk-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>NonRep = integer()</v>
+        <v>MaxRep = integer()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>SnmpReply = snmp_reply()</v>
+        <v>Remaining = integer()</v>
+        <v>Reason = {send_failed, ReqId, ActualReason} | {invalid_sec_info, SecInfo, SnmpInfo} | term()</v>
+        <v>ReqId = term()</v>
+        <v>ActualReason = term()</v>
+        <v>SecInfo = [sec_info()]</v>
+        <v>sec_info() = {sec_tag(), ExpectedValue, ReceivedValue}</v>
+        <v>sec_tag() = atom()</v>
+        <v>ExpectedValue = ReceivedValue = term()</v>
+        <v>SnmpInfo = term()</v>
+      </type>
+      <desc>
+        <p>Synchronous <c>get-bulk-request</c> (See RFC1905).</p>
+
+        <p><c>Remaining</c> is the remaining time of the given (or default) 
+	timeout time.</p>
+
+        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. 
+	<em>ActualReason</em> is the actual reason in this case. </p>
+
+	<p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a option (when using the built in 
+	net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
+
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<p>For <c>SnmpInfo</c>, see the user callback function 
+	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+
+	<marker id="sync_get_bulk"></marker>
       </desc>
     </func>
 
@@ -723,17 +1090,60 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Synchronous <c>get-bulk-request</c> (See RFC1905).</p>
         <p><c>Remaining</c> time of the given or default timeout time.</p>
-        <p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
-          the net_if process failed to send the message. This could happen
-          because of any number of reasons, i.e. encoding error. <em>R</em> 
-          is the actual reason in this case. </p>
-        <p><c>ExtraInfo</c> is an opaque data structure passed on to
-          the net-if process. The net-if process included in this
-          application makes no use of this info, so the only use for it
-          in such a configuration (when using the built in net-if) would
-          be tracing.</p>
+	<p>When <em>Reason</em> is <em>{send_failed, ...}</em> it means that
+	the net_if process failed to send the message. This could happen
+	because of any number of reasons, i.e. encoding error. <em>R</em> 
+	is the actual reason in this case. </p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
-        <marker id="async_get_bulk"></marker>
+        <marker id="async_get_bulk2"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
+      <name>async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) -> {ok, ReqId} | {error, Reason}</name>
+      <fsummary>Asynchronous <c>get-bulk-request</c></fsummary>
+      <type>
+        <v>UserId = term()</v>
+        <v>TargetName = target_name()</v>
+        <v>NonRep = integer()</v>
+        <v>MaxRep = integer()</v>
+        <v>Oids = [oid()]</v>
+        <v>SendOpts = send_opts()</v>
+        <v>send_opts() = [send_opt()]</v>
+        <v>send_opt() = {context, string()} | {timeout, pos_integer()} | {extra, term()} | {community, community()} | {sec_model, sec_model()} | {sec_name, string()} | {sec_level, sec_level()} | {max_message_size, pos_integer()}</v>
+        <v>ReqId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
+
+        <p>The reply will be delivered to the user through a call
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
+
+        <p>The send option <c>timeout</c> specifies for how long the request is 
+	valid (after which the manager is free to delete it).</p>
+
+        <p>The send option <c>extra</c> specifies an opaque data structure 
+	passed on to the net-if process. The net-if process included in this
+	application makes no use of this info, so the only use for it
+	in such a configuration (when using the built in net-if) would
+	be tracing.</p>
+	
+	<p>Some of the send options (<c>community</c>, <c>sec_model</c>, 
+	<c>sec_name</c>, <c>sec_level</c> and <c>max_message_size</c>) 
+	are <c>override options</c>. That is,
+	for <em>this</em> request, they override any configuration done 
+	when the agent was registered. </p>
+
+	<marker id="async_get_bulk"></marker>
       </desc>
     </func>
 
@@ -759,9 +1169,16 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
       <desc>
         <p>Asynchronous <c>get-bulk-request</c> (See RFC1905).</p>
         <p>The reply will be delivered to the user through a call
-          to the snmpm_user callback function <c>handle_pdu</c>.</p>
+	to the snmpm_user callback function <c>handle_pdu</c>.</p>
         <p>The <c>Expire</c> time indicates for how long the request is 
-          valid (after which the manager is free to delete it).</p>
+	valid (after which the manager is free to delete it).</p>
+	<p><c>ExtraInfo</c> is an opaque data structure passed on to
+	the net-if process. The net-if process included in this
+	application makes, with one exception, no use of this info, 
+	so the only use for it in such a configuration (when using the 
+	built in net-if) would be tracing. The one usage exception is: 
+	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
+	element is reserved for internal use. </p>
 
         <marker id="cancel_async_request"></marker>
       </desc>

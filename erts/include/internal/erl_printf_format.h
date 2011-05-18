@@ -40,7 +40,7 @@ extern int erts_printf_ulong(fmtfn_t, void*, char, int, int, unsigned long);
 extern int erts_printf_slong(fmtfn_t, void*, char, int, int, signed long);
 extern int erts_printf_double(fmtfn_t, void *, char, int, int, double);
 
-extern int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long);
+extern int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long, unsigned long*);
 
 #endif
 

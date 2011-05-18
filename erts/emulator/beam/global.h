@@ -183,7 +183,7 @@ struct port {
 				    process to get (line oriented I/O)*/
     Uint32 status;		 /* Status and type flags */
     int control_flags;		 /* Flags for port_control()  */
-    Uint32 snapshot;             /* Next snapshot that port should be part of */
+    erts_aint32_t snapshot;      /* Next snapshot that port should be part of */
     struct reg_proc *reg;
     ErlDrvPDL port_data_lock;
 
@@ -527,11 +527,10 @@ union erl_off_heap_ptr {
 
 /* arrays that get malloced at startup */
 extern Port* erts_port;
-extern erts_smp_atomic_t erts_ports_alive;
 
 extern Uint erts_max_ports;
 extern Uint erts_port_tab_index_mask;
-extern erts_smp_atomic_t erts_ports_snapshot;
+extern erts_smp_atomic32_t erts_ports_snapshot;
 extern erts_smp_atomic_t erts_dead_ports_ptr;
 
 ERTS_GLB_INLINE void erts_may_save_closed_port(Port *prt);
@@ -541,12 +540,12 @@ ERTS_GLB_INLINE void erts_may_save_closed_port(Port *prt);
 ERTS_GLB_INLINE void erts_may_save_closed_port(Port *prt)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_spinlock_is_locked(&prt->state_lck));
-    if (prt->snapshot != erts_smp_atomic_read(&erts_ports_snapshot)) {
+    if (prt->snapshot != erts_smp_atomic32_read_acqb(&erts_ports_snapshot)) {
 	/* Dead ports are added from the end of the snapshot buffer */
 	Eterm* tombstone = (Eterm*) erts_smp_atomic_addtest(&erts_dead_ports_ptr,
 							    -(erts_aint_t)sizeof(Eterm));
 	ASSERT(tombstone+1 != NULL);
-	ASSERT(prt->snapshot == (Uint32) erts_smp_atomic_read(&erts_ports_snapshot) - 1);
+	ASSERT(prt->snapshot == erts_smp_atomic32_read(&erts_ports_snapshot) - 1);
 	*tombstone = prt->id;
     }
     /*else no ongoing snapshot or port was already included or created after snapshot */
@@ -1653,10 +1652,14 @@ struct Sint_buf {
 };	
 char* Sint_to_buf(Sint, struct Sint_buf*);
 
+#define ERTS_IOLIST_OK 0
+#define ERTS_IOLIST_OVERFLOW 1
+#define ERTS_IOLIST_TYPE 2
+
 Eterm buf_to_intlist(Eterm**, char*, int, Eterm); /* most callers pass plain char*'s */
 int io_list_to_buf(Eterm, char*, int);
 int io_list_to_buf2(Eterm, char*, int);
-int io_list_len(Eterm);
+int erts_iolist_size(Eterm, Uint *);
 int is_string(Eterm);
 void erl_at_exit(void (*) (void*), void*);
 Eterm collect_memory(Process *);
@@ -1890,6 +1893,8 @@ erts_alloc_message_heap(Uint size,
 #  if defined(DEBUG)
 #    define DeclareTmpHeap(VariableName,Size,Process) \
        Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,Process)
+#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
+      Type *VariableName = (Type *) erts_debug_allocate_tmp_heap(sizeof(Type)/sizeof(Eterm),Process)
 #    define DeclareTmpHeapNoproc(VariableName,Size) \
        Eterm *VariableName = erts_debug_allocate_tmp_heap(Size,NULL)
 #    define UseTmpHeap(Size,Proc) \
@@ -1911,6 +1916,8 @@ erts_alloc_message_heap(Uint size,
 #  else
 #    define DeclareTmpHeap(VariableName,Size,Process) \
        Eterm *VariableName = (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
+#    define DeclareTypedTmpHeap(Type,VariableName,Process)		\
+      Type *VariableName = (Type *) (ERTS_PROC_GET_SCHDATA(Process)->tmp_heap)+(ERTS_PROC_GET_SCHDATA(Process)->num_tmp_heap_used)
 #    define DeclareTmpHeapNoproc(VariableName,Size) \
        Eterm *VariableName = (erts_get_scheduler_data()->tmp_heap)+(erts_get_scheduler_data()->num_tmp_heap_used)
 #    define UseTmpHeap(Size,Proc) \
@@ -1936,6 +1943,8 @@ erts_alloc_message_heap(Uint size,
 #else
 #  define DeclareTmpHeap(VariableName,Size,Process) \
      Eterm VariableName[Size]
+#  define DeclareTypedTmpHeap(Type,VariableName,Process)	\
+     Type VariableName[1]
 #  define DeclareTmpHeapNoproc(VariableName,Size) \
      Eterm VariableName[Size]
 #  define UseTmpHeap(Size,Proc) /* Nothing */

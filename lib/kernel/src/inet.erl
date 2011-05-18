@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -63,7 +63,8 @@
 %% timer interface
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
--export_type([ip_address/0, socket/0]).
+-export_type([family_option/0, hostent/0, hostname/0, ip4_address/0,
+              ip6_address/0, ip_address/0, posix/0, socket/0]).
 
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -79,8 +80,16 @@
 %%% ---------------------------------
 %%% Contract type definitions
 
+
+-type hostent() :: #hostent{}.
+-type hostname() :: atom() | string().
+-type ip4_address() :: {0..255,0..255,0..255,0..255}.
+-type ip6_address() :: {0..65535,0..65535,0..65535,0..65535,
+			0..65535,0..65535,0..65535,0..65535}.
+-type ip_address() :: ip4_address() | ip6_address().
+-type ip_port() :: 0..65535.
+-type posix() :: exbadport | exbadseq | file:posix().
 -type socket() :: port().
--type posix() :: atom().
 
 -type socket_setopt() ::
       {'raw', non_neg_integer(), non_neg_integer(), binary()} |
@@ -106,7 +115,7 @@
       {'packet',        
        0 | 1 | 2 | 4 | 'raw' | 'sunrm' |  'asn1' |
        'cdr' | 'fcgi' | 'line' | 'tpkt' | 'http' | 'httph' | 'http_bin' | 'httph_bin' } |
-      {'mode',           list() | binary()} |
+      {'mode',           'list' | 'binary'} |
       {'port',           'port', 'term'} |
       {'exit_on_close',   boolean()} |
       {'low_watermark',   non_neg_integer()} |
@@ -195,12 +204,13 @@
 
 %%% ---------------------------------
 
--spec get_rc() -> [{any(),any()}].
+-spec get_rc() -> [{Par :: any(), Val :: any()}].
 
 get_rc() ->
     inet_db:get_rc().
 
--spec close(Socket :: socket()) -> 'ok'.
+-spec close(Socket) -> 'ok' when
+      Socket :: socket().
 
 close(Socket) ->
     prim_inet:close(Socket),
@@ -211,8 +221,10 @@ close(Socket) ->
 	    ok
     end.
 
--spec peername(Socket :: socket()) -> 
-	{'ok', {ip_address(), non_neg_integer()}} | {'error', posix()}.
+-spec peername(Socket) ->  {ok, {Address, Port}} | {error, posix()} when
+      Socket :: socket(),
+      Address :: ip_address(),
+      Port :: non_neg_integer().
 
 peername(Socket) -> 
     prim_inet:peername(Socket).
@@ -226,8 +238,10 @@ setpeername(Socket, undefined) ->
     prim_inet:setpeername(Socket, undefined).
 
 
--spec sockname(Socket :: socket()) -> 
-	{'ok', {ip_address(), non_neg_integer()}} | {'error', posix()}.
+-spec sockname(Socket) -> {ok, {Address, Port}} | {error, posix()} when
+      Socket :: socket(),
+      Address :: ip_address(),
+      Port :: non_neg_integer().
 
 sockname(Socket) -> 
     prim_inet:sockname(Socket).
@@ -260,8 +274,10 @@ send(Socket, Packet) ->
 setopts(Socket, Opts) -> 
     prim_inet:setopts(Socket, Opts).
 
--spec getopts(Socket :: socket(), Opts :: [socket_getopt()]) ->	
-	{'ok', [socket_setopt()]} | {'error', posix()}.
+-spec getopts(Socket, Options) ->
+	{'ok', [socket_setopt()]} | {'error', posix()} when
+      Socket :: socket(),
+      Options :: [socket_getopt()].
 
 getopts(Socket, Opts) ->
     prim_inet:getopts(Socket, Opts).
@@ -272,7 +288,19 @@ getopts(Socket, Opts) ->
 getifaddrs(Socket) ->
     prim_inet:getifaddrs(Socket).
 
--spec getifaddrs() -> {'ok', [string()]} | {'error', posix()}.
+-spec getifaddrs() -> {ok, Iflist} | {error, posix()} when
+      Iflist :: [{Ifname,[Ifopt]}],
+      Ifname :: string(),
+      Ifopt :: {flag,[Flag]} | {addr,Addr} | {netmask,Netmask}
+             | {broadaddr,Broadaddr} | {dstaddr,Dstaddr}
+             | {hwaddr,Hwaddr},
+      Flag :: up | broadcast | loopback | pointtopoint
+            | running | multicast,
+      Addr :: ip_address(),
+      Netmask :: ip_address(),
+      Broadaddr :: ip_address(),
+      Dstaddr :: ip_address(),
+      Hwaddr :: [byte()].
 
 getifaddrs() ->
     withsocket(fun(S) -> prim_inet:getifaddrs(S) end).
@@ -371,7 +399,8 @@ popf(_Socket) ->
 % use of the DHCP-protocol
 % should never fail
 
--spec gethostname() -> {'ok', string()}.
+-spec gethostname() -> {'ok', Hostname} when
+      Hostname :: string().
 
 gethostname() ->
     case inet_udp:open(0,[]) of
@@ -402,19 +431,23 @@ getstat(Socket) ->
 getstat(Socket,What) ->
     prim_inet:getstat(Socket, What).
 
--spec gethostbyname(Name :: string() | atom()) ->
-	{'ok', #hostent{}} | {'error', posix()}.
+-spec gethostbyname(Hostname) -> {ok, Hostent} | {error, posix()} when
+      Hostname :: hostname(),
+      Hostent :: hostent().
 
 gethostbyname(Name) -> 
     gethostbyname_tm(Name, inet, false).
 
--spec gethostbyname(Name :: string() | atom(), Family :: family_option()) ->
-	{'ok', #hostent{}} | {'error', posix()}.
+-spec gethostbyname(Hostname, Family) ->
+                           {ok, Hostent} | {error, posix()} when
+      Hostname :: hostname(),
+      Family :: family_option(),
+      Hostent :: hostent().
 
 gethostbyname(Name,Family) -> 
     gethostbyname_tm(Name, Family, false).
 
--spec gethostbyname(Name :: string() | atom(),
+-spec gethostbyname(Name :: hostname(),
 	            Family :: family_option(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', #hostent{}} | {'error', posix()}.
@@ -439,8 +472,9 @@ gethostbyname_tm(Name,Family,Timer) ->
     gethostbyname_tm(Name, Family, Timer, Opts).
 
 
--spec gethostbyaddr(Address :: string() | ip_address()) ->
-	{'ok', #hostent{}} | {'error', posix()}.
+-spec gethostbyaddr(Address) -> {ok, Hostent} | {error, posix()} when
+      Address :: string() | ip_address(),
+      Hostent :: hostent().
 
 gethostbyaddr(Address) ->
     gethostbyaddr_tm(Address, false).
@@ -491,14 +525,15 @@ getfd(Socket) ->
 %% Lookup an ip address
 %%
 
--spec getaddr(Host :: ip_address() | string() | atom(),
-	      Family :: family_option()) ->
-	{'ok', ip_address()} | {'error', posix()}.
+-spec getaddr(Host, Family) -> {ok, Address} | {error, posix()} when
+      Host :: ip_address() | hostname(),
+      Family :: family_option(),
+      Address :: ip_address().
 
 getaddr(Address, Family) ->
     getaddr(Address, Family, infinity).
 
--spec getaddr(Host :: ip_address() | string() | atom(),
+-spec getaddr(Host :: ip_address() | hostname(),
 	      Family :: family_option(),
 	      Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', ip_address()} | {'error', posix()}.
@@ -515,9 +550,11 @@ getaddr_tm(Address, Family, Timer) ->
 	Error -> Error
     end.
 
--spec getaddrs(Host :: ip_address() | string() | atom(),
-	       Family :: family_option()) ->
-	{'ok', [ip_address()]} | {'error', posix()}.
+-spec getaddrs(Host, Family) ->
+	{ok, Addresses} | {error, posix()} when
+      Host :: ip_address() | hostname(),
+      Family :: family_option(),
+      Addresses :: [ip_address()].
 
 getaddrs(Address, Family) -> 
     getaddrs(Address, Family, infinity).
@@ -1237,7 +1274,8 @@ port_list(Name) ->
 %%  utils
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec format_error(posix()) -> string().
+-spec format_error(Posix) -> string() when
+      Posix :: posix().
 
 format_error(exbadport) -> "invalid port state";
 format_error(exbadseq) ->  "bad command sequence";

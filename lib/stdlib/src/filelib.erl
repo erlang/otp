@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,13 +40,19 @@
 		erlang:error(UnUsUalVaRiAbLeNaMe)
 	end).
 
+-type filename() :: file:name().
+-type dirname() :: filename().
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec wildcard(file:name()) -> [file:filename()].
+-spec wildcard(Wildcard) -> [file:filename()] when
+      Wildcard :: filename() | dirname().
 wildcard(Pattern) when is_list(Pattern) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, file)).
 
--spec wildcard(file:name(), file:name() | atom()) -> [file:filename()].
+-spec wildcard(Wildcard, Cwd) -> [file:filename()] when
+      Wildcard :: filename() | dirname(),
+      Cwd :: dirname().
 wildcard(Pattern, Cwd) when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, file));
 wildcard(Pattern, Mod) when is_list(Pattern), is_atom(Mod) ->
@@ -57,7 +63,8 @@ wildcard(Pattern, Cwd, Mod)
   when is_list(Pattern), (is_list(Cwd) or is_binary(Cwd)), is_atom(Mod) ->
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, Mod)).
 
--spec is_dir(file:name()) -> boolean().
+-spec is_dir(Name) -> boolean() when
+      Name :: filename() | dirname().
 is_dir(Dir) ->
     do_is_dir(Dir, file).
 
@@ -65,7 +72,8 @@ is_dir(Dir) ->
 is_dir(Dir, Mod) when is_atom(Mod) ->
     do_is_dir(Dir, Mod).
 
--spec is_file(file:name()) -> boolean().
+-spec is_file(Name) -> boolean() when
+      Name :: filename() | dirname().
 is_file(File) ->
     do_is_file(File, file).
 
@@ -73,7 +81,8 @@ is_file(File) ->
 is_file(File, Mod) when is_atom(Mod) ->
     do_is_file(File, Mod).
 
--spec is_regular(file:name()) -> boolean().
+-spec is_regular(Name) -> boolean() when
+      Name :: filename().
 is_regular(File) ->
     do_is_regular(File, file).
     
@@ -81,7 +90,13 @@ is_regular(File) ->
 is_regular(File, Mod) when is_atom(Mod) ->
     do_is_regular(File, Mod).
     
--spec fold_files(file:name(), string(), boolean(), fun((_,_) -> _), _) -> _.
+-spec fold_files(Dir, RegExp, Recursive, Fun, AccIn) -> AccOut when
+      Dir :: dirname(),
+      RegExp :: string(),
+      Recursive :: boolean(),
+      Fun :: fun((F :: file:filename(), AccIn) -> AccOut),
+      AccIn :: term(),
+      AccOut :: term().
 fold_files(Dir, RegExp, Recursive, Fun, Acc) ->
     do_fold_files(Dir, RegExp, Recursive, Fun, Acc, file).
 
@@ -89,7 +104,8 @@ fold_files(Dir, RegExp, Recursive, Fun, Acc) ->
 fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod) when is_atom(Mod) ->
     do_fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod).
 
--spec last_modified(file:name()) -> file:date_time() | 0.
+-spec last_modified(Name) -> file:date_time() | 0 when
+      Name :: filename() | dirname().
 last_modified(File) ->
     do_last_modified(File, file).
 
@@ -97,7 +113,8 @@ last_modified(File) ->
 last_modified(File, Mod) when is_atom(Mod) ->
     do_last_modified(File, Mod).
 
--spec file_size(file:name()) -> non_neg_integer().
+-spec file_size(Filename) -> non_neg_integer() when
+      Filename :: filename().
 file_size(File) ->
     do_file_size(File, file).
 
@@ -237,7 +254,9 @@ do_file_size(File, Mod) ->
 %% +type X = filename() | dirname()
 %% ensures that the directory name required to create D exists
 
--spec ensure_dir(file:name()) -> 'ok' | {'error', file:posix()}.
+-spec ensure_dir(Name) -> 'ok' | {'error', Reason} when
+      Name :: filename() | dirname(),
+      Reason :: file:posix().
 ensure_dir("/") ->
     ok;
 ensure_dir(F) ->

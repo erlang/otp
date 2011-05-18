@@ -45,7 +45,7 @@
   </description>
   <funcs>
     <func>
-      <name>pi() -> float()</name>
+      <name name="pi" arity="0"/>
       <fsummary>A useful number</fsummary>
       <desc>
         <p>A useful number.</p>

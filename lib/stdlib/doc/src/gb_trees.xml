@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2001</year><year>2010</year>
+      <year>2001</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -57,20 +57,22 @@
       trees. Behaviour is logarithmic (as it should be).</p>
   </section>
 
-  <section>
-    <title>DATA TYPES</title>
-    <code type="none">
-gb_tree() = a GB tree</code>
-  </section>
+  <datatypes>
+    <datatype>
+      <name><marker id="type-gb_tree">gb_tree()</marker></name>
+      <desc><p>A GB tree.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="iter"/>
+      <desc><p>A GB tree iterator.</p></desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>balance(Tree1) -> Tree2</name>
+      <name name="balance" arity="1"/>
       <fsummary>Rebalance a tree</fsummary>
-      <type>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
       <desc>
-        <p>Rebalances <c>Tree1</c>. Note that this is rarely necessary,
+        <p>Rebalances <c><anno>Tree1</anno></c>. Note that this is rarely necessary,
           but may be motivated when a large number of nodes have been
           deleted from the tree without further insertions. Rebalancing
           could then be forced in order to minimise lookup times, since
@@ -78,139 +80,97 @@ gb_tree() = a GB tree</code>
       </desc>
     </func>
     <func>
-      <name>delete(Key, Tree1) -> Tree2</name>
+      <name name="delete" arity="2"/>
       <fsummary>Remove a node from a tree</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
       <desc>
-        <p>Removes the node with key <c>Key</c> from <c>Tree1</c>;
+        <p>Removes the node with key <c><anno>Key</anno></c> from <c><anno>Tree1</anno></c>;
           returns new tree. Assumes that the key is present in the tree,
           crashes otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>delete_any(Key, Tree1) -> Tree2</name>
+      <name name="delete_any" arity="2"/>
       <fsummary>Remove a (possibly non-existing) node from a tree</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
       <desc>
-        <p>Removes the node with key <c>Key</c> from <c>Tree1</c> if
+        <p>Removes the node with key <c><anno>Key</anno></c> from <c><anno>Tree1</anno></c> if
           the key is present in the tree, otherwise does nothing;
           returns new tree.</p>
       </desc>
     </func>
     <func>
-      <name>empty() -> Tree</name>
+      <name name="empty" arity="0"/>
       <fsummary>Return an empty tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
         <p>Returns a new empty tree</p>
       </desc>
     </func>
     <func>
-      <name>enter(Key, Val, Tree1) -> Tree2</name>
+      <name name="enter" arity="3"/>
       <fsummary>Insert or update key with value in a tree</fsummary>
-      <type>
-        <v>Key = Val = term()</v>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
       <desc>
-        <p>Inserts <c>Key</c> with value <c>Val</c> into <c>Tree1</c> if
+        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Val</anno></c> into <c><anno>Tree1</anno></c> if
           the key is not present in the tree, otherwise updates
-          <c>Key</c> to value <c>Val</c> in <c>Tree1</c>. Returns the
+          <c><anno>Key</anno></c> to value <c><anno>Val</anno></c> in <c><anno>Tree1</anno></c>. Returns the
           new tree.</p>
       </desc>
     </func>
     <func>
-      <name>from_orddict(List) -> Tree</name>
+      <name name="from_orddict" arity="1"/>
       <fsummary>Make a tree from an orddict</fsummary>
-      <type>
-        <v>List = [{Key, Val}]</v>
-        <v>&nbsp;Key = Val = term()</v>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
-        <p>Turns an ordered list <c>List</c> of key-value tuples into a
+        <p>Turns an ordered list <c><anno>List</anno></c> of key-value tuples into a
           tree. The list must not contain duplicate keys.</p>
       </desc>
     </func>
     <func>
-      <name>get(Key, Tree) -> Val</name>
+      <name name="get" arity="2"/>
       <fsummary>Look up a key in a tree, if present</fsummary>
-      <type>
-        <v>Key = Val = term()</v>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
-        <p>Retrieves the value stored with <c>Key</c> in <c>Tree</c>.
+        <p>Retrieves the value stored with <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>.
           Assumes that the key is present in the tree, crashes
           otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>lookup(Key, Tree) -> {value, Val} | none</name>
+      <name name="lookup" arity="2"/>
       <fsummary>Look up a key in a tree</fsummary>
-      <type>
-        <v>Key = Val = term()</v>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
-        <p>Looks up <c>Key</c> in <c>Tree</c>; returns
-          <c>{value, Val}</c>, or <c>none</c> if <c>Key</c> is not
+        <p>Looks up <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>; returns
+          <c>{value, <anno>Val</anno>}</c>, or <c>none</c> if <c><anno>Key</anno></c> is not
           present.</p>
       </desc>
     </func>
     <func>
-      <name>insert(Key, Val, Tree1) -> Tree2</name>
+      <name name="insert" arity="3"/>
       <fsummary>Insert a new key and value in a tree</fsummary>
-      <type>
-        <v>Key = Val = term()</v>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
       <desc>
-        <p>Inserts <c>Key</c> with value <c>Val</c> into <c>Tree1</c>;
+        <p>Inserts <c><anno>Key</anno></c> with value <c><anno>Val</anno></c> into <c><anno>Tree1</anno></c>;
           returns the new tree. Assumes that the key is not present in
           the tree, crashes otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>is_defined(Key, Tree) -> bool()</name>
+      <name name="is_defined" arity="2"/>
       <fsummary>Test for membership of a tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Key</c> is present in <c>Tree</c>,
+        <p>Returns <c>true</c> if <c><anno>Key</anno></c> is present in <c><anno>Tree</anno></c>,
           otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
-      <name>is_empty(Tree) -> bool()</name>
+      <name name="is_empty" arity="1"/>
       <fsummary>Test for empty tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Tree</c> is an empty tree, and
+        <p>Returns <c>true</c> if <c><anno>Tree</anno></c> is an empty tree, and
           <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>iterator(Tree) -> Iter</name>
+      <name name="iterator" arity="1"/>
       <fsummary>Return an iterator for a tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-        <v>Iter = term()</v>
-      </type>
       <desc>
         <p>Returns an iterator that can be used for traversing the
-          entries of <c>Tree</c>; see <c>next/1</c>. The implementation
+          entries of <c><anno>Tree</anno></c>; see <c>next/1</c>. The implementation
           of this is very efficient; traversing the whole tree using
           <c>next/1</c> is only slightly slower than getting the list
           of all elements using <c>to_list/1</c> and traversing that.
@@ -220,141 +180,99 @@ gb_tree() = a GB tree</code>
       </desc>
     </func>
     <func>
-      <name>keys(Tree) -> [Key]</name>
+      <name name="keys" arity="1"/>
       <fsummary>Return a list of the keys in a tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-        <v>Key = term()</v>
-      </type>
       <desc>
-        <p>Returns the keys in <c>Tree</c> as an ordered list.</p>
+        <p>Returns the keys in <c><anno>Tree</anno></c> as an ordered list.</p>
       </desc>
     </func>
     <func>
-      <name>largest(Tree) -> {Key, Val}</name>
+      <name name="largest" arity="1"/>
       <fsummary>Return largest key and value</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-        <v>Key = Val = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>{Key, Val}</c>, where <c>Key</c> is the largest
-          key in <c>Tree</c>, and <c>Val</c> is the value associated
+        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>}</c>, where <c><anno>Key</anno></c> is the largest
+          key in <c><anno>Tree</anno></c>, and <c><anno>Val</anno></c> is the value associated
           with this key. Assumes that the tree is nonempty.</p>
       </desc>
     </func>
     <func>
-      <name>map(Function, Tree1) -> Tree2</name>
+      <name name="map" arity="2"/>
       <fsummary>Return largest key and value</fsummary>
-      <type>
-        <v>Function = fun(K, V1) -> V2</v>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
-         <desc><p>maps the function F(K, V1) -> V2 to all key-value pairs
-	    of the tree Tree1 and returns a new tree Tree2 with the same set of keys
-	    as Tree1 and the new set of values V2.</p>
+         <desc><p>Maps the function F(<anno>K</anno>, <anno>V1</anno>) -> <anno>V2</anno> to all key-value pairs
+	    of the tree <c><anno>Tree1</anno></c> and returns a new tree <c><anno>Tree2</anno></c> with the same set of keys
+	    as <c><anno>Tree1</anno></c> and the new set of values <c><anno>V2</anno></c>.</p>
          </desc>
     </func>
     <func>
-      <name>next(Iter1) -> {Key, Val, Iter2} | none</name>
+      <name name="next" arity="1"/>
       <fsummary>Traverse a tree with an iterator</fsummary>
-      <type>
-        <v>Iter1 = Iter2 = Key = Val = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>{Key, Val, Iter2}</c> where <c>Key</c> is the
-          smallest key referred to by the iterator <c>Iter1</c>, and
-          <c>Iter2</c> is the new iterator to be used for
+        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>, <anno>Iter2</anno>}</c> where <c><anno>Key</anno></c> is the
+          smallest key referred to by the iterator <c><anno>Iter1</anno></c>, and
+          <c><anno>Iter2</anno></c> is the new iterator to be used for
           traversing the remaining nodes, or the atom <c>none</c> if no
           nodes remain.</p>
       </desc>
     </func>
     <func>
-      <name>size(Tree) -> int()</name>
+      <name name="size" arity="1"/>
       <fsummary>Return the number of nodes in a tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-      </type>
       <desc>
-        <p>Returns the number of nodes in <c>Tree</c>.</p>
+        <p>Returns the number of nodes in <c><anno>Tree</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>smallest(Tree) -> {Key, Val}</name>
+      <name name="smallest" arity="1"/>
       <fsummary>Return smallest key and value</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-        <v>Key = Val = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>{Key, Val}</c>, where <c>Key</c> is the smallest
-          key in <c>Tree</c>, and <c>Val</c> is the value associated
+        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>}</c>, where <c><anno>Key</anno></c> is the smallest
+          key in <c><anno>Tree</anno></c>, and <c><anno>Val</anno></c> is the value associated
           with this key. Assumes that the tree is nonempty.</p>
       </desc>
     </func>
     <func>
-      <name>take_largest(Tree1) -> {Key, Val, Tree2}</name>
+      <name name="take_largest" arity="1"/>
       <fsummary>Extract largest key and value</fsummary>
-      <type>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-        <v>Key = Val = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>{Key, Val, Tree2}</c>, where <c>Key</c> is the
-          largest key in <c>Tree1</c>, <c>Val</c> is the value
-          associated with this key, and <c>Tree2</c> is this tree with
+        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>, <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          largest key in <c><anno>Tree1</anno></c>, <c><anno>Val</anno></c> is the value
+          associated with this key, and <c><anno>Tree2</anno></c> is this tree with
           the corresponding node deleted. Assumes that the tree is
           nonempty.</p>
       </desc>
     </func>
     <func>
-      <name>take_smallest(Tree1) -> {Key, Val, Tree2}</name>
+      <name name="take_smallest" arity="1"/>
       <fsummary>Extract smallest key and value</fsummary>
-      <type>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-        <v>Key = Val = term()</v>
-      </type>
       <desc>
-        <p>Returns <c>{Key, Val, Tree2}</c>, where <c>Key</c> is the
-          smallest key in <c>Tree1</c>, <c>Val</c> is the value
-          associated with this key, and <c>Tree2</c> is this tree with
+        <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>, <anno>Tree2</anno>}</c>, where <c><anno>Key</anno></c> is the
+          smallest key in <c><anno>Tree1</anno></c>, <c><anno>Val</anno></c> is the value
+          associated with this key, and <c><anno>Tree2</anno></c> is this tree with
           the corresponding node deleted. Assumes that the tree is
           nonempty.</p>
       </desc>
     </func>
     <func>
-      <name>to_list(Tree) -> [{Key, Val}]</name>
+      <name name="to_list" arity="1"/>
       <fsummary>Convert a tree into a list</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-        <v>Key = Val = term()</v>
-      </type>
       <desc>
         <p>Converts a tree into an ordered list of key-value tuples.</p>
       </desc>
     </func>
     <func>
-      <name>update(Key, Val, Tree1) -> Tree2</name>
+      <name name="update" arity="3"/>
       <fsummary>Update a key to new value in a tree</fsummary>
-      <type>
-        <v>Key = Val = term()</v>
-        <v>Tree1 = Tree2 = gb_tree()</v>
-      </type>
       <desc>
-        <p>Updates <c>Key</c> to value <c>Val</c> in <c>Tree1</c>;
+        <p>Updates <c><anno>Key</anno></c> to value <c><anno>Val</anno></c> in <c><anno>Tree1</anno></c>;
           returns the new tree. Assumes that the key is present in the
           tree.</p>
       </desc>
     </func>
     <func>
-      <name>values(Tree) -> [Val]</name>
+      <name name="values" arity="1"/>
       <fsummary>Return a list of the values in a tree</fsummary>
-      <type>
-        <v>Tree = gb_tree()</v>
-        <v>Val = term()</v>
-      </type>
       <desc>
-        <p>Returns the values in <c>Tree</c> as an ordered list, sorted
+        <p>Returns the values in <c><anno>Tree</anno></c> as an ordered list, sorted
           by their corresponding keys. Duplicates are not removed.</p>
       </desc>
     </func>

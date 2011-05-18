@@ -29,11 +29,12 @@ behaviour_info(_) ->
 %%-----------------------------------------------------------------
 %% init_check_access(Pdu, ACMData)
 %% Pdu = #pdu
-%% ACMData = acm_data() = {community, Community, Address} |
-%%                               {v3, MsgID, SecModel, SecName, SecLevel,
-%%                                    ContextEngineID, ContextName, SecData}
+%% ACMData = acm_data() = {community, SecModel, Community, TDomain, TAddress} |
+%%                        {v3, MsgID, SecModel, SecName, SecLevel,
+%%                             ContextEngineID, ContextName, SecData}
 %%        Community       = string()
-%%        Address         = ip() ++ udp() (list)
+%%        TDomain         = ?transportDomainUdpIpv4 | ?transportDomainUdpIpv6
+%%        TAddress        = ip() ++ udp() (list)
 %%        MsgID           = integer() <not used>
 %%        SecModel        = ?SEC_*  (see snmp_types.hrl)
 %%        SecName         = string()

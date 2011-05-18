@@ -23,12 +23,12 @@
 %% Tests binaries and the BIFs:
 %%	list_to_binary/1
 %%      iolist_to_binary/1
-%%      bitstr_to_list/1
+%%      list_to_bitstring/1
 %%	binary_to_list/1
 %%	binary_to_list/3
 %%	binary_to_term/1
 %%  	binary_to_term/2
-%%      bitstr_to_list/1
+%%      bitstring_to_list/1
 %%	term_to_binary/1
 %%      erlang:external_size/1
 %%	size(Binary)
@@ -275,12 +275,33 @@ bad_list_to_binary(Config) when is_list(Config) ->
     ?line test_bad_bin(fun(X, Y) -> X*Y end),
     ?line test_bad_bin([1,fun(X) -> X + 1 end,2|fun() -> 0 end]),
     ?line test_bad_bin([fun(X) -> X + 1 end]),
+
+    %% Test iolists that do not fit in the address space.
+    %% Unfortunately, it would be too slow to test in a 64-bit emulator.
+    case erlang:system_info(wordsize) of
+	4 -> huge_iolists();
+	_ -> ok
+    end.
+
+huge_iolists() ->
+    FourGigs = 1 bsl 32,
+    ?line Sizes = [FourGigs+N || N <- lists:seq(0, 64)] ++
+	[1 bsl N || N <- lists:seq(33, 37)],
+    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    [begin
+	 L = build_iolist(Sz, Base),
+	 ?line {'EXIT',{system_limit,_}} = (catch list_to_binary([L])),
+	 ?line {'EXIT',{system_limit,_}} = (catch list_to_bitstring([L])),
+	 ?line {'EXIT',{system_limit,_}} = (catch binary:list_to_bin([L])),
+	 ?line {'EXIT',{system_limit,_}} = (catch iolist_to_binary(L))
+	 end || Sz <- Sizes],
     ok.
 
 test_bad_bin(List) ->
     {'EXIT',{badarg,_}} = (catch list_to_binary(List)),
     {'EXIT',{badarg,_}} = (catch iolist_to_binary(List)),
-    {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)).
+    {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)),
+    {'EXIT',{badarg,_}} = (catch iolist_size(List)).
 
 bad_binary_to_list(doc) -> "Tries binary_to_list/1,3 with bad arguments.";
 bad_binary_to_list(Config) when is_list(Config) ->
@@ -516,18 +537,65 @@ external_size_1(Term, Size0, Limit) when Size0 < Limit ->
 external_size_1(_, _, _) -> ok.
 
 t_iolist_size(Config) when is_list(Config) ->
-    %% Build a term whose external size only fits in a big num (on 32-bit CPU).
-    Bin = iolist_to_binary(lists:seq(0, 254)),
-    ?line ok = t_iolist_size_1(Bin, 0, 16#7FFFFFFF),
-    ?line ok = t_iolist_size_1(make_unaligned_sub_binary(Bin), 0, 16#7FFFFFFF).
+    ?line Seed = now(),
+    ?line io:format("Seed: ~p", [Seed]),
+    ?line random:seed(Seed),
+    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    ?line Powers = [1 bsl N || N <- lists:seq(2, 37)],
+    ?line Sizes0 = [[N - random:uniform(N div 2),
+		     lists:seq(N-2, N+2),
+		     N+N div 2,
+		     N + random:uniform(N div 2)] ||
+		       N <- Powers],
+    %% Test sizes around 1^32 more thoroughly.
+    FourGigs = 1 bsl 32,
+    ?line Sizes1 = [FourGigs+N || N <- lists:seq(-8, 40)] ++ Sizes0,
+    ?line Sizes2 = lists:flatten(Sizes1),
+    ?line Sizes = lists:usort(Sizes2),
+    io:format("~p sizes:", [length(Sizes)]),
+    io:format("~p\n", [Sizes]),
+    ?line [Sz = iolist_size(build_iolist(Sz, Base)) || Sz <- Sizes],
+    ok.
 
-t_iolist_size_1(IOList, Size0, Limit) when Size0 < Limit ->
-    case iolist_size(IOList) of
-	Size when is_integer(Size), Size0 < Size ->
-	    io:format("~p", [Size]),
-	    t_iolist_size_1([IOList|IOList], Size, Limit)
+build_iolist(N, Base) when N < 16 ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	_ ->
+	    lists:seq(1, N)
     end;
-t_iolist_size_1(_, _, _) -> ok.
+build_iolist(N, Base) when N =< byte_size(Base) ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	2 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    [Bin];
+	3 ->
+	    case N rem 2 of
+		0 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L];
+		1 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L,45]
+	    end
+    end;
+build_iolist(N0, Base) ->
+    Small = random:uniform(15),
+    Seq = lists:seq(1, Small),
+    N = N0 - Small,
+    case N rem 2 of
+	0 ->
+	    L = build_iolist(N div 2, Base),
+	    [L,L|Seq];
+	1 ->
+	    L = build_iolist(N div 2, Base),
+	    [47,L,L|Seq]
+    end.
+
 
 bad_binary_to_term_2(doc) -> "OTP-4053.";
 bad_binary_to_term_2(suite) -> [];
@@ -1183,34 +1251,7 @@ deep(Config) when is_list(Config) ->
 
 deep_roundtrip(T) ->
     B = term_to_binary(T),
-    true = deep_eq(T, binary_to_term(B)).
-
-%%
-%% FIXME: =:= runs out of stack.
-%%
-deep_eq([H1|T1], [H2|T2]) ->
-    deep_eq(H1, H2) andalso deep_eq(T1, T2);
-deep_eq(T1, T2) when tuple_size(T1) =:= tuple_size(T2) ->
-    deep_eq_tup(T1, T2, tuple_size(T1));
-deep_eq(T1, T2) when is_function(T1), is_function(T2) ->
-    {uniq,U1} = erlang:fun_info(T1, uniq),
-    {index,I1} = erlang:fun_info(T1, index),
-    {arity,A1} = erlang:fun_info(T1, arity),
-    {env,E1} = erlang:fun_info(T1, env),
-    {uniq,U2} = erlang:fun_info(T2, uniq),
-    {index,I2} = erlang:fun_info(T2, index),
-    {arity,A2} = erlang:fun_info(T2, arity),
-    {env,E2} = erlang:fun_info(T2, env),
-    U1 =:= U2 andalso I1 =:= I2 andalso A1 =:= A2 andalso
-	deep_eq(E1, E2);
-deep_eq(T1, T2) ->
-    T1 =:= T2.
-
-deep_eq_tup(_T1, _T2, 0) ->
-    true;
-deep_eq_tup(T1, T2, N) ->
-    deep_eq(element(N, T1), element(N, T2)) andalso
-	deep_eq_tup(T1, T2, N-1).
+    T = binary_to_term(B).
 
 obsolete_funs(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),

@@ -39,7 +39,7 @@ typedef struct {
     int inited;
     Sint16 id;
     Uint16 flags;
-    Eterm extra;
+    UWord extra;
 } erts_lc_lock_t;
 
 #define ERTS_LC_INITITALIZED 0x7f7f7f7f

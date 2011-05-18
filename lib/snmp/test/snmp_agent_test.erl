@@ -81,13 +81,12 @@
 	       case get(vsn) of
 		   v1 -> V1;
 		   v2 -> V2;
-		   _ -> V3
+		   _  -> V3
 	       end).
 
 
 all() -> 
-    Reqs = [mnesia, distribution, {local_slave_nodes, 2},
-	    {time, 360}],
+    %% Reqs  = [mnesia, distribution, {local_slave_nodes, 2}, {time, 360}],
     Conf1 = [{group, all_tcs}],
     Conf2 = [{group, tickets2}],
     Conf1 ++ Conf2.
@@ -95,67 +94,138 @@ all() ->
 groups() -> 
     [{all_tcs, [], cases()},
      {mib_storage, [],
-      [{group, mib_storage_ets}, {group, mib_storage_dets},
+      [
+       {group, mib_storage_ets}, 
+       {group, mib_storage_dets},
        {group, mib_storage_mnesia},
        {group, mib_storage_size_check_ets},
        {group, mib_storage_size_check_dets},
        {group, mib_storage_size_check_mnesia},
        {group, mib_storage_varm_dets},
-       {group, mib_storage_varm_mnesia}]},
-     {mib_storage_ets, [], mib_storage_ets_cases()},
-     {mib_storage_dets, [], mib_storage_dets_cases()},
-     {mib_storage_mnesia, [], mib_storage_mnesia_cases()},
-     {mib_storage_size_check_ets, [],
-      mse_size_check_cases()},
-     {mib_storage_size_check_dets, [],
-      msd_size_check_cases()},
-     {mib_storage_size_check_mnesia, [],
-      msm_size_check_cases()},
-     {mib_storage_varm_dets, [],
-      varm_mib_storage_dets_cases()},
-     {mib_storage_varm_mnesia, [],
-      varm_mib_storage_mnesia_cases()},
-     {misc, [], misc_cases()}, {test_v1, [], v1_cases()},
-     {test_v2, [], v2_cases()},
-     {test_v1_v2, [], v1_v2_cases()},
-     {test_v3, [], v3_cases()},
-     {test_multi_threaded, [], mt_cases()},
-     {multiple_reqs, [], mul_cases()},
-     {multiple_reqs_2, [], mul_cases_2()},
-     {v2_inform, [], [v2_inform_i]},
+       {group, mib_storage_varm_mnesia}
+      ]
+     },
+     {mib_storage_ets,               [], mib_storage_ets_cases()},
+     {mib_storage_dets,              [], mib_storage_dets_cases()},
+     {mib_storage_mnesia,            [], mib_storage_mnesia_cases()},
+     {mib_storage_size_check_ets,    [], mse_size_check_cases()},
+     {mib_storage_size_check_dets,   [], msd_size_check_cases()},
+     {mib_storage_size_check_mnesia, [], msm_size_check_cases()},
+     {mib_storage_varm_dets,         [], varm_mib_storage_dets_cases()},
+     {mib_storage_varm_mnesia,       [], varm_mib_storage_mnesia_cases()},
+     {misc,                          [], misc_cases()}, 
+     {test_v1,                       [], v1_cases()},
+     {test_v2,                       [], v2_cases()},
+     {test_v1_v2,                    [], v1_v2_cases()},
+     {test_v3,                       [], v3_cases()},
+     {test_multi_threaded,           [], mt_cases()},
+     {multiple_reqs,                 [], mul_cases()},
+     {multiple_reqs_2,               [], mul_cases_2()},
+     {v2_inform, [], 
+      [
+       v2_inform_i
+      ]
+     },
      {v3_security, [],
-      [v3_crypto_basic, v3_md5_auth, v3_sha_auth,
-       v3_des_priv]},
+      [
+       v3_crypto_basic, 
+       v3_md5_auth, 
+       v3_sha_auth,
+       v3_des_priv
+      ]
+     },
      {standard_mibs, [],
-      [snmp_standard_mib, snmp_community_mib,
-       snmp_framework_mib, snmp_target_mib,
-       snmp_notification_mib, snmp_view_based_acm_mib]},
+      [
+       snmp_standard_mib, 
+       snmp_community_mib,
+       snmp_framework_mib, 
+       snmp_target_mib,
+       snmp_notification_mib, 
+       snmp_view_based_acm_mib
+      ]
+     },
      {standard_mibs_2, [],
-      [snmpv2_mib_2, snmp_community_mib_2,
-       snmp_framework_mib_2, snmp_target_mib_2,
-       snmp_notification_mib_2, snmp_view_based_acm_mib_2]},
+      [
+       snmpv2_mib_2, 
+       snmp_community_mib_2,
+       snmp_framework_mib_2, 
+       snmp_target_mib_2,
+       snmp_notification_mib_2, 
+       snmp_view_based_acm_mib_2
+      ]
+     },
      {standard_mibs_3, [],
-      [snmpv2_mib_3, snmp_framework_mib_3, snmp_mpd_mib_3,
-       snmp_target_mib_3, snmp_notification_mib_3,
-       snmp_view_based_acm_mib_3, snmp_user_based_sm_mib_3]},
+      [
+       snmpv2_mib_3, 
+       snmp_framework_mib_3, 
+       snmp_mpd_mib_3,
+       snmp_target_mib_3, 
+       snmp_notification_mib_3,
+       snmp_view_based_acm_mib_3, 
+       snmp_user_based_sm_mib_3
+      ]
+     },
      {reported_bugs, [],
-      [otp_1128, otp_1129, otp_1131, otp_1162, otp_1222,
-       otp_1298, otp_1331, otp_1338, otp_1342, otp_2776,
-       otp_2979, otp_3187, otp_3725]},
+      [
+       otp_1128, 
+       otp_1129, 
+       otp_1131, 
+       otp_1162, 
+       otp_1222,
+       otp_1298, 
+       otp_1331, 
+       otp_1338, 
+       otp_1342, 
+       otp_2776,
+       otp_2979, 
+       otp_3187, 
+       otp_3725
+      ]
+     },
      {reported_bugs_2, [],
-      [otp_1128_2, otp_1129_2, otp_1131_2, otp_1162_2,
-       otp_1222_2, otp_1298_2, otp_1331_2, otp_1338_2,
-       otp_1342_2, otp_2776_2, otp_2979_2, otp_3187_2]},
+      [
+       otp_1128_2, 
+       otp_1129_2, 
+       otp_1131_2, 
+       otp_1162_2,
+       otp_1222_2, 
+       otp_1298_2, 
+       otp_1331_2, 
+       otp_1338_2,
+       otp_1342_2, 
+       otp_2776_2, 
+       otp_2979_2, 
+       otp_3187_2
+      ]
+     },
      {reported_bugs_3, [],
-      [otp_1128_3, otp_1129_3, otp_1131_3, otp_1162_3,
-       otp_1222_3, otp_1298_3, otp_1331_3, otp_1338_3,
-       otp_1342_3, otp_2776_3, otp_2979_3, otp_3187_3,
-       otp_3542]},
-     {tickets1, [], [{group, otp_4394}, {group, otp_7157}]},
+      [
+       otp_1128_3, 
+       otp_1129_3, 
+       otp_1131_3, 
+       otp_1162_3,
+       otp_1222_3, 
+       otp_1298_3, 
+       otp_1331_3, 
+       otp_1338_3,
+       otp_1342_3, 
+       otp_2776_3, 
+       otp_2979_3, 
+       otp_3187_3,
+       otp_3542
+      ]
+     },
+     {tickets1, [], 
+      [
+       {group, otp_4394}, 
+       {group, otp_7157}
+      ]
+     },
      {tickets2, [], [otp8395]},
      {otp_4394, [], [otp_4394_test]},
-     {otp_7157, [],
-      begin Reqs = [], Conf = [otp_7157_test], Conf end}].
+     {otp_7157, [], [otp_7157_test]
+     }
+    ].
 
 init_per_group(all_tcs, Config) ->
     init_all(Config);
@@ -378,17 +448,29 @@ end_per_testcase2(_Case, Config) ->
 
 
 cases() -> 
-case ?OSTYPE() of
-  vxworks ->
-      [{group, misc}, {group, test_v1}, {group, test_v2},
-       {group, test_v1_v2}, {group, test_multi_threaded},
-       {group, mib_storage}, {group, tickets1}];
-  _Else ->
-      [{group, misc}, {group, test_v1}, {group, test_v2},
-       {group, test_v1_v2}, {group, test_v3},
-       {group, test_multi_threaded}, {group, mib_storage},
-       {group, tickets1}]
-end.
+    case ?OSTYPE() of
+	vxworks ->
+	    [
+	     {group, misc}, 
+	     {group, test_v1}, 
+	     {group, test_v2},
+	     {group, test_v1_v2}, 
+	     {group, test_multi_threaded},
+	     {group, mib_storage}, 
+	     {group, tickets1}
+	    ];
+	_Else ->
+	    [
+	     {group, misc}, 
+	     {group, test_v1}, 
+	     {group, test_v2},
+	     {group, test_v1_v2}, 
+	     {group, test_v3},
+	     {group, test_multi_threaded}, 
+	     {group, mib_storage},
+	     {group, tickets1}
+	    ]
+    end.
 
 
 %%%-----------------------------------------------------------------
@@ -1071,11 +1153,29 @@ app_dir(App) ->
 
 %v1_cases() -> [loop_mib];
 v1_cases() -> 
-[simple, db_notify_client, v1_processing, big, big2,
- loop_mib, api, subagent, mnesia, {group, multiple_reqs},
- sa_register, v1_trap, sa_error, next_across_sa, undo,
- {group, reported_bugs}, {group, standard_mibs},
- sparse_table, cnt_64, opaque, change_target_addr_config].  
+    [
+     simple, 
+     db_notify_client, 
+     v1_processing, 
+     big, 
+     big2,
+     loop_mib, 
+     api, 
+     subagent, 
+     mnesia, 
+     {group, multiple_reqs},
+     sa_register, 
+     v1_trap, 
+     sa_error, 
+     next_across_sa, 
+     undo,
+     {group, reported_bugs}, 
+     {group, standard_mibs},
+     sparse_table, 
+     cnt_64, 
+     opaque, 
+     change_target_addr_config
+    ].  
 
 init_v1(Config) when is_list(Config) ->
     ?line SaNode = ?config(snmp_sa, Config),
@@ -1094,12 +1194,31 @@ finish_v1(Config) when is_list(Config) ->
 
 
 v2_cases() -> 
-[simple_2, v2_processing, big_2, big2_2, loop_mib_2,
- api_2, subagent_2, mnesia_2, {group, multiple_reqs_2},
- sa_register_2, v2_trap, {group, v2_inform}, sa_error_2,
- next_across_sa_2, undo_2, {group, reported_bugs_2},
- {group, standard_mibs_2}, v2_types, implied,
- sparse_table_2, cnt_64_2, opaque_2, v2_caps].
+    [
+     simple_2, 
+     v2_processing, 
+     big_2, 
+     big2_2, 
+     loop_mib_2,
+     api_2, 
+     subagent_2, 
+     mnesia_2, 
+     {group, multiple_reqs_2},
+     sa_register_2, 
+     v2_trap, 
+     {group, v2_inform}, 
+     sa_error_2,
+     next_across_sa_2, 
+     undo_2, 
+     {group, reported_bugs_2},
+     {group, standard_mibs_2}, 
+     v2_types, 
+     implied,
+     sparse_table_2, 
+     cnt_64_2, 
+     opaque_2, 
+     v2_caps
+    ].
 
 init_v2(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
@@ -1118,7 +1237,7 @@ finish_v2(Config) when is_list(Config) ->
 
 
 v1_v2_cases() -> 
-[simple_bi].
+    [simple_bi].
 
 init_v1_v2(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
@@ -1137,13 +1256,32 @@ finish_v1_v2(Config) when is_list(Config) ->
 
 
 v3_cases() -> 
-[simple_3, v3_processing, big_3, big2_3, api_3,
- subagent_3, mnesia_3, loop_mib_3, multiple_reqs_3,
- sa_register_3, v3_trap, v3_inform, sa_error_3,
- next_across_sa_3, undo_3, {group, reported_bugs_3},
- {group, standard_mibs_3}, {group, v3_security},
- v2_types_3, implied_3, sparse_table_3, cnt_64_3,
- opaque_3, v2_caps_3].
+    [
+     simple_3, 
+     v3_processing, 
+     big_3, 
+     big2_3, 
+     api_3,
+     subagent_3, 
+     mnesia_3, 
+     loop_mib_3, 
+     multiple_reqs_3,
+     sa_register_3, 
+     v3_trap, 
+     v3_inform, 
+     sa_error_3,
+     next_across_sa_3, 
+     undo_3, 
+     {group, reported_bugs_3},
+     {group, standard_mibs_3}, 
+     {group, v3_security},
+     v2_types_3, 
+     implied_3, 
+     sparse_table_3, 
+     cnt_64_3,
+     opaque_3, 
+     v2_caps_3
+    ].
 
 init_v3(Config) when is_list(Config) ->
     %% Make sure crypto works, otherwise start_agent will fail

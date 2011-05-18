@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,6 +37,10 @@
                  strict_ra=[],        % strict record accesses
                  checked_ra=[]        % succesfully accessed records
                 }).
+
+-spec(module(AbsForms, CompileOptions) -> AbsForms when
+      AbsForms :: [erl_parse:abstract_form()],
+      CompileOptions :: [compile:option()]).
 
 %% Is is assumed that Fs is a valid list of forms. It should pass
 %% erl_lint without errors.

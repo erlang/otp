@@ -273,9 +273,12 @@ find_targets(Key, TargAddrs, Db, Res) ->
 get_targets([{TagList, Addr, TargetName, Params, Timeout, Retry}|T],
 	    Tag, Type, Name) ->
     case snmp_misc:is_tag_member(Tag, TagList) of
-	true -> [{Name, {Addr, TargetName, Params, type(Type, Timeout, Retry)}}|
-		 get_targets(T, Tag, Type, Name)];
+	true -> 
+	    ?vtrace("tag ~w *is* member", [Tag]),
+	    [{Name, {Addr, TargetName, Params, type(Type, Timeout, Retry)}}|
+	     get_targets(T, Tag, Type, Name)];
 	false ->
+	    ?vtrace("tag ~w is *not* member", [Tag]),
 	    get_targets(T, Tag, Type, Name)
     end;
 get_targets([], _Tag, _Type, _Name) ->

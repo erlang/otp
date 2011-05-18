@@ -128,9 +128,14 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               }).
 
 -type lint_state() :: #lint{}.
+-type error_description() :: term().
+-type error_info() :: {erl_scan:line(), module(), error_description()}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
+
+-spec format_error(ErrorDescriptor) -> io_lib:chars() when
+      ErrorDescriptor :: error_description().
 
 format_error(undefined_module) ->
     "no module definition";
@@ -419,15 +424,38 @@ used_vars(Exprs, BindingsList) ->
 %%  apply_lambda/2 has been called to shut lint up. N.B. these lists are
 %%  really all ordsets!
 
+-spec(module(AbsForms) -> {ok, Warnings} | {error, Errors, Warnings} when
+      AbsForms :: [erl_parse:abstract_form()],
+      Warnings :: [{file:filename(),[ErrorInfo]}],
+      Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
+      ErrorInfo :: error_info()).
+
 module(Forms) ->
     Opts = compiler_options(Forms),
     St = forms(Forms, start("nofile", Opts)),
     return_status(St).
 
+-spec(module(AbsForms, FileName) ->
+             {ok, Warnings} | {error, Errors, Warnings} when
+      AbsForms :: [erl_parse:abstract_form()],
+      FileName :: atom() | string(),
+      Warnings :: [{file:filename(),[ErrorInfo]}],
+      Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
+      ErrorInfo :: error_info()).
+
 module(Forms, FileName) ->
     Opts = compiler_options(Forms),
     St = forms(Forms, start(FileName, Opts)),
     return_status(St).
+
+-spec(module(AbsForms, FileName, CompileOptions) ->
+             {ok, Warnings} | {error, Errors, Warnings} when
+      AbsForms :: [erl_parse:abstract_form()],
+      FileName :: atom() | string(),
+      CompileOptions :: [compile:option()],
+      Warnings :: [{file:filename(),[ErrorInfo]}],
+      Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
+      ErrorInfo :: error_info()).
 
 module(Forms, FileName, Opts0) ->
     %% We want the options given on the command line to take
@@ -1877,6 +1905,9 @@ gexpr_list(Es, Vt, St) ->
 
 %% is_guard_test(Expression) -> boolean().
 %%  Test if a general expression is a guard test.
+-spec is_guard_test(Expr) -> boolean() when
+      Expr :: erl_parse:abstract_expr().
+
 is_guard_test(E) ->
     is_guard_test2(E, dict:new()).
 

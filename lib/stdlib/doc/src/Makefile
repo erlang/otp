@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -125,10 +125,16 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # FLAGS 
 # ----------------------------------------------------
 XML_FLAGS += 
+
+SPECS_FLAGS = -I../../include -I../../../kernel/include
 
 # ----------------------------------------------------
 # Targets
@@ -136,7 +142,7 @@ XML_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-docs: pdf html man
+docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -155,7 +161,12 @@ clean clean_docs:
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECDIR)/*
 	rm -f errs core *~ 
+
+$(SPECDIR)/specs_erl_id_trans.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+		-o$(dir $@) -module erl_id_trans
 
 # ----------------------------------------------------
 # Release Target
