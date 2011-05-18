@@ -905,7 +905,7 @@ proxy_port() ->
 ssh_proxy(SSHHost,ProxyPort) ->
     ?line Host = lists:nth(2,string:tokens(atom_to_list(node()),"@")),
     % Requires proxy to be a unix host with the command 'read' accessible
-    ?line osrun("ssh -L localhost:"++integer_to_list(ProxyPort)++":"++Host++":"
+    ?line osrun("ssh -L "++integer_to_list(ProxyPort)++":"++Host++":"
 		++integer_to_list(?PORT)++" "++SSHHost++" read").
     
 
