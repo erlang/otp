@@ -331,8 +331,8 @@ parse_typedef(Data, Line, _Env, Where) ->
     NAs = length(As),
     case edoc_types:is_predefined(T, NAs) of
 	true ->
-            case 
-                edoc_types:is_new_predefined(T, NAs) 
+            case
+                edoc_types:is_new_predefined(T, NAs)
                 orelse edoc_types:is_predefined_otp_type(T, NAs)
             of
                 false ->
@@ -406,17 +406,20 @@ throw_error(L, D) ->
 
 -record(parms, {tab, warn, file, line}).
 
-check_types(Entries0, Opts, File) ->
-    Entries = edoc_data:hidden_filter(Entries0, Opts),
+check_types(Entries, Opts, File) ->
     Tags = edoc_data:get_all_tags(Entries),
+    TypeTags = [Tag || #tag{data = {#t_typedef{},_}}=Tag <- Tags],
+    Entries2 = edoc_data:hidden_filter(Entries, Opts),
+    Tags2 = edoc_data:get_all_tags(Entries2),
+    SpecTags = [Tag || #tag{data = #t_spec{}}=Tag <- Tags2],
     DT = ets:new(types, [bag]),
     _ = [add_type(DT, Name, As, File, Line) ||
             #tag{line = Line,
-                 data = {#t_typedef{name = Name, args = As},_}} <- Tags],
-    Warn = proplists:get_value(report_missing_type, Opts,
-                               ?REPORT_MISSING_TYPE) =:= true,
+                 data = {#t_typedef{name = Name, args = As},_}} <- TypeTags],
+    Warn = proplists:get_value(report_missing_types, Opts,
+                               ?REPORT_MISSING_TYPES) =:= true,
     P = #parms{tab = DT, warn = Warn, file = File, line = 0},
-    try check_types(Tags, P)
+    try check_types3(TypeTags++SpecTags, P, [])
     after true = ets:delete(DT)
     end.
 
@@ -431,60 +434,64 @@ add_type(DT, Name, Args, File, Line) ->
             ets:insert(DT, {Name, NArgs})
     end.
 
-check_types([], _P)->
+check_types3([], _P, _Ls)->
     ok;
-check_types([Tag | Tags], P) ->
-    check_type(Tag, P, Tags).
+check_types3([Tag | Tags], P, Ls) ->
+    check_type(Tag, P, Ls, Tags).
 
-check_type(#tag{line = L, data = Data}, P0, Ts) ->
+check_type(#tag{line = L, data = Data}, P0, Ls, Ts) ->
     P = P0#parms{line = L},
     case Data of
         {#t_typedef{type = Type, defs = Defs},_} ->
-            check_type(Type, P, Defs++Ts);
+            check_type(Type, P, Ls, Defs++Ts);
         #t_spec{type = Type, defs = Defs} ->
-            check_type(Type, P, Defs++Ts);
+            LocalTypes =
+                [{N,length(Args)} ||
+                    #t_def{name = #t_type{name = N, args = Args}} <- Defs],
+            check_type(Type, P, LocalTypes, Defs),
+            check_types3(Ts, P, Ls);
         _->
-            check_types(Ts, P0)
+            check_types3(Ts, P0, Ls)
     end;
-check_type(#t_def{type = Type}, P, Ts) ->
-    check_type(Type, P, Ts);
-check_type(#t_type{name = Name, args = Args}, P, Ts) ->
-    check_used_type(Name, Args, P),
-    check_types(Args++Ts, P);
-check_type(#t_var{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_fun{args = Args, range = Range}, P, Ts) ->
-    check_type(Range, P, Args++Ts);
-check_type(#t_tuple{types = Types}, P, Ts) ->
-    check_types(Types ++Ts, P);
-check_type(#t_list{type = Type}, P, Ts) ->
-    check_type(Type, P, Ts);
-check_type(#t_nil{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_paren{type = Type}, P, Ts) ->
-    check_type(Type, P, Ts);
-check_type(#t_nonempty_list{type = Type}, P, Ts) ->
-    check_type(Type, P, Ts);
-check_type(#t_atom{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_integer{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_integer_range{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_binary{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_float{}, P, Ts) ->
-    check_types(Ts, P);
-check_type(#t_union{types = Types}, P, Ts) ->
-    check_types(Types++Ts, P);
-check_type(#t_record{fields = Fields}, P, Ts) ->
-    check_types(Fields++Ts, P);
-check_type(#t_field{type = Type}, P, Ts) ->
-    check_type(Type, P, Ts);
-check_type(undefined, P, Ts) ->
-    check_types(Ts, P).
+check_type(#t_def{type = Type}, P, Ls, Ts) ->
+    check_type(Type, P, Ls, Ts);
+check_type(#t_type{name = Name, args = Args}, P, Ls, Ts) ->
+    check_used_type(Name, Args, P, Ls),
+    check_types3(Args++Ts, P, Ls);
+check_type(#t_var{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_fun{args = Args, range = Range}, P, Ls, Ts) ->
+    check_type(Range, P, Ls, Args++Ts);
+check_type(#t_tuple{types = Types}, P, Ls, Ts) ->
+    check_types3(Types ++Ts, P, Ls);
+check_type(#t_list{type = Type}, P, Ls, Ts) ->
+    check_type(Type, P, Ls, Ts);
+check_type(#t_nil{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_paren{type = Type}, P, Ls, Ts) ->
+    check_type(Type, P, Ls, Ts);
+check_type(#t_nonempty_list{type = Type}, P, Ls, Ts) ->
+    check_type(Type, P, Ls, Ts);
+check_type(#t_atom{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_integer{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_integer_range{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_binary{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_float{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
+check_type(#t_union{types = Types}, P, Ls, Ts) ->
+    check_types3(Types++Ts, P, Ls);
+check_type(#t_record{fields = Fields}, P, Ls, Ts) ->
+    check_types3(Fields++Ts, P, Ls);
+check_type(#t_field{type = Type}, P, Ls, Ts) ->
+    check_type(Type, P, Ls, Ts);
+check_type(undefined, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls).
 
-check_used_type(#t_name{name = N, module = Mod}=Name, Args, P) ->
+check_used_type(#t_name{name = N, module = Mod}=Name, Args, P, LocalTypes) ->
     NArgs = length(Args),
     TypeName = {Name, NArgs},
     DT = P#parms.tab,
@@ -493,6 +500,7 @@ check_used_type(#t_name{name = N, module = Mod}=Name, Args, P) ->
         orelse lists:member(TypeName, ets:lookup(DT, Name))
         orelse edoc_types:is_predefined(N, NArgs)
         orelse edoc_types:is_predefined_otp_type(N, NArgs)
+        orelse lists:member(TypeName, LocalTypes)
     of
         true ->
             ok;

@@ -1,4 +1,4 @@
-%
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 1996-2011. All Rights Reserved.
@@ -428,8 +428,8 @@ get_typevars(Ts) ->
 expand_records(Entries, TypeDefs, DT, Opts, File, Module) ->
     TypeList = [{type_name(T), T, not_seen} || T <- TypeDefs],
     true = ets:insert(DT, TypeList),
-    Warn = proplists:get_value(report_missing_type, Opts,
-                               ?REPORT_MISSING_TYPE) =:= true,
+    Warn = proplists:get_value(report_missing_types, Opts,
+                               ?REPORT_MISSING_TYPES) =:= true,
     P = #parms{tab = DT, warn = Warn, file = File, line = 0},
     ExportedTypes = [Name ||
                         {export_type,Ts} <- Module#module.attributes,

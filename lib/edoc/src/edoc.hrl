@@ -37,7 +37,7 @@
 -define(SOURCE_DIR, "src").
 -define(EBIN_DIR, "ebin").
 -define(EDOC_DIR, "doc").
--define(REPORT_MISSING_TYPE, false).
+-define(REPORT_MISSING_TYPES, false).
 
 -include("edoc_doclet.hrl").
 
