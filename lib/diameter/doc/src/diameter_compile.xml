@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+
+The program may be used and/or copied only with the written permission 
+from Ericsson AB, or in accordance with the terms and conditions 
+stipulated in the agreement/contract under which the program has been 
+supplied.
+
+</legalnotice>
+
+<title>diameterc(1)</title>
+
+<prepared></prepared>
+<docno></docno>
+<date></date>
+<rev></rev>
+<file>diameter_compile.xml</file>
+</header>
+
+<com>diameterc</com>
+<comsummary><![CDATA[diameterc [<options>] <file>]]></comsummary>
+
+<description>
+
+<p>
+The diameterc utility is used to transform diameter
+<seealso marker="diameter_dict">dictionary files</seealso>
+into Erlang source.
+The resulting source implements the interface diameter requires
+to encode and decode the dictionary's messages and AVP's.</p>
+
+</description>
+
+<section>
+<title>USAGE</title>
+
+<taglist>
+
+<tag><![CDATA[diameterc [<options>] <file>]]></tag>
+<item>
+<p>
+Transforms a single dictionary file. Valid options are as follows.</p>
+
+<!-- Leave -h/d/v undocumented, except for the usage message from the
+     utility itself. -->
+
+<taglist>
+<tag><![CDATA[-o <dir>]]></tag>
+<item>
+<p>
+Specifies the directory into which the generated source should be written.
+Defaults to the current working directory.</p>
+</item>
+
+<tag><![CDATA[-i <dir>]]></tag>
+<item>
+<p>
+Specifies a directory to add to the code path.
+Typically used to point at beam files corresponding to dictionaries
+included by the one being compiled (using the <c>@includes</c> directive):
+inclusion is a beam dependency, not an erl/hrl dependency.</p>
+
+<p>
+Multiple <c>-i</c> options can be specified.</p>
+</item>
+
+<tag><![CDATA[-E]]></tag>
+<item>
+<p>
+Supresses erl generation.</p>
+</item>
+
+<tag><![CDATA[-H]]></tag>
+<item>
+<p>
+Supresses hrl generation.</p>
+</item>
+
+</taglist>
+
+</item>
+</taglist>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>EXIT STATUS</title>
+
+<p>
+Returns 0 on success, non-zero on failure.</p>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>BUGS</title>
+
+<p>
+The identification of errors in the source file is poor.</p>
+
+</section>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+<seealso marker="diameter_dict">diameter_dict(4)</seealso></p>
+
+</section>
+
+</comref>

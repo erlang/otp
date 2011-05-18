@@ -1,0 +1,64 @@
+# 
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2005-2010. All Rights Reserved.
+#
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+#
+# %CopyrightEnd%
+# 
+# Author: Peter Andersson
+#
+# This sed program file is intended to be used when creating Makefiles for vxworks
+# from the generic Makefile.in that is found in a number of directories (see configure.vxworks)
+#
+#
+#
+s|@host@|vxworks_simso|
+s|@system_type@|vxworks_simso|
+s|@ARCH@|simso|
+
+# Tornado2.2: s|@CC@|@TTPREFIX@ccsimso|
+s|@CC@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ccsparc|
+
+s|@HCC@|gcc|
+
+# Tornado2.2: s|@LD@|@TTPREFIX@ldsimso|
+s|@LD@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ldsparc|
+
+# Tornado2.2: s|@STRIP@|@TTPREFIX@stripsimso|
+s|@STRIP@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/stripsparc|
+
+s|@SYMPREFIX@||
+s|@LIBS@||
+s|@GCCLIBFLAGS@|-L@WIND_BASE@/vxworks-6.3/target/lib/simso/SIMSPARCSOLARIS/common -lgcc|
+
+# Tornado2.2: s|@DED_LD@|@TTPREFIX@ldsimso|
+s|@DED_LD@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ldsparc|
+
+s|@DED_CFLAGS@|@CFLAGS@|
+s|@DEBUG_CFLAGS@|@CFLAGS@|
+# remove -g option
+s|TYPE_FLAGS = -g |TYPE_FLAGS = |
+s|@GCCLIB_PATH@|@WIND_BASE@/vxworks-6.3/target/lib/simso/SIMSPARCSOLARIS/common/libgcc.a|
+
+# Tornado2.2: s|@RANLIB@|@TTPREFIX@ranlibsimso|
+s|@RANLIB@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/ranlibsparc|
+
+# Tornado2.2: s|@AR@|arsimso|
+s|@AR@|GCC_EXEC_PREFIX=@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc-lib/ @WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/bin/arsparc|
+
+# -Dasm(X)= is for beam
+s|@LIB_CFLAGS@|@CFLAGS@|
+
+s|@CFLAGS@|@GENERAL_CFLAGS@ -DCPU=SIMSPARCSOLARIS -DTOOL_FAMILY=gnu -DTOOL=gnu -DWANT_NONBLOCKING -DHAVE_SENS -DHAVE_MEMMOVE -DVXWORKS -DDEBUG -I@WIND_BASE@/vxworks-6.3/target/h -I@WIND_BASE@/gnu/3.4.4-vxworks-6.3/@HOST_TYPE@/lib/gcc/sparc-wrs-vxworks/3.4.4/include -I@WIND_BASE@/vxworks-6.3/target/h/wrn/coreip -fvolatile -fno-builtin |
+#s|@LIB_CFLAGS@|@GENERAL_CFLAGS@ -DCPU=SIMSPARCSOLARIS -DTOOL_FAMILY=gnu -DTOOL=gnu -DWANT_NONBLOCKING -DHAVE_SENS -DHAVE_MEMMOVE -DVXWORKS -DDEBUG -I@WIND_BASE@/vxworks-6.3/target/h -I@WIND_BASE@/vxworks-6.3/target/h/wrn/coreip -mstrict-align -fvolatile -fno-builtin |

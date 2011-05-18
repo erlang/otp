@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>diameter_tcp(3)</title>
+<prepared>Anders Svensson</prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_tcp.xml</file>
+</header>
+
+<module>diameter_tcp</module>
+<modulesummary>Diameter transport over TCP.</modulesummary>
+
+<description>
+
+<p>
+This module implements diameter transport over TCP using gen_tcp.
+It can be specified as the value of a transport_module option to
+<seealso
+marker="diameter#add_transport">diameter:add_transport/2</seealso>
+and implements the behaviour documented in
+<seealso marker="diameter_transport">diameter_transport(3)</seealso>.</p>
+
+<marker id="start"/>
+</description>
+
+<!-- ===================================================================== -->
+
+<funcs>
+
+<func>
+<name>start({Type, Ref}, Svc, [Opt])
+         -> {ok, Pid, [LAddr]} | {error, Reason}</name>
+<fsummary>Start a transport process.</fsummary>
+<type>
+<v>Type = connect | accept</v>
+<v>Ref = reference()</v>
+<v>Svc = #diameter_service{}</v>
+<v>Opt = {raddr, ip_address()} | {rport, integer()} | term()</v>
+<v>Pid = pid()</v>
+<v>LAddr = ip_address()</v>
+<v>Reason = term()</v>
+</type>
+<desc>
+
+<p>
+The start function required by <seealso
+marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
+
+<p>
+The only diameter_tcp-specific argument is the options list.
+Options <c>raddr</c> and <c>rport</c> specify the remote address
+and port for a connector and not valid for a listener.
+Remaining options are any accepted by gen_tcp:connect/3 for
+a connector, or gen_tcp:listen/2 for a listener, with the exception
+of <c>binary</c>, <c>packet</c> and <c>active</c>.
+Also, option <c>port</c> can be specified for a listener to specify the
+local listening port, the default being the standardized 3868 if
+unspecified.
+Note that option <c>ip</c> specifies the local address.</p>
+
+<p>
+If the service specifies more than one Host-IP-Address and
+option <c>ip</c> is unspecified then then the
+first of the service's addresses is used as the local address.</p>
+
+<p>
+The returned local address list has length one.</p>
+
+</desc>
+</func>
+
+</funcs>
+
+<!-- ===================================================================== -->
+<!-- ===================================================================== -->
+
+<section>
+<title>SEE ALSO</title>
+
+<p>
+<seealso marker="diameter_transport">diameter_transport(3)</seealso></p>
+
+</section>
+
+</erlref>

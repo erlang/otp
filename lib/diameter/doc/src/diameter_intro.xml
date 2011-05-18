@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+    
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+    
+</legalnotice>
+
+<title>Introduction</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno></docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev></rev>
+<file>diameter_intro.xml</file>
+</header>
+
+<p>
+The diameter application is an implementation of the Diameter protocol
+as defined by RFC 3588.
+It supports arbitrary Diameter applications by allowing a client to
+specify the commands and AVP's to be supported and has support for
+implementing all roles defined in the RFC: client, server and agent.
+</p>
+
+</chapter>
+
