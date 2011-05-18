@@ -261,7 +261,7 @@ make_del_dir(Config, Handle, Suffix) ->
 	%% a deep directory
 	?line NewDir2 = filename:join(RootDir, 
 				      atom_to_list(?MODULE)
-				      ++"_mk-dir/foo"),
+				      ++"_mk-dir-noexist/foo"),
 	?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [NewDir2]),
 	%% a nameless directory
 	?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [""]),
