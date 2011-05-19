@@ -360,41 +360,50 @@ make_del_dir(Config) when is_list(Config) ->
     ?line {error, eexist} = ?FILE_MODULE:make_dir(NewDir),
     ?line ok = ?FILE_MODULE:del_dir(NewDir),
     ?line {error, enoent} = ?FILE_MODULE:del_dir(NewDir),
-
-    %% Check that we get an error when trying to create...
-    %% a deep directory
-    ?line NewDir2 = filename:join(RootDir, 
-				  atom_to_list(?MODULE)
-				  ++"_mk-dir/foo"),
-    ?line {error, enoent} = ?FILE_MODULE:make_dir(NewDir2),
-    %% a nameless directory
-    ?line {error, enoent} = ?FILE_MODULE:make_dir(""),
-    %% a directory with illegal name
-    ?line {error, badarg} = ?FILE_MODULE:make_dir({1,2,3}),
-
-    %% a directory with illegal name, even if it's a (bad) list
-    ?line {error, badarg} = ?FILE_MODULE:make_dir([1,2,3,{}]),
-
-    %% Maybe this isn't an error, exactly, but worth mentioning anyway:
-    %% ok = ?FILE_MODULE:make_dir([$f,$o,$o,0,$b,$a,$r])),
-    %% The above line works, and created a directory "./foo"
-    %% More elegant would maybe have been to fail, or to really create
-    %% a directory, but with a name that incorporates the "bar" part of
-    %% the list, so that [$f,$o,$o,0,$f,$o,$o] wouldn't refer to the same
-    %% dir. But this would slow it down.
-
-    %% Try deleting some bad directories
-    %% Deleting the parent directory to the current, sounds dangerous, huh?
-    %% Don't worry ;-) the parent directory should never be empty, right?
-    case ?FILE_MODULE:del_dir('..') of
-	{error, eexist} -> ok;
-	{error, einval} -> ok			%FreeBSD
+    % Make sure we are not in a directory directly under test_server
+    % as that would result in eacess errors when trying to delere '..',
+    % because there are processes having that directory as current.
+    ?line ok = ?FILE_MODULE:make_dir(NewDir),
+    ?line {ok,CurrentDir} = file:get_cwd(),
+    ?line ok = ?FILE_MODULE:set_cwd(NewDir),
+    try
+	%% Check that we get an error when trying to create...
+	%% a deep directory
+	?line NewDir2 = filename:join(RootDir, 
+				      atom_to_list(?MODULE)
+				      ++"_mk-dir-noexist/foo"),
+	?line {error, enoent} = ?FILE_MODULE:make_dir(NewDir2),
+	%% a nameless directory
+	?line {error, enoent} = ?FILE_MODULE:make_dir(""),
+	%% a directory with illegal name
+	?line {error, badarg} = ?FILE_MODULE:make_dir({1,2,3}),
+	
+	%% a directory with illegal name, even if it's a (bad) list
+	?line {error, badarg} = ?FILE_MODULE:make_dir([1,2,3,{}]),
+	
+	%% Maybe this isn't an error, exactly, but worth mentioning anyway:
+	%% ok = ?FILE_MODULE:make_dir([$f,$o,$o,0,$b,$a,$r])),
+	%% The above line works, and created a directory "./foo"
+	%% More elegant would maybe have been to fail, or to really create
+	%% a directory, but with a name that incorporates the "bar" part of
+	%% the list, so that [$f,$o,$o,0,$f,$o,$o] wouldn't refer to the same
+	%% dir. But this would slow it down.
+	
+	%% Try deleting some bad directories
+	%% Deleting the parent directory to the current, sounds dangerous, huh?
+	%% Don't worry ;-) the parent directory should never be empty, right?
+	?line case ?FILE_MODULE:del_dir('..') of
+		  {error, eexist} -> ok;
+		  {error, einval} -> ok			%FreeBSD
+	      end,
+	?line {error, enoent} = ?FILE_MODULE:del_dir(""),
+	?line {error, badarg} = ?FILE_MODULE:del_dir([3,2,1,{}]),
+	
+	?line [] = flush(),
+	?line test_server:timetrap_cancel(Dog)
+    after
+	 ?FILE_MODULE:set_cwd(CurrentDir)
     end,
-    ?line {error, enoent} = ?FILE_MODULE:del_dir(""),
-    ?line {error, badarg} = ?FILE_MODULE:del_dir([3,2,1,{}]),
-
-    ?line [] = flush(),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 cur_dir_0(suite) -> [];
