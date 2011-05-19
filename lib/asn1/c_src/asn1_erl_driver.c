@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -73,6 +73,8 @@ typedef struct {
 /* int min_alloc_bytes; */
 
 
+DRIVER_INIT(asn1_erl_drv);
+
 static ErlDrvData asn1_drv_start(ErlDrvPort, char *);
 
 static void asn1_drv_stop(ErlDrvData);
@@ -101,6 +103,8 @@ int insert_bits_as_bits(int, int, unsigned char **, unsigned char **, int *);
 
 int insert_octets_unaligned(int, unsigned char **, unsigned char **, int);
 
+int realloc_decode_buf(ErlDrvBinary **,int);
+
 int realloc_memory(ErlDrvBinary **,int,unsigned char **,unsigned char **);
 
 int decode_begin(ErlDrvBinary **,unsigned char *, int, unsigned int *);
@@ -122,6 +126,8 @@ int skip_tag(unsigned char *,int *,int);
 int skip_length_and_value(unsigned char *,int *,int);
 
 int get_tag(unsigned char *,int *,int);
+
+int get_length(unsigned char *,int *,int *,int);
 
 int get_value(char *,unsigned char *,int *,int);
 
@@ -185,12 +191,12 @@ static void asn1_drv_stop(ErlDrvData handle)
 
 int asn1_drv_control(ErlDrvData   handle, 
 		     unsigned int command, 
-		     char        *buf,
+		     char         *buf,
 		     int          buf_len,
 		     char       **res_buf,
 		     int          res_buf_len) 
 {
-  char *complete_buf;
+  unsigned char *complete_buf;
   int complete_len, decode_len;
   ErlDrvBinary *drv_binary;
   ErlDrvBinary **drv_bin_ptr;
@@ -216,8 +222,8 @@ int asn1_drv_control(ErlDrvData   handle,
 	set_port_control_flags(a_data->port, 0);
 	return ASN1_MEMORY_ERROR;
       }
-      complete_buf = drv_binary->orig_bytes;
-      if ((complete_len = complete(&drv_binary,complete_buf,buf,buf_len)) == ASN1_ERROR)
+      complete_buf = (unsigned char*) drv_binary->orig_bytes;
+      if ((complete_len = complete(&drv_binary,complete_buf,(unsigned char*) buf,buf_len)) == ASN1_ERROR)
 	{
 	  /* error handling due to failure in complete */
 	  /*       printf("error when running complete\n\r"); */
@@ -252,7 +258,7 @@ int asn1_drv_control(ErlDrvData   handle,
 	return ASN1_MEMORY_ERROR;
       }
       drv_bin_ptr = &drv_binary;
-      if ((decode_len = decode_begin(drv_bin_ptr,buf,buf_len,&err_pos)) <= ASN1_ERROR)
+      if ((decode_len = decode_begin(drv_bin_ptr,(unsigned char*)buf,buf_len,&err_pos)) <= ASN1_ERROR)
 	{
 	  /* error handling due to failure in decode  */
  	  char tmp_res_buf[5];
@@ -301,7 +307,7 @@ int asn1_drv_control(ErlDrvData   handle,
 	return ASN1_MEMORY_ERROR;
       }
       drv_bin_ptr = &drv_binary;
-      if ((decode_len = decode_partial(drv_bin_ptr,buf,buf_len))
+      if ((decode_len = decode_partial(drv_bin_ptr,(unsigned char*)buf,buf_len))
 	  <= ASN1_ERROR) {
 	/* error handling due to failure in decode  */
 	driver_free_binary(*drv_bin_ptr);
@@ -723,7 +729,7 @@ int realloc_memory(ErlDrvBinary **drv_binary,
   }else {
     i = *ptr - *complete_buf;
     *drv_binary=tmp_bin;
-    *complete_buf = (*drv_binary)->orig_bytes;
+    *complete_buf = (unsigned char*)(*drv_binary)->orig_bytes;
     *ptr = *complete_buf + i;
   }
   return ASN1_OK;
@@ -1164,7 +1170,7 @@ int decode(ErlDrvBinary **drv_binary,int *ei_index,unsigned char *in_buf,
     if (ei_encode_tuple_header(decode_buf,ei_index,2) == ASN1_ERROR)
     return ASN1_ERROR;		/* 2 bytes */
 #ifdef ASN1_DEBUG
-    printf("decode 3:orig_size=%d, ei_index=%d, ib_index=%d\n\r",(*drv_binary)->orig_size,*ei_index,*ib_index);
+    printf("decode 3:orig_size=%ld, ei_index=%d, ib_index=%d\n\r",(*drv_binary)->orig_size,*ei_index,*ib_index);
 #endif
 
     /*buffer must hold at least two bytes*/	
@@ -1275,7 +1281,8 @@ int decode_value(int *ei_index,unsigned char *in_buf,
 {
   int maybe_ret;
   char *decode_buf = (*drv_binary)->orig_bytes;
-  int len, lenoflen;
+  unsigned int len = 0;
+  unsigned int lenoflen = 0;
   int indef = 0;
   
 #ifdef ASN1_DEBUG
@@ -1283,8 +1290,6 @@ int decode_value(int *ei_index,unsigned char *in_buf,
 #endif
   if (((in_buf[*ib_index]) & 0x80) == ASN1_SHORT_DEFINITE_LENGTH) {
     len = in_buf[*ib_index];
-    if (len > (in_buf_len - (*ib_index + 1)))
-      return ASN1_LEN_ERROR;
   }
   else if (in_buf[*ib_index] == ASN1_INDEFINITE_LENGTH)
     indef = 1;
@@ -1293,17 +1298,21 @@ int decode_value(int *ei_index,unsigned char *in_buf,
 #ifdef ASN1_DEBUG
      printf("decode_value,lenoflen:%d\r\n",lenoflen);
 #endif
-    len = 0;
-    while (lenoflen-- && (*ib_index <= in_buf_len)) {
-      (*ib_index)++;
+     if (lenoflen > (in_buf_len - (*ib_index+1)))
+       return ASN1_LEN_ERROR;
+     len = 0;
+     while (lenoflen-- ) {
+       (*ib_index)++;
 #ifdef ASN1_DEBUG
-       printf("decode_value1:ii=%d.\r\n",*ib_index);
+       printf("decode_value1:*ib_index=%d, byte = %d.\r\n",*ib_index,in_buf[*ib_index]);
 #endif
-      len = (len << 8) + in_buf[*ib_index];
-    }
-    if (len > (in_buf_len - (*ib_index + 1)))
-      return ASN1_LEN_ERROR;
+       if (!(len < (1 << (sizeof(len)-1)*8))) 
+	 return ASN1_LEN_ERROR; /* length does not fit in 32 bits */
+       len = (len << 8) + in_buf[*ib_index];
+     }
   }
+  if (len > (in_buf_len - (*ib_index + 1)))
+    return ASN1_VALUE_ERROR;
   (*ib_index)++;
 #ifdef ASN1_DEBUG
    printf("decode_value2:ii=%d.\r\n",*ib_index);
