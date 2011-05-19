@@ -35,8 +35,10 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 include files.mk
 
+XML_REF_FILES = $(XML_REF1_FILES) $(XML_REF3_FILES) $(XML_REF4_FILES)
+
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) \
-            $(XML_REF1_FILES) $(XML_REF3_FILES) $(XML_REF4_FILES) \
+            $(XML_REF_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
 
 INTERNAL_HTML_FILES = $(TECHNICAL_DESCR_FILES:%.xml=$(HTMLDIR)/%.html)
@@ -49,9 +51,7 @@ HTML_FILES = $(HTML_APP_FILES) $(HTML_EXTRA_FILES) $(HTML_PART_FILES)
 
 INFO_FILE = ../../info
 
-HTML_REF_FILES = $(XML_REF1_FILES:%.xml=$(HTMLDIR)/%.html) \
-                 $(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
-                 $(XML_REF4_FILES:%.xml=$(HTMLDIR)/%.html)
+HTML_REF_FILES = $(XML_REF_FILES:%.xml=$(HTMLDIR)/%.html)
 
 HTML_CHAPTER_FILES = $(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
 
@@ -98,6 +98,7 @@ html: gifs $(HTML_REF_MAN_FILE)
 
 clean clean_docs: clean_pdf clean_html clean_man
 	rm -f errs core *~
+	rm -f depend.mk
 
 clean_pdf:
 	rm -f $(PDFDIR)/*
@@ -118,7 +119,9 @@ $(INDEX_TARGET): $(INDEX_SRC) $(APP_FILE)
 	        s/%UP_ONE_LEVEL%/..\/..\/..\/doc\/index.html/; \
 	        s/%OFF_PRINT%/pdf\/diameter-$(VSN).pdf/' $< > $@
 
-depend debug opt: 
+depend: depend.mk
+
+debug opt:
 
 info:
 	@echo "->Makefile<-"
@@ -181,17 +184,13 @@ release_docs_spec: $(LOCAL)docs
 
 release_spec:
 
-$(HTMLDIR)/diameter_app.html: diameter_app.xml
-$(HTMLDIR)/diameter_compile.html: diameter_compile.xml
-$(HTMLDIR)/diameter_debug.html: diameter_debug.xml
-$(HTMLDIR)/diameter_dict.html: diameter_dict.xml
-$(HTMLDIR)/diameter_intro.html: diameter_intro.xml
-$(HTMLDIR)/diameter_run.html: diameter_run.xml
-$(HTMLDIR)/diameter.html: diameter.xml
-$(HTMLDIR)/diameter_tcp.html: diameter_tcp.xml
-$(HTMLDIR)/diameter_transport.html: diameter_transport.xml
-$(HTMLDIR)/diameter_soc.html: diameter_soc.xml
-$(HTMLDIR)/diameter_sctp.html: diameter_sctp.xml
+depend.mk: depend.sed Makefile files.mk
+	(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
+	     sed -f $< $$f | sed "s@%FILE%@`basename $$f .xml`@g"; \
+	 done) \
+	> $@
+
+-include depend.mk
 
 .PHONY: clean clean_html clean_man clean_pdf \
         depend debug opt info \
