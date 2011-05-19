@@ -569,7 +569,19 @@ handle_info({CloseTag, _Socket}, _StateName,
 	    #state{transport_close_tag = CloseTag, %%manager = Pid,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
     %%ok = ssh_connection_manager:delivered(Pid),
-    {stop, normal, State}.
+    {stop, normal, State};
+handle_info(UnexpectedMessage, StateName, #state{ssh_params = SshParams} = State) ->
+    Msg = lists:flatten(io_lib:format(
+           "Unexpected message '~p' received in state '~p'\n"
+           "Role: ~p\n"
+           "Peer: ~p\n"
+           "Local Address: ~p\n", [UnexpectedMessage, StateName,
+               SshParams#ssh.role, SshParams#ssh.peer,
+               proplists:get_value(address, SshParams#ssh.opts)])),
+    error_logger:info_report(Msg),
+    {next_state, StateName, State}.
+
+
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, StateName, State) -> void()
 %% Description:This function is called by a gen_fsm when it is about
