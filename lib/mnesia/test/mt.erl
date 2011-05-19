@@ -57,6 +57,7 @@ alias(heavy) -> {mnesia_SUITE, heavy};
 alias(install) -> mnesia_install_test;
 alias(isolation) -> mnesia_isolation_test;
 alias(light) -> {mnesia_SUITE, light};
+alias(majority) -> mnesia_majority_test;
 alias(measure) -> mnesia_measure_test;
 alias(medium) -> {mnesia_SUITE, medium};
 alias(nice) -> mnesia_nice_coverage_test;
