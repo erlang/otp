@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -181,9 +181,6 @@ read_term_from_stream(Stream, File, Line) ->
 		    Str = Mod:format_error(What),
 		    io:format("Error in line:~p of:~p ~s\n",
 			      [NewLine, File, Str]),
-		    error;
-		T ->
-		    io:format("Error2 **~p~n",[T]),
 		    error
 	    end;
 	{eof,_EndLine} ->
