@@ -46,7 +46,7 @@ split(Subject,RE) ->
 
 -spec split(Subject, RE, Options) -> SplitList when
       Subject :: iodata() | unicode:charlist(),
-      RE :: mp() | iodata(),
+      RE :: mp() | iodata() | unicode:charlist(),
       Options :: [ Option ],
       Option :: anchored | global | notbol | noteol | notempty
               | {offset, non_neg_integer()} | {newline, nl_spec()}
@@ -238,7 +238,7 @@ replace(Subject,RE,Replacement) ->
 
 -spec replace(Subject, RE, Replacement, Options) -> iodata() | unicode:charlist() when
       Subject :: iodata() | unicode:charlist(),
-      RE :: mp() | iodata(),
+      RE :: mp() | iodata() | unicode:charlist(),
       Replacement :: iodata() | unicode:charlist(),
       Options :: [Option],
       Option :: anchored | global | notbol | noteol | notempty
