@@ -50,6 +50,8 @@
 #include <openssl/rc2.h>
 #include <openssl/blowfish.h>
 #include <openssl/rand.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
 
 #ifdef VALGRIND
     #  include <valgrind/memcheck.h>
@@ -128,11 +130,15 @@ static ERL_NIF_TERM md4_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ERL_NIF_TERM md4_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -199,12 +205,18 @@ static ErlNifFunc nif_funcs[] = {
     {"md4_final", 1, md4_final},
     {"md5_mac_n", 3, md5_mac_n},
     {"sha_mac_n", 3, sha_mac_n},
+    {"hmac_init", 2, hmac_init},
+    {"hmac_update", 2, hmac_update},
+    {"hmac_final", 1, hmac_final},
+    {"hmac_final_n", 2, hmac_final},
     {"des_cbc_crypt", 4, des_cbc_crypt},
     {"des_ecb_crypt", 3, des_ecb_crypt},
     {"des_ede3_cbc_crypt", 6, des_ede3_cbc_crypt},
     {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
+    {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
+    {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
     {"rand_bytes", 1, rand_bytes_1},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
     {"rand_bytes", 3, rand_bytes_3},
@@ -255,6 +267,7 @@ static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
 static ERL_NIF_TERM atom_md5;
+static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_oaep_padding;
@@ -324,6 +337,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_false = enif_make_atom(env,"false");
     atom_sha = enif_make_atom(env,"sha");
     atom_md5 = enif_make_atom(env,"md5");
+    atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
     atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
@@ -581,6 +595,84 @@ static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return ret;
 }
 
+static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Key) */
+    ErlNifBinary key;
+    ERL_NIF_TERM ret;
+    unsigned char * ctx_buf;
+    const EVP_MD *md;
+    
+    if (argv[0] == atom_sha) md = EVP_sha1();
+    else if (argv[0] == atom_md5) md = EVP_md5();
+    else if (argv[0] == atom_ripemd160) md = EVP_ripemd160();
+    else goto badarg;
+    
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)) {
+    badarg:
+	return enif_make_badarg(env);
+    }
+
+    ctx_buf = enif_make_new_binary(env, sizeof(HMAC_CTX), &ret);
+    HMAC_CTX_init((HMAC_CTX *) ctx_buf);
+    HMAC_Init((HMAC_CTX *) ctx_buf, key.data, key.size, md);
+
+    return ret;
+}
+
+static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+    ErlNifBinary context, data;
+    ERL_NIF_TERM ret;
+    unsigned char * ctx_buf;
+    
+    if (!enif_inspect_binary(env, argv[0], &context)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &data)
+        || context.size != sizeof(HMAC_CTX)) {
+	return enif_make_badarg(env);
+    }
+
+    ctx_buf = enif_make_new_binary(env, sizeof(HMAC_CTX), &ret);
+    memcpy(ctx_buf, context.data, context.size);
+    HMAC_Update((HMAC_CTX *)ctx_buf, data.data, data.size);
+
+    return ret;
+}
+
+static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) or (Context, HashLen) */
+    ErlNifBinary context;
+    ERL_NIF_TERM ret;
+    HMAC_CTX ctx;
+    unsigned char mac_buf[EVP_MAX_MD_SIZE];
+    unsigned char * mac_bin;
+    unsigned int req_len = 0;
+    unsigned int mac_len;
+    
+    if (!enif_inspect_binary(env, argv[0], &context)) {
+	return enif_make_badarg(env);
+    }
+    if (argc == 2 && !enif_get_uint(env, argv[1], &req_len)) {
+	return enif_make_badarg(env);
+    }
+
+    if (context.size != sizeof(ctx)) {
+        return enif_make_badarg(env);
+    }
+    memcpy(&ctx, context.data, context.size);
+    
+    HMAC_Final(&ctx, mac_buf, &mac_len);
+    HMAC_CTX_cleanup(&ctx);
+
+    if (argc == 2 && req_len < mac_len) { 
+        // Only truncate to req_len bytes if asked.
+        mac_len = req_len;
+    }
+    mac_bin = enif_make_new_binary(env, mac_len, &ret);
+    memcpy(mac_bin, mac_buf, mac_len);
+
+    return ret;
+}
+
 static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, Ivec, Text, IsEncrypt) */    
     ErlNifBinary key, ivec, text;
@@ -692,6 +784,46 @@ static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     /* To do an incremental {en|de}cryption, the state to to keep between calls
 	must include ivec_clone, ecount_buf and num. */
+    return ret;
+}
+
+/* Initializes state for ctr streaming (de)encryption
+*/
+static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* ({Key, IVec, ECount, Num}, Data) */    
+    ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
+    AES_KEY aes_key;
+    unsigned int num;
+    ERL_NIF_TERM ret, num2_term, cipher_term, ivec2_term, ecount2_term, new_state_term;
+    int state_arity;
+    const ERL_NIF_TERM *state_term;
+    unsigned char * ivec2_buf;
+    unsigned char * ecount2_buf;
+
+    if (!enif_get_tuple(env, argv[0], &state_arity, &state_term)
+        || state_arity != 4
+        || !enif_inspect_iolist_as_binary(env, state_term[0], &key_bin)
+        || AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key) != 0
+        || !enif_inspect_binary(env, state_term[1], &ivec_bin) || ivec_bin.size != 16
+        || !enif_inspect_binary(env, state_term[2], &ecount_bin) || ecount_bin.size != AES_BLOCK_SIZE
+        || !enif_get_uint(env, state_term[3], &num)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &text_bin)) {
+        return enif_make_badarg(env);
+    }
+
+    ivec2_buf = enif_make_new_binary(env, ivec_bin.size, &ivec2_term); 
+    ecount2_buf = enif_make_new_binary(env, ecount_bin.size, &ecount2_term);
+    
+    memcpy(ivec2_buf, ivec_bin.data, 16);
+    memcpy(ecount2_buf, ecount_bin.data, ecount_bin.size);
+
+    AES_ctr128_encrypt((unsigned char *) text_bin.data,
+		       enif_make_new_binary(env, text_bin.size, &cipher_term), 
+		       text_bin.size, &aes_key, ivec2_buf, ecount2_buf, &num);
+
+    num2_term = enif_make_uint(env, num);
+    new_state_term = enif_make_tuple4(env, state_term[0], ivec2_term, ecount2_term, num2_term);
+    ret = enif_make_tuple2(env, new_state_term, cipher_term);
     return ret;
 }
 
