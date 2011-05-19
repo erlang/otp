@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -29,8 +29,7 @@ ERL_COMPILE_FLAGS += -I$(ERLINC) +warn_unused_vars
 
 ARCHIVE         = wx-$(VSN).ez
 
-ErlMods         = \
-		wx \
+ErlMods         = wx \
 		wx_object \
                 wxe_master \
                 wxe_server \
@@ -44,7 +43,7 @@ GEN_FILES       = $(wildcard gen/wx*.erl) \
 		gen/glu.erl \
 		gen/gl.erl
 
-GEN_MODS        = $(GEN_FILES:gen/%.erl=  %,\n )
+GEN_MODS        = $(GEN_FILES:gen/%.erl=%,)
 
 GEN_HRL		= \
 		$(EGEN)/wxe_debug.hrl \
