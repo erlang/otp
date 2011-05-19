@@ -26,7 +26,7 @@
 
 /^<chapter>/!d
 
-s@.*@$(HTMLDIR)/%FILE%.html: %FILE%.xml@
+s@@$(HTMLDIR)/%FILE%.html: %FILE%.xml@
 q
 
 :rf
