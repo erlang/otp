@@ -236,7 +236,7 @@ the callback module in question has been configured.</p>
 <desc>
 <p>
 Invoked when a transport connection has been lost following a previous
-call to <seealso marker="peer_up">peer_up/3</seealso>.</p>
+call to <seealso marker="#peer_up">peer_up/3</seealso>.</p>
 
 <marker id="pick_peer"/>
 </desc>

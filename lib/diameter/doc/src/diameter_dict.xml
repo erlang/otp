@@ -76,7 +76,7 @@ A generated hrl also contains defines for the values of defined for
 AVPs of type Enumerated.</p>
 
 <p>
-See <seealso marker="diameter_compile">diameterc</seealso> for a
+See <seealso marker="diameterc">diameterc</seealso> for a
 utility that transforms dictionary files into codec modules needed
 at runtime.</p>
 
@@ -248,7 +248,7 @@ M and P characters indicating the flags to be
 set on an outgoing AVP or a single - (minus) character if none are to
 be set.
 Type identifies either an AVP Data Format as defined in <seealso
-marker="DATA_TYPES">DATA TYPES</seealso> below or a
+marker="#DATA_TYPES">DATA TYPES</seealso> below or a
 type as defined by a <c>@custom_types</c> tag.</p>
 
 <p>
@@ -594,7 +594,7 @@ Values of these types are not parsed by diameter.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter_util">diameterc(1)</seealso></p>
+<seealso marker="diameterc">diameterc(1)</seealso></p>
 
 </section>
 
