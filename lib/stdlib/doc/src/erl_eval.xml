@@ -46,7 +46,7 @@
     </datatype>
     <datatype>
       <name name="binding_struct"/>
-      <desc>A binding structure.</desc>
+      <desc><p>A binding structure.</p></desc>
     </datatype>
     <datatype>
       <name name="expression"/>
