@@ -187,7 +187,7 @@ depend: depend.mk
 # has already been made since it's currently not smart enough to not
 # force a rebuild of those beams dependent on generated hrls, and this
 # is a no-no at make release.
-depend.mk: depend.sed $(MODULES:%=%.erl) modules.mk Makefile
+depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 	(for f in $(MODULES); do \
 	     sed -f $< $$f.erl | sed "s@/@/$$f@"; \
 	 done) \

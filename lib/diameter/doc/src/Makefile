@@ -184,7 +184,7 @@ release_docs_spec: $(LOCAL)docs
 
 release_spec:
 
-depend.mk: depend.sed Makefile files.mk
+depend.mk: depend.sed $(XML_REF_FILES) $(XML_CHAPTER_FILES) Makefile
 	(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
 	     sed -f $< $$f | sed "s@%FILE%@`basename $$f .xml`@g"; \
 	 done) \
