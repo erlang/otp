@@ -19,8 +19,12 @@
 #ifdef __WIN32__
 #include <windows.h>
 #endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include "erl_driver.h"
 
+static void stop(ErlDrvData drv_data);
 static ErlDrvData start(ErlDrvPort port,
 			char *command);
 static void output(ErlDrvData drv_data,
@@ -31,7 +35,7 @@ static void ready_async(ErlDrvData drv_data,
 static ErlDrvEntry otp_9302_drv_entry = { 
     NULL /* init */,
     start,
-    NULL /* stop */,
+    stop,
     output,
     NULL /* ready_input */,
     NULL /* ready_output */,
@@ -53,42 +57,121 @@ static ErlDrvEntry otp_9302_drv_entry = {
     NULL /* handle_monitor */
 };
 
+typedef struct Otp9302AsyncData_ Otp9302AsyncData;
+
+typedef struct {
+    ErlDrvMutex *mtx;
+    Otp9302AsyncData *start;
+    Otp9302AsyncData *end;
+} Otp9302MsgQ;
+
+typedef struct {
+    ErlDrvPort port;
+    int smp;
+    Otp9302MsgQ msgq;
+} Otp9302Data;
+
+struct Otp9302AsyncData_ {
+    Otp9302AsyncData *next;
+    ErlDrvPort port;
+    int smp;
+    int refc;
+    int block;
+    struct {
+	ErlDrvTermData port;
+	ErlDrvTermData receiver;
+	ErlDrvTermData msg;
+    } term_data;
+    Otp9302MsgQ *msgq;
+};
+
+
 DRIVER_INIT(otp_9302_drv)
 {
     return &otp_9302_drv_entry;
 }
 
+static void stop(ErlDrvData drv_data)
+{
+    Otp9302Data *data = (Otp9302Data *) drv_data;
+    if (!data->smp)
+	erl_drv_mutex_destroy(data->msgq.mtx);
+    driver_free(data);
+}
+
 static ErlDrvData start(ErlDrvPort port,
 			char *command)
 {
-    return (ErlDrvData) port;
+    Otp9302Data *data;
+    ErlDrvSysInfo sys_info;
+
+    data = driver_alloc(sizeof(Otp9302Data));
+    if (!data)
+	return ERL_DRV_ERROR_GENERAL;
+
+    data->port = port;
+
+    driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
+    data->smp = sys_info.smp_support;
+
+    if (!data->smp) {
+	data->msgq.start = NULL;
+	data->msgq.end = NULL;
+	data->msgq.mtx = erl_drv_mutex_create("");
+	if (!data->msgq.mtx) {
+	    driver_free(data);
+	    return ERL_DRV_ERROR_GENERAL;
+	}
+    }
+
+    return (ErlDrvData) data;
 }
 
-typedef struct {
-    ErlDrvPort port;
-    ErlDrvTermData receiver;
-    int block;
-    int cancel;
-    int eoj;
-} Otp9302AsyncData;
+static void send_reply(Otp9302AsyncData *adata)
+{
+    ErlDrvTermData spec[] = {
+	ERL_DRV_PORT, adata->term_data.port,
+	ERL_DRV_ATOM, adata->term_data.msg,
+	ERL_DRV_TUPLE, 2
+    };
+    driver_send_term(adata->port, adata->term_data.receiver,
+		     spec, sizeof(spec)/sizeof(spec[0]));
+}
+
+static void enqueue_reply(Otp9302AsyncData *adata)
+{
+    Otp9302MsgQ *msgq = adata->msgq;
+    adata->next = NULL;
+    adata->refc++;
+    erl_drv_mutex_lock(msgq->mtx);
+    if (msgq->end)
+	msgq->end->next = adata;
+    else
+	msgq->end = msgq->start = adata;
+    msgq->end = adata;
+    erl_drv_mutex_unlock(msgq->mtx);
+}
+
+static void dequeue_replies(Otp9302AsyncData *adata)
+{
+    Otp9302MsgQ *msgq = adata->msgq;
+    erl_drv_mutex_lock(msgq->mtx);
+    if (--adata->refc == 0)
+	driver_free(adata);
+    while (msgq->start) {
+	send_reply(msgq->start);
+	adata = msgq->start;
+	msgq->start = msgq->start->next;
+	if (--adata->refc == 0)
+	    driver_free(adata);
+    }
+    msgq->start = msgq->end = NULL;
+    erl_drv_mutex_unlock(msgq->mtx);
+}
 
 static void async_invoke(void *data)
 {
     Otp9302AsyncData *adata = (Otp9302AsyncData *) data;
-    char *what = (adata->block
-		  ? "block"
-		  : (adata->cancel
-		     ? "cancel"
-		     : (adata->eoj
-			? "end_of_jobs"
-			: "job")));
-    ErlDrvTermData spec[] = {
-	ERL_DRV_PORT, driver_mk_port(adata->port),
-	ERL_DRV_ATOM, driver_mk_atom(what),
-	ERL_DRV_TUPLE, 2
-    };
-    driver_send_term(adata->port, adata->receiver,
-		     spec, sizeof(spec)/sizeof(spec[0]));
     if (adata->block) {
 #ifdef __WIN32__
 	Sleep((DWORD) 2000);
@@ -96,14 +179,30 @@ static void async_invoke(void *data)
 	sleep(2);
 #endif
     }
+    if (adata->smp)
+	send_reply(adata);
+    else
+	enqueue_reply(adata);
+}
+
+static void ready_async(ErlDrvData drv_data,
+			ErlDrvThreadData thread_data)
+{
+    Otp9302AsyncData *adata = (Otp9302AsyncData *) thread_data;
+    if (adata->smp)
+	driver_free(adata);
+    else
+	dequeue_replies(adata);
 }
 
 static void output(ErlDrvData drv_data,
 		   char *buf, int len)
 {
-    ErlDrvPort port = (ErlDrvPort) drv_data;
-    ErlDrvTermData caller = driver_caller(port);
-    unsigned int key = (unsigned int) port;
+    Otp9302Data *data = (Otp9302Data *) drv_data;
+    ErlDrvTermData td_port = driver_mk_port(data->port);
+    ErlDrvTermData td_receiver = driver_caller(data->port);
+    ErlDrvTermData td_job = driver_mk_atom("job");
+    unsigned int key = (unsigned int) data->port;
     long id[5];
     Otp9302AsyncData *ad[5];
     int i;
@@ -113,25 +212,21 @@ static void output(ErlDrvData drv_data,
 	if (!ad[i])
 	    abort();
 
-	ad[i]->port = port;
-	ad[i]->receiver = caller;
+	ad[i]->smp = data->smp;
+	ad[i]->port = data->port;
 	ad[i]->block = 0;
-	ad[i]->eoj = 0;
-	ad[i]->cancel = 0;
+	ad[i]->refc = 1;
+	ad[i]->term_data.port = td_port;
+	ad[i]->term_data.receiver = td_receiver;
+	ad[i]->term_data.msg = td_job;
+	ad[i]->msgq = &data->msgq;
     }
     ad[0]->block = 1;
-    ad[2]->cancel = 1;
-    ad[4]->eoj = 1;
+    ad[0]->term_data.msg = driver_mk_atom("block");
+    ad[2]->term_data.msg = driver_mk_atom("cancel");
+    ad[4]->term_data.msg = driver_mk_atom("end_of_jobs");
     for (i = 0; i < sizeof(id)/sizeof(id[0]); i++)
-	id[i] = driver_async(port, &key, async_invoke, ad[i], driver_free);
+	id[i] = driver_async(data->port, &key, async_invoke, ad[i], driver_free);
     if (id[2] > 0)
 	driver_async_cancel(id[2]);
 }
-
-static void ready_async(ErlDrvData drv_data,
-			ErlDrvThreadData thread_data)
-{
-    if ((void *) thread_data)
-	driver_free((void *) thread_data);
-}
-
