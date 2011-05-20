@@ -73,8 +73,6 @@ typedef struct {
 /* int min_alloc_bytes; */
 
 
-DRIVER_INIT(asn1_erl_drv);
-
 static ErlDrvData asn1_drv_start(ErlDrvPort, char *);
 
 static void asn1_drv_stop(ErlDrvData);
