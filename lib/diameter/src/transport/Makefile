@@ -130,7 +130,7 @@ force:
 depend: depend.mk
 
 # Generate dependencies makefile.
-depend.mk: ../app/depend.sed $(ERL_FILES) modules.mk Makefile
+depend.mk: ../app/depend.sed $(ERL_FILES) Makefile
 	for f in $(MODULES); do \
 	    sed -f $< $$f.erl | sed "s@/@/$$f@"; \
 	done \

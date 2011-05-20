@@ -35,7 +35,6 @@
 
 %% Information.
 -export([services/0,
-         service_info/1,
          service_info/2]).
 
 %% Start/stop the application. In a "real" application this should
@@ -43,12 +42,6 @@
 %% rather than by calling start/stop explicitly.
 -export([start/0,
          stop/0]).
-
-%% Backwards compatibility.
--export([add_connector/2,
-         add_listener/2,
-         remove_connector/2,
-         remove_listener/2]).
 
 -include("diameter_internal.hrl").
 -include("diameter_types.hrl").
@@ -109,7 +102,7 @@ services() ->
     [Name || {Name, _} <- diameter_service:services()].
 
 %%% --------------------------------------------------------------------------
-%%% service_info/[12]
+%%% service_info/2
 %%% --------------------------------------------------------------------------
 
 -spec service_info(service_name(), atom() | [atom()])
@@ -117,9 +110,6 @@ services() ->
 
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
-
-service_info(SvcName) ->
-    service_info(SvcName, all).
 
 %%% --------------------------------------------------------------------------
 %%% add_transport/3
@@ -133,12 +123,6 @@ add_transport(SvcName, {T, Opts} = Cfg)
   when is_list(Opts), (T == connect orelse T == listen) ->
     diameter_config:add_transport(SvcName, Cfg).
 
-add_listener(SvcName, Opts) ->
-    add_transport(SvcName, {listen, Opts}).
-
-add_connector(SvcName, Opts) ->
-    add_transport(SvcName, {connect, Opts}).
-
 %%% --------------------------------------------------------------------------
 %%% remove_transport/2
 %%% --------------------------------------------------------------------------
@@ -148,12 +132,6 @@ add_connector(SvcName, Opts) ->
 
 remove_transport(SvcName, Pred) ->
     diameter_config:remove_transport(SvcName, Pred).
-
-remove_listener(SvcName, Pred) ->
-    remove_transport(SvcName, {listen, Pred}).
-
-remove_connector(SvcName, Pred) ->
-    remove_transport(SvcName, {connect, Pred}).
 
 %%% --------------------------------------------------------------------------
 %%% # subscribe(SvcName)

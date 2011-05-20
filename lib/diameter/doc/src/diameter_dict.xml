@@ -48,37 +48,41 @@ to encode and decode its messages and AVP's.
 The dictionary module is in turn generated from a file that defines
 these messages and AVP's.
 The format of such a file is defined in
-<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso> below.</p>
+<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso> below.
+Users add support for their specific applications by creating
+dictionary files, compiling them to Erlang modules using
+<seealso marker="diameterc">diameterc</seealso> and configuring the
+resulting dictionaries modules on a service.</p>
 
 <p>
-The codec generation also results in an hrl that defines records
+The codec generation also results in a hrl file that defines records
 for the messages and grouped AVP's defined for the application, these
-records being what a user of the diameter application sends and
-receives.
+records being what a user of the diameter application sends and receives.
+(Modulo other available formats as discussed in <seealso
+marker="diameter_app">diameter_app(3)</seealso>.)
 These records and the underlying Erlang data types corresponding to
 Diameter data formats are discussed in <seealso
 marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seealso> and <seealso
-marker="#DATA_TYPES">DATA TYPES</seealso> respectively.</p>
-
-<!-- TODO: Need some reserved dictionary for agents that shouldn't -->
-<!--       know about specific applications. -->
-
-<p>
-The diameter application defines the base application of RFC 3588 in
-the file diameter_gen_base_rfc3588.dia, and
-this is the only application that diameter itself has any specific
-knowledge of.
-Other applications are callback modules configured for an application
-as far as diameter is concerned.</p>
-
-<p>
-A generated hrl also contains defines for the values of defined for
+marker="#DATA_TYPES">DATA TYPES</seealso> respectively.
+The generated hrl also contains defines for the possible values of
 AVPs of type Enumerated.</p>
 
 <p>
-See <seealso marker="diameter_compile">diameterc</seealso> for a
-utility that transforms dictionary files into codec modules needed
-at runtime.</p>
+The diameter application includes three dictionary modules
+corresponding to applications defined in section 2.4 of RFC 3588:
+<c>diameter_gen_base_rfc3588</c> for the Diameter Common Messages
+application with application identifier 0,
+<c>diameter_gen_accounting</c> for the Diameter Base Accounting
+application with application identifier 3 and
+<c>diameter_gen_relay</c>the Relay application with application
+identifier 0xFFFFFFFF.
+The Common Message and Relay applications are the only applications
+that diameter itself has any specific knowledge of.
+The Common Message application is used for messages that diameter
+itself handles: CER/CEA, DWR/DWA and DPR/DPA.
+The Relay application is given special treatment with regard to
+encode/decode since the messages and AVP's it handles are not specifically
+defined.</p>
 
 <marker id="FILE_FORMAT"/>
 </description>
@@ -89,7 +93,7 @@ at runtime.</p>
 <title>FILE FORMAT</title>
 
 <p>
-A specification file consists of distinct sections.
+A dictionary file consists of distinct sections.
 Each section starts with a line consisting of a tag
 followed by zero or more arguments.
 Each section ends at the the start of the next section or end of file.
@@ -223,7 +227,7 @@ The section content is empty.</p>
 <p>
 Can occur 0 or more times (with different values of Mod) but all
 dictionaries should typically inherit RFC3588 AVPs from
-diameter_gen_base_rfc3588.</p>
+<c>diameter_gen_base_rfc3588</c>.</p>
 
 <p>
 Example:</p>
@@ -248,7 +252,7 @@ M and P characters indicating the flags to be
 set on an outgoing AVP or a single - (minus) character if none are to
 be set.
 Type identifies either an AVP Data Format as defined in <seealso
-marker="DATA_TYPES">DATA TYPES</seealso> below or a
+marker="#DATA_TYPES">DATA TYPES</seealso> below or a
 type as defined by a <c>@custom_types</c> tag.</p>
 
 <p>
@@ -263,7 +267,8 @@ Requested-Information  353  Enumerated  V
 
 <p>
 Note that the P flag has been deprecated by the Diameter Maintenance
-and Extensions Working Group of the IETF.</p>
+and Extensions Working Group of the IETF: diameter will set the P flag
+to 0 as mandated by the current draft standard.</p>
 
 </item>
 
@@ -446,7 +451,7 @@ as values of the types defined here.
 Values are passed to <seealso
 marker="diameter#call">diameter:call/4</seealso>
 in a request record when sending a request, returned in a resulting
-answer record and passed to a diameter_app(3) <seealso
+answer record and passed to a <seealso
 marker="diameter_app#handle_request">handle_request</seealso>
 callback upon reception of an incoming request.</p>
 
@@ -476,8 +481,8 @@ Grouped()     = record()
 <p>
 On encode, an OctetString() can be specified as an iolist(),
 excessively large floats (in absolute value) are equivalent to
-infinity or '-infinity' and excessively large integers result in
-encode failure.
+<c>infinity</c> or <c>'-infinity'</c> and excessively large integers
+result in encode failure.
 The records for grouped AVPs are as discussed in the previous
 section.</p>
 
@@ -583,7 +588,7 @@ QoSFilterRule() = OctetString()
 </code>
 
 <p>
-Values of these types are not parsed by diameter.</p>
+Values of these types are not currently parsed by diameter.</p>
 
 </section>
 
@@ -594,7 +599,9 @@ Values of these types are not parsed by diameter.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter_util">diameterc(1)</seealso></p>
+<seealso marker="diameterc">diameterc(1)</seealso>,
+<seealso marker="diameter">diameter(3)</seealso>,
+<seealso marker="diameter_app">diameter_app(3)</seealso></p>
 
 </section>
 
