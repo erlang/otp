@@ -245,7 +245,7 @@ create_nodes(Host, N, Port, Options, Errors, NodeData) ->
     
 
 create_node(Host, Port, Options) ->
-    case slave:start_link(Host, Port) of
+    case slave:start_link(Host, list_to_atom(integer_to_list(Port))) of
 	{ok, NewNode} ->
 	    case net_adm:ping(NewNode) of
 		pong ->
