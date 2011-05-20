@@ -1278,18 +1278,15 @@ send_request({TPid, Caps, App}, Msg, Opts, Caller, SvcName) ->
 %% make_packet/1
 %%
 %% Turn an outgoing request as passed to call/4 into a diameter_packet
-%% record in preparation for a prepare_request callback. There are two
-%% cases: a diameter_packet as argument when we're calling call/4
-%% ourselves in order to relay a request or a bare message in case the
-%% call came by way of diameter:call/4.
+%% record in preparation for a prepare_request callback.
 
 make_packet(Bin)
   when is_binary(Bin) ->
     #diameter_packet{header = diameter_codec:decode_header(Bin),
                      bin = Bin};
 
-make_packet(#diameter_packet{msg = [#diameter_header{} | _]} = Pkt) ->
-    Pkt;
+make_packet(#diameter_packet{msg = [#diameter_header{} = Hdr | Avps]} = Pkt) ->
+    Pkt#diameter_packet{msg = [make_header(Hdr) | Avps]};
 
 make_packet(#diameter_packet{header = Hdr} = Pkt) ->
     Pkt#diameter_packet{header = make_header(Hdr)};
@@ -1955,6 +1952,7 @@ is_loop(Code, Vid, OH, Avps) ->
 %%
 %% Send a locally originating reply.
 
+%% No errors or a diameter_header/avp list.
 reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
                                         transport_data = TD}
                        = ReqPkt)
@@ -1964,11 +1962,7 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
     incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
-%% Simplify the handling of error cases by accepting a list consisting
-%% of an answer record followed by failed AVPs to be packed into a
-%% Failed-AVP field, either directly or into an AVP field. Only if
-%% the message is a tuple-list or record however, not a list
-%% with a list of #diameter_header{} and #diameter_avp{}.
+%% Or not: set Result-Code and Failed-AVP AVP's.
 reply(Msg, Dict, TPid, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
     reply(rc(Msg, rc(H), [A || {_,A} <- Es], Dict),
           Dict,

@@ -74,11 +74,8 @@ handle_request(#diameter_packet{msg = Req, errors = []}, _SvcName, {_, Caps})
     {reply, answer(RT, Id, OH, OR)};
 
 %% ... or one that wasn't. 3xxx errors are answered by diameter itself
-%% but these are non-3xxx errors for which we must contruct a reply.
-%% Returning a packet with the non-[] errors field will cause
-%% diameter to add the appropriate result code and Failed-AVPs avps.
-%% We just have to return the relevant answer record with any required
-%% avps.
+%% but these are 5xxx errors for which we must contruct a reply.
+%% diameter will set Result-Code and Failed-AVP's.
 handle_request(#diameter_packet{msg = Req} = Pkt, _SvcName, {_, Caps})
   when is_record(Req, diameter_base_RAR) ->
     #diameter_caps{origin_host = {OH,_},
@@ -91,7 +88,7 @@ handle_request(#diameter_packet{msg = Req} = Pkt, _SvcName, {_, Caps})
                              'Origin-Realm' = OR,
                              'Session-Id' = Id},
 
-    {reply, Pkt#diameter_packet{msg = Ans}};
+    {reply, Ans};
 
 %% Should really reply to other base messages that we don't support
 %% but simply discard them instead.
