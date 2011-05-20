@@ -415,6 +415,12 @@ eval(F) ->
 Evaluating an evaluable() <c>E</c> on an argument list <c>A</c>
 is meant in the sense of <c>eval([E|A])</c>.</p>
 
+<p>
+Beware of using local funs (that is, fun expressions not of the
+form <c>fun Module:Name/Arity</c>) in situations in which the fun is
+not short-lived and code is to be upgraded at runtime since any
+processes retaining such a fun will have a reference to old code.</p>
+
 <marker id="peer_filter"/>
 </item>
 
@@ -712,7 +718,7 @@ transport.</p>
 <p>
 Unrecognized options are silently ignored but are returned unmodified
 by <seealso
-marker="#service_info_1">service_info/1,2</seealso> and can be referred to
+marker="#service_info">service_info/2</seealso> and can be referred to
 in predicate functions passed to <seealso
 marker="#remove_transport">remove_transport/2</seealso>.</p>
 
@@ -739,7 +745,9 @@ marker="#remove_transport">remove_transport/2</seealso>.</p>
 </type>
 <desc>
 <p>
-Add transport capability to a service.
+Add transport capability to a service.</p>
+
+<p>
 The service will start a transport process(es) in order to establish a
 connection with the peer, either by connecting to the peer
 (<c>connect</c>) or by  accepting incoming connection requests
@@ -761,10 +769,8 @@ handling of DWR/DWA and required by RFC 3539 as well as for DPR/DPA.</p>
 <p>
 The returned reference uniquely identifies the transport within the
 scope of the service.
-Not that the function returns before a transport connection has been
-established.</p>
-
-<p>
+Note that the function returns before a transport connection has been
+established.
 It is not an error to add a transport to a service that has not yet
 been configured: a service can be started after configuring
 transports.</p>
@@ -776,7 +782,7 @@ transports.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>call(SvcName, App, Request, Options) -> Answer | {error, Reason}</name>
+<name>call(SvcName, App, Request, Options) -> ok | Answer | {error, Reason}</name>
 <fsummary>Send a Diameter request message.</fsummary>
 <type>
 <v>SvcName = service_name()</v>
@@ -794,15 +800,19 @@ Send a Diameter request message and possibly return the answer or error.</p>
 defined and callbacks to the corresponding callback module
 will follow as described below and in <seealso
 marker="diameter_app">diameter_app(3)</seealso>.
-The call returns either when an answer message is received from the
-peer or an error occurs, unless the <c>detach</c> option has been
-specified.
-If <c>detach</c> is not specified then the form of an <c>Answer</c> is
-as returned from a <seealso
-marker="diameter_app#handle_answer">handle_answer/4</seealso> or
+Unless the <c>detach</c> option has been specified to cause an earlier
+return, the call returns either when an answer message is received
+from the peer or an error occurs.
+In the case of an answer, the return value is as returned by a
 <seealso
+marker="diameter_app#handle_answer">handle_answer/4</seealso>
+callback.
+In the case of an error, whether or not the error is returned directly
+by diameter or from a <seealso
 marker="diameter_app#handle_error">handle_error/4</seealso>
-callback.</p>
+callback depends on whether or not the outgoing request is
+successfully encoded for transmission from the peer, the cases being
+documented below.</p>
 
 <p>
 If there are no suitable peers, or if
@@ -888,7 +898,8 @@ attempt to send the request over the transport.</p>
 
 <p>
 Note that <c>{error, encode}</c> is the only return value which
-guarantees that the request has not been sent over the transport.</p>
+guarantees that the request has <em>not</em> been sent over the
+transport.</p>
 
 <marker id="origin_state_id"/>
 </desc>
@@ -902,9 +913,11 @@ guarantees that the request has not been sent over the transport.</p>
 <desc>
 <p>
 Return a reasonable value for use as Origin-State-Id in
-outgoing messages.
-The value returned is the number of seconds since 19680120T031408Z
-(the first value that can be encoded as a Time())
+outgoing messages.</p>
+
+<p>
+The value returned is the number of seconds since 19680120T031408Z,
+the first value that can be encoded as a Diameter Time(),
 at the time the diameter application was started.</p>
 
 <marker id="remove_transport"/>
@@ -959,25 +972,7 @@ DPA or timeout.</p>
 
 <!-- TODO: document the timeout value, possibly make configurable. -->
 
-<marker id="service_info_1"/>
-</desc>
-</func>
-
-<!-- ===================================================================== -->
-
-<func>
-<name>service_info(SvcName) -> Info</name>
-<fsummary>Return information about a started service.</fsummary>
-<type>
-<v>SvcName = service_name()</v>
-<v>Info = [{Item, Value}]</v>
-</type>
-<desc>
-<p>
-Return information about a started service.
-Equivalent to <c>service_info(SvcName, all)</c>.</p>
-
-<marker id="service_info_2"/>
+<marker id="service_info"/>
 </desc>
 </func>
 
@@ -992,7 +987,7 @@ Equivalent to <c>service_info(SvcName, all)</c>.</p>
 </type>
 <desc>
 <p>
-Return specific information about a started service.</p>
+Return information about a started service.</p>
 
 <marker id="services"/>
 </desc>
@@ -1018,16 +1013,35 @@ Return the list of started services.</p>
 
 <func>
 <name>session_id(Ident) -> OctetString()</name>
-<fsummary>Return a value for a Session-Id AVP</fsummary>
+<fsummary>Return a value for a Session-Id AVP.</fsummary>
 <type>
 <v>Ident = DiameterIdentity()</v>
 </type>
 <desc>
 <p>
-Return a value for a Session-Id AVP.
+Return a value for a Session-Id AVP.</p>
+
+<p>
 The value has the form required by section 8.8 of RFC 3588.
 Ident should be the Origin-Host of the peer from which
 the message containing the returned value will be sent.</p>
+
+<marker id="start"/>
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+<func>
+<name>start() -> ok | {error, Reason}</name>
+<fsummary>Start the diameter application.</fsummary>
+<desc>
+<p>
+Start the diameter application.</p>
+
+<p>
+The diameter application must be started before starting a service.
+In a production system this will typically be accomplished by a boot
+file, not by calling <c>start/0</c> explicitly.</p>
 
 <marker id="start_service"/>
 </desc>
@@ -1036,7 +1050,7 @@ the message containing the returned value will be sent.</p>
 <!-- ===================================================================== -->
 <func>
 <name>start_service(SvcName, Options) -> ok | {error, Reason}</name>
-<fsummary>Start a Diameter service</fsummary>
+<fsummary>Start a Diameter service.</fsummary>
 <type>
 <v>SvcName = service_name()</v>
 <v>Options = [service_opt()]</v>
@@ -1044,7 +1058,9 @@ the message containing the returned value will be sent.</p>
 </type>
 <desc>
 <p>
-Start a diameter service.
+Start a diameter service.</p>
+
+<p>
 A service defines a locally-implemented Diameter peer, specifying the
 capabilities of the peer to be used during capabilities exchange and
 the Diameter applications that it supports.
@@ -1057,8 +1073,23 @@ marker="#add_transport">add_transport/2</seealso>.</p>
 
 <!-- ===================================================================== -->
 <func>
+<name>stop() -> ok | {error, Reason}</name>
+<fsummary>Stop the diameter application.</fsummary>
+<desc>
+<p>
+Stop the diameter application.</p>
+
+<p>
+</p>
+
+<marker id="stop_service"/>
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+<func>
 <name>stop_service(SvcName) -> ok | {error, Reason}</name>
-<fsummary>Stops a Diameter service.</fsummary>
+<fsummary>Stop a Diameter service.</fsummary>
 <type>
 <v>SvcName = service_name()</v>
 <v>Reason = term()</v>
@@ -1075,7 +1106,7 @@ Stop a diameter service.</p>
 
 <func>
 <name>subscribe(SvcName) -> true</name>
-<fsummary>Subscribe to event messages from a service.</fsummary>
+<fsummary>Subscribe to event messages.</fsummary>
 <type>
 <v>SvcName = service_name()</v>
 </type>
@@ -1095,7 +1126,7 @@ that does not yet exist.</p>
 
 <func>
 <name>unsubscribe(SvcName) -> true</name>
-<fsummary></fsummary>
+<fsummary>Unsubscribe to event messages.</fsummary>
 <type>
 <v>SvcName = service_name()</v>
 </type>
