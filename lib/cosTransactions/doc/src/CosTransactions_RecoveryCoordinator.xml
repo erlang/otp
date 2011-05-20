@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,12 +21,11 @@
     
     </legalnotice>
 
-    <title>CosTransactions_&shy;RecoveryCoordinator</title>
-    <shorttitle>..._RecoveryCoordinator</shorttitle>
-    <prepared>Niclas Eklund</prepared>
-    <responsible>Niclas Eklund</responsible>
+    <title>CosTransactions_RecoveryCoordinator</title>
+    <prepared></prepared>
+    <responsible></responsible>
     <docno></docno>
-    <approved>Niclas Eklund</approved>
+    <approved></approved>
     <checked></checked>
     <date>1999-04-12</date>
     <rev>PA1</rev>
