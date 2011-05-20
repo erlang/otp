@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -255,7 +255,7 @@ gen_decode_constructed(Erules,Typename,D) when is_record(D,type) ->
 				_ -> false
 			    end
 		    end,
-		case lists:any(F,CompList) of
+		case lists:any(F,flat_complist(CompList)) of
 		    true -> % when component relation constraint establish
 			%% relation from a component to another components
 			%% subtype component
@@ -1493,6 +1493,11 @@ emit_extaddgroupTerms(VarSeries,[_|Rest]) ->
     emit_extaddgroupTerms(VarSeries,Rest);
 emit_extaddgroupTerms(_,[]) ->
     ok.
+
+flat_complist({Rl1,El,Rl2}) -> Rl1 ++ El ++ Rl2;
+flat_complist({Rl,El}) -> Rl ++ El;
+flat_complist(CompList) -> CompList.
+
 wrap_compList({Root1,Ext,Root2}) ->
     {Root1,wrap_extensionAdditionGroups(Ext),Root2};
 wrap_compList({Root1,Ext}) ->
