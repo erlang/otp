@@ -110,7 +110,7 @@
 %% The diameter service and diameter_apps records are only passed
 %% through the transport interface when starting a transport process,
 %% although typically a transport implementation will (and probably
-%% should) only be interested diameter_service.host_ip_address.
+%% should) only be interested host_ip_address.
 
 -record(diameter_service,
         {pid,
