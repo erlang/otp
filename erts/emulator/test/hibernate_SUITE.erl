@@ -25,16 +25,16 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
-	 messages_in_queue/1,undefined_mfa/1, no_heap/1]).
+	 messages_in_queue/1,undefined_mfa/1,no_heap/1,wake_up_and_bif_trap/1]).
 
 %% Used by test cases.
--export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2, no_heap_loop/0]).
+-export([basic_hibernator/1,dynamic_call_hibernator/2,messages_in_queue_restart/2, no_heap_loop/0,characters_to_list_trap/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, dynamic_call, min_heap_size, bad_args, messages_in_queue,
-     undefined_mfa, no_heap].
+     undefined_mfa, no_heap, wake_up_and_bif_trap].
 
 groups() -> 
     [].
@@ -382,6 +382,31 @@ no_heap_loop() ->
 clean_dict() ->
     {dictionary, Dict} = process_info(self(), dictionary),
     lists:foreach(fun ({Key, _}) -> erase(Key) end, Dict).
+
+%%
+%% Wake up and then immediatly bif trap with a lengthy computation.
+%%
+
+wake_up_and_bif_trap(doc) -> [];
+wake_up_and_bif_trap(suite) -> [];
+wake_up_and_bif_trap(Config) when is_list(Config) ->
+    ?line Self = self(),
+    ?line Pid = spawn_link(fun() -> erlang:hibernate(?MODULE, characters_to_list_trap, [Self]) end),
+    ?line Pid ! wakeup,
+    ?line receive
+        {ok, Pid0} when Pid0 =:= Pid -> ok
+    after 5000 ->
+        ?line ?t:fail(process_blocked)
+    end,
+    ?line unlink(Pid),
+    ?line exit(Pid, bye).
+
+%% Lengthy computation that traps (in characters_to_list_trap_3).
+characters_to_list_trap(Parent) ->
+    Bin0 = <<"abcdefghijklmnopqrstuvwxz0123456789">>,
+    Bin = binary:copy(Bin0, 1500),
+    unicode:characters_to_list(Bin),
+    Parent ! {ok, self()}.
 
 %%
 %% Misc
