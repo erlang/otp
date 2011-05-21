@@ -5517,20 +5517,21 @@ etsmem() ->
      case erlang:system_info({allocator,ets_alloc}) of
 	 false -> undefined;
 	 MemInfo ->
-	     MSBCS = lists:foldl(
-		       fun ({instance, _, L}, Acc) ->
-			       {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-			       {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			       [MBCS,SBCS | Acc]
-		       end,
-		       [],
-		       MemInfo),
+	     CS = lists:foldl(
+		    fun ({instance, _, L}, Acc) ->
+			    {value,{_,SBMBCS}} = lists:keysearch(sbmbcs, 1, L),
+			    {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
+			    {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
+			    [SBMBCS,MBCS,SBCS | Acc]
+		    end,
+		    [],
+		    MemInfo),
 	     lists:foldl(
 	       fun(L, {Bl0,BlSz0}) ->
 		       {value,{_,Bl,_,_}} = lists:keysearch(blocks, 1, L),
 		       {value,{_,BlSz,_,_}} = lists:keysearch(blocks_size, 1, L),
 		       {Bl0+Bl,BlSz0+BlSz}
-	       end, {0,0}, MSBCS)
+	       end, {0,0}, CS)
      end},
      {Mem,AllTabs}.
 

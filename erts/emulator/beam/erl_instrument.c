@@ -1152,6 +1152,14 @@ erts_instr_get_type_info(Process *proc)
     return res;
 }
 
+#if HALFWORD_HEAP
+#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
+  ((NO) == ERTS_ALC_A_SBMBC || (NO) == ERTS_ALC_A_SBMBC_LOW)
+#else
+#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
+  ((NO) == ERTS_ALC_A_SBMBC)
+#endif
+
 Uint
 erts_instr_init(int stat, int map_stat)
 {
@@ -1186,6 +1194,8 @@ erts_instr_init(int stat, int map_stat)
     sys_memzero((void *) stats->n, sizeof(Stat_t)*(ERTS_ALC_N_MAX+1));
 
     for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
+	if (ERTS_IS_SBMBC_ALLOCATOR_NO__(i))
+	    continue;
 	if (erts_allctrs_info[i].enabled)
 	    stats->ap[i] = &stats->a[i];
 	else
@@ -1199,6 +1209,8 @@ erts_instr_init(int stat, int map_stat)
 	erts_instr_memory_map = 1;
 	erts_instr_stat = 1;
 	for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
+	    if (ERTS_IS_SBMBC_ALLOCATOR_NO__(i))
+		continue;
 	    erts_allctrs[i].alloc	= map_stat_alloc;
 	    erts_allctrs[i].realloc	= map_stat_realloc;
 	    erts_allctrs[i].free	= map_stat_free;
@@ -1209,6 +1221,8 @@ erts_instr_init(int stat, int map_stat)
     else {
 	erts_instr_stat = 1;
 	for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
+	    if (ERTS_IS_SBMBC_ALLOCATOR_NO__(i))
+		continue;
 	    erts_allctrs[i].alloc	= stat_alloc;
 	    erts_allctrs[i].realloc	= stat_realloc;
 	    erts_allctrs[i].free	= stat_free;
