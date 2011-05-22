@@ -49,8 +49,7 @@
 
 -include_lib("kernel/include/file.hrl").
 
--type proplist() :: list({atom(),term()}).
--type config() :: proplist().
+-type config() :: proplists:proplist().
 -type reason() :: term().
 -type skip_or_fail() :: {skip, reason()} |
                         {auto_skip, reason()} |
@@ -65,7 +64,7 @@ id(_Opts) ->
     ?MODULE.
 
 %% @doc Always called before any other callback function.
--spec init(Id :: term(), Opts :: proplist()) ->
+-spec init(Id :: term(), Opts :: proplists:proplist()) ->
     State :: #state{}.
 init(_Id, Opts) ->
     Nodenames = proplists:get_value(nodenames, Opts, 0),
