@@ -43,7 +43,7 @@
 -type(name() :: term()).
 -type(value() :: term()).
 -type(bindings() :: [{name(), value()}]).
--opaque(binding_struct() :: orddict:orddict()).
+-type(binding_struct() :: orddict:orddict()).
 
 -type(lfun_value_handler() :: fun((Name :: atom(),
                                    Arguments :: [term()]) ->
