@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -471,150 +471,70 @@ which_usm_users(EngineID) when is_list(EngineID) ->
 %% 
 
 sync_get(UserId, TargetName, Oids) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Oids:       ~p", [UserId, TargetName, Oids]),
     sync_get(UserId, TargetName, ?DEFAULT_CONTEXT, Oids).
 
-sync_get(UserId, TargetName, Context, Oids) when is_list(Oids) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Context:    ~p"
-%%       "~n   Oids:       ~p", [UserId, TargetName, Context, Oids]),
-    snmpm_server:sync_get(UserId, TargetName, Context, Oids);
-
+sync_get(UserId, TargetName, {community, Community}, Oids) 
+  when is_list(Oids) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get(UserId, TargetName, CC, Oids);
+sync_get(UserId, TargetName, CC, Oids) when is_list(Oids) ->
+    snmpm_server:sync_get(UserId, TargetName, CC, Oids);
 sync_get(UserId, TargetName, Oids, Timeout) when is_integer(Timeout) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Oids:       ~p"
-%%       "~n   Timeout:    ~p", [UserId, TargetName, Oids, Timeout]),
     sync_get(UserId, TargetName, ?DEFAULT_CONTEXT, Oids, Timeout).
 
-sync_get(UserId, TargetName, Context, Oids, Timeout) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Context:    ~p"
-%%       "~n   Oids:       ~p"
-%%       "~n   Timeout:    ~p", [UserId, TargetName, Context, Oids, Timeout]),
-    snmpm_server:sync_get(UserId, TargetName, Context, Oids, Timeout).
+sync_get(UserId, TargetName, {community, Community}, Oids, Timeout) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get(UserId, TargetName, CC, Oids, Timeout);
+sync_get(UserId, TargetName, CC, Oids, Timeout) ->
+    snmpm_server:sync_get(UserId, TargetName, CC, Oids, Timeout).
 
-sync_get(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
-%%     p("sync_get -> entry with"
-%%       "~n   UserId:     ~p"
-%%       "~n   TargetName: ~p"
-%%       "~n   Context:    ~p"
-%%       "~n   Oids:       ~p"
-%%       "~n   Timeout:    ~p"
-%%       "~n   ExtraInfo:  ~p", 
-%%       [UserId, TargetName, Context, Oids, Timeout, ExtraInfo]),
-    snmpm_server:sync_get(UserId, TargetName, Context, Oids, Timeout, 
-			  ExtraInfo).
+sync_get(UserId, TargetName, {community, Community}, 
+	 Oids, Timeout, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get(UserId, TargetName, CC, Oids, Timeout, ExtraInfo);
+sync_get(UserId, TargetName, CC, Oids, Timeout, ExtraInfo) ->
+    snmpm_server:sync_get(UserId, TargetName, CC, Oids, Timeout, ExtraInfo).
 
 
 g(UserId, Addr, Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, Oids]),
     g(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids).
 
-g(UserId, Addr, CtxName, Oids) when is_list(CtxName) andalso is_list(Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   CtxName: ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, CtxName, Oids]),
-    g(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids);
-
 g(UserId, Addr, Port, Oids) when is_integer(Port) andalso is_list(Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Port:    ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, Port, Oids]),
     g(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
-
-g(UserId, Addr, Oids, Timeout) 
-  when is_list(Oids) andalso is_integer(Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Oids:    ~p"
-%%       "~n   Timeout: ~p", [UserId, Addr, Oids, Timeout]),
+g(UserId, Addr, CC, Oids) when is_list(Oids) ->
+    g(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids);
+g(UserId, Addr, Oids, Timeout) when is_integer(Timeout) ->
     g(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids, Timeout).
 
-g(UserId, Addr, Port, CtxName, Oids) 
-  when is_integer(Port) andalso is_list(CtxName) andalso is_list(Oids) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:  ~p"
-%%       "~n   Addr:    ~p"
-%%       "~n   Port:    ~p"
-%%       "~n   Context: ~p"
-%%       "~n   Oids:    ~p", [UserId, Addr, Port, CtxName, Oids]),
+g(UserId, Addr, Port, CC, Oids) 
+  when is_integer(Port) andalso is_list(Oids) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("g -> TargetName: ~p", [TargetName]),
-	    sync_get(UserId, TargetName, CtxName, Oids);
+	    sync_get(UserId, TargetName, CC, Oids);
 	Error ->
 	    Error
     end;    
     
 g(UserId, Addr, Port, Oids, Timeout) 
   when is_integer(Port) andalso is_list(Oids) andalso is_integer(Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p", 
-%%       [UserId, Addr, Oids, Timeout]),
     g(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids, Timeout);
 
-g(UserId, Addr, CtxName, Oids, Timeout) 
-  when is_list(CtxName) andalso is_list(Oids) andalso is_integer(Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   CtxName:   ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p", 
-%%       [UserId, Addr, CtxName, Oids, Timeout]),
-    g(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids, Timeout).
+g(UserId, Addr, CC, Oids, Timeout) 
+  when is_list(Oids) andalso is_integer(Timeout) ->
+    g(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids, Timeout).
 
-g(UserId, Addr, Port, CtxName, Oids, Timeout) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   Port:      ~p"
-%%       "~n   CtxName:   ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p", 
-%%       [UserId, Addr, Port, CtxName, Oids, Timeout]),
+g(UserId, Addr, Port, CC, Oids, Timeout) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("g -> TargetName: ~p", [TargetName]),
-	    sync_get(UserId, TargetName, CtxName, Oids, Timeout);
+	    sync_get(UserId, TargetName, CC, Oids, Timeout);
 	Error ->
 	    Error
     end.
 
-g(UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo) ->
-%%     p("g -> entry with"
-%%       "~n   UserId:    ~p"
-%%       "~n   Addr:      ~p"
-%%       "~n   Port:      ~p"
-%%       "~n   CtxName:   ~p"
-%%       "~n   Oids:      ~p"
-%%       "~n   Timeout:   ~p"
-%%       "~n   ExtraInfo: ~p", 
-%%       [UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo]),
+g(UserId, Addr, Port, CC, Oids, Timeout, ExtraInfo) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-%% 	    p("g -> TargetName: ~p", [TargetName]),
-	    sync_get(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo);
+	    sync_get(UserId, TargetName, CC, Oids, Timeout, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -630,18 +550,27 @@ g(UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo) ->
 async_get(UserId, TargetName, Oids) ->
     async_get(UserId, TargetName, ?DEFAULT_CONTEXT, Oids).
 
-async_get(UserId, TargetName, Context, Oids) when is_list(Oids) ->
-    snmpm_server:async_get(UserId, TargetName, Context, Oids);
-
+async_get(UserId, TargetName, {community, Community}, Oids) 
+  when is_list(Oids) ->
+    CC = {?DEFAULT_CONTEXT, Community},     
+    snmpm_server:async_get(UserId, TargetName, CC, Oids);
+async_get(UserId, TargetName, CC, Oids) when is_list(Oids) ->
+    snmpm_server:async_get(UserId, TargetName, CC, Oids);
 async_get(UserId, TargetName, Oids, Expire) when is_integer(Expire) ->
     async_get(UserId, TargetName, ?DEFAULT_CONTEXT, Oids, Expire).
 
-async_get(UserId, TargetName, Context, Oids, Expire) ->
-    snmpm_server:async_get(UserId, TargetName, Context, Oids, Expire).
+async_get(UserId, TargetName, {community, Community}, Oids, Expire) ->
+    CC = {?DEFAULT_CONTEXT, Community},     
+    snmpm_server:async_get(UserId, TargetName, CC, Oids, Expire);
+async_get(UserId, TargetName, CC, Oids, Expire) ->
+    snmpm_server:async_get(UserId, TargetName, CC, Oids, Expire).
 
-async_get(UserId, TargetName, Context, Oids, Expire, ExtraInfo) ->
-    snmpm_server:async_get(UserId, TargetName, Context, Oids, Expire, 
-			   ExtraInfo).
+async_get(UserId, TargetName, {community, Community}, 
+	  Oids, Expire, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community},     
+    snmpm_server:async_get(UserId, TargetName, CC, Oids, Expire, ExtraInfo);
+async_get(UserId, TargetName, CC, Oids, Expire, ExtraInfo) ->
+    snmpm_server:async_get(UserId, TargetName, CC, Oids, Expire, ExtraInfo).
 
 
 ag(UserId, Addr, Oids) ->
@@ -649,18 +578,17 @@ ag(UserId, Addr, Oids) ->
 
 ag(UserId, Addr, Port, Oids) when is_integer(Port) andalso is_list(Oids) ->
     ag(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
-
-ag(UserId, Addr, CtxName, Oids) when is_list(CtxName) andalso is_list(Oids) ->
-    ag(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids);
-
 ag(UserId, Addr, Oids, Expire) when is_list(Oids) andalso is_integer(Expire) ->
-    ag(UserId, Addr, ?DEFAULT_AGENT_PORT, ?DEFAULT_CONTEXT, Oids, Expire).
+    ag(UserId, Addr, ?DEFAULT_AGENT_PORT, ?DEFAULT_CONTEXT, Oids, Expire);
+ag(UserId, Addr, CC, Oids) when is_list(Oids) ->
+    ag(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids).
 
-ag(UserId, Addr, Port, CtxName, Oids) 
-  when is_integer(Port) andalso is_list(CtxName) andalso is_list(Oids) ->
+
+ag(UserId, Addr, Port, CC, Oids) 
+  when is_integer(Port) andalso is_list(Oids) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_get(UserId, TargetName, CtxName, Oids);
+	    async_get(UserId, TargetName, CC, Oids);
 	Error ->
 	    Error
     end;
@@ -668,23 +596,22 @@ ag(UserId, Addr, Port, CtxName, Oids)
 ag(UserId, Addr, Port, Oids, Expire) 
   when is_integer(Port) andalso is_list(Oids) andalso is_integer(Expire) ->
     ag(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids, Expire);
+ag(UserId, Addr, CC, Oids, Expire) 
+  when is_list(Oids) andalso is_integer(Expire) ->
+    ag(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids, Expire).
 
-ag(UserId, Addr, CtxName, Oids, Expire) 
-  when is_list(CtxName) andalso is_list(Oids) andalso is_integer(Expire) ->
-    ag(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids, Expire).
-
-ag(UserId, Addr, Port, CtxName, Oids, Expire) ->
+ag(UserId, Addr, Port, CC, Oids, Expire) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_get(UserId, TargetName, CtxName, Oids, Expire);
+	    async_get(UserId, TargetName, CC, Oids, Expire);
 	Error ->
 	    Error
     end.
 
-ag(UserId, Addr, Port, CtxName, Oids, Expire, ExtraInfo) ->
+ag(UserId, Addr, Port, CC, Oids, Expire, ExtraInfo) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_get(UserId, TargetName, CtxName, Oids, Expire, ExtraInfo);
+	    async_get(UserId, TargetName, CC, Oids, Expire, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -697,63 +624,74 @@ ag(UserId, Addr, Port, CtxName, Oids, Expire, ExtraInfo) ->
 sync_get_next(UserId, TargetName, Oids) ->
     sync_get_next(UserId, TargetName, ?DEFAULT_CONTEXT, Oids).
 
-sync_get_next(UserId, TargetName, Context, Oids) 
-  when is_list(Context) andalso is_list(Oids) ->
-    snmpm_server:sync_get_next(UserId, TargetName, Context, Oids);
-
+sync_get_next(UserId, TargetName, {community, Community}, Oids) 
+  when is_list(Oids) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get_next(UserId, TargetName, CC, Oids);
+sync_get_next(UserId, TargetName, CC, Oids) 
+  when is_list(Oids) ->
+    snmpm_server:sync_get_next(UserId, TargetName, CC, Oids);
 sync_get_next(UserId, TargetName, Oids, Timeout) 
-  when is_list(Oids) andalso is_integer(Timeout) ->
+  when is_integer(Timeout) ->
     sync_get_next(UserId, TargetName, ?DEFAULT_CONTEXT, Oids, Timeout).
 
-sync_get_next(UserId, TargetName, Context, Oids, Timeout) ->
-    snmpm_server:sync_get_next(UserId, TargetName, Context, Oids, Timeout).
 
-sync_get_next(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
-    snmpm_server:sync_get_next(UserId, TargetName, Context, Oids, Timeout, 
+sync_get_next(UserId, TargetName, {community, Community}, Oids, Timeout) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get_next(UserId, TargetName, CC, Oids, Timeout);
+sync_get_next(UserId, TargetName, CC, Oids, Timeout) ->
+    snmpm_server:sync_get_next(UserId, TargetName, CC, Oids, Timeout).
+
+sync_get_next(UserId, TargetName, {community, Community}, 
+	      Oids, Timeout, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get_next(UserId, TargetName, CC, Oids, Timeout, 
+			       ExtraInfo);
+sync_get_next(UserId, TargetName, CC, Oids, Timeout, ExtraInfo) ->
+    snmpm_server:sync_get_next(UserId, TargetName, CC, Oids, Timeout, 
 			       ExtraInfo).
 
 
 gn(UserId, Addr, Oids) ->
     gn(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids).
 
-gn(UserId, Addr, CtxName, Oids) when is_list(CtxName) andalso is_list(Oids) ->
-    gn(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids);
-
-gn(UserId, Addr, Port, Oids) when is_integer(Port) andalso is_list(Oids) ->
-    gn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
-
 gn(UserId, Addr, Oids, Timeout) 
   when is_list(Oids) andalso is_integer(Timeout) ->
-    gn(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids, Timeout).
+    gn(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids, Timeout);
+gn(UserId, Addr, Port, Oids) 
+  when is_integer(Port) andalso is_list(Oids) ->
+    gn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
+gn(UserId, Addr, CC, Oids) 
+  when is_list(Oids) ->
+    gn(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids).
 
-gn(UserId, Addr, Port, CtxName, Oids) 
-  when is_integer(Port) andalso is_list(CtxName) andalso is_list(Oids) ->
-    case target_name(Addr, Port) of
-	{ok, TargetName} ->
-	    sync_get_next(UserId, TargetName, CtxName, Oids);
-	Error ->
-	    Error
-    end;    
-	
 gn(UserId, Addr, Port, Oids, Timeout) 
   when is_integer(Port) andalso is_list(Oids) andalso is_integer(Timeout) ->
     gn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids, Timeout);
-gn(UserId, Addr, CtxName, Oids, Timeout) 
-  when is_list(CtxName) andalso is_list(Oids) andalso is_integer(Timeout) ->
-    gn(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids, Timeout).
-
-gn(UserId, Addr, Port, CtxName, Oids, Timeout) ->
+gn(UserId, Addr, Port, CC, Oids) 
+  when is_integer(Port) andalso is_list(Oids) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    sync_get_next(UserId, TargetName, CtxName, Oids, Timeout);
+	    sync_get_next(UserId, TargetName, CC, Oids);
+	Error ->
+	    Error
+    end;    
+gn(UserId, Addr, CC, Oids, Timeout) 
+  when is_list(Oids) andalso is_integer(Timeout) ->
+    gn(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids, Timeout).
+
+gn(UserId, Addr, Port, CC, Oids, Timeout) ->
+    case target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    sync_get_next(UserId, TargetName, CC, Oids, Timeout);
 	Error ->
 	    Error
     end.
 
-gn(UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo) ->
+gn(UserId, Addr, Port, CC, Oids, Timeout, ExtraInfo) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    sync_get_next(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo);
+	    sync_get_next(UserId, TargetName, CC, Oids, Timeout, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -766,63 +704,72 @@ gn(UserId, Addr, Port, CtxName, Oids, Timeout, ExtraInfo) ->
 async_get_next(UserId, TargetName, Oids) ->
     async_get_next(UserId, TargetName, ?DEFAULT_CONTEXT, Oids).
 
-async_get_next(UserId, TargetName, Context, Oids) 
-  when is_list(Context) andalso is_list(Oids) ->
-    snmpm_server:async_get_next(UserId, TargetName, Context, Oids);
-
+async_get_next(UserId, TargetName, {community, Community}, Oids) 
+  when is_list(Oids) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_get_next(UserId, TargetName, CC, Oids);
+async_get_next(UserId, TargetName, CC, Oids) 
+  when is_list(Oids) ->
+    snmpm_server:async_get_next(UserId, TargetName, CC, Oids);
 async_get_next(UserId, TargetName, Oids, Timeout) 
-  when is_list(Oids) andalso is_integer(Timeout) ->
+  when is_integer(Timeout) ->
     async_get_next(UserId, TargetName, ?DEFAULT_CONTEXT, Oids, Timeout).
 
-async_get_next(UserId, TargetName, Context, Oids, Timeout) ->
-    snmpm_server:async_get_next(UserId, TargetName, Context, Oids, Timeout).
+async_get_next(UserId, TargetName, {community, Community}, Oids, Timeout) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_get_next(UserId, TargetName, CC, Oids, Timeout);
+async_get_next(UserId, TargetName, CC, Oids, Timeout) ->
+    snmpm_server:async_get_next(UserId, TargetName, CC, Oids, Timeout).
 
-async_get_next(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
-    snmpm_server:async_get_next(UserId, TargetName, Context, Oids, Timeout, 
+async_get_next(UserId, TargetName, {community, Community}, 
+	       Oids, Timeout, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_get_next(UserId, TargetName, CC, Oids, Timeout, 
+				ExtraInfo);
+async_get_next(UserId, TargetName, CC, Oids, Timeout, ExtraInfo) ->
+    snmpm_server:async_get_next(UserId, TargetName, CC, Oids, Timeout, 
 				ExtraInfo).
 
 agn(UserId, Addr, Oids) ->
     agn(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids).
 
-agn(UserId, Addr, CtxName, Oids) when is_list(CtxName) andalso is_list(Oids) ->
-    agn(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids);
-
-agn(UserId, Addr, Port, Oids) when is_integer(Port) andalso is_list(Oids) ->
-    agn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
-
 agn(UserId, Addr, Oids, Expire) 
   when is_list(Oids) andalso is_integer(Expire) ->
-    agn(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids, Expire).
+    agn(UserId, Addr, ?DEFAULT_AGENT_PORT, Oids, Expire);
+agn(UserId, Addr, Port, Oids) 
+  when is_integer(Port) andalso is_list(Oids) ->
+    agn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids);
+agn(UserId, Addr, CC, Oids) 
+  when is_list(Oids) ->
+    agn(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids).
 
-agn(UserId, Addr, Port, CtxName, Oids) 
-  when is_integer(Port) andalso is_list(CtxName) andalso is_list(Oids) ->
+agn(UserId, Addr, Port, Oids, Expire) 
+  when is_integer(Port) andalso is_integer(Expire) ->
+    agn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids, Expire);
+agn(UserId, Addr, CC, Oids, Expire) 
+  when is_integer(Expire) ->
+    agn(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, Oids, Expire);
+agn(UserId, Addr, Port, CC, Oids) 
+  when is_integer(Port) andalso is_list(Oids) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_get_next(UserId, TargetName, CtxName, Oids);
+	    async_get_next(UserId, TargetName, CC, Oids);
 	Error ->
 	    Error
-    end;    
-	
-agn(UserId, Addr, Port, Oids, Expire) 
-  when is_integer(Port) andalso is_list(Oids) andalso is_integer(Expire) ->
-    agn(UserId, Addr, Port, ?DEFAULT_CONTEXT, Oids, Expire);
-agn(UserId, Addr, CtxName, Oids, Expire) 
-  when is_list(CtxName) andalso is_list(CtxName) andalso is_integer(Expire) ->
-    agn(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, Oids, Expire).
+    end. 
 
-agn(UserId, Addr, Port, CtxName, Oids, Expire) ->
+agn(UserId, Addr, Port, CC, Oids, Expire) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_get_next(UserId, TargetName, CtxName, Oids, Expire);
+	    async_get_next(UserId, TargetName, CC, Oids, Expire);
 	Error ->
 	    Error
     end.
 
-agn(UserId, Addr, Port, CtxName, Oids, Expire, ExtraInfo) ->
+agn(UserId, Addr, Port, CC, Oids, Expire, ExtraInfo) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_get_next(UserId, TargetName, CtxName, Oids, Expire, 
-			   ExtraInfo);
+	    async_get_next(UserId, TargetName, CC, Oids, Expire, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -835,19 +782,30 @@ agn(UserId, Addr, Port, CtxName, Oids, Expire, ExtraInfo) ->
 sync_set(UserId, TargetName, VarsAndVals) ->
     sync_set(UserId, TargetName, ?DEFAULT_CONTEXT, VarsAndVals).
 
-sync_set(UserId, TargetName, Context, VarsAndVals) 
-  when is_list(Context) andalso is_list(VarsAndVals) ->
-    snmpm_server:sync_set(UserId, TargetName, Context, VarsAndVals);
-
 sync_set(UserId, TargetName, VarsAndVals, Timeout) 
   when is_list(VarsAndVals) andalso is_integer(Timeout) ->
-    sync_set(UserId, TargetName, ?DEFAULT_CONTEXT, VarsAndVals, Timeout).
+    sync_set(UserId, TargetName, ?DEFAULT_CONTEXT, VarsAndVals, Timeout);
+sync_set(UserId, TargetName, {community, Community}, VarsAndVals) 
+  when is_list(VarsAndVals) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_set(UserId, TargetName, CC, VarsAndVals);
+sync_set(UserId, TargetName, CC, VarsAndVals) 
+  when is_list(VarsAndVals) ->
+    snmpm_server:sync_set(UserId, TargetName, CC, VarsAndVals).
 
-sync_set(UserId, TargetName, Context, VarsAndVals, Timeout) ->
-    snmpm_server:sync_set(UserId, TargetName, Context, VarsAndVals, Timeout).
+sync_set(UserId, TargetName, {community, Community}, VarsAndVals, Timeout) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_set(UserId, TargetName, CC, VarsAndVals, Timeout);
+sync_set(UserId, TargetName, CC, VarsAndVals, Timeout) ->
+    snmpm_server:sync_set(UserId, TargetName, CC, VarsAndVals, Timeout).
 
-sync_set(UserId, TargetName, Context, VarsAndVals, Timeout, ExtraInfo) ->
-    snmpm_server:sync_set(UserId, TargetName, Context, VarsAndVals, Timeout, 
+sync_set(UserId, TargetName, {community, Community}, 
+	 VarsAndVals, Timeout, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_set(UserId, TargetName, CC, VarsAndVals, Timeout, 
+			  ExtraInfo);
+sync_set(UserId, TargetName, CC, VarsAndVals, Timeout, ExtraInfo) ->
+    snmpm_server:sync_set(UserId, TargetName, CC, VarsAndVals, Timeout, 
 			  ExtraInfo).
 
 
@@ -857,50 +815,43 @@ s(UserId, Addr, VarsAndVals) ->
 s(UserId, Addr, Port, VarsAndVals) 
   when is_integer(Port) andalso is_list(VarsAndVals) ->
     s(UserId, Addr, Port, ?DEFAULT_CONTEXT, VarsAndVals);
-
-s(UserId, Addr, CtxName, VarsAndVals) 
-  when is_list(CtxName) andalso is_list(VarsAndVals) ->
-    s(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, VarsAndVals);
-
 s(UserId, Addr, VarsAndVals, Timeout) 
   when is_list(VarsAndVals) andalso is_integer(Timeout) ->
-    s(UserId, Addr, ?DEFAULT_AGENT_PORT, VarsAndVals, Timeout).
+    s(UserId, Addr, ?DEFAULT_AGENT_PORT, VarsAndVals, Timeout);
+s(UserId, Addr, CC, VarsAndVals) 
+  when is_list(VarsAndVals) ->
+    s(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, VarsAndVals).
 
-s(UserId, Addr, Port, CtxName, VarsAndVals) 
-  when is_integer(Port) andalso 
-       is_list(CtxName) andalso 
-       is_list(VarsAndVals) ->
-    case target_name(Addr, Port) of
-	{ok, TargetName} ->
-	    sync_set(UserId, TargetName, CtxName, VarsAndVals);
-	Error ->
-	    Error
-    end;
 
 s(UserId, Addr, Port, VarsAndVals, Timeout) 
   when is_integer(Port) andalso 
        is_list(VarsAndVals) andalso 
        is_integer(Timeout) ->
     s(UserId, Addr, Port, ?DEFAULT_CONTEXT, VarsAndVals, Timeout);
-
-s(UserId, Addr, CtxName, VarsAndVals, Timeout) 
-  when is_list(CtxName) andalso 
-       is_list(VarsAndVals) andalso 
-       is_integer(Timeout) ->
-    s(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, VarsAndVals, Timeout).
-
-s(UserId, Addr, Port, CtxName, VarsAndVals, Timeout) ->
+s(UserId, Addr, Port, CC, VarsAndVals) 
+  when is_integer(Port) andalso is_list(VarsAndVals) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    sync_set(UserId, TargetName, CtxName, VarsAndVals, Timeout);
+	    sync_set(UserId, TargetName, CC, VarsAndVals);
+	Error ->
+	    Error
+    end;
+s(UserId, Addr, CC, VarsAndVals, Timeout) 
+  when is_list(VarsAndVals) andalso is_integer(Timeout) ->
+    s(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, VarsAndVals, Timeout).
+
+s(UserId, Addr, Port, CC, VarsAndVals, Timeout) ->
+    case target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    sync_set(UserId, TargetName, CC, VarsAndVals, Timeout);
 	Error ->
 	    Error
     end.
 
-s(UserId, Addr, Port, CtxName, VarsAndVals, Timeout, ExtraInfo) ->
+s(UserId, Addr, Port, CC, VarsAndVals, Timeout, ExtraInfo) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    sync_set(UserId, TargetName, CtxName, VarsAndVals, Timeout, ExtraInfo);
+	    sync_set(UserId, TargetName, CC, VarsAndVals, Timeout, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -913,72 +864,76 @@ s(UserId, Addr, Port, CtxName, VarsAndVals, Timeout, ExtraInfo) ->
 async_set(UserId, TargetName, VarsAndVals) ->
     async_set(UserId, TargetName, ?DEFAULT_CONTEXT, VarsAndVals).
 
-async_set(UserId, TargetName, Context, VarsAndVals) 
-  when is_list(Context) andalso is_list(VarsAndVals) ->
-    snmpm_server:async_set(UserId, TargetName, Context, VarsAndVals);
-
 async_set(UserId, TargetName, VarsAndVals, Expire) 
   when is_list(VarsAndVals) andalso is_integer(Expire) ->
-    async_set(UserId, TargetName, ?DEFAULT_CONTEXT, VarsAndVals, Expire).
+    async_set(UserId, TargetName, ?DEFAULT_CONTEXT, VarsAndVals, Expire);
+async_set(UserId, TargetName, {community, Community}, VarsAndVals) 
+  when is_list(VarsAndVals) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_set(UserId, TargetName, CC, VarsAndVals);
+async_set(UserId, TargetName, CC, VarsAndVals) 
+  when is_list(VarsAndVals) ->
+    snmpm_server:async_set(UserId, TargetName, CC, VarsAndVals).
 
-async_set(UserId, TargetName, Context, VarsAndVals, Expire) ->
-    snmpm_server:async_set(UserId, TargetName, Context, VarsAndVals, Expire).
+async_set(UserId, TargetName, {community, Community}, VarsAndVals, Expire) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_set(UserId, TargetName, CC, VarsAndVals, Expire);
+async_set(UserId, TargetName, CC, VarsAndVals, Expire) ->
+    snmpm_server:async_set(UserId, TargetName, CC, VarsAndVals, Expire).
 
-async_set(UserId, TargetName, Context, VarsAndVals, Expire, ExtraInfo) ->
-    snmpm_server:async_set(UserId, TargetName, Context, VarsAndVals, Expire, 
+async_set(UserId, TargetName, {community, Community}, 
+	  VarsAndVals, Expire, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_set(UserId, TargetName, CC, VarsAndVals, Expire, 
+			   ExtraInfo);
+async_set(UserId, TargetName, CC, VarsAndVals, Expire, ExtraInfo) ->
+    snmpm_server:async_set(UserId, TargetName, CC, VarsAndVals, Expire, 
 			   ExtraInfo).
 
 
 as(UserId, Addr, VarsAndVals) ->
     as(UserId, Addr, ?DEFAULT_AGENT_PORT, VarsAndVals).
 
+as(UserId, Addr, VarsAndVals, Expire) 
+  when is_list(VarsAndVals) andalso is_integer(Expire) ->
+    as(UserId, Addr, ?DEFAULT_AGENT_PORT, VarsAndVals, Expire);
 as(UserId, Addr, Port, VarsAndVals) 
   when is_integer(Port) andalso is_list(VarsAndVals) ->
     as(UserId, Addr, Port, ?DEFAULT_CONTEXT, VarsAndVals);
+as(UserId, Addr, CC, VarsAndVals) 
+  when is_list(VarsAndVals) ->
+    as(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, VarsAndVals).
 
-as(UserId, Addr, CtxName, VarsAndVals) 
-  when is_list(CtxName) andalso is_list(VarsAndVals) ->
-    as(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, VarsAndVals);
 
-as(UserId, Addr, VarsAndVals, Expire) 
-  when is_list(VarsAndVals) andalso is_integer(Expire) ->
-    as(UserId, Addr, ?DEFAULT_AGENT_PORT, VarsAndVals, Expire).
-
-as(UserId, Addr, Port, CtxName, VarsAndVals) 
-  when is_integer(Port) andalso 
-       is_list(CtxName) andalso 
-       is_list(VarsAndVals) ->
-    case target_name(Addr, Port) of
-	{ok, TargetName} ->
-	    async_set(UserId, TargetName, CtxName, VarsAndVals);
-	Error ->
-	    Error
-    end;
-	
 as(UserId, Addr, Port, VarsAndVals, Expire) 
   when is_integer(Port) andalso 
        is_list(VarsAndVals) andalso 
        is_integer(Expire) ->
     as(UserId, Addr, Port, ?DEFAULT_CONTEXT, VarsAndVals, Expire);
-
-as(UserId, Addr, CtxName, VarsAndVals, Expire) 
-  when is_list(CtxName) andalso 
-       is_list(VarsAndVals) andalso 
-       is_integer(Expire) ->
-    as(UserId, Addr, ?DEFAULT_AGENT_PORT, CtxName, VarsAndVals, Expire).
-
-as(UserId, Addr, Port, CtxName, VarsAndVals, Expire) ->
+as(UserId, Addr, Port, CC, VarsAndVals) 
+  when is_integer(Port) andalso is_list(VarsAndVals) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_set(UserId, TargetName, CtxName, VarsAndVals, Expire);
+	    async_set(UserId, TargetName, CC, VarsAndVals);
+	Error ->
+	    Error
+    end;
+as(UserId, Addr, CC, VarsAndVals, Expire) 
+  when is_list(VarsAndVals) andalso is_integer(Expire) ->
+    as(UserId, Addr, ?DEFAULT_AGENT_PORT, CC, VarsAndVals, Expire).
+
+as(UserId, Addr, Port, CC, VarsAndVals, Expire) ->
+    case target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    async_set(UserId, TargetName, CC, VarsAndVals, Expire);
 	Error ->
 	    Error
     end.
 
-as(UserId, Addr, Port, CtxName, VarsAndVals, Expire, ExtraInfo) ->
+as(UserId, Addr, Port, CC, VarsAndVals, Expire, ExtraInfo) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    async_set(UserId, TargetName, CtxName, VarsAndVals, Expire, ExtraInfo);
+	    async_set(UserId, TargetName, CC, VarsAndVals, Expire, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -992,69 +947,71 @@ as(UserId, Addr, Port, CtxName, VarsAndVals, Expire, ExtraInfo) ->
 sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) ->
     sync_get_bulk(UserId, TargetName, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids).
 
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Context) andalso 
-       is_list(Oids) ->
-    snmpm_server:sync_get_bulk(UserId, TargetName, 
-			       NonRep, MaxRep, 
-			       Context, Oids);
-
 sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Timeout) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_integer(Timeout) ->
     sync_get_bulk(UserId, TargetName, NonRep, MaxRep, 
-		  ?DEFAULT_CONTEXT, Oids, Timeout).
+		  ?DEFAULT_CONTEXT, Oids, Timeout);
+sync_get_bulk(UserId, TargetName, 
+	      NonRep, MaxRep, {community, Community}, Oids) 
+  when is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+			       NonRep, MaxRep, 
+			       CC, Oids);
+sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids) 
+  when is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+			       NonRep, MaxRep, 
+			       CC, Oids).
 
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout) ->
-    snmpm_server:sync_get_bulk(UserId, TargetName, NonRep, MaxRep, 
-			       Context, Oids, Timeout).
+sync_get_bulk(UserId, TargetName, 
+	      NonRep, MaxRep, {community, Community}, Oids, Timeout) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+			       NonRep, MaxRep, CC, Oids, Timeout);
+sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids, Timeout) ->
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+			       NonRep, MaxRep, CC, Oids, Timeout).
 
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout, 
+sync_get_bulk(UserId, TargetName, 
+	      NonRep, MaxRep, {community, Community}, 
+	      Oids, Timeout, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+			       NonRep, MaxRep, CC, Oids, Timeout, ExtraInfo);
+sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids, Timeout, 
 	      ExtraInfo) ->
-    snmpm_server:sync_get_bulk(UserId, TargetName, NonRep, MaxRep, 
-			       Context, Oids, Timeout, ExtraInfo).
+    snmpm_server:sync_get_bulk(UserId, TargetName, 
+			       NonRep, MaxRep, CC, Oids, Timeout, ExtraInfo).
 
 
 gb(UserId, Addr, NonRep, MaxRep, Oids) ->
     gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, Oids).
-
-gb(UserId, Addr, Port, NonRep, MaxRep, Oids) 
-  when is_integer(Port) andalso 
-       is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Oids) ->
-    gb(UserId, Addr, Port, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids);
-
-gb(UserId, Addr, NonRep, MaxRep, CtxName, Oids) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
-       is_list(Oids) ->
-    gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CtxName, Oids);
 
 gb(UserId, Addr, NonRep, MaxRep, Oids, Timeout) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_integer(Timeout) ->
-    gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, Oids, Timeout).
-
-gb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids) 
+    gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, Oids, Timeout);
+gb(UserId, Addr, Port, NonRep, MaxRep, Oids) 
   when is_integer(Port) andalso 
        is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
        is_list(Oids) ->
-    case target_name(Addr, Port) of
-	{ok, TargetName} ->
-	    sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids);
-	Error ->
-	    Error
-    end;
+    gb(UserId, Addr, Port, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids);
+gb(UserId, Addr, NonRep, MaxRep, CC, Oids) 
+  when is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
+    gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CC, Oids).
 
 gb(UserId, Addr, Port, NonRep, MaxRep, Oids, Timeout) 
   when is_integer(Port) andalso 
@@ -1063,30 +1020,38 @@ gb(UserId, Addr, Port, NonRep, MaxRep, Oids, Timeout)
        is_list(Oids) andalso 
        is_integer(Timeout) ->
     gb(UserId, Addr, Port, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids, Timeout);
-
-gb(UserId, Addr, NonRep, MaxRep, CtxName, Oids, Timeout) 
+gb(UserId, Addr, NonRep, MaxRep, CC, Oids, Timeout) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
        is_list(Oids) andalso 
        is_integer(Timeout) ->
-    gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CtxName, Oids, 
-       Timeout).
-
-gb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids, Timeout) ->
+    gb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CC, Oids, Timeout);
+gb(UserId, Addr, Port, NonRep, MaxRep, CC, Oids) 
+  when is_integer(Port) andalso 
+       is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
-	    sync_get_bulk(UserId, TargetName, 
-			  NonRep, MaxRep, CtxName, Oids, Timeout);
+	    sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids);
 	Error ->
 	    Error
     end.
 
-gb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids, Timeout, ExtraInfo) ->
+gb(UserId, Addr, Port, NonRep, MaxRep, CC, Oids, Timeout) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
 	    sync_get_bulk(UserId, TargetName, 
-			  NonRep, MaxRep, CtxName, Oids, Timeout, ExtraInfo);
+			  NonRep, MaxRep, CC, Oids, Timeout);
+	Error ->
+	    Error
+    end.
+
+gb(UserId, Addr, Port, NonRep, MaxRep, CC, Oids, Timeout, ExtraInfo) ->
+    case target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    sync_get_bulk(UserId, TargetName, 
+			  NonRep, MaxRep, CC, Oids, Timeout, ExtraInfo);
 	Error ->
 	    Error
     end.
@@ -1099,70 +1064,69 @@ gb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids, Timeout, ExtraInfo) ->
 async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) ->
     async_get_bulk(UserId, TargetName, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids).
 
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Context) andalso 
-       is_list(Oids) ->
-    snmpm_server:async_get_bulk(UserId, TargetName, 
-				NonRep, MaxRep, Context, Oids);
-
 async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, Expire) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_integer(Expire) ->
     async_get_bulk(UserId, TargetName, 
-		   NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids, Expire).
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Expire) ->
+		   NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids, Expire);
+async_get_bulk(UserId, TargetName, 
+	       NonRep, MaxRep, {community, Community}, Oids) 
+  when is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
     snmpm_server:async_get_bulk(UserId, TargetName, 
-				NonRep, MaxRep, Context, Oids, Expire).
+				NonRep, MaxRep, CC, Oids);
+async_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids) 
+  when is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
+    snmpm_server:async_get_bulk(UserId, TargetName, 
+				NonRep, MaxRep, CC, Oids).
 
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Expire, 
+async_get_bulk(UserId, TargetName, NonRep, MaxRep, {community, Community}, 
+	       Oids, Expire) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_get_bulk(UserId, TargetName, 
+				NonRep, MaxRep, CC, Oids, Expire);
+async_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids, Expire) ->
+    snmpm_server:async_get_bulk(UserId, TargetName, 
+				NonRep, MaxRep, CC, Oids, Expire).
+
+async_get_bulk(UserId, TargetName, 
+	       NonRep, MaxRep, {community, Community}, 
+	       Oids, Expire, ExtraInfo) ->
+    CC = {?DEFAULT_CONTEXT, Community}, 
+    snmpm_server:async_get_bulk(UserId, TargetName, 
+				NonRep, MaxRep, CC, Oids, Expire, ExtraInfo);
+async_get_bulk(UserId, TargetName, NonRep, MaxRep, CC, Oids, Expire, 
 	       ExtraInfo) ->
     snmpm_server:async_get_bulk(UserId, TargetName, 
-				NonRep, MaxRep, 
-				Context, Oids, Expire, ExtraInfo).
+				NonRep, MaxRep, CC, Oids, Expire, ExtraInfo).
 
 
 agb(UserId, Addr, NonRep, MaxRep, Oids) ->
     agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, Oids).
-
-agb(UserId, Addr, Port, NonRep, MaxRep, Oids) 
-  when is_integer(Port) andalso 
-       is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(Oids) ->
-    agb(UserId, Addr, Port, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids);
-
-agb(UserId, Addr, NonRep, MaxRep, CtxName, Oids) 
-  when is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
-       is_list(Oids) ->
-    agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CtxName, Oids);
 
 agb(UserId, Addr, NonRep, MaxRep, Oids, Expire) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
        is_list(Oids) andalso 
        is_integer(Expire) ->
-    agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, Oids, Expire).
-
-agb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids) 
+    agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, Oids, Expire);
+agb(UserId, Addr, Port, NonRep, MaxRep, Oids) 
   when is_integer(Port) andalso 
        is_integer(NonRep) andalso 
-       is_integer(MaxRep), 
-       is_list(CtxName) andalso 
+       is_integer(MaxRep) andalso 
        is_list(Oids) ->
-    case target_name(Addr, Port) of
-	{ok, TargetName} ->
-	    async_get_bulk(UserId, TargetName, 
-			   NonRep, MaxRep, CtxName, Oids);
-	Error ->
-	    Error
-    end;
+    agb(UserId, Addr, Port, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids);
+agb(UserId, Addr, NonRep, MaxRep, CC, Oids) 
+  when is_integer(NonRep) andalso 
+       is_integer(MaxRep) andalso 
+       is_list(Oids) ->
+    agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CC, Oids).
 
 agb(UserId, Addr, Port, NonRep, MaxRep, Oids, Expire) 
   when is_integer(Port) andalso 
@@ -1171,30 +1135,39 @@ agb(UserId, Addr, Port, NonRep, MaxRep, Oids, Expire)
        is_list(Oids) andalso 
        is_integer(Expire) ->
     agb(UserId, Addr, Port, NonRep, MaxRep, ?DEFAULT_CONTEXT, Oids, Expire);
-
-agb(UserId, Addr, NonRep, MaxRep, CtxName, Oids, Expire) 
+agb(UserId, Addr, NonRep, MaxRep, CC, Oids, Expire) 
   when is_integer(NonRep) andalso 
        is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
        is_list(Oids) andalso 
        is_integer(Expire) ->
-    agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CtxName, Oids).
-
-agb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids, Expire) ->
+    agb(UserId, Addr, ?DEFAULT_AGENT_PORT, NonRep, MaxRep, CC, Oids);
+agb(UserId, Addr, Port, NonRep, MaxRep, CC, Oids) 
+  when is_integer(Port) andalso 
+       is_integer(NonRep) andalso 
+       is_integer(MaxRep), 
+       is_list(Oids) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
 	    async_get_bulk(UserId, TargetName, 
-			   NonRep, MaxRep, CtxName, Oids, Expire);
+			   NonRep, MaxRep, CC, Oids);
 	Error ->
 	    Error
     end.
 
-agb(UserId, Addr, Port, NonRep, MaxRep, CtxName, Oids, Expire, ExtraInfo) ->
+agb(UserId, Addr, Port, NonRep, MaxRep, CC, Oids, Expire) ->
     case target_name(Addr, Port) of
 	{ok, TargetName} ->
 	    async_get_bulk(UserId, TargetName, 
-			   NonRep, MaxRep, CtxName, Oids, Expire,
-			   ExtraInfo);
+			   NonRep, MaxRep, CC, Oids, Expire);
+	Error ->
+	    Error
+    end.
+
+agb(UserId, Addr, Port, NonRep, MaxRep, CC, Oids, Expire, ExtraInfo) ->
+    case target_name(Addr, Port) of
+	{ok, TargetName} ->
+	    async_get_bulk(UserId, TargetName, 
+			   NonRep, MaxRep, CC, Oids, Expire, ExtraInfo);
 	Error ->
 	    Error
     end.
