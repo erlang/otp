@@ -30,6 +30,73 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change make:files to behave more like erlc</p>
+          <p>
+	    This change removes the unnecessary checks on the files
+	    when make:files is called and allows the error checking
+	    to be done in compile:file, where the error messages are
+	    produced. It does not affect the return value.</p>
+          <p>
+	    (Thanks to Sam bobroff)</p>
+          <p>
+	    Own Id: OTP-9179</p>
+        </item>
+        <item>
+          <p>
+	    add user specified compiler options on form reloading</p>
+          <p>
+	    In order to be able to test non-exported functions from
+	    another (test) module it is necessary to compile the
+	    specific module (at least during the test phase) with the
+	    export_all compiler option. This allows complete
+	    separation of testing and productive code. At the moment
+	    it is not possible to combine this with a test code
+	    coverage using the cover module. The problem is that when
+	    cover compiling a module using cover:compile_* the code
+	    is reloaded into the emulator omitting/filtering the
+	    passed user options. In my example above the export_all
+	    option would be removed and the non-exported functions
+	    cannot be called any more. (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-9204</p>
+        </item>
+        <item>
+          <p>
+	    Inhibit electric newline after "-&gt;" when inside a type
+	    spec</p>
+          <p>
+	    The Erlang mode for Emacs inserts a newline after every
+	    "-&gt;", which saves you one keystroke when writing a
+	    function, but that is inappropriate when writing a type
+	    spec, as you'd normally keep the spec on one line. This
+	    change inhibits the automatic insertion when the current
+	    line starts with "-spec" or "-type".(Thanks to Magnus
+	    Henoch)</p>
+          <p>
+	    Own Id: OTP-9255</p>
+        </item>
+        <item>
+          <p>
+	    Add a check logic to prevent file descriptor leak</p>
+          <p>
+	    cover module handle files as raw in export and import.
+	    Assert counts of ports are the same at the beginning and
+	    at the end of the test case.(Thanks to Shunichi
+	    Shinohara)</p>
+          <p>
+	    Own Id: OTP-9300</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

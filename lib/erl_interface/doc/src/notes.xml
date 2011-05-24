@@ -30,6 +30,42 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix using sizeof() for array given as function argument</p>
+          <p>
+	    When using the sizeof() operator for an array given as
+	    function argument it returns the size of the pointer. In
+	    this case, the affected function hex(char digest[16],
+	    char buff[33]) will just print 4 or 8 byte instead of the
+	    full length of 16 bytes, on 32bit and 64bit systems
+	    respectively. (Thanks to Cristian greco)</p>
+          <p>
+	    Own Id: OTP-9151</p>
+        </item>
+        <item>
+          <p>
+	    Initialize <c>to</c> and <c>to_name</c> in
+	    <c>erl_receive_msg</c>. (Thanks to Göran Larsson)</p>
+          <p>
+	    Own Id: OTP-9241</p>
+        </item>
+        <item>
+          <p>
+	    erl_interface: fix compile error(Thanks to Michael
+	    Santos)</p>
+          <p>
+	    Own Id: OTP-9252</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

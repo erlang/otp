@@ -31,6 +31,30 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.7.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a variable is matched out in binary matching and used
+	    as the size for a binary element, it would seem to be
+	    unbound if used in a subsequent match operation. (Thanks
+	    to Bernard Duggan.)</p>
+          <p>
+	    Own Id: OTP-9134</p>
+        </item>
+        <item>
+	    <p>Eliminate incorrect warning in
+	    <c>sys_core_fold</c></p>
+          <p>
+	    Own Id: OTP-9152</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.7.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

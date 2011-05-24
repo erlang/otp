@@ -30,6 +30,39 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix hipe bug causing minor heap corruption related to
+	    binary matching. The bug has not been confirmed as the
+	    cause of any actual fault symptom.</p>
+          <p>
+	    Own Id: OTP-9182</p>
+        </item>
+        <item>
+          <p>
+	    Enable HiPE by default when compiling for PPC64</p>
+          <p>
+	    Own Id: OTP-9198</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of &lt;&lt;_:N,_:_*M&gt;&gt; type
+	    expressions Fix the argument of
+	    erlang:list_to_bitstring/1 Remove unneeded function
+	    'sequence/2' Same functionality provided by
+	    string:join/2.</p>
+          <p>
+	    Own Id: OTP-9277</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.7.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

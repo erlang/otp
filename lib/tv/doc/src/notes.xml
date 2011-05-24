@@ -30,6 +30,30 @@
   </header>
   <p>This document describes the changes made to the TV application.</p>
 
+<section><title>TV 2.1.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    tv: Allow table viewer to display refs, ports and small
+	    binaries</p>
+          <p>
+	    Table viewer displayed #Port, #Ref, or #Bin as place
+	    holders for their respective object types in ets and
+	    mnesia tables. This can make table viewer difficult to
+	    use when viewing tables containing those data types. It
+	    doesn't make sense to render large binaries so #Bin will
+	    still be used for binaries that exceed 100 bytes. (Thanks
+	    to Blaine whittle)</p>
+          <p>
+	    Own Id: OTP-9153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TV 2.1.4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

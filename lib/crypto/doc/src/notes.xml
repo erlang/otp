@@ -30,6 +30,45 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Various small documentation fixes (Thanks to Bernard
+	    Duggan)</p>
+          <p>
+	    Own Id: OTP-9172</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>crypto</c> support for streaming of AES CTR and
+	    HMAC. (Thanks to Travis Jensen)</p>
+          <p>
+	    Own Id: OTP-9275</p>
+        </item>
+        <item>
+          <p>
+	    Due to standard library DLL mismatches between versions
+	    of OpenSSL and Erlang/OTP, OpenSSL is now linked
+	    statically to the crypto driver on Windows. This fixes
+	    problems starting crypto when running Erlang as a service
+	    on all Windows versions.</p>
+          <p>
+	    Own Id: OTP-9280</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 2.0.2.2</title>
 
     <section><title>Improvements and New Features</title>

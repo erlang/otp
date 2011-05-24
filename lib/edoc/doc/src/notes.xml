@@ -31,6 +31,40 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix infinite loop for malformed edoc input</p>
+          <p>
+	    When processing an edoc comment with ``` in it, if the
+	    comment ends without a matching ''' then an infinite loop
+	    occurs in the function edoc_wiki:strip_empty_lines/2.
+	    This change fixes that by adding a clause to return from
+	    the function upon the end of the comment input. This
+	    allows an error to be thrown to indicate the problem,
+	    which is the same behaviour as leaving either `` or `
+	    unmatched. (Thanks to Taylor Venable)</p>
+          <p>
+	    Own Id: OTP-9165</p>
+        </item>
+        <item>
+	    <p> Bugs concerning the option
+	    <c>report_missing_types</c> that was added in EDoc-0.7.7
+	    have been corrected: the option was misspelled in the
+	    source, and local definitions as well as the function
+	    tags <c>@private</c> and <c>@hidden</c> were not handled
+	    correctly. (Thanks to Manolis Papadakis.) </p>
+          <p>
+	    Own Id: OTP-9301</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
