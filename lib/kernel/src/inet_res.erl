@@ -71,7 +71,7 @@
 
 -type dns_class() :: in | chaos | hs | any.
 
--opaque dns_msg() :: term().
+-type dns_msg() :: term().
 
 -type dns_data() ::
         dns_name()

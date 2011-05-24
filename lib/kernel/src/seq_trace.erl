@@ -45,7 +45,7 @@
 
 %%---------------------------------------------------------------------------
 
--opaque token() :: {integer(), boolean(), _, _, _}.
+-type token() :: {integer(), boolean(), _, _, _}.
 -spec set_token(Token) -> PreviousToken | 'ok' when
       Token :: [] | token(),
       PreviousToken :: [] | token().
