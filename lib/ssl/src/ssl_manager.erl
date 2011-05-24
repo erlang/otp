@@ -270,14 +270,14 @@ handle_cast({invalidate_session, Host, Port,
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:update(Cache, {{Host, Port}, ID}, Session#session{is_resumable = false}),
-    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, {{Host, Port}, ID}),
+    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, [{{Host, Port}, ID}]),
     {noreply, State};
 
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:update(Cache, {Port, ID}, Session#session{is_resumable = false}),
-    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, {Port, ID}),
+    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, [{Port, ID}]),
     {noreply, State};
 
 handle_cast({recache_pem, File, LastWrite, Pid, From},
