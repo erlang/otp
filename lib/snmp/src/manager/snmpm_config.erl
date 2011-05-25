@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -269,9 +269,10 @@ do_user_info(_UserId, BadItem) ->
     error({not_found, BadItem}).
 
 
-%% A target-name constructed in this way is a string with the following 
+%% A target-name constructed in this way is a string with the following: 
 %% <IP-address>:<Port>-<Version>
-%% 
+%% This is intended for backward compatibility and therefor has
+%% only support for IPv4 addresses and *no* other transport domain.
 mk_target_name(Addr0, Port, Config) when is_list(Config) ->
     Version = 
 	case lists:keysearch(version, 1, Config) of
@@ -280,7 +281,6 @@ mk_target_name(Addr0, Port, Config) when is_list(Config) ->
 	    false ->
 		select_lowest_supported_version()
 	end,
-%%     p("mk_target_name -> Version: ~p", [Version]),
     case normalize_address(Addr0) of
 	{A, B, C, D} ->
 	    lists:flatten(
@@ -322,10 +322,10 @@ register_agent(UserId, TargetName, Config)
 
     %% Check: 
     %%   1) That the mandatory configs are present
-    %%   2) That the illegal config user_id (used internally) is 
-    %%      not present
+    %%   2) That the illegal config, user_id (used internally), 
+    %%      is not present
     %%   3) Check that there are no invalid or erroneous configs
-    %%   4) Chack that the manager is capable to use the selected version
+    %%   4) Check that the manager is capable of using the selected version
     case verify_agent_config(Config) of
 	ok ->
 	    call({register_agent, UserId, TargetName, Config});
@@ -366,6 +366,7 @@ verify_agent_config2(Conf) ->
 unregister_agent(UserId, TargetName) ->
     call({unregister_agent, UserId, TargetName}).
 
+%% This is the old style agent unregistration (using Addr and Port).
 unregister_agent(UserId, Addr0, Port) ->
     Addr = normalize_address(Addr0),
     case do_agent_info(Addr, Port, target_name) of
@@ -1590,6 +1591,7 @@ check_agent_config2(Agent) ->
 	    throw(Err)
     end.
 
+%% For backward compatibility
 check_agent_config({UserId, 
 		    TargetName, 
 		    Community, 
@@ -1597,10 +1599,27 @@ check_agent_config({UserId,
 		    EngineId, 
 		    Timeout, MaxMessageSize, 
 		    Version, SecModel, SecName, SecLevel}) ->
+    TDomain = snmpm_conf:default_transport_domain(),
+    check_agent_config({UserId, 
+			TargetName, 
+			Community, 
+			TDomain, Ip, Port, 
+			EngineId, 
+			Timeout, MaxMessageSize, 
+			Version, SecModel, SecName, SecLevel}).
+
+check_agent_config({UserId, 
+		    TargetName, 
+		    Community, 
+		    Domain, Ip, Port, 
+		    EngineId, 
+		    Timeout, MaxMessageSize, 
+		    Version, SecModel, SecName, SecLevel}) ->
     ?vtrace("check_agent_config -> entry with"
 	    "~n   UserId:         ~p"
 	    "~n   TargetName:     ~p"
 	    "~n   Community:      ~p"
+	    "~n   TDomain:        ~p"
 	    "~n   Ip:             ~p"
 	    "~n   Port:           ~p"
 	    "~n   EngineId:       ~p"
@@ -1610,15 +1629,16 @@ check_agent_config({UserId,
 	    "~n   SecModel:       ~p"
 	    "~n   SecName:        ~p"
 	    "~n   SecLevel:       ~p", 
-	    [UserId, TargetName, Community, Ip, Port, 
+	    [UserId, TargetName, Community, 
+	     TDomain, Ip, Port, 
 	     EngineId, Timeout, MaxMessageSize, 
 	     Version, SecModel, SecName, SecLevel]),
-    Addr = normalize_address(Ip),
+    Addr = normalize_address(Domain, Ip),
     ?vtrace("check_agent_config -> Addr: ~p", [Addr]),
     Agent = {UserId, 
 	     TargetName, 
 	     Community, 
-	     Addr, Port, 
+	     TDomain, Addr, Port, 
 	     EngineId, 
 	     Timeout, MaxMessageSize, 
 	     Version, SecModel, SecName, SecLevel},
@@ -1644,10 +1664,27 @@ init_agent_config({UserId, TargetName, Config}) ->
     end.
 
 
+%% For backward compatibility
 verify_agent({UserId, 
 	      TargetName, 
 	      Comm, 
 	      Ip, Port, 
+	      EngineId, 
+	      Timeout, MMS, 
+	      Version, SecModel, SecName, SecLevel}) ->
+    TDomain = snmpm_conf:default_transport_domain(),
+    verify_agent({UserId, 
+		  TargetName, 
+		  Comm, 
+		  TDomain, Ip, Port, 
+		  EngineId, 
+		  Timeout, MMS, 
+		  Version, SecModel, SecName, SecLevel}).
+
+verify_agent({UserId, 
+	      TargetName, 
+	      Comm, 
+	      TDomain, Ip, Port, 
 	      EngineId, 
 	      Timeout, MMS, 
 	      Version, SecModel, SecName, SecLevel}) ->
@@ -1658,8 +1695,15 @@ verify_agent({UserId,
     case verify_val(address, Ip) of
 	{ok, Addr} ->
 	    snmp_conf:check_integer(Port, {gt, 0}),
+	    %% Note that the order of Conf *is* important.
+	    %% Some properties may depend on others, so that
+	    %% in order to verify one property, another must
+	    %% be already verified (and present). An example 
+	    %% of this is the property 'address', for which
+	    %% the property tdomain is needed.
 	    Conf = 
 		[{reg_type,         target_name},
+		 {tdomain,          TDomain}, 
 		 {address,          Addr},
 		 {port,             Port},
 		 {community,        Comm}, 
@@ -1683,9 +1727,13 @@ verify_agent({UserId,
 	    throw(Error)
     end.
 
-verify_agent2([]) ->
+verify_agent2(Conf) ->
+    VerifiedConf = [], 
+    verify_agent2(Conf, VerifiedConf).
+
+verify_agent2([], _VerifiedConf) ->
     ok;
-verify_agent2([{Item, Val}|Items]) ->
+verify_agent2([{Item, Val}|Items], VerifiedConf) ->
     case verify_val(Item, Val) of
 	{ok, _Val} ->
 	    verify_agent2(Items);
@@ -3034,11 +3082,17 @@ init_mini_mib_elems(MibName, [_|T], Res) ->
 %%----------------------------------------------------------------------
 
 normalize_address(Addr) ->
-    case inet:getaddr(Addr, inet) of
+    normalize_address(snmpUDPDomain, Addr).
+
+normalize_address(snmpUDPDomain, Addr) ->
+    normalize_address(transportDomainUdpIpv4, Addr);
+
+normalize_address(Domain, Addr) ->
+    case inet:getaddr(Addr, td2fam(Domain)) of
         {ok, Addr2} ->
             Addr2;
         _ when is_list(Addr) ->
-	    case (catch snmp_conf:check_ip(Addr)) of
+	    case (catch snmp_conf:check_ip(Domain, Addr)) of
 		ok ->
 		    list_to_tuple(Addr);
 		_ ->
@@ -3048,6 +3102,9 @@ normalize_address(Addr) ->
             Addr
     end.
 
+td2fam(transportDomainUdpIpv4) -> inet;
+td2fam(transportDomainUdpIpv6) -> inet6.
+    
 
 %%----------------------------------------------------------------------
 
