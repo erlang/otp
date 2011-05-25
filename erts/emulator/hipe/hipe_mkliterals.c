@@ -243,7 +243,7 @@ crc_update_buf(unsigned int crc_value,
 }
 
 static unsigned int
-crc_update_int(unsigned int crc_value, const unsigned int *p)
+crc_update_int(unsigned int crc_value, const int *p)
 {
     return crc_update_buf(crc_value, p, sizeof *p);
 }
@@ -256,7 +256,7 @@ crc_update_int(unsigned int crc_value, const unsigned int *p)
  */
 static const struct literal {
     const char *name;
-    unsigned int value;
+    int value;
 } literals[] = {
     /* Field offsets in a process struct */
     { "P_HP", offsetof(struct process, htop) },
@@ -301,7 +301,7 @@ static const struct literal {
     { "FREASON_TRAP", TRAP },
 
     /* special Erlang constants */
-    { "THE_NON_VALUE", THE_NON_VALUE },
+    { "THE_NON_VALUE", (int)THE_NON_VALUE },
 
     /* funs */
 #ifdef HIPE
@@ -455,7 +455,7 @@ static const struct rts_param {
     unsigned int nr;
     const char *name;
     unsigned int is_defined;
-    unsigned int value;
+    int value;
 } rts_params[] = {
     { 1, "P_OFF_HEAP_FUNS",
 #if !defined(HYBRID)
@@ -531,12 +531,12 @@ static void compute_crc(void)
 
 static void c_define_literal(FILE *fp, const struct literal *literal)
 {
-    fprintf(fp, "#define %s %u\n", literal->name, literal->value);
+    fprintf(fp, "#define %s %d\n", literal->name, literal->value);
 }
 
 static void e_define_literal(FILE *fp, const struct literal *literal)
 {
-    fprintf(fp, "-define(%s, %u).\n", literal->name, literal->value);
+    fprintf(fp, "-define(%s, %d).\n", literal->name, literal->value);
 }
 
 static void print_literals(FILE *fp, void (*print_literal)(FILE*, const struct literal*))
@@ -563,7 +563,7 @@ static void print_atom_literals(FILE *fp, void (*print_atom_literal)(FILE*, cons
 static void c_define_param(FILE *fp, const struct rts_param *param)
 {
     if (param->is_defined)
-	fprintf(fp, "#define %s %u\n", param->name, param->value);
+	fprintf(fp, "#define %s %d\n", param->name, param->value);
 }
 
 static void c_case_param(FILE *fp, const struct rts_param *param)
@@ -571,7 +571,7 @@ static void c_case_param(FILE *fp, const struct rts_param *param)
     fprintf(fp, " \\\n");
     fprintf(fp, "\tcase %u: ", param->nr);
     if (param->is_defined)
-	fprintf(fp, "value = %u", param->value);
+	fprintf(fp, "value = %d", param->value);
     else
 	fprintf(fp, "is_defined = 0");
     fprintf(fp, "; break;");

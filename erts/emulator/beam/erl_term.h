@@ -331,7 +331,13 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
  * we now use a non-zero bit-pattern in debug mode.
  */
 #if ET_DEBUG
-#define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
+# ifdef HIPE
+   /* A very large (or negative) value as work-around for ugly hipe-bifs
+      that return untagged integers (eg hipe_bs_put_utf8) */
+#  define THE_NON_VALUE	_make_header((Uint)~0,_TAG_HEADER_FLOAT)
+# else
+#  define THE_NON_VALUE	_make_header(0,_TAG_HEADER_FLOAT)
+# endif
 #else
 #define THE_NON_VALUE	(0)
 #endif
