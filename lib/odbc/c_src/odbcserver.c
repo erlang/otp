@@ -173,7 +173,7 @@ static db_result_msg encode_row_count(SQLINTEGER num_of_rows,
 				      db_state *state);
 static void encode_column_dyn(db_column column, int column_nr,
 			      db_state *state);
-static void encode_data_type(SQLINTEGER sql_type, SQLINTEGER size,
+static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
 			     SQLSMALLINT decimal_digits, db_state *state);
 static Boolean decode_params(db_state *state, byte *buffer, int *index, param_array **params,
 			  int i, int j);
@@ -1452,7 +1452,7 @@ static void encode_column_dyn(db_column column, int column_nr,
     } 
 }
 
-static void encode_data_type(SQLINTEGER sql_type, SQLINTEGER size,
+static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
 			     SQLSMALLINT decimal_digits, db_state *state)
 {
     switch(sql_type) {
