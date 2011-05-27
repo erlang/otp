@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+
+<header>
+<copyright>
+<year>2011</year>
+<holder>Ericsson AB. All Rights Reserved.</holder>
+</copyright>
+<legalnotice>
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+</legalnotice>
+
+<title>Release Notes</title>
+<prepared></prepared>
+<docno></docno>
+<date></date>
+<rev></rev>
+<file>notes.xml</file>
+</header>
+
+<p>
+Releases are listed in reverse chronological order, most recent
+first.</p>
+
+<!-- ===================================================================== -->
+
+<section>
+<title>diameter 0.9</title>
+
+<p>
+Initial release of the diameter application.</p>
+
+<p>
+Known issues or limitations:</p>
+
+<list>
+
+<item>
+<p>
+Some agent-related functionality is not entirely complete.
+In particular, support for proxy agents, that advertise specific
+Diameter applications but otherwise relay messages in much the same
+way as relay agents (for which a <seealso
+marker="diameter_app#handle_request">handle_request/3</seealso>
+callback can return a <c>relay</c> tuple), will be completed in an
+upcoming release.
+There may also be more explicit support for redirect agents, although
+redirect behaviour can be implemented with the current
+functionality.</p>
+
+</item>
+
+<item>
+<p>
+There is some asymmetry in the treatment of messages sent as
+<c>diameter_header/avp</c> records and those sent in the "normal"
+fashion, and not all of this is documented.
+This is related to the previous point since this form of sending a
+message was introduced specifically to handle relay agent behaviour
+using the same callback interface as for client/server behaviour.</p>
+</item>
+
+<item>
+<p>
+The User's Guide is currently quite thin.
+The introductory chapter followed by the examples (in the application
+<c>examples</c> subdirectory) may be sufficient
+for those having some familiarity with the Diameter protocol but the
+intention is to provide more introductory text.
+The reference documentation is quite complete, although some points
+could likely be expanded upon.</p>
+</item>
+
+<item>
+<p>
+The function <seealso
+marker="diameter#service_info">diameter:service_info/2</seealso>
+can be used to retrieve information about a started service
+(statistics, information about connected peers, etc) but
+this is not yet documented and both the input and output may change
+in the next release.</p>
+</item>
+
+
+</list>
+
+<p>
+See <seealso marker="diameter_soc">Standards Compliance</seealso> for
+standards-related issues.</p>
+</section>
+
+</chapter>

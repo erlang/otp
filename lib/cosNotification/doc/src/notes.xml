@@ -31,6 +31,21 @@
     <file>notes.xml</file>
   </header>
 
+  <section><title>cosNotification 1.1.17</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Removed superfluous usage of shy in the documentation since it can cause problem if
+            a buggy tool is used.</p>
+          <p>
+            Own Id: OTP-9319 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+ </section>
+
   <section><title>cosNotification 1.1.16</title>
 
     <section><title>Improvements and New Features</title>

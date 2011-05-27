@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,6 +54,10 @@ pseudo([Master | ServerList]) ->
 pseudo(_) ->
     error_msg("No master node given to slave:pseudo/1~n",[]).
 
+-spec pseudo(Master, ServerList) -> ok when
+      Master :: node(),
+      ServerList :: [atom()].
+
 pseudo(_, []) -> ok;
 pseudo(Master, [S|Tail]) ->
     start_pseudo(S, whereis(S), Master),
@@ -67,6 +71,9 @@ start_pseudo(_,_,_) -> ok.  %% It's already there
 
 
 %% This relay can be used to relay all messages directed to a process.
+
+-spec relay(Pid) -> no_return() when
+      Pid :: pid().
 
 relay({badrpc,Reason}) ->
     error_msg(" ** exiting relay server ~w :~w  **~n", [self(),Reason]),
@@ -120,24 +127,60 @@ relay1(Pid) ->
 %%          {error, no_rsh} |
 %%	    {error, {already_running, Name@Host}}
 
+-spec start(Host) -> {ok, Node} | {error, Reason} when
+      Host :: atom(),
+      Node :: node(),
+      Reason :: timeout | no_rsh | {already_running, Node}.
+
 start(Host) ->
     L = atom_to_list(node()),
     Name = upto($@, L),
-    start(Host, Name).
+    start(Host, Name, [], no_link).
+
+-spec start(Host, Name) -> {ok, Node} | {error, Reason} when
+      Host :: atom(),
+      Name :: atom(),
+      Node :: node(),
+      Reason :: timeout | no_rsh | {already_running, Node}.
 
 start(Host, Name) ->
     start(Host, Name, []).
 
+-spec start(Host, Name, Args) -> {ok, Node} | {error, Reason} when
+      Host :: atom(),
+      Name :: atom(),
+      Args :: string(),
+      Node :: node(),
+      Reason :: timeout | no_rsh | {already_running, Node}.
+
 start(Host, Name, Args) ->
     start(Host, Name, Args, no_link).
+
+-spec start_link(Host) -> {ok, Node} | {error, Reason} when
+      Host :: atom(),
+      Node :: node(),
+      Reason :: timeout | no_rsh | {already_running, Node}.
 
 start_link(Host) ->
     L = atom_to_list(node()),
     Name = upto($@, L),
-    start_link(Host, Name).
+    start(Host, Name, [], self()).
+
+-spec start_link(Host, Name) -> {ok, Node} | {error, Reason} when
+      Host :: atom(),
+      Name :: atom(),
+      Node :: node(),
+      Reason :: timeout | no_rsh | {already_running, Node}.
 
 start_link(Host, Name) ->
     start_link(Host, Name, []).
+
+-spec start_link(Host, Name, Args) -> {ok, Node} | {error, Reason} when
+      Host :: atom(),
+      Name :: atom(),
+      Args :: string(),
+      Node :: node(),
+      Reason :: timeout | no_rsh | {already_running, Node}.
 
 start_link(Host, Name, Args) ->
     start(Host, Name, Args, self()).
@@ -162,6 +205,9 @@ start(Host0, Name, Args, LinkTo, Prog) ->
     end.
 
 %% Stops a running node.
+
+-spec stop(Node) -> ok when
+      Node :: node().
 
 stop(Node) ->
 %    io:format("stop(~p)~n", [Node]),

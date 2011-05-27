@@ -2,7 +2,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2010. All Rights Reserved.
+# Copyright Ericsson AB 2002-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -186,15 +186,16 @@ set_config_flags ()
 	if target_contains free_source; then
 		CONFIG_FLAGS="$CONFIG_FLAGS --host=$TARGET"
 	fi
-	if target_contains win32; then
-		CONFIG_FLAGS="--build=$BUILDSYS build_alias=win32 --host=win32 --target=win32 $CONFIG_FLAGS" 
-	else
-	        # Link SSL static for all binary distributions if not overridden
-	        XX=`echo $* | grep -v dynamic-ssl-lib`
-		if [ "$*" = "$XX" ]; then 
-		    CONFIG_FLAGS="--disable-dynamic-ssl-lib $CONFIG_FLAGS"
-		fi
+	# Link SSL static for all binary distributions if not overridden
+	# Even for win32 starting with R14B03
+	XX=`echo $* | grep -v dynamic-ssl-lib`
+	if [ "$*" = "$XX" ]; then 
+	    CONFIG_FLAGS="--disable-dynamic-ssl-lib $CONFIG_FLAGS"
 	fi
+	if target_contains win32; then
+	    CONFIG_FLAGS="--build=$BUILDSYS build_alias=win32 --host=win32 --target=win32 $CONFIG_FLAGS" 
+	fi
+
 	if [ "x$OVERRIDE_CONFIG_CACHE" = "x" ]; then
 	    CONFIG_FLAGS="$CONFIG_FLAGS --cache-file=/dev/null"
 	else

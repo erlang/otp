@@ -76,38 +76,37 @@ socket_opt() = See the Options used by gen_tcp(3) and
     <p>For more information about HTTP see rfc 2616</p>
 
     <code type="none"><![CDATA[
-method()        = head | get | put | post | trace | options | delete
-request()       = {url(), headers()} | 
-                  {url(), headers(), content_type(), body()}
-url()           = string() - Syntax according to the URI definition in rfc 2396, ex: "http://www.erlang.org"
-status_line()   = {http_version(), status_code(), reason_phrase()}
-http_version()  = string() ex: "HTTP/1.1"
-status_code()   = integer()
-reason_phrase() = string()
-content_type()  = string()
-headers()       = [header()]
-header()        = {field(), value()}
-field()         = string() 
-value()         = string() 
-body()          = string() | binary() 
-filename()      = string() 
+method()         = head | get | put | post | trace | options | delete
+request()        = {url(), headers()} | 
+                   {url(), headers(), content_type(), body()}
+url()            = string() - Syntax according to the URI definition in rfc 2396, ex: "http://www.erlang.org"
+status_line()    = {http_version(), status_code(), reason_phrase()}
+http_version()   = string() ex: "HTTP/1.1"
+status_code()    = integer()
+reason_phrase()  = string()
+content_type()   = string()
+headers()        = [header()]
+header()         = {field(), value()}
+field()          = string() 
+value()          = string() 
+body()           = string() | 
+                   binary() |
+                   {fun(accumulator()) -> body_processing_result(), 
+                    accumulator()} |
+                   {chunkify, 
+                    fun(accumulator()) -> body_processing_result(), 
+                    accumulator()}
+body_processing_result() = eof | {ok, iolist(), accumulator()}
+accumulator()    = term()
+filename()       = string() 
     ]]></code>
 
   </section>
   
   <section>
     <title>SSL DATA TYPES </title>
-    <p>Some type definitions relevant when using https,
-      for details <seealso marker="ssl:ssl">ssl(3)</seealso>: </p>
-    <code type="none"><![CDATA[
-ssl_options() = {verify,     code()}   | 
-                {depth,      depth()}  | 
-                {certfile,   path()}   | 
-                {keyfile,    path()}   | 
-                {password,   string()} | 
-                {cacertfile, path()}   | 
-                {ciphers,    string()} 
-    ]]></code>
+    <p>See <seealso marker="ssl:ssl">ssl(3)</seealso> for information
+    about ssl options (<c>ssloptions()</c>). </p>
   </section>
 
   <section>
@@ -142,8 +141,9 @@ ssl_options() = {verify,     code()}   |
       <fsummary>Sends a get HTTP-request</fsummary>
       <type>
         <v>Url = url() </v> 
-	<v>Result = {status_line(), headers(), body()} | 
-                    {status_code(), body()} | request_id() </v>
+	<v>Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id() </v>
+	<v>Body = string() | binary()</v>
 	<v>Profile = profile()</v>
 	<v>Reason = term() </v>
       </type>
@@ -166,9 +166,9 @@ ssl_options() = {verify,     code()}   |
         <v>http_options() = [http_option()]</v>
         <v>http_option() = {timeout,         timeout()} | 
                            {connect_timeout, timeout()} | 
-                           {ssl,             ssl_options()} | 
-                           {ossl,            ssl_options()} | 
-                           {essl,            ssl_options()} | 
+                           {ssl,             ssloptions()} | 
+                           {ossl,            ssloptions()} | 
+                           {essl,            ssloptions()} | 
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
@@ -191,8 +191,9 @@ ssl_options() = {verify,     code()}   |
         <v>Function = atom() </v>
         <v>Args = list() </v>
 	<v>body_format() = string | binary </v>
-        <v>Result = {status_line(), headers(), body()} | 
-                    {status_code(), body()} | request_id() </v>
+        <v>Result = {status_line(), headers(), Body} | 
+                    {status_code(), Body} | request_id() </v>
+        <v>Body = string() | binary()</v>
         <v>Profile = profile() </v>
         <v>Reason = {connect_failed, term()} | 
                     {send_failed, term()} | term() </v>
@@ -226,7 +227,7 @@ ssl_options() = {verify,     code()}   |
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the default ssl config option, currently defaults to 
-              <c>ossl</c>, see below. </p>
+              <c>essl</c>, see below. </p>
             <p>Defaults to <c>[]</c>. </p>
 	  </item>
 

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -313,7 +313,7 @@ icode_ssa_struct_reuse(IcodeSSA, Options) ->
 
 icode_ssa_type_info(IcodeSSA, MFA, Options, Servers) ->
     ?option_time(hipe_icode_type:cfg(IcodeSSA, MFA, Options, Servers),
-		 "Icode SSA type info", Options).
+		 io_lib:format("Icode SSA type info for ~p", [MFA]), Options).
 
 icode_range_analysis(IcodeSSA, MFA, Options, Servers) ->
   case proplists:get_bool(icode_range, Options) of
@@ -526,6 +526,8 @@ rtl_to_native(MFA, LinearRTL, Options, DebugState) ->
       ultrasparc ->
 	hipe_sparc_main:rtl_to_sparc(MFA, LinearRTL, Options);
       powerpc ->
+	hipe_ppc_main:rtl_to_ppc(MFA, LinearRTL, Options);
+      ppc64 ->
 	hipe_ppc_main:rtl_to_ppc(MFA, LinearRTL, Options);
       arm ->
 	hipe_arm_main:rtl_to_arm(MFA, LinearRTL, Options);

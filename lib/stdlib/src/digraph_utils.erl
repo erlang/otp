@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,48 +38,66 @@
 %%  A convenient type alias
 %%
 
--type vertices() :: [digraph:vertex()].
-
 %%
 %%  Exported functions
 %%
 
--spec components(digraph()) -> vertices().
+-spec components(Digraph) -> [Component] when
+      Digraph :: digraph(),
+      Component :: [digraph:vertex()].
 
 components(G) ->
     forest(G, fun inout/3).
 
--spec strong_components(digraph()) -> vertices().
+-spec strong_components(Digraph) -> [StrongComponent] when
+      Digraph :: digraph(),
+      StrongComponent :: [digraph:vertex()].
 
 strong_components(G) ->
     forest(G, fun in/3, revpostorder(G)).
 
--spec cyclic_strong_components(digraph()) -> vertices().
+-spec cyclic_strong_components(Digraph) -> [StrongComponent] when
+      Digraph :: digraph(),
+      StrongComponent :: [digraph:vertex()].
 
 cyclic_strong_components(G) ->
     remove_singletons(strong_components(G), G, []).
 
--spec reachable(vertices(), digraph()) -> vertices().
+-spec reachable(Vertices, Digraph) -> Reachable when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()],
+      Reachable :: [digraph:vertex()].
 
 reachable(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun out/3, Vs, first)).
 
--spec reachable_neighbours(vertices(), digraph()) -> vertices().
+-spec reachable_neighbours(Vertices, Digraph) -> Reachable when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()],
+      Reachable :: [digraph:vertex()].
 
 reachable_neighbours(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun out/3, Vs, not_first)).
 
--spec reaching(vertices(), digraph()) -> vertices().
+-spec reaching(Vertices, Digraph) -> Reaching when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()],
+      Reaching :: [digraph:vertex()].
 
 reaching(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun in/3, Vs, first)).
 
--spec reaching_neighbours(vertices(), digraph()) -> vertices().
+-spec reaching_neighbours(Vertices, Digraph) -> Reaching when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()],
+      Reaching :: [digraph:vertex()].
 
 reaching_neighbours(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun in/3, Vs, not_first)).
 
--spec topsort(digraph()) -> vertices() | 'false'.
+-spec topsort(Digraph) -> Vertices | 'false' when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()].
 
 topsort(G) ->
     L = revpostorder(G),
@@ -88,12 +106,15 @@ topsort(G) ->
 	false -> false
     end.
 
--spec is_acyclic(digraph()) -> boolean().
+-spec is_acyclic(Digraph) -> boolean() when
+      Digraph :: digraph().
 
 is_acyclic(G) ->
     loop_vertices(G) =:= [] andalso topsort(G) =/= false.
 
--spec arborescence_root(digraph()) -> 'no' | {'yes', digraph:vertex()}.
+-spec arborescence_root(Digraph) -> 'no' | {'yes', Root} when
+      Digraph :: digraph(),
+      Root :: digraph:vertex().
 
 arborescence_root(G) ->
     case digraph:no_edges(G) =:= digraph:no_vertices(G) - 1 of
@@ -114,23 +135,30 @@ arborescence_root(G) ->
             no
     end.
 
--spec is_arborescence(digraph()) -> boolean().
+-spec is_arborescence(Digraph) -> boolean() when
+      Digraph :: digraph().
 
 is_arborescence(G) ->
     arborescence_root(G) =/= no.
 
--spec is_tree(digraph()) -> boolean().
+-spec is_tree(Digraph) -> boolean() when
+      Digraph :: digraph().
 
 is_tree(G) ->
     (digraph:no_edges(G) =:= digraph:no_vertices(G) - 1)
     andalso (length(components(G)) =:= 1).
 
--spec loop_vertices(digraph()) -> vertices().
+-spec loop_vertices(Digraph) -> Vertices when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()].
 
 loop_vertices(G) ->
     [V || V <- digraph:vertices(G), is_reflexive_vertex(V, G)].
 
--spec subgraph(digraph(), vertices()) -> digraph().
+-spec subgraph(Digraph, Vertices) -> SubGraph when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()],
+      SubGraph :: digraph().
 
 subgraph(G, Vs) ->
     try
@@ -140,10 +168,12 @@ subgraph(G, Vs) ->
 	    erlang:error(badarg)
     end.
 
--type option() :: {'type', 'inherit' | [digraph:d_type()]}
-                | {'keep_labels', boolean()}.
-
--spec subgraph(digraph(), vertices(), [option()]) -> digraph().
+-spec subgraph(Digraph, Vertices, Options) -> SubGraph when
+      Digraph :: digraph(),
+      SubGraph :: digraph(),
+      Vertices :: [digraph:vertex()],
+      Options :: [{'type', SubgraphType} | {'keep_labels', boolean()}],
+      SubgraphType :: 'inherit' | [digraph:d_type()].
 
 subgraph(G, Vs, Opts) ->
     try
@@ -153,7 +183,9 @@ subgraph(G, Vs, Opts) ->
 	    erlang:error(badarg)
     end.
 
--spec condensation(digraph()) -> digraph().
+-spec condensation(Digraph) -> CondensedDigraph when
+      Digraph :: digraph(),
+      CondensedDigraph :: digraph().
 
 condensation(G) ->
     SCs = strong_components(G),
@@ -176,12 +208,16 @@ condensation(G) ->
     ets:delete(I2C),
     SCG.
 
--spec preorder(digraph()) -> vertices().
+-spec preorder(Digraph) -> Vertices when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()].
 
 preorder(G) ->
     lists:reverse(revpreorder(G)).
 
--spec postorder(digraph()) -> vertices().
+-spec postorder(Digraph) -> Vertices when
+      Digraph :: digraph(),
+      Vertices :: [digraph:vertex()].
 
 postorder(G) ->
     lists:reverse(revpostorder(G)).

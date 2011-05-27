@@ -78,12 +78,14 @@ groups() ->
       [{group, install}, {group, atomicity},
        {group, isolation}, {group, durability},
        {group, recovery}, {group, consistency},
+       {group, majority},
        {group, mnesia_frag_test, medium}]},
      {atomicity, [], [{mnesia_atomicity_test, all}]},
      {isolation, [], [{mnesia_isolation_test, all}]},
      {durability, [], [{mnesia_durability_test, all}]},
      {recovery, [], [{mnesia_recovery_test, all}]},
      {consistency, [], [{mnesia_consistency_test, all}]},
+     {majority, [], [{mnesia_majority_test, all}]},
      %% The 'heavy' test suite runs some resource consuming tests and
      %% benchmarks
      {heavy, [], [{group, measure}]},

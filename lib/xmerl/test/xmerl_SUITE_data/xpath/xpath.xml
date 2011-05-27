@@ -1,0 +1,25 @@
+<myBS_model>
+
+  <blipp id="name1">
+      <blupp att="bluppa"/>
+  </blipp>
+  <blipp id="name2">
+      <blupp att2="bluppb">
+          <plopp name="pl">here are some text</plopp>
+      </blupp>
+  </blipp>
+  <blipp id="name3" test="test1">
+      <blupp att2="bluppc">
+          <plopp name="plp">here are some more text</plopp>
+      </blupp>
+      <blupp att="bluppc2"/>
+  </blipp>
+
+  <blipp2 bid="name1">
+      <blupp att="bluppa"/>
+      <blupp att2="bluppb">
+          <plopp name="pl">here are some additional text</plopp>
+      </blupp>
+  </blipp2>
+
+</myBS_model>

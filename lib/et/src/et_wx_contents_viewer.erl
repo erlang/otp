@@ -464,7 +464,8 @@ create_window(S) ->
     wxFrame:setMenuBar(Frame,Bar),
     create_file_menu(Bar),
     Editor = wxTextCtrl:new(Panel, ?wxID_ANY, [{style, 0
-						bor  ?wxDEFAULT
+						bor ?wxDEFAULT
+						bor ?wxTE_RICH2 %% Needed on Windows
 						bor ?wxTE_MULTILINE
 						bor ?wxTE_READONLY
 						bor ?wxTE_DONTWRAP}]),
@@ -483,6 +484,7 @@ create_window(S) ->
     wxFrame:connect(Frame, close_window, [{skip,true}]),
     wxFrame:setFocus(Frame),
     wxPanel:setSizer(Panel, Sizer),
+    wxSizer:fit(Sizer, Panel),
     wxFrame:show(Frame),
     S2#state{menu_data = HideData++SearchData++FilterData, editor = Editor, frame = Frame}.
 

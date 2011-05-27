@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,8 +21,7 @@
     
     </legalnotice>
 
-    <title>CosPropertyService_&shy;PropertySetDef</title>
-    <shorttitle>..._PropertySetDef</shorttitle>
+    <title>CosPropertyService_PropertySetDef</title>
     <prepared></prepared>
     <docno></docno>
     <checked></checked>

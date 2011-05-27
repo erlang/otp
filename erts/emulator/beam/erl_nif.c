@@ -430,6 +430,11 @@ int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_list(term) || is_nil(term);
 }
 
+int enif_is_exception(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return term == THE_NON_VALUE;
+}
+
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
     erts_free_aligned_binary_bytes_extra((byte*)obj,ERTS_ALC_T_TMP);
@@ -467,7 +472,7 @@ static void tmp_alloc_dtor(struct enif_tmp_obj_t* obj)
 int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 {
     struct enif_tmp_obj_t* tobj;
-    int sz;
+    Uint sz;
     if (is_binary(term)) {
 	return enif_inspect_binary(env,term,bin);
     }
@@ -478,7 +483,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 	bin->ref_bin = NULL;
 	return 1;
     }
-    if ((sz = io_list_len(term)) < 0) {
+    if (erts_iolist_size(term, &sz)) {
 	return 0;
     }
     

@@ -861,6 +861,7 @@ remove_config(Callback, Config) ->
 %%%
 %%% @doc <p>Use this function to set a new timetrap for the running test case.</p>
 timetrap(Time) ->
+    test_server:timetrap_cancel(),
     test_server:timetrap(Time).
 
 %%%-----------------------------------------------------------------

@@ -1,0 +1,63 @@
+<!--
+   3GPP TS 32.615 v4.5 Bulk CM IRP
+  Configuration data file UTRAN Network Resources IRP NRM XML schema
+  To be used with WEGA Bucket 2.1 onwards
+-->
+<schema targetNamespace="geranNrm.xsd" xmlns:gn="geranNrm.xsd" xmlns:un="utranNrm.xsd" xmlns:xn="genericNrm.xsd" xmlns="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<!-- GERAN Network Resources IRP NRM class associated XML elements -->
+	<import namespace="genericNrm.xsd" schemaLocation="genericNrm.xsd"/>
+	<import namespace="utranNrm.xsd" schemaLocation="utranNrm.xsd"/>
+	<element name="GsmRelation">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all><!--
+									<element name="relationType" minOccurs="0"/>
+									-->
+									<element name="adjacentCell" minOccurs="0"/>
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+	<element name="ExternalGsmCell">
+		<complexType>
+			<complexContent>
+				<extension base="xn:NrmClassXmlType">
+					<sequence>
+						<element name="attributes" minOccurs="0">
+							<complexType>
+								<all>
+									<element name="userLabel" minOccurs="0"/>
+									<element name="cellIdentity" minOccurs="0"/>
+									<element name="bcchFrequency" minOccurs="0"/>
+									<element name="ncc" minOccurs="0"/>
+									<element name="bcc" minOccurs="0"/>
+									<element name="lac" minOccurs="0"/>
+									<element name="mcc" minOccurs="0"/>
+									<element name="mnc" minOccurs="0"/>
+									<!--
+									<element name="rac" minOccurs="0"/>
+									<element name="racc" minOccurs="0"/>
+									-->
+								</all>
+							</complexType>
+						</element>
+						<choice minOccurs="0" maxOccurs="unbounded">
+							<element ref="xn:VsDataContainer"/>
+						</choice>
+					</sequence>
+				</extension>
+			</complexContent>
+		</complexType>
+	</element>
+</schema>

@@ -693,6 +693,7 @@ static void *break_waiter(void *param)
 	    ResetEvent(harr[0]);
 	    erts_mtx_lock(&break_waiter_lock);
 	    erts_atomic32_set(&break_waiter_state,BREAK_WAITER_GOT_BREAK);
+	    ERTS_THR_MEMORY_BARRIER;
 	    SetEvent(break_happened_event);
 	    erts_mtx_unlock(&break_waiter_lock);
 	    break;
@@ -700,6 +701,7 @@ static void *break_waiter(void *param)
 	    ResetEvent(harr[1]);
 	    erts_mtx_lock(&break_waiter_lock);
 	    erts_atomic32_set(&break_waiter_state,BREAK_WAITER_GOT_HALT);
+	    ERTS_THR_MEMORY_BARRIER;
 	    SetEvent(break_happened_event);
 	    erts_mtx_unlock(&break_waiter_lock);
 	    break;

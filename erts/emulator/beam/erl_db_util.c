@@ -5046,31 +5046,31 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("TryMeElse\t%bpu\n", n);
+	    erts_printf("TryMeElse\t%beu\n", n);
 	    break;
 	case matchArray:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("Array\t%bpu\n", n);
+	    erts_printf("Array\t%beu\n", n);
 	    break;
 	case matchArrayBind:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("ArrayBind\t%bpu\n", n);
+	    erts_printf("ArrayBind\t%beu\n", n);
 	    break;
 	case matchTuple:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("Tuple\t%bpu\n", n);
+	    erts_printf("Tuple\t%beu\n", n);
 	    break;
 	case matchPushT:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("PushT\t%bpu\n", n);
+	    erts_printf("PushT\t%beu\n", n);
 	    break;
 	case matchPushL:
 	    ++t;
@@ -5084,13 +5084,13 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("Bind\t%bpu\n", n);
+	    erts_printf("Bind\t%beu\n", n);
 	    break;
 	case matchCmp:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("Cmp\t%bpu\n", n);
+	    erts_printf("Cmp\t%beu\n", n);
 	    break;
 	case matchEqBin:
 	    ++t;
@@ -5112,9 +5112,9 @@ void db_match_dis(Binary *bp)
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64) && !HALFWORD_HEAP
-		    erts_printf("0x%016bpx", rt->data.ui[ri]);
+		    erts_printf("0x%016bex", rt->data.ui[ri]);
 #else
-		    erts_printf("0x%08bpx", rt->data.ui[ri]);
+		    erts_printf("0x%08bex", rt->data.ui[ri]);
 #endif
 		}
 	    }
@@ -5136,9 +5136,9 @@ void db_match_dis(Binary *bp)
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64) && !HALFWORD_HEAP
-		    erts_printf("0x%016bpx", *et);
+		    erts_printf("0x%016bex", *et);
 #else
-		    erts_printf("0x%08bpx", *et);
+		    erts_printf("0x%08bex", *et);
 #endif
 		++et;
 		}
@@ -5190,31 +5190,31 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("MkTuple\t%bpu\n", n);
+	    erts_printf("MkTuple\t%beu\n", n);
 	    break;
 	case matchOr:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("Or\t%bpu\n", n);
+	    erts_printf("Or\t%beu\n", n);
 	    break;
 	case matchAnd:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("And\t%bpu\n", n);
+	    erts_printf("And\t%beu\n", n);
 	    break;
 	case matchOrElse:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("OrElse\t%bpu\n", n);
+	    erts_printf("OrElse\t%beu\n", n);
 	    break;
 	case matchAndAlso:
 	    ++t;
 	    n = *t;
 	    ++t;
-	    erts_printf("AndAlso\t%bpu\n", n);
+	    erts_printf("AndAlso\t%beu\n", n);
 	    break;
 	case matchCall0:
 	    ++t;
@@ -5244,19 +5244,19 @@ void db_match_dis(Binary *bp)
 	    ++t;
 	    n = (Uint) *t;
 	    ++t;
-	    erts_printf("PushV\t%bpu\n", n);
+	    erts_printf("PushV\t%beu\n", n);
 	    break;
     #if HALFWORD_HEAP
 	case matchPushVGuard:
 	    n = (Uint) *++t;
 	    ++t;
-	    erts_printf("PushVGuard\t%bpu\n", n);
+	    erts_printf("PushVGuard\t%beu\n", n);
 	    break;
     #endif
 	case matchPushVResult:
 	    n = (Uint) *++t;
 	    ++t;
-	    erts_printf("PushVResult\t%bpu\n", n);
+	    erts_printf("PushVResult\t%beu\n", n);
 	    break;
 	case matchTrue:
 	    ++t;
@@ -5367,8 +5367,8 @@ void db_match_dis(Binary *bp)
     }
     erts_printf("}\n");
     erts_printf("num_bindings: %d\n", prog->num_bindings);
-    erts_printf("heap_size: %bpu\n", prog->heap_size);
-    erts_printf("stack_offset: %bpu\n", prog->stack_offset);
+    erts_printf("heap_size: %beu\n", prog->heap_size);
+    erts_printf("stack_offset: %beu\n", prog->stack_offset);
     erts_printf("text: 0x%08x\n", (unsigned long) prog->text);
     erts_printf("stack_size: %d (words)\n", prog->heap_size-prog->stack_offset);
     

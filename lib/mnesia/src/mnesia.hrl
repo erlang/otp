@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,6 +62,7 @@
 		  disc_only_copies = [],           % [Node]
 		  load_order = 0,                  % Integer
 		  access_mode = read_write,        % read_write | read_only
+		  majority = false,                % true | false
 		  index = [],                      % [Integer]
 		  snmp = [],                       % Snmp Ustruct
 		  local_content = false,           % true | false

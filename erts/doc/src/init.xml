@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -64,19 +64,6 @@
           passed to the <c>init</c> loop and can be retrieved by calling
           <c>get_arguments/0</c> and <c>get_plain_arguments/0</c>,
           respectively.</p>
-      </desc>
-    </func>
-    <func>
-      <name>get_args() -> [Arg]</name>
-      <fsummary>Get all non-flag command line arguments</fsummary>
-      <type>
-        <v>Arg = atom()</v>
-      </type>
-      <desc>
-        <p>Returns any plain command line arguments as a list of atoms
-          (possibly empty). It is recommended that
-          <c>get_plain_arguments/1</c> is used instead, because of
-          the limited length of atoms.</p>
       </desc>
     </func>
     <func>

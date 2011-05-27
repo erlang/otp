@@ -1,0 +1,881 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+
+<!--
+
+Copyright (C) Ericsson AB 2006 All rights reserved.
+
+The information in this document is the property of Ericsson.
+
+Except as specifically authorized in writing by Ericsson, the
+receiver of this document shall keep the information contained
+herein confidential and shall protext the same in whole or in part
+from disclosure and dissemination to third parties.
+
+Disclosure and disseminations to the receivers employees shall
+only be made on a strict need to know basis.
+
+-->
+
+
+<!-- MIM file for SWM -->
+
+  
+  <mim xmlns="http://www.ericsson.com/is/isco/mim/2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ericsson.com/is/isco/mim/2.0 /vobs/isac/sis/OAM_CRA1190047_1/CCS_CNA113082/doc/15519/mim.xsd ">
+
+    <!--___ Data types ________________________________ -->
+
+    <dataType name="SwmMatchStrategy">
+      <description>
+	Interpretation of given filename and path .
+      </description>
+      <string>
+	<validValues>
+	  <value name="exact"/>
+	  <value name="prefix"/>
+	  <value name="unknown"/>
+	</validValues>
+	<!--defaultValue>exact</defaultValue-->
+      </string>
+    </dataType>
+    
+    <dataType name="SwmDownloadStrategy">
+      <description>
+	Interpretation according to existing files.
+      </description>
+      <string>
+	<validValues>
+	  <value name="onlyIfMissing"/>
+	  <value name="always"/>
+	  <value name="unknown"/>
+	</validValues>
+	<!--defaultValue>onlyIfMissing</defaultValue-->
+      </string>
+    </dataType>
+    
+    <dataType name="ContainerType">
+      <description>
+	Type of a load module container.
+      </description>
+      <string>
+	<validValues>
+	  <value name="bladeSystemInformation"/>
+	  <value name="bladeInformation"/>
+	  <value name="application"/>
+	  <value name="rootFileSystem"/>
+	  <value name="kernel"/>
+	  <value name="correction"/>
+	</validValues>
+	<!--defaultValue>bladeSystemInformation</defaultValue-->
+      </string>
+    </dataType>
+    
+        
+    <dataType name="SwgStatus">
+      <description>
+	Indicates status of software groups. A software group is 
+	complete if all included load module containers have been 
+	downloaded and unpacked correctly. A software group is inconsistent
+	if the checksums of the load module containers do not match the
+	information in the system information CXP, or if the XML 
+	data could not be registered.
+      </description>
+      <string>
+	<validValues>
+	  <value name="complete"/>
+	  <value name="incomplete"/>
+	  <value name="inconsistent"/>
+	</validValues>
+	<!--defaultValue>incomplete</defaultValue-->
+      </string>
+    </dataType>
+    
+    <dataType name="JobData">
+      <description>
+	Data to specify job progress, during its execution.
+      </description>
+      <struct>
+	<structMember name="jobDateOrdered">
+	  <dataType><dateTime/></dataType>
+	</structMember>
+	<structMember name="jobStatus">
+	  <description>
+	    Indicator of job status.
+	    A job should be started immediately, but could be postponed
+	    if the total load on the system would become too high.
+	  </description>
+	  <dataType>
+	    <string>
+	      <validValues>
+		<value name="notStarted"/>
+		<value name="ongoing"/>
+		<value name="complete"/>
+	      </validValues>
+	      <!--defaultValue>notStarted</defaultValue-->
+	    </string>
+	  </dataType>
+	</structMember>
+	<structMember name="jobResult">
+	  <description>
+	    Possible results of a job action.
+	  </description>
+	  <dataType>
+	    <string>
+	      <validValues>
+		<value name="ok"/>
+		<value name="inputError"/>
+		<value name="executionError"/>
+		<value name="unknown"/>
+	      </validValues>
+	      <!--defaultValue>ok</defaultValue-->
+	    </string>
+	  </dataType>
+	</structMember>
+	<structMember name="jobInfo">
+	  <dataType><string/></dataType>
+	</structMember>
+	<structMember name="jobProgress">
+	  <dataType name.ref="IsTypes:Unsigned32"/>
+	</structMember>
+	<structMember name="jobLastStep">
+	  <dataType name.ref="IsTypes:Unsigned32"/>
+	</structMember>
+	<structMember name="jobProgressReport">
+	  <dataType><boolean/></dataType>
+	</structMember>
+      </struct>
+    </dataType><!-- JobData -->
+
+    <dataType name="FTPData">
+      <description>
+	Data to specify FTP server info, such as host, user, 
+	password and path, to locate correct files or destination
+	for files.
+      </description>
+      <struct>
+	<structMember name="host">
+	  <dataType><string/></dataType>
+	</structMember>
+	<structMember name="user">
+	  <dataType><string/></dataType>
+	</structMember>
+	<structMember name="password">
+	  <dataType><string/></dataType>
+	</structMember>
+	<structMember name="path">
+      <description>
+	Absolute path including filename.
+      </description>
+	  <dataType><string/></dataType>
+	</structMember>
+      </struct>
+    </dataType><!-- FTPData -->
+
+    <dataType name="BladeUgSpecification">
+      <description>
+	Specification of a blade when an upgrade job is ordered for a
+	specific blade. This data always belongs to and is included in
+	an upgrade job for a blade system.
+      </description>
+      <struct>
+	<structMember name="bladeSubrack">
+	  <dataType name.ref="IsTypes:Unsigned32"/>
+	</structMember>
+	<structMember name="bladeSlot">
+	  <dataType name.ref="IsTypes:Unsigned32"/>
+	</structMember>
+	<structMember name="bladeSwgProdNr">
+	  <dataType><string/></dataType>
+	</structMember>
+	<structMember name="bladeSwgVersion">
+	  <dataType><string/></dataType>
+	</structMember>
+      </struct>
+    </dataType> <!-- BladeUgSpecification -->
+
+    <!--___ CLASSes for tables (no STRUCTs) ________________ -->
+
+    <!-- Inventory Classes -->
+
+    <class name="SoftwareDeliveryPackage">
+      <description>
+	Container of files of data, or binary executables, needed to run the system.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="prodNr">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="version">	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="name">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="type">
+	<dataType name.ref="ContainerType">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <action name="delete">
+	<description>
+	  Action to delete SoftwareDeliveryPackage.
+	</description>
+	<returnType>
+	  <void/>
+	</returnType>
+      </action>
+    </class> <!-- SoftwareDeliveryPackage -->
+
+    <class name="SoftwareGroup">
+      <description>
+        Contains one or more SoftwareDeliveryPackage.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="prodNr">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="version">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="name">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="systemProdNr">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="systemVersion">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="systemName">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="integratedSystemProdNr">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="integratedSystemVersion">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="integratedSystemName">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="relatedCXPs">
+	<dataType>
+	  <xs_list>
+	    <dataType>
+	      <moRef name="SoftwareDeliveryPackage"/>
+	    </dataType>
+	  </xs_list>
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="status">
+	<dataType name.ref="SwgStatus">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <action name="delete">
+	<description>
+	  Action to delete Software Group.
+	</description>
+	<returnType>
+	  <void/>
+	</returnType>
+      </action>
+    </class> <!-- SoftwareGroup -->
+
+    <class name="LocalBackup">
+      <description>
+	All available backups locally stored.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="backupId">
+	<dataType name.ref="IsTypes:Unsigned32">
+	</dataType>
+	<key/>
+      </attribute>
+      <attribute name="name">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="bladeSystem">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="date">
+	<dataType>
+	  <dateTime/>
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="size">
+	<dataType name.ref="IsTypes:Unsigned32">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <action name="exportBackup">
+	<description>
+	  Action to export backup file to FTP server from 
+	  local disk storage. An instance of the class
+	  Software/Jobs/Backup/Export is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <void/>
+	</returnType>
+        <parameter name="jobId">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="host">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="user">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="password">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="path">
+	  <description>
+	    Absolute path including filename.
+	  </description>
+	  <dataType><string/></dataType>
+	</parameter>
+      </action>
+      <action name="delete">
+	<description>
+	  Action to delete backup.
+	</description>
+	<returnType>
+	  <void/>
+	</returnType>
+      </action>
+    </class> <!-- LocalBackup -->
+
+    <class name="Alarm">
+      <description>
+	Information and cause of all currently active software configuration alarms.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="id">
+	<dataType name.ref="IsTypes:Unsigned32"/>
+	<key/>
+      </attribute>
+      <attribute name="bladeSystem">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="cause">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="info">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+    </class> <!-- Alarm -->
+
+
+    <!-- Jobs Classes -->
+
+    <class name="DownloadFile">
+      <description>
+	This MO contains information about requested, ongoing,
+	and completed software file download jobs. To start a
+	download job the operator calls an action Inventory class,
+	and a new instance of this MO is created.
+	For load regulating reasons a requested job may not start 
+	immediately. 
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="jobId">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="jobData">
+	<dataType name.ref="JobData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="ftpData">
+	<dataType name.ref="FTPData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="matchStrategy">
+	<dataType name.ref="SwmMatchStrategy">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="downloadStrategy">
+	<dataType name.ref="SwmDownloadStrategy">
+	</dataType>
+	<readOnly/>
+      </attribute>
+    </class><!-- DownloadFile -->
+   
+    <class name="Upgrade">
+      <description>
+	This MO handles upgrade jobs towards the system. The operator
+	may specify a specific blade to run the upgrade on, instead of
+	running an upgrade on the entire blade system.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="jobId">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="jobData">
+	<dataType name.ref="JobData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="bladeSystem">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="swgProdNr">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="swgVersion">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="cxrProdNr">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="cxrVersion">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="maxTime">
+	<description>
+	  The maximum time allowed for the SW Upgrade
+	  job to finish. After this time, the job will be interrupted.
+	  The value 0 means that MaxTime will be given the
+	  timer value registered with the Blade System Software Group
+	  Version. If no such value has been registered,
+	  MaxTime will be given a system default timer value.
+	</description>
+	<dataType name.ref="IsTypes:Unsigned32">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="bladeUgSpecification">
+	<dataType name.ref="BladeUgSpecification"/>
+	<readOnly/>
+      </attribute>
+    </class><!-- Upgrade -->
+
+
+
+    <!-- Backup Classes -->
+
+    <class name="Create">
+      <description>
+	This MO handles creation of backups of the system.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="jobId">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="jobData">
+	<dataType name.ref="JobData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="backupId">
+	<dataType name.ref="IsTypes:Unsigned32">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="targetBladeSystem">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="backupName">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+    </class><!-- Create -->
+
+    <class name="Restore">
+      <description>
+	This MO handles restore of backups of the system.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="jobId">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="jobData">
+	<dataType name.ref="JobData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="backupId">
+	<dataType name.ref="IsTypes:Unsigned32">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="targetBladeSystem">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="backupName">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+    </class><!-- Restore -->
+
+    <class name="Import">
+      <description>
+	This MO handles import of backup files from the FTP server.
+	The backup file is stored locally, but not loaded into the system.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="jobId">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="jobData">
+	<dataType name.ref="JobData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="ftpData">
+	<dataType name.ref="FTPData"/>
+	<readOnly/>
+      </attribute>
+    </class><!-- Import -->
+
+    <class name="Export">
+      <description>
+	This MO handles export of locally stored backup files to 
+	the FTP server.
+      </description>
+      <systemCreated/>
+      <readOnly/>
+      <attribute name="jobId">
+	<dataType><string/></dataType>
+	<key/>
+      </attribute>
+      <attribute name="jobData">
+	<dataType name.ref="JobData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="ftpData">
+	<dataType name.ref="FTPData"/>
+	<readOnly/>
+      </attribute>
+      <attribute name="backupId">
+	<dataType name.ref="IsTypes:Unsigned32">
+	</dataType>
+	<readOnly/>
+      </attribute>
+      <attribute name="backupName">
+	<dataType><string/></dataType>
+	<readOnly/>
+      </attribute>
+    </class><!-- Export -->
+
+
+    <!--____ CLASSes for hierarchic relations __________________ -->
+
+    <class name="Software">
+      <description>
+	Describes the Software management service 
+	in the Integrated Site services management functional area (MFA).
+      </description>
+      <singleton/>
+    </class> <!-- software -->
+    
+    <class name="Inventory">
+      <description>
+	System created data for information and overview.
+	Some data is created as a result of an action called by the
+	operator.
+      </description>
+      <singleton/>
+      <action name="downloadFile">
+	<description>
+	  Action to download file/s from FTP server to 
+	  local disk storage. An instance of the MO class
+	  Software/Jobs/DownloadFile is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <void/>
+	</returnType>
+	<parameter name="jobId">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="host">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="user">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="password">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="path">
+	  <description>
+	    Absolute path including filename.
+	  </description>
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="matchStrategy">
+	  <dataType name.ref="SwmMatchStrategy"></dataType>
+	</parameter>
+	<parameter name="downloadStrategy">
+	  <dataType name.ref="SwmDownloadStrategy"></dataType>
+	</parameter>
+      </action>
+      <action name="importBackup">
+	<description>
+	  Action to import backup file from FTP server to 
+	  to local disk storage. An instance of the MO class
+	  Software/Jobs/Backup/Import is created as a log of this
+	  action.
+	</description>
+	<returnType>
+	  <void/>
+	</returnType>
+	<parameter name="jobId">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="host">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="user">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="password">
+	  <dataType><string/></dataType>
+	</parameter>
+	<parameter name="path">
+	  <description>
+	    Absolute path including filename.
+	  </description>
+	  <dataType><string/></dataType>
+	</parameter>
+      </action>
+    </class> <!-- Inventory -->
+
+    <class name="Jobs">
+      <description>
+	Subclass to top class Software. Parent of
+	Jobs classes:
+	   DownloadFile,
+	   Upgrade,
+	   Backup.
+	Contains system created data through ordered job actions.
+      </description>
+      <singleton/>
+    </class> <!-- Jobs -->
+
+    <class name="Backup">
+      <description>
+	Subclass to class Jobs. Parent of
+	Jobs classes:
+	   Create,
+	   Restore
+	   Import,
+	   Export.
+<!--	   CreateAndExport,
+	   ImportAndRestore.-->
+	Contains system created data through ordered backup job actions.
+      </description>
+      <singleton/>
+    </class> <!-- Backup -->
+
+
+    <!--____ RELATIONSHIPs ______________________________-->
+
+    <!-- Top Class Relations -->
+    <relationship name="SwmTop">
+      <containment>
+	<parent>
+	  <hasClass name="top_mim:Is"/>
+	</parent>
+	<child>
+	  <hasClass name="Software"/>
+	</child>
+      </containment>
+    </relationship>
+    
+    <relationship name="Software_to_Inventory">
+      <containment>
+	<parent>
+	  <hasClass name="Software"/>
+	</parent>
+	<child>
+	  <hasClass name="Inventory"/>
+	  <cardinality>
+	    <min>1</min>
+	    <max>1</max>
+	  </cardinality>
+	</child>
+      </containment>
+    </relationship>
+    
+    <relationship name="Software_to_Jobs">
+      <containment>
+	<parent>
+	  <hasClass name="Software"/>
+	</parent>
+	<child>
+	  <hasClass name="Jobs"/>
+	  <cardinality>
+	    <min>1</min>
+	    <max>1</max>
+	  </cardinality>
+	</child>
+      </containment>
+    </relationship>
+
+    <!-- Inventory Class Relations -->
+    <relationship name="Inventory_to_SoftwareDeliveryPackage">
+      <containment>
+	<parent>
+	  <hasClass name="Inventory"/>
+	</parent>
+	<child>
+	  <hasClass name="SoftwareDeliveryPackage"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Inventory_to_SoftwareGroup">
+      <containment>
+	<parent>
+	  <hasClass name="Inventory"/>
+	</parent>
+	<child>
+	  <hasClass name="SoftwareGroup"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Inventory_to_LocalBackup">
+      <containment>
+	<parent>
+	  <hasClass name="Inventory"/>
+	</parent>
+	<child>
+	  <hasClass name="LocalBackup"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Inventory_to_Alarm">
+      <containment>
+	<parent>
+	  <hasClass name="Inventory"/>
+	</parent>
+	<child>
+	  <hasClass name="Alarm"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <!-- Jobs Class Relations -->
+    <relationship name="Jobs_to_DownloadFile">
+      <containment>
+	<parent>
+	  <hasClass name="Jobs"/>
+	</parent>
+	<child>
+	  <hasClass name="DownloadFile"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Jobs_to_Upgrade">
+      <containment>
+	<parent>
+	  <hasClass name="Jobs"/>
+	</parent>
+	<child>
+	  <hasClass name="Upgrade"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Jobs_to_Backup">
+      <containment>
+	<parent>
+	  <hasClass name="Jobs"/>
+	</parent>
+	<child>
+	  <hasClass name="Backup"/>
+	  <cardinality>
+	    <min>1</min>
+	    <max>1</max>
+	  </cardinality>
+	</child>
+      </containment>
+    </relationship>
+
+    <!-- Backup Class Relations -->
+    <relationship name="Backup_to_Create">
+      <containment>
+	<parent>
+	  <hasClass name="Backup"/>
+	</parent>
+	<child>
+	  <hasClass name="Create"/>
+	</child>
+      </containment>
+    </relationship>
+
+     <relationship name="Backup_to_Restore">
+      <containment>
+	<parent>
+	  <hasClass name="Backup"/>
+	</parent>
+	<child>
+	  <hasClass name="Restore"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Backup_to_Import">
+      <containment>
+	<parent>
+	  <hasClass name="Backup"/>
+	</parent>
+	<child>
+	  <hasClass name="Import"/>
+	</child>
+      </containment>
+    </relationship>
+
+    <relationship name="Backup_to_Export">
+      <containment>
+	<parent>
+	  <hasClass name="Backup"/>
+	</parent>
+	<child>
+	  <hasClass name="Export"/>
+	</child>
+      </containment>
+    </relationship>
+ </mim>
+

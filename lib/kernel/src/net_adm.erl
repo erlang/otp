@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,11 @@
 %% Try to read .hosts.erlang file in 
 %% 1. cwd , 2. $HOME 3. init:root_dir() 
 
--spec host_file() -> [atom()] | {'error',atom() | {integer(),atom(),_}}.
+-spec host_file() -> Hosts | {error, Reason} when
+      Hosts :: [Host :: atom()],
+      %% Copied from file:path_consult/2:
+      Reason :: file:posix() | badarg | terminated | system_limit
+              | {Line :: integer(), Mod :: module(), Term :: term()}.
 
 host_file() ->
     Home = case init:get_argument(home) of
@@ -50,7 +54,8 @@ host_file() ->
 %% Check whether a node is up or down
 %%  side effect: set up a connection to Node if there not yet is one.
 
--spec ping(atom()) -> 'pang' | 'pong'.
+-spec ping(Node) -> pong | pang when
+      Node :: atom().
 
 ping(Node) when is_atom(Node) ->
     case catch gen:call({net_kernel, Node},
@@ -63,7 +68,8 @@ ping(Node) when is_atom(Node) ->
 	    pang
     end.
 
--spec localhost() -> string().
+-spec localhost() -> Name when
+      Name :: string().
 
 localhost() ->
     {ok, Host} = inet:gethostname(),
@@ -73,12 +79,20 @@ localhost() ->
     end.
 
 
--spec names() -> {'ok', [{string(), integer()}]} | {'error', _}.
+-spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
+      Name :: string(),
+      Port :: non_neg_integer(),
+      Reason :: address | file:posix().
 
 names() ->
     names(localhost()).
 
--spec names(atom() | string()) -> {'ok', [{string(), integer()}]} | {'error', _}.
+
+-spec names(Host) -> {ok, [{Name, Port}]} | {error, Reason} when
+      Host :: atom() | string(),
+      Name :: string(),
+      Port :: non_neg_integer(),
+      Reason :: address | file:posix().
 
 names(Hostname) ->
     case inet:gethostbyname(Hostname) of
@@ -88,8 +102,9 @@ names(Hostname) ->
 	    Else
     end.
 
--spec dns_hostname(atom() | string()) -> 
-			{'ok', string()} | {'error', atom() | string()}.
+-spec dns_hostname(Host) -> {ok, Name} | {error, Host} when
+      Host :: atom() | string(),
+      Name :: string().
 
 dns_hostname(Hostname) ->
     case inet:gethostbyname(Hostname) of
@@ -164,7 +179,8 @@ collect_new(Sofar, Nodelist) ->
 world() ->
     world(silent).
 
--spec world(verbosity()) -> [node()].
+-spec world(Arg) -> [node()] when
+      Arg :: verbosity().
 
 world(Verbose) ->
     case net_adm:host_file() of
@@ -172,12 +188,15 @@ world(Verbose) ->
         Hosts -> expand_hosts(Hosts, Verbose)
     end.
 
--spec world_list([atom()]) -> [node()].
+-spec world_list(Hosts) -> [node()] when
+      Hosts :: [atom()].
 
 world_list(Hosts) when is_list(Hosts) ->
     expand_hosts(Hosts, silent).
 
--spec world_list([atom()], verbosity()) -> [node()].
+-spec world_list(Hosts, Arg) -> [node()] when
+      Hosts :: [atom()],
+      Arg :: verbosity().
 
 world_list(Hosts, Verbose) when is_list(Hosts) ->
     expand_hosts(Hosts, Verbose).

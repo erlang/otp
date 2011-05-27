@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2]).
--compile(r11).
+-compile(r12).
 -include("test_server.hrl").
 
 n1_proc(N2,Creator) ->

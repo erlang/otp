@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,7 +38,9 @@ flush_receive() ->
 %%
 %% Functions for doing standard system format i/o.
 %%
--spec error_message(atom() | string() | binary(), [term()]) -> 'ok'.
+-spec error_message(Format, Args) -> 'ok' when
+      Format :: io:format(),
+      Args :: [term()].
 
 error_message(Format, Args) ->
     io:format(<<"** ~s **\n">>, [io_lib:format(Format, Args)]).
@@ -55,17 +57,23 @@ progname() ->
 	    no_prog_name
     end.
 
--spec nonl(string()) -> string().
+-spec nonl(String1) -> String2 when
+      String1 :: string(),
+      String2 :: string().
 
 nonl([10]) -> [];
 nonl([]) -> [];
 nonl([H|T]) -> [H|nonl(T)].
 
--spec send(pid() | atom() | {atom(), node()}, term()) -> term().
+-spec send(To, Msg) -> Msg when
+      To :: pid() | atom() | {atom(), node()},
+      Msg :: term().
 
 send(To, Msg) -> To ! Msg.
 
--spec sendw(pid() | atom() | {atom(), node()}, term()) -> term().
+-spec sendw(To, Msg) -> Msg when
+      To :: pid() | atom() | {atom(), node()},
+      Msg :: term().
 
 sendw(To, Msg) ->
     To ! {self(), Msg},
@@ -89,7 +97,7 @@ eval_str(Str) when is_list(Str) ->
 		true ->
 		    case erl_parse:parse_exprs(Toks) of
 			{ok, Exprs} ->
-			    case catch erl_eval:exprs(Exprs, []) of
+			    case catch erl_eval:exprs(Exprs, erl_eval:new_bindings()) of
 				{value, Val, _} ->
 				    {ok, Val};
 				Other ->

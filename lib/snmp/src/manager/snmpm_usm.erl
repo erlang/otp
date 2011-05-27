@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -476,14 +476,19 @@ set_engine_latest_time(SnmpEngineID, EngineTime) ->
 %%-----------------------------------------------------------------
 %% Utility functions
 %%-----------------------------------------------------------------
+-spec error(term()) -> no_return().
 error(Reason) ->
     throw({error, Reason}).
 
+-spec error(term(), term()) -> no_return().
 error(Reason, ErrorInfo) ->
     throw({error, Reason, ErrorInfo}).
 
+-spec error(term(), term(), term()) -> no_return().
 error(Variable, Oid, SecName) ->
     error(Variable, Oid, SecName, []).
+
+-spec error(term(), term(), term(), [term()]) -> no_return().
 error(Variable, Oid, SecName, Opts) ->
     Val = inc(Variable),
     ErrorInfo = {#varbind{oid          = Oid,

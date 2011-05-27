@@ -19,14 +19,45 @@
 -module(re).
 -export([grun/3,urun/3,ucompile/2,replace/3,replace/4,split/2,split/3]).
 
+%-opaque mp() :: {re_pattern, _, _, _}.
+-type mp() :: {re_pattern, _, _, _}.
+
+-type nl_spec() :: cr | crlf | lf | anycrlf | any.
+
+-type compile_option() :: unicode | anchored | caseless | dollar_endonly
+                        | dotall | extended | firstline | multiline
+                        | no_auto_capture | dupnames | ungreedy
+                        | {newline, nl_spec()}| bsr_anycrlf
+                        | bsr_unicode.
+
 %% Emulator builtins in this module:
 %% re:compile/1
 %% re:compile/2
 %% re:run/2
 %% re:run/3
 
+-spec split(Subject, RE) -> SplitList when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata(),
+      SplitList :: [iodata() | unicode:charlist()].
+
 split(Subject,RE) ->
     split(Subject,RE,[]).
+
+-spec split(Subject, RE, Options) -> SplitList when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata() | unicode:charlist(),
+      Options :: [ Option ],
+      Option :: anchored | global | notbol | noteol | notempty
+              | {offset, non_neg_integer()} | {newline, nl_spec()}
+              | bsr_anycrlf | bsr_unicode | {return, ReturnType}
+              | {parts, NumParts} | group | trim | CompileOpt,
+      NumParts :: non_neg_integer() | infinity,
+      ReturnType :: iodata | list | binary,
+      CompileOpt :: compile_option(),
+      SplitList :: [RetData] | [GroupedRetData],
+      GroupedRetData :: [RetData],
+      RetData :: iodata() | unicode:charlist() | binary() | list().
 
 split(Subject,RE,Options) ->
     try
@@ -197,9 +228,25 @@ compile_split(Pat,Options0) when not is_tuple(Pat) ->
 compile_split(_,_) ->
     throw(badre).
     
+-spec replace(Subject, RE, Replacement) -> iodata() | unicode:charlist() when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata(),
+      Replacement :: iodata() | unicode:charlist().
 
 replace(Subject,RE,Replacement) ->
     replace(Subject,RE,Replacement,[]).
+
+-spec replace(Subject, RE, Replacement, Options) -> iodata() | unicode:charlist() when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata() | unicode:charlist(),
+      Replacement :: iodata() | unicode:charlist(),
+      Options :: [Option],
+      Option :: anchored | global | notbol | noteol | notempty
+              | {offset, non_neg_integer()} | {newline, NLSpec} | bsr_anycrlf
+              | bsr_unicode | {return, ReturnType} | CompileOpt,
+      ReturnType :: iodata | list | binary,
+      CompileOpt :: compile_option(),
+      NLSpec :: cr | crlf | lf | anycrlf | any.
 
 replace(Subject,RE,Replacement,Options) ->
     try

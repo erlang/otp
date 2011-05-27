@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -85,19 +85,21 @@ init(Starter, Parent) ->
 	    Starter ! {start_error, self()}
     end.
 
--spec set_cmd(string()) -> 'ok' | {'error', {'bad_cmd', string()}}.
+-spec set_cmd(Cmd) -> 'ok' | {'error', {'bad_cmd', Cmd}} when
+      Cmd :: string().
 
 set_cmd(Cmd) ->
     heart ! {self(), set_cmd, Cmd},
     wait().
 
--spec get_cmd() -> 'ok'.
+-spec get_cmd() -> {ok, Cmd} when
+      Cmd :: string().
 
 get_cmd() ->
     heart ! {self(), get_cmd},
     wait().
 
--spec clear_cmd() -> {'ok', string()}.
+-spec clear_cmd() -> ok.
 
 clear_cmd() ->
     heart ! {self(), clear_cmd},

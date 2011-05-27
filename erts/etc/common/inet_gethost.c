@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1297,7 +1297,7 @@ static int read_request(AddrByte **buff, size_t *buff_size)
     }
 
     if (siz > *buff_size) {
-	if (buff_size == 0) {
+	if (*buff_size == 0) {
 	    *buff = ALLOC((*buff_size = siz));
 	} else {
 	    *buff = REALLOC(*buff, (*buff_size = siz));

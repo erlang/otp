@@ -1,0 +1,60 @@
+<xsd:schema
+      targetNamespace="small"
+      xmlns:sm="small" 
+      xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+  <xsd:annotation>
+    <xsd:documentation xml:lang="en">
+     Purchase order schema for Example.com.
+     Copyright 2000 Example.com. All rights reserved.
+    </xsd:documentation>
+  </xsd:annotation>
+
+  <xsd:element name="purchaseOrder" type="sm:PurchaseOrderType"/>
+
+  <xsd:element name="comment" type="xsd:string"/>
+
+  <xsd:complexType name="PurchaseOrderType" mixed="true">
+    <xsd:simpleContent>
+      <xsd:extension base="xsd:string">
+        <xsd:attribute name="orderDate" type="xsd:date"/>
+        <xsd:attribute name="orderStatus" type="xsd:string" default="new"/>
+      </xsd:extension>
+    </xsd:simpleContent>
+  </xsd:complexType>
+
+  <complexType name="own1">
+    <complexContent>
+      <restriction base="xsd:anyType">
+        <attribute name="number"   type="xsd:integer"/>
+        <attribute name="quantity" type="xsd:positiveInteger"/>
+      </restriction>
+    </complexContent>
+  </complexType>
+
+  <complexType name="PartsType">
+    <sequence>
+      <element name="part" maxOccurs="unbounded">
+        <complexType>
+          <simpleContent>
+            <extension base="xsd:string">
+              <attribute name="number" type="xsd:integer"/>
+            </extension>
+          </simpleContent>
+        </complexType>
+      </element>
+    </sequence>
+  </complexType>
+
+<simpleType name="listOfMyIntType">
+  <list itemType="xsd:integer"/>
+</simpleType>
+
+<simpleType name="SixUSStates">
+  <restriction base="sm:listOfMyIntType">
+    <length value="6"/>
+  </restriction>
+</simpleType>
+
+</xsd:schema>
+

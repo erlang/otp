@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,357 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
+
+<section><title>Erts 5.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fix binary and iolist overflow problems. Typically
+	    problems arose in length calculation where the result
+	    would exceed (1 bsl 32 - 1).</p>
+          <p>
+	    Own Id: OTP-9118</p>
+        </item>
+        <item>
+          <p>
+	    Using the old erlang shell (i.e. erl instead on werl) on
+	    windows and doing several init:restart's would eventually
+	    hang the VM. That is no longer the case.</p>
+          <p>
+	    Own Id: OTP-9139</p>
+        </item>
+        <item>
+          <p>
+	    Removed recursive C code when printing Erlang terms to
+	    buffers, avoiding stack overflows that could cause VM to
+	    crash.</p>
+          <p>
+	    Own Id: OTP-9140</p>
+        </item>
+        <item>
+          <p>
+	    The send_timeout option in gen_tcp did not work properly
+	    in active mode or with {active,once} options. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-9145</p>
+        </item>
+        <item>
+          <p>
+	    Fixed various typos across the documentation (Thanks to
+	    Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9154</p>
+        </item>
+        <item>
+	    <p>Remove duplicate stack entries which could occur after
+	    calling certain BIFs.</p>
+          <p>
+	    Own Id: OTP-9163</p>
+        </item>
+        <item>
+          <p>
+	    A race when starting two nodes simultaneously using
+	    run_erl has been removed.</p>
+          <p>
+	    Own Id: OTP-9164</p>
+        </item>
+        <item>
+          <p>
+	    Add documentation on .erlang processing back again
+	    (Thanks to Gabor Liptak)</p>
+          <p>
+	    Own Id: OTP-9189</p>
+        </item>
+        <item>
+          <p>
+	    Remove gratuitous paren in driver_entry(Thanks to Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9192</p>
+        </item>
+        <item>
+          <p>
+	    Fix some wrong pointer dereferences (Thanks to Cristian
+	    Greco)</p>
+          <p>
+	    Own Id: OTP-9194</p>
+        </item>
+        <item>
+          <p>
+	    erts: Remove unused variables (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9205</p>
+        </item>
+        <item>
+          <p>
+	    The documentation for <c>init:get_args/0</c> has been
+	    removed. <c>init:get_args/0</c> itself was deprecated in
+	    R9C and removed in R12B. (Thanks to Eric Pailleau.)</p>
+          <p>
+	    Own Id: OTP-9209</p>
+        </item>
+        <item>
+          <p>
+	    Allow user to specify the IP address epmd binds to</p>
+          <p>
+	    The IP address(es) epmd binds to can now be specified by
+	    the user, either via epmd's new "-address" option or (if
+	    that's not used) by setting the environment variable
+	    ERL_EPMD_ADDRESS. Multiple addresses may be specified
+	    using a comma-separated list. If the loopback address is
+	    not in this list, it will be added implicitly, so that
+	    the daemon can be queried by an interactive epmd
+	    process.(Thanks to Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9213</p>
+        </item>
+        <item>
+          <p>
+	    epmd: include host address in local access check</p>
+          <p>
+	    In FreeBSD jails, the source and destination address of
+	    connections to localhost are changed to be the IP address
+	    of the jail. Consider connections from the host's IP
+	    address to itself (e.g., the source and destination
+	    address match) to be local for the access control checks.
+	    (Thanks to Michal Santos and Tom at diogunix.com)</p>
+          <p>
+	    Own Id: OTP-9214</p>
+        </item>
+        <item>
+          <p>
+	    Fix list returned by net_kernel:epmd_module</p>
+          <p>
+	    Function epmd_module of net_kernel returns a list instead
+	    of an atom, when the epmd_module-flag is used. (Thanks to
+	    Markus Knofe)</p>
+          <p>
+	    Own Id: OTP-9215</p>
+        </item>
+        <item>
+          <p>
+	    Fix epmd's dbg_perror() output</p>
+          <p>
+	    The dbg_perror() function now hands the current errno
+	    value over to dbg_gen_printf(). This fixes the problem
+	    that errno had been reset to zero by the time it was used
+	    (to print the corresponding error message) in the
+	    dbg_gen_printf() function. (Thanks to Holger Weiﬂ)</p>
+          <p>
+	    Own Id: OTP-9223</p>
+        </item>
+        <item>
+          <p>
+	    heart: remove garbage appended to heart command</p>
+          <p>
+	    heart:get_cmd/0 is documented to return an empty string
+	    if the command is cleared. get_cmd/0 returns 2 extra
+	    bytes: 1 byte for the trailing null, 1 byte from the op
+	    (the op is an unsigned char and 2 bytes are allocated for
+	    it in the returned buffer). (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-9224</p>
+        </item>
+        <item>
+          <p>
+	    file: fix hang reading compressed files</p>
+          <p>
+	    The gzio driver goes into an infinite loop when reading
+	    past the end of a compressed file. Reported-By: Alex
+	    Morarash (Thanks to Michael Santos)</p>
+          <p>
+	    Own Id: OTP-9245</p>
+        </item>
+        <item>
+	    <p>Eliminate alias warnings from gcc 4.5.2</p>
+          <p>
+	    Own Id: OTP-9250</p>
+        </item>
+        <item>
+          <p>
+	    Unsigned integer may overflow in error message (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-9251</p>
+        </item>
+        <item>
+          <p>
+	    Driver names should be strings, not atoms</p>
+          <p>
+	    Own Id: OTP-9253</p>
+        </item>
+        <item>
+          <p>
+	    driver_entry: Remove gratuitous paren and fix typo
+	    (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9254</p>
+        </item>
+        <item>
+          <p>
+	    Fix format specifiers in erl_exit messages</p>
+          <p>
+	    Fix an error message by using an unsigned integer
+	    specifier as seen in a tweet by @metabrew: #erlang VM
+	    crashed with "no next heap size found: -2090496108,
+	    offset 0", suddenly allocated all available RAM</p>
+          <p>
+	    Also correct mis-typed string formats in bif.c.(Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-9262</p>
+        </item>
+        <item>
+          <p>
+	    net_drv: remove unused tcp request id inet_drv: remove
+	    gratuitous assignment (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9263</p>
+        </item>
+        <item>
+          <p>
+	    Teach run_erl RUN_ERL_DISABLE_FLOWCNTRL for disabling
+	    flow control</p>
+          <p>
+	    Flow control can cause unwanted behaviour of the beam
+	    process, if accidentally hit Ctrl-S (instead of Ctrl-D to
+	    detach) the entire beam may be blocked.</p>
+          <p>
+	    Fix this problem by making it possible to turn off flow
+	    control by setting the environment variable
+	    RUN_ERL_DISABLE_FLOWCNTRL. (Thanks to Jonas Faklkevik)</p>
+          <p>
+	    Own Id: OTP-9270</p>
+        </item>
+        <item>
+	    <p>The following bugs due to missing memory barriers have
+	    been fixed:</p> <list> <item><p> ETS tables using the
+	    <c>write_concurrency</c> option could potentially get
+	    into an internally inconsistent state. </p></item>
+	    <item><p> ETS tables using the <c>ordered_set</c> option
+	    could potentially get into an internally inconsistent
+	    state. </p></item> <item><p> A number of memory barriers
+	    have been added when building with the
+	    <c>libatomic_ops</c> API (i.e. when passing
+	    <c>--with-libatomic_ops=PATH</c> to <c>configure</c>) and
+	    the tilera atomics API (i.e. when building for the tilera
+	    chip). Note that these bugs were due to erroneous usage
+	    of the APIs, and not in the implementations of the APIs.
+	    When using these APIs the following bugs where
+	    present:</p> <list> <item><p> The BIF
+	    <c>erlang:ports/0</c> could return an erroneous result.
+	    </p></item> <item><p> A thread blocking other threads
+	    during code loading, or setup of tracing could
+	    potentially read invalid data. </p></item> <item><p>
+	    Fixation of ETS tables could potentially get into an
+	    internally inconsistent state. </p></item> </list>
+	    </item> </list>
+          <p>
+	    Own Id: OTP-9281</p>
+        </item>
+        <item>
+          <p>
+	    Fix halfword bug for ETS ordered_set when doing
+	    <c>select/match</c> with partly bound key.</p>
+          <p>
+	    Own Id: OTP-9292</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>code:is_module_native</c> that caused crash
+	    for deleted modules.</p>
+          <p>
+	    Own Id: OTP-9298</p>
+        </item>
+        <item>
+          <p>
+	    Calling <c>driver_async_cancel()</c> could cause a
+	    scheduler thread to enter an eternal loop doing no useful
+	    work. (Thanks to Anders Ramsell)</p>
+          <p>
+	    Own Id: OTP-9302</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New <c>enif_is_exception function</c> to allow NIFs to
+	    determine whether an <c>ERL_NIF_TERM</c> represents an
+	    exception. (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-9150</p>
+        </item>
+        <item>
+          <p>
+	    A process being garbage collected by another process
+	    could be scheduled on another scheduler. This prevented
+	    this scheduler from doing any useful work until the
+	    garbage collection was done. This either occurred due to
+	    a explicit call to the <c>garbage_collect/1</c> BIF, or
+	    due to a garbage collection part of code loading. A
+	    process being garbage collected like this will now not be
+	    scheduled until the garbage collection has completed.</p>
+          <p>
+	    Own Id: OTP-9211</p>
+        </item>
+        <item>
+          <p>
+	    Remove unnecessary validation copy in
+	    prim_file:drv_command/3 (Thanks to Tony Rogvall)</p>
+          <p>
+	    Own Id: OTP-9276</p>
+        </item>
+        <item>
+          <p>
+	    Symbolic link handling on windows have been slightly
+	    updated to map error conditions more consequently and
+	    correctly read directory links created outside of the
+	    Erlang environment.</p>
+          <p>
+	    Own Id: OTP-9279</p>
+        </item>
+        <item>
+          <p>
+	    Due to standard library DLL mismatches between versions
+	    of OpenSSL and Erlang/OTP, OpenSSL is now linked
+	    statically to the crypto driver on Windows. This fixes
+	    problems starting crypto when running Erlang as a service
+	    on all Windows versions.</p>
+          <p>
+	    Own Id: OTP-9280</p>
+        </item>
+        <item>
+	    <p>Halfword emulator memory handling improvements:</p>
+	    <list> <item><p>Much more of internal memory structures
+	    have been made able to use "high" memory and are no
+	    longer restricted to the 4Gb limit that still applies for
+	    all process heap data.</p> </item> <item><p>Fixed faulty
+	    values from <c>erlang:memory()</c> caused by 32-bit
+	    counter overflow.</p> </item> <item><p>New counter
+	    <c>low</c> in <c>erlang:memory()</c> that sums up all
+	    memory restricted by 4Gb limit.</p> </item> </list>
+          <p>
+	    Own Id: OTP-9291 Aux Id: seq11841 </p>
+        </item>
+        <item>
+          <p>
+	    The value set in the undocumented and unsupported
+	    ERL_version_FLAGS (e.g. ERL_R14B03_FLAGS) environment
+	    variable can now be overridden by the command line
+	    (similar to ERL_AFLAGS).</p>
+          <p>
+	    Own Id: OTP-9297</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erts 5.8.3.2</title>
 

@@ -53,13 +53,11 @@
     <p>The following data types are used in the functions below:
     </p>
 
-    <p><c>boolean() = true | false</c></p> 
-    
-    <p><c>property() = atom()</c></p>
-    
+    <p><c>boolean() = true | false</c></p>
+
     <p><c>option() = socketoption() | ssloption() | transportoption()</c></p>
 
-     <p><c>socketoption() = [{property(), term()}] - defaults to
+     <p><c>socketoption() = proplists:property() - The default socket options are
       [{mode,list},{packet, 0},{header, 0},{active, true}].
     </c></p>
 
@@ -266,7 +264,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 
 <p>Possible path validation errors: </p>
 
-<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
+<p> {bad_cert, cert_expired}, {bad_cert, invalid_issuer}, {bad_cert, invalid_signature}, {bad_cert, unknown_ca},{bad_cert, selfsigned_peer}, {bad_cert, name_not_permitted}, {bad_cert, missing_basic_constraint}, {bad_cert, invalid_key_usage}</p>
       </item>
 
       <tag>{hibernate_after, integer()|undefined}</tag>
@@ -488,7 +486,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <fsummary>Get the value of the specified options.</fsummary>
       <type>
 	<v>Socket = sslsocket()</v>
-	<v>OptionNames = [property()]</v>
+	<v>OptionNames = [atom()]</v>
       </type>
       <desc>
 	<p>Get the value of the specified socket options, if no
@@ -583,7 +581,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <fsummary>Write data to a socket.</fsummary>
       <type>
         <v>Socket = sslsocket()</v>
-        <v>Data = iolist() | binary()</v>
+        <v>Data = iodata()</v>
       </type>
       <desc>
         <p>Writes <c>Data</c> to <c>Socket</c>. </p>

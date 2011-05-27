@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -266,9 +266,6 @@ validate_loop(eof, _Log, _Validatior, _PrevTS, _PrevSN) ->
     ok;
 validate_loop({error, _} = Error, _Log, _Validator, _PrevTS, _PrevSN) ->
     Error;
-validate_loop({corrupt_log_file, _} = Reason, 
-	      _Log, _Validator, _PrevTS, _PrevSN) ->
-    {error, Reason};
 validate_loop({Cont, Terms}, Log, Validator, PrevTS, PrevSN) ->
     ?vtrace("validate_loop -> entry with"
 	    "~n   Terms:  ~p"
@@ -508,8 +505,6 @@ loop(eof, _Log, _Write) ->
     ok;
 loop({error, _} = Error, _Log, _Write) ->
     Error;
-loop({corrupt_log_file, _} = Reason, _Log, _Write) ->
-    {error, Reason};
 loop({Cont, Terms}, Log, Write) ->
     case (catch lists:foreach(Write, Terms)) of
 	{'EXIT', Reason} ->

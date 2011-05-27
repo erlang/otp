@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,6 +43,9 @@
 	 system_terminate/4,
 	 system_code_change/4,
 	 format_status/2]).
+
+-export_type([handler/0, handler_args/0, add_handler_ret/0,
+              del_handler_ret/0]).
 
 -import(error_logger, [error_msg/2]).
 
@@ -113,7 +116,11 @@ behaviour_info(_Other) ->
 
 %%---------------------------------------------------------------------------
 
--type handler()   :: atom() | {atom(), term()}.
+-type handler()          :: atom() | {atom(), term()}.
+-type handler_args()     :: term().
+-type add_handler_ret()  :: ok | term() | {'EXIT',term()}.
+-type del_handler_ret()  :: ok | term() | {'EXIT',term()}.
+
 -type emgr_name() :: {'local', atom()} | {'global', atom()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', atom()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
@@ -724,7 +731,8 @@ get_modules(MSL) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
-    Header = lists:concat(["Status for event handler ", ServerName]),
+    Header = gen:format_status_header("Status for event handler",
+                                      ServerName),
     FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
 		  true ->
 		      Args = [PDict, State],

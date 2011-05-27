@@ -42,6 +42,7 @@ MODULES= \
 	mnesia_dirty_access_test \
 	mnesia_atomicity_test \
 	mnesia_consistency_test \
+	mnesia_majority_test \
 	mnesia_isolation_test \
 	mnesia_durability_test \
 	mnesia_recovery_test \
@@ -110,7 +111,7 @@ release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) mnesia.spec mnesia.cover $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
 	$(INSTALL_SCRIPT) mt $(INSTALL_PROGS) $(RELSYSDIR)
-#	chmod -f -R u+w $(RELSYSDIR)
+#	chmod -R u+w $(RELSYSDIR)
 #	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

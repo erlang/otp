@@ -98,8 +98,9 @@ ts_if_1(Config) when is_list(Config) ->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(ts_if_1, 
-			       reformat(Events, ?eh), 
-			       PrivDir),
+			       reformat(Events, ?eh),
+			       PrivDir,
+			       Opts),
 
     TestEvents = events_to_check(ts_if_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).

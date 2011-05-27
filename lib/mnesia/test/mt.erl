@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,6 +57,7 @@ alias(heavy) -> {mnesia_SUITE, heavy};
 alias(install) -> mnesia_install_test;
 alias(isolation) -> mnesia_isolation_test;
 alias(light) -> {mnesia_SUITE, light};
+alias(majority) -> mnesia_majority_test;
 alias(measure) -> mnesia_measure_test;
 alias(medium) -> {mnesia_SUITE, medium};
 alias(nice) -> mnesia_nice_coverage_test;
@@ -76,17 +77,24 @@ resolve(Suite0) when is_atom(Suite0) ->
 	Suite when is_atom(Suite) ->
 	    {Suite, all};
 	{Suite, Case} ->
-	    {Suite, Case}
+	    {Suite, is_group(Suite,Case)}
     end;
 resolve({Suite0, Case}) when is_atom(Suite0), is_atom(Case) ->
     case alias(Suite0) of
 	Suite when is_atom(Suite) ->
-	    {Suite, Case};
+	    {Suite, is_group(Suite,Case)};
 	{Suite, Case2} ->
-	    {Suite, Case2}
+	    {Suite, is_group(Suite,Case2)}
     end;
 resolve(List) when is_list(List) ->
     [resolve(Case) || Case <- List].
+
+is_group(Mod, Case) ->
+    try {_,_,_} = lists:keyfind(Case, 1, Mod:groups()),
+	 {group, Case}
+    catch _:{badmatch,_} ->
+	    Case
+    end.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Run one or more test cases

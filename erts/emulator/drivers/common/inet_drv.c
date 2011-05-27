@@ -490,7 +490,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define TCP_REQ_RECV           42
 #define TCP_REQ_UNRECV         43
 #define TCP_REQ_SHUTDOWN       44
-#define TCP_REQ_MULTI_OP       45
 /* UDP and SCTP requests */
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
 #define SCTP_REQ_LISTEN	       61 /* Different from TCP; not for UDP */
@@ -1763,7 +1762,6 @@ send_async_error(ErlDrvPort port, ErlDrvTermData Port, int Ref,
 			LOAD_INT_CNT + 2*LOAD_TUPLE_CNT];
     int i = 0;
     
-    i = 0;
     i = LOAD_ATOM(spec, i, am_inet_async);
     i = LOAD_PORT(spec, i, Port);
     i = LOAD_INT(spec, i, Ref);
@@ -1950,7 +1948,7 @@ static int http_response_inetdrv(void *arg, int major, int minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[27];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_response,Version,Status,Phrase}}} */
@@ -2043,7 +2041,7 @@ http_request_inetdrv(void* arg, const http_atom_t* meth, const char* meth_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[43];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async, S, Ref, {ok,{http_request,Meth,Uri,Version}}} */
@@ -2094,7 +2092,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name, const char* name_ptr,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[26];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
         /* {inet_async,S,Ref,{ok,{http_header,Bit,Name,IValue,Value}} */
@@ -2223,7 +2221,7 @@ int ssl_tls_inetdrv(void* arg, unsigned type, unsigned major, unsigned minor,
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
     ErlDrvTermData spec[28];
-    ErlDrvTermData caller;
+    ErlDrvTermData caller = ERL_DRV_NIL;
     ErlDrvBinary* bin;
     int ret;
 
@@ -7982,11 +7980,11 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	timeout = get_int32(buf);
 
 	if (desc->inet.state == TCP_STATE_ACCEPTING) {
-	    unsigned long time_left;
-	    int oid;
-	    ErlDrvTermData ocaller;
-	    int oreq;
-	    unsigned otimeout;
+	    unsigned long time_left = 0;
+	    int oid = 0;
+	    ErlDrvTermData ocaller = ERL_DRV_NIL;
+	    int oreq = 0;
+	    unsigned otimeout = 0;
 	    ErlDrvTermData caller = driver_caller(desc->inet.port);
 	    MultiTimerData *mtd = NULL,*omtd = NULL;
 	    ErlDrvMonitor monitor, omonitor;
@@ -8550,7 +8548,9 @@ static int tcp_deliver(tcp_descriptor* desc, int len)
 	len = 0;
 
 	if (!desc->inet.active) {
-	    driver_cancel_timer(desc->inet.port);
+	    if (!desc->busy_on_send) {
+		driver_cancel_timer(desc->inet.port);
+	    }
 	    sock_select(INETP(desc),(FD_READ|FD_CLOSE),0);
 	    if (desc->i_buf != NULL)
 		tcp_restart_input(desc);

@@ -38,7 +38,7 @@
 	 timer_change/1,
 	 timer_delay/1,
 	 queue_echo/1,
-	 fun_to_port/1,
+	 outputv_errors/1,
 	 driver_unloaded/1,
 	 io_ready_exit/1,
 	 use_fallback_pollset/1,
@@ -74,7 +74,8 @@
 	 missing_callbacks/1,
 	 smp_select/1,
 	 driver_select_use/1,
-	 thread_mseg_alloc_cache_clean/1]).
+	 thread_mseg_alloc_cache_clean/1,
+	 otp_9302/1]).
 
 -export([bin_prefix/2]).
 
@@ -129,7 +130,7 @@ end_per_testcase(Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [fun_to_port, outputv_echo, queue_echo, {group, timer},
+    [outputv_errors, outputv_echo, queue_echo, {group, timer},
      driver_unloaded, io_ready_exit, use_fallback_pollset,
      bad_fd_in_pollset, driver_event, fd_change,
      steal_control, otp_6602, 'driver_system_info_ver1.0',
@@ -141,7 +142,8 @@ all() ->
      smaller_minor_vsn_drv, peek_non_existing_queue,
      otp_6879, caller, many_events, missing_callbacks,
      smp_select, driver_select_use,
-     thread_mseg_alloc_cache_clean].
+     thread_mseg_alloc_cache_clean,
+     otp_9302].
 
 groups() -> 
     [{timer, [],
@@ -165,36 +167,88 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-fun_to_port(doc) -> "Test sending a fun to port with an outputv-capable driver.";
-fun_to_port(Config) when is_list(Config) ->
+outputv_errors(doc) -> "Test sending bad types to port with an outputv-capable driver.";
+outputv_errors(Config) when is_list(Config) ->
     ?line Path = ?config(data_dir, Config),
     ?line erl_ddll:start(),
     ?line ok = load_driver(Path, outputv_drv),
 
-    ?line fun_to_port_1(fun() -> 33 end),
-    ?line fun_to_port_1([fun() -> 42 end]),
-    ?line fun_to_port_1([1|fun() -> 42 end]),
-    L = build_io_list(65536),
-    ?line fun_to_port_1([L,fun() -> 42 end]),
-    ?line fun_to_port_1([L|fun() -> 42 end]),
+    outputv_bad_types(fun(T) ->
+			      ?line outputv_errors_1(T),
+			      ?line outputv_errors_1([1|T]),
+			      ?line L = [1,2,3],
+			      ?line outputv_errors_1([L,T]),
+			      ?line outputv_errors_1([L|T])
+		      end),
+    outputv_errors_1(42),
+
+    %% Test iolists that do not fit in the address space.
+    %% Unfortunately, it would be too slow to test in a 64-bit emulator.
+    case erlang:system_info(wordsize) of
+	4 -> outputv_huge_iolists();
+	_ -> ok
+    end.
+
+outputv_bad_types(Test) ->
+    Types = [-1,256,atom,42.0,{a,b,c},make_ref(),fun() -> 42 end,
+	     [1|2],<<1:1>>,<<1:9>>,<<1:15>>],
+    _ = [Test(Type) || Type <- Types],
     ok.
 
-fun_to_port_1(Term) ->
-    Port = open_port({spawn,outputv_drv}, []),
+outputv_huge_iolists() ->
+    FourGigs = 1 bsl 32,
+    ?line Sizes = [FourGigs+N || N <- lists:seq(0, 64)] ++
+	[1 bsl N || N <- lists:seq(33, 37)],
+    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    [begin
+	 ?line L = build_iolist(Sz, Base),
+	 ?line outputv_errors_1(L)
+     end || Sz <- Sizes],
+    ok.
+
+outputv_errors_1(Term) ->
+    Port = open_port({spawn_driver,outputv_drv}, []),
     {'EXIT',{badarg,_}} = (catch port_command(Port, Term)),
     port_close(Port).
 
-build_io_list(0) -> [];
-build_io_list(1) -> [7];
-build_io_list(N) ->
-    L = build_io_list(N div 2),
+build_iolist(N, Base) when N < 16 ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	_ ->
+	    lists:seq(1, N)
+    end;
+build_iolist(N, Base) when N =< byte_size(Base) ->
+    case random:uniform(3) of
+	1 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    Bin;
+	2 ->
+	    <<Bin:N/binary,_/binary>> = Base,
+	    [Bin];
+	3 ->
+	    case N rem 2 of
+		0 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L];
+		1 ->
+		    L = build_iolist(N div 2, Base),
+		    [L,L,45]
+	    end
+    end;
+build_iolist(N0, Base) ->
+    Small = random:uniform(15),
+    Seq = lists:seq(1, Small),
+    N = N0 - Small,
     case N rem 2 of
-	0 -> [L|L];
-	1 -> [7,L|L]
+	0 ->
+	    L = build_iolist(N div 2, Base),
+	    [L,L|Seq];
+	1 ->
+	    L = build_iolist(N div 2, Base),
+	    [47,L,L|Seq]
     end.
-
-
 
 outputv_echo(doc) -> ["Test echoing data with a driver that supports outputv."];
 outputv_echo(Config) when is_list(Config) ->
@@ -1838,13 +1892,39 @@ thread_mseg_alloc_cache_clean_test(Port, N, CCI, Size) ->
     ?line ?t:format("CCC = ~p~n", [CCC]),
     ?line true = CCC > OCCC,
     ?line thread_mseg_alloc_cache_clean_test(Port, N-1, CCI, Size).
-    
-    
+
+otp_9302(Config) when is_list(Config) ->
+    ?line Path = ?config(data_dir, Config),
+    ?line erl_ddll:start(),
+    ?line ok = load_driver(Path, otp_9302_drv),
+    ?line Port = open_port({spawn, otp_9302_drv}, []),
+    ?line true = is_port(Port),
+    ?line port_command(Port, ""),
+    ?line {msg, block} = get_port_msg(Port, infinity),
+    ?line {msg, job} = get_port_msg(Port, infinity),
+    ?line case erlang:system_info(thread_pool_size) of
+	      0 ->
+		  {msg, cancel} = get_port_msg(Port, infinity);
+	      _ ->
+		  ok
+	  end,
+    ?line {msg, job} = get_port_msg(Port, infinity),
+    ?line {msg, end_of_jobs} = get_port_msg(Port, infinity),
+    ?line no_msg = get_port_msg(Port, 2000),
+    ?line port_close(Port),
+    ?line ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+
+get_port_msg(Port, Timeout) ->
+    receive
+	{Port, What} ->
+	    {msg, What}
+    after Timeout ->
+	    no_msg
+    end.
 
 wait_until(Fun) ->
     case Fun() of

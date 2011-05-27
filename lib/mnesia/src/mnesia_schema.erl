@@ -37,6 +37,7 @@
          change_table_copy_type/3,
          change_table_access_mode/2,
          change_table_load_order/2,
+	 change_table_majority/2,
 	 change_table_frag/2,
 	 clear_table/1,
          create_table/1,
@@ -178,6 +179,8 @@ do_set_schema(Tab, Cs) ->
     set({Tab, disc_only_copies}, Cs#cstruct.disc_only_copies),
     set({Tab, load_order}, Cs#cstruct.load_order),
     set({Tab, access_mode}, Cs#cstruct.access_mode),
+    set({Tab, majority}, Cs#cstruct.majority),
+    set({Tab, all_nodes}, mnesia_lib:cs_to_nodes(Cs)),
     set({Tab, snmp}, Cs#cstruct.snmp),
     set({Tab, user_properties}, Cs#cstruct.user_properties),
     [set({Tab, user_property, element(1, P)}, P) || P <- Cs#cstruct.user_properties],
@@ -651,6 +654,7 @@ list2cs(List) when is_list(List) ->
     Snmp = pick(Name, snmp, List, []),
     LoadOrder = pick(Name, load_order, List, 0),
     AccessMode = pick(Name, access_mode, List, read_write),
+    Majority = pick(Name, majority, List, false),
     UserProps = pick(Name, user_properties, List, []),
     verify({alt, [nil, list]}, mnesia_lib:etype(UserProps),
 	   {bad_type, Name, {user_properties, UserProps}}),
@@ -676,6 +680,7 @@ list2cs(List) when is_list(List) ->
              snmp = Snmp,
              load_order = LoadOrder,
              access_mode = AccessMode,
+	     majority = Majority,
              local_content = LC,
 	     record_name = RecName,
              attributes = Attrs,
@@ -809,7 +814,16 @@ verify_cstruct(Cs) when is_record(Cs, cstruct) ->
     Access = Cs#cstruct.access_mode,
     verify({alt, [read_write, read_only]}, Access,
 	   {bad_type, Tab, {access_mode, Access}}),
-
+    Majority = Cs#cstruct.majority,
+    verify({alt, [true, false]}, Majority,
+	   {bad_type, Tab, {majority, Majority}}),
+    case Majority of
+	true ->
+	    verify(false, LC,
+		   {combine_error, Tab, [{local_content,true},{majority,true}]});
+	false ->
+	    ok
+    end,
     Snmp = Cs#cstruct.snmp,
     verify(true, mnesia_snmp_hook:check_ustruct(Snmp),
 	   {badarg, Tab, {snmp, Snmp}}),
@@ -1495,6 +1509,43 @@ make_change_table_load_order(Tab, LoadOrder) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+change_table_majority(Tab, Majority) when is_boolean(Majority) ->
+    schema_transaction(fun() -> do_change_table_majority(Tab, Majority) end).
+
+do_change_table_majority(schema, _Majority) ->
+    mnesia:abort({bad_type, schema});
+do_change_table_majority(Tab, Majority) ->
+    TidTs = get_tid_ts_and_lock(schema, write),
+    get_tid_ts_and_lock(Tab, none),
+    insert_schema_ops(TidTs, make_change_table_majority(Tab, Majority)).
+
+make_change_table_majority(Tab, Majority) ->
+    ensure_writable(schema),
+    Cs = incr_version(val({Tab, cstruct})),
+    ensure_active(Cs),
+    OldMajority = Cs#cstruct.majority,
+    Cs2 = Cs#cstruct{majority = Majority},
+    FragOps = case lists:keyfind(base_table, 1, Cs#cstruct.frag_properties) of
+		  {_, Tab} ->
+		      FragNames = mnesia_frag:frag_names(Tab) -- [Tab],
+		      lists:map(
+			fun(T) ->
+				get_tid_ts_and_lock(Tab, none),
+				CsT = incr_version(val({T, cstruct})),
+				ensure_active(CsT),
+				CsT2 = CsT#cstruct{majority = Majority},
+				verify_cstruct(CsT2),
+				{op, change_table_majority, cs2list(CsT2),
+				 OldMajority, Majority}
+			end, FragNames);
+		  false    -> [];
+		  {_, _}   -> mnesia:abort({bad_type, Tab})
+	      end,
+    verify_cstruct(Cs2),
+    [{op, change_table_majority, cs2list(Cs2), OldMajority, Majority} | FragOps].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 write_table_property(Tab, Prop) when is_tuple(Prop), size(Prop) >= 1 ->
     schema_transaction(fun() -> do_write_table_property(Tab, Prop) end);
 write_table_property(Tab, Prop) ->
@@ -1734,7 +1785,10 @@ prepare_op(_Tid, {op, announce_im_running, Node, SchemaDef, Running, RemoteRunni
 	Node == node() -> %% Announce has already run on local node 
 	    ignore;       %% from do_merge_schema
 	true ->
-	    NewNodes = mnesia_lib:uniq(Running++RemoteRunning) -- val({current,db_nodes}),
+	    %% If a node has restarted it may still linger in db_nodes,
+	    %% but have been removed from recover_nodes
+	    Current  = mnesia_lib:intersect(val({current,db_nodes}), [node()|val(recover_nodes)]),
+	    NewNodes = mnesia_lib:uniq(Running++RemoteRunning) -- Current,
 	    mnesia_lib:set(prepare_op, {announce_im_running,NewNodes}),
 	    announce_im_running(NewNodes, SchemaCs)
     end,
@@ -2971,6 +3025,7 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	Cs#cstruct.index == RemoteCs#cstruct.index,
 	Cs#cstruct.snmp == RemoteCs#cstruct.snmp,
 	Cs#cstruct.access_mode == RemoteCs#cstruct.access_mode,
+	Cs#cstruct.majority == RemoteCs#cstruct.majority,
 	Cs#cstruct.load_order == RemoteCs#cstruct.load_order,
 	Cs#cstruct.user_properties == RemoteCs#cstruct.user_properties ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);

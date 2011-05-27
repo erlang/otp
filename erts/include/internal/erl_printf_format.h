@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@ extern int erts_printf_ulong(fmtfn_t, void*, char, int, int, unsigned long);
 extern int erts_printf_slong(fmtfn_t, void*, char, int, int, signed long);
 extern int erts_printf_double(fmtfn_t, void *, char, int, int, double);
 
-extern int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long);
+extern int (*erts_printf_eterm_func)(fmtfn_t, void*, unsigned long, long, unsigned long*);
 
 #endif
 

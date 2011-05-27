@@ -32,6 +32,23 @@
   </header>
 
   <section>
+    <title>cosEventDomain 1.1.11</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Removed superfluous usage of shy in the documentation since it can cause problem if
+            a buggy tool is used.</p>
+          <p>
+            Own Id: OTP-9319 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>cosEventDomain 1.1.10</title>
 
     <section>

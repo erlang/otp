@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,15 +38,17 @@
 
 -type flag()       :: 'send' | 'receive' | 'print' | 'timestamp'.
 -type component()  :: 'label' | 'serial' | flag().
--type value()      :: non_neg_integer()
-                    | {non_neg_integer(), non_neg_integer()}
-                    | boolean().
--type token_pair() :: {component(), value()}.
+-type value()      :: (Integer :: non_neg_integer())
+                    | {Previous :: non_neg_integer(),
+                       Current :: non_neg_integer()}
+                    | (Bool :: boolean()).
 
 %%---------------------------------------------------------------------------
 
--type token() :: [] | {integer(), boolean(), _, _, _}.
--spec set_token(token()) -> token() | 'ok'.
+-type token() :: {integer(), boolean(), _, _, _}.
+-spec set_token(Token) -> PreviousToken | 'ok' when
+      Token :: [] | token(),
+      PreviousToken :: [] | token().
 
 set_token([]) ->
     erlang:seq_trace(sequential_trace_token,[]);
@@ -58,28 +60,35 @@ set_token({Flags,Label,Serial,_From,Lastcnt}) ->
 %% expects that, the BIF can however "unofficially" handle atoms as well, and
 %% atoms can be used if only Erlang nodes are involved
 
--spec set_token(component(), value()) -> token_pair().
+-spec set_token(Component, Val) -> {Component, OldVal} when
+      Component :: component(),
+      Val :: value(),
+      OldVal :: value().
 
 set_token(Type, Val) ->
     erlang:seq_trace(Type, Val).
 
--spec get_token() -> term().
+-spec get_token() -> [] | token().
 
 get_token() ->
     element(2,process_info(self(),sequential_trace_token)).
 
--spec get_token(component()) -> token_pair().
-
+-spec get_token(Component) -> {Component, Val} when
+      Component :: component(),
+      Val :: value().
 get_token(Type) ->
     erlang:seq_trace_info(Type).
 
--spec print(term()) -> 'ok'.
+-spec print(TraceInfo) -> 'ok' when
+      TraceInfo :: term().
 
 print(Term) ->
     erlang:seq_trace_print(Term),
     ok.
 
--spec print(integer(), term()) -> 'ok'.
+-spec print(Label, TraceInfo) -> 'ok' when
+      Label :: integer(),
+      TraceInfo :: term().
 
 print(Label, Term) when is_atom(Label) ->
     erlang:error(badarg, [Label, Term]);
@@ -94,14 +103,17 @@ reset_trace() ->
 
 %% reset_trace(Pid) -> % this might be a useful function too
 
--type tracer() :: pid() | port() | 'false'.
+-type tracer() :: (Pid :: pid()) | port() | 'false'.
 
--spec set_system_tracer(tracer()) -> tracer().
+-spec set_system_tracer(Tracer) -> OldTracer when
+      Tracer :: tracer(),
+      OldTracer :: tracer().
 
 set_system_tracer(Pid) ->
     erlang:system_flag(sequential_tracer, Pid).
 
--spec get_system_tracer() -> tracer().
+-spec get_system_tracer() -> Tracer when
+      Tracer :: tracer().
 
 get_system_tracer() ->
     element(2, erlang:system_info(sequential_tracer)).

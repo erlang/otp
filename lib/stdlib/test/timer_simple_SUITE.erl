@@ -229,7 +229,7 @@ cancel2(Config) when is_list(Config) ->
 tc(doc) -> "Test sleep/1 and tc/3.";
 tc(suite) -> [];
 tc(Config) when is_list(Config) ->
-    % This should both sleep and tc/3
+    %% This should test both sleep and tc/3
     ?line {Res1, ok} = timer:tc(timer, sleep, [500]),
     ?line ok = 	if
 		    Res1 < 500*1000 -> {too_early, Res1}; % Too early
@@ -237,13 +237,40 @@ tc(Config) when is_list(Config) ->
 		    true -> ok
 		end,
 
-    % This should both sleep and tc/2
+    %% tc/2
     ?line {Res2, ok} = timer:tc(fun(T) -> timer:sleep(T) end, [500]),
     ?line ok = 	if
 		    Res2 < 500*1000 -> {too_early, Res2}; % Too early
 		    Res2 > 800*1000 -> {too_late, Res2};  % Too much time
 		    true -> ok
 		end,
+    
+    %% tc/1
+    ?line {Res3, ok} = timer:tc(fun() -> timer:sleep(500) end),
+    ?line ok = 	if
+    		    Res3 < 500*1000 -> {too_early, Res3}; % Too early
+    		    Res3 > 800*1000 -> {too_late, Res3};  % Too much time
+    		    true -> ok
+    		end,
+
+    %% Check that timer:tc don't catch errors
+    ?line ok = try timer:tc(erlang, exit, [foo]) 
+	       catch exit:foo -> ok
+	       end,
+    
+    ?line ok = try timer:tc(fun(Reason) -> 1 = Reason end, [foo]) 
+	       catch error:{badmatch,_} -> ok
+	       end,
+    
+    ?line ok = try timer:tc(fun() -> throw(foo) end) 
+	       catch foo -> ok
+	       end,
+    
+    %% Check that return values are propageted
+    Self = self(),
+    ?line {_, Self} = timer:tc(erlang, self, []),
+    ?line {_, Self} = timer:tc(fun(P) -> P end, [self()]),
+    ?line {_, Self} = timer:tc(fun() -> self() end),
 
     ?line Sec = timer:seconds(4),
     ?line Min = timer:minutes(4),

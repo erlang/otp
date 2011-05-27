@@ -291,7 +291,7 @@ dbg_bt(Process* p, Eterm* sp)
 	    if (addr)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
-			     addr, (Eterm) addr[0], (Eterm) addr[1], (Uint) addr[2]);
+			     addr, (Eterm) addr[0], (Eterm) addr[1], addr[2]);
 	}
 	sp++;
     }
@@ -484,7 +484,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		if (f+3 != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "f(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], (Eterm) f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], f[2]);
 		}
 		ap++;
 	    }
@@ -495,7 +495,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		if (f+3 != (BeamInstr *) *ap) {
 		    erts_print(to, to_arg, "p(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], (Eterm) f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], f[2]);
 		}
 		ap++;
 	    }
@@ -508,7 +508,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    {
 		Export* ex = (Export *) *ap;
 		erts_print(to, to_arg,
-			   "%T:%T/%bpu", (Eterm) ex->code[0], (Eterm) ex->code[1], (Uint) ex->code[2]);
+			   "%T:%T/%bpu", (Eterm) ex->code[0], (Eterm) ex->code[1], ex->code[2]);
 		ap++;
 	    }
 	    break;

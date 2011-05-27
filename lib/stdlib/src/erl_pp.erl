@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,24 +31,52 @@
 
 -define(MAXLINE, 72).
 
+-type(hook_function() :: none
+                       | fun((Expr :: erl_parse:abstract_expr(),
+                              CurrentIndentation :: integer(),
+                              CurrentPrecedence :: non_neg_integer(),
+                              HookFunction :: hook_function()) ->
+                                    io_lib:chars())).
+
 %%%
 %%% Exported functions
 %%%
 
+-spec(form(Form) -> io_lib:chars() when
+      Form :: erl_parse:abstract_form()).
+
 form(Thing) ->
     form(Thing, none).
+
+-spec(form(Form, HookFunction) -> io_lib:chars() when
+      Form :: erl_parse:abstract_form(),
+      HookFunction :: hook_function()).
 
 form(Thing, Hook) ->
     frmt(lform(Thing, Hook)).
 
+-spec(attribute(Attribute) -> io_lib:chars() when
+      Attribute :: erl_parse:abstract_form()).
+
 attribute(Thing) ->
     attribute(Thing, none).
+
+-spec(attribute(Attribute, HookFunction) -> io_lib:chars() when
+      Attribute :: erl_parse:abstract_form(),
+      HookFunction :: hook_function()).
 
 attribute(Thing, Hook) ->
     frmt(lattribute(Thing, Hook)).
 
+-spec(function(Function) -> io_lib:chars() when
+      Function :: erl_parse:abstract_form()).
+
 function(F) ->
     function(F, none).
+
+-spec(function(Function, HookFunction) -> io_lib:chars() when
+      Function :: erl_parse:abstract_form(),
+      HookFunction :: hook_function()).
 
 function(F, Hook) ->
     frmt(lfunction(F, Hook)).
@@ -59,29 +87,66 @@ rule(R) ->
 rule(R, Hook) ->
     frmt(lrule(R, Hook)).
 
+-spec(guard(Guard) -> io_lib:chars() when
+      Guard :: [erl_parse:abstract_expr()]).
+
 guard(Gs) ->
     guard(Gs, none).
+
+-spec(guard(Guard, HookFunction) -> io_lib:chars() when
+      Guard :: [erl_parse:abstract_expr()],
+      HookFunction :: hook_function()).
 
 guard(Gs, Hook) ->
     frmt(lguard(Gs, Hook)).
 
+-spec(exprs(Expressions) -> io_lib:chars() when
+      Expressions :: [erl_parse:abstract_expr()]).
+
 exprs(Es) ->
     exprs(Es, 0, none).
+
+-spec(exprs(Expressions, HookFunction) -> io_lib:chars() when
+      Expressions :: [erl_parse:abstract_expr()],
+      HookFunction :: hook_function()).
 
 exprs(Es, Hook) ->
     exprs(Es, 0, Hook).
 
+-spec(exprs(Expressions, Indent, HookFunction) -> io_lib:chars() when
+      Expressions :: [erl_parse:abstract_expr()],
+      Indent :: integer(),
+      HookFunction :: hook_function()).
+
 exprs(Es, I, Hook) ->
     frmt({seq,[],[],[$,],lexprs(Es, Hook)}, I).
+
+-spec(expr(Expression) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr()).
 
 expr(E) ->
     frmt(lexpr(E, 0, none)).
 
+-spec(expr(Expression, HookFunction) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr(),
+      HookFunction :: hook_function()).
+
 expr(E, Hook) ->
     frmt(lexpr(E, 0, Hook)).
 
+-spec(expr(Expression, Indent, HookFunction) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr(),
+      Indent :: integer(),
+      HookFunction :: hook_function()).
+
 expr(E, I, Hook) ->
     frmt(lexpr(E, 0, Hook), I).
+
+-spec(expr(Expression, Indent, Precedence, HookFunction) -> io_lib:chars() when
+      Expression :: erl_parse:abstract_expr(),
+      Indent :: integer(),
+      Precedence :: non_neg_integer(),
+      HookFunction :: hook_function()).
 
 expr(E, I, P, Hook) ->
     frmt(lexpr(E, P, Hook), I).
@@ -558,16 +623,10 @@ record_field({typed_record_field,{record_field,_,F,Val},Type}, Hook) ->
     Fl = lexpr(F, L, Hook),
     Vl = typed(lexpr(Val, R, Hook), Type),
     {list,[{cstep,[Fl,' ='],Vl}]};
-record_field({typed_record_field,Field,Type0}, Hook) ->
-    Type = remove_undefined(Type0),
+record_field({typed_record_field,Field,Type}, Hook) ->
     typed(record_field(Field, Hook), Type);
 record_field({record_field,_,F}, Hook) ->
     lexpr(F, 0, Hook).
-
-remove_undefined({type,L,union,[{atom,_,undefined}|T]}) ->
-    {type,L,union,T};
-remove_undefined(T) -> % cannot happen
-    T.
 
 list({cons,_,H,T}, Es, Hook) ->
     list(T, [H|Es], Hook);

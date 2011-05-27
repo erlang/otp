@@ -480,8 +480,6 @@ static GenOp* gen_select_literals(LoaderState* stp, GenOpArg S,
 				  GenOpArg* Rest);
 static GenOp* const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
-static GenOp* gen_func_info(LoaderState* stp, GenOpArg mod, GenOpArg Func,
-			    GenOpArg arity, GenOpArg label);
 
 static int freeze_code(LoaderState* stp);
 
@@ -1413,7 +1411,6 @@ static int
 load_code(LoaderState* stp)
 {
     int i;
-    int tmp;
     int ci;
     int last_func_start = 0;
     char* sign;
@@ -1933,7 +1930,6 @@ load_code(LoaderState* stp)
 	    case 'P':		/* Byte offset into tuple or stack */
 	    case 'Q':		/* Like 'P', but packable */
 		VerifyTag(stp, tag, TAG_u);
-		tmp = tmp_op->a[arg].val;
 		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));
 		break;
 	    case 'l':		/* Floating point register. */
@@ -3400,36 +3396,6 @@ const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     op->a[0] = Fail;
     return op;
 }
-
-
-static GenOp*
-gen_func_info(LoaderState* stp, GenOpArg mod, GenOpArg func,
-	      GenOpArg arity, GenOpArg label)
-{
-    GenOp* fi;
-    GenOp* op;
-
-    NEW_GENOP(stp, fi);
-    fi->op = genop_i_func_info_4;
-    fi->arity = 4;
-    fi->a[0].type = TAG_u;	/* untagged Zero */
-    fi->a[0].val = 0;
-    fi->a[1] = mod;
-    fi->a[2] = func;
-    fi->a[3] = arity;
-
-    NEW_GENOP(stp, op);
-    op->op = genop_label_1;
-    op->arity = 1;
-    op->a[0] = label;
-    
-    fi->next = op;
-    op->next = NULL;
-
-    return fi;
-}
-
-
 
 static GenOp*
 gen_make_fun2(LoaderState* stp, GenOpArg idx)

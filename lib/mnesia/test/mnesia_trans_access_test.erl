@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1102,9 +1102,9 @@ create_live_table_index_disc_only(Config) when is_list(Config) ->
     create_live_table_index(Config, disc_only_copies).
 
 create_live_table_index(Config, Storage) ->
-    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    [N1,N2,N3] = Nodes = ?acquire_nodes(3, Config),
     Tab = create_live_table_index,
-    Schema = [{name, Tab}, {attributes, [k, v]}, {Storage, [Node1]}],
+    Schema = [{name, Tab}, {attributes, [k, v]}, {Storage, Nodes}],
     ?match({atomic, ok}, mnesia:create_table(Schema)),
     ValPos = 3,
     mnesia:dirty_write({Tab, 1, 2}),
@@ -1115,9 +1115,35 @@ create_live_table_index(Config, Storage) ->
           end,
     ?match({atomic, ok}, mnesia:transaction(Fun)),
     ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos)),
+    IRead = fun() -> lists:sort(mnesia:index_read(Tab, 2, ValPos)) end,
+    ?match({atomic, [{Tab, 1, 2},{Tab, 2, 2}]}, mnesia:transaction(IRead)),
+    ?match({atomic, ok}, mnesia:del_table_index(Tab, ValPos)),
+
+    %% Bug when adding index when table is still unloaded
+    %% By setting load order we hopefully will trigger the bug
+    mnesia:change_table_copy_type(Tab, N2, ram_copies),
+    mnesia:change_table_copy_type(Tab, N3, ram_copies),
+    ?match({atomic,ok}, mnesia:change_table_copy_type(schema, N2, ram_copies)),
+    ?match({atomic,ok}, mnesia:change_table_copy_type(schema, N3, ram_copies)),
+
+    Create = fun(N) ->
+		     TabN = list_to_atom("tab_" ++ integer_to_list(N)),
+		     Def = [{ram_copies, Nodes}, {load_order, N}],
+		     mnesia:create_table(TabN, Def)
+	     end,
+
+    ?match([{atomic,ok}|_], [Create(N) || N <- lists:seq(1,50)]),
+    
+    ?match([], mnesia_test_lib:stop_mnesia([N2,N3])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1]}]])),
+    ?match(ok, rpc:call(N3, mnesia, start, [[{extra_db_nodes,[N1]}]])),
+    
+    ?match({atomic, ok}, mnesia:add_table_index(Tab, ValPos)),
+    
+    ?match({atomic, [{Tab, 1, 2},{Tab, 2, 2}]}, mnesia:transaction(IRead)),
     ?match({atomic, [{Tab, 1, 2},{Tab, 2, 2}]}, 
-	   mnesia:transaction(fun() -> lists:sort(mnesia:index_read(Tab, 2, ValPos)) 
-			      end)),
+	   rpc:call(N2, mnesia, transaction, [IRead])),
+    
     ?verify_mnesia(Nodes, []).
 
 %% Drop table index

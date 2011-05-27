@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -119,8 +119,8 @@ load_latest_data(Config) when is_list(Config) ->
 
     ?match([], mnesia_test_lib:kill_mnesia([N2])),
     ?match(ok, mnesia:dirty_write(Rec1)),
-    ?match([], mnesia_test_lib:kill_mnesia([N1])),
     ?match([], mnesia_test_lib:kill_mnesia([N3])),
+    ?match([], mnesia_test_lib:kill_mnesia([N1])),
 
     ?match([], mnesia_test_lib:start_mnesia([N2], [])),   
     %% Should wait for N1

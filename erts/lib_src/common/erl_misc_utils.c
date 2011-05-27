@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -813,7 +813,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     cpuinfo->topology = malloc(sizeof(erts_cpu_topology_t)
 			       * cpuinfo->configured);
-    if (!cpuinfo)
+    if (!cpuinfo->topology)
 	goto error;
 
     for (ix = 0; ix < cpuinfo->configured; ix++) {
@@ -1023,7 +1023,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
     cpuinfo->topology = malloc(sizeof(erts_cpu_topology_t)
 			       * cpuinfo->configured);
-    if (!cpuinfo)
+    if (!cpuinfo->topology)
 	goto error;
 
     for (ix = 0; ix < cpuinfo->configured; ix++) {

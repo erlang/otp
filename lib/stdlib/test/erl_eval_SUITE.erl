@@ -571,6 +571,17 @@ otp_5269(Config) when is_list(Config) ->
                                  B:A>> <- [<<16:8,19:16>>],
                                <<X:8>> <- [<<B:8>>]].",
                 [19]),
+    ?line check(fun() ->
+		(fun (<<A:1/binary, B:8/integer, _C:B/binary>>) ->
+			    case A of
+				B -> wrong;
+				_ -> ok
+			    end
+		 end)(<<1,2,3,4>>) end,
+		"(fun(<<A:1/binary, B:8/integer, _C:B/binary>>) ->"
+			    " case A of B -> wrong; _ -> ok end"
+		" end)(<<1, 2, 3, 4>>).",
+		ok),
     ok.
 
 otp_6539(doc) ->
@@ -1188,7 +1199,7 @@ local_func(F, As0, Bs0) when is_atom(F) ->
 
 lfh_value_extra() ->
     %% Not documented.
-    {value, fun(F, As) -> local_func_value(F, As) end, []}.
+    {value, fun(F, As, a1, a2) -> local_func_value(F, As) end, [a1, a2]}.
 
 lfh_value() ->
     {value, fun(F, As) -> local_func_value(F, As) end}.

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -60,19 +60,33 @@
       information regarding other processes which terminate as a result
       of this process terminating.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="spawn_option"/>
+      <desc>
+        <p>See <seealso marker="erts:erlang#spawn_opt/4">
+          erlang:spawn_opt/2,3,4,5</seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="priority_level"/>
+    </datatype>
+    <datatype>
+      <name name="dict_or_pid"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>spawn(Fun) -> pid()</name>
-      <name>spawn(Node, Fun) -> pid()</name>
-      <name>spawn(Module, Function, Args) -> pid()</name>
-      <name>spawn(Node, Module, Function, Args) -> pid()</name>
+      <name name="spawn" arity="1"/>
+      <name name="spawn" arity="2"/>
+      <name name="spawn" arity="3"/>
+      <name name="spawn" arity="4"/>
       <fsummary>Spawn a new process.</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Fun = fun() -> void()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
+      <type variable="Node"/>
+      <type variable="Fun" name_i="1"/>
+      <type variable="Module"/>
+      <type variable="Function"/>
+      <type variable="Args"/>
       <desc>
         <p>Spawns a new process and initializes it as described above.
           The process is spawned using the
@@ -80,17 +94,16 @@
       </desc>
     </func>
     <func>
-      <name>spawn_link(Fun) -> pid()</name>
-      <name>spawn_link(Node, Fun) -> pid()</name>
-      <name>spawn_link(Module, Function, Args) -> pid()</name>
-      <name>spawn_link(Node, Module, Function, Args) -> pid()</name>
+      <name name="spawn_link" arity="1"/>
+      <name name="spawn_link" arity="2"/>
+      <name name="spawn_link" arity="3"/>
+      <name name="spawn_link" arity="4"/>
       <fsummary>Spawn and link to a new process.</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Fun = fun() -> void()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
+      <type variable="Node"/>
+      <type variable="Fun" name_i="1"/>
+      <type variable="Module"/>
+      <type variable="Function"/>
+      <type variable="Args"/>
       <desc>
         <p>Spawns a new process and initializes it as described above.
           The process is spawned using the
@@ -99,18 +112,17 @@
       </desc>
     </func>
     <func>
-      <name>spawn_opt(Fun, SpawnOpts) -> pid()</name>
-      <name>spawn_opt(Node, Fun, SpawnOpts) -> pid()</name>
-      <name>spawn_opt(Module, Function, Args, SpawnOpts) -> pid()</name>
-      <name>spawn_opt(Node, Module, Func, Args, SpawnOpts) -> pid()</name>
+      <name name="spawn_opt" arity="2"/>
+      <name name="spawn_opt" arity="3"/>
+      <name name="spawn_opt" arity="4"/>
+      <name name="spawn_opt" arity="5"/>
       <fsummary>Spawn a new process with given options.</fsummary>
-      <type>
-        <v>Node = node()</v>
-        <v>Fun = fun() -> void()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-        <v>SpawnOpts -- see erlang:spawn_opt/2,3,4,5</v>
-      </type>
+      <type variable="Node"/>
+      <type variable="Fun" name_i="1"/>
+      <type variable="Module"/>
+      <type variable="Function"/>
+      <type variable="Args"/>
+      <type variable="SpawnOpts"/>
       <desc>
         <p>Spawns a new process and initializes it as described above.
           The process is spawned using the
@@ -124,20 +136,13 @@
       </desc>
     </func>
     <func>
-      <name>start(Module, Function, Args) -> Ret</name>
-      <name>start(Module, Function, Args, Time) -> Ret</name>
-      <name>start(Module, Function, Args, Time, SpawnOpts) -> Ret</name>
-      <name>start_link(Module, Function, Args) -> Ret</name>
-      <name>start_link(Module, Function, Args, Time) -> Ret</name>
-      <name>start_link(Module, Function, Args, Time, SpawnOpts) -> Ret</name>
+      <name name="start" arity="3"/>
+      <name name="start" arity="4"/>
+      <name name="start" arity="5"/>
+      <name name="start_link" arity="3"/>
+      <name name="start_link" arity="4"/>
+      <name name="start_link" arity="5"/>
       <fsummary>Start a new process synchronously.</fsummary>
-      <type>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-        <v>Time = int() >= 0 | infinity</v>
-        <v>SpawnOpts -- see erlang:spawn_opt/2,3,4,5</v>
-        <v>Ret = term() | {error, Reason}</v>
-      </type>
       <desc>
         <p>Starts a new process synchronously. Spawns the process and
           waits for it to start.  When the process has started, it
@@ -148,13 +153,13 @@
           function.  At this time, <c>Ret</c> is returned.</p>
         <p>If the <c>start_link/3,4,5</c> function is used and
           the process crashes before it has called <c>init_ack/1,2</c>,
-          <c>{error, Reason}</c> is returned if the calling process
+          <c>{error, <anno>Reason</anno>}</c> is returned if the calling process
           traps exits.</p>
-        <p>If <c>Time</c> is specified as an integer, this function
-          waits for <c>Time</c> milliseconds for the new process to call
+        <p>If <c><anno>Time</anno></c> is specified as an integer, this function
+          waits for <c><anno>Time</anno></c> milliseconds for the new process to call
           <c>init_ack</c>, or <c>{error, timeout}</c> is returned, and
           the process is killed.</p>
-        <p>The <c>SpawnOpts</c> argument, if given, will be passed
+        <p>The <c><anno>SpawnOpts</anno></c> argument, if given, will be passed
           as the last argument to the <c>spawn_opt/2,3,4,5</c> BIF.</p>
         <note>
           <p>Using the spawn option <c>monitor</c> is currently not
@@ -164,17 +169,13 @@
       </desc>
     </func>
     <func>
-      <name>init_ack(Parent, Ret) -> void()</name>
-      <name>init_ack(Ret) -> void()</name>
+      <name name="init_ack" arity="1"/>
+      <name name="init_ack" arity="2"/>
       <fsummary>Used by a process when it has started.</fsummary>
-      <type>
-        <v>Parent = pid()</v>
-        <v>Ret = term()</v>
-      </type>
       <desc>
         <p>This function must used by a process that has been started by
           a <seealso marker="#start/3">start[_link]/3,4,5</seealso>
-          function. It tells <c>Parent</c> that the process has
+          function. It tells <c><anno>Parent</anno></c> that the process has
           initialized itself, has started, or has failed to initialize
           itself.</p>
         <p>The <c>init_ack/1</c> function uses the parent value
@@ -205,40 +206,30 @@ init(Parent) ->
       </desc>
     </func>
     <func>
-      <name>format(CrashReport) -> string()</name>
+      <name name="format" arity="1"/>
       <fsummary>Format a crash report.</fsummary>
-      <type>
-        <v>CrashReport = term()</v>
-      </type>
       <desc>
         <p>This function can be used by a user defined event handler to
           format a crash report. The crash report is sent using
-          <c>error_logger:error_report(crash_report, CrashReport)</c>.
+          <c>error_logger:error_report(crash_report, <anno>CrashReport</anno>)</c>.
           That is, the event to be handled is of the format
-          <c>{error_report, GL, {Pid, crash_report, CrashReport}}</c>
+          <c>{error_report, GL, {Pid, crash_report, <anno>CrashReport</anno>}}</c>
           where <c>GL</c> is the group leader pid of the process
           <c>Pid</c> which sent the crash report.</p>
       </desc>
     </func>
     <func>
-      <name>initial_call(Process) -> {Module,Function,Args} | false</name>
+      <name name="initial_call" arity="1"/>
       <fsummary>Extract the initial call of a <c>proc_lib</c>spawned process.</fsummary>
-      <type>
-        <v>Process = pid() | {X,Y,Z} | ProcInfo</v>
-        <v>&nbsp;X = Y = Z = int()</v>
-        <v>&nbsp;ProcInfo = term()</v>
-        <v>Module = Function = atom()</v>
-        <v>Args = [atom()]</v>
-      </type>
       <desc>
         <p>Extracts the initial call of a process that was started
           using one of the spawn or start functions described above.
-          <c>Process</c> can either be a pid, an integer tuple (from
+          <c><anno>Process</anno></c> can either be a pid, an integer tuple (from
           which a pid can be created), or the process information of a
           process <c>Pid</c> fetched through an
           <c>erlang:process_info(Pid)</c> function call.</p>
 
-	<note><p>The list <c>Args</c> no longer contains the actual arguments,
+	<note><p>The list <c><anno>Args</anno></c> no longer contains the actual arguments,
 	but the same number of atoms as the number of arguments; the first atom
 	is always <c>'Argument__1'</c>, the second <c>'Argument__2'</c>, and
 	so on. The reason is that the argument list could waste a significant
@@ -256,23 +247,15 @@ init(Parent) ->
       </desc>
     </func>
     <func>
-      <name>translate_initial_call(Process) -> {Module,Function,Arity} | Fun</name>
+      <name name="translate_initial_call" arity="1"/>
       <fsummary>Extract and translate the initial call of a <c>proc_lib</c>spawned process.</fsummary>
-      <type>
-        <v>Process = pid() | {X,Y,Z} | ProcInfo</v>
-        <v>&nbsp;X = Y = Z = int()</v>
-        <v>&nbsp;ProcInfo = term()</v>
-        <v>Module = Function = atom()</v>
-        <v>Arity = int()</v>
-        <v>Fun = fun() -> void()</v>
-      </type>
       <desc>
         <p>This function is used by the <c>c:i/0</c> and
           <c>c:regs/0</c> functions in order to present process
           information.</p>
         <p>Extracts the initial call of a process that was started
           using one of the spawn or start functions described above,
-          and translates it to more useful information. <c>Process</c>
+          and translates it to more useful information. <c><anno>Process</anno></c>
           can either be a pid, an integer tuple (from which a pid can
           be created), or the process information of a process
           <c>Pid</c> fetched through an <c>erlang:process_info(Pid)</c>
@@ -280,15 +263,15 @@ init(Parent) ->
         <p>If the initial call is to one of the system defined behaviors
           such as <c>gen_server</c> or <c>gen_event</c>, it is
           translated to more useful information. If a <c>gen_server</c>
-          is spawned, the returned <c>Module</c> is the name of
-          the callback module and <c>Function</c> is <c>init</c>
+          is spawned, the returned <c><anno>Module</anno></c> is the name of
+          the callback module and <c><anno>Function</anno></c> is <c>init</c>
           (the function that initiates the new server).</p>
         <p>A <c>supervisor</c> and a <c>supervisor_bridge</c> are also
           <c>gen_server</c> processes. In order to return information
           that this process is a supervisor and the name of the
-          call-back module, <c>Module</c> is <c>supervisor</c> and
-          <c>Function</c> is the name of the supervisor callback
-          module. <c>Arity</c> is <c>1</c> since the <c>init/1</c>
+          call-back module, <c><anno>Module</anno></c> is <c>supervisor</c> and
+          <c><anno>Function</anno></c> is the name of the supervisor callback
+          module. <c><anno>Arity</anno></c> is <c>1</c> since the <c>init/1</c>
           function is called initially in the callback module.</p>
         <p>By default, <c>{proc_lib,init_p,5}</c> is returned if no
           information about the initial call can be found. It is
@@ -297,12 +280,8 @@ init(Parent) ->
       </desc>
     </func>
     <func>
-      <name>hibernate(Module, Function, Args)</name>
+      <name name="hibernate" arity="3"/>
       <fsummary>Hibernate a process until a message is sent to it</fsummary>
-      <type>
-        <v>Module = Function = atom()</v>
-        <v>Args = [term()]</v>
-      </type>
       <desc>
         <p>This function does the same as (and does call) the BIF
           <seealso marker="erts:erlang#erlang:hibernate/3">hibernate/3</seealso>,

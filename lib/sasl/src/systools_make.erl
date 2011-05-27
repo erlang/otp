@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@
 %% the applications are found.
 %%
 %% New options: {path,Path} can contain wildcards
-%%              no_module_tests
+%%              src_tests
 %%              {variables,[{Name,AbsString}]}
 %%              {machine, jam | beam | vee}
 %%              exref | {exref, [AppName]}
@@ -82,8 +82,7 @@ make_script(RelName, Output, Flags) when is_list(RelName),
 	    Path0 = get_path(Flags),
 	    Path1 = mk_path(Path0), % expand wildcards etc.
 	    Path  = make_set(Path1 ++ code:get_path()),
-	    ModTestP = {not member(no_module_tests, Flags),
-			xref_p(Flags)},
+	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
 	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
 		{ok, Release, Appls, Warnings} ->
 		    case generate_script(Output,Release,Appls,Flags) of
@@ -155,7 +154,7 @@ return({error,Mod,Error},_,Flags) ->
 %% should be included in the release package and there it can be found.
 %%
 %% New options: {path,Path} can contain wildcards
-%%              no_module_tests
+%%              src_tests
 %%              exref | {exref, [AppName]}
 %%              {variables,[{Name,AbsString}]}
 %%              {machine, jam | beam | vee}
@@ -190,8 +189,7 @@ make_tar(RelName, Flags) when is_list(RelName), is_list(Flags) ->
 	    Path0 = get_path(Flags),
 	    Path1 = mk_path(Path0),
 	    Path  = make_set(Path1 ++ code:get_path()),
-	    ModTestP = {not member(no_module_tests, Flags),
-			xref_p(Flags)},
+	    ModTestP = {member(src_tests, Flags),xref_p(Flags)},
 	    case get_release(RelName, Path, ModTestP, machine(Flags)) of
 		{ok, Release, Appls, Warnings} ->
 		    case catch mk_tar(RelName, Release, Appls, Flags, Path1) of
@@ -218,7 +216,7 @@ make_tar(RelName, Flags) ->
 %%     {ok, #release, [{{Name,Vsn},#application}], Warnings} | {error, What}
 
 get_release(File, Path) ->
-    get_release(File, Path, true, false).
+    get_release(File, Path, {false,false}, false).
 
 get_release(File, Path, ModTestP) ->
     get_release(File, Path, ModTestP, false).
@@ -771,36 +769,40 @@ get_mod_vsn([]) ->
 %% Use the module extension of the running machine as extension for
 %% the checked modules.
 
-check_mods(Modules, Appls, Path, {true, XrefP}, Machine) ->
-    Ext = objfile_extension(Machine),
-    IncPath = create_include_path(Appls, Path),
-    Res = append(map(fun(ModT) ->
-			     {Mod,_Vsn,App,_,Dir} = ModT,
-			     case check_mod(Mod,App,Dir,Ext,IncPath) of
-				 ok ->
-				     [];
-				 {error, Error} ->
-				     [{error,{Error, ModT}}];
-				 {warning, Warn} ->
-				     [{warning,{Warn,ModT}}]
-			     end
-		     end,
-		     Modules)),
-    Res2 = Res ++ check_xref(Appls, Path, XrefP),
+check_mods(Modules, Appls, Path, {SrcTestP, XrefP}, Machine) ->
+    SrcTestRes = check_src(Modules, Appls, Path, SrcTestP, Machine),
+    XrefRes = check_xref(Appls, Path, XrefP),
+    Res = SrcTestRes ++ XrefRes,
     case filter(fun({error, _}) -> true;
 		   (_)          -> false
 		end,
-		Res2) of
+		Res) of
 	[] ->
 	    {ok, filter(fun({warning, _}) -> true;
 			   (_)            -> false
 			end,
-			Res2)};
+			Res)};
 	Errors ->
 	    {error, Errors}
-    end;
-check_mods(_, _, _, _, _) ->
-    {ok, []}.
+    end.
+
+check_src(Modules, Appls, Path, true, Machine) ->
+    Ext = objfile_extension(Machine),
+    IncPath = create_include_path(Appls, Path),
+    append(map(fun(ModT) ->
+		       {Mod,_Vsn,App,_,Dir} = ModT,
+		       case check_mod(Mod,App,Dir,Ext,IncPath) of
+			   ok ->
+			       [];
+			   {error, Error} ->
+			       [{error,{Error, ModT}}];
+			   {warning, Warn} ->
+			       [{warning,{Warn,ModT}}]
+		       end
+	       end,
+	       Modules));
+check_src(_, _, _, _, _) ->
+    [].
 
 check_xref(_Appls, _Path, false) ->
     [];
@@ -1853,11 +1855,11 @@ cas([silent | Args], {Path, _Sil, Loc, Test, Var, Mach,
 cas([local | Args], {Path, Sil, _Loc, Test, Var, Mach,
 		     Xref, XrefApps, X}) ->
     cas(Args, {Path, Sil, local, Test, Var, Mach, Xref, XrefApps, X});
-%%% no_module_tests ----------------------------------------------------
-cas([no_module_tests | Args], {Path, Sil, Loc, _Test, Var, Mach,
-			       Xref, XrefApps, X}) ->
+%%% src_tests -------------------------------------------------------
+cas([src_tests | Args], {Path, Sil, Loc, _Test, Var, Mach,
+			    Xref, XrefApps, X}) ->
     cas(Args,
-	{Path, Sil, Loc, no_module_tests, Var, Mach, Xref, XrefApps,X});
+	{Path, Sil, Loc, src_tests, Var, Mach, Xref, XrefApps,X});
 %%% variables ----------------------------------------------------------
 cas([{variables, V} | Args], {Path, Sil, Loc, Test, Var, Mach, 
 				 Xref, XrefApps, X}) when is_list(V) ->
@@ -1896,6 +1898,10 @@ cas([{outdir, Dir} | Args], {Path, Sil, Loc, Test, Var, Mach,
 cas([otp_build | Args], {Path, Sil, Loc, Test, Var, Mach,
 			 Xref, XrefApps, X}) ->
     cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, X});
+%%% no_module_tests (kept for backwards compatibility, but ignored) ----
+cas([no_module_tests | Args], {Path, Sil, Loc, Test, Var, Mach,
+			       Xref, XrefApps, X}) ->
+    cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,X});
 %%% ERROR --------------------------------------------------------------
 cas([Y | Args], {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps, X}) ->
     cas(Args, {Path, Sil, Loc, Test, Var, Mach, Xref, XrefApps,X++[Y]}).
@@ -1935,10 +1941,10 @@ cat([{dirs, D} | Args], {Path, Sil, Dirs, Erts, Test,
 cat([{erts, E} | Args], {Path, Sil, Dirs, _Erts, Test, 
 			 Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(E)->
     cat(Args, {Path, Sil, Dirs, E, Test, Var, VarTar, Mach, Xref, XrefApps, X});
-%%% no_module_tests ----------------------------------------------------
-cat([no_module_tests | Args], {Path, Sil, Dirs, Erts, _Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
-    cat(Args, {Path, Sil, Dirs, Erts, no_module_tests, Var, VarTar, Mach, 
-		     Xref, XrefApps, X});
+%%% src_tests ----------------------------------------------------
+cat([src_tests | Args], {Path, Sil, Dirs, Erts, _Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
+    cat(Args, {Path, Sil, Dirs, Erts, src_tests, Var, VarTar, Mach, 
+	       Xref, XrefApps, X});
 %%% variables ----------------------------------------------------------
 cat([{variables, V} | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) when is_list(V) ->
     case check_vars(V) of
@@ -1981,6 +1987,9 @@ cat([{outdir, Dir} | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xre
 	       Xref, XrefApps, X});
 %%% otp_build (secret, not documented) ---------------------------------
 cat([otp_build | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X})  ->
+    cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
+%%% no_module_tests (kept for backwards compatibility, but ignored) ----
+cat([no_module_tests | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->
     cat(Args, {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X});
 %%% ERROR --------------------------------------------------------------
 cat([Y | Args], {Path, Sil, Dirs, Erts, Test, Var, VarTar, Mach, Xref, XrefApps, X}) ->

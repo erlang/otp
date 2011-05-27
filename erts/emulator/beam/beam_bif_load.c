@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -142,7 +142,7 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
     if ((modp = erts_get_module(BIF_ARG_1)) == NULL) {
 	return am_undefined;
     }
-    return (is_native(modp->code) ||
+    return ((modp->code && is_native(modp->code)) ||
 	    (modp->old_code != 0 && is_native(modp->old_code))) ?
 		am_true : am_false;
 }
@@ -175,8 +175,12 @@ check_process_code_2(BIF_ALIST_2)
 	Eterm res;
 	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
 	    goto error;
-	rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
-				       BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
+#ifdef ERTS_SMP
+	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
+				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
+#else
+	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
+#endif
 	if (!rp) {
 	    BIF_RET(am_false);
 	}
@@ -187,8 +191,10 @@ check_process_code_2(BIF_ALIST_2)
 	modp = erts_get_module(BIF_ARG_2);
 	res = check_process_code(rp, modp);
 #ifdef ERTS_SMP
-	if (BIF_P != rp)
+	if (BIF_P != rp) {
+	    erts_resume(rp, ERTS_PROC_LOCK_MAIN);
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+	}
 #endif
 	BIF_RET(res);
     }
@@ -472,9 +478,6 @@ check_process_code(Process* rp, Module* modp)
     for (oh = MSO(rp).first; oh; oh = oh->next) {
 	if (thing_subtag(oh->thing_word) == FUN_SUBTAG) {
 	    ErlFunThing* funp = (ErlFunThing*) oh;
-	    BeamInstr* fun_code;
-
-	    fun_code = funp->fe->address;
 
 	    if (INSIDE((BeamInstr *) funp->fe->address)) {
 		if (done_gc) {

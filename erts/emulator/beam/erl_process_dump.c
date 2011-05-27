@@ -194,7 +194,7 @@ dump_element(int to, void *to_arg, Eterm x)
 	} else if (is_pid(x)) {
 	    erts_print(to, to_arg, "P%T", x);
 	} else if (is_port(x)) {
-	    erts_print(to, to_arg, "p<%bpu.%bpu>",
+	    erts_print(to, to_arg, "p<%beu.%beu>",
 		       port_channel_no(x), port_number(x));
 	} else if (is_nil(x)) {
 	    erts_putc(to, to_arg, 'N');
@@ -376,7 +376,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    erts_print(to, to_arg, "P%T\n", x);
 		    *ptr = OUR_NIL;
 		} else if (is_external_port_header(hdr)) {
-		    erts_print(to, to_arg, "p<%bpu.%bpu>\n",
+		    erts_print(to, to_arg, "p<%beu.%beu>\n",
 			       port_channel_no(x), port_number(x));
 		    *ptr = OUR_NIL;
 		} else {

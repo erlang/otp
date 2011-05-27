@@ -30,7 +30,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec decode_cert(der_encoded()) -> {ok, #'OTPCertificate'{}}.
+-spec decode_cert(DerCert::binary()) -> {ok, #'OTPCertificate'{}}.
 %%
 %% Description: Recursively decodes a Certificate. 
 %%-------------------------------------------------------------------- 

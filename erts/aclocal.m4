@@ -1,7 +1,7 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2010. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2011. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -1153,7 +1153,7 @@ case "$THR_LIB_NAME" in
 			AO_nop_full();
 			AO_store(&x, (AO_t) 0);
 			z = AO_load(&x);
-			z = AO_compare_and_swap(&x, (AO_t) 0, (AO_t) 1);
+			z = AO_compare_and_swap_full(&x, (AO_t) 0, (AO_t) 1);
 		    ],
 		    [ethr_have_native_atomics=yes
 		     ethr_have_libatomic_ops=yes])

@@ -286,6 +286,12 @@
     given to <c>set_path/1</c>.</p>
   </section>
 
+  <datatypes>
+    <datatype>
+      <name name="load_error_rsn"/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name>set_path(Path) -> true | {error, What}</name>

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -523,7 +523,7 @@ static BOOL start_a_service(ServerInfo *srvi){
 		    srvi->keys[WorkDir].data.bytes : NULL,
 		    &start,
 		    &(srvi->info))){
-    sprintf(errbuff,"Could not start erlang service"
+    sprintf(errbuff,"Could not start erlang service "
 	    "with commandline \"%s\".",
 	    service_name,
 	    execbuff
@@ -924,7 +924,7 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
     } else {
       DWORD ecode = NO_ERROR;
       if(success_wait == NO_SUCCESS_WAIT){
-	log_warning("Erlang machine volountarily stopped. "
+	log_warning("Erlang machine voluntarily stopped. "
 		    "The service is not restarted as OnFail "
 		    "is set to ignore.");
       } else {

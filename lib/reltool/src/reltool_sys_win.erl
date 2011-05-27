@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1092,17 +1092,23 @@ move_app(S, {_ItemNo, AppBase}, Action) ->
     OldApp#app{incl_cond = AppCond}.
 
 do_set_app(#state{server_pid = ServerPid, app_wins = AppWins} = S, NewApp) ->
-    {ok, AnalysedApp, Warnings} = reltool_server:set_app(ServerPid, NewApp),
+    Result = reltool_server:set_app(ServerPid, NewApp),
     [ok = reltool_app_win:refresh(AW#app_win.pid) || AW <- AppWins],
     S2 = redraw_apps(S),
-    case Warnings of
-	[] ->
-	    ignore;
-	_ ->
-	    Msg = lists:flatten([[W, $\n] || W <- Warnings]),
-	    display_message(Msg, ?wxICON_WARNING)
-    end,
-    {ok, AnalysedApp, S2}.
+    ReturnApp =
+	case Result of
+	    {ok, AnalysedApp, []} ->
+		AnalysedApp;
+	    {ok, AnalysedApp, Warnings} ->
+		Msg = lists:flatten([[W, $\n] || W <- Warnings]),
+		display_message(Msg, ?wxICON_WARNING),
+		AnalysedApp;
+	    {error, Reason} ->
+		display_message(Reason, ?wxICON_ERROR),
+		{ok,OldApp} = reltool_server:get_app(ServerPid, NewApp#app.name),
+		OldApp
+	end,
+    {ok, ReturnApp, S2}.
 
 redraw_apps(#state{server_pid = ServerPid,
                    source = SourceCtrl,

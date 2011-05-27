@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -996,6 +996,7 @@ static byte* convert_environment(Process* p, Eterm env)
     Eterm* hp;
     Uint heap_size;
     int n;
+    Uint size;
     byte* bytes;
 
     if ((n = list_length(env)) < 0) {
@@ -1039,15 +1040,15 @@ static byte* convert_environment(Process* p, Eterm env)
     if (is_not_nil(env)) {
 	goto done;
     }
-    if ((n = io_list_len(all)) < 0) {
+    if (erts_iolist_size(all, &size)) {
 	goto done;
     }
 
     /*
      * Put the result in a binary (no risk for a memory leak that way).
      */
-    (void) erts_new_heap_binary(p, NULL, n, &bytes);
-    io_list_to_buf(all, (char*)bytes, n);
+    (void) erts_new_heap_binary(p, NULL, size, &bytes);
+    io_list_to_buf(all, (char*)bytes, size);
 
  done:
     erts_free(ERTS_ALC_T_TMP, temp_heap);

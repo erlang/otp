@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -251,6 +251,7 @@ static int async_del(long id)
 		erts_free(ERTS_ALC_T_ASYNC, a);
 		return 1;
 	    }
+	    a = a->next;
 	}
 	erts_mtx_unlock(&async_q[i].mtx);
     }

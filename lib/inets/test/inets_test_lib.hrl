@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,7 +72,7 @@
 
 %% - Test case macros - 
 
--define(SKIP(Reason),   inets_test_lib:skip(Reason)).
+-define(SKIP(Reason),   inets_test_lib:skip(Reason, ?MODULE, ?LINE)).
 -define(FAIL(Reason),   inets_test_lib:fail(Reason, ?MODULE, ?LINE)).
 
 

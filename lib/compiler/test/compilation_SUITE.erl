@@ -27,7 +27,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(compilation_SUITE),
+    test_lib:recompile(?MODULE),
     [self_compile_old_inliner, self_compile, compiler_1,
      compiler_3, compiler_5, beam_compiler_1,
      beam_compiler_2, beam_compiler_3, beam_compiler_4,

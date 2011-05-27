@@ -105,7 +105,7 @@
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read(&(tb)->segtab))
+#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read_acqb(&(tb)->segtab))
 #define NACTIVE(tb) ((int)erts_smp_atomic_read(&(tb)->nactive))
 #define NITEMS(tb) ((int)erts_smp_atomic_read(&(tb)->common.nitems))
 
@@ -122,8 +122,8 @@
 */
 static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
 {
-    Uint mask = erts_smp_atomic_read(&tb->szm);
-    Uint ix = hval & mask; 
+    Uint mask = erts_smp_atomic_read_acqb(&tb->szm);
+    Uint ix = hval & mask;
     if (ix >= erts_smp_atomic_read(&tb->nactive)) {
 	ix &= mask>>1;
 	ASSERT(ix < erts_smp_atomic_read(&tb->nactive));
@@ -668,6 +668,7 @@ int db_create_hash(Process *p, DbTable *tbl)
     else { /* coarse locking */
 	tb->locks = NULL;
     }
+    ERTS_THR_MEMORY_BARRIER;
 #endif /* ERST_SMP */
     return DB_ERROR_NONE;
 }
@@ -2085,7 +2086,14 @@ static void db_print_hash(int to, void *to_arg, int show, DbTable *tbl)
 	    while(list != 0) {
 		if (list->hvalue == INVALID_HASH)
 		    erts_print(to, to_arg, "*");
-		erts_print(to, to_arg, "%T", make_tuple(list->dbterm.tpl));
+		if (tb->common.compress) {
+		    Eterm key = GETKEY(tb, list->dbterm.tpl);
+		    erts_print(to, to_arg, "key=%R", key, list->dbterm.tpl);
+		}
+		else {
+		    Eterm obj = make_tuple_rel(list->dbterm.tpl,list->dbterm.tpl);
+		    erts_print(to, to_arg, "%R", obj, list->dbterm.tpl);
+		}
 		if (list->next != 0)
 		    erts_print(to, to_arg, ",");
 		list = list->next;
@@ -2342,7 +2350,7 @@ static int alloc_seg(DbTableHash *tb)
 	    struct ext_segment* eseg;
 	    eseg = (struct ext_segment*) SEGTAB(tb)[seg_ix-1];
 	    MY_ASSERT(eseg!=NULL && eseg->s.is_ext_segment);
-	    erts_smp_atomic_set(&tb->segtab, (erts_aint_t) eseg->segtab);
+	    erts_smp_atomic_set_relb(&tb->segtab, (erts_aint_t) eseg->segtab);
 	    tb->nsegs = eseg->nsegs;
 	}
 	ASSERT(seg_ix < tb->nsegs);
@@ -2414,7 +2422,7 @@ static int free_seg(DbTableHash *tb, int free_records)
 	    MY_ASSERT(newtop->s.is_ext_segment);
 	    if (newtop->prev_segtab != NULL) {
 		/* Time to use a smaller segtab */
-		erts_smp_atomic_set(&tb->segtab, (erts_aint_t)newtop->prev_segtab);
+		erts_smp_atomic_set_relb(&tb->segtab, (erts_aint_t)newtop->prev_segtab);
 		tb->nsegs = seg_ix;
 		ASSERT(tb->nsegs == EXTSEG(SEGTAB(tb))->nsegs);
 	    }
@@ -2431,7 +2439,7 @@ static int free_seg(DbTableHash *tb, int free_records)
     if (seg_ix > 0) {
 	if (seg_ix < tb->nsegs) SEGTAB(tb)[seg_ix] = NULL;
     } else {
-	erts_smp_atomic_set(&tb->segtab, (erts_aint_t)NULL);
+	erts_smp_atomic_set_relb(&tb->segtab, (erts_aint_t)NULL);
     }
 #endif
     tb->nslots -= SEGSZ;
@@ -2526,9 +2534,9 @@ static void grow(DbTableHash* tb, int nactive)
     }
     erts_smp_atomic_inc(&tb->nactive);
     if (from_ix == 0) {
-	erts_smp_atomic_set(&tb->szm, szm);
+	erts_smp_atomic_set_relb(&tb->szm, szm);
     }
-    erts_smp_atomic_set(&tb->is_resizing, 0);
+    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
 
     /* Finally, let's split the bucket. We try to do it in a smart way
        to keep link order and avoid unnecessary updates of next-pointers */
@@ -2560,7 +2568,7 @@ static void grow(DbTableHash* tb, int nactive)
     return;
    
 abort:
-    erts_smp_atomic_set(&tb->is_resizing, 0);
+    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
 }
 
 
@@ -2604,7 +2612,7 @@ static void shrink(DbTableHash* tb, int nactive)
 	    
 	    erts_smp_atomic_set(&tb->nactive, src_ix);
 	    if (dst_ix == 0) {
-		erts_smp_atomic_set(&tb->szm, low_szm);
+		erts_smp_atomic_set_relb(&tb->szm, low_szm);
 	    }
 	    WUNLOCK_HASH(lck);
 	    
@@ -2618,7 +2626,7 @@ static void shrink(DbTableHash* tb, int nactive)
 
     }
     /*else already done */
-    erts_smp_atomic_set(&tb->is_resizing, 0);
+    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
 }
 
 

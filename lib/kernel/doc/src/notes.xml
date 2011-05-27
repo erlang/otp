@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,71 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
+
+<section><title>Kernel 2.14.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The send_timeout option in gen_tcp did not work properly
+	    in active mode or with {active,once} options. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-9145</p>
+        </item>
+        <item>
+          <p>
+	    Fixed various typos across the documentation (Thanks to
+	    Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9154</p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in doc of rpc:pmap/3 (Thanks to Ricardo
+	    Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9168</p>
+        </item>
+        <item>
+          <p>
+	    A bug in inet_res, the specialized DNS resolver, has been
+	    corrected. A late answer with unfortunate timing could
+	    cause a runtime exception. Some code cleanup and
+	    improvements also tagged along. Thanks to Evegeniy
+	    Khramtsov for a pinpointing bug report and bug fix
+	    testing.</p>
+          <p>
+	    Own Id: OTP-9221 Aux Id: OTP-8712 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9268</p>
+        </item>
+        <item>
+	    <p> Erlang types and specifications are used for
+	    documentation. </p>
+          <p>
+	    Own Id: OTP-9272</p>
+        </item>
+        <item>
+	    <p> Two opaque types that could cause warnings when
+	    running Dialyzer have been modified. </p>
+          <p>
+	    Own Id: OTP-9337</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Kernel 2.14.3</title>
 

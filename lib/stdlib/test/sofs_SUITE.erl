@@ -1602,25 +1602,26 @@ relative_product_2(Conf) when is_list(Conf) ->
 				 from_term([{{a},b}])}, ER)),
 
     ?line {'EXIT', {badarg, _}} = (catch relative_product({}, ER)),
-    ?line eval(relative_product({relation([{a,b}])}, 
-				from_term([],[{{atom},atom}])), 
-               ER),
-    ?line eval(relative_product({relation([{a,b}]),relation([{a,1}])}, 
-				from_term([{{b,1},{tjo,hej,sa}}])),
-               from_term([{a,{tjo,hej,sa}}])),
-    ?line eval(relative_product({relation([{a,b}]), ER}, 
-				from_term([{{a,b},b}])), 
-               ER),
-    ?line eval(relative_product({relation([{a,b},{c,a}]), 
-				 relation([{a,1},{a,2}])},
-				from_term([{{b,1},b1},{{b,2},b2}])),
-               relation([{a,b1},{a,b2}])),
+    ?line relprod2({relation([{a,b}])}, from_term([],[{{atom},atom}]), ER),
+    ?line relprod2({relation([{a,b}]),relation([{a,1}])},
+                   from_term([{{b,1},{tjo,hej,sa}}]),
+                   from_term([{a,{tjo,hej,sa}}])),
+    ?line relprod2({relation([{a,b}]), ER}, from_term([{{a,b},b}]), ER),
+    ?line relprod2({relation([{a,b},{c,a}]),
+                    relation([{a,1},{a,2}])},
+                   from_term([{{b,1},b1},{{b,2},b2}]),
+                   relation([{a,b1},{a,b2}])),
     ?line eval(relative_product({relation([{a,b}]), ER}), 
                from_term([],[{atom,{atom,atom}}])),
     ?line eval(relative_product({from_term([{{a,[a,b]},[a]}]),
 				 from_term([{{a,[a,b]},[[a,b]]}])}),
                from_term([{{a,[a,b]},{[a],[[a,b]]}}])),
     ok.
+
+relprod2(A1T, A2, R) ->
+    %% A tuple as first argument is the old interface:
+    eval(relative_product(A1T, A2), R),
+    eval(relative_product(tuple_to_list(A1T), A2), R).
 
 product_1(suite) -> [];
 product_1(doc) -> [""];

@@ -1639,6 +1639,9 @@ static struct {
     Eterm e;
     Eterm t;
     Eterm ramv;
+#if HALFWORD_HEAP
+    Eterm low;
+#endif
     Eterm sbct;
 #if HAVE_ERTS_MSEG
     Eterm asbcst;
@@ -1724,6 +1727,9 @@ init_atoms(Allctr_t *allctr)
 	AM_INIT(e);
 	AM_INIT(t);
 	AM_INIT(ramv);
+#if HALFWORD_HEAP
+	AM_INIT(low);
+#endif
 	AM_INIT(sbct);
 #if HAVE_ERTS_MSEG
 	AM_INIT(asbcst);
@@ -1877,7 +1883,7 @@ sz_info_carriers(Allctr_t *allctr,
 		   cs->blocks.max_ever.size);
 	erts_print(to,
 		   arg,
-		   "%scarriers size: %bpu %bpu %bpu\n",
+		   "%scarriers size: %beu %bpu %bpu\n",
 		   prefix,
 		   curr_size,
 		   cs->max.size,
@@ -1933,7 +1939,7 @@ info_carriers(Allctr_t *allctr,
 		   cs->blocks.max_ever.size);
 	erts_print(to,
 		   arg,
-		   "%scarriers: %bpu %bpu %bpu\n",
+		   "%scarriers: %beu %bpu %bpu\n",
 		   prefix,
 		   curr_no,
 		   cs->max.no,
@@ -1952,7 +1958,7 @@ info_carriers(Allctr_t *allctr,
 		   cs->curr_sys_alloc.no);
 	erts_print(to,
 		   arg,
-		   "%scarriers size: %bpu %bpu %bpu\n",
+		   "%scarriers size: %beu %bpu %bpu\n",
 		   prefix,
 		   curr_size,
 		   cs->max.size,
@@ -2053,15 +2059,15 @@ info_calls(Allctr_t *allctr,
 
 #define PRINT_CC_4(TO, TOA, NAME, CC)					\
     if ((CC).giga_no == 0)						\
-	erts_print(TO, TOA, "%s calls: %bpu\n", NAME, CC.no);		\
+	erts_print(TO, TOA, "%s calls: %b32u\n", NAME, CC.no);		\
     else								\
-	erts_print(TO, TOA, "%s calls: %bpu%09lu\n", NAME, CC.giga_no, CC.no)
+	erts_print(TO, TOA, "%s calls: %b32u%09lu\n", NAME, CC.giga_no, CC.no)
 
 #define PRINT_CC_5(TO, TOA, PRFX, NAME, CC)				\
     if ((CC).giga_no == 0)						\
-	erts_print(TO, TOA, "%s%s calls: %bpu\n",PRFX,NAME,CC.no);	\
+	erts_print(TO, TOA, "%s%s calls: %b32u\n",PRFX,NAME,CC.no);	\
     else								\
-	erts_print(TO, TOA, "%s%s calls: %bpu%09lu\n",PRFX,NAME,CC.giga_no,CC.no)
+	erts_print(TO, TOA, "%s%s calls: %b32u%09lu\n",PRFX,NAME,CC.giga_no,CC.no)
 
 	char *prefix = allctr->name_prefix;
 	int to = *print_to_p;
@@ -2168,23 +2174,29 @@ info_options(Allctr_t *allctr,
 		   "option e: true\n"
 		   "option t: %s\n"
 		   "option ramv: %s\n"
-		   "option sbct: %bpu\n"
+#if HALFWORD_HEAP
+		   "option low: %s\n"
+#endif
+		   "option sbct: %beu\n"
 #if HAVE_ERTS_MSEG
 		   "option asbcst: %bpu\n"
 		   "option rsbcst: %bpu\n"
 #endif
-		   "option rsbcmt: %bpu\n"
-		   "option rmbcmt: %bpu\n"
-		   "option mmbcs: %bpu\n"
+		   "option rsbcmt: %beu\n"
+		   "option rmbcmt: %beu\n"
+		   "option mmbcs: %beu\n"
 #if HAVE_ERTS_MSEG
-		   "option mmsbc: %bpu\n"
-		   "option mmmbc: %bpu\n"
+		   "option mmsbc: %beu\n"
+		   "option mmmbc: %beu\n"
 #endif
-		   "option lmbcs: %bpu\n"
-		   "option smbcs: %bpu\n"
-		   "option mbcgs: %bpu\n",
+		   "option lmbcs: %beu\n"
+		   "option smbcs: %beu\n"
+		   "option mbcgs: %beu\n",
 		   topt,
 		   allctr->ramv ? "true" : "false",
+#if HALFWORD_HEAP
+		   allctr->mseg_opt.low_mem ? "true" : "false",
+#endif
 		   allctr->sbc_threshold,
 #if HAVE_ERTS_MSEG
 		   allctr->mseg_opt.abs_shrink_th,
@@ -2243,6 +2255,9 @@ info_options(Allctr_t *allctr,
 	add_2tup(hpp, szp, &res,
 		 am.sbct,
 		 bld_uint(hpp, szp, allctr->sbc_threshold));
+#if HALFWORD_HEAP
+	add_2tup(hpp, szp, &res, am.low, allctr->mseg_opt.low_mem ? am_true : am_false);
+#endif
 	add_2tup(hpp, szp, &res, am.ramv, allctr->ramv ? am_true : am_false);
 	add_2tup(hpp, szp, &res, am.t, (allctr->t
 					? bld_uint(hpp, szp, (Uint) allctr->t)
@@ -2292,9 +2307,9 @@ erts_alcu_au_info_options(int *print_to_p, void *print_to_arg,
 	erts_print(*print_to_p,
 		   print_to_arg,
 #if HAVE_ERTS_MSEG
-		   "option mmc: %bpu\n"
+		   "option mmc: %beu\n"
 #endif
-		   "option ycs: %bpu\n",
+		   "option ycs: %beu\n",
 #if HAVE_ERTS_MSEG
 		   max_mseg_carriers,
 #endif
@@ -3105,13 +3120,12 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	goto error;
 
 #if HAVE_ERTS_MSEG
-    {
-	ErtsMsegOpt_t mseg_opt = ERTS_MSEG_DEFAULT_OPT_INITIALIZER;
-    
-	sys_memcpy((void *) &allctr->mseg_opt,
-		   (void *) &mseg_opt,
-		   sizeof(ErtsMsegOpt_t));
-    }
+    sys_memcpy((void *) &allctr->mseg_opt,
+	       (void *) &erts_mseg_default_opt,
+	       sizeof(ErtsMsegOpt_t));
+# if HALFWORD_HEAP
+    allctr->mseg_opt.low_mem = init->low_mem;
+# endif
 #endif
 
     allctr->name_prefix			= init->name_prefix;

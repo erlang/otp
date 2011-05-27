@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -871,7 +871,11 @@ insert_op(Tid, _, {op, add_index, Pos, TabDef}, InPlace, InitBy) ->
 	startup ->
 	    ignore; 
 	_  ->
-	    mnesia_index:init_indecies(Tab, Storage, [Pos])
+	    case val({Tab,where_to_read}) of
+		nowhere -> ignore;
+		_ ->
+		    mnesia_index:init_indecies(Tab, Storage, [Pos])
+	    end
     end;
 
 insert_op(Tid, _, {op, del_index, Pos, TabDef}, InPlace, InitBy) ->
@@ -893,6 +897,14 @@ insert_op(Tid, _, {op, change_table_access_mode,TabDef, _OldAccess, _Access}, In
     case InitBy of
 	startup -> ignore;
 	_ -> mnesia_controller:change_table_access_mode(Cs)
+    end,
+    insert_cstruct(Tid, Cs, true, InPlace, InitBy);
+
+insert_op(Tid, _, {op, change_table_majority,TabDef, _OldAccess, _Access}, InPlace, InitBy) ->
+    Cs = mnesia_schema:list2cs(TabDef),
+    case InitBy of
+	startup -> ignore;
+	_ -> mnesia_controller:change_table_majority(Cs)
     end,
     insert_cstruct(Tid, Cs, true, InPlace, InitBy);
 

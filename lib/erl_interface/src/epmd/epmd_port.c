@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -228,11 +228,8 @@ int ei_epmd_port (struct in_addr *addr, const char *alive, int *dist)
     return ei_epmd_port_tmo (addr, alive, dist, 0);
 }
 
-int ei_epmd_port_tmo (struct in_addr *addr, const char *alive, int *dist, 
-		       unsigned ms)
+int ei_epmd_port_tmo (struct in_addr *addr, const char *alive, int *dist, unsigned ms)
 {
-  int i;
-
-  return ei_epmd_r4_port(addr,alive,dist,ms);
+    return ei_epmd_r4_port(addr,alive,dist,ms);
 }
 

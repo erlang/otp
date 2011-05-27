@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -101,6 +101,7 @@
 %%    This character set is used only if not explicitly given by the XML
 %%    declaration. </dd>
 %% </dl>
+
 
 -module(xmerl_scan).
 -vsn('0.20').
@@ -2283,8 +2284,16 @@ scan_att_chars("&" ++ T, S0, Delim, Acc, TmpAcc,AT,IsNorm) -> % Reference
 	true ->
 	    scan_att_chars(T1,S1,Delim,[ExpRef|Acc],[ExpRef|TmpAcc],AT,IsNorm);
 	_ ->
-	    scan_att_chars(string_to_char_set(S#xmerl_scanner.encoding,ExpRef)
-			   ++ T1, S1, Delim, Acc,TmpAcc, AT,IsNorm)
+            Ch = string_to_char_set(S#xmerl_scanner.encoding, ExpRef),
+            case T of
+                "#" ++ _ ->
+                    %% normalization rules (sec 3.3.3) require that for
+                    %% character references, the referenced character be
+                    %% added directly to the normalized value
+                    scan_att_chars(T1, S1, Delim, Ch ++ Acc,TmpAcc, AT,IsNorm);
+                _ ->
+                    scan_att_chars(Ch ++ T1, S1, Delim, Acc,TmpAcc, AT,IsNorm)
+            end
     end;
 scan_att_chars("<" ++ _T, S0, _Delim, _Acc,_, _,_) -> % Tags not allowed here
     ?fatal(unexpected_char, S0);
@@ -3909,7 +3918,7 @@ schemaLocations(#xmlElement{attributes=Atts,xmlbase=_Base}) ->
     case lists:dropwhile(Pred,Atts) of
 	[#xmlAttribute{value=Paths}|_] ->
 	    
-	    case string:tokens(Paths," ") of
+	    case string:tokens(Paths," \n\t\r") of
 		L when length(L) > 0 ->
 		    case length(L) rem 2 of
 			0 ->

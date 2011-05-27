@@ -174,7 +174,8 @@ run_test(Name, Config, CTConfig, SuiteNames)->
     TestEvents = ct_test_support:get_events(ERPid, Config),
     ct_test_support:log_events(Name,
 			       reformat_events(TestEvents, ?eh),
-			       ?config(config_dir, Config)),
+			       ?config(config_dir, Config),
+			       Opts),
     ExpEvents = events_to_check(Name),
     ok = ct_test_support:verify_events(ExpEvents, TestEvents, Config).
 

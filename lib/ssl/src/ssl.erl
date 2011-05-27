@@ -50,15 +50,13 @@
 		 cb                 %% Callback info
 		}).
 -type option()       :: socketoption() | ssloption() | transportoption().
--type socketoption() :: [{property(), term()}]. %% See gen_tcp and inet
--type property()     :: atom().
-
+-type socketoption() :: term(). %% See gen_tcp and inet, import spec later when there is one to import
 -type ssloption()    :: {verify, verify_type()} |
 			{verify_fun, {fun(), InitialUserState::term()}} |
                         {fail_if_no_peer_cert, boolean()} | {depth, integer()} |
-                        {cert, der_encoded()} | {certfile, path()} | {key, der_encoded()} |
-                        {keyfile, path()} | {password, string()} | {cacerts, [der_encoded()]} |
-                        {cacertfile, path()} | {dh, der_encoded()} | {dhfile, path()} |
+                        {cert, Der::binary()} | {certfile, path()} | {key, Der::binary()} |
+                        {keyfile, path()} | {password, string()} | {cacerts, [Der::binary()]} |
+                        {cacertfile, path()} | {dh, Der::binary()} | {dhfile, path()} |
                         {ciphers, ciphers()} | {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} |
                         {reuse_session, fun()} | {hibernate_after, integer()|undefined}.
 
@@ -265,7 +263,7 @@ close(Socket = #sslsocket{}) ->
     ssl_broker:close(Socket).
 
 %%--------------------------------------------------------------------
--spec send(#sslsocket{}, iolist()) -> ok | {error, reason()}.
+-spec send(#sslsocket{}, iodata()) -> ok | {error, reason()}.
 %% 
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
@@ -404,9 +402,9 @@ cipher_suites(openssl) ->
     [ssl_cipher:openssl_suite_name(S) || S <- ssl_cipher:suites(Version)].
 
 %%--------------------------------------------------------------------
--spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]}| {error, reason()}.
+-spec getopts(#sslsocket{}, [atom()]) -> {ok, [{atom(), term()}]} | {error, reason()}.
 %% 
-%% Description:
+%% Description: Gets options
 %%--------------------------------------------------------------------
 getopts(#sslsocket{fd = new_ssl, pid = Pid}, OptTags) when is_pid(Pid) ->
     ssl_connection:get_opts(Pid, OptTags);
@@ -417,9 +415,9 @@ getopts(#sslsocket{} = Socket, Options) ->
     ssl_broker:getopts(Socket, Options).
 
 %%--------------------------------------------------------------------
--spec setopts(#sslsocket{},  [{atom(), term()}]) -> ok | {error, reason()}.
+-spec setopts(#sslsocket{},  [proplists:property()]) -> ok | {error, reason()}.
 %% 
-%% Description:
+%% Description: Sets options
 %%--------------------------------------------------------------------
 setopts(#sslsocket{fd = new_ssl, pid = Pid}, Opts0) when is_pid(Pid) ->
     Opts = proplists:expand([{binary, [{mode, binary}]},
@@ -613,8 +611,10 @@ do_new_connect(Address, Port,
     catch
 	exit:{function_clause, _} ->
 	    {error, {eoptions, {cb_info, CbInfo}}};
+	exit:badarg ->
+	    {error, {eoptions, {inet_options, UserOpts}}};
 	exit:{badarg, _} ->
-	    {error,{eoptions, {inet_options, UserOpts}}}
+	    {error, {eoptions, {inet_options, UserOpts}}}
     end.
 
 old_connect(Address, Port, Options, Timeout) ->

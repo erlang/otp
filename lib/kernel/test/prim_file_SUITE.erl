@@ -250,39 +250,49 @@ make_del_dir(Config, Handle, Suffix) ->
     ?line ok = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
     ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [NewDir]),
 
-    %% Check that we get an error when trying to create...
-    %% a deep directory
-    ?line NewDir2 = filename:join(RootDir, 
-				  atom_to_list(?MODULE)
-				  ++"_mk-dir/foo"),
-    ?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [NewDir2]),
-    %% a nameless directory
-    ?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [""]),
-    %% a directory with illegal name
-    ?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, ['mk-dir']),
+    % Make sure we are not in a directory directly under test_server
+    % as that would result in eacess errors when trying to delere '..',
+    % because there are processes having that directory as current.
+    ?line ok = ?PRIM_FILE_call(make_dir, Handle, [NewDir]),
+    ?line {ok, CurrentDir} = ?PRIM_FILE_call(get_cwd, Handle, []),
+    ?line ok = ?PRIM_FILE_call(set_cwd, Handle, [NewDir]),
+    try
+	%% Check that we get an error when trying to create...
+	%% a deep directory
+	?line NewDir2 = filename:join(RootDir, 
+				      atom_to_list(?MODULE)
+				      ++"_mk-dir-noexist/foo"),
+	?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [NewDir2]),
+	%% a nameless directory
+	?line {error, enoent} = ?PRIM_FILE_call(make_dir, Handle, [""]),
+	%% a directory with illegal name
+	?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, ['mk-dir']),
+	
+	%% a directory with illegal name, even if it's a (bad) list
+	?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, [[1,2,3,{}]]),
+	
+	%% Maybe this isn't an error, exactly, but worth mentioning anyway:
+	%% ok = ?PRIM_FILE:make_dir([$f,$o,$o,0,$b,$a,$r])),
+	%% The above line works, and created a directory "./foo"
+	%% More elegant would maybe have been to fail, or to really create
+	%% a directory, but with a name that incorporates the "bar" part of
+	%% the list, so that [$f,$o,$o,0,$f,$o,$o] wouldn't refer to the same
+	%% dir. But this would slow it down.
+	
+	%% Try deleting some bad directories
+	%% Deleting the parent directory to the current, sounds dangerous, huh?
+	%% Don't worry ;-) the parent directory should never be empty, right?
+	?line case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
+		  {error, eexist} -> ok;
+		  {error, einval} -> ok		%FreeBSD
+	      end,
+	?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
+	?line {error, badarg} = ?PRIM_FILE_call(del_dir, Handle, [[3,2,1,{}]]),
 
-    %% a directory with illegal name, even if it's a (bad) list
-    ?line {error, badarg} = ?PRIM_FILE_call(make_dir, Handle, [[1,2,3,{}]]),
-
-    %% Maybe this isn't an error, exactly, but worth mentioning anyway:
-    %% ok = ?PRIM_FILE:make_dir([$f,$o,$o,0,$b,$a,$r])),
-    %% The above line works, and created a directory "./foo"
-    %% More elegant would maybe have been to fail, or to really create
-    %% a directory, but with a name that incorporates the "bar" part of
-    %% the list, so that [$f,$o,$o,0,$f,$o,$o] wouldn't refer to the same
-    %% dir. But this would slow it down.
-
-    %% Try deleting some bad directories
-    %% Deleting the parent directory to the current, sounds dangerous, huh?
-    %% Don't worry ;-) the parent directory should never be empty, right?
-    case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
-	{error, eexist} -> ok;
-	{error, einval} -> ok		%FreeBSD
+	?line test_server:timetrap_cancel(Dog)
+    after
+	?line ok = ?PRIM_FILE_call(set_cwd, Handle, [CurrentDir])
     end,
-    ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
-    ?line {error, badarg} = ?PRIM_FILE_call(del_dir, Handle, [[3,2,1,{}]]),
-
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 cur_dir_0a(suite) -> [];

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,14 +27,13 @@
 
 %%-----------------------------------------------------------------
 
--type dir()  :: file:filename().
 -type b()    :: non_neg_integer().
 -type f()    :: 1..255.
 -type pred() :: fun((term()) -> boolean()).
 
 %%-----------------------------------------------------------------
 
--record(state, {dir    :: dir(),
+-record(state, {dir    :: file:filename(),
 		maxB   :: b(),
 		maxF   :: f(),
 		curB   :: b(),
@@ -67,11 +66,23 @@
 %%              EventMgr = pid() | atom().
 %%-----------------------------------------------------------------
 
--spec init(dir(), b(), f()) -> {dir(), b(), f(), pred()}.
+-opaque args() :: {file:filename(), b(), f(), pred()}.
+
+
+-spec init(Dir, MaxBytes, MaxFiles) -> Args when
+      Dir :: file:filename(),
+      MaxBytes :: non_neg_integer(), % b()
+      MaxFiles :: 1..255, % f()
+      Args :: args().
 
 init(Dir, MaxB, MaxF) -> init(Dir, MaxB, MaxF, fun(_) -> true end).
 
--spec init(dir(), b(), f(), pred()) -> {dir(), b(), f(), pred()}.
+-spec init(Dir, MaxBytes, MaxFiles, Pred) -> Args when
+      Dir :: file:filename(),
+      MaxBytes :: non_neg_integer(), % b()
+      MaxFiles :: 1..255, % f()
+      Pred :: fun((Event :: term()) -> boolean()), % pred()
+      Args :: args().
 
 init(Dir, MaxB, MaxF, Pred) -> {Dir, MaxB, MaxF, Pred}.
 
@@ -79,7 +90,7 @@ init(Dir, MaxB, MaxF, Pred) -> {Dir, MaxB, MaxF, Pred}.
 %% Call-back functions from gen_event
 %%-----------------------------------------------------------------
 
--spec init({dir(), b(), f(), pred()}) -> {'ok', #state{}} | {'error', term()}.
+-spec init({file:filename(), non_neg_integer(), f(), pred()}) -> {'ok', #state{}} | {'error', term()}.
 
 init({Dir, MaxB, MaxF, Pred}) when is_integer(MaxF), MaxF > 0, MaxF < 256 -> 
     First = 
@@ -185,13 +196,19 @@ read_index_file(Dir) ->
 %%-----------------------------------------------------------------
 %% Write the index file.  This file contains one binary with
 %% the last used filename (an integer).
+%% Write a temporary file and rename it in order to make the update
+%% atomic.
 %%-----------------------------------------------------------------
 
 write_index_file(Dir, Index) ->
-    case file:open(Dir ++ "/index", [raw, write]) of
+    File = Dir ++ "/index",
+    TmpFile = File ++ ".tmp",
+    case file:open(TmpFile, [raw, write]) of
 	{ok, Fd} ->
-	    file:write(Fd, [Index]),
-	    ok = file:close(Fd);
+	    ok = file:write(Fd, [Index]),
+	    ok = file:close(Fd),
+	    ok = file:rename(TmpFile,File),
+	    ok;
 	_ -> exit(open_index_file)
     end.
 

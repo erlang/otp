@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -60,15 +60,12 @@ typedef struct {
     int  preserv;
     UWord abs_shrink_th;
     UWord rel_shrink_th;
+#if HALFWORD_HEAP
+    int low_mem;
+#endif
 } ErtsMsegOpt_t;
 
-#define ERTS_MSEG_DEFAULT_OPT_INITIALIZER				\
-{									\
-    1,			/* Use cache				*/	\
-    1,			/* Preserv data				*/	\
-    0,			/* Absolute shrink threshold		*/	\
-    0			/* Relative shrink threshold		*/	\
-}
+extern const ErtsMsegOpt_t erts_mseg_default_opt;
 
 void *erts_mseg_alloc(ErtsAlcType_t, Uint *);
 void *erts_mseg_alloc_opt(ErtsAlcType_t, Uint *, const ErtsMsegOpt_t *);

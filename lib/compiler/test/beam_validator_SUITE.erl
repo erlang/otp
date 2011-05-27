@@ -46,7 +46,7 @@ end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(beam_validator_SUITE),
+    test_lib:recompile(?MODULE),
     [beam_files, compiler_bug, stupid_but_valid, xrange,
      yrange, stack, call_last, merge_undefined, uninit,
      unsafe_catch, dead_code, mult_labels,

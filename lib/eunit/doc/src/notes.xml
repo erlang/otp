@@ -32,6 +32,46 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Increase depth of error messages in Eunit Surefire
+	    reports</p>
+          <p>
+	    Currently, error messages in Eunit Surefire reports are
+	    shortened just like when written to a terminal. However,
+	    the space limitations that constrain terminal output do
+	    not apply here, so it's more useful to include more of
+	    the error message. The new depth of 100 should be enough
+	    for most cases, while protecting against runaway errors.
+	    (Thanks to Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9220</p>
+        </item>
+        <item>
+          <p>
+	    Don't let eunit_surefire report back to eunit when
+	    stopping</p>
+          <p>
+	    When eunit is terminating, a stop message is sent to all
+	    listeners and eunit then waits for *one* result message
+	    but previously both eunit_tty and eunit_surefire sent a
+	    response on error. Don't send a result message from
+	    eunit_surefire; let eunit_tty take care of all result
+	    reporting, both positive and negative to avoid race
+	    conditions and inconsistencies. (Thanks to Klas
+	    Johansson)</p>
+          <p>
+	    Own Id: OTP-9269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.1.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

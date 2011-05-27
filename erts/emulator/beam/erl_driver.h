@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -282,7 +282,7 @@ typedef struct erl_drv_entry {
 				   the port */
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
 				/* called when we have input from one of 
-				   the driver's handles) */
+				   the driver's handles */
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
 				/* called when output is possible to one of 
 				   the driver's handles */
@@ -294,7 +294,7 @@ typedef struct erl_drv_entry {
     int (*control)(ErlDrvData drv_data, unsigned int command, char *buf, 
 		   int len, char **rbuf, int rlen); 
 				/* "ioctl" for drivers - invoked by 
-				   port_control/3) */
+				   port_control/3 */
     void (*timeout)(ErlDrvData drv_data);	/* Handling of timeout in driver */
     void (*outputv)(ErlDrvData drv_data, ErlIOVec *ev);
 				/* called when we have output from erlang
@@ -307,7 +307,7 @@ typedef struct erl_drv_entry {
 				   before 'stop' can be called */
     int (*call)(ErlDrvData drv_data, unsigned int command, char *buf, 
 		   int len, char **rbuf, int rlen, unsigned int *flags); 
-                                /* Works mostly like 'control', a syncronous
+                                /* Works mostly like 'control', a synchronous
 				   call into the driver. */
     void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
 		  ErlDrvEventData event_data);

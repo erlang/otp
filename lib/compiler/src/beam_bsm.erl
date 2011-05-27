@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -651,10 +651,8 @@ add_warning(Term, Anno, Ws) ->
 warning_translate_label(Term, D) when is_tuple(Term) ->
     case element(1, Term) of
 	{label,F} ->
-	    case gb_trees:lookup(F, D) of
-		none -> Term;
-		{value,FA} -> setelement(1, Term, FA)
-	    end;
+	    FA = gb_trees:get(F, D),
+	    setelement(1, Term, FA);
 	_ -> Term
     end;
 warning_translate_label(Term, _) -> Term.

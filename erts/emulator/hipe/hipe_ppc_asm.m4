@@ -1,25 +1,24 @@
 changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
-/*
- * $Id$
- */
+
+
 `#ifndef HIPE_PPC_ASM_H
 #define HIPE_PPC_ASM_H'
 
@@ -63,15 +62,31 @@ ifelse(OPSYS,darwin,``
 #define SEMI		@
 #define SET_SIZE(NAME)	/*empty*/
 #define TYPE_FUNCTION(NAME)	/*empty*/
+#define OPD(NAME)	/*empty*/
 '',``
 /* Not Darwin */''
 `ifelse(ARCH,ppc64,``
 /* 64-bit */
+/*
+ * The 64-bit PowerPC ABI requires us to setup Official Procedure Descriptors
+ * for functions called from C. These are exported as "func", while the entry
+ * point should is exported as ".func". A function pointer in C points to the
+ * function descriptor in the opd rather than to the function entry point.
+ */
 #define JOIN(X,Y)	X##Y
 #define CSYM(NAME)	JOIN(.,NAME)
+#define OPD(NAME)       			\
+	.pushsection .opd, "aw";		\
+	.align 3;				\
+	.global NAME;				\
+NAME:						\
+	.quad CSYM(NAME), .TOC.@tocbase, 0;	\
+	.type NAME, @function;			\
+	.popsection
 '',``
 /* 32-bit */
 #define CSYM(NAME)	NAME
+#define OPD(NAME)	/*empty*/
 '')'
 ``#define ASYM(NAME)	NAME
 #define GLOBAL(NAME)	.global NAME

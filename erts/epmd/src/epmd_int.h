@@ -168,42 +168,40 @@
 #if defined(HAVE_IN6) && defined(AF_INET6) && defined(EPMD6)
 
 #define EPMD_SOCKADDR_IN sockaddr_in6
-#define FAMILY      AF_INET6
+#define EPMD_IN_ADDR in6_addr
+#define EPMD_S_ADDR s6_addr
+#define EPMD_ADDR_LOOPBACK in6addr_loopback.s6_addr
+#define EPMD_ADDR_ANY in6addr_any.s6_addr
+#define FAMILY AF_INET6
 
-#define SET_ADDR_LOOPBACK(addr, af, port) do { \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin6_family = (af); \
-    (addr).sin6_flowinfo = 0; \
-    (addr).sin6_addr = in6addr_loopback; \
-    (addr).sin6_port = htons(port); \
+#define SET_ADDR(dst, addr, port) do { \
+    memset((char*)&(dst), 0, sizeof(dst)); \
+    memcpy((char*)&(dst).sin6_addr.s6_addr, (char*)&(addr), 16); \
+    (dst).sin6_family = AF_INET6; \
+    (dst).sin6_flowinfo = 0; \
+    (dst).sin6_port = htons(port); \
  } while(0)
 
-#define SET_ADDR_ANY(addr, af, port) do { \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin6_family = (af); \
-    (addr).sin6_flowinfo = 0; \
-    (addr).sin6_addr = in6addr_any; \
-    (addr).sin6_port = htons(port); \
- } while(0)
+#define IS_ADDR_LOOPBACK(addr) \
+    (memcmp((addr).s6_addr, in6addr_loopback.s6_addr, 16) == 0)
 
 #else /* Not IP v6 */
 
 #define EPMD_SOCKADDR_IN sockaddr_in
-#define FAMILY      AF_INET
+#define EPMD_IN_ADDR in_addr
+#define EPMD_S_ADDR s_addr
+#define EPMD_ADDR_LOOPBACK htonl(INADDR_LOOPBACK)
+#define EPMD_ADDR_ANY htonl(INADDR_ANY)
+#define FAMILY AF_INET
 
-#define SET_ADDR_LOOPBACK(addr, af, port) do { \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin_family = (af); \
-    (addr).sin_addr.s_addr = htonl(INADDR_LOOPBACK); \
-    (addr).sin_port = htons(port); \
+#define SET_ADDR(dst, addr, port) do { \
+    memset((char*)&(dst), 0, sizeof(dst)); \
+    (dst).sin_family = AF_INET; \
+    (dst).sin_addr.s_addr = (addr); \
+    (dst).sin_port = htons(port); \
  } while(0)
 
-#define SET_ADDR_ANY(addr, af, port) do { \
-    memset((char*)&(addr), 0, sizeof(addr)); \
-    (addr).sin_family = (af); \
-    (addr).sin_addr.s_addr = htonl(INADDR_ANY); \
-    (addr).sin_port = htons(port); \
- } while(0)
+#define IS_ADDR_LOOPBACK(addr) ((addr).s_addr == htonl(INADDR_LOOPBACK))
 
 #endif /* Not IP v6 */
 
@@ -230,6 +228,8 @@
 
 /* Maximum length of a node name == atom name */
 #define MAXSYMLEN 255
+
+#define MAX_LISTEN_SOCKETS 16
 
 #define INBUF_SIZE 1024
 #define OUTBUF_SIZE 1024
@@ -299,7 +299,8 @@ typedef struct {
   Connection *conn;
   Nodes nodes;
   fd_set orig_read_mask;
-  int listenfd;
+  int listenfd[MAX_LISTEN_SOCKETS];
+  char *addresses;
   char **argv;
 } EpmdVars;
 

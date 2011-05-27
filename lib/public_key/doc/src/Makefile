@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -52,6 +52,7 @@ XML_CHAPTER_FILES = \
 	introduction.xml \
 	public_key_records.xml \
 	cert_records.xml \
+	using_public_key.xml \
 	notes.xml
 
 BOOK_FILES = book.xml

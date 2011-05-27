@@ -19,7 +19,7 @@
 
 -record(zip_file, {
 	  name      :: string(),	  % file name
-	  info	    :: #file_info{},
+	  info	    :: file:file_info(),
 	  comment   :: string(),	  % zip file comment
 	  offset    :: non_neg_integer(), % offset of file's local header in archive
 	  comp_size :: non_neg_integer()  % compressed size

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1136,6 +1136,11 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
     int poll_ret, i;
 
  restart:
+
+#ifdef ERTS_BREAK_REQUESTED
+    if (ERTS_BREAK_REQUESTED)
+	erts_do_break_handling();
+#endif
 
     /* Figure out timeout value */
     if (do_wait) {

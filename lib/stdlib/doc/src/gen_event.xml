@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -100,6 +100,20 @@ gen_event:stop             ----->  Module:terminate/2
       the specified event manager does not exist or if bad arguments are
       given.</p>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="handler"/>
+    </datatype>
+    <datatype>
+      <name name="handler_args"/>
+    </datatype>
+    <datatype>
+      <name name="add_handler_ret"/>
+    </datatype>
+    <datatype>
+      <name name="del_handler_ret"/>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
       <name>start_link() -> Result</name>

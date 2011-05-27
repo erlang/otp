@@ -727,16 +727,16 @@ static int
 heart_cmd_reply(int fd, char *s)
 {
   struct msg m;
-  int len = strlen(s) + 1;	/* Include \0 */
+  int len = strlen(s);
 
   /* if s >= MSG_BODY_SIZE, return a write
    * failure immediately.
    */
-  if (len > sizeof(m.fill))
+  if (len >= sizeof(m.fill))
       return -1;
 
   m.op = HEART_CMD;
-  m.len = htons(len + 2);	/* Include Op */
+  m.len = htons(len + 1);	/* Include Op */
   strcpy((char*)m.fill, s);
 
   return write_message(fd, &m);

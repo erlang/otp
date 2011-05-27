@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,8 +19,8 @@
 
 %% Description  : Implements a search engine based on XPath
 
-%% @doc The xmerl_xpath module handles the entire XPath 1.0 spec
-%% XPath expressions typically occurs in XML attributes and are used to addres
+%% @doc The xmerl_xpath module handles the entire XPath 1.0 spec.
+%% XPath expressions typically occur in XML attributes and are used to address
 %% parts of an XML document.
 %     The grammar is defined in <code>xmerl_xpath_parse.yrl</code>.
 %     The core functions are defined in <code>xmerl_xpath_pred.erl</code>.

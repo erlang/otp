@@ -179,8 +179,7 @@ check_opts([]) ->
     [].
 
 do_mk_relup(TopRelFile, BaseUpRelDcs, BaseDnRelDcs, Path, Opts) ->
-    ModTest = false,
-    case systools_make:get_release(to_list(TopRelFile), Path, ModTest) of
+    case systools_make:get_release(to_list(TopRelFile), Path) of
 	%%
 	%% TopRel = #release
 	%% NameVsnApps = [{{Name, Vsn}, #application}]
@@ -246,9 +245,8 @@ foreach_baserel_up(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
     {RUs4, Ws4} = 
 	check_for_emulator_restart(TopRel, BaseRel, RUs3, Ws3, Opts),
 
-    ModTest = false,
     BaseApps =
-	case systools_make:get_release(BaseRelFile, Path, ModTest) of
+	case systools_make:get_release(BaseRelFile, Path) of
 	    {ok, _, NameVsnApps, _Warns} ->
 		lists:map(fun({_,App}) -> App end, NameVsnApps);
 	    Other1 ->
@@ -283,9 +281,8 @@ foreach_baserel_dn(TopRel, TopApps, [BaseRelDc|BaseRelDcs], Path, Opts,
     %%
     {RUs1, Ws1} = collect_appup_scripts(dn, TopApps, BaseRel, Ws, []),
 
-    ModTest = false,
     {BaseApps, Ws2} =
-	case systools_make:get_release(BaseRelFile, Path, ModTest) of
+	case systools_make:get_release(BaseRelFile, Path) of
 	    %%
 	    %% NameVsnApps = [{{Name, Vsn}, #application}]
 	    {ok, _, NameVsnApps, Warns} ->

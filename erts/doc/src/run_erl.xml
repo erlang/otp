@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -144,6 +144,14 @@
       <item>The size (in bytes) of a log file before switching to a
        new log file. Default is 100000, minimum is 1000 and maximum is
        approximately 2^30.</item>
+      <tag>RUN_ERL_DISABLE_FLOWCNTRL</tag>
+      <item>If defined, disables input and output flow control for the pty opend by run_erl.
+       Useful if you want to remove any risk of accidentally blocking the flow control
+       by hit Ctrl-S (instead of Ctrl-D to detach).
+       Which may result in blocking of the entire beam process
+       and in the case of running heart as supervisor
+       even the heart process will be blocked when writing log message to terminal.
+       Leaving the heart process unable to do its work.</item>
     </taglist>
   </section>
 

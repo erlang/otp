@@ -1,0 +1,138 @@
+dnl Process this file with autoconf to produce a configure script.
+
+dnl %CopyrightBegin%
+dnl
+dnl Copyright Ericsson AB 1998-2011. All Rights Reserved.
+dnl
+dnl The contents of this file are subject to the Erlang Public License,
+dnl Version 1.1, (the "License"); you may not use this file except in
+dnl compliance with the License. You should have received a copy of the
+dnl Erlang Public License along with this software. If not, it can be
+dnl retrieved online at http://www.erlang.org/.
+dnl
+dnl Software distributed under the License is distributed on an "AS IS"
+dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+dnl the License for the specific language governing rights and limitations
+dnl under the License.
+dnl
+dnl %CopyrightEnd%
+
+if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
+    # We do not want to use a common cache!
+    cache_file=/dev/null
+fi
+
+AC_INIT(vsn.mk)
+
+dnl <STANDALONE DIAMETER>
+dnl This is needed for diameters own environment to rock,
+dnl but since we are now integrated into OTP, we skip it.
+dnl In order to build stand-alone we need atleast 2.63...
+dnl AC_PREREQ(2.63)
+dnl </STANDALONE DIAMETER>
+
+dnl LM_PRECIOUS_VARS
+
+
+dnl The OTP source tree is the default "top", 
+dnl but we can also define our own top: DIAMETER_TOP
+
+if test -n "$ERL_TOP" || test -d $ERL_TOP ; then
+  erl_top=${ERL_TOP}
+  AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
+  DIAMETER_TOP=${ERL_TOP}/lib/diameter
+else
+  AC_ARG_VAR(DIAMETER_TOP, [Diameter top source directory])
+  if test -n "$DIAMETER_TOP" || test -d $DIAMETER_TOP ; then
+    AC_CONFIG_AUX_DIRS(autoconf)
+  fi
+
+  dnl <STANDALONE DIAMETER>
+  dnl AC_ERLANG_SUBST_ROOT_DIR
+  dnl AC_ERLANG_SUBST_LIB_DIR
+  dnl AC_ERLANG_CHECK_LIB([erl_docgen],
+  dnl            [echo "erl_docgen version \"$ERLANG_LIB_VER_erl_docgen\""
+  dnl             echo "is installed in \"$ERLANG_LIB_DIR_erl_docgen\""], 
+  dnl            [AC_MSG_ERROR([erl_docgen was not found!])])
+  dnl AC_ERLANG_CHECK_LIB([test_server],
+  dnl            [echo "test_server version \"$ERLANG_LIB_VER_test_server\""
+  dnl             echo "is installed in \"$ERLANG_LIB_DIR_test_server\""], 
+  dnl            [AC_MSG_ERROR([test_server was not found!])])
+  dnl </STANDALONE DIAMETER>
+
+fi
+
+AC_SUBST(DIAMETER_TOP)
+export DIAMETER_TOP
+
+if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
+  AC_CANONICAL_HOST
+fi
+
+TARGET=$host
+AC_SUBST(TARGET)
+
+if test "x$erl_top" = "x"; then
+  dnl STANDALONE DIAMETER
+  AC_CHECK_PROGS(XSLTPROC, xsltproc)
+  if test -z "$XSLTPROC"; then
+    echo "xsltproc" >> doc/CONF_INFO
+    AC_MSG_WARN([No 'xsltproc' command found: the documentation can not be built])
+  fi
+
+  AC_CHECK_PROGS(FOP, fop)
+  if test -z "$FOP"; then
+    AC_MSG_ERROR([No 'fop' command found: the documentation can not be built])
+  fi
+fi
+
+dnl
+dnl We can live with Solaris /usr/ucb/install
+dnl
+case $host in
+  *-*-solaris*|free_source)
+    if test -x /usr/ucb/install; then
+      INSTALL="/usr/ucb/install -c"
+    fi
+    ;;
+  *)
+    ;;
+esac
+AC_PROG_INSTALL
+LM_PROG_INSTALL_DIR
+
+case $host_os in
+        darwin*)
+                dnl Need to preserve modification time on archives;
+                dnl otherwise, ranlib has to be run on archives
+                dnl again after installation.
+                INSTALL_DATA="$INSTALL_DATA -p";;
+        *)
+                ;;
+esac
+
+dnl
+dnl Fix for Tilera install permissions
+dnl
+
+case $build in
+        *tile*)
+                INSTALL_PROGRAM="$INSTALL_PROGRAM -m755"
+                INSTALL_SCRIPT="$INSTALL_SCRIPT -m755"
+                ;;
+        *)
+                ;;
+esac
+
+
+dnl <STANDALONE DIAMETER>
+dnl AC_ERLANG_NEED_ERL([$PATH])
+dnl AC_ERLANG_NEED_ERLC([$PATH])
+dnl </STANDALONE DIAMETER>
+
+AC_OUTPUT(
+	Makefile:Makefile.in
+	src/app/diameter.mk:src/app/diameter.mk.in
+	make/$host/rules.mk:make/rules.mk.in
+	)
+

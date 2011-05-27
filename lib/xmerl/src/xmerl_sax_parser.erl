@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -263,11 +263,11 @@ detect_charset_1(<<16#3C, 16#3F, 16#78, 16#6D, 16#6C, Xml2/binary>> = Xml, State
 			    {Xml, State#xmerl_sax_parser_state{encoding=Enc}}
 		    end;
 		_ ->
-		    {Xml, State#xmerl_sax_parser_state{encoding=utf8}}
+		    {Xml, State}
 	    end
     end;
 detect_charset_1(Xml, State) ->
-    {Xml, State#xmerl_sax_parser_state{encoding=utf8}}.
+    {Xml, State}.
 
 %%----------------------------------------------------------------------
 %% Function: convert_encoding(Enc)
@@ -278,6 +278,7 @@ detect_charset_1(Xml, State) ->
 convert_encoding(Enc) -> %% Just for 7,8 bit + utf8
     case string:to_lower(Enc) of
 	"utf-8" -> utf8;
+	"us-ascii" -> utf8;
 	"iso-8859-1" -> latin1; % Handle all iso-8859 as latin1
 	"iso-8859-2" -> latin1;
 	"iso-8859-3" -> latin1;

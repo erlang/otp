@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the Webtool
     application.</p>
 
+<section><title>WebTool 0.8.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Various small documentation fixes (Thanks to Bernard
+	    Duggan)</p>
+          <p>
+	    Own Id: OTP-9172</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>WebTool 0.8.7</title>
 
     <section><title>Improvements and New Features</title>

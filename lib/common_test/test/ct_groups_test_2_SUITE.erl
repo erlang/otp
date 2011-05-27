@@ -59,7 +59,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [missing_conf, repeat_1].
+    [missing_conf, repeat_1, empty_group].
 
 groups() -> 
     [].
@@ -83,13 +83,14 @@ missing_conf(Config) when is_list(Config) ->
 
     Suite = filename:join(DataDir, "groups_1/missing_conf_SUITE"),
 
-    {Opts,ERPid} = setup({suite,Suite}, Config),
+    {Opts,ERPid} = setup([{suite,Suite}], Config),
     ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(missing_conf_SUITE, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(missing_conf),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
@@ -102,15 +103,38 @@ repeat_1(Config) when is_list(Config) ->
 
     Suite = filename:join(DataDir, "groups_1/repeat_1_SUITE"),
 
-    {Opts,ERPid} = setup({suite,Suite}, Config),
+    {Opts,ERPid} = setup([{suite,Suite}], Config),
     ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(repeat_1,
 			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
+			       ?config(priv_dir, Config),
+			       Opts),
 
     TestEvents = events_to_check(repeat_1),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+empty_group(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    Suite = filename:join(DataDir, "groups_2/groups_22_SUITE"),
+
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {group,[test_group_8,test_group_9,test_group_10]}],
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(empty_group,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(empty_group),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -121,7 +145,7 @@ setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
-    Opts = Opts0 ++ [Test,{event_handler,{?eh,EvHArgs}}],
+    Opts = Opts0 ++ [{event_handler,{?eh,EvHArgs}} | Test],
     ERPid = ct_test_support:start_event_receiver(Config),
     {Opts,ERPid}.
 
@@ -254,6 +278,29 @@ test_events(repeat_1) ->
 	ok}}],
      {?eh,tc_start,{repeat_1_SUITE,end_per_suite}},
      {?eh,tc_done,{repeat_1_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(empty_group) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,1}},
+     {?eh,tc_start,{groups_22_SUITE,init_per_suite}},
+     {?eh,tc_done,{groups_22_SUITE,init_per_suite,ok}},
+     [{?eh,tc_start,
+       {groups_22_SUITE,{init_per_group,test_group_8,[]}}},
+      {?eh,tc_done,
+       {groups_22_SUITE,{init_per_group,test_group_8,[]},ok}},
+      {?eh,tc_start,{groups_22_SUITE,testcase_8}},
+      {?eh,tc_done,{groups_22_SUITE,testcase_8,ok}},
+      {?eh,test_stats,{1,0,{0,0}}},
+      {?eh,tc_start,
+       {groups_22_SUITE,{end_per_group,test_group_8,[]}}},
+      {?eh,tc_done,
+       {groups_22_SUITE,{end_per_group,test_group_8,[]},ok}}],
+     {?eh,tc_start,{groups_22_SUITE,end_per_suite}},
+     {?eh,tc_done,{groups_22_SUITE,end_per_suite,init}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

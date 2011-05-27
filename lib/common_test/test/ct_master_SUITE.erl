@@ -119,8 +119,9 @@ ct_master_test(Config) when is_list(Config)->
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(groups_suite_1, 
-			       reformat(Events, ?eh), 
-			       ?config(priv_dir, Config)),
+			       reformat(Events, ?eh),
+			       PrivDir, []),
+
     find_events(NodeNames, [{tc_start,{master_SUITE,init_per_suite}},
 			    {tc_start,{master_SUITE,first_testcase}},
 			    {tc_start,{master_SUITE,second_testcase}},
@@ -174,7 +175,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 
     ct_test_support:write_testspec(N++Include++EH++C++S++LD++NS, FileName).
 
-get_log_dir({win32,_},PrivDir, NodeName)->
+get_log_dir({win32,_}, _PrivDir, NodeName)->
     case filelib:is_dir(?TEMP_DIR) of
 	false ->
 	    file:make_dir(?TEMP_DIR);

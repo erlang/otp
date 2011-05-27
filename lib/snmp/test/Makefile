@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -145,9 +145,12 @@ endif
 # ----------------------------------------------------
 EBIN = .
 
-ERL_COMPILE_FLAGS += -I../src \
+ERL_COMPILE_FLAGS += -I../../snmp/src/app \
+                     -I../../snmp/src/misc \
+                     -I../../snmp/src/agent \
+                     -I../../snmp/src/manager \
                      -I$(ERL_TOP)/lib/test_server/include \
-                     -I../include \
+                     -I../../snmp/include \
                      -Dsnmp_test_data=snmp_test_data \
                      -Dversion=\"$(VSN)$(PRE_VSN)\" \
                      +'{parse_transform,sys_pre_attributes}' \
@@ -227,7 +230,7 @@ release_spec:
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(RELTEST_FILES) $(COVER_SPEC_FILE) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	tar cf - snmp_test_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

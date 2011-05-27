@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,9 @@
 %%---------------------------------------------------------------------------
 
 %%  Erlang builtin functions allowed in guards.
--spec guard_bif(Name::atom(), Arity::arity()) -> boolean().
+-spec guard_bif(Name, Arity) -> boolean() when
+      Name :: atom(),
+      Arity :: arity().
 
 guard_bif(abs, 1) -> true;
 guard_bif(float, 1) -> true;
@@ -92,7 +94,9 @@ guard_bif(binary_part, 3) -> true;
 guard_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 %%  Erlang type tests.
--spec type_test(Name::atom(), Arity::arity()) -> boolean().
+-spec type_test(Name, Arity) -> boolean() when
+      Name :: atom(),
+      Arity :: arity().
 
 type_test(Name, Arity) ->
     new_type_test(Name, Arity) orelse old_type_test(Name, Arity).
@@ -135,7 +139,9 @@ old_type_test(record, 2) -> true;
 old_type_test(function, 1) -> true;
 old_type_test(Name, A) when is_atom(Name), is_integer(A) -> false.
 
--spec arith_op(Op::atom(), Arity::arity()) -> boolean().
+-spec arith_op(OpName, Arity) -> boolean() when
+      OpName :: atom(),
+      Arity :: arity().
 
 arith_op('+', 1) -> true;
 arith_op('-', 1) -> true;
@@ -153,7 +159,9 @@ arith_op('bsl', 2) -> true;
 arith_op('bsr', 2) -> true;
 arith_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
--spec bool_op(Op::atom(), Arity::arity()) -> boolean().
+-spec bool_op(OpName, Arity) -> boolean() when
+      OpName :: atom(),
+      Arity :: arity().
 
 bool_op('not', 1) -> true;
 bool_op('and', 2) -> true;
@@ -161,7 +169,9 @@ bool_op('or', 2) -> true;
 bool_op('xor', 2) -> true;
 bool_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
--spec comp_op(Op::atom(), Arity::arity()) -> boolean().
+-spec comp_op(OpName, Arity) -> boolean() when
+      OpName :: atom(),
+      Arity :: arity().
 
 comp_op('==', 2) -> true;
 comp_op('/=', 2) -> true;
@@ -173,18 +183,25 @@ comp_op('=:=', 2) -> true;
 comp_op('=/=', 2) -> true;
 comp_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
--spec list_op(Op::atom(), Arity::arity()) -> boolean().
+-spec list_op(OpName, Arity) -> boolean() when
+      OpName :: atom(),
+      Arity :: arity().
 
 list_op('++', 2) -> true;
 list_op('--', 2) -> true;
 list_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
--spec send_op(Op::atom(), Arity::arity()) -> boolean().
+-spec send_op(OpName, Arity) -> boolean() when
+      OpName :: atom(),
+      Arity :: arity().
 
 send_op('!', 2) -> true;
 send_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 
--spec op_type(atom(), arity()) -> 'arith' | 'bool' | 'comp' | 'list' | 'send'.
+-spec op_type(OpName, Arity) -> Type when
+      OpName :: atom(),
+      Arity :: arity(),
+      Type :: 'arith' | 'bool' | 'comp' | 'list' | 'send'.
 
 op_type('+', 1) -> arith;
 op_type('-', 1) -> arith;
@@ -221,7 +238,9 @@ op_type('!', 2) -> send.
 bif(erlang, Name, Arity) -> bif(Name, Arity);
 bif(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> false.
 
--spec bif(Name::atom(), Arity::arity()) -> boolean().
+-spec bif(Name, Arity) -> boolean() when
+      Name :: atom(),
+      Arity::arity().
 %%   Returns true if erlang:Name/Arity is an auto-imported BIF, false otherwise.
 %%   Use erlang:is_bultin(Mod, Name, Arity) to find whether a function is a BIF
 %%   (meaning implemented in C) or not.

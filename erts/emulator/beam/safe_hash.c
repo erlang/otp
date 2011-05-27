@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -99,7 +99,7 @@ static void rehash(SafeHash* h, int grow_limit)
 	erts_free(h->type, (void *) old_tab);
     }
     /*else already done */
-    erts_smp_atomic_set(&h->is_rehashing, 0);
+    erts_smp_atomic_set_relb(&h->is_rehashing, 0);
 }
 
 

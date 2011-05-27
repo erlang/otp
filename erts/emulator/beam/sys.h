@@ -538,8 +538,8 @@ typedef struct preload {
  */
 
 typedef struct _SysDriverOpts {
-    int ifd;			/* Input file descriptor (fd driver). */
-    int ofd;			/* Outputfile descriptor (fd driver). */
+    Uint ifd;			/* Input file descriptor (fd driver). */
+    Uint ofd;			/* Outputfile descriptor (fd driver). */
     int packet_bytes;		/* Number of bytes in packet header. */
     int read_write;		/* Read and write bits. */
     int use_stdio;		/* Use standard I/O: TRUE or FALSE. */

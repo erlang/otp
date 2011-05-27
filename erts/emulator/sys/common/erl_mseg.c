@@ -134,7 +134,16 @@ static int mmap_fd;
 #define CAN_PARTLY_DESTROY 0
 #endif
 
-static const ErtsMsegOpt_t default_opt = ERTS_MSEG_DEFAULT_OPT_INITIALIZER;
+const ErtsMsegOpt_t erts_mseg_default_opt = {
+    1,			/* Use cache		     */
+    1,			/* Preserv data		     */
+    0,			/* Absolute shrink threshold */
+    0			/* Relative shrink threshold */
+#if HALFWORD_HEAP
+    ,0                  /* need low memory */
+#endif
+};
+
 
 typedef struct cache_desc_t_ {
     void *seg;
@@ -605,18 +614,10 @@ mseg_clear_cache(MemKind* mk)
     INC_CC(clear_cache);
 }
 
-static ERTS_INLINE MemKind* type2mk(ErtsAlcType_t atype)
+static ERTS_INLINE MemKind* memkind(const ErtsMsegOpt_t *opt)
 {
 #if HALFWORD_HEAP
-    switch (atype) {
-    case ERTS_ALC_A_ETS:
-    case ERTS_ALC_A_BINARY:
-    case ERTS_ALC_A_FIXED_SIZE:
-    case ERTS_ALC_A_DRIVER:
-	return &hi_mem;
-    default:
-	return &low_mem;
-    }
+    return opt->low_mem ? &low_mem : &hi_mem;
 #else
     return &the_mem;
 #endif
@@ -628,7 +629,7 @@ mseg_alloc(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
     Uint max, min, diff_size, size;
     cache_desc_t *cd, *cand_cd;
     void *seg;
-    MemKind* mk = type2mk(atype);
+    MemKind* mk = memkind(opt);
 
     INC_CC(alloc);
 
@@ -742,7 +743,7 @@ static void
 mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size,
 	     const ErtsMsegOpt_t *opt)
 {
-    MemKind* mk = type2mk(atype);
+    MemKind* mk = memkind(opt);
     cache_desc_t *cd;
 
     ERTS_MSEG_DEALLOC_STAT(mk,size);
@@ -800,7 +801,7 @@ static void *
 mseg_realloc(ErtsAlcType_t atype, void *seg, Uint old_size, Uint *new_size_p,
 	     const ErtsMsegOpt_t *opt)
 {
-    MemKind* mk = type2mk(atype);
+    MemKind* mk = memkind(opt);
     void *new_seg;
     Uint new_size;
 
@@ -1092,10 +1093,10 @@ info_options(char *prefix,
     if (print_to_p) {
 	int to = *print_to_p;
 	void *arg = print_to_arg;
-	erts_print(to, arg, "%samcbf: %bpu\n", prefix, abs_max_cache_bad_fit);
-	erts_print(to, arg, "%srmcbf: %bpu\n", prefix, rel_max_cache_bad_fit);
-	erts_print(to, arg, "%smcs: %bpu\n", prefix, max_cache_size);
-	erts_print(to, arg, "%scci: %bpu\n", prefix, cache_check_interval);
+	erts_print(to, arg, "%samcbf: %beu\n", prefix, abs_max_cache_bad_fit);
+	erts_print(to, arg, "%srmcbf: %beu\n", prefix, rel_max_cache_bad_fit);
+	erts_print(to, arg, "%smcs: %beu\n", prefix, max_cache_size);
+	erts_print(to, arg, "%scci: %beu\n", prefix, cache_check_interval);
     }
 
     if (hpp || szp) {
@@ -1131,9 +1132,9 @@ info_calls(int *print_to_p, void *print_to_arg, Uint **hpp, Uint *szp)
 
 #define PRINT_CC(TO, TOA, CC)						\
     if (calls.CC.giga_no == 0)						\
-	erts_print(TO, TOA, "mseg_%s calls: %bpu\n", #CC, calls.CC.no);	\
+	erts_print(TO, TOA, "mseg_%s calls: %b32u\n", #CC, calls.CC.no);	\
     else								\
-	erts_print(TO, TOA, "mseg_%s calls: %bpu%09bpu\n", #CC,		\
+	erts_print(TO, TOA, "mseg_%s calls: %b32u%09b32u\n", #CC,		\
 		   calls.CC.giga_no, calls.CC.no)
 
 	int to = *print_to_p;
@@ -1215,13 +1216,13 @@ info_status(MemKind* mk, int *print_to_p, void *print_to_arg,
 	int to = *print_to_p;
 	void *arg = print_to_arg;
 
-	erts_print(to, arg, "cached_segments: %bpu\n", mk->cache_size);
-	erts_print(to, arg, "cache_hits: %bpu\n", mk->cache_hits);
-	erts_print(to, arg, "segments: %bpu %bpu %bpu\n",
+	erts_print(to, arg, "cached_segments: %beu\n", mk->cache_size);
+	erts_print(to, arg, "cache_hits: %beu\n", mk->cache_hits);
+	erts_print(to, arg, "segments: %beu %beu %beu\n",
 		   mk->segments.current.no, mk->segments.max.no, mk->segments.max_ever.no);
-	erts_print(to, arg, "segments_size: %bpu %bpu %bpu\n",
+	erts_print(to, arg, "segments_size: %beu %beu %beu\n",
 		   mk->segments.current.sz, mk->segments.max.sz, mk->segments.max_ever.sz);
-	erts_print(to, arg, "segments_watermark: %bpu\n",
+	erts_print(to, arg, "segments_watermark: %beu\n",
 		   mk->segments.current.watermark);
     }
 
@@ -1372,7 +1373,7 @@ erts_mseg_alloc_opt(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
 void *
 erts_mseg_alloc(ErtsAlcType_t atype, Uint *size_p)
 {
-    return erts_mseg_alloc_opt(atype, size_p, &default_opt);
+    return erts_mseg_alloc_opt(atype, size_p, &erts_mseg_default_opt);
 }
 
 void
@@ -1387,7 +1388,7 @@ erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg, Uint size,
 void
 erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size)
 {
-    erts_mseg_dealloc_opt(atype, seg, size, &default_opt);
+    erts_mseg_dealloc_opt(atype, seg, size, &erts_mseg_default_opt);
 }
 
 void *
@@ -1405,7 +1406,7 @@ void *
 erts_mseg_realloc(ErtsAlcType_t atype, void *seg, Uint old_size,
 		  Uint *new_size_p)
 {
-    return erts_mseg_realloc_opt(atype, seg, old_size, new_size_p, &default_opt);
+    return erts_mseg_realloc_opt(atype, seg, old_size, new_size_p, &erts_mseg_default_opt);
 }
 
 void
@@ -1507,7 +1508,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
     while ((page_size >> page_shift) != 1) {
 	if ((page_size & (1 << (page_shift - 1))) != 0)
 	    erl_exit(ERTS_ABORT_EXIT,
-		     "erts_mseg: Unexpected page_size %bpu\n", page_size);
+		     "erts_mseg: Unexpected page_size %beu\n", page_size);
 	page_shift++;
     }
 

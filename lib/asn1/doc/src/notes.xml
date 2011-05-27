@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,6 +30,30 @@
   </header>
   <p>This document describes the changes made to the asn1 application.</p>
 
+
+<section><title>Asn1 1.6.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Test cases which started failing when timer:tc was
+	    changed to not catch are corrected.</p>
+          <p>
+	    Own Id: OTP-9286</p>
+        </item>
+        <item>
+          <p>
+	    The bounds checking in the asn1_erl_driver when the
+	    length value of a TLV is a Long Definite Length is
+	    corrected. Thanks to Vance Shipley.</p>
+          <p>
+	    Own Id: OTP-9303</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Asn1 1.6.16</title>
 

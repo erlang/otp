@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE article
+      PUBLIC "-//OASIS//DTD Simplified DocBook XML V1.0//EN"
+      "http://www.oasis-open.org/docbook/xml/simple/1.0/sdocbook.dtd">
+
+<article  lang="en" xml:lang="en" >
+  <articleinfo>
+    <title>XSLT like transformations in Erlang </title>
+    <subtitle>User Guide</subtitle>
+    <authorgroup>
+      <author>
+	<firstname>Mikael</firstname>
+	<surname>Karlsson</surname>
+      </author>
+    </authorgroup>
+    <revhistory>
+      <revision>
+      <revnumber>1.0</revnumber><date>2002-10-25</date>
+      <revremark>First Draft</revremark>
+      </revision>
+      <revision>
+      <revnumber>1.1</revnumber><date>2003-02-05</date>
+      <revremark>Moved module xserl to xmerl application, renamed to 
+	  xmerl_xs</revremark>
+      </revision>
+    </revhistory>
+    <abstract>
+      <para>Erlang has similarities to XSLT since both languages
+	have a functional programming approach. Using the xpath implementation
+	in the existing xmerl application it is possible to write XSLT
+	like transforms in Erlang. One can also combine the
+	transformations with the erlang scripting possibility
+	in the yaws webserver to implement "on the fly" html
+	conversions of xml documents. 
+      </para>
+    </abstract>
+  </articleinfo>
+
+
+  <section>
+    <title>Terminology</title>
+    <variablelist>
+      <varlistentry>
+	<term>XML</term>
+	<listitem>
+	  <para>Extensible Markup Language</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>XSLT</term>
+	<listitem>
+	  <para>Extensible Stylesheet Language: Transformations</para>
+	</listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section>
+    <title>Introduction</title>
+    <para>XSLT stylesheets are often used when transforming XML
+      documents, to other XML documents or (X)HTML for presentation.
+      There are a number of brick-sized books written on the
+      topic. XSLT contains quite many
+      functions and learning them all may take some effort, which
+      could be a reason why the author only has reached a basic level of
+      understanding. This document assumes a basic level of
+      understanding of XSLT.
+    </para>
+    <para>Since XSLT is based on a functional programming approach
+      with pattern matching and recursion it is possible to write
+      similar style sheets in Erlang. At least for basic
+      transforms. XPath which is used in XSLT is also already
+      implemented in the xmerl application written i Erlang. This
+      document describes how to use the XPath implementation together
+      with Erlangs pattern matching and a couple of functions to write
+      XSLT like transforms.</para>
+    <para>This approach is probably easier for an Erlanger but
+      if you need to use real XSLT stylesheets in order to "comply to
+      the standard" there is an adapter available to the Sablotron
+      XSLT package which is written i C++.
+    </para>
+    <para>
+      This document is written in the Simplified Docbook DTD which is
+      a subset of the complete one and converted to xhtml using a
+      stylesheet written in Erlang.
+    </para>
+  </section>
+
+  <section>
+    <title>Tools</title>
+    <section>
+      <title>xmerl</title>
+      <para><ulink url="http://sowap.sourceforge.net/" >xmerl</ulink>
+      is a xml parser written in Erlang</para>
+      <section>
+	<title>xmerl_xpath</title>
+	<para>XPath is in important part of XSLT and is implemented in
+	xmerl</para>
+      </section>
+      <section>
+	<title>xmerl_xs</title>
+	<para>
+	  <ulink url="xmerl_xs.yaws" >xmerl_xs</ulink> is a very small
+	  module acting as "syntactic sugar" for the XSLT lookalike 
+	  transforms. It uses xmerl_xpath.
+	</para>
+      </section>
+    </section>
+
+    <section>
+      <title>yaws</title>
+      <para>
+	<ulink url="http://yaws.hyber.org/" >Yaws</ulink>, Yet Another
+	Webserver, is a web server written in Erlang that support dynamic
+	content generation using embedded scripts, also written in Erlang.
+      </para>
+<!--
+      <figure>
+	<title>The Yaws logo</title>
+	<mediaobject>
+	  <imageobject>
+	    <imagedata fileref="yaws_pb.gif" format="GIF" scale="50%"/>
+	  </imageobject>
+	</mediaobject>
+      </figure>
+-->
+      <para>Yaws is not needed to make the XSLT like transformations, but
+	combining yaws and xmerl it is possible to do transformations
+	of XML documents to HTML in realtime, when clients requests a
+	web page. As an example I am able to edit this document using 
+	emacs with psgml tools, save the document and just do a reload
+	in my browser to see the result. The parse/transform time is not
+	visually different compared to loading any other document in the
+	browser.
+      </para>
+    </section>
+    
+  </section>
+  
+  <section>
+    <title>Transformations</title>
+<para>
+ When xmerl_scan parses an xml string/file it returns a record of:
+</para>
+ <programlisting>
+<![CDATA[ 
+  -record(xmlElement, {
+      name,
+      parents = [],
+      pos,
+      attributes = [],
+      content = [],
+      language = [],
+      expanded_name = [],
+      nsinfo = [],% {Prefix, Local} | []
+      namespace = #xmlNamespace{}
+     }).
+ ]]> 
+</programlisting>
+<para>
+ Were content is a mixed list of yet other xmlElement records and/or
+ xmlText  (or other node types).
+</para>
+    <section>
+      <title>xmerl_xs functions</title>
+      <para>
+	Functions used:
+      </para>
+      <variablelist>
+	<varlistentry>
+	  <term>xslapply/2</term>
+	  <listitem>
+	    <para>function to make things look similar 
+	      to xsl:apply-templates. 
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term>value_of/1</term>
+	  <listitem>
+	    <para>Conatenates all text nodes within a tree.</para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term>select/2</term>
+	  <listitem>
+	    <para>select(Str, E) extracts nodes from the XML tree using
+	      xmerl_xpath.
+	    </para>
+	  </listitem>
+	</varlistentry>
+	<varlistentry>
+	  <term>built_in_rules/2</term>
+	  <listitem>
+	    <para>The default fallback behaviour, template funs should
+	      end with:
+	      <computeroutput>template(E)->built_in_rules(fun
+	      template/1, E).
+</computeroutput>
+	    </para>
+	  </listitem>
+	</varlistentry>
+      </variablelist>
+<note><para>Text is escaped using xmerl_lib:export_text/1 for 
+	"&lt;", "&gt;" and other relevant xml
+	characters when exported. So the value_of/1 and built_in_rules/2
+	functions should be replaced when not exporting to xml or html.
+</para></note>
+    </section>
+    
+
+<section><title>Examples</title>
+      <example>
+	<title>Using xslapply</title>
+	<para>original XSLT:</para>
+	<programlisting>
+<![CDATA[
+  <xsl:template match="doc/title">
+      <h1>
+        <xsl:apply-templates/>
+      </h1>
+  </xsl:template>
+ ]]> 
+	    </programlisting>
+	    <para>
+	      becomes in Erlang:</para>
+	    <programlisting>
+<![CDATA[
+  template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
+      ["<h1>",
+           xslapply(fun template/1, E),
+       "</h1>"];
+ ]]> 
+	    </programlisting>
+
+      </example>
+      <example>
+	<title>Using value_of and select</title>
+	<programlisting>
+<![CDATA[
+  <xsl:template match="title">
+    <div align="center"><h1><xsl:value-of select="." /></h1></div>
+  </xsl:template>
+ ]]> 
+	</programlisting>
+	<para>
+	  becomes:
+	</para>
+	<programlisting>
+<![CDATA[
+template(E = #xmlElement{name='title'}) ->
+    ["<div align=\"center\"><h1>", value_of(select(".", E)), "</h1></div>"];
+ ]]> 
+	    </programlisting>
+      </example>
+    <example>
+      <title>Simple xsl stylesheet</title>
+<para>
+ A complete example with the XSLT sheet in the xmerl distribution. 
+</para>
+ <programlisting>
+<![CDATA[
+
+<xsl:stylesheet version="1.0"
+		xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+		xmlns="http://www.w3.org/TR/xhtml1/strict">
+
+  <xsl:strip-space elements="doc chapter section"/>
+  <xsl:output
+	method="xml"
+	indent="yes"
+	encoding="iso-8859-1"
+  />
+
+  <xsl:template match="doc">
+    <html>
+      <head>
+        <title>
+          <xsl:value-of select="title"/>
+        </title>
+      </head>
+      <body>
+        <xsl:apply-templates/>
+      </body>
+    </html>
+  </xsl:template>
+
+  <xsl:template match="doc/title">
+    <h1>
+      <xsl:apply-templates/>
+    </h1>
+  </xsl:template>
+
+  <xsl:template match="chapter/title">
+    <h2>
+      <xsl:apply-templates/>
+    </h2>
+  </xsl:template>
+
+  <xsl:template match="section/title">
+    <h3>
+      <xsl:apply-templates/>
+    </h3>
+  </xsl:template>
+
+  <xsl:template match="para">
+    <p>
+      <xsl:apply-templates/>
+    </p>
+  </xsl:template>
+
+  <xsl:template match="note">
+    <p class="note">
+      <b>NOTE: </b>
+      <xsl:apply-templates/>
+    </p>
+  </xsl:template>
+
+  <xsl:template match="emph">
+    <em>
+      <xsl:apply-templates/>
+    </em>
+  </xsl:template>
+
+</xsl:stylesheet>
+ ]]>
+      </programlisting>
+    </example>
+    <example>
+      <title>Erlang version</title>
+      <para>
+	Erlang transformation of previous example:
+      </para>
+      <programlisting>
+<![CDATA[
+
+-include("xmerl.hrl").
+
+-import(xmerl_xs, 
+	[ xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
+
+doctype()->
+    "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\
+ \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd \">".
+
+process_xml(Doc)->
+	template(Doc).
+
+template(E = #xmlElement{name='doc'})->
+    [ "<\?xml version=\"1.0\" encoding=\"iso-8859-1\"\?>",
+      doctype(),
+      "<html xmlns=\"http://www.w3.org/1999/xhtml\" >"
+      "<head>"
+      "<title>", value_of(select("title",E)), "</title>"
+      "</head>"
+      "<body>",
+      xslapply( fun template/1, E),
+      "</body>"
+      "</html>" ];
+
+
+template(E = #xmlElement{ parents=[{'doc',_}|_], name='title'}) ->
+    ["<h1>", 
+     xslapply( fun template/1, E), 
+     "</h1>"];
+
+template(E = #xmlElement{ parents=[{'chapter',_}|_], name='title'}) ->
+    ["<h2>", 
+     xslapply( fun template/1, E),
+     "</h2>"];
+
+template(E = #xmlElement{ parents=[{'section',_}|_], name='title'}) ->
+    ["<h3>", 
+     xslapply( fun template/1, E),
+     "</h3>"];
+
+template(E = #xmlElement{ name='para'}) ->
+    ["<p>", xslapply( fun template/1, E), "</p>"];
+
+template(E = #xmlElement{ name='note'}) ->
+    ["<p class=\"note\">"
+     "<b>NOTE: </b>",
+     xslapply( fun template/1, E),
+     "</p>"];
+
+template(E = #xmlElement{ name='emph'}) ->
+    ["<em>", xslapply( fun template/1, E), "</em>"];
+
+template(E)->
+    built_in_rules( fun template/1, E).
+ ]]>
+      </programlisting>
+      <para>
+	It is important to end with a call to
+	<computeroutput>xmerl_xs:built_in_rules/2</computeroutput>
+	if you want any text to be written in "push" transforms. 
+	That are the ones using a lot <computeroutput>xslapply( fun
+	template/1, E )</computeroutput> instead of
+	<computeroutput>value_of(select("xpath",E))</computeroutput>,
+	which is pull...
+      </para>
+    </example>
+<para>The largest example is the stylesheet to transform this document
+	from the Simplified Docbook XML format to xhtml. The source
+	file is <computeroutput>sdocbook2xhtml.erl</computeroutput>.
+</para>
+</section>
+  <section>
+    <title>Tips and tricks</title>
+      <section>
+	<title>for-each</title>
+	<para>The function for-each is quite common in XSLT stylesheets.
+	  It can often be rewritten and replaced by select/1. Since
+	select/1 returns a list of #xmlElements and xslapply/2
+	traverses them it is more or less the same as to loop over all
+	the elements. 
+	</para>
+      </section>
+      <section>
+	<title>position()</title>
+	<para>The XSLT position() and #xmlElement.pos are not the
+	same. One has to make an own position in Erlang.</para>
+	<example>
+	  <title>Counting positions</title>
+	  <programlisting>
+<![CDATA[
+<xsl:template match="stanza">
+  <p><xsl:apply-templates select="line" /></p>
+</xsl:template>
+
+<xsl:template match="line">
+  <xsl:if test="position() mod 2 = 0">&#160;&#160;</xsl:if>
+  <xsl:value-of select="." /><br />
+</xsl:template>
+ ]]>
+	  </programlisting>
+<para>Can be written as</para>
+	  <programlisting>
+<![CDATA[
+template(E = #xmlElement{name='stanza'}) ->
+    {Lines,LineNo} = lists:mapfoldl(fun template_pos/2, 1, select("line", E)),
+    ["<p>", Lines, "</p>"].
+
+template_pos(E = #xmlElement{name='line'}, P) ->
+    {[indent_line(P rem 2), value_of(E#xmlElement.content), "<br />"], P + 1 }.
+
+indent_line(0)->"&#160;&#160;";
+indent_line(_)->"".
+ ]]>
+	  </programlisting>
+	</example>
+      </section>
+      <section>
+	<title>Global tree awareness</title>
+	<para>In XSLT you have "root" access to the top of the tree
+	with XPath, even though you are somewhere deep in your
+	tree.</para>
+	<para>The xslapply/2 function only carries back the child part
+	  of the tree to the template fun. But it is quite easy to write
+	  template funs that handles both the child and top tree.</para>
+	<example>
+	  <title>Passing the root tree</title>
+	  <para>The following example piece will prepend the article 
+	    title to any section title</para>
+	  <programlisting>
+<![CDATA[
+template(E = #xmlElement{name='title'}, ETop ) ->
+    ["<h3>", value_of(select("title", ETop))," - ",
+     xslapply( fun(A) -> template(A, ETop) end, E),
+     "</h3>"];
+ ]]>
+	  </programlisting>
+	</example>
+      </section>
+    </section>
+
+  </section>
+  
+
+  <section>
+    <title>Utility functions</title>
+    <para>
+      The module xmerl_xs contains the functions 
+      <computeroutput>mapxml/2, foldxml/3</computeroutput> and 
+      <computeroutput> mapfoldxml/3</computeroutput> to traverse 
+      <literal>#xmlElement</literal> trees. They can be used in order
+      to build cross-references, see sdocbook2xhtml.erl for instance
+      where <computeroutput>foldxml/3</computeroutput> and
+      <computeroutput> mapfoldxml/3</computeroutput> are used to 
+      number chapters, examples and figures and to build the Table of
+      contents for the document.
+    </para>
+  </section>
+
+
+  <section>
+    <title>Future enhancements</title>
+    <para>
+      More wish- than task-list at the moment.
+    </para>
+    <itemizedlist>
+      <listitem>
+	<para>More stylesheets</para>
+      </listitem>
+      <listitem>
+	<para>On the fly exports to PDF for printing and also more 
+	  "polished" presentations.
+	</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section>
+    <title>References</title>
+    <orderedlist>
+      <listitem>
+	<para><ulink url="../xml/xmerl_xs.xml" >XML source
+	file</ulink> for this document.
+	</para>
+      </listitem>
+      <listitem>
+	<para><ulink url="../xs/sdocbook2xhtml.erl" >Erlang style
+	sheet</ulink> used for this document. (Simplified Docbook DTD).</para>
+      </listitem>
+      <listitem>
+	    <para><ulink url="http://www.erlang.org/" >Open Source Erlang</ulink>
+    </para>
+      </listitem>
+    </orderedlist>
+
+  </section>
+</article>
+
+<!-- 
+Local Variables:
+mode: xml
+sgml-indent-step: 2
+sgml-indent-data: t
+sgml-set-face: t
+sgml-insert-missing-element-comment: nil
+End:
+--> 

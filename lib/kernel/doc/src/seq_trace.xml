@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2009</year>
+      <year>1998</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -47,17 +47,22 @@
         from users.</p>
     </note>
   </description>
+  <datatypes>
+    <datatype>
+      <name name="token"/>
+      <desc>
+        <p>An opaque term (a tuple) representing a trace token.</p>
+      </desc>
+    </datatype>
+  </datatypes>
   <funcs>
     <func>
-      <name>set_token(Token) -> PreviousToken</name>
+      <name name="set_token" arity="1"/>
       <fsummary>Set the trace token</fsummary>
-      <type>
-        <v>Token = PreviousToken = term() | []</v>
-      </type>
       <desc>
-        <p>Sets the trace token for the calling process to <c>Token</c>.
-          If <c>Token == []</c> then tracing is disabled, otherwise
-          <c>Token</c> should be an Erlang term returned from
+        <p>Sets the trace token for the calling process to <c><anno>Token</anno></c>.
+          If <c><anno>Token</anno> == []</c> then tracing is disabled, otherwise
+          <c><anno>Token</anno></c> should be an Erlang term returned from
           <c>get_token/0</c> or <c>set_token/1</c>. <c>set_token/1</c>
           can be used to temporarily exclude message passing from
           the trace by setting the trace token to empty like this:</p>
@@ -72,18 +77,16 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name>set_token(Component, Val) -> {Component, OldVal}</name>
+      <name name="set_token" arity="2"/>
       <fsummary>Set a component of the trace token</fsummary>
-      <type>
-        <v>Component = label | serial | Flag</v>
-        <v>&nbsp;Flag = send | 'receive' | print | timestamp </v>
-        <v>Val = OldVal -- see below</v>
-      </type>
+      <type name="component"/>
+      <type name="flag"/>
+      <type name="value"/>
       <desc>
-        <p>Sets the individual <c>Component</c> of the trace token to
-          <c>Val</c>. Returns the previous value of the component.</p>
+        <p>Sets the individual <c><anno>Component</anno></c> of the trace token to
+          <c><anno>Val</anno></c>. Returns the previous value of the component.</p>
         <taglist>
-          <tag><c>set_token(label, Int)</c></tag>
+          <tag><c>set_token(label, <anno>Integer</anno>)</c></tag>
           <item>
             <p>The <c>label</c> component is an integer which
               identifies all events belonging to the same sequential
@@ -93,31 +96,31 @@ seq_trace:set_token(OldToken), % activate the trace token again
           </item>
           <tag><c>set_token(serial, SerialValue)</c></tag>
           <item>
-            <p><c>SerialValue = {Previous, Current}</c>.
+            <p><c>SerialValue = {<anno>Previous</anno>, <anno>Current</anno>}</c>.
               The <c>serial</c> component contains counters which
               enables the traced messages to be sorted, should never be
               set explicitly by the user as these counters are updated
               automatically. Default is <c>{0, 0}</c>.</p>
           </item>
-          <tag><c>set_token(send, Bool)</c></tag>
+          <tag><c>set_token(send, <anno>Bool</anno>)</c></tag>
           <item>
             <p>A trace token flag (<c>true | false</c>) which
               enables/disables tracing on message sending. Default is
               <c>false</c>.</p>
           </item>
-          <tag><c>set_token('receive', Bool)</c></tag>
+          <tag><c>set_token('receive', <anno>Bool</anno>)</c></tag>
           <item>
             <p>A trace token flag (<c>true | false</c>) which
               enables/disables tracing on message reception. Default is
               <c>false</c>.</p>
           </item>
-          <tag><c>set_token(print, Bool)</c></tag>
+          <tag><c>set_token(print, <anno>Bool</anno>)</c></tag>
           <item>
             <p>A trace token flag (<c>true | false</c>) which
               enables/disables tracing on explicit calls to
               <c>seq_trace:print/1</c>. Default is <c>false</c>.</p>
           </item>
-          <tag><c>set_token(timestamp, Bool)</c></tag>
+          <tag><c>set_token(timestamp, <anno>Bool</anno>)</c></tag>
           <item>
             <p>A trace token flag (<c>true | false</c>) which
               enables/disables a timestamp to be generated for each
@@ -127,11 +130,8 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name>get_token() -> TraceToken</name>
+      <name name="get_token" arity="0"/>
       <fsummary>Return the value of the trace token</fsummary>
-      <type>
-        <v>TraceToken = term() | []</v>
-      </type>
       <desc>
         <p>Returns the value of the trace token for the calling process.
           If <c>[]</c> is returned, it means that tracing is not active.
@@ -141,13 +141,11 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name>get_token(Component) -> {Component, Val}</name>
+      <name name="get_token" arity="1"/>
       <fsummary>Return the value of a trace token component</fsummary>
-      <type>
-        <v>Component = label | serial | Flag</v>
-        <v>&nbsp;Flag = send | 'receive' | print | timestamp </v>
-        <v>Val -- see set_token/2</v>
-      </type>
+      <type name="component"/>
+      <type name="flag"/>
+      <type name="value"/>
       <desc>
         <p>Returns the value of the trace token component
           <c>Component</c>. See
@@ -156,33 +154,26 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name>print(TraceInfo) -> void()</name>
+      <name name="print" arity="1"/>
       <fsummary>Put the Erlang term <c>TraceInfo</c>into the sequential trace output</fsummary>
-      <type>
-        <v>TraceInfo = term()</v>
-      </type>
       <desc>
-        <p>Puts the Erlang term <c>TraceInfo</c> into the sequential
+        <p>Puts the Erlang term <c><anno>TraceInfo</anno></c> into the sequential
           trace output if the calling process currently is executing
           within a sequential trace and the <c>print</c> flag of
           the trace token is set.</p>
       </desc>
     </func>
     <func>
-      <name>print(Label, TraceInfo) -> void()</name>
+      <name name="print" arity="2"/>
       <fsummary>Put the Erlang term <c>TraceInfo</c>into the sequential trace output</fsummary>
-      <type>
-        <v>Label = int()</v>
-        <v>TraceInfo = term()</v>
-      </type>
       <desc>
         <p>Same as <c>print/1</c> with the additional condition that
-          <c>TraceInfo</c> is output only if <c>Label</c> is equal to
+          <c><anno>TraceInfo</anno></c> is output only if <c>Label</c> is equal to
           the label component of the trace token.</p>
       </desc>
     </func>
     <func>
-      <name>reset_trace() -> void()</name>
+      <name name="reset_trace" arity="0"/>
       <fsummary>Stop all sequential tracing on the local node</fsummary>
       <desc>
         <p>Sets the trace token to empty for all processes on the
@@ -194,26 +185,22 @@ seq_trace:set_token(OldToken), % activate the trace token again
       </desc>
     </func>
     <func>
-      <name>set_system_tracer(Tracer) -> OldTracer</name>
+      <name name="set_system_tracer" arity="1"/>
       <fsummary>Set the system tracer</fsummary>
-      <type>
-        <v>Tracer = OldTracer = pid() | port() | false</v>
-      </type>
+      <type name="tracer"/>
       <desc>
         <p>Sets the system tracer. The system tracer can be either a
-          process or port denoted by <c>Tracer</c>. Returns the previous
+          process or port denoted by <c><anno>Tracer</anno></c>. Returns the previous
           value (which can be <c>false</c> if no system tracer is
           active).</p>
-        <p>Failure: <c>{badarg, Info}}</c> if <c>Pid</c> is not an
+        <p>Failure: <c>{badarg, Info}}</c> if <c><anno>Pid</anno></c> is not an
           existing local pid.</p>
       </desc>
     </func>
     <func>
-      <name>get_system_tracer() -> Tracer</name>
+      <name name="get_system_tracer" arity="0"/>
       <fsummary>Return the pid() or port() of the current system tracer.</fsummary>
-      <type>
-        <v>Tracer = pid() | port() | false</v>
-      </type>
+      <type name="tracer"/>
       <desc>
         <p>Returns the pid or port identifier of the current system
           tracer or <c>false</c> if no system tracer is activated.</p>

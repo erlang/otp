@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,187 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 1.17.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The default value <c>undefined</c> was added to
+	    records field types in such a way that the result was not
+	    always a well-formed type. This bug has been fixed. </p>
+          <p>
+	    Own Id: OTP-9147</p>
+        </item>
+        <item>
+          <p>
+	    Update index file atomically</p>
+          <p>
+	    Since the log_mf_h index file might be read by other
+	    processes than the error handler (e.g. by the rb tool),
+	    this file should be updated atomically. This will avoid
+	    hitting the time gap between opening the file in write
+	    mode (and thus emptying the file) and the actual update
+	    with the new contents. To do this, a temporary file is
+	    written, and the file:rename/1 used to replace the real
+	    index file.</p>
+          <p>
+	    Own Id: OTP-9148</p>
+        </item>
+        <item>
+          <p>
+	    Fixed various typos across the documentation (Thanks to
+	    Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9154</p>
+        </item>
+        <item>
+          <p>
+	    Supervisors should not save child-specs for temporary
+	    processes when they terminate as they should not be
+	    restarted. Saving the temporary child spec will result in
+	    that you can not start a new temporary process with the
+	    same child spec as an already terminated temporary
+	    process. Since R14B02 you can not restart a temporary
+	    temporary process as arguments are no longer saved, it
+	    has however always been semantically incorrect to restart
+	    a temporary process. Thanks to Filipe David Manana for
+	    reporting this and suggesting a solution.</p>
+          <p>
+	    Own Id: OTP-9167 Aux Id: OTP-9064 </p>
+        </item>
+        <item>
+          <p>
+	    Various small documentation fixes (Thanks to Bernard
+	    Duggan)</p>
+          <p>
+	    Own Id: OTP-9172</p>
+        </item>
+        <item>
+          <p>
+	    Fix format_status bug for unregistered gen_event
+	    processes</p>
+          <p>
+	    Port the gen_fsm code for format_status to gen_event in
+	    order to prevent a lists:concat([...,pid()]) crash when
+	    calling sys:get_status/1 on an unregistered gen_event
+	    process.</p>
+          <p>
+	    Refactor format_status header code from gen_* behaviours
+	    to module gen.</p>
+          <p>
+	    Extend the format_status tests in gen_event_SUITE to
+	    cover format_status bugs with anonymous gen_event
+	    processes. (Thanks To Geoff Cant)</p>
+          <p>
+	    Own Id: OTP-9218</p>
+        </item>
+        <item>
+          <p>
+	    List of pids changed to 'set' in supervisor for dynamic
+	    temporary children. Accessing the list would not scale
+	    well when adding/deleting many children. (Thanks to
+	    Evgeniy Khramtsov)</p>
+          <p>
+	    Own Id: OTP-9242</p>
+        </item>
+        <item>
+          <p>
+	    Change pool module to attempt to attach to nodes that are
+	    already running</p>
+          <p>
+	    The pool module prints out an error message and takes no
+	    further action for nodes that are already running. This
+	    patch changes that behavior so that if the return from
+	    slave:start/3 is {already_running, Node} then an attempt
+	    to attach to the node is still made. This makes sense
+	    because the node has been specified by the user in the
+	    .hosts.erlang file indicating a wish for the node to be
+	    part of the pool and a manual attach can be successfully
+	    made after the pool is started.(Thanks to Kelly
+	    McLaughlin)</p>
+          <p>
+	    Own Id: OTP-9244</p>
+        </item>
+        <item>
+          <p>
+	    unicode: document 16#FFFE and 16#FFFF (non chars)(Thanks
+	    to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-9256</p>
+        </item>
+        <item>
+          <p>
+	    re: remove gratuitous "it " in manpage (Thanks to Tuncer
+	    Ayaz)</p>
+          <p>
+	    Own Id: OTP-9307</p>
+        </item>
+        <item>
+	    <p> A bug in erl_eval(3) has been fixed. </p>
+          <p>
+	    Own Id: OTP-9322</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>timer:tc/1</c> and remove the catch in <c>tc/2</c>
+	    and <c>tc/3</c>. The time measuring functions will thus
+	    no longer trap exits, errors or throws caused by the
+	    measured function.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9169</p>
+        </item>
+        <item>
+          <p>
+	    Allow supervisor:terminate_child(SupRef,Pid) for
+	    simple_one_for_one supervisors</p>
+          <p>
+	    supervisor:terminate_child/2 was earlier not allowed if
+	    the supervisor used restart strategy simple_one_for_one.
+	    This is now changed so that children of this type of
+	    supervisors can be terminated by specifying the child's
+	    Pid.</p>
+          <p>
+	    (Thanks to Vance Shipley.)</p>
+          <p>
+	    Own Id: OTP-9201</p>
+        </item>
+        <item>
+	    <p> Types and specifications have been added. </p>
+          <p>
+	    Own Id: OTP-9267</p>
+        </item>
+        <item>
+	    <p> Erlang types and specifications are used for
+	    documentation. </p>
+          <p>
+	    Own Id: OTP-9271</p>
+        </item>
+        <item>
+	    <p>Allow Dets tablenames to be arbitrary terms.</p>
+          <p>
+	    Own Id: OTP-9282</p>
+        </item>
+        <item>
+	    <p> A specification that could cause problems for
+	    Dialyzer has been fixed. An opaque type in erl_eval has
+	    been turned in to a ordinary type. This is a temporary
+	    fix. </p>
+          <p>
+	    Own Id: OTP-9333</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>STDLIB 1.17.3</title>
 

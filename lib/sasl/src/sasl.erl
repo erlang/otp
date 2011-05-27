@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,27 +81,38 @@ get_mf() ->
     Dir = get_mf_dir(),
     MaxB = get_mf_maxb(),
     MaxF = get_mf_maxf(),
-    {Dir, MaxB, MaxF}.
+    case {Dir, MaxB, MaxF} of
+	{undefined,undefined,undefined} = R ->
+	    R;
+	{undefined,_,_} ->
+	    exit({missing_config, {sasl, error_logger_mf_dir}});
+	{_,undefined,_} ->
+	    exit({missing_config, {sasl, error_logger_mf_maxbytes}});
+	{_,_,undefined} ->
+	    exit({missing_config, {sasl, error_logger_mf_maxfiles}});
+	R ->
+	    R
+    end.
 
 get_mf_dir() ->
     case application:get_env(sasl, error_logger_mf_dir) of
-	{ok, false} -> throw(undefined);
+	{ok, false} -> undefined;
 	{ok, Dir} when is_list(Dir) -> Dir;
-	undefined -> throw(undefined);
+	undefined -> undefined;
 	{ok, Bad} -> exit({bad_config, {sasl, {error_logger_mf_dir, Bad}}})
     end.
 
 get_mf_maxb() ->
     case application:get_env(sasl, error_logger_mf_maxbytes) of
 	{ok, MaxB} when is_integer(MaxB) -> MaxB;
-	undefined -> throw(undefined);
+	undefined -> undefined;
 	{ok, Bad} -> exit({bad_config, {sasl, {error_logger_mf_maxbytes, Bad}}})
     end.
 
 get_mf_maxf() ->
     case application:get_env(sasl, error_logger_mf_maxfiles) of
 	{ok, MaxF} when is_integer(MaxF), MaxF > 0, MaxF < 256 -> MaxF;
-	undefined -> throw(undefined);
+	undefined -> undefined;
 	{ok, Bad} -> exit({bad_config, {sasl, {error_logger_mf_maxfiles, Bad}}})
     end.
 

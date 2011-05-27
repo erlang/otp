@@ -30,7 +30,22 @@
   </header>
   <p>This document describes the changes made to the erl_docgen application.</p>
 
-  <section><title>erl_docgen 0.2.4</title>
+  <section><title>Erl_Docgen 0.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The support for using Erlang specifications and types
+	    has been improved. </p>
+          <p>
+	    Own Id: OTP-9261</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>erl_docgen 0.2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

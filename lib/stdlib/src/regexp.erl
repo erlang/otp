@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,6 +36,9 @@
 
 -import(string, [substr/2,substr/3]).
 -import(lists, [reverse/1]).
+
+-type errordesc() :: term().
+-opaque regexp() :: term().
 
 %% -type matchres() = {match,Start,Length} | nomatch | {error,E}.
 %% -type subres() = {ok,RepString,RepCount} | {error,E}.
@@ -287,6 +290,10 @@ re_apply_or(R1, nomatch) -> R1.
 %%  Convert a sh style regexp into a full AWK one. The main difficulty is
 %%  getting character sets right as the conventions are different.
 
+-spec sh_to_awk(ShRegExp) -> AwkRegExp when
+      ShRegExp :: string(),
+      AwkRegExp :: string().
+
 sh_to_awk(Sh) -> "^(" ++ sh_to_awk_1(Sh).	%Fix the beginning
 
 sh_to_awk_1([$*|Sh]) ->				%This matches any string
@@ -336,6 +343,12 @@ special_char(_C) -> false.
 %% parse(RegExp) -> {ok,RE} | {error,E}.
 %%  Parse the regexp described in the string RegExp.
 
+-spec parse(RegExp) -> ParseRes when
+      RegExp :: string(),
+      ParseRes :: {ok, RE} | {error, Error},
+      RE :: regexp(),
+      Error :: errordesc().
+
 parse(S) ->
     case catch reg(S) of
 	{R,[]} -> {ok,R};
@@ -345,6 +358,10 @@ parse(S) ->
 
 %% format_error(Error) -> String.
 
+-spec format_error(ErrorDescriptor) -> Chars when
+      ErrorDescriptor :: errordesc(),
+      Chars :: io_lib:chars().
+
 format_error({illegal,What}) -> ["illegal character `",What,"'"];
 format_error({unterminated,What}) -> ["unterminated `",What,"'"];
 format_error({char_class,What}) ->
@@ -352,6 +369,14 @@ format_error({char_class,What}) ->
 
 %% -type match(String, RegExp) -> matchres().
 %%  Find the longest match of RegExp in String.
+
+-spec match(String, RegExp) -> MatchRes when
+      String :: string(),
+      RegExp :: string() | regexp(),
+      MatchRes :: {match, Start, Length} | nomatch | {error, Error},
+      Start :: pos_integer(),
+      Length :: pos_integer(),
+      Error :: errordesc().
 
 match(S, RegExp) when is_list(RegExp) ->
     case parse(RegExp) of
@@ -378,6 +403,14 @@ match(RE, S, St, Pos, L) ->
 %% -type first_match(String, RegExp) -> matchres().
 %%  Find the first match of RegExp in String.
 
+-spec first_match(String, RegExp) -> MatchRes when
+      String :: string(),
+      RegExp :: string() | regexp(),
+      MatchRes :: {match, Start, Length} | nomatch | {error, Error},
+      Start :: pos_integer(),
+      Length :: pos_integer(),
+      Error :: errordesc().
+
 first_match(S, RegExp) when is_list(RegExp) ->
     case parse(RegExp) of
 	{ok,RE} -> first_match(S, RE);
@@ -400,6 +433,15 @@ first_match(_RE, [], _St) -> nomatch.
 %% -type matches(String, RegExp) -> {match,[{Start,Length}]} | {error,E}.
 %%  Return the all the non-overlapping matches of RegExp in String.
 
+-spec matches(String, RegExp) -> MatchRes when
+      String :: string(),
+      RegExp :: string() | regexp(),
+      MatchRes :: {match, Matches} | {error, Error},
+      Matches :: [{Start, Length}],
+      Start :: pos_integer(),
+      Length :: pos_integer(),
+      Error :: errordesc().
+
 matches(S, RegExp) when is_list(RegExp) ->
     case parse(RegExp) of
 	{ok,RE} -> matches(S, RE);
@@ -419,6 +461,15 @@ matches(S, RE, St) ->
 %%  Substitute the first match of the regular expression RegExp with
 %%  the string Replace in String. Accept pre-parsed regular
 %%  expressions.
+
+-spec sub(String, RegExp, New) -> SubRes when
+      String :: string(),
+      RegExp :: string() | regexp(),
+      New :: string(),
+      NewString :: string(),
+      SubRes :: {ok, NewString, RepCount} | {error, Error},
+      RepCount :: 0 | 1,
+      Error :: errordesc().
 
 sub(String, RegExp, Rep) when is_list(RegExp) ->
     case parse(RegExp) of
@@ -449,6 +500,15 @@ sub_repl([], _M, Rest) -> Rest.
 %%  Substitute every match of the regular expression RegExp with the
 %%  string New in String. Accept pre-parsed regular expressions.
 
+-spec gsub(String, RegExp, New) -> SubRes when
+      String :: string(),
+      RegExp :: string() | regexp(),
+      New :: string(),
+      NewString :: string(),
+      SubRes :: {ok, NewString, RepCount} | {error, Error},
+      RepCount :: non_neg_integer(),
+      Error :: errordesc().
+
 gsub(String, RegExp, Rep) when is_list(RegExp) ->
     case parse(RegExp) of
 	{ok,RE} -> gsub(String, RE, Rep);
@@ -461,6 +521,13 @@ gsub(String, RE, Rep) ->
 %% -type split(String, RegExp) -> splitres().
 %%  Split a string into substrings where the RegExp describes the
 %%  field seperator. The RegExp " " is specially treated.
+
+-spec split(String, RegExp) -> SplitRes when
+      String :: string(),
+      RegExp :: string() | regexp(),
+      SplitRes :: {ok, FieldList} | {error, Error},
+      FieldList :: [string()],
+      Error :: errordesc().
 
 split(String, " ") ->				%This is really special
     {ok,RE} = parse("[ \t]+"),

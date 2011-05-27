@@ -477,7 +477,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     if (htop != hbot)
 	erl_exit(ERTS_ABORT_EXIT,
 		 "Internal error in copy_struct() when copying %T:"
-		 " htop=%p != hbot=%p (sz=%bpu)\n",
+		 " htop=%p != hbot=%p (sz=%beu)\n",
 		 org_obj, htop, hbot, org_sz); 
 #else
     if (htop > hbot) {

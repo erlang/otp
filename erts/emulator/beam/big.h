@@ -114,9 +114,9 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 #endif
 
-int big_decimal_estimate(Eterm);
+int big_decimal_estimate(Wterm);
 Eterm erts_big_to_list(Eterm, Eterm**);
-char *erts_big_to_string(Eterm x, char *buf, Uint buf_sz);
+char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz);
 
 Eterm small_times(Sint, Sint, Eterm*);
 

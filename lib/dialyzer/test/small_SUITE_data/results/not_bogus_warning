@@ -1,0 +1,3 @@
+
+not_bogus_warning.erl:11: Guard test not(is_atom(A::'bar' | 'foo')) can never succeed
+not_bogus_warning.erl:24: Guard test not(is_integer(X::42)) can never succeed

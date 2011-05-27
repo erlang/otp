@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -417,7 +417,7 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
 BIF_RETTYPE
 re_compile_2(BIF_ALIST_2)
 {
-    int slen;
+    Uint slen;
     char *expr;
     pcre *result;
     int errcode = 0;
@@ -444,7 +444,7 @@ re_compile_2(BIF_ALIST_2)
 	BIF_TRAP2(ucompile_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
-    if ((slen = io_list_len(BIF_ARG_1)) < 0) {
+    if (erts_iolist_size(BIF_ARG_1, &slen)) {
         BIF_ERROR(BIF_P,BADARG);
     }
     expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen + 1);
@@ -795,8 +795,8 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 			memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
-			int slen = io_list_len(val);
-			if (slen < 0) {
+			Uint slen;
+			if (erts_iolist_size(val, &slen)) {
 			    goto error;
 			}
 			if ((slen + 1) > tmpbsiz) {
@@ -851,7 +851,7 @@ re_run_3(BIF_ALIST_3)
     const pcre *code_tmp;
     RestartContext restart;
     byte *temp_alloc = NULL;
-    int slength;
+    Uint slength;
     int startoffset = 0;
     int options = 0, comp_options = 0;
     int ovsize;
@@ -875,7 +875,7 @@ re_run_3(BIF_ALIST_3)
     if (is_not_tuple(BIF_ARG_2) || (arityval(*tuple_val(BIF_ARG_2)) != 4)) {
 	if (is_binary(BIF_ARG_2) || is_list(BIF_ARG_2) || is_nil(BIF_ARG_2)) { 
 	    /* Compile from textual RE */
-	    int slen;
+	    Uint slen;
 	    char *expr;
 	    pcre *result;
 	    int errcode = 0;
@@ -889,7 +889,7 @@ re_run_3(BIF_ALIST_3)
 		BIF_TRAP3(urun_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 	    }
 	    
-	    if ((slen = io_list_len(BIF_ARG_2)) < 0) {
+	    if (erts_iolist_size(BIF_ARG_2, &slen)) {
 		BIF_ERROR(BIF_P,BADARG);
 	    }
 	    
@@ -1027,7 +1027,7 @@ re_run_3(BIF_ALIST_3)
 	restart.flags |= RESTART_FLAG_SUBJECT_IN_BINARY;
     } else {
 handle_iolist:
-	if ((slength = io_list_len(BIF_ARG_1)) < 0) {
+	if (erts_iolist_size(BIF_ARG_1, &slength)) {
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ovector);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
 	    if (restart.ret_info != NULL) {

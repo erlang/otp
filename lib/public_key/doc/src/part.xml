@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE part SYSTEM "part.dtd">
 
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
@@ -38,5 +38,6 @@
   <xi:include href="introduction.xml"/>
   <xi:include href="public_key_records.xml"/>
   <xi:include href="cert_records.xml"/>
+  <xi:include href="using_public_key.xml"/>
 </part>
 

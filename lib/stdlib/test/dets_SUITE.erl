@@ -53,7 +53,7 @@
          simultaneous_open/1, insert_new/1, repair_continuation/1,
          otp_5487/1, otp_6206/1, otp_6359/1, otp_4738/1, otp_7146/1,
          otp_8070/1, otp_8856/1, otp_8898/1, otp_8899/1, otp_8903/1,
-         otp_8923/1]).
+         otp_8923/1, otp_9282/1]).
 
 -export([dets_dirty_loop/0]).
 
@@ -112,7 +112,7 @@ all() ->
 	     many_clients, otp_4906, otp_5402, simultaneous_open,
 	     insert_new, repair_continuation, otp_5487, otp_6206,
 	     otp_6359, otp_4738, otp_7146, otp_8070, otp_8856, otp_8898,
-	     otp_8899, otp_8903, otp_8923]
+	     otp_8899, otp_8903, otp_8923, otp_9282]
     end.
 
 groups() -> 
@@ -3856,6 +3856,28 @@ otp_8923(Config) when is_list(Config) ->
 
     file:delete(File),
     ok.
+
+otp_9282(doc) ->
+    ["OTP-9282. The name of a table can be an arbitrary term"];
+otp_9282(suite) ->
+    [];
+otp_9282(Config) when is_list(Config) ->
+    some_calls(make_ref(), Config),
+    some_calls({a,typical,name}, Config),
+    some_calls(fun() -> a_funny_name end, Config),
+    ok.
+
+some_calls(Tab, Config) ->
+    File = filename(ref, Config),
+    ?line {ok,T} = dets:open_file(Tab, [{file,File}]),
+    ?line T = Tab,
+    ?line false = dets:info(T, safe_fixed),
+    ?line File = dets:info(T, filename),
+    ?line ok = dets:insert(Tab, [{3,0}]),
+    ?line [{3,0}] = dets:lookup(Tab, 3),
+    ?line [{3,0}] = dets:traverse(Tab, fun(X) -> {continue, X} end),
+    ?line ok = dets:close(T),
+    file:delete(File).
 
 %%
 %% Parts common to several test cases

@@ -1,0 +1,86 @@
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:po="http://www.example.com/PO1"
+        targetNamespace="http://www.example.com/PO1">
+
+<!-- validates po2.xml -->
+
+  <element name="purchaseOrder" type="po:PurchaseOrderType"/>
+
+  <element name="shipTo"  type="po:USAddress"/>
+  <element name="billTo"  type="po:USAddress"/>
+  <element name="comment" type="string"/>
+
+  <element name="name" type="string"/>
+  <element name="street" type="string"/>
+
+  <element name="items" type="po:Items"/>
+
+  <attribute name="orderDate" type="date"/>
+
+  <element name="city" type="string"/>
+  <element name="state" type="string"/>
+  <element name="zip" type="decimal"/>
+
+  <attribute name="country" type="NMTOKEN" fixed="US"/>
+
+  <element name="item" type="po:Item"/>
+
+  <element name="productName" type="string"/>
+  <element name="quantity" type="ps:Quantity"/>
+  <element name="USPrice"  type="decimal"/>
+  <element name="shipDate" type="date"/>
+
+  <attribute name="partNum" type="po:SKU" use="required"/>
+
+  <complexType name="PurchaseOrderType">
+    <sequence>
+      <element ref="po:shipTo"/>
+      <element ref="po:billTo"/>
+      <element ref="po:comment" minOccurs="0"/>
+      <element ref="po:items"/>
+    </sequence>
+    <attribute ref="po:orderDate"/>
+  </complexType>
+
+  <complexType name="USAddress">
+    <sequence>
+      <element ref="po:name"/>
+      <element ref="po:street"/>
+      <element ref="po:city"/>
+      <element ref="po:state"/>
+      <element ref="po:zip"/>
+    </sequence>
+    <attribute ref="po:country"/>
+  </complexType>
+
+  <complexType name="Items">
+    <sequence>
+      <element ref="po:item" minOccurs="0" maxOccurs="unbounded"/>
+    </sequence>
+  </complexType>
+
+  <complexType name="Item">
+    <sequence>
+      <element ref="po:productName"/>
+      <element ref="po:quantity"/>
+      <element ref="po:USPrice"/>
+      <element ref="po:comment"   minOccurs="0"/>
+      <element ref="po:shipDate"  minOccurs="0"/>
+    </sequence>
+    <attribute ref="po:partNum"/>
+  </complexType>
+
+  <simpleType name="Quantity">
+     <restriction base="positiveInteger">
+        <maxExclusive value="100"/>
+     </restriction>
+  </simpleType>
+
+  <!-- Stock Keeping Unit, a code for identifying products -->
+  <simpleType name="SKU">
+    <restriction base="string">
+      <pattern value="\d{3}-[A-Z]{2}"/>
+    </restriction>
+  </simpleType>
+
+</schema>

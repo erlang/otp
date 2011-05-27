@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -846,9 +846,6 @@ handle_info(#wx{event = #wxSize{size = {OldW, OldH}}} = Wx, S) ->
 		refresh_main_window(S4)
 	end,
     noreply(S6);
-handle_info(#wx{event = #wxFocus{}}, S) ->
-    wxWindow:setFocus(S#state.canvas), % Get keyboard focus
-    noreply(S);
 handle_info(#wx{event = #wxMouse{type = enter_window}}, S) ->
     wxWindow:setFocus(S#state.canvas), % Get keyboard focus
     noreply(S);
@@ -1252,7 +1249,6 @@ create_main_window(S) ->
 					     Self ! Ev
 				     end}]),
     wxPanel:connect(Canvas, key_down),
-    wxPanel:connect(Canvas, kill_focus),
     wxPanel:connect(Canvas, enter_window, [{skip, true}]), 
     wxFrame:connect(Frame, command_menu_selected),
     wxFrame:connect(Frame, close_window),

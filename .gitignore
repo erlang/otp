@@ -179,6 +179,7 @@ make/win32/
 
 # common_test
 
+/lib/common_test/doc/src/ct_slave.xml
 /lib/common_test/priv/install.sh
 
 # compiler
@@ -365,5 +366,6 @@ make/win32/
 /lib/xmerl/src/xmerl_sax_parser_*.erl
 /lib/xmerl/src/xmerl_b64Bin.erl
 /lib/xmerl/src/xmerl_xpath_parse.erl
+/lib/xmerl/test/xmerl_test.erl
 /lib/erl_interface/config.h.in
 /lib/configure.in

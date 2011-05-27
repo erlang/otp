@@ -368,7 +368,6 @@ static int demonitor(Process *c_p, Eterm ref)
    ErtsMonitor *mon = NULL;  /* The monitor entry to delete */
    Process  *rp;    /* Local target process */
    Eterm     to = NIL;    /* Monitor link traget */
-   Eterm     ref_p; /* Pid of this end */
    DistEntry *dep = NULL;  /* Target's distribution entry */
    int deref_de = 0;
    int res;
@@ -381,7 +380,6 @@ static int demonitor(Process *c_p, Eterm ref)
        res = ERTS_DEMONITOR_BADARG;
        goto done; /* Cannot be this monitor's ref */
    }
-   ref_p = c_p->id;
 
    mon = erts_lookup_monitor(c_p->monitors, ref);
    if (!mon) {
@@ -2170,20 +2168,146 @@ BIF_RETTYPE tl_1(BIF_ALIST_1)
 /**********************************************************************/
 /* return the size of an I/O list */
 
-BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
+static Eterm
+accumulate(Eterm acc, Uint size)
 {
-    Sint size = io_list_len(BIF_ARG_1);
-
-    if (size == -1) {
-	BIF_ERROR(BIF_P, BADARG);
-    } else if (IS_USMALL(0, (Uint) size)) {
-	BIF_RET(make_small(size));
+    if (is_non_value(acc)) {
+	/*
+	 * There is no pre-existing accumulator. Allocate a
+	 * bignum buffer with one extra word to be used if
+	 * the bignum grows in the future.
+	 */
+	Eterm* hp = (Eterm *) erts_alloc(ERTS_ALC_T_TEMP_TERM,
+					 (BIG_UINT_HEAP_SIZE+1) *
+					 sizeof(Eterm));
+	return uint_to_big(size, hp);
     } else {
-	Eterm* hp = HAlloc(BIF_P, BIG_UINT_HEAP_SIZE);
-	BIF_RET(uint_to_big(size, hp));
+	Eterm* big;
+	int need_heap;
+
+	/*
+	 * Add 'size' to 'acc' in place. There is always one
+	 * extra word allocated in case the bignum grows by one word.
+	 */
+	big = big_val(acc);
+	need_heap = BIG_NEED_SIZE(BIG_SIZE(big));
+	acc = big_plus_small(acc, size, big);
+	if (BIG_NEED_SIZE(big_size(acc)) > need_heap) {
+	    /*
+	     * The extra word has been consumed. Grow the
+	     * allocation by one word.
+	     */
+	    big = (Eterm *) erts_realloc(ERTS_ALC_T_TEMP_TERM,
+					 big_val(acc),
+					 (need_heap+1) * sizeof(Eterm));
+	    acc = make_big(big);
+	}
+	return acc;
     }
 }
 
+static Eterm
+consolidate(Process* p, Eterm acc, Uint size)
+{
+    Eterm* hp;
+
+    if (is_non_value(acc)) {
+	return erts_make_integer(size, p);
+    } else {
+	Eterm* big;
+	Uint sz;
+	Eterm res;
+	
+	acc = accumulate(acc, size);
+	big = big_val(acc);
+	sz = BIG_NEED_SIZE(BIG_SIZE(big));
+	hp = HAlloc(p, sz);
+	res = make_big(hp);
+	while (sz--) {
+	    *hp++ = *big++;
+	}
+	erts_free(ERTS_ALC_T_TEMP_TERM, (void *) big_val(acc));
+	return res;
+    }
+}
+
+BIF_RETTYPE iolist_size_1(BIF_ALIST_1)
+{
+    Eterm obj, hd;
+    Eterm* objp;
+    Uint size = 0;
+    Uint cur_size;
+    Uint new_size;
+    Eterm acc = THE_NON_VALUE;
+    DECLARE_ESTACK(s);
+
+    obj = BIF_ARG_1;
+    goto L_again;
+
+    while (!ESTACK_ISEMPTY(s)) {
+	obj = ESTACK_POP(s);
+    L_again:
+	if (is_list(obj)) {
+	L_iter_list:
+	    objp = list_val(obj);
+	    hd = CAR(objp);
+	    obj = CDR(objp);
+	    /* Head */
+	    if (is_byte(hd)) {
+		size++;
+		if (size == 0) {
+		    acc = accumulate(acc, (Uint) -1);
+		    size = 1;
+		}
+	    } else if (is_binary(hd) && binary_bitsize(hd) == 0) {
+		cur_size = binary_size(hd);
+		if ((new_size = size + cur_size) >= size) {
+		    size = new_size;
+		} else {
+		    acc = accumulate(acc, size);
+		    size = cur_size;
+		}
+	    } else if (is_list(hd)) {
+		ESTACK_PUSH(s, obj);
+		obj = hd;
+		goto L_iter_list;
+	    } else if (is_not_nil(hd)) {
+		goto L_type_error;
+	    }
+	    /* Tail */
+	    if (is_list(obj)) {
+		goto L_iter_list;
+	    } else if (is_binary(obj) && binary_bitsize(obj) == 0) {
+		cur_size = binary_size(obj);
+		if ((new_size = size + cur_size) >= size) {
+		    size = new_size;
+		} else {
+		    acc = accumulate(acc, size);
+		    size = cur_size;
+		}
+	    } else if (is_not_nil(obj)) {
+		goto L_type_error;
+	    }
+	} else if (is_binary(obj) && binary_bitsize(obj) == 0) {
+	    cur_size = binary_size(obj);
+	    if ((new_size = size + cur_size) >= size) {
+		size = new_size;
+	    } else {
+		acc = accumulate(acc, size);
+		size = cur_size;
+	    }
+	} else if (is_not_nil(obj)) {
+	    goto L_type_error;
+	}
+    }
+
+    DESTROY_ESTACK(s);
+    BIF_RET(consolidate(BIF_P, acc, size));
+
+ L_type_error:
+    DESTROY_ESTACK(s);
+    BIF_ERROR(BIF_P, BADARG);
+}
 
 /**********************************************************************/
 
@@ -3217,20 +3341,32 @@ BIF_RETTYPE garbage_collect_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
+    if (BIF_P->id == BIF_ARG_1)
+	rp = BIF_P;
+    else {
+#ifdef ERTS_SMP
+	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
 				   BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
-    if (!rp)
-	BIF_RET(am_false);
-    if (rp == ERTS_PROC_LOCK_BUSY)
-	ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
+	if (rp == ERTS_PROC_LOCK_BUSY)
+	    ERTS_BIF_YIELD1(bif_export[BIF_garbage_collect_1], BIF_P, BIF_ARG_1);
+#else
+	rp = erts_pid2proc(BIF_P, 0, BIF_ARG_1, 0);
+#endif
+	if (!rp)
+	    BIF_RET(am_false);
+    }
 
     /* The GC cost is taken for the process executing this BIF. */
 
     FLAGS(rp) |= F_NEED_FULLSWEEP;
     reds = erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 
-    if (BIF_P != rp)
+#ifdef ERTS_SMP
+    if (BIF_P != rp) {
+	erts_resume(rp, ERTS_PROC_LOCK_MAIN);
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+    }
+#endif
 
     BIF_RET2(am_true, reds);
 }
@@ -3272,6 +3408,7 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     Eterm* dead_ports;
     int alive, dead;
     Uint32 next_ss;
+    int i;
 
     /* To get a consistent snapshot... 
      * We add alive ports from start of the buffer
@@ -3283,21 +3420,18 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
     erts_smp_atomic_set(&erts_dead_ports_ptr,
 			(erts_aint_t) (port_buf + erts_max_ports));
 
-    next_ss = erts_smp_atomic_inctest(&erts_ports_snapshot);
+    next_ss = erts_smp_atomic32_inctest(&erts_ports_snapshot);
 
-    if (erts_smp_atomic_read(&erts_ports_alive) > 0) {
-	erts_aint_t i;
-	for (i = erts_max_ports-1; i >= 0; i--) {
-	    Port* prt = &erts_port[i];
-	    erts_smp_port_state_lock(prt);
-	    if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
-		&& prt->snapshot != next_ss) {
-		ASSERT(prt->snapshot == next_ss - 1);
-		*pp++ = prt->id;		
-		prt->snapshot = next_ss; /* Consumed by this snapshot */
-	    }
-	    erts_smp_port_state_unlock(prt);
+    for (i = erts_max_ports-1; i >= 0; i--) {
+	Port* prt = &erts_port[i];
+	erts_smp_port_state_lock(prt);
+	if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
+	    && prt->snapshot != next_ss) {
+	    ASSERT(prt->snapshot == next_ss - 1);
+	    *pp++ = prt->id;		
+	    prt->snapshot = next_ss; /* Consumed by this snapshot */
 	}
+	erts_smp_port_state_unlock(prt);
     }
 
     dead_ports = (Eterm*)erts_smp_atomic_xchg(&erts_dead_ports_ptr,
@@ -3362,7 +3496,7 @@ BIF_RETTYPE erts_debug_display_1(BIF_ALIST_1)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%.*T\n", INT_MAX, BIF_ARG_1);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to string: %d (s)\n",
+	erl_exit(1, "Failed to convert term to string: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(BIF_P, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);
@@ -3480,7 +3614,7 @@ term2list_dsprintf(Process *p, Eterm term)
     erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
     pres = erts_dsprintf(dsbufp, "%T", term);
     if (pres < 0)
-	erl_exit(1, "Failed to convert term to list: %d (s)\n",
+	erl_exit(1, "Failed to convert term to list: %d (%s)\n",
 		 -pres, erl_errno_id(-pres));
     hp = HAlloc(p, 2*dsbufp->str_len); /* we need length * 2 heap words */
     res = buf_to_intlist(&hp, dsbufp->str, dsbufp->str_len, NIL);

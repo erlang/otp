@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,8 +28,8 @@
 -define(HTTP_MAX_URI_SIZE,    nolimit).
 
 -ifndef(HTTP_DEFAULT_SSL_KIND).
--define(HTTP_DEFAULT_SSL_KIND, ossl).
-%% -define(HTTP_DEFAULT_SSL_KIND, essl).
+%% -define(HTTP_DEFAULT_SSL_KIND, ossl).
+-define(HTTP_DEFAULT_SSL_KIND, essl).
 -endif. % -ifdef(HTTP_DEFAULT_SSL_KIND).
 
 

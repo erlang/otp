@@ -40,7 +40,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    test_lib:recompile(num_bif_SUITE),
+    test_lib:recompile(?MODULE),
     [t_abs, t_float, t_float_to_list, t_integer_to_list,
      {group, t_list_to_float}, t_list_to_integer, t_round,
      t_trunc].
