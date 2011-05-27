@@ -135,7 +135,12 @@ void print_last_error(void){
     fprintf(stderr,"Error: %s",mes);
     LocalFree(mes);
 }
-    
+
+static int get_last_error(void)
+{
+  return (last_error) ? last_error : GetLastError();
+}
+
 static BOOL install_service(void){
   SC_HANDLE scm;
   SC_HANDLE service;
@@ -508,7 +513,7 @@ int do_usage(char *arg0){
 	 "\t[{-sn[ame] | -n[ame]} [<nodename>]]\n"
 	 "\t[-d[ebugtype] [{new|reuse|console}]]\n"
 	 "\t[-ar[gs] [<limited erl arguments>]]\n\n"
-	 "%s {start | stop | disable | enable} <servicename>\n\n"
+	 "%s {start | start_disabled | stop | disable | enable} <servicename>\n\n"
 	 "%s remove <servicename>\n\n"
 	 "%s rename <servicename> <servicename>\n\n"
 	 "%s list [<servicename>]\n\n"
@@ -560,6 +565,45 @@ int do_manage(int argc,char **argv){
 	     argv[0],service_name);
       return 0;
     }
+  }
+  if(!_stricmp(action,"start_disabled")){
+    if(!enable_service()){
+      fprintf(stderr,"%s: Failed to enable service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      return 1;
+    } 
+    if(!start_service() && get_last_error() != ERROR_SERVICE_ALREADY_RUNNING){
+      fprintf(stderr,"%s: Failed to start service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      goto failure_starting;
+    }
+    
+    if(!wait_service_trans(SERVICE_STOPPED, SERVICE_START_PENDING,
+			   SERVICE_RUNNING, 60)){
+      fprintf(stderr,"%s: Failed to start service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      goto failure_starting;
+    }
+
+    if(!disable_service()){
+      fprintf(stderr,"%s: Failed to disable service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+      return 1;
+    } 
+    printf("%s: Service %s started.\n",
+	   argv[0],service_name);
+    return 0;
+  failure_starting:
+    if(!disable_service()){
+      fprintf(stderr,"%s: Failed to disable service %s.\n",
+	      argv[0],service_name);
+      print_last_error();
+    } 
+    return 1;
   }
   if(!_stricmp(action,"stop")){
     if(!stop_service()){
@@ -1237,6 +1281,7 @@ int interactive_main(int argc, char **argv){
   else if(!_stricmp(action,"list"))
     res = do_list(argc,argv);
   else if(!_stricmp(action,"start") ||
+	  !_stricmp(action,"start_disabled") ||
 	  !_stricmp(action,"stop") ||
 	  !_stricmp(action,"enable") ||
 	  !_stricmp(action,"disable"))
