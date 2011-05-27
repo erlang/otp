@@ -551,7 +551,7 @@ ex2(Config) when is_list(Config) ->
      <<"
 %%% File : erlang_scan.xrl
 %%% Author : Robert Virding
-%%% Purpose : Tkoen definitions for Erlang.
+%%% Purpose : Token definitions for Erlang.
  
 Definitions.
 O  = [0-7]
