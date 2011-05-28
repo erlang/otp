@@ -278,8 +278,8 @@ options(Options0) when is_list(Options0) ->
                              (T) -> [T]
                           end, Options0),
         options(Options, [file_attributes, includefile, parserfile, 
-                          report_errors, report_warnings, return_errors, 
-                          return_warnings, time, verbose], [])
+                          report_errors, report_warnings, warnings_as_errors,
+                          return_errors, return_warnings, time, verbose], [])
     catch error: _ -> badarg
     end;
 options(Option) ->
@@ -333,6 +333,7 @@ default_option(includefile) -> [];
 default_option(parserfile) -> [];
 default_option(report_errors) -> true;
 default_option(report_warnings) -> true;
+default_option(warnings_as_errors) -> false;
 default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(time) -> false;
@@ -341,6 +342,7 @@ default_option(verbose) -> false.
 atom_option(file_attributes) -> {file_attributes, true};
 atom_option(report_errors) -> {report_errors, true};
 atom_option(report_warnings) -> {report_warnings, true};
+atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors, true};
 atom_option(return_warnings) -> {return_warnings, true};
 atom_option(time) -> {time, true};
@@ -409,11 +411,15 @@ infile(Parent, Infilex, Options) ->
              {error, Reason} ->
                  add_error(St0#yecc.infile, none, {file_error, Reason}, St0)
          end,
-    case St#yecc.errors of
-        [] -> ok;
+    case {St#yecc.errors, werr(St)} of
+        {[], false} -> ok;
         _ -> _ = file:delete(St#yecc.outfile)
     end,
     Parent ! {self(), yecc_ret(St)}.
+
+werr(St) ->
+    member(warnings_as_errors, St#yecc.options)
+        andalso length(St#yecc.warnings) > 0.
 
 outfile(St0) ->
     case file:open(St0#yecc.outfile, [write, delayed_write]) of
@@ -777,17 +783,23 @@ yecc_ret(St0) ->
     report_warnings(St),
     Es = pack_errors(St#yecc.errors),
     Ws = pack_warnings(St#yecc.warnings),
+    Werr = werr(St),
     if 
+        Werr ->
+            do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#yecc.options) of
                 true -> {ok, St#yecc.outfile, Ws};
                 false -> {ok, St#yecc.outfile}
             end;
         true -> 
-            case member(return_errors, St#yecc.options) of
-                true -> {error, Es, Ws};
-                false -> error
-            end
+            do_error_return(St, Es, Ws)
+    end.
+
+do_error_return(St, Es, Ws) ->
+    case member(return_errors, St#yecc.options) of
+        true -> {error, Es, Ws};
+        false -> error
     end.
 
 check_expected(St0) ->
