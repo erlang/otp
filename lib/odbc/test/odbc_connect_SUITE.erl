@@ -77,15 +77,18 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    %% application:start(odbc),
-    odbc:start(), % make sure init_per_suite fails if odbc is not built
-    case catch odbc:connect(?RDBMS:connection_string(), 
-		      [{auto_commit, off}]) of
-	{ok, Ref} ->
-	    odbc:disconnect(Ref),
-	    [{tableName, odbc_test_lib:unique_table_name()} | Config];
-	_  ->
-	    {skip, "ODBC is not properly setup"}
+    case (catch odbc:start()) of
+	ok ->
+	    case catch odbc:connect(?RDBMS:connection_string(),
+				    [{auto_commit, off}]) of
+		{ok, Ref} ->
+		    odbc:disconnect(Ref),
+		    [{tableName, odbc_test_lib:unique_table_name()} | Config];
+		_  ->
+		    {skip, "ODBC is not properly setup"}
+	    end;
+	_ ->
+	    {skip,"ODBC not startable"}
     end.	    
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -94,8 +97,7 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-    application:stop(odbc),
-    ok.
+    application:stop(odbc).
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(Case, Config) -> Config
@@ -114,6 +116,12 @@ init_per_testcase(_TestCase, Config) ->
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
     NewConfig = lists:keydelete(watchdog, 1, Temp),
+    %% Clean up if needed
+    Table = ?config(tableName, Config),
+    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), []),
+    Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
+    io:format("Drop table: ~p ~p~n", [Table, Result]),
+    odbc:disconnect(Ref),
     [{watchdog, Dog} | NewConfig].
 
 %%--------------------------------------------------------------------
@@ -125,15 +133,8 @@ init_per_testcase(_TestCase, Config) ->
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, Config) ->
-     %% Clean up if needed 
-    Table = ?config(tableName, Config),
-    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), []),
-    Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table), 
-    io:format("Drop table: ~p ~p~n", [Table, Result]),
-    odbc:disconnect(Ref),
     Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
+    test_server:timetrap_cancel(Dog).
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
@@ -146,10 +147,12 @@ commit(Config)  ->
 			      [{auto_commit, off}]),
 
     Table = ?config(tableName, Config),
+    TransStr = transaction_support_str(?RDBMS),
+
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (ID integer, DATA varchar(10))"),
+		       " (ID integer, DATA varchar(10))" ++ TransStr),
 
     {updated, 1} = 
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(1,'bar')"),
@@ -174,50 +177,44 @@ commit(Config)  ->
     {'EXIT', {function_clause, _}} = 
 	(catch odbc:commit(Ref, commit, -1)),
 
-    ok = odbc:disconnect(Ref),
-
-    ok.
+    ok = odbc:disconnect(Ref).
 %%-------------------------------------------------------------------------
 
 rollback(doc)->
     ["Test the use of explicit rollback"];
 rollback(suite) -> [];
 rollback(Config)  ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), 
-			      [{auto_commit, off}]),
-
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), [{auto_commit, off}]),
     Table = ?config(tableName, Config),
+    TransStr = transaction_support_str(?RDBMS),
 
-    {updated, _} = 
-	odbc:sql_query(Ref, 
+    {updated, _} =
+	odbc:sql_query(Ref,
 		       "CREATE TABLE " ++ Table ++
-		       " (ID integer, DATA varchar(10))"),
-    {updated, 1} = 
+			   " (ID integer, DATA varchar(10))" ++ TransStr),
+    {updated, 1} =
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++ " VALUES(1,'bar')"),
     ok = odbc:commit(Ref, commit),
 
-    {updated, 1} = 
+    {updated, 1} =
 	odbc:sql_query(Ref, "UPDATE " ++ Table ++
-		       " SET DATA = 'foo' WHERE ID = 1"),
+			   " SET DATA = 'foo' WHERE ID = 1"),
     ok = odbc:commit(Ref, rollback),
     InsertResult = ?RDBMS:insert_result(),
-    InsertResult = 
+    InsertResult =
 	odbc:sql_query(Ref, "SELECT * FROM " ++ Table),
-
-    {updated, 1} = 
+    {updated, 1} =
 	odbc:sql_query(Ref, "UPDATE " ++ Table ++
-		       " SET DATA = 'foo' WHERE ID = 1"),
+			   " SET DATA = 'foo' WHERE ID = 1"),
     ok = odbc:commit(Ref, rollback, ?TIMEOUT),
     InsertResult = ?RDBMS:insert_result(),
-    InsertResult = 
+    InsertResult =
 	odbc:sql_query(Ref, "SELECT * FROM " ++ Table),
 
+    {'EXIT', {function_clause, _}} =
+	(catch odbc:commit(Ref, rollback, -1)),
 
-    {'EXIT', {function_clause, _}} = 
-	(catch odbc:commit(Ref, rollback, -1)), 
-
-    ok = odbc:disconnect(Ref),
-    ok.
+    ok = odbc:disconnect(Ref).
 
 %%-------------------------------------------------------------------------
 not_explicit_commit(doc) ->
@@ -227,8 +224,7 @@ not_explicit_commit(_Config) ->
     {ok, Ref} = 
 	odbc:connect(?RDBMS:connection_string(), [{auto_commit, on}]),
     {error, _} = odbc:commit(Ref, commit),
-    ok = odbc:disconnect(Ref),
-    ok.
+    ok = odbc:disconnect(Ref).
 
 %%-------------------------------------------------------------------------
 not_exist_db(doc) ->
@@ -237,8 +233,7 @@ not_exist_db(suite) -> [];
 not_exist_db(_Config)  ->
     {error, _} = odbc:connect("DSN=foo;UID=bar;PWD=foobar", []),
     %% So that the odbc control server can be stoped "in the correct way"
-    test_server:sleep(100),
-    ok.
+    test_server:sleep(100).
 
 %%-------------------------------------------------------------------------
 no_c_node(doc) ->
@@ -276,9 +271,8 @@ port_dies(_Config) ->
     %% Wait for exit_status from port 5000 ms (will not get a exit
     %% status in this case), then wait a little longer to make sure
     %% the port and the controlprocess has had time to terminate.
-    test_server:sleep(7000), 
-    undefined = process_info(Ref, status),   
-    ok.
+    test_server:sleep(10000),
+    undefined = process_info(Ref, status).
 
 %%-------------------------------------------------------------------------
 control_process_dies(doc) ->
@@ -290,12 +284,10 @@ control_process_dies(_Config) ->
     Port = lists:last(erlang:ports()),      
     {connected, Ref} = erlang:port_info(Port, connected),  
     exit(Ref, kill),
-    test_server:sleep(100),
-    undefined = erlang:port_info(Port, connected),   
+    test_server:sleep(500),
+    undefined = erlang:port_info(Port, connected).
     %% Check for c-program still running, how?
-    ok.
 
-%%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
 client_dies_normal(doc) ->
@@ -400,6 +392,8 @@ connect_timeout(suite) -> [];
 connect_timeout(Config) when is_list(Config) ->
     {'EXIT',timeout} = (catch odbc:connect(?RDBMS:connection_string(),
 					   [{timeout, 0}])),
+    %% Need to return ok here "{'EXIT',timeout} return value" will
+    %% be interpreted as that the testcase has timed out.
     ok.
 %%-------------------------------------------------------------------------
 timeout(doc) ->
@@ -412,10 +406,12 @@ timeout(Config)  when is_list(Config) ->
 			      [{auto_commit, off}]),
     Table = ?config(tableName, Config),
 
+    TransStr = transaction_support_str(?RDBMS),
+
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))"),
+		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))" ++ TransStr),
 
     {updated, 1} = 
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++ " VALUES(1,'bar')"),
@@ -447,9 +443,7 @@ timeout(Config)  when is_list(Config) ->
     ["DATA"] = odbc_test_lib:to_upper(Fields),
 
     ok = odbc:commit(Ref, commit),
-    ok = odbc:disconnect(Ref),
-    ok.
-
+    ok = odbc:disconnect(Ref).
 
 update_table_timeout(Table, TimeOut, Pid) ->
 
@@ -475,15 +469,16 @@ update_table_timeout(Table, TimeOut, Pid) ->
 	odbc:sql_query(Ref, "SELECT DATA FROM " ++ Table ++ " WHERE ID = 2"),
     ["DATA"] = odbc_test_lib:to_upper(Fields),
 
-    {updated, 1} = odbc:sql_query(Ref, UpdateQuery, TimeOut),
+    %% Do not check {updated, 1} as some drivers will return 0
+    %% even though the update is done, which is checked by the test
+    %% case when the altered message is recived.
+    {updated, _} = odbc:sql_query(Ref, UpdateQuery, TimeOut),
 
     ok = odbc:commit(Ref, commit),
 
     Pid ! altered,
 
-    ok = odbc:disconnect(Ref),
-
-    ok.
+    ok = odbc:disconnect(Ref).
 %%-------------------------------------------------------------------------
 many_timeouts(doc) ->
     ["Tests that many consecutive timeouts lead to that the connection "
@@ -494,11 +489,12 @@ many_timeouts(Config) when is_list(Config) ->
 			      [{auto_commit, off}]),
 
     Table = ?config(tableName, Config),
+    TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))"),
+		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))" ++ TransStr),
 
     {updated, 1} = 
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++ " VALUES(1,'bar')"),
@@ -518,8 +514,7 @@ many_timeouts(Config) when is_list(Config) ->
     end,
 
     ok = odbc:commit(Ref, commit),
-    ok = odbc:disconnect(Ref),
-    ok.
+    ok = odbc:disconnect(Ref).
 
 
 update_table_many_timeouts(Table, TimeOut, Pid) ->
@@ -532,8 +527,7 @@ update_table_many_timeouts(Table, TimeOut, Pid) ->
 
     Pid ! many_timeouts_occurred, 
 
-    ok = odbc:disconnect(Ref),
-    ok.
+    ok = odbc:disconnect(Ref).
 
 
 loop_many_timouts(Ref, UpdateQuery, TimeOut) ->
@@ -547,18 +541,19 @@ loop_many_timouts(Ref, UpdateQuery, TimeOut) ->
     end.
 %%-------------------------------------------------------------------------
 timeout_reset(doc) ->
-    ["Check that the number of consecutive timouts is reset to 0 when " 
+    ["Check that the number of consecutive timouts is reset to 0 when "
      "a successful call to the database is made."];
 timeout_reset(suite) -> [];
 timeout_reset(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}]),
     Table = ?config(tableName, Config),
+    TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))"),
+		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))" ++  TransStr),
 
     {updated, 1} = 
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++ " VALUES(1,'bar')"),
@@ -594,8 +589,7 @@ timeout_reset(Config) when is_list(Config) ->
     ["DATA"] = odbc_test_lib:to_upper(Fields),
 
     ok = odbc:commit(Ref, commit),
-    ok = odbc:disconnect(Ref),
-    ok.
+    ok = odbc:disconnect(Ref).
 
 update_table_timeout_reset(Table, TimeOut, Pid) ->
 
@@ -617,15 +611,16 @@ update_table_timeout_reset(Table, TimeOut, Pid) ->
 	odbc:sql_query(Ref, "SELECT DATA FROM " ++ Table ++ " WHERE ID = 2"),
     ["DATA"] = odbc_test_lib:to_upper(Fields),
 
-    {updated,1} = odbc:sql_query(Ref, UpdateQuery, TimeOut),
+    %% Do not check {updated, 1} as some drivers will return 0
+    %% even though the update is done, which is checked by the test
+    %% case when the altered message is recived.
+    {updated, _} = odbc:sql_query(Ref, UpdateQuery, TimeOut),
 
     ok = odbc:commit(Ref, commit),
 
     Pid ! altered,
 
-    ok = odbc:disconnect(Ref),
-
-    ok.
+    ok = odbc:disconnect(Ref).
 
 loop_timout_reset(_, _, _, 0) ->
     ok;
@@ -651,11 +646,12 @@ disconnect_on_timeout(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
 			      [{auto_commit, off}]),
     Table = ?config(tableName, Config),
+    TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))"),
+		       " (ID integer, DATA varchar(10), PRIMARY KEY(ID))" ++ TransStr),
 
     {updated, 1} = 
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++ " VALUES(1,'bar')"),
@@ -715,8 +711,7 @@ connection_closed(Config) when is_list(Config) ->
     {error, connection_closed} = odbc:next(Ref),
     {error, connection_closed} = odbc:prev(Ref),
     {error, connection_closed} = odbc:select(Ref, next, 3),
-    {error, connection_closed} = odbc:commit(Ref, commit),
-    ok.
+    {error, connection_closed} = odbc:commit(Ref, commit).
 
 %%-------------------------------------------------------------------------
 disable_scrollable_cursors(doc) ->
@@ -754,8 +749,7 @@ disable_scrollable_cursors(Config) when is_list(Config) ->
     {error, scrollable_cursors_disabled} =
 	odbc:select(Ref, {absolute, 2}, 5),
 
-    {selected, _ColNames,[]} = odbc:select(Ref, next, 1),
-    ok.
+    {selected, _ColNames,[]} = odbc:select(Ref, next, 1).
 
 %%-------------------------------------------------------------------------
 return_rows_as_lists(doc)->
@@ -793,8 +787,7 @@ return_rows_as_lists(Config) when is_list(Config) ->
     Last = odbc:last(Ref),
     Prev = odbc:prev(Ref),
     First = odbc:first(Ref),
-    Next = odbc:next(Ref),
-    ok.   
+    Next = odbc:next(Ref).
 
 %%-------------------------------------------------------------------------
 
@@ -819,6 +812,9 @@ api_missuse(Config) when is_list(Config)->
     %% Could be an innocent misstake the connection lives. 
     Ref3 ! foobar, 
     test_server:sleep(10),
-    {status, _} = process_info(Ref3, status),
-    ok.
+    {status, _} = process_info(Ref3, status).
 
+transaction_support_str(mysql) ->
+    "ENGINE = InnoDB";
+transaction_support_str(_) ->
+    "".

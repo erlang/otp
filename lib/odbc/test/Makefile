@@ -34,7 +34,8 @@ MODULES= \
 	odbc_test_lib \
 	oracle \
 	sqlserver \
-	postgres
+	postgres  \
+	mysql
 
 EBIN = .
 
