@@ -500,19 +500,11 @@ close({essl, _}, Socket) ->
 %%-------------------------------------------------------------------------
 peername(ip_comm, Socket) ->
     case inet:peername(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    PeerName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
+	{ok, {Addr, Port}} when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+	    PeerName = ipv4_name(Addr), 
 	    {Port, PeerName};
-	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
-	    PeerName =  http_util:integer_to_hexlist(A) ++ ":"++  
-		http_util:integer_to_hexlist(B) ++ ":" ++  
-		http_util:integer_to_hexlist(C) ++ ":" ++ 
-		http_util:integer_to_hexlist(D) ++ ":" ++  
-		http_util:integer_to_hexlist(E) ++ ":" ++  
-		http_util:integer_to_hexlist(F) ++ ":" ++  
-		http_util:integer_to_hexlist(G) ++":"++  
-		http_util:integer_to_hexlist(H),
+	{ok, {Addr, Port}} when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+	    PeerName = ipv6_name(Addr), 
 	    {Port, PeerName};
 	{error, _} ->
 	    {-1, "unknown"}
@@ -530,9 +522,11 @@ peername({essl, _}, Socket) ->
 
 peername_ssl(Socket) ->
     case ssl:peername(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    PeerName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
+	{ok, {Addr, Port}} when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+	    PeerName = ipv4_name(Addr), 
+	    {Port, PeerName};
+	{ok, {Addr, Port}} when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+	    PeerName = ipv6_name(Addr), 
 	    {Port, PeerName};
 	{error, _} ->
 	    {-1, "unknown"}
@@ -551,19 +545,11 @@ peername_ssl(Socket) ->
 %%-------------------------------------------------------------------------
 sockname(ip_comm, Socket) ->
     case inet:sockname(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
+	{ok, {Addr, Port}} ->
+	    SockName = ipv4_name(Addr), 
 	    {Port, SockName};
-	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
-	    SockName =  http_util:integer_to_hexlist(A) ++ ":"++  
-		http_util:integer_to_hexlist(B) ++ ":" ++  
-		http_util:integer_to_hexlist(C) ++ ":" ++ 
-		http_util:integer_to_hexlist(D) ++ ":" ++  
-		http_util:integer_to_hexlist(E) ++ ":" ++  
-		http_util:integer_to_hexlist(F) ++ ":" ++  
-		http_util:integer_to_hexlist(G) ++":"++  
-		http_util:integer_to_hexlist(H),
+	{ok, {Addr, Port}} ->
+	    SockName = ipv6_name(Addr), 
 	    {Port, SockName};
 	{error, _} ->
 	    {-1, "unknown"}
@@ -581,9 +567,11 @@ sockname({essl, _}, Socket) ->
 
 sockname_ssl(Socket) ->
     case ssl:sockname(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
+	{ok, {Addr, Port}} ->
+	    SockName = ipv4_name(Addr), 
+	    {Port, SockName};
+	{ok, {Addr, Port}} ->
+	    SockName = ipv6_name(Addr), 
 	    {Port, SockName};
 	{error, _} ->
 	    {-1, "unknown"}
@@ -604,6 +592,22 @@ resolve() ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+
+ipv4_name({A, B, C, D}) ->
+    integer_to_list(A) ++ "." ++
+	integer_to_list(B) ++ "." ++
+	integer_to_list(C) ++ "." ++
+	integer_to_list(D).
+
+ipv6_name({A, B, C, D, E, F, G, H}) ->
+    http_util:integer_to_hexlist(B) ++ ":" ++  
+	http_util:integer_to_hexlist(C) ++ ":" ++ 
+	http_util:integer_to_hexlist(D) ++ ":" ++  
+	http_util:integer_to_hexlist(E) ++ ":" ++  
+	http_util:integer_to_hexlist(F) ++ ":" ++  
+	http_util:integer_to_hexlist(G) ++ ":" ++  
+	http_util:integer_to_hexlist(H).
+
 
 %% Address any comes from directive: BindAddress "*"
 sock_opt(ip_comm, any = Addr, Opts) -> 
