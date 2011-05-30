@@ -78,9 +78,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-					  
-
-
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
 %% Config - [tuple()]
@@ -91,7 +88,8 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) when is_list(Config) ->
-    application:start(odbc),
+    %% application:start(odbc),
+    odbc:start(), % make sure init_per_suite fails if odbc is not built
     [{tableName, odbc_test_lib:unique_table_name()}| Config].
 
 %%--------------------------------------------------------------------
