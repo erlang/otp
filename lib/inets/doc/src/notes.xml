@@ -32,6 +32,40 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[ftp] Added (type) spec for all exported functions.</p>
+          <p>Own Id: OTP-9114 Aux Id: seq11799</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[ftp] FTP client doesn't work with IPv6 host.</p>
+	  <p>Attila Rajmund Nohl</p>
+          <p>Own Id: OTP-9342 Aux Id: seq11853</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.6.1 -->
+
+
   <section><title>Inets 5.6</title>
 
     <section><title>Improvements and New Features</title>
