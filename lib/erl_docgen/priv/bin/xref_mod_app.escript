@@ -73,7 +73,12 @@ usage() ->
 modapp(TopDir) ->
     AppDirs = filelib:wildcard(filename:join([TopDir,"lib","*"])),
     AM = [appmods(D) || D <- AppDirs],
-    lists:keysort(1, [{M,A} || {A,Ms} <- AM, M <- Ms]).
+    ERTS = [preloaded(TopDir) || lists:keyfind("erts", 1, AM) =:= false],
+    lists:keysort(1, [{M,A} || {A,Ms} <- ERTS++AM, M <- Ms]).
+
+preloaded(TopDir) ->
+    {"preloaded",Mods} = appmods(filename:join([TopDir,"erts","preloaded"])),
+    {"erts",Mods}.
 
 %% It's OK if too much data is generated as long as all applications
 %% and all modules are mentioned.
