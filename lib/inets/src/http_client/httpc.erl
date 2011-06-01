@@ -65,16 +65,18 @@ default_profile() ->
 profile_name(?DEFAULT_PROFILE) ->
     httpc_manager;
 profile_name(Profile) -> 
-    profile_name("httpc_manager_", Profile).
+    Prefix = lists:flatten(io_lib:format("~w_", [?MODULE])),
+    profile_name(Prefix, Profile).
 
 profile_name(Prefix, Profile) when is_atom(Profile) ->
     list_to_atom(Prefix ++ atom_to_list(Profile));
-profile_name(Prefix, Profile) when is_pid(Profile) ->
-    ProfileStr0 = 
-	string:strip(string:strip(erlang:pid_to_list(Profile), left, $<), right, $>),
-    F = fun($.) -> $_; (X) -> X end, 
-    ProfileStr = [F(C) || C <- ProfileStr0], 
-    list_to_atom(Prefix ++ "pid_" ++ ProfileStr).
+profile_name(_Prefix, Profile) when is_pid(Profile) ->
+    Profile.
+    %% ProfileStr0 = 
+    %% 	string:strip(string:strip(erlang:pid_to_list(Profile), left, $<), right, $>),
+    %% F = fun($.) -> $_; (X) -> X end, 
+    %% ProfileStr = [F(C) || C <- ProfileStr0], 
+    %% list_to_atom(Prefix ++ "pid_" ++ ProfileStr).
 
 
 %%--------------------------------------------------------------------------
@@ -115,9 +117,11 @@ request(Url, Profile) ->
 %%	{keyfile, path()} | {password, string()} | {cacertfile, path()} |
 %%	{ciphers, string()} 
 %%	Options - [Option]
-%%	Option - {sync, Boolean} | {body_format, BodyFormat} | 
-%%	{full_result, Boolean} | {stream, To} |
-%%      {headers_as_is, Boolean}  
+%%	Option -  {sync, Boolean}           | 
+%%                {body_format, BodyFormat} | 
+%%	          {full_result, Boolean}    | 
+%%                {stream, To}              |
+%%                {headers_as_is, Boolean}  
 %%	StatusLine = {HTTPVersion, StatusCode, ReasonPhrase}</v>
 %%	HTTPVersion = string()
 %%	StatusCode = integer()
