@@ -1,5 +1,0 @@
-{topcase, {dir, "../odbc_test"}}.
-{skip, {odbc_data_type_SUITE, big_int_lower_limit, "Not supported by sqlserver 7.0"}}.
-{skip, {odbc_data_type_SUITE, big_int_upper_limit, "Not supported by sqlserver7.0"}}.
-{skip, {odbc_data_type_SUITE, text_upper_limit, "Consumes too much resources"}}.
-

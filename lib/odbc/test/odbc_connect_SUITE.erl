@@ -77,7 +77,8 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    application:start(odbc),  
+    %% application:start(odbc),
+    odbc:start(), % make sure init_per_suite fails if odbc is not built
     case catch odbc:connect(?RDBMS:connection_string(), 
 		      [{auto_commit, off}]) of
 	{ok, Ref} ->
