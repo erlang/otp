@@ -360,10 +360,7 @@ par_text(Cs, As, Bs, E, Es) ->
 		      [] -> Bs;
 		      _ -> [#xmlElement{name = p, content = Es1} | Bs]
 		  end,
-	    Bs1 = case Ss of
-		      [] -> Bs0;
-		      _ -> [#xmlText{value = Ss} | Bs0]
-		  end,
+	    Bs1 = [#xmlText{value = Ss} | Bs0],
 	    case Cs2 of
 		[] ->
 		    par(Es, [], Bs1);
