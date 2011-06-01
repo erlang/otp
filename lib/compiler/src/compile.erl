@@ -113,7 +113,7 @@ noenv_forms(Forms, Opt) when is_atom(Opt) ->
 
 noenv_output_generated(Opts) ->
     {_,Passes} = passes(file, expand_opts(Opts)),
-    any(fun ({save_binary,_F}) -> true;
+    any(fun ({save_binary,_T,_F}) -> true;
 	    (_Other) -> false
 	end, Passes).
 
@@ -122,6 +122,7 @@ noenv_output_generated(Opts) ->
 %%
 
 -define(pass(P), {P,fun P/1}).
+-define(pass(P,T), {P,fun T/1,fun P/1}).
 
 env_default_opts() ->
     Key = "ERL_COMPILER_OPTIONS",
@@ -304,7 +305,7 @@ run_tc({Name,Fun}, St) ->
     Val.
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
-    case member(warnings_as_errors, Opts) andalso length(Warn0) > 0 of
+    case werror(St) of
         true ->
             case member(report_warnings, Opts) of
                 true ->
@@ -338,6 +339,11 @@ comp_ret_err(#compile{warnings=Warn0,errors=Err0,options=Opts}=St) ->
 	true -> {error,Err,Warn};
 	false -> error
     end.
+
+not_werror(St) -> not werror(St).
+
+werror(#compile{options=Opts,warnings=Ws}) ->
+    member(warnings_as_errors, Opts) andalso Ws =/= [].
 
 %% messages_per_file([{File,[Message]}]) -> [{File,[Message]}]
 messages_per_file(Ms) ->
@@ -373,7 +379,7 @@ passes(Type, Opts) ->
     %% insert a first pass to remove the file (unless the
     %% source file is a BEAM file).
     {Ext,case last(Passes) of
-	     {save_binary,_Fun} ->
+	     {save_binary,_TestFun,_Fun} ->
 		 case Passes of
 		     [{read_beam_file,_}|_] ->
 			 %% The BEAM is both input and output.
@@ -655,7 +661,7 @@ asm_passes() ->
 
 binary_passes() ->
     [{native_compile,fun test_native/1,fun native_compile/1},
-     {unless,binary,?pass(save_binary)}].
+     {unless,binary,?pass(save_binary,not_werror)}].
 
 %%%
 %%% Compiler passes.
