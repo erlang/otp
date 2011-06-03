@@ -104,7 +104,10 @@ void epmd_call(EpmdVars *g,int what)
     fd = conn_to_epmd(g);
     put_int16(1,buf);
     buf[2] = what;
-    write(fd,buf,3);
+    if (write(fd, buf, 3) != 3) {
+	printf("epmd: Can't write to epmd\n");
+	epmd_cleanup_exit(g,1);
+    }
     if (read(fd,(char *)&i,4) != 4) {
 	if (!g->silent)
 	    printf("epmd: no response from local epmd\n");
