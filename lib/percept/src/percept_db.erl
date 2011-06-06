@@ -92,7 +92,7 @@ restart(PerceptDB)->
         stop_sync(PerceptDB),
         do_start().
 
-%% @spec do_start(pid()) -> pid()
+%% @spec do_start() -> pid()
 %% @private
 %% @doc starts the percept database.
 
@@ -131,6 +131,7 @@ stop_sync(Pid)->
         {'DOWN', MonitorRef, _Type, Pid, _Info}->
             true
     after ?STOP_TIMEOUT->
+            erlang:demonitor(MonitorRef, [flush]),
             exit(Pid, kill)
     end.
 
