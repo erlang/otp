@@ -305,8 +305,6 @@ d2e({ann_type,_,[V, T0]}) ->
     %% layout module.
     T = d2e(T0),
     ?add_t_ann(T, element(3, V));
-d2e({type,_,no_return,[]}) ->
-    #t_type{name = #t_name{name = none}};
 d2e({remote_type,_,[{atom,_,M},{atom,_,F},Ts0]}) ->
     Ts = d2e(Ts0),
     typevar_anno(#t_type{name = #t_name{module = M, name = F}, args = Ts}, Ts);

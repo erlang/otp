@@ -92,7 +92,8 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    application:start(odbc),
+    %%application:start(odbc),
+    odbc:start(), % make sure init_per_suite fails if odbc is not built
     [{tableName, odbc_test_lib:unique_table_name()} | Config].
 
 %%--------------------------------------------------------------------
@@ -117,7 +118,55 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(varchar_upper_limit, _Config) ->
+    {skip, "Known bug in database"};
+init_per_testcase(text_upper_limit, _Config) ->
+    {skip, "Consumes too much resources"};
+
+init_per_testcase(Case, Config) when Case == bit_true; Case == bit_false ->
+    case is_supported_bit(?RDBMS) of
+	true ->
+	    common_init_per_testcase(Case, Config);
+	false ->
+	    {skip, "Not supported by driver"}
+    end;
+
+init_per_testcase(Case, Config) when Case == multiple_select_result_sets;
+				     Case == multiple_mix_result_sets;
+				     Case == multiple_result_sets_error ->
+   case is_supported_multiple_resultsets(?RDBMS) of
+	true ->
+	    common_init_per_testcase(Case, Config);
+	false ->
+	    {skip, "Not supported by driver"}
+    end;
+
+init_per_testcase(param_insert_tiny_int = Case, Config) ->
+    case is_supported_tinyint(?RDBMS) of
+	true ->
+	    common_init_per_testcase(Case, Config);
+	false ->
+	    {skip, "Not supported by driver"}
+    end;
 init_per_testcase(Case, Config) ->
+    common_init_per_testcase(Case, Config).
+
+is_supported_multiple_resultsets(sqlserver) ->
+    true;
+is_supported_multiple_resultsets(_) ->
+    false.
+
+is_supported_tinyint(sqlserver) ->
+    true;
+is_supported_tinyint(_) ->
+    false.
+
+is_supported_bit(sqlserver) ->
+    true;
+is_supported_bit(_) ->
+    false.
+
+common_init_per_testcase(Case, Config) ->
     case atom_to_list(Case) of
 	"binary" ++ _  ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 

@@ -51,6 +51,7 @@ is_predefined(list, 0) -> true;
 is_predefined(list, 1) -> true;
 is_predefined(nil, 0) -> true;
 is_predefined(none, 0) -> true;
+is_predefined(no_return, 0) -> true;
 is_predefined(number, 0) -> true;
 is_predefined(pid, 0) -> true;
 is_predefined(port, 0) -> true;
