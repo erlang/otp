@@ -95,6 +95,10 @@
           <item>This is a short form for both <c>report_errors</c> and
           <c>report_warnings</c>.
           </item>
+          <tag><c>warnings_as_errors</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors.</p>
+          </item>
           <tag><c>{return_errors, bool()}</c>.</tag>
           <item>If this flag is set, <c>{error, Errors, Warnings}</c>
            is returned when there are errors. Default is

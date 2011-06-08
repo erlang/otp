@@ -107,10 +107,15 @@ file(File, Opts0) ->
     St = try
              {ok,REAs,Actions,Code,St2} = parse_file(St1),
              {DFA,DF} = make_dfa(REAs, St2),
-             St3 = out_file(St2, DFA, DF, Actions, Code),
-             case lists:member(dfa_graph, St3#leex.opts) of
-                 true -> out_dfa_graph(St3, DFA, DF);
-                 false -> St3
+             case werr(St2) of
+                 false ->
+                     St3 = out_file(St2, DFA, DF, Actions, Code),
+                     case lists:member(dfa_graph, St3#leex.opts) of
+                         true -> out_dfa_graph(St3, DFA, DF);
+                         false -> St3
+                     end;
+                 true ->
+                     St2
              end
          catch #leex{}=St4 ->
              St4
@@ -163,7 +168,8 @@ options(Options0) when is_list(Options0) ->
                              (T) -> [T]
                           end, Options0),
         options(Options, [scannerfile,includefile,report_errors,
-                          report_warnings,return_errors,return_warnings,
+                          report_warnings,warnings_as_errors,
+                          return_errors,return_warnings,
                           verbose,dfa_graph], [])
     catch error: _ -> badarg
     end;
@@ -217,6 +223,7 @@ default_option(dfa_graph) -> false;
 default_option(includefile) -> [];
 default_option(report_errors) -> true;
 default_option(report_warnings) -> true;
+default_option(warnings_as_errors) -> false;
 default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(scannerfile) -> [];
@@ -225,6 +232,7 @@ default_option(verbose) -> false.
 atom_option(dfa_graph) -> {dfa_graph,true};
 atom_option(report_errors) -> {report_errors,true};
 atom_option(report_warnings) -> {report_warnings,true};
+atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors,true};
 atom_option(return_warnings) -> {return_warnings,true};
 atom_option(verbose) -> {verbose,true};
@@ -251,18 +259,28 @@ leex_ret(St) ->
     report_warnings(St),
     Es = pack_errors(St#leex.errors),
     Ws = pack_warnings(St#leex.warnings),
+    Werr = werr(St),
     if 
+        Werr ->
+            do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#leex.opts) of
                 true -> {ok, St#leex.efile, Ws};
                 false -> {ok, St#leex.efile}
             end;
-        true -> 
-            case member(return_errors, St#leex.opts) of
-                true -> {error, Es, Ws};
-                false -> error
-            end
+        true ->
+            do_error_return(St, Es, Ws)
     end.
+
+do_error_return(St, Es, Ws) ->
+    case member(return_errors, St#leex.opts) of
+        true -> {error, Es, Ws};
+        false -> error
+    end.
+
+werr(St) ->
+    member(warnings_as_errors, St#leex.opts)
+        andalso length(St#leex.warnings) > 0.
 
 pack_errors([{File,_} | _] = Es) ->
     [{File, flatmap(fun({_,E}) -> [E] end, sort(Es))}];
