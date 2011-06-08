@@ -1121,7 +1121,28 @@ is_checks(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
 			self(), hd(erlang:ports()), [], [1,9,9,8],
-			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}),
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 12),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -12),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 18446744073709551617),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551617),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 99.146),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -99.146),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, 18446744073709551616.2e2),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}, -18446744073709551616.2e2),
     try
         ?line error = check_is_exception(),
         ?line throw(expected_badarg)
@@ -1251,7 +1272,7 @@ get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
 last_resource_dtor_call() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
-check_is(_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
+check_is(_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 check_is_exception() -> ?nif_stub.
 length_test(_,_,_,_,_) -> ?nif_stub.
 make_atoms() -> ?nif_stub.
