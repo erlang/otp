@@ -732,7 +732,9 @@ echo_env_win32 ()
 	fi
     done
     IFS=$save_ifs
+    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools"
 
+    
     echo_setenv OVERRIDE_TARGET win32 ';'
     echo_setenv CC cc.sh ';'
     echo_setenv CXX cc.sh ';'
@@ -742,7 +744,8 @@ echo_env_win32 ()
 	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
     fi
     echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
-    echo_setenv PATH "$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools:$P3" ';'
+    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
+    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
     echo_envinfo
 }
 
@@ -804,6 +807,7 @@ echo_env_mingw32 ()
 	echo "needed for message file compilation: http://wine.sourceforge.net!!" >&2
 	return
     fi
+    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/cygwin_tools/mingw:$ERL_TOP/erts/etc/win32/cygwin_tools"
 
 
     echo_setenv OVERRIDE_TARGET win32 ';'
@@ -813,7 +817,8 @@ echo_env_mingw32 ()
     echo_setenv CXX cc.sh ';'
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
-    echo_setenv PATH "$ERL_TOP/erts/etc/win32/cygwin_tools/mingw:$ERL_TOP/erts/etc/win32/cygwin_tools:$P3"
+    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
+    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
     echo_envinfo
 }
 
@@ -861,6 +866,7 @@ echo_env_msys64 ()
 	fi
     done
     IFS=$save_ifs
+    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/msys_tools/vc:$ERL_TOP/erts/etc/win32/msys_tools"
 
     echo_setenv OVERRIDE_TARGET win32 ';'
     echo_setenv CONFIG_SUBTYPE win64 ';'
@@ -869,7 +875,8 @@ echo_env_msys64 ()
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
     echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
-    echo_setenv PATH "$ERL_TOP/erts/etc/win32/msys_tools/vc:$ERL_TOP/erts/etc/win32/msys_tools:$P3" ';'
+    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
+    echo_setenv PATH "$WIN32_WRAPPER_PATH:$P3" ';'
     echo_envinfo
 }
 

@@ -3227,7 +3227,7 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = TUPLE2(hp, b1, b2); 
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_runtime) {
-	unsigned long u1, u2, dummy;
+	UWord u1, u2, dummy;
 	Eterm b1, b2;
 	elapsed_time_both(&u1,&dummy,&u2,&dummy);
 	b1 = erts_make_integer(u1,BIF_P);

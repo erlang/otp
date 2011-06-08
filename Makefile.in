@@ -219,7 +219,6 @@ BOOTSTRAP_ROOT = $(ERL_TOP)
 # depending on which system is preferred.)
 LOCAL_PATH     = $(ERL_TOP)/erts/bin/$(TARGET):$(ERL_TOP)/erts/bin
 ifeq ($(TARGET),win32)
-WIN32_WRAPPER_PATH=$(ERL_TOP)/erts/etc/win32/cygwin_tools
 BOOT_PREFIX=$(WIN32_WRAPPER_PATH):$(BOOTSTRAP_ROOT)/bootstrap/bin:
 else
 BOOT_PREFIX=$(BOOTSTRAP_ROOT)/bootstrap/bin:

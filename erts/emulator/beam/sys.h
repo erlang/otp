@@ -656,10 +656,10 @@ Preload* sys_preloaded(void);
 unsigned char* sys_preload_begin(Preload*);
 void sys_preload_end(Preload*);
 int sys_get_key(int);
-void elapsed_time_both(unsigned long *ms_user, unsigned long *ms_sys, 
-		       unsigned long *ms_user_diff, unsigned long *ms_sys_diff);
-void wall_clock_elapsed_time_both(unsigned long *ms_total, 
-				  unsigned long *ms_diff);
+void elapsed_time_both(UWord *ms_user, UWord *ms_sys, 
+		       UWord *ms_user_diff, UWord *ms_sys_diff);
+void wall_clock_elapsed_time_both(UWord *ms_total, 
+				  UWord *ms_diff);
 void get_time(int *hour, int *minute, int *second);
 void get_date(int *year, int *month, int *day);
 void get_localtime(int *year, int *month, int *day, 

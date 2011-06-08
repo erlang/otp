@@ -29,7 +29,7 @@ else
     RDIR=$1
 fi
 
-DDIR=`(cygpath -d $RDIR 2>/dev/null || cygpath -w $RDIR) | sed 's,\\\,\\\\\\\\,g'`
+DDIR=`msys2win_path.sh $RDIR | sed 's,\\\,\\\\\\\\,g'`
 
 
 cat > $RDIR/bin/erl.ini <<EOF

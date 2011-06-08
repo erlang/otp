@@ -34,7 +34,7 @@
 /* Internal atom cache needs MAX_ATOM_TABLE_SIZE to be less than an
    unsigned 32 bit integer. See external.c(erts_encode_ext_dist_header_setup)
    for more details. */
-#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (1UL << 32)) ? MAX_ATOM_INDEX + 1 : (1UL << 32))
+#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (UWORD_CONSTANT(1) << 32)) ? MAX_ATOM_INDEX + 1 : (UWORD_CONSTANT(1) << 32))
 #else
 #define MAX_ATOM_TABLE_SIZE (MAX_ATOM_INDEX + 1)
 #endif

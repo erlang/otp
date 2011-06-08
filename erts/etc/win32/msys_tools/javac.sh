@@ -22,7 +22,19 @@
 # basically means running the command cygpath on whatever is a path...
 
 CMD=""
-CLASSPATH=`cygpath -m -p $CLASSPATH`
+save_IFS=$IFS
+IFS=":"
+NEWCLASSPATH=""
+for x in $CLASSPATH; do
+  TMP=`msys2win_path.sh -m $x`
+  if [ -z "$NEWCLASSPATH" ]; then
+      NEWCLASSPATH="$TMP"
+  else
+      NEWCLASSPATH="$NEWCLASSPATH;$TMP"
+  fi
+done
+IFS=$save_IFS
+CLASSPATH="$NEWCLASSPATH"
 export CLASSPATH
 #echo "CLASSPATH=$CLASSPATH"
 SAVE="$@"
@@ -33,15 +45,15 @@ while test -n "$1" ; do
 	    y=`echo $x | sed 's,^-[Iod]\(/.*\),\1,g'`;
 	    z=`echo $x | sed 's,^-\([Iod]\)\(/.*\),\1,g'`;
 	    #echo "Foooo:$z"
-	    MPATH=`cygpath -m $y`;
+	    MPATH=`msys2win_path.sh -m $y`;
 	    CMD="$CMD -$z\"$MPATH\"";; 
 	-d|-I|-o)
 	    shift;
-	    MPATH=`cygpath -m $1`;
+	    MPATH=`msys2win_path.sh -m $1`;
 	    CMD="$CMD $x $MPATH";; 
 	/*)
 	    #echo "absolute:"$x;
-	    MPATH=`cygpath -m $x`;
+	    MPATH=`msys2win_path.sh -m $x`;
 	    CMD="$CMD \"$MPATH\"";; 
 	*)
 	    y=`echo $x | sed 's,",\\\",g'`;
@@ -49,5 +61,5 @@ while test -n "$1" ; do
     esac
     shift
 done
-#echo javac.exe $CMD
-eval javac.exe $CMD
+#echo javac.exe "$CMD"
+eval javac.exe "$CMD"

@@ -17,9 +17,7 @@
 # 
 # %CopyrightEnd%
 # 
-# Note! This shellscript expects to be run in a cygwin environment,
-# it converts erlc command lines to native windows erlc commands, which
-# basically means running the command cygpath on whatever is a path...
+
 
 CMD=""
 ECHO_ONLY=false
@@ -30,14 +28,14 @@ for x in "$@"; do
 	-I/*|-o/*)
 	    y=`echo $x | sed 's,^-[Io]\(/.*\),\1,g'`;
 	    z=`echo $x | sed 's,^-\([Io]\)\(/.*\),\1,g'`;
-	    MPATH=`cygpath -m $y`;
+	    MPATH=`msys2win_path.sh -m $y`;
 	    CMD="$CMD -$z$MPATH";;
 	-pa/*)
 	    y=`echo $x | sed 's,^-pa\(/.*\),\1,g'`;
-	    MPATH=`cygpath -m $y`;
+	    MPATH=`msys2win_path.sh -m $y`;
 	    CMD="$CMD -pa $MPATH";;
 	/*)
-	    MPATH=`cygpath -m $x`;
+	    MPATH=`msys2win_path.sh -m $x`;
 	    CMD="$CMD \"$MPATH\"";; 
 # Needed for  +'{preproc_flags,whatever}'
 	+{preproc_flags,*})

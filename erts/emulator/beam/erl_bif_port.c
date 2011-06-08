@@ -1077,7 +1077,7 @@ struct packet_callback_args
 };
 
 #define in_area(ptr,start,nbytes) \
-    ((unsigned long)((char*)(ptr) - (char*)(start)) < (nbytes))
+    ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 static Eterm
 http_bld_string(struct packet_callback_args* pca, Uint **hpp, Uint *szp,

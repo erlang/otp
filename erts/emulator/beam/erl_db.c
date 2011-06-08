@@ -2853,10 +2853,10 @@ void init_db(void)
     bits = erts_fit_in_bits(db_max_tabs-1);
     if (bits > SMALL_BITS) {
 	erl_exit(1,"Max limit for ets tabled too high %u (max %u).",
-		 db_max_tabs, 1L<<SMALL_BITS);
+		 db_max_tabs, ((Uint)1)<<SMALL_BITS);
     }
-    meta_main_tab_slot_mask = (1L<<bits) - 1;
-    meta_main_tab_seq_incr = (1L<<bits);
+    meta_main_tab_slot_mask = (((Uint)1)<<bits) - 1;
+    meta_main_tab_seq_incr = (((Uint)1)<<bits);
 
     size = sizeof(*meta_main_tab)*db_max_tabs;
     meta_main_tab = erts_db_alloc_nt(ERTS_ALC_T_DB_TABLES, size);
@@ -2869,7 +2869,7 @@ void init_db(void)
     SET_NEXT_FREE_SLOT(db_max_tabs-1, (Uint)-1);
     meta_main_tab_first_free = 0;
 
-    meta_name_tab_mask = (1L<<(bits-1)) - 1; /* At least half the size of main tab */
+    meta_name_tab_mask = (((Uint) 1)<<(bits-1)) - 1; /* At least half the size of main tab */
     size = sizeof(struct meta_name_tab_entry)*(meta_name_tab_mask+1);
     meta_name_tab = erts_db_alloc_nt(ERTS_ALC_T_DB_TABLES, size);
     ERTS_ETS_MISC_MEM_ADD(size);

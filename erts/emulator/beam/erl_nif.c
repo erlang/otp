@@ -1180,7 +1180,7 @@ static ErlNifResourceType* find_resource_type(Eterm module, Eterm name)
 }
 
 #define in_area(ptr,start,nbytes) \
-    ((unsigned long)((char*)(ptr) - (char*)(start)) < (nbytes))
+    ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 
 static void close_lib(struct erl_module_nif* lib)

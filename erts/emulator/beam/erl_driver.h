@@ -185,6 +185,9 @@ typedef long long ErlDrvSInt64;
 
 typedef struct erl_drv_binary {
     long orig_size;        /* total length of binary */
+#if SIZEOF_LONG < SIZEOF_VOID_P
+    long _pad;
+#endif
     char orig_bytes[1];   /* the data (char instead of byte!) */
 } ErlDrvBinary;
 

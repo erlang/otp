@@ -151,7 +151,7 @@ AC_SUBST(MIXED_CYGWIN_VC)
 AC_SUBST(MIXED_MSYS_VC)
 
 MIXED_VC=no
-if test "x$MIXED_MSYS_VC" != "xyes" -o  "x$MIXED_CYGWIN_VC" != "xyes" ; then
+if test "x$MIXED_MSYS_VC" = "xyes" -o  "x$MIXED_CYGWIN_VC" = "xyes" ; then
    MIXED_VC=yes
 fi
 
