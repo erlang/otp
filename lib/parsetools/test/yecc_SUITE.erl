@@ -247,6 +247,14 @@ syntax(Config) when is_list(Config) ->
     ?line {ok,_,[{_,[{2,yecc,bad_declaration}]}]} = 
         yecc:file(Filename, Ret),
 
+    %% Bad declaration with warnings_as_errors.
+    error = yecc:file(Filename, [warnings_as_errors]),
+    error = yecc:file(Filename, [return_warnings,warnings_as_errors]),
+    {ok,_,[{_,[{2,yecc,bad_declaration}]}]} =
+        yecc:file(Filename, [return_warnings]),
+    {error,_,[{_,[{2,yecc,bad_declaration}]}]} =
+        yecc:file(Filename, [return_errors,warnings_as_errors]),
+
     %% Bad declaration.
     ?line ok = file:write_file(Filename, 
          <<"Nonterminals nt. Terminals t. 
