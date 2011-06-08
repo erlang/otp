@@ -65,6 +65,14 @@
 	  <p>Own Id: OTP-5566</p>
         </item>
 
+        <item>
+          <p>[httpc] Clients started stand-alone not properly handled. 
+	  Also it was not documented how to use them, that is that 
+	  once started, they are represented by a <c>pid()</c> and not by 
+	  their <c>profile()</c>. </p>
+	  <p>Own Id: OTP-9365</p>
+        </item>
+
       </list>
     </section>
 
