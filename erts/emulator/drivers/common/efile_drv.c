@@ -1627,12 +1627,15 @@ static void invoke_readdir(void *data)
 	p[0]    = FILE_RESP_LFNAME;
 	file_bs = READDIR_BUFSIZE - n;
 
-	while ( (res = efile_readdir(&d->errInfo, d->b, &d->dir_handle, p + n + 2, &file_bs)) 
-		&& ((total - n - 2) >= MAXPATHLEN*FILENAME_CHARSIZE)) {
-	    put_int16((Uint16)file_bs, p + n);
-	    n += 2 + file_bs;
-	    file_bs = READDIR_BUFSIZE - n;
-	}
+	do {
+	    res = efile_readdir(&d->errInfo, d->b, &d->dir_handle, p + n + 2, &file_bs);
+
+	    if (res) {
+		put_int16((Uint16)file_bs, p + n);
+		n += 2 + file_bs;
+		file_bs = READDIR_BUFSIZE - n;
+	    }
+	} while( res && ((total - n - 2) >= MAXPATHLEN*FILENAME_CHARSIZE));
 
 	b->n = n;
     } while(res);
@@ -2112,6 +2115,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
     cq_execute(desc);
 }
 
+
 /*********************************************************************
  * Driver entry point -> output
  */
@@ -2256,15 +2260,19 @@ file_output(ErlDrvData e, char* buf, int count)
 	    do {
 		n = 1;
 		resbufsize = READDIR_BUFSIZE - n;
-		while ( (res = efile_readdir(&errInfo, name, &dir_handle, resbuf + n + 2, &resbufsize)) 
-			&& ((total - n - 2) >= MAXPATHLEN*FILENAME_CHARSIZE)) {
-		    put_int16((Uint16)resbufsize, resbuf + n);
-		    n += 2 + resbufsize;
-		    resbufsize = READDIR_BUFSIZE - n;
-		}
+
+		do {
+		    res = efile_readdir(&errInfo, name, &dir_handle, resbuf + n + 2, &resbufsize);
+
+		    if (res) {
+			put_int16((Uint16)resbufsize, resbuf + n);
+			n += 2 + resbufsize;
+			resbufsize = READDIR_BUFSIZE - n;
+		    }
+		} while( res && ((total - n - 2) >= MAXPATHLEN*FILENAME_CHARSIZE));
 
 		if (n > 1) {
-		    driver_output2(desc->port, resbuf, 1, resbuf+1, n - 1);
+		    driver_output2(desc->port, resbuf, 1, resbuf + 1, n - 1);
 		}
 	    } while(res);
 
