@@ -570,6 +570,10 @@ system_limit(Config) when is_list(Config) ->
     ?line {'EXIT',{system_limit,_}} =
 	(catch <<(id(<<>>))/binary,0:(id(1 bsl 100))>>),
 
+    %% Would fail to load.
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 67)>>),
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 64)+1)>>),
+
     case WordSize of
 	4 ->
 	    system_limit_32();
@@ -586,6 +590,14 @@ system_limit_32() ->
     ?line {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
     ?line {'EXIT',{system_limit,_}} =
 	(catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
+
+    %% The size would be silently truncated, resulting in a crash.
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 35)>>),
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 32)+1)>>),
+
+    %% Would fail to load.
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 43)>>),
+    ?line {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 40)+1)>>),
     ok.
 
 badarg(Config) when is_list(Config) ->

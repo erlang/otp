@@ -2527,13 +2527,8 @@ should_gen_heap_bin(LoaderState* stp, GenOpArg Src)
 static int
 binary_too_big(LoaderState* stp, GenOpArg Size)
 {
-    return Size.type == TAG_u && ((Size.val >> (8*sizeof(Uint)-3)) != 0);
-}
-
-static int
-binary_too_big_bits(LoaderState* stp, GenOpArg Size)
-{
-    return Size.type == TAG_u && (((Size.val+7)/8) >> (8*sizeof(Uint)-3) != 0);
+    return Size.type == TAG_o ||
+	(Size.type == TAG_u && ((Size.val >> (8*sizeof(Uint)-3)) != 0));
 }
 
 static GenOp*
