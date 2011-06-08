@@ -31,7 +31,8 @@ MODULES= \
 	systools_SUITE \
 	systools_rc_SUITE \
 	overload_SUITE \
-	rb_SUITE
+	rb_SUITE \
+	rh_test_lib
 
 ERL_FILES= $(MODULES:%=%.erl)
 

@@ -51,7 +51,7 @@ unix_cases() ->
     [target_system] ++ RunErlCases ++ cases().
 
 win32_cases() -> 
-    cases().
+    [{group,release} | cases()].
 
 %% Cases that can be run on all platforms
 cases() ->
@@ -148,6 +148,10 @@ init_per_group(release_gg, Config0) ->
 end_per_group(release, Config) ->
     Dog = ?t:timetrap(?default_timeout),
     stop_print_proc(),
+    case os:type() of
+	{win32,_} -> delete_all_services();
+	_ -> ok
+    end,
     delete_release(Config),
     ?t:timetrap_cancel(Dog),
     Config;
@@ -168,6 +172,10 @@ end_per_testcase(Case, Config) ->
     ?t:format("~n======= start end_per_testcase =======~n",[]),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
+
+    try apply(?MODULE,Case,[cleanup,Config])
+    catch error:undef -> ok
+    end,
 
     %% DEBUG
     case ?config(tc_status,Config) of
@@ -206,10 +214,6 @@ end_per_testcase(Case, Config) ->
     %% immediately restarted by heart and the test cases wait until
     %% the node is actually up and running -- see wait_nodes_up/2)
     file:delete("sasl_erl_crash.dump"),
-
-    try apply(?MODULE,Case,[cleanup,Config])
-    catch error:undef -> ok
-    end,
     ok.
 
 gg_node_snames(Config) ->
@@ -224,7 +228,10 @@ gg_node_snames(Config) ->
 no_run_erl(Config) when is_list(Config) ->
     {comment, "No run_erl program"}.
 
-
+break(Config) ->
+	erlang:display(test_break),
+	?t:break(priv_dir(Config)),
+	ok.
 
 %% Test upgrade and downgrade of erts
 upgrade(Conf) when is_list(Conf) ->
@@ -323,7 +330,7 @@ client1(Conf) when is_list(Conf) ->
 
     %% Copy the P1G release to a directory for use in this testcase
     ok = copy_installed(Conf,p1g_install,[Master]),
-    ok = copy_client(Conf,Master,Client,"start_cli1"),
+    ok = copy_client(Conf,Master,Client,client1),
 
     %% start the master node
     [TestNode] = start_nodes(Conf,[Master],"client1"),
@@ -348,7 +355,7 @@ client2(Conf) when is_list(Conf) ->
 
     %% Copy the P1G release to a directory for use in this testcase
     ok = copy_installed(Conf,p1g_install,[Master]),
-    ok = copy_client(Conf,Master,Client,"start_cli2"),
+    ok = copy_client(Conf,Master,Client,client2),
 
     %% start the master node
     [TestNode] = start_nodes(Conf,[Master],"client2"),
@@ -983,19 +990,16 @@ stop_node(Node) ->
     ?t:stop_node(Node).
 
 
-copy_client(Conf,Master,Sname,StartScript) ->
+copy_client(Conf,Master,Sname,Client) ->
     io:format("copy_client(Conf)"),
 
     DataDir = ?config(data_dir, Conf),
     MasterDir = filename:join(priv_dir(Conf),Master),
 
-    {ok,Host} = inet:gethostname(),
-    {ok,IpTuple} = inet:getaddr(Host,inet),
-    IpAddr =  inet_parse:ntoa(IpTuple),
+    {ClientArgs,RelCliDir} = rh_test_lib:get_client_args(Client,Sname,MasterDir,
+							 node_name(Master)),
 
-    CliNode = node_name(Sname),
-
-    Cli = filename:join([MasterDir, "clients", "type1", CliNode]),
+    Cli = filename:join([MasterDir, RelCliDir]),
     ok = filelib:ensure_dir(filename:join([Cli,"bin","."])),
     ok = filelib:ensure_dir(filename:join([Cli,"releases","."])),
     ok = filelib:ensure_dir(filename:join([Cli,"log","."])),
@@ -1003,12 +1007,16 @@ copy_client(Conf,Master,Sname,StartScript) ->
     P1GOrig = filename:join([MasterDir, "releases", "P1G"]),
     ok = copy_tree(Conf,P1GOrig,filename:join(Cli,"releases")),
     
-    ok = subst_file(filename:join([DataDir, "clients", StartScript]),
-		    filename:join([Cli,"bin","start"]),
-		    [{"ROOT",MasterDir},
-		     {"MASTER",atom_to_list(Master)},
-		     {"IPADDR",IpAddr}],
-		    [{chmod,8#0755}]),
+    case os:type() of
+	{unix,_} ->
+	    ok = subst_file(filename:join([DataDir, "start_client"]),
+			    filename:join([Cli,"bin","start"]),
+			    [{"ROOT",MasterDir},
+			     {"CLIENTARGS",ClientArgs}],
+			    [{chmod,8#0755}]);
+	_ ->
+	    ok
+    end,
     
     StartErlData = filename:join([MasterDir, "releases", "start_erl.data"]),
     CliRelDir = filename:join([Cli, "releases"]),
@@ -1030,21 +1038,32 @@ delete_release(Conf) ->
     {ok, Dirs} = file:list_dir(PrivDir),
     ?t:format("========  deleting  ~p~n",[Dirs]),
 
-    ok = delete_release_os(Dirs),
-    ?t:format("========  remaining  ~p~n",[file:list_dir(PrivDir)]),
+    ok = delete_release_os(Dirs--["save"]),
+	{ok,Remaining} = file:list_dir(PrivDir),
+    ?t:format("========  remaining  ~p~n",[Remaining]),
+
+	case Remaining of
+	[] -> ok;
+	_ ->
+	delete_release_os(Remaining),
+	Remaining2 = file:list_dir(PrivDir),
+    ?t:format("========  remaining after second try ~p~n",[Remaining2])
+	end,
+
+
     ok = file:set_cwd(OrigWd),
     ok.
 
 
 delete_release_os(Dirs) ->
     case os:type() of
-	      {unix, _} ->
-		  delete_release_unix(Dirs);
-	      {win32, _} ->
-		  delete_release_win32(Dirs);
-	      Os ->
-		  test_server:fail({error, {not_yet_implemented_os, Os}})
-	  end.
+	{unix, _} ->
+	    delete_release_unix(Dirs);
+	{win32, _} ->
+	    delete_release_win32(Dirs);
+	Os ->
+	    test_server:fail({error, {not_yet_implemented_os, Os}})
+    end.
 
 
 delete_release_unix([]) ->
@@ -1075,7 +1094,14 @@ delete_release_win32([]) ->
 delete_release_win32(["save"|Dirs]) ->
     delete_release_win32(Dirs);
 delete_release_win32([Dir|Dirs]) ->
-    Rm = string:concat("rmdir /s ", Dir),
+    Rm =
+       case filelib:is_dir(Dir) of
+          true ->
+             string:concat("rmdir /s /q ", Dir);
+          false ->
+             string:concat("del /q ", Dir)
+       end,
+    ?t:format("============== COMMAND ~p~n",[Rm]),
     [] = os:cmd(Rm),
     delete_release_win32(Dirs).
 
@@ -1200,7 +1226,12 @@ subst_var([], Vars, Result, VarAcc) ->
 
 
 priv_dir(Conf) ->
-    filename:absname(?config(priv_dir, Conf)). % Get rid of trailing slash
+%%    filename:absname(?config(priv_dir, Conf)). % Get rid of trailing slash
+    %% Due to problem with long paths on windows => creating a new
+    %% priv_dir under data_dir
+    Dir = filename:absname(filename:join(?config(data_dir, Conf),priv_dir)),
+    filelib:ensure_dir(filename:join(Dir,"*")),
+    Dir.
 
 latest_version(Dir) ->
     List = filelib:wildcard(Dir ++ "*"),
@@ -1256,11 +1287,27 @@ do_create_p1g(Conf,TargetDir) ->
     ErtsLatest = latest_version(filename:join(code:root_dir(),"erts")),
     ok = copy_tree(Conf, ErtsLatest, ErtsDir, TargetDir),
     ErtsBinDir = filename:join([TargetDir,ErtsDir,bin]),
-    copy_file(filename:join([ErtsBinDir, "epmd"]), BinDir, [preserve]),
-    copy_file(filename:join([ErtsBinDir, "run_erl"]), BinDir, [preserve]),
-    copy_file(filename:join([ErtsBinDir, "to_erl"]), BinDir, [preserve]),
+
+    case os:type() of
+	{unix, _} ->
+	    copy_file(filename:join([ErtsBinDir, "epmd"]), BinDir, [preserve]),
+	    copy_file(filename:join([ErtsBinDir, "run_erl"]), BinDir, [preserve]),
+	    copy_file(filename:join([ErtsBinDir, "to_erl"]), BinDir, [preserve]),
+
+	    %% Create the start_erl shell script
+	    ok = subst_file(filename:join([ErtsBinDir,"start_erl.src"]),
+			    filename:join([BinDir,"start_erl"]),
+			    [{"EMU","beam"}],
+			    [{chmod,8#0755}]);
+	{win32,_} ->
+	    %% Add a batch file to use as HEART_COMMAND
+	    ok = copy_file(filename:join(DataDir, "heart_restart.bat"),
+			   ErtsBinDir,[preserve])
+    end,
 
     copy_file(filename:join(DataDir, "../installer.beam"),
+	      filename:join([DataDir,lib,"installer-1.0",ebin])),
+    copy_file(filename:join(DataDir, "../rh_test_lib.beam"),
 	      filename:join([DataDir,lib,"installer-1.0",ebin])),
 
     %% Create .rel, .script and .boot files
@@ -1272,7 +1319,7 @@ do_create_p1g(Conf,TargetDir) ->
     ok = filelib:ensure_dir(RelFile),
     LibPath = filename:join([DataDir,lib,"*",ebin]),
 
-    TarFile = create_basic_release(RelFile, RelVsn, {ErtsVsn,false},
+    TarFile = create_basic_release(Conf, RelFile, RelVsn, {ErtsVsn,false},
 				   LibPath, [], [], [], []),
 
     %% Extract tar file in target directory (i.e. same directory as erts etc.)
@@ -1286,20 +1333,6 @@ do_create_p1g(Conf,TargetDir) ->
     %% Create RELEASES
     ok = release_handler:create_RELEASES(TargetDir,ReleasesDir,RelFile,[]),
 
-    %% Create start_erl
-    ok = subst_file(filename:join([ErtsBinDir,"start_erl.src"]),
-		    filename:join([BinDir,"start_erl"]),
-		    [{"EMU","beam"}],
-		    [{chmod,8#0755}]),
-    
-    %% Create start script
-    %% Using a customized start script from DataDir where some options
-    %% (heart and nodename) are added compared to the start.src in the
-    %% erlang distribution.
-    ok = subst_file(filename:join(DataDir, "start"),
-		    filename:join([BinDir, "start"]),
-		    [{"ROOT",TargetDir}],
-		    [preserve]),
     ok.
 
 %% Create version P1H - which is P1G + a-1.0
@@ -1336,12 +1369,12 @@ create_upgrade_release(Conf,RelName,RelVsn,Erts,Apps,Config,{UpFromName,Descr}) 
 
     UpFrom = [{filename:join([PrivDir,UpFromName,UpFromName]),Descr}],
 
-    create_basic_release(RelFile, RelVsn, Erts, LibPath,
+    create_basic_release(Conf, RelFile, RelVsn, Erts, LibPath,
 			 Apps, Config, UpFrom, []),
     ok.
 
 %% Create .rel, .script, .boot, sys.config and tar
-create_basic_release(RelFile,RelVsn,{ErtsVsn,ErtsDir},LibPath,ExtraApps,Config,UpFrom,DownTo) ->
+create_basic_release(Conf, RelFile,RelVsn,{ErtsVsn,ErtsDir},LibPath,ExtraApps,Config,UpFrom,DownTo) ->
     RelDir = filename:dirname(RelFile),
     RelFileName = filename:rootname(RelFile),
 
@@ -1370,7 +1403,14 @@ create_basic_release(RelFile,RelVsn,{ErtsVsn,ErtsDir},LibPath,ExtraApps,Config,U
 				_ -> [{erts,ErtsDir}]
 			    end]),
     
-    RelFileName ++ ".tar.gz".
+    TarFileName = RelFileName ++ ".tar.gz",
+
+    case os:type() of
+	{win32,_} when ErtsDir=/=false -> modify_tar_win32(Conf, TarFileName);
+	_ -> ok
+    end,
+
+    TarFileName.
 
 %% Create a .rel file
 create_installer_rel_file(RelFile,RelVsn,ErtsVsn,ExtraApps) ->
@@ -1470,21 +1510,70 @@ permanent_p1h(Node) ->
 copy_installed(Conf,FromNode,ToNodes) ->
     PrivDir = priv_dir(Conf),
     DataDir = ?config(data_dir,Conf),
+
+    %% Instead of using copy_tree on the complete node directory, I'm
+    %% splitting this in separate tar files per subdirectory so the
+    %% log directory can be completely skipped. The reason for this is
+    %% that the tar file might become faulty if the node is alive and
+    %% writing to the log while the tar is created.
+    FromDir = filename:join(PrivDir,FromNode),
+    {ok,FromDirNames} = file:list_dir(FromDir),
+    TempTarFiles =
+	[begin
+	     TempTarFile = filename:join(PrivDir,"temp_" ++ FDN ++ ".tar"),
+	     {ok,Tar} = erl_tar:open(TempTarFile,[write]),
+	     ok = erl_tar:add(Tar,filename:join(FromDir,FDN),FDN,[]),
+	     ok = erl_tar:close(Tar),
+	     TempTarFile
+         end || FDN <- FromDirNames, FDN=/="log"],
     lists:foreach(
       fun(Node) ->
-	      ok = copy_tree(Conf,filename:join(PrivDir,FromNode),Node,PrivDir),
 	      NodeDir = filename:join(PrivDir,Node),
-	      ok = subst_file(filename:join(DataDir, "start"),
-			      filename:join([NodeDir, "bin", "start"]),
-			      [{"ROOT",NodeDir}]),
-	      LogDir = filename:join(NodeDir,log),
-	      {ok,Logs} = file:list_dir(LogDir),
-	      lists:foreach(fun(Log) ->
-				    file:delete(filename:join(LogDir,Log))
-			    end,
-			    Logs)
+	      ok = filelib:ensure_dir(filename:join([NodeDir,"log","*"])),
+              lists:foreach(
+		fun(TempTarFile) ->
+                        ok = erl_tar:extract(TempTarFile,[{cwd,NodeDir}])
+		end, TempTarFiles),
+	      case os:type() of
+		  {unix,_} ->
+		      %% Create start script
+		      %% Using a customized start script from DataDir
+		      %% where some options (heart and nodename) are
+		      %% added compared to the start.src in the erlang
+		      %% distribution.
+		      ok = subst_file(filename:join(DataDir, "start"),
+				      filename:join([NodeDir, "bin", "start"]),
+				      [{"ROOT",NodeDir}],
+				      [preserve]);
+		  {win32,_} ->
+		      %% Write erl.ini
+		      ErtsDirs =
+			  filelib:wildcard(filename:join(NodeDir,"erts-*")),
+		      lists:foreach(
+			fun(ErtsDir) ->
+				ok = subst_file(
+				       filename:join(DataDir, "erl.ini.src"),
+				       filename:join([ErtsDir, "bin", "erl.ini"]),
+				       [{"ROOTDIR",NodeDir},
+					{"BINDIR",filename:join(ErtsDir,"bin")}])
+			end,
+			ErtsDirs),
+
+		      %% The service on windows runs as local
+		      %% administrator (not otptest user), so we need
+		      %% to chmod the release in order to allow the
+		      %% executing node to install releases, write
+		      %% logs etc.
+		      chmod_release_win32(NodeDir)
+	      end
       end,
-      ToNodes).
+      ToNodes),
+
+    lists:foreach(fun(TempTarFile) -> file:delete(TempTarFile) end, TempTarFiles),
+    ok.
+
+chmod_release_win32(Dir) ->
+    os:cmd("echo y|cacls " ++ Dir ++ " /T /E /G Administrators:F").
 
 start_nodes(Conf,Snames,Tag) ->
     PrivDir = priv_dir(Conf),
@@ -1493,19 +1582,43 @@ start_nodes(Conf,Snames,Tag) ->
 	  fun(Sname) ->
 		  NodeDir = filename:join(PrivDir,Sname),
 		  Node = node_name(Sname),
-		  
-		  Script = filename:join([NodeDir,"bin","start"]),
-		  Cmd = "env NODENAME="++atom_to_list(Sname) ++ " " ++ Script,
-		  %% {ok,StartFile} = file:read_file(Cmd),
-		  %% io:format("~s:\n~s~n~n",[Start,binary_to_list(StartFile)]),
-		  Res = os:cmd(Cmd),
-		  io:format("Start ~p: ~p~n=>\t~p~n", [Sname,Cmd,Res]),
+
+		  case os:type() of
+		      {unix,_} ->
+			  start_node_unix(Sname,NodeDir);
+		      {win32,_} ->
+			  start_node_win32(Sname,NodeDir)
+		  end,
 		  Node
 	  end,
 	  Snames),
     wait_nodes_up(Nodes,Tag),
     Nodes.
     
+start_node_unix(Sname,NodeDir) ->
+    Script = filename:join([NodeDir,"bin","start"]),
+    Cmd = "env NODENAME="++atom_to_list(Sname) ++ " " ++ Script,
+    %% {ok,StartFile} = file:read_file(Cmd),
+    %% io:format("~s:\n~s~n~n",[Start,binary_to_list(StartFile)]),
+    Res = os:cmd(Cmd),
+    io:format("Start ~p: ~p~n=>\t~p~n", [Sname,Cmd,Res]).
+
+start_node_win32(Sname,NodeDir) ->
+    Name = atom_to_list(Sname) ++ "_P1G",
+    ErtsBinDir = filename:join(NodeDir,"erts-4.4/bin"),
+
+    StartErlArgs = rh_test_lib:get_start_erl_args(NodeDir),
+    ServiceArgs = rh_test_lib:get_service_args("4.4", NodeDir, Sname,
+					       StartErlArgs),
+
+    Erlsrv = filename:nativename(filename:join(ErtsBinDir,"erlsrv")),
+    rh_test_lib:erlsrv(Erlsrv,stop,Name),
+    rh_test_lib:erlsrv(Erlsrv,remove,Name),
+    ok = rh_test_lib:erlsrv(Erlsrv,add,Name,ServiceArgs),
+    ok = rh_test_lib:erlsrv(Erlsrv,start,Name),
+    ok.
+
+%% Create a unique node name for each test case
 tc_sname(Config) ->
     tc_sname(Config,"").
 tc_sname(Config,Fix) when is_atom(Fix) ->
@@ -1649,3 +1762,32 @@ create_fake_release(Dir,RelName,RelVsn,AppDirs) ->
 
 rpc_inst(Node,Func,Args) ->
     rpc:call(Node,installer,Func,[node()|Args]).
+
+delete_all_services() ->
+    ErlSrv = erlsrv:erlsrv(erlang:system_info(version)),
+    [_|Serviceinfo] = string:tokens(os:cmd(ErlSrv ++ " list"),"\n"),
+    Services =
+	[lists:takewhile(fun($\t) -> false; (_) -> true end,S)
+	 || S <- Serviceinfo],
+    ?t:format("Services to remove: ~p~n",[Services]),
+    lists:foreach(fun(S) ->
+			  rh_test_lib:erlsrv(ErlSrv,stop,S),
+			  rh_test_lib:erlsrv(ErlSrv,remove,S)
+		  end,
+		  Services).
+
+modify_tar_win32(Conf, TarFileName) ->
+    DataDir = ?config(data_dir,Conf),
+    PrivDir = priv_dir(Conf),
+    TmpDir = filename:join(PrivDir,"tmp_modify_tar_win32"),
+    ok = erl_tar:extract(TarFileName,[{cwd,TmpDir},compressed]),
+
+    ErtsBinDir = filelib:wildcard(filename:join([TmpDir,"erts-*","bin"])),
+    ok = copy_file(filename:join(DataDir, "heart_restart.bat"),
+		   ErtsBinDir,[preserve]),
+
+    {ok,Fs} = file:list_dir(TmpDir),
+    {ok,T} = erl_tar:open(TarFileName,[write,compressed]),
+    [ok = erl_tar:add(T,filename:join(TmpDir,F),F,[]) || F <- Fs],
+    ok = erl_tar:close(T),
+    ok.
