@@ -75,13 +75,13 @@
 
   <datatypes>
     <datatype>
-      <name name="t_datetime"/>
+      <name name="datetime"/>
     </datatype>
     <datatype>
-      <name name="t_datetime1970"/>
+      <name name="datetime1970"/>
     </datatype>
     <datatype>
-      <name name="t_date"/>
+      <name name="date"/>
     </datatype>
     <datatype>
       <name name="year"/>
@@ -100,7 +100,7 @@
       <name name="day"/>
     </datatype>
     <datatype>
-      <name name="t_time"/>
+      <name name="time"/>
     </datatype>
     <datatype>
       <name name="hour"/>
@@ -118,12 +118,7 @@
       <name name="ldom"/>
     </datatype>
     <datatype>
-      <name name="t_now"/>
-      <desc><p>See <seealso marker="erts:erlang#now/0">erlang:now/0</seealso>.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="t_yearweeknum"/>
+      <name name="yearweeknum"/>
     </datatype>
     <datatype>
       <name name="weeknum"/>

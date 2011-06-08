@@ -58,7 +58,7 @@ start_link() ->
 %%--Deprecated interface------------------------------------------------
 
 -spec is_auth(Node) -> 'yes' | 'no' when
-      Node :: Node :: node().
+      Node :: node().
 
 is_auth(Node) ->
     case net_adm:ping(Node) of
