@@ -341,6 +341,7 @@ init_per_testcase(Case, Timeout, Config) ->
 		    "~n   SSL       start result: ~p", 
 		    [CryptoStartRes, PubKeyStartRes, SSLStartRes]),
 		Profile = ipv6, 
+		%% A stand-alone profile is represented by a pid()
 		{ok, ProfilePid} = 
 		    inets:start(httpc, 
 				[{profile,  Profile}, 
@@ -367,7 +368,7 @@ init_per_testcase(Case, Timeout, Config) ->
     %% snmp:set_trace([gen_tcp]),
     NewConfig.
 
-
+    
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
 %% Case - atom()
