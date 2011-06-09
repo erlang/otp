@@ -24,7 +24,6 @@
 
 #define WIN32_LEAN_AND_MEAN
 #define STRICT
-#define _DEBUG
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
