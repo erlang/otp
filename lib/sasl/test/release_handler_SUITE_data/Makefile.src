@@ -36,8 +36,13 @@ C= \
      c/b.@EMULATOR@ \
      c/c_sup.@EMULATOR@
     
+SUP= \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_app.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_server.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@ \
+	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@
 
-all: $(P2B) $(LIB) $(APP) $(OTP2740) $(C)
+all: $(P2B) $(LIB) $(APP) $(OTP2740) $(C) $(SUP)
 
 P2B/a-2.0/ebin/a.@EMULATOR@: P2B/a-2.0/src/a.erl
 	erlc $(EFLAGS) -oP2B/a-2.0/ebin P2B/a-2.0/src/a.erl
@@ -106,3 +111,12 @@ c/b.@EMULATOR@: c/b.erl
 	erlc $(EFLAGS) -oc c/b.erl
 c/c_sup.@EMULATOR@: c/c_sup.erl
 	erlc $(EFLAGS) -oc c/c_sup.erl
+
+release_handler_timeouts/dummy-0.1/ebin/dummy_app.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_app.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_app.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_server.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_server.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_server.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup.erl
+release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@: release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
+	erlc $(EFLAGS) -orelease_handler_timeouts/dummy-0.1/ebin release_handler_timeouts/dummy-0.1/src/dummy_sup_2.erl
