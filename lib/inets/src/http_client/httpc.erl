@@ -553,9 +553,7 @@ return_answer(Options, {{"HTTP/0.9",_,_}, _, BinBody}) ->
     {ok, Body};
    
 return_answer(Options, {StatusLine, Headers, BinBody}) ->
-
     Body = maybe_format_body(BinBody, Options),
-    
     case proplists:get_value(full_result, Options, true) of
 	true ->
 	    {ok, {StatusLine, Headers, Body}};

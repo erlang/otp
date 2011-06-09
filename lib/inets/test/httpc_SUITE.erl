@@ -64,16 +64,6 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [
-     proxy_options, 
-     proxy_head, 
-     proxy_get, 
-     proxy_trace,
-     proxy_post, 
-     proxy_put, 
-     proxy_delete, 
-     proxy_auth,
-     proxy_headers, 
-     proxy_emulate_lower_versions,
      http_options, 
      http_head, 
      http_get, 
@@ -88,15 +78,6 @@ all() ->
      http_headers, 
      http_headers_dummy, 
      http_bad_response,
-     ssl_head, 
-     ossl_head, 
-     essl_head, 
-     ssl_get, 
-     ossl_get,
-     essl_get, 
-     ssl_trace, 
-     ossl_trace, 
-     essl_trace,
      http_redirect, 
      http_redirect_loop,
      http_internal_server_error, 
@@ -106,14 +87,12 @@ all() ->
      http_emulate_lower_versions, 
      http_relaxed,
      page_does_not_exist, 
-     proxy_page_does_not_exist,
-     proxy_https_not_supported, 
-     http_stream,
-     http_stream_once, 
-     proxy_stream, 
      parse_url, 
      options,
      headers_as_is, 
+     {group, proxy}, 
+     {group, ssl}, 
+     {group, stream}, 
      {group, ipv6}, 
      {group, tickets},
      initial_server_connect
@@ -121,6 +100,30 @@ all() ->
 
 groups() -> 
     [
+     {proxy,   [], [proxy_options, 
+		    proxy_head, 
+		    proxy_get, 
+		    proxy_trace,
+		    proxy_post, 
+		    proxy_put, 
+		    proxy_delete, 
+		    proxy_auth,
+		    proxy_headers, 
+		    proxy_emulate_lower_versions,
+		    proxy_page_does_not_exist,
+		    proxy_https_not_supported]}, 
+     {ssl,     [], [ssl_head, 
+		    ossl_head, 
+		    essl_head, 
+		    ssl_get, 
+		    ossl_get,
+		    essl_get, 
+		    ssl_trace, 
+		    ossl_trace, 
+		    essl_trace]}, 
+     {stream,  [], [http_stream,
+		    http_stream_once, 
+		    proxy_stream]}, 
      {tickets, [], [hexed_query_otp_6191, 
 		    empty_body_otp_6243,
 		    empty_response_header_otp_6830,
@@ -236,17 +239,6 @@ init_per_testcase(initial_server_connect, Config) ->
 init_per_testcase(Case, Config) ->
     init_per_testcase(Case, 2, Config).
 
-init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
-    tsp("init_per_testcase_ssl -> stop ssl"),
-    application:stop(ssl),
-    Config2 = lists:keydelete(local_ssl_server, 1, Config),
-    %% Will start inets 
-    tsp("init_per_testcase_ssl -> try start http server (including inets)"),
-    Server = inets_test_lib:start_http_server(
-	       filename:join(PrivDir, SslConfFile), Tag),
-    tsp("init_per_testcase -> Server: ~p", [Server]),
-    [{local_ssl_server, Server} | Config2].
-
 init_per_testcase(Case, Timeout, Config) ->
     io:format(user, "~n~n*** INIT ~w:~w[~w] ***~n~n", 
 	      [?MODULE, Case, Timeout]),
@@ -328,6 +320,7 @@ init_per_testcase(Case, Timeout, Config) ->
 				[{skip, "proxy not responding"} | TmpConfig]
 			end
 		end;
+
 	    "ipv6_" ++ _Rest ->
 		%% Start httpc part of inets
 		CryptoStartRes = application:start(crypto),
@@ -356,15 +349,25 @@ init_per_testcase(Case, Timeout, Config) ->
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
-    %% httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-    %% 				["localhost", ?IPV6_LOCAL_HOST]}}]),
-
+    %% This will fail for the ipv6_ - cases (but that is ok)
     httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
      				["localhost", ?IPV6_LOCAL_HOST]}},
 		       {ipfamily, inet6fb4}]),
 
     %% snmp:set_trace([gen_tcp]),
     NewConfig.
+
+
+init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
+    tsp("init_per_testcase_ssl -> stop ssl"),
+    application:stop(ssl),
+    Config2 = lists:keydelete(local_ssl_server, 1, Config),
+    %% Will start inets 
+    tsp("init_per_testcase_ssl -> try start http server (including inets)"),
+    Server = inets_test_lib:start_http_server(
+	       filename:join(PrivDir, SslConfFile), Tag),
+    tsp("init_per_testcase -> Server: ~p", [Server]),
+    [{local_ssl_server, Server} | Config2].
 
     
 %%--------------------------------------------------------------------
@@ -388,11 +391,19 @@ end_per_testcase(Case, Config) ->
 	      [?MODULE, Case]),
     case atom_to_list(Case) of
 	"ipv6_" ++ _Rest ->
+	    tsp("end_per_testcase(~w) -> stop ssl", [Case]),
 	    application:stop(ssl),
+	    tsp("end_per_testcase(~w) -> stop public_key", [Case]),
 	    application:stop(public_key),
+	    tsp("end_per_testcase(~w) -> stop crypto", [Case]),
 	    application:stop(crypto),
 	    ProfilePid = ?config(profile, Config), 
+	    tsp("end_per_testcase(~w) -> stop httpc profile (~p)", 
+		[Case, ProfilePid]),
+	    unlink(ProfilePid),
 	    inets:stop(stand_alone, ProfilePid),
+	    tsp("end_per_testcase(~w) -> httpc profile (~p) stopped", 
+		[Case, ProfilePid]),
 	    ok;
 	_ ->
 	    ok
@@ -405,6 +416,7 @@ finish(Config) ->
 	undefined ->
 	    ok;
 	_ ->
+	    tsp("finish -> stop watchdog (~p)", [Dog]),
 	    test_server:timetrap_cancel(Dog)
     end.
 
@@ -1914,7 +1926,6 @@ parse_url(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 ipv6_ipcomm() ->
-    %% [{require, ipv6_hosts}].
     [].
 ipv6_ipcomm(doc) ->
     ["Test ip_comm ipv6."];
@@ -1931,7 +1942,6 @@ ipv6_ipcomm(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 ipv6_essl() ->
-    %% [{require, ipv6_hosts}].
     [].
 ipv6_essl(doc) ->
     ["Test essl ipv6."];
@@ -1970,9 +1980,17 @@ ipv6(SocketType, Scheme, HTTPOptions, Extra, Config) ->
 		"~n   HTTPOptions: ~p", [URL, HTTPOptions]),
 	    case httpc:request(get, {URL, []}, HTTPOptions, [], Profile) of
 		{ok, {{_,200,_}, [_ | _], [_|_]}} ->
+		    tsp("ipv6 -> expected result"),
 		    DummyServerPid ! stop,
 		    ok;
+		{ok, Unexpected} ->
+		    tsp("ipv6 -> unexpected result: "
+			"~n   ~p", [Unexpected]),
+		    DummyServerPid ! stop,
+		    tsf({unexpected_result, Unexpected});
 		{error, Reason} ->
+		    tsp("ipv6 -> error: "
+			"~n   Reason: ~p", [Reason]),
 		    DummyServerPid ! stop,
 		    tsf(Reason)
 	    end,
@@ -2950,7 +2968,13 @@ receive_streamed_body(RequestId, Body, Pid) ->
 	    test_server:fail(Msg)
     end.
 
-
+%% Perform a synchronous stop
+dummy_server_stop(Pid) ->
+    Pid ! {stop, self()},
+    receive 
+	{stopped, Pid} ->
+	    ok
+    end.
 
 dummy_server(IpV) ->
     dummy_server(self(), ip_comm, IpV, []).
@@ -3013,7 +3037,13 @@ dummy_ipcomm_server_loop(MFA, Handlers, ListenSocket) ->
     receive
 	stop ->
 	    tsp("dummy_ipcomm_server_loop -> stop handlers", []),
-	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers)
+	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers);
+	{stop, From} ->
+	    tsp("dummy_ipcomm_server_loop -> "
+		"stop command from ~p for handlers (~p)", [From, Handlers]),
+	    Stopper = fun(Handler) -> Handler ! stop end, 
+	    lists:foreach(Stopper, Handlers),
+	    From ! {stopped, self()}
     after 0 ->
 	    tsp("dummy_ipcomm_server_loop -> await accept", []),
 	    {ok, Socket} = gen_tcp:accept(ListenSocket),
@@ -3034,7 +3064,13 @@ dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
     receive
 	stop ->
 	    tsp("dummy_ssl_server_loop -> stop handlers", []),
-	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers)
+	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers);
+	{stop, From} ->
+	    tsp("dummy_ssl_server_loop -> "
+		"stop command from ~p for handlers (~p)", [From, Handlers]),
+	    Stopper = fun(Handler) -> Handler ! stop end, 
+	    lists:foreach(Stopper, Handlers),
+	    From ! {stopped, self()}
     after 0 ->
 	    tsp("dummy_ssl_server_loop -> await accept", []),
 	    {ok, Socket} = ssl:transport_accept(ListenSocket),
