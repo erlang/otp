@@ -30,6 +30,8 @@
 
 -include("ssl_alert.hrl").
 -include("ssl_int.hrl").
+-include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
@@ -209,7 +211,7 @@ all() ->
      controller_dies, client_closes_socket, peercert,
      connect_dist, peername, sockname, socket_options,
      misc_ssl_options, versions, cipher_suites, upgrade,
-     upgrade_with_timeout, tcp_connect, ipv6, ekeyfile,
+     upgrade_with_timeout, tcp_connect, tcp_connect_big, ipv6, ekeyfile,
      ecertfile, ecacertfile, eoptions, shutdown,
      shutdown_write, shutdown_both, shutdown_error,
      ciphers_rsa_signed_certs, ciphers_rsa_signed_certs_ssl3,
@@ -1097,6 +1099,41 @@ tcp_connect(Config) when is_list(Config) ->
 	    end
     end.
 
+tcp_connect_big(doc) ->
+    ["Test what happens when a tcp tries to connect, i,e. a bad big (ssl) packet is sent first"];
+
+tcp_connect_big(suite) ->
+    [];
+
+tcp_connect_big(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
+						{from, self()},
+						{timeout, 5000},
+						{mfa, {?MODULE, dummy, []}},
+						{tcp_options, TcpOpts},
+						{ssl_options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
+    test_server:format("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+
+    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
+    gen_tcp:send(Socket, <<?BYTE(0),
+			   ?BYTE(3), ?BYTE(1), ?UINT16(?MAX_CIPHER_TEXT_LENGTH), Rand/binary>>),
+
+    receive
+	{tcp_closed, Socket} ->
+	    receive
+		{Server, {error, timeout}} ->
+		    test_server:fail("hangs");
+		{Server, {error, Error}} ->
+		    test_server:format("Error ~p", [Error])
+	    end
+    end.
 
 dummy(_Socket) ->
     %% Should not happen as the ssl connection will not be established
