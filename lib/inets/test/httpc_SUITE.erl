@@ -141,9 +141,7 @@ groups() ->
      {otp_8106, [], [otp_8106_pid, 
 		     otp_8106_fun, 
 		     otp_8106_mfa]},
-     %% {ipv6, [], [ipv6_ipcomm, ipv6_essl, ipv6_ossl]}
      {ipv6, [], [ipv6_ipcomm, ipv6_essl]}
-     %% {ipv6, [], [ipv6_ipcomm]}
     ].
 
 
@@ -1951,28 +1949,6 @@ ipv6_essl(Config) when is_list(Config) ->
     Scheme      = "https", 
     Extra       = SSLOptions, 
     ipv6(SocketType, Scheme, HTTPOptions, Extra, Config).
-
-
-%%-------------------------------------------------------------------------
-
-%% ipv6_ossl() ->
-%%     %% [{require, ipv6_hosts}].
-%%     [].
-%% ipv6_ossl(doc) ->
-%%     ["Test ossl ipv6."];
-%% ipv6_ossl(suite) ->
-%%     [];
-%% ipv6_ossl(Config) when is_list(Config) ->
-%%     DataDir    = ?config(data_dir, Config),
-%%     CertFile   = filename:join(DataDir, "ssl_client_cert.pem"),
-%%     SSLOptions = [{certfile, CertFile}, {keyfile, CertFile}],
-%%     SSLConfig  = {ossl, SSLOptions}, 
-%%     tsp("ossl_ipv6 -> make request using: "
-%% 	"~n   SSLOptions: ~p", [SSLOptions]),
-%%     HTTPOptions = [{ssl, SSLConfig}], 
-%%     SocketType  = ossl, 
-%%     Scheme      = "https", 
-%%     ipv6(SocketType, Scheme, HTTPOptions, Config).
 
 
 %%-------------------------------------------------------------------------

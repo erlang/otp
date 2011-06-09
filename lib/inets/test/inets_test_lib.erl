@@ -26,9 +26,12 @@
 -export([start_http_server/1, start_http_server/2]).
 -export([start_http_server_ssl/1, start_http_server_ssl/2]).
 -export([hostname/0]).
--export([connect_bin/3, connect_byte/3, send/3, close/2]).
+-export([connect_bin/3,  connect_bin/4, 
+	 connect_byte/3, connect_byte/4, 
+	 send/3, close/2]).
 -export([copy_file/3, copy_files/2, copy_dirs/2, del_dirs/1]).
 -export([info/4, log/4, debug/4, print/4]).
+-export([tsp/1, tsp/2, tsf/1]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
 -export([oscmd/1, has_ipv6_support/0]).
@@ -294,29 +297,45 @@ os_based_skip(_) ->
 %% Host       -> atom() | string() | {A, B, C, D} 
 %% Port       -> integer()
 
-connect_bin(ssl, Host, Port) ->
-    connect(ssl, Host, Port, [binary, {packet,0}]);
-connect_bin(ossl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, old}, binary, {packet,0}]);
-connect_bin(essl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, new}, binary, {packet,0}, {reuseaddr, true}]);
-connect_bin(ip_comm, Host, Port) ->
-    Opts = [inet6, binary, {packet,0}],
+connect_bin(SockType, Host, Port) ->
+    connect_bin(SockType, Host, Port, []).
+
+connect_bin(ssl, Host, Port, Opts0) ->
+    Opts = [binary, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(ossl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, old}, binary, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(essl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, new}, binary, {packet,0}, {reuseaddr, true} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(ip_comm, Host, Port, Opts0) ->
+    Opts = [binary, {packet, 0} | Opts0],
     connect(ip_comm, Host, Port, Opts).
 
+
+connect_byte(SockType, Host, Port) ->
+    connect_byte(SockType, Host, Port, []).
     
-connect_byte(ssl, Host, Port) ->
-    connect(ssl, Host, Port, [{packet,0}]);
-connect_byte(ossl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, old}, {packet,0}]);
-connect_byte(essl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, new}, {packet,0}]);
-connect_byte(ip_comm, Host, Port) ->
-    Opts = [inet6, {packet,0}],
+connect_byte(ssl, Host, Port, Opts0) ->
+    Opts = [{packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(ossl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, old}, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(essl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, new}, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(ip_comm, Host, Port, Opts0) ->
+    Opts = [{packet,0} | Opts0],
     connect(ip_comm, Host, Port, Opts).
 
 
 connect(ssl, Host, Port, Opts) ->
+    tsp("connect(ssl) -> entry with"
+	"~n   Host: ~p"
+	"~n   Port: ~p"
+	"~n   Opts: ~p", [Host, Port, Opts]),
     ssl:start(),
     %% Does not support ipv6 in old ssl 
     case ssl:connect(Host, Port, Opts) of
@@ -328,6 +347,10 @@ connect(ssl, Host, Port, Opts) ->
 	    Error
     end;
 connect(ip_comm, Host, Port, Opts) ->
+    tsp("connect(ip_comm) -> entry with"
+	"~n   Host: ~p"
+	"~n   Port: ~p"
+	"~n   Opts: ~p", [Host, Port, Opts]),
     case gen_tcp:connect(Host,Port, Opts) of
 	{ok, Socket} ->
 	    %% tsp("connect success"),
@@ -423,7 +446,22 @@ flush() ->
 tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
-    test_server:format("~p ~p ~p:" ++ F ++ "~n", [node(), self(), ?MODULE | A]).
+    Timestamp = formated_timestamp(), 
+    test_server:format("*** ~s ~p ~p ~w:" ++ F ++ "~n", 
+		       [Timestamp, node(), self(), ?MODULE | A]).
 
 tsf(Reason) ->
     test_server:fail(Reason).
+
+formated_timestamp() ->
+    format_timestamp( os:timestamp() ).
+
+format_timestamp({_N1, _N2, N3} = Now) ->
+    {Date, Time}   = calendar:now_to_datetime(Now),
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate =
+        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
+                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
+    lists:flatten(FormatDate).
+
