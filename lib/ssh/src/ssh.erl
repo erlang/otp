@@ -264,7 +264,7 @@ start_daemon(Host, Port, Options, Inet) ->
 do_start_daemon(Host, Port, Options, SocketOptions) ->
     case ssh_system_sup:system_supervisor(Host, Port) of
 	undefined ->
-	    %% TODO: It would proably make more sense to call the
+	    %% It would proably make more sense to call the
 	    %% address option host but that is a too big change at the
 	    %% monent. The name is a legacy name!
 	    try sshd_sup:start_child([{address, Host}, 

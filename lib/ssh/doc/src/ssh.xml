@@ -217,7 +217,7 @@
     <func>
       <name>daemon(Port) -> </name>
       <name>daemon(Port, Options) -> </name>
-      <name>daemon(HostAddress, Port, Options) -> ssh_daemon_ref()</name>
+      <name>daemon(HostAddress, Port, Options) -> {ok, ssh_daemon_ref()} | {error, atom()}</name>
       <fsummary>Starts a server listening for SSH connections 
       on the given port.</fsummary>
       <type>

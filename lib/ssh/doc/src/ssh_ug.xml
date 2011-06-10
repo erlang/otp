@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<!-- %EricssonCopyright% -->
+<chapter>
+  <header>
+    <copyright>
+      <year>2011</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The program may be used and/or copied only with the written permission from
+      Ericsson AB, or in accordance with the terms and conditions stipulated in
+      the agreement/contract under which the program has been supplied.
+    </legalnotice>
+    <title>SSH</title>
+    <prepared>OTP</prepared>
+    <docno></docno>
+    <date></date>
+    <rev>A</rev>
+    <file>ssh_ug.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The Secure Shell (SSH) is a transport protocol. For more detailed information,
+       see the following RFCs:
+    </p>
+    <list type="bulleted">
+      <item><url href="http://www.ietf.org/rfc/rfc4250.txt">RFC 4250</url> -
+            Protocol Assigned Numbers.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4251.txt">RFC 4251</url> -
+            Protocol Architecture.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4252.txt">RFC 4252</url> -
+            Authentication Protocol.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4253.txt">RFC 4253</url> -
+            Transport Layer Protocol.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4254.txt">RFC 4254</url> -
+            Connection Protocol.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4255.txt">RFC 4255</url> -
+            Key Fingerprints.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4344.txt">RFC 4344</url> -
+            Transport Layer Encryption Modes.</item>
+      <item><url href="http://www.ietf.org/rfc/rfc4716.txt">RFC 4716</url> -
+            Public Key File Format.</item>
+    </list>
+
+    <p>The SSH application is an implementation of the SSH protocol
+       in Erlang. Conceptually it can be partitioned into four layers:</p>
+
+   <image file="SSH_protocols.png">
+     <icaption>SSH Protocol Dependencies</icaption>
+   </image>
+
+  </section>
+
+  <section>
+    <title>Overview</title>
+    <p>The SSH application supports:</p>
+
+    <list type="bulleted">
+      <item><em>Subsystem</em> - user-named services such as <seealso marker="ssh_sftp">ssh_sftp</seealso>.
+            The user can also add other subsystems (e.g. NETCONF).</item>
+      <item><em>Shell</em> - interactive shell.</item>
+      <item><em>Exec</em> - one-time remote execution (i.e. SCP). See <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso></item>
+    </list>
+
+
+  </section>
+
+  <section>
+    <title>Configuration and Start</title>
+
+    <p>Before the SSH application can be used, there are two things that must be fulfilled:</p>
+    <list type="bulleted">
+      <item>The <seealso marker="crypto:crypto">Crypto</seealso> application is started before SSH is.</item>
+      <item>The <seealso marker="public_key:public_key">Public_key</seealso> application is loaded when
+        running an embedded system.</item>
+    </list>
+
+    <section>
+      <title>Server Side</title>
+      <marker id="daemon"></marker>
+      <p>When SSH is supposed to run as server, the function <seealso marker="ssh#daemon-3">ssh:daemon/[1, 2, 3]</seealso> needs to
+         be used to start the daemon. </p>
+
+    </section>
+    <section>
+      <title>Client Side</title>
+      <marker id="client"></marker>
+      <p>The client.</p>
+
+    </section>
+  </section>
+
+</chapter>

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>2005</year><year>2010</year>
+      <year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,29 +21,15 @@
 
     </legalnotice>
 
-    <title>SSH</title>
-    <prepared>OTP Team</prepared>
+    <title>SSH User's Guide</title>
+    <prepared></prepared>
     <docno></docno>
-    <date>2007-10-06</date>
-    <rev>%VSN%</rev>
-    <file>book.sgml</file>
+    <date></date>
+    <rev></rev>
   </header>
-  <insidecover>
-  </insidecover>
-  <pagetext>SSH</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <parts>
-    <xi:include href="part.xml"/>
-  </parts>
-  <applications>
-    <xi:include href="ref_man.xml"/>
-  </applications>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <listofterms></listofterms>
-  <index></index>
-</book>
-
+  <description>
+    <p>The <em>SSH</em> application is an Erlang implementation of the
+      SSH protocol.</p>
+  </description>
+  <xi:include href="ssh_ug.xml"/>
+</part>

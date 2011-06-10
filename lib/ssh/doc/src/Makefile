@@ -44,13 +44,17 @@ XML_REF3_FILES = \
 	ssh_sftp.xml \
 	ssh_sftpd.xml \
 
-XML_PART_FILES = part_notes.xml
-XML_CHAPTER_FILES = notes.xml
+XML_PART_FILES = part_notes.xml \
+	part.xml
+XML_CHAPTER_FILES = notes.xml \
+	ssh_ug.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+
+IMAGE_FILES = SSH_protocols.png
 
 # ----------------------------------------------------
 
@@ -80,16 +84,19 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
+$(HTMLDIR)/%.png: %.png
 	$(INSTALL_DATA) $< $@
 
 docs: pdf html man
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
+images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
+
 pdf: $(TOP_PDF_FILE)
 
-html: $(HTML_REF_MAN_FILE)
+html: images $(HTML_REF_MAN_FILE)
+
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
