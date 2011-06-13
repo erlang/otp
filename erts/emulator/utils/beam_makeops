@@ -1304,7 +1304,8 @@ sub tr_gen {
 
     foreach $ref (@g) {
 	my($line, $orig_transform, $from_ref, $to_ref) = @$ref;
-	my $so_far = tr_gen_from($line, @$from_ref);
+	my $used_ref = used_vars($from_ref, $to_ref);
+	my $so_far = tr_gen_from($line, $used_ref, @$from_ref);
 	tr_gen_to($line, $orig_transform, $so_far, @$to_ref);
     }
 
@@ -1342,8 +1343,48 @@ sub tr_gen {
     print "};\n\n";
 }
 
+sub used_vars {
+    my($from_ref,$to_ref) = @_;
+    my %used;
+    my %seen;
+
+    foreach my $ref (@$from_ref) {
+	my($name,$arity,@ops) = @$ref;
+	if ($name =~ /^[.]/) {
+	    foreach my $var (@ops) {
+		$used{$var} = 1;
+	    }
+	} else {
+	    # Any variable that is used at least twice on the
+	    # left-hand side is used. (E.g. "move R R".)
+	    foreach my $op (@ops) {
+		my($var, $type, $type_val) = @$op;
+		next if $var eq '';
+		$used{$var} = 1 if $seen{$var};
+		$seen{$var} = 1;
+	    }
+	}
+    }
+
+    foreach my $ref (@$to_ref) {
+	my($name, $arity, @ops) = @$ref;
+	if ($name =~ /^[.]/) {
+	    foreach my $var (@ops) {
+		$used{$var} = 1;
+	    }
+	} else {
+	    foreach my $op (@ops) {
+		my($var, $type, $type_val) = @$op;
+		next if $var eq '';
+		$used{$var} = 1;
+	    }
+	}
+    }
+    \%used;
+}
+
 sub tr_gen_from {
-    my($line, @tr) = @_;
+    my($line,$used_ref,@tr) = @_;
     my(%var) = ();
     my(%var_type);
     my($var_num) = 0;
@@ -1353,6 +1394,7 @@ sub tr_gen_from {
     my(@fix_pred_funcs);
     my($op, $ref);		# Loop variables.
     my $where = "left side of transformation in line $line: ";
+    my %var_used = %$used_ref;
 
     foreach $ref (@tr) {
 	my($name, $arity, @ops) = @$ref;
@@ -1387,6 +1429,7 @@ sub tr_gen_from {
 	$min_window++;
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
+	    my $ignored_var = "$var (ignored)";
 
 	    if ($type ne '' && $type ne '*') {
 		#
@@ -1394,6 +1437,7 @@ sub tr_gen_from {
 		# their own built-in type test and don't need to
 		# be guarded with a type test instruction.
 		#
+		$ignored_var = '';
 		unless ($cond eq 'is_bif' or
 			$cond eq 'is_not_bif' or
 			$cond eq 'is_func') {
@@ -1415,22 +1459,27 @@ sub tr_gen_from {
 
 	    if ($cond eq 'is_func') {
 		my($m, $f, $a) = split(/:/, $val);
+		$ignored_var = '';
 		push(@code, &make_op('', "$cond", "am_$m",
 				     "am_$f", $a));
 	    } elsif ($cond ne '') {
+		$ignored_var = '';
 		push(@code, &make_op('', "$cond", $val));
 	    }
 
 	    if ($var ne '') {
 		if (defined $var{$var}) {
+		    $ignored_var = '';
 		    push(@code, &make_op($var, 'is_same_var', $var{$var}));
 		} elsif ($type eq '*') {
 		    #
 		    # Reserve a hole for a 'rest_args' instruction.
 		    #
+		    $ignored_var = '';
 		    push(@fix_rest_args, scalar(@code));
 		    push(@code, $var);
-		} else {
+		} elsif ($var_used{$var}) {
+		    $ignored_var = '';
 		    $var_type{$var} = 'scalar';
 		    $var{$var} = $var_num;
 		    $var_num++;
@@ -1443,7 +1492,7 @@ sub tr_gen_from {
 		my $var = $ref->[1][1];
 		push(@code, make_op($comment, 'set_var_next_arg', $var));
 	    } else {
-		push(@code, &make_op('', 'next_arg'));
+		push(@code, &make_op($ignored_var, 'next_arg'));
 	    }
 	}
 	# Remove redundant 'next_arg' instructions before 'next_instr'.
