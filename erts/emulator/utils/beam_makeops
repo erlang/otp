@@ -1446,8 +1446,9 @@ sub tr_gen_from {
 		push(@code, &make_op('', 'next_arg'));
 	    }
 	}
+	# Remove redundant 'next_arg' instructions before 'next_instr'.
+	pop(@code) while is_instr($code[$#code], 'next_arg');
 	push(@code, &make_op('', 'next_instr'));
-	pop(@code) if $code[$#code]->[1][0] eq 'next_arg';
     }
 
     #
