@@ -310,8 +310,6 @@ raise s s
 badarg j
 system_limit j
 
-move R R =>
-
 move C=cxy r | jump Lbl => move_jump Lbl C
 
 %macro: move_jump MoveJump -nonext
