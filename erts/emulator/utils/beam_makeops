@@ -1437,7 +1437,7 @@ sub tr_gen_from {
 		    push(@code, &make_op($var, 'set_var', $var{$var}));
 		}
 	    }
-	    if (is_set_var_instr($code[$#code])) {
+	    if (is_instr($code[$#code], 'set_var')) {
 		my $ref = pop @code;
 		my $comment = $ref->[2];
 		my $var = $ref->[1][1];
@@ -1560,7 +1560,7 @@ sub tr_gen_to {
 	    }
 	    push(@code, &make_op('', 'next_arg'));
 	}
-	pop(@code) if $code[$#code]->[1][0] eq 'next_arg';
+	pop(@code) if is_instr($code[$#code], 'next_arg');
     }
 
     push(@code, &make_op('', 'end'));
@@ -1597,10 +1597,10 @@ sub make_op {
     [scalar(@op), [@op], $comment];
 }
 
-sub is_set_var_instr {
-    my($ref) = @_;
+sub is_instr {
+    my($ref,$op) = @_;
     return 0 unless ref($ref) eq 'ARRAY';
-    $ref->[1][0] eq 'set_var';
+    $ref->[1][0] eq $op;
 }
 
 sub tr_gen_call {
