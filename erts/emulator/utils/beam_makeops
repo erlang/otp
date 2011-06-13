@@ -1395,11 +1395,16 @@ sub tr_gen_from {
     my($op, $ref);		# Loop variables.
     my $where = "left side of transformation in line $line: ";
     my %var_used = %$used_ref;
+    my $may_fail = 0;
+    my $is_first = 1;
 
     foreach $ref (@tr) {
 	my($name, $arity, @ops) = @$ref;
 	my($key) = "$name/$arity";
 	my($opnum);
+
+	$may_fail = 1 unless $is_first;
+	$is_first = 0;
 
 	#
 	# A name starting with a period is a C pred function to be called.
@@ -1407,6 +1412,7 @@ sub tr_gen_from {
 
 	if ($name =~ /^\.(\w+)/) {
 	    $name = $1;
+	    $may_fail = 1;
 	    my $var;
 	    my(@args);
 
@@ -1432,6 +1438,8 @@ sub tr_gen_from {
 	    my $ignored_var = "$var (ignored)";
 
 	    if ($type ne '' && $type ne '*') {
+		$may_fail = 1;
+
 		#
 		# The is_bif, is_not_bif, and is_func instructions have
 		# their own built-in type test and don't need to
@@ -1460,16 +1468,19 @@ sub tr_gen_from {
 	    if ($cond eq 'is_func') {
 		my($m, $f, $a) = split(/:/, $val);
 		$ignored_var = '';
+		$may_fail = 1;
 		push(@code, &make_op('', "$cond", "am_$m",
 				     "am_$f", $a));
 	    } elsif ($cond ne '') {
 		$ignored_var = '';
+		$may_fail = 1;
 		push(@code, &make_op('', "$cond", $val));
 	    }
 
 	    if ($var ne '') {
 		if (defined $var{$var}) {
 		    $ignored_var = '';
+		    $may_fail = 1;
 		    push(@code, &make_op($var, 'is_same_var', $var{$var}));
 		} elsif ($type eq '*') {
 		    #
@@ -1504,7 +1515,8 @@ sub tr_gen_from {
     # Insert the commit operation.
     #
     pop(@code);		# Get rid of 'next_instr'
-    push(@code, &make_op('', 'commit'));
+
+    push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
 
     #
     # If there is an rest_args instruction, we must insert its correct
@@ -1552,6 +1564,10 @@ sub tr_gen_to {
     my(@code) = @$code_ref;
     my($op, $ref);		# Loop variables.
     my($where) = "right side of transformation in line $line: ";
+
+    my $last_instr = $code[$#code];
+    my $cannot_fail = is_instr($last_instr, 'commit') &&
+	(get_comment($last_instr) =~ /^always/);
 
     foreach $ref (@tr) {
 	my($name, $arity, @ops) = @$ref;
@@ -1625,12 +1641,20 @@ sub tr_gen_to {
     $min_window{$key} = $min_window
 	if $min_window{$key} > $min_window;
 
-    pop(@{$gen_transform{$key}})
+    my $prev_last;
+    $prev_last = pop(@{$gen_transform{$key}})
 	if defined @{$gen_transform{$key}}; # Fail
-    my(@prefix) = (&make_op($comment), &make_op('', 'try_me_else', &tr_code_len(@code)));
-    unshift(@code, @prefix);
-    push(@{$gen_transform{$key}},
-	 @code,	 make_op(""), make_op("$key", 'fail'));
+
+    if ($prev_last && !is_instr($prev_last, 'fail')) {
+	error("Line $line: A previous transformation shadows '$orig_transform'");
+    }
+    unless ($cannot_fail) {
+	unshift(@code, make_op('', 'try_me_else',
+			       tr_code_len(@code)));
+	push(@code, make_op(""), make_op("$key", 'fail'));
+    }
+    unshift(@code, make_op($comment));
+    push(@{$gen_transform{$key}}, @code),
 }
 
 sub tr_code_len {
@@ -1653,6 +1677,13 @@ sub is_instr {
     return 0 unless ref($ref) eq 'ARRAY';
     $ref->[1][0] eq $op;
 }
+
+sub get_comment {
+    my($ref,$op) = @_;
+    return '' unless ref($ref) eq 'ARRAY';
+    $ref->[2];
+}
+
 
 sub tr_gen_call {
     my(@call_table) = @_;

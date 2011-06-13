@@ -4238,7 +4238,6 @@ transform_engine(LoaderState* st)
     ASSERT(restart != NULL);
     pc = restart;
     ASSERT(*pc < NUM_TOPS);	/* Valid instruction? */
-    ASSERT(*pc == TOP_try_me_else || *pc == TOP_fail);
     instr = st->genop;
 
 #define RETURN(r) rval = (r); goto do_return;

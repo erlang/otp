@@ -595,8 +595,6 @@ get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst | original_reg Reg 
 
 original_reg Reg Pos =>
 
-get_tuple_element Reg P Dst => i_get_tuple_element Reg P Dst
-
 original_reg/2
 
 extract_next_element D1=xy | original_reg Reg P1 | get_tuple_element Reg P2 D2=xy | \
