@@ -34,20 +34,54 @@
 -export([tsp/1, tsp/2, tsf/1]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
--export([oscmd/1, has_ipv6_support/0]).
+-export([oscmd/1, has_ipv6_support/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1, skip/3, fail/3]).
 -export([flush/0]).
 -export([start_node/1, stop_node/1]).
 
 %% -- Misc os command and stuff
 
-has_ipv6_support() ->
-    {ok, Hostname} = inet:gethostname(),
-    case inet:getaddrs(Hostname, inet6) of
-	{ok, [Addr|_]} ->
-	    {ok, Addr};
+has_ipv6_support(Config) ->
+    case lists:keysearch(ipv6_hosts, Config) of
+	false ->
+	    %% Do a basic check to se if 
+	    %% our own host has a working IPv6 address...
+	    tsp("has_ipv6_support -> no ipv6_hosts config"),
+	    {ok, Hostname} = inet:gethostname(),
+	    case inet:getaddrs(Hostname, inet6) of
+		{ok, [Addr|_]} when is_tuple(Addr) andalso 
+				    (element(1, Addr) =/= 0) ->
+		    %% We actually need to test that the addr can be used, 
+		    %% this is done by attempting to create a (tcp) 
+		    %% listen socket
+		    tsp("has_ipv6_support -> check Addr: ~p", [Addr]),
+		    case (catch gen_tcp:listen(0, [inet6, {ip, Addr}])) of
+			{ok, LSock} ->
+			    tsp("has_ipv6_support -> we are ipv6 host"),
+			    gen_tcp:close(LSock),
+			    {ok, Addr};
+			_ ->
+			    undefined
+		    end;
+		_ ->
+		    undefined
+	    end;
+	{value, {_, Hosts}} when is_list(Hosts) ->
+	    %% Check if our host is in the list of *known* IPv6 hosts
+	    tsp("has_ipv6_support -> Hosts: ~p", [Hosts]),
+	    {ok, Hostname} = inet:gethostname(),
+	    case lists:member(list_to_atom(Hostname), Hosts) of
+		true ->
+		    tsp("has_ipv6_support -> we are known ipv6 host"),
+		    {ok, [Addr|_]} = inet:getaddrs(Hostname, inet6),
+		    {ok, Addr};
+		false ->
+		    undefined
+	    end;
+	
 	_ ->
 	    undefined
+
     end.
 
 oscmd(Cmd) ->

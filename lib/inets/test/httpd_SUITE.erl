@@ -208,8 +208,10 @@
 	 ticket_7304/1]).
 
 %%% IPv6 tests
--export([ipv6_hostname_ipcomm/1, ipv6_address_ipcomm/1,
-	 ipv6_hostname_essl/1,   ipv6_address_essl/1]).
+-export([ipv6_hostname_ipcomm/0, ipv6_hostname_ipcomm/1, 
+	 ipv6_address_ipcomm/0,  ipv6_address_ipcomm/1, 
+	 ipv6_hostname_essl/0,   ipv6_hostname_essl/1,   
+	 ipv6_address_essl/0,    ipv6_address_essl/1]).
 
 %% Help functions 
 -export([cleanup_mnesia/0, setup_mnesia/0, setup_mnesia/1]).
@@ -515,7 +517,7 @@ init_per_testcase2(Case, Config) ->
     NewConfig2 = 
 	case atom_to_list(Case) of
 	    "ipv6_" ++ _ ->
-		case (catch inets_test_lib:has_ipv6_support()) of
+		case (catch inets_test_lib:has_ipv6_support(NewConfig)) of
 		    {ok, IPv6Address0} ->
 			{ok, Hostname} = inet:gethostname(), 
 			IPv6Address = http_transport:ipv6_name(IPv6Address0), 
@@ -551,18 +553,6 @@ init_per_testcase2(Case, Config) ->
 		NewConfig
 	end,
 
-    %% case (catch ?config(test_host_ipv6_only, Config)) of
-    %% 	{_,IPv6Host,IPv6Adress,_,_} ->
-    %% 	    create_ipv6_config([{port, ?IP_PORT}, 
-    %% 				{sock_type, ip_comm} | NewConfig],
-    %% 			       "ipv6_hostname.conf", IPv6Host),
-    %% 	    create_ipv6_config([{port, ?IP_PORT}, 
-    %% 				{sock_type, ip_comm} | NewConfig],
-    %% 			       "ipv6_address.conf", IPv6Adress);
-    %% 	_ ->
-    %% 	    ok
-    %%     end,
-    
     io:format(user, "~w:init_per_testcase2(~w) -> done~n", 
 	      [?MODULE, Case]),
 
@@ -2456,11 +2446,16 @@ ip_mod_cgi_chunked_encoding_test(Config) when is_list(Config) ->
     ok.
 
 %------------------------------------------------------------------------- 
+
+ipv6_hostname_ipcomm() ->
+    [{require, ipv6_hosts}].
 ipv6_hostname_ipcomm(X) -> 
     SocketType = ip_comm,
     Port       = ?IP_PORT, 
     ipv6_hostname(SocketType, Port, X).
 
+ipv6_hostname_essl() ->
+    [{require, ipv6_hosts}].
 ipv6_hostname_essl(X) -> 
     SocketType = essl, 
     Port       = ?SSL_PORT, 
@@ -2487,11 +2482,15 @@ ipv6_hostname(SocketType, Port, Config) when is_list(Config) ->
 
 %%------------------------------------------------------------------------- 
 
+ipv6_address_ipcomm() ->
+    [{require, ipv6_hosts}].
 ipv6_address_ipcomm(X) ->
     SocketType = ip_comm,
     Port       = ?IP_PORT, 
     ipv6_address(SocketType, Port, X).
 
+ipv6_address_essl() ->
+    [{require, ipv6_hosts}].
 ipv6_address_essl(X) ->
     SocketType = essl,
     Port       = ?SSL_PORT, 
@@ -3060,27 +3059,27 @@ create_ipv6_config(Config, FileName, Ipv6Address) ->
 
     BindAddress = "[" ++ Ipv6Address ++"]|inet6", 
 
-    HttpConfig = [cline(["BindAddress ", BindAddress]),
-		  cline(["Port ", integer_to_list(Port)]),
-		  cline(["ServerName ", Host]),
-		  cline(["SocketType ", atom_to_list(SockType)]),
-		  cline([Mod_order]),
-		  cline(["ServerRoot ", ServerRoot]),
-		  cline(["DocumentRoot ",  
-			 filename:join(ServerRoot, "htdocs")]),
-		  cline(["MaxHeaderSize ",MaxHdrSz]),
-		  cline(["MaxHeaderAction ",MaxHdrAct]),
-		  cline(["DirectoryIndex ", "index.html "]),
-		  cline(["DefaultType ", "text/plain"]), 
-		  SSL],
+    HttpConfig = 
+	[cline(["BindAddress ", BindAddress]),
+	 cline(["Port ", integer_to_list(Port)]),
+	 cline(["ServerName ", Host]),
+	 cline(["SocketType ", atom_to_list(SockType)]),
+	 cline([Mod_order]),
+	 cline(["ServerRoot ", ServerRoot]),
+	 cline(["DocumentRoot ", filename:join(ServerRoot, "htdocs")]),
+	 cline(["MaxHeaderSize ",MaxHdrSz]),
+	 cline(["MaxHeaderAction ",MaxHdrAct]),
+	 cline(["DirectoryIndex ", "index.html "]),
+	 cline(["DefaultType ", "text/plain"]), 
+	 SSL],
     ConfigFile = filename:join([TcTopDir,FileName]),
     {ok, Fd} = file:open(ConfigFile, [write]),
     ok = file:write(Fd, lists:flatten(HttpConfig)),
     ok = file:close(Fd).
 
 
-tsp(F) ->
-    inets_test_lib:tsp(F).
+%% tsp(F) ->
+%%     inets_test_lib:tsp(F).
 tsp(F, A) ->
     inets_test_lib:tsp(F, A).
 

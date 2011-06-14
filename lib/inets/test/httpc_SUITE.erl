@@ -220,20 +220,33 @@ end_per_suite(Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+
 init_per_testcase(otp_8154_1 = Case, Config) ->
     init_per_testcase(Case, 5, Config);
 
-init_per_testcase(initial_server_connect, Config) ->
+init_per_testcase(initial_server_connect = Case, Config) ->
     %% Try to check if crypto actually exist or not, 
     %% this test case does not work unless it does
-    case (catch crypto:start()) of
-	ok ->
-	    application:start(public_key),
-	    application:start(ssl),
+    try 
+	begin
+	    ensure_started(crypto),
+	    ensure_started(public_key),
+	    ensure_started(ssl),
 	    inets:start(),
-	    Config;
-	_ ->
-	    {skip,"Could not start crypto"}
+	    Config
+	end
+    catch
+	throw:{error, {failed_starting, App, ActualError}} ->
+	    tsp("init_per_testcase(~w) -> failed starting ~w: "
+		"~n   ~p", [Case, App, ActualError]),
+	    SkipString = 
+		"Could not start " ++ atom_to_list(App),
+	    {skip, SkipString};
+	  _:X ->
+	    SkipString = 
+		lists:flatten(
+		  io_lib:format("Failed starting apps: ~p", [X])), 
+	    {skip, SkipString}
     end;
 
 init_per_testcase(Case, Config) ->
@@ -274,16 +287,23 @@ init_per_testcase(Case, Timeout, Config) ->
 		    "https_not_supported" ->	
 			tsp("init_per_testcase -> [proxy case] start inets"),
 			inets:start(),
-			tsp("init_per_testcase -> [proxy case] start ssl"),
-			application:start(crypto),
-			application:start(public_key),
-			case (catch application:start(ssl)) of
+			tsp("init_per_testcase -> "
+			    "[proxy case] start crypto, public_key and ssl"),
+			try ensure_started([crypto, public_key, ssl]) of
 			    ok ->
-				[{watchdog, Dog} | TmpConfig];
-			    _ ->
-				[{skip, "SSL does not seem to be supported"} 
-				 | TmpConfig]
+				[{watchdog, Dog} | TmpConfig]
+			catch 
+			    throw:{error, {failed_starting, App, _}} ->
+				SkipString = 
+				    "Could not start " ++ atom_to_list(App),
+				{skip, SkipString};
+			    _:X ->
+				SkipString = 
+				    lists:flatten(
+				      io_lib:format("Failed starting apps: ~p", [X])), 
+				{skip, SkipString}
 			end;
+
 		    _ ->
 			%% We use erlang.org for the proxy tests 
 			%% and after the switch to erlang-web, many
@@ -322,24 +342,31 @@ init_per_testcase(Case, Timeout, Config) ->
 		end;
 
 	    "ipv6_" ++ _Rest ->
-		%% Start httpc part of inets
-		CryptoStartRes = application:start(crypto),
-		PubKeyStartRes = application:start(public_key),
-		SSLStartRes    = application:start(ssl),
-		tsp("App start result: "
-		    "~n   Crypto    start result: ~p"
-		    "~n   PublicKey start result: ~p"
-		    "~n   SSL       start result: ~p", 
-		    [CryptoStartRes, PubKeyStartRes, SSLStartRes]),
-		Profile = ipv6, 
-		%% A stand-alone profile is represented by a pid()
-		{ok, ProfilePid} = 
-		    inets:start(httpc, 
-				[{profile,  Profile}, 
-				 {data_dir, PrivDir}], stand_alone),
-		httpc:set_options([{ipfamily, inet6}], ProfilePid), 
-		tsp("httpc profile pid: ~p", [ProfilePid]),
-		[{watchdog, Dog}, {profile, ProfilePid}| TmpConfig];
+		%% Ensure needed apps (crypto, public_key and ssl) started
+		try ensure_started([crypto, public_key, ssl]) of
+		    ok ->
+			Profile = ipv6, 
+			%% A stand-alone profile is represented by a pid()
+			{ok, ProfilePid} = 
+			    inets:start(httpc, 
+					[{profile,  Profile}, 
+					 {data_dir, PrivDir}], stand_alone),
+			httpc:set_options([{ipfamily, inet6}], ProfilePid), 
+			tsp("httpc profile pid: ~p", [ProfilePid]),
+			[{watchdog, Dog}, {profile, ProfilePid}| TmpConfig]
+		catch 
+		    throw:{error, {failed_starting, App, ActualError}} ->
+			tsp("init_per_testcase(~w) -> failed starting ~w: "
+			    "~n   ~p", [Case, App, ActualError]),
+			SkipString = 
+			    "Could not start " ++ atom_to_list(App),
+			{skip, SkipString};
+		      _:X ->
+			SkipString = 
+			    lists:flatten(
+			      io_lib:format("Failed starting apps: ~p", [X])), 
+			{skip, SkipString}
+		end;
 	    _ -> 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
 		Server = 
@@ -1926,7 +1953,7 @@ parse_url(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 ipv6_ipcomm() ->
-    [].
+    [{require, ipv6_hosts}].
 ipv6_ipcomm(doc) ->
     ["Test ip_comm ipv6."];
 ipv6_ipcomm(suite) ->
@@ -1942,7 +1969,7 @@ ipv6_ipcomm(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 
 ipv6_essl() ->
-    [].
+    [{require, ipv6_hosts}].
 ipv6_essl(doc) ->
     ["Test essl ipv6."];
 ipv6_essl(suite) ->
@@ -1966,7 +1993,7 @@ ipv6_essl(Config) when is_list(Config) ->
 ipv6(SocketType, Scheme, HTTPOptions, Extra, Config) ->
     %% Check if we are a IPv6 host
     tsp("ipv6 -> verify ipv6 support", []),
-    case inets_test_lib:has_ipv6_support() of
+    case inets_test_lib:has_ipv6_support(Config) of
 	{ok, Addr} ->
 	    tsp("ipv6 -> ipv6 supported: ~p", [Addr]),
 	    {DummyServerPid, Port} = dummy_server(SocketType, ipv6, Extra),
@@ -3524,5 +3551,21 @@ dummy_ssl_server_hang_loop(_) ->
     receive
 	stop ->
 	    ok
+    end.
+
+
+ensure_started([]) ->
+    ok;
+ensure_started([App|Apps]) ->
+    ensure_started(App),
+    ensure_started(Apps);
+ensure_started(App) when is_atom(App) ->
+    case (catch application:start(App)) of
+	ok ->
+	    ok;
+	{error, {already_started, _}} ->
+	    ok;
+	Error ->
+	    throw({error, {failed_starting, App, Error}})
     end.
 
