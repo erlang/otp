@@ -221,7 +221,7 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 			      int num_param_values, db_state* state);
 
 static void init_param_statement(int cols,
-				 int num_param_values, 
+				 SQLLEN num_param_values,
 				 db_state *state,
 				 param_status *status);
 
@@ -435,7 +435,7 @@ static db_result_msg db_connect(byte *args, db_state *state)
     diagnos diagnos;
     byte *connStrIn; 
     int erl_auto_commit_mode, erl_trace_driver,
-	use_srollable_cursors, tuple_row_state, binary_strings;
+	    use_srollable_cursors, tuple_row_state, binary_strings;
   
     erl_auto_commit_mode = args[0];
     erl_trace_driver = args[1];
@@ -757,8 +757,9 @@ static db_result_msg db_select(byte *args, db_state *state)
 static db_result_msg db_param_query(byte *buffer, db_state *state)
 {
     byte *sql; 
-    db_result_msg msg; 
-    int i, num_param_values, ver = 0,
+    db_result_msg msg;
+    SQLLEN num_param_values;
+    int i, ver = 0,
        erl_type = 0, index = 0, size = 0, cols = 0;
     long long_num_param_values;  
     param_status param_status;
@@ -785,7 +786,7 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
 
     ei_decode_long(buffer, &index, &long_num_param_values);
 
-    num_param_values = (int)long_num_param_values;
+    num_param_values = (SQLLEN)long_num_param_values;
     ei_decode_list_header(buffer, &index, &cols);
 
     
@@ -2007,7 +2008,7 @@ static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 			db_state *state)
 {
   
-    int auto_commit_mode, trace_driver;
+    SQLLEN auto_commit_mode, trace_driver;
   
     if(erl_auto_commit_mode == ON) {
 	auto_commit_mode = SQL_AUTOCOMMIT_ON;
@@ -2057,7 +2058,7 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
     
     ei_decode_long(buffer, index, &user_type);
 
-    params->type.strlen_or_indptr = (SQLINTEGER)NULL;
+    params->type.strlen_or_indptr = (SQLLEN)NULL;
     params->type.strlen_or_indptr_array = NULL;
     params->type.decimal_digits = (SQLINTEGER)0;
   
@@ -2206,7 +2207,7 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 
 }
 
-static void init_param_statement(int cols, int num_param_values, 
+static void init_param_statement(int cols, SQLLEN num_param_values,
 				 db_state *state, param_status *status)
 {
     int i;
@@ -2234,11 +2235,11 @@ static void init_param_statement(int cols, int num_param_values,
 	DO_EXIT(EXIT_PARAM_ARRAY);
     }
 
-    /* Note the (int *) cast is correct as the API function SQLSetStmtAttr
+    /* Note the (SQLLEN *) cast is correct as the API function SQLSetStmtAttr
        takes either an interger or a pointer depending on the attribute */
     if(!sql_success(SQLSetStmtAttr(statement_handle(state),
 				   SQL_ATTR_PARAMSET_SIZE,
-				   (int *)num_param_values,
+				   (SQLLEN *)num_param_values,
 				   0))) {
 	DO_EXIT(EXIT_PARAM_ARRAY);
     }
@@ -2308,21 +2309,21 @@ static db_result_msg map_sql_2_c_column(db_column* column)
     case SQL_DECIMAL:
 	map_dec_num_2_c_column(&(column -> type), column -> type.col_size,
 			       column -> type.decimal_digits);
-	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+	column -> type.strlen_or_indptr = (SQLLEN)NULL;
 	break;
     case SQL_TINYINT:
     case SQL_INTEGER:
     case SQL_SMALLINT:
 	column -> type.len = sizeof(SQLINTEGER);
 	column -> type.c = SQL_C_SLONG;
-	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+	column -> type.strlen_or_indptr = (SQLLEN)NULL;
 	break;
     case SQL_REAL:
     case SQL_FLOAT:
     case SQL_DOUBLE:
 	column -> type.len = sizeof(double);
 	column -> type.c = SQL_C_DOUBLE;
-	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+	column -> type.strlen_or_indptr = (SQLLEN)NULL;
 	break;
     case SQL_TYPE_DATE:
     case SQL_TYPE_TIME:
@@ -2334,17 +2335,17 @@ static db_result_msg map_sql_2_c_column(db_column* column)
     case SQL_TYPE_TIMESTAMP:
       column -> type.len = sizeof(TIMESTAMP_STRUCT);
       column -> type.c = SQL_C_TYPE_TIMESTAMP;
-      column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+      column -> type.strlen_or_indptr = (SQLLEN)NULL;
       break;
     case SQL_BIGINT:
 	column -> type.len = DEC_NUM_LENGTH;
 	column -> type.c = SQL_C_CHAR;
-	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+	column -> type.strlen_or_indptr = (SQLLEN)NULL;
 	break;
     case SQL_BIT:
 	column -> type.len = sizeof(byte);
 	column -> type.c = SQL_C_BIT;
-	column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+	column -> type.strlen_or_indptr = (SQLLEN)NULL;
 	break;
     case SQL_UNKNOWN_TYPE:
 	msg = encode_error_message("Unknown column type");
