@@ -71,6 +71,9 @@ WXERL_CAN_BUILD_DRIVER=true
 
 LM_WINDOWS_ENVIRONMENT
 
+if test  X"$MIXED_CYGWIN_VC" == X"yes" -o X"$MIXED_MSYS_VC" == X"yes"; then
+   CFLAGS="-Owx"
+fi
 
 ## Check that we are in 32 bits mode on darwin 
 ## (wxWidgets require that it currently uses 32-bits Carbon)
@@ -304,7 +307,7 @@ dnl
 if test "$cross_compiling" = "yes"; then
     echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" > ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
-elif test X"$MIXED_CYGWIN_VC" != X"yes"  -a X"$MIXED_MSYS_VC" != X"yes"; then
+elif test  X"$MIXED_CYGWIN_VC" == X"no" -a X"$MIXED_MSYS_VC" == X"no"; then
     m4_include(wxwin.m4)
 
     AM_OPTIONS_WXCONFIG
@@ -403,11 +406,11 @@ else
 	    WXINCLUDE_PLAIN=$dir/include
 	    WXINCLUDE_CONTRIB=$dir/contrib/include
 	    WX_CFLAGS="-EHsc -D_UNICODE -DUNICODE -I$WXINCLUDE_MSVC -I$WXINCLUDE_PLAIN -I$WXINCLUDE_CONTRIB -D__WXMSW__"
-	    WX_CXXFLAGS=$WX_CFLAGS
+	    WX_CXXFLAGS="-TP $WX_CFLAGS"
 	    WX_LIBDIR=$dir/lib/vc_lib
 	    WX_RESCOMP="rc.sh -I$WXINCLUDE_PLAIN -D __WIN32__"
 	    RC_FILE_TYPE=res
-	    for lib in $WX_LIBDIR/wxbase*.lib; do
+	    for lib in $WX_LIBDIR/wxbase*.lib $WX_LIBDIR2/wxbase*.lib; do
 		maybe=`echo $lib | egrep 'wxbase[[0-9]]*u\.lib'`
 		if test '!' -z "$maybe"; then
 		   corelib_number=`echo $maybe | sed 's,.*\([[0-9]].\)u\.lib,\1,'`
@@ -541,7 +544,7 @@ AC_CHECK_HEADERS([wx/stc/stc.h],
         [],
     	[WXERL_CAN_BUILD_DRIVER=false
 	 echo "wxWidgets don't have wxStyledTextControl (stc.h), wx will NOT be useable" > ./CONF_INFO
-     	 AC_MSG_WARN([Can not find wx/stc/stc.h])      
+     	 AC_MSG_WARN([Can not find wx/stc/stc.h $CXXFLAGS])      
      	],
 	[#ifdef WIN32
 	 # include <windows.h>

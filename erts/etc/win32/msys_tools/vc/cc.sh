@@ -152,6 +152,9 @@ while test -n "$1" ; do
 	-EH*)
 	    y=`echo $x | sed 's,",\\\",g'`;
 	    CMD="$CMD $y";;
+	-TP|-Tp)
+	    y=`echo $x | sed 's,",\\\",g'`;
+	    CMD="$CMD $y";;
 	-l*)
 	    y=`echo $x | sed 's,^-l\(.*\),\1,g'`;
 	    LINKCMD="$LINKCMD $x";;

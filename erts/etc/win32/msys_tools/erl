@@ -27,22 +27,16 @@ for x in "$@"; do
 	-I/*|-o/*)
 	    y=`echo $x | sed 's,^-[Io]\(/.*\),\1,g'`;
 	    z=`echo $x | sed 's,^-\([Io]\)\(/.*\),\1,g'`;
-	    #echo "Foooo:$z"
-	    MPATH=`cygpath -m $y`;
+	    MPATH=`msys2win_path.sh -m $y`;
 	    CMD="$CMD -$z\"$MPATH\"";; 
 	/*)
-	    #echo "absolute:"$x;
-	    MPATH=`cygpath -m $x`;
+	    MPATH=`msys2win_path.sh -m $x`;
 	    CMD="$CMD \"$MPATH\"";; 
-#	+{*);;
 	*)
-#	    y=`echo $x | sed 's,",\\\\\\\\\\\",g'`;
 	    y=`echo $x | sed 's,",\\\",g'`;
 	    CMD="$CMD \"$y\"";;
     esac
 done
-#echo "$@"
-#eval echo erlc.exe $CMD
-ERL_TOP=`cygpath -m $ERL_TOP`
+ERL_TOP=`msys2win_path.sh -m $ERL_TOP`
 export ERL_TOP
 eval erl.exe $CMD

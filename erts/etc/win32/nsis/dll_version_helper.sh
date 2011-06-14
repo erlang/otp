@@ -36,11 +36,11 @@ int main(void)
 }
 
 EOF
-cl /MD hello.c  > /dev/null 2>&1
+cl -MD hello.c  > /dev/null 2>&1
 if [ '!' -f hello.exe.manifest ]; then
     # Gah - VC 2010 changes the way it handles DLL's and manifests... Again...
     # need another way of getting the version
-    DLLNAME=`dumpbin.exe /imports hello.exe | egrep MSVCR.*dll`
+    DLLNAME=`dumpbin.exe -imports hello.exe | egrep MSVCR.*dll`
     DLLNAME=`echo $DLLNAME`
     cat > helper.c <<EOF
 #include <windows.h>
@@ -59,11 +59,7 @@ int main(void)
   char *vs_verinfo;
   unsigned int vs_ver_size;
   
-  struct LANGANDCODEPAGE {
-    WORD language;
-    WORD codepage;
-  } *translate;
-
+  WORD *translate;
   unsigned int tr_size;
   
   if (!(versize = GetFileVersionInfoSize(REQ_MODULE,&dummy))) {
@@ -79,10 +75,10 @@ int main(void)
     fprintf(stderr,"No translation info in %s!\n",REQ_MODULE);
     exit(3);
   }
-  n = tr_size/sizeof(translate);
+  n = tr_size/(2*sizeof(*translate));
   for(i=0; i < n; ++i) {
     sprintf(buff,"\\\\StringFileInfo\\\\%04x%04x\\\\FileVersion",
-	    translate[i].language,translate[i].codepage);
+	    translate[i*2],translate[i*2+1]);
     if (VerQueryValue(versinfo,buff,&vs_verinfo,&vs_ver_size)) {
       printf("%s\n",(char *) vs_verinfo);
       return 0;
@@ -92,7 +88,7 @@ int main(void)
   return 0;
 }
 EOF
-    cl /MD helper.c version.lib > /dev/null 2>&1
+    cl -MD helper.c version.lib > /dev/null 2>&1
     if [ '!' -f helper.exe ]; then
 	echo "Failed to build helper program." >&2
 	exit 1

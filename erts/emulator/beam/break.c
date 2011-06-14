@@ -182,6 +182,7 @@ print_process_info(int to, void *to_arg, Process *p)
 {
     int garbing = 0;
     int running = 0;
+    time_t tmp_t;
     struct saved_calls *scb;
 
     /* display the PID */
@@ -244,8 +245,8 @@ print_process_info(int to, void *to_arg, Process *p)
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
-
-    erts_print(to, to_arg, "Started: %s", ctime((time_t*)&p->started.tv_sec));
+    tmp_t = p->started.tv_sec;
+    erts_print(to, to_arg, "Started: %s", ctime(&tmp_t));
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
     erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
 
