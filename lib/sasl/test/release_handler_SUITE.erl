@@ -1039,17 +1039,17 @@ delete_release(Conf) ->
     ?t:format("========  deleting  ~p~n",[Dirs]),
 
     ok = delete_release_os(Dirs--["save"]),
-	{ok,Remaining} = file:list_dir(PrivDir),
+    {ok,Remaining} = file:list_dir(PrivDir),
     ?t:format("========  remaining  ~p~n",[Remaining]),
 
-	case Remaining of
-	[] -> ok;
+    case Remaining of
+	[] ->
+	    ok;
 	_ ->
-	delete_release_os(Remaining),
-	Remaining2 = file:list_dir(PrivDir),
-    ?t:format("========  remaining after second try ~p~n",[Remaining2])
-	end,
-
+	    delete_release_os(Remaining),
+	    Remaining2 = file:list_dir(PrivDir),
+	    ?t:format("========  remaining after second try ~p~n",[Remaining2])
+    end,
 
     ok = file:set_cwd(OrigWd),
     ok.
@@ -1608,8 +1608,7 @@ start_node_win32(Sname,NodeDir) ->
     ErtsBinDir = filename:join(NodeDir,"erts-4.4/bin"),
 
     StartErlArgs = rh_test_lib:get_start_erl_args(NodeDir),
-    ServiceArgs = rh_test_lib:get_service_args("4.4", NodeDir, Sname,
-					       StartErlArgs),
+    ServiceArgs = rh_test_lib:get_service_args(NodeDir, Sname, StartErlArgs),
 
     Erlsrv = filename:nativename(filename:join(ErtsBinDir,"erlsrv")),
     rh_test_lib:erlsrv(Erlsrv,stop,Name),

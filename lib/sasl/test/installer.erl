@@ -634,7 +634,7 @@ start_client_win32(TestNode,Client,ClientSname) ->
 							    RootDir),
     StartErlArgs = rh_test_lib:get_start_erl_args(RootDir,RelClientDir,
 						  ClientArgs),
-    ServiceArgs = rh_test_lib:get_service_args("4.4", RootDir, RelClientDir,
+    ServiceArgs = rh_test_lib:get_service_args(RootDir, RelClientDir,
 					       ClientSname, StartErlArgs),
 
     ?print([{start_client,ClientSname},ServiceArgs]),
