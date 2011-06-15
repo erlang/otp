@@ -35,22 +35,17 @@
   <section><title>Inets 5.7</title>
 
     <section><title>Improvements and New Features</title>
-    <p>-</p>
-
 <!--
+    <p>-</p>
+-->
+
       <list>
         <item>
-          <p>[httpc] Add support for upload body streaming (PUT and POST).</p>
-	  <p>For more info, 
-	  see the definition of the <c>Body</c> argument of the 
-	  <seealso marker="httpc#request2">request/4,5</seealso> 
-	  function. </p>
-	  <p>Filipe David Manana</p>
-	  <p>Own Id: OTP-9094</p>
+          <p>[httpc|httpd] Added support for IPv6 with ssl. </p>
+	  <p>Own Id: OTP-5566</p>
         </item>
 
       </list>
--->
 
     </section>
 
@@ -78,6 +73,14 @@
 	  in HTTP. </p>
 	  <p>Attila Rajmund Nohl.</p>
 	  <p>Own Id: OTP-9343</p>
+        </item>
+
+        <item>
+          <p>[httpc] Clients started stand-alone not properly handled. 
+	  Also it was not documented how to use them, that is that 
+	  once started, they are represented by a <c>pid()</c> and not by 
+	  their <c>profile()</c>. </p>
+	  <p>Own Id: OTP-9365</p>
         </item>
 
       </list>

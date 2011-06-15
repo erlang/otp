@@ -64,16 +64,6 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [
-     proxy_options, 
-     proxy_head, 
-     proxy_get, 
-     proxy_trace,
-     proxy_post, 
-     proxy_put, 
-     proxy_delete, 
-     proxy_auth,
-     proxy_headers, 
-     proxy_emulate_lower_versions,
      http_options, 
      http_head, 
      http_get, 
@@ -88,15 +78,6 @@ all() ->
      http_headers, 
      http_headers_dummy, 
      http_bad_response,
-     ssl_head, 
-     ossl_head, 
-     essl_head, 
-     ssl_get, 
-     ossl_get,
-     essl_get, 
-     ssl_trace, 
-     ossl_trace, 
-     essl_trace,
      http_redirect, 
      http_redirect_loop,
      http_internal_server_error, 
@@ -106,21 +87,44 @@ all() ->
      http_emulate_lower_versions, 
      http_relaxed,
      page_does_not_exist, 
-     proxy_page_does_not_exist,
-     proxy_https_not_supported, 
-     http_stream,
-     http_stream_once, 
-     proxy_stream, 
      parse_url, 
      options,
-     ipv6, 
      headers_as_is, 
+     {group, proxy}, 
+     {group, ssl}, 
+     {group, stream}, 
+     {group, ipv6}, 
      {group, tickets},
      initial_server_connect
     ].
 
 groups() -> 
-    [{tickets, [], [hexed_query_otp_6191, 
+    [
+     {proxy,   [], [proxy_options, 
+		    proxy_head, 
+		    proxy_get, 
+		    proxy_trace,
+		    proxy_post, 
+		    proxy_put, 
+		    proxy_delete, 
+		    proxy_auth,
+		    proxy_headers, 
+		    proxy_emulate_lower_versions,
+		    proxy_page_does_not_exist,
+		    proxy_https_not_supported]}, 
+     {ssl,     [], [ssl_head, 
+		    ossl_head, 
+		    essl_head, 
+		    ssl_get, 
+		    ossl_get,
+		    essl_get, 
+		    ssl_trace, 
+		    ossl_trace, 
+		    essl_trace]}, 
+     {stream,  [], [http_stream,
+		    http_stream_once, 
+		    proxy_stream]}, 
+     {tickets, [], [hexed_query_otp_6191, 
 		    empty_body_otp_6243,
 		    empty_response_header_otp_6830,
 		    transfer_encoding_otp_6807, 
@@ -139,7 +143,10 @@ groups() ->
      {otp_8154, [], [otp_8154_1]},
      {otp_8106, [], [otp_8106_pid, 
 		     otp_8106_fun, 
-		     otp_8106_mfa]}].
+		     otp_8106_mfa]},
+     {ipv6, [], [ipv6_ipcomm, ipv6_essl]}
+    ].
+
 
 
 init_per_group(_GroupName, Config) ->
@@ -213,35 +220,37 @@ end_per_suite(Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+
 init_per_testcase(otp_8154_1 = Case, Config) ->
     init_per_testcase(Case, 5, Config);
 
-init_per_testcase(initial_server_connect, Config) ->
+init_per_testcase(initial_server_connect = Case, Config) ->
     %% Try to check if crypto actually exist or not, 
     %% this test case does not work unless it does
-    case (catch crypto:start()) of
-	ok ->
-	    application:start(public_key),
-	    application:start(ssl),
+    try 
+	begin
+	    ensure_started(crypto),
+	    ensure_started(public_key),
+	    ensure_started(ssl),
 	    inets:start(),
-	    Config;
-	_ ->
-	    {skip,"Could not start crypto"}
+	    Config
+	end
+    catch
+	throw:{error, {failed_starting, App, ActualError}} ->
+	    tsp("init_per_testcase(~w) -> failed starting ~w: "
+		"~n   ~p", [Case, App, ActualError]),
+	    SkipString = 
+		"Could not start " ++ atom_to_list(App),
+	    {skip, SkipString};
+	  _:X ->
+	    SkipString = 
+		lists:flatten(
+		  io_lib:format("Failed starting apps: ~p", [X])), 
+	    {skip, SkipString}
     end;
 
 init_per_testcase(Case, Config) ->
     init_per_testcase(Case, 2, Config).
-
-init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
-    tsp("init_per_testcase_ssl -> stop ssl"),
-    application:stop(ssl),
-    Config2 = lists:keydelete(local_ssl_server, 1, Config),
-    %% Will start inets 
-    tsp("init_per_testcase_ssl -> try start http server (including inets)"),
-    Server = inets_test_lib:start_http_server(
-	       filename:join(PrivDir, SslConfFile), Tag),
-    tsp("init_per_testcase -> Server: ~p", [Server]),
-    [{local_ssl_server, Server} | Config2].
 
 init_per_testcase(Case, Timeout, Config) ->
     io:format(user, "~n~n*** INIT ~w:~w[~w] ***~n~n", 
@@ -261,13 +270,16 @@ init_per_testcase(Case, Timeout, Config) ->
     NewConfig = 
 	case atom_to_list(Case) of
 	    [$s, $s, $l | _] ->
-		init_per_testcase_ssl(ssl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
+		init_per_testcase_ssl(ssl, PrivDir, SslConfFile, 
+				      [{watchdog, Dog} | TmpConfig]);
 
 	    [$o, $s, $s, $l | _] ->
-		init_per_testcase_ssl(ossl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
+		init_per_testcase_ssl(ossl, PrivDir, SslConfFile, 
+				      [{watchdog, Dog} | TmpConfig]);
 
 	    [$e, $s, $s, $l | _] ->
-		init_per_testcase_ssl(essl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
+		init_per_testcase_ssl(essl, PrivDir, SslConfFile, 
+				      [{watchdog, Dog} | TmpConfig]);
 
 	    "proxy_" ++ Rest ->
 		io:format("init_per_testcase -> Rest: ~p~n", [Rest]),
@@ -275,16 +287,23 @@ init_per_testcase(Case, Timeout, Config) ->
 		    "https_not_supported" ->	
 			tsp("init_per_testcase -> [proxy case] start inets"),
 			inets:start(),
-			tsp("init_per_testcase -> [proxy case] start ssl"),
-			application:start(crypto),
-			application:start(public_key),
-			case (catch application:start(ssl)) of
+			tsp("init_per_testcase -> "
+			    "[proxy case] start crypto, public_key and ssl"),
+			try ensure_started([crypto, public_key, ssl]) of
 			    ok ->
-				[{watchdog, Dog} | TmpConfig];
-			    _ ->
-				[{skip, "SSL does not seem to be supported"} 
-				 | TmpConfig]
+				[{watchdog, Dog} | TmpConfig]
+			catch 
+			    throw:{error, {failed_starting, App, _}} ->
+				SkipString = 
+				    "Could not start " ++ atom_to_list(App),
+				{skip, SkipString};
+			    _:X ->
+				SkipString = 
+				    lists:flatten(
+				      io_lib:format("Failed starting apps: ~p", [X])), 
+				{skip, SkipString}
 			end;
+
 		    _ ->
 			%% We use erlang.org for the proxy tests 
 			%% and after the switch to erlang-web, many
@@ -321,6 +340,33 @@ init_per_testcase(Case, Timeout, Config) ->
 				[{skip, "proxy not responding"} | TmpConfig]
 			end
 		end;
+
+	    "ipv6_" ++ _Rest ->
+		%% Ensure needed apps (crypto, public_key and ssl) started
+		try ensure_started([crypto, public_key, ssl]) of
+		    ok ->
+			Profile = ipv6, 
+			%% A stand-alone profile is represented by a pid()
+			{ok, ProfilePid} = 
+			    inets:start(httpc, 
+					[{profile,  Profile}, 
+					 {data_dir, PrivDir}], stand_alone),
+			httpc:set_options([{ipfamily, inet6}], ProfilePid), 
+			tsp("httpc profile pid: ~p", [ProfilePid]),
+			[{watchdog, Dog}, {profile, ProfilePid}| TmpConfig]
+		catch 
+		    throw:{error, {failed_starting, App, ActualError}} ->
+			tsp("init_per_testcase(~w) -> failed starting ~w: "
+			    "~n   ~p", [Case, App, ActualError]),
+			SkipString = 
+			    "Could not start " ++ atom_to_list(App),
+			{skip, SkipString};
+		      _:X ->
+			SkipString = 
+			    lists:flatten(
+			      io_lib:format("Failed starting apps: ~p", [X])), 
+			{skip, SkipString}
+		end;
 	    _ -> 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
 		Server = 
@@ -330,9 +376,7 @@ init_per_testcase(Case, Timeout, Config) ->
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
-    %% httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-    %% 				["localhost", ?IPV6_LOCAL_HOST]}}]),
-
+    %% This will fail for the ipv6_ - cases (but that is ok)
     httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
      				["localhost", ?IPV6_LOCAL_HOST]}},
 		       {ipfamily, inet6fb4}]),
@@ -341,6 +385,18 @@ init_per_testcase(Case, Timeout, Config) ->
     NewConfig.
 
 
+init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
+    tsp("init_per_testcase_ssl -> stop ssl"),
+    application:stop(ssl),
+    Config2 = lists:keydelete(local_ssl_server, 1, Config),
+    %% Will start inets 
+    tsp("init_per_testcase_ssl -> try start http server (including inets)"),
+    Server = inets_test_lib:start_http_server(
+	       filename:join(PrivDir, SslConfFile), Tag),
+    tsp("init_per_testcase -> Server: ~p", [Server]),
+    [{local_ssl_server, Server} | Config2].
+
+    
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
 %% Case - atom()
@@ -349,13 +405,36 @@ init_per_testcase(Case, Timeout, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(http_save_to_file, Config) ->
-    PrivDir = ?config(priv_dir, Config), 	
+end_per_testcase(http_save_to_file = Case, Config) ->
+    io:format(user, "~n~n*** END ~w:~w ***~n~n", 
+	      [?MODULE, Case]),
+    PrivDir  = ?config(priv_dir, Config), 	
     FullPath = filename:join(PrivDir, "dummy.html"),
     file:delete(FullPath),
     finish(Config);
 	
-end_per_testcase(_, Config) ->
+end_per_testcase(Case, Config) ->
+    io:format(user, "~n~n*** END ~w:~w ***~n~n", 
+	      [?MODULE, Case]),
+    case atom_to_list(Case) of
+	"ipv6_" ++ _Rest ->
+	    tsp("end_per_testcase(~w) -> stop ssl", [Case]),
+	    application:stop(ssl),
+	    tsp("end_per_testcase(~w) -> stop public_key", [Case]),
+	    application:stop(public_key),
+	    tsp("end_per_testcase(~w) -> stop crypto", [Case]),
+	    application:stop(crypto),
+	    ProfilePid = ?config(profile, Config), 
+	    tsp("end_per_testcase(~w) -> stop httpc profile (~p)", 
+		[Case, ProfilePid]),
+	    unlink(ProfilePid),
+	    inets:stop(stand_alone, ProfilePid),
+	    tsp("end_per_testcase(~w) -> httpc profile (~p) stopped", 
+		[Case, ProfilePid]),
+	    ok;
+	_ ->
+	    ok
+    end,
     finish(Config).
 
 finish(Config) ->
@@ -364,6 +443,7 @@ finish(Config) ->
 	undefined ->
 	    ok;
 	_ ->
+	    tsp("finish -> stop watchdog (~p)", [Dog]),
 	    test_server:timetrap_cancel(Dog)
     end.
 
@@ -565,7 +645,7 @@ http_relaxed(suite) ->
 http_relaxed(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipv6, disabled}]), % also test the old option 
     %% ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/missing_reason_phrase.html",
@@ -591,7 +671,7 @@ http_dummy_pipe(suite) ->
     [];
 http_dummy_pipe(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/foobar.html",
 
@@ -905,7 +985,7 @@ http_headers_dummy(suite) ->
     [];
 http_headers_dummy(Config) when is_list(Config) -> 
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy_headers.html",
     
@@ -970,7 +1050,7 @@ http_bad_response(suite) ->
     [];
 http_bad_response(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_crlf.html",
     
@@ -1170,7 +1250,7 @@ http_redirect(Config) when is_list(Config) ->
 	    ok = httpc:set_options([{ipfamily, inet}]),
 
 	    tsp("http_redirect -> start dummy server inet"),
-	    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+	    {DummyServerPid, Port} = dummy_server(ipv4),
 	    tsp("http_redirect -> server port = ~p", [Port]),
     
 	    URL300 = ?URL_START ++ integer_to_list(Port) ++ "/300.html",
@@ -1282,7 +1362,7 @@ http_redirect_loop(suite) ->
     [];
 http_redirect_loop(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/redirectloop.html",
     
@@ -1299,7 +1379,7 @@ http_internal_server_error(suite) ->
     [];
 http_internal_server_error(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL500 = ?URL_START ++ integer_to_list(Port) ++ "/500.html",
     
@@ -1335,7 +1415,7 @@ http_userinfo(suite) ->
 http_userinfo(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
 
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URLAuth = "http://alladin:sesame@localhost:" 
 	++ integer_to_list(Port) ++ "/userinfo.html",
@@ -1361,7 +1441,7 @@ http_cookie(suite) ->
     [];
 http_cookie(Config) when is_list(Config) ->
     ok = httpc:set_options([{cookies, enabled}, {ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URLStart = ?URL_START  
 	++ integer_to_list(Port),
@@ -1735,7 +1815,7 @@ http_stream_once(Config) when is_list(Config) ->
     p("http_stream_once -> set ipfamily to inet", []),
     ok = httpc:set_options([{ipfamily, inet}]),
     p("http_stream_once -> start dummy server", []),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),    
+    {DummyServerPid, Port} = dummy_server(ipv4),    
     
     PortStr =  integer_to_list(Port),
     p("http_stream_once -> once", []),
@@ -1871,28 +1951,79 @@ parse_url(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-ipv6() ->
-    [{require,ipv6_hosts}].
-ipv6(doc) ->
-    ["Test ipv6."];
-ipv6(suite) ->
+
+ipv6_ipcomm() ->
+    [{require, ipv6_hosts}].
+ipv6_ipcomm(doc) ->
+    ["Test ip_comm ipv6."];
+ipv6_ipcomm(suite) ->
     [];
-ipv6(Config) when is_list(Config) ->
-    {ok, Hostname} = inet:gethostname(),
-    
-    case lists:member(list_to_atom(Hostname), 
-		      ct:get_config(ipv6_hosts)) of
-	true ->
-	    {DummyServerPid, Port} = dummy_server(self(), ipv6),
-	    
-	    URL = "http://[" ++ ?IPV6_LOCAL_HOST ++ "]:" ++ 
+ipv6_ipcomm(Config) when is_list(Config) ->
+    HTTPOptions = [],
+    SocketType  = ip_comm, 
+    Scheme      = "http", 
+    Extra       = [], 
+    ipv6(SocketType, Scheme, HTTPOptions, Extra, Config).
+
+
+%%-------------------------------------------------------------------------
+
+ipv6_essl() ->
+    [{require, ipv6_hosts}].
+ipv6_essl(doc) ->
+    ["Test essl ipv6."];
+ipv6_essl(suite) ->
+    [];
+ipv6_essl(Config) when is_list(Config) ->
+    DataDir    = ?config(data_dir, Config),
+    CertFile   = filename:join(DataDir, "ssl_client_cert.pem"),
+    SSLOptions = [{certfile, CertFile}, {keyfile, CertFile}],
+    SSLConfig  = {essl, SSLOptions},
+    tsp("ssl_ipv6 -> make request using: "
+	"~n   SSLOptions: ~p", [SSLOptions]),
+    HTTPOptions = [{ssl, SSLConfig}], 
+    SocketType  = essl, 
+    Scheme      = "https", 
+    Extra       = SSLOptions, 
+    ipv6(SocketType, Scheme, HTTPOptions, Extra, Config).
+
+
+%%-------------------------------------------------------------------------
+
+ipv6(SocketType, Scheme, HTTPOptions, Extra, Config) ->
+    %% Check if we are a IPv6 host
+    tsp("ipv6 -> verify ipv6 support", []),
+    case inets_test_lib:has_ipv6_support(Config) of
+	{ok, Addr} ->
+	    tsp("ipv6 -> ipv6 supported: ~p", [Addr]),
+	    {DummyServerPid, Port} = dummy_server(SocketType, ipv6, Extra),
+	    Profile = ?config(profile, Config),
+	    URL = 
+		Scheme ++ 
+		"://[" ++ http_transport:ipv6_name(Addr) ++ "]:" ++ 
 		integer_to_list(Port) ++ "/foobar.html",
-	    {ok, {{_,200,_}, [_ | _], [_|_]}} =
-		httpc:request(get, {URL, []}, [], []),
-	    
-	    DummyServerPid ! stop,
+	    tsp("ipv6 -> issue request with: "
+		"~n   URL:         ~p"
+		"~n   HTTPOptions: ~p", [URL, HTTPOptions]),
+	    case httpc:request(get, {URL, []}, HTTPOptions, [], Profile) of
+		{ok, {{_,200,_}, [_ | _], [_|_]}} ->
+		    tsp("ipv6 -> expected result"),
+		    DummyServerPid ! stop,
+		    ok;
+		{ok, Unexpected} ->
+		    tsp("ipv6 -> unexpected result: "
+			"~n   ~p", [Unexpected]),
+		    DummyServerPid ! stop,
+		    tsf({unexpected_result, Unexpected});
+		{error, Reason} ->
+		    tsp("ipv6 -> error: "
+			"~n   Reason: ~p", [Reason]),
+		    DummyServerPid ! stop,
+		    tsf(Reason)
+	    end,
 	    ok;
-	false ->
+	_ ->
+	    tsp("ipv6 -> ipv6 not supported", []),
 	    {skip, "Host does not support IPv6"}
     end.
 
@@ -1945,7 +2076,7 @@ http_invalid_http(suite) ->
     [];
 http_invalid_http(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/invalid_http.html",
     
@@ -2002,7 +2133,7 @@ transfer_encoding_otp_6807(suite) ->
     [];
 transfer_encoding_otp_6807(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/capital_transfer_encoding.html",
@@ -2035,7 +2166,7 @@ empty_response_header_otp_6830(suite) ->
     [];
 empty_response_header_otp_6830(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_headers.html",
     {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(URL),
@@ -2052,7 +2183,7 @@ no_content_204_otp_6982(suite) ->
     [];
 no_content_204_otp_6982(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_content.html",
     {ok, {{_,204,_}, [], []}} = httpc:request(URL),
@@ -2070,7 +2201,7 @@ missing_CR_otp_7304(suite) ->
     [];
 missing_CR_otp_7304(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_CR.html",
     {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(URL),
@@ -2089,7 +2220,7 @@ otp_7883_1(suite) ->
 otp_7883_1(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
 
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/just_close.html",
     {error, socket_closed_remotely} = httpc:request(URL),
@@ -2105,7 +2236,7 @@ otp_7883_2(suite) ->
 otp_7883_2(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipfamily, inet}]),
 
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/just_close.html",
     Method      = get,
@@ -2626,7 +2757,7 @@ otp_8371(suite) ->
     [];
 otp_8371(Config) when is_list(Config) ->
     ok = httpc:set_options([{ipv6, disabled}]), % also test the old option 
-    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/ensure_host_header_with_port.html",
@@ -2864,75 +2995,179 @@ receive_streamed_body(RequestId, Body, Pid) ->
 	    test_server:fail(Msg)
     end.
 
+%% Perform a synchronous stop
+dummy_server_stop(Pid) ->
+    Pid ! {stop, self()},
+    receive 
+	{stopped, Pid} ->
+	    ok
+    end.
 
+dummy_server(IpV) ->
+    dummy_server(self(), ip_comm, IpV, []).
 
-dummy_server(Caller, IpV) ->
-    Pid = spawn(httpc_SUITE, dummy_server_init, [Caller, IpV]),
+dummy_server(SocketType, IpV, Extra) ->
+    dummy_server(self(), SocketType, IpV, Extra).
+
+dummy_server(Caller, SocketType, IpV, Extra) ->
+    Args = [Caller, SocketType, IpV, Extra], 
+    Pid = spawn(httpc_SUITE, dummy_server_init, Args),
     receive
 	{port, Port} ->
 	    {Pid, Port}
     end.
 
-dummy_server_init(Caller, IpV) ->
+dummy_server_init(Caller, ip_comm, IpV, _) ->
+    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false}], 
     {ok, ListenSocket} = 
 	case IpV of 
 	    ipv4 ->
-		gen_tcp:listen(0, [binary, inet, {packet, 0},
-				   {reuseaddr,true},
-				   {active, false}]);
+		tsp("ip_comm ipv4 listen", []),
+		gen_tcp:listen(0, [inet | BaseOpts]);
 	    ipv6 ->
-		gen_tcp:listen(0, [binary, inet6, {packet, 0},
-				   {reuseaddr,true},
-				   {active, false}])
+		tsp("ip_comm ipv6 listen", []),
+		gen_tcp:listen(0, [inet6 | BaseOpts])
 	end,
     {ok, Port} = inet:port(ListenSocket),
-    tsp("dummy_server_init -> Port: ~p", [Port]),
+    tsp("dummy_server_init(ip_comm) -> Port: ~p", [Port]),
     Caller ! {port, Port},
-    dummy_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
-		      [], ListenSocket).
+    dummy_ipcomm_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
+			     [], ListenSocket);
+dummy_server_init(Caller, essl, IpV, SSLOptions) ->
+    BaseOpts = [{ssl_imp, new}, 
+		{backlog, 128}, binary, {reuseaddr,true}, {active, false} |
+	        SSLOptions], 
+    dummy_ssl_server_init(Caller, BaseOpts, IpV);
+dummy_server_init(Caller, ossl, IpV, SSLOptions) ->
+    BaseOpts = [{ssl_imp, old}, 
+		{backlog, 128}, binary, {active, false} | SSLOptions], 
+    dummy_ssl_server_init(Caller, BaseOpts, IpV).
 
-dummy_server_loop(MFA, Handlers, ListenSocket) ->
+dummy_ssl_server_init(Caller, BaseOpts, IpV) ->
+    {ok, ListenSocket} = 
+	case IpV of 
+	    ipv4 ->
+		tsp("dummy_ssl_server_init -> ssl ipv4 listen", []),
+		ssl:listen(0, [inet | BaseOpts]);
+	    ipv6 ->
+		tsp("dummy_ssl_server_init -> ssl ipv6 listen", []),
+		ssl:listen(0, [inet6 | BaseOpts])
+	end,
+    tsp("dummy_ssl_server_init -> ListenSocket: ~p", [ListenSocket]),    
+    {ok, {_, Port}} = ssl:sockname(ListenSocket),
+    tsp("dummy_ssl_server_init -> Port: ~p", [Port]),
+    Caller ! {port, Port},
+    dummy_ssl_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
+			  [], ListenSocket).
+
+dummy_ipcomm_server_loop(MFA, Handlers, ListenSocket) ->
     receive
 	stop ->
-	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers)
+	    tsp("dummy_ipcomm_server_loop -> stop handlers", []),
+	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers);
+	{stop, From} ->
+	    tsp("dummy_ipcomm_server_loop -> "
+		"stop command from ~p for handlers (~p)", [From, Handlers]),
+	    Stopper = fun(Handler) -> Handler ! stop end, 
+	    lists:foreach(Stopper, Handlers),
+	    From ! {stopped, self()}
     after 0 ->
+	    tsp("dummy_ipcomm_server_loop -> await accept", []),
 	    {ok, Socket} = gen_tcp:accept(ListenSocket),
+	    tsp("dummy_ipcomm_server_loop -> accepted: ~p", [Socket]),
 	    HandlerPid  = dummy_request_handler(MFA, Socket),
+	    tsp("dummy_icomm_server_loop -> handler created: ~p", [HandlerPid]),
 	    gen_tcp:controlling_process(Socket, HandlerPid),
-	    HandlerPid ! controller,
-	    dummy_server_loop(MFA, [HandlerPid | Handlers],
+	    tsp("dummy_ipcomm_server_loop -> "
+		"control transfered to handler", []),
+	    HandlerPid ! ipcomm_controller,
+	    tsp("dummy_ipcomm_server_loop -> "
+		"handler informed about control transfer", []),
+	    dummy_ipcomm_server_loop(MFA, [HandlerPid | Handlers],
 			      ListenSocket)
     end.
 
+dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
+    receive
+	stop ->
+	    tsp("dummy_ssl_server_loop -> stop handlers", []),
+	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers);
+	{stop, From} ->
+	    tsp("dummy_ssl_server_loop -> "
+		"stop command from ~p for handlers (~p)", [From, Handlers]),
+	    Stopper = fun(Handler) -> Handler ! stop end, 
+	    lists:foreach(Stopper, Handlers),
+	    From ! {stopped, self()}
+    after 0 ->
+	    tsp("dummy_ssl_server_loop -> await accept", []),
+	    {ok, Socket} = ssl:transport_accept(ListenSocket),
+	    tsp("dummy_ssl_server_loop -> accepted: ~p", [Socket]),
+	    HandlerPid  = dummy_request_handler(MFA, Socket),
+	    tsp("dummy_ssl_server_loop -> handler created: ~p", [HandlerPid]),
+	    ssl:controlling_process(Socket, HandlerPid),
+	    tsp("dummy_ssl_server_loop -> control transfered to handler", []),
+	    HandlerPid ! ssl_controller,
+	    tsp("dummy_ssl_server_loop -> "
+		"handler informed about control transfer", []),
+	    dummy_ssl_server_loop(MFA, [HandlerPid | Handlers],
+				  ListenSocket)
+    end.
+
 dummy_request_handler(MFA, Socket) ->
+    tsp("spawn request handler", []),
     spawn(httpc_SUITE, dummy_request_handler_init, [MFA, Socket]).
 
 dummy_request_handler_init(MFA, Socket) ->
-    receive 
-	controller ->
-	    inet:setopts(Socket, [{active, true}])
-    end,
-    dummy_request_handler_loop(MFA, Socket).
+    SockType = 
+	receive 
+	    ipcomm_controller ->
+		tsp("dummy_request_handler_init -> "
+		    "received ip_comm controller - activate", []),
+		inet:setopts(Socket, [{active, true}]),
+		ip_comm;
+	    ssl_controller ->
+		tsp("dummy_request_handler_init -> "
+		    "received ssl controller - activate", []),
+		ssl:setopts(Socket, [{active, true}]),
+		ssl
+	end,
+    dummy_request_handler_loop(MFA, SockType, Socket).
     
-dummy_request_handler_loop({Module, Function, Args}, Socket) ->
+dummy_request_handler_loop({Module, Function, Args}, SockType, Socket) ->
     tsp("dummy_request_handler_loop -> entry with"
 	"~n   Module:   ~p"
 	"~n   Function: ~p"
 	"~n   Args:     ~p", [Module, Function, Args]),
     receive 
-	{tcp, _, Data} ->
-	    tsp("dummy_request_handler_loop -> Data ~p", [Data]),
-	    case handle_request(Module, Function, [Data | Args], Socket) of
-		stop ->
+	{Proto, _, Data} when (Proto =:= tcp) orelse (Proto =:= ssl) ->
+	    tsp("dummy_request_handler_loop -> [~w] Data ~p", [Proto, Data]),
+	    case handle_request(Module, Function, [Data | Args], Socket, Proto) of
+		stop when Proto =:= tcp ->
 		    gen_tcp:close(Socket);
+		stop when Proto =:= ssl ->
+		    ssl:close(Socket);
 		NewMFA ->
-		    dummy_request_handler_loop(NewMFA, Socket)
+		    dummy_request_handler_loop(NewMFA, SockType, Socket)
 	    end;
-	stop ->
-	    gen_tcp:close(Socket)
+	stop when SockType =:= ip_comm ->
+	    gen_tcp:close(Socket);
+	stop when SockType =:= ssl ->
+	    ssl:close(Socket)
     end.
 
-handle_request(Module, Function, Args, Socket) ->
+
+mk_close(tcp) -> fun(Sock) -> gen_tcp:close(Sock) end;
+mk_close(ssl) -> fun(Sock) -> ssl:close(Sock)     end.
+
+mk_send(tcp) -> fun(Sock, Data) -> gen_tcp:send(Sock, Data) end;
+mk_send(ssl) -> fun(Sock, Data) -> ssl:send(Sock, Data)     end.
+
+handle_request(Module, Function, Args, Socket, Proto) ->
+    Close = mk_close(Proto),
+    Send  = mk_send(Proto),
+    handle_request(Module, Function, Args, Socket, Close, Send).
+
+handle_request(Module, Function, Args, Socket, Close, Send) ->
     tsp("handle_request -> entry with"
 	"~n   Module:   ~p"
 	"~n   Function: ~p"
@@ -2941,7 +3176,7 @@ handle_request(Module, Function, Args, Socket) ->
 	{ok, Result} ->
 	    tsp("handle_request -> ok"
 		"~n   Result: ~p", [Result]),
-	    case (catch handle_http_msg(Result, Socket)) of
+	    case (catch handle_http_msg(Result, Socket, Close, Send)) of
 		stop ->
 		    stop;
 		<<>> ->
@@ -2949,7 +3184,8 @@ handle_request(Module, Function, Args, Socket) ->
 		    {httpd_request, parse, [[<<>>, ?HTTP_MAX_HEADER_SIZE]]};
 		Data ->	
 		    handle_request(httpd_request, parse, 
-				   [Data |[?HTTP_MAX_HEADER_SIZE]], Socket)
+				   [Data |[?HTTP_MAX_HEADER_SIZE]], Socket, 
+				   Close, Send)
 	    end;
 	NewMFA ->
 	    tsp("handle_request -> "
@@ -2957,7 +3193,7 @@ handle_request(Module, Function, Args, Socket) ->
 	    NewMFA
     end.
 
-handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
+handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket, Close, Send) ->
     tsp("handle_http_msg -> entry with: "
 	"~n   RelUri:  ~p"
 	"~n   Headers: ~p"
@@ -3114,16 +3350,16 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
 		    "Expires:Sat, 29 Oct 1994 19:43:31 GMT\r\n"  ++
 		    "Proxy-Authenticate:#1Basic"  ++
 		    "\r\n\r\n",
-		gen_tcp:send(Socket, Head),
-		gen_tcp:send(Socket, http_chunk:encode("<HTML><BODY>fo")),
-		gen_tcp:send(Socket, http_chunk:encode("obar</BODY></HTML>")),
+		Send(Socket, Head),
+		Send(Socket, http_chunk:encode("<HTML><BODY>fo")),
+		Send(Socket, http_chunk:encode("obar</BODY></HTML>")),
 		http_chunk:encode_last();
 	    "/capital_transfer_encoding.html" ->
 		Head =  "HTTP/1.1 200 ok\r\n" ++
 		    "Transfer-Encoding:Chunked\r\n\r\n",
-		gen_tcp:send(Socket, Head),
-		gen_tcp:send(Socket, http_chunk:encode("<HTML><BODY>fo")),
-		gen_tcp:send(Socket, http_chunk:encode("obar</BODY></HTML>")),
+		Send(Socket, Head),
+		Send(Socket, http_chunk:encode("<HTML><BODY>fo")),
+		Send(Socket, http_chunk:encode("obar</BODY></HTML>")),
 		http_chunk:encode_last();
 	    "/cookie.html" ->
 		"HTTP/1.1 200 ok\r\n" ++
@@ -3142,20 +3378,20 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
 	    "/once_chunked.html" ->
 		Head =  "HTTP/1.1 200 ok\r\n" ++
 		    "Transfer-Encoding:Chunked\r\n\r\n",
-		gen_tcp:send(Socket, Head),
-		gen_tcp:send(Socket, http_chunk:encode("<HTML><BODY>fo")),
-		gen_tcp:send(Socket, 
+		Send(Socket, Head),
+		Send(Socket, http_chunk:encode("<HTML><BODY>fo")),
+		Send(Socket, 
 			     http_chunk:encode("obar</BODY></HTML>")),
 		http_chunk:encode_last();
 	    "/once.html" ->
 		Head =  "HTTP/1.1 200 ok\r\n" ++
 		    "Content-Length:32\r\n\r\n", 
-		gen_tcp:send(Socket, Head), 
-		gen_tcp:send(Socket, "<HTML><BODY>fo"),
+		Send(Socket, Head), 
+		Send(Socket, "<HTML><BODY>fo"),
 		test_server:sleep(1000),
-		gen_tcp:send(Socket, "ob"),
+		Send(Socket, "ob"),
 		test_server:sleep(1000),
-		gen_tcp:send(Socket, "ar</BODY></HTML>");
+		Send(Socket, "ar</BODY></HTML>");
 	    "/invalid_http.html" ->
 		"HTTP/1.1 301\r\nDate:Sun, 09 Dec 2007 13:04:18 GMT\r\n" ++ 
 		    "Transfer-Encoding:chunked\r\n\r\n";
@@ -3178,9 +3414,9 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
 	    ok;
 	close ->
 	    %% Nothing to send, just close
-	    gen_tcp:close(Socket);
+	    Close(Socket);
 	_ when is_list(Msg) orelse is_binary(Msg) ->
-	    gen_tcp:send(Socket, Msg)
+	    Send(Socket, Msg)
     end,
     tsp("handle_http_msg -> done"),
     NextRequest.
@@ -3316,3 +3552,20 @@ dummy_ssl_server_hang_loop(_) ->
 	stop ->
 	    ok
     end.
+
+
+ensure_started([]) ->
+    ok;
+ensure_started([App|Apps]) ->
+    ensure_started(App),
+    ensure_started(Apps);
+ensure_started(App) when is_atom(App) ->
+    case (catch application:start(App)) of
+	ok ->
+	    ok;
+	{error, {already_started, _}} ->
+	    ok;
+	Error ->
+	    throw({error, {failed_starting, App, Error}})
+    end.
+
