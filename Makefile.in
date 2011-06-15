@@ -877,48 +877,6 @@ $(TEST_DIRS):
 	if test -f $@/Makefile; then \
 		(cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) release_tests) || exit $$?; \
 	fi
-
-# ----------------------------------------------------------------------
-# Obsolete type of bootstrap where all stages where built with installed sytem 
-# shuld no longer be used and is soon to be removed.
-# Abbreviations: OC = Old Compiler, NC = New Compiler,
-# 		 OE = Old Emulator, NE = New Emulator
-
-old_com_bootstrap: old_bootstrap_nc_for_ne_all_stages old_bootstrap_ne old_bootstrap_scripts
-
-#
-# Builds the New Compiler for the New Emulator (using existing erlc
-# and possibly new compiler) then copy everything to the release area.
-# Use to create the commerciall bootstrap version, which should be obsolete.
-#
-old_bootstrap_nc_for_ne_all_stages:
-	test -d $(TESTROOT) || mkdir -p $(TESTROOT)
-	cd lib && $(MAKE) BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) SECONDARY_BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) TERTIARY_BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) FOURTH_BOOTSTRAP=1 TYPE=release release
-
-
-
-old_bootstrap_ne:
-	cd erts && $(MAKE) release
-
-old_bootstrap_scripts:
-	cd erts/start_scripts && $(MAKE) release
-
-
-# This is one strange name for a target, this actually builds and strips only
-# the primary bootstrap, a minimal set of beam files to be able to continue
-# bootstrap builds. It's used by other makefiles, so I refrain from
-# changing the name right now...
-bootstrap_nc_for_ne_no_debug_sym:
-	test -d $(TESTROOT) || mkdir -p $(TESTROOT)
-	cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
-		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) BOOTSTRAP=1 TYPE=release release
-	$(ERL_TOP)/erts/emulator/utils/beam_strip $(TESTROOT)/lib/*/ebin/*.beam
-
-# ----------------------------------------------------------------------
-
 #
 # Install
 #
