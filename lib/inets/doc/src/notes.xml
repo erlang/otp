@@ -61,6 +61,12 @@
 
       <list>
         <item>
+          <p>[ftp] FTP client doesn't work with IPv6 host.</p>
+	  <p>Attila Rajmund Nohl</p>
+          <p>Own Id: OTP-9342 Aux Id: seq11853</p>
+        </item>
+
+        <item>
           <p>[httpd] Peer/sockname resolv doesn't work with IPv6 addrs 
 	  in HTTP. </p>
 	  <p>Attila Rajmund Nohl.</p>

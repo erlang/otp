@@ -303,7 +303,7 @@ connect_byte(ossl, Host, Port) ->
 connect_byte(essl, Host, Port) ->
     connect(ssl, Host, Port, [{ssl_imp, new}, {packet,0}]);
 connect_byte(ip_comm, Host, Port) ->
-    Opts = [inet6, {packet,0}],
+    Opts = [inet6, {packet, 0}],
     connect(ip_comm, Host, Port, Opts).
 
 
@@ -327,10 +327,13 @@ connect(ip_comm, Host, Port, Opts) ->
 	    tsp("nxdomain opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, eafnosupport}  ->
-	    tsp("eafnosupport opts: ~p", [Opts]),
+	    tsp("eafnosupport when opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+	{error, econnreset} ->
+	    tsp("econnreset when opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, enetunreach}  ->
-	    tsp("eafnosupport opts: ~p", [Opts]),
+	    tsp("eafnosupport when opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, {enfile,_}} ->
 	    tsp("Error enfile"),
