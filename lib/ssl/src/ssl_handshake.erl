@@ -31,9 +31,9 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([master_secret/4, client_hello/6, server_hello/4, hello/4,
-	 hello_request/0, certify/6, certificate/3,
+	 hello_request/0, certify/7, certificate/4,
 	 client_certificate_verify/5, certificate_verify/5,
-	 certificate_request/2, key_exchange/2, server_key_exchange_hash/2,
+	 certificate_request/3, key_exchange/2, server_key_exchange_hash/2,
 	 finished/4, verify_connection/5, get_tls_handshake/2,
 	 decode_client_key/3, server_hello_done/0,
 	 encode_handshake/2, init_hashes/0, update_hashes/2,
@@ -106,7 +106,7 @@ hello_request() ->
 
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
- 	    #connection_states{} | {port_num(), #session{}, cache_ref(),
+	    #connection_states{} | {port_num(), #session{}, db_handle(),
  				    atom(), #connection_states{}, binary()},
  	    boolean()) -> {tls_version(), session_id(), #connection_states{}}| 
  			  {tls_version(), {resumed | new, #session{}}, 
@@ -173,13 +173,13 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
     end.
 
 %%--------------------------------------------------------------------
--spec certify(#certificate{}, term(), integer() | nolimit,
+-spec certify(#certificate{}, db_handle(), certdb_ref(), integer() | nolimit,
 	      verify_peer | verify_none, {fun(), term},
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
-certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
+certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 	MaxPathLen, _Verify, VerifyFunAndState, Role) ->
     [PeerCert | _] = ASN1Certs,
       
@@ -208,7 +208,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
 	end,
 
     {TrustedErlCert, CertPath}  =
-	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbRef),
+	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef),
 
     case public_key:pkix_path_validation(TrustedErlCert,
 					 CertPath,
@@ -222,13 +222,13 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
     end.
 
 %%--------------------------------------------------------------------
--spec certificate(der_cert(), term(), client | server) -> #certificate{} | #alert{}. 
+-spec certificate(der_cert(), db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
-certificate(OwnCert, CertDbRef, client) ->
+certificate(OwnCert, CertDbHandle, CertDbRef, client) ->
     Chain =
-	case ssl_certificate:certificate_chain(OwnCert, CertDbRef) of
+	case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	    {ok, CertChain} ->
 		CertChain;
 	    {error, _} -> 
@@ -239,8 +239,8 @@ certificate(OwnCert, CertDbRef, client) ->
 	end,
     #certificate{asn1_certificates = Chain};
 
-certificate(OwnCert, CertDbRef, server) -> 
-    case ssl_certificate:certificate_chain(OwnCert, CertDbRef) of
+certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
+    case ssl_certificate:certificate_chain(OwnCert, CertDbHandle, CertDbRef) of
 	{ok, Chain} ->
 	    #certificate{asn1_certificates = Chain};
 	{error, _} ->
@@ -302,17 +302,17 @@ certificate_verify(Signature, {?'id-dsa' = Algorithm, PublicKey, PublicKeyParams
 
 
 %%--------------------------------------------------------------------
--spec certificate_request(#connection_states{}, certdb_ref()) -> 
+-spec certificate_request(#connection_states{}, db_handle(), certdb_ref()) ->
     #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
-certificate_request(ConnectionStates, CertDbRef) ->
+certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
     #connection_state{security_parameters = 
 		      #security_parameters{cipher_suite = CipherSuite}} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     Types = certificate_types(CipherSuite),
-    Authorities = certificate_authorities(CertDbRef),
+    Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
 		    certificate_authorities = Authorities
@@ -1071,8 +1071,8 @@ certificate_types({KeyExchange, _, _, _})
 certificate_types(_) ->
     <<?BYTE(?RSA_SIGN)>>.
 
-certificate_authorities(CertDbRef) ->
-    Authorities = certificate_authorities_from_db(CertDbRef),
+certificate_authorities(CertDbHandle, CertDbRef) ->
+    Authorities = certificate_authorities_from_db(CertDbHandle, CertDbRef),
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
 		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
 		  DNEncodedBin = public_key:pkix_encode('Name', OTPSubj, otp),
@@ -1084,18 +1084,18 @@ certificate_authorities(CertDbRef) ->
 	  end,
     list_to_binary([Enc(Cert) || {_, Cert} <- Authorities]).
 
-certificate_authorities_from_db(CertDbRef) ->
-    certificate_authorities_from_db(CertDbRef, no_candidate, []).
+certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
+    certificate_authorities_from_db(CertDbHandle, CertDbRef, no_candidate, []).
 
-certificate_authorities_from_db(CertDbRef, PrevKey, Acc) ->
-    case ssl_manager:issuer_candidate(PrevKey) of
+certificate_authorities_from_db(CertDbHandle,CertDbRef, PrevKey, Acc) ->
+    case ssl_manager:issuer_candidate(PrevKey, CertDbHandle) of
 	no_more_candidates ->
 	    lists:reverse(Acc);
 	{{CertDbRef, _, _} = Key, Cert} ->
-	    certificate_authorities_from_db(CertDbRef, Key, [Cert|Acc]);
+	    certificate_authorities_from_db(CertDbHandle, CertDbRef, Key, [Cert|Acc]);
 	{Key, _Cert} ->
 	    %% skip certs not from this ssl connection
-	    certificate_authorities_from_db(CertDbRef, Key, Acc)
+	    certificate_authorities_from_db(CertDbHandle, CertDbRef, Key, Acc)
     end.
 
 digitally_signed(Hash, #'RSAPrivateKey'{} = Key) ->
