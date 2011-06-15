@@ -919,9 +919,9 @@ move S=c r | call_ext Ar=u Func=u$is_not_bif => i_move_call_ext S r Func
 move S=c r | call_ext_last Ar=u Func=u$is_not_bif D => i_move_call_ext_last Func D S r
 move S=c r | call_ext_only Ar=u Func=u$is_not_bif => i_move_call_ext_only Func S r 
 
-call_ext Ar=u Func        => i_call_ext Func
-call_ext_last Ar=u Func D => i_call_ext_last Func D
-call_ext_only Ar=u Func   => i_call_ext_only Func
+call_ext Ar Func        => i_call_ext Func
+call_ext_last Ar Func D => i_call_ext_last Func D
+call_ext_only Ar Func   => i_call_ext_only Func
 
 i_apply
 i_apply_last P
@@ -955,7 +955,7 @@ bif1 p Bif S1 Dst => bif1_body Bif S1 Dst
 bif1_body Bif Literal=q Dst => move Literal x | bif1_body Bif x Dst
 
 bif2 p Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2_body Bif Dst
-bif2 Fail=f Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2 Fail Bif Dst
+bif2 Fail Bif S1 S2 Dst => i_fetch S1 S2 | i_bif2 Fail Bif Dst
 
 i_get s d
 
@@ -1038,8 +1038,8 @@ i_move_call_ext_only e c r
 
 # Fun calls.
 
-call_fun Arity=u | deallocate D | return => i_call_fun_last Arity D
-call_fun Arity=u => i_call_fun Arity
+call_fun Arity | deallocate D | return => i_call_fun_last Arity D
+call_fun Arity => i_call_fun Arity
 
 i_call_fun I
 i_call_fun_last I P
@@ -1295,13 +1295,13 @@ i_bs_utf16_size s d
 
 bs_put_utf8 Fail=j Flags=u Literal=q => \
 	move Literal x | bs_put_utf8 Fail Flags x
-bs_put_utf8 Fail=j u Src=s => i_bs_put_utf8 Fail Src
+bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
 i_bs_put_utf8 j s
 
 bs_put_utf16 Fail=j Flags=u Literal=q => \
 	move Literal x | bs_put_utf16 Fail Flags x
-bs_put_utf16 Fail=j Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
+bs_put_utf16 Fail Flags=u Src=s => i_bs_put_utf16 Fail Flags Src
 
 i_bs_put_utf16 j I s
 
