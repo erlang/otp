@@ -32,6 +32,46 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.7</title>
+
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpc] Add support for upload body streaming (PUT and POST).</p>
+	  <p>For more info, 
+	  see the definition of the <c>Body</c> argument of the 
+	  <seealso marker="httpc#request2">request/4,5</seealso> 
+	  function. </p>
+	  <p>Filipe David Manana</p>
+	  <p>Own Id: OTP-9094</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpc] Remove unnecessary usage of iolist_to_binary when 
+	  processing body (for PUT and POST). </p>
+	  <p>Filipe David Manana</p>
+	  <p>Own Id: OTP-9317</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.7 -->
+
+
   <section><title>Inets 5.6</title>
 
     <section><title>Improvements and New Features</title>
