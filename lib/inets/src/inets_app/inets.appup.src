@@ -20,6 +20,7 @@
  [
   {"5.6", 
    [
+    {load_module, httpc, soft_purge, soft_purge, []}, 
     {load_module, http_transport, soft_purge, soft_purge, []}, 
     {update, ftp, soft, soft_purge, soft_purge, []}
    ]
@@ -48,6 +49,7 @@
  [
   {"5.6", 
    [
+    {load_module, httpc, soft_purge, soft_purge, []}, 
     {load_module, http_transport, soft_purge, soft_purge, []}, 
     {update, ftp, soft, soft_purge, soft_purge, []}
    ]

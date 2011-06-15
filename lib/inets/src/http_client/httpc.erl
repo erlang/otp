@@ -518,16 +518,14 @@ mk_chunkify_fun(ProcessBody) ->
 		eof ->
 		    {ok, <<"0\r\n\r\n">>, eof_body};
 		{ok, Data, NewAcc} ->
-		    {ok, mk_chunk_bin(Data), NewAcc}
+		    Chunk = [
+			     integer_to_list(iolist_size(Data), 16), 
+			     "\r\n",
+			     Data,
+			     "\r\n"],
+		    {ok, Chunk, NewAcc}
 	    end
     end.
-
-mk_chunk_bin(Data) ->
-    Bin = iolist_to_binary(Data),
-    iolist_to_binary([hex_size(Bin), "\r\n", Bin, "\r\n"]).
-
-hex_size(Bin) ->
-    hd(io_lib:format("~.16B", [size(Bin)])).
 
 
 handle_answer(RequestId, false, _) ->

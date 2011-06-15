@@ -61,6 +61,13 @@
 
       <list>
         <item>
+          <p>[httpc] Remove unnecessary usage of iolist_to_binary when 
+	  processing body (for PUT and POST). </p>
+	  <p>Filipe David Manana</p>
+	  <p>Own Id: OTP-9317</p>
+        </item>
+
+        <item>
           <p>[ftp] FTP client doesn't work with IPv6 host.</p>
 	  <p>Attila Rajmund Nohl</p>
           <p>Own Id: OTP-9342 Aux Id: seq11853</p>
