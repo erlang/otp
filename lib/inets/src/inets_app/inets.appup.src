@@ -18,6 +18,11 @@
 
 {"%VSN%",
  [
+  {"5.6", 
+   [
+    {load_module, http_transport, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.5.2", 
    [
     {restart_application, inets}
@@ -40,6 +45,11 @@
   } 
  ],
  [
+  {"5.6", 
+   [
+    {load_module, http_transport, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.5.2",
    [
     {restart_application, inets}

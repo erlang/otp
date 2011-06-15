@@ -32,6 +32,47 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.7</title>
+
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpc] Add support for upload body streaming (PUT and POST).</p>
+	  <p>For more info, 
+	  see the definition of the <c>Body</c> argument of the 
+	  <seealso marker="httpc#request2">request/4,5</seealso> 
+	  function. </p>
+	  <p>Filipe David Manana</p>
+	  <p>Own Id: OTP-9094</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpd] Peer/sockname resolv doesn't work with IPv6 addrs 
+	  in HTTP. </p>
+	  <p>Attila Rajmund Nohl.</p>
+	  <p>Own Id: OTP-9343</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.7 -->
+
+
   <section><title>Inets 5.6</title>
 
     <section><title>Improvements and New Features</title>
