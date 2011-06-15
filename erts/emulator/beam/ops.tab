@@ -88,9 +88,6 @@ i_time_breakpoint
 i_return_time_trace
 i_return_to_trace
 i_yield
-i_global_cons
-i_global_tuple
-i_global_copy
 
 return
 
@@ -904,23 +901,6 @@ call_ext_only u==0 u$func:erlang:yield/0 => i_yield | return
 call_ext u==3 u$func:erlang:hibernate/3 => i_hibernate
 call_ext_last u==3 u$func:erlang:hibernate/3 D => i_hibernate
 call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
-
-#
-# Hybrid memory architecture need special cons and tuple instructions
-# that allocate on the message area. These looks like BIFs in the BEAM code.
-#
-
-call_ext u==2 u$func:hybrid:cons/2 => i_global_cons
-call_ext_last u==2 u$func:hybrid:cons/2 D => i_global_cons | deallocate_return D
-call_ext_only Ar=u==2 u$func:hybrid:cons/2 => i_global_cons | return
-
-call_ext u==1 u$func:hybrid:tuple/1 => i_global_tuple
-call_ext_last u==1 u$func:hybrid:tuple/1 D => i_global_tuple | deallocate_return D
-call_ext_only Ar=u==1 u$func:hybrid:tuple/1 => i_global_tuple | return
-
-call_ext u==1 u$func:hybrid:copy/1 => i_global_copy
-call_ext_last u==1 u$func:hybrid:copy/1 D => i_global_copy | deallocate_return D
-call_ext_only u==1 Ar=u$func:hybrid:copy/1 => i_global_copy | return
 
 #
 # The general case for BIFs that have no special instructions.
