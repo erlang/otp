@@ -4458,8 +4458,8 @@ transform_engine(LoaderState* st)
 #endif
 	    break;
 
-#if defined(TOP_call)
-	case TOP_call:
+#if defined(TOP_call_end)
+	case TOP_call_end:
 	    {
 		GenOp** lastp;
 		GenOp* new_instr;
@@ -4496,7 +4496,7 @@ transform_engine(LoaderState* st)
 		*lastp = st->genop;
 		st->genop = new_instr;
 	    }
-	    break;
+	    RETURN(TE_OK);
 #endif
 	case TOP_new_instr:
 	    /*

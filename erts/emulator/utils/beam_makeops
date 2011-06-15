@@ -1591,7 +1591,7 @@ sub tr_gen_to {
 		}
 	    }
 	    pop(@code);	# Get rid of 'next_instr'
-	    push(@code, &make_op("$name()", 'call', scalar(@call_table)));
+	    push(@code, make_op("$name()", 'call_end', scalar(@call_table)));
 	    push(@call_table, [$name, @args]);
 	    last;
 	}
@@ -1629,7 +1629,8 @@ sub tr_gen_to {
 	pop(@code) if is_instr($code[$#code], 'next_arg');
     }
 
-    push(@code, &make_op('', 'end'));
+    push(@code, make_op('', 'end'))
+	unless is_instr($code[$#code], 'call_end');
 
     #
     # Chain together all codes segments having the same first operation.
