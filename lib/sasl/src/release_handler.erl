@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -890,6 +890,7 @@ do_check_install_release(RelDir, Vsn, Releases, Masters) ->
     end.
 	    
 do_install_release(#state{start_prg = StartPrg,
+			  root = RootDir,
 			  rel_dir = RelDir, releases = Releases,
 			  masters = Masters,
 			  static_emulator = Static},
@@ -926,8 +927,8 @@ do_install_release(#state{start_prg = StartPrg,
 			    NReleases = set_status(Vsn, current, Releases),
 			    NReleases2 = set_status(Vsn,tmp_current,NReleases),
 			    write_releases(RelDir, NReleases2, Masters),
-			    prepare_restart_new_emulator(StartPrg, RelDir,
-							 Release, 
+			    prepare_restart_new_emulator(StartPrg, RootDir,
+							 RelDir, Release,
 							 PermanentRelease, 
 							 Masters),
 			    {restart_new_emulator, CurrentVsn, Descr};
@@ -997,7 +998,7 @@ do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
 		    throw(Error4)
 	    end
     end.
-	    
+
 do_make_permanent(#state{releases = Releases,
 			 rel_dir = RelDir, unpurged = Unpurged,
 			 masters = Masters,
@@ -1409,8 +1410,8 @@ prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
     FutureServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
 	++ "_" ++ Vsn,
     CurrentService = case erlsrv:get_service(PermEVsn,CurrentServiceName) of
-			 {error, Reason} ->
-			     throw({error, Reason});
+			 {error, _} = Error1 ->
+			     throw(Error1);
 			 CS ->
 			     CS
 		     end,
@@ -1425,37 +1426,33 @@ prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
 					CurrentServiceName),
     
     case erlsrv:store_service(EVsn, FutureService) of
-	{error, Rison} ->
-	    throw({error,Rison});
-	_ ->
+	{error, _} = Error2 ->
+	    throw(Error2);
+	_X ->
 	    erlsrv:disable_service(EVsn, FutureServiceName),
 	    ErlSrv = filename:nativename(erlsrv:erlsrv(EVsn)),
-	    case heart:set_cmd(ErlSrv ++ " enable " ++ FutureServiceName ++
-			       " & " ++ ErlSrv ++ " start " ++ 
-			       FutureServiceName ++
-			       " & " ++ ErlSrv ++ " disable " ++ 
-			       FutureServiceName) of
+	    StartDisabled = ErlSrv ++ " start_disabled " ++ FutureServiceName,
+	    case heart:set_cmd(StartDisabled) of
 		ok ->
 		    ok;
-		Error ->
-		    throw({error, {'heart:set_cmd() error', Error}})
+		Error3 ->
+		    throw({error, {'heart:set_cmd() error', Error3}})
 	    end
     end.
     
-
 %%-----------------------------------------------------------------
 %% Set things up for restarting the new emulator.  The actual
 %% restart is performed by calling init:reboot() higher up.
 %%-----------------------------------------------------------------
-prepare_restart_new_emulator(StartPrg, RelDir,
-			     Release, PRelease,
-			     Masters) ->
+prepare_restart_new_emulator(StartPrg, RootDir, RelDir,
+			     Release, PRelease, Masters) ->
     #release{erts_vsn = EVsn, vsn = Vsn} = Release,
     Data = EVsn ++ " " ++ Vsn,
     DataFile = write_new_start_erl(Data, RelDir, Masters),
     %% Tell heart to use DataFile instead of start_erl.data
     case os:type() of
 	{win32,nt} ->
+	    write_ini_file(RootDir,EVsn,Masters),
 	    prepare_restart_nt(Release,PRelease,DataFile); 
 	{unix,_} ->
 	    StartP = check_start_prg(StartPrg, Masters),
@@ -1832,48 +1829,8 @@ write_start(File, Data, false) ->
     end;
 write_start(File, Data, Masters) ->
     all_masters(Masters),
-    write_start_m(File, Data, Masters).
+    safe_write_file_m(File, Data, Masters).
 
-
-%%-----------------------------------------------------------------
-%% Write the "start_erl.data" file at all master nodes.
-%%   1. Save "start_erl.backup" at all nodes.
-%%   2. Write the "start_erl.change" file at all nodes.
-%%   3. Move "start_erl.change" to "start_erl.data".
-%%   4. Remove "start_erl.backup" at all nodes.
-%%
-%% If one of the steps above fails, all steps is recovered from
-%% (as long as possible), except for 4 which is allowed to fail.
-%%-----------------------------------------------------------------
-write_start_m(File, Data, Masters) ->
-    Dir = filename:dirname(File),
-    Backup = filename:join(Dir, "start_erl.backup"),
-    Change = filename:join(Dir, "start_erl.change"),
-    case at_all_masters(Masters, ?MODULE, do_copy_files,
-			[File, [Backup]]) of
-	ok ->
-	    case at_all_masters(Masters, ?MODULE, do_write_file,
-				[Change, Data]) of
-		ok ->
-		    case at_all_masters(Masters, file, rename,
-					[Change, File]) of
-			ok ->
-			    remove_files(all, [Backup, Change], Masters),
-			    ok;
-			{error, {Master, R}} ->
-			    takewhile(Master, Masters, file, rename,
-				      [Backup, File]),
-			    remove_files(all, [Backup, Change], Masters),
-			    throw({error, {Master, R, move_start_erl}})
-		    end;
-		{error, {Master, R}} ->
-		    remove_files(all, [Backup, Change], Masters),
-		    throw({error, {Master, R, write_start_erl}})
-	    end;
-	{error, {Master, R}} ->
-	    remove_files(Master, [Backup], Masters),
-	    throw({error, {Master, R, backup_start_erl}})
-    end.
 
 %%-----------------------------------------------------------------
 %% Copy the "start.boot" and "sys.config" from SrcDir to DestDir at all
@@ -1916,4 +1873,76 @@ set_static_files(SrcDir, DestDir, Masters) ->
 	{error, {Master, R}} ->
 	    remove_files(Master, [BackupBoot, BackupConf], Masters),
 	    throw({error, {Master, R, backup_start_config}})
+    end.
+
+%%-----------------------------------------------------------------
+%% Write erl.ini
+%% Writes the erl.ini file used by erl.exe when (re)starting the erlang node.
+%% At first installation, this is done by Install.exe, which means that if
+%% the format of this file for some reason is changed, then Install.c must
+%% also be updated (and probably some other c-files which read erl.ini)
+%%-----------------------------------------------------------------
+write_ini_file(RootDir,EVsn,Masters) ->
+   BinDir = filename:join([RootDir,"erts-"++EVsn,"bin"]),
+   Str0 = io_lib:format("[erlang]~n"
+                        "Bindir=~s~n"
+                        "Progname=erl~n"
+                        "Rootdir=~s~n",
+		        [filename:nativename(BinDir),
+		         filename:nativename(RootDir)]),
+   Str = re:replace(Str0,"\\\\","\\\\\\\\",[{return,list},global]),
+   IniFile = filename:join(BinDir,"erl.ini"),
+   do_write_ini_file(IniFile,Str,Masters).
+
+do_write_ini_file(File,Data,false) ->
+    case do_write_file(File, Data) of
+	ok    -> ok;
+	Error -> throw(Error)
+    end;
+do_write_ini_file(File,Data,Masters) ->
+    all_masters(Masters),
+    safe_write_file_m(File, Data, Masters).
+
+
+%%-----------------------------------------------------------------
+%% Write the given file at all master nodes.
+%%   1. Save <File>.backup at all nodes.
+%%   2. Write <File>.change at all nodes.
+%%   3. Move <File>.change to <File>
+%%   4. Remove <File>.backup at all nodes.
+%%
+%% If one of the steps above fails, all steps are recovered from
+%% (as long as possible), except for 4 which is allowed to fail.
+%%-----------------------------------------------------------------
+safe_write_file_m(File, Data, Masters) ->
+    Backup = File ++ ".backup",
+    Change = File ++ ".change",
+    case at_all_masters(Masters, ?MODULE, do_copy_files,
+			[File, [Backup]]) of
+	ok ->
+	    case at_all_masters(Masters, ?MODULE, do_write_file,
+				[Change, Data]) of
+		ok ->
+		    case at_all_masters(Masters, file, rename,
+					[Change, File]) of
+			ok ->
+			    remove_files(all, [Backup, Change], Masters),
+			    ok;
+			{error, {Master, R}} ->
+			    takewhile(Master, Masters, file, rename,
+				      [Backup, File]),
+			    remove_files(all, [Backup, Change], Masters),
+			    throw({error, {Master, R, rename,
+					   filename:basename(Change),
+					   filename:basename(File)}})
+		    end;
+		{error, {Master, R}} ->
+		    remove_files(all, [Backup, Change], Masters),
+		    throw({error, {Master, R, write, filename:basename(Change)}})
+	    end;
+	{error, {Master, R}} ->
+	    remove_files(Master, [Backup], Masters),
+	    throw({error, {Master, R, backup,
+			   filename:basename(File),
+			   filename:basename(Backup)}})
     end.

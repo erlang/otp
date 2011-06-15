@@ -119,6 +119,7 @@ install_3(TestNode,PrivDir) ->
     ?print(["install_3 unpack_release P2A ok"]),
     ?check_release("P2A",unpacked,["a-1.1"]),
     {ok, "P1I", [new_emu]} = release_handler:check_install_release("P2A"),
+    ?print(["install_3 check_install_release P2A ok"]),
     ok = release_handler:make_permanent("P1I"),
     ?print(["install_3 make_permanent P1I ok"]),
     ?check_release("P1I",permanent,["a-1.1"]),
@@ -268,23 +269,30 @@ client1_1(TestNode,PrivDir,MasterDir,ClientSname) ->
     erl_boot_server:start([IP]),
 
     ok = net_kernel:monitor_nodes(true),
-    Node = start_client(TestNode,ClientSname),
+    Node = start_client(TestNode,client1,ClientSname),
     trace_disallowed_calls(Node),
 
     %% Check env var for SASL on client node
     SaslEnv = rpc:call(Node, application, get_all_env, [sasl]),
+    ?print([{client1_1,sasl_env},SaslEnv]),
     {_,CliDir} = lists:keyfind(client_directory,1,SaslEnv),
     {_,[Master]} = lists:keyfind(masters,1,SaslEnv),
     {_,StartCli} = lists:keyfind(start_prg,1,SaslEnv),
-    Root = code:root_dir(),
-    true = (CliDir =:= filename:join([Root,"clients","type1",Node])),
-    true = (StartCli =:= filename:join([CliDir,"bin","start"])),
+    NodeStr = atom_to_list(Node),
+    [NodeStr,"type1","clients"|_] = lists:reverse(filename:split(CliDir)),
     true = (Master =:= node()),
+    case os:type() of
+	{unix,_} ->
+	    true = (StartCli =:= filename:join([CliDir,"bin","start"]));
+	_ ->
+	    ok
+    end,
 
     %% Unpack P1H on master
     {ok, "P1H"} = unpack_release(PrivDir,"rel1"),
 
     %% Unpack and install P1H on client
+    Root = code:root_dir(),
     P1HDir = filename:join([Root, "releases", "P1H"]),
 
     %% The AppDirs argument (last arg to set_unpacked) below is really
@@ -339,6 +347,7 @@ client1_2(TestNode,PrivDir,Node) ->
     ?check_running_app_client(Node,a,"1.0"),
 
     ok = rpc:call(Node, release_handler, make_permanent, ["P1H"]),
+    ?check_release_client(Node,"P1H",permanent,["a-1.0"]),
 
     check_disallowed_calls(),
     reboot(TestNode,Node),
@@ -584,7 +593,7 @@ trace_disallowed_calls(Node) ->
     MasterProc = self(),
     rpc:call(Node,dbg,tracer,[process,{fun(T,_) -> MasterProc ! T end,[]}]),
     rpc:call(Node,dbg,p,[all,call]),
-    rpc:call(Node,dbg,tp,[file,[]]).
+    rpc:call(Node,dbg,tp,[file,[{'_',[],[{message,{caller}}]}]]).
 
 check_disallowed_calls() ->
     receive
@@ -594,13 +603,12 @@ check_disallowed_calls() ->
 	    ok
     end.
 
-start_client(TestNode,Client) ->
-    {Start, Node} = do_start_client(Client,test_host()),
-    Cmd = lists:concat(["env NODENAME=",Client," ",
-			filename:join(code:root_dir(), Start)]),
-    ?print([{start_client,Client},Cmd]),
-    Res = os:cmd(Cmd),
-    ?print([{start_client,result},Res]),
+start_client(TestNode,Client,Sname) ->
+    Node = list_to_atom(lists:concat([Sname,"@",test_host()])),
+    case os:type() of
+	{unix,_} -> start_client_unix(TestNode,Sname,Node);
+	{win32,_} -> start_client_win32(TestNode,Client,Sname)
+    end,
     receive
         {nodeup, Node} ->
             wait_started(TestNode,Node)
@@ -609,10 +617,34 @@ start_client(TestNode,Client) ->
             ?fail({"can not start", Node})
     end.
 
-do_start_client(Client, Host) ->
-    Node = list_to_atom(lists:concat([Client,"@",Host])),
+start_client_unix(TestNode,Sname,Node) ->
     Start = filename:join(["clients", "type1", Node, "bin", "start"]),
-    {Start, Node}.
+    Cmd = lists:concat(["env NODENAME=",Sname," ",
+			filename:join(code:root_dir(), Start)]),
+    ?print([{start_client,Sname},Cmd]),
+    Res = os:cmd(Cmd),
+    ?print([{start_client,result},Res]).
+
+start_client_win32(TestNode,Client,ClientSname) ->
+    Name = atom_to_list(ClientSname) ++ "_P1G",
+    RootDir = code:root_dir(),
+    ErtsBinDir = filename:join(RootDir,"erts-4.4/bin"),
+
+    {ClientArgs,RelClientDir} = rh_test_lib:get_client_args(Client,ClientSname,
+							    RootDir),
+    StartErlArgs = rh_test_lib:get_start_erl_args(RootDir,RelClientDir,
+						  ClientArgs),
+    ServiceArgs = rh_test_lib:get_service_args("4.4", RootDir, RelClientDir,
+					       ClientSname, StartErlArgs),
+
+    ?print([{start_client,ClientSname},ServiceArgs]),
+    Erlsrv = filename:nativename(filename:join(ErtsBinDir,"erlsrv")),
+    rh_test_lib:erlsrv(Erlsrv,stop,Name),
+    rh_test_lib:erlsrv(Erlsrv,remove,Name),
+    ok = rh_test_lib:erlsrv(Erlsrv,add,Name,ServiceArgs),
+    ok = rh_test_lib:erlsrv(Erlsrv,start,Name),
+    ?print([{start_client,result},ok]),
+    ok.
 
 reboot(TestNode,Node) ->
     cover_client(TestNode,Node,stop_cover),
@@ -628,7 +660,7 @@ check_reboot(TestNode,Node) ->
             receive
                 {nodeup, Node} -> wait_started(TestNode,Node)
             after 30000 ->
-                    ?fail({Node, "not rebooted",net_adm:ping(Node)})
+		    ?fail({Node, "not rebooted",net_adm:ping(Node)})
             end
     after 30000 ->
             ?fail({Node, "not closing down",net_adm:ping(Node)})
@@ -678,22 +710,28 @@ client2(TestNode,PrivDir,ClientSname) ->
     release_handler:remove_release("P1H"), 
 
     ok = net_kernel:monitor_nodes(true),
-    Node = start_client(TestNode,ClientSname),
+    Node = start_client(TestNode,client2,ClientSname),
 
     %% Check env var for SASL on client node
-    ?print([{sasl_env, Node}, rpc:call(Node, application, get_all_env, [sasl])]),
     SaslEnv = rpc:call(Node, application, get_all_env, [sasl]),
+    ?print([{client1_1,sasl_env},SaslEnv]),
     {_,CliDir} = lists:keyfind(client_directory,1,SaslEnv),
     {_,[Master,Master2]} = lists:keyfind(masters,1,SaslEnv),
     {_,StartCli} = lists:keyfind(start_prg,1,SaslEnv),
-    Root = code:root_dir(),
-    true = (CliDir =:= filename:join([Root,"clients","type1",Node])),
-    true = (StartCli =:= filename:join([CliDir,"bin","start"])),
+    NodeStr = atom_to_list(Node),
+    [NodeStr,"type1","clients"|_] = lists:reverse(filename:split(CliDir)),
     true = (Master =:= node()),
     true = (Master2 =:= list_to_atom("master2@"++TestHost)),
+    case os:type() of
+	{unix,_} ->
+	    true = (StartCli =:= filename:join([CliDir,"bin","start"]));
+	_ ->
+	    ok
+    end,
 
     {ok, "P1H"} = unpack_release(PrivDir,"rel1"),
 
+    Root = code:root_dir(),
     {error,{bad_masters,[Master2]}} =
 	rpc:call(Node, release_handler, set_unpacked,
 		 [filename:join([Root, "releases", "P1H", "rel1.rel"]),[]]),

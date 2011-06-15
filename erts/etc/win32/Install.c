@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -213,6 +213,9 @@ int main(int argc, char **argv)
 	fprintf(stderr,"Cannot continue installation, bailing out.\n");
 	exit(1);
     }
+
+    /* OBS!!! If the format of the init file is changed, do not forget
+       to update release_handler:write_ini_file(...) */
     ini_file = create_init_file();
     ini_section = create_init_section("erlang");
     add_init_section(ini_file,ini_section);
