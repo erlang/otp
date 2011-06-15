@@ -19,6 +19,8 @@
 # Toplevel makefile for building the Erlang system
 #
 
+.NOTPARALLEL:
+
 # ----------------------------------------------------------------------
 
 # And you'd think that this would be obvious... :-)
