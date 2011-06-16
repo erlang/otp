@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,14 +19,14 @@
 
 %%
 
--module(sqlserver).
+-module(mysql).
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
 %-------------------------------------------------------------------------
 connection_string() ->
-  "DSN=sql-server;UID=odbctest;PWD=gurka".
+    "DSN=MySQL;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';".
 
 %-------------------------------------------------------------------------
 insert_result() ->
@@ -35,8 +35,11 @@ insert_result() ->
 update_result() ->
     {selected,["ID","DATA"],[{1,"foo"}]}.
 
-selected_ID(N, _) ->
-    {selected,["ID"],[{N}]}.
+selected_ID(N, next) ->
+    {selected,["ID"],[{N}]};
+
+selected_ID(_, _) ->
+    {error, driver_does_not_support_function}.
 
 selected_next_N(1)->
     {selected,["ID"],
@@ -49,46 +52,27 @@ selected_next_N(2)->
      [{4},
       {5}]}.
 
-selected_relative_N(1)->
-    {selected,["ID"],
-     [{2},
-      {3},
-      {4}]};
+selected_relative_N(_)->
+    {error, driver_does_not_support_function}.
 
-selected_relative_N(2)->
-    {selected,["ID"],
-     [{7},
-      {8}]}.
-
-selected_absolute_N(1)->
-    {selected,["ID"],
-     [{1},
-      {2},
-      {3}]};
-
-selected_absolute_N(2)->
-    {selected,["ID"],
-     [{1},
-      {2},
-      {3},
-      {4},
-      {5}]}.
+selected_absolute_N(_)->
+    {error, driver_does_not_support_function}.
 
 selected_list_rows() ->
     {selected,["ID", "DATA"],[[1, "bar"],[2,"foo"]]}.
 
 first_list_rows() ->
-    {selected,["ID", "DATA"],[[1, "bar"]]}.
+    {error, driver_does_not_support_function}.
 last_list_rows() ->
-    {selected,["ID", "DATA"],[[2, "foo"]]}.
+    {error, driver_does_not_support_function}.
 prev_list_rows() ->
-    {selected,["ID", "DATA"],[[1, "bar"]]}.
+    {error, driver_does_not_support_function}.
 next_list_rows() ->
-    {selected,["ID", "DATA"],[[2, "foo"]]}.
+    {selected,["ID","DATA"],[[1,"bar"]]}.
 
 multiple_select()->
     [{selected,["ID", "DATA"],[{1, "bar"},{2, "foo"}]},
-     {selected,["DATA"],[{"foo"}]}].
+     {selected,["ID"],[{"foo"}]}].
 
 multiple_mix()->
     [{updated, 1},{updated, 1},
@@ -96,45 +80,36 @@ multiple_mix()->
      {updated, 1}, {selected,["DATA"],[{"foo"}]}].
 
 %-------------------------------------------------------------------------
-fixed_char_min() ->
-    1.
-
-fixed_char_max() ->
-    8000.
-
-create_fixed_char_table(Size) ->
-    " (FIELD char(" ++ integer_to_list(Size) ++ "))".
-
-%-------------------------------------------------------------------------
 var_char_min() ->
-    1.
+    0.
 var_char_max() ->
-    8000. 
+    65535.
 
 create_var_char_table(Size) ->
     " (FIELD varchar(" ++ integer_to_list(Size) ++ "))".
+
 %-------------------------------------------------------------------------
 text_min() ->
     1.
 text_max() ->
-    2147483647. %% 2^31 - 1 
+   2147483646. % 2147483647. %% 2^31 - 1
 
 create_text_table() ->
     " (FIELD text)".
 
 %-------------------------------------------------------------------------
 create_unicode_table() ->
-    " (FIELD nvarchar(50))".
+    " (FIELD text)".
 
 %-------------------------------------------------------------------------
 create_timestamp_table() ->
-    " (FIELD DATETIME)". 
+    " (FIELD TIMESTAMP)".
 
 %-------------------------------------------------------------------------
 tiny_int_min() ->
-    0.
+    -128.
 tiny_int_max() ->
-    255.
+    127.
 
 create_tiny_int_table() ->
      " (FIELD tinyint)".
@@ -147,48 +122,49 @@ tiny_int_max_selected() ->
 
 %-------------------------------------------------------------------------
 small_int_min() ->
-    -32768. % -2^15
+    -32768.
 small_int_max() ->
-    32767. % 2^15-1
+    32767.
 
 create_small_int_table() ->
      " (FIELD smallint)".
 
 small_int_min_selected() ->
-    {selected,["FIELD"],[{small_int_min()}]}.
+    {selected,["FIELD"],[{-32768}]}.
 
 small_int_max_selected() ->
-    {selected,["FIELD"], [{small_int_max()}]}.
+    {selected,["FIELD"], [{32767}]}.
 
 %-------------------------------------------------------------------------
 int_min() ->
-    -2147483648. % -2^31
+   -2147483648.
 int_max() ->
-    2147483647.  % 2^31-1
+    2147483647.
 
 create_int_table() ->
      " (FIELD int)".
 
 int_min_selected() ->
-    {selected,["FIELD"],[{int_min()}]}.
+    {selected,["FIELD"],[{-2147483648}]}.
 
 int_max_selected() ->
-    {selected,["FIELD"], [{int_max()}]}.
+    {selected,["FIELD"], [{2147483647}]}.
 
 %-------------------------------------------------------------------------
 big_int_min() ->
-    -9223372036854775808. % -2^63
+    -9223372036854775808.
+
 big_int_max() ->
-    9223372036854775807. % 2^63-1
+    9223372036854775807.
 
 create_big_int_table() ->
-     " (FIELD bigint)". 
+     " (FIELD bigint )".
 
 big_int_min_selected() ->
-    {selected,["FIELD"],[{integer_to_list(big_int_min())}]}.
+    {selected,["FIELD"], [{"-9223372036854775808"}]}.
 
 big_int_max_selected() ->
-    {selected,["FIELD"], [{integer_to_list(big_int_max())}]}.
+    {selected,["FIELD"], [{"9223372036854775807"}]}.
 
 %-------------------------------------------------------------------------
 bit_false() ->
@@ -200,27 +176,22 @@ create_bit_table() ->
      " (FIELD bit)".
 
 bit_false_selected() ->
-    {selected,["FIELD"],[{false}]}.
+    {selected,["FIELD"],[{"0"}]}.
 
 bit_true_selected() ->
-    {selected,["FIELD"], [{true}]}.
+    {selected,["FIELD"], [{"1"}]}.
+
 %-------------------------------------------------------------------------
-float_min() ->
-    -1.79e+308.
-float_max() ->
-    1.79e+308.
 
-float_underflow() ->
-    "'-1.80e+308'".
-
-float_overflow() ->
-    "'-1.80e+308'".
+%% Do not test float min/max as value is only theoretical defined in
+%% mysql and may vary depending on hardware.
 
 create_float_table() ->
     " (FIELD float)".
 
 float_zero_selected() ->
     {selected,["FIELD"],[{0.00000e+0}]}.
+
 %-------------------------------------------------------------------------
 real_min() ->
     -3.40e+38.
@@ -228,20 +199,18 @@ real_max() ->
     3.40e+38.
 
 real_underflow() ->
-    -3.41e+38.
+    "-3.41e+38".
 
 real_overflow() ->
-    3.41e+38.
+    "3.41e+38".
 
 create_real_table() ->
     " (FIELD real)".
 
 real_zero_selected() ->
     {selected,["FIELD"],[{0.00000e+0}]}.
-%-------------------------------------------------------------------------
-param_select_tiny_int() ->
-    {selected,["FIELD"],[{1}, {2}]}.
 
+%-------------------------------------------------------------------------
 param_select_small_int() ->
     {selected,["FIELD"],[{1}, {2}]}.
 
@@ -262,7 +231,7 @@ param_select_real() ->
     {selected,["FIELD"],[{1.30000},{1.20000}]}.
 
 param_select_double() ->
-   {selected,["FIELD"],[{1.30000},{1.20000}]}.
+    {selected,["FIELD"],[{1.30000},{1.20000}]}.
 
 param_select_mix() ->
     {selected,["ID","DATA"],[{1, "foo"}, {2, "bar"}]}.
@@ -277,22 +246,21 @@ param_select() ->
     {selected,["ID","DATA"],[{1, "foo"},{3, "foo"}]}.
 
 %-------------------------------------------------------------------------
-
 describe_integer() ->
-    {ok,[{"myint1", sql_smallint},{"myint2", sql_integer},
-	 {"myint3", sql_integer}]}.
+    {ok,[{"myint1",sql_smallint},
+	 {"myint2",sql_integer},
+	 {"myint3",sql_integer}]}.
 
 describe_string() ->
-    {ok,[{"str1",{sql_char,10}},                           
+    {ok,[{"str1",{sql_char,10}},
 	 {"str2",{sql_char,10}},
 	 {"str3",{sql_varchar,10}},
 	 {"str4",{sql_varchar,10}}]}.
 
 describe_floating() ->
-    {ok,[{"f", sql_real},{"r", sql_real}, {"d", {sql_float, 53}}]}.
-
+     {ok,[{"f",sql_real},{"r",sql_double},{"d",sql_double}]}.
 describe_dec_num() ->
-    {ok,[{"mydec",{sql_decimal,9,3}},{"mynum",{sql_numeric,9,2}}]}.
+    {ok,[{"mydec",{sql_decimal,9,3}},{"mynum",{sql_decimal,9,2}}]}.
 
 describe_timestamp() ->
-    {ok, [{"field", sql_timestamp}]}.
+    {ok, [{"FIELD", sql_timestamp}]}.
