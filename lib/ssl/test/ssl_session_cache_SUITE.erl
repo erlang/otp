@@ -221,7 +221,7 @@ session_cleanup(Config)when is_list(Config) ->
 
     %% Make sure session has expired and been cleaned up
     test_server:sleep(5000), %% Expire time
-    test_server:sleep(?SLEEP *4), %% Clean up delay
+    test_server:sleep((?SLEEP*20), %% Clean up delay (very small in this test case) + some extra time
 
     undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
     undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
