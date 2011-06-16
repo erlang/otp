@@ -207,9 +207,14 @@ session_cleanup(Config)when is_list(Config) ->
     %% Make sure session is registered
     test_server:sleep(?SLEEP),
 
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = state(Prop),
+    Cache = element(2, State),
+
     Id = proplists:get_value(session_id, SessionInfo),
-    CSession = ssl_session_cache:lookup(ssl_otp_session_cache, {{Hostname, Port}, Id}),
-    SSession = ssl_session_cache:lookup(ssl_otp_session_cache, {Port, Id}),
+    CSession = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
+    SSession = ssl_session_cache:lookup(Cache, {Port, Id}),
 
     true = CSession =/= undefined,
     true = SSession =/= undefined,
@@ -218,12 +223,17 @@ session_cleanup(Config)when is_list(Config) ->
     test_server:sleep(5000), %% Expire time
     test_server:sleep((?SLEEP*20), %% Clean up delay (very small in this test case) + some extra time
 
-    undefined = ssl_session_cache:lookup(ssl_otp_session_cache, {{Hostname, Port}, Id}),
-    undefined = ssl_session_cache:lookup(ssl_otp_session_cache, {Port, Id}),
+    undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
+    undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
 
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+state([{data,[{"State", State}]} | _]) ->
+    State;
+state([_ | Rest]) ->
+    state(Rest).
 
 %%--------------------------------------------------------------------
 session_cache_process_list(doc) ->

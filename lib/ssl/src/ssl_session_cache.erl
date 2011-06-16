@@ -36,7 +36,7 @@
 %% Description: Return table reference. Called by ssl_manager process. 
 %%--------------------------------------------------------------------
 init(_) ->
-    ets:new(cache_name(), [named_table, set, protected]).
+    ets:new(cache_name(), [set, protected]).
 
 %%--------------------------------------------------------------------
 -spec terminate(cache_ref()) -> any(). %%    
