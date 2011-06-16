@@ -80,7 +80,7 @@ init_per_suite(Config) ->
     case (catch odbc:start()) of
 	ok ->
 	    case catch odbc:connect(?RDBMS:connection_string(),
-				    [{auto_commit, off}]) of
+				    [{auto_commit, off}] ++ odbc_test_lib:platform_options()) of
 		{ok, Ref} ->
 		    odbc:disconnect(Ref),
 		    [{tableName, odbc_test_lib:unique_table_name()} | Config];
@@ -116,12 +116,6 @@ init_per_testcase(_TestCase, Config) ->
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
     NewConfig = lists:keydelete(watchdog, 1, Temp),
-    %% Clean up if needed
-    Table = ?config(tableName, Config),
-    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), []),
-    Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
-    io:format("Drop table: ~p ~p~n", [Table, Result]),
-    odbc:disconnect(Ref),
     [{watchdog, Dog} | NewConfig].
 
 %%--------------------------------------------------------------------
@@ -133,6 +127,11 @@ init_per_testcase(_TestCase, Config) ->
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, Config) ->
+    Table = ?config(tableName, Config),
+    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
+    Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
+    io:format("Drop table: ~p ~p~n", [Table, Result]),
+    odbc:disconnect(Ref),
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog).
 
@@ -144,7 +143,7 @@ commit(doc)->
 commit(suite) -> [];
 commit(Config)  ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), 
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
 
     Table = ?config(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
@@ -184,8 +183,11 @@ rollback(doc)->
     ["Test the use of explicit rollback"];
 rollback(suite) -> [];
 rollback(Config)  ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), [{auto_commit, off}]),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
+
     Table = ?config(tableName, Config),
+
     TransStr = transaction_support_str(?RDBMS),
 
     {updated, _} =
@@ -222,7 +224,8 @@ not_explicit_commit(doc) ->
 not_explicit_commit(suite) -> [];
 not_explicit_commit(_Config) ->
     {ok, Ref} = 
-	odbc:connect(?RDBMS:connection_string(), [{auto_commit, on}]),
+	odbc:connect(?RDBMS:connection_string(), [{auto_commit, on}] ++
+		    odbc_test_lib:platform_options()),
     {error, _} = odbc:commit(Ref, commit),
     ok = odbc:disconnect(Ref).
 
@@ -231,7 +234,8 @@ not_exist_db(doc) ->
     ["Tests valid data format but invalid data in the connection parameters."];
 not_exist_db(suite) -> [];
 not_exist_db(_Config)  ->
-    {error, _} = odbc:connect("DSN=foo;UID=bar;PWD=foobar", []),
+    {error, _} = odbc:connect("DSN=foo;UID=bar;PWD=foobar",
+			      odbc_test_lib:platform_options()),
     %% So that the odbc control server can be stoped "in the correct way"
     test_server:sleep(100).
 
@@ -248,7 +252,8 @@ no_c_node(_Config) ->
     FileName2 = filename:nativename(filename:join(Dir, "odbcsrv")),
     ok = file:rename(FileName1, FileName2),
     Result = 
-	case catch odbc:connect(?RDBMS:connection_string(), []) of
+	case catch odbc:connect(?RDBMS:connection_string(),
+				odbc_test_lib:platform_options()) of
 	    {error, port_program_executable_not_found} ->
 		ok;
 	    Else ->
@@ -263,7 +268,7 @@ port_dies(doc) ->
     "Tests what happens if the port program dies";
 port_dies(suite) -> [];
 port_dies(_Config) ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     {status, _} = process_info(Ref, status),   
     process_flag(trap_exit, true),
     Port = lists:last(erlang:ports()),      
@@ -279,7 +284,7 @@ control_process_dies(doc) ->
     "Tests what happens if the Erlang control process dies";
 control_process_dies(suite) -> [];
 control_process_dies(_Config) ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     process_flag(trap_exit, true),
     Port = lists:last(erlang:ports()),      
     {connected, Ref} = erlang:port_info(Port, connected),  
@@ -312,7 +317,7 @@ client_dies_normal(Config) when is_list(Config) ->
     end.
 
 client_normal(Pid) ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Pid ! {dbRef, Ref},
     receive 
 	continue ->
@@ -344,7 +349,7 @@ client_dies_timeout(Config) when is_list(Config) ->
     end.
 
 client_timeout(Pid) ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Pid ! {dbRef, Ref},
     receive 
 	continue ->
@@ -376,7 +381,7 @@ client_dies_error(Config) when is_list(Config) ->
     end.
 
 client_error(Pid) ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Pid ! {dbRef, Ref},
     receive 
 	continue ->
@@ -391,7 +396,8 @@ connect_timeout(doc) ->
 connect_timeout(suite) -> [];
 connect_timeout(Config) when is_list(Config) ->
     {'EXIT',timeout} = (catch odbc:connect(?RDBMS:connection_string(),
-					   [{timeout, 0}])),
+					   [{timeout, 0}] ++
+					       odbc_test_lib:platform_options())),
     %% Need to return ok here "{'EXIT',timeout} return value" will
     %% be interpreted as that the testcase has timed out.
     ok.
@@ -448,7 +454,7 @@ timeout(Config)  when is_list(Config) ->
 update_table_timeout(Table, TimeOut, Pid) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
     UpdateQuery = "UPDATE " ++ Table ++ " SET DATA = 'foobar' WHERE ID = 1",
 
     case catch odbc:sql_query(Ref, UpdateQuery, TimeOut) of
@@ -486,7 +492,7 @@ many_timeouts(doc) ->
 many_timeouts(suite) -> [];
 many_timeouts(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
 
     Table = ?config(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
@@ -520,7 +526,7 @@ many_timeouts(Config) when is_list(Config) ->
 update_table_many_timeouts(Table, TimeOut, Pid) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
     UpdateQuery = "UPDATE " ++ Table ++ " SET DATA = 'foobar' WHERE ID = 1",
 
     ok = loop_many_timouts(Ref, UpdateQuery, TimeOut),
@@ -546,7 +552,7 @@ timeout_reset(doc) ->
 timeout_reset(suite) -> [];
 timeout_reset(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
     Table = ?config(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
 
@@ -594,7 +600,7 @@ timeout_reset(Config) when is_list(Config) ->
 update_table_timeout_reset(Table, TimeOut, Pid) ->
 
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(),
-			     [{auto_commit, off}]),
+			     [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
     UpdateQuery = "UPDATE " ++ Table ++ " SET DATA = 'foobar' WHERE ID = 1",
 
     ok = loop_timout_reset(Ref, UpdateQuery, TimeOut, 
@@ -644,7 +650,7 @@ disconnect_on_timeout(suite) -> [];
 disconnect_on_timeout(Config) when is_list(Config) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
     Table = ?config(tableName, Config),
     TransStr = transaction_support_str(?RDBMS),
 
@@ -675,7 +681,7 @@ disconnect_on_timeout(Config) when is_list(Config) ->
 update_table_disconnect_on_timeout(Table, TimeOut, Pid) ->
 
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{auto_commit, off}]),
+			      [{auto_commit, off}] ++ odbc_test_lib:platform_options()),
     UpdateQuery = "UPDATE " ++ Table ++ " SET DATA = 'foobar' WHERE ID = 1",
 
     case catch odbc:sql_query(Ref, UpdateQuery, TimeOut) of
@@ -692,7 +698,7 @@ connection_closed(doc) ->
      " use a connection that has been closed"];
 connection_closed(suite) -> [];
 connection_closed(Config) when is_list(Config) ->
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
 
     Table = ?config(tableName, Config), 
     {updated, _} = 
@@ -758,7 +764,7 @@ return_rows_as_lists(doc)->
 return_rows_as_lists(suite) -> [];
 return_rows_as_lists(Config) when is_list(Config) ->
     {ok, Ref} =  odbc:connect(?RDBMS:connection_string(),
-			      [{tuple_row, off}]),
+			      [{tuple_row, off}] ++ odbc_test_lib:platform_options()),
 
     Table = ?config(tableName, Config),
 
@@ -779,15 +785,21 @@ return_rows_as_lists(Config) when is_list(Config) ->
 
     {ok, _} = odbc:select_count(Ref, "SELECT * FROM " ++ Table),
 
-    First = ?RDBMS:first_list_rows(),
-    Last =  ?RDBMS:last_list_rows(),
-    Prev = ?RDBMS:prev_list_rows(),
-    Next = ?RDBMS:next_list_rows(),
+    case proplists:get_value(scrollable_cursors, odbc_test_lib:platform_options()) of
+	off ->
+	    Next = ?RDBMS:next_list_rows(),
+	    Next = odbc:next(Ref);
+	_ ->
+	    First = ?RDBMS:first_list_rows(),
+	    Last =  ?RDBMS:last_list_rows(),
+	    Prev = ?RDBMS:prev_list_rows(),
+	    Next = ?RDBMS:next_list_rows(),
 
-    Last = odbc:last(Ref),
-    Prev = odbc:prev(Ref),
-    First = odbc:first(Ref),
-    Next = odbc:next(Ref).
+	    Last = odbc:last(Ref),
+	    Prev = odbc:prev(Ref),
+	    First = odbc:first(Ref),
+	    Next = odbc:next(Ref)
+    end.
 
 %%-------------------------------------------------------------------------
 
@@ -796,19 +808,21 @@ api_missuse(doc)->
 api_missuse(suite) -> [];
 api_missuse(Config) when is_list(Config)->
 
-    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} =  odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     %% Serious programming fault, connetion will be shut down 
     gen_server:call(Ref, {self(), foobar, 10}, infinity),
     test_server:sleep(10),
     undefined = process_info(Ref, status),
 
-    {ok, Ref2} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref2} =  odbc:connect(?RDBMS:connection_string(),
+			       odbc_test_lib:platform_options()),
     %% Serious programming fault, connetion will be shut down 
     gen_server:cast(Ref2, {self(), foobar, 10}),
     test_server:sleep(10),
     undefined = process_info(Ref2, status),
 
-    {ok, Ref3} =  odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref3} =  odbc:connect(?RDBMS:connection_string(),
+			       odbc_test_lib:platform_options()),
     %% Could be an innocent misstake the connection lives. 
     Ref3 ! foobar, 
     test_server:sleep(10),

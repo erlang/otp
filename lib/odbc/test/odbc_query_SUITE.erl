@@ -43,7 +43,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     case odbc_test_lib:odbc_check() of
 	ok ->
-	    [sql_query, first, last, next, prev, select_count,
+	    [sql_query, next, {group, scrollable_cursors}, select_count,
 	     select_next, select_relative, select_absolute,
 	     create_table_twice, delete_table_twice, duplicate_key,
 	     not_connection_owner, no_result_set, query_error,
@@ -55,8 +55,9 @@ all() ->
 
 groups() -> 
     [{multiple_result_sets, [], [multiple_select_result_sets,
-				 multiple_mix_result_sets,
-				 multiple_result_sets_error]},
+                                 multiple_mix_result_sets,
+                                 multiple_result_sets_error]},
+     {scrollable_cursors, [],  [first, last, prev]},
      {parameterized_queries, [],
       [{group, param_integers}, param_insert_decimal,
        param_insert_numeric, {group, param_insert_string},
@@ -81,8 +82,16 @@ init_per_group(multiple_result_sets, Config) ->
 	false ->
 	    {skip, "Not supported by " ++ atom_to_list(?RDBMS) ++ "driver"}
     end;
-init_per_group(_, Config) ->
+init_per_group(scrollable_cursors, Config) ->
+    case proplists:get_value(scrollable_cursors, odbc_test_lib:platform_options()) of
+	off ->
+	    {skip, "Not supported by driver"};
+	_ ->
+	    Config
+    end;
+init_per_group(_,Config) ->
     Config.
+
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -126,7 +135,7 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc_test_lib:strict(Ref, ?RDBMS),
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
@@ -146,7 +155,7 @@ end_per_testcase(_Case, Config) ->
     ok = odbc:disconnect(Ref),
     %% Clean up if needed 
     Table = ?config(tableName, Config),
-    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), []),
+    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
     odbc:disconnect(NewRef),
     Dog = ?config(watchdog, Config),

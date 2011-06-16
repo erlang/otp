@@ -69,3 +69,11 @@ strict(Ref, mysql) ->
     odbc:sql_query(Ref, "SET sql_mode='STRICT_ALL_TABLES,STRICT_TRANS_TABLES';");
 strict(_,_) ->
     ok.
+
+platform_options() ->
+    case os:type() of
+	{unix, sunos} ->
+	    [{scrollable_cursors, off}];
+	_ ->
+	    []
+    end.
