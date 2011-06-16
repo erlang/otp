@@ -1002,12 +1002,16 @@ static db_result_msg encode_result(db_state *state)
     db_result_msg msg;
     int elements, update, num_of_rows = 0;
     char *atom;
+    diagnos diagnos;
 
     msg = encode_empty_message();
     
     if(!sql_success(SQLNumResultCols(statement_handle(state), 
   				     &num_of_columns))) { 
-  	DO_EXIT(EXIT_COLS); 
+	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	    msg = encode_error_message(diagnos.error_msg);
+	    clean_state(state);
+	    return msg;
     } 
     
     if (num_of_columns == 0) { 
@@ -1021,7 +1025,10 @@ static db_result_msg encode_result(db_state *state)
     }
     
     if(!sql_success(SQLRowCount(statement_handle(state), &RowCountPtr))) { 
-	DO_EXIT(EXIT_ROWS); 
+	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	    msg = encode_error_message(diagnos.error_msg);
+	    clean_state(state);
+	    return msg;
     }
 
     if(param_query(state) && update) {
