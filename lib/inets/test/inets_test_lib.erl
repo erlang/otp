@@ -42,7 +42,7 @@
 %% -- Misc os command and stuff
 
 has_ipv6_support(Config) ->
-    case lists:keysearch(ipv6_hosts, Config) of
+    case lists:keysearch(ipv6_hosts, 1, Config) of
 	false ->
 	    %% Do a basic check to se if 
 	    %% our own host has a working IPv6 address...
