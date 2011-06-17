@@ -736,6 +736,7 @@ read_file_info(Port, File) when is_port(Port) ->
 read_file_info_int(Port, File) ->
     drv_command(Port, [?FILE_FSTAT, pathname(File)]).
 
+
 %% altname/{1,2}
 
 altname(File) ->
@@ -760,22 +761,24 @@ write_file_info_int(Port,
 		    #file_info{mode=Mode, 
 			       uid=Uid, 
 			       gid=Gid,
-			       atime=Atime0, 
-			       mtime=Mtime0, 
-			       ctime=Ctime}) ->
-    {Atime, Mtime} =
-	case {Atime0, Mtime0} of
-	    {undefined, Mtime0} -> {erlang:localtime(), Mtime0};
-	    {Atime0, undefined} -> {Atime0, Atime0};
-	    Complete -> Complete
-	end,
+			       atime=Atime, 
+			       mtime=Mtime, 
+			       ctime=Ctime}) when 
+		       (is_integer(Atime) orelse Atime =:= undefined) andalso
+		       (is_integer(Mtime) orelse Mtime =:= undefined) andalso
+		       (is_integer(Ctime) orelse Ctime =:= undefined) -> 
+
+    %% todo:	set atime to localtime() (seconds since epoch) if undefined
+    %%		set mtime to atime if undefined
+    %%		if both undefined ?
+
     drv_command(Port, [?FILE_WRITE_INFO, 
-			int_to_bytes(Mode), 
-			int_to_bytes(Uid), 
-			int_to_bytes(Gid),
-			date_to_bytes(Atime), 
-			date_to_bytes(Mtime), 
-			date_to_bytes(Ctime),
+			int_to_int32bytes(Mode), 
+			int_to_int32bytes(Uid), 
+			int_to_int32bytes(Gid),
+			int_to_int64bytes(Atime), 
+			int_to_int64bytes(Mtime), 
+			int_to_int64bytes(Ctime),
 			pathname(File)]).
 
 
@@ -1075,7 +1078,8 @@ translate_response(?FILE_RESP_DATA, List) ->
     {_N, _Data} = ND = get_uint64(List),
     {ok, ND};
 translate_response(?FILE_RESP_INFO, List) when is_list(List) ->
-    {ok, transform_info_ints(get_uint32s(List))};
+    {ok, transform_info(List)};
+    %{ok, transform_info_ints(get_uint32s(List))};
 translate_response(?FILE_RESP_NUMERR, L0) ->
     {N, L1} = get_uint64(L0),
     {error, {N, list_to_atom(L1)}};
@@ -1129,27 +1133,38 @@ translate_response(?FILE_RESP_ALL_DATA, Data) ->
 translate_response(X, Data) ->
     {error, {bad_response_from_port, [X | Data]}}.
 
-transform_info_ints(Ints) ->
-    [HighSize, LowSize, Type|Tail0] = Ints,
-    Size = HighSize * 16#100000000 + LowSize,
-    [Ay, Am, Ad, Ah, Ami, As|Tail1]  = Tail0,
-    [My, Mm, Md, Mh, Mmi, Ms|Tail2] = Tail1,
-    [Cy, Cm, Cd, Ch, Cmi, Cs|Tail3] = Tail2,
-    [Mode, Links, Major, Minor, Inode, Uid, Gid, Access] = Tail3,
+
+transform_info([
+    Hsize1, Hsize2, Hsize3, Hsize4, 
+    Lsize1, Lsize2, Lsize3, Lsize4,
+    Type1,  Type2,  Type3,  Type4,
+    Atime1, Atime2, Atime3, Atime4, Atime5, Atime6, Atime7, Atime8,
+    Mtime1, Mtime2, Mtime3, Mtime4, Mtime5, Mtime6, Mtime7, Mtime8,
+    Ctime1, Ctime2, Ctime3, Ctime4, Ctime5, Ctime6, Ctime7, Ctime8,
+    Mode1,  Mode2,  Mode3,  Mode4,
+    Links1, Links2, Links3, Links4,
+    Major1, Major2, Major3, Major4,
+    Minor1, Minor2, Minor3, Minor4,
+    Inode1, Inode2, Inode3, Inode4,
+    Uid1,   Uid2,   Uid3,   Uid4,
+    Gid1,   Gid2,   Gid3,   Gid4,
+    Access1,Access2,Access3,Access4]) ->
     #file_info {
-		size = Size,
-		type = file_type(Type),
-		access = file_access(Access),
-		atime = {{Ay, Am, Ad}, {Ah, Ami, As}},
-		mtime = {{My, Mm, Md}, {Mh, Mmi, Ms}},
-		ctime = {{Cy, Cm, Cd}, {Ch, Cmi, Cs}},
-		mode = Mode,
-		links = Links,
-		major_device = Major,
-		minor_device = Minor,
-		inode = Inode,
-		uid = Uid,
-		gid = Gid}.
+		size   = uint32(Hsize1,Hsize2,Hsize3,Hsize4)*16#100000000 + uint32(Lsize1,Lsize2,Lsize3,Lsize4),
+		type   = file_type(uint32(Type1,Type2,Type3,Type4)),
+		access = file_access(uint32(Access1,Access2,Access3,Access4)),
+		atime  = sint64(Atime1, Atime2, Atime3, Atime4, Atime5, Atime6, Atime7, Atime8),
+		mtime  = sint64(Mtime1, Mtime2, Mtime3, Mtime4, Mtime5, Mtime6, Mtime7, Mtime8),
+		ctime  = sint64(Ctime1, Ctime2, Ctime3, Ctime4, Ctime5, Ctime6, Ctime7, Ctime8),
+		mode   = uint32(Mode1,Mode2,Mode3,Mode4),
+		links  = uint32(Links1,Links2,Links3,Links4),
+		major_device = uint32(Major1,Major2,Major3,Major4),
+		minor_device = uint32(Minor1,Minor2,Minor3,Minor4),
+		inode = uint32(Inode1,Inode2,Inode3,Inode4),
+		uid   = uint32(Uid1,Uid2,Uid3,Uid4),
+		gid   = uint32(Gid1,Gid2,Gid3,Gid4)
+	    }.
+    
     
 file_type(1) -> device;
 file_type(2) -> directory;
@@ -1162,24 +1177,24 @@ file_access(1) -> write;
 file_access(2) -> read;
 file_access(3) -> read_write.
 
-int_to_bytes(Int) when is_integer(Int) ->
+int_to_int32bytes(Int) when is_integer(Int) ->
     <<Int:32>>;
-int_to_bytes(undefined) ->
+int_to_int32bytes(undefined) ->
     <<-1:32>>.
 
-date_to_bytes(undefined) ->
-    <<-1:32, -1:32, -1:32, -1:32, -1:32, -1:32>>;
-date_to_bytes({{Y, Mon, D}, {H, Min, S}}) ->
-    <<Y:32, Mon:32, D:32, H:32, Min:32, S:32>>.
+int_to_int64bytes(Int) when is_integer(Int) ->
+    <<Int:64>>;
+int_to_int64bytes(undefined) ->
+    <<-1:64>>.
 
-%% uint64([[X1, X2, X3, X4] = Y1 | [X5, X6, X7, X8] = Y2]) ->
-%%     (uint32(Y1) bsl 32) bor uint32(Y2).
 
-%% uint64(X1, X2, X3, X4, X5, X6, X7, X8) ->
-%%     (uint32(X1, X2, X3, X4) bsl 32) bor uint32(X5, X6, X7, X8).
+sint64(I1,I2,I3,I4,I5,I6,I7,I8) when I1 > 127 ->
+    ((I1 bsl 56) bor (I2 bsl 48) bor (I3 bsl 40) bor (I4 bsl 32) bor
+	(I5 bsl 24) bor (I6 bsl 16) bor (I7 bsl  8) bor I8) - (1 bsl 64);
+sint64(I1,I2,I3,I4,I5,I6,I7,I8) ->
+    ((I1 bsl 56) bor (I2 bsl 48) bor (I3 bsl 40) bor (I4 bsl 32) bor
+	(I5 bsl 24) bor (I6 bsl 16) bor (I7 bsl  8) bor I8).
 
-%% uint32([X1,X2,X3,X4]) ->
-%%     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
 
 uint32(X1,X2,X3,X4) ->
     (X1 bsl 24) bor (X2 bsl 16) bor (X3 bsl 8) bor X4.
@@ -1191,11 +1206,6 @@ get_uint64(L0) ->
 
 get_uint32([X1,X2,X3,X4|List]) ->
     {(((((X1 bsl 8) bor X2) bsl 8) bor X3) bsl 8) bor X4, List}.
-
-get_uint32s([X1,X2,X3,X4|Tail]) ->
-    [uint32(X1,X2,X3,X4) | get_uint32s(Tail)];
-get_uint32s([]) -> [].
-
 
 
 %% Binary mode
