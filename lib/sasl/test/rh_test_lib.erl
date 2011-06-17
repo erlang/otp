@@ -2,8 +2,8 @@
 
 -export([erlsrv/3,
 	 erlsrv/4]).
--export([get_service_args/4,
-	 get_service_args/5,
+-export([get_service_args/3,
+	 get_service_args/4,
 	 get_start_erl_args/1,
 	 get_start_erl_args/3,
 	 get_client_args/3,
@@ -42,16 +42,16 @@ recv_prog_output(Port) ->
 	    end
     end.
 
-get_service_args(EVsn, RootDir, Sname, StartErlArgs) ->
-    get_service_args(EVsn, RootDir, "", Sname, StartErlArgs).
-get_service_args(EVsn, RootDir, RelClientDir, Sname, StartErlArgs) ->
-    ErtsBinDir = filename:join([RootDir,"erts-"++EVsn,"bin"]),
-    StartErl = filename:nativename(filename:join(ErtsBinDir,"start_erl")),
+get_service_args(RootDir, Sname, StartErlArgs) ->
+    get_service_args(RootDir, "", Sname, StartErlArgs).
+get_service_args(RootDir, RelClientDir, Sname, StartErlArgs) ->
     LogDir = filename:nativename(filename:join([RootDir,RelClientDir,"log"])),
-    HeartCmd = filename:nativename(filename:join(ErtsBinDir,"heart_restart.bat")),
-    " -machine " ++ StartErl ++ " -workdir " ++ LogDir ++
+    %% start_erl.exe will be found since it is in the same directory as erlsrv.exe
+    %% And heart_restart.bat will be found since the erts bin dir is
+    %% always in the path for the erlang virtual machine.
+    " -machine start_erl.exe -workdir " ++ LogDir ++
 	" -debugtype new -sname " ++ atom_to_list(Sname) ++
-	" -env HEART_COMMAND=" ++ HeartCmd ++ " -args \"" ++ StartErlArgs ++ "\"".
+	" -env HEART_COMMAND=heart_restart.bat -args \"" ++ StartErlArgs ++ "\"".
 
 get_start_erl_args(RootDir) ->
     get_start_erl_args(RootDir,"","").
