@@ -386,14 +386,15 @@ init_per_testcase(Case, Timeout, Config) ->
 
 
 init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
-    tsp("init_per_testcase_ssl -> stop ssl"),
+    tsp("init_per_testcase_ssl(~w) -> stop ssl", [Tag]),
     application:stop(ssl),
     Config2 = lists:keydelete(local_ssl_server, 1, Config),
     %% Will start inets 
-    tsp("init_per_testcase_ssl -> try start http server (including inets)"),
+    tsp("init_per_testcase_ssl(~w) -> try start http server (including inets)",
+	[Tag]),
     Server = inets_test_lib:start_http_server(
 	       filename:join(PrivDir, SslConfFile), Tag),
-    tsp("init_per_testcase -> Server: ~p", [Server]),
+    tsp("init_per_testcase(~w) -> Server: ~p", [Tag, Server]),
     [{local_ssl_server, Server} | Config2].
 
     
@@ -1169,9 +1170,9 @@ ssl_get(SslTag, Config) when is_list(Config) ->
 		httpc:request(get, {URL, []}, [{ssl, SSLConfig}], []),
 	    inets_test_lib:check_body(Body);
 	 {ok, _} ->
-	     {skip, "Failed to start local http-server"}; 
+	    {skip, "local http-server not started"}; 
 	 _ ->
-	     {skip, "Failed to start SSL"}
+	    {skip, "SSL not started"}
      end.
 
 
@@ -1229,9 +1230,9 @@ ssl_trace(SslTag, Config) when is_list(Config) ->
 		    tsf({failed, Error})
 	    end;
 	{ok, _} ->
-	    {skip, "Failed to start local http-server"}; 
+	    {skip, "local http-server not started"}; 
 	_ ->
-	    {skip, "Failed to start SSL"}
+	    {skip, "SSL not started"}
     end.
 
 

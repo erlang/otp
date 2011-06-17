@@ -133,31 +133,34 @@ start_http_server(Conf) ->
     start_http_server(Conf, ?HTTP_DEFAULT_SSL_KIND).
 
 start_http_server(Conf, essl = _SslTag) ->
+    tsp("start_http_server(essl) -> entry - try start crypto and public_key"),
     application:start(crypto), 
+    application:start(public_key), 
     do_start_http_server(Conf);
-start_http_server(Conf, _SslTag) ->
+start_http_server(Conf, SslTag) ->
+    tsp("start_http_server(~w) -> entry", [SslTag]),
     do_start_http_server(Conf).
 
 do_start_http_server(Conf) ->
-    tsp("start http server with "
+    tsp("do_start_http_server -> entry with"
 	"~n   Conf: ~p"
 	"~n", [Conf]),
     application:load(inets), 
     case application:set_env(inets, services, [{httpd, Conf}]) of
 	ok ->
+	    tsp("start_http_server -> httpd conf stored in inets app env"),
 	    case application:start(inets) of
 		ok ->
+		    tsp("start_http_server -> inets started"),
 		    ok;
 		Error1 ->
-		    test_server:format("<ERROR> Failed starting application: "
-				       "~n   Error: ~p"
-				       "~n", [Error1]),
+		    tsp("<ERROR> Failed starting application: "
+			"~n   Error1: ~p", [Error1]),
 		    Error1
 	    end;
 	Error2 ->
-	    test_server:format("<ERROR> Failed set application env: "
-			       "~n   Error: ~p"
-			       "~n", [Error2]),
+	    tsp("<ERROR> Failed set application env: "
+		"~n   Error: ~p", [Error2]),
 	    Error2
     end.
 	    
