@@ -21,7 +21,7 @@
 %%----------------------------------------------------------------------
 %% Purpose: Handles an ssl connection, e.i. both the setup
 %% e.i. SSL-Handshake, SSL-Alert and SSL-Cipher protocols and delivering
-%% data to the application. All data on the connectinon is received and 
+%% data to the application. All data on the connection is received and 
 %% sent according to the SSL-record protocol.  
 %%----------------------------------------------------------------------
 
