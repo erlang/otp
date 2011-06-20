@@ -496,8 +496,7 @@ ttb:p(all, call)</code>
           error is thrown.
         </p>
         <p>The <c>format</c> option indicates that the trace logs
-          shall be formatted after tracing is stopped. Note that this
-          fetching the logs. All logs in the fetch directory will be merged.
+          shall be formatted after tracing is stopped. All logs in the fetch directory will be merged.
           You may use <c>{format, FormatOpts}</c> to pass additional
           arguments to <c>format/2</c>.</p>
         <p>The <c>return</c> option indicates that the return value
