@@ -859,23 +859,23 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
 		  #state{socket_options = Opts1, 
 			 socket = Socket,
 			 user_data_buffer = Buffer} = State0) ->
-    Opts   = set_socket_opts(Socket, Opts0, Opts1, []),
+    {Reply, Opts} = set_socket_opts(Socket, Opts0, Opts1, []),
     State1 = State0#state{socket_options = Opts},
     if 
 	Opts#socket_options.active =:= false ->
-	    {reply, ok, StateName, State1, get_timeout(State1)};
+	    {reply, Reply, StateName, State1, get_timeout(State1)};
 	Buffer =:= <<>>, Opts1#socket_options.active =:= false ->
             %% Need data, set active once
 	    {Record, State2} = next_record_if_active(State1),
 	    case next_state(StateName, Record, State2) of
 		{next_state, StateName, State, Timeout} ->
-		    {reply, ok, StateName, State, Timeout};
+		    {reply, Reply, StateName, State, Timeout};
 		{stop, Reason, State} ->
 		    {stop, Reason, State}
 	    end;
 	Buffer =:= <<>> ->
             %% Active once already set 
-	    {reply, ok, StateName, State1, get_timeout(State1)};
+	    {reply, Reply, StateName, State1, get_timeout(State1)};
 	true ->
 	    case application_data(<<>>, State1) of
 		Stop = {stop,_,_} ->
@@ -883,7 +883,7 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
 		{Record, State2} ->
 		    case next_state(StateName, Record, State2) of
 			{next_state, StateName, State, Timeout} ->
-			    {reply, ok, StateName, State, Timeout};
+			    {reply, Reply, StateName, State, Timeout};
 			{stop, Reason, State} ->
 			    {stop, Reason, State}
 		    end
@@ -2040,31 +2040,67 @@ get_socket_opts(Socket, [active | Tags], SockOpts, Acc) ->
     get_socket_opts(Socket, Tags, SockOpts, 
 		    [{active, SockOpts#socket_options.active} | Acc]);
 get_socket_opts(Socket, [Tag | Tags], SockOpts, Acc) ->
-    case inet:getopts(Socket, [Tag]) of
+    try inet:getopts(Socket, [Tag]) of
 	{ok, [Opt]} ->
 	    get_socket_opts(Socket, Tags, SockOpts, [Opt | Acc]);
 	{error, Error} ->
-	    {error, Error}
-    end.
+	    {error, {eoptions, {inet_option, Tag, Error}}}
+    catch
+	%% So that inet behavior does not crash our process
+	_:Error -> {error, {eoptions, {inet_option, Tag, Error}}}
+    end;
+get_socket_opts(_,Opts, _,_) ->
+    {error, {eoptions, {inet_option, Opts, function_clause}}}.
 
 set_socket_opts(_, [], SockOpts, []) ->
-    SockOpts;
+    {ok, SockOpts};
 set_socket_opts(Socket, [], SockOpts, Other) ->
     %% Set non emulated options 
-    inet:setopts(Socket, Other),
-    SockOpts;
-set_socket_opts(Socket, [{mode, Mode}| Opts], SockOpts, Other) ->
+    try inet:setopts(Socket, Other) of
+	ok ->
+	    {ok, SockOpts};
+	{error, InetError} ->
+	    {{error, {eoptions, {inet_options, Other, InetError}}}, SockOpts}
+    catch
+	_:Error ->
+	    %% So that inet behavior does not crash our process
+	    {{error, {eoptions, {inet_options, Other, Error}}}, SockOpts}
+    end;
+
+set_socket_opts(Socket, [{mode, Mode}| Opts], SockOpts, Other) when Mode == list; Mode == binary ->
     set_socket_opts(Socket, Opts, 
 		    SockOpts#socket_options{mode = Mode}, Other);
-set_socket_opts(Socket, [{packet, Packet}| Opts], SockOpts, Other) ->
+set_socket_opts(_, [{mode, _} = Opt| _], SockOpts, _) ->
+    {{error, {eoptions, {inet_opt, Opt}}}, SockOpts};
+set_socket_opts(Socket, [{packet, Packet}| Opts], SockOpts, Other) when Packet == raw;
+									Packet == 0;
+									Packet == 1;
+									Packet == 2;
+									Packet == 4;
+									Packet == asn1;
+									Packet == cdr;
+									Packet == sunrm;
+									Packet == fcgi;
+									Packet == tpkt;
+									Packet == line;
+									Packet == http;
+									Packet == http_bin ->
     set_socket_opts(Socket, Opts, 
 		    SockOpts#socket_options{packet = Packet}, Other);
-set_socket_opts(Socket, [{header, Header}| Opts], SockOpts, Other) ->
+set_socket_opts(_, [{packet, _} = Opt| _], SockOpts, _) ->
+    {{error, {eoptions, {inet_opt, Opt}}}, SockOpts};
+set_socket_opts(Socket, [{header, Header}| Opts], SockOpts, Other) when is_integer(Header) ->
     set_socket_opts(Socket, Opts, 
 		    SockOpts#socket_options{header = Header}, Other);
-set_socket_opts(Socket, [{active, Active}| Opts], SockOpts, Other) ->
+set_socket_opts(_, [{header, _} = Opt| _], SockOpts, _) ->
+    {{error,{eoptions, {inet_opt, Opt}}}, SockOpts};
+set_socket_opts(Socket, [{active, Active}| Opts], SockOpts, Other) when Active == once;
+									Active == true;
+									Active == false ->
     set_socket_opts(Socket, Opts, 
 		    SockOpts#socket_options{active = Active}, Other);
+set_socket_opts(_, [{active, _} = Opt| _], SockOpts, _) ->
+    {{error, {eoptions, {inet_opt, Opt}} }, SockOpts};
 set_socket_opts(Socket, [Opt | Opts], SockOpts, Other) ->
     set_socket_opts(Socket, Opts, SockOpts, [Opt | Other]).
 

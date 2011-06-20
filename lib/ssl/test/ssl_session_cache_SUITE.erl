@@ -221,7 +221,7 @@ session_cleanup(Config)when is_list(Config) ->
 
     %% Make sure session has expired and been cleaned up
     test_server:sleep(5000), %% Expire time
-    test_server:sleep((?SLEEP*20), %% Clean up delay (very small in this test case) + some extra time
+    test_server:sleep(?SLEEP*20), %% Clean up delay (very small in this test case) + some extra time
 
     undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
     undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
@@ -251,7 +251,6 @@ session_cache_process_mnesia(suite) ->
     [];
 session_cache_process_mnesia(Config) when is_list(Config) ->
     session_cache_process(mnesia,Config).
-
 
 %%--------------------------------------------------------------------
 %%% Session cache API callbacks
