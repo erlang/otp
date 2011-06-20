@@ -661,6 +661,9 @@ do_restart(_, normal, Child, State) ->
 do_restart(_, shutdown, Child, State) ->
     NState = state_del_child(Child, State),
     {ok, NState};
+do_restart(_, {shutdown, _Term}, Child, State) ->
+    NState = state_del_child(Child, State),
+    {ok, NState};
 do_restart(transient, Reason, Child, State) ->
     report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);

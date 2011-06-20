@@ -41,6 +41,8 @@
 %% Tests concept permanent, transient and temporary 
 -export([ permanent_normal/1, transient_normal/1,
 	  temporary_normal/1,
+	  permanent_shutdown/1, transient_shutdown/1,
+	  temporary_shutdown/1,
 	  permanent_abnormal/1, transient_abnormal/1,
 	  temporary_abnormal/1]).
 
@@ -71,6 +73,7 @@ all() ->
      {group, restart_simple_one_for_one},
      {group, restart_rest_for_one},
      {group, normal_termination},
+     {group, shutdown_termination},
      {group, abnormal_termination}, child_unlink, tree,
      count_children_memory, do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
@@ -86,6 +89,8 @@ groups() ->
        sup_stop_brutal_kill]},
      {normal_termination, [],
       [permanent_normal, transient_normal, temporary_normal]},
+     {shutdown_termination, [],
+      [permanent_shutdown, transient_shutdown, temporary_shutdown]},
      {abnormal_termination, [],
       [permanent_abnormal, transient_abnormal,
        temporary_abnormal]},
@@ -545,6 +550,87 @@ temporary_normal(Config) when is_list(Config) ->
     {ok, CPid1} = supervisor:start_child(sup_test, Child1),
 
     terminate(SupPid, CPid1, child1, normal),
+
+    [] = supervisor:which_children(sup_test),
+    [0,0,0,0] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+permanent_shutdown(doc) ->
+    ["A permanent child should always be restarted"];
+permanent_shutdown(suite) -> [];
+permanent_shutdown(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
+	      worker, []},
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    terminate(SupPid, CPid1, child1, shutdown),
+
+    [{child1, CPid2 ,worker,[]}] = supervisor:which_children(sup_test),
+    case is_pid(CPid2) of
+	true ->
+	    ok;
+	false ->
+	    test_server:fail({permanent_child_not_restarted, Child1})
+    end,
+    [1,1,0,1] = get_child_counts(sup_test),
+
+    terminate(SupPid, CPid2, child1, {shutdown, some_info}),
+
+    [{child1, CPid3 ,worker,[]}] = supervisor:which_children(sup_test),
+    case is_pid(CPid3) of
+	true ->
+	    ok;
+	false ->
+	    test_server:fail({permanent_child_not_restarted, Child1})
+    end,
+
+    [1,1,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+transient_shutdown(doc) ->
+    ["A transient child should not be restarted if it exits with " 
+     "reason shutdown or {shutdown,Term}"];
+transient_shutdown(suite) -> [];
+transient_shutdown(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
+	      worker, []},
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    terminate(SupPid, CPid1, child1, shutdown),
+
+    [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test),
+
+    {ok, CPid2} = supervisor:restart_child(sup_test, child1),
+
+    terminate(SupPid, CPid2, child1, {shutdown, some_info}),
+
+    [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+temporary_shutdown(doc) ->
+    ["A temporary process should never be restarted"];
+temporary_shutdown(suite) -> [];
+temporary_shutdown(Config) when is_list(Config) ->
+    {ok, SupPid} = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
+	      worker, []},
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+
+    terminate(SupPid, CPid1, child1, shutdown),
+
+    [] = supervisor:which_children(sup_test),
+    [0,0,0,0] = get_child_counts(sup_test),
+
+    {ok, CPid2} = supervisor:start_child(sup_test, Child1),
+
+    terminate(SupPid, CPid2, child1, {shutdown, some_info}),
 
     [] = supervisor:which_children(sup_test),
     [0,0,0,0] = get_child_counts(sup_test).
@@ -1261,6 +1347,13 @@ terminate(_, ChildPid, _, shutdown) ->
     exit(ChildPid, shutdown),
     receive
 	{'DOWN', Ref, process, ChildPid, shutdown} ->
+	    ok
+    end;
+terminate(_, ChildPid, _, {shutdown, Term}) ->
+    Ref = erlang:monitor(process, ChildPid),
+    exit(ChildPid, {shutdown, Term}),
+    receive
+	{'DOWN', Ref, process, ChildPid, {shutdown, Term}} ->
 	    ok
     end;
 terminate(_, ChildPid, _, normal) ->
