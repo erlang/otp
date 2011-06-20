@@ -38,18 +38,7 @@ match_float(Float, Match, Delta) ->
 odbc_check() ->
     case erlang:system_info(wordsize) of
 	4 ->
-	    case test_server:os_type() of
-		{unix, sunos} ->
-		    ok;
-		{unix, linux} ->
-		    ok;
-		{win32, _} ->
-		    ok;
-		Other ->
-		    lists:flatten(
-		      io_lib:format("Platform not supported: ~w",
-				    [Other]))
-	    end;
+	    ok;
 	Other ->
 	    case os:type() of
 		{unix, linux} ->
@@ -80,3 +69,11 @@ strict(Ref, mysql) ->
     odbc:sql_query(Ref, "SET sql_mode='STRICT_ALL_TABLES,STRICT_TRANS_TABLES';");
 strict(_,_) ->
     ok.
+
+platform_options() ->
+    case os:type() of
+	{unix, sunos} ->
+	    [{scrollable_cursors, off}];
+	_ ->
+	    []
+    end.

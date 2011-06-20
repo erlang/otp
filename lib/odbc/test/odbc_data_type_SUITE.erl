@@ -167,37 +167,36 @@ init_per_testcase(param_insert_tiny_int = Case, Config) ->
 init_per_testcase(Case, Config) ->
     common_init_per_testcase(Case, Config).
 
-is_supported_tinyint(sqlserver) ->
-    true;
-is_supported_tinyint(_) ->
-    false.
-
-is_supported_bit(sqlserver) ->
-    true;
-is_supported_bit(_) ->
-    false.
-
-is_fixed_upper_limit(mysql) ->
-    false;
-is_fixed_upper_limit(_) ->
-    true.
-
 common_init_per_testcase(Case, Config) ->
+    PlatformOptions = odbc_test_lib:platform_options(),
     case atom_to_list(Case) of
 	"binary" ++ _  ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
-				     [{binary_strings, on}]);
+				     [{binary_strings, on}] ++ PlatformOptions);
 	"unicode" ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
-				     [{binary_strings, on}]);
+				     [{binary_strings, on}] ++ PlatformOptions);
 	_ ->
-	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), [])
+	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), PlatformOptions)
     end,
     odbc_test_lib:strict(Ref, ?RDBMS),
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
     NewConfig = lists:keydelete(watchdog, 1, Temp),
     [{watchdog, Dog}, {connection_ref, Ref} | NewConfig].
+
+is_fixed_upper_limit(mysql) ->
+    false;
+is_fixed_upper_limit(_) ->
+    true.
+is_supported_tinyint(sqlserver) ->
+    true;
+is_supported_tinyint(_) ->
+    false.
+is_supported_bit(sqlserver) ->
+    true;
+is_supported_bit(_) ->
+     false.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
@@ -212,7 +211,7 @@ end_per_testcase(_TestCase, Config) ->
     ok = odbc:disconnect(Ref),
     %% Clean up if needed 
     Table = ?config(tableName, Config),
-    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), []),
+    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
     odbc:disconnect(NewRef),
     Dog = ?config(watchdog, Config),

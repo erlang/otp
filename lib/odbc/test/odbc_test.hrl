@@ -27,7 +27,12 @@
 		   {unix, sunos} ->
 		       postgres;
 		   {unix,linux} ->
-		       mysql;
+		       case erlang:system_info(wordsize) of
+			   4 ->
+			       mysql;
+			   _ ->
+			       postgres
+		       end;
 		   {win32, _} ->
 		       sqlserver
 	       end).
