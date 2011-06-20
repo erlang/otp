@@ -63,7 +63,7 @@
 %% Types
 %%----------------------------------------------------------------------
 
--export_type([t_now/0]).
+-export_type([date/0, time/0, datetime/0, datetime1970/0]).
 
 -type year()     :: non_neg_integer().
 -type year1970() :: 1970..10000.	% should probably be 1970..
@@ -76,15 +76,11 @@
 -type ldom()     :: 28 | 29 | 30 | 31. % last day of month
 -type weeknum()  :: 1..53.
 
--type t_now()    :: {MegaSecs :: non_neg_integer(),
-                     Secs :: non_neg_integer(),
-                     MicroSecs :: non_neg_integer()}.
-
--type t_date()         :: {year(),month(),day()}.
--type t_time()         :: {hour(),minute(),second()}.
--type t_datetime()     :: {t_date(),t_time()}.
--type t_datetime1970() :: {{year1970(),month(),day()},t_time()}.
--type t_yearweeknum()  :: {year(),weeknum()}.
+-type date()           :: {year(),month(),day()}.
+-type time()           :: {hour(),minute(),second()}.
+-type datetime()       :: {date(),time()}.
+-type datetime1970()   :: {{year1970(),month(),day()},time()}.
+-type yearweeknum()    :: {year(),weeknum()}.
 
 %%----------------------------------------------------------------------
 
@@ -123,7 +119,7 @@ date_to_gregorian_days(Year, Month, Day) when is_integer(Day), Day > 0 ->
     end.
 
 -spec date_to_gregorian_days(Date) -> Days when
-      Date :: t_date(),
+      Date :: date(),
       Days :: non_neg_integer().
 date_to_gregorian_days({Year, Month, Day}) ->
     date_to_gregorian_days(Year, Month, Day).
@@ -135,7 +131,7 @@ date_to_gregorian_days({Year, Month, Day}) ->
 %% January 1st.
 %%
 -spec datetime_to_gregorian_seconds(DateTime) -> Seconds when
-      DateTime :: t_datetime(),
+      DateTime :: datetime(),
       Seconds :: non_neg_integer().
 datetime_to_gregorian_seconds({Date, Time}) ->
     ?SECONDS_PER_DAY*date_to_gregorian_days(Date) +
@@ -155,14 +151,14 @@ day_of_the_week(Year, Month, Day) ->
     (date_to_gregorian_days(Year, Month, Day) + 5) rem 7 + 1.
 
 -spec day_of_the_week(Date) -> daynum() when
-      Date:: t_date().
+      Date:: date().
 day_of_the_week({Year, Month, Day}) ->
     day_of_the_week(Year, Month, Day).
 
 
 %% gregorian_days_to_date(Days) = {Year, Month, Day}
 %%
--spec gregorian_days_to_date(Days) -> t_date() when
+-spec gregorian_days_to_date(Days) -> date() when
       Days :: non_neg_integer().
 gregorian_days_to_date(Days) ->
     {Year, DayOfYear} = day_to_year(Days),
@@ -172,7 +168,7 @@ gregorian_days_to_date(Days) ->
 
 %% gregorian_seconds_to_datetime(Secs)
 %%
--spec gregorian_seconds_to_datetime(Seconds) -> t_datetime() when
+-spec gregorian_seconds_to_datetime(Seconds) -> datetime() when
       Seconds :: non_neg_integer().
 gregorian_seconds_to_datetime(Secs) when Secs >= 0 ->
     Days = Secs div ?SECONDS_PER_DAY,
@@ -198,7 +194,7 @@ is_leap_year1(_) -> false.
 %%
 %% Calculates the iso week number for the current date.
 %%
--spec iso_week_number() -> t_yearweeknum().
+-spec iso_week_number() -> yearweeknum().
 iso_week_number() ->
     {Date, _} = local_time(),
     iso_week_number(Date).
@@ -207,8 +203,8 @@ iso_week_number() ->
 %%
 %% Calculates the iso week number for the given date.
 %%
--spec iso_week_number(Date) -> t_yearweeknum() when
-      Date :: t_date().
+-spec iso_week_number(Date) -> yearweeknum() when
+      Date :: date().
 iso_week_number({Year, Month, Day}) ->
     D = date_to_gregorian_days({Year, Month, Day}),
     W01_1_Year = gregorian_days_of_iso_w01_1(Year),
@@ -260,7 +256,7 @@ last_day_of_the_month1(_, M) when is_integer(M), M > 0, M < 13 ->
 %% local_time()
 %%
 %% Returns: {date(), time()}, date() = {Y, M, D}, time() = {H, M, S}.
--spec local_time() -> t_datetime().
+-spec local_time() -> datetime().
 local_time() ->
     erlang:localtime().
 
@@ -268,20 +264,20 @@ local_time() ->
 %% local_time_to_universal_time(DateTime)
 %%
 -spec local_time_to_universal_time(DateTime1) -> DateTime2 when
-      DateTime1 :: t_datetime1970(),
-      DateTime2 :: t_datetime1970().
+      DateTime1 :: datetime1970(),
+      DateTime2 :: datetime1970().
 local_time_to_universal_time(DateTime) ->
     erlang:localtime_to_universaltime(DateTime).
 
--spec local_time_to_universal_time(t_datetime1970(),
+-spec local_time_to_universal_time(datetime1970(),
 				   'true' | 'false' | 'undefined') ->
-       					t_datetime1970().
+                                          datetime1970().
 local_time_to_universal_time(DateTime, IsDst) ->
     erlang:localtime_to_universaltime(DateTime, IsDst).
 
 -spec local_time_to_universal_time_dst(DateTime1) -> [DateTime] when
-      DateTime1 :: t_datetime1970(),
-      DateTime :: t_datetime1970().
+      DateTime1 :: datetime1970(),
+      DateTime :: datetime1970().
 local_time_to_universal_time_dst(DateTime) ->
     UtDst = erlang:localtime_to_universaltime(DateTime, true),
     Ut    = erlang:localtime_to_universaltime(DateTime, false),
@@ -309,14 +305,14 @@ local_time_to_universal_time_dst(DateTime) ->
 %% = MilliSec = integer() 
 %% Returns: {date(), time()}, date() = {Y, M, D}, time() = {H, M, S}.
 %% 
--spec now_to_datetime(Now) -> t_datetime1970() when
-      Now :: t_now().
+-spec now_to_datetime(Now) -> datetime1970() when
+      Now :: erlang:timestamp().
 now_to_datetime({MSec, Sec, _uSec}) ->
     Sec0 = MSec*1000000 + Sec + ?DAYS_FROM_0_TO_1970*?SECONDS_PER_DAY,
     gregorian_seconds_to_datetime(Sec0).
 
--spec now_to_universal_time(Now) -> t_datetime1970() when
-      Now :: t_now().
+-spec now_to_universal_time(Now) -> datetime1970() when
+      Now :: erlang:timestamp().
 now_to_universal_time(Now) ->
     now_to_datetime(Now).
 
@@ -325,8 +321,8 @@ now_to_universal_time(Now) ->
 %%
 %% Args: Now = now()
 %%
--spec now_to_local_time(Now) -> t_datetime1970() when
-      Now :: t_now().
+-spec now_to_local_time(Now) -> datetime1970() when
+      Now :: erlang:timestamp().
 now_to_local_time({MSec, Sec, _uSec}) ->
     erlang:universaltime_to_localtime(
       now_to_universal_time({MSec, Sec, _uSec})).
@@ -338,7 +334,7 @@ now_to_local_time({MSec, Sec, _uSec}) ->
 -spec seconds_to_daystime(Seconds) -> {Days, Time} when
       Seconds :: integer(),
       Days :: integer(),
-      Time :: t_time().
+      Time :: time().
 seconds_to_daystime(Secs) ->
     Days0 = Secs div ?SECONDS_PER_DAY,
     Secs0 = Secs rem ?SECONDS_PER_DAY,
@@ -356,7 +352,7 @@ seconds_to_daystime(Secs) ->
 %% Wraps.
 %%
 -type secs_per_day() :: 0..?SECONDS_PER_DAY.
--spec seconds_to_time(Seconds) -> t_time() when
+-spec seconds_to_time(Seconds) -> time() when
       Seconds :: secs_per_day().
 seconds_to_time(Secs) when Secs >= 0, Secs < ?SECONDS_PER_DAY ->
     Secs0 = Secs rem ?SECONDS_PER_DAY,
@@ -375,10 +371,10 @@ seconds_to_time(Secs) when Secs >= 0, Secs < ?SECONDS_PER_DAY ->
 %% Year = Month = Day = Hour = Minute = Sec = integer()
 %%
 -spec time_difference(T1, T2) -> {Days, Time} when
-      T1 :: t_datetime(),
-      T2 :: t_datetime(),
+      T1 :: datetime(),
+      T2 :: datetime(),
       Days :: integer(),
-      Time :: t_time().
+      Time :: time().
 time_difference({{Y1, Mo1, D1}, {H1, Mi1, S1}}, 
 		{{Y2, Mo2, D2}, {H2, Mi2, S2}}) ->
     Secs = datetime_to_gregorian_seconds({{Y2, Mo2, D2}, {H2, Mi2, S2}}) -
@@ -390,7 +386,7 @@ time_difference({{Y1, Mo1, D1}, {H1, Mi1, S1}},
 %% time_to_seconds(Time)
 %%
 -spec time_to_seconds(Time) -> secs_per_day() when
-      Time :: t_time().
+      Time :: time().
 time_to_seconds({H, M, S}) when is_integer(H), is_integer(M), is_integer(S) ->
     H * ?SECONDS_PER_HOUR +
 	M * ?SECONDS_PER_MINUTE + S.
@@ -399,15 +395,15 @@ time_to_seconds({H, M, S}) when is_integer(H), is_integer(M), is_integer(S) ->
 %% universal_time()
 %%
 %% Returns: {date(), time()}, date() = {Y, M, D}, time() = {H, M, S}.
--spec universal_time() -> t_datetime().
+-spec universal_time() -> datetime().
 universal_time() ->
     erlang:universaltime().
  
 
 %% universal_time_to_local_time(DateTime)
 %%
--spec universal_time_to_local_time(DateTime) -> t_datetime() when
-      DateTime :: t_datetime1970().
+-spec universal_time_to_local_time(DateTime) -> datetime() when
+      DateTime :: datetime1970().
 universal_time_to_local_time(DateTime) ->
     erlang:universaltime_to_localtime(DateTime).
 
@@ -429,7 +425,7 @@ valid_date1(_, _, _) ->
     false.
 
 -spec valid_date(Date) -> boolean() when
-      Date :: t_date().
+      Date :: date().
 valid_date({Y, M, D}) ->
     valid_date(Y, M, D).
 

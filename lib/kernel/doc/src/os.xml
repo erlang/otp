@@ -126,9 +126,10 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
-      <name>timestamp() -> {MegaSecs, Secs, MicroSecs}</name>
+      <name>timestamp() -> Timestamp</name>
       <fsummary>Returna a timestamp from the OS in the erlang:now/0 format</fsummary>
       <type>
+        <v>Timestamp = {MegaSecs, Secs, MicroSecs} = <seealso marker="erts:erlang#type-timestamp">erlang:timestamp()</seealso></v>
         <v>MegaSecs = Secs = MicroSecs = integer() >= 0</v>
       </type>
       <desc>

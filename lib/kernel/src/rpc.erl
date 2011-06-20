@@ -662,9 +662,10 @@ async_call(Node, Mod, Fun, Args) ->
 	      ReplyTo ! {self(), {promise_reply, R}}  %% self() is key
       end).
 
--spec yield(Key) -> {value, Val} | timeout when
+-spec yield(Key) -> Res | {badrpc, Reason} when
       Key :: key(),
-      Val :: (Res :: term()) | {badrpc, Reason :: term()}.
+      Res :: term(),
+      Reason :: term().
 
 yield(Key) when is_pid(Key) ->
     {value,R} = do_yield(Key, infinity),

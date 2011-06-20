@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+# Copyright Ericsson AB 1997-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -16,6 +16,9 @@
 #
 # %CopyrightEnd%
 # 
+
+SPECS_ESRC = ../../preloaded/src/
+
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -42,6 +45,12 @@ XML_REF1_FILES = epmd.xml \
 	start_erl.xml \
 	run_erl.xml \
 	start.xml
+
+XML_REF3_EFILES = \
+	erl_prim_loader.xml \
+	erlang.xml \
+	init.xml \
+	zlib.xml
 
 XML_REF3_FILES = \
 	driver_entry.xml \
@@ -98,10 +107,18 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_EFILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
+
 # ----------------------------------------------------
 # FLAGS 
 # ----------------------------------------------------
 XML_FLAGS += 
+
+KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
+KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
+SPECS_FLAGS = -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 # ----------------------------------------------------
 # Targets
@@ -109,7 +126,7 @@ XML_FLAGS +=
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 
-docs: pdf html man $(INFO_FILE) 
+docs: man pdf html $(INFO_FILE)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -132,7 +149,24 @@ clean:
 	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECDIR)/*
 	rm -f errs core *~ 
+
+$(SPECDIR)/specs_driver_entry.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module driver_entry
+$(SPECDIR)/specs_erl_nif.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module erl_nif
+$(SPECDIR)/specs_erl_set_memory_block.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module erl_set_memory_block
+$(SPECDIR)/specs_erl_driver.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module erl_driver
+$(SPECDIR)/specs_erts_alloc.xml:
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
+                -o$(dir $@) -module erts_alloc
 
 # ----------------------------------------------------
 # Release Target
