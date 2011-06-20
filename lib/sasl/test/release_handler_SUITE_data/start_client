@@ -34,4 +34,4 @@ then
         mkdir /tmp/$NODENAME@$TESTHOST
 fi
 
-$ROOTDIR/bin/run_erl /tmp/$NODENAME@$TESTHOST/ $CLIENTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname $NODENAME -sasl start_prg \\\"$CLIENTDIR/bin/start\\\" masters \[\\'%MASTER%@$TESTHOST\\',\\'master2@$TESTHOST\\'\] client_directory \\\"$CLIENTDIR\\\"" > /dev/null 2>&1 &
+$ROOTDIR/bin/run_erl /tmp/$NODENAME@$TESTHOST/ $CLIENTDIR/log "exec $ROOTDIR/bin/start_erl $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname $NODENAME %CLIENTARGS%" > $CLIENTDIR/log/run_erl.out 2>&1 &
