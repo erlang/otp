@@ -433,6 +433,8 @@
     <!-- Search "local types" as well -->
     <xsl:variable name="local_types"
                 select="ancestor::desc/preceding-sibling::type
+	                       [string-length(@name) > 0]
+                      | ancestor::type_desc/preceding-sibling::type
 	                       [string-length(@name) > 0]"/>
     <xsl:variable name="has_anno_in_local_type">
       <xsl:for-each select="$local_types">

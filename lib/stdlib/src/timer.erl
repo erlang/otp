@@ -200,8 +200,8 @@ tc(M, F, A) ->
 %% erlang:now() timestamps, T2-T1.
 %%
 -spec now_diff(T1, T2) -> Tdiff when
-      T1 :: calendar:t_now(),
-      T2 :: calendar:t_now(),
+      T1 :: erlang:timestamp(),
+      T2 :: erlang:timestamp(),
       Tdiff :: integer().
 now_diff({A2, B2, C2}, {A1, B1, C1}) ->
     ((A2-A1)*1000000 + B2-B1)*1000000 + C2-C1.

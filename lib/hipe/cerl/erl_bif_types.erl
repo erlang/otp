@@ -702,7 +702,7 @@ type(erlang, demonitor, 1, Xs) ->
 type(erlang, demonitor, 2, Xs) ->
   strict(arg_types(erlang, demonitor, 2), Xs, fun (_) -> t_boolean() end);
 type(erlang, disconnect_node, 1, Xs) ->
-  strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_boolean() end);
+  strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_sup([t_boolean(), t_atom('ignored')]) end);
 type(erlang, display, 1, _) -> t_atom('true');
 type(erlang, display_string, 1, Xs) ->
   strict(arg_types(erlang, display_string, 1), Xs, fun(_) -> t_atom('true') end);
@@ -1124,7 +1124,7 @@ type(erlang, nodes, 0, _) -> t_list(t_node());
 type(erlang, nodes, 1, Xs) ->
   strict(arg_types(erlang, nodes, 1), Xs, fun (_) -> t_list(t_node()) end);
 type(erlang, now, 0, _) ->
-  t_time();
+  t_timestamp();
 type(erlang, open_port, 2, Xs) ->
   strict(arg_types(erlang, open_port, 2), Xs, fun (_) -> t_port() end);
 type(erlang, phash, 2, Xs) ->
@@ -1585,8 +1585,7 @@ type(erlang, system_info, 1, Xs) ->
 		   ['multi_scheduling_blockers'] ->
 		     t_list(t_pid());
 		   ['os_type'] ->
-		     t_tuple([t_sup([t_atom('ose'),	% XXX: undocumented
-				     t_atom('unix'),
+		     t_tuple([t_sup([t_atom('unix'),
 				     t_atom('vxworks'),
 				     t_atom('win32')]),
 			      t_atom()]);
@@ -2693,7 +2692,7 @@ type(os, getpid, 0, _) -> t_string();
 type(os, putenv, 2, Xs) ->
   strict(arg_types(os, putenv, 2), Xs, fun (_) -> t_atom('true') end);
 type(os, timestamp, 0, _) ->
-  t_time();
+  t_timestamp();
 %%-- re -----------------------------------------------------------------------
 type(re, compile, 1, Xs) ->
   strict(arg_types(re, compile, 1), Xs,
@@ -4456,6 +4455,9 @@ t_date() ->
   t_tuple([t_pos_fixnum(), t_pos_fixnum(), t_pos_fixnum()]).
 
 t_time() ->
+  t_tuple([t_non_neg_fixnum(), t_non_neg_fixnum(), t_non_neg_fixnum()]).
+
+t_timestamp() ->
   t_tuple([t_non_neg_fixnum(), t_non_neg_fixnum(), t_non_neg_fixnum()]).
 
 t_packet() ->

@@ -53,22 +53,31 @@
 -compile({no_auto_import,[spawn_opt/4]}).
 -compile({no_auto_import,[spawn_opt/5]}).
 
+-export_type([timestamp/0]).
+
+-type timestamp() :: {MegaSecs :: non_neg_integer(),
+                      Secs :: non_neg_integer(),
+                      MicroSecs :: non_neg_integer()}.
+
 %%--------------------------------------------------------------------------
 
--type date() :: {pos_integer(), pos_integer(), pos_integer()}.
--type time() :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
--type date_time() :: {date(), time()}.
-
-%%--------------------------------------------------------------------------
-
+-spec apply(Fun, Args) -> term() when
+      Fun :: function(),
+      Args :: [term()].
 apply(Fun, Args) ->
     erlang:apply(Fun, Args).
 
+-spec apply(Module, Function, Args) -> term() when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 apply(Mod, Name, Args) ->
     erlang:apply(Mod, Name, Args).
 
 %% Spawns with a fun
 
+-spec spawn(Fun) -> pid() when
+      Fun :: function().
 spawn(F) when is_function(F) ->
     spawn(erlang, apply, [F, []]);
 spawn({M,F}=MF) when is_atom(M), is_atom(F) ->
@@ -76,6 +85,9 @@ spawn({M,F}=MF) when is_atom(M), is_atom(F) ->
 spawn(F) ->
     erlang:error(badarg, [F]).
 
+-spec spawn(Node, Fun) -> pid() when
+      Node :: node(),
+      Fun :: function().
 spawn(N, F) when N =:= node() ->
     spawn(F);
 spawn(N, F) when is_function(F) ->
@@ -85,6 +97,8 @@ spawn(N, {M,F}=MF) when is_atom(M), is_atom(F) ->
 spawn(N, F) ->
     erlang:error(badarg, [N, F]).
 
+-spec spawn_link(Fun) -> pid() when
+      Fun :: function().
 spawn_link(F) when is_function(F) ->
     spawn_link(erlang, apply, [F, []]);
 spawn_link({M,F}=MF) when is_atom(M), is_atom(F) ->
@@ -92,6 +106,9 @@ spawn_link({M,F}=MF) when is_atom(M), is_atom(F) ->
 spawn_link(F) ->
     erlang:error(badarg, [F]).
 
+-spec spawn_link(Node, Fun) -> pid() when
+      Node :: node(),
+      Fun :: function().
 spawn_link(N, F) when N =:= node() ->
     spawn_link(F);
 spawn_link(N, F) when is_function(F) ->
@@ -103,16 +120,30 @@ spawn_link(N, F) ->
 
 %% Spawn and atomically set up a monitor.
 
+-spec spawn_monitor(Fun) -> {pid(), reference()} when
+      Fun :: function().
 spawn_monitor(F) when is_function(F, 0) ->
     erlang:spawn_opt({erlang,apply,[F,[]],[monitor]});
 spawn_monitor(F) ->
     erlang:error(badarg, [F]).
 
+-spec spawn_monitor(Module, Function, Args) -> {pid(), reference()} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 spawn_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     erlang:spawn_opt({M,F,A,[monitor]});
 spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
+-spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
+      Fun :: function(),
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(F, O) when is_function(F) ->
     spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when is_atom(M), is_atom(F) ->
@@ -122,6 +153,15 @@ spawn_opt({M,F,A}, O) -> % For (undocumented) backward compatibility
 spawn_opt(F, O) ->
     erlang:error(badarg, [F, O]).
 
+-spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
+      Node :: node(),
+      Fun :: function(),
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(N, F, O) when N =:= node() ->
     spawn_opt(F, O);
 spawn_opt(N, F, O) when is_function(F) ->
@@ -133,6 +173,11 @@ spawn_opt(N, F, O) ->
 
 %% Spawns with MFA
 
+-spec spawn(Node, Module, Function, Args) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 spawn(N,M,F,A) when N =:= node(), is_atom(M), is_atom(F), is_list(A) ->
     spawn(M,F,A);
 spawn(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
@@ -158,6 +203,11 @@ spawn(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
 spawn(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
 
+-spec spawn_link(Node, Module, Function, Args) -> pid() when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
 spawn_link(N,M,F,A) when N =:= node(), is_atom(M), is_atom(F), is_list(A) ->
     spawn_link(M,F,A);
 spawn_link(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
@@ -183,6 +233,17 @@ spawn_link(N,M,F,A) when is_atom(N), is_atom(M), is_atom(F) ->
 spawn_link(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
 
+-spec spawn_opt(Module, Function, Args, Options) ->
+                       pid() | {pid(), reference()} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(M, F, A, Opts) ->
     case catch erlang:spawn_opt({M,F,A,Opts}) of
 	{'EXIT',{Reason,_}} ->
@@ -191,6 +252,18 @@ spawn_opt(M, F, A, Opts) ->
 	    Res
     end.
 
+-spec spawn_opt(Node, Module, Function, Args, Options) ->
+                       pid() | {pid(), reference()} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
 spawn_opt(N, M, F, A, O) when N =:= node(),
 			      is_atom(M), is_atom(F), is_list(A),
 			      is_list(O) ->
@@ -260,18 +333,25 @@ crasher(Node,Mod,Fun,Args,Opts,Reason) ->
 			     [Mod,Fun,Args,Opts,Node]),
     exit(Reason).
 
--spec yield() -> 'true'.
+-spec erlang:yield() -> 'true'.
 yield() ->
     erlang:yield().
 
--spec nodes() -> [node()].
+-spec nodes() -> Nodes when
+      Nodes :: [node()].
 nodes() ->
     erlang:nodes(visible).
 
--spec disconnect_node(node()) -> boolean().
+-spec disconnect_node(Node) -> boolean() | ignored when
+      Node :: node().
 disconnect_node(Node) ->
     net_kernel:disconnect(Node).
 
+-spec erlang:fun_info(Fun) -> [{Item, Info}] when
+      Fun :: function(),
+      Item :: arity | env | index | name
+            | module | new_index | new_uniq | pid | type | uniq,
+      Info :: term().
 fun_info(Fun) when is_function(Fun) ->
     Keys = [type,env,arity,name,uniq,index,new_uniq,new_index,module,pid],
     fun_info_1(Keys, Fun, []).
@@ -283,24 +363,37 @@ fun_info_1([K|Ks], Fun, A) ->
     end;
 fun_info_1([], _, A) -> A.
 
--type dst() :: pid() | port() | atom() | {atom(), node()}.
+-type dst() :: pid()
+             | port()
+             | (RegName :: atom())
+             | {RegName :: atom(), Node :: node()}.
 
--spec send_nosuspend(dst(), term()) -> boolean().
+-spec erlang:send_nosuspend(Dest, Msg) -> boolean() when
+      Dest :: dst(),
+      Msg :: term().
 send_nosuspend(Pid, Msg) ->
     send_nosuspend(Pid, Msg, []).
 
--spec send_nosuspend(dst(), term(), ['noconnect' | 'nosuspend']) -> boolean().
+-spec erlang:send_nosuspend(Dest, Msg, Options) -> boolean() when
+      Dest :: dst(),
+      Msg :: term(),
+      Options :: [noconnect].
 send_nosuspend(Pid, Msg, Opts) ->
     case erlang:send(Pid, Msg, [nosuspend|Opts]) of
 	ok -> true;
 	_  -> false
     end.
 
--spec localtime_to_universaltime(date_time()) -> date_time().
+-spec erlang:localtime_to_universaltime({Date1, Time1}) -> {Date2, Time2} when
+      Date1 :: calendar:date(),
+      Date2 :: calendar:date(),
+      Time1 :: calendar:time(),
+      Time2 :: calendar:time().
 localtime_to_universaltime(Localtime) ->
     erlang:localtime_to_universaltime(Localtime, undefined).
 
--spec suspend_process(pid()) -> 'true'.
+-spec erlang:suspend_process(Suspendee) -> 'true' when
+      Suspendee :: pid().
 suspend_process(P) ->
     case catch erlang:suspend_process(P, []) of
 	{'EXIT', {Reason, _}} -> erlang:error(Reason, [P]);
@@ -426,6 +519,9 @@ delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 %% Messages to us use our cookie. IF we change our cookie, other nodes 
 %% have to reflect that, which we cannot forsee.
 %%
+-spec erlang:set_cookie(Node, Cookie) -> true when
+      Node :: node(),
+      Cookie :: atom().
 set_cookie(Node, C) when Node =/= nonode@nohost, is_atom(Node) ->
     case is_atom(C) of
 	true ->
@@ -434,14 +530,19 @@ set_cookie(Node, C) when Node =/= nonode@nohost, is_atom(Node) ->
 	    error(badarg)
     end.
 
--spec get_cookie() -> atom().
+-spec erlang:get_cookie() -> Cookie | nocookie when
+      Cookie :: atom().
 get_cookie() ->
     auth:get_cookie().
 
+-spec concat_binary(ListOfBinaries) -> binary() when
+      ListOfBinaries :: iolist().
 concat_binary(List) ->
     list_to_binary(List).
 
--spec integer_to_list(integer(), 1..255) -> string().
+-spec integer_to_list(Integer, Base) -> string() when
+      Integer :: integer(),
+      Base :: 2..36.
 integer_to_list(I, 10) ->
     erlang:integer_to_list(I);
 integer_to_list(I, Base) 
@@ -469,6 +570,9 @@ integer_to_list(I0, Base, R0) ->
     end.
 
 
+-spec list_to_integer(String, Base) -> integer() when
+      String :: string(),
+      Base :: 2..36.
 list_to_integer(L, 10) ->
     erlang:list_to_integer(L);
 list_to_integer(L, Base)
@@ -689,10 +793,16 @@ await_proc_exit(Proc, Op, Data) ->
 	    end
     end.
 
--spec min(term(), term()) -> term().
+-spec min(Term1, Term2) -> Minimum when
+      Term1 :: term(),
+      Term2 :: term(),
+      Minimum :: term().
 min(A, B) when A > B -> B;
 min(A, _) -> A.
 
--spec max(term(), term()) -> term().
+-spec max(Term1, Term2) -> Maximum when
+      Term1 :: term(),
+      Term2 :: term(),
+      Maximum :: term().
 max(A, B) when A < B -> B;
 max(A, _) -> A.

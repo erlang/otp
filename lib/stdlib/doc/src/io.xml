@@ -439,7 +439,7 @@ ok</pre>
           <item>
             <p>Prints the argument with the <c>string</c> syntax. The
               argument is, if no Unicode translation modifier is present, an 
-	      <seealso marker="erts:erlang#iolist_definition">I/O list</seealso>, a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is unicode:chardata(), meaning that binaries are in UTF-8. The characters
+              iolist(), a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is unicode:chardata(), meaning that binaries are in UTF-8. The characters
               are printed without quotes. The string is first truncated
 	      by the given precision and then padded and justified
 	      to the given field width. The default precision is the field width.</p>
