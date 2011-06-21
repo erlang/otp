@@ -639,9 +639,9 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
         <v>StateName = atom()</v>
         <v>StateData = term()</v>
         <v>Result = {next_state,NextStateName,NewStateData}</v> 
-	<v>&nbsp;>&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</v> 
-	<v>&nbsp;>&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</v>
-        <v>&nbsp;>&nbsp;| {stop,Reason,NewStateData}</v>
+	<v>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,Timeout}</v>
+	<v>&nbsp;&nbsp;| {next_state,NextStateName,NewStateData,hibernate}</v>
+        <v>&nbsp;&nbsp;| {stop,Reason,NewStateData}</v>
         <v>&nbsp;NextStateName = atom()</v>
         <v>&nbsp;NewStateData = term()</v>
         <v>&nbsp;Timeout = int()>0 | infinity</v>
