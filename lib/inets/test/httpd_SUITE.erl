@@ -207,8 +207,11 @@
 -export([ticket_5775/1,ticket_5865/1,ticket_5913/1,ticket_6003/1,
 	 ticket_7304/1]).
 
-%%% Misc
--export([ipv6_hostname/1, ipv6_address/1]).
+%%% IPv6 tests
+-export([ipv6_hostname_ipcomm/0, ipv6_hostname_ipcomm/1, 
+	 ipv6_address_ipcomm/0,  ipv6_address_ipcomm/1, 
+	 ipv6_hostname_essl/0,   ipv6_hostname_essl/1,   
+	 ipv6_address_essl/0,    ipv6_address_essl/1]).
 
 %% Help functions 
 -export([cleanup_mnesia/0, setup_mnesia/0, setup_mnesia/1]).
@@ -241,9 +244,15 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, ip}, {group, ssl}, {group, http_1_1_ip},
-     {group, http_1_0_ip}, {group, http_0_9_ip},
-     {group, tickets}].
+    [
+     {group, ip}, 
+     {group, ssl}, 
+     {group, http_1_1_ip},
+     {group, http_1_0_ip}, 
+     {group, http_0_9_ip},
+     {group, ipv6}, 
+     {group, tickets}
+    ].
 
 groups() -> 
     [{ip, [],
@@ -329,7 +338,8 @@ groups() ->
      {http_1_0_ip, [],
       [ip_head_1_0, ip_get_1_0, ip_post_1_0]},
      {http_0_9_ip, [], [ip_get_0_9]},
-     {ipv6, [], [ipv6_hostname, ipv6_address]},
+     {ipv6, [], [ipv6_hostname_ipcomm, ipv6_address_ipcomm, 
+		 ipv6_hostname_essl,   ipv6_address_essl]},
      {tickets, [],
       [ticket_5775, ticket_5865, ticket_5913, ticket_6003,
        ticket_7304]}].
@@ -408,10 +418,10 @@ init_per_testcase2(Case, Config) ->
 	      "~n   Config: ~p"
 	      "~n", [?MODULE, Case, Config]),
 
-    IpNormal   = integer_to_list(?IP_PORT)    ++ ".conf",
-    IpHtacess  = integer_to_list(?IP_PORT)   ++ "htacess.conf",
-    SslNormal  = integer_to_list(?SSL_PORT)  ++ ".conf",
-    SslHtacess = integer_to_list(?SSL_PORT) ++ "htacess.conf",
+    IpNormal    = integer_to_list(?IP_PORT)    ++ ".conf",
+    IpHtaccess  = integer_to_list(?IP_PORT)   ++ "htaccess.conf",
+    SslNormal   = integer_to_list(?SSL_PORT)  ++ ".conf",
+    SslHtaccess = integer_to_list(?SSL_PORT) ++ "htaccess.conf",
 
     DataDir     = ?config(data_dir, Config),
     SuiteTopDir = ?config(suite_top_dir, Config),
@@ -471,9 +481,9 @@ init_per_testcase2(Case, Config) ->
     io:format(user, "~w:init_per_testcase2(~w) -> ip testcase setups~n", 
 	      [?MODULE, Case]),
     create_config([{port, ?IP_PORT}, {sock_type, ip_comm} | NewConfig], 
-		  normal_acess, IpNormal), 
+		  normal_access, IpNormal), 
     create_config([{port, ?IP_PORT}, {sock_type, ip_comm} | NewConfig], 
-    		  mod_htaccess, IpHtacess), 
+    		  mod_htaccess, IpHtaccess), 
 
     %% To be used by SSL test cases
     io:format(user, "~w:init_per_testcase2(~w) -> ssl testcase setups~n", 
@@ -491,9 +501,9 @@ init_per_testcase2(Case, Config) ->
 	end,
 
     create_config([{port, ?SSL_PORT}, {sock_type, SocketType} | NewConfig], 
-		  normal_acess, SslNormal),
+		  normal_access, SslNormal),
     create_config([{port, ?SSL_PORT}, {sock_type, SocketType} | NewConfig],
-    		  mod_htaccess, SslHtacess),  
+    		  mod_htaccess, SslHtaccess),  
   
     %% To be used by IPv6 test cases. Case-clause is so that
     %% you can do ts:run(inets, httpd_SUITE, <test case>)
@@ -501,22 +511,52 @@ init_per_testcase2(Case, Config) ->
     %% on  'test_host_ipv6_only' that will only be present
     %% when you run the whole test suite due  to shortcomings
     %% of the test server.
-    %% case (catch ?config(test_host_ipv6_only, Config)) of
-    %% 	{_,IPv6Host,IPv6Adress,_,_} ->
-    %% 	    create_ipv6_config([{port, ?IP_PORT}, 
-    %% 				{sock_type, ip_comm} | NewConfig],
-    %% 			       "ipv6_hostname.conf", IPv6Host),
-    %% 	    create_ipv6_config([{port, ?IP_PORT}, 
-    %% 				{sock_type, ip_comm} | NewConfig],
-    %% 			       "ipv6_address.conf", IPv6Adress);
-    %% 	_ ->
-    %% 	    ok
-    %%     end,
-    
+
+    io:format(user, "~w:init_per_testcase2(~w) -> "
+	      "maybe generate IPv6 config file(s)", [?MODULE, Case]),
+    NewConfig2 = 
+	case atom_to_list(Case) of
+	    "ipv6_" ++ _ ->
+		case (catch inets_test_lib:has_ipv6_support(NewConfig)) of
+		    {ok, IPv6Address0} ->
+			{ok, Hostname} = inet:gethostname(), 
+			IPv6Address = http_transport:ipv6_name(IPv6Address0), 
+			create_ipv6_config([{port, ?IP_PORT}, 
+					    {sock_type, ip_comm},
+					    {ipv6_host, IPv6Address} | 
+					    NewConfig],
+					   "ipv6_hostname_ipcomm.conf", 
+					   Hostname),
+			create_ipv6_config([{port, ?IP_PORT}, 
+					    {sock_type, ip_comm},
+					    {ipv6_host, IPv6Address} | 
+					    NewConfig],
+					   "ipv6_address_ipcomm.conf",  
+					   IPv6Address),
+			create_ipv6_config([{port, ?SSL_PORT}, 
+					    {sock_type, essl},
+					    {ipv6_host, IPv6Address} | 
+					    NewConfig],
+					   "ipv6_hostname_essl.conf", 
+					   Hostname),
+			create_ipv6_config([{port, ?SSL_PORT}, 
+					    {sock_type, essl},
+					    {ipv6_host, IPv6Address} | 
+					    NewConfig],
+					   "ipv6_address_essl.conf",  
+					   IPv6Address),
+			[{ipv6_host, IPv6Address} | NewConfig];
+		    _ ->
+			NewConfig
+		end;
+	    _ ->
+		NewConfig
+	end,
+
     io:format(user, "~w:init_per_testcase2(~w) -> done~n", 
 	      [?MODULE, Case]),
 
-    NewConfig.
+    NewConfig2.
 
 
 init_per_testcase3(Case, Config) ->
@@ -547,10 +587,10 @@ init_per_testcase3(Case, Config) ->
 		      [?MODULE, Case]),
 	    inets:disable_trace();
 	_ ->
-	    %% TraceLevel = max, 
 	    io:format(user, "~w:init_per_testcase3(~w) -> enabling trace", 
 		      [?MODULE, Case]),
-	    TraceLevel = 70, 
+	    %% TraceLevel = 70, 
+	    TraceLevel = max, 
 	    TraceDest  = io, 
 	    inets:enable_trace(TraceLevel, TraceDest, httpd)
     end,
@@ -569,7 +609,7 @@ init_per_testcase3(Case, Config) ->
 		inets_test_lib:start_http_server(
 		  filename:join(TcTopDir,
 				integer_to_list(?IP_PORT) ++
-				"htacess.conf")),
+				"htaccess.conf")),
 		"mod_htaccess";
 	    "ip_" ++ Rest ->
 		inets_test_lib:start_http_server(
@@ -602,7 +642,7 @@ init_per_testcase3(Case, Config) ->
 		case inets_test_lib:start_http_server_ssl(
 		       filename:join(TcTopDir,
 				     integer_to_list(?SSL_PORT) ++ 
-				     "htacess.conf"), SslTag) of
+				     "htaccess.conf"), SslTag) of
 		    ok ->
 			"mod_htaccess";
 		    Other ->
@@ -627,16 +667,13 @@ init_per_testcase3(Case, Config) ->
 			{skip, "SSL does not seem to be supported"}
 		end;
 	    "ipv6_" ++ _  = TestCaseStr ->
-		{ok, Hostname} = inet:gethostname(),
-		
-		case lists:member(list_to_atom(Hostname), 
-				  ?config(ipv6_hosts, Config)) of
-		    true ->
+		case inets_test_lib:has_ipv6_support() of
+		    {ok, _} ->
 			inets_test_lib:start_http_server(
 			  filename:join(TcTopDir,
 					TestCaseStr ++ ".conf"));
 		    
-		    false ->
+		    _ ->
 			{skip, "Host does not support IPv6"}
 		end
 	end,
@@ -650,8 +687,8 @@ init_per_testcase3(Case, Config) ->
 	"mod_htaccess" ->
 	    ServerRoot = ?config(server_root, Config), 
 	    Path = filename:join([ServerRoot, "htdocs"]),
-	    catch remove_htacess(Path),
-	    create_htacess_data(Path, ?config(address, Config)),
+	    catch remove_htaccess(Path),
+	    create_htaccess_data(Path, ?config(address, Config)),
 	    [{watchdog, Dog} | NewConfig];
 	"range" ->
 	    ServerRoot = ?config(server_root, Config), 
@@ -2409,29 +2446,75 @@ ip_mod_cgi_chunked_encoding_test(Config) when is_list(Config) ->
     ok.
 
 %------------------------------------------------------------------------- 
-ipv6_hostname(doc) ->  
+
+ipv6_hostname_ipcomm() ->
+    [{require, ipv6_hosts}].
+ipv6_hostname_ipcomm(X) -> 
+    SocketType = ip_comm,
+    Port       = ?IP_PORT, 
+    ipv6_hostname(SocketType, Port, X).
+
+ipv6_hostname_essl() ->
+    [{require, ipv6_hosts}].
+ipv6_hostname_essl(X) -> 
+    SocketType = essl, 
+    Port       = ?SSL_PORT, 
+    ipv6_hostname(SocketType, Port, X).
+
+ipv6_hostname(_SocketType, _Port, doc) ->  
     ["Test standard ipv6 address"];
-ipv6_hostname(suite)->
+ipv6_hostname(_SocketType, _Port, suite)->
     [];
-ipv6_hostname(Config) when is_list(Config) -> 
+ipv6_hostname(SocketType, Port, Config) when is_list(Config) -> 
+    tsp("ipv6_hostname -> entry with"
+	"~n   SocketType: ~p"
+	"~n   Port:       ~p"
+	"~n   Config:     ~p", [SocketType, Port, Config]),
     Host = ?config(host, Config),
-    httpd_test_lib:verify_request(ip_comm, Host, ?IP_PORT, node(), 
-				  "GET / HTTP/1.1\r\n\r\n",
-				  [{statuscode, 200},
-				   {version, "HTTP/1.1"}]),
+    URI  = "GET HTTP://" ++ 
+	Host ++ ":" ++ integer_to_list(Port) ++ "/ HTTP/1.1\r\n\r\n", 
+    tsp("ipv6_hostname -> Host: ~p", [Host]),
+    httpd_test_lib:verify_request(SocketType, Host, Port, [inet6], 
+				  node(), 
+				  URI, 
+				  [{statuscode, 200}, {version, "HTTP/1.1"}]),
     ok.
 
 %%------------------------------------------------------------------------- 
-ipv6_address(doc) ->  
+
+ipv6_address_ipcomm() ->
+    [{require, ipv6_hosts}].
+ipv6_address_ipcomm(X) ->
+    SocketType = ip_comm,
+    Port       = ?IP_PORT, 
+    ipv6_address(SocketType, Port, X).
+
+ipv6_address_essl() ->
+    [{require, ipv6_hosts}].
+ipv6_address_essl(X) ->
+    SocketType = essl,
+    Port       = ?SSL_PORT, 
+    ipv6_address(SocketType, Port, X).
+
+ipv6_address(_SocketType, _Port, doc) ->
     ["Test standard ipv6 address"];
-ipv6_address(suite)->
+ipv6_address(_SocketType, _Port, suite)->
     [];
-ipv6_address(Config) when is_list(Config) ->   
-    httpd_test_lib:verify_request(ip_comm, ?IPV6_LOCAL_HOST, ?IP_PORT, 
-				  node(), "GET / HTTP/1.1\r\n\r\n",
-				  [{statuscode, 200},
-				   {version, "HTTP/1.1"}]),
+ipv6_address(SocketType, Port, Config) when is_list(Config) ->   
+    tsp("ipv6_address -> entry with"
+	"~n   SocketType: ~p"
+	"~n   Port:       ~p"
+	"~n   Config:     ~p", [SocketType, Port, Config]),
+    Host = ?config(host, Config),
+    tsp("ipv6_address -> Host: ~p", [Host]),
+    URI = "GET HTTP://" ++ 
+	Host ++ ":" ++ integer_to_list(Port) ++ "/ HTTP/1.1\r\n\r\n", 
+    httpd_test_lib:verify_request(SocketType, Host, Port, [inet6], 
+				  node(), 
+				  URI, 
+				  [{statuscode, 200}, {version, "HTTP/1.1"}]),
     ok.
+
 
 %%--------------------------------------------------------------------
 ticket_5775(doc) ->
@@ -2805,22 +2888,22 @@ cleanup_mnesia() ->
     mnesia:delete_schema([node()]),
     ok.
 
-create_htacess_data(Path, IpAddress)->
-    create_htacess_dirs(Path),
+create_htaccess_data(Path, IpAddress)->
+    create_htaccess_dirs(Path),
     
     create_html_file(filename:join([Path,"ht/open/dummy.html"])),
     create_html_file(filename:join([Path,"ht/blocknet/dummy.html"])),
     create_html_file(filename:join([Path,"ht/secret/dummy.html"])),
     create_html_file(filename:join([Path,"ht/secret/top_secret/dummy.html"])),
     
-    create_htacess_file(filename:join([Path,"ht/open/.htaccess"]),
+    create_htaccess_file(filename:join([Path,"ht/open/.htaccess"]),
 			 Path, "user one Aladdin"),
-    create_htacess_file(filename:join([Path,"ht/secret/.htaccess"]),
+    create_htaccess_file(filename:join([Path,"ht/secret/.htaccess"]),
 			 Path, "group group1 group2"),
-    create_htacess_file(filename:join([Path,
+    create_htaccess_file(filename:join([Path,
 				       "ht/secret/top_secret/.htaccess"]),
 			Path, "user four"),
-    create_htacess_file(filename:join([Path,"ht/blocknet/.htaccess"]),
+    create_htaccess_file(filename:join([Path,"ht/blocknet/.htaccess"]),
 			Path, nouser, IpAddress),
    
     create_user_group_file(filename:join([Path,"ht","users.file"]),
@@ -2835,7 +2918,7 @@ create_html_file(PathAndFileName)->
 	 "<html><head><title>test</title></head>
          <body>testar</body></html>")).
 
-create_htacess_file(PathAndFileName, BaseDir, RequireData)->
+create_htaccess_file(PathAndFileName, BaseDir, RequireData)->
     file:write_file(PathAndFileName,
 		    list_to_binary(
 		      "AuthUserFile "++ BaseDir ++
@@ -2844,7 +2927,7 @@ create_htacess_file(PathAndFileName, BaseDir, RequireData)->
 		      " Basic\n<Limit>\nrequire " ++ RequireData ++
 		      "\n</Limit>")).
 
-create_htacess_file(PathAndFileName, BaseDir, nouser, IpAddress)->
+create_htaccess_file(PathAndFileName, BaseDir, nouser, IpAddress)->
     file:write_file(PathAndFileName,list_to_binary(
 				      "AuthUserFile "++ BaseDir ++
 				      "/ht/users.file\nAuthGroupFile " ++ 
@@ -2858,14 +2941,14 @@ create_htacess_file(PathAndFileName, BaseDir, nouser, IpAddress)->
 create_user_group_file(PathAndFileName, Data)->
     file:write_file(PathAndFileName, list_to_binary(Data)).
 
-create_htacess_dirs(Path)->
+create_htaccess_dirs(Path)->
     ok = file:make_dir(filename:join([Path,"ht"])),
     ok = file:make_dir(filename:join([Path,"ht/open"])),
     ok = file:make_dir(filename:join([Path,"ht/blocknet"])),
     ok = file:make_dir(filename:join([Path,"ht/secret"])),
     ok = file:make_dir(filename:join([Path,"ht/secret/top_secret"])).
 
-remove_htacess_dirs(Path)->
+remove_htaccess_dirs(Path)->
     file:del_dir(filename:join([Path,"ht/secret/top_secret"])),
     file:del_dir(filename:join([Path,"ht/secret"])),
     file:del_dir(filename:join([Path,"ht/blocknet"])),
@@ -2888,7 +2971,7 @@ format_ip(IpAddress,Pos)when Pos > 0->
 format_ip(IpAddress, _Pos)->
     "1" ++ IpAddress.
 
-remove_htacess(Path)->
+remove_htaccess(Path)->
     file:delete(filename:join([Path,"ht/open/dummy.html"])),
     file:delete(filename:join([Path,"ht/secret/dummy.html"])),
     file:delete(filename:join([Path,"ht/secret/top_secret/dummy.html"])),
@@ -2899,7 +2982,7 @@ remove_htacess(Path)->
     file:delete(filename:join([Path,"ht/secret/top_secret/.htaccess"])),
     file:delete(filename:join([Path,"ht","users.file"])),
     file:delete(filename:join([Path,"ht","groups.file"])),
-    remove_htacess_dirs(Path).
+    remove_htaccess_dirs(Path).
 
 
 dos_hostname_poll(Type, Host, Port, Node, Hosts) ->
@@ -2939,35 +3022,66 @@ create_range_data(Path) ->
 						   "12345678901234567890",
 						   "12345678901234567890"])).
 
-%% create_ipv6_config(Config, FileName, Ipv6Address) ->
-%%     ServerRoot = ?config(server_root, Config),
-%%     TcTopDir = ?config(tc_top_dir, Config),
-%%     Port =  ?config(port, Config),
-%%     SockType = ?config(sock_type, Config),
-%%
-%%     MaxHdrSz     = io_lib:format("~p", [256]),
-%%     MaxHdrAct    = io_lib:format("~p", [close]),
-%%   
-%%     Mod_order = "Modules mod_alias mod_auth mod_esi mod_actions mod_cgi" 
-%% 	" mod_include mod_dir mod_get mod_head" 
-%% 	" mod_log mod_disk_log mod_trace",
-%%	    
-%%     HttpConfig = [cline(["BindAddress ", "[" ++ Ipv6Address ++"]|inet6"]),
-%% 		  cline(["Port ", integer_to_list(Port)]),
-%% 		  cline(["ServerName ", "httpc_test"]),
-%% 		  cline(["SocketType ", atom_to_list(SockType)]),
-%% 		  cline([Mod_order]),
-%% 		  cline(["ServerRoot ", ServerRoot]),
-%% 		  cline(["DocumentRoot ",  
-%% 			 filename:join(ServerRoot, "htdocs")]),
-%% 		  cline(["MaxHeaderSize ",MaxHdrSz]),
-%% 		  cline(["MaxHeaderAction ",MaxHdrAct]),
-%% 		  cline(["DirectoryIndex ", "index.html "]),
-%% 		  cline(["DefaultType ", "text/plain"])],
-%%     ConfigFile = filename:join([TcTopDir,FileName]),
-%%     {ok, Fd} = file:open(ConfigFile, [write]),
-%%     ok = file:write(Fd, lists:flatten(HttpConfig)),
-%%     ok = file:close(Fd).
+create_ipv6_config(Config, FileName, Ipv6Address) ->
+    ServerRoot = ?config(server_root, Config),
+    TcTopDir   = ?config(tc_top_dir,  Config),
+    Port       = ?config(port,        Config),
+    SockType   = ?config(sock_type,   Config),
+    Mods       = io_lib:format("~p",  [httpd_mod]),
+    Funcs      = io_lib:format("~p",  [ssl_password_cb]),
+    Host       = ?config(ipv6_host,   Config),
+
+    MaxHdrSz     = io_lib:format("~p", [256]),
+    MaxHdrAct    = io_lib:format("~p", [close]),
+  
+    Mod_order = "Modules mod_alias mod_auth mod_esi mod_actions mod_cgi" 
+	" mod_include mod_dir mod_get mod_head" 
+	" mod_log mod_disk_log mod_trace",
+	    
+    SSL =
+	if
+	    (SockType =:= ssl)  orelse 
+	    (SockType =:= ossl) orelse 
+	    (SockType =:= essl) ->
+		[cline(["SSLCertificateFile ", 
+			filename:join(ServerRoot, "ssl/ssl_server.pem")]),
+		 cline(["SSLCertificateKeyFile ",
+			filename:join(ServerRoot, "ssl/ssl_server.pem")]),
+		 cline(["SSLCACertificateFile ",
+			filename:join(ServerRoot, "ssl/ssl_server.pem")]),
+		 cline(["SSLPasswordCallbackModule ", Mods]),
+		 cline(["SSLPasswordCallbackFunction ", Funcs]),
+		 cline(["SSLVerifyClient 0"]),
+		 cline(["SSLVerifyDepth 1"])];
+	    true ->
+		[]
+	end,
+
+    BindAddress = "[" ++ Ipv6Address ++"]|inet6", 
+
+    HttpConfig = 
+	[cline(["BindAddress ", BindAddress]),
+	 cline(["Port ", integer_to_list(Port)]),
+	 cline(["ServerName ", Host]),
+	 cline(["SocketType ", atom_to_list(SockType)]),
+	 cline([Mod_order]),
+	 cline(["ServerRoot ", ServerRoot]),
+	 cline(["DocumentRoot ", filename:join(ServerRoot, "htdocs")]),
+	 cline(["MaxHeaderSize ",MaxHdrSz]),
+	 cline(["MaxHeaderAction ",MaxHdrAct]),
+	 cline(["DirectoryIndex ", "index.html "]),
+	 cline(["DefaultType ", "text/plain"]), 
+	 SSL],
+    ConfigFile = filename:join([TcTopDir,FileName]),
+    {ok, Fd} = file:open(ConfigFile, [write]),
+    ok = file:write(Fd, lists:flatten(HttpConfig)),
+    ok = file:close(Fd).
+
+
+%% tsp(F) ->
+%%     inets_test_lib:tsp(F).
+tsp(F, A) ->
+    inets_test_lib:tsp(F, A).
 
 tsf(Reason) ->
-    test_server:fail(Reason).
+    inets_test_lib:tsf(Reason).

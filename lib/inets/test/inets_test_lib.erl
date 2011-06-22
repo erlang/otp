@@ -26,17 +26,63 @@
 -export([start_http_server/1, start_http_server/2]).
 -export([start_http_server_ssl/1, start_http_server_ssl/2]).
 -export([hostname/0]).
--export([connect_bin/3, connect_byte/3, send/3, close/2]).
+-export([connect_bin/3,  connect_bin/4, 
+	 connect_byte/3, connect_byte/4, 
+	 send/3, close/2]).
 -export([copy_file/3, copy_files/2, copy_dirs/2, del_dirs/1]).
 -export([info/4, log/4, debug/4, print/4]).
+-export([tsp/1, tsp/2, tsf/1]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
--export([oscmd/1]).
+-export([oscmd/1, has_ipv6_support/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1, skip/3, fail/3]).
 -export([flush/0]).
 -export([start_node/1, stop_node/1]).
 
 %% -- Misc os command and stuff
+
+has_ipv6_support(Config) ->
+    case lists:keysearch(ipv6_hosts, 1, Config) of
+	false ->
+	    %% Do a basic check to se if 
+	    %% our own host has a working IPv6 address...
+	    tsp("has_ipv6_support -> no ipv6_hosts config"),
+	    {ok, Hostname} = inet:gethostname(),
+	    case inet:getaddrs(Hostname, inet6) of
+		{ok, [Addr|_]} when is_tuple(Addr) andalso 
+				    (element(1, Addr) =/= 0) ->
+		    %% We actually need to test that the addr can be used, 
+		    %% this is done by attempting to create a (tcp) 
+		    %% listen socket
+		    tsp("has_ipv6_support -> check Addr: ~p", [Addr]),
+		    case (catch gen_tcp:listen(0, [inet6, {ip, Addr}])) of
+			{ok, LSock} ->
+			    tsp("has_ipv6_support -> we are ipv6 host"),
+			    gen_tcp:close(LSock),
+			    {ok, Addr};
+			_ ->
+			    undefined
+		    end;
+		_ ->
+		    undefined
+	    end;
+	{value, {_, Hosts}} when is_list(Hosts) ->
+	    %% Check if our host is in the list of *known* IPv6 hosts
+	    tsp("has_ipv6_support -> Hosts: ~p", [Hosts]),
+	    {ok, Hostname} = inet:gethostname(),
+	    case lists:member(list_to_atom(Hostname), Hosts) of
+		true ->
+		    tsp("has_ipv6_support -> we are known ipv6 host"),
+		    {ok, [Addr|_]} = inet:getaddrs(Hostname, inet6),
+		    {ok, Addr};
+		false ->
+		    undefined
+	    end;
+	
+	_ ->
+	    undefined
+
+    end.
 
 oscmd(Cmd) ->
   string:strip(os:cmd(Cmd), right, $\n).
@@ -87,31 +133,34 @@ start_http_server(Conf) ->
     start_http_server(Conf, ?HTTP_DEFAULT_SSL_KIND).
 
 start_http_server(Conf, essl = _SslTag) ->
+    tsp("start_http_server(essl) -> entry - try start crypto and public_key"),
     application:start(crypto), 
+    application:start(public_key), 
     do_start_http_server(Conf);
-start_http_server(Conf, _SslTag) ->
+start_http_server(Conf, SslTag) ->
+    tsp("start_http_server(~w) -> entry", [SslTag]),
     do_start_http_server(Conf).
 
 do_start_http_server(Conf) ->
-    tsp("start http server with "
+    tsp("do_start_http_server -> entry with"
 	"~n   Conf: ~p"
 	"~n", [Conf]),
     application:load(inets), 
     case application:set_env(inets, services, [{httpd, Conf}]) of
 	ok ->
+	    tsp("start_http_server -> httpd conf stored in inets app env"),
 	    case application:start(inets) of
 		ok ->
+		    tsp("start_http_server -> inets started"),
 		    ok;
 		Error1 ->
-		    test_server:format("<ERROR> Failed starting application: "
-				       "~n   Error: ~p"
-				       "~n", [Error1]),
+		    tsp("<ERROR> Failed starting application: "
+			"~n   Error1: ~p", [Error1]),
 		    Error1
 	    end;
 	Error2 ->
-	    test_server:format("<ERROR> Failed set application env: "
-			       "~n   Error: ~p"
-			       "~n", [Error2]),
+	    tsp("<ERROR> Failed set application env: "
+		"~n   Error: ~p", [Error2]),
 	    Error2
     end.
 	    
@@ -285,29 +334,45 @@ os_based_skip(_) ->
 %% Host       -> atom() | string() | {A, B, C, D} 
 %% Port       -> integer()
 
-connect_bin(ssl, Host, Port) ->
-    connect(ssl, Host, Port, [binary, {packet,0}]);
-connect_bin(ossl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, old}, binary, {packet,0}]);
-connect_bin(essl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, new}, binary, {packet,0}, {reuseaddr, true}]);
-connect_bin(ip_comm, Host, Port) ->
-    Opts = [inet6, binary, {packet,0}],
+connect_bin(SockType, Host, Port) ->
+    connect_bin(SockType, Host, Port, []).
+
+connect_bin(ssl, Host, Port, Opts0) ->
+    Opts = [binary, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(ossl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, old}, binary, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(essl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, new}, binary, {packet,0}, {reuseaddr, true} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_bin(ip_comm, Host, Port, Opts0) ->
+    Opts = [binary, {packet, 0} | Opts0],
     connect(ip_comm, Host, Port, Opts).
 
+
+connect_byte(SockType, Host, Port) ->
+    connect_byte(SockType, Host, Port, []).
     
-connect_byte(ssl, Host, Port) ->
-    connect(ssl, Host, Port, [{packet,0}]);
-connect_byte(ossl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, old}, {packet,0}]);
-connect_byte(essl, Host, Port) ->
-    connect(ssl, Host, Port, [{ssl_imp, new}, {packet,0}]);
-connect_byte(ip_comm, Host, Port) ->
-    Opts = [inet6, {packet,0}],
+connect_byte(ssl, Host, Port, Opts0) ->
+    Opts = [{packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(ossl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, old}, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(essl, Host, Port, Opts0) ->
+    Opts = [{ssl_imp, new}, {packet,0} | Opts0], 
+    connect(ssl, Host, Port, Opts);
+connect_byte(ip_comm, Host, Port, Opts0) ->
+    Opts = [{packet,0} | Opts0],
     connect(ip_comm, Host, Port, Opts).
 
 
 connect(ssl, Host, Port, Opts) ->
+    tsp("connect(ssl) -> entry with"
+	"~n   Host: ~p"
+	"~n   Port: ~p"
+	"~n   Opts: ~p", [Host, Port, Opts]),
     ssl:start(),
     %% Does not support ipv6 in old ssl 
     case ssl:connect(Host, Port, Opts) of
@@ -319,21 +384,28 @@ connect(ssl, Host, Port, Opts) ->
 	    Error
     end;
 connect(ip_comm, Host, Port, Opts) ->
+    tsp("connect(ip_comm) -> entry with"
+	"~n   Host: ~p"
+	"~n   Port: ~p"
+	"~n   Opts: ~p", [Host, Port, Opts]),
     case gen_tcp:connect(Host,Port, Opts) of
 	{ok, Socket} ->
-	    %% tsp("connect success"),
+	    tsp("connect success"),
 	    {ok, Socket};
 	{error, nxdomain} ->
-	    tsp("nxdomain opts: ~p", [Opts]),
+	    tsp("connect error nxdomain when opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, eafnosupport}  ->
-	    tsp("eafnosupport opts: ~p", [Opts]),
+	    tsp("connect error eafnosupport when opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+	{error, econnreset} ->
+	    tsp("connect error econnreset when opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, enetunreach}  ->
-	    tsp("eafnosupport opts: ~p", [Opts]),
+	    tsp("connect error eafnosupport when opts: ~p", [Opts]),
 	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
 	{error, {enfile,_}} ->
-	    tsp("Error enfile"),
+	    tsp("connect error enfile when opts: ~p", [Opts]),
 	    {error, enfile};
 	Error ->
 	    tsp("Unexpected error: "
@@ -414,7 +486,22 @@ flush() ->
 tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
-    test_server:format("~p ~p ~p:" ++ F ++ "~n", [node(), self(), ?MODULE | A]).
+    Timestamp = formated_timestamp(), 
+    test_server:format("*** ~s ~p ~p ~w:" ++ F ++ "~n", 
+		       [Timestamp, node(), self(), ?MODULE | A]).
 
 tsf(Reason) ->
     test_server:fail(Reason).
+
+formated_timestamp() ->
+    format_timestamp( os:timestamp() ).
+
+format_timestamp({_N1, _N2, N3} = Now) ->
+    {Date, Time}   = calendar:now_to_datetime(Now),
+    {YYYY,MM,DD}   = Date,
+    {Hour,Min,Sec} = Time,
+    FormatDate =
+        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
+                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
+    lists:flatten(FormatDate).
+
