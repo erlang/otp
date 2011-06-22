@@ -120,7 +120,7 @@
     <item>
     <p>Let this instance of <c>epmd</c> listen only on the
       comma-separated list of IP addresses and on the loopback address
-      (which is implicitely added to the list if it has not been
+      (which is implicitly added to the list if it has not been
       specified). This can also be set using the
       <c><![CDATA[ERL_EPMD_ADDRESS]]></c> environment variable, see the
       section <seealso marker="#environment_variables">Environment
@@ -243,7 +243,7 @@
         <p>This environment variable may be set to a comma-separated
           list of IP addresses, in which case the <c>epmd</c> daemon
           will listen only on the specified address(es) and on the
-          loopback address (which is implicitely added to the list if it
+          loopback address (which is implicitly added to the list if it
           has not been specified). The default behaviour is to listen on
           all available IP addresses.</p>
       </item>
