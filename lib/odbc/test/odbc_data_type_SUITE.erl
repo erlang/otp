@@ -115,14 +115,18 @@ end_per_group(_GroupName, Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
-init_per_suite(Config) ->
-    case (catch odbc:start()) of
-	ok ->
-	    [{tableName, odbc_test_lib:unique_table_name()} | Config];
-	_ ->
-	    {skip, "ODBC not startable"}
+init_per_suite(Config) when is_list(Config) ->
+    case odbc_test_lib:skip() of
+	true ->
+	    {skip, "ODBC not supported"};
+	false ->
+	    case (catch odbc:start()) of
+		ok ->
+		    [{tableName, odbc_test_lib:unique_table_name()}| Config];
+		_ ->
+		    {skip, "ODBC not startable"}
+	    end
     end.
-
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]

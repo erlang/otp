@@ -25,14 +25,16 @@
 
 -define(RDBMS, case os:type() of
 		   {unix, sunos} ->
-		       postgres;
+		       mysql;
 		   {unix,linux} ->
-		       case erlang:system_info(wordsize) of
+		       case  erlang:system_info({wordsize, external}) of
 			   4 ->
 			       mysql;
 			   _ ->
 			       postgres
 		       end;
+		   {unix, darwin} ->
+		       mysql;
 		   {win32, _} ->
 		       sqlserver
 	       end).

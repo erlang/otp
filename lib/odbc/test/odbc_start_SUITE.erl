@@ -39,11 +39,18 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case code:which(odbc) of
-	non_existing ->
-	    {skip, "No ODBC built"};
-	_ ->
-	    [{tableName, odbc_test_lib:unique_table_name()} | Config]
+    case odbc_test_lib:skip() of
+	true ->
+	    {skip, "ODBC not supported"};
+	false ->
+	    case code:which(odbc) of
+		non_existing ->
+		    {skip, "No ODBC built"};
+		_ ->
+		    %% Make sure odbc is not already started
+		    odbc:stop(),
+		    [{tableName, odbc_test_lib:unique_table_name()} | Config]
+	    end
     end.
 
 %%--------------------------------------------------------------------

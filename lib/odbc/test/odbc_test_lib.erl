@@ -36,7 +36,7 @@ match_float(Float, Match, Delta) ->
     (Float < Match + Delta) and (Float > Match - Delta).
 
 odbc_check() ->
-    case erlang:system_info(wordsize) of
+    case erlang:system_info({wordsize, external}) of
 	4 ->
 	    ok;
 	Other ->
@@ -71,9 +71,36 @@ strict(_,_) ->
     ok.
 
 platform_options() ->
+    [].
+
+skip() ->
     case os:type() of
+	{unix, linux} ->
+	    Issue = linux_issue(),
+	    is_sles9(Issue);
 	{unix, sunos} ->
-	    [{scrollable_cursors, off}];
+	    not supported_solaris();
 	_ ->
-	    []
+	    false
     end.
+
+supported_solaris() ->
+    case os:version() of
+	{_,10,_} ->
+	    true;
+	_ ->
+	    false
+    end.
+
+linux_issue() ->
+    {ok, Binary} = file:read_file("/etc/issue"),
+    string:tokens(binary_to_list(Binary), " ").
+
+is_sles11(IssueTokens) ->
+    lists:member(11, IssueTokens).
+
+is_sles10(IssueTokens) ->
+    lists:member(10, IssueTokens).
+
+is_sles9(IssueTokens) ->
+    lists:member(9, IssueTokens).

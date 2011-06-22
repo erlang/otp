@@ -89,6 +89,7 @@ init_per_group(scrollable_cursors, Config) ->
 	_ ->
 	    Config
     end;
+
 init_per_group(_,Config) ->
     Config.
 
@@ -105,11 +106,16 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) when is_list(Config) ->
-    case (catch odbc:start()) of
-	ok ->
-	    [{tableName, odbc_test_lib:unique_table_name()}| Config];
-	_ ->
-	    {skip, "ODBC not startable"}
+    case odbc_test_lib:skip() of
+	true ->
+	    {skip, "ODBC not supported"};
+	false ->
+	    case (catch odbc:start()) of
+		ok ->
+		    [{tableName, odbc_test_lib:unique_table_name()}| Config];
+		_ ->
+		    {skip, "ODBC not startable"}
+	    end
     end.
 
 %%--------------------------------------------------------------------
