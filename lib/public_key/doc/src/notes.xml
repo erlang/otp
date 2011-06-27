@@ -34,6 +34,22 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The public_key application now supports encode/decode of
+	    ssh public-key files.</p>
+          <p>
+	    Own Id: OTP-9144</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.11</title>
 
     <section><title>Improvements and New Features</title>

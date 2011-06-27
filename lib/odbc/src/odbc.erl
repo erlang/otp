@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -431,7 +431,7 @@ init(Args) ->
     
     erlang:monitor(process, ClientPid),
     
-    Inet = case gen_tcp:listen(0, [inet6]) of
+    Inet = case gen_tcp:listen(0, [inet6, {ip, loopback}]) of
 	       {ok, Dummyport} ->
 		   gen_tcp:close(Dummyport),
 		   inet6;

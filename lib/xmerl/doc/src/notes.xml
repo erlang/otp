@@ -31,6 +31,52 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix minor typos and improve punctuation in the
+	    xmerl_xpath @doc comment (Thanks to Marcus Marinelli)</p>
+          <p>
+	    Own Id: OTP-9187</p>
+        </item>
+        <item>
+          <p>
+	    Prevent xmerl from over-normalizing character references
+	    in attributes</p>
+          <p>
+	    Section 3.3.3 of the XML Recommendation gives the rules
+	    for attribute-value normalization. One of those rules
+	    requires that character references not be re-normalized
+	    after being replaced with the referenced characters.
+	    (Thanks to Tom Moertel)</p>
+          <p>
+	    Own Id: OTP-9274</p>
+        </item>
+        <item>
+	    <p> Fixed the default encoding option in SAX parser. </p>
+          <p>
+	    Own Id: OTP-9288</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Added the xmerl test suites and examples to the open
+	    source distribution. </p>
+          <p>
+	    Own Id: OTP-9228</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.2.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

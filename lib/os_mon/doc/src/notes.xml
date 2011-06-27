@@ -30,6 +30,35 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add NetBSD support to memsup and disksup (Thanks to
+	    Andrew Thompson)</p>
+          <p>
+	    Own Id: OTP-9216</p>
+        </item>
+        <item>
+          <p>
+	    Add support for DragonFlyBSD to memsup</p>
+          <p>
+	    DragonFly was partially supported by os_mon already but
+	    when trying to start the os_mon application it'd crash
+	    with an error about an unknown operating system in
+	    memsup. This patch changes memsup to use the FreeBSD
+	    sysctl method to get memory information when on
+	    DragonFly. (Thanks to Andrew Thompson )</p>
+          <p>
+	    Own Id: OTP-9217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.2.5</title>
 
     <section><title>Improvements and New Features</title>

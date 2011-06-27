@@ -32,6 +32,65 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    It was previously not possible to use timetrap value
+	    'infinity' with ct:timetrap/1. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-9159</p>
+        </item>
+        <item>
+          <p>
+	    A bug that made it impossible to cancel the previous
+	    timetrap when calling ct:timetrap/1 has been corrected.</p>
+          <p>
+	    Own Id: OTP-9233 Aux Id: OTP-9159 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    When running tests with auto-compilation disabled, Common
+	    Test could only display the test suite source code on
+	    html format in the test case log if the source file was
+	    located in the same directory as the pre-compiled suite.
+	    This has been modified so that Common Test now tries to
+	    locate the source file by means of the test suite module
+	    info (Suite:module_info/1). As a result, a suite may now
+	    be compiled to a different output directory (e.g.
+	    $MYTEST/bin) than the source code directory (e.g.
+	    $MYTEST/src), without the source-code-to-html generation
+	    being affected.</p>
+          <p>
+	    Own Id: OTP-9138</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to return a tuple {fail,Reason} from
+	    init_per_testcase/2. The result is that the associated
+	    test case gets logged as failed without ever executing.</p>
+          <p>
+	    Own Id: OTP-9160 Aux Id: seq11502 </p>
+        </item>
+        <item>
+          <p>
+	    Added DragonflyBSD check in test_server configure.</p>
+          <p>
+	    Own Id: OTP-9249</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

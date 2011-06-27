@@ -30,6 +30,8 @@
 
 -include("ssl_alert.hrl").
 -include("ssl_int.hrl").
+-include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
@@ -209,7 +211,7 @@ all() ->
      controller_dies, client_closes_socket, peercert,
      connect_dist, peername, sockname, socket_options,
      misc_ssl_options, versions, cipher_suites, upgrade,
-     upgrade_with_timeout, tcp_connect, ipv6, ekeyfile,
+     upgrade_with_timeout, tcp_connect, tcp_connect_big, ipv6, ekeyfile,
      ecertfile, ecacertfile, eoptions, shutdown,
      shutdown_write, shutdown_both, shutdown_error,
      ciphers_rsa_signed_certs, ciphers_rsa_signed_certs_ssl3,
@@ -1097,6 +1099,41 @@ tcp_connect(Config) when is_list(Config) ->
 	    end
     end.
 
+tcp_connect_big(doc) ->
+    ["Test what happens when a tcp tries to connect, i,e. a bad big (ssl) packet is sent first"];
+
+tcp_connect_big(suite) ->
+    [];
+
+tcp_connect_big(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
+						{from, self()},
+						{timeout, 5000},
+						{mfa, {?MODULE, dummy, []}},
+						{tcp_options, TcpOpts},
+						{ssl_options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
+    test_server:format("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+
+    Rand = crypto:rand_bytes(?MAX_CIPHER_TEXT_LENGTH+1),
+    gen_tcp:send(Socket, <<?BYTE(0),
+			   ?BYTE(3), ?BYTE(1), ?UINT16(?MAX_CIPHER_TEXT_LENGTH), Rand/binary>>),
+
+    receive
+	{tcp_closed, Socket} ->
+	    receive
+		{Server, {error, timeout}} ->
+		    test_server:fail("hangs");
+		{Server, {error, Error}} ->
+		    test_server:format("Error ~p", [Error])
+	    end
+    end.
 
 dummy(_Socket) ->
     %% Should not happen as the ssl connection will not be established
@@ -1659,7 +1696,7 @@ reuse_session(Config) when is_list(Config) ->
     Server = 
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 				   {from, self()},
-				   {mfa, {?MODULE, session_info_result, []}},
+				   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
@@ -1681,7 +1718,7 @@ reuse_session(Config) when is_list(Config) ->
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
 				   {port, Port}, {host, Hostname},
-				   {mfa, {?MODULE, session_info_result, []}},
+				   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {from, self()},  {options, ClientOpts}]),
     receive
 	{Client1, SessionInfo} ->
@@ -1697,7 +1734,7 @@ reuse_session(Config) when is_list(Config) ->
     Client2 =
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
-			    {mfa, {?MODULE, session_info_result, []}},
+			    {mfa, {ssl_test_lib, session_info_result, []}},
 		      {from, self()},  {options, [{reuse_sessions, false}
 						  | ClientOpts]}]),   
     receive
@@ -1713,7 +1750,7 @@ reuse_session(Config) when is_list(Config) ->
     Server1 = 
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 				   {from, self()},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 		      {options, [{reuse_sessions, false} | ServerOpts]}]),
     
     Port1 = ssl_test_lib:inet_port(Server1),
@@ -1737,7 +1774,7 @@ reuse_session(Config) when is_list(Config) ->
     Client4 = 
 	ssl_test_lib:start_client([{node, ClientNode}, 
 				   {port, Port1}, {host, Hostname},
-				   {mfa, {?MODULE, session_info_result, []}},
+				   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {from, self()},  {options, ClientOpts}]),
     
     receive
@@ -1756,9 +1793,6 @@ reuse_session(Config) when is_list(Config) ->
     ssl_test_lib:close(Client3),
     ssl_test_lib:close(Client4).
 
-session_info_result(Socket) ->                                            
-    ssl:session_info(Socket).
-
 %%--------------------------------------------------------------------
 reuse_session_expired(doc) -> 
     ["Test sessions is not reused when it has expired"];
@@ -1774,7 +1808,7 @@ reuse_session_expired(Config) when is_list(Config) ->
     Server = 
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 				   {from, self()},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 		      {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
@@ -1796,7 +1830,7 @@ reuse_session_expired(Config) when is_list(Config) ->
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 		      {port, Port}, {host, Hostname},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 		      {from, self()},  {options, ClientOpts}]),    
     receive
 	{Client1, SessionInfo} ->
@@ -1815,7 +1849,7 @@ reuse_session_expired(Config) when is_list(Config) ->
     Client2 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 		      {port, Port}, {host, Hostname},
-				   {mfa, {?MODULE, session_info_result, []}},
+				   {mfa, {ssl_test_lib, session_info_result, []}},
 				   {from, self()},  {options, ClientOpts}]),   
     receive
 	{Client2, SessionInfo} ->
@@ -1844,7 +1878,7 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     Server = 
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 				   {from, self()},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, [{reuse_session, fun(_,_,_,_) ->
 								      false
 							      end} | 
@@ -1870,7 +1904,7 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 		      {port, Port}, {host, Hostname},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 		      {from, self()},  {options, ClientOpts}]),    
     receive
 	{Client1, SessionInfo} ->
@@ -3179,7 +3213,7 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
@@ -3207,7 +3241,7 @@ no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 		      {from, self()},  {options, ClientOpts}]),
     receive
 	{Client1, SessionInfo} ->
@@ -3238,7 +3272,7 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 				   {options, NewServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
@@ -3268,7 +3302,7 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
-		      {mfa, {?MODULE, session_info_result, []}},
+		      {mfa, {ssl_test_lib, session_info_result, []}},
 				   {from, self()},  {options, ClientOpts}]),
     receive
 	{Client1, SessionInfo} ->

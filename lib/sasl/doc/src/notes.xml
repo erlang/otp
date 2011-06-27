@@ -30,6 +30,102 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.1.9.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove traces of release_handler reading from filesystem
+	    when it has Masters list</p>
+          <p>
+	    There are a couple of places in release_handler and
+	    release_handler_1 that assumed it has a disk to read
+	    from, which in the case of an erl_prim_loader Loader
+	    other than efile is not necessarily true</p>
+          <p>
+	    Add check_paths/2 to do the equivalent of check_path/1
+	    for when there is a Masters list</p>
+          <p>
+	    Change get_vsn to no longer get sent File paths but
+	    instead use the Bin since beam_lib:version being sent a
+	    file path causes it to read the local file system</p>
+          <p>
+	    Add get_current_vsn/1 as an equivalent to
+	    beam_lib:version(code:which(Mod)), but using
+	    erl_prim_loader:get_file instead of reading from local
+	    file system</p>
+          <p>
+	    (Thanks to Steven Gravell)</p>
+          <p>
+	    Own Id: OTP-9142</p>
+        </item>
+        <item>
+          <p>
+	    rb:stop did sometimes return {error,running}. This came
+	    from supervisor:delete_child and happened when the
+	    rb_server has not yet terminated when this function was
+	    called. Instead of having a separate gen_server call to
+	    rb_server for stopping the process,
+	    supervisor:terminate_child is now called. This is a
+	    synchronous function - i.e. it waits for the process to
+	    actually terminate before it returns.</p>
+          <p>
+	    A file descriptor leak in rb:scan_files is corrected. The
+	    index file was never closed after reading.</p>
+          <p>
+	    A mismatch in the behavior of rb:filter, when filter
+	    included 'no', is corrected. Such filters will now return
+	    *all* non-matching reports, not only the 'proplist'
+	    reports.</p>
+          <p>
+	    Own Id: OTP-9149</p>
+        </item>
+        <item>
+          <p>
+	    Start and end date for rb:filter/2 was specified as
+	    {{Y-M-D},...} in the help text instead of {{Y,M,D},...}.
+	    This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9166</p>
+        </item>
+        <item>
+          <p>
+	    If some, but not all, of the sasl environment variables
+	    related to the log_mf_h error handler were missing sasl
+	    would successfully start but silently skip starting
+	    log_mf_h. This is corrected so sasl startup will now fail
+	    if one or two of the three variables are given. If none
+	    of the variables are given, sasl will start as before
+	    without starting log_mf_h.</p>
+          <p>
+	    Own Id: OTP-9185</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change default behaviour to not check src code when
+	    creating release</p>
+          <p>
+	    Add new option <c>src_tests</c> to systools:make_script
+	    and systools:make_tar. The old option
+	    <c>no_module_tests</c> is now ignored as this is the
+	    default behaviour.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9146 Aux Id: seq11803 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.1.9.3</title>
 
     <section><title>Improvements and New Features</title>

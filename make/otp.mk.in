@@ -239,7 +239,9 @@ FOP = @FOP@
 
 DOCGEN=$(ERL_TOP)/lib/erl_docgen
 
+ifneq (,$(findstring $(origin SPECS_ESRC),$(DUBIOUS_ORIGINS)))
 SPECS_ESRC = ../../src
+endif
 SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
 $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl

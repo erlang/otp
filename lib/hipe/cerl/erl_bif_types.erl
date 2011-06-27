@@ -154,7 +154,7 @@ type(binary, bin_to_list, Arity, Xs) when 1 =< Arity, Arity =< 3 ->
 	 fun(_) -> t_list(t_integer()) end);
 type(binary, compile_pattern, 1, Xs) ->
   strict(arg_types(binary, compile_pattern, 1), Xs,
-	 fun(_) -> t_tuple([t_atom(bm),t_binary()]) end);
+	 fun(_) -> t_binary_compiled_pattern() end);
 type(binary, copy, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
   strict(arg_types(binary, copy, Arity), Xs,
 	 fun(_) -> t_binary() end);
@@ -702,7 +702,7 @@ type(erlang, demonitor, 1, Xs) ->
 type(erlang, demonitor, 2, Xs) ->
   strict(arg_types(erlang, demonitor, 2), Xs, fun (_) -> t_boolean() end);
 type(erlang, disconnect_node, 1, Xs) ->
-  strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_boolean() end);
+  strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_sup([t_boolean(), t_atom('ignored')]) end);
 type(erlang, display, 1, _) -> t_atom('true');
 type(erlang, display_string, 1, Xs) ->
   strict(arg_types(erlang, display_string, 1), Xs, fun(_) -> t_atom('true') end);
@@ -1124,7 +1124,7 @@ type(erlang, nodes, 0, _) -> t_list(t_node());
 type(erlang, nodes, 1, Xs) ->
   strict(arg_types(erlang, nodes, 1), Xs, fun (_) -> t_list(t_node()) end);
 type(erlang, now, 0, _) ->
-  t_time();
+  t_timestamp();
 type(erlang, open_port, 2, Xs) ->
   strict(arg_types(erlang, open_port, 2), Xs, fun (_) -> t_port() end);
 type(erlang, phash, 2, Xs) ->
@@ -1585,8 +1585,7 @@ type(erlang, system_info, 1, Xs) ->
 		   ['multi_scheduling_blockers'] ->
 		     t_list(t_pid());
 		   ['os_type'] ->
-		     t_tuple([t_sup([t_atom('ose'),	% XXX: undocumented
-				     t_atom('unix'),
+		     t_tuple([t_sup([t_atom('unix'),
 				     t_atom('vxworks'),
 				     t_atom('win32')]),
 			      t_atom()]);
@@ -2693,7 +2692,7 @@ type(os, getpid, 0, _) -> t_string();
 type(os, putenv, 2, Xs) ->
   strict(arg_types(os, putenv, 2), Xs, fun (_) -> t_atom('true') end);
 type(os, timestamp, 0, _) ->
-  t_time();
+  t_timestamp();
 %%-- re -----------------------------------------------------------------------
 type(re, compile, 1, Xs) ->
   strict(arg_types(re, compile, 1), Xs,
@@ -4458,6 +4457,9 @@ t_date() ->
 t_time() ->
   t_tuple([t_non_neg_fixnum(), t_non_neg_fixnum(), t_non_neg_fixnum()]).
 
+t_timestamp() ->
+  t_tuple([t_non_neg_fixnum(), t_non_neg_fixnum(), t_non_neg_fixnum()]).
+
 t_packet() ->
   t_sup([t_binary(), t_iolist(), t_httppacket()]).
 
@@ -4467,27 +4469,6 @@ t_httppacket() ->
 
 t_endian() ->
   t_sup(t_atom('big'), t_atom('little')).
-
-%% =====================================================================
-%% Types for the binary module
-%% =====================================================================
-
-t_binary_part() ->
-  t_tuple([t_non_neg_integer(), t_integer()]).
-
-t_binary_canonical_part() ->
-  t_tuple([t_non_neg_integer(), t_non_neg_integer()]).
-
-t_binary_pattern() ->
-  t_sup([t_binary(),
-	 t_list(t_binary()),
-	 t_binary_compiled_pattern()]).
-
-t_binary_compiled_pattern() ->
-  t_tuple([t_atom('cp'), t_binary()]).
-
-t_binary_options() ->
-  t_list(t_tuple([t_atom('scope'), t_binary_part()])).
 
 %% =====================================================================
 %% HTTP types documented in R12B-4
@@ -4544,7 +4525,28 @@ t_HttpFieldAtom() ->
 	   'Keep-Alive', 'Proxy-Connection']).
 
 t_HttpString() ->
-  t_sup(t_string(),t_binary()).
+  t_sup(t_string(), t_binary()).
+
+%% =====================================================================
+%% These are used for the built-in functions of 'binary'
+%% =====================================================================
+
+t_binary_part() ->
+  t_tuple([t_non_neg_integer(), t_integer()]).
+
+t_binary_canonical_part() ->
+  t_tuple([t_non_neg_integer(), t_non_neg_integer()]).
+
+t_binary_pattern() ->
+  t_sup([t_binary(),
+	 t_list(t_binary()),
+	 t_binary_compiled_pattern()]).
+
+t_binary_compiled_pattern() ->
+  t_tuple([t_sup(t_atom('bm'), t_atom('ac')), t_binary()]).
+
+t_binary_options() ->
+  t_list(t_tuple([t_atom('scope'), t_binary_part()])).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'code'
@@ -4564,11 +4566,6 @@ t_code_load_error_rsn() ->	% also used in erlang:load_module/2
 	 t_atom('native_code'),
 	 t_atom('on_load'),
 	 t_atom('sticky_directory')]).	% only for the 'code' functions
-
-t_code_loaded_fname_or_status() ->
-  t_sup([t_string(), % filename
-	 t_atom('preloaded'),
-	 t_atom('cover_compiled')]).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'erlang'
@@ -4734,7 +4731,6 @@ t_scheduler_bind_type_results() ->
 	 t_atom('thread_no_node_processor_spread'),
 	 t_atom('unbound')]).
 
-
 t_system_monitor_settings() ->
   t_sup([t_atom('undefined'),
 	 t_tuple([t_pid(), t_system_monitor_options()])]).
@@ -4812,13 +4808,6 @@ t_ets_info_items() ->
 	 t_atom('protection'),
 	 t_atom('size'),
 	 t_atom('type')]).
-
-%% =====================================================================
-%% These are used for the built-in functions of 'prim_file'
-%% =====================================================================
-
-t_prim_file_name() ->
-   t_sup(t_unicode_string(), t_binary()).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'gen_tcp'
@@ -5012,6 +5001,13 @@ t_re_Captured() ->
 
 t_re_CapturedData() ->
   t_sup([t_tuple([t_integer(), t_integer()]), t_string(), t_binary()]).
+
+%% =====================================================================
+%% These are used for the built-in functions of 'prim_file'
+%% =====================================================================
+
+t_prim_file_name() ->
+   t_sup(t_unicode_string(), t_binary()).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'unicode'

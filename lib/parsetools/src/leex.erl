@@ -35,7 +35,7 @@
 -export([compile/3,file/1,file/2,format_error/1]).
 
 -import(lists, [member/2,reverse/1,sort/1,delete/2,
-                keysort/2,keydelete/3,keyfind/3,
+                keysort/2,keydelete/3,
                 map/2,foldl/3,foreach/2,flatmap/2]).
 -import(string, [substr/2,substr/3,span/2]).
 -import(ordsets, [is_element/2,add_element/2,union/2]).
@@ -58,7 +58,7 @@
                gfile=[],        % Graph file
                module,          % Module name
                opts=[],         % Options
-               posix=false,     % POSIX regular expressions
+               % posix=false,   % POSIX regular expressions
                errors=[],
                warnings=[]
               }).
@@ -107,10 +107,15 @@ file(File, Opts0) ->
     St = try
              {ok,REAs,Actions,Code,St2} = parse_file(St1),
              {DFA,DF} = make_dfa(REAs, St2),
-             St3 = out_file(St2, DFA, DF, Actions, Code),
-             case lists:member(dfa_graph, St3#leex.opts) of
-                 true -> out_dfa_graph(St3, DFA, DF);
-                 false -> St3
+             case werr(St2) of
+                 false ->
+                     St3 = out_file(St2, DFA, DF, Actions, Code),
+                     case lists:member(dfa_graph, St3#leex.opts) of
+                         true -> out_dfa_graph(St3, DFA, DF);
+                         false -> St3
+                     end;
+                 true ->
+                     St2
              end
          catch #leex{}=St4 ->
              St4
@@ -131,8 +136,8 @@ format_error({regexp,E})->
                  "unterminated " ++ Cs;
              {illegal_char,Cs} ->
                  "illegal character " ++ Cs;
-             {posix_cc,What} ->
-                 ["illegal POSIX character class ",io_lib:write_string(What)];
+%%           {posix_cc,What} ->
+%%               ["illegal POSIX character class ",io_lib:write_string(What)];
              {char_class,What} ->
                  ["illegal character class ",io_lib:write_string(What)]
          end,
@@ -163,7 +168,8 @@ options(Options0) when is_list(Options0) ->
                              (T) -> [T]
                           end, Options0),
         options(Options, [scannerfile,includefile,report_errors,
-                          report_warnings,return_errors,return_warnings,
+                          report_warnings,warnings_as_errors,
+                          return_errors,return_warnings,
                           verbose,dfa_graph], [])
     catch error: _ -> badarg
     end;
@@ -217,6 +223,7 @@ default_option(dfa_graph) -> false;
 default_option(includefile) -> [];
 default_option(report_errors) -> true;
 default_option(report_warnings) -> true;
+default_option(warnings_as_errors) -> false;
 default_option(return_errors) -> false;
 default_option(return_warnings) -> false;
 default_option(scannerfile) -> [];
@@ -225,6 +232,7 @@ default_option(verbose) -> false.
 atom_option(dfa_graph) -> {dfa_graph,true};
 atom_option(report_errors) -> {report_errors,true};
 atom_option(report_warnings) -> {report_warnings,true};
+atom_option(warnings_as_errors) -> {warnings_as_errors,true};
 atom_option(return_errors) -> {return_errors,true};
 atom_option(return_warnings) -> {return_warnings,true};
 atom_option(verbose) -> {verbose,true};
@@ -251,18 +259,28 @@ leex_ret(St) ->
     report_warnings(St),
     Es = pack_errors(St#leex.errors),
     Ws = pack_warnings(St#leex.warnings),
+    Werr = werr(St),
     if 
+        Werr ->
+            do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#leex.opts) of
                 true -> {ok, St#leex.efile, Ws};
                 false -> {ok, St#leex.efile}
             end;
-        true -> 
-            case member(return_errors, St#leex.opts) of
-                true -> {error, Es, Ws};
-                false -> error
-            end
+        true ->
+            do_error_return(St, Es, Ws)
     end.
+
+do_error_return(St, Es, Ws) ->
+    case member(return_errors, St#leex.opts) of
+        true -> {error, Es, Ws};
+        false -> error
+    end.
+
+werr(St) ->
+    member(warnings_as_errors, St#leex.opts)
+        andalso length(St#leex.warnings) > 0.
 
 pack_errors([{File,_} | _] = Es) ->
     [{File, flatmap(fun({_,E}) -> [E] end, sort(Es))}];
@@ -296,6 +314,7 @@ report_warnings(St) ->
                              end, sort(St#leex.warnings))
              end, report_warnings, St#leex.opts).
 
+-spec add_error(_, #leex{}) -> no_return().
 add_error(E, St) ->
     add_error(St#leex.xfile, E, St).
 
@@ -644,14 +663,14 @@ re_repeat1([$*|Cs], Sn, S, St) -> re_repeat1(Cs, Sn, {kclosure,S}, St);
 re_repeat1([$+|Cs], Sn, S, St) -> re_repeat1(Cs, Sn, {pclosure,S}, St);
 re_repeat1([$?|Cs], Sn, S, St) -> re_repeat1(Cs, Sn, {optional,S}, St);
 %% { only starts interval when ere is true, otherwise normal character.
-re_repeat1([${|Cs0], Sn, S, #leex{posix=true}=St) ->    % $}
-    case re_interval_range(Cs0) of
-        {Min,Max,[$}|Cs1]} when is_integer(Min), is_integer(Max), Min =< Max ->
-            re_repeat1(Cs1, Sn, {interval,S,Min,Max}, St);
-        {Min,Max,[$}|Cs1]} when is_integer(Min), is_atom(Max) ->
-            re_repeat1(Cs1, Sn, {interval,S,Min,Max}, St);
-        {_,_,Cs1} -> parse_error({interval_range,string_between([${|Cs0], Cs1)})
-    end;
+%% re_repeat1([${|Cs0], Sn, S, #leex{posix=true}=St) ->    % $}
+%%     case re_interval_range(Cs0) of
+%%         {Min,Max,[$}|Cs1]} when is_integer(Min), is_integer(Max), Min =< Max ->
+%%             re_repeat1(Cs1, Sn, {interval,S,Min,Max}, St);
+%%         {Min,Max,[$}|Cs1]} when is_integer(Min), is_atom(Max) ->
+%%             re_repeat1(Cs1, Sn, {interval,S,Min,Max}, St);
+%%         {_,_,Cs1} -> parse_error({interval_range,string_between([${|Cs0], Cs1)})
+%%     end;
 re_repeat1(Cs, Sn, S, _) -> {S,Sn,Cs}.
 
 %% re_single(Chars, SubNumber, State) -> {RegExp,SubNumber,Chars}.
@@ -733,7 +752,7 @@ special_char($|, _) -> true;
 special_char($*, _) -> true;
 special_char($+, _) -> true;
 special_char($?, _) -> true;
-special_char(${, #leex{posix=true}) -> true;    % Only when POSIX set
+%% special_char(${, #leex{posix=true}) -> true;    % Only when POSIX set
 special_char($\\, _) -> true;
 special_char(_, _) -> false.
 
@@ -744,12 +763,12 @@ re_char_class([$]|Cs], St) ->                   % Must special case this.
     re_char_class(Cs, [$]], St);
 re_char_class(Cs, St) -> re_char_class(Cs, [], St).
 
-re_char_class("[:" ++ Cs0, Cc, #leex{posix=true}=St) ->
-    %% POSIX char class only.
-    case posix_cc(Cs0) of
-        {Pcl,":]" ++ Cs1} -> re_char_class(Cs1, [{posix,Pcl}|Cc], St);
-        {_,Cs1} -> parse_error({posix_cc,string_between(Cs0, Cs1)})
-    end;
+%% re_char_class("[:" ++ Cs0, Cc, #leex{posix=true}=St) ->
+%%     %% POSIX char class only.
+%%     case posix_cc(Cs0) of
+%%         {Pcl,":]" ++ Cs1} -> re_char_class(Cs1, [{posix,Pcl}|Cc], St);
+%%         {_,Cs1} -> parse_error({posix_cc,string_between(Cs0, Cs1)})
+%%     end;
 re_char_class([C1|Cs0], Cc, St) when C1 =/= $] ->
     case re_char(C1, Cs0) of
         {Cf,[$-,C2|Cs1]} when C2 =/= $] ->
@@ -766,19 +785,19 @@ re_char_class(Cs, Cc, _) -> {reverse(Cc),Cs}.   % Preserve order
 %% posix_cc(String) -> {PosixClass,RestString}.
 %%  Handle POSIX character classes.
 
-posix_cc("alnum" ++ Cs) -> {alnum,Cs};
-posix_cc("alpha" ++ Cs) -> {alpha,Cs};
-posix_cc("blank" ++ Cs) -> {blank,Cs};
-posix_cc("cntrl" ++ Cs) -> {cntrl,Cs};
-posix_cc("digit" ++ Cs) -> {digit,Cs};
-posix_cc("graph" ++ Cs) -> {graph,Cs};
-posix_cc("lower" ++ Cs) -> {lower,Cs};
-posix_cc("print" ++ Cs) -> {print,Cs};
-posix_cc("punct" ++ Cs) -> {punct,Cs};
-posix_cc("space" ++ Cs) -> {space,Cs};
-posix_cc("upper" ++ Cs) -> {upper,Cs};
-posix_cc("xdigit" ++ Cs) -> {xdigit,Cs};
-posix_cc(Cs) -> parse_error({posix_cc,substr(Cs, 1, 5)}).
+%% posix_cc("alnum" ++ Cs) -> {alnum,Cs};
+%% posix_cc("alpha" ++ Cs) -> {alpha,Cs};
+%% posix_cc("blank" ++ Cs) -> {blank,Cs};
+%% posix_cc("cntrl" ++ Cs) -> {cntrl,Cs};
+%% posix_cc("digit" ++ Cs) -> {digit,Cs};
+%% posix_cc("graph" ++ Cs) -> {graph,Cs};
+%% posix_cc("lower" ++ Cs) -> {lower,Cs};
+%% posix_cc("print" ++ Cs) -> {print,Cs};
+%% posix_cc("punct" ++ Cs) -> {punct,Cs};
+%% posix_cc("space" ++ Cs) -> {space,Cs};
+%% posix_cc("upper" ++ Cs) -> {upper,Cs};
+%% posix_cc("xdigit" ++ Cs) -> {xdigit,Cs};
+%% posix_cc(Cs) -> parse_error({posix_cc,substr(Cs, 1, 5)}).
 
 escape_char($n) -> $\n;                         % \n = LF
 escape_char($r) -> $\r;                         % \r = CR
@@ -797,24 +816,24 @@ escape_char(C) -> C.                            % Pass it straight through
 %% Int,      -> Int,any
 %% Int1,Int2 -> Int1,Int2
 
-re_interval_range(Cs0) ->
-    case re_number(Cs0) of
-        {none,Cs1} -> {none,none,Cs1};
-        {N,[$,|Cs1]} ->
-            case re_number(Cs1) of
-                {none,Cs2} -> {N,any,Cs2};
-                {M,Cs2} -> {N,M,Cs2}
-            end;
-        {N,Cs1} -> {N,none,Cs1}
-    end.
+%% re_interval_range(Cs0) ->
+%%     case re_number(Cs0) of
+%%         {none,Cs1} -> {none,none,Cs1};
+%%         {N,[$,|Cs1]} ->
+%%             case re_number(Cs1) of
+%%                 {none,Cs2} -> {N,any,Cs2};
+%%                 {M,Cs2} -> {N,M,Cs2}
+%%             end;
+%%         {N,Cs1} -> {N,none,Cs1}
+%%     end.
 
-re_number([C|Cs]) when C >= $0, C =< $9 ->
-    re_number(Cs, C - $0);
-re_number(Cs) -> {none,Cs}.
+%% re_number([C|Cs]) when C >= $0, C =< $9 ->
+%%     re_number(Cs, C - $0);
+%% re_number(Cs) -> {none,Cs}.
 
-re_number([C|Cs], Acc) when C >= $0, C =< $9 ->
-    re_number(Cs, 10*Acc + (C - $0));
-re_number(Cs, Acc) -> {Acc,Cs}.
+%% re_number([C|Cs], Acc) when C >= $0, C =< $9 ->
+%%     re_number(Cs, 10*Acc + (C - $0));
+%% re_number(Cs, Acc) -> {Acc,Cs}.
 
 string_between(Cs1, Cs2) ->
     substr(Cs1, 1, length(Cs1)-length(Cs2)).

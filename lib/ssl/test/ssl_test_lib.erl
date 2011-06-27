@@ -670,3 +670,6 @@ cipher_result(Socket, Result) ->
 	Other ->
 	    {unexpected, Other}
     end.
+
+session_info_result(Socket) ->
+    ssl:session_info(Socket).

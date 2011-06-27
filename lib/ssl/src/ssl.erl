@@ -415,7 +415,7 @@ getopts(#sslsocket{} = Socket, Options) ->
     ssl_broker:getopts(Socket, Options).
 
 %%--------------------------------------------------------------------
--spec setopts(#sslsocket{},  [proplist:property()]) -> ok | {error, reason()}.
+-spec setopts(#sslsocket{},  [proplists:property()]) -> ok | {error, reason()}.
 %% 
 %% Description: Sets options
 %%--------------------------------------------------------------------

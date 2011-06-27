@@ -36,6 +36,22 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The popup window 'contents viewer' did not display
+	    properly on Windows.</p>
+          <p>
+	    Own Id: OTP-9238</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

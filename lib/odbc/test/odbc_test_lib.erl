@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,18 +38,7 @@ match_float(Float, Match, Delta) ->
 odbc_check() ->
     case erlang:system_info(wordsize) of
 	4 ->
-	    case test_server:os_type() of
-		{unix, sunos} ->
-		    ok;
-		{unix, linux} ->
-		    ok;
-		{win32, _} ->
-		    ok;
-		Other ->
-		    lists:flatten(
-		      io_lib:format("Platform not supported: ~w",
-				    [Other]))
-	    end;
+	    ok;
 	Other ->
 	    case os:type() of
 		{unix, linux} ->
@@ -75,3 +64,16 @@ check_row_count(Expected, Count) ->
 
 to_upper(List) ->
     lists:map(fun(Str) -> string:to_upper(Str) end, List).
+
+strict(Ref, mysql) ->
+    odbc:sql_query(Ref, "SET sql_mode='STRICT_ALL_TABLES,STRICT_TRANS_TABLES';");
+strict(_,_) ->
+    ok.
+
+platform_options() ->
+    case os:type() of
+	{unix, sunos} ->
+	    [{scrollable_cursors, off}];
+	_ ->
+	    []
+    end.

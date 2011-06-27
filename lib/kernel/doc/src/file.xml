@@ -95,9 +95,6 @@
 
   <datatypes>
     <datatype>
-      <name name="bindings"/>
-    </datatype>
-    <datatype>
       <name name="deep_list"/>
     </datatype>
     <datatype>
@@ -134,12 +131,6 @@
         <p>An atom which is named from the POSIX error codes used in
           Unix, and in the runtime libraries of most C compilers.</p>
       </desc>
-    </datatype>
-    <datatype>
-      <name name="date"/>
-    </datatype>
-    <datatype>
-      <name name="time"/>
     </datatype>
     <datatype>
       <name name="date_time"/>
@@ -1220,15 +1211,15 @@ f.txt:  {person, "kalle", 25}.
           <item>
             <p>The current system access to the file.</p>
           </item>
-          <tag><c>atime = time()</c></tag>
+          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso></c></tag>
           <item>
             <p>The last (local) time the file was read.</p>
           </item>
-          <tag><c>mtime = time()</c></tag>
+          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso></c></tag>
           <item>
             <p>The last (local) time the file was written.</p>
           </item>
-          <tag><c>ctime = time()</c></tag>
+          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso></c></tag>
           <item>
             <p>The interpretation of this time field depends on
               the operating system. On Unix, it is the last time
@@ -1669,15 +1660,15 @@ f.txt:  {person, "kalle", 25}.
         <p>The following fields are used from the record, if they are
           given.</p>
         <taglist>
-          <tag><c>atime = time()</c></tag>
+          <tag><c>atime = <seealso marker="#type-date_time">date_time()</seealso></c></tag>
           <item>
             <p>The last (local) time the file was read.</p>
           </item>
-          <tag><c>mtime = time()</c></tag>
+          <tag><c>mtime = <seealso marker="#type-date_time">date_time()</seealso></c></tag>
           <item>
             <p>The last (local) time the file was written.</p>
           </item>
-          <tag><c>ctime = time()</c></tag>
+          <tag><c>ctime = <seealso marker="#type-date_time">date_time()</seealso></c></tag>
           <item>
             <p>On Unix, any value give for this field will be ignored
               (the "ctime" for the file will be set to the current

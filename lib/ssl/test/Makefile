@@ -61,8 +61,10 @@ HRL_FILES = ssl_test_MACHINE.hrl
 
 HRL_FILES_SRC = \
 	ssl_int.hrl \
+	ssl_internal.hrl\
 	ssl_alert.hrl \
-	ssl_handshake.hrl
+	ssl_handshake.hrl \
+	ssl_record.hrl
 
 HRL_FILES_INC = 
 

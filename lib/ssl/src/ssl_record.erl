@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,6 +61,8 @@
 -export([compressions/0]).
 
 -compile(inline).
+
+-define(INITIAL_BYTES, 5).
 
 %%====================================================================
 %% Internal application API
@@ -360,16 +362,20 @@ get_tls_records_aux(<<1:1, Length0:15, Data0:Length0/binary, Rest/binary>>,
 
 get_tls_records_aux(<<0:1, _CT:7, ?BYTE(_MajVer), ?BYTE(_MinVer),
                      ?UINT16(Length), _/binary>>,
-                    _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH->
+                    _Acc) when Length > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
 get_tls_records_aux(<<1:1, Length0:15, _/binary>>,_Acc) 
-  when Length0 > ?MAX_CIPHER_TEXT_LENGTH->
+  when Length0 > ?MAX_CIPHER_TEXT_LENGTH ->
     ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW);
 
 get_tls_records_aux(Data, Acc) ->
-    {lists:reverse(Acc), Data}.
-
+    case size(Data) =< ?MAX_CIPHER_TEXT_LENGTH + ?INITIAL_BYTES of
+	true ->
+	    {lists:reverse(Acc), Data};
+	false ->
+	    ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
+	end.
 %%--------------------------------------------------------------------
 -spec protocol_version(tls_atom_version() | tls_version()) -> 
 			      tls_version() | tls_atom_version().		      

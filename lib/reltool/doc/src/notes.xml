@@ -37,7 +37,33 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.5.5</title>
+  <section><title>Reltool 0.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The system level option <c>app_files</c> is documented to
+	    allow the values <c>keep | strip | all</c>, but it only
+	    allowed <c>keep</c>. This is corrected.</p>
+          <p>
+	    Own Id: OTP-9135</p>
+        </item>
+        <item>
+          <p>
+	    Allow the same module name in multiple applications
+	    visible to reltool, as long as all but one of the
+	    applications/modules are explicitely excluded. (Thanks to
+	    Andrew Gopienko and Jay Nelson)</p>
+          <p>
+	    Own Id: OTP-9229</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

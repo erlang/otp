@@ -31,6 +31,22 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.98.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed wx app files on mac and solaris. Thanks Jachym
+	    Holecek and Joe Williams.</p>
+          <p>
+	    Own Id: OTP-9324</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.98.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

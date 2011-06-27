@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -63,7 +63,7 @@
 
 -include("file.hrl").
 
--define(DRV,    efile).
+-define(DRV,    "efile").
 -define(FD_DRV, "efile").
 
 -define(LARGEFILESIZE, (1 bsl 63)).
@@ -549,7 +549,7 @@ write_file(_, _) ->
 %% Returns {ok, Port}, the Port should be used as first argument in all
 %% the following functions. Returns {error, Reason} upon failure.
 start() ->
-    try erlang:open_port({spawn, atom_to_list(?DRV)}, [binary]) of
+    try erlang:open_port({spawn, ?DRV}, [binary]) of
 	Port ->
 	    {ok, Port}
     catch

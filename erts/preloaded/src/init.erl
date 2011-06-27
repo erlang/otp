@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,10 +28,10 @@
 %%                       : $Var in the boot script is expanded to
 %%                         Value.
 %%        -loader LoaderMethod
-%%                       : efile, inet, ose_inet
+%%                       : efile, inet
 %%                         (Optional - default efile)
 %%        -hosts [Node]  : List of hosts from which we can boot.
-%%                         (Mandatory if -loader inet or ose_inet)
+%%                         (Mandatory if -loader inet)
 %%        -mode embedded : Load all modules at startup, no automatic loading
 %%        -mode interactive : Auto load modules (default system behaviour).
 %%        -path          : Override path in bootfile.
@@ -79,19 +79,24 @@
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
 
--spec get_arguments() -> [{atom(), [string()]}].
+-spec get_arguments() -> Flags when
+      Flags :: [{Flag :: atom(), Values :: [string()]}].
 get_arguments() ->
     request(get_arguments).
 
--spec get_plain_arguments() -> [string()].
+-spec get_plain_arguments() -> [Arg] when
+      Arg :: string().
 get_plain_arguments() ->
     bs2ss(request(get_plain_arguments)).
 
--spec get_argument(atom()) -> 'error' | {'ok', [[string()]]}.
+-spec get_argument(Flag) -> {'ok', Arg} | 'error' when
+      Flag :: atom(),
+      Arg :: [Values :: [string()]].
 get_argument(Arg) ->
     request({get_argument, Arg}).
 
--spec script_id() -> term().
+-spec script_id() -> Id when
+      Id :: term().
 script_id() ->
     request(script_id).
 
@@ -105,7 +110,9 @@ bs2ss(L0) when is_list(L0) ->
 bs2ss(L) ->
     L.
 
--spec get_status() -> {internal_status(), term()}.
+-spec get_status() -> {InternalStatus, ProvidedStatus} when
+      InternalStatus :: internal_status(),
+      ProvidedStatus :: term().
 get_status() ->
     request(get_status).
 
@@ -150,10 +157,12 @@ reboot() -> init ! {stop,reboot}, ok.
 -spec stop() -> 'ok'.
 stop() -> init ! {stop,stop}, ok.
 
--spec stop(non_neg_integer() | string()) -> 'ok'.
+-spec stop(Status) -> 'ok' when
+      Status :: non_neg_integer() | string().
 stop(Status) -> init ! {stop,{stop,Status}}, ok.
 
--spec boot([binary()]) -> no_return().
+-spec boot(BootArgs) -> no_return() when
+      BootArgs :: [binary()].
 boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
@@ -1024,7 +1033,7 @@ start_it({eval,Bin}) ->
 	      TsR -> reverse([{dot,1} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
-    erl_eval:exprs(Expr, []),
+    erl_eval:exprs(Expr, erl_eval:new_bindings()),
     ok;
 start_it([_|_]=MFA) ->
     Ref = make_ref(),

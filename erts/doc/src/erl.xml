@@ -1010,7 +1010,7 @@
           list of IP addresses, in which case the
           <seealso marker="epmd">epmd</seealso> daemon
           will listen only on the specified address(es) and on the
-          loopback address (which is implicitely added to the list if it
+          loopback address (which is implicitly added to the list if it
           has not been specified).</p>
       </item>
       <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>

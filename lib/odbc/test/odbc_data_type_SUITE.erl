@@ -44,24 +44,29 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     case odbc_test_lib:odbc_check() of
 	ok ->
-	    [{group, char}, {group, int}, {group, floats},
+	    [{group, char},{group, fixed_char}, {group, binary_char},
+	     {group, fixed_binary_char},
+	     {group, int}, {group, floats},
 	     {group, dec_and_num}, timestamp];
 	Other -> {skip, Other}
     end.
 
 groups() -> 
     [{char, [],
-      [char_fixed_lower_limit, char_fixed_upper_limit,
-       char_fixed_padding, varchar_lower_limit,
+      [varchar_lower_limit,
        varchar_upper_limit, varchar_no_padding,
        text_lower_limit, text_upper_limit, unicode]},
+     {fixed_char, [],
+      [char_fixed_lower_limit, char_fixed_upper_limit,
+       char_fixed_padding]},
      {binary_char, [],
-      [binary_char_fixed_lower_limit,
-       binary_char_fixed_upper_limit,
-       binary_char_fixed_padding, binary_varchar_lower_limit,
+      [binary_varchar_lower_limit,
        binary_varchar_upper_limit, binary_varchar_no_padding,
        binary_text_lower_limit, binary_text_upper_limit,
        unicode]},
+     {fixed_binary_char, [], [binary_char_fixed_lower_limit,
+			      binary_char_fixed_upper_limit,
+			      binary_char_fixed_padding]},
      {int, [],
       [tiny_int_lower_limit, tiny_int_upper_limit,
        small_int_lower_limit, small_int_upper_limit,
@@ -73,6 +78,15 @@ groups() ->
      {dec_and_num, [],
       [dec_long, dec_double, dec_bignum, num_long, num_double,
        num_bignum]}].
+
+init_per_group(GroupName, Config) when GroupName == fixed_char;
+				       GroupName == fixed_binary_char ->
+    case ?RDBMS of
+	mysql ->
+	    {skip, "No supported by MYSQL"};
+	_ ->
+	    Config
+    end;
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -92,8 +106,12 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    application:start(odbc),
-    [{tableName, odbc_test_lib:unique_table_name()} | Config].
+    case (catch odbc:start()) of
+	ok ->
+	    [{tableName, odbc_test_lib:unique_table_name()} | Config];
+	_ ->
+	    {skip, "ODBC not startable"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -117,21 +135,68 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(Case, Config) when Case == varchar_upper_limit;
+				     Case == binary_varchar_upper_limit;
+				     Case == varchar_no_padding;
+				     Case == binary_varchar_no_padding ->
+    case is_fixed_upper_limit(?RDBMS) of
+	true ->
+	    common_init_per_testcase(Case, Config);
+	false ->
+	    {skip, "Upper limit is not fixed in" ++ atom_to_list(?RDBMS)}
+    end;
+
+init_per_testcase(text_upper_limit, _Config) ->
+    {skip, "Consumes too much resources"};
+
+init_per_testcase(Case, Config) when Case == bit_true; Case == bit_false ->
+    case is_supported_bit(?RDBMS) of
+	true ->
+	    common_init_per_testcase(Case, Config);
+	false ->
+	    {skip, "Not supported by driver"}
+    end;
+
+init_per_testcase(param_insert_tiny_int = Case, Config) ->
+    case is_supported_tinyint(?RDBMS) of
+	true ->
+	    common_init_per_testcase(Case, Config);
+	false ->
+	    {skip, "Not supported by driver"}
+    end;
 init_per_testcase(Case, Config) ->
+    common_init_per_testcase(Case, Config).
+
+common_init_per_testcase(Case, Config) ->
+    PlatformOptions = odbc_test_lib:platform_options(),
     case atom_to_list(Case) of
 	"binary" ++ _  ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
-				     [{binary_strings, on}]);
+				     [{binary_strings, on}] ++ PlatformOptions);
 	"unicode" ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
-				     [{binary_strings, on}]);
+				     [{binary_strings, on}] ++ PlatformOptions);
 	_ ->
-	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), [])
+	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), PlatformOptions)
     end,
+    odbc_test_lib:strict(Ref, ?RDBMS),
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
     NewConfig = lists:keydelete(watchdog, 1, Temp),
     [{watchdog, Dog}, {connection_ref, Ref} | NewConfig].
+
+is_fixed_upper_limit(mysql) ->
+    false;
+is_fixed_upper_limit(_) ->
+    true.
+is_supported_tinyint(sqlserver) ->
+    true;
+is_supported_tinyint(_) ->
+    false.
+is_supported_bit(sqlserver) ->
+    true;
+is_supported_bit(_) ->
+     false.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
@@ -146,7 +211,7 @@ end_per_testcase(_TestCase, Config) ->
     ok = odbc:disconnect(Ref),
     %% Clean up if needed 
     Table = ?config(tableName, Config),
-    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), []),
+    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
     odbc:disconnect(NewRef),
     Dog = ?config(watchdog, Config),
@@ -169,18 +234,18 @@ char_fixed_lower_limit(Config) when is_list(Config) ->
     {error, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++    
-		       ?RDBMS:create_fixed_char_table(
+			   ?RDBMS:create_fixed_char_table(
 			  (?RDBMS:fixed_char_min() - 1))), 
     %% Lower limit
     {updated, _} =  % Value == 0 || -1 driver dependent!
 	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_fixed_char_table(
-			  ?RDBMS:fixed_char_min())), 
+			   ?RDBMS:create_fixed_char_table(
+			      ?RDBMS:fixed_char_min())),
 
     %% Right length data
     {updated, _} =  
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++
-		       "'" ++ string:chars($a, ?RDBMS:fixed_char_min())
+			   "'" ++ string:chars($a, ?RDBMS:fixed_char_min())
 		       ++ "')"),
     %% Select data
     {selected, Fields,[{"a"}]} =
@@ -191,11 +256,11 @@ char_fixed_lower_limit(Config) when is_list(Config) ->
     %% Too long data
     {error, _}  =  
 	odbc:sql_query(Ref,"INSERT INTO " ++ Table ++" VALUES(" ++
-		       "'" ++ string:chars($a, 
-					   (?RDBMS:fixed_char_min()
-					    + 1)) 
-		       ++ "')"),		
-    ok.
+			   "'" ++ string:chars($a,
+					       (?RDBMS:fixed_char_min()
+						+ 1))
+		       ++ "')").
+
 %%-------------------------------------------------------------------------
 
 char_fixed_upper_limit(doc) ->
@@ -243,8 +308,7 @@ char_fixed_upper_limit(Config) when is_list(Config) ->
 	    {error, _} =
 		odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++  
 			       ?RDBMS:create_fixed_char_table(
-				  (?RDBMS:fixed_char_max() + 1))), 
-	    ok
+				  (?RDBMS:fixed_char_max() + 1)))
     end.
 
 %%-------------------------------------------------------------------------
@@ -261,20 +325,20 @@ char_fixed_padding(Config) when is_list(Config) ->
     %% Data should be padded with blanks
     {updated, _} =  % Value == 0 || -1 driver dependent!
 	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_fixed_char_table(
-			  ?RDBMS:fixed_char_max())), 
+			   ?RDBMS:create_fixed_char_table(
+			      ?RDBMS:fixed_char_max())),
 
-    {updated, _} =  
+    {updated, _} =
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       "'" ++ string:chars($a, 
-					   ?RDBMS:fixed_char_min())
+			   "'" ++ string:chars($a,
+					       ?RDBMS:fixed_char_min())
 		       ++ "')"),
 
     {selected, Fields, [{CharStr}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     true = length(CharStr) == ?RDBMS:fixed_char_max(),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+	    ["FIELD"] = odbc_test_lib:to_upper(Fields).
+
 %%-------------------------------------------------------------------------
 
 varchar_lower_limit(doc) ->
@@ -287,33 +351,33 @@ varchar_lower_limit(Config) when is_list(Config) ->
 
     %% Below limit
     {error, _} = 
-	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_var_char_table(
-			  ?RDBMS:var_char_min() - 1)), 
+	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++
+			   ?RDBMS:create_var_char_table(
+			      ?RDBMS:var_char_min() - 1)),
     %% Lower limit
     {updated, _} =  % Value == 0 || -1 driver dependent!
 	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_var_char_table(
-			  ?RDBMS:var_char_min())), 
+				   ?RDBMS:create_var_char_table(
+				      ?RDBMS:var_char_min())),
+
+    Str = string:chars($a, ?RDBMS:var_char_min()),
 
     %% Right length data
     {updated, _} =  
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       "'" ++ string:chars($a, ?RDBMS:var_char_min())
-		       ++ "')"),
+			   "'" ++ Str ++ "')"),
     %% Select data
-    {selected, Fields, [{"a"}]} =
+    {selected, Fields, [{Str}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     
     ["FIELD"] = odbc_test_lib:to_upper(Fields),
 
-    %% Too long data
-    {error, _} =  
-	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       "'" ++ string:chars($a, 
-					   (?RDBMS:var_char_min()+1)) 
-		       ++ "')"),		
-    ok.
+    %% Too long datae
+    {error, _} =
+		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++
+				   "'" ++ string:chars($a,
+						       (?RDBMS:var_char_min()+1))
+			       ++ "')").
 
 %%-------------------------------------------------------------------------
 
@@ -389,8 +453,7 @@ varchar_no_padding(Config) when is_list(Config) ->
     {selected, Fields, [{CharStr}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     true = length(CharStr) /= ?RDBMS:var_char_max(),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
 
 %%-------------------------------------------------------------------------
 
@@ -413,8 +476,7 @@ text_lower_limit(Config) when is_list(Config) ->
 
     {selected, Fields, [{"a"}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
 
 %%-------------------------------------------------------------------------
 
@@ -444,8 +506,7 @@ text_upper_limit(Config) when is_list(Config) ->
 %%     {error, _} =  
 %% 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 %% 		       "'" ++ string:chars($a, (?RDBMS:text_max()+1)) 
-%% 		       ++ "')"),		
-%%     ok.
+%% 		       ++ "')").
 
 %%-------------------------------------------------------------------------
 
@@ -469,13 +530,18 @@ binary_char_fixed_lower_limit(Config) when is_list(Config) ->
 		       ?RDBMS:create_fixed_char_table(
 			  ?RDBMS:fixed_char_min())), 
 
+    Str = string:chars($a, ?RDBMS:fixed_char_min()),
+
     %% Right length data
     {updated, _} =  
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++
-		       "'" ++ string:chars($a, ?RDBMS:fixed_char_min())
+		       "'" ++ Str
 		       ++ "')"),
+
+    Bin = list_to_binary(Str),
+
     %% Select data
-    {selected, Fields,[{<<"a">>}]} =
+    {selected, Fields,[{Bin}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
 
     ["FIELD"] = odbc_test_lib:to_upper(Fields),
@@ -486,8 +552,7 @@ binary_char_fixed_lower_limit(Config) when is_list(Config) ->
 		       "'" ++ string:chars($a, 
 					   (?RDBMS:fixed_char_min()
 					    + 1)) 
-		       ++ "')"),		
-    ok.
+		       ++ "')").
 %%-------------------------------------------------------------------------
 
 binary_char_fixed_upper_limit(doc) ->
@@ -565,8 +630,8 @@ binary_char_fixed_padding(Config) when is_list(Config) ->
     {selected, Fields, [{CharBin}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     true = size(CharBin) == ?RDBMS:fixed_char_max(),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
+
 %%-------------------------------------------------------------------------
 
 binary_varchar_lower_limit(doc) ->
@@ -588,13 +653,17 @@ binary_varchar_lower_limit(Config) when is_list(Config) ->
 		       ?RDBMS:create_var_char_table(
 			  ?RDBMS:var_char_min())), 
 
+    Str = string:chars($a, ?RDBMS:var_char_min()),
+
     %% Right length data
     {updated, _} =  
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       "'" ++ string:chars($a, ?RDBMS:var_char_min())
+		       "'" ++ Str
 		       ++ "')"),
+    BinStr = list_to_binary(Str),
+
     %% Select data
-    {selected, Fields, [{<<"a">>}]} =
+    {selected, Fields, [{BinStr}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     
     ["FIELD"] = odbc_test_lib:to_upper(Fields),
@@ -604,8 +673,7 @@ binary_varchar_lower_limit(Config) when is_list(Config) ->
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 		       "'" ++ string:chars($a, 
 					   (?RDBMS:var_char_min()+1)) 
-		       ++ "')"),		
-    ok.
+		       ++ "')").
 
 %%-------------------------------------------------------------------------
 
@@ -654,8 +722,7 @@ binary_varchar_upper_limit(Config) when is_list(Config) ->
 	    {error, _} =
 		odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
 			       ?RDBMS:create_var_char_table(
-				  (?RDBMS:var_char_max() + 1))),
-	    ok
+				  (?RDBMS:var_char_max() + 1)))
     end.
 %%-------------------------------------------------------------------------
 
@@ -681,8 +748,7 @@ binary_varchar_no_padding(Config) when is_list(Config) ->
     {selected, Fields, [{CharBin}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
     true = size(CharBin) /= ?RDBMS:var_char_max(),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
 
 %%-------------------------------------------------------------------------
 
@@ -705,8 +771,7 @@ binary_text_lower_limit(Config) when is_list(Config) ->
 
     {selected, Fields, [{<<"a">>}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
 
 %%-------------------------------------------------------------------------
 
@@ -736,11 +801,7 @@ binary_text_upper_limit(Config) when is_list(Config) ->
 %%     {error, _} =  
 %% 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 %% 		       "'" ++ string:chars($a, (?RDBMS:text_max()+1)) 
-%% 		       ++ "')"),		
-%%     ok.
-
-
-%%-------------------------------------------------------------------------
+%% 		       ++ "')").
 
 
 %%-------------------------------------------------------------------------
@@ -774,8 +835,7 @@ tiny_int_lower_limit(Config) when is_list(Config) ->
 		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 			       "'" ++ integer_to_list(?RDBMS:tiny_int_min() 
 						      - 1)
-			       ++ "')"),
-	    ok
+			       ++ "')")
     end.
 
 %%-------------------------------------------------------------------------
@@ -809,8 +869,7 @@ tiny_int_upper_limit(Config) when is_list(Config) ->
 		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 			       "'" ++ integer_to_list(?RDBMS:tiny_int_max()
 						      + 1)
-			       ++ "')"),
-	    ok
+			       ++ "')")
     end.
 
 %%-------------------------------------------------------------------------
@@ -840,8 +899,7 @@ small_int_lower_limit(Config) when is_list(Config) ->
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 		       "'"  ++ integer_to_list(?RDBMS:small_int_min()
 					       - 1)
-		       ++ "')"),
-    ok.
+		       ++ "')").
 
 %%-------------------------------------------------------------------------
 
@@ -870,8 +928,7 @@ small_int_upper_limit(Config) when is_list(Config) ->
 	odbc:sql_query(Ref,"INSERT INTO " ++ Table ++" VALUES(" ++  
 		       "'" ++ integer_to_list(?RDBMS:small_int_max() 
 					      + 1)
-		       ++ "')"),
-    ok.
+		       ++ "')").
 
 %%-------------------------------------------------------------------------
 int_lower_limit(doc) ->
@@ -898,8 +955,7 @@ int_lower_limit(Config) when is_list(Config) ->
     {error, _} =  
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 		       "'" ++ integer_to_list(?RDBMS:int_min() - 1)
-		       ++ "')"),
-    ok.
+		       ++ "')").
 
 %%-------------------------------------------------------------------------
 
@@ -927,8 +983,7 @@ int_upper_limit(Config) when is_list(Config) ->
     {error, _} =  
 	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 		       "'" ++ integer_to_list(?RDBMS:int_max() + 1)
-		       ++ "')"),    
-    ok.
+		       ++ "')").
 
 
 %%-------------------------------------------------------------------------
@@ -957,8 +1012,7 @@ big_int_lower_limit(Config) when is_list(Config) ->
  	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 		       "'" ++ integer_to_list(?RDBMS:big_int_min() 
 					      - 1)
-		       ++ "')"),
-    ok.
+		       ++ "')").
 
 %%-------------------------------------------------------------------------
 
@@ -987,8 +1041,7 @@ big_int_upper_limit(Config) when is_list(Config) ->
  	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 		       "'" ++ integer_to_list(?RDBMS:big_int_max() 
 					      + 1)
-		       ++ "')"),
-    ok.
+		       ++ "')").
 %%-------------------------------------------------------------------------
 
 bit_false(doc) ->
@@ -1020,8 +1073,7 @@ bit_false(Config) when is_list(Config) ->
 	    {error, _} =  
 		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 			       "'" ++ integer_to_list(-1)
-			       ++ "')"),
-	    ok
+			       ++ "')")
     end.
 
 %%-------------------------------------------------------------------------
@@ -1056,12 +1108,8 @@ bit_true(Config) when is_list(Config) ->
 	    {error, _} =  
 		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
 			       "'" ++ integer_to_list(-1)
-			       ++ "')"),
-	    ok
+			       ++ "')")
     end.
-
-%%-------------------------------------------------------------------------
-
 
 %%-------------------------------------------------------------------------
 float_lower_limit(doc) ->
@@ -1073,44 +1121,45 @@ float_lower_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
 
-    {updated, _} =  % Value == 0 || -1 driver dependent!
-	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_float_table()), 
-
-    {updated, _} =  
-	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       "'" ++ float_to_list(
-				?RDBMS:float_min())
-		       ++ "')"),
-    {selected,[_ColName],[{MinFloat}]} = 
-	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-
-    true = ?RDBMS:float_min() == MinFloat,
-
     case ?RDBMS of
-	oracle ->
-	    {updated, _} =  % Value == 0 || -1 driver dependent!
-		odbc:sql_query(Ref, "DROP TABLE " ++ Table), 
-
+	mysql ->
+	    {skip, "Not clearly defined in MYSQL"};
+	_ ->
 	    {updated, _} =  % Value == 0 || -1 driver dependent!
 		odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-			       ?RDBMS:create_float_table()), 
+				   ?RDBMS:create_float_table()),
 
 	    {updated, _} =  
-		odbc:sql_query(Ref, 
-			       "INSERT INTO " ++ Table ++" VALUES(" ++ 
-			       ?RDBMS:float_underflow() ++ ")"),
-
-	    SelectResult = ?RDBMS:float_zero_selected(),
-	    SelectResult =
-		odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table);
-	_ ->
-	    {error, _} =  
 		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-			       ?RDBMS:float_underflow() ++ ")")
-    end,
-    ok.
+				   "'" ++ float_to_list(
+					    ?RDBMS:float_min())
+			       ++ "')"),
+	    {selected,[_ColName],[{MinFloat}]} =
+		odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
 
+	    true = ?RDBMS:float_min() == MinFloat,
+
+	    case ?RDBMS of
+		oracle ->
+		    {updated, _} =  % Value == 0 || -1 driver dependent!
+			odbc:sql_query(Ref, "DROP TABLE " ++ Table),
+
+		    {updated, _} =  % Value == 0 || -1 driver dependent!
+			odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++
+					   ?RDBMS:create_float_table()),
+		    {updated, _} =
+			odbc:sql_query(Ref,
+				       "INSERT INTO " ++ Table ++" VALUES(" ++
+				       ?RDBMS:float_underflow() ++ ")"),
+		    SelectResult = ?RDBMS:float_zero_selected(),
+		    SelectResult =
+			odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table);
+		_ ->
+		    {error, _} =
+			odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++
+					   ?RDBMS:float_underflow() ++ ")")
+	    end
+    end.
 
 %%-------------------------------------------------------------------------
 float_upper_limit(doc) ->
@@ -1121,26 +1170,28 @@ float_upper_limit(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
 
-    {updated, _} =  % Value == 0 || -1 driver dependent!
-	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_float_table()), 
+    case ?RDBMS of
+	mysql ->
+	    {skip, "Not clearly defined in MYSQL"};
+	_->
+	    {updated, _} =  % Value == 0 || -1 driver dependent!
+		odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++
+				   ?RDBMS:create_float_table()),
 
-    {updated, _} =  
-	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       "'" ++ float_to_list(
-				?RDBMS:float_max())
-		       ++ "')"),
+	    {updated, _} =
+		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++
+				   "'" ++ float_to_list(
+					    ?RDBMS:float_max())
+			       ++ "')"),
+	    {selected,[_ColName],[{MaxFloat}]}
+		= odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
 
+	    true = ?RDBMS:float_max() == MaxFloat,
 
-    {selected,[_ColName],[{MaxFloat}]}
-	= odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-
-    true = ?RDBMS:float_max() == MaxFloat,
-
-    {error, _} =  
-	odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++ 
-		       ?RDBMS:float_overflow() ++ ")"),
-    ok.
+	    {error, _} =
+		odbc:sql_query(Ref, "INSERT INTO " ++ Table ++" VALUES(" ++
+				   ?RDBMS:float_overflow() ++ ")")
+    end.
 
 %%-------------------------------------------------------------------------
 float_zero(doc) ->
@@ -1160,8 +1211,7 @@ float_zero(Config) when is_list(Config) ->
 
     SelectResult = ?RDBMS:float_zero_selected(),
     SelectResult =
-	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ok.
+	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table).
 %%-------------------------------------------------------------------------
 real_zero(doc) ->
     ["Test the real value zero."];
@@ -1185,10 +1235,8 @@ real_zero(Config) when is_list(Config) ->
 
 	    SelectResult = ?RDBMS:real_zero_selected(),
 	    SelectResult =
-		odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-	    ok
+		odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table)
     end.
-%%-------------------------------------------------------------------------
 %%------------------------------------------------------------------------
 dec_long(doc) ->
     [""];
@@ -1207,8 +1255,7 @@ dec_long(Config) when is_list(Config) ->
 
     {selected, Fields, [{2}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
 %%------------------------------------------------------------------------
 dec_double(doc) ->
     [""];
@@ -1255,8 +1302,7 @@ dec_double(Config) when is_list(Config) ->
 
     {selected, Fields2, [{1.60000}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields2),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields2).
 
 %%------------------------------------------------------------------------
 dec_bignum(doc) ->
@@ -1289,8 +1335,7 @@ dec_bignum(Config) when is_list(Config) ->
 
     {selected, Fields1, [{"1.6"}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields1),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields1).
 %%------------------------------------------------------------------------
 num_long(doc) ->
     [""];
@@ -1309,8 +1354,7 @@ num_long(Config) when is_list(Config) ->
 
     {selected, Fields, [{2}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields).
 %%------------------------------------------------------------------------
 num_double(doc) ->
     [""];
@@ -1356,8 +1400,7 @@ num_double(Config) when is_list(Config) ->
 
     {selected, Fields2, [{1.6000}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-     ["FIELD"] = odbc_test_lib:to_upper(Fields2),
-    ok.
+     ["FIELD"] = odbc_test_lib:to_upper(Fields2).
 %%------------------------------------------------------------------------
 num_bignum(doc) ->
     [""];
@@ -1389,8 +1432,7 @@ num_bignum(Config) when is_list(Config) ->
 
     {selected, Fields1, [{"1.6"}]} =
 	odbc:sql_query(Ref,"SELECT FIELD FROM " ++ Table),
-    ["FIELD"] = odbc_test_lib:to_upper(Fields1),
-    ok.
+    ["FIELD"] = odbc_test_lib:to_upper(Fields1).
 
 %%------------------------------------------------------------------------
 unicode(doc) ->
@@ -1421,6 +1463,8 @@ unicode(Config) when is_list(Config) ->
 	sqlserver ->
 	    w_char_support_win(Ref, Table, Latin1Data);
 	postgres ->
+	    direct_utf8(Ref, Table, Latin1Data);
+	mysql ->
 	    direct_utf8(Ref, Table, Latin1Data);
 	oracle ->
 	    {skip, "not currently supported"}

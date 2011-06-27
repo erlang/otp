@@ -43,19 +43,22 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     case odbc_test_lib:odbc_check() of
 	ok ->
-	    [sql_query, first, last, next, prev, select_count,
+	    [sql_query, next, {group, scrollable_cursors}, select_count,
 	     select_next, select_relative, select_absolute,
 	     create_table_twice, delete_table_twice, duplicate_key,
 	     not_connection_owner, no_result_set, query_error,
-	     multiple_select_result_sets, multiple_mix_result_sets,
-	     multiple_result_sets_error,
+	     {group, multiple_result_sets},
 	     {group, parameterized_queries}, {group, describe_table},
 	     delete_nonexisting_row];
 	Other -> {skip, Other}
     end.
 
 groups() -> 
-    [{parameterized_queries, [],
+    [{multiple_result_sets, [], [multiple_select_result_sets,
+                                 multiple_mix_result_sets,
+                                 multiple_result_sets_error]},
+     {scrollable_cursors, [],  [first, last, prev]},
+     {parameterized_queries, [],
       [{group, param_integers}, param_insert_decimal,
        param_insert_numeric, {group, param_insert_string},
        param_insert_float, param_insert_real,
@@ -72,14 +75,25 @@ groups() ->
       [describe_integer, describe_string, describe_floating,
        describe_dec_num, describe_no_such_table]}].
 
-init_per_group(_GroupName, Config) ->
+init_per_group(multiple_result_sets, Config) ->
+    case is_supported_multiple_resultsets(?RDBMS) of
+	true ->
+	    Config;
+	false ->
+	    {skip, "Not supported by " ++ atom_to_list(?RDBMS) ++ "driver"}
+    end;
+init_per_group(scrollable_cursors, Config) ->
+    case proplists:get_value(scrollable_cursors, odbc_test_lib:platform_options()) of
+	off ->
+	    {skip, "Not supported by driver"};
+	_ ->
+	    Config
+    end;
+init_per_group(_,Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
-
-					  
-
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -91,8 +105,12 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) when is_list(Config) ->
-    application:start(odbc),
-    [{tableName, odbc_test_lib:unique_table_name()}| Config].
+    case (catch odbc:start()) of
+	ok ->
+	    [{tableName, odbc_test_lib:unique_table_name()}| Config];
+	_ ->
+	    {skip, "ODBC not startable"}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -117,7 +135,8 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), []),
+    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
+    odbc_test_lib:strict(Ref, ?RDBMS),
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
     NewConfig = lists:keydelete(watchdog, 1, Temp),
@@ -136,7 +155,7 @@ end_per_testcase(_Case, Config) ->
     ok = odbc:disconnect(Ref),
     %% Clean up if needed 
     Table = ?config(tableName, Config),
-    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), []),
+    {ok, NewRef} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     odbc:sql_query(NewRef, "DROP TABLE " ++ Table), 
     odbc:disconnect(NewRef),
     Dog = ?config(watchdog, Config),
@@ -663,9 +682,6 @@ multiple_result_sets_error(Config) when is_list(Config) ->
     end.   
 
 %%-------------------------------------------------------------------------
-
-%%-------------------------------------------------------------------------
-%%-------------------------------------------------------------------------
 param_insert_tiny_int(doc)->
     ["Test insertion of tiny ints by parameterized queries."];
 param_insert_tiny_int(suite) ->
@@ -899,8 +915,6 @@ param_insert_numeric(Config) when is_list(Config) ->
 
     odbc_test_lib:match_float(Value, 0.3, 0.01),
     ok.
-
-%%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
 param_insert_char(doc)->
@@ -1325,8 +1339,6 @@ param_select(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-
-%%-------------------------------------------------------------------------
 describe_integer(doc) ->
     ["Test describe_table/[2,3] for integer columns."];
 describe_integer(suite) ->
@@ -1338,7 +1350,7 @@ describe_integer(Config) when is_list(Config) ->
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (int1 SMALLINT, int2 INT, int3 INTEGER)"),
+		       " (myint1 SMALLINT, myint2 INT, myint3 INTEGER)"),
 
     Decs = ?RDBMS:describe_integer(),
     %% Make sure to test timeout clause
@@ -1399,7 +1411,7 @@ describe_dec_num(Config) when is_list(Config) ->
     {updated, _} = 
 	odbc:sql_query(Ref, 
 		       "CREATE TABLE " ++ Table ++
-		       " (dec DECIMAL(9,3), num NUMERIC(9,2))"),
+		       " (mydec DECIMAL(9,3), mynum NUMERIC(9,2))"),
 
     Decs = ?RDBMS:describe_dec_num(),
 
@@ -1451,3 +1463,7 @@ is_driver_error(Error) ->
 	false ->
 	    test_server:fail(Error)
     end.
+is_supported_multiple_resultsets(sqlserver) ->
+    true;
+is_supported_multiple_resultsets(_) ->
+    false.

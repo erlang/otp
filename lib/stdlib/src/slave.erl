@@ -72,7 +72,7 @@ start_pseudo(_,_,_) -> ok.  %% It's already there
 
 %% This relay can be used to relay all messages directed to a process.
 
--spec relay(Pid) -> none() when
+-spec relay(Pid) -> no_return() when
       Pid :: pid().
 
 relay({badrpc,Reason}) ->

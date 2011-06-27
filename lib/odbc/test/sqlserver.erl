@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -279,8 +279,8 @@ param_select() ->
 %-------------------------------------------------------------------------
 
 describe_integer() ->
-    {ok,[{"int1", sql_smallint},{"int2", sql_integer},
-	 {"int3", sql_integer}]}.
+    {ok,[{"myint1", sql_smallint},{"myint2", sql_integer},
+	 {"myint3", sql_integer}]}.
 
 describe_string() ->
     {ok,[{"str1",{sql_char,10}},                           
@@ -292,7 +292,7 @@ describe_floating() ->
     {ok,[{"f", sql_real},{"r", sql_real}, {"d", {sql_float, 53}}]}.
 
 describe_dec_num() ->
-    {ok,[{"dec",{sql_decimal,9,3}},{"num",{sql_numeric,9,2}}]}.
+    {ok,[{"mydec",{sql_decimal,9,3}},{"mynum",{sql_numeric,9,2}}]}.
 
 describe_timestamp() ->
     {ok, [{"field", sql_timestamp}]}.

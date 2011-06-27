@@ -31,6 +31,28 @@
   <p>This document describes the changes made to the DocBuilder
      application.</p>
 
+<section><title>Docbuilder 0.9.8.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> fop 1.0 crashed when building the docbuilder pdf with
+	    the following message
+	    "java.lang.IllegalArgumentException: factor &lt; 0; was:
+	    -1". <br/> This is a known bug in fop 1.0 (fop bug id:
+	    Bug 50524) when there is a word that consist of a single
+	    soft hyphen (&amp;shy;). this has been fixed in fop
+	    source archive but not it's not in a release yet. It's
+	    fixed in our documentation by removing the soft hyphens
+	    where this is a problem. </p>
+          <p>
+	    Own Id: OTP-9143</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Docbuilder 0.9.8.9</title>
 
     <section><title>Improvements and New Features</title>

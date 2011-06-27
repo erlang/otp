@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -102,8 +102,14 @@ debug(#prim_state{debug = Deb}, Term) ->
 %%% Interface Functions. 
 %%% --------------------------------------------------------
 
--spec start(term(), atom() | string(), host() | [host()]) ->
-	    {'ok', pid()} | {'error', term()}.
+-spec start(Id, Loader, Hosts) ->
+	    {'ok', Pid} | {'error', What} when
+      Id :: term(),
+      Loader :: atom() | string(),
+      Hosts :: Host | [Host],
+      Host :: host(),
+      Pid :: pid(),
+      What :: term().
 start(Id, Pgm, Hosts) when is_atom(Hosts) ->
     start(Id, Pgm, [Hosts]);
 start(Id, Pgm0, Hosts) ->
@@ -122,18 +128,6 @@ start(Id, Pgm0, Hosts) ->
         {'EXIT',Pid,Reason} ->
             {error,Reason}
     end.
-
-start_it("ose_inet"=Cmd, Id, Pid, Hosts) ->
-    %% Setup reserved port for ose_inet driver (only OSE)
-    case catch erlang:open_port({spawn,Cmd}, [binary]) of
-        {'EXIT',Why} ->
-            ?dbg(ose_inet_port_open_fail, Why),
-            Why;
-        OseInetPort ->
-            ?dbg(ose_inet_port, OseInetPort),
-            OseInetPort
-    end,
-    start_it("inet", Id, Pid, Hosts);
 
 %% Hosts must be a list on form ['1.2.3.4' ...]
 start_it("inet", Id, Pid, Hosts) ->
@@ -174,15 +168,20 @@ init_ack(Pid) ->
     Pid ! {self(),ok},
     ok.
 
--spec set_path([string()]) -> 'ok'.
+-spec set_path(Path) -> 'ok' when
+      Path :: [Dir :: string()].
 set_path(Paths) when is_list(Paths) ->
     request({set_path,Paths}).
 
--spec get_path() -> {'ok', [string()]}.
+-spec get_path() -> {'ok', Path} when
+      Path :: [Dir :: string()].
 get_path() ->
     request({get_path,[]}).
 
--spec get_file(atom() | string()) -> {'ok', binary(), string()} | 'error'.
+-spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
+      Filename :: atom() | string(),
+      Bin :: binary(),
+      FullName :: string().
 get_file(File) when is_atom(File) ->
     get_file(atom_to_list(File));
 get_file(File) ->
@@ -202,13 +201,15 @@ get_files(ModFiles, Fun) ->
             ok
     end.
 
--spec list_dir(string()) -> {'ok', [string()]} | 'error'.
+-spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
+      Dir :: string(),
+      Filenames :: [Filename :: string()].
 list_dir(Dir) ->
     check_file_result(list_dir, Dir, request({list_dir,Dir})).
 
-%% -> {ok,Info} | error
--spec read_file_info(string()) -> {'ok', tuple()} | 'error'.
-
+-spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
+      Filename :: string(),
+      FileInfo :: file:file_info().
 read_file_info(File) ->
     check_file_result(read_file_info, File, request({read_file_info,File})).
 
@@ -1360,9 +1361,7 @@ pathtype(Name) when is_list(Name) ->
 		    absolute;
 		_ ->
 		    relative
-	    end;
-	{ose,_} ->
-	    unix_pathtype(Name)
+	    end
     end.
 
 unix_pathtype(Name) ->
