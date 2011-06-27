@@ -448,3 +448,25 @@ systemSettings(Config) ->
 
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
+
+
+textCtrl(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+textCtrl(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+
+    TC = ?mt(wxTextCtrl, wxTextCtrl:new(Frame, ?wxID_ANY, [{style, ?wxTE_MULTILINE bor ?wxTE_RICH2}])),
+    wxTextCtrl:appendText(TC, "This line is in default color\n"),
+    Attr = ?mt(wxTextAttr, wxTextAttr:new(?wxRED)),
+    wxTextCtrl:setDefaultStyle(TC, Attr),
+    wxTextCtrl:appendText(TC, "This line is in ?wxRED color\n"),
+    wxTextAttr:setTextColour(Attr, ?wxBLACK),
+    wxTextCtrl:setDefaultStyle(TC, Attr),
+    wxTextCtrl:appendText(TC, "This line is in ?wxBLACK color\n"),
+    Default = wxSystemSettings:getColour(?wxSYS_COLOUR_WINDOWTEXT),
+    wxTextAttr:setTextColour(Attr, Default),
+    wxTextCtrl:setDefaultStyle(TC, Attr),
+    wxTextCtrl:appendText(TC, "This line is in default color\n"),
+    wxTextAttr:destroy(Attr),
+    wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
