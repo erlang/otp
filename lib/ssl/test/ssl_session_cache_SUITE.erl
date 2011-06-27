@@ -26,6 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-define(DELAY, 500).
 -define(SLEEP, 500).
 -define(TIMEOUT, 60000).
 -define(LONG_TIMEOUT, 600000).
@@ -102,7 +103,7 @@ init_per_testcase(session_cleanup, Config0) ->
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, 5),
-    application:set_env(ssl, session_delay_cleanup_time, ?SLEEP),
+    application:set_env(ssl, session_delay_cleanup_time, ?DELAY),
     ssl:start(),
     [{watchdog, Dog} | Config];
 
@@ -178,7 +179,7 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 session_cleanup(doc) ->
     ["Test that sessions are cleand up eventually, so that the session table "
-     "does grow and grow ..."];
+     "does not grow and grow ..."];
 session_cleanup(suite) ->
     [];
 session_cleanup(Config)when is_list(Config) ->
@@ -211,6 +212,7 @@ session_cleanup(Config)when is_list(Config) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = state(Prop),
     Cache = element(2, State),
+    SessionTimer = element(6, State),
 
     Id = proplists:get_value(session_id, SessionInfo),
     CSession = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
@@ -220,8 +222,15 @@ session_cleanup(Config)when is_list(Config) ->
     true = SSession =/= undefined,
 
     %% Make sure session has expired and been cleaned up
-    test_server:sleep(5000), %% Expire time
-    test_server:sleep((?SLEEP*20), %% Clean up delay (very small in this test case) + some extra time
+    check_timer(SessionTimer),
+    test_server:sleep(?DELAY),  %% Delay time + some extra time
+
+    {status, _, _, StatusInfo1} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop1] = StatusInfo1,
+    State1 = state(Prop1),
+    DelayTimer = element(7, State1),
+
+    check_timer(DelayTimer),
 
     undefined = ssl_session_cache:lookup(Cache, {{Hostname, Port}, Id}),
     undefined = ssl_session_cache:lookup(Cache, {Port, Id}),
@@ -235,6 +244,15 @@ state([{data,[{"State", State}]} | _]) ->
 state([_ | Rest]) ->
     state(Rest).
 
+check_timer(Timer) ->
+    case erlang:read_timer(Timer) of
+	false ->
+	    {status, _, _, _} = sys:get_status(whereis(ssl_manager)),
+	    ok;
+	Int ->
+	    test_server:sleep(Int),
+	    check_timer(Timer)
+    end.
 %%--------------------------------------------------------------------
 session_cache_process_list(doc) ->
     ["Test reuse of sessions (short handshake)"];
