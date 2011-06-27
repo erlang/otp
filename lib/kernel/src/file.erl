@@ -28,9 +28,10 @@
 %% File system and metadata.
 -export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
 	 make_dir/1, del_dir/1, list_dir/1,
-	 read_file_info/1, write_file_info/2,
+	 read_file_info/1, read_file_info/2,
+	 write_file_info/2, write_file_info/3,
 	 altname/1,
-	 read_link_info/1, read_link/1,
+	 read_link_info/1, read_link_info/2, read_link/1,
 	 make_link/2, make_symlink/2,
 	 read_file/1, write_file/2, write_file/3]).
 %% Specialized
@@ -212,7 +213,10 @@ del_dir(Name) ->
       Reason :: posix() | badarg.
 
 read_file_info(Name) ->
-    check_and_call(read_file_info, [file_name(Name)]).
+    file_info_time(local, check_and_call(read_file_info, [file_name(Name)])).
+
+read_file_info(Name, Opts) when is_list(Opts) ->
+    file_info_time(proplists:get_value(time, Opts, local), check_and_call(read_file_info, [file_name(Name)])).
 
 -spec altname(Name :: name()) -> any().
 
@@ -225,7 +229,10 @@ altname(Name) ->
       Reason :: posix() | badarg.
 
 read_link_info(Name) ->
-    check_and_call(read_link_info, [file_name(Name)]).
+    read_link_info(Name, [{time, local}]).
+
+read_link_info(Name, Opts) when is_list(Opts) ->
+    file_info_time(proplists:get_value(time, Opts, local), check_and_call(read_link_info, [file_name(Name)])).
 
 -spec read_link(Name) -> {ok, Filename} | {error, Reason} when
       Name :: name(),
@@ -241,7 +248,10 @@ read_link(Name) ->
       Reason :: posix() | badarg.
 
 write_file_info(Name, Info = #file_info{}) ->
-    check_and_call(write_file_info, [file_name(Name), Info]).
+    check_and_call(write_file_info, [file_name(Name), file_info_epochs(local, Info)]).
+
+write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
+    check_and_call(write_file_info, [file_name(Name), file_info_epochs(proplists:get_value(time, Opts, local), Info)]).
 
 -spec list_dir(Dir) -> {ok, Filenames} | {error, Reason} when
       Dir :: name(),
@@ -1320,6 +1330,59 @@ fname_join(Dir, Name) ->
 
 %%%-----------------------------------------------------------------
 %%% Utility functions.
+
+%% convert file times.
+%% all times from prime_file (and file_server) are in unix epochs
+
+%% from_epochs
+file_info_time(epoch, {ok, FI}) -> FI;
+file_info_time(local, {ok, #file_info{ atime = Atime, ctime = Ctime, mtime = Mtime } = FI}) ->
+    {ok, FI#file_info{
+	    atime = time_epochs_to_local(Atime),
+	    ctime = time_epochs_to_local(Ctime),
+	    mtime = time_epochs_to_local(Mtime)
+	}
+    };
+file_info_time(utc, {ok, #file_info{ atime = Atime, ctime = Ctime, mtime = Mtime } = FI}) ->
+    {ok, FI#file_info{
+	    atime = time_epochs_to_utc(Atime),
+	    ctime = time_epochs_to_utc(Ctime),
+	    mtime = time_epochs_to_utc(Mtime)
+	}
+    };
+file_info_time(_, Error) -> Error.
+
+%% from_epochs
+file_info_epochs(epoch,  FI) -> FI;
+file_info_epochs(local, #file_info{ atime = Atime, ctime = Ctime, mtime = Mtime } = FI) ->
+    FI#file_info{
+	atime = time_local_to_epochs(Atime),
+	ctime = time_local_to_epochs(Ctime),
+	mtime = time_local_to_epochs(Mtime)
+    };
+file_info_epochs(utc, {ok, #file_info{ atime = Atime, ctime = Ctime, mtime = Mtime } = FI}) ->
+    FI#file_info{
+	atime = time_utc_to_epochs(Atime),
+	ctime = time_utc_to_epochs(Ctime),
+	mtime = time_utc_to_epochs(Mtime)
+    }.
+
+
+-define(DAYS_FROM_0_TO_1970, 719528).
+-define(SECONDS_PER_DAY, 86400).
+
+time_epochs_to_utc(Seconds) when is_integer(Seconds) ->
+    calendar:gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970).
+
+time_epochs_to_local(Seconds) when is_integer(Seconds) ->
+    erlang:universaltime_to_localtime(calendar:gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970)).
+
+time_utc_to_epochs({_, _} = Datetime) ->
+    calendar:datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970.
+
+time_local_to_epochs({_, _} = Datetime) ->
+    calendar:datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(Datetime)) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970.
+
 
 %% file_name(FileName)
 %% 	Generates a flat file name from a deep list of atoms and 
