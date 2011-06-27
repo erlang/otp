@@ -588,7 +588,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
 	  } else {
 	    delete_object(ptr, refd);
 	  }
-	  if(type == 0 || type > 3) { 
+	  if(type == 0 || type > 2) {
 	    // Delete refs for leaks and non overridden allocs 
 	    delete refd;
 	    ptr2ref.erase(it);
@@ -602,13 +602,13 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
       }
     }
   }  
-  // Assert ?
-//   for(ptrMap::iterator it = ptr2ref.begin(); it != ptr2ref.end(); it++) {
-//     wxeRefData *refd = it->second;
-//     if(refd->ref >= global_me->next)
-//       fprintf(stderr, "L %d  %d\r\n", refd->ref, refd->alloc_in_erl);
-//   }
-//   fflush(stderr);
+// // Assert ?
+// for(ptrMap::iterator it = ptr2ref.begin(); it != ptr2ref.end(); it++) {
+//   wxeRefData *refd = it->second;
+//   if(refd->ref >= global_me->next)
+//     fprintf(stderr, "L %d %d %d\r\n", refd->ref, refd->type, refd->alloc_in_erl);
+// }
+//  fflush(stderr);
   delete memenv;
   driver_pdl_dec_refc(Ecmd.pdl);
   refmap.erase((ErlDrvTermData) Ecmd.port);
@@ -650,12 +650,12 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv) {
   ptrMap::iterator it = ptr2ref.find(ptr);
   if(it != ptr2ref.end()) {
     wxeRefData *refd = it->second;
-    if(refd->memenv == memenv) {
+    if(refd->memenv == memenv || refd->memenv == global_me) {
       // Found it return
       return refd->ref;
     } // else
     // Old reference to deleted object, release old and recreate in current memenv.
-    clearPtr(ptr);
+    ptr2ref.erase(it);
   }
   int ref;
   intList free = memenv->free;
