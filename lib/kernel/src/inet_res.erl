@@ -407,7 +407,7 @@ gethostbyname(Name) ->
 -spec gethostbyname(Name, Family) -> {ok, Hostent} | {error, Reason} when
       Name :: dns_name(),
       Hostent :: inet:hostent(),
-      Family :: inet:family_option(),
+      Family :: inet:address_family(),
       Reason :: inet:posix() | res_error().
 
 gethostbyname(Name,Family) ->
@@ -418,7 +418,7 @@ gethostbyname(Name,Family) ->
       Name :: dns_name(),
       Hostent :: inet:hostent(),
       Timeout :: timeout(),
-      Family :: inet:family_option(),
+      Family :: inet:address_family(),
       Reason :: inet:posix() | res_error().
 
 gethostbyname(Name,Family,Timeout) ->

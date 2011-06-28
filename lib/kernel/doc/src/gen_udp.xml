@@ -36,25 +36,10 @@
 
   <datatypes>
     <datatype>
-      <name name="hostname"/>
+      <name name="option"/>
     </datatype>
     <datatype>
-      <name name="ip_address"/>
-      <desc>
-        <p>Represents an address of a TCP socket.
-          It is a tuple as explained in
-          <seealso marker="inet">inet(3)</seealso>.</p>
-      </desc>
-    </datatype>
-    <datatype>
-      <name name="port_number"/>
-    </datatype>
-    <datatype>
-      <name name="posix"/>
-      <desc>
-        <p>See <seealso marker="inet#error_codes">
-        inet(3); POSIX Error Codes</seealso>.</p>
-      </desc>
+      <name name="option_name"/>
     </datatype>
     <datatype>
       <name><marker id="type-socket">socket()</marker></name>
@@ -87,7 +72,7 @@
             <p>If the host has several network interfaces, this option
               specifies which one to use.</p>
           </item>
-          <tag><c>{fd, int()}</c></tag>
+          <tag><c>{fd, integer() >= 0}</c></tag>
           <item>
             <p>If a socket has somehow been opened without using
               <c>gen_udp</c>, use this option to pass the file

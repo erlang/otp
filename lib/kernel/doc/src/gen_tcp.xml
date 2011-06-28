@@ -65,25 +65,16 @@ do_recv(Sock, Bs) ->
 
   <datatypes>
     <datatype>
-      <name name="hostname"/>
+      <name name="option"/>
     </datatype>
     <datatype>
-      <name name="ip_address"/>
-      <desc>
-        <p>Represents an address of a TCP socket.
-          It is a tuple as explained in
-          <seealso marker="inet">inet(3)</seealso>.</p>
-      </desc>
+      <name name="option_name"/>
     </datatype>
     <datatype>
-      <name name="port_number"/>
+      <name name="connect_option"/>
     </datatype>
     <datatype>
-      <name name="posix"/>
-      <desc>
-        <p>See <seealso marker="inet#error_codes">
-        inet(3); POSIX Error Codes</seealso>.</p>
-      </desc>
+      <name name="listen_option"/>
     </datatype>
     <datatype>
       <name><marker id="type-socket">socket()</marker></name>
@@ -122,7 +113,7 @@ do_recv(Sock, Bs) ->
           <item>
             <p>Specify which local port number to use.</p>
           </item>
-          <tag><c>{fd, int()}</c></tag>
+          <tag><c>{fd, integer() >= 0}</c></tag>
           <item>
             <p>If a socket has somehow been connected without using
               <c>gen_tcp</c>, use this option to pass the file
@@ -195,6 +186,10 @@ do_recv(Sock, Bs) ->
           <item>
             <p>If the host has several network interfaces, this option
               specifies which one to listen on.</p>
+          </item>
+          <tag><c>{port, Port}</c></tag>
+          <item>
+            <p>Specify which local port number to use.</p>
           </item>
           <tag><c>{fd, Fd}</c></tag>
           <item>

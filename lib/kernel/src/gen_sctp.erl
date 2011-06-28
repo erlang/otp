@@ -34,54 +34,84 @@
 -export([controlling_process/2]).
 
 -opaque assoc_id() :: term().
--type hostname() :: inet:hostname().
--type ip_address() :: inet:ip_address().
--type port_number() :: 0..65535.
--type posix() :: inet:posix().
--type sctp_option() ::
-        {mode, list | binary} | list | binary
-      | {active, true | false | once}
-      | {buffer, non_neg_integer()}
-      | {tos, integer()}
-      | {priority, integer()}
-      | {dontroute, boolean()}
-      | {reuseaddr, boolean()}
-      | {linger, {boolean(), non_neg_integer()}}
-      | {sndbuf, non_neg_integer()}
-      | {recbuf, non_neg_integer()}
-      | {sctp_rtoinfo, #sctp_rtoinfo{}}
-      | {sctp_associnfo, #sctp_assocparams{}}
-      | {sctp_initmsg, #sctp_initmsg{}}
-      | {sctp_autoclose, timeout()}
-      | {sctp_nodelay, boolean()}
-      | {sctp_disable_fragments, boolean()}
-      | {sctp_i_want_mapped_v4_addr, boolean()}
-      | {sctp_maxseg, non_neg_integer()}
-      | {sctp_primary_addr, #sctp_prim{}}
-      | {sctp_set_peer_primary_addr, #sctp_setpeerprim{}}
-      | {sctp_adaptation_layer, #sctp_setadaptation{}}
-      | {sctp_peer_addr_params, #sctp_paddrparams{}}
-      | {sctp_default_send_param, #sctp_sndrcvinfo{}}
-      | {sctp_events, #sctp_event_subscribe{}}
-      | {sctp_delayed_ack_time, #sctp_assoc_value{}}
-      | {sctp_status, #sctp_status{}}
-      | {sctp_get_peer_addr_info, #sctp_paddrinfo{}}.
--opaque sctp_socket() :: port().
+-type option() ::
+        {active, true | false | once} |
+        {buffer, non_neg_integer()} |
+        {dontroute, boolean()} |
+        {linger, {boolean(), non_neg_integer()}} |
+        {mode, list | binary} | list | binary |
+        {priority, non_neg_integer()} |
+        {recbuf, non_neg_integer()} |
+        {reuseaddr, boolean()} |
+        {sctp_adaptation_layer, #sctp_setadaptation{}} |
+        {sctp_associnfo, #sctp_assocparams{}} |
+        {sctp_autoclose, non_neg_integer()} |
+        {sctp_default_send_param, #sctp_sndrcvinfo{}} |
+        {sctp_delayed_ack_time, #sctp_assoc_value{}} |
+        {sctp_disable_fragments, boolean()} |
+        {sctp_events, #sctp_event_subscribe{}} |
+        {sctp_get_peer_addr_info, #sctp_paddrinfo{}} |
+        {sctp_i_want_mapped_v4_addr, boolean()} |
+        {sctp_initmsg, #sctp_initmsg{}} |
+        {sctp_maxseg, non_neg_integer()} |
+        {sctp_nodelay, boolean()} |
+        {sctp_peer_addr_params, #sctp_paddrparams{}} |
+        {sctp_primary_addr, #sctp_prim{}} |
+        {sctp_rtoinfo, #sctp_rtoinfo{}} |
+        {sctp_set_peer_primary_addr, #sctp_setpeerprim{}} |
+        {sctp_status, #sctp_status{}} |
+        {sndbuf, non_neg_integer()} |
+        {tos, non_neg_integer()}.
+-type option_name() ::
+        active |
+        buffer |
+        dontroute |
+        linger |
+        mode |
+        priority |
+        recbuf |
+        reuseaddr |
+        sctp_adaptation_layer |
+        sctp_associnfo |
+        sctp_autoclose |
+        sctp_default_send_param |
+        sctp_delayed_ack_time |
+        sctp_disable_fragments |
+        sctp_events |
+        sctp_get_peer_addr_info |
+        sctp_i_want_mapped_v4_addr |
+        sctp_initmsg |
+        sctp_maxseg |
+        sctp_nodelay |
+        sctp_peer_addr_params |
+        sctp_primary_addr |
+        sctp_rtoinfo |
+        sctp_set_peer_primary_addr |
+        sctp_status |
+        sndbuf |
+        tos.
+-type sctp_socket() :: port().
 
--spec open() -> {ok, Socket} | {error, posix()} when
+-export_type([option/0, option_name/0]).
+
+-spec open() -> {ok, Socket} | {error, inet:posix()} when
       Socket :: sctp_socket().
 
 open() ->
     open([]).
 
--spec open(Port) -> {ok, Socket} | {error, posix()} when
-              Port :: port_number(),
+-spec open(Port) -> {ok, Socket} | {error, inet:posix()} when
+              Port :: inet:port_number(),
               Socket :: sctp_socket();
-          (Opts) -> {ok, Socket} | {error, posix()} when
+          (Opts) -> {ok, Socket} | {error, inet:posix()} when
               Opts :: [Opt],
-              Opt :: {ip,IP} | {ifaddr,IP} | {port,Port} | sctp_option(),
-              IP :: ip_address() | any | loopback,
-              Port :: port_number(),
+              Opt :: {ip,IP}
+                   | {ifaddr,IP}
+                   | inet:address_family()
+                   | {port,Port}
+                   | option(),
+              IP :: inet:ip_address() | any | loopback,
+              Port :: inet:port_number(),
               Socket :: sctp_socket().
 
 open(Opts) when is_list(Opts) ->
@@ -98,11 +128,15 @@ open(Port) when is_integer(Port) ->
 open(X) ->
     erlang:error(badarg, [X]).
 
--spec open(Port, Opts) -> {ok, Socket} | {error, posix()} when
+-spec open(Port, Opts) -> {ok, Socket} | {error, inet:posix()} when
       Opts :: [Opt],
-      Opt :: {ip,IP} | {ifaddr,IP} | {port,Port} | sctp_option(),
-      IP :: ip_address() | any | loopback,
-      Port :: port_number(),
+              Opt :: {ip,IP}
+                   | {ifaddr,IP}
+                   | inet:address_family()
+                   | {port,Port}
+                   | option(),
+      IP :: inet:ip_address() | any | loopback,
+      Port :: inet:port_number(),
       Socket :: sctp_socket().
 
 open(Port, Opts) when is_integer(Port), is_list(Opts) ->
@@ -110,7 +144,7 @@ open(Port, Opts) when is_integer(Port), is_list(Opts) ->
 open(Port, Opts) ->
     erlang:error(badarg, [Port,Opts]).
 
--spec close(Socket) -> ok | {error, posix()} when
+-spec close(Socket) -> ok | {error, inet:posix()} when
       Socket :: sctp_socket().
 
 close(S) when is_port(S) ->
@@ -138,22 +172,22 @@ listen(S, Flag) when is_port(S), is_boolean(Flag) ->
 listen(S, Flag) ->
     erlang:error(badarg, [S,Flag]).
 
--spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, posix()} when
+-spec connect(Socket, Addr, Port, Opts) -> {ok, Assoc} | {error, inet:posix()} when
       Socket :: sctp_socket(),
-      Addr :: ip_address() | hostname(),
-      Port :: port_number(),
-      Opts :: [Opt :: sctp_option()],
+      Addr :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Opts :: [Opt :: option()],
       Assoc :: #sctp_assoc_change{}.
 
 connect(S, Addr, Port, Opts) ->
     connect(S, Addr, Port, Opts, infinity).
 
 -spec connect(Socket, Addr, Port, Opts, Timeout) ->
-                     {ok, Assoc} | {error, posix()} when
+                     {ok, Assoc} | {error, inet:posix()} when
       Socket :: sctp_socket(),
-      Addr :: ip_address() | hostname(),
-      Port :: port_number(),
-      Opts :: [Opt :: sctp_option()],
+      Addr :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Opts :: [Opt :: option()],
       Timeout :: timeout(),
       Assoc :: #sctp_assoc_change{}.
 
@@ -166,21 +200,21 @@ connect(S, Addr, Port, Opts, Timeout) ->
     end.
 
 -spec connect_init(Socket, Addr, Port, Opts) ->
-                          ok | {error, posix()} when
+                          ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
-      Addr :: ip_address() | hostname(),
-      Port :: port_number(),
-      Opts :: [sctp_option()].
+      Addr :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Opts :: [option()].
 
 connect_init(S, Addr, Port, Opts) ->
     connect_init(S, Addr, Port, Opts, infinity).
 
 -spec connect_init(Socket, Addr, Port, Opts, Timeout) ->
-                          ok | {error, posix()} when
+                          ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
-      Addr :: ip_address() | hostname(),
-      Port :: port_number(),
-      Opts :: [sctp_option()],
+      Addr :: inet:ip_address() | inet:hostname(),
+      Port :: inet:port_number(),
+      Opts :: [option()],
       Timeout :: timeout().
 
 connect_init(S, Addr, Port, Opts, Timeout) ->
@@ -232,7 +266,7 @@ eof(S, #sctp_assoc_change{assoc_id=AssocId}) when is_port(S) ->
 eof(S, Assoc) ->
     erlang:error(badarg, [S,Assoc]).
 
--spec abort(Socket, Assoc) -> ok | {error, posix()} when
+-spec abort(Socket, Assoc) -> ok | {error, inet:posix()} when
       Socket :: sctp_socket(),
       Assoc :: #sctp_assoc_change{}.
 
@@ -294,13 +328,13 @@ send(S, AssocChange, Stream, Data) ->
 -spec recv(Socket) -> {ok, {FromIP, FromPort, AncData, Data}}
                           | {error, Reason} when
       Socket :: sctp_socket(),
-      FromIP   :: ip_address(),
-      FromPort :: port_number(),
+      FromIP   :: inet:ip_address(),
+      FromPort :: inet:port_number(),
       AncData  :: [#sctp_sndrcvinfo{}],
       Data     :: binary() | string() | #sctp_sndrcvinfo{}
                 | #sctp_assoc_change{} | #sctp_paddr_change{}
                 | #sctp_adaptation_event{},
-      Reason   :: posix() | #sctp_send_failed{} | #sctp_paddr_change{}
+      Reason   :: inet:posix() | #sctp_send_failed{} | #sctp_paddr_change{}
                 | #sctp_pdapi_event{} | #sctp_remote_error{}
                 | #sctp_shutdown_event{}.
 
@@ -311,13 +345,13 @@ recv(S) ->
                                    | {error, Reason} when
       Socket :: sctp_socket(),
       Timeout :: timeout(),
-      FromIP   :: ip_address(),
-      FromPort :: port_number(),
+      FromIP   :: inet:ip_address(),
+      FromPort :: inet:port_number(),
       AncData  :: [#sctp_sndrcvinfo{}],
       Data     :: binary() | string() | #sctp_sndrcvinfo{}
                 | #sctp_assoc_change{} | #sctp_paddr_change{}
                 | #sctp_adaptation_event{},
-      Reason   :: posix() | #sctp_send_failed{} | #sctp_paddr_change{}
+      Reason   :: inet:posix() | #sctp_send_failed{} | #sctp_paddr_change{}
                 | #sctp_pdapi_event{} | #sctp_remote_error{}
                 | #sctp_shutdown_event{}.
 
