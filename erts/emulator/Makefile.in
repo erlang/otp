@@ -672,14 +672,8 @@ endif
 # rebuilding (is this a good idea?) add a dummy dependency to this target.
 #
 
-ifeq ($(findstring clearmake,$(MAKE)),clearmake)
-BEAMFILE_MAKEFLAG=-T
-else
-BEAMFILE_MAKEFLAG=
-endif
-
 $(ERL_TOP)/lib/%.beam:
-	cd $(@D)/../src && $(MAKE) $(BEAMFILE_MAKEFLAG) ../ebin/$(@F)
+	cd $(@D)/../src && $(MAKE) ../ebin/$(@F)
 
 
 # ----------------------------------------------------------------------
