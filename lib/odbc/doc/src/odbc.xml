@@ -102,7 +102,7 @@
       {sql_decimal, precision(), scale()} |
       {sql_numeric, precision(), scale()} |
       {sql_char, size()} | {sql_wchar, size()} | {sql_varchar, size()} | {sql_wvarchar, size()}| {sql_float, precision()} |
-      {sql_float, precision()} | sql_real | sql_double | sql_bit | atom()
+      {sql_wlongvarchar, size()} | {sql_float, precision()} | sql_real | sql_double | sql_bit | atom()
     </code>
     <code type="none">
  precision() = integer()    </code>

@@ -45,7 +45,7 @@ all() ->
     case odbc_test_lib:odbc_check() of
 	ok ->
 	    [{group, char},{group, fixed_char}, {group, binary_char},
-	     {group, fixed_binary_char},
+	     {group, fixed_binary_char}, {group, unicode},
 	     {group, int}, {group, floats},
 	     {group, dec_and_num}, timestamp];
 	Other -> {skip, Other}
@@ -55,18 +55,18 @@ groups() ->
     [{char, [],
       [varchar_lower_limit,
        varchar_upper_limit, varchar_no_padding,
-       text_lower_limit, text_upper_limit, unicode]},
+       text_lower_limit, text_upper_limit]},
      {fixed_char, [],
       [char_fixed_lower_limit, char_fixed_upper_limit,
        char_fixed_padding]},
      {binary_char, [],
       [binary_varchar_lower_limit,
        binary_varchar_upper_limit, binary_varchar_no_padding,
-       binary_text_lower_limit, binary_text_upper_limit,
-       unicode]},
+       binary_text_lower_limit, binary_text_upper_limit]},
      {fixed_binary_char, [], [binary_char_fixed_lower_limit,
 			      binary_char_fixed_upper_limit,
 			      binary_char_fixed_padding]},
+     {unicode, [], [utf8, nchar, nvarchar]},
      {int, [],
       [tiny_int_lower_limit, tiny_int_upper_limit,
        small_int_lower_limit, small_int_upper_limit,
@@ -88,13 +88,23 @@ init_per_group(GroupName, Config) when GroupName == fixed_char;
 	    Config
     end;
 
+init_per_group(unicode, Config) ->
+    %% Uses parameterized queries
+    case {os:type(), erlang:system_info(wordsize)} of
+	{{unix, _}, 4} ->
+	    Config;
+	{{unix, _}, _} ->
+	    {skip, "Not supported by driver"};
+	_ ->
+	    Config
+    end;
+
+
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
-
-					  
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -164,6 +174,16 @@ init_per_testcase(param_insert_tiny_int = Case, Config) ->
 	false ->
 	    {skip, "Not supported by driver"}
     end;
+
+init_per_testcase(Case, Config) when Case == nchar;
+				     Case == nvarchar ->
+    case ?RDBMS of
+	sqlserver ->
+	    common_init_per_testcase(Case, Config);
+	_ ->
+	    {skip, "Not supported by driver"}
+    end;
+
 init_per_testcase(Case, Config) ->
     common_init_per_testcase(Case, Config).
 
@@ -173,7 +193,9 @@ common_init_per_testcase(Case, Config) ->
 	"binary" ++ _  ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
 				     [{binary_strings, on}] ++ PlatformOptions);
-	"unicode" ->
+	LCase when LCase == "utf8";
+		   LCase == "nchar";
+		   LCase == "nvarchar" ->
 	    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), 
 				     [{binary_strings, on}] ++ PlatformOptions);
 	_ ->
@@ -1435,17 +1457,16 @@ num_bignum(Config) when is_list(Config) ->
     ["FIELD"] = odbc_test_lib:to_upper(Fields1).
 
 %%------------------------------------------------------------------------
-unicode(doc) ->
+utf8(doc) ->
     ["Test unicode support"];
-unicode(suit) ->
+utf8(suit) ->
     [];
-unicode(Config) when is_list(Config) ->
+utf8(Config) when is_list(Config) ->
     Ref = ?config(connection_ref, Config),   
     Table = ?config(tableName, Config),
-    {updated, _} =  % Value == 0 || -1 driver dependent!
-	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ 
-		       ?RDBMS:create_unicode_table()), 
     
+    odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++ "(FIELD text)"),
+
     Latin1Data = ["ÖÄÅÄÖÅäöå",
                   "testasdf",
                   "Row 3",
@@ -1458,41 +1479,7 @@ unicode(Config) when is_list(Config) ->
                   "Row 10",
                   "Row 11",
                   "Row 12"],
-  
-    case ?RDBMS of
-	sqlserver ->
-	    w_char_support_win(Ref, Table, Latin1Data);
-	postgres ->
-	    direct_utf8(Ref, Table, Latin1Data);
-	mysql ->
-	    direct_utf8(Ref, Table, Latin1Data);
-	oracle ->
-	    {skip, "not currently supported"}
-    end.
-
-w_char_support_win(Ref, Table, Latin1Data) ->
-    UnicodeIn = lists:map(fun(S) ->
-                                  unicode:characters_to_binary(S,latin1,{utf16,little})
-                          end,
-                          Latin1Data),
-     
-    test_server:format("UnicodeIn (utf 16): ~p ~n",[UnicodeIn]),
     
-    {updated, _} = odbc:param_query(Ref, "INSERT INTO " ++ Table ++ "(FIELD) values(?)",
-				    [{{sql_wvarchar,50},UnicodeIn}]),
-    
-    {selected,_,UnicodeOut} = odbc:sql_query(Ref,"SELECT * FROM " ++ Table),
-
-    test_server:format("UnicodeOut: ~p~n", [UnicodeOut]),
-    
-    Result = lists:map(fun({Unicode}) ->
-			       unicode:characters_to_list(Unicode,{utf16,little})
-		       end,
-		       UnicodeOut),
-    Latin1Data = Result.
-
-
-direct_utf8(Ref, Table, Latin1Data) ->    
     UnicodeIn = lists:map(fun(String) ->
 				  unicode:characters_to_binary(String,latin1,utf8)
 			  end,
@@ -1513,6 +1500,37 @@ direct_utf8(Ref, Table, Latin1Data) ->
     test_server:format("Result: ~p ~n", [Result]),
     
     Latin1Data = Result.
+%%------------------------------------------------------------------------
+
+nchar(doc) ->
+    ["Test unicode nchar support in sqlserver"];
+nchar(suit) ->
+    [];
+nchar(Config) when is_list(Config) ->
+    Ref = ?config(connection_ref, Config),
+    Table = ?config(tableName, Config),
+
+    {updated, _} =  % Value == 0 || -1 driver dependent!
+	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++
+			   "(FIELD nchar(50))"),
+
+    w_char_support(Ref, Table, sql_wvarchar, 50).
+
+%%------------------------------------------------------------------------
+
+nvarchar(doc) ->
+    ["Test 'unicode' nvarchar support"];
+nvarchar(suit) ->
+    [];
+nvarchar(Config) when is_list(Config) ->
+    Ref = ?config(connection_ref, Config),
+    Table = ?config(tableName, Config),
+
+    {updated, _} =  % Value == 0 || -1 driver dependent!
+	odbc:sql_query(Ref,  "CREATE TABLE " ++ Table ++
+			   "(FIELD nvarchar(50))"),
+
+    w_char_support(Ref, Table, sql_wlongvarchar, 50).
 
 %%------------------------------------------------------------------------
 timestamp(doc) ->
@@ -1541,3 +1559,43 @@ timestamp(Config) when is_list(Config) ->
     TimeStamps = lists:map(fun(Value) -> {Value} end, Data),
    
     {selected,_, TimeStamps} = odbc:sql_query(Ref, "SELECT * FROM " ++ Table).
+%%------------------------------------------------------------------------
+
+w_char_support(Ref, Table, CharType, Size) ->
+    Latin1Data = ["ÖÄÅÄÖÅäöå",
+                  "testasdf",
+                  "Row 3",
+                  "Row 4",
+                  "Row 5",
+                  "Row 6",
+                  "Row 7",
+                  "Row 8",
+                  "Row 9",
+                  "Row 10",
+                  "Row 11",
+                  "Row 12"],
+
+    UnicodeIn = lists:map(fun(S) ->
+                                  unicode:characters_to_binary(S,latin1,{utf16,little})
+                          end,
+                          Latin1Data),
+
+    test_server:format("UnicodeIn (utf 16): ~p ~n",[UnicodeIn]),
+
+    {updated, _} = odbc:param_query(Ref, "INSERT INTO " ++ Table ++ "(FIELD) values(?)",
+				    [{{CharType, Size},UnicodeIn}]),
+
+    {selected,_,UnicodeOut} = odbc:sql_query(Ref,"SELECT * FROM " ++ Table),
+
+    test_server:format("UnicodeOut: ~p~n", [UnicodeOut]),
+
+    PadResult = lists:map(fun({Unicode}) ->
+			       unicode:characters_to_list(Unicode,{utf16,little})
+		       end,
+		       UnicodeOut),
+
+    test_server:format("Result: ~p~n", [PadResult]),
+
+    Result = lists:map(fun(Str) -> string:strip(Str) end, PadResult),
+
+    Latin1Data = Result.

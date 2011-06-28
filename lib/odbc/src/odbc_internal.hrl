@@ -72,6 +72,7 @@
 -define(USER_WCHAR, 12).
 -define(USER_WVARCHAR, 13).
 -define(USER_TIMESTAMP, 14).
+-define(USER_WLONGVARCHAR, 15).
 
 %% INPUT & OUTPUT TYPE 
 -define(IN, 0).
