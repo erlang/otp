@@ -90,7 +90,7 @@
    Datatype -  USER_INT | USER_SMALL_INT | {USER_DECIMAL, Precision, Scale} |
    {USER_NMERIC, Precision, Scale} | {USER_CHAR, Max} | {USER_VARCHAR, Max} |
    {USER_WVARCHAR, Max} | {USER_FLOAT, Precision} | USER_REAL | USER_DOUBLE |
-   USER_TIMESTAMP
+   USER_TIMESTAMP | {USER_WLONGVARCHAR, Max}
    Scale - integer
    Precision - integer
    Max - integer
@@ -1228,7 +1228,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 				       &nullable)))
 	    DO_EXIT(EXIT_DESC);
 
-	if(sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY)
+	if(sql_type == SQL_LONGVARCHAR || sql_type == SQL_LONGVARBINARY || sql_type == SQL_WLONGVARCHAR)
 	    size = MAXCOLSIZE;
     
 	(columns(state)[i]).type.decimal_digits = dec_digits;
@@ -1536,6 +1536,11 @@ static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
 	break;
     case SQL_LONGVARCHAR:
 	ei_x_encode_atom(&dynamic_buffer(state), "SQL_LONGVARCHAR");
+	break;
+    case SQL_WLONGVARCHAR:
+	ei_x_encode_tuple_header(&dynamic_buffer(state), 2);
+	ei_x_encode_atom(&dynamic_buffer(state), "sql_wlongvarchar");
+	ei_x_encode_long(&dynamic_buffer(state), size);
 	break;
     case SQL_VARBINARY:
 	ei_x_encode_atom(&dynamic_buffer(state), "SQL_VARBINARY");
@@ -2139,10 +2144,14 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	break;
     case USER_WCHAR:
     case USER_WVARCHAR:
-        if(user_type == USER_WCHAR) {
-            params->type.sql = SQL_WCHAR;
-	} else {
-            params->type.sql = SQL_WVARCHAR;
+    case USER_WLONGVARCHAR:
+	switch (user_type) {
+	    case USER_WCHAR:
+		params->type.sql = SQL_WCHAR; break;
+	    case USER_WVARCHAR:
+		params->type.sql = SQL_WVARCHAR; break;
+	    default:
+		params->type.sql = SQL_WLONGVARCHAR; break;
 	}
 	ei_decode_long(buffer, index, &length);
 	/* Max string length + string terminator */
@@ -2308,6 +2317,7 @@ static db_result_msg map_sql_2_c_column(db_column* column)
         break;
     case SQL_WCHAR:
     case SQL_WVARCHAR:
+    case SQL_WLONGVARCHAR:
         column -> type.len = (column -> type.col_size + 1)*sizeof(SQLWCHAR); 
         column -> type.c = SQL_C_WCHAR;
         column -> type.strlen_or_indptr = SQL_NTS;
