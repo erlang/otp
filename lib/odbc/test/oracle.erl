@@ -108,10 +108,6 @@ create_text_table() ->
     " (FIELD long)". %Oracle long is variable length char data
 
 %-------------------------------------------------------------------------
-create_unicode_table() ->
-    " (FIELD nvarchar(50))".
-
-%-------------------------------------------------------------------------
 create_timestamp_table() ->
     " (FIELD DATETIME)". 
 
