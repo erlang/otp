@@ -72,7 +72,7 @@ resolve({Suite0, Case}) when is_atom(Suite0), is_atom(Case) ->
 	{Suite, Case2} ->
 	    {Suite, Case2}
     end;
-resolve(List) when list(List) ->
+resolve(List) when is_list(List) ->
     [resolve(Case) || Case <- List].
 
 alias(Suite) when is_atom(Suite) ->
@@ -104,7 +104,7 @@ read_config() ->
     end.
 
 %% Write new default config file
-write_config(Config) when list(Config) ->
+write_config(Config) when is_list(Config) ->
     Fname = config_fname(),
     {ok, Fd} = file:open(Fname, write),
     write_list(Fd, Config),
