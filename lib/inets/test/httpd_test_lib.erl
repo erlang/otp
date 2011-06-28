@@ -22,7 +22,7 @@
 -include("inets_test_lib.hrl").
 
 %% Poll functions
--export([verify_request/6, verify_request/7, is_expect/1]).
+-export([verify_request/6, verify_request/7, verify_request/8, is_expect/1]).
 
 -record(state, {request,        % string()
 		socket,         % socket()
@@ -81,33 +81,57 @@
 %%------------------------------------------------------------------
 verify_request(SocketType, Host, Port, Node, RequestStr, Options) ->
     verify_request(SocketType, Host, Port, Node, RequestStr, Options, 30000).
-verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) ->
-    {ok, Socket} = inets_test_lib:connect_bin(SocketType, Host, Port),
+verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options) 
+  when is_list(TranspOpts) ->
+    verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, 30000);
+verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) 
+  when (is_integer(TimeOut) orelse (TimeOut =:= infinity)) ->
+    verify_request(SocketType, Host, Port, [], Node, RequestStr, Options, TimeOut).
+verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, TimeOut) ->
+    tsp("verify_request -> entry with"
+	"~n   SocketType: ~p"
+	"~n   Host:       ~p"
+	"~n   Port:       ~p"
+	"~n   TranspOpts: ~p"
+	"~n   Node:       ~p"
+	"~n   Options:    ~p"
+	"~n   TimeOut:    ~p", 
+	[SocketType, Host, Port, TranspOpts, Node, Options, TimeOut]),
+    case (catch inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts)) of
+	{ok, Socket} ->
+	    tsp("verify_request -> connected - now send message"),
+	    SendRes = inets_test_lib:send(SocketType, Socket, RequestStr),
+	    tsp("verify_request -> send result: "
+		"~n   ~p", [SendRes]),
+	    State = case inets_regexp:match(RequestStr, "printenv") of
+			nomatch ->
+			    #state{};
+			_ ->
+			    #state{print = true}
+		    end,
+	    
+	    case request(State#state{request = RequestStr, 
+				     socket  = Socket}, TimeOut) of
+		{error, Reason} ->
+		    tsp("request failed: "
+			"~n   Reason: ~p", [Reason]),
+		    {error, Reason};
+		NewState ->
+		    tsp("validate reply: "
+			"~n   NewState: ~p", [NewState]),
+		    ValidateResult = 
+			validate(RequestStr, NewState, Options, Node, Port),
+		    tsp("validation result: "
+			"~n   ~p", [ValidateResult]),
+		    inets_test_lib:close(SocketType, Socket),
+		    ValidateResult
+	    end;
 
-    _SendRes = inets_test_lib:send(SocketType, Socket, RequestStr),
-    
-    State = case inets_regexp:match(RequestStr, "printenv") of
-		nomatch ->
-		    #state{};
-		_ ->
-		    #state{print = true}
-	    end,
-		
-    case request(State#state{request = RequestStr, 
-			     socket  = Socket}, TimeOut) of
-	{error, Reason} ->
-	    tsp("request failed: "
-		"~n   Reason: ~p", [Reason]),
-	    {error, Reason};
-	NewState ->
-	    tsp("validate reply: "
-		"~n   NewState: ~p", [NewState]),
-	    ValidateResult = validate(RequestStr, NewState, Options,
-				      Node, Port),
-	    tsp("validation result: "
-		"~n   ~p", [ValidateResult]),
-	    inets_test_lib:close(SocketType, Socket),
-	    ValidateResult
+	ConnectError ->
+	    tsp("verify_request -> connect failed: "
+		"~n   ~p"
+		"~n", [ConnectError]),
+	    tsf({connect_failure, ConnectError})
     end.
 
 request(#state{mfa = {Module, Function, Args}, 
@@ -214,7 +238,10 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 		headers = Headers, 
 		body = Body}, Options, N, P) ->
     
-    %io:format("Status~p: H:~p B:~p~n", [StatusCode, Headers, Body]),
+    %% tsp("validate -> entry with"
+    %% 	"~n   StatusCode: ~p"
+    %% 	"~n   Headers:    ~p"
+    %% 	"~n   Body:       ~p", [StatusCode, Headers, Body]),
     check_version(Version, Options),
     case lists:keysearch(statuscode, 1, Options) of
 	{value, _} ->
@@ -342,8 +369,10 @@ print(_, _,  #state{print = false}) ->
     ok.
 
 
-%% tsp(F) ->
-%%     tsp(F, []).
+tsp(F) ->
+    inets_test_lib:tsp(F).
 tsp(F, A) ->
-    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+    inets_test_lib:tsp(F, A).
 
+tsf(Reason) ->
+    inets_test_lib:tsf(Reason).
