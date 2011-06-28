@@ -50,7 +50,8 @@
 	  session_cache_cb,
 	  session_lifetime,
 	  certificate_db,
-	  session_validation_timer
+	  session_validation_timer,
+	  last_delay_timer %% Keep for testing purposes
 	 }).
 
 -define('24H_in_msec', 8640000).
@@ -273,15 +274,17 @@ handle_cast({invalidate_session, Host, Port,
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:update(Cache, {{Host, Port}, ID}, Session#session{is_resumable = false}),
-    timer:send_after(delay_time(), self(), {delayed_clean_session, {{Host, Port}, ID}}),
-    {noreply, State};
+    TRef =
+	erlang:send_after(delay_time(), self(), {delayed_clean_session, {{Host, Port}, ID}}),
+    {noreply, State#state{last_delay_timer = TRef}};
 
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:update(Cache, {Port, ID}, Session#session{is_resumable = false}),
-    timer:send_after(delay_time(), self(), {delayed_clean_session, {Port, ID}}),
-    {noreply, State};
+    TRef =
+	erlang:send_after(delay_time(), self(), {delayed_clean_session, {Port, ID}}),
+    {noreply, State#state{last_delay_timer = TRef}};
 
 handle_cast({recache_pem, File, LastWrite, Pid, From},
 	    #state{certificate_db = [_, FileToRefDb, _]} = State0) ->

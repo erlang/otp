@@ -112,7 +112,7 @@ connect(Socket, SslOptions) when is_port(Socket) ->
 connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
     EmulatedOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(Socket, EmulatedOptions),
-    inet:setopts(Socket, internal_inet_values()), 
+    ok = inet:setopts(Socket, internal_inet_values()),
     try handle_options(SslOptions0 ++ InetValues, client) of
 	{ok, #config{cb=CbInfo, ssl=SslOptions, emulated=EmOpts}} ->
 	    case inet:peername(Socket) of
@@ -238,7 +238,7 @@ ssl_accept(#sslsocket{} = Socket, Timeout)  ->
 ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) -> 
     EmulatedOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(Socket, EmulatedOptions),
-    inet:setopts(Socket, internal_inet_values()), 
+    ok = inet:setopts(Socket, internal_inet_values()),
     try handle_options(SslOptions ++ InetValues, server) of
 	{ok, #config{cb=CbInfo,ssl=SslOpts, emulated=EmOpts}} ->
 	    {ok, Port} = inet:port(Socket),
@@ -406,25 +406,51 @@ cipher_suites(openssl) ->
 %% 
 %% Description: Gets options
 %%--------------------------------------------------------------------
-getopts(#sslsocket{fd = new_ssl, pid = Pid}, OptTags) when is_pid(Pid) ->
-    ssl_connection:get_opts(Pid, OptTags);
-getopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptTags) ->
-    inet:getopts(ListenSocket, OptTags);
-getopts(#sslsocket{} = Socket, Options) ->
+getopts(#sslsocket{fd = new_ssl, pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
+    ssl_connection:get_opts(Pid, OptionTags);
+getopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptionTags) when is_list(OptionTags) ->
+    try inet:getopts(ListenSocket, OptionTags) of
+	{ok, _} = Result ->
+	    Result;
+	{error, InetError} ->
+	    {error, {eoptions, {inet_options, OptionTags, InetError}}}
+    catch
+	_:_ ->
+	    {error, {eoptions, {inet_options, OptionTags}}}
+    end;
+getopts(#sslsocket{fd = new_ssl}, OptionTags) ->
+    {error, {eoptions, {inet_options, OptionTags}}};
+getopts(#sslsocket{} = Socket, OptionTags) ->
     ensure_old_ssl_started(),
-    ssl_broker:getopts(Socket, Options).
+    ssl_broker:getopts(Socket, OptionTags).
 
 %%--------------------------------------------------------------------
 -spec setopts(#sslsocket{},  [proplists:property()]) -> ok | {error, reason()}.
 %% 
 %% Description: Sets options
 %%--------------------------------------------------------------------
-setopts(#sslsocket{fd = new_ssl, pid = Pid}, Opts0) when is_pid(Pid) ->
-    Opts = proplists:expand([{binary, [{mode, binary}]},
-			     {list, [{mode, list}]}], Opts0),
-    ssl_connection:set_opts(Pid, Opts);
-setopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptTags) ->
-    inet:setopts(ListenSocket, OptTags);
+setopts(#sslsocket{fd = new_ssl, pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
+    try proplists:expand([{binary, [{mode, binary}]},
+			  {list, [{mode, list}]}], Options0) of
+	Options ->
+	    ssl_connection:set_opts(Pid, Options)
+    catch
+	_:_ ->
+	    {error, {eoptions, {not_a_proplist, Options0}}}
+    end;
+
+setopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, Options) when is_list(Options) ->
+    try inet:setopts(ListenSocket, Options) of
+	ok ->
+	    ok;
+	{error, InetError} ->
+	    {error, {eoptions, {inet_options, Options, InetError}}}
+    catch
+	_:Error ->
+	    {error, {eoptions, {inet_options, Options, Error}}}
+    end;
+setopts(#sslsocket{fd = new_ssl}, Options) ->
+    {error, {eoptions,{not_a_proplist, Options}}};
 setopts(#sslsocket{} = Socket, Options) ->
     ensure_old_ssl_started(),
     ssl_broker:setopts(Socket, Options).

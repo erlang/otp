@@ -480,7 +480,6 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
     </func>
    
     <func>
-      <name>getopts(Socket) -> </name>
       <name>getopts(Socket, OptionNames) ->
 	{ok, [socketoption()]} | {error, Reason}</name>
       <fsummary>Get the value of the specified options.</fsummary>
@@ -489,8 +488,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	<v>OptionNames = [atom()]</v>
       </type>
       <desc>
-	<p>Get the value of the specified socket options, if no
-	  options are specified all options are returned.
+	<p>Get the value of the specified socket options.
 	</p>
       </desc>
     </func>
