@@ -45,7 +45,7 @@ else
           snmp otp_mibs appmon erl_interface asn1 jinterface gs wx inets ic \
           mnesia crypto orber os_mon parsetools syntax_tools pman \
           public_key ssl toolbar tv observer debugger reltool odbc \
-          runtime_tools diameter \
+          diameter \
           cosTransactions cosEvent cosTime cosNotification cosProperty \
           cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
@@ -56,7 +56,7 @@ else
           snmp otp_mibs appmon erl_interface asn1 jinterface wx debugger reltool gs inets \
           ic mnesia crypto orber os_mon parsetools syntax_tools \
           pman public_key ssl toolbar tv observer odbc \
-          runtime_tools diameter \
+          diameter \
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
