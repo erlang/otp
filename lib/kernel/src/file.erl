@@ -1378,10 +1378,15 @@ time_epochs_to_local(Seconds) when is_integer(Seconds) ->
     erlang:universaltime_to_localtime(calendar:gregorian_seconds_to_datetime(Seconds + ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970)).
 
 time_utc_to_epochs({_, _} = Datetime) ->
-    calendar:datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970.
+    calendar:datetime_to_gregorian_seconds(Datetime) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970;
+time_utc_to_epochs(undefined) ->
+    time_utc_to_epochs(erlang:universaltime()).
+
 
 time_local_to_epochs({_, _} = Datetime) ->
-    calendar:datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(Datetime)) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970.
+    calendar:datetime_to_gregorian_seconds(erlang:localtime_to_universaltime(Datetime)) - ?SECONDS_PER_DAY * ?DAYS_FROM_0_TO_1970;
+time_local_to_epochs(undefined) ->
+    time_utc_to_epochs(erlang:universaltime()).
 
 
 %% file_name(FileName)
