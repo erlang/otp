@@ -33,20 +33,6 @@ ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 	cosFileTransfer cosEventDomain
   endif
 else
-  ifeq ($(findstring ose,$(TARGET)),ose)
-    ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler erl_interface
-    OTHER_SUB_DIRECTORIES =	\
-      snmp otp_mibs appmon tools
-#    OTHER_SUB_DIRECTORIES =	\
-#      appmon os_mon tools runtime_tools
-    ifdef BUILD_ALL
-      OTHER_SUB_DIRECTORIES += mnesia  \
-        inets pman tv observer
-#      OTHER_SUB_DIRECTORIES += mnesia ic asn1 debugger \
-#        inets orber pman tv observer cosTransactions cosEvent \
-#        cosTime cosNotification cosProperty cosFileTransfer cosEventDomain
-    endif
-  else
 #
 # unix and win32
 # --------------
@@ -78,7 +64,6 @@ else
         OTHER_SUB_DIRECTORIES += hipe $(TSP_APP)
       endif
     endif
-  endif
 endif
 
 ifdef BOOTSTRAP
