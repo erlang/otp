@@ -89,42 +89,31 @@ endif
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(OBJDIR) $(BINDIR) $(SOLIBS)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-$(OBJDIR):
-	-@mkdir -p $(OBJDIR)
-
-$(BINDIR):
-	-@mkdir -p $(BINDIR)
+debug opt: $(SOLIBS)
 
 $(OBJDIR)/%.o: %.c
-	$(INSTALL_DIR) $(OBJDIR)
 	$(CC) -c -o $@ $(ALL_CFLAGS) $<
 
 $(LIBDIR)/trace_ip_drv.so: $(TRACE_IP_DRV_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ -lc $(LIBS)
 
 $(LIBDIR)/trace_file_drv.so: $(TRACE_FILE_DRV_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ -lc $(LIBS)
 
 $(LIBDIR)/trace_ip_drv.dll: $(TRACE_IP_DRV_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
 $(LIBDIR)/trace_file_drv.dll: $(TRACE_FILE_DRV_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
 #
 # VxWorks is simply to different from Unix in this sense.
 # Here are the inference rules for VxWorks
 #
 $(LIBDIR)/trace_ip_drv.eld: $(TRACE_IP_DRV_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ 
 
 $(LIBDIR)/trace_file_drv.eld: $(TRACE_FILE_DRV_OBJS)
-	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ 
 
 clean:

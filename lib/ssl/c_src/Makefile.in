@@ -157,13 +157,9 @@ endif
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(OBJDIR) $(BINDIR) $(OBJS) $(PORT_PROGRAM) $(SSL_MAKEFILE)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(BINDIR))
 
-$(OBJDIR):
-	-@mkdir -p $(OBJDIR)
-
-$(BINDIR):
-	-@mkdir -p $(BINDIR)
+debug opt: $(OBJS) $(PORT_PROGRAM) $(SSL_MAKEFILE)
 
 $(OBJDIR)/esock_openssl$(obj):	esock_openssl.c
 	$(CC) -c -o $@ $(ALL_CFLAGS) $(SSL_INCLUDE) $<
