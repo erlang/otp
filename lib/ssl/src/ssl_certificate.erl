@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,9 +30,9 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl"). 
 
--export([trusted_cert_and_path/2,
-	 certificate_chain/2, 
-	 file_to_certificats/1,
+-export([trusted_cert_and_path/3,
+	 certificate_chain/3,
+	 file_to_certificats/2,
 	 validate_extension/3,
 	 is_valid_extkey_usage/2,
 	 is_valid_key_usage/2,
@@ -46,14 +46,14 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec trusted_cert_and_path([der_cert()], certdb_ref()) ->
+-spec trusted_cert_and_path([der_cert()], db_handle(), certdb_ref()) ->
 				   {der_cert() | unknown_ca, [der_cert()]}.
 %%
 %% Description: Extracts the root cert (if not presents tries to 
 %% look it up, if not found {bad_cert, unknown_ca} will be added verification
 %% errors. Returns {RootCert, Path, VerifyErrors}
 %%--------------------------------------------------------------------
-trusted_cert_and_path(CertChain, CertDbRef) ->
+trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef) ->
     Path = [Cert | _] = lists:reverse(CertChain),
     OtpCert = public_key:pkix_decode_cert(Cert, otp),
     SignedAndIssuerID =
@@ -66,7 +66,7 @@ trusted_cert_and_path(CertChain, CertDbRef) ->
 		    {ok, IssuerId} ->
 			{other, IssuerId};
 		    {error, issuer_not_found} ->
-			case find_issuer(OtpCert, no_candidate) of
+			case find_issuer(OtpCert, no_candidate, CertDbHandle) of
 			    {ok, IssuerId} ->
 				{other, IssuerId};
 			    Other ->
@@ -82,7 +82,7 @@ trusted_cert_and_path(CertChain, CertDbRef) ->
 	{self, _} when length(Path) == 1 ->
 	    {selfsigned_peer, Path};
 	{_ ,{SerialNr, Issuer}} ->
-	    case ssl_manager:lookup_trusted_cert(CertDbRef, SerialNr, Issuer) of
+	    case ssl_manager:lookup_trusted_cert(CertDbHandle, CertDbRef, SerialNr, Issuer) of
 		{ok, {BinCert,_}} ->
 		    {BinCert, Path};
 		_ ->
@@ -92,23 +92,23 @@ trusted_cert_and_path(CertChain, CertDbRef) ->
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary(), certdb_ref()) -> 
+-spec certificate_chain(undefined | binary(), db_handle(), certdb_ref()) ->
 			  {error, no_cert} | {ok, [der_cert()]}.
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
-certificate_chain(undefined, _CertsDbRef) ->
+certificate_chain(undefined, _, _) ->
     {error, no_cert};
-certificate_chain(OwnCert, CertsDbRef) ->
+certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
     ErlCert = public_key:pkix_decode_cert(OwnCert, otp),
-    certificate_chain(ErlCert, OwnCert, CertsDbRef, [OwnCert]).
+    certificate_chain(ErlCert, OwnCert, CertDbHandle, CertsDbRef, [OwnCert]).
 %%--------------------------------------------------------------------
--spec file_to_certificats(string()) -> [der_cert()].
+-spec file_to_certificats(string(), term()) -> [der_cert()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
-file_to_certificats(File) -> 
-    {ok, List} = ssl_manager:cache_pem_file(File),
+file_to_certificats(File, DbHandle) ->
+    {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
 %%--------------------------------------------------------------------
 -spec validate_extension(term(), #'Extension'{} | {bad_cert, atom()} | valid,
@@ -180,7 +180,7 @@ signature_type(?'id-dsa-with-sha1') ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-certificate_chain(OtpCert, _Cert, CertsDbRef, Chain) ->    
+certificate_chain(OtpCert, _Cert, CertDbHandle, CertsDbRef, Chain) ->
     IssuerAndSelfSigned = 
 	case public_key:pkix_is_self_signed(OtpCert) of
 	    true ->
@@ -191,11 +191,11 @@ certificate_chain(OtpCert, _Cert, CertsDbRef, Chain) ->
     
     case IssuerAndSelfSigned of 
 	{_, true = SelfSigned} ->
-	    certificate_chain(CertsDbRef, Chain, ignore, ignore, SelfSigned);
+	    certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(OtpCert, no_candidate) of
+	    case find_issuer(OtpCert, no_candidate, CertDbHandle) of
 		{ok, {SerialNr, Issuer}} ->
-		    certificate_chain(CertsDbRef, Chain, 
+		    certificate_chain(CertDbHandle, CertsDbRef, Chain,
 				      SerialNr, Issuer, SelfSigned);
 		_ ->
 		    %% Guess the the issuer must be the root
@@ -205,19 +205,19 @@ certificate_chain(OtpCert, _Cert, CertsDbRef, Chain) ->
 		    {ok, lists:reverse(Chain)}
 	    end;
 	{{ok, {SerialNr, Issuer}}, SelfSigned} -> 
-	    certificate_chain(CertsDbRef, Chain, SerialNr, Issuer, SelfSigned)
+	    certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, SelfSigned)
     end.
   
-certificate_chain(_CertsDbRef, Chain, _SerialNr, _Issuer, true) ->
+certificate_chain(_,_, Chain, _SerialNr, _Issuer, true) ->
     {ok, lists:reverse(Chain)};
 
-certificate_chain(CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
-    case ssl_manager:lookup_trusted_cert(CertsDbRef, 
+certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
+    case ssl_manager:lookup_trusted_cert(CertDbHandle, CertsDbRef,
 						SerialNr, Issuer) of
 	{ok, {IssuerCert, ErlCert}} ->
 	    ErlCert = public_key:pkix_decode_cert(IssuerCert, otp),
 	    certificate_chain(ErlCert, IssuerCert, 
-			      CertsDbRef, [IssuerCert | Chain]);
+			      CertDbHandle, CertsDbRef, [IssuerCert | Chain]);
 	_ ->
 	    %% The trusted cert may be obmitted from the chain as the
 	    %% counter part needs to have it anyway to be able to
@@ -227,8 +227,8 @@ certificate_chain(CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
 	    {ok, lists:reverse(Chain)}		      
     end.
 
-find_issuer(OtpCert, PrevCandidateKey) ->
-    case ssl_manager:issuer_candidate(PrevCandidateKey) of
+find_issuer(OtpCert, PrevCandidateKey, CertDbHandle) ->
+    case ssl_manager:issuer_candidate(PrevCandidateKey, CertDbHandle) of
  	no_more_candidates ->
  	    {error, issuer_not_found};
  	{Key, {_Cert, ErlCertCandidate}} ->
@@ -236,7 +236,7 @@ find_issuer(OtpCert, PrevCandidateKey) ->
 		true ->
 		    public_key:pkix_issuer_id(ErlCertCandidate, self);
 		false ->
-		    find_issuer(OtpCert, Key)
+		    find_issuer(OtpCert, Key, CertDbHandle)
 	    end
     end.
 

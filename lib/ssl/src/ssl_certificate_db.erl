@@ -26,8 +26,8 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([create/0, remove/1, add_trusted_certs/3, 
-	 remove_trusted_certs/2, lookup_trusted_cert/3, issuer_candidate/1,
-	 lookup_cached_certs/1, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
+	 remove_trusted_certs/2, lookup_trusted_cert/4, issuer_candidate/2,
+	 lookup_cached_certs/2, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
 
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 
@@ -36,19 +36,19 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec create() -> certdb_ref().
+-spec create() -> [db_handle()].
 %% 
 %% Description: Creates a new certificate db.
-%% Note: lookup_trusted_cert/3 may be called from any process but only
+%% Note: lookup_trusted_cert/4 may be called from any process but only
 %% the process that called create may call the other functions.
 %%--------------------------------------------------------------------
 create() ->
-    [ets:new(certificate_db_name(), [named_table, set, protected]),
-     ets:new(ssl_file_to_ref, [named_table, set, protected]),
+    [ets:new(ssl_otp_certificate_db, [set, protected]),
+     ets:new(ssl_file_to_ref, [set, protected]),
      ets:new(ssl_pid_to_file, [bag, private])]. 
 
 %%--------------------------------------------------------------------
--spec remove(certdb_ref()) -> term().
+-spec remove([db_handle()]) -> term().
 %%
 %% Description: Removes database db  
 %%--------------------------------------------------------------------
@@ -56,7 +56,7 @@ remove(Dbs) ->
     lists:foreach(fun(Db) -> true = ets:delete(Db) end, Dbs).
 
 %%--------------------------------------------------------------------
--spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> 
+-spec lookup_trusted_cert(db_handle(), certdb_ref(), serialnumber(), issuer()) ->
 				 undefined | {ok, {der_cert(), #'OTPCertificate'{}}}.
 
 %%
@@ -64,19 +64,19 @@ remove(Dbs) ->
 %% <SerialNumber, Issuer>. Ref is used as it is specified  
 %% for each connection which certificates are trusted.
 %%--------------------------------------------------------------------
-lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
-    case lookup({Ref, SerialNumber, Issuer}, certificate_db_name()) of
+lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
+    case lookup({Ref, SerialNumber, Issuer}, DbHandle) of
 	undefined ->
 	    undefined;
 	[Certs] ->
 	    {ok, Certs}
     end.
 
-lookup_cached_certs(File) ->
-    ets:lookup(certificate_db_name(), {file, File}).
+lookup_cached_certs(DbHandle, File) ->
+    ets:lookup(DbHandle, {file, File}).
 
 %%--------------------------------------------------------------------
--spec add_trusted_certs(pid(), string() | {der, list()}, certdb_ref()) -> {ok, certdb_ref()}.
+-spec add_trusted_certs(pid(), string() | {der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
 %%
 %% Description: Adds the trusted certificates from file <File> to the
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
@@ -100,7 +100,7 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
     insert(Pid, File, PidToFileDb),
     {ok, Ref}.
 %%--------------------------------------------------------------------
--spec cache_pem_file(pid(), string(), time(), certdb_ref()) -> term().
+-spec cache_pem_file(pid(), string(), time(), [db_handle()]) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
@@ -112,7 +112,7 @@ cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
     {ok, Content}.
 
 %--------------------------------------------------------------------
--spec uncache_pem_file(string(), certdb_ref()) -> no_return().
+-spec uncache_pem_file(string(), [db_handle()]) -> no_return().
 %%
 %% Description: If a cached file is no longer valid (changed on disk)
 %% we must terminate the connections using the old file content, and
@@ -130,7 +130,7 @@ uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
 
 
 %%--------------------------------------------------------------------
--spec remove_trusted_certs(pid(), certdb_ref()) -> term().
+-spec remove_trusted_certs(pid(), [db_handle()]) -> term().
 				  
 %%
 %% Description: Removes trusted certs originating from 
@@ -161,7 +161,7 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
     end.
 
 %%--------------------------------------------------------------------
--spec issuer_candidate(no_candidate | cert_key() | {file, term()}) -> 
+-spec issuer_candidate(no_candidate | cert_key() | {file, term()}, term()) ->
 			      {cert_key(),{der_cert(), #'OTPCertificate'{}}} | no_more_candidates.
 %%
 %% Description: If a certificat does not define its issuer through
@@ -169,32 +169,30 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
 %%              try to find the issuer in the database over known
 %%              certificates. 
 %%--------------------------------------------------------------------
-issuer_candidate(no_candidate) ->
-    Db = certificate_db_name(),
+issuer_candidate(no_candidate, Db) ->
     case ets:first(Db) of
  	'$end_of_table' ->
  	    no_more_candidates;
 	{file, _} = Key ->
-	    issuer_candidate(Key);
+	    issuer_candidate(Key, Db);
  	Key ->
 	    [Cert] = lookup(Key, Db),
  	    {Key, Cert}
     end;
 
-issuer_candidate(PrevCandidateKey) ->	    
-    Db = certificate_db_name(),
+issuer_candidate(PrevCandidateKey, Db) ->
     case ets:next(Db, PrevCandidateKey) of
  	'$end_of_table' ->
  	    no_more_candidates;
 	{file, _} = Key ->
-	    issuer_candidate(Key);
+	    issuer_candidate(Key, Db);
  	Key ->
 	    [Cert] = lookup(Key, Db),
  	    {Key, Cert}
     end.
 
 %%--------------------------------------------------------------------
--spec lookup(term(), term()) -> term() | undefined.
+-spec lookup(term(), db_handle()) -> term() | undefined.
 %%
 %% Description: Looks up an element in a certificat <Db>.
 %%--------------------------------------------------------------------
@@ -212,9 +210,6 @@ lookup(Key, Db) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-certificate_db_name() ->
-    ssl_otp_certificate_db.
-
 insert(Key, Data, Db) ->
     true = ets:insert(Db, {Key, Data}).
 

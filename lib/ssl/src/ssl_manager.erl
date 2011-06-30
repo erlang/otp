@@ -28,8 +28,8 @@
 
 %% Internal application API
 -export([start_link/1, 
-	 connection_init/2, cache_pem_file/1,
-	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/4,
+	 connection_init/2, cache_pem_file/2,
+	 lookup_trusted_cert/4, issuer_candidate/2, client_session_id/4,
 	 server_session_id/4,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
@@ -73,45 +73,45 @@ start_link(Opts) ->
 
 %%--------------------------------------------------------------------
 -spec connection_init(string()| {der, list()}, client | server) ->
-			     {ok, reference(), cache_ref()}.
+			     {ok, certdb_ref(), db_handle(), db_handle()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
 connection_init(Trustedcerts, Role) ->
     call({connection_init, Trustedcerts, Role}).
 %%--------------------------------------------------------------------
--spec cache_pem_file(string()) -> {ok, term()} | {error, reason()}.
+-spec cache_pem_file(string(), term()) -> {ok, term()} | {error, reason()}.
 %%		    
 %% Description: Cach a pem file and return its content.
 %%--------------------------------------------------------------------
-cache_pem_file(File) ->
+cache_pem_file(File, DbHandle) ->
     try file:read_file_info(File) of
 	{ok, #file_info{mtime = LastWrite}} ->
-	    cache_pem_file(File, LastWrite)
+	    cache_pem_file(File, LastWrite, DbHandle)
     catch
 	_:Reason ->
 	    {error, Reason}
     end.
 %%--------------------------------------------------------------------
--spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> 
+-spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
 				 undefined | 
 				 {ok, {der_cert(), #'OTPCertificate'{}}}.
 %%				 
 %% Description: Lookup the trusted cert with Key = {reference(),
 %% serialnumber(), issuer()}.
 %% --------------------------------------------------------------------
-lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
-    ssl_certificate_db:lookup_trusted_cert(Ref, SerialNumber, Issuer).
+lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
+    ssl_certificate_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
 %%--------------------------------------------------------------------
--spec issuer_candidate(cert_key() | no_candidate) -> 
+-spec issuer_candidate(cert_key() | no_candidate, term()) ->
 			      {cert_key(),
 			       {der_cert(),
 				#'OTPCertificate'{}}} | no_more_candidates.
 %%
 %% Description: Return next issuer candidate.
 %%--------------------------------------------------------------------
-issuer_candidate(PrevCandidateKey) ->
-    ssl_certificate_db:issuer_candidate(PrevCandidateKey).
+issuer_candidate(PrevCandidateKey, DbHandle) ->
+    ssl_certificate_db:issuer_candidate(PrevCandidateKey, DbHandle).
 %%--------------------------------------------------------------------
 -spec client_session_id(host(), port_num(), #ssl_options{},
 			der_cert() | undefined) -> session_id().
@@ -193,19 +193,20 @@ init([Opts]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({{connection_init, "", _Role}, Pid}, _From, 
-	    #state{session_cache = Cache} = State) ->
+	    #state{certificate_db = [CertDb |_],
+		   session_cache = Cache} = State) ->
     erlang:monitor(process, Pid),
-    Result = {ok, make_ref(), Cache},
+    Result = {ok, make_ref(),CertDb, Cache},
     {reply, Result, State};
 
 handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
-	    #state{certificate_db = Db,
+	    #state{certificate_db = [CertDb|_] =Db,
 		   session_cache = Cache} = State) ->
     erlang:monitor(process, Pid),
     Result = 
 	try
 	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, Trustedcerts, Db),
-	    {ok, Ref, Cache}
+	    {ok, Ref, CertDb, Cache}
 	catch
 	    _:Reason ->
 		{error, Reason}
@@ -411,8 +412,8 @@ session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
 
-cache_pem_file(File, LastWrite) ->
-    case ssl_certificate_db:lookup_cached_certs(File) of
+cache_pem_file(File, LastWrite, DbHandle) ->
+    case ssl_certificate_db:lookup_cached_certs(DbHandle,File) of
 	[{_, {Mtime, Content}}] ->
 	    case LastWrite of
 		Mtime ->

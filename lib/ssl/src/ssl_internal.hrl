@@ -33,8 +33,8 @@
 -type session_id()        :: 0 | binary().
 -type tls_version()       :: {integer(), integer()}.
 -type tls_atom_version()  :: sslv3 | tlsv1.
--type cache_ref()         :: term().
--type certdb_ref()        :: term().
+-type certdb_ref()        :: reference().
+-type db_handle()         :: term().
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | dh_anon.
 -type der_cert()          :: binary().
 -type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{}.
