@@ -52,6 +52,14 @@ INCDIR = ../../include
 
 include modules.mk
 
+diameter_gen_base_accounting.erl: \
+	$(EBIN)/diameter_gen_base_rfc3588.beam
+diameter_gen_relay.erl: \
+	$(EBIN)/diameter_gen_base_rfc3588.beam
+
+SPEC_MODULES = \
+	$(SPEC_FILES:%.dia=%)
+
 SPEC_ERL_FILES = \
 	$(SPEC_FILES:%.dia=%.erl)
 
@@ -60,7 +68,7 @@ SPEC_HRL_FILES = \
 
 APP_MODULES = \
 	$(MODULES) \
-	$(SPEC_FILES:%.dia=%)
+	$(SPEC_MODULES)
 
 TARGET_FILES = \
 	$(APP_MODULES:%=$(EBIN)/%.$(EMULATOR)) \
@@ -150,6 +158,7 @@ app: $(APP_TARGET) $(APPUP_TARGET)
 diameter_gen_%.erl diameter_gen_%.hrl: diameter_gen_%.dia
 	../../bin/diameterc -i $(EBIN) -o $(@D) $<
 
+$(SPEC_MODULES:%=$(EBIN)/%.$(EMULATOR)): $(EBIN)/diameter_exprecs.$(EMULATOR)
 
 # ----------------------------------------------------
 # Release Target
