@@ -1373,6 +1373,14 @@ static ERL_NIF_TERM send_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return enif_make_int(env, ret);
 }
 
+static ERL_NIF_TERM reverse_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM rev_list;
+
+    if(!enif_get_reverse_list(env, argv[0], &rev_list))
+	return enif_make_atom(env, "badarg");
+    return rev_list;
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -1417,7 +1425,8 @@ static ErlNifFunc nif_funcs[] =
     {"send_blob_thread", 3, send_blob_thread},
     {"join_send_thread", 1, join_send_thread},
     {"copy_blob", 1, copy_blob},
-    {"send_term", 2, send_term}
+    {"send_term", 2, send_term},
+    {"reverse_list",1, reverse_list}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

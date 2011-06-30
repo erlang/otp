@@ -34,7 +34,7 @@
 ** 2.2: R14B03 enif_is_exception
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 2
+#define ERL_NIF_MINOR_VERSION 3
 
 #include <stdlib.h>
 
