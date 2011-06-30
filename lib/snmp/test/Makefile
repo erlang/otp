@@ -220,6 +220,10 @@ appup: make
             $(MAYBE_ESTOP)
 
 
+$(SNMP_BIN_TARGET_DIR)/Klas4.bin: $(SNMP_BIN_TARGET_DIR)/Klas3.bin
+
+$(SNMP_BIN_TARGET_DIR)/SA-MIB.bin: $(SNMP_BIN_TARGET_DIR)/OLD-SNMPEA-MIB.bin
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
