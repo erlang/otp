@@ -70,6 +70,7 @@
 	  %% {{md5_hash, sha_hash}, {prev_md5, prev_sha}} (binary())
           tls_handshake_hashes, % see above 
           tls_cipher_texts,     % list() received but not deciphered yet
+	  cert_db,              %
           session,              % #session{} from ssl_handshake.hrl
 	  session_cache,        % 
 	  session_cache_cb,     %
@@ -305,12 +306,13 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
     Hashes0 = ssl_handshake:init_hashes(),    
 
     try ssl_init(SSLOpts0, Role) of
-	{ok, Ref, CacheRef, OwnCert, Key, DHParams} ->	   
+	{ok, Ref, CertDbHandle, CacheHandle, OwnCert, Key, DHParams} ->
 	    Session = State0#state.session,
 	    State = State0#state{tls_handshake_hashes = Hashes0,
 				 session = Session#session{own_certificate = OwnCert},
 				 cert_db_ref = Ref,
-				 session_cache = CacheRef,
+				 cert_db = CertDbHandle,
+				 session_cache = CacheHandle,
 				 private_key = Key,
 				 diffie_hellman_params = DHParams},
 	    {ok, hello, State, get_timeout(State)}
@@ -500,9 +502,10 @@ certify(#certificate{asn1_certificates = []},
 certify(#certificate{} = Cert, 
         #state{negotiated_version = Version,
 	       role = Role,
+	       cert_db = CertDbHandle,
 	       cert_db_ref = CertDbRef,
 	       ssl_options = Opts} = State) ->
-    case ssl_handshake:certify(Cert, CertDbRef, Opts#ssl_options.depth, 
+    case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, Opts#ssl_options.depth,
 			       Opts#ssl_options.verify,
 			       Opts#ssl_options.verify_fun, Role) of
         {PeerCert, PublicKeyInfo} ->
@@ -1044,19 +1047,19 @@ start_fsm(Role, Host, Port, Socket, Opts,  User, {CbModule, _,_, _} = CbInfo,
     end.
 
 ssl_init(SslOpts, Role) ->
-    {ok, CertDbRef, CacheRef, OwnCert} = init_certificates(SslOpts, Role),
+    {ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert} = init_certificates(SslOpts, Role),
     PrivateKey =
-	init_private_key(SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
+	init_private_key(CertDbHandle, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
 			 SslOpts#ssl_options.password, Role),
-    DHParams = init_diffie_hellman(SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
-    {ok, CertDbRef, CacheRef, OwnCert, PrivateKey, DHParams}.
+    DHParams = init_diffie_hellman(CertDbHandle, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
+    {ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert, PrivateKey, DHParams}.
 
 
 init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
 			       certfile = CertFile,
 			       cert = Cert}, Role) ->
-    {ok, CertDbRef, CacheRef} = 
+    {ok, CertDbRef, CertDbHandle, CacheHandle} =
 	try 
 	    Certs = case CaCerts of
 			undefined ->
@@ -1064,44 +1067,44 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 			_ ->
 			    {der, CaCerts}
 		    end,
-	    {ok, _, _} = ssl_manager:connection_init(Certs, Role)
+	    {ok, _, _, _} = ssl_manager:connection_init(Certs, Role)
 	catch
 	    Error:Reason ->
 		handle_file_error(?LINE, Error, Reason, CACertFile, ecacertfile,
 				  erlang:get_stacktrace())
 	end,
-    init_certificates(Cert, CertDbRef, CacheRef, CertFile, Role).
+    init_certificates(Cert, CertDbRef, CertDbHandle, CacheHandle, CertFile, Role).
 
-init_certificates(undefined, CertDbRef, CacheRef, "", _) ->
-    {ok, CertDbRef, CacheRef, undefined};
+init_certificates(undefined, CertDbRef, CertDbHandle, CacheHandle, "", _) ->
+    {ok, CertDbRef, CertDbHandle, CacheHandle, undefined};
 
-init_certificates(undefined, CertDbRef, CacheRef, CertFile, client) ->
+init_certificates(undefined, CertDbRef, CertDbHandle, CacheHandle, CertFile, client) ->
     try 
-	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
-	{ok, CertDbRef, CacheRef, OwnCert}
+	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, CertDbHandle),
+	{ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert}
     catch _Error:_Reason  ->
-	    {ok, CertDbRef, CacheRef, undefined}
+	    {ok, CertDbRef, CertDbHandle, CacheHandle, undefined}
     end;
 
-init_certificates(undefined, CertDbRef, CacheRef, CertFile, server) ->
+init_certificates(undefined, CertDbRef, CertDbHandle, CacheRef, CertFile, server) ->
     try
-	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
-	{ok, CertDbRef, CacheRef, OwnCert}
+	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, CertDbHandle),
+	{ok, CertDbRef, CertDbHandle, CacheRef, OwnCert}
     catch
 	Error:Reason ->
 	    handle_file_error(?LINE, Error, Reason, CertFile, ecertfile,
 			      erlang:get_stacktrace())
     end;
-init_certificates(Cert, CertDbRef, CacheRef, _, _) ->
-    {ok, CertDbRef, CacheRef, Cert}.
+init_certificates(Cert, CertDbRef, CertDbHandle, CacheRef, _, _) ->
+    {ok, CertDbRef, CertDbHandle, CacheRef, Cert}.
 
-init_private_key(undefined, "", _Password, _Client) ->
+init_private_key(_, undefined, "", _Password, _Client) ->
     undefined;
-init_private_key(undefined, KeyFile, Password, _)  -> 
+init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
     try
-	{ok, List} = ssl_manager:cache_pem_file(KeyFile), 
+	{ok, List} = ssl_manager:cache_pem_file(KeyFile, DbHandle),
 	[PemEntry] = [PemEntry || PemEntry = {PKey, _ , _} <- List,
-				  PKey =:= 'RSAPrivateKey' orelse 
+				  PKey =:= 'RSAPrivateKey' orelse
 				      PKey =:= 'DSAPrivateKey'],
 	public_key:pem_entry_decode(PemEntry, Password)
     catch 
@@ -1110,9 +1113,9 @@ init_private_key(undefined, KeyFile, Password, _)  ->
 			      erlang:get_stacktrace()) 
     end;
 
-init_private_key({rsa, PrivateKey}, _, _,_) ->
+init_private_key(_,{rsa, PrivateKey}, _, _,_) ->
     public_key:der_decode('RSAPrivateKey', PrivateKey);
-init_private_key({dsa, PrivateKey},_,_,_) ->
+init_private_key(_,{dsa, PrivateKey},_,_,_) ->
     public_key:der_decode('DSAPrivateKey', PrivateKey).
 
 -spec(handle_file_error(_,_,_,_,_,_) -> no_return()).
@@ -1128,15 +1131,15 @@ file_error(Line, Error, Reason, File, Throw, Stack) ->
     error_logger:error_report(Report),
     throw(Throw).
 
-init_diffie_hellman(Params, _,_) when is_binary(Params)->
+init_diffie_hellman(_,Params, _,_) when is_binary(Params)->
     public_key:der_decode('DHParameter', Params);
-init_diffie_hellman(_,_, client) ->
+init_diffie_hellman(_,_,_, client) ->
     undefined;
-init_diffie_hellman(_,undefined, _) ->
+init_diffie_hellman(_,_,undefined, _) ->
     ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
-init_diffie_hellman(_, DHParamFile, server) ->
+init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
     try
-	{ok, List} = ssl_manager:cache_pem_file(DHParamFile), 
+	{ok, List} = ssl_manager:cache_pem_file(DHParamFile,DbHandle),
 	case [Entry || Entry = {'DHParameter', _ , _} <- List] of
 	    [Entry] ->
 		public_key:pem_entry_decode(Entry);
@@ -1180,11 +1183,12 @@ certify_client(#state{client_certificate_requested = true, role = client,
                       connection_states = ConnectionStates0,
                       transport_cb = Transport,
                       negotiated_version = Version,
+		      cert_db = CertDbHandle,
                       cert_db_ref = CertDbRef,
 		      session = #session{own_certificate = OwnCert},
                       socket = Socket,
                       tls_handshake_hashes = Hashes0} = State) ->
-    Certificate = ssl_handshake:certificate(OwnCert, CertDbRef, client),
+    Certificate = ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, client),
     {BinCert, ConnectionStates1, Hashes1} =
         encode_handshake(Certificate, Version, ConnectionStates0, Hashes0),
     Transport:send(Socket, BinCert),
@@ -1365,9 +1369,10 @@ certify_server(#state{transport_cb = Transport,
 		      negotiated_version = Version,
 		      connection_states = ConnectionStates,
 		      tls_handshake_hashes = Hashes,
+		      cert_db = CertDbHandle,
 		      cert_db_ref = CertDbRef,
 		      session = #session{own_certificate = OwnCert}} = State) ->
-    case ssl_handshake:certificate(OwnCert, CertDbRef, server) of
+    case ssl_handshake:certificate(OwnCert, CertDbHandle, CertDbRef, server) of
 	CertMsg = #certificate{} ->
 	    {BinCertMsg, NewConnectionStates, NewHashes} =
 		encode_handshake(CertMsg, Version, ConnectionStates, Hashes),
@@ -1454,12 +1459,13 @@ rsa_key_exchange(_, _) ->
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
 			   connection_states = ConnectionStates0,
+			   cert_db = CertDbHandle,
 			   cert_db_ref = CertDbRef,
 			   tls_handshake_hashes = Hashes0,
 			   negotiated_version = Version,
 			   socket = Socket,
 			   transport_cb = Transport} = State) ->
-    Msg = ssl_handshake:certificate_request(ConnectionStates0, CertDbRef),
+    Msg = ssl_handshake:certificate_request(ConnectionStates0, CertDbHandle, CertDbRef),
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Msg, Version, ConnectionStates0, Hashes0),
     Transport:send(Socket, BinMsg),
