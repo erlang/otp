@@ -640,15 +640,15 @@ create_main_release_page(#state{book = Book} = S) ->
 add_release_page(Book, #rel{name = RelName, rel_apps = RelApps}) ->
     Panel = wxPanel:new(Book, []),
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
-    RelBox = wxRadioBox:new(Panel,
-                            ?wxID_ANY,
-                            "Applications included in the release " ++ RelName,
-                            ?wxDefaultPosition,
-                            ?wxDefaultSize,
-                            [atom_to_list(RA#rel_app.name) || RA <- RelApps],
-                            []),
-    %% wxRadioBox:setSelection(RelBox, 2), % mandatory
-    wxEvtHandler:connect(RelBox, command_radiobox_selected,
+    AppNames = [kernel, stdlib |
+		 [RA#rel_app.name || RA <- RelApps] -- [kernel, stdlib]],
+    RelBox = wxListBox:new(
+	       Panel,?wxID_ANY,
+	       [{pos,?wxDefaultPosition},
+		{size,?wxDefaultSize},
+		{choices,[[atom_to_list(AppName)] || AppName <- AppNames]},
+		{style,?wxLB_EXTENDED}]),
+    wxEvtHandler:connect(RelBox, command_listbox_selected,
 			 [{userData, {config_rel_cond, RelName}}]),
     RelToolTip = "Choose which applications that shall "
 	"be included in the release resource file.",
