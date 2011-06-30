@@ -257,9 +257,47 @@ types(Config) when is_list(Config) ->
                   end,
                   [{},{ok},{{}},{[],{}},{1,2,3,4,5}]),
     Stuff = [[],{},0,0.0,(1 bsl 100),(fun()-> ok end),make_ref(),self()],
-    [eq_cmp(A,clone(B)) || A<-Stuff, B<-Stuff],                   
+    [eq_cmp(A,clone(B)) || A<-Stuff, B<-Stuff],
+
+    {IntSz, LongSz} = type_sizes(),
+    UintMax = (1 bsl (IntSz*8)) - 1,
+    IntMax = UintMax bsr 1,
+    IntMin = -(IntMax+1),
+    UlongMax = (1 bsl (LongSz*8)) - 1,
+    LongMax = UlongMax bsr 1,
+    LongMin = -(LongMax+1),
+    Uint64Max = (1 bsl 64) - 1,
+    Int64Max = Uint64Max bsr 1,
+    Int64Min = -(Int64Max+1),
+    Limits = [{IntMin,IntMax},{0,UintMax},{LongMin,LongMax},{0,UlongMax},{Int64Min,Int64Max},{0,Uint64Max}],
+    io:format("Limits = ~p\n", [Limits]),
+    lists:foreach(fun(I) ->
+			  R1 = echo_int(I),
+			  %%io:format("echo_int(~p) -> ~p\n", [I, R1]),
+			  R2 = my_echo_int(I, Limits),
+			  ?line R1 = R2,
+			  ?line true = (R1 =:= R2),
+			  ?line true = (R1 == R2)
+		  end, int_list()),
+
     ?line verify_tmpmem(TmpMem),
     ok.
+
+int_list() ->
+    Start = 1 bsl 200,
+    int_list([Start], -Start).
+int_list([N | _]=List, End) when N<End ->
+    List;
+int_list([N | _]=List, End) ->
+    int_list([N - (1 + (abs(N) div 3)) | List], End).
+    
+my_echo_int(I, Limits) ->
+    lists:map(fun({Min,Max}) ->
+		      if I < Min -> false;
+			 I > Max -> false;
+			 true -> I
+		      end
+	      end, Limits).
 
 clone(X) ->
     binary_to_term(term_to_binary(X)).
@@ -1269,6 +1307,8 @@ send_blob_thread(_,_,_) -> ?nif_stub.
 join_send_thread(_) -> ?nif_stub.
 copy_blob(_) -> ?nif_stub.
 send_term(_,_) -> ?nif_stub.
+echo_int(_) -> ?nif_stub.
+type_sizes() -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
