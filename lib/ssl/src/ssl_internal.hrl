@@ -98,10 +98,12 @@
 	  renegotiate_at,
 	  secure_renegotiate,
 	  debug,
-	  hibernate_after % undefined if not hibernating,
+	  hibernate_after,% undefined if not hibernating,
                           % or number of ms of inactivity
 			  % after which ssl_connection will
                           % go into hibernation
+	  %% This option should only be set to true by inet_tls_dist
+	  erl_dist = false 
 	  }).
 
 -record(socket_options,

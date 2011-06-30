@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2010. All Rights Reserved.
+# Copyright Ericsson AB 1999-2011. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -43,10 +43,12 @@ MODULES= \
 	ssl_app \
 	ssl_broker \
 	ssl_broker_sup \
+	ssl_dist_sup\
 	ssl_server \
 	ssl_sup \
 	ssl_prim \
 	inet_ssl_dist \
+	inet_tls_dist \
 	ssl_certificate\
 	ssl_certificate_db\
 	ssl_cipher \
@@ -62,6 +64,7 @@ MODULES= \
 	ssl_ssl2 \
 	ssl_ssl3 \
 	ssl_tls1 \
+	ssl_tls_dist_proxy
 
 INTERNAL_HRL_FILES = \
 	 ssl_int.hrl ssl_broker_int.hrl ssl_debug.hrl \

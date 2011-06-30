@@ -27,7 +27,7 @@
 -include("ssl_internal.hrl").
 
 %% Internal application API
--export([start_link/1, 
+-export([start_link/1, start_link_dist/1,
 	 connection_init/2, cache_pem_file/2,
 	 lookup_trusted_cert/4, issuer_candidate/2, client_session_id/4,
 	 server_session_id/4,
@@ -66,10 +66,20 @@
 %%--------------------------------------------------------------------
 -spec start_link(list()) -> {ok, pid()} | ignore | {error, term()}.
 %%
-%% Description: Starts the server
+%% Description: Starts the ssl manager that takes care of sessions
+%% and certificate caching.
 %%--------------------------------------------------------------------
 start_link(Opts) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [Opts], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [?MODULE, Opts], []).
+
+%%--------------------------------------------------------------------
+-spec start_link_dist(list()) -> {ok, pid()} | ignore | {error, term()}.
+%%
+%% Description: Starts a special instance of the ssl manager to
+%% be used by the erlang distribution. Note disables soft upgrade!
+%%--------------------------------------------------------------------
+start_link_dist(Opts) ->
+    gen_server:start_link({local, ssl_manager_dist}, ?MODULE, [ssl_manager_dist, Opts], []).
 
 %%--------------------------------------------------------------------
 -spec connection_init(string()| {der, list()}, client | server) ->
@@ -166,7 +176,8 @@ invalidate_session(Port, Session) ->
 %%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([Opts]) ->
+init([Name, Opts]) ->
+    put(ssl_manager, Name),
     process_flag(trap_exit, true),
     CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
     SessionLifeTime =  
@@ -376,10 +387,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 call(Msg) ->
-    gen_server:call(?MODULE, {Msg, self()}, infinity).
+    gen_server:call(get(ssl_manager), {Msg, self()}, infinity).
 
 cast(Msg) ->
-    gen_server:cast(?MODULE, Msg).
+    gen_server:cast(get(ssl_manager), Msg).
  
 validate_session(Host, Port, Session, LifeTime) ->
     case ssl_session:valid_session(Session, LifeTime) of
@@ -399,9 +410,10 @@ validate_session(Port, Session, LifeTime) ->
 		    
 start_session_validator(Cache, CacheCb, LifeTime) ->
     spawn_link(?MODULE, init_session_validator, 
-	       [[Cache, CacheCb, LifeTime]]).
+	       [[get(ssl_manager), Cache, CacheCb, LifeTime]]).
 
-init_session_validator([Cache, CacheCb, LifeTime]) ->
+init_session_validator([SslManagerName, Cache, CacheCb, LifeTime]) ->
+    put(ssl_manager, SslManagerName),
     CacheCb:foldl(fun session_validation/2,
 		  LifeTime, Cache).
 
