@@ -1008,15 +1008,14 @@ void enif_system_info(ErlNifSysInfo *sip, size_t si_size)
 }
 
 int enif_get_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list) {
-    Eterm *listptr, *ret, *hp;
+    Eterm *listptr, ret = NIL, *hp;
 
     if (is_nil(term)) {
 	*list = term;
         return 1;
     }
 
-    ret = alloc_heap(env, 2);
-    *ret = NIL;
+    ret = NIL;
 
     while (is_not_nil(term)) {
 	if (is_not_list(term)) {
@@ -1024,10 +1023,10 @@ int enif_get_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)
 	}
 	hp = alloc_heap(env, 2);
 	listptr = list_val(term);
-	*ret = CONS(hp, CAR(listptr), *ret);
+	ret = CONS(hp, CAR(listptr), ret);
 	term = CDR(listptr);
     }
-    *list = *ret;
+    *list = ret;
     return 1;
 }
 
