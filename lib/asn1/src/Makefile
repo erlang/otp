@@ -68,7 +68,8 @@ RT_MODULES= \
 	asn1rt_per_bin_rt2ct \
 	asn1rt_uper_bin \
 	asn1rt_check \
-	asn1rt_driver_handler
+	asn1rt_driver_handler \
+	asn1rt_nif
 #	asn1_sup \
 #	asn1_app \
 #	asn1_server

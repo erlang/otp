@@ -9,7 +9,8 @@
 	asn1rt_ber_bin,
 	asn1rt_ber_bin_v2,
 	asn1rt_check,
-	asn1rt_driver_handler
+	asn1rt_driver_handler,
+        asn1rt_nif
              ]},
   {registered, [
 	asn1_ns,
