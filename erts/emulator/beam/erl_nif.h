@@ -32,6 +32,7 @@
 ** 2.0: R14A
 ** 2.1: R14B02 "vm_variant"
 ** 2.2: R14B03 enif_is_exception
+** 2.3: R15 enif_make_reverse_list
 */
 #define ERL_NIF_MAJOR_VERSION 2
 #define ERL_NIF_MINOR_VERSION 3
