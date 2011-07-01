@@ -127,13 +127,10 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
-%.hrl: %.asn1
-	erlc $(ASN_FLAGS) $<
+%.erl %.hrl: %.asn1
+	$(ERLC) $(ASN_FLAGS) $<
 
-DSS.hrl DSS.erl: DSS.asn1
-PKCS-1.hrl PKCS-1.erl: PKCS-1.asn1
-
-$(EBIN)/ssh_file.$(EMULATOR): $(ASN_HRLS)
+$(EBIN)/ssh_file.$(EMULATOR) $(EBIN)/ssh_rsa.$(EMULATOR): $(ASN_HRLS)
 
 docs:
 
