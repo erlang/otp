@@ -47,6 +47,10 @@
 
 -import(asn1ct_gen_ber_bin_v2,[encode_tag_val/3,decode_class/1]).
 
+-ifndef(vsn).
+-define(vsn,"0.0.1").
+-endif.
+
 -define(unique_names,0).
 -define(dupl_uniquedefs,1).
 -define(dupl_equaldefs,2).
