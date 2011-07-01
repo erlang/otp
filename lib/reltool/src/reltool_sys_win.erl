@@ -54,7 +54,9 @@
          whitelist,
          blacklist,
          derived,
-         fgraph_wins
+         fgraph_wins,
+	 app_box,
+	 mod_box
         }).
 
 -define(WIN_WIDTH, 800).
@@ -86,6 +88,11 @@
 -define(blacklist, "Excluded").
 -define(derived, "Derived").
 
+-define(safe_config,{sys,[{incl_cond,exclude},
+			  {app,kernel,[{incl_cond,include}]},
+			  {app,stdlib,[{incl_cond,include}]},
+			  {app,sasl,[{incl_cond,include}]}]}).
+
 -record(root_data, {dir}).
 -record(lib_data, {dir, tree, item}).
 -record(escript_data, {file, tree, item}).
@@ -102,7 +109,7 @@
 start_link(Opts) ->
     proc_lib:start_link(?MODULE,
 			init,
-			[[{parent, self()} | Opts]],
+			[[{safe_config, false}, {parent, self()} | Opts]],
 			infinity,
 			[]).
 
@@ -126,49 +133,69 @@ init(Options) ->
 	    exit({Reason, erlang:get_stacktrace()})
     end.
 
-do_init([{parent, Parent} | Options]) ->
+do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
     case reltool_server:start_link(Options) of
         {ok, ServerPid, C, Sys} ->
 	    process_flag(trap_exit, C#common.trap_exit),
-            S = #state{parent_pid = Parent,
-                       server_pid = ServerPid,
-                       common = C,
-                       config_file = filename:absname("config.reltool"),
-                       target_dir = filename:absname("reltool_target_dir"),
-                       app_wins = [],
-                       sys = Sys,
-		       fgraph_wins = []},
             wx:new(),
             wx:debug(C#common.wx_debug),
-            S2 = create_window(S),
 
             %% wx_misc:beginBusyCursor(),
 	    case reltool_server:get_status(ServerPid) of
 		{ok, Warnings} ->
 		    exit_dialog(Warnings),
-		    {ok, Sys2}  = reltool_server:get_sys(ServerPid),
-		    S3 = S2#state{sys = Sys2},
+		    {ok, Sys}  = reltool_server:get_sys(ServerPid),
+		    S = #state{parent_pid = Parent,
+			       server_pid = ServerPid,
+			       common = C,
+			       config_file = filename:absname("config.reltool"),
+			       target_dir = filename:absname("reltool_target_dir"),
+			       app_wins = [],
+			       sys = Sys,
+			       fgraph_wins = []},
+		    S2 = create_window(S),
 		    S5 = wx:batch(fun() ->
 					  Title = atom_to_list(?APPLICATION),
-					  wxFrame:setTitle(S3#state.frame,
+					  wxFrame:setTitle(S2#state.frame,
 							   Title),
 					  %% wxFrame:setMinSize(Frame,
 					  %% {?WIN_WIDTH, ?WIN_HEIGHT}),
 					  wxStatusBar:setStatusText(
-					    S3#state.status_bar,
+					    S2#state.status_bar,
 					    "Done."),
-					  S4 = redraw_apps(S3),
-					  redraw_libs(S4)
+					  S3 = redraw_apps(S2),
+					  S4 = redraw_libs(S3),
+					  redraw_config_page(S4)
 				  end),
 		    %% wx_misc:endBusyCursor(),
 		    %% wxFrame:destroy(Frame),
 		    proc_lib:init_ack(S#state.parent_pid, {ok, self()}),
 		    loop(S5);
 		{error, Reason} ->
-		    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-		    exit(Reason)
+		    restart_server_safe_config(Safe,Parent,Reason)
 	    end;
 	{error, Reason} ->
+	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
+	    exit(Reason)
+    end.
+
+restart_server_safe_config(true,_Parent,Reason) ->
+    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
+    exit(Reason);
+restart_server_safe_config(false,Parent,Reason) ->
+    Strings =
+	[{?wxBLACK,"Could not start reltool server:\n\n"},
+	 {?wxRED,Reason++"\n\n"},
+	 {?wxBLACK,
+	  io_lib:format(
+	    "Resetting the configuration to:~n~n  ~p~n~n"
+	    "Do you want to continue with this configuration?",
+	    [?safe_config])}],
+
+    case question_dialog_2("Reltool server start error", Strings) of
+	?wxID_OK ->
+	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
+	?wxID_CANCEL ->
 	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
 	    exit(Reason)
     end.
@@ -606,6 +633,13 @@ create_config_page(#state{sys = Sys, book = Book} = S) ->
                  {proportion, 1}]),
     wxPanel:setSizer(Panel, Sizer),
     wxNotebook:addPage(Book, Panel, ?SYS_PAGE, []),
+    S#state{app_box = AppBox, mod_box = ModBox}.
+
+redraw_config_page(#state{sys = Sys, app_box = AppBox, mod_box = ModBox} = S) ->
+    AppChoice = reltool_utils:incl_cond_to_index(Sys#sys.incl_cond),
+    wxRadioBox:setSelection(AppBox, AppChoice),
+    ModChoice = reltool_utils:mod_cond_to_index(Sys#sys.mod_cond),
+    wxRadioBox:setSelection(ModBox, ModChoice),
     S.
 
 create_main_release_page(#state{book = Book} = S) ->
@@ -640,15 +674,15 @@ create_main_release_page(#state{book = Book} = S) ->
 add_release_page(Book, #rel{name = RelName, rel_apps = RelApps}) ->
     Panel = wxPanel:new(Book, []),
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
-    RelBox = wxRadioBox:new(Panel,
-                            ?wxID_ANY,
-                            "Applications included in the release " ++ RelName,
-                            ?wxDefaultPosition,
-                            ?wxDefaultSize,
-                            [atom_to_list(RA#rel_app.name) || RA <- RelApps],
-                            []),
-    %% wxRadioBox:setSelection(RelBox, 2), % mandatory
-    wxEvtHandler:connect(RelBox, command_radiobox_selected,
+    AppNames = [kernel, stdlib |
+		 [RA#rel_app.name || RA <- RelApps] -- [kernel, stdlib]],
+    RelBox = wxListBox:new(
+	       Panel,?wxID_ANY,
+	       [{pos,?wxDefaultPosition},
+		{size,?wxDefaultSize},
+		{choices,[[atom_to_list(AppName)] || AppName <- AppNames]},
+		{style,?wxLB_EXTENDED}]),
+    wxEvtHandler:connect(RelBox, command_listbox_selected,
 			 [{userData, {config_rel_cond, RelName}}]),
     RelToolTip = "Choose which applications that shall "
 	"be included in the release resource file.",
@@ -1363,7 +1397,8 @@ refresh(S) ->
     [ok = reltool_app_win:refresh(AW#app_win.pid) || AW <- S#state.app_wins],
     S2 = S#state{sys = Sys},
     S3 = redraw_libs(S2),
-    redraw_apps(S3).
+    S4 = redraw_apps(S3),
+    redraw_config_page(S4).
 
 question_dialog(Question, Details) ->
     %% Parent = S#state.frame,
@@ -1419,6 +1454,44 @@ display_message(Message, Icon) ->
                                  [{style, ?wxOK bor Icon}]),
     wxMessageDialog:showModal(Dialog),
     wxMessageDialog:destroy(Dialog).
+
+%% Strings = [{Color,String}]
+question_dialog_2(DialogLabel, Strings) ->
+    %% Parent = S#state.frame,
+    Parent = wx:typeCast(wx:null(), wxWindow),
+    %% [{style, ?wxYES_NO bor ?wxICON_ERROR bor ?wx}]),
+    DialogStyle = ?wxRESIZE_BORDER bor ?wxCAPTION bor ?wxSYSTEM_MENU bor
+	?wxMINIMIZE_BOX bor ?wxMAXIMIZE_BOX bor ?wxCLOSE_BOX,
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, DialogLabel,
+			  [{style, DialogStyle}]),
+    Color = wxWindow:getBackgroundColour(Dialog),
+    TextStyle = ?wxTE_READONLY bor ?wxTE_MULTILINE bor ?wxHSCROLL,
+    Text = wxTextCtrl:new(Dialog, ?wxID_ANY,
+			  [{size, {600, 400}}, {style, TextStyle}]),
+    wxWindow:setBackgroundColour(Text, Color),
+    TextAttr = wxTextAttr:new(),
+    add_text(Text,TextAttr,Strings),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(Sizer, Text, [{border, 2}, {flag, ?wxEXPAND}, {proportion, 1}]),
+    ButtSizer = wxDialog:createStdDialogButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+    wxSizer:add(Sizer, ButtSizer, [{border, 2}, {flag, ?wxEXPAND}]),
+    wxPanel:setSizer(Dialog, Sizer),
+    wxSizer:fit(Sizer, Dialog),
+    wxSizer:setSizeHints(Sizer, Dialog),
+    Answer = wxDialog:showModal(Dialog),
+    wxDialog:destroy(Dialog),
+    Answer.
+
+add_text(Text,Attr,[{Color,String}|Strings]) ->
+    wxTextAttr:setTextColour(Attr, Color),
+    wxTextCtrl:setDefaultStyle(Text, Attr),
+    wxTextCtrl:appendText(Text, String),
+    add_text(Text,Attr,Strings);
+add_text(_,_,[]) ->
+    ok.
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sys callbacks
