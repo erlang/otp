@@ -227,15 +227,14 @@ docs:
 # Special Build Targets
 # ----------------------------------------------------
 
-$(GEN_ERL_FILES1) $(GEN_HRL_FILES1): $(ERL_TOP)/lib/ic/include/erlang.idl
+IDL-GENERATED:  $(ERL_TOP)/lib/ic/include/erlang.idl CORBA.idl OrberIFR.idl
 	erlc $(ERL_IDL_FLAGS) $(ERL_TOP)/lib/ic/include/erlang.idl
-
-$(GEN_ERL_FILES2) $(GEN_HRL_FILES2): CORBA.idl
 	erlc $(ERL_IDL_FLAGS) CORBA.idl
+	erlc $(ERL_IDL_FLAGS) +'{this,"Orber::IFR"}' OrberIFR.idl
+	>IDL-GENERATED
 
-$(GEN_ERL_FILES3) $(GEN_HRL_FILES3): OrberIFR.idl
-	erlc $(ERL_IDL_FLAGS) +'{this,"Orber::IFR"}' \
-	OrberIFR.idl
+$(GEN_ERL_FILES): IDL-GENERATED
+$(TARGET_FILES): IDL-GENERATED
 
 $(GEN_ASN_ERL) $(GEN_ASN_HRL): OrberCSIv2.asn1 OrberCSIv2.set.asn
 	erlc $(ERL_COMPILE_FLAGS) $(ASN_FLAGS) +'{inline,"OrberCSIv2"}' OrberCSIv2.set.asn

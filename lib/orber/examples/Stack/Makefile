@@ -64,6 +64,8 @@ HRL_FILES=
 
 ERL_FILES= $(MODULES:%=%.erl)
 
+GEN_FILES = $(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES)
+
 JAVA_CLASSES = \
 	StackClient
 
@@ -101,9 +103,13 @@ docs:
 
 test: $(TEST_TARGET_FILES)
 
-
-$(GEN_ERL_MODULES:%=%.erl) $(GEN_HRL_FILES): stack.idl
+IDL-GENERATED: stack.idl
 	erlc $(ERL_IDL_FLAGS) stack.idl
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target
