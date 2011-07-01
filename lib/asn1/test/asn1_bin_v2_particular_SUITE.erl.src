@@ -28,7 +28,12 @@ smp(Config)  ->
 
 	    ?line {Time2S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
 
-            {comment,lists:flatten(io_lib:format("Encode/decode time parallell with ~p cores: ~p [microsecs]~nEncode/decode time sequential: ~p [microsecs]",[NumOfProcs,Time1+Time2,Time1S+Time2S]))};
+	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
+            ?line {Time3,ok} = timer:tc(?MODULE,smp2,[Parent,NumOfProcs,Msg, N]),
+
+	    ?line {Time3S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
+
+            {comment,lists:flatten(io_lib:format("Encode/decode time parallell with ~p cores: ~p [microsecs]~nEncode/decode time sequential: ~p [microsecs]",[NumOfProcs,Time1+Time2+Time3,Time1S+Time2S+Time3S]))};
         false ->
             {skipped,"No smp support"}
     end.
