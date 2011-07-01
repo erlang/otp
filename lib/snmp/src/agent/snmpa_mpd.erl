@@ -32,6 +32,7 @@
 -include("SNMP-MPD-MIB.hrl").
 -include("SNMPv2-TM.hrl").
 -include("SNMP-FRAMEWORK-MIB.hrl").
+-include("TRANSPORT-ADDRESS-MIB.hrl").
 
 -define(VMODULE,"MPD").
 -include("snmp_verbosity.hrl").
@@ -981,12 +982,15 @@ generate_discovery_msg2(NoteStore, Pdu,
 discovery_note_timeout(Timeout) ->
     (Timeout div 100) + 1.
     
-generate_discovery_msg(NoteStore, {?snmpUDPDomain, [A,B,C,D,U1,U2]}, 
+generate_discovery_msg(NoteStore, {TDomain, TAddress}, 
 		       Pdu, ScopedPduBytes, 
 		       ContextEngineID, ManagerEngineID, 
 		       SecModel, SecName, SecLevelFlag, 
 		       InitialUserName, 
 		       ContextName, Timeout) ->
+
+    {ok, {_Domain, Address}} = transform_taddr(TDomain, TAddress),
+
     %% 7.1.7
     ?vdebug("generate_discovery_msg -> 7.1.7 (~w)", [ManagerEngineID]),
     MsgID     = generate_msg_id(),
@@ -1027,7 +1031,7 @@ generate_discovery_msg(NoteStore, {?snmpUDPDomain, [A,B,C,D,U1,U2]},
 	    %% Log(Packet),
 	    inc_snmp_out_vars(Pdu),
 	    ?vdebug("generate_discovery_msg -> done", []),
-	    {Packet, {{A,B,C,D}, U1 bsl 8 + U2}};
+	    {Packet, Address};
 
 	Error ->
 	    throw(Error)
@@ -1057,6 +1061,25 @@ generate_sec_discovery_msg(Message, SecModule,
     end.
 	
     
+transform_taddr(?snmpUDPDomain, TAddress) ->
+    transform_taddr(?transportDomainUdpIpv4, TAddress);
+transform_taddr(?transportDomainUdpIpv4, [A, B, C, D, P1, P2]) ->
+    Domain  = transportDomainUdpIpv4, 
+    Addr    = {A,B,C,D}, 
+    Port    = P1 bsl 8 + P2, 
+    Address = {Addr, Port},
+    {Domain, Address};
+transform_taddr(?transportDomainUdpIpv6, 
+		[A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
+    Domain  = transportDomainUdpIpv6, 
+    Addr    = {A1, A2, A3, A4, A5, A6, A7, A8},
+    Port    = P1 bsl 8 + P2,
+    Address = {Addr, Port},
+    {ok, {Domain, Address}};
+transform_taddr(_TDomain, _TAddress) ->
+    error.
+
+
 process_taddrs(Dests) ->
     ?vtrace("process_taddrs -> entry with"
 	    "~n   Dests: ~p", [Dests]),
@@ -1066,46 +1089,35 @@ process_taddrs([], Acc) ->
     ?vtrace("process_taddrs -> entry when done with"
 	    "~n   Acc: ~p", [Acc]),
     lists:reverse(Acc);
-
+    
 %% v3
-process_taddrs([{{?snmpUDPDomain, [A,B,C,D,U1,U2]}, SecData} | T], Acc) ->
+process_taddrs([{{TDomain, TAddress}, SecData} | T], Acc) ->
     ?vtrace("process_taddrs -> entry when v3 with"
-	    "~n   A:       ~p"
-	    "~n   B:       ~p"
-	    "~n   C:       ~p"
-	    "~n   D:       ~p"
-	    "~n   U1:      ~p"
-	    "~n   U2:      ~p"
-	    "~n   SecData: ~p", [A, B, C, D, U1, U2, SecData]),
-    Entry = {{snmpUDPDomain, {{A,B,C,D}, U1 bsl 8 + U2}}, SecData}, 
-    process_taddrs(T, [Entry | Acc]);
-%% Bad v3
-process_taddrs([{{TDomain, TAddr}, _SecData} | T], Acc) ->
-    ?vtrace("process_taddrs -> entry when bad v3 with"
-	    "~n   TDomain: ~p"
-	    "~n   TAddr:   ~p", [TDomain, TAddr]),
-    user_err("Bad TDomain/TAddr: ~w/~w", [TDomain, TAddr]),
-    process_taddrs(T, Acc);
+	    "~n   TDomain:  ~p"
+	    "~n   TAddress: ~p"
+	    "~n   SecData:  ~p", [TDomain, TAddress, SecData]),
+    case transform_taddr(TDomain, TAddress) of
+	{ok, DestAddr} ->
+	    Entry = {DestAddr, SecData}, 
+	    process_taddrs(T, [Entry | Acc]);
+	error ->
+	    user_err("Bad TDomain/TAddress: ~w/~w", [TDomain, TAddress]),
+	    process_taddrs(T, Acc)
+    end;
 %% v1 & v2
-process_taddrs([{?snmpUDPDomain, [A,B,C,D,U1,U2]} | T], Acc) ->
-    ?vtrace("process_taddrs -> entry when v1/v2 with"
-	    "~n   A:  ~p"
-	    "~n   B:  ~p"
-	    "~n   C:  ~p"
-	    "~n   D:  ~p"
-	    "~n   U1: ~p"
-	    "~n   U2: ~p", [A, B, C, D, U1, U2]),
-    Entry = {snmpUDPDomain, {{A,B,C,D}, U1 bsl 8 + U2}}, 
-    process_taddrs(T, [Entry | Acc]);
-%% Bad v1 or v2
-process_taddrs([{TDomain, TAddr} | T], Acc) ->
-    ?vtrace("process_taddrs -> entry when bad v1/v2 with"
-	    "~n   TDomain: ~p"
-	    "~n   TAddr:   ~p", [TDomain, TAddr]),
-    user_err("Bad TDomain/TAddr: ~w/~w", [TDomain, TAddr]),
-    process_taddrs(T, Acc);
+process_taddrs([{TDomain, TAddress} | T], Acc) ->
+    ?vtrace("process_taddrs -> entry when v3 with"
+	    "~n   TDomain:  ~p"
+	    "~n   TAddress: ~p", [TDomain, TAddress]),
+    case transform_taddr(TDomain, TAddress) of
+	{ok, Entry} ->
+	    process_taddrs(T, [Entry | Acc]);
+	error ->
+	    user_err("Bad TDomain/TAddress: ~w/~w", [TDomain, TAddress]),
+	    process_taddrs(T, Acc)
+    end;
 process_taddrs(Crap, Acc) ->
-    throw({error, {taddrs_crap, Crap, Acc}}).
+    throw({error, {bad_taddrs, Crap, Acc}}).
 
 
 mk_v1_v2_packet_list(To, Packet, Len, Pdu) ->

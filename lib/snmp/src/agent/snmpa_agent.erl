@@ -1626,7 +1626,7 @@ invalidate_ca_cache() ->
 				    MasterAgent ! invalidate_ca_cache;
 				false ->
 				    %% This is running on a sub-agent node, 
-				    %% so sent skip it
+				    %% so skip it
 				    ok
 			    end;
 			_ -> % Not on this node 
