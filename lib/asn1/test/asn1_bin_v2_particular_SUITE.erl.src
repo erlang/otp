@@ -1,5 +1,5 @@
 
-particular() -> [smp, ticket7904].
+particular() -> [smp, per_performance, ber_performance, ticket7904].
 
 
 smp(suite) -> [];
@@ -37,6 +37,77 @@ smp(Config)  ->
         false ->
             {skipped,"No smp support"}
     end.
+
+per_performance(Config) ->
+
+    ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
+    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize]),
+    N = 10000,
+
+    ?line ok = asn1rt:load_driver(),
+
+    asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
+
+    PerFun = fun() ->
+		     [asn1_wrapper:encode('NBAP-PDU-Discriptions',
+					  'NBAP-PDU',
+					  Msg) || _I <- lists:seq(1,N)],
+		     ok
+	     end,
+
+    ?line {TimeD,ok} = timer:tc(PerFun),
+
+    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize,nif]),
+
+    ?line {TimeN,ok} = timer:tc(PerFun),
+
+    ?line ok = testNBAPsystem:compile(Config,per_bin,[]),
+
+    ?line {TimeE,ok} = timer:tc(PerFun),
+
+    {comment, lists:flatten(io_lib:format("Driver: ~p<br/>"
+					  "Nif   : ~p<br/>"
+					  "Erlang: ~p",[TimeD, TimeN, TimeE]))}.
+
+ber_performance(Config) ->
+
+    ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
+    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,driver]),
+    N = 10000, S = 1,
+
+    ?line ok = asn1rt:load_driver(),
+
+    {ok,B} = asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
+
+    PerFun = fun() ->
+		     [begin
+			  [asn1_wrapper:decode(
+			     'NBAP-PDU-Discriptions',
+			     'NBAP-PDU',
+			     B) || _I <- lists:seq(1,round(N/100))],
+			  timer:sleep(S)
+		      end || _I0 <- lists:seq(1,100)],
+		     ok
+	     end,
+
+    ?line {TimeD,ok} = timer:tc(PerFun),
+
+    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
+
+    ?line {TimeN,ok} = timer:tc(PerFun),
+
+    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize]),
+
+    ?line {TimeE,ok} = timer:tc(PerFun),
+
+    {comment, lists:flatten(io_lib:format("Driver: ~p<br/>"
+					  "Nif   : ~p<br/>"
+					  "Erlang: ~p",[TimeD-100*S,
+							TimeN-100*S,
+							TimeE-100*S]))}.
+
+
+
 
 smp2(Parent,NumOfProcs,Msg, N) ->
     Pids = [spawn_link(fun() -> worker(Msg,Parent, N) end)
