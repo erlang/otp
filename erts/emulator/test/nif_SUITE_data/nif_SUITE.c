@@ -1376,7 +1376,7 @@ static ERL_NIF_TERM send_term(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 static ERL_NIF_TERM reverse_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     ERL_NIF_TERM rev_list;
 
-    if(!enif_get_reverse_list(env, argv[0], &rev_list))
+    if(!enif_make_reverse_list(env, argv[0], &rev_list))
 	return enif_make_atom(env, "badarg");
     return rev_list;
 }

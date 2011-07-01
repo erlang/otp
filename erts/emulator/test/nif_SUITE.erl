@@ -1169,7 +1169,7 @@ reverse_list_test(Config) ->
     List = lists:seq(1,100),
     RevList = lists:reverse(List),
     ?line RevList = reverse_list(List),
-    badarg = reverse_list(foo).
+    ?line badarg = reverse_list(foo).
 
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of
