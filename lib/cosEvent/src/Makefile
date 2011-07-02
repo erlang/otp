@@ -177,16 +177,18 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(GEN_ERL_FILES1) $(EXTERNAL_GEN_HRL_FILES1): CosEventChannelAdmin.idl
+
+IDL-GENERATED: CosEventChannelAdmin.idl cosEventApp.idl CosEventComm.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosEventChannelAdmin.cfg"}' CosEventChannelAdmin.idl
 	mv $(GEN_HRL_FILES1) $(EXTERNAL_INC_PATH)
-
-$(GEN_ERL_FILES2) $(GEN_HRL_FILES2): cosEventApp.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"cosEventApp.cfg"}' cosEventApp.idl
-
-$(GEN_ERL_FILES3) $(EXTERNAL_GEN_HRL_FILES3): CosEventComm.idl
 	erlc $(ERL_IDL_FLAGS) CosEventComm.idl
 	mv $(GEN_HRL_FILES3) $(EXTERNAL_INC_PATH)
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target
