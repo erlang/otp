@@ -523,6 +523,32 @@ This is an elisp list of options. Each option can be either:
 - a string
 Example: '(bin_opt_info (i . \"/path1/include\") (i . \"/path2/include\"))")
 
+(defvar erlang-compile-command-function-alist
+  '((".erl\\'" . inferior-erlang-compute-erl-compile-command)
+    (".xrl\\'" . inferior-erlang-compute-leex-compile-command)
+    (".yrl\\'" . inferior-erlang-compute-yecc-compile-command)
+    ("." . inferior-erlang-compute-erl-compile-command))
+  "*Alist of filename patterns vs corresponding compilation functions.
+Each element looks like (REGEXP . FUNCTION). Compiling a file whose name
+matches REGEXP specifies FUNCTION to use to compute the compilation
+command. The FUNCTION will be called with two arguments: module name and
+default compilation options, like output directory. The FUNCTION
+is expected to return a string.")
+
+(defvar erlang-leex-compile-opts '()
+  "*Options to pass to leex when compiling xrl files.
+This is an elisp list of options. Each option can be either:
+- an atom
+- a dotted pair
+- a string")
+
+(defvar erlang-yecc-compile-opts '()
+  "*Options to pass to yecc when compiling yrl files.
+This is an elisp list of options. Each option can be either:
+- an atom
+- a dotted pair
+- a string")
+
 (eval-and-compile
   (defvar erlang-regexp-modern-p
     (if (> erlang-emacs-major-version 21) t nil)
@@ -5276,6 +5302,22 @@ unless the optional NO-DISPLAY is non-nil."
       (file-name-as-directory buffer-dir))))
 
 (defun inferior-erlang-compute-compile-command (module-name opts)
+  (let ((ccfn erlang-compile-command-function-alist)
+	(res (inferior-erlang-compute-erl-compile-command module-name opts))
+	ccfn-entry
+	done)
+    (if (not (null (buffer-file-name)))
+	(while (and (not done) (not (null ccfn)))
+	  (setq ccfn-entry (car ccfn))
+	  (setq ccfn (cdr ccfn))
+	  (if (string-match (car ccfn-entry) (buffer-file-name))
+	      (let ((c-fn (cdr ccfn-entry)))
+		(setq done t)
+		(if (not (null c-fn))
+		    (setq result (funcall c-fn module-name opts)))))))
+    result))
+
+(defun inferior-erlang-compute-erl-compile-command (module-name opts)
   (let* ((out-dir-opt (assoc 'outdir opts))
 	 (out-dir     (cdr out-dir-opt)))
     (if erlang-compile-use-outdir
@@ -5298,6 +5340,48 @@ unless the optional NO-DISPLAY is non-nil."
 	 module-name (inferior-erlang-format-comma-opts
 		      (remq out-dir-opt opts))
 	 tmpvar tmpvar tmpvar2)))))
+
+(defun inferior-erlang-compute-leex-compile-command (module-name opts)
+  (let ((file-name        (buffer-file-name))
+	(erl-compile-expr (inferior-erlang-remove-any-trailing-dot
+			   (inferior-erlang-compute-erl-compile-command
+			    module-name opts))))
+    (format (concat "f(LErr1__), f(LErr2__), "
+		    "case case leex:file(\"%s\", [%s]) of"
+		    " ok -> ok;"
+		    " {ok,_} -> ok;"
+		    " {ok,_,_} -> ok;"
+		    " LErr1__ -> LErr1__ "
+		    "end of"
+		    " ok -> %s;"
+		    " LErr2__ -> LErr2__ "
+		    "end.")
+	    file-name
+	    (inferior-erlang-format-comma-opts erlang-leex-compile-opts)
+	    erl-compile-expr)))
+
+(defun inferior-erlang-compute-yecc-compile-command (module-name opts)
+  (let ((file-name        (buffer-file-name))
+	(erl-compile-expr (inferior-erlang-remove-any-trailing-dot
+			   (inferior-erlang-compute-erl-compile-command
+			    module-name opts))))
+    (format (concat "f(YErr1__), f(YErr2__), "
+		    "case case yecc:file(\"%s\", [%s]) of"
+		    " {ok,_} -> ok;"
+		    " {ok,_,_} -> ok;"
+		    " YErr1__ -> YErr1__ "
+		    "end of"
+		    " ok -> %s;"
+		    " YErr2__ -> YErr2__ "
+		    "end.")
+	    file-name
+	    (inferior-erlang-format-comma-opts erlang-yecc-compile-opts)
+	    erl-compile-expr)))
+
+(defun inferior-erlang-remove-any-trailing-dot (str)
+  (if (string= (substring str -1) ".")
+      (substring str 0 (1- (length str)))
+    str))
 
 (defun inferior-erlang-format-comma-opts (opts)
   (if (null opts)
