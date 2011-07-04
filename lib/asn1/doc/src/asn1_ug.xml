@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -365,6 +365,12 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
           <p>Together with the flags <c>ber_bin</c> and <c>optimize</c>
             you choose to use a linked in driver for considerable faster
             decode.</p>
+        </item>
+	<tag><c>+nif</c></tag>
+        <item>
+          <p>Together with the flags <c>per_bin</c> or <c>ber_bin</c>
+	  and <c>optimize</c> you choose to use a nif for considerable
+	  faster per encode and ber decode. </p>
         </item>
         <tag><c>+asn1config</c></tag>
         <item>

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -222,6 +222,14 @@ Binary = binary()
               options. It enables the use of a linked-in driver that gives
               considerable faster decode. In <c>ber_bin</c> the driver is
               enabled only by explicit use of the option <c>driver</c>.</p>
+          </item>
+	  <tag><c>nif</c></tag>
+          <item>
+            <p>Option valid together with <c>ber_bin</c> and <c>optimize</c>
+	      or <c>per_bin</c> and <c>optimize</c> options. It enables the
+	      use of several nifs that gives faster decode for
+	      ber and encode for per than the driver options gives. Nifs are
+	      only enabled by the explicit use of the option <c>nif</c></p>
           </item>
           <tag><c>asn1config</c></tag>
           <item>
