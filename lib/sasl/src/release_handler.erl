@@ -291,7 +291,8 @@ check_script(Script, LibDirs) ->
     release_handler_1:check_script(Script, LibDirs).
 
 %%-----------------------------------------------------------------
-%% eval_script(Script, Apps, LibDirs, Opts) -> {ok, UnPurged} |
+%% eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
+%%                                             {ok, UnPurged} |
 %%                                             restart_new_emulator |
 %%                                             {error, Error}
 %%                                             {'EXIT', Reason}
@@ -299,9 +300,13 @@ check_script(Script, LibDirs) ->
 %% net_kernel:monitor_nodes(true) before calling this function.
 %% No!  No other process than the release_handler can ever call this
 %% function, if sync_nodes is used.
-%%-----------------------------------------------------------------
-eval_script(Script, Apps, LibDirs, Opts) ->
-    catch release_handler_1:eval_script(Script, Apps, LibDirs, Opts).
+%%
+%% LibDirs is a list of all applications, while NewLibs is a list of
+%% applications that have changed version between the current and the
+%% new release.
+%% -----------------------------------------------------------------
+eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
+    catch release_handler_1:eval_script(Script, Apps, LibDirs, NewLibs, Opts).
 
 %%-----------------------------------------------------------------
 %% Func: create_RELEASES(Root, RelFile, LibDirs) -> ok | {error, Reason}
@@ -404,6 +409,7 @@ eval_appup_script(App, ToVsn, ToDir, Script) ->
     AppSpecL = read_appspec(App, ToDir),
     Res = release_handler_1:eval_script(Script,
 					[], % [AppSpec]
+					[{App, ToVsn, ToDir}],
 					[{App, ToVsn, ToDir}],
 					[]), % [Opt]
     case Res of
@@ -906,7 +912,9 @@ do_install_release(#state{start_prg = StartPrg,
 		    EnvBefore = application_controller:prep_config_change(),
 		    Apps = change_appl_data(RelDir, Release, Masters),
 		    LibDirs = Release#release.libs,
-		    case eval_script(Script, Apps, LibDirs, Opts) of
+		    NewLibs = get_new_libs(LatestRelease#release.libs,
+					   Release#release.libs),
+		    case eval_script(Script, Apps, LibDirs, NewLibs, Opts) of
 			{ok, []} ->
 			    application_controller:config_change(EnvBefore),
 			    mon_nodes(false),
@@ -1946,3 +1954,25 @@ safe_write_file_m(File, Data, Masters) ->
 			   filename:basename(File),
 			   filename:basename(Backup)}})
     end.
+
+%%-----------------------------------------------------------------
+%% Figure out which applications that have changed version between the
+%% two releases. The paths for these applications must always be
+%% updated, even if the relup script does not load any modules. See
+%% OTP-9402.
+%%
+%% A different situation is when the same application version is used
+%% in old and new release, but the path has changed. This is not
+%% handled here - instead it must be explicitely indicated by the
+%% 'update_paths' option to release_handler:install_release/2 if the
+%% code path shall be updated then.
+%% -----------------------------------------------------------------
+get_new_libs([{App,Vsn,LibDir}|CurrentLibs], NewLibs) ->
+    case lists:keyfind(App,1,NewLibs) of
+	{App,NewVsn,_} = LibInfo when NewVsn =/= Vsn ->
+	    [LibInfo | get_new_libs(CurrentLibs,NewLibs)];
+	_ ->
+	    get_new_libs(CurrentLibs,NewLibs)
+    end;
+get_new_libs([],_) ->
+    [].
