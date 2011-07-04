@@ -11,27 +11,25 @@ smp(Config)  ->
 
             ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
 	    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize]),
-
-            Parent = self(),
 	    
 	    ?line ok = asn1rt:load_driver(),
 	
-	    smp2(Parent,NumOfProcs,Msg,2),
+	    enc_dec(NumOfProcs,Msg,2),
 
 	    N = 10000,
 
-            ?line {Time1,ok} = timer:tc(?MODULE,smp2,[Parent,NumOfProcs,Msg, N]),
-	    ?line {Time1S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
+            ?line {Time1,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
+	    ?line {Time1S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
 	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,driver]),
-            ?line {Time2,ok} = timer:tc(?MODULE,smp2,[Parent,NumOfProcs,Msg, N]),
+            ?line {Time2,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 
-	    ?line {Time2S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
+	    ?line {Time2S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
 	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
-            ?line {Time3,ok} = timer:tc(?MODULE,smp2,[Parent,NumOfProcs,Msg, N]),
+            ?line {Time3,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 
-	    ?line {Time3S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
+	    ?line {Time3S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
             {comment,lists:flatten(io_lib:format("Encode/decode time parallell with ~p cores: ~p [microsecs]~nEncode/decode time sequential: ~p [microsecs]",[NumOfProcs,Time1+Time2+Time3,Time1S+Time2S+Time3S]))};
         false ->
@@ -42,7 +40,9 @@ per_performance(Config) ->
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
     ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize]),
+    NumOfProcs = erlang:system_info(schedulers)*10,
     N = 10000,
+    SmpN = lists:seq(1,round(N/NumOfProcs)),
 
     ?line ok = asn1rt:load_driver(),
 
@@ -55,69 +55,119 @@ per_performance(Config) ->
 		     ok
 	     end,
 
+    PerSMPFun = 
+	fun() ->
+		pforeach(fun(_) ->
+				 [asn1_wrapper:encode('NBAP-PDU-Discriptions',
+						      'NBAP-PDU',
+						      Msg) || _I <- SmpN]
+			 end,lists:seq(1,NumOfProcs))
+	end,
+
     ?line {TimeD,ok} = timer:tc(PerFun),
+    ?line {TimeDS,ok} = timer:tc(PerSMPFun),
 
     ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize,nif]),
 
     ?line {TimeN,ok} = timer:tc(PerFun),
+    ?line {TimeNS,ok} = timer:tc(PerSMPFun),
 
     ?line ok = testNBAPsystem:compile(Config,per_bin,[]),
 
     ?line {TimeE,ok} = timer:tc(PerFun),
+    ?line {TimeES,ok} = timer:tc(PerSMPFun),
 
-    {comment, lists:flatten(io_lib:format("Driver: ~p<br/>"
-					  "Nif   : ~p<br/>"
-					  "Erlang: ~p",[TimeD, TimeN, TimeE]))}.
+    ct:log("Seq:<br/>"
+	   "Driver: ~p (~.2f%)<br/>"
+	   "Nif   : ~p (~.2f%)<br/>"
+	   "Erlang: ~p (~.2f%)<br/>"
+	   "Parallel:<br/>"
+	   "Driver: ~p (~.2f%)<br/>"
+	   "Nif   : ~p (~.2f%)<br/>"
+	   "Erlang: ~p (~.2f%)<br/>",
+	   [TimeD,TimeD/TimeD*100,
+	    TimeN,TimeN/TimeD*100,
+	    TimeE,TimeE/TimeD*100,
+	    TimeDS,TimeDS/TimeDS*100,
+	    TimeNS,TimeNS/TimeDS*100,
+	    TimeES,TimeES/TimeDS*100]),
+
+    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than drivers!",
+					  [faster(TimeN+TimeNS,
+						  TimeD+TimeDS)]))}.
 
 ber_performance(Config) ->
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
     ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,driver]),
-    N = 10000, S = 1,
+    NumOfProcs = erlang:system_info(schedulers)*10,
+    N = 10000,
+    SmpN = lists:seq(1,round(N/NumOfProcs)),
 
     ?line ok = asn1rt:load_driver(),
 
     {ok,B} = asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
 
-    PerFun = fun() ->
-		     [begin
-			  [asn1_wrapper:decode(
-			     'NBAP-PDU-Discriptions',
-			     'NBAP-PDU',
-			     B) || _I <- lists:seq(1,round(N/100))],
-			  timer:sleep(S)
-		      end || _I0 <- lists:seq(1,100)],
+    BerFun = fun() ->
+		     [asn1_wrapper:decode(
+			'NBAP-PDU-Discriptions',
+			'NBAP-PDU',
+			B) || _I <- lists:seq(1,N)],
 		     ok
 	     end,
-
-    ?line {TimeD,ok} = timer:tc(PerFun),
+    BerSMPFun = 
+	fun() ->
+		pforeach(fun(_) ->
+				 [asn1_wrapper:decode(
+				   'NBAP-PDU-Discriptions',
+				   'NBAP-PDU',
+				   B) || _I <- SmpN]
+			 end,lists:seq(1,NumOfProcs))
+	end,
+    
+    ?line {TimeD,ok} = timer:tc(BerFun),
+    ?line {TimeDS,ok} = timer:tc(BerSMPFun),
 
     ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
 
-    ?line {TimeN,ok} = timer:tc(PerFun),
+    ?line {TimeN,ok} = timer:tc(BerFun),
+    ?line {TimeNS,ok} = timer:tc(BerSMPFun),
 
     ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize]),
 
-    ?line {TimeE,ok} = timer:tc(PerFun),
-
-    {comment, lists:flatten(io_lib:format("Driver: ~p<br/>"
-					  "Nif   : ~p<br/>"
-					  "Erlang: ~p",[TimeD-100*S,
-							TimeN-100*S,
-							TimeE-100*S]))}.
+    ?line {TimeE,ok} = timer:tc(BerFun),
+    ?line {TimeES,ok} = timer:tc(BerSMPFun),
 
 
+    ct:log("Seq:<br/>"
+	   "Driver: ~p (~.2f%)<br/>"
+	   "Nif   : ~p (~.2f%)<br/>"
+	   "Erlang: ~p (~.2f%)<br/>"
+	   "Parallel:<br/>"
+	   "Driver: ~p (~.2f%)<br/>"
+	   "Nif   : ~p (~.2f%)<br/>"
+	   "Erlang: ~p (~.2f%)<br/>",
+	   [TimeD,TimeD/TimeD*100,
+	    TimeN,TimeN/TimeD*100,
+	    TimeE,TimeE/TimeD*100,
+	    TimeDS,TimeDS/TimeDS*100,
+	    TimeNS,TimeNS/TimeDS*100,
+	    TimeES,TimeES/TimeDS*100]),
+    
+    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than drivers!",
+					  [faster(TimeN+TimeNS,
+						  TimeD+TimeDS)]))}.
 
 
-smp2(Parent,NumOfProcs,Msg, N) ->
-    Pids = [spawn_link(fun() -> worker(Msg,Parent, N) end)
-		    || _ <- lists:seq(1,NumOfProcs)],
-    ?line ok = wait_pids(Pids).
+faster(A,B) ->
+    (B - A)/B * 100.
 
-worker(Msg, Parent, N) ->
-    %% io:format("smp worker ~p with ~p worker loops.~n",[self(), N]),
-    worker_loop(N, Msg),
-    Parent ! self().
+enc_dec(1, Msg, N) ->
+    worker_loop(N, Msg);
+enc_dec(NumOfProcs,Msg, N) ->
+    pforeach(fun(_) ->
+		     worker_loop(N, Msg)
+	     end, [I || I <- lists:seq(1,NumOfProcs)]).
 
 worker_loop(0, _Msg) ->
     ok;
@@ -126,28 +176,24 @@ worker_loop(N, Msg) ->
 				     'NBAP-PDU',
 				     Msg),
     ?line {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     B),
+					'NBAP-PDU',
+					B),
     worker_loop(N - 1, Msg).
 
 
-wait_pids([]) -> 
-    ok;
-wait_pids(Pids) ->
+pforeach(Fun, List) ->
+    pforeach(Fun, List, []).
+pforeach(Fun, [], [{Pid,Ref}|Pids]) ->
     receive
-	Pid when is_pid(Pid) ->
-	    ?line true = lists:member(Pid,Pids),
-	    Others = lists:delete(Pid,Pids),
-	    io:format("wait_pid got ~p, still waiting for ~p\n",[Pid,Others]),
-	    wait_pids(Others);
-        Err ->
-	    io:format("Err: ~p~n",[Err]),
-	    ?line exit(Err)
-    end.
-
-sequential(N,Msg) ->
-     %%io:format("sequential encode/decode with N = ~p~n",[N]),
-     worker_loop(N,Msg).
+	{'DOWN', Ref, process, Pid, normal} ->
+	    pforeach(Fun, [], Pids)
+    end;
+pforeach(Fun, [H|T], Pids) ->
+    Pid = spawn(fun() -> Fun(H) end),
+    Ref = erlang:monitor(process, Pid),
+    pforeach(Fun, T, [{Pid, Ref}|Pids]);
+pforeach(_Fun,[],[]) ->
+    ok.
     
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
