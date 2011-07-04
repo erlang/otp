@@ -1086,7 +1086,7 @@ get_runtime_mod(Options) ->
 	    ber_bin_v2 -> ["asn1rt_ber_bin_v2.erl"];
 	    uper_bin -> ["asn1rt_uper_bin.erl"]
 	end,
-    RtMod1++["asn1rt_check.erl","asn1rt_driver_handler.erl","asn1rt_nif.erl",
+    RtMod1++["asn1rt_check.erl","asn1rt_driver_handler.erl",
 	     "asn1rt.erl"].
     
 
