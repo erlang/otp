@@ -347,7 +347,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
           <p>This flag has effect only when used together with one of
             <c>per_bin</c> or <c>ber_bin</c> flags. It gives time optimized
             code in the generated modules and it uses another runtime module.
-            In the <c>per_bin</c> case a linked-in driver is used. The
+            In the <c>per_bin</c> case a nif is used. The
             result from an encode is a binary.</p>
           <p><em>When this flag is used you cannot use the old format</em><c>{TypeName,Value}</c> when you encode values. Since it is
             an unnecessary construct it has been removed in favor of
@@ -362,15 +362,14 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         </item>
         <tag><c>+driver</c></tag>
         <item>
-          <p>Together with the flags <c>ber_bin</c> and <c>optimize</c>
-            you choose to use a linked in driver for considerable faster
-            decode.</p>
+           <p>As of R15B this means the same as the <c>nif</c> option. Kept for
+	    backwards compatability reasons.</p>
         </item>
 	<tag><c>+nif</c></tag>
         <item>
-          <p>Together with the flags <c>per_bin</c> or <c>ber_bin</c>
+          <p>Together with the flags <c>ber_bin</c>
 	  and <c>optimize</c> you choose to use a nif for considerable
-	  faster per encode and ber decode. </p>
+	  faster decode. </p>
         </item>
         <tag><c>+asn1config</c></tag>
         <item>
@@ -498,7 +497,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
       </row>
       <row>
         <cell align="left" valign="middle">BER</cell>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver]</em></cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif]</em></cell>
         <cell align="left" valign="middle">EAVF</cell>
         <cell align="left" valign="middle">iolist</cell>
         <cell align="left" valign="middle">iolist / binary</cell>
@@ -563,7 +562,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
       </row>
       <row>
         <cell align="left" valign="middle">DER</cell>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver, der]</em></cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif, der]</em></cell>
         <cell align="left" valign="middle">EAVF</cell>
         <cell align="left" valign="middle">iolist</cell>
         <cell align="left" valign="middle">binary</cell>
@@ -632,23 +631,24 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
     </table>
 
     <p>
-      The sole compile options <c>ber</c>, <c>ber_bin</c> and <c>per</c>
-      are kept for backwards compatibility and should not be used in
-      new code.
+      The sole compile options <c>ber</c>, <c>ber_bin</c>, <c>per</c> and
+      <c>driver</c> are kept for backwards compatibility and should not be 
+      used in new code. The nif implementation which replaces the linked-in
+      driver has been shown to be about 5-15% faster.
     </p>
     <p>
       You are strongly recommended to use the appropriate alternative
       of the bold typed options. The <c>optimize</c> and
-      <c>driver</c> options does not affect the encode or decode
+      <c>nif</c> options does not affect the encode or decode
       result, just the time spent in run-time. When <c>ber_bin</c> and
-      <c>driver</c> or <c>per_bin, optimize</c> and <c>driver</c> is
-      combined the C-code driver is used in chosen parts of encode /
+      <c>nif</c> or <c>per_bin</c> and <c>optimize</c> is
+      combined the C-code nif is used in chosen parts of encode /
       decode procedure.
     </p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Compile options, allowed combinations</em></cell>
-        <cell align="left" valign="middle"><em>use of linked-in driver</em></cell>
+        <cell align="left" valign="middle"><em>use of nif</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle">[ber]</cell>
@@ -663,7 +663,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
         <cell align="left" valign="middle">no</cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver]</em></cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif]</em></cell>
         <cell align="left" valign="middle">yes</cell>
       </row>
       <row>
@@ -675,7 +675,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
         <cell align="left" valign="middle">no</cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
+        <cell align="left" valign="middle"><em>[per_bin, nif]</em></cell>
         <cell align="left" valign="middle">yes</cell>
       </row>
       <row>
@@ -696,12 +696,12 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
         <cell align="left" valign="middle">no</cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver, der]</em></cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif, der]</em></cell>
         <cell align="left" valign="middle">yes</cell>
       </row>
 
 
-      <tcaption>When the ASN1 linked-in driver is used.</tcaption>
+      <tcaption>When the ASN1 nif is used.</tcaption>
     </table>
 
     </section>
@@ -718,14 +718,14 @@ asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
       <pre>
 'H323-MESSAGES':encode('SomeChoiceType',{call,"octetstring"}).
 'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
-      <p>The asn1 linked-in driver is enabled in two occasions: encoding of
+      <p>The asn1 nif is enabled in two occasions: encoding of
         asn1 values when the asn1 spec is compiled with <c>per_bin</c> and
         <c>optimize</c> or decode of encoded asn1 values when the asn1 spec is
-        compiled with <c>ber_bin</c>, <c>optimize</c> and <c>driver</c>. In
-        those cases the driver will be loaded automatically at the first call
+        compiled with <c>ber_bin</c>, <c>optimize</c> and <c>nif</c>. In
+        those cases the nif will be loaded automatically at the first call
         to <c>encode</c>/<c>decode</c>. If one doesn't want the performance
-        overhead of the driver being loaded at the first call it is possible
-        to load the driver separately by <c>asn1rt:load_driver()</c>.  </p>
+        overhead of the nif being loaded at the first call it is possible
+        to load the nif separately by loading the <c>asn1rt_nif</c> module.</p>
       <p>By invoking the function <c>info/0</c> in a generated module, one
         gets information about which compiler options were used.</p>
     </section>

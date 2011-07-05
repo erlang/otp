@@ -52,7 +52,7 @@
         <v>Options = [Option| OldOption]</v>
         <v>Option = ber_bin | per_bin | uper_bin | der | compact_bit_string | 
 	noobj | {n2n,EnumTypeName} |{outdir,Dir} | {i,IncludeDir} | optimize | 
-	driver | asn1config | undec_rest | {inline,OutputName} | inline |
+	nif | asn1config | undec_rest | {inline,OutputName} | inline |
 	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose</v>
         <v>OldOption = ber | per</v> 
         <v>Reason = term()</v>
@@ -212,24 +212,21 @@ Binary = binary()
               <c>per_bin</c> 
               or <c>ber_bin</c> option. It gives time optimized code 
               generated and it uses another runtime module and 
-              in the <c>per_bin</c> case a linked-in driver. The result 
+              in the <c>per_bin</c> case a nif. The result 
               in the <c>per_bin</c> case from an encode when compiled
               with this option will be a binary.</p>
           </item>
           <tag><c>driver</c></tag>
           <item>
-            <p>Option valid together with <c>ber_bin</c> and <c>optimize</c>
-              options. It enables the use of a linked-in driver that gives
-              considerable faster decode. In <c>ber_bin</c> the driver is
-              enabled only by explicit use of the option <c>driver</c>.</p>
+            <p>As of R15B this means the same as the <c>nif</c> option. Kept for
+	    backwards compatability reasons.</p>
           </item>
 	  <tag><c>nif</c></tag>
           <item>
             <p>Option valid together with <c>ber_bin</c> and <c>optimize</c>
-	      or <c>per_bin</c> and <c>optimize</c> options. It enables the
-	      use of several nifs that gives faster decode for
-	      ber and encode for per than the driver options gives. Nifs are
-	      only enabled by the explicit use of the option <c>nif</c></p>
+	      options. It enables the use of several nifs that gives faster 
+	      decode. Nifs are only enabled by the explicit use of the option 
+	    <c>nif</c></p>
           </item>
           <tag><c>asn1config</c></tag>
           <item>
@@ -348,18 +345,6 @@ Binary = binary()
       <desc>
         <p>Decodes <c>Type</c> from <c>Module</c> from the list of bytes 
           <c>Bytes</c>. Returns <c>{ok,Value}</c> if successful.</p>
-      </desc>
-    </func>
-    <func>
-      <name>validate(Module,Type,Value) ->  ok | {error,Reason}</name>
-      <fsummary>Validate an ASN.1 value.</fsummary>
-      <type>
-        <v>Module = Type = atom()</v>
-        <v>Value = term()</v>
-      </type>
-      <desc>
-        <p>Validates that <c>Value</c> conforms  to <c>Type</c> 
-          from <c>Module</c>. <em>Not implemented in this version of the ASN.1 application.</em></p>
       </desc>
     </func>
     <func>
