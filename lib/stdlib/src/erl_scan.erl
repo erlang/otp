@@ -408,7 +408,12 @@ set_attr(line, {Line,Column}, Fun) when ?ALINE(Line), ?COLUMN(Column) ->
     end;
 set_attr(line=Tag, Attrs, Fun) when is_list(Attrs) ->
     {line,Line} = lists:keyfind(Tag, 1, Attrs),
-    lists:keyreplace(Tag, 1, Attrs, {line,Fun(Line)});
+    case lists:keyreplace(Tag, 1, Attrs, {line,Fun(Line)}) of
+        [{line,Ln}] when ?ALINE(Ln) ->
+            Ln;
+        As ->
+            As
+    end;
 set_attr(T1, T2, T3) ->
     erlang:error(badarg, [T1,T2,T3]).
 
