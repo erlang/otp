@@ -2036,11 +2036,7 @@ rtUI(Config) ->
     ?line {ok,_} = asn1rt:info('Prim'),
 
     ?line ok = asn1ct:compile(filename:join(DataDir,"Prim"),[?PER]),
-    ?line {ok,_} = asn1rt:info('Prim'),
-
-    ?line ok = asn1rt:load_driver(),
-    ?line ok = asn1rt:load_driver(),
-    ?line ok = asn1rt:unload_driver().
+    ?line {ok,_} = asn1rt:info('Prim').
 
 testROSE(suite) -> [];
 testROSE(Config) -> 

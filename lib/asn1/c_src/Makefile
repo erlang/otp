@@ -51,34 +51,25 @@ EI_LIBDIR = $(ERL_TOP)/lib/erl_interface/obj$(TYPEMARKER)/$(TARGET)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-EI_INCLUDES = -I$(ERL_TOP)/lib/erl_interface/include
 CFLAGS = $(DED_INCLUDES) $(EI_INCLUDES) $(DED_CFLAGS)
 LDFLAGS += $(DED_LDFLAGS)
-
-LD_INCL_EI = -L$(EI_LIBDIR)
 
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 
-DRV_OBJ_FILES = $(OBJDIR)/asn1_erl_driver.o
 NIF_OBJ_FILES = $(OBJDIR)/asn1_erl_nif.o
 
 
 ifeq ($(TARGET),win32)
-LD_EI = -lei_md 
-DRV_SHARED_OBJ_FILES = $(LIBDIR)/asn1_erl_drv.dll
 NIF_SHARED_OBJ_FILES = $(LIBDIR)/asn1_erl_nif.dll
 CLIB_FLAGS =
 LN=cp
 else
-LD_EI = -lei 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-DRV_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_drv.eld
 NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.eld
 CLIB_FLAGS =
 else
-DRV_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_drv.so
 NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.so
 CLIB_FLAGS = -lc
 endif
@@ -106,13 +97,10 @@ docs:
 
 
 $(OBJDIR)/%.o: %.c
-	$(CC) -c $(CFLAGS) -O1 -o $@ $<
-
-$(DRV_SHARED_OBJ_FILE): $(DRV_OBJ_FILES)
-	$(LD) $(LDFLAGS) $(LD_INCL_EI) -o $(DRV_SHARED_OBJ_FILE) $(DRV_OBJ_FILES) $(LD_EI) $(CLIB_FLAGS) $(LIBS)
+	$(CC) -c $(CFLAGS) -O3 -o $@ $<
 
 $(NIF_SHARED_OBJ_FILE): $(NIF_OBJ_FILES)
-	$(LD) $(LDFLAGS) $(LD_INCL_EI) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(LD_EI) $(CLIB_FLAGS) $(LIBS)
+	$(LD) $(LDFLAGS) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(CLIB_FLAGS) $(LIBS)
 
 $(LIBDIR):
 	-mkdir -p $(LIBDIR)
@@ -129,7 +117,6 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_PROGRAM) $(DRV_SHARED_OBJ_FILE) $(RELSYSDIR)/priv/lib
 	$(INSTALL_PROGRAM) $(NIF_SHARED_OBJ_FILE) $(RELSYSDIR)/priv/lib
 	$(INSTALL_DIR) $(RELSYSDIR)/c_src
 	$(INSTALL_DATA) *.c $(RELSYSDIR)/c_src

@@ -12,8 +12,6 @@ smp(Config)  ->
             ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
 	    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize]),
 	    
-	    ?line ok = asn1rt:load_driver(),
-	
 	    enc_dec(NumOfProcs,Msg,2),
 
 	    N = 10000,
@@ -21,17 +19,16 @@ smp(Config)  ->
             ?line {Time1,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 	    ?line {Time1S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
-	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,driver]),
-            ?line {Time2,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
-
-	    ?line {Time2S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
-
 	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
             ?line {Time3,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 
 	    ?line {Time3S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
-            {comment,lists:flatten(io_lib:format("Encode/decode time parallell with ~p cores: ~p [microsecs]~nEncode/decode time sequential: ~p [microsecs]",[NumOfProcs,Time1+Time2+Time3,Time1S+Time2S+Time3S]))};
+            {comment,lists:flatten(
+		       io_lib:format(
+			 "Encode/decode time parallell with ~p cores: ~p [microsecs]~n"
+			 "Encode/decode time sequential: ~p [microsecs]",
+			 [NumOfProcs,Time1+Time3,Time1S+Time3S]))};
         false ->
             {skipped,"No smp support"}
     end.
@@ -43,8 +40,6 @@ per_performance(Config) ->
     NumOfProcs = erlang:system_info(schedulers)*10,
     N = 10000,
     SmpN = lists:seq(1,round(N/NumOfProcs)),
-
-    ?line ok = asn1rt:load_driver(),
 
     asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
 
@@ -64,11 +59,6 @@ per_performance(Config) ->
 			 end,lists:seq(1,NumOfProcs))
 	end,
 
-    ?line {TimeD,ok} = timer:tc(PerFun),
-    ?line {TimeDS,ok} = timer:tc(PerSMPFun),
-
-    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize,nif]),
-
     ?line {TimeN,ok} = timer:tc(PerFun),
     ?line {TimeNS,ok} = timer:tc(PerSMPFun),
 
@@ -78,33 +68,27 @@ per_performance(Config) ->
     ?line {TimeES,ok} = timer:tc(PerSMPFun),
 
     ct:log("Seq:<br/>"
-	   "Driver: ~p (~.2f%)<br/>"
 	   "Nif   : ~p (~.2f%)<br/>"
 	   "Erlang: ~p (~.2f%)<br/>"
 	   "Parallel:<br/>"
-	   "Driver: ~p (~.2f%)<br/>"
 	   "Nif   : ~p (~.2f%)<br/>"
 	   "Erlang: ~p (~.2f%)<br/>",
-	   [TimeD,TimeD/TimeD*100,
-	    TimeN,TimeN/TimeD*100,
-	    TimeE,TimeE/TimeD*100,
-	    TimeDS,TimeDS/TimeDS*100,
-	    TimeNS,TimeNS/TimeDS*100,
-	    TimeES,TimeES/TimeDS*100]),
+	   [TimeN,TimeN/TimeN*100,
+	    TimeE,TimeE/TimeN*100,
+	    TimeNS,TimeNS/TimeNS*100,
+	    TimeES,TimeES/TimeNS*100]),
 
-    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than drivers!",
+    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than erlang!",
 					  [faster(TimeN+TimeNS,
-						  TimeD+TimeDS)]))}.
+						  TimeE+TimeES)]))}.
 
 ber_performance(Config) ->
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,driver]),
+    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
     NumOfProcs = erlang:system_info(schedulers)*10,
     N = 10000,
     SmpN = lists:seq(1,round(N/NumOfProcs)),
-
-    ?line ok = asn1rt:load_driver(),
 
     {ok,B} = asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
 
@@ -125,11 +109,6 @@ ber_performance(Config) ->
 			 end,lists:seq(1,NumOfProcs))
 	end,
     
-    ?line {TimeD,ok} = timer:tc(BerFun),
-    ?line {TimeDS,ok} = timer:tc(BerSMPFun),
-
-    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
-
     ?line {TimeN,ok} = timer:tc(BerFun),
     ?line {TimeNS,ok} = timer:tc(BerSMPFun),
 
@@ -138,25 +117,20 @@ ber_performance(Config) ->
     ?line {TimeE,ok} = timer:tc(BerFun),
     ?line {TimeES,ok} = timer:tc(BerSMPFun),
 
-
     ct:log("Seq:<br/>"
-	   "Driver: ~p (~.2f%)<br/>"
 	   "Nif   : ~p (~.2f%)<br/>"
 	   "Erlang: ~p (~.2f%)<br/>"
 	   "Parallel:<br/>"
-	   "Driver: ~p (~.2f%)<br/>"
 	   "Nif   : ~p (~.2f%)<br/>"
 	   "Erlang: ~p (~.2f%)<br/>",
-	   [TimeD,TimeD/TimeD*100,
-	    TimeN,TimeN/TimeD*100,
-	    TimeE,TimeE/TimeD*100,
-	    TimeDS,TimeDS/TimeDS*100,
-	    TimeNS,TimeNS/TimeDS*100,
-	    TimeES,TimeES/TimeDS*100]),
-    
-    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than drivers!",
+	   [TimeN,TimeN/TimeN*100,
+	    TimeE,TimeE/TimeN*100,
+	    TimeNS,TimeNS/TimeNS*100,
+	    TimeES,TimeES/TimeNS*100]),
+
+    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than erlang!",
 					  [faster(TimeN+TimeNS,
-						  TimeD+TimeDS)]))}.
+						  TimeE+TimeES)]))}.
 
 
 faster(A,B) ->

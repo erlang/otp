@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,38 +46,12 @@ decode(Module,Type,Bytes) ->
 	    Result
     end.
 
-%% asn1-1.6.8.1	
-%% load_driver() ->
-%%     asn1rt_driver_handler:load_driver(),
-%%     receive
-%% 	driver_ready ->
-%% 	    ok;
-%% 	Err={error,_Reason} ->
-%% 	    Err;
-%% 	Error ->
-%% 	    {error,Error}
-%%     end.
-
-%% asn1-1.6.9
- load_driver() ->
-     case catch asn1rt_driver_handler:load_driver() of
- 	ok ->
- 	    ok;
- 	{error,{already_started,asn1}} ->
- 	    ok;
- 	Err ->
- 	    {error,Err}
-     end.
-
+%% Remove in R16A
+load_driver() ->
+    ok.
 
 unload_driver() ->
-    case catch asn1rt_driver_handler:unload_driver() of
-	ok ->
-	    ok;
-	Error ->
-	    {error,Error}
-    end.
-
+    ok.
 
 info(Module) ->
     case catch apply(Module,info,[]) of
