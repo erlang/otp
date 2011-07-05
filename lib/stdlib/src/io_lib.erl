@@ -100,7 +100,7 @@ fwrite(Format, Args) ->
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
-      Result :: {'ok', InputList :: chars(), LeftOverChars :: string()}
+      Result :: {'ok', InputList :: [term()], LeftOverChars :: string()}
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: chars()}
@@ -115,7 +115,7 @@ fread(Chars, Format) ->
       Format :: string(),
       Return :: {'more', Continuation1 :: continuation()}
               | {'done', Result, LeftOverChars :: string()},
-      Result :: {'ok', InputList :: chars()}
+      Result :: {'ok', InputList :: [term()]}
               | 'eof'
               | {'error', What :: term()}.
 
