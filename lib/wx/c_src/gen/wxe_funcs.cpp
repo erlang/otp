@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -4486,7 +4486,7 @@ case wxGridCellBoolEditor_IsTrueValue: { // wxGridCellBoolEditor::IsTrueValue
  break;
 }
 case wxGridCellBoolEditor_UseStringValues: { // wxGridCellBoolEditor::UseStringValues
- wxString valueTrue= _T("1");
+ wxString valueTrue= wxT("1");
  wxString valueFalse= wxEmptyString;
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
@@ -22711,7 +22711,7 @@ case wxPreviewFrame_new: { // wxPreviewFrame::wxPreviewFrame
  wxString title= wxT("Print Preview");
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=wxDEFAULT_FRAME_STYLE;
+ long style=wxDEFAULT_FRAME_STYLE|wxFRAME_FLOAT_ON_PARENT;
  wxPrintPreview *preview = (wxPrintPreview *) getPtr(bp,memenv); bp += 4;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
