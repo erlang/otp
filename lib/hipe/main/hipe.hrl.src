@@ -50,9 +50,8 @@
 %% Flags:
 %%  DEBUG           - Turns on debugging. (Can be defined to a integer
 %%                    value to determine the level of debugging)
-%%  VERBOSE         - More info is printed...
 %%  HIPE_LOGGING    - Turn on logging of messages with erl_logger.
-%%  DO_ASSERT       - Turn on Assertions.
+%%  DO_ASSERT       - Turn on assertions.
 %%  TIMING          - Turn on timing.
 %%  HIPE_INSTRUMENT_COMPILER - Turn on instrumentation of the compiler.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,13 +106,9 @@
 %%
 %% Define the exit macro
 %%
--ifdef(VERBOSE).
--define(EXIT(Reason), erlang:error({?MODULE,?LINE,Reason})).
--else.
 -define(EXIT(Reason),
  	?msg("EXITED with reason ~w @~w:~w\n", [Reason,?MODULE,?LINE]),
  	erlang:error({?MODULE,?LINE,Reason})).
--endif.
 
 %%
 %% Assertions.
