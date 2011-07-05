@@ -1021,6 +1021,8 @@ static ERL_NIF_TERM encode_per_complete(ErlNifEnv* env, int argc,
 	if (complete_len == ASN1_ERROR
 	    )
 	    err_code = enif_make_uint(env, '1');
+	else
+	    err_code = enif_make_uint(env, 0);
 	return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
     }
     if (complete_len < out_binary.size)
