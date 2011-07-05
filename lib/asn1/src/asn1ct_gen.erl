@@ -1181,7 +1181,7 @@ gen_partial_inc_dispatcher([],_) ->
 driver_parameter() ->
     Options = get(encoding_options),
     case {lists:member(driver,Options),lists:member(nif,Options)} of
-	{true,_} -> ",driver";
+	{true,_} -> ",nif";
 	{_,true} -> ",nif";
 	_ ->  ""
     end.

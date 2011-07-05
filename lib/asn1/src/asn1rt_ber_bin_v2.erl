@@ -158,65 +158,42 @@ encode_tlv_list([],Acc) ->
     Bin=list_to_binary(lists:reverse(Acc)),
     {Bin,size(Bin)}.
 
-%% asn1-1.6.8.1
-%% decode(B,driver) ->
-%%     case catch port_control(asn1_driver_port,2,B) of
-%% 	Bin when is_binary(Bin) ->
-%% 	    binary_to_term(Bin);
-%% 	List when is_list(List) -> handle_error(List,B);
-%% 	{'EXIT',{badarg,Reason}} ->
-%% 	    asn1rt_driver_handler:load_driver(),
-%% 	    receive
-%% 		driver_ready ->
-%% 		    case catch port_control(asn1_driver_port,2,B) of
-%% 			Bin2 when is_binary(Bin2) -> binary_to_term(Bin2);
-%% 			List when is_list(List) -> handle_error(List,B);
-%% 			Error -> exit(Error)
-%% 		    end;
-%% 		{error,Error} -> % error when loading driver
-%% 		    %% the driver could not be loaded
-%% 		    exit(Error);
-%% 		Error={port_error,Reason} ->
-%% 		    exit(Error)
-%% 	    end;
-%% 	{'EXIT',Reason} ->
-%% 	    exit(Reason)
-%%     end.
-
-%% asn1-1.6.9
-decode(B,driver) ->
-    case catch control(?TLV_DECODE,B) of
- 	Bin when is_binary(Bin) ->
- 	    binary_to_term(Bin);
- 	List when is_list(List) -> handle_error(List,B);
- 	{'EXIT',{badarg,_Reason}} ->
- 	    case asn1rt:load_driver() of
- 		ok ->
- 		    case control(?TLV_DECODE,B) of
- 			Bin when is_binary(Bin) -> binary_to_term(Bin);
- 			List when is_list(List) -> handle_error(List,B)
- 		    end;
- 		Err ->
- 		    Err
- 	    end
-    end;
+%% asn1-1.7
 decode(B, nif) ->
-    asn1rt_nif:decode_ber_tlv(B).
+    case application:get_env(asn1, nif_loadable) of
+	{ok, true} ->
+	    case asn1rt_nif:decode_ber_tlv(B) of
+		{error, Reason} -> handle_error(Reason, B);
+		Else -> Else
+	    end;
+	{ok, false} ->
+	    decode(B);
+	undefined ->
+	    case catch code:load_file(asn1rt_nif) of
+		{module, asn1rt_nif} ->
+		    application:set_env(asn1, nif_loadable, true);
+		_Else ->
+		    application:set_env(asn1, nif_loadable, false)
+	    end,
+	    decode(B, nif)
+    end;
+decode(B,erlang) ->
+    decode(B).
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
-handle_error([$1|_],L) -> % error in driver
+handle_error({$1,_},L) -> % error in nif
     exit({error,{asn1,L}});
-handle_error([$2|T],L) -> % error in driver due to wrong tag
+handle_error({$2,T},L) -> % error in nif due to wrong tag
     exit({error,{asn1,{"bad tag after byte:",error_pos(T),L}}});
-handle_error([$3|T],L) -> % error in driver due to length error
+handle_error({$3,T},L) -> % error in driver due to length error
     exit({error,{asn1,{"bad length field after byte:",
 			     error_pos(T),L}}});
-handle_error([$4|T],L) -> % error in driver due to indefinite length error
+handle_error({$4,T},L) -> % error in driver due to indefinite length error
     exit({error,{asn1,
 		 {"indefinite length without end bytes after byte:",
 		  error_pos(T),L}}});
-handle_error([$5|T],L) -> % error in driver due to indefinite length error
+handle_error({$5,T},L) -> % error in driver due to indefinite length error
     exit({error,{asn1,{"bad encoded value after byte:",
 			     error_pos(T),L}}});
 handle_error(ErrL,L) ->
@@ -229,10 +206,6 @@ error_pos([B])->
 error_pos([B|Bs]) ->
     BS = 8 * length(Bs),
     B bsl BS + error_pos(Bs).
-%% asn1-1.6.9
-control(Cmd, Data) ->
-    Port = asn1rt_driver_handler:client_port(),
-    erlang:port_control(Port, Cmd, Data).
 
 decode(Bin) when is_binary(Bin) ->
     decode_primitive(Bin);
