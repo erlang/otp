@@ -65,7 +65,7 @@ EBIN = ../ebin
 EXTRA_ERLC_FLAGS = 
 ERL_COMPILE_FLAGS += $(EXTRA_ERLC_FLAGS)
 
-ASN_FLAGS = -bber_bin +der +compact_bit_string +optimize +noobj +asn1config +inline
+ASN_FLAGS = -bber_bin +der +compact_bit_string +optimize +noobj +asn1config +inline +nif
 
 # ----------------------------------------------------
 # Targets

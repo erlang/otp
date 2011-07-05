@@ -48,5 +48,13 @@
     of the concepts of using public keys.</p>
   </section>
 
+  <section>
+    <title>Performance tips</title>
+    <p>The public_key decode functions will try to use the nifs which are in 
+    the asn1 compilers runtime modules if they can be found. So for the best 
+    performance you want to have the asn1 application in the path of
+    your system. </p>
+  </section>
+
 </chapter>
 
