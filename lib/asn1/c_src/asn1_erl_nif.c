@@ -1005,6 +1005,7 @@ int decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *in_buf,
 
 static ERL_NIF_TERM encode_per_complete(ErlNifEnv* env, int argc,
 	const ERL_NIF_TERM argv[]) {
+    ERL_NIF_TERM err_code;
     ErlNifBinary in_binary;
     ErlNifBinary out_binary;
     int complete_len;
@@ -1017,6 +1018,10 @@ static ERL_NIF_TERM encode_per_complete(ErlNifEnv* env, int argc,
     if ((complete_len = complete(&out_binary, in_binary.data, in_binary.size))
 	    <= ASN1_ERROR) {
 	enif_release_binary(&out_binary);
+	if (complete_len == ASN1_ERROR
+	    )
+	    err_code = enif_make_uint(env, '1');
+	return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
     }
     if (complete_len < out_binary.size)
 	enif_realloc_binary(&out_binary, complete_len);
@@ -1031,13 +1036,13 @@ static ERL_NIF_TERM decode_ber_tlv(ErlNifEnv* env, int argc,
     unsigned int err_pos = 0, return_code;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &in_binary))
-	return enif_make_atom(env, "badarg");
+	return enif_make_badarg(env);
 
     if ((return_code = decode_begin(env, &return_term, in_binary.data,
 	    in_binary.size, &err_pos)) != ASN1_OK
     )
-	return enif_make_tuple2(env, enif_make_atom(env,"error"), enif_make_tuple3(env,
-			enif_make_atom(env,""),enif_make_int(env, return_code),enif_make_int(env, err_pos)));
+	return enif_make_tuple2(env, enif_make_atom(env,"error"), enif_make_tuple2(env,
+			enif_make_int(env, return_code),enif_make_int(env, err_pos)));
     return return_term;
 }
 
