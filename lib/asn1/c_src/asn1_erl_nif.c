@@ -1046,7 +1046,29 @@ static ERL_NIF_TERM decode_ber_tlv(ErlNifEnv* env, int argc,
     return return_term;
 }
 
+static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info) {
+    int i;
+    return enif_get_int(env, load_info, &i) && i == 1;
+}
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
+    if (!is_ok_load_info(env, load_info))
+	return -1;
+    return 0;
+}
+
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
+	ERL_NIF_TERM load_info) {
+    if (!is_ok_load_info(env, load_info))
+	return -1;
+    return 0;
+}
+
+static void unload(ErlNifEnv* env, void* priv_data) {
+
+}
+
 static ErlNifFunc nif_funcs[] = { { "encode_per_complete", 1,
 	encode_per_complete }, { "decode_ber_tlv", 1, decode_ber_tlv } };
 
-ERL_NIF_INIT(asn1rt_nif, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(asn1rt_nif, nif_funcs, load, NULL, upgrade, unload)
