@@ -1134,12 +1134,7 @@ gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
 			  "Data) of",nl]),
 		    EmitCaseClauses(),
 		    emit(["decode_part(Type,Data0) ->",nl]),
-		    Driver =
-			case lists:member(driver,get(encoding_options)) of
-			    true ->
-				",driver";
-			    _ -> ""
-			end,
+		    Driver = driver_parameter(),
 		    emit(["  case catch decode_inc_disp(Type,element(1,?RT_BER:decode(Data0",Driver,"))) of",nl]),
 % 			  "  {Data,_RestBin} = ?RT_BER:decode(Data0),",nl,
 % 			  "  case catch decode_inc_disp(Type,Data) of",nl]),
@@ -1185,10 +1180,10 @@ gen_partial_inc_dispatcher([],_) ->
 
 driver_parameter() ->
     Options = get(encoding_options),
-    case lists:member(driver,Options) of
-	true ->
-	    ",driver";
-	_ -> ""
+    case {lists:member(driver,Options),lists:member(nif,Options)} of
+	{true,_} -> ",driver";
+	{_,true} -> ",nif";
+	_ ->  ""
     end.
 
 gen_wrapper() ->

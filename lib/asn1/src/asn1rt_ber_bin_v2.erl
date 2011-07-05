@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -199,8 +199,9 @@ decode(B,driver) ->
  		Err ->
  		    Err
  	    end
-    end.
-
+    end;
+decode(B, nif) ->
+    asn1rt_nif:decode_ber_tlv(B).
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
