@@ -291,7 +291,8 @@ else
 LIBS    += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 endif
 
-DEPLIBS += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+DEPLIBS += $(EPCRE_LIB)
 
 PERFCTR_PATH=@PERFCTR_PATH@
 USE_PERFCTR=@USE_PERFCTR@
@@ -382,7 +383,7 @@ ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
 all:
 	@echo '*** Omitted build of emulator with smp support'
 else
-all: generate erts_lib zlib pcre $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: generate erts_lib zlib $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -403,8 +404,8 @@ zlib:
 	@set -e ; cd zlib && $(MAKE) TYPE=$(TYPE) $(TYPE)
 endif
 
-pcre:
-	@set -e ; cd pcre && $(MAKE) TYPE=$(TYPE) $(TYPE)
+
+include pcre/pcre.mk
 
 erts_lib:
 	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
@@ -420,9 +421,9 @@ endif
 	$(RM) -rf $(BINDIR)/child_setup $(BINDIR)/child_setup.*
 	$(RM) -f $(BINDIR)/hipe_mkliterals $(BINDIR)/hipe_mkliterals.*
 	@set -e ; cd zlib && $(MAKE) clean
-	@set -e ; cd pcre && $(MAKE) clean
+	rm -f $(OBJS) $(OBJDIR)/libepcre.a
 
-.PHONY: all zlib pcre clean
+.PHONY: all zlib clean
 
 docs:
 
