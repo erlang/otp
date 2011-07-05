@@ -935,8 +935,6 @@ gen_enc_line(Erule,TopType, Cname, Type, [], Pos,DynamicEnc,Ext) ->
 gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
     Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
 					  asn1ct_gen:rt2ct_suffix()])),
-    Nif = lists:member(nif,get(encoding_options)) andalso
-	lists:member(optimize,get(encoding_options)),
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -960,9 +958,7 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 			{Name,RestFieldNames} when is_atom(Name) ->
 			    emit({"?RT_PER:encode_open_type([],?RT_PER:complete(",nl}),
 			    emit({"   ",Fun,"(",{asis,Name},", ",
-				  Element,", ",{asis,RestFieldNames},")",
-				  [",nif" || Nif == true],
-				  "))"});
+				  Element,", ",{asis,RestFieldNames},")))"});
 			Other ->
 			    throw({asn1,{'internal error',Other}})
 		    end
@@ -973,9 +969,7 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
 		    emit({"?RT_PER:encode_open_type([],"
 			  "?RT_PER:complete(",nl}),
 		    emit({"   ",Fun,"(",{asis,PrimFieldName1},
-			  ", ",Element,", ",{asis,PFNList},")",
-			  [",nif" || Nif == true],
-			  "))"})
+			  ", ",Element,", ",{asis,PFNList},")))"})
 	    end;
 	_ ->
 	    CurrMod = get(currmod),
@@ -1026,8 +1020,7 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
     end,
     case Ext of 
 	{ext,_Ep2,_} ->
-	    emit([[",nif" || Nif == true],
-		  "))"]);
+	    emit("))");
 	_ -> true
     end.
 gen_dec_components_call(Erule,TopType,{Root1,ExtList,Root2},MaybeComma,DecInfObj,Ext,NumberOfOptionals) ->
