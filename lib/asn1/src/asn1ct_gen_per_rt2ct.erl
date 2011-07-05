@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -224,13 +224,18 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    emit(["?RT_PER:encode_open_type(", {asis,Constraint}, ",", 
 		  Value, ")"]);
 	'ASN1_OPEN_TYPE' ->
+	    Nif = lists:member(nif,get(encoding_options)) andalso
+	lists:member(optimize,get(encoding_options)),
 	    NewValue = case Constraint of
 			   [#'Externaltypereference'{type=Tname}] ->
 			     io_lib:format(
-			       "?RT_PER:complete(enc_~s(~s))",[Tname,Value]);
+			       "?RT_PER:complete(enc_~s(~s)"++
+				   [",nif" || Nif == true]++")",[Tname,Value]);
 			   [#type{def=#'Externaltypereference'{type=Tname}}] ->
 			       io_lib:format(
-				 "?RT_PER:complete(enc_~s(~s))",[Tname,Value]);
+				 "?RT_PER:complete(enc_~s(~s)"++
+				     [",nif" || Nif == true]++")",
+				 [Tname,Value]);
 			 _ -> Value
 		     end,
 	    emit(["?RT_PER:encode_open_type(", {asis,Constraint}, ",", 

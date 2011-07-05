@@ -936,15 +936,19 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit(["encoding_rule() ->",nl]),
     emit(["   ",{asis,Erules},".",nl,nl]),
     NoFinalPadding = lists:member(no_final_padding,get(encoding_options)),
+    Nif = lists:member(nif,get(encoding_options)) andalso
+	lists:member(optimize,get(encoding_options)),
     Call = case Erules of
 	       per -> "?RT_PER:complete(encode_disp(Type,Data))";
-	       per_bin -> "?RT_PER:complete(encode_disp(Type,Data))";
+	       per_bin -> ["?RT_PER:complete(encode_disp(Type,Data)",
+			   [",nif" || Nif == true],")"];
 	       ber -> "encode_disp(Type,Data)";
 	       ber_bin -> "encode_disp(Type,Data)";
 	       ber_bin_v2 -> "encode_disp(Type,Data)";
 	       uper_bin when NoFinalPadding == true -> 
 		   "?RT_PER:complete_NFP(encode_disp(Type,Data))";
-	       uper_bin -> "?RT_PER:complete(encode_disp(Type,Data))"
+	       uper_bin -> ["?RT_PER:complete(encode_disp(Type,Data)",
+			    [",nif" || Nif == true],")"]
 	   end,
     EncWrap = case Erules of
 	       ber -> "wrap_encode(Bytes)";

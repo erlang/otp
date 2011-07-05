@@ -39,7 +39,7 @@
 	 encode_object_identifier/1, decode_object_identifier/1,
 	 encode_real/1, decode_real/1,
 	 encode_relative_oid/1, decode_relative_oid/1,
-	 complete/1]).
+	 complete/1, complete/2]).
 
 
 -export([encode_open_type/2, decode_open_type/2]).
@@ -1742,6 +1742,8 @@ complete(L) ->
 	{Acc,Bacc}  ->
 	    [Acc|complete_bytes(Bacc)]
     end.
+complete(L,_) ->
+    complete(L).
 
 
 % this function builds the ugly form of lists [E1|E2] to avoid having to reverse it at the end.
@@ -1842,6 +1844,9 @@ complete(L) ->
 
 %% asn1-1.6.9
 complete(L) ->
+    complete(L, driver).
+
+complete(L,driver) ->
     case catch control(?COMPLETE_ENCODE,L) of
  	Bin when is_binary(Bin) ->
  	    Bin;
@@ -1856,7 +1861,9 @@ complete(L) ->
  		Err ->
  		    Err
  	    end
-    end.
+    end;
+complete(L,nif) ->
+    asn1rt_nif:encode_per_complete(L).
 
 
 handle_error([],_)->
