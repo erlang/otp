@@ -257,7 +257,7 @@ all() ->
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
-     hibernate
+     hibernate, connect_twice
     ].
 
 groups() -> 
@@ -3607,6 +3607,54 @@ hibernate(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+connect_twice(doc) ->
+    [""];
+connect_twice(suite) ->
+    [];
+connect_twice(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options,  [{keepalive, true},{active, false}
+					       | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options, [{keepalive, true},{active, false}
+					      | ClientOpts]}]),
+    Server ! listen,
+
+    {Client1, #sslsocket{}} =
+	ssl_test_lib:start_client([return_socket,
+				   {node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options, [{keepalive, true},{active, false}
+					      | ClientOpts]}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+			 [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:check_result(Server, ok, Client1, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Client1).
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
