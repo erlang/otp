@@ -965,7 +965,7 @@ int decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *in_buf,
     (*ib_index)++;
     if (indef == 1) { /* in this case it is desireably to check that indefinite length
      end bytes exist in inbuffer */
-	curr_head = enif_make_list(env, 0); // Might want to change this list to a binary
+	curr_head = enif_make_list(env, 0);
 	while (!(in_buf[*ib_index] == 0 && in_buf[*ib_index + 1] == 0)) {
 	    if (*ib_index >= in_buf_len)
 		return ASN1_INDEF_LEN_ERROR;
@@ -983,7 +983,7 @@ int decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *in_buf,
 	int end_index = *ib_index + len;
 	if (end_index > in_buf_len)
 	    return ASN1_LEN_ERROR;
-	curr_head = enif_make_list(env, 0); // might want to change this list to a binary
+	curr_head = enif_make_list(env, 0);
 	while (*ib_index < end_index) {
 
 	    if ((maybe_ret = decode(env, &term, in_buf, ib_index, in_buf_len))
