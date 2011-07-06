@@ -55,7 +55,7 @@ win32_cases() ->
 
 %% Cases that can be run on all platforms
 cases() ->
-    [otp_2740, otp_2760, otp_5761, instructions, eval_appup].
+    [otp_2740, otp_2760, otp_5761, otp_9402, instructions, eval_appup].
 
 groups() ->
     [{release,[],
@@ -393,7 +393,7 @@ instructions(Conf) when is_list(Conf) ->
           {stop, [aa]},
           {apply, {?MODULE, no_cc, []}},
           {start, [aa]}],
-    {ok, _} = release_handler_1:eval_script(S1, [], []),
+    {ok, _} = release_handler_1:eval_script(S1),
 
     case whereis(cc) of
         Pid2 when is_pid(Pid2) -> ok;
@@ -403,17 +403,17 @@ instructions(Conf) when is_list(Conf) ->
     %% Make bb run old version of b.
     S2 = [point_of_no_return,
           {remove, {b, soft_purge, soft_purge}}],
-    {ok, [{b, soft_purge}]} = release_handler_1:eval_script(S2, [], []),
+    {ok, [{b, soft_purge}]} = release_handler_1:eval_script(S2),
     check_bstate("first", [FirstBB]),
 
     false = code:is_loaded(b),
-    {error,{old_processes,b}} = release_handler_1:eval_script(S2,[],[]),
+    {error,{old_processes,b}} = release_handler_1:eval_script(S2),
     check_bstate("first", [FirstBB]),
 
     %% Let supervisor restart bb with new code
     S3 = [point_of_no_return,
           {purge, [b]}],
-    {ok, []} = release_handler_1:eval_script(S3, [], []),
+    {ok, []} = release_handler_1:eval_script(S3),
     ok = wait_for(bb),
     check_bstate("second", []),
     SecondBB = whereis(bb),
@@ -446,7 +446,7 @@ instructions(Conf) when is_list(Conf) ->
     %% Let supervisor restart bb yet another time
     S4 = [point_of_no_return,
           {remove, {b, brutal_purge, soft_purge}}],
-    {ok, HopefullyEmpty} = release_handler_1:eval_script(S4, [], []),
+    {ok, HopefullyEmpty} = release_handler_1:eval_script(S4),
     ok = wait_for(bb),
     FourthBB = whereis(bb),
 
@@ -566,8 +566,7 @@ otp_2760(Conf) ->
     %% Execute the relup script and check that app1 is unloaded
     {ok, [{"after", [{_Rel1Vsn, _Descr, Script}], _}]} =
 	file:consult(filename:join(Rel2Dir, "relup")),
-    {ok, []} = rpc:call(Node, release_handler_1, eval_script,
-			      [Script, [], []]),
+    {ok, []} = rpc:call(Node, release_handler_1, eval_script, [Script]),
     false = rpc:call(Node, code, is_loaded, [app1]),
 
     true = stop_node(Node),
@@ -657,6 +656,73 @@ otp_5761(Conf) when is_list(Conf) ->
     %% Stop the slave node
     true = stop_node(Node),
     ok.
+
+
+%% When a new version of an application is added, but no module is
+%% changed - the path was not updated - i.e. code:priv_dir would point
+%% to the old location.
+otp_9402(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"otp_9402"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Rel1 = create_and_install_fake_first_release(Dir,
+						 [{a,"1.1",LibDir}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       "2",
+				       [{a,"1.2",LibDir}],
+				       {Rel1,Rel1,[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(otp_9402, Rel1, filename:join(Rel1Dir,"sys.config")),
+
+    %% Check path
+    Dir1 = filename:join([LibDir, "a-1.1"]),
+    Dir1 = rpc:call(Node, code, lib_dir, [a]),
+    ABeam = code:which(a),
+
+    %% Install second release, with no changed modules
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{a,"1.2",LibDir}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    %% Install RelVsn2
+    {ok, RelVsn1, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+
+    %% Check path
+    Dir2 = filename:join([LibDir, "a-1.2"]),
+    Dir2 = rpc:call(Node, code, lib_dir, [a]),
+    APrivDir2 = rpc:call(Node, code, priv_dir, [a]),
+    true = filelib:is_regular(filename:join(APrivDir2,"file")),
+
+    %% Just to make sure no modules have been re-loaded
+    ABeam = code:which(a),
+
+    %% Install RelVsn1 again
+    {ok, _OtherVsn, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn1]),
+
+    %% Check path
+    Dir1 = rpc:call(Node, code, lib_dir, [a]),
+    APrivDir1 = rpc:call(Node, code, priv_dir, [a]),
+    false = filelib:is_regular(filename:join(APrivDir1,"file")),
+
+    %% Just to make sure no modules have been re-loaded
+    ABeam = code:which(a),
+
+    ok.
+
 
 %% Test upgrade and downgrade of applications
 eval_appup(Conf) when is_list(Conf) ->
