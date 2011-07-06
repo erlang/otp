@@ -80,7 +80,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-opt: $(OBJDIR) $(LIBDIR) $(DRV_SHARED_OBJ_FILE) $(NIF_SHARED_OBJ_FILE)
+opt: $(OBJDIR) $(LIBDIR) $(NIF_SHARED_OBJ_FILE)
 
 debug: opt
 
