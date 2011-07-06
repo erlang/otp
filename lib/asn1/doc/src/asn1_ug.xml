@@ -675,7 +675,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
         <cell align="left" valign="middle">no</cell>
       </row>
       <row>
-        <cell align="left" valign="middle"><em>[per_bin, nif]</em></cell>
+        <cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
         <cell align="left" valign="middle">yes</cell>
       </row>
       <row>
