@@ -19,7 +19,7 @@
 -module(release_handler_1).
 
 %% External exports
--export([eval_script/3, eval_script/4, check_script/2]).
+-export([eval_script/1, eval_script/5, check_script/2]).
 -export([get_current_vsn/1]). %% exported because used in a test case
 
 -record(eval_state, {bins = [], stopped = [], suspended = [], apps = [],
@@ -37,7 +37,7 @@
 %%                  is kept in case of a downgrade, where the code_change
 %%                  function receives the vsn of the module to downgrade
 %%                  *to*.
-%% newlibs   = [{Lib, Dir}] - list of all new libs; used to change
+%% newlibs   = [{Lib, LibVsn, LibDir}] - list of all new libs; used to change
 %%                            the code path
 %% opts      = [{Tag, Value}] - list of options
 %%-----------------------------------------------------------------
@@ -63,10 +63,11 @@ check_script(Script, LibDirs) ->
 	    {error, {old_processes, Mod}}
     end.
 
-eval_script(Script, Apps, LibDirs) ->
-    eval_script(Script, Apps, LibDirs, []).
+%% eval_script/1 - For testing only - no apps added, just testing instructions
+eval_script(Script) ->
+    eval_script(Script, [], [], [], []).
 
-eval_script(Script, Apps, LibDirs, Opts) ->
+eval_script(Script, Apps, LibDirs, NewLibs, Opts) ->
     case catch check_old_processes(Script) of
 	ok ->
 	    {Before, After} = split_instructions(Script),
@@ -75,6 +76,7 @@ eval_script(Script, Apps, LibDirs, Opts) ->
 				   end,
 				   #eval_state{apps = Apps, 
 					       libdirs = LibDirs,
+					       newlibs = NewLibs,
 					       opts = Opts},
 				   Before) of
 		EvalState2 when is_record(EvalState2, eval_state) ->
@@ -214,13 +216,12 @@ check_old_code(Mod) ->
 %%-----------------------------------------------------------------
 eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
     case lists:keysearch(Lib, 1, EvalState#eval_state.libdirs) of
-	{value, {Lib, LibVsn, LibDir}} ->
-	    Ebin = filename:join(LibDir, "ebin"),
+	{value, {Lib, LibVsn, LibDir} = LibInfo} ->
 	    Ext = code:objfile_extension(),
 	    {NewBins, NewVsns} = 
 		lists:foldl(fun(Mod, {Bins, Vsns}) ->
 				    File = lists:concat([Mod, Ext]),
-				    FName = filename:join(Ebin, File),
+				    FName = filename:join([LibDir, "ebin", File]),
 				    case erl_prim_loader:get_file(FName) of
 					{ok, Bin, FName2} ->
 					    NVsns = add_new_vsn(Mod, Bin, Vsns),
@@ -232,7 +233,7 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 			    {EvalState#eval_state.bins,
 			     EvalState#eval_state.vsns},
 			    Modules),
-	    NewLibs = [{Lib, Ebin} | EvalState#eval_state.newlibs],
+	    NewLibs = lists:keystore(Lib,1,EvalState#eval_state.newlibs,LibInfo),
 	    EvalState#eval_state{bins = NewBins,
 				 newlibs = NewLibs,
 				 vsns = NewVsns};
@@ -242,15 +243,14 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 eval(point_of_no_return, EvalState) ->
     Libs = case get_opt(update_paths, EvalState, false) of
 	       false ->
-		   EvalState#eval_state.newlibs; % [{Lib, Path}]
+		   EvalState#eval_state.newlibs;
 	       true ->
-		   lists:map(fun({Lib, _LibVsn, LibDir}) ->
-				     Ebin= filename:join(LibDir,"ebin"),
-				     {Lib, Ebin}
-			     end,
-			     EvalState#eval_state.libdirs)
+		   EvalState#eval_state.libdirs
 	   end,
-    lists:foreach(fun({Lib, Path}) -> code:replace_path(Lib, Path) end,
+    lists:foreach(fun({Lib, _LibVsn, LibDir}) ->
+			  Ebin = filename:join(LibDir,"ebin"),
+			  code:replace_path(Lib, Ebin)
+		  end,
 		  Libs),
     EvalState;
 eval({load, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
