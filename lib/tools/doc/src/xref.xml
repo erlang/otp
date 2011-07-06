@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2010</year>
+      <year>2000</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1465,8 +1465,8 @@ Evaluates a predefined analysis.
       <name>start(NameOrOptions) -> Return</name>
       <fsummary>Create an Xref server.</fsummary>
       <type>
-        <v>Name = atom()()</v>
-        <v>XrefOrOptions = Xref | Options</v>
+        <v>NameOrOptions = Name | Options</v>
+        <v>Name = atom()</v>
         <v>Options = [Option] | Option</v>
         <v>Option = {xref_mode, mode()} | term()</v>
         <v>Return = {ok, pid()}  | {error, {already_started, pid()}}</v>
@@ -1483,7 +1483,7 @@ Evaluates a predefined analysis.
       <name>start(Name, Options) -> Return</name>
       <fsummary>Create an Xref server.</fsummary>
       <type>
-        <v>Name = atom()()</v>
+        <v>Name = atom()</v>
         <v>Options = [Option] | Option</v>
         <v>Option = {xref_mode, mode()} | term()</v>
         <v>Return = {ok, pid()}  | {error, {already_started, pid()}}</v>
