@@ -85,6 +85,12 @@ compile(File) ->
     compile(File,[]).
 
 compile(File,Options) when is_list(Options) ->
+    case lists:member(driver, Options) of %% remove me in R16A!
+	true ->
+	    io:format("Warning: driver option is obsolete and will be removed in R16A, use nif instead!");
+	false ->
+	    ok
+    end,
     Options1 = optimize_ber_bin(Options),
     Options2 = includes(File,Options1),
     Includes=[I||{i,I}<-Options2],
