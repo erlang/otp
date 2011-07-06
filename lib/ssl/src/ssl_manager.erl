@@ -265,19 +265,22 @@ handle_cast({register_session, Port, Session},
     CacheCb:update(Cache, {Port, NewSession#session.session_id}, NewSession),
     {noreply, State};
 
-handle_cast({invalidate_session, Host, Port, 
+%%% When a session is invalidated we need to wait a while before deleting
+%%% it as there might be pending connections that rightfully needs to look
+%%% up the session data but new connections should not get to use this session.
+handle_cast({invalidate_session, Host, Port,
 	     #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:update(Cache, {{Host, Port}, ID}, Session#session{is_resumable = false}),
-    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, [{{Host, Port}, ID}]),
+    timer:send_after(delay_time(), self(), {delayed_clean_session, {{Host, Port}, ID}}),
     {noreply, State};
 
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
     CacheCb:update(Cache, {Port, ID}, Session#session{is_resumable = false}),
-    timer:apply_after(?CLEAN_SESSION_DB, CacheCb, delete, [{Port, ID}]),
+    timer:send_after(delay_time(), self(), {delayed_clean_session, {Port, ID}}),
     {noreply, State};
 
 handle_cast({recache_pem, File, LastWrite, Pid, From},
@@ -311,6 +314,12 @@ handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
 			      self(), validate_sessions),
     start_session_validator(Cache, CacheCb, LifeTime),
     {noreply, State#state{session_validation_timer = Timer}};
+
+handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
+                   session_cache_cb = CacheCb
+                   } = State) ->
+    CacheCb:delete(Cache, Key),
+    {noreply, State};
 
 handle_info({'EXIT', _, _}, State) ->
     %% Session validator died!! Do we need to take any action?
@@ -410,4 +419,12 @@ cache_pem_file(File, LastWrite) ->
 	    end;
 	[] ->
 	    call({cache_pem, File, LastWrite})
+    end.
+
+delay_time() ->
+    case application:get_env(ssl, session_delay_cleanup_time) of
+	{ok, Time} when is_integer(Time) ->
+	    Time;
+	_ ->
+	   ?CLEAN_SESSION_DB
     end.
