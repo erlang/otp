@@ -15230,14 +15230,18 @@ case wxListCtrl_ClearAll: { // wxListCtrl::ClearAll
  This->ClearAll();
  break;
 }
+
 case wxListCtrl_Create: { // wxListCtrl::Create
  wxWindowID winid=wxID_ANY;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
  long style=wxLC_ICON;
  const wxValidator * validator= &wxDefaultValidator;
- wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
+ EwxListCtrl *This = (EwxListCtrl *) getPtr(bp,memenv); bp += 4;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ int onGetItemText = 0, onGetItemAttr = 0, onGetItemColumnImage = 0;
+
+ bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  winid = (wxWindowID)*(int *) bp; bp += 4;
@@ -15260,9 +15264,23 @@ case wxListCtrl_Create: { // wxListCtrl::Create
   case 5: {bp += 4;
 validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
   } break;
+  case 6: {bp += 4;
+    onGetItemText = *(int *) bp; bp += 4;
+  } break;
+  case 7: {bp += 4;
+    onGetItemAttr = *(int *) bp; bp += 4;
+  } break;
+  case 8: {bp += 4;
+    onGetItemColumnImage = *(int *) bp; bp += 4;
+  } break;
  }};
  if(!This) throw wxe_badarg(0);
  bool Result = This->Create(parent,winid,pos,size,style,*validator);
+ This->onGetItemText = onGetItemText;
+ This->onGetItemAttr = onGetItemAttr;
+ This->onGetItemColumnImage = onGetItemColumnImage;
+ This->port = Ecmd.port;
+
  rt.addBool(Result);
  break;
 }

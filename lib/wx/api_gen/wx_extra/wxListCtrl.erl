@@ -59,14 +59,17 @@ new(Parent)
 %% Option = {winid, integer()} |
 %%          {pos, {X::integer(),Y::integer()}} |
 %%          {size, {W::integer(),H::integer()}} |
-%%          {style, integer()} | {validator, wx:wx()}
-%%          {VirtualCallback, Callback::function()}
+%%          {style, integer()} |
+%%          {validator, wx:wx()} |
+%%          {onGetItemText, OnGetItemText} |
+%%          {onGetItemAttr, OnGetItemAttr} |
+%%          {onGetItemColumnImage, OnGetItemColumnImage}
 %%
-%% VirtualCallback = onGetItemText | onGetItemAttr | onGetItemImage | onGetItemColumnImage
-%% Callback = fun OnGetItemText(This, Item, Column) -> wxString() |
-%%            fun OnGetItemAttr(This, Item) -> wxListItemAttr() |
-%%            fun OnGetItemColumnImage(This, Item, Column) -> integer()
+%% OnGetItemText = (This, Item, Column) -> wxString()
+%% OnGetItemAttr = (This, Item) -> wxListItemAttr()
+%% OnGetItemColumnImage = (This, Item, Column) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlwxlistctrl">external documentation</a>.
+
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   when is_list(Options)->
     ?CLASS(ParentT,wxWindow),
@@ -93,3 +96,42 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
     wxe_util:construct(~s, <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
 wxListCtrl_new_2>>
+
+<<EXPORT:Create create/2, create/3 Create:EXPORT>>
+
+<<Create
+%% @spec (This::wxListCtrl(), Parent::wxWindow:wxWindow()) -> bool()
+%% @equiv create(This,Parent, [])
+create(This,Parent)
+ when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
+  create(This,Parent, []).
+
+%% @spec (This::wxListCtrl(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
+%% Option = {winid, integer()} |
+%%          {pos, {X::integer(),Y::integer()}} |
+%%          {size, {W::integer(),H::integer()}} |
+%%          {style, integer()} |
+%%          {validator, wx:wx()} |
+%%          {onGetItemText, OnGetItemText} |
+%%          {onGetItemAttr, OnGetItemAttr} |
+%%          {onGetItemColumnImage, OnGetItemColumnImage}
+%%
+%% OnGetItemText = (This, Item, Column) -> wxString()
+%% OnGetItemAttr = (This, Item) -> wxListItemAttr()
+%% OnGetItemColumnImage = (This, Item, Column) -> integer()
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlcreate">external documentation</a>.
+create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
+ when is_list(Options) ->
+  ?CLASS(ThisT,wxListCtrl),
+  ?CLASS(ParentT,wxWindow),
+  MOpts = fun({winid, Winid}, Acc) -> [<<1:32/?UI,Winid:32/?UI>>|Acc];
+          ({pos, {PosX,PosY}}, Acc) -> [<<2:32/?UI,PosX:32/?UI,PosY:32/?UI,0:32>>|Acc];
+          ({size, {SizeW,SizeH}}, Acc) -> [<<3:32/?UI,SizeW:32/?UI,SizeH:32/?UI,0:32>>|Acc];
+          ({style, Style}, Acc) -> [<<4:32/?UI,Style:32/?UI>>|Acc];
+          ({validator, #wx_ref{type=ValidatorT,ref=ValidatorRef}}, Acc) ->   ?CLASS(ValidatorT,wx),[<<5:32/?UI,ValidatorRef:32/?UI>>|Acc];
+          (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
+  BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
+  wxe_util:call(~s,
+  <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
+
+Create>>

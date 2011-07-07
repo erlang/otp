@@ -29,10 +29,10 @@
 
 -module(wxListCtrl).
 -include("wxe.hrl").
--export([ new/0, new/1, new/2 , sortItems/2 ,arrange/1,arrange/2,assignImageList/3,
-  clearAll/1,create/2,create/3,deleteAllItems/1,deleteColumn/2,deleteItem/2,
-  destroy/1,editLabel/2,ensureVisible/2,findItem/3,findItem/4,getColumn/3,
-  getColumnCount/1,getColumnWidth/2,getCountPerPage/1,getEditControl/1,
+-export([ create/2, create/3 , new/0, new/1, new/2 , sortItems/2 ,arrange/1,
+  arrange/2,assignImageList/3,clearAll/1,deleteAllItems/1,deleteColumn/2,
+  deleteItem/2,destroy/1,editLabel/2,ensureVisible/2,findItem/3,findItem/4,
+  getColumn/3,getColumnCount/1,getColumnWidth/2,getCountPerPage/1,getEditControl/1,
   getImageList/2,getItem/2,getItemBackgroundColour/2,getItemCount/1,
   getItemData/2,getItemFont/2,getItemPosition/3,getItemRect/3,getItemRect/4,
   getItemSpacing/1,getItemState/3,getItemText/2,getItemTextColour/2,
@@ -105,14 +105,17 @@ new(Parent)
 %% Option = {winid, integer()} |
 %%          {pos, {X::integer(),Y::integer()}} |
 %%          {size, {W::integer(),H::integer()}} |
-%%          {style, integer()} | {validator, wx:wx()}
-%%          {VirtualCallback, Callback::function()}
+%%          {style, integer()} |
+%%          {validator, wx:wx()} |
+%%          {onGetItemText, OnGetItemText} |
+%%          {onGetItemAttr, OnGetItemAttr} |
+%%          {onGetItemColumnImage, OnGetItemColumnImage}
 %%
-%% VirtualCallback = onGetItemText | onGetItemAttr | onGetItemImage | onGetItemColumnImage
-%% Callback = fun OnGetItemText(This, Item, Column) -> wxString() |
-%%            fun OnGetItemAttr(This, Item) -> wxListItemAttr() |
-%%            fun OnGetItemColumnImage(This, Item, Column) -> integer()
+%% OnGetItemText = (This, Item, Column) -> wxString()
+%% OnGetItemAttr = (This, Item) -> wxListItemAttr()
+%% OnGetItemColumnImage = (This, Item, Column) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlwxlistctrl">external documentation</a>.
+
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   when is_list(Options)->
     ?CLASS(ParentT,wxWindow),
@@ -172,6 +175,7 @@ clearAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:cast(?wxListCtrl_ClearAll,
   <<ThisRef:32/?UI>>).
 
+
 %% @spec (This::wxListCtrl(), Parent::wxWindow:wxWindow()) -> bool()
 %% @equiv create(This,Parent, [])
 create(This,Parent)
@@ -179,7 +183,18 @@ create(This,Parent)
   create(This,Parent, []).
 
 %% @spec (This::wxListCtrl(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {winid, integer()} | {pos, {X::integer(),Y::integer()}} | {size, {W::integer(),H::integer()}} | {style, integer()} | {validator, wx:wx()}
+%% Option = {winid, integer()} |
+%%          {pos, {X::integer(),Y::integer()}} |
+%%          {size, {W::integer(),H::integer()}} |
+%%          {style, integer()} |
+%%          {validator, wx:wx()} |
+%%          {onGetItemText, OnGetItemText} |
+%%          {onGetItemAttr, OnGetItemAttr} |
+%%          {onGetItemColumnImage, OnGetItemColumnImage}
+%%
+%% OnGetItemText = (This, Item, Column) -> wxString()
+%% OnGetItemAttr = (This, Item) -> wxListItemAttr()
+%% OnGetItemColumnImage = (This, Item, Column) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlcreate">external documentation</a>.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
