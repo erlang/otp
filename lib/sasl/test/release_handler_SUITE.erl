@@ -55,7 +55,7 @@ win32_cases() ->
 
 %% Cases that can be run on all platforms
 cases() ->
-    [otp_2740, otp_2760, otp_5761, otp_9402, instructions, eval_appup].
+    [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417, instructions, eval_appup].
 
 groups() ->
     [{release,[],
@@ -683,7 +683,7 @@ otp_9402(Conf) when is_list(Conf) ->
     %% Check path
     Dir1 = filename:join([LibDir, "a-1.1"]),
     Dir1 = rpc:call(Node, code, lib_dir, [a]),
-    ABeam = code:which(a),
+    ABeam = rpc:call(Node, code, which, [a]),
 
     %% Install second release, with no changed modules
     {ok, RelVsn2} =
@@ -696,7 +696,6 @@ otp_9402(Conf) when is_list(Conf) ->
     ok = rpc:call(Node, release_handler, install_file,
 		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
-    %% Install RelVsn2
     {ok, RelVsn1, []} =
 	rpc:call(Node, release_handler, install_release, [RelVsn2]),
 
@@ -707,7 +706,7 @@ otp_9402(Conf) when is_list(Conf) ->
     true = filelib:is_regular(filename:join(APrivDir2,"file")),
 
     %% Just to make sure no modules have been re-loaded
-    ABeam = code:which(a),
+    ABeam = rpc:call(Node, code, which, [a]),
 
     %% Install RelVsn1 again
     {ok, _OtherVsn, []} =
@@ -719,10 +718,64 @@ otp_9402(Conf) when is_list(Conf) ->
     false = filelib:is_regular(filename:join(APrivDir1,"file")),
 
     %% Just to make sure no modules have been re-loaded
-    ABeam = code:which(a),
+    ABeam = rpc:call(Node, code, which, [a]),
 
     ok.
 
+
+%% When a module is deleted in an appup instruction, the upgrade
+%% failed if the module was not loaded.
+otp_9417(Conf) when is_list(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"otp_9417"),
+    LibDir = filename:join(?config(data_dir, Conf), "lib"),
+
+    %% Create the releases
+    Rel1 = create_and_install_fake_first_release(Dir,
+						 [{b,"1.0",LibDir}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       "2",
+				       [{b,"2.0",LibDir}],
+				       {Rel1,Rel1,[LibDir]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(otp_9417, Rel1, filename:join(Rel1Dir,"sys.config")),
+
+    %% Check paths
+    Dir1 = filename:join([LibDir, "b-1.0"]),
+    Dir1 = rpc:call(Node, code, lib_dir, [b]),
+    BLibBeam = filename:join([Dir1,"ebin","b_lib.beam"]),
+    BLibBeam = rpc:call(Node,code,which,[b_lib]),
+    false = rpc:call(Node,code,is_loaded,[b_lib]),
+    false = rpc:call(Node,code,is_loaded,[b_server]),
+
+    %% Install second release, which removes b_lib module
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{b,"2.0",LibDir}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+		  [RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    {ok, _RelVsn1, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+
+    %% Check that the module does no longer exist
+    false = rpc:call(Node, code, is_loaded, [b_lib]),
+    non_existing = rpc:call(Node, code, which, [b_lib]),
+
+    %% And check some paths
+    Dir2 = filename:join([LibDir, "b-2.0"]),
+    Dir2 = rpc:call(Node, code, lib_dir, [b]),
+    BServerBeam = filename:join([Dir2,"ebin","b_server.beam"]),
+    {file,BServerBeam} = rpc:call(Node,code,is_loaded,[b_server]),
+    ok.
 
 %% Test upgrade and downgrade of applications
 eval_appup(Conf) when is_list(Conf) ->

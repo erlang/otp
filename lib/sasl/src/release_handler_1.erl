@@ -33,7 +33,7 @@
 %% libdirs   = [{Lib, LibVsn, LibDir}] - Maps Lib to Vsn and Directory
 %% unpurged  = [{Mod, soft_purge | brutal_purge}]
 %% vsns      = [{Mod, OldVsn, NewVsn}] - remember the old vsn of a mod
-%%                  before it is removed/a new vsn is loaded; the new vsn
+%%                  before a new vsn is loaded; the new vsn
 %%                  is kept in case of a downgrade, where the code_change
 %%                  function receives the vsn of the module to downgrade
 %%                  *to*.
@@ -224,7 +224,7 @@ eval({load_object_code, {Lib, LibVsn, Modules}}, EvalState) ->
 				    FName = filename:join([LibDir, "ebin", File]),
 				    case erl_prim_loader:get_file(FName) of
 					{ok, Bin, FName2} ->
-					    NVsns = add_new_vsn(Mod, Bin, Vsns),
+					    NVsns = add_vsns(Mod, Bin, Vsns),
 					    {[{Mod, Bin, FName2} | Bins],NVsns};
 					error ->
 					    throw({error, {no_such_file,FName}})
@@ -258,32 +258,21 @@ eval({load, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
     {value, {_Mod, Bin, File}} = lists:keysearch(Mod, 1, Bins),
     % load_binary kills all procs running old code
     % if soft_purge, we know that there are no such procs now
-    Vsns = EvalState#eval_state.vsns,
-    NewVsns = add_old_vsn(Mod, Vsns),
     code:load_binary(Mod, File, Bin),
     % Now, the prev current is old.  There might be procs
     % running it.  Find them.
     Unpurged = do_soft_purge(Mod,PostPurgeMethod,EvalState#eval_state.unpurged),
     EvalState#eval_state{bins = lists:keydelete(Mod, 1, Bins),
-			 unpurged = Unpurged,
-			 vsns = NewVsns};
+			 unpurged = Unpurged};
 eval({remove, {Mod, _PrePurgeMethod, PostPurgeMethod}}, EvalState) ->
-    % purge kills all procs running old code
-    % if soft_purge, we know that there are no such procs now
-    Vsns = EvalState#eval_state.vsns,
-    NewVsns = add_old_vsn(Mod, Vsns),
+    %% purge kills all procs running old code
+    %% if soft_purge, we know that there are no such procs now
     code:purge(Mod),
     code:delete(Mod),
-    % Now, the prev current is old.  There might be procs
-    % running it.  Find them.
-    Unpurged =
-	case code:soft_purge(Mod) of
-	    true -> EvalState#eval_state.unpurged;
-	    false -> [{Mod, PostPurgeMethod} | EvalState#eval_state.unpurged]
-	end,
-%%    Bins = EvalState#eval_state.bins,
-%%    EvalState#eval_state{bins = lists:keydelete(Mod, 1, Bins),
-    EvalState#eval_state{unpurged = Unpurged, vsns = NewVsns};
+    %% Now, the prev current is old.  There might be procs
+    %% running it.  Find them.
+    Unpurged = do_soft_purge(Mod,PostPurgeMethod,EvalState#eval_state.unpurged),
+    EvalState#eval_state{unpurged = Unpurged};
 eval({purge, Modules}, EvalState) ->
     % Now, if there are any processes still executing old code, OR
     % if some new processes started after suspend but before load,
@@ -606,26 +595,20 @@ sync_nodes(Id, Nodes) ->
 		  end,
 		  NNodes).
 
-add_old_vsn(Mod, Vsns) ->
+add_vsns(Mod, NewBin, Vsns) ->
+    OldVsn = get_current_vsn(Mod),
+    NewVsn = get_vsn(NewBin),
     case lists:keysearch(Mod, 1, Vsns) of
-	{value, {Mod, undefined, NewVsn}} ->
-	    OldVsn = get_current_vsn(Mod),
-	    lists:keyreplace(Mod, 1, Vsns, {Mod, OldVsn, NewVsn});
-	{value, {Mod, _OldVsn, _NewVsn}} ->
-	    Vsns;
+	{value, {Mod, OldVsn0, NewVsn0}} ->
+	    lists:keyreplace(Mod, 1, Vsns, {Mod,
+					    replace_undefined(OldVsn0,OldVsn),
+					    replace_undefined(NewVsn0,NewVsn)});
 	false ->
-	    OldVsn = get_current_vsn(Mod),
-	    [{Mod, OldVsn, undefined} | Vsns]
+	    [{Mod, OldVsn, NewVsn} | Vsns]
     end.
 
-add_new_vsn(Mod, Bin, Vsns) ->
-    NewVsn = get_vsn(Bin),
-    case lists:keysearch(Mod, 1, Vsns) of
-	{value, {Mod, OldVsn, undefined}} ->
-	    lists:keyreplace(Mod, 1, Vsns, {Mod, OldVsn, NewVsn});
-	false ->
-	    [{Mod, undefined, NewVsn} | Vsns]
-    end.
+replace_undefined(undefined,Vsn) -> Vsn;
+replace_undefined(Vsn,_) -> Vsn.
 
 %%-----------------------------------------------------------------
 %% Func: get_current_vsn/1
@@ -645,7 +628,9 @@ get_current_vsn(Mod) ->
 	{ok, Bin, _File2} ->
 	    get_vsn(Bin);
 	error ->
-	    throw({error, {no_such_file, File}})
+	    %% This is the case when a new module is added, there will
+	    %% be no current version of it at the time of this call.
+	    undefined
     end.
 
 %%-----------------------------------------------------------------
