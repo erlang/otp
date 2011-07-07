@@ -15143,12 +15143,14 @@ case wxListBox_SetFirstItem_1_1: { // wxListBox::SetFirstItem
  This->SetFirstItem(s);
  break;
 }
+
 case wxListCtrl_new_0: { // wxListCtrl::wxListCtrl
  wxListCtrl * Result = new EwxListCtrl();
  newPtr((void *) Result, 0, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxListCtrl");
  break;
 }
+
 case wxListCtrl_new_2: { // wxListCtrl::wxListCtrl
  wxWindowID winid=wxID_ANY;
  wxPoint pos= wxDefaultPosition;
@@ -15156,6 +15158,8 @@ case wxListCtrl_new_2: { // wxListCtrl::wxListCtrl
  long style=wxLC_ICON;
  const wxValidator * validator= &wxDefaultValidator;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ int onGetItemText = 0, onGetItemAttr = 0, onGetItemColumnImage = 0;
+
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
@@ -15179,8 +15183,21 @@ case wxListCtrl_new_2: { // wxListCtrl::wxListCtrl
   case 5: {bp += 4;
 validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
   } break;
+  case 6: {bp += 4;
+    onGetItemText = *(int *) bp; bp += 4;
+  } break;
+  case 7: {bp += 4;
+    onGetItemAttr = *(int *) bp; bp += 4;
+  } break;
+  case 8: {bp += 4;
+    onGetItemColumnImage = *(int *) bp; bp += 4;
+  } break;
  }};
- wxListCtrl * Result = new EwxListCtrl(parent,winid,pos,size,style,*validator);
+ EwxListCtrl * Result = new EwxListCtrl(parent,winid,pos,size,style,*validator);
+ Result->onGetItemText = onGetItemText;
+ Result->onGetItemAttr = onGetItemAttr;
+ Result->onGetItemColumnImage = onGetItemColumnImage;
+ Result->port = Ecmd.port;
  newPtr((void *) Result, 0, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxListCtrl");
  break;
@@ -31188,3 +31205,30 @@ case wxLogNull_destroy: { // wxLogNull::destroy
     error.addTupleCount(3);
     error.send();
 }} /* The End */
+
+
+void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
+ switch(refd->type) {
+  case 24: delete (wxGridCellBoolRenderer *) ptr; break;
+  case 25: delete (wxGridCellBoolEditor *) ptr; break;
+  case 26: delete (wxGridCellFloatRenderer *) ptr; break;
+  case 27: delete (wxGridCellFloatEditor *) ptr; break;
+  case 28: delete (wxGridCellStringRenderer *) ptr; break;
+  case 29: delete (wxGridCellTextEditor *) ptr; break;
+  case 30: delete (wxGridCellChoiceEditor *) ptr; break;
+  case 31: delete (wxGridCellNumberRenderer *) ptr; break;
+  case 32: delete (wxGridCellNumberEditor *) ptr; break;
+  case 61: delete (wxIconBundle *) ptr; break;
+  case 69: delete (wxAcceleratorEntry *) ptr; break;
+  case 70: /* delete (wxCaret *) ptr;These objects must be deleted by owner object */ break;
+  case 72: delete (wxSizerFlags *) ptr; break;
+  case 88: /* delete (wxCalendarDateAttr *) ptr;These objects must be deleted by owner object */ break;
+  case 102: delete (wxTextAttr *) ptr; break;
+  case 154: delete (wxAuiPaneInfo *) ptr; break;
+  case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 223: delete (wxLogNull *) ptr; break;
+  default: delete (wxObject *) ptr;
+}}
+
