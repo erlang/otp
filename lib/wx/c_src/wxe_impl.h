@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -179,6 +179,7 @@ public:
   
   // Temp container for callbacks
   char cb_buff[256];
+  int  cb_len;
 };
 
 class wxETreeItemData : public wxTreeItemData 
@@ -232,8 +233,6 @@ class wxEPrintout : public wxPrintout
    bool OnPrintPage(int page);
    void GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo);
 
-   void clear_cb(int callback);
-
    int onPrintPage;
    int onPreparePrinting;
    int onBeginPrinting; 
@@ -245,6 +244,9 @@ class wxEPrintout : public wxPrintout
 
    ErlDrvPort port;
 };
+
+void clear_cb(ErlDrvPort port, int callback);
+
 
 // Implementation of wxListCtrlCompare
 struct callbackInfo {

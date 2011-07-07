@@ -395,6 +395,7 @@ int WxeApp::dispatch(wxList * batch, int blevel, int list_type)
 	      // erl_drv_mutex_unlock(wxe_batch_locker_m); should be called after
 	      // whatever cleaning is necessary
 	      memcpy(cb_buff, event->buffer, event->len);
+	      cb_len = event->len;
 	      return blevel;
 	    default:
 	      erl_drv_mutex_unlock(wxe_batch_locker_m);	      
@@ -448,6 +449,7 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 		break;
 	      case WXE_CB_RETURN:
 		memcpy(cb_buff, event->buffer, event->len);
+		cb_len = event->len;
 		callback_returned = 1;
 		return;
 	      case WXE_CB_START:
@@ -893,8 +895,6 @@ int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
 {
   callbackInfo * cb = (callbackInfo *)callbackInfoPtr;
   wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(cb->port);
-  char * bp = ((WxeApp *) wxTheApp)->cb_buff;
-  
   wxeReturn rt = wxeReturn(WXE_DRV_PORT, memenv->owner, false);
   rt.addInt(cb->callbackID);
   rt.addInt(item1);
@@ -904,5 +904,10 @@ int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
   rt.addTupleCount(3);
   rt.send();
   handle_callback_batch(cb->port);
-  return *(int*) bp;
+
+  if(((WxeApp *) wxTheApp)->cb_len > 0) {
+    char * bp = ((WxeApp *) wxTheApp)->cb_buff;
+    return *(int*) bp;
+  } else
+    return 0;
 }
