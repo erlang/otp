@@ -538,15 +538,6 @@ false</pre>
       </desc>
     </func>
     <func>
-      <name name="concat_binary" arity="1"/>
-      <fsummary>Concatenate a list of binaries (deprecated)</fsummary>
-      <desc>
-        <p>Do not use; use
-          <seealso marker="#list_to_binary/1">list_to_binary/1</seealso>
-          instead.</p>
-      </desc>
-    </func>
-    <func>
       <name>erlang:crc32(Data) -> integer() >= 0</name>
       <fsummary>Compute crc32 (IEEE 802.3) checksum</fsummary>
       <type>

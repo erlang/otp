@@ -72,7 +72,6 @@ is_pure(erlang, binary_to_list, 1) -> true;
 is_pure(erlang, binary_to_list, 3) -> true;
 is_pure(erlang, bit_size, 1) -> true;
 is_pure(erlang, byte_size, 1) -> true;
-is_pure(erlang, concat_binary, 1) -> true;
 is_pure(erlang, element, 2) -> true;
 is_pure(erlang, float, 1) -> true;
 is_pure(erlang, float_to_list, 1) -> true;

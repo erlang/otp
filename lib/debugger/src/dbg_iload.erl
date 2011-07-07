@@ -635,7 +635,6 @@ bif_type(disconnect_node)    -> safe;
 bif_type(binary_to_list)     -> safe;
 bif_type(list_to_binary)     -> safe;
 bif_type(split_binary)       -> safe;
-bif_type(concat_binary)      -> safe;
 bif_type(term_to_atom)       -> safe;
 bif_type(hash)               -> safe;
 bif_type(pre_loaded)         -> safe;

@@ -675,8 +675,6 @@ type(erlang, cancel_timer, 1, Xs) ->
 type(erlang, check_process_code, 2, Xs) ->
   strict(arg_types(erlang, check_process_code, 2), Xs,
 	 fun (_) -> t_boolean() end);
-type(erlang, concat_binary, 1, Xs) ->
-  strict(arg_types(erlang, concat_binary, 1), Xs, fun (_) -> t_binary() end);
 type(erlang, crc32, 1, Xs) ->
   strict(arg_types(erlang, crc32, 1), Xs, fun (_) -> t_crc32() end);
 type(erlang, crc32, 2, Xs) ->
@@ -3397,8 +3395,6 @@ arg_types(erlang, cancel_timer, 1) ->
   [t_reference()];
 arg_types(erlang, check_process_code, 2) ->
   [t_pid(), t_atom()];
-arg_types(erlang, concat_binary, 1) ->
-  [t_list(t_binary())];
 arg_types(erlang, crc32, 1) ->
   [t_iodata()];
 arg_types(erlang, crc32, 2) ->
