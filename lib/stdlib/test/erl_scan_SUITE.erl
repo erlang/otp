@@ -737,6 +737,10 @@ set_attribute() ->
         (catch {foo, erl_scan:set_attribute(line, [], F2)}), % type error
     ?line {'EXIT',{badarg,_}} =
         (catch {foo, erl_scan:set_attribute(column, [], F2)}), % type error
+
+    %% OTP-9412
+    ?line 8 = erl_scan:set_attribute(line, [{line,{nos,'X',8}}],
+                                     fun({nos,_V,VL}) -> VL end),
     ok.
 
 column_errors() ->
