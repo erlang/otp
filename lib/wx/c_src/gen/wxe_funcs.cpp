@@ -16112,6 +16112,106 @@ case wxListItem_SetWidth: { // wxListItem::SetWidth
  This->SetWidth((int) *width);
  break;
 }
+case wxListItemAttr_new_0: { // wxListItemAttr::wxListItemAttr
+ wxListItemAttr * Result = new wxListItemAttr();
+ newPtr((void *) Result, 101, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxListItemAttr");
+ break;
+}
+case wxListItemAttr_new_3: { // wxListItemAttr::wxListItemAttr
+ int * colTextR = (int *) bp; bp += 4;
+ int * colTextG = (int *) bp; bp += 4;
+ int * colTextB = (int *) bp; bp += 4;
+ int * colTextA = (int *) bp; bp += 4;
+ wxColour colText = wxColour(*colTextR,*colTextG,*colTextB,*colTextA);
+ int * colBackR = (int *) bp; bp += 4;
+ int * colBackG = (int *) bp; bp += 4;
+ int * colBackB = (int *) bp; bp += 4;
+ int * colBackA = (int *) bp; bp += 4;
+ wxColour colBack = wxColour(*colBackR,*colBackG,*colBackB,*colBackA);
+ wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
+ wxListItemAttr * Result = new wxListItemAttr(colText,colBack,*font);
+ newPtr((void *) Result, 101, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxListItemAttr");
+ break;
+}
+case wxListItemAttr_GetBackgroundColour: { // wxListItemAttr::GetBackgroundColour
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ const wxColour * Result = &This->GetBackgroundColour();
+ rt.add((*Result));
+ break;
+}
+case wxListItemAttr_GetFont: { // wxListItemAttr::GetFont
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ const wxFont * Result = &This->GetFont();
+ rt.addRef(getRef((void *)Result,memenv), "wxFont");
+ break;
+}
+case wxListItemAttr_GetTextColour: { // wxListItemAttr::GetTextColour
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ const wxColour * Result = &This->GetTextColour();
+ rt.add((*Result));
+ break;
+}
+case wxListItemAttr_HasBackgroundColour: { // wxListItemAttr::HasBackgroundColour
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->HasBackgroundColour();
+ rt.addBool(Result);
+ break;
+}
+case wxListItemAttr_HasFont: { // wxListItemAttr::HasFont
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->HasFont();
+ rt.addBool(Result);
+ break;
+}
+case wxListItemAttr_HasTextColour: { // wxListItemAttr::HasTextColour
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->HasTextColour();
+ rt.addBool(Result);
+ break;
+}
+case wxListItemAttr_SetBackgroundColour: { // wxListItemAttr::SetBackgroundColour
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ int * colBackR = (int *) bp; bp += 4;
+ int * colBackG = (int *) bp; bp += 4;
+ int * colBackB = (int *) bp; bp += 4;
+ int * colBackA = (int *) bp; bp += 4;
+ wxColour colBack = wxColour(*colBackR,*colBackG,*colBackB,*colBackA);
+ if(!This) throw wxe_badarg(0);
+ This->SetBackgroundColour(colBack);
+ break;
+}
+case wxListItemAttr_SetFont: { // wxListItemAttr::SetFont
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetFont(*font);
+ break;
+}
+case wxListItemAttr_SetTextColour: { // wxListItemAttr::SetTextColour
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ int * colTextR = (int *) bp; bp += 4;
+ int * colTextG = (int *) bp; bp += 4;
+ int * colTextB = (int *) bp; bp += 4;
+ int * colTextA = (int *) bp; bp += 4;
+ wxColour colText = wxColour(*colTextR,*colTextG,*colTextB,*colTextA);
+ if(!This) throw wxe_badarg(0);
+ This->SetTextColour(colText);
+ break;
+}
+case wxListItemAttr_destroy: { // wxListItemAttr::destroy
+ wxListItemAttr *This = (wxListItemAttr *) getPtr(bp,memenv); bp += 4;
+ if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
+   delete This;}
+ break;
+}
 case wxImageList_new_0: { // wxImageList::wxImageList
  wxImageList * Result = new EwxImageList();
  newPtr((void *) Result, 1, memenv);
@@ -16280,7 +16380,7 @@ case wxImageList_Replace_3: { // wxImageList::Replace
 }
 case wxTextAttr_new_0: { // wxTextAttr::wxTextAttr
  wxTextAttr * Result = new wxTextAttr();
- newPtr((void *) Result, 102, memenv);
+ newPtr((void *) Result, 103, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextAttr");
  break;
 }
@@ -16310,7 +16410,7 @@ alignment = *(wxTextAttrAlignment *) bp; bp += 4;;
   } break;
  }};
  wxTextAttr * Result = new wxTextAttr(colText,colBack,*font,(wxTextAttrAlignment) alignment);
- newPtr((void *) Result, 102, memenv);
+ newPtr((void *) Result, 103, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextAttr");
  break;
 }
@@ -23759,14 +23859,14 @@ case wxAuiManager_Update: { // wxAuiManager::Update
 #if wxUSE_AUI
 case wxAuiPaneInfo_new_0: { // wxAuiPaneInfo::wxAuiPaneInfo
  wxAuiPaneInfo * Result = new wxAuiPaneInfo();
- newPtr((void *) Result, 154, memenv);
+ newPtr((void *) Result, 155, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxAuiPaneInfo");
  break;
 }
 case wxAuiPaneInfo_new_1: { // wxAuiPaneInfo::wxAuiPaneInfo
  wxAuiPaneInfo *c = (wxAuiPaneInfo *) getPtr(bp,memenv); bp += 4;
  wxAuiPaneInfo * Result = new wxAuiPaneInfo(*c);
- newPtr((void *) Result, 154, memenv);
+ newPtr((void *) Result, 155, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxAuiPaneInfo");
  break;
 }
@@ -30309,7 +30409,7 @@ case wxNotebookEvent_SetSelection: { // wxNotebookEvent::SetSelection
 }
 case wxFileDataObject_new: { // wxFileDataObject::wxFileDataObject
  wxFileDataObject * Result = new wxFileDataObject();
- newPtr((void *) Result, 211, memenv);
+ newPtr((void *) Result, 212, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxFileDataObject");
  break;
 }
@@ -30345,7 +30445,7 @@ case wxTextDataObject_new: { // wxTextDataObject::wxTextDataObject
   } break;
  }};
  wxTextDataObject * Result = new wxTextDataObject(text);
- newPtr((void *) Result, 212, memenv);
+ newPtr((void *) Result, 213, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextDataObject");
  break;
 }
@@ -30381,7 +30481,7 @@ case wxTextDataObject_destroy: { // wxTextDataObject::destroy
 case wxBitmapDataObject_new_1_1: { // wxBitmapDataObject::wxBitmapDataObject
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -30393,7 +30493,7 @@ bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 214, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -31176,7 +31276,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 223, memenv);
+ newPtr((void *) Result, 224, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31223,12 +31323,13 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 70: /* delete (wxCaret *) ptr;These objects must be deleted by owner object */ break;
   case 72: delete (wxSizerFlags *) ptr; break;
   case 88: /* delete (wxCalendarDateAttr *) ptr;These objects must be deleted by owner object */ break;
-  case 102: delete (wxTextAttr *) ptr; break;
-  case 154: delete (wxAuiPaneInfo *) ptr; break;
-  case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 223: delete (wxLogNull *) ptr; break;
+  case 101: delete (wxListItemAttr *) ptr; break;
+  case 103: delete (wxTextAttr *) ptr; break;
+  case 155: delete (wxAuiPaneInfo *) ptr; break;
+  case 212: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 213: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 214: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 224: delete (wxLogNull *) ptr; break;
   default: delete (wxObject *) ptr;
 }}
 
