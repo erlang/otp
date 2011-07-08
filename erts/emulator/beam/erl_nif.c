@@ -1007,6 +1007,29 @@ void enif_system_info(ErlNifSysInfo *sip, size_t si_size)
     driver_system_info(sip, si_size);
 }
 
+int enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list) {
+    Eterm *listptr, ret = NIL, *hp;
+
+    if (is_nil(term)) {
+	*list = term;
+        return 1;
+    }
+
+    ret = NIL;
+
+    while (is_not_nil(term)) {
+	if (is_not_list(term)) {
+	    return 0;
+	}
+	hp = alloc_heap(env, 2);
+	listptr = list_val(term);
+	ret = CONS(hp, CAR(listptr), ret);
+	term = CDR(listptr);
+    }
+    *list = ret;
+    return 1;
+}
+
 
 ErlNifMutex* enif_mutex_create(char *name) { return erl_drv_mutex_create(name); }
 void enif_mutex_destroy(ErlNifMutex *mtx) {  erl_drv_mutex_destroy(mtx); }

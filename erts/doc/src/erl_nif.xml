@@ -822,6 +822,13 @@ typedef enum {
       <desc><p>Create an ordinary list containing the elements of array <c>arr</c>
       of length <c>cnt</c>. An empty list is returned if <c>cnt</c> is 0.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_make_reverse_list(ErlNifEnv* env, ERL_NIF_TERM term, ERL_NIF_TERM *list)</nametext></name>
+      <fsummary>Create the reverse list of the list <c>term</c>.</fsummary>
+      <desc><p>Set <c>*list</c> to the reverse list of the list <c>term</c> and return true,
+      or return false if <c>term</c> is not a list. This function should only be used on
+      short lists as a copy will be created of the list which will not be released until after the
+      nif returns.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int</fsummary>
       <desc><p>Create an integer term from a <c>long int</c>.</p></desc>

@@ -35,7 +35,7 @@
 	 resource_takeover/1,
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, 
 	 is_checks/1,
-	 get_length/1, make_atom/1, make_string/1]).
+	 get_length/1, make_atom/1, make_string/1, reverse_list_test/1]).
 
 -export([many_args_100/100]).
 
@@ -60,7 +60,7 @@ all() ->
      iolist_as_binary, resource, resource_binary,
      resource_takeover, threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
-     make_string].
+     make_string,reverse_list_test].
 
 groups() -> 
     [].
@@ -1164,6 +1164,13 @@ make_string(Config) when is_list(Config) ->
     AStringWithAccents = [$E,$r,$l,$a,$n,$g,$ ,16#e4,$r,$ ,$e,$t,$t,$ ,$g,$e,$n,$e,$r,$e,$l,$l,$t,$ ,$p,$r,$o,$g,$r,$a,$m,$s,$p,$r,16#e5,$k],
     ?line Strings = {A0String,A0String,A0String,A0String0, AStringWithAccents}.
 
+reverse_list_test(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    List = lists:seq(1,100),
+    RevList = lists:reverse(List),
+    ?line RevList = reverse_list(List),
+    ?line badarg = reverse_list(foo).
+
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of
 	false -> undefined;
@@ -1269,6 +1276,7 @@ send_blob_thread(_,_,_) -> ?nif_stub.
 join_send_thread(_) -> ?nif_stub.
 copy_blob(_) -> ?nif_stub.
 send_term(_,_) -> ?nif_stub.
+reverse_list(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
