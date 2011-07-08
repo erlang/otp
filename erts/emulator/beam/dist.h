@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -203,7 +203,7 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	id = dep->cid;
     }
 
-    if (!erts_smp_atomic_xchg(&dep->dist_cmd_scheduled, 1)) {
+    if (!erts_smp_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1)) {
 	(void) erts_port_task_schedule(id,
 				       &dep->dist_cmd,
 				       ERTS_PORT_TASK_DIST_CMD,

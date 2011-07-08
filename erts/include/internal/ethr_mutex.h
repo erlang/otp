@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -52,6 +52,10 @@
 #  if !defined(ETHR_MTX_HARD_DEBUG_WSQ) && defined(ETHR_MTX_HARD_DEBUG_Q)
 #    define ETHR_MTX_HARD_DEBUG_WSQ
 #  endif
+#endif
+
+#ifndef ETHR_INLINE_MTX_FUNC_NAME_
+#  define ETHR_INLINE_MTX_FUNC_NAME_(X) X
 #endif
 
 #if defined(ETHR_USE_OWN_RWMTX_IMPL__) || defined(ETHR_USE_OWN_MTX_IMPL__)
@@ -505,7 +509,7 @@ void ethr_mutex_lock_wait__(ethr_mutex *, ethr_sint32_t);
 void ethr_mutex_unlock_wake__(ethr_mutex *, ethr_sint32_t);
 
 static ETHR_INLINE int
-ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 {
     ethr_sint32_t act;
     int res;
@@ -529,7 +533,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 {
     ethr_sint32_t act;
     ETHR_MTX_HARD_DEBUG_FENCE_CHK(mtx);
@@ -549,7 +553,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 {
     ethr_sint32_t act;
     ETHR_COMPILER_BARRIER;
@@ -574,7 +578,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_MUTEX_IMPL__)
 
 static ETHR_INLINE int
-ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 {
     int res;
     res = pthread_mutex_trylock(&mtx->pt_mtx);
@@ -584,7 +588,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_trylock)(ethr_mutex *mtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 {
     int res = pthread_mutex_lock(&mtx->pt_mtx);
     if (res != 0)
@@ -592,7 +596,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_lock)(ethr_mutex *mtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 {
     int res = pthread_mutex_unlock(&mtx->pt_mtx);
     if (res != 0)
@@ -615,7 +619,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 #if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_MUTEX_IMPL__)
 
 static ETHR_INLINE int
-ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_tryrlock)(ethr_rwmutex *rwmtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_rwmutex_tryrlock)(ethr_rwmutex *rwmtx)
 {
     int res = pthread_rwlock_tryrdlock(&rwmtx->pt_rwlock);
     if (res != 0 && res != EBUSY)
@@ -624,7 +628,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_tryrlock)(ethr_rwmutex *rwmtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_rlock)(ethr_rwmutex *rwmtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_rwmutex_rlock)(ethr_rwmutex *rwmtx)
 {
     int res = pthread_rwlock_rdlock(&rwmtx->pt_rwlock);
     if (res != 0)
@@ -632,7 +636,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_rlock)(ethr_rwmutex *rwmtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_runlock)(ethr_rwmutex *rwmtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_rwmutex_runlock)(ethr_rwmutex *rwmtx)
 {
     int res = pthread_rwlock_unlock(&rwmtx->pt_rwlock);
     if (res != 0)
@@ -640,7 +644,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_runlock)(ethr_rwmutex *rwmtx)
 }
 
 static ETHR_INLINE int
-ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_tryrwlock)(ethr_rwmutex *rwmtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_rwmutex_tryrwlock)(ethr_rwmutex *rwmtx)
 {
     int res = pthread_rwlock_trywrlock(&rwmtx->pt_rwlock);
     if (res != 0 && res != EBUSY)
@@ -649,7 +653,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_tryrwlock)(ethr_rwmutex *rwmtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_rwlock)(ethr_rwmutex *rwmtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_rwmutex_rwlock)(ethr_rwmutex *rwmtx)
 {
     int res = pthread_rwlock_wrlock(&rwmtx->pt_rwlock);
     if (res != 0)
@@ -657,7 +661,7 @@ ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_rwlock)(ethr_rwmutex *rwmtx)
 }
 
 static ETHR_INLINE void
-ETHR_INLINE_FUNC_NAME_(ethr_rwmutex_rwunlock)(ethr_rwmutex *rwmtx)
+ETHR_INLINE_MTX_FUNC_NAME_(ethr_rwmutex_rwunlock)(ethr_rwmutex *rwmtx)
 {
     int res = pthread_rwlock_unlock(&rwmtx->pt_rwlock);
     if (res != 0)

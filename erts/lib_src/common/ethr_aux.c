@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -31,10 +31,6 @@
 
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHR_AUX_IMPL__
-#define ETHR_ATOMIC_IMPL__ /* Needed in order to pull in
-			      native atomic implementations
-			      for optimized fallbacks of
-			      spinlocks and rwspinlocks */
 #include "ethread.h"
 #include "ethr_internal.h"
 #include <string.h>
@@ -75,10 +71,87 @@ static int main_threads;
 
 static int init_ts_event_alloc(void);
 
+ethr_runtime_t ethr_runtime__
+#ifdef __GNUC__
+__attribute__ ((aligned (ETHR_CACHE_LINE_SIZE)))
+#endif
+    ;
+
+#if defined(ETHR_X86_RUNTIME_CONF__)
+
+/*
+ * x86/x86_64 specifics shared between windows and
+ * pthread implementations.
+ */
+
+#define ETHR_IS_X86_VENDOR(V, B, C, D) \
+   (sizeof(V) == 13 && is_x86_vendor((V), (B), (C), (D)))
+
+static ETHR_INLINE int
+is_x86_vendor(char *str, int ebx, int ecx, int edx)
+{
+    return (*((int *) &str[0]) == ebx
+	    && *((int *) &str[sizeof(int)]) == edx
+	    && *((int *) &str[sizeof(int)*2]) == ecx);
+}
+
+static void
+x86_init(void)
+{
+    int eax, ebx, ecx, edx;
+
+    eax = ebx = ecx = edx = 0;
+
+    ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+
+    if (eax > 0
+	&& (ETHR_IS_X86_VENDOR("GenuineIntel", ebx, ecx, edx)
+	    || ETHR_IS_X86_VENDOR("AuthenticAMD", ebx, ecx, edx))) {
+	eax = 1;
+	ethr_x86_cpuid__(&eax, &ebx, &ecx, &edx);
+    }
+    else {
+	/*
+	 * The meaning of the feature flags for this
+	 * vendor have not been verified.
+	 */
+	eax = ebx = ecx = edx = 0;
+    }
+
+    /*
+     * The feature flags tested below have only been verified
+     * for vendors checked above. Also note that only these
+     * feature flags have been verified to have these specific
+     * meanings. If another feature flag test is introduced,
+     * it has to be verified to have the same meaning for all
+     * vendors above.
+     */
+
+#if ETHR_SIZEOF_PTR == 8
+    /* bit 13 of ecx is set if we have cmpxchg16b */
+    ethr_runtime__.conf.have_dw_cmpxchg = (ecx & (1 << 13));
+#elif ETHR_SIZEOF_PTR == 4
+    /* bit 8 of edx is set if we have cmpxchg8b */
+    ethr_runtime__.conf.have_dw_cmpxchg = (edx & (1 << 8));
+#else
+#  error "Not supported"
+#endif
+    /* bit 26 of edx is set if we have sse2 */
+    ethr_runtime__.conf.have_sse2 = (edx & (1 << 26));
+}
+
+#endif /* ETHR_X86_RUNTIME_CONF__ */
+
+
 int
 ethr_init_common__(ethr_init_data *id)
 {
     int res;
+
+#if defined(ETHR_X86_RUNTIME_CONF__)
+    x86_init();
+#endif
+
     if (id) {
 	ethr_thr_prepare_func__	= id->thread_create_prepare_func;
 	ethr_thr_parent_func__	= id->thread_create_parent_func;

@@ -76,14 +76,12 @@ struct erl_bits_state ErlBitsState;
 #define byte_buf	(ErlBitsState.byte_buf_)
 #define byte_buf_len	(ErlBitsState.byte_buf_len_)
 
-#ifdef ERTS_SMP
 static erts_smp_atomic_t bits_bufs_size;
-#endif
 
 Uint
 erts_bits_bufs_size(void)
 {
-    return 0;
+    return (Uint) erts_smp_atomic_read_nob(&bits_bufs_size);
 }
 
 #if !defined(ERTS_SMP)
@@ -109,8 +107,8 @@ erts_bits_destroy_state(ERL_BITS_PROTO_0)
 void
 erts_init_bits(void)
 {
+    erts_smp_atomic_init_nob(&bits_bufs_size, 0);
 #if defined(ERTS_SMP)
-    erts_smp_atomic_init(&bits_bufs_size, 0);
     /* erl_process.c calls erts_bits_init_state() on all state instances */
 #else
     ERL_BITS_DECLARE_STATEP;
@@ -713,9 +711,7 @@ static void
 ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(int need))
 {
     if (byte_buf_len < need) {
-#ifdef ERTS_SMP
-	erts_smp_atomic_add(&bits_bufs_size, need - byte_buf_len);
-#endif
+	erts_smp_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
 	byte_buf_len = need;
 	byte_buf = erts_realloc(ERTS_ALC_T_BITS_BUF, byte_buf, byte_buf_len);
     }

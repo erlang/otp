@@ -309,9 +309,9 @@ struct ErtsPollSet_ {
 #ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 1)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 0)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 #else
 extern volatile int erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -371,19 +371,19 @@ do { \
 static ERTS_INLINE int
 is_io_ready(ErtsPollSet ps)
 {
-    return erts_atomic32_read(&ps->wakeup_state) == ERTS_POLL_WOKEN_IO_READY;
+    return erts_atomic32_read_nob(&ps->wakeup_state) == ERTS_POLL_WOKEN_IO_READY;
 }
 
 static ERTS_INLINE void
 woke_up(ErtsPollSet ps)
 {
-    if (erts_atomic32_read(&ps->wakeup_state) == ERTS_POLL_NOT_WOKEN)
-	erts_atomic32_cmpxchg(&ps->wakeup_state,
-			      ERTS_POLL_WOKEN_TIMEDOUT,
-			      ERTS_POLL_NOT_WOKEN);
+    if (erts_atomic32_read_nob(&ps->wakeup_state) == ERTS_POLL_NOT_WOKEN)
+	erts_atomic32_cmpxchg_nob(&ps->wakeup_state,
+				  ERTS_POLL_WOKEN_TIMEDOUT,
+				  ERTS_POLL_NOT_WOKEN);
 #ifdef DEBUG
     {
-	erts_aint32_t wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+	erts_aint32_t wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
 	switch (wakeup_state) {
 	case ERTS_POLL_WOKEN_IO_READY:
 	case ERTS_POLL_WOKEN_INTR:
@@ -401,7 +401,7 @@ static ERTS_INLINE int
 wakeup_cause(ErtsPollSet ps)
 {
     int res;
-    erts_aint32_t wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+    erts_aint32_t wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
     switch (wakeup_state) {
     case ERTS_POLL_WOKEN_IO_READY:
 	res = 0;
@@ -439,7 +439,7 @@ poll_wait_timeout(ErtsPollSet ps, SysTimeval *tvp)
      * by ResetEvent().
      */
     ERTS_THR_MEMORY_BARRIER;
-    if (erts_atomic32_read(&ps->wakeup_state) != ERTS_POLL_NOT_WOKEN)
+    if (erts_atomic32_read_nob(&ps->wakeup_state) != ERTS_POLL_NOT_WOKEN)
 	return (DWORD) 0;
 
     if (timeout > ERTS_AINT32_T_MAX) /* Also prevents DWORD overflow */
@@ -455,17 +455,17 @@ wake_poller(ErtsPollSet ps, int io_ready)
     erts_aint32_t wakeup_state;
     if (io_ready) {
 	/* We may set the event multiple times. This is, however, harmless. */
-	wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+	wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
 	erts_atomic32_set_relb(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
     }
     else {
 	ERTS_THR_MEMORY_BARRIER;
-	wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+	wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
 	while (wakeup_state != ERTS_POLL_WOKEN_IO_READY
 	       && wakeup_state != ERTS_POLL_WOKEN_INTR) {
-	    erts_aint32_t act = erts_atomic32_cmpxchg(&ps->wakeup_state,
-						      ERTS_POLL_WOKEN_INTR,
-						      wakeup_state);
+	    erts_aint32_t act = erts_atomic32_cmpxchg_nob(&ps->wakeup_state,
+							  ERTS_POLL_WOKEN_INTR,
+							  wakeup_state);
 	    if (act == wakeup_state) {
 		wakeup_state = act;
 		break;
@@ -488,13 +488,13 @@ wake_poller(ErtsPollSet ps, int io_ready)
 static ERTS_INLINE void
 reset_io_ready(ErtsPollSet ps)
 {
-    erts_atomic32_set(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
+    erts_atomic32_set_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
 }
 
 static ERTS_INLINE void
 restore_io_ready(ErtsPollSet ps)
 {
-    erts_atomic32_set(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
+    erts_atomic32_set_nob(&ps->wakeup_state, ERTS_POLL_WOKEN_IO_READY);
 }
 
 /*
@@ -511,12 +511,12 @@ static ERTS_INLINE void
 reset_interrupt(ErtsPollSet ps)
 {
     /* We need to keep io-ready if set */
-    erts_aint32_t wakeup_state = erts_atomic32_read(&ps->wakeup_state);
+    erts_aint32_t wakeup_state = erts_atomic32_read_nob(&ps->wakeup_state);
     while (wakeup_state != ERTS_POLL_WOKEN_IO_READY
 	   && wakeup_state != ERTS_POLL_NOT_WOKEN) {
-	erts_aint32_t act = erts_atomic32_cmpxchg(&ps->wakeup_state,
-						  ERTS_POLL_NOT_WOKEN,
-						  wakeup_state);
+	erts_aint32_t act = erts_atomic32_cmpxchg_nob(&ps->wakeup_state,
+						      ERTS_POLL_NOT_WOKEN,
+						      wakeup_state);
 	if (wakeup_state == act)
 	    break;
 	wakeup_state = act;
@@ -692,7 +692,7 @@ static void *break_waiter(void *param)
 	case WAIT_OBJECT_0:
 	    ResetEvent(harr[0]);
 	    erts_mtx_lock(&break_waiter_lock);
-	    erts_atomic32_set(&break_waiter_state,BREAK_WAITER_GOT_BREAK);
+	    erts_atomic32_set_nob(&break_waiter_state,BREAK_WAITER_GOT_BREAK);
 	    ERTS_THR_MEMORY_BARRIER;
 	    SetEvent(break_happened_event);
 	    erts_mtx_unlock(&break_waiter_lock);
@@ -700,7 +700,7 @@ static void *break_waiter(void *param)
 	case (WAIT_OBJECT_0+1):
 	    ResetEvent(harr[1]);
 	    erts_mtx_lock(&break_waiter_lock);
-	    erts_atomic32_set(&break_waiter_state,BREAK_WAITER_GOT_HALT);
+	    erts_atomic32_set_nob(&break_waiter_state,BREAK_WAITER_GOT_HALT);
 	    ERTS_THR_MEMORY_BARRIER;
 	    SetEvent(break_happened_event);
 	    erts_mtx_unlock(&break_waiter_lock);
@@ -1153,7 +1153,7 @@ int erts_poll_wait(ErtsPollSet ps,
 
     /*HARDDEBUGF(("timeout = %ld",(long) timeout));*/
 
-    if (timeout > 0 && !erts_atomic32_read(&break_waiter_state)) {
+    if (timeout > 0 && !erts_atomic32_read_nob(&break_waiter_state)) {
 	HANDLE harr[2] = {ps->event_io_ready, break_happened_event};
 	int num_h = 2;
 
@@ -1166,10 +1166,10 @@ int erts_poll_wait(ErtsPollSet ps,
     }
 
     ERTS_UNSET_BREAK_REQUESTED;
-    if(erts_atomic32_read(&break_waiter_state)) {
+    if(erts_atomic32_read_nob(&break_waiter_state)) {
 	erts_mtx_lock(&break_waiter_lock);
-	break_state = erts_atomic32_read(&break_waiter_state);
-	erts_atomic32_set(&break_waiter_state,0);
+	break_state = erts_atomic32_read_nob(&break_waiter_state);
+	erts_atomic32_set_nob(&break_waiter_state,0);
 	ResetEvent(break_happened_event);
 	erts_mtx_unlock(&break_waiter_lock);
 	switch (break_state) {
@@ -1236,7 +1236,7 @@ int erts_poll_wait(ErtsPollSet ps,
 	erts_mtx_unlock(&w->mtx);
     }
  done:
-    erts_smp_atomic32_set(&ps->timeout, ERTS_AINT32_T_MAX);
+    erts_smp_atomic32_set_nob(&ps->timeout, ERTS_AINT32_T_MAX);
     *len = num;
     ERTS_POLLSET_UNLOCK(ps);
     HARDTRACEF(("Out erts_poll_wait"));
@@ -1316,11 +1316,11 @@ ErtsPollSet erts_poll_create_pollset(void)
     ps->standby_wait_event = CreateManualEvent(FALSE); 
     ps->restore_events = 0;
 
-    erts_atomic32_init(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
+    erts_atomic32_init_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
 #ifdef ERTS_SMP
     erts_smp_mtx_init(&ps->mtx, "pollset");
 #endif
-    erts_smp_atomic32_init(&ps->timeout, ERTS_AINT32_T_MAX);
+    erts_smp_atomic32_init_nob(&ps->timeout, ERTS_AINT32_T_MAX);
 
     HARDTRACEF(("Out erts_poll_create_pollset"));
     return ps;
@@ -1372,7 +1372,7 @@ void  erts_poll_init(void)
 
     erts_mtx_init(&break_waiter_lock,"break_waiter_lock");
     break_happened_event = CreateManualEvent(FALSE);
-    erts_atomic32_init(&break_waiter_state, 0); 
+    erts_atomic32_init_nob(&break_waiter_state, 0); 
 
     erts_thr_create(&thread, &break_waiter, NULL, NULL);
     ERTS_UNSET_BREAK_REQUESTED;

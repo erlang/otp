@@ -21,7 +21,7 @@
  * Author: Rickard Green
  */
 
-#if defined(ETHR_HAVE_LINUX_FUTEX) && defined(ETHR_HAVE_NATIVE_ATOMICS)
+#if defined(ETHR_HAVE_LINUX_FUTEX) && defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
 /* --- Linux futex implementation of ethread events ------------------------- */
 #define ETHR_LINUX_FUTEX_IMPL__
 
@@ -62,8 +62,7 @@ static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
     ethr_sint32_t val;
-    ETHR_MEMORY_BARRIER;
-    val = ethr_atomic32_xchg(&e->futex, ETHR_EVENT_ON__);
+    val = ethr_atomic32_xchg_mb(&e->futex, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
 	int res = ETHR_FUTEX__(&e->futex, ETHR_FUTEX_WAKE__, 1);
 	if (res != 0)
@@ -99,8 +98,7 @@ static void ETHR_INLINE
 ETHR_INLINE_FUNC_NAME_(ethr_event_set)(ethr_event *e)
 {
     ethr_sint32_t val;
-    ETHR_MEMORY_BARRIER;
-    val = ethr_atomic32_xchg(&e->state, ETHR_EVENT_ON__);
+    val = ethr_atomic32_xchg_mb(&e->state, ETHR_EVENT_ON__);
     if (val == ETHR_EVENT_OFF_WAITER__) {
 	int res = pthread_mutex_lock(&e->mtx);
 	if (res != 0)

@@ -167,12 +167,12 @@ static int debug_log = 0;
 #ifdef ERTS_SMP
 erts_smp_atomic32_t erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 \
-  erts_smp_atomic32_set(&erts_got_sigusr1, 1)
+  erts_smp_atomic32_set_mb(&erts_got_sigusr1, 1)
 #define ERTS_UNSET_GOT_SIGUSR1 \
-  erts_smp_atomic32_set(&erts_got_sigusr1, 0)
+  erts_smp_atomic32_set_mb(&erts_got_sigusr1, 0)
 static erts_smp_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic32_xchg(&have_prepared_crash_dump, 1))
+  ((int) erts_smp_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
 #else
 volatile int erts_got_sigusr1;
 #define ERTS_SET_GOT_SIGUSR1 (erts_got_sigusr1 = 1)
@@ -242,9 +242,9 @@ static int max_files = -1;
 #ifdef ERTS_SMP
 erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 1)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set(&erts_break_requested, (erts_aint32_t) 0)
+  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 #else
 volatile int erts_break_requested = 0;
 #define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
@@ -364,7 +364,7 @@ Uint
 erts_sys_misc_mem_sz(void)
 {
     Uint res = ERTS_CHK_IO_SZ();
-    res += erts_smp_atomic_read(&sys_misc_mem_sz);
+    res += erts_smp_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
@@ -509,9 +509,9 @@ erts_sys_pre_init(void)
 #endif
     }
 #ifdef ERTS_SMP
-    erts_smp_atomic32_init(&erts_break_requested, 0);
-    erts_smp_atomic32_init(&erts_got_sigusr1, 0);
-    erts_smp_atomic32_init(&have_prepared_crash_dump, 0);
+    erts_smp_atomic32_init_nob(&erts_break_requested, 0);
+    erts_smp_atomic32_init_nob(&erts_got_sigusr1, 0);
+    erts_smp_atomic32_init_nob(&have_prepared_crash_dump, 0);
 #else
     erts_break_requested = 0;
     erts_got_sigusr1 = 0;
@@ -521,7 +521,7 @@ erts_sys_pre_init(void)
     children_died = 0;
 #endif
 #endif /* USE_THREADS */
-    erts_smp_atomic_init(&sys_misc_mem_sz, 0);
+    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
 }
 
 void
@@ -553,7 +553,7 @@ erl_sys_init(void)
 		   + sizeof(CHILD_SETUP_PROG_NAME)
 		   + 1);
     child_setup_prog = erts_alloc(ERTS_ALC_T_CS_PROG_PATH, csp_path_sz);
-    erts_smp_atomic_add(&sys_misc_mem_sz, csp_path_sz);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, csp_path_sz);
     sprintf(child_setup_prog,
             "%s%c%s",
             bindir,
@@ -1216,8 +1216,8 @@ static int spawn_init()
    sys_sigset(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
    driver_data = (struct driver_data *)
        erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
-   erts_smp_atomic_add(&sys_misc_mem_sz,
-		       max_files * sizeof(struct driver_data));
+   erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			   max_files * sizeof(struct driver_data));
 
    for (i = 0; i < max_files; i++)
       driver_data[i].pid = -1;
@@ -1925,8 +1925,8 @@ static void clear_fd_data(int fd)
 {
     if (fd_data[fd].sz > 0) {
 	erts_free(ERTS_ALC_T_FD_ENTRY_BUF, (void *) fd_data[fd].buf);
-	ASSERT(erts_smp_atomic_read(&sys_misc_mem_sz) >= fd_data[fd].sz);
-	erts_smp_atomic_add(&sys_misc_mem_sz, -1*fd_data[fd].sz);
+	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= fd_data[fd].sz);
+	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*fd_data[fd].sz);
     }
     fd_data[fd].buf = NULL;
     fd_data[fd].sz = 0;
@@ -2261,7 +2261,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 			port_inp_failure(port_num, ready_fd, -1);
 		    }
 		    else {
-			erts_smp_atomic_add(&sys_misc_mem_sz, h);
+			erts_smp_atomic_add_nob(&sys_misc_mem_sz, h);
 			sys_memcpy(buf, cpos, bytes_left);
 			fd_data[ready_fd].buf = buf;
 			fd_data[ready_fd].sz = h;
@@ -2465,7 +2465,7 @@ erts_sys_putenv(char *buffer, int sep_ix)
 #else
     Uint sz = strlen(buffer)+1;
     env = erts_alloc(ERTS_ALC_T_PUTENV_STR, sz);
-    erts_smp_atomic_add(&sys_misc_mem_sz, sz);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sz);
     strcpy(env,buffer);
 #endif
     erts_smp_rwmtx_rwlock(&environ_rwmtx);
@@ -2504,8 +2504,8 @@ sys_init_io(void)
 {
     fd_data = (struct fd_data *)
 	erts_alloc(ERTS_ALC_T_FD_TAB, max_files * sizeof(struct fd_data));
-    erts_smp_atomic_add(&sys_misc_mem_sz,
-			max_files * sizeof(struct fd_data));
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			    max_files * sizeof(struct fd_data));
 
 #ifdef USE_THREADS
 #ifdef ERTS_SMP

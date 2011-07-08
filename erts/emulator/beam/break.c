@@ -626,7 +626,7 @@ bin_check(void)
 		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",
 			    bp->val, 
 			    bp->val->orig_size, 
-			    erts_smp_atomic_read(&bp->val->refc));
+			    erts_smp_atomic_read_nob(&bp->val->refc));
 	    }
 	}
 	if (printed) {
@@ -650,7 +650,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     char dumpnamebuf[MAXPATHLEN];
     char* dumpname;
 
-    if (ERTS_IS_CRASH_DUMPING)
+    if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
     /* Wait for all threads to block. If all threads haven't blocked
@@ -667,7 +667,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     /* Allow us to pass certain places without locking... */
 #ifdef ERTS_SMP
-    erts_smp_atomic_inc(&erts_writing_erl_crash_dump);
+    erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
+    erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
 #else
     erts_writing_erl_crash_dump = 1;
 #endif

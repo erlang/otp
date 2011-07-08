@@ -128,8 +128,8 @@ delete_cache(ErtsAtomCache *cache)
 {
     if (cache) {
 	erts_free(ERTS_ALC_T_DCACHE, (void *) cache);
-	ASSERT(erts_smp_atomic_read(&no_caches) > 0);
-	erts_smp_atomic_dec(&no_caches);
+	ASSERT(erts_smp_atomic_read_nob(&no_caches) > 0);
+	erts_smp_atomic_dec_nob(&no_caches);
     }
 }
 
@@ -147,7 +147,7 @@ create_cache(DistEntry *dep)
 
     dep->cache = cp = (ErtsAtomCache*) erts_alloc(ERTS_ALC_T_DCACHE,
 						  sizeof(ErtsAtomCache));
-    erts_smp_atomic_inc(&no_caches);
+    erts_smp_atomic_inc_nob(&no_caches);
     for (i = 0; i < sizeof(cp->in_arr)/sizeof(cp->in_arr[0]); i++) {
 	cp->in_arr[i] = THE_NON_VALUE;
 	cp->out_arr[i] = THE_NON_VALUE;
@@ -156,7 +156,7 @@ create_cache(DistEntry *dep)
 
 Uint erts_dist_cache_size(void)
 {
-    return (Uint) erts_smp_atomic_read(&no_caches)*sizeof(ErtsAtomCache);
+    return (Uint) erts_smp_atomic_read_mb(&no_caches)*sizeof(ErtsAtomCache);
 }
 
 static ErtsProcList *
@@ -444,7 +444,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	ErtsMonitor *monitors;
 	Uint32 flags;
 
-	erts_smp_atomic_set(&dep->dist_cmd_scheduled, 1);
+	erts_smp_atomic_set_mb(&dep->dist_cmd_scheduled, 1);
 	erts_smp_de_rwlock(dep);
 
 	ERTS_SMP_LC_ASSERT(is_internal_port(dep->cid)
@@ -510,7 +510,7 @@ void init_dist(void)
 {
     init_nodes_monitors();
 
-    erts_smp_atomic_init(&no_caches, 0);
+    erts_smp_atomic_init_nob(&no_caches, 0);
 
     /* Lookup/Install all references to trap functions */
     dsend2_trap = trap_function(am_dsend,2);
@@ -596,7 +596,7 @@ static void clear_dist_entry(DistEntry *dep)
     suspendees = get_suspended_on_de(dep, ERTS_DE_QFLGS_ALL);
 
     erts_smp_mtx_unlock(&dep->qlock);
-    erts_smp_atomic_set(&dep->dist_cmd_scheduled, 0);
+    erts_smp_atomic_set_nob(&dep->dist_cmd_scheduled, 0);
     dep->send = NULL;
     erts_smp_de_rwunlock(dep);
 
@@ -1775,7 +1775,7 @@ erts_dist_command(Port *prt, int reds_limit)
     erts_refc_inc(&dep->refc, 1); /* Otherwise dist_entry might be
 				     removed if port command fails */
 
-    erts_smp_atomic_xchg(&dep->dist_cmd_scheduled, 0);
+    erts_smp_atomic_set_mb(&dep->dist_cmd_scheduled, 0);
 
     erts_smp_de_rlock(dep);
     flags = dep->flags;

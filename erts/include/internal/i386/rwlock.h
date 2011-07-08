@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -25,6 +25,9 @@
  */
 #ifndef ETHREAD_I386_RWLOCK_H
 #define ETHREAD_I386_RWLOCK_H
+
+#define ETHR_HAVE_NATIVE_RWSPINLOCKS 1
+#define ETHR_NATIVE_RWSPINLOCK_IMPL "ethread"
 
 /* XXX: describe the algorithm */
 typedef struct {

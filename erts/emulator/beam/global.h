@@ -200,10 +200,10 @@ erts_port_runq(Port *prt)
 {
 #ifdef ERTS_SMP
     ErtsRunQueue *rq1, *rq2;
-    rq1 = (ErtsRunQueue *) erts_smp_atomic_read(&prt->run_queue);
+    rq1 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
     while (1) {
 	erts_smp_runq_lock(rq1);
-	rq2 = (ErtsRunQueue *) erts_smp_atomic_read(&prt->run_queue);
+	rq2 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
 	if (rq1 == rq2)
 	    return rq1;
 	erts_smp_runq_unlock(rq1);
@@ -542,10 +542,11 @@ ERTS_GLB_INLINE void erts_may_save_closed_port(Port *prt)
     ERTS_SMP_LC_ASSERT(erts_smp_lc_spinlock_is_locked(&prt->state_lck));
     if (prt->snapshot != erts_smp_atomic32_read_acqb(&erts_ports_snapshot)) {
 	/* Dead ports are added from the end of the snapshot buffer */
-	Eterm* tombstone = (Eterm*) erts_smp_atomic_addtest(&erts_dead_ports_ptr,
-							    -(erts_aint_t)sizeof(Eterm));
+	Eterm* tombstone;
+	tombstone = (Eterm*) erts_smp_atomic_add_read_nob(&erts_dead_ports_ptr,
+							  -(erts_aint_t)sizeof(Eterm));
 	ASSERT(tombstone+1 != NULL);
-	ASSERT(prt->snapshot == erts_smp_atomic32_read(&erts_ports_snapshot) - 1);
+	ASSERT(prt->snapshot == erts_smp_atomic_read_nob(&erts_ports_snapshot) - 1);
 	*tombstone = prt->id;
     }
     /*else no ongoing snapshot or port was already included or created after snapshot */
@@ -1200,11 +1201,11 @@ erts_smp_port_trylock(Port *prt)
 #ifdef ERTS_SMP
     int res;
 
-    ASSERT(erts_smp_atomic_read(&prt->refc) > 0);
-    erts_smp_atomic_inc(&prt->refc);
+    ASSERT(erts_smp_atomic_read_nob(&prt->refc) > 0);
+    erts_smp_atomic_inc_nob(&prt->refc);
     res = erts_smp_mtx_trylock(prt->lock);
     if (res == EBUSY) {
-	erts_smp_atomic_dec(&prt->refc);
+	erts_smp_atomic_dec_nob(&prt->refc);
     }
 
     return res;
@@ -1217,8 +1218,8 @@ ERTS_GLB_INLINE void
 erts_smp_port_lock(Port *prt)
 {
 #ifdef ERTS_SMP
-    ASSERT(erts_smp_atomic_read(&prt->refc) > 0);
-    erts_smp_atomic_inc(&prt->refc);
+    ASSERT(erts_smp_atomic_read_nob(&prt->refc) > 0);
+    erts_smp_atomic_inc_nob(&prt->refc);
     erts_smp_mtx_lock(prt->lock);
 #endif
 }
@@ -1229,7 +1230,7 @@ erts_smp_port_unlock(Port *prt)
 #ifdef ERTS_SMP
     erts_aint_t refc;
     erts_smp_mtx_unlock(prt->lock);
-    refc = erts_smp_atomic_dectest(&prt->refc);
+    refc = erts_smp_atomic_dec_read_nob(&prt->refc);
     ASSERT(refc >= 0);
     if (refc == 0)
 	erts_port_cleanup(prt);
@@ -1298,7 +1299,7 @@ erts_id2port_sflgs(Eterm id, Process *c_p, ErtsProcLocks c_p_locks, Uint32 sflgs
     }
 #ifdef ERTS_SMP
     else {
-	erts_smp_atomic_inc(&prt->refc);
+	erts_smp_atomic_inc_nob(&prt->refc);
 	erts_smp_port_state_unlock(prt);
 
 	if (no_proc_locks)

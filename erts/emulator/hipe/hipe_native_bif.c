@@ -334,7 +334,7 @@ char *hipe_bs_allocate(int len)
     bptr = erts_bin_nrml_alloc(len);
     bptr->flags = 0;
     bptr->orig_size = len;
-    erts_smp_atomic_init(&bptr->refc, 1);
+    erts_smp_atomic_init_nob(&bptr->refc, 1);
     return bptr->orig_bytes;
 }
 
@@ -584,7 +584,7 @@ void hipe_clear_timeout(Process *c_p)
 
 void hipe_atomic_inc(int *counter)
 {
-    erts_smp_atomic_inc((erts_smp_atomic_t*)counter);
+    erts_smp_atomic_inc_nob((erts_smp_atomic_t*)counter);
 }
 
 #endif

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2011. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -35,6 +35,7 @@
 #include <winerror.h>
 #include <stdio.h>
 #include <limits.h>
+#include <intrin.h>
 
 #define ETHR_INLINE_FUNC_NAME_(X) X ## __
 #define ETHREAD_IMPL__
@@ -157,6 +158,25 @@ ethr_abort__(void)
     abort();
 #endif
 }
+
+#if defined(ETHR_X86_RUNTIME_CONF__)
+
+#pragma intrinsic(__cpuid)
+
+void
+ethr_x86_cpuid__(int *eax, int *ebx, int *ecx, int *edx)
+{
+    int CPUInfo[4];
+
+    __cpuid(CPUInfo, *eax);
+
+    *eax = CPUInfo[0];
+    *ebx = CPUInfo[1];
+    *ecx = CPUInfo[2];
+    *edx = CPUInfo[3];
+}
+
+#endif /* ETHR_X86_RUNTIME_CONF__ */
 
 /*
  * ----------------------------------------------------------------------------

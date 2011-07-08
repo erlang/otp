@@ -79,13 +79,13 @@ ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
 ERTS_GLB_INLINE void
 erts_port_task_handle_init(ErtsPortTaskHandle *pthp)
 {
-    erts_smp_atomic_init(pthp, (erts_aint_t) NULL);
+    erts_smp_atomic_init_nob(pthp, (erts_aint_t) NULL);
 }
 
 ERTS_GLB_INLINE int
 erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp)
 {
-    return ((void *) erts_smp_atomic_read(pthp)) != NULL;
+    return ((void *) erts_smp_atomic_read_nob(pthp)) != NULL;
 }
 
 ERTS_GLB_INLINE void
@@ -102,8 +102,8 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE int
 erts_port_task_have_outstanding_io_tasks(void)
 {
-    ERTS_THR_MEMORY_BARRIER;
-    return erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != 0;
+    return (erts_smp_atomic_read_acqb(&erts_port_task_outstanding_io_tasks)
+	    != 0);
 }
 
 #endif /* ERTS_INCLUDE_SCHEDULER_INTERNALS */
