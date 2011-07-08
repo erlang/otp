@@ -46,6 +46,7 @@
 -define(testdir(Name, Suite), ct_util:get_testdir(Name, Suite)).
 
 -record(opts, {label,
+	       profile,
 	       vts,
 	       shell,
 	       cover,
@@ -161,6 +162,7 @@ script_start(Args) ->
 script_start1(Parent, Args) ->
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
+    Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
@@ -234,7 +236,8 @@ script_start1(Parent, Args) ->
 	    application:set_env(common_test, basic_html, true)
     end,
 
-   StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
+   StartOpts = #opts{label = Label, profile = Profile,
+		     vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
 		     ct_hooks = CTHooks,
 		     include = IncludeDirs,
@@ -297,6 +300,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 			Label = choose_val(StartOpts#opts.label,
 					   SpecStartOpts#opts.label),
 
+			Profile = choose_val(StartOpts#opts.profile,
+					     SpecStartOpts#opts.profile),
+
 			LogDir = choose_val(StartOpts#opts.logdir,
 					    SpecStartOpts#opts.logdir),
 
@@ -317,6 +323,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 			application:set_env(common_test, include, AllInclude),
 
 			{TS,StartOpts#opts{label = Label,
+					   profile = Profile,
 					   testspecs = Specs,
 					   cover = Cover,
 					   logdir = LogDir,
@@ -392,45 +399,67 @@ check_and_install_configfiles(Configs, LogDir, EvHandlers, CTHooks) ->
     end.
 
 script_start3(StartOpts, Args) ->
-    case proplists:get_value(dir, Args) of
-	[] ->
+    StartOpts1 = get_start_opt(step,
+			       fun(Step) ->
+				       StartOpts#opts{step = Step,
+						      cover = undefined}
+			       end, StartOpts, Args),
+    case {proplists:get_value(dir, Args),
+	  proplists:get_value(suite, Args),
+	  groups_and_cases(proplists:get_value(group, Args),
+			   proplists:get_value(testcase, Args))} of
+	%% flag specified without data
+	{_,_,Error={error,_}} ->
+	    Error;
+	{_,[],_} ->
+	    {error,no_suite_specified};
+	{[],_,_} ->
 	    {error,no_dir_specified};
-	Dirs when is_list(Dirs) ->
+
+	{Dirs,undefined,[]} when is_list(Dirs) ->
 	    script_start4(StartOpts#opts{tests = tests(Dirs)}, Args);
-	undefined ->
-	    case proplists:get_value(suite, Args) of
-		[] ->
-		    {error,no_suite_specified};
-		Suites when is_list(Suites) ->
-		    StartOpts1 =
-			get_start_opt(step,
-				      fun(Step) ->
-					      StartOpts#opts{step = Step,
-							     cover = undefined}
-				      end, StartOpts, Args),
-		    DirMods = [suite_to_test(S) || S <- Suites],
-		    case groups_and_cases(proplists:get_value(group, Args),
-					  proplists:get_value(testcase, Args)) of
-			Error = {error,_} ->
-			    Error;
-			[] when DirMods =/= [] ->
-			    Ts = tests(DirMods),
-			    script_start4(StartOpts1#opts{tests = Ts}, Args);
-			GroupsAndCases when length(DirMods) == 1 ->
-			    Ts = tests(DirMods, GroupsAndCases),
-			    script_start4(StartOpts1#opts{tests = Ts}, Args);
-			[_,_|_] when length(DirMods) > 1 ->
-			    {error,multiple_suites_and_cases};
-			_ ->
-			    {error,incorrect_suite_option}
-		    end;
-		undefined ->
-		    if StartOpts#opts.vts ; StartOpts#opts.shell ->
-			    script_start4(StartOpts#opts{tests = []}, Args);
-		       true ->
-			    script_usage(),
-			    {error,incorrect_usage}
-		    end
+
+	{undefined,Suites,[]} when is_list(Suites) ->
+	    Ts = tests([suite_to_test(S) || S <- Suites]),
+	    script_start4(StartOpts1#opts{tests = Ts}, Args);
+
+	{undefined,Suite,GsAndCs} when is_list(Suite) ->
+	    case [suite_to_test(S) || S <- Suite] of
+		DirMods = [_] ->
+		    Ts = tests(DirMods, GsAndCs),
+		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		[_,_|_] ->
+		    {error,multiple_suites_and_cases};
+		_ ->
+		    {error,incorrect_start_options}
+	    end;
+
+	{[_,_|_],Suite,[]} when is_list(Suite) ->
+	    {error,multiple_dirs_and_suites};
+
+	{[Dir],Suite,GsAndCs} when is_list(Dir), is_list(Suite) ->
+	    case [suite_to_test(Dir,S) || S <- Suite] of
+		DirMods when GsAndCs == [] ->
+		    Ts = tests(DirMods),
+		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		DirMods = [_] when GsAndCs /= [] ->
+		    Ts = tests(DirMods, GsAndCs),
+		    script_start4(StartOpts1#opts{tests = Ts}, Args);
+		[_,_|_] when GsAndCs /= [] ->
+		    {error,multiple_suites_and_cases};
+		_ ->
+		    {error,incorrect_start_options}
+	    end;
+
+	{undefined,undefined,GsAndCs} when GsAndCs /= [] ->
+	    {error,incorrect_start_options};
+
+	{undefined,undefined,_} ->
+	    if StartOpts#opts.vts ; StartOpts#opts.shell ->
+		    script_start4(StartOpts#opts{tests = []}, Args);
+	       true ->
+		    script_usage(),
+		    {error,missing_start_options}
 	    end
     end.
 
@@ -448,12 +477,16 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 		    end, [], Config),
     vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), Tests);
 
-script_start4(#opts{label = Label, shell = true, config = Config,
+script_start4(#opts{label = Label, profile = Profile,
+		    shell = true, config = Config,
 		    event_handlers = EvHandlers,
 		    ct_hooks = CTHooks,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
+
+    %% profile - used in ct_util
+    application:set_env(common_test, profile, Profile),
 
     InstallOpts = [{config,Config},{event_handler,EvHandlers},
 		   {ct_hooks, CTHooks}],
@@ -649,6 +682,10 @@ run_test1(StartOpts) ->
     Label = get_start_opt(label, fun(Lbl) when is_list(Lbl) -> Lbl;
 				    (Lbl) when is_atom(Lbl) -> atom_to_list(Lbl)
 				 end, StartOpts),
+    %% profile
+    Profile = get_start_opt(profile, fun(Prof) when is_list(Prof) -> Prof;
+					(Prof) when is_atom(Prof) -> atom_to_list(Prof)
+				     end, StartOpts),
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
 			   StartOpts),
@@ -750,7 +787,7 @@ run_test1(StartOpts) ->
     %% stepped execution
     Step = get_start_opt(step, value, StartOpts),
 
-    Opts = #opts{label = Label,
+    Opts = #opts{label = Label, profile = Profile,
 		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
@@ -792,6 +829,8 @@ run_spec_file(Relaxed,
 	    SpecOpts = get_data_for_node(TS, node()),
 	    Label = choose_val(Opts#opts.label,
 			       SpecOpts#opts.label),
+	    Profile = choose_val(Opts#opts.profile,
+			       SpecOpts#opts.profile),
 	    LogDir = choose_val(Opts#opts.logdir,
 				SpecOpts#opts.logdir),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
@@ -817,6 +856,7 @@ run_spec_file(Relaxed,
 					       AllCTHooks) of
 		ok ->
 		    Opts1 = Opts#opts{label = Label,
+				      profile = Profile,
 				      cover = Cover,
 				      logdir = which(logdir, LogDir),
 				      config = AllConfig,
@@ -899,67 +939,99 @@ run_dir(Opts = #opts{logdir = LogDir,
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
-    case lists:keysearch(dir, 1, StartOpts) of
-	{value,{_,Dirs=[Dir|_]}} when not is_integer(Dir),
-	                              length(Dirs)>1 ->
-	    %% multiple dirs (no suite)
-	    reformat_result(catch do_run(tests(Dirs), [], Opts1, StartOpts));
-	false ->				% no dir
-	    %% fun for converting suite name to {Dir,Mod} tuple
-	    S2M = fun(S) when is_list(S) ->
-			  {filename:dirname(S),
-			   list_to_atom(filename:rootname(filename:basename(S)))};
-		     (A) ->
-			  {".",A}
-		  end,
-	    case lists:keysearch(suite, 1, StartOpts) of
-		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
-		    {Dir,Mod} = S2M(Suite),
-		    case groups_and_cases(proplists:get_value(group, StartOpts),
-					  proplists:get_value(testcase, StartOpts)) of
-			Error = {error,_} ->
-			    exit(Error);
+    case {proplists:get_value(dir, StartOpts),
+	  proplists:get_value(suite, StartOpts),
+	  groups_and_cases(proplists:get_value(group, StartOpts),
+			   proplists:get_value(testcase, StartOpts))} of
+	%% flag specified without data
+	{_,_,Error={error,_}} ->
+	    Error;
+	{_,[],_} ->
+	    {error,no_suite_specified};
+	{[],_,_} ->
+	    {error,no_dir_specified};
+
+	{Dirs=[Hd|_],undefined,[]} when is_list(Dirs), not is_integer(Hd) ->
+	    Dirs1 = [if is_atom(D) -> atom_to_list(D);
+			true -> D end || D <- Dirs],
+	    reformat_result(catch do_run(tests(Dirs1), [], Opts1, StartOpts));
+
+	{Dir=[Hd|_],undefined,[]} when is_list(Dir) and is_integer(Hd) ->
+	    reformat_result(catch do_run(tests(Dir), [], Opts1, StartOpts));
+
+	{Dir,undefined,[]} when is_atom(Dir) ->
+	    reformat_result(catch do_run(tests(atom_to_list(Dir)),
+					 [], Opts1, StartOpts));
+
+	{undefined,Suites=[Hd|_],[]} when not is_integer(Hd) ->
+	    Suites1 = [suite_to_test(S) || S <- Suites],
+	    reformat_result(catch do_run(tests(Suites1), [], Opts1, StartOpts));
+
+	{undefined,Suite,[]} when is_atom(Suite) and
+				  (Suite /= undefined) ->
+	    {Dir,Mod} = suite_to_test(Suite),
+	    reformat_result(catch do_run(tests(Dir, Mod), [], Opts1, StartOpts));
+
+	{undefined,Suite,GsAndCs} when is_atom(Suite) and
+				       (Suite /= undefined) ->
+	    {Dir,Mod} = suite_to_test(Suite),
+	    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+					 [], Opts1, StartOpts));
+
+	{undefined,[Hd,_|_],_GsAndCs} when not is_integer(Hd) ->
+	    exit(multiple_suites_and_cases);
+
+	{undefined,Suite=[Hd|Tl],GsAndCs} when is_integer(Hd) ;
+					       (is_list(Hd) and	(Tl == [])) ;
+					       (is_atom(Hd) and	(Tl == [])) ->
+	    {Dir,Mod} = suite_to_test(Suite),
+	    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+					 [], Opts1, StartOpts));
+
+	{[Hd,_|_],_Suites,[]} when is_list(Hd) ; not is_integer(Hd) ->
+	    exit(multiple_dirs_and_suites);
+
+	{undefined,undefined,GsAndCs} when GsAndCs /= [] ->
+	    exit(incorrect_start_options);
+
+	{Dir,Suite,GsAndCs} when is_integer(hd(Dir)) ;
+				 (is_atom(Dir) and (Dir /= undefined)) ;
+				 ((length(Dir) == 1) and is_atom(hd(Dir))) ;
+				 ((length(Dir) == 1) and is_list(hd(Dir))) ->
+	    Dir1 = if is_atom(Dir) -> atom_to_list(Dir);
+		      true -> Dir end,
+	    if Suite == undefined ->
+		  exit(incorrect_start_options);
+
+	       is_integer(hd(Suite)) ;
+	       (is_atom(Suite) and (Suite /= undefined)) ;
+	       ((length(Suite) == 1) and is_atom(hd(Suite))) ;
+	       ((length(Suite) == 1) and is_list(hd(Suite))) ->
+		    {Dir2,Mod} = suite_to_test(Dir1, Suite),
+		    case GsAndCs of
 			[] ->
-			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
+			    reformat_result(catch do_run(tests(Dir2, Mod),
 							 [], Opts1, StartOpts));
-			GsAndCs ->
-			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+			_ ->
+			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
 							 [], Opts1, StartOpts))
 		    end;
-		{value,{_,Suites}} ->
-		    reformat_result(catch do_run(tests(lists:map(S2M, Suites)),
-						 [], Opts1, StartOpts));
-		_ ->
-		    exit(no_tests_specified)
+
+		is_list(Suite) ->		% multiple suites
+		    case [suite_to_test(Dir1, S) || S <- Suite] of
+			[_,_|_] when GsAndCs /= [] ->
+			    exit(multiple_suites_and_cases);
+			[{Dir2,Mod}] when GsAndCs /= [] ->
+			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
+							 [], Opts1, StartOpts));
+			DirMods ->
+			    reformat_result(catch do_run(tests(DirMods),
+							 [], Opts1, StartOpts))
+		    end
 	    end;
-	{value,{_,Dir}} ->
-	    case lists:keysearch(suite, 1, StartOpts) of
-		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
-		    Mod = if is_atom(Suite) -> Suite;
-			     true -> list_to_atom(Suite)
-			  end,
-		    case groups_and_cases(proplists:get_value(group, StartOpts),
-					  proplists:get_value(testcase, StartOpts)) of
-			Error = {error,_} ->
-			    exit(Error);
-			[] ->
-			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
-							 [], Opts1, StartOpts));
-			GsAndCs ->
-			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
-							 [], Opts1, StartOpts))
-		    end;
-		{value,{_,Suites=[Suite|_]}} when is_list(Suite) ->
-		    Mods = lists:map(fun(Str) -> list_to_atom(Str) end, Suites),
-		    reformat_result(catch do_run(tests(delistify(Dir), Mods),
-						 [], Opts1, StartOpts));
-		{value,{_,Suites}} ->
-		    reformat_result(catch do_run(tests(delistify(Dir), Suites),
-						 [], Opts1, StartOpts));
-	        false ->			% no suite, only dir
-		    reformat_result(catch do_run(tests(listify(Dir)),
-						 [], Opts1, StartOpts))
-	    end
+
+	{Dir,Suite,GsAndCs} ->
+	    exit({incorrect_start_options,{Dir,Suite,GsAndCs}})
     end.
 
 %%%-----------------------------------------------------------------
@@ -1014,6 +1086,7 @@ run_testspec1(TestSpec) ->
     end.
 
 get_data_for_node(#testspec{label = Labels,
+			    profile = Profiles,
 			    logdir = LogDirs,
 			    cover = CoverFs,
 			    config = Cfgs,
@@ -1024,6 +1097,7 @@ get_data_for_node(#testspec{label = Labels,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs}, Node) ->
     Label = proplists:get_value(Node, Labels),
+    Profile = proplists:get_value(Node, Profiles),
     LogDir = case proplists:get_value(Node, LogDirs) of
 		 undefined -> ".";
 		 Dir -> Dir
@@ -1037,6 +1111,7 @@ get_data_for_node(#testspec{label = Labels,
     FiltCTHooks = [Hook || {N,Hook} <- CTHooks, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
     #opts{label = Label,
+	  profile = Profile,
 	  logdir = LogDir,
 	  cover = Cover,
 	  config = ConfigFiles,
@@ -1118,8 +1193,24 @@ reformat_result({user_error,Reason}) ->
 reformat_result(Result) ->
     Result.
 
-suite_to_test(Suite) ->
-    {filename:dirname(Suite),list_to_atom(filename:rootname(filename:basename(Suite)))}.
+suite_to_test(Suite) when is_atom(Suite) ->
+    suite_to_test(atom_to_list(Suite));
+
+suite_to_test(Suite) when is_list(Suite) ->
+    {filename:dirname(Suite),
+     list_to_atom(filename:rootname(filename:basename(Suite)))}.
+
+suite_to_test(Dir, Suite) when is_atom(Suite) ->
+    suite_to_test(Dir, atom_to_list(Suite));
+
+suite_to_test(Dir, Suite) when is_list(Suite) ->
+    case filename:dirname(Suite) of
+	"." ->
+	    {Dir,list_to_atom(filename:rootname(Suite))};
+	DirName ->				% ignore Dir
+	    File = filename:basename(Suite),
+	    {DirName,list_to_atom(filename:rootname(File))}
+    end.
 
 groups_and_cases(Gs, Cs) when ((Gs == undefined) or (Gs == [])) and
 			      ((Cs == undefined) or (Cs == [])) ->
@@ -1173,7 +1264,7 @@ do_run(Tests, Misc, LogDir) when is_list(Misc) ->
     do_run(Tests, [], Opts1#opts{logdir = LogDir}, []).
 
 do_run(Tests, Skip, Opts, Args) ->
-    #opts{label = Label, cover = Cover} = Opts,
+    #opts{label = Label, profile = Profile, cover = Cover} = Opts,
 
     %% label - used by ct_logs
     TestLabel =
@@ -1183,6 +1274,15 @@ do_run(Tests, Skip, Opts, Args) ->
 	   true               -> undefined
 	end,
     application:set_env(common_test, test_label, TestLabel),
+
+    %% profile - used in ct_util
+    TestProfile =
+	if Profile == undefined -> undefined;
+	   is_atom(Profile)     -> atom_to_list(Profile);
+	   is_list(Profile)     -> Profile;
+	   true                 -> undefined
+	end,
+    application:set_env(common_test, profile, TestProfile),
 
     case code:which(test_server) of
 	non_existing ->

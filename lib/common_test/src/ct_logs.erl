@@ -28,7 +28,7 @@
 
 -module(ct_logs).
 
--export([init/1,close/1,init_tc/0,end_tc/1]).
+-export([init/1,close/2,init_tc/0,end_tc/1]).
 -export([get_log_dir/0,log/3,start_log/1,cont_log/2,end_log/0]).
 -export([set_stylesheet/2,clear_stylesheet/1]).
 -export([add_external_logs/1,add_link/3]).
@@ -97,11 +97,11 @@ logdir_node_prefix() ->
     logdir_prefix()++"."++atom_to_list(node()).
 
 %%%-----------------------------------------------------------------
-%%% @spec close(Info) -> ok
+%%% @spec close(Info, StartDir) -> ok
 %%%
 %%% @doc Create index pages with test results and close the CT Log
 %%% (tool-internal use only).
-close(Info) ->
+close(Info, StartDir) ->
     make_last_run_index(),
 
     ct_event:notify(#event{name=stop_logging,node=node(),data=[]}),
@@ -132,6 +132,21 @@ close(Info) ->
     make_all_suites_index(stop),
     make_all_runs_index(stop),
 
+    case ct_util:get_profile_data(browser, StartDir) of
+	undefined ->
+	    ok;
+	BrowserData ->
+	    case {proplists:get_value(prog, BrowserData),
+		  proplists:get_value(args, BrowserData),
+		  proplists:get_value(page, BrowserData)} of
+		{Prog,Args,Page} when is_list(Args),
+				      is_list(Page) ->
+		    URL = "file://" ++ ?abs(Page),
+		    ct_util:open_url(Prog, Args, URL);
+		_ ->
+		    ok
+	    end
+    end,
     ok.
 
 %%%-----------------------------------------------------------------
