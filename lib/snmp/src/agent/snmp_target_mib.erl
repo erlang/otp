@@ -53,7 +53,7 @@
 %%-----------------------------------------------------------------
 
 default_domain() ->
-    snmpUDPDomain.
+    transportDomainUdpIpv4.
 
 
 %%-----------------------------------------------------------------
@@ -436,7 +436,8 @@ is_valid_tag(TDomain, TAddress, Tag, Key) ->
 
 %% TargAddrs =
 %%     [{TagList, TargetAddr, TargetAddrName, TargetParams, Timeout, Retry}]
-%%   TargetAddr = {TDomain, TAddr}; e.g. {?snmpUDPDomain, IpAndUdpPortAsList}
+%%   TargetAddr = {TDomain, TAddr}; e.g. 
+%%                {?transportDomainUdpIpv4, IpAndUdpPortAsList}
 get_target_addrs() ->
     get_target_addrs([], db(snmpTargetAddrTable), []).
 
