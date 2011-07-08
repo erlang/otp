@@ -240,6 +240,14 @@
 #define put_int16(i, s) {((unsigned char*)(s))[0] = ((i) >> 8) & 0xff; \
                         ((unsigned char*)(s))[1] = (i)         & 0xff;}
 
+#if defined(__GNUC__)
+#  define EPMD_INLINE __inline__
+#elif defined(__WIN32__)
+#  define EPMD_INLINE __inline
+#else
+#  define EPMD_INLINE
+#endif
+
 /* ************************************************************************ */
 
 /* Stuctures used by server */
@@ -295,6 +303,7 @@ typedef struct {
   unsigned delay_write;
   int max_conn;
   int active_conn;
+  int select_fd_top;
   char *progname;
   Connection *conn;
   Nodes nodes;
