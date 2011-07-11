@@ -30,6 +30,53 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in tracing with matchspec body containing
+	    <c>enable_trace</c> or <c>disable_trace</c>. Could cause
+	    emulator crash if trace was altered with
+	    erlang:trace_pattern by racing process during ongoing
+	    tracing.</p>
+          <p>
+	    Own Id: OTP-9422 Aux Id: seq11868 </p>
+        </item>
+        <item>
+          <p>
+	    Fix emulator deadlock in <c>ets:delete</c> on tables with
+	    <c>write_concurrency</c> caused by race with concurrent
+	    process that tries to do other operation on the same
+	    table. Does not apply to <c>ordered_set</c>. Bug exist
+	    since R14B.</p>
+          <p>
+	    Own Id: OTP-9423 Aux Id: seq11872 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <c>erts_alloc_util</c> framework has been extended
+	    with functionality for separation of small blocks from
+	    other blocks in separate carriers. This functionality is
+	    currently disabled by default, but can be enabled in
+	    order to finetune memory management. For more information
+	    see <seealso
+	    marker="erts:erts_alloc">erts_alloc(3)</seealso>.</p>
+          <p>
+	    Own Id: OTP-9339 Aux Id: Seq11780 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
