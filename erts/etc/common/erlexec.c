@@ -64,6 +64,7 @@
 static const char plusM_au_allocs[]= {
     'u',	/* all alloc_util allocators */
     'B',	/* binary_alloc		*/
+    'C',	/* sbmbc_alloc		*/
     'D',	/* std_alloc		*/
     'E',	/* ets_alloc		*/
     'H',	/* eheap_alloc		*/
@@ -93,6 +94,8 @@ static char *plusM_au_alloc_switches[] = {
     "rsbcst",
     "sbct",
     "smbcs",
+    "sbmbcs",
+    "sbmbct",
     NULL
 };
 

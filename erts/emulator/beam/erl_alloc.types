@@ -65,6 +65,11 @@
 
 allocator	SYSTEM		true		sys_alloc
 
+allocator	SBMBC		true		sbmbc_alloc
++if halfword
+allocator	SBMBC_LOW	true		sbmbc_low_alloc
++endif
+
 +if smp
 
 allocator	TEMPORARY	true		temp_alloc
@@ -76,8 +81,8 @@ allocator	ETS		true		ets_alloc
 allocator	FIXED_SIZE	true		fix_alloc
 
 +if halfword
-allocator	LONG_LIVED_LOW	true		ll_alloc_low
-allocator	STANDARD_LOW	true		std_alloc_low
+allocator	LONG_LIVED_LOW	true		ll_low_alloc
+allocator	STANDARD_LOW	true		std_low_alloc
 +endif
 
 +else # Non smp build
@@ -91,8 +96,8 @@ allocator	ETS		false		ets_alloc
 allocator	FIXED_SIZE	false		fix_alloc
 
 +if halfword
-allocator	LONG_LIVED_LOW	false		ll_alloc_low
-allocator	STANDARD_LOW	false		std_alloc_low
+allocator	LONG_LIVED_LOW	false		ll_low_alloc
+allocator	STANDARD_LOW	false		std_low_alloc
 +endif
 
 +endif
@@ -134,6 +139,7 @@ class	SYSTEM		system_data
 #
 #	<TYPE>		<ALLOCATOR>	<CLASS>		<DESCRIPTION>
 
+type	SBMBC		SBMBC		SYSTEM		small_block_mbc
 type	PROC		FIXED_SIZE	PROCESSES	proc
 type	ATOM		FIXED_SIZE	ATOM		atom_entry
 type	MODULE		FIXED_SIZE	CODE		module_entry
@@ -330,6 +336,7 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 
 +if halfword
 
+type	SBMBC_LOW	SBMBC_LOW	SYSTEM		small_block_mbc_low
 type	DDLL_PROCESS	STANDARD_LOW	SYSTEM		ddll_processes
 type	MONITOR_LH	STANDARD_LOW	PROCESSES	monitor_lh
 type	NLINK_LH	STANDARD_LOW	PROCESSES	nlink_lh
