@@ -7,3 +7,10 @@ can be upgraded to from a-1.0. Module a has changed
 a-1.2:
 can be upgraded to from a-1.1.
 No module have changed, but priv dir is added including one 'file'
+
+b-1.0:
+start version, includes b_lib and b_server
+
+b-2.0:
+can be upgraded to from b-1.0.
+Removes b_lib and updates b_server
