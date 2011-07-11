@@ -1,16 +1,19 @@
 EFLAGS=+debug_info
 
 P2B= \
-     P2B/a-2.0/ebin/a.beam \
-     P2B/a-2.0/ebin/a_sup.beam
+     P2B/a-2.0/ebin/a.@EMULATOR@ \
+     P2B/a-2.0/ebin/a_sup.@EMULATOR@
 
 LIB= \
-     lib/a-1.2/ebin/a.beam \
-     lib/a-1.2/ebin/a_sup.beam \
-     lib/a-1.1/ebin/a.beam \
-     lib/a-1.1/ebin/a_sup.beam \
-     lib/a-1.0/ebin/a.beam \
-     lib/a-1.0/ebin/a_sup.beam \
+     lib/a-1.2/ebin/a.@EMULATOR@ \
+     lib/a-1.2/ebin/a_sup.@EMULATOR@ \
+     lib/a-1.1/ebin/a.@EMULATOR@ \
+     lib/a-1.1/ebin/a_sup.@EMULATOR@ \
+     lib/a-1.0/ebin/a.@EMULATOR@ \
+     lib/a-1.0/ebin/a_sup.@EMULATOR@ \
+     lib/b-1.0/ebin/b_server.@EMULATOR@ \
+     lib/b-1.0/ebin/b_lib.@EMULATOR@ \
+     lib/b-2.0/ebin/b_server.@EMULATOR@
 
 APP= \
      app1_app2/lib1/app1-1.0/ebin/app1_sup.@EMULATOR@ \
@@ -63,6 +66,15 @@ lib/a-1.2/ebin/a.@EMULATOR@: lib/a-1.2/src/a.erl
 	erlc $(EFLAGS) -olib/a-1.2/ebin lib/a-1.2/src/a.erl
 lib/a-1.2/ebin/a_sup.@EMULATOR@: lib/a-1.2/src/a_sup.erl
 	erlc $(EFLAGS) -olib/a-1.2/ebin lib/a-1.2/src/a_sup.erl
+
+lib/b-1.0/ebin/b_server.@EMULATOR@: lib/b-1.0/src/b_server.erl
+	erlc $(EFLAGS) -olib/b-1.0/ebin lib/b-1.0/src/b_server.erl
+lib/b-1.0/ebin/b_lib.@EMULATOR@: lib/b-1.0/src/b_lib.erl
+	erlc $(EFLAGS) -olib/b-1.0/ebin lib/b-1.0/src/b_lib.erl
+
+lib/b-2.0/ebin/b_server.@EMULATOR@: lib/b-2.0/src/b_server.erl
+	erlc $(EFLAGS) -olib/b-2.0/ebin lib/b-2.0/src/b_server.erl
+
 
 
 app1_app2/lib1/app1-1.0/ebin/app1_sup.@EMULATOR@: app1_app2/lib1/app1-1.0/src/app1_sup.erl
