@@ -43,9 +43,9 @@
 
 /* Prototypes of callback functions */
 static Block_t *	get_free_block		(Allctr_t *, Uint,
-						 Block_t *, Uint);
-static void		link_free_block		(Allctr_t *, Block_t *);
-static void		unlink_free_block	(Allctr_t *, Block_t *);
+						 Block_t *, Uint, Uint32);
+static void		link_free_block		(Allctr_t *, Block_t *, Uint32);
+static void		unlink_free_block	(Allctr_t *, Block_t *, Uint32);
 
 
 static Eterm		info_options		(Allctr_t *, char *, int *,
@@ -71,6 +71,8 @@ erts_afalc_start(AFAllctr_t *afallctr,
        the first member is a struct (not if, for example, the third member
        is a struct). */
     Allctr_t *allctr = (Allctr_t *) afallctr;
+
+    init->sbmbct = 0; /* Small mbc not supported by afit */
 
     sys_memcpy((void *) afallctr, (void *) &nulled_state, sizeof(AFAllctr_t));
 
@@ -105,7 +107,8 @@ erts_afalc_start(AFAllctr_t *afallctr,
 }
 
 static Block_t *
-get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
+get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size,
+	       Uint32 flags)
 {
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
 
@@ -123,7 +126,7 @@ get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
 }
 
 static void
-link_free_block(Allctr_t *allctr, Block_t *block)
+link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
@@ -144,7 +147,7 @@ link_free_block(Allctr_t *allctr, Block_t *block)
 }
 
 static void
-unlink_free_block(Allctr_t *allctr, Block_t *block)
+unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 {
     AFFreeBlock_t *blk = (AFFreeBlock_t *) block;
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;

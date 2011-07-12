@@ -1731,6 +1731,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 #define BEGIN_ATOMIC_TRACE(p)                               \
     do {                                                    \
 	if (! atomic_trace) {                               \
+            erts_refc_inc(&bprog->refc, 2);                 \
 	    erts_smp_proc_unlock((p), ERTS_PROC_LOCK_MAIN); \
 	    erts_smp_block_system(0);                       \
             atomic_trace = !0;                              \
@@ -1741,6 +1742,9 @@ Eterm db_prog_match(Process *c_p, Binary *bprog,
 	if (atomic_trace) {                               \
             erts_smp_release_system();                    \
             erts_smp_proc_lock((p), ERTS_PROC_LOCK_MAIN); \
+            if (erts_refc_dectest(&bprog->refc, 0) == 0) {\
+                erts_bin_free(bprog);                     \
+	    }                                             \
             atomic_trace = 0;                             \
 	}                                                 \
     } while (0)

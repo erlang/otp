@@ -153,6 +153,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"instr",				NULL			},
     {	"fix_alloc",				"index"			},
     {	"alcu_allocator",			"index"			},
+    {	"sbmbc_alloc",				"index"			},
     {	"alcu_delayed_free",			"index"			},
     {	"mseg",					NULL			},
 #if HALFWORD_HEAP

@@ -54,7 +54,8 @@ typedef struct RBTree_t_ RBTree_t;
 struct BFAllctr_t_ {
     Allctr_t		allctr; /* Has to be first! */
 
-    RBTree_t *		root;
+    RBTree_t *		mbc_root;
+    RBTree_t *		sbmbc_root;
     int 		address_order;
 };
 
