@@ -388,7 +388,7 @@ check_tdomain(TDomain) ->
 %% ---------
 
 mk_tdomain(snmpUDPDomain) ->
-    ?snmpUDPDomain;
+    mk_tdomain(transportDomainUdpIpv4);
 mk_tdomain(transportDomainUdpIpv4) ->
     ?transportDomainUdpIpv4;
 mk_tdomain(transportDomainUdpIpv6) ->

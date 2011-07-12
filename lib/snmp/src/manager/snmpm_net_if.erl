@@ -753,7 +753,7 @@ maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port,
 	    handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State)
     end.
 
-handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, 
+handle_send_pdu(Pdu, Vsn, MsgData, _Domain, Addr, Port, 
 		#state{server     = Pid, 
 		       note_store = NoteStore, 
 		       sock       = Sock, 

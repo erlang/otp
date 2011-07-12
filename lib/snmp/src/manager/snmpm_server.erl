@@ -3203,7 +3203,7 @@ agent_data(TargetName, SendOpts) ->
 			
 			{Comm, SecModel}
 		end,
-	    Domain  = agent_data_item(domain,   Info),
+	    Domain  = agent_data_item(tdomain,  Info),
 	    Addr    = agent_data_item(address,  Info),
 	    Port    = agent_data_item(port,     Info),
 	    RegType = agent_data_item(reg_type, Info),

@@ -110,10 +110,10 @@ process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
 	#message{version = 'version-2', vsn_hdr = Community, data = Data}
 	  when State#state.v2c =:= true ->
 	    HS = ?empty_msg_size + length(Community),
-	    process_v1_v2c_msg('version-2', NoteStore, Msg, 
-			       Domain, Addr, Port, 
-			       Community, Data, HS, Logger);
-
+	    (catch process_v1_v2c_msg('version-2', NoteStore, Msg, 
+				      Domain, Addr, Port, 
+				      Community, Data, HS, Logger));
+	     
 	%% Version 3
 	#message{version = 'version-3', vsn_hdr = H, data = Data}
 	  when State#state.v3 =:= true ->
@@ -154,13 +154,23 @@ process_v1_v2c_msg(Vsn, _NoteStore, Msg, Domain,
 
     ?vdebug("process_v1_v2c_msg -> entry with"
 	    "~n   Vsn:       ~p"
+	    "~n   Domain:    ~p"
 	    "~n   Addr:      ~p"
 	    "~n   Port:      ~p"
 	    "~n   Community: ~p"
-	    "~n   HS:        ~p", [Vsn, Addr, Port, Community, HS]),
-
-    TDomain  = snmp_conf:mk_tdomain(Domain), 
-    TAddress = snmp_conf:mk_taddress(Domain, Addr, Port),
+	    "~n   HS:        ~p", [Vsn, Domain, Addr, Port, Community, HS]),
+    
+    {TDomain, TAddress} = 
+	try 
+	    begin
+		TD = snmp_conf:mk_tdomain(Domain), 
+		TA = snmp_conf:mk_taddress(Domain, Addr, Port),
+		{TD, TA}
+	    end
+	catch 
+	    throw:{error, TReason} ->
+		throw({discarded, {badarg, Domain, TReason}})
+	end,
 
     Max      = get_max_message_size(),
     AgentMax = get_agent_max_message_size(Addr, Port),
@@ -188,11 +198,7 @@ process_v1_v2c_msg(Vsn, _NoteStore, Msg, Domain,
 		  "~n   Reason: ~p", [Reason]),
 	    inc(snmpInASNParseErrs),
 	    {discarded, Reason}
-    end;
-process_v1_v2c_msg(_Vsn, _NoteStore, _Msg, Domain, 
-		   _Addr, _Port, 
-		   _Comm, _HS, _Data, _Log) ->
-    {discarded, {badarg, Domain}}.
+    end.
 
 pdu_ms(MgrMMS, AgentMMS, HS) when AgentMMS < MgrMMS ->
     AgentMMS - HS;

@@ -165,7 +165,7 @@
 %%%-------------------------------------------------------------------
 
 default_transport_domain() ->
-    snmpUDPDomain.
+    transportDomainUdpIpv4.
 
 
 start_link(Opts) -> 
@@ -329,12 +329,6 @@ register_agent(UserId, TargetName, Config0)
 	    "~n   TargetName: ~p"
 	    "~n   Config0:    ~p", [UserId, TargetName, Config0]),
 
-    io:format("register_agent -> entry with"
-	      "~n   UserId:     ~p"
-	      "~n   TargetName: ~p"
-	      "~n   Config0:    ~p"
-	      "~n", [UserId, TargetName, Config0]),
-
     %% Check: 
     %%   1) That the mandatory configs are present
     %%   2) That no illegal config, e.g. user_id (used internally), 
@@ -343,9 +337,6 @@ register_agent(UserId, TargetName, Config0)
     %%   4) Check that the manager is capable of using the selected version
     case verify_agent_config(Config0) of
 	{ok, Config} ->
-	    io:format("register_agent -> agent config verified"
-		      "~n   Config: ~p"
-		      "~n", [Config]),	    
 	    call({register_agent, UserId, TargetName, Config});
 	Error ->
 	    Error
@@ -358,15 +349,9 @@ verify_agent_config(Conf0) ->
 	    verify_mandatory(Conf0, [engine_id, address, reg_type]),
 	    verify_invalid(Conf0, [user_id]),
 	    Conf = verify_agent_config3(Conf0),
-	    io:format("verify_agent_config -> agent config verified: "
-		      "~n   Conf:    ~p"
-		      "~n", [Conf]),
 	    Vsns = versions(),
-	    io:format("verify_agent_config -> Vsns: ~p~n", [Vsns]),
 	    Vsn  = which_version(Conf),
-	    io:format("verify_agent_config -> Vsn: ~p~n", [Vsn]),
 	    verify_version(Vsn, Vsns),
-	    io:format("verify_agent_config -> version verified~n", []),
 	    {ok, Conf}
 	end
     catch
@@ -401,16 +386,13 @@ verify_version(Vsn, Vsns) ->
 
 verify_agent_config3(Conf0) ->
     %% Fix (transport) address and domain
-    io:format("verify_agent_config3 -> entry with"
-	      "~n   Conf0:    ~p"
-	      "~n", [Conf0]),
     {TDomain, Conf1} = 
 	case lists:keysearch(tdomain, 1, Conf0) of
-	    {value, {domain, Dom}} ->
+	    {value, {tdomain, Dom}} ->
 		{Dom, Conf0};
 	    false ->
 		Dom = default_transport_domain(), 
-		{Dom, [{domain, Dom} | Conf0]}
+		{Dom, [{tdomain, Dom} | Conf0]}
 	end,
     Conf2 = case lists:keysearch(address, 1, Conf1) of
 		{value, {address, Address}} ->
@@ -505,12 +487,12 @@ verify_agent_info(TargetName, Info0) ->
 			%% If not, lookup what is already stored for 
 			%% this agent and use that.
 			Domain = 
-			    case lists:keysearch(domain, 1, Info0) of
-				{value, {domain, Dom}} ->
+			    case lists:keysearch(tdomain, 1, Info0) of
+				{value, {tdomain, Dom}} ->
 				    Dom;
 				false ->
 				    {ok, Dom} = 
-					agent_info(TargetName, domain),
+					agent_info(TargetName, tdomain),
 				    Dom
 			    end,
 			Addr2 = {Domain, Addr}, 
@@ -1797,7 +1779,7 @@ verify_agent({UserId,
     %% the property tdomain is needed.
     Conf0 = 
 	[{reg_type,         target_name},
-	 {domain,           TDomain}, 
+	 {tdomain,          TDomain}, 
 	 %% This should be taddress, but what the*...
 	 {address,          {TDomain, Ip}},
 	 {port,             Port},
@@ -1818,25 +1800,13 @@ verify_agent({UserId,
     end.
 
 verify_agent2(Conf) -> 
-    io:format("verify_agent2 -> entry with"
-	      "~n   Conf: ~p"
-	      "~n", [Conf]),
     verify_agent2(Conf, []).
 
 verify_agent2([], VerifiedConf) ->
-    io:format("verify_agent2 -> entry when done with"
-	      "~n   VerifiedConf: ~p"
-	      "~n", [VerifiedConf]),
     {ok, VerifiedConf};
 verify_agent2([{Item, Val0}|Items], VerifiedConf) ->
-    io:format("verify_agent2 -> entry with"
-	      "~n   Item:         ~p"
-	      "~n   Val0:         ~p"
-	      "~n   VerifiedConf: ~p"
-	      "~n", [Item, Val0, VerifiedConf]),
     case verify_val(Item, Val0) of
 	{ok, Val} ->
-	    io:format("verify_agent2 -> ~p verified: ~p~n", [Item, Val]),
 	    verify_agent2(Items, [{Item, Val} | VerifiedConf]);
 	Err ->
 	    Err
@@ -3003,40 +2973,22 @@ usm_key(EngineId, Name) ->
 %% ---------------------------------------------------------------------
 
 verify_mandatory(_, []) ->
-    io:format("verify_mandatory -> entry when done~n", []),
     ok;
 verify_mandatory(Conf, [Mand|Mands]) ->
-    io:format("verify_mandatory -> entry with"
-	      "~n   Mand: ~p"
-	      "~n   Conf: ~p"
-	      "~n", [Mand, Conf]),
     case lists:keymember(Mand, 1, Conf) of
 	true ->
-	    io:format("verify_mandatory -> Mandatory option ~p present~n", 
-		      [Mand]), 
 	    verify_mandatory(Conf, Mands);
 	false ->
-	    io:format("verify_mandatory -> "
-		      "Mandatory option ~p *not* present~n", [Mand]), 
 	    throw({error, {missing_mandatory_config, Mand}})
     end.
 
 verify_invalid(_, []) ->
-    io:format("verify_invalid -> entry when done~n", []),
     ok;
 verify_invalid(Conf, [Inv|Invs]) ->
-    io:format("verify_invalid -> entry with"
-	      "~n   inv:  ~p"
-	      "~n   Conf: ~p"
-	      "~n", [Inv, Conf]),
     case lists:member(Inv, Conf) of
 	false ->
-	    io:format("verify_invalid -> ~p *not* present"
-		      "~n", [Inv]),
 	    verify_invalid(Conf, Invs);
 	true ->
-	    io:format("verify_invalid -> ~p *present*"
-		      "~n", [Inv]),
 	    throw({error, {illegal_config, Inv}})
     end.
 
@@ -3046,17 +2998,17 @@ verify_val(user_id, UserId) ->
 verify_val(reg_type, RegType) 
   when (RegType =:= addr_port) orelse (RegType =:= target_name) ->
     {ok, RegType};
-verify_val(domain, snmpUDPDomain = _Domain) ->
-    verify_val(domain, transportDomainUdpIpv4);
-verify_val(domain, Domain) ->
-    case lists:member(Domain, ?VALID_DOMAINS) of
+verify_val(tdomain = Item, snmpUDPDomain = _Domain) ->
+    verify_val(Item, transportDomainUdpIpv4);
+verify_val(tdomain, TDomain) ->
+    case lists:member(TDomain, ?VALID_DOMAINS) of
 	true ->
-	    {ok, Domain};
+	    {ok, TDomain};
 	false ->
-	    error({bad_domain, Domain})
+	    error({bad_tdomain, TDomain})
     end;
-verify_val(address, {Domain, Addr0}) ->
-    case normalize_address(Domain, Addr0) of
+verify_val(address, {TDomain, Addr0}) ->
+    case normalize_address(TDomain, Addr0) of
 	{_A1, _A2, _A3, _A4} = Addr ->
 	    {ok, Addr};
 	{_A1, _A2, _A3, _A4, _A5, _A6, _A7, _A8} = Addr ->
