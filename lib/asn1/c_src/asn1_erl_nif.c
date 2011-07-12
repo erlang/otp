@@ -898,7 +898,7 @@ int decode_tag(ErlNifEnv* env, ERL_NIF_TERM *tag, unsigned char *in_buf,
 
     /* then get the tag number */
     if ((tmp_tag = (int) INVMASK(in_buf[*ib_index],ASN1_CLASSFORM)) < 31) {
-	*tag = enif_make_ulong(env, tag_no + tmp_tag);
+	*tag = enif_make_uint(env, tag_no + tmp_tag);
 	(*ib_index)++;
     } else {
 	int n = 0; /* n is used to check that the 64K limit is not
@@ -924,7 +924,7 @@ int decode_tag(ErlNifEnv* env, ERL_NIF_TERM *tag, unsigned char *in_buf,
 	    return ASN1_TAG_ERROR; /* tag number > 64K */
 	tag_no = tag_no + in_buf[*ib_index];
 	(*ib_index)++;
-	*tag = enif_make_ulong(env, tag_no);
+	*tag = enif_make_uint(env, tag_no);
     }
     return form;
 }
