@@ -35,6 +35,58 @@
   <section>
     <title>SNMP Development Toolkit 4.21</title>
     <p>Version 4.21 supports code replacement in runtime from/to
+      version 4.20.1, 4.20, 4.19 and 4.18.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[manager] There was no way to specify transport domain. 
+	  The transport domains was assumed to be IPv4 (transportDomainUdpIpv4).
+	  This has now been changed so that it can also be IPv6 
+	  (transportDomainUdpIpv6). 
+	  To facilitate this, the <c>transportDomain</c> is now a (new) 
+	  valid option when 
+	  <seealso marker="snmpm#register_agent">registering</seealso>
+	  a new agent. </p>
+	  <p>This also mean that the transport behaviour has changed. </p>
+          <p>Own Id: OTP-9305</p>
+          <p>Aux Id: Seq 11847</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Did not handle transport domains properly in some 
+	  cases. </p>
+          <p>Own Id: OTP-9400</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.20.1</title>
+    <p>Version 4.20.1 supports code replacement in runtime from/to
       version 4.20, 4.19 and 4.18.</p>
 
     <section>
@@ -43,24 +95,10 @@
 <!--
       <list type="bulleted">
         <item>
-          <p>[manager] Added a "complete" set of (snmp) table and variable
-          print functions, for each mib handled by the SNMP (agent)
-          application. This will be usefull when debugging a running agent.</p>
-          <p>See
-          <seealso marker="snmpa#print_mib_info">print_mib_info/0</seealso>,
-          <seealso marker="snmpa#print_mib_tables">print_mib_tables/0</seealso>
-          and
-          <seealso marker="snmpa#print_mib_variables">print_mib_variables/0</seealso>
-          for more info. </p>
-          <p>Own Id: OTP-8977</p>
+          <p>Added type specs for functions that do not return. </p>
+          <p>Kostis Sagonas</p>
+          <p>Own Id: OTP-9208</p>
         </item>
-
-        <item>
-          <p>[compiler] Added a MIB compiler (frontend) escript, 
-          <c>snmpc</c>. </p>
-          <p>Own Id: OTP-9004</p>
-        </item>
-
       </list>
 -->
     </section>
@@ -72,10 +110,17 @@
 -->
       <list type="bulleted">
         <item>
-          <p>[agent] Did not handle transport domains properly in some 
-	  cases. </p>
-          <p>Own Id: OTP-9400</p>
-        </item>
+          <p>[agent] Did not handle transport domains properly in some cases, 
+	  for instance trap sending. </p>
+	  <p>Own Id: OTP-9400</p>
+	</item>
+
+        <item>
+          <p>[agent] Wrong default transport domain, snmpUDPDomain, instead
+	  of transportDomainUdpIpv4. </p>
+	  <p>Own Id: OTP-9425</p>
+          <p>Aux Id: Seq 11874</p>
+	</item>
 
       </list>
     </section>
@@ -86,7 +131,7 @@
       <p>-</p>
     </section>
 
-  </section> <!-- 4.21 -->
+  </section> <!-- 4.20.1 -->
 
 
   <section>

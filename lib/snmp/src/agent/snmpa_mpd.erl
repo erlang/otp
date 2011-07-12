@@ -1069,6 +1069,8 @@ transform_taddr(?transportDomainUdpIpv4, [A, B, C, D, P1, P2]) ->
     Port    = P1 bsl 8 + P2, 
     Address = {Addr, Port},
     {ok, {Domain, Address}};
+transform_taddr(?transportDomainUdpIpv4, BadAddr) ->
+    {error, {bad_transportDomainUdpIpv4_address, BadAddr}};
 transform_taddr(?transportDomainUdpIpv6, 
 		[A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
     Domain  = transportDomainUdpIpv6, 
@@ -1076,8 +1078,10 @@ transform_taddr(?transportDomainUdpIpv6,
     Port    = P1 bsl 8 + P2,
     Address = {Addr, Port},
     {ok, {Domain, Address}};
-transform_taddr(_TDomain, _TAddress) ->
-    error.
+transform_taddr(?transportDomainUdpIpv6, BadAddr) ->
+    {error, {bad_transportDomainUdpIpv6_address, BadAddr}};
+transform_taddr(BadTDomain, BadTAddress) ->
+    {error, {bad_domain, BadTDomain, BadTAddress}}.
 
 
 process_taddrs(Dests) ->
@@ -1098,21 +1102,30 @@ process_taddrs([{{TDomain, TAddress}, SecData} | T], Acc) ->
 	    "~n   SecData:  ~p", [TDomain, TAddress, SecData]),
     case transform_taddr(TDomain, TAddress) of
 	{ok, DestAddr} ->
+	    ?vtrace("process_taddrs -> transformed: "
+		    "~n   DestAddr: ~p", [DestAddr]),
 	    Entry = {DestAddr, SecData}, 
 	    process_taddrs(T, [Entry | Acc]);
-	error ->
+	{error, Reason} ->
+	    ?vinfo("Failed transforming v3 domain and address"
+		   "~n   Reason:  ~p", [Reason]),
 	    user_err("Bad TDomain/TAddress: ~w/~w", [TDomain, TAddress]),
 	    process_taddrs(T, Acc)
     end;
 %% v1 & v2
 process_taddrs([{TDomain, TAddress} | T], Acc) ->
-    ?vtrace("process_taddrs -> entry when v3 with"
+    ?vtrace("process_taddrs -> entry when v1/v2 with"
 	    "~n   TDomain:  ~p"
 	    "~n   TAddress: ~p", [TDomain, TAddress]),
     case transform_taddr(TDomain, TAddress) of
-	{ok, Entry} ->
+	{ok, DestAddr} ->
+	    ?vtrace("process_taddrs -> transformed: "
+		    "~n   DestAddr: ~p", [DestAddr]),
+	    Entry = DestAddr, 
 	    process_taddrs(T, [Entry | Acc]);
-	error ->
+	{error, Reason} ->
+	    ?vinfo("Failed transforming v1/v2 domain and address: "
+		   "~n   Reason:  ~p", [Reason]),
 	    user_err("Bad TDomain/TAddress: ~w/~w", [TDomain, TAddress]),
 	    process_taddrs(T, Acc)
     end;
