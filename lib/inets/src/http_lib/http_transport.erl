@@ -33,8 +33,8 @@
 	 peername/2, sockname/2, 
 	 resolve/0
 	]).
-
 -export([negotiate/3]).
+-export([ipv4_name/1, ipv6_name/1]).
 
 -include_lib("inets/src/inets_app/inets_internal.hrl").
 -include("http_internal.hrl").
@@ -142,8 +142,8 @@ connect({ossl, SslConfig}, {Host, Port}, _, Timeout) ->
 	    ERROR
     end;
 
-connect({essl, SslConfig}, {Host, Port}, _, Timeout) ->
-    Opts = [binary, {active, false}, {ssl_imp, new}] ++ SslConfig,
+connect({essl, SslConfig}, {Host, Port}, Opts0, Timeout) -> 
+    Opts = [binary, {active, false}, {ssl_imp, new} | Opts0] ++ SslConfig,
     ?hlrt("connect using essl", 
 	  [{host,       Host}, 
 	   {port,       Port}, 
@@ -176,8 +176,8 @@ connect({essl, SslConfig}, {Host, Port}, _, Timeout) ->
 listen(SocketType, Port) ->
     listen(SocketType, undefined, Port).
 
-listen(ip_comm = SocketType, Addr, Port) ->
-    listen(SocketType, Addr, Port, undefined);
+listen(ip_comm = _SocketType, Addr, Port) ->
+    listen_ip_comm(Addr, Port, undefined);
 
 %% Wrapper for backaward compatibillity
 listen({ssl, SSLConfig}, Addr, Port) ->
@@ -187,35 +187,33 @@ listen({ssl, SSLConfig}, Addr, Port) ->
 	   {ssl_config, SSLConfig}]),
     listen({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Addr, Port);
 
-listen({ossl, SSLConfig} = Ssl, Addr, Port) ->
+listen({ossl, SSLConfig}, Addr, Port) ->
     ?hlrt("listen (ossl)", 
 	  [{addr,       Addr}, 
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
-    Opt = sock_opt(Ssl, Addr, SSLConfig),
-    ?hlrt("listen options", [{opt, Opt}]),
-    ssl:listen(Port, [{ssl_imp, old} | Opt]);
+    listen_ssl(Addr, Port, [{ssl_imp, old} | SSLConfig]);
 
-listen({essl, SSLConfig} = Ssl, Addr, Port) ->
+listen({essl, SSLConfig}, Addr, Port) ->
     ?hlrt("listen (essl)", 
 	  [{addr,       Addr}, 
 	   {port,       Port}, 
 	   {ssl_config, SSLConfig}]),
-    Opt = sock_opt(Ssl, Addr, SSLConfig),
-    ?hlrt("listen options", [{opt, Opt}]),
-    Opt2 = [{ssl_imp, new}, {reuseaddr, true} | Opt], 
-    ssl:listen(Port, Opt2).
+    listen_ssl(Addr, Port, [{ssl_imp, new}, {reuseaddr, true} | SSLConfig]).
+
 
 listen(ip_comm, Addr, Port, Fd) ->
-    case (catch listen_ip_comm(Addr, Port, Fd)) of
+    listen_ip_comm(Addr, Port, Fd).
+
+listen_ip_comm(Addr, Port, Fd) ->
+    case (catch do_listen_ip_comm(Addr, Port, Fd)) of
 	{'EXIT', Reason} ->
 	    {error, {exit, Reason}};
 	Else ->
 	    Else
     end.
 
-
-listen_ip_comm(Addr, Port, Fd) ->
+do_listen_ip_comm(Addr, Port, Fd) ->
     {NewPort, Opts, IpFamily} = get_socket_info(Addr, Port, Fd),
     case IpFamily of
 	inet6fb4 -> 
@@ -248,6 +246,41 @@ listen_ip_comm(Addr, Port, Fd) ->
 	    gen_tcp:listen(NewPort, Opts2)
     end.
 
+
+listen_ssl(Addr, Port, Opts0) ->
+    IpFamily = ipfamily_default(Addr, Port), 
+    BaseOpts = [{backlog, 128}, {reuseaddr, true} | Opts0], 
+    Opts     = sock_opts(Addr, BaseOpts),
+    case IpFamily of
+	inet6fb4 -> 
+	    Opts2 = [inet6 | Opts], 
+	    ?hlrt("try ipv6 listen", [{opts, Opts2}]),
+	    case (catch ssl:listen(Port, Opts2)) of
+		{error, Reason} when ((Reason =:= nxdomain) orelse 
+				      (Reason =:= eafnosupport)) ->
+		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen failed - try ipv4 instead", 
+			  [{reason, Reason}, {opts, Opts3}]),
+		    ssl:listen(Port, Opts3);
+		
+		{'EXIT', Reason} -> 
+		    Opts3 = [inet | Opts], 
+		    ?hlrt("ipv6 listen exit - try ipv4 instead", 
+			  [{reason, Reason}, {opts, Opts3}]),
+		    ssl:listen(Port, Opts3); 
+		
+		Other ->
+		    ?hlrt("ipv6 listen done", [{other, Other}]),
+		    Other
+	    end;
+	
+	_ ->
+	    Opts2 = [IpFamily | Opts],
+	    ?hlrt("listen", [{opts, Opts2}]),
+	    ssl:listen(Port, Opts2)
+    end.
+
+
 ipfamily_default(Addr, Port) ->
     httpd_conf:lookup(Addr, Port, ipfamily, inet6fb4).
 
@@ -257,9 +290,9 @@ get_socket_info(Addr, Port, Fd0) ->
     %% The presence of a file descriptor takes precedence
     case get_fd(Port, Fd0, IpFamilyDefault) of
 	{Fd, IpFamily} -> 
-	    {0, sock_opt(ip_comm, Addr, [{fd, Fd} | BaseOpts]), IpFamily};
+	    {0, sock_opts(Addr, [{fd, Fd} | BaseOpts]), IpFamily};
 	undefined ->
-	    {Port, sock_opt(ip_comm, Addr, BaseOpts), IpFamilyDefault}
+	    {Port, sock_opts(Addr, BaseOpts), IpFamilyDefault}
     end.
 	    
 get_fd(Port, undefined = _Fd, IpFamilyDefault) ->
@@ -499,44 +532,28 @@ close({essl, _}, Socket) ->
 %% connection, usning either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 peername(ip_comm, Socket) ->
-    case inet:peername(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    PeerName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, PeerName};
-	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
-	    PeerName =  http_util:integer_to_hexlist(A) ++ ":"++  
-		http_util:integer_to_hexlist(B) ++ ":" ++  
-		http_util:integer_to_hexlist(C) ++ ":" ++ 
-		http_util:integer_to_hexlist(D) ++ ":" ++  
-		http_util:integer_to_hexlist(E) ++ ":" ++  
-		http_util:integer_to_hexlist(F) ++ ":" ++  
-		http_util:integer_to_hexlist(G) ++":"++  
-		http_util:integer_to_hexlist(H),
-	    {Port, PeerName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end;
+    do_peername(inet:peername(Socket));
 
 %% Wrapper for backaward compatibillity
 peername({ssl, SSLConfig}, Socket) ->
     peername({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
 
 peername({ossl, _}, Socket) ->
-    peername_ssl(Socket);
+    do_peername(ssl:peername(Socket));
 
 peername({essl, _}, Socket) ->
-    peername_ssl(Socket).
+    do_peername(ssl:peername(Socket)).
 
-peername_ssl(Socket) ->
-    case ssl:peername(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    PeerName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, PeerName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end.
+do_peername({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+    PeerName = ipv4_name(Addr), 
+    {Port, PeerName};
+do_peername({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+    PeerName = ipv6_name(Addr), 
+    {Port, PeerName};
+do_peername({error, _}) ->
+    {-1, "unknown"}.
 
 
 %%-------------------------------------------------------------------------
@@ -550,44 +567,28 @@ peername_ssl(Socket) ->
 %% other end of connection, using either gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 sockname(ip_comm, Socket) ->
-    case inet:sockname(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, SockName};
-	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
-	    SockName =  http_util:integer_to_hexlist(A) ++ ":"++  
-		http_util:integer_to_hexlist(B) ++ ":" ++  
-		http_util:integer_to_hexlist(C) ++ ":" ++ 
-		http_util:integer_to_hexlist(D) ++ ":" ++  
-		http_util:integer_to_hexlist(E) ++ ":" ++  
-		http_util:integer_to_hexlist(F) ++ ":" ++  
-		http_util:integer_to_hexlist(G) ++":"++  
-		http_util:integer_to_hexlist(H),
-	    {Port, SockName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end;
+    do_sockname(inet:sockname(Socket));
 
 %% Wrapper for backaward compatibillity
 sockname({ssl, SSLConfig}, Socket) ->
     sockname({?HTTP_DEFAULT_SSL_KIND, SSLConfig}, Socket);
 
 sockname({ossl, _}, Socket) ->
-    sockname_ssl(Socket);
+    do_sockname(ssl:sockname(Socket));
 
 sockname({essl, _}, Socket) ->
-    sockname_ssl(Socket).
+    do_sockname(ssl:sockname(Socket)).
 
-sockname_ssl(Socket) ->
-    case ssl:sockname(Socket) of
-	{ok,{{A, B, C, D}, Port}} ->
-	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
-		integer_to_list(C)++"."++integer_to_list(D),
-	    {Port, SockName};
-	{error, _} ->
-	    {-1, "unknown"}
-    end.
+do_sockname({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 4) ->
+    SockName = ipv4_name(Addr), 
+    {Port, SockName};
+do_sockname({ok, {Addr, Port}}) 
+  when is_tuple(Addr) andalso (size(Addr) =:= 8) ->
+    SockName = ipv6_name(Addr), 
+    {Port, SockName};
+do_sockname({error, _}) ->
+    {-1, "unknown"}.
 
 
 %%-------------------------------------------------------------------------
@@ -601,29 +602,49 @@ resolve() ->
     Name.
 
 
+%%-------------------------------------------------------------------------
+%% ipv4_name(Ipv4Addr) -> string()
+%% ipv6_name(Ipv6Addr) -> string()
+%%     Ipv4Addr = ip4_address()
+%%     Ipv6Addr = ip6_address()
+%%     
+%% Description: Returns the local hostname. 
+%%-------------------------------------------------------------------------
+ipv4_name({A, B, C, D}) ->
+    integer_to_list(A) ++ "." ++
+	integer_to_list(B) ++ "." ++
+	integer_to_list(C) ++ "." ++
+	integer_to_list(D).
+
+ipv6_name({A, B, C, D, E, F, G, H}) ->
+    http_util:integer_to_hexlist(A) ++ ":"++ 
+	http_util:integer_to_hexlist(B) ++ ":" ++  
+	http_util:integer_to_hexlist(C) ++ ":" ++ 
+	http_util:integer_to_hexlist(D) ++ ":" ++  
+	http_util:integer_to_hexlist(E) ++ ":" ++  
+	http_util:integer_to_hexlist(F) ++ ":" ++  
+	http_util:integer_to_hexlist(G) ++ ":" ++  
+	http_util:integer_to_hexlist(H).
+
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
 
+%% -- sock_opts --
 %% Address any comes from directive: BindAddress "*"
-sock_opt(ip_comm, any = Addr, Opts) -> 
-    sock_opt2([{ip, Addr} | Opts]);
-sock_opt(ip_comm, undefined, Opts) -> 
-    sock_opt2(Opts);
-sock_opt(_, any = _Addr, Opts) ->
-    sock_opt2(Opts);
-sock_opt(_, undefined = _Addr, Opts) ->
-    sock_opt2(Opts);
-sock_opt(_, {_,_,_,_} = Addr, Opts) -> 
-    sock_opt2([{ip, Addr} | Opts]);
-sock_opt(ip_comm, Addr, Opts) -> 
-    sock_opt2([{ip, Addr} | Opts]);
-sock_opt(_, Addr, Opts) ->
-    sock_opt2([{ip, Addr} | Opts]).
+sock_opts(undefined, Opts) -> 
+    sock_opts(Opts);
+sock_opts(any = Addr, Opts) -> 
+    sock_opts([{ip, Addr} | Opts]);
+sock_opts(Addr, Opts) ->
+    sock_opts([{ip, Addr} | Opts]).
 
-sock_opt2(Opts) ->
+sock_opts(Opts) ->
     [{packet, 0}, {active, false} | Opts].
 
+
+%% -- negotiate --
 negotiate(ip_comm,_,_) ->
     ?hlrt("negotiate(ip_comm)", []),
     ok;

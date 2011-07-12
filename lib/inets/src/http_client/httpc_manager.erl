@@ -52,7 +52,7 @@
 	  cancel = [],	 % [{RequestId, HandlerPid, ClientPid}]  
 	  handler_db,    % ets() - Entry: #handler_info{}
 	  cookie_db,     % cookie_db()
-	  session_db,    % ets() - Entry:  #tcp_session{}
+	  session_db,    % ets() - Entry:  #session{}
 	  profile_name,  % atom()
 	  options = #options{}
 	 }).
@@ -178,7 +178,7 @@ request_done(RequestId, ProfileName) ->
 
 %%--------------------------------------------------------------------
 %% Function: insert_session(Session, ProfileName) -> _
-%%	Session - #tcp_session{}
+%%	Session - #session{}
 %%      ProfileName - atom()
 %%
 %% Description: Inserts session information into the httpc manager
@@ -669,7 +669,7 @@ select_session(Method, HostPort, Scheme, SessionType,
 	(SessionType =:= keep_alive) of
 	true ->
 	    %% Look for handlers connecting to this host (HostPort)
-	    %% tcp_session with record name field (tcp_session) and 
+	    %% session with record name field (session) and 
 	    %% socket fields ignored. The fields id (part of: HostPort), 
 	    %% client_close, scheme and type specified. 
 	    %% The fields id (part of: HandlerPid) and queue_length

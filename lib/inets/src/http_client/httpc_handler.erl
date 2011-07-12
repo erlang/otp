@@ -515,7 +515,7 @@ handle_info({Proto, _Socket, Data},
 		{stop, normal, NewState}
 	
 	end,
-    ?hcri("data processed", []),
+    ?hcri("data processed", [{final_result, FinalResult}]),
     FinalResult;
 
 
@@ -629,8 +629,9 @@ handle_info(timeout_queue, #state{timers = Timers} = State) ->
 			  Timers#timers{queue_timer = undefined}}};
 
 %% Setting up the connection to the server somehow failed. 
-handle_info({init_error, _, ClientErrMsg},
+handle_info({init_error, Tag, ClientErrMsg},
 	    State = #state{request = Request}) ->
+    ?hcrv("init error", [{tag, Tag}, {client_error, ClientErrMsg}]),
     NewState = answer_request(Request, ClientErrMsg, State),
     {stop, normal, NewState};
 
@@ -707,9 +708,9 @@ terminate(normal,
     %% And, just in case, close our side (**really** overkill)
     http_transport:close(SocketType, Socket);
 
-terminate(Reason, #state{session      = #session{id          = Id,
-						 socket      = Socket, 
-						 socket_type = SocketType},
+terminate(Reason, #state{session = #session{id          = Id,
+					    socket      = Socket, 
+					    socket_type = SocketType},
 		    request      = undefined,
 		    profile_name = ProfileName,
 		    timers       = Timers,
@@ -1403,7 +1404,7 @@ try_to_enable_pipeline_or_keep_alive(
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
 	       #state{timers = Timers, profile_name = ProfileName} = State) -> 
-    ?hcrt("answer request", [{request, Request}]),
+    ?hcrt("answer request", [{request, Request}, {msg, Msg}]),
     httpc_response:send(From, Msg),
     RequestTimers = Timers#timers.request_timers,
     TimerRef =

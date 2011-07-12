@@ -1038,10 +1038,12 @@ handle_call({_, {open, ip_comm, Opts}}, From, State) ->
 	    Port     = key_search(port,     Opts, ?FTP_PORT), 
 	    Timeout  = key_search(timeout,  Opts, ?CONNECTION_TIMEOUT),
 	    Progress = key_search(progress, Opts, ignore),
+	    IpFamily = key_search(ipfamily, Opts, inet),
 	    
 	    State2 = State#state{client   = From, 
 				 mode     = Mode,
-				 progress = progress(Progress)}, 
+				 progress = progress(Progress),
+				 ipfamily = IpFamily}, 
 
 	    ?fcrd("handle_call(open) -> setup ctrl connection with", 
 		  [{host, Host}, {port, Port}, {timeout, Timeout}]), 
