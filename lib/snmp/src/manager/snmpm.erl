@@ -50,7 +50,7 @@
 	 register_agent/2, register_agent/3, register_agent/4, 
 	 unregister_agent/2, unregister_agent/3,
 	 which_agents/0, which_agents/1, 
-	 agent_info/2, update_agent_info/4, 
+	 agent_info/2, update_agent_info/3, update_agent_info/4, 
 	 
 	 register_usm_user/3, unregister_usm_user/2, 
 	 which_usm_users/0, which_usm_users/1, 
@@ -167,6 +167,7 @@
 -include_lib("snmp/include/snmp_types.hrl").
 -include("snmpm_atl.hrl").
 -include("snmpm_internal.hrl").
+-include("snmp_verbosity.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
 
@@ -379,6 +380,11 @@ which_users() ->
 %% Config     -> Agent configuration: [config()]
 
 do_register_agent(UserId, TargetName, Config) ->
+    io:format("do_register_agent -> entry with"
+	      "~n   UserId:     ~p"
+	      "~n   TargetName: ~p"
+	      "~n   Config:     ~p"
+	      "~n", [UserId, TargetName, Config]),
     snmpm_config:register_agent(UserId, TargetName, Config).
 
 register_agent(UserId, TargetName, Config) 
@@ -405,13 +411,21 @@ register_agent(UserId, Addr) ->
 
 %% Backward compatibility 
 register_agent(UserId, Addr, Port, Config0) ->
+    io:format("register_agent -> entry with"
+	      "~n   UserId:  ~p"
+	      "~n   Addr:    ~p"
+	      "~n   Port:    ~p"
+	      "~n   Config0: ~p"
+	      "~n", [UserId, Addr, Port, Config0]),
     case lists:keymember(target_name, 1, Config0) of
 	false ->
+	    io:format("register_agent -> no target_name~n", []),
 	    TargetName = mk_target_name(Addr, Port, Config0), 
 	    Config     = [{reg_type, addr_port}, 
 			  {address, Addr}, {port, Port} | Config0], 
 	    do_register_agent(UserId, TargetName, ensure_engine_id(Config));
 	true ->
+	    io:format("register_agent -> target_name~n", []),
 	    {value, {_, TargetName}} = 
 		lists:keysearch(target_name, 1, Config0),
 	    Config1 = lists:keydelete(target_name, 1, Config0),
@@ -447,8 +461,11 @@ agent_info(Addr, Port, Item) ->
 	    Error
     end.
 
+update_agent_info(UserId, TargetName, Info) when is_list(Info) ->
+    snmpm_config:update_agent_info(UserId, TargetName, Info).
+
 update_agent_info(UserId, TargetName, Item, Val) ->
-    snmpm_config:update_agent_info(UserId, TargetName, Item, Val).
+    update_agent_info(UserId, TargetName, [{Item, Val}]).
 
 %% Backward compatibility functions
 update_agent_info(UserId, Addr, Port, Item, Val) ->

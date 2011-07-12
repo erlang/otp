@@ -1068,7 +1068,7 @@ transform_taddr(?transportDomainUdpIpv4, [A, B, C, D, P1, P2]) ->
     Addr    = {A,B,C,D}, 
     Port    = P1 bsl 8 + P2, 
     Address = {Addr, Port},
-    {Domain, Address};
+    {ok, {Domain, Address}};
 transform_taddr(?transportDomainUdpIpv6, 
 		[A1, A2, A3, A4, A5, A6, A7, A8, P1, P2]) ->
     Domain  = transportDomainUdpIpv6, 

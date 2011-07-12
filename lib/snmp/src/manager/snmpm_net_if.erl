@@ -28,7 +28,8 @@
 	 start_link/2, 
 	 stop/1, 
 	 send_pdu/6, % Backward compatibillity
-	 send_pdu/7,
+	 send_pdu/7, % Backward compatibillity
+	 send_pdu/8,
 
 	 inform_response/4, 
 
@@ -101,16 +102,21 @@ stop(Pid) ->
 send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port) ->
     send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ?DEFAULT_EXTRA_INFO).
 
-send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo) 
+send_pdu(Pid, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo) ->
+    Domain = snmpm_config:default_transport_domain(), 
+    send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo).
+
+send_pdu(Pid, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo) 
   when is_record(Pdu, pdu) ->
     ?d("send_pdu -> entry with"
        "~n   Pid:     ~p"
        "~n   Pdu:     ~p"
        "~n   Vsn:     ~p"
        "~n   MsgData: ~p"
+       "~n   Domain:  ~p"
        "~n   Addr:    ~p"
-       "~n   Port:    ~p", [Pid, Pdu, Vsn, MsgData, Addr, Port]),
-    cast(Pid, {send_pdu, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo}).
+       "~n   Port:    ~p", [Pid, Pdu, Vsn, MsgData, Domain, Addr, Port]),
+    cast(Pid, {send_pdu, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo}).
 
 note_store(Pid, NoteStore) ->
     call(Pid, {note_store, NoteStore}).
@@ -380,15 +386,17 @@ handle_call(Req, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_cast({send_pdu, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo}, State) ->
+handle_cast({send_pdu, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo}, 
+	    State) ->
     ?vlog("received send_pdu message with"
 	  "~n   Pdu:     ~p"
 	  "~n   Vsn:     ~p"
 	  "~n   MsgData: ~p"
+	  "~n   Domain:  ~p"
 	  "~n   Addr:    ~p"
-	  "~n   Port:    ~p", [Pdu, Vsn, MsgData, Addr, Port]),
+	  "~n   Port:    ~p", [Pdu, Vsn, MsgData, Domain, Addr, Port]),
     maybe_process_extra_info(ExtraInfo), 
-    maybe_handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, State), 
+    maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State), 
     {noreply, State};
 
 handle_cast({inform_response, Ref, Addr, Port}, State) ->
@@ -545,8 +553,9 @@ handle_recv_msg(Addr, Port, Bytes,
 		       mpd_state  = MpdState, 
 		       sock       = Sock,
 		       log        = Log} = State) ->
+    Domain = snmp_conf:which_domain(Addr), % What the ****...
     Logger = logger(Log, read, Addr, Port),
-    case (catch snmpm_mpd:process_msg(Bytes, snmpUDPDomain, Addr, Port, 
+    case (catch snmpm_mpd:process_msg(Bytes, Domain, Addr, Port, 
 				      MpdState, NoteStore, Logger)) of
 
 	{ok, Vsn, Pdu, MS, ACM} ->
@@ -734,17 +743,17 @@ irgc_stop(Ref) ->
     (catch erlang:cancel_timer(Ref)).
 
 
-maybe_handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, 
+maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, 
 		      #state{filter = FilterMod} = State) ->
     case (catch FilterMod:accept_send_pdu(Addr, Port, pdu_type_of(Pdu))) of
 	false ->
 	    inc(netIfPduOutDrops),
 	    ok;
 	_ ->
-	    handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, State)
+	    handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State)
     end.
 
-handle_send_pdu(Pdu, Vsn, MsgData, Addr, Port, 
+handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, 
 		#state{server     = Pid, 
 		       note_store = NoteStore, 
 		       sock       = Sock, 

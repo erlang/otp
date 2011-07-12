@@ -348,17 +348,22 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
+      <name>update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason}</name>
       <name>update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason}</name>
       <fsummary>Update agent config</fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>Item = atom()</v>
-        <v>Val = term()</v>
+        <v>Info = [{item(), item_value()}]</v>
+        <v>Item = item()</v>
+        <v>item() = atom()</v>
+        <v>Val = item_value()</v>
+        <v>item_value() = term()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Update agent config.</p>
+        <p>Update agent config. The function <c>update_agent_info/3</c> 
+	should be used when several values needs to be updated atomically. </p>
 
         <marker id="which_agents"></marker>
       </desc>

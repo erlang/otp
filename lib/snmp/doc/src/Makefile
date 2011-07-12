@@ -152,6 +152,7 @@ $(TOP_PDF_FILE): $(XML_FILES)
 pdf: $(TOP_PDF_FILE)
 
 html: gifs $(HTML_REF_MAN_FILE)
+html2: html $(INDEX_TARGET)
 
 clean clean_docs: clean_html clean_man clean_pdf
 	rm -f errs core *~
@@ -228,6 +229,7 @@ clean_man:
 clean_html:
 	@echo "cleaning html:"
 	rm -rf $(HTMLDIR)/*
+	rm -f $(INDEX_TARGET)
 
 $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 	@echo "processing $*"

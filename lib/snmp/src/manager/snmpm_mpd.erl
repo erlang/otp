@@ -92,7 +92,7 @@ reset(#state{v3 = V3}) ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
-process_msg(Msg, TDomain, Addr, Port, State, NoteStore, Logger) ->
+process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
 
     inc(snmpInPkts),
 
@@ -102,16 +102,16 @@ process_msg(Msg, TDomain, Addr, Port, State, NoteStore, Logger) ->
 	#message{version = 'version-1', vsn_hdr = Community, data = Data} 
 	  when State#state.v1 =:= true ->
 	    HS = ?empty_msg_size + length(Community),
-	    process_v1_v2c_msg('version-1', NoteStore, Msg, TDomain, 
-			       Addr, Port, 
+	    process_v1_v2c_msg('version-1', NoteStore, Msg, 
+			       Domain, Addr, Port, 
 			       Community, Data, HS, Logger);
 
 	%% Version 2
 	#message{version = 'version-2', vsn_hdr = Community, data = Data}
 	  when State#state.v2c =:= true ->
 	    HS = ?empty_msg_size + length(Community),
-	    process_v1_v2c_msg('version-2', NoteStore, Msg, TDomain, 
-			       Addr, Port, 
+	    process_v1_v2c_msg('version-2', NoteStore, Msg, 
+			       Domain, Addr, Port, 
 			       Community, Data, HS, Logger);
 
 	%% Version 3
@@ -148,7 +148,7 @@ process_msg(Msg, TDomain, Addr, Port, State, NoteStore, Logger) ->
 %%-----------------------------------------------------------------
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
-process_v1_v2c_msg(Vsn, _NoteStore, Msg, snmpUDPDomain, 
+process_v1_v2c_msg(Vsn, _NoteStore, Msg, Domain, 
 		   Addr, Port, 
 		   Community, Data, HS, Log) ->
 
@@ -158,7 +158,10 @@ process_v1_v2c_msg(Vsn, _NoteStore, Msg, snmpUDPDomain,
 	    "~n   Port:      ~p"
 	    "~n   Community: ~p"
 	    "~n   HS:        ~p", [Vsn, Addr, Port, Community, HS]),
-    
+
+    TDomain  = snmp_conf:mk_tdomain(Domain), 
+    TAddress = snmp_conf:mk_taddress(Domain, Addr, Port),
+
     Max      = get_max_message_size(),
     AgentMax = get_agent_max_message_size(Addr, Port),
     PduMS    = pdu_ms(Max, AgentMax, HS),
@@ -170,14 +173,14 @@ process_v1_v2c_msg(Vsn, _NoteStore, Msg, snmpUDPDomain,
 	    ?vtrace("process_v1_v2c_msg -> was a pdu", []),
 	    Log(Msg),
 	    inc_snmp_in(Pdu),
-	    MsgData = {Community, sec_model(Vsn)},
+	    MsgData = {Community, sec_model(Vsn), TDomain, TAddress},
 	    {ok, Vsn, Pdu, PduMS, MsgData};
 
 	Trap when is_record(Trap, trappdu) ->
 	    ?vtrace("process_v1_v2c_msg -> was a trap", []),
 	    Log(Msg),
 	    inc_snmp_in(Trap),
-	    MsgData = {Community, sec_model(Vsn)},
+	    MsgData = {Community, sec_model(Vsn), TDomain, TAddress},
 	    {ok, Vsn, Trap, PduMS, MsgData};
 
 	{'EXIT', Reason} ->
@@ -186,10 +189,10 @@ process_v1_v2c_msg(Vsn, _NoteStore, Msg, snmpUDPDomain,
 	    inc(snmpInASNParseErrs),
 	    {discarded, Reason}
     end;
-process_v1_v2c_msg(_Vsn, _NoteStore, _Msg, TDomain, 
+process_v1_v2c_msg(_Vsn, _NoteStore, _Msg, Domain, 
 		   _Addr, _Port, 
 		   _Comm, _HS, _Data, _Log) ->
-    {discarded, {badarg, TDomain}}.
+    {discarded, {badarg, Domain}}.
 
 pdu_ms(MgrMMS, AgentMMS, HS) when AgentMMS < MgrMMS ->
     AgentMMS - HS;
@@ -482,8 +485,8 @@ generate_msg('version-3', NoteStore, Pdu,
     generate_v3_msg(NoteStore, Pdu, 
 		    SecModel, SecName, SecLevel, CtxEngineID, CtxName, 
 		    TargetName, Log);
-generate_msg(Vsn, _NoteStore, Pdu, {Community, _SecModel}, Log) ->
-    generate_v1_v2c_msg(Vsn, Pdu, Community, Log).
+generate_msg(Vsn, _NoteStore, Pdu, {Comm, _SecModel}, Log) ->
+    generate_v1_v2c_msg(Vsn, Pdu, Comm, Log).
 
 
 generate_v3_msg(NoteStore, Pdu, 
@@ -627,6 +630,8 @@ generate_response_msg('version-3', Pdu,
     generate_v3_response_msg(Pdu, MsgID, SecModel, SecName, SecLevel, 
 			     CtxEngineID, CtxName, SecData, Log);
 generate_response_msg(Vsn, Pdu, {Comm, _SecModel}, Log) ->
+    generate_v1_v2c_response_msg(Vsn, Pdu, Comm, Log);
+generate_response_msg(Vsn, Pdu, {Comm, _SecModel, _TDomain, _TAddress}, Log) ->
     generate_v1_v2c_response_msg(Vsn, Pdu, Comm, Log).
 
 

@@ -161,7 +161,8 @@
 	{id, 
 	 user_id,
 	 reg_type,
-	 target, 
+	 target,
+	 domain,
 	 addr, 
 	 port, 
 	 type, 
@@ -1175,11 +1176,12 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_get_request(Oids, Vsn, MsgData, 
-				       Addr, Port, Extra, State),
+				       Domain, Addr, Port, 
+				       Extra, State),
 	    ?vdebug("handle_sync_get -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
 	    Timeout = ?SYNC_GET_TIMEOUT(SendOpts), 
@@ -1190,6 +1192,7 @@ handle_sync_get(Pid, UserId, TargetName, Oids, SendOpts, From, State) ->
 			       user_id  = UserId, 
 			       reg_type = RegType, 
 			       target   = TargetName, 
+			       domain   = Domain, 
 			       addr     = Addr,
 			       port     = Port,
 			       type     = get, 
@@ -1227,11 +1230,12 @@ handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts,
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_next -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_get_next_request(Oids, Vsn, MsgData, 
-					    Addr, Port, Extra, State),
+					    Domain, Addr, Port, 
+					    Extra, State),
 	    ?vdebug("handle_sync_get_next -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
 	    Timeout = ?SYNC_GET_NEXT_TIMEOUT(SendOpts), 
@@ -1242,6 +1246,7 @@ handle_sync_get_next(Pid, UserId, TargetName, Oids, SendOpts,
 			       user_id  = UserId, 
 			       reg_type = RegType, 
 			       target   = TargetName, 
+			       domain   = Domain, 
 			       addr     = Addr,
 			       port     = Port,
 			       type     = get_next, 
@@ -1285,10 +1290,11 @@ handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts,
 	    "~n   From:       ~p", 
 	    [Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_get_bulk -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
-	    ReqId   = send_get_bulk_request(Oids, Vsn, MsgData, Addr, Port, 
+	    ReqId   = send_get_bulk_request(Oids, Vsn, MsgData, 
+					    Domain, Addr, Port, 
 					    NonRep, MaxRep, Extra, State),
 	    ?vdebug("handle_sync_get_bulk -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
@@ -1300,6 +1306,7 @@ handle_sync_get_bulk(Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts,
 			       user_id  = UserId, 
 			       reg_type = RegType, 
 			       target   = TargetName, 
+			       domain   = Domain, 
 			       addr     = Addr,
 			       port     = Port,
 			       type     = get_bulk, 
@@ -1339,11 +1346,12 @@ handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
 	    "~n   From:        ~p", 
 	    [Pid, UserId, TargetName, VarsAndVals, From]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_sync_set -> send a ~p message", [Vsn]),
 	    Extra   = ?GET_EXTRA(SendOpts), 
 	    ReqId   = send_set_request(VarsAndVals, Vsn, MsgData, 
-				       Addr, Port, Extra, State),
+				       Domain, Addr, Port, 
+				       Extra, State),
 	    ?vdebug("handle_sync_set -> ReqId: ~p", [ReqId]),
 	    Msg     = {sync_timeout, ReqId, From},
 	    Timeout = ?SYNC_SET_TIMEOUT(SendOpts), 
@@ -1354,6 +1362,7 @@ handle_sync_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, From, State) ->
 			       user_id  = UserId, 
 			       reg_type = RegType, 
 			       target   = TargetName, 
+			       domain   = Domain, 
 			       addr     = Addr,
 			       port     = Port,
 			       type     = set, 
@@ -1391,10 +1400,11 @@ handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 	    "~n   SendOpts:   ~p",
 	    [Pid, UserId, TargetName, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
-	    ReqId  = send_get_request(Oids, Vsn, MsgData, Addr, Port, 
+	    ReqId  = send_get_request(Oids, Vsn, MsgData, 
+				      Domain, Addr, Port, 
 				      Extra, State),
 	    ?vdebug("handle_async_get -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_GET_TIMEOUT(SendOpts), 
@@ -1402,6 +1412,7 @@ handle_async_get(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 			      user_id  = UserId, 
 			      reg_type = RegType, 
 			      target   = TargetName, 
+			      domain   = Domain, 
 			      addr     = Addr,
 			      port     = Port,
 			      type     = get, 
@@ -1439,17 +1450,19 @@ handle_async_get_next(Pid, UserId, TargetName, Oids, SendOpts, State) ->
 	    "~n   SendOpts:   ~p",
 	    [Pid, UserId, TargetName, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_next -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
 	    ReqId  = send_get_next_request(Oids, Vsn, MsgData, 
-					   Addr, Port, Extra, State),
+					   Domain, Addr, Port, 
+					   Extra, State),
 	    ?vdebug("handle_async_get_next -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_GET_NEXT_TIMEOUT(SendOpts), 
 	    Req    = #request{id       = ReqId,
 			      user_id  = UserId, 
 			      reg_type = RegType, 
 			      target   = TargetName, 
+			      domain   = Domain, 
 			      addr     = Addr,
 			      port     = Port,
 			      type     = get_next, 
@@ -1494,10 +1507,11 @@ handle_async_get_bulk(Pid,
 	    "~n   SendOpts:   ~p", 
 	    [Pid, UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_get_bulk -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
-	    ReqId  = send_get_bulk_request(Oids, Vsn, MsgData, Addr, Port, 
+	    ReqId  = send_get_bulk_request(Oids, Vsn, MsgData, 
+					   Domain, Addr, Port, 
 					   NonRep, MaxRep, Extra, State),
 	    ?vdebug("handle_async_get_bulk -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_GET_BULK_TIMEOUT(SendOpts), 
@@ -1505,6 +1519,7 @@ handle_async_get_bulk(Pid,
 			      user_id  = UserId, 
 			      reg_type = RegType, 
 			      target   = TargetName, 
+			      domain   = Domain, 
 			      addr     = Addr,
 			      port     = Port,
 			      type     = get_bulk, 
@@ -1541,17 +1556,19 @@ handle_async_set(Pid, UserId, TargetName, VarsAndVals, SendOpts, State) ->
 	    "~n   SendOpts:    ~p",
 	    [Pid, UserId, TargetName, VarsAndVals, SendOpts]),
     case agent_data(TargetName, SendOpts) of
-	{ok, RegType, Addr, Port, Vsn, MsgData} ->
+	{ok, RegType, Domain, Addr, Port, Vsn, MsgData} ->
 	    ?vtrace("handle_async_set -> send a ~p message", [Vsn]),
 	    Extra  = ?GET_EXTRA(SendOpts), 
 	    ReqId  = send_set_request(VarsAndVals, Vsn, MsgData, 
-				      Addr, Port, Extra, State),
+				      Domain, Addr, Port, 
+				      Extra, State),
 	    ?vdebug("handle_async_set -> ReqId: ~p", [ReqId]),
 	    Expire = ?ASYNC_SET_TIMEOUT(SendOpts), 
 	    Req    = #request{id       = ReqId,
 			      user_id  = UserId, 
 			      reg_type = RegType, 
 			      target   = TargetName, 
+			      domain   = Domain, 
 			      addr     = Addr,
 			      port     = Port,
 			      type     = set, 
@@ -2907,7 +2924,7 @@ do_gc(Key, Now) ->
 %% 
 %%----------------------------------------------------------------------
 
-send_get_request(Oids, Vsn, MsgData, Addr, Port, ExtraInfo, 
+send_get_request(Oids, Vsn, MsgData, Domain, Addr, Port, ExtraInfo, 
 		 #state{net_if     = NetIf, 
 			net_if_mod = Mod,
 			mini_mib   = MiniMIB}) ->
@@ -2918,34 +2935,39 @@ send_get_request(Oids, Vsn, MsgData, Addr, Port, ExtraInfo,
 	    "~n   Pdu:     ~p"
 	    "~n   Vsn:     ~p"
 	    "~n   MsgData: ~p"
+	    "~n   Domain:  ~p"
 	    "~n   Addr:    ~p"
-	    "~n   Port:    ~p", [Mod, NetIf, Pdu, Vsn, MsgData, Addr, Port]),
-    (catch Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo)),
+	    "~n   Port:    ~p", 
+	    [Mod, NetIf, Pdu, Vsn, MsgData, Domain, Addr, Port]),
+    Res = (catch Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, 
+			      Domain, Addr, Port, ExtraInfo)),
+    ?vtrace("send_get_request -> send result:"
+	    "~n   ~p", [Res]),
     Pdu#pdu.request_id.
 
-send_get_next_request(Oids, Vsn, MsgData, Addr, Port, ExtraInfo, 
+send_get_next_request(Oids, Vsn, MsgData, Domain, Addr, Port, ExtraInfo, 
 		      #state{mini_mib   = MiniMIB, 
 			     net_if     = NetIf, 
 			     net_if_mod = Mod}) ->
     Pdu = make_pdu(get_next, Oids, MiniMIB),
-    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo),
+    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo),
     Pdu#pdu.request_id.
 
-send_get_bulk_request(Oids, Vsn, MsgData, Addr, Port, 
+send_get_bulk_request(Oids, Vsn, MsgData, Domain, Addr, Port, 
 		      NonRep, MaxRep, ExtraInfo, 
 		      #state{mini_mib   = MiniMIB, 
 			     net_if     = NetIf, 
 			     net_if_mod = Mod}) ->
     Pdu = make_pdu(bulk, {NonRep, MaxRep, Oids}, MiniMIB),
-    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo),
+    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo),
     Pdu#pdu.request_id.
 
-send_set_request(VarsAndVals, Vsn, MsgData, Addr, Port, ExtraInfo, 
+send_set_request(VarsAndVals, Vsn, MsgData, Domain, Addr, Port, ExtraInfo, 
 		 #state{mini_mib   = MiniMIB,
 			net_if     = NetIf, 
 			net_if_mod = Mod}) ->
     Pdu = make_pdu(set, VarsAndVals, MiniMIB),
-    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Addr, Port, ExtraInfo),
+    Mod:send_pdu(NetIf, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo),
     Pdu#pdu.request_id.
 
 %% send_discovery(Vsn, MsgData, Addr, Port, ExtraInfo, 
@@ -3181,10 +3203,11 @@ agent_data(TargetName, SendOpts) ->
 			
 			{Comm, SecModel}
 		end,
+	    Domain  = agent_data_item(domain,   Info),
 	    Addr    = agent_data_item(address,  Info),
 	    Port    = agent_data_item(port,     Info),
 	    RegType = agent_data_item(reg_type, Info),
-	    {ok, RegType, Addr, Port, version(Version), MsgData};
+	    {ok, RegType, Domain, Addr, Port, version(Version), MsgData};
 	Error ->
 	    Error
     end.

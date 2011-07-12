@@ -382,14 +382,14 @@ end_per_testcase2(Case, Config) ->
 
 all() -> 
     [
-     {group, start_and_stop_tests}, 
-     {group, misc_tests},
-     {group, user_tests}, 
-     {group, agent_tests},
-     {group, request_tests}, 
-     {group, event_tests}, 
-     discovery,
-     {group, tickets}
+     %% {group, start_and_stop_tests}, 
+     %% {group, misc_tests}, 
+     %% {group, user_tests}, 
+     %% {group, agent_tests}, 
+     %% {group, request_tests}, 
+     {group, event_tests}%% , 
+     %% discovery, 
+     %% {group, tickets}
     ].
 
 groups() -> 
@@ -477,14 +477,14 @@ groups() ->
       },
       {event_tests, [],
        [
-	trap1, 
-        trap2, 
-        inform1, 
-        inform2, 
-        inform3, 
-        inform4,
-        inform_swarm, 
-        report
+	trap1%% , 
+        %% trap2, 
+        %% inform1, 
+        %% inform2, 
+        %% inform3, 
+        %% inform4,
+        %% inform_swarm, 
+        %% report
        ]
       },
      {tickets, [], 
@@ -1134,6 +1134,7 @@ register_agent1(suite) ->
 register_agent1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname,ra1),
+    
     p("starting with Config: ~p~n", [Config]),
 
     ManagerNode = start_manager_node(), 
@@ -1164,7 +1165,7 @@ register_agent1(Config) when is_list(Config) ->
 
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register user(s) calvin & hobbe"),
+    p("register user(s) user_alfa & user_beta"),
     ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
     ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
     p("manager info: ~p~n", [mgr_info(ManagerNode)]),
