@@ -339,13 +339,13 @@ static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
     ASSERT(tb != meta_pid_to_tab && tb != meta_pid_to_fixed_tab);
 
     if (tb->common.type & DB_FINE_LOCKED) {
-	if (tb->common.is_thread_safe) {
-	    ASSERT(kind == LCK_WRITE);
+	if (kind == LCK_WRITE) {
+	    ASSERT(tb->common.is_thread_safe);
 	    tb->common.is_thread_safe = 0;
 	    erts_smp_rwmtx_rwunlock(&tb->common.rwlock);
 	}
 	else {
-	    ASSERT(kind != LCK_WRITE);
+	    ASSERT(!tb->common.is_thread_safe);
 	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
 	}
     }
@@ -544,9 +544,9 @@ static int remove_named_tab(DbTable *tb, int have_lock)
 	 * We keep our increased refc over this op in order to
 	 * prevent the table from disapearing.
 	 */
-	erts_smp_rwmtx_rwunlock(&tb->common.rwlock);
+	db_unlock(tb, LCK_WRITE);
 	erts_smp_rwmtx_rwlock(rwlock);
-	erts_smp_rwmtx_rwlock(&tb->common.rwlock);
+	db_lock(tb, LCK_WRITE);
     }
 #endif
 
@@ -1651,24 +1651,6 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     tb->common.status &= ~(DB_PROTECTED|DB_PUBLIC|DB_PRIVATE);
     tb->common.status |= DB_DELETE;
 
-    mmtl = get_meta_main_tab_lock(tb->common.slot);
-#ifdef ERTS_SMP
-    if (erts_smp_rwmtx_tryrwlock(mmtl) == EBUSY) {
-	/*
-	 * We keep our increased refc over this op in order to
-	 * prevent the table from disapearing.
-	 */
-	erts_smp_rwmtx_rwunlock(&tb->common.rwlock);
-	erts_smp_rwmtx_rwlock(mmtl);
-	erts_smp_rwmtx_rwlock(&tb->common.rwlock);
-    }
-#endif
-    /* We must keep the slot, to be found by db_proc_dead() if process dies */
-    MARK_SLOT_DEAD(tb->common.slot);
-    erts_smp_rwmtx_rwunlock(mmtl);
-    if (is_atom(tb->common.id))
-	remove_named_tab(tb, 0);
-    
     if (tb->common.owner != BIF_P->id) {
 	DeclareTmpHeap(meta_tuple,3,BIF_P);
 
@@ -1692,6 +1674,25 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
 	UnUseTmpHeap(3,BIF_P);
     }    
+
+    mmtl = get_meta_main_tab_lock(tb->common.slot);
+#ifdef ERTS_SMP
+    if (erts_smp_rwmtx_tryrwlock(mmtl) == EBUSY) {
+	/*
+	 * We keep our increased refc over this op in order to
+	 * prevent the table from disapearing.
+	 */
+	db_unlock(tb, LCK_WRITE);
+	erts_smp_rwmtx_rwlock(mmtl);
+	db_lock(tb, LCK_WRITE);
+    }
+#endif
+    /* We must keep the slot, to be found by db_proc_dead() if process dies */
+    MARK_SLOT_DEAD(tb->common.slot);
+    erts_smp_rwmtx_rwunlock(mmtl);
+    if (is_atom(tb->common.id))
+	remove_named_tab(tb, 0);
+    
     /* disable inheritance */
     free_heir_data(tb);
     tb->common.heir = am_none;

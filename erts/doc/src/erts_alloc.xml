@@ -78,14 +78,20 @@
        segments are allocated, cached segments are used if possible
        instead of creating new segments.  This in order to reduce
        the number of system calls made.</item>
+      <tag><c>sbmbc_alloc</c></tag>
+      <item>Allocator used by other allocators for allocation of carriers
+      where only small blocks are placed. Currently this allocator is
+      disabled by default.</item>
     </taglist>
     <p><c>sys_alloc</c> and <c>fix_alloc</c> are always enabled and
       cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
       By default all allocators are enabled.
-      When an allocator is disabled, <c>sys_alloc</c>
-      is used instead of the disabled allocator.</p>
+      When an allocator is disabled, <c>sys_alloc</c> is used instead of
+      the disabled allocator. <c>sbmbc_alloc</c> is an exception. If
+      <c>sbmbc_alloc</c> is disabled, other allocators will not handle
+      small blocks in separate carriers.</p>
     <p>The main idea with the <c>erts_alloc</c> library is to separate
       memory blocks that are used differently into different memory
       areas, and by this achieving less memory fragmentation. By
@@ -103,15 +109,20 @@
       following does <em>not</em> apply to them.</p>
     <p>An allocator manages multiple areas, called carriers, in which
       memory blocks are placed. A carrier is either placed in a
-      separate memory segment (allocated via <c>mseg_alloc</c>) or in
-      the heap segment (allocated via <c>sys_alloc</c>). Multiblock
+      separate memory segment (allocated via <c>mseg_alloc</c>), in
+      the heap segment (allocated via <c>sys_alloc</c>), or inside
+      another carrier (in case it is a carrier created by
+      <c>sbmbc_alloc</c>). Multiblock
       carriers are used for storage of several blocks. Singleblock
       carriers are used for storage of one block. Blocks that are
       larger than the value of the singleblock carrier threshold
       (<seealso marker="#M_sbct">sbct</seealso>) parameter are placed
-      in singleblock carriers. Blocks smaller than the value of the
-      <c>sbct</c> parameter are placed in multiblock
-      carriers. Normally an allocator creates a "main multiblock
+      in singleblock carriers. Blocks that are smaller than the value
+      of the <c>sbct</c> parameter are placed in multiblock
+      carriers. Blocks that are smaller than the small block multiblock
+      carrier threshold (<seealso marker="#M_sbmbct">sbmbct</seealso>)
+      will be placed in multiblock carriers only used for small blocks.
+      Normally an allocator creates a "main multiblock
       carrier". Main multiblock carriers are never deallocated. The
       size of the main multiblock carrier is determined by the value
       of the <seealso marker="#M_mmbcs">mmbcs</seealso> parameter.</p>
@@ -133,8 +144,11 @@
       <c>sbct</c> parameter should be larger than the value of the
       <c>lmbcs</c> parameter, the allocator may have to create
       multiblock carriers that are larger than the value of the
-      <c>lmbcs</c> parameter, though. Singleblock carriers allocated
-      via <c>mseg_alloc</c> are sized to whole pages.</p>
+      <c>lmbcs</c> parameter, though. The size of multiblock carriers
+      for small blocks is determined by the small block multiblock
+      carrier size (<seealso marker="#M_sbmbcs">sbmbcs</seealso>).
+      Singleblock carriers allocated via <c>mseg_alloc</c> are sized
+      to whole pages.</p>
     <p>Sizes of carriers allocated via <c>sys_alloc</c> are
       decided based on the value of the <c>sys_alloc</c> carrier size
       (<seealso marker="#Muycs">ycs</seealso>) parameter. The size of
@@ -194,6 +208,11 @@
     </taglist>
   </section>
 
+  <note><p>
+    Currently only allocators using the best fit and the address order
+    best fit strategies are able to use "small block multi block carriers".
+  </p></note>
+
   <section>
     <marker id="flags"></marker>
     <title>System Flags Effecting erts_alloc</title>
@@ -215,6 +234,7 @@
       the currently present allocators:</p>
     <list type="bulleted">
       <item><c>B: binary_alloc</c></item>
+      <item><c>C: sbmbc_alloc</c></item>
       <item><c>D: std_alloc</c></item>
       <item><c>E: ets_alloc</c></item>
       <item><c>F: fix_alloc</c></item>
@@ -395,6 +415,20 @@
        threshold will be placed in singleblock carriers. Blocks
        smaller than this threshold will be placed in multiblock
        carriers.</item>
+      <tag><marker id="M_sbmbcs"><c><![CDATA[+M<S>sbmbcs <size>]]></c></marker></tag>
+      <item>
+	Small block multiblock carrier size (in bytes). Memory blocks smaller
+	than the small block multiblock carrier threshold
+	(<seealso marker="#M_sbmbct">sbmbct</seealso>) will be placed in
+	multiblock carriers used for small blocks only. This parameter
+	determines the size of such carriers.
+      </item>
+      <tag><marker id="M_sbmbct"><c><![CDATA[+M<S>sbmbct <size>]]></c></marker></tag>
+      <item>
+	Small block multiblock carrier threshold (in bytes). Memory blocks
+	smaller than this threshold will be placed in multiblock carriers
+	used for small blocks only.
+      </item>
       <tag><marker id="M_smbcs"><c><![CDATA[+M<S>smbcs <size>]]></c></marker></tag>
       <item>
        Smallest (<c>mseg_alloc</c>) multiblock carrier size (in

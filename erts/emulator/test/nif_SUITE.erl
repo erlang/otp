@@ -1177,9 +1177,10 @@ tmpmem() ->
 	MemInfo ->
 	    MSBCS = lists:foldl(
 		      fun ({instance, _, L}, Acc) ->
+			      {value,{_,SBMBCS}} = lists:keysearch(sbmbcs, 1, L),
 			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
 			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			      [MBCS,SBCS | Acc]
+			      [SBMBCS,MBCS,SBCS | Acc]
 		      end,
 		      [],
 		      MemInfo),

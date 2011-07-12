@@ -34,6 +34,7 @@ typedef struct {
 typedef struct {
     char *name_prefix;
     ErtsAlcType_t alloc_no;
+    int force;
     int ts;
     int tspec;
     int tpref;
@@ -50,6 +51,8 @@ typedef struct {
     UWord lmbcs;
     UWord smbcs;
     UWord mbcgs;
+    UWord sbmbct;
+    UWord sbmbcs;
 } AllctrInit_t;
 
 typedef struct {
@@ -67,6 +70,7 @@ typedef struct {
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
     NULL,                                                                  \
     ERTS_ALC_A_INVALID,	/* (number) alloc_no: allocator number           */\
+    0,			/* (bool)   force:  force enabled                */\
     1,			/* (bool)   ts:     thread safe                  */\
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
@@ -82,7 +86,9 @@ typedef struct {
     10,			/* (amount) mmmbc:  max mseg mbcs                */\
     10*1024*1024,	/* (bytes)  lmbcs:  largest mbc size             */\
     1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
-    10			/* (amount) mbcgs:  mbc growth stages            */\
+    10,			/* (amount) mbcgs:  mbc growth stages            */\
+    256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
+    8*1024		/* (bytes)  sbmbcs:  small block mbc size        */\
 }
 
 #else /* if SMALL_MEMORY */
@@ -95,6 +101,7 @@ typedef struct {
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
     NULL,                                                                  \
     ERTS_ALC_A_INVALID,	/* (number) alloc_no: allocator number           */\
+    0,			/* (bool)   force:  force enabled                */\
     1,			/* (bool)   ts:     thread safe                  */\
     0,			/* (bool)   tspec:  thread specific              */\
     0,			/* (bool)   tpref:  thread preferred             */\
@@ -109,7 +116,9 @@ typedef struct {
     10,			/* (amount) mmmbc:  max mseg mbcs                */\
     1024*1024,		/* (bytes)  lmbcs:  largest mbc size             */\
     128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
-    10			/* (amount) mbcgs:  mbc growth stages            */\
+    10,			/* (amount) mbcgs:  mbc growth stages            */\
+    256,	       	/* (bytes)  sbmbct:  small block mbc threshold   */\
+    8*1024		/* (bytes)  sbmbcs:  small block mbc size        */\
 }
 
 #endif
@@ -143,6 +152,9 @@ void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *);
 
 #if defined(GET_ERL_ALLOC_UTIL_IMPL) && !defined(ERL_ALLOC_UTIL_IMPL__)
 #define ERL_ALLOC_UTIL_IMPL__
+
+#define ERTS_ALCU_FLG_FAIL_REALLOC_MOVE		(((Uint32) 1) << 0)
+#define ERTS_ALCU_FLG_SBMBC			(((Uint32) 1) << 1)
 
 #ifdef USE_THREADS
 #define ERL_THREADS_EMU_INTERNAL__
@@ -188,6 +200,8 @@ void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *);
 #define CARRIER_SZ(C) \
   ((C)->chdr & SZ_MASK)
 
+extern int erts_have_sbmbc_alloc;
+
 typedef union {char c[8]; long l; double d;} Unit_t;
 
 typedef struct Carrier_t_ Carrier_t;
@@ -216,8 +230,13 @@ typedef struct {
 } StatValues_t;
 
 typedef struct {
-    StatValues_t	curr_mseg;
-    StatValues_t	curr_sys_alloc;
+    union {
+	struct {
+	    StatValues_t	mseg;
+	    StatValues_t	sys_alloc;
+	} norm;
+	StatValues_t	small_block;
+    } curr;
     StatValues_t	max;
     StatValues_t	max_ever;
     struct {
@@ -257,6 +276,8 @@ struct Allctr_t_ {
     Uint		largest_mbc_size;
     Uint		smallest_mbc_size;
     Uint		mbc_growth_stages;
+    Uint		sbmbc_threshold;
+    Uint		sbmbc_size;
 #if HAVE_ERTS_MSEG
     ErtsMsegOpt_t	mseg_opt;
 #endif
@@ -269,6 +290,7 @@ struct Allctr_t_ {
     Uint		min_block_size;
 
     /* Carriers */
+    CarrierList_t	sbmbc_list;
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
 
@@ -277,15 +299,15 @@ struct Allctr_t_ {
 
     /* Callback functions (first 4 are mandatory) */
     Block_t *		(*get_free_block)	(Allctr_t *, Uint,
-						 Block_t *, Uint);
-    void		(*link_free_block)	(Allctr_t *, Block_t *);
-    void		(*unlink_free_block)	(Allctr_t *, Block_t *);
+						 Block_t *, Uint, Uint32);
+    void		(*link_free_block)	(Allctr_t *, Block_t *, Uint32);
+    void		(*unlink_free_block)	(Allctr_t *, Block_t *, Uint32);
     Eterm		(*info_options)		(Allctr_t *, char *, int *,
 						 void *, Uint **, Uint *);
 
     Uint		(*get_next_mbc_size)	(Allctr_t *);
-    void		(*creating_mbc)		(Allctr_t *, Carrier_t *);
-    void		(*destroying_mbc)	(Allctr_t *, Carrier_t *);
+    void		(*creating_mbc)		(Allctr_t *, Carrier_t *, Uint32);
+    void		(*destroying_mbc)	(Allctr_t *, Carrier_t *, Uint32);
     void		(*init_atoms)		(void);
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
@@ -312,6 +334,8 @@ struct Allctr_t_ {
 	CallCounter_t	this_alloc;
 	CallCounter_t	this_free;
 	CallCounter_t	this_realloc;
+	CallCounter_t	sbmbc_alloc;
+	CallCounter_t	sbmbc_free;
 	CallCounter_t	mseg_alloc;
 	CallCounter_t	mseg_dealloc;
 	CallCounter_t	mseg_realloc;
@@ -322,6 +346,7 @@ struct Allctr_t_ {
 
     CarriersStats_t	sbcs;
     CarriersStats_t	mbcs;
+    CarriersStats_t	sbmbcs;
 
 #ifdef DEBUG
 #ifdef USE_THREADS

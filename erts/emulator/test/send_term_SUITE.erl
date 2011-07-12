@@ -175,6 +175,10 @@ chk_temp_alloc() ->
 	    %% Verify that we havn't got anything allocated by temp_alloc
 	    lists:foreach(
 	      fun ({instance, _, TI}) ->
+		      ?line {value, {sbmbcs, SBMBCInfo}}
+			  = lists:keysearch(sbmbcs, 1, TI),
+		      ?line {value, {blocks, 0, _, _}}
+			  = lists:keysearch(blocks, 1, SBMBCInfo),
 		      ?line {value, {mbcs, MBCInfo}}
 			  = lists:keysearch(mbcs, 1, TI),
 		      ?line {value, {blocks, 0, _, _}}
