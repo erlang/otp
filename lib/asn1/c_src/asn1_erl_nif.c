@@ -1015,6 +1015,9 @@ static ERL_NIF_TERM encode_per_complete(ErlNifEnv* env, int argc,
     if (!enif_alloc_binary(in_binary.size, &out_binary))
 	return enif_make_atom(env, "alloc_binary_failed");
 
+    if (in_binary.size == 0)
+	return enif_make_binary(env, &out_binary);
+
     if ((complete_len = complete(&out_binary, in_binary.data, in_binary.size))
 	    <= ASN1_ERROR) {
 	enif_release_binary(&out_binary);
