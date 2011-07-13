@@ -1466,7 +1466,7 @@ static ErlNifFunc nif_funcs[] =
     {"join_send_thread", 1, join_send_thread},
     {"copy_blob", 1, copy_blob},
     {"send_term", 2, send_term},
-    {"reverse_list",1, reverse_list}
+    {"reverse_list",1, reverse_list},
     {"echo_int", 1, echo_int},
     {"type_sizes", 0, type_sizes}
 };
