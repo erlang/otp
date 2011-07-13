@@ -1665,6 +1665,11 @@ do_test_cases(TopCases, SkipCases,
 	      Config, TimetrapData) when is_list(TopCases),
 					 is_tuple(TimetrapData) ->
     start_log_file(),
+    FwMod =
+	case os:getenv("TEST_SERVER_FRAMEWORK") of
+	    FW when FW =:= false; FW =:= "undefined" -> ?MODULE;
+	    FW -> list_to_atom(FW)
+	end,
     case collect_all_cases(TopCases, SkipCases) of
 	{error,Why} ->
 	    print(1, "Error starting: ~p", [Why]),
@@ -1677,11 +1682,11 @@ do_test_cases(TopCases, SkipCases,
 	    put(test_server_cases, N),
 	    put(test_server_case_num, 0),
 	    TestSpec =
-		add_init_and_end_per_suite(TestSpec0, undefined, undefined),
-
+		add_init_and_end_per_suite(TestSpec0, undefined, undefined, FwMod),
 	    TI = get_target_info(),
-	    print(1, "Starting test~s", [print_if_known(N, {", ~w test cases",[N]},
-							{" (with repeated test cases)",[]})]),
+	    print(1, "Starting test~s",
+		  [print_if_known(N, {", ~w test cases",[N]},
+				  {" (with repeated test cases)",[]})]),
 	    Test = get(test_server_name),
 	    test_server_sup:framework_call(report, [tests_start,{Test,N}]),
 
@@ -1710,13 +1715,12 @@ do_test_cases(TopCases, SkipCases,
 	    print(html, "<br>Used Erlang ~s in <tt>~s</tt>.\n",
 		  [erlang:system_info(version), code:root_dir()]),
 
-	    case os:getenv("TEST_SERVER_FRAMEWORK") of
-		FW when FW =:= false; FW =:= "undefined" ->
+	    if FwMod == ?MODULE ->
 		    print(html, "<p>Target:<br>\n"),
 		    print_who(TI#target_info.host, TI#target_info.username),
 		    print(html, "<br>Used Erlang ~s in <tt>~s</tt>.\n",
 			  [TI#target_info.version, TI#target_info.root_dir]);
-		_ ->
+		true ->
 		    case test_server_sup:framework_call(target_info, []) of
 			TargetInfo when is_list(TargetInfo),
 			                length(TargetInfo) > 0 ->
@@ -2006,54 +2010,54 @@ copy_html_file(Src, DestDir) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% add_init_and_end_per_suite(TestSpec, Mod, Ref) -> NewTestSpec
+%% add_init_and_end_per_suite(TestSpec, Mod, Ref, FwMod) -> NewTestSpec
 %%
 %% Expands TestSpec with an initial init_per_suite, and a final
 %% end_per_suite element, per each discovered suite in the list.
 
-add_init_and_end_per_suite([{make,_,_}=Case|Cases], LastMod, LastRef) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+add_init_and_end_per_suite([{make,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_end_per_suite_and_skip(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
+			   LastRef, FwMod) when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef) ->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
+  when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([{Mod,_,_}=Case|Cases], LastMod, LastRef)
-  when Mod =/= LastMod ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([{Mod,_,_}=Case|Cases], LastMod, LastRef, FwMod)
+  when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
 	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
-    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef)];
-add_init_and_end_per_suite([Case|Cases], LastMod, LastRef)->
-    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef)];
-add_init_and_end_per_suite([], _LastMod, undefined) ->
+    PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
+add_init_and_end_per_suite([Case|Cases], LastMod, LastRef, FwMod)->
+    [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
+add_init_and_end_per_suite([], _LastMod, undefined, _FwMod) ->
     [];
-add_init_and_end_per_suite([], _LastMod, skipped_suite) ->
+add_init_and_end_per_suite([], _LastMod, skipped_suite, _FwMod) ->
     [];
-add_init_and_end_per_suite([], LastMod, LastRef) ->
+add_init_and_end_per_suite([], LastMod, LastRef, _FwMod) ->
     [{conf,LastRef,[],{LastMod,end_per_suite}}].
 
 do_add_init_and_end_per_suite(LastMod, LastRef, Mod) ->
