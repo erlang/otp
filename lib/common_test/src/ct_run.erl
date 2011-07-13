@@ -157,6 +157,7 @@ script_start(Args) ->
 	end,
     stop_trace(Tracing),
     timer:sleep(1000),
+    io:nl(),
     Res.
 
 script_start1(Parent, Args) ->
@@ -2155,6 +2156,18 @@ get_start_opt(Key, IfExists, Args) ->
     get_start_opt(Key, IfExists, undefined, Args).
 
 get_start_opt(Key, IfExists, IfNotExists, Args) ->
+    try try_get_start_opt(Key, IfExists, IfNotExists, Args) of
+	Result ->
+	    Result
+    catch
+	error:_ ->
+	    exit({user_error,{bad_argument,Key}})
+    end.
+
+try_get_start_opt(Key, IfExists, Args) ->
+    try_get_start_opt(Key, IfExists, undefined, Args).
+
+try_get_start_opt(Key, IfExists, IfNotExists, Args) ->
     case lists:keysearch(Key, 1, Args) of
 	{value,{Key,Val}} when is_function(IfExists) ->
 	    IfExists(Val);

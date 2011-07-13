@@ -124,27 +124,27 @@ close(Info, StartDir) ->
 		    ok;
 		Error ->
 		    io:format("Warning! Cleanup failed: ~p~n", [Error])
-	    end;
+	    end,
+	    make_all_suites_index(stop),
+	    make_all_runs_index(stop);
        true -> 
-	    file:set_cwd("..")
-    end,       
-
-    make_all_suites_index(stop),
-    make_all_runs_index(stop),
-
-    case ct_util:get_profile_data(browser, StartDir) of
-	undefined ->
-	    ok;
-	BrowserData ->
-	    case {proplists:get_value(prog, BrowserData),
-		  proplists:get_value(args, BrowserData),
-		  proplists:get_value(page, BrowserData)} of
-		{Prog,Args,Page} when is_list(Args),
-				      is_list(Page) ->
-		    URL = "file://" ++ ?abs(Page),
-		    ct_util:open_url(Prog, Args, URL);
-		_ ->
-		    ok
+	    file:set_cwd(".."),
+	    make_all_suites_index(stop),
+	    make_all_runs_index(stop),
+	    case ct_util:get_profile_data(browser, StartDir) of
+		undefined ->
+		    ok;
+		BrowserData ->
+		    case {proplists:get_value(prog, BrowserData),
+			  proplists:get_value(args, BrowserData),
+			  proplists:get_value(page, BrowserData)} of
+			{Prog,Args,Page} when is_list(Args),
+					      is_list(Page) ->
+			    URL = "\"file://" ++ ?abs(Page) ++ "\"",
+			    ct_util:open_url(Prog, Args, URL);
+			_ ->
+			    ok
+		    end
 	    end
     end,
     ok.
