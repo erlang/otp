@@ -439,9 +439,7 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _->
 		""
 	end,
-    emit({nl,indent(3),"?RT_PER:encode_length(",
-	  {asis,SizeConstraint},
-	  ",length(Val)),",nl}),
+    gen_encode_length(SizeConstraint, is_optimized(Erule)),
     emit({indent(3),"'enc_",asn1ct_gen:list2name(Typename),
 	      "_components'(Val",ObjFun,", [])"}),
     emit({nl,"].",nl}),
@@ -452,6 +450,42 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ -> ComponentType
 	end,
     gen_encode_sof_components(Erule,Typename,SeqOrSetOf,NewComponentType).
+
+
+%% Logic copied from asn1_per_bin_rt2ct:encode_constrained_number
+gen_encode_length({Lb,Ub},true) when Ub =< 65535, Lb >= 0 ->
+    Range = Ub - Lb + 1,
+    V2 = ["(length(Val) - ",Lb,")"],
+    Encode = if
+		 Range  == 1 ->
+		     "[]";
+		 Range  == 2 ->
+		     {"[",V2,"]"};
+		 Range  =< 4 ->
+		     {"[10,2,",V2,"]"};
+		 Range  =< 8 ->
+		     {"[10,3,",V2,"]"};
+		 Range  =< 16 ->
+		     {"[10,4,",V2,"]"};
+		 Range  =< 32 ->
+		     {"[10,5,",V2,"]"};
+		 Range  =< 64 ->
+		     {"[10,6,",V2,"]"};
+		 Range  =< 128 ->
+		     {"[10,7,",V2,"]"};
+		 Range  =< 255 ->
+		     {"[10,8,",V2,"]"};
+		 Range  =< 256 ->
+		     {"[20,1,",V2,"]"};
+		 Range  =< 65536 ->
+		     {"[20,2,<<",V2,":16>>]"};
+		 true ->
+		     {"?RT_PER:encode_length(",{asis,{Lb,Ub}},",length(Val))"}
+	     end,
+    emit({nl,Encode,",",nl});
+gen_encode_length(SizeConstraint,_) ->
+    emit({nl,indent(3),"?RT_PER:encode_length(",
+	  {asis,SizeConstraint},",length(Val)),",nl}).
 
 gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
