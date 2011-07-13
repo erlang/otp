@@ -28,6 +28,7 @@
 static int static_cntA; /* zero by default */
 static int static_cntB = NIF_SUITE_LIB_VER * 100;
 
+static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_self;
 static ERL_NIF_TERM atom_ok;
 static ERL_NIF_TERM atom_join;
@@ -103,7 +104,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     msgenv_resource_type =  enif_open_resource_type(env,NULL,"nif_SUITE.msgenv",
 						    msgenv_dtor,
 						    ERL_NIF_RT_CREATE, NULL);
-
+    atom_false = enif_make_atom(env,"false");
     atom_self = enif_make_atom(env,"self");
     atom_ok = enif_make_atom(env,"ok");
     atom_join = enif_make_atom(env,"join");
@@ -479,6 +480,45 @@ static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
 error:
     return enif_make_atom(env,"error");
+}
+
+static ERL_NIF_TERM echo_int(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int sint;
+    unsigned uint;
+    long slong;
+    unsigned long ulong;
+    ErlNifSInt64 sint64;
+    ErlNifUInt64 uint64;    
+    ERL_NIF_TERM sint_term = atom_false,   uint_term = atom_false;
+    ERL_NIF_TERM slong_term = atom_false,  ulong_term = atom_false;
+    ERL_NIF_TERM sint64_term = atom_false, uint64_term = atom_false;
+
+    if (enif_get_int(env, argv[0], &sint)) {
+	sint_term = enif_make_int(env, sint);
+    }
+    if (enif_get_uint(env, argv[0], &uint)) {
+	uint_term = enif_make_uint(env, uint);
+    }
+    if (enif_get_long(env, argv[0], &slong)) {
+	slong_term = enif_make_long(env, slong);
+    }
+    if (enif_get_ulong(env, argv[0], &ulong)) {
+	ulong_term = enif_make_ulong(env, ulong);
+    }
+    if (enif_get_int64(env, argv[0], &sint64)) {
+	sint64_term = enif_make_int64(env, sint64);
+    }
+    if (enif_get_uint64(env, argv[0], &uint64)) {
+	uint64_term = enif_make_uint64(env, uint64);
+    }
+    return enif_make_list6(env, sint_term, uint_term, slong_term, ulong_term, sint64_term, uint64_term);
+}
+
+static ERL_NIF_TERM type_sizes(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    return enif_make_tuple2(env, enif_make_int(env, sizeof(int)),
+			    enif_make_int(env, sizeof(long)));
 }
 
 static ERL_NIF_TERM tuple_2_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -1427,6 +1467,8 @@ static ErlNifFunc nif_funcs[] =
     {"copy_blob", 1, copy_blob},
     {"send_term", 2, send_term},
     {"reverse_list",1, reverse_list}
+    {"echo_int", 1, echo_int},
+    {"type_sizes", 0, type_sizes}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)
