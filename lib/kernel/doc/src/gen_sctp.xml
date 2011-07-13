@@ -990,7 +990,7 @@
   
   server(IP, Port) when is_tuple(IP) orelse IP == any orelse IP == loopback,
                         is_integer(Port) -&gt;
-      {ok,S} = gen_sctp:open([{ip,IP},{port,Port}],[{recbuf,65536}]),
+      {ok,S} = gen_sctp:open(Port, [{recbuf,65536}, {ip,IP}]),
       io:format("Listening on ~w:~w. ~w~n", [IP,Port,S]),
       ok     = gen_sctp:listen(S, true),
       server_loop(S).
