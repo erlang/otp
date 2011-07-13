@@ -1297,6 +1297,7 @@ terminate(_Reason, State) ->
     end,
     kill_all_jobs(State#state.jobs),
     test_server_node:stop(State#state.target_info),
+    test_server_h:restore(),
     ok.
 
 kill_all_jobs([{_Name,JobPid}|Jobs]) ->
