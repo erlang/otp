@@ -1414,6 +1414,17 @@ do_clause(C, Arg, ArgType0, OrigArgType, Map,
 			    false ->
 			      true
 			  end;
+			[Pat0, Pat1] -> % binary comprehension
+			  case cerl:is_c_cons(Pat0) of
+			    true ->
+			      not (cerl:is_c_var(cerl:cons_hd(Pat0)) andalso
+				   cerl:is_c_var(cerl:cons_tl(Pat0)) andalso
+                                   cerl:is_c_var(Pat1) andalso
+				   cerl:is_literal(Guard) andalso
+				   (cerl:concrete(Guard) =:= true));
+			    false ->
+			      true
+			  end;
 			_ -> true
 		      end;
 		    false ->
