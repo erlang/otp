@@ -1080,8 +1080,13 @@ transform_taddr(?transportDomainUdpIpv6,
     {ok, {Domain, Address}};
 transform_taddr(?transportDomainUdpIpv6, BadAddr) ->
     {error, {bad_transportDomainUdpIpv6_address, BadAddr}};
-transform_taddr(BadTDomain, BadTAddress) ->
-    {error, {bad_domain, BadTDomain, BadTAddress}}.
+transform_taddr(BadTDomain, TAddress) ->
+    case lists:member(BadTDomain, snmp_conf:all_tdomains()) of
+	true ->
+	    {error, {unsupported_tdomain, BadTDomain, TAddress}};
+	false ->
+	    {error, {unknown_tdomain, BadTDomain, TAddress}}
+    end.
 
 
 process_taddrs(Dests) ->

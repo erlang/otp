@@ -147,7 +147,7 @@
 %% -define(DEF_ADDR_TAG, default_addr_tag).
 -define(DEFAULT_TARGETNAME, default_agent).
 -define(DEF_PORT_TAG,       default_port_tag).
--define(VALID_DOMAINS,      [transportDomainUdpIpv4, transportDomainUdpIpv6]).
+-define(SUPPORTED_DOMAINS,  [transportDomainUdpIpv4, transportDomainUdpIpv6]).
 
 -ifdef(snmp_debug).
 -define(GS_START_LINK(Opts),
@@ -3000,15 +3000,20 @@ verify_val(reg_type, RegType)
     {ok, RegType};
 verify_val(tdomain = Item, snmpUDPDomain = _Domain) ->
     verify_val(Item, transportDomainUdpIpv4);
-verify_val(tdomain, TDomain) ->
-    case lists:member(TDomain, ?VALID_DOMAINS) of
+verify_val(tdomain, Domain) ->
+    case lists:member(Domain, ?SUPPORTED_DOMAINS) of
 	true ->
-	    {ok, TDomain};
+	    {ok, Domain};
 	false ->
-	    error({bad_tdomain, TDomain})
+	    case lists:member(Domain, snmp_conf:all_domains()) of
+		true ->
+		    error({unsupported_domain, Domain});
+		false ->
+		    error({unknown_domain, Domain})
+	    end
     end;
-verify_val(address, {TDomain, Addr0}) ->
-    case normalize_address(TDomain, Addr0) of
+verify_val(address, {Domain, Addr0}) ->
+    case normalize_address(Domain, Addr0) of
 	{_A1, _A2, _A3, _A4} = Addr ->
 	    {ok, Addr};
 	{_A1, _A2, _A3, _A4, _A5, _A6, _A7, _A8} = Addr ->

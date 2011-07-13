@@ -37,7 +37,9 @@
 
 	 check_timer/1,
 
+	 all_domains/0, 
 	 check_domain/1, 
+	 all_tdomains/0, 
 	 check_tdomain/1,  
 	 mk_tdomain/1, 
 	 which_domain/1, 
@@ -345,6 +347,25 @@ check_sec_level(BadSecLevel) ->
 
 
 %% ---------
+all_tdomains() ->
+    [
+     ?transportDomainUdpIpv4, 
+     ?transportDomainUdpIpv6, 
+     ?transportDomainUdpIpv4z, 
+     ?transportDomainUdpIpv6z, 
+     ?transportDomainTcpIpv4, 
+     ?transportDomainTcpIpv6, 
+     ?transportDomainTcpIpv4z, 
+     ?transportDomainTcpIpv6z, 
+     ?transportDomainSctpIpv4, 
+     ?transportDomainSctpIpv6, 
+     ?transportDomainSctpIpv4z, 
+     ?transportDomainSctpIpv6z, 
+     ?transportDomainLocal, 
+     ?transportDomainUdpDns, 
+     ?transportDomainTcpDns,
+     ?transportDomainSctpDns
+    ].
 
 check_tdomain(TDomain) ->
     SupportedTDomains = 
@@ -353,25 +374,7 @@ check_tdomain(TDomain) ->
 	 ?transportDomainUdpIpv4,
 	 ?transportDomainUdpIpv6			 
 	],
-    AllTDomains = 
-	[
-	 ?transportDomainUdpIpv4, 
-	 ?transportDomainUdpIpv6, 
-	 ?transportDomainUdpIpv4z, 
-	 ?transportDomainUdpIpv6z, 
-	 ?transportDomainTcpIpv4, 
-	 ?transportDomainTcpIpv6, 
-	 ?transportDomainTcpIpv4z, 
-	 ?transportDomainTcpIpv6z, 
-	 ?transportDomainSctpIpv4, 
-	 ?transportDomainSctpIpv6, 
-	 ?transportDomainSctpIpv4z, 
-	 ?transportDomainSctpIpv6z, 
-	 ?transportDomainLocal, 
-	 ?transportDomainUdpDns, 
-	 ?transportDomainTcpDns,
-	 ?transportDomainSctpDns
-	],
+    AllTDomains = all_tdomains(), 
     case lists:member(TDomain, SupportedTDomains) of
 	true ->
 	    ok;
@@ -474,6 +477,26 @@ do_check_timer(WaitFor, Factor, Incr, Retry) ->
 
 %% ---------
 
+all_domains() ->
+    [
+     transportDomainUdpIpv4, 
+     transportDomainUdpIpv6, 
+     transportDomainUdpIpv4z, 
+     transportDomainUdpIpv6z, 
+     transportDomainTcpIpv4, 
+     transportDomainTcpIpv6, 
+     transportDomainTcpIpv4z, 
+     transportDomainTcpIpv6z, 
+     transportDomainSctpIpv4, 
+     transportDomainSctpIpv6, 
+     transportDomainSctpIpv4z, 
+     transportDomainSctpIpv6z, 
+     transportDomainLocal, 
+     transportDomainUdpDns, 
+     transportDomainTcpDns,
+     transportDomainSctpDns
+    ].
+
 check_domain(Domain) ->
     SupportedDomains = 
 	[
@@ -481,25 +504,7 @@ check_domain(Domain) ->
 	 transportDomainUdpIpv4,
 	 transportDomainUdpIpv6
 	],
-    AllDomains = 
-	[
-	 transportDomainUdpIpv4, 
-	 transportDomainUdpIpv6, 
-	 transportDomainUdpIpv4z, 
-	 transportDomainUdpIpv6z, 
-	 transportDomainTcpIpv4, 
-	 transportDomainTcpIpv6, 
-	 transportDomainTcpIpv4z, 
-	 transportDomainTcpIpv6z, 
-	 transportDomainSctpIpv4, 
-	 transportDomainSctpIpv6, 
-	 transportDomainSctpIpv4z, 
-	 transportDomainSctpIpv6z, 
-	 transportDomainLocal, 
-	 transportDomainUdpDns, 
-	 transportDomainTcpDns,
-	 transportDomainSctpDns
-	],
+    AllDomains = all_domains(), 
     case lists:member(Domain, SupportedDomains) of
 	true ->
 	    ok;
