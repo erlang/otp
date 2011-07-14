@@ -26,7 +26,7 @@
 	 cleanup_crash_dumps/0, crash_dump_dir/0, tar_crash_dumps/0,
 	 get_username/0, get_os_family/0, 
 	 hostatom/0, hostatom/1, hoststr/0, hoststr/1,
-	 framework_call/2,framework_call/3,
+	 framework_call/2,framework_call/3,framework_call/4,
 	 format_loc/1, package_str/1, package_atom/1,
 	 call_trace/1]).
 -include("test_server_internal.hrl").

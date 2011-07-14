@@ -2195,9 +2195,6 @@ get_start_opt(Key, IfExists, IfNotExists, Args) ->
 	    exit({user_error,{bad_argument,Key}})
     end.
 
-try_get_start_opt(Key, IfExists, Args) ->
-    try_get_start_opt(Key, IfExists, undefined, Args).
-
 try_get_start_opt(Key, IfExists, IfNotExists, Args) ->
     case lists:keysearch(Key, 1, Args) of
 	{value,{Key,Val}} when is_function(IfExists) ->

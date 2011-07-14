@@ -1218,8 +1218,8 @@ do_end_tc_call(M,F,Res,Return) ->
 		    NewReturn
 	    end;
 	Other ->
-	    case test_server_sup:framework_call(
-		   end_tc, [Other,F,Res], Ref) of
+	    case test_server_sup:framework_call(Other, end_tc,
+						[?pl2a(M),F,Res], Ref) of
 		{fail,FWReason} ->
 		    {failed,FWReason};
 		_Else ->
