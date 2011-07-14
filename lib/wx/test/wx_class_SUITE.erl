@@ -390,7 +390,7 @@ listCtrlVirtual(Config) ->
 					 end},
 			 {onGetItemAttr, fun(_This, Item) when Item rem 3 == 0 ->
 						 IA;
-					    (_This, Item)  ->
+					    (_This, _Item)  ->
 						 wx:typeCast(wx:null(), wxListItemAttr)
 					 end},
 			 {onGetItemColumnImage, fun(_This, Item, 1) ->

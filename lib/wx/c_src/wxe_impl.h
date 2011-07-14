@@ -178,7 +178,7 @@ public:
   wxeMemEnv * global_me;
   
   // Temp container for callbacks
-  char cb_buff[256];
+  char *cb_buff;
   int  cb_len;
 };
 
@@ -195,7 +195,6 @@ class wxETreeItemData : public wxTreeItemData
 
 bool sendevent(wxEvent * event, ErlDrvPort port);
 void pre_callback();
-void handle_callback_batch(ErlDrvPort port);  // For wxePrintout
 void handle_event_callback(ErlDrvPort port, ErlDrvTermData process);
 
 void activateGL(ErlDrvTermData caller);

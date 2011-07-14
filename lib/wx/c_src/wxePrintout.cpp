@@ -38,7 +38,7 @@
   rt.addAtom("_wx_invoke_cb_");						\
   rt.addTupleCount(3);							\
   rt.send();								\
-  handle_callback_batch(port);						\
+  handle_event_callback(port, memenv->owner); 			        \
  }
 
 #define INVOKE_CALLBACK(port, callback, class_str)	\
@@ -68,9 +68,11 @@ bool wxEPrintout::OnBeginDocument(int startPage, int endPage)
     rt.addInt(startPage);
     rt.addInt(endPage);
     INVOKE_CALLBACK_END(port, 2);
-    if(((WxeApp *) wxTheApp)->cb_len > 0) {
-      char * bp = ((WxeApp *) wxTheApp)->cb_buff;
-      return *(int*) bp;
+    if(((WxeApp *) wxTheApp)->cb_buff) {
+      int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
+      return res;
     }
   }
   return wxPrintout::OnBeginDocument(startPage,endPage);
@@ -122,9 +124,11 @@ bool wxEPrintout::HasPage(int page)
     INVOKE_CALLBACK_INIT(port, hasPage, "wxPrintout");
     rt.addInt(page);
     INVOKE_CALLBACK_END(port, 1);
-    if(((WxeApp *) wxTheApp)->cb_len > 0) {
-      char * bp = ((WxeApp *) wxTheApp)->cb_buff;
-      return *(int*) bp;
+    if(((WxeApp *) wxTheApp)->cb_buff) {
+      int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
+      return res;
     }
   }
   return wxPrintout::HasPage(page);
@@ -135,9 +139,11 @@ bool wxEPrintout::OnPrintPage(int page)
   INVOKE_CALLBACK_INIT(port, onPrintPage, "wxPrintout");
   rt.addInt(page);
   INVOKE_CALLBACK_END(port, 1);
-  if(((WxeApp *) wxTheApp)->cb_len > 0) {
-    char * bp = ((WxeApp *) wxTheApp)->cb_buff;
-    return *(int*) bp;
+  if(((WxeApp *) wxTheApp)->cb_buff) {
+    int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
+    driver_free(((WxeApp *) wxTheApp)->cb_buff);
+    ((WxeApp *) wxTheApp)->cb_buff = NULL;
+    return res;
   }
   return FALSE;
 }
@@ -146,12 +152,14 @@ void wxEPrintout::GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pa
 {
   if(getPageInfo) {
     INVOKE_CALLBACK(port, getPageInfo, "wxPrintout");
-    if(((WxeApp *) wxTheApp)->cb_len > 0) {
+    if(((WxeApp *) wxTheApp)->cb_buff) {
       char * bp = ((WxeApp *) wxTheApp)->cb_buff;
       *minPage  = *(int *) bp; bp += 4;
       *maxPage  = *(int *) bp; bp += 4;
       *pageFrom = *(int *) bp; bp += 4;
       *pageTo   = *(int *) bp; bp += 4;
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
     }
   }
   wxPrintout::GetPageInfo(minPage, maxPage, pageFrom, pageTo);
@@ -166,9 +174,11 @@ wxString EwxListCtrl::OnGetItemText(long item, long col) const {
     rt.addInt(item);
     rt.addInt(col);
     INVOKE_CALLBACK_END(port, 2);
-    if(((WxeApp *) wxTheApp)->cb_len > 0) {
+    if(((WxeApp *) wxTheApp)->cb_buff) {
       char * bp = ((WxeApp *) wxTheApp)->cb_buff;
       wxString str = wxString(bp, wxConvUTF8);
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
       return str;
     }
   }
@@ -182,8 +192,11 @@ wxListItemAttr* EwxListCtrl::OnGetItemAttr(long item) const {
     INVOKE_CALLBACK_END(port, 1);
     char * bp = ((WxeApp *) wxTheApp)->cb_buff;
     wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(port);
-    if(((WxeApp *) wxTheApp)->cb_len > 0) {
-      return (wxListItemAttr *) ((WxeApp *) wxTheApp)->getPtr(bp, memenv);
+    if(bp) {
+      wxListItemAttr * result = (wxListItemAttr *)((WxeApp *) wxTheApp)->getPtr(bp, memenv);
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
+      return result;
     }
   }
   return NULL;
@@ -199,9 +212,11 @@ int EwxListCtrl::OnGetItemColumnImage(long item, long col) const {
     rt.addInt(item);
     rt.addInt(col);
     INVOKE_CALLBACK_END(port, 2);
-    if(((WxeApp *) wxTheApp)->cb_len > 0) {
-      char * bp = ((WxeApp *) wxTheApp)->cb_buff;
-      return *(int *) bp;
+    if(((WxeApp *) wxTheApp)->cb_buff) {
+      int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
+      driver_free(((WxeApp *) wxTheApp)->cb_buff);
+      ((WxeApp *) wxTheApp)->cb_buff = NULL;
+      return res;
     }
   }
   return -1;
