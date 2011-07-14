@@ -27,6 +27,8 @@
 
 -export([utf8_binary_to_list/1,utf8_list_to_binary/1]).
     
+-deprecated([load_driver/0,unload_driver/0]).
+
 encode(Module,{Type,Term}) ->
     encode(Module,Type,Term).
 
