@@ -452,6 +452,9 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 	false -> ok
     end,
 
+%%! --- Thu Jul 14 23:45:00 2011 --- peppe was here!
+    io:format(user, "MOD:FUNC = ~p:~p = ~p~n", [Mod,Func,Result]),
+
     %% save the testcase process pid so that it can be used
     %% to look up the attached trace window later
     case ct_util:get_testdata(interpret) of

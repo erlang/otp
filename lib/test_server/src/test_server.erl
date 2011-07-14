@@ -955,7 +955,7 @@ spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
-		case catch do_end_tc_call(Mod,Func,{Pid,Skip,[[]]},Why) of
+		case catch do_end_tc_call(Mod,Func, Loc, {Pid,Skip,[[]]}, Why) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -971,23 +971,26 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 	      {timetrap_timeout,TVal}=Why,_Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->
-		%% if end_per_testcase fails a warning should be
-		%% printed as comment
-		case catch do_end_tc_call(Mod,Func,{Pid,
-						    {failed,{Mod,
-							     end_per_testcase,
-							     Why}},
-						    [EndConf]}, Why) of
+		{RetVal,Report} =
+		    case proplists:get_value(tc_status, EndConf) of
+			undefined ->
+			    E = {failed,{Mod,end_per_testcase,Why}},
+			    {E,E};
+			E = {failed,Reason} ->
+			    {E,{error,Reason}};
+			Result ->
+			    {Result,Result}
+		    end,
+		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
+		case catch do_end_tc_call(Mod,Func, FailLoc,
+					  {Pid,Report,[EndConf]}, Why) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
 			ok
 		end,
-		RetVal = case proplists:get_value(tc_status, EndConf) of
-			     undefined -> {failed,{Mod,end_per_testcase,Why}};
-			     Result -> Result
-			 end,
-		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
+		%% if end_per_testcase fails a warning should be
+		%% printed as comment
 		Comment1 = if Comment == "" -> "";
 			      true -> Comment ++ "<br>"
 			   end,
@@ -1027,7 +1030,8 @@ spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo,Comment) ->
 			ok
 		end,
 		Conf = [{tc_status,{failed,timetrap_timeout}}],
-		case catch do_end_tc_call(Mod,Func,{Pid,Error,[Conf]},Error) of
+		case catch do_end_tc_call(Mod,Func, Loc,
+					  {Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -1097,22 +1101,26 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		NewResult = do_end_tc_call(Mod,Func,{Error,Args0},
+		Where = {Mod,Func},
+		NewResult = do_end_tc_call(Mod,Func, Where, {Error,Args0},
 					   {skip,{failed,Error}}),
-		{{0,NewResult},{Mod,Func},[]};
+		{{0,NewResult},Where,[]};
 	    {fail,Reason} ->
 		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
+		Where = {Mod,Func},
 		fw_error_notify(Mod, Func, Conf, Reason),
-		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
+		NewResult = do_end_tc_call(Mod,Func, Where, {{error,Reason},[Conf]},
 					   {fail,Reason}),
-		{{0,NewResult},{Mod,Func},[]};
+		{{0,NewResult},Where,[]};
 	    Skip = {skip,_Reason} ->
-		NewResult = do_end_tc_call(Mod,Func,{Skip,Args0},Skip),
-		{{0,NewResult},{Mod,Func},[]};
+		Where = {Mod,Func},
+		NewResult = do_end_tc_call(Mod,Func, Where, {Skip,Args0}, Skip),
+		{{0,NewResult},Where,[]};
 	    {auto_skip,Reason} ->
-		NewResult = do_end_tc_call(Mod, Func, {{skip,Reason},Args0},
+		Where = {Mod,Func},
+		NewResult = do_end_tc_call(Mod,Func, Where, {{skip,Reason},Args0},
 					   {skip,{fw_auto_skip,Reason}}),
-		{{0,NewResult},{Mod,Func},[]}
+		{{0,NewResult},Where,[]}
 	end,
     exit({Ref,Time,Value,Loc,Opts}).
 
@@ -1126,18 +1134,19 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		Skip = {skip,Reason} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}}],
-		    NewRes = do_end_tc_call(Mod,Func,{Skip,[Conf]}, Skip),
+		    NewRes = do_end_tc_call(Mod,Func, Line, {Skip,[Conf]}, Skip),
 		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
 		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
-		    NewRes = do_end_tc_call(Mod, Func, {{skip,Reason},[Conf]},
-					    {skip, Reason}),
+		    NewRes = do_end_tc_call(Mod,Func, Line, {{skip,Reason},[Conf]},
+					    {skip,Reason}),
 		    {{0,NewRes},Line,[]};
 		FailTC = {fail,Reason} ->       % user fails the testcase
 		    EndConf = [{tc_status,{failed,Reason}} | hd(Args)],
 		    fw_error_notify(Mod, Func, EndConf, Reason),
-		    NewRes = do_end_tc_call(Mod, Func, {{error,Reason},[EndConf]},
+		    NewRes = do_end_tc_call(Mod,Func, {Mod,Func},
+					    {{error,Reason},[EndConf]},
 					    FailTC),
 		    {{0,NewRes},{Mod,Func},[]};
 		{ok,NewConf} ->
@@ -1190,7 +1199,8 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% clear current state in controller loop
 		    group_leader() ! {set_curr_conf,undefined},
 		    put(test_server_init_or_end_conf,undefined),
-		    case do_end_tc_call(Mod, Func, {FWReturn1,[EndConf2]}, TSReturn1) of
+		    case do_end_tc_call(Mod,Func, Loc,
+					{FWReturn1,[EndConf2]}, TSReturn1) of
 			{failed,Reason} = NewReturn ->
 			    fw_error_notify(Mod,Func,EndConf2, Reason),
 			    {{T,NewReturn},{Mod,Func},[]};
@@ -1218,14 +1228,39 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    {{T,Return2},Loc,Opts}
     end.
 
-do_end_tc_call(M,F,Res,Return) ->
+do_end_tc_call(M,F, Loc, Res, Return) ->
+    FwMod = os:getenv("TEST_SERVER_FRAMEWORK"),
+    {Mod,Func} =
+	if FwMod == M ; FwMod == "undefined"; FwMod == false ->
+		{M,F};
+	   is_list(Loc) and (length(Loc)>1) ->
+		%% If failure in other module (M) than suite, try locate
+		%% suite name in Loc list and call end_tc with Suite:TestCase
+		%% instead of M:F.
+		GetSuite = fun(S,TC) ->
+				   case lists:reverse(atom_to_list(S)) of
+				       [$E,$T,$I,$U,$S,$_|_]  -> [{S,TC}];
+				      _ -> []
+				   end
+			  end,
+		case lists:flatmap(fun({S,TC,_})   -> GetSuite(S,TC);
+				      ({{S,TC},_}) -> GetSuite(S,TC);
+				      ({S,TC})     -> GetSuite(S,TC);
+				      (_)          -> []
+				   end, Loc) of
+		    [] ->
+			{M,F};
+		    [FoundSuite|_] ->
+			FoundSuite
+		end;
+	   true ->
+		{M,F}
+	end,
+
     Ref = make_ref(),
-    case os:getenv("TEST_SERVER_FRAMEWORK") of
-	FW when FW == "ct_framework";
-		FW == "undefined";
-		FW == false ->
+    if FwMod == "ct_framework" ; FwMod == "undefined"; FwMod == false ->
 	    case test_server_sup:framework_call(
-		   end_tc, [?pl2a(M),F,Res, Return], ok) of
+		   end_tc, [?pl2a(Mod),Func,Res, Return], ok) of
 		{fail,FWReason} ->
 		    {failed,FWReason};
 		ok ->
@@ -1238,9 +1273,9 @@ do_end_tc_call(M,F,Res,Return) ->
 		NewReturn ->
 		    NewReturn
 	    end;
-	Other ->
-	    case test_server_sup:framework_call(Other, end_tc,
-						[?pl2a(M),F,Res], Ref) of
+       true ->
+	    case test_server_sup:framework_call(FwMod, end_tc,
+						[?pl2a(Mod),Func,Res], Ref) of
 		{fail,FWReason} ->
 		    {failed,FWReason};
 		_Else ->
@@ -1263,7 +1298,7 @@ process_return_val([Return], M,F,A, Loc, Final) when is_list(Return) ->
 	true ->		     % must be return value from end conf case
 	    process_return_val1(Return, M,F,A, Loc, Final, []);
 	false -> % must be Config value from init conf case
-	    case do_end_tc_call(M,F,{ok,A}, Return) of
+	    case do_end_tc_call(M, F, Loc, {ok,A}, Return) of
 		{failed, FWReason} = Failed ->
 		    fw_error_notify(M,F,A, FWReason),
 		    {Failed, []};
@@ -1280,8 +1315,9 @@ process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts)
   when E=='EXIT';
        E==failed ->
     fw_error_notify(M,F,A, TCError, mod_loc(Loc)),
-    case do_end_tc_call(M,F,{{error,TCError},
-			     [[{tc_status,{failed,TCError}}|Args]]}, Failed) of
+    case do_end_tc_call(M,F, Loc, {{error,TCError},
+				   [[{tc_status,{failed,TCError}}|Args]]},
+			Failed) of
 	{failed,FWReason} ->
 	    {{failed,FWReason},SaveOpts};
 	NewReturn ->
@@ -1298,8 +1334,8 @@ process_return_val1([RetVal={Tag,_}|Opts], M,F,A, Loc, _, SaveOpts) when Tag==sk
     process_return_val1(Opts, M,F,A, Loc, RetVal, SaveOpts);
 process_return_val1([_|Opts], M,F,A, Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, SaveOpts);
-process_return_val1([], M,F,A, _Loc, Final, SaveOpts) ->
-    case do_end_tc_call(M,F,{Final,A}, Final) of
+process_return_val1([], M,F,A, Loc, Final, SaveOpts) ->
+    case do_end_tc_call(M,F, Loc, {Final,A}, Final) of
 	{failed,FWReason} ->
 	    {{failed,FWReason},SaveOpts};
 	NewReturn ->
