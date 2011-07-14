@@ -1350,6 +1350,10 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
     put(test_server_minor_level, MinLev),
     put(test_server_random_seed, proplists:get_value(random_seed, ExtraTools)),
     put(test_server_testcase_callback, TCCallback),
+    %% before first print, read and set logging options
+    LogOpts = test_server_sup:framework_call(get_logopts, [], []),
+    put(test_server_logopts, LogOpts),
+    put(test_server_log_nl, not lists:member(no_nl, LogOpts)),
     StartedExtraTools = start_extra_tools(ExtraTools),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     put(test_server_common_io_handler, undefined),
@@ -1889,11 +1893,12 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName) ->
 	      []),
 
     SrcListing = downcase(cast_to_list(Mod)) ++ ?src_listing_ext,
-    case filelib:is_file(filename:join(LogDir, SrcListing)) of
-	true ->
+    case {filelib:is_file(filename:join(LogDir, SrcListing)),
+	  lists:member(no_src, get(test_server_logopts))} of
+	{true,false} ->
 	    print(Lev, "<a href=\"~s#~s\">source code for ~p:~p/1</a>\n",
 		  [SrcListing,Func,Mod,Func]);
-	false -> ok
+	_ -> ok
     end,
 
     io:fwrite(Fd, "<pre>\n", []),
@@ -2106,7 +2111,12 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
 
     maybe_open_job_sock(),
 
-    html_convert_modules(TestSpec, Config),
+    case lists:member(no_src, get(test_server_logopts)) of
+	true ->
+	    ok;
+	false ->
+	    html_convert_modules(TestSpec, Config)
+    end,
 
     run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
 
@@ -2315,7 +2325,8 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    handle_test_case_io_and_status(),
 		    set_io_buffering(undefined),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, false, SkipMode),
-		    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+		    test_server_sup:framework_call(report, [tc_auto_skip,
+							    {?pl2a(Mod),Func,Comment}]),
 		    run_test_cases_loop(Cases, Config, TimetrapData, ParentMode,
 					delete_status(Ref, Status));
 		_ ->
@@ -2323,7 +2334,8 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    %% parallel group (io buffering is active)
 		    wait_for_cases(Ref),
 		    {Mod,Func} = skip_case(auto, Ref, 0, Case, Comment, true, SkipMode),
-		    test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
+		    test_server_sup:framework_call(report, [tc_auto_skip,
+							    {?pl2a(Mod),Func,Comment}]),
 		    case CurrIOHandler of
 			{Ref,_} ->
 			    %% current_io_handler was set by start conf of this
@@ -4350,14 +4362,18 @@ output_to_fd(Fd, [$=|Msg], internal) ->
     io:put_chars(Fd, [$=]),
     io:put_chars(Fd, Msg),
     io:put_chars(Fd, "\n");
+
 output_to_fd(Fd, Msg, internal) ->
     io:put_chars(Fd, [$=,$=,$=,$ ]),
     io:put_chars(Fd, Msg),
     io:put_chars(Fd, "\n");
+
 output_to_fd(Fd, Msg, _Sender) ->
     io:put_chars(Fd, Msg),
-    io:put_chars(Fd, "\n").
-
+    case get(test_server_log_nl) of
+	false -> ok;
+	_     -> io:put_chars(Fd, "\n")
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timestamp_filename_get(Leader) -> string()
@@ -4670,7 +4686,7 @@ collect_case_invoke(Mod, Case, MFA, St) ->
 		    collect_subcases(Mod, Case, MFA, St, Suite)
 	    end;
 	_ ->
-	    Suite = test_server_sup:framework_call(get_suite, [?pl2a(Mod),Case],[]),
+	    Suite = test_server_sup:framework_call(get_suite, [?pl2a(Mod),Case], []),
 	    collect_subcases(Mod, Case, MFA, St, Suite)
     end.
 

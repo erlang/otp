@@ -33,6 +33,7 @@
 		   label=[],
 		   profile=[],
 		   logdir=["."],
+		   logopts=[],
 		   cover=[],
 		   config=[],
 		   userconfig=[],

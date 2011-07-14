@@ -20,7 +20,7 @@
 -module(vts).
 
 -export([start/0,
-	 init_data/4,
+	 init_data/5,
 	 stop/0,
 	 report/2]).
 
@@ -56,7 +56,7 @@
 
 -record(state,{tests=[],config=[],event_handler=[],test_runner,
 	       running=0,reload_results=false,start_dir,current_log_dir,
-	       total=0,ok=0,fail=0,skip=0,testruns=[]}).
+	       logopts=[],total=0,ok=0,fail=0,skip=0,testruns=[]}).
 
 
 %%%-----------------------------------------------------------------
@@ -65,8 +65,8 @@ start() ->
     webtool:start(),
     webtool:start_tools([],"app=vts").
 
-init_data(ConfigFiles,EvHandlers,LogDir,Tests) ->
-    call({init_data,ConfigFiles,EvHandlers,LogDir,Tests}).
+init_data(ConfigFiles,EvHandlers,LogDir,LogOpts,Tests) ->
+    call({init_data,ConfigFiles,EvHandlers,LogDir,LogOpts,Tests}).
 
 stop() ->
     webtool:stop_tools([],"app=vts"),
@@ -160,10 +160,11 @@ init(Parent) ->
 
 loop(State) ->
     receive
-	{{init_data,Config,EvHandlers,LogDir,Tests},From} ->
+	{{init_data,Config,EvHandlers,LogDir,LogOpts,Tests},From} ->
 	    %% ct:pal("State#state.current_log_dir=~p", [State#state.current_log_dir]),
 	    NewState = State#state{config=Config,event_handler=EvHandlers,
-			current_log_dir=LogDir,tests=Tests},
+				   current_log_dir=LogDir,
+				   logopts=LogOpts,tests=Tests},
 	    ct_install(NewState),
 	    return(From,ok),
 	    loop(NewState);
@@ -270,10 +271,11 @@ return({To,Ref},Result) ->
     To ! {Ref, Result}.
 
 
-run_test1(State=#state{tests=Tests,current_log_dir=LogDir}) ->
+run_test1(State=#state{tests=Tests,current_log_dir=LogDir,
+		       logopts=LogOpts}) ->
     Self=self(),
     RunTest = fun() ->
-		      case ct_run:do_run(Tests,[],LogDir) of
+		      case ct_run:do_run(Tests,[],LogDir,LogOpts) of
 			  {error,_Reason} ->
 			      aborted();
 			  _ ->

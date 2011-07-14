@@ -33,7 +33,7 @@
 
 
 %% Exported for VTS
--export([run_make/3,do_run/3,tests/1,tests/2,tests/3]).
+-export([run_make/3,do_run/4,tests/1,tests/2,tests/3]).
 
 
 %% Misc internal functions
@@ -53,6 +53,7 @@
 	       coverspec,
 	       step,
 	       logdir,
+	       logopts = [],
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
@@ -168,6 +169,8 @@ script_start1(Parent, Args) ->
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
+    LogOpts = get_start_opt(logopts, fun(Os) -> [list_to_atom(O) || O <- Os] end,
+			    [], Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -239,7 +242,8 @@ script_start1(Parent, Args) ->
 
    StartOpts = #opts{label = Label, profile = Profile,
 		     vts = Vts, shell = Shell, cover = Cover,
-		     logdir = LogDir, event_handlers = EvHandlers,
+		     logdir = LogDir, logopts = LogOpts,
+		     event_handlers = EvHandlers,
 		     ct_hooks = CTHooks,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
@@ -307,6 +311,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 			LogDir = choose_val(StartOpts#opts.logdir,
 					    SpecStartOpts#opts.logdir),
 
+			AllLogOpts = merge_vals([StartOpts#opts.logopts,
+						 SpecStartOpts#opts.logopts]),
+
 			Cover = choose_val(StartOpts#opts.cover,
 					   SpecStartOpts#opts.cover),
 			MultTT = choose_val(StartOpts#opts.multiply_timetraps,
@@ -328,6 +335,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   testspecs = Specs,
 					   cover = Cover,
 					   logdir = LogDir,
+					   logopts = AllLogOpts,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
 					   ct_hooks = AllCTHooks,
@@ -465,7 +473,7 @@ script_start3(StartOpts, Args) ->
     end.
 
 script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
-		    tests = Tests, logdir = LogDir}, _Args) ->
+		    tests = Tests, logdir = LogDir, logopts = LogOpts}, _Args) ->
     ConfigFiles =
 	lists:foldl(fun({ct_config_plain,CfgFiles}, AllFiles) when
 			      is_list(hd(CfgFiles)) ->
@@ -476,13 +484,15 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 		       (_, AllFiles) ->
 			    AllFiles
 		    end, [], Config),
-    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), Tests);
+    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), LogOpts, Tests);
 
 script_start4(#opts{label = Label, profile = Profile,
 		    shell = true, config = Config,
 		    event_handlers = EvHandlers,
 		    ct_hooks = CTHooks,
-		    logdir = LogDir, testspecs = Specs}, _Args) ->
+		    logdir = LogDir,
+		    logopts = LogOpts,
+		    testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
 
@@ -499,6 +509,7 @@ script_start4(#opts{label = Label, profile = Profile,
     case install(InstallOpts) of
 	ok ->
 	    ct_util:start(interactive, LogDir),
+	    ct_util:set_testdata(logopts, LogOpts),
 	    log_ts_names(Specs),
 	    io:nl(),
 	    ok;
@@ -539,6 +550,7 @@ script_usage() ->
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-dir TestDir1 TestDir2 .. TestDirN] |"
 	      "\n\t[-suite Suite [-case Case]]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -555,8 +567,9 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
-	      "\n\t[-event_handler EvHandler1 and EvHandler2 .. EvHandlerN]"
-	      "\n\t[-ct_hooks CTHook1 and CTHook2 .. CTHookN]"
+	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -574,8 +587,9 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
-	      "\n\t[-event_handler EvHandler1 and EvHandler2 .. EvHandlerN]"
-	      "\n\t[-ct_hooks CTHook1 and CTHook2 .. CTHookN]"
+	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -690,6 +704,9 @@ run_test1(StartOpts) ->
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
 			   StartOpts),
+    %% logopts
+    LogOpts = get_start_opt(logopts, value, [], StartOpts),
+
     %% config & userconfig
     CfgFiles = ct_config:get_config_file_list(StartOpts),
 
@@ -789,7 +806,8 @@ run_test1(StartOpts) ->
     Step = get_start_opt(step, value, StartOpts),
 
     Opts = #opts{label = Label, profile = Profile,
-		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
+		 cover = Cover, step = Step, logdir = LogDir,
+		 logopts = LogOpts, config = CfgFiles,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
 		 include = Include,
@@ -834,6 +852,8 @@ run_spec_file(Relaxed,
 			       SpecOpts#opts.profile),
 	    LogDir = choose_val(Opts#opts.logdir,
 				SpecOpts#opts.logdir),
+	    AllLogOpts = merge_vals([Opts#opts.logopts,
+				     SpecOpts#opts.logopts]),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
 	    Cover = choose_val(Opts#opts.cover,
 			       SpecOpts#opts.cover),
@@ -860,6 +880,7 @@ run_spec_file(Relaxed,
 				      profile = Profile,
 				      cover = Cover,
 				      logdir = which(logdir, LogDir),
+				      logopts = AllLogOpts,
 				      config = AllConfig,
 				      event_handlers = AllEvHs,
 				      include = AllInclude,
@@ -1089,6 +1110,7 @@ run_testspec1(TestSpec) ->
 get_data_for_node(#testspec{label = Labels,
 			    profile = Profiles,
 			    logdir = LogDirs,
+			    logopts = LogOptsList,
 			    cover = CoverFs,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
@@ -1103,6 +1125,10 @@ get_data_for_node(#testspec{label = Labels,
 		 undefined -> ".";
 		 Dir -> Dir
 	     end,
+    LogOpts = case proplists:get_value(Node, LogOptsList) of
+		  undefined -> [];
+		  LOs -> LOs
+	      end,
     Cover = proplists:get_value(Node, CoverFs),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
@@ -1114,6 +1140,7 @@ get_data_for_node(#testspec{label = Labels,
     #opts{label = Label,
 	  profile = Profile,
 	  logdir = LogDir,
+	  logopts = LogOpts,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
@@ -1245,9 +1272,11 @@ tests(TestDirs) when is_list(TestDirs), is_list(hd(TestDirs)) ->
     [{?testdir(TestDir,all),all,all} || TestDir <- TestDirs].
 
 do_run(Tests, Misc) when is_list(Misc) ->
-    do_run(Tests, Misc, ".").
+    do_run(Tests, Misc, ".", []).
 
-do_run(Tests, Misc, LogDir) when is_list(Misc) ->
+do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
+					  is_list(LogDir),
+					  is_list(LogOpts) ->
     Opts =
 	case proplists:get_value(step, Misc) of
 	    undefined ->
@@ -1262,9 +1291,9 @@ do_run(Tests, Misc, LogDir) when is_list(Misc) ->
 	    CoverFile ->
 		Opts#opts{cover = CoverFile}
 	end,
-    do_run(Tests, [], Opts1#opts{logdir = LogDir}, []).
+    do_run(Tests, [], Opts1#opts{logdir = LogDir}, []);
 
-do_run(Tests, Skip, Opts, Args) ->
+do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
     #opts{label = Label, profile = Profile, cover = Cover} = Opts,
 
     %% label - used by ct_logs
@@ -1319,6 +1348,8 @@ do_run(Tests, Skip, Opts, Args) ->
 		_Pid ->
 		    %% save stylesheet info
 		    ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
+		    %% save logopts
+		    ct_util:set_testdata({logopts,Opts#opts.logopts}),
 		    %% enable silent connections
 		    case Opts#opts.silent_connections of
 			[] ->
@@ -2339,6 +2370,8 @@ opts2args(EnvStartOpts) ->
 					   end, EHs),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{event_handler_init,lists:reverse(StrsR)}];
+		     ({logopts,LOs}) when is_list(LOs) ->
+			  [{logopts,[atom_to_list(LO) || LO <- LOs]}];
 		     ({ct_hooks,[]}) ->
 			  [];
 		     ({ct_hooks,CTHs}) when is_list(CTHs) ->
