@@ -27,7 +27,7 @@
 -export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, report/2, warn/1]).
 -export([error_notification/4]).
 
--export([get_logopts/0, overview_html_header/1]).
+-export([get_logopts/0, format_comment/1, overview_html_header/1]).
 
 -export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
 
@@ -1334,7 +1334,7 @@ add_data_dir(File,Config) when is_list(File) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec get_logopts
+%%% @spec get_logopts() -> [LogOpt]
 get_logopts() ->
     case ct_util:get_testdata(logopts) of
 	undefined ->
@@ -1342,6 +1342,11 @@ get_logopts() ->
 	LogOpts ->
 	    LogOpts
     end.
+
+%%%-----------------------------------------------------------------
+%%% @spec format_comment(Comment) -> HtmlComment
+format_comment(Comment) ->
+    "<font color=\"green\">" ++ Comment ++ "</font>".
 
 %%%-----------------------------------------------------------------
 %%% @spec overview_html_header(TestName) -> Header

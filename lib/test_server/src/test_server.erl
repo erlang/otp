@@ -733,14 +733,18 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 	    print(Detail,Format,Args),
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{comment,NewComment} ->
+	    NewComment1 = test_server_ctrl:to_string(NewComment),
+	    NewComment2 = test_server_sup:framework_call(format_comment,
+							 [NewComment1],
+							 NewComment1),
 	    Terminate1 =
 		case Terminate of
 		    {true,{Time,Value,Loc,Opts,_OldComment}} ->
-			{true,{Time,Value,mod_loc(Loc),Opts,NewComment}};
+			{true,{Time,Value,mod_loc(Loc),Opts,NewComment2}};
 		    Other ->
 			Other
 		end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate1,NewComment,CurrConf);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate1,NewComment2,CurrConf);
 	{set_curr_conf,NewCurrConf} ->
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,NewCurrConf);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
@@ -2282,7 +2286,6 @@ is_native(Mod) ->
 comment(String) ->
     group_leader() ! {comment,String},
     ok.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% os_type() -> OsType

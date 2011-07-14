@@ -173,7 +173,7 @@
 %%% TEST_SERVER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([output/2, print/2, print/3, print_timestamp/2]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
--export([format/1, format/2, format/3]).
+-export([format/1, format/2, format/3, to_string/1]).
 -export([get_target_info/0]).
 -export([get_hosts/0]).
 -export([get_target_os_type/0]).
@@ -3976,8 +3976,11 @@ progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
 	case RetVal of
 	    {comment,RetComment} ->
 		String = to_string(RetComment),
+		HtmlCmt = test_server_sup:framework_call(format_comment,
+							 [String],
+							 String),
 		print(major, "=result        ok: ~s", [String]),
-		"<td>" ++ String ++ "</td>";
+		"<td>" ++ HtmlCmt ++ "</td>";
 	    _ ->
 		print(major, "=result        ok", []),
 		case Comment0 of
