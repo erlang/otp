@@ -757,7 +757,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		    case mod_loc(Loc) of
 			{FwMod,FwFunc,framework} ->
 			    %% timout during framework call
-			    spawn_fw_call(FwMod,FwFunc,Pid,
+			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,{timetrap,TVal}},
 					  unknown,self(),Comment),
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
@@ -783,7 +783,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 					%% group leader process or io will cause deadlock,
 					%% so we spawn a dedicated process for the operation
 					%% and let the group leader go back to handle io.
-					spawn_fw_call(Mod,Func,Pid,{timetrap_timeout,TVal},
+					spawn_fw_call(Mod,Func,CurrConf,Pid,
+						      {timetrap_timeout,TVal},
 						      Loc1,self(),Comment),
 					undefined
 				end,
@@ -794,12 +795,13 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		    case mod_loc(Loc) of
 			{FwMod,FwFunc,framework} ->
 			    %% timout during framework call
-			    spawn_fw_call(FwMod,FwFunc,Pid,
+			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,{timetrap,TVal}},
 					  unknown,self(),Comment);
 			Loc1 ->
 			    {Mod,_Func} = get_mf(Loc1),
-			    spawn_fw_call(Mod,InitOrEnd,Pid,{timetrap_timeout,TVal},
+			    spawn_fw_call(Mod,InitOrEnd,CurrConf,Pid,
+					  {timetrap_timeout,TVal},
 					  Loc1,self(),Comment)
 		    end,
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
@@ -808,7 +810,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		    case mod_loc(AbortLoc) of
 			{FwMod,FwFunc,framework} ->
 			    %% abort during framework call
-			    spawn_fw_call(FwMod,FwFunc,Pid,
+			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,ErrorMsg},
 					  unknown,self(),Comment),
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
@@ -832,7 +834,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 							  TVal),
 					{EndConfPid,{Mod,Func},Conf};
 				    _ ->
-					spawn_fw_call(Mod,Func,Pid,ErrorMsg,
+					spawn_fw_call(Mod,Func,CurrConf,Pid,ErrorMsg,
 						      Loc1,self(),Comment),
 					undefined
 				end,
@@ -843,17 +845,18 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		    %% result of an exit(TestCase,kill) call, which is the
 		    %% only way to abort a testcase process that traps exits
 		    %% (see abort_current_testcase)
-		    spawn_fw_call(undefined,undefined,Pid,testcase_aborted_or_killed,
+		    spawn_fw_call(undefined,undefined,CurrConf,Pid,
+				  testcase_aborted_or_killed,
 				  unknown,self(),Comment),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		{fw_error,{FwMod,FwFunc,FwError}} ->
-		    spawn_fw_call(FwMod,FwFunc,Pid,{framework_error,FwError},
+		    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,{framework_error,FwError},
 				  unknown,self(),Comment),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		_Other ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
-		    spawn_fw_call(undefined,undefined,Pid,Reason,
+		    spawn_fw_call(undefined,undefined,CurrConf,Pid,Reason,
 				  unknown,self(),Comment),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
 	    end;
@@ -861,7 +864,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 	    case CurrConf of
 		{EndConfPid,{Mod,Func},_Conf} ->
 		    {_Mod,_Func,TCPid,TCExitReason,Loc} = Data,
-		    spawn_fw_call(Mod,Func,TCPid,TCExitReason,Loc,self(),Comment),
+		    spawn_fw_call(Mod,Func,CurrConf,TCPid,TCExitReason,Loc,self(),Comment),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,undefined);
 		_ ->
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
@@ -932,7 +935,7 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 				    ok
 			    end,
 			    Supervisor ! {self(),end_conf}
-		       end,
+		    end,
 		Pid = spawn_link(EndConfApply),
 		receive
 		    {Pid,end_conf} ->
@@ -945,50 +948,59 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 	end,
     spawn_link(EndConfProc).
 
-spawn_fw_call(Mod,{init_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
+spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
 	      Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->
-	    Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
-	    %% if init_per_testcase fails, the test case
-	    %% should be skipped
-	    case catch do_end_tc_call(Mod,Func,{Pid,Skip,[[]]},Why) of
-		{'EXIT',FwEndTCErr} ->
-		    exit({fw_notify_done,end_tc,FwEndTCErr});
-		_ ->
-		    ok
-	    end,
-	    %% finished, report back
-	    SendTo ! {self(),fw_notify_done,
-		      {TVal/1000,Skip,Loc,[],Comment}}
+		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
+		%% if init_per_testcase fails, the test case
+		%% should be skipped
+		case catch do_end_tc_call(Mod,Func,{Pid,Skip,[[]]},Why) of
+		    {'EXIT',FwEndTCErr} ->
+			exit({fw_notify_done,end_tc,FwEndTCErr});
+		    _ ->
+			ok
+		end,
+		%% finished, report back
+		SendTo ! {self(),fw_notify_done,
+			  {TVal/1000,Skip,Loc,[],Comment}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,{end_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
-	      Loc,SendTo,_Comment) ->
+spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
+	      {timetrap_timeout,TVal}=Why,_Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->
-	    Conf = [{tc_status,ok}],
-	    %% if end_per_testcase fails, the test case should be
-	    %% reported successful with a warning printed as comment
-	    case catch do_end_tc_call(Mod,Func,{Pid,
-						{failed,{Mod,end_per_testcase,Why}},
-						[Conf]}, Why) of
-		{'EXIT',FwEndTCErr} ->
-		    exit({fw_notify_done,end_tc,FwEndTCErr});
-		_ ->
-		    ok
-	    end,
-	    %% finished, report back
-	    SendTo ! {self(),fw_notify_done,
-		      {TVal/1000,{error,{Mod,end_per_testcase,Why}},Loc,[],
-		       ["<font color=\"red\">"
-			"WARNING: end_per_testcase timed out!"
-			"</font>"]}}
+		%% if end_per_testcase fails a warning should be
+		%% printed as comment
+		case catch do_end_tc_call(Mod,Func,{Pid,
+						    {failed,{Mod,
+							     end_per_testcase,
+							     Why}},
+						    [EndConf]}, Why) of
+		    {'EXIT',FwEndTCErr} ->
+			exit({fw_notify_done,end_tc,FwEndTCErr});
+		    _ ->
+			ok
+		end,
+		RetVal = case proplists:get_value(tc_status, EndConf) of
+			     undefined -> {failed,{Mod,end_per_testcase,Why}};
+			     Result -> Result
+			 end,
+		FailLoc = proplists:get_value(tc_fail_loc, EndConf),
+		Comment1 = if Comment == "" -> "";
+			      true -> Comment ++ "<br>"
+			   end,
+		%% finished, report back
+		SendTo ! {self(),fw_notify_done,
+			  {TVal/1000,RetVal,FailLoc,[],
+			   [Comment1,"<font color=\"red\">"
+			    "WARNING: end_per_testcase timed out!"
+			    "</font>"]}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(FwMod,FwFunc,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
+spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
     FwCall =
 	fun() ->
 		test_server_sup:framework_call(report, [framework_error,
@@ -1003,7 +1015,7 @@ spawn_fw_call(FwMod,FwFunc,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,Func,Pid,Error,Loc,SendTo,Comment) ->
+spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->
 		case catch fw_error_notify(Mod,Func,[],
@@ -1140,25 +1152,28 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    {EndConf,TSReturn,FWReturn} =
 			case Return of
 			    {E,TCError} when E=='EXIT' ; E==failed ->
+				ModLoc = mod_loc(Loc),
 				fw_error_notify(Mod, Func, NewConf1,
-						TCError, mod_loc(Loc)),
-				{[{tc_status,{failed,TCError}}|NewConf1],
+						TCError, ModLoc),
+				{[{tc_status,{failed,TCError}},
+				  {tc_fail_loc,ModLoc}|NewConf1],
 				 Return,{error,TCError}};
 			    SaveCfg={save_config,_} ->
 				{[{tc_status,ok},SaveCfg|NewConf1],Return,ok};
 			    {skip_and_save,Why,SaveCfg} ->
 				Skip = {skip,Why},
-				{[{tc_status,{skipped,Why}},{save_config,SaveCfg}|NewConf1],
+				{[{tc_status,{skipped,Why}},
+				  {save_config,SaveCfg}|NewConf1],
 				 Skip,Skip};
 			    {skip,Why} ->
 				{[{tc_status,{skipped,Why}}|NewConf1],Return,Return};
 			    _ ->
 				{[{tc_status,ok}|NewConf1],Return,ok}
 			end,
-		    %% clear current state in controller loop
-		    group_leader() ! {set_curr_conf,undefined},
 		    %% call user callback function if defined
 		    EndConf1 = user_callback(TCCallback, Mod, Func, 'end', EndConf),
+		    %% update current state in controller loop
+		    group_leader() ! {set_curr_conf,EndConf1},
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
@@ -1172,6 +1187,8 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 			    _ ->
 				{FWReturn,TSReturn,EndConf1}
 			end,
+		    %% clear current state in controller loop
+		    group_leader() ! {set_curr_conf,undefined},
 		    put(test_server_init_or_end_conf,undefined),
 		    case do_end_tc_call(Mod, Func, {FWReturn1,[EndConf2]}, TSReturn1) of
 			{failed,Reason} = NewReturn ->
