@@ -540,8 +540,9 @@ format_loc({Mod,Func}) when is_atom(Func) ->
 format_loc({Mod,Line}) when is_integer(Line) -> 
     %% ?line macro is used
     ModStr = package_str(Mod),
-    case lists:reverse(ModStr) of
-	[$E,$T,$I,$U,$S,$_|_]  ->
+    case {lists:member(no_src, get(test_server_logopts)),
+	  lists:reverse(ModStr)} of
+	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
 	    io_lib:format("{~s,<a href=\"~s~s#~w\">~w</a>}",
 			  [ModStr,downcase(ModStr),?src_listing_ext,
 			   round_to_10(Line),Line]);
@@ -557,8 +558,9 @@ format_loc1([{Mod,Func,Line}|Rest]) ->
     ["              ",format_loc1({Mod,Func,Line}),",\n"|format_loc1(Rest)];
 format_loc1({Mod,Func,Line}) ->
     ModStr = package_str(Mod),
-    case lists:reverse(ModStr) of
-	[$E,$T,$I,$U,$S,$_|_]  ->
+    case {lists:member(no_src, get(test_server_logopts)),
+	  lists:reverse(ModStr)} of
+	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
 	    io_lib:format("{~s,~w,<a href=\"~s~s#~w\">~w</a>}",
 			  [ModStr,Func,downcase(ModStr),?src_listing_ext,
 			   round_to_10(Line),Line]);
