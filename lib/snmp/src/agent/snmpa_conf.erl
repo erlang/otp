@@ -448,7 +448,7 @@ target_addr_entry(Name,
 		  TMask, 
 		  MaxMessageSize) ->
     target_addr_entry(Name, snmp_target_mib:default_domain(), Ip, Udp, 
-		      Timeout, RetryCount, TagList, ParamsName,  EngineId, 
+		      Timeout, RetryCount, TagList, ParamsName, EngineId, 
 		      TMask, MaxMessageSize).
 
 target_addr_entry(Name, 
