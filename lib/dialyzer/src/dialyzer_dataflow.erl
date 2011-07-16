@@ -2915,7 +2915,7 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 	    {Warn, Msg} =
 	      case dialyzer_callgraph:lookup_name(FunLbl, Callgraph) of
 		error -> {true, {unused_fun, []}};
-		{ok, {_M, F, A}} = MFA ->
+		{ok, {_M, F, A} = MFA} ->
 		  {not sets:is_element(MFA, NoWarnUnused),
 		   {unused_fun, [F, A]}}
 	      end,
