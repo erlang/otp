@@ -73,16 +73,23 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 	_ ->
 	    ok
     end,
-    case {Optionals = optionals(to_textual_order(CompList)),CompList} of
-	{[],EmptyCL} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
+    case {Optionals = optionals(to_textual_order(CompList)),CompList,
+	  is_optimized(Erule)} of
+	{[],EmptyCL,_} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
 	    emit(["%%Variable setting just to eliminate ",
 		  "compiler warning for unused vars!",nl,
 		  "_Val = ",{curr,val},",",nl]);
-	{[],_} ->
+	{[],_,_} ->
 	    emit([{next,val}," = ?RT_PER:list_to_record("]),
 	    emit(["'",asn1ct_gen:list2rname(Typename),"'"]),
 	    emit([", ",{curr,val},"),",nl]);
-	_ ->
+	{_,_,true} ->
+	    gen_fixoptionals(Optionals),
+	    FixOpts = param_map(fun(Var) ->
+					{var,Var}
+				end,asn1ct_name:all(fixopt)),
+	    emit({"{",{next,val},",Opt} = {",{curr,val},",[",FixOpts,"]},",nl});
+	{_,_,false} ->
 	    Fixoptcall = ",Opt} = ?RT_PER:fixoptionals(",
 	    emit({"{",{next,val},Fixoptcall,
 		  {asis,Optionals},",",length(Optionals),
@@ -705,6 +712,27 @@ extgrouppos([_|T],Pos,Len) ->
 gen_dec_extension_value(_) ->
     emit({"{Ext,",{next,bytes},"} = ?RT_PER:getext(",{curr,bytes},")"}),
     asn1ct_name:new(bytes).
+
+gen_fixoptionals([{Pos,Def}|R]) ->
+    asn1ct_name:new(fixopt),
+    emit({{curr,fixopt}," = case element(",{asis,Pos},",",{curr,val},") of",nl,
+	  "asn1_DEFAULT -> 0;",nl,
+	  {asis,Def}," -> 0;",nl,
+	  "_ -> 1",nl,
+	  "end,",nl}),
+    gen_fixoptionals(R);
+gen_fixoptionals([Pos|R]) ->
+    gen_fixoptionals([{Pos,asn1_NOVALUE}|R]);
+gen_fixoptionals([]) ->
+    ok.
+
+    
+param_map(Fun, [H]) ->
+    [Fun(H)];
+param_map(Fun, [H|T]) ->
+    [Fun(H),","|param_map(Fun,T)].
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Produce a list with positions (in the Value record) where
