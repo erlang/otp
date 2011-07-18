@@ -47,6 +47,7 @@
 	 module_identity/1,
 	 agent_capabilities/1,
 	 module_compliance/1, 
+	 warnings_as_errors/1, 
 
 	 otp_6150/1,
 	 otp_8574/1, 
@@ -97,9 +98,10 @@ all() ->
      description, 
      oid_conflicts, 
      imports, 
-     module_identity,
-     agent_capabilities,
-     module_compliance,
+     module_identity, 
+     agent_capabilities, 
+     module_compliance, 
+     warnings_as_errors, 
      {group, tickets}
     ].
 
@@ -152,6 +154,8 @@ description(Config) when is_list(Config) ->
     ok.
 
 
+%%======================================================================
+
 oid_conflicts(suite) -> [];
 oid_conflicts(Config) when is_list(Config) ->
     put(tname,oid_conflicts),
@@ -165,17 +169,23 @@ oid_conflicts(Config) when is_list(Config) ->
     ok.
 
 
+%%======================================================================
+
 imports(suite) ->
     [];
 imports(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
 
+%%======================================================================
+
 module_identity(suite) ->
     [];
 module_identity(Config) when is_list(Config) ->
     ?SKIP(not_yet_implemented).
 
+
+%%======================================================================
 
 agent_capabilities(suite) ->
     [];
@@ -218,6 +228,8 @@ agent_capabilities(Config) when is_list(Config) ->
     ok.
 
 
+%%======================================================================
+
 module_compliance(suite) ->
     [];
 module_compliance(Config) when is_list(Config) ->
@@ -259,6 +271,31 @@ module_compliance(Config) when is_list(Config) ->
     ok.
 
 
+%%======================================================================
+
+warnings_as_errors(suite) ->
+    ["OTP-9437"];
+warnings_as_errors(Config) when is_list(Config) ->
+    put(tname,warnings_as_errors),
+    p("starting with Config: ~p~n", [Config]),
+    Dir     = ?config(comp_dir, Config),
+    MibDir  = ?config(mib_dir,  Config),
+    MibFile = join(MibDir, "OTP8574-MIB.mib"),
+    OutFile = join(Dir, "OTP8574-MIB.bin"),
+    Opts =  [{group_check, false}, 
+	     {outdir,      Dir}, 
+	     {verbosity,   trace},
+	     relaxed_row_name_assign_check],
+    {error, compilation_failed} =
+	snmpc:compile(MibFile, [warnings_as_errors|Opts]),
+    false = filelib:is_regular(OutFile),
+    {ok, _} = snmpc:compile(MibFile, Opts),
+    true = filelib:is_regular(OutFile),
+    ok.
+
+
+%%======================================================================
+
 otp_6150(suite) ->
     [];
 otp_6150(Config) when is_list(Config) ->
@@ -272,6 +309,8 @@ otp_6150(Config) when is_list(Config) ->
     io:format("otp_6150 -> Mib: ~n~p~n", [Mib]),
     ok.
 
+
+%%======================================================================
 
 otp_8574(suite) ->
     [];
@@ -303,6 +342,8 @@ otp_8574(Config) when is_list(Config) ->
 	    exit(unexpected_compile_success)
     end.
 
+
+%%======================================================================
 
 otp_8595(suite) ->
     [];

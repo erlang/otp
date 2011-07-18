@@ -33,6 +33,60 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21</title>
+    <p>Version 4.21 supports code replacement in runtime from/to
+      version 4.20.1 4.20, 4.19 and 4.18.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Added the option 
+	  <seealso marker="snmpc#compile">warnings_as_errors</seealso> 
+	  which specifies whether warnings should be treated as errors. </p>
+          <p>Tuncer Ayaz</p>
+          <p>Own Id: OTP-9437</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Did not handle transport domains properly in some cases, 
+	  for instance trap sending. </p>
+	  <p>Own Id: OTP-9400</p>
+	</item>
+
+        <item>
+          <p>[agent] Wrong default transport domain, snmpUDPDomain, instead
+	  of transportDomainUdpIpv4. </p>
+	  <p>Own Id: OTP-9425</p>
+          <p>Aux Id: Seq 11874</p>
+	</item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.20.1</title>
     <p>Version 4.20.1 supports code replacement in runtime from/to
       version 4.20, 4.19 and 4.18.</p>

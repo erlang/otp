@@ -48,7 +48,11 @@
       <type>
         <v>File = string()</v>
         <v>Options = [opt()]</v>
-        <v>opt() = db() | relaxed_row_name_assign_check() | deprecated() | description() | reference() | group_check() |  i() | il() | imports() | module() | module_identity() | module_compliance() | agent_capabilities() | outdir() |  no_defs() | verbosity() | warnings()</v>
+        <v>opt() = db() | relaxed_row_name_assign_check() | deprecated() | 
+	description() | reference() | group_check() |  i() | il() | 
+	imports() | module() | module_identity() | module_compliance() | 
+	agent_capabilities() | outdir() |  no_defs() | verbosity() | 
+	warnings() | warnings_as_errors()</v>
         <v>db() = {db, volatile|persistent|mnesia}</v>
         <v>deprecated() = {deprecated, bool()}</v>
         <v>relaxed_row_name_assign_check() = relaxed_row_name_assign_check</v>
@@ -66,6 +70,7 @@
         <v>outdir() = {outdir, dir()}</v>
         <v>verbosity() = {verbosity, silence|warning|info|log|debug|trace}</v>
         <v>warnings() = {warnings, bool()}</v>
+	<v>warnings_as_errors() = warnings_as_errors</v>
         <v>dir() = string()</v>
         <v>BinFileName = string()</v>
       </type>
@@ -200,11 +205,17 @@
 
           <item>
 	    <p>The option <c>warnings</c> specifies whether warning
-              messages should be shown. </p>
+	    messages should be shown. </p>
 	    <p>Default is <c>true</c>. </p>
           </item>
 
+	  <item>
+	    <p>The option <c>warnings_as_errors</c>, if present, specifies 
+	    whether warnings should be treated as errors.</p>
+	  </item>
+
         </list>
+	
         <p>The MIB compiler understands both SMIv1 and SMIv2 MIBs.  It
           uses the <c>MODULE-IDENTITY</c> statement to determine if the MIB is
           version 1 or 2.
