@@ -39,6 +39,7 @@
 -ifndef(EUNIT_HRL).
 -define(EUNIT_HRL, true).
 
+
 %% allow defining TEST to override NOTEST
 -ifdef(TEST).
 -undef(NOTEST).
@@ -164,7 +165,7 @@
 %% This is mostly a convenience which gives more detailed reports.
 %% Note: Guard is a guarded pattern, and can not be used for value.
 -ifdef(NOASSERT).
--define(assertMatch(Guard,Expr),ok).
+-define(assertMatch(Guard, Expr), ok).
 -else.
 -define(assertMatch(Guard, Expr),
 	((fun () ->
@@ -174,17 +175,37 @@
 				      [{module, ?MODULE},
 				       {line, ?LINE},
 				       {expression, (??Expr)},
-				       {expected, (??Guard)},
+				       {pattern, (??Guard)},
 				       {value, __V}]})
 	    end
 	  end)())).
 -endif.
 -define(_assertMatch(Guard, Expr), ?_test(?assertMatch(Guard, Expr))).
 
+%% This is the inverse case of assertMatch, for convenience.
+-ifdef(NOASSERT).
+-define(assertNotMatch(Guard, Expr), ok).
+-else.
+-define(assertNotMatch(Guard, Expr),
+	((fun () ->
+	    __V = (Expr),
+	    case __V of
+		Guard -> .erlang:error({assertNotMatch_failed,
+					[{module, ?MODULE},
+					 {line, ?LINE},
+					 {expression, (??Expr)},
+					 {pattern, (??Guard)},
+					 {value, __V}]});
+		_ -> ok
+	    end
+	  end)())).
+-endif.
+-define(_assertNotMatch(Guard, Expr), ?_test(?assertNotMatch(Guard, Expr))).
+
 %% This is a convenience macro which gives more detailed reports when
 %% the expected LHS value is not a pattern, but a computed value
 -ifdef(NOASSERT).
--define(assertEqual(Expect,Expr),ok).
+-define(assertEqual(Expect, Expr), ok).
 -else.
 -define(assertEqual(Expect, Expr),
 	((fun (__X) ->
@@ -201,9 +222,29 @@
 -endif.
 -define(_assertEqual(Expect, Expr), ?_test(?assertEqual(Expect, Expr))).
 
-%% Note: Class and Term are patterns, and can not be used for value.
+%% This is the inverse case of assertEqual, for convenience.
 -ifdef(NOASSERT).
--define(assertException(Class, Term, Expr),ok).
+-define(assertNotEqual(Unexpected, Expr), ok).
+-else.
+-define(assertNotEqual(Unexpected, Expr),
+	((fun (__X) ->
+	    case (Expr) of
+		__X -> .erlang:error({assertNotEqual_failed,
+				      [{module, ?MODULE},
+				       {line, ?LINE},
+				       {expression, (??Expr)},
+				       {value, __X}]});
+		_ -> ok
+	    end
+	  end)(Unexpected))).
+-endif.
+-define(_assertNotEqual(Unexpected, Expr),
+	?_test(?assertNotEqual(Unexpected, Expr))).
+
+%% Note: Class and Term are patterns, and can not be used for value.
+%% Term can be a guarded pattern, but Class cannot.
+-ifdef(NOASSERT).
+-define(assertException(Class, Term, Expr), ok).
 -else.
 -define(assertException(Class, Term, Expr),
 	((fun () ->
@@ -212,7 +253,7 @@
 				      [{module, ?MODULE},
 				       {line, ?LINE},
 				       {expression, (??Expr)},
-				       {expected,
+				       {pattern,
 					"{ "++(??Class)++" , "++(??Term)
 					++" , [...] }"},
 				       {unexpected_success, __V}]})
@@ -223,7 +264,7 @@
 				   [{module, ?MODULE},
 				    {line, ?LINE},
 				    {expression, (??Expr)},
-				    {expected,
+				    {pattern,
 				     "{ "++(??Class)++" , "++(??Term)
 				     ++" , [...] }"},
 				    {unexpected_exception,
@@ -242,6 +283,43 @@
 -define(_assertError(Term, Expr), ?_assertException(error, Term, Expr)).
 -define(_assertExit(Term, Expr), ?_assertException(exit, Term, Expr)).
 -define(_assertThrow(Term, Expr), ?_assertException(throw, Term, Expr)).
+
+%% This is the inverse case of assertException, for convenience.
+%% Note: Class and Term are patterns, and can not be used for value.
+%% Both Class and Term can be guarded patterns.
+-ifdef(NOASSERT).
+-define(assertNotException(Class, Term, Expr), ok).
+-else.
+-define(assertNotException(Class, Term, Expr),
+	((fun () ->
+	    try (Expr) of
+	        _ -> ok
+	    catch
+		__C:__T ->
+		    case __C of
+			Class ->
+			    case __T of
+				Term ->
+				    .erlang:error({assertNotException_failed,
+						   [{module, ?MODULE},
+						    {line, ?LINE},
+						    {expression, (??Expr)},
+						    {pattern,
+						     "{ "++(??Class)++" , "
+						     ++(??Term)++" , [...] }"},
+						    {unexpected_exception,
+						     {__C, __T,
+						      .erlang:get_stacktrace()
+						     }}]});
+				_ -> ok
+			    end;
+			_ -> ok
+		    end
+	    end
+	  end)())).
+-endif.
+-define(_assertNotException(Class, Term, Expr),
+	?_test(?assertNotException(Class, Term, Expr))).
 
 %% Macros for running operating system commands. (Note that these
 %% require EUnit to be present at runtime, or at least eunit_lib.)
@@ -267,7 +345,7 @@
 %% these are only used for testing; they always return 'ok' on success,
 %% and have no effect if debugging/testing is turned off
 -ifdef(NOASSERT).
--define(assertCmdStatus(N, Cmd),ok).
+-define(assertCmdStatus(N, Cmd), ok).
 -else.
 -define(assertCmdStatus(N, Cmd),
  	((fun () ->
@@ -285,7 +363,7 @@
 -define(assertCmd(Cmd), ?assertCmdStatus(0, Cmd)).
 
 -ifdef(NOASSERT).
--define(assertCmdOutput(T, Cmd),ok).
+-define(assertCmdOutput(T, Cmd), ok).
 -else.
 -define(assertCmdOutput(T, Cmd),
  	((fun () ->
@@ -313,11 +391,12 @@
 -define(debugHere, ok).
 -define(debugFmt(S, As), ok).
 -define(debugVal(E), (E)).
--define(debugTime(S,E), (E)).
+-define(debugTime(S, E), (E)).
 -else.
 -define(debugMsg(S),
 	(begin
-	     .io:fwrite(user, <<"~s:~w: ~s\n">>, [?FILE, ?LINE, S]),
+	     .io:fwrite(user, <<"~s:~w:~w: ~s\n">>,
+                        [?FILE, ?LINE, self(), S]),
 	     ok
 	 end)).
 -define(debugHere, (?debugMsg("<-"))).
@@ -327,7 +406,7 @@
 		  ?debugFmt(<<"~s = ~P">>, [(??E), __V, 15]),
 		  __V
 	  end)(E))).
--define(debugTime(S,E),
+-define(debugTime(S, E),
 	((fun () ->
 		  {__T0, _} = statistics(wall_clock),
 		  __V = (E),
@@ -336,5 +415,6 @@
 		  __V
 	  end)())).
 -endif.
+
 
 -endif. % EUNIT_HRL

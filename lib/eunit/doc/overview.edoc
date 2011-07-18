@@ -913,7 +913,7 @@ To make the descriptions simpler, we first list some definitions:
 <td>`CleanupX'</td><td>`(X::any(), R::any()) -> any()'</td>
 </tr>
 <tr>
-<td>`Instantiator'</td><td>`((R::any()) -> Tests | {with, [AbstractTestFun::((any()) -> any())]}'</td>
+<td>`Instantiator'</td><td>`((R::any()) -> Tests) | {with, [AbstractTestFun::((any()) -> any())]}'</td>
 </tr>
 <tr>
 <td>`Where'</td><td>`local | spawn | {spawn, Node::atom()}'</td>
