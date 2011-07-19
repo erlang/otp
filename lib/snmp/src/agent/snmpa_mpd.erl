@@ -990,7 +990,7 @@ generate_discovery_msg(NoteStore, {TDomain, TAddress},
 		       ContextName, Timeout) ->
 
     {ok, {_Domain, Address}} = transform_taddr(TDomain, TAddress),
-    
+
     %% 7.1.7
     ?vdebug("generate_discovery_msg -> 7.1.7 (~w)", [ManagerEngineID]),
     MsgID     = generate_msg_id(),
@@ -1080,8 +1080,13 @@ transform_taddr(?transportDomainUdpIpv6,
     {ok, {Domain, Address}};
 transform_taddr(?transportDomainUdpIpv6, BadAddr) ->
     {error, {bad_transportDomainUdpIpv6_address, BadAddr}};
-transform_taddr(BadTDomain, BadTAddress) ->
-    {error, {bad_domain, BadTDomain, BadTAddress}}.
+transform_taddr(BadTDomain, TAddress) ->
+    case lists:member(BadTDomain, snmp_conf:all_tdomains()) of
+	true ->
+	    {error, {unsupported_tdomain, BadTDomain, TAddress}};
+	false ->
+	    {error, {unknown_tdomain, BadTDomain, TAddress}}
+    end.
 
 
 process_taddrs(Dests) ->
@@ -1093,7 +1098,7 @@ process_taddrs([], Acc) ->
     ?vtrace("process_taddrs -> entry when done with"
 	    "~n   Acc: ~p", [Acc]),
     lists:reverse(Acc);
-
+    
 %% v3
 process_taddrs([{{TDomain, TAddress}, SecData} | T], Acc) ->
     ?vtrace("process_taddrs -> entry when v3 with"
@@ -1130,7 +1135,7 @@ process_taddrs([{TDomain, TAddress} | T], Acc) ->
 	    process_taddrs(T, Acc)
     end;
 process_taddrs(Crap, Acc) ->
-    throw({error, {taddrs_crap, Crap, Acc}}).
+    throw({error, {bad_taddrs, Crap, Acc}}).
 
 
 mk_v1_v2_packet_list(To, Packet, Len, Pdu) ->

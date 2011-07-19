@@ -22,10 +22,17 @@
 %% ----- U p g r a d e -------------------------------------------------------
 
  [
+  {"4.20.1", 
+   [
+    {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}
+   ]
+  }, 
   {"4.20", 
    [
     {load_module, snmp_target_mib, soft_purge, soft_purge, []}, 
-    {load_module, snmpa_mpd, soft_purge, soft_purge, []}
+    {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}
    ]
   }, 
   {"4.19", 
@@ -115,10 +122,17 @@
 %% ------D o w n g r a d e ---------------------------------------------------
 
  [
+  {"4.20.1", 
+   [
+    {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}
+   ]
+  }, 
   {"4.20", 
    [
     {load_module, snmp_target_mib, soft_purge, soft_purge, []}, 
-    {load_module, snmpa_mpd, soft_purge, soft_purge, []}
+    {load_module, snmpa_mpd, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mpd]}
    ]
   }, 
   {"4.19", 

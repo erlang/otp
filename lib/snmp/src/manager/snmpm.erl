@@ -50,7 +50,7 @@
 	 register_agent/2, register_agent/3, register_agent/4, 
 	 unregister_agent/2, unregister_agent/3,
 	 which_agents/0, which_agents/1, 
-	 agent_info/2, update_agent_info/4, 
+	 agent_info/2, update_agent_info/3, update_agent_info/4, 
 	 
 	 register_usm_user/3, unregister_usm_user/2, 
 	 which_usm_users/0, which_usm_users/1, 
@@ -167,6 +167,7 @@
 -include_lib("snmp/include/snmp_types.hrl").
 -include("snmpm_atl.hrl").
 -include("snmpm_internal.hrl").
+-include("snmp_verbosity.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
 
@@ -447,8 +448,11 @@ agent_info(Addr, Port, Item) ->
 	    Error
     end.
 
+update_agent_info(UserId, TargetName, Info) when is_list(Info) ->
+    snmpm_config:update_agent_info(UserId, TargetName, Info).
+
 update_agent_info(UserId, TargetName, Item, Val) ->
-    snmpm_config:update_agent_info(UserId, TargetName, Item, Val).
+    update_agent_info(UserId, TargetName, [{Item, Val}]).
 
 %% Backward compatibility functions
 update_agent_info(UserId, Addr, Port, Item, Val) ->

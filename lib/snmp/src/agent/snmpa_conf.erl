@@ -424,7 +424,8 @@ target_addr_entry(Name,
 		  EngineId,
 		  TMask) ->
     target_addr_entry(Name, Ip, 162, TagList, 
-		      ParamsName, EngineId, TMask, 2048).
+		      ParamsName, EngineId, 
+		      TMask, 2048).
 
 target_addr_entry(Name, 
 		  Ip, 
@@ -435,7 +436,8 @@ target_addr_entry(Name,
 		  TMask, 
 		  MaxMessageSize) ->
     target_addr_entry(Name, Ip, Udp, 1500, 3, TagList, 
-		      ParamsName, EngineId, TMask, MaxMessageSize).
+		      ParamsName, EngineId, 
+		      TMask, MaxMessageSize).
 
 target_addr_entry(Name, 
 		  Ip, 
@@ -448,7 +450,8 @@ target_addr_entry(Name,
 		  TMask, 
 		  MaxMessageSize) ->
     target_addr_entry(Name, snmp_target_mib:default_domain(), Ip, Udp, 
-		      Timeout, RetryCount, TagList, ParamsName,  EngineId, 
+		      Timeout, RetryCount, TagList, 
+		      ParamsName, EngineId, 
 		      TMask, MaxMessageSize).
 
 target_addr_entry(Name, 
