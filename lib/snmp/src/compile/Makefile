@@ -45,12 +45,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
 
 include modules.mk
 
-ESCRIPT_BIN = $(ESCRIPT_SRC:%.src=$(BIN)/%)
-
-ERL_FILES = $(MODULES:%=%.erl)
-
-EBIN_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-
+ESCRIPT_BIN  = $(ESCRIPT_SRC:%.src=$(BIN)/%)
+ERL_FILES    = $(MODULES:%=%.erl)
+EBIN_FILES   = $(MODULES:%=$(EBIN)/%.$(EMULATOR)) 
 TARGET_FILES = $(EBIN_FILES) $(ESCRIPT_BIN)
 
 GENERATED_PARSER = $(PARSER_MODULE:%=%.erl)

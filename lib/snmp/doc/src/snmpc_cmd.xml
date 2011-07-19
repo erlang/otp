@@ -178,6 +178,11 @@
 	it will be. </p>
       </item>
 
+      <tag>--wae</tag>
+      <item>
+        <p>Warnings as errors. Indicates that warnings shall be treated as errors. </p>
+      </item>
+
     </taglist>
   </section>
 

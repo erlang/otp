@@ -35,7 +35,7 @@
   <section>
     <title>SNMP Development Toolkit 4.21</title>
     <p>Version 4.21 supports code replacement in runtime from/to
-      version 4.20.1, 4.20, 4.19 and 4.18.</p>
+      version 4.20.1, 4.20 and 4.19. </p>
 
     <section>
       <title>Improvements and new features</title>
@@ -57,6 +57,16 @@
 	  <p>This also mean that the transport behaviour has changed. </p>
           <p>Own Id: OTP-9305</p>
           <p>Aux Id: Seq 11847</p>
+        </item>
+
+        <item>
+          <p>[compiler] Added the option 
+	  <seealso marker="snmpc#compile">warnings_as_errors</seealso> 
+	  (for the SNMP MIB compiler (escript) frontend, the option 
+	  <seealso marker="snmpc(command)">--wae</seealso> is used) 
+	  which specifies whether warnings should be treated as errors. </p>
+          <p>Tuncer Ayaz</p>
+          <p>Own Id: OTP-9437</p>
         </item>
       </list>
     </section>
