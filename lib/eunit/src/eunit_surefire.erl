@@ -13,8 +13,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: $
-%%
 %% @author Mickaël Rémond <mremond@process-one.net>
 %% @copyright 2009 Mickaël Rémond, Paul Guyot
 %% @see eunit

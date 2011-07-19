@@ -13,8 +13,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit_tty.erl 330 2009-03-01 16:28:02Z rcarlsson $ 
-%%
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 2006-2009 Richard Carlsson
 %% @private

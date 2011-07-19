@@ -13,8 +13,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: eunit_striptests.erl 329 2009-03-01 11:23:32Z rcarlsson $ 
-%%
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @author Eric Merritt <cyberlync@gmail.com>
 %% @copyright 2006 Richard Carlsson, Eric Merritt
