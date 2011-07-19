@@ -63,7 +63,7 @@
           <p>[compiler] Added the option 
 	  <seealso marker="snmpc#compile">warnings_as_errors</seealso> 
 	  (for the SNMP MIB compiler (escript) frontend, the option 
-	  <seealso marker="snmpc(command)">--wae</seealso> is used) 
+	  <seealso marker="snmpc(command)#option_wae">--wae</seealso> is used) 
 	  which specifies whether warnings should be treated as errors. </p>
           <p>Tuncer Ayaz</p>
           <p>Own Id: OTP-9437</p>
