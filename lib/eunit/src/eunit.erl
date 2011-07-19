@@ -16,8 +16,7 @@
 %% @copyright 2004-2009 Mickaël Rémond, Richard Carlsson
 %% @author Mickaël Rémond <mickael.remond@process-one.net>
 %%   [http://www.process-one.net/]
-%% @author Richard Carlsson <richardc@it.uu.se>
-%%   [http://user.it.uu.se/~richardc/]
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @version {@version}, {@date} {@time}
 %% @doc This module is the main EUnit user interface.
 

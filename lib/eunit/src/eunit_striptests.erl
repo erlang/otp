@@ -13,8 +13,8 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% @author Richard Carlsson <richardc@it.uu.se>
-%% @author Eric Merritt <cyberlync@gmail.com>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
+%% @author Eric Merritt <ericbmerritt@gmail.com>
 %% @copyright 2006 Richard Carlsson, Eric Merritt
 %% @private
 %% @see eunit
