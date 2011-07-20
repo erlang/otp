@@ -366,7 +366,7 @@ type(erlang, '>', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin >= LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('>', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
@@ -384,7 +384,7 @@ type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin > LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('>=', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
@@ -402,7 +402,7 @@ type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax =< LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('<', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
@@ -420,7 +420,7 @@ type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax < LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> t_boolean()
+      false -> compare('=<', Lhs, Rhs)
     end,
   strict(Xs, Ans);
 type(erlang, '+', 1, Xs) ->
@@ -3176,6 +3176,50 @@ arith(Op, X1, X2) ->
 	  end
       end
   end.
+
+%%=============================================================================
+%% Comparison of terms
+%%=============================================================================
+
+compare(Op, Lhs, Rhs) ->
+  case t_is_none(t_inf(Lhs, Rhs)) of
+    false -> t_boolean();
+    true ->
+      case Op of
+	'<' -> always_smaller(Lhs, Rhs);
+	'>' -> always_smaller(Rhs, Lhs);
+	'=<' -> always_smaller(Lhs, Rhs);
+	'>=' -> always_smaller(Rhs, Lhs)
+      end
+  end.
+
+always_smaller(Type1, Type2) ->
+  {Min1, Max1} = type_ranks(Type1),
+  {Min2, Max2} = type_ranks(Type2),
+  if Max1 < Min2 -> t_atom('true');
+     Min1 > Max2 -> t_atom('false');
+     true        -> t_boolean()
+  end.
+
+type_ranks(Type) ->
+  type_ranks(Type, 1, 0, 0, type_order()).
+
+type_ranks(_Type, _I, Min, Max, []) -> {Min, Max};
+type_ranks(Type, I, Min, Max, [TypeClass|Rest]) ->
+  {NewMin, NewMax} =
+    case t_is_none(t_inf(Type, TypeClass)) of
+      true  -> {Min, Max};
+      false -> case Min of
+		 0 -> {I, I};
+		 _ -> {Min, I}
+	       end
+    end,
+  type_ranks(Type, I+1, NewMin, NewMax, Rest).
+
+type_order() ->
+  [t_number(), t_atom(), t_reference(), t_fun(), t_port(), t_pid(), t_tuple(),
+   t_list(), t_binary()].
+
 
 %%=============================================================================
 
