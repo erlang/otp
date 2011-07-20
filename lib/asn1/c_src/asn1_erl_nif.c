@@ -1056,6 +1056,7 @@ int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, mem_chunk_t **curr, unsigned i
 	    if (enif_is_empty_list(env, tv[1])) {
 		*((*curr)->curr) = 0;
 		(*curr)->curr -= 1;
+		(*count)++;
 		break;
 	    } else
 		return ASN1_ERROR;
