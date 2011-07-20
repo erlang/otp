@@ -94,15 +94,18 @@ int ber_decode_value(ErlNifEnv*, ERL_NIF_TERM *, unsigned char *, int *, int,
 	int);
 
 /* BER ENCODE */
-int ber_encode(ErlNifEnv *, ERL_NIF_TERM , ErlNifBinary *,
-	unsigned char **, unsigned int *);
+typedef struct ber_encode_mem_chunk mem_chunk_t;
 
-int ber_check_memory(ErlNifBinary *, unsigned char **, unsigned int *, unsigned int);
+int ber_encode(ErlNifEnv *, ERL_NIF_TERM , mem_chunk_t **, unsigned int *);
+
+void ber_free_chunks(mem_chunk_t *chunk);
+mem_chunk_t *ber_new_chunk(unsigned int length);
+int ber_check_memory(mem_chunk_t **curr, unsigned int needed);
 
 int ber_encode_tag(ErlNifEnv *, ERL_NIF_TERM , unsigned int ,
-	unsigned char **, unsigned int *);
+	mem_chunk_t **, unsigned int *);
 
-int ber_encode_length(size_t , ErlNifBinary *, unsigned char **, unsigned int *);
+int ber_encode_length(size_t , mem_chunk_t **, unsigned int *);
 
 /*
  *
@@ -1007,8 +1010,14 @@ int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *in_buf,
     return ASN1_OK;
 }
 
-int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *out_binary,
-	unsigned char **curr, unsigned int *unused) {
+struct ber_encode_mem_chunk {
+    mem_chunk_t *next;
+    int length;
+    char *top;
+    char *curr;
+};
+
+int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, mem_chunk_t **curr, unsigned int *count) {
 
     const ERL_NIF_TERM *tv;
     unsigned int form;
@@ -1019,135 +1028,162 @@ int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, ErlNifBinary *out_binary,
 
     form = enif_is_list(env, tv[1]) ? ASN1_CONSTRUCTED : ASN1_PRIMITIVE;
 
-    // We need atleast 5 bytes to encode the next tlv, so we double the memory available if not enough is available
-    if (ber_check_memory(out_binary, curr, unused, 5))
-	return ASN1_ERROR;
-
-    if (ber_encode_tag(env, tv[0], form, curr, unused))
-	return ASN1_ERROR;
-
-    if (form == ASN1_PRIMITIVE) {
+    switch (form) {
+    case ASN1_PRIMITIVE: {
 	ErlNifBinary value;
 	if (!enif_inspect_binary(env, tv[1], &value))
 	    return ASN1_ERROR;
-	if (ber_encode_length(value.size, out_binary, curr, unused))
+
+	if (ber_check_memory(curr, value.size))
 	    return ASN1_ERROR;
-	if(ber_check_memory(out_binary, curr, unused, value.size))
+	memcpy((*curr)->curr - value.size + 1, value.data, value.size);
+	(*curr)->curr -= value.size;
+	*count += value.size;
+
+	if (ber_encode_length(value.size, curr, count))
 	    return ASN1_ERROR;
-	memcpy(*curr, value.data, value.size);
-	*curr += value.size;
-	*unused -= value.size;
-    } else {
-	ErlNifBinary tmp_bin;
-	unsigned char *tmp_curr;
-	unsigned int tmp_unused = 40;
+
+	break;
+    }
+    case ASN1_CONSTRUCTED: {
 	ERL_NIF_TERM head, tail;
+	unsigned int tmp_cnt;
 
 	if (!enif_get_list_cell(env, tv[1], &head, &tail)) {
 	    if (enif_is_empty_list(env, tv[1])) {
-		**curr = 0;
-		++*curr;
-		--*unused;
-		return ASN1_OK;
+		*((*curr)->curr) = 0;
+		(*curr)->curr -= 1;
+		break;
 	    } else
 		return ASN1_ERROR;
 	}
 
-	if (!enif_alloc_binary(40, &tmp_bin))
-	    return ASN1_ERROR;
-
-	tmp_curr = tmp_bin.data;
-
 	do {
-	    if (ber_encode(env, head, &tmp_bin, &tmp_curr, &tmp_unused)) {
-		enif_release_binary(&tmp_bin);
+	    tmp_cnt = 0;
+	    if (ber_encode(env, head, curr, &tmp_cnt)) {
 		return ASN1_ERROR;
 	    }
+	    *count += tmp_cnt;
 	} while (enif_get_list_cell(env, tail, &head, &tail));
 
-	if (ber_encode_length(tmp_bin.size - tmp_unused, out_binary, curr,
-		unused)) {
-	    enif_release_binary(&tmp_bin);
+	if (ber_check_memory(curr, *count)) {
 	    return ASN1_ERROR;
 	}
 
-	if (ber_check_memory(out_binary, curr, unused,
-		tmp_bin.size - tmp_unused)) {
-	    enif_release_binary(&tmp_bin);
+	if (ber_encode_length(*count, curr, count)) {
 	    return ASN1_ERROR;
 	}
 
-	memcpy(*curr, tmp_bin.data, tmp_bin.size - tmp_unused);
-	*curr += tmp_bin.size - tmp_unused;
-	*unused -= tmp_bin.size - tmp_unused;
-	enif_release_binary(&tmp_bin);
+	break;
     }
+    }
+
+    // We need atleast 5 bytes to encode the next tlv
+    if (ber_check_memory(curr, 3))
+	return ASN1_ERROR;
+
+    if (ber_encode_tag(env, tv[0], form, curr, count))
+	return ASN1_ERROR;
 
     return ASN1_OK;
 }
 
 int ber_encode_tag(ErlNifEnv *env, ERL_NIF_TERM tag, unsigned int form,
-	unsigned char **curr, unsigned int *unused) {
-    unsigned int class_tag_no;
+	mem_chunk_t **curr, unsigned int *count) {
+    unsigned int class_tag_no, head_tag;
     if (!enif_get_uint(env, tag, &class_tag_no))
 	return ASN1_ERROR;
 
-    **curr = form | ((class_tag_no & 196608) >> 10);
-    class_tag_no = class_tag_no & 65535;
+    head_tag = form | ((class_tag_no & 0x30000) >> 10);
+    class_tag_no = class_tag_no & 0xFFFF;
 
     if (class_tag_no <= 30) {
-	**curr |= class_tag_no;
-	++*curr; --*unused;
+	*(*curr)->curr = head_tag | class_tag_no;
+	(*curr)->curr -= 1;
+	(*count)++;
 	return ASN1_OK;
     } else {
-	**curr |= 31;
-	++*curr; --*unused;
-	while (class_tag_no > 127) {
-	    **curr = (class_tag_no & 127) | 128;
-	    class_tag_no = class_tag_no >> 7;
-	    ++*curr;
-	    --*unused;
+	*(*curr)->curr = class_tag_no & 127;
+	class_tag_no = class_tag_no >> 7;
+	(*curr)->curr -= 1;
+	(*count)++;
+
+	while (class_tag_no > 0) {
+	    *(*curr)->curr = (class_tag_no & 127) | 0x80;
+	    class_tag_no >>= 7;
+	    (*curr)->curr -= 1;
+	    (*count)++;
 	}
-	**curr = class_tag_no;
-	++*curr;
-	--*unused;
+
+	*(*curr)->curr = head_tag | 0x1F;
+	(*curr)->curr -= 1;
+	(*count)++;
+
 	return ASN1_OK;
     }
 }
 
-int ber_encode_length(size_t size, ErlNifBinary *out_binary, unsigned char **curr, unsigned int *unused) {
+int ber_encode_length(size_t size, mem_chunk_t **curr, unsigned int *count) {
     if (size < 128) {
-	if (ber_check_memory(out_binary, curr, unused, 1u))
+	if (ber_check_memory(curr, 1u))
 	    return ASN1_ERROR;
-	**curr = size;
-	++*curr;
-	--*unused;
+	*(*curr)->curr = size;
+	(*curr)->curr -= 1;
+	(*count)++;
     } else {
 	int chunks = size / 256 + 1;
-	if (ber_check_memory(out_binary, curr, unused, chunks + 1))
+	if (ber_check_memory(curr, chunks + 1))
 	    return ASN1_ERROR;
-	**curr = chunks + 128;
-	++*curr;
-	--*unused;
-	while (chunks > 0)
+
+	while (size > 0)
 	{
-	    **curr = ((size >> (8*(chunks-1)))) & 255;
-	    ++*curr;
-	    --*unused;
-	    chunks--;
+	    *(*curr)->curr = size & 0xFF;
+	    size >>= 8;
+	    (*curr)->curr -= 1;
+	    (*count)++;
 	}
+
+	*(*curr)->curr = chunks | 0x80;
+	(*curr)->curr -= 1;
+	(*count)++;
     }
     return ASN1_OK;
 }
 
-int ber_check_memory(ErlNifBinary *bin, unsigned char **curr, unsigned int *unused,unsigned int needed) {
-    int incr;
-    if (*unused >= needed)
+mem_chunk_t *ber_new_chunk(unsigned int length) {
+    mem_chunk_t *new = malloc(sizeof(mem_chunk_t));
+    if (new == NULL)
+	return NULL;
+    new->next = NULL;
+    new->top = malloc(sizeof(char) * length);
+    if (new->top == NULL) {
+	free(new);
+	return NULL;
+    }
+    new->curr = new->top + length - 1;
+    new->length = length;
+    return new;
+}
+
+void ber_free_chunks(mem_chunk_t *chunk) {
+    mem_chunk_t *curr, *next = chunk;
+    while (next != NULL) {
+	curr = next;
+	next = curr->next;
+	free(curr->top);
+	free(curr);
+    }
+}
+
+int ber_check_memory(mem_chunk_t **curr, unsigned int needed) {
+    mem_chunk_t *new;
+    if ((*curr)->curr-needed >= (*curr)->top)
 	return ASN1_OK;
-    incr = bin->size > needed ? bin->size : needed;
-    if (per_realloc_memory(bin, bin->size + incr, curr))
+
+    if ((new = ber_new_chunk((*curr)->length > needed ? (*curr)->length * 2 : (*curr)->length + needed)) == NULL)
 	return ASN1_ERROR;
-    *unused += incr;
+    new->next = *curr;
+    *curr = new;
     return ASN1_OK;
 }
 
@@ -1202,28 +1238,33 @@ static ERL_NIF_TERM decode_ber_tlv(ErlNifEnv* env, int argc,
 static ERL_NIF_TERM encode_ber_tlv(ErlNifEnv* env, int argc,
 	const ERL_NIF_TERM argv[]) {
     ErlNifBinary out_binary;
-    int complete_len;
-    unsigned int unused = 40;
-    unsigned char *curr;
+    unsigned int length = 0, pos = 0;
+    mem_chunk_t *curr, *top;
     ERL_NIF_TERM err_code;
 
-    if (!enif_alloc_binary(unused, &out_binary))
-	return enif_make_atom(env, "alloc_binary_failed");
+    curr = ber_new_chunk(40);
 
-    curr = out_binary.data;
-
-    if ((complete_len = ber_encode(env, argv[0], &out_binary, &curr, &unused))
+    if ((ber_encode(env, argv[0], &curr, &length))
 	    <= ASN1_ERROR) {
-	enif_release_binary(&out_binary);
-	if (complete_len == ASN1_ERROR)
-	    err_code = enif_make_uint(env, '1');
-	else
-	    err_code = enif_make_uint(env, 0);
+	err_code = enif_make_uint(env, 0);
 	return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
     }
 
-    if (unused != 0)
-	enif_realloc_binary(&out_binary, out_binary.size - unused);
+    if (!enif_alloc_binary(length, &out_binary)) {
+	return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env,"oom"));
+    }
+
+    top = curr;
+
+    while (curr != NULL) {
+	length = curr->length - (curr->curr-curr->top) -1;
+	if (length > 0)
+	    memcpy(out_binary.data + pos, curr->curr+1, length);
+	pos += length;
+	curr = curr->next;
+    }
+
+    ber_free_chunks(top);
 
     return enif_make_binary(env, &out_binary);
 }
