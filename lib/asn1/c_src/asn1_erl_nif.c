@@ -1049,7 +1049,10 @@ int ber_encode(ErlNifEnv *env, ERL_NIF_TERM term, mem_chunk_t **curr, unsigned i
 	ERL_NIF_TERM head, tail;
 	unsigned int tmp_cnt;
 
-	if (!enif_get_list_cell(env, tv[1], &head, &tail)) {
+	if(!enif_make_reverse_list(env, tv[1], &head))
+	    return ASN1_ERROR;
+
+	if (!enif_get_list_cell(env, head, &head, &tail)) {
 	    if (enif_is_empty_list(env, tv[1])) {
 		*((*curr)->curr) = 0;
 		(*curr)->curr -= 1;
