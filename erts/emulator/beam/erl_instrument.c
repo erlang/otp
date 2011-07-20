@@ -1152,14 +1152,6 @@ erts_instr_get_type_info(Process *proc)
     return res;
 }
 
-#if HALFWORD_HEAP
-#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
-  ((NO) == ERTS_ALC_A_SBMBC || (NO) == ERTS_ALC_A_SBMBC_LOW)
-#else
-#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
-  ((NO) == ERTS_ALC_A_SBMBC)
-#endif
-
 Uint
 erts_instr_init(int stat, int map_stat)
 {
