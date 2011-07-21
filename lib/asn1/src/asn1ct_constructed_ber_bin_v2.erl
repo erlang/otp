@@ -877,12 +877,12 @@ gen_dec_choice(Erules,TopType, _ChTag, CompList, Ext) ->
 	    emit([indent(9),"exit({error,{asn1,{invalid_choice_tag,",
 		  {curr,else},"}}})",nl]);
 	_ ->
-	    emit([indent(9),"{asn1_ExtAlt, ?RT_BER:encode(",{curr,else},")}",nl])
+	    emit([indent(9),"{asn1_ExtAlt, ?RT_BER:encode(",{curr,else},
+		  asn1ct_gen:nif_parameter(),")}",nl])
     end,
     emit([indent(3),"end",nl]),
     asn1ct_name:new(tag),
     asn1ct_name:new(else).
-
 
 gen_dec_choice_cases(_Erules,_TopType, []) ->
     ok;

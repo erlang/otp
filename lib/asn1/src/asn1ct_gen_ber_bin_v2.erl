@@ -728,13 +728,13 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	{_,#'ObjectClassFieldType'{}} ->
 	    case asn1ct_gen:get_inner(Att#type.def) of
 		'ASN1_OPEN_TYPE' ->
-		    emit([{asis,DoTag},")"]);
+		    emit([{asis,DoTag},asn1ct_gen:nif_parameter(),")"]);
 		_ -> ok
 	    end;
 	{{string,TagStr},'ASN1_OPEN_TYPE'} ->
-	    emit([TagStr,")"]);
+	    emit([TagStr,asn1ct_gen:nif_parameter(),")"]);
 	{_,'ASN1_OPEN_TYPE'} ->
-	    emit([{asis,DoTag},")"]);
+	    emit([{asis,DoTag},asn1ct_gen:nif_parameter(),")"]);
 	{{string,TagStr},_} ->
 	    emit([TagStr,")"]);
 	_ when is_list(DoTag) ->
@@ -1502,13 +1502,14 @@ gen_objset_dec(Erules,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj) ->
     emit(["'getdec_",ObjSetName,"'(_, _) ->",nl]),
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
+    
     case Erules of
 	ber_bin_v2 ->
 	    emit([indent(4),"case Bytes of",nl,
 		  indent(6),"Bin when is_binary(Bin) -> ",nl,
 		  indent(8),"Bin;",nl,
 		  indent(6),"_ ->",nl,
-		  indent(8),"?RT_BER:encode(Bytes)",nl,
+		  indent(8),"?RT_BER:encode(Bytes",driver_parameter(),")",nl,
 		  indent(4),"end",nl]);
 	_ ->
 	    emit([indent(6),"Len = case Bytes of",nl,indent(9),
@@ -1520,6 +1521,14 @@ gen_objset_dec(Erules,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
     ok;
 gen_objset_dec(_,_,_,[],_,_,_) ->
     ok.
+
+driver_parameter() ->
+    Options = get(encoding_options),
+    case {lists:member(driver,Options),lists:member(nif,Options)} of
+	{true,_} -> ",nif";
+	{_,true} -> ",nif";
+	_ ->  ",erlang"
+    end.
 
 emit_default_getdec(ObjSetName,UniqueName) ->
     emit(["'getdec_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
