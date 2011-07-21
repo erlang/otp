@@ -1,5 +1,5 @@
 
-particular() -> [smp, per_performance, ber_performance, ticket7904].
+particular() -> [smp, ticket7904].
 
 
 smp(suite) -> [];
@@ -34,105 +34,65 @@ smp(Config)  ->
     end.
 
 per_performance(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    NifDir = filename:join(PrivDir,"nif"),
+    ErlDir = filename:join(PrivDir,"erl"),
+    file:make_dir(NifDir),file:make_dir(ErlDir),
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize, nif]),
-    NumOfProcs = erlang:system_info(schedulers)*10,
-    N = 100000,
-    SmpN = lists:seq(1,round(N/NumOfProcs)),
+    ?line ok = testNBAPsystem:compile([{priv_dir,NifDir}|Config],per_bin,
+				      [optimize]),
+    ?line ok = testNBAPsystem:compile([{priv_dir,ErlDir}|Config],per_bin,
+				      []),
 
-    asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
+    Modules = ['NBAP-CommonDataTypes',
+	       'NBAP-Constants',
+	       'NBAP-Containers',
+	       'NBAP-IEs',
+	       'NBAP-PDU-Contents',
+	       'NBAP-PDU-Discriptions'],
 
-    PerFun = fun() ->
-		     [asn1_wrapper:encode('NBAP-PDU-Discriptions',
-					  'NBAP-PDU',
-					  Msg) || _I <- lists:seq(1,N)],
-		     ok
+
+    PreNif = fun() ->
+		     code:add_patha(NifDir),
+		     lists:foreach(fun(M) ->
+					   code:purge(M),
+					   code:load_file(M)
+				   end,Modules)
+	     end,
+    
+    PreErl = fun() ->
+		     code:add_patha(ErlDir),
+		     lists:foreach(fun(M) ->
+					   code:purge(M),
+					   code:load_file(M)
+				   end,Modules)
 	     end,
 
-    PerSMPFun = 
-	fun() ->
-		pforeach(fun(_) ->
-				 [asn1_wrapper:encode('NBAP-PDU-Discriptions',
-						      'NBAP-PDU',
-						      Msg) || _I <- SmpN]
-			 end,lists:seq(1,NumOfProcs))
-	end,
+    Func = fun() ->
+		   element(1,timer:tc(
+			       asn1_wrapper,encode,['NBAP-PDU-Discriptions',
+						    'NBAP-PDU',
+						    Msg]))
+	   end,
 
-    application:set_env(asn1, nif_loadable, false),
-    ?line {TimeN,ok} = timer:tc(PerFun),
-    ?line {TimeNS,ok} = timer:tc(PerSMPFun),
-
-    application:set_env(asn1, nif_loadable, true),
-%    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize]),
-
-    ?line {TimeE,ok} = timer:tc(PerFun),
-    ?line {TimeES,ok} = timer:tc(PerSMPFun),
-
-    ct:log("Seq:<br/>"
-	   "Nif   : ~p (~.2f%)<br/>"
-	   "Erlang: ~p (~.2f%)<br/>"
-	   "Parallel:<br/>"
-	   "Nif   : ~p (~.2f%)<br/>"
-	   "Erlang: ~p (~.2f%)<br/>",
-	   [TimeN,TimeN/TimeN*100,
-	    TimeE,TimeE/TimeN*100,
-	    TimeNS,TimeNS/TimeNS*100,
-	    TimeES,TimeES/TimeNS*100]),
-
-    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than erlang!",
-					  [faster(TimeN+TimeNS,
-						  TimeE+TimeES)]))}.
+    nif_vs_erlang_performance({{{PreNif,Func},{PreErl,Func}},100000,32}).
 
 ber_performance(Config) ->
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
     ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
-    NumOfProcs = erlang:system_info(schedulers)*10,
-    N = 10000,
-    SmpN = lists:seq(1,round(N/NumOfProcs)),
 
-    {ok,B} = asn1_wrapper:encode('NBAP-PDU-Discriptions','NBAP-PDU', Msg),
 
     BerFun = fun() ->
-		     [asn1_wrapper:decode(
+		     {ok,B} = asn1_wrapper:encode('NBAP-PDU-Discriptions',
+						  'NBAP-PDU', Msg),
+		     asn1_wrapper:decode(
 			'NBAP-PDU-Discriptions',
 			'NBAP-PDU',
-			B) || _I <- lists:seq(1,N)],
-		     ok
+			B)
 	     end,
-    BerSMPFun = 
-	fun() ->
-		pforeach(fun(_) ->
-				 [asn1_wrapper:decode(
-				   'NBAP-PDU-Discriptions',
-				   'NBAP-PDU',
-				   B) || _I <- SmpN]
-			 end,lists:seq(1,NumOfProcs))
-	end,
-    
-    ?line {TimeN,ok} = timer:tc(BerFun),
-    ?line {TimeNS,ok} = timer:tc(BerSMPFun),
-
-    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize]),
-
-    ?line {TimeE,ok} = timer:tc(BerFun),
-    ?line {TimeES,ok} = timer:tc(BerSMPFun),
-
-    ct:log("Seq:<br/>"
-	   "Nif   : ~p (~.2f%)<br/>"
-	   "Erlang: ~p (~.2f%)<br/>"
-	   "Parallel:<br/>"
-	   "Nif   : ~p (~.2f%)<br/>"
-	   "Erlang: ~p (~.2f%)<br/>",
-	   [TimeN,TimeN/TimeN*100,
-	    TimeE,TimeE/TimeN*100,
-	    TimeNS,TimeNS/TimeNS*100,
-	    TimeES,TimeES/TimeNS*100]),
-
-    {comment, lists:flatten(io_lib:format("Nifs are ~.2f% faster than erlang!",
-					  [faster(TimeN+TimeNS,
-						  TimeE+TimeES)]))}.
+    nif_vs_erlang_performance({BerFun,100000,32}).
 
 cert_pem_performance(Config) when is_list(Config) ->
     cert_pem_performance({100000, 32});
@@ -144,18 +104,10 @@ dsa_pem_performance(Config) when is_list(Config) ->
 dsa_pem_performance({N,S}) ->
     nif_vs_erlang_performance({fun dsa_pem/0,N,S}).
 
-nif_vs_erlang_performance({T,N,Sched}) ->
+
+nif_vs_erlang_performance({{TC1,TC2},N,Sched}) ->
     random:seed({123,456,789}),
     io:format("Running a ~p sample with ~p max procs...~n~n",[N,Sched]),
-    
-    TC1 = fun() ->
-		  application:set_env(asn1, nif_loadable, true),
-		  element(1,timer:tc(T))
-	  end,
-    TC2 = fun() ->
-		  application:set_env(asn1, nif_loadable, false),
-		  element(1,timer:tc(T))
-	  end,
     
     {True,False} = exec(TC1,TC2,Sched,N+1),
         
@@ -163,9 +115,22 @@ nif_vs_erlang_performance({T,N,Sched}) ->
 
     io:format("~n"),TStats = print_stats(strip(True,N div 20)),
     io:format("~n"),FStats = print_stats(strip(False,N div 20)),
-    io:format("~nNifs are ~.3f% faster than erlang!~n",
-	      [(element(2,FStats) - element(2,TStats)) / 
-		   element(2,FStats) * 100]).
+    Str = io_lib:format("~nNifs are ~.3f% faster than erlang!~n",
+			[(element(2,FStats) - element(2,TStats)) / 
+			     element(2,FStats) * 100]),
+    io:format(Str),
+    {comment, lists:flatten(Str)};
+nif_vs_erlang_performance({T,N,Sched}) ->
+    PTC1 = fun() ->
+		  application:set_env(asn1, nif_loadable, true)
+	   end,
+    PTC2 = fun() ->
+		  application:set_env(asn1, nif_loadable, false)
+	   end,
+    TC = fun() ->
+		 element(1,timer:tc(T))
+	 end,
+    nif_vs_erlang_performance({{{PTC1,TC},{PTC2,TC}},N,Sched}).
     
 
 print_stats(Data) ->
@@ -198,7 +163,7 @@ exec(One,Two,Max,N) ->
     exec(One,Two,Max,N,{[],[]}).
 exec(_,_,_,1,{D1,D2}) ->
     {lists:flatten(D1),lists:flatten(D2)};
-exec(One,Two,MaxProcs, N, {D1,D2}) ->
+exec({PreOne,One} = O,{PreTwo,Two} = T,MaxProcs, N, {D1,D2}) ->
     Num = random:uniform(round(N/2)),
     if Num rem 3 == 0 ->
 	    timer:sleep(Num rem 1000);
@@ -209,17 +174,21 @@ exec(One,Two,MaxProcs, N, {D1,D2}) ->
     io:format("\tBatch: ~p items in ~p processes, ~p left~n",[Num,Procs,N-Num]),
     if Num rem 2 == 1 ->
 	    erlang:garbage_collect(),
+	    PreOne(),
 	    MoreOne = pexec(One, Num, Procs, []),
 	    erlang:garbage_collect(),
+	    PreTwo(),
 	    MoreTwo = pexec(Two, Num, Procs, []);
        true ->
 	    erlang:garbage_collect(),
+	    PreTwo(),
 	    MoreTwo = pexec(Two, Num, Procs, []),
 	    erlang:garbage_collect(),
+	    PreOne(),
 	    MoreOne = pexec(One, Num, Procs, [])
     end,
-    exec(One,Two,MaxProcs,N-Num,{[MoreOne|D1],
-				 [MoreTwo|D2]}).
+    exec(O,T,MaxProcs,N-Num,{[MoreOne|D1],
+			     [MoreTwo|D2]}).
 
 pexec(_Fun, _, 0, []) ->
     [];
