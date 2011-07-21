@@ -69,22 +69,23 @@
           <p>Own Id: OTP-9437</p>
         </item>
       </list>
+
     </section>
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
-      <p>-</p> 
-
 <!--
+      <p>-</p> 
+-->
+
       <list type="bulleted">
         <item>
-          <p>[agent] Did not handle transport domains properly in some 
-	  cases. </p>
-          <p>Own Id: OTP-9400</p>
-        </item>
+          <p>The snmp config tool could not handle (manager) audit trail config 
+	  because the option seqno was not handled. </p>
+	  <p>Own Id: OTP-9354</p>
+	</item>
 
       </list>
--->
     </section>
 
 

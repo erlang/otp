@@ -337,7 +337,7 @@ config_agent_sys() ->
 						{dir,    ATLDir},
 						{size,   ATLSize},
 						{repair, ATLRepair},
-						{seqno, ATLSeqNo}]}];
+						{seqno,  ATLSeqNo}]}];
 			no ->
 			    []
 		    end,
@@ -2350,7 +2350,9 @@ write_sys_config_file_manager_atl_opt(Fid, {type, Type}) ->
 write_sys_config_file_manager_atl_opt(Fid, {size, Size}) ->
     ok = io:format(Fid, "{size, ~w}", [Size]);
 write_sys_config_file_manager_atl_opt(Fid, {repair, Rep}) ->
-    ok = io:format(Fid, "{repair, ~w}", [Rep]).
+    ok = io:format(Fid, "{repair, ~w}", [Rep]);
+write_sys_config_file_manager_atl_opt(Fid, {seqno, SeqNo}) ->
+    ok = io:format(Fid, "{seqno, ~w}", [SeqNo]).
 
 
 header() ->
