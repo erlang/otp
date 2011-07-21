@@ -2011,7 +2011,13 @@ io_lib_fread_literal(Suite) when is_list(Suite) ->
     %%
     ?line {done,eof,_} = io_lib:fread([], eof, "~d"),
     ?line {done,eof,_} = io_lib:fread([], eof, " ~d"),
+    ?line {more,C1} = io_lib:fread([], " \n", " ~d"),
+    ?line {done,{error,{fread,input}},_} = io_lib:fread(C1, eof, " ~d"),
+    ?line {done,{ok,[18]},""} = io_lib:fread(C1, "18\n", " ~d"),
     %%
     ?line {done,eof,_} = io_lib:fread([], eof, "d"),
     ?line {done,eof,_} = io_lib:fread([], eof, " d"),
+    ?line {more,C2} = io_lib:fread([], " \n", " d"),
+    ?line {done,{error,{fread,input}},_} = io_lib:fread(C2, eof, " d"),
+    ?line {done,{ok,[]},[]} = io_lib:fread(C2, "d\n", " d"),
     ok.

@@ -123,8 +123,8 @@ fread([_F|_Format], [_C|_Line], _N, _Results) ->
     fread_error(input);
 fread([_|_]=Format, [], N, Results) ->
     {more,Format,N,Results};
-fread([_|_], eof, _N, []) ->
-    %% This is at start of format string so no error.
+fread([_|_], eof, 0, []) ->
+    %% This is at start of input so no error.
     eof;
 fread([_|_], eof, _N, _Results) ->
     %% This is an error as there is no more input.
@@ -175,8 +175,8 @@ fread1([$l|Format], _F, Sup, _U, Line, N, Res, _AllFormat) ->
 fread1(_Format, _F, _Sup, _U, [], N, Res, AllFormat) ->
     %% Need more input here.
     {more,[$~|AllFormat],N,Res};
-fread1(_Format, _F, _Sup, _U, eof, _N, [], _AllFormat) ->
-    %% This is at start of format string so no error.
+fread1(_Format, _F, _Sup, _U, eof, 0, [], _AllFormat) ->
+    %% This is at start of input so no error.
     eof;
 fread1(_Format, _F, _Sup, _U, eof, _N, _Res, _AllFormat) ->
     %% This is an error as there is no more input.
