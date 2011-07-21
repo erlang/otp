@@ -33,6 +33,52 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21</title>
+    <p>Version 4.21 supports code replacement in runtime from/to
+      version 4.20.1, 4.20 and 4.19.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Added type specs for functions that do not return. </p>
+          <p>Kostis Sagonas</p>
+          <p>Own Id: OTP-9208</p>
+        </item>
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] The SNMP ACM cache was not properly updated when
+	  changes where made to the VACM security-to-group, access and
+	  view-tree-family tables. </p>
+	  <p>Own Id: OTP-9367</p>
+          <p>Aux Id: Seq 11858</p>
+	</item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.20.1</title>
     <p>Version 4.20.1 supports code replacement in runtime from/to
       version 4.20, 4.19 and 4.18.</p>
