@@ -53,8 +53,8 @@
 	 decode_open_type_as_binary/2]).
 
 -export([decode_primitive_incomplete/2,decode_selective/2]).
- 
--compile(export_all).
+
+-export([is_nif_loadable/0]).
 
 -include("asn1_records.hrl"). 
  
