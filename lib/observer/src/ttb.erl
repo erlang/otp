@@ -668,18 +668,18 @@ loop(NodeInfo, SessionInfo) ->
     receive 
 	{init_node,Node,MetaFile,PI,Traci} ->
 	    erlang:monitor_node(Node,true),
-	    MetaPid = 
+	    {AbsoluteMetaFile, MetaPid} =
 		case rpc:call(Node,
 			      observer_backend,
 			      ttb_init_node,
 			      [MetaFile,PI,Traci]) of
-		    {ok,MP} ->
-			MP;
+		    {ok,MF,MP} ->
+			{MF,MP};
 		    {badrpc,nodedown} ->
 			%% We will get a nodedown message
-			undefined
+			{MetaFile,undefined}
 		end,
-	    loop(dict:store(Node,{MetaFile,MetaPid},NodeInfo), SessionInfo);
+	    loop(dict:store(Node,{AbsoluteMetaFile,MetaPid},NodeInfo), SessionInfo);
 	{get_nodes,Sender} ->
 	    Sender ! {?MODULE,dict:fetch_keys(NodeInfo)},
 	    loop(NodeInfo, SessionInfo);
@@ -839,23 +839,14 @@ fetch_report(Localhost, Dir, Node, MetaFile) ->
 
 fetch(Localhost,Dir,Node,MetaFile) ->
     case (host(Node) == Localhost) orelse is_local(MetaFile) of
-        true -> % same host, just move the files
+    true -> % same host, just move the files
 	    Files = get_filenames(Node,MetaFile),
 	    lists:foreach(
-	      fun(File0) ->
-                      case MetaFile of
-                          {local, _, _} ->
-                              File = filename:join(Dir,filename:basename(File0)),
-                              file:rename(File0, File);
-                          _ ->
-                              %%Other nodes may still have different CWD
-                              {ok, Cwd} = rpc:call(Node, file, get_cwd, []),
-                              File1 = filename:join(Cwd, File0),
-                              File = filename:join(Dir,filename:basename(File1)),
-                              file:rename(File1,File)
-                      end
-	      end,
-	      Files);
+            fun(File0) ->
+                Dest = filename:join(Dir,filename:basename(File0)),
+                file:rename(File0, Dest)
+            end,
+        Files);
 	false ->
 	    {ok, LSock} = gen_tcp:listen(0, [binary,{packet,2},{active,false}]),
 	    {ok,Port} = inet:port(LSock),
@@ -917,13 +908,15 @@ wait_for_fetch(Nodes) ->
 %%% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 write_info(Nodes,PI,Traci) ->
+    {ok, Cwd} = file:get_cwd(),
     lists:foreach(fun({N,{local,C,_},F}) ->
 			  MetaFile = case F of
                                          none ->
                                              none;
                                          F ->
-                                             file:delete(F ++ ".ti"),
-                                             F ++ ".ti"
+                                             AbsFile = filename:join(Cwd, F) ++ ".ti",
+                                             file:delete(AbsFile),
+                                             AbsFile
                                      end,
 			  Traci1 = [{node,N},{file,C}|Traci],
 			  {ok,Port} = dbg:get_tracer(N),

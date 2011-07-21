@@ -65,6 +65,8 @@ all() ->
      trace_to_remote_files_on_localhost_with_different_pwd,
      trace_to_local_files_on_localhost_with_different_pwd,
      trace_to_remote_files_on_localhost_with_different_pwd_abs,
+     changing_cwd_on_control_node, changing_cwd_on_remote_node,
+     changing_cwd_on_control_node_with_local_trace,
      one_command_trace_setup, dbg_style_fetch, shell_tracing_init,
      only_one_state_for_format_handler, only_one_state_with_default_format_handler,
      only_one_state_with_initial_format_handler, run_trace_with_shortcut1,
@@ -1002,6 +1004,8 @@ format_on_trace_stop(Config) when is_list(Config) ->
     ?line true = filelib:is_file("HANDLER_OK"),
     ?line ok = file:delete("HANDLER_OK").
 
+%% The following three tests are for the issue "fixes fetch fail when nodes on the same host
+%% have different cwd"
 trace_to_remote_files_on_localhost_with_different_pwd(suite) ->
     [];
 trace_to_remote_files_on_localhost_with_different_pwd(doc) ->
@@ -1042,6 +1046,66 @@ trace_to_remote_files_on_localhost_with_different_pwd_abs(Config) when is_list(C
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ok = file:set_cwd(OldDir).
+
+%% Trace is not affected by changes of cwd on control node or remote nodes during tracing
+%% (three tests)
+changing_cwd_on_control_node(suite) ->
+    [];
+changing_cwd_on_control_node(doc) ->
+    ["Changing cwd on control node during tracing is safe"];
+changing_cwd_on_control_node(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace(ServerNode, ClientNode, ?FNAME),
+    ?line NumMsgs = 3,
+    ?line ttb_helper:msgs(NumMsgs),
+    ?line ok = file:set_cwd(".."),
+    ?line ttb_helper:msgs(NumMsgs),
+    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    ?line {ok, Ret} = file:consult(?OUTPUT),
+    ?line true = (2*(NumMsgs + 1) == length(Ret)),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ok = file:set_cwd(OldDir).
+
+changing_cwd_on_control_node_with_local_trace(suite) ->
+    [];
+changing_cwd_on_control_node_with_local_trace(doc) ->
+    ["Changing cwd on control node during local tracing is safe"];
+changing_cwd_on_control_node_with_local_trace(Config) when is_list(Config) ->
+    ?line {ok, OldDir} = file:get_cwd(),
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
+    ?line NumMsgs = 3,
+    ?line ttb_helper:msgs(NumMsgs),
+    ?line ok = file:set_cwd(".."),
+    ?line ttb_helper:msgs(NumMsgs),
+    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    ?line {ok, Ret} = file:consult(?OUTPUT),
+    ?line true = (2*(NumMsgs + 1) == length(Ret)),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode),
+    ?line ok = file:set_cwd(OldDir).
+
+changing_cwd_on_remote_node(suite) ->
+    [];
+changing_cwd_on_remote_node(doc) ->
+    ["Changing cwd on remote node during tracing is safe"];
+changing_cwd_on_remote_node(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace(ServerNode, ClientNode, ?FNAME),
+    ?line NumMsgs = 2,
+    ?line ttb_helper:msgs(NumMsgs),
+    ?line ok = rpc:call(ClientNode, file, set_cwd, [".."]),
+    ?line ttb_helper:msgs(NumMsgs),
+    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
+    ?line {ok, Ret} = file:consult(?OUTPUT),
+    ?line true = (2*(NumMsgs + 1) == length(Ret)),
+    ?line ?t:stop_node(ServerNode),
+    ?line ?t:stop_node(ClientNode).
 
 one_command_trace_setup(suite) ->
     [];
