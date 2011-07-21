@@ -27,7 +27,7 @@
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
-	 io_fread_newlines/1, otp_8989/1]).
+	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1]).
 
 %-define(debug, true).
 
@@ -62,7 +62,7 @@ all() ->
      otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
-     io_fread_newlines, otp_8989].
+     io_fread_newlines, otp_8989, io_lib_fread_literal].
 
 groups() -> 
     [].
@@ -1994,4 +1994,24 @@ otp_8989(Suite) when is_list(Suite) ->
     ?line "Hel " = fmt("~*.3s", [-4,Hello]),
     ?line "Hel " = fmt("~-4.*s", [3,Hello]),
     ?line "Hel " = fmt("~*.*s", [-4,3,Hello]),
+    ok.
+
+io_lib_fread_literal(doc) ->
+    "OTP-9439 io_lib:fread bug for literate at end";
+io_lib_fread_literal(Suite) when is_list(Suite) ->
+    ?line {more,"~d",0,""} = io_lib:fread("~d", ""),
+    ?line {error,{fread,integer}} = io_lib:fread("~d", " "),
+    ?line {more,"~d",1,""} = io_lib:fread(" ~d", " "),
+    ?line {ok,[17],"X"} = io_lib:fread(" ~d", " 17X"),
+    %%
+    ?line {more,"d",0,""} = io_lib:fread("d", ""),
+    ?line {error,{fread,input}} = io_lib:fread("d", " "),
+    ?line {more,"d",1,""} = io_lib:fread(" d", " "),
+    ?line {ok,[],"X"} = io_lib:fread(" d", " dX"),
+    %%
+    ?line {done,eof,_} = io_lib:fread([], eof, "~d"),
+    ?line {done,eof,_} = io_lib:fread([], eof, " ~d"),
+    %%
+    ?line {done,eof,_} = io_lib:fread([], eof, "d"),
+    ?line {done,eof,_} = io_lib:fread([], eof, " d"),
     ok.

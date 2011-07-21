@@ -121,6 +121,14 @@ fread([C|Format], [C|Line], N, Results) ->
     fread(Format, Line, N+1, Results);
 fread([_F|_Format], [_C|_Line], _N, _Results) ->
     fread_error(input);
+fread([_|_]=Format, [], N, Results) ->
+    {more,Format,N,Results};
+fread([_|_], eof, _N, []) ->
+    %% This is at start of format string so no error.
+    eof;
+fread([_|_], eof, _N, _Results) ->
+    %% This is an error as there is no more input.
+    fread_error(input);
 fread([], Line, _N, Results) ->
     {ok,reverse(Results),Line}.
 
