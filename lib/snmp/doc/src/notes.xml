@@ -33,6 +33,50 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21</title>
+    <p>Version 4.21 supports code replacement in runtime from/to
+      version 4.20.1, 4.20 and 4.19.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Added type specs for functions that do not return. </p>
+          <p>Kostis Sagonas</p>
+          <p>Own Id: OTP-9208</p>
+        </item>
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>The snmp config tool could not handle (manager) audit trail config 
+	  because the option seqno was not handled. </p>
+	  <p>Own Id: OTP-9354</p>
+	</item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.20.1</title>
     <p>Version 4.20.1 supports code replacement in runtime from/to
       version 4.20, 4.19 and 4.18.</p>
