@@ -33,6 +33,86 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21</title>
+    <p>Version 4.21 supports code replacement in runtime from/to
+      version 4.20.1, 4.20 and 4.19. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[manager] There was no way to specify transport domain. 
+	  The transport domains was assumed to be IPv4 (transportDomainUdpIpv4).
+	  This has now been changed so that it can also be IPv6 
+	  (transportDomainUdpIpv6). 
+	  To facilitate this, the transport domain, <c>tdomain</c>, 
+	  is now a (new) valid option when 
+	  <seealso marker="snmpm#register_agent">registering</seealso>
+	  a new agent (and 
+	  <seealso marker="snmpm#update_agent_info">updating</seealso> 
+	  agent info). </p>
+	  <p>This also mean that the transport behaviour has changed. </p>
+          <p>Own Id: OTP-9305</p>
+          <p>Aux Id: Seq 11847</p>
+        </item>
+
+        <item>
+          <p>[compiler] Added the option 
+	  <seealso marker="snmpc#compile">warnings_as_errors</seealso> 
+	  (for the SNMP MIB compiler (escript) frontend, the option 
+	  <seealso marker="snmpc(command)#option_wae">--wae</seealso> is used) 
+	  which specifies whether warnings should be treated as errors. </p>
+          <p>Tuncer Ayaz</p>
+          <p>Own Id: OTP-9437</p>
+        </item>
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>The snmp config tool could not handle (manager) audit trail config 
+	  because the option seqno was not handled. </p>
+	  <p>Own Id: OTP-9354</p>
+	</item>
+
+        <item>
+          <p>[agent] The SNMP ACM cache was not properly updated when
+	  changes where made to the VACM security-to-group, access and
+	  view-tree-family tables. </p>
+	  <p>Own Id: OTP-9367</p>
+          <p>Aux Id: Seq 11858</p>
+	</item>
+
+        <item>
+          <p>Fixed install directory typo for man3. </p>
+	  <p>Peter Lemenkov</p>
+	  <p>Hans Ulrich Niedermann</p>
+	  <p>Own Id: OTP-9442</p>
+	</item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.20.1</title>
     <p>Version 4.20.1 supports code replacement in runtime from/to
       version 4.20, 4.19 and 4.18.</p>
@@ -56,7 +136,6 @@
 <!--
       <p>-</p> 
 -->
-
       <list type="bulleted">
         <item>
           <p>[agent] Did not handle transport domains properly in some cases, 

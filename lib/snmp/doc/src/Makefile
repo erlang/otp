@@ -152,6 +152,7 @@ $(TOP_PDF_FILE): $(XML_FILES)
 pdf: $(TOP_PDF_FILE)
 
 html: gifs $(HTML_REF_MAN_FILE)
+html2: html $(INDEX_TARGET)
 
 clean clean_docs: clean_html clean_man clean_pdf
 	rm -f errs core *~
@@ -228,6 +229,7 @@ clean_man:
 clean_html:
 	@echo "cleaning html:"
 	rm -rf $(HTMLDIR)/*
+	rm -f $(INDEX_TARGET)
 
 $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 	@echo "processing $*"
@@ -286,7 +288,7 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man1
 	$(INSTALL_DATA) $(MAN1_FILES) $(RELEASE_PATH)/man/man1
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man
+	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DATA) $(MAN3_FILES) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man6
 	$(INSTALL_DATA) $(MAN6_FILES) $(RELEASE_PATH)/man/man6

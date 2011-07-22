@@ -67,7 +67,7 @@ do_configure: configure
 configure: configure.in
 	autoconf
 
-.PHONY: info
+.PHONY: info gclean
 
 info: 
 	@echo "OS:       $(OS)"
@@ -75,6 +75,9 @@ info:
 	@echo ""
 	@echo "SNMP_VSN: $(SNMP_VSN)"
 	@echo "APP_VSN:  $(APP_VSN)"
+
+gclean: 
+	git clean -fXd
 
 
 # ----------------------------------------------------

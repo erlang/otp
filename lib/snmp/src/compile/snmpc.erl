@@ -108,6 +108,7 @@ compile(FileName) ->
 %%          {i,           [import_dir_string()]}          ["./"]
 %%          {il,          [import_lib_dir_string()]}      []
 %%          {warnings,    bool()}                         true
+%%          warnings_as_errors
 %%          {outdir,      string()}                       "./"
 %%          description
 %%          reference
@@ -199,6 +200,8 @@ get_options([reference|Opts], Formats, Args) ->
     get_options(Opts, ["~n   reference"|Formats], Args);
 get_options([{warnings, Val}|Opts], Formats, Args) ->
     get_options(Opts, ["~n   warnings:    ~w"|Formats], [Val|Args]);
+get_options([warnings_as_errors|Opts], Formats, Args) ->
+    get_options(Opts, ["~n   warnings_as_errors"|Formats], Args);
 get_options([{verbosity, Val}|Opts], Formats, Args) ->
     get_options(Opts, ["~n   verbosity:   ~w"|Formats], [Val|Args]);
 get_options([imports|Opts], Formats, Args) ->
@@ -260,6 +263,8 @@ check_options([{group_check, Atom} | T]) when is_atom(Atom) ->
     check_options(T);
 check_options([{warnings, Bool} | T]) ->
     check_bool(warnings, Bool),
+    check_options(T);
+check_options([warnings_as_errors | T]) ->
     check_options(T);
 check_options([{db, volatile} | T]) ->
     check_options(T);
@@ -330,6 +335,9 @@ get_agent_capabilities(Options) ->
 
 get_module_compliance(Options) ->
     get_bool_option(module_compliance, Options).
+
+get_warnings_as_errors(Options) ->
+    lists:member(warnings_as_errors, Options).
 
 get_relaxed_row_name_assign_check(Options) ->
     lists:member(relaxed_row_name_assign_check, Options).
@@ -409,6 +417,7 @@ init(From, MibFileName, Options) ->
     put(reference,          get_reference(Options)),
     put(agent_capabilities, get_agent_capabilities(Options)),
     put(module_compliance,  get_module_compliance(Options)),
+    put(warnings_as_errors, get_warnings_as_errors(Options)),
     File = filename:rootname(MibFileName, ".mib"),
     put(filename, filename:basename(File ++ ".mib")),
     R = case catch c_impl(File) of
