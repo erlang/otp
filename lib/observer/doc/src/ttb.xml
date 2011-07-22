@@ -470,7 +470,7 @@ ttb:p(all, call)</code>
       <fsummary>Stop tracing and fetch/format logs from all nodes</fsummary>
       <type>
         <v>Opts = Opt | [Opt]</v>
-        <v>Opt = nofetch | {fetch_dir, Dir} | format | {format, FormatOpts} | return</v>
+        <v>Opt = nofetch | {fetch_dir, Dir} | format | {format, FormatOpts} | return_fetch_dir</v>
         <v>Dir = string()</v>
         <v>FormatOpts = see format/2</v>
       </type>
@@ -499,7 +499,7 @@ ttb:p(all, call)</code>
           shall be formatted after tracing is stopped. All logs in the fetch directory will be merged.
           You may use <c>{format, FormatOpts}</c> to pass additional
           arguments to <c>format/2</c>.</p>
-        <p>The <c>return</c> option indicates that the return value
+        <p>The <c>return_fetch_dir</c> option indicates that the return value
           should be <c>{stopped, Dir}</c> and not just <c>stopped</c>.
           This implies <c>fetch</c>.
         </p>

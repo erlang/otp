@@ -608,9 +608,9 @@ stop_opts(Opts) ->
                      true ->      {format, []};
                      FOpts ->     {format, FOpts}
                  end,
-    case {FormatData, lists:member(return, Opts)} of
+    case {FormatData, lists:member(return_fetch_dir, Opts)} of
 	{false, true} ->
-	    {fetch, FetchDir}; % if we specify return, the data should be fetched
+	    {fetch, FetchDir}; % if we specify return_fetch_dir, the data should be fetched
     {false, false} ->
 	    case lists:member(nofetch,Opts) of
 		    false -> {fetch, FetchDir};
@@ -630,7 +630,7 @@ ensure_fetch_dir(Dir) ->
     end.
 
 stop_return(R,Opts) ->
-    case {lists:member(return,Opts),R} of
+    case {lists:member(return_fetch_dir,Opts),R} of
         {true,_} ->
             %%Printout moved out of the ttb loop to avoid occasional deadlock
             io:format("Stored logs in ~s~n",[element(2, R)]),

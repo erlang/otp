@@ -59,7 +59,7 @@ all() ->
      write_config3, history, write_trace_info, seq_trace,
      diskless, otp_4967_1, otp_4967_2,
      fetch_when_no_option_given, basic_ttb_run_ip_port, basic_ttb_run_file_port,
-     return_implies_fetch, logfile_name_in_fetch_dir, upload_to_my_logdir,
+     return_fetch_dir_implies_fetch, logfile_name_in_fetch_dir, upload_to_my_logdir,
      upload_to_my_existing_logdir, fetch_with_options_not_as_list,
      error_when_formatting_multiple_files_4393, format_on_trace_stop,
      trace_to_remote_files_on_localhost_with_different_pwd,
@@ -192,7 +192,7 @@ file_fetch(Config) when is_list(Config) ->
     ?line ?MODULE:foo(),
     ?line rpc:call(OtherNode,?MODULE,foo,[]),
     ?line ?t:capture_start(),
-    ?line ttb:stop([return]),
+    ?line ttb:stop([return_fetch_dir]),
     ?line ?t:capture_stop(),
     ?line [StoreString] = ?t:capture_get(),
     ?line UploadDir =
@@ -861,7 +861,7 @@ begin_trace_local(ServerNode, ClientNode, Dest) ->
 check_size(N, Dest, Output, ServerNode, ClientNode) ->
     ?line begin_trace(ServerNode, ClientNode, Dest),
     ?line ttb_helper:msgs(N),
-    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, Output}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(Output),
     ?line true = (N + 1 == length(Ret)).
@@ -905,15 +905,15 @@ basic_ttb_run_file_port(Config) when is_list(Config) ->
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode).
 
-return_implies_fetch(suite) ->
+return_fetch_dir_implies_fetch(suite) ->
     [];
-return_implies_fetch(doc) ->
-    ["Return implies fetch"];
-return_implies_fetch(Config) when is_list(Config) ->
+return_fetch_dir_implies_fetch(doc) ->
+    ["Return_fetch_dir implies fetch"];
+return_fetch_dir_implies_fetch(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, ?FNAME),
     ?line ttb_helper:msgs(2),
-    ?line {_,_} = ttb:stop([return]),
+    ?line {_,_} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode).
 
@@ -924,7 +924,7 @@ logfile_name_in_fetch_dir(doc) ->
 logfile_name_in_fetch_dir(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
-    ?line {_,Dir} = ttb:stop([return]),
+    ?line {_,Dir} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line P1 = lists:nth(3, string:tokens(filename:basename(Dir), "_")),
@@ -939,7 +939,7 @@ upload_to_my_logdir(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line {stopped,_} = ttb:stop([return, {fetch_dir, ?DIRNAME}]),
+    ?line {stopped,_} = ttb:stop([return_fetch_dir, {fetch_dir, ?DIRNAME}]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line true = filelib:is_file(?DIRNAME),
@@ -954,8 +954,8 @@ upload_to_my_existing_logdir(Config) when is_list(Config) ->
     ?line ok = file:make_dir(?DIRNAME),
     ?line {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line {error,_,_} = (catch ttb:stop([return, {fetch_dir, ?DIRNAME}])),
-    ?line {stopped,_} = ttb:stop(return),
+    ?line {error,_,_} = (catch ttb:stop([return_fetch_dir, {fetch_dir, ?DIRNAME}])),
+    ?line {stopped,_} = ttb:stop(return_fetch_dir),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode).
 
@@ -967,7 +967,7 @@ fetch_with_options_not_as_list(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line {ok, _} =
 	ttb:tracer([ServerNode,ClientNode],[{file, ?FNAME}]),
-    ?line {stopped, D} = ttb:stop(return),
+    ?line {stopped, D} = ttb:stop(return_fetch_dir),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line false = filelib:is_file(?OUTPUT),
@@ -982,7 +982,7 @@ error_when_formatting_multiple_files_4393(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, ?FNAME),
     ?line ttb_helper:msgs(2),
-    ?line {_, Dir} = ttb:stop(return),
+    ?line {_, Dir} = ttb:stop(return_fetch_dir),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line Files = [filename:join(Dir, atom_to_list(ttb_helper:get_node(server)) ++ "-" ++ ?FNAME),
@@ -998,7 +998,7 @@ format_on_trace_stop(Config) when is_list(Config) ->
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
     ?line ttb_helper:msgs(2),
     ?line file:delete("HANDLER_OK"),
-    ?line {_,_} = ttb:stop([fetch, return, {format, {handler, marking_call_handler()}}]),
+    ?line {_,_} = ttb:stop([fetch, return_fetch_dir, {format, {handler, marking_call_handler()}}]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line true = filelib:is_file("HANDLER_OK"),
@@ -1061,7 +1061,7 @@ changing_cwd_on_control_node(Config) when is_list(Config) ->
     ?line ttb_helper:msgs(NumMsgs),
     ?line ok = file:set_cwd(".."),
     ?line ttb_helper:msgs(NumMsgs),
-    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
     ?line true = (2*(NumMsgs + 1) == length(Ret)),
@@ -1081,7 +1081,7 @@ changing_cwd_on_control_node_with_local_trace(Config) when is_list(Config) ->
     ?line ttb_helper:msgs(NumMsgs),
     ?line ok = file:set_cwd(".."),
     ?line ttb_helper:msgs(NumMsgs),
-    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
     ?line true = (2*(NumMsgs + 1) == length(Ret)),
@@ -1100,7 +1100,7 @@ changing_cwd_on_remote_node(Config) when is_list(Config) ->
     ?line ttb_helper:msgs(NumMsgs),
     ?line ok = rpc:call(ClientNode, file, set_cwd, [".."]),
     ?line ttb_helper:msgs(NumMsgs),
-    ?line {_, D} = ttb:stop([fetch, return]),
+    ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
     ?line true = (2*(NumMsgs + 1) == length(Ret)),
@@ -1120,7 +1120,7 @@ one_command_trace_setup(Config) when is_list(Config) ->
 		     {all, call},
 		     [{file, ?FNAME}]),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop(return),
+    ?line {_, D} = ttb:stop(return_fetch_dir),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
@@ -1185,7 +1185,7 @@ only_one_state_for_format_handler(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace_local(ServerNode, ClientNode, ?FNAME),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return]),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, counter_call_handler()}]),
@@ -1200,7 +1200,7 @@ only_one_state_with_default_format_handler(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace_local(ServerNode, ClientNode, ?FNAME),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return]),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ttb:format(D, [{out, ?OUTPUT}]),
@@ -1219,7 +1219,7 @@ only_one_state_with_initial_format_handler(Config) when is_list(Config) ->
     ?line ttb:tpl(client, put, []),
     ?line ttb:tpl(client, get, []),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return]),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ttb:format(D, [{out, ?OUTPUT}]),
@@ -1233,7 +1233,7 @@ run_trace_with_shortcut(Shortcut, Ret, F) ->
     ?line ttb:p(all, call),
     ?line ttb:F(client, put, Shortcut),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return]),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler()}]),
     ?line {ok, Ret} =file:consult(?OUTPUT),
     ?line ?t:stop_node(ServerNode),
@@ -1298,7 +1298,7 @@ trace_sorted_by_default(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace_local(ServerNode, ClientNode, ?FILE),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return]),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, false}]),
@@ -1313,7 +1313,7 @@ disable_sorting(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace_local(ServerNode, ClientNode, ?FILE),
     ?line ttb_helper:msgs(2),
-    ?line {_, D} = ttb:stop([return]),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
     ?line ?t:stop_node(ServerNode),
     ?line ?t:stop_node(ClientNode),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, true}]),
