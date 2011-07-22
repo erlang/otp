@@ -1155,11 +1155,11 @@ int ber_encode_length(size_t size, mem_chunk_t **curr, unsigned int *count) {
 }
 
 mem_chunk_t *ber_new_chunk(unsigned int length) {
-    mem_chunk_t *new = malloc(sizeof(mem_chunk_t));
+    mem_chunk_t *new = enif_alloc(sizeof(mem_chunk_t));
     if (new == NULL)
 	return NULL;
     new->next = NULL;
-    new->top = malloc(sizeof(char) * length);
+    new->top = enif_alloc(sizeof(char) * length);
     if (new->top == NULL) {
 	free(new);
 	return NULL;
@@ -1174,8 +1174,8 @@ void ber_free_chunks(mem_chunk_t *chunk) {
     while (next != NULL) {
 	curr = next;
 	next = curr->next;
-	free(curr->top);
-	free(curr);
+	enif_free(curr->top);
+	enif_free(curr);
     }
 }
 
@@ -1243,18 +1243,21 @@ static ERL_NIF_TERM encode_ber_tlv(ErlNifEnv* env, int argc,
 	const ERL_NIF_TERM argv[]) {
     ErlNifBinary out_binary;
     unsigned int length = 0, pos = 0;
+    int encode_err;
     mem_chunk_t *curr, *top;
     ERL_NIF_TERM err_code;
 
     curr = ber_new_chunk(40);
 
-    if ((ber_encode(env, argv[0], &curr, &length))
+    if ((encode_err = ber_encode(env, argv[0], &curr, &length))
 	    <= ASN1_ERROR) {
-	err_code = enif_make_uint(env, 0);
+	ber_free_chunks(curr);
+	err_code = enif_make_int(env, encode_err);
 	return enif_make_tuple2(env, enif_make_atom(env, "error"), err_code);
     }
 
     if (!enif_alloc_binary(length, &out_binary)) {
+	ber_free_chunks(curr);
 	return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env,"oom"));
     }
 
