@@ -128,15 +128,25 @@
 % encode(Tlv) ->
 %     encode_constructed(Tlv).
 
+encode(Tlv) when is_binary(Tlv) ->
+    Tlv;
 encode([Tlv]) ->
     encode(Tlv);
-encode({TlvTag,TlvVal}) when is_list(TlvVal) ->
+encode(Tlv) ->
+    case is_nif_loadable() of
+	true ->
+	    asn1rt_nif:encode_ber_tlv(Tlv);
+	false ->
+	    encode_erl(Tlv)
+    end.
+
+encode_erl([Tlv]) ->
+    encode_erl(Tlv);
+encode_erl({TlvTag,TlvVal}) when is_list(TlvVal) ->
     %% constructed form of value
     encode_tlv(TlvTag,TlvVal,?CONSTRUCTED);
-encode({TlvTag,TlvVal}) ->
-    encode_tlv(TlvTag,TlvVal,?PRIMITIVE);
-encode(Bin) when is_binary(Bin) ->
-    Bin.
+encode_erl({TlvTag,TlvVal}) ->
+    encode_tlv(TlvTag,TlvVal,?PRIMITIVE).
 
 encode_tlv(TlvTag,TlvVal,Form) ->
     Tag = encode_tlv_tag(TlvTag,Form),
@@ -155,7 +165,7 @@ encode_tlv_val(Bin) ->
     {Bin,size(Bin)}.
 
 encode_tlv_list([Tlv|Tlvs],Acc) ->
-    EncTlv = encode(Tlv),
+    EncTlv = encode_erl(Tlv),
     encode_tlv_list(Tlvs,[EncTlv|Acc]);
 encode_tlv_list([],Acc) ->
     Bin=list_to_binary(lists:reverse(Acc)),
