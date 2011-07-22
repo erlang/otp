@@ -416,7 +416,7 @@ gen_decode_selected(Erules,Type,FuncName) ->
 	end,
     emit(["  case ?RT_BER:decode_selective(",{asis,Pattern},",Bin) of",nl,
 	  "    {ok,Bin2} when is_binary(Bin2) ->",nl,
-	  "      {Tlv,_} = ?RT_BER:decode(Bin2),",nl]),
+	  "      {Tlv,_} = ?RT_BER:decode(Bin2",asn1ct_gen:nif_parameter(),"),",nl]),
     emit("{ok,"),
     gen_decode_selected_type(Erules,Type),
     emit(["};",nl,"    Err -> exit({error,{selctive_decode,Err}})",nl,
@@ -708,7 +708,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 	'ASN1_OPEN_TYPE' ->
 	    emit(["?RT_BER:decode_open_type_as_binary(",
 		  BytesVar,","]),
-	    add_func({decode_open_type_as_binary,2});
+	    add_func({decode_open_type_as_binary,3});
 	#'ObjectClassFieldType'{} ->
 		case asn1ct_gen:get_inner(Att#type.def) of
 		    {fixedtypevaluefield,_,InnerType} -> 
@@ -716,7 +716,7 @@ gen_dec_prim(Erules,Att,BytesVar,DoTag,TagIn,Form,OptOrMand) ->
 		    'ASN1_OPEN_TYPE' ->
 			emit(["?RT_BER:decode_open_type_as_binary(",
 			      BytesVar,","]),
-			add_func({decode_open_type_as_binary,2});
+			add_func({decode_open_type_as_binary,3});
 		    Other ->
 			exit({'can not decode' ,Other})
 		end;
@@ -1064,7 +1064,7 @@ emit_tlv_format_function() ->
     end.
 emit_tlv_format_function1() ->
     emit(["tlv_format(Bytes) when is_binary(Bytes) ->",nl,
-	  "  {Tlv,_}=?RT_BER:decode(Bytes),",nl,
+	  "  {Tlv,_}=?RT_BER:decode(Bytes",asn1ct_gen:nif_parameter(),"),",nl,
 	  "  Tlv;",nl,
 	  "tlv_format(Bytes) ->",nl,
 	  "  Bytes.",nl]).

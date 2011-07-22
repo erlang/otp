@@ -49,7 +49,8 @@
 	 decode_tag_and_length/1]).
 
 -export([encode_open_type/1,encode_open_type/2, 
-	 decode_open_type/2,decode_open_type_as_binary/2]).
+	 decode_open_type/2,decode_open_type/3,
+	 decode_open_type_as_binary/2]).
 
 -export([decode_primitive_incomplete/2,decode_selective/2]).
  
@@ -158,6 +159,9 @@ encode_tlv_list([],Acc) ->
     Bin=list_to_binary(lists:reverse(Acc)),
     {Bin,size(Bin)}.
 
+decode(B) ->
+    decode(B, erlang).
+
 %% asn1-1.7
 decode(B, nif) ->
     case application:get_env(asn1, nif_loadable) of
@@ -177,8 +181,10 @@ decode(B, nif) ->
 	    end,
 	    decode(B, nif)
     end;
-decode(B,erlang) ->
-    decode(B).
+decode(B,erlang) when is_binary(B) ->
+    decode_primitive(B);
+decode(Tlv,erlang) ->
+    {Tlv,<<>>}.
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
@@ -206,12 +212,6 @@ error_pos([B])->
 error_pos([B|Bs]) ->
     BS = 8 * length(Bs),
     B bsl BS + error_pos(Bs).
-
-decode(Bin) when is_binary(Bin) ->
-    decode_primitive(Bin);
-decode(Tlv) -> % assume it is a tlv
-    {Tlv,<<>>}.
-
 
 decode_primitive(Bin) ->
     {Form,TagNo,V,Rest} = decode_tag_and_length(Bin),
@@ -770,9 +770,11 @@ encode_open_type(Val,Tag) ->
 %% Value = binary with decoded data (which must be decoded again as some type)
 %%
 decode_open_type(Tlv, TagIn) ->
+    decode_open_type(Tlv, TagIn, erlang).
+decode_open_type(Tlv, TagIn, Method) ->
     case match_tags(Tlv,TagIn) of
 	Bin when is_binary(Bin) ->
-	    {InnerTlv,_} = decode(Bin),
+	    {InnerTlv,_} = decode(Bin,Method),
 	    InnerTlv;
 	TlvBytes -> TlvBytes
     end.

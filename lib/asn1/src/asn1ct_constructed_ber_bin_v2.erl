@@ -1227,7 +1227,7 @@ gen_dec_call({typefield,_},_,_,_Cname,Type,BytesVar,Tag,_,_,false,_) ->
     emit([nl,indent(6),"begin",nl]),
 %    emit([indent(9),{curr,opendec}," = ?RT_BER:decode_open_type(",
     emit([indent(9),{curr,tmptlv}," = ?RT_BER:decode_open_type(",
-	  BytesVar,",",{asis,Tag},"),",nl]),
+	  BytesVar,",",{asis,Tag},asn1ct_gen:nif_parameter(),"),",nl]),
 %     emit([indent(9),"{",{curr,tmptlv},",_} = ?RT_BER:decode(",
 % 	  {curr,opendec},"),",nl]),
 
@@ -1242,7 +1242,8 @@ gen_dec_call({typefield,_},_,_,_Cname,Type,BytesVar,Tag,_,_,false,_) ->
     emit([indent(9),"end",nl,indent(6),"end",nl]),
     [];
 gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandComp) ->
-    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},")"]),
+    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},
+	  asn1ct_gen:nif_parameter(),")"]),
     RefedFieldName = 
 % 	asn1ct_gen:get_constraint(Type#type.constraint,
 % 				  tableconstraint_info),
@@ -1250,7 +1251,8 @@ gen_dec_call({typefield,_},_,_,Cname,Type,BytesVar,Tag,_,_,_DecObjInf,OptOrMandC
     [{Cname,RefedFieldName,asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
 gen_dec_call({objectfield,PrimFieldName,PFNList},_,_,Cname,_,BytesVar,Tag,_,_,_,OptOrMandComp) ->
-    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},")"]),
+    emit(["?RT_BER:decode_open_type(",BytesVar,",",{asis,Tag},
+	  asn1ct_gen:nif_parameter(),")"]),
     [{Cname,{PrimFieldName,PFNList},asn1ct_gen:mk_var(asn1ct_name:curr(term)),
       asn1ct_gen:mk_var(asn1ct_name:curr(tmpterm)),Tag,OptOrMandComp}];
 gen_dec_call(InnerType,Erules,TopType,Cname,Type,BytesVar,Tag,PrimOptOrMand,

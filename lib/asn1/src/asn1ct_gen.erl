@@ -47,6 +47,7 @@
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
 	 gen_decode_constructed/4]).
+-export([nif_parameter/0]).
 
 %% pgen(Outfile, Erules, Module, TypeOrVal, Options)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
@@ -974,7 +975,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 %     case Erules of
 % 	ber_bin_v2 ->
 % 	    emit(["decode(Type,Data0) ->",nl]),
-% 	    emit(["{Data,_RestBin} = ?RT_BER:decode(Data0",driver_parameter(),"),",nl]);
+% 	    emit(["{Data,_RestBin} = ?RT_BER:decode(Data0",nif_parameter(),"),",nl]);
 % 	_ ->
 % 	    emit(["decode(Type,Data) ->",nl])
 %     end,
@@ -991,10 +992,10 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    {ber_bin_v2,false} ->
 		io_lib:format("~s~s~s~n",
 			      ["element(1,?RT_BER:decode(Data",
-			       driver_parameter(),"))"]);
+			       nif_parameter(),"))"]);
 	    {ber_bin_v2,true} ->
 		emit(["{Data,Rest} = ?RT_BER:decode(Data0",
-		      driver_parameter(),"),",nl]),
+		      nif_parameter(),"),",nl]),
 		"Data";
 	    _ ->
 		"Data"
@@ -1130,8 +1131,8 @@ gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
 			  "Data) of",nl]),
 		    EmitCaseClauses(),
 		    emit(["decode_part(Type,Data0) ->",nl]),
-		    Driver = driver_parameter(),
-		    emit(["  case catch decode_inc_disp(Type,element(1,?RT_BER:decode(Data0",Driver,"))) of",nl]),
+		    emit(["  case catch decode_inc_disp(Type,element(1,"
+			  "?RT_BER:decode(Data0",nif_parameter(),"))) of",nl]),
 % 			  "  {Data,_RestBin} = ?RT_BER:decode(Data0),",nl,
 % 			  "  case catch decode_inc_disp(Type,Data) of",nl]),
 		    EmitCaseClauses();
@@ -1174,7 +1175,7 @@ gen_partial_inc_dispatcher([],_) ->
     emit(["decode_partial_inc_disp(Type,_Data) ->",nl,
 	  "  exit({error,{asn1,{undefined_type,Type}}}).",nl]).
 
-driver_parameter() ->
+nif_parameter() ->
     Options = get(encoding_options),
     case {lists:member(driver,Options),lists:member(nif,Options)} of
 	{true,_} -> ",nif";
