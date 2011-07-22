@@ -85,6 +85,14 @@
 	  <p>Own Id: OTP-9354</p>
 	</item>
 
+        <item>
+          <p>[agent] The SNMP ACM cache was not properly updated when
+	  changes where made to the VACM security-to-group, access and
+	  view-tree-family tables. </p>
+	  <p>Own Id: OTP-9367</p>
+          <p>Aux Id: Seq 11858</p>
+	</item>
+
       </list>
     </section>
 
