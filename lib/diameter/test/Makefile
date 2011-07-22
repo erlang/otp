@@ -302,82 +302,24 @@ test: make
             -s $(DIAMETER_TEST_SERVER) t $(SUITE) \
             $(MAYBE_ESTOP)
 
-utest: make
-	$(MERL) $(ARGS) -sname diameter_utest $(ERL_PATH) \
-            $(MAYBE_ETVIEW) \
-            -s $(DIAMETER_TEST_SERVER) t $(SUITE) \
-            $(ESTOP)
-
-# ftest: make
-# 	$(MERL) $(ARGS) -sname diameter_ftest $(ERL_PATH) \
-#             -s diameter_filter \
-#             -s $(DIAMETER_TEST_SERVER) t $(SUITE) \
-#             $(ESTOP)
-# 
+log:
+	mkdir $@
 
 ##########################
 
-# tickets: make
-# 	$(MERL) $(ARGS) -sname diameter_tickets $(ERL_PATH) \
-#             -s $(DIAMETER_TEST_SERVER) tickets $(SUITE) \
-#             $(ESTOP)
-# 
+# This assumes GNU sed to exit 1 if the output looks to indicate failure.
+# diameter_ct:run/1 itself can't tell (it seems).
+codec: log make
+	$(MERL) $(ARGS) \
+	        -sname diameter_test_$@ \
+	        -s diameter_ct run $@ \
+	        -s init stop \
+	| sed '/ FAILED /h; p; $$!d; x; /./!d; Q 1'
 
-app: make
-	$(MERL) $(ARGS) -sname diameter_app $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_app_test \
+app appup compiler conf sync session stats reg peer tcp: make
+	$(MERL) $(ARGS) -sname diameter_$@ $(ERL_PATH) \
+            -s $(DIAMETER_TEST_SERVER) t diameter_$@_test \
             $(ESTOP)
-
-appup: make
-	$(MERL) $(ARGS) -sname diameter_appup $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_appup_test \
-            $(ESTOP)
-
-compiler: make
-	$(MERL) $(ARGS) -sname diameter_compiler $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_compiler_test \
-            $(ESTOP)
-
-conf: make
-	$(MERL) $(ARGS) -sname diameter_config $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_config_test \
-            $(ESTOP)
-
-sync: make
-	$(MERL) $(ARGS) -sname diameter_sync $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_sync_test \
-            $(ESTOP)
-
-session: make
-	$(MERL) $(ARGS) -sname diameter_session $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_session_test \
-            $(ESTOP)
-
-stats: make
-	$(MERL) $(ARGS) -sname diameter_stats $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_stats_test \
-            $(ESTOP)
-
-reg: make
-	$(MERL) $(ARGS) -sname diameter_reg $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_reg_test \
-            $(ESTOP)
-
-peer: make
-	$(MERL) $(ARGS) -sname diameter_peer $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_peer_test \
-            $(ESTOP)
-
-ptab: make
-	$(MERL) $(ARGS) -sname diameter_persistent_table $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_persistent_table_test \
-            $(ESTOP)
-
-tcp: make
-	$(MERL) $(ARGS) -sname diameter_tcp $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_tcp_test \
-            $(ESTOP)
-
 
 node:
 	$(MERL) -sname diameter $(ERL_PATH)
