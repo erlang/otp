@@ -93,6 +93,13 @@
           <p>Aux Id: Seq 11858</p>
 	</item>
 
+        <item>
+          <p>Fixed install directory typo for man3. </p>
+	  <p>Peter Lemenkov</p>
+	  <p>Hans Ulrich Niedermann</p>
+	  <p>Own Id: OTP-9442</p>
+	</item>
+
       </list>
     </section>
 
