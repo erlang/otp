@@ -204,7 +204,7 @@ process_chunks(F) ->
 optional_chunk(F, ChunkTag) ->
     case beam_lib:chunks(F, [ChunkTag]) of
 	{ok,{_Module,[{ChunkTag,Chunk}]}} -> Chunk;
-	{error,beam_lib,{missing_chunk,_,ChunkTag}} -> none
+	{error,beam_lib,{missing_chunk,_,_}} -> none
     end.
 
 %%-----------------------------------------------------------------------
