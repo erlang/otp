@@ -56,8 +56,6 @@
 -export([decode_primitive_incomplete/2,decode_selective/2]).
 
 -export([is_nif_loadable/0]).
-
--include("asn1_records.hrl"). 
  
 % the encoding of class of tag bits 8 and 7 
 -define(UNIVERSAL,   0). 
@@ -1058,7 +1056,7 @@ encode_real(C,Val, TagIn) when is_tuple(Val); is_list(Val) ->
 
 
 encode_real(C,Val) ->
-    ?RT_COMMON:encode_real(C,Val). 
+    asn1rt_ber_bin:encode_real(C,Val). 
  
  
 %%============================================================================ 
@@ -1083,7 +1081,7 @@ decode_real_notag(Buffer) ->
 	    {_T,_V} ->
 		exit({error,{asn1,{real_not_in_primitive_form,Buffer}}})
 	end,
-    {Val,_Rest,Len} = ?RT_COMMON:decode_real(Buffer,Len),
+    {Val,_Rest,Len} = asn1rt_ber_bin:decode_real(Buffer,Len),
     Val.
 %%    exit({error,{asn1, {unimplemented,real}}}).
 %%  decode_real2(Buffer, Form, size(Buffer)).

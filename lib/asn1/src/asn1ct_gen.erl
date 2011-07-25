@@ -1521,8 +1521,9 @@ gen_head(Erules,Mod,Hrl) ->
     emit({"-module('",Mod,"').",nl}),
     put(currmod,Mod),
     %emit({"-compile(export_all).",nl}),
-    case Hrl of
-	0 -> true;
+    case {Hrl,lists:member(inline,get(encoding_options))} of
+	{0,_} -> true;
+	{_,true} -> true;
 	_ -> 
 	    emit({"-include(\"",Mod,".hrl\").",nl})
     end,

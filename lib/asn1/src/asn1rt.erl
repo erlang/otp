@@ -21,8 +21,6 @@
 
 %% Runtime functions for ASN.1 (i.e encode, decode)
 
--include("asn1_records.hrl").
-
 -export([encode/2,encode/3,decode/3,load_driver/0,unload_driver/0,info/1]).
 
 -export([utf8_binary_to_list/1,utf8_list_to_binary/1]).
