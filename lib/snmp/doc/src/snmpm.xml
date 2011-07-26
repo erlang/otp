@@ -283,27 +283,27 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
         <v>TargetName = target_name()</v>
         <v>Config = [agent_config()]</v>
         <v>agent_config() = {Item, Val}</v>
-        <v>Item = engine_id | address | port | community | timeout | max_message_size | version | sec_model | sec_name | sec_level</v>
+        <v>Item = engine_id | address | port | community | timeout | max_message_size | version | sec_model | sec_name | sec_level | tdomain</v>
         <v>Val = term()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
         <p>Explicitly instruct the manager to handle this agent, with
-          <c>UserId</c> as the responsible user. </p>
-        <p>Called to instruct the manager that this agent 
-          shall be handled. This function is used when
-          the user knows in advance which agents the
-          manager shall handle.
-          Note that there is an alternate way to do the same thing:
-          Add the agent to the manager config files (see 
-          <seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>).</p>
+	<c>UserId</c> as the responsible user. </p>
+        <p>Called to instruct the manager that this agent shall be handled. 
+	This function is used when the user knows in advance which agents 
+	the manager shall handle.
+	Note that there is an alternate way to do the same thing:
+	Add the agent to the manager config files (see 
+	<seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>).</p>
         <p><c>TargetName</c> is a non-empty string, 
-          uniquely identifying the agent. </p>
-        <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
+	uniquely identifying the agent. </p>
+	<p>The type of <c>Val</c> depends on <c>Item</c>: </p>
 <code type="none"><![CDATA[
 [mandatory] engine_id = string()
 [mandatory] address = ip_address()
 [optional]  port = integer()
+[optional]  tdomain = transportDomainUdpIpv4 | transportDomainUdpIpv6
 [optional]  community = string()
 [optional]  timeout = integer() | snmp_timer()
 [optional]  max_message_size = integer()
@@ -312,7 +312,9 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
 [optional]  sec_name = string() 
 [optional]  sec_level = noAuthNoPriv | authNoPriv | authPriv
 ]]></code>
-        <p>Note that if no <c>Port</c> is given, the default value is used.</p>
+        <p>Note that if no <c>tdomain</c> is given, the default value,
+	<c>transportDomainUdpIpv4</c>, is used.</p>
+        <p>Note that if no <c>port</c> is given, the default value is used.</p>
 
         <marker id="unregister_agent"></marker>
       </desc>
@@ -348,17 +350,25 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
     </func>
 
     <func>
+      <name>update_agent_info(UserId, TargetName, Info) -> ok | {error, Reason}</name>
       <name>update_agent_info(UserId, TargetName, Item, Val) -> ok | {error, Reason}</name>
       <fsummary>Update agent config</fsummary>
       <type>
         <v>UserId = term()</v>
         <v>TargetName = target_name()</v>
-        <v>Item = atom()</v>
-        <v>Val = term()</v>
+        <v>Info = [{item(), item_value()}]</v>
+        <v>Item = item()</v>
+        <v>item() = atom()</v>
+        <v>Val = item_value()</v>
+        <v>item_value() = term()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Update agent config.</p>
+        <p>Update agent config. The function <c>update_agent_info/3</c> 
+	should be used when several values needs to be updated atomically. </p>
+	<p>See function 
+	<seealso marker="#register_agent">register_agent</seealso>) 
+	for more info about what kind of items are allowed. </p>
 
         <marker id="which_agents"></marker>
       </desc>

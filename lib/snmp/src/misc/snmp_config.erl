@@ -337,7 +337,7 @@ config_agent_sys() ->
 						{dir,    ATLDir},
 						{size,   ATLSize},
 						{repair, ATLRepair},
-						{seqno, ATLSeqNo}]}];
+						{seqno,  ATLSeqNo}]}];
 			no ->
 			    []
 		    end,
@@ -568,7 +568,7 @@ config_agent_snmp(Dir, Vsns) ->
 	       false ->
 		   ok
 	   end,
-	   i("The following agent files were written: agent.conf, "
+	   i("The following agent files where written: agent.conf, "
 	     "community.conf,~n"
 	     "standard.conf, target_addr.conf, "
 	     "target_params.conf, ~n"
@@ -776,7 +776,7 @@ config_manager_snmp(Dir, Vsns) ->
 					 Users, Agents, Usms)) of
 	ok ->
 	   i("~n- - - - - - - - - - - - -"),
-	   i("The following manager files were written: "
+	   i("The following manager files where written: "
 	     "manager.conf, agents.conf " ++ 
 	     case lists:member(v3, Vsns) of
 		 true ->
@@ -2350,7 +2350,9 @@ write_sys_config_file_manager_atl_opt(Fid, {type, Type}) ->
 write_sys_config_file_manager_atl_opt(Fid, {size, Size}) ->
     ok = io:format(Fid, "{size, ~w}", [Size]);
 write_sys_config_file_manager_atl_opt(Fid, {repair, Rep}) ->
-    ok = io:format(Fid, "{repair, ~w}", [Rep]).
+    ok = io:format(Fid, "{repair, ~w}", [Rep]);
+write_sys_config_file_manager_atl_opt(Fid, {seqno, SeqNo}) ->
+    ok = io:format(Fid, "{seqno, ~w}", [SeqNo]).
 
 
 header() ->

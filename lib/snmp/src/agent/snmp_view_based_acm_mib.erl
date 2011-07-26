@@ -247,6 +247,7 @@ add_sec2group(SecModel, SecName, GroupName) ->
 	    Key = [Key1, length(Key2) | Key2],
 	    case table_cre_row(vacmSecurityToGroupTable, Key, Row) of
 		true ->
+		    snmpa_agent:invalidate_ca_cache(),
 		    {ok, Key};
 		false ->
 		    {error, create_failed}
@@ -260,6 +261,7 @@ add_sec2group(SecModel, SecName, GroupName) ->
 delete_sec2group(Key) ->
     case table_del_row(vacmSecurityToGroupTable, Key) of
 	true ->
+	    snmpa_agent:invalidate_ca_cache(),
 	    ok;
 	false ->
 	    {error, delete_failed}
@@ -279,6 +281,7 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
 	    Key3 = [SM, SL],
 	    Key  = Key1 ++ Key2 ++ Key3, 
 	    snmpa_vacm:insert([{Key, Row}], false),
+            snmpa_agent:invalidate_ca_cache(),
 	    {ok, Key};
 	{error, Reason} ->
 	    {error, Reason};
@@ -287,6 +290,7 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
     end.
 
 delete_access(Key) ->
+    snmpa_agent:invalidate_ca_cache(),
     snmpa_vacm:delete(Key).
 
 
@@ -299,6 +303,7 @@ add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
 	    Key  = [length(Key1) | Key1] ++ [length(Key2) | Key2],
 	    case table_cre_row(vacmViewTreeFamilyTable, Key, Row) of
 		true ->
+		    snmpa_agent:invalidate_ca_cache(),
 		    {ok, Key};
 		false ->
 		    {error, create_failed}
@@ -312,6 +317,7 @@ add_view_tree_fam(ViewIndex, SubTree, Status, Mask) ->
 delete_view_tree_fam(Key) ->
     case table_del_row(vacmViewTreeFamilyTable, Key) of
 	true ->
+	    snmpa_agent:invalidate_ca_cache(),
 	    ok;
 	false ->
 	    {error, delete_failed}
