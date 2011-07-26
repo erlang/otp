@@ -55,7 +55,7 @@
    heap data on the C stack or if we use the buffers in the scheduler data. */
 #define TMP_HEAP_SIZE 128            /* Number of Eterm in the schedulers
 				        small heap for transient heap data */
-#define CMP_TMP_HEAP_SIZE       2    /* cmp wants its own tmp-heap... */
+#define CMP_TMP_HEAP_SIZE       16   /* cmp wants its own tmp-heap... */
 #define ERL_ARITH_TMP_HEAP_SIZE 4    /* as does erl_arith... */
 #define BEAM_EMU_TMP_HEAP_SIZE  2    /* and beam_emu... */
 

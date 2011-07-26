@@ -2642,7 +2642,7 @@ tailrecur_ne:
 	FloatDef f1, f2;
 	Eterm big;
 #if HEAP_ON_C_STACK
-	Eterm big_buf[2]; /* If HEAP_ON_C_STACK */
+	Eterm big_buf[16]; /* If HEAP_ON_C_STACK */
 #else
 	Eterm *big_buf = erts_get_scheduler_data()->cmp_tmp_heap;
 #endif
@@ -2661,33 +2661,70 @@ tailrecur_ne:
 	    j = big_comp(big, bw);
 	    break;
 	case SMALL_FLOAT:
-	    f1.fd = signed_val(a);
 	    GET_DOUBLE(bw, f2);
-	    j = float_comp(f1.fd, f2.fd);
+	    if ((f2.fd < 9007199254740990.0 && f2.fd > -9007199254740990.0)) // Float is within the no loss limit
+		    {
+		f1.fd = signed_val(a);
+		j = float_comp(f1.fd, f2.fd);
+	    } else if (f2.fd > (double) (MAX_SMALL + 1)) { // Float is a positive bignum, i.e. bigger
+		j = -1;
+	    } else if (f2.fd < (double) (MIN_SMALL - 1)) { // Float is a negative bignum, i.e. smaller
+		j = 1;
+	    } else { // Float is a Sint but less precise it
+		j = signed_val(a) - (Sint) f2.fd;
+	    }
 	    break;
 	case BIG_SMALL:
 	    big = small_to_big(signed_val(b), big_buf);
 	    j = big_comp(aw, big);
 	    break;
 	case BIG_FLOAT:
-	    if (big_to_double(aw, &f1.fd) < 0) {
+	    GET_DOUBLE(bw, f2);
+	    if ((f2.fd < 9007199254740990.0 && f2.fd > -9007199254740990.0)) {
+		if (big_to_double(aw, &f1.fd) < 0) {
+		    j = big_sign(a) ? -1 : 1;
+		} else {
+		    j = float_comp(f1.fd, f2.fd);
+		}
+	    } else if ((f2.fd < (double) (MAX_SMALL + 1)) && (f2.fd > (double) (MIN_SMALL - 1))) { // Float is a Sint
+		j = big_sign(a) ? -1 : 1;
+	    } else if (big_arity(a) > ((1 << 10) / D_EXP)) { // If bignum size is larger than largest/smallest float
 		j = big_sign(a) ? -1 : 1;
 	    } else {
-		GET_DOUBLE(bw, f2);
-		j = float_comp(f1.fd, f2.fd);
+		big = double_to_big(f2.fd, big_buf);
+		j = big_comp(aw, big);
 	    }
 	    break;
 	case FLOAT_SMALL:
 	    GET_DOUBLE(aw, f1);
-	    f2.fd = signed_val(b);
-	    j = float_comp(f1.fd, f2.fd);
+	    if ((f1.fd < 9007199254740990.0 && f1.fd > -9007199254740990.0)) // Float is within the no loss limit
+		    {
+		f2.fd = signed_val(b);
+		j = float_comp(f1.fd, f2.fd);
+	    } else if (f1.fd > (double) (MAX_SMALL + 1)) { // Float is a positive bignum, i.e. bigger
+		j = 1;
+	    } else if (f1.fd < (double) (MIN_SMALL - 1)) { // Float is a negative bignum, i.e. smaller
+		j = -1;
+	    } else { // Float is a Sint but less precise it
+		j = (Sint) f1.fd - signed_val(b);
+	    }
 	    break;
 	case FLOAT_BIG:
-	    if (big_to_double(bw, &f2.fd) < 0) {
+	    GET_DOUBLE(aw, f1);
+	    if ((f1.fd < 9007199254740990.0 && f1.fd > -9007199254740990.0)) {
+		if (big_to_double(bw, &f2.fd) < 0) {
+		    j = big_sign(b) ? 1 : -1;
+		} else {
+		    j = float_comp(f1.fd, f2.fd);
+		}
+	    } else if ((f1.fd < (double) (MAX_SMALL + 1))
+		    && (f1.fd > (double) (MIN_SMALL - 1))) { // Float is a Sint
+		j = big_sign(b) ? 1 : -1;
+	    } else if (big_arity(b) > ((1 << 10) / D_EXP)) { // If bignum size is larger than largest/smallest float
 		j = big_sign(b) ? 1 : -1;
 	    } else {
-		GET_DOUBLE(aw, f1);
-		j = float_comp(f1.fd, f2.fd);
+		big = double_to_big(f1.fd, big_buf);
+		j = big_comp(big, bw);
 	    }
 	    break;
 	default:
