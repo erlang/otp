@@ -99,6 +99,14 @@ unsigned long erts_alc_test(unsigned long,
 
 #define ERTS_ALC_MIN_LONG_LIVED_TIME	(10*60*1000)
 
+#if HALFWORD_HEAP
+#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
+  ((NO) == ERTS_ALC_A_SBMBC || (NO) == ERTS_ALC_A_SBMBC_LOW)
+#else
+#define ERTS_IS_SBMBC_ALLOCATOR_NO__(NO) \
+  ((NO) == ERTS_ALC_A_SBMBC)
+#endif
+
 typedef struct {
     int alloc_util;
     int enabled;
