@@ -3436,10 +3436,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->sbmbc_threshold		= init->sbmbct;
 
     if (!erts_have_sbmbc_alloc
-#if HALFWORD_HEAP
-	|| allctr->alloc_no == ERTS_ALC_A_SBMBC_LOW
-#endif
-	|| allctr->alloc_no == ERTS_ALC_A_SBMBC)
+	|| ERTS_IS_SBMBC_ALLOCATOR_NO__(allctr->alloc_no))
 	allctr->sbmbc_threshold = 0;
 
     if (!allctr->sbmbc_threshold)
@@ -3466,14 +3463,14 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 	
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_mtx_init_x_opt(&allctr->mutex,
-			    allctr->alloc_no == ERTS_ALC_A_SBMBC
+			    ERTS_IS_SBMBC_ALLOCATOR_NO__(allctr->alloc_no)
 			    ? "sbmbc_alloc"
 			    : "alcu_allocator",
 			    make_small(allctr->alloc_no),
 			    ERTS_LCNT_LT_ALLOC);
 #else
 	erts_mtx_init_x(&allctr->mutex,
-			allctr->alloc_no == ERTS_ALC_A_SBMBC
+			ERTS_IS_SBMBC_ALLOCATOR_NO__(allctr->alloc_no)
 			? "sbmbc_alloc"
 			: "alcu_allocator",
 			make_small(allctr->alloc_no));

@@ -597,7 +597,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     /* Init low memory variants by cloning */
     init.sbmbc_low_alloc = init.sbmbc_alloc;
     init.sbmbc_low_alloc.init.util.name_prefix = "sbmbc_low_";
-    init.sbmbc_low_alloc.init.util.alloc_no = ERTS_ALC_A_STANDARD_LOW;
+    init.sbmbc_low_alloc.init.util.alloc_no = ERTS_ALC_A_SBMBC_LOW;
     init.sbmbc_low_alloc.init.util.low_mem = 1;
 
     init.std_low_alloc = init.std_alloc;
