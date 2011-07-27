@@ -80,6 +80,13 @@ static int reply(EpmdVars*,int,char *,int);
 static void dbg_print_buf(EpmdVars*,char *,int);
 static void print_names(EpmdVars*);
 
+static EPMD_INLINE void select_fd_set(EpmdVars* g, int fd)
+{
+    FD_SET(fd, &g->orig_read_mask);
+    if (fd >= g->select_fd_top) {
+	g->select_fd_top = fd + 1;
+    }
+}
 
 void run(EpmdVars *g)
 {
@@ -171,6 +178,7 @@ void run(EpmdVars *g)
   g->max_conn -= num_sockets;
 
   FD_ZERO(&g->orig_read_mask);
+  g->select_fd_top = 0;
 
   for (i = 0; i < num_sockets; i++)
     {
@@ -232,14 +240,14 @@ void run(EpmdVars *g)
           dbg_perror(g,"failed to listen on socket");
           epmd_cleanup_exit(g,1);
       }
-      FD_SET(listensock[i],&g->orig_read_mask);
+      select_fd_set(g, listensock[i]);
     }
 
   dbg_tty_printf(g,2,"entering the main select() loop");
 
  select_again:
   while(1)
-    {	
+    {
       fd_set read_mask = g->orig_read_mask;
       struct timeval timeout;
       int ret;
@@ -251,7 +259,8 @@ void run(EpmdVars *g)
       timeout.tv_sec = (g->packet_timeout < IDLE_TIMEOUT) ? 1 : IDLE_TIMEOUT;
       timeout.tv_usec = 0;
 
-      if ((ret = select(g->max_conn,&read_mask,(fd_set *)0,(fd_set *)0,&timeout)) < 0) {
+      if ((ret = select(g->select_fd_top,
+			&read_mask, (fd_set *)0,(fd_set *)0,&timeout)) < 0) {
 	dbg_perror(g,"error in select ");
         switch (errno) {
           case EAGAIN:
@@ -821,7 +830,7 @@ static int conn_open(EpmdVars *g,int fd)
       s = &g->conn[i];
      
       /* From now on we want to know if there are data to be read */
-      FD_SET(fd, &g->orig_read_mask);
+      select_fd_set(g, fd);
 
       s->fd   = fd;
       s->open = EPMD_TRUE;
@@ -886,6 +895,7 @@ int epmd_conn_close(EpmdVars *g,Connection *s)
   dbg_tty_printf(g,2,"closing connection on file descriptor %d",s->fd);
 
   FD_CLR(s->fd,&g->orig_read_mask);
+  /* we don't bother lowering g->select_fd_top */
   close(s->fd);			/* Sometimes already closed but close anyway */
   s->open = EPMD_FALSE;
   if (s->buf != NULL) {		/* Should never be NULL but test anyway */
@@ -1115,7 +1125,7 @@ static Node *node_reg2(EpmdVars *g,
   node->extralen = extralen;
   memcpy(node->extra,extra,extralen);
   strcpy(node->symname,name);
-  FD_SET(fd,&g->orig_read_mask);
+  select_fd_set(g, fd);
 
   if (highvsn == 0) {
     dbg_tty_printf(g,1,"registering '%s:%d', port %d",
