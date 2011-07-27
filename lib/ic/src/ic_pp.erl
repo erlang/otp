@@ -177,7 +177,7 @@ run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir) 
     {Out2, Err2, War2, Defs2, IfCou2} = 
 	case only_nls(OutT) of
 	    true -> %% The file is defined before
-		{["\n"], ErrT, WarT, DefsT, IfCouT};
+		{[$\n], ErrT, WarT, DefsT, IfCouT};
 	    false -> %% The file is not defined before, try second pass
 		expand([FileInfoStart|File]++FileInfoEnd, Defs, Err, War, [FileName|IncFile], IncDir)
 	end,
@@ -200,9 +200,9 @@ run_include(FileName, FileList, _Out, Defs, Err, War, IncLine, IncFile, IncDir) 
 %% other than new lines
 only_nls([]) ->
     true;
-only_nls(["\n"|Rem]) ->
+only_nls([$\n|Rem]) ->
     only_nls(Rem);
-only_nls(["\r","\n"|Rem]) ->
+only_nls([$\r, $\n|Rem]) ->
     only_nls(Rem);
 only_nls([_|_Rem]) ->
     false.
@@ -703,7 +703,7 @@ expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, E
     {_Removed, Rem2, Nl} = read_to_nl(Rem),
     case Endif of
 	1 ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
             expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L+Nl, FN);
 	_ ->
             IfCou2 = {endif, Endif-1, IfLine},
@@ -726,7 +726,7 @@ expand([{nl,_Nl} | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfL
 
 expand([_X | Rem], Out, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN) ->
     {_Removed, Rem2, Nl} = read_to_nl(Rem),
-    Out2 = [lists:duplicate(Nl,$\n)|Out],
+    Out2 = lists:duplicate(Nl,$\n) ++ Out,
     expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, {endif, Endif, IfLine}, Err, War, L, FN);
 
 
@@ -748,11 +748,11 @@ expand([space_exp | Rem], Out, SelfRef, Defs, IncFile, IncDir, IfCou, Err, War, 
 expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, check_all, Err, War, L, FN) ->
     case pp_command(Command, Rem, Defs, IncDir, Err, War, L, FN) of
 	{define, Rem2, Defs2, Err2, War2, Nl} -> 
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs2, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{undef, Rem2, Defs2, Err2, War2, Nl} -> 
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs2, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{{include, ok}, FileName, FileCont, Rem2, Nl, Err2, War2} ->
@@ -763,58 +763,58 @@ expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, check_all
 	    expand(Rem2, Out4, SelfRef, Defs3, IncFile, IncDir, check_all, Err3, War3, L+Nl, FN);
 	
 	{{include, error}, Rem2, Nl, Err2, War2} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{{ifdef, true}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    IfCou2 = {endif, 1, L},
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
 	{{ifdef, false}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{{ifndef, true}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    IfCou2 = {endif, 1, L},
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
 	{{ifndef, false}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{endif, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{{'if', true}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    IfCou2 = {endif, 1, L},
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, IfCou2, Err2, War2, L+Nl, FN);
 %%	{{'if', false}, Removed, Rem2, Nl} ->   Not implemented at present
 	{{'if', error}, Rem2, Err2, War2, Nl} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err2, War2, L+Nl, FN);
 
 	{'else', {_Removed, Rem2, Nl}} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    Err2 = {FN, L, "`else' command is not implemented at present"},
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
 
 	{'elif', {_Removed, Rem2, Nl}} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    Err2 = {FN, L, "`elif' command is not implemented at present"},
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
 
 	{warning, {WarningText, Rem2, Nl}} ->
 	    [FileName|_More] = IncFile,
 	    War2 = {FileName, L, "warning: #warning "++detokenise(WarningText)},
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, Err, [War2|War], L+Nl, FN);
 	    
 	{error, {ErrorText, Rem2, Nl}} ->
 	    [FileName|_More] = IncFile,
 	    Err2 = {FileName, L, detokenise(ErrorText)},
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
 	    
 	{{line, ok}, {_Removed, Rem2, Nl}, L2, FN2, LineText} ->
@@ -823,7 +823,7 @@ expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, check_all
 	    IncFile2 = [FN2|IF],
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile2, IncDir, check_all, Err, War, L2, FN2);
 	{{line, error}, {_Removed, Rem2, Nl}, Err2} ->
-	    Out2 = [lists:duplicate(Nl,$\n)|Out],
+	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, check_all, [Err2|Err], War, L+Nl, FN);
 
 	hash_mark ->
