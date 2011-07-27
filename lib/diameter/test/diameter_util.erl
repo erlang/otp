@@ -23,31 +23,38 @@
 %% Utility functions.
 %%
 
--export([appfile/1,
+-export([consult/2,
          run/1,
          fold/3,
          foldl/3,
          scramble/1,
          ps/0]).
 
-%% appfile/1
+-define(L, atom_to_list).
+
+%% consult/2
 %%
-%% Extract info from the app file of the named application.
+%% Extract info from the app/appup file (presumably) of the named
+%% application.
 
-appfile(Name) ->
-    appfile(code:lib_dir(Name, ebin), Name).
-
-appfile({error = E, Reason}, _) ->
-    {E, {code, Reason}};
-appfile(Dir, Name) ->
-    case file:consult(filename:join([Dir, atom_to_list(Name) ++ ".app"])) of
-        {ok, [{application, Name, App}]} ->
-            {ok, App};
-        {ok, Huh} ->
-            {error, {content, Huh}};
-        {error, Reason} ->
-            {error, {file, Reason}}
+consult(Name, Suf)
+  when is_atom(Name), is_atom(Suf) ->
+    case code:lib_dir(Name, ebin) of
+        {error = E, Reason} ->
+            {E, {Name, Reason}};
+        Dir ->
+            consult(filename:join([Dir, ?L(Name) ++ "." ++ ?L(Suf)]))
     end.
+
+consult(Path) ->
+    case file:consult(Path) of
+        {ok, Terms} ->
+            Terms;
+        {error, Reason} ->
+            {error, {Path, Reason}}
+    end.
+%% Name/Path in the return value distinguish the errors and allow for
+%% a useful badmatch.
 
 %% run/1
 %%

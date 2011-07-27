@@ -29,7 +29,6 @@ MODULES = \
 	diameter_codec_test \
 	diameter_app_SUITE \
 	\
-	diameter_appup_test \
 	diameter_compiler_test \
 	diameter_config_test \
 	diameter_peer_test \

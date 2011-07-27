@@ -50,7 +50,7 @@ all() ->
     [base, gen, lib].
 
 init_per_testcase(gen, Config) ->
-    {ok, App} = diameter_util:appfile(?APP),
+    [{application, ?APP, App}] = diameter_util:consult(?APP, app),
     {modules, Ms} = lists:keyfind(modules, 1, App),
     [_|_] = Gs = lists:filter(fun(M) ->
                                       lists:prefix("diameter_gen_", ?L(M))
