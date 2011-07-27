@@ -2657,8 +2657,10 @@ tailrecur_ne:
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
 	case SMALL_BIG:
-	    big = small_to_big(signed_val(a), big_buf);
-	    j = big_comp(big, bw);
+	    j = big_sign(bw) ? 1 : -1;
+	    break;
+	case BIG_SMALL:
+	    j = big_sign(aw) ? -1 : 1;
 	    break;
 	case SMALL_FLOAT:
 	    GET_DOUBLE(bw, f2);
@@ -2673,10 +2675,6 @@ tailrecur_ne:
 	    } else { // Float is a Sint but less precise it
 		j = signed_val(a) - (Sint) f2.fd;
 	    }
-	    break;
-	case BIG_SMALL:
-	    big = small_to_big(signed_val(b), big_buf);
-	    j = big_comp(aw, big);
 	    break;
 	case BIG_FLOAT:
 	    GET_DOUBLE(bw, f2);
