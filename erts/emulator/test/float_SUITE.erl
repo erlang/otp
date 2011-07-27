@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
-	 bad_float_unpack/1]).
+	 bad_float_unpack/1,cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
 -export([otp_7178/1]).
 
 
@@ -41,10 +41,10 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
-     match, bad_float_unpack].
+     match, bad_float_unpack, {group, comparison}].
 
 groups() -> 
-    [].
+    [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
 
 init_per_suite(Config) ->
     Config.
@@ -186,6 +186,44 @@ bad_float_unpack(Config) when is_list(Config) ->
 
 bad_float_unpack_match(<<F:64/float>>) -> F;
 bad_float_unpack_match(<<I:64/integer-signed>>) -> I.
+
+cmp_zero(_Config) ->
+    cmp(0.5e-323,0).
+
+cmp_integer(_Config) ->
+    Axis = (1 bsl 53)-2.0, %% The point where floating points become unprecise
+    span_cmp(Axis,2,200),
+    cmp(Axis*Axis, round(Axis)).
+
+cmp_bignum(_Config) ->
+    span_cmp((1 bsl 58) - 1.0),%% Smallest bignum float
+
+    %% Test I to I+1 bignum segment overflow
+    [span_cmp((1 bsl (32*I)) - 1.0) || I <- lists:seq(2,30)],
+
+    cmp((1 bsl (64*16)) - 1, (1 bsl (64*15)) * 1.0),
+    ok.
+
+span_cmp(Axis) ->
+    span_cmp(Axis, 50).
+span_cmp(Axis, Length) ->
+    span_cmp(Axis, round(Axis) bsr 52, Length).
+span_cmp(Axis, Incr, Length) ->
+    [cmp(round(Axis*-1.0)+1+I*Incr,Axis*-1.0+I*Incr)
+     || I <- lists:seq((Length div 2)*-1,(Length div 2))],
+    [cmp(round(Axis)+1+I*Incr,Axis+I*Incr) ||
+	I <- lists:seq((Length div 2)*-1,(Length div 2))].
+
+cmp(Big,Small) ->
+    BigSmall = lists:flatten(
+		 io_lib:format("~p > ~p",[Big,Small])),
+    SmallBig = lists:flatten(
+		 io_lib:format("~p < ~p",[Big,Small])),
+    {_,_,_,true} = {Big,Small,BigSmall,
+		    Big > Small},
+    {_,_,_,false} = {Big,Small,SmallBig,
+		     Big < Small},
+    {BigSmall, SmallBig}.
 
 id(I) -> I.
     
