@@ -73,7 +73,7 @@ TRANSPORT_CASES = tcp
 
 ALL_CASES   = \
 	$(APP_CASES) \
-	compiler conf sync session stats reg peer \
+	compiler conf sync stats reg peer \
 	$(TRANSPORT_CASES)
 
 
@@ -303,14 +303,14 @@ log:
 
 # This assumes GNU sed to exit 1 if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems).
-app codec dict: log make
+app codec dict reg: log make
 	$(MERL) $(ARGS) \
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run $@ \
 	        -s init stop \
 	| sed '/ FAILED /h; p; $$!d; x; /./!d; Q 1'
 
-compiler conf sync stats reg peer tcp: make
+compiler conf sync stats peer tcp: make
 	$(MERL) $(ARGS) -sname diameter_$@ $(ERL_PATH) \
             -s $(DIAMETER_TEST_SERVER) t diameter_$@_test \
             $(ESTOP)
