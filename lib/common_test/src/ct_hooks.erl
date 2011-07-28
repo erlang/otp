@@ -68,11 +68,11 @@ init_tc(ct_framework, _Func, Args) ->
 init_tc(Mod, init_per_suite, Config) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(),[]) of
 	       List when is_list(List) -> 
-		   [{ct_hooks,List}];
+		   [{?config_name,List}];
 	       CTHook when is_atom(CTHook) ->
-		   [{ct_hooks,[CTHook]}]
+		   [{?config_name,[CTHook]}]
 	   catch error:undef ->
-		   [{ct_hooks,[]}]
+		   [{?config_name,[]}]
 	   end,
     call(fun call_generic/3, Config ++ Info, [pre_init_per_suite, Mod]);
 init_tc(Mod, end_per_suite, Config) ->
@@ -160,8 +160,8 @@ call_generic(#ct_hook_config{ module = Mod, state = State} = Hook,
 call(Fun, Config, Meta) ->
     maybe_lock(),
     Hooks = get_hooks(),
-    Res = call([{HookId,Fun} || #ct_hook_config{id = HookId} <- Hooks] ++
-		   get_new_hooks(Config, Fun),
+    Res = call(get_new_hooks(Config, Fun) ++
+		   [{HookId,Fun} || #ct_hook_config{id = HookId} <- Hooks],
 	       remove(?config_name,Config), Meta, Hooks),
     maybe_unlock(),
     Res.
@@ -187,7 +187,7 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 		    {Hooks ++ [NewHook],
 		     [{NewId, fun call_init/3},{NewId,NextFun} | Rest]}
 	    end,
-	call(NewRest, Config, Meta, NewHooks)
+	call(resort(NewRest,NewHooks), Config, Meta, NewHooks)
     catch Error:Reason ->
 	    Trace = erlang:get_stacktrace(),
 	    ct_logs:log("Suite Hook","Failed to start a CTH: ~p:~p",
@@ -274,6 +274,15 @@ save_suite_data_async(Hooks) ->
 
 get_hooks() ->
     lists:keysort(#ct_hook_config.prio,ct_util:read_suite_data(?config_name)).
+
+%% Call with three element tuples are call_id so always do them first
+resort(Calls, Hooks) ->
+    [Call || {_,_,_} = Call <- Calls] ++
+	resort1(Calls, lists:keysort(#ct_hook_config.prio, Hooks)).
+resort1(Calls, [#ct_hook_config{ id = Id }|Rest]) ->
+    [Call || {CId,_} = Call <- Calls, CId =:= Id] ++ resort1(Calls,Rest);
+resort1(_,[]) ->
+    [].
 
 catch_apply(M,F,A, Default) ->
     try
