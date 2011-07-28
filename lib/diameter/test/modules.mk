@@ -30,12 +30,12 @@ MODULES = \
 	diameter_app_SUITE \
 	diameter_dict_SUITE \
 	diameter_reg_SUITE \
+	diameter_sync_SUITE \
 	\
 	diameter_compiler_test \
 	diameter_config_test \
 	diameter_peer_test \
 	diameter_stats_test \
-	diameter_sync_test \
 	diameter_tcp_test \
 	diameter_test_lib \
 	diameter_test_server
