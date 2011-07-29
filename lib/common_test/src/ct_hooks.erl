@@ -34,7 +34,7 @@
 %% If you change this, remember to update ct_util:look -> stop clause as well.
 -define(config_name, ct_hooks).
 
--record(ct_hook_config, {id, module, prio, scope, opts = [], state = []}).
+-record(ct_hook_config, {id, module, prio = 0, scope, opts = [], state = []}).
 
 %% -------------------------------------------------------------------------
 %% API Functions
