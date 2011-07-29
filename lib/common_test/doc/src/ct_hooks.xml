@@ -81,12 +81,14 @@
   
   <funcs>
     <func>
-      <name>Module:init(Id, Opts) -&gt; State</name>
+      <name>Module:init(Id, Opts) -&gt; {ok, State} | 
+      {ok, State, Priority}</name>
       <fsummary>Initiates the Common Test Hook</fsummary>
       <type>
 	<v>Id = reference() | term()</v>
 	<v>Opts = term()</v>
 	<v>State = term()</v>
+	<v>Priority = integer()</v>
       </type>
       
       <desc>	
@@ -102,6 +104,10 @@
 	  <seealso marker="erts:erlang#make_ref-0">make_ref/0</seealso>)
 	  if <seealso marker="#Module:id-1">id/1</seealso> is not implemented.
 	</p>
+
+	<p><c>Priority</c> is the relative priority of this hook. Hooks with a
+	lower priority will be executed first. If no priority is given, 
+	it will be set to 0. </p>
 
 	<p>For details about when init is called see
 	  <seealso marker="ct_hooks_chapter#scope">scope</seealso>

@@ -488,7 +488,7 @@
       LogDir        = string()
       EventHandlers = atom() | [atom()]
       InitArgs      = [term()]
-      CTHModules    = [CTHModule | {CTHModule, CTHInitArgs}]
+      CTHModules    = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]
       CTHModule     = atom()
       CTHInitArgs   = term()
       DirRef        = DirAlias | Dir
