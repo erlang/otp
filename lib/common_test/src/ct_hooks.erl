@@ -135,10 +135,19 @@ call_id(#ct_hook_config{ module = Mod, opts = Opts} = Hook, Config, Scope) ->
     Id = catch_apply(Mod,id,[Opts], make_ref()),
     {Config, Hook#ct_hook_config{ id = Id, scope = scope(Scope)}}.
 	
-call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id} = Hook,
+call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id, prio = P} = Hook,
 	  Config,_Meta) ->
-    NewState = Mod:init(Id, Opts),
-    {Config, Hook#ct_hook_config{ state = NewState } }.
+    case Mod:init(Id, Opts) of
+	{ok, NewState} ->
+	    {Config, Hook#ct_hook_config{ state = NewState } };
+	{ok, NewState, Prio} when P =:= undefined ->
+	    %% Only set prio if not already set when installing hook
+	    {Config, Hook#ct_hook_config{ state = NewState, prio = Prio } };
+	{ok, NewState, _} ->
+	    {Config, Hook#ct_hook_config{ state = NewState } };
+	NewState -> %% Keep for backward compatability reasons
+	    {Config, Hook#ct_hook_config{ state = NewState } }
+    end.    
 
 call_terminate(#ct_hook_config{ module = Mod, state = State} = Hook, _, _) ->
     catch_apply(Mod,terminate,[State], ok),

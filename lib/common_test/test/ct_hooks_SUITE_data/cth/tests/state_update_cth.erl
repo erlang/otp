@@ -29,7 +29,7 @@
 
 init(Id, Opts) ->
     State = empty_cth:init(Id, Opts),
-    [init|State].
+    {ok, [init|State]}.
 
 pre_init_per_suite(Suite, Config, State) ->
     empty_cth:pre_init_per_suite(Suite,Config,State),
