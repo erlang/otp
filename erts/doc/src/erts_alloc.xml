@@ -180,6 +180,14 @@
           used. The time complexity is proportional to log N, where
           N is the number of free blocks.</p>
       </item>
+      <tag>Address order first fit</tag>
+      <item>
+        <p>Strategy: Find the block with the lowest address that satisfies the
+          requested block size.</p>
+        <p>Implementation: A balanced binary search tree is
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
       <tag>Good fit</tag>
       <item>
         <p>Strategy: Try to find the best fit, but settle for the best fit
@@ -320,11 +328,11 @@
        subsystem identifier, only the specific allocator identified will be
        effected:</p>
     <taglist>
-      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|gf|af]]></c></marker></tag>
+      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|aoff|gf|af]]></c></marker></tag>
       <item>
        Allocation strategy. Valid strategies are <c>bf</c> (best fit),
-      <c>aobf</c> (address order best fit), <c>gf</c> (good fit),
-       and <c>af</c> (a fit). See 
+      <c>aobf</c> (address order best fit), <c>aoff</c> (address order first fit),
+      <c>gf</c> (good fit), and <c>af</c> (a fit). See 
       <seealso marker="#strategy">the description of allocation strategies</seealso> in "the <c>alloc_util</c> framework" section.</item>
       <tag><marker id="M_asbcst"><c><![CDATA[+M<S>asbcst <size>]]></c></marker></tag>
       <item>

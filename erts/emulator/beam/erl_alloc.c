@@ -50,6 +50,9 @@
 #include "erl_bestfit_alloc.h"
 #define GET_ERL_AF_ALLOC_IMPL
 #include "erl_afit_alloc.h"
+#define GET_ERL_AOFF_ALLOC_IMPL
+#include "erl_ao_firstfit_alloc.h"
+
 
 #define ERTS_ALC_DEFAULT_MAX_THR_PREF 16
 
@@ -85,6 +88,8 @@ typedef union {
     char align_bfa[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(BFAllctr_t))];
     AFAllctr_t afa;
     char align_afa[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(AFAllctr_t))];
+    AOFFAllctr_t aoffa;
+    char align_aoffa[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(AOFFAllctr_t))];
 } ErtsAllocatorState_t;
 
 static ErtsAllocatorState_t sbmbc_alloc_state;
@@ -122,7 +127,8 @@ static void *fix_core_alloc(Uint size)
 enum allctr_type {
     GOODFIT,
     BESTFIT,
-    AFIT
+    AFIT,
+    AOFIRSTFIT
 };
 
 struct au_init {
@@ -134,6 +140,7 @@ struct au_init {
 	GFAllctrInit_t	gf;
 	BFAllctrInit_t	bf;
 	AFAllctrInit_t	af;
+	AOFFAllctrInit_t aoff;
     } init;
     struct {
 	int mmbcs;
@@ -147,7 +154,8 @@ struct au_init {
     ERTS_DEFAULT_ALLCTR_INIT,		\
     ERTS_DEFAULT_GF_ALLCTR_INIT,	\
     ERTS_DEFAULT_BF_ALLCTR_INIT,	\
-    ERTS_DEFAULT_AF_ALLCTR_INIT		\
+    ERTS_DEFAULT_AF_ALLCTR_INIT,	\
+    ERTS_DEFAULT_AOFF_ALLCTR_INIT       \
 }
 
 typedef struct {
@@ -562,6 +570,7 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     erts_afalc_init();
     erts_bfalc_init();
     erts_gfalc_init();
+    erts_aoffalc_init();
 
     for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; i++) {
 	erts_allctrs[i].alloc		= NULL;
@@ -903,6 +912,12 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 					   &init->init.af,
 					   &init->init.util);
 	    break;
+    	case AOFIRSTFIT:
+	    as = (void *) erts_aoffalc_start((AOFFAllctr_t *) as0,
+					     &init->init.aoff,
+					     &init->init.util);
+	    break;
+
 	default:
 	    as = NULL;
 	    ASSERT(0);
@@ -1096,6 +1111,9 @@ handle_au_arg(struct au_init *auip,
 	    }
 	    else if (strcmp("af", alg) == 0) {
 		auip->atype = AFIT;
+	    }
+	    else if (strcmp("aoff", alg) == 0) {
+		auip->atype = AOFIRSTFIT;
 	    }
 	    else {
 		bad_value(param, sub_param + 1, alg);
@@ -2982,6 +3000,7 @@ unsigned long erts_alc_test(unsigned long op,
     case 0x2:	return erts_bfalc_test(op, a1, a2);
     case 0x3:	return erts_afalc_test(op, a1, a2);
     case 0x4:	return erts_mseg_test(op,  a1, a2, a3);
+    case 0x5:	return erts_aoffalc_test(op, a1, a2);
     case 0xf:
 	switch (op) {
 	case 0xf00:
@@ -3061,6 +3080,14 @@ unsigned long erts_alc_test(unsigned long op,
 					  &init.init.af,
 					  &init.init.util);
 		break;
+	    case AOFIRSTFIT:
+		allctr = erts_aoffalc_start((AOFFAllctr_t *)
+					  erts_alloc(ERTS_ALC_T_UNDEF,
+						     sizeof(AOFFAllctr_t)),
+					  &init.init.aoff,
+					  &init.init.util);
+		break;
+
 	    default:
 		ASSERT(0);
 		allctr = NULL;

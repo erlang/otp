@@ -742,7 +742,7 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_bif_re.o		$(OBJDIR)/erl_unicode.o \
 	$(OBJDIR)/packet_parser.o	$(OBJDIR)/safe_hash.o \
 	$(OBJDIR)/erl_zlib.o		$(OBJDIR)/erl_nif.o \
-	$(OBJDIR)/erl_bif_binary.o
+	$(OBJDIR)/erl_bif_binary.o      $(OBJDIR)/erl_ao_firstfit_alloc.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
