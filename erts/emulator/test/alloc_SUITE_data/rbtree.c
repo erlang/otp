@@ -34,6 +34,14 @@ typedef struct {
 #define PRINT_TREE
 #endif
 
+/* Ugly hack to steer the test code towards the right allocator */
+#define RBT_OP(CMD) (current_rbt_type_op_base + (CMD))
+static enum {
+    BESTFIT_OP_BASE = 0x200,
+    AO_FIRSTFIT_OP_BASE = 0x500
+}current_rbt_type_op_base;
+
+
 #ifdef PRINT_TREE
 
 #define INDENT_STEP 5
@@ -65,12 +73,11 @@ print_tree_aux(TestCaseState_t *tcs, RBT_t *x, int indent)
 
 
 static void
-print_tree(TestCaseState_t *tcs, RBT_t *root, int aobf)
+print_tree(TestCaseState_t *tcs, RBT_t *root)
 {
-    char *type = aobf ? "Size-Adress" : "Size";
-    testcase_printf(tcs, " --- %s tree begin ---\r\n", type);
+    testcase_printf(tcs, " --- Tree begin ---\r\n");
     print_tree_aux(tcs, root, 0);
-    testcase_printf(tcs, " --- %s tree end ---\r\n", type);
+    testcase_printf(tcs, " --- Tree end ---\r\n");
 }
 
 #endif
@@ -78,7 +85,8 @@ print_tree(TestCaseState_t *tcs, RBT_t *root, int aobf)
 static RBT_t *
 check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 {
-    int i, max_i, address_order;
+    enum { BF, AOBF, AOFF }type;
+    int i, max_i;
     char stk[128];
     RBT_t *root, *x, *y, *res;
     Ulong x_sz, y_sz, is_x_black;
@@ -86,11 +94,14 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 
     res = NULL;
 
-    address_order = IS_AOBF(alc);
+    if      (IS_AOBF(alc)) type = AOBF;
+    else if (IS_AOFF(alc)) type = AOFF;
+    else type = BF;
+
     root = RBT_ROOT(alc);
 
 #ifdef PRINT_TREE
-    print_tree(tcs, root, address_order);
+    print_tree(tcs, root);
 #endif
 
     max_i = i = -1;
@@ -165,12 +176,18 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 	if (y) {
 	    y_sz = BLK_SZ(y);
 	    ASSERT(tcs, RBT_PARENT(y) == x);
-	    if (address_order) {
+	    switch (type) {
+	    case AOBF:
 		ASSERT(tcs, y_sz < x_sz || (y_sz == x_sz && y < x));
-	    }
-	    else {
+		break;
+	    case BF:
 		ASSERT(tcs, RBT_IS_TREE(y));
 		ASSERT(tcs, y_sz < x_sz);
+		break;
+	    case AOFF:
+		ASSERT(tcs, y < x);
+		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
+		break;
 	    }
 	}
 
@@ -178,16 +195,22 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 	if (y) {
 	    y_sz = BLK_SZ(y);
 	    ASSERT(tcs, RBT_PARENT(y) == x);
-	    if (address_order) {
+	    switch (type) {
+	    case AOBF:
 		ASSERT(tcs, y_sz > x_sz || (y_sz == x_sz && y > x));
-	    }
-	    else {
+		break;
+	    case BF:
 		ASSERT(tcs, RBT_IS_TREE(y));
 		ASSERT(tcs, y_sz > x_sz);
+		break;
+	    case AOFF:
+		ASSERT(tcs, y > x);
+		ASSERT(tcs, RBT_MAX_SZ(y) <= RBT_MAX_SZ(x));
+		break;
 	    }
 	}
 
-	if (!address_order) {
+	if (type == BF) {
 	    Ulong l_sz;
 	    RBTL_t *l = RBT_NEXT(x);
 	    for (l = RBT_NEXT(x); l; l = RBT_NEXT(l)) {
@@ -202,13 +225,20 @@ check_tree(TestCaseState_t *tcs, Allctr_t *alc, Ulong size)
 		res = x;
 	    else {
 		y_sz = BLK_SZ(res);
-		if (address_order) {
+		switch (type) {
+		case AOBF:
 		    if (x_sz < y_sz || (x_sz == y_sz && x < res))
 			res = x;
-		}
-		else {
-		    if (!res || x_sz < y_sz)
+		    break;
+		case BF:
+		    if (x_sz < y_sz)
 			res = x;
+		    break;
+		case AOFF:
+		    if (x < res) {
+			res = x;
+		    }
+		    break;
 		}
 	    }
 	}
@@ -257,7 +287,7 @@ static void
 test_it(TestCaseState_t *tcs)
 {
     int i;
-    Allctr_t a = ((rbtree_test_data *) tcs->extra)->allocator;
+    Allctr_t* a = ((rbtree_test_data *) tcs->extra)->allocator;
     void **blk = ((rbtree_test_data *) tcs->extra)->blk;
     void **fence = ((rbtree_test_data *) tcs->extra)->fence;
     Ulong min_blk_sz;
@@ -338,6 +368,7 @@ testcase_run(TestCaseState_t *tcs)
 {
     char *argv1[] = {"-tasbf", NULL};
     char *argv2[] = {"-tasaobf", NULL};
+    char *argv3[] = {"-tasaoff", NULL};
     Allctr_t *a;
     rbtree_test_data *td;
 
@@ -355,6 +386,7 @@ testcase_run(TestCaseState_t *tcs)
 
     testcase_printf(tcs, "Starting test of best fit...\n");
 
+    current_rbt_type_op_base = BESTFIT_OP_BASE;
     td->allocator = a = START_ALC("rbtree_bf_", 0, argv1);
 
     ASSERT(tcs, a);
@@ -371,6 +403,7 @@ testcase_run(TestCaseState_t *tcs)
 
     testcase_printf(tcs, "Starting test of address order best fit...\n");
 
+    current_rbt_type_op_base = BESTFIT_OP_BASE;
     td->allocator = a = START_ALC("rbtree_aobf_", 0, argv2);
 
     ASSERT(tcs, a);
@@ -383,4 +416,19 @@ testcase_run(TestCaseState_t *tcs)
 
     testcase_printf(tcs, "Address order best fit test succeeded!\n");
 
+    /* Address order first fit... */
+
+    testcase_printf(tcs, "Starting test of address order first fit...\n");
+
+    current_rbt_type_op_base = AO_FIRSTFIT_OP_BASE;
+    td->allocator = a = START_ALC("rbtree_aoff_", 0, argv3);
+
+    ASSERT(tcs, a);
+
+    test_it(tcs);
+
+    STOP_ALC(a);
+    td->allocator = NULL;
+
+    testcase_printf(tcs, "Address order first fit test succeeded!\n");
 }

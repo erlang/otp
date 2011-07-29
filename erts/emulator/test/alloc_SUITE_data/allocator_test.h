@@ -82,15 +82,17 @@ typedef void* erts_cond;
 #define NO_OF_BKTS		((Ulong)	ALC_TEST0(0x102))
 #define FIND_BKT(A, I)		((int)		ALC_TEST2(0x103, (A), (I)))
 
-/* From erl_bestfit_alloc.c */
-#define IS_AOBF(A)		((Ulong)	ALC_TEST1(0x200, (A)))
-#define RBT_ROOT(A)		((RBT_t *)	ALC_TEST1(0x201, (A)))
-#define RBT_PARENT(T)		((RBT_t *)	ALC_TEST1(0x202, (T)))
-#define RBT_LEFT(T)		((RBT_t *)	ALC_TEST1(0x203, (T)))
-#define RBT_RIGHT(T)		((RBT_t *)	ALC_TEST1(0x204, (T)))
-#define RBT_NEXT(T)		((RBTL_t *)	ALC_TEST1(0x205, (T)))
-#define RBT_IS_BLACK(T)		((Ulong)	ALC_TEST1(0x206, (T)))
-#define RBT_IS_TREE(T)		((Ulong)	ALC_TEST1(0x207, (T)))
+/* From erl_bestfit_alloc.c and erl_ao_firstfit_alloc.c */
+#define IS_AOBF(A)		((Ulong)	ALC_TEST1(RBT_OP(0), (A)))
+#define RBT_ROOT(A)		((RBT_t *)	ALC_TEST1(RBT_OP(1), (A)))
+#define RBT_PARENT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(2), (T)))
+#define RBT_LEFT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(3), (T)))
+#define RBT_RIGHT(T)		((RBT_t *)	ALC_TEST1(RBT_OP(4), (T)))
+#define RBT_NEXT(T)		((RBTL_t *)	ALC_TEST1(RBT_OP(5), (T)))
+#define RBT_IS_BLACK(T)		((Ulong)	ALC_TEST1(RBT_OP(6), (T)))
+#define RBT_IS_TREE(T)		((Ulong)	ALC_TEST1(RBT_OP(7), (T)))
+#define IS_AOFF(A)		((Ulong)	ALC_TEST1(RBT_OP(8), (A)))
+#define RBT_MAX_SZ(T)		((Ulong)	ALC_TEST1(RBT_OP(9), (T)))
 
 /* From erl_mseg.c */
 #define HAVE_MSEG()		((int)		ALC_TEST0(0x400))
