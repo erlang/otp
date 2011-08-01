@@ -73,16 +73,23 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 	_ ->
 	    ok
     end,
-    case {Optionals = optionals(to_textual_order(CompList)),CompList} of
-	{[],EmptyCL} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
+    case {Optionals = optionals(to_textual_order(CompList)),CompList,
+	  is_optimized(Erule)} of
+	{[],EmptyCL,_} when EmptyCL == {[],[],[]};EmptyCL == {[],[]};EmptyCL == [] -> 
 	    emit(["%%Variable setting just to eliminate ",
 		  "compiler warning for unused vars!",nl,
 		  "_Val = ",{curr,val},",",nl]);
-	{[],_} ->
+	{[],_,_} ->
 	    emit([{next,val}," = ?RT_PER:list_to_record("]),
 	    emit(["'",asn1ct_gen:list2rname(Typename),"'"]),
 	    emit([", ",{curr,val},"),",nl]);
-	_ ->
+	{_,_,true} ->
+	    gen_fixoptionals(Optionals),
+	    FixOpts = param_map(fun(Var) ->
+					{var,Var}
+				end,asn1ct_name:all(fixopt)),
+	    emit({"{",{next,val},",Opt} = {",{curr,val},",[",FixOpts,"]},",nl});
+	{_,_,false} ->
 	    Fixoptcall = ",Opt} = ?RT_PER:fixoptionals(",
 	    emit({"{",{next,val},Fixoptcall,
 		  {asis,Optionals},",",length(Optionals),
@@ -439,9 +446,7 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _->
 		""
 	end,
-    emit({nl,indent(3),"?RT_PER:encode_length(",
-	  {asis,SizeConstraint},
-	  ",length(Val)),",nl}),
+    gen_encode_length(SizeConstraint, is_optimized(Erule)),
     emit({indent(3),"'enc_",asn1ct_gen:list2name(Typename),
 	      "_components'(Val",ObjFun,", [])"}),
     emit({nl,"].",nl}),
@@ -452,6 +457,42 @@ gen_encode_sof(Erule,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ -> ComponentType
 	end,
     gen_encode_sof_components(Erule,Typename,SeqOrSetOf,NewComponentType).
+
+
+%% Logic copied from asn1_per_bin_rt2ct:encode_constrained_number
+gen_encode_length({Lb,Ub},true) when Ub =< 65535, Lb >= 0 ->
+    Range = Ub - Lb + 1,
+    V2 = ["(length(Val) - ",Lb,")"],
+    Encode = if
+		 Range  == 1 ->
+		     "[]";
+		 Range  == 2 ->
+		     {"[",V2,"]"};
+		 Range  =< 4 ->
+		     {"[10,2,",V2,"]"};
+		 Range  =< 8 ->
+		     {"[10,3,",V2,"]"};
+		 Range  =< 16 ->
+		     {"[10,4,",V2,"]"};
+		 Range  =< 32 ->
+		     {"[10,5,",V2,"]"};
+		 Range  =< 64 ->
+		     {"[10,6,",V2,"]"};
+		 Range  =< 128 ->
+		     {"[10,7,",V2,"]"};
+		 Range  =< 255 ->
+		     {"[10,8,",V2,"]"};
+		 Range  =< 256 ->
+		     {"[20,1,",V2,"]"};
+		 Range  =< 65536 ->
+		     {"[20,2,<<",V2,":16>>]"};
+		 true ->
+		     {"?RT_PER:encode_length(",{asis,{Lb,Ub}},",length(Val))"}
+	     end,
+    emit({nl,Encode,",",nl});
+gen_encode_length(SizeConstraint,_) ->
+    emit({nl,indent(3),"?RT_PER:encode_length(",
+	  {asis,SizeConstraint},",length(Val)),",nl}).
 
 gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
@@ -469,7 +510,8 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ ->
 		""
 	end,
-    emit({nl,"{Num,Bytes1} = ?RT_PER:decode_length(Bytes,",{asis,SizeConstraint},"),",nl}),
+    gen_decode_length(SizeConstraint,
+		      is_optimized(Erules)),
     emit({"'dec_",asn1ct_gen:list2name(Typename),
 	      "_components'(Num, Bytes1, telltype",ObjFun,", []).",nl}),
     NewComponentType =
@@ -479,6 +521,41 @@ gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
 	    _ -> ComponentType
 	end,
     gen_decode_sof_components(Erules,Typename,SeqOrSetOf,NewComponentType).
+
+%% Logic copied from asn1_per_bin_rt2ct:decode_constrained_number
+gen_decode_length({Lb,Ub},true) when Ub =< 65535, Lb >= 0 ->
+    Range = Ub - Lb + 1,
+    Call = if
+	       Range  == 1 ->
+		   "{0,Bytes}";
+	       Range  == 2 ->
+		   "?RT_PER:getbits(Bytes,1)";
+	       Range  =< 4 ->
+		   "?RT_PER:getbits(Bytes,2)";
+	       Range  =< 8 ->
+		   "?RT_PER:getbits(Bytes,3)";
+	       Range  =< 16 ->
+		   "?RT_PER:getbits(Bytes,4)";
+	       Range  =< 32 ->
+		   "?RT_PER:getbits(Bytes,5)";
+	       Range  =< 64 ->
+		   "?RT_PER:getbits(Bytes,6)";
+	       Range  =< 128 ->
+		   "?RT_PER:getbits(Bytes,7)";
+	       Range  =< 255 ->
+		   "?RT_PER:getbits(Bytes,8)";
+	       Range  =< 256 ->
+		   "?RT_PER:getoctets(Bytes,1)";
+	       Range  =< 65536 ->
+		   "?RT_PER:getoctets(Bytes,2)";
+	       true ->
+		   ["exit({not_supported,{integer_range,",Range,"}}"]
+	   end,
+    emit({nl,"{Val,Remain} = ",Call,",",nl}),
+    emit({nl,"{Num,Bytes1} = {Val+",Lb,",Remain},",nl});
+gen_decode_length(SizeConstraint,_) ->
+    emit({nl,"{Num,Bytes1} = ?RT_PER:decode_length(Bytes,",
+	  {asis,SizeConstraint},"),",nl}).
 
 gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     {ObjFun,ObjFun_Var} =
@@ -635,6 +712,27 @@ extgrouppos([_|T],Pos,Len) ->
 gen_dec_extension_value(_) ->
     emit({"{Ext,",{next,bytes},"} = ?RT_PER:getext(",{curr,bytes},")"}),
     asn1ct_name:new(bytes).
+
+gen_fixoptionals([{Pos,Def}|R]) ->
+    asn1ct_name:new(fixopt),
+    emit({{curr,fixopt}," = case element(",{asis,Pos},",",{curr,val},") of",nl,
+	  "asn1_DEFAULT -> 0;",nl,
+	  {asis,Def}," -> 0;",nl,
+	  "_ -> 1",nl,
+	  "end,",nl}),
+    gen_fixoptionals(R);
+gen_fixoptionals([Pos|R]) ->
+    gen_fixoptionals([{Pos,asn1_NOVALUE}|R]);
+gen_fixoptionals([]) ->
+    ok.
+
+    
+param_map(Fun, [H]) ->
+    [Fun(H)];
+param_map(Fun, [H|T]) ->
+    [Fun(H),","|param_map(Fun,T)].
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Produce a list with positions (in the Value record) where

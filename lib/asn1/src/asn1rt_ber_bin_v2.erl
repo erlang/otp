@@ -1577,14 +1577,12 @@ e_object_identifier(V) when is_tuple(V) ->
 e_object_identifier([E1, E2 | Tail]) -> 
     Head = 40*E1 + E2,  % wow! 
     {H,Lh} = mk_object_val(Head),
-    {R,Lr} = enc_obj_id_tail(Tail, [], 0),
+    {R,Lr} = lists:mapfoldl(fun enc_obj_id_tail/2,0,Tail),
     {[H|R], Lh+Lr}.
 
-enc_obj_id_tail([], Ack, Len) ->
-    {lists:reverse(Ack), Len};
-enc_obj_id_tail([H|T], Ack, Len) ->
+enc_obj_id_tail(H, Len) ->
     {B, L} = mk_object_val(H),
-    enc_obj_id_tail(T, [B|Ack], Len+L).
+    {B,Len+L}.
 
 
 %%%%%%%%%%% 
