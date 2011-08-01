@@ -2733,7 +2733,8 @@ do_merge_schema(LockTabs0) ->
                Tid, Store, T, mnesia_lib:intersect(Ns, OtherNodes))
              || {T,Ns} <- LockTabs],
 	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
-		{cstructs, Cstructs, RemoteRunning1} ->
+		{cstructs, Cstructs0, RemoteRunning1} ->
+		    {Cstructs, DeleteFields} = normalize_remote_cstructs(Cstructs0, Node),
 		    LockedAlready = Running ++ [Node],
 		    {New, Old} = mnesia_recover:connect_nodes(RemoteRunning1),
 		    RemoteRunning = mnesia_lib:intersect(New ++ Old, RemoteRunning1),
@@ -2754,19 +2755,20 @@ do_merge_schema(LockTabs0) ->
 
 		    %% Announce that Node is running
 		    A = [{op, announce_im_running, node(),
-			  cs2list(SchemaCs), Running, RemoteRunning}],
+			  [{K,V} || {K,V} <- cs2list(SchemaCs),
+				    not lists:member(K, DeleteFields)], Running, RemoteRunning}],
 		    do_insert_schema_ops(Store, A),
-		    
+
 		    %% Introduce remote tables to local node
 		    do_insert_schema_ops(Store, make_merge_schema(Node, Cstructs)),
-		    
+
 		    %% Introduce local tables to remote nodes
 		    Tabs = val({schema, tables}),
 		    Ops = [{op, merge_schema, get_create_list(T)}
 			   || T <- Tabs,
 			      not lists:keymember(T, #cstruct.name, Cstructs)],
 		    do_insert_schema_ops(Store, Ops),
-		    
+
 		    %% Ensure that the txn will be committed on all nodes
 		    NewNodes = RemoteRunning -- Running,
 		    mnesia_lib:set(prepare_op, {announce_im_running,NewNodes}),
@@ -2781,6 +2783,18 @@ do_merge_schema(LockTabs0) ->
 	    %% No more nodes to merge schema with
 	    not_merged
     end.
+
+normalize_remote_cstructs([#cstruct{}|_] = Cstructs, _) ->
+    {Cstructs, []};
+normalize_remote_cstructs([T|_] = Cstructs, Node) when element(1,T) == cstruct ->
+    Flds = [F || {F, _} <- rpc:call(Node, ?MODULE, cs2list, [T])],
+    DeleteFields = record_info(fields, cstruct) -- Flds,
+    NewCstructs = lists:map(
+		    fun(Cs) ->
+			    CsL = lists:zip(Flds, tl(tuple_to_list(Cs))),
+			    #cstruct{} = list2cs(CsL)
+		    end, Cstructs),
+    {NewCstructs, DeleteFields}.
 
 tab_to_nodes(Tab) when is_atom(Tab) ->
     Cs = val({Tab, cstruct}),
@@ -2919,7 +2933,7 @@ do_make_merge_schema(Node, RemoteCs) ->
 		    %% Choose remote cstruct,
 		    %% since it's the master
 		    [{op, merge_schema, cs2list(RemoteCs)}];
-		
+
 		true ->
 		    Str = io_lib:format("Bad cookie in table definition"
 					" ~w: ~w = ~w, ~w = ~w~n",
