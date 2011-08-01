@@ -461,6 +461,10 @@ obsolete_1(public_key, pem_to_der, 1) ->
 obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
     {deprecated,{public_key,pem_entry_decode,1},"R15A"};
 
+%% Added in R15B
+obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
+    {deprecated,"deprecated (will be removed in R16A); has no effect as drivers are no longer used."};
+
 obsolete_1(_, _, _) ->
     no.
 

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,6 +43,10 @@ run([]) ->
     ?line {ok,{'S3ext',17}} = asn1_wrapper:decode('Constructed','S3ext',Bytes),
     ok; 
 run([driver]) ->
+    %% test of OTP-4797, bad indata to driver does not cause an EXIT
+    ?line {error,_Reason} = asn1rt:decode('Constructed','S3',[3,5]),
+    ok;
+run([nif]) ->
     %% test of OTP-4797, bad indata to driver does not cause an EXIT
     ?line {error,_Reason} = asn1rt:decode('Constructed','S3',[3,5]),
     ok.

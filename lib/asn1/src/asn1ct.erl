@@ -47,6 +47,10 @@
 
 -import(asn1ct_gen_ber_bin_v2,[encode_tag_val/3,decode_class/1]).
 
+-ifndef(vsn).
+-define(vsn,"0.0.1").
+-endif.
+
 -define(unique_names,0).
 -define(dupl_uniquedefs,1).
 -define(dupl_equaldefs,2).
@@ -81,6 +85,12 @@ compile(File) ->
     compile(File,[]).
 
 compile(File,Options) when is_list(Options) ->
+    case lists:member(driver, Options) of %% remove me in R16A!
+	true ->
+	    io:format("Warning: driver option is obsolete and will be removed in R16A, use nif instead!");
+	false ->
+	    ok
+    end,
     Options1 = optimize_ber_bin(Options),
     Options2 = includes(File,Options1),
     Includes=[I||{i,I}<-Options2],
@@ -1082,7 +1092,7 @@ get_runtime_mod(Options) ->
 	    ber_bin_v2 -> ["asn1rt_ber_bin_v2.erl"];
 	    uper_bin -> ["asn1rt_uper_bin.erl"]
 	end,
-    RtMod1++["asn1rt_check.erl","asn1rt_driver_handler.erl","asn1rt.erl"].
+    RtMod1++["asn1rt_check.erl","asn1rt.erl"].
     
 
 erl_compile(OutFile,Options) ->

@@ -28,7 +28,7 @@
 %%                             {error, Reason}
 %%
 start(_Type, _StartArgs) ->
-    asn1_sup:start_link().
+    {ok, self()}.
 
 %% stop(State)
 %%

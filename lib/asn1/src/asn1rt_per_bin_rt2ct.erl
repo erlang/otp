@@ -1734,142 +1734,23 @@ get_constraint(C,Key) ->
 -ifdef(nodriver).
 
 complete(L) ->
-    case complete1(L) of
-	{[],[]} ->
-	    <<0>>;
-	{Acc,[]} ->
-	    Acc;
-	{Acc,Bacc}  ->
-	    [Acc|complete_bytes(Bacc)]
-    end.
-
-
-% this function builds the ugly form of lists [E1|E2] to avoid having to reverse it at the end.
-% this is done because it is efficient and that the result always will be sent on a port or
-% converted by means of list_to_binary/1
- complete1(InList) when is_list(InList) ->
-     complete1(InList,[],[]);
- complete1(InList) ->
-     complete1([InList],[],[]).
-
- complete1([],Acc,Bacc) ->
-     {Acc,Bacc};
- complete1([H|T],Acc,Bacc) when is_list(H) ->
-     {NewH,NewBacc} = complete1(H,Acc,Bacc),
-     complete1(T,NewH,NewBacc);
-
- complete1([{octets,Bin}|T],Acc,[]) ->
-     complete1(T,[Acc|Bin],[]);
-
- complete1([{octets,Bin}|T],Acc,Bacc) ->
-     complete1(T,[Acc|[complete_bytes(Bacc),Bin]],[]);
-
- complete1([{debug,_}|T], Acc,Bacc) ->
-     complete1(T,Acc,Bacc);
-
- complete1([{bits,N,Val}|T],Acc,Bacc) ->
-     complete1(T,Acc,complete_update_byte(Bacc,Val,N));
-
- complete1([{bit,Val}|T],Acc,Bacc) ->
-     complete1(T,Acc,complete_update_byte(Bacc,Val,1));
-
- complete1([align|T],Acc,[]) ->
-     complete1(T,Acc,[]);
- complete1([align|T],Acc,Bacc) ->
-     complete1(T,[Acc|complete_bytes(Bacc)],[]);
- complete1([{0,Bin}|T],Acc,[]) when is_binary(Bin) ->
-     complete1(T,[Acc|Bin],[]);
- complete1([{Unused,Bin}|T],Acc,[]) when is_integer(Unused),is_binary(Bin) ->
-     Size = size(Bin)-1,
-     <<Bs:Size/binary,B>> = Bin,
-     NumBits = 8-Unused,
-     complete1(T,[Acc|Bs],[[B bsr Unused]|NumBits]);
- complete1([{Unused,Bin}|T],Acc,Bacc) when is_integer(Unused),is_binary(Bin) ->
-     Size = size(Bin)-1,
-     <<Bs:Size/binary,B>> = Bin,
-     NumBits = 8 - Unused,
-     Bf = complete_bytes(Bacc),
-     complete1(T,[Acc|[Bf,Bs]],[[B bsr Unused]|NumBits]).
-
-
- complete_update_byte([],Val,Len) ->
-     complete_update_byte([[0]|0],Val,Len);
- complete_update_byte([[Byte|Bacc]|NumBits],Val,Len) when NumBits + Len == 8 ->
-     [[0,((Byte bsl Len) + Val) band 255|Bacc]|0];
- complete_update_byte([[Byte|Bacc]|NumBits],Val,Len) when NumBits + Len > 8  ->
-     Rem = 8 - NumBits,
-     Rest = Len - Rem,
-     complete_update_byte([[0,((Byte bsl Rem) + (Val bsr Rest)) band 255 |Bacc]|0],Val,Rest);
- complete_update_byte([[Byte|Bacc]|NumBits],Val,Len) ->
-     [[((Byte bsl Len) + Val) band 255|Bacc]|NumBits+Len].
-
- 
- complete_bytes([[Byte|Bacc]|0]) ->
-     lists:reverse(Bacc);
- complete_bytes([[Byte|Bacc]|NumBytes]) ->
-     lists:reverse([(Byte bsl (8-NumBytes)) band 255|Bacc]);
- complete_bytes([]) ->
-     [].
+    erlang_complete(L).
 
 -else.
 
-%% asn1-1.6.8.1_dev
-%% complete(L) ->
-%%     case catch port_control(asn1_driver_port,1,L) of
-%% 	Bin when is_binary(Bin) ->
-%% 	    Bin;
-%% 	List when is_list(List) -> handle_error(List,L);
-%% 	{'EXIT',{badarg,Reason}} ->
-%% 	    asn1rt_driver_handler:load_driver(),
-%% 	    receive
-%% 		driver_ready ->
-%% 		    case catch port_control(asn1_driver_port,1,L) of
-%% 			Bin2 when is_binary(Bin2) -> Bin2;
-%% 			List when is_list(List) -> handle_error(List,L);
-%% 			{'EXIT',Reason2={badarg,_R}} -> 
-%% 			    exit({"failed to call driver probably due to bad asn1 value",Reason2});
-%% 			Reason2 -> exit(Reason2)
-%% 		    end;
-%% 		{error,Error} -> % error when loading driver
-%% 		    %% the driver could not be loaded
-%% 		    exit(Error);
-%% 		Error={port_error,Reason} ->
-%% 		    exit(Error)
-%% 	    end;
-%% 	{'EXIT',Reason} ->
-%% 	    exit(Reason)
-%%     end.
-
-%% asn1-1.6.9
+%% asn1-1.7
 complete(L) ->
-    case catch control(?COMPLETE_ENCODE,L) of
- 	Bin when is_binary(Bin) ->
- 	    Bin;
- 	List when is_list(List) -> handle_error(List,L);
- 	{'EXIT',{badarg,_Reason}} ->
- 	    case asn1rt:load_driver() of
- 		ok ->
- 		    case control(?COMPLETE_ENCODE,L) of
- 			Bin when is_binary(Bin) ->Bin;
- 			List when is_list(List) -> handle_error(List,L)
- 		    end;
- 		Err ->
- 		    Err
- 	    end
+    case asn1rt_nif:encode_per_complete(L) of
+	{error, Reason} -> handle_error(Reason, L);
+	Else when is_binary(Else) -> Else
     end.
-
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem in driver"}}});
-handle_error("1",L) -> % error in complete in driver
+handle_error($1,L) -> % error in complete in driver
     exit({error,{asn1,L}});
 handle_error(ErrL,L) ->
     exit({error,{asn1,ErrL,L}}).
-
-%% asn1-1.6.9
-control(Cmd, Data) ->
-    Port = asn1rt_driver_handler:client_port(),
-    erlang:port_control(Port, Cmd, Data).
 
 -endif.
 

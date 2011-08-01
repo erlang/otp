@@ -1020,7 +1020,7 @@ gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
     end,
     case Ext of 
 	{ext,_Ep2,_} ->
-	    emit(["))"]);
+	    emit("))");
 	_ -> true
     end.
 gen_dec_components_call(Erule,TopType,{Root1,ExtList,Root2},MaybeComma,DecInfObj,Ext,NumberOfOptionals) ->
