@@ -33,6 +33,65 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21.1</title>
+    <p>Version 4.21.1 supports code replacement in runtime from/to
+      version 4.21, 4.20.1, 4.20 and 4.19. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+      <list type="bulleted">
+        <item>
+          <p>[agent] Some very minor debugging improvements. </p>
+          <p>Own Id: OTP-9446</p>
+        </item>
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>The snmp config tool could not handle (manager) audit trail config 
+	  because the option seqno was not handled. </p>
+	  <p>Own Id: OTP-9354</p>
+	</item>
+
+        <item>
+          <p>[agent] The SNMP ACM cache was not properly updated when
+	  changes where made to the VACM security-to-group, access and
+	  view-tree-family tables. </p>
+	  <p>Own Id: OTP-9367</p>
+          <p>Aux Id: Seq 11858</p>
+	</item>
+
+        <item>
+          <p>Fixed install directory typo for man3. </p>
+	  <p>Peter Lemenkov</p>
+	  <p>Hans Ulrich Niedermann</p>
+	  <p>Own Id: OTP-9442</p>
+	</item>
+
+      </list>
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21</title>
     <p>Version 4.21 supports code replacement in runtime from/to
       version 4.20.1, 4.20 and 4.19. </p>
