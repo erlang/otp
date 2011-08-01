@@ -73,12 +73,15 @@
 %%% Interface to erl_compile.
 
 compile(Input0, Output0,
-        #options{warning = WarnLevel, verbose=Verbose, includes=Includes}) ->
+        #options{warning = WarnLevel, verbose=Verbose, includes=Includes,
+		 specific=Specific}) ->
     Input = assure_extension(shorten_filename(Input0), ".xrl"),
     Output = assure_extension(shorten_filename(Output0), ".erl"),
     Includefile = lists:sublist(Includes, 1),
+    Werr = proplists:get_bool(warnings_as_errors, Specific),
     Opts = [{scannerfile,Output},{includefile,Includefile},{verbose,Verbose},
-            {report_errors,true},{report_warnings,WarnLevel > 0}],
+            {report_errors,true},{report_warnings,WarnLevel > 0},
+	    {warnings_as_errors, Werr}],
     case file(Input, Opts) of
         {ok, _} ->
             ok;
