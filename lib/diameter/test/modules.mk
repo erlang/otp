@@ -17,8 +17,7 @@
 #
 # %CopyrightEnd%
 
-TEST_SPEC_FILE = diameter.spec
-
+TEST_SPEC_FILE  = diameter.spec
 COVER_SPEC_FILE = diameter.cover
 
 MODULES = \
@@ -32,13 +31,7 @@ MODULES = \
 	diameter_reg_SUITE \
 	diameter_sync_SUITE \
 	diameter_stats_SUITE \
-	\
-	diameter_compiler_test \
-	diameter_config_test \
-	diameter_peer_test \
-	diameter_tcp_test \
-	diameter_test_lib \
-	diameter_test_server
+	diameter_watchdog_SUITE
 
 INTERNAL_HRL_FILES = \
-	diameter_test_lib.hrl
+	diameter_ct.hrl

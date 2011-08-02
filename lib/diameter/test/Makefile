@@ -17,39 +17,38 @@
 # %CopyrightEnd%
 
 ifneq ($(ERL_TOP),)
-include $(ERL_TOP)/make/target.mk
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
+TOP = $(ERL_TOP)
+DIAMETER_TOP = $(TOP)/lib/diameter
 else
-include $(DIAMETER_TOP)/make/target.mk
-include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
+TOP = $(DIAMETER_TOP)
 endif
+
+include $(TOP)/make/target.mk
+include $(TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
-include ../vsn.mk
-VSN=$(DIAMETER_VSN)
 
+include ../vsn.mk
+
+VSN = $(DIAMETER_VSN)
 
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
+
 RELSYSDIR = $(RELEASE_PATH)/diameter_test
 
 ifeq ($(findstring win32,$(TARGET)),win32)
-
 MAKEFILE_SRC = Makefile.win32.src
-
 else
-
 MAKEFILE_SRC = Makefile.src
-
 endif
 
 ifeq ($(TT_DIR),)
 TT_DIR = /tmp
 endif
-
 
 # ----------------------------------------------------
 # Target Specs
@@ -59,30 +58,17 @@ include modules.mk
 
 EBIN = .
 
-HRL_FILES = diameter_test_lib.hrl
-
+HRL_FILES = $(INTERNAL_HRL_FILES)
 ERL_FILES = $(MODULES:%=%.erl)
 
 SOURCE = $(HRL_FILES) $(ERL_FILES) 
-
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
-APP_CASES   = app
-
-TRANSPORT_CASES = tcp
-
-ALL_CASES   = \
-	$(APP_CASES) \
-	compiler conf sync stats reg peer \
-	$(TRANSPORT_CASES)
-
+SUITE_MODULES = $(filter diameter_%_SUITE, $(MODULES))
+SUITES = $(SUITE_MODULES:diameter_%_SUITE=%)
 
 EMAKEFILE  = Emakefile
-ifneq ($(ERL_TOP),)
-MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
-else
-MAKE_EMAKE = $(wildcard $(DIAMETER_TOP)/make/make_emakefile)
-endif
+MAKE_EMAKE = $(wildcard $(TOP)/make/make_emakefile)
 
 ifeq ($(MAKE_EMAKE),)
 BUILDTARGET   = $(TARGET_FILES)
@@ -91,7 +77,6 @@ else
 BUILDTARGET   = emakebuild
 RELTEST_FILES = $(EMAKEFILE) $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) $(SOURCE)
 endif
-
 
 # ----------------------------------------------------
 # FLAGS
@@ -107,58 +92,13 @@ ifeq ($(USE_DIAMETER_HIPE),true)
 ERL_COMPILE_FLAGS += +native -DDIAMETER_hipe_special=true
 endif
 
-ifneq ($(ERL_TOP),)
-ERL_COMPILE_FLAGS += \
-	$(DIAMETER_ERL_COMPILE_FLAGS)       \
-	-pa $(ERL_TOP)/lib/test_server/ebin \
-	-I$(ERL_TOP)/lib/test_server/include
-else
-ERL_COMPILE_FLAGS += \
-	$(DIAMETER_ERL_COMPILE_FLAGS)       \
-	-pa $(TEST_SERVER_DIR)/ebin \
-	-I$(TEST_SERVER_DIR)/include
-endif
-
-ERL_PATH = \
-	-pa ../../$(APPLICATION)/ebin \
-	-pa ../../et/ebin
-
-ifndef SUITE
-SUITE = diameter_SUITE
-endif
-
-ESTOP = -s init stop
-
-ifeq ($(DONT_STOP),true)
-MAYBE_ESTOP =
-else
-MAYBE_ESTOP = $(ESTOP)
-endif
-
-ETVIEW = -s et_viewer
-ifeq ($(USE_ET_VIEWER),true)
-MAYBE_ETVIEW =
-else
-MAYBE_ETVIEW = $(ETVIEW)
-endif
-
-ifeq ($(MERL),)
-MERL = $(ERL)
-endif
-
-ARGS += -noshell
-
-ifeq ($(DISABLE_TC_TIMEOUT),true)
-ARGS += -diameter_test_timeout
-endif
-
-
-DIAMETER_TEST_SERVER = diameter_test_server
-
+ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS)
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+
+test: $(SUITES)
 
 tests debug opt: $(BUILDTARGET)
 
@@ -169,8 +109,9 @@ targets: $(TARGET_FILES)
 emakebuild: $(EMAKEFILE)
 
 $(EMAKEFILE): 
-	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' | grep -v Warning > $(EMAKEFILE)
-	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) | grep -v Warning >> $(EMAKEFILE)
+	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o $(EBIN) '*_SUITE_make' $(MODULES) \
+	| grep -v Warning \
+	> $(EMAKEFILE)
 
 clean:
 	rm -f $(EMAKEFILE)
@@ -180,121 +121,64 @@ clean:
 docs:
 
 info:
-	@echo "MAKE_EMAKE        = $(MAKE_EMAKE)"
-	@echo "EMAKEFILE         = $(EMAKEFILE)"
-	@echo "BUILDTARGET       = $(BUILDTARGET)"
-	@echo ""
+	@echo "MAKE_EMAKE  = $(MAKE_EMAKE)"
+	@echo "EMAKEFILE   = $(EMAKEFILE)"
+	@echo "BUILDTARGET = $(BUILDTARGET)"
+	@echo
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
 	@echo "ERL  = $(ERL)"
 	@echo "ERLC = $(ERLC)"
-	@echo "MERL = $(MERL)"
-	@echo ""
-	@echo "ARGS = $(ARGS)"
-	@echo ""
+	@echo
 	@echo "HRL_FILES    = $(HRL_FILES)"
 	@echo "ERL_FILES    = $(ERL_FILES)"
 	@echo "TARGET_FILES = $(TARGET_FILES)"
-	@echo ""
+	@echo
+	@echo "SUITE_MODULES = $(SUITE_MODULES)"
+	@echo "SUITES        = $(SUITES)"
+	@echo
 
 help:
-	@echo ""
-	@echo "This Makefile controls the test of the $(APPLICATION) application. "
-	@echo ""
+	@echo
+	@echo "This Makefile controls the test of the $(APPLICATION) application."
+	@echo
 	@echo "There are two separate ways to perform the test of $(APPLICATION)."
-	@echo ""
+	@echo
 	@echo "  a) Run the official OTP test-server (which we do not describe here)"
-	@echo ""
-	@echo "  b) Run the test-server provided with this application. "
+	@echo
+	@echo "  b) Run the test-server provided with this application."
 	@echo "     There are a number of targets to run the entire or parts"
 	@echo "     of this applications ($(APPLICATION)) test-suite"
-	@echo ""
+	@echo
 	@echo "Targets:"
-	@echo ""
+	@echo
 	@echo "    help"
 	@echo "      Print this info"
-	@echo ""
+	@echo
 	@echo "    info"
-	@echo "      Prints various environment variables. "
-	@echo "      May be useful when debugging the Makefile. "
-	@echo ""
+	@echo "      Prints various environment variables."
+	@echo "      May be useful when debugging the Makefile."
+	@echo
 	@echo "    tests | debug | opt "
-	@echo "      Compile all test-code. "
-	@echo ""
+	@echo "      Compile all test-code."
+	@echo
 	@echo "    clean "
-	@echo "      Remove all targets. "
-	@echo ""
+	@echo "      Remove all targets."
+	@echo
 	@echo "    test"
-	@echo "      Run the entire $(APPLICATION) test-suite. "
-	@echo ""
-	@echo "    app"
-	@echo "      Run the $(APPLICATION) application sub-test-suite. "
-	@echo ""
-	@echo "    compiler"
-	@echo "      Run the $(APPLICATION) compiler sub-test-suite(s). "
-	@echo ""
-	@echo "    conf"
-	@echo "      Run the $(APPLICATION) config sub-test-suite. "
-	@echo "      Checks various aspects of the $(APPLICATION) configuration. "
-	@echo ""
-	@echo "    sync"
-	@echo "      Run the $(APPLICATION) sync sub-test-suite. "
-	@echo ""
-	@echo "    stats"
-	@echo "      Run the $(APPLICATION) stats sub-test-suite. "
-	@echo ""
-	@echo "    reg"
-	@echo "      Run the $(APPLICATION) reg sub-test-suite. "
-	@echo ""
-	@echo "    peer"
-	@echo "      Run the $(APPLICATION) peer sub-test-suite"
-	@echo ""
-	@echo "    ptab"
-	@echo "      Run the $(APPLICATION) persistent-table sub-test-suite"
-	@echo ""
-	@echo "    tcp"
-	@echo "      Run the $(APPLICATION) tcp sub-test-suite"
-	@echo ""
-	@echo ""
+	@echo "      Run all test suites."
+	@echo
+	@echo "    $(SUITES)"
+	@echo "      Run a specific test suite."
+	@echo
 
 
 # ----------------------------------------------------
 # Special Targets
 # ----------------------------------------------------
 
-all: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all sub-suites separatelly"
-	@for i in $(ALL_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
+all: $(SUITES)
 
-aall: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all app sub-suites separatelly"
-	@for i in $(APP_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
-	echo "done"
-
-tall: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all transport sub-suites separatelly"
-	@for i in $(TRANSPORT_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
-
-make: targets
-
-test: make
-	$(MERL) $(ARGS) -sname diameter_test $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t $(SUITE) \
-            $(MAYBE_ESTOP)
+beam: targets
 
 log:
 	mkdir $@
@@ -303,31 +187,19 @@ log:
 
 # This assumes GNU sed to exit 1 if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems).
-app codec dict reg stats sync: log make
-	$(MERL) $(ARGS) \
+$(SUITES): log beam
+	$(ERL) -noshell \
+	        -pa ../ebin \
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run $@ \
 	        -s init stop \
 	| sed '/ FAILED /h; p; $$!d; x; /./!d; Q 1'
 
-compiler conf peer tcp: make
-	$(MERL) $(ARGS) -sname diameter_$@ $(ERL_PATH) \
-            -s $(DIAMETER_TEST_SERVER) t diameter_$@_test \
-            $(ESTOP)
-
-node:
-	$(MERL) -sname diameter $(ERL_PATH)
-
-
 # ----------------------------------------------------
 # Release Targets
 # ---------------------------------------------------- 
 
-ifneq ($(ERL_TOP),)
-include $(ERL_TOP)/make/otp_release_targets.mk
-else
-include $(DIAMETER_TOP)/make/release_targets.mk
-endif
+include $(TOP)/make/otp_release_targets.mk
 
 release_spec: 
 
@@ -340,5 +212,4 @@ release_tests_spec: tests
 #                        $(HRL_FILES) $(ERL_FILES) \
 #                        $(RELSYSDIR)
 #
-	chmod -R u+w $(RELSYSDIR)
-
+	chmod -f -R u+w $(RELSYSDIR)
