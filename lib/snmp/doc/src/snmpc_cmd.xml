@@ -79,10 +79,11 @@
         <p>Print debug info. </p>
 	<p><c>verbosity</c> = <c>trace</c> | <c>debug</c> | <c>log</c> | <c>info</c> | <c>silence</c></p>
 	<p>Defaults to <c>silence</c>.</p>
+	<marker id="option_w"></marker>
 	<marker id="option_warnings"></marker>
       </item>
 
-      <tag>--warnings</tag>
+      <tag>--warnings | --W</tag>
       <item>
         <p>Print warning messages. </p>
 	<marker id="option_wae"></marker>
