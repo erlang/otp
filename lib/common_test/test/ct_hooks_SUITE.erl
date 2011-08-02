@@ -211,7 +211,8 @@ fail_n_skip_with_minimal_cth(Config) when is_list(Config) ->
 
 prio_cth(Config) when is_list(Config) ->
     do_test(prio_cth, "ct_cth_prio_SUITE.erl",
-	    [{empty_cth,[1000],1000},{empty_cth,[900],900}],Config).
+	    [{empty_cth,[1000],1000},{empty_cth,[900],900},
+	     {prio_cth,[1100,100],100},{prio_cth,[1100]}],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -1006,68 +1007,71 @@ test_events(fail_n_skip_with_minimal_cth) ->
     ];
 
 test_events(prio_cth) ->
+    
+    GenPre = fun(Func,States) ->
+		     [{?eh,cth,{'_',Func,['_','_',State]}} || 
+			 State <- States]
+	     end,
+
+    GenPost = fun(Func,States) ->
+		      [{?eh,cth,{'_',Func,['_','_','_',State]}} || 
+			  State <- States]
+	     end,
+    
     [{?eh,start_logging,{'DEF','RUNDIR'}},
-     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}}] ++
 
-     {?eh,tc_start,{ct_cth_prio_SUITE,init_per_suite}},
-     {?eh,cth,{'_',pre_init_per_suite,['_','_',[800]]}},
-     {?eh,cth,{'_',pre_init_per_suite,['_','_',[900]]}},
-     {?eh,cth,{'_',pre_init_per_suite,['_','_',[1000]]}},
-     {?eh,cth,{'_',post_init_per_suite,['_','_','_',[700]]}},
-     {?eh,cth,{'_',post_init_per_suite,['_','_','_',[800]]}},
-     {?eh,cth,{'_',post_init_per_suite,['_','_','_',[900]]}},
-     {?eh,cth,{'_',post_init_per_suite,['_','_','_',[1000]]}},
-     {?eh,tc_done,{ct_cth_prio_SUITE,init_per_suite,ok}},
+	[{?eh,tc_start,{ct_cth_prio_SUITE,init_per_suite}}] ++
+	GenPre(pre_init_per_suite,
+	       [[1100,100],[800],[900],[1000],[1200,1050],[1100],[1200]]) ++
+	GenPost(post_init_per_suite,
+		[[1100,100],[600,200],[600,600],[700],[800],[900],[1000],
+		 [1200,1050],[1100],[1200]]) ++
+	[{?eh,tc_done,{ct_cth_prio_SUITE,init_per_suite,ok}},
+	 
 
+	 [{?eh,tc_start,{ct_cth_prio_SUITE,{init_per_group,'_',[]}}}] ++
+	     GenPre(pre_init_per_group,
+		    [[1100,100],[600,200],[600,600],[700],[800],
+		     [900],[1000],[1200,1050],[1100],[1200]]) ++
+	     GenPost(post_init_per_group,
+		     [[1100,100],[600,200],[600,600],[600],[700],[800],
+		      [900],[900,900],[500,900],[1000],[1200,1050],
+		      [1100],[1200]]) ++
+	     [{?eh,tc_done,{ct_cth_prio_SUITE,{init_per_group,'_',[]},ok}}] ++
+	 
+	     [{?eh,tc_start,{ct_cth_prio_SUITE,test_case}}] ++
+	     GenPre(pre_init_per_testcase,
+		    [[1100,100],[600,200],[600,600],[600],[700],[800],
+		     [900],[900,900],[500,900],[1000],[1200,1050],
+		     [1100],[1200]]) ++
+	     GenPost(post_end_per_testcase,
+		     [[1100,100],[600,200],[600,600],[600],[700],[800],
+		      [900],[900,900],[500,900],[1000],[1200,1050],
+		      [1100],[1200]]) ++
+	     [{?eh,tc_done,{ct_cth_prio_SUITE,test_case,ok}},
 
-     [{?eh,tc_start,{ct_cth_prio_SUITE,{init_per_group,'_',[]}}},
-      {?eh,cth,{'_',pre_init_per_group, ['_','_',[700]]}},
-      {?eh,cth,{'_',pre_init_per_group, ['_','_',[800]]}},
-      {?eh,cth,{'_',pre_init_per_group, ['_','_',[900]]}},
-      {?eh,cth,{'_',pre_init_per_group, ['_','_',[1000]]}},
-      {?eh,cth,{'_',post_init_per_group, ['_','_','_',[600]]}},
-      {?eh,cth,{'_',post_init_per_group, ['_','_','_',[700]]}},
-      {?eh,cth,{'_',post_init_per_group, ['_','_','_',[800]]}},
-      {?eh,cth,{'_',post_init_per_group, ['_','_','_',[900]]}},
-      {?eh,cth,{'_',post_init_per_group, ['_','_','_',[1000]]}},
-      {?eh,tc_done,{ct_cth_prio_SUITE,{init_per_group,'_',[]},ok}},
+	      {?eh,tc_start,{ct_cth_prio_SUITE,{end_per_group,'_',[]}}}] ++
+	     GenPre(pre_end_per_group, 
+		    [[1100,100],[600,200],[600,600],[600],[700],[800],
+		     [900],[900,900],[500,900],[1000],[1200,1050],
+		     [1100],[1200]]) ++
+	     GenPost(post_end_per_group,
+		     [[1100,100],[600,200],[600,600],[600],[700],[800],
+		      [900],[900,900],[500,900],[1000],[1200,1050],
+		      [1100],[1200]]) ++
+	     [{?eh,tc_done,{ct_cth_prio_SUITE,{end_per_group,'_',[]},ok}}],
 
-      {?eh,tc_start,{ct_cth_prio_SUITE,test_case}},
-      {?eh,cth,{'_',pre_init_per_testcase, ['_','_',[600]]}},
-      {?eh,cth,{'_',pre_init_per_testcase, ['_','_',[700]]}},
-      {?eh,cth,{'_',pre_init_per_testcase, ['_','_',[800]]}},
-      {?eh,cth,{'_',pre_init_per_testcase, ['_','_',[900]]}},
-      {?eh,cth,{'_',pre_init_per_testcase, ['_','_',[1000]]}},
-      {?eh,cth,{'_',post_end_per_testcase, ['_','_','_',[600]]}},
-      {?eh,cth,{'_',post_end_per_testcase, ['_','_','_',[700]]}},
-      {?eh,cth,{'_',post_end_per_testcase, ['_','_','_',[800]]}},
-      {?eh,cth,{'_',post_end_per_testcase, ['_','_','_',[900]]}},
-      {?eh,cth,{'_',post_end_per_testcase, ['_','_','_',[1000]]}},
-      {?eh,tc_done,{ct_cth_prio_SUITE,test_case,ok}},
-
-      {?eh,tc_start,{ct_cth_prio_SUITE,{end_per_group,'_',[]}}},
-      {?eh,cth,{'_',pre_end_per_group, ['_','_',[600]]}},
-      {?eh,cth,{'_',pre_end_per_group, ['_','_',[700]]}},
-      {?eh,cth,{'_',pre_end_per_group, ['_','_',[800]]}},
-      {?eh,cth,{'_',pre_end_per_group, ['_','_',[900]]}},
-      {?eh,cth,{'_',pre_end_per_group, ['_','_',[1000]]}},
-      {?eh,cth,{'_',post_end_per_group, ['_','_','_',[700]]}},
-      {?eh,cth,{'_',post_end_per_group, ['_','_','_',[800]]}},
-      {?eh,cth,{'_',post_end_per_group, ['_','_','_',[900]]}},
-      {?eh,cth,{'_',post_end_per_group, ['_','_','_',[1000]]}},
-      {?eh,tc_done,{ct_cth_prio_SUITE,{end_per_group,'_',[]},ok}}],
-
-     {?eh,tc_start,{ct_cth_prio_SUITE,end_per_suite}},
-     {?eh,cth,{'_',pre_end_per_suite,['_','_',[800]]}},
-     {?eh,cth,{'_',pre_end_per_suite,['_','_',[900]]}},
-     {?eh,cth,{'_',pre_end_per_suite,['_','_',[1000]]}},
-     {?eh,cth,{'_',post_end_per_suite,['_','_','_',[800]]}},
-     {?eh,cth,{'_',post_end_per_suite,['_','_','_',[900]]}},
-     {?eh,cth,{'_',post_end_per_suite,['_','_','_',[1000]]}},
-     {?eh,tc_done,{ct_cth_prio_SUITE,end_per_suite,ok}},
-     {?eh,test_done,{'DEF','STOP_TIME'}},
-     {?eh,stop_logging,[]}
-    ];
+	 {?eh,tc_start,{ct_cth_prio_SUITE,end_per_suite}}] ++
+	GenPre(pre_end_per_suite,
+	       [[1100,100],[600,200],[600,600],[700],[800],[900],[1000],
+		[1200,1050],[1100],[1200]]) ++
+	GenPost(post_end_per_suite,
+		[[1100,100],[600,200],[600,600],[700],[800],[900],[1000],
+		[1200,1050],[1100],[1200]]) ++
+	[{?eh,tc_done,{ct_cth_prio_SUITE,end_per_suite,ok}},
+	 {?eh,test_done,{'DEF','STOP_TIME'}},
+	 {?eh,stop_logging,[]}];
 
 test_events(ok) ->
     ok.

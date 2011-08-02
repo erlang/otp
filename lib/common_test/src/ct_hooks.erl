@@ -34,7 +34,7 @@
 %% If you change this, remember to update ct_util:look -> stop clause as well.
 -define(config_name, ct_hooks).
 
--record(ct_hook_config, {id, module, prio = 0, scope, opts = [], state = []}).
+-record(ct_hook_config, {id, module, prio, scope, opts = [], state = []}).
 
 %% -------------------------------------------------------------------------
 %% API Functions
@@ -138,6 +138,8 @@ call_id(#ct_hook_config{ module = Mod, opts = Opts} = Hook, Config, Scope) ->
 call_init(#ct_hook_config{ module = Mod, opts = Opts, id = Id, prio = P} = Hook,
 	  Config,_Meta) ->
     case Mod:init(Id, Opts) of
+	{ok, NewState} when P =:= undefined ->
+	    {Config, Hook#ct_hook_config{ state = NewState, prio = 0 } };
 	{ok, NewState} ->
 	    {Config, Hook#ct_hook_config{ state = NewState } };
 	{ok, NewState, Prio} when P =:= undefined ->
@@ -189,12 +191,12 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 	    case lists:keyfind(NewId, #ct_hook_config.id, Hooks) of
 		false when NextFun =:= undefined ->
 		    {Hooks ++ [NewHook],
-		     [{NewId, fun call_init/3} | Rest]};
+		     [{NewId, call_init} | Rest]};
 		ExistingHook when is_tuple(ExistingHook) ->
 		    {Hooks, Rest};
 		_ ->
 		    {Hooks ++ [NewHook],
-		     [{NewId, fun call_init/3},{NewId,NextFun} | Rest]}
+		     [{NewId, call_init}, {NewId,NextFun} | Rest]}
 	    end,
 	call(resort(NewRest,NewHooks), Config, Meta, NewHooks)
     catch Error:Reason ->
@@ -204,13 +206,16 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 	    call([], {fail,"Failed to start CTH"
 		      ", see the CT Log for details"}, Meta, Hooks)
     end;
+call([{HookId, call_init} | Rest], Config, Meta, Hooks) ->
+    call([{HookId, fun call_init/3} | Rest], Config, Meta, Hooks);
 call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
     try
         Hook = lists:keyfind(HookId, #ct_hook_config.id, Hooks),
         {NewConf, NewHook} =  Fun(Hook, Config, Meta),
         NewCalls = get_new_hooks(NewConf, Fun),
         NewHooks = lists:keyreplace(HookId, #ct_hook_config.id, Hooks, NewHook),
-        call(NewCalls  ++ Rest, remove(?config_name, NewConf), Meta,
+        call(resort(NewCalls ++ Rest,NewHooks), %% Resort if call_init changed prio
+	     remove(?config_name, NewConf), Meta,
              terminate_if_scope_ends(HookId, Meta, NewHooks))
     catch throw:{error_in_cth_call,Reason} ->
             call(Rest, {fail, Reason}, Meta,
@@ -284,14 +289,41 @@ save_suite_data_async(Hooks) ->
 get_hooks() ->
     lists:keysort(#ct_hook_config.prio,ct_util:read_suite_data(?config_name)).
 
-%% Call with three element tuples are call_id so always do them first
+%% Sort all calls in this order:
+%% call_id < call_init < Hook Priority 1 < .. < Hook Priority N
+%% If Hook Priority is equal, check when it has been installed and
+%% sort on that instead.
 resort(Calls, Hooks) ->
-    [Call || {_,_,_} = Call <- Calls] ++
-	resort1(Calls, lists:keysort(#ct_hook_config.prio, Hooks)).
-resort1(Calls, [#ct_hook_config{ id = Id }|Rest]) ->
-    [Call || {CId,_} = Call <- Calls, CId =:= Id] ++ resort1(Calls,Rest);
-resort1(_,[]) ->
-    [].
+    lists:sort(
+      fun({_,_,_},_) ->
+	      true;
+	 (_,{_,_,_}) ->
+	      false;
+	 ({_,call_init},_) ->
+	      true;
+	 (_,{_,call_init}) ->
+	      false;
+	 ({Id1,_},{Id2,_}) ->
+	      P1 = (lists:keyfind(Id1, #ct_hook_config.id, Hooks))#ct_hook_config.prio,
+	      P2 = (lists:keyfind(Id2, #ct_hook_config.id, Hooks))#ct_hook_config.prio,
+	      if
+		  P1 == P2 ->
+		      %% If priorities are equal, we check the position in the
+		      %% hooks list
+		      pos(Id1,Hooks) < pos(Id2,Hooks);
+		  true ->
+		      P1 < P2
+	      end
+      end,Calls).
+
+pos(Id,Hooks) ->
+    pos(Id,Hooks,0).
+pos(Id,[#ct_hook_config{ id = Id}|_],Num) ->
+    Num;
+pos(Id,[_|Rest],Num) ->
+    pos(Id,Rest,Num+1).
+
+
 
 catch_apply(M,F,A, Default) ->
     try
