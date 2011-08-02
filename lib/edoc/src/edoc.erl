@@ -58,8 +58,6 @@
 
 -compile({no_auto_import,[error/1]}).
 
--import(edoc_report, [report/2, report/3, error/1, error/3]).
-
 -include("edoc.hrl").
 
 
