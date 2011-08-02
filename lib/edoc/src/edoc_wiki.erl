@@ -249,10 +249,20 @@ expand_triple([], L, _, L0) ->
 
 expand_uri("http:/" ++ Cs, L, As) ->
     expand_uri(Cs, L, "/:ptth", As);
+expand_uri("https:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:sptth", As);
 expand_uri("ftp:/" ++ Cs, L, As) ->
     expand_uri(Cs, L, "/:ptf", As);
 expand_uri("file:/" ++ Cs, L, As) ->
     expand_uri(Cs, L, "/:elif", As);
+expand_uri("mailto:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:otliam", As);
+expand_uri("nfs:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:sfn", As);
+expand_uri("shttp:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:ptths", As);
+expand_uri("xmpp:/" ++ Cs, L, As) ->
+    expand_uri(Cs, L, "/:ppmx", As);
 expand_uri(Cs, L, As) ->
     expand(Cs, L, [$[ | As]).
 
