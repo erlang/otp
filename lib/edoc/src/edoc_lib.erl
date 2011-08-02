@@ -40,7 +40,7 @@
 -import(edoc_report, [report/2, warning/2]).
 
 -include("edoc.hrl").
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(FILE_BASE, "/").
 
@@ -494,7 +494,7 @@ uri_get_file(File0) ->
 uri_get_http(URI) ->
     %% Try using option full_result=false
     case catch {ok, httpc:request(get, {URI,[]}, [],
-				 [{full_result, false}])} of
+				  [{full_result, false}])} of
 	{'EXIT', _} ->
 	    uri_get_http_r10(URI);
 	Result ->

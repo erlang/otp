@@ -362,10 +362,10 @@ parse_spec(S, L) ->
 		{ok, Spec} ->
 		    Spec;
 		{error, E} ->
-		    throw_error(E, L)
+		    throw_error({parse_spec, E}, L)
 	    end;
 	{error, E, _} ->
-	    throw_error(E, L)
+	    throw_error({parse_spec, E}, L)
     end.
 
 %% ---------------------------------------------------------------------

@@ -70,7 +70,7 @@
 -export([parse_xml/2, expand_text/2]).
 
 -include("edoc.hrl").
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(BASE_HEADING, 3).
 
@@ -82,8 +82,8 @@ parse_xml(Data, Line) ->
 
 parse_xml_1(Text, Line) ->
     Text1 = "<doc>" ++ Text ++ "</doc>",
-    Options = [{line, Line}, {encoding, "iso-8859-1"}],
-    case catch {ok, xmerl_scan:string(Text1, Options)} of
+    Opts = [{line, Line}, {encoding, 'iso-8859-1'}],
+    case catch {ok, xmerl_scan:string(Text1, Opts)} of
 	{ok, {E, _}} ->
 	    E#xmlElement.content;
 	{'EXIT', {fatal, {Reason, L, _C}}} ->

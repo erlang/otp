@@ -52,7 +52,7 @@
 -define(IMAGE, "erlang.png").
 -define(NL, "\n").
 
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 %% Sources is the list of inputs in the order they were found.  Packages
 %% and Modules are sorted lists of atoms without duplicates. (They

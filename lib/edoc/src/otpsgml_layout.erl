@@ -34,7 +34,7 @@
 
 -import(edoc_report, [report/2]).
 
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(SGML_EXPORT, xmerl_otpsgml).
 -define(DEFAULT_XML_EXPORT, ?SGML_EXPORT).
