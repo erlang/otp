@@ -307,15 +307,24 @@ report_errors(St) ->
              end, report_errors, St#leex.opts).
 
 report_warnings(St) ->
-    when_opt(fun () ->
-                     foreach(fun({File,{none,Mod,W}}) -> 
-                                     io:fwrite("~s: Warning: ~s\n",
-                                               [File,Mod:format_error(W)]);
-                                ({File,{Line,Mod,W}}) -> 
-                                     io:fwrite("~s:~w: Warning: ~s\n",
-                                               [File,Line,Mod:format_error(W)])
-                             end, sort(St#leex.warnings))
-             end, report_warnings, St#leex.opts).
+    Werr = member(warnings_as_errors, St#leex.opts),
+    Prefix = case Werr of
+		 true -> "";
+		 false -> "Warning: "
+	     end,
+    ReportWerr = Werr andalso member(report_errors, St#leex.opts),
+    ShouldReport = member(report_warnings, St#leex.opts) orelse ReportWerr,
+    when_bool(fun () ->
+		      foreach(fun({File,{none,Mod,W}}) ->
+				      io:fwrite("~s: ~s~s\n",
+						[File,Prefix,
+						 Mod:format_error(W)]);
+				 ({File,{Line,Mod,W}}) ->
+				      io:fwrite("~s:~w: ~s~s\n",
+						[File,Line,Prefix,
+						 Mod:format_error(W)])
+			      end, sort(St#leex.warnings))
+	      end, ShouldReport).
 
 -spec add_error(_, #leex{}) -> no_return().
 add_error(E, St) ->
@@ -361,6 +370,12 @@ when_opt(Do, Opt, Opts) ->
     case member(Opt, Opts) of
         true -> Do();
         false -> ok
+    end.
+
+when_bool(Do, Bool) ->
+    case Bool of
+	true -> Do();
+	false -> ok
     end.
 
 verbose_print(St, Format, Args) ->
