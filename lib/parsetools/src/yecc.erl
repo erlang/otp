@@ -852,14 +852,22 @@ report_errors(St) ->
     end.
 
 report_warnings(St) ->
-    case member(report_warnings, St#yecc.options) of
+    Werr = member(warnings_as_errors, St#yecc.options),
+    Prefix = case Werr of
+		 true -> "";
+		 false -> "Warning: "
+	     end,
+    ReportWerr = Werr andalso member(report_errors, St#yecc.options),
+    case member(report_warnings, St#yecc.options) orelse ReportWerr of
         true ->
             foreach(fun({File,{none,Mod,W}}) -> 
-                            io:fwrite(<<"~s: Warning: ~s\n">>, 
-                                      [File,Mod:format_error(W)]);
+                            io:fwrite(<<"~s: ~s~s\n">>,
+                                      [File,Prefix,
+				       Mod:format_error(W)]);
                        ({File,{Line,Mod,W}}) -> 
-                            io:fwrite(<<"~s:~w: Warning: ~s\n">>, 
-                                      [File,Line,Mod:format_error(W)])
+                            io:fwrite(<<"~s:~w: ~s~s\n">>,
+                                      [File,Line,Prefix,
+				       Mod:format_error(W)])
                     end, sort(St#yecc.warnings));
         false -> 
             ok
