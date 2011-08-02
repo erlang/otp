@@ -44,7 +44,10 @@
 -->
       <list type="bulleted">
         <item>
-          <p>[compiler] Added the option 
+          <p>[compiler] Used wrong variable name (for 
+	  warnings-as-errors variable), which caused the 
+	  compiler to crash when using the snmpc script. </p>
+	  <p>Also added the option 
 	  <seealso marker="snmpc(command)#option_werror">--Werror</seealso>
 	  for the SNMP MIB compiler (escript) frontend (to mimic 
 	  <seealso marker="erts:erlc">erlc</seealso>), 
