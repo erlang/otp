@@ -46,7 +46,7 @@
 	 agent_capabilities = false,
 	 module,
 	 no_defaults        = false,
-	 relaxed_row_name_assigne_check = false,
+	 relaxed_row_name_assign_check = false,
 	 %% The default verbosity (silence) will be filled in 
 	 %% during argument processing.
 	 verbosity, 
@@ -75,7 +75,7 @@
 %% --version
 %% --verbosity V
 %% --warnings
-%% --wae
+%% --wae | --warnings_as_errors
 main(Args) when is_list(Args) ->
     case (catch process_args(Args)) of
 	ok ->
@@ -154,7 +154,7 @@ mk_mib_options(#state{outdir             = OutDir,
 		      agent_capabilities = AC,
 		      module             = Mod,
 		      no_defaults        = ND,
-		      relaxed_row_name_assigne_check = RRNAC,
+		      relaxed_row_name_assign_check = RRNAC,
 		      %% The default verbosity (silence) will be filled in 
 		      %% during argument processing.
 		      verbosity          = V, 
@@ -182,7 +182,7 @@ mk_mib_options(#state{outdir             = OutDir,
 	maybe_option(MI,    module_identity) ++ 
 	maybe_option(MC,    module_compliance) ++ 
 	maybe_option(AC,    agent_capabilities) ++ 
-	maybe_option(WE,    warnings_as_errors).
+	maybe_option(WAE,   warnings_as_errors).
 
 maybe_option(true, Opt) -> [Opt];
 maybe_option(_,    _)   -> [].
@@ -295,8 +295,10 @@ process_args(["--mod"|_Args], #state{module = M})
 process_args(["--nd"|Args], State) ->
     process_args(Args, State#state{no_defaults = true});
 process_args(["--rrnac"|Args], State) ->
-    process_args(Args, State#state{relaxed_row_name_assigne_check = true});
+    process_args(Args, State#state{relaxed_row_name_assign_check = true});
 process_args(["--wae"|Args], State) ->
+    process_args(Args, State#state{warnings_as_errors = true});
+process_args(["--warnings_as_errors"|Args], State) ->
     process_args(Args, State#state{warnings_as_errors = true});
 process_args([MIB], State) ->
     Ext = filename:extension(MIB),
@@ -340,16 +342,19 @@ usage() ->
 	      "~n                              The current workin dir will always be included. "
 	      "~n   --il <include_lib dir>   - Add this dir to the list of dirs that will be"
 	      "~n                              searched for imported (compiled) MIB files."
-	      "~n                              It assumes that the first element in the dir name"
-	      "~n                              correspond to an OTP application. For example snmp/mibs/"
-	      "~n                              The current workin dir and the <snmp-home>/priv/mibs "
+	      "~n                              It assumes that the first element in the dir "
+	      "~n                              name correspond to an OTP application. "
+	      "~n                              For example snmp/mibs/ "
+	      "~n                              The current workin dir and the "
+	      "~n                              <snmp-home>/priv/mibs "
 	      "~n                              are always listed last the includ path. "
 	      "~n   --db <DB>                - Database to used for the default instrumentation."
 	      "~n                              Defaults to volatile."
-	      "~n   --sgc                    - This option (skip group check), if present, disables "
-	      "~n                              the \"group check\" of the mib compiler. "
-	      "~n                              That is, should the OBJECT-GROUP and the NOTIFICATION-GROUP "
-	      "~n                              macro(s) be checked for correctness or not. "
+	      "~n   --sgc                    - This option (skip group check), if present, "
+	      "~n                              disables the \"group check\" of the mib compiler. "
+	      "~n                              That is, should the OBJECT-GROUP and the "
+	      "~n                              NOTIFICATION-GROUP macro(s) be checked for "
+	      "~n                              correctness or not. "
 	      "~n                              By default the check is done. "
 	      "~n   --dep                    - Keep deprecated definition(s)."
 	      "~n                              If not specified the compiler will ignore"
@@ -360,25 +365,27 @@ usage() ->
 	      "~n   --mi                     - The MODULE-IDENTITY field will be included."
 	      "~n   --mc                     - The MODULE-COMPLIANCE field will be included."
 	      "~n   --ac                     - The AGENT-CAPABILITIES field will be included."
-	      "~n   --mod <module>           - The module which implements all the instrumentation"
-	      "~n                              functions. "
+	      "~n   --mod <module>           - The module which implements all the "
+	      "~n                              instrumentation functions. "
 	      "~n                              The name of all instrumentation functions must"
 	      "~n                              be the same as the corresponding managed object"
 	      "~n                              it implements."
-	      "~n   --nd                     - The default instrumentation functions will *not* be used"
-	      "~n                              if a managed object have no instrumentation function. "
-	      "~n                              Instead this will be reported as an error, and the "
-	      "~n                              compilation aborts. "
-	      "~n   --rrnac                  - This option, if present, specifies that the row name "
-	      "~n                              assign check shall not be done strictly according to"
-	      "~n                              the SMI (which allows only the value 1). "
-	      "~n                              With this option, all values greater than zero is allowed"
-	      "~n                              (>= 1). This means that the error will be converted to "
+	      "~n   --nd                     - The default instrumentation functions will *not* "
+	      "~n                              be used if a managed object have no "
+	      "~n                              instrumentation function. Instead this will be "
+	      "~n                              reported as an error, and the compilation aborts. "
+	      "~n   --rrnac                  - This option, if present, specifies that the row "
+	      "~n                              name assign check shall not be done strictly "
+	      "~n                              according to the SMI (which allows only the "
+	      "~n                              value 1). With this option, all values greater "
+	      "~n                              than zero is allowed (>= 1). "
+	      "~n                              This means that the error will be converted to "
 	      "~n                              a warning. "
-	      "~n                              By default it is not included, but if this option is "
-	      "~n                              present it will be. "
-	      "~n   --wae                    - Warnings as errors. "
-              "~n                              Indicates that warnings shall be treated as errors. "
+	      "~n                              By default it is not included, but if this "
+	      "~n                              option is present it will be. "
+	      "~n   --wae | --Werror         - Warnings as errors. "
+              "~n                              Indicates that warnings shall be treated as "
+              "~n                              errors. "
 	      "~n   "
 	      "~n", []),
     halt(1).
