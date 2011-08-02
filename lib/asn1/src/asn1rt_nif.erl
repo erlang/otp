@@ -22,7 +22,8 @@
 %% Nif interface for asn1
 
 -export([encode_per_complete/1,
-	 decode_ber_tlv/1]).
+	 decode_ber_tlv/1,
+	 encode_ber_tlv/1]).
 
 -on_load(load_nif/0).
 
@@ -76,8 +77,11 @@ load_nif() ->
 	    Status
     end.
 
-encode_per_complete(_Binary) ->
+encode_per_complete(_TagValueList) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,?LINE}).
 
 decode_ber_tlv(_Binary) ->
+    erlang:nif_error({nif_not_loaded,module,?MODULE,line,?LINE}).
+
+encode_ber_tlv(_TagValueList) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,?LINE}).

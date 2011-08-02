@@ -21,7 +21,7 @@
  
 %% encoding / decoding of BER  
 
--export([decode/1, decode/2, match_tags/2, encode/1]). 
+-export([decode/1, decode/2, match_tags/2, encode/1, encode/2]). 
 -export([fixoptionals/2, cindex/3,
 	 list_to_record/2,
 	 encode_tag_val/1,
@@ -50,10 +50,13 @@
 
 -export([encode_open_type/1,encode_open_type/2, 
 	 decode_open_type/2,decode_open_type/3,
-	 decode_open_type_as_binary/2]).
+	 decode_open_type_as_binary/2,
+	 decode_open_type_as_binary/3]).
 
 -export([decode_primitive_incomplete/2,decode_selective/2]).
- 
+
+-export([is_nif_loadable/0]).
+
 -include("asn1_records.hrl"). 
  
 % the encoding of class of tag bits 8 and 7 
@@ -126,15 +129,28 @@
 % encode(Tlv) ->
 %     encode_constructed(Tlv).
 
-encode([Tlv]) ->
-    encode(Tlv);
-encode({TlvTag,TlvVal}) when is_list(TlvVal) ->
+encode(Tlv) ->
+    encode(Tlv,erlang).
+
+encode(Tlv,_) when is_binary(Tlv) ->
+    Tlv;
+encode([Tlv],Method) ->
+    encode(Tlv,Method);
+encode(Tlv, nif) ->
+    case is_nif_loadable() of
+	true ->
+	    asn1rt_nif:encode_ber_tlv(Tlv);
+	false ->
+	    encode_erl(Tlv)
+    end;
+encode(Tlv, _) ->
+    encode_erl(Tlv).
+
+encode_erl({TlvTag,TlvVal}) when is_list(TlvVal) ->
     %% constructed form of value
     encode_tlv(TlvTag,TlvVal,?CONSTRUCTED);
-encode({TlvTag,TlvVal}) ->
-    encode_tlv(TlvTag,TlvVal,?PRIMITIVE);
-encode(Bin) when is_binary(Bin) ->
-    Bin.
+encode_erl({TlvTag,TlvVal}) ->
+    encode_tlv(TlvTag,TlvVal,?PRIMITIVE).
 
 encode_tlv(TlvTag,TlvVal,Form) ->
     Tag = encode_tlv_tag(TlvTag,Form),
@@ -153,7 +169,7 @@ encode_tlv_val(Bin) ->
     {Bin,size(Bin)}.
 
 encode_tlv_list([Tlv|Tlvs],Acc) ->
-    EncTlv = encode(Tlv),
+    EncTlv = encode_erl(Tlv),
     encode_tlv_list(Tlvs,[EncTlv|Acc]);
 encode_tlv_list([],Acc) ->
     Bin=list_to_binary(lists:reverse(Acc)),
@@ -164,27 +180,35 @@ decode(B) ->
 
 %% asn1-1.7
 decode(B, nif) ->
-    case application:get_env(asn1, nif_loadable) of
-	{ok, true} ->
+    case is_nif_loadable() of
+	true ->
 	    case asn1rt_nif:decode_ber_tlv(B) of
 		{error, Reason} -> handle_error(Reason, B);
 		Else -> Else
 	    end;
-	{ok, false} ->
-	    decode(B);
-	undefined ->
-	    case catch code:load_file(asn1rt_nif) of
-		{module, asn1rt_nif} ->
-		    application:set_env(asn1, nif_loadable, true);
-		_Else ->
-		    application:set_env(asn1, nif_loadable, false)
-	    end,
-	    decode(B, nif)
+	false ->
+	    decode(B)
     end;
 decode(B,erlang) when is_binary(B) ->
     decode_primitive(B);
 decode(Tlv,erlang) ->
     {Tlv,<<>>}.
+
+%% Have to check this since asn1 is not guaranteed to be available
+is_nif_loadable() ->
+    case application:get_env(asn1, nif_loadable) of
+	{ok,R} ->
+	    R;
+	undefined ->
+	    case catch code:load_file(asn1rt_nif) of
+		{module, asn1rt_nif} ->
+		    application:set_env(asn1, nif_loadable, true),
+		    true;
+		_Else ->
+		    application:set_env(asn1, nif_loadable, false),
+		    false
+	    end
+    end.
 
 handle_error([],_)->
     exit({error,{asn1,{"memory allocation problem"}}});
@@ -780,12 +804,14 @@ decode_open_type(Tlv, TagIn, Method) ->
     end.
 
  
-decode_open_type_as_binary(Tlv,TagIn)->
+decode_open_type_as_binary(Tlv, TagIn) ->
+    decode_open_type_as_binary(Tlv, TagIn, erlang).
+decode_open_type_as_binary(Tlv,TagIn, Method)->
     case match_tags(Tlv,TagIn) of
 	V when is_binary(V) ->
 	    V;
-	[Tlv2] -> encode(Tlv2);
-	Tlv2 -> encode(Tlv2)
+	[Tlv2] -> encode(Tlv2, Method);
+	Tlv2 -> encode(Tlv2, Method)
     end.
  
 %%=============================================================================== 

@@ -369,7 +369,7 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         <item>
           <p>Together with the flags <c>ber_bin</c>
 	  and <c>optimize</c> you choose to use a nif for considerable
-	  faster decode. </p>
+	  faster encode and decode. </p>
         </item>
         <tag><c>+asn1config</c></tag>
         <item>
@@ -631,7 +631,7 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
     </table>
 
     <p>
-      The sole compile options <c>ber</c>, <c>ber_bin</c>, <c>per</c> and
+      The compile options <c>ber</c>, <c>per</c> and
       <c>driver</c> are kept for backwards compatibility and should not be 
       used in new code. The nif implementation which replaces the linked-in
       driver has been shown to be about 5-15% faster.
