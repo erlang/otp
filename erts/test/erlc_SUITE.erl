@@ -79,7 +79,7 @@ compile_erl(Config) when is_list(Config) ->
 
     ?line run(Config, Cmd, FileName, "-Werror",
 	      ["compile: warnings being treated as errors\$",
-	       "Warning: function foo/0 is unused\$",
+	       "function foo/0 is unused\$",
 	       "_ERROR_"]),
 
     %% Check a bad file.

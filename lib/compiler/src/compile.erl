@@ -1385,28 +1385,34 @@ report_errors(#compile{options=Opts,errors=Errors}) ->
     end.
 
 report_warnings(#compile{options=Opts,warnings=Ws0}) ->
-    case member(report_warnings, Opts) of
+    Werror = member(warnings_as_errors, Opts),
+    P = case Werror of
+	    true -> "";
+	    false -> "Warning: "
+	end,
+    ReportWerror = Werror andalso member(report_errors, Opts),
+    case member(report_warnings, Opts) orelse ReportWerror of
 	true ->
-	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, Eds);
-			     ({F,Eds}) -> format_message(F, Eds) end,
+	    Ws1 = flatmap(fun({{F,_L},Eds}) -> format_message(F, P, Eds);
+			     ({F,Eds}) -> format_message(F, P, Eds) end,
 			  Ws0),
 	    Ws = lists:sort(Ws1),
 	    foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws);
 	false -> ok
     end.
 
-format_message(F, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~s:~w:~w Warning: ~s\n",
-                                [F,Line,Column,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~s:~w: Warning: ~s\n",
-                                [F,Line,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(F, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: Warning: ~s\n", [F,Mod:format_error(E)])},
-    [M|format_message(F, Es)];
-format_message(_, []) -> [].
+format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
+    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~s\n",
+                                [F,Line,Column,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Line,Mod,E}|Es]) ->
+    M = {{F,{Line,0}},io_lib:format("~s:~w: ~s~s\n",
+                                [F,Line,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(F, P, [{Mod,E}|Es]) ->
+    M = {none,io_lib:format("~s: ~s~s\n", [F,P,Mod:format_error(E)])},
+    [M|format_message(F, P, Es)];
+format_message(_, _, []) -> [].
 
 %% list_errors(File, ErrorDescriptors) -> ok
 
