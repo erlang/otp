@@ -528,6 +528,10 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
         <p>Match specifications used can be saved in a file (if a
           read-write file system is present) for use in later
           debugging sessions, see <c>wtp/1</c> and <c>rtp/1</c></p>
+	  <p>There are three built-in trace patterns:
+	  <c>x</c>, <c>c</c> and <c>cx</c>. They represent an
+	  exception trace, caller trace and a caller and exception trace
+	  respectively.</p>
       </desc>
     </func>
     <func>

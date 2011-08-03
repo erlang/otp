@@ -1449,6 +1449,19 @@ new_pattern_table() ->
     ets:insert(PT, 
 	       {exception_trace, 
 		term_to_binary(x)}),
+    ets:insert(PT,
+	       {c,
+		term_to_binary([{'_',[],[{message,{caller}}]}])}),
+    ets:insert(PT,
+	       {caller_trace,
+		term_to_binary(c)}),
+    ets:insert(PT,
+	       {cx,
+		term_to_binary([{'_',[],[{exception_trace},
+					 {message,{caller}}]}])}),
+    ets:insert(PT,
+	       {caller_exception_trace,
+		term_to_binary(cx)}),
     PT.
 
 
