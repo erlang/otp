@@ -150,9 +150,12 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <p><c>Restart</c> defines when a terminated child process
           should be restarted. A <c>permanent</c> child process should
           always be restarted, a <c>temporary</c> child process should
-          never be restarted and a <c>transient</c> child process
-          should be restarted only if it terminates abnormally, i.e.
-          with another exit reason than <c>normal</c>.</p>
+          never be restarted (even when the supervisor's restart strategy
+          is <c>rest_for_one</c> or <c>one_for_all</c> and a sibling's
+          death causes the temporary process to be terminated) and a
+          <c>transient</c> child process should be restarted only if
+          it terminates abnormally, i.e. with another exit reason
+          than <c>normal</c>.</p>
       </item>
       <item>
         <p><c>Shutdown</c> defines how a child process should be

@@ -735,6 +735,13 @@ restart(one_for_all, Child, State) ->
 terminate_children(Children, SupName) ->
     terminate_children(Children, SupName, []).
 
+%% Temporary children should not be restarted and thus should
+%% be skipped when building the list of terminated children, although
+%% we do want them to be shut down as many functions from this module
+%% use this function to just clear everything.
+terminate_children([Child = #child{restart_type=temporary} | Children], SupName, Res) ->
+    do_terminate(Child, SupName),
+    terminate_children(Children, SupName, Res);
 terminate_children([Child | Children], SupName, Res) ->
     NChild = do_terminate(Child, SupName),
     terminate_children(Children, SupName, [NChild | Res]);
