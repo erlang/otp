@@ -19,8 +19,6 @@
 %%
 -module(asn1rt_check).
 
--include("asn1_records.hrl").
-
 -export([check_bool/2,
 	 check_int/3,
 	 check_bitstring/3,
