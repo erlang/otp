@@ -67,6 +67,10 @@ my $max_gen_operands = 8;
 # Must be even. The beam_load.c file must be updated, too.
 my $max_spec_operands = 6;
 
+# The maximum number of primitive genop_types.
+
+my $max_genop_types = 16;
+
 my %gen_opnum;
 my %num_specific;
 my %gen_to_spec;
@@ -106,7 +110,7 @@ my @pred_table;
 # Operand types for generic instructions.
 
 my $compiler_types = "uiaxyfhz";
-my $loader_types = "nprvlq";
+my $loader_types = "nprvlqo";
 my $genop_types = $compiler_types . $loader_types;
 
 #
@@ -142,34 +146,61 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 my %type_bit;
 my @tag_type;
 
+sub define_type_bit {
+    my($tag,$val) = @_;
+    defined $type_bit{$tag} and
+	sanity("the tag '$tag' has already been defined with the value ",
+	       $type_bit{$tag});
+    $type_bit{$tag} = $val;
+}
+
 {
     my($bit) = 1;
     my(%bit);
 
     foreach (split('', $genop_types)) {
 	push(@tag_type, $_);
-	$type_bit{$_} = $bit;
+	define_type_bit($_, $bit);
 	$bit{$_} = $bit;
 	$bit *= 2;
     }
 
     # Composed types.
-    $type_bit{'d'} = $type_bit{'x'} | $type_bit{'y'} | $type_bit{'r'};
-    $type_bit{'c'} = $type_bit{'i'} | $type_bit{'a'} | $type_bit{'n'} | $type_bit{'q'};
-    $type_bit{'s'} = $type_bit{'d'} | $type_bit{'i'} | $type_bit{'a'} |	$type_bit{'n'};
-    $type_bit{'j'} = $type_bit{'f'} | $type_bit{'p'};
+    define_type_bit('d', $type_bit{'x'} | $type_bit{'y'} | $type_bit{'r'});
+    define_type_bit('c', $type_bit{'i'} | $type_bit{'a'} |
+		    $type_bit{'n'} | $type_bit{'q'});
+    define_type_bit('s', $type_bit{'d'} | $type_bit{'i'} |
+		    $type_bit{'a'} | $type_bit{'n'});
+    define_type_bit('j', $type_bit{'f'} | $type_bit{'p'});
 
     # Aliases (for matching purposes).
-    $type_bit{'I'} = $type_bit{'u'};
-    $type_bit{'t'} = $type_bit{'u'};
-    $type_bit{'A'} = $type_bit{'u'};
-    $type_bit{'L'} = $type_bit{'u'};
-    $type_bit{'b'} = $type_bit{'u'};
-    $type_bit{'N'} = $type_bit{'u'};
-    $type_bit{'U'} = $type_bit{'u'};
-    $type_bit{'e'} = $type_bit{'u'};
-    $type_bit{'P'} = $type_bit{'u'};
-    $type_bit{'Q'} = $type_bit{'u'};
+    define_type_bit('I', $type_bit{'u'});
+    define_type_bit('t', $type_bit{'u'});
+    define_type_bit('A', $type_bit{'u'});
+    define_type_bit('L', $type_bit{'u'});
+    define_type_bit('b', $type_bit{'u'});
+    define_type_bit('N', $type_bit{'u'});
+    define_type_bit('U', $type_bit{'u'});
+    define_type_bit('e', $type_bit{'u'});
+    define_type_bit('P', $type_bit{'u'});
+    define_type_bit('Q', $type_bit{'u'});
+}
+
+#
+# Sanity checks.
+#
+
+{
+    if (@tag_type > $max_genop_types) {
+	sanity("\$max_genop_types is $max_genop_types, ",
+	       "but there are ", scalar(@tag_type),
+	       " primitive tags defined\n");
+    }
+
+    foreach my $tag (@tag_type) {
+	sanity("tag '$tag': primitive tags must be named with lowercase letters")
+	    unless $tag =~ /^[a-z]$/;
+    }
 }
 
 #
@@ -436,12 +467,12 @@ sub emulator_output {
 	    #
 
 	    my(@bits) = (0) x ($max_spec_operands/2);
-	    my($shift) = 16;
 	    my($i);
 	    for ($i = 0; $i < $max_spec_operands && defined $args[$i]; $i++) {
 		my $t = $args[$i];
 		if (defined $type_bit{$t}) {
-		    $bits[int($i/2)] |= $type_bit{$t} << (16*($i%2));
+		    my $shift = $max_genop_types * ($i % 2);
+		    $bits[int($i/2)] |= $type_bit{$t} << $shift;
 		}
 	    }
 
@@ -751,6 +782,10 @@ sub error {
     my(@message) = @_;
     my($where) = $. ? "$ARGV($.): " : "";
     die $where, @message, "\n";
+}
+
+sub sanity {
+    die "internal error: ", @_, "\n";
 }
 
 sub comment {

@@ -150,7 +150,7 @@ void erts_bits_destroy_state(ERL_BITS_PROTO_0);
  * NBYTES(x) returns the number of bytes needed to store x bits.
  */
 
-#define NBYTES(x)  (((x) + 7) >> 3) 
+#define NBYTES(x)  (((Uint64)(x) + (Uint64) 7) >> 3) 
 #define BYTE_OFFSET(ofs) ((Uint) (ofs) >> 3)
 #define BIT_OFFSET(ofs) ((ofs) & 7)
 
