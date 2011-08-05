@@ -1416,10 +1416,8 @@ sub tr_gen_from {
 	    my $var;
 	    my(@args);
 
-	    my $next_instr = pop(@code); # Get rid of 'next_instr'
 	    push(@fix_pred_funcs, scalar(@code));
 	    push(@code, [$name, @ops]);
-	    push(@code, $next_instr);
 	    next;
 	}
 
@@ -1431,7 +1429,7 @@ sub tr_gen_from {
 	    unless defined $gen_opnum{$name,$arity};
 	$opnum = $gen_opnum{$name,$arity};
 
-	push(@code, &make_op("$name/$arity", 'is_op', $opnum));
+	push(@code, make_op("$name/$arity", 'next_instr', $opnum));
 	$min_window++;
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
@@ -1506,16 +1504,15 @@ sub tr_gen_from {
 		push(@code, &make_op($ignored_var, 'next_arg'));
 	    }
 	}
-	# Remove redundant 'next_arg' instructions before 'next_instr'.
+
+	# Remove redundant 'next_arg' instructions before the end
+	# of the instruction.
 	pop(@code) while is_instr($code[$#code], 'next_arg');
-	push(@code, &make_op('', 'next_instr'));
     }
 
     #
     # Insert the commit operation.
     #
-    pop(@code);		# Get rid of 'next_instr'
-
     push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
 
     #

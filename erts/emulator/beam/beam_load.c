@@ -4250,7 +4250,9 @@ transform_engine(LoaderState* st)
 	op = *pc++;
 
 	switch (op) {
-	case TOP_is_op:
+	case TOP_next_instr:
+	    instr = instr->next;
+	    ap = 0;
 	    if (instr == NULL) {
 		/*
 		 * We'll need at least one more instruction to decide whether
@@ -4436,10 +4438,6 @@ transform_engine(LoaderState* st)
 
 	case TOP_next_arg:
 	    ap++;
-	    break;
-	case TOP_next_instr:
-	    instr = instr->next;
-	    ap = 0;
 	    break;
 	case TOP_commit:
 	    instr = instr->next; /* The next_instr was optimized away. */
