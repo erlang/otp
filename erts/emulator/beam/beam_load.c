@@ -4505,11 +4505,9 @@ transform_engine(LoaderState* st)
 	    NEW_GENOP(st, instr);
 	    instr->next = st->genop;
 	    st->genop = instr;
+	    instr->op = op = *pc++;
+	    instr->arity = gen_opc[op].arity;
 	    ap = 0;
-	    break;
-	case TOP_store_op:
-	    instr->op = *pc++;
-	    instr->arity = *pc++;
 	    break;
 	case TOP_store_type:
 	    i = *pc++;

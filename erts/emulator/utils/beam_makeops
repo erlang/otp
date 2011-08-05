@@ -1590,7 +1590,7 @@ sub tr_gen_to {
 		    push(@args, "var+$var{$var}");
 		}
 	    }
-	    pop(@code);	# Get rid of 'next_instr'
+	    pop(@code);	# Get rid of 'commit' instruction
 	    push(@code, make_op("$name()", 'call_end', scalar(@call_table)));
 	    push(@call_table, [$name, @args]);
 	    last;
@@ -1609,8 +1609,7 @@ sub tr_gen_to {
 	# Create code to build the generic instruction.
 	#
 
-	push(@code, &make_op('', 'new_instr'));
-	push(@code, &make_op("$name/$arity", 'store_op', $opnum, $arity));
+	push(@code, make_op("$name/$arity", 'new_instr', $opnum));
 	foreach $op (@ops) {
 	    my($var, $type, $type_val) = @$op;
 
