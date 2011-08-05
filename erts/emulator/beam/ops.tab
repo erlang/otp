@@ -1236,7 +1236,7 @@ i_bs_init_heap I I I d
 i_bs_init_heap_bin_heap I I I d
 
 
-bs_init_bits Fail Sz Words Regs Flags Dst | binary_too_big_bits(Sz) => system_limit Fail
+bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
 
 bs_init_bits Fail Sz=u Words=u==0 Regs Flags Dst => i_bs_init_bits Sz Regs Dst
 bs_init_bits Fail Sz=u Words Regs Flags Dst =>  i_bs_init_bits_heap Sz Words Regs Dst
