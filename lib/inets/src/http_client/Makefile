@@ -41,7 +41,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES = \
-	http \
 	httpc \
 	httpc_cookie \
 	httpc_handler \
