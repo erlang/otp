@@ -15,7 +15,7 @@
 %% USA
 %%
 %% @copyright 2001-2007 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @version {@version}
 %% @end
 %% =====================================================================

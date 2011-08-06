@@ -16,7 +16,7 @@
 %%
 %% @private
 %% @copyright 2001-2005 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
 %% @end
 %% =====================================================================

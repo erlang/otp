@@ -22,7 +22,7 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% Author contact: richardc@it.uu.se
+%% Author contact: carlsson.richard@gmail.com
 %% =====================================================================
 
 Nonterminals
@@ -255,7 +255,7 @@ throws -> etype where_defs:
 %% "%% USA"
 %% "%%"
 %% "%% @private"
-%% "%% @author Richard Carlsson <richardc@it.uu.se>"
+%% "%% @author Richard Carlsson <carlsson.richard@gmail.com>"
 %% "%% ===================================================================="
 %% .
 
