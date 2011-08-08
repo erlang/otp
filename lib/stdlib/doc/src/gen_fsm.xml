@@ -438,7 +438,7 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       <fsummary>Initialize process and internal state name and state data.</fsummary>
       <type>
         <v>Args = term()</v>
-        <v>Return = {ok,StateName,StateData} | {ok,StateName,StateData,Timeout}</v>
+        <v>Result = {ok,StateName,StateData} | {ok,StateName,StateData,Timeout}</v>
 	<v>&nbsp;&nbsp;| {ok,StateName,StateData,hibernate}</v>
         <v>&nbsp;&nbsp;| {stop,Reason} | ignore</v>
         <v>&nbsp;StateName = atom()</v>
