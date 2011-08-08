@@ -80,7 +80,9 @@ endif
 # Targets
 # ----------------------------------------------------
 
-opt: $(OBJDIR) $(LIBDIR) $(NIF_SHARED_OBJ_FILE)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
+
+opt: $(NIF_SHARED_OBJ_FILE)
 
 debug: opt
 
@@ -102,14 +104,6 @@ $(OBJDIR)/%.o: %.c
 $(NIF_SHARED_OBJ_FILE): $(NIF_OBJ_FILES)
 	$(LD) $(LDFLAGS) -o $(NIF_SHARED_OBJ_FILE) $(NIF_OBJ_FILES) $(CLIB_FLAGS) $(LIBS)
 
-$(LIBDIR):
-	-mkdir -p $(LIBDIR)
-
-$(OBJDIR):
-	-mkdir -p $(OBJDIR)
-
-
- 
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------

@@ -121,13 +121,14 @@ docs:
 # Special Targets
 # ----------------------------------------------------
 
-TGT_TEST = \
-        $(GEN_HRL_FILES:%=$(IDLOUTDIR)/%) \
-        $(GEN_MODULES:%=$(IDLOUTDIR)/%.erl)
-
-$(TGT_TEST): etrap_test.idl
+IDL-GENERATED: etrap_test.idl
 	erlc $(ERL_IDL_FLAGS) -o$(IDLOUTDIR) \
                 +'{cfgfile,"etrap_test.cfg"}' etrap_test.idl
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Targets

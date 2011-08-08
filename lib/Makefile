@@ -33,20 +33,6 @@ ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 	cosFileTransfer cosEventDomain
   endif
 else
-  ifeq ($(findstring ose,$(TARGET)),ose)
-    ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler erl_interface
-    OTHER_SUB_DIRECTORIES =	\
-      snmp otp_mibs appmon tools
-#    OTHER_SUB_DIRECTORIES =	\
-#      appmon os_mon tools runtime_tools
-    ifdef BUILD_ALL
-      OTHER_SUB_DIRECTORIES += mnesia  \
-        inets pman tv observer
-#      OTHER_SUB_DIRECTORIES += mnesia ic asn1 debugger \
-#        inets orber pman tv observer cosTransactions cosEvent \
-#        cosTime cosNotification cosProperty cosFileTransfer cosEventDomain
-    endif
-  else
 #
 # unix and win32
 # --------------
@@ -59,10 +45,11 @@ else
           snmp otp_mibs appmon erl_interface asn1 jinterface gs wx inets ic \
           mnesia crypto orber os_mon parsetools syntax_tools pman \
           public_key ssl toolbar tv observer debugger reltool odbc \
-          runtime_tools diameter \
+          diameter \
           cosTransactions cosEvent cosTime cosNotification cosProperty \
           cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
+	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen \
+	  common_test percept dialyzer
 # dialyzer
         OTHER_SUB_DIRECTORIES += hipe
       else # BUILD_ALL on unix
@@ -70,15 +57,15 @@ else
           snmp otp_mibs appmon erl_interface asn1 jinterface wx debugger reltool gs inets \
           ic mnesia crypto orber os_mon parsetools syntax_tools \
           pman public_key ssl toolbar tv observer odbc \
-          runtime_tools diameter \
+          diameter \
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
+	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen \
+	  common_test percept dialyzer
 # dialyzer
         OTHER_SUB_DIRECTORIES += hipe $(TSP_APP)
       endif
     endif
-  endif
 endif
 
 ifdef BOOTSTRAP

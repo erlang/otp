@@ -94,13 +94,9 @@ endif
 # Targets
 # ----------------------------------------------------
 
-debug opt valgrind: $(OBJDIR) $(LIBDIR) $(NIF_LIB)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-$(OBJDIR):
-	-@mkdir -p $(OBJDIR)
-
-$(LIBDIR):
-	-@mkdir -p $(LIBDIR)
+debug opt valgrind: $(NIF_LIB)
 
 $(OBJDIR)/%$(TYPEMARKER).o: %.c
 	$(INSTALL_DIR) $(OBJDIR)

@@ -184,31 +184,17 @@ docs:
 # Special Targets
 # ----------------------------------------------------
 
-#
-# Each IDL file produces many target files so no pattern
-# rule can be used.
-#
-TGT_ORBER = \
-	$(GEN_HRL_ORBER:%=$(IDLOUTDIR)/%) \
-	$(GEN_MOD_ORBER:%=$(IDLOUTDIR)/%.erl)
-TGT_IIOP = \
-	$(GEN_HRL_IIOP:%=$(IDLOUTDIR)/%) \
-	$(GEN_MOD_IIOP:%=$(IDLOUTDIR)/%.erl)
-
-TGT_TEST_SERVER = \
-	$(GEN_HRL_TEST_SERVER:%=$(IDLOUTDIR)/%) \
-	$(GEN_MOD_TEST_SERVER:%=$(IDLOUTDIR)/%.erl)
-
-$(TGT_ORBER): orber_test.idl
+IDL-GENERATED: orber_test.idl iiop_test.idl orber_test_server.idl
 	erlc $(ERL_IDL_FLAGS) -o$(IDLOUTDIR) orber_test.idl
-
-$(TGT_IIOP): iiop_test.idl
 	erlc $(ERL_IDL_FLAGS) -o$(IDLOUTDIR) \
 		+'{preproc_flags,"-I../COSS/CosNaming"}' iiop_test.idl
-
-$(TGT_TEST_SERVER): orber_test_server.idl
 	erlc $(ERL_IDL_FLAGS) -o$(IDLOUTDIR) \
 	+'{cfgfile,"orber_test_server.cfg"}' orber_test_server.idl
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Targets

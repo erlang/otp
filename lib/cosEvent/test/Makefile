@@ -121,17 +121,13 @@ docs:
 # Special Targets
 # ----------------------------------------------------
 
-#
-# Each IDL file produces many target files so no pattern
-# rule can be used.
-#
-TGT_COS = \
-	$(GEN_HRL_COS:%=$(IDLOUTDIR)/%) \
-	$(GEN_MOD_COS:%=$(IDLOUTDIR)/%.erl)
-
-
-$(TGT_COS): event_test_server.idl
+IDL-GENERATED: event_test_server.idl
 	erlc $(ERL_IDL_FLAGS) -o$(IDLOUTDIR) event_test_server.idl
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Targets

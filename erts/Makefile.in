@@ -16,6 +16,9 @@
 #
 # %CopyrightEnd%
 # 
+
+.NOTPARALLEL:
+
 include $(ERL_TOP)/make/target.mk
 include vsn.mk
 

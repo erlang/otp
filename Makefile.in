@@ -19,6 +19,8 @@
 # Toplevel makefile for building the Erlang system
 #
 
+.NOTPARALLEL:
+
 # ----------------------------------------------------------------------
 
 # And you'd think that this would be obvious... :-)
@@ -309,13 +311,13 @@ ifeq ($(BOOTSTRAP_ONLY),yes)
 all: bootstrap
 else
 # The normal case; not cross compiling, and not bootstrap only build.
-all: bootstrap libs local_setup dialyzer
+all: bootstrap libs local_setup
 endif
 
 else
 # Cross compiling
 
-all: cross_check_erl depend emulator libs start_scripts dialyzer
+all: cross_check_erl depend emulator libs start_scripts
 
 endif
 
@@ -374,17 +376,6 @@ else
 	cd $(ERL_TOP)/lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
 	    $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release
-ifneq ($(findstring vxworks,$(TARGET)),vxworks)
-	@if test -f lib/dialyzer/SKIP ; then			\
-		echo "=== Skipping dialyzer, reason:" ;		\
-		cat lib/dialyzer/SKIP ;				\
-		echo "===" ;					\
-	else							\
-		cd $(ERL_TOP)/lib/dialyzer &&			\
-		  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-		    $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release ; \
-	fi
-endif
 endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
@@ -400,9 +391,6 @@ ifeq ($(OTP_SMALL_BUILD),true)
 	  $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
 else
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(ERL_TOP)/bin:$${PATH} ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
-	cd $(ERL_TOP)/lib/dialyzer && \
 	  PATH=$(ERL_TOP)/bin:$${PATH} ERL_TOP=$(ERL_TOP) \
 	  $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
 endif
@@ -423,7 +411,7 @@ BOOT_BINDIR=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin
 BEAM_EVM=$(ERL_TOP)/bin/$(TARGET)/beam_evm
 BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 
-.PHONY: emulator libs kernel stdlib compiler hipe dialyzer typer syntax_tools preloaded
+.PHONY: emulator libs kernel stdlib compiler hipe typer syntax_tools preloaded
 
 emulator:
 	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR)
@@ -458,19 +446,6 @@ hipe:
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
 		$(MAKE) opt BUILD_ALL=true
 
-dialyzer:
-ifneq ($(OTP_SMALL_BUILD),true)
-	@if test -f lib/dialyzer/SKIP ; then			\
-		echo "=== Skipping dialyzer, reason:" ;		\
-		cat lib/dialyzer/SKIP ;				\
-		echo "===" ;					\
-	else							\
-		cd lib/dialyzer &&				\
-		ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH}  \
-			$(MAKE) opt BUILD_ALL=true ;		\
-	fi
-endif
-
 typer:
 	cd lib/typer && \
 	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
@@ -487,7 +462,8 @@ preloaded:
 		$(MAKE) opt BUILD_ALL=true	
 
 dep depend:
-	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) generate depend)
+	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) generate)
+	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
 	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/lib_src && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
 
 # Creates "erl" and "erlc" in bootstrap/bin which uses the precompiled 
@@ -877,48 +853,6 @@ $(TEST_DIRS):
 	if test -f $@/Makefile; then \
 		(cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) release_tests) || exit $$?; \
 	fi
-
-# ----------------------------------------------------------------------
-# Obsolete type of bootstrap where all stages where built with installed sytem 
-# shuld no longer be used and is soon to be removed.
-# Abbreviations: OC = Old Compiler, NC = New Compiler,
-# 		 OE = Old Emulator, NE = New Emulator
-
-old_com_bootstrap: old_bootstrap_nc_for_ne_all_stages old_bootstrap_ne old_bootstrap_scripts
-
-#
-# Builds the New Compiler for the New Emulator (using existing erlc
-# and possibly new compiler) then copy everything to the release area.
-# Use to create the commerciall bootstrap version, which should be obsolete.
-#
-old_bootstrap_nc_for_ne_all_stages:
-	test -d $(TESTROOT) || mkdir -p $(TESTROOT)
-	cd lib && $(MAKE) BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) SECONDARY_BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) TERTIARY_BOOTSTRAP=1 TYPE=release release
-	cd lib && $(MAKE) FOURTH_BOOTSTRAP=1 TYPE=release release
-
-
-
-old_bootstrap_ne:
-	cd erts && $(MAKE) release
-
-old_bootstrap_scripts:
-	cd erts/start_scripts && $(MAKE) release
-
-
-# This is one strange name for a target, this actually builds and strips only
-# the primary bootstrap, a minimal set of beam files to be able to continue
-# bootstrap builds. It's used by other makefiles, so I refrain from
-# changing the name right now...
-bootstrap_nc_for_ne_no_debug_sym:
-	test -d $(TESTROOT) || mkdir -p $(TESTROOT)
-	cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
-		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) BOOTSTRAP=1 TYPE=release release
-	$(ERL_TOP)/erts/emulator/utils/beam_strip $(TESTROOT)/lib/*/ebin/*.beam
-
-# ----------------------------------------------------------------------
-
 #
 # Install
 #
@@ -947,15 +881,6 @@ else
 	cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
 	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) BUILD_ALL=true release
-	@if test -f lib/dialyzer/SKIP ; then			\
-		echo "=== Skipping dialyzer, reason:" ;		\
-		cat lib/dialyzer/SKIP ;				\
-		echo "===" ;					\
-	else							\
-		cd lib/dialyzer && 				\
-	  	ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-		$(MAKE) TESTROOT=$(ERLANG_LIBDIR) BUILD_ALL=true release ; \
-	fi
 endif
 
 install.Install:
@@ -1007,7 +932,6 @@ clean: check_recreate_primary_bootstrap
 	find . -type f -name SKIP -print | xargs $(RM)
 	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) clean
 	cd lib  && ERL_TOP=$(ERL_TOP) $(MAKE) clean BUILD_ALL=true
-	cd lib/dialyzer && ERL_TOP=$(ERL_TOP) $(MAKE) clean
 
 #
 # Just wipe out emulator, not libraries

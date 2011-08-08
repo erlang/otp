@@ -161,9 +161,14 @@ docs:
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-$(GEN_ERL_FILES) $(GEN_HRL_FILES): CosFileTransfer.idl
+IDL-GENERATED: CosFileTransfer.idl
 	erlc $(ERL_IDL_FLAGS) +'{cfgfile,"CosFileTransfer.cfg"}' CosFileTransfer.idl
 	mv $(LOCAL_HRL_FILES) $(EXTERNAL_INC_PATH)
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Target

@@ -82,13 +82,9 @@ ALL_CFLAGS = @CFLAGS@ @DEFS@ $(CFLAGS)
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(OBJDIR) $(BINDIR) $(TARGET_FILES)
+_create_dirs := $(shell mkdir -p $(OBJDIR) $(BINDIR))
 
-$(OBJDIR):
-	-@mkdir -p $(OBJDIR)
-
-$(BINDIR):
-	-@mkdir -p $(BINDIR)
+debug opt: $(TARGET_FILES)
 
 clean:
 	rm -f $(TARGET_FILES)

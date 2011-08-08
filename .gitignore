@@ -91,6 +91,9 @@ lib/wx/priv/win32/
 lib/wx/win32/
 make/win32/
 
+# Used by ic & orber & cos* applications.
+IDL-GENERATED
+
 # Anchored from $ERL_TOP
 /bin
 /config.log

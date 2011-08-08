@@ -4309,7 +4309,6 @@ dnl  Note that the output files are relative to $srcdir
 AC_OUTPUT(
   emulator/$host/Makefile:emulator/Makefile.in
   emulator/zlib/$host/Makefile:emulator/zlib/Makefile.in
-  emulator/pcre/$host/Makefile:emulator/pcre/Makefile.in
   epmd/src/$host/Makefile:epmd/src/Makefile.in
   etc/common/$host/Makefile:etc/common/Makefile.in
   include/internal/$host/ethread.mk:include/internal/ethread.mk.in

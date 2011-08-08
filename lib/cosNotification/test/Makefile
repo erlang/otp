@@ -161,13 +161,14 @@ docs:
 # Special Targets
 # ----------------------------------------------------
 
-TGT_TEST = \
-        $(GEN_HRL_FILES:%=$(IDLOUTDIR)/%) \
-        $(GEN_MODULES:%=$(IDLOUTDIR)/%.erl)
-
-$(TGT_TEST): notify_test_server.idl
+IDL-GENERATED: notify_test_server.idl
 	erlc $(ERL_COMPILE_FLAGS) -o$(IDLOUTDIR) \
                 +'{cfgfile,"notify_test_server.cfg"}' notify_test_server.idl
+	>IDL-GENERATED
+
+$(GEN_FILES): IDL-GENERATED
+
+$(TARGET_FILES): IDL-GENERATED
 
 # ----------------------------------------------------
 # Release Targets

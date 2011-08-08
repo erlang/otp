@@ -291,7 +291,8 @@ else
 LIBS    += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
 endif
 
-DEPLIBS += $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+EPCRE_LIB = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)/$(LIB_PREFIX)epcre$(LIB_SUFFIX)
+DEPLIBS += $(EPCRE_LIB)
 
 PERFCTR_PATH=@PERFCTR_PATH@
 USE_PERFCTR=@USE_PERFCTR@
@@ -382,7 +383,7 @@ ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
 all:
 	@echo '*** Omitted build of emulator with smp support'
 else
-all: generate erts_lib zlib pcre $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: generate erts_lib zlib $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -403,8 +404,8 @@ zlib:
 	@set -e ; cd zlib && $(MAKE) TYPE=$(TYPE) $(TYPE)
 endif
 
-pcre:
-	@set -e ; cd pcre && $(MAKE) TYPE=$(TYPE) $(TYPE)
+
+include pcre/pcre.mk
 
 erts_lib:
 	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
@@ -420,9 +421,9 @@ endif
 	$(RM) -rf $(BINDIR)/child_setup $(BINDIR)/child_setup.*
 	$(RM) -f $(BINDIR)/hipe_mkliterals $(BINDIR)/hipe_mkliterals.*
 	@set -e ; cd zlib && $(MAKE) clean
-	@set -e ; cd pcre && $(MAKE) clean
+	rm -f $(OBJS) $(OBJDIR)/libepcre.a
 
-.PHONY: all zlib pcre clean
+.PHONY: all zlib clean
 
 docs:
 
@@ -467,10 +468,11 @@ release_docs_spec:
 # Generated source code. Put in $(TARGET) directory
 #
 
+_create_dirs := $(shell mkdir -p $(CREATE_DIRS))
+
 .PHONY : generate
 
-GENERATE=	$(CREATE_DIRS) \
-		$(TTF_DIR)/beam_opcodes.h \
+GENERATE=	$(TTF_DIR)/beam_opcodes.h \
 		$(TARGET)/erl_bif_table.c \
 		$(TARGET)/erl_version.h \
 		$(TTF_DIR)/driver_tab.c \
@@ -672,14 +674,8 @@ endif
 # rebuilding (is this a good idea?) add a dummy dependency to this target.
 #
 
-ifeq ($(findstring clearmake,$(MAKE)),clearmake)
-BEAMFILE_MAKEFLAG=-T
-else
-BEAMFILE_MAKEFLAG=
-endif
-
 $(ERL_TOP)/lib/%.beam:
-	cd $(@D)/../src && $(MAKE) $(BEAMFILE_MAKEFLAG) ../ebin/$(@F)
+	cd $(@D)/../src && $(MAKE) ../ebin/$(@F)
 
 
 # ----------------------------------------------------------------------
@@ -857,7 +853,7 @@ $(OBJDIR)/%.o: hipe/%.c
 $(BINDIR)/hipe_mkliterals$(TF_MARKER):	$(OBJDIR)/hipe_mkliterals.o
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
 
-$(OBJDIR)/hipe_mkliterals.o:	$(TTF_DIR)/hipe_x86_asm.h $(TTF_DIR)/hipe_ppc_asm.h
+$(OBJDIR)/hipe_mkliterals.o:	$(TTF_DIR)/hipe_x86_asm.h $(TTF_DIR)/hipe_ppc_asm.h $(TTF_DIR)/beam_opcodes.h
 
 $(TTF_DIR)/hipe_literals.h:	$(BINDIR)/hipe_mkliterals$(TF_MARKER)
 	$(BINDIR)/hipe_mkliterals$(TF_MARKER) -c > $@

@@ -79,7 +79,7 @@ clean:
 
 docs:
 
-%.erl: %.set.asn
+%.erl %.hrl: %.set.asn
 	erlc $(ASN_FLAGS) $<
 
 $(HRL_FILES):	$(ASN_HRLS)

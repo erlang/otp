@@ -96,7 +96,7 @@ docs:
 # include $(ERL_TOP)/make/otp_release_targets.mk
 
 release release_docs release_tests release_html:
-	$(MAKE) -f Makefile.otp $(MFLAGS) RELEASE_PATH=$(RELEASE_PATH) $(TARGET_MAKEFILE)  $@_spec
+	$(MAKE) $(MFLAGS) RELEASE_PATH=$(RELEASE_PATH) $(TARGET_MAKEFILE)  $@_spec
 
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/java_src/com/ericsson/otp/erlang

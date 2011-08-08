@@ -41,8 +41,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
 # ----------------------------------------------------
 
 # NOTE: 
-# 1) Order is important; some MIBs include others
-# 2) The OTP-REG mib actually belongs to another
+#    The OTP-REG mib actually belongs to another
 #    application (otp_mibs), and is exported by this
 #    app. But since that app is built later, we have 
 #    to built it here in order to be able to build 
@@ -148,6 +147,35 @@ $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1: $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1.src
 $(SNMP_BIN_TARGET_DIR)/OTP-REG.bin:	$(ERL_TOP)/lib/$(OTP_MIBDIR)/mibs/OTP-REG.mib
 	$(ERLC) -pa $(SNMP_TOOLKIT)/ebin -I $(SNMP_TOOLKIT)/priv/mibs $(SNMP_FLAGS) -o $(SNMP_BIN_TARGET_DIR) $<
 
+# To support parallel make, we'll need explicit dependencies
+# to ensure that an imported MIB has been compiled when it's needed.
+
+$(SNMP_BIN_TARGET_DIR)/STANDARD-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/RFC1213-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-TARGET-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-NOTIFICATION-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-TARGET-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-COMMUNITY-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-TARGET-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-USER-BASED-SM-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-VIEW-BASED-ACM-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/SNMP-USM-AES-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/SNMP-FRAMEWORK-MIB.bin
+
+$(SNMP_BIN_TARGET_DIR)/OTP-SNMPEA-MIB.bin: \
+	$(SNMP_BIN_TARGET_DIR)/OTP-REG.bin
+
 clean:
 	rm -f $(TARGET_FILES)
 
@@ -185,7 +213,7 @@ info:
 	@echo "VSN         = $(VSN)"
 	@echo "RELSYSDIR   = $(RELSYSDIR)"
 
-v1/%.mib.v1: %.mib
+v1/%.mib.v1: %.mib $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1
 	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
 
 
