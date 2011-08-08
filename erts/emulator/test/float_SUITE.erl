@@ -203,6 +203,7 @@ cmp_bignum(_Config) ->
 
     cmp((1 bsl (64*16)) - 1, (1 bsl (64*15)) * 1.0),
     [cmp((1 bsl (32*I)) - 1, (1 bsl (32*(I-2))) * 1.0) || I <- lists:seq(3,30)],
+    [cmp((1 bsl (64*15)) * 1.0, (1 bsl (32*(I)))) || I <- lists:seq(1,29)],
     ok.
 
 span_cmp(Axis) ->
@@ -222,24 +223,35 @@ span_cmp(Axis, Incr, Length, Diff) ->
      end || I <- lists:seq((Length div 2)*-1,(Length div 2))].
 
 cmp(Big,Small) when is_float(Big) ->
-    BigSmall = lists:flatten(
+    BigGtSmall = lists:flatten(
 		 io_lib:format("~f > ~p",[Big,Small])),
-    SmallBig = lists:flatten(
+    BigLtSmall = lists:flatten(
 		 io_lib:format("~f < ~p",[Big,Small])),
-    cmp(Big,Small,BigSmall,SmallBig);
+    SmallGtBig = lists:flatten(
+		   io_lib:format("~p > ~f",[Small,Big])),
+    SmallLtBig = lists:flatten(
+		   io_lib:format("~p < ~f",[Small,Big])),
+    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig);
 cmp(Big,Small) when is_float(Small) ->
-    BigSmall = lists:flatten(
-		 io_lib:format("~p > ~f",[Big,Small])),
-    SmallBig = lists:flatten(
-		 io_lib:format("~p < ~f",[Big,Small])),
-    cmp(Big,Small,BigSmall,SmallBig).
+    BigGtSmall = lists:flatten(
+		   io_lib:format("~p > ~f",[Big,Small])),
+    BigLtSmall = lists:flatten(
+		   io_lib:format("~p < ~f",[Big,Small])),
+    SmallGtBig = lists:flatten(
+		   io_lib:format("~f > ~p",[Small,Big])),
+    SmallLtBig = lists:flatten(
+		   io_lib:format("~f < ~p",[Small,Big])),
+    cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig).
 
-cmp(Big,Small,BigSmall,SmallBig) ->
-    {_,_,_,true} = {Big,Small,BigSmall,
+cmp(Big,Small,BigGtSmall,BigLtSmall,SmallGtBig,SmallLtBig) ->
+    {_,_,_,true} = {Big,Small,BigGtSmall,
 		    Big > Small},
-    {_,_,_,false} = {Big,Small,SmallBig,
+    {_,_,_,false} = {Big,Small,BigLtSmall,
 		     Big < Small},
-    {BigSmall, SmallBig}.
+    {_,_,_,false} = {Big,Small,SmallGtBig,
+		     Small > Big},
+    {_,_,_,true} = {Big,Small,SmallLtBig,
+		    Small < Big}.
 
 id(I) -> I.
     
