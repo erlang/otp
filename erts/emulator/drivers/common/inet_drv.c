@@ -3709,6 +3709,8 @@ static int inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     /* check that it is a socket and that the socket is bound */
     if (IS_SOCKET_ERROR(sock_name(s, (struct sockaddr*) &name, &sz)))
 	return ctl_error(sock_errno(), rbuf, rsize);
+    if (name.sa.sa_family != domain)
+	return ctl_error(EINVAL, rbuf, rsize);
     desc->s = s;
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT)
 	return ctl_error(sock_errno(), rbuf, rsize);
@@ -9739,7 +9741,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    if (desc->active || (len != 8))
 		return ctl_error(EINVAL, rbuf, rsize);
 	    timeout = get_int32(buf);
-	    /* The 2nd arg, Length(4), is ignored for both UDP ans SCTP protocols,
+	    /* The 2nd arg, Length(4), is ignored for both UDP and SCTP protocols,
 	       since they are msg-oriented. */
 
 	    if (enq_async(desc, tbuf, PACKET_REQ_RECV) < 0)
