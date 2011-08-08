@@ -346,7 +346,12 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->arity = callee_arity;
           }
 
-	  /* If process is in P_WAITING state, we schedule the next process */
+	  /* Schedule next process if current process was hibernated or is waiting
+	     for messages */
+	  if (p->flags & F_HIBERNATE_SCHED) {
+	      p->flags &= ~F_HIBERNATE_SCHED;
+	      goto do_schedule;
+	  }
 	  if (p->status == P_WAITING) {
 	      goto do_schedule;
 	  }
