@@ -1613,14 +1613,14 @@ sub tr_gen_to {
 	    if ($var ne '') {
 		&error($where, "variable '$var' unbound")
 		    unless defined $var{$var};
-		push(@code, &make_op($var, 'store_var', $var{$var}));
+		push(@code, &make_op($var, 'store_var_next_arg', $var{$var}));
 	    } elsif ($type ne '') {
 		push(@code, &make_op('', 'store_type', "TAG_$type"));
 		if ($type_val) {
 		    push(@code, &make_op('', 'store_val', $type_val));
 		}
+		push(@code, make_op('', 'next_arg'));
 	    }
-	    push(@code, &make_op('', 'next_arg'));
 	}
 	pop(@code) if is_instr($code[$#code], 'next_arg');
     }

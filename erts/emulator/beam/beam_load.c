@@ -4516,11 +4516,12 @@ transform_engine(LoaderState* st)
 	    i = *pc++;
 	    instr->a[ap].val = i;
 	    break;
-	case TOP_store_var:
+	case TOP_store_var_next_arg:
 	    i = *pc++;
 	    ASSERT(i < TE_MAX_VARS);
 	    instr->a[ap].type = var[i].type;
 	    instr->a[ap].val = var[i].val;
+	    ap++;
 	    break;
 	case TOP_try_me_else:
 	    restart = pc + 1;
