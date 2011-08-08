@@ -31,11 +31,11 @@
   </p>
 
   <p>By default erlang ssl is run over the TCP/IP protocol even
-  though you could plug in an other reliable transport protocol
+  though you could plug in any other reliable transport protocol
   with the same API as gen_tcp.</p>
   
   <p>If a client and server wants to use an upgrade mechanism, such as
-  defined by RFC2817, to upgrade a regular TCP/IP connection to a ssl
+  defined by RFC2817, to upgrade a regular TCP/IP connection to an ssl
   connection the erlang ssl API supports this. This can be useful for
   things such as supporting HTTP and HTTPS on the same port and
   implementing virtual hosting.
