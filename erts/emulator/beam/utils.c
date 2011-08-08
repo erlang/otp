@@ -2686,9 +2686,12 @@ tailrecur_ne:
 		    && (f2.fd > (double) (MIN_SMALL - 1))) {
 		// Float is a Sint
 		j = big_sign(aw) ? -1 : 1;
-	    } else if ( (pow(2.0,(big_arity(aw)-1.0)*D_EXP)-1.0) > fabs(f2.fd)) {
-		// If bignum size shows that it is bigger or smaller than the float
+	    } else if ((pow(2.0,(big_arity(aw)-1.0)*D_EXP)-1.0) > fabs(f2.fd)) {
+		// If bignum size shows that it is bigger than the abs float
 		j = big_sign(aw) ? -1 : 1;
+	    } else if ((pow(2.0,(big_arity(aw))*D_EXP)-1.0) < fabs(f2.fd)) {
+		// If bignum size shows that it is smaller than the abs float
+		j = f2.fd < 0 ? 1 : -1;
 	    } else if (f2.fd < MAX_LOSSLESS_FLOAT && f2.fd > MIN_LOSSLESS_FLOAT) {
 		// Float is within the no loss limit
 		if (big_to_double(aw, &f1.fd) < 0) {
@@ -2723,9 +2726,12 @@ tailrecur_ne:
 		    && (f1.fd > (double) (MIN_SMALL - 1))) { // Float is a Sint
 		j = big_sign(bw) ? 1 : -1;
 	    } else if ((pow(2.0, (big_arity(bw) - 1.0) * D_EXP) - 1.0) > fabs(f1.fd)) {
-		// If bignum size shows that it is bigger than the float
+		// If bignum size shows that it is bigger than the abs float
 		j = big_sign(bw) ? 1 : -1;
-	    } else if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd >MIN_LOSSLESS_FLOAT) {
+	    } else if ((pow(2.0,(big_arity(bw))*D_EXP)-1.0) < fabs(f1.fd)) {
+		// If bignum size shows that it is smaller than the abs float
+		j = f1.fd < 0 ? -1 : 1;
+	    } else if (f1.fd < MAX_LOSSLESS_FLOAT && f1.fd > MIN_LOSSLESS_FLOAT) {
 		// Float is within the no loss limit
 		if (big_to_double(bw, &f2.fd) < 0) {
 		    j = big_sign(bw) ? 1 : -1;
