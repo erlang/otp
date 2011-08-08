@@ -1584,22 +1584,21 @@ big_to_double(Wterm x, double* resp)
     return 0;
 }
 
+/*
+ * Logic has been copied from erl_bif_guard.c and slightly
+ * modified to use a static instead of dynamic heap
+ */
 Eterm
 double_to_big(double x, Eterm *heap)
 {
     int is_negative;
     int ds;
     ErtsDigit* xp;
-    Eterm tmp_res;
+    Eterm res;
     int i;
     size_t sz;
     Eterm* hp;
     double dbase;
-
-    if ((x < (double) (MAX_SMALL + 1)) && (x > (double) (MIN_SMALL - 1))) {
-	Sint xi = x;
-	return make_small(xi);
-    }
 
     if (x >= 0) {
 	is_negative = 0;
@@ -1618,7 +1617,7 @@ double_to_big(double x, Eterm *heap)
     sz = BIG_NEED_SIZE(ds); /* number of words including arity */
 
     hp = heap;
-    tmp_res = make_big(hp);
+    res = make_big(hp);
     xp = (ErtsDigit*) (hp + 1);
 
     for (i = ds - 1; i >= 0; i--) {
@@ -1638,7 +1637,7 @@ double_to_big(double x, Eterm *heap)
     } else {
 	*hp = make_pos_bignum_header(sz-1);
     }
-    return tmp_res;
+    return res;
 }
 
 
