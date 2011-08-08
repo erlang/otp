@@ -63,7 +63,7 @@
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey'
     'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'</code></p>
     
-    <p><code>pem_entry () = {pki_asn1_type(), binary() %% DER or encrypted DER
+    <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
           not_encrypted | {"DES-CBC" | "DES-EDE3-CBC",  crypto:rand_bytes(8)}}.</code></p>
     
     <p><code>rsa_public_key()  = #'RSAPublicKey'{}</code></p>
@@ -72,8 +72,6 @@
 
     <p><code>dsa_public_key() = {integer(),  #'Dss-Parms'{}} </code></p>
 
-    <p><code>rsa_private_key() = #'RSAPrivateKey'{} </code></p>
-    
     <p><code>dsa_private_key() = #'DSAPrivateKey'{}</code></p>
     
     <p><code> public_crypt_options() = [{rsa_pad, rsa_padding()}]. </code></p>
@@ -149,7 +147,7 @@
     <name>der_decode(Asn1type, Der) -> term()</name>
     <fsummary> Decodes a public key asn1 der encoded entity.</fsummary>
     <type>
-      <v>Asn1Type = atom() -</v>
+      <v>Asn1Type = atom()</v>
       <d> ASN.1 type present in the public_key applications
       asn1 specifications.</d>
       <v>Der = der_encoded()</v>
@@ -166,7 +164,8 @@
       <v>Asn1Type = atom()</v>
       <d> Asn1 type present in the public_key applications
 	 ASN.1 specifications.</d>
-      <v>Entity = term() - The erlang representation of <c> Asn1Type</c></v>
+      <v>Entity = term()</v>
+      <d>The erlang representation of <c>Asn1Type</c></d>
   </type> 
   <desc> 
     <p> Encodes a public key entity with ASN.1 DER encoding.</p>
@@ -218,12 +217,13 @@
     <fsummary> Creates a pem entry that can be fed to pem_encode/1.</fsummary>
     <type>
       <v>Asn1Type = pki_asn1_type()</v>
-      <v>Entity = term() - The Erlang representation of
+      <v>Entity = term()</v>
+      <d>The Erlang representation of
       <c>Asn1Type</c>.  If <c>Asn1Type</c> is 'SubjectPublicKeyInfo'
       then <c>Entity</c> must be either an rsa_public_key() or a
       dsa_public_key() and this function will create the appropriate
       'SubjectPublicKeyInfo' entry.
-      </v>
+      </d>
       <v>CipherInfo = {"DES-CBC" | "DES-EDE3-CBC",  crypto:rand_bytes(8)}</v>
       <v>Password = string()</v> 
   </type> 
@@ -281,7 +281,7 @@
   <desc> 
     <p>Der encodes a pkix x509 certificate or part of such a
     certificate. This function must be used for encoding certificates or parts of certificates
-    that are decoded/created on the otp format, whereas for the plain format this
+    that are decoded/created in the otp format, whereas for the plain format this
     function will directly call der_encode/2. </p> 
   </desc> 
   </func>

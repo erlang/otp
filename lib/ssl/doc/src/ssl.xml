@@ -35,7 +35,7 @@
     <title>SSL</title>
 
     <list type="bulleted">
-      <item>ssl requires the crypto an public_key applications.</item>
+      <item>ssl requires the crypto and public_key applications.</item>
       <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
       <item>For security reasons sslv2 is not supported.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported
@@ -216,7 +216,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	application is encountered. Additionally it will be called
 	when a certificate is considered valid by the path validation
 	to allow access to each certificate in the path to the user
-	application. Note that the it will differentiate between the
+	application. Note that it will differentiate between the
 	peer certificate and CA certificates by using valid_peer or
 	valid as the second argument to the verify fun.  See <seealso
 	marker="public_key:cert_records">the public_key User's
@@ -329,7 +329,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <item>Used together with {verify, verify_peer} by a ssl server.
       If set to true, the server will fail if the client does not have
       a certificate to send, i.e. sends a empty certificate, if set to
-      false it will only fail if the client sends a invalid
+      false it will only fail if the client sends an invalid
       certificate (an empty certificate is considered valid).
       </item>
 
@@ -343,10 +343,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       PeerCert, Compression, CipherSuite) -> boolean()}</tag>
       <item>Enables the ssl server to have a local policy
       for deciding if a session should be reused or not,
-      only meaning full if <c>reuse_sessions</c> is set to true.
+      only meaningful if <c>reuse_sessions</c> is set to true.
       SuggestedSessionId is a binary(),  PeerCert is a DER encoded
       certificate, Compression is an enumeration integer
-      and CipherSuite of type ciphersuite().      
+      and CipherSuite is of type ciphersuite().
       </item>
 
     </taglist>
@@ -587,6 +587,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
           the socket is closed.</p>
       </desc>
     </func>
+
     <func>
       <name>setopts(Socket, Options) -> ok | {error, Reason}</name>
       <fsummary>Set socket options.</fsummary>
