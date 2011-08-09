@@ -585,6 +585,41 @@ static const int mdays[14] = {0, 31, 28, 31, 30, 31, 30,
 
 #define  BASEYEAR       INT_MIN
 
+/* A more "clever" mktime
+ * return  1, if successful
+ * return -1, if not successful
+ */
+
+static int erl_mktime(time_t *c, struct tm *tm) {
+    time_t clock;
+
+    clock = mktime(tm);
+
+    if (clock != -1) {
+	*c = clock;
+	return 1;
+    }
+
+    /* in rare occasions mktime returns -1
+     * when a correct value has been entered
+     *
+     * decrease seconds with one second
+     * if the result is -2, epochs should be -1
+     */
+
+    tm->tm_sec = tm->tm_sec - 1;
+    clock = mktime(tm);
+    tm->tm_sec = tm->tm_sec + 1;
+
+    *c = -1;
+
+    if (clock == -2) {
+	return 1;
+    }
+
+    return -1;
+}
+
 /*
  * gregday
  *
@@ -644,15 +679,18 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
     t.tm_min = *minute;
     t.tm_sec = *second;
     t.tm_isdst = isdst;
-    the_clock = mktime(&t);
-    if (the_clock == -1) {
+
+    /* the nature of mktime makes this a bit interesting,
+     * up to four mktime calls could happen here
+     */
+
+    if (erl_mktime(&the_clock, &t) < 0) {
 	if (isdst) {
 	    /* If this is a timezone without DST and the OS (correctly)
 	       refuses to give us a DST time, we simulate the Linux/Solaris
 	       behaviour of giving the same data as if is_dst was not set. */
 	    t.tm_isdst = 0;
-	    the_clock = mktime(&t);
-	    if (the_clock == -1) {
+	    if (erl_mktime(&the_clock, &t)) {
 		/* Failed anyway, something else is bad - will be a badarg */
 		return 0;
 	    }
