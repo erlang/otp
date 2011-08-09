@@ -187,6 +187,12 @@ sub define_type_bit {
 }
 
 #
+# Pre-define the 'fail' instruction. It is used internally
+# by the 'try_me_else_fail' instruction.
+#
+$match_engine_ops{'TOP_fail'} = 1;
+
+#
 # Sanity checks.
 #
 
@@ -1316,7 +1322,20 @@ sub tr_gen {
     print "Uint op_transform[] = {\n";
     foreach $key (keys %gen_transform) {
 	$gen_transform_offset{$key} = $offset;
-	foreach $instr (@{$gen_transform{$key}}) {
+	my @instr = @{$gen_transform{$key}};
+
+	#
+	# If the last instruction is 'fail', remove it and
+	# convert the previous 'try_me_else' to 'try_me_else_fail'.
+	#
+	if (is_instr($instr[$#instr], 'fail')) {
+	    pop(@instr);
+	    my $i = $#instr;
+	    $i-- while !is_instr($instr[$i], 'try_me_else');
+	    $instr[$i] = make_op('', 'try_me_else_fail');
+	}
+
+	foreach $instr (@instr) {
 	    my($size, $instr_ref, $comment) = @$instr;
 	    my($op, @args) = @$instr_ref;
 	    print "    ";

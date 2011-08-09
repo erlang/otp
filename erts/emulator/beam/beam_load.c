@@ -4225,6 +4225,7 @@ transform_engine(LoaderState* st)
     GenOp* instr;
     Uint* pc;
     int rval;
+    static Uint restart_fail[1] = {TOP_fail};
 
     ASSERT(gen_opc[st->genop->op].transform != -1);
     pc = op_transform + gen_opc[st->genop->op].transform;
@@ -4528,10 +4529,13 @@ transform_engine(LoaderState* st)
 	    restart += *pc++;
 	    ASSERT(*pc < NUM_TOPS); /* Valid instruction? */
 	    break;
+	case TOP_try_me_else_fail:
+	    restart = restart_fail;
+	    break;
 	case TOP_end:
 	    RETURN(TE_OK);
 	case TOP_fail:
-	    RETURN(TE_FAIL)
+	    RETURN(TE_FAIL);
 	default:
 	    ASSERT(0);
 	}
