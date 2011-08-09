@@ -238,8 +238,8 @@ scan_forward(End, Patt0, State) ->
     scan_forward1(Dot+1, After, NewState, Rest).
 
 scan_forward1(Linenum, [Line|Rest], State, RestCmd) ->
-    case regexp:first_match(Line#line.contents, State#state.pattern) of
-	{match, _, _} ->
+    case re:run(Line#line.contents, State#state.pattern, [{capture, none}]) of
+	match ->
 	    {ok, Linenum, RestCmd, State};
 	nomatch ->
 	    scan_forward1(Linenum+1, Rest, State, RestCmd)
@@ -259,8 +259,9 @@ scan_forward2(0, [], State, RestCmd) ->
 scan_forward2(Linenum, [Line|Rest], State, RestCmd) ->
     case scan_forward2(Linenum-1, Rest, State, RestCmd) of
 	false ->
-	    case regexp:first_match(Line#line.contents, State#state.pattern) of
-		{match, _, _} ->
+	    case re:run(Line#line.contents, State#state.pattern,
+			[{capture, none}]) of
+		match ->
 		    {ok, Linenum, RestCmd, State};
 		nomatch ->
 		    false
@@ -612,9 +613,10 @@ subst_command([Sep|Cmd0], [First, Last], St0) ->
     St1 = save_for_undo(St0),
     {ok, Cmd1, St2} = get_pattern(Sep, Cmd0, St1),
     {ok, Replacement, Cmd2} = get_replacement(Sep, Cmd1),
-    {ok, Sub, Cmd3} = subst_check_gflag(Cmd2),
+    {ok, Opts, Cmd3} = subst_check_gflag(Cmd2),
     St3 = check_trailing_p(Cmd3, St2),
-    subst_command(Last-First+1, Sub, Replacement, move_to(First-1, St3), nomatch);
+    subst_command(Last-First+1, Opts, Replacement,
+		  move_to(First-1, St3), nomatch);
 subst_command([], _, _) ->
     error(bad_delimiter).
     
@@ -622,21 +624,22 @@ subst_command(0, _, _, _, nomatch) ->
     error(nomatch);
 subst_command(0, _, _, _, StLast) when record(StLast, state) ->
     StLast;
-subst_command(Left, Sub, Repl, St0, LastMatch) ->
+subst_command(Left, Opts, Repl, St0, LastMatch) ->
     St1 = next_line(St0),
     [Line|_] = St1#state.upto_dot,
-    case regexp:Sub(Line#line.contents, St1#state.pattern, Repl) of
-	{ok, _, 0} ->
-	    subst_command(Left-1, Sub, Repl, St1, LastMatch);
-	{ok, NewContents, _} ->
+    Contents = Line#line.contents,
+    case re:replace(Contents, St1#state.pattern, Repl, Opts) of
+	Contents ->
+	    subst_command(Left-1, Opts, Repl, St1, LastMatch);
+	NewContents ->
 	    %% XXX This doesn't work with marks.
 	    St2 = delete_current_line(St1),
 	    St3 = insert_line(NewContents, St2),
-	    subst_command(Left-1, Sub, Repl, St3, St3)
+	    subst_command(Left-1, Opts, Repl, St3, St3)
     end.
 
-subst_check_gflag([$g|Cmd]) -> {ok, gsub, Cmd};
-subst_check_gflag(Cmd)      -> {ok, sub, Cmd}.
+subst_check_gflag([$g|Cmd]) -> {ok, [global,{return,list}], Cmd};
+subst_check_gflag(Cmd)      -> {ok, [{return,list}], Cmd}.
 
 %% u - undo
 
@@ -721,7 +724,7 @@ get_pattern(End, Cmd, State) ->
 get_pattern(End, [End|Rest], State, []) when State#state.pattern /= undefined ->
     {ok, Rest, State};
 get_pattern(End, [End|Rest], State, Result) ->
-    case regexp:parse(lists:reverse(Result)) of
+    case re:compile(lists:reverse(Result)) of
 	{error, _} ->
 	    error(bad_pattern);
 	{ok, Re} ->
@@ -765,9 +768,9 @@ match(State) when State#state.dot == 0 ->
 match(State) ->
     [Line|_] = State#state.upto_dot,
     Re = State#state.pattern,
-    case regexp:first_match(Line#line.contents, Re) of
-	{match, _, _} -> true;
-	nomatch       -> false
+    case re:run(Line#line.contents, Re, [{capture, none}]) of
+	match   -> true;
+	nomatch -> false
     end.
 
 skip_blanks([$ |Rest]) ->
