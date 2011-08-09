@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -316,7 +316,8 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
         <v>Module = atom() | '_'</v>
         <v>Function = atom() | '_'</v>
         <v>Arity = integer() |'_'</v>
-        <v>MatchSpec = integer() | atom() | [] | match_spec()</v>
+        <v>MatchSpec = integer() | Built-inAlias | [] | match_spec()</v>
+	<v>Built-inAlias = x | c | cx</v>
         <v>MatchDesc = [MatchInfo]</v>
         <v>MatchInfo = {saved, integer()} | MatchNum</v>
         <v>MatchNum = {matched, node(), integer()} | {matched, node(), 0, RPCError}</v>
@@ -349,8 +350,9 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
           if the MatchSpec is other
           than []. The integer <c>N</c> may then be used in
           subsequent calls to this function and will stand as an
-          "alias" for the given expression. There are also built-in
-          aliases named with atoms (see also <c>ltp/0</c> below).</p>
+          "alias" for the given expression. There are also a couple of
+	  built-in aliases for common expressions, see <c>ltp/0</c> below 
+	  for details.</p>
         <p>If an error is returned, it can be due to errors in
           compilation of the match specification. Such errors are
           presented as a list of tuples <c>{error, string()}</c> where
@@ -528,10 +530,21 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard) c
         <p>Match specifications used can be saved in a file (if a
           read-write file system is present) for use in later
           debugging sessions, see <c>wtp/1</c> and <c>rtp/1</c></p>
-	  <p>There are three built-in trace patterns:
-	  <c>x</c>, <c>c</c> and <c>cx</c>. They represent an
-	  exception trace, caller trace and a caller and exception trace
-	  respectively.</p>
+	<p>There are three built-in trace patterns:
+	  <c>exception_trace</c>, <c>caller_trace</c> 
+	  and <c>caller_exception_trace</c> (or <c>x</c>, <c>c</c> and 
+	  <c>cx</c> respectively). 
+	  Exception trace sets a trace which will show function names, 
+	  parameters, return values and exceptions thrown from functions. 
+	  Caller traces display function names, parameters and information 
+	  about which function called it. An example using a built-in alias:</p>
+	  <pre>
+(x@y)4> <input>dbg:tp(lists,sort,cx).</input>
+{ok,[{matched,nonode@nohost,2},{saved,cx}]}
+(x@y)4> <input>lists:sort([2,1]).</input>
+(&lt;0.32.0&gt;) call lists:sort([2,1]) ({erl_eval,do_apply,5})
+(&lt;0.32.0&gt;) returned from lists:sort/1 -> [1,2]
+[1,2]</pre>
       </desc>
     </func>
     <func>
