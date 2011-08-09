@@ -197,15 +197,15 @@ match_modules(RegExpDir,RegExpMod,Actions) ->
 handle_expand_regexp_2([{Mod,Path}|Rest],RegExpDir,RegExpMod,Result) ->
     ModStr=atom_to_list(Mod),
     ModLen=length(ModStr),
-    case regexp:first_match(ModStr,RegExpMod) of
-	{match,1,ModLen} ->                  % Ok, The regexp matches the module.
+    case re:run(ModStr,RegExpMod) of
+	{match,[{0,ModLen}]} ->                  % Ok, The regexp matches the module.
 	    if
 		is_list(RegExpDir),is_atom(Path) -> % Preloaded or covercompiled...
 		    handle_expand_regexp_2(Rest,RegExpDir,RegExpMod,Result);
 		is_list(RegExpDir),is_list(Path) -> % Dir reg-exp is used!
 		    PathOnly=filename:dirname(Path), % Must remove beam-file name.
-		    case regexp:first_match(PathOnly,RegExpDir) of
-			{match,_,_} ->       % Did find a match, that is enough!
+		    case re:run(PathOnly,RegExpDir,[{capture,none}]) of
+			match ->             % Did find a match, that is enough!
 			    handle_expand_regexp_2(Rest,RegExpDir,RegExpMod,[Mod|Result]);
 			_ ->                 % Either error or nomatch.
 			    handle_expand_regexp_2(Rest,RegExpDir,RegExpMod,Result)
@@ -233,8 +233,8 @@ handle_expand_regexp_3([Path|Rest],RegExpDir,RegExpMod,AllLoaded,Result) ->
 		    volumerelative ->        % Only on Windows!?
 			filename:absname(Path)
 		end,
-	    case regexp:first_match(AbsPath,RegExpDir) of
-		{match,_,_} ->               % Ok, the directory is allowed.
+	    case re:run(AbsPath,RegExpDir,[{capture,none}]) of
+		match ->                     % Ok, the directory is allowed.
 		    NewResult=handle_expand_regexp_3_1(Path,RegExpMod,AllLoaded,Result),
 		    handle_expand_regexp_3(Rest,RegExpDir,RegExpMod,AllLoaded,NewResult);
 		_ ->                         % This directory does not qualify.
@@ -262,8 +262,8 @@ handle_expand_regexp_3_2([File|Rest],RegExpMod,AllLoaded,Result) ->
 	    case {lists:keysearch(Mod,1,AllLoaded),lists:member(Mod,Result)} of
 		{false,false} ->             % This module is not tried before.
 		    ModLen=length(ModStr),
-		    case regexp:first_match(ModStr,RegExpMod) of
-			{match,1,ModLen} ->  % This module satisfies the regexp.
+		    case re:run(ModStr,RegExpMod) of
+			{match,[{0,ModLen}]} ->  % This module satisfies the regexp.
 			    handle_expand_regexp_3_2(Rest,RegExpMod,AllLoaded,[Mod|Result]);
 			_ ->                 % Error or not perfect match.
 			    handle_expand_regexp_3_2(Rest,RegExpMod,AllLoaded,Result)
