@@ -10,6 +10,8 @@
 
 -export([edit/0, edit/1, file/1, cmd_line/1]).
 
+-compile({no_auto_import,[error/1]}).
+
 -record(state, {dot = 0,			% Line number of dot.
 		upto_dot = [],			% Lines up to dot (reversed).
 		after_dot = [],			% Lines after dot.
@@ -60,7 +62,7 @@ loop(St0) ->
 	    ok;
 	{error, Reason} ->
 	    loop(print_error(Reason, St1));
-	St2 when record(St2, state) ->
+	St2 when is_record(St2, state) ->
 	    loop(St2)
     end.
 
@@ -68,7 +70,7 @@ command(Cmd, St) ->
     case parse_command(Cmd, St) of
 	quit ->
 	    quit;
-	St1 when function(St1#state.print) ->
+	St1 when is_function(St1#state.print) ->
 	    if
 		St1#state.dot /= 0 ->
 		    print_current(St1);
@@ -76,7 +78,7 @@ command(Cmd, St) ->
 		    ok
 	    end,
 	    St1#state{print=false};
-	St1 when record(St1, state) ->
+	St1 when is_record(St1, state) ->
 	    St1
     end.
 
@@ -103,13 +105,13 @@ get_input([C|Rest], St, Result) ->
 get_line1(Io, Prompt, Result) ->
     get_line2(Io, io:get_line(Io, Prompt), Result).
 
-get_line2(Io, eof, []) ->
+get_line2(_Io, eof, []) ->
     eof;
-get_line2(Io, eof, Result) ->
+get_line2(_Io, eof, Result) ->
     lists:reverse(Result);
 get_line2(Io, [$\\, $\n], Result) ->
     get_line1(Io, '', [$\n|Result]);
-get_line2(Io, [$\n], Result) ->
+get_line2(_Io, [$\n], Result) ->
     lists:reverse(Result, [$\n]);
 get_line2(Io, [C|Rest], Result) ->
     get_line2(Io, Rest, [C|Result]).
@@ -193,7 +195,7 @@ get_one1([$+|Rest], Sum, St) ->
     get_one2({ok, 1, Rest}, 1, Sum, St);
 get_one1([$-|Rest], Sum, St) ->
     get_one2({ok, 1, Rest}, -1, Sum, St);
-get_one1(Cmd, false, St) ->
+get_one1(_Cmd, false, _St) ->
     false;
 get_one1(Cmd, Sum, St) ->
     {ok, Sum, Cmd, St}.
@@ -222,13 +224,13 @@ get_address([$', Mark|Rest], St) when $a =< Mark, Mark =< $z ->
 	false ->
 	    {ok, 0, Rest, St}
     end;
-get_address([$'|Rest], State) ->
+get_address([$'|_Rest], _State) ->
     error(bad_mark);
 get_address([$/|Rest], State) ->
     scan_forward($/, Rest, State);
-get_address([$?|Rest], State) ->
+get_address([$?|_Rest], _State) ->
     error(not_implemented);
-get_address(Cmd, St) ->
+get_address(_Cmd, _St) ->
     false.
 
 scan_forward(End, Patt0, State) ->
@@ -254,7 +256,7 @@ scan_forward1(_, [], State, RestCmd) ->
 	    Other
     end.
 
-scan_forward2(0, [], State, RestCmd) ->
+scan_forward2(0, [], _State, _RestCmd) ->
     false;
 scan_forward2(Linenum, [Line|Rest], State, RestCmd) ->
     case scan_forward2(Linenum-1, Rest, State, RestCmd) of
@@ -297,7 +299,7 @@ parse_cmd_char($t, Cont) -> Cont(fun transpose_command/3, 2, dot);
 parse_cmd_char($u, Cont) -> Cont(fun undo_command/3, 0, none);
 parse_cmd_char($v, Cont) -> Cont(fun vglobal_command/3, 2, all);
 parse_cmd_char($w, Cont) -> Cont(fun write_command/3, 2, all);
-parse_cmd_char(_, Cont)  -> error(bad_command).
+parse_cmd_char(_, _Cont)  -> error(bad_command).
 
 execute_command(Fun, NumLines, Def, State, Nums, Rest) ->
     Lines = check_lines(NumLines, Def, Nums, State),
@@ -381,7 +383,7 @@ change_command(Rest, Lines, St0) ->
 
 %% (.,.)d - delete lines
 
-delete_command(Rest, [0, Last], St) ->
+delete_command(_Rest, [0, _Last], _St) ->
     error(bad_linenum);
 delete_command(Rest, [First, Last], St0) ->
     St1 = check_trailing_p(Rest, save_for_undo(St0)),
@@ -397,7 +399,7 @@ delete(Left, St0) ->
 
 %% e file - replace buffer with new file
 
-enter_command(Name, [], St) when St#state.modified == true ->
+enter_command(_Name, [], St) when St#state.modified == true ->
     error(buffer_modified);
 enter_command(Name, [], St0) ->
     enter_always_command(Name, [], St0).
@@ -440,7 +442,7 @@ mark(Sense, [First, Last], St0) ->
     St1 = move_to(Last, St0),
     mark1(Sense, First-1, St1).
 
-mark1(Sense, First, St) when St#state.dot == First ->
+mark1(_Sense, First, St) when St#state.dot == First ->
     St;
 mark1(Sense, First, St) ->
     [Line|Prev] = St#state.upto_dot,
@@ -508,16 +510,16 @@ help_always_command([], [], St) ->
 
 %% (.)i - insert text
 
-insert_command(Rest, [0], State) ->
+insert_command(_Rest, [0], _State) ->
     error(bad_linenum);
 insert_command(Rest, [Line], State) ->
     append_command(Rest, [Line-1], State).
 
 %% (.)kx - mark line
 
-mark_command(_, [0], St) ->
+mark_command(_, [0], _St) ->
     error(bad_linenum);
-mark_command([Mark|Rest], [Line], St) when $a =< Mark, Mark =< $z ->
+mark_command([Mark|_Rest], [_Line], _St) when $a =< Mark, Mark =< $z ->
     error(not_implemented);
 mark_command(_, _, _) ->
     error(bad_mark).
@@ -529,12 +531,12 @@ list_command(Rest, Lines, St) ->
 
 %% (.,.)m - move lines
 
-move_command(Cmd, [First, Last], St) ->
+move_command(_Cmd, [_First, _Last], _St) ->
     error(not_implemented).
 
 %% (.,.)t - copy lines
 
-transpose_command(Cmd, [First, Last], St) ->
+transpose_command(_Cmd, [_First, _Last], _St) ->
     error(not_implemented).
 
 %% (.,.)n - print lines with line numbers
@@ -605,9 +607,9 @@ read(After, Name, St0) ->
 
 subst_command(_, [0, _], _) ->
     error(bad_linenum);
-subst_command([$ |Cmd0], [First, Last], St0) ->
+subst_command([$ |_Cmd0], [_First, _Last], _St0) ->
     error(bad_delimiter);
-subst_command([$\n|Cmd0], [First, Last], St0) ->
+subst_command([$\n|_Cmd0], [_First, _Last], _St0) ->
     error(bad_delimiter);
 subst_command([Sep|Cmd0], [First, Last], St0) ->
     St1 = save_for_undo(St0),
@@ -622,7 +624,7 @@ subst_command([], _, _) ->
     
 subst_command(0, _, _, _, nomatch) ->
     error(nomatch);
-subst_command(0, _, _, _, StLast) when record(StLast, state) ->
+subst_command(0, _, _, _, StLast) when is_record(StLast, state) ->
     StLast;
 subst_command(Left, Opts, Repl, St0, LastMatch) ->
     St1 = next_line(St0),
@@ -652,7 +654,7 @@ undo_command(_, _, _) ->
 
 %% (1,$)w - write buffer to file
 
-write_command(Cmd, [First, Last], St) ->
+write_command(_Cmd, [_First, _Last], _St) ->
     error(not_implemented).
     
 
@@ -757,7 +759,7 @@ check_trailing_p([$p], St) ->
     St#state{print=fun(Line, _) -> io:put_chars(Line) end};
 check_trailing_p([], State) ->
     State;
-check_trailing_p(Other, State) ->
+check_trailing_p(_Other, _State) ->
     error(garbage_after_command).
 
 error(Reason) ->
