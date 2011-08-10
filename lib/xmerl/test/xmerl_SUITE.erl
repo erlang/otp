@@ -58,7 +58,7 @@ groups() ->
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
        ticket_6873, ticket_7496, ticket_8156, ticket_8697,
-       ticket_9411]},
+       ticket_9411, ticket_9457]},
      {app_test, [], [{xmerl_app_test, all}]},
      {appup_test, [], [{xmerl_appup_test, all}]}].
 
@@ -588,7 +588,26 @@ ticket_9411(Config) ->
     ?line {E, _} = xmerl_scan:string(Xml),
     ?line {E, _} = xmerl_xsd:validate(E, Schema).
 
+ticket_9457(suite) -> [];
+ticket_9457(doc) -> 
+    ["Test that xmerl_scan handles continuation correct when current input runs out at the end of an attribute value"];
+ticket_9457(Config) ->
+    Opts = [{continuation_fun, fun ticket_9457_cont/3, start}, {space, normalize}],
+    ?line {E, _} = xmerl_scan:string([], Opts).
 
+ticket_9457_cont(Continue, Exception, GlobalState) ->
+    case xmerl_scan:cont_state(GlobalState) of
+	start ->
+	    G1 = xmerl_scan:cont_state(next, GlobalState),
+	    Bytes = "<?xml version=\"1.0\" ?>\r\n<item a=\"b\"",
+	    Continue(Bytes, G1);
+	next ->
+	    G1 = xmerl_scan:cont_state(last, GlobalState),
+	    Bytes = ">blah</item>\r\n",
+	    Continue(Bytes, G1);
+	_ ->
+	    Exception(GlobalState)
+    end.
 
 %%======================================================================
 %% Support Functions
