@@ -1945,6 +1945,16 @@ load_code(LoaderState* stp)
 		case genop_too_old_compiler_0:
 		    LoadError0(stp, "please re-compile this module with an "
 			       ERLANG_OTP_RELEASE " compiler");
+		case genop_unsupported_guard_bif_3:
+		    {
+			Eterm Mod = (Eterm) stp->genop->a[0].val;
+			Eterm Name = (Eterm) stp->genop->a[1].val;
+			Uint arity = (Uint) stp->genop->a[2].val;
+			FREE_GENOP(stp, stp->genop);
+			stp->genop = 0;
+			LoadError3(stp, "unsupported guard BIF: %T:%T/%d\n",
+				   Mod, Name, arity);
+		    }
 		default:
 		    LoadError0(stp, "no specific operation found");
 		}
@@ -3668,10 +3678,7 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     BifFunction bf;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_gc_bif1_5;
-    op->arity = 5;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->next = NULL;
     bf = stp->import[Bif.val].bf;
     /* The translations here need to have a reverse counterpart in
        beam_emu.c:translate_gc_bif for error handling to work properly. */
@@ -3692,19 +3699,30 @@ gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     } else if (bf == trunc_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_trunc_1;
     } else {
-	abort();
+	op->op = genop_unsupported_guard_bif_3;
+	op->arity = 3;
+	op->a[0].type = TAG_a;
+	op->a[0].val = stp->import[Bif.val].module;
+	op->a[1].type = TAG_a;
+	op->a[1].val = stp->import[Bif.val].function;
+	op->a[2].type = TAG_u;
+	op->a[2].val = stp->import[Bif.val].arity;
+	return op;
     }
+    op->op = genop_i_gc_bif1_5;
+    op->arity = 5;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
     op->a[2] = Src;
     op->a[3] = Live;
     op->a[4] = Dst;
-    op->next = NULL;
     return op;
 }
 
 /*
- * This is used by the ops.tab rule that rewrites gc_bifs with two parameters
+ * This is used by the ops.tab rule that rewrites gc_bifs with two parameters.
  * The instruction returned is then again rewritten to an i_load instruction
- * folowed by i_gc_bif2_jIId, to handle literals properly.
+ * followed by i_gc_bif2_jIId, to handle literals properly.
  * As opposed to the i_gc_bif1_jIsId, the instruction  i_gc_bif2_jIId is
  * always rewritten, regardless of if there actually are any literals.
  */
@@ -3716,31 +3734,39 @@ gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     BifFunction bf;
 
     NEW_GENOP(stp, op);
-    op->op = genop_ii_gc_bif2_6;
-    op->arity = 6;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->next = NULL;
     bf = stp->import[Bif.val].bf;
     /* The translations here need to have a reverse counterpart in
        beam_emu.c:translate_gc_bif for error handling to work properly. */
     if (bf == binary_part_2) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_2;
     } else {
-	abort();
+	op->op = genop_unsupported_guard_bif_3;
+	op->arity = 3;
+	op->a[0].type = TAG_a;
+	op->a[0].val = stp->import[Bif.val].module;
+	op->a[1].type = TAG_a;
+	op->a[1].val = stp->import[Bif.val].function;
+	op->a[2].type = TAG_u;
+	op->a[2].val = stp->import[Bif.val].arity;
+	return op;
     }
+    op->op = genop_ii_gc_bif2_6;
+    op->arity = 6;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
     op->a[2] = S1;
     op->a[3] = S2;
     op->a[4] = Live;
     op->a[5] = Dst;
-    op->next = NULL;
     return op;
 }
 
 /*
- * This is used by the ops.tab rule that rewrites gc_bifs with three parameters
+ * This is used by the ops.tab rule that rewrites gc_bifs with three parameters.
  * The instruction returned is then again rewritten to a move instruction that
  * uses r[0] for temp storage, followed by an i_load instruction,
- * folowed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
+ * followed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
  * always occur, as with the gc_bif2 counterpart.
  */
 static GenOp*
@@ -3751,18 +3777,27 @@ gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     BifFunction bf;
 
     NEW_GENOP(stp, op);
-    op->op = genop_ii_gc_bif3_7;
-    op->arity = 7;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->next = NULL;
     bf = stp->import[Bif.val].bf;
     /* The translations here need to have a reverse counterpart in
        beam_emu.c:translate_gc_bif for error handling to work properly. */
     if (bf == binary_part_3) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_3;
     } else {
-	abort();
+	op->op = genop_unsupported_guard_bif_3;
+	op->arity = 3;
+	op->a[0].type = TAG_a;
+	op->a[0].val = stp->import[Bif.val].module;
+	op->a[1].type = TAG_a;
+	op->a[1].val = stp->import[Bif.val].function;
+	op->a[2].type = TAG_u;
+	op->a[2].val = stp->import[Bif.val].arity;
+	return op;
     }
+    op->op = genop_ii_gc_bif3_7;
+    op->arity = 7;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
     op->a[2] = S1;
     op->a[3] = S2;
     op->a[4] = S3;
