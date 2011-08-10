@@ -36,6 +36,7 @@
 	  schema_name,
 	  vsn,
 	  schema_preprocessed=false,
+	  external_xsd_base=false,
 	  xsd_base,
 	  xml_options=[],
 	  scope=[],
