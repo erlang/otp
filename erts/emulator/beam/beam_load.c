@@ -1887,14 +1887,6 @@ load_code(LoaderState* stp)
 	}
 
 	/*
-	 * Special error message instruction.
-	 */
-	if (stp->genop->op == genop_too_old_compiler_0) {
-	    LoadError0(stp, "please re-compile this module with an " 
-		       ERLANG_OTP_RELEASE " compiler");
-	}
-
-	/*
 	 * From the collected generic instruction, find the specific
 	 * instruction.
 	 */
@@ -1945,7 +1937,17 @@ load_code(LoaderState* stp)
 			       ERLANG_OTP_RELEASE " compiler ");
 		}
 
-		LoadError0(stp, "no specific operation found");
+		/*
+		 * Some generic instructions should have a special
+		 * error message.
+		 */
+		switch (stp->genop->op) {
+		case genop_too_old_compiler_0:
+		    LoadError0(stp, "please re-compile this module with an "
+			       ERLANG_OTP_RELEASE " compiler");
+		default:
+		    LoadError0(stp, "no specific operation found");
+		}
 	    }
 
 	    stp->specific_op = specific;
@@ -2408,6 +2410,8 @@ load_code(LoaderState* stp)
 #else
 #define no_fpe_signals(St) 0
 #endif
+
+#define never(St) 0
 
 /*
  * Predicate that tests whether a jump table can be used.

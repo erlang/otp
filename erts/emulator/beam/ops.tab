@@ -30,7 +30,7 @@
 # needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
-too_old_compiler
+too_old_compiler | never() =>
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
