@@ -2276,7 +2276,7 @@ scan_att_chars([H|T], S0, H, Acc, TmpAcc,AttType,IsNorm) -> % End quote
 	    true -> 
 		normalize(Acc,S,IsNorm)
 	end,
-    {lists:reverse(Acc2), T, S2,IsNorm2};
+    {lists:flatten(lists:reverse(Acc2)), T, S2,IsNorm2};
 scan_att_chars("&" ++ T, S0, Delim, Acc, TmpAcc,AT,IsNorm) -> % Reference
     ?bump_col(1),
     {ExpRef, T1, S1} = scan_reference(T, S),
