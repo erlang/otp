@@ -162,6 +162,23 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     return res;
 }
 
+BIF_RETTYPE
+check_old_code_1(BIF_ALIST_1)
+{
+    Module* modp;
+
+    if (is_not_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    modp = erts_get_module(BIF_ARG_1);
+    if (modp == NULL) {		/* Doesn't exist. */
+	BIF_RET(am_false);
+    } else if (modp->old_code == NULL) { /* No old code. */
+	BIF_RET(am_false);
+    }
+    BIF_RET(am_true);
+}
+
 Eterm
 check_process_code_2(BIF_ALIST_2)
 {

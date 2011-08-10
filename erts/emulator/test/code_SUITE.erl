@@ -20,7 +20,9 @@
 -module(code_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 new_binary_types/1,t_check_process_code/1,t_check_process_code_ets/1,
+	 new_binary_types/1,
+	 t_check_process_code/1,t_check_old_code/1,
+	 t_check_process_code_ets/1,
 	 external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
 	 make_stub_many_funs/1,constant_pools/1,
 	 false_dependency/1,coverage/1]).
@@ -31,7 +33,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [new_binary_types, t_check_process_code,
-     t_check_process_code_ets, external_fun, get_chunk,
+     t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
      constant_pools, false_dependency, coverage].
 
@@ -247,6 +249,32 @@ fun_refc(F) ->
     {refc,Count} = erlang:fun_info(F, refc),
     Count.
 
+
+%% Test the erlang:check_old_code/1 BIF.
+t_check_old_code(Config) when is_list(Config) ->
+    ?line Data = ?config(data_dir, Config),
+    ?line File = filename:join(Data, "my_code_test"),
+
+    ?line erlang:purge_module(my_code_test),
+    ?line erlang:delete_module(my_code_test),
+    ?line catch erlang:purge_module(my_code_test),
+
+    ?line false = erlang:check_old_code(my_code_test),
+
+    ?line {ok,my_code_test,Code} = compile:file(File, [binary]),
+    ?line {module,my_code_test} = code:load_binary(my_code_test, File, Code),
+    
+    ?line false = erlang:check_old_code(my_code_test),
+    ?line {module,my_code_test} = code:load_binary(my_code_test, File, Code),
+    ?line true = erlang:check_old_code(my_code_test),
+
+    ?line true = erlang:purge_module(my_code_test),
+    ?line true = erlang:delete_module(my_code_test),
+    ?line true = erlang:purge_module(my_code_test),
+
+    ?line {'EXIT',_} = (catch erlang:check_old_code([])),
+    
+    ok.
 
 external_fun(Config) when is_list(Config) ->
     ?line false = erlang:function_exported(another_code_test, x, 1),
