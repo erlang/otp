@@ -62,7 +62,7 @@ groups() ->
        sis2, state2file_file2state, union]},
      {ticket_tests, [],
       [ticket_6910, ticket_7165, ticket_7190, ticket_7288,
-       ticket_7736, ticket_8599]},
+       ticket_7736, ticket_8599, ticket_9410]},
      {facets, [],
       [length, minLength, maxLength, pattern, enumeration,
        whiteSpace, maxInclusive, maxExclusive, minExclusive,
@@ -1146,3 +1146,8 @@ ticket_8599(Config) ->
     
     ?line {{xmlElement,persons,persons,_,_,_,_,_,_,_,_,_},_GlobalState} = xmerl_xsd:validate(E, S).
 
+
+ticket_9410(suite) -> [];
+ticket_9410(Config) ->
+    file:set_cwd(filename:join([?config(data_dir,Config),".."])),
+    ?line {ok, _S} = xmerl_xsd:process_schema("xmerl_xsd_SUITE_data/small.xsd").
