@@ -105,7 +105,9 @@ my %match_engine_ops;		# All opcodes for the match engine.
 my %gen_transform_offset;
 my @transformations;
 my @call_table;
+my %call_table;
 my @pred_table;
+my %pred_table;
 
 # Operand types for generic instructions.
 
@@ -1562,9 +1564,8 @@ sub tr_gen_from {
 		push(@args, "var+$var{$var}");
 	    }
 	}
-	splice(@code, $index, 1, &make_op("$name()",
-					  'pred', scalar(@pred_table)));
-	push(@pred_table, [$name, @args]);
+	my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
+	splice(@code, $index, 1, make_op("$name()", 'pred', $pi));
     }
 
     $te_max_vars = $var_num
@@ -1607,8 +1608,9 @@ sub tr_gen_to {
 		}
 	    }
 	    pop(@code);	# Get rid of 'commit' instruction
-	    push(@code, make_op("$name()", 'call_end', scalar(@call_table)));
-	    push(@call_table, [$name, @args]);
+	    my $index = tr_next_index(\@call_table, \%call_table,
+				      $name, @args);
+	    push(@code, make_op("$name()", 'call_end', $index));
 	    last;
 	}
 
@@ -1700,16 +1702,26 @@ sub get_comment {
     $ref->[2];
 }
 
+sub tr_next_index {
+    my($lref,$href,$name,@args) = @_;
+    my $code = "RVAL = $name(" . join(', ', 'st', @args) . "); break;\n";
+    my $index;
+
+    if (defined $$href{$code}) {
+	$index = $$href{$code};
+    } else {
+	$index = scalar(@$lref);
+	push(@$lref, $code);
+	$$href{$code} = $index;
+    }
+    $index;
+}
 
 sub tr_gen_call {
     my(@call_table) = @_;
     my($i);
 
-    print "\n";
     for ($i = 0; $i < @call_table; $i++) {
-	my $ref = $call_table[$i];
-	my($name, @args) = @$ref;
-	print "case $i: RVAL = $name(", join(', ', 'st', @args), "); break;\n";
+	print "case $i: $call_table[$i]";
     }
-    print "\n";
 }
