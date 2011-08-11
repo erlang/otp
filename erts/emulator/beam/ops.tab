@@ -25,30 +25,12 @@
 # instruction transformations; thus, they never occur in BEAM files.
 #
 
-# Special instruction used to generate an error message when
-# trying to load a module compiled by the V1 compiler (R5 & R6).
-# (Specially treated in beam_load.c.)
+# The too_old_compiler/0 instruction is specially handled in beam_load.c
+# to produce a user-friendly message informing the user that the module
+# needs to be re-compiled with a modern compiler.
 
 too_old_compiler/0
 too_old_compiler
-
-#
-# Obsolete instruction usage follow. (Nowdays we use f with
-# a zero label instead of p.)
-#
-
-is_list p S => too_old_compiler
-is_nonempty_list p R => too_old_compiler
-is_nil p R => too_old_compiler
-
-is_tuple p S => too_old_compiler
-test_arity p S Arity => too_old_compiler
-
-is_integer p R => too_old_compiler
-is_float p R => too_old_compiler
-is_atom p R => too_old_compiler
-
-is_eq_exact p S1 S2 => too_old_compiler
 
 # In R9C and earlier, the loader used to insert special instructions inside
 # the module_info/0,1 functions. (In R10B and later, the compiler inserts
