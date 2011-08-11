@@ -1322,7 +1322,7 @@ sub tr_gen {
     #
     my($offset) = 0;
     print "Uint op_transform[] = {\n";
-    foreach $key (keys %gen_transform) {
+    foreach $key (sort keys %gen_transform) {
 	$gen_transform_offset{$key} = $offset;
 	my @instr = @{$gen_transform{$key}};
 
