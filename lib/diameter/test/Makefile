@@ -102,9 +102,7 @@ all test: $(SUITES)
 
 tests debug opt: $(BUILDTARGET)
 
-targets: $(TARGET_FILES)
-
-.PHONY: emakebuild
+beam targets: $(TARGET_FILES)
 
 emakebuild: $(EMAKEFILE)
 
@@ -116,9 +114,12 @@ $(EMAKEFILE):
 clean:
 	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES) 
+	rm -f depend.mk
 
 realclean: clean
 	rm -f errs core *~
+
+.PHONY: all emakebuild test tests debug opt beam targets clean realclean
 
 docs:
 
@@ -159,7 +160,7 @@ help:
 	@echo "    $(SUITES)"
 	@echo "        Run a specific test suite."
 	@echo
-	@echo "    targets"
+	@echo "    beam"
 	@echo "        Compile all test-code."
 	@echo
 	@echo "    clean"
@@ -172,6 +173,8 @@ help:
 	@echo "    help"
 	@echo "        Print this info."
 	@echo
+
+.PHONY: docs info help
 
 # ----------------------------------------------------
 # Special Targets
@@ -190,6 +193,8 @@ $(SUITES): log targets
 log:
 	mkdir $@
 
+.PHONY: $(SUITES)
+
 # ----------------------------------------------------
 # Release Targets
 # ---------------------------------------------------- 
@@ -203,3 +208,20 @@ release_docs_spec:
 release_tests_spec: tests
 	$(INSTALL_DIR)  $(RELSYSDIR)
 	$(INSTALL_DATA) $(RELTEST_FILES) $(RELSYSDIR)
+
+.PHONY: release_spec release_docs_spec release_test_specs
+
+# ----------------------------------------------------
+
+depend: depend.mk
+
+# Generate dependencies makefile.
+depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
+	(for f in $(MODULES); do \
+	     sed -f $< $$f.erl | sed "s@/@/$$f@"; \
+	 done) \
+	> $@
+
+-include depend.mk
+
+.PHONY: depend
