@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1998</year><year>2010</year>
+      <year>1998</year><year>2011</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -29,6 +29,22 @@
     <rev>AC</rev>
     <file>notes.xml</file>
   </header>
+
+   <section>
+    <title>IC 4.2.27</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Reduced compile overhead (Thanks to Haitao Li).</p>
+          <p>
+            Own Id: OTP-9460 </p>
+        </item>
+      </list>
+    </section>
+   </section>
 
    <section>
     <title>IC 4.2.26</title>
