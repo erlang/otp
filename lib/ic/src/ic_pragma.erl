@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1600,9 +1600,8 @@ remove_inheriters(S,RS,InheriterList) ->
 	[_OneOnly] ->
 	    ReducedInhList;
 	_Other ->
-	    EtsList = ets:tab2list(S),
 	    CleanList = 
-		[X || X <- EtsList, element(1,X) == inherits],
+                ets:match(S, {inherits,'_','_'}),
 %	    CodeOptList = 
 %		[X || X <- EtsList, element(1,X) == codeopt],
 	    NoInheriters =remove_inheriters2(S,ReducedInhList,CleanList),
@@ -1648,9 +1647,8 @@ remove_inh([X],[Y],List,EtsList) ->
 %%% from others in the list 
 %%%----------------------------------------------
 remove_inherited(S,InheriterList) ->
-    EtsList = ets:tab2list(S),
     CleanList = 
-	[X || X <- EtsList, element(1,X) == inherits],
+        ets:match(S, {inherits, '_', '_'}),
     remove_inherited(S,InheriterList,CleanList).
 
 
@@ -1694,11 +1692,8 @@ remove_inhed([X],[Y],List,EtsList) ->
 %%  are inherited from scope in the list 
 %%%----------------------------------------------
 get_inherited(S,Scope,OpScopeList) ->
-    EtsList = ets:tab2list(S),
-    [[element(3,X)] || X <- EtsList, 
-		       element(1,X) == inherits,
-		       element(2,X) == Scope,
-		       member([element(3,X)],OpScopeList)].
+    EtsList1 = ets:match(S, {inherits, Scope, '$1'}),
+    [X || X <- EtsList1, member(X, OpScopeList)].
 
 
 
@@ -1771,9 +1766,7 @@ inherits2(_X,Y,Z,EtsList) ->
 %%     false otherwise   
 %%
 is_inherited_by(Interface1,Interface2,PragmaTab) ->
-    FullList = ets:tab2list(PragmaTab),
-    InheritsList = 
-	[X || X <- FullList, element(1,X) == inherits],
+    InheritsList = ets:match(PragmaTab, {inherits, '_', '_'}),
     inherits(Interface2,Interface1,InheritsList).
 
 
