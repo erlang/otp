@@ -16,11 +16,11 @@
 #
 # %CopyrightEnd%
 
-ifneq ($(ERL_TOP),)
+ifeq ($(ERL_TOP),)
+TOP = $(DIAMETER_TOP)
+else
 TOP = $(ERL_TOP)
 DIAMETER_TOP = $(TOP)/lib/diameter
-else
-TOP = $(DIAMETER_TOP)
 endif
 
 include $(TOP)/make/target.mk
@@ -98,7 +98,7 @@ ERL_COMPILE_FLAGS += $(DIAMETER_ERL_COMPILE_FLAGS)
 # Targets
 # ----------------------------------------------------
 
-test: $(SUITES)
+all test: $(SUITES)
 
 tests debug opt: $(BUILDTARGET)
 
@@ -116,6 +116,8 @@ $(EMAKEFILE):
 clean:
 	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES) 
+
+realclean: clean
 	rm -f errs core *~
 
 docs:
@@ -145,55 +147,48 @@ help:
 	@echo
 	@echo "  a) Run the official OTP test-server (which we do not describe here)"
 	@echo
-	@echo "  b) Run the test-server provided with this application."
-	@echo "     There are a number of targets to run the entire or parts"
-	@echo "     of this applications ($(APPLICATION)) test-suite"
+	@echo "  b) Run individual suites using targets in this makefile, target"
+	@echo "     xxx running the testcases contained in $(APPLICATION)_xxx_SUITE."
+	@echo "     Note that this requires GNU sed."
 	@echo
 	@echo "Targets:"
 	@echo
-	@echo "    help"
-	@echo "      Print this info"
-	@echo
-	@echo "    info"
-	@echo "      Prints various environment variables."
-	@echo "      May be useful when debugging the Makefile."
-	@echo
-	@echo "    tests | debug | opt "
-	@echo "      Compile all test-code."
-	@echo
-	@echo "    clean "
-	@echo "      Remove all targets."
-	@echo
-	@echo "    test"
-	@echo "      Run all test suites."
+	@echo "    all"
+	@echo "        Run all test suites."
 	@echo
 	@echo "    $(SUITES)"
-	@echo "      Run a specific test suite."
+	@echo "        Run a specific test suite."
 	@echo
-
+	@echo "    targets"
+	@echo "        Compile all test-code."
+	@echo
+	@echo "    clean"
+	@echo "        Remove generated files."
+	@echo
+	@echo "    info"
+	@echo "        Prints various environment variables."
+	@echo "        May be useful when debugging this Makefile."
+	@echo
+	@echo "    help"
+	@echo "        Print this info."
+	@echo
 
 # ----------------------------------------------------
 # Special Targets
 # ----------------------------------------------------
 
-all: $(SUITES)
-
-beam: targets
-
-log:
-	mkdir $@
-
-##########################
-
 # This assumes GNU sed to exit 1 if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems).
-$(SUITES): log beam
+$(SUITES): log targets
 	$(ERL) -noshell \
 	        -pa ../ebin \
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run $@ \
 	        -s init stop \
 	| sed '/ FAILED /h; p; $$!d; x; /./!d; Q 1'
+
+log:
+	mkdir $@
 
 # ----------------------------------------------------
 # Release Targets
@@ -208,8 +203,3 @@ release_docs_spec:
 release_tests_spec: tests
 	$(INSTALL_DIR)  $(RELSYSDIR)
 	$(INSTALL_DATA) $(RELTEST_FILES) $(RELSYSDIR)
-#	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) \
-#                        $(HRL_FILES) $(ERL_FILES) \
-#                        $(RELSYSDIR)
-#
-	chmod -f -R u+w $(RELSYSDIR)
