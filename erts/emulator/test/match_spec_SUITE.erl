@@ -27,8 +27,9 @@
 	 destructive_in_test_bif/1, guard_exceptions/1,
 	 unary_plus/1, unary_minus/1, moving_labels/1]).
 -export([fpe/1]).
+-export([otp_9422/1]).
 
--export([runner/2]).
+-export([runner/2, loop_runner/3]).
 -export([f1/1, f2/2, f3/2, fn/1, fn/2, fn/3]).
 -export([do_boxed_and_small/0]).
 
@@ -57,7 +58,8 @@ all() ->
 	     trace_control_word, silent, silent_no_ms, ms_trace2,
 	     ms_trace3, boxed_and_small, destructive_in_test_bif,
 	     guard_exceptions, unary_plus, unary_minus, fpe,
-	     moving_labels];
+	     moving_labels,
+	     otp_9422];
 	true -> [not_run]
     end.
 
@@ -207,6 +209,43 @@ test_3(Config) when is_list(Config) ->
 							     {?MODULE,f3,2}]}]),
     ?line collect(P1, [{trace, P1, call, {?MODULE, f2, [a, b]}, [true]}]),
     ?line ok.
+
+otp_9422(doc) -> [];
+otp_9422(Config) when is_list(Config) ->
+    Laps = 1000,
+    ?line Fun1 = fun() -> otp_9422_tracee() end,
+    ?line P1 = spawn_link(?MODULE, loop_runner, [self(), Fun1, Laps]),
+    io:format("spawned ~p as tracee\n", [P1]),
+
+    ?line erlang:trace(P1, true, [call, silent]),
+
+    ?line Fun2 = fun() -> otp_9422_trace_changer() end,
+    ?line P2 = spawn_link(?MODULE, loop_runner, [self(), Fun2, Laps]),
+    io:format("spawned ~p as trace_changer\n", [P2]),
+
+    start_collect(P1),
+    start_collect(P2),
+
+    %%receive after 10*1000 -> ok end,
+
+    stop_collect(P1),
+    stop_collect(P2),
+    ok.
+    
+otp_9422_tracee() ->
+    ?MODULE:f1(a),
+    ?MODULE:f1(b),
+    ?MODULE:f1(c).
+
+otp_9422_trace_changer() ->
+    Pat1 = [{[a], [], [{enable_trace, arity}]}],
+    ?line erlang:trace_pattern({?MODULE, f1, 1}, Pat1),
+    Pat2 = [{[b], [], [{disable_trace, arity}]}],
+    ?line erlang:trace_pattern({?MODULE, f1, 1}, Pat2).
+
+    
+    
+
 
 bad_match_spec_bin(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch ets:match_spec_run([1], <<>>)),
@@ -931,6 +970,24 @@ runner(Collector, Fun) ->
 	{done, Collector} ->
 	    Collector ! {gone, self()}
     end.
+
+loop_runner(Collector, Fun, Laps) ->
+    receive
+	{go, Collector} ->
+	    go
+    end,
+    loop_runner_cont(Collector, Fun, 0, Laps).
+
+loop_runner_cont(_Collector, _Fun, Laps, Laps) ->
+    receive
+	{done, Collector} ->
+	    io:format("loop_runner ~p exit after ~p laps\n", [self(), Laps]),
+	    Collector ! {gone, self()}
+    end;
+loop_runner_cont(Collector, Fun, N, Laps) ->
+    Fun(),
+    loop_runner_cont(Collector, Fun, N+1, Laps).
+
 
 f1(X) ->
     {X}.

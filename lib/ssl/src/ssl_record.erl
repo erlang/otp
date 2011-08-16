@@ -342,7 +342,7 @@ get_tls_records_aux(<<?BYTE(?CHANGE_CIPHER_SPEC),?BYTE(MajVer),?BYTE(MinVer),
     get_tls_records_aux(Rest, [#ssl_tls{type = ?CHANGE_CIPHER_SPEC,
 					version = {MajVer, MinVer},
 					fragment = Data} | Acc]);
-%% Matches a ssl v2 client hello message.
+%% Matches an ssl v2 client hello message.
 %% The server must be able to receive such messages, from clients that
 %% are willing to use ssl v3 or higher, but have ssl v2 compatibility.
 get_tls_records_aux(<<1:1, Length0:15, Data0:Length0/binary, Rest/binary>>,

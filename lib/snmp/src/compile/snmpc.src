@@ -50,7 +50,8 @@
 	 %% The default verbosity (silence) will be filled in 
 	 %% during argument processing.
 	 verbosity, 
-	 warnings           = false
+	 warnings           = false,
+	 warnings_as_errors = false
         }).
 
 
@@ -74,6 +75,7 @@
 %% --version
 %% --verbosity V
 %% --warnings
+%% --wae
 main(Args) when is_list(Args) ->
     case (catch process_args(Args)) of
 	ok ->
@@ -156,7 +158,8 @@ mk_mib_options(#state{outdir             = OutDir,
 		      %% The default verbosity (silence) will be filled in 
 		      %% during argument processing.
 		      verbosity          = V, 
-		      warnings           = W}) ->
+		      warnings           = W,
+                      warnings_as_errors = WAE}) ->
     [{outdir,                        OutDir}, 
      {db,                            DB},
      {i,                             IDs},
@@ -178,7 +181,8 @@ mk_mib_options(#state{outdir             = OutDir,
 	maybe_option(Imp,   imports) ++ 
 	maybe_option(MI,    module_identity) ++ 
 	maybe_option(MC,    module_compliance) ++ 
-	maybe_option(AC,    agent_capabilities).
+	maybe_option(AC,    agent_capabilities) ++ 
+	maybe_option(WE,    warnings_as_errors).
 
 maybe_option(true, Opt) -> [Opt];
 maybe_option(_,    _)   -> [].
@@ -292,6 +296,8 @@ process_args(["--nd"|Args], State) ->
     process_args(Args, State#state{no_defaults = true});
 process_args(["--rrnac"|Args], State) ->
     process_args(Args, State#state{relaxed_row_name_assigne_check = true});
+process_args(["--wae"|Args], State) ->
+    process_args(Args, State#state{warnings_as_errors = true});
 process_args([MIB], State) ->
     Ext = filename:extension(MIB),
     if 
@@ -371,6 +377,8 @@ usage() ->
 	      "~n                              a warning. "
 	      "~n                              By default it is not included, but if this option is "
 	      "~n                              present it will be. "
+	      "~n   --wae                    - Warnings as errors. "
+              "~n                              Indicates that warnings shall be treated as errors. "
 	      "~n   "
 	      "~n", []),
     halt(1).

@@ -833,8 +833,11 @@ ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned i)
 
 ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long i)
 {
+    if (IS_SSMALL(i)) {
+	return make_small(i);
+    }
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
-    return IS_SSMALL(i) ? make_small(i) : small_to_big(i, alloc_heap(env,2));
+    return small_to_big(i, alloc_heap(env,2));
 #elif SIZEOF_LONG == 8
     ensure_heap(env,3);
     return erts_sint64_to_big(i, &env->hp);
@@ -843,8 +846,11 @@ ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long i)
 
 ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)
 {
+    if (IS_USMALL(0,i)) {
+	return make_small(i);
+    }
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
-    return IS_USMALL(0,i) ? make_small(i) : uint_to_big(i,alloc_heap(env,2));
+    return uint_to_big(i,alloc_heap(env,2));
 #elif SIZEOF_LONG == 8
     ensure_heap(env,3);
     return erts_uint64_to_big(i, &env->hp);    

@@ -25,7 +25,6 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -include("ssl_alert.hrl").
@@ -210,6 +209,10 @@ all() ->
      empty_protocol_versions, controlling_process,
      controller_dies, client_closes_socket, peercert,
      connect_dist, peername, sockname, socket_options,
+     invalid_inet_get_option, invalid_inet_get_option_not_list,
+     invalid_inet_get_option_improper_list,
+     invalid_inet_set_option, invalid_inet_set_option_not_list,
+     invalid_inet_set_option_improper_list,
      misc_ssl_options, versions, cipher_suites, upgrade,
      upgrade_with_timeout, tcp_connect, tcp_connect_big, ipv6, ekeyfile,
      ecertfile, ecacertfile, eoptions, shutdown,
@@ -254,7 +257,7 @@ all() ->
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
-     hibernate
+     hibernate, connect_twice
     ].
 
 groups() -> 
@@ -810,8 +813,218 @@ socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     {ok,[{nodelay,false}]} = ssl:getopts(Socket, [nodelay]),  
     ssl:setopts(Socket, [{nodelay, true}]),
     {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
+    {ok, All} = ssl:getopts(Socket, []),
+    test_server:format("All opts ~p~n", [All]),
     ok.
+
+
+%%--------------------------------------------------------------------
+invalid_inet_get_option(doc) ->
+    ["Test handling of invalid inet options in getopts"];
+
+invalid_inet_get_option(suite) ->
+    [];
+
+invalid_inet_get_option(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, get_invalid_inet_option, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, no_result, []}},
+			   {options, ClientOpts}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+get_invalid_inet_option(Socket) ->
+    {error, {eoptions, {inet_option, foo, _}}} = ssl:getopts(Socket, [foo]),
+    ok.
+
+%%--------------------------------------------------------------------
+invalid_inet_get_option_not_list(doc) ->
+    ["Test handling of invalid type in getopts"];
+
+invalid_inet_get_option_not_list(suite) ->
+    [];
+
+invalid_inet_get_option_not_list(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, get_invalid_inet_option_not_list, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, no_result, []}},
+			   {options, ClientOpts}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
     
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+get_invalid_inet_option_not_list(Socket) ->
+    {error, {eoptions, {inet_options, some_invalid_atom_here}}}
+     = ssl:getopts(Socket, some_invalid_atom_here),
+     ok.
+
+%%--------------------------------------------------------------------
+invalid_inet_get_option_improper_list(doc) ->
+    ["Test handling of invalid type in getopts"];
+
+invalid_inet_get_option_improper_list(suite) ->
+    [];
+
+invalid_inet_get_option_improper_list(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, get_invalid_inet_option_improper_list, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, no_result, []}},
+			   {options, ClientOpts}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+get_invalid_inet_option_improper_list(Socket) ->
+    {error, {eoptions, {inet_option, foo,_}}} = ssl:getopts(Socket, [packet | foo]),
+    ok.
+
+%%--------------------------------------------------------------------
+invalid_inet_set_option(doc) ->
+    ["Test handling of invalid inet options in setopts"];
+
+invalid_inet_set_option(suite) ->
+    [];
+
+invalid_inet_set_option(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, set_invalid_inet_option, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, no_result, []}},
+			   {options, ClientOpts}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+set_invalid_inet_option(Socket) ->
+    {error, {eoptions, {inet_opt, {packet, foo}}}} = ssl:setopts(Socket, [{packet, foo}]),
+    {error, {eoptions, {inet_opt, {header, foo}}}} = ssl:setopts(Socket, [{header, foo}]),
+    {error, {eoptions, {inet_opt, {active, foo}}}} = ssl:setopts(Socket, [{active, foo}]),
+    {error, {eoptions, {inet_opt, {mode, foo}}}}   = ssl:setopts(Socket, [{mode, foo}]),
+    ok.
+%%--------------------------------------------------------------------
+invalid_inet_set_option_not_list(doc) ->
+    ["Test handling of invalid type in setopts"];
+
+invalid_inet_set_option_not_list(suite) ->
+    [];
+
+invalid_inet_set_option_not_list(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, set_invalid_inet_option_not_list, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, no_result, []}},
+			   {options, ClientOpts}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+set_invalid_inet_option_not_list(Socket) ->
+    {error, {eoptions, {not_a_proplist, some_invalid_atom_here}}}
+	= ssl:setopts(Socket, some_invalid_atom_here),
+    ok.
+
+%%--------------------------------------------------------------------
+invalid_inet_set_option_improper_list(doc) ->
+    ["Test handling of invalid tye in setopts"];
+
+invalid_inet_set_option_improper_list(suite) ->
+    [];
+
+invalid_inet_set_option_improper_list(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, set_invalid_inet_option_improper_list, []}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {ssl_test_lib, no_result, []}},
+			   {options, ClientOpts}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+		       [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+set_invalid_inet_option_improper_list(Socket) ->
+    {error, {eoptions, {not_a_proplist, [{packet, 0} | {foo, 2}]}}} =
+	ssl:setopts(Socket, [{packet, 0} | {foo, 2}]),
+    ok.
+
 %%--------------------------------------------------------------------
 misc_ssl_options(doc) ->
     ["Test what happens when we give valid options"];
@@ -3338,6 +3551,7 @@ reuseaddr(Config) when is_list(Config) ->
 				   {options, [{active, false} | ClientOpts]}]),
     test_server:sleep(?SLEEP),
     ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
 
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
@@ -3393,6 +3607,54 @@ hibernate(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+connect_twice(doc) ->
+    [""];
+connect_twice(suite) ->
+    [];
+connect_twice(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server =
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options,  [{keepalive, true},{active, false}
+					       | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+	ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options, [{keepalive, true},{active, false}
+					      | ClientOpts]}]),
+    Server ! listen,
+
+    {Client1, #sslsocket{}} =
+	ssl_test_lib:start_client([return_socket,
+				   {node, ClientNode}, {port, Port},
+				   {host, Hostname},
+				   {from, self()},
+				   {mfa, {?MODULE, send_recv_result, []}},
+				   {options, [{keepalive, true},{active, false}
+					      | ClientOpts]}]),
+
+    test_server:format("Testcase ~p, Client ~p  Server ~p ~n",
+			 [self(), Client, Server]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:check_result(Server, ok, Client1, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Client1).
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -3472,7 +3734,7 @@ session_cache_process_mnesia(suite) ->
 session_cache_process_mnesia(Config) when is_list(Config) -> 
     session_cache_process(mnesia,Config).
 
-session_cache_process(Type,Config) when is_list(Config) -> 
+session_cache_process(_Type,Config) when is_list(Config) ->
     reuse_session(Config).
 
 init([Type]) ->

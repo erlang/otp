@@ -14,8 +14,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @copyright 2003-2006 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @see edoc
@@ -52,7 +50,7 @@
 -define(IMAGE, "erlang.png").
 -define(NL, "\n").
 
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 %% Sources is the list of inputs in the order they were found.  Packages
 %% and Modules are sorted lists of atoms without duplicates. (They

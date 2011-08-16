@@ -647,17 +647,11 @@ refc_dist_1() ->
     %% Fun is passed in an exit signal. Wait until it is gone.
     ?line wait_until(fun () -> 4 =/= fun_refc(F2) end),
     ?line 3 = fun_refc(F2),
-    erts_debug:set_internal_state(available_internal_state, true),
-    ?line F_refc = case erts_debug:get_internal_state(force_heap_frags) of
-		       false -> 3;
-		       true -> 2 % GC after bif already decreased it
-		   end,
-    ?line F_refc = fun_refc(F),
-    erts_debug:set_internal_state(available_internal_state, false),
+    ?line true = erlang:garbage_collect(),
+    ?line 2 = fun_refc(F),
     refc_dist_send(Node, F).
 
 refc_dist_send(Node, F) ->
-    ?line true = erlang:garbage_collect(),
     ?line Pid = spawn_link(Node,
 			   fun() -> receive
 					{To,Fun} when is_function(Fun) ->

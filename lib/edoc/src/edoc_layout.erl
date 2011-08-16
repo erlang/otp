@@ -14,8 +14,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id: $
-%%
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @copyright 2001-2006 Richard Carlsson
 %% @see edoc
@@ -33,7 +31,7 @@
 
 -import(edoc_report, [report/2]).
 
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(HTML_EXPORT, xmerl_html).
 -define(DEFAULT_XML_EXPORT, ?HTML_EXPORT).
@@ -959,12 +957,16 @@ local_label(R) ->
 
 xhtml(Title, CSS, Body) ->
     [{html, [?NL,
-	    {head, [?NL,
-		    {title, Title},
-		    ?NL] ++ CSS},
-	    ?NL,
-	    {body, [{bgcolor, "white"}], Body},
-	    ?NL]
+	     {head, [?NL,
+		     {meta, [{'http-equiv',"Content-Type"},
+			     {content, "text/html; charset=ISO-8859-1"}],
+		      []},
+		     ?NL,
+		     {title, Title},
+		     ?NL] ++ CSS},
+	     ?NL,
+	     {body, [{bgcolor, "white"}], Body},
+	     ?NL]
      },
      ?NL].
 

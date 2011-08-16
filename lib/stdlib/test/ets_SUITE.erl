@@ -72,6 +72,7 @@
 	 exit_many_many_tables_owner/1]).
 -export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
+-export([otp_9423/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -143,7 +144,8 @@ all() ->
      otp_8166, exit_large_table_owner,
      exit_many_large_table_owner, exit_many_tables_owner,
      exit_many_many_tables_owner, write_concurrency, heir,
-     give_away, setopts, bad_table, types].
+     give_away, setopts, bad_table, types,
+     otp_9423].
 
 groups() -> 
     [{new, [],
@@ -5420,7 +5422,39 @@ types_do(Opts) ->
     ?line verify_etsmem(EtsMem).
 
 
-
+otp_9423(doc) -> ["vm-deadlock caused by race between ets:delete and others on write_concurrency table"];
+otp_9423(Config) when is_list(Config) ->
+    InitF = fun(_) -> {0,0} end,
+    ExecF = fun({S,F}) -> 
+		    receive 
+			stop -> 
+			    io:format("~p got stop\n", [self()]),
+			    [end_of_work | {"Succeded=",S,"Failed=",F}]
+		    after 0 ->
+			    %%io:format("~p (~p) doing lookup\n", [self(), {S,F}]),
+			    try ets:lookup(otp_9423, key) of
+				[] -> {S+1,F}
+			    catch
+				error:badarg -> {S,F+1}
+			    end
+		    end
+	    end,
+    FiniF = fun(R) -> R end,
+    case run_workers(InitF, ExecF, FiniF, infinite, 1) of
+	Pids when is_list(Pids) ->
+	    %%[P ! start || P <- Pids],
+	    repeat(fun() -> ets:new(otp_9423, [named_table, public, {write_concurrency,true}]),
+			    ets:delete(otp_9423)
+		   end, 10000),
+	    [P ! stop || P <- Pids],
+	    wait_pids(Pids),
+	    ok;
+	
+	Skipped -> Skipped
+    end.
+	    
+    
+    
 
 %
 % Utility functions:
@@ -5434,21 +5468,30 @@ add_lists([E1|T1], [E2|T2], Acc) ->
     add_lists(T1, T2, [E1+E2 | Acc]).    
 
 run_workers(InitF,ExecF,FiniF,Laps) ->
+    run_workers(InitF,ExecF,FiniF,Laps, 0).
+run_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
     case erlang:system_info(smp_support) of
 	true ->
-	    run_workers_do(InitF,ExecF,FiniF,Laps);
+	    run_workers_do(InitF,ExecF,FiniF,Laps, Exclude);
 	false ->
 	    {skipped,"No smp support"}
     end.
-   
+
 run_workers_do(InitF,ExecF,FiniF,Laps) ->
-    NumOfProcs = erlang:system_info(schedulers),
+    run_workers_do(InitF,ExecF,FiniF,Laps, 0).
+run_workers_do(InitF,ExecF,FiniF,Laps, Exclude) ->
+    ?line NumOfProcs = case erlang:system_info(schedulers) of
+			   N when (N > Exclude) -> N - Exclude
+		       end,
     io:format("smp starting ~p workers\n",[NumOfProcs]),
     Seeds = [{ProcN,random:uniform(9999)} || ProcN <- lists:seq(1,NumOfProcs)],
     Parent = self(),
     Pids = [spawn_link(fun()-> worker(Seed,InitF,ExecF,FiniF,Laps,Parent,NumOfProcs) end)
 	    || Seed <- Seeds],
-    wait_pids(Pids).
+    case Laps of
+	infinite -> Pids;
+	_ -> wait_pids(Pids)
+    end.
 	    
 worker({ProcN,Seed}, InitF, ExecF, FiniF, Laps, Parent, NumOfProcs) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),
@@ -5463,6 +5506,8 @@ worker_loop(0, _, State) ->
     State;
 worker_loop(_, _, [end_of_work|State]) ->
     State;
+worker_loop(infinite, ExecF, State) ->
+    worker_loop(infinite,ExecF,ExecF(State));
 worker_loop(N, ExecF, State) ->
     worker_loop(N-1,ExecF,ExecF(State)).
     
@@ -5517,20 +5562,21 @@ etsmem() ->
      case erlang:system_info({allocator,ets_alloc}) of
 	 false -> undefined;
 	 MemInfo ->
-	     MSBCS = lists:foldl(
-		       fun ({instance, _, L}, Acc) ->
-			       {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-			       {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			       [MBCS,SBCS | Acc]
-		       end,
-		       [],
-		       MemInfo),
+	     CS = lists:foldl(
+		    fun ({instance, _, L}, Acc) ->
+			    {value,{_,SBMBCS}} = lists:keysearch(sbmbcs, 1, L),
+			    {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
+			    {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
+			    [SBMBCS,MBCS,SBCS | Acc]
+		    end,
+		    [],
+		    MemInfo),
 	     lists:foldl(
 	       fun(L, {Bl0,BlSz0}) ->
 		       {value,{_,Bl,_,_}} = lists:keysearch(blocks, 1, L),
 		       {value,{_,BlSz,_,_}} = lists:keysearch(blocks_size, 1, L),
 		       {Bl0+Bl,BlSz0+BlSz}
-	       end, {0,0}, MSBCS)
+	       end, {0,0}, CS)
      end},
      {Mem,AllTabs}.
 

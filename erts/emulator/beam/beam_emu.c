@@ -3561,7 +3561,7 @@ void process_main(void)
       * Operands: NotUsed Live Dst
       */
  do_bs_init_bits_known:
-     num_bytes = (num_bits+7) >> 3;
+     num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
      if (num_bits & 7) {
 	 alloc += ERL_SUB_BIN_SIZE;
      }

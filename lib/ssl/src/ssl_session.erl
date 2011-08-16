@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,7 @@ is_new(_ClientSuggestion, _ServerDecision) ->
     true.
 
 %%--------------------------------------------------------------------
--spec id({host(), port_num(), #ssl_options{}}, cache_ref(), atom(),
+-spec id({host(), port_num(), #ssl_options{}}, db_handle(), atom(),
 	 undefined | binary()) -> binary().
 %%
 %% Description: Should be called by the client side to get an id 
@@ -63,7 +63,7 @@ id(ClientInfo, Cache, CacheCb, OwnCert) ->
     end.
 
 %%--------------------------------------------------------------------
--spec id(port_num(), binary(), #ssl_options{}, cache_ref(), 
+-spec id(port_num(), binary(), #ssl_options{}, db_handle(),
 	 atom(), seconds(), binary()) -> binary().
 %%
 %% Description: Should be called by the server side to get an id 

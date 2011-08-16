@@ -1511,7 +1511,7 @@ const char* parse_topology_spec_group(erts_cpu_info_t *cpuinfo, const char* xml,
 	}
     }
 
-    if (cacheLevel == 0) {
+    if (parentCacheLevel == 0) {
 	*core_p = 0;
 	*processor_p = (*processor_p)++;
     } else {

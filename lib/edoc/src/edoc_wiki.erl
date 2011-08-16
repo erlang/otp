@@ -14,8 +14,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @private
 %% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>
@@ -70,7 +68,7 @@
 -export([parse_xml/2, expand_text/2]).
 
 -include("edoc.hrl").
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(BASE_HEADING, 3).
 
@@ -82,8 +80,8 @@ parse_xml(Data, Line) ->
 
 parse_xml_1(Text, Line) ->
     Text1 = "<doc>" ++ Text ++ "</doc>",
-    Options = [{line, Line}, {encoding, "iso-8859-1"}],
-    case catch {ok, xmerl_scan:string(Text1, Options)} of
+    Opts = [{line, Line}, {encoding, 'iso-8859-1'}],
+    case catch {ok, xmerl_scan:string(Text1, Opts)} of
 	{ok, {E, _}} ->
 	    E#xmlElement.content;
 	{'EXIT', {fatal, {Reason, L, _C}}} ->

@@ -1129,10 +1129,16 @@ ticket_6035(Config) ->
     LogFile = filename:join([PrivDir,"ticket_6035.log"]),
     try
 	begin
+	    p("ticket_6035 -> select ftpd host"),
 	    Host = dirty_select_ftpd_host(Config), 
+	    p("ticket_6035 -> ftpd host selected (~p) => now spawn ftp owner", [Host]),
 	    Pid  = spawn(?MODULE, open_wait_6035, [Host, self()]),
+	    p("ticket_6035 -> waiter spawned: ~p => now open error logfile (~p)", 
+	      [Pid, LogFile]),
 	    error_logger:logfile({open, LogFile}),
-	    ok = kill_ftp_proc_6035(Pid,LogFile),
+	    p("ticket_6035 -> error logfile open => now kill waiter process"),
+	    true = kill_ftp_proc_6035(Pid, LogFile),
+	    p("ticket_6035 -> waiter process killed => now close error logfile"),
 	    error_logger:logfile(close),
 	    p("ticket_6035 -> done", []),
 	    ok
@@ -1146,7 +1152,7 @@ kill_ftp_proc_6035(Pid, LogFile) ->
     p("kill_ftp_proc_6035 -> entry"),
     receive
 	open ->
-	    p("kill_ftp_proc_6035 -> received open: send shutdown"),
+	    p("kill_ftp_proc_6035 -> received open => now issue shutdown"),
 	    exit(Pid, shutdown),
 	    kill_ftp_proc_6035(Pid, LogFile);
 	{open_failed, Reason} ->
@@ -1159,11 +1165,11 @@ kill_ftp_proc_6035(Pid, LogFile) ->
 	    is_error_report_6035(LogFile)
     end.
 
-open_wait_6035(FtpServer, From) ->
-    p("open_wait_6035 -> try connect to ~s", [FtpServer]),
+open_wait_6035({Tag, FtpServer}, From) ->
+    p("open_wait_6035 -> try connect to [~p] ~s for ~p", [Tag, FtpServer, From]),
     case ftp:open(FtpServer, [{timeout, timer:seconds(15)}]) of
 	{ok, Pid} ->
-	    p("open_wait_6035 -> connected, now login"),
+	    p("open_wait_6035 -> connected (~p), now login", [Pid]),
 	    LoginResult = ftp:user(Pid,"anonymous","kldjf"),
 	    p("open_wait_6035 -> login result: ~p", [LoginResult]),
 	    From ! open,
@@ -1191,22 +1197,27 @@ is_error_report_6035(LogFile) ->
     Res =
 	case file:read_file(LogFile) of
 	    {ok, Bin} ->
-		p("is_error_report_6035 -> logfile read"),
-		read_log_6035(binary_to_list(Bin));
+		Txt = binary_to_list(Bin), 
+		p("is_error_report_6035 -> logfile read: ~n~p", [Txt]),
+		read_log_6035(Txt);
 	    _ ->
-		ok
+		false
 	end,
     p("is_error_report_6035 -> logfile read result: "
       "~n   ~p", [Res]),
-    file:delete(LogFile),
+    %% file:delete(LogFile),
     Res.
 
 read_log_6035("=ERROR REPORT===="++_Rest) ->
-    error_report;
-read_log_6035([_H|T]) ->
+    p("read_log_6035 -> ERROR REPORT detected"),
+    true;
+read_log_6035([H|T]) ->
+    p("read_log_6035 -> OTHER: "
+      "~p", [H]),
     read_log_6035(T);
 read_log_6035([]) ->
-    ok.
+    p("read_log_6035 -> done"),
+    false.
 
 
 %%--------------------------------------------------------------------

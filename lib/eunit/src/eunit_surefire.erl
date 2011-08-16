@@ -64,6 +64,7 @@
 	 }).
 -record(testsuite,
 	{
+          id = 0 :: integer(),
 	  name = <<>> :: binary(),
 	  time = 0 :: integer(),
 	  output = <<>> :: binary(),
@@ -76,7 +77,7 @@
 -record(state, {verbose = false,
 		indent = 0,
 		xmldir = ".",
-		testsuite = #testsuite{}
+		testsuites = [] :: [#testsuite{}]
 	       }).
 
 start() ->
@@ -89,55 +90,60 @@ init(Options) ->
     XMLDir = proplists:get_value(dir, Options, ?XMLDIR),
     St = #state{verbose = proplists:get_bool(verbose, Options),
 		xmldir = XMLDir,
-		testsuite = #testsuite{}},
+		testsuites = []},
     receive
 	{start, _Reference} ->
 	    St
     end.
 
 terminate({ok, _Data}, St) ->
-    TestSuite = St#state.testsuite,
+    TestSuites = St#state.testsuites,
     XmlDir = St#state.xmldir,
-    write_report(TestSuite, XmlDir),
+    write_reports(TestSuites, XmlDir),
     ok;
 terminate({error, _Reason}, _St) ->
     %% Don't report any errors here, since eunit_tty takes care of that.
     %% Just terminate.
     ok.
 
-handle_begin(group, Data, St) ->
+handle_begin(Kind, Data, St) when Kind == group; Kind == test ->
+    %% Run this code both for groups and tests; test is a bit
+    %% surprising: This is a workaround for the fact that we don't get
+    %% a group (handle_begin(group, ...) for testsuites (modules)
+    %% which only have one test case.  In that case we get a test case
+    %% with an id comprised of just one integer - the group id.
     NewId = proplists:get_value(id, Data),
     case NewId of
 	[] ->
 	    St;
-	[_GroupId] ->
+	[GroupId] ->
 	    Desc = proplists:get_value(desc, Data),
-	    TestSuite = St#state.testsuite,
-	    NewTestSuite = TestSuite#testsuite{name = Desc},
-	    St#state{testsuite=NewTestSuite};
+            TestSuite = #testsuite{id = GroupId, name = Desc},
+	    St#state{testsuites=store_suite(TestSuite, St#state.testsuites)};
 	%% Surefire format is not hierarchic: Ignore subgroups:
 	_ ->
 	    St
-    end;
-handle_begin(test, _Data, St) ->
-    St.
+    end.
 handle_end(group, Data, St) ->
     %% Retrieve existing test suite:
     case proplists:get_value(id, Data) of
 	[] ->
 	    St;
-	[_GroupId|_] ->
-	    TestSuite = St#state.testsuite,
+	[GroupId|_] ->
+            TestSuites = St#state.testsuites,
+	    TestSuite = lookup_suite_by_group_id(GroupId, TestSuites),
 
 	    %% Update TestSuite data:
 	    Time = proplists:get_value(time, Data),
 	    Output = proplists:get_value(output, Data),
 	    NewTestSuite = TestSuite#testsuite{ time = Time, output = Output },
-	    St#state{testsuite=NewTestSuite}
+	    St#state{testsuites=store_suite(NewTestSuite, TestSuites)}
     end;
 handle_end(test, Data, St) ->
     %% Retrieve existing test suite:
-    TestSuite = St#state.testsuite,
+    [GroupId|_] = proplists:get_value(id, Data),
+    TestSuites = St#state.testsuites,
+    TestSuite = lookup_suite_by_group_id(GroupId, TestSuites),
 
     %% Create test case:
     Name = format_name(proplists:get_value(source, Data),
@@ -149,7 +155,7 @@ handle_end(test, Data, St) ->
     TestCase = #testcase{name = Name, description = Desc,
 			 time = Time,output = Output},
     NewTestSuite = add_testcase_to_testsuite(Result, TestCase, TestSuite),
-    St#state{testsuite=NewTestSuite}.
+    St#state{testsuites=store_suite(NewTestSuite, TestSuites)}.
 
 %% Cancel group does not give information on the individual cancelled test case
 %% We ignore this event
@@ -157,7 +163,9 @@ handle_cancel(group, _Data, St) ->
     St;
 handle_cancel(test, Data, St) ->
     %% Retrieve existing test suite:
-    TestSuite = St#state.testsuite,
+    [GroupId|_] = proplists:get_value(id, Data),
+    TestSuites = St#state.testsuites,
+    TestSuite = lookup_suite_by_group_id(GroupId, TestSuites),
 
     %% Create test case:
     Name = format_name(proplists:get_value(source, Data),
@@ -171,7 +179,7 @@ handle_cancel(test, Data, St) ->
     NewTestSuite = TestSuite#testsuite{
 		     skipped = TestSuite#testsuite.skipped+1,
 		     testcases=[TestCase|TestSuite#testsuite.testcases] },
-    St#state{testsuite=NewTestSuite}.
+    St#state{testsuites=store_suite(NewTestSuite, TestSuites)}.
 
 format_name({Module, Function, Arity}, Line) ->
     lists:flatten([atom_to_list(Module), ":", atom_to_list(Function), "/",
@@ -182,6 +190,12 @@ format_desc(Desc) when is_binary(Desc) ->
     binary_to_list(Desc);
 format_desc(Desc) when is_list(Desc) ->
     Desc.
+
+lookup_suite_by_group_id(GroupId, TestSuites) ->
+    #testsuite{} = lists:keyfind(GroupId, #testsuite.id, TestSuites).
+
+store_suite(#testsuite{id=GroupId} = TestSuite, TestSuites) ->
+    lists:keystore(GroupId, #testsuite.id, TestSuites, TestSuite).
 
 %% Add testcase to testsuite depending on the result of the test.
 add_testcase_to_testsuite(ok, TestCaseTmp, TestSuite) ->
@@ -214,6 +228,10 @@ add_testcase_to_testsuite({error, Exception}, TestCaseTmp, TestSuite) ->
 %% Write a report to the XML directory.
 %% This function opens the report file, calls write_report_to/2 and closes the file.
 %% ----------------------------------------------------------------------------
+write_reports(TestSuites, XmlDir) ->
+    lists:foreach(fun(TestSuite) -> write_report(TestSuite, XmlDir) end,
+                  TestSuites).
+
 write_report(#testsuite{name = Name} = TestSuite, XmlDir) ->
     Filename = filename:join(XmlDir, lists:flatten(["TEST-", escape_suitename(Name)], ".xml")),
     case file:open(Filename, [write, raw]) of

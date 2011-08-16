@@ -488,9 +488,10 @@ pkix_path_validation(PathErr, [Cert | Chain], Options0) when is_atom(PathErr)->
 	_:_ ->
 	    {error, Reason}
     end;
-pkix_path_validation(TrustedCert, CertChain, Options) when
-  is_binary(TrustedCert) -> OtpCert = pkix_decode_cert(TrustedCert,
-  otp), pkix_path_validation(OtpCert, CertChain, Options);
+pkix_path_validation(TrustedCert, CertChain, Options)
+  when is_binary(TrustedCert) ->
+    OtpCert = pkix_decode_cert(TrustedCert, otp),
+    pkix_path_validation(OtpCert, CertChain, Options);
 
 pkix_path_validation(#'OTPCertificate'{} = TrustedCert, CertChain, Options)
   when is_list(CertChain), is_list(Options) ->

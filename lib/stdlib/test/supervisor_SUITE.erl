@@ -114,10 +114,9 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(count_children_memory, Config) ->
-    MemoryState = erlang:system_info(allocator),
-    case count_children_allocator_test(MemoryState) of
-	true -> Config;
-	false ->
+    try erlang:memory() of
+	_ -> Config
+    catch error:notsup ->
 	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
     end;
 init_per_testcase(_Case, Config) ->
@@ -1031,17 +1030,6 @@ count_children_memory(Config) when is_list(Config) ->
 
     [terminate(SupPid, Pid, child, kill) || {undefined, Pid, worker, _Modules} <- Children3],
     [1,0,0,0] = get_child_counts(sup_test).
-
-count_children_allocator_test(MemoryState) ->
-    Allocators = [temp_alloc, eheap_alloc, binary_alloc, ets_alloc,
-		  driver_alloc, sl_alloc, ll_alloc, fix_alloc, std_alloc,
-		  sys_alloc],
-    MemoryStateList = element(4, MemoryState),
-    AllocTypes = [lists:keyfind(Alloc, 1, MemoryStateList)
-		  || Alloc <- Allocators],
-    AllocStates = [lists:keyfind(e, 1, AllocValue)
-		   || {_Type, AllocValue} <- AllocTypes],
-    lists:all(fun(State) -> State == {e, true} end, AllocStates).
 
 %%-------------------------------------------------------------------------
 do_not_save_start_parameters_for_temporary_children(doc) ->

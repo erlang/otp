@@ -104,7 +104,7 @@ stop() ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 
 %%
-%% Description: Connect to a ssl server.
+%% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
 connect(Socket, SslOptions) when is_port(Socket) ->
     connect(Socket, SslOptions, infinity).
@@ -112,7 +112,7 @@ connect(Socket, SslOptions) when is_port(Socket) ->
 connect(Socket, SslOptions0, Timeout) when is_port(Socket) ->
     EmulatedOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(Socket, EmulatedOptions),
-    inet:setopts(Socket, internal_inet_values()), 
+    ok = inet:setopts(Socket, internal_inet_values()),
     try handle_options(SslOptions0 ++ InetValues, client) of
 	{ok, #config{cb=CbInfo, ssl=SslOptions, emulated=EmOpts}} ->
 	    case inet:peername(Socket) of
@@ -151,7 +151,7 @@ connect(Host, Port, Options0, Timeout) ->
 -spec listen(port_num(), [option()]) ->{ok, #sslsocket{}} | {error, reason()}.
 		    
 %%
-%% Description: Creates a ssl listen socket.
+%% Description: Creates an ssl listen socket.
 %%--------------------------------------------------------------------
 listen(_Port, []) ->
     {error, enooptions};
@@ -177,7 +177,7 @@ listen(Port, Options0) ->
 -spec transport_accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} |
 						   {error, reason()}.
 %%
-%% Description: Performs transport accept on a ssl listen socket 
+%% Description: Performs transport accept on an ssl listen socket
 %%--------------------------------------------------------------------
 transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
@@ -218,7 +218,7 @@ transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
 			ok | {ok, #sslsocket{}} | {error, reason()}.
 -spec ssl_accept(port(), [option()], timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
 %%
-%% Description: Performs accept on a ssl listen socket. e.i. performs
+%% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
 %%--------------------------------------------------------------------
 ssl_accept(ListenSocket) ->
@@ -238,7 +238,7 @@ ssl_accept(#sslsocket{} = Socket, Timeout)  ->
 ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) -> 
     EmulatedOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(Socket, EmulatedOptions),
-    inet:setopts(Socket, internal_inet_values()), 
+    ok = inet:setopts(Socket, internal_inet_values()),
     try handle_options(SslOptions ++ InetValues, server) of
 	{ok, #config{cb=CbInfo,ssl=SslOpts, emulated=EmOpts}} ->
 	    {ok, Port} = inet:port(Socket),
@@ -252,7 +252,7 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %%--------------------------------------------------------------------
 -spec  close(#sslsocket{}) -> term().
 %%
-%% Description: Close a ssl connection
+%% Description: Close an ssl connection
 %%--------------------------------------------------------------------  
 close(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _, _}}}, fd = new_ssl}) ->
     CbMod:close(ListenSocket);
@@ -406,25 +406,51 @@ cipher_suites(openssl) ->
 %% 
 %% Description: Gets options
 %%--------------------------------------------------------------------
-getopts(#sslsocket{fd = new_ssl, pid = Pid}, OptTags) when is_pid(Pid) ->
-    ssl_connection:get_opts(Pid, OptTags);
-getopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptTags) ->
-    inet:getopts(ListenSocket, OptTags);
-getopts(#sslsocket{} = Socket, Options) ->
+getopts(#sslsocket{fd = new_ssl, pid = Pid}, OptionTags) when is_pid(Pid), is_list(OptionTags) ->
+    ssl_connection:get_opts(Pid, OptionTags);
+getopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptionTags) when is_list(OptionTags) ->
+    try inet:getopts(ListenSocket, OptionTags) of
+	{ok, _} = Result ->
+	    Result;
+	{error, InetError} ->
+	    {error, {eoptions, {inet_options, OptionTags, InetError}}}
+    catch
+	_:_ ->
+	    {error, {eoptions, {inet_options, OptionTags}}}
+    end;
+getopts(#sslsocket{fd = new_ssl}, OptionTags) ->
+    {error, {eoptions, {inet_options, OptionTags}}};
+getopts(#sslsocket{} = Socket, OptionTags) ->
     ensure_old_ssl_started(),
-    ssl_broker:getopts(Socket, Options).
+    ssl_broker:getopts(Socket, OptionTags).
 
 %%--------------------------------------------------------------------
 -spec setopts(#sslsocket{},  [proplists:property()]) -> ok | {error, reason()}.
 %% 
 %% Description: Sets options
 %%--------------------------------------------------------------------
-setopts(#sslsocket{fd = new_ssl, pid = Pid}, Opts0) when is_pid(Pid) ->
-    Opts = proplists:expand([{binary, [{mode, binary}]},
-			     {list, [{mode, list}]}], Opts0),
-    ssl_connection:set_opts(Pid, Opts);
-setopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptTags) ->
-    inet:setopts(ListenSocket, OptTags);
+setopts(#sslsocket{fd = new_ssl, pid = Pid}, Options0) when is_pid(Pid), is_list(Options0)  ->
+    try proplists:expand([{binary, [{mode, binary}]},
+			  {list, [{mode, list}]}], Options0) of
+	Options ->
+	    ssl_connection:set_opts(Pid, Options)
+    catch
+	_:_ ->
+	    {error, {eoptions, {not_a_proplist, Options0}}}
+    end;
+
+setopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, Options) when is_list(Options) ->
+    try inet:setopts(ListenSocket, Options) of
+	ok ->
+	    ok;
+	{error, InetError} ->
+	    {error, {eoptions, {inet_options, Options, InetError}}}
+    catch
+	_:Error ->
+	    {error, {eoptions, {inet_options, Options, Error}}}
+    end;
+setopts(#sslsocket{fd = new_ssl}, Options) ->
+    {error, {eoptions,{not_a_proplist, Options}}};
 setopts(#sslsocket{} = Socket, Options) ->
     ensure_old_ssl_started(),
     ssl_broker:setopts(Socket, Options).

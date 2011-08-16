@@ -400,6 +400,7 @@ open_fd(Config) when is_list(Config) ->
     {ok,S1}   = gen_udp:open(0),
     {ok,P2} = inet:port(S1),
     {ok,FD}   = prim_inet:getfd(S1),
+    {error,einval} = gen_udp:open(P2, [inet6, {fd,FD}]),
     {ok,S2}   = gen_udp:open(P2, [{fd,FD}]),
     {ok,S3}   = gen_udp:open(0),
     {ok,P3} = inet:port(S3),

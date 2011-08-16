@@ -388,7 +388,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 	max_size++;
 	if (precision)
 	    max_size += precision;
-	else if (fmt && FMTF_alt)
+	else if (fmt & FMTF_alt)
 	    max_size++;
 	break;
     case FMTC_E:
@@ -402,7 +402,7 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
 	max_size += 4;
 	if (precision)
 	    max_size += precision;
-	else if (fmt && FMTF_alt)
+	else if (fmt & FMTF_alt)
 	    max_size++;
 	aexp = exp >= 0 ? exp : -exp;
 	if (aexp < 100)

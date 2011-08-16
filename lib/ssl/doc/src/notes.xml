@@ -554,7 +554,7 @@
             Own Id: OTP-8224</p>
         </item>
         <item>
-            <p>A ssl:ssl_accept/3 could crash a connection if the
+            <p>An ssl:ssl_accept/3 could crash a connection if the
             timing was wrong.</p> <p>Removed info message if the
             socket closed without a proper disconnect from the ssl
             layer. </p> <p>ssl:send/2 is now blocking until the
@@ -770,7 +770,7 @@
         <item>
           <p>
             The new ssl implementation released as a alfa in this
-            version supports upgrading of a tcp connection to a ssl
+            version supports upgrading of a tcp connection to an ssl
             connection so that http client and servers may implement
             RFC 2817.</p>
           <p>
@@ -789,7 +789,7 @@
             very crippled as the control of the ssl-socket was deep
             down in openssl making it hard if not impossible to
             support all inet options, ipv6 and upgrade of a tcp
-            connection to a ssl connection. The alfa version has a
+            connection to an ssl connection. The alfa version has a
             few limitations that will be removed before the ssl-4.0
             release. Main differences and limitations in the alfa are
             listed below.</p>

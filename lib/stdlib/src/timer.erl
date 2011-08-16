@@ -199,7 +199,7 @@ tc(M, F, A) ->
 %% Calculate the time difference (in microseconds) of two
 %% erlang:now() timestamps, T2-T1.
 %%
--spec now_diff(T1, T2) -> Tdiff when
+-spec now_diff(T2, T1) -> Tdiff when
       T1 :: erlang:timestamp(),
       T2 :: erlang:timestamp(),
       Tdiff :: integer().

@@ -87,8 +87,9 @@ dummy_spec(Form) ->
     #tag{name = spec, line = element(2, hd(TypeSpecs)),
          origin = code, data = S}.
 
--spec docs(Forms::[syntaxTree()], CommentFun) -> dict() when
-      CommentFun :: fun(([syntaxTree()], Line :: term()) -> #tag{}).
+-spec docs(Forms::[syntaxTree()],
+           CommentFun :: fun( ([syntaxTree()], Line :: term()) -> #tag{} ))
+          -> dict().
 
 %% @doc Find comments after -type/-opaque declarations.
 %% Postcomments "inside" the type are skipped.

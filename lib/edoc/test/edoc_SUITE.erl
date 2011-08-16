@@ -13,8 +13,6 @@
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
 %% 
-%%     $Id$
-%%
 -module(edoc_SUITE).
 
 -include_lib("test_server/include/test_server.hrl").

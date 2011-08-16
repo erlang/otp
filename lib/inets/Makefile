@@ -36,6 +36,8 @@ SPECIAL_TARGETS =
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_subdir.mk
 
+.PHONY: info gclean
+
 info:
 	@echo "OS:        $(OS)"
 	@echo "DOCB:      $(DOCB)"
@@ -44,3 +46,5 @@ info:
 	@echo "APP_VSN:   $(APP_VSN)"
 	@echo ""
 
+gclean: 
+	git clean -fXd

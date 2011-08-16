@@ -57,7 +57,8 @@ groups() ->
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
-       ticket_6873, ticket_7496, ticket_8156, ticket_8697]},
+       ticket_6873, ticket_7496, ticket_8156, ticket_8697,
+       ticket_9411]},
      {app_test, [], [{xmerl_app_test, all}]},
      {appup_test, [], [{xmerl_appup_test, all}]}].
 
@@ -575,7 +576,17 @@ ticket_8697(Config) ->
     ?line [16#545C] = HexEntityText,
     ok.
 
+ticket_9411(suite) -> [];
+ticket_9411(doc) -> 
+    ["Test that xmerl_scan handles attribute that contains for example &quot"];
+ticket_9411(Config) ->
+    DataDir = ?config(data_dir,Config),
 
+    ?line {ok, Schema} = xmerl_xsd:process_schema(filename:join([DataDir,"misc/ticket_9411.xsd"])),
+    ?line {ok, Bin} = file:read_file(filename:join([DataDir,"misc/ticket_9411.xml"])),
+    ?line Xml = erlang:binary_to_list(Bin),
+    ?line {E, _} = xmerl_scan:string(Xml),
+    ?line {E, _} = xmerl_xsd:validate(E, Schema).
 
 
 

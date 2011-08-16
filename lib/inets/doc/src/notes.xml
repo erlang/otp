@@ -32,6 +32,63 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.7</title>
+
+    <section><title>Improvements and New Features</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpc|httpd] Added support for IPv6 with ssl. </p>
+	  <p>Own Id: OTP-5566</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpc] Remove unnecessary usage of iolist_to_binary when 
+	  processing body (for PUT and POST). </p>
+	  <p>Filipe David Manana</p>
+	  <p>Own Id: OTP-9317</p>
+        </item>
+
+        <item>
+          <p>[ftp] FTP client doesn't work with IPv6 host.</p>
+	  <p>Attila Rajmund Nohl</p>
+          <p>Own Id: OTP-9342 Aux Id: seq11853</p>
+        </item>
+
+        <item>
+          <p>[httpd] Peer/sockname resolv doesn't work with IPv6 addrs 
+	  in HTTP. </p>
+	  <p>Attila Rajmund Nohl.</p>
+	  <p>Own Id: OTP-9343</p>
+        </item>
+
+        <item>
+          <p>[httpc] Clients started stand-alone not properly handled. 
+	  Also it was not documented how to use them, that is that 
+	  once started, they are represented by a <c>pid()</c> and not by 
+	  their <c>profile()</c>. </p>
+	  <p>Own Id: OTP-9365</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.7 -->
+
+
   <section><title>Inets 5.6</title>
 
     <section><title>Improvements and New Features</title>
