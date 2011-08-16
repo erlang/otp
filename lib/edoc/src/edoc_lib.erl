@@ -14,8 +14,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @copyright 2001-2003 Richard Carlsson
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @see edoc
@@ -40,7 +38,7 @@
 -import(edoc_report, [report/2, warning/2]).
 
 -include("edoc.hrl").
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(FILE_BASE, "/").
 
@@ -494,7 +492,7 @@ uri_get_file(File0) ->
 uri_get_http(URI) ->
     %% Try using option full_result=false
     case catch {ok, httpc:request(get, {URI,[]}, [],
-				 [{full_result, false}])} of
+				  [{full_result, false}])} of
 	{'EXIT', _} ->
 	    uri_get_http_r10(URI);
 	Result ->
