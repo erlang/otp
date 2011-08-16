@@ -131,7 +131,7 @@ recv(Pid, Length, Timeout) ->
 	      pid(), tuple(), timeout()) ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 %%
-%% Description: Connect to a ssl server.
+%% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
 connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
     try start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
@@ -145,7 +145,7 @@ connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 				      pid(), tuple(), timeout()) ->
     {ok, #sslsocket{}} | {error, reason()}.
 %%
-%% Description: Performs accept on a ssl listen socket. e.i. performs
+%% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
 %%--------------------------------------------------------------------
 ssl_accept(Port, Socket, Opts, User, CbInfo, Timeout) ->
@@ -185,7 +185,7 @@ socket_control(Socket, Pid, CbModule) ->
 %%--------------------------------------------------------------------
 -spec close(pid()) -> ok | {error, reason()}.  
 %%
-%% Description:  Close a ssl connection
+%% Description:  Close an ssl connection
 %%--------------------------------------------------------------------
 close(ConnectionPid) ->
     case sync_send_all_state_event(ConnectionPid, close) of

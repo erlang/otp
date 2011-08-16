@@ -56,7 +56,7 @@
       <code type="erl">1 server> ssl:start().
 ok</code>
       
-      <p>Create a ssl listen socket</p>
+      <p>Create an ssl listen socket</p>
       <code type="erl">2 server> {ok, ListenSocket} =
 ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
 {ok,{sslsocket, [...]}}</code>
@@ -90,7 +90,7 @@ ok</code>
     <section>
       <title>Upgrade example</title>
       
-      <note><p> To upgrade a TCP/IP connection to a ssl connection the
+      <note><p> To upgrade a TCP/IP connection to an ssl connection the
       client and server have to aggre to do so. Agreement
       may be accompliced by using a protocol such the one used by HTTP
       specified in RFC 2817.</p> </note>
@@ -114,7 +114,7 @@ ok</code>
       <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
       
       <p>Make sure active is set to false before trying
-      to upgrade a connection to a ssl connection, otherwhise
+      to upgrade a connection to an ssl connection, otherwhise
       ssl handshake messages may be deliverd to the wrong process.</p>
       <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
 ok</code>
@@ -124,7 +124,7 @@ ok</code>
 {certfile, "cert.pem"}, {keyfile, "key.pem"}]).
 {ok,{sslsocket,[...]}}</code>
       
-      <p> Upgrade to a ssl connection. Note that the client and server
+      <p> Upgrade to an ssl connection. Note that the client and server
       must agree upon the upgrade and the server must call
       ssl:accept/2 before the client calls ssl:connect/3.</p>
       <code type="erl">3 client>{ok, SSLSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},

@@ -1024,7 +1024,7 @@ static void info_callback(const SSL *ssl, int where, int ret)
     }
 }
 
-/* This function is called whenever a SSL_CTX *ctx structure is
+/* This function is called whenever an SSL_CTX *ctx structure is
  * freed. 
 */
 static void callback_data_free(void *parent, void *ptr, CRYPTO_EX_DATA *ad, 

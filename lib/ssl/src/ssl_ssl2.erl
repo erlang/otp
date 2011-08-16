@@ -20,7 +20,7 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Handles sslv2 hello as clients supporting sslv2 and higher 
-%% will send a sslv2 hello.
+%% will send an sslv2 hello.
 %%----------------------------------------------------------------------
 
 -module(ssl_ssl2).
