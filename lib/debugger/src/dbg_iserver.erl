@@ -114,7 +114,7 @@ init([]) ->
     process_flag(trap_exit, true),
     global:register_name(?MODULE, self()),
     Db = ets:new(?MODULE, [ordered_set, protected]),
-    {ok, #state{db=Db, auto=false, stack=all}}.
+    {ok, #state{db=Db, auto=false, stack=no_tail}}.
 
 %% Attaching to a process
 handle_call({attached, AttPid, Pid}, _From, State) ->
