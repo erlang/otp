@@ -34,7 +34,7 @@
 	 modules/1,
 	 exports/1,
          release/1,
-	 xref/1, xref/0,
+	 xref/1,
          relup/1]).
 
 -define(APP, diameter).
@@ -141,27 +141,41 @@ appvsn(Name) ->
 %% Ensure that no function in our application calls an undefined function.
 %% ===========================================================================
 
-xref() ->
-    [{timetrap, {minutes, 2}}].
-
 xref(Config) ->
-    Mods = fetch(modules, fetch(app, Config)),
-
-    RootDir = code:root_dir(),
-    EbinDir = code:lib_dir(?APP, ebin),
+    App = fetch(app, Config),
+    Mods = fetch(modules, App) -- [diameter_codegen, diameter_dbg],
+    %% Skip modules that aren't required at runtime and that have
+    %% dependencies beyond those applications listed in the app file.
 
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
 
-    XRefName = make_name(xref_name),
-    {ok, XRefName} = xref:add_release(XRef, RootDir, {name, XRefName}),
-    {ok, _} = xref:replace_application(XRef, ?APP, EbinDir),
+    %% Only add our application and those it's dependent on according
+    %% to the app file. Well, almost. erts beams are also required to
+    %% stop xref from complaining about calls to module erlang, which
+    %% was previously in kernel. Erts isn't an application however, in
+    %% the sense that there's no .app file, and isn't listed in
+    %% applications. Seems less than ideal.
+    ok = lists:foreach(fun(A) -> add_application(XRef, A) end,
+                       [?APP, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
 
     xref:stop(XRef),
 
+    %% Only care about calls from our own application.
     [] = lists:filter(fun({{M,_,_},_}) -> lists:member(M, Mods) end, Undefs).
+
+add_application(XRef, App) ->
+    add_application(XRef, App, code:lib_dir(App)).
+
+%% erts will not be in the lib directory before installation.
+add_application(XRef, erts, {error, _}) ->
+    Dir = filename:join([code:root_dir(), "erts", "preloaded", "ebin"]),
+    {ok, _} = xref:add_directory(XRef, Dir, []);
+add_application(XRef, App, Dir)
+  when is_list(Dir) ->
+    {ok, App} = xref:add_application(XRef, Dir, []).
 
 make_name(Suf) ->
     list_to_atom(atom_to_list(?APP) ++ "_" ++ atom_to_list(Suf)).
