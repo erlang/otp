@@ -776,7 +776,7 @@ expand([{command,Command} | Rem], Out, SelfRef, Defs, IncFile, IncDir, Mio, chec
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio, IfCou2, Err2, War2, L+Nl, FN);
 	{{ifndef, false}, Macro, Rem2, Err2, War2, Nl} ->
 	    Out2 = lists:duplicate(Nl,$\n) ++ Out,
-	    Mio2 = update_mio({ifudef, Macro}, Mio),
+	    Mio2 = update_mio({ifndef, Macro}, Mio),
 	    expand(Rem2, Out2, SelfRef, Defs, IncFile, IncDir, Mio2, check_all, Err2, War2, L+Nl, FN);
 
 	{endif, Rem2, Err2, War2, Nl} ->
@@ -2171,20 +2171,20 @@ update_mio({include, FileName}, #mio{included=Inc}=Mio) ->
 update_mio(_, #mio{valid=false, depth=0, cmacro=undefined}=Mio) ->
     Mio;
 
-%% if valid=true, there is no non-whitespace tokens before this ifudef
-update_mio({'ifudef', Macro}, #mio{valid=true, depth=0, cmacro=undefined}=Mio) ->
+%% if valid=true, there is no non-whitespace tokens before this ifndef
+update_mio({'ifndef', Macro}, #mio{valid=true, depth=0, cmacro=undefined}=Mio) ->
     Mio#mio{valid=false, cmacro=Macro, depth=1};
 
-%% detect any tokens before top level #ifudef
+%% detect any tokens before top level #ifndef
 update_mio(_, #mio{valid=true, depth=0, cmacro=undefined}=Mio) ->
     Mio#mio{valid=false};
 
 %% If cmacro is alreay set, this is after the top level #endif
-update_mio({'ifudef', _}, #mio{valid=true, depth=0}=Mio) ->
+update_mio({'ifndef', _}, #mio{valid=true, depth=0}=Mio) ->
     Mio#mio{valid=false, cmacro=undefined};
 
 %% non-top level conditional, just update depth
-update_mio({'ifudef', _}, #mio{depth=D}=Mio) when D > 0 ->
+update_mio({'ifndef', _}, #mio{depth=D}=Mio) when D > 0 ->
     Mio#mio{depth=D+1};
 update_mio('ifdef', #mio{depth=D}=Mio) ->
     Mio#mio{depth=D+1};
@@ -2202,8 +2202,8 @@ update_mio('elif', Mio) ->
     Mio;
 
 %% AT exit to top level, if the controlling macro is not set, this could be the
-%% end of a non-ifudef conditional block, or there were tokens before entering
-%% the #ifudef block. In either way, this invalidates the MIO
+%% end of a non-ifndef conditional block, or there were tokens before entering
+%% the #ifndef block. In either way, this invalidates the MIO
 %%
 %% It doesn't matter if `valid` is true at the time of exiting, it is set to
 %% true.  This will be used to detect if more tokens are following the top
