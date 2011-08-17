@@ -105,7 +105,7 @@ quantity is insignificant.</p>
 <p>
 The tags, their arguments and the contents of each corresponding
 section are as follows.
-Each section can occur only once unless otherwise specified.
+Each section can occur at most once unless otherwise specified.
 The order in which sections are specified is unimportant.</p>
 
 <taglist>
@@ -115,6 +115,7 @@ The order in which sections are specified is unimportant.</p>
 <p>
 Defines the integer Number as the Diameter Application Id of the
 application in question.
+Required if the dictionary defines <c>@messages</c>.
 The section has empty content.</p>
 
 <p>
