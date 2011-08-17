@@ -1174,7 +1174,7 @@ zip_get(Pid) when is_pid(Pid) ->
 zip_close(Pid) when is_pid(Pid) ->
     request(self(), Pid, close).
 
--spec(zip_get(FileName, ZipHandle) -> {ok, [Result]} | {error, Reason} when
+-spec(zip_get(FileName, ZipHandle) -> {ok, Result} | {error, Reason} when
       FileName :: file:name(),
       ZipHandle :: pid(),
       Result :: file:name() | {file:name(), binary()},
@@ -1183,7 +1183,7 @@ zip_close(Pid) when is_pid(Pid) ->
 zip_get(FileName, Pid) when is_pid(Pid) ->
     request(self(), Pid, {get, FileName}).
 
--spec(zip_list_dir(ZipHandle) -> Result | {error, Reason} when
+-spec(zip_list_dir(ZipHandle) -> {ok, Result} | {error, Reason} when
       Result :: [zip_comment() | zip_file()],
       ZipHandle :: pid(),
       Reason :: term()).
