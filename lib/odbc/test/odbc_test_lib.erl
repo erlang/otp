@@ -97,10 +97,13 @@ linux_issue() ->
     string:tokens(binary_to_list(Binary), " ").
 
 is_sles11(IssueTokens) ->
-    lists:member(11, IssueTokens).
+    lists:member("11", IssueTokens).
 
 is_sles10(IssueTokens) ->
-    lists:member(10, IssueTokens).
+    lists:member("10", IssueTokens).
 
 is_sles9(IssueTokens) ->
-    lists:member(9, IssueTokens).
+    lists:member("9", IssueTokens).
+
+is_ubuntu(IssueTokens) ->
+    lists:member("Ubuntu", IssueTokens).
