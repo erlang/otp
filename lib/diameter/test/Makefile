@@ -150,7 +150,6 @@ help:
 	@echo
 	@echo "  b) Run individual suites using targets in this makefile, target"
 	@echo "     xxx running the testcases contained in $(APPLICATION)_xxx_SUITE."
-	@echo "     Note that this requires GNU sed."
 	@echo
 	@echo "Targets:"
 	@echo
@@ -180,7 +179,7 @@ help:
 # Special Targets
 # ----------------------------------------------------
 
-# This assumes GNU sed to exit 1 if the output looks to indicate failure.
+# Exit with a non-zero status if the output looks to indicate failure.
 # diameter_ct:run/1 itself can't tell (it seems).
 $(SUITES): log targets
 	$(ERL) -noshell \
@@ -188,7 +187,8 @@ $(SUITES): log targets
 	        -sname diameter_test_$@ \
 	        -s diameter_ct run $@ \
 	        -s init stop \
-	| sed '/ FAILED /h; p; $$!d; x; /./!d; Q 1'
+	| awk '1{rc=0} {print} / FAILED /{rc=1} END{exit rc}'
+# Shorter in sed but requires a GNU extension (ie. Q).
 
 log:
 	mkdir $@
