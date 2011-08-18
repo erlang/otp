@@ -34,12 +34,12 @@
 %% @type matchfun(). A closure which performs a match given a value, a
 %% pattern and an environment
 %%
-%% @type field() represents a field in a "bin"
+%% @type field(). Represents a field in a "bin".
 
 %%% Part 1: expression evaluation (binary construction)
 
 %% @spec expr_grp(Fields::[field()], Bindings::bindings(), 
-%%                EvalFun::evalfun()) -> 
+%%                EvalFun::evalfun(), term(), term()) ->
 %%                  {value, binary(), bindings()}
 %%
 %% @doc Returns a tuple with {value,Bin,Bs} where Bin is the binary
@@ -192,9 +192,9 @@ bin_gen_field({bin_element,Line,VE,Size0,Options0},
     end.
 
 %%% Part 3: binary pattern matching 
-%% @spec match_bits(Fields::[field()], Bin::binary()
+%% @spec match_bits(Fields::[field()], Bin::binary(),
 %%                  GlobalEnv::bindings(), LocalEnv::bindings(),  
-%%                  MatchFun::matchfun(),EvalFun::evalfun()) -> 
+%%                  MatchFun::matchfun(),EvalFun::evalfun(), term()) ->
 %%                  {match, bindings()} 
 %% @doc Used to perform matching. If the match succeeds a new
 %% environment is returned. If the match have some syntactic or
