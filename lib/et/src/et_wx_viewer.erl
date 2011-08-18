@@ -257,10 +257,10 @@ parse_opt([H | T], S, CollectorOpt) ->
             Actors = [create_actor(Name) || Name <- ActorNames2],
             parse_opt(T, S#state{actors = Actors}, CollectorOpt);
         {include, ActorNames} when is_list(ActorNames) ->
-            Actors = [opt_create_actor(Name, include, S#state.actors) || Name <- ActorNames],
+            Actors = [opt_create_actor(Name, include, S) || Name <- ActorNames],
             parse_opt(T, S#state{actors = Actors}, CollectorOpt);
         {exclude, ActorNames} when is_list(ActorNames) ->
-            Actors = [opt_create_actor(Name, exclude, S#state.actors) || Name <- ActorNames],
+            Actors = [opt_create_actor(Name, exclude, S) || Name <- ActorNames],
             parse_opt(T, S#state{actors = Actors}, CollectorOpt);
         {first_event, _FirstKey} ->
 	    %% NYI
