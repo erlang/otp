@@ -78,10 +78,10 @@ compile(Input0, Output0,
     Input = assure_extension(shorten_filename(Input0), ".xrl"),
     Output = assure_extension(shorten_filename(Output0), ".erl"),
     Includefile = lists:sublist(Includes, 1),
-    Werr = proplists:get_bool(warnings_as_errors, Specific),
+    Werror = proplists:get_bool(warnings_as_errors, Specific),
     Opts = [{scannerfile,Output},{includefile,Includefile},{verbose,Verbose},
             {report_errors,true},{report_warnings,WarnLevel > 0},
-	    {warnings_as_errors, Werr}],
+	    {warnings_as_errors, Werror}],
     case file(Input, Opts) of
         {ok, _} ->
             ok;
@@ -110,7 +110,7 @@ file(File, Opts0) ->
     St = try
              {ok,REAs,Actions,Code,St2} = parse_file(St1),
              {DFA,DF} = make_dfa(REAs, St2),
-             case werr(St2) of
+             case werror(St2) of
                  false ->
                      St3 = out_file(St2, DFA, DF, Actions, Code),
                      case lists:member(dfa_graph, St3#leex.opts) of
@@ -262,9 +262,9 @@ leex_ret(St) ->
     report_warnings(St),
     Es = pack_errors(St#leex.errors),
     Ws = pack_warnings(St#leex.warnings),
-    Werr = werr(St),
+    Werror = werror(St),
     if 
-        Werr ->
+        Werror ->
             do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#leex.opts) of
@@ -281,7 +281,7 @@ do_error_return(St, Es, Ws) ->
         false -> error
     end.
 
-werr(St) ->
+werror(St) ->
     member(warnings_as_errors, St#leex.opts)
         andalso length(St#leex.warnings) > 0.
 
@@ -307,13 +307,13 @@ report_errors(St) ->
              end, report_errors, St#leex.opts).
 
 report_warnings(St) ->
-    Werr = member(warnings_as_errors, St#leex.opts),
-    Prefix = case Werr of
+    Werror = member(warnings_as_errors, St#leex.opts),
+    Prefix = case Werror of
 		 true -> "";
 		 false -> "Warning: "
 	     end,
-    ReportWerr = Werr andalso member(report_errors, St#leex.opts),
-    ShouldReport = member(report_warnings, St#leex.opts) orelse ReportWerr,
+    ReportWerror = Werror andalso member(report_errors, St#leex.opts),
+    ShouldReport = member(report_warnings, St#leex.opts) orelse ReportWerror,
     when_bool(fun () ->
 		      foreach(fun({File,{none,Mod,W}}) ->
 				      io:fwrite("~s: ~s~s\n",
