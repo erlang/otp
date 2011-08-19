@@ -138,10 +138,10 @@ compile(Input0, Output0,
     Input = shorten_filename(Input0),
     Output = shorten_filename(Output0),
     Includefile = lists:sublist(Includes, 1),
-    Werr = proplists:get_bool(warnings_as_errors, Specific),
+    Werror = proplists:get_bool(warnings_as_errors, Specific),
     Opts = [{parserfile,Output}, {includefile,Includefile}, {verbose,Verbose},
             {report_errors, true}, {report_warnings, WarnLevel > 0},
-	    {warnings_as_errors, Werr}],
+	    {warnings_as_errors, Werror}],
     case file(Input, Opts) of
         {ok, _OutFile} ->
             ok;
@@ -414,13 +414,13 @@ infile(Parent, Infilex, Options) ->
              {error, Reason} ->
                  add_error(St0#yecc.infile, none, {file_error, Reason}, St0)
          end,
-    case {St#yecc.errors, werr(St)} of
+    case {St#yecc.errors, werror(St)} of
         {[], false} -> ok;
         _ -> _ = file:delete(St#yecc.outfile)
     end,
     Parent ! {self(), yecc_ret(St)}.
 
-werr(St) ->
+werror(St) ->
     member(warnings_as_errors, St#yecc.options)
         andalso length(St#yecc.warnings) > 0.
 
@@ -786,9 +786,9 @@ yecc_ret(St0) ->
     report_warnings(St),
     Es = pack_errors(St#yecc.errors),
     Ws = pack_warnings(St#yecc.warnings),
-    Werr = werr(St),
+    Werror = werror(St),
     if 
-        Werr ->
+        Werror ->
             do_error_return(St, Es, Ws);
         Es =:= [] -> 
             case member(return_warnings, St#yecc.options) of
@@ -852,13 +852,13 @@ report_errors(St) ->
     end.
 
 report_warnings(St) ->
-    Werr = member(warnings_as_errors, St#yecc.options),
-    Prefix = case Werr of
+    Werror = member(warnings_as_errors, St#yecc.options),
+    Prefix = case Werror of
 		 true -> "";
 		 false -> "Warning: "
 	     end,
-    ReportWerr = Werr andalso member(report_errors, St#yecc.options),
-    case member(report_warnings, St#yecc.options) orelse ReportWerr of
+    ReportWerror = Werror andalso member(report_errors, St#yecc.options),
+    case member(report_warnings, St#yecc.options) orelse ReportWerror of
         true ->
             foreach(fun({File,{none,Mod,W}}) -> 
                             io:fwrite(<<"~s: ~s~s\n">>,
