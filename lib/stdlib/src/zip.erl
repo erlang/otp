@@ -223,7 +223,7 @@ openzip_open(F, Options) ->
 do_openzip_open(F, Options) ->
     Opts = get_openzip_options(Options),
     #openzip_opts{output = Output, open_opts = OpO, cwd = CWD} = Opts,
-    Input = get_zip_input(F),
+    Input = get_input(F),
     In0 = Input({open, F, OpO -- [write]}, []),
     {[#zip_comment{comment = C} | Files], In1} =
 	get_central_dir(In0, fun raw_file_info_etc/5, Input),
@@ -489,7 +489,7 @@ do_list_dir(F, Options) ->
 %% Print zip directory in short form
 
 -spec(t(Archive) -> ok when
-      Archive :: file:name() | binary | ZipHandle,
+      Archive :: file:name() | binary() | ZipHandle,
       ZipHandle :: pid()).
 
 t(F) when is_pid(F) -> zip_t(F);
@@ -513,7 +513,7 @@ do_t(F, RawPrint) ->
 %% Print zip directory in long form (like ls -l)
 
 -spec(tt(Archive) -> ok when
-      Archive :: file:name() | binary | ZipHandle,
+      Archive :: file:name() | binary() | ZipHandle,
       ZipHandle :: pid()).
 
 tt(F) when is_pid(F) -> zip_tt(F);
