@@ -25,7 +25,7 @@
 
     <title>ttb</title>
     <prepared>Siri hansen</prepared>
-    <prepared>Bartłomiej Puzoń</prepared>
+    <prepared>Bartlomiej Puzon</prepared>
     <responsible></responsible>
     <docno>1</docno>
     <approved></approved>
@@ -552,6 +552,9 @@ ttb:p(all, call)</code>
           <c>et_viewer</c>. If <c>FormatHandler</c> is not given, a
           default handler is used which presents each trace message as a
           line of text.
+          </p>
+        <p>The state returned from each call of <c>Function</c> is passed to the next call,
+          even if next call is to format a message from another log file.
           </p>
         <p>If <c>Out</c> is given, <c>FormatHandler</c> gets the
           file descriptor to <c>Out</c> as the first parameter.
