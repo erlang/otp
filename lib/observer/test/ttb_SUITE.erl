@@ -57,7 +57,7 @@ all() ->
     [file, file_no_pi, file_fetch, wrap, wrap_merge,
      wrap_merge_fetch_format, write_config1, write_config2,
      write_config3, history, write_trace_info, seq_trace,
-     diskless, otp_4967_1, otp_4967_2,
+     diskless, diskless_wrap, otp_4967_1, otp_4967_2,
      fetch_when_no_option_given, basic_ttb_run_ip_port, basic_ttb_run_file_port,
      return_fetch_dir_implies_fetch, logfile_name_in_fetch_dir, upload_to_my_logdir,
      upload_to_my_existing_logdir, fetch_with_options_not_as_list,
@@ -684,6 +684,32 @@ diskless(Config) when is_list(Config) ->
 	   end_of_trace] = flush(),
     ok.
 
+diskless_wrap(suite) ->
+    [];
+diskless_wrap(doc) ->
+    ["Start tracing on diskless remote node, save to local wrapped file"];
+diskless_wrap(Config) when is_list(Config) ->
+    ?line {ok,RemoteNode} = ?t:start_node(node2,slave,[]),
+    ?line c:nl(?MODULE),
+    ?line S = self(),
+    ?line Privdir=?config(priv_dir, Config),
+    ?line File = filename:join(Privdir,"diskless"),
+    ?line {ok,[RemoteNode]} =
+	ttb:tracer([RemoteNode],[{file, {local, {wrap,File,200,3}}},
+				 {handler,{fun myhandler/4, S}}]),
+    ?line {ok,[{all,[{matched,RemoteNode,_}]}]} = ttb:p(all,call),
+    ?line {ok,[{matched,RemoteNode,1}]} = ttb:tp(?MODULE,foo,[]),
+
+    ?line rpc:call(RemoteNode,?MODULE,foo,[]),
+    ?line timer:sleep(500), % needed for the IP port to flush
+    ?line ttb:stop([nofetch]),
+    ?line ?t:stop_node(RemoteNode),
+    ?line ok = ttb:format(filename:join(Privdir,
+					atom_to_list(RemoteNode)++"-diskless.*.wrp")),
+
+    ?line [{trace_ts,{_,_,RemoteNode},call,{?MODULE,foo,[]},{_,_,_}},
+	   end_of_trace] = flush(),
+    ok.
 
 otp_4967_1(suite) ->
     [];
