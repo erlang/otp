@@ -1274,14 +1274,8 @@ ip_to_file(Trace,{Port, ShellOutput}) ->
 
 show_trace(Trace, true) ->
     dbg:dhandler(Trace, standard_io);
-show_trace(_Trace, false) ->
-    ok;
-show_trace(Trace, Pid) when is_pid(Pid) ->
-    %%This is only to enable erlide to build trace views in real time.
-    %%Sending trace data to handlers in real time has however
-    %%to be considered an interesting feature and should be
-    %%implemented in a generic way in the future
-    Pid ! {trace, Trace}.
+show_trace(_, _) ->
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% For debugging
