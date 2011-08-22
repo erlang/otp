@@ -48,7 +48,7 @@ is_new(_ClientSuggestion, _ServerDecision) ->
     true.
 
 %%--------------------------------------------------------------------
--spec id({host(), port_num(), #ssl_options{}}, db_handle(), atom(),
+-spec id({host(), inet:port_num(), #ssl_options{}}, db_handle(), atom(),
 	 undefined | binary()) -> binary().
 %%
 %% Description: Should be called by the client side to get an id 
@@ -63,7 +63,7 @@ id(ClientInfo, Cache, CacheCb, OwnCert) ->
     end.
 
 %%--------------------------------------------------------------------
--spec id(port_num(), binary(), #ssl_options{}, db_handle(),
+-spec id(inet:port_num(), binary(), #ssl_options{}, db_handle(),
 	 atom(), seconds(), binary()) -> binary().
 %%
 %% Description: Should be called by the server side to get an id 

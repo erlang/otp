@@ -28,8 +28,7 @@
 -type reply()             :: term().
 -type msg()               :: term().
 -type from()              :: term().
--type host()		  :: string() | tuple().
--type port_num()	  :: integer().
+-type host()		  :: inet:ip_address() | inet:hostname().
 -type session_id()        :: 0 | binary().
 -type tls_version()       :: {integer(), integer()}.
 -type tls_atom_version()  :: sslv3 | tlsv1.
