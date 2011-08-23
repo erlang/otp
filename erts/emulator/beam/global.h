@@ -1126,7 +1126,9 @@ void erts_init_gc(void);
 int erts_garbage_collect(Process*, int, Eterm*, int);
 void erts_garbage_collect_hibernate(Process* p);
 Eterm erts_gc_after_bif_call(Process* p, Eterm result, Eterm* regs, Uint arity);
-void erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size);
+void erts_garbage_collect_literals(Process* p, Eterm* literals,
+				   Uint lit_size,
+				   struct erl_off_heap_header* oh);
 Uint erts_next_heap_size(Uint, Uint);
 Eterm erts_heap_sizes(Process* p);
 

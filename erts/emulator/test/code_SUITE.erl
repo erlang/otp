@@ -24,9 +24,10 @@
 	 t_check_process_code/1,t_check_old_code/1,
 	 t_check_process_code_ets/1,
 	 external_fun/1,get_chunk/1,module_md5/1,make_stub/1,
-	 make_stub_many_funs/1,constant_pools/1,
+	 make_stub_many_funs/1,constant_pools/1,constant_refc_binaries/1,
 	 false_dependency/1,coverage/1,fun_confusion/1]).
 
+-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -35,15 +36,18 @@ all() ->
     [new_binary_types, t_check_process_code,
      t_check_process_code_ets, t_check_old_code, external_fun, get_chunk,
      module_md5, make_stub, make_stub_many_funs,
-     constant_pools, false_dependency, coverage, fun_confusion].
+     constant_pools, constant_refc_binaries, false_dependency,
+     coverage, fun_confusion].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
+    erts_debug:set_internal_state(available_internal_state, true),
     Config.
 
 end_per_suite(_Config) ->
+    catch erts_debug:set_internal_state(available_internal_state, false),
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -473,6 +477,131 @@ create_old_heap() ->
 	    ok;
 	_ ->
 	    create_old_heap()
+    end.
+
+constant_refc_binaries(Config) when is_list(Config) ->
+    wait_for_memory_deallocations(),
+    Bef = memory_binary(),
+    io:format("Binary data (bytes) before test: ~p\n", [Bef]),
+
+    %% Compile the the literals module.
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, "literals"),
+    {ok,literals,Code} = compile:file(File, [report,binary]),
+
+    %% Load the code and make sure that the binary is a refc binary.
+    {module,literals} = erlang:load_module(literals, Code),
+    Bin = literals:binary(),
+    Sz = byte_size(Bin),
+    Check = erlang:md5(Bin),
+    io:format("Size of literal refc binary: ~p\n", [Sz]),
+    {refc_binary,Sz,_,_} = erts_debug:get_internal_state({binary_info,Bin}),
+    true = erlang:delete_module(literals),
+    false = erlang:check_process_code(self(), literals),
+    true = erlang:purge_module(literals),
+
+    %% Now try to provoke a memory leak.
+    provoke_mem_leak(10, Code, Check),
+
+    %% Calculate the change in allocated binary data.
+    erlang:garbage_collect(),
+    wait_for_memory_deallocations(),
+    Aft = memory_binary(),
+    io:format("Binary data (bytes) after test: ~p", [Aft]),
+    Diff = Aft - Bef,
+    if
+	Diff < 0 ->
+	    io:format("~p less bytes", [abs(Diff)]);
+	Diff > 0 ->
+	    io:format("~p more bytes", [Diff]);
+	true ->
+	    ok
+    end,
+
+    %% Test for leaks. We must accept some natural variations in
+    %% the size of allocated binaries.
+    if
+	Diff > 64*1024 ->
+	    ?t:fail(binary_leak);
+	true ->
+	    ok
+    end.
+
+memory_binary() ->
+    try
+	erlang:memory(binary)
+    catch
+	error:notsup ->
+	    0
+    end.
+
+provoke_mem_leak(0, _, _) -> ok;
+provoke_mem_leak(N, Code, Check) ->
+    {module,literals} = erlang:load_module(literals, Code),
+
+    %% Create several processes with references to the literal binary.
+    Self = self(),
+    Pids = [spawn_link(fun() ->
+			       create_binaries(Self, NumRefs, Check)
+		       end) || NumRefs <- lists:seq(1, 10)],
+    [receive {started,Pid} -> ok end || Pid <- Pids],
+
+    %% Make the code old and remove references to the constant pool
+    %% in all processes.
+    true = erlang:delete_module(literals),
+    Ms = [spawn_monitor(fun() ->
+				false = erlang:check_process_code(Pid, literals)
+			end) || Pid <- Pids],
+    [receive
+	 {'DOWN',R,process,P,normal} ->
+	     ok
+     end || {P,R} <- Ms],
+
+    %% Purge the code.
+    true = erlang:purge_module(literals),
+
+    %% Tell the processes that the code has been purged.
+    [begin
+	 monitor(process, Pid),
+	 Pid ! purged
+     end || Pid <- Pids],
+
+    %% Wait for all processes to terminate.
+    [receive
+	 {'DOWN',_,process,Pid,normal} ->
+	     ok
+     end || Pid <- Pids],
+
+    %% We now expect that the binary has been deallocated.
+    provoke_mem_leak(N-1, Code, Check).
+
+create_binaries(Parent, NumRefs, Check) ->
+    Bin = literals:binary(),
+    Bins = lists:duplicate(NumRefs, Bin),
+    {bits,Bits} = literals:bits(),
+    Parent ! {started,self()},
+    receive
+	purged ->
+	    %% The code has been purged. Now make sure that
+	    %% the binaries haven't been corrupted.
+	    Check = erlang:md5(Bin),
+	    [Bin = B || B <- Bins],
+	    <<42:13,Bin/binary>> = Bits,
+
+	    %% Remove all references to the binaries
+	    %% Doing it explicitly like this ensures that
+	    %% the binaries are gone when the parent process
+	    %% receives the 'DOWN' message.
+	    erlang:garbage_collect()
+    end.
+
+wait_for_memory_deallocations() ->
+    try
+	erts_debug:set_internal_state(wait, deallocations)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    wait_for_memory_deallocations()
     end.
 
 %% OTP-7559: c_p->cp could contain garbage and create a false dependency

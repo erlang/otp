@@ -206,6 +206,7 @@ typedef struct {
     Eterm term;			/* The tagged term (in the heap). */
     Uint heap_size;		/* (Exact) size on the heap. */
     Uint offset;		/* Offset from temporary location to final. */
+    ErlOffHeap off_heap;	/* Start of linked list of ProcBins. */
     Eterm* heap;		/* Heap for term. */
 } Literal;
 
@@ -1419,12 +1420,14 @@ read_literal_table(LoaderState* stp)
 
 	GetInt(stp, 4, sz);	/* Size of external term format. */
 	GetString(stp, p, sz);
-	if ((heap_size = erts_decode_ext_size(p, sz, 1)) < 0) {
+	if ((heap_size = erts_decode_ext_size(p, sz, 0)) < 0) {
 	    LoadError1(stp, "literal %d: bad external format", i);
 	}
 	hp = stp->literals[i].heap = erts_alloc(ERTS_ALC_T_LOADER_TMP,
 						heap_size*sizeof(Eterm));
-	val = erts_decode_ext(&hp, NULL, &p);
+	stp->literals[i].off_heap.first = 0;
+	stp->literals[i].off_heap.overhead = 0;
+	val = erts_decode_ext(&hp, &stp->literals[i].off_heap, &p);
 	stp->literals[i].heap_size = hp - stp->literals[i].heap;
 	if (stp->literals[i].heap_size > heap_size) {
 	    erl_exit(1, "overrun by %d word(s) for literal heap, term %d",
@@ -3955,6 +3958,8 @@ freeze_code(LoaderState* stp)
 	Uint* low;
 	Uint* high;
 	LiteralPatch* lp;
+	struct erl_off_heap_header* off_heap = 0;
+	struct erl_off_heap_header** off_heap_last = &off_heap;
 
 	low = (Uint *) (code+stp->ci);
 	high = low + stp->total_literal_size;
@@ -3963,6 +3968,7 @@ freeze_code(LoaderState* stp)
 	ptr = low;
 	for (i = 0; i < stp->num_literals; i++) {
 	    Uint offset;
+	    struct erl_off_heap_header* t_off_heap;
 
 	    sys_memcpy(ptr, stp->literals[i].heap,
 		       stp->literals[i].heap_size*sizeof(Eterm));
@@ -3977,9 +3983,19 @@ freeze_code(LoaderState* stp)
 		    *ptr++ = offset_ptr(val, offset);
 		    break;
 		case TAG_PRIMARY_HEADER:
-		    ptr++;
-		    if (header_is_thing(val)) {
-			ptr += thing_arityval(val);
+		    if (header_is_transparent(val)) {
+			ptr++;
+		    } else {
+			if (thing_subtag(val) == REFC_BINARY_SUBTAG) {
+			    struct erl_off_heap_header* oh;
+
+			    oh = (struct erl_off_heap_header*) ptr;
+			    if (oh->next) {
+				Eterm** uptr = (Eterm **) (void *) &oh->next;
+				*uptr += offset;
+			    }
+			}
+			ptr += 1 + thing_arityval(val);
 		    }
 		    break;
 		default:
@@ -3988,7 +4004,23 @@ freeze_code(LoaderState* stp)
 		}
 	    }
 	    ASSERT(ptr == high);
+
+	    /*
+	     * Re-link the off_heap list for this term onto the
+	     * off_heap list for the entire module.
+	     */
+	    t_off_heap = stp->literals[i].off_heap.first;
+	    if (t_off_heap) {
+		t_off_heap = (struct erl_off_heap_header *)
+		    offset_ptr((UWord) t_off_heap, offset);
+		while (t_off_heap) {
+		    *off_heap_last = t_off_heap;
+		    off_heap_last = &t_off_heap->next;
+		    t_off_heap = t_off_heap->next;
+		}
+	    }
 	}
+	code[MI_LITERALS_OFF_HEAP] = (BeamInstr) off_heap;
 	lp = stp->literal_patches;
 	while (lp != 0) {
 	    BeamInstr* op_ptr;
@@ -4908,6 +4940,8 @@ new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size)
     lit->heap_size = heap_size;
     lit->heap = erts_alloc(ERTS_ALC_T_LOADER_TMP, heap_size*sizeof(Eterm));
     lit->term = make_boxed(lit->heap);
+    lit->off_heap.first = 0;
+    lit->off_heap.overhead = 0;
     *hpp = lit->heap;
     return stp->num_literals++;
 }
@@ -5844,6 +5878,9 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code[MI_COMPILE_SIZE] = 0;
     code[MI_COMPILE_SIZE_ON_HEAP] = 0;
     code[MI_NUM_BREAKPOINTS] = 0;
+    code[MI_LITERALS_START] = 0;
+    code[MI_LITERALS_END] = 0;
+    code[MI_LITERALS_OFF_HEAP] = 0;
     code[MI_ON_LOAD_FUNCTION_PTR] = 0;
     ci = MI_FUNCTIONS + n + 1;
 

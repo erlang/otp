@@ -40,6 +40,7 @@ static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
 static void delete_export_references(Eterm module);
 static int purge_module(int module);
+static void decrement_refc(BeamInstr* code);
 static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
@@ -553,6 +554,7 @@ check_process_code(Process* rp, Module* modp)
 	} else {
 	    Eterm* literals;
 	    Uint lit_size;
+	    struct erl_off_heap_header* oh;
 
 	    /*
 	     * Try to get rid of constants by by garbage collecting.
@@ -566,7 +568,9 @@ check_process_code(Process* rp, Module* modp)
 	    (void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
 	    literals = (Eterm *) modp->old_code[MI_LITERALS_START];
 	    lit_size = (Eterm *) modp->old_code[MI_LITERALS_END] - literals;
-	    erts_garbage_collect_literals(rp, literals, lit_size);
+	    oh = (struct erl_off_heap_header *)
+		modp->old_code[MI_LITERALS_OFF_HEAP];
+	    erts_garbage_collect_literals(rp, literals, lit_size, oh);
 	}
     }
     return am_false;
@@ -664,12 +668,30 @@ purge_module(int module)
     end = (BeamInstr *)((char *)code + modp->old_code_length);
     erts_cleanup_funs_on_purge(code, end);
     beam_catches_delmod(modp->old_catches, code, modp->old_code_length);
+    decrement_refc(code);
     erts_free(ERTS_ALC_T_CODE, (void *) code);
     modp->old_code = NULL;
     modp->old_code_length = 0;
     modp->old_catches = BEAM_CATCHES_NIL;
     remove_from_address_table(code);
     return 0;
+}
+
+static void
+decrement_refc(BeamInstr* code)
+{
+    struct erl_off_heap_header* oh =
+	(struct erl_off_heap_header *) code[MI_LITERALS_OFF_HEAP];
+
+    while (oh) {
+	Binary* bptr;
+	ASSERT(thing_subtag(oh->thing_word) == REFC_BINARY_SUBTAG);
+	bptr = ((ProcBin*)oh)->val;
+	if (erts_refc_dectest(&bptr->refc, 0) == 0) {
+	    erts_bin_free(bptr);
+	}
+	oh = oh->next;
+    }
 }
 
 static void

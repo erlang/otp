@@ -595,7 +595,9 @@ erts_garbage_collect_hibernate(Process* p)
 
 
 void
-erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
+erts_garbage_collect_literals(Process* p, Eterm* literals,
+			      Uint lit_size,
+			      struct erl_off_heap_header* oh)
 {
     Uint byte_lit_size = sizeof(Eterm)*lit_size;
     Uint old_heap_size;
@@ -607,6 +609,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
     Uint area_size;
     Eterm* old_htop;
     Uint n;
+    struct erl_off_heap_header** prev;
 
     /*
      * Set GC state.
@@ -640,6 +643,9 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
     offset_heap(temp_lit, lit_size, offs, (char *) literals, byte_lit_size);
     offset_heap(p->heap, p->htop - p->heap, offs, (char *) literals, byte_lit_size);
     offset_rootset(p, offs, (char *) literals, byte_lit_size, p->arg_reg, p->arity);
+    if (oh) {
+	oh = (struct erl_off_heap_header *) ((Eterm *)(void *) oh + offs);
+    }
 
     /*
      * Now the literals are placed in memory that is safe to write into,
@@ -705,6 +711,45 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
     old_htop = sweep_one_area(p->old_heap, old_htop, area, area_size);
     ASSERT(p->old_htop <= old_htop && old_htop <= p->old_hend);
     p->old_htop = old_htop;
+
+    /*
+     * Prepare to sweep binaries. Since all MSOs on the new heap
+     * must be come before MSOs on the old heap, find the end of
+     * current MSO list and use that as a starting point.
+     */
+
+    if (oh) {
+	prev = &MSO(p).first;
+	while (*prev) {
+	    prev = &(*prev)->next;
+	}
+    }
+
+    /*
+     * Sweep through all binaries in the temporary literal area.
+     */
+
+    while (oh) {
+	if (IS_MOVED_BOXED(oh->thing_word)) {
+	    Binary* bptr;
+	    struct erl_off_heap_header* ptr;
+
+	    ptr = (struct erl_off_heap_header*) boxed_val(oh->thing_word);
+	    ASSERT(thing_subtag(ptr->thing_word) == REFC_BINARY_SUBTAG);
+	    bptr = ((ProcBin*)ptr)->val;
+
+	    /*
+	     * This binary has been copied to the heap.
+	     * We must increment its reference count and
+	     * link it into the MSO list for the process.
+	     */
+
+	    erts_refc_inc(&bptr->refc, 1);
+	    *prev = ptr;
+	    prev = &ptr->next;
+	}
+	oh = oh->next;
+    }
 
     /*
      * We no longer need this temporary area.
