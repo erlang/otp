@@ -404,7 +404,7 @@ make_stub_many_funs(Config) when is_list(Config) ->
 constant_pools(Config) when is_list(Config) ->
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "literals"),
-    ?line {ok,literals,Code} = compile:file(File, [report,binary,constant_pool]),
+    ?line {ok,literals,Code} = compile:file(File, [report,binary]),
     ?line {module,literals} = erlang:load_module(literals,
 						 make_sub_binary(Code)),
 
