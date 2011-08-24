@@ -124,4 +124,4 @@ release_tests_spec: opt
 	@tar cfh - xmerl_xsd_MS2002-01-16_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 	@tar cfh - xmerl_xsd_NIST2002-01-16_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 	@tar cfh - xmerl_xsd_Sun2002-01-16_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)

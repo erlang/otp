@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -130,9 +130,9 @@ start_channel(Host, Port, Opts) ->
     end.
 
 stop_channel(Pid) ->
-    case process_info(Pid, [trap_exit]) of
-	[{trap_exit, Bool}] ->
-	    process_flag(trap_exit, true),
+    case is_process_alive(Pid) of
+	true ->
+	    OldValue = process_flag(trap_exit, true),
 	    link(Pid),
 	    exit(Pid, ssh_sftp_stop_channel),
 	    receive 
@@ -145,9 +145,9 @@ stop_channel(Pid) ->
 			    ok
 		    end
 	    end,
-	    process_flag(trap_exit, Bool),
+	    process_flag(trap_exit, OldValue),
 	    ok;
-	undefined ->
+	false ->
 	    ok
     end.
 

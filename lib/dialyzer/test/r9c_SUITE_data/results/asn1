@@ -2,7 +2,7 @@
 asn1ct.erl:1500: The variable Err can never match since previous clauses completely covered the type #type{}
 asn1ct.erl:1596: The variable _ can never match since previous clauses completely covered the type 'ber_bin_v2'
 asn1ct.erl:1673: The pattern 'all' can never match the type 'asn1_module' | 'exclusive_decode' | 'partial_decode'
-asn1ct.erl:672: The pattern <{'false', Result}, _, _> can never match the type <{'true','true'},atom() | binary() | [atom() | binary() | [atom() | binary() | [any()] | char()] | char()],[any()]>
+asn1ct.erl:672: The pattern <{'false', Result}, _, _> can never match the type <{'true','true'},atom() | binary() | [atom() | [any()] | char()],[any()]>
 asn1ct.erl:909: Guard test is_atom(Ext::[49 | 97 | 98 | 100 | 110 | 115]) can never succeed
 asn1ct_check.erl:1698: The pattern {'error', _} can never match the type [any()]
 asn1ct_check.erl:2733: The pattern {'type', Tag, _, _, _, _} can never match the type 'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}

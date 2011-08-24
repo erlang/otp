@@ -26,7 +26,22 @@
 
 %-------------------------------------------------------------------------
 connection_string() ->
-    "DSN=MySQL;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';".
+    case test_server:os_type() of
+	{unix, linux} ->
+	    "DSN=MySQL;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';";
+	{unix, sunos} ->
+	    solaris_str();
+	{unix, darwin} ->
+	    "DSN=MySQLMac;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';"
+    end.
+
+solaris_str() ->
+    case erlang:system_info(system_architecture) of
+	"sparc" ++ _ ->
+	    "DSN=MySQLSolaris10;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';";
+	"i386" ++ _ ->
+	    "DSN=MySQLSolaris10i386;Database=odbctest;Uid=odbctest;Pwd=gurka;CHARSET=utf8;SSTMT=SET NAMES 'utf8';"
+    end.
 
 %-------------------------------------------------------------------------
 insert_result() ->

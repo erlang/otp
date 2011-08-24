@@ -155,23 +155,23 @@ release_spec:
 
 release_tests_spec: clean opt
 	$(INSTALL_DIR)  $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	$(INSTALL_DIR)  $(RELSYSDIR)/agent
-	chmod -f -R u+w $(RELSYSDIR)/agent
+	chmod -R u+w $(RELSYSDIR)/agent
 	$(INSTALL_DIR)  $(RELSYSDIR)/agent/conf
-	chmod -f -R u+w $(RELSYSDIR)/agent/conf
+	chmod -R u+w $(RELSYSDIR)/agent/conf
 	$(INSTALL_DIR)  $(RELSYSDIR)/agent/db
-	chmod -f -R u+w $(RELSYSDIR)/agent/db
+	chmod -R u+w $(RELSYSDIR)/agent/db
 	$(INSTALL_DIR)  $(RELSYSDIR)/agent/log
-	chmod -f -R u+w $(RELSYSDIR)/agent/log
+	chmod -R u+w $(RELSYSDIR)/agent/log
 	$(INSTALL_DIR)  $(RELSYSDIR)/manager
-	chmod -f -R u+w $(RELSYSDIR)/manager
+	chmod -R u+w $(RELSYSDIR)/manager
 	$(INSTALL_DIR)  $(RELSYSDIR)/manager/conf
-	chmod -f -R u+w $(RELSYSDIR)/manager/conf
+	chmod -R u+w $(RELSYSDIR)/manager/conf
 	$(INSTALL_DIR)  $(RELSYSDIR)/manager/db
-	chmod -f -R u+w $(RELSYSDIR)/manager/db
+	chmod -R u+w $(RELSYSDIR)/manager/db
 	$(INSTALL_DIR)  $(RELSYSDIR)/manager/log
-	chmod -f -R u+w $(RELSYSDIR)/manager/log
+	chmod -R u+w $(RELSYSDIR)/manager/log
 	$(INSTALL_DATA) $(SYS_CONFIG_FILES)     $(RELSYSDIR)
 	$(INSTALL_DATA) $(AGENT_CONFIG_FILES)   $(RELSYSDIR)/agent/conf
 	$(INSTALL_DATA) $(MANAGER_CONFIG_FILES) $(RELSYSDIR)/manager/conf

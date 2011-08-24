@@ -66,7 +66,7 @@ release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/examples/src
 	$(INSTALL_DIR) $(RELSYSDIR)/examples/ebin
 	(cd ..; tar cf - src ebin  | (cd $(RELSYSDIR)/examples; tar xf -))
-	chmod -f -R ug+w $(RELSYSDIR)/examples
+	chmod -R ug+w $(RELSYSDIR)/examples
 
 release_docs_spec:
 

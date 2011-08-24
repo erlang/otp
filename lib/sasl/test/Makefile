@@ -86,7 +86,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) sasl.spec sasl.cover $(EMAKEFILE) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	@tar cfh - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:
