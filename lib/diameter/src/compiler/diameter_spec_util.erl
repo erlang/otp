@@ -39,11 +39,11 @@ parse(Path, Options) ->
     {ok, B} = file:read_file(Path),
     Chunks = chunk(B),
     Spec = make_spec(Chunks),
-    true = enums_defined(Spec),   %% sanity checks
-    true = groups_defined(Spec),  %%
+    true = groups_defined(Spec),  %% sanity checks
     true = customs_defined(Spec), %%
     Full = import_enums(import_groups(import_avps(insert_codes(Spec),
                                                   Options))),
+    true = enums_defined(Full),   %% sanity checks
     true = v_flags_set(Spec),
     Full.
 
@@ -243,35 +243,48 @@ get_value(Key, Spec) ->
 %% with an appropriate type.
 
 enums_defined(Spec) ->
-    is_defined(Spec, 'Enumerated', enums).
-
-groups_defined(Spec) ->
-    is_defined(Spec, 'Grouped', grouped).
-
-is_defined(Spec, Type, Key) ->
     Avps = get_value(avp_types, Spec),
-    lists:all(fun(T) -> true = is_local(name(Key, T), Type, Avps) end,
-              get_value(Key, Spec)).
+    Import = get_value(import_enums, Spec),
+    lists:all(fun({N,_}) ->
+                      true = enum_defined(N, Avps, Import)
+              end,
+              get_value(enums, Spec)).
 
-name(enums,   {N,_})     -> N;
-name(grouped, {N,_,_,_}) -> N.
-
-is_local(Name, Type, Avps) ->
+enum_defined(Name, Avps, Import) ->
     case lists:keyfind(Name, 1, Avps) of
-        {Name, _, Type, _, _} ->
+        {Name, _, 'Enumerated', _, _} ->
             true;
         {Name, _, T, _, _} ->
-            ?ERROR({avp_has_wrong_type, Name, Type, T});
+            ?ERROR({avp_has_wrong_type, Name, 'Enumerated', T});
         false ->
-            ?ERROR({avp_not_defined, Name, Type})
+            lists:any(fun({_,Is}) -> lists:keymember(Name, 1, Is) end, Import)
+                orelse ?ERROR({avp_not_defined, Name, 'Enumerated'})
+    end.
+%% Note that an AVP is imported only if referenced by a message or
+%% grouped AVP, so the final branch will fail if an enum definition is
+%% extended without this being the case.
+
+groups_defined(Spec) ->
+    Avps = get_value(avp_types, Spec),
+    lists:all(fun({N,_,_,_}) -> true = group_defined(N, Avps) end,
+              get_value(grouped, Spec)).
+
+group_defined(Name, Avps) ->
+    case lists:keyfind(Name, 1, Avps) of
+        {Name, _, 'Grouped', _, _} ->
+            true;
+        {Name, _, T, _, _} ->
+            ?ERROR({avp_has_wrong_type, Name, 'Grouped', T});
+        false ->
+            ?ERROR({avp_not_defined, Name, 'Grouped'})
     end.
 
 customs_defined(Spec) ->
     Avps = get_value(avp_types, Spec),
-    lists:all(fun(A) -> true = is_local(A, Avps) end,
+    lists:all(fun(A) -> true = custom_defined(A, Avps) end,
               lists:flatmap(fun last/1, get_value(custom_types, Spec))).
 
-is_local(Name, Avps) ->
+custom_defined(Name, Avps) ->
     case lists:keyfind(Name, 1, Avps) of
         {Name, _, T, _, _} when T == 'Grouped';
                                 T == 'Enumerated' ->
@@ -510,6 +523,9 @@ choose(false, _, X) -> X.
 %% ------------------------------------------------------------------------
 %% import_groups/1
 %% import_enums/1
+%%
+%% For each inherited module, store the content of imported AVP's of
+%% type grouped/enumerated in a new key.
 
 import_groups(Spec) ->
     orddict:store(import_groups, import(grouped, Spec), Spec).
