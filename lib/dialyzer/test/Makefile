@@ -26,7 +26,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_tests_spec:
 	$(INSTALL_DIR) $(RELSYSDIR)
-	chmod -f -R u+w $(RELSYSDIR)
+	chmod -R u+w $(RELSYSDIR)
 	$(INSTALL_DATA) $(AUXILIARY_FILES) $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 	cd $(RELSYSDIR);\
