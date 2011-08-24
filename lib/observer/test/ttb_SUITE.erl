@@ -71,7 +71,11 @@ all() ->
      only_one_state_for_format_handler, only_one_state_with_default_format_handler,
      only_one_state_with_initial_format_handler, run_trace_with_shortcut1,
      run_trace_with_shortcut2, run_trace_with_shortcut3, run_trace_with_shortcut4,
-     cant_specify_local_and_flush, trace_sorted_by_default,disable_sorting].
+     cant_specify_local_and_flush, trace_sorted_by_default,disable_sorting,
+     trace_resumed_after_node_restart, trace_resumed_after_node_restart_ip,
+     trace_resumed_after_node_restart_wrap,
+     trace_resumed_after_node_restart_wrap_mult
+].
 
 groups() -> 
     [].
@@ -1027,7 +1031,7 @@ format_on_trace_stop(doc) ->
 format_on_trace_stop(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
-    ?line ttb_helper:msgs(2),
+    ?line ttb_helper:msgs_ip(2),
     ?line file:delete("HANDLER_OK"),
     ?line {_,_} = ttb:stop([fetch, return_fetch_dir, {format, {handler, marking_call_handler()}}]),
     ?line ?t:stop_node(ServerNode),
@@ -1109,9 +1113,9 @@ changing_cwd_on_control_node_with_local_trace(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
     ?line NumMsgs = 3,
-    ?line ttb_helper:msgs(NumMsgs),
+    ?line ttb_helper:msgs_ip(NumMsgs),
     ?line ok = file:set_cwd(".."),
-    ?line ttb_helper:msgs(NumMsgs),
+    ?line ttb_helper:msgs_ip(NumMsgs),
     ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(?OUTPUT),
@@ -1350,3 +1354,77 @@ disable_sorting(Config) when is_list(Config) ->
     ?line ttb:format(D, [{out, ?OUTPUT}, {handler, node_call_handler()}, {disable_sort, true}]),
     {ok, Ret} = file:consult(?OUTPUT),
     ?line [ClientNode,ClientNode,ServerNode,ServerNode,ServerNode] = Ret.
+
+%% -----------------------------------------------------------------------------
+%% tests for autoresume of tracing
+%% -----------------------------------------------------------------------------
+
+trace_resumed_after_node_restart(suite) ->
+    [];
+trace_resumed_after_node_restart(doc) ->
+    ["Test trace resumed after node restart, trace to files on remote node."];
+trace_resumed_after_node_restart(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_with_resume(ServerNode, ClientNode, ?FNAME),
+    ?line logic(2,6,file).
+
+trace_resumed_after_node_restart_ip(suite) ->
+    [];
+trace_resumed_after_node_restart_ip(doc) ->
+    ["Test trace resumed after node restart, trace via tcp/ip to local node."];
+trace_resumed_after_node_restart_ip(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_with_resume(ServerNode, ClientNode, {local, ?FNAME}),
+    ?line logic(2,6,local).
+
+trace_resumed_after_node_restart_wrap(suite) ->
+    [];
+trace_resumed_after_node_restart_wrap(doc) ->
+    ["Test trace resumed after node restart, wrap option."];
+trace_resumed_after_node_restart_wrap(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_with_resume(ServerNode, ClientNode, {wrap, ?FNAME, 10, 4}),
+    ?line logic(1,4,file).
+
+trace_resumed_after_node_restart_wrap_mult(suite) ->
+    [];
+trace_resumed_after_node_restart_wrap_mult(doc) ->
+    ["Test trace resumed after node restart, wrap option, multiple files."];
+trace_resumed_after_node_restart_wrap_mult(Config) when is_list(Config) ->
+    ?line {ServerNode, ClientNode} = start_client_and_server(),
+    ?line begin_trace_with_resume(ServerNode, ClientNode, {wrap, ?FNAME, 10, 4}),
+    ?line logic(20,8,file).
+
+logic(N, M, TracingType) ->
+    helper_msgs(N, TracingType),
+    ?t:stop_node(ttb_helper:get_node(client)),
+    timer:sleep(2500),
+    ?line {ok,ClientNode} = ?t:start_node(client,slave,[]),
+    ?line ok = ttb_helper:c(code, add_paths, [code:get_path()]),
+    ?line ttb_helper:c(client, init, []),
+    ?line helper_msgs(N, TracingType),
+    ?line {_, D} = ttb:stop([return_fetch_dir]),
+    ?line ?t:stop_node(ttb_helper:get_node(server)),
+    ?line ?t:stop_node(ClientNode),
+    ?line ttb:format(D, [{out, ?OUTPUT}, {handler, ret_caller_call_handler2()}]),
+    ?line {ok, Ret} = file:consult(?OUTPUT),
+    ?line M = length(Ret).
+
+begin_trace_with_resume(ServerNode, ClientNode, Dest) ->
+    ?line {ok, _} = ttb:tracer([ServerNode,ClientNode], [{file, Dest}, resume]),
+    ?line ttb:p(all, [call, timestamp]),
+    ?line ttb:tp(server, received, []),
+    ?line ttb:tp(client, put, []),
+    ?line ttb:tp(client, get, []).
+
+ret_caller_call_handler2() ->
+    {fun(A, {trace_ts, _, call, _, _} ,_,_) -> io:format(A, "ok.~n", []);
+	(_, _, _, _) -> ok end, []}.
+
+helper_msgs(N, TracingType) ->
+    case TracingType of
+        local ->
+            ttb_helper:msgs_ip(N);
+        _ ->
+            ttb_helper:msgs(N)
+    end.

@@ -11,7 +11,7 @@
 
 -define(NODE_CMD(Name),
 	"erl -sname " ++ atom_to_list(Name) ++
-	" -pa .. -pa . -detached -run h send_ok").
+	" -pa .. -pa . -detached -run ttb_helper send_ok").
 -define(REG_NAME, nc_testing).
 
 new_fun() ->
