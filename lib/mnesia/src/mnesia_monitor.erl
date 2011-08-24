@@ -76,7 +76,7 @@
 
 -include("mnesia.hrl").
 
--record(state, {supervisor, pending_negotiators = [], 
+-record(state, {supervisor, pending_negotiators = [],
 		going_down = [], tm_started = false, early_connects = [],
 		connecting, mq = []}).
 
@@ -151,12 +151,12 @@ check_protocol([{Node, {accept, Mon, Version, Protocol}} | Tail], Protocols) ->
     case lists:member(Protocol, Protocols) of
 	true ->
 	    case Protocol == protocol_version() of
-		true -> 
+		true ->
 		    set({protocol, Node}, {Protocol, false});
 		false ->
 		    set({protocol, Node}, {Protocol, true})
 	    end,
-	    [node(Mon) | check_protocol(Tail, Protocols)]; 
+	    [node(Mon) | check_protocol(Tail, Protocols)];
 	false  ->
 	    verbose("Failed to connect with ~p. ~p protocols rejected. "
 		    "expected version = ~p, expected protocol = ~p~n",
@@ -179,7 +179,7 @@ check_protocol([], [Protocol | _Protocols]) ->
     set(protocol_version, Protocol),
     [].
 
-protocol_version() -> 
+protocol_version() ->
     case ?catch_val(protocol_version) of
 	{'EXIT', _} -> ?current_protocol_version;
 	Version -> Version
@@ -189,14 +189,14 @@ protocol_version() ->
 %% preferred protocols are first in the list
 acceptable_protocol_versions() ->
     [protocol_version(), ?previous_protocol_version].
-    
+
 needs_protocol_conversion(Node) ->
     case {?catch_val({protocol, Node}), protocol_version()} of
 	{{'EXIT', _}, _} ->
 	    false;
-	{{_, Bool}, ?current_protocol_version} -> 
+	{{_, Bool}, ?current_protocol_version} ->
 	    Bool;
-	{{_, Bool}, _} -> 
+	{{_, Bool}, _} ->
 	    not Bool
     end.
 
@@ -255,15 +255,15 @@ terminate_proc(Who, Reason, _State) ->
 %%----------------------------------------------------------------------
 init([Parent]) ->
     process_flag(trap_exit, true),
-    ?ets_new_table(mnesia_gvar, [set, public, named_table]), 
-    ?ets_new_table(mnesia_stats, [set, public, named_table]), 
+    ?ets_new_table(mnesia_gvar, [set, public, named_table]),
+    ?ets_new_table(mnesia_stats, [set, public, named_table]),
     set(subscribers, []),
     set(activity_subscribers, []),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
     Version = mnesia:system_info(version),
     set(version, Version),
     dbg_out("Version: ~p~n", [Version]),
-    
+
     case catch process_config_args(env()) of
 	ok ->
 	    mnesia_lib:set({'$$$_report', current_pos}, 0),
@@ -283,7 +283,7 @@ init([Parent]) ->
 	    set(checkpoints, []),
 	    set(pending_checkpoints, []),
 	    set(pending_checkpoint_pids, []),
-	    
+
 	    {ok, #state{supervisor = Parent}};
 	{'EXIT', Reason} ->
 	    mnesia_lib:report_fatal("Bad configuration: ~p~n", [Reason]),
@@ -398,9 +398,9 @@ handle_call({unsafe_close_log, Name}, _From, State) ->
     disk_log:close(Name),
     {reply, ok, State};
 
-handle_call({negotiate_protocol, Mon, _Version, _Protocols}, _From, State) 
+handle_call({negotiate_protocol, Mon, _Version, _Protocols}, _From, State)
   when State#state.tm_started == false ->
-    State2 =  State#state{early_connects = [node(Mon) | State#state.early_connects]},    
+    State2 =  State#state{early_connects = [node(Mon) | State#state.early_connects]},
     {reply, {node(), {reject, self(), uninitialized, uninitialized}}, State2};
 
 %% From remote monitor..
@@ -412,7 +412,7 @@ handle_call({negotiate_protocol, Mon, Version, Protocols}, From, State)
 	true ->
 	    accept_protocol(Mon, MyVersion, Protocol, From, State);
 	false ->
-	    %% in this release we should be able to handle the previous 
+	    %% in this release we should be able to handle the previous
 	    %% protocol
 	    case hd(Protocols) of
 		?previous_protocol_version ->
@@ -427,7 +427,7 @@ handle_call({negotiate_protocol, Mon, Version, Protocols}, From, State)
     end;
 
 %% Local request to negotiate with other monitors (nodes).
-handle_call({negotiate_protocol, Nodes}, From, State) ->    
+handle_call({negotiate_protocol, Nodes}, From, State) ->
     case mnesia_lib:intersect(State#state.going_down, Nodes) of
 	[] ->
 	    spawn_link(?MODULE, negotiate_protocol_impl, [Nodes, From]),
@@ -461,7 +461,7 @@ accept_protocol(Mon, Version, Protocol, From, State) ->
 	    %% No need for wait
 	    link(Mon),  %% link to remote Monitor
 	    case Protocol == protocol_version() of
-		true -> 
+		true ->
 		    set({protocol, Node}, {Protocol, false});
 		false ->
 		    set({protocol, Node}, {Protocol, true})
@@ -509,7 +509,7 @@ handle_cast({disconnect, Node}, State) ->
 	    ignore;
 	undefined ->
 	    ignore;
-	RemoteMon when is_pid(RemoteMon) -> 
+	RemoteMon when is_pid(RemoteMon) ->
 	    unlink(RemoteMon)
     end,
     {noreply, State};
@@ -534,7 +534,7 @@ handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
     dbg_out("~p was ~p by supervisor~n",[?MODULE, R]),
     {stop, R, State};
 
-handle_info({'EXIT', Pid, fatal}, State) when node(Pid) == node() -> 
+handle_info({'EXIT', Pid, fatal}, State) when node(Pid) == node() ->
     dbg_out("~p got FATAL ERROR from: ~p~n",[?MODULE, Pid]),
     exit(State#state.supervisor, shutdown),
     {noreply, State};
@@ -550,7 +550,7 @@ handle_info(Msg = {'EXIT',Pid,_}, State) ->
 	Node /= node() ->
 	    {noreply, State#state{mq = State#state.mq ++ [{info, Msg}]}};
 	true ->
-	    %% We have probably got an exit signal from 
+	    %% We have probably got an exit signal from
 	    %% disk_log or dets
 	    Hint = "Hint: check that the disk still is writable",
 	    fatal("~p got unexpected info: ~p; ~p~n",
@@ -567,10 +567,10 @@ handle_info({nodeup, Node}, State) ->
     %% Let's check if Mnesia is running there in order
     %% to detect if the network has been partitioned
     %% due to communication failure.
-    
+
     HasDown   = mnesia_recover:has_mnesia_down(Node),
     ImRunning = mnesia_lib:is_running(),
-    
+
     if
 	%% If I'm not running the test will be made later.
 	HasDown == true, ImRunning == yes ->
@@ -589,7 +589,7 @@ handle_info({disk_log, _Node, Log, Info}, State) ->
 	{truncated, _No} ->
 	    ok;
 	_ ->
-	    mnesia_lib:important("Warning Log file ~p error reason ~s~n", 
+	    mnesia_lib:important("Warning Log file ~p error reason ~s~n",
 				 [Log, disk_log:format_error(Info)])
     end,
     {noreply, State};
@@ -681,38 +681,38 @@ env() ->
      send_compressed
     ].
 
-default_env(access_module) -> 
+default_env(access_module) ->
     mnesia;
-default_env(auto_repair) -> 
+default_env(auto_repair) ->
     true;
-default_env(backup_module) -> 
+default_env(backup_module) ->
     mnesia_backup;
-default_env(debug) -> 
+default_env(debug) ->
     none;
 default_env(dir) ->
     Name = lists:concat(["Mnesia.", node()]),
     filename:absname(Name);
-default_env(dump_log_load_regulation) -> 
+default_env(dump_log_load_regulation) ->
     false;
-default_env(dump_log_time_threshold) -> 
+default_env(dump_log_time_threshold) ->
     timer:minutes(3);
-default_env(dump_log_update_in_place) -> 
+default_env(dump_log_update_in_place) ->
     true;
 default_env(dump_log_write_threshold) ->
     1000;
-default_env(embedded_mnemosyne) -> 
+default_env(embedded_mnemosyne) ->
     false;
-default_env(event_module) -> 
+default_env(event_module) ->
     mnesia_event;
-default_env(extra_db_nodes) -> 
+default_env(extra_db_nodes) ->
     [];
-default_env(ignore_fallback_at_startup) -> 
+default_env(ignore_fallback_at_startup) ->
     false;
 default_env(fallback_error_function) ->
     {mnesia, lkill};
-default_env(max_wait_for_decision) -> 
+default_env(max_wait_for_decision) ->
     infinity;
-default_env(schema_location) -> 
+default_env(schema_location) ->
     opt_disc;
 default_env(core_dir) ->
     false;
@@ -732,7 +732,7 @@ check_type(Env, Val) ->
 	NewVal ->
 	    NewVal
     end.
-				      
+
 do_check_type(access_module, A) when is_atom(A) -> A;
 do_check_type(auto_repair, B) -> bool(B);
 do_check_type(backup_module, B) when is_atom(B) -> B;
@@ -749,7 +749,7 @@ do_check_type(dump_log_update_in_place, B) -> bool(B);
 do_check_type(dump_log_write_threshold, I) when is_integer(I), I > 0 -> I;
 do_check_type(event_module, A) when is_atom(A) -> A;
 do_check_type(ignore_fallback_at_startup, B) -> bool(B);
-do_check_type(fallback_error_function, {Mod, Func}) 
+do_check_type(fallback_error_function, {Mod, Func})
   when is_atom(Mod), is_atom(Func) -> {Mod, Func};
 do_check_type(embedded_mnemosyne, B) -> bool(B);
 do_check_type(extra_db_nodes, L) when is_list(L) ->
@@ -804,8 +804,8 @@ detect_inconcistency(Nodes, Context) ->
 has_remote_mnesia_down(Node) ->
     HasDown = mnesia_recover:has_mnesia_down(Node),
     Master  = mnesia_recover:get_master_nodes(schema),
-    if 
-	HasDown == true, Master == [] -> 
+    if
+	HasDown == true, Master == [] ->
 	    {true, node()};
 	true ->
 	    {false, node()}
