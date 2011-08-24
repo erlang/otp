@@ -175,10 +175,10 @@ void *erts_dist_ext_trailer(ErtsDistExternal *);
 void erts_destroy_dist_ext_copy(ErtsDistExternal *);
 int erts_prepare_dist_ext(ErtsDistExternal *, byte *, Uint,
 			  DistEntry *, ErtsAtomCache *);
-Sint erts_decode_dist_ext_size(ErtsDistExternal *, int);
+Sint erts_decode_dist_ext_size(ErtsDistExternal *);
 Eterm erts_decode_dist_ext(Eterm **, ErlOffHeap *, ErtsDistExternal *);
 
-Sint erts_decode_ext_size(byte*, Uint, int);
+Sint erts_decode_ext_size(byte*, Uint);
 Sint erts_decode_ext_size_ets(byte*, Uint);
 Eterm erts_decode_ext(Eterm **, ErlOffHeap *, byte**);
 Eterm erts_decode_ext_ets(Eterm **, ErlOffHeap *, byte*);

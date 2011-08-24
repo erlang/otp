@@ -240,7 +240,7 @@ erts_msg_distext2heap(Process *pp,
     Sint sz;
 
     *bpp = NULL;
-    sz = erts_decode_dist_ext_size(dist_extp, 0);
+    sz = erts_decode_dist_ext_size(dist_extp);
     if (sz < 0)
 	goto decode_error;
     if (is_not_nil(*tokenp)) {
@@ -713,7 +713,7 @@ erts_msg_attached_data_size_aux(ErlMessage *msg)
     ASSERT(msg->data.dist_ext);
     ASSERT(msg->data.dist_ext->heap_size < 0);
 
-    sz = erts_decode_dist_ext_size(msg->data.dist_ext, 0);
+    sz = erts_decode_dist_ext_size(msg->data.dist_ext);
     if (sz < 0) {
 	/* Bad external; remove it */
 	if (is_not_nil(ERL_MESSAGE_TOKEN(msg))) {

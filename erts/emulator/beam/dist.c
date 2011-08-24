@@ -968,7 +968,7 @@ int erts_net_message(Port *prt,
     res = erts_prepare_dist_ext(&ede, t, len, dep, dep->cache);
 
     if (res >= 0)
-	res = ctl_len = erts_decode_dist_ext_size(&ede, 0);
+	res = ctl_len = erts_decode_dist_ext_size(&ede);
     else {
 #ifdef ERTS_DIST_MSG_DBG
 	erts_fprintf(stderr, "DIST MSG DEBUG: erts_prepare_dist_ext() failed:\n");

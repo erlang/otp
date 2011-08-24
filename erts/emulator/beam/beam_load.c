@@ -1420,7 +1420,7 @@ read_literal_table(LoaderState* stp)
 
 	GetInt(stp, 4, sz);	/* Size of external term format. */
 	GetString(stp, p, sz);
-	if ((heap_size = erts_decode_ext_size(p, sz, 0)) < 0) {
+	if ((heap_size = erts_decode_ext_size(p, sz)) < 0) {
 	    LoadError1(stp, "literal %d: bad external format", i);
 	}
 	hp = stp->literals[i].heap = erts_alloc(ERTS_ALC_T_LOADER_TMP,
@@ -4103,7 +4103,7 @@ freeze_code(LoaderState* stp)
 	sys_memcpy(attr, stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
 	code[MI_ATTR_PTR] = (BeamInstr) attr;
 	code[MI_ATTR_SIZE] = (BeamInstr) stp->chunks[ATTR_CHUNK].size;
-	decoded_size = erts_decode_ext_size(attr, attr_size, 0);
+	decoded_size = erts_decode_ext_size(attr, attr_size);
 	if (decoded_size < 0) {
  	    LoadError0(stp, "bad external term representation of module attributes");
  	}
@@ -4121,7 +4121,7 @@ freeze_code(LoaderState* stp)
 	CHKBLK(ERTS_ALC_T_CODE,code);
 	code[MI_COMPILE_SIZE] = (BeamInstr) stp->chunks[COMPILE_CHUNK].size;
 	CHKBLK(ERTS_ALC_T_CODE,code);
-	decoded_size = erts_decode_ext_size(compile_info, compile_size, 0);
+	decoded_size = erts_decode_ext_size(compile_info, compile_size);
 	CHKBLK(ERTS_ALC_T_CODE,code);
 	if (decoded_size < 0) {
  	    LoadError0(stp, "bad external term representation of compilation information");
@@ -5525,7 +5525,7 @@ stub_copy_info(LoaderState* stp,
     if (size != 0) {
 	memcpy(info, stp->chunks[chunk].start, size);
 	*ptr_word = (BeamInstr) info;
-	decoded_size = erts_decode_ext_size(info, size, 0);
+	decoded_size = erts_decode_ext_size(info, size);
 	if (decoded_size < 0) {
  	    return 0;
  	}

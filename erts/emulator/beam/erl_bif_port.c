@@ -385,7 +385,7 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
 	/* Error or a binary without magic/ with wrong magic */
 	goto error;
     }
-    result_size = erts_decode_ext_size(port_resp, ret, 0);
+    result_size = erts_decode_ext_size(port_resp, ret);
     if (result_size < 0) {
 	goto error;
     }

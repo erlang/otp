@@ -88,7 +88,7 @@ static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 static byte* dec_term(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*);
 static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
 static byte* dec_pid(ErtsDistExternal *, Eterm**, byte*, ErlOffHeap*, Eterm*);
-static Sint decoded_size(byte *ep, byte* endp, int only_heap_bins, int internal_tags);
+static Sint decoded_size(byte *ep, byte* endp, int internal_tags);
 
 
 static Uint encode_size_struct2(ErtsAtomCacheMap *, Eterm, unsigned);
@@ -810,7 +810,7 @@ bad_dist_ext(ErtsDistExternal *edep)
 }
 
 Sint
-erts_decode_dist_ext_size(ErtsDistExternal *edep, int no_refc_bins)
+erts_decode_dist_ext_size(ErtsDistExternal *edep)
 {
     Sint res;
     byte *ep;
@@ -829,7 +829,7 @@ erts_decode_dist_ext_size(ErtsDistExternal *edep, int no_refc_bins)
 	    goto fail;
 	ep = edep->extp+1;
     }
-    res = decoded_size(ep, edep->ext_endp, no_refc_bins, 0);
+    res = decoded_size(ep, edep->ext_endp, 0);
     if (res >= 0)
 	return res;
  fail:
@@ -837,16 +837,16 @@ erts_decode_dist_ext_size(ErtsDistExternal *edep, int no_refc_bins)
     return -1;
 }
 
-Sint erts_decode_ext_size(byte *ext, Uint size, int no_refc_bins)
+Sint erts_decode_ext_size(byte *ext, Uint size)
 {
     if (size == 0 || *ext != VERSION_MAGIC)
 	return -1;
-    return decoded_size(ext+1, ext+size, no_refc_bins, 0);
+    return decoded_size(ext+1, ext+size, 0);
 }
 
 Sint erts_decode_ext_size_ets(byte *ext, Uint size)
 {
-    Sint sz = decoded_size(ext, ext+size, 0, 1);
+    Sint sz = decoded_size(ext, ext+size, 1);
     ASSERT(sz >= 0);
     return sz;
 }
@@ -968,7 +968,7 @@ BIF_RETTYPE erts_debug_dist_ext_to_term_2(BIF_ALIST_2)
     ede.extp = binary_bytes(real_bin)+offset;
     ede.ext_endp = ede.extp + size;
 
-    hsz = erts_decode_dist_ext_size(&ede, 0);
+    hsz = erts_decode_dist_ext_size(&ede);
     if (hsz < 0)
 	goto badarg;
 
@@ -1106,7 +1106,7 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size)
 	    goto error;
 	size = (Sint) dest_len;
     }
-    res = decoded_size(state->extp, state->extp + size, 0, 0);
+    res = decoded_size(state->extp, state->extp + size, 0);
     if (res < 0)
 	goto error;
     return res;
@@ -2454,7 +2454,7 @@ dec_term_atom_common:
 		n = get_int32(ep);
 		ep += 4;
 	    
-		if (n <= ERL_ONHEAP_BIN_LIMIT || off_heap == NULL) {
+		if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
 		    hb->thing_word = header_heap_bin(n);
@@ -2492,7 +2492,7 @@ dec_term_atom_common:
 		n = get_int32(ep);
 		bitsize = ep[4];
 		ep += 5;
-		if (n <= ERL_ONHEAP_BIN_LIMIT || off_heap == NULL) {
+		if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		    ErlHeapBin* hb = (ErlHeapBin *) hp;
 
 		    hb->thing_word = header_heap_bin(n);
@@ -3061,7 +3061,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 }
 
 static Sint
-decoded_size(byte *ep, byte* endp, int no_refc_bins, int internal_tags)
+decoded_size(byte *ep, byte* endp, int internal_tags)
 {
     int heap_size = 0;
     int terms;
@@ -3223,7 +3223,7 @@ decoded_size(byte *ep, byte* endp, int no_refc_bins, int internal_tags)
 	    CHKSIZE(4);
 	    n = get_int32(ep);
 	    SKIP2(n, 4);
-	    if (n <= ERL_ONHEAP_BIN_LIMIT || no_refc_bins) {
+	    if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		heap_size += heap_bin_size(n);
 	    } else {
 		heap_size += PROC_BIN_SIZE;
@@ -3234,7 +3234,7 @@ decoded_size(byte *ep, byte* endp, int no_refc_bins, int internal_tags)
 		CHKSIZE(5);
 		n = get_int32(ep);
 		SKIP2(n, 5);
-		if (n <= ERL_ONHEAP_BIN_LIMIT || no_refc_bins) {
+		if (n <= ERL_ONHEAP_BIN_LIMIT) {
 		    heap_size += heap_bin_size(n) + ERL_SUB_BIN_SIZE;
 		} else {
 		    heap_size += PROC_BIN_SIZE + ERL_SUB_BIN_SIZE;
