@@ -69,7 +69,7 @@
 
   <datatypes>
     <datatype>
-      <name name="assoc_id"/>
+      <name><marker id="type-assoc_id">assoc_id()</marker></name>
       <desc>
         <p>An opaque term returned in for example #sctp_paddr_change{}
           that identifies an association for an SCTP socket. The term

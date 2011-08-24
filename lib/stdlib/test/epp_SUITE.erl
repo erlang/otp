@@ -1280,7 +1280,7 @@ eval_tests(Config, Fun, Tests) ->
 
 
 check_test(Config, Test) ->
-    Filename = 'epp_test.erl',
+    Filename = "epp_test.erl",
     ?line PrivDir = ?config(priv_dir, Config),
     ?line File = filename:join(PrivDir, Filename),
     ?line ok = file:write_file(File, Test),
@@ -1293,7 +1293,7 @@ check_test(Config, Test) ->
 
 compile_test(Config, Test0) ->
     Test = [<<"-module(epp_test). -compile(export_all). ">>, Test0],
-    Filename = 'epp_test.erl',
+    Filename = "epp_test.erl",
     ?line PrivDir = ?config(priv_dir, Config),
     ?line File = filename:join(PrivDir, Filename),
     ?line ok = file:write_file(File, Test),

@@ -2981,7 +2981,7 @@ run_test(Conf, Test0, Warnings0) ->
     run_test2(Conf, Test, Warnings0).
 
 run_test2(Conf, Test, Warnings0) ->
-    Filename = 'lint_test.erl',
+    Filename = "lint_test.erl",
     DataDir = ?privdir,
     File = filename:join(DataDir, Filename),
     Opts = case Warnings0 of

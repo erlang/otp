@@ -1516,7 +1516,7 @@ repair(Config, V) ->
     if 
         V =:= 8 ->
             %% first estimated number of objects is wrong, repair once more
-            ?line {ok, Fd} = file:open(Fname, read_write),
+            ?line {ok, Fd} = file:open(Fname, [read,write]),
             NoPos = HeadSize - 8,  % no_objects
             ?line file:pwrite(Fd, NoPos, <<0:32>>), % NoItems
             ok = file:close(Fd),
@@ -3247,7 +3247,7 @@ otp_5402(suite) ->
     [];
 otp_5402(Config) when is_list(Config) ->
     Tab = otp_5402,
-    ?line File = filename:join([cannot, write, this, file]),
+    ?line File = filename:join(["cannot", "write", "this", "file"]),
 
     %% close
     ?line{ok, T} = dets:open_file(Tab, [{ram_file,true},
@@ -3887,7 +3887,7 @@ crash(File, Where) ->
     crash(File, Where, 10).
 
 crash(File, Where, What) when is_integer(What) ->
-    ?line {ok, Fd} = file:open(File, read_write),
+    ?line {ok, Fd} = file:open(File, [read,write]),
     ?line file:position(Fd, Where),
     ?line ok = file:write(Fd, [What]),
     ?line ok = file:close(Fd).
@@ -4031,7 +4031,7 @@ writable(Fname) ->
     ?line file:write_file_info(Fname, Info#file_info{mode = Mode}).
 
 truncate(File, Where) ->
-    ?line {ok, Fd} = file:open(File, read_write),
+    ?line {ok, Fd} = file:open(File, [read,write]),
     ?line file:position(Fd, Where),
     ?line ok = file:truncate(Fd),
     ?line ok = file:close(Fd).

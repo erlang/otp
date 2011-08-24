@@ -33,7 +33,7 @@
 -export([error_string/1]).
 -export([controlling_process/2]).
 
--opaque assoc_id() :: term().
+-type assoc_id() :: term().
 -type option() ::
         {active, true | false | once} |
         {buffer, non_neg_integer()} |
@@ -92,7 +92,7 @@
         tos.
 -type sctp_socket() :: port().
 
--export_type([option/0, option_name/0]).
+-export_type([assoc_id/0, option/0, option_name/0, sctp_socket/0]).
 
 -spec open() -> {ok, Socket} | {error, inet:posix()} when
       Socket :: sctp_socket().

@@ -967,7 +967,7 @@ otp_1586(doc) ->
     ["Test recursive load of applications."];
 otp_1586(Conf) when is_list(Conf) ->
     Dir = ?config(priv_dir,Conf),
-    {ok, Fd} = file:open(filename:join(Dir, "app5.app"), write),
+    {ok, Fd} = file:open(filename:join(Dir, "app5.app"), [write]),
     w_app5(Fd),
     file:close(Fd),
     ?line code:add_patha(Dir),
@@ -1021,10 +1021,10 @@ otp_2012(Conf) when is_list(Conf) ->
     ?line yes = global:register_name(conf_change, CcPid),
 
     % Write a .app file
-    {ok, Fd} = file:open("app1.app", write),
+    {ok, Fd} = file:open("app1.app", [write]),
     w_app1(Fd),
     file:close(Fd),
-    {ok, Fd2} = file:open("app2.app", write),
+    {ok, Fd2} = file:open("app2.app", [write]),
     w_app1(Fd2),
     file:close(Fd2),
 
@@ -1096,7 +1096,7 @@ otp_2973(doc) ->
     ["Test of two processes simultanously starting the same application."];
 otp_2973(Conf) when is_list(Conf) ->
     % Write a .app file
-    {ok, Fd} = file:open("app0.app", write),
+    {ok, Fd} = file:open("app0.app", [write]),
     w_app(Fd, app0()),
     file:close(Fd),
 
@@ -1138,7 +1138,7 @@ otp_2973(Conf) when is_list(Conf) ->
 
 
     % Write a .app file
-    ?line {ok, Fda} = file:open("app_start_error.app", write),
+    ?line {ok, Fda} = file:open("app_start_error.app", [write]),
     ?line w_app_start_error(Fda),
     ?line file:close(Fda),
 
@@ -1273,12 +1273,12 @@ otp_4066(Conf) when is_list(Conf) ->
     App1Nodes = {app1, AllNodes},
 
     Dir = ?config(priv_dir,Conf),
-    ?line {ok, FdC} = file:open(filename:join(Dir, "otp_4066.config"), write),
+    ?line {ok, FdC} = file:open(filename:join(Dir, "otp_4066.config"), [write]),
     ?line write_config(FdC, config_4066(AllNodes, 5000, [App1Nodes])),
     ?line file:close(FdC),
 
     % Write the app1.app file
-    ?line {ok, FdA12} = file:open(filename:join(Dir, "app1.app"), write),
+    ?line {ok, FdA12} = file:open(filename:join(Dir, "app1.app"), [write]),
     ?line w_app1(FdA12),
     ?line file:close(FdA12),
 
@@ -1441,7 +1441,7 @@ otp_5606(Conf) when is_list(Conf) ->
 
     %% Write a config file
     Dir = ?config(priv_dir, Conf),
-    {ok, Fd} = file:open(filename:join(Dir, "sys.config"), write),
+    {ok, Fd} = file:open(filename:join(Dir, "sys.config"), [write]),
     NodeNames = [Ncp1, Ncp2] = node_names([cp1, cp2], Conf),
     (config4(NodeNames))(Fd, 10000),
     file:close(Fd),
@@ -2436,7 +2436,7 @@ start_node_config_sf(Name, SysConfigFun, Conf) ->
 
 write_config_file(SysConfigFun, Conf) ->
     Dir = ?config(priv_dir, Conf),
-    {ok, Fd} = file:open(filename:join(Dir, "sys.config"), write),
+    {ok, Fd} = file:open(filename:join(Dir, "sys.config"), [write]),
     SysConfigFun(Fd),
     file:close(Fd),
     filename:join(Dir,"sys").
@@ -2571,15 +2571,15 @@ cc(List) ->
 create_app() ->
     ?line Dir = "./",
     ?line App1 = Dir ++ "app1",
-    ?line {ok, Fd1} = file:open(App1++".app",write),
+    ?line {ok, Fd1} = file:open(App1++".app",[write]),
     ?line io:format(Fd1, "~p. \n", [app1()]),
     ?line file:close(Fd1),
     ?line App2 = Dir ++ "app2",
-    ?line {ok, Fd2} = file:open(App2++".app",write),
+    ?line {ok, Fd2} = file:open(App2++".app",[write]),
     ?line io:format(Fd2, "~p. \n", [app2()]),
     ?line file:close(Fd2),
     ?line App3 = Dir ++ "app_sp",
-    ?line {ok, Fd3} = file:open(App3++".app",write),
+    ?line {ok, Fd3} = file:open(App3++".app",[write]),
     ?line io:format(Fd3, "~p. \n", [app_sp()]),
     ?line file:close(Fd3),
     ok.
@@ -2591,7 +2591,7 @@ create_script(ScriptName) ->
     ?line Apps = which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
+    ?line {ok,Fd} = file:open(Name++".rel",[write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"LATEST\"}, \n"
 		    " {erts, \"4.4\"}, \n"
@@ -2610,7 +2610,7 @@ create_script_dc(ScriptName) ->
     ?line Apps = which_applications(),
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
+    ?line {ok,Fd} = file:open(Name++".rel",[write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"LATEST\"}, \n"
 		    " {erts, \"4.4\"}, \n"
@@ -2630,7 +2630,7 @@ create_script_3002(ScriptName) ->
     ?line {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
     ?line {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
     ?line {value,{_,_,SaslVer}} = lists:keysearch(sasl,1,Apps),
-    ?line {ok,Fd} = file:open(Name++".rel",write),
+    ?line {ok,Fd} = file:open(Name++".rel",[write]),
     ?line io:format(Fd,
 		    "{release, {\"Test release 3\", \"LATEST\"}, \n"
 		    " {erts, \"4.4\"}, \n"
@@ -2646,22 +2646,22 @@ create_script_3002(ScriptName) ->
 distr_changed_prep(Conf) when is_list(Conf) ->
 
     % Write .app files
-    ?line {ok, Fd1} = file:open("app1.app", write),
+    ?line {ok, Fd1} = file:open("app1.app", [write]),
     ?line w_app1(Fd1),
     ?line file:close(Fd1),
-    ?line {ok, Fd2} = file:open("app2.app", write),
+    ?line {ok, Fd2} = file:open("app2.app", [write]),
     ?line w_app2(Fd2),
     ?line file:close(Fd2),
-    ?line {ok, Fd3} = file:open("app3.app", write),
+    ?line {ok, Fd3} = file:open("app3.app", [write]),
     ?line w_app3(Fd3),
     ?line file:close(Fd3),
-    ?line {ok, Fd4} = file:open("app6.app", write),
+    ?line {ok, Fd4} = file:open("app6.app", [write]),
     ?line w_app6(Fd4),
     ?line file:close(Fd4),
-    ?line {ok, Fd5} = file:open("app7.app", write),
+    ?line {ok, Fd5} = file:open("app7.app", [write]),
     ?line w_app7(Fd5),
     ?line file:close(Fd5),
-    ?line {ok, Fd6} = file:open("app8.app", write),
+    ?line {ok, Fd6} = file:open("app8.app", [write]),
     ?line w_app8(Fd6),
     ?line file:close(Fd6),
 
@@ -2683,7 +2683,7 @@ distr_changed_prep(Conf) when is_list(Conf) ->
     WithSyncTime = config_fun(config_dc(NodeNames)),
 
     ?line Dir = ?config(priv_dir,Conf),
-    ?line {ok, Fd_dc2} = file:open(filename:join(Dir, "sys2.config"), write),
+    ?line {ok, Fd_dc2} = file:open(filename:join(Dir, "sys2.config"), [write]),
     ?line (config_dc2(NodeNames))(Fd_dc2),
     ?line file:close(Fd_dc2),
     ?line Config2 = filename:join(Dir, "sys2"),
