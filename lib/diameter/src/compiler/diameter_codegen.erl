@@ -250,9 +250,14 @@ f_name(Name) ->
 %%% ------------------------------------------------------------------------
 
 f_id(Spec) ->
-    Id = orddict:fetch(id, Spec),
     {?function, id, 0,
-     [{?clause, [], [], [?INTEGER(Id)]}]}.
+     [c_id(orddict:find(id, Spec))]}.
+
+c_id({ok, Id}) ->
+    {?clause, [], [], [?INTEGER(Id)]};
+
+c_id(error) ->
+    ?UNEXPECTED(0).
 
 %%% ------------------------------------------------------------------------
 %%% # vendor_id/0
@@ -537,10 +542,14 @@ f_msg_header(Spec) ->
     {?function, msg_header, 1, msg_header(Spec) ++ [?UNEXPECTED(1)]}.
 
 msg_header(Spec) ->
+    msg_header(get_value(messages, Spec), Spec).
+
+msg_header([], _) ->
+    [];
+msg_header(Msgs, Spec) ->
     ApplId = orddict:fetch(id, Spec),
 
-    lists:map(fun({M,C,F,_,_}) -> c_msg_header(M, C, F, ApplId) end,
-              get_value(messages, Spec)).
+    lists:map(fun({M,C,F,_,_}) -> c_msg_header(M, C, F, ApplId) end, Msgs).
 
 %% Note that any application id in the message header spec is ignored.
 
