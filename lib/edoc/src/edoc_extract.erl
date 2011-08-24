@@ -75,7 +75,7 @@ source(Forms, Comments, File, Env, Opts) when is_list(Forms) ->
     source(Forms1, Comments, File, Env, Opts);
 source(Forms, Comments, File, Env, Opts) ->
     Tree = erl_recomment:quick_recomment_forms(Forms, Comments),
-    TypeDocs = find_type_docs(Forms, Comments),
+    TypeDocs = find_type_docs(Forms, Comments, Env, File),
     source1(Tree, File, Env, Opts, TypeDocs).
 
 %% @spec source(Forms, File::filename(), Env::edoc_env(),
@@ -111,7 +111,7 @@ source(Forms, Comments, File, Env, Opts) ->
 source(Forms, File, Env, Opts) when is_list(Forms) ->
     source(erl_syntax:form_list(Forms), File, Env, Opts);
 source(Tree, File0, Env, Opts) ->
-    TypeDocs = find_type_docs(Tree, []),
+    TypeDocs = find_type_docs(Tree, [], Env, File0),
     source1(Tree, File0, Env, Opts, TypeDocs).
 
 %% Forms0 and Comments is used for extracting Erlang type documentation.
@@ -635,14 +635,17 @@ file_macros(_Context, Env) ->
 %% The same thing using -type:
 %%   -type t() :: t1(). % Some docs of t/0;
 %%   Further docs of t/0.
-find_type_docs(Forms0, Comments) ->
+find_type_docs(Forms0, Comments, Env, File) ->
     Tree = erl_recomment:recomment_forms(Forms0, Comments),
     Forms = preprocess_forms(Tree),
-    edoc_specs:docs(Forms, fun find_fun/2).
+    Env1 = add_macro_defs(edoc_macros:std_macros(Env), [], Env),
+    F = fun(C, Line) -> find_fun(C, Line, Env1, File) end,
+    edoc_specs:docs(Forms, F).
 
-find_fun(C0, Line) ->
+find_fun(C0, Line, Env, File) ->
     C1 = comment_text(C0),
     Text = lists:append([C#comment.text || C <- C1]),
     Comm = #comment{line = Line, text = Text},
     [Tag | _] = scan_tags([Comm]),
-    Tag.
+    [Tag1] = edoc_macros:expand_tags([Tag], Env, File),
+    Tag1.
