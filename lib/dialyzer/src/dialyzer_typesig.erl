@@ -1684,11 +1684,14 @@ solve_scc(SCC, Map, State, TryingUnit) ->
     true ->
       ?debug("SCC ~w reached fixpoint\n", [SCC]),
       NewTypes = unsafe_lookup_type_list(Funs, Map2),
-      case lists:all(fun(T) -> t_is_none(t_fun_range(T)) end, NewTypes)
+      case erl_types:any_none([t_fun_range(T) || T <- NewTypes])
 	andalso TryingUnit =:= false of
 	true ->
-	  UnitTypes = [t_fun(state__fun_arity(F, State), t_unit())
-		       || F <- Funs],
+	  UnitTypes =
+	    [case t_is_none(t_fun_range(T)) of
+	       false -> T;
+	       true -> t_fun(t_fun_args(T), t_unit())
+	     end || T <- NewTypes],
 	  Map3 = enter_type_lists(Funs, UnitTypes, Map2),
 	  solve_scc(SCC, Map3, State, true);
 	false ->

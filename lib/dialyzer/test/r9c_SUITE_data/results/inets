@@ -7,9 +7,6 @@ http_lib.erl:286: The call http_lib:close('ip_comm' | {'ssl',_},any()) will neve
 http_lib.erl:424: The variable _ can never match since previous clauses completely covered the type any()
 http_lib.erl:438: The variable _ can never match since previous clauses completely covered the type any()
 http_lib.erl:99: Function getHeaderValue/2 will never be called
-httpc_handler.erl:322: Function status_continue/2 has no local return
-httpc_handler.erl:37: Function init_connection/2 has no local return
-httpc_handler.erl:65: Function next_response_with_request/2 has no local return
 httpc_handler.erl:660: Function exit_session_ok/2 has no local return
 httpc_manager.erl:145: The pattern {ErrorReply, State2} can never match the type {{'ok',number()},number(),#state{reqid::number()}}
 httpc_manager.erl:160: The pattern {ErrorReply, State2} can never match the type {{'ok',number()},number(),#state{reqid::number()}}
