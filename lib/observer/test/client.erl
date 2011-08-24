@@ -2,7 +2,6 @@
 -compile(export_all).
 
 init(Node) ->
-    io:format(user, "Initing~p~n", [Node]),
     application:start(runtime_tools),
     net_kernel:connect_node(Node).
 

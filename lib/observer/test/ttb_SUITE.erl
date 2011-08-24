@@ -778,7 +778,7 @@ marking_call_handler() ->
 	(_,_,_,_) -> ok end, initial}.
 
 counter_call_handler() ->
-    {fun(_, A={trace_ts, _, call, _, _} ,_,State) -> State + 1;
+    {fun(_, {trace_ts, _, call, _, _} ,_,State) -> State + 1;
 	(A, end_of_trace, _, State) -> io:format(A,"~p.~n", [State]) end, 0}.
 
 ret_caller_call_handler() ->
@@ -886,7 +886,12 @@ begin_trace_local(ServerNode, ClientNode, Dest) ->
 
 check_size(N, Dest, Output, ServerNode, ClientNode) ->
     ?line begin_trace(ServerNode, ClientNode, Dest),
-    ?line ttb_helper:msgs(N),
+    ?line case Dest of
+        {local, _} ->
+            ?line ttb_helper:msgs_ip(N);
+        _ ->
+            ?line ttb_helper:msgs(N)
+    end,
     ?line {_, D} = ttb:stop([fetch, return_fetch_dir]),
     ?line ttb:format(D, [{out, Output}, {handler, simple_call_handler()}]),
     ?line {ok, Ret} = file:consult(Output),
@@ -955,7 +960,7 @@ logfile_name_in_fetch_dir(Config) when is_list(Config) ->
     ?line ?t:stop_node(ClientNode),
     ?line P1 = lists:nth(3, string:tokens(filename:basename(Dir), "_")),
     ?line P2 = hd(string:tokens(P1, "-")),
-    ?line File = P2.
+    ?line _File = P2.
 
 upload_to_my_logdir(suite) ->
     [];

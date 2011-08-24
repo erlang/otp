@@ -7,7 +7,7 @@
 %%msgs(N) -> N times client:put(test_msg)
 %%clear() -> restart server
 %%ensure_running() / stop() -> start/stop nodes
-%%node(atom) -> return atom@hostname
+%%get_node(atom) -> return atom@hostname
 
 -define(NODE_CMD(Name),
 	"erl -sname " ++ atom_to_list(Name) ++
@@ -65,7 +65,12 @@ stop() ->
 msgs(N) ->
     [c(client, put, [test_msg]) || _ <- lists:seq(1, N)],
     s(server, received, [a,b]),
-    [dbg:flush_trace_port(Node) || Node <- [client@ariel, server@ariel]].
+    [dbg:flush_trace_port(Node) || Node <- [get_node(client), get_node(server)]].
+
+msgs_ip(N) ->
+    [c(client, put, [test_msg]) || _ <- lists:seq(1, N)],
+    s(server, received, [a,b]),
+    timer:sleep(100). %% allow trace messages to arrive over tcp/ip
 
 run() ->
     ttb({local, "A"}),
@@ -87,7 +92,7 @@ trace_setup() ->
 
 ttb() -> ttb("A").
 ttb(File) ->
-    ttb:tracer([server@ariel, client@ariel], [{file, File}, resume]),
+    ttb:tracer([get_node(client), get_node(server)], [{file, File}, resume]),
     ttb:p(all, [call, timestamp]),
     ttb:tp(client, put, []),
     ttb:tp(client, get, []),
@@ -116,7 +121,7 @@ show_handler() ->
     {fun(A,B,_,_) -> io:format(A, "~p~n", [B]) end, []}.
 
 opts() ->
-    [[client@ariel, server@ariel],
+    [[get_node(client), get_node(server)],
      [{server, received, '_', []},
       {client, put, '_', []},
       {client, get, '_', []}],
