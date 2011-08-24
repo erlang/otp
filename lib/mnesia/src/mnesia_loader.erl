@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,6 @@
 	 net_load_table/4,
 	 send_table/3]).
 
--export([old_node_init_table/6]). %% Spawned old node protocol conversion hack
 -export([spawned_receiver/8]).    %% Spawned lock taking process
 
 -import(mnesia_lib, [set/2, fatal/2, verbose/2, dbg_out/2]).
@@ -291,16 +290,8 @@ start_remote_sender(Node,Tab,Storage) ->
     end.
 
 table_init_fun(SenderPid) ->
-    PConv = mnesia_monitor:needs_protocol_conversion(node(SenderPid)),
-    MeMyselfAndI = self(),
     fun(read) ->
-	    Receiver = 
-		if 
-		    PConv == true -> 
-			MeMyselfAndI ! {actual_tabrec, self()},
-			MeMyselfAndI; %% Old mnesia
-		    PConv == false -> self()
-		end,
+	    Receiver = self(),
 	    SenderPid ! {Receiver, more},
 	    get_data(SenderPid, Receiver)
     end.
@@ -345,11 +336,9 @@ do_init_table(Tab,Storage,Cs,SenderPid,
 	    Node = node(SenderPid),
 	    put(mnesia_table_receiver, {Tab, Node, SenderPid}),
 	    mnesia_tm:block_tab(Tab),
-	    PConv = mnesia_monitor:needs_protocol_conversion(Node),
-
-	    case init_table(Tab,Storage,Init,PConv,DetsInfo,SenderPid) of
-		ok -> 
-		    tab_receiver(Node,Tab,Storage,Cs,PConv,OrigTabRec);
+	    case init_table(Tab,Storage,Init,DetsInfo,SenderPid) of
+		ok ->
+		    tab_receiver(Node,Tab,Storage,Cs,OrigTabRec);
 		Reason ->
 		    Msg = "[d]ets:init table failed",
 		    verbose("~s: ~p: ~p~n", [Msg, Tab, Reason]),
@@ -390,50 +379,26 @@ create_table(Tab, TabSize, Storage, Cs) ->
 	    end
     end.
 
-tab_receiver(Node, Tab, Storage, Cs, PConv, OrigTabRec) ->
+tab_receiver(Node, Tab, Storage, Cs, OrigTabRec) ->
     receive
-	{SenderPid, {no_more, DatBin}} when PConv == false ->
+	{SenderPid, {no_more, DatBin}} ->
 	    finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec);
-	
-	%% Protocol conversion hack
-	{SenderPid, {no_more, DatBin}} when is_pid(PConv) ->
-	    PConv ! {SenderPid, no_more},
-	    receive 
-		{old_init_table_complete, ok} ->
-		    finish_copy(Storage, Tab, Cs, SenderPid, DatBin,OrigTabRec);
-		{old_init_table_complete, Reason} ->
-		    Msg = "OLD: [d]ets:init table failed",
-		    verbose("~s: ~p: ~p~n", [Msg, Tab, Reason]),
-		    down(Tab, Storage)
-	    end;
 
-	{actual_tabrec, Pid} ->	
-	    tab_receiver(Node, Tab, Storage, Cs, Pid,OrigTabRec);
-	
-	{SenderPid, {more, [Recs]}} when is_pid(PConv) ->  
-	    PConv ! {SenderPid, {more, Recs}}, %% Forward Msg to OldNodes 
-	    tab_receiver(Node, Tab, Storage, Cs, PConv,OrigTabRec);
-
-	{'EXIT', PConv, Reason} ->  %% [d]ets:init process crashed 
-	    Msg = "Receiver crashed",
-	    verbose("~s: ~p: ~p~n", [Msg, Tab, Reason]),
-	    down(Tab, Storage);
-	
 	%% Protocol conversion hack
 	{copier_done, Node} ->
 	    verbose("Sender of table ~p crashed on node ~p ~n", [Tab, Node]),
 	    down(Tab, Storage);
-	
+
 	{'EXIT', Pid, Reason} ->
 	    handle_exit(Pid, Reason),
-	    tab_receiver(Node, Tab, Storage, Cs, PConv,OrigTabRec)
+	    tab_receiver(Node, Tab, Storage, Cs, OrigTabRec)
     end.
 
 make_table_fun(Pid, TabRec) ->
     fun(close) ->
 	    ok;
        (read) ->
-	    get_data(Pid, TabRec)	   
+	    get_data(Pid, TabRec)
     end.
 
 get_data(Pid, TabRec) ->
@@ -448,7 +413,7 @@ get_data(Pid, TabRec) ->
 	    end_of_input;
 	{copier_done, Node} ->
 	    case node(Pid) of
-		Node -> 
+		Node ->
 		    {copier_done, Node};
 		_ ->
 		    get_data(Pid, TabRec)
@@ -458,10 +423,10 @@ get_data(Pid, TabRec) ->
 	    get_data(Pid, TabRec)
     end.
 
-init_table(Tab, disc_only_copies, Fun, false, DetsInfo,Sender) ->
+init_table(Tab, disc_only_copies, Fun, DetsInfo,Sender) ->
     ErtsVer = erlang:system_info(version),
     case DetsInfo of
-	{ErtsVer, DetsData}  ->  
+	{ErtsVer, DetsData}  ->
 	    Res = (catch dets:is_compatible_bchunk_format(Tab, DetsData)),
 	    case Res of
 		{'EXIT',{undef,[{dets,_,_}|_]}} ->
@@ -481,22 +446,13 @@ init_table(Tab, disc_only_copies, Fun, false, DetsInfo,Sender) ->
 	_ ->
 	    dets:init_table(Tab, Fun)
     end;
-init_table(Tab, _, Fun, false, _DetsInfo,_) ->
+init_table(Tab, _, Fun, _DetsInfo,_) ->
     case catch ets:init_table(Tab, Fun) of
 	true ->
 	    ok;
 	{'EXIT', Else} -> Else
-    end;
-init_table(Tab, Storage, Fun, true, _DetsInfo, Sender) ->  %% Old Nodes    
-    spawn_link(?MODULE, old_node_init_table, 
-	       [Tab, Storage, Fun, self(), false, Sender]),
-    ok.
+    end.
 
-old_node_init_table(Tab, Storage, Fun, TabReceiver, DetsInfo,Sender) ->    
-    Res = init_table(Tab, Storage, Fun, false, DetsInfo,Sender),
-    TabReceiver ! {old_init_table_complete, Res},
-    unlink(TabReceiver),
-    ok.
 
 finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
     TabRef = {Storage, Tab},
@@ -654,15 +610,13 @@ send_table(Pid, Tab, RemoteS) ->
 	Storage ->
 	    %% Send first
 	    TabSize = mnesia:table_info(Tab, size),	    
-	    Pconvert = mnesia_monitor:needs_protocol_conversion(node(Pid)),
 	    KeysPerTransfer = calc_nokeys(Storage, Tab),
 	    ChunkData = dets:info(Tab, bchunk_format),
 
 	    UseDetsChunk = 
 		Storage == RemoteS andalso 
 		Storage == disc_only_copies andalso 
-		ChunkData /= undefined andalso
-		Pconvert == false,	    
+		ChunkData /= undefined,
 	    if 
 		UseDetsChunk == true ->
 		    DetsInfo = erlang:system_info(version),
@@ -677,7 +631,7 @@ send_table(Pid, Tab, RemoteS) ->
 	    
 	    SendIt = fun() ->
 			     prepare_copy(Pid, Tab, Storage),
-			     send_more(Pid, 1, Chunk, Init(), Tab, Pconvert),
+			     send_more(Pid, 1, Chunk, Init(), Tab),
 			     finish_copy(Pid, Tab, Storage, RemoteS)
 		     end,
 
@@ -736,20 +690,20 @@ update_where_to_write([H|T], Tab, AddNode) ->
 	     [{update_where_to_write, [add, Tab, AddNode], self()}]),
     update_where_to_write(T, Tab, AddNode).
 
-send_more(Pid, N, Chunk, DataState, Tab, OldNode) ->
+send_more(Pid, N, Chunk, DataState, Tab) ->
     receive
 	{NewPid, more} ->
-	    case send_packet(N - 1, NewPid, Chunk, DataState, OldNode) of 
-		New when is_integer(New) -> 
+	    case send_packet(N - 1, NewPid, Chunk, DataState) of
+		New when is_integer(New) ->
 		    New - 1;
 		NewData ->
-		    send_more(NewPid, ?MAX_NOPACKETS, Chunk, NewData, Tab, OldNode)
+		    send_more(NewPid, ?MAX_NOPACKETS, Chunk, NewData, Tab)
 	    end;
 	{_NewPid, {old_protocol, Tab}} ->
 	    Storage =  val({Tab, storage_type}),
-	    {Init, NewChunk} = 
+	    {Init, NewChunk} =
 		reader_funcs(false, Tab, Storage, calc_nokeys(Storage, Tab)),
-	    send_more(Pid, 1, NewChunk, Init(), Tab, OldNode);
+	    send_more(Pid, 1, NewChunk, Init(), Tab);
 
 	{copier_done, Node} when Node == node(Pid)->
 	    verbose("Receiver of table ~p crashed on ~p (more)~n", [Tab, Node]),
@@ -770,7 +724,7 @@ dets_bchunk(Tab, Chunk) -> %% Arrg
     case dets:bchunk(Tab, Chunk) of
 	{Cont, Data} -> {Data, Cont};
 	Else -> Else
-    end.	    
+    end.
 
 zlib_compress(Data, Level) ->
     BinData = term_to_binary(Data),
@@ -793,28 +747,20 @@ compression_level() ->
 	Val -> Val
     end.
 
-send_packet(N, Pid, _Chunk, '$end_of_table', OldNode) ->
-    case OldNode of
-	true -> ignore; %% Old nodes can't handle the new no_more
-	false ->  Pid ! {self(), no_more}
-    end,
+send_packet(N, Pid, _Chunk, '$end_of_table') ->
+    Pid ! {self(), no_more},
     N;
-send_packet(N, Pid, Chunk, {[], Cont}, OldNode) ->
-    send_packet(N, Pid, Chunk, Chunk(Cont), OldNode);
-send_packet(N, Pid, Chunk, {Recs, Cont}, OldNode) when N < ?MAX_NOPACKETS ->
-    case OldNode of
-        true ->
-            Pid ! {self(), {more, [Recs]}}; %% Old need's wrapping list
-        false ->
-            case compression_level() of
-                0 ->
-                    Pid ! {self(), {more, Recs}};
-                Level ->
-                    Pid ! {self(), {more_z, zlib_compress(Recs, Level)}}
-            end
+send_packet(N, Pid, Chunk, {[], Cont}) ->
+    send_packet(N, Pid, Chunk, Chunk(Cont));
+send_packet(N, Pid, Chunk, {Recs, Cont}) when N < ?MAX_NOPACKETS ->
+    case compression_level() of
+	0 ->
+	    Pid ! {self(), {more, Recs}};
+	Level ->
+	    Pid ! {self(), {more_z, zlib_compress(Recs, Level)}}
     end,
-    send_packet(N+1, Pid, Chunk, Chunk(Cont), OldNode);
-send_packet(_N, _Pid, _Chunk, DataState, _OldNode) ->
+    send_packet(N+1, Pid, Chunk, Chunk(Cont));
+send_packet(_N, _Pid, _Chunk, DataState) ->
     DataState.
 
 finish_copy(Pid, Tab, Storage, RemoteS) ->

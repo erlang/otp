@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,9 +80,9 @@
 		going_down = [], tm_started = false, early_connects = [],
 		connecting, mq = []}).
 
--define(current_protocol_version, {7,6}).
+-define(current_protocol_version,  {8,0}).
 
--define(previous_protocol_version, {7,5}).
+-define(previous_protocol_version, {7,6}).
 
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE,
