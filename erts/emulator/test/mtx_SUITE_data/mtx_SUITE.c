@@ -552,13 +552,19 @@ create_rwlock(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM
 rwlock_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
-    rwlock_resource_t *rwlr;
+    /*
+     * Use a union for pointer type conversion to avoid compiler warnings
+     * about strict-aliasing violations with gcc-4.1. gcc >= 4.2 does not
+     * emit the warning.
+     * TODO: Reconsider use of union once gcc-4.1 is obsolete?
+     */
+    union { void* vp; rwlock_resource_t *p; } rwlr;
     int blocking, write, wait_locked, wait_unlocked;
 
     if (argc != 5)
 	goto badarg;
 
-    if (!enif_get_resource(env, argv[0], enif_priv_data(env), (void **) &rwlr))
+    if (!enif_get_resource(env, argv[0], enif_priv_data(env), &rwlr.vp))
 	goto badarg;
 
     blocking = get_bool(env, argv[1]);
@@ -581,22 +587,22 @@ rwlock_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 
     if (write) {
 	if (blocking)
-	    RWMUTEX_WLOCK(rwlr->rwlock);
+	    RWMUTEX_WLOCK(rwlr.p->rwlock);
 	else
-	    while (EBUSY == RWMUTEX_TRYWLOCK(rwlr->rwlock));
-	if (rwlr->lock_check) {
-	    ASSERT(!ATOMIC_READ(&rwlr->is_locked));
-	    ATOMIC_SET(&rwlr->is_locked, -1);
+	    while (EBUSY == RWMUTEX_TRYWLOCK(rwlr.p->rwlock));
+	if (rwlr.p->lock_check) {
+	    ASSERT(!ATOMIC_READ(&rwlr.p->is_locked));
+	    ATOMIC_SET(&rwlr.p->is_locked, -1);
 	}
     }
     else {
 	if (blocking)
-	    RWMUTEX_RLOCK(rwlr->rwlock);
+	    RWMUTEX_RLOCK(rwlr.p->rwlock);
 	else
-	    while (EBUSY == RWMUTEX_TRYRLOCK(rwlr->rwlock));
-	if (rwlr->lock_check) {
-	    ASSERT(ATOMIC_READ(&rwlr->is_locked) >= 0);
-	    ATOMIC_INC(&rwlr->is_locked);
+	    while (EBUSY == RWMUTEX_TRYRLOCK(rwlr.p->rwlock));
+	if (rwlr.p->lock_check) {
+	    ASSERT(ATOMIC_READ(&rwlr.p->is_locked) >= 0);
+	    ATOMIC_INC(&rwlr.p->is_locked);
 	}
     }
 
@@ -604,18 +610,18 @@ rwlock_op(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	milli_sleep(wait_locked);
 
     if (write) {
-	if (rwlr->lock_check) {
-	    ASSERT(ATOMIC_READ(&rwlr->is_locked) == -1);
-	    ATOMIC_SET(&rwlr->is_locked, 0);
+	if (rwlr.p->lock_check) {
+	    ASSERT(ATOMIC_READ(&rwlr.p->is_locked) == -1);
+	    ATOMIC_SET(&rwlr.p->is_locked, 0);
 	}
-	RWMUTEX_WUNLOCK(rwlr->rwlock);
+	RWMUTEX_WUNLOCK(rwlr.p->rwlock);
     }
     else {
-	if (rwlr->lock_check) {
-	    ASSERT(ATOMIC_READ(&rwlr->is_locked) > 0);
-	    ATOMIC_DEC(&rwlr->is_locked);
+	if (rwlr.p->lock_check) {
+	    ASSERT(ATOMIC_READ(&rwlr.p->is_locked) > 0);
+	    ATOMIC_DEC(&rwlr.p->is_locked);
 	}
-	RWMUTEX_RUNLOCK(rwlr->rwlock);
+	RWMUTEX_RUNLOCK(rwlr.p->rwlock);
     }
 
     if (wait_unlocked)
