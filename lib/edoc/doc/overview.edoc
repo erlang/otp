@@ -1084,10 +1084,11 @@ Details:
       the Erlang programming language.</li>
   <li>`boolean()' is the subset of `atom()' consisting
       of the atoms `true' and `false'.</li>
-  <li>`char()' is a subset of
-      `integer()' representing character codes.</li>
+  <li>`char()' is the subset of `integer()' representing
+      Unicode character codes: hex 000000-10FFFF.</li>
   <li>`tuple()' is the set of all tuples `{...}'.</li>
-  <li>`list(T)' is just an alias for `[T]'.</li>
+  <li>`list(T)' is just an alias for `[T]'; list() is an alias
+      for `list(any())', i.e., `[any()]'.</li>
   <li>`nil()' is an alias for the empty list `[]'.</li>
   <li>`cons(H,T)' is the list constructor. This is usually not
       used directly. It is possible to recursively define `list(T)

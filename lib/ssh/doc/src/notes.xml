@@ -29,6 +29,20 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.0.8</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Calling ssh_sftp:stop_channel/1 resulted in that the trap_exit flag was
+            set to true for the invoking process.</p>
+          <p>
+            Own Id: OTP-9386 Aux Id: seq11865</p>
+        </item>
+      </list>
+    </section>
+</section>
+
 <section><title>Ssh 2.0.7</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

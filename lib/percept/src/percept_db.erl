@@ -92,7 +92,7 @@ restart(PerceptDB)->
         stop_sync(PerceptDB),
         do_start().
 
-%% @spec do_start(pid()) -> pid()
+%% @spec do_start() -> pid()
 %% @private
 %% @doc starts the percept database.
 
@@ -131,6 +131,7 @@ stop_sync(Pid)->
         {'DOWN', MonitorRef, _Type, Pid, _Info}->
             true
     after ?STOP_TIMEOUT->
+            erlang:demonitor(MonitorRef, [flush]),
             exit(Pid, kill)
     end.
 
@@ -166,14 +167,14 @@ insert(Trace) ->
 
 select(Query) -> 
     percept_db ! {select, self(), Query},
-    receive Match -> Match end.
+    receive {result, Match} -> Match end.
 
 %% @spec select(atom(), list()) -> Result
 %% @equiv select({Table,Options}) 
 
 select(Table, Options) -> 
     percept_db ! {select, self(), {Table, Options}},
-    receive Match -> Match end.
+    receive {result, Match} -> Match end.
 
 %% @spec consolidate() -> Result
 %% @doc Checks timestamp and state-flow inconsistencies in the
@@ -213,7 +214,7 @@ loop_percept_db() ->
 	    insert_trace(clean_trace(Trace)),
 	    loop_percept_db();
 	{select, Pid, Query} ->
-	    Pid ! select_query(Query),
+	    Pid ! {result, select_query(Query)},
 	    loop_percept_db();
 	{action, stop} -> 
 	    stopped;
@@ -222,7 +223,7 @@ loop_percept_db() ->
 	    loop_percept_db();
         {operate, Pid, {Table, {Fun, Start}}} ->
 	    Result = ets:foldl(Fun, Start, Table),
-	    Pid ! Result,
+	    Pid ! {result, Result},
 	    loop_percept_db();
 	Unhandled -> 
 	    io:format("loop_percept_db, unhandled query: ~p~n", [Unhandled]),

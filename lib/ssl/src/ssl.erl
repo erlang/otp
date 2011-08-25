@@ -104,7 +104,7 @@ stop() ->
 		     {ok, #sslsocket{}} | {error, reason()}.
 
 %%
-%% Description: Connect to a ssl server.
+%% Description: Connect to an ssl server.
 %%--------------------------------------------------------------------
 connect(Socket, SslOptions) when is_port(Socket) ->
     connect(Socket, SslOptions, infinity).
@@ -151,7 +151,7 @@ connect(Host, Port, Options0, Timeout) ->
 -spec listen(port_num(), [option()]) ->{ok, #sslsocket{}} | {error, reason()}.
 		    
 %%
-%% Description: Creates a ssl listen socket.
+%% Description: Creates an ssl listen socket.
 %%--------------------------------------------------------------------
 listen(_Port, []) ->
     {error, enooptions};
@@ -177,7 +177,7 @@ listen(Port, Options0) ->
 -spec transport_accept(#sslsocket{}, timeout()) -> {ok, #sslsocket{}} |
 						   {error, reason()}.
 %%
-%% Description: Performs transport accept on a ssl listen socket 
+%% Description: Performs transport accept on an ssl listen socket
 %%--------------------------------------------------------------------
 transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
@@ -218,7 +218,7 @@ transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
 			ok | {ok, #sslsocket{}} | {error, reason()}.
 -spec ssl_accept(port(), [option()], timeout()) -> {ok, #sslsocket{}} | {error, reason()}.
 %%
-%% Description: Performs accept on a ssl listen socket. e.i. performs
+%% Description: Performs accept on an ssl listen socket. e.i. performs
 %%              ssl handshake. 
 %%--------------------------------------------------------------------
 ssl_accept(ListenSocket) ->
@@ -252,7 +252,7 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %%--------------------------------------------------------------------
 -spec  close(#sslsocket{}) -> term().
 %%
-%% Description: Close a ssl connection
+%% Description: Close an ssl connection
 %%--------------------------------------------------------------------  
 close(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _, _}}}, fd = new_ssl}) ->
     CbMod:close(ListenSocket);

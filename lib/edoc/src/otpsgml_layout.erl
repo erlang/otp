@@ -14,8 +14,6 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @author Richard Carlsson <richardc@it.uu.se>
 %% @author Kenneth Lundin <kenneth@erix.ericsson.se>
 %% @copyright 2001-2004 Richard Carlsson
@@ -34,7 +32,7 @@
 
 -import(edoc_report, [report/2]).
 
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -define(SGML_EXPORT, xmerl_otpsgml).
 -define(DEFAULT_XML_EXPORT, ?SGML_EXPORT).

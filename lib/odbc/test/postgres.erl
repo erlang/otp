@@ -30,7 +30,7 @@ connection_string() ->
 	{unix, sunos} ->
 	    "DSN=Postgres;UID=odbctest";
 	{unix, linux} ->
-	    Size = erlang:system_info(wordsize),
+	    Size = erlang:system_info({wordsize, external}),
 	    linux_dist_connection_string(Size)  
     end.
 
@@ -43,7 +43,12 @@ linux_dist_connection_string(4) ->
     end;
 
 linux_dist_connection_string(_) ->
-    "DSN=PostgresLinux64;UID=odbctest".
+    case linux_dist() of
+	"ubuntu" ->
+	    "DSN=PostgresLinux64Ubuntu;UID=odbctest";
+	_ ->
+	    "DSN=PostgresLinux64;UID=odbctest"
+    end.
 			
 linux_dist() ->
     case file:read_file("/etc/issue") of

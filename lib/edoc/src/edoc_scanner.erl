@@ -13,8 +13,6 @@
 %% AB. Portions created by Ericsson are Copyright 1999, Ericsson
 %% Utvecklings AB. All Rights Reserved.''
 %%
-%% $Id: $
-%%
 %% @private
 %% @copyright Richard Carlsson 2001-2003. Portions created by Ericsson
 %% are Copyright 1999, Ericsson Utvecklings AB. All Rights Reserved.

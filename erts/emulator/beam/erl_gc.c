@@ -100,14 +100,14 @@ static Uint combined_message_size(Process* p);
 static void remove_message_buffers(Process* p);
 static int major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
 static int minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl);
-static void do_minor(Process *p, int new_sz, Eterm* objv, int nobj);
+static void do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj);
 static Eterm* sweep_rootset(Rootset *rootset, Eterm* htop, char* src, Uint src_size);
 static Eterm* sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size);
 static Eterm* sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop,
 			     char* src, Uint src_size);
 static Eterm* collect_heap_frags(Process* p, Eterm* heap,
 				 Eterm* htop, Eterm* objv, int nobj);
-static Uint adjust_after_fullsweep(Process *p, int size_before,
+static Uint adjust_after_fullsweep(Process *p, Uint size_before,
 				   int need, Eterm *objv, int nobj);
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
@@ -441,7 +441,15 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     p->last_old_htop = p->old_htop;
 #endif
 
-    return ((int) (HEAP_TOP(p) - HEAP_START(p)) / 10);
+    /* FIXME: This function should really return an Sint, i.e., a possibly
+       64 bit wide signed integer, but that requires updating all the code
+       that calls it. For now, we just return INT_MAX if the result is too
+       large for an int. */
+    {
+      Sint result = (HEAP_TOP(p) - HEAP_START(p)) / 10;
+      if (result >= INT_MAX) return INT_MAX;
+      else return (int) result;
+    }
 }
 
 /*
@@ -599,7 +607,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
     char* area;
     Uint area_size;
     Eterm* old_htop;
-    int n;
+    Uint n;
 
     /*
      * Set GC state.
@@ -731,7 +739,7 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
          * This improved Estone by more than 1200 estones on my computer
          * (Ultra Sparc 10).
          */
-        size_t new_sz = erts_next_heap_size(HEAP_TOP(p) - HEAP_START(p), 1);
+        Uint new_sz = erts_next_heap_size(HEAP_TOP(p) - HEAP_START(p), 1);
 
         /* Create new, empty old_heap */
         n_old = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_OLD_HEAP,
@@ -871,12 +879,12 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 #endif /* HIPE */
 
 static void
-do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
+do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
 {
     Rootset rootset;            /* Rootset for GC (stack, dictionary, etc). */
     Roots* roots;
     Eterm* n_htop;
-    int n;
+    Uint n;
     Eterm* ptr;
     Eterm val;
     Eterm gval;
@@ -1079,14 +1087,14 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 {
     Rootset rootset;
     Roots* roots;
-    int size_before;
+    Uint size_before;
     Eterm* n_heap;
     Eterm* n_htop;
     char* src = (char *) HEAP_START(p);
     Uint src_size = (char *) HEAP_TOP(p) - src;
     char* oh = (char *) OLD_HEAP(p);
     Uint oh_size = (char *) OLD_HTOP(p) - oh;
-    int n;
+    Uint n;
     Uint new_sz;
     Uint fragments = MBUF_SIZE(p) + combined_message_size(p);
     ErlMessage *msgp;
@@ -1312,10 +1320,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 }
 
 static Uint
-adjust_after_fullsweep(Process *p, int size_before, int need, Eterm *objv, int nobj)
+adjust_after_fullsweep(Process *p, Uint size_before, int need, Eterm *objv, int nobj)
 {
-    int wanted, sz, size_after, need_after;
-    int stack_size = STACK_SZ_ON_HEAP(p);
+    Uint wanted, sz, size_after, need_after;
+    Uint stack_size = STACK_SZ_ON_HEAP(p);
     Uint reclaimed_now;
 
     size_after = (HEAP_TOP(p) - HEAP_START(p));
@@ -1915,8 +1923,8 @@ static void
 grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
 {
     Eterm* new_heap;
-    int heap_size = HEAP_TOP(p) - HEAP_START(p);
-    int stack_size = p->hend - p->stop;
+    Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
+    Uint stack_size = p->hend - p->stop;
     Sint offs;
 
     ASSERT(HEAP_SIZE(p) < new_sz);
@@ -1954,10 +1962,10 @@ static void
 shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 {
     Eterm* new_heap;
-    int heap_size = HEAP_TOP(p) - HEAP_START(p);
+    Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
     Sint offs;
 
-    int stack_size = p->hend - p->stop;
+    Uint stack_size = p->hend - p->stop;
 
     ASSERT(new_sz < p->heap_sz);
     sys_memmove(p->heap + new_sz - stack_size, p->stop, stack_size *

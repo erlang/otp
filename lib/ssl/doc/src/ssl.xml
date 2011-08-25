@@ -35,7 +35,7 @@
     <title>SSL</title>
 
     <list type="bulleted">
-      <item>ssl requires the crypto an public_key applications.</item>
+      <item>ssl requires the crypto and public_key applications.</item>
       <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
       <item>For security reasons sslv2 is not supported.</item>
       <item>Ephemeral Diffie-Hellman cipher suites are supported
@@ -216,7 +216,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	application is encountered. Additionally it will be called
 	when a certificate is considered valid by the path validation
 	to allow access to each certificate in the path to the user
-	application. Note that the it will differentiate between the
+	application. Note that it will differentiate between the
 	peer certificate and CA certificates by using valid_peer or
 	valid as the second argument to the verify fun.  See <seealso
 	marker="public_key:cert_records">the public_key User's
@@ -326,10 +326,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       </item>
 
       <tag>{fail_if_no_peer_cert, boolean()}</tag>
-      <item>Used together with {verify, verify_peer} by a ssl server.
+      <item>Used together with {verify, verify_peer} by an ssl server.
       If set to true, the server will fail if the client does not have
       a certificate to send, i.e. sends a empty certificate, if set to
-      false it will only fail if the client sends a invalid
+      false it will only fail if the client sends an invalid
       certificate (an empty certificate is considered valid).
       </item>
 
@@ -343,10 +343,10 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       PeerCert, Compression, CipherSuite) -> boolean()}</tag>
       <item>Enables the ssl server to have a local policy
       for deciding if a session should be reused or not,
-      only meaning full if <c>reuse_sessions</c> is set to true.
+      only meaningful if <c>reuse_sessions</c> is set to true.
       SuggestedSessionId is a binary(),  PeerCert is a DER encoded
       certificate, Compression is an enumeration integer
-      and CipherSuite of type ciphersuite().      
+      and CipherSuite is of type ciphersuite().
       </item>
 
     </taglist>
@@ -355,7 +355,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
   <section>
     <title>General</title>
       
-    <p>When a ssl socket is in active mode (the default), data from the
+    <p>When an ssl socket is in active mode (the default), data from the
       socket is delivered to the owner of the socket in the form of
       messages:
     </p>
@@ -396,7 +396,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       <name>connect(Socket, SslOptions, Timeout) -> {ok, SslSocket}
 	| {error, Reason}</name>
       <fsummary> Upgrades a gen_tcp, or
-	equivalent, connected socket to a ssl socket. </fsummary>
+	equivalent, connected socket to an ssl socket. </fsummary>
       <type>
         <v>Socket = socket()</v>
         <v>SslOptions = [ssloption()]</v>
@@ -405,7 +405,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	<v>Reason = term()</v>
       </type>
       <desc> <p>Upgrades a gen_tcp, or equivalent,
-	  connected socket to a ssl socket i.e. performs the
+	  connected socket to an ssl socket i.e. performs the
 	  client-side ssl handshake.</p>
     </desc>
     </func>
@@ -428,12 +428,12 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 
     <func>
       <name>close(SslSocket) -> ok | {error, Reason}</name>
-      <fsummary>Close a ssl connection</fsummary>
+      <fsummary>Close an ssl connection</fsummary>
       <type>
 	  <v>SslSocket = sslsocket()</v>
 	  <v>Reason = term()</v>
       </type>
-      <desc><p>Close a ssl connection.</p>
+      <desc><p>Close an ssl connection.</p>
       </desc>
     </func>
 
@@ -450,7 +450,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	  <v>Reason = term()</v>
 	</type>
 	<desc><p>Assigns a new controlling process to the ssl-socket. A
-      controlling process is the owner of a ssl-socket, and receives
+      controlling process is the owner of an ssl-socket, and receives
       all messages from the socket.</p>
       </desc>
     </func>
@@ -496,14 +496,14 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
     <func>
       <name>listen(Port, Options) ->
 	{ok, ListenSocket} | {error, Reason}</name>
-      <fsummary>Creates a ssl listen socket.</fsummary>
+      <fsummary>Creates an ssl listen socket.</fsummary>
       <type>
 	<v>Port = integer()</v>
 	<v>Options = options()</v>
 	<v>ListenSocket = sslsocket()</v>
       </type>
       <desc>
-	<p>Creates a ssl listen socket.</p>
+	<p>Creates an ssl listen socket.</p>
       </desc>
     </func>
 
@@ -587,6 +587,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
           the socket is closed.</p>
       </desc>
     </func>
+
     <func>
       <name>setopts(Socket, Options) -> ok | {error, Reason}</name>
       <fsummary>Set socket options.</fsummary>
@@ -646,7 +647,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       </type>
       <desc>
         <p> Upgrades a gen_tcp, or
-	  equivalent, socket to a ssl socket i.e. performs the
+	  equivalent, socket to an ssl socket i.e. performs the
 	ssl server-side handshake.</p>
 	<p><warning>Note that the listen socket should be in {active, false} mode
 	before telling the client that the server is ready to upgrade

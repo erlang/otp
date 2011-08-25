@@ -375,7 +375,8 @@ zip_options(Config) when is_list(Config) ->
     ok = file:set_cwd(?config(data_dir, Config)),
 
     %% Create a zip archive
-    {ok, Zip} = zip:zip("filename_not_used.zip", Names, [memory, {cwd, PrivDir}]),
+    {ok, {_,Zip}} =
+        zip:zip("filename_not_used.zip", Names, [memory, {cwd, PrivDir}]),
 
     %% Open archive
     {ok, ZipSrv} = zip:zip_open(Zip, [memory]),

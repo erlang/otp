@@ -250,9 +250,14 @@ f_name(Name) ->
 %%% ------------------------------------------------------------------------
 
 f_id(Spec) ->
-    Id = orddict:fetch(id, Spec),
     {?function, id, 0,
-     [{?clause, [], [], [?INTEGER(Id)]}]}.
+     [c_id(orddict:find(id, Spec))]}.
+
+c_id({ok, Id}) ->
+    {?clause, [], [], [?INTEGER(Id)]};
+
+c_id(error) ->
+    ?UNEXPECTED(0).
 
 %%% ------------------------------------------------------------------------
 %%% # vendor_id/0
@@ -454,9 +459,10 @@ avp(Spec) ->
     Native   = get_value(avp_types, Spec),
     Custom   = get_value(custom_types, Spec),
     Imported = get_value(import_avps, Spec),
-    avp([{N,T} || {N,_,T,_,_} <- Native], Imported, Custom).
+    Enums    = get_value(enums, Spec),
+    avp([{N,T} || {N,_,T,_,_} <- Native], Imported, Custom, Enums).
 
-avp(Native, Imported, Custom) ->
+avp(Native, Imported, Custom, Enums) ->
     Dict = orddict:from_list(Native),
 
     report(native, Dict),
@@ -470,8 +476,8 @@ avp(Native, Imported, Custom) ->
                                    false == lists:member(N, CustomNames)
                            end,
                            Native))
-        ++ lists:flatmap(fun c_imported_avp/1, Imported)
-        ++ lists:flatmap(fun(C) -> c_custom_avp(C, Dict) end, Custom).
+        ++ lists:flatmap(fun(I) -> cs_imported_avp(I, Enums) end, Imported)
+        ++ lists:flatmap(fun(C) -> cs_custom_avp(C, Dict) end, Custom).
 
 c_base_avp({AvpName, T}) ->
     {?clause, [?VAR('T'), ?VAR('Data'), ?ATOM(AvpName)],
@@ -487,23 +493,35 @@ base_avp(AvpName, 'Grouped') ->
 base_avp(_, Type) ->
     ?APPLY(diameter_types, Type, [?VAR('T'), ?VAR('Data')]).
 
-c_imported_avp({Mod, Avps}) ->
-    lists:map(fun(A) -> imported_avp(Mod, A) end, Avps).
+cs_imported_avp({Mod, Avps}, Enums) ->
+    lists:map(fun(A) -> imported_avp(Mod, A, Enums) end, Avps).
 
-imported_avp(_Mod, {AvpName, _, 'Grouped' = T, _, _}) ->
+imported_avp(_Mod, {AvpName, _, 'Grouped' = T, _, _}, _) ->
     c_base_avp({AvpName, T});
 
-imported_avp(Mod, {AvpName, _, _, _, _}) ->
+imported_avp(Mod, {AvpName, _, 'Enumerated' = T, _, _}, Enums) ->
+    case lists:keymember(AvpName, 1, Enums) of
+        true ->
+            c_base_avp({AvpName, T});
+        false ->
+            c_imported_avp(Mod, AvpName)
+    end;
+
+imported_avp(Mod, {AvpName, _, _, _, _}, _) ->
+    c_imported_avp(Mod, AvpName).
+
+c_imported_avp(Mod, AvpName) ->
     {?clause, [?VAR('T'), ?VAR('Data'), ?ATOM(AvpName)],
      [],
      [?APPLY(Mod, avp, [?VAR('T'),
                         ?VAR('Data'),
                         ?ATOM(AvpName)])]}.
 
-c_custom_avp({Mod, Avps}, Dict) ->
-    lists:map(fun(N) -> custom_avp(Mod, N, orddict:fetch(N, Dict)) end, Avps).
+cs_custom_avp({Mod, Avps}, Dict) ->
+    lists:map(fun(N) -> c_custom_avp(Mod, N, orddict:fetch(N, Dict)) end,
+              Avps).
 
-custom_avp(Mod, AvpName, Type) ->
+c_custom_avp(Mod, AvpName, Type) ->
     {?clause, [?VAR('T'), ?VAR('Data'), ?ATOM(AvpName)],
      [],
      [?APPLY(Mod, AvpName, [?VAR('T'), ?ATOM(Type), ?VAR('Data')])]}.
@@ -516,9 +534,25 @@ f_enumerated_avp(Spec) ->
     {?function, enumerated_avp, 3, enumerated_avp(Spec) ++ [?UNEXPECTED(3)]}.
 
 enumerated_avp(Spec) ->
-    lists:flatmap(fun c_enumerated_avp/1, get_value(enums, Spec)).
+    Enums = get_value(enums, Spec),
+    lists:flatmap(fun cs_enumerated_avp/1, Enums)
+        ++ lists:flatmap(fun({M,Es}) -> enumerated_avp(M, Es, Enums) end,
+                         get_value(import_enums, Spec)).
 
-c_enumerated_avp({AvpName, Values}) ->
+enumerated_avp(Mod, Es, Enums) ->
+    lists:flatmap(fun({N,_}) ->
+                          cs_enumerated_avp(lists:keymember(N, 1, Enums),
+                                            Mod,
+                                            N)
+                  end,
+                  Es).
+
+cs_enumerated_avp(true, Mod, Name) ->
+    [c_imported_avp(Mod, Name)];
+cs_enumerated_avp(false, _, _) ->
+    [].
+
+cs_enumerated_avp({AvpName, Values}) ->
     lists:flatmap(fun(V) -> c_enumerated_avp(AvpName, V) end, Values).
 
 c_enumerated_avp(AvpName, {I,_}) ->
@@ -537,10 +571,14 @@ f_msg_header(Spec) ->
     {?function, msg_header, 1, msg_header(Spec) ++ [?UNEXPECTED(1)]}.
 
 msg_header(Spec) ->
+    msg_header(get_value(messages, Spec), Spec).
+
+msg_header([], _) ->
+    [];
+msg_header(Msgs, Spec) ->
     ApplId = orddict:fetch(id, Spec),
 
-    lists:map(fun({M,C,F,_,_}) -> c_msg_header(M, C, F, ApplId) end,
-              get_value(messages, Spec)).
+    lists:map(fun({M,C,F,_,_}) -> c_msg_header(M, C, F, ApplId) end, Msgs).
 
 %% Note that any application id in the message header spec is ignored.
 
@@ -616,10 +654,12 @@ f_empty_value(Spec) ->
     {?function, empty_value, 1, empty_value(Spec)}.
 
 empty_value(Spec) ->
+    Imported = lists:flatmap(fun avps/1, get_value(import_enums, Spec)),
     Groups = get_value(grouped, Spec)
         ++ lists:flatmap(fun avps/1, get_value(import_groups, Spec)),
-    Enums = get_value(enums, Spec)
-        ++ lists:flatmap(fun avps/1, get_value(import_enums, Spec)),
+    Enums = [T || {N,_} = T <- get_value(enums, Spec),
+                  not lists:keymember(N, 1, Imported)]
+        ++ Imported,
     lists:map(fun c_empty_value/1, Groups ++ Enums)
         ++ [{?clause, [?VAR('Name')], [], [?CALL(empty, [?VAR('Name')])]}].
 
